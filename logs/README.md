@@ -1,10 +1,17 @@
 # Runtime logs
 
-Godot writes one log per game execution here.
+Each game execution gets its own Godot engine log in this directory.
 
-- `godot.log`: current/latest execution.
-- Older executions are automatically rotated to timestamped files.
-- Up to 200 execution logs are retained.
-- `*.log` files are intentionally ignored by Git.
+When running from the Godot editor with F5/F6, the Asteria Run Logger editor plugin injects a unique `--log-file` argument immediately before launch.
 
-This logging works when running the game from the Godot editor with F5/F6 as well as normal desktop runs.
+Files use this format:
+
+```text
+run-YYYY-MM-DD_HH-MM-SS.log
+```
+
+The root `run.cmd` launcher uses the same directory and creates a unique timestamped file as well.
+
+`*.log` files are intentionally ignored by Git.
+
+A legacy `godot.log` may remain from the previous logging configuration and can be deleted.
