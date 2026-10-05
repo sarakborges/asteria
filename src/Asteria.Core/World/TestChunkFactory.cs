@@ -54,6 +54,57 @@ public static class TestChunkFactory
             }
         }
 
+        PlaceShapeShowcase(chunk, blocks, stone);
+
         return new TestChunkFixture(blocks, chunk);
+    }
+
+    private static void PlaceShapeShowcase(
+        Chunk chunk,
+        BlockRegistry blocks,
+        BlockRuntimeId stone)
+    {
+        const int y = 12;
+        const int z = 2;
+
+        if (blocks.TryGetId("asteria:sand_layer", out var sandLayer))
+        {
+            chunk.SetBlock(1, y, z, sandLayer);
+        }
+
+        if (blocks.TryGetId("asteria:snow_layer", out var snowLayer))
+        {
+            chunk.SetBlock(3, y, z, snowLayer);
+        }
+
+        if (blocks.TryGetId("asteria:log_oak_hollow", out var hollowLog))
+        {
+            chunk.SetCell(
+                5,
+                y,
+                z,
+                new VoxelCell(hollowLog, orientation: BlockOrientation.Y));
+
+            chunk.SetCell(
+                7,
+                y,
+                z,
+                new VoxelCell(hollowLog, orientation: BlockOrientation.X));
+        }
+
+        if (blocks.TryGetId("asteria:log_oak_stripped", out var strippedLog))
+        {
+            chunk.SetCell(
+                9,
+                y,
+                z,
+                new VoxelCell(strippedLog, orientation: BlockOrientation.Z));
+        }
+
+        chunk.SetBlock(11, y, z, stone);
+        var sculpted = MicroblockMask.Full
+            .Edit(0, 0, 0, MicroblockResolution.Thick, occupied: false)
+            .Edit(7, 7, 7, MicroblockResolution.Thin, occupied: false);
+        chunk.SetMicroblockMask(11, y, z, sculpted);
     }
 }
