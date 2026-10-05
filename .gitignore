@@ -11,6 +11,9 @@ addons/godot_wry/
 ui/node_modules/
 ui/dist/
 
+# Runtime logs
+logs/*.log
+
 # Editors / OS
 .vscode/
 .idea/
