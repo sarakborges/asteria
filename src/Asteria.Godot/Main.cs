@@ -9,44 +9,50 @@ namespace Asteria.Client;
 
 public partial class Main : Node3D
 {
-    private Task<Chunk>? _generationTask;
+    private Task<TestChunkFixture>? _fixtureTask;
     private FpsPlayer? _player;
     private Node _webUi = null!;
     private bool _chunkAttached;
-    private bool _generationErrorReported;
+    private bool _fixtureErrorReported;
 
     public override void _Ready()
     {
         SetupLighting();
         SetupWebUi();
 
-        // Pure world work stays outside Godot's main thread.
-        _generationTask = Task.Run(TestWorldGenerator.GenerateChunk);
+        // Temporary QA fixture only. This is not a world-generation path.
+        _fixtureTask = Task.Run(TestChunkFactory.Create);
     }
 
     public override void _Process(double delta)
     {
-        if (_chunkAttached || _generationTask is null)
+        if (_chunkAttached || _fixtureTask is null)
         {
             return;
         }
 
-        if (_generationTask.IsCompletedSuccessfully)
+        if (_fixtureTask.IsCompletedSuccessfully)
         {
-            AttachChunk(_generationTask.Result);
+            var fixture = _fixtureTask.Result;
+            AttachChunk(fixture.Chunk, fixture.Blocks);
             SetupPlayer();
             _chunkAttached = true;
 
-            GD.Print("test-2: chunk generated with collision and FPS player");
-            SendWebUi("game.chunk_ready", new { size = Chunk.SizeX });
+            GD.Print($"test-3: 16^3 palette chunk ready; voxels={fixture.Chunk.NonEmptyVoxelCount}, palette={fixture.Chunk.PaletteEntryCount}");
+            SendWebUi("game.chunk_ready", new
+            {
+                size = Chunk.Size,
+                voxels = fixture.Chunk.NonEmptyVoxelCount,
+                paletteEntries = fixture.Chunk.PaletteEntryCount,
+            });
             SendWebUi("game.player_ready", new { controller = "fps" });
             return;
         }
 
-        if (_generationTask.IsFaulted && !_generationErrorReported)
+        if (_fixtureTask.IsFaulted && !_fixtureErrorReported)
         {
-            _generationErrorReported = true;
-            GD.PushError(_generationTask.Exception?.ToString() ?? "Chunk generation failed.");
+            _fixtureErrorReported = true;
+            GD.PushError(_fixtureTask.Exception?.ToString() ?? "Test chunk fixture failed.");
         }
     }
 
@@ -95,9 +101,15 @@ public partial class Main : Node3D
     {
         SendWebUi("game.ready", new { bridge = 1, engine = "godot" });
 
-        if (_chunkAttached)
+        if (_chunkAttached && _fixtureTask?.IsCompletedSuccessfully == true)
         {
-            SendWebUi("game.chunk_ready", new { size = Chunk.SizeX });
+            var fixture = _fixtureTask.Result;
+            SendWebUi("game.chunk_ready", new
+            {
+                size = Chunk.Size,
+                voxels = fixture.Chunk.NonEmptyVoxelCount,
+                paletteEntries = fixture.Chunk.PaletteEntryCount,
+            });
         }
 
         if (_player is not null)
@@ -111,13 +123,13 @@ public partial class Main : Node3D
         _webUi.Call("post_message", JsonSerializer.Serialize(new { type, payload }));
     }
 
-    private void AttachChunk(Chunk chunk)
+    private void AttachChunk(Chunk chunk, BlockRegistry blocks)
     {
-        var mesh = ChunkMeshBuilder.Build(chunk);
+        var mesh = ChunkMeshBuilder.Build(chunk, blocks);
         var chunkRoot = new Node3D
         {
             Name = "TestChunk",
-            Position = new Vector3(-Chunk.SizeX / 2f, 0f, -Chunk.SizeZ / 2f),
+            Position = new Vector3(-Chunk.Size / 2f, 0f, -Chunk.Size / 2f),
         };
 
         var meshInstance = new MeshInstance3D

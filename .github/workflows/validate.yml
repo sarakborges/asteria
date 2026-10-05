@@ -21,6 +21,9 @@ jobs:
       - name: Build Godot C# project
         run: dotnet build Asteria.csproj --configuration Release
 
+      - name: Test engine-agnostic core
+        run: dotnet test src/Asteria.Core.Tests/Asteria.Core.Tests.csproj --configuration Release
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:

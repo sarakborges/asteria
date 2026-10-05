@@ -8,37 +8,38 @@ public static class ChunkMeshBuilder
     // Godot treats clockwise triangle winding as the front face.
     private static readonly int[] TriangleOrder = [0, 2, 1, 0, 3, 2];
 
-    public static ArrayMesh Build(Chunk chunk)
+    public static ArrayMesh Build(Chunk chunk, BlockRegistry blocks)
     {
         var surface = new SurfaceTool();
         surface.Begin(Mesh.PrimitiveType.Triangles);
 
-        for (var y = 0; y < Chunk.SizeY; y++)
+        for (var y = 0; y < Chunk.Size; y++)
         {
-            for (var z = 0; z < Chunk.SizeZ; z++)
+            for (var z = 0; z < Chunk.Size; z++)
             {
-                for (var x = 0; x < Chunk.SizeX; x++)
+                for (var x = 0; x < Chunk.Size; x++)
                 {
-                    var block = chunk.GetBlock(x, y, z);
-                    if (block == BlockId.Air)
+                    var cell = chunk.GetCell(x, y, z);
+                    if (cell.IsEmpty)
                     {
                         continue;
                     }
 
+                    var definition = blocks.GetDefinition(cell.Block);
                     var origin = new Vector3(x, y, z);
-                    var color = GetBlockColor(block);
+                    var color = GetDebugColor(definition.Id);
 
-                    if (chunk.GetBlockOrAir(x + 1, y, z) == BlockId.Air)
+                    if (FaceIsExposed(chunk, blocks, x + 1, y, z))
                         AddFace(surface, origin, Vector3.Right, color, FacePositiveX);
-                    if (chunk.GetBlockOrAir(x - 1, y, z) == BlockId.Air)
+                    if (FaceIsExposed(chunk, blocks, x - 1, y, z))
                         AddFace(surface, origin, Vector3.Left, color, FaceNegativeX);
-                    if (chunk.GetBlockOrAir(x, y + 1, z) == BlockId.Air)
+                    if (FaceIsExposed(chunk, blocks, x, y + 1, z))
                         AddFace(surface, origin, Vector3.Up, color, FacePositiveY);
-                    if (chunk.GetBlockOrAir(x, y - 1, z) == BlockId.Air)
+                    if (FaceIsExposed(chunk, blocks, x, y - 1, z))
                         AddFace(surface, origin, Vector3.Down, color, FaceNegativeY);
-                    if (chunk.GetBlockOrAir(x, y, z + 1) == BlockId.Air)
+                    if (FaceIsExposed(chunk, blocks, x, y, z + 1))
                         AddFace(surface, origin, Vector3.Back, color, FacePositiveZ);
-                    if (chunk.GetBlockOrAir(x, y, z - 1) == BlockId.Air)
+                    if (FaceIsExposed(chunk, blocks, x, y, z - 1))
                         AddFace(surface, origin, Vector3.Forward, color, FaceNegativeZ);
                 }
             }
@@ -54,6 +55,12 @@ public static class ChunkMeshBuilder
         return mesh;
     }
 
+    private static bool FaceIsExposed(Chunk chunk, BlockRegistry blocks, int x, int y, int z)
+    {
+        var neighbor = chunk.GetCellOrEmpty(x, y, z);
+        return neighbor.IsEmpty || !blocks.GetDefinition(neighbor.Block).IsOpaque;
+    }
+
     private static void AddFace(SurfaceTool surface, Vector3 origin, Vector3 normal, Color color, Vector3[] corners)
     {
         foreach (var index in TriangleOrder)
@@ -64,11 +71,11 @@ public static class ChunkMeshBuilder
         }
     }
 
-    private static Color GetBlockColor(BlockId block) => block switch
+    private static Color GetDebugColor(string blockId) => blockId switch
     {
-        BlockId.Grass => new Color("70b85b"),
-        BlockId.Dirt => new Color("8a6547"),
-        BlockId.Stone => new Color("8b9199"),
+        TestChunkFactory.GrassId => new Color("70b85b"),
+        TestChunkFactory.DirtId => new Color("8a6547"),
+        TestChunkFactory.StoneId => new Color("8b9199"),
         _ => Colors.Magenta,
     };
 
