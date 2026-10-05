@@ -1,0 +1,90 @@
+:root {
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  color: #f4f7f8;
+  background: #101419;
+  font-synthesis: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+.hud-shell {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 100vh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 45%, rgb(112 184 91 / 10%), transparent 32%),
+    #101419;
+}
+
+.status-card {
+  position: absolute;
+  top: 24px;
+  left: 24px;
+  display: grid;
+  gap: 5px;
+  min-width: 250px;
+  padding: 14px 16px;
+  border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: 8px;
+  background: rgb(10 13 16 / 78%);
+  backdrop-filter: blur(12px);
+}
+
+.eyebrow,
+.bridge {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #9da8b2;
+}
+
+.status-card strong {
+  font-size: 18px;
+  letter-spacing: 0.04em;
+}
+
+.bridge.connected {
+  color: #8ed27b;
+}
+
+.crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 14px;
+  height: 14px;
+  transform: translate(-50%, -50%);
+}
+
+.crosshair::before,
+.crosshair::after {
+  content: "";
+  position: absolute;
+  background: rgb(255 255 255 / 80%);
+}
+
+.crosshair::before {
+  top: 6px;
+  left: 0;
+  width: 14px;
+  height: 2px;
+}
+
+.crosshair::after {
+  top: 0;
+  left: 6px;
+  width: 2px;
+  height: 14px;
+}

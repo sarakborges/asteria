@@ -1,0 +1,17 @@
+# Godot
+.godot/
+.mono/
+
+# .NET
+**/bin/
+**/obj/
+
+# WebUI
+ui/node_modules/
+ui/dist/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
