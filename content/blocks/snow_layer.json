@@ -1,0 +1,33 @@
+{
+  "id": "asteria:snow_layer",
+  "category": "natural_blocks",
+  "shape": {
+    "type": "layer",
+    "placement": "surface",
+    "thickness": 0.125,
+    "stackTo": "asteria:snow"
+  },
+  "textures": {
+    "top": "textures/blocks/snow.png",
+    "bottom": "textures/blocks/snow.png",
+    "left": "textures/blocks/snow.png",
+    "right": "textures/blocks/snow.png",
+    "front": "textures/blocks/snow.png",
+    "back": "textures/blocks/snow.png"
+  },
+  "rotateTexture": {
+    "top": true,
+    "bottom": true,
+    "left": true,
+    "right": true,
+    "front": true,
+    "back": true
+  },
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "preferredTools": ["shovel"]
+  },
+  "previewColor": "e7edf0"
+}

@@ -16,8 +16,11 @@ public static class BlockDefinitionJson
         var tags = StringArray(root, "tags");
         var tint = ParseTint(OptionalString(root, "tint"));
         var textures = ParseTextures(root);
-        var rotations = ParseRotations(root);
+        var textureRotations = ParseTextureRotations(root);
         var mining = ParseMining(root);
+        var shape = ParseShape(root);
+        var orientations = ParseOrientations(root);
+        var variant = ParseVariant(root);
         var lightDampening = OptionalByte(root, "lightDampening") ?? (byte)15;
         var castsShadow = OptionalBoolean(root, "castsShadow") ?? true;
         var isCollidable = OptionalBoolean(root, "isCollidable") ?? true;
@@ -41,19 +44,102 @@ public static class BlockDefinitionJson
             : BlockPreviewColor.Missing;
 
         return new BlockDefinition(
-            id,
-            category,
-            tags,
-            tint,
-            textures,
-            rotations,
-            mining,
-            isCollidable,
-            renderMode,
-            castsShadow,
-            lightDampening,
-            new BlockLightEmission(emission, emission, emission),
-            previewColor);
+            id: id,
+            category: category,
+            tags: tags,
+            tint: tint,
+            textures: textures,
+            rotateTexture: textureRotations,
+            mining: mining,
+            shape: shape,
+            orientations: orientations,
+            variant: variant,
+            isCollidable: isCollidable,
+            renderMode: renderMode,
+            castsShadow: castsShadow,
+            lightDampening: lightDampening,
+            lightEmission: new BlockLightEmission(emission, emission, emission),
+            previewColor: previewColor);
+    }
+
+    private static BlockShapeDefinition ParseShape(JsonElement root)
+    {
+        if (!root.TryGetProperty("shape", out var shape))
+        {
+            return BlockShapeDefinition.Cube;
+        }
+
+        if (shape.ValueKind != JsonValueKind.Object)
+        {
+            throw new FormatException("shape must be an object.");
+        }
+
+        return RequiredString(shape, "type") switch
+        {
+            "cube" => BlockShapeDefinition.Cube,
+            "layer" => ParseLayerShape(shape),
+            "hollow" => BlockShapeDefinition.Hollow(
+                OptionalSingle(shape, "wallThickness") ?? (1f / 16f)),
+            var type => throw new FormatException($"Unknown block shape type: {type}"),
+        };
+    }
+
+    private static BlockShapeDefinition ParseLayerShape(JsonElement shape)
+    {
+        var thickness = RequiredSingle(shape, "thickness");
+        return OptionalString(shape, "placement") switch
+        {
+            null or "surface" => BlockShapeDefinition.SurfaceLayer(
+                thickness,
+                RequiredString(shape, "stackTo")),
+            "center" => BlockShapeDefinition.CenteredLayer(thickness),
+            var placement => throw new FormatException($"Unknown layer placement: {placement}"),
+        };
+    }
+
+    private static IReadOnlyList<BlockOrientation> ParseOrientations(JsonElement root)
+    {
+        if (!root.TryGetProperty("orientations", out var orientations))
+        {
+            return [BlockOrientation.Y];
+        }
+
+        if (orientations.ValueKind != JsonValueKind.Array)
+        {
+            throw new FormatException("orientations must be an array.");
+        }
+
+        return orientations
+            .EnumerateArray()
+            .Select(value => value.ValueKind == JsonValueKind.String
+                ? ParseOrientation(value.GetString())
+                : throw new FormatException("orientations can contain only strings."))
+            .ToArray();
+    }
+
+    private static BlockOrientation ParseOrientation(string? value) => value switch
+    {
+        "x" => BlockOrientation.X,
+        "y" => BlockOrientation.Y,
+        "z" => BlockOrientation.Z,
+        _ => throw new FormatException($"Unknown block orientation: {value}"),
+    };
+
+    private static BlockVariantDefinition? ParseVariant(JsonElement root)
+    {
+        if (!root.TryGetProperty("variant", out var variant))
+        {
+            return null;
+        }
+
+        if (variant.ValueKind != JsonValueKind.Object)
+        {
+            throw new FormatException("variant must be an object.");
+        }
+
+        return new BlockVariantDefinition(
+            RequiredString(variant, "family"),
+            RequiredString(variant, "key"));
     }
 
     private static BlockTextureSet ParseTextures(JsonElement root)
@@ -110,7 +196,7 @@ public static class BlockDefinitionJson
         return new BlockTextureLayer(texture, dyable);
     }
 
-    private static BlockTextureRotations ParseRotations(JsonElement root)
+    private static BlockTextureRotations ParseTextureRotations(JsonElement root)
     {
         if (!root.TryGetProperty("rotateTexture", out var rotations))
         {
@@ -143,17 +229,8 @@ public static class BlockDefinitionJson
             throw new FormatException("mining must be an object.");
         }
 
-        var hardness = 1f;
-        if (mining.TryGetProperty("hardness", out var hardnessElement))
-        {
-            if (hardnessElement.ValueKind != JsonValueKind.Number || !hardnessElement.TryGetSingle(out hardness))
-            {
-                throw new FormatException("mining.hardness must be a number.");
-            }
-        }
-
         return new BlockMiningDefinition(
-            hardness,
+            OptionalSingle(mining, "hardness") ?? 1f,
             StringArray(mining, "requiredTools"),
             StringArray(mining, "preferredTools"));
     }
@@ -217,6 +294,25 @@ public static class BlockDefinitionJson
         if (property.ValueKind != JsonValueKind.Number || !property.TryGetByte(out var result))
         {
             throw new FormatException($"{propertyName} must be an unsigned byte.");
+        }
+
+        return result;
+    }
+
+    private static float RequiredSingle(JsonElement value, string propertyName) =>
+        OptionalSingle(value, propertyName) ??
+        throw new FormatException($"Missing required number property: {propertyName}");
+
+    private static float? OptionalSingle(JsonElement value, string propertyName)
+    {
+        if (!value.TryGetProperty(propertyName, out var property) || property.ValueKind == JsonValueKind.Null)
+        {
+            return null;
+        }
+
+        if (property.ValueKind != JsonValueKind.Number || !property.TryGetSingle(out var result))
+        {
+            throw new FormatException($"{propertyName} must be a number.");
         }
 
         return result;

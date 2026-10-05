@@ -4,6 +4,7 @@ public sealed class BlockRegistry
 {
     private readonly BlockDefinition[] _definitions;
     private readonly Dictionary<string, BlockRuntimeId> _idsByName;
+    private readonly Dictionary<(string Family, string Key), BlockRuntimeId> _variantIds = [];
 
     public BlockRegistry(IEnumerable<BlockDefinition> definitions)
     {
@@ -37,6 +38,27 @@ public sealed class BlockRegistry
             }
 
             _definitions[runtimeId.Value] = definition;
+        }
+
+        for (var index = 1; index < _definitions.Length; index++)
+        {
+            var definition = _definitions[index];
+            var runtimeId = new BlockRuntimeId(checked((ushort)index));
+
+            if (definition.Shape.StackToBlockId is { } stackTo && !_idsByName.ContainsKey(stackTo))
+            {
+                throw new ArgumentException(
+                    $"Layer block {definition.Id} references missing stack target {stackTo}.",
+                    nameof(definitions));
+            }
+
+            if (definition.Variant is { } variant &&
+                !_variantIds.TryAdd((variant.Family, variant.Key), runtimeId))
+            {
+                throw new ArgumentException(
+                    $"Duplicate block variant {variant.Family}:{variant.Key}.",
+                    nameof(definitions));
+            }
         }
     }
 
@@ -76,6 +98,20 @@ public sealed class BlockRegistry
         }
 
         return _definitions[runtimeId.Value];
+    }
+
+    public bool TryGetVariant(BlockRuntimeId source, string key, out BlockRuntimeId variantId)
+    {
+        ArgumentNullException.ThrowIfNull(key);
+
+        var definition = GetDefinition(source);
+        if (definition.Variant is null)
+        {
+            variantId = default;
+            return false;
+        }
+
+        return _variantIds.TryGetValue((definition.Variant.Family, key), out variantId);
     }
 
     public IEnumerable<(BlockRuntimeId RuntimeId, BlockDefinition Definition)> AuthoredDefinitions()

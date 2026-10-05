@@ -43,8 +43,27 @@ public sealed class ChunkTests
     [Fact]
     public void AirCellsNormalizeRuntimeState()
     {
-        var cell = new VoxelCell(BlockRuntimeId.Air, orientation: 9, state: 42);
+        var cell = new VoxelCell(
+            BlockRuntimeId.Air,
+            TextureRotation.Degrees270,
+            BlockOrientation.X,
+            HorizontalFacing.North,
+            state: 42,
+            microblockMaskId: 9);
 
         Assert.Equal(VoxelCell.Empty, cell);
+    }
+
+    [Fact]
+    public void RuntimeCellCarriesIndependentOrientationFacingAndTextureRotation()
+    {
+        var cell = new VoxelCell(new BlockRuntimeId(7))
+            .WithOrientation(BlockOrientation.Z)
+            .WithFacing(HorizontalFacing.West)
+            .WithTextureRotation(TextureRotation.Degrees90);
+
+        Assert.Equal(BlockOrientation.Z, cell.Orientation);
+        Assert.Equal(HorizontalFacing.West, cell.Facing);
+        Assert.Equal(TextureRotation.Degrees90, cell.TextureRotation);
     }
 }

@@ -7,12 +7,15 @@ public sealed class Chunk
     public const int Volume = Area * Size;
 
     private readonly PaletteStorage<VoxelCell> _cells = new();
+    private readonly MicroblockMaskPalette _microblockMasks = new();
 
     public ulong Revision { get; private set; }
 
     public int NonEmptyVoxelCount => _cells.OccupiedCount;
 
     public int PaletteEntryCount => _cells.ActivePaletteEntryCount;
+
+    public int MicroblockMaskCount => _microblockMasks.Count;
 
     public bool IsEmpty => NonEmptyVoxelCount == 0;
 
@@ -48,6 +51,31 @@ public sealed class Chunk
 
     public bool SetBlock(int x, int y, int z, BlockRuntimeId block) =>
         SetCell(x, y, z, new VoxelCell(block));
+
+    public MicroblockMask GetMicroblockMask(int x, int y, int z)
+    {
+        var cell = GetCell(x, y, z);
+        return cell.IsEmpty
+            ? MicroblockMask.Empty
+            : _microblockMasks.Get(cell.MicroblockMaskId);
+    }
+
+    public bool SetMicroblockMask(int x, int y, int z, MicroblockMask mask)
+    {
+        var cell = GetCell(x, y, z);
+        if (cell.IsEmpty)
+        {
+            throw new InvalidOperationException("Cannot sculpt an empty voxel.");
+        }
+
+        if (mask.IsEmpty)
+        {
+            return SetCell(x, y, z, VoxelCell.Empty);
+        }
+
+        var maskId = _microblockMasks.Intern(mask);
+        return SetCell(x, y, z, cell.WithMicroblockMaskId(maskId));
+    }
 
     public static bool Contains(int x, int y, int z) =>
         (uint)x < Size && (uint)y < Size && (uint)z < Size;

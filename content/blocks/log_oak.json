@@ -1,0 +1,25 @@
+{
+  "id": "asteria:log_oak",
+  "category": "wooden_blocks",
+  "tags": ["fragmentable"],
+  "variant": {
+    "family": "asteria:log_oak",
+    "key": "natural"
+  },
+  "textures": {
+    "top": "textures/blocks/trees/oak/top.png",
+    "bottom": "textures/blocks/trees/oak/top.png",
+    "left": "textures/blocks/trees/oak/side.png",
+    "right": "textures/blocks/trees/oak/side.png",
+    "front": "textures/blocks/trees/oak/side.png",
+    "back": "textures/blocks/trees/oak/side.png"
+  },
+  "orientations": ["y", "z", "x"],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": ["hatchet"]
+  },
+  "previewColor": "76543c"
+}

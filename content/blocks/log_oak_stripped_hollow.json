@@ -1,0 +1,28 @@
+{
+  "id": "asteria:log_oak_stripped_hollow",
+  "category": "wooden_blocks",
+  "variant": {
+    "family": "asteria:log_oak",
+    "key": "stripped_hollow"
+  },
+  "shape": {
+    "type": "hollow",
+    "wallThickness": 0.0625
+  },
+  "textures": {
+    "top": "textures/blocks/trees/oak/top.png",
+    "bottom": "textures/blocks/trees/oak/top.png",
+    "left": "textures/blocks/trees/oak/side-stripped.png",
+    "right": "textures/blocks/trees/oak/side-stripped.png",
+    "front": "textures/blocks/trees/oak/side-stripped.png",
+    "back": "textures/blocks/trees/oak/side-stripped.png"
+  },
+  "orientations": ["y", "z", "x"],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": ["hatchet"]
+  },
+  "previewColor": "9a7652"
+}

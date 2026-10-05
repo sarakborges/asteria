@@ -15,7 +15,7 @@ public sealed class BlockContentTests
 
         var registry = BlockRegistry.FromJson(documents);
 
-        Assert.Equal(7, registry.AuthoredCount);
+        Assert.Equal(14, registry.AuthoredCount);
 
         var grass = registry.GetDefinition(registry.GetId("asteria:grass_block"));
         Assert.Equal(BlockTint.Grass, grass.Tint);
@@ -23,6 +23,28 @@ public sealed class BlockContentTests
         Assert.True(grass.Textures.Top.Single().Dyable);
         Assert.Equal(2, grass.Textures.Left.Count);
         Assert.True(grass.Textures.Left[1].Dyable);
+        Assert.True(grass.SupportsMicroblocks);
+
+        var sandLayer = registry.GetDefinition(registry.GetId("asteria:sand_layer"));
+        Assert.True(sandLayer.Shape.IsStackableLayer);
+        Assert.Equal(0.125f, sandLayer.Shape.Thickness);
+        Assert.Equal("asteria:sand", sandLayer.Shape.StackToBlockId);
+
+        var snowLayer = registry.GetDefinition(registry.GetId("asteria:snow_layer"));
+        Assert.True(snowLayer.Shape.IsStackableLayer);
+        Assert.Equal("asteria:snow", snowLayer.Shape.StackToBlockId);
+
+        var oak = registry.GetId("asteria:log_oak");
+        var oakDefinition = registry.GetDefinition(oak);
+        Assert.Equal(
+            [BlockOrientation.Y, BlockOrientation.Z, BlockOrientation.X],
+            oakDefinition.Orientations);
+
+        Assert.True(registry.TryGetVariant(oak, "stripped", out var stripped));
+        Assert.Equal(registry.GetId("asteria:log_oak_stripped"), stripped);
+
+        Assert.True(registry.TryGetVariant(oak, "hollow", out var hollow));
+        Assert.Equal(BlockShapeKind.Hollow, registry.GetDefinition(hollow).Shape.Kind);
 
         var stone = registry.GetDefinition(registry.GetId("asteria:stone"));
         Assert.Equal("stone_blocks", stone.Category);
@@ -34,9 +56,6 @@ public sealed class BlockContentTests
         var gravel = registry.GetDefinition(registry.GetId("asteria:gravel"));
         Assert.True(sand.HasTag("gravity"));
         Assert.True(gravel.HasTag("gravity"));
-
-        Assert.True(registry.GetId("asteria:clay").Value < registry.GetId("asteria:dirt").Value);
-        Assert.True(registry.GetId("asteria:mud").Value < registry.GetId("asteria:sand").Value);
     }
 
     [Fact]

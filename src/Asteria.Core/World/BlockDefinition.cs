@@ -2,6 +2,7 @@ namespace Asteria.Core.World;
 
 public sealed class BlockDefinition
 {
+    private static readonly BlockOrientation[] DefaultOrientations = [BlockOrientation.Y];
     private readonly HashSet<string> _tags;
 
     public BlockDefinition(
@@ -12,6 +13,9 @@ public sealed class BlockDefinition
         BlockTextureSet? textures = null,
         BlockTextureRotations rotateTexture = default,
         BlockMiningDefinition? mining = null,
+        BlockShapeDefinition? shape = null,
+        IEnumerable<BlockOrientation>? orientations = null,
+        BlockVariantDefinition? variant = null,
         bool isCollidable = true,
         BlockRenderMode renderMode = BlockRenderMode.Opaque,
         bool castsShadow = true,
@@ -31,6 +35,13 @@ public sealed class BlockDefinition
             throw new ArgumentOutOfRangeException(nameof(lightDampening), "Light dampening must be within 0..15.");
         }
 
+        var allowedOrientations = (orientations ?? DefaultOrientations).ToArray();
+        if (allowedOrientations.Length == 0 ||
+            allowedOrientations.Distinct().Count() != allowedOrientations.Length)
+        {
+            throw new ArgumentException("Block orientations must be non-empty and unique.", nameof(orientations));
+        }
+
         Id = id;
         Category = category;
         _tags = ValidateTags(tags);
@@ -38,6 +49,9 @@ public sealed class BlockDefinition
         Textures = textures ?? new BlockTextureSet();
         RotateTexture = rotateTexture;
         Mining = mining ?? new BlockMiningDefinition();
+        Shape = shape ?? BlockShapeDefinition.Cube;
+        Orientations = allowedOrientations;
+        Variant = variant;
         IsCollidable = isCollidable;
         RenderMode = renderMode;
         CastsShadow = castsShadow;
@@ -53,6 +67,9 @@ public sealed class BlockDefinition
     public BlockTextureSet Textures { get; }
     public BlockTextureRotations RotateTexture { get; }
     public BlockMiningDefinition Mining { get; }
+    public BlockShapeDefinition Shape { get; }
+    public IReadOnlyList<BlockOrientation> Orientations { get; }
+    public BlockVariantDefinition? Variant { get; }
     public bool IsCollidable { get; }
     public BlockRenderMode RenderMode { get; }
     public bool IsOpaque => RenderMode == BlockRenderMode.Opaque;
@@ -60,6 +77,9 @@ public sealed class BlockDefinition
     public byte LightDampening { get; }
     public BlockLightEmission LightEmission { get; }
     public BlockPreviewColor PreviewColor { get; }
+    public bool IsRotatable => Orientations.Count > 1;
+    public bool SupportsMicroblocks => HasTag("fragmentable");
+    public bool UsesHorizontalFacing => HasTag("horizontal_facing");
 
     public bool HasTag(string tag) => _tags.Contains(tag);
 
