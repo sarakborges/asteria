@@ -5,7 +5,8 @@ namespace Asteria.Client.Rendering;
 
 public static class ChunkMeshBuilder
 {
-    private static readonly int[] TriangleOrder = [0, 1, 2, 0, 2, 3];
+    // Godot treats clockwise triangle winding as the front face.
+    private static readonly int[] TriangleOrder = [0, 2, 1, 0, 3, 2];
 
     public static ArrayMesh Build(Chunk chunk)
     {
