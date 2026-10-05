@@ -12,6 +12,11 @@ public partial class FpsPlayer : CharacterBody3D
 
     private Camera3D _camera = null!;
     private bool _mouseCaptured = true;
+    private bool _moveForward;
+    private bool _moveBackward;
+    private bool _moveLeft;
+    private bool _moveRight;
+    private bool _jumpHeld;
 
     public override void _Ready()
     {
@@ -39,23 +44,11 @@ public partial class FpsPlayer : CharacterBody3D
         CaptureMouse();
     }
 
-    public override void _UnhandledInput(InputEvent inputEvent)
+    public override void _Input(InputEvent inputEvent)
     {
-        if (inputEvent is InputEventKey key &&
-            key.Pressed &&
-            !key.Echo &&
-            (key.Keycode == Key.Escape || key.PhysicalKeycode == Key.Escape))
+        if (inputEvent is InputEventKey key)
         {
-            if (_mouseCaptured)
-            {
-                ReleaseMouse();
-            }
-            else
-            {
-                CaptureMouse();
-            }
-
-            GetViewport().SetInputAsHandled();
+            HandleKey(key);
             return;
         }
 
@@ -75,7 +68,7 @@ public partial class FpsPlayer : CharacterBody3D
 
         if (IsOnFloor())
         {
-            if (Input.IsPhysicalKeyPressed(Key.Space))
+            if (_jumpHeld)
             {
                 velocity.Y = JumpSpeed;
             }
@@ -87,13 +80,13 @@ public partial class FpsPlayer : CharacterBody3D
 
         var movement = Vector2.Zero;
 
-        if (Input.IsPhysicalKeyPressed(Key.W))
+        if (_moveForward)
             movement.Y -= 1f;
-        if (Input.IsPhysicalKeyPressed(Key.S))
+        if (_moveBackward)
             movement.Y += 1f;
-        if (Input.IsPhysicalKeyPressed(Key.A))
+        if (_moveLeft)
             movement.X -= 1f;
-        if (Input.IsPhysicalKeyPressed(Key.D))
+        if (_moveRight)
             movement.X += 1f;
 
         movement = movement.LimitLength(1f);
@@ -114,6 +107,40 @@ public partial class FpsPlayer : CharacterBody3D
         if (Input.MouseMode == Input.MouseModeEnum.Captured)
         {
             Input.MouseMode = Input.MouseModeEnum.Visible;
+        }
+    }
+
+    private void HandleKey(InputEventKey key)
+    {
+        var keycode = key.Keycode;
+
+        switch (keycode)
+        {
+            case Key.W:
+                _moveForward = key.Pressed;
+                break;
+            case Key.S:
+                _moveBackward = key.Pressed;
+                break;
+            case Key.A:
+                _moveLeft = key.Pressed;
+                break;
+            case Key.D:
+                _moveRight = key.Pressed;
+                break;
+            case Key.Space:
+                _jumpHeld = key.Pressed;
+                break;
+            case Key.Escape when key.Pressed && !key.Echo:
+                if (_mouseCaptured)
+                {
+                    ReleaseMouse();
+                }
+                else
+                {
+                    CaptureMouse();
+                }
+                break;
         }
     }
 
