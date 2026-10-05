@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <Compile Remove="src/Asteria.Core/**/*.cs" />
+    <Compile Remove="src/Asteria.Core.Tests/**/*.cs" />
     <ProjectReference Include="src/Asteria.Core/Asteria.Core.csproj" />
   </ItemGroup>
 </Project>
