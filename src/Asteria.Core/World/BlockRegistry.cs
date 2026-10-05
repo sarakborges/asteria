@@ -68,9 +68,10 @@ public sealed class BlockRegistry
 
     public IEnumerable<(BlockRuntimeId RuntimeId, BlockDefinition Definition)> AuthoredDefinitions()
     {
-        for (ushort value = 1; value < _definitions.Length; value++)
+        for (var index = 1; index < _definitions.Length; index++)
         {
-            yield return (new BlockRuntimeId(value), _definitions[value]);
+            var runtimeId = new BlockRuntimeId(checked((ushort)index));
+            yield return (runtimeId, _definitions[index]);
         }
     }
 }
