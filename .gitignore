@@ -1,6 +1,7 @@
 # Godot
 .godot/
 .mono/
+addons/godot_wry/
 
 # .NET
 **/bin/
