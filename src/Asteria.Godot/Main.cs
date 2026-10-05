@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Threading.Tasks;
 using Asteria.Client.Rendering;
 using Asteria.Core.World;
@@ -10,6 +11,7 @@ public partial class Main : Node3D
     private readonly Vector3 _cameraTarget = new(0f, 10f, 0f);
     private Task<Chunk>? _generationTask;
     private Camera3D _camera = null!;
+    private Node _webUi = null!;
     private double _elapsed;
     private bool _chunkAttached;
     private bool _generationErrorReported;
@@ -18,6 +20,7 @@ public partial class Main : Node3D
     {
         SetupLighting();
         SetupCamera();
+        SetupWebUi();
 
         // Pure world work stays outside Godot's main thread.
         _generationTask = Task.Run(TestWorldGenerator.GenerateChunk);
@@ -38,6 +41,7 @@ public partial class Main : Node3D
             AttachChunk(_generationTask.Result);
             _chunkAttached = true;
             GD.Print("test-1: chunk generated and meshed successfully");
+            SendWebUi("game.chunk_ready", new { size = Chunk.SizeX });
             return;
         }
 
@@ -46,6 +50,52 @@ public partial class Main : Node3D
             _generationErrorReported = true;
             GD.PushError(_generationTask.Exception?.ToString() ?? "Chunk generation failed.");
         }
+    }
+
+    private void SetupWebUi()
+    {
+        _webUi = GetNode<Node>("WebUi");
+        _webUi.Connect("message_received", Callable.From<string>(OnWebUiMessage));
+        _webUi.Connect("webui_ready", Callable.From(OnWebUiReady));
+    }
+
+    private void OnWebUiReady()
+    {
+        SendWebUi("game.ready", new { bridge = 1, engine = "godot" });
+    }
+
+    private void OnWebUiMessage(string message)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(message);
+            if (!document.RootElement.TryGetProperty("type", out var typeElement))
+            {
+                return;
+            }
+
+            var type = typeElement.GetString();
+            GD.Print($"webui -> godot: {type}");
+
+            switch (type)
+            {
+                case "ui.ready":
+                    SendWebUi("game.ready", new { bridge = 1, engine = "godot" });
+                    break;
+                case "ui.ping":
+                    SendWebUi("game.pong", new { timestamp = Time.GetTicksMsec() });
+                    break;
+            }
+        }
+        catch (JsonException exception)
+        {
+            GD.PushWarning($"Ignoring invalid WebUI message: {exception.Message}");
+        }
+    }
+
+    private void SendWebUi(string type, object payload)
+    {
+        _webUi.Call("post_message", JsonSerializer.Serialize(new { type, payload }));
     }
 
     private void AttachChunk(Chunk chunk)
