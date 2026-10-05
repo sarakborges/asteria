@@ -1,6 +1,5 @@
 using Asteria.Core.World;
 using Godot;
-using Godot.Collections;
 
 namespace Asteria.Client.Rendering;
 
@@ -8,9 +7,11 @@ public sealed class TerrainTextureCatalog
 {
     private const int FallbackSize = 16;
 
-    private readonly Dictionary<string, int> _indices;
+    private readonly System.Collections.Generic.Dictionary<string, int> _indices;
 
-    private TerrainTextureCatalog(Texture2DArray textureArray, Dictionary<string, int> indices)
+    private TerrainTextureCatalog(
+        Texture2DArray textureArray,
+        System.Collections.Generic.Dictionary<string, int> indices)
     {
         TextureArray = textureArray;
         _indices = indices;
@@ -45,11 +46,13 @@ public sealed class TerrainTextureCatalog
 
         var width = loaded.Count > 0 ? loaded[0].Image.GetWidth() : FallbackSize;
         var height = loaded.Count > 0 ? loaded[0].Image.GetHeight() : FallbackSize;
-        var images = new Array<Image>
+        var images = new Godot.Collections.Array<Image>
         {
             CreateFallback(width, height),
         };
-        var indices = new Dictionary<string, int>(paths.Length, StringComparer.Ordinal);
+        var indices = new System.Collections.Generic.Dictionary<string, int>(
+            paths.Length,
+            StringComparer.Ordinal);
 
         for (var index = 0; index < loaded.Count; index++)
         {
