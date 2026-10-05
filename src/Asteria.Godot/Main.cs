@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Threading.Tasks;
+using Asteria.Client.Content;
 using Asteria.Client.Gameplay;
 using Asteria.Client.Rendering;
 using Asteria.Core.World;
@@ -20,8 +21,11 @@ public partial class Main : Node3D
         SetupLighting();
         SetupWebUi();
 
+        var blocks = BlockContentLoader.LoadProjectBlocks();
+        GD.Print($"block content: loaded {blocks.AuthoredCount} definitions");
+
         // Temporary QA fixture only. This is not a world-generation path.
-        _fixtureTask = Task.Run(TestChunkFactory.Create);
+        _fixtureTask = Task.Run(() => TestChunkFactory.Create(blocks));
     }
 
     public override void _Process(double delta)
@@ -38,12 +42,13 @@ public partial class Main : Node3D
             SetupPlayer();
             _chunkAttached = true;
 
-            GD.Print($"test-3: 16^3 palette chunk ready; voxels={fixture.Chunk.NonEmptyVoxelCount}, palette={fixture.Chunk.PaletteEntryCount}");
+            GD.Print($"test-4: data-driven blocks + 16^3 palette chunk ready; voxels={fixture.Chunk.NonEmptyVoxelCount}, palette={fixture.Chunk.PaletteEntryCount}");
             SendWebUi("game.chunk_ready", new
             {
                 size = Chunk.Size,
                 voxels = fixture.Chunk.NonEmptyVoxelCount,
                 paletteEntries = fixture.Chunk.PaletteEntryCount,
+                blocks = fixture.Blocks.AuthoredCount,
             });
             SendWebUi("game.player_ready", new { controller = "fps" });
             return;
@@ -109,6 +114,7 @@ public partial class Main : Node3D
                 size = Chunk.Size,
                 voxels = fixture.Chunk.NonEmptyVoxelCount,
                 paletteEntries = fixture.Chunk.PaletteEntryCount,
+                blocks = fixture.Blocks.AuthoredCount,
             });
         }
 

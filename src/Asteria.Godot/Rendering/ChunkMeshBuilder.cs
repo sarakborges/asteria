@@ -27,7 +27,7 @@ public static class ChunkMeshBuilder
 
                     var definition = blocks.GetDefinition(cell.Block);
                     var origin = new Vector3(x, y, z);
-                    var color = GetDebugColor(definition.Id);
+                    var color = ToGodotColor(definition.PreviewColor);
 
                     if (FaceIsExposed(chunk, blocks, x + 1, y, z))
                         AddFace(surface, origin, Vector3.Right, color, FacePositiveX);
@@ -71,13 +71,8 @@ public static class ChunkMeshBuilder
         }
     }
 
-    private static Color GetDebugColor(string blockId) => blockId switch
-    {
-        TestChunkFactory.GrassId => new Color("70b85b"),
-        TestChunkFactory.DirtId => new Color("8a6547"),
-        TestChunkFactory.StoneId => new Color("8b9199"),
-        _ => Colors.Magenta,
-    };
+    private static Color ToGodotColor(BlockPreviewColor color) =>
+        new(color.Red / 255f, color.Green / 255f, color.Blue / 255f, 1f);
 
     private static readonly Vector3[] FacePositiveX =
     [

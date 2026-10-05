@@ -42,6 +42,18 @@ public sealed class BlockRegistry
 
     public int AuthoredCount => _definitions.Length - 1;
 
+    public static BlockRegistry FromJson(IEnumerable<string> documents)
+    {
+        ArgumentNullException.ThrowIfNull(documents);
+
+        var definitions = documents
+            .Select(BlockDefinitionJson.Parse)
+            .OrderBy(definition => definition.Id, StringComparer.Ordinal)
+            .ToArray();
+
+        return new BlockRegistry(definitions);
+    }
+
     public BlockRuntimeId GetId(string id)
     {
         ArgumentNullException.ThrowIfNull(id);

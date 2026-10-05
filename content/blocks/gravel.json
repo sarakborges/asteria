@@ -1,0 +1,28 @@
+{
+  "id": "asteria:gravel",
+  "category": "natural_blocks",
+  "tags": ["fragmentable", "gravity"],
+  "textures": {
+    "top": "textures/blocks/gravel.png",
+    "bottom": "textures/blocks/gravel.png",
+    "left": "textures/blocks/gravel.png",
+    "right": "textures/blocks/gravel.png",
+    "front": "textures/blocks/gravel.png",
+    "back": "textures/blocks/gravel.png"
+  },
+  "rotateTexture": {
+    "top": true,
+    "bottom": true,
+    "left": true,
+    "right": true,
+    "front": true,
+    "back": true
+  },
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "preferredTools": ["shovel"]
+  },
+  "previewColor": "85827d"
+}
