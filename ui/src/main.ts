@@ -23,12 +23,14 @@ const embedded = Boolean(window.ipc);
 root.innerHTML = `
   <main class="hud-shell">
     <section class="status-card">
-      <span class="eyebrow">ASTERIA / WEBUI SPIKE</span>
+      <span class="eyebrow">ASTERIA / GODOT SPIKE</span>
       <strong>WEBUI ONLINE</strong>
       <span id="bridge-status" class="bridge ${embedded ? "connecting" : "standalone"}">
         ${embedded ? "connecting to Godot" : "standalone browser mode"}
       </span>
       <span id="world-status" class="detail">waiting for chunk</span>
+      <span id="player-status" class="detail">waiting for player</span>
+      <span class="detail">WASD move · mouse look · Space jump · Esc cursor</span>
       <span id="last-message" class="detail">no bridge messages yet</span>
       <button id="ping" type="button" ${embedded ? "" : "disabled"}>Ping Godot</button>
     </section>
@@ -38,6 +40,7 @@ root.innerHTML = `
 
 const bridgeStatus = document.querySelector<HTMLSpanElement>("#bridge-status");
 const worldStatus = document.querySelector<HTMLSpanElement>("#world-status");
+const playerStatus = document.querySelector<HTMLSpanElement>("#player-status");
 const lastMessage = document.querySelector<HTMLSpanElement>("#last-message");
 const pingButton = document.querySelector<HTMLButtonElement>("#ping");
 
@@ -55,7 +58,10 @@ function handleGodotMessage(message: BridgeMessage): void {
       if (bridgeStatus) bridgeStatus.textContent = "bridge connected";
       break;
     case "game.chunk_ready":
-      if (worldStatus) worldStatus.textContent = "chunk generated";
+      if (worldStatus) worldStatus.textContent = "chunk generated + collision ready";
+      break;
+    case "game.player_ready":
+      if (playerStatus) playerStatus.textContent = "FPS controller ready";
       break;
     case "game.pong":
       if (lastMessage) lastMessage.textContent = "godot → webui: pong received";
