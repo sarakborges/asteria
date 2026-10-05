@@ -1,0 +1,140 @@
+using Asteria.Core.World;
+using Godot;
+using Godot.Collections;
+
+namespace Asteria.Client.Rendering;
+
+public sealed class TerrainTextureCatalog
+{
+    private const int FallbackSize = 16;
+
+    private readonly Dictionary<string, int> _indices;
+
+    private TerrainTextureCatalog(Texture2DArray textureArray, Dictionary<string, int> indices)
+    {
+        TextureArray = textureArray;
+        _indices = indices;
+    }
+
+    public Texture2DArray TextureArray { get; }
+
+    public int TextureCount => _indices.Count;
+
+    public int GetIndex(string path) =>
+        _indices.TryGetValue(path, out var index)
+            ? index
+            : throw new KeyNotFoundException($"Texture is not present in terrain array: {path}");
+
+    public static TerrainTextureCatalog Create(BlockRegistry blocks)
+    {
+        ArgumentNullException.ThrowIfNull(blocks);
+
+        var paths = blocks
+            .AuthoredDefinitions()
+            .SelectMany(entry => entry.Definition.Textures.AllLayers())
+            .Select(layer => layer.Texture)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(path => path, StringComparer.Ordinal)
+            .ToArray();
+
+        var loaded = new List<(string Path, Image Image)>(paths.Length);
+        foreach (var path in paths)
+        {
+            loaded.Add((path, LoadImage(path)));
+        }
+
+        var width = loaded.Count > 0 ? loaded[0].Image.GetWidth() : FallbackSize;
+        var height = loaded.Count > 0 ? loaded[0].Image.GetHeight() : FallbackSize;
+        var images = new Array<Image>
+        {
+            CreateFallback(width, height),
+        };
+        var indices = new Dictionary<string, int>(paths.Length, StringComparer.Ordinal);
+
+        for (var index = 0; index < loaded.Count; index++)
+        {
+            var (path, image) = loaded[index];
+            Normalize(image, width, height, path);
+            images.Add(image);
+            indices.Add(path, index + 1);
+        }
+
+        var textureArray = new Texture2DArray();
+        var error = textureArray.CreateFromImages(images);
+        if (error != Error.Ok)
+        {
+            throw new InvalidOperationException($"Could not create terrain texture array: {error}");
+        }
+
+        GD.Print($"terrain textures: {indices.Count} authored layers + fallback, {width}x{height}");
+        return new TerrainTextureCatalog(textureArray, indices);
+    }
+
+    private static Image LoadImage(string relativePath)
+    {
+        var resourcePath = relativePath.StartsWith("res://", StringComparison.Ordinal)
+            ? relativePath
+            : $"res://{relativePath}";
+
+        var texture = ResourceLoader.Load<Texture2D>(resourcePath);
+        if (texture is null)
+        {
+            throw new FileNotFoundException($"Block texture was not imported by Godot: {resourcePath}");
+        }
+
+        var image = texture.GetImage();
+        if (image is null || image.IsEmpty())
+        {
+            throw new InvalidOperationException($"Block texture has no image data: {resourcePath}");
+        }
+
+        return image;
+    }
+
+    private static void Normalize(Image image, int width, int height, string path)
+    {
+        if (image.IsCompressed())
+        {
+            var error = image.Decompress();
+            if (error != Error.Ok)
+            {
+                throw new InvalidOperationException($"Could not decompress block texture {path}: {error}");
+            }
+        }
+
+        if (image.HasMipmaps())
+        {
+            image.ClearMipmaps();
+        }
+
+        if (image.GetFormat() != Image.Format.Rgba8)
+        {
+            image.Convert(Image.Format.Rgba8);
+        }
+
+        if (image.GetWidth() != width || image.GetHeight() != height)
+        {
+            GD.PushWarning(
+                $"Resizing block texture {path} from {image.GetWidth()}x{image.GetHeight()} " +
+                $"to {width}x{height} for the terrain array.");
+            image.Resize(width, height, Image.Interpolation.Nearest);
+        }
+    }
+
+    private static Image CreateFallback(int width, int height)
+    {
+        var image = Image.CreateEmpty(width, height, false, Image.Format.Rgba8);
+        var dark = new Color(0.12f, 0.02f, 0.12f);
+        var bright = new Color(1f, 0f, 1f);
+
+        for (var y = 0; y < height; y++)
+        {
+            for (var x = 0; x < width; x++)
+            {
+                image.SetPixel(x, y, ((x / 4) + (y / 4)) % 2 == 0 ? bright : dark);
+            }
+        }
+
+        return image;
+    }
+}

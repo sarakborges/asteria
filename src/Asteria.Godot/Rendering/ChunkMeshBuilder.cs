@@ -7,6 +7,7 @@ public static class ChunkMeshBuilder
 {
     private const int FineResolution = BlockGeometry.Resolution;
     private const int FinePlaneArea = FineResolution * FineResolution;
+    private const float DyableLayerFlag = 0.25f;
 
     // Godot treats clockwise triangle winding as the front face.
     private static readonly int[] TriangleOrder = [0, 2, 1, 0, 3, 2];
@@ -21,7 +22,11 @@ public static class ChunkMeshBuilder
         BlockFace.Back,
     ];
 
-    public static ArrayMesh Build(Chunk chunk, BlockRegistry blocks)
+    public static ArrayMesh Build(
+        Chunk chunk,
+        BlockRegistry blocks,
+        TerrainTextureCatalog textures,
+        Material material)
     {
         var surface = new SurfaceTool();
         surface.Begin(Mesh.PrimitiveType.Triangles);
@@ -41,23 +46,17 @@ public static class ChunkMeshBuilder
                     var definition = blocks.GetDefinition(cell.Block);
                     if (RequiresFineMeshing(chunk, blocks, x, y, z, cell, definition))
                     {
-                        EmitFineCell(surface, chunk, blocks, x, y, z, cell, definition);
+                        EmitFineCell(surface, chunk, blocks, textures, x, y, z, cell, definition);
                     }
                     else
                     {
-                        EmitCubeCell(surface, chunk, blocks, x, y, z, cell, definition);
+                        EmitCubeCell(surface, chunk, blocks, textures, x, y, z, cell, definition);
                     }
                 }
             }
         }
 
         var mesh = surface.Commit();
-        var material = new StandardMaterial3D
-        {
-            VertexColorUseAsAlbedo = true,
-            Roughness = 1f,
-            TextureFilter = BaseMaterial3D.TextureFilterEnum.Nearest,
-        };
         mesh.SurfaceSetMaterial(0, material);
         return mesh;
     }
@@ -99,6 +98,7 @@ public static class ChunkMeshBuilder
         SurfaceTool surface,
         Chunk chunk,
         BlockRegistry blocks,
+        TerrainTextureCatalog textures,
         int x,
         int y,
         int z,
@@ -106,7 +106,6 @@ public static class ChunkMeshBuilder
         BlockDefinition definition)
     {
         var origin = new Vector3(x, y, z);
-        var color = ToGodotColor(definition.PreviewColor);
 
         foreach (var face in Faces)
         {
@@ -123,15 +122,15 @@ public static class ChunkMeshBuilder
                 continue;
             }
 
+            var faceMaterial = ResolveFaceMaterial(textures, definition, cell, face);
             AddQuad(
                 surface,
                 origin,
                 FaceNormal(face),
-                color,
                 FaceCorners(face),
                 face,
                 cell,
-                definition);
+                faceMaterial);
         }
     }
 
@@ -158,6 +157,7 @@ public static class ChunkMeshBuilder
         SurfaceTool surface,
         Chunk chunk,
         BlockRegistry blocks,
+        TerrainTextureCatalog textures,
         int blockX,
         int blockY,
         int blockZ,
@@ -165,12 +165,13 @@ public static class ChunkMeshBuilder
         BlockDefinition definition)
     {
         var origin = new Vector3(blockX, blockY, blockZ);
-        var color = ToGodotColor(definition.PreviewColor);
         var sourceMask = chunk.GetMicroblockMask(blockX, blockY, blockZ);
         var visible = new bool[FinePlaneArea];
 
         foreach (var face in Faces)
         {
+            var faceMaterial = ResolveFaceMaterial(textures, definition, cell, face);
+
             for (var depth = 0; depth < FineResolution; depth++)
             {
                 Array.Clear(visible);
@@ -214,12 +215,11 @@ public static class ChunkMeshBuilder
                 EmitGreedyRectangles(
                     surface,
                     origin,
-                    color,
                     face,
                     depth,
                     visible,
                     cell,
-                    definition);
+                    faceMaterial);
             }
         }
     }
@@ -302,12 +302,11 @@ public static class ChunkMeshBuilder
     private static void EmitGreedyRectangles(
         SurfaceTool surface,
         Vector3 origin,
-        Color color,
         BlockFace face,
         int depth,
         bool[] visible,
         VoxelCell cell,
-        BlockDefinition definition)
+        TerrainFaceMaterial faceMaterial)
     {
         for (var v = 0; v < FineResolution; v++)
         {
@@ -357,7 +356,6 @@ public static class ChunkMeshBuilder
                 EmitFineRectangle(
                     surface,
                     origin,
-                    color,
                     face,
                     depth,
                     u,
@@ -365,7 +363,7 @@ public static class ChunkMeshBuilder
                     width,
                     height,
                     cell,
-                    definition);
+                    faceMaterial);
             }
         }
     }
@@ -373,7 +371,6 @@ public static class ChunkMeshBuilder
     private static void EmitFineRectangle(
         SurfaceTool surface,
         Vector3 origin,
-        Color color,
         BlockFace face,
         int depth,
         int u,
@@ -381,7 +378,7 @@ public static class ChunkMeshBuilder
         int width,
         int height,
         VoxelCell cell,
-        BlockDefinition definition)
+        TerrainFaceMaterial faceMaterial)
     {
         var (minX, minY, minZ) = FinePosition(face, depth, u, v);
         var lowerX = minX;
@@ -445,8 +442,6 @@ public static class ChunkMeshBuilder
         var upper = new Vector3(upperX * scale, upperY * scale, upperZ * scale);
         var corners = FaceCorners(face);
         var normal = FaceNormal(face);
-        var sourceFace = BlockFaceTransform.SourceFaceForWorldFace(face, cell, definition);
-        var rotateTexture = definition.RotateTexture.Rotates(sourceFace);
 
         foreach (var index in TriangleOrder)
         {
@@ -456,10 +451,14 @@ public static class ChunkMeshBuilder
                 selector.Y == 0f ? lower.Y : upper.Y,
                 selector.Z == 0f ? lower.Z : upper.Z);
 
-            surface.SetNormal(normal);
-            surface.SetColor(color);
-            surface.SetUV(RotateUv(MacroUv(face, local), cell.TextureRotation, rotateTexture));
-            surface.AddVertex(origin + local);
+            WriteVertex(
+                surface,
+                origin + local,
+                normal,
+                face,
+                local,
+                cell,
+                faceMaterial);
         }
     }
 
@@ -467,23 +466,111 @@ public static class ChunkMeshBuilder
         SurfaceTool surface,
         Vector3 origin,
         Vector3 normal,
-        Color color,
         Vector3[] corners,
         BlockFace face,
         VoxelCell cell,
-        BlockDefinition definition)
+        TerrainFaceMaterial faceMaterial)
     {
-        var sourceFace = BlockFaceTransform.SourceFaceForWorldFace(face, cell, definition);
-        var rotateTexture = definition.RotateTexture.Rotates(sourceFace);
-
         foreach (var index in TriangleOrder)
         {
-            var corner = corners[index];
-            surface.SetNormal(normal);
-            surface.SetColor(color);
-            surface.SetUV(RotateUv(MacroUv(face, corner), cell.TextureRotation, rotateTexture));
-            surface.AddVertex(origin + corner);
+            var local = corners[index];
+            WriteVertex(
+                surface,
+                origin + local,
+                normal,
+                face,
+                local,
+                cell,
+                faceMaterial);
         }
+    }
+
+    private static void WriteVertex(
+        SurfaceTool surface,
+        Vector3 position,
+        Vector3 normal,
+        BlockFace worldFace,
+        Vector3 local,
+        VoxelCell cell,
+        TerrainFaceMaterial faceMaterial)
+    {
+        var sourcePoint = ToSourcePoint(local, cell);
+        var uv = MacroUv(faceMaterial.SourceFace, sourcePoint);
+        uv = RotateUv(uv, cell.TextureRotation, faceMaterial.RotateTexture);
+
+        surface.SetNormal(normal);
+        surface.SetColor(faceMaterial.Tint);
+        surface.SetUV(uv);
+        surface.SetUV2(faceMaterial.EncodedLayers);
+        surface.AddVertex(position);
+    }
+
+    private static TerrainFaceMaterial ResolveFaceMaterial(
+        TerrainTextureCatalog textures,
+        BlockDefinition definition,
+        VoxelCell cell,
+        BlockFace worldFace)
+    {
+        var sourceFace = BlockFaceTransform.SourceFaceForWorldFace(worldFace, cell, definition);
+        var layers = definition.Textures.ResolveForFace(sourceFace);
+
+        if (layers.Count > 2)
+        {
+            throw new InvalidOperationException(
+                $"Terrain texture array currently supports at most two layers per face: " +
+                $"{definition.Id} {sourceFace} has {layers.Count}.");
+        }
+
+        var baseCode = 0f;
+        var overlayCode = -1f;
+
+        if (layers.Count > 0)
+        {
+            baseCode = textures.GetIndex(layers[0].Texture) +
+                       (layers[0].Dyable ? DyableLayerFlag : 0f);
+        }
+
+        if (layers.Count > 1)
+        {
+            overlayCode = textures.GetIndex(layers[1].Texture) +
+                          (layers[1].Dyable ? DyableLayerFlag : 0f);
+        }
+
+        var tint = definition.Tint == BlockTint.None
+            ? Colors.White
+            : ToGodotColor(definition.PreviewColor);
+
+        return new TerrainFaceMaterial(
+            sourceFace,
+            new Vector2(baseCode, overlayCode),
+            tint,
+            definition.RotateTexture.Rotates(sourceFace));
+    }
+
+    private static Vector3 ToSourcePoint(Vector3 worldPoint, VoxelCell cell)
+    {
+        var point = cell.Orientation switch
+        {
+            BlockOrientation.Y => worldPoint,
+            BlockOrientation.Z => new Vector3(
+                worldPoint.X,
+                worldPoint.Z,
+                1f - worldPoint.Y),
+            BlockOrientation.X => new Vector3(
+                1f - worldPoint.Y,
+                worldPoint.X,
+                worldPoint.Z),
+            _ => throw new ArgumentOutOfRangeException(nameof(cell.Orientation)),
+        };
+
+        return cell.Facing switch
+        {
+            HorizontalFacing.South => point,
+            HorizontalFacing.East => new Vector3(1f - point.Z, point.Y, point.X),
+            HorizontalFacing.North => new Vector3(1f - point.X, point.Y, 1f - point.Z),
+            HorizontalFacing.West => new Vector3(point.Z, point.Y, 1f - point.X),
+            _ => throw new ArgumentOutOfRangeException(nameof(cell.Facing)),
+        };
     }
 
     private static Vector2 MacroUv(BlockFace face, Vector3 point) => face switch
@@ -564,6 +651,12 @@ public static class ChunkMeshBuilder
 
     private static Color ToGodotColor(BlockPreviewColor color) =>
         new(color.Red / 255f, color.Green / 255f, color.Blue / 255f, 1f);
+
+    private readonly record struct TerrainFaceMaterial(
+        BlockFace SourceFace,
+        Vector2 EncodedLayers,
+        Color Tint,
+        bool RotateTexture);
 
     private static readonly Vector3[] FacePositiveX =
     [

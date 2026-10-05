@@ -13,6 +13,8 @@ public partial class Main : Node3D
     private Task<TestChunkFixture>? _fixtureTask;
     private FpsPlayer? _player;
     private Node _webUi = null!;
+    private TerrainTextureCatalog _terrainTextures = null!;
+    private ShaderMaterial _terrainMaterial = null!;
     private bool _chunkAttached;
     private bool _fixtureErrorReported;
 
@@ -22,7 +24,12 @@ public partial class Main : Node3D
         SetupWebUi();
 
         var blocks = BlockContentLoader.LoadProjectBlocks();
-        GD.Print($"block content: loaded {blocks.AuthoredCount} definitions");
+        _terrainTextures = TerrainTextureCatalog.Create(blocks);
+        _terrainMaterial = VoxelTerrainMaterial.Create(_terrainTextures);
+
+        GD.Print(
+            $"block content: loaded {blocks.AuthoredCount} definitions, " +
+            $"{_terrainTextures.TextureCount} terrain textures");
 
         // Temporary QA fixture only. This is not a world-generation path.
         _fixtureTask = Task.Run(() => TestChunkFactory.Create(blocks));
@@ -42,13 +49,17 @@ public partial class Main : Node3D
             SetupPlayer();
             _chunkAttached = true;
 
-            GD.Print($"test-4: data-driven blocks + 16^3 palette chunk ready; voxels={fixture.Chunk.NonEmptyVoxelCount}, palette={fixture.Chunk.PaletteEntryCount}");
+            GD.Print(
+                $"test-5: texture-array terrain + partial geometry ready; " +
+                $"voxels={fixture.Chunk.NonEmptyVoxelCount}, " +
+                $"palette={fixture.Chunk.PaletteEntryCount}");
             SendWebUi("game.chunk_ready", new
             {
                 size = Chunk.Size,
                 voxels = fixture.Chunk.NonEmptyVoxelCount,
                 paletteEntries = fixture.Chunk.PaletteEntryCount,
                 blocks = fixture.Blocks.AuthoredCount,
+                textures = _terrainTextures.TextureCount,
             });
             SendWebUi("game.player_ready", new { controller = "fps" });
             return;
@@ -115,6 +126,7 @@ public partial class Main : Node3D
                 voxels = fixture.Chunk.NonEmptyVoxelCount,
                 paletteEntries = fixture.Chunk.PaletteEntryCount,
                 blocks = fixture.Blocks.AuthoredCount,
+                textures = _terrainTextures.TextureCount,
             });
         }
 
@@ -131,7 +143,11 @@ public partial class Main : Node3D
 
     private void AttachChunk(Chunk chunk, BlockRegistry blocks)
     {
-        var mesh = ChunkMeshBuilder.Build(chunk, blocks);
+        var mesh = ChunkMeshBuilder.Build(
+            chunk,
+            blocks,
+            _terrainTextures,
+            _terrainMaterial);
         var chunkRoot = new Node3D
         {
             Name = "TestChunk",

@@ -41,6 +41,51 @@ public sealed class BlockTextureSet
         _ => throw new ArgumentOutOfRangeException(nameof(face)),
     };
 
+    public IReadOnlyList<BlockTextureLayer> ResolveForFace(BlockFace face)
+    {
+        var direct = ForFace(face);
+        if (direct.Count > 0)
+        {
+            return direct;
+        }
+
+        return FirstNonEmpty();
+    }
+
+    public IEnumerable<BlockTextureLayer> AllLayers()
+    {
+        foreach (var face in Enum.GetValues<BlockFace>())
+        {
+            foreach (var layer in ForFace(face))
+            {
+                yield return layer;
+            }
+        }
+    }
+
+    private IReadOnlyList<BlockTextureLayer> FirstNonEmpty()
+    {
+        IReadOnlyList<BlockTextureLayer>[] candidates =
+        [
+            Top,
+            Front,
+            Right,
+            Left,
+            Back,
+            Bottom,
+        ];
+
+        foreach (var candidate in candidates)
+        {
+            if (candidate.Count > 0)
+            {
+                return candidate;
+            }
+        }
+
+        return Array.Empty<BlockTextureLayer>();
+    }
+
     private static IReadOnlyList<BlockTextureLayer> Freeze(IEnumerable<BlockTextureLayer>? values) =>
         values?.ToArray() ?? Array.Empty<BlockTextureLayer>();
 }

@@ -1,0 +1,54 @@
+name: import-base-textures
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/import-base-textures.yml
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Import Mineclone block textures
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BASE="https://raw.githubusercontent.com/sarakborges/mineclone/world-systems-rebuild/assets/textures/blocks"
+
+          mkdir -p textures/blocks/grass
+          mkdir -p textures/blocks/trees/oak
+
+          curl -fL "$BASE/dirt.png" -o textures/blocks/dirt.png
+          curl -fL "$BASE/stone.png" -o textures/blocks/stone.png
+          curl -fL "$BASE/sand.png" -o textures/blocks/sand.png
+          curl -fL "$BASE/gravel.png" -o textures/blocks/gravel.png
+          curl -fL "$BASE/clay.png" -o textures/blocks/clay.png
+          curl -fL "$BASE/mud.png" -o textures/blocks/mud.png
+          curl -fL "$BASE/snow.png" -o textures/blocks/snow.png
+
+          curl -fL "$BASE/grass/top.png" -o textures/blocks/grass/top.png
+          curl -fL "$BASE/grass/side.png" -o textures/blocks/grass/side.png
+          curl -fL "$BASE/grass/side_overlay.png" -o textures/blocks/grass/side_overlay.png
+
+          curl -fL "$BASE/trees/oak/top.png" -o textures/blocks/trees/oak/top.png
+          curl -fL "$BASE/trees/oak/side.png" -o textures/blocks/trees/oak/side.png
+          curl -fL "$BASE/trees/oak/side-stripped.png" -o textures/blocks/trees/oak/side-stripped.png
+
+          git add textures
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: import base voxel textures"
+          git push
