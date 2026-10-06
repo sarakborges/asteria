@@ -4,10 +4,12 @@ public sealed class WorldUpdateQueue
 {
     private readonly DeduplicatedQueue<WorldVoxelCoord>
         _lightingEdits = new();
-    private readonly Dictionary<ChunkCoord, ChunkMeshletMask>
-        _priorityMeshlets = [];
-    private readonly Dictionary<ChunkCoord, ChunkMeshletMask>
-        _backgroundMeshlets = [];
+    private readonly SortedDictionary<ChunkCoord, ChunkMeshletMask>
+        _priorityMeshlets =
+            new(ChunkCoordOrdering.YThenZThenX);
+    private readonly SortedDictionary<ChunkCoord, ChunkMeshletMask>
+        _backgroundMeshlets =
+            new(ChunkCoordOrdering.YThenZThenX);
 
     public bool HasWork =>
         HasLightingWork ||
@@ -244,7 +246,7 @@ public sealed class WorldUpdateQueue
     }
 
     private static WorldMeshBatch DrainMeshletLane(
-        Dictionary<ChunkCoord, ChunkMeshletMask> source,
+        SortedDictionary<ChunkCoord, ChunkMeshletMask> source,
         int maximumMeshlets)
     {
         if (maximumMeshlets <= 0)
