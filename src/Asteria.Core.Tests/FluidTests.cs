@@ -475,6 +475,146 @@ public sealed class FluidTests
         ]);
 }
 
+public sealed class FluidSimulationSnapshotTests
+{
+    [Fact]
+    public void RelevantContentEditInvalidatesSnapshot()
+    {
+        var world = new VoxelWorld();
+        world.InsertChunk(
+            ChunkCoord.Zero,
+            new Chunk());
+
+        var snapshot =
+            FluidSimulationSnapshot.Capture(
+                world,
+                new FluidWorkBatch(
+                    [new WorldVoxelCoord(8, 8, 8)],
+                    Array.Empty<FluidTickKey>()),
+                horizontalVoxelRadius: 7);
+
+        Assert.True(
+            snapshot.Dependencies.IsCurrent(
+                world));
+
+        Assert.True(
+            world.SetBlockAt(
+                new WorldVoxelCoord(4, 4, 4),
+                new BlockRuntimeId(1),
+                out _));
+
+        Assert.False(
+            snapshot.Dependencies.IsCurrent(
+                world));
+    }
+
+    [Fact]
+    public void RelevantColumnResidencyChangeInvalidatesSnapshot()
+    {
+        var world = new VoxelWorld();
+        world.InsertChunk(
+            ChunkCoord.Zero,
+            new Chunk());
+
+        var snapshot =
+            FluidSimulationSnapshot.Capture(
+                world,
+                new FluidWorkBatch(
+                    [new WorldVoxelCoord(8, 8, 8)],
+                    Array.Empty<FluidTickKey>()),
+                horizontalVoxelRadius: 7);
+
+        world.InsertChunk(
+            new ChunkCoord(0, 2, 0),
+            new Chunk());
+
+        Assert.False(
+            snapshot.Dependencies.IsCurrent(
+                world));
+    }
+
+    [Fact]
+    public void UnrelatedColumnEditDoesNotInvalidateSnapshot()
+    {
+        var world = new VoxelWorld();
+        world.InsertChunk(
+            ChunkCoord.Zero,
+            new Chunk());
+        world.InsertChunk(
+            new ChunkCoord(3, 0, 0),
+            new Chunk());
+
+        var snapshot =
+            FluidSimulationSnapshot.Capture(
+                world,
+                new FluidWorkBatch(
+                    [new WorldVoxelCoord(8, 8, 8)],
+                    Array.Empty<FluidTickKey>()),
+                horizontalVoxelRadius: 7);
+
+        Assert.True(
+            world.SetBlockAt(
+                new WorldVoxelCoord(
+                    3 * Chunk.Size + 1,
+                    1,
+                    1),
+                new BlockRuntimeId(1),
+                out _));
+
+        Assert.True(
+            snapshot.Dependencies.IsCurrent(
+                world));
+    }
+
+    [Fact]
+    public void SnapshotUsesOnlyDescribedNeighborhoodChunks()
+    {
+        var world = new VoxelWorld();
+
+        foreach (var coord in new[]
+                 {
+                     new ChunkCoord(0, 0, 0),
+                     new ChunkCoord(0, 1, 0),
+                     new ChunkCoord(0, 2, 0),
+                     new ChunkCoord(0, 8, 0),
+                     new ChunkCoord(1, 0, 0),
+                     new ChunkCoord(2, 0, 0),
+                 })
+        {
+            world.InsertChunk(
+                coord,
+                new Chunk());
+        }
+
+        var snapshot =
+            FluidSimulationSnapshot.Capture(
+                world,
+                new FluidWorkBatch(
+                    [new WorldVoxelCoord(8, 8, 8)],
+                    Array.Empty<FluidTickKey>()),
+                horizontalVoxelRadius: 7);
+
+        Assert.True(
+            snapshot.World.ContainsChunk(
+                new ChunkCoord(0, 0, 0)));
+        Assert.True(
+            snapshot.World.ContainsChunk(
+                new ChunkCoord(0, 1, 0)));
+        Assert.True(
+            snapshot.World.ContainsChunk(
+                new ChunkCoord(1, 0, 0)));
+        Assert.False(
+            snapshot.World.ContainsChunk(
+                new ChunkCoord(0, 2, 0)));
+        Assert.False(
+            snapshot.World.ContainsChunk(
+                new ChunkCoord(0, 8, 0)));
+        Assert.False(
+            snapshot.World.ContainsChunk(
+                new ChunkCoord(2, 0, 0)));
+    }
+}
+
 public sealed class FluidTimingTests
 {
     [Theory]

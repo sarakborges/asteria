@@ -590,46 +590,15 @@ public sealed class VoxelWorld
         IEnumerable<WorldVoxelCoord> seeds,
         int horizontalVoxelRadius)
     {
-        ArgumentNullException.ThrowIfNull(seeds);
+        var neighborhood =
+            FluidSimulationSnapshot.DescribeNeighborhood(
+                seeds,
+                horizontalVoxelRadius);
 
-        if (horizontalVoxelRadius < 0)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(horizontalVoxelRadius));
-        }
-
-        var seedChunks = seeds
-            .Select(position =>
-                VoxelCoordinates.FromWorld(
-                    position.X,
-                    position.Y,
-                    position.Z).Chunk)
-            .Distinct()
-            .ToArray();
-
-        if (seedChunks.Length == 0)
-        {
-            return new VoxelWorld();
-        }
-
-        var horizontalChunkRadius =
-            horizontalVoxelRadius == 0
-                ? 0
-                : (horizontalVoxelRadius +
-                   Chunk.Size - 1) /
-                  Chunk.Size;
-
-        var required = _chunks.Keys
-            .Where(coord =>
-                seedChunks.Any(seed =>
-                    Math.Abs(coord.X - seed.X) <=
-                        horizontalChunkRadius &&
-                    Math.Abs(coord.Z - seed.Z) <=
-                        horizontalChunkRadius &&
-                    Math.Abs(coord.Y - seed.Y) <= 1))
-            .ToArray();
-
-        return CloneForWorker(required);
+        return neighborhood.Chunks.Count == 0
+            ? new VoxelWorld()
+            : CloneForWorker(
+                neighborhood.Chunks);
     }
 
     public VoxelWorld CloneMeshNeighborhood(

@@ -4,7 +4,7 @@ namespace Asteria.Core.World;
 
 public sealed record FluidSimulationWorkerResult(
     FluidWorkBatch SourceBatch,
-    ChunkContentStamp ContentStamp,
+    FluidSimulationDependencies Dependencies,
     FluidSimulationResult Simulation,
     double WorkerMilliseconds);
 
@@ -31,26 +31,24 @@ public sealed class FluidSimulationWorker
         }
 
         var snapshot =
-            world.CloneFluidNeighborhood(
-                batch.Positions,
+            FluidSimulationSnapshot.Capture(
+                world,
+                batch,
                 fluids.MaximumSpread);
-        var contentStamp =
-            world.CaptureContentStamp(
-                snapshot.LoadedChunkCoords);
 
         return _worker.TryStart(() =>
         {
             var stopwatch = Stopwatch.StartNew();
             var simulation =
                 FluidSimulationSolver.Process(
-                    snapshot,
+                    snapshot.World,
                     fluids,
                     batch);
             stopwatch.Stop();
 
             return new FluidSimulationWorkerResult(
                 batch,
-                contentStamp,
+                snapshot.Dependencies,
                 simulation,
                 stopwatch.Elapsed.TotalMilliseconds);
         });

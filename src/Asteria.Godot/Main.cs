@@ -647,8 +647,8 @@ public partial class Main : Node3D
             return;
         }
 
-        if (!_world.IsContentStampCurrent(
-                result.ContentStamp))
+        if (!result.Dependencies.IsCurrent(
+                _world))
         {
             _fluidUpdates.RequeueTopology(
                 result.SourceBatch.TopologyPositions);
