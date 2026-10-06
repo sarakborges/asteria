@@ -432,16 +432,17 @@ public partial class Main : Node3D
         WorldUpdateBatch sourceBatch)
     {
         var stopwatch = Stopwatch.StartNew();
-        var lightChanges =
-            VoxelWorldLightingSolver.Initialize(
+        var lighting =
+            VoxelWorldLightingSolver.RelightAfterEdits(
                 snapshot,
-                blocks);
+                blocks,
+                sourceBatch.LightingEdits);
 
         var dirty =
             new Dictionary<ChunkCoord, ChunkMeshletMask>(
                 sourceBatch.DirtyMeshlets);
 
-        foreach (var position in lightChanges)
+        foreach (var position in lighting.ChangedPositions)
         {
             AddDirtyPosition(
                 snapshot,
@@ -463,7 +464,8 @@ public partial class Main : Node3D
             sourceBatch,
             dirty,
             meshlets,
-            lightChanges.Count,
+            lighting.ChangedPositions.Count,
+            lighting.ProcessedVoxelCount,
             stopwatch.Elapsed.TotalMilliseconds);
     }
 
@@ -510,7 +512,8 @@ public partial class Main : Node3D
             new Queue<MeshletBuild>(
                 result.Meshlets),
             result.WorkerMilliseconds,
-            result.LightChangeCount);
+            result.LightChangeCount,
+            result.LightProcessedVoxelCount);
     }
 
     private void IntegratePendingPublication()
@@ -579,7 +582,9 @@ public partial class Main : Node3D
             $"worker_ms=" +
             $"{_pendingPublication.WorkerMilliseconds:F2} " +
             $"light_changes=" +
-            $"{_pendingPublication.LightChangeCount}");
+            $"{_pendingPublication.LightChangeCount} " +
+            $"light_processed=" +
+            $"{_pendingPublication.LightProcessedVoxelCount}");
 
         _pendingPublication = null;
         TryStartWorldUpdate();
@@ -714,6 +719,7 @@ public partial class Main : Node3D
             DirtyMeshlets,
         IReadOnlyList<MeshletBuild> Meshlets,
         int LightChangeCount,
+        int LightProcessedVoxelCount,
         double WorkerMilliseconds);
 
     private sealed record PendingPublication(
@@ -722,5 +728,6 @@ public partial class Main : Node3D
             DirtyMeshlets,
         Queue<MeshletBuild> Meshlets,
         double WorkerMilliseconds,
-        int LightChangeCount);
+        int LightChangeCount,
+        int LightProcessedVoxelCount);
 }
