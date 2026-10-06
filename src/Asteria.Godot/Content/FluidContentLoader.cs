@@ -1,3 +1,4 @@
+using Asteria.Core.Content;
 using Asteria.Core.World;
 using Godot;
 
@@ -5,14 +6,16 @@ namespace Asteria.Client.Content;
 
 public static class FluidContentLoader
 {
-    private const string FluidDirectory =
-        "res://content/fluids";
-
-    public static FluidRegistry LoadProjectFluids()
+    public static FluidRegistry LoadProjectFluids(
+        PackSelection selection)
     {
+        var fluidDirectory =
+            ProjectPackPaths.DataCategory(
+                selection,
+                "fluids");
         var absoluteDirectory =
             ProjectSettings.GlobalizePath(
-                FluidDirectory);
+                fluidDirectory);
 
         if (!Directory.Exists(absoluteDirectory))
         {
@@ -33,7 +36,7 @@ public static class FluidContentLoader
         if (files.Length == 0)
         {
             throw new InvalidOperationException(
-                $"No fluid definitions were found in {FluidDirectory}.");
+                $"No fluid definitions were found in {fluidDirectory}.");
         }
 
         return FluidRegistry.FromJson(

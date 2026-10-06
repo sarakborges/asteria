@@ -3,6 +3,7 @@ using System.Text.Json;
 using Asteria.Client.Content;
 using Asteria.Client.Gameplay;
 using Asteria.Client.Rendering;
+using Asteria.Core.Content;
 using Asteria.Core.World;
 using Godot;
 using NVector3 = System.Numerics.Vector3;
@@ -39,6 +40,9 @@ public partial class Main : Node3D
     private ChunkPresentationController _chunkPresentations = null!;
     private ChunkStreamingController _chunkStreaming = null!;
 
+    private PackSelection _packSelection =
+        PackSelection.Default;
+
     private readonly VoxelWorld _world = new();
     private VoxelMutationRuntime _mutations = null!;
     private BlockInteractionRuntime _blockInteractions = null!;
@@ -67,8 +71,8 @@ public partial class Main : Node3D
     {
         SetupWebUi();
 
-        _blocks = BlockContentLoader.LoadProjectBlocks();
-        _fluids = FluidContentLoader.LoadProjectFluids();
+        _blocks = BlockContentLoader.LoadProjectBlocks(_packSelection);
+        _fluids = FluidContentLoader.LoadProjectFluids(_packSelection);
         var droppedBlocks =
             new DroppedBlockRuntime(
                 _world,
@@ -115,7 +119,7 @@ public partial class Main : Node3D
                 _blocks,
                 _mutations,
                 droppedBlocks);
-        _terrainTextures = TerrainTextureCatalog.Create(_blocks);
+        _terrainTextures = TerrainTextureCatalog.Create(_blocks, _packSelection);
         _terrainTextureLookup = _terrainTextures.CreateLookup();
         _terrainMaterials = VoxelTerrainMaterialSet.Create(_terrainTextures);
         _fluidMaterials = FluidMaterialCatalog.Create(_fluids);
@@ -193,6 +197,9 @@ public partial class Main : Node3D
         _placementBlock =
             _blocks.GetId(TestChunkFactory.StoneId);
 
+        GD.Print(
+            $"packs: resource={_packSelection.ResourcePack} " +
+            $"data={_packSelection.DataPack}");
         GD.Print(
             $"block content: loaded {_blocks.AuthoredCount} definitions, " +
             $"{_terrainTextures.TextureCount} terrain textures");
