@@ -6,10 +6,32 @@ public sealed class Chunk
     public const int Area = Size * Size;
     public const int Volume = Area * Size;
 
-    private readonly PaletteStorage<VoxelCell> _cells = new();
-    private readonly PaletteStorage<FluidCell> _fluids = new();
-    private readonly MicroblockMaskPalette _microblockMasks = new();
-    private readonly VoxelLight[] _light = new VoxelLight[Volume];
+    private readonly PaletteStorage<VoxelCell> _cells;
+    private readonly PaletteStorage<FluidCell> _fluids;
+    private readonly MicroblockMaskPalette _microblockMasks;
+    private readonly VoxelLight[] _light;
+
+    public Chunk()
+    {
+        _cells = new PaletteStorage<VoxelCell>();
+        _fluids = new PaletteStorage<FluidCell>();
+        _microblockMasks = new MicroblockMaskPalette();
+        _light = new VoxelLight[Volume];
+    }
+
+    private Chunk(
+        PaletteStorage<VoxelCell> cells,
+        PaletteStorage<FluidCell> fluids,
+        MicroblockMaskPalette microblockMasks,
+        VoxelLight[] light,
+        ulong revision)
+    {
+        _cells = cells;
+        _fluids = fluids;
+        _microblockMasks = microblockMasks;
+        _light = light;
+        Revision = revision;
+    }
 
     public ulong Revision { get; private set; }
 
@@ -100,22 +122,13 @@ public sealed class Chunk
     {
         ArgumentNullException.ThrowIfNull(visit);
 
-        for (var y = 0; y < Size; y++)
-        {
-            for (var z = 0; z < Size; z++)
+        _fluids.VisitOccupied(
+            (voxelIndex, fluid) =>
             {
-                for (var x = 0; x < Size; x++)
-                {
-                    var fluid =
-                        GetFluid(x, y, z);
-
-                    if (!fluid.IsEmpty)
-                    {
-                        visit(x, y, z, fluid);
-                    }
-                }
-            }
-        }
+                var (x, y, z) =
+                    FromIndex(voxelIndex);
+                visit(x, y, z, fluid);
+            });
     }
 
     public VoxelLight GetLight(int x, int y, int z)
@@ -135,58 +148,13 @@ public sealed class Chunk
         Array.Clear(_light);
     }
 
-    public Chunk CloneForWorker()
-    {
-        var clone = new Chunk();
-
-        for (var y = 0; y < Size; y++)
-        {
-            for (var z = 0; z < Size; z++)
-            {
-                for (var x = 0; x < Size; x++)
-                {
-                    var cell = GetCell(x, y, z);
-                    var fluid = GetFluid(x, y, z);
-
-                    if (!fluid.IsEmpty)
-                    {
-                        clone.SetFluid(
-                            x,
-                            y,
-                            z,
-                            fluid);
-                    }
-
-                    if (cell.IsEmpty)
-                    {
-                        continue;
-                    }
-
-                    if (cell.HasMicroblockGeometry)
-                    {
-                        clone.SetCell(
-                            x,
-                            y,
-                            z,
-                            cell.WithMicroblockMaskId(0));
-                        clone.SetMicroblockMask(
-                            x,
-                            y,
-                            z,
-                            GetMicroblockMask(x, y, z));
-                    }
-                    else
-                    {
-                        clone.SetCell(x, y, z, cell);
-                    }
-                }
-            }
-        }
-
-        Array.Copy(_light, clone._light, Volume);
-        clone.Revision = Revision;
-        return clone;
-    }
+    public Chunk CloneForWorker() =>
+        new(
+            _cells.Clone(),
+            _fluids.Clone(),
+            _microblockMasks.Clone(),
+            (VoxelLight[])_light.Clone(),
+            Revision);
 
     public void CopyLightFrom(Chunk source)
     {
@@ -222,7 +190,21 @@ public sealed class Chunk
     public static bool Contains(int x, int y, int z) =>
         (uint)x < Size && (uint)y < Size && (uint)z < Size;
 
-    private static int ToIndex(int x, int y, int z) => x + Size * (z + Size * y);
+    private static int ToIndex(
+        int x,
+        int y,
+        int z) =>
+        x + Size * (z + Size * y);
+
+    private static (int X, int Y, int Z) FromIndex(
+        int index)
+    {
+        var y = index / Area;
+        var remainder = index % Area;
+        var z = remainder / Size;
+        var x = remainder % Size;
+        return (x, y, z);
+    }
 
     private static void ValidateCoordinates(int x, int y, int z)
     {

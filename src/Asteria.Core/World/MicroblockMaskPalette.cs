@@ -2,8 +2,25 @@ namespace Asteria.Core.World;
 
 internal sealed class MicroblockMaskPalette
 {
-    private readonly List<MicroblockMask> _masks = [];
-    private readonly Dictionary<MicroblockMask, ushort> _ids = [];
+    private readonly List<MicroblockMask> _masks;
+    private readonly Dictionary<MicroblockMask, ushort> _ids;
+
+    public MicroblockMaskPalette()
+    {
+        _masks = [];
+        _ids = [];
+    }
+
+    private MicroblockMaskPalette(
+        MicroblockMaskPalette source)
+    {
+        _masks =
+            new List<MicroblockMask>(
+                source._masks);
+        _ids =
+            new Dictionary<MicroblockMask, ushort>(
+                source._ids);
+    }
 
     public int Count => _masks.Count;
 
@@ -29,6 +46,9 @@ internal sealed class MicroblockMaskPalette
         _ids.Add(mask, id);
         return id;
     }
+
+    public MicroblockMaskPalette Clone() =>
+        new(this);
 
     public MicroblockMask Get(ushort id)
     {
