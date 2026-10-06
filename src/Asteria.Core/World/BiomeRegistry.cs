@@ -76,18 +76,6 @@ public sealed class BiomeRegistry
                 $"Unknown biome id: {id}");
     }
 
-    public IEnumerable<BiomeDefinition>
-        SurfaceForDimension(
-            string dimensionId)
-    {
-        ArgumentNullException.ThrowIfNull(dimensionId);
-
-        return _definitions.Where(
-            definition =>
-                definition.BelongsToDimension(
-                    dimensionId));
-    }
-
     public void ValidateBlocks(
         BlockRegistry blocks)
     {
