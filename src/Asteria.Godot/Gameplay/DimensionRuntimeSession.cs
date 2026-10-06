@@ -15,11 +15,9 @@ public sealed record DimensionRuntimeSessionSettings(
     int MaxMaterializationDispatchesPerFrame,
     int MaxMaterializationResultsPerFrame,
     int MaxPresentationPublicationsPerFrame,
-    int MaxMeshletPublishesPerFrame,
     int MaxInteractiveTerrainMeshletsPerWorker,
     int MaxTerrainMeshletsPerWorker,
     int MaxFluidMeshletsPerWorker,
-    int MaxFluidMeshletPublishesPerFrame,
     int MaxFluidUpdatesPerWorker,
     int MaxChunkEvictionsPerFrame);
 
@@ -332,9 +330,11 @@ public sealed class DimensionRuntimeSession
 
     public void BeginRetirement()
     {
-        ObjectDisposedException.ThrowIf(
-            _retired,
-            this);
+        if (_retired)
+        {
+            throw new ObjectDisposedException(
+                nameof(DimensionRuntimeSession));
+        }
 
         if (_retiring)
         {
