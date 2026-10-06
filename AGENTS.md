@@ -39,6 +39,7 @@ When touching an area that already violates the canon, do not add new code on to
 - Do not perform broad repository/tree searches when a targeted path or symbol search will work.
 - Keep the first implementation measurable: correctness first, then profile before optimizing.
 - Add or update focused tests for engine-agnostic logic when behavior changes.
+- **Hydrology is prohibited.** Do not implement, plan, introduce, port, or reintroduce a hydrology subsystem/pipeline/abstraction in Asteria. Do not use "hydrology" as an architectural owner or roadmap item. Water-related authored features must be modeled explicitly by their actual feature/system when requested; they must never be grouped under a hydrology layer.
 
 ## WebUI rules
 
