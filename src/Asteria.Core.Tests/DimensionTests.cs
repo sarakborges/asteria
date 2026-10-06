@@ -213,7 +213,7 @@ public sealed class DimensionTests
                     [
                         "asteria:overworld/plain",
                     ],
-                    gravityStrength: 18f,
+                    18f,
                     new DimensionSpawnDefinition(
                         0,
                         0),
