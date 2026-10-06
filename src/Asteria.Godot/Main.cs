@@ -20,6 +20,7 @@ public partial class Main : Node3D
     private const int MaxMaterializationResultsPerFrame = 8;
     private const int MaxPresentationPublicationsPerFrame = 4;
     private const int MaxMeshletPublishesPerFrame = 4;
+    private const int MaxTerrainMeshletsPerWorker = 16;
     private const int MaxFluidMeshletPublishesPerFrame = 4;
     private const int MaxFluidUpdatesPerWorker = 512;
     private const int MaxChunkEvictionsPerFrame = 2;
@@ -83,9 +84,7 @@ public partial class Main : Node3D
             new LightingResultIntegrator(
                 _world,
                 _worldUpdates,
-                _fluidMeshUpdates,
-                _contentRevisions,
-                _fluidContentRevisions);
+                _fluidMeshUpdates);
         _blockPhysics = new BlockPhysicsRuntime(
             _world,
             _blocks,
@@ -892,7 +891,8 @@ public partial class Main : Node3D
         }
 
         var drained =
-            _worldUpdates.DrainMeshlets();
+            _worldUpdates.DrainMeshlets(
+                MaxTerrainMeshletsPerWorker);
 
         if (drained.IsEmpty)
         {

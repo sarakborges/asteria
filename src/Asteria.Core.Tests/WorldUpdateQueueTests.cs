@@ -56,6 +56,80 @@ public sealed class WorldUpdateQueueTests
         Assert.True(queue.HasMeshWork);
         Assert.False(queue.HasLightingWork);
     }
+    [Fact]
+    public void InteractiveVoxelEditPreemptsBackgroundMeshlets()
+    {
+        var world =
+            new VoxelWorld();
+        world.InsertChunk(
+            ChunkCoord.Zero,
+            new Chunk());
+        var queue =
+            new WorldUpdateQueue();
+
+        queue.EnqueueMeshlets(
+            ChunkCoord.Zero,
+            ChunkMeshletMask.All);
+        queue.EnqueueVoxelEdit(
+            world,
+            new WorldVoxelCoord(
+                2,
+                2,
+                2));
+
+        var first =
+            queue.DrainMeshlets(
+                maximumMeshlets: 1);
+
+        Assert.Equal(
+            ChunkMeshletMask.Single(0),
+            first.DirtyMeshlets[
+                ChunkCoord.Zero]);
+        Assert.True(queue.HasMeshWork);
+
+        var rest =
+            queue.DrainMeshlets();
+
+        Assert.False(
+            rest.DirtyMeshlets[
+                ChunkCoord.Zero]
+                .ContainsIndex(0));
+    }
+
+    [Fact]
+    public void MeshDrainHonorsWorkerBatchLimit()
+    {
+        var queue =
+            new WorldUpdateQueue();
+
+        queue.EnqueueMeshlets(
+            ChunkCoord.Zero,
+            ChunkMeshletMask.All);
+
+        var first =
+            queue.DrainMeshlets(
+                maximumMeshlets: 3);
+
+        Assert.Equal(
+            3,
+            first.DirtyMeshlets
+                .Values
+                .Sum(mask =>
+                    mask.SelectedCount));
+        Assert.True(queue.HasMeshWork);
+
+        var second =
+            queue.DrainMeshlets();
+
+        Assert.Equal(
+            ChunkMeshletMask.Count - 3,
+            second.DirtyMeshlets
+                .Values
+                .Sum(mask =>
+                    mask.SelectedCount));
+        Assert.False(queue.HasMeshWork);
+    }
+
 }
 
 public sealed class MeshletContentRevisionsTests

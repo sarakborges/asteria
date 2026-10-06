@@ -309,9 +309,7 @@ public sealed class LightingResultIntegratorTests
             new LightingResultIntegrator(
                 world,
                 worldUpdates,
-                fluidMeshUpdates,
-                terrainRevisions,
-                fluidRevisions);
+                fluidMeshUpdates);
 
         var result =
             integrator.Apply(
@@ -330,10 +328,10 @@ public sealed class LightingResultIntegratorTests
         Assert.Equal(1, result.DirtyChunkCount);
         Assert.Equal(1, result.DirtyMeshletCount);
         Assert.Equal(
-            1UL,
+            0UL,
             terrainRevisions.Get(key));
         Assert.Equal(
-            1UL,
+            0UL,
             fluidRevisions.Get(key));
         Assert.Equal(
             (byte)4,
@@ -341,6 +339,59 @@ public sealed class LightingResultIntegratorTests
                 new WorldVoxelCoord(2, 2, 2)).Red);
         Assert.True(worldUpdates.HasMeshWork);
         Assert.True(fluidMeshUpdates.HasWork);
+    }
+
+    [Fact]
+    public void LightingRefreshDoesNotInvalidateStructuralMeshRevision()
+    {
+        var world =
+            new VoxelWorld();
+        world.InsertChunk(
+            ChunkCoord.Zero,
+            new Chunk());
+        var revisions =
+            new MeshletContentRevisions();
+        var position =
+            new WorldVoxelCoord(
+                2,
+                2,
+                2);
+
+        revisions.BumpVoxelEdit(
+            world,
+            position);
+        var key =
+            new ChunkMeshletKey(
+                ChunkCoord.Zero,
+                0);
+        var captured =
+            revisions.Get(key);
+        var snapshot =
+            world.CloneForWorker();
+
+        Assert.True(
+            snapshot.TrySetLight(
+                position,
+                new VoxelLight(
+                    15,
+                    5,
+                    0,
+                    0)));
+
+        var integrator =
+            new LightingResultIntegrator(
+                world,
+                new WorldUpdateQueue(),
+                new FluidMeshUpdateQueue());
+
+        integrator.Apply(
+            snapshot,
+            [position]);
+
+        Assert.True(
+            revisions.IsCurrent(
+                key,
+                captured));
     }
 
     [Fact]
@@ -378,9 +429,7 @@ public sealed class LightingResultIntegratorTests
             new LightingResultIntegrator(
                 world,
                 worldUpdates,
-                fluidMeshUpdates,
-                new MeshletContentRevisions(),
-                new MeshletContentRevisions());
+                fluidMeshUpdates);
 
         var result =
             integrator.Apply(

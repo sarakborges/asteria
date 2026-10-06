@@ -10,15 +10,11 @@ public sealed class LightingResultIntegrator
     private readonly VoxelWorld _world;
     private readonly WorldUpdateQueue _worldUpdates;
     private readonly FluidMeshUpdateQueue _fluidMeshUpdates;
-    private readonly MeshletContentRevisions _terrainContentRevisions;
-    private readonly MeshletContentRevisions _fluidContentRevisions;
 
     public LightingResultIntegrator(
         VoxelWorld world,
         WorldUpdateQueue worldUpdates,
-        FluidMeshUpdateQueue fluidMeshUpdates,
-        MeshletContentRevisions terrainContentRevisions,
-        MeshletContentRevisions fluidContentRevisions)
+        FluidMeshUpdateQueue fluidMeshUpdates)
     {
         _world =
             world ??
@@ -29,14 +25,6 @@ public sealed class LightingResultIntegrator
         _fluidMeshUpdates =
             fluidMeshUpdates ??
             throw new ArgumentNullException(nameof(fluidMeshUpdates));
-        _terrainContentRevisions =
-            terrainContentRevisions ??
-            throw new ArgumentNullException(
-                nameof(terrainContentRevisions));
-        _fluidContentRevisions =
-            fluidContentRevisions ??
-            throw new ArgumentNullException(
-                nameof(fluidContentRevisions));
     }
 
     public LightingIntegrationResult Apply(
@@ -66,12 +54,10 @@ public sealed class LightingResultIntegrator
                      .ThenBy(entry => entry.Key.Z)
                      .ThenBy(entry => entry.Key.X))
         {
-            _terrainContentRevisions.Bump(
-                coord,
-                mask);
-            _fluidContentRevisions.Bump(
-                coord,
-                mask);
+            // Lighting changes are presentation refreshes, not structural
+            // content mutations. Keep an in-flight structural mesh valid so
+            // block edits can publish immediately; the queued refresh below
+            // rebuilds current vertex lighting afterward.
             _worldUpdates.EnqueueMeshlets(
                 coord,
                 mask);
@@ -80,7 +66,7 @@ public sealed class LightingResultIntegrator
                 mask);
 
             dirtyMeshlets +=
-                mask.Indices().Count();
+                mask.SelectedCount;
         }
 
         return new LightingIntegrationResult(
