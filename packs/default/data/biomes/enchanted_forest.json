@@ -51,5 +51,10 @@
         "asteria:dirt"
       ]
     }
-  ]
+  ],
+  "tints": {
+    "grass": "14FF94",
+    "leaf": "00F5FF",
+    "foliage": "D129FF"
+  }
 }

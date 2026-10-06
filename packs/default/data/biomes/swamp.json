@@ -67,5 +67,10 @@
         "asteria:mud"
       ]
     }
-  ]
+  ],
+  "tints": {
+    "grass": "49683C",
+    "leaf": "45653C",
+    "foliage": "475C3B"
+  }
 }

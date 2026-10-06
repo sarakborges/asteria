@@ -26,5 +26,9 @@
     {
       "block": "asteria:stone"
     }
-  ]
+  ],
+  "tints": {
+    "grass": "38942E",
+    "foliage": "38942E"
+  }
 }

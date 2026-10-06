@@ -35,5 +35,10 @@
         "asteria:grass_block"
       ]
     }
-  ]
+  ],
+  "tints": {
+    "grass": "3DB329",
+    "leaf": "3DB329",
+    "foliage": "3DB329"
+  }
 }
