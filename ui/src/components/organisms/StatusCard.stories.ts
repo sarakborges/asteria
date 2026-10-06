@@ -10,7 +10,7 @@ const meta = {
 } satisfies Meta<StatusCardProps>;
 
 export default meta;
-type Story = StoryObj<typeof meta>;
+type Story = StoryObj<StatusCardProps>;
 
 export const Embedded: Story = {};
 

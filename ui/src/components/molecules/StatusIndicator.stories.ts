@@ -20,7 +20,7 @@ const meta = {
 } satisfies Meta<StatusIndicatorProps>;
 
 export default meta;
-type Story = StoryObj<typeof meta>;
+type Story = StoryObj<StatusIndicatorProps>;
 
 export const Connected: Story = {};
 

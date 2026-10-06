@@ -11,7 +11,7 @@ const meta = {
 } satisfies Meta<ButtonProps>;
 
 export default meta;
-type Story = StoryObj<typeof meta>;
+type Story = StoryObj<ButtonProps>;
 
 export const Default: Story = {};
 

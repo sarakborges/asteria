@@ -13,7 +13,7 @@ const meta = {
 } satisfies Meta<GameHudPageProps>;
 
 export default meta;
-type Story = StoryObj<typeof meta>;
+type Story = StoryObj<GameHudPageProps>;
 
 export const Connecting: Story = {};
 
