@@ -77,13 +77,13 @@ Visible terrain now comes from a temporary deterministic chunk provider used by 
 
 ### Block content
 
-Authorial block definitions in the built-in data pack live in `data/default/blocks/*.json`. The current base catalog contains grass, dirt, stone, sand, gravel, clay, mud, snow, sand/snow layers and the initial oak-log variants.
+Authorial block definitions in the built-in data pack live in `packs/default/data/blocks/*.json`. The current base catalog contains grass, dirt, stone, sand, gravel, clay, mud, snow, sand/snow layers and the initial oak-log variants.
 
-Built-in block textures live under `resources/default/textures/blocks/`. Definitions keep pack-relative logical paths such as `textures/blocks/stone.png`; the selected resource-pack root is resolved centrally. The initial textures were ported directly from the Mineclone `world-systems-rebuild` reference.
+Built-in block textures live under `packs/default/resources/textures/blocks/`. Definitions keep pack-relative logical paths such as `textures/blocks/stone.png`; the selected resource-pack root is resolved centrally. The initial textures were ported directly from the Mineclone `world-systems-rebuild` reference.
 
 Built-in repository assets may have Godot-generated `.import` sidecars checked in so editor import settings stay stable. Those files are development metadata only. Future Asteria resource packs and data packs are engine-agnostic and never require or distribute Godot `.import` files/resources; see [PACKS.md](PACKS.md).
 
-The current startup pack selection is `resource=default` + `data=default`, held as one runtime `PackSelection` value so future pack import/selection can replace either side without changing content loaders.
+The current startup selection is the unified `default` pack. One runtime `PackSelection` resolves `packs/default/data/`, `packs/default/resources/` and `packs/default/ui/`, so future import/selection can replace the complete visual/data package without changing individual loaders. The WebUI receives declarative theme tokens from `packs/default/ui/theme.json`.
 
 The renderer builds one deterministic texture array from every texture referenced by the loaded block registry. A block face can currently use a base layer plus one alpha-composited overlay, matching the grass side/base-overlay setup.
 
@@ -191,10 +191,11 @@ Initial messages:
 ## Structure
 
 ```text
-data/
-  default/                  built-in/default data pack
-resources/
-  default/                  built-in/default resource pack
+packs/
+  default/
+    data/                    built-in gameplay definitions
+    resources/               built-in world/item presentation assets
+    ui/                      declarative WebUI theme/assets
 shaders/                    internal Godot renderer shaders
 src/Asteria.Core/           engine-agnostic block/voxel/chunk runtime
 src/Asteria.Core.Tests/     focused core runtime tests
