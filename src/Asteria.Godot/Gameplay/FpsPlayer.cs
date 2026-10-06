@@ -7,7 +7,6 @@ public partial class FpsPlayer : CharacterBody3D
 {
     private const float MoveSpeed = 7.5f;
     private const float JumpSpeed = 8.0f;
-    private const float Gravity = 24.0f;
     private const float MouseSensitivity = 0.0022f;
     private const float MaxPitch = 1.52f;
 
@@ -20,6 +19,7 @@ public partial class FpsPlayer : CharacterBody3D
     private bool _jumpHeld;
     private bool _lastEyeSubmerged;
     private FluidRuntimeId _lastVisualFluid;
+    private float _gravityStrength = 18f;
 
     public event Action? BreakRequested;
     public event Action? PlaceRequested;
@@ -30,6 +30,23 @@ public partial class FpsPlayer : CharacterBody3D
     public bool IsMouseCaptured => _mouseCaptured;
 
     public Camera3D Camera => _camera;
+
+    public float GravityStrength
+    {
+        get => _gravityStrength;
+        set
+        {
+            if (!float.IsFinite(value) ||
+                value < 0f)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(value),
+                    "Player gravity strength must be finite and non-negative.");
+            }
+
+            _gravityStrength = value;
+        }
+    }
 
     public Func<WorldAabb, float, FluidBodyContact>?
         FluidContactProvider { get; set; }
@@ -147,7 +164,7 @@ public partial class FpsPlayer : CharacterBody3D
         else
         {
             velocity.Y -=
-                Gravity *
+                GravityStrength *
                 (float)delta;
         }
 
