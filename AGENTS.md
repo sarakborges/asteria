@@ -44,6 +44,7 @@ When touching an area that already violates the canon, do not add new code on to
 
 - Gameplay UI follows Atomic Design under `ui/src/components/{atoms,molecules,organisms,templates,pages}`.
 - Keep Godot WRY/IPC transport in `ui/src/bridge`; keep event/state binding in `ui/src/controllers`; components must not own transport logic.
+- Global/gameplay input (keyboard presses, mouse buttons, wheel, captured-mouse controls, gameplay hotkeys and debug hotkeys) is owned by Godot/input code, never by WebUI document/window listeners. WebUI may handle pointer/keyboard events only while the user is explicitly interacting with a UI control/surface; gameplay/global actions must cross the bridge as semantic commands/state instead of raw browser input.
 - Every reusable WebUI component or page must have a colocated Storybook `*.stories.ts` file covering meaningful visual states.
 - Storybook is part of WebUI validation. `npm run build-storybook` must stay green together with `npm run build`.
 
