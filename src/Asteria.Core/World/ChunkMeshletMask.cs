@@ -26,6 +26,10 @@ public readonly record struct ChunkMeshletMask(byte Bits)
                 Bits &
                 ~other.Bits));
 
+    public bool Overlaps(
+        ChunkMeshletMask other) =>
+        (Bits & other.Bits) != 0;
+
     public bool ContainsIndex(int index)
     {
         ValidateIndex(index);
