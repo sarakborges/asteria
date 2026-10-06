@@ -210,6 +210,138 @@ public sealed class BlockInteractionResolverTests
     }
 
     [Fact]
+    public void SupportBelowPlacementRejectsThinLayerThatDoesNotReachTopFace()
+    {
+        var blocks =
+            new BlockRegistry(
+            [
+                new BlockDefinition(
+                    "asteria:stone"),
+                new BlockDefinition(
+                    "asteria:base_layer",
+                    shape:
+                        BlockShapeDefinition.SurfaceLayer(
+                            0.125f,
+                            "asteria:stone")),
+                new BlockDefinition(
+                    "asteria:snow_layer",
+                    tags:
+                    [
+                        BlockPhysicsCapabilities.SupportBelow,
+                    ],
+                    shape:
+                        BlockShapeDefinition.SurfaceLayer(
+                            0.125f,
+                            "asteria:stone")),
+            ]);
+        var world = LoadedWorld();
+        var target =
+            new WorldVoxelCoord(
+                1,
+                1,
+                0);
+
+        Assert.True(
+            world.SetBlockAt(
+                target + (0, -1, 0),
+                blocks.GetId(
+                    "asteria:base_layer"),
+                out _));
+
+        var decision =
+            BlockInteractionResolver.ResolvePlacement(
+                world,
+                blocks,
+                new VoxelWorldHit(
+                    new WorldVoxelCoord(
+                        0,
+                        1,
+                        0),
+                    1,
+                    0,
+                    0),
+                new VoxelCell(
+                    blocks.GetId(
+                        "asteria:snow_layer")),
+                FarPlayerBounds());
+
+        Assert.False(decision.Accepted);
+        Assert.Equal(
+            BlockPlacementRejection.MissingSupport,
+            decision.Rejection);
+    }
+
+    [Fact]
+    public void SupportBelowPlacementAcceptsMicroblockContactOnTopFace()
+    {
+        var blocks =
+            new BlockRegistry(
+            [
+                new BlockDefinition(
+                    "asteria:micro"),
+                new BlockDefinition(
+                    "asteria:snow_layer",
+                    tags:
+                    [
+                        BlockPhysicsCapabilities.SupportBelow,
+                    ],
+                    shape:
+                        BlockShapeDefinition.SurfaceLayer(
+                            0.125f,
+                            "asteria:micro")),
+            ]);
+        var world = LoadedWorld();
+        var support =
+            new WorldVoxelCoord(
+                1,
+                0,
+                0);
+
+        Assert.True(
+            world.SetBlockAt(
+                support,
+                blocks.GetId("asteria:micro"),
+                out _));
+
+        var address =
+            VoxelCoordinates.FromWorld(
+                support.X,
+                support.Y,
+                support.Z);
+        Assert.True(
+            world.GetChunk(address.Chunk)
+                .SetMicroblockMask(
+                    address.Local.X,
+                    address.Local.Y,
+                    address.Local.Z,
+                    MicroblockMask.Empty.Edit(
+                        0,
+                        MicroblockMask.Edge - 1,
+                        0,
+                        MicroblockResolution.ExtraThin,
+                        occupied: true)));
+
+        var decision =
+            BlockInteractionResolver.ResolvePlacement(
+                world,
+                blocks,
+                new VoxelWorldHit(
+                    new WorldVoxelCoord(
+                        0,
+                        1,
+                        0),
+                    1,
+                    0,
+                    0),
+                new VoxelCell(
+                    blocks.GetId(
+                        "asteria:snow_layer")),
+                FarPlayerBounds());
+
+        Assert.True(decision.Accepted);
+    }
+
+    [Fact]
     public void FluidDoesNotMakeOtherwiseEmptyPlacementVoxelOccupied()
     {
         var blocks = CreateBlocks();

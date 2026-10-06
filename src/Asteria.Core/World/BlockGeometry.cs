@@ -49,16 +49,43 @@ public static class BlockGeometry
             return true;
         }
 
-        var scale =
-            1f / Resolution;
+        var localMinimum =
+            Vector3.Max(
+                bounds.Minimum -
+                new Vector3(
+                    position.X,
+                    position.Y,
+                    position.Z),
+                Vector3.Zero);
+        var localMaximum =
+            Vector3.Min(
+                bounds.Maximum -
+                new Vector3(
+                    position.X,
+                    position.Y,
+                    position.Z),
+                Vector3.One);
 
-        for (var y = 0; y < Resolution; y++)
+        var minX =
+            FineMinimum(localMinimum.X);
+        var minY =
+            FineMinimum(localMinimum.Y);
+        var minZ =
+            FineMinimum(localMinimum.Z);
+        var maxX =
+            FineMaximum(localMaximum.X);
+        var maxY =
+            FineMaximum(localMaximum.Y);
+        var maxZ =
+            FineMaximum(localMaximum.Z);
+
+        for (var y = minY; y <= maxY; y++)
         {
-            for (var z = 0; z < Resolution; z++)
+            for (var z = minZ; z <= maxZ; z++)
             {
-                for (var x = 0; x < Resolution; x++)
+                for (var x = minX; x <= maxX; x++)
                 {
-                    if (!IsOccupied(
+                    if (IsOccupied(
                             definition,
                             cell,
                             microblockMask,
@@ -66,28 +93,59 @@ public static class BlockGeometry
                             y,
                             z))
                     {
-                        continue;
-                    }
-
-                    var minimum =
-                        new Vector3(
-                            position.X + x * scale,
-                            position.Y + y * scale,
-                            position.Z + z * scale);
-                    var maximum =
-                        minimum +
-                        new Vector3(
-                            scale,
-                            scale,
-                            scale);
-
-                    if (bounds.Intersects(
-                            new WorldAabb(
-                                minimum,
-                                maximum)))
-                    {
                         return true;
                     }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    public static bool TouchesFace(
+        BlockDefinition definition,
+        VoxelCell cell,
+        MicroblockMask microblockMask,
+        BlockFace face)
+    {
+        ArgumentNullException.ThrowIfNull(definition);
+
+        if (cell.IsEmpty ||
+            !definition.IsCollidable)
+        {
+            return false;
+        }
+
+        if (!RequiresFineMeshing(
+                definition,
+                cell))
+        {
+            return true;
+        }
+
+        for (var v = 0;
+             v < Resolution;
+             v++)
+        {
+            for (var u = 0;
+                 u < Resolution;
+                 u++)
+            {
+                var (x, y, z) =
+                    FacePosition(
+                        face,
+                        u,
+                        v);
+
+                if (IsOccupied(
+                        definition,
+                        cell,
+                        microblockMask,
+                        x,
+                        y,
+                        z))
+                {
+                    return true;
                 }
             }
         }
@@ -127,6 +185,45 @@ public static class BlockGeometry
             _ => throw new ArgumentOutOfRangeException(nameof(definition), definition.Shape.Kind, "Unknown block shape."),
         };
     }
+
+    private static int FineMinimum(
+        float value) =>
+        Math.Clamp(
+            (int)MathF.Floor(
+                value * Resolution),
+            0,
+            Resolution - 1);
+
+    private static int FineMaximum(
+        float value) =>
+        Math.Clamp(
+            (int)MathF.Ceiling(
+                value * Resolution) - 1,
+            0,
+            Resolution - 1);
+
+    private static (int X, int Y, int Z)
+        FacePosition(
+            BlockFace face,
+            int u,
+            int v) =>
+        face switch
+        {
+            BlockFace.Top =>
+                (u, Resolution - 1, v),
+            BlockFace.Bottom =>
+                (u, 0, v),
+            BlockFace.Right =>
+                (Resolution - 1, v, u),
+            BlockFace.Left =>
+                (0, v, u),
+            BlockFace.Front =>
+                (u, v, Resolution - 1),
+            BlockFace.Back =>
+                (u, v, 0),
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(face)),
+        };
 
     private static bool LayerContains(BlockShapeDefinition shape, int sourceY)
     {

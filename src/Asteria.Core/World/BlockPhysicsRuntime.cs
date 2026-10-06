@@ -126,6 +126,7 @@ public sealed class BlockPhysicsRuntime
             var support =
                 BlockSupportRules.Evaluate(
                     _world,
+                    _blocks,
                     definition,
                     position);
 

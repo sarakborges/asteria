@@ -86,6 +86,124 @@ public sealed class BlockGeometryTests
     }
 
     [Fact]
+    public void SurfaceLayerTouchesBottomButNotTopFace()
+    {
+        var definition =
+            new BlockDefinition(
+                "asteria:layer",
+                shape:
+                    BlockShapeDefinition.SurfaceLayer(
+                        0.125f,
+                        "asteria:stone"));
+        var cell =
+            new VoxelCell(
+                new BlockRuntimeId(1));
+
+        Assert.True(
+            BlockGeometry.TouchesFace(
+                definition,
+                cell,
+                MicroblockMask.Empty,
+                BlockFace.Bottom));
+        Assert.False(
+            BlockGeometry.TouchesFace(
+                definition,
+                cell,
+                MicroblockMask.Empty,
+                BlockFace.Top));
+    }
+
+    [Fact]
+    public void MicroblockFaceContactUsesActualMask()
+    {
+        var definition =
+            new BlockDefinition(
+                "asteria:micro");
+        var bottomOnly =
+            MicroblockMask.Empty.Edit(
+                0,
+                0,
+                0,
+                MicroblockResolution.ExtraThin,
+                occupied: true);
+        var topOnly =
+            MicroblockMask.Empty.Edit(
+                0,
+                MicroblockMask.Edge - 1,
+                0,
+                MicroblockResolution.ExtraThin,
+                occupied: true);
+        var cell =
+            new VoxelCell(
+                new BlockRuntimeId(1),
+                microblockMaskId: 1);
+
+        Assert.False(
+            BlockGeometry.TouchesFace(
+                definition,
+                cell,
+                bottomOnly,
+                BlockFace.Top));
+        Assert.True(
+            BlockGeometry.TouchesFace(
+                definition,
+                cell,
+                topOnly,
+                BlockFace.Top));
+    }
+
+    [Fact]
+    public void PartialGeometryIntersectionUsesOnlyOverlappedFineCells()
+    {
+        var definition =
+            new BlockDefinition(
+                "asteria:layer",
+                shape:
+                    BlockShapeDefinition.SurfaceLayer(
+                        0.125f,
+                        "asteria:stone"));
+        var cell =
+            new VoxelCell(
+                new BlockRuntimeId(1));
+        var position =
+            new WorldVoxelCoord(
+                4,
+                4,
+                4);
+
+        Assert.True(
+            BlockGeometry.Intersects(
+                definition,
+                cell,
+                MicroblockMask.Empty,
+                position,
+                new WorldAabb(
+                    new System.Numerics.Vector3(
+                        4.2f,
+                        4.02f,
+                        4.2f),
+                    new System.Numerics.Vector3(
+                        4.8f,
+                        4.08f,
+                        4.8f))));
+        Assert.False(
+            BlockGeometry.Intersects(
+                definition,
+                cell,
+                MicroblockMask.Empty,
+                position,
+                new WorldAabb(
+                    new System.Numerics.Vector3(
+                        4.2f,
+                        4.5f,
+                        4.2f),
+                    new System.Numerics.Vector3(
+                        4.8f,
+                        4.9f,
+                        4.8f))));
+    }
+
+    [Fact]
     public void OrientedFacesResolveBackToAuthoredTextureFaces()
     {
         var definition = new BlockDefinition(

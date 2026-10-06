@@ -17,10 +17,12 @@ public static class BlockSupportRules
 {
     public static BlockSupportState Evaluate(
         VoxelWorld world,
+        BlockRegistry blocks,
         BlockDefinition definition,
         WorldVoxelCoord position)
     {
         ArgumentNullException.ThrowIfNull(world);
+        ArgumentNullException.ThrowIfNull(blocks);
         ArgumentNullException.ThrowIfNull(definition);
 
         if (!definition.HasTag(
@@ -28,6 +30,20 @@ public static class BlockSupportRules
         {
             return BlockSupportState.Supported;
         }
+
+        return EvaluateBelow(
+            world,
+            blocks,
+            position);
+    }
+
+    public static BlockSupportState EvaluateBelow(
+        VoxelWorld world,
+        BlockRegistry blocks,
+        WorldVoxelCoord position)
+    {
+        ArgumentNullException.ThrowIfNull(world);
+        ArgumentNullException.ThrowIfNull(blocks);
 
         if (position.Y <= 0)
         {
@@ -42,8 +58,26 @@ public static class BlockSupportRules
             return BlockSupportState.Unloaded;
         }
 
-        return world.GetCellOrEmpty(support).IsEmpty
-            ? BlockSupportState.Unsupported
-            : BlockSupportState.Supported;
+        var cell =
+            world.GetCellOrEmpty(support);
+
+        if (cell.IsEmpty)
+        {
+            return BlockSupportState.Unsupported;
+        }
+
+        var definition =
+            blocks.GetDefinition(cell.Block);
+        var mask =
+            world.GetMicroblockMaskOrEmpty(
+                support);
+
+        return BlockGeometry.TouchesFace(
+                definition,
+                cell,
+                mask,
+                BlockFace.Top)
+            ? BlockSupportState.Supported
+            : BlockSupportState.Unsupported;
     }
 }

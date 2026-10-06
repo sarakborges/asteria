@@ -139,6 +139,7 @@ public static class BlockInteractionResolver
         var support =
             BlockSupportRules.Evaluate(
                 world,
+                blocks,
                 definition,
                 target);
 
