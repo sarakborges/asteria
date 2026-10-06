@@ -287,7 +287,10 @@ public static class ChunkMeshDataBuilder
                     face,
                     depth,
                     plane,
-                    candidates);
+                    candidates,
+                    originX,
+                    originZ,
+                    tintSamples);
             }
         }
     }
@@ -298,7 +301,10 @@ public static class ChunkMeshDataBuilder
         BlockFace face,
         int depth,
         PlaneRange plane,
-        GreedyCubeFace?[] candidates)
+        GreedyCubeFace?[] candidates,
+        int worldOriginX,
+        int worldOriginZ,
+        BiomeTintSampleGrid? tintSamples)
     {
         var planeWidth =
             plane.UMaxExclusive - plane.UMin;
@@ -386,8 +392,8 @@ public static class ChunkMeshDataBuilder
                     rectangleWidth,
                     rectangleHeight,
                     candidate.Value,
-                    originX,
-                    originZ,
+                    worldOriginX,
+                    worldOriginZ,
                     tintSamples);
             }
         }
@@ -549,13 +555,10 @@ public static class ChunkMeshDataBuilder
                 tintSamples,
                 worldPosition.X,
                 worldPosition.Z);
-        var material =
-            new TerrainFaceMaterial(
-                new Vector2(
-                    baseCode,
-                    -1f),
-                tint,
-                false);
+        var encodedLayers =
+            new Vector2(
+                baseCode,
+                -1f);
         var batch =
             new TerrainRenderBatch(
                 definition.RenderMode,
@@ -625,13 +628,15 @@ public static class ChunkMeshDataBuilder
                 surface,
                 positions,
                 SpriteFrontOrder,
-                material,
+                encodedLayers,
+                tint,
                 lighting);
             EmitSpriteSide(
                 surface,
                 positions,
                 SpriteBackOrder,
-                material,
+                encodedLayers,
+                tint,
                 lighting);
         }
     }
@@ -640,7 +645,8 @@ public static class ChunkMeshDataBuilder
         List<ChunkMeshVertex> surface,
         ReadOnlySpan<Vector3> positions,
         IReadOnlyList<int> triangleOrder,
-        TerrainFaceMaterial material,
+        Vector2 encodedLayers,
+        Vector3 tint,
         VoxelFaceLighting lighting)
     {
         foreach (var index in triangleOrder)
@@ -653,11 +659,11 @@ public static class ChunkMeshDataBuilder
                     positions[index],
                     Vector3.UnitY,
                     SpriteUvs[index],
-                    material.EncodedLayers,
+                    encodedLayers,
                     new Vector4(
-                        material.Tint.X,
-                        material.Tint.Y,
-                        material.Tint.Z,
+                        tint.X,
+                        tint.Y,
+                        tint.Z,
                         vertexLighting.AmbientOcclusion),
                     new Vector4(
                         vertexLighting.Sky,
