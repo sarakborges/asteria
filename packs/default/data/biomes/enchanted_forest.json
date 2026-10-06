@@ -1,0 +1,55 @@
+{
+  "id": "asteria:overworld/enchanted_forest",
+  "surfaceLayout": {
+    "weight": 0.45,
+    "regionSize": {
+      "min": 224,
+      "max": 448
+    }
+  },
+  "surfaceTerrain": {
+    "baseHeight": 8,
+    "macroAmplitude": 3.5,
+    "macroScale": 704,
+    "detailAmplitude": 1.5,
+    "detailScale": 96
+  },
+  "surfaceLayers": [
+    {
+      "block": "asteria:grass_block",
+      "depth": 1
+    },
+    {
+      "block": "asteria:dirt",
+      "depth": 4
+    },
+    {
+      "block": "asteria:stone"
+    }
+  ],
+  "decorations": [
+    {
+      "block": "asteria:grass",
+      "chance": 0.28,
+      "surfaceBlocks": [
+        "asteria:grass_block"
+      ]
+    },
+    {
+      "block": "asteria:mushroom_purple",
+      "chance": 0.035,
+      "surfaceBlocks": [
+        "asteria:grass_block",
+        "asteria:dirt"
+      ]
+    },
+    {
+      "block": "asteria:mushroom_pink",
+      "chance": 0.025,
+      "surfaceBlocks": [
+        "asteria:grass_block",
+        "asteria:dirt"
+      ]
+    }
+  ]
+}

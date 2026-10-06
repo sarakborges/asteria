@@ -1,0 +1,26 @@
+{
+  "id": "asteria:mushroom_pink",
+  "category": "foliage",
+  "tags": [
+    "support_below"
+  ],
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/mushroom_pink.png",
+    "width": 0.72,
+    "height": 0.62,
+    "planes": 2
+  },
+  "placementFaces": [
+    "top"
+  ],
+  "mining": {
+    "hardness": 0.05
+  },
+  "isCollidable": false,
+  "castsShadow": false,
+  "lightDampening": 0,
+  "alphaCutoff": 0.5,
+  "previewColor": "cf7898",
+  "dropsSelf": true
+}

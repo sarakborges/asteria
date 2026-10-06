@@ -1,0 +1,30 @@
+{
+  "id": "asteria:overworld/ocean",
+  "surfaceLayout": {
+    "weight": 0.6,
+    "regionSize": {
+      "min": 256,
+      "max": 512
+    }
+  },
+  "surfaceTerrain": {
+    "baseHeight": 2,
+    "macroAmplitude": 2,
+    "macroScale": 1024,
+    "detailAmplitude": 0.5,
+    "detailScale": 160
+  },
+  "surfaceLayers": [
+    {
+      "block": "asteria:sand",
+      "depth": 4
+    },
+    {
+      "block": "asteria:gravel",
+      "depth": 2
+    },
+    {
+      "block": "asteria:stone"
+    }
+  ]
+}

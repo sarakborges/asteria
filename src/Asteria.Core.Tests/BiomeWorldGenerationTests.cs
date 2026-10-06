@@ -15,9 +15,37 @@ public sealed class BiomeWorldGenerationTests
         biomes.ValidateBlocks(
             blocks);
 
+        var biomeDirectory =
+            Path.Combine(
+                AppContext.BaseDirectory,
+                "packs",
+                "default",
+                "data",
+                "biomes");
         Assert.Equal(
-            7,
+            Directory.EnumerateFiles(
+                    biomeDirectory,
+                    "*.json")
+                .Count(),
             biomes.Count);
+
+        foreach (var biomeId in
+                 new[]
+                 {
+                     "asteria:overworld/alps",
+                     "asteria:overworld/arctic",
+                     "asteria:overworld/enchanted_forest",
+                     "asteria:overworld/gorge",
+                     "asteria:overworld/mountain_belt",
+                     "asteria:overworld/mountains",
+                     "asteria:overworld/ocean",
+                     "asteria:overworld/volcano",
+                 })
+        {
+            _ =
+                biomes.Get(
+                    biomeId);
+        }
 
         var swamp =
             biomes.Get(

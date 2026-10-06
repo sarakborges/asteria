@@ -1,0 +1,30 @@
+{
+  "id": "asteria:overworld/arctic",
+  "surfaceLayout": {
+    "weight": 0.55,
+    "regionSize": {
+      "min": 224,
+      "max": 448
+    }
+  },
+  "surfaceTerrain": {
+    "baseHeight": 6.5,
+    "macroAmplitude": 3,
+    "macroScale": 896,
+    "detailAmplitude": 1,
+    "detailScale": 144
+  },
+  "surfaceLayers": [
+    {
+      "block": "asteria:snow",
+      "depth": 4
+    },
+    {
+      "block": "asteria:dirt",
+      "depth": 2
+    },
+    {
+      "block": "asteria:stone"
+    }
+  ]
+}
