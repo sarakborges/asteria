@@ -77,7 +77,7 @@ Visible terrain now comes from the Core `BiomeWorldGenerator`, selected by world
 
 Ground vegetation now comes from biome decorators rather than the QA fixture: plains/swamp can place grass and brown mushrooms are authored only by swamp. Generation is deterministic for the same seed regardless of chunk/task order. The old `DeterministicChunkProvider` remains only for test/QA fixtures.
 
-Chunks outside the desired radius are retained for a hysteresis/cache margin before authoritative residency is removed. Edited chunks are then archived in memory and restored before provider fallback, so break/place survives unload/reload during the current session. This is not save-game persistence and writes nothing to disk. Hydrology/caves/3D biome generation are not implemented yet.
+Chunks outside the desired radius are retained for a hysteresis/cache margin before authoritative residency is removed. Edited chunks are then archived in memory and restored before provider fallback, so break/place survives unload/reload during the current session. This is not save-game persistence and writes nothing to disk. Hydrology is intentionally prohibited by the architecture; caves/3D biome generation are not implemented yet.
 
 ### Biome content
 
