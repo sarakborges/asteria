@@ -23,7 +23,7 @@
 .compass__track {
   position: absolute;
   top: 0;
-  left: 0;
+  left: 50%;
   width: 2160px;
   height: 100%;
   will-change: transform;

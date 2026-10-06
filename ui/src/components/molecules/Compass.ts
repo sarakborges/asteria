@@ -65,7 +65,7 @@ export function createCompass(): CompassView {
       const offset =
         -(heading + TRACK_ORIGIN_DEGREES) * PIXELS_PER_DEGREE;
       track.style.transform =
-        `translateX(calc(50% + ${offset}px))`;
+        `translateX(${offset}px)`;
       root.dataset.heading = heading.toFixed(1);
     },
   };
