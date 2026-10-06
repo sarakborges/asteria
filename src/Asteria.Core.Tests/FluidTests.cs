@@ -62,6 +62,47 @@ public sealed class FluidTests
     }
 
     [Fact]
+    public void JsonParsesAuthoredFluidTexturePath()
+    {
+        const string json =
+            """
+            {
+              "id": "asteria:water",
+              "color": "4f9fd6",
+              "opacity": 0.72,
+              "texture": "textures/fluids/water.png"
+            }
+            """;
+
+        var registry =
+            FluidRegistry.FromJson(
+                [json]);
+        var definition =
+            registry.GetDefinition(
+                registry.GetId(
+                    "asteria:water"));
+
+        Assert.Equal(
+            "textures/fluids/water.png",
+            definition.Texture);
+    }
+
+    [Fact]
+    public void InvalidAuthoredFluidTexturePathIsRejected()
+    {
+        Assert.Throws<ArgumentException>(
+            () =>
+                new FluidDefinition(
+                    "asteria:water",
+                    new FluidColor(
+                        79,
+                        159,
+                        214),
+                    opacity: 0.72f,
+                    texture: " textures/fluids/water.png"));
+    }
+
+    [Fact]
     public void VerticalFallResetsHorizontalDistance()
     {
         var fluids = CreateFluids();
