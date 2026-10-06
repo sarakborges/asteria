@@ -19,10 +19,15 @@ public readonly record struct VoxelWorldEdit(
 public sealed class VoxelWorld
 {
     private readonly Dictionary<ChunkCoord, Chunk> _chunks = [];
+    private readonly SessionChunkArchiveStore _archive = new();
 
     public ulong Revision { get; private set; }
 
     public int ChunkCount => _chunks.Count;
+
+    public int ArchivedChunkCount => _archive.ArchivedCount;
+
+    public int DirtyChunkCount => _archive.DirtyCount;
 
     public IEnumerable<ChunkCoord> LoadedChunkCoords => _chunks.Keys;
 
@@ -30,27 +35,55 @@ public sealed class VoxelWorld
     {
         ArgumentNullException.ThrowIfNull(chunk);
 
+        if (_archive.HasArchived(coord))
+        {
+            throw new InvalidOperationException(
+                $"Chunk {coord} has archived session state and cannot be overwritten by materialization.");
+        }
+
         if (!_chunks.TryAdd(coord, chunk))
         {
             throw new InvalidOperationException($"Chunk {coord} is already resident.");
         }
 
+        _archive.TrackMaterialized(
+            coord,
+            chunk.Revision);
         Revision++;
     }
 
     public bool ContainsChunk(ChunkCoord coord) => _chunks.ContainsKey(coord);
 
-    public bool TryRemoveChunk(
-        ChunkCoord coord,
-        out Chunk chunk)
+    public bool HasArchivedChunk(ChunkCoord coord) =>
+        _archive.HasArchived(coord);
+
+    public ChunkArchiveResult ArchiveChunk(ChunkCoord coord)
     {
-        if (!_chunks.Remove(coord, out chunk!))
+        if (!_chunks.Remove(coord, out var chunk))
         {
-            return false;
+            return ChunkArchiveResult.NotResident;
         }
 
+        var result = _archive.Archive(coord, chunk);
         Revision++;
-        return true;
+        return result;
+    }
+
+    public ChunkRestoreResult RestoreChunk(ChunkCoord coord)
+    {
+        if (_chunks.ContainsKey(coord))
+        {
+            return ChunkRestoreResult.AlreadyResident;
+        }
+
+        if (!_archive.TryRestore(coord, out var chunk))
+        {
+            return ChunkRestoreResult.Missing;
+        }
+
+        _chunks.Add(coord, chunk);
+        Revision++;
+        return ChunkRestoreResult.Restored;
     }
 
     public bool TryGetChunk(ChunkCoord coord, out Chunk chunk) =>
@@ -177,6 +210,7 @@ public sealed class VoxelWorld
             return false;
         }
 
+        _archive.MarkDirty(address.Chunk);
         Revision++;
         edit = new VoxelWorldEdit(
             position,

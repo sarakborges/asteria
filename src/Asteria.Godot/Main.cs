@@ -194,6 +194,8 @@ public partial class Main : Node3D
                 pendingChunks = _streaming.PendingCount,
                 materializingChunks = _streaming.MaterializingCount,
                 presentedChunks = _presentations.Count,
+                archivedChunks = _world.ArchivedChunkCount,
+                dirtyChunks = _world.DirtyChunkCount,
                 blocks = _blocks.AuthoredCount,
                 textures = _terrainTextures.TextureCount,
                 meshletsPerChunk = ChunkMeshletMask.Count,
@@ -367,7 +369,19 @@ public partial class Main : Node3D
                 continue;
             }
 
-            if (_world.ContainsChunk(coord))
+            var restore =
+                _world.RestoreChunk(coord);
+
+            if (restore == ChunkRestoreResult.Restored)
+            {
+                ActivateResidentChunk(
+                    coord,
+                    source: "archive",
+                    workerMilliseconds: 0.0);
+                continue;
+            }
+
+            if (restore == ChunkRestoreResult.AlreadyResident)
             {
                 continue;
             }
@@ -376,13 +390,10 @@ public partial class Main : Node3D
                 coord,
                 result.Chunk);
 
-            _streaming.EnqueuePresentation(coord);
-            EnqueueChunkLightingReconciliation(coord);
-
-            GD.Print(
-                $"chunk.resident coord={coord} " +
-                $"worker_ms={result.WorkerMilliseconds:F2} " +
-                $"resident={_world.ChunkCount}");
+            ActivateResidentChunk(
+                coord,
+                source: "provider",
+                workerMilliseconds: result.WorkerMilliseconds);
         }
 
         if (processed > 0)
@@ -423,6 +434,27 @@ public partial class Main : Node3D
             }
 
             var selected = coord.Value;
+
+            var restore =
+                _world.RestoreChunk(selected);
+
+            if (restore == ChunkRestoreResult.Restored)
+            {
+                ActivateResidentChunk(
+                    selected,
+                    source: "archive",
+                    workerMilliseconds: 0.0);
+                _streaming.SyncResidentState(
+                    _world.LoadedChunkCoords,
+                    _presentations.Keys);
+                continue;
+            }
+
+            if (restore == ChunkRestoreResult.AlreadyResident)
+            {
+                continue;
+            }
+
             _streaming.MarkMaterializing(selected);
 
             _materializationTasks.Add(
@@ -451,6 +483,22 @@ public partial class Main : Node3D
 
             dispatched++;
         }
+    }
+
+    private void ActivateResidentChunk(
+        ChunkCoord coord,
+        string source,
+        double workerMilliseconds)
+    {
+        _streaming.EnqueuePresentation(coord);
+        EnqueueChunkLightingReconciliation(coord);
+
+        GD.Print(
+            $"chunk.resident coord={coord} " +
+            $"source={source} " +
+            $"worker_ms={workerMilliseconds:F2} " +
+            $"resident={_world.ChunkCount} " +
+            $"archived={_world.ArchivedChunkCount}");
     }
 
     private void PublishPendingPresentations()
@@ -579,9 +627,11 @@ public partial class Main : Node3D
 
             _worldUpdates.RemoveMeshChunk(coord.Value);
 
-            if (_world.TryRemoveChunk(
-                    coord.Value,
-                    out _))
+            var archiveResult =
+                _world.ArchiveChunk(coord.Value);
+
+            if (archiveResult !=
+                ChunkArchiveResult.NotResident)
             {
                 foreach (var (neighbor, meshlets) in
                          ChunkTopologyFrontier
@@ -606,7 +656,9 @@ public partial class Main : Node3D
 
             GD.Print(
                 $"chunk.unload coord={coord.Value} " +
+                $"archive={archiveResult} " +
                 $"resident={_world.ChunkCount} " +
+                $"archived={_world.ArchivedChunkCount} " +
                 $"presented={_presentations.Count}");
         }
     }

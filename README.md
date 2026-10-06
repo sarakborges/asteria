@@ -12,6 +12,7 @@ The current milestone proves the base runtime architecture without introducing w
 - 16×16×16 chunks with palette-backed voxel storage;
 - multi-chunk `VoxelWorld` runtime with world-space reads/writes across chunk boundaries;
 - player-centered chunk streaming with desired/retained residency, async deterministic QA materialization, prioritized load queues and visibility hysteresis;
+- zero-copy in-memory session archive for edited chunks: eviction moves dirty chunks out of residency and restore happens before provider materialization; pristine deterministic chunks are dropped and regenerated instead of consuming archive memory;
 - adaptive world-work budgets modeled after Mineclone: roughly 2 ms under frame pressure, 3 ms at normal cadence and 4 ms when frames are fast;
 - 8³ chunk meshlets with dirty-halo remesh masks and revision-stale async work rejection;
 - incremental cross-chunk voxel lighting after edits: edited voxels seed a deduplicated propagation frontier instead of relighting every resident chunk;
@@ -26,7 +27,7 @@ The current milestone proves the base runtime architecture without introducing w
 - HTML/CSS/TypeScript WebUI embedded over the game through Godot WRY;
 - bidirectional JSON bridge between C# and the WebUI.
 
-Visible terrain now comes from a temporary deterministic chunk provider used by the streaming runtime. It materializes QA chunks on demand around the player and is deliberately not a world-generation API. Chunks outside the desired radius are retained for a hysteresis/cache margin before authoritative residency is removed.
+Visible terrain now comes from a temporary deterministic chunk provider used by the streaming runtime. It materializes QA chunks on demand around the player and is deliberately not a world-generation API. Chunks outside the desired radius are retained for a hysteresis/cache margin before authoritative residency is removed. Edited chunks are then archived in memory and restored before provider fallback, so break/place survives unload/reload during the current session. This is not save-game persistence and writes nothing to disk.
 
 ### Block content
 
