@@ -11,10 +11,12 @@ public sealed class BlockDefinition
         IEnumerable<string>? tags = null,
         BlockTint tint = BlockTint.None,
         BlockTextureSet? textures = null,
+        BlockVisualDefinition? visual = null,
         BlockTextureRotations rotateTexture = default,
         BlockMiningDefinition? mining = null,
         BlockShapeDefinition? shape = null,
         IEnumerable<BlockOrientation>? orientations = null,
+        IEnumerable<BlockFace>? placementFaces = null,
         BlockVariantDefinition? variant = null,
         bool isCollidable = true,
         BlockRenderMode renderMode = BlockRenderMode.Opaque,
@@ -48,10 +50,16 @@ public sealed class BlockDefinition
         _tags = ValidateTags(tags);
         Tint = tint;
         Textures = textures ?? new BlockTextureSet();
+        Visual =
+            visual ??
+            BlockVisualDefinition.Geometry;
         RotateTexture = rotateTexture;
         Mining = mining ?? new BlockMiningDefinition();
         Shape = shape ?? BlockShapeDefinition.Cube;
         Orientations = allowedOrientations;
+        PlacementFaces =
+            FreezePlacementFaces(
+                placementFaces);
         Variant = variant;
         IsCollidable = isCollidable;
         RenderMode = renderMode;
@@ -67,10 +75,12 @@ public sealed class BlockDefinition
     public IReadOnlySet<string> Tags => _tags;
     public BlockTint Tint { get; }
     public BlockTextureSet Textures { get; }
+    public BlockVisualDefinition Visual { get; }
     public BlockTextureRotations RotateTexture { get; }
     public BlockMiningDefinition Mining { get; }
     public BlockShapeDefinition Shape { get; }
     public IReadOnlyList<BlockOrientation> Orientations { get; }
+    public IReadOnlySet<BlockFace> PlacementFaces { get; }
     public BlockVariantDefinition? Variant { get; }
     public bool IsCollidable { get; }
     public BlockRenderMode RenderMode { get; }
@@ -86,6 +96,10 @@ public sealed class BlockDefinition
 
     public bool HasTag(string tag) => _tags.Contains(tag);
 
+    public bool SupportsPlacementFace(
+        BlockFace face) =>
+        PlacementFaces.Contains(face);
+
     internal static BlockDefinition Air { get; } = new(
         "asteria:air",
         category: "runtime",
@@ -95,6 +109,25 @@ public sealed class BlockDefinition
         lightDampening: 0,
         previewColor: new BlockPreviewColor(0, 0, 0),
         dropsSelf: false);
+
+    private static IReadOnlySet<BlockFace> FreezePlacementFaces(
+        IEnumerable<BlockFace>? placementFaces)
+    {
+        var result =
+            placementFaces is null
+                ? Enum.GetValues<BlockFace>()
+                    .ToHashSet()
+                : placementFaces.ToHashSet();
+
+        if (result.Count == 0)
+        {
+            throw new ArgumentException(
+                "Block placement faces cannot be empty.",
+                nameof(placementFaces));
+        }
+
+        return result;
+    }
 
     private static HashSet<string> ValidateTags(IEnumerable<string>? tags)
     {
