@@ -563,6 +563,9 @@ public static class ChunkMeshDataBuilder
         var halfWidth =
             visual.Width * 0.5f;
 
+        Span<Vector3> positions =
+            stackalloc Vector3[4];
+
         for (var plane = 0;
              plane < visual.Planes;
              plane++)
@@ -577,26 +580,26 @@ public static class ChunkMeshDataBuilder
             var offsetZ =
                 MathF.Sin(angle) *
                 halfWidth;
-            Span<Vector3> positions =
-                stackalloc Vector3[4]
-                {
-                    new(
-                        centerX - offsetX,
-                        bottomY,
-                        centerZ - offsetZ),
-                    new(
-                        centerX - offsetX,
-                        topY,
-                        centerZ - offsetZ),
-                    new(
-                        centerX + offsetX,
-                        topY,
-                        centerZ + offsetZ),
-                    new(
-                        centerX + offsetX,
-                        bottomY,
-                        centerZ + offsetZ),
-                };
+            positions[0] =
+                new Vector3(
+                    centerX - offsetX,
+                    bottomY,
+                    centerZ - offsetZ);
+            positions[1] =
+                new Vector3(
+                    centerX - offsetX,
+                    topY,
+                    centerZ - offsetZ);
+            positions[2] =
+                new Vector3(
+                    centerX + offsetX,
+                    topY,
+                    centerZ + offsetZ);
+            positions[3] =
+                new Vector3(
+                    centerX + offsetX,
+                    bottomY,
+                    centerZ + offsetZ);
 
             EmitSpriteSide(
                 surface,
