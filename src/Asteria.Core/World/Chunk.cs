@@ -7,6 +7,7 @@ public sealed class Chunk
     public const int Volume = Area * Size;
 
     private readonly PaletteStorage<VoxelCell> _cells = new();
+    private readonly PaletteStorage<FluidCell> _fluids = new();
     private readonly MicroblockMaskPalette _microblockMasks = new();
     private readonly VoxelLight[] _light = new VoxelLight[Volume];
 
@@ -16,9 +17,15 @@ public sealed class Chunk
 
     public int PaletteEntryCount => _cells.ActivePaletteEntryCount;
 
+    public int FluidCount => _fluids.OccupiedCount;
+
+    public int FluidPaletteEntryCount => _fluids.ActivePaletteEntryCount;
+
     public int MicroblockMaskCount => _microblockMasks.Count;
 
-    public bool IsEmpty => NonEmptyVoxelCount == 0;
+    public bool IsEmpty =>
+        NonEmptyVoxelCount == 0 &&
+        FluidCount == 0;
 
     public VoxelCell GetCell(int x, int y, int z)
     {
@@ -53,6 +60,64 @@ public sealed class Chunk
     public bool SetBlock(int x, int y, int z, BlockRuntimeId block) =>
         SetCell(x, y, z, new VoxelCell(block));
 
+    public FluidCell GetFluid(int x, int y, int z)
+    {
+        ValidateCoordinates(x, y, z);
+        return _fluids.Get(ToIndex(x, y, z));
+    }
+
+    public FluidCell GetFluidOrEmpty(int x, int y, int z)
+    {
+        if (!Contains(x, y, z))
+        {
+            return FluidCell.Empty;
+        }
+
+        return _fluids.Get(ToIndex(x, y, z));
+    }
+
+    public bool SetFluid(
+        int x,
+        int y,
+        int z,
+        FluidCell fluid)
+    {
+        ValidateCoordinates(x, y, z);
+
+        if (!_fluids.Set(
+                ToIndex(x, y, z),
+                fluid))
+        {
+            return false;
+        }
+
+        Revision++;
+        return true;
+    }
+
+    public void VisitFluidCells(
+        Action<int, int, int, FluidCell> visit)
+    {
+        ArgumentNullException.ThrowIfNull(visit);
+
+        for (var y = 0; y < Size; y++)
+        {
+            for (var z = 0; z < Size; z++)
+            {
+                for (var x = 0; x < Size; x++)
+                {
+                    var fluid =
+                        GetFluid(x, y, z);
+
+                    if (!fluid.IsEmpty)
+                    {
+                        visit(x, y, z, fluid);
+                    }
+                }
+            }
+        }
+    }
+
     public VoxelLight GetLight(int x, int y, int z)
     {
         ValidateCoordinates(x, y, z);
@@ -81,6 +146,17 @@ public sealed class Chunk
                 for (var x = 0; x < Size; x++)
                 {
                     var cell = GetCell(x, y, z);
+                    var fluid = GetFluid(x, y, z);
+
+                    if (!fluid.IsEmpty)
+                    {
+                        clone.SetFluid(
+                            x,
+                            y,
+                            z,
+                            fluid);
+                    }
+
                     if (cell.IsEmpty)
                     {
                         continue;

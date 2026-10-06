@@ -20,10 +20,15 @@ public partial class Main : Node3D
     private const int MaxMaterializationResultsPerFrame = 8;
     private const int MaxPresentationPublicationsPerFrame = 4;
     private const int MaxMeshletPublishesPerFrame = 4;
+    private const int MaxFluidMeshletPublishesPerFrame = 4;
+    private const int MaxFluidUpdatesPerWorker = 512;
     private const int MaxChunkEvictionsPerFrame = 2;
 
     private readonly WorldUpdateQueue _worldUpdates = new();
+    private readonly FluidUpdateQueue _fluidUpdates = new();
+    private readonly FluidMeshUpdateQueue _fluidMeshUpdates = new();
     private readonly MeshletContentRevisions _contentRevisions = new();
+    private readonly MeshletContentRevisions _fluidContentRevisions = new();
     private readonly ChunkStreamingState _streaming = new();
     private readonly ChunkPresentationSelection _presentationSelection = new();
     private readonly Dictionary<ChunkCoord, ChunkPresentation>
@@ -32,18 +37,24 @@ public partial class Main : Node3D
         _materializationTasks = [];
     private readonly Queue<MeshletPublication>
         _pendingMeshletPublications = new();
+    private readonly Queue<FluidMeshletPublication>
+        _pendingFluidMeshletPublications = new();
 
     private readonly VoxelWorld _world = new();
 
     private Task<MeshUpdateBuild>? _meshTask;
+    private Task<FluidMeshUpdateBuild>? _fluidMeshTask;
+    private Task<FluidSimulationBuild>? _fluidTask;
     private Task<LightingUpdateBuild>? _lightingTask;
 
     private BlockRegistry _blocks = null!;
+    private FluidRegistry _fluids = null!;
     private FpsPlayer? _player;
     private Node _webUi = null!;
     private TerrainTextureCatalog _terrainTextures = null!;
     private TerrainTextureLookup _terrainTextureLookup = null!;
     private VoxelTerrainMaterialSet _terrainMaterials = null!;
+    private FluidMaterialCatalog _fluidMaterials = null!;
     private BlockRuntimeId _placementBlock;
 
     private ChunkCoord _streamingCenter;
@@ -56,15 +67,19 @@ public partial class Main : Node3D
         SetupWebUi();
 
         _blocks = BlockContentLoader.LoadProjectBlocks();
+        _fluids = FluidContentLoader.LoadProjectFluids();
         _terrainTextures = TerrainTextureCatalog.Create(_blocks);
         _terrainTextureLookup = _terrainTextures.CreateLookup();
         _terrainMaterials = VoxelTerrainMaterialSet.Create(_terrainTextures);
+        _fluidMaterials = FluidMaterialCatalog.Create(_fluids);
         _placementBlock =
             _blocks.GetId(TestChunkFactory.StoneId);
 
         GD.Print(
             $"block content: loaded {_blocks.AuthoredCount} definitions, " +
             $"{_terrainTextures.TextureCount} terrain textures");
+        GD.Print(
+            $"fluid content: loaded {_fluids.AuthoredCount} definitions");
         GD.Print(
             $"streaming: render_distance={RenderDistanceChunks} " +
             $"retention_margin={RetentionMarginChunks} " +
@@ -87,11 +102,17 @@ public partial class Main : Node3D
         DispatchMaterializationTasks();
         PublishPendingPresentations();
 
+        PollFluidTask();
+        PollFluidMeshTask();
+        IntegrateFluidMeshletPublications();
+
         PollMeshTask();
         IntegrateMeshletPublications();
 
         PollLightingTask();
 
+        TryStartFluidTask();
+        TryStartFluidMeshTask();
         TryStartMeshTask();
         TryStartLightingTask();
 
@@ -197,6 +218,8 @@ public partial class Main : Node3D
                 archivedChunks = _world.ArchivedChunkCount,
                 dirtyChunks = _world.DirtyChunkCount,
                 blocks = _blocks.AuthoredCount,
+                fluids = _fluids.AuthoredCount,
+                fluidUpdates = _fluidUpdates.Count,
                 textures = _terrainTextures.TextureCount,
                 meshletsPerChunk = ChunkMeshletMask.Count,
             });
@@ -465,6 +488,7 @@ public partial class Main : Node3D
                     var chunk =
                         DeterministicChunkProvider.Materialize(
                             _blocks,
+                            _fluids,
                             selected);
 
                     // Provisional local light prevents a newly resident chunk
@@ -492,6 +516,7 @@ public partial class Main : Node3D
     {
         _streaming.EnqueuePresentation(coord);
         EnqueueChunkLightingReconciliation(coord);
+        EnqueueResidentChunkFluids(coord);
 
         GD.Print(
             $"chunk.resident coord={coord} " +
@@ -543,6 +568,9 @@ public partial class Main : Node3D
             _worldUpdates.EnqueueMeshlets(
                 coord.Value,
                 ChunkMeshletMask.All);
+            _fluidMeshUpdates.EnqueueMeshlets(
+                coord.Value,
+                ChunkMeshletMask.All);
 
             foreach (var (neighbor, meshlets) in
                      ChunkTopologyFrontier
@@ -554,6 +582,13 @@ public partial class Main : Node3D
                     neighbor,
                     meshlets);
                 _worldUpdates.EnqueueMeshlets(
+                    neighbor,
+                    meshlets);
+
+                _fluidContentRevisions.Bump(
+                    neighbor,
+                    meshlets);
+                _fluidMeshUpdates.EnqueueMeshlets(
                     neighbor,
                     meshlets);
             }
@@ -626,6 +661,7 @@ public partial class Main : Node3D
             }
 
             _worldUpdates.RemoveMeshChunk(coord.Value);
+            _fluidMeshUpdates.RemoveChunk(coord.Value);
 
             var archiveResult =
                 _world.ArchiveChunk(coord.Value);
@@ -643,6 +679,13 @@ public partial class Main : Node3D
                         neighbor,
                         meshlets);
                     _worldUpdates.EnqueueMeshlets(
+                        neighbor,
+                        meshlets);
+
+                    _fluidContentRevisions.Bump(
+                        neighbor,
+                        meshlets);
+                    _fluidMeshUpdates.EnqueueMeshlets(
                         neighbor,
                         meshlets);
                 }
@@ -674,6 +717,32 @@ public partial class Main : Node3D
                 _worldUpdates.EnqueueLighting(position);
             }
         }
+    }
+
+    private void EnqueueResidentChunkFluids(
+        ChunkCoord coord)
+    {
+        if (!_world.TryGetChunk(
+                coord,
+                out var chunk))
+        {
+            return;
+        }
+
+        var (originX, originY, originZ) =
+            VoxelCoordinates.ChunkOrigin(coord);
+
+        chunk.VisitFluidCells(
+            (x, y, z, _) =>
+            {
+                var position =
+                    new WorldVoxelCoord(
+                        originX + x,
+                        originY + y,
+                        originZ + z);
+                _fluidUpdates.EnqueueNeighborhood(
+                    position);
+            });
     }
 
     private void BreakTargetBlock()
@@ -748,7 +817,10 @@ public partial class Main : Node3D
         _worldUpdates.EnqueueVoxelEdit(
             _world,
             position);
+        _fluidUpdates.EnqueueNeighborhood(
+            position);
 
+        TryStartFluidTask();
         TryStartMeshTask();
         TryStartLightingTask();
     }
@@ -791,6 +863,346 @@ public partial class Main : Node3D
             hit.Value.NormalX,
             hit.Value.NormalY,
             hit.Value.NormalZ);
+        return true;
+    }
+
+    private void TryStartFluidTask()
+    {
+        if (_fluidTask is not null ||
+            !_fluidUpdates.HasWork)
+        {
+            return;
+        }
+
+        var batch = _fluidUpdates.Drain();
+        if (batch.IsEmpty)
+        {
+            return;
+        }
+
+        var snapshot =
+            _world.CloneFluidNeighborhood(
+                batch.Positions);
+        var revisions =
+            CaptureChunkRevisions(
+                snapshot.LoadedChunkCoords);
+        var fluids = _fluids;
+
+        _fluidTask = Task.Run(() =>
+        {
+            var stopwatch = Stopwatch.StartNew();
+            var simulation =
+                FluidSimulationSolver.Process(
+                    snapshot,
+                    fluids,
+                    batch.Positions,
+                    MaxFluidUpdatesPerWorker);
+            stopwatch.Stop();
+
+            return new FluidSimulationBuild(
+                batch,
+                revisions,
+                simulation,
+                stopwatch.Elapsed.TotalMilliseconds);
+        });
+    }
+
+    private void PollFluidTask()
+    {
+        if (_fluidTask is null ||
+            !_fluidTask.IsCompleted)
+        {
+            return;
+        }
+
+        if (_fluidTask.IsFaulted)
+        {
+            GD.PushError(
+                _fluidTask.Exception?.ToString() ??
+                "Fluid simulation task failed.");
+            _fluidTask = null;
+            return;
+        }
+
+        var result = _fluidTask.Result;
+        _fluidTask = null;
+
+        if (!ChunkRevisionsAreCurrent(
+                result.ChunkRevisions))
+        {
+            _fluidUpdates.Requeue(
+                result.SourceBatch.Positions);
+            _fluidUpdates.Requeue(
+                result.Simulation.RemainingPositions);
+            TryStartFluidTask();
+            return;
+        }
+
+        var applied = 0;
+
+        foreach (var change in
+                 result.Simulation.Changes)
+        {
+            if (!_world.IsLoadedAt(
+                    change.Position))
+            {
+                continue;
+            }
+
+            if (!_world.SetFluidAt(
+                    change.Position,
+                    change.Fluid,
+                    out _))
+            {
+                continue;
+            }
+
+            _fluidContentRevisions.BumpVoxelEdit(
+                _world,
+                change.Position);
+            _fluidMeshUpdates.EnqueueVoxelEdit(
+                _world,
+                change.Position);
+            applied++;
+        }
+
+        _fluidUpdates.Requeue(
+            result.Simulation.RemainingPositions);
+
+        GD.Print(
+            $"world.fluid worker_ms=" +
+            $"{result.WorkerMilliseconds:F2} " +
+            $"processed=" +
+            $"{result.Simulation.ProcessedVoxelCount} " +
+            $"changes={applied} " +
+            $"remaining=" +
+            $"{result.Simulation.RemainingPositions.Count}");
+
+        TryStartFluidTask();
+        TryStartFluidMeshTask();
+    }
+
+    private void TryStartFluidMeshTask()
+    {
+        if (_fluidMeshTask is not null ||
+            !_fluidMeshUpdates.HasWork)
+        {
+            return;
+        }
+
+        var drained =
+            _fluidMeshUpdates.Drain();
+
+        if (drained.IsEmpty)
+        {
+            return;
+        }
+
+        var filtered =
+            drained.DirtyMeshlets
+                .Where(entry =>
+                    _presentations.ContainsKey(entry.Key) &&
+                    _world.ContainsChunk(entry.Key))
+                .ToDictionary(
+                    entry => entry.Key,
+                    entry => entry.Value);
+
+        if (filtered.Count == 0)
+        {
+            return;
+        }
+
+        var batch =
+            new WorldMeshBatch(filtered);
+        var snapshot =
+            _world.CloneMeshNeighborhood(
+                batch.DirtyMeshlets.Keys);
+        var revisions =
+            _fluidContentRevisions.Capture(
+                batch.DirtyMeshlets);
+        var blocks = _blocks;
+        var fluids = _fluids;
+
+        _fluidMeshTask = Task.Run(() =>
+        {
+            var stopwatch = Stopwatch.StartNew();
+            var meshlets =
+                BuildFluidMeshlets(
+                    snapshot,
+                    blocks,
+                    fluids,
+                    batch.DirtyMeshlets);
+            stopwatch.Stop();
+
+            return new FluidMeshUpdateBuild(
+                batch,
+                revisions,
+                meshlets,
+                stopwatch.Elapsed.TotalMilliseconds);
+        });
+    }
+
+    private void PollFluidMeshTask()
+    {
+        if (_fluidMeshTask is null ||
+            !_fluidMeshTask.IsCompleted)
+        {
+            return;
+        }
+
+        if (_fluidMeshTask.IsFaulted)
+        {
+            GD.PushError(
+                _fluidMeshTask.Exception?.ToString() ??
+                "Fluid meshlet task failed.");
+            _fluidMeshTask = null;
+            return;
+        }
+
+        var result = _fluidMeshTask.Result;
+        _fluidMeshTask = null;
+        var accepted = 0;
+        var stale = 0;
+
+        foreach (var meshlet in result.Meshlets)
+        {
+            if (!_world.ContainsChunk(
+                    meshlet.Coord) ||
+                !_presentations.ContainsKey(
+                    meshlet.Coord))
+            {
+                continue;
+            }
+
+            var key =
+                new ChunkMeshletKey(
+                    meshlet.Coord,
+                    meshlet.MeshletIndex);
+            var revision =
+                result.ContentRevisions[key];
+
+            if (_fluidContentRevisions.IsCurrent(
+                    key,
+                    revision))
+            {
+                _pendingFluidMeshletPublications.Enqueue(
+                    new FluidMeshletPublication(
+                        meshlet,
+                        revision));
+                accepted++;
+            }
+            else
+            {
+                _fluidMeshUpdates.EnqueueMeshlets(
+                    meshlet.Coord,
+                    ChunkMeshletMask.Single(
+                        meshlet.MeshletIndex));
+                stale++;
+            }
+        }
+
+        GD.Print(
+            $"world.fluid_mesh worker_ms=" +
+            $"{result.WorkerMilliseconds:F2} " +
+            $"accepted={accepted} stale={stale}");
+
+        TryStartFluidMeshTask();
+    }
+
+    private void IntegrateFluidMeshletPublications()
+    {
+        var published = 0;
+        var stale = 0;
+
+        while (published + stale <
+                   MaxFluidMeshletPublishesPerFrame &&
+               _pendingFluidMeshletPublications.Count > 0)
+        {
+            if (published + stale > 0 &&
+                WorldBudgetExhausted())
+            {
+                break;
+            }
+
+            var pending =
+                _pendingFluidMeshletPublications.Dequeue();
+            var key =
+                new ChunkMeshletKey(
+                    pending.Meshlet.Coord,
+                    pending.Meshlet.MeshletIndex);
+
+            if (!_world.ContainsChunk(
+                    pending.Meshlet.Coord) ||
+                !_presentations.TryGetValue(
+                    pending.Meshlet.Coord,
+                    out var presentation))
+            {
+                continue;
+            }
+
+            if (!_fluidContentRevisions.IsCurrent(
+                    key,
+                    pending.ContentRevision))
+            {
+                _fluidMeshUpdates.EnqueueMeshlets(
+                    pending.Meshlet.Coord,
+                    ChunkMeshletMask.Single(
+                        pending.Meshlet.MeshletIndex));
+                stale++;
+                continue;
+            }
+
+            presentation.ApplyFluid(
+                pending.Meshlet.MeshletIndex,
+                pending.Meshlet.Data,
+                _fluidMaterials);
+            published++;
+        }
+
+        if (published > 0 || stale > 0)
+        {
+            GD.Print(
+                $"world.fluid_meshlets published={published} " +
+                $"stale={stale} " +
+                $"remaining=" +
+                $"{_pendingFluidMeshletPublications.Count}");
+        }
+    }
+
+    private Dictionary<ChunkCoord, ulong> CaptureChunkRevisions(
+        IEnumerable<ChunkCoord> coordinates)
+    {
+        var revisions =
+            new Dictionary<ChunkCoord, ulong>();
+
+        foreach (var coord in coordinates)
+        {
+            if (_world.TryGetChunk(
+                    coord,
+                    out var chunk))
+            {
+                revisions[coord] =
+                    chunk.Revision;
+            }
+        }
+
+        return revisions;
+    }
+
+    private bool ChunkRevisionsAreCurrent(
+        IReadOnlyDictionary<ChunkCoord, ulong> revisions)
+    {
+        foreach (var (coord, revision) in revisions)
+        {
+            if (!_world.TryGetChunk(
+                    coord,
+                    out var chunk) ||
+                chunk.Revision != revision)
+            {
+                return false;
+            }
+        }
+
         return true;
     }
 
@@ -1069,6 +1481,44 @@ public partial class Main : Node3D
         }
     }
 
+    private static List<FluidMeshletBuild> BuildFluidMeshlets(
+        VoxelWorld world,
+        BlockRegistry blocks,
+        FluidRegistry fluids,
+        IReadOnlyDictionary<ChunkCoord, ChunkMeshletMask> dirty)
+    {
+        var result =
+            new List<FluidMeshletBuild>();
+
+        foreach (var (coord, mask) in dirty
+                     .OrderBy(entry => entry.Key.Y)
+                     .ThenBy(entry => entry.Key.Z)
+                     .ThenBy(entry => entry.Key.X))
+        {
+            if (!world.ContainsChunk(coord))
+            {
+                continue;
+            }
+
+            foreach (var meshletIndex in
+                     mask.Indices())
+            {
+                result.Add(
+                    new FluidMeshletBuild(
+                        coord,
+                        meshletIndex,
+                        FluidMeshDataBuilder.BuildMeshlet(
+                            world,
+                            coord,
+                            blocks,
+                            fluids,
+                            meshletIndex)));
+            }
+        }
+
+        return result;
+    }
+
     private static List<MeshletBuild> BuildMeshlets(
         VoxelWorld world,
         BlockRegistry blocks,
@@ -1140,6 +1590,29 @@ public partial class Main : Node3D
     private sealed record MeshletPublication(
         MeshletBuild Meshlet,
         ulong ContentRevision);
+
+    private sealed record FluidMeshletBuild(
+        ChunkCoord Coord,
+        int MeshletIndex,
+        ChunkFluidMeshData Data);
+
+    private sealed record FluidMeshletPublication(
+        FluidMeshletBuild Meshlet,
+        ulong ContentRevision);
+
+    private sealed record FluidMeshUpdateBuild(
+        WorldMeshBatch SourceBatch,
+        IReadOnlyDictionary<ChunkMeshletKey, ulong>
+            ContentRevisions,
+        IReadOnlyList<FluidMeshletBuild> Meshlets,
+        double WorkerMilliseconds);
+
+    private sealed record FluidSimulationBuild(
+        FluidUpdateBatch SourceBatch,
+        IReadOnlyDictionary<ChunkCoord, ulong>
+            ChunkRevisions,
+        FluidSimulationResult Simulation,
+        double WorkerMilliseconds);
 
     private sealed record MeshUpdateBuild(
         WorldMeshBatch SourceBatch,

@@ -4,6 +4,15 @@ public static class DeterministicChunkProvider
 {
     public static Chunk Materialize(
         BlockRegistry blocks,
+        ChunkCoord coord) =>
+        Materialize(
+            blocks,
+            fluids: null,
+            coord);
+
+    public static Chunk Materialize(
+        BlockRegistry blocks,
+        FluidRegistry? fluids,
         ChunkCoord coord)
     {
         ArgumentNullException.ThrowIfNull(blocks);
@@ -78,7 +87,41 @@ public static class DeterministicChunkProvider
             coord,
             stone);
 
+        if (fluids is not null)
+        {
+            PlaceQaFluid(
+                chunk,
+                fluids,
+                coord);
+        }
+
         return chunk;
+    }
+
+    private static void PlaceQaFluid(
+        Chunk chunk,
+        FluidRegistry fluids,
+        ChunkCoord coord)
+    {
+        var sourcePosition =
+            new WorldVoxelCoord(0, 14, 0);
+        var address =
+            VoxelCoordinates.FromWorld(
+                sourcePosition.X,
+                sourcePosition.Y,
+                sourcePosition.Z);
+
+        if (address.Chunk != coord)
+        {
+            return;
+        }
+
+        chunk.SetFluid(
+            address.Local.X,
+            address.Local.Y,
+            address.Local.Z,
+            FluidCell.Source(
+                fluids.GetId("asteria:water")));
     }
 
     private static void PlaceQaContent(

@@ -7,6 +7,8 @@ public sealed class ChunkPresentation
 {
     private readonly MeshInstance3D[] _meshes =
         new MeshInstance3D[ChunkMeshletMask.Count];
+    private readonly MeshInstance3D[] _fluidMeshes =
+        new MeshInstance3D[ChunkMeshletMask.Count];
     private readonly CollisionShape3D[] _collisions =
         new CollisionShape3D[ChunkMeshletMask.Count];
     private readonly bool[] _published =
@@ -42,14 +44,20 @@ public sealed class ChunkPresentation
             {
                 Name = $"Meshlet_{index}",
             };
+            var fluidMesh = new MeshInstance3D
+            {
+                Name = $"FluidMeshlet_{index}",
+            };
             var collision = new CollisionShape3D
             {
                 Name = $"Meshlet_{index}",
             };
 
             _meshes[index] = mesh;
+            _fluidMeshes[index] = fluidMesh;
             _collisions[index] = collision;
             Root.AddChild(mesh);
+            Root.AddChild(fluidMesh);
             collisionBody.AddChild(collision);
         }
     }
@@ -71,6 +79,19 @@ public sealed class ChunkPresentation
     public void Retire()
     {
         Root.QueueFree();
+    }
+
+    public void ApplyFluid(
+        int meshletIndex,
+        ChunkFluidMeshData data,
+        FluidMaterialCatalog materials)
+    {
+        _fluidMeshes[meshletIndex].Mesh =
+            data.HasGeometry
+                ? ChunkFluidMeshBuilder.CreateMesh(
+                    data,
+                    materials)
+                : null;
     }
 
     public void Apply(

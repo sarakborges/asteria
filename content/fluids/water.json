@@ -1,0 +1,9 @@
+{
+  "id": "asteria:water",
+  "color": "4f9fd6",
+  "opacity": 0.72,
+  "roughness": 0.15,
+  "lightDampening": 1,
+  "spreadSpeed": 5.0,
+  "maxSpread": 7
+}

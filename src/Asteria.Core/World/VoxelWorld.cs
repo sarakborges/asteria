@@ -16,6 +16,14 @@ public readonly record struct VoxelWorldEdit(
     VoxelCell Current,
     ulong WorldRevision);
 
+public readonly record struct FluidWorldEdit(
+    WorldVoxelCoord Position,
+    ChunkCoord Chunk,
+    LocalVoxelCoord Local,
+    FluidCell Previous,
+    FluidCell Current,
+    ulong WorldRevision);
+
 public sealed class VoxelWorld
 {
     private readonly Dictionary<ChunkCoord, Chunk> _chunks = [];
@@ -125,6 +133,36 @@ public sealed class VoxelWorld
             ? cell
             : VoxelCell.Empty;
 
+    public bool TryGetFluid(
+        WorldVoxelCoord position,
+        out FluidCell fluid)
+    {
+        var address = VoxelCoordinates.FromWorld(
+            position.X,
+            position.Y,
+            position.Z);
+
+        if (!_chunks.TryGetValue(
+                address.Chunk,
+                out var chunk))
+        {
+            fluid = FluidCell.Empty;
+            return false;
+        }
+
+        fluid = chunk.GetFluid(
+            address.Local.X,
+            address.Local.Y,
+            address.Local.Z);
+        return true;
+    }
+
+    public FluidCell GetFluidOrEmpty(
+        WorldVoxelCoord position) =>
+        TryGetFluid(position, out var fluid)
+            ? fluid
+            : FluidCell.Empty;
+
     public VoxelLight GetLightOrDark(WorldVoxelCoord position)
     {
         var address = VoxelCoordinates.FromWorld(
@@ -228,6 +266,54 @@ public sealed class VoxelWorld
         out VoxelWorldEdit edit) =>
         SetCellAt(position, new VoxelCell(block), out edit);
 
+    public bool SetFluidAt(
+        WorldVoxelCoord position,
+        FluidCell fluid,
+        out FluidWorldEdit edit)
+    {
+        var address = VoxelCoordinates.FromWorld(
+            position.X,
+            position.Y,
+            position.Z);
+
+        if (!_chunks.TryGetValue(
+                address.Chunk,
+                out var chunk))
+        {
+            edit = default;
+            return false;
+        }
+
+        var previous = chunk.GetFluid(
+            address.Local.X,
+            address.Local.Y,
+            address.Local.Z);
+
+        if (previous == fluid ||
+            !chunk.SetFluid(
+                address.Local.X,
+                address.Local.Y,
+                address.Local.Z,
+                fluid))
+        {
+            edit = default;
+            return false;
+        }
+
+        _archive.MarkDirty(address.Chunk);
+        Revision++;
+
+        edit = new FluidWorldEdit(
+            position,
+            address.Chunk,
+            address.Local,
+            previous,
+            fluid,
+            Revision);
+
+        return true;
+    }
+
     public VoxelWorld CloneForWorker() =>
         CloneForWorker(_chunks.Keys);
 
@@ -250,6 +336,36 @@ public sealed class VoxelWorld
 
         clone.Revision = Revision;
         return clone;
+    }
+
+    public VoxelWorld CloneFluidNeighborhood(
+        IEnumerable<WorldVoxelCoord> seeds)
+    {
+        ArgumentNullException.ThrowIfNull(seeds);
+
+        var centers = seeds
+            .Select(position =>
+                VoxelCoordinates.FromWorld(
+                    position.X,
+                    position.Y,
+                    position.Z).Chunk)
+            .Select(coord => (coord.X, coord.Z))
+            .Distinct()
+            .ToArray();
+
+        if (centers.Length == 0)
+        {
+            return new VoxelWorld();
+        }
+
+        var required = _chunks.Keys
+            .Where(coord =>
+                centers.Any(center =>
+                    Math.Abs(coord.X - center.X) <= 1 &&
+                    Math.Abs(coord.Z - center.Z) <= 1))
+            .ToArray();
+
+        return CloneForWorker(required);
     }
 
     public VoxelWorld CloneMeshNeighborhood(

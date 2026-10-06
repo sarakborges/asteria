@@ -17,6 +17,9 @@ The current milestone proves the base runtime architecture without introducing w
 - 8³ chunk meshlets with dirty-halo remesh masks and revision-stale async work rejection;
 - terrain render batches split by opaque/cutout/translucent + shadow policy, with collision geometry kept independent from visual surfaces;
 - greedy ordinary-cube meshing inside each 8³ meshlet for opaque/cutout faces when material, UV transform and vertex lighting are compatible; translucent faces stay independent for ordering;
+- data-driven fluid registry plus chunk-local palette fluid storage independent from blocks;
+- incremental bounded fluid simulation with source cells, 8 visual levels, vertical falling columns and authored horizontal spread distance;
+- fluid meshlets are built and published independently from terrain meshlets, using smoothed corner heights and a dedicated translucent material path;
 - incremental cross-chunk voxel lighting after edits: edited voxels seed a deduplicated propagation frontier instead of relighting every resident chunk;
 - correct world ↔ chunk/local coordinate conversion across negative coordinates;
 - cube, surface-layer, centered-layer, hollow and 8³ microblock geometry;
@@ -29,7 +32,7 @@ The current milestone proves the base runtime architecture without introducing w
 - HTML/CSS/TypeScript WebUI embedded over the game through Godot WRY;
 - bidirectional JSON bridge between C# and the WebUI.
 
-Visible terrain now comes from a temporary deterministic chunk provider used by the streaming runtime. It materializes QA chunks on demand around the player and is deliberately not a world-generation API. Chunks outside the desired radius are retained for a hysteresis/cache margin before authoritative residency is removed. Edited chunks are then archived in memory and restored before provider fallback, so break/place survives unload/reload during the current session. This is not save-game persistence and writes nothing to disk.
+Visible terrain now comes from a temporary deterministic chunk provider used by the streaming runtime. The QA provider also places one water source above the origin terrain so falling/spreading fluid behavior and translucent fluid meshing are exercised without introducing world generation. It materializes QA chunks on demand around the player and is deliberately not a world-generation API. Chunks outside the desired radius are retained for a hysteresis/cache margin before authoritative residency is removed. Edited chunks are then archived in memory and restored before provider fallback, so break/place survives unload/reload during the current session. This is not save-game persistence and writes nothing to disk.
 
 ### Block content
 
