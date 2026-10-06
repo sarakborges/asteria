@@ -14,6 +14,8 @@ public partial class Main : Node3D
 {
     private const float InteractionDistance = 6f;
     private const uint WorldTicksPerSecond = 40;
+    private const ulong WorldSeed = 0xA57E_2026UL;
+    private const string WorldDimensionId = "asteria:overworld";
     private const int RenderDistanceChunks = 4;
     private const int RetentionMarginChunks = 10;
     private const int MaxMaterializationTasksInFlight = 4;
@@ -57,6 +59,7 @@ public partial class Main : Node3D
 
     private BlockRegistry _blocks = null!;
     private FluidRegistry _fluids = null!;
+    private BiomeRegistry _biomes = null!;
     private FpsPlayer? _player;
     private Node _webUi = null!;
     private TerrainTextureCatalog _terrainTextures = null!;
@@ -78,6 +81,13 @@ public partial class Main : Node3D
 
         _blocks = BlockContentLoader.LoadProjectBlocks(_packSelection);
         _fluids = FluidContentLoader.LoadProjectFluids(_packSelection);
+        _biomes = BiomeContentLoader.LoadProjectBiomes(_packSelection);
+        var worldGenerator =
+            new BiomeWorldGenerator(
+                WorldSeed,
+                WorldDimensionId,
+                _blocks,
+                _biomes);
         var droppedBlocks =
             new DroppedBlockRuntime(
                 _world,
@@ -109,6 +119,7 @@ public partial class Main : Node3D
                 _world,
                 _blocks,
                 _fluids,
+                worldGenerator,
                 _worldUpdates,
                 lightingIntegration);
         var blockPhysics =
@@ -213,6 +224,9 @@ public partial class Main : Node3D
             $"{_terrainTextures.TextureCount} terrain textures");
         GD.Print(
             $"fluid content: loaded {_fluids.AuthoredCount} definitions");
+        GD.Print(
+            $"biome content: loaded {_biomes.Count} definitions " +
+            $"dimension={WorldDimensionId} seed={WorldSeed}");
         GD.Print(
             $"streaming: render_distance={RenderDistanceChunks} " +
             $"retention_margin={RetentionMarginChunks} " +
@@ -390,6 +404,9 @@ public partial class Main : Node3D
                 dirtyChunks = _world.DirtyChunkCount,
                 blocks = _blocks.AuthoredCount,
                 fluids = _fluids.AuthoredCount,
+                biomes = _biomes.Count,
+                worldSeed = WorldSeed,
+                dimension = WorldDimensionId,
                 fluidUpdates = _fluidUpdates.Count,
                 fluidScheduled = _fluidUpdates.ScheduledCount,
                 fluidDormantChunks = _fluidUpdates.DormantChunkCount,
