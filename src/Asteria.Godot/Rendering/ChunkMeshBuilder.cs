@@ -494,9 +494,13 @@ public static class ChunkMeshBuilder
         VoxelCell cell,
         TerrainFaceMaterial faceMaterial)
     {
-        var sourcePoint = ToSourcePoint(local, cell);
-        var uv = MacroUv(faceMaterial.SourceFace, sourcePoint);
-        uv = RotateUv(uv, cell.TextureRotation, faceMaterial.RotateTexture);
+        var uv = MacroUv(worldFace, local);
+        var uvRotation = BlockUvRotation.ForWorldFace(
+            worldFace,
+            cell.Orientation,
+            cell.TextureRotation,
+            faceMaterial.RotateTexture);
+        uv = RotateUv(uv, uvRotation);
 
         surface.SetNormal(normal);
         surface.SetColor(faceMaterial.Tint);
@@ -541,36 +545,9 @@ public static class ChunkMeshBuilder
             : ToGodotColor(definition.PreviewColor);
 
         return new TerrainFaceMaterial(
-            sourceFace,
             new Vector2(baseCode, overlayCode),
             tint,
             definition.RotateTexture.Rotates(sourceFace));
-    }
-
-    private static Vector3 ToSourcePoint(Vector3 worldPoint, VoxelCell cell)
-    {
-        var point = cell.Orientation switch
-        {
-            BlockOrientation.Y => worldPoint,
-            BlockOrientation.Z => new Vector3(
-                worldPoint.X,
-                worldPoint.Z,
-                1f - worldPoint.Y),
-            BlockOrientation.X => new Vector3(
-                1f - worldPoint.Y,
-                worldPoint.X,
-                worldPoint.Z),
-            _ => throw new ArgumentOutOfRangeException(nameof(cell.Orientation)),
-        };
-
-        return cell.Facing switch
-        {
-            HorizontalFacing.South => point,
-            HorizontalFacing.East => new Vector3(1f - point.Z, point.Y, point.X),
-            HorizontalFacing.North => new Vector3(1f - point.X, point.Y, 1f - point.Z),
-            HorizontalFacing.West => new Vector3(point.Z, point.Y, 1f - point.X),
-            _ => throw new ArgumentOutOfRangeException(nameof(cell.Facing)),
-        };
     }
 
     private static Vector2 MacroUv(BlockFace face, Vector3 point) => face switch
@@ -586,23 +563,14 @@ public static class ChunkMeshBuilder
 
     private static Vector2 RotateUv(
         Vector2 uv,
-        TextureRotation rotation,
-        bool enabled)
+        TextureRotation rotation) => rotation switch
     {
-        if (!enabled)
-        {
-            return uv;
-        }
-
-        return rotation switch
-        {
-            TextureRotation.Degrees0 => uv,
-            TextureRotation.Degrees90 => new Vector2(1f - uv.Y, uv.X),
-            TextureRotation.Degrees180 => new Vector2(1f - uv.X, 1f - uv.Y),
-            TextureRotation.Degrees270 => new Vector2(uv.Y, 1f - uv.X),
-            _ => throw new ArgumentOutOfRangeException(nameof(rotation)),
-        };
-    }
+        TextureRotation.Degrees0 => uv,
+        TextureRotation.Degrees90 => new Vector2(1f - uv.Y, uv.X),
+        TextureRotation.Degrees180 => new Vector2(1f - uv.X, 1f - uv.Y),
+        TextureRotation.Degrees270 => new Vector2(uv.Y, 1f - uv.X),
+        _ => throw new ArgumentOutOfRangeException(nameof(rotation)),
+    };
 
     private static (int X, int Y, int Z) FinePosition(
         BlockFace face,
@@ -653,7 +621,6 @@ public static class ChunkMeshBuilder
         new(color.Red / 255f, color.Green / 255f, color.Blue / 255f, 1f);
 
     private readonly record struct TerrainFaceMaterial(
-        BlockFace SourceFace,
         Vector2 EncodedLayers,
         Color Tint,
         bool RotateTexture);
