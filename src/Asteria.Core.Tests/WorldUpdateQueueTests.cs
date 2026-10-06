@@ -1,0 +1,86 @@
+using Asteria.Core.World;
+
+namespace Asteria.Core.Tests;
+
+public sealed class WorldUpdateQueueTests
+{
+    [Fact]
+    public void GeometryAndLightingCanDrainIndependently()
+    {
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, new Chunk());
+        var queue = new WorldUpdateQueue();
+        var position = new WorldVoxelCoord(3, 3, 3);
+
+        queue.EnqueueVoxelEdit(world, position);
+
+        var mesh = queue.DrainMeshlets();
+
+        Assert.False(mesh.IsEmpty);
+        Assert.True(queue.HasLightingWork);
+        Assert.False(queue.HasMeshWork);
+
+        var lighting = queue.DrainLighting();
+
+        Assert.Equal([position], lighting.EditedPositions);
+        Assert.False(queue.HasWork);
+    }
+
+    [Fact]
+    public void LightingOnlyRemeshDoesNotCreateAnotherLightingEdit()
+    {
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, new Chunk());
+        var queue = new WorldUpdateQueue();
+
+        queue.EnqueueVoxelMeshlets(
+            world,
+            new WorldVoxelCoord(3, 3, 3));
+
+        Assert.True(queue.HasMeshWork);
+        Assert.False(queue.HasLightingWork);
+    }
+}
+
+public sealed class MeshletContentRevisionsTests
+{
+    [Fact]
+    public void UnrelatedMeshletEditDoesNotInvalidateCapturedRevision()
+    {
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, new Chunk());
+        var revisions = new MeshletContentRevisions();
+
+        var first = new WorldVoxelCoord(2, 2, 2);
+        revisions.BumpVoxelEdit(world, first);
+
+        var key = new ChunkMeshletKey(ChunkCoord.Zero, 0);
+        var captured = revisions.Get(key);
+
+        revisions.BumpVoxelEdit(
+            world,
+            new WorldVoxelCoord(12, 12, 12));
+
+        Assert.True(revisions.IsCurrent(key, captured));
+    }
+
+    [Fact]
+    public void SameMeshletEditInvalidatesCapturedRevision()
+    {
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, new Chunk());
+        var revisions = new MeshletContentRevisions();
+        var key = new ChunkMeshletKey(ChunkCoord.Zero, 0);
+
+        revisions.BumpVoxelEdit(
+            world,
+            new WorldVoxelCoord(2, 2, 2));
+        var captured = revisions.Get(key);
+
+        revisions.BumpVoxelEdit(
+            world,
+            new WorldVoxelCoord(3, 3, 3));
+
+        Assert.False(revisions.IsCurrent(key, captured));
+    }
+}

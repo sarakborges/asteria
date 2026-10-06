@@ -16,12 +16,15 @@ public partial class Main : Node3D
     private const int MaxMeshletPublishesPerFrame = 4;
 
     private readonly WorldUpdateQueue _worldUpdates = new();
+    private readonly MeshletContentRevisions _contentRevisions = new();
     private readonly Dictionary<ChunkCoord, ChunkPresentation>
         _presentations = [];
+    private readonly Queue<MeshletPublication>
+        _pendingMeshletPublications = new();
 
     private Task<InitialWorldBuild>? _fixtureTask;
-    private Task<WorldUpdateBuild>? _worldUpdateTask;
-    private PendingPublication? _pendingPublication;
+    private Task<MeshUpdateBuild>? _meshTask;
+    private Task<LightingUpdateBuild>? _lightingTask;
 
     private TestWorldFixture? _fixture;
     private FpsPlayer? _player;
@@ -77,9 +80,15 @@ public partial class Main : Node3D
             return;
         }
 
-        PollWorldUpdateTask();
-        IntegratePendingPublication();
-        TryStartWorldUpdate();
+        PollMeshTask();
+        IntegrateMeshletPublications();
+        PollLightingTask();
+
+        // Geometry is deliberately dispatched before lighting. A content edit
+        // should disappear/appear as soon as its meshlet is rebuilt; lighting
+        // catches up independently, matching Mineclone's separate queues.
+        TryStartMeshTask();
+        TryStartLightingTask();
     }
 
     private void PollFixture()
@@ -105,7 +114,7 @@ public partial class Main : Node3D
                 meshlet => meshlet.Data.TriangleCount);
 
             GD.Print(
-                $"test-9: multi-chunk meshlet runtime ready; " +
+                $"test-10: split geometry/lighting meshlet runtime ready; " +
                 $"chunks={_fixture.World.ChunkCount}, " +
                 $"voxels={voxelCount}, " +
                 $"triangles={triangleCount}, " +
@@ -305,10 +314,7 @@ public partial class Main : Node3D
                 BlockRuntimeId.Air,
                 out var edit))
         {
-            _worldUpdates.EnqueueVoxelEdit(
-                world,
-                edit.Position);
-            TryStartWorldUpdate();
+            QueueVoxelEdit(edit.Position);
         }
     }
 
@@ -346,11 +352,23 @@ public partial class Main : Node3D
                 _placementBlock,
                 out var edit))
         {
-            _worldUpdates.EnqueueVoxelEdit(
-                world,
-                edit.Position);
-            TryStartWorldUpdate();
+            QueueVoxelEdit(edit.Position);
         }
+    }
+
+    private void QueueVoxelEdit(WorldVoxelCoord position)
+    {
+        var world = _fixture!.World;
+
+        _contentRevisions.BumpVoxelEdit(
+            world,
+            position);
+        _worldUpdates.EnqueueVoxelEdit(
+            world,
+            position);
+
+        TryStartMeshTask();
+        TryStartLightingTask();
     }
 
     private bool TryGetTarget(
@@ -394,163 +412,242 @@ public partial class Main : Node3D
         return true;
     }
 
-    private void TryStartWorldUpdate()
+    private void TryStartMeshTask()
     {
         if (_fixture is null ||
-            _worldUpdateTask is not null ||
-            _pendingPublication is not null ||
-            !_worldUpdates.HasWork)
+            _meshTask is not null ||
+            !_worldUpdates.HasMeshWork)
         {
             return;
         }
 
-        var batch = _worldUpdates.Drain();
+        var batch = _worldUpdates.DrainMeshlets();
         if (batch.IsEmpty)
         {
             return;
         }
 
-        var revision = _fixture.World.Revision;
         var snapshot = _fixture.World.CloneForWorker();
         var blocks = _fixture.Blocks;
         var textures = _terrainTextureLookup;
+        var revisions =
+            _contentRevisions.Capture(
+                batch.DirtyMeshlets);
 
-        _worldUpdateTask = Task.Run(() =>
-            BuildWorldUpdate(
-                revision,
+        _meshTask = Task.Run(() =>
+        {
+            var stopwatch = Stopwatch.StartNew();
+            var meshlets = BuildMeshlets(
                 snapshot,
                 blocks,
                 textures,
-                batch));
+                batch.DirtyMeshlets);
+            stopwatch.Stop();
+
+            return new MeshUpdateBuild(
+                batch,
+                revisions,
+                meshlets,
+                stopwatch.Elapsed.TotalMilliseconds);
+        });
     }
 
-    private static WorldUpdateBuild BuildWorldUpdate(
-        ulong revision,
-        VoxelWorld snapshot,
-        BlockRegistry blocks,
-        TerrainTextureLookup textures,
-        WorldUpdateBatch sourceBatch)
+    private void PollMeshTask()
     {
-        var stopwatch = Stopwatch.StartNew();
-        var lighting =
-            VoxelWorldLightingSolver.RelightAfterEdits(
-                snapshot,
-                blocks,
-                sourceBatch.LightingEdits);
-
-        var dirty =
-            new Dictionary<ChunkCoord, ChunkMeshletMask>(
-                sourceBatch.DirtyMeshlets);
-
-        foreach (var position in lighting.ChangedPositions)
-        {
-            AddDirtyPosition(
-                snapshot,
-                dirty,
-                position);
-        }
-
-        var meshlets = BuildMeshlets(
-            snapshot,
-            blocks,
-            textures,
-            dirty);
-
-        stopwatch.Stop();
-
-        return new WorldUpdateBuild(
-            revision,
-            snapshot,
-            sourceBatch,
-            dirty,
-            meshlets,
-            lighting.ChangedPositions.Count,
-            lighting.ProcessedVoxelCount,
-            stopwatch.Elapsed.TotalMilliseconds);
-    }
-
-    private void PollWorldUpdateTask()
-    {
-        if (_worldUpdateTask is null ||
-            !_worldUpdateTask.IsCompleted)
+        if (_meshTask is null ||
+            !_meshTask.IsCompleted)
         {
             return;
         }
 
-        if (_worldUpdateTask.IsFaulted)
+        if (_meshTask.IsFaulted)
         {
             GD.PushError(
-                _worldUpdateTask.Exception?.ToString() ??
-                "World update task failed.");
-            _worldUpdateTask = null;
+                _meshTask.Exception?.ToString() ??
+                "Meshlet geometry task failed.");
+            _meshTask = null;
             return;
         }
 
-        var result = _worldUpdateTask.Result;
-        _worldUpdateTask = null;
+        var result = _meshTask.Result;
+        _meshTask = null;
+        var accepted = 0;
+        var stale = 0;
+
+        foreach (var meshlet in result.Meshlets)
+        {
+            var key = new ChunkMeshletKey(
+                meshlet.Coord,
+                meshlet.MeshletIndex);
+            var revision =
+                result.ContentRevisions[key];
+
+            if (_contentRevisions.IsCurrent(
+                    key,
+                    revision))
+            {
+                _pendingMeshletPublications.Enqueue(
+                    new MeshletPublication(
+                        meshlet,
+                        revision));
+                accepted++;
+            }
+            else
+            {
+                _worldUpdates.EnqueueMeshlets(
+                    meshlet.Coord,
+                    ChunkMeshletMask.Single(
+                        meshlet.MeshletIndex));
+                stale++;
+            }
+        }
+
+        GD.Print(
+            $"world.geometry worker_ms=" +
+            $"{result.WorkerMilliseconds:F2} " +
+            $"accepted={accepted} stale={stale}");
+
+        TryStartMeshTask();
+    }
+
+    private void TryStartLightingTask()
+    {
+        if (_fixture is null ||
+            _lightingTask is not null ||
+            !_worldUpdates.HasLightingWork)
+        {
+            return;
+        }
+
+        var batch = _worldUpdates.DrainLighting();
+        if (batch.IsEmpty)
+        {
+            return;
+        }
+
+        var worldRevision = _fixture.World.Revision;
+        var snapshot = _fixture.World.CloneForWorker();
+        var blocks = _fixture.Blocks;
+
+        _lightingTask = Task.Run(() =>
+        {
+            var stopwatch = Stopwatch.StartNew();
+            var lighting =
+                VoxelWorldLightingSolver.RelightAfterEdits(
+                    snapshot,
+                    blocks,
+                    batch.EditedPositions);
+            stopwatch.Stop();
+
+            return new LightingUpdateBuild(
+                worldRevision,
+                snapshot,
+                batch,
+                lighting,
+                stopwatch.Elapsed.TotalMilliseconds);
+        });
+    }
+
+    private void PollLightingTask()
+    {
+        if (_lightingTask is null ||
+            !_lightingTask.IsCompleted)
+        {
+            return;
+        }
+
+        if (_lightingTask.IsFaulted)
+        {
+            GD.PushError(
+                _lightingTask.Exception?.ToString() ??
+                "Incremental lighting task failed.");
+            _lightingTask = null;
+            return;
+        }
+
+        var result = _lightingTask.Result;
+        _lightingTask = null;
 
         if (_fixture is null)
         {
             return;
         }
 
-        if (result.Revision !=
+        if (result.WorldRevision !=
             _fixture.World.Revision)
         {
-            _worldUpdates.Requeue(
+            _worldUpdates.RequeueLighting(
                 result.SourceBatch);
-            TryStartWorldUpdate();
+            TryStartLightingTask();
             return;
         }
 
         _fixture.World.CopyLightFrom(
             result.LightingSnapshot);
 
-        _pendingPublication = new PendingPublication(
-            result.Revision,
-            result.DirtyMeshlets,
-            new Queue<MeshletBuild>(
-                result.Meshlets),
-            result.WorkerMilliseconds,
-            result.LightChangeCount,
-            result.LightProcessedVoxelCount);
-    }
-
-    private void IntegratePendingPublication()
-    {
-        if (_pendingPublication is null ||
-            _fixture is null)
+        foreach (var position in
+                 result.Lighting.ChangedPositions)
         {
-            return;
+            // Lighting dirties presentation, but it does not invalidate
+            // content geometry already built for the same meshlet. A follow-up
+            // mesh pass refreshes vertex light independently.
+            _worldUpdates.EnqueueVoxelMeshlets(
+                _fixture.World,
+                position);
         }
 
-        if (_pendingPublication.Revision !=
-            _fixture.World.Revision)
+        GD.Print(
+            $"world.lighting worker_ms=" +
+            $"{result.WorkerMilliseconds:F2} " +
+            $"light_changes=" +
+            $"{result.Lighting.ChangedPositions.Count} " +
+            $"light_processed=" +
+            $"{result.Lighting.ProcessedVoxelCount}");
+
+        TryStartMeshTask();
+        TryStartLightingTask();
+    }
+
+    private void IntegrateMeshletPublications()
+    {
+        if (_fixture is null)
         {
-            RequeuePendingMeshlets(
-                _pendingPublication);
-            _pendingPublication = null;
-            TryStartWorldUpdate();
             return;
         }
 
         var stopwatch = Stopwatch.StartNew();
         var published = 0;
+        var stale = 0;
 
-        while (published <
+        while (published + stale <
                    MaxMeshletPublishesPerFrame &&
-               _pendingPublication.Meshlets.Count > 0)
+               _pendingMeshletPublications.Count > 0)
         {
-            var meshlet =
-                _pendingPublication.Meshlets.Dequeue();
+            var pending =
+                _pendingMeshletPublications.Dequeue();
+            var key = new ChunkMeshletKey(
+                pending.Meshlet.Coord,
+                pending.Meshlet.MeshletIndex);
+
+            if (!_contentRevisions.IsCurrent(
+                    key,
+                    pending.ContentRevision))
+            {
+                _worldUpdates.EnqueueMeshlets(
+                    pending.Meshlet.Coord,
+                    ChunkMeshletMask.Single(
+                        pending.Meshlet.MeshletIndex));
+                stale++;
+                continue;
+            }
 
             if (_presentations.TryGetValue(
-                    meshlet.Coord,
+                    pending.Meshlet.Coord,
                     out var presentation))
             {
                 presentation.Apply(
-                    meshlet.MeshletIndex,
-                    meshlet.Data,
+                    pending.Meshlet.MeshletIndex,
+                    pending.Meshlet.Data,
                     _terrainMaterial);
             }
 
@@ -559,91 +656,16 @@ public partial class Main : Node3D
 
         stopwatch.Stop();
 
-        if (published > 0)
+        if (published > 0 || stale > 0)
         {
             GD.Print(
-                $"world.meshlets revision=" +
-                $"{_pendingPublication.Revision} " +
-                $"published={published} " +
+                $"world.meshlets published={published} " +
+                $"stale={stale} " +
                 $"remaining=" +
-                $"{_pendingPublication.Meshlets.Count} " +
+                $"{_pendingMeshletPublications.Count} " +
                 $"publish_ms=" +
                 $"{stopwatch.Elapsed.TotalMilliseconds:F2}");
         }
-
-        if (_pendingPublication.Meshlets.Count > 0)
-        {
-            return;
-        }
-
-        GD.Print(
-            $"world.update revision=" +
-            $"{_pendingPublication.Revision} " +
-            $"worker_ms=" +
-            $"{_pendingPublication.WorkerMilliseconds:F2} " +
-            $"light_changes=" +
-            $"{_pendingPublication.LightChangeCount} " +
-            $"light_processed=" +
-            $"{_pendingPublication.LightProcessedVoxelCount}");
-
-        _pendingPublication = null;
-        TryStartWorldUpdate();
-    }
-
-    private void RequeuePendingMeshlets(
-        PendingPublication pending)
-    {
-        var remaining =
-            new Dictionary<ChunkCoord, ChunkMeshletMask>();
-
-        foreach (var meshlet in pending.Meshlets)
-        {
-            var bit =
-                ChunkMeshletMask.Single(
-                    meshlet.MeshletIndex);
-
-            remaining[meshlet.Coord] =
-                remaining.TryGetValue(
-                    meshlet.Coord,
-                    out var current)
-                    ? current.Union(bit)
-                    : bit;
-        }
-
-        foreach (var (coord, mask) in remaining)
-        {
-            _worldUpdates.EnqueueMeshlets(
-                coord,
-                mask);
-        }
-    }
-
-    private static void AddDirtyPosition(
-        VoxelWorld world,
-        IDictionary<ChunkCoord, ChunkMeshletMask> dirty,
-        WorldVoxelCoord position)
-    {
-        VoxelCoordinates.VisitChunkCoordsWhoseVoxelHaloContains(
-            position,
-            coord =>
-            {
-                if (!world.ContainsChunk(coord))
-                {
-                    return;
-                }
-
-                var mask =
-                    ChunkMeshletMask.ForWorldPosition(
-                        coord,
-                        position);
-
-                dirty[coord] =
-                    dirty.TryGetValue(
-                        coord,
-                        out var current)
-                        ? current.Union(mask)
-                        : mask;
-            });
     }
 
     private static List<MeshletBuild> BuildAllMeshlets(
@@ -706,28 +728,26 @@ public partial class Main : Node3D
         int MeshletIndex,
         ChunkMeshData Data);
 
+    private sealed record MeshletPublication(
+        MeshletBuild Meshlet,
+        ulong ContentRevision);
+
     private sealed record InitialWorldBuild(
         TestWorldFixture Fixture,
         IReadOnlyList<MeshletBuild> Meshlets,
         double WorkerMilliseconds);
 
-    private sealed record WorldUpdateBuild(
-        ulong Revision,
-        VoxelWorld LightingSnapshot,
-        WorldUpdateBatch SourceBatch,
-        IReadOnlyDictionary<ChunkCoord, ChunkMeshletMask>
-            DirtyMeshlets,
+    private sealed record MeshUpdateBuild(
+        WorldMeshBatch SourceBatch,
+        IReadOnlyDictionary<ChunkMeshletKey, ulong>
+            ContentRevisions,
         IReadOnlyList<MeshletBuild> Meshlets,
-        int LightChangeCount,
-        int LightProcessedVoxelCount,
         double WorkerMilliseconds);
 
-    private sealed record PendingPublication(
-        ulong Revision,
-        IReadOnlyDictionary<ChunkCoord, ChunkMeshletMask>
-            DirtyMeshlets,
-        Queue<MeshletBuild> Meshlets,
-        double WorkerMilliseconds,
-        int LightChangeCount,
-        int LightProcessedVoxelCount);
+    private sealed record LightingUpdateBuild(
+        ulong WorldRevision,
+        VoxelWorld LightingSnapshot,
+        WorldLightingBatch SourceBatch,
+        VoxelLightingUpdateResult Lighting,
+        double WorkerMilliseconds);
 }

@@ -5,8 +5,11 @@ public sealed class WorldUpdateQueue
     private readonly HashSet<WorldVoxelCoord> _lightingEdits = [];
     private readonly Dictionary<ChunkCoord, ChunkMeshletMask> _dirtyMeshlets = [];
 
-    public bool HasWork =>
-        _lightingEdits.Count > 0 || _dirtyMeshlets.Count > 0;
+    public bool HasWork => HasLightingWork || HasMeshWork;
+
+    public bool HasLightingWork => _lightingEdits.Count > 0;
+
+    public bool HasMeshWork => _dirtyMeshlets.Count > 0;
 
     public int LightingEditCount => _lightingEdits.Count;
 
@@ -19,6 +22,14 @@ public sealed class WorldUpdateQueue
         ArgumentNullException.ThrowIfNull(world);
 
         _lightingEdits.Add(position);
+        EnqueueVoxelMeshlets(world, position);
+    }
+
+    public void EnqueueVoxelMeshlets(
+        VoxelWorld world,
+        WorldVoxelCoord position)
+    {
+        ArgumentNullException.ThrowIfNull(world);
 
         VoxelCoordinates.VisitChunkCoordsWhoseVoxelHaloContains(
             position,
@@ -52,26 +63,35 @@ public sealed class WorldUpdateQueue
                 : mask;
     }
 
-    public WorldUpdateBatch Drain()
+    public WorldLightingBatch DrainLighting()
     {
         var lighting = _lightingEdits.ToArray();
-        var meshlets = new Dictionary<ChunkCoord, ChunkMeshletMask>(
-            _dirtyMeshlets);
-
         _lightingEdits.Clear();
-        _dirtyMeshlets.Clear();
-
-        return new WorldUpdateBatch(lighting, meshlets);
+        return new WorldLightingBatch(lighting);
     }
 
-    public void Requeue(WorldUpdateBatch batch)
+    public WorldMeshBatch DrainMeshlets()
+    {
+        var meshlets =
+            new Dictionary<ChunkCoord, ChunkMeshletMask>(
+                _dirtyMeshlets);
+        _dirtyMeshlets.Clear();
+        return new WorldMeshBatch(meshlets);
+    }
+
+    public void RequeueLighting(WorldLightingBatch batch)
     {
         ArgumentNullException.ThrowIfNull(batch);
 
-        foreach (var position in batch.LightingEdits)
+        foreach (var position in batch.EditedPositions)
         {
             _lightingEdits.Add(position);
         }
+    }
+
+    public void RequeueMeshlets(WorldMeshBatch batch)
+    {
+        ArgumentNullException.ThrowIfNull(batch);
 
         foreach (var (coord, mask) in batch.DirtyMeshlets)
         {
@@ -80,10 +100,14 @@ public sealed class WorldUpdateQueue
     }
 }
 
-public sealed record WorldUpdateBatch(
-    IReadOnlyList<WorldVoxelCoord> LightingEdits,
+public sealed record WorldLightingBatch(
+    IReadOnlyList<WorldVoxelCoord> EditedPositions)
+{
+    public bool IsEmpty => EditedPositions.Count == 0;
+}
+
+public sealed record WorldMeshBatch(
     IReadOnlyDictionary<ChunkCoord, ChunkMeshletMask> DirtyMeshlets)
 {
-    public bool IsEmpty =>
-        LightingEdits.Count == 0 && DirtyMeshlets.Count == 0;
+    public bool IsEmpty => DirtyMeshlets.Count == 0;
 }
