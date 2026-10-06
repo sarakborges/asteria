@@ -15,22 +15,41 @@ const meta = {
 export default meta;
 type Story = StoryObj<GameHudPageProps>;
 
-export const Connecting: Story = {};
-
-export const Standalone: Story = {
-  args: {
-    embedded: false,
+export const Runtime: Story = {
+  render: (args) => {
+    const view = createGameHudPage(args);
+    view.hotbar.setState({
+      selectedIndex: 1,
+      slots: [
+        { id: "asteria:stone", quantity: 64 },
+        { id: "asteria:grass_block", quantity: 32 },
+        { id: "asteria:log_oak", quantity: 12 },
+      ],
+    });
+    view.playerVitals.setState({
+      health: { current: 86, maximum: 100 },
+      stamina: { current: 63, maximum: 100 },
+    });
+    view.statusEffects.setEffects([
+      { id: "haste", label: "Haste", duration: "01:12", tone: "positive" },
+    ]);
+    view.interactionPrompt.setPrompt({
+      key: "E",
+      text: "Open storage",
+    });
+    view.toasts.push({
+      message: "World ready",
+      tone: "success",
+      durationMs: 0,
+    });
+    return view.element;
   },
 };
 
-export const Ready: Story = {
+export const DebugOverlay: Story = {
   render: (args) => {
     const view = createGameHudPage(args);
-    view.statusCard.bridgeStatus.setLabel("bridge connected");
-    view.statusCard.bridgeStatus.setTone("connected");
-    view.statusCard.worldStatus.textContent =
-      "chunk generated + collision ready";
-    view.statusCard.playerStatus.textContent = "FPS controller ready";
+    view.shell.setDebugVisible(true);
     return view.element;
   },
 };
