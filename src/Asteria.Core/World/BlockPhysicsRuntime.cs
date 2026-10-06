@@ -178,20 +178,28 @@ public sealed class BlockPhysicsRuntime
                 continue;
             }
 
-            var below = position + (0, -1, 0);
+            var below =
+                position + (0, -1, 0);
+            var belowState =
+                BlockMaterializationRules.Evaluate(
+                    _world,
+                    below);
 
-            if (below.Y < 0)
+            if (belowState ==
+                BlockMaterializationState.BelowWorld)
             {
                 continue;
             }
 
-            if (!_world.IsLoadedAt(below))
+            if (belowState ==
+                BlockMaterializationState.Unloaded)
             {
                 _updates.Enqueue(position);
                 continue;
             }
 
-            if (!_world.GetCellOrEmpty(below).IsEmpty)
+            if (belowState ==
+                BlockMaterializationState.Occupied)
             {
                 continue;
             }
@@ -300,16 +308,23 @@ public sealed class BlockPhysicsRuntime
                         state.ColumnX,
                         supportY,
                         state.ColumnZ);
+                var supportState =
+                    BlockMaterializationRules.Evaluate(
+                        _world,
+                        support);
 
-                if (!_world.IsLoadedAt(support))
+                if (supportState ==
+                    BlockMaterializationState.Unloaded)
                 {
                     blockedByUnloaded = true;
                     break;
                 }
 
-                if (!_world.GetCellOrEmpty(support).IsEmpty)
+                if (supportState ==
+                    BlockMaterializationState.Occupied)
                 {
-                    landingY = supportY + 1;
+                    landingY =
+                        supportY + 1;
                     break;
                 }
             }
@@ -338,19 +353,27 @@ public sealed class BlockPhysicsRuntime
                     voxelY,
                     state.ColumnZ);
 
-            if (!_world.IsLoadedAt(landing))
+            var landingState =
+                BlockMaterializationRules.Evaluate(
+                    _world,
+                    landing);
+
+            if (landingState ==
+                BlockMaterializationState.Unloaded)
             {
                 _active[id] =
                     state with { VelocityY = 0.0 };
                 continue;
             }
 
-            if (!_world.GetCellOrEmpty(landing).IsEmpty)
+            if (landingState !=
+                BlockMaterializationState.Available)
             {
                 _active[id] =
                     state with
                     {
-                        CenterY = voxelY + 0.5,
+                        CenterY =
+                            voxelY + 0.5,
                         VelocityY = 0.0,
                     };
                 continue;

@@ -110,28 +110,33 @@ public static class BlockInteractionResolver
                 BlockPlacementRejection.InvalidSurfaceNormal);
         }
 
-        if (target.Y < 0)
+        switch (BlockMaterializationRules.Evaluate(
+                    world,
+                    target))
         {
-            return BlockPlacementDecision.Reject(
-                target,
-                cell,
-                BlockPlacementRejection.BelowWorld);
-        }
+            case BlockMaterializationState.BelowWorld:
+                return BlockPlacementDecision.Reject(
+                    target,
+                    cell,
+                    BlockPlacementRejection.BelowWorld);
 
-        if (!world.IsLoadedAt(target))
-        {
-            return BlockPlacementDecision.Reject(
-                target,
-                cell,
-                BlockPlacementRejection.Unloaded);
-        }
+            case BlockMaterializationState.Unloaded:
+                return BlockPlacementDecision.Reject(
+                    target,
+                    cell,
+                    BlockPlacementRejection.Unloaded);
 
-        if (!world.GetCellOrEmpty(target).IsEmpty)
-        {
-            return BlockPlacementDecision.Reject(
-                target,
-                cell,
-                BlockPlacementRejection.Occupied);
+            case BlockMaterializationState.Occupied:
+                return BlockPlacementDecision.Reject(
+                    target,
+                    cell,
+                    BlockPlacementRejection.Occupied);
+
+            case BlockMaterializationState.Available:
+                break;
+
+            default:
+                throw new ArgumentOutOfRangeException();
         }
 
         var definition =
