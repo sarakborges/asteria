@@ -21,6 +21,13 @@
   transform: translateX(-50%);
 }
 
+.hud-shell__world {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
 .hud-shell__bottom-center {
   position: absolute;
   bottom: 20px;
@@ -42,7 +49,7 @@
 
 .hud-shell__toast-area {
   position: absolute;
-  top: 22px;
+  top: 98px;
   left: 50%;
   transform: translateX(-50%);
 }

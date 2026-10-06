@@ -44,6 +44,10 @@ export function createHudController(
           applyHotbar(view, message.payload);
           break;
 
+        case "game.hud.world":
+          applyWorld(view, message.payload);
+          break;
+
         case "game.hud.vitals":
           applyVitals(view, message.payload);
           break;
@@ -91,6 +95,30 @@ export function createHudController(
       }
     },
   };
+}
+
+function applyWorld(view: GameHudPageView, payload: unknown): void {
+  const value = asRecord(payload);
+
+  if (
+    !value ||
+    typeof value.sphere !== "string" ||
+    !isFiniteNumber(value.x) ||
+    !isFiniteNumber(value.y) ||
+    !isFiniteNumber(value.z) ||
+    !isFiniteNumber(value.heading)
+  ) {
+    view.worldBanner.setState(null);
+    return;
+  }
+
+  view.worldBanner.setState({
+    sphere: value.sphere,
+    x: value.x,
+    y: value.y,
+    z: value.z,
+    heading: value.heading,
+  });
 }
 
 function applyHotbar(view: GameHudPageView, payload: unknown): void {
@@ -226,4 +254,9 @@ function asRecord(value: unknown): Record<string, unknown> | null {
     !Array.isArray(value)
     ? value as Record<string, unknown>
     : null;
+}
+
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
 }

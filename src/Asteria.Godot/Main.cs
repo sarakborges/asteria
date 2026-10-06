@@ -98,6 +98,8 @@ public partial class Main : Node3D
     private VoxelTerrainMaterialSet _terrainMaterials = null!;
     private FluidMaterialCatalog _fluidMaterials = null!;
     private BlockRuntimeId _placementBlock;
+    private readonly WorldHudStateTracker _worldHud =
+        new();
 
     private WorldFrameWorkBudget _worldFrameBudget;
     private bool _worldReadySent;
@@ -269,6 +271,8 @@ public partial class Main : Node3D
                 _worldFrameBudget);
         ReportRetirements(
             streamingEnd.Retirements);
+
+        SendWorldHudState();
 
         if (!_worldReadySent &&
             _chunkPresentations.IsFullyPublished(
@@ -469,6 +473,7 @@ public partial class Main : Node3D
         _player.QueueFree();
         _player = null;
         _underwaterView = null;
+        _worldHud.Reset();
 
         Input.MouseMode =
             Input.MouseModeEnum.Visible;
@@ -555,6 +560,8 @@ public partial class Main : Node3D
             new { bridge = 1, engine = "godot" });
         SendDebugHudState();
         SendHotbarState();
+        SendWorldHudState(
+            force: true);
 
         if (_worldReadySent)
         {
@@ -614,6 +621,44 @@ public partial class Main : Node3D
             {
                 visible =
                     _debugHudVisible,
+            });
+    }
+
+    private void SendWorldHudState(
+        bool force = false)
+    {
+        if (_player is null)
+        {
+            return;
+        }
+
+        if (force)
+        {
+            _worldHud.Reset();
+        }
+
+        if (!_worldHud.TryCapture(
+                _player,
+                _dimension.Id,
+                out var state))
+        {
+            return;
+        }
+
+        SendWebUi(
+            "game.hud.world",
+            new
+            {
+                sphere =
+                    state.Sphere,
+                x =
+                    state.X,
+                y =
+                    state.Y,
+                z =
+                    state.Z,
+                heading =
+                    state.HeadingDegrees,
             });
     }
 
@@ -713,6 +758,8 @@ public partial class Main : Node3D
         SendWebUi(
             "game.player_ready",
             new { controller = "fps" });
+        SendWorldHudState(
+            force: true);
 
         GD.Print(
             $"streaming: dimension={_dimension.Id} presentation ready; player activated");

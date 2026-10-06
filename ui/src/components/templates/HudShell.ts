@@ -3,6 +3,7 @@ import "./HudShell.css";
 export type HudShellProps = {
   crosshair: HTMLElement;
   interactionPrompt: HTMLElement;
+  worldBanner: HTMLElement;
   hotbar: HTMLElement;
   playerVitals: HTMLElement;
   statusEffects: HTMLElement;
@@ -22,6 +23,9 @@ export function createHudShell(props: HudShellProps): HudShellView {
   const center = slot("hud-shell__center");
   center.append(props.crosshair, props.interactionPrompt);
 
+  const world = slot("hud-shell__world");
+  world.append(props.worldBanner);
+
   const bottomCenter = slot("hud-shell__bottom-center");
   bottomCenter.append(props.hotbar);
 
@@ -40,6 +44,7 @@ export function createHudShell(props: HudShellProps): HudShellView {
 
   shell.append(
     center,
+    world,
     bottomCenter,
     bottomLeft,
     topRight,

@@ -18,6 +18,13 @@ type Story = StoryObj<GameHudPageProps>;
 export const Runtime: Story = {
   render: (args) => {
     const view = createGameHudPage(args);
+    view.worldBanner.setState({
+      sphere: "asteria:overworld",
+      x: 148,
+      y: 93,
+      z: -72,
+      heading: 37.5,
+    });
     view.hotbar.setState({
       selectedIndex: 1,
       slots: [

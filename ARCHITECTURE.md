@@ -254,6 +254,7 @@ Asteria packs are engine-agnostic content bundles owned by the game, not by Godo
 - The built-in initial pack is `packs/default/`. `PackSelection.Default` selects it at startup; loaders receive the same selection value rather than hard-coding individual roots.
 - Data remains authoritative gameplay input; resources/UI remain presentation input. Presentation content must not become a second gameplay owner.
 - UI customization is declarative. Packs may override validated theme tokens and UI assets, but must not ship arbitrary HTML/JavaScript into the trusted WebUI runtime or own bridge/controller behavior.
+- Gameplay HUD telemetry follows change-driven outbound state. The MineClone-derived world banner presents Sphere identity, floored block coordinates and camera heading/compass without adding WebUI gameplay input handlers; Godot remains the owner of movement, mouse and hotkeys.
 - Pack-relative authored references remain logical. For example, a block texture may stay `textures/blocks/stone.png`; the resource resolver maps it to `packs/{selected}/resources/textures/blocks/stone.png`.
 - External packs use Asteria-owned manifests and namespaced identifiers. Loading resolves definitions/assets into the same immutable registries/presentation models used by built-in content.
 - Pack precedence is deterministic. The base/default pack is the lowest layer; future enabled overlays must be applied in an explicit ordered list.

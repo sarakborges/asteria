@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/html-vite";
 import { createCrosshair } from "../atoms/Crosshair";
 import { createInteractionPrompt } from "../molecules/InteractionPrompt";
 import { createHotbar } from "../organisms/Hotbar";
+import { createWorldBanner } from "../organisms/WorldBanner";
 import { createPlayerVitals } from "../organisms/PlayerVitals";
 import { createStatusCard } from "../organisms/StatusCard";
 import { createStatusEffects } from "../organisms/StatusEffects";
@@ -20,6 +21,15 @@ const meta = {
       slots: [{ id: "asteria:stone", quantity: 64 }],
     });
 
+    const worldBanner = createWorldBanner();
+    worldBanner.setState({
+      sphere: "asteria:overworld",
+      x: 148,
+      y: 93,
+      z: -72,
+      heading: 37.5,
+    });
+
     const prompt = createInteractionPrompt();
     prompt.setPrompt({
       key: "E",
@@ -29,6 +39,7 @@ const meta = {
     return createHudShell({
       crosshair: createCrosshair(),
       interactionPrompt: prompt.element,
+      worldBanner: worldBanner.element,
       hotbar: hotbar.element,
       playerVitals: createPlayerVitals().element,
       statusEffects: createStatusEffects().element,

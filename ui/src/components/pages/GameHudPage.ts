@@ -8,6 +8,10 @@ import {
   type HotbarView,
 } from "../organisms/Hotbar";
 import {
+  createWorldBanner,
+  type WorldBannerView,
+} from "../organisms/WorldBanner";
+import {
   createPlayerVitals,
   type PlayerVitalsView,
 } from "../organisms/PlayerVitals";
@@ -36,6 +40,7 @@ export type GameHudPageView = {
   element: HTMLElement;
   shell: HudShellView;
   hotbar: HotbarView;
+  worldBanner: WorldBannerView;
   playerVitals: PlayerVitalsView;
   statusEffects: StatusEffectsView;
   interactionPrompt: InteractionPromptView;
@@ -47,6 +52,7 @@ export function createGameHudPage(
   props: GameHudPageProps,
 ): GameHudPageView {
   const hotbar = createHotbar();
+  const worldBanner = createWorldBanner();
   const playerVitals = createPlayerVitals();
   const statusEffects = createStatusEffects();
   const interactionPrompt = createInteractionPrompt();
@@ -63,6 +69,7 @@ export function createGameHudPage(
   const shell = createHudShell({
     crosshair: createCrosshair(),
     interactionPrompt: interactionPrompt.element,
+    worldBanner: worldBanner.element,
     hotbar: hotbar.element,
     playerVitals: playerVitals.element,
     statusEffects: statusEffects.element,
@@ -74,6 +81,7 @@ export function createGameHudPage(
     element: shell.element,
     shell,
     hotbar,
+    worldBanner,
     playerVitals,
     statusEffects,
     interactionPrompt,
