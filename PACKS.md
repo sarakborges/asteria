@@ -17,7 +17,7 @@ The following are **not pack formats** and must never be required inside a distr
 - editor-specific absolute paths;
 - generated runtime caches.
 
-Repository-local built-in assets are different: their `.import` files may be versioned because they preserve editor import settings. That is an implementation detail of the built-in Godot project, not part of the external pack API.
+Repository-local built-in assets are different: their `.import` files may be versioned because they preserve editor import settings. Those sidecars remain next to assets under the selected built-in resource directory and are an implementation detail of the Godot project, not part of the external pack API.
 
 ## 2. Common manifest
 
@@ -50,7 +50,7 @@ A future implementation may extend manifest fields without changing the engine-i
 
 Resource packs own **presentation**, not gameplay authority.
 
-Typical authored resources:
+Typical authored resource-pack root:
 
 ```text
 pack.json
@@ -64,6 +64,8 @@ models/
 presentation/
 ```
 
+The built-in initial resource pack is stored at `resources/default/`. Its pack-relative references remain logical, for example `textures/blocks/stone.png`; the selected resource-pack root is prepended by the runtime resolver.
+
 Initial texture sources should use portable image files such as PNG. Model/audio formats, when added, must likewise use portable documented source formats rather than engine-native serialized resources.
 
 Resource packs may replace resources by canonical namespaced/path keys. They do not mutate block physics, crafting rules, biome selection, drops, fluid behavior or other gameplay facts.
@@ -74,20 +76,21 @@ Presentation metadata must use Asteria-owned declarative files, not Godot resour
 
 Data packs own **declarative gameplay/content definitions**.
 
-Expected categories as those systems exist:
+Expected data-pack root as those systems exist:
 
 ```text
 pack.json
-data/
-  blocks/
-  fluids/
-  biomes/
-  structures/
-  recipes/
-  loot/
-  dimensions/
-  ...
+blocks/
+fluids/
+biomes/
+structures/
+recipes/
+loot/
+dimensions/
+...
 ```
+
+The built-in initial data pack is stored at `data/default/`.
 
 Data packs may add or override namespaced definitions through the same definition models/registries used by built-in content.
 
@@ -97,7 +100,7 @@ A data definition may reference a presentation resource by namespaced resource k
 
 ## 5. Base content and layering
 
-Built-in Asteria content is conceptually the **base layer**.
+Built-in Asteria content is conceptually the **base layer**. The startup selection is `resource=default` and `data=default`; this selection is a runtime value rather than a path hard-coded into individual loaders, so a future importer/pack UI can replace either side.
 
 Runtime resolution order is deterministic:
 
