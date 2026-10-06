@@ -15,7 +15,7 @@ public sealed class BlockContentTests
 
         var registry = BlockRegistry.FromJson(documents);
 
-        Assert.Equal(14, registry.AuthoredCount);
+        Assert.Equal(16, registry.AuthoredCount);
 
         var grass = registry.GetDefinition(registry.GetId("asteria:grass_block"));
         Assert.Equal(BlockTint.Grass, grass.Tint);
@@ -51,6 +51,44 @@ public sealed class BlockContentTests
         Assert.Equal(2f, stone.Mining.Hardness);
         Assert.Contains("pickaxe", stone.Mining.RequiredTools);
         Assert.Equal("textures/blocks/stone.png", stone.Textures.Top.Single().Texture);
+
+        var grassPlant =
+            registry.GetDefinition(
+                registry.GetId(
+                    "asteria:grass"));
+        Assert.Equal(
+            BlockVisualKind.CrossedSprite,
+            grassPlant.Visual.Kind);
+        Assert.Equal(
+            4,
+            grassPlant.Visual.Planes);
+        Assert.True(
+            grassPlant.Visual.Texture!.Value.Dyable);
+        Assert.Contains(
+            BlockFace.Top,
+            grassPlant.PlacementFaces);
+        Assert.Single(
+            grassPlant.PlacementFaces);
+        Assert.True(
+            grassPlant.HasTag(
+                BlockPhysicsCapabilities.SupportBelow));
+        Assert.False(
+            grassPlant.IsCollidable);
+        Assert.False(
+            grassPlant.DropsSelf);
+
+        var brownMushroom =
+            registry.GetDefinition(
+                registry.GetId(
+                    "asteria:mushroom_brown"));
+        Assert.Equal(
+            BlockVisualKind.CrossedSprite,
+            brownMushroom.Visual.Kind);
+        Assert.Equal(
+            2,
+            brownMushroom.Visual.Planes);
+        Assert.True(
+            brownMushroom.DropsSelf);
 
         var sand = registry.GetDefinition(registry.GetId("asteria:sand"));
         var gravel = registry.GetDefinition(registry.GetId("asteria:gravel"));
