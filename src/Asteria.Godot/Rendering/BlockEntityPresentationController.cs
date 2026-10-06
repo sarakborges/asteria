@@ -33,8 +33,6 @@ public sealed class BlockEntityPresentationController
             new(DroppedBlockIdComparer);
     private readonly Dictionary<BlockStateSnapshot, ArrayMesh>
         _sharedMeshes = [];
-    private readonly List<FallingBlockState> _fallingStates = [];
-    private readonly List<DroppedBlockState> _droppedStates = [];
     private readonly HashSet<FallingBlockId> _activeFalling = [];
     private readonly HashSet<DroppedBlockId> _activeDropped = [];
     private readonly List<FallingBlockId> _retiredFalling = [];
@@ -64,29 +62,15 @@ public sealed class BlockEntityPresentationController
             throw new ArgumentNullException(nameof(materials));
     }
 
-    public void Sync(
+    public void SyncByIdOrder(
         IEnumerable<FallingBlockState> falling,
         IEnumerable<DroppedBlockState> dropped)
     {
         ArgumentNullException.ThrowIfNull(falling);
         ArgumentNullException.ThrowIfNull(dropped);
 
-        _fallingStates.Clear();
-        _fallingStates.AddRange(falling);
-        _fallingStates.Sort(
-            static (left, right) =>
-                left.Id.Value.CompareTo(
-                    right.Id.Value));
-
-        _droppedStates.Clear();
-        _droppedStates.AddRange(dropped);
-        _droppedStates.Sort(
-            static (left, right) =>
-                left.Id.Value.CompareTo(
-                    right.Id.Value));
-
-        SyncFalling(_fallingStates);
-        SyncDropped(_droppedStates);
+        SyncFalling(falling);
+        SyncDropped(dropped);
     }
 
     private void SyncFalling(
