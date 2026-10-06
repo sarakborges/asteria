@@ -1,0 +1,8 @@
+{
+  "format": 1,
+  "id": "asteria:default",
+  "version": "0.1.0",
+  "name": "Asteria Default",
+  "description": "Built-in Asteria data, resources and UI presentation.",
+  "dependencies": []
+}

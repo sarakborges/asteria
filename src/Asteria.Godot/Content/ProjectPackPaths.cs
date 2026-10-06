@@ -4,15 +4,26 @@ namespace Asteria.Client.Content;
 
 internal static class ProjectPackPaths
 {
+    private const string PacksRoot = "res://packs";
+
     public static string DataCategory(
         PackSelection selection,
         string category) =>
-        $"res://data/{selection.DataPack}/{ValidateRelativePath(category)}";
+        $"{PackRoot(selection)}/data/{ValidateRelativePath(category)}";
 
     public static string Resource(
         PackSelection selection,
         string relativePath) =>
-        $"res://resources/{selection.ResourcePack}/{ValidateRelativePath(relativePath)}";
+        $"{PackRoot(selection)}/resources/{ValidateRelativePath(relativePath)}";
+
+    public static string Ui(
+        PackSelection selection,
+        string relativePath) =>
+        $"{PackRoot(selection)}/ui/{ValidateRelativePath(relativePath)}";
+
+    private static string PackRoot(
+        PackSelection selection) =>
+        $"{PacksRoot}/{selection.Name}";
 
     private static string ValidateRelativePath(
         string path)

@@ -18,8 +18,8 @@
 
   <ItemGroup>
     <ProjectReference Include="../Asteria.Core/Asteria.Core.csproj" />
-    <Content Include="../../data/default/blocks/*.json">
-      <Link>data/default/blocks/%(Filename)%(Extension)</Link>
+    <Content Include="../../packs/default/data/blocks/*.json">
+      <Link>packs/default/data/blocks/%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

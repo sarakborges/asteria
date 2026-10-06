@@ -7,7 +7,7 @@ public sealed class BlockContentTests
     [Fact]
     public void BaseBlockCatalogLoadsWithWorldRebuildSemantics()
     {
-        var directory = Path.Combine(AppContext.BaseDirectory, "data", "default", "blocks");
+        var directory = Path.Combine(AppContext.BaseDirectory, "packs", "default", "data", "blocks");
         var documents = Directory
             .EnumerateFiles(directory, "*.json")
             .OrderBy(path => path, StringComparer.Ordinal)

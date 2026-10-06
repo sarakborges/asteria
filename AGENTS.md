@@ -31,9 +31,10 @@ When touching an area that already violates the canon, do not add new code on to
 - Hash/dictionary/set iteration order must never decide gameplay, streaming, publication or simulation behavior; define deterministic tie-breakers.
 - New unbounded queues, caches, histories, task registries or collections require an explicit bounded lifecycle or a documented reason why unbounded growth is safe.
 - New features do not preserve compatibility with old implementations unless explicitly requested.
-- Resource packs and data packs are Asteria formats, not Godot formats. External packs must never require Godot sidecars/resources such as `.import`, `.godot/`, `.tres`, `.res`, `.tscn`, or engine-specific import metadata.
-- Resource packs contain presentation assets/descriptors only; data packs contain gameplay/content definitions only. Pack layering and override order must be deterministic and explicit.
-- Built-in authored content is itself pack-shaped: resource assets live under `resources/default/` and gameplay definitions under `data/default/`. Runtime code resolves them through the selected pack configuration; do not reintroduce root-level `textures/` or `content/` hardcodes.
+- Packs are Asteria formats, not Godot formats. External packs must never require Godot sidecars/resources such as `.import`, `.godot/`, `.tres`, `.res`, `.tscn`, or engine-specific import metadata.
+- One pack is one selectable unit rooted at `packs/{name}/`, with `data/`, `resources/`, and `ui/` subdirectories. Pack layering and override order must be deterministic and explicit.
+- `data/` contains gameplay/content definitions; `resources/` contains world/item/audio/font/model presentation assets; `ui/` contains declarative WebUI theme/assets. UI packs must not inject arbitrary HTML/JS or own bridge/controller logic.
+- Built-in authored content lives under `packs/default/`. Runtime code resolves every pack-owned path through the selected `PackSelection`; do not reintroduce separate root-level `data/`, `resources/`, `textures/`, or `content/` hardcodes.
 - Prefer small, explicit modules and deterministic data transformations.
 - Do not perform broad repository/tree searches when a targeted path or symbol search will work.
 - Keep the first implementation measurable: correctness first, then profile before optimizing.

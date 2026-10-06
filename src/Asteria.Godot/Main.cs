@@ -42,6 +42,7 @@ public partial class Main : Node3D
 
     private PackSelection _packSelection =
         PackSelection.Default;
+    private JsonElement _uiTheme;
 
     private readonly VoxelWorld _world = new();
     private VoxelMutationRuntime _mutations = null!;
@@ -69,6 +70,9 @@ public partial class Main : Node3D
 
     public override void _Ready()
     {
+        _uiTheme =
+            UiThemeLoader.LoadProjectTheme(
+                _packSelection);
         SetupWebUi();
 
         _blocks = BlockContentLoader.LoadProjectBlocks(_packSelection);
@@ -198,8 +202,7 @@ public partial class Main : Node3D
             _blocks.GetId(TestChunkFactory.StoneId);
 
         GD.Print(
-            $"packs: resource={_packSelection.ResourcePack} " +
-            $"data={_packSelection.DataPack}");
+            $"pack: {_packSelection.Name}");
         GD.Print(
             $"block content: loaded {_blocks.AuthoredCount} definitions, " +
             $"{_terrainTextures.TextureCount} terrain textures");
@@ -325,6 +328,9 @@ public partial class Main : Node3D
 
     private void SendCurrentState()
     {
+        SendWebUi(
+            "game.ui_theme",
+            _uiTheme);
         SendWebUi(
             "game.ready",
             new { bridge = 1, engine = "godot" });

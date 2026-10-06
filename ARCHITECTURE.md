@@ -198,21 +198,27 @@ Streaming, simulation, queue priority, content loading and publication must use 
 
 ## 11. Pack and content boundaries
 
-Asteria's external content formats are engine-agnostic contracts owned by the game, not by Godot.
+Asteria packs are engine-agnostic content bundles owned by the game, not by Godot.
 
-- **Resource packs** override presentation resources such as textures, audio, fonts, model assets and presentation descriptors. They must not define authoritative gameplay behavior.
-- **Data packs** add or override authored gameplay/content data such as blocks, fluids, biomes, structures, recipes, loot/content tables, dimensions and similar definition-driven systems. They must not contain presentation binaries as an implicit gameplay dependency.
-- External packs use Asteria-owned manifests and namespaced identifiers. Loading resolves those files into the same immutable registries/content models used by built-in content.
-- Pack precedence is deterministic. The base game is the lowest layer; enabled packs are applied in an explicit ordered list. Later layers may replace earlier definitions/resources only through the documented namespace/path key.
-- No pack may depend on Godot import artifacts or project resources. `.import`, `.godot/`, `.tres`, `.res`, `.tscn`, Godot UID files and engine-specific importer state are never part of the pack contract.
-- Repository-local `.import` files may remain versioned for built-in development assets because they preserve Godot editor import settings. They are build/editor metadata only and must not leak into pack APIs or distributed pack requirements.
-- Built-in authored content follows the same conceptual boundary: `resources/default/` is the initial resource-pack root and `data/default/` is the initial data-pack root. The active pair is represented by one pack-selection value and passed into loaders; consumers must not hard-code `default` or bypass the resolver.
-- Pack loading, validation, dependency/version checks, path normalization, layering and definition merging belong outside Godot-specific presentation code. Godot receives already resolved presentation inputs.
-- Data packs are declarative by default. Executable scripts/plugins are a separate future extension boundary and must not be smuggled into the data-pack format.
-- Resource/data pack caches may exist for performance, but they are derived disposable caches owned by Asteria. A cache format is never the authored pack format.
-- Pack paths and IDs must be deterministic and portable across operating systems; case/collision rules must be validated explicitly rather than inherited from the host filesystem.
+- One enabled pack is addressed by one validated name and rooted at `packs/{name}/`.
+- A pack contains three explicit domains:
+  - `data/`: authored gameplay/content definitions such as blocks, fluids, biomes, structures, recipes, loot and dimensions;
+  - `resources/`: textures, audio, fonts, models and other non-UI presentation assets;
+  - `ui/`: declarative WebUI theme tokens and UI-specific presentation assets.
+- The built-in initial pack is `packs/default/`. `PackSelection.Default` selects it at startup; loaders receive the same selection value rather than hard-coding individual roots.
+- Data remains authoritative gameplay input; resources/UI remain presentation input. Presentation content must not become a second gameplay owner.
+- UI customization is declarative. Packs may override validated theme tokens and UI assets, but must not ship arbitrary HTML/JavaScript into the trusted WebUI runtime or own bridge/controller behavior.
+- Pack-relative authored references remain logical. For example, a block texture may stay `textures/blocks/stone.png`; the resource resolver maps it to `packs/{selected}/resources/textures/blocks/stone.png`.
+- External packs use Asteria-owned manifests and namespaced identifiers. Loading resolves definitions/assets into the same immutable registries/presentation models used by built-in content.
+- Pack precedence is deterministic. The base/default pack is the lowest layer; future enabled overlays must be applied in an explicit ordered list.
+- No pack may depend on Godot import artifacts or project resources. `.import`, `.godot/`, `.tres`, `.res`, `.tscn`, Godot UID files and engine-specific importer state are never part of the external pack contract.
+- Repository-local `.import` sidecars may remain beside built-in assets under `packs/default/resources/` because they preserve editor import settings. They are build/editor metadata only.
+- Pack parsing, validation, path normalization, dependency/version checks and layering must remain outside gameplay/presentation component logic.
+- Data is declarative by default. Executable plugins/scripts are a separate future extension boundary.
+- Derived pack caches may exist for performance, but cache format is never authored pack format.
+- Pack paths and IDs must be deterministic and portable across operating systems; case/collision rules are validated explicitly.
 
-The initial authored contract is defined in [PACKS.md](PACKS.md). Implementations may extend it, but must preserve this engine-independence boundary.
+The authored contract is defined in [PACKS.md](PACKS.md).
 
 ## 12. Storage and hot data
 
