@@ -1,0 +1,184 @@
+using Asteria.Core.World;
+
+namespace Asteria.Core.Tests;
+
+public sealed class ChunkResidencyRuntimeTests
+{
+    [Fact]
+    public void DispatchRestoresArchivedChunkBeforeProviderWork()
+    {
+        var fixture = CreateFixture();
+        var coord = ChunkCoord.Zero;
+
+        fixture.World.InsertChunk(
+            coord,
+            new Chunk());
+        Assert.True(
+            fixture.World.SetBlockAt(
+                new WorldVoxelCoord(1, 1, 1),
+                fixture.Blocks.GetId("asteria:stone"),
+                out _));
+        Assert.Equal(
+            ChunkArchiveResult.ArchivedDirty,
+            fixture.World.ArchiveChunk(coord));
+
+        fixture.Runtime.SyncSelection(
+            coord,
+            horizontalRadius: 1,
+            retentionRadius: 2,
+            desired: new HashSet<ChunkCoord> { coord },
+            presented: Array.Empty<ChunkCoord>());
+
+        var update =
+            fixture.Runtime.DispatchMaterializationTasks(
+                GenerousBudget(),
+                Array.Empty<ChunkCoord>());
+
+        var activation =
+            Assert.Single(update.Activations);
+
+        Assert.Equal(coord, activation.Coord);
+        Assert.Equal(
+            ChunkActivationSource.Archive,
+            activation.Source);
+        Assert.True(
+            fixture.World.ContainsChunk(coord));
+        Assert.Equal(
+            1,
+            fixture.Runtime.PresentationPendingCount);
+        Assert.True(
+            fixture.WorldUpdates.HasLightingWork);
+    }
+
+    [Fact]
+    public void RetirementArchivesDirtyChunkAndClearsResidency()
+    {
+        var fixture = CreateFixture();
+        var origin = ChunkCoord.Zero;
+
+        fixture.World.InsertChunk(
+            origin,
+            new Chunk());
+        Assert.True(
+            fixture.World.SetBlockAt(
+                new WorldVoxelCoord(1, 1, 1),
+                fixture.Blocks.GetId("asteria:stone"),
+                out _));
+
+        fixture.Runtime.SyncSelection(
+            origin,
+            horizontalRadius: 1,
+            retentionRadius: 1,
+            desired: new HashSet<ChunkCoord> { origin },
+            presented: Array.Empty<ChunkCoord>());
+
+        var far = new ChunkCoord(10, 0, 0);
+
+        fixture.Runtime.SyncSelection(
+            far,
+            horizontalRadius: 1,
+            retentionRadius: 1,
+            desired: new HashSet<ChunkCoord> { far },
+            presented: Array.Empty<ChunkCoord>());
+
+        var retired =
+            fixture.Runtime.RetireDistantChunks(
+                GenerousBudget());
+        var retirement =
+            Assert.Single(retired);
+
+        Assert.Equal(origin, retirement.Coord);
+        Assert.Equal(
+            ChunkArchiveResult.ArchivedDirty,
+            retirement.ArchiveResult);
+        Assert.False(
+            fixture.World.ContainsChunk(origin));
+        Assert.Equal(
+            1,
+            fixture.World.ArchivedChunkCount);
+    }
+
+    private static WorldFrameWorkBudget GenerousBudget() =>
+        new(long.MaxValue);
+
+    private static RuntimeFixture CreateFixture()
+    {
+        var blocks =
+            new BlockRegistry(
+            [
+                new BlockDefinition("asteria:grass_block"),
+                new BlockDefinition("asteria:dirt"),
+                new BlockDefinition("asteria:stone"),
+                new BlockDefinition("asteria:sand"),
+                new BlockDefinition("asteria:gravel"),
+                new BlockDefinition("asteria:clay"),
+                new BlockDefinition("asteria:mud"),
+            ]);
+        var fluids =
+            new FluidRegistry(
+            [
+                new FluidDefinition(
+                    "asteria:water",
+                    new FluidColor(79, 159, 214),
+                    opacity: 0.72f),
+            ]);
+
+        var world = new VoxelWorld();
+        var worldUpdates = new WorldUpdateQueue();
+        var fluidUpdates = new FluidUpdateQueue();
+        var fluidMeshUpdates =
+            new FluidMeshUpdateQueue();
+        var gravityUpdates =
+            new BlockGravityUpdateQueue();
+        var terrainRevisions =
+            new MeshletContentRevisions();
+        var fluidRevisions =
+            new MeshletContentRevisions();
+        var ticks = new WorldTickClock();
+        var mutations =
+            new VoxelMutationRuntime(
+                world,
+                worldUpdates,
+                fluidUpdates,
+                fluidMeshUpdates,
+                gravityUpdates,
+                terrainRevisions,
+                fluidRevisions);
+        var gravity =
+            new BlockGravityRuntime(
+                world,
+                blocks,
+                mutations,
+                gravityUpdates);
+        var runtime =
+            new ChunkResidencyRuntime(
+                world,
+                blocks,
+                fluids,
+                worldUpdates,
+                fluidUpdates,
+                fluidMeshUpdates,
+                gravity,
+                terrainRevisions,
+                fluidRevisions,
+                ticks,
+                new ChunkResidencySettings(
+                    maxMaterializationsInFlight: 2,
+                    maxDispatchesPerFrame: 2,
+                    maxResultsPerFrame: 2,
+                    maxEvictionsPerFrame: 2,
+                    worldTicksPerSecond: 40));
+
+        return new RuntimeFixture(
+            world,
+            blocks,
+            worldUpdates,
+            runtime);
+    }
+
+    private sealed record RuntimeFixture(
+        VoxelWorld World,
+        BlockRegistry Blocks,
+        WorldUpdateQueue WorldUpdates,
+        ChunkResidencyRuntime Runtime);
+}
