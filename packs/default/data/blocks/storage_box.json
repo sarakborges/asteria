@@ -1,0 +1,32 @@
+{
+  "id": "asteria:storage_box",
+  "category": "crafted_blocks",
+  "tags": [
+    "fragmentable",
+    "horizontal_facing"
+  ],
+  "textures": {
+    "top": "textures/objects/storage_box/top.png",
+    "bottom": "textures/objects/storage_box/bottom.png",
+    "left": "textures/objects/storage_box/side.png",
+    "right": "textures/objects/storage_box/side.png",
+    "front": "textures/objects/storage_box/front.png",
+    "back": "textures/objects/storage_box/side.png"
+  },
+  "rotateTexture": {
+    "top": false,
+    "bottom": false,
+    "left": false,
+    "right": false,
+    "front": false,
+    "back": false
+  },
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": [
+      "hatchet"
+    ]
+  }
+}
