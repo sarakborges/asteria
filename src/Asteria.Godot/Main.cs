@@ -995,7 +995,7 @@ public partial class Main : Node3D
         foreach (var meshlet in result.Meshlets)
         {
             if (!_world.ContainsChunk(meshlet.Coord) ||
-                !_presentations.ContainsKey(meshlet.Coord))
+                !_chunkPresentations.Contains(meshlet.Coord))
             {
                 continue;
             }
