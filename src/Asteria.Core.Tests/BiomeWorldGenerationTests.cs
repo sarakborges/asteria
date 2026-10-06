@@ -74,8 +74,8 @@ public sealed class BiomeWorldGenerationTests
                     left.Primary,
                     right.Primary);
                 Assert.Equal(
-                    left.Influences,
-                    right.Influences);
+                    left.Influences.ToArray(),
+                    right.Influences.ToArray());
             }
         }
     }
@@ -391,47 +391,108 @@ public sealed class BiomeWorldGenerationTests
         var mushroom =
             blocks.GetId(
                 "asteria:mushroom_brown");
-        var foundGrass =
-            false;
-        var foundMushroom =
-            false;
+        var plains =
+            FindBiomeInterior(
+                generator.Biomes,
+                "asteria:overworld/plains");
+        var swamp =
+            FindBiomeInterior(
+                generator.Biomes,
+                "asteria:overworld/swamp");
 
-        for (var chunkZ = -8;
-             chunkZ <= 8 &&
-             !(foundGrass &&
-               foundMushroom);
-             chunkZ++)
+        Assert.True(
+            HasBlockNear(
+                generator,
+                plains,
+                grass));
+        Assert.True(
+            HasBlockNear(
+                generator,
+                swamp,
+                mushroom));
+    }
+
+    private static (int X, int Z) FindBiomeInterior(
+        BiomeField field,
+        string biomeId)
+    {
+        for (var z = -4096;
+             z <= 4096;
+             z += 64)
         {
-            for (var chunkX = -8;
-                 chunkX <= 8 &&
-                 !(foundGrass &&
-                   foundMushroom);
-                 chunkX++)
+            for (var x = -4096;
+                 x <= 4096;
+                 x += 64)
+            {
+                var sample =
+                    field.Sample(
+                        x,
+                        z);
+
+                if (sample.Primary ==
+                        biomeId &&
+                    sample.PrimaryWeight >=
+                        0.9f)
+                {
+                    return (
+                        x,
+                        z);
+                }
+            }
+        }
+
+        throw new Xunit.Sdk.XunitException(
+            $"Could not find an interior sample for {biomeId}.");
+    }
+
+    private static bool HasBlockNear(
+        BiomeWorldGenerator generator,
+        (int X, int Z) center,
+        BlockRuntimeId target)
+    {
+        var centerChunk =
+            VoxelCoordinates
+                .FromWorld(
+                    center.X,
+                    0,
+                    center.Z)
+                .Chunk;
+
+        for (var dz = -1;
+             dz <= 1;
+             dz++)
+        {
+            for (var dx = -1;
+                 dx <= 1;
+                 dx++)
             {
                 var chunk =
                     generator.Materialize(
                         new ChunkCoord(
-                            chunkX,
+                            centerChunk.X +
+                            dx,
                             0,
-                            chunkZ));
+                            centerChunk.Z +
+                            dz));
+                var found =
+                    false;
 
                 chunk.VisitBlockCells(
                     (_, _, _, cell) =>
                     {
-                        foundGrass |=
+                        found |=
                             cell.Block ==
-                            grass;
-                        foundMushroom |=
-                            cell.Block ==
-                            mushroom;
+                            target;
                     });
+
+                if (found)
+                {
+                    return true;
+                }
             }
         }
 
-        Assert.True(
-            foundGrass);
-        Assert.True(
-            foundMushroom);
+        return false;
     }
 
     private static BlockRegistry LoadDefaultBlocks()
@@ -510,7 +571,8 @@ public sealed class BiomeWorldGenerationTests
                 weight,
                 regionMin: 192,
                 regionMax: 384,
-                cannotBorder),
+                cannotBorder:
+                    cannotBorder),
             new BiomeTerrainDefinition(
                 baseHeight,
                 macroAmplitude: 0f,
