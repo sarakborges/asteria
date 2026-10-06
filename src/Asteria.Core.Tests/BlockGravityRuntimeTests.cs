@@ -26,6 +26,69 @@ public sealed class BlockGravityRuntimeTests
     }
 
     [Fact]
+    public void ResidentChunkSeedsExistingGravityBlocks()
+    {
+        var world = new VoxelWorld();
+        var chunk = new Chunk();
+        var blocks =
+            new BlockRegistry(
+            [
+                new BlockDefinition(
+                    "asteria:sand",
+                    tags:
+                    [
+                        BlockGravityRuntime.GravityTag,
+                    ]),
+            ]);
+        var sand =
+            blocks.GetId(
+                "asteria:sand");
+        chunk.SetBlock(
+            3,
+            4,
+            3,
+            sand);
+        world.InsertChunk(
+            ChunkCoord.Zero,
+            chunk);
+
+        var worldUpdates =
+            new WorldUpdateQueue();
+        var fluidUpdates =
+            new FluidUpdateQueue();
+        var fluidMeshUpdates =
+            new FluidMeshUpdateQueue();
+        var gravityUpdates =
+            new BlockGravityUpdateQueue();
+        var mutations =
+            new VoxelMutationRuntime(
+                world,
+                worldUpdates,
+                fluidUpdates,
+                fluidMeshUpdates,
+                gravityUpdates,
+                new MeshletContentRevisions(),
+                new MeshletContentRevisions());
+        var gravity =
+            new BlockGravityRuntime(
+                world,
+                blocks,
+                mutations,
+                gravityUpdates);
+
+        Assert.Equal(
+            1,
+            gravity.EnqueueResidentChunk(
+                ChunkCoord.Zero));
+        Assert.Equal(
+            1,
+            gravityUpdates.Count);
+        Assert.Equal(
+            1,
+            gravity.ProcessWakeups());
+    }
+
+    [Fact]
     public void UnsupportedGravityBlockBecomesContinuousFallingState()
     {
         var fixture = CreateFixture();

@@ -53,6 +53,50 @@ public sealed class BlockGravityRuntime
 
     public int ActiveCount => _active.Count;
 
+    public int EnqueueResidentChunk(
+        ChunkCoord coord)
+    {
+        if (!_world.TryGetChunk(
+                coord,
+                out var chunk))
+        {
+            return 0;
+        }
+
+        var (originX, originY, originZ) =
+            VoxelCoordinates.ChunkOrigin(coord);
+        var queued = 0;
+
+        for (var y = 0; y < Chunk.Size; y++)
+        {
+            for (var z = 0; z < Chunk.Size; z++)
+            {
+                for (var x = 0; x < Chunk.Size; x++)
+                {
+                    var cell =
+                        chunk.GetCell(x, y, z);
+
+                    if (cell.IsEmpty ||
+                        !_blocks
+                            .GetDefinition(cell.Block)
+                            .HasTag(GravityTag))
+                    {
+                        continue;
+                    }
+
+                    _updates.Enqueue(
+                        new WorldVoxelCoord(
+                            originX + x,
+                            originY + y,
+                            originZ + z));
+                    queued++;
+                }
+            }
+        }
+
+        return queued;
+    }
+
     public int ProcessWakeups()
     {
         var started = 0;

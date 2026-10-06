@@ -550,6 +550,7 @@ public partial class Main : Node3D
         _streaming.EnqueuePresentation(coord);
         EnqueueChunkLightingReconciliation(coord);
         EnqueueResidentChunkFluids(coord);
+        _blockGravity.EnqueueResidentChunk(coord);
 
         GD.Print(
             $"chunk.resident coord={coord} " +
