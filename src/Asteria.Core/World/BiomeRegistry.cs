@@ -34,6 +34,10 @@ public sealed class BiomeRegistry
         foreach (var definition in
                  _definitions)
         {
+            _ =
+                DimensionId(
+                    definition.Id);
+
             if (!_definitionsById.TryAdd(
                     definition.Id,
                     definition))
