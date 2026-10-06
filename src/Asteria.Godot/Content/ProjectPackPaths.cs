@@ -2,7 +2,7 @@ using Asteria.Core.Content;
 
 namespace Asteria.Client.Content;
 
-public static class ProjectPackPaths
+internal static class ProjectPackPaths
 {
     public static string DataCategory(
         PackSelection selection,
