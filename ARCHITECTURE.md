@@ -106,6 +106,7 @@ Background work is allowed only when ownership is explicit.
 
 - Prefer immutable snapshots or isolated worker copies.
 - Every result whose inputs may change carries revisions/generations and is rejected when stale.
+- Stale validation must cover the exact dependency envelope of the snapshot, including residency of chunks that were absent when the snapshot was captured; unrelated residency outside that envelope must not invalidate correct work.
 - Worker completion order must not determine gameplay behavior.
 - Background tasks are bounded.
 - Long-running work that can become irrelevant should be cancellable or cheaply discardable.
