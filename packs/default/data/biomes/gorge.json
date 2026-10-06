@@ -1,0 +1,22 @@
+{
+  "id": "asteria:overworld/gorge",
+  "surfaceLayout": {
+    "weight": 0.35,
+    "regionSize": {
+      "min": 192,
+      "max": 320
+    }
+  },
+  "surfaceTerrain": {
+    "baseHeight": 6,
+    "macroAmplitude": 5,
+    "macroScale": 640,
+    "detailAmplitude": 1,
+    "detailScale": 80
+  },
+  "surfaceLayers": [
+    {
+      "block": "asteria:stone"
+    }
+  ]
+}
