@@ -509,7 +509,32 @@ public sealed class FluidSimulationSnapshotTests
     }
 
     [Fact]
-    public void RelevantColumnResidencyChangeInvalidatesSnapshot()
+    public void RelevantChunkResidencyChangeInvalidatesSnapshot()
+    {
+        var world = new VoxelWorld();
+        world.InsertChunk(
+            ChunkCoord.Zero,
+            new Chunk());
+
+        var snapshot =
+            FluidSimulationSnapshot.Capture(
+                world,
+                new FluidWorkBatch(
+                    [new WorldVoxelCoord(8, 8, 8)],
+                    Array.Empty<FluidTickKey>()),
+                horizontalVoxelRadius: 7);
+
+        world.InsertChunk(
+            new ChunkCoord(0, 1, 0),
+            new Chunk());
+
+        Assert.False(
+            snapshot.Dependencies.IsCurrent(
+                world));
+    }
+
+    [Fact]
+    public void UnrelatedVerticalResidencyDoesNotInvalidateSnapshot()
     {
         var world = new VoxelWorld();
         world.InsertChunk(
@@ -528,7 +553,7 @@ public sealed class FluidSimulationSnapshotTests
             new ChunkCoord(0, 2, 0),
             new Chunk());
 
-        Assert.False(
+        Assert.True(
             snapshot.Dependencies.IsCurrent(
                 world));
     }

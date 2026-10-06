@@ -41,3 +41,20 @@ public sealed class ChunkColumnResidencyStamp
 
     internal IEnumerable<KeyValuePair<ChunkColumnCoord, ulong>> Entries => _revisions;
 }
+
+public sealed class ChunkResidencyStamp
+{
+    private readonly Dictionary<ChunkCoord, ulong>
+        _epochs;
+
+    internal ChunkResidencyStamp(
+        Dictionary<ChunkCoord, ulong> epochs)
+    {
+        _epochs =
+            epochs ??
+            throw new ArgumentNullException(nameof(epochs));
+    }
+
+    internal IEnumerable<KeyValuePair<ChunkCoord, ulong>>
+        Entries => _epochs;
+}

@@ -3,11 +3,11 @@ namespace Asteria.Core.World;
 public sealed class FluidSimulationDependencies
 {
     private readonly ChunkContentStamp _content;
-    private readonly ChunkColumnResidencyStamp _residency;
+    private readonly ChunkResidencyStamp _residency;
 
     internal FluidSimulationDependencies(
         ChunkContentStamp content,
-        ChunkColumnResidencyStamp residency)
+        ChunkResidencyStamp residency)
     {
         _content =
             content ??
@@ -22,7 +22,7 @@ public sealed class FluidSimulationDependencies
         ArgumentNullException.ThrowIfNull(world);
 
         return world.IsContentStampCurrent(_content) &&
-               world.IsColumnResidencyStampCurrent(
+               world.IsResidencyStampCurrent(
                    _residency);
     }
 }
@@ -70,8 +70,8 @@ public sealed class FluidSimulationSnapshot
             new FluidSimulationDependencies(
                 source.CaptureContentStamp(
                     world.LoadedChunkCoords),
-                source.CaptureColumnResidencyStamp(
-                    neighborhood.Columns));
+                source.CaptureResidencyStamp(
+                    neighborhood.Chunks));
 
         return new FluidSimulationSnapshot(
             world,
@@ -110,14 +110,11 @@ public sealed class FluidSimulationSnapshot
 
         var chunks =
             new HashSet<ChunkCoord>();
-        var columns =
-            new HashSet<ChunkColumnCoord>();
 
         if (seedChunks.Count == 0)
         {
             return new FluidSimulationNeighborhood(
-                chunks,
-                columns);
+                chunks);
         }
 
         var horizontalChunkRadius =
@@ -139,33 +136,32 @@ public sealed class FluidSimulationSnapshot
                      x <= horizontalChunkRadius;
                      x++)
                 {
-                    var column =
-                        new ChunkColumnCoord(
-                            seed.X + x,
-                            seed.Z + z);
-
-                    columns.Add(column);
-
                     for (var y = -VerticalChunkRadius;
                          y <= VerticalChunkRadius;
                          y++)
                     {
+                        var chunkY =
+                            seed.Y + y;
+
+                        if (chunkY < 0)
+                        {
+                            continue;
+                        }
+
                         chunks.Add(
                             new ChunkCoord(
-                                column.X,
-                                seed.Y + y,
-                                column.Z));
+                                seed.X + x,
+                                chunkY,
+                                seed.Z + z));
                     }
                 }
             }
         }
 
         return new FluidSimulationNeighborhood(
-            chunks,
-            columns);
+            chunks);
     }
 }
 
 internal sealed record FluidSimulationNeighborhood(
-    HashSet<ChunkCoord> Chunks,
-    HashSet<ChunkColumnCoord> Columns);
+    HashSet<ChunkCoord> Chunks);

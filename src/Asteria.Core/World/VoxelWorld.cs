@@ -188,6 +188,53 @@ public sealed class VoxelWorld
         return true;
     }
 
+    public ulong GetResidencyEpoch(
+        ChunkCoord coord) =>
+        _residencyEpochs.TryGetValue(
+            coord,
+            out var epoch)
+            ? epoch
+            : 0;
+
+    public ChunkResidencyStamp CaptureResidencyStamp(
+        IEnumerable<ChunkCoord> coordinates)
+    {
+        ArgumentNullException.ThrowIfNull(coordinates);
+
+        var epochs =
+            new Dictionary<ChunkCoord, ulong>();
+
+        foreach (var coord in coordinates
+                     .Distinct()
+                     .OrderBy(coord => coord.Y)
+                     .ThenBy(coord => coord.Z)
+                     .ThenBy(coord => coord.X))
+        {
+            epochs.Add(
+                coord,
+                GetResidencyEpoch(coord));
+        }
+
+        return new ChunkResidencyStamp(epochs);
+    }
+
+    public bool IsResidencyStampCurrent(
+        ChunkResidencyStamp stamp)
+    {
+        ArgumentNullException.ThrowIfNull(stamp);
+
+        foreach (var (coord, expected) in
+                 stamp.Entries)
+        {
+            if (GetResidencyEpoch(coord) != expected)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     public ulong GetColumnResidencyRevision(ChunkColumnCoord column) =>
         _columnResidencyRevisions.TryGetValue(column, out var revision)
             ? revision
