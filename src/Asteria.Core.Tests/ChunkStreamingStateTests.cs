@@ -342,8 +342,8 @@ public sealed class ChunkStreamingStateTests
         {
             CallCount++;
             return new ChunkSurfaceRange(
-                chunkX,
-                chunkZ);
+                0,
+                15);
         }
     }
 
