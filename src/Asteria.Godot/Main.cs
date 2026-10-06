@@ -52,10 +52,10 @@ public partial class Main : Node3D
     private VoxelMutationRuntime _mutations = null!;
     private BlockGravityRuntime _blockGravity = null!;
 
-    private Task<MeshUpdateBuild>? _meshTask;
-    private Task<FluidMeshUpdateBuild>? _fluidMeshTask;
-    private Task<FluidSimulationBuild>? _fluidTask;
-    private Task<LightingUpdateBuild>? _lightingTask;
+    private readonly TerrainMeshWorker _terrainMeshWorker = new();
+    private readonly FluidMeshWorker _fluidMeshWorker = new();
+    private readonly FluidSimulationWorker _fluidSimulationWorker = new();
+    private readonly LightingWorker _lightingWorker = new();
 
     private BlockRegistry _blocks = null!;
     private FluidRegistry _fluids = null!;
@@ -129,19 +129,19 @@ public partial class Main : Node3D
         PublishPendingPresentations();
         ProcessBlockPhysics(delta);
 
-        PollFluidTask();
-        PollFluidMeshTask();
+        PollFluidWorker();
+        PollFluidMeshWorker();
         IntegrateFluidMeshletPublications();
 
-        PollMeshTask();
+        PollTerrainMeshWorker();
         IntegrateMeshletPublications();
 
-        PollLightingTask();
+        PollLightingWorker();
 
-        TryStartFluidTask();
-        TryStartFluidMeshTask();
-        TryStartMeshTask();
-        TryStartLightingTask();
+        TryStartFluidWorker();
+        TryStartFluidMeshWorker();
+        TryStartTerrainMeshWorker();
+        TryStartLightingWorker();
 
         SyncPresentationVisibility();
         EvictDistantChunks();
@@ -851,10 +851,10 @@ public partial class Main : Node3D
 
     private void KickWorldMutationWorkers()
     {
-        TryStartFluidTask();
-        TryStartFluidMeshTask();
-        TryStartMeshTask();
-        TryStartLightingTask();
+        TryStartFluidWorker();
+        TryStartFluidMeshWorker();
+        TryStartTerrainMeshWorker();
+        TryStartLightingWorker();
     }
 
     private void ProcessBlockPhysics(double delta)
@@ -977,9 +977,9 @@ public partial class Main : Node3D
         return true;
     }
 
-    private void TryStartFluidTask()
+    private void TryStartFluidWorker()
     {
-        if (_fluidTask is not null ||
+        if (_fluidSimulationWorker.IsRunning ||
             !_fluidUpdates.HasReadyWork(
                 _worldTicks.CurrentTick))
         {
@@ -996,52 +996,31 @@ public partial class Main : Node3D
             return;
         }
 
-        var snapshot =
-            _world.CloneFluidNeighborhood(
-                batch.Positions,
-                _fluids.MaximumSpread);
-        var contentStamp =
-            _world.CaptureContentStamp(
-                snapshot.LoadedChunkCoords);
-        var fluids = _fluids;
-
-        _fluidTask = Task.Run(() =>
-        {
-            var stopwatch = Stopwatch.StartNew();
-            var simulation =
-                FluidSimulationSolver.Process(
-                    snapshot,
-                    fluids,
-                    batch);
-            stopwatch.Stop();
-
-            return new FluidSimulationBuild(
-                batch,
-                contentStamp,
-                simulation,
-                stopwatch.Elapsed.TotalMilliseconds);
-        });
+        _fluidSimulationWorker.TryStart(
+            _world,
+            _fluids,
+            batch);
     }
 
-    private void PollFluidTask()
+    private void PollFluidWorker()
     {
-        if (_fluidTask is null ||
-            !_fluidTask.IsCompleted)
+        if (!_fluidSimulationWorker.TryTakeCompleted(
+                out var result,
+                out var error))
         {
             return;
         }
 
-        if (_fluidTask.IsFaulted)
+        if (error is not null)
         {
-            GD.PushError(
-                _fluidTask.Exception?.ToString() ??
-                "Fluid simulation task failed.");
-            _fluidTask = null;
+            GD.PushError(error.ToString());
             return;
         }
 
-        var result = _fluidTask.Result;
-        _fluidTask = null;
+        if (result is null)
+        {
+            return;
+        }
 
         if (!_world.IsContentStampCurrent(
                 result.ContentStamp))
@@ -1051,7 +1030,7 @@ public partial class Main : Node3D
             _fluidUpdates.RequeueDue(
                 result.SourceBatch.DueTicks,
                 _worldTicks.CurrentTick);
-            TryStartFluidTask();
+            TryStartFluidWorker();
             return;
         }
 
@@ -1106,8 +1085,8 @@ public partial class Main : Node3D
             $"downhill_nodes={result.Simulation.DownhillVisitedNodeCount} " +
             $"backlog={_fluidUpdates.Count}");
 
-        TryStartFluidTask();
-        TryStartFluidMeshTask();
+        TryStartFluidWorker();
+        TryStartFluidMeshWorker();
     }
 
     private void ScheduleFluidRequest(
@@ -1169,9 +1148,9 @@ public partial class Main : Node3D
                 delay.Value));
     }
 
-    private void TryStartFluidMeshTask()
+    private void TryStartFluidMeshWorker()
     {
-        if (_fluidMeshTask is not null ||
+        if (_fluidMeshWorker.IsRunning ||
             !_fluidMeshUpdates.HasWork)
         {
             return;
@@ -1199,66 +1178,40 @@ public partial class Main : Node3D
             return;
         }
 
-        var batch =
-            new WorldMeshBatch(filtered);
-        var snapshot =
-            _world.CloneMeshNeighborhood(
-                batch.DirtyMeshlets.Keys);
-        var revisions =
-            _fluidContentRevisions.Capture(
-                batch.DirtyMeshlets);
-        var contentStamp =
-            _world.CaptureContentStamp(
-                snapshot.LoadedChunkCoords);
-        var blocks = _blocks;
-        var fluids = _fluids;
-
-        _fluidMeshTask = Task.Run(() =>
-        {
-            var stopwatch = Stopwatch.StartNew();
-            var meshlets =
-                BuildFluidMeshlets(
-                    snapshot,
-                    blocks,
-                    fluids,
-                    batch.DirtyMeshlets);
-            stopwatch.Stop();
-
-            return new FluidMeshUpdateBuild(
-                batch,
-                revisions,
-                contentStamp,
-                meshlets,
-                stopwatch.Elapsed.TotalMilliseconds);
-        });
+        _fluidMeshWorker.TryStart(
+            _world,
+            _blocks,
+            _fluids,
+            new WorldMeshBatch(filtered),
+            _fluidContentRevisions);
     }
 
-    private void PollFluidMeshTask()
+    private void PollFluidMeshWorker()
     {
-        if (_fluidMeshTask is null ||
-            !_fluidMeshTask.IsCompleted)
+        if (!_fluidMeshWorker.TryTakeCompleted(
+                out var result,
+                out var error))
         {
             return;
         }
 
-        if (_fluidMeshTask.IsFaulted)
+        if (error is not null)
         {
-            GD.PushError(
-                _fluidMeshTask.Exception?.ToString() ??
-                "Fluid meshlet task failed.");
-            _fluidMeshTask = null;
+            GD.PushError(error.ToString());
             return;
         }
 
-        var result = _fluidMeshTask.Result;
-        _fluidMeshTask = null;
+        if (result is null)
+        {
+            return;
+        }
 
         if (!_world.IsContentStampCurrent(
                 result.ContentStamp))
         {
             _fluidMeshUpdates.Requeue(
                 result.SourceBatch);
-            TryStartFluidMeshTask();
+            TryStartFluidMeshWorker();
             return;
         }
 
@@ -1308,7 +1261,7 @@ public partial class Main : Node3D
             $"{result.WorkerMilliseconds:F2} " +
             $"accepted={accepted} stale={stale}");
 
-        TryStartFluidMeshTask();
+        TryStartFluidMeshWorker();
     }
 
     private void IntegrateFluidMeshletPublications()
@@ -1373,9 +1326,9 @@ public partial class Main : Node3D
         }
     }
 
-    private void TryStartMeshTask()
+    private void TryStartTerrainMeshWorker()
     {
-        if (_meshTask is not null ||
+        if (_terrainMeshWorker.IsRunning ||
             !_worldUpdates.HasMeshWork)
         {
             return;
@@ -1403,65 +1356,40 @@ public partial class Main : Node3D
             return;
         }
 
-        var batch =
-            new WorldMeshBatch(filtered);
-        var snapshot =
-            _world.CloneMeshNeighborhood(
-                batch.DirtyMeshlets.Keys);
-        var revisions =
-            _contentRevisions.Capture(
-                batch.DirtyMeshlets);
-        var contentStamp =
-            _world.CaptureContentStamp(
-                snapshot.LoadedChunkCoords);
-        var blocks = _blocks;
-        var textures = _terrainTextureLookup;
-
-        _meshTask = Task.Run(() =>
-        {
-            var stopwatch = Stopwatch.StartNew();
-            var meshlets = BuildMeshlets(
-                snapshot,
-                blocks,
-                textures,
-                batch.DirtyMeshlets);
-            stopwatch.Stop();
-
-            return new MeshUpdateBuild(
-                batch,
-                revisions,
-                contentStamp,
-                meshlets,
-                stopwatch.Elapsed.TotalMilliseconds);
-        });
+        _terrainMeshWorker.TryStart(
+            _world,
+            _blocks,
+            _terrainTextureLookup,
+            new WorldMeshBatch(filtered),
+            _contentRevisions);
     }
 
-    private void PollMeshTask()
+    private void PollTerrainMeshWorker()
     {
-        if (_meshTask is null ||
-            !_meshTask.IsCompleted)
+        if (!_terrainMeshWorker.TryTakeCompleted(
+                out var result,
+                out var error))
         {
             return;
         }
 
-        if (_meshTask.IsFaulted)
+        if (error is not null)
         {
-            GD.PushError(
-                _meshTask.Exception?.ToString() ??
-                "Meshlet geometry task failed.");
-            _meshTask = null;
+            GD.PushError(error.ToString());
             return;
         }
 
-        var result = _meshTask.Result;
-        _meshTask = null;
+        if (result is null)
+        {
+            return;
+        }
 
         if (!_world.IsContentStampCurrent(
                 result.ContentStamp))
         {
             _worldUpdates.RequeueMeshlets(
                 result.SourceBatch);
-            TryStartMeshTask();
+            TryStartTerrainMeshWorker();
             return;
         }
 
@@ -1508,76 +1436,58 @@ public partial class Main : Node3D
             $"{result.WorkerMilliseconds:F2} " +
             $"accepted={accepted} stale={stale}");
 
-        TryStartMeshTask();
+        TryStartTerrainMeshWorker();
     }
 
-    private void TryStartLightingTask()
+    private void TryStartLightingWorker()
     {
-        if (_lightingTask is not null ||
+        if (_lightingWorker.IsRunning ||
             !_worldUpdates.HasLightingWork)
         {
             return;
         }
 
-        var batch = _worldUpdates.DrainLighting();
+        var batch =
+            _worldUpdates.DrainLighting();
+
         if (batch.IsEmpty)
         {
             return;
         }
 
-        var snapshot =
-            VoxelLightingSnapshot.Capture(
-                _world,
-                batch.EditedPositions);
-        var blocks = _blocks;
-        var fluids = _fluids;
-
-        _lightingTask = Task.Run(() =>
-        {
-            var stopwatch = Stopwatch.StartNew();
-            var lighting =
-                VoxelWorldLightingSolver.RelightAfterEdits(
-                    snapshot.World,
-                    blocks,
-                    fluids,
-                    batch.EditedPositions);
-            stopwatch.Stop();
-
-            return new LightingUpdateBuild(
-                snapshot.Dependencies,
-                snapshot.World,
-                batch,
-                lighting,
-                stopwatch.Elapsed.TotalMilliseconds);
-        });
+        _lightingWorker.TryStart(
+            _world,
+            _blocks,
+            _fluids,
+            batch);
     }
 
-    private void PollLightingTask()
+    private void PollLightingWorker()
     {
-        if (_lightingTask is null ||
-            !_lightingTask.IsCompleted)
+        if (!_lightingWorker.TryTakeCompleted(
+                out var result,
+                out var error))
         {
             return;
         }
 
-        if (_lightingTask.IsFaulted)
+        if (error is not null)
         {
-            GD.PushError(
-                _lightingTask.Exception?.ToString() ??
-                "Incremental lighting task failed.");
-            _lightingTask = null;
+            GD.PushError(error.ToString());
             return;
         }
 
-        var result = _lightingTask.Result;
-        _lightingTask = null;
+        if (result is null)
+        {
+            return;
+        }
 
         if (!result.Dependencies.IsCurrent(
                 _world))
         {
             _worldUpdates.RequeueLighting(
                 result.SourceBatch);
-            TryStartLightingTask();
+            TryStartLightingWorker();
             return;
         }
 
@@ -1610,8 +1520,8 @@ public partial class Main : Node3D
             $"light_processed=" +
             $"{result.Lighting.ProcessedVoxelCount}");
 
-        TryStartMeshTask();
-        TryStartLightingTask();
+        TryStartTerrainMeshWorker();
+        TryStartLightingWorker();
     }
 
     private void IntegrateMeshletPublications()
@@ -1679,80 +1589,6 @@ public partial class Main : Node3D
         }
     }
 
-    private static List<FluidMeshletBuild> BuildFluidMeshlets(
-        VoxelWorld world,
-        BlockRegistry blocks,
-        FluidRegistry fluids,
-        IReadOnlyDictionary<ChunkCoord, ChunkMeshletMask> dirty)
-    {
-        var result =
-            new List<FluidMeshletBuild>();
-
-        foreach (var (coord, mask) in dirty
-                     .OrderBy(entry => entry.Key.Y)
-                     .ThenBy(entry => entry.Key.Z)
-                     .ThenBy(entry => entry.Key.X))
-        {
-            if (!world.ContainsChunk(coord))
-            {
-                continue;
-            }
-
-            foreach (var meshletIndex in
-                     mask.Indices())
-            {
-                result.Add(
-                    new FluidMeshletBuild(
-                        coord,
-                        meshletIndex,
-                        FluidMeshDataBuilder.BuildMeshlet(
-                            world,
-                            coord,
-                            blocks,
-                            fluids,
-                            meshletIndex)));
-            }
-        }
-
-        return result;
-    }
-
-    private static List<MeshletBuild> BuildMeshlets(
-        VoxelWorld world,
-        BlockRegistry blocks,
-        TerrainTextureLookup textures,
-        IReadOnlyDictionary<ChunkCoord, ChunkMeshletMask> dirty)
-    {
-        var result = new List<MeshletBuild>();
-
-        foreach (var (coord, mask) in dirty
-                     .OrderBy(entry => entry.Key.Y)
-                     .ThenBy(entry => entry.Key.Z)
-                     .ThenBy(entry => entry.Key.X))
-        {
-            if (!world.ContainsChunk(coord))
-            {
-                continue;
-            }
-
-            foreach (var meshletIndex in mask.Indices())
-            {
-                result.Add(
-                    new MeshletBuild(
-                        coord,
-                        meshletIndex,
-                        ChunkMeshDataBuilder.BuildMeshlet(
-                            world,
-                            coord,
-                            blocks,
-                            textures,
-                            meshletIndex)));
-            }
-        }
-
-        return result;
-    }
-
     private static ulong SaturatingAdd(
         ulong value,
         ulong amount) =>
@@ -1778,52 +1614,15 @@ public partial class Main : Node3D
         Chunk Chunk,
         double WorkerMilliseconds);
 
-    private sealed record MeshletBuild(
-        ChunkCoord Coord,
-        int MeshletIndex,
-        ChunkMeshData Data);
-
     private sealed record MeshletPublication(
-        MeshletBuild Meshlet,
+        TerrainMeshletBuild Meshlet,
         ulong ContentRevision,
         ChunkContentStamp ContentStamp);
-
-    private sealed record FluidMeshletBuild(
-        ChunkCoord Coord,
-        int MeshletIndex,
-        ChunkFluidMeshData Data);
 
     private sealed record FluidMeshletPublication(
-        FluidMeshletBuild Meshlet,
+        FluidTerrainMeshletBuild Meshlet,
         ulong ContentRevision,
         ChunkContentStamp ContentStamp);
 
-    private sealed record FluidMeshUpdateBuild(
-        WorldMeshBatch SourceBatch,
-        IReadOnlyDictionary<ChunkMeshletKey, ulong>
-            ContentRevisions,
-        ChunkContentStamp ContentStamp,
-        IReadOnlyList<FluidMeshletBuild> Meshlets,
-        double WorkerMilliseconds);
 
-    private sealed record FluidSimulationBuild(
-        FluidWorkBatch SourceBatch,
-        ChunkContentStamp ContentStamp,
-        FluidSimulationResult Simulation,
-        double WorkerMilliseconds);
-
-    private sealed record MeshUpdateBuild(
-        WorldMeshBatch SourceBatch,
-        IReadOnlyDictionary<ChunkMeshletKey, ulong>
-            ContentRevisions,
-        ChunkContentStamp ContentStamp,
-        IReadOnlyList<MeshletBuild> Meshlets,
-        double WorkerMilliseconds);
-
-    private sealed record LightingUpdateBuild(
-        VoxelLightingDependencies Dependencies,
-        VoxelWorld LightingSnapshot,
-        WorldLightingBatch SourceBatch,
-        VoxelLightingUpdateResult Lighting,
-        double WorkerMilliseconds);
 }
