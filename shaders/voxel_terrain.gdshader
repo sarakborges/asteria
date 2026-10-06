@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode unshaded, cull_back;
+render_mode unshaded, cull_back, depth_draw_opaque;
 
 uniform sampler2DArray terrain_textures : source_color, filter_nearest, repeat_enable;
 
@@ -45,7 +45,6 @@ void fragment() {
         rgb = apply_layer_tint(rgb, COLOR.rgb);
     }
 
-    float alpha = base.a;
     if (UV2.y >= 0.0) {
         float overlay_code = UV2.y;
         int overlay_index = int(floor(overlay_code + 0.001));
@@ -62,10 +61,8 @@ void fragment() {
         }
 
         rgb = mix(rgb, overlay_rgb, overlay.a);
-        alpha = max(alpha, overlay.a);
     }
 
     ALBEDO = rgb * voxel_face_shade;
-    ALPHA = alpha;
     ROUGHNESS = 1.0;
 }
