@@ -80,6 +80,14 @@ Current dependency classes include, as applicable:
 
 No-op mutations must not publish revisions or wake derived work.
 
+Block/fluid occupancy is mutually exclusive at the voxel-content boundary.
+
+- Placing or settling a non-empty block into a fluid cell replaces that cell's fluid as part of the same authoritative block mutation.
+- Fluid mutation must reject non-empty fluid in a solid block cell.
+- Removing a block wakes fluid topology immediately; actual refill/spread still obeys the authored fluid timing instead of bypassing simulation.
+- One authoritative mutation publishes one consequence fan-out. A block mutation that also displaces fluid must not double-bump fluid revisions or duplicate remesh/lighting/topology invalidation.
+- Cross-chunk mesh halos, revisions and fluid topology must be invalidated from the edited world position, including loaded neighbors whose one-voxel dependency halo contains it.
+
 ## 5. Chunks and lifecycle states
 
 Chunk content, residency, simulation readiness and presentation are different facts.
@@ -101,6 +109,7 @@ Background work is allowed only when ownership is explicit.
 - Worker completion order must not determine gameplay behavior.
 - Background tasks are bounded.
 - Long-running work that can become irrelevant should be cancellable or cheaply discardable.
+- Detached world entities without persistence/pickup ownership must still have explicit population and lifetime bounds; bounded capacity and expiry are required until a higher-level lifecycle owns them.
 - Snapshot creation must not perform hidden O(chunk-volume) reconstruction when a structural copy/share can preserve the same isolation contract more cheaply.
 
 Godot objects stay on the Godot thread unless the API explicitly permits otherwise.
@@ -163,6 +172,7 @@ Chunk storage is a hot-path data structure.
 - Palettes must scale with the number of distinct values, not preallocate one full value slot per voxel without a measured reason.
 - Occupancy/frontier indexes should permit sparse iteration when consumers need only occupied cells.
 - Cloning/snapshotting should structurally share or directly copy storage when safe rather than reinserting every voxel through general mutation APIs.
+- Runtime state that leaves its owning chunk must not retain chunk-local palette identifiers. Detached/falling/dropped blocks carry portable value snapshots and re-intern local palette data when materialized into another chunk.
 - Optimize only after correctness, but obvious structural O(volume) work in a repeated hot boundary should not be preserved merely because the world is currently small.
 
 ## 12. Refactor gate
