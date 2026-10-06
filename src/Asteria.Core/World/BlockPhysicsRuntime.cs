@@ -94,36 +94,27 @@ public sealed class BlockPhysicsRuntime
             VoxelCoordinates.ChunkOrigin(coord);
         var queued = 0;
 
-        for (var y = 0; y < Chunk.Size; y++)
-        {
-            for (var z = 0; z < Chunk.Size; z++)
+        chunk.VisitBlockCells(
+            (x, y, z, cell) =>
             {
-                for (var x = 0; x < Chunk.Size; x++)
+                var definition =
+                    _blocks.GetDefinition(cell.Block);
+
+                if (!definition.HasTag(
+                        BlockPhysicsCapabilities.Gravity) &&
+                    !definition.HasTag(
+                        BlockPhysicsCapabilities.SupportBelow))
                 {
-                    var cell = chunk.GetCell(x, y, z);
-                    if (cell.IsEmpty)
-                    {
-                        continue;
-                    }
-
-                    var definition =
-                        _blocks.GetDefinition(cell.Block);
-
-                    if (!definition.HasTag(BlockPhysicsCapabilities.Gravity) &&
-                        !definition.HasTag(BlockPhysicsCapabilities.SupportBelow))
-                    {
-                        continue;
-                    }
-
-                    _updates.Enqueue(
-                        new WorldVoxelCoord(
-                            originX + x,
-                            originY + y,
-                            originZ + z));
-                    queued++;
+                    return;
                 }
-            }
-        }
+
+                _updates.Enqueue(
+                    new WorldVoxelCoord(
+                        originX + x,
+                        originY + y,
+                        originZ + z));
+                queued++;
+            });
 
         return queued;
     }

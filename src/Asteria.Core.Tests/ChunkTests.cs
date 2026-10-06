@@ -171,6 +171,70 @@ public sealed class ChunkTests
     }
 
     [Fact]
+    public void BlockVisitorUsesOccupiedCellsInVoxelOrder()
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition("asteria:stone"),
+        ]);
+        var chunk = new Chunk();
+        var stone =
+            blocks.GetId("asteria:stone");
+
+        chunk.SetBlock(
+            7,
+            12,
+            1,
+            stone);
+        chunk.SetBlock(
+            15,
+            2,
+            9,
+            stone);
+        chunk.SetBlock(
+            1,
+            2,
+            9,
+            stone);
+
+        var visited =
+            new List<(int X, int Y, int Z, VoxelCell Cell)>();
+
+        chunk.VisitBlockCells(
+            (x, y, z, cell) =>
+                visited.Add(
+                    (x, y, z, cell)));
+
+        Assert.Equal(
+            3,
+            visited.Count);
+        Assert.Equal(
+            (1, 2, 9),
+            (
+                visited[0].X,
+                visited[0].Y,
+                visited[0].Z));
+        Assert.Equal(
+            (15, 2, 9),
+            (
+                visited[1].X,
+                visited[1].Y,
+                visited[1].Z));
+        Assert.Equal(
+            (7, 12, 1),
+            (
+                visited[2].X,
+                visited[2].Y,
+                visited[2].Z));
+        Assert.All(
+            visited,
+            entry =>
+                Assert.Equal(
+                    stone,
+                    entry.Cell.Block));
+    }
+
+    [Fact]
     public void FluidVisitorUsesOccupiedCellsAndPreservesCoordinates()
     {
         var fluids = new FluidRegistry(

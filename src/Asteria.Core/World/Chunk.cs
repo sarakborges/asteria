@@ -82,6 +82,20 @@ public sealed class Chunk
     public bool SetBlock(int x, int y, int z, BlockRuntimeId block) =>
         SetCell(x, y, z, new VoxelCell(block));
 
+    public void VisitBlockCells(
+        Action<int, int, int, VoxelCell> visit)
+    {
+        ArgumentNullException.ThrowIfNull(visit);
+
+        _cells.VisitOccupied(
+            (voxelIndex, cell) =>
+            {
+                var (x, y, z) =
+                    FromIndex(voxelIndex);
+                visit(x, y, z, cell);
+            });
+    }
+
     public FluidCell GetFluid(int x, int y, int z)
     {
         ValidateCoordinates(x, y, z);
