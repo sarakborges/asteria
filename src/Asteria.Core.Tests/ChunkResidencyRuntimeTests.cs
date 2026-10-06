@@ -160,6 +160,7 @@ public sealed class ChunkResidencyRuntimeTests
                 world,
                 blocks,
                 fluids,
+                new EmptyChunkProvider(),
                 worldUpdates,
                 fluidUpdates,
                 fluidMeshUpdates,
@@ -179,6 +180,13 @@ public sealed class ChunkResidencyRuntimeTests
             blocks,
             worldUpdates,
             runtime);
+    }
+
+    private sealed class EmptyChunkProvider : IChunkProvider
+    {
+        public Chunk Materialize(
+            ChunkCoord coord) =>
+            new();
     }
 
     private sealed record RuntimeFixture(
