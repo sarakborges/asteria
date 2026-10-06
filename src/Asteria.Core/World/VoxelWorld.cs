@@ -87,6 +87,45 @@ public sealed class VoxelWorld
         return result;
     }
 
+    public IReadOnlyList<(
+        ChunkCoord Coord,
+        ChunkArchiveResult Result)>
+        ArchiveAllResidentChunks()
+    {
+        var coordinates =
+            _chunks.Keys
+                .OrderBy(
+                    coord =>
+                        coord.Y)
+                .ThenBy(
+                    coord =>
+                        coord.Z)
+                .ThenBy(
+                    coord =>
+                        coord.X)
+                .ToArray();
+        var results =
+            new (
+                ChunkCoord Coord,
+                ChunkArchiveResult Result)[
+                coordinates.Length];
+
+        for (var index = 0;
+             index < coordinates.Length;
+             index++)
+        {
+            var coord =
+                coordinates[index];
+            results[index] =
+                (
+                    coord,
+                    ArchiveChunk(
+                        coord));
+        }
+
+        return results;
+    }
+
     public ChunkRestoreResult RestoreChunk(ChunkCoord coord)
     {
         if (_chunks.ContainsKey(coord))
