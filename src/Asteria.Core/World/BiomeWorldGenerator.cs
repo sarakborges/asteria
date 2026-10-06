@@ -14,12 +14,12 @@ public sealed class BiomeWorldGenerator : IChunkProvider
 
     public BiomeWorldGenerator(
         ulong seed,
-        string dimensionId,
+        DimensionDefinition dimension,
         BlockRegistry blocks,
         BiomeRegistry biomes)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(
-            dimensionId);
+        ArgumentNullException.ThrowIfNull(
+            dimension);
         _blocks =
             blocks ??
             throw new ArgumentNullException(
@@ -32,17 +32,18 @@ public sealed class BiomeWorldGenerator : IChunkProvider
 
         _seed = seed;
         DimensionId =
-            dimensionId;
+            dimension.Id;
         _field =
             new BiomeField(
                 seed,
-                dimensionId,
+                dimension,
                 biomes);
 
         _profiles =
-            biomes
-                .SurfaceForDimension(
-                    dimensionId)
+            dimension
+                .Biomes
+                .Select(
+                    biomes.Get)
                 .OrderBy(
                     definition =>
                         definition.Id,
@@ -59,12 +60,12 @@ public sealed class BiomeWorldGenerator : IChunkProvider
         if (_profiles.Count == 0)
         {
             throw new ArgumentException(
-                $"Dimension {dimensionId} has no surface biome profiles.",
-                nameof(biomes));
+                $"Dimension {dimension.Id} has no surface biome profiles.",
+                nameof(dimension));
         }
     }
 
-    public string DimensionId { get; }
+    public DimensionId DimensionId { get; }
 
     public BiomeField Biomes =>
         _field;
