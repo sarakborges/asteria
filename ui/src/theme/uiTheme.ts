@@ -3,6 +3,18 @@ const themeTokenMap = {
   colorMuted: "--ui-color-muted",
   colorSuccess: "--ui-color-success",
   colorWarning: "--ui-color-warning",
+  colorDanger: "--ui-color-danger",
+  colorHealth: "--ui-color-health",
+  colorStamina: "--ui-color-stamina",
+  colorAccent: "--ui-color-accent",
+  colorAccentStrong: "--ui-color-accent-strong",
+  colorAccentGlow: "--ui-color-accent-glow",
+  colorCrosshair: "--ui-color-crosshair",
+  colorShadow: "--ui-color-shadow",
+  colorMeterTrack: "--ui-color-meter-track",
+  colorSlot: "--ui-color-slot",
+  colorSlotSelected: "--ui-color-slot-selected",
+  colorHotbar: "--ui-color-hotbar",
   colorBorder: "--ui-color-border",
   colorBorderStrong: "--ui-color-border-strong",
   colorPanel: "--ui-color-panel",
@@ -19,6 +31,7 @@ const themeTokenMap = {
   fontSizeDetail: "--ui-font-size-detail",
   fontSizeTitle: "--ui-font-size-title",
   letterSpacingDetail: "--ui-letter-spacing-detail",
+  hotbarSlotSize: "--ui-hotbar-slot-size",
 } as const;
 
 type ThemeToken = keyof typeof themeTokenMap;

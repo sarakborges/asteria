@@ -1,0 +1,32 @@
+.hotbar {
+  display: grid;
+  justify-items: center;
+  gap: var(--ui-space-1);
+  pointer-events: none;
+}
+
+.hotbar__selected-name {
+  min-height: 16px;
+  padding: 0 8px;
+  color: var(--ui-color-text);
+  font-size: var(--ui-font-size-detail);
+  font-weight: 700;
+  letter-spacing: 0.035em;
+  line-height: 16px;
+  text-align: center;
+  text-shadow: 0 2px 8px var(--ui-color-shadow);
+}
+
+.hotbar__selected-name:empty {
+  opacity: 0;
+}
+
+.hotbar__row {
+  display: flex;
+  gap: 3px;
+  padding: 5px;
+  border: 1px solid var(--ui-color-border);
+  background: var(--ui-color-hotbar);
+  box-shadow: 0 12px 30px var(--ui-color-shadow);
+  backdrop-filter: blur(10px);
+}

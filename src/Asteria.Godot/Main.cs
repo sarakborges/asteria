@@ -200,6 +200,7 @@ public partial class Main : Node3D
                     MaxPresentationPublicationsPerFrame));
         _placementBlock =
             _blocks.GetId(TestChunkFactory.StoneId);
+        SendHotbarState();
 
         GD.Print(
             $"pack: {_packSelection.Name}");
@@ -334,6 +335,7 @@ public partial class Main : Node3D
         SendWebUi(
             "game.ready",
             new { bridge = 1, engine = "godot" });
+        SendHotbarState();
 
         if (_worldReadySent)
         {
@@ -376,6 +378,33 @@ public partial class Main : Node3D
                 worldTick = _worldTicks.CurrentTick,
                 textures = _terrainTextures.TextureCount,
                 meshletsPerChunk = ChunkMeshletMask.Count,
+            });
+    }
+
+    private void SendHotbarState()
+    {
+        if (_placementBlock.IsAir)
+        {
+            return;
+        }
+
+        var definition =
+            _blocks.GetDefinition(
+                _placementBlock);
+
+        SendWebUi(
+            "game.hud.hotbar",
+            new
+            {
+                selectedIndex = 0,
+                slots = new[]
+                {
+                    new
+                    {
+                        id = definition.Id,
+                        quantity = 1,
+                    },
+                },
             });
     }
 
@@ -553,6 +582,7 @@ public partial class Main : Node3D
 
         _placementBlock =
             decision.Cell.Block;
+        SendHotbarState();
         KickWorldMutationWorkers();
     }
 

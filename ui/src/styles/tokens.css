@@ -3,8 +3,20 @@
   --ui-color-muted: #9da8b2;
   --ui-color-success: #8ed27b;
   --ui-color-warning: #e3c86d;
+  --ui-color-danger: #dc6f72;
+  --ui-color-health: #d95f67;
+  --ui-color-stamina: #d9b85f;
+  --ui-color-accent: #8f6bd8;
+  --ui-color-accent-strong: #c3a9ff;
+  --ui-color-accent-glow: rgb(143 107 216 / 28%);
+  --ui-color-crosshair: rgb(255 255 255 / 90%);
+  --ui-color-shadow: rgb(0 0 0 / 48%);
+  --ui-color-meter-track: rgb(0 0 0 / 42%);
+  --ui-color-slot: rgb(21 19 29 / 84%);
+  --ui-color-slot-selected: rgb(42 33 59 / 94%);
+  --ui-color-hotbar: rgb(11 10 16 / 72%);
   --ui-color-border: rgb(255 255 255 / 12%);
-  --ui-color-border-strong: rgb(255 255 255 / 18%);
+  --ui-color-border-strong: rgb(255 255 255 / 22%);
   --ui-color-panel: rgb(10 13 16 / 78%);
   --ui-color-control: rgb(255 255 255 / 8%);
   --ui-color-control-hover: rgb(255 255 255 / 14%);
@@ -19,4 +31,5 @@
   --ui-font-size-detail: 11px;
   --ui-font-size-title: 18px;
   --ui-letter-spacing-detail: 0.08em;
+  --ui-hotbar-slot-size: 46px;
 }
