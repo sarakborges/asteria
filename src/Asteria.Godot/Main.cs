@@ -189,24 +189,43 @@ public partial class Main : Node3D
     {
         if (@event is not InputEventKey keyEvent ||
             !keyEvent.Pressed ||
-            keyEvent.Echo ||
-            keyEvent.Keycode != Key.F3)
+            keyEvent.Echo)
         {
             return;
         }
 
-        _debugHudVisible =
-            !_debugHudVisible;
-        SendDebugHudState();
-        GetViewport().SetInputAsHandled();
+        switch (keyEvent.Keycode)
+        {
+            case Key.F3:
+                _debugHudVisible =
+                    !_debugHudVisible;
+                SendDebugHudState();
+                GetViewport().SetInputAsHandled();
+                break;
+
+            case Key.F4:
+                if (TryCycleDimensionForQa())
+                {
+                    GetViewport().SetInputAsHandled();
+                }
+
+                break;
+        }
     }
 
     public override void _Process(double delta)
     {
+        BeginWorldFrameBudget(delta);
+
+        if (_sessions.IsTransitioning)
+        {
+            AdvanceDimensionTransition();
+            return;
+        }
+
         _worldTicks.Advance(
             delta,
             WorldTicksPerSecond);
-        BeginWorldFrameBudget(delta);
 
         var streamingBegin =
             _chunkStreaming.BeginFrame(
@@ -253,6 +272,218 @@ public partial class Main : Node3D
             _worldReadySent = true;
             SetupPlayer();
             SendWorldReady();
+        }
+    }
+
+    public bool TransitionToDimension(
+        string dimensionId)
+    {
+        if (_player is null ||
+            _sessions.IsTransitioning)
+        {
+            return false;
+        }
+
+        var position =
+            _player.GlobalPosition;
+        return BeginDimensionTransition(
+            new DimensionId(
+                dimensionId),
+            new NVector3(
+                position.X,
+                position.Y,
+                position.Z));
+    }
+
+    private bool BeginDimensionTransition(
+        DimensionId target,
+        NVector3 destination)
+    {
+        if (_player is null)
+        {
+            return false;
+        }
+
+        var position =
+            _player.GlobalPosition;
+        var source =
+            new NVector3(
+                position.X,
+                position.Y,
+                position.Z);
+
+        if (!_sessions.RequestTransition(
+                target,
+                source,
+                destination))
+        {
+            return false;
+        }
+
+        RetirePlayerForDimensionTransition();
+        _worldReadySent = false;
+
+        SendWebUi(
+            "game.dimension_transition",
+            new
+            {
+                from =
+                    _dimension.Id.Value,
+                to =
+                    target.Value,
+            });
+
+        GD.Print(
+            $"dimension.transition begin from={_dimension.Id} to={target}");
+        return true;
+    }
+
+    private void AdvanceDimensionTransition()
+    {
+        var completion =
+            _sessions.AdvanceTransition(
+                _worldFrameBudget,
+                ReportDimensionRetirementDrain);
+
+        if (completion is null)
+        {
+            return;
+        }
+
+        ActivateCurrentDimensionPresentation();
+
+        ReportStreamingSelection(
+            _chunkStreaming.SyncSelection(
+                CurrentStreamingCenter()));
+
+        SendWebUi(
+            "game.dimension_changed",
+            new
+            {
+                from =
+                    completion.From.Value,
+                to =
+                    completion.To.Value,
+                dimensionSeed =
+                    _dimensionSeed,
+                gravityStrength =
+                    _dimension.GravityStrength,
+            });
+
+        GD.Print(
+            $"dimension.transition complete from={completion.From} " +
+            $"to={completion.To} archived_dirty={completion.Archive.ArchivedDirty} " +
+            $"dropped_pristine={completion.Archive.DroppedPristine}");
+    }
+
+    private void ActivateCurrentDimensionPresentation()
+    {
+        _dimensionEnvironment.Apply(
+            _dimension);
+    }
+
+    private DimensionRuntimeSession CreateDimensionSession(
+        DimensionSessionState state) =>
+        new(
+            this,
+            state,
+            _blocks,
+            _fluids,
+            _biomes,
+            _terrainTextureLookup,
+            _terrainMaterials,
+            _fluidMaterials,
+            new DimensionRuntimeSessionSettings(
+                WorldTicksPerSecond,
+                RenderDistanceChunks,
+                RetentionMarginChunks,
+                MaxMaterializationTasksInFlight,
+                MaxMaterializationDispatchesPerFrame,
+                MaxMaterializationResultsPerFrame,
+                MaxPresentationPublicationsPerFrame,
+                MaxMeshletPublishesPerFrame,
+                MaxInteractiveTerrainMeshletsPerWorker,
+                MaxTerrainMeshletsPerWorker,
+                MaxFluidMeshletsPerWorker,
+                MaxFluidMeshletPublishesPerFrame,
+                MaxFluidUpdatesPerWorker,
+                MaxChunkEvictionsPerFrame));
+
+    private bool TryCycleDimensionForQa()
+    {
+        if (_player is null ||
+            _sessions.IsTransitioning)
+        {
+            return false;
+        }
+
+        var definitions =
+            _dimensions
+                .Definitions()
+                .ToArray();
+
+        if (definitions.Length < 2)
+        {
+            return false;
+        }
+
+        var currentIndex =
+            Array.FindIndex(
+                definitions,
+                definition =>
+                    definition.Id ==
+                    _dimension.Id);
+        var next =
+            definitions[
+                (currentIndex + 1) %
+                definitions.Length];
+        var position =
+            _player.GlobalPosition;
+
+        return BeginDimensionTransition(
+            next.Id,
+            new NVector3(
+                position.X,
+                position.Y,
+                position.Z));
+    }
+
+    private void RetirePlayerForDimensionTransition()
+    {
+        if (_player is null)
+        {
+            return;
+        }
+
+        _player.BreakRequested -=
+            BreakTargetBlock;
+        _player.PlaceRequested -=
+            PlaceTargetBlock;
+        _player.MouseCaptureChanged -=
+            SendMouseCaptureState;
+        _player.FluidContactChanged -=
+            OnPlayerFluidContactChanged;
+        _player.QueueFree();
+        _player = null;
+        _underwaterView = null;
+
+        Input.MouseMode =
+            Input.MouseModeEnum.Visible;
+        SendMouseCaptureState(
+            captured: false);
+    }
+
+    private void ReportDimensionRetirementDrain(
+        DimensionRetirementDrainReport report)
+    {
+        ReportResidencyUpdate(
+            report.Materialization);
+
+        foreach (var error in
+                 report.WorkerErrors)
+        {
+            GD.PushError(
+                $"Dimension retirement worker failed:\n{error}");
         }
     }
 
@@ -432,19 +663,17 @@ public partial class Main : Node3D
             return;
         }
 
-        var spawnSurfaceY =
-            _worldGenerator.SurfaceHeight(
-                _dimension.Spawn.X,
-                _dimension.Spawn.Z);
+        var initialPosition =
+            _sessions.Active.InitialPlayerPosition;
 
         _player = new FpsPlayer
         {
             Name = "Player",
             Position =
                 new Vector3(
-                    _dimension.Spawn.X + 0.5f,
-                    spawnSurfaceY + 1f,
-                    _dimension.Spawn.Z + 0.5f),
+                    initialPosition.X,
+                    initialPosition.Y,
+                    initialPosition.Z),
             GravityStrength =
                 _dimension.GravityStrength,
         };
@@ -478,7 +707,7 @@ public partial class Main : Node3D
             new { controller = "fps" });
 
         GD.Print(
-            $"streaming: dimension={_dimension.Id} spawn presentation ready; player activated");
+            $"streaming: dimension={_dimension.Id} presentation ready; player activated");
     }
 
     private void OnPlayerFluidContactChanged(
