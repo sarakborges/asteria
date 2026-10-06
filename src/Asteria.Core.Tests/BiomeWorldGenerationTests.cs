@@ -61,6 +61,57 @@ public sealed class BiomeWorldGenerationTests
                 "asteria:mushroom_brown");
         Assert.NotNull(
             swamp.SurfaceLayers[0].Patch);
+
+        Assert.Equal(
+            new[]
+            {
+                ("asteria:sand", (uint?)8),
+                ("asteria:stone", (uint?)null),
+            },
+            biomes.Get(
+                    "asteria:overworld/desert")
+                .SurfaceLayers
+                .Select(layer =>
+                    (layer.Block, layer.Depth)));
+
+        Assert.Equal(
+            new[]
+            {
+                ("asteria:grass_block", (uint?)1),
+                ("asteria:dirt", (uint?)4),
+                ("asteria:stone", (uint?)null),
+            },
+            biomes.Get(
+                    "asteria:umbral/umbral_reach")
+                .SurfaceLayers
+                .Select(layer =>
+                    (layer.Block, layer.Depth)));
+
+        Assert.Equal(
+            new[]
+            {
+                ("asteria:dirt", (uint?)2),
+                ("asteria:gravel", (uint?)3),
+                ("asteria:stone", (uint?)null),
+            },
+            biomes.Get(
+                    "asteria:umbral/withered_waste")
+                .SurfaceLayers
+                .Select(layer =>
+                    (layer.Block, layer.Depth)));
+
+        Assert.Equal(
+            new[]
+            {
+                ("asteria:grass_block", (uint?)1),
+                ("asteria:mud", (uint?)4),
+                ("asteria:stone", (uint?)null),
+            },
+            biomes.Get(
+                    "asteria:umbral/wraith_grove")
+                .SurfaceLayers
+                .Select(layer =>
+                    (layer.Block, layer.Depth)));
     }
 
     [Fact]
