@@ -222,51 +222,68 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
-    public void TerrainValueNoiseIsContinuousAcrossNegativeLatticeBoundary()
+    public void TerrainHeightRemainsContinuousAcrossNegativeNoiseLatticeBoundary()
     {
-        var domain =
-            GenerationDomain.Named(
-                "test/terrain-noise");
-        const ulong seed = 91;
-        const uint scale = 64;
+        var blocks =
+            new BlockRegistry(
+            [
+                new BlockDefinition(
+                    "asteria:stone"),
+            ]);
+        var biome =
+            new BiomeDefinition(
+                "asteria:test/noisy",
+                new BiomeSurfaceLayoutDefinition(
+                    regionMin: 192,
+                    regionMax: 192),
+                new BiomeTerrainDefinition(
+                    baseHeightOffset: 64f,
+                    macroAmplitude: 48f,
+                    macroScale: 64,
+                    detailAmplitude: 0f,
+                    detailScale: 32),
+                [
+                    new BiomeSurfaceLayerDefinition(
+                        "asteria:stone"),
+                ]);
+        var generator =
+            new BiomeWorldGenerator(
+                91,
+                TestDimension(
+                [
+                    biome.Id,
+                ]),
+                blocks,
+                new BiomeRegistry(
+                [
+                    biome,
+                ]));
 
         var left =
-            WorldGenerationEntropy
-                .ValueNoise2D(
-                    seed,
-                    domain,
-                    -65,
-                    17,
-                    scale);
+            generator.SurfaceHeight(
+                -65,
+                17);
         var boundary =
-            WorldGenerationEntropy
-                .ValueNoise2D(
-                    seed,
-                    domain,
-                    -64,
-                    17,
-                    scale);
+            generator.SurfaceHeight(
+                -64,
+                17);
         var right =
-            WorldGenerationEntropy
-                .ValueNoise2D(
-                    seed,
-                    domain,
-                    -63,
-                    17,
-                    scale);
+            generator.SurfaceHeight(
+                -63,
+                17);
 
         Assert.InRange(
             Math.Abs(
                 boundary -
                 left),
-            0d,
-            0.05d);
+            0,
+            2);
         Assert.InRange(
             Math.Abs(
                 right -
                 boundary),
-            0d,
-            0.05d);
+            0,
+            2);
     }
 
     [Fact]
