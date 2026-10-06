@@ -58,6 +58,21 @@ public sealed class ChunkPresentation
 
     public Node3D Root { get; }
 
+    public bool IsVisible => Root.Visible;
+
+    public bool IsFullyPublished =>
+        _publishedCount == ChunkMeshletMask.Count;
+
+    public void SetVisible(bool visible)
+    {
+        Root.Visible = visible;
+    }
+
+    public void Retire()
+    {
+        Root.QueueFree();
+    }
+
     public void Apply(
         int meshletIndex,
         ChunkMeshData data,
