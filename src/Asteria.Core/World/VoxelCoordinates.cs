@@ -51,39 +51,42 @@ public static class VoxelCoordinates
             worldPosition.X,
             worldPosition.Y,
             worldPosition.Z);
-        var (xOffsets, xCount) = HaloAxisOffsets(address.Local.X);
-        var (yOffsets, yCount) = HaloAxisOffsets(address.Local.Y);
-        var (zOffsets, zCount) = HaloAxisOffsets(address.Local.Z);
+        var (minX, maxX) =
+            HaloAxisRange(address.Local.X);
+        var (minY, maxY) =
+            HaloAxisRange(address.Local.Y);
+        var (minZ, maxZ) =
+            HaloAxisRange(address.Local.Z);
 
-        for (var yIndex = 0; yIndex < yCount; yIndex++)
+        for (var yOffset = minY;
+             yOffset <= maxY;
+             yOffset++)
         {
-            for (var zIndex = 0; zIndex < zCount; zIndex++)
+            for (var zOffset = minZ;
+                 zOffset <= maxZ;
+                 zOffset++)
             {
-                for (var xIndex = 0; xIndex < xCount; xIndex++)
+                for (var xOffset = minX;
+                     xOffset <= maxX;
+                     xOffset++)
                 {
                     visit(new ChunkCoord(
-                        address.Chunk.X + xOffsets[xIndex],
-                        address.Chunk.Y + yOffsets[yIndex],
-                        address.Chunk.Z + zOffsets[zIndex]));
+                        address.Chunk.X + xOffset,
+                        address.Chunk.Y + yOffset,
+                        address.Chunk.Z + zOffset));
                 }
             }
         }
     }
 
-    private static (int[] Offsets, int Count) HaloAxisOffsets(int local)
-    {
-        if (local == 0)
+    private static (int Min, int Max)
+        HaloAxisRange(int local) =>
+        local switch
         {
-            return ([-1, 0], 2);
-        }
-
-        if (local == Chunk.Size - 1)
-        {
-            return ([0, 1], 2);
-        }
-
-        return ([0], 1);
-    }
+            0 => (-1, 0),
+            Chunk.Size - 1 => (0, 1),
+            _ => (0, 0),
+        };
 
     private static (int Chunk, int Local) SplitAxis(int world)
     {

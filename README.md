@@ -62,7 +62,7 @@ The current milestone proves the base runtime architecture without introducing w
 - accepted lighting worker results are integrated by a Core owner that copies authoritative light data and coalesces terrain/fluid mesh invalidation per affected meshlet before bumping revisions;
 - voxel face/AO sampling is allocation-free in the repeated mesh-build path; static face bases and direct four-sample accumulation avoid per-vertex temporary arrays;
 - incremental cross-chunk voxel lighting after edits: edited voxels seed a deduplicated propagation frontier instead of relighting every resident chunk;
-- correct world ↔ chunk/local coordinate conversion across negative coordinates;
+- correct world ↔ chunk/local coordinate conversion across negative coordinates; repeated voxel-halo invalidation uses allocation-free integer ranges rather than allocating offset arrays on edit/remesh/lighting paths;
 - cube, surface-layer, centered-layer, hollow and 8³ microblock geometry;
 - independent block orientation, horizontal facing and texture rotation state;
 - culled voxel mesh rendered as one `ArrayMesh`, not one node per block;
