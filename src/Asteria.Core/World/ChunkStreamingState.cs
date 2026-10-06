@@ -41,7 +41,7 @@ public sealed class ChunkStreamingState
     private readonly HashSet<ChunkCoord> _pending = [];
     private readonly HashSet<ChunkCoord> _materializing = [];
     private readonly HashSet<ChunkCoord> _presentationPending = [];
-    private readonly HashSet<ChunkCoord> _retired = [];
+    private readonly RetiredChunkQueue _retired = new();
 
     public ChunkCoord? Center { get; private set; }
 
@@ -97,6 +97,9 @@ public sealed class ChunkStreamingState
         _desired.UnionWith(desired);
         _retained.Clear();
 
+        var retired =
+            new List<ChunkCoord>();
+
         foreach (var coord in previousInterest)
         {
             if (_desired.Contains(coord))
@@ -113,13 +116,31 @@ public sealed class ChunkStreamingState
             }
             else
             {
-                _retired.Add(coord);
+                retired.Add(coord);
             }
         }
 
-        _retired.RemoveWhere(coord =>
-            _desired.Contains(coord) ||
-            _retained.Contains(coord));
+        retired.Sort(
+            (left, right) =>
+                CompareRetirementPriority(
+                    left,
+                    right,
+                    center));
+
+        foreach (var coord in retired)
+        {
+            _retired.Enqueue(coord);
+        }
+
+        foreach (var coord in _desired)
+        {
+            _retired.Remove(coord);
+        }
+
+        foreach (var coord in _retained)
+        {
+            _retired.Remove(coord);
+        }
 
         _pending.RemoveWhere(coord =>
             !_desired.Contains(coord));
@@ -185,16 +206,34 @@ public sealed class ChunkStreamingState
             return null;
         }
 
-        var selected = _pending
-            .OrderBy(coord =>
+        ChunkCoord? selected = null;
+        var selectedPriority =
+            default(ChunkLoadPriority);
+
+        foreach (var coord in _pending)
+        {
+            var priority =
                 Priority(
                     coord,
                     center,
-                    MovementDirection))
-            .First();
+                    MovementDirection);
 
-        _pending.Remove(selected);
-        return selected;
+            if (selected is null ||
+                priority.CompareTo(
+                    selectedPriority) < 0)
+            {
+                selected = coord;
+                selectedPriority = priority;
+            }
+        }
+
+        if (selected is not { } result)
+        {
+            return null;
+        }
+
+        _pending.Remove(result);
+        return result;
     }
 
     public void MarkMaterializing(ChunkCoord coord)
@@ -231,51 +270,51 @@ public sealed class ChunkStreamingState
             return null;
         }
 
-        var candidates = _presentationPending
-            .Where(selection.RetainsRenderMesh)
-            .OrderBy(coord =>
+        ChunkCoord? selected = null;
+        var selectedPriority =
+            default(ChunkLoadPriority);
+
+        foreach (var coord in
+                 _presentationPending)
+        {
+            if (!selection.RetainsRenderMesh(
+                    coord))
+            {
+                continue;
+            }
+
+            var priority =
                 Priority(
                     coord,
                     center,
-                    MovementDirection))
-            .ToArray();
+                    MovementDirection);
 
-        if (candidates.Length == 0)
+            if (selected is null ||
+                priority.CompareTo(
+                    selectedPriority) < 0)
+            {
+                selected = coord;
+                selectedPriority = priority;
+            }
+        }
+
+        if (selected is not { } result)
         {
             return null;
         }
 
-        var selected = candidates[0];
-        _presentationPending.Remove(selected);
-        return selected;
+        _presentationPending.Remove(result);
+        return result;
     }
 
     public ChunkCoord? PopRetiredOutsideHorizontalRadius(
         ChunkCoord center,
-        int retentionRadius)
-    {
-        var candidates = _retired
-            .Where(coord =>
-                !KeepsLoaded(coord) &&
-                !InsideHorizontalRadius(
-                    coord,
-                    center,
-                    retentionRadius))
-            .OrderByDescending(coord =>
-                HorizontalDistanceSquared(
-                    coord,
-                    center))
-            .ToArray();
-
-        if (candidates.Length == 0)
-        {
-            return null;
-        }
-
-        var selected = candidates[0];
-        _retired.Remove(selected);
-        return selected;
-    }
+        int retentionRadius) =>
+        _retired.PopOutsideHorizontalRadius(
+            center,
+            retentionRadius,
+            _desired,
+            _retained);
 
     public void Forget(ChunkCoord coord)
     {
@@ -320,6 +359,39 @@ public sealed class ChunkStreamingState
             coord.X);
     }
 
+    private static int CompareRetirementPriority(
+        ChunkCoord left,
+        ChunkCoord right,
+        ChunkCoord center)
+    {
+        var comparison =
+            HorizontalDistanceSquared(
+                right,
+                center)
+                .CompareTo(
+                    HorizontalDistanceSquared(
+                        left,
+                        center));
+
+        if (comparison != 0)
+        {
+            return comparison;
+        }
+
+        comparison =
+            left.Y.CompareTo(right.Y);
+        if (comparison != 0)
+        {
+            return comparison;
+        }
+
+        comparison =
+            left.Z.CompareTo(right.Z);
+        return comparison != 0
+            ? comparison
+            : left.X.CompareTo(right.X);
+    }
+
     private void UpdateMovementDirection(ChunkCoord center)
     {
         if (Center is not { } previous)
@@ -360,5 +432,98 @@ public sealed class ChunkStreamingState
         var dx = (long)coord.X - center.X;
         var dz = (long)coord.Z - center.Z;
         return dx * dx + dz * dz;
+    }
+
+    private sealed class RetiredChunkQueue
+    {
+        private const int MaximumScanStepsPerPoll = 64;
+
+        private readonly DeduplicatedQueue<ChunkCoord>
+            _queue = new();
+
+        private ChunkCoord? _scanCenter;
+        private int _scanRadius;
+        private ulong _scanRevision;
+        private int _remaining;
+
+        public void Enqueue(
+            ChunkCoord coord) =>
+            _queue.Enqueue(coord);
+
+        public void Remove(
+            ChunkCoord coord) =>
+            _queue.Remove(coord);
+
+        public ChunkCoord? PopOutsideHorizontalRadius(
+            ChunkCoord center,
+            int retentionRadius,
+            IReadOnlySet<ChunkCoord> desired,
+            IReadOnlySet<ChunkCoord> retained)
+        {
+            ArgumentNullException.ThrowIfNull(desired);
+            ArgumentNullException.ThrowIfNull(retained);
+
+            var radius =
+                Math.Max(
+                    0,
+                    retentionRadius);
+            var revision =
+                _queue.Revision;
+
+            if (_scanCenter != center ||
+                _scanRadius != radius ||
+                _scanRevision != revision)
+            {
+                _scanCenter = center;
+                _scanRadius = radius;
+                _scanRevision = revision;
+                _remaining = _queue.Count;
+            }
+
+            var steps =
+                Math.Min(
+                    _remaining,
+                    MaximumScanStepsPerPoll);
+
+            for (var index = 0;
+                 index < steps;
+                 index++)
+            {
+                if (!_queue.TryDequeue(
+                        out var coord))
+                {
+                    _remaining = 0;
+                    _scanRevision =
+                        _queue.Revision;
+                    return null;
+                }
+
+                _remaining--;
+
+                if (desired.Contains(coord) ||
+                    retained.Contains(coord))
+                {
+                    _scanRevision =
+                        _queue.Revision;
+                    continue;
+                }
+
+                if (!InsideHorizontalRadius(
+                        coord,
+                        center,
+                        radius))
+                {
+                    _scanRevision =
+                        _queue.Revision;
+                    return coord;
+                }
+
+                _queue.Enqueue(coord);
+                _scanRevision =
+                    _queue.Revision;
+            }
+
+            return null;
+        }
     }
 }
