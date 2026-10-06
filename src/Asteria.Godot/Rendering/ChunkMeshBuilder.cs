@@ -53,8 +53,7 @@ public static class ChunkMeshBuilder
     {
         ArgumentNullException.ThrowIfNull(data);
 
-        var faces = new PackedVector3Array();
-        faces.Resize(data.Vertices.Length);
+        var faces = new Vector3[data.Vertices.Length];
 
         for (var index = 0; index < data.Vertices.Length; index++)
         {
