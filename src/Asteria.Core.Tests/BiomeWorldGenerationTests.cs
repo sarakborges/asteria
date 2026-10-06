@@ -287,6 +287,216 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
+    public void SurfaceMaterialBelongsToPrimaryBiomeNotInfluenceWeight()
+    {
+        var blocks =
+            new BlockRegistry(
+            [
+                new BlockDefinition(
+                    "asteria:grass_block"),
+                new BlockDefinition(
+                    "asteria:sand"),
+                new BlockDefinition(
+                    "asteria:stone"),
+            ]);
+        var primary =
+            FlatBiome(
+                "asteria:test/primary",
+                "asteria:grass_block",
+                "asteria:stone");
+        var secondary =
+            FlatBiome(
+                "asteria:test/secondary",
+                "asteria:sand",
+                "asteria:stone");
+        var materials =
+            new BiomeSurfaceMaterialField(
+                17,
+                [
+                    primary,
+                    secondary,
+                ],
+                blocks);
+        var sample =
+            new BiomeSample(
+                primary.Id,
+                [
+                    new BiomeInfluence(
+                        secondary.Id,
+                        0.99f),
+                    new BiomeInfluence(
+                        primary.Id,
+                        0.01f),
+                ]);
+
+        Assert.Equal(
+            blocks.GetId(
+                "asteria:grass_block"),
+            materials.BlockAt(
+                sample,
+                120,
+                -45,
+                depth: 0));
+    }
+
+    [Fact]
+    public void SurfaceMaterialUsesCumulativeFiniteLayersThenCore()
+    {
+        var blocks =
+            new BlockRegistry(
+            [
+                new BlockDefinition(
+                    "asteria:grass_block"),
+                new BlockDefinition(
+                    "asteria:dirt"),
+                new BlockDefinition(
+                    "asteria:stone"),
+            ]);
+        var biome =
+            new BiomeDefinition(
+                "asteria:test/layers",
+                new BiomeSurfaceLayoutDefinition(),
+                new BiomeTerrainDefinition(
+                    0,
+                    0,
+                    64,
+                    0,
+                    32),
+                [
+                    new BiomeSurfaceLayerDefinition(
+                        "asteria:grass_block",
+                        depth: 1),
+                    new BiomeSurfaceLayerDefinition(
+                        "asteria:dirt",
+                        depth: 4),
+                    new BiomeSurfaceLayerDefinition(
+                        "asteria:stone"),
+                ]);
+        var materials =
+            new BiomeSurfaceMaterialField(
+                21,
+                [
+                    biome,
+                ],
+                blocks);
+        var sample =
+            new BiomeSample(
+                biome.Id,
+                [
+                    new BiomeInfluence(
+                        biome.Id,
+                        1f),
+                ]);
+
+        Assert.Equal(
+            blocks.GetId(
+                "asteria:grass_block"),
+            materials.BlockAt(
+                sample,
+                0,
+                0,
+                0));
+        Assert.Equal(
+            blocks.GetId(
+                "asteria:dirt"),
+            materials.BlockAt(
+                sample,
+                0,
+                0,
+                1));
+        Assert.Equal(
+            blocks.GetId(
+                "asteria:dirt"),
+            materials.BlockAt(
+                sample,
+                0,
+                0,
+                4));
+        Assert.Equal(
+            blocks.GetId(
+                "asteria:stone"),
+            materials.BlockAt(
+                sample,
+                0,
+                0,
+                5));
+    }
+
+    [Fact]
+    public void SurfacePatchIsWorldSpaceAndDoesNotReplaceOutsideRadius()
+    {
+        var blocks =
+            new BlockRegistry(
+            [
+                new BlockDefinition(
+                    "asteria:grass_block"),
+                new BlockDefinition(
+                    "asteria:mud"),
+                new BlockDefinition(
+                    "asteria:stone"),
+            ]);
+        var biome =
+            new BiomeDefinition(
+                "asteria:test/patch",
+                new BiomeSurfaceLayoutDefinition(),
+                new BiomeTerrainDefinition(
+                    0,
+                    0,
+                    64,
+                    0,
+                    32),
+                [
+                    new BiomeSurfaceLayerDefinition(
+                        "asteria:grass_block",
+                        depth: 1,
+                        patch:
+                            new BiomeSurfacePatchDefinition(
+                                spacing: 10,
+                                radius: 4,
+                                jitter: 0,
+                                chance: 1f,
+                                blocks:
+                                [
+                                    "asteria:mud",
+                                ])),
+                    new BiomeSurfaceLayerDefinition(
+                        "asteria:stone"),
+                ]);
+        var materials =
+            new BiomeSurfaceMaterialField(
+                33,
+                [
+                    biome,
+                ],
+                blocks);
+        var sample =
+            new BiomeSample(
+                biome.Id,
+                [
+                    new BiomeInfluence(
+                        biome.Id,
+                        1f),
+                ]);
+
+        Assert.Equal(
+            blocks.GetId(
+                "asteria:mud"),
+            materials.BlockAt(
+                sample,
+                5,
+                5,
+                0));
+        Assert.Equal(
+            blocks.GetId(
+                "asteria:grass_block"),
+            materials.BlockAt(
+                sample,
+                0,
+                0,
+                0));
+    }
+
+    [Fact]
     public void TerrainHeightBlendsBiomeInfluencesInsteadOfCuttingAtBoundary()
     {
         var blocks =
@@ -881,6 +1091,27 @@ public sealed class BiomeWorldGenerationTests
             "asteria:test/d",
             weight: 0.6f),
     ];
+
+    private static BiomeDefinition FlatBiome(
+        string id,
+        string surface,
+        string core) =>
+        new(
+            id,
+            new BiomeSurfaceLayoutDefinition(),
+            new BiomeTerrainDefinition(
+                0,
+                0,
+                64,
+                0,
+                32),
+            [
+                new BiomeSurfaceLayerDefinition(
+                    surface,
+                    depth: 1),
+                new BiomeSurfaceLayerDefinition(
+                    core),
+            ]);
 
     private static DimensionDefinition TestDimension(
         IEnumerable<string> biomeIds) =>

@@ -20,11 +20,7 @@
   "surfaceLayers": [
     {
       "block": "asteria:sand",
-      "depth": 4
-    },
-    {
-      "block": "asteria:gravel",
-      "depth": 2
+      "depth": 8
     },
     {
       "block": "asteria:stone"

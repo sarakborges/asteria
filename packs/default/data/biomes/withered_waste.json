@@ -17,16 +17,7 @@
   "surfaceLayers": [
     {
       "block": "asteria:dirt",
-      "depth": 2,
-      "patch": {
-        "spacing": 20,
-        "radius": 7,
-        "jitter": 3,
-        "chance": 0.65,
-        "blocks": [
-          "asteria:gravel"
-        ]
-      }
+      "depth": 2
     },
     {
       "block": "asteria:gravel",

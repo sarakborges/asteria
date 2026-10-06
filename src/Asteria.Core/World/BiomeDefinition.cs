@@ -152,6 +152,17 @@ public sealed class BiomeDefinition
                         nameof(layers));
                 }
             }
+
+            if (layer.Patch is
+                    { } patch &&
+                patch.Blocks.Contains(
+                    layer.Block,
+                    StringComparer.Ordinal))
+            {
+                throw new ArgumentException(
+                    $"Biome surface patch cannot repeat its base block {layer.Block}.",
+                    nameof(layers));
+            }
         }
     }
 }

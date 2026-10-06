@@ -99,9 +99,10 @@ public sealed class BiomeField
         CompatibilityRadiusBuckets * 2 + 1;
     private const double JitterFraction = 0.32;
     // Tall biome profiles can differ by well over 100 blocks. A narrow
-    // ownership blend produces artificial walls even though the height field
-    // is mathematically continuous, so presentation/material/height blending
-    // intentionally spans a broader part of the organic score field.
+    // influence blend produces artificial walls even though the height field
+    // is mathematically continuous, so terrain-height blending intentionally
+    // spans a broader part of the organic score field. Surface material
+    // ownership remains the primary biome's responsibility.
     private const double BlendScoreBand = 0.50;
 
     private readonly ulong _seed;

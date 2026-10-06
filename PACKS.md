@@ -90,6 +90,28 @@ A Sphere may define a shell floor, roof, or both:
 
 `floorY` and `roofY` are optional individually, but at least one is required when `shell` is present. Negative Y is not part of Asteria's world contract, so shell bounds cannot be negative. Block mining policy remains block-authored; the default Sphere Shell uses optional `mining.unbreakable: true`.
 
+Surface-biome material is authored with ordered `surfaceLayers`, using the same contract as MineClone's rebuilt material field:
+
+```json
+"surfaceLayers": [
+  {
+    "block": "asteria:grass_block",
+    "depth": 1,
+    "patch": {
+      "spacing": 14,
+      "radius": 6,
+      "jitter": 2,
+      "chance": 0.9,
+      "blocks": ["asteria:dirt", "asteria:mud"]
+    }
+  },
+  { "block": "asteria:dirt", "depth": 4 },
+  { "block": "asteria:stone" }
+]
+```
+
+Every entry before the last requires a positive `depth`; those depths accumulate downward from the exposed surface. The final entry omits `depth` and is the unlimited core material. A patch may exist only on a finite layer and replaces that layer's base block inside deterministic world-space patch footprints. Patch alternatives cannot repeat the base block. Material ownership follows the sampled primary biome; nearby biome influence weights blend terrain shape, not material identity.
+
 Data must not contain executable gameplay code. Native/code plugins are a separate future extension system.
 
 Data definitions may reference presentation resources by logical pack-relative keys, but must not embed Godot-specific metadata.
