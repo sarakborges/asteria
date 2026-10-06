@@ -15,7 +15,10 @@ public sealed class ChunkLightingSolverTests
         var chunk = new Chunk();
         chunk.SetBlock(4, 10, 4, stone);
 
-        ChunkLightingSolver.Initialize(chunk, blocks);
+        ChunkLightingSolver.Initialize(
+            chunk,
+            blocks,
+            new FluidRegistry([]));
 
         Assert.Equal((byte)15, chunk.GetLight(4, 11, 4).Sky);
         Assert.Equal((byte)0, chunk.GetLight(4, 10, 4).Sky);
@@ -38,7 +41,10 @@ public sealed class ChunkLightingSolverTests
 
         chunk.SetBlock(7, 8, 7, lamp);
 
-        ChunkLightingSolver.Initialize(chunk, blocks);
+        ChunkLightingSolver.Initialize(
+            chunk,
+            blocks,
+            new FluidRegistry([]));
 
         var source = chunk.GetLight(7, 8, 7);
         var neighbor = chunk.GetLight(8, 8, 7);
@@ -68,6 +74,12 @@ public sealed class ChunkLightingSolverTests
 
         Assert.Equal(
             (byte)2,
-            ChunkLightingSolver.MediumDampening(chunk, blocks, 2, 12, 2));
+            ChunkLightingSolver.MediumDampening(
+                chunk,
+                blocks,
+                new FluidRegistry([]),
+                2,
+                12,
+                2));
     }
 }

@@ -22,6 +22,7 @@ The current milestone proves the base runtime architecture without introducing w
 - a 40 Hz engine-agnostic world tick clock drives authored fluid spreadSpeed; fluid ticks keep the earliest due time, round-robin equal-due work across chunks and become dormant while their chunk is unloaded;
 - horizontal fluid spreading searches for the nearest reachable drop within the remaining authored range and prefers first-step directions that lead downhill, while falling columns reset their horizontal spread run;
 - fluid meshlets are built and published independently from terrain meshlets, using smoothed corner heights and a dedicated translucent material path;
+- fluid occupancy now participates in voxel lighting as a medium: authored fluid light dampening scales by fill level, direct sky and RGB propagation attenuate through fluid, and accepted fluid changes enqueue incremental relighting plus terrain/fluid vertex-light refreshes;
 - incremental cross-chunk voxel lighting after edits: edited voxels seed a deduplicated propagation frontier instead of relighting every resident chunk;
 - correct world ↔ chunk/local coordinate conversion across negative coordinates;
 - cube, surface-layer, centered-layer, hollow and 8³ microblock geometry;

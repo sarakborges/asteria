@@ -504,7 +504,8 @@ public partial class Main : Node3D
                     // catches up asynchronously.
                     ChunkLightingSolver.Initialize(
                         chunk,
-                        _blocks);
+                        _blocks,
+                        _fluids);
 
                     stopwatch.Stop();
                     return new MaterializedChunkBuild(
@@ -995,6 +996,8 @@ public partial class Main : Node3D
             _fluidMeshUpdates.EnqueueVoxelEdit(
                 _world,
                 change.Position);
+            _worldUpdates.EnqueueLighting(
+                change.Position);
             applied++;
         }
 
@@ -1441,6 +1444,7 @@ public partial class Main : Node3D
         var worldRevision = _world.Revision;
         var snapshot = _world.CloneForWorker();
         var blocks = _blocks;
+        var fluids = _fluids;
 
         _lightingTask = Task.Run(() =>
         {
@@ -1449,6 +1453,7 @@ public partial class Main : Node3D
                 VoxelWorldLightingSolver.RelightAfterEdits(
                     snapshot,
                     blocks,
+                    fluids,
                     batch.EditedPositions);
             stopwatch.Stop();
 
@@ -1496,7 +1501,17 @@ public partial class Main : Node3D
         foreach (var position in
                  result.Lighting.ChangedPositions)
         {
+            _contentRevisions.BumpVoxelEdit(
+                _world,
+                position);
+            _fluidContentRevisions.BumpVoxelEdit(
+                _world,
+                position);
+
             _worldUpdates.EnqueueVoxelMeshlets(
+                _world,
+                position);
+            _fluidMeshUpdates.EnqueueVoxelEdit(
                 _world,
                 position);
         }

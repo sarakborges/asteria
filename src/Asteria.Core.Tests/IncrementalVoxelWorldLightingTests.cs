@@ -21,7 +21,10 @@ public sealed class IncrementalVoxelWorldLightingTests
         var source = new WorldVoxelCoord(15, 5, 5);
 
         world.SetBlockAt(source, lamp, out _);
-        VoxelWorldLightingSolver.Initialize(world, blocks);
+        VoxelWorldLightingSolver.Initialize(
+            world,
+            blocks,
+            new FluidRegistry([]));
         Assert.Equal(
             (byte)14,
             world.GetLightOrDark(
@@ -32,6 +35,7 @@ public sealed class IncrementalVoxelWorldLightingTests
             VoxelWorldLightingSolver.RelightAfterEdits(
                 world,
                 blocks,
+                new FluidRegistry([]),
                 [source]);
 
         Assert.Equal(
@@ -63,7 +67,10 @@ public sealed class IncrementalVoxelWorldLightingTests
                 new Chunk());
         }
 
-        VoxelWorldLightingSolver.Initialize(world, blocks);
+        VoxelWorldLightingSolver.Initialize(
+            world,
+            blocks,
+            new FluidRegistry([]));
 
         var edited = new WorldVoxelCoord(8, 10, 8);
         var below = new WorldVoxelCoord(8, 9, 8);
@@ -76,6 +83,7 @@ public sealed class IncrementalVoxelWorldLightingTests
             VoxelWorldLightingSolver.RelightAfterEdits(
                 world,
                 blocks,
+                new FluidRegistry([]),
                 [edited]);
 
         Assert.Equal(
@@ -122,7 +130,10 @@ public sealed class IncrementalVoxelWorldLightingTests
             new ChunkCoord(4, 0, 0),
             new Chunk());
 
-        VoxelWorldLightingSolver.Initialize(world, blocks);
+        VoxelWorldLightingSolver.Initialize(
+            world,
+            blocks,
+            new FluidRegistry([]));
 
         var distantBefore =
             world.GetLightOrDark(
@@ -134,6 +145,7 @@ public sealed class IncrementalVoxelWorldLightingTests
             VoxelWorldLightingSolver.RelightAfterEdits(
                 world,
                 blocks,
+                new FluidRegistry([]),
                 [edited]);
 
         Assert.Equal(

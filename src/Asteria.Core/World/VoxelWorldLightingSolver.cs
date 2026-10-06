@@ -14,10 +14,12 @@ public static class VoxelWorldLightingSolver
 
     public static IReadOnlyList<WorldVoxelCoord> Initialize(
         VoxelWorld world,
-        BlockRegistry blocks)
+        BlockRegistry blocks,
+        FluidRegistry fluids)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(blocks);
+        ArgumentNullException.ThrowIfNull(fluids);
 
         var previous = CaptureLight(world);
 
@@ -26,8 +28,14 @@ public static class VoxelWorldLightingSolver
             world.GetChunk(coord).ClearLight();
         }
 
-        SeedDirectLight(world, blocks);
-        Relax(world, blocks);
+        SeedDirectLight(
+            world,
+            blocks,
+            fluids);
+        Relax(
+            world,
+            blocks,
+            fluids);
 
         return FindChanges(world, previous);
     }
@@ -35,16 +43,22 @@ public static class VoxelWorldLightingSolver
     public static VoxelLightingUpdateResult RelightAfterEdits(
         VoxelWorld world,
         BlockRegistry blocks,
+        FluidRegistry fluids,
         IEnumerable<WorldVoxelCoord> editedPositions)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(blocks);
+        ArgumentNullException.ThrowIfNull(fluids);
         ArgumentNullException.ThrowIfNull(editedPositions);
 
         var queue = new Queue<WorldVoxelCoord>();
         var queued = new HashSet<WorldVoxelCoord>();
         var changed = new HashSet<WorldVoxelCoord>();
-        var directSky = new DirectSkyContext(world, blocks);
+        var directSky =
+            new DirectSkyContext(
+                world,
+                blocks,
+                fluids);
 
         foreach (var position in editedPositions)
         {
@@ -67,6 +81,7 @@ public static class VoxelWorldLightingSolver
             var desired = DesiredLight(
                 world,
                 blocks,
+                fluids,
                 directSky,
                 position,
                 cell);
@@ -99,6 +114,7 @@ public static class VoxelWorldLightingSolver
     private static VoxelLight DesiredLight(
         VoxelWorld world,
         BlockRegistry blocks,
+        FluidRegistry fluids,
         DirectSkyContext directSky,
         WorldVoxelCoord position,
         VoxelCell cell)
@@ -107,14 +123,23 @@ public static class VoxelWorldLightingSolver
             position.X,
             position.Y,
             position.Z);
-        var chunk = world.GetChunk(address.Chunk);
-        var dampening = MediumDampening(
-            chunk,
-            blocks,
-            address.Local.X,
-            address.Local.Y,
-            address.Local.Z,
-            cell);
+        var chunk =
+            world.GetChunk(address.Chunk);
+        var fluid =
+            chunk.GetFluid(
+                address.Local.X,
+                address.Local.Y,
+                address.Local.Z);
+        var dampening =
+            VoxelLightingMedium.Dampening(
+                chunk,
+                blocks,
+                fluids,
+                address.Local.X,
+                address.Local.Y,
+                address.Local.Z,
+                cell,
+                fluid);
 
         var emission = cell.IsEmpty
             ? default
@@ -266,7 +291,8 @@ public static class VoxelWorldLightingSolver
 
     private static void SeedDirectLight(
         VoxelWorld world,
-        BlockRegistry blocks)
+        BlockRegistry blocks,
+        FluidRegistry fluids)
     {
         var columns = world.LoadedChunkCoords
             .GroupBy(coord => (coord.X, coord.Z));
@@ -298,14 +324,26 @@ public static class VoxelWorldLightingSolver
                         for (var x = 0; x < Chunk.Size; x++)
                         {
                             var columnIndex = x + z * Chunk.Size;
-                            var cell = chunk.GetCell(x, y, z);
-                            var dampening = MediumDampening(
-                                chunk,
-                                blocks,
-                                x,
-                                y,
-                                z,
-                                cell);
+                            var cell =
+                                chunk.GetCell(
+                                    x,
+                                    y,
+                                    z);
+                            var fluid =
+                                chunk.GetFluid(
+                                    x,
+                                    y,
+                                    z);
+                            var dampening =
+                                VoxelLightingMedium.Dampening(
+                                    chunk,
+                                    blocks,
+                                    fluids,
+                                    x,
+                                    y,
+                                    z,
+                                    cell,
+                                    fluid);
 
                             sky[columnIndex] = SaturatingSubtract(
                                 sky[columnIndex],
@@ -337,7 +375,8 @@ public static class VoxelWorldLightingSolver
 
     private static void Relax(
         VoxelWorld world,
-        BlockRegistry blocks)
+        BlockRegistry blocks,
+        FluidRegistry fluids)
     {
         var queue = new Queue<WorldVoxelCoord>();
         var queued = new HashSet<WorldVoxelCoord>();
@@ -379,14 +418,23 @@ public static class VoxelWorldLightingSolver
                 position.X,
                 position.Y,
                 position.Z);
-            var chunk = world.GetChunk(address.Chunk);
-            var dampening = MediumDampening(
-                chunk,
-                blocks,
-                address.Local.X,
-                address.Local.Y,
-                address.Local.Z,
-                cell);
+            var chunk =
+                world.GetChunk(address.Chunk);
+            var fluid =
+                chunk.GetFluid(
+                    address.Local.X,
+                    address.Local.Y,
+                    address.Local.Z);
+            var dampening =
+                VoxelLightingMedium.Dampening(
+                    chunk,
+                    blocks,
+                    fluids,
+                    address.Local.X,
+                    address.Local.Y,
+                    address.Local.Z,
+                    cell,
+                    fluid);
 
             if (dampening >= VoxelLight.MaxLevel)
             {
@@ -430,41 +478,6 @@ public static class VoxelWorldLightingSolver
         }
     }
 
-    private static byte MediumDampening(
-        Chunk chunk,
-        BlockRegistry blocks,
-        int x,
-        int y,
-        int z,
-        VoxelCell cell)
-    {
-        if (cell.IsEmpty)
-        {
-            return 0;
-        }
-
-        var definition = blocks.GetDefinition(cell.Block);
-        var fullDampening = definition.LightDampening;
-        if (fullDampening == 0)
-        {
-            return 0;
-        }
-
-        var occupancy = VoxelMeshLighting.OccupancyFraction(
-            chunk,
-            blocks,
-            x,
-            y,
-            z,
-            cell,
-            definition);
-
-        return (byte)Math.Clamp(
-            (int)MathF.Ceiling(fullDampening * occupancy),
-            0,
-            VoxelLight.MaxLevel);
-    }
-
     private static void Enqueue(
         Queue<WorldVoxelCoord> queue,
         HashSet<WorldVoxelCoord> queued,
@@ -486,14 +499,17 @@ public static class VoxelWorldLightingSolver
     {
         private readonly VoxelWorld _world;
         private readonly BlockRegistry _blocks;
+        private readonly FluidRegistry _fluids;
         private readonly Dictionary<(int X, int Z), Column> _columns = [];
 
         public DirectSkyContext(
             VoxelWorld world,
-            BlockRegistry blocks)
+            BlockRegistry blocks,
+            FluidRegistry fluids)
         {
             _world = world;
             _blocks = blocks;
+            _fluids = fluids;
         }
 
         public byte LevelAt(WorldVoxelCoord position)
@@ -557,17 +573,25 @@ public static class VoxelWorldLightingSolver
                             worldY,
                             worldZ);
                     var chunk =
-                        _world.GetChunk(address.Chunk);
+                        _world.GetChunk(
+                            address.Chunk);
+                    var fluid =
+                        chunk.GetFluid(
+                            address.Local.X,
+                            address.Local.Y,
+                            address.Local.Z);
 
                     sky = SaturatingSubtract(
                         sky,
-                        MediumDampening(
+                        VoxelLightingMedium.Dampening(
                             chunk,
                             _blocks,
+                            _fluids,
                             address.Local.X,
                             address.Local.Y,
                             address.Local.Z,
-                            cell));
+                            cell,
+                            fluid));
                 }
 
                 levels[worldY - lowestY] = sky;
