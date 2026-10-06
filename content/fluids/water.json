@@ -4,6 +4,15 @@
   "opacity": 0.72,
   "roughness": 0.15,
   "lightDampening": 1,
-  "spreadSpeed": 5.0,
-  "maxSpread": 7
+  "spreadSpeed": 5,
+  "maxSpread": 7,
+  "motion": {
+    "horizontalSpeedMultiplier": 0.45,
+    "horizontalAcceleration": 10,
+    "sinkSpeed": 0.9,
+    "ascendSpeed": 2.4,
+    "surfaceExitSpeed": 5,
+    "verticalAcceleration": 10,
+    "surfaceExitMargin": 0.35
+  }
 }

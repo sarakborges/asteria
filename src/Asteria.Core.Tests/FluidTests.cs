@@ -475,6 +475,98 @@ public sealed class FluidTests
         ]);
 }
 
+public sealed class FluidMotionDefinitionTests
+{
+    [Fact]
+    public void JsonParsesAuthoredFluidMotion()
+    {
+        const string json = """
+            {
+              "id": "asteria:water",
+              "color": "4f9fd6",
+              "opacity": 0.72,
+              "motion": {
+                "horizontalSpeedMultiplier": 0.4,
+                "horizontalAcceleration": 8.5,
+                "sinkSpeed": 1.1,
+                "ascendSpeed": 2.6,
+                "surfaceExitSpeed": 4.8,
+                "verticalAcceleration": 9.5,
+                "surfaceExitMargin": 0.3
+              }
+            }
+            """;
+
+        var registry =
+            FluidRegistry.FromJson(
+                [json]);
+        var motion =
+            registry
+                .GetDefinition(
+                    registry.GetId(
+                        "asteria:water"))
+                .Motion;
+
+        Assert.Equal(
+            0.4f,
+            motion.HorizontalSpeedMultiplier);
+        Assert.Equal(
+            8.5f,
+            motion.HorizontalAcceleration);
+        Assert.Equal(
+            1.1f,
+            motion.SinkSpeed);
+        Assert.Equal(
+            2.6f,
+            motion.AscendSpeed);
+        Assert.Equal(
+            4.8f,
+            motion.SurfaceExitSpeed);
+        Assert.Equal(
+            9.5f,
+            motion.VerticalAcceleration);
+        Assert.Equal(
+            0.3f,
+            motion.SurfaceExitMargin);
+    }
+
+    [Fact]
+    public void MissingMotionUsesDeterministicDefaults()
+    {
+        var definition =
+            new FluidDefinition(
+                "asteria:water",
+                new FluidColor(
+                    79,
+                    159,
+                    214),
+                opacity: 0.72f);
+
+        Assert.Equal(
+            FluidMotionDefinition.Default,
+            definition.Motion);
+        Assert.True(
+            definition.Motion.SinkSpeed > 0f);
+        Assert.True(
+            definition.Motion.HorizontalSpeedMultiplier < 1f);
+    }
+
+    [Fact]
+    public void NegativeMotionValueIsRejected()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () =>
+                new FluidMotionDefinition(
+                    horizontalSpeedMultiplier: 0.5f,
+                    horizontalAcceleration: -1f,
+                    sinkSpeed: 1f,
+                    ascendSpeed: 2f,
+                    surfaceExitSpeed: 5f,
+                    verticalAcceleration: 10f,
+                    surfaceExitMargin: 0.35f));
+    }
+}
+
 public sealed class FluidSimulationSnapshotTests
 {
     [Fact]

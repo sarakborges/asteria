@@ -8,10 +8,6 @@ public partial class FpsPlayer : CharacterBody3D
     private const float MoveSpeed = 7.5f;
     private const float JumpSpeed = 8.0f;
     private const float Gravity = 24.0f;
-    private const float SwimAscendSpeed = 3.8f;
-    private const float SwimSinkSpeed = 0.9f;
-    private const float SwimVerticalAcceleration = 12.0f;
-    private const float SwimExitSurfaceMargin = 0.35f;
     private const float MouseSensitivity = 0.0022f;
     private const float MaxPitch = 1.52f;
 
@@ -37,6 +33,9 @@ public partial class FpsPlayer : CharacterBody3D
 
     public Func<WorldAabb, float, FluidBodyContact>?
         FluidContactProvider { get; set; }
+
+    public Func<FluidRuntimeId, FluidMotionDefinition>?
+        FluidMotionProvider { get; set; }
 
     public override void _Ready()
     {
@@ -114,21 +113,28 @@ public partial class FpsPlayer : CharacterBody3D
         PublishFluidContact(
             fluidContact);
 
+        var fluidMotion =
+            fluidContact.IsImmersed
+                ? FluidMotionProvider?.Invoke(
+                      fluidContact.Fluid) ??
+                  FluidMotionDefinition.Default
+                : default;
+
         if (fluidContact.IsImmersed)
         {
             var targetVerticalSpeed =
                 _jumpHeld
                     ? fluidContact.IsNearSurface(
-                        SwimExitSurfaceMargin)
-                        ? JumpSpeed
-                        : SwimAscendSpeed
-                    : -SwimSinkSpeed;
+                        fluidMotion.SurfaceExitMargin)
+                        ? fluidMotion.SurfaceExitSpeed
+                        : fluidMotion.AscendSpeed
+                    : -fluidMotion.SinkSpeed;
 
             velocity.Y =
                 Mathf.MoveToward(
                     velocity.Y,
                     targetVerticalSpeed,
-                    SwimVerticalAcceleration *
+                    fluidMotion.VerticalAcceleration *
                     (float)delta);
         }
         else if (IsOnFloor())
@@ -162,8 +168,37 @@ public partial class FpsPlayer : CharacterBody3D
         direction.Y = 0f;
         direction = direction.Normalized();
 
-        velocity.X = direction.X * MoveSpeed;
-        velocity.Z = direction.Z * MoveSpeed;
+        if (fluidContact.IsImmersed)
+        {
+            var targetSpeed =
+                MoveSpeed *
+                fluidMotion.HorizontalSpeedMultiplier;
+            var acceleration =
+                fluidMotion.HorizontalAcceleration *
+                (float)delta;
+
+            velocity.X =
+                Mathf.MoveToward(
+                    velocity.X,
+                    direction.X *
+                    targetSpeed,
+                    acceleration);
+            velocity.Z =
+                Mathf.MoveToward(
+                    velocity.Z,
+                    direction.Z *
+                    targetSpeed,
+                    acceleration);
+        }
+        else
+        {
+            velocity.X =
+                direction.X *
+                MoveSpeed;
+            velocity.Z =
+                direction.Z *
+                MoveSpeed;
+        }
 
         Velocity = velocity;
         MoveAndSlide();

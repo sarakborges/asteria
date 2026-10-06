@@ -42,6 +42,87 @@ public readonly record struct FluidColor(
     }
 }
 
+public readonly record struct FluidMotionDefinition
+{
+    public static FluidMotionDefinition Default { get; } =
+        new(
+            horizontalSpeedMultiplier: 0.45f,
+            horizontalAcceleration: 10f,
+            sinkSpeed: 0.9f,
+            ascendSpeed: 2.4f,
+            surfaceExitSpeed: 5f,
+            verticalAcceleration: 10f,
+            surfaceExitMargin: 0.35f);
+
+    public FluidMotionDefinition(
+        float horizontalSpeedMultiplier,
+        float horizontalAcceleration,
+        float sinkSpeed,
+        float ascendSpeed,
+        float surfaceExitSpeed,
+        float verticalAcceleration,
+        float surfaceExitMargin)
+    {
+        HorizontalSpeedMultiplier =
+            RequiredFiniteNonNegative(
+                horizontalSpeedMultiplier,
+                nameof(horizontalSpeedMultiplier));
+        HorizontalAcceleration =
+            RequiredFiniteNonNegative(
+                horizontalAcceleration,
+                nameof(horizontalAcceleration));
+        SinkSpeed =
+            RequiredFiniteNonNegative(
+                sinkSpeed,
+                nameof(sinkSpeed));
+        AscendSpeed =
+            RequiredFiniteNonNegative(
+                ascendSpeed,
+                nameof(ascendSpeed));
+        SurfaceExitSpeed =
+            RequiredFiniteNonNegative(
+                surfaceExitSpeed,
+                nameof(surfaceExitSpeed));
+        VerticalAcceleration =
+            RequiredFiniteNonNegative(
+                verticalAcceleration,
+                nameof(verticalAcceleration));
+        SurfaceExitMargin =
+            RequiredFiniteNonNegative(
+                surfaceExitMargin,
+                nameof(surfaceExitMargin));
+    }
+
+    public float HorizontalSpeedMultiplier { get; }
+
+    public float HorizontalAcceleration { get; }
+
+    public float SinkSpeed { get; }
+
+    public float AscendSpeed { get; }
+
+    public float SurfaceExitSpeed { get; }
+
+    public float VerticalAcceleration { get; }
+
+    public float SurfaceExitMargin { get; }
+
+    private static float RequiredFiniteNonNegative(
+        float value,
+        string name)
+    {
+        if (!float.IsFinite(value) ||
+            value < 0f)
+        {
+            throw new ArgumentOutOfRangeException(
+                name,
+                "Fluid motion values must be finite and non-negative.");
+        }
+
+        return value;
+    }
+}
+
 public sealed class FluidDefinition
 {
     public FluidDefinition(
@@ -52,7 +133,8 @@ public sealed class FluidDefinition
         byte lightDampening = 0,
         float spreadSpeed = 1f,
         ushort maxSpread = 7,
-        BlockLightEmission lightEmission = default)
+        BlockLightEmission lightEmission = default,
+        FluidMotionDefinition? motion = null)
     {
         if (string.IsNullOrWhiteSpace(id) ||
             id != id.Trim() ||
@@ -102,6 +184,9 @@ public sealed class FluidDefinition
         SpreadSpeed = spreadSpeed;
         MaxSpread = maxSpread;
         LightEmission = lightEmission;
+        Motion =
+            motion ??
+            FluidMotionDefinition.Default;
     }
 
     public string Id { get; }
@@ -119,6 +204,8 @@ public sealed class FluidDefinition
     public ushort MaxSpread { get; }
 
     public BlockLightEmission LightEmission { get; }
+
+    public FluidMotionDefinition Motion { get; }
 }
 
 public static class FluidDefinitionJson
@@ -139,7 +226,61 @@ public static class FluidDefinitionJson
             OptionalByte(root, "lightDampening") ?? 0,
             OptionalSingle(root, "spreadSpeed") ?? 1f,
             OptionalUShort(root, "maxSpread") ?? 7,
-            ParseLightEmission(root));
+            ParseLightEmission(root),
+            ParseMotion(root));
+    }
+
+    private static FluidMotionDefinition ParseMotion(
+        JsonElement root)
+    {
+        if (!root.TryGetProperty(
+                "motion",
+                out var motion) ||
+            motion.ValueKind ==
+                JsonValueKind.Null)
+        {
+            return FluidMotionDefinition.Default;
+        }
+
+        if (motion.ValueKind !=
+            JsonValueKind.Object)
+        {
+            throw new FormatException(
+                "Fluid motion must be an object.");
+        }
+
+        var defaults =
+            FluidMotionDefinition.Default;
+
+        return new FluidMotionDefinition(
+            OptionalSingle(
+                motion,
+                "horizontalSpeedMultiplier") ??
+                defaults.HorizontalSpeedMultiplier,
+            OptionalSingle(
+                motion,
+                "horizontalAcceleration") ??
+                defaults.HorizontalAcceleration,
+            OptionalSingle(
+                motion,
+                "sinkSpeed") ??
+                defaults.SinkSpeed,
+            OptionalSingle(
+                motion,
+                "ascendSpeed") ??
+                defaults.AscendSpeed,
+            OptionalSingle(
+                motion,
+                "surfaceExitSpeed") ??
+                defaults.SurfaceExitSpeed,
+            OptionalSingle(
+                motion,
+                "verticalAcceleration") ??
+                defaults.VerticalAcceleration,
+            OptionalSingle(
+                motion,
+                "surfaceExitMargin") ??
+                defaults.SurfaceExitMargin);
     }
 
     private static BlockLightEmission ParseLightEmission(

@@ -336,6 +336,11 @@ public partial class Main : Node3D
                     _world,
                     bounds,
                     eyeY);
+        _player.FluidMotionProvider =
+            fluid =>
+                _fluids
+                    .GetDefinition(fluid)
+                    .Motion;
         _player.BreakRequested += BreakTargetBlock;
         _player.PlaceRequested += PlaceTargetBlock;
         _player.MouseCaptureChanged +=
