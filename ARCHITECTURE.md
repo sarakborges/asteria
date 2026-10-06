@@ -62,6 +62,14 @@ Refactor when one class/file repeatedly changes for unrelated domains or begins 
 
 Split by real responsibility, not arbitrary line count. Prefer cohesive runtime/controller objects with narrow dependencies over an everything-context.
 
+Current world-work ownership follows that rule explicitly:
+
+- `FluidSimulationRuntime` owns the fluid worker lifecycle, drained in-flight batch, stale/error recovery, authoritative result application and authored rescheduling.
+- `LightingRuntime` owns the lighting worker lifecycle, in-flight batch recovery, stale-result requeue and Core lighting-result integration.
+- `TerrainMeshPipeline` and `FluidMeshPipeline` are Godot-side publication pipelines: they own mesh worker start/poll/requeue and enqueue accepted DTOs into `ChunkPresentationController`; they do not own voxel content.
+- `ChunkStreamingController` composes `ChunkResidencyRuntime` with `ChunkPresentationController` in pre/post world-work frame phases. Residency policy/materialization stays in Core; Godot only coordinates presentation lifecycle.
+- `Main` remains the composition root and frame/input/bridge orchestrator. It may invoke those owners and report diagnostics, but must not reimplement their scheduling or mutation rules.
+
 ## 4. Mutation pipeline
 
 Meaningful world state changes flow through intent-revealing mutation APIs.
@@ -110,6 +118,7 @@ Background work is allowed only when ownership is explicit.
 - Worker completion order must not determine gameplay behavior.
 - Background tasks are bounded.
 - Long-running work that can become irrelevant should be cancellable or cheaply discardable.
+- Draining a queue transfers ownership of that batch to exactly one in-flight worker owner. Start failure, worker exception, null completion, stale dependency validation or publication rejection must either requeue the still-relevant batch or explicitly retire it; drained work must not disappear silently.
 - Detached world entities without persistence/pickup ownership must still have explicit population and lifetime bounds; bounded capacity and expiry are required until a higher-level lifecycle owns them.
 - Detached block drops also participate in deterministic entity contact resolution. Broadphase/contact state stays bounded by the active-drop cap, pair ordering is deterministic, and separation must respect voxel collision instead of pushing drops through terrain.
 - Snapshot creation must not perform hidden O(chunk-volume) reconstruction when a structural copy/share can preserve the same isolation contract more cheaply.
@@ -125,6 +134,7 @@ Generic queue mechanics are shared primitives.
 - Ordering must have deterministic tie-breakers.
 - Predicate scans that can repeatedly miss unchanged work need revision-based miss caching when profiling shows the scan is meaningful.
 - Latency-sensitive world loops use a shared frame/work-budget abstraction instead of hand-rolled elapsed-time loops.
+- Meshlet-mask queues use the shared deterministic bounded-drain primitive. Terrain and fluid mesh workers both cap work per job; a large fluid remesh backlog must not be drained into one unbounded worker batch.
 
 Consumers enqueue intent; queue owners control deduplication, fairness and draining semantics.
 
