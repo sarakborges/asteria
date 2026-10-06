@@ -128,8 +128,8 @@ public sealed class ChunkResidencyRuntimeTests
         var fluidUpdates = new FluidUpdateQueue();
         var fluidMeshUpdates =
             new FluidMeshUpdateQueue();
-        var gravityUpdates =
-            new BlockGravityUpdateQueue();
+        var physicsUpdates =
+            new BlockPhysicsUpdateQueue();
         var terrainRevisions =
             new MeshletContentRevisions();
         var fluidRevisions =
@@ -141,15 +141,15 @@ public sealed class ChunkResidencyRuntimeTests
                 worldUpdates,
                 fluidUpdates,
                 fluidMeshUpdates,
-                gravityUpdates,
+                physicsUpdates,
                 terrainRevisions,
                 fluidRevisions);
-        var gravity =
-            new BlockGravityRuntime(
+        var physics =
+            new BlockPhysicsRuntime(
                 world,
                 blocks,
                 mutations,
-                gravityUpdates);
+                physicsUpdates);
         var runtime =
             new ChunkResidencyRuntime(
                 world,
@@ -158,7 +158,7 @@ public sealed class ChunkResidencyRuntimeTests
                 worldUpdates,
                 fluidUpdates,
                 fluidMeshUpdates,
-                gravity,
+                physics,
                 terrainRevisions,
                 fluidRevisions,
                 ticks,

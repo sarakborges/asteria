@@ -2,13 +2,13 @@ using Asteria.Core.World;
 
 namespace Asteria.Core.Tests;
 
-public sealed class BlockGravityRuntimeTests
+public sealed class BlockPhysicsRuntimeTests
 {
     [Fact]
     public void VoxelEditWakesChangedVoxelAndBlockAboveOnce()
     {
         var queue =
-            new BlockGravityUpdateQueue();
+            new BlockPhysicsUpdateQueue();
         var position =
             new WorldVoxelCoord(3, 7, -2);
 
@@ -37,7 +37,7 @@ public sealed class BlockGravityRuntimeTests
                     "asteria:sand",
                     tags:
                     [
-                        BlockGravityRuntime.GravityTag,
+                        BlockPhysicsCapabilities.Gravity,
                     ]),
             ]);
         var sand =
@@ -58,34 +58,34 @@ public sealed class BlockGravityRuntimeTests
             new FluidUpdateQueue();
         var fluidMeshUpdates =
             new FluidMeshUpdateQueue();
-        var gravityUpdates =
-            new BlockGravityUpdateQueue();
+        var physicsUpdates =
+            new BlockPhysicsUpdateQueue();
         var mutations =
             new VoxelMutationRuntime(
                 world,
                 worldUpdates,
                 fluidUpdates,
                 fluidMeshUpdates,
-                gravityUpdates,
+                physicsUpdates,
                 new MeshletContentRevisions(),
                 new MeshletContentRevisions());
-        var gravity =
-            new BlockGravityRuntime(
+        var physics =
+            new BlockPhysicsRuntime(
                 world,
                 blocks,
                 mutations,
-                gravityUpdates);
+                physicsUpdates);
 
         Assert.Equal(
             1,
-            gravity.EnqueueResidentChunk(
+            physics.EnqueueResidentChunk(
                 ChunkCoord.Zero));
         Assert.Equal(
             1,
-            gravityUpdates.Count);
+            physicsUpdates.Count);
         Assert.Equal(
             1,
-            gravity.ProcessWakeups());
+            physics.ProcessWakeups());
     }
 
     [Fact]
@@ -105,7 +105,7 @@ public sealed class BlockGravityRuntimeTests
                 out _));
 
         var started =
-            fixture.Gravity.ProcessWakeups();
+            fixture.Physics.ProcessWakeups();
 
         Assert.Equal(1, started);
         Assert.True(
@@ -115,7 +115,7 @@ public sealed class BlockGravityRuntimeTests
 
         var falling =
             Assert.Single(
-                fixture.Gravity.ActiveBlocks);
+                fixture.Physics.ActiveBlocks);
 
         Assert.Equal(
             sand,
@@ -151,20 +151,20 @@ public sealed class BlockGravityRuntimeTests
                 sand,
                 out _));
 
-        fixture.Gravity.ProcessWakeups();
+        fixture.Physics.ProcessWakeups();
 
         var previousY =
             Assert.Single(
-                fixture.Gravity.ActiveBlocks)
+                fixture.Physics.ActiveBlocks)
                 .CenterY;
 
-        fixture.Gravity.Advance(
+        fixture.Physics.Advance(
             1.0 / 60.0,
             18.0);
 
         var movedY =
             Assert.Single(
-                fixture.Gravity.ActiveBlocks)
+                fixture.Physics.ActiveBlocks)
                 .CenterY;
 
         Assert.True(movedY < previousY);
@@ -172,17 +172,17 @@ public sealed class BlockGravityRuntimeTests
 
         for (var frame = 0;
              frame < 240 &&
-             fixture.Gravity.ActiveCount > 0;
+             fixture.Physics.ActiveCount > 0;
              frame++)
         {
-            fixture.Gravity.Advance(
+            fixture.Physics.Advance(
                 1.0 / 60.0,
                 18.0);
         }
 
         Assert.Equal(
             0,
-            fixture.Gravity.ActiveCount);
+            fixture.Physics.ActiveCount);
         Assert.Equal(
             sand,
             fixture.World
@@ -212,15 +212,81 @@ public sealed class BlockGravityRuntimeTests
 
         Assert.Equal(
             0,
-            fixture.Gravity.ProcessWakeups());
+            fixture.Physics.ProcessWakeups());
         Assert.Equal(
             0,
-            fixture.Gravity.ActiveCount);
+            fixture.Physics.ActiveCount);
         Assert.Equal(
             stone,
             fixture.World
                 .GetCellOrEmpty(position)
                 .Block);
+    }
+
+    [Fact]
+    public void UnsupportedSupportBelowBlockIsRemovedAndReported()
+    {
+        var world = new VoxelWorld();
+        world.InsertChunk(
+            ChunkCoord.Zero,
+            new Chunk());
+        var blocks =
+            new BlockRegistry(
+            [
+                new BlockDefinition(
+                    "asteria:snow_layer",
+                    tags:
+                    [
+                        BlockPhysicsCapabilities.SupportBelow,
+                    ],
+                    shape:
+                        BlockShapeDefinition.SurfaceLayer(
+                            0.125f,
+                            "asteria:snow")),
+                new BlockDefinition("asteria:snow"),
+            ]);
+        var worldUpdates = new WorldUpdateQueue();
+        var fluidUpdates = new FluidUpdateQueue();
+        var fluidMeshUpdates =
+            new FluidMeshUpdateQueue();
+        var physicsUpdates =
+            new BlockPhysicsUpdateQueue();
+        var mutations =
+            new VoxelMutationRuntime(
+                world,
+                worldUpdates,
+                fluidUpdates,
+                fluidMeshUpdates,
+                physicsUpdates,
+                new MeshletContentRevisions(),
+                new MeshletContentRevisions());
+        var physics =
+            new BlockPhysicsRuntime(
+                world,
+                blocks,
+                mutations,
+                physicsUpdates);
+        var position =
+            new WorldVoxelCoord(3, 4, 3);
+
+        Assert.True(
+            mutations.SetBlockAt(
+                position,
+                blocks.GetId("asteria:snow_layer"),
+                out _));
+
+        var wake =
+            physics.ProcessWakeups();
+
+        var removal =
+            Assert.Single(
+                wake.UnsupportedRemovals);
+        Assert.Equal(position, removal.Position);
+        Assert.Equal(
+            blocks.GetId("asteria:snow_layer"),
+            removal.Cell.Block);
+        Assert.True(
+            world.GetCellOrEmpty(position).IsEmpty);
     }
 
     private static Fixture CreateFixture()
@@ -237,7 +303,7 @@ public sealed class BlockGravityRuntimeTests
                     "asteria:sand",
                     tags:
                     [
-                        BlockGravityRuntime.GravityTag,
+                        BlockPhysicsCapabilities.Gravity,
                     ]),
                 new BlockDefinition(
                     "asteria:stone"),
@@ -248,8 +314,8 @@ public sealed class BlockGravityRuntimeTests
             new FluidUpdateQueue();
         var fluidMeshUpdates =
             new FluidMeshUpdateQueue();
-        var gravityUpdates =
-            new BlockGravityUpdateQueue();
+        var physicsUpdates =
+            new BlockPhysicsUpdateQueue();
         var terrainRevisions =
             new MeshletContentRevisions();
         var fluidRevisions =
@@ -260,26 +326,26 @@ public sealed class BlockGravityRuntimeTests
                 worldUpdates,
                 fluidUpdates,
                 fluidMeshUpdates,
-                gravityUpdates,
+                physicsUpdates,
                 terrainRevisions,
                 fluidRevisions);
-        var gravity =
-            new BlockGravityRuntime(
+        var physics =
+            new BlockPhysicsRuntime(
                 world,
                 blocks,
                 mutations,
-                gravityUpdates);
+                physicsUpdates);
 
         return new Fixture(
             world,
             blocks,
             mutations,
-            gravity);
+            physics);
     }
 
     private sealed record Fixture(
         VoxelWorld World,
         BlockRegistry Blocks,
         VoxelMutationRuntime Mutations,
-        BlockGravityRuntime Gravity);
+        BlockPhysicsRuntime Physics);
 }

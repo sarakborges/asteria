@@ -158,6 +158,52 @@ public sealed class BlockInteractionResolverTests
     }
 
     [Fact]
+    public void SupportBelowPlacementRequiresOccupiedSupport()
+    {
+        var blocks = CreateBlocks();
+        var stone =
+            blocks.GetId("asteria:stone");
+        var layer =
+            blocks.GetId("asteria:snow_layer");
+        var world = LoadedWorld();
+        var hit =
+            new VoxelWorldHit(
+                new WorldVoxelCoord(0, 1, 0),
+                1,
+                0,
+                0);
+
+        var unsupported =
+            BlockInteractionResolver.ResolvePlacement(
+                world,
+                blocks,
+                hit,
+                new VoxelCell(layer),
+                FarPlayerBounds());
+
+        Assert.False(unsupported.Accepted);
+        Assert.Equal(
+            BlockPlacementRejection.MissingSupport,
+            unsupported.Rejection);
+
+        Assert.True(
+            world.SetBlockAt(
+                new WorldVoxelCoord(1, 0, 0),
+                stone,
+                out _));
+
+        var supported =
+            BlockInteractionResolver.ResolvePlacement(
+                world,
+                blocks,
+                hit,
+                new VoxelCell(layer),
+                FarPlayerBounds());
+
+        Assert.True(supported.Accepted);
+    }
+
+    [Fact]
     public void FluidDoesNotMakeOtherwiseEmptyPlacementVoxelOccupied()
     {
         var blocks = CreateBlocks();
@@ -203,6 +249,10 @@ public sealed class BlockInteractionResolverTests
             new BlockDefinition("asteria:stone"),
             new BlockDefinition(
                 "asteria:snow_layer",
+                tags:
+                [
+                    BlockPhysicsCapabilities.SupportBelow,
+                ],
                 shape:
                     BlockShapeDefinition.SurfaceLayer(
                         0.125f,

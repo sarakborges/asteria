@@ -31,6 +31,8 @@ public enum BlockPlacementRejection : byte
     Unloaded = 3,
     Occupied = 4,
     PlayerIntersection = 5,
+    MissingSupport = 6,
+    SupportUnloaded = 7,
 }
 
 public readonly record struct BlockPlacementDecision(
@@ -132,6 +134,27 @@ public static class BlockInteractionResolver
 
         var definition =
             blocks.GetDefinition(cell.Block);
+        var support =
+            BlockSupportRules.Evaluate(
+                world,
+                definition,
+                target);
+
+        if (support == BlockSupportState.Unloaded)
+        {
+            return BlockPlacementDecision.Reject(
+                target,
+                cell,
+                BlockPlacementRejection.SupportUnloaded);
+        }
+
+        if (support == BlockSupportState.Unsupported)
+        {
+            return BlockPlacementDecision.Reject(
+                target,
+                cell,
+                BlockPlacementRejection.MissingSupport);
+        }
 
         if (BlockGeometry.Intersects(
                 definition,

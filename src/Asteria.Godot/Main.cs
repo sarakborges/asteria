@@ -29,7 +29,7 @@ public partial class Main : Node3D
     private readonly WorldTickClock _worldTicks = new();
     private readonly FluidUpdateQueue _fluidUpdates = new();
     private readonly FluidMeshUpdateQueue _fluidMeshUpdates = new();
-    private readonly BlockGravityUpdateQueue _blockGravityUpdates = new();
+    private readonly BlockPhysicsUpdateQueue _blockPhysicsUpdates = new();
     private readonly MeshletContentRevisions _contentRevisions = new();
     private readonly MeshletContentRevisions _fluidContentRevisions = new();
     private ChunkResidencyRuntime _residency = null!;
@@ -41,7 +41,7 @@ public partial class Main : Node3D
     private readonly Dictionary<VoxelCell, ArrayMesh>
         _fallingBlockMeshes = [];
     private VoxelMutationRuntime _mutations = null!;
-    private BlockGravityRuntime _blockGravity = null!;
+    private BlockPhysicsRuntime _blockPhysics = null!;
 
     private readonly TerrainMeshWorker _terrainMeshWorker = new();
     private readonly FluidMeshWorker _fluidMeshWorker = new();
@@ -69,17 +69,17 @@ public partial class Main : Node3D
             _worldUpdates,
             _fluidUpdates,
             _fluidMeshUpdates,
-            _blockGravityUpdates,
+            _blockPhysicsUpdates,
             _contentRevisions,
             _fluidContentRevisions);
 
         _blocks = BlockContentLoader.LoadProjectBlocks();
         _fluids = FluidContentLoader.LoadProjectFluids();
-        _blockGravity = new BlockGravityRuntime(
+        _blockPhysics = new BlockPhysicsRuntime(
             _world,
             _blocks,
             _mutations,
-            _blockGravityUpdates);
+            _blockPhysicsUpdates);
         _terrainTextures = TerrainTextureCatalog.Create(_blocks);
         _terrainTextureLookup = _terrainTextures.CreateLookup();
         _terrainMaterials = VoxelTerrainMaterialSet.Create(_terrainTextures);
@@ -92,7 +92,7 @@ public partial class Main : Node3D
                 _worldUpdates,
                 _fluidUpdates,
                 _fluidMeshUpdates,
-                _blockGravity,
+                _blockPhysics,
                 _contentRevisions,
                 _fluidContentRevisions,
                 _worldTicks,
@@ -263,8 +263,8 @@ public partial class Main : Node3D
                 fluidUpdates = _fluidUpdates.Count,
                 fluidScheduled = _fluidUpdates.ScheduledCount,
                 fluidDormantChunks = _fluidUpdates.DormantChunkCount,
-                fallingBlocks = _blockGravity.ActiveCount,
-                gravityUpdates = _blockGravityUpdates.Count,
+                fallingBlocks = _blockPhysics.ActiveCount,
+                physicsUpdates = _blockPhysicsUpdates.Count,
                 worldTick = _worldTicks.CurrentTick,
                 textures = _terrainTextures.TextureCount,
                 meshletsPerChunk = ChunkMeshletMask.Count,
@@ -522,28 +522,32 @@ public partial class Main : Node3D
 
     private void ProcessBlockPhysics(double delta)
     {
-        var started = 0;
+        var wake =
+            BlockPhysicsWakeResult.Empty;
 
         if (_worldTicks.TicksThisFrame > 0)
         {
-            started =
-                _blockGravity.ProcessWakeups();
+            wake =
+                _blockPhysics.ProcessWakeups();
         }
 
         var landed =
-            _blockGravity.Advance(
+            _blockPhysics.Advance(
                 delta,
                 WorldGravityStrength);
 
         SyncFallingBlockPresentations();
 
-        if (started > 0 || landed > 0)
+        if (wake.HasChanges || landed > 0)
         {
             GD.Print(
-                $"world.block_gravity started={started} " +
+                $"world.block_physics falling_started=" +
+                $"{wake.FallingStarted} " +
+                $"unsupported_removed=" +
+                $"{wake.UnsupportedRemoved} " +
                 $"landed={landed} " +
-                $"active={_blockGravity.ActiveCount} " +
-                $"queued={_blockGravityUpdates.Count}");
+                $"active={_blockPhysics.ActiveCount} " +
+                $"queued={_blockPhysicsUpdates.Count}");
         }
     }
 
@@ -552,7 +556,7 @@ public partial class Main : Node3D
         var active = new HashSet<FallingBlockId>();
 
         foreach (var state in
-                 _blockGravity.ActiveBlocks)
+                 _blockPhysics.ActiveBlocks)
         {
             active.Add(state.Id);
 

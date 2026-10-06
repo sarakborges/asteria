@@ -6,7 +6,7 @@ public sealed class VoxelMutationRuntime
     private readonly WorldUpdateQueue _worldUpdates;
     private readonly FluidUpdateQueue _fluidUpdates;
     private readonly FluidMeshUpdateQueue _fluidMeshUpdates;
-    private readonly BlockGravityUpdateQueue _blockGravityUpdates;
+    private readonly BlockPhysicsUpdateQueue _blockPhysicsUpdates;
     private readonly MeshletContentRevisions _terrainContentRevisions;
     private readonly MeshletContentRevisions _fluidContentRevisions;
 
@@ -15,7 +15,7 @@ public sealed class VoxelMutationRuntime
         WorldUpdateQueue worldUpdates,
         FluidUpdateQueue fluidUpdates,
         FluidMeshUpdateQueue fluidMeshUpdates,
-        BlockGravityUpdateQueue blockGravityUpdates,
+        BlockPhysicsUpdateQueue blockPhysicsUpdates,
         MeshletContentRevisions terrainContentRevisions,
         MeshletContentRevisions fluidContentRevisions)
     {
@@ -23,7 +23,7 @@ public sealed class VoxelMutationRuntime
         _worldUpdates = worldUpdates ?? throw new ArgumentNullException(nameof(worldUpdates));
         _fluidUpdates = fluidUpdates ?? throw new ArgumentNullException(nameof(fluidUpdates));
         _fluidMeshUpdates = fluidMeshUpdates ?? throw new ArgumentNullException(nameof(fluidMeshUpdates));
-        _blockGravityUpdates = blockGravityUpdates ?? throw new ArgumentNullException(nameof(blockGravityUpdates));
+        _blockPhysicsUpdates = blockPhysicsUpdates ?? throw new ArgumentNullException(nameof(blockPhysicsUpdates));
         _terrainContentRevisions = terrainContentRevisions ?? throw new ArgumentNullException(nameof(terrainContentRevisions));
         _fluidContentRevisions = fluidContentRevisions ?? throw new ArgumentNullException(nameof(fluidContentRevisions));
     }
@@ -100,7 +100,7 @@ public sealed class VoxelMutationRuntime
         _fluidMeshUpdates.EnqueueVoxelEdit(
             _world,
             position);
-        _blockGravityUpdates.EnqueueVoxelEdit(
+        _blockPhysicsUpdates.EnqueueVoxelEdit(
             position);
     }
 

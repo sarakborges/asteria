@@ -101,7 +101,7 @@ public sealed class ChunkResidencyRuntime
     private readonly WorldUpdateQueue _worldUpdates;
     private readonly FluidUpdateQueue _fluidUpdates;
     private readonly FluidMeshUpdateQueue _fluidMeshUpdates;
-    private readonly BlockGravityRuntime _blockGravity;
+    private readonly BlockPhysicsRuntime _blockPhysics;
     private readonly MeshletContentRevisions _terrainContentRevisions;
     private readonly MeshletContentRevisions _fluidContentRevisions;
     private readonly WorldTickClock _worldTicks;
@@ -121,7 +121,7 @@ public sealed class ChunkResidencyRuntime
         WorldUpdateQueue worldUpdates,
         FluidUpdateQueue fluidUpdates,
         FluidMeshUpdateQueue fluidMeshUpdates,
-        BlockGravityRuntime blockGravity,
+        BlockPhysicsRuntime blockPhysics,
         MeshletContentRevisions terrainContentRevisions,
         MeshletContentRevisions fluidContentRevisions,
         WorldTickClock worldTicks,
@@ -145,9 +145,9 @@ public sealed class ChunkResidencyRuntime
         _fluidMeshUpdates =
             fluidMeshUpdates ??
             throw new ArgumentNullException(nameof(fluidMeshUpdates));
-        _blockGravity =
-            blockGravity ??
-            throw new ArgumentNullException(nameof(blockGravity));
+        _blockPhysics =
+            blockPhysics ??
+            throw new ArgumentNullException(nameof(blockPhysics));
         _terrainContentRevisions =
             terrainContentRevisions ??
             throw new ArgumentNullException(
@@ -485,7 +485,7 @@ public sealed class ChunkResidencyRuntime
         _streaming.EnqueuePresentation(coord);
         EnqueueChunkLightingReconciliation(coord);
         EnqueueResidentChunkFluids(coord);
-        _blockGravity.EnqueueResidentChunk(coord);
+        _blockPhysics.EnqueueResidentChunk(coord);
 
         return new ChunkResidencyActivation(
             coord,

@@ -1,6 +1,7 @@
 {
   "id": "asteria:sand_layer",
   "category": "natural_blocks",
+  "tags": ["support_below"],
   "shape": {
     "type": "layer",
     "placement": "surface",

@@ -1,7 +1,6 @@
 namespace Asteria.Core.World;
 
-public readonly record struct FallingBlockId(
-    ulong Value);
+public readonly record struct FallingBlockId(ulong Value);
 
 public readonly record struct FallingBlockState(
     FallingBlockId Id,
@@ -11,54 +10,59 @@ public readonly record struct FallingBlockState(
     double CenterY,
     double VelocityY);
 
-public sealed class BlockGravityRuntime
-{
-    public const string GravityTag = "gravity";
+public readonly record struct UnsupportedBlockRemoval(
+    WorldVoxelCoord Position,
+    VoxelCell Cell);
 
+public sealed record BlockPhysicsWakeResult(
+    int FallingStarted,
+    IReadOnlyList<UnsupportedBlockRemoval> UnsupportedRemovals)
+{
+    public static BlockPhysicsWakeResult Empty { get; } =
+        new(0, Array.Empty<UnsupportedBlockRemoval>());
+
+    public int UnsupportedRemoved =>
+        UnsupportedRemovals.Count;
+
+    public bool HasChanges =>
+        FallingStarted > 0 ||
+        UnsupportedRemoved > 0;
+}
+
+public sealed class BlockPhysicsRuntime
+{
     private const double MaximumDeltaSeconds = 0.05;
     private const double SupportEpsilon = 0.0001;
 
     private readonly VoxelWorld _world;
     private readonly BlockRegistry _blocks;
     private readonly VoxelMutationRuntime _mutations;
-    private readonly BlockGravityUpdateQueue _updates;
+    private readonly BlockPhysicsUpdateQueue _updates;
     private readonly Dictionary<FallingBlockId, FallingBlockState>
         _active = [];
 
     private ulong _nextId;
 
-    public BlockGravityRuntime(
+    public BlockPhysicsRuntime(
         VoxelWorld world,
         BlockRegistry blocks,
         VoxelMutationRuntime mutations,
-        BlockGravityUpdateQueue updates)
+        BlockPhysicsUpdateQueue updates)
     {
-        _world =
-            world ??
-            throw new ArgumentNullException(nameof(world));
-        _blocks =
-            blocks ??
-            throw new ArgumentNullException(nameof(blocks));
-        _mutations =
-            mutations ??
-            throw new ArgumentNullException(nameof(mutations));
-        _updates =
-            updates ??
-            throw new ArgumentNullException(nameof(updates));
+        _world = world ?? throw new ArgumentNullException(nameof(world));
+        _blocks = blocks ?? throw new ArgumentNullException(nameof(blocks));
+        _mutations = mutations ?? throw new ArgumentNullException(nameof(mutations));
+        _updates = updates ?? throw new ArgumentNullException(nameof(updates));
     }
 
-    public IReadOnlyCollection<FallingBlockState>
-        ActiveBlocks =>
+    public IReadOnlyCollection<FallingBlockState> ActiveBlocks =>
         _active.Values;
 
     public int ActiveCount => _active.Count;
 
-    public int EnqueueResidentChunk(
-        ChunkCoord coord)
+    public int EnqueueResidentChunk(ChunkCoord coord)
     {
-        if (!_world.TryGetChunk(
-                coord,
-                out var chunk))
+        if (!_world.TryGetChunk(coord, out var chunk))
         {
             return 0;
         }
@@ -73,13 +77,17 @@ public sealed class BlockGravityRuntime
             {
                 for (var x = 0; x < Chunk.Size; x++)
                 {
-                    var cell =
-                        chunk.GetCell(x, y, z);
+                    var cell = chunk.GetCell(x, y, z);
+                    if (cell.IsEmpty)
+                    {
+                        continue;
+                    }
 
-                    if (cell.IsEmpty ||
-                        !_blocks
-                            .GetDefinition(cell.Block)
-                            .HasTag(GravityTag))
+                    var definition =
+                        _blocks.GetDefinition(cell.Block);
+
+                    if (!definition.HasTag(BlockPhysicsCapabilities.Gravity) &&
+                        !definition.HasTag(BlockPhysicsCapabilities.SupportBelow))
                     {
                         continue;
                     }
@@ -97,16 +105,15 @@ public sealed class BlockGravityRuntime
         return queued;
     }
 
-    public int ProcessWakeups()
+    public BlockPhysicsWakeResult ProcessWakeups()
     {
-        var started = 0;
+        var fallingStarted = 0;
+        var unsupported =
+            new List<UnsupportedBlockRemoval>();
 
-        foreach (var position in
-                 _updates.DrainBatch())
+        foreach (var position in _updates.DrainBatch())
         {
-            if (!_world.TryGetCell(
-                    position,
-                    out var cell) ||
+            if (!_world.TryGetCell(position, out var cell) ||
                 cell.IsEmpty)
             {
                 continue;
@@ -114,14 +121,45 @@ public sealed class BlockGravityRuntime
 
             var definition =
                 _blocks.GetDefinition(cell.Block);
+            var support =
+                BlockSupportRules.Evaluate(
+                    _world,
+                    definition,
+                    position);
 
-            if (!definition.HasTag(GravityTag))
+            if (support == BlockSupportState.Unloaded)
+            {
+                _updates.Enqueue(position);
+                continue;
+            }
+
+            if (support == BlockSupportState.Unsupported)
+            {
+                if (_mutations.SetCellAt(
+                        position,
+                        VoxelCell.Empty,
+                        out _))
+                {
+                    unsupported.Add(
+                        new UnsupportedBlockRemoval(
+                            position,
+                            cell));
+                }
+                else
+                {
+                    _updates.Enqueue(position);
+                }
+
+                continue;
+            }
+
+            if (!definition.HasTag(
+                    BlockPhysicsCapabilities.Gravity))
             {
                 continue;
             }
 
-            var below =
-                position + (0, -1, 0);
+            var below = position + (0, -1, 0);
 
             if (below.Y < 0)
             {
@@ -134,9 +172,7 @@ public sealed class BlockGravityRuntime
                 continue;
             }
 
-            if (!_world
-                    .GetCellOrEmpty(below)
-                    .IsEmpty)
+            if (!_world.GetCellOrEmpty(below).IsEmpty)
             {
                 continue;
             }
@@ -163,10 +199,12 @@ public sealed class BlockGravityRuntime
                     position.Z,
                     position.Y + 0.5,
                     0.0));
-            started++;
+            fallingStarted++;
         }
 
-        return started;
+        return new BlockPhysicsWakeResult(
+            fallingStarted,
+            unsupported);
     }
 
     public int Advance(
@@ -195,13 +233,10 @@ public sealed class BlockGravityRuntime
         }
 
         var delta =
-            Math.Min(
-                deltaSeconds,
-                MaximumDeltaSeconds);
+            Math.Min(deltaSeconds, MaximumDeltaSeconds);
         var landed = 0;
 
-        foreach (var id in
-                 _active.Keys.ToArray())
+        foreach (var id in _active.Keys.ToArray())
         {
             var state = _active[id];
             var velocity =
@@ -247,9 +282,7 @@ public sealed class BlockGravityRuntime
                     break;
                 }
 
-                if (!_world
-                        .GetCellOrEmpty(support)
-                        .IsEmpty)
+                if (!_world.GetCellOrEmpty(support).IsEmpty)
                 {
                     landingY = supportY + 1;
                     break;
@@ -259,10 +292,7 @@ public sealed class BlockGravityRuntime
             if (blockedByUnloaded)
             {
                 _active[id] =
-                    state with
-                    {
-                        VelocityY = 0.0,
-                    };
+                    state with { VelocityY = 0.0 };
                 continue;
             }
 
@@ -286,16 +316,11 @@ public sealed class BlockGravityRuntime
             if (!_world.IsLoadedAt(landing))
             {
                 _active[id] =
-                    state with
-                    {
-                        VelocityY = 0.0,
-                    };
+                    state with { VelocityY = 0.0 };
                 continue;
             }
 
-            if (!_world
-                    .GetCellOrEmpty(landing)
-                    .IsEmpty)
+            if (!_world.GetCellOrEmpty(landing).IsEmpty)
             {
                 _active[id] =
                     state with
