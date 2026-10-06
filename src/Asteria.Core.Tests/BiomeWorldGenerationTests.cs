@@ -623,7 +623,7 @@ public sealed class BiomeWorldGenerationTests
             new DimensionId(
                 "asteria:test"),
             biomeIds,
-            gravityStrength: 18f,
+            18f,
             new DimensionSpawnDefinition(
                 0,
                 0),
@@ -636,12 +636,12 @@ public sealed class BiomeWorldGenerationTests
                     255,
                     255,
                     255),
-                ambientEnergy: 1f,
+                1f,
                 new DimensionColor(
                     0,
                     0,
                     0),
-                fogDensity: 0f));
+                0f));
 
     private static BiomeDefinition TestBiome(
         string id,
