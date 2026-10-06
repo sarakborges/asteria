@@ -22,5 +22,9 @@
       <Link>packs/default/data/blocks/%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="../../packs/default/data/biomes/*.json">
+      <Link>packs/default/data/biomes/%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 </Project>
