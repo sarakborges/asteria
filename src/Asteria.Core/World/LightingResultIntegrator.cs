@@ -58,12 +58,26 @@ public sealed class LightingResultIntegrator
             // content mutations. Keep an in-flight structural mesh valid so
             // block edits can publish immediately; the queued refresh below
             // rebuilds current vertex lighting afterward.
-            _worldUpdates.EnqueueMeshlets(
-                coord,
-                mask);
-            _fluidMeshUpdates.EnqueueMeshlets(
-                coord,
-                mask);
+            if (!_world.TryGetChunk(
+                    coord,
+                    out var chunk))
+            {
+                continue;
+            }
+
+            if (chunk.HasTerrainContent)
+            {
+                _worldUpdates.EnqueueMeshlets(
+                    coord,
+                    mask);
+            }
+
+            if (chunk.HasFluidContent)
+            {
+                _fluidMeshUpdates.EnqueueMeshlets(
+                    coord,
+                    mask);
+            }
 
             dirtyMeshlets +=
                 mask.SelectedCount;

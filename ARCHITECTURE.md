@@ -178,7 +178,7 @@ Lighting is authoritative runtime data; meshes are derived presentation data.
 - Block and fluid light emission are authored RGB data. Fluid emission scales with fill level; block dampening scales with actual authored/microblock geometry; fluid dampening scales with fill level.
 - RGB block light propagates per channel with deterministic strongest-channel composition. Asteria deliberately does not inherit Mineclone's HSI-specific source-reset machinery because the RGB field does not require it for convergence.
 - Direct skylight is computed only through contiguous loaded vertical chunk segments. An unloaded vertical gap is provisional open sky; chunk residency changes must enqueue reconciliation so newly known blockers/openings converge incrementally.
-- A light change should invalidate only the presentation region that can observe it.
+- A light change should invalidate only the presentation region that can observe it. Terrain refresh work is omitted for block-empty chunks and fluid refresh work is omitted for fluid-empty chunks; lighting reconciliation must not manufacture no-op mesh backlog.
 - Applying an accepted lighting worker result is a Core responsibility. Changed voxel positions are coalesced into chunk/meshlet halo masks before terrain/fluid revisions and remesh queues are published, so one relight does not repeatedly bump the same meshlet.
 - Terrain and fluid meshes may have distinct invalidation/publication lifecycles.
 - Initial chunk presentation is admitted only after every currently desired chunk in its one-chunk mesh dependency halo is resident. This avoids knowingly starting snapshots that active streaming is about to invalidate while still allowing absent chunks outside the desired selection to behave as stable open boundaries.
