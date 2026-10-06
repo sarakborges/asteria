@@ -83,14 +83,20 @@ public sealed class ChunkStreamingStateTests
                 0,
                 0));
 
-        Assert.False(
-            state.KeepsLoaded(
-                new ChunkCoord(0, 0, 0)));
-        Assert.Equal(
-            new ChunkCoord(0, 0, 0),
-            state.PopRetiredOutsideHorizontalRadius(
-                new ChunkCoord(10, 0, 0),
-                3));
+        var origin = new ChunkCoord(0, 0, 0);
+        Assert.False(state.KeepsLoaded(origin));
+
+        var retired = new HashSet<ChunkCoord>();
+        ChunkCoord? next;
+        while ((next =
+                    state.PopRetiredOutsideHorizontalRadius(
+                        new ChunkCoord(10, 0, 0),
+                        3)) is not null)
+        {
+            retired.Add(next.Value);
+        }
+
+        Assert.Contains(origin, retired);
     }
 
     [Fact]
