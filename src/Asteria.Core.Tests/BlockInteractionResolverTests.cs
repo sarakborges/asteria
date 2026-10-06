@@ -369,6 +369,87 @@ public sealed class BlockInteractionResolverTests
     }
 
     [Fact]
+    public void GroundPlantPlacementRequiresAuthoredTopFace()
+    {
+        var blocks =
+            CreateBlocks();
+        var world =
+            LoadedWorld();
+        var stone =
+            blocks.GetId(
+                "asteria:stone");
+        var plant =
+            blocks.GetId(
+                "asteria:plant");
+        var target =
+            new WorldVoxelCoord(
+                1,
+                1,
+                1);
+
+        Assert.True(
+            world.SetBlockAt(
+                target + (0, -1, 0),
+                stone,
+                out _));
+
+        var sidePlacement =
+            BlockInteractionResolver.ResolvePlacement(
+                world,
+                blocks,
+                new VoxelWorldHit(
+                    new WorldVoxelCoord(
+                        0,
+                        1,
+                        1),
+                    1,
+                    0,
+                    0),
+                new VoxelCell(plant),
+                new WorldAabb(
+                    new Vector3(
+                        1.1f,
+                        1.1f,
+                        1.1f),
+                    new Vector3(
+                        1.9f,
+                        1.9f,
+                        1.9f)));
+
+        Assert.False(
+            sidePlacement.Accepted);
+        Assert.Equal(
+            BlockPlacementRejection.UnsupportedPlacementFace,
+            sidePlacement.Rejection);
+
+        var topPlacement =
+            BlockInteractionResolver.ResolvePlacement(
+                world,
+                blocks,
+                new VoxelWorldHit(
+                    target + (0, -1, 0),
+                    0,
+                    1,
+                    0),
+                new VoxelCell(plant),
+                new WorldAabb(
+                    new Vector3(
+                        1.1f,
+                        1.1f,
+                        1.1f),
+                    new Vector3(
+                        1.9f,
+                        1.9f,
+                        1.9f)));
+
+        Assert.True(
+            topPlacement.Accepted);
+        Assert.Equal(
+            target,
+            topPlacement.Position);
+    }
+
+    [Fact]
     public void FluidDoesNotMakeOtherwiseEmptyPlacementVoxelOccupied()
     {
         var blocks = CreateBlocks();
@@ -422,6 +503,17 @@ public sealed class BlockInteractionResolverTests
                     BlockShapeDefinition.SurfaceLayer(
                         0.125f,
                         "asteria:stone")),
+            new BlockDefinition(
+                "asteria:plant",
+                tags:
+                [
+                    BlockPhysicsCapabilities.SupportBelow,
+                ],
+                placementFaces:
+                [
+                    BlockFace.Top,
+                ],
+                isCollidable: false),
         ]);
 
     private static WorldAabb FarPlayerBounds() =>
