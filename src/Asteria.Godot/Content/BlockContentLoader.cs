@@ -1,3 +1,4 @@
+using Asteria.Core.Content;
 using Asteria.Core.World;
 using Godot;
 
@@ -5,11 +6,16 @@ namespace Asteria.Client.Content;
 
 public static class BlockContentLoader
 {
-    private const string BlockDirectory = "res://content/blocks";
-
-    public static BlockRegistry LoadProjectBlocks()
+    public static BlockRegistry LoadProjectBlocks(
+        PackSelection selection)
     {
-        var absoluteDirectory = ProjectSettings.GlobalizePath(BlockDirectory);
+        var blockDirectory =
+            ProjectPackPaths.DataCategory(
+                selection,
+                "blocks");
+        var absoluteDirectory =
+            ProjectSettings.GlobalizePath(
+                blockDirectory);
         if (!Directory.Exists(absoluteDirectory))
         {
             throw new DirectoryNotFoundException($"Block content directory does not exist: {absoluteDirectory}");
@@ -22,7 +28,7 @@ public static class BlockContentLoader
 
         if (files.Length == 0)
         {
-            throw new InvalidOperationException($"No block definitions were found in {BlockDirectory}.");
+            throw new InvalidOperationException($"No block definitions were found in {blockDirectory}.");
         }
 
         return BlockRegistry.FromJson(files.Select(File.ReadAllText));
