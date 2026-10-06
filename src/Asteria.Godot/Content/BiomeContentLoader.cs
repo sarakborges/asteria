@@ -3,12 +3,12 @@ using Asteria.Core.World;
 
 namespace Asteria.Client.Content;
 
-public static class BlockContentLoader
+public static class BiomeContentLoader
 {
-    public static BlockRegistry LoadProjectBlocks(
+    public static BiomeRegistry LoadProjectBiomes(
         PackSelection selection) =>
-        BlockRegistry.FromJson(
+        BiomeRegistry.FromJson(
             ProjectDataDocuments.Load(
                 selection,
-                "blocks"));
+                "biomes"));
 }

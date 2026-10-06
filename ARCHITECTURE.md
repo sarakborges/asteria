@@ -70,6 +70,8 @@ Current world-work ownership follows that rule explicitly:
 - `LightingRuntime` owns the lighting worker lifecycle, in-flight batch recovery, stale-result requeue and Core lighting-result integration.
 - `TerrainMeshPipeline` and `FluidMeshPipeline` are Godot-side publication pipelines: they own mesh worker start/poll/requeue and enqueue accepted DTOs into `ChunkPresentationController`; they do not own voxel content.
 - `ChunkStreamingController` composes `ChunkResidencyRuntime` with `ChunkPresentationController` in pre/post world-work frame phases. Residency policy/materialization stays in Core; Godot only coordinates presentation lifecycle.
+- `ChunkResidencyRuntime` depends on the narrow Core `IChunkProvider` materialization boundary instead of hard-coding a generator. The provider may be invoked concurrently and must be deterministic/thread-safe for immutable inputs.
+- `BiomeWorldGenerator` is the production surface provider. It owns biome sampling, terrain height/material resolution, authored surface patches and ground decorators; streaming owns only when generation work is scheduled/accepted.
 - `BlockEntityFrameController` coordinates tick-gated block-physics wakeups, continuous falling/drop advancement and Godot presentation synchronization. `BlockPhysicsRuntime` and `DroppedBlockRuntime` remain the authoritative Core owners; the controller adds no mirrored gameplay state.
 - `Main` remains the composition root and frame/input/bridge orchestrator. It may invoke those owners and report diagnostics, but must not reimplement their scheduling or mutation rules.
 
@@ -187,7 +189,25 @@ Lighting is authoritative runtime data; meshes are derived presentation data.
 
 Do not rebuild whole chunks when a smaller stable meshlet/dirty region is sufficient.
 
-## 10. Determinism
+## 10. World generation and biomes
+
+Surface world generation is an engine-agnostic Core domain.
+
+- `BiomeRegistry` owns validated authored biome definitions loaded from `packs/{selected}/data/biomes/`.
+- Surface biome IDs are dimension-qualified (for example `asteria:overworld/swamp`). The active world generator selects the subset belonging to its dimension.
+- `BiomeField` owns deterministic 2D surface-biome placement. Definitions are sorted by canonical ID before spatial rules are built, so JSON/filesystem insertion order cannot change the world.
+- Biome layout uses deterministic organic formation seeds rather than chunk/grid ownership. `regionSize` controls target formation span, authored weights affect seed assignment and `cannotBorder` is enforced while assignments are established.
+- Sampling returns a primary biome plus normalized nearby influences. Terrain height is blended from those influences; biome boundaries must not introduce a discontinuous height cut merely because the primary ID changed.
+- Surface material ownership is chosen deterministically from the influence weights. Authored surface patches are world-space deterministic and cross chunk boundaries without using chunk-local randomness.
+- Ground decorators are a separate authored layer from terrain density/materials. Their effective chance is weighted by biome influence and they may restrict allowed supporting surface blocks. Decorators write normal block content and therefore reuse support, rendering, drops and mutation semantics instead of owning a parallel object store.
+- Generation entropy is domain-separated and based only on the world seed, stable domain names and world coordinates. Hash/dictionary iteration order, task order and chunk materialization order cannot change generated content.
+- `BiomeWorldGenerator` has no mutable generation cache shared between worker calls; chunk materialization is safe to dispatch concurrently.
+- The initial surface profiles are deliberately bounded below Y=16 because the current spawn readiness gate is still the Y=0 chunk presentation. Expanding vertical surface generation requires first making column/vertical spawn readiness explicit rather than silently exceeding that lifecycle invariant.
+- Hydrology, caves and true 3D/volume biomes are future generation domains. They must extend the same single-owner generation pipeline rather than independently rewriting surface voxels after generation.
+
+`DeterministicChunkProvider` remains only as a QA/test fixture and is not the production world-generation owner.
+
+## 11. Determinism
 
 If behavior depends on order, define the order.
 
@@ -200,7 +220,7 @@ Never rely on:
 
 Streaming, simulation, queue priority, content loading and publication must use explicit deterministic tie-breakers where order affects observable results.
 
-## 11. Pack and content boundaries
+## 12. Pack and content boundaries
 
 Asteria packs are engine-agnostic content bundles owned by the game, not by Godot.
 
@@ -224,7 +244,7 @@ Asteria packs are engine-agnostic content bundles owned by the game, not by Godo
 
 The authored contract is defined in [PACKS.md](PACKS.md).
 
-## 12. Storage and hot data
+## 13. Storage and hot data
 
 Chunk storage is a hot-path data structure.
 
@@ -235,7 +255,7 @@ Chunk storage is a hot-path data structure.
 - Runtime state that leaves its owning chunk must not retain chunk-local palette identifiers. Detached/falling/dropped blocks carry portable value snapshots and re-intern local palette data when materialized into another chunk.
 - Optimize only after correctness, but obvious structural O(volume) work in a repeated hot boundary should not be preserved merely because the world is currently small.
 
-## 12. Refactor gate
+## 14. Refactor gate
 
 A touched area must be reviewed for architecture debt. Refactor or isolate the debt when any of these are true:
 

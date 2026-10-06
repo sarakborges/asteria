@@ -1,0 +1,71 @@
+{
+  "id": "asteria:overworld/swamp",
+  "surfaceLayout": {
+    "weight": 0.8,
+    "regionSize": {
+      "min": 192,
+      "max": 384
+    },
+    "cannotBorder": [
+      "asteria:overworld/desert"
+    ]
+  },
+  "surfaceTerrain": {
+    "baseHeight": 5.0,
+    "macroAmplitude": 2.5,
+    "macroScale": 896,
+    "detailAmplitude": 1.0,
+    "detailScale": 160
+  },
+  "surfaceLayers": [
+    {
+      "block": "asteria:grass_block",
+      "depth": 1,
+      "patch": {
+        "spacing": 14,
+        "radius": 6,
+        "jitter": 2,
+        "chance": 0.9,
+        "blocks": [
+          "asteria:dirt",
+          "asteria:mud"
+        ]
+      }
+    },
+    {
+      "block": "asteria:dirt",
+      "depth": 4,
+      "patch": {
+        "spacing": 16,
+        "radius": 6,
+        "jitter": 3,
+        "chance": 0.7,
+        "blocks": [
+          "asteria:mud"
+        ]
+      }
+    },
+    {
+      "block": "asteria:stone"
+    }
+  ],
+  "decorations": [
+    {
+      "block": "asteria:grass",
+      "chance": 0.22,
+      "surfaceBlocks": [
+        "asteria:grass_block",
+        "asteria:dirt",
+        "asteria:mud"
+      ]
+    },
+    {
+      "block": "asteria:mushroom_brown",
+      "chance": 0.09,
+      "surfaceBlocks": [
+        "asteria:dirt",
+        "asteria:mud"
+      ]
+    }
+  ]
+}

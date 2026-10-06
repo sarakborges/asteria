@@ -33,7 +33,7 @@ The current milestone proves the base runtime architecture without introducing w
 - broken/self-dropping and unsupported blocks spawn a bounded Core `DroppedBlockRuntime` with deterministic IDs, voxel collision, gravity, exact support wakeups, a 2,048-entity population cap and 300-second lifetime; Godot owns only their mesh/node presentation, while pickup waits for the future inventory owner;
 - dropped blocks resolve drop↔drop overlap through a deterministic 3D broadphase and bounded contact passes; horizontal separation is swept against voxel collision so clustered drops no longer clip through one another or terrain;
 - `BlockEntityFrameController` owns the Godot-side frame lifecycle for falling blocks and drops—tick-gated wake processing, Core runtime advancement and presentation sync—so `Main` no longer implements block-entity lifecycle mechanics; authoritative simulation remains in Core, and presentation consumes the runtimes' already ID-ordered streams without copying/resorting them every frame;
-- player-centered chunk streaming with desired/retained residency, async deterministic QA materialization, prioritized load queues and visibility hysteresis; pending/presentation priority selection is allocation-free, while retired chunks use a deterministic bounded scan instead of sorting the entire retirement backlog on each eviction;
+- player-centered chunk streaming with desired/retained residency, async provider-driven materialization, prioritized load queues and visibility hysteresis; production materialization now uses the data-driven biome world generator through an injected Core `IChunkProvider`, while pending/presentation priority selection is allocation-free and retired chunks use a deterministic bounded scan;
 - `ChunkStreamingController` now coordinates selection/materialization/presentation/eviction frame phases around the Core residency owner, keeping streaming lifecycle mechanics out of the main Godot node;
 - zero-copy in-memory session archive for edited chunks: eviction moves dirty chunks out of residency and restore happens before provider materialization; pristine deterministic chunks are dropped and regenerated instead of consuming archive memory;
 - adaptive world-work budgets modeled after Mineclone: roughly 2 ms under frame pressure, 3 ms at normal cadence and 4 ms when frames are fast;
@@ -73,7 +73,15 @@ The current milestone proves the base runtime architecture without introducing w
 - HTML/CSS/TypeScript WebUI embedded over the game through Godot WRY;
 - bidirectional JSON bridge between C# and the WebUI.
 
-Visible terrain now comes from a temporary deterministic chunk provider used by the streaming runtime. The QA provider also places one water source above the origin terrain so falling/spreading fluid behavior and translucent fluid meshing are exercised without introducing world generation. It materializes QA chunks on demand around the player and is deliberately not a world-generation API. Chunks outside the desired radius are retained for a hysteresis/cache margin before authoritative residency is removed. Edited chunks are then archived in memory and restored before provider fallback, so break/place survives unload/reload during the current session. This is not save-game persistence and writes nothing to disk.
+Visible terrain now comes from the Core `BiomeWorldGenerator`, selected by world seed + dimension and injected into the streaming residency runtime. The initial overworld pack authors plains, swamp, wasteland and desert biomes with formation weights/region sizes, terrain profiles and surface layers. Swamp and desert currently declare `cannotBorder`; height is blended across biome influences so primary-biome changes do not cut the terrain vertically. Surface material selection is influence-weighted, and authored world-space patches let swamp grass/dirt/mud intermix across chunk boundaries.
+
+Ground vegetation now comes from biome decorators rather than the QA fixture: plains/swamp can place grass and brown mushrooms are authored only by swamp. Generation is deterministic for the same seed regardless of chunk/task order. The old `DeterministicChunkProvider` remains only for test/QA fixtures.
+
+Chunks outside the desired radius are retained for a hysteresis/cache margin before authoritative residency is removed. Edited chunks are then archived in memory and restored before provider fallback, so break/place survives unload/reload during the current session. This is not save-game persistence and writes nothing to disk. Hydrology/caves/3D biome generation are not implemented yet.
+
+### Biome content
+
+Authorial surface biomes live in `packs/default/data/biomes/*.json`. The current schema owns `surfaceLayout` (weight, region-size target, adjacency constraints), `surfaceTerrain`, ordered `surfaceLayers` with optional deterministic patches, and block decorators. Biome generation lives entirely in Core; Godot only loads the selected pack and composes the provider into streaming.
 
 ### Block content
 

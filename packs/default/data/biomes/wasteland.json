@@ -1,0 +1,30 @@
+{
+  "id": "asteria:overworld/wasteland",
+  "surfaceLayout": {
+    "weight": 0.72,
+    "regionSize": {
+      "min": 224,
+      "max": 448
+    }
+  },
+  "surfaceTerrain": {
+    "baseHeight": 8.0,
+    "macroAmplitude": 4.0,
+    "macroScale": 704,
+    "detailAmplitude": 1.5,
+    "detailScale": 96
+  },
+  "surfaceLayers": [
+    {
+      "block": "asteria:dirt",
+      "depth": 2
+    },
+    {
+      "block": "asteria:gravel",
+      "depth": 3
+    },
+    {
+      "block": "asteria:stone"
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "id": "asteria:overworld/plains",
+  "surfaceLayout": {
+    "weight": 1.0,
+    "regionSize": {
+      "min": 224,
+      "max": 448
+    }
+  },
+  "surfaceTerrain": {
+    "baseHeight": 8.0,
+    "macroAmplitude": 4.0,
+    "macroScale": 768,
+    "detailAmplitude": 1.5,
+    "detailScale": 128
+  },
+  "surfaceLayers": [
+    {
+      "block": "asteria:grass_block",
+      "depth": 1
+    },
+    {
+      "block": "asteria:dirt",
+      "depth": 4
+    },
+    {
+      "block": "asteria:stone"
+    }
+  ],
+  "decorations": [
+    {
+      "block": "asteria:grass",
+      "chance": 0.34,
+      "surfaceBlocks": [
+        "asteria:grass_block"
+      ]
+    }
+  ]
+}
