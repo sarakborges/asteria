@@ -46,9 +46,8 @@ public partial class Main : Node3D
 
     private readonly TerrainMeshWorker _terrainMeshWorker = new();
     private readonly FluidMeshWorker _fluidMeshWorker = new();
-    private readonly FluidSimulationWorker _fluidSimulationWorker = new();
-    private readonly LightingWorker _lightingWorker = new();
-    private LightingResultIntegrator _lightingIntegration = null!;
+    private FluidSimulationRuntime _fluidSimulationRuntime = null!;
+    private LightingRuntime _lightingRuntime = null!;
 
     private BlockRegistry _blocks = null!;
     private FluidRegistry _fluids = null!;
@@ -81,11 +80,27 @@ public partial class Main : Node3D
             _blockPhysicsUpdates,
             _contentRevisions,
             _fluidContentRevisions);
-        _lightingIntegration =
+        var lightingIntegration =
             new LightingResultIntegrator(
                 _world,
                 _worldUpdates,
                 _fluidMeshUpdates);
+        _fluidSimulationRuntime =
+            new FluidSimulationRuntime(
+                _world,
+                _fluids,
+                _fluidUpdates,
+                _mutations,
+                _worldTicks,
+                WorldTicksPerSecond,
+                MaxFluidUpdatesPerWorker);
+        _lightingRuntime =
+            new LightingRuntime(
+                _world,
+                _blocks,
+                _fluids,
+                _worldUpdates,
+                lightingIntegration);
         _blockPhysics = new BlockPhysicsRuntime(
             _world,
             _blocks,
@@ -637,33 +652,13 @@ public partial class Main : Node3D
 
     private void TryStartFluidWorker()
     {
-        if (_fluidSimulationWorker.IsRunning ||
-            !_fluidUpdates.HasReadyWork(
-                _worldTicks.CurrentTick))
-        {
-            return;
-        }
-
-        var batch =
-            _fluidUpdates.DrainReady(
-                _worldTicks.CurrentTick,
-                MaxFluidUpdatesPerWorker);
-
-        if (batch.IsEmpty)
-        {
-            return;
-        }
-
-        _fluidSimulationWorker.TryStart(
-            _world,
-            _fluids,
-            batch);
+        _fluidSimulationRuntime.TryStartReadyWork();
     }
 
     private void PollFluidWorker()
     {
-        if (!_fluidSimulationWorker.TryTakeCompleted(
-                out var result,
+        if (!_fluidSimulationRuntime.TryPollCompleted(
+                out var report,
                 out var error))
         {
             return;
@@ -675,100 +670,29 @@ public partial class Main : Node3D
             return;
         }
 
-        if (result is null)
+        if (report is null)
         {
             return;
         }
 
-        if (!result.Dependencies.IsCurrent(
-                _world))
+        if (report.Kind !=
+            FluidSimulationCompletionKind.Applied)
         {
-            _fluidUpdates.RequeueTopology(
-                result.SourceBatch.TopologyPositions);
-            _fluidUpdates.RequeueDue(
-                result.SourceBatch.DueTicks,
-                _worldTicks.CurrentTick);
-            TryStartFluidWorker();
             return;
-        }
-
-        var applied =
-            _mutations.ApplyFluidChanges(
-                result.Simulation.Changes);
-
-        if (!applied.Accepted)
-        {
-            _fluidUpdates.RequeueTopology(
-                result.SourceBatch.TopologyPositions);
-            _fluidUpdates.RequeueDue(
-                result.SourceBatch.DueTicks,
-                _worldTicks.CurrentTick);
-            TryStartFluidWorker();
-            return;
-        }
-
-        foreach (var dormant in
-                 result.Simulation.DormantTicks)
-        {
-            _fluidUpdates.DeferUnloaded(
-                dormant);
-        }
-
-        foreach (var request in
-                 result.Simulation.ScheduleRequests)
-        {
-            ScheduleFluidRequest(request);
         }
 
         GD.Print(
-            $"world.fluid tick={_worldTicks.CurrentTick} " +
-            $"worker_ms={result.WorkerMilliseconds:F2} " +
-            $"processed={result.Simulation.ProcessedVoxelCount} " +
-            $"changes={applied.AppliedChangeCount} " +
-            $"changed_voxels={applied.UniquePositionCount} " +
-            $"scheduled={result.Simulation.ScheduleRequests.Count} " +
-            $"downhill_searches={result.Simulation.DownhillSearchCount} " +
-            $"downhill_nodes={result.Simulation.DownhillVisitedNodeCount} " +
-            $"backlog={_fluidUpdates.Count}");
+            $"world.fluid tick={report.Tick} " +
+            $"worker_ms={report.WorkerMilliseconds:F2} " +
+            $"processed={report.ProcessedVoxelCount} " +
+            $"changes={report.AppliedChangeCount} " +
+            $"changed_voxels={report.UniquePositionCount} " +
+            $"scheduled={report.ScheduledRequestCount} " +
+            $"downhill_searches={report.DownhillSearchCount} " +
+            $"downhill_nodes={report.DownhillVisitedNodeCount} " +
+            $"backlog={report.BacklogCount}");
 
-        TryStartFluidWorker();
         TryStartFluidMeshWorker();
-    }
-
-    private void ScheduleFluidRequest(
-        FluidScheduleRequest request)
-    {
-        var delay =
-            FluidTiming.DelayTicks(
-                _fluids,
-                request.Fluid,
-                WorldTicksPerSecond);
-
-        if (delay is null)
-        {
-            return;
-        }
-
-        var dueTick =
-            SaturatingAdd(
-                _worldTicks.CurrentTick,
-                delay.Value);
-
-        if (request.Neighborhood)
-        {
-            _fluidUpdates.ScheduleNeighborhood(
-                request.Fluid,
-                request.Position,
-                dueTick);
-        }
-        else
-        {
-            _fluidUpdates.ScheduleAt(
-                new FluidTickKey(
-                    request.Fluid,
-                    request.Position),
-                dueTick);
-        }
     }
 
     private void TryStartFluidMeshWorker()
@@ -1017,31 +941,13 @@ public partial class Main : Node3D
 
     private void TryStartLightingWorker()
     {
-        if (_lightingWorker.IsRunning ||
-            !_worldUpdates.HasLightingWork)
-        {
-            return;
-        }
-
-        var batch =
-            _worldUpdates.DrainLighting();
-
-        if (batch.IsEmpty)
-        {
-            return;
-        }
-
-        _lightingWorker.TryStart(
-            _world,
-            _blocks,
-            _fluids,
-            batch);
+        _lightingRuntime.TryStartReadyWork();
     }
 
     private void PollLightingWorker()
     {
-        if (!_lightingWorker.TryTakeCompleted(
-                out var result,
+        if (!_lightingRuntime.TryPollCompleted(
+                out var report,
                 out var error))
         {
             return;
@@ -1053,39 +959,26 @@ public partial class Main : Node3D
             return;
         }
 
-        if (result is null)
+        if (report is null ||
+            report.Kind !=
+                LightingCompletionKind.Applied)
         {
             return;
         }
-
-        if (!result.Dependencies.IsCurrent(
-                _world))
-        {
-            _worldUpdates.RequeueLighting(
-                result.SourceBatch);
-            TryStartLightingWorker();
-            return;
-        }
-
-        var integration =
-            _lightingIntegration.Apply(
-                result.LightingSnapshot,
-                result.Lighting.ChangedPositions);
 
         GD.Print(
             $"world.lighting worker_ms=" +
-            $"{result.WorkerMilliseconds:F2} " +
+            $"{report.WorkerMilliseconds:F2} " +
             $"light_changes=" +
-            $"{integration.ChangedVoxelCount} " +
+            $"{report.ChangedVoxelCount} " +
             $"dirty_chunks=" +
-            $"{integration.DirtyChunkCount} " +
+            $"{report.DirtyChunkCount} " +
             $"dirty_meshlets=" +
-            $"{integration.DirtyMeshletCount} " +
+            $"{report.DirtyMeshletCount} " +
             $"light_processed=" +
-            $"{result.Lighting.ProcessedVoxelCount}");
+            $"{report.ProcessedVoxelCount}");
 
         TryStartTerrainMeshWorker();
-        TryStartLightingWorker();
     }
 
     private void IntegrateMeshletPublications()
@@ -1104,13 +997,6 @@ public partial class Main : Node3D
                 $"publish_ms={stats.ElapsedMilliseconds:F2}");
         }
     }
-
-    private static ulong SaturatingAdd(
-        ulong value,
-        ulong amount) =>
-        ulong.MaxValue - value < amount
-            ? ulong.MaxValue
-            : value + amount;
 
     private void BeginWorldFrameBudget(double delta)
     {
