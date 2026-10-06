@@ -200,6 +200,7 @@ public partial class Main : Node3D
                     MaxPresentationPublicationsPerFrame));
         _placementBlock =
             _blocks.GetId(TestChunkFactory.StoneId);
+        SendHotbarState();
 
         GD.Print(
             $"pack: {_packSelection.Name}");
