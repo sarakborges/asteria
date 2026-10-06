@@ -8,6 +8,10 @@ public partial class FpsPlayer : CharacterBody3D
     private const float MoveSpeed = 7.5f;
     private const float JumpSpeed = 8.0f;
     private const float Gravity = 24.0f;
+    private const float SwimAscendSpeed = 3.8f;
+    private const float SwimBuoyancySpeed = 0.6f;
+    private const float SwimVerticalAcceleration = 12.0f;
+    private const float SwimExitSurfaceMargin = 0.35f;
     private const float MouseSensitivity = 0.0022f;
     private const float MaxPitch = 1.52f;
 
@@ -24,6 +28,9 @@ public partial class FpsPlayer : CharacterBody3D
     public event Action<bool>? MouseCaptureChanged;
 
     public bool IsMouseCaptured => _mouseCaptured;
+
+    public Func<WorldAabb, float, FluidBodyContact>?
+        FluidContactProvider { get; set; }
 
     public override void _Ready()
     {
@@ -92,7 +99,30 @@ public partial class FpsPlayer : CharacterBody3D
     {
         var velocity = Velocity;
 
-        if (IsOnFloor())
+        var fluidContact =
+            FluidContactProvider?.Invoke(
+                CollisionBounds,
+                _camera.GlobalPosition.Y) ??
+            default;
+
+        if (fluidContact.IsImmersed)
+        {
+            var targetVerticalSpeed =
+                _jumpHeld
+                    ? fluidContact.IsNearSurface(
+                        SwimExitSurfaceMargin)
+                        ? JumpSpeed
+                        : SwimAscendSpeed
+                    : SwimBuoyancySpeed;
+
+            velocity.Y =
+                Mathf.MoveToward(
+                    velocity.Y,
+                    targetVerticalSpeed,
+                    SwimVerticalAcceleration *
+                    (float)delta);
+        }
+        else if (IsOnFloor())
         {
             if (_jumpHeld)
             {
@@ -101,7 +131,9 @@ public partial class FpsPlayer : CharacterBody3D
         }
         else
         {
-            velocity.Y -= Gravity * (float)delta;
+            velocity.Y -=
+                Gravity *
+                (float)delta;
         }
 
         var movement = Vector2.Zero;

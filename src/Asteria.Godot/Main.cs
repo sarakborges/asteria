@@ -330,6 +330,12 @@ public partial class Main : Node3D
             Position = new Vector3(0f, 20f, 0f),
         };
 
+        _player.FluidContactProvider =
+            (bounds, eyeY) =>
+                FluidBodyQuery.Sample(
+                    _world,
+                    bounds,
+                    eyeY);
         _player.BreakRequested += BreakTargetBlock;
         _player.PlaceRequested += PlaceTargetBlock;
         _player.MouseCaptureChanged +=
