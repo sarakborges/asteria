@@ -51,7 +51,8 @@ public sealed class FluidDefinition
         float roughness = 1f,
         byte lightDampening = 0,
         float spreadSpeed = 1f,
-        ushort maxSpread = 7)
+        ushort maxSpread = 7,
+        BlockLightEmission lightEmission = default)
     {
         if (string.IsNullOrWhiteSpace(id) ||
             id != id.Trim() ||
@@ -100,6 +101,7 @@ public sealed class FluidDefinition
         LightDampening = lightDampening;
         SpreadSpeed = spreadSpeed;
         MaxSpread = maxSpread;
+        LightEmission = lightEmission;
     }
 
     public string Id { get; }
@@ -115,6 +117,8 @@ public sealed class FluidDefinition
     public float SpreadSpeed { get; }
 
     public ushort MaxSpread { get; }
+
+    public BlockLightEmission LightEmission { get; }
 }
 
 public static class FluidDefinitionJson
@@ -134,7 +138,75 @@ public static class FluidDefinitionJson
             OptionalSingle(root, "roughness") ?? 1f,
             OptionalByte(root, "lightDampening") ?? 0,
             OptionalSingle(root, "spreadSpeed") ?? 1f,
-            OptionalUShort(root, "maxSpread") ?? 7);
+            OptionalUShort(root, "maxSpread") ?? 7,
+            ParseLightEmission(root));
+    }
+
+    private static BlockLightEmission ParseLightEmission(
+        JsonElement root)
+    {
+        if (!root.TryGetProperty(
+                "lightEmission",
+                out var emission) ||
+            emission.ValueKind == JsonValueKind.Null)
+        {
+            return default;
+        }
+
+        if (emission.ValueKind ==
+            JsonValueKind.Number)
+        {
+            if (!emission.TryGetByte(
+                    out var level) ||
+                level > VoxelLight.MaxLevel)
+            {
+                throw new FormatException(
+                    "Fluid lightEmission must be within 0..15.");
+            }
+
+            return new BlockLightEmission(
+                level,
+                level,
+                level);
+        }
+
+        if (emission.ValueKind !=
+            JsonValueKind.Object)
+        {
+            throw new FormatException(
+                "Fluid lightEmission must be a 0..15 number or RGB object.");
+        }
+
+        return new BlockLightEmission(
+            RequiredLightChannel(
+                emission,
+                "red"),
+            RequiredLightChannel(
+                emission,
+                "green"),
+            RequiredLightChannel(
+                emission,
+                "blue"));
+    }
+
+    private static byte RequiredLightChannel(
+        JsonElement emission,
+        string channel)
+    {
+        if (!emission.TryGetProperty(
+                channel,
+                out var value) ||
+            value.ValueKind !=
+                JsonValueKind.Number ||
+            !value.TryGetByte(
+                out var level) ||
+            level > VoxelLight.MaxLevel)
+        {
+            throw new FormatException(
+                $"Fluid lightEmission.{channel} must be within 0..15.");
+        }
+
+        return level;
     }
 
     private static string RequiredString(

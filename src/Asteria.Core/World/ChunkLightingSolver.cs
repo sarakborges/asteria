@@ -73,11 +73,11 @@ public static class ChunkLightingSolver
                     }
 
                     var emission =
-                        cell.IsEmpty
-                            ? default
-                            : blocks
-                                .GetDefinition(cell.Block)
-                                .LightEmission;
+                        VoxelLightingMedium.Emission(
+                            blocks,
+                            fluids,
+                            cell,
+                            fluid);
 
                     chunk.SetLight(
                         x,
@@ -160,12 +160,12 @@ public static class ChunkLightingSolver
             var current =
                 chunk.GetLight(x, y, z);
             var candidate =
-                cell.IsEmpty
-                    ? default
-                    : VoxelLight.FromEmission(
-                        blocks
-                            .GetDefinition(cell.Block)
-                            .LightEmission);
+                VoxelLight.FromEmission(
+                    VoxelLightingMedium.Emission(
+                        blocks,
+                        fluids,
+                        cell,
+                        fluid));
 
             foreach (var (dx, dy, dz) in Neighbors)
             {

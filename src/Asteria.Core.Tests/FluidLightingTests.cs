@@ -20,6 +20,180 @@ public sealed class FluidLightingTests
                 level));
     }
 
+    [Theory]
+    [InlineData(15, 1, 2)]
+    [InlineData(15, 4, 8)]
+    [InlineData(15, 8, 15)]
+    public void FluidEmissionScalesWithFillLevel(
+        byte fullEmission,
+        byte level,
+        byte expected)
+    {
+        var scaled =
+            VoxelLightingMedium.ScaleFluidEmission(
+                new BlockLightEmission(
+                    fullEmission,
+                    0,
+                    0),
+                level);
+
+        Assert.Equal(expected, scaled.Red);
+        Assert.Equal((byte)0, scaled.Green);
+        Assert.Equal((byte)0, scaled.Blue);
+    }
+
+    [Fact]
+    public void EmissiveFluidPropagatesColoredLight()
+    {
+        var blocks =
+            new BlockRegistry([]);
+        var fluids =
+            new FluidRegistry(
+            [
+                new FluidDefinition(
+                    "asteria:glow",
+                    new FluidColor(255, 32, 32),
+                    opacity: 0.7f,
+                    lightEmission:
+                        new BlockLightEmission(
+                            15,
+                            0,
+                            0)),
+            ]);
+        var glow =
+            fluids.GetId("asteria:glow");
+        var chunk = new Chunk();
+
+        chunk.SetFluid(
+            8,
+            8,
+            8,
+            FluidCell.Source(glow));
+
+        ChunkLightingSolver.Initialize(
+            chunk,
+            blocks,
+            fluids);
+
+        Assert.Equal(
+            (byte)15,
+            chunk.GetLight(
+                8,
+                8,
+                8).Red);
+        Assert.Equal(
+            (byte)14,
+            chunk.GetLight(
+                9,
+                8,
+                8).Red);
+    }
+
+    [Fact]
+    public void IncrementalEmissiveFluidPlacementAndRemovalRelights()
+    {
+        var blocks =
+            new BlockRegistry([]);
+        var fluids =
+            new FluidRegistry(
+            [
+                new FluidDefinition(
+                    "asteria:glow",
+                    new FluidColor(32, 64, 255),
+                    opacity: 0.7f,
+                    lightEmission:
+                        new BlockLightEmission(
+                            0,
+                            0,
+                            15)),
+            ]);
+        var glow =
+            fluids.GetId("asteria:glow");
+        var world = new VoxelWorld();
+        world.InsertChunk(
+            ChunkCoord.Zero,
+            new Chunk());
+
+        VoxelWorldLightingSolver.Initialize(
+            world,
+            blocks,
+            fluids);
+
+        var source =
+            new WorldVoxelCoord(8, 8, 8);
+        var neighbor =
+            source + (1, 0, 0);
+
+        Assert.True(
+            world.SetFluidAt(
+                source,
+                FluidCell.Source(glow),
+                out _));
+
+        VoxelWorldLightingSolver.RelightAfterEdits(
+            world,
+            blocks,
+            fluids,
+            [source]);
+
+        Assert.Equal(
+            (byte)15,
+            world.GetLightOrDark(source).Blue);
+        Assert.Equal(
+            (byte)14,
+            world.GetLightOrDark(neighbor).Blue);
+
+        Assert.True(
+            world.SetFluidAt(
+                source,
+                FluidCell.Empty,
+                out _));
+
+        VoxelWorldLightingSolver.RelightAfterEdits(
+            world,
+            blocks,
+            fluids,
+            [source]);
+
+        Assert.Equal(
+            (byte)0,
+            world.GetLightOrDark(source).Blue);
+        Assert.Equal(
+            (byte)0,
+            world.GetLightOrDark(neighbor).Blue);
+    }
+
+    [Fact]
+    public void FluidJsonParsesRgbEmission()
+    {
+        const string json = """
+            {
+              "id": "asteria:glow",
+              "color": "2040ff",
+              "opacity": 0.7,
+              "lightEmission": {
+                "red": 2,
+                "green": 4,
+                "blue": 15
+              }
+            }
+            """;
+
+        var registry =
+            FluidRegistry.FromJson([json]);
+        var definition =
+            registry.GetDefinition(
+                registry.GetId(
+                    "asteria:glow"));
+
+        Assert.Equal(
+            new BlockLightEmission(
+                2,
+                4,
+                15),
+            definition.LightEmission);
+    }
+
     [Fact]
     public void FullWaterLayerReducesDirectSkyBelowIt()
     {

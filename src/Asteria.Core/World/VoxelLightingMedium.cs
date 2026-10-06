@@ -59,6 +59,70 @@ public static class VoxelLightingMedium
         return Math.Max(block, liquid);
     }
 
+    public static BlockLightEmission Emission(
+        BlockRegistry blocks,
+        FluidRegistry fluids,
+        VoxelCell cell,
+        FluidCell fluid)
+    {
+        ArgumentNullException.ThrowIfNull(blocks);
+        ArgumentNullException.ThrowIfNull(fluids);
+
+        var block =
+            cell.IsEmpty
+                ? default
+                : blocks
+                    .GetDefinition(cell.Block)
+                    .LightEmission;
+        var liquid =
+            FluidEmission(
+                fluids,
+                fluid);
+
+        return new BlockLightEmission(
+            Math.Max(
+                block.Red,
+                liquid.Red),
+            Math.Max(
+                block.Green,
+                liquid.Green),
+            Math.Max(
+                block.Blue,
+                liquid.Blue));
+    }
+
+    public static BlockLightEmission FluidEmission(
+        FluidRegistry fluids,
+        FluidCell fluid)
+    {
+        ArgumentNullException.ThrowIfNull(fluids);
+
+        if (fluid.IsEmpty)
+        {
+            return default;
+        }
+
+        return ScaleFluidEmission(
+            fluids
+                .GetDefinition(fluid.Fluid)
+                .LightEmission,
+            fluid.Level);
+    }
+
+    public static BlockLightEmission ScaleFluidEmission(
+        BlockLightEmission fullEmission,
+        byte level) =>
+        new(
+            ScaleFluidLightChannel(
+                fullEmission.Red,
+                level),
+            ScaleFluidLightChannel(
+                fullEmission.Green,
+                level),
+            ScaleFluidLightChannel(
+                fullEmission.Blue,
+                level));
+
     public static byte FluidDampening(
         FluidRegistry fluids,
         FluidCell fluid)
@@ -78,6 +142,32 @@ public static class VoxelLightingMedium
         return ScaleFluidDampening(
             full,
             fluid.Level);
+    }
+
+    private static byte ScaleFluidLightChannel(
+        byte fullEmission,
+        byte level)
+    {
+        if (fullEmission == 0 ||
+            level == 0)
+        {
+            return 0;
+        }
+
+        var clampedLevel =
+            Math.Clamp(
+                level,
+                FluidCell.MinLevel,
+                FluidCell.MaxLevel);
+        var numerator =
+            fullEmission *
+            clampedLevel;
+
+        return checked(
+            (byte)(
+                (numerator +
+                 FluidCell.MaxLevel - 1) /
+                FluidCell.MaxLevel));
     }
 
     public static byte ScaleFluidDampening(

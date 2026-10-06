@@ -137,9 +137,12 @@ public static class VoxelWorldLightingSolver
                 cell,
                 fluid);
 
-        var emission = cell.IsEmpty
-            ? default
-            : blocks.GetDefinition(cell.Block).LightEmission;
+        var emission =
+            VoxelLightingMedium.Emission(
+                blocks,
+                fluids,
+                cell,
+                fluid);
 
         if (dampening >= VoxelLight.MaxLevel)
         {
@@ -338,11 +341,12 @@ public static class VoxelWorldLightingSolver
                                 sky[columnIndex],
                                 dampening);
 
-                            var emission = cell.IsEmpty
-                                ? default
-                                : blocks
-                                    .GetDefinition(cell.Block)
-                                    .LightEmission;
+                            var emission =
+                                VoxelLightingMedium.Emission(
+                                    blocks,
+                                    fluids,
+                                    cell,
+                                    fluid);
 
                             chunk.SetLight(
                                 x,
@@ -523,36 +527,49 @@ public static class VoxelWorldLightingSolver
                 (matchingChunks[0].Y + 1) * Chunk.Size - 1;
             var lowestY =
                 matchingChunks[^1].Y * Chunk.Size;
-            var levels = new byte[highestY - lowestY + 1];
-            var sky = VoxelLight.MaxLevel;
+            var levels =
+                new byte[
+                    highestY -
+                    lowestY +
+                    1];
+            int? previousChunkY = null;
+            var sky =
+                VoxelLight.MaxLevel;
 
-            for (var worldY = highestY;
-                 worldY >= lowestY;
-                 worldY--)
+            foreach (var coord in matchingChunks)
             {
-                var position =
-                    new WorldVoxelCoord(
-                        worldX,
-                        worldY,
-                        worldZ);
-
-                if (_world.TryGetCell(
-                        position,
-                        out var cell))
+                if (previousChunkY is not null &&
+                    coord.Y !=
+                        previousChunkY.Value - 1)
                 {
-                    var address =
-                        VoxelCoordinates.FromWorld(
-                            worldX,
-                            worldY,
-                            worldZ);
-                    var chunk =
-                        _world.GetChunk(
-                            address.Chunk);
+                    sky =
+                        VoxelLight.MaxLevel;
+                }
+
+                var chunk =
+                    _world.GetChunk(coord);
+                var localX =
+                    horizontalAddress.Local.X;
+                var localZ =
+                    horizontalAddress.Local.Z;
+                var originY =
+                    coord.Y * Chunk.Size;
+
+                for (var localY =
+                         Chunk.Size - 1;
+                     localY >= 0;
+                     localY--)
+                {
+                    var cell =
+                        chunk.GetCell(
+                            localX,
+                            localY,
+                            localZ);
                     var fluid =
                         chunk.GetFluid(
-                            address.Local.X,
-                            address.Local.Y,
-                            address.Local.Z);
+                            localX,
+                            localY,
+                            localZ);
 
                     sky = SaturatingSubtract(
                         sky,
@@ -560,14 +577,20 @@ public static class VoxelWorldLightingSolver
                             chunk,
                             _blocks,
                             _fluids,
-                            address.Local.X,
-                            address.Local.Y,
-                            address.Local.Z,
+                            localX,
+                            localY,
+                            localZ,
                             cell,
                             fluid));
+
+                    levels[
+                        originY +
+                        localY -
+                        lowestY] = sky;
                 }
 
-                levels[worldY - lowestY] = sky;
+                previousChunkY =
+                    coord.Y;
             }
 
             return new Column(
