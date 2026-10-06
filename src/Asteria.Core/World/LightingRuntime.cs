@@ -23,6 +23,8 @@ public sealed class LightingRuntime
     private readonly LightingResultIntegrator _integration;
     private readonly LightingWorker _worker = new();
 
+    private bool _acceptingWork = true;
+
     private WorldLightingBatch? _inFlightBatch;
 
     public LightingRuntime(
@@ -51,8 +53,18 @@ public sealed class LightingRuntime
 
     public bool IsRunning => _worker.IsRunning;
 
+    public void BeginRetirement()
+    {
+        _acceptingWork = false;
+    }
+
     public bool TryStartReadyWork()
     {
+        if (!_acceptingWork)
+        {
+            return false;
+        }
+
         if (_worker.IsRunning ||
             !_updates.HasLightingWork)
         {
