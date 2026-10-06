@@ -153,6 +153,59 @@ public sealed class BlockGeometryTests
     }
 
     [Fact]
+    public void FaceCoverageRequiresEntireDependentFootprint()
+    {
+        var supportDefinition =
+            new BlockDefinition(
+                "asteria:support");
+        var dependentDefinition =
+            new BlockDefinition(
+                "asteria:layer",
+                shape:
+                    BlockShapeDefinition.SurfaceLayer(
+                        0.125f,
+                        "asteria:support"));
+        var supportCell =
+            new VoxelCell(
+                new BlockRuntimeId(1),
+                microblockMaskId: 1);
+        var dependentCell =
+            new VoxelCell(
+                new BlockRuntimeId(2));
+
+        var oneTopMicroblock =
+            MicroblockMask.Empty.Edit(
+                0,
+                MicroblockMask.Edge - 1,
+                0,
+                MicroblockResolution.ExtraThin,
+                occupied: true);
+
+        Assert.False(
+            BlockGeometry.SupportsFaceCoverage(
+                supportDefinition,
+                supportCell,
+                oneTopMicroblock,
+                BlockFace.Top,
+                dependentDefinition,
+                dependentCell,
+                MicroblockMask.Empty,
+                BlockFace.Bottom));
+
+        Assert.True(
+            BlockGeometry.SupportsFaceCoverage(
+                supportDefinition,
+                new VoxelCell(
+                    new BlockRuntimeId(1)),
+                MicroblockMask.Empty,
+                BlockFace.Top,
+                dependentDefinition,
+                dependentCell,
+                MicroblockMask.Empty,
+                BlockFace.Bottom));
+    }
+
+    [Fact]
     public void PartialGeometryIntersectionUsesOnlyOverlappedFineCells()
     {
         var definition =

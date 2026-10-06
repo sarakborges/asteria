@@ -272,7 +272,7 @@ public sealed class BlockInteractionResolverTests
     }
 
     [Fact]
-    public void SupportBelowPlacementAcceptsMicroblockContactOnTopFace()
+    public void SupportBelowPlacementRequiresFullFootprintCoverage()
     {
         var blocks =
             new BlockRegistry(
@@ -308,37 +308,64 @@ public sealed class BlockInteractionResolverTests
                 support.X,
                 support.Y,
                 support.Z);
-        Assert.True(
-            world.GetChunk(address.Chunk)
-                .SetMicroblockMask(
-                    address.Local.X,
-                    address.Local.Y,
-                    address.Local.Z,
-                    MicroblockMask.Empty.Edit(
-                        0,
-                        MicroblockMask.Edge - 1,
-                        0,
-                        MicroblockResolution.ExtraThin,
-                        occupied: true)));
+        var chunk =
+            world.GetChunk(address.Chunk);
 
-        var decision =
+        Assert.True(
+            chunk.SetMicroblockMask(
+                address.Local.X,
+                address.Local.Y,
+                address.Local.Z,
+                MicroblockMask.Empty.Edit(
+                    0,
+                    MicroblockMask.Edge - 1,
+                    0,
+                    MicroblockResolution.ExtraThin,
+                    occupied: true)));
+
+        var hit =
+            new VoxelWorldHit(
+                new WorldVoxelCoord(
+                    0,
+                    1,
+                    0),
+                1,
+                0,
+                0);
+        var candidate =
+            new VoxelCell(
+                blocks.GetId(
+                    "asteria:snow_layer"));
+
+        var partial =
             BlockInteractionResolver.ResolvePlacement(
                 world,
                 blocks,
-                new VoxelWorldHit(
-                    new WorldVoxelCoord(
-                        0,
-                        1,
-                        0),
-                    1,
-                    0,
-                    0),
-                new VoxelCell(
-                    blocks.GetId(
-                        "asteria:snow_layer")),
+                hit,
+                candidate,
                 FarPlayerBounds());
 
-        Assert.True(decision.Accepted);
+        Assert.False(partial.Accepted);
+        Assert.Equal(
+            BlockPlacementRejection.MissingSupport,
+            partial.Rejection);
+
+        Assert.True(
+            chunk.SetMicroblockMask(
+                address.Local.X,
+                address.Local.Y,
+                address.Local.Z,
+                MicroblockMask.Full));
+
+        var full =
+            BlockInteractionResolver.ResolvePlacement(
+                world,
+                blocks,
+                hit,
+                candidate,
+                FarPlayerBounds());
+
+        Assert.True(full.Accepted);
     }
 
     [Fact]

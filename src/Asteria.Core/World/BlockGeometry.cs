@@ -153,6 +153,80 @@ public static class BlockGeometry
         return false;
     }
 
+    public static bool SupportsFaceCoverage(
+        BlockDefinition supportDefinition,
+        VoxelCell supportCell,
+        MicroblockMask supportMask,
+        BlockFace supportFace,
+        BlockDefinition dependentDefinition,
+        VoxelCell dependentCell,
+        MicroblockMask dependentMask,
+        BlockFace dependentFace)
+    {
+        ArgumentNullException.ThrowIfNull(
+            supportDefinition);
+        ArgumentNullException.ThrowIfNull(
+            dependentDefinition);
+
+        if (supportCell.IsEmpty ||
+            !supportDefinition.IsCollidable ||
+            dependentCell.IsEmpty)
+        {
+            return false;
+        }
+
+        var hasDependentFootprint = false;
+
+        for (var v = 0;
+             v < Resolution;
+             v++)
+        {
+            for (var u = 0;
+                 u < Resolution;
+                 u++)
+            {
+                var dependentPosition =
+                    FacePosition(
+                        dependentFace,
+                        u,
+                        v);
+
+                if (!IsOccupied(
+                        dependentDefinition,
+                        dependentCell,
+                        dependentMask,
+                        dependentPosition.X,
+                        dependentPosition.Y,
+                        dependentPosition.Z))
+                {
+                    continue;
+                }
+
+                hasDependentFootprint =
+                    true;
+
+                var supportPosition =
+                    FacePosition(
+                        supportFace,
+                        u,
+                        v);
+
+                if (!IsOccupied(
+                        supportDefinition,
+                        supportCell,
+                        supportMask,
+                        supportPosition.X,
+                        supportPosition.Y,
+                        supportPosition.Z))
+                {
+                    return false;
+                }
+            }
+        }
+
+        return hasDependentFootprint;
+    }
+
     public static bool IsOccupied(
         BlockDefinition definition,
         VoxelCell cell,

@@ -141,6 +141,8 @@ public static class BlockInteractionResolver
                 world,
                 blocks,
                 definition,
+                cell,
+                MicroblockMask.Empty,
                 target);
 
         if (support == BlockSupportState.Unloaded)

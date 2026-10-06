@@ -19,6 +19,8 @@ public static class BlockSupportRules
         VoxelWorld world,
         BlockRegistry blocks,
         BlockDefinition definition,
+        VoxelCell cell,
+        MicroblockMask microblockMask,
         WorldVoxelCoord position)
     {
         ArgumentNullException.ThrowIfNull(world);
@@ -31,52 +33,45 @@ public static class BlockSupportRules
             return BlockSupportState.Supported;
         }
 
-        return EvaluateBelow(
-            world,
-            blocks,
-            position);
-    }
-
-    public static BlockSupportState EvaluateBelow(
-        VoxelWorld world,
-        BlockRegistry blocks,
-        WorldVoxelCoord position)
-    {
-        ArgumentNullException.ThrowIfNull(world);
-        ArgumentNullException.ThrowIfNull(blocks);
-
         if (position.Y <= 0)
         {
             return BlockSupportState.Unsupported;
         }
 
-        var support =
+        var supportPosition =
             position + (0, -1, 0);
 
-        if (!world.IsLoadedAt(support))
+        if (!world.IsLoadedAt(
+                supportPosition))
         {
             return BlockSupportState.Unloaded;
         }
 
-        var cell =
-            world.GetCellOrEmpty(support);
+        var supportCell =
+            world.GetCellOrEmpty(
+                supportPosition);
 
-        if (cell.IsEmpty)
+        if (supportCell.IsEmpty)
         {
             return BlockSupportState.Unsupported;
         }
 
-        var definition =
-            blocks.GetDefinition(cell.Block);
-        var mask =
+        var supportDefinition =
+            blocks.GetDefinition(
+                supportCell.Block);
+        var supportMask =
             world.GetMicroblockMaskOrEmpty(
-                support);
+                supportPosition);
 
-        return BlockGeometry.TouchesFace(
+        return BlockGeometry.SupportsFaceCoverage(
+                supportDefinition,
+                supportCell,
+                supportMask,
+                BlockFace.Top,
                 definition,
                 cell,
-                mask,
-                BlockFace.Top)
+                microblockMask,
+                BlockFace.Bottom)
             ? BlockSupportState.Supported
             : BlockSupportState.Unsupported;
     }

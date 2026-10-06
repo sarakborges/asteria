@@ -128,6 +128,9 @@ public sealed class BlockPhysicsRuntime
                     _world,
                     _blocks,
                     definition,
+                    cell,
+                    _world.GetMicroblockMaskOrEmpty(
+                        position),
                     position);
 
             if (support == BlockSupportState.Unloaded)
