@@ -7,11 +7,19 @@ public enum VoxelWorldCollisionState : byte
     Unloaded = 2,
 }
 
+public readonly record struct VoxelWorldCollisionResult(
+    VoxelWorldCollisionState State,
+    WorldVoxelCoord? Voxel)
+{
+    public bool IsClear =>
+        State == VoxelWorldCollisionState.Clear;
+}
+
 public static class VoxelWorldCollision
 {
     private const float BoundaryEpsilon = 0.00001f;
 
-    public static VoxelWorldCollisionState Query(
+    public static VoxelWorldCollisionResult QueryDetailed(
         VoxelWorld world,
         BlockRegistry blocks,
         WorldAabb bounds)
@@ -40,11 +48,6 @@ public static class VoxelWorldCollision
 
         for (var y = minimumY; y <= maximumY; y++)
         {
-            if (y < 0)
-            {
-                return VoxelWorldCollisionState.Blocked;
-            }
-
             for (var z = minimumZ; z <= maximumZ; z++)
             {
                 for (var x = minimumX; x <= maximumX; x++)
@@ -55,9 +58,18 @@ public static class VoxelWorldCollision
                             y,
                             z);
 
+                    if (y < 0)
+                    {
+                        return new VoxelWorldCollisionResult(
+                            VoxelWorldCollisionState.Blocked,
+                            position);
+                    }
+
                     if (!world.IsLoadedAt(position))
                     {
-                        return VoxelWorldCollisionState.Unloaded;
+                        return new VoxelWorldCollisionResult(
+                            VoxelWorldCollisionState.Unloaded,
+                            position);
                     }
 
                     var cell =
@@ -78,19 +90,34 @@ public static class VoxelWorldCollision
                             position,
                             bounds))
                     {
-                        return VoxelWorldCollisionState.Blocked;
+                        return new VoxelWorldCollisionResult(
+                            VoxelWorldCollisionState.Blocked,
+                            position);
                     }
                 }
             }
         }
 
-        return VoxelWorldCollisionState.Clear;
+        return new VoxelWorldCollisionResult(
+            VoxelWorldCollisionState.Clear,
+            null);
     }
+
+    public static VoxelWorldCollisionState Query(
+        VoxelWorld world,
+        BlockRegistry blocks,
+        WorldAabb bounds) =>
+        QueryDetailed(
+            world,
+            blocks,
+            bounds).State;
 
     public static bool IsClear(
         VoxelWorld world,
         BlockRegistry blocks,
         WorldAabb bounds) =>
-        Query(world, blocks, bounds) ==
-        VoxelWorldCollisionState.Clear;
+        QueryDetailed(
+            world,
+            blocks,
+            bounds).IsClear;
 }

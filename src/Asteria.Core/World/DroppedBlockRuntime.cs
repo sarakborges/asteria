@@ -24,7 +24,6 @@ public sealed class DroppedBlockRuntime
 
     private const double MaximumDeltaSeconds = 0.05;
     private const float MaximumCollisionStep = 0.08f;
-    private const float SupportEpsilon = 0.0001f;
 
     private readonly VoxelWorld _world;
     private readonly BlockRegistry _blocks;
@@ -34,6 +33,8 @@ public sealed class DroppedBlockRuntime
         _active = [];
     private readonly Dictionary<WorldVoxelCoord, HashSet<ulong>>
         _settledBySupport = [];
+    private readonly Dictionary<ulong, WorldVoxelCoord>
+        _supportById = [];
 
     private ulong _nextId;
 
@@ -121,6 +122,8 @@ public sealed class DroppedBlockRuntime
 
         foreach (var id in ids)
         {
+            _supportById.Remove(id);
+
             if (_active.TryGetValue(
                     id,
                     out var state))
@@ -232,10 +235,10 @@ public sealed class DroppedBlockRuntime
                     ref velocity,
                     axis: 1,
                     (float)delta,
-                    out var downwardCollision);
+                    out var downwardSupport);
 
             var isSettled =
-                downwardCollision &&
+                downwardSupport is not null &&
                 velocity.Y == 0f;
 
             var next =
@@ -256,7 +259,9 @@ public sealed class DroppedBlockRuntime
 
             if (isSettled)
             {
-                IndexSettledSupport(next);
+                IndexSettledSupport(
+                    next,
+                    downwardSupport!.Value);
                 settled++;
             }
         }
@@ -286,9 +291,9 @@ public sealed class DroppedBlockRuntime
         ref Vector3 velocity,
         int axis,
         float deltaSeconds,
-        out bool downwardCollision)
+        out WorldVoxelCoord? downwardSupport)
     {
-        downwardCollision = false;
+        downwardSupport = null;
 
         var distance =
             velocity[axis] *
@@ -318,22 +323,22 @@ public sealed class DroppedBlockRuntime
             next[axis] += step;
 
             var collision =
-                VoxelWorldCollision.Query(
+                VoxelWorldCollision.QueryDetailed(
                     _world,
                     _blocks,
                     BoundsAt(next));
 
-            if (collision !=
-                VoxelWorldCollisionState.Clear)
+            if (!collision.IsClear)
             {
                 velocity[axis] = 0f;
 
-                if (collision ==
+                if (collision.State ==
                         VoxelWorldCollisionState.Blocked &&
                     axis == 1 &&
                     step < 0f)
                 {
-                    downwardCollision = true;
+                    downwardSupport =
+                        collision.Voxel;
                 }
 
                 break;
@@ -347,10 +352,11 @@ public sealed class DroppedBlockRuntime
     }
 
     private void IndexSettledSupport(
-        DroppedBlockState state)
+        DroppedBlockState state,
+        WorldVoxelCoord support)
     {
-        var support =
-            SupportVoxel(state.Position);
+        _supportById[state.Id.Value] =
+            support;
 
         if (!_settledBySupport.TryGetValue(
                 support,
@@ -370,13 +376,13 @@ public sealed class DroppedBlockRuntime
         if (!_active.Remove(
                 id,
                 out var state) ||
-            !state.IsSettled)
+            !state.IsSettled ||
+            !_supportById.Remove(
+                id,
+                out var support))
         {
             return;
         }
-
-        var support =
-            SupportVoxel(state.Position);
 
         if (!_settledBySupport.TryGetValue(
                 support,
@@ -392,16 +398,6 @@ public sealed class DroppedBlockRuntime
             _settledBySupport.Remove(support);
         }
     }
-
-    private static WorldVoxelCoord SupportVoxel(
-        Vector3 position) =>
-        new(
-            (int)MathF.Floor(position.X),
-            (int)MathF.Floor(
-                position.Y -
-                HalfExtent -
-                SupportEpsilon),
-            (int)MathF.Floor(position.Z));
 
     private static WorldVoxelCoord FloorToVoxel(
         Vector3 position) =>
