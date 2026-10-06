@@ -216,8 +216,8 @@ public sealed class TerrainMeshPipeline
             return true;
         }
 
-        if (!_world.IsContentStampCurrent(
-                result.ContentStamp))
+        if (!result.Dependencies.IsCurrent(
+                _world))
         {
             Requeue(
                 result.SourceBatch,
@@ -263,7 +263,7 @@ public sealed class TerrainMeshPipeline
                         .EnqueuePriorityTerrainPublication(
                             meshlet,
                             revision,
-                            result.ContentStamp);
+                            result.Dependencies);
                 }
                 else
                 {
@@ -271,7 +271,7 @@ public sealed class TerrainMeshPipeline
                         .EnqueueTerrainPublication(
                             meshlet,
                             revision,
-                            result.ContentStamp);
+                            result.Dependencies);
                 }
 
                 accepted++;
