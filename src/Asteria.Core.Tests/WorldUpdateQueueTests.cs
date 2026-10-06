@@ -178,6 +178,45 @@ public sealed class WorldUpdateQueueTests
     }
 
     [Fact]
+    public void MeshDrainContinuesInDeterministicChunkOrderAcrossBatches()
+    {
+        var queue =
+            new WorldUpdateQueue();
+
+        queue.EnqueueMeshlets(
+            new ChunkCoord(1, 1, 0),
+            ChunkMeshletMask.Single(0));
+        queue.EnqueueMeshlets(
+            new ChunkCoord(0, 0, 1),
+            ChunkMeshletMask.Single(0));
+        queue.EnqueueMeshlets(
+            new ChunkCoord(0, 0, 0),
+            ChunkMeshletMask.Single(0));
+
+        var first =
+            queue.DrainBackgroundMeshlets(
+                maximumMeshlets: 1);
+        var second =
+            queue.DrainBackgroundMeshlets(
+                maximumMeshlets: 1);
+        var third =
+            queue.DrainBackgroundMeshlets(
+                maximumMeshlets: 1);
+
+        Assert.Equal(
+            ChunkCoord.Zero,
+            Assert.Single(first.DirtyMeshlets).Key);
+        Assert.Equal(
+            new ChunkCoord(0, 0, 1),
+            Assert.Single(second.DirtyMeshlets).Key);
+        Assert.Equal(
+            new ChunkCoord(1, 1, 0),
+            Assert.Single(third.DirtyMeshlets).Key);
+        Assert.False(
+            queue.HasBackgroundMeshWork);
+    }
+
+    [Fact]
     public void MeshDrainHonorsWorkerBatchLimit()
     {
         var queue =
