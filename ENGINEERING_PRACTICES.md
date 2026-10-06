@@ -3,6 +3,27 @@
 This document is normative together with `AGENTS.md` and `ARCHITECTURE.md`.
 The goal is to make the correct design the easiest design to extend.
 
+## 0. Non-negotiable quality gate
+
+Code is accepted only when both behavior and design meet the project standard. "It works" is necessary but not sufficient.
+
+- Code that knowingly violates these practices does not enter `main` unless the user explicitly authorizes an exception.
+- Temporary shortcuts, duplicated ownership, god objects, hidden coupling, leaky boundaries, unbounded work, stale-async hazards, and unjustified architectural debt must be corrected before a change is considered complete.
+- Prefer fixing structural problems while the affected system is still small.
+- Review the complete changed design, not only the new lines. If the new feature exposes an existing architectural violation in the touched area, reduce or remove that violation rather than building on it.
+
+### SOLID and related principles
+
+Use SOLID as a mandatory design review lens where it is applicable:
+
+- **Single Responsibility Principle:** a type/module should own one coherent responsibility and one primary reason to change.
+- **Open/Closed Principle:** prefer stable extension points and data/composition for real variants; do not require unrelated edits across the system for every new variant.
+- **Liskov Substitution Principle:** abstractions/subtypes must preserve the contract callers rely on; do not use inheritance when variants are not genuinely substitutable.
+- **Interface Segregation Principle:** consumers depend only on the capabilities they need; avoid broad interfaces and dependency bags.
+- **Dependency Inversion Principle:** stable domain policy must not depend directly on volatile framework/platform details; dependencies point toward domain contracts and explicit boundaries.
+
+These principles do not require maximum abstraction. Avoid interface-for-every-class designs, speculative factories, deep inheritance, generic repositories, or extra layers without a concrete invariant or boundary. Simplicity, cohesion, explicit ownership, composition, encapsulation, separation of concerns, and testability remain the deciding criteria.
+
 ## 1. Responsibility and ownership
 
 - Every module/type has one primary reason to change.
@@ -119,7 +140,7 @@ Do not solve excessive dependencies by creating an everything-context.
 
 ## 12. Mandatory review checklist
 
-Before accepting a coherent change block, verify:
+Before accepting a coherent change block, verify. Any relevant failure blocks acceptance:
 
 1. What invariant does each changed/new component own?
 2. Is there exactly one mutable owner for each fact?
@@ -141,5 +162,11 @@ Before accepting a coherent change block, verify:
 18. Are failures meaningful and visible?
 19. Do tests protect the changed invariants?
 20. Is the resulting design easier to extend without duplicating ownership?
+21. Does each type/module satisfy single responsibility and have a cohesive reason to change?
+22. Are extension points/data variants preferable to scattered edits for likely repeated variants?
+23. Do abstractions preserve their caller contracts and represent real substitutable concepts?
+24. Are consumers depending only on the narrow capabilities they need?
+25. Does dependency direction point toward stable domain policy rather than framework/platform details?
+26. Would a competent reviewer describe any part of this change as a shortcut, workaround, god object, hidden coupling, or avoidable debt?
 
-If the answer to a relevant item is no, the change is not complete.
+If the answer to any relevant quality question is no—or to question 26 is yes—the change is not complete and must be refactored before acceptance.

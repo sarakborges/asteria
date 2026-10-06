@@ -12,6 +12,14 @@ When touching an area that already violates the canon, do not add new code on to
 - Voxel data is chunk-based. Never create one Godot node per block.
 - Heavy world work belongs off the main thread whenever the Godot API is not required.
 
+## Quality gate
+
+- Bad code does not enter the repository. Passing tests or appearing to work is not sufficient if the implementation violates the architecture canon, engineering practices, or creates avoidable technical debt.
+- Every coherent change must satisfy established software-engineering principles, including SOLID where applicable, single responsibility, explicit ownership, dependency direction, encapsulation, separation of concerns, composition over monoliths, narrow APIs, deterministic behavior, and testable boundaries.
+- SOLID and related principles are engineering constraints, not excuses for ceremony. Do not add interfaces, indirection, inheritance, factories, or abstractions unless they protect a real boundary or invariant. The required outcome is clean, cohesive, maintainable code.
+- A knowingly poor implementation must be refactored before acceptance. Do not merge temporary shortcuts into `main` with the intention of cleaning them up later unless the user explicitly authorizes that tradeoff.
+- If the clean design requires restructuring existing code, prefer the restructuring now while the system is small rather than preserving weak architecture for compatibility.
+
 ## Development rules
 
 - The architecture and engineering review checklist in `ENGINEERING_PRACTICES.md` is mandatory before accepting a coherent change block.
