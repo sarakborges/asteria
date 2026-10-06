@@ -136,19 +136,20 @@ public sealed class BiomeField
 
     public BiomeField(
         ulong seed,
-        string dimensionId,
+        DimensionDefinition dimension,
         BiomeRegistry biomes)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(
-            dimensionId);
+        ArgumentNullException.ThrowIfNull(
+            dimension);
         ArgumentNullException.ThrowIfNull(
             biomes);
 
         _seed = seed;
         _rules =
-            biomes
-                .SurfaceForDimension(
-                    dimensionId)
+            dimension
+                .Biomes
+                .Select(
+                    biomes.Get)
                 .OrderBy(
                     definition =>
                         definition.Id,
@@ -163,8 +164,8 @@ public sealed class BiomeField
         if (_rules.Length == 0)
         {
             throw new ArgumentException(
-                $"Dimension {dimensionId} has no surface biomes.",
-                nameof(biomes));
+                $"Dimension {dimension.Id} has no surface biomes.",
+                nameof(dimension));
         }
 
         _seedSpacing =
