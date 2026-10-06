@@ -76,11 +76,27 @@ public sealed class FluidMeshUpdateQueueTests
                 second.DirtyMeshlets);
 
         Assert.Equal(
-            new ChunkCoord(1, 0, 0),
+            ChunkCoord.Zero,
             secondEntry.Key);
         Assert.Equal(
-            ChunkMeshletMask.Single(0),
+            ChunkMeshletMask.Single(1),
             secondEntry.Value);
+        Assert.True(
+            queue.HasWork);
+
+        var third =
+            queue.Drain(
+                maximumMeshlets: 1);
+        var thirdEntry =
+            Assert.Single(
+                third.DirtyMeshlets);
+
+        Assert.Equal(
+            new ChunkCoord(1, 0, 0),
+            thirdEntry.Key);
+        Assert.Equal(
+            ChunkMeshletMask.Single(0),
+            thirdEntry.Value);
         Assert.False(
             queue.HasWork);
     }
