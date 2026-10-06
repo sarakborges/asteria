@@ -829,9 +829,4 @@ public partial class Main : Node3D
                 Stopwatch.Frequency);
     }
 
-    private bool WorldBudgetExhausted() =>
-        _worldFrameBudget.Exhausted(
-            Stopwatch.GetTimestamp());
-
-
 }
