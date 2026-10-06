@@ -54,13 +54,26 @@ public sealed class FluidMeshUpdateQueue
         _dirty.Remove(coord);
     }
 
-    public WorldMeshBatch Drain()
+    public WorldMeshBatch Drain(
+        int maximumMeshlets = int.MaxValue)
     {
-        var batch =
-            new Dictionary<ChunkCoord, ChunkMeshletMask>(
-                _dirty);
-        _dirty.Clear();
-        return new WorldMeshBatch(batch);
+        if (maximumMeshlets <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(maximumMeshlets));
+        }
+
+        var result =
+            new Dictionary<ChunkCoord, ChunkMeshletMask>();
+        var remaining =
+            maximumMeshlets;
+
+        MeshletMaskQueueDrain.Drain(
+            _dirty,
+            result,
+            ref remaining);
+
+        return new WorldMeshBatch(result);
     }
 
     public void Requeue(WorldMeshBatch batch)

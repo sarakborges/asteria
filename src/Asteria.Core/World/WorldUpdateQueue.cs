@@ -165,14 +165,14 @@ public sealed class WorldUpdateQueue
         var remaining =
             maximumMeshlets;
 
-        DrainLane(
+        MeshletMaskQueueDrain.Drain(
             _priorityMeshlets,
             result,
             ref remaining);
 
         if (remaining > 0)
         {
-            DrainLane(
+            MeshletMaskQueueDrain.Drain(
                 _backgroundMeshlets,
                 result,
                 ref remaining);
@@ -244,74 +244,7 @@ public sealed class WorldUpdateQueue
                 });
     }
 
-    private static void DrainLane(
-        Dictionary<ChunkCoord, ChunkMeshletMask> lane,
-        Dictionary<ChunkCoord, ChunkMeshletMask> result,
-        ref int remaining)
-    {
-        if (remaining <= 0 ||
-            lane.Count == 0)
-        {
-            return;
-        }
 
-        foreach (var coord in
-                 lane.Keys
-                     .OrderBy(coord => coord.Y)
-                     .ThenBy(coord => coord.Z)
-                     .ThenBy(coord => coord.X)
-                     .ToArray())
-        {
-            if (remaining <= 0)
-            {
-                break;
-            }
-
-            var pending =
-                lane[coord];
-            var selected =
-                ChunkMeshletMask.None;
-
-            foreach (var meshletIndex in
-                     pending.Indices())
-            {
-                if (remaining <= 0)
-                {
-                    break;
-                }
-
-                selected =
-                    selected.Union(
-                        ChunkMeshletMask.Single(
-                            meshletIndex));
-                remaining--;
-            }
-
-            if (selected.IsEmpty)
-            {
-                continue;
-            }
-
-            result[coord] =
-                result.TryGetValue(
-                    coord,
-                    out var existing)
-                    ? existing.Union(selected)
-                    : selected;
-
-            var rest =
-                pending.Except(selected);
-
-            if (rest.IsEmpty)
-            {
-                lane.Remove(coord);
-            }
-            else
-            {
-                lane[coord] = rest;
-            }
-        }
-    }
 }
 
 public sealed record WorldLightingBatch(

@@ -21,6 +21,7 @@ public partial class Main : Node3D
     private const int MaxPresentationPublicationsPerFrame = 4;
     private const int MaxMeshletPublishesPerFrame = 4;
     private const int MaxTerrainMeshletsPerWorker = 16;
+    private const int MaxFluidMeshletsPerWorker = 16;
     private const int MaxFluidMeshletPublishesPerFrame = 4;
     private const int MaxFluidUpdatesPerWorker = 512;
     private const int MaxChunkEvictionsPerFrame = 2;
@@ -44,8 +45,8 @@ public partial class Main : Node3D
     private BlockEntityPresentationController _blockEntityPresentations = null!;
     private UnderwaterViewPresentation? _underwaterView;
 
-    private readonly TerrainMeshWorker _terrainMeshWorker = new();
-    private readonly FluidMeshWorker _fluidMeshWorker = new();
+    private TerrainMeshPipeline _terrainMeshPipeline = null!;
+    private FluidMeshPipeline _fluidMeshPipeline = null!;
     private FluidSimulationRuntime _fluidSimulationRuntime = null!;
     private LightingRuntime _lightingRuntime = null!;
 
@@ -152,6 +153,24 @@ public partial class Main : Node3D
                 _fluidContentRevisions,
                 _terrainMaterials,
                 _fluidMaterials);
+        _terrainMeshPipeline =
+            new TerrainMeshPipeline(
+                _world,
+                _blocks,
+                _terrainTextureLookup,
+                _worldUpdates,
+                _contentRevisions,
+                _chunkPresentations,
+                MaxTerrainMeshletsPerWorker);
+        _fluidMeshPipeline =
+            new FluidMeshPipeline(
+                _world,
+                _blocks,
+                _fluids,
+                _fluidMeshUpdates,
+                _fluidContentRevisions,
+                _chunkPresentations,
+                MaxFluidMeshletsPerWorker);
         _placementBlock =
             _blocks.GetId(TestChunkFactory.StoneId);
 
@@ -697,46 +716,13 @@ public partial class Main : Node3D
 
     private void TryStartFluidMeshWorker()
     {
-        if (_fluidMeshWorker.IsRunning ||
-            !_fluidMeshUpdates.HasWork)
-        {
-            return;
-        }
-
-        var drained =
-            _fluidMeshUpdates.Drain();
-
-        if (drained.IsEmpty)
-        {
-            return;
-        }
-
-        var filtered =
-            drained.DirtyMeshlets
-                .Where(entry =>
-                    _chunkPresentations.Contains(entry.Key) &&
-                    _world.ContainsChunk(entry.Key))
-                .ToDictionary(
-                    entry => entry.Key,
-                    entry => entry.Value);
-
-        if (filtered.Count == 0)
-        {
-            return;
-        }
-
-        _fluidMeshWorker.TryStart(
-            _world,
-            _blocks,
-            _fluids,
-            new WorldMeshBatch(filtered),
-            _fluidContentRevisions);
+        _fluidMeshPipeline.TryStartReadyWork();
     }
 
     private void PollFluidMeshWorker()
     {
-        if (!_fluidMeshWorker.TryTakeCompleted(
-                out var result,
+        if (!_fluidMeshPipeline.TryPollCompleted(
+                out var report,
                 out var error))
         {
             return;
@@ -748,72 +734,24 @@ public partial class Main : Node3D
             return;
         }
 
-        if (result is null)
+        if (report is null ||
+            report.Kind !=
+                MeshPipelineCompletionKind.Applied)
         {
             return;
-        }
-
-        if (!_world.IsContentStampCurrent(
-                result.ContentStamp))
-        {
-            _fluidMeshUpdates.Requeue(
-                result.SourceBatch);
-            TryStartFluidMeshWorker();
-            return;
-        }
-
-        var accepted = 0;
-        var stale = 0;
-
-        foreach (var meshlet in result.Meshlets)
-        {
-            if (!_world.ContainsChunk(
-                    meshlet.Coord) ||
-                !_chunkPresentations.Contains(
-                    meshlet.Coord))
-            {
-                continue;
-            }
-
-            var key =
-                new ChunkMeshletKey(
-                    meshlet.Coord,
-                    meshlet.MeshletIndex);
-            var revision =
-                result.ContentRevisions[key];
-
-            if (_fluidContentRevisions.IsCurrent(
-                    key,
-                    revision))
-            {
-                _chunkPresentations.EnqueueFluidPublication(
-                    meshlet,
-                    revision,
-                    result.ContentStamp);
-                accepted++;
-            }
-            else
-            {
-                _fluidMeshUpdates.EnqueueMeshlets(
-                    meshlet.Coord,
-                    ChunkMeshletMask.Single(
-                        meshlet.MeshletIndex));
-                stale++;
-            }
         }
 
         GD.Print(
             $"world.fluid_mesh worker_ms=" +
-            $"{result.WorkerMilliseconds:F2} " +
-            $"accepted={accepted} stale={stale}");
-
-        TryStartFluidMeshWorker();
+            $"{report.WorkerMilliseconds:F2} " +
+            $"accepted={report.Accepted} " +
+            $"stale={report.Stale}");
     }
 
     private void IntegrateFluidMeshletPublications()
     {
         var stats =
-            _chunkPresentations.IntegrateFluidPublications(
+            _fluidMeshPipeline.IntegratePublications(
                 MaxFluidMeshletPublishesPerFrame,
                 _worldFrameBudget);
 
@@ -828,47 +766,13 @@ public partial class Main : Node3D
 
     private void TryStartTerrainMeshWorker()
     {
-        if (_terrainMeshWorker.IsRunning ||
-            !_worldUpdates.HasMeshWork)
-        {
-            return;
-        }
-
-        var drained =
-            _worldUpdates.DrainMeshlets(
-                MaxTerrainMeshletsPerWorker);
-
-        if (drained.IsEmpty)
-        {
-            return;
-        }
-
-        var filtered =
-            drained.DirtyMeshlets
-                .Where(entry =>
-                    _chunkPresentations.Contains(entry.Key) &&
-                    _world.ContainsChunk(entry.Key))
-                .ToDictionary(
-                    entry => entry.Key,
-                    entry => entry.Value);
-
-        if (filtered.Count == 0)
-        {
-            return;
-        }
-
-        _terrainMeshWorker.TryStart(
-            _world,
-            _blocks,
-            _terrainTextureLookup,
-            new WorldMeshBatch(filtered),
-            _contentRevisions);
+        _terrainMeshPipeline.TryStartReadyWork();
     }
 
     private void PollTerrainMeshWorker()
     {
-        if (!_terrainMeshWorker.TryTakeCompleted(
-                out var result,
+        if (!_terrainMeshPipeline.TryPollCompleted(
+                out var report,
                 out var error))
         {
             return;
@@ -880,63 +784,18 @@ public partial class Main : Node3D
             return;
         }
 
-        if (result is null)
+        if (report is null ||
+            report.Kind !=
+                MeshPipelineCompletionKind.Applied)
         {
             return;
-        }
-
-        if (!_world.IsContentStampCurrent(
-                result.ContentStamp))
-        {
-            _worldUpdates.RequeueMeshlets(
-                result.SourceBatch);
-            TryStartTerrainMeshWorker();
-            return;
-        }
-
-        var accepted = 0;
-        var stale = 0;
-
-        foreach (var meshlet in result.Meshlets)
-        {
-            if (!_world.ContainsChunk(meshlet.Coord) ||
-                !_chunkPresentations.Contains(meshlet.Coord))
-            {
-                continue;
-            }
-
-            var key = new ChunkMeshletKey(
-                meshlet.Coord,
-                meshlet.MeshletIndex);
-            var revision =
-                result.ContentRevisions[key];
-
-            if (_contentRevisions.IsCurrent(
-                    key,
-                    revision))
-            {
-                _chunkPresentations.EnqueueTerrainPublication(
-                    meshlet,
-                    revision,
-                    result.ContentStamp);
-                accepted++;
-            }
-            else
-            {
-                _worldUpdates.EnqueueMeshlets(
-                    meshlet.Coord,
-                    ChunkMeshletMask.Single(
-                        meshlet.MeshletIndex));
-                stale++;
-            }
         }
 
         GD.Print(
             $"world.geometry worker_ms=" +
-            $"{result.WorkerMilliseconds:F2} " +
-            $"accepted={accepted} stale={stale}");
-
-        TryStartTerrainMeshWorker();
+            $"{report.WorkerMilliseconds:F2} " +
+            $"accepted={report.Accepted} " +
+            $"stale={report.Stale}");
     }
 
     private void TryStartLightingWorker()
@@ -984,7 +843,7 @@ public partial class Main : Node3D
     private void IntegrateMeshletPublications()
     {
         var stats =
-            _chunkPresentations.IntegrateTerrainPublications(
+            _terrainMeshPipeline.IntegratePublications(
                 MaxMeshletPublishesPerFrame,
                 _worldFrameBudget);
 
