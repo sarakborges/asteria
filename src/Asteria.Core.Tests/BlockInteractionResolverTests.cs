@@ -130,10 +130,16 @@ public sealed class BlockInteractionResolverTests
         var world = LoadedWorld();
         var hit =
             new VoxelWorldHit(
-                new WorldVoxelCoord(0, 0, 0),
+                new WorldVoxelCoord(0, 1, 0),
                 1,
                 0,
                 0);
+
+        Assert.True(
+            world.SetBlockAt(
+                new WorldVoxelCoord(1, 0, 0),
+                blocks.GetId("asteria:stone"),
+                out _));
 
         var decision =
             BlockInteractionResolver.ResolvePlacement(
@@ -144,16 +150,16 @@ public sealed class BlockInteractionResolverTests
                 new WorldAabb(
                     new Vector3(
                         1.1f,
-                        0.5f,
+                        1.5f,
                         0.1f),
                     new Vector3(
                         1.9f,
-                        1.8f,
+                        2.8f,
                         0.9f)));
 
         Assert.True(decision.Accepted);
         Assert.Equal(
-            new WorldVoxelCoord(1, 0, 0),
+            new WorldVoxelCoord(1, 1, 0),
             decision.Position);
     }
 
