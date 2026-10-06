@@ -98,6 +98,7 @@ public sealed class ChunkResidencyRuntime
     private readonly VoxelWorld _world;
     private readonly BlockRegistry _blocks;
     private readonly FluidRegistry _fluids;
+    private readonly IChunkProvider _chunkProvider;
     private readonly WorldUpdateQueue _worldUpdates;
     private readonly FluidUpdateQueue _fluidUpdates;
     private readonly FluidMeshUpdateQueue _fluidMeshUpdates;
@@ -118,6 +119,7 @@ public sealed class ChunkResidencyRuntime
         VoxelWorld world,
         BlockRegistry blocks,
         FluidRegistry fluids,
+        IChunkProvider chunkProvider,
         WorldUpdateQueue worldUpdates,
         FluidUpdateQueue fluidUpdates,
         FluidMeshUpdateQueue fluidMeshUpdates,
@@ -136,6 +138,9 @@ public sealed class ChunkResidencyRuntime
         _fluids =
             fluids ??
             throw new ArgumentNullException(nameof(fluids));
+        _chunkProvider =
+            chunkProvider ??
+            throw new ArgumentNullException(nameof(chunkProvider));
         _worldUpdates =
             worldUpdates ??
             throw new ArgumentNullException(nameof(worldUpdates));
@@ -498,9 +503,7 @@ public sealed class ChunkResidencyRuntime
     {
         var stopwatch = Stopwatch.StartNew();
         var chunk =
-            DeterministicChunkProvider.Materialize(
-                _blocks,
-                _fluids,
+            _chunkProvider.Materialize(
                 coord);
 
         ChunkLightingSolver.Initialize(
