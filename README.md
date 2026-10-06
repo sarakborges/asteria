@@ -81,7 +81,7 @@ Authorial block definitions in the built-in data pack live in `packs/default/dat
 
 Built-in block textures live under `packs/default/resources/textures/blocks/`. Definitions keep pack-relative logical paths such as `textures/blocks/stone.png`; the selected resource-pack root is resolved centrally. The initial textures were ported directly from the Mineclone `world-systems-rebuild` reference.
 
-Built-in repository assets may have Godot-generated `.import` sidecars checked in so editor import settings stay stable. Those files are development metadata only. Future Asteria resource packs and data packs are engine-agnostic and never require or distribute Godot `.import` files/resources; see [PACKS.md](PACKS.md).
+Built-in resource assets may have Godot-generated `.import` sidecars checked in under `packs/default/resources/` so editor import settings stay stable. Those files are internal development metadata only; external packs never require or distribute Godot `.import` files/resources; see [PACKS.md](PACKS.md).
 
 The current startup selection is the unified `default` pack. One runtime `PackSelection` resolves `packs/default/data/`, `packs/default/resources/` and `packs/default/ui/`, so future import/selection can replace the complete visual/data package without changing individual loaders. The WebUI receives declarative theme tokens from `packs/default/ui/theme.json`.
 
@@ -181,6 +181,7 @@ Initial messages:
 
 - `ui.ready` → WebUI loaded;
 - `ui.ping` → WebUI bridge test;
+- `game.ui_theme` → selected pack's validated declarative UI theme;
 - `game.ready` → Godot bridge ready;
 - `game.pong` → Godot bridge response;
 - `game.chunk_ready` → the streamed center presentation is resident and rendered;
