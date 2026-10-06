@@ -15,7 +15,12 @@ public sealed class BlockContentTests
 
         var registry = BlockRegistry.FromJson(documents);
 
-        Assert.Equal(16, registry.AuthoredCount);
+        Assert.Equal(
+            Directory.EnumerateFiles(
+                    directory,
+                    "*.json")
+                .Count(),
+            registry.AuthoredCount);
 
         var grass = registry.GetDefinition(registry.GetId("asteria:grass_block"));
         Assert.Equal(BlockTint.Grass, grass.Tint);
@@ -76,6 +81,34 @@ public sealed class BlockContentTests
             grassPlant.IsCollidable);
         Assert.False(
             grassPlant.DropsSelf);
+
+        foreach (var mushroomId in
+                 new[]
+                 {
+                     "asteria:mushroom_blue",
+                     "asteria:mushroom_brown",
+                     "asteria:mushroom_green",
+                     "asteria:mushroom_pink",
+                     "asteria:mushroom_purple",
+                     "asteria:mushroom_red",
+                     "asteria:mushroom_yellow",
+                 })
+        {
+            var mushroom =
+                registry.GetDefinition(
+                    registry.GetId(
+                        mushroomId));
+            Assert.Equal(
+                BlockVisualKind.CrossedSprite,
+                mushroom.Visual.Kind);
+            Assert.False(
+                mushroom.IsCollidable);
+            Assert.True(
+                mushroom.DropsSelf);
+            Assert.True(
+                mushroom.HasTag(
+                    BlockPhysicsCapabilities.SupportBelow));
+        }
 
         var brownMushroom =
             registry.GetDefinition(
