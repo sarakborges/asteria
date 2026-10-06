@@ -1,0 +1,26 @@
+{
+  "id": "asteria:mushroom_blue",
+  "category": "foliage",
+  "tags": [
+    "support_below"
+  ],
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/mushroom_blue.png",
+    "width": 0.72,
+    "height": 0.62,
+    "planes": 2
+  },
+  "placementFaces": [
+    "top"
+  ],
+  "mining": {
+    "hardness": 0.05
+  },
+  "isCollidable": false,
+  "castsShadow": false,
+  "lightDampening": 0,
+  "alphaCutoff": 0.5,
+  "previewColor": "5f83b8",
+  "dropsSelf": true
+}
