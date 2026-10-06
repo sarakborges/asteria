@@ -598,32 +598,35 @@ public sealed class VoxelWorld
                 nameof(horizontalVoxelRadius));
         }
 
-        var centers = seeds
+        var seedChunks = seeds
             .Select(position =>
                 VoxelCoordinates.FromWorld(
                     position.X,
                     position.Y,
                     position.Z).Chunk)
-            .Select(coord => (coord.X, coord.Z))
             .Distinct()
             .ToArray();
 
-        if (centers.Length == 0)
+        if (seedChunks.Length == 0)
         {
             return new VoxelWorld();
         }
 
-        var chunkRadius =
-            Math.Max(
-                1,
-                (horizontalVoxelRadius + Chunk.Size) /
-                Chunk.Size);
+        var horizontalChunkRadius =
+            horizontalVoxelRadius == 0
+                ? 0
+                : (horizontalVoxelRadius +
+                   Chunk.Size - 1) /
+                  Chunk.Size;
 
         var required = _chunks.Keys
             .Where(coord =>
-                centers.Any(center =>
-                    Math.Abs(coord.X - center.X) <= chunkRadius &&
-                    Math.Abs(coord.Z - center.Z) <= chunkRadius))
+                seedChunks.Any(seed =>
+                    Math.Abs(coord.X - seed.X) <=
+                        horizontalChunkRadius &&
+                    Math.Abs(coord.Z - seed.Z) <=
+                        horizontalChunkRadius &&
+                    Math.Abs(coord.Y - seed.Y) <= 1))
             .ToArray();
 
         return CloneForWorker(required);

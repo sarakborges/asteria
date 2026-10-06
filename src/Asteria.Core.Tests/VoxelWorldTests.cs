@@ -237,6 +237,83 @@ public sealed class VoxelWorldTests
     }
 
     [Fact]
+    public void FluidWorkerCloneKeepsOnlyObservedVerticalEnvelope()
+    {
+        var world = new VoxelWorld();
+
+        for (var y = 0;
+             y <= 4;
+             y++)
+        {
+            world.InsertChunk(
+                new ChunkCoord(0, y, 0),
+                new Chunk());
+        }
+
+        var seed =
+            new WorldVoxelCoord(
+                8,
+                Chunk.Size * 2 + 8,
+                8);
+        var clone =
+            world.CloneFluidNeighborhood(
+                [seed],
+                horizontalVoxelRadius: 7);
+
+        Assert.Equal(
+            new[]
+            {
+                new ChunkCoord(0, 1, 0),
+                new ChunkCoord(0, 2, 0),
+                new ChunkCoord(0, 3, 0),
+            },
+            clone.LoadedChunkCoords
+                .OrderBy(coord => coord.Y)
+                .ToArray());
+    }
+
+    [Fact]
+    public void FluidWorkerCloneUsesCeilingHorizontalChunkRadius()
+    {
+        var world = new VoxelWorld();
+
+        for (var x = -2;
+             x <= 2;
+             x++)
+        {
+            world.InsertChunk(
+                new ChunkCoord(x, 0, 0),
+                new Chunk());
+        }
+
+        var seed =
+            new WorldVoxelCoord(
+                Chunk.Size - 1,
+                8,
+                8);
+        var clone =
+            world.CloneFluidNeighborhood(
+                [seed],
+                horizontalVoxelRadius: Chunk.Size);
+
+        Assert.True(
+            clone.ContainsChunk(
+                new ChunkCoord(-1, 0, 0)));
+        Assert.True(
+            clone.ContainsChunk(
+                ChunkCoord.Zero));
+        Assert.True(
+            clone.ContainsChunk(
+                new ChunkCoord(1, 0, 0)));
+        Assert.False(
+            clone.ContainsChunk(
+                new ChunkCoord(-2, 0, 0)));
+        Assert.False(
+            clone.ContainsChunk(
+                new ChunkCoord(2, 0, 0)));
+    }
+
+    [Fact]
     public void WorkerCloneKeepsIndependentChunkStateAndRevision()
     {
         var world = new VoxelWorld();
