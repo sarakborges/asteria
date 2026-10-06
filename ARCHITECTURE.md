@@ -123,6 +123,7 @@ Background work is allowed only when ownership is explicit.
 - Detached world entities without persistence/pickup ownership must still have explicit population and lifetime bounds; bounded capacity and expiry are required until a higher-level lifecycle owns them.
 - Detached block drops also participate in deterministic entity contact resolution. Broadphase/contact state stays bounded by the active-drop cap, pair ordering is deterministic, and separation must respect voxel collision instead of pushing drops through terrain.
 - Snapshot creation must not perform hidden O(chunk-volume) reconstruction when a structural copy/share can preserve the same isolation contract more cheaply.
+- Terrain/fluid mesh snapshots capture only chunks whose one-voxel halo is observed by the selected meshlets. Their dependency stamp tracks both content revisions for loaded chunks and residency epochs for the complete envelope, including currently absent neighbors, so a newly loaded dependency makes the result stale.
 
 Godot objects stay on the Godot thread unless the API explicitly permits otherwise.
 
