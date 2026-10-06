@@ -435,48 +435,97 @@ public static class FluidMeshDataBuilder
     {
         var x = xDirection == 0 ? -1 : 1;
         var z = zDirection == 0 ? -1 : 1;
-        var samples = new[]
-        {
-            position,
-            position + (x, 0, 0),
-            position + (0, 0, z),
-            position + (x, 0, z),
-        };
+        var xNeighbor =
+            position + (x, 0, 0);
+        var zNeighbor =
+            position + (0, 0, z);
+        var diagonal =
+            position + (x, 0, z);
 
-        foreach (var sample in samples)
+        if (HasFluidAbove(
+                world,
+                position,
+                fluid) ||
+            HasFluidAbove(
+                world,
+                xNeighbor,
+                fluid) ||
+            HasFluidAbove(
+                world,
+                zNeighbor,
+                fluid) ||
+            HasFluidAbove(
+                world,
+                diagonal,
+                fluid))
         {
-            var above =
-                world.GetFluidOrEmpty(
-                    sample + (0, 1, 0));
-
-            if (!above.IsEmpty &&
-                above.Fluid == fluid)
-            {
-                return 1f;
-            }
+            return 1f;
         }
 
         var total = 0f;
         var count = 0;
 
-        foreach (var sample in samples)
-        {
-            var candidate =
-                world.GetFluidOrEmpty(sample);
-
-            if (candidate.IsEmpty ||
-                candidate.Fluid != fluid)
-            {
-                continue;
-            }
-
-            total += candidate.Height;
-            count++;
-        }
+        AccumulateSurfaceHeight(
+            world,
+            position,
+            fluid,
+            ref total,
+            ref count);
+        AccumulateSurfaceHeight(
+            world,
+            xNeighbor,
+            fluid,
+            ref total,
+            ref count);
+        AccumulateSurfaceHeight(
+            world,
+            zNeighbor,
+            fluid,
+            ref total,
+            ref count);
+        AccumulateSurfaceHeight(
+            world,
+            diagonal,
+            fluid,
+            ref total,
+            ref count);
 
         return count == 0
             ? 0f
             : total / count;
+    }
+
+    private static bool HasFluidAbove(
+        VoxelWorld world,
+        WorldVoxelCoord position,
+        FluidRuntimeId fluid)
+    {
+        var above =
+            world.GetFluidOrEmpty(
+                position + (0, 1, 0));
+
+        return !above.IsEmpty &&
+               above.Fluid == fluid;
+    }
+
+    private static void AccumulateSurfaceHeight(
+        VoxelWorld world,
+        WorldVoxelCoord position,
+        FluidRuntimeId fluid,
+        ref float total,
+        ref int count)
+    {
+        var candidate =
+            world.GetFluidOrEmpty(position);
+
+        if (candidate.IsEmpty ||
+            candidate.Fluid != fluid)
+        {
+            return;
+        }
+
+        total += candidate.Height;
+        count++;
     }
 
     private static (float A, float B) EdgeHeights(
