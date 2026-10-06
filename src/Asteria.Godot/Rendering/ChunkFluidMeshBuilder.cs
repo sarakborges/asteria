@@ -38,7 +38,7 @@ public static class ChunkFluidMeshBuilder
                         vertex.Normal.X,
                         vertex.Normal.Y,
                         vertex.Normal.Z));
-                surface.SetUv(
+                surface.SetUV(
                     new Vector2(
                         vertex.Uv.X,
                         vertex.Uv.Y));
