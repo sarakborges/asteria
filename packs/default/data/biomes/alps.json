@@ -1,0 +1,20 @@
+{
+  "id": "asteria:overworld/alps",
+  "surfaceLayout": {},
+  "surfaceTerrain": {
+    "macroAmplitude": 70,
+    "macroScale": 1024,
+    "detailAmplitude": 14,
+    "detailScale": 112,
+    "baseHeight": 80
+  },
+  "surfaceLayers": [
+    {
+      "block": "asteria:snow",
+      "depth": 2
+    },
+    {
+      "block": "asteria:stone"
+    }
+  ]
+}
