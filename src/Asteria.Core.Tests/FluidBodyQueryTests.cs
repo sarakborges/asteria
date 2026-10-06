@@ -54,7 +54,7 @@ public sealed class FluidBodyQueryTests
                     2),
                 FluidCell.Spreading(
                     water,
-                    level: 2,
+                    level: 1,
                     spreadDistance: 1),
                 out _));
 
@@ -64,9 +64,9 @@ public sealed class FluidBodyQueryTests
                 BodyAt(
                     new Vector3(
                         2.5f,
-                        0.2f,
+                        0.3f,
                         2.5f)),
-                eyeY: 1.8f);
+                eyeY: 1.9f);
 
         Assert.False(contact.IsImmersed);
         Assert.False(contact.EyeSubmerged);
@@ -95,7 +95,7 @@ public sealed class FluidBodyQueryTests
                 BodyAt(
                     new Vector3(
                         2.5f,
-                        0.75f,
+                        0.76f,
                         2.5f)),
                 eyeY: 2.35f);
 
