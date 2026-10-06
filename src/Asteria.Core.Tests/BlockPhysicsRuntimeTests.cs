@@ -605,6 +605,102 @@ public sealed class BlockPhysicsRuntimeTests
             world.GetCellOrEmpty(position).IsEmpty);
     }
 
+    [Fact]
+    public void SupportedGroundPlantPopsOffAfterSupportBreak()
+    {
+        var world =
+            new VoxelWorld();
+        world.InsertChunk(
+            ChunkCoord.Zero,
+            new Chunk());
+        var blocks =
+            new BlockRegistry(
+            [
+                new BlockDefinition(
+                    "asteria:stone"),
+                new BlockDefinition(
+                    "asteria:mushroom_brown",
+                    tags:
+                    [
+                        BlockPhysicsCapabilities.SupportBelow,
+                    ],
+                    isCollidable: false),
+            ]);
+        var worldUpdates =
+            new WorldUpdateQueue();
+        var fluidUpdates =
+            new FluidUpdateQueue();
+        var fluidMeshUpdates =
+            new FluidMeshUpdateQueue();
+        var physicsUpdates =
+            new BlockPhysicsUpdateQueue();
+        var mutations =
+            new VoxelMutationRuntime(
+                world,
+                worldUpdates,
+                fluidUpdates,
+                fluidMeshUpdates,
+                physicsUpdates,
+                new MeshletContentRevisions(),
+                new MeshletContentRevisions());
+        var dropped =
+            new DroppedBlockRuntime(
+                world,
+                blocks);
+        var physics =
+            new BlockPhysicsRuntime(
+                world,
+                blocks,
+                mutations,
+                physicsUpdates,
+                dropped);
+        var support =
+            new WorldVoxelCoord(
+                3,
+                2,
+                3);
+        var plant =
+            support + (0, 1, 0);
+
+        Assert.True(
+            mutations.SetBlockAt(
+                support,
+                blocks.GetId(
+                    "asteria:stone"),
+                out _));
+        Assert.True(
+            mutations.SetBlockAt(
+                plant,
+                blocks.GetId(
+                    "asteria:mushroom_brown"),
+                out _));
+
+        physics.ProcessWakeups();
+        Assert.False(
+            world.GetCellOrEmpty(
+                    plant)
+                .IsEmpty);
+
+        Assert.True(
+            mutations.SetCellAt(
+                support,
+                VoxelCell.Empty,
+                out _));
+
+        var wake =
+            physics.ProcessWakeups();
+
+        Assert.Equal(
+            1,
+            wake.UnsupportedRemoved);
+        Assert.True(
+            world.GetCellOrEmpty(
+                    plant)
+                .IsEmpty);
+        Assert.Single(
+            dropped.ActiveBlocks);
+    }
+
     private static Fixture CreateFixture(
         int maximumActive = 2048)
     {
