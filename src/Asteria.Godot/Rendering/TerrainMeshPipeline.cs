@@ -10,10 +10,13 @@ public sealed class TerrainMeshPipeline
     private readonly WorldUpdateQueue _updates;
     private readonly MeshletContentRevisions _revisions;
     private readonly ChunkPresentationController _presentations;
-    private readonly int _maximumMeshletsPerWorker;
-    private readonly TerrainMeshWorker _worker = new();
+    private readonly int _maximumInteractiveMeshletsPerWorker;
+    private readonly int _maximumBackgroundMeshletsPerWorker;
+    private readonly TerrainMeshWorker _interactiveWorker = new();
+    private readonly TerrainMeshWorker _backgroundWorker = new();
 
-    private WorldMeshBatch? _inFlightBatch;
+    private WorldMeshBatch? _interactiveInFlightBatch;
+    private WorldMeshBatch? _backgroundInFlightBatch;
 
     public TerrainMeshPipeline(
         VoxelWorld world,
@@ -22,7 +25,8 @@ public sealed class TerrainMeshPipeline
         WorldUpdateQueue updates,
         MeshletContentRevisions revisions,
         ChunkPresentationController presentations,
-        int maximumMeshletsPerWorker)
+        int maximumInteractiveMeshletsPerWorker,
+        int maximumBackgroundMeshletsPerWorker)
     {
         _world =
             world ??
@@ -43,29 +47,96 @@ public sealed class TerrainMeshPipeline
             presentations ??
             throw new ArgumentNullException(nameof(presentations));
 
-        if (maximumMeshletsPerWorker <= 0)
+        if (maximumInteractiveMeshletsPerWorker <= 0)
         {
             throw new ArgumentOutOfRangeException(
-                nameof(maximumMeshletsPerWorker));
+                nameof(maximumInteractiveMeshletsPerWorker));
         }
 
-        _maximumMeshletsPerWorker =
-            maximumMeshletsPerWorker;
+        if (maximumBackgroundMeshletsPerWorker <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(maximumBackgroundMeshletsPerWorker));
+        }
+
+        _maximumInteractiveMeshletsPerWorker =
+            maximumInteractiveMeshletsPerWorker;
+        _maximumBackgroundMeshletsPerWorker =
+            maximumBackgroundMeshletsPerWorker;
     }
 
-    public bool IsRunning => _worker.IsRunning;
+    public bool IsRunning =>
+        _interactiveWorker.IsRunning ||
+        _backgroundWorker.IsRunning;
 
     public bool TryStartReadyWork()
     {
-        if (_worker.IsRunning ||
-            !_updates.HasMeshWork)
+        var started =
+            TryStartLane(
+                _interactiveWorker,
+                ref _interactiveInFlightBatch,
+                priority: true,
+                _maximumInteractiveMeshletsPerWorker);
+
+        started |=
+            TryStartLane(
+                _backgroundWorker,
+                ref _backgroundInFlightBatch,
+                priority: false,
+                _maximumBackgroundMeshletsPerWorker);
+
+        return started;
+    }
+
+    public bool TryPollCompleted(
+        out MeshPipelineWorkerReport? report,
+        out Exception? error)
+    {
+        if (TryPollLane(
+                _interactiveWorker,
+                ref _interactiveInFlightBatch,
+                priority: true,
+                out report,
+                out error))
+        {
+            return true;
+        }
+
+        return TryPollLane(
+            _backgroundWorker,
+            ref _backgroundInFlightBatch,
+            priority: false,
+            out report,
+            out error);
+    }
+
+    public ChunkPresentationIntegrationStats IntegratePublications(
+        int maximumPerFrame,
+        WorldFrameWorkBudget budget) =>
+        _presentations.IntegrateTerrainPublications(
+            maximumPerFrame,
+            budget);
+
+    private bool TryStartLane(
+        TerrainMeshWorker worker,
+        ref WorldMeshBatch? inFlightBatch,
+        bool priority,
+        int maximumMeshlets)
+    {
+        if (worker.IsRunning ||
+            !(priority
+                ? _updates.HasPriorityMeshWork
+                : _updates.HasBackgroundMeshWork))
         {
             return false;
         }
 
         var drained =
-            _updates.DrainMeshlets(
-                _maximumMeshletsPerWorker);
+            priority
+                ? _updates.DrainPriorityMeshlets(
+                    maximumMeshlets)
+                : _updates.DrainBackgroundMeshlets(
+                    maximumMeshlets);
 
         if (drained.IsEmpty)
         {
@@ -83,29 +154,32 @@ public sealed class TerrainMeshPipeline
             return false;
         }
 
-        if (!_worker.TryStart(
+        if (!worker.TryStart(
                 _world,
                 _blocks,
                 _textures,
                 batch,
                 _revisions))
         {
-            _updates.RequeueMeshlets(batch);
+            Requeue(batch, priority);
             return false;
         }
 
-        _inFlightBatch = batch;
+        inFlightBatch = batch;
         return true;
     }
 
-    public bool TryPollCompleted(
+    private bool TryPollLane(
+        TerrainMeshWorker worker,
+        ref WorldMeshBatch? inFlightBatch,
+        bool priority,
         out MeshPipelineWorkerReport? report,
         out Exception? error)
     {
         report = null;
         error = null;
 
-        if (!_worker.TryTakeCompleted(
+        if (!worker.TryTakeCompleted(
                 out var result,
                 out error))
         {
@@ -113,15 +187,16 @@ public sealed class TerrainMeshPipeline
         }
 
         var sourceBatch =
-            _inFlightBatch;
-        _inFlightBatch = null;
+            inFlightBatch;
+        inFlightBatch = null;
 
         if (error is not null)
         {
             if (sourceBatch is not null)
             {
-                _updates.RequeueMeshlets(
-                    sourceBatch);
+                Requeue(
+                    sourceBatch,
+                    priority);
             }
 
             TryStartReadyWork();
@@ -132,8 +207,9 @@ public sealed class TerrainMeshPipeline
         {
             if (sourceBatch is not null)
             {
-                _updates.RequeueMeshlets(
-                    sourceBatch);
+                Requeue(
+                    sourceBatch,
+                    priority);
             }
 
             TryStartReadyWork();
@@ -143,8 +219,9 @@ public sealed class TerrainMeshPipeline
         if (!_world.IsContentStampCurrent(
                 result.ContentStamp))
         {
-            _updates.RequeueMeshlets(
-                result.SourceBatch);
+            Requeue(
+                result.SourceBatch,
+                priority);
             report =
                 new MeshPipelineWorkerReport(
                     MeshPipelineCompletionKind.RequeuedStale,
@@ -180,18 +257,44 @@ public sealed class TerrainMeshPipeline
                     key,
                     revision))
             {
-                _presentations.EnqueueTerrainPublication(
-                    meshlet,
-                    revision,
-                    result.ContentStamp);
+                if (priority)
+                {
+                    _presentations
+                        .EnqueuePriorityTerrainPublication(
+                            meshlet,
+                            revision,
+                            result.ContentStamp);
+                }
+                else
+                {
+                    _presentations
+                        .EnqueueTerrainPublication(
+                            meshlet,
+                            revision,
+                            result.ContentStamp);
+                }
+
                 accepted++;
             }
             else
             {
-                _updates.EnqueueMeshlets(
-                    meshlet.Coord,
+                var mask =
                     ChunkMeshletMask.Single(
-                        meshlet.MeshletIndex));
+                        meshlet.MeshletIndex);
+
+                if (priority)
+                {
+                    _updates.EnqueuePriorityMeshlets(
+                        meshlet.Coord,
+                        mask);
+                }
+                else
+                {
+                    _updates.EnqueueMeshlets(
+                        meshlet.Coord,
+                        mask);
+                }
+
                 stale++;
             }
         }
@@ -207,10 +310,19 @@ public sealed class TerrainMeshPipeline
         return true;
     }
 
-    public ChunkPresentationIntegrationStats IntegratePublications(
-        int maximumPerFrame,
-        WorldFrameWorkBudget budget) =>
-        _presentations.IntegrateTerrainPublications(
-            maximumPerFrame,
-            budget);
+    private void Requeue(
+        WorldMeshBatch batch,
+        bool priority)
+    {
+        if (priority)
+        {
+            _updates.RequeuePriorityMeshlets(
+                batch);
+        }
+        else
+        {
+            _updates.RequeueBackgroundMeshlets(
+                batch);
+        }
+    }
 }

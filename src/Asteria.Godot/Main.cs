@@ -20,6 +20,7 @@ public partial class Main : Node3D
     private const int MaxMaterializationResultsPerFrame = 8;
     private const int MaxPresentationPublicationsPerFrame = 4;
     private const int MaxMeshletPublishesPerFrame = 4;
+    private const int MaxInteractiveTerrainMeshletsPerWorker = 8;
     private const int MaxTerrainMeshletsPerWorker = 16;
     private const int MaxFluidMeshletsPerWorker = 16;
     private const int MaxFluidMeshletPublishesPerFrame = 4;
@@ -162,6 +163,7 @@ public partial class Main : Node3D
                 _worldUpdates,
                 _contentRevisions,
                 _chunkPresentations,
+                MaxInteractiveTerrainMeshletsPerWorker,
                 MaxTerrainMeshletsPerWorker);
         _fluidMeshPipeline =
             new FluidMeshPipeline(

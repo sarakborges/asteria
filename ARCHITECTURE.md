@@ -174,7 +174,7 @@ Lighting is authoritative runtime data; meshes are derived presentation data.
 - Applying an accepted lighting worker result is a Core responsibility. Changed voxel positions are coalesced into chunk/meshlet halo masks before terrain/fluid revisions and remesh queues are published, so one relight does not repeatedly bump the same meshlet.
 - Terrain and fluid meshes may have distinct invalidation/publication lifecycles.
 - Lighting refresh is presentation dirtiness, not a structural voxel mutation. It may enqueue a follow-up remesh but must not invalidate a structurally current mesh result solely because vertex lighting changed while that result was in flight.
-- Interactive block edits use a priority mesh lane and bounded worker batches so player-visible placement/destruction cannot sit behind an unbounded streaming/remesh backlog.
+- Interactive block edits use a dedicated latency terrain lane with its own bounded worker and priority publication queue. Background streaming/remesh work uses a separate worker, so a player-visible placement/destruction cannot wait for an already-running background batch or sit behind queued background publications.
 - Fluid volume sides and bottoms keep back-face culling to avoid alpha-sorted interior walls/triangles. Only an exposed fluid top surface emits dedicated reverse-wound underside geometry so the water surface remains visible from below without making the entire translucent volume double-sided.
 - Engine-agnostic mesh vertices, batches, culling/greedy logic, collision-face generation and fluid-surface geometry belong in Core.
 - Godot rendering code converts those results into `ArrayMesh`, materials, collision shapes and nodes.

@@ -17,7 +17,13 @@ public sealed class WorldUpdateQueue
         _lightingEdits.Count > 0;
 
     public bool HasMeshWork =>
-        _priorityMeshlets.Count > 0 ||
+        HasPriorityMeshWork ||
+        HasBackgroundMeshWork;
+
+    public bool HasPriorityMeshWork =>
+        _priorityMeshlets.Count > 0;
+
+    public bool HasBackgroundMeshWork =>
         _backgroundMeshlets.Count > 0;
 
     public int LightingEditCount =>
@@ -181,6 +187,18 @@ public sealed class WorldUpdateQueue
         return new WorldMeshBatch(result);
     }
 
+    public WorldMeshBatch DrainPriorityMeshlets(
+        int maximumMeshlets = int.MaxValue) =>
+        DrainMeshletLane(
+            _priorityMeshlets,
+            maximumMeshlets);
+
+    public WorldMeshBatch DrainBackgroundMeshlets(
+        int maximumMeshlets = int.MaxValue) =>
+        DrainMeshletLane(
+            _backgroundMeshlets,
+            maximumMeshlets);
+
     public void RequeueLighting(
         WorldLightingBatch batch)
     {
@@ -194,6 +212,10 @@ public sealed class WorldUpdateQueue
     }
 
     public void RequeueMeshlets(
+        WorldMeshBatch batch) =>
+        RequeuePriorityMeshlets(batch);
+
+    public void RequeuePriorityMeshlets(
         WorldMeshBatch batch)
     {
         ArgumentNullException.ThrowIfNull(batch);
@@ -205,6 +227,43 @@ public sealed class WorldUpdateQueue
                 coord,
                 mask);
         }
+    }
+
+    public void RequeueBackgroundMeshlets(
+        WorldMeshBatch batch)
+    {
+        ArgumentNullException.ThrowIfNull(batch);
+
+        foreach (var (coord, mask) in
+                 batch.DirtyMeshlets)
+        {
+            EnqueueMeshlets(
+                coord,
+                mask);
+        }
+    }
+
+    private static WorldMeshBatch DrainMeshletLane(
+        Dictionary<ChunkCoord, ChunkMeshletMask> source,
+        int maximumMeshlets)
+    {
+        if (maximumMeshlets <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(maximumMeshlets));
+        }
+
+        var result =
+            new Dictionary<ChunkCoord, ChunkMeshletMask>();
+        var remaining =
+            maximumMeshlets;
+
+        MeshletMaskQueueDrain.Drain(
+            source,
+            result,
+            ref remaining);
+
+        return new WorldMeshBatch(result);
     }
 
     private void EnqueueVoxelMeshlets(

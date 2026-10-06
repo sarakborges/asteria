@@ -97,6 +97,87 @@ public sealed class WorldUpdateQueueTests
     }
 
     [Fact]
+    public void InteractiveAndBackgroundMeshLanesDrainIndependently()
+    {
+        var world =
+            new VoxelWorld();
+        world.InsertChunk(
+            ChunkCoord.Zero,
+            new Chunk());
+        var queue =
+            new WorldUpdateQueue();
+
+        queue.EnqueueMeshlets(
+            ChunkCoord.Zero,
+            ChunkMeshletMask.All);
+        queue.EnqueueVoxelEdit(
+            world,
+            new WorldVoxelCoord(
+                2,
+                2,
+                2));
+
+        var background =
+            queue.DrainBackgroundMeshlets(
+                maximumMeshlets: 1);
+
+        Assert.Equal(
+            1,
+            background.DirtyMeshlets
+                .Values
+                .Sum(mask =>
+                    mask.SelectedCount));
+        Assert.True(
+            queue.HasPriorityMeshWork);
+
+        var interactive =
+            queue.DrainPriorityMeshlets(
+                maximumMeshlets: 1);
+
+        Assert.Equal(
+            ChunkMeshletMask.Single(0),
+            interactive.DirtyMeshlets[
+                ChunkCoord.Zero]);
+        Assert.False(
+            queue.HasPriorityMeshWork);
+        Assert.True(
+            queue.HasBackgroundMeshWork);
+    }
+
+    [Fact]
+    public void RequeuePreservesMeshLane()
+    {
+        var queue =
+            new WorldUpdateQueue();
+        var batch =
+            new WorldMeshBatch(
+                new Dictionary<ChunkCoord, ChunkMeshletMask>
+                {
+                    [ChunkCoord.Zero] =
+                        ChunkMeshletMask.Single(3),
+                });
+
+        queue.RequeueBackgroundMeshlets(
+            batch);
+
+        Assert.False(
+            queue.HasPriorityMeshWork);
+        Assert.True(
+            queue.HasBackgroundMeshWork);
+
+        var background =
+            queue.DrainBackgroundMeshlets();
+
+        queue.RequeuePriorityMeshlets(
+            background);
+
+        Assert.True(
+            queue.HasPriorityMeshWork);
+        Assert.False(
+            queue.HasBackgroundMeshWork);
+    }
+
+    [Fact]
     public void MeshDrainHonorsWorkerBatchLimit()
     {
         var queue =

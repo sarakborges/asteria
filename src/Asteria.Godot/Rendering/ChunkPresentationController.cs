@@ -26,7 +26,9 @@ public sealed class ChunkPresentationController
     private readonly Dictionary<ChunkCoord, ChunkPresentation>
         _presentations = [];
     private readonly DeduplicatedQueue<ChunkMeshletKey>
-        _terrainPublicationOrder = new();
+        _priorityTerrainPublicationOrder = new();
+    private readonly DeduplicatedQueue<ChunkMeshletKey>
+        _backgroundTerrainPublicationOrder = new();
     private readonly Dictionary<ChunkMeshletKey, TerrainPublication>
         _terrainPublications = [];
     private readonly DeduplicatedQueue<ChunkMeshletKey>
@@ -203,22 +205,22 @@ public sealed class ChunkPresentationController
     public void EnqueueTerrainPublication(
         TerrainMeshletBuild meshlet,
         ulong contentRevision,
-        ChunkContentStamp contentStamp)
-    {
-        ArgumentNullException.ThrowIfNull(contentStamp);
+        ChunkContentStamp contentStamp) =>
+        EnqueueTerrainPublication(
+            meshlet,
+            contentRevision,
+            contentStamp,
+            priority: false);
 
-        var key =
-            new ChunkMeshletKey(
-                meshlet.Coord,
-                meshlet.MeshletIndex);
-
-        _terrainPublications[key] =
-            new TerrainPublication(
-                meshlet,
-                contentRevision,
-                contentStamp);
-        _terrainPublicationOrder.Enqueue(key);
-    }
+    public void EnqueuePriorityTerrainPublication(
+        TerrainMeshletBuild meshlet,
+        ulong contentRevision,
+        ChunkContentStamp contentStamp) =>
+        EnqueueTerrainPublication(
+            meshlet,
+            contentRevision,
+            contentStamp,
+            priority: true);
 
     public void EnqueueFluidPublication(
         FluidMeshletBuild meshlet,
@@ -251,14 +253,17 @@ public sealed class ChunkPresentationController
         var processed = 0;
 
         while (processed < maximumPerFrame &&
-               _terrainPublicationOrder.TryDequeue(
-                   out var key))
+               TryDequeueTerrainPublication(
+                   out var key,
+                   out var priority))
         {
             if (processed > 0 &&
                 budget.Exhausted(
                     Stopwatch.GetTimestamp()))
             {
-                _terrainPublicationOrder.EnqueueFront(key);
+                RequeueTerrainPublicationFront(
+                    key,
+                    priority);
                 break;
             }
 
@@ -286,10 +291,23 @@ public sealed class ChunkPresentationController
                 !_world.IsContentStampCurrent(
                     pending.ContentStamp))
             {
-                _worldUpdates.EnqueueMeshlets(
-                    pending.Meshlet.Coord,
+                var mask =
                     ChunkMeshletMask.Single(
-                        pending.Meshlet.MeshletIndex));
+                        pending.Meshlet.MeshletIndex);
+
+                if (priority)
+                {
+                    _worldUpdates.EnqueuePriorityMeshlets(
+                        pending.Meshlet.Coord,
+                        mask);
+                }
+                else
+                {
+                    _worldUpdates.EnqueueMeshlets(
+                        pending.Meshlet.Coord,
+                        mask);
+                }
+
                 stale++;
                 continue;
             }
@@ -380,6 +398,81 @@ public sealed class ChunkPresentationController
             stopwatch.Elapsed.TotalMilliseconds);
     }
 
+    private void EnqueueTerrainPublication(
+        TerrainMeshletBuild meshlet,
+        ulong contentRevision,
+        ChunkContentStamp contentStamp,
+        bool priority)
+    {
+        ArgumentNullException.ThrowIfNull(contentStamp);
+
+        var key =
+            new ChunkMeshletKey(
+                meshlet.Coord,
+                meshlet.MeshletIndex);
+
+        if (!priority &&
+            _priorityTerrainPublicationOrder.Contains(key))
+        {
+            return;
+        }
+
+        _terrainPublications[key] =
+            new TerrainPublication(
+                meshlet,
+                contentRevision,
+                contentStamp);
+
+        if (priority)
+        {
+            _backgroundTerrainPublicationOrder.Remove(key);
+            _priorityTerrainPublicationOrder.Enqueue(key);
+        }
+        else
+        {
+            _backgroundTerrainPublicationOrder.Enqueue(key);
+        }
+    }
+
+    private bool TryDequeueTerrainPublication(
+        out ChunkMeshletKey key,
+        out bool priority)
+    {
+        if (_priorityTerrainPublicationOrder.TryDequeue(
+                out key))
+        {
+            priority = true;
+            return true;
+        }
+
+        if (_backgroundTerrainPublicationOrder.TryDequeue(
+                out key))
+        {
+            priority = false;
+            return true;
+        }
+
+        key = default;
+        priority = false;
+        return false;
+    }
+
+    private void RequeueTerrainPublicationFront(
+        ChunkMeshletKey key,
+        bool priority)
+    {
+        if (priority)
+        {
+            _priorityTerrainPublicationOrder.EnqueueFront(
+                key);
+        }
+        else
+        {
+            _backgroundTerrainPublicationOrder.EnqueueFront(
+                key);
+        }
+    }
+
     private void InvalidatePresentedNeighbors(
         ChunkCoord coord)
     {
@@ -418,7 +511,8 @@ public sealed class ChunkPresentationController
                     meshletIndex);
 
             _terrainPublications.Remove(key);
-            _terrainPublicationOrder.Remove(key);
+            _priorityTerrainPublicationOrder.Remove(key);
+            _backgroundTerrainPublicationOrder.Remove(key);
             _fluidPublications.Remove(key);
             _fluidPublicationOrder.Remove(key);
         }
