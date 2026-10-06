@@ -15,6 +15,8 @@ public sealed class TerrainMeshPipeline
     private readonly TerrainMeshWorker _interactiveWorker = new();
     private readonly TerrainMeshWorker _backgroundWorker = new();
 
+    private bool _acceptingWork = true;
+
     private WorldMeshBatch? _interactiveInFlightBatch;
     private WorldMeshBatch? _backgroundInFlightBatch;
 
@@ -69,8 +71,18 @@ public sealed class TerrainMeshPipeline
         _interactiveWorker.IsRunning ||
         _backgroundWorker.IsRunning;
 
+    public void BeginRetirement()
+    {
+        _acceptingWork = false;
+    }
+
     public bool TryStartReadyWork()
     {
+        if (!_acceptingWork)
+        {
+            return false;
+        }
+
         var started =
             TryStartLane(
                 _interactiveWorker,
