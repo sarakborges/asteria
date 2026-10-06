@@ -2,7 +2,7 @@ using Asteria.Core.World;
 
 namespace Asteria.Core.Tests;
 
-public sealed class LightingResultIntegratorTests
+public sealed class LightingMeshSchedulingTests
 {
     [Fact]
     public void LightingRefreshDoesNotScheduleFluidMeshForFluidEmptyChunk()
