@@ -648,21 +648,48 @@ public sealed class VoxelWorld
                 neighborhood.Chunks);
     }
 
-    public VoxelWorld CloneMeshNeighborhood(
-        IEnumerable<ChunkCoord> dirtyChunks)
+    public MeshWorkerSnapshot CaptureMeshWorkerSnapshot(
+        IReadOnlyDictionary<ChunkCoord, ChunkMeshletMask>
+            dirtyMeshlets)
     {
-        ArgumentNullException.ThrowIfNull(dirtyChunks);
+        ArgumentNullException.ThrowIfNull(dirtyMeshlets);
 
-        var required = new HashSet<ChunkCoord>();
+        var required =
+            new HashSet<ChunkCoord>();
 
-        foreach (var coord in dirtyChunks)
+        foreach (var (coord, mask) in
+                 dirtyMeshlets)
         {
+            if (mask.IsEmpty)
+            {
+                continue;
+            }
+
+            required.Add(coord);
+
             for (var y = -1; y <= 1; y++)
             {
                 for (var z = -1; z <= 1; z++)
                 {
                     for (var x = -1; x <= 1; x++)
                     {
+                        if (x == 0 &&
+                            y == 0 &&
+                            z == 0)
+                        {
+                            continue;
+                        }
+
+                        if (!mask.Overlaps(
+                                ChunkMeshletMask
+                                    .ForDependencyOffset(
+                                        x,
+                                        y,
+                                        z)))
+                        {
+                            continue;
+                        }
+
                         required.Add(
                             new ChunkCoord(
                                 coord.X + x,
@@ -673,7 +700,14 @@ public sealed class VoxelWorld
             }
         }
 
-        return CloneForWorker(required);
+        var dependencies =
+            new MeshDependencyStamp(
+                CaptureContentStamp(required),
+                CaptureResidencyStamp(required));
+
+        return new MeshWorkerSnapshot(
+            CloneForWorker(required),
+            dependencies);
     }
 
     public void CopyLightFrom(VoxelWorld source)
