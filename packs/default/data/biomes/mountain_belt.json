@@ -1,0 +1,16 @@
+{
+  "id": "asteria:overworld/mountain_belt",
+  "surfaceLayout": {},
+  "surfaceTerrain": {
+    "macroAmplitude": 34,
+    "macroScale": 896,
+    "detailAmplitude": 8,
+    "detailScale": 112,
+    "baseHeight": 42
+  },
+  "surfaceLayers": [
+    {
+      "block": "asteria:stone"
+    }
+  ]
+}
