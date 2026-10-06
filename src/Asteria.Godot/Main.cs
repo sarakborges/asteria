@@ -69,7 +69,7 @@ public partial class Main : Node3D
 
     private ChunkCoord _streamingCenter;
     private ulong _appliedPresentationSelectionRevision;
-    private long _worldFrameDeadlineTimestamp;
+    private WorldFrameWorkBudget _worldFrameBudget;
     private bool _worldReadySent;
 
     public override void _Ready()
@@ -696,6 +696,8 @@ public partial class Main : Node3D
 
             _worldUpdates.RemoveMeshChunk(coord.Value);
             _fluidMeshUpdates.RemoveChunk(coord.Value);
+            _contentRevisions.RemoveChunk(coord.Value);
+            _fluidContentRevisions.RemoveChunk(coord.Value);
 
             var archiveResult =
                 _world.ArchiveChunk(coord.Value);
@@ -998,8 +1000,8 @@ public partial class Main : Node3D
             _world.CloneFluidNeighborhood(
                 batch.Positions,
                 _fluids.MaximumSpread);
-        var revisions =
-            CaptureChunkRevisions(
+        var contentStamp =
+            _world.CaptureContentStamp(
                 snapshot.LoadedChunkCoords);
         var fluids = _fluids;
 
@@ -1015,7 +1017,7 @@ public partial class Main : Node3D
 
             return new FluidSimulationBuild(
                 batch,
-                revisions,
+                contentStamp,
                 simulation,
                 stopwatch.Elapsed.TotalMilliseconds);
         });
@@ -1041,8 +1043,8 @@ public partial class Main : Node3D
         var result = _fluidTask.Result;
         _fluidTask = null;
 
-        if (!ChunkRevisionsAreCurrent(
-                result.ChunkRevisions))
+        if (!_world.IsContentStampCurrent(
+                result.ContentStamp))
         {
             _fluidUpdates.RequeueTopology(
                 result.SourceBatch.TopologyPositions);
@@ -1213,6 +1215,9 @@ public partial class Main : Node3D
         var revisions =
             _fluidContentRevisions.Capture(
                 batch.DirtyMeshlets);
+        var contentStamp =
+            _world.CaptureContentStamp(
+                snapshot.LoadedChunkCoords);
         var blocks = _blocks;
         var fluids = _fluids;
 
@@ -1230,6 +1235,7 @@ public partial class Main : Node3D
             return new FluidMeshUpdateBuild(
                 batch,
                 revisions,
+                contentStamp,
                 meshlets,
                 stopwatch.Elapsed.TotalMilliseconds);
         });
@@ -1254,6 +1260,16 @@ public partial class Main : Node3D
 
         var result = _fluidMeshTask.Result;
         _fluidMeshTask = null;
+
+        if (!_world.IsContentStampCurrent(
+                result.ContentStamp))
+        {
+            _fluidMeshUpdates.Requeue(
+                result.SourceBatch);
+            TryStartFluidMeshTask();
+            return;
+        }
+
         var accepted = 0;
         var stale = 0;
 
@@ -1281,7 +1297,8 @@ public partial class Main : Node3D
                 _pendingFluidMeshletPublications.Enqueue(
                     new FluidMeshletPublication(
                         meshlet,
-                        revision));
+                        revision,
+                        result.ContentStamp));
                 accepted++;
             }
             else
@@ -1335,7 +1352,9 @@ public partial class Main : Node3D
 
             if (!_fluidContentRevisions.IsCurrent(
                     key,
-                    pending.ContentRevision))
+                    pending.ContentRevision) ||
+                !_world.IsContentStampCurrent(
+                    pending.ContentStamp))
             {
                 _fluidMeshUpdates.EnqueueMeshlets(
                     pending.Meshlet.Coord,
@@ -1360,43 +1379,6 @@ public partial class Main : Node3D
                 $"remaining=" +
                 $"{_pendingFluidMeshletPublications.Count}");
         }
-    }
-
-    private Dictionary<ChunkCoord, ulong> CaptureChunkRevisions(
-        IEnumerable<ChunkCoord> coordinates)
-    {
-        var revisions =
-            new Dictionary<ChunkCoord, ulong>();
-
-        foreach (var coord in coordinates)
-        {
-            if (_world.TryGetChunk(
-                    coord,
-                    out var chunk))
-            {
-                revisions[coord] =
-                    chunk.Revision;
-            }
-        }
-
-        return revisions;
-    }
-
-    private bool ChunkRevisionsAreCurrent(
-        IReadOnlyDictionary<ChunkCoord, ulong> revisions)
-    {
-        foreach (var (coord, revision) in revisions)
-        {
-            if (!_world.TryGetChunk(
-                    coord,
-                    out var chunk) ||
-                chunk.Revision != revision)
-            {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     private void TryStartMeshTask()
@@ -1437,6 +1419,9 @@ public partial class Main : Node3D
         var revisions =
             _contentRevisions.Capture(
                 batch.DirtyMeshlets);
+        var contentStamp =
+            _world.CaptureContentStamp(
+                snapshot.LoadedChunkCoords);
         var blocks = _blocks;
         var textures = _terrainTextureLookup;
 
@@ -1453,6 +1438,7 @@ public partial class Main : Node3D
             return new MeshUpdateBuild(
                 batch,
                 revisions,
+                contentStamp,
                 meshlets,
                 stopwatch.Elapsed.TotalMilliseconds);
         });
@@ -1477,6 +1463,16 @@ public partial class Main : Node3D
 
         var result = _meshTask.Result;
         _meshTask = null;
+
+        if (!_world.IsContentStampCurrent(
+                result.ContentStamp))
+        {
+            _worldUpdates.RequeueMeshlets(
+                result.SourceBatch);
+            TryStartMeshTask();
+            return;
+        }
+
         var accepted = 0;
         var stale = 0;
 
@@ -1501,7 +1497,8 @@ public partial class Main : Node3D
                 _pendingMeshletPublications.Enqueue(
                     new MeshletPublication(
                         meshlet,
-                        revision));
+                        revision,
+                        result.ContentStamp));
                 accepted++;
             }
             else
@@ -1656,7 +1653,9 @@ public partial class Main : Node3D
 
             if (!_contentRevisions.IsCurrent(
                     key,
-                    pending.ContentRevision))
+                    pending.ContentRevision) ||
+                !_world.IsContentStampCurrent(
+                    pending.ContentStamp))
             {
                 _worldUpdates.EnqueueMeshlets(
                     pending.Meshlet.Coord,
@@ -1769,25 +1768,16 @@ public partial class Main : Node3D
 
     private void BeginWorldFrameBudget(double delta)
     {
-        var seconds = (float)Math.Max(delta, 0.0001);
-        var milliseconds = seconds > 1f / 55f
-            ? 2.0
-            : seconds > 1f / 70f
-                ? 3.0
-                : 4.0;
-
-        var ticks =
-            (long)(Stopwatch.Frequency *
-                   milliseconds /
-                   1000.0);
-
-        _worldFrameDeadlineTimestamp =
-            Stopwatch.GetTimestamp() + ticks;
+        _worldFrameBudget =
+            WorldFrameWorkBudget.Begin(
+                delta,
+                Stopwatch.GetTimestamp(),
+                Stopwatch.Frequency);
     }
 
     private bool WorldBudgetExhausted() =>
-        Stopwatch.GetTimestamp() >=
-        _worldFrameDeadlineTimestamp;
+        _worldFrameBudget.Exhausted(
+            Stopwatch.GetTimestamp());
 
     private sealed record MaterializedChunkBuild(
         ChunkCoord Coord,
@@ -1801,7 +1791,8 @@ public partial class Main : Node3D
 
     private sealed record MeshletPublication(
         MeshletBuild Meshlet,
-        ulong ContentRevision);
+        ulong ContentRevision,
+        ChunkContentStamp ContentStamp);
 
     private sealed record FluidMeshletBuild(
         ChunkCoord Coord,
@@ -1810,19 +1801,20 @@ public partial class Main : Node3D
 
     private sealed record FluidMeshletPublication(
         FluidMeshletBuild Meshlet,
-        ulong ContentRevision);
+        ulong ContentRevision,
+        ChunkContentStamp ContentStamp);
 
     private sealed record FluidMeshUpdateBuild(
         WorldMeshBatch SourceBatch,
         IReadOnlyDictionary<ChunkMeshletKey, ulong>
             ContentRevisions,
+        ChunkContentStamp ContentStamp,
         IReadOnlyList<FluidMeshletBuild> Meshlets,
         double WorkerMilliseconds);
 
     private sealed record FluidSimulationBuild(
         FluidWorkBatch SourceBatch,
-        IReadOnlyDictionary<ChunkCoord, ulong>
-            ChunkRevisions,
+        ChunkContentStamp ContentStamp,
         FluidSimulationResult Simulation,
         double WorkerMilliseconds);
 
@@ -1830,6 +1822,7 @@ public partial class Main : Node3D
         WorldMeshBatch SourceBatch,
         IReadOnlyDictionary<ChunkMeshletKey, ulong>
             ContentRevisions,
+        ChunkContentStamp ContentStamp,
         IReadOnlyList<MeshletBuild> Meshlets,
         double WorkerMilliseconds);
 

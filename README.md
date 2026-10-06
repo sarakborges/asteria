@@ -16,6 +16,8 @@ The current milestone proves the base runtime architecture without introducing w
 - 16×16×16 chunks with palette-backed voxel storage;
 - multi-chunk `VoxelWorld` runtime with world-space reads/writes across chunk boundaries;
 - one authoritative voxel-mutation runtime for block edits: successful mutations invalidate terrain and fluid meshlets, enqueue incremental lighting, wake local fluid topology, and wake block physics together;
+- shared deterministic work primitives own deduplicated FIFO scheduling and adaptive frame budgets instead of local queue/set and stopwatch patterns;
+- resident chunks carry a globally unique residency epoch paired with their local content revision; async fluid and mesh work captures dependency stamps and rejects results from changed or reloaded chunks;
 - gravity-tagged blocks use an engine-agnostic continuous falling runtime: unsupported blocks leave the voxel grid, accelerate every frame, preserve their full voxel cell state, and settle back through the same mutation pipeline;
 - player-centered chunk streaming with desired/retained residency, async deterministic QA materialization, prioritized load queues and visibility hysteresis;
 - zero-copy in-memory session archive for edited chunks: eviction moves dirty chunks out of residency and restore happens before provider materialization; pristine deterministic chunks are dropped and regenerated instead of consuming archive memory;
