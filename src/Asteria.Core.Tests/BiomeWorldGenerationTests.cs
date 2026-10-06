@@ -16,7 +16,7 @@ public sealed class BiomeWorldGenerationTests
             blocks);
 
         Assert.Equal(
-            4,
+            7,
             biomes.Count);
 
         var swamp =
@@ -43,13 +43,19 @@ public sealed class BiomeWorldGenerationTests
         var forward =
             new BiomeField(
                 77,
-                "asteria:test",
+                TestDimension(
+                    definitions.Select(
+                        definition =>
+                            definition.Id)),
                 new BiomeRegistry(
                     definitions));
         var reverse =
             new BiomeField(
                 77,
-                "asteria:test",
+                TestDimension(
+                    definitions.Select(
+                        definition =>
+                            definition.Id)),
                 new BiomeRegistry(
                     definitions.Reverse()));
 
@@ -86,7 +92,11 @@ public sealed class BiomeWorldGenerationTests
         var field =
             new BiomeField(
                 91,
-                "asteria:test",
+                TestDimension(
+                    StandardBiomeDefinitions()
+                        .Select(
+                            definition =>
+                                definition.Id)),
                 new BiomeRegistry(
                     StandardBiomeDefinitions()));
 
@@ -132,7 +142,11 @@ public sealed class BiomeWorldGenerationTests
         var field =
             new BiomeField(
                 123,
-                "asteria:test",
+                TestDimension(
+                    StandardBiomeDefinitions()
+                        .Select(
+                            definition =>
+                                definition.Id)),
                 new BiomeRegistry(
                     StandardBiomeDefinitions()));
         var grid =
@@ -205,7 +219,11 @@ public sealed class BiomeWorldGenerationTests
         var generator =
             new BiomeWorldGenerator(
                 44,
-                "asteria:test",
+                TestDimension(
+                [
+                    low.Id,
+                    high.Id,
+                ]),
                 blocks,
                 biomes);
 
@@ -324,7 +342,10 @@ public sealed class BiomeWorldGenerationTests
         var generator =
             new BiomeWorldGenerator(
                 1,
-                "asteria:test",
+                TestDimension(
+                [
+                    biome.Id,
+                ]),
                 blocks,
                 new BiomeRegistry(
                 [
@@ -384,10 +405,19 @@ public sealed class BiomeWorldGenerationTests
             LoadDefaultBlocks();
         var biomes =
             LoadDefaultBiomes();
+        var dimensions =
+            LoadDefaultDimensions();
+        dimensions.ValidateBiomes(
+            biomes);
+        var dimension =
+            dimensions.Get(
+                DimensionId.Overworld);
         var generator =
             new BiomeWorldGenerator(
-                0xA57E_2026UL,
-                "asteria:overworld",
+                DimensionSeed.Derive(
+                    0xA57E_2026UL,
+                    dimension.Id),
+                dimension,
                 blocks,
                 biomes);
         var grass =
@@ -522,6 +552,28 @@ public sealed class BiomeWorldGenerationTests
                     File.ReadAllText));
     }
 
+    private static DimensionRegistry LoadDefaultDimensions()
+    {
+        var directory =
+            Path.Combine(
+                AppContext.BaseDirectory,
+                "packs",
+                "default",
+                "data",
+                "dimensions");
+
+        return DimensionRegistry.FromJson(
+            Directory
+                .EnumerateFiles(
+                    directory,
+                    "*.json")
+                .OrderBy(
+                    path => path,
+                    StringComparer.Ordinal)
+                .Select(
+                    File.ReadAllText));
+    }
+
     private static BiomeRegistry LoadDefaultBiomes()
     {
         var directory =
@@ -564,6 +616,32 @@ public sealed class BiomeWorldGenerationTests
             "asteria:test/d",
             weight: 0.6f),
     ];
+
+    private static DimensionDefinition TestDimension(
+        IEnumerable<string> biomeIds) =>
+        new(
+            new DimensionId(
+                "asteria:test"),
+            biomeIds,
+            gravityStrength: 18f,
+            new DimensionSpawnDefinition(
+                0,
+                0),
+            new DimensionEnvironmentDefinition(
+                new DimensionColor(
+                    0,
+                    0,
+                    0),
+                new DimensionColor(
+                    255,
+                    255,
+                    255),
+                ambientEnergy: 1f,
+                new DimensionColor(
+                    0,
+                    0,
+                    0),
+                fogDensity: 0f));
 
     private static BiomeDefinition TestBiome(
         string id,
