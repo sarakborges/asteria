@@ -140,8 +140,8 @@ public sealed class FluidMeshPipeline
             return true;
         }
 
-        if (!_world.IsContentStampCurrent(
-                result.ContentStamp))
+        if (!result.Dependencies.IsCurrent(
+                _world))
         {
             _updates.Requeue(
                 result.SourceBatch);
@@ -183,7 +183,7 @@ public sealed class FluidMeshPipeline
                 _presentations.EnqueueFluidPublication(
                     meshlet,
                     revision,
-                    result.ContentStamp);
+                    result.Dependencies);
                 accepted++;
             }
             else
