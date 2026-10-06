@@ -279,12 +279,23 @@ public sealed class DimensionSessionStateTests
         Assert.Equal(
             dropped.ActiveCount,
             restoredDropped.ActiveCount);
+        var restoredFallingSnapshot =
+            restoredPhysics.CaptureState();
+        var restoredDroppedSnapshot =
+            restoredDropped.CaptureState();
+
         Assert.Equal(
-            fallingSnapshot,
-            restoredPhysics.CaptureState());
+            fallingSnapshot.NextId,
+            restoredFallingSnapshot.NextId);
         Assert.Equal(
-            droppedSnapshot,
-            restoredDropped.CaptureState());
+            fallingSnapshot.ActiveBlocks.ToArray(),
+            restoredFallingSnapshot.ActiveBlocks.ToArray());
+        Assert.Equal(
+            droppedSnapshot.NextId,
+            restoredDroppedSnapshot.NextId);
+        Assert.Equal(
+            droppedSnapshot.ActiveBlocks.ToArray(),
+            restoredDroppedSnapshot.ActiveBlocks.ToArray());
     }
 
     private static DimensionDefinition Dimension(
@@ -296,7 +307,7 @@ public sealed class DimensionSessionStateTests
                 id +
                 "/plain",
             ],
-            gravityStrength: 18f,
+            18f,
             new DimensionSpawnDefinition(
                 0,
                 0),
@@ -309,10 +320,10 @@ public sealed class DimensionSessionStateTests
                     255,
                     255,
                     255),
-                ambientEnergy: 1f,
+                1f,
                 new DimensionColor(
                     0,
                     0,
                     0),
-                fogDensity: 0f));
+                0f));
 }
