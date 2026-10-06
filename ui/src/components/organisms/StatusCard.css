@@ -1,0 +1,15 @@
+.status-card {
+  display: grid;
+  gap: var(--ui-space-1);
+  min-width: 270px;
+  padding: var(--ui-space-3) var(--ui-space-4);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-color-panel);
+  backdrop-filter: blur(12px);
+  pointer-events: auto;
+}
+
+.status-card .ui-button {
+  margin-top: var(--ui-space-1);
+}

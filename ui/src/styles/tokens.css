@@ -1,0 +1,22 @@
+:root {
+  --ui-color-text: #f4f7f8;
+  --ui-color-muted: #9da8b2;
+  --ui-color-success: #8ed27b;
+  --ui-color-warning: #e3c86d;
+  --ui-color-border: rgb(255 255 255 / 12%);
+  --ui-color-border-strong: rgb(255 255 255 / 18%);
+  --ui-color-panel: rgb(10 13 16 / 78%);
+  --ui-color-control: rgb(255 255 255 / 8%);
+  --ui-color-control-hover: rgb(255 255 255 / 14%);
+  --ui-radius-sm: 6px;
+  --ui-radius-md: 8px;
+  --ui-space-1: 6px;
+  --ui-space-2: 10px;
+  --ui-space-3: 14px;
+  --ui-space-4: 16px;
+  --ui-space-5: 24px;
+  --ui-font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  --ui-font-size-detail: 11px;
+  --ui-font-size-title: 18px;
+  --ui-letter-spacing-detail: 0.08em;
+}

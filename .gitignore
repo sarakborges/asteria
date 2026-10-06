@@ -10,6 +10,7 @@ addons/godot_wry/
 # WebUI
 ui/node_modules/
 ui/dist/
+ui/storybook-static/
 
 # Runtime logs
 logs/*.log

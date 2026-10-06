@@ -72,13 +72,43 @@ Expected result:
 
 ### WebUI development
 
+The WebUI uses framework-light HTML/CSS/TypeScript with **Atomic Design**:
+
+```text
+ui/src/components/
+  atoms/
+  molecules/
+  organisms/
+  templates/
+  pages/
+```
+
+Godot/WRY transport lives in `ui/src/bridge/`, while message and interaction binding lives in `ui/src/controllers/`. Components stay transport-agnostic.
+
+Run the embedded WebUI:
+
 ```bash
 cd ui
 npm install
 npm run dev
 ```
 
-The embedded build loads `res://ui/dist/index.html`; rebuild with `npm run build` after WebUI changes.
+Run Storybook for isolated component development:
+
+```bash
+npm run storybook
+```
+
+Build both production surfaces:
+
+```bash
+npm run build
+npm run build-storybook
+```
+
+Every reusable component/page must have a colocated `*.stories.ts` file covering meaningful states. CI validates both the Vite bundle and Storybook. See `ui/README.md` for the full WebUI architecture contract.
+
+The embedded build loads `res://ui/dist/index.html`.
 
 ## Bridge contract
 
@@ -113,6 +143,6 @@ src/Asteria.Core.Tests/     focused core runtime tests
 src/Asteria.Godot/          Godot adapter and rendering
 src/Asteria.Godot/UI/       WebUI embedding adapter
 scenes/                     Godot scenes
-ui/                         HTML/CSS/TypeScript WebUI
+ui/                         Atomic Design HTML/CSS/TypeScript WebUI + Storybook
 scripts/                    local dependency/setup helpers
 ```

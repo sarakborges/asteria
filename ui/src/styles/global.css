@@ -1,0 +1,27 @@
+@import "./tokens.css";
+
+:root {
+  font-family: var(--ui-font-family);
+  color: var(--ui-color-text);
+  background: transparent;
+  font-synthesis: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  background: transparent;
+}
+
+html.mouse-captured,
+html.mouse-captured body,
+html.mouse-captured * {
+  cursor: none !important;
+}

@@ -36,3 +36,7 @@ jobs:
       - name: Build WebUI
         working-directory: ui
         run: npm run build
+
+      - name: Build WebUI Storybook
+        working-directory: ui
+        run: npm run build-storybook

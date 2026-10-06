@@ -17,3 +17,10 @@ Read this file before changing the repository.
 - Do not perform broad repository/tree searches when a targeted path or symbol search will work.
 - Keep the first implementation measurable: correctness first, then profile before optimizing.
 - Add or update focused tests for engine-agnostic logic when behavior changes.
+
+## WebUI rules
+
+- Gameplay UI follows Atomic Design under `ui/src/components/{atoms,molecules,organisms,templates,pages}`.
+- Keep Godot WRY/IPC transport in `ui/src/bridge`; keep event/state binding in `ui/src/controllers`; components must not own transport logic.
+- Every reusable WebUI component or page must have a colocated Storybook `*.stories.ts` file covering meaningful visual states.
+- Storybook is part of WebUI validation. `npm run build-storybook` must stay green together with `npm run build`.

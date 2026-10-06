@@ -1,0 +1,15 @@
+.status-indicator {
+  text-transform: uppercase;
+}
+
+.status-indicator--neutral {
+  color: var(--ui-color-muted);
+}
+
+.status-indicator--connecting {
+  color: var(--ui-color-warning);
+}
+
+.status-indicator--connected {
+  color: var(--ui-color-success);
+}

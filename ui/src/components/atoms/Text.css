@@ -1,0 +1,19 @@
+.ui-text {
+  color: var(--ui-color-text);
+}
+
+.ui-text--eyebrow,
+.ui-text--detail {
+  font-size: var(--ui-font-size-detail);
+  letter-spacing: var(--ui-letter-spacing-detail);
+  color: var(--ui-color-muted);
+}
+
+.ui-text--eyebrow {
+  text-transform: uppercase;
+}
+
+.ui-text--title {
+  font-size: var(--ui-font-size-title);
+  letter-spacing: 0.04em;
+}

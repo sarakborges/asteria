@@ -1,0 +1,18 @@
+.ui-button {
+  width: fit-content;
+  padding: 7px var(--ui-space-2);
+  border: 1px solid var(--ui-color-border-strong);
+  border-radius: var(--ui-radius-sm);
+  color: var(--ui-color-text);
+  background: var(--ui-color-control);
+  cursor: pointer;
+}
+
+.ui-button:hover:not(:disabled) {
+  background: var(--ui-color-control-hover);
+}
+
+.ui-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
