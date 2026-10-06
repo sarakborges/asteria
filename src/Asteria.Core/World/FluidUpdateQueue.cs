@@ -19,6 +19,52 @@ public sealed record FluidWorkBatch(
 
 public sealed class FluidUpdateQueue
 {
+    private static readonly IComparer<FluidTopologyKey>
+        TopologyComparer =
+            Comparer<FluidTopologyKey>.Create(
+                static (left, right) =>
+                {
+                    var comparison =
+                        left.Chunk.Y.CompareTo(
+                            right.Chunk.Y);
+                    if (comparison != 0)
+                    {
+                        return comparison;
+                    }
+
+                    comparison =
+                        left.Chunk.Z.CompareTo(
+                            right.Chunk.Z);
+                    if (comparison != 0)
+                    {
+                        return comparison;
+                    }
+
+                    comparison =
+                        left.Chunk.X.CompareTo(
+                            right.Chunk.X);
+                    if (comparison != 0)
+                    {
+                        return comparison;
+                    }
+
+                    comparison =
+                        left.Position.Y.CompareTo(
+                            right.Position.Y);
+                    if (comparison != 0)
+                    {
+                        return comparison;
+                    }
+
+                    comparison =
+                        left.Position.Z.CompareTo(
+                            right.Position.Z);
+                    return comparison != 0
+                        ? comparison
+                        : left.Position.X.CompareTo(
+                            right.Position.X);
+                });
+
     private static readonly (int X, int Y, int Z)[] Neighborhood =
     [
         (0, 0, 0),
@@ -30,7 +76,8 @@ public sealed class FluidUpdateQueue
         (0, 0, -1),
     ];
 
-    private readonly HashSet<WorldVoxelCoord> _topology = [];
+    private readonly SortedSet<FluidTopologyKey> _topology =
+        new(TopologyComparer);
     private readonly SortedDictionary<ulong, ScheduledBucket> _scheduled = [];
     private readonly Dictionary<FluidTickKey, ulong> _scheduledDue = [];
     private readonly Dictionary<ChunkCoord, HashSet<FluidTickKey>> _dormant = [];
@@ -60,7 +107,8 @@ public sealed class FluidUpdateQueue
     {
         if (position.Y >= 0)
         {
-            _topology.Add(position);
+            _topology.Add(
+                FluidTopologyKey.From(position));
         }
     }
 
@@ -151,35 +199,28 @@ public sealed class FluidUpdateQueue
                     _topology.Count,
                     maximumItems);
 
-        var topology = _topology
-            .OrderBy(position =>
-                VoxelCoordinates.FromWorld(
-                    position.X,
-                    position.Y,
-                    position.Z).Chunk.Y)
-            .ThenBy(position =>
-                VoxelCoordinates.FromWorld(
-                    position.X,
-                    position.Y,
-                    position.Z).Chunk.Z)
-            .ThenBy(position =>
-                VoxelCoordinates.FromWorld(
-                    position.X,
-                    position.Y,
-                    position.Z).Chunk.X)
-            .ThenBy(position => position.Y)
-            .ThenBy(position => position.Z)
-            .ThenBy(position => position.X)
-            .Take(topologyBudget)
-            .ToArray();
+        var topology =
+            new List<WorldVoxelCoord>(
+                topologyBudget);
 
-        foreach (var position in topology)
+        while (topology.Count < topologyBudget &&
+               _topology.Count > 0)
         {
-            _topology.Remove(position);
+            var first =
+                _topology.Min;
+
+            if (!_topology.Remove(first))
+            {
+                throw new InvalidOperationException(
+                    "Fluid topology queue minimum must be removable.");
+            }
+
+            topology.Add(
+                first.Position);
         }
 
         var remaining =
-            maximumItems - topology.Length;
+            maximumItems - topology.Count;
         var due = new List<FluidTickKey>(
             remaining);
 
@@ -285,6 +326,20 @@ public sealed class FluidUpdateQueue
                 tick,
                 currentTick);
         }
+    }
+
+    private readonly record struct FluidTopologyKey(
+        ChunkCoord Chunk,
+        WorldVoxelCoord Position)
+    {
+        public static FluidTopologyKey From(
+            WorldVoxelCoord position) =>
+            new(
+                VoxelCoordinates.FromWorld(
+                    position.X,
+                    position.Y,
+                    position.Z).Chunk,
+                position);
     }
 
     private sealed class ScheduledBucket

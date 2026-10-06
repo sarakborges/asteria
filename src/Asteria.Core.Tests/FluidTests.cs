@@ -784,6 +784,97 @@ public sealed class FluidTimingTests
 public sealed class FluidUpdateQueueTests
 {
     [Fact]
+    public void TopologyDrainKeepsDeterministicVoxelOrder()
+    {
+        var queue =
+            new FluidUpdateQueue();
+        var laterChunk =
+            new WorldVoxelCoord(
+                17,
+                2,
+                3);
+        var laterVoxel =
+            new WorldVoxelCoord(
+                2,
+                2,
+                3);
+        var firstVoxel =
+            new WorldVoxelCoord(
+                1,
+                2,
+                3);
+
+        queue.EnqueueTopology(laterChunk);
+        queue.EnqueueTopology(laterVoxel);
+        queue.EnqueueTopology(firstVoxel);
+        queue.EnqueueTopology(firstVoxel);
+
+        var batch =
+            queue.DrainReady(
+                currentTick: 0,
+                maximumItems: 10);
+
+        Assert.Equal(
+            new[]
+            {
+                firstVoxel,
+                laterVoxel,
+                laterChunk,
+            },
+            batch.TopologyPositions);
+        Assert.Equal(
+            0,
+            queue.TopologyCount);
+    }
+
+    [Fact]
+    public void TopologyDrainLeavesOrderedBacklogWithoutResorting()
+    {
+        var queue =
+            new FluidUpdateQueue();
+
+        for (var x = 7;
+             x >= 0;
+             x--)
+        {
+            queue.EnqueueTopology(
+                new WorldVoxelCoord(
+                    x,
+                    2,
+                    3));
+        }
+
+        var first =
+            queue.DrainReady(
+                currentTick: 0,
+                maximumItems: 3);
+        var second =
+            queue.DrainReady(
+                currentTick: 0,
+                maximumItems: 3);
+
+        Assert.Equal(
+            new[]
+            {
+                new WorldVoxelCoord(0, 2, 3),
+                new WorldVoxelCoord(1, 2, 3),
+                new WorldVoxelCoord(2, 2, 3),
+            },
+            first.TopologyPositions);
+        Assert.Equal(
+            new[]
+            {
+                new WorldVoxelCoord(3, 2, 3),
+                new WorldVoxelCoord(4, 2, 3),
+                new WorldVoxelCoord(5, 2, 3),
+            },
+            second.TopologyPositions);
+        Assert.Equal(
+            2,
+            queue.TopologyCount);
+    }
+
+    [Fact]
     public void ScheduledTickKeepsEarliestDueTime()
     {
         var queue = new FluidUpdateQueue();
