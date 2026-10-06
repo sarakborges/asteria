@@ -100,6 +100,99 @@ public sealed class ChunkStreamingStateTests
     }
 
     [Fact]
+    public void RetiredScanContinuesAfterBoundedIneligiblePrefix()
+    {
+        var state =
+            new ChunkStreamingState();
+        var initial =
+            new HashSet<ChunkCoord>();
+
+        for (var x = 1;
+             x <= 64;
+             x++)
+        {
+            initial.Add(
+                new ChunkCoord(
+                    x,
+                    0,
+                    0));
+        }
+
+        var eligible =
+            new ChunkCoord(
+                1000,
+                0,
+                0);
+        initial.Add(eligible);
+
+        state.RebuildSelection(
+            ChunkCoord.Zero,
+            horizontalRadius: 1,
+            retentionRadius: 0,
+            initial);
+
+        var farCenter =
+            new ChunkCoord(
+                2000,
+                0,
+                0);
+        state.RebuildSelection(
+            farCenter,
+            horizontalRadius: 1,
+            retentionRadius: 0,
+            new HashSet<ChunkCoord>
+            {
+                farCenter,
+            });
+
+        state.RebuildSelection(
+            ChunkCoord.Zero,
+            horizontalRadius: 1,
+            retentionRadius: 100,
+            new HashSet<ChunkCoord>
+            {
+                ChunkCoord.Zero,
+            });
+
+        Assert.Null(
+            state.PopRetiredOutsideHorizontalRadius(
+                ChunkCoord.Zero,
+                retentionRadius: 100));
+
+        Assert.Equal(
+            eligible,
+            state.PopRetiredOutsideHorizontalRadius(
+                ChunkCoord.Zero,
+                retentionRadius: 100));
+    }
+
+    [Fact]
+    public void PendingPrioritySelectionDoesNotDependOnHashIteration()
+    {
+        var state =
+            new ChunkStreamingState();
+        var desired =
+            new HashSet<ChunkCoord>
+            {
+                new ChunkCoord(-2, 0, 0),
+                new ChunkCoord(2, 0, 0),
+            };
+
+        state.RebuildSelection(
+            ChunkCoord.Zero,
+            horizontalRadius: 2,
+            retentionRadius: 3,
+            desired);
+        state.SyncResidentState(
+            Array.Empty<ChunkCoord>(),
+            Array.Empty<ChunkCoord>());
+
+        Assert.Equal(
+            new ChunkCoord(-2, 0, 0),
+            state.PopPendingByPriority());
+    }
+
+    [Fact]
     public void PresentationSelectionHasVisibilityHysteresis()
     {
         var selection = new ChunkPresentationSelection();
