@@ -135,8 +135,9 @@ Authored behavior belongs to definitions/registries instead of hard-coded IDs.
 Examples:
 
 - gravity participation is a block capability/tag, not a sand-ID branch;
-- fluid spread, visual properties, lighting behavior and timing belong to `FluidDefinition`;
+- fluid spread, visual properties, lighting behavior, timing and movement response belong to `FluidDefinition`;
 - fluid immersion is queried from authoritative voxel/fluid data in Core; engine adapters consume that contact state for swimming instead of inventing a second fluid-occupancy model. Passive immersion sinks; upward velocity requires explicit swim input;
+- fluid movement response is authored data: horizontal speed multiplier/acceleration, passive sink speed, swim ascent, surface-exit speed, vertical acceleration and exit margin must not be hard-coded to a fluid ID in the player adapter;
 - block rendering/mining/light behavior belongs to block definitions;
 - platform adapters must not special-case gameplay IDs to reproduce definition-owned policy.
 
