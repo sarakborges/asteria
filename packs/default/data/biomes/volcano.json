@@ -1,0 +1,16 @@
+{
+  "id": "asteria:overworld/volcano",
+  "surfaceLayout": {},
+  "surfaceTerrain": {
+    "macroAmplitude": 48,
+    "macroScale": 768,
+    "detailAmplitude": 10,
+    "detailScale": 96,
+    "baseHeight": 72
+  },
+  "surfaceLayers": [
+    {
+      "block": "asteria:basalt"
+    }
+  ]
+}
