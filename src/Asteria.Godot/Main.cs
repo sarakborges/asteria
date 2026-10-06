@@ -29,40 +29,64 @@ public partial class Main : Node3D
     private const int MaxFluidUpdatesPerWorker = 512;
     private const int MaxChunkEvictionsPerFrame = 2;
 
-    private readonly WorldUpdateQueue _worldUpdates = new();
-    private readonly WorldTickClock _worldTicks = new();
-    private readonly FluidUpdateQueue _fluidUpdates = new();
-    private readonly FluidMeshUpdateQueue _fluidMeshUpdates = new();
-    private readonly BlockPhysicsUpdateQueue _blockPhysicsUpdates = new();
-    private readonly MeshletContentRevisions _contentRevisions = new();
-    private readonly MeshletContentRevisions _fluidContentRevisions = new();
-    private ChunkResidencyRuntime _residency = null!;
-    private ChunkPresentationController _chunkPresentations = null!;
-    private ChunkStreamingController _chunkStreaming = null!;
+    private WorldUpdateQueue _worldUpdates =>
+        _sessions.Active.WorldUpdates;
+    private WorldTickClock _worldTicks =>
+        _sessions.Active.WorldTicks;
+    private FluidUpdateQueue _fluidUpdates =>
+        _sessions.Active.FluidUpdates;
+    private FluidMeshUpdateQueue _fluidMeshUpdates =>
+        _sessions.Active.FluidMeshUpdates;
+    private BlockPhysicsUpdateQueue _blockPhysicsUpdates =>
+        _sessions.Active.BlockPhysicsUpdates;
+    private MeshletContentRevisions _contentRevisions =>
+        _sessions.Active.ContentRevisions;
+    private MeshletContentRevisions _fluidContentRevisions =>
+        _sessions.Active.FluidContentRevisions;
+    private ChunkResidencyRuntime _residency =>
+        _sessions.Active.Residency;
+    private ChunkPresentationController _chunkPresentations =>
+        _sessions.Active.Presentations;
+    private ChunkStreamingController _chunkStreaming =>
+        _sessions.Active.Streaming;
 
     private PackSelection _packSelection =
         PackSelection.Default;
     private JsonElement _uiTheme;
 
-    private readonly VoxelWorld _world = new();
-    private VoxelMutationRuntime _mutations = null!;
-    private BlockInteractionRuntime _blockInteractions = null!;
-    private BlockEntityFrameController _blockEntities = null!;
+    private VoxelWorld _world =>
+        _sessions.Active.World;
+    private VoxelMutationRuntime _mutations =>
+        _sessions.Active.Mutations;
+    private BlockInteractionRuntime _blockInteractions =>
+        _sessions.Active.BlockInteractions;
+    private BlockEntityFrameController _blockEntities =>
+        _sessions.Active.BlockEntities;
     private UnderwaterViewPresentation? _underwaterView;
 
-    private TerrainMeshPipeline _terrainMeshPipeline = null!;
-    private FluidMeshPipeline _fluidMeshPipeline = null!;
-    private FluidSimulationRuntime _fluidSimulationRuntime = null!;
-    private LightingRuntime _lightingRuntime = null!;
+    private TerrainMeshPipeline _terrainMeshPipeline =>
+        _sessions.Active.TerrainMesh;
+    private FluidMeshPipeline _fluidMeshPipeline =>
+        _sessions.Active.FluidMesh;
+    private FluidSimulationRuntime _fluidSimulationRuntime =>
+        _sessions.Active.FluidSimulation;
+    private LightingRuntime _lightingRuntime =>
+        _sessions.Active.Lighting;
 
     private BlockRegistry _blocks = null!;
     private FluidRegistry _fluids = null!;
     private BiomeRegistry _biomes = null!;
     private DimensionRegistry _dimensions = null!;
-    private DimensionDefinition _dimension = null!;
-    private BiomeWorldGenerator _worldGenerator = null!;
-    private ulong _dimensionSeed;
-    private ChunkCoord _spawnChunk;
+    private DimensionSessionStateStore _sessionStates = null!;
+    private DimensionSessionController _sessions = null!;
+    private DimensionDefinition _dimension =>
+        _sessions.Active.Dimension;
+    private BiomeWorldGenerator _worldGenerator =>
+        _sessions.Active.Generator;
+    private ulong _dimensionSeed =>
+        _sessions.Active.DimensionSeed;
+    private ChunkCoord _spawnChunk =>
+        _sessions.Active.InitialStreamingCenter;
     private DimensionEnvironmentPresentation _dimensionEnvironment = null!;
     private FpsPlayer? _player;
     private Node _webUi = null!;
@@ -87,163 +111,51 @@ public partial class Main : Node3D
                 _packSelection);
         SetupWebUi();
 
-        _blocks = BlockContentLoader.LoadProjectBlocks(_packSelection);
-        _fluids = FluidContentLoader.LoadProjectFluids(_packSelection);
-        _biomes = BiomeContentLoader.LoadProjectBiomes(_packSelection);
+        _blocks =
+            BlockContentLoader.LoadProjectBlocks(
+                _packSelection);
+        _fluids =
+            FluidContentLoader.LoadProjectFluids(
+                _packSelection);
+        _biomes =
+            BiomeContentLoader.LoadProjectBiomes(
+                _packSelection);
         _dimensions =
             DimensionContentLoader.LoadProjectDimensions(
                 _packSelection);
         _dimensions.ValidateBiomes(
             _biomes);
-        _dimension =
-            _dimensions.Get(
-                new DimensionId(
-                    StartupDimensionId));
-        _dimensionSeed =
-            DimensionSeed.Derive(
-                WorldSeed,
-                _dimension.Id);
-        _worldGenerator =
-            new BiomeWorldGenerator(
-                _dimensionSeed,
-                _dimension,
+
+        _terrainTextures =
+            TerrainTextureCatalog.Create(
                 _blocks,
-                _biomes);
-        _spawnChunk =
-            VoxelCoordinates.FromWorld(
-                _dimension.Spawn.X,
-                0,
-                _dimension.Spawn.Z).Chunk;
-        _dimensionEnvironment =
-            new DimensionEnvironmentPresentation(
-                this);
-        _dimensionEnvironment.Apply(
-            _dimension);
-        var droppedBlocks =
-            new DroppedBlockRuntime(
-                _world,
-                _blocks);
-        _mutations = new VoxelMutationRuntime(
-            _world,
-            _worldUpdates,
-            _fluidUpdates,
-            _fluidMeshUpdates,
-            _blockPhysicsUpdates,
-            _contentRevisions,
-            _fluidContentRevisions);
-        var lightingIntegration =
-            new LightingResultIntegrator(
-                _world,
-                _worldUpdates,
-                _fluidMeshUpdates);
-        _fluidSimulationRuntime =
-            new FluidSimulationRuntime(
-                _world,
-                _fluids,
-                _fluidUpdates,
-                _mutations,
-                _worldTicks,
-                WorldTicksPerSecond,
-                MaxFluidUpdatesPerWorker);
-        _lightingRuntime =
-            new LightingRuntime(
-                _world,
-                _blocks,
-                _fluids,
-                _worldUpdates,
-                lightingIntegration);
-        var blockPhysics =
-            new BlockPhysicsRuntime(
-                _world,
-                _blocks,
-                _mutations,
-                _blockPhysicsUpdates,
-                droppedBlocks);
-        _blockInteractions =
-            new BlockInteractionRuntime(
-                _world,
-                _blocks,
-                _mutations,
-                droppedBlocks);
-        _terrainTextures = TerrainTextureCatalog.Create(_blocks, _packSelection);
-        _terrainTextureLookup = _terrainTextures.CreateLookup();
-        _terrainMaterials = VoxelTerrainMaterialSet.Create(_terrainTextures);
+                _packSelection);
+        _terrainTextureLookup =
+            _terrainTextures.CreateLookup();
+        _terrainMaterials =
+            VoxelTerrainMaterialSet.Create(
+                _terrainTextures);
         _fluidMaterials =
             FluidMaterialCatalog.Create(
                 _fluids,
                 _packSelection);
-        var blockEntityPresentations =
-            new BlockEntityPresentationController(
-                this,
-                _blocks,
-                _fluids,
-                _terrainTextureLookup,
-                _terrainMaterials);
-        _blockEntities =
-            new BlockEntityFrameController(
-                _worldTicks,
-                blockPhysics,
-                droppedBlocks,
-                _blockPhysicsUpdates,
-                blockEntityPresentations);
-        _residency =
-            new ChunkResidencyRuntime(
-                _world,
-                _blocks,
-                _fluids,
-                _worldGenerator,
-                _worldUpdates,
-                _fluidUpdates,
-                _fluidMeshUpdates,
-                blockPhysics,
-                _contentRevisions,
-                _fluidContentRevisions,
-                _worldTicks,
-                new ChunkResidencySettings(
-                    MaxMaterializationTasksInFlight,
-                    MaxMaterializationDispatchesPerFrame,
-                    MaxMaterializationResultsPerFrame,
-                    MaxChunkEvictionsPerFrame,
-                    WorldTicksPerSecond));
-        _chunkPresentations =
-            new ChunkPresentationController(
-                this,
-                _world,
-                _worldUpdates,
-                _fluidMeshUpdates,
-                _contentRevisions,
-                _fluidContentRevisions,
-                _terrainMaterials,
-                _fluidMaterials);
-        _terrainMeshPipeline =
-            new TerrainMeshPipeline(
-                _world,
-                _blocks,
-                _terrainTextureLookup,
-                _worldUpdates,
-                _contentRevisions,
-                _chunkPresentations,
-                MaxInteractiveTerrainMeshletsPerWorker,
-                MaxTerrainMeshletsPerWorker);
-        _fluidMeshPipeline =
-            new FluidMeshPipeline(
-                _world,
-                _blocks,
-                _fluids,
-                _fluidMeshUpdates,
-                _fluidContentRevisions,
-                _chunkPresentations,
-                MaxFluidMeshletsPerWorker);
-        _chunkStreaming =
-            new ChunkStreamingController(
-                _residency,
-                _chunkPresentations,
-                new ChunkStreamingControllerSettings(
-                    RenderDistanceChunks,
-                    RetentionMarginChunks,
-                    minimumChunkY: 0,
-                    maximumChunkY: 1,
-                    MaxPresentationPublicationsPerFrame));
+
+        _dimensionEnvironment =
+            new DimensionEnvironmentPresentation(
+                this);
+        _sessionStates =
+            new DimensionSessionStateStore(
+                WorldSeed,
+                _dimensions);
+        _sessions =
+            new DimensionSessionController(
+                _sessionStates,
+                CreateDimensionSession);
+        _sessions.Start(
+            new DimensionId(
+                StartupDimensionId));
+        ActivateCurrentDimensionPresentation();
+
         _placementBlock =
             _blocks.GetId(TestChunkFactory.StoneId);
         SendHotbarState();
@@ -266,9 +178,8 @@ public partial class Main : Node3D
             $"retention_margin={RetentionMarginChunks} " +
             $"materialization_in_flight={MaxMaterializationTasksInFlight}");
 
-        // Loading starts around the origin. The player is spawned only after
-        // the center chunk presentation is fully published, so physics cannot
-        // fall through an empty world while initial streaming catches up.
+        // Player activation waits for the active dimension's streaming center
+        // presentation so physics never starts over an unpublished world.
         ReportStreamingSelection(
             _chunkStreaming.SyncSelection(
                 CurrentStreamingCenter()));
