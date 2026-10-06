@@ -25,14 +25,10 @@ internal static class ProjectPackPaths
         }
 
         if (path.StartsWith(
-                '/',
+                "/",
                 StringComparison.Ordinal) ||
-            path.Contains(
-                '\',
-                StringComparison.Ordinal) ||
-            path.Contains(
-                ':',
-                StringComparison.Ordinal))
+            path.Contains('\\') ||
+            path.Contains(':'))
         {
             throw new ArgumentException(
                 $"Pack-relative path is invalid: {path}",
