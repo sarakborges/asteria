@@ -38,6 +38,8 @@ The current milestone proves the base runtime architecture without introducing w
 - block and fluid occupancy are mutually exclusive: placing or settling a block replaces fluid in that voxel, fluid cannot enter a solid cell, breaking/removing a block immediately wakes fluid topology, and refill still follows authored fluid timing;
 - a block mutation that displaces fluid publishes one shared consequence fan-out—terrain/fluid mesh halos, lighting, topology, physics and revisions are not double-enqueued or double-revisioned; boundary edits invalidate every loaded chunk whose one-voxel halo observes the change;
 - incremental bounded fluid simulation with source cells, 8 visual levels, vertical falling columns and authored horizontal spread distance;
+- fluid hot paths avoid per-evaluation candidate/surface-sample allocations: horizontal candidate ordering uses a fixed four-entry stack buffer, and smoothed corner sampling is allocation-free;
+- fluid worker snapshots are bounded to the horizontal authored spread envelope plus only the seed chunk layer and its immediate vertical neighbors; unrelated vertical chunks are not cloned into worker jobs;
 - a 40 Hz engine-agnostic world tick clock drives authored fluid spreadSpeed; fluid ticks keep the earliest due time, round-robin equal-due work across chunks and become dormant while their chunk is unloaded;
 - horizontal fluid spreading searches for the nearest reachable drop within the remaining authored range and prefers first-step directions that lead downhill, while falling columns reset their horizontal spread run;
 - fluid meshlets are built and published independently from terrain meshlets, using smoothed corner heights and a dedicated translucent material path;
