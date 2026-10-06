@@ -108,6 +108,8 @@ public sealed class BiomeDefinition
                 nameof(layers));
         }
 
+        uint finiteDepth = 0;
+
         for (var index = 0;
              index < layers.Count;
              index++)
@@ -134,6 +136,21 @@ public sealed class BiomeDefinition
                 throw new ArgumentException(
                     "The final biome core layer cannot author a surface patch.",
                     nameof(layers));
+            }
+
+            if (layer.Depth is { } depth)
+            {
+                finiteDepth =
+                    checked(
+                        finiteDepth +
+                        depth);
+
+                if (finiteDepth > 64)
+                {
+                    throw new ArgumentException(
+                        "Biome finite surface-layer depth cannot exceed 64 blocks.",
+                        nameof(layers));
+                }
             }
         }
     }
@@ -301,12 +318,40 @@ public sealed class BiomeSurfaceLayerDefinition
     internal static void ValidateBlockId(string id)
     {
         if (string.IsNullOrWhiteSpace(id) ||
-            id != id.Trim() ||
-            id.Split(':').Length != 2)
+            id != id.Trim())
         {
             throw new ArgumentException(
                 $"Invalid namespaced block id: {id}",
                 nameof(id));
+        }
+
+        var split =
+            id.Split(':');
+        if (split.Length != 2 ||
+            split[0].Length == 0 ||
+            split[1].Length == 0 ||
+            id.Contains(
+                "..",
+                StringComparison.Ordinal))
+        {
+            throw new ArgumentException(
+                $"Invalid namespaced block id: {id}",
+                nameof(id));
+        }
+
+        foreach (var character in id)
+        {
+            var valid =
+                character is >= 'a' and <= 'z' ||
+                character is >= '0' and <= '9' ||
+                character is ':' or '/' or '_' or '-' or '.';
+
+            if (!valid)
+            {
+                throw new ArgumentException(
+                    $"Invalid block id character '{character}' in {id}.",
+                    nameof(id));
+            }
         }
     }
 }
