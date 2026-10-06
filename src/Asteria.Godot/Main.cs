@@ -24,11 +24,13 @@ public partial class Main : Node3D
     private const int MaxFluidMeshletPublishesPerFrame = 4;
     private const int MaxFluidUpdatesPerWorker = 512;
     private const int MaxChunkEvictionsPerFrame = 2;
+    private const double WorldGravityStrength = 18.0;
 
     private readonly WorldUpdateQueue _worldUpdates = new();
     private readonly WorldTickClock _worldTicks = new();
     private readonly FluidUpdateQueue _fluidUpdates = new();
     private readonly FluidMeshUpdateQueue _fluidMeshUpdates = new();
+    private readonly BlockGravityUpdateQueue _blockGravityUpdates = new();
     private readonly MeshletContentRevisions _contentRevisions = new();
     private readonly MeshletContentRevisions _fluidContentRevisions = new();
     private readonly ChunkStreamingState _streaming = new();
@@ -43,7 +45,12 @@ public partial class Main : Node3D
         _pendingFluidMeshletPublications = new();
 
     private readonly VoxelWorld _world = new();
+    private readonly Dictionary<FallingBlockId, FallingBlockPresentation>
+        _fallingBlockPresentations = [];
+    private readonly Dictionary<VoxelCell, ArrayMesh>
+        _fallingBlockMeshes = [];
     private VoxelMutationRuntime _mutations = null!;
+    private BlockGravityRuntime _blockGravity = null!;
 
     private Task<MeshUpdateBuild>? _meshTask;
     private Task<FluidMeshUpdateBuild>? _fluidMeshTask;
@@ -73,11 +80,17 @@ public partial class Main : Node3D
             _worldUpdates,
             _fluidUpdates,
             _fluidMeshUpdates,
+            _blockGravityUpdates,
             _contentRevisions,
             _fluidContentRevisions);
 
         _blocks = BlockContentLoader.LoadProjectBlocks();
         _fluids = FluidContentLoader.LoadProjectFluids();
+        _blockGravity = new BlockGravityRuntime(
+            _world,
+            _blocks,
+            _mutations,
+            _blockGravityUpdates);
         _terrainTextures = TerrainTextureCatalog.Create(_blocks);
         _terrainTextureLookup = _terrainTextures.CreateLookup();
         _terrainMaterials = VoxelTerrainMaterialSet.Create(_terrainTextures);
@@ -114,6 +127,7 @@ public partial class Main : Node3D
         CollectMaterializationResults();
         DispatchMaterializationTasks();
         PublishPendingPresentations();
+        ProcessBlockPhysics(delta);
 
         PollFluidTask();
         PollFluidMeshTask();
@@ -235,6 +249,8 @@ public partial class Main : Node3D
                 fluidUpdates = _fluidUpdates.Count,
                 fluidScheduled = _fluidUpdates.ScheduledCount,
                 fluidDormantChunks = _fluidUpdates.DormantChunkCount,
+                fallingBlocks = _blockGravity.ActiveCount,
+                gravityUpdates = _blockGravityUpdates.Count,
                 worldTick = _worldTicks.CurrentTick,
                 textures = _terrainTextures.TextureCount,
                 meshletsPerChunk = ChunkMeshletMask.Count,
@@ -836,6 +852,85 @@ public partial class Main : Node3D
         TryStartFluidMeshTask();
         TryStartMeshTask();
         TryStartLightingTask();
+    }
+
+    private void ProcessBlockPhysics(double delta)
+    {
+        var started = 0;
+
+        if (_worldTicks.TicksThisFrame > 0)
+        {
+            started =
+                _blockGravity.ProcessWakeups();
+        }
+
+        var landed =
+            _blockGravity.Advance(
+                delta,
+                WorldGravityStrength);
+
+        SyncFallingBlockPresentations();
+
+        if (started > 0 || landed > 0)
+        {
+            GD.Print(
+                $"world.block_gravity started={started} " +
+                $"landed={landed} " +
+                $"active={_blockGravity.ActiveCount} " +
+                $"queued={_blockGravityUpdates.Count}");
+        }
+    }
+
+    private void SyncFallingBlockPresentations()
+    {
+        var active = new HashSet<FallingBlockId>();
+
+        foreach (var state in
+                 _blockGravity.ActiveBlocks)
+        {
+            active.Add(state.Id);
+
+            if (!_fallingBlockPresentations.TryGetValue(
+                    state.Id,
+                    out var presentation))
+            {
+                if (!_fallingBlockMeshes.TryGetValue(
+                        state.Cell,
+                        out var mesh))
+                {
+                    mesh =
+                        FallingBlockPresentation.BuildMesh(
+                            state.Cell,
+                            _blocks,
+                            _fluids,
+                            _terrainTextureLookup,
+                            _terrainMaterials);
+                    _fallingBlockMeshes.Add(
+                        state.Cell,
+                        mesh);
+                }
+
+                presentation =
+                    new FallingBlockPresentation(
+                        state,
+                        mesh);
+                _fallingBlockPresentations.Add(
+                    state.Id,
+                    presentation);
+                AddChild(presentation.Root);
+            }
+
+            presentation.Apply(state);
+        }
+
+        foreach (var id in
+                 _fallingBlockPresentations.Keys
+                     .Where(id => !active.Contains(id))
+                     .ToArray())
+        {
+            _fallingBlockPresentations[id].Retire();
+            _fallingBlockPresentations.Remove(id);
+        }
     }
 
     private bool TryGetTarget(
