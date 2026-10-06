@@ -15,6 +15,10 @@ The current milestone proves the base runtime architecture without introducing w
 - `VoxelCell` runtime state separated from block definitions;
 - 16×16×16 chunks with compact palette storage: `ushort` voxel indices, dynamic palettes, O(1) value lookup, reusable palette slots and sparse occupancy bitsets;
 - multi-chunk `VoxelWorld` runtime with world-space reads/writes across chunk boundaries;
+- chunk residency is a Core lifecycle concern: selection, archive-first restore, bounded materialization and eviction are owned by `ChunkResidencyRuntime`, while Godot owns only presentation nodes and publication;
+- residency and presentation are distinct facts; meshlet publications are deduplicated per chunk/meshlet and stale publications are revision-checked before touching Godot objects;
+- block interaction decisions live in Core: break/place resolve against the authoritative target, loaded/occupied state, authored support rules and the placed block's real collision geometry before the mutation boundary is invoked;
+- voxel targeting uses macro-voxel DDA and enters the 32³ narrow phase only for partial or microblock geometry, preserving exact layer/hollow/microblock hits without fine-stepping through ordinary empty/cube space;
 - one authoritative voxel-mutation runtime for block and fluid edits: successful mutations enforce block/fluid co-occupancy rules and publish all required terrain/fluid mesh, lighting, topology and block-physics consequences through one owner;
 - shared deterministic work primitives own deduplicated FIFO scheduling and adaptive frame budgets instead of local queue/set and stopwatch patterns;
 - resident chunks carry a globally unique residency epoch paired with their local content revision; async work captures dependency stamps and rejects results from changed or reloaded chunks;
