@@ -1,3 +1,4 @@
+import { applyUiTheme } from "../theme/uiTheme";
 import type { BridgeMessage } from "../bridge/godotBridge";
 import type { GameHudPageView } from "../components/pages/GameHudPage";
 
@@ -31,6 +32,10 @@ export function createHudController(
         `godot → webui: ${message.type}`;
 
       switch (message.type) {
+        case "game.ui_theme":
+          applyUiTheme(message.payload);
+          break;
+
         case "game.ready":
           view.statusCard.bridgeStatus.setLabel("bridge connected");
           view.statusCard.bridgeStatus.setTone("connected");
