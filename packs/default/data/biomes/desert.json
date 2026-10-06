@@ -1,0 +1,33 @@
+{
+  "id": "asteria:overworld/desert",
+  "surfaceLayout": {
+    "weight": 0.68,
+    "regionSize": {
+      "min": 256,
+      "max": 512
+    },
+    "cannotBorder": [
+      "asteria:overworld/swamp"
+    ]
+  },
+  "surfaceTerrain": {
+    "baseHeight": 7.0,
+    "macroAmplitude": 7.0,
+    "macroScale": 832,
+    "detailAmplitude": 2.5,
+    "detailScale": 144
+  },
+  "surfaceLayers": [
+    {
+      "block": "asteria:sand",
+      "depth": 4
+    },
+    {
+      "block": "asteria:gravel",
+      "depth": 2
+    },
+    {
+      "block": "asteria:stone"
+    }
+  ]
+}
