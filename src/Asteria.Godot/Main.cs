@@ -127,7 +127,10 @@ public partial class Main : Node3D
         _terrainTextures = TerrainTextureCatalog.Create(_blocks, _packSelection);
         _terrainTextureLookup = _terrainTextures.CreateLookup();
         _terrainMaterials = VoxelTerrainMaterialSet.Create(_terrainTextures);
-        _fluidMaterials = FluidMaterialCatalog.Create(_fluids);
+        _fluidMaterials =
+            FluidMaterialCatalog.Create(
+                _fluids,
+                _packSelection);
         var blockEntityPresentations =
             new BlockEntityPresentationController(
                 this,

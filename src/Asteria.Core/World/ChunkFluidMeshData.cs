@@ -5,6 +5,7 @@ namespace Asteria.Core.World;
 public readonly record struct FluidMeshVertex(
     Vector3 Position,
     Vector3 Normal,
+    Vector2 Uv,
     Vector4 TintAndAo,
     Vector4 VoxelLight);
 

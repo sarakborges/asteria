@@ -134,7 +134,8 @@ public sealed class FluidDefinition
         float spreadSpeed = 1f,
         ushort maxSpread = 7,
         BlockLightEmission lightEmission = default,
-        FluidMotionDefinition? motion = null)
+        FluidMotionDefinition? motion = null,
+        string? texture = null)
     {
         if (string.IsNullOrWhiteSpace(id) ||
             id != id.Trim() ||
@@ -176,6 +177,15 @@ public sealed class FluidDefinition
                 "Fluid spread speed must be finite and non-negative.");
         }
 
+        if (texture is not null &&
+            (string.IsNullOrWhiteSpace(texture) ||
+             texture != texture.Trim()))
+        {
+            throw new ArgumentException(
+                "Fluid texture path must be non-empty and trimmed when provided.",
+                nameof(texture));
+        }
+
         Id = id;
         Color = color;
         Opacity = opacity;
@@ -187,6 +197,7 @@ public sealed class FluidDefinition
         Motion =
             motion ??
             FluidMotionDefinition.Default;
+        Texture = texture;
     }
 
     public string Id { get; }
@@ -206,6 +217,8 @@ public sealed class FluidDefinition
     public BlockLightEmission LightEmission { get; }
 
     public FluidMotionDefinition Motion { get; }
+
+    public string? Texture { get; }
 }
 
 public static class FluidDefinitionJson
@@ -227,7 +240,8 @@ public static class FluidDefinitionJson
             OptionalSingle(root, "spreadSpeed") ?? 1f,
             OptionalUShort(root, "maxSpread") ?? 7,
             ParseLightEmission(root),
-            ParseMotion(root));
+            ParseMotion(root),
+            OptionalString(root, "texture"));
     }
 
     private static FluidMotionDefinition ParseMotion(
@@ -362,6 +376,25 @@ public static class FluidDefinitionJson
         }
 
         return value.GetString()!;
+    }
+
+    private static string? OptionalString(
+        JsonElement element,
+        string name)
+    {
+        if (!element.TryGetProperty(name, out var value) ||
+            value.ValueKind == JsonValueKind.Null)
+        {
+            return null;
+        }
+
+        if (value.ValueKind != JsonValueKind.String)
+        {
+            throw new FormatException(
+                $"{name} must be a string.");
+        }
+
+        return value.GetString();
     }
 
     private static float RequiredSingle(
