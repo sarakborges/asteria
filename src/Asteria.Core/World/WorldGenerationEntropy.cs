@@ -22,26 +22,6 @@ internal readonly record struct GenerationDomain(ulong Key)
             Mix(hash));
     }
 
-    private static long FloorDivRem(
-        int value,
-        long divisor,
-        out long remainder)
-    {
-        var quotient =
-            Math.DivRem(
-                (long)value,
-                divisor,
-                out remainder);
-
-        if (remainder >= 0)
-        {
-            return quotient;
-        }
-
-        remainder += divisor;
-        return quotient - 1;
-    }
-
     private static ulong Mix(
         ulong value)
     {
@@ -262,6 +242,26 @@ internal static class WorldGenerationEntropy
         return clamped *
                clamped *
                (3d - 2d * clamped);
+    }
+
+    private static long FloorDivRem(
+        int value,
+        long divisor,
+        out long remainder)
+    {
+        var quotient =
+            Math.DivRem(
+                (long)value,
+                divisor,
+                out remainder);
+
+        if (remainder >= 0)
+        {
+            return quotient;
+        }
+
+        remainder += divisor;
+        return quotient - 1;
     }
 
     private static ulong Mix(
