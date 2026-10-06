@@ -291,8 +291,8 @@ public sealed class FluidUpdateQueue
     {
         private readonly Dictionary<ChunkCoord, Queue<FluidTickKey>>
             _byChunk = [];
-        private readonly Queue<ChunkCoord> _activeChunks = [];
-        private readonly HashSet<ChunkCoord> _activeSet = [];
+        private readonly DeduplicatedQueue<ChunkCoord>
+            _activeChunks = new();
 
         public bool IsEmpty =>
             _activeChunks.Count == 0;
@@ -315,19 +315,14 @@ public sealed class FluidUpdateQueue
 
             queue.Enqueue(key);
 
-            if (_activeSet.Add(coord))
-            {
-                _activeChunks.Enqueue(coord);
-            }
+            _activeChunks.Enqueue(coord);
         }
 
         public FluidTickKey? Pop()
         {
-            while (_activeChunks.Count > 0)
+            while (_activeChunks.TryDequeue(
+                       out var coord))
             {
-                var coord =
-                    _activeChunks.Dequeue();
-                _activeSet.Remove(coord);
 
                 if (!_byChunk.TryGetValue(
                         coord,
@@ -343,7 +338,6 @@ public sealed class FluidUpdateQueue
                 if (queue.Count > 0)
                 {
                     _activeChunks.Enqueue(coord);
-                    _activeSet.Add(coord);
                 }
                 else
                 {

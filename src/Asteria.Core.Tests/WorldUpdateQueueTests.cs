@@ -27,6 +27,22 @@ public sealed class WorldUpdateQueueTests
     }
 
     [Fact]
+    public void LightingDrainPreservesFirstEnqueueOrderAndDeduplicates()
+    {
+        var queue = new WorldUpdateQueue();
+        var first = new WorldVoxelCoord(4, 2, 8);
+        var second = new WorldVoxelCoord(1, 2, 3);
+
+        queue.EnqueueLighting(first);
+        queue.EnqueueLighting(second);
+        queue.EnqueueLighting(first);
+
+        Assert.Equal(
+            new[] { first, second },
+            queue.DrainLighting().EditedPositions);
+    }
+
+    [Fact]
     public void LightingOnlyRemeshDoesNotCreateAnotherLightingEdit()
     {
         var world = new VoxelWorld();
@@ -62,6 +78,34 @@ public sealed class MeshletContentRevisionsTests
             new WorldVoxelCoord(12, 12, 12));
 
         Assert.True(revisions.IsCurrent(key, captured));
+    }
+
+    [Fact]
+    public void RemovedChunkDropsMeshletRevisionState()
+    {
+        var world = new VoxelWorld();
+        world.InsertChunk(
+            ChunkCoord.Zero,
+            new Chunk());
+        var revisions =
+            new MeshletContentRevisions();
+        var key =
+            new ChunkMeshletKey(
+                ChunkCoord.Zero,
+                0);
+
+        revisions.BumpVoxelEdit(
+            world,
+            new WorldVoxelCoord(2, 2, 2));
+
+        Assert.True(revisions.Get(key) > 0);
+
+        revisions.RemoveChunk(
+            ChunkCoord.Zero);
+
+        Assert.Equal(
+            0UL,
+            revisions.Get(key));
     }
 
     [Fact]

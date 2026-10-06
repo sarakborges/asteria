@@ -27,7 +27,10 @@ public readonly record struct FluidWorldEdit(
 public sealed class VoxelWorld
 {
     private readonly Dictionary<ChunkCoord, Chunk> _chunks = [];
+    private readonly Dictionary<ChunkCoord, ulong>
+        _residencyEpochs = [];
     private readonly SessionChunkArchiveStore _archive = new();
+    private ulong _nextResidencyEpoch;
 
     public ulong Revision { get; private set; }
 
@@ -57,6 +60,7 @@ public sealed class VoxelWorld
         _archive.TrackMaterialized(
             coord,
             chunk.Revision);
+        AssignResidencyEpoch(coord);
         Revision++;
     }
 
@@ -72,6 +76,7 @@ public sealed class VoxelWorld
             return ChunkArchiveResult.NotResident;
         }
 
+        _residencyEpochs.Remove(coord);
         var result = _archive.Archive(coord, chunk);
         Revision++;
         return result;
@@ -90,6 +95,7 @@ public sealed class VoxelWorld
         }
 
         _chunks.Add(coord, chunk);
+        AssignResidencyEpoch(coord);
         Revision++;
         return ChunkRestoreResult.Restored;
     }
@@ -101,6 +107,84 @@ public sealed class VoxelWorld
         _chunks.TryGetValue(coord, out var chunk)
             ? chunk
             : throw new KeyNotFoundException($"Chunk is not resident: {coord}");
+
+    public bool TryGetContentRevision(
+        ChunkCoord coord,
+        out ChunkContentRevision revision)
+    {
+        if (!_chunks.TryGetValue(
+                coord,
+                out var chunk) ||
+            !_residencyEpochs.TryGetValue(
+                coord,
+                out var epoch))
+        {
+            revision = default;
+            return false;
+        }
+
+        revision =
+            new ChunkContentRevision(
+                epoch,
+                chunk.Revision);
+        return true;
+    }
+
+    public ChunkContentRevision GetContentRevision(
+        ChunkCoord coord) =>
+        TryGetContentRevision(
+            coord,
+            out var revision)
+            ? revision
+            : throw new KeyNotFoundException(
+                $"Chunk content revision is unavailable: {coord}");
+
+    public ChunkContentStamp CaptureContentStamp(
+        IEnumerable<ChunkCoord> coordinates)
+    {
+        ArgumentNullException.ThrowIfNull(coordinates);
+
+        var revisions =
+            new Dictionary<ChunkCoord, ChunkContentRevision>();
+
+        foreach (var coord in coordinates
+                     .Distinct()
+                     .OrderBy(coord => coord.Y)
+                     .ThenBy(coord => coord.Z)
+                     .ThenBy(coord => coord.X))
+        {
+            if (TryGetContentRevision(
+                    coord,
+                    out var revision))
+            {
+                revisions.Add(
+                    coord,
+                    revision);
+            }
+        }
+
+        return new ChunkContentStamp(revisions);
+    }
+
+    public bool IsContentStampCurrent(
+        ChunkContentStamp stamp)
+    {
+        ArgumentNullException.ThrowIfNull(stamp);
+
+        foreach (var (coord, expected) in
+                 stamp.Entries)
+        {
+            if (!TryGetContentRevision(
+                    coord,
+                    out var current) ||
+                current != expected)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     public bool IsLoadedAt(WorldVoxelCoord position) =>
         ContainsChunk(VoxelCoordinates.FromWorld(
@@ -334,6 +418,19 @@ public sealed class VoxelWorld
             }
         }
 
+        foreach (var (coord, epoch) in
+                 _residencyEpochs)
+        {
+            if (clone._chunks.ContainsKey(coord))
+            {
+                clone._residencyEpochs.Add(
+                    coord,
+                    epoch);
+            }
+        }
+
+        clone._nextResidencyEpoch =
+            _nextResidencyEpoch;
         clone.Revision = Revision;
         return clone;
     }
@@ -420,5 +517,16 @@ public sealed class VoxelWorld
                 chunk.CopyLightFrom(sourceChunk);
             }
         }
+    }
+
+    private void AssignResidencyEpoch(
+        ChunkCoord coord)
+    {
+        _nextResidencyEpoch =
+            _nextResidencyEpoch == ulong.MaxValue
+                ? 1
+                : _nextResidencyEpoch + 1;
+        _residencyEpochs[coord] =
+            _nextResidencyEpoch;
     }
 }

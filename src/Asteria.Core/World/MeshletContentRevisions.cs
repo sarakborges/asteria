@@ -77,4 +77,15 @@ public sealed class MeshletContentRevisions
         ChunkMeshletKey key,
         ulong revision) =>
         Get(key) == revision;
+
+    public void RemoveChunk(ChunkCoord coord)
+    {
+        foreach (var key in
+                 _revisions.Keys
+                     .Where(key => key.Chunk == coord)
+                     .ToArray())
+        {
+            _revisions.Remove(key);
+        }
+    }
 }

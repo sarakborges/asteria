@@ -143,6 +143,68 @@ public sealed class VoxelWorldTests
     }
 
     [Fact]
+    public void ContentStampRejectsMutationAndReloadedResidency()
+    {
+        var world = new VoxelWorld();
+        var coord = ChunkCoord.Zero;
+        world.InsertChunk(coord, new Chunk());
+
+        var initial =
+            world.GetContentRevision(coord);
+        var stamp =
+            world.CaptureContentStamp([coord]);
+
+        Assert.True(
+            world.IsContentStampCurrent(stamp));
+
+        Assert.True(
+            world.SetBlockAt(
+                new WorldVoxelCoord(1, 1, 1),
+                new BlockRuntimeId(1),
+                out _));
+
+        var edited =
+            world.GetContentRevision(coord);
+
+        Assert.Equal(
+            initial.ResidencyEpoch,
+            edited.ResidencyEpoch);
+        Assert.NotEqual(
+            initial.ChunkRevision,
+            edited.ChunkRevision);
+        Assert.False(
+            world.IsContentStampCurrent(stamp));
+
+        var editedStamp =
+            world.CaptureContentStamp([coord]);
+
+        Assert.Equal(
+            ChunkArchiveResult.ArchivedDirty,
+            world.ArchiveChunk(coord));
+        Assert.False(
+            world.TryGetContentRevision(
+                coord,
+                out _));
+
+        Assert.Equal(
+            ChunkRestoreResult.Restored,
+            world.RestoreChunk(coord));
+
+        var restored =
+            world.GetContentRevision(coord);
+
+        Assert.NotEqual(
+            edited.ResidencyEpoch,
+            restored.ResidencyEpoch);
+        Assert.Equal(
+            edited.ChunkRevision,
+            restored.ChunkRevision);
+        Assert.False(
+            world.IsContentStampCurrent(
+                editedStamp));
+    }
+
+    [Fact]
     public void WorkerCloneKeepsIndependentChunkStateAndRevision()
     {
         var world = new VoxelWorld();

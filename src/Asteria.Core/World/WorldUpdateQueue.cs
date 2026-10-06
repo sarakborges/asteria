@@ -2,7 +2,7 @@ namespace Asteria.Core.World;
 
 public sealed class WorldUpdateQueue
 {
-    private readonly HashSet<WorldVoxelCoord> _lightingEdits = [];
+    private readonly DeduplicatedQueue<WorldVoxelCoord> _lightingEdits = new();
     private readonly Dictionary<ChunkCoord, ChunkMeshletMask> _dirtyMeshlets = [];
 
     public bool HasWork => HasLightingWork || HasMeshWork;
@@ -21,14 +21,14 @@ public sealed class WorldUpdateQueue
     {
         ArgumentNullException.ThrowIfNull(world);
 
-        _lightingEdits.Add(position);
+        _lightingEdits.Enqueue(position);
         EnqueueVoxelMeshlets(world, position);
     }
 
     public void EnqueueLighting(
         WorldVoxelCoord position)
     {
-        _lightingEdits.Add(position);
+        _lightingEdits.Enqueue(position);
     }
 
     public void EnqueueVoxelMeshlets(
@@ -76,9 +76,8 @@ public sealed class WorldUpdateQueue
 
     public WorldLightingBatch DrainLighting()
     {
-        var lighting = _lightingEdits.ToArray();
-        _lightingEdits.Clear();
-        return new WorldLightingBatch(lighting);
+        return new WorldLightingBatch(
+            _lightingEdits.Drain());
     }
 
     public WorldMeshBatch DrainMeshlets()
@@ -96,7 +95,7 @@ public sealed class WorldUpdateQueue
 
         foreach (var position in batch.EditedPositions)
         {
-            _lightingEdits.Add(position);
+            _lightingEdits.Enqueue(position);
         }
     }
 

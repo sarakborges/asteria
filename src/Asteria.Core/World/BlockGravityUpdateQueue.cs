@@ -2,8 +2,8 @@ namespace Asteria.Core.World;
 
 public sealed class BlockGravityUpdateQueue
 {
-    private readonly Queue<WorldVoxelCoord> _queue = new();
-    private readonly HashSet<WorldVoxelCoord> _queued = [];
+    private readonly DeduplicatedQueue<WorldVoxelCoord>
+        _queue = new();
 
     public int Count => _queue.Count;
 
@@ -17,30 +17,12 @@ public sealed class BlockGravityUpdateQueue
     public void Enqueue(
         WorldVoxelCoord position)
     {
-        if (position.Y < 0 ||
-            !_queued.Add(position))
+        if (position.Y >= 0)
         {
-            return;
+            _queue.Enqueue(position);
         }
-
-        _queue.Enqueue(position);
     }
 
-    public IReadOnlyList<WorldVoxelCoord> DrainBatch()
-    {
-        var count = _queue.Count;
-        var result =
-            new List<WorldVoxelCoord>(count);
-
-        for (var index = 0;
-             index < count;
-             index++)
-        {
-            var position = _queue.Dequeue();
-            _queued.Remove(position);
-            result.Add(position);
-        }
-
-        return result;
-    }
+    public IReadOnlyList<WorldVoxelCoord> DrainBatch() =>
+        _queue.Drain();
 }
