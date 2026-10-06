@@ -1,0 +1,22 @@
+{
+  "id": "asteria:overworld/mountains",
+  "surfaceLayout": {
+    "weight": 0.35,
+    "regionSize": {
+      "min": 256,
+      "max": 512
+    }
+  },
+  "surfaceTerrain": {
+    "baseHeight": 10,
+    "macroAmplitude": 4,
+    "macroScale": 896,
+    "detailAmplitude": 1,
+    "detailScale": 128
+  },
+  "surfaceLayers": [
+    {
+      "block": "asteria:stone"
+    }
+  ]
+}
