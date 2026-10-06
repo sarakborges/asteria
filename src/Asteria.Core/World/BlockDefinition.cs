@@ -113,20 +113,21 @@ public sealed class BlockDefinition
     private static IReadOnlySet<BlockFace> FreezePlacementFaces(
         IEnumerable<BlockFace>? placementFaces)
     {
-        var result =
-            placementFaces is null
-                ? Enum.GetValues<BlockFace>()
-                    .ToHashSet()
-                : placementFaces.ToHashSet();
+        var values =
+            (placementFaces ??
+             Enum.GetValues<BlockFace>())
+                .ToArray();
 
-        if (result.Count == 0)
+        if (values.Length == 0 ||
+            values.Distinct().Count() !=
+                values.Length)
         {
             throw new ArgumentException(
-                "Block placement faces cannot be empty.",
+                "Block placement faces must be non-empty and unique.",
                 nameof(placementFaces));
         }
 
-        return result;
+        return values.ToHashSet();
     }
 
     private static HashSet<string> ValidateTags(IEnumerable<string>? tags)
