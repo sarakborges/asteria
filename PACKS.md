@@ -76,6 +76,8 @@ Each pack has one manifest at `packs/{name}/pack.json`:
 
 Definitions may add or override namespaced blocks, fluids, biomes, structures, recipes, loot, dimensions and future definition-driven systems.
 
+Dimensions live under `data/dimensions/*.json`. A dimension is one authored world-runtime configuration and declares its stable ID, explicit biome pool, gravity strength, spawn coordinates and engine-agnostic environment presentation values. A root world seed is not duplicated into the pack; runtime derives a stable per-dimension seed from the world seed + dimension ID.
+
 Data must not contain executable gameplay code. Native/code plugins are a separate future extension system.
 
 Data definitions may reference presentation resources by logical pack-relative keys, but must not embed Godot-specific metadata.
