@@ -3,6 +3,7 @@
   "color": "4f9fd6",
   "opacity": 0.72,
   "roughness": 0.15,
+  "texture": "textures/fluids/water.png",
   "lightDampening": 1,
   "spreadSpeed": 5,
   "maxSpread": 7,
