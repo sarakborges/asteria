@@ -46,6 +46,7 @@ public partial class Main : Node3D
     private readonly FluidMeshWorker _fluidMeshWorker = new();
     private readonly FluidSimulationWorker _fluidSimulationWorker = new();
     private readonly LightingWorker _lightingWorker = new();
+    private LightingResultIntegrator _lightingIntegration = null!;
 
     private BlockRegistry _blocks = null!;
     private FluidRegistry _fluids = null!;
@@ -78,6 +79,13 @@ public partial class Main : Node3D
             _blockPhysicsUpdates,
             _contentRevisions,
             _fluidContentRevisions);
+        _lightingIntegration =
+            new LightingResultIntegrator(
+                _world,
+                _worldUpdates,
+                _fluidMeshUpdates,
+                _contentRevisions,
+                _fluidContentRevisions);
         _blockPhysics = new BlockPhysicsRuntime(
             _world,
             _blocks,
@@ -1033,32 +1041,20 @@ public partial class Main : Node3D
             return;
         }
 
-        _world.CopyLightFrom(
-            result.LightingSnapshot);
-
-        foreach (var position in
-                 result.Lighting.ChangedPositions)
-        {
-            _contentRevisions.BumpVoxelEdit(
-                _world,
-                position);
-            _fluidContentRevisions.BumpVoxelEdit(
-                _world,
-                position);
-
-            _worldUpdates.EnqueueVoxelMeshlets(
-                _world,
-                position);
-            _fluidMeshUpdates.EnqueueVoxelEdit(
-                _world,
-                position);
-        }
+        var integration =
+            _lightingIntegration.Apply(
+                result.LightingSnapshot,
+                result.Lighting.ChangedPositions);
 
         GD.Print(
             $"world.lighting worker_ms=" +
             $"{result.WorkerMilliseconds:F2} " +
             $"light_changes=" +
-            $"{result.Lighting.ChangedPositions.Count} " +
+            $"{integration.ChangedVoxelCount} " +
+            $"dirty_chunks=" +
+            $"{integration.DirtyChunkCount} " +
+            $"dirty_meshlets=" +
+            $"{integration.DirtyMeshletCount} " +
             $"light_processed=" +
             $"{result.Lighting.ProcessedVoxelCount}");
 

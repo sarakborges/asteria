@@ -276,6 +276,140 @@ public sealed class VoxelWorldLightingSolverTests
 }
 
 
+public sealed class LightingResultIntegratorTests
+{
+    [Fact]
+    public void MultipleLightChangesInOneMeshletBumpRevisionOnce()
+    {
+        var world = new VoxelWorld();
+        world.InsertChunk(
+            ChunkCoord.Zero,
+            new Chunk());
+        var snapshot =
+            world.CloneForWorker();
+
+        Assert.True(
+            snapshot.TrySetLight(
+                new WorldVoxelCoord(2, 2, 2),
+                new VoxelLight(15, 4, 0, 0)));
+        Assert.True(
+            snapshot.TrySetLight(
+                new WorldVoxelCoord(3, 2, 2),
+                new VoxelLight(15, 3, 0, 0)));
+
+        var terrainRevisions =
+            new MeshletContentRevisions();
+        var fluidRevisions =
+            new MeshletContentRevisions();
+        var worldUpdates =
+            new WorldUpdateQueue();
+        var fluidMeshUpdates =
+            new FluidMeshUpdateQueue();
+        var integrator =
+            new LightingResultIntegrator(
+                world,
+                worldUpdates,
+                fluidMeshUpdates,
+                terrainRevisions,
+                fluidRevisions);
+
+        var result =
+            integrator.Apply(
+                snapshot,
+                [
+                    new WorldVoxelCoord(2, 2, 2),
+                    new WorldVoxelCoord(3, 2, 2),
+                ]);
+
+        var key =
+            new ChunkMeshletKey(
+                ChunkCoord.Zero,
+                0);
+
+        Assert.Equal(2, result.ChangedVoxelCount);
+        Assert.Equal(1, result.DirtyChunkCount);
+        Assert.Equal(1, result.DirtyMeshletCount);
+        Assert.Equal(
+            1UL,
+            terrainRevisions.Get(key));
+        Assert.Equal(
+            1UL,
+            fluidRevisions.Get(key));
+        Assert.Equal(
+            (byte)4,
+            world.GetLightOrDark(
+                new WorldVoxelCoord(2, 2, 2)).Red);
+        Assert.True(worldUpdates.HasMeshWork);
+        Assert.True(fluidMeshUpdates.HasWork);
+    }
+
+    [Fact]
+    public void BoundaryLightChangeInvalidatesBothLoadedChunkHalos()
+    {
+        var world = new VoxelWorld();
+        world.InsertChunk(
+            ChunkCoord.Zero,
+            new Chunk());
+        world.InsertChunk(
+            new ChunkCoord(1, 0, 0),
+            new Chunk());
+        var snapshot =
+            world.CloneForWorker();
+        var position =
+            new WorldVoxelCoord(
+                Chunk.Size - 1,
+                4,
+                4);
+
+        Assert.True(
+            snapshot.TrySetLight(
+                position,
+                new VoxelLight(
+                    15,
+                    0,
+                    10,
+                    0)));
+
+        var worldUpdates =
+            new WorldUpdateQueue();
+        var fluidMeshUpdates =
+            new FluidMeshUpdateQueue();
+        var integrator =
+            new LightingResultIntegrator(
+                world,
+                worldUpdates,
+                fluidMeshUpdates,
+                new MeshletContentRevisions(),
+                new MeshletContentRevisions());
+
+        var result =
+            integrator.Apply(
+                snapshot,
+                [position]);
+
+        Assert.Equal(2, result.DirtyChunkCount);
+
+        var terrain =
+            worldUpdates.DrainMeshlets();
+        var fluid =
+            fluidMeshUpdates.Drain();
+
+        Assert.Contains(
+            ChunkCoord.Zero,
+            terrain.DirtyMeshlets.Keys);
+        Assert.Contains(
+            new ChunkCoord(1, 0, 0),
+            terrain.DirtyMeshlets.Keys);
+        Assert.Contains(
+            ChunkCoord.Zero,
+            fluid.DirtyMeshlets.Keys);
+        Assert.Contains(
+            new ChunkCoord(1, 0, 0),
+            fluid.DirtyMeshlets.Keys);
+    }
+}
+
+
 public sealed class VoxelLightingSnapshotTests
 {
     [Fact]

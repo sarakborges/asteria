@@ -207,39 +207,15 @@ public sealed class VoxelMutationRuntime
     private void PublishFluidBatchConsequences(
         IEnumerable<WorldVoxelCoord> positions)
     {
+        var bufferedPositions =
+            positions.ToArray();
         var dirty =
-            new Dictionary<ChunkCoord, ChunkMeshletMask>();
+            MeshletInvalidation.ForPositions(
+                _world,
+                bufferedPositions);
 
-        foreach (var position in positions)
+        foreach (var position in bufferedPositions)
         {
-            VoxelCoordinates
-                .VisitChunkCoordsWhoseVoxelHaloContains(
-                    position,
-                    coord =>
-                    {
-                        if (!_world.ContainsChunk(coord))
-                        {
-                            return;
-                        }
-
-                        var mask =
-                            ChunkMeshletMask.ForWorldPosition(
-                                coord,
-                                position);
-
-                        if (mask.IsEmpty)
-                        {
-                            return;
-                        }
-
-                        dirty[coord] =
-                            dirty.TryGetValue(
-                                coord,
-                                out var existing)
-                                ? existing.Union(mask)
-                                : mask;
-                    });
-
             _worldUpdates.EnqueueLighting(
                 position);
             _fluidUpdates.EnqueueTopologyNeighborhood(
