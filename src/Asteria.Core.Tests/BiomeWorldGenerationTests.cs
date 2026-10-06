@@ -233,11 +233,11 @@ public sealed class BiomeWorldGenerationTests
         var low =
             TestBiome(
                 "asteria:test/low",
-                baseHeight: 2f);
+                baseHeightOffset: 2f);
         var high =
             TestBiome(
                 "asteria:test/high",
-                baseHeight: 18f);
+                baseHeightOffset: 18f);
         var biomes =
             new BiomeRegistry(
             [
@@ -322,6 +322,54 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
+    public void DimensionSeaLevelOffsetsAuthoredBiomeHeight()
+    {
+        var blocks =
+            new BlockRegistry(
+            [
+                new BlockDefinition(
+                    "asteria:stone"),
+            ]);
+        var biome =
+            TestBiome(
+                "asteria:test/plain",
+                baseHeightOffset: 8f);
+        var dimension =
+            new DimensionDefinition(
+                new DimensionId(
+                    "asteria:test"),
+                [
+                    biome.Id,
+                ],
+                seaLevel: 90,
+                gravityStrength: 18f,
+                new DimensionSpawnDefinition(
+                    0,
+                    0),
+                new DimensionEnvironmentDefinition(
+                    new DimensionColor(0, 0, 0),
+                    new DimensionColor(255, 255, 255),
+                    1f,
+                    new DimensionColor(0, 0, 0),
+                    0f));
+        var generator =
+            new BiomeWorldGenerator(
+                5,
+                dimension,
+                blocks,
+                new BiomeRegistry(
+                [
+                    biome,
+                ]));
+
+        Assert.Equal(
+            98,
+            generator.SurfaceHeight(
+                0,
+                0));
+    }
+
+    [Fact]
     public void DecorationUsesAuthoredSurfaceAndIsChunkDeterministic()
     {
         var blocks =
@@ -346,7 +394,7 @@ public sealed class BiomeWorldGenerationTests
                     regionMin: 128,
                     regionMax: 128),
                 new BiomeTerrainDefinition(
-                    baseHeight: 5f,
+                    baseHeightOffset: 5f,
                     macroAmplitude: 0f,
                     macroScale: 128,
                     detailAmplitude: 0f,
@@ -529,28 +577,55 @@ public sealed class BiomeWorldGenerationTests
                  dx <= 1;
                  dx++)
             {
-                var chunk =
-                    generator.Materialize(
-                        new ChunkCoord(
-                            centerChunk.X +
-                            dx,
+                var chunkX =
+                    centerChunk.X +
+                    dx;
+                var chunkZ =
+                    centerChunk.Z +
+                    dz;
+                var surface =
+                    generator.GetSurfaceRange(
+                        chunkX,
+                        chunkZ);
+                var minimumChunkY =
+                    VoxelCoordinates.FromWorld(
                             0,
-                            centerChunk.Z +
-                            dz));
-                var found =
-                    false;
+                            surface.MinimumWorldY,
+                            0)
+                        .Chunk.Y;
+                var maximumChunkY =
+                    VoxelCoordinates.FromWorld(
+                            0,
+                            surface.MaximumWorldY +
+                            1,
+                            0)
+                        .Chunk.Y;
 
-                chunk.VisitBlockCells(
-                    (_, _, _, cell) =>
-                    {
-                        found |=
-                            cell.Block ==
-                            target;
-                    });
-
-                if (found)
+                for (var chunkY = minimumChunkY;
+                     chunkY <= maximumChunkY;
+                     chunkY++)
                 {
-                    return true;
+                    var chunk =
+                        generator.Materialize(
+                            new ChunkCoord(
+                                chunkX,
+                                chunkY,
+                                chunkZ));
+                    var found =
+                        false;
+
+                    chunk.VisitBlockCells(
+                        (_, _, _, cell) =>
+                        {
+                            found |=
+                                cell.Block ==
+                                target;
+                        });
+
+                    if (found)
+                    {
+                        return true;
+                    }
                 }
             }
         }
@@ -651,6 +726,7 @@ public sealed class BiomeWorldGenerationTests
             new DimensionId(
                 "asteria:test"),
             biomeIds,
+            seaLevel: 0,
             18f,
             new DimensionSpawnDefinition(
                 0,
@@ -673,7 +749,7 @@ public sealed class BiomeWorldGenerationTests
 
     private static BiomeDefinition TestBiome(
         string id,
-        float baseHeight = 8f,
+        float baseHeightOffset = 8f,
         float weight = 1f,
         IEnumerable<string>? cannotBorder = null) =>
         new(
@@ -685,7 +761,7 @@ public sealed class BiomeWorldGenerationTests
                 cannotBorder:
                     cannotBorder),
             new BiomeTerrainDefinition(
-                baseHeight,
+                baseHeightOffset,
                 macroAmplitude: 0f,
                 macroScale: 128,
                 detailAmplitude: 0f,

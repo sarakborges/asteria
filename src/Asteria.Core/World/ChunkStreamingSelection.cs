@@ -2,45 +2,138 @@ namespace Asteria.Core.World;
 
 public static class ChunkStreamingSelection
 {
-    public static HashSet<ChunkCoord> DesiredQaChunks(
+    private const int SurfacePaddingBelowChunks = 2;
+    private const int SurfacePaddingAboveChunks = 1;
+    private const int PlayerLocalHorizontalRadiusChunks = 2;
+    private const int PlayerLocalVerticalRadiusChunks = 2;
+
+    public static HashSet<ChunkCoord> DesiredSurfaceChunks(
         ChunkCoord center,
         int horizontalRadius,
-        int minimumChunkY = 0,
-        int maximumChunkY = 1)
+        IChunkSurfaceRangeProvider surfaceRanges)
     {
-        var radius = Math.Max(1, horizontalRadius);
-        var radiusSquared = radius * radius;
-        var minimumY = Math.Min(
-            minimumChunkY,
-            maximumChunkY);
-        var maximumY = Math.Max(
-            minimumChunkY,
-            maximumChunkY);
-        var desired = new HashSet<ChunkCoord>();
+        ArgumentNullException.ThrowIfNull(
+            surfaceRanges);
 
-        for (var dz = -radius; dz <= radius; dz++)
+        var radius =
+            Math.Max(
+                1,
+                horizontalRadius);
+        var radiusSquared =
+            radius *
+            radius;
+        var desired =
+            new HashSet<ChunkCoord>();
+
+        for (var dz = -radius;
+             dz <= radius;
+             dz++)
         {
-            for (var dx = -radius; dx <= radius; dx++)
+            for (var dx = -radius;
+                 dx <= radius;
+                 dx++)
             {
-                if (dx * dx + dz * dz > radiusSquared)
+                if (dx * dx +
+                        dz * dz >
+                    radiusSquared)
                 {
                     continue;
                 }
 
-                for (var y = minimumY;
-                     y <= maximumY;
-                     y++)
+                var chunkX =
+                    checked(
+                        center.X +
+                        dx);
+                var chunkZ =
+                    checked(
+                        center.Z +
+                        dz);
+                var surface =
+                    surfaceRanges.GetSurfaceRange(
+                        chunkX,
+                        chunkZ);
+
+                if (surface.MaximumWorldY <
+                    surface.MinimumWorldY)
                 {
-                    desired.Add(
-                        new ChunkCoord(
-                            center.X + dx,
-                            y,
-                            center.Z + dz));
+                    throw new InvalidOperationException(
+                        "Surface range maximum cannot be below its minimum.");
+                }
+
+                var minimumChunk =
+                    Math.Max(
+                        0,
+                        WorldYToChunkY(
+                            surface.MinimumWorldY) -
+                        SurfacePaddingBelowChunks);
+                var maximumChunk =
+                    Math.Max(
+                        minimumChunk,
+                        WorldYToChunkY(
+                            surface.MaximumWorldY) +
+                        SurfacePaddingAboveChunks);
+
+                InsertVerticalRange(
+                    desired,
+                    chunkX,
+                    chunkZ,
+                    minimumChunk,
+                    maximumChunk);
+
+                if (Math.Abs(dx) <=
+                        PlayerLocalHorizontalRadiusChunks &&
+                    Math.Abs(dz) <=
+                        PlayerLocalHorizontalRadiusChunks)
+                {
+                    var minimumLocal =
+                        Math.Max(
+                            0,
+                            center.Y -
+                            PlayerLocalVerticalRadiusChunks);
+                    var maximumLocal =
+                        Math.Max(
+                            minimumLocal,
+                            center.Y +
+                            PlayerLocalVerticalRadiusChunks);
+
+                    InsertVerticalRange(
+                        desired,
+                        chunkX,
+                        chunkZ,
+                        minimumLocal,
+                        maximumLocal);
                 }
             }
         }
 
         return desired;
+    }
+
+    private static int WorldYToChunkY(
+        int worldY) =>
+        VoxelCoordinates.FromWorld(
+                0,
+                worldY,
+                0)
+            .Chunk.Y;
+
+    private static void InsertVerticalRange(
+        ISet<ChunkCoord> desired,
+        int chunkX,
+        int chunkZ,
+        int minimumChunkY,
+        int maximumChunkY)
+    {
+        for (var chunkY = minimumChunkY;
+             chunkY <= maximumChunkY;
+             chunkY++)
+        {
+            desired.Add(
+                new ChunkCoord(
+                    chunkX,
+                    chunkY,
+                    chunkZ));
+        }
     }
 }
 

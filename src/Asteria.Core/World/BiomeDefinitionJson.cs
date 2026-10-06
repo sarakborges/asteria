@@ -77,7 +77,7 @@ public static class BiomeDefinitionJson
         new(
             RequiredSingle(
                 value,
-                "baseHeight"),
+                "baseHeightOffset"),
             RequiredSingle(
                 value,
                 "macroAmplitude"),

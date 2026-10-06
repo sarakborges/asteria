@@ -8,10 +8,10 @@
     }
   },
   "surfaceTerrain": {
-    "baseHeight": 10,
-    "macroAmplitude": 4,
+    "baseHeightOffset": 64,
+    "macroAmplitude": 54,
     "macroScale": 896,
-    "detailAmplitude": 1,
+    "detailAmplitude": 12,
     "detailScale": 128
   },
   "surfaceLayers": [

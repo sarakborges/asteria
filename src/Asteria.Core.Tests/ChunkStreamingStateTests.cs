@@ -8,11 +8,13 @@ public sealed class ChunkStreamingStateTests
     public void DesiredSelectionUsesCircularHorizontalRadius()
     {
         var desired =
-            ChunkStreamingSelection.DesiredQaChunks(
+            ChunkStreamingSelection.DesiredSurfaceChunks(
                 ChunkCoord.Zero,
                 2,
-                0,
-                1);
+                new ConstantSurfaceRangeProvider(
+                    new ChunkSurfaceRange(
+                        0,
+                        15)));
 
         Assert.Contains(
             new ChunkCoord(2, 0, 0),
@@ -23,6 +25,74 @@ public sealed class ChunkStreamingStateTests
         Assert.DoesNotContain(
             new ChunkCoord(2, 0, 2),
             desired);
+    }
+
+    [Fact]
+    public void DesiredSelectionFollowsTallAuthoredSurface()
+    {
+        var desired =
+            ChunkStreamingSelection.DesiredSurfaceChunks(
+                ChunkCoord.Zero,
+                1,
+                new ConstantSurfaceRangeProvider(
+                    new ChunkSurfaceRange(
+                        96,
+                        111)));
+
+        Assert.Contains(
+            new ChunkCoord(
+                0,
+                4,
+                0),
+            desired);
+        Assert.Contains(
+            new ChunkCoord(
+                0,
+                7,
+                0),
+            desired);
+        Assert.DoesNotContain(
+            new ChunkCoord(
+                0,
+                8,
+                0),
+            desired);
+    }
+
+    [Fact]
+    public void SelectionRebuildPredicateIsOwnedByStreamingState()
+    {
+        var state =
+            new ChunkStreamingState();
+
+        Assert.True(
+            state.SelectionNeedsRebuild(
+                ChunkCoord.Zero,
+                2));
+
+        state.RebuildSelection(
+            ChunkCoord.Zero,
+            horizontalRadius: 2,
+            retentionRadius: 3,
+            ChunkStreamingSelection.DesiredSurfaceChunks(
+                ChunkCoord.Zero,
+                2,
+                new ConstantSurfaceRangeProvider(
+                    new ChunkSurfaceRange(
+                        0,
+                        15))));
+
+        Assert.False(
+            state.SelectionNeedsRebuild(
+                ChunkCoord.Zero,
+                2));
+        Assert.True(
+            state.SelectionNeedsRebuild(
+                new ChunkCoord(
+                    0,
+                    1,
+                    0),
+                2));
     }
 
     [Fact]
@@ -52,22 +122,26 @@ public sealed class ChunkStreamingStateTests
             ChunkCoord.Zero,
             1,
             3,
-            ChunkStreamingSelection.DesiredQaChunks(
+            ChunkStreamingSelection.DesiredSurfaceChunks(
                 ChunkCoord.Zero,
                 1,
-                0,
-                0));
+                new ConstantSurfaceRangeProvider(
+                    new ChunkSurfaceRange(
+                        0,
+                        15))));
 
         var moved = new ChunkCoord(2, 0, 0);
         state.RebuildSelection(
             moved,
             1,
             3,
-            ChunkStreamingSelection.DesiredQaChunks(
+            ChunkStreamingSelection.DesiredSurfaceChunks(
                 moved,
                 1,
-                0,
-                0));
+                new ConstantSurfaceRangeProvider(
+                    new ChunkSurfaceRange(
+                        0,
+                        15))));
 
         Assert.True(
             state.KeepsLoaded(
@@ -77,11 +151,13 @@ public sealed class ChunkStreamingStateTests
             new ChunkCoord(10, 0, 0),
             1,
             3,
-            ChunkStreamingSelection.DesiredQaChunks(
+            ChunkStreamingSelection.DesiredSurfaceChunks(
                 new ChunkCoord(10, 0, 0),
                 1,
-                0,
-                0));
+                new ConstantSurfaceRangeProvider(
+                    new ChunkSurfaceRange(
+                        0,
+                        15))));
 
         var origin = new ChunkCoord(0, 0, 0);
         Assert.False(state.KeepsLoaded(origin));
@@ -208,4 +284,15 @@ public sealed class ChunkStreamingStateTests
                 coord,
                 currentlyVisible: true));
     }
+
+    private sealed class ConstantSurfaceRangeProvider(
+        ChunkSurfaceRange range) :
+        IChunkSurfaceRangeProvider
+    {
+        public ChunkSurfaceRange GetSurfaceRange(
+            int chunkX,
+            int chunkZ) =>
+            range;
+    }
+
 }

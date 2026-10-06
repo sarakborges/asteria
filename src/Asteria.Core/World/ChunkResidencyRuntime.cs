@@ -192,6 +192,13 @@ public sealed class ChunkResidencyRuntime
     public ulong PresentationSelectionRevision =>
         _presentationSelection.Revision;
 
+    public bool SelectionNeedsRebuild(
+        ChunkCoord center,
+        int horizontalRadius) =>
+        _streaming.SelectionNeedsRebuild(
+            center,
+            horizontalRadius);
+
     public bool SyncSelection(
         ChunkCoord center,
         int horizontalRadius,

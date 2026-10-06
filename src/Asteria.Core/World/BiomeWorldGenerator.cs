@@ -1,8 +1,9 @@
 namespace Asteria.Core.World;
 
-public sealed class BiomeWorldGenerator : IChunkProvider
+public sealed class BiomeWorldGenerator : IChunkProvider, IChunkSurfaceRangeProvider
 {
     private readonly ulong _seed;
+    private readonly int _seaLevel;
     private readonly BlockRegistry _blocks;
     private readonly BiomeField _field;
     private readonly Dictionary<
@@ -31,6 +32,8 @@ public sealed class BiomeWorldGenerator : IChunkProvider
             blocks);
 
         _seed = seed;
+        _seaLevel =
+            dimension.SeaLevel;
         DimensionId =
             dimension.Id;
         _field =
@@ -218,13 +221,73 @@ public sealed class BiomeWorldGenerator : IChunkProvider
             worldX,
             worldZ);
 
+    public ChunkSurfaceRange GetSurfaceRange(
+        int chunkX,
+        int chunkZ)
+    {
+        var (originX, _, originZ) =
+            VoxelCoordinates.ChunkOrigin(
+                new ChunkCoord(
+                    chunkX,
+                    0,
+                    chunkZ));
+        var samples =
+            _field.SampleGrid(
+                originX,
+                originZ,
+                Chunk.Size,
+                Chunk.Size);
+        var minimum =
+            int.MaxValue;
+        var maximum =
+            int.MinValue;
+
+        for (var localZ = 0;
+             localZ < Chunk.Size;
+             localZ++)
+        {
+            for (var localX = 0;
+                 localX < Chunk.Size;
+                 localX++)
+            {
+                var worldX =
+                    checked(
+                        originX +
+                        localX);
+                var worldZ =
+                    checked(
+                        originZ +
+                        localZ);
+                var height =
+                    SurfaceHeight(
+                        samples[
+                            localX,
+                            localZ],
+                        worldX,
+                        worldZ);
+                minimum =
+                    Math.Min(
+                        minimum,
+                        height);
+                maximum =
+                    Math.Max(
+                        maximum,
+                        height);
+            }
+        }
+
+        return new ChunkSurfaceRange(
+            minimum,
+            maximum);
+    }
+
     private int SurfaceHeight(
         BiomeSample sample,
         int worldX,
         int worldZ)
     {
         var height =
-            0d;
+            (double)_seaLevel;
 
         foreach (var influence in
                  sample.Influences)
@@ -233,7 +296,7 @@ public sealed class BiomeWorldGenerator : IChunkProvider
                 _profiles[
                     influence.BiomeId];
             height +=
-                profile.HeightAt(
+                profile.HeightOffsetAt(
                     _seed,
                     worldX,
                     worldZ) *
@@ -364,7 +427,7 @@ public sealed class BiomeWorldGenerator : IChunkProvider
 
         public GenerationDomain DetailDomain { get; }
 
-        public double HeightAt(
+        public double HeightOffsetAt(
             ulong seed,
             int worldX,
             int worldZ)
@@ -386,7 +449,7 @@ public sealed class BiomeWorldGenerator : IChunkProvider
                         worldZ,
                         Terrain.DetailScale);
 
-            return Terrain.BaseHeight +
+            return Terrain.BaseHeightOffset +
                    macro *
                    Terrain.MacroAmplitude +
                    detail *

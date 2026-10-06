@@ -222,11 +222,10 @@ public sealed class DimensionRuntimeSession
             new ChunkStreamingController(
                 Residency,
                 Presentations,
+                Generator,
                 new ChunkStreamingControllerSettings(
                     settings.RenderDistanceChunks,
                     settings.RetentionMarginChunks,
-                    minimumChunkY: 0,
-                    maximumChunkY: 1,
                     settings.MaxPresentationPublicationsPerFrame));
     }
 

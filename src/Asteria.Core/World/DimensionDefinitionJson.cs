@@ -40,6 +40,9 @@ public static class DimensionDefinitionJson
             RequiredStringArray(
                 root,
                 "biomes"),
+            RequiredInt32(
+                root,
+                "seaLevel"),
             RequiredSingle(
                 root,
                 "gravityStrength"),

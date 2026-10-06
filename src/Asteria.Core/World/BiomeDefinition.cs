@@ -217,15 +217,15 @@ public sealed class BiomeSurfaceLayoutDefinition
 public sealed class BiomeTerrainDefinition
 {
     public BiomeTerrainDefinition(
-        float baseHeight,
+        float baseHeightOffset,
         float macroAmplitude,
         uint macroScale,
         float detailAmplitude,
         uint detailScale)
     {
-        if (!float.IsFinite(baseHeight))
+        if (!float.IsFinite(baseHeightOffset))
         {
-            throw new ArgumentOutOfRangeException(nameof(baseHeight));
+            throw new ArgumentOutOfRangeException(nameof(baseHeightOffset));
         }
 
         ValidateNoise(
@@ -246,14 +246,14 @@ public sealed class BiomeTerrainDefinition
                 nameof(detailScale));
         }
 
-        BaseHeight = baseHeight;
+        BaseHeightOffset = baseHeightOffset;
         MacroAmplitude = macroAmplitude;
         MacroScale = macroScale;
         DetailAmplitude = detailAmplitude;
         DetailScale = detailScale;
     }
 
-    public float BaseHeight { get; }
+    public float BaseHeightOffset { get; }
 
     public float MacroAmplitude { get; }
 

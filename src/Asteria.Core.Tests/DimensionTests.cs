@@ -28,10 +28,13 @@ public sealed class DimensionTests
                     "asteria:umbral"));
 
         Assert.Equal(
-            11,
+            10,
             overworld.Biomes.Count);
         Assert.DoesNotContain(
             "asteria:overworld/ocean",
+            overworld.Biomes);
+        Assert.DoesNotContain(
+            "asteria:overworld/enchanted_forest",
             overworld.Biomes);
         Assert.Contains(
             "asteria:overworld/alps",
@@ -55,6 +58,12 @@ public sealed class DimensionTests
                     "asteria:umbral/",
                     biome));
 
+        Assert.Equal(
+            90,
+            overworld.SeaLevel);
+        Assert.Equal(
+            90,
+            umbral.SeaLevel);
         Assert.Equal(
             18f,
             overworld.GravityStrength);
@@ -222,6 +231,7 @@ public sealed class DimensionTests
                     [
                         "asteria:overworld/plain",
                     ],
+                    seaLevel: 90,
                     18f,
                     new DimensionSpawnDefinition(
                         0,

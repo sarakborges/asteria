@@ -82,6 +82,7 @@ public sealed class DimensionDefinition
     public DimensionDefinition(
         DimensionId id,
         IEnumerable<string> biomes,
+        int seaLevel,
         float gravityStrength,
         DimensionSpawnDefinition spawn,
         DimensionEnvironmentDefinition environment)
@@ -129,6 +130,8 @@ public sealed class DimensionDefinition
         Biomes =
             Array.AsReadOnly(
                 authoredBiomes);
+        SeaLevel =
+            seaLevel;
         GravityStrength =
             gravityStrength;
         Spawn =
@@ -144,6 +147,8 @@ public sealed class DimensionDefinition
     public DimensionId Id { get; }
 
     public IReadOnlyList<string> Biomes { get; }
+
+    public int SeaLevel { get; }
 
     public float GravityStrength { get; }
 

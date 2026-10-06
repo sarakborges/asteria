@@ -7,12 +7,12 @@
     "asteria:overworld/desert",
     "asteria:overworld/alps",
     "asteria:overworld/arctic",
-    "asteria:overworld/enchanted_forest",
     "asteria:overworld/gorge",
     "asteria:overworld/mountain_belt",
     "asteria:overworld/mountains",
     "asteria:overworld/volcano"
   ],
+  "seaLevel": 90,
   "gravityStrength": 18,
   "spawn": {
     "x": 0,

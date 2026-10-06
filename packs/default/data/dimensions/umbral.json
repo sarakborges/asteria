@@ -5,7 +5,8 @@
     "asteria:umbral/withered_waste",
     "asteria:umbral/wraith_grove"
   ],
-  "gravityStrength": 18.0,
+  "seaLevel": 90,
+  "gravityStrength": 18,
   "spawn": {
     "x": 0,
     "z": 0

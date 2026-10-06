@@ -307,6 +307,7 @@ public sealed class DimensionSessionStateTests
                 id +
                 "/plain",
             ],
+            seaLevel: 90,
             18f,
             new DimensionSpawnDefinition(
                 0,

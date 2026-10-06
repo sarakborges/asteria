@@ -1,17 +1,17 @@
 {
   "id": "asteria:overworld/plains",
   "surfaceLayout": {
-    "weight": 1.0,
+    "weight": 1,
     "regionSize": {
       "min": 224,
       "max": 448
     }
   },
   "surfaceTerrain": {
-    "baseHeight": 8.0,
-    "macroAmplitude": 4.0,
+    "baseHeightOffset": 8,
+    "macroAmplitude": 10,
     "macroScale": 768,
-    "detailAmplitude": 1.5,
+    "detailAmplitude": 2.5,
     "detailScale": 128
   },
   "surfaceLayers": [

@@ -72,6 +72,12 @@ public sealed class ChunkStreamingState
     public bool IsMaterializing(ChunkCoord coord) =>
         _materializing.Contains(coord);
 
+    public bool SelectionNeedsRebuild(
+        ChunkCoord center,
+        int horizontalRadius) =>
+        Center != center ||
+        HorizontalRadius != horizontalRadius;
+
     public bool RebuildSelection(
         ChunkCoord center,
         int horizontalRadius,

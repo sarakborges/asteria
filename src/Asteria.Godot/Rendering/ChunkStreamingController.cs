@@ -7,8 +7,6 @@ public sealed class ChunkStreamingControllerSettings
     public ChunkStreamingControllerSettings(
         int renderDistanceChunks,
         int retentionMarginChunks,
-        int minimumChunkY,
-        int maximumChunkY,
         int maximumPresentationReservationsPerFrame)
     {
         if (renderDistanceChunks <= 0)
@@ -33,14 +31,6 @@ public sealed class ChunkStreamingControllerSettings
             renderDistanceChunks;
         RetentionMarginChunks =
             retentionMarginChunks;
-        MinimumChunkY =
-            Math.Min(
-                minimumChunkY,
-                maximumChunkY);
-        MaximumChunkY =
-            Math.Max(
-                minimumChunkY,
-                maximumChunkY);
         MaximumPresentationReservationsPerFrame =
             maximumPresentationReservationsPerFrame;
     }
@@ -48,10 +38,6 @@ public sealed class ChunkStreamingControllerSettings
     public int RenderDistanceChunks { get; }
 
     public int RetentionMarginChunks { get; }
-
-    public int MinimumChunkY { get; }
-
-    public int MaximumChunkY { get; }
 
     public int MaximumPresentationReservationsPerFrame { get; }
 }
@@ -77,11 +63,13 @@ public sealed class ChunkStreamingController
 {
     private readonly ChunkResidencyRuntime _residency;
     private readonly ChunkPresentationController _presentations;
+    private readonly IChunkSurfaceRangeProvider _surfaceRanges;
     private readonly ChunkStreamingControllerSettings _settings;
 
     public ChunkStreamingController(
         ChunkResidencyRuntime residency,
         ChunkPresentationController presentations,
+        IChunkSurfaceRangeProvider surfaceRanges,
         ChunkStreamingControllerSettings settings)
     {
         _residency =
@@ -90,6 +78,9 @@ public sealed class ChunkStreamingController
         _presentations =
             presentations ??
             throw new ArgumentNullException(nameof(presentations));
+        _surfaceRanges =
+            surfaceRanges ??
+            throw new ArgumentNullException(nameof(surfaceRanges));
         _settings =
             settings ??
             throw new ArgumentNullException(nameof(settings));
@@ -98,12 +89,24 @@ public sealed class ChunkStreamingController
     public ChunkStreamingSelectionReport SyncSelection(
         ChunkCoord center)
     {
+        if (!_residency.SelectionNeedsRebuild(
+                center,
+                _settings.RenderDistanceChunks))
+        {
+            return new ChunkStreamingSelectionReport(
+                false,
+                center,
+                _residency.DesiredCount,
+                _residency.RetainedCount,
+                _residency.PendingCount,
+                _residency.MovementDirection);
+        }
+
         var desired =
-            ChunkStreamingSelection.DesiredQaChunks(
+            ChunkStreamingSelection.DesiredSurfaceChunks(
                 center,
                 _settings.RenderDistanceChunks,
-                _settings.MinimumChunkY,
-                _settings.MaximumChunkY);
+                _surfaceRanges);
         var retentionRadius =
             _settings.RenderDistanceChunks +
             _settings.RetentionMarginChunks;
