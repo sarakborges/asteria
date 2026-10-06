@@ -42,6 +42,11 @@ public sealed class VoxelMutationRuntime
         VoxelCell cell,
         out VoxelWorldEdit edit)
     {
+        var displacedFluid =
+            cell.IsEmpty
+                ? FluidCell.Empty
+                : _world.GetFluidOrEmpty(position);
+
         if (!_world.SetCellAt(
                 position,
                 cell,
@@ -51,6 +56,29 @@ public sealed class VoxelMutationRuntime
         }
 
         EnqueueBlockEdit(position);
+
+        if (!displacedFluid.IsEmpty)
+        {
+            EnqueueFluidEdit(position);
+        }
+
+        return true;
+    }
+
+    public bool SetFluidAt(
+        WorldVoxelCoord position,
+        FluidCell fluid,
+        out FluidWorldEdit edit)
+    {
+        if (!_world.SetFluidAt(
+                position,
+                fluid,
+                out edit))
+        {
+            return false;
+        }
+
+        EnqueueFluidEdit(position);
         return true;
     }
 
@@ -73,6 +101,21 @@ public sealed class VoxelMutationRuntime
             _world,
             position);
         _blockGravityUpdates.EnqueueVoxelEdit(
+            position);
+    }
+
+    private void EnqueueFluidEdit(
+        WorldVoxelCoord position)
+    {
+        _fluidContentRevisions.BumpVoxelEdit(
+            _world,
+            position);
+        _fluidMeshUpdates.EnqueueVoxelEdit(
+            _world,
+            position);
+        _worldUpdates.EnqueueLighting(
+            position);
+        _fluidUpdates.EnqueueTopologyNeighborhood(
             position);
     }
 }

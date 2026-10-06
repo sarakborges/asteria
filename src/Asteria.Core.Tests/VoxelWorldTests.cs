@@ -88,6 +88,38 @@ public sealed class VoxelWorldTests
     }
 
     [Fact]
+    public void BlockAndFluidCannotOccupySameVoxel()
+    {
+        var world = new VoxelWorld();
+        world.InsertChunk(
+            ChunkCoord.Zero,
+            new Chunk());
+        var position =
+            new WorldVoxelCoord(2, 3, 4);
+        var water =
+            new FluidRuntimeId(1);
+
+        Assert.True(
+            world.SetFluidAt(
+                position,
+                FluidCell.Source(water),
+                out _));
+        Assert.True(
+            world.SetBlockAt(
+                position,
+                new BlockRuntimeId(1),
+                out _));
+        Assert.True(
+            world.GetFluidOrEmpty(position).IsEmpty);
+
+        Assert.False(
+            world.SetFluidAt(
+                position,
+                FluidCell.Source(water),
+                out _));
+    }
+
+    [Fact]
     public void PristineChunkIsDroppedInsteadOfConsumingArchiveMemory()
     {
         var world = new VoxelWorld();

@@ -332,6 +332,15 @@ public sealed class VoxelWorld
             return false;
         }
 
+        if (!cell.IsEmpty)
+        {
+            chunk.SetFluid(
+                address.Local.X,
+                address.Local.Y,
+                address.Local.Z,
+                FluidCell.Empty);
+        }
+
         _archive.MarkDirty(address.Chunk);
         Revision++;
         edit = new VoxelWorldEdit(
@@ -372,6 +381,16 @@ public sealed class VoxelWorld
             address.Local.X,
             address.Local.Y,
             address.Local.Z);
+
+        if (!fluid.IsEmpty &&
+            !chunk.GetCell(
+                address.Local.X,
+                address.Local.Y,
+                address.Local.Z).IsEmpty)
+        {
+            edit = default;
+            return false;
+        }
 
         if (previous == fluid ||
             !chunk.SetFluid(

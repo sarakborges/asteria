@@ -1079,7 +1079,7 @@ public partial class Main : Node3D
                 continue;
             }
 
-            if (!_world.SetFluidAt(
+            if (!_mutations.SetFluidAt(
                     change.Position,
                     change.Current,
                     out _))
@@ -1087,14 +1087,6 @@ public partial class Main : Node3D
                 continue;
             }
 
-            _fluidContentRevisions.BumpVoxelEdit(
-                _world,
-                change.Position);
-            _fluidMeshUpdates.EnqueueVoxelEdit(
-                _world,
-                change.Position);
-            _worldUpdates.EnqueueLighting(
-                change.Position);
             applied++;
         }
 
