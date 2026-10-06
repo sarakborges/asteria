@@ -11,7 +11,7 @@ public sealed record TerrainMeshWorkerResult(
     WorldMeshBatch SourceBatch,
     IReadOnlyDictionary<ChunkMeshletKey, ulong>
         ContentRevisions,
-    ChunkContentStamp ContentStamp,
+    MeshDependencyStamp Dependencies,
     IReadOnlyList<TerrainMeshletBuild> Meshlets,
     double WorkerMilliseconds);
 
@@ -42,21 +42,18 @@ public sealed class TerrainMeshWorker
         }
 
         var snapshot =
-            world.CloneMeshNeighborhood(
-                batch.DirtyMeshlets.Keys);
+            world.CaptureMeshWorkerSnapshot(
+                batch.DirtyMeshlets);
         var capturedRevisions =
             revisions.Capture(
                 batch.DirtyMeshlets);
-        var contentStamp =
-            world.CaptureContentStamp(
-                snapshot.LoadedChunkCoords);
 
         return _worker.TryStart(() =>
         {
             var stopwatch = Stopwatch.StartNew();
             var meshlets =
                 BuildMeshlets(
-                    snapshot,
+                    snapshot.World,
                     blocks,
                     textures,
                     batch.DirtyMeshlets);
@@ -65,7 +62,7 @@ public sealed class TerrainMeshWorker
             return new TerrainMeshWorkerResult(
                 batch,
                 capturedRevisions,
-                contentStamp,
+                snapshot.Dependencies,
                 meshlets,
                 stopwatch.Elapsed.TotalMilliseconds);
         });
