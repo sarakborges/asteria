@@ -1,0 +1,43 @@
+.hud-meter {
+  display: grid;
+  gap: 5px;
+  width: min(196px, 26vw);
+}
+
+.hud-meter__label {
+  color: var(--ui-color-muted);
+  font-size: var(--ui-font-size-detail);
+  font-weight: 700;
+  letter-spacing: var(--ui-letter-spacing-detail);
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.hud-meter__track {
+  position: relative;
+  display: block;
+  height: 8px;
+  overflow: hidden;
+  border: 1px solid var(--ui-color-border);
+  background: var(--ui-color-meter-track);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 4%);
+}
+
+.hud-meter__fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transition: width 140ms ease-out;
+}
+
+.hud-meter--health .hud-meter__fill {
+  background: var(--ui-color-health);
+}
+
+.hud-meter--stamina .hud-meter__fill {
+  background: var(--ui-color-stamina);
+}
+
+.hud-meter--neutral .hud-meter__fill {
+  background: var(--ui-color-accent);
+}
