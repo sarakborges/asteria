@@ -5,11 +5,22 @@ signal webui_ready
 
 const WEBVIEW_CLASS := "WebView"
 const UI_URL := "res://ui/dist/index.html"
+const UI_SOURCE_PATHS := [
+	"res://ui/src",
+	"res://ui/index.html",
+	"res://ui/package.json",
+	"res://ui/package-lock.json",
+	"res://ui/tsconfig.json",
+	"res://ui/vite.config.ts",
+]
 
 var _webview: Control
 var _loaded := false
 
 func _ready() -> void:
+	if not _ensure_webui_bundle():
+		return
+
 	if not ClassDB.class_exists(WEBVIEW_CLASS):
 		push_error("Godot WRY is not installed. Run scripts/install-webui.ps1 and restart Godot.")
 		return
@@ -70,3 +81,97 @@ func _on_ipc_message(message: String) -> void:
 func _focus_game() -> void:
 	if _webview != null:
 		_webview.call("focus_parent")
+
+
+func _ensure_webui_bundle() -> bool:
+	if not OS.is_debug_build():
+		if FileAccess.file_exists(UI_URL):
+			return true
+
+		push_error("WebUI bundle is missing at %s. Build ui/dist before running a release build." % UI_URL)
+		return false
+
+	if not _webui_bundle_is_stale():
+		return true
+
+	var ui_directory := ProjectSettings.globalize_path("res://ui")
+	var output: Array = []
+	var exit_code := 0
+
+	if OS.get_name() == "Windows":
+		exit_code = OS.execute(
+			"cmd.exe",
+			PackedStringArray([
+				"/C",
+				"npm",
+				"--prefix",
+				ui_directory,
+				"run",
+				"build",
+			]),
+			output,
+			true
+		)
+	else:
+		exit_code = OS.execute(
+			"npm",
+			PackedStringArray([
+				"--prefix",
+				ui_directory,
+				"run",
+				"build",
+			]),
+			output,
+			true
+		)
+
+	if exit_code != 0:
+		push_error(
+			"Failed to build WebUI automatically. Ensure Node.js/npm is installed.\n%s"
+			% "\n".join(output)
+		)
+		return false
+
+	if not FileAccess.file_exists(UI_URL):
+		push_error("WebUI build completed without producing %s." % UI_URL)
+		return false
+
+	return true
+
+
+func _webui_bundle_is_stale() -> bool:
+	if not FileAccess.file_exists(UI_URL):
+		return true
+
+	var bundle_modified := FileAccess.get_modified_time(UI_URL)
+
+	for source_path in UI_SOURCE_PATHS:
+		if _latest_modified_time(source_path) > bundle_modified:
+			return true
+
+	return false
+
+
+func _latest_modified_time(path: String) -> int:
+	if FileAccess.file_exists(path):
+		return FileAccess.get_modified_time(path)
+
+	var directory := DirAccess.open(path)
+	if directory == null:
+		return 0
+
+	var latest := 0
+	directory.list_dir_begin()
+
+	var entry := directory.get_next()
+	while entry != "":
+		var child_path := path.path_join(entry)
+		if directory.current_is_dir():
+			latest = max(latest, _latest_modified_time(child_path))
+		else:
+			latest = max(latest, FileAccess.get_modified_time(child_path))
+
+		entry = directory.get_next()
+
+	directory.list_dir_end()
+	return latest

@@ -164,7 +164,7 @@ npm run build-storybook
 
 Every reusable component/page must have a colocated `*.stories.ts` file covering meaningful states. CI validates both the Vite bundle and Storybook. See `ui/README.md` for the full WebUI architecture contract.
 
-The embedded build loads `res://ui/dist/index.html`.
+The embedded build loads `res://ui/dist/index.html`. In debug/editor runs, `WebUiHost.gd` checks whether the bundle is missing or older than the WebUI source/config files and runs `npm --prefix ui run build` automatically before opening WRY. Release builds still require a prebuilt `ui/dist`.
 
 ## Bridge contract
 
