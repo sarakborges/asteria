@@ -23,15 +23,15 @@ public static class BiomeDefinitionJson
         return new BiomeDefinition(
             RequiredString(root, "id"),
             ParseSurfaceLayout(
-                RequiredObject(
+                GetRequiredObject(
                     root,
                     "surfaceLayout")),
             ParseTerrain(
-                RequiredObject(
+                GetRequiredObject(
                     root,
                     "surfaceTerrain")),
             ParseLayers(
-                RequiredArray(
+                GetRequiredArray(
                     root,
                     "surfaceLayers")),
             ParseDecorations(root));
@@ -45,7 +45,7 @@ public static class BiomeDefinitionJson
             value.TryGetProperty(
                 "regionSize",
                 out var authoredRegion)
-                ? RequiredObject(
+                ? EnsureObject(
                     authoredRegion,
                     "regionSize")
                 : default;
@@ -136,7 +136,7 @@ public static class BiomeDefinitionJson
         }
 
         patch =
-            RequiredObject(
+            EnsureObject(
                 patch,
                 "patch");
 
@@ -172,7 +172,7 @@ public static class BiomeDefinitionJson
         }
 
         array =
-            RequiredArray(
+            EnsureArray(
                 array,
                 "decorations");
 
@@ -205,7 +205,7 @@ public static class BiomeDefinitionJson
         return decorations;
     }
 
-    private static JsonElement RequiredObject(
+    private static JsonElement GetRequiredObject(
         JsonElement parent,
         string name)
     {
@@ -217,12 +217,12 @@ public static class BiomeDefinitionJson
                 $"Missing required property: {name}");
         }
 
-        return RequiredObject(
+        return EnsureObject(
             value,
             name);
     }
 
-    private static JsonElement RequiredObject(
+    private static JsonElement EnsureObject(
         JsonElement value,
         string label)
     {
@@ -236,7 +236,7 @@ public static class BiomeDefinitionJson
         return value;
     }
 
-    private static JsonElement RequiredArray(
+    private static JsonElement GetRequiredArray(
         JsonElement parent,
         string name)
     {
@@ -248,12 +248,12 @@ public static class BiomeDefinitionJson
                 $"Missing required property: {name}");
         }
 
-        return RequiredArray(
+        return EnsureArray(
             value,
             name);
     }
 
-    private static JsonElement RequiredArray(
+    private static JsonElement EnsureArray(
         JsonElement value,
         string label)
     {
