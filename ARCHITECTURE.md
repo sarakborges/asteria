@@ -187,7 +187,8 @@ Lighting is authoritative runtime data; meshes are derived presentation data.
 - Interactive block edits use a dedicated latency terrain lane with its own bounded worker and priority publication queue. Background streaming/remesh work uses a separate worker, so a player-visible placement/destruction cannot wait for an already-running background batch or sit behind queued background publications.
 - Fluid volume sides and bottoms keep back-face culling to avoid alpha-sorted interior walls/triangles. Only an exposed fluid top surface emits dedicated reverse-wound underside geometry so the water surface remains visible from below without making the entire translucent volume double-sided.
 - Engine-agnostic mesh vertices, batches, culling/greedy logic, collision-face generation and fluid-surface geometry belong in Core.
-- Godot rendering code converts those results into `ArrayMesh`, materials, collision shapes and nodes.
+- Godot rendering code converts those results into `ArrayMesh`, materials, collision shapes and nodes. Chunk presentation nodes are allocated lazily from published meshlet data; empty terrain/fluid/collision meshlets must not create placeholder Godot nodes.
+- High-volume world/worker diagnostics are opt-in debug instrumentation. Normal gameplay must not continuously print per-chunk, per-worker or per-publication telemetry on the main thread.
 
 Do not rebuild whole chunks when a smaller stable meshlet/dirty region is sufficient.
 

@@ -514,7 +514,12 @@ public partial class Main : Node3D
             }
 
             var type = typeElement.GetString();
-            GD.Print($"webui -> godot: {type}");
+
+            if (_debugHudVisible)
+            {
+                GD.Print(
+                    $"webui -> godot: {type}");
+            }
 
             switch (type)
             {
@@ -734,10 +739,11 @@ public partial class Main : Node3D
             address.Chunk.Z);
     }
 
-    private static void ReportStreamingSelection(
+    private void ReportStreamingSelection(
         ChunkStreamingSelectionReport selection)
     {
-        if (!selection.Changed)
+        if (!_debugHudVisible ||
+            !selection.Changed)
         {
             return;
         }
@@ -760,6 +766,11 @@ public partial class Main : Node3D
                 $"{failure.Coord}\n{failure.Error}");
         }
 
+        if (!_debugHudVisible)
+        {
+            return;
+        }
+
         foreach (var activation in
                  update.Activations)
         {
@@ -775,7 +786,8 @@ public partial class Main : Node3D
     private void ReportPresentationReservations(
         int reserved)
     {
-        if (reserved <= 0)
+        if (!_debugHudVisible ||
+            reserved <= 0)
         {
             return;
         }
@@ -788,6 +800,11 @@ public partial class Main : Node3D
     private void ReportRetirements(
         IReadOnlyList<ChunkResidencyRetirement> retirements)
     {
+        if (!_debugHudVisible)
+        {
+            return;
+        }
+
         foreach (var retirement in retirements)
         {
             GD.Print(
@@ -851,10 +868,11 @@ public partial class Main : Node3D
         TryStartLightingWorker();
     }
 
-    private static void ReportBlockEntityFrame(
+    private void ReportBlockEntityFrame(
         BlockEntityFrameReport report)
     {
-        if (!report.HasChanges)
+        if (!_debugHudVisible ||
+            !report.HasChanges)
         {
             return;
         }
@@ -941,16 +959,19 @@ public partial class Main : Node3D
             return;
         }
 
-        GD.Print(
-            $"world.fluid tick={report.Tick} " +
+        if (_debugHudVisible)
+        {
+            GD.Print(
+                $"world.fluid tick={report.Tick} " +
             $"worker_ms={report.WorkerMilliseconds:F2} " +
             $"processed={report.ProcessedVoxelCount} " +
             $"changes={report.AppliedChangeCount} " +
             $"changed_voxels={report.UniquePositionCount} " +
             $"scheduled={report.ScheduledRequestCount} " +
             $"downhill_searches={report.DownhillSearchCount} " +
-            $"downhill_nodes={report.DownhillVisitedNodeCount} " +
-            $"backlog={report.BacklogCount}");
+                $"downhill_nodes={report.DownhillVisitedNodeCount} " +
+                $"backlog={report.BacklogCount}");
+        }
 
         TryStartFluidMeshWorker();
     }
@@ -982,11 +1003,14 @@ public partial class Main : Node3D
             return;
         }
 
-        GD.Print(
-            $"world.fluid_mesh worker_ms=" +
-            $"{completed.WorkerMilliseconds:F2} " +
-            $"accepted={completed.Accepted} " +
-            $"stale={completed.Stale}");
+        if (_debugHudVisible)
+        {
+            GD.Print(
+                $"world.fluid_mesh worker_ms=" +
+                $"{completed.WorkerMilliseconds:F2} " +
+                $"accepted={completed.Accepted} " +
+                $"stale={completed.Stale}");
+        }
     }
 
     private void IntegrateFluidMeshletPublications()
@@ -996,7 +1020,8 @@ public partial class Main : Node3D
                 MaxFluidMeshletPublishesPerFrame,
                 _worldFrameBudget);
 
-        if (stats.Handled > 0)
+        if (_debugHudVisible &&
+            stats.Handled > 0)
         {
             GD.Print(
                 $"world.fluid_meshlets published={stats.Published} " +
@@ -1032,11 +1057,14 @@ public partial class Main : Node3D
             return;
         }
 
-        GD.Print(
-            $"world.geometry worker_ms=" +
-            $"{completed.WorkerMilliseconds:F2} " +
-            $"accepted={completed.Accepted} " +
-            $"stale={completed.Stale}");
+        if (_debugHudVisible)
+        {
+            GD.Print(
+                $"world.geometry worker_ms=" +
+                $"{completed.WorkerMilliseconds:F2} " +
+                $"accepted={completed.Accepted} " +
+                $"stale={completed.Stale}");
+        }
     }
 
     private void TryStartLightingWorker()
@@ -1066,17 +1094,20 @@ public partial class Main : Node3D
             return;
         }
 
-        GD.Print(
-            $"world.lighting worker_ms=" +
-            $"{report.WorkerMilliseconds:F2} " +
-            $"light_changes=" +
-            $"{report.ChangedVoxelCount} " +
-            $"dirty_chunks=" +
-            $"{report.DirtyChunkCount} " +
-            $"dirty_meshlets=" +
-            $"{report.DirtyMeshletCount} " +
-            $"light_processed=" +
-            $"{report.ProcessedVoxelCount}");
+        if (_debugHudVisible)
+        {
+            GD.Print(
+                $"world.lighting worker_ms=" +
+                $"{report.WorkerMilliseconds:F2} " +
+                $"light_changes=" +
+                $"{report.ChangedVoxelCount} " +
+                $"dirty_chunks=" +
+                $"{report.DirtyChunkCount} " +
+                $"dirty_meshlets=" +
+                $"{report.DirtyMeshletCount} " +
+                $"light_processed=" +
+                $"{report.ProcessedVoxelCount}");
+        }
 
         TryStartTerrainMeshWorker();
     }
@@ -1088,7 +1119,8 @@ public partial class Main : Node3D
                 MaxMeshletPublishesPerFrame,
                 _worldFrameBudget);
 
-        if (stats.Handled > 0)
+        if (_debugHudVisible &&
+            stats.Handled > 0)
         {
             GD.Print(
                 $"world.meshlets published={stats.Published} " +

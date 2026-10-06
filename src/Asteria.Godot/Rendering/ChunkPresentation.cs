@@ -5,14 +5,16 @@ namespace Asteria.Client.Rendering;
 
 public sealed class ChunkPresentation
 {
-    private readonly MeshInstance3D[] _meshes =
-        new MeshInstance3D[ChunkMeshletMask.Count];
-    private readonly MeshInstance3D[] _fluidMeshes =
-        new MeshInstance3D[ChunkMeshletMask.Count];
-    private readonly CollisionShape3D[] _collisions =
-        new CollisionShape3D[ChunkMeshletMask.Count];
+    private readonly MeshInstance3D?[] _meshes =
+        new MeshInstance3D?[ChunkMeshletMask.Count];
+    private readonly MeshInstance3D?[] _fluidMeshes =
+        new MeshInstance3D?[ChunkMeshletMask.Count];
+    private readonly CollisionShape3D?[] _collisions =
+        new CollisionShape3D?[ChunkMeshletMask.Count];
     private readonly bool[] _published =
         new bool[ChunkMeshletMask.Count];
+
+    private StaticBody3D? _collisionBody;
     private int _publishedCount;
 
     public ChunkPresentation(ChunkCoord coord)
@@ -29,37 +31,6 @@ public sealed class ChunkPresentation
                 originY,
                 originZ),
         };
-
-        var collisionBody = new StaticBody3D
-        {
-            Name = "Collision",
-        };
-        Root.AddChild(collisionBody);
-
-        for (var index = 0;
-             index < ChunkMeshletMask.Count;
-             index++)
-        {
-            var mesh = new MeshInstance3D
-            {
-                Name = $"Meshlet_{index}",
-            };
-            var fluidMesh = new MeshInstance3D
-            {
-                Name = $"FluidMeshlet_{index}",
-            };
-            var collision = new CollisionShape3D
-            {
-                Name = $"Meshlet_{index}",
-            };
-
-            _meshes[index] = mesh;
-            _fluidMeshes[index] = fluidMesh;
-            _collisions[index] = collision;
-            Root.AddChild(mesh);
-            Root.AddChild(fluidMesh);
-            collisionBody.AddChild(collision);
-        }
     }
 
     public ChunkCoord Coord { get; }
@@ -87,15 +58,8 @@ public sealed class ChunkPresentation
         foreach (var meshletIndex in
                  meshlets.Indices())
         {
-            if (_published[
-                    meshletIndex])
-            {
-                continue;
-            }
-
-            _published[
-                meshletIndex] = true;
-            _publishedCount++;
+            MarkTerrainPublished(
+                meshletIndex);
         }
     }
 
@@ -104,12 +68,29 @@ public sealed class ChunkPresentation
         ChunkFluidMeshData data,
         FluidMaterialCatalog materials)
     {
-        _fluidMeshes[meshletIndex].Mesh =
-            data.HasGeometry
-                ? ChunkFluidMeshBuilder.CreateMesh(
-                    data,
-                    materials)
-                : null;
+        ValidateMeshletIndex(
+            meshletIndex);
+
+        if (!data.HasGeometry)
+        {
+            RemoveNode(
+                _fluidMeshes,
+                meshletIndex);
+            return;
+        }
+
+        var mesh =
+            _fluidMeshes[
+                meshletIndex] ??
+            CreateMesh(
+                _fluidMeshes,
+                meshletIndex,
+                $"FluidMeshlet_{meshletIndex}");
+
+        mesh.Mesh =
+            ChunkFluidMeshBuilder.CreateMesh(
+                data,
+                materials);
     }
 
     public void Apply(
@@ -117,22 +98,175 @@ public sealed class ChunkPresentation
         ChunkMeshData data,
         VoxelTerrainMaterialSet materials)
     {
-        _meshes[meshletIndex].Mesh =
-            data.HasRenderGeometry
-                ? ChunkMeshBuilder.CreateMesh(
-                    data,
-                    materials)
-                : null;
+        ValidateMeshletIndex(
+            meshletIndex);
 
-        _collisions[meshletIndex].Shape =
-            data.HasCollision
-                ? ChunkMeshBuilder.CreateCollisionShape(data)
-                : null;
-
-        if (!_published[meshletIndex])
+        if (data.HasRenderGeometry)
         {
-            _published[meshletIndex] = true;
-            _publishedCount++;
+            var mesh =
+                _meshes[
+                    meshletIndex] ??
+                CreateMesh(
+                    _meshes,
+                    meshletIndex,
+                    $"Meshlet_{meshletIndex}");
+
+            mesh.Mesh =
+                ChunkMeshBuilder.CreateMesh(
+                    data,
+                    materials);
+        }
+        else
+        {
+            RemoveNode(
+                _meshes,
+                meshletIndex);
+        }
+
+        if (data.HasCollision)
+        {
+            var collision =
+                _collisions[
+                    meshletIndex] ??
+                CreateCollision(
+                    meshletIndex);
+
+            collision.Shape =
+                ChunkMeshBuilder
+                    .CreateCollisionShape(
+                        data);
+        }
+        else
+        {
+            RemoveCollision(
+                meshletIndex);
+        }
+
+        MarkTerrainPublished(
+            meshletIndex);
+    }
+
+    private MeshInstance3D CreateMesh(
+        MeshInstance3D?[] storage,
+        int meshletIndex,
+        string name)
+    {
+        var mesh =
+            new MeshInstance3D
+            {
+                Name = name,
+            };
+
+        storage[
+            meshletIndex] =
+            mesh;
+        Root.AddChild(
+            mesh);
+        return mesh;
+    }
+
+    private CollisionShape3D CreateCollision(
+        int meshletIndex)
+    {
+        _collisionBody ??=
+            CreateCollisionBody();
+
+        var collision =
+            new CollisionShape3D
+            {
+                Name =
+                    $"Meshlet_{meshletIndex}",
+            };
+
+        _collisions[
+            meshletIndex] =
+            collision;
+        _collisionBody.AddChild(
+            collision);
+        return collision;
+    }
+
+    private StaticBody3D CreateCollisionBody()
+    {
+        var body =
+            new StaticBody3D
+            {
+                Name = "Collision",
+            };
+        Root.AddChild(
+            body);
+        return body;
+    }
+
+    private void RemoveCollision(
+        int meshletIndex)
+    {
+        var collision =
+            _collisions[
+                meshletIndex];
+
+        if (collision is null)
+        {
+            return;
+        }
+
+        _collisions[
+            meshletIndex] =
+            null;
+        collision.QueueFree();
+
+        if (_collisions.Any(
+                value =>
+                    value is not null))
+        {
+            return;
+        }
+
+        _collisionBody?.QueueFree();
+        _collisionBody = null;
+    }
+
+    private static void RemoveNode(
+        MeshInstance3D?[] storage,
+        int meshletIndex)
+    {
+        var node =
+            storage[
+                meshletIndex];
+
+        if (node is null)
+        {
+            return;
+        }
+
+        storage[
+            meshletIndex] =
+            null;
+        node.QueueFree();
+    }
+
+    private void MarkTerrainPublished(
+        int meshletIndex)
+    {
+        if (_published[
+                meshletIndex])
+        {
+            return;
+        }
+
+        _published[
+            meshletIndex] = true;
+        _publishedCount++;
+    }
+
+    private static void ValidateMeshletIndex(
+        int meshletIndex)
+    {
+        if ((uint)meshletIndex >=
+            ChunkMeshletMask.Count)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(meshletIndex));
         }
     }
 }
