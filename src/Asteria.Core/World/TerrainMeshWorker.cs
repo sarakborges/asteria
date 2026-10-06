@@ -26,12 +26,14 @@ public sealed class TerrainMeshWorker
         VoxelWorld world,
         BlockRegistry blocks,
         TerrainTextureLookup textures,
+        BiomeTintField biomeTints,
         WorldMeshBatch batch,
         MeshletContentRevisions revisions)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(blocks);
         ArgumentNullException.ThrowIfNull(textures);
+        ArgumentNullException.ThrowIfNull(biomeTints);
         ArgumentNullException.ThrowIfNull(batch);
         ArgumentNullException.ThrowIfNull(revisions);
 
@@ -56,6 +58,7 @@ public sealed class TerrainMeshWorker
                     snapshot.World,
                     blocks,
                     textures,
+                    biomeTints,
                     batch.DirtyMeshlets);
             stopwatch.Stop();
 
@@ -80,6 +83,7 @@ public sealed class TerrainMeshWorker
             VoxelWorld world,
             BlockRegistry blocks,
             TerrainTextureLookup textures,
+            BiomeTintField biomeTints,
             IReadOnlyDictionary<ChunkCoord, ChunkMeshletMask> dirty)
     {
         var result =
@@ -95,6 +99,16 @@ public sealed class TerrainMeshWorker
                 continue;
             }
 
+            var (originX, _, originZ) =
+                VoxelCoordinates.ChunkOrigin(
+                    coord);
+            var tintSamples =
+                biomeTints.SampleGrid(
+                    originX,
+                    originZ,
+                    Chunk.Size + 1,
+                    Chunk.Size + 1);
+
             foreach (var meshletIndex in mask.Indices())
             {
                 result.Add(
@@ -106,7 +120,8 @@ public sealed class TerrainMeshWorker
                             coord,
                             blocks,
                             textures,
-                            meshletIndex)));
+                            meshletIndex,
+                            tintSamples)));
             }
         }
 

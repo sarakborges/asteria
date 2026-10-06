@@ -52,6 +52,146 @@ public sealed class ChunkMeshDataBuilderTests
     }
 
     [Fact]
+    public void TintableTerrainUsesBiomeTintAtMeshVertices()
+    {
+        var texture =
+            new BlockTextureLayer(
+                "textures/test/grass.png",
+                dyable: true);
+        var blocks =
+            new BlockRegistry(
+            [
+                new BlockDefinition(
+                    "asteria:grass_block",
+                    tint: BlockTint.Grass,
+                    textures:
+                        new BlockTextureSet(
+                            top:
+                            [
+                                texture,
+                            ]),
+                    previewColor:
+                        new BlockPreviewColor(
+                            255,
+                            0,
+                            0)),
+            ]);
+        var biome =
+            new BiomeDefinition(
+                "asteria:test/green",
+                new BiomeSurfaceLayoutDefinition(),
+                new BiomeTerrainDefinition(
+                    0,
+                    0,
+                    64,
+                    0,
+                    32),
+                [
+                    new BiomeSurfaceLayerDefinition(
+                        "asteria:grass_block"),
+                ],
+                tints:
+                    new BiomeTintPaletteDefinition(
+                        grass:
+                            new BiomeTintColor(
+                                0,
+                                255,
+                                0)));
+        var biomes =
+            new BiomeRegistry(
+            [
+                biome,
+            ]);
+        var dimension =
+            new DimensionDefinition(
+                new DimensionId(
+                    "asteria:test"),
+                [
+                    biome.Id,
+                ],
+                0,
+                18f,
+                new DimensionSpawnDefinition(
+                    0,
+                    0),
+                new DimensionEnvironmentDefinition(
+                    new DimensionColor(
+                        0,
+                        0,
+                        0),
+                    new DimensionColor(
+                        255,
+                        255,
+                        255),
+                    1f,
+                    new DimensionColor(
+                        0,
+                        0,
+                        0),
+                    0f));
+        var biomeField =
+            new BiomeField(
+                7,
+                dimension,
+                biomes);
+        var tintSamples =
+            new BiomeTintField(
+                    biomeField,
+                    [
+                        biome,
+                    ])
+                .SampleGrid(
+                    0,
+                    0,
+                    Chunk.Size + 1,
+                    Chunk.Size + 1);
+        var chunk =
+            new Chunk();
+
+        chunk.SetBlock(
+            1,
+            1,
+            1,
+            blocks.GetId(
+                "asteria:grass_block"));
+        ChunkLightingSolver.Initialize(
+            chunk,
+            blocks,
+            new FluidRegistry([]));
+
+        var world =
+            new VoxelWorld();
+        world.InsertChunk(
+            ChunkCoord.Zero,
+            chunk);
+
+        var data =
+            ChunkMeshDataBuilder.BuildMeshlet(
+                world,
+                ChunkCoord.Zero,
+                blocks,
+                new TerrainTextureLookup(
+                    new Dictionary<string, int>
+                    {
+                        ["textures/test/grass.png"] = 0,
+                    }),
+                meshletIndex: 0,
+                tintSamples);
+
+        Assert.Contains(
+            data.RenderBatches
+                .SelectMany(batch =>
+                    batch.Vertices),
+            vertex =>
+                vertex.TintAndAo.Y >
+                    0.99f &&
+                vertex.TintAndAo.X <
+                    0.01f &&
+                vertex.TintAndAo.Z <
+                    0.01f);
+    }
+
+    [Fact]
     public void CrossedSpriteBuildsDoubleSidedCutoutWithoutCollision()
     {
         var texture =

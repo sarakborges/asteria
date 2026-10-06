@@ -36,7 +36,8 @@ public static class ChunkMeshDataBuilder
         ChunkCoord coord,
         BlockRegistry blocks,
         TerrainTextureLookup textures,
-        int meshletIndex)
+        int meshletIndex,
+        BiomeTintSampleGrid? tintSamples = null)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(blocks);
@@ -82,7 +83,8 @@ public static class ChunkMeshDataBuilder
                             y,
                             z,
                             worldPosition,
-                            definition);
+                            definition,
+                            tintSamples);
                         continue;
                     }
 
@@ -107,7 +109,8 @@ public static class ChunkMeshDataBuilder
                         z,
                         worldPosition,
                         cell,
-                        definition);
+                        definition,
+                        tintSamples);
                 }
             }
         }
@@ -119,7 +122,8 @@ public static class ChunkMeshDataBuilder
             coord,
             blocks,
             textures,
-            bounds);
+            bounds,
+            tintSamples);
 
         var batches = surfaces
             .Where(entry => entry.Value.Count > 0)
@@ -148,7 +152,8 @@ public static class ChunkMeshDataBuilder
             int MinZ,
             int MaxXExclusive,
             int MaxYExclusive,
-            int MaxZExclusive) bounds)
+            int MaxZExclusive) bounds,
+        BiomeTintSampleGrid? tintSamples)
     {
         var chunk = world.GetChunk(coord);
         var (originX, originY, originZ) =
@@ -257,7 +262,10 @@ public static class ChunkMeshDataBuilder
                                 cell,
                                 faceMaterial,
                                 lighting,
-                                definition.IsCollidable);
+                                definition.IsCollidable,
+                                originX,
+                                originZ,
+                                tintSamples);
                             continue;
                         }
 
@@ -377,7 +385,10 @@ public static class ChunkMeshDataBuilder
                     plane.VMin + localV,
                     rectangleWidth,
                     rectangleHeight,
-                    candidate.Value);
+                    candidate.Value,
+                    originX,
+                    originZ,
+                    tintSamples);
             }
         }
     }
@@ -391,7 +402,10 @@ public static class ChunkMeshDataBuilder
         int v,
         int width,
         int height,
-        GreedyCubeFace candidate)
+        GreedyCubeFace candidate,
+        int worldOriginX,
+        int worldOriginZ,
+        BiomeTintSampleGrid? tintSamples)
     {
         var (lower, upper) =
             CubeRectangleBounds(
@@ -428,7 +442,10 @@ public static class ChunkMeshDataBuilder
                 candidate.Lighting,
                 candidate.Lighting),
             candidate.IsCollidable,
-            useAbsoluteUv: true);
+            useAbsoluteUv: true,
+            worldOriginX: worldOriginX,
+            worldOriginZ: worldOriginZ,
+            tintSamples: tintSamples);
     }
 
     private static bool RequiresFineMeshing(
@@ -511,7 +528,8 @@ public static class ChunkMeshDataBuilder
         int blockY,
         int blockZ,
         WorldVoxelCoord worldPosition,
-        BlockDefinition definition)
+        BlockDefinition definition,
+        BiomeTintSampleGrid? tintSamples)
     {
         var visual = definition.Visual;
         var texture =
@@ -525,10 +543,12 @@ public static class ChunkMeshDataBuilder
                 ? DyableLayerFlag
                 : 0f);
         var tint =
-            definition.Tint == BlockTint.None
-                ? Vector3.One
-                : ToTint(
-                    definition.PreviewColor);
+            ResolveTint(
+                definition.Tint,
+                definition.PreviewColor,
+                tintSamples,
+                worldPosition.X,
+                worldPosition.Z);
         var material =
             new TerrainFaceMaterial(
                 new Vector2(
@@ -655,7 +675,10 @@ public static class ChunkMeshDataBuilder
         VoxelCell cell,
         TerrainFaceMaterial faceMaterial,
         VoxelFaceLighting faceLighting,
-        bool isCollidable)
+        bool isCollidable,
+        int worldOriginX,
+        int worldOriginZ,
+        BiomeTintSampleGrid? tintSamples)
     {
         var corners = FaceCorners(face);
         Span<Vector3> positions = stackalloc Vector3[4];
@@ -684,7 +707,10 @@ public static class ChunkMeshDataBuilder
             faceLighting,
             isCollidable,
             useAbsoluteUv: false,
-            uvOrigin: origin);
+            uvOrigin: origin,
+            worldOriginX: worldOriginX,
+            worldOriginZ: worldOriginZ,
+            tintSamples: tintSamples);
     }
 
     private static void EmitFineCell(
@@ -698,7 +724,8 @@ public static class ChunkMeshDataBuilder
         int blockZ,
         WorldVoxelCoord worldPosition,
         VoxelCell cell,
-        BlockDefinition definition)
+        BlockDefinition definition,
+        BiomeTintSampleGrid? tintSamples)
     {
         var origin = new Vector3(
             blockX,
@@ -789,7 +816,12 @@ public static class ChunkMeshDataBuilder
                     cell,
                     faceMaterial,
                     faceLighting,
-                    definition.IsCollidable);
+                    definition.IsCollidable,
+                    worldPosition.X -
+                        blockX,
+                    worldPosition.Z -
+                        blockZ,
+                    tintSamples);
             }
         }
     }
@@ -897,7 +929,10 @@ public static class ChunkMeshDataBuilder
         VoxelCell cell,
         TerrainFaceMaterial faceMaterial,
         VoxelFaceLighting faceLighting,
-        bool isCollidable)
+        bool isCollidable,
+        int worldOriginX,
+        int worldOriginZ,
+        BiomeTintSampleGrid? tintSamples)
     {
         for (var v = 0;
              v < FineResolution;
@@ -979,7 +1014,10 @@ public static class ChunkMeshDataBuilder
                     cell,
                     faceMaterial,
                     faceLighting,
-                    isCollidable);
+                    isCollidable,
+                    worldOriginX,
+                    worldOriginZ,
+                    tintSamples);
             }
         }
     }
@@ -997,7 +1035,10 @@ public static class ChunkMeshDataBuilder
         VoxelCell cell,
         TerrainFaceMaterial faceMaterial,
         VoxelFaceLighting faceLighting,
-        bool isCollidable)
+        bool isCollidable,
+        int worldOriginX,
+        int worldOriginZ,
+        BiomeTintSampleGrid? tintSamples)
     {
         var (minX, minY, minZ) =
             FinePosition(
@@ -1110,7 +1151,10 @@ public static class ChunkMeshDataBuilder
             faceLighting,
             isCollidable,
             useAbsoluteUv: false,
-            uvOrigin: origin);
+            uvOrigin: origin,
+            worldOriginX: worldOriginX,
+            worldOriginZ: worldOriginZ,
+            tintSamples: tintSamples);
     }
 
     private static void EmitQuadVertices(
@@ -1124,7 +1168,10 @@ public static class ChunkMeshDataBuilder
         VoxelFaceLighting lighting,
         bool isCollidable,
         bool useAbsoluteUv,
-        Vector3 uvOrigin = default)
+        Vector3 uvOrigin = default,
+        int worldOriginX = 0,
+        int worldOriginZ = 0,
+        BiomeTintSampleGrid? tintSamples = null)
     {
         var triangleOrder =
             lighting.ShouldFlipDiagonal
@@ -1141,6 +1188,19 @@ public static class ChunkMeshDataBuilder
                 MacroUv(face, uvPoint),
                 uvRotation);
             var vertexLighting = lighting[index];
+            var tint =
+                ResolveTint(
+                    faceMaterial.Tint,
+                    faceMaterial.TintFallback,
+                    tintSamples,
+                    checked(
+                        worldOriginX +
+                        (int)MathF.Floor(
+                            position.X)),
+                    checked(
+                        worldOriginZ +
+                        (int)MathF.Floor(
+                            position.Z)));
 
             surface.Add(
                 new ChunkMeshVertex(
@@ -1149,9 +1209,9 @@ public static class ChunkMeshDataBuilder
                     uv,
                     faceMaterial.EncodedLayers,
                     new Vector4(
-                        faceMaterial.Tint.X,
-                        faceMaterial.Tint.Y,
-                        faceMaterial.Tint.Z,
+                        tint.X,
+                        tint.Y,
+                        tint.Z,
                         vertexLighting.AmbientOcclusion),
                     new Vector4(
                         vertexLighting.Sky,
@@ -1237,17 +1297,12 @@ public static class ChunkMeshDataBuilder
                     : 0f);
         }
 
-        var tint =
-            definition.Tint == BlockTint.None
-                ? Vector3.One
-                : ToTint(
-                    definition.PreviewColor);
-
         return new TerrainFaceMaterial(
             new Vector2(
                 baseCode,
                 overlayCode),
-            tint,
+            definition.Tint,
+            definition.PreviewColor,
             definition.RotateTexture.Rotates(
                 sourceFace));
     }
@@ -1524,16 +1579,33 @@ public static class ChunkMeshDataBuilder
                 nameof(face)),
         };
 
-    private static Vector3 ToTint(
-        BlockPreviewColor color) =>
-        new(
-            color.Red / 255f,
-            color.Green / 255f,
-            color.Blue / 255f);
+    private static Vector3 ResolveTint(
+        BlockTint tint,
+        BlockPreviewColor fallback,
+        BiomeTintSampleGrid? samples,
+        int worldX,
+        int worldZ)
+    {
+        if (tint == BlockTint.None)
+        {
+            return Vector3.One;
+        }
+
+        return samples?.Resolve(
+                   tint,
+                   fallback,
+                   worldX,
+                   worldZ) ??
+               new Vector3(
+                   fallback.Red / 255f,
+                   fallback.Green / 255f,
+                   fallback.Blue / 255f);
+    }
 
     private readonly record struct TerrainFaceMaterial(
         Vector2 EncodedLayers,
-        Vector3 Tint,
+        BlockTint Tint,
+        BlockPreviewColor TintFallback,
         bool RotateTexture);
 
     private readonly record struct GreedyCubeFace(

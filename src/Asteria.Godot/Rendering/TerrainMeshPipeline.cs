@@ -7,6 +7,7 @@ public sealed class TerrainMeshPipeline
     private readonly VoxelWorld _world;
     private readonly BlockRegistry _blocks;
     private readonly TerrainTextureLookup _textures;
+    private readonly BiomeTintField _biomeTints;
     private readonly WorldUpdateQueue _updates;
     private readonly MeshletContentRevisions _revisions;
     private readonly ChunkPresentationController _presentations;
@@ -24,6 +25,7 @@ public sealed class TerrainMeshPipeline
         VoxelWorld world,
         BlockRegistry blocks,
         TerrainTextureLookup textures,
+        BiomeTintField biomeTints,
         WorldUpdateQueue updates,
         MeshletContentRevisions revisions,
         ChunkPresentationController presentations,
@@ -39,6 +41,9 @@ public sealed class TerrainMeshPipeline
         _textures =
             textures ??
             throw new ArgumentNullException(nameof(textures));
+        _biomeTints =
+            biomeTints ??
+            throw new ArgumentNullException(nameof(biomeTints));
         _updates =
             updates ??
             throw new ArgumentNullException(nameof(updates));
@@ -170,6 +175,7 @@ public sealed class TerrainMeshPipeline
                 _world,
                 _blocks,
                 _textures,
+                _biomeTints,
                 batch,
                 _revisions))
         {

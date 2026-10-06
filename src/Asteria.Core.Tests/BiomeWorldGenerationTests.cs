@@ -338,6 +338,122 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
+    public void BiomeTintBlendsAuthoredInfluenceColors()
+    {
+        var first =
+            new BiomeDefinition(
+                "asteria:test/first",
+                new BiomeSurfaceLayoutDefinition(),
+                new BiomeTerrainDefinition(
+                    0,
+                    0,
+                    64,
+                    0,
+                    32),
+                [
+                    new BiomeSurfaceLayerDefinition(
+                        "asteria:stone"),
+                ],
+                tints:
+                    new BiomeTintPaletteDefinition(
+                        grass:
+                            new BiomeTintColor(
+                                255,
+                                0,
+                                0)));
+        var second =
+            new BiomeDefinition(
+                "asteria:test/second",
+                new BiomeSurfaceLayoutDefinition(),
+                new BiomeTerrainDefinition(
+                    0,
+                    0,
+                    64,
+                    0,
+                    32),
+                [
+                    new BiomeSurfaceLayerDefinition(
+                        "asteria:stone"),
+                ],
+                tints:
+                    new BiomeTintPaletteDefinition(
+                        grass:
+                            new BiomeTintColor(
+                                0,
+                                0,
+                                255)));
+        var field =
+            new BiomeField(
+                57,
+                TestDimension(
+                [
+                    first.Id,
+                    second.Id,
+                ]),
+                new BiomeRegistry(
+                [
+                    first,
+                    second,
+                ]));
+        var tints =
+            new BiomeTintField(
+                field,
+                [
+                    first,
+                    second,
+                ]);
+        var found = false;
+
+        for (var z = -1024;
+             z <= 1024 &&
+             !found;
+             z += 4)
+        {
+            for (var x = -1024;
+                 x <= 1024;
+                 x += 4)
+            {
+                var sample =
+                    field.Sample(
+                        x,
+                        z);
+
+                if (sample.Influences.Count <= 1)
+                {
+                    continue;
+                }
+
+                var color =
+                    tints.SampleGrid(
+                            x,
+                            z,
+                            1,
+                            1)
+                        .Resolve(
+                            BlockTint.Grass,
+                            new BlockPreviewColor(
+                                0,
+                                255,
+                                0),
+                            x,
+                            z);
+
+                Assert.True(
+                    color.X > 0f);
+                Assert.True(
+                    color.Z > 0f);
+                Assert.True(
+                    color.Y < 0.001f);
+                found = true;
+                break;
+            }
+        }
+
+        Assert.True(
+            found);
+    }
+
+    [Fact]
     public void SurfaceMaterialBelongsToPrimaryBiomeNotInfluenceWeight()
     {
         var blocks =

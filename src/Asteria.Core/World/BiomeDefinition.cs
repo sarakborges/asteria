@@ -9,7 +9,8 @@ public sealed class BiomeDefinition
         BiomeSurfaceLayoutDefinition surfaceLayout,
         BiomeTerrainDefinition surfaceTerrain,
         IEnumerable<BiomeSurfaceLayerDefinition> surfaceLayers,
-        IEnumerable<BiomeDecorationDefinition>? decorations = null)
+        IEnumerable<BiomeDecorationDefinition>? decorations = null,
+        BiomeTintPaletteDefinition? tints = null)
     {
         ValidateId(id);
         Id = id;
@@ -32,6 +33,9 @@ public sealed class BiomeDefinition
             Array.Empty<BiomeDecorationDefinition>();
         Decorations =
             Array.AsReadOnly(authoredDecorations);
+        Tints =
+            tints ??
+            BiomeTintPaletteDefinition.Empty;
     }
 
     public string Id { get; }
@@ -43,6 +47,8 @@ public sealed class BiomeDefinition
     public IReadOnlyList<BiomeSurfaceLayerDefinition> SurfaceLayers { get; }
 
     public IReadOnlyList<BiomeDecorationDefinition> Decorations { get; }
+
+    public BiomeTintPaletteDefinition Tints { get; }
 
     public bool BelongsToDimension(string dimensionId)
     {
@@ -503,4 +509,57 @@ public sealed class BiomeDecorationDefinition
     public float Chance { get; }
 
     public IReadOnlyList<string> SurfaceBlocks { get; }
+}
+
+
+public readonly record struct BiomeTintColor(
+    byte Red,
+    byte Green,
+    byte Blue)
+{
+    public static BiomeTintColor Parse(
+        string value)
+    {
+        var parsed =
+            BlockPreviewColor.Parse(
+                value);
+        return new BiomeTintColor(
+            parsed.Red,
+            parsed.Green,
+            parsed.Blue);
+    }
+}
+
+public sealed class BiomeTintPaletteDefinition
+{
+    public static BiomeTintPaletteDefinition Empty { get; } =
+        new();
+
+    public BiomeTintPaletteDefinition(
+        BiomeTintColor? grass = null,
+        BiomeTintColor? leaf = null,
+        BiomeTintColor? foliage = null)
+    {
+        Grass = grass;
+        Leaf = leaf;
+        Foliage = foliage;
+    }
+
+    public BiomeTintColor? Grass { get; }
+
+    public BiomeTintColor? Leaf { get; }
+
+    public BiomeTintColor? Foliage { get; }
+
+    public BiomeTintColor? For(
+        BlockTint tint) =>
+        tint switch
+        {
+            BlockTint.None => null,
+            BlockTint.Grass => Grass,
+            BlockTint.Leaf => Leaf,
+            BlockTint.Foliage => Foliage,
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(tint)),
+        };
 }

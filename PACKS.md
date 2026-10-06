@@ -112,6 +112,18 @@ Surface-biome material is authored with ordered `surfaceLayers`, using the same 
 
 Every entry before the last requires a positive `depth`; those depths accumulate downward from the exposed surface. The final entry omits `depth` and is the unlimited core material. A patch may exist only on a finite layer and replaces that layer's base block inside deterministic world-space patch footprints. Patch alternatives cannot repeat the base block. Material ownership follows the sampled primary biome; nearby biome influence weights blend terrain shape, not material identity.
 
+Tintable blocks declare a semantic block tint category such as `grass`, `leaf` or `foliage`. Surface biomes may author matching RGB colors:
+
+```json
+"tints": {
+  "grass": "3DB329",
+  "leaf": "3DB329",
+  "foliage": "3DB329"
+}
+```
+
+Tint fields are optional individually. When a contributing biome omits a tint category, the block's authored preview color is the fallback for that influence. Runtime blends normalized biome influences in linear-light RGB and supplies the result as vertex tint only to dyable texture layers, producing gradual transitions across biome boundaries without changing terrain material ownership.
+
 Data must not contain executable gameplay code. Native/code plugins are a separate future extension system.
 
 Data definitions may reference presentation resources by logical pack-relative keys, but must not embed Godot-specific metadata.

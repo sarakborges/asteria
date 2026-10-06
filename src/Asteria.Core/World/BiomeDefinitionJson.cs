@@ -34,7 +34,8 @@ public static class BiomeDefinitionJson
                 GetRequiredArray(
                     root,
                     "surfaceLayers")),
-            ParseDecorations(root));
+            ParseDecorations(root),
+            ParseTints(root));
     }
 
     private static BiomeSurfaceLayoutDefinition
@@ -158,6 +159,60 @@ public static class BiomeDefinitionJson
             RequiredStringArray(
                 patch,
                 "blocks"));
+    }
+
+    private static BiomeTintPaletteDefinition
+        ParseTints(
+            JsonElement root)
+    {
+        if (!root.TryGetProperty(
+                "tints",
+                out var value) ||
+            value.ValueKind ==
+                JsonValueKind.Null)
+        {
+            return BiomeTintPaletteDefinition.Empty;
+        }
+
+        value =
+            EnsureObject(
+                value,
+                "tints");
+
+        return new BiomeTintPaletteDefinition(
+            OptionalTintColor(
+                value,
+                "grass"),
+            OptionalTintColor(
+                value,
+                "leaf"),
+            OptionalTintColor(
+                value,
+                "foliage"));
+    }
+
+    private static BiomeTintColor? OptionalTintColor(
+        JsonElement value,
+        string name)
+    {
+        if (!value.TryGetProperty(
+                name,
+                out var property) ||
+            property.ValueKind ==
+                JsonValueKind.Null)
+        {
+            return null;
+        }
+
+        if (property.ValueKind !=
+            JsonValueKind.String)
+        {
+            throw new FormatException(
+                $"tints.{name} must be a six-digit RGB hex string.");
+        }
+
+        return BiomeTintColor.Parse(
+            property.GetString()!);
     }
 
     private static IReadOnlyList<BiomeDecorationDefinition>

@@ -66,6 +66,10 @@ public sealed class BiomeWorldGenerator : IChunkProvider, IChunkSurfaceRangeProv
                 seed,
                 activeBiomes,
                 blocks);
+        Tints =
+            new BiomeTintField(
+                _field,
+                activeBiomes);
         _profiles =
             activeBiomes
                 .ToDictionary(
@@ -89,6 +93,8 @@ public sealed class BiomeWorldGenerator : IChunkProvider, IChunkSurfaceRangeProv
 
     public BiomeField Biomes =>
         _field;
+
+    public BiomeTintField Tints { get; }
 
     public Chunk Materialize(
         ChunkCoord coord)

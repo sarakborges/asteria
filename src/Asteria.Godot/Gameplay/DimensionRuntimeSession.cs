@@ -204,6 +204,7 @@ public sealed class DimensionRuntimeSession
                 World,
                 blocks,
                 terrainTextures,
+                Generator.Tints,
                 WorldUpdates,
                 ContentRevisions,
                 Presentations,
