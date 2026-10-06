@@ -67,6 +67,7 @@ public partial class Main : Node3D
 
     private WorldFrameWorkBudget _worldFrameBudget;
     private bool _worldReadySent;
+    private bool _debugHudVisible;
 
     public override void _Ready()
     {
@@ -222,6 +223,22 @@ public partial class Main : Node3D
                 CurrentStreamingCenter()));
     }
 
+    public override void _Input(InputEvent @event)
+    {
+        if (@event is not InputEventKey keyEvent ||
+            !keyEvent.Pressed ||
+            keyEvent.Echo ||
+            keyEvent.Keycode != Key.F3)
+        {
+            return;
+        }
+
+        _debugHudVisible =
+            !_debugHudVisible;
+        SendDebugHudState();
+        GetViewport().SetInputAsHandled();
+    }
+
     public override void _Process(double delta)
     {
         _worldTicks.Advance(
@@ -335,6 +352,7 @@ public partial class Main : Node3D
         SendWebUi(
             "game.ready",
             new { bridge = 1, engine = "godot" });
+        SendDebugHudState();
         SendHotbarState();
 
         if (_worldReadySent)
@@ -378,6 +396,17 @@ public partial class Main : Node3D
                 worldTick = _worldTicks.CurrentTick,
                 textures = _terrainTextures.TextureCount,
                 meshletsPerChunk = ChunkMeshletMask.Count,
+            });
+    }
+
+    private void SendDebugHudState()
+    {
+        SendWebUi(
+            "game.hud.debug",
+            new
+            {
+                visible =
+                    _debugHudVisible,
             });
     }
 
