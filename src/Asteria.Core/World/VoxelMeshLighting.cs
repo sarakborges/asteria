@@ -144,6 +144,12 @@ public static class VoxelMeshLighting
             return 0f;
         }
 
+        if (definition.Visual.Kind ==
+            BlockVisualKind.CrossedSprite)
+        {
+            return 0f;
+        }
+
         if (cell.HasMicroblockGeometry)
         {
             return mask.OccupiedCount /
