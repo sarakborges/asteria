@@ -1,11 +1,11 @@
 .status-card {
   display: grid;
   gap: var(--ui-space-1);
-  min-width: 270px;
+  width: 292px;
   padding: var(--ui-space-3) var(--ui-space-4);
   border: 1px solid var(--ui-color-border);
-  border-radius: var(--ui-radius-md);
   background: var(--ui-color-panel);
+  box-shadow: 0 12px 32px var(--ui-color-shadow);
   backdrop-filter: blur(12px);
   pointer-events: auto;
 }
