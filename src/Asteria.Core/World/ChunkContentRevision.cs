@@ -22,3 +22,22 @@ public sealed class ChunkContentStamp
     internal IEnumerable<KeyValuePair<ChunkCoord, ChunkContentRevision>>
         Entries => _revisions;
 }
+
+public readonly record struct ChunkColumnCoord(int X, int Z)
+{
+    public static ChunkColumnCoord FromChunk(ChunkCoord coord) =>
+        new(coord.X, coord.Z);
+}
+
+public sealed class ChunkColumnResidencyStamp
+{
+    private readonly Dictionary<ChunkColumnCoord, ulong> _revisions;
+
+    internal ChunkColumnResidencyStamp(
+        Dictionary<ChunkColumnCoord, ulong> revisions)
+    {
+        _revisions = revisions ?? throw new ArgumentNullException(nameof(revisions));
+    }
+
+    internal IEnumerable<KeyValuePair<ChunkColumnCoord, ulong>> Entries => _revisions;
+}

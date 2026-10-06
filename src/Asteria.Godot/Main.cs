@@ -1525,8 +1525,10 @@ public partial class Main : Node3D
             return;
         }
 
-        var worldRevision = _world.Revision;
-        var snapshot = _world.CloneForWorker();
+        var snapshot =
+            VoxelLightingSnapshot.Capture(
+                _world,
+                batch.EditedPositions);
         var blocks = _blocks;
         var fluids = _fluids;
 
@@ -1535,15 +1537,15 @@ public partial class Main : Node3D
             var stopwatch = Stopwatch.StartNew();
             var lighting =
                 VoxelWorldLightingSolver.RelightAfterEdits(
-                    snapshot,
+                    snapshot.World,
                     blocks,
                     fluids,
                     batch.EditedPositions);
             stopwatch.Stop();
 
             return new LightingUpdateBuild(
-                worldRevision,
-                snapshot,
+                snapshot.Dependencies,
+                snapshot.World,
                 batch,
                 lighting,
                 stopwatch.Elapsed.TotalMilliseconds);
@@ -1570,8 +1572,8 @@ public partial class Main : Node3D
         var result = _lightingTask.Result;
         _lightingTask = null;
 
-        if (result.WorldRevision !=
-            _world.Revision)
+        if (!result.Dependencies.IsCurrent(
+                _world))
         {
             _worldUpdates.RequeueLighting(
                 result.SourceBatch);
@@ -1819,7 +1821,7 @@ public partial class Main : Node3D
         double WorkerMilliseconds);
 
     private sealed record LightingUpdateBuild(
-        ulong WorldRevision,
+        VoxelLightingDependencies Dependencies,
         VoxelWorld LightingSnapshot,
         WorldLightingBatch SourceBatch,
         VoxelLightingUpdateResult Lighting,

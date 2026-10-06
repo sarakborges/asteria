@@ -51,8 +51,7 @@ public static class VoxelWorldLightingSolver
         ArgumentNullException.ThrowIfNull(fluids);
         ArgumentNullException.ThrowIfNull(editedPositions);
 
-        var queue = new Queue<WorldVoxelCoord>();
-        var queued = new HashSet<WorldVoxelCoord>();
+        var queue = new DeduplicatedQueue<WorldVoxelCoord>();
         var changed = new HashSet<WorldVoxelCoord>();
         var directSky =
             new DirectSkyContext(
@@ -62,15 +61,13 @@ public static class VoxelWorldLightingSolver
 
         foreach (var position in editedPositions)
         {
-            EnqueueWithNeighbors(world, queue, queued, position);
+            EnqueueWithNeighbors(world, queue, position);
         }
 
         var processed = 0;
 
-        while (queue.Count > 0)
+        while (queue.TryDequeue(out var position))
         {
-            var position = queue.Dequeue();
-            queued.Remove(position);
 
             if (!world.TryGetCell(position, out var cell))
             {
@@ -98,7 +95,6 @@ public static class VoxelWorldLightingSolver
             EnqueueWithNeighbors(
                 world,
                 queue,
-                queued,
                 position);
         }
 
@@ -196,30 +192,23 @@ public static class VoxelWorldLightingSolver
 
     private static void EnqueueWithNeighbors(
         VoxelWorld world,
-        Queue<WorldVoxelCoord> queue,
-        HashSet<WorldVoxelCoord> queued,
+        DeduplicatedQueue<WorldVoxelCoord> queue,
         WorldVoxelCoord position)
     {
-        EnqueueIfLoaded(world, queue, queued, position);
+        EnqueueIfLoaded(world, queue, position);
 
         foreach (var offset in Neighbors)
         {
-            EnqueueIfLoaded(
-                world,
-                queue,
-                queued,
-                position + offset);
+            EnqueueIfLoaded(world, queue, position + offset);
         }
     }
 
     private static void EnqueueIfLoaded(
         VoxelWorld world,
-        Queue<WorldVoxelCoord> queue,
-        HashSet<WorldVoxelCoord> queued,
+        DeduplicatedQueue<WorldVoxelCoord> queue,
         WorldVoxelCoord position)
     {
-        if (world.IsLoadedAt(position) &&
-            queued.Add(position))
+        if (world.IsLoadedAt(position))
         {
             queue.Enqueue(position);
         }
@@ -378,8 +367,7 @@ public static class VoxelWorldLightingSolver
         BlockRegistry blocks,
         FluidRegistry fluids)
     {
-        var queue = new Queue<WorldVoxelCoord>();
-        var queued = new HashSet<WorldVoxelCoord>();
+        var queue = new DeduplicatedQueue<WorldVoxelCoord>();
 
         foreach (var coord in world.LoadedChunkCoords)
         {
@@ -392,9 +380,7 @@ public static class VoxelWorldLightingSolver
                 {
                     for (var x = 0; x < Chunk.Size; x++)
                     {
-                        Enqueue(
-                            queue,
-                            queued,
+                        queue.Enqueue(
                             new WorldVoxelCoord(
                                 originX + x,
                                 originY + y,
@@ -404,10 +390,8 @@ public static class VoxelWorldLightingSolver
             }
         }
 
-        while (queue.Count > 0)
+        while (queue.TryDequeue(out var position))
         {
-            var position = queue.Dequeue();
-            queued.Remove(position);
 
             if (!world.TryGetCell(position, out var cell))
             {
@@ -472,20 +456,9 @@ public static class VoxelWorldLightingSolver
                 var neighbor = position + offset;
                 if (world.IsLoadedAt(neighbor))
                 {
-                    Enqueue(queue, queued, neighbor);
+                    queue.Enqueue(neighbor);
                 }
             }
-        }
-    }
-
-    private static void Enqueue(
-        Queue<WorldVoxelCoord> queue,
-        HashSet<WorldVoxelCoord> queued,
-        WorldVoxelCoord position)
-    {
-        if (queued.Add(position))
-        {
-            queue.Enqueue(position);
         }
     }
 
