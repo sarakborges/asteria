@@ -43,7 +43,7 @@ public partial class Main : Node3D
     private Node _webUi = null!;
     private TerrainTextureCatalog _terrainTextures = null!;
     private TerrainTextureLookup _terrainTextureLookup = null!;
-    private ShaderMaterial _terrainMaterial = null!;
+    private VoxelTerrainMaterialSet _terrainMaterials = null!;
     private BlockRuntimeId _placementBlock;
 
     private ChunkCoord _streamingCenter;
@@ -58,7 +58,7 @@ public partial class Main : Node3D
         _blocks = BlockContentLoader.LoadProjectBlocks();
         _terrainTextures = TerrainTextureCatalog.Create(_blocks);
         _terrainTextureLookup = _terrainTextures.CreateLookup();
-        _terrainMaterial = VoxelTerrainMaterial.Create(_terrainTextures);
+        _terrainMaterials = VoxelTerrainMaterialSet.Create(_terrainTextures);
         _placementBlock =
             _blocks.GetId(TestChunkFactory.StoneId);
 
@@ -1052,7 +1052,7 @@ public partial class Main : Node3D
             presentation.Apply(
                 pending.Meshlet.MeshletIndex,
                 pending.Meshlet.Data,
-                _terrainMaterial);
+                _terrainMaterials);
 
             published++;
         }

@@ -15,6 +15,8 @@ The current milestone proves the base runtime architecture without introducing w
 - zero-copy in-memory session archive for edited chunks: eviction moves dirty chunks out of residency and restore happens before provider materialization; pristine deterministic chunks are dropped and regenerated instead of consuming archive memory;
 - adaptive world-work budgets modeled after Mineclone: roughly 2 ms under frame pressure, 3 ms at normal cadence and 4 ms when frames are fast;
 - 8³ chunk meshlets with dirty-halo remesh masks and revision-stale async work rejection;
+- terrain render batches split by opaque/cutout/translucent + shadow policy, with collision geometry kept independent from visual surfaces;
+- greedy ordinary-cube meshing inside each 8³ meshlet for opaque/cutout faces when material, UV transform and vertex lighting are compatible; translucent faces stay independent for ordering;
 - incremental cross-chunk voxel lighting after edits: edited voxels seed a deduplicated propagation frontier instead of relighting every resident chunk;
 - correct world ↔ chunk/local coordinate conversion across negative coordinates;
 - cube, surface-layer, centered-layer, hollow and 8³ microblock geometry;

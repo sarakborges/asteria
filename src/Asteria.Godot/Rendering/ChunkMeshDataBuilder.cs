@@ -35,11 +35,15 @@ public static class ChunkMeshDataBuilder
         ArgumentNullException.ThrowIfNull(textures);
 
         var chunk = world.GetChunk(coord);
-        var vertices = new List<ChunkMeshVertex>(2048);
+        var surfaces =
+            new Dictionary<TerrainRenderBatch, List<ChunkMeshVertex>>();
+        var collision = new List<Vector3>(1024);
         var bounds = ChunkMeshletMask.Bounds(meshletIndex);
         var (originX, originY, originZ) =
             VoxelCoordinates.ChunkOrigin(coord);
 
+        // Partial geometry keeps the correctness-first fine mesher. Ordinary
+        // cubes are emitted in a separate face-by-face greedy pass below.
         for (var y = bounds.MinY; y < bounds.MaxYExclusive; y++)
         {
             for (var z = bounds.MinZ; z < bounds.MaxZExclusive; z++)
@@ -58,44 +62,342 @@ public static class ChunkMeshDataBuilder
                         originY + y,
                         originZ + z);
 
-                    if (RequiresFineMeshing(
+                    if (!RequiresFineMeshing(
                             world,
                             blocks,
                             worldPosition,
                             cell,
                             definition))
                     {
-                        EmitFineCell(
-                            vertices,
-                            world,
-                            blocks,
-                            textures,
-                            x,
-                            y,
-                            z,
-                            worldPosition,
-                            cell,
-                            definition);
+                        continue;
                     }
-                    else
-                    {
-                        EmitCubeCell(
-                            vertices,
-                            world,
-                            blocks,
-                            textures,
-                            x,
-                            y,
-                            z,
-                            worldPosition,
-                            cell,
-                            definition);
-                    }
+
+                    EmitFineCell(
+                        surfaces,
+                        collision,
+                        world,
+                        blocks,
+                        textures,
+                        x,
+                        y,
+                        z,
+                        worldPosition,
+                        cell,
+                        definition);
                 }
             }
         }
 
-        return new ChunkMeshData(vertices.ToArray());
+        EmitGreedyCubeFaces(
+            surfaces,
+            collision,
+            world,
+            coord,
+            blocks,
+            textures,
+            bounds);
+
+        var batches = surfaces
+            .Where(entry => entry.Value.Count > 0)
+            .OrderBy(entry => entry.Key)
+            .Select(entry =>
+                new ChunkRenderBatchData(
+                    entry.Key,
+                    entry.Value.ToArray()))
+            .ToArray();
+
+        return new ChunkMeshData(
+            batches,
+            collision.ToArray());
+    }
+
+    private static void EmitGreedyCubeFaces(
+        Dictionary<TerrainRenderBatch, List<ChunkMeshVertex>> surfaces,
+        List<Vector3> collision,
+        VoxelWorld world,
+        ChunkCoord coord,
+        BlockRegistry blocks,
+        TerrainTextureLookup textures,
+        (
+            int MinX,
+            int MinY,
+            int MinZ,
+            int MaxXExclusive,
+            int MaxYExclusive,
+            int MaxZExclusive) bounds)
+    {
+        var chunk = world.GetChunk(coord);
+        var (originX, originY, originZ) =
+            VoxelCoordinates.ChunkOrigin(coord);
+
+        foreach (var face in Faces)
+        {
+            var plane = PlaneBounds(face, bounds);
+            var width = plane.UMaxExclusive - plane.UMin;
+            var height = plane.VMaxExclusive - plane.VMin;
+            var candidates =
+                new GreedyCubeFace?[width * height];
+
+            for (var depth = plane.DepthMin;
+                 depth < plane.DepthMaxExclusive;
+                 depth++)
+            {
+                Array.Clear(candidates);
+
+                for (var v = plane.VMin;
+                     v < plane.VMaxExclusive;
+                     v++)
+                {
+                    for (var u = plane.UMin;
+                         u < plane.UMaxExclusive;
+                         u++)
+                    {
+                        var (x, y, z) =
+                            PlanePosition(face, depth, u, v);
+                        var cell = chunk.GetCell(x, y, z);
+
+                        if (cell.IsEmpty)
+                        {
+                            continue;
+                        }
+
+                        var definition =
+                            blocks.GetDefinition(cell.Block);
+                        var worldPosition =
+                            new WorldVoxelCoord(
+                                originX + x,
+                                originY + y,
+                                originZ + z);
+
+                        if (RequiresFineMeshing(
+                                world,
+                                blocks,
+                                worldPosition,
+                                cell,
+                                definition))
+                        {
+                            continue;
+                        }
+
+                        var offset = FaceOffset(face);
+                        if (!FaceIsExposed(
+                                world,
+                                blocks,
+                                cell,
+                                definition,
+                                worldPosition + offset))
+                        {
+                            continue;
+                        }
+
+                        var faceMaterial =
+                            ResolveFaceMaterial(
+                                textures,
+                                definition,
+                                cell,
+                                face);
+                        var lighting =
+                            VoxelMeshLighting.SampleFace(
+                                world,
+                                blocks,
+                                worldPosition,
+                                face);
+                        var batch = new TerrainRenderBatch(
+                            definition.RenderMode,
+                            definition.CastsShadow);
+                        var uvRotation =
+                            BlockUvRotation.ForWorldFace(
+                                face,
+                                cell.Orientation,
+                                cell.TextureRotation,
+                                faceMaterial.RotateTexture);
+
+                        if (!BlockRenderModePolicy.CanGreedyMerge(
+                                definition.RenderMode) ||
+                            !TryUniformLighting(
+                                lighting,
+                                out var uniformLighting))
+                        {
+                            EmitCubeFace(
+                                GetSurface(surfaces, batch),
+                                collision,
+                                new Vector3(x, y, z),
+                                face,
+                                cell,
+                                faceMaterial,
+                                lighting,
+                                definition.IsCollidable);
+                            continue;
+                        }
+
+                        candidates[
+                            (u - plane.UMin) +
+                            (v - plane.VMin) * width] =
+                            new GreedyCubeFace(
+                                batch,
+                                faceMaterial,
+                                uvRotation,
+                                uniformLighting,
+                                definition.IsCollidable);
+                    }
+                }
+
+                EmitGreedyCubePlane(
+                    surfaces,
+                    collision,
+                    face,
+                    depth,
+                    plane,
+                    candidates);
+            }
+        }
+    }
+
+    private static void EmitGreedyCubePlane(
+        Dictionary<TerrainRenderBatch, List<ChunkMeshVertex>> surfaces,
+        List<Vector3> collision,
+        BlockFace face,
+        int depth,
+        PlaneRange plane,
+        GreedyCubeFace?[] candidates)
+    {
+        var planeWidth =
+            plane.UMaxExclusive - plane.UMin;
+        var planeHeight =
+            plane.VMaxExclusive - plane.VMin;
+
+        for (var localV = 0;
+             localV < planeHeight;
+             localV++)
+        {
+            for (var localU = 0;
+                 localU < planeWidth;
+                 localU++)
+            {
+                var index =
+                    localU + localV * planeWidth;
+                var candidate = candidates[index];
+
+                if (candidate is null)
+                {
+                    continue;
+                }
+
+                var rectangleWidth = 1;
+                while (localU + rectangleWidth <
+                           planeWidth &&
+                       candidates[
+                           index + rectangleWidth] ==
+                       candidate)
+                {
+                    rectangleWidth++;
+                }
+
+                var rectangleHeight = 1;
+                while (localV + rectangleHeight <
+                       planeHeight)
+                {
+                    var compatible = true;
+                    for (var column = 0;
+                         column < rectangleWidth;
+                         column++)
+                    {
+                        if (candidates[
+                                localU + column +
+                                (localV + rectangleHeight) *
+                                planeWidth] !=
+                            candidate)
+                        {
+                            compatible = false;
+                            break;
+                        }
+                    }
+
+                    if (!compatible)
+                    {
+                        break;
+                    }
+
+                    rectangleHeight++;
+                }
+
+                for (var row = 0;
+                     row < rectangleHeight;
+                     row++)
+                {
+                    for (var column = 0;
+                         column < rectangleWidth;
+                         column++)
+                    {
+                        candidates[
+                            localU + column +
+                            (localV + row) * planeWidth] = null;
+                    }
+                }
+
+                EmitCubeRectangle(
+                    GetSurface(
+                        surfaces,
+                        candidate.Value.Batch),
+                    collision,
+                    face,
+                    depth,
+                    plane.UMin + localU,
+                    plane.VMin + localV,
+                    rectangleWidth,
+                    rectangleHeight,
+                    candidate.Value);
+            }
+        }
+    }
+
+    private static void EmitCubeRectangle(
+        List<ChunkMeshVertex> surface,
+        List<Vector3> collision,
+        BlockFace face,
+        int depth,
+        int u,
+        int v,
+        int width,
+        int height,
+        GreedyCubeFace candidate)
+    {
+        var (lower, upper) =
+            CubeRectangleBounds(
+                face,
+                depth,
+                u,
+                v,
+                width,
+                height);
+        var corners = FaceCorners(face);
+        var normal = FaceNormal(face);
+        Span<Vector3> positions = stackalloc Vector3[4];
+
+        for (var corner = 0; corner < 4; corner++)
+        {
+            var selector = corners[corner];
+            positions[corner] = new Vector3(
+                selector.X == 0f ? lower.X : upper.X,
+                selector.Y == 0f ? lower.Y : upper.Y,
+                selector.Z == 0f ? lower.Z : upper.Z);
+        }
+
+        EmitQuadVertices(
+            surface,
+            collision,
+            positions,
+            normal,
+            face,
+            candidate.FaceMaterial,
+            candidate.UvRotation,
+            new VoxelFaceLighting(
+                candidate.Lighting,
+                candidate.Lighting,
+                candidate.Lighting,
+                candidate.Lighting),
+            candidate.IsCollidable,
+            useAbsoluteUv: true);
     }
 
     private static bool RequiresFineMeshing(
@@ -105,7 +407,9 @@ public static class ChunkMeshDataBuilder
         VoxelCell cell,
         BlockDefinition definition)
     {
-        if (BlockGeometry.RequiresFineMeshing(definition, cell))
+        if (BlockGeometry.RequiresFineMeshing(
+                definition,
+                cell))
         {
             return true;
         }
@@ -113,8 +417,9 @@ public static class ChunkMeshDataBuilder
         foreach (var face in Faces)
         {
             var offset = FaceOffset(face);
-            var neighbor = world.GetCellOrEmpty(
-                position + offset);
+            var neighbor =
+                world.GetCellOrEmpty(
+                    position + offset);
 
             if (neighbor.IsEmpty)
             {
@@ -135,56 +440,6 @@ public static class ChunkMeshDataBuilder
         return false;
     }
 
-    private static void EmitCubeCell(
-        List<ChunkMeshVertex> surface,
-        VoxelWorld world,
-        BlockRegistry blocks,
-        TerrainTextureLookup textures,
-        int x,
-        int y,
-        int z,
-        WorldVoxelCoord worldPosition,
-        VoxelCell cell,
-        BlockDefinition definition)
-    {
-        var origin = new Vector3(x, y, z);
-
-        foreach (var face in Faces)
-        {
-            var offset = FaceOffset(face);
-            if (!FaceIsExposed(
-                    world,
-                    blocks,
-                    cell,
-                    definition,
-                    worldPosition + offset))
-            {
-                continue;
-            }
-
-            var faceMaterial = ResolveFaceMaterial(
-                textures,
-                definition,
-                cell,
-                face);
-            var faceLighting = VoxelMeshLighting.SampleFace(
-                world,
-                blocks,
-                worldPosition,
-                face);
-
-            AddQuad(
-                surface,
-                origin,
-                FaceNormal(face),
-                FaceCorners(face),
-                face,
-                cell,
-                faceMaterial,
-                faceLighting);
-        }
-    }
-
     private static bool FaceIsExposed(
         VoxelWorld world,
         BlockRegistry blocks,
@@ -192,7 +447,9 @@ public static class ChunkMeshDataBuilder
         BlockDefinition sourceDefinition,
         WorldVoxelCoord neighborPosition)
     {
-        var neighbor = world.GetCellOrEmpty(neighborPosition);
+        var neighbor =
+            world.GetCellOrEmpty(neighborPosition);
+
         if (neighbor.IsEmpty)
         {
             return true;
@@ -208,8 +465,49 @@ public static class ChunkMeshDataBuilder
             neighborDefinition);
     }
 
-    private static void EmitFineCell(
+    private static void EmitCubeFace(
         List<ChunkMeshVertex> surface,
+        List<Vector3> collision,
+        Vector3 origin,
+        BlockFace face,
+        VoxelCell cell,
+        TerrainFaceMaterial faceMaterial,
+        VoxelFaceLighting faceLighting,
+        bool isCollidable)
+    {
+        var corners = FaceCorners(face);
+        Span<Vector3> positions = stackalloc Vector3[4];
+
+        for (var index = 0; index < 4; index++)
+        {
+            positions[index] =
+                origin + corners[index];
+        }
+
+        var uvRotation =
+            BlockUvRotation.ForWorldFace(
+                face,
+                cell.Orientation,
+                cell.TextureRotation,
+                faceMaterial.RotateTexture);
+
+        EmitQuadVertices(
+            surface,
+            collision,
+            positions,
+            FaceNormal(face),
+            face,
+            faceMaterial,
+            uvRotation,
+            faceLighting,
+            isCollidable,
+            useAbsoluteUv: false,
+            uvOrigin: origin);
+    }
+
+    private static void EmitFineCell(
+        Dictionary<TerrainRenderBatch, List<ChunkMeshVertex>> surfaces,
+        List<Vector3> collision,
         VoxelWorld world,
         BlockRegistry blocks,
         TerrainTextureLookup textures,
@@ -220,34 +518,53 @@ public static class ChunkMeshDataBuilder
         VoxelCell cell,
         BlockDefinition definition)
     {
-        var origin = new Vector3(blockX, blockY, blockZ);
+        var origin = new Vector3(
+            blockX,
+            blockY,
+            blockZ);
         var sourceMask =
             world.GetMicroblockMaskOrEmpty(worldPosition);
         var visible = new bool[FinePlaneArea];
+        var batch = new TerrainRenderBatch(
+            definition.RenderMode,
+            definition.CastsShadow);
+        var surface = GetSurface(surfaces, batch);
 
         foreach (var face in Faces)
         {
-            var faceMaterial = ResolveFaceMaterial(
-                textures,
-                definition,
-                cell,
-                face);
-            var faceLighting = VoxelMeshLighting.SampleFace(
-                world,
-                blocks,
-                worldPosition,
-                face);
+            var faceMaterial =
+                ResolveFaceMaterial(
+                    textures,
+                    definition,
+                    cell,
+                    face);
+            var faceLighting =
+                VoxelMeshLighting.SampleFace(
+                    world,
+                    blocks,
+                    worldPosition,
+                    face);
 
-            for (var depth = 0; depth < FineResolution; depth++)
+            for (var depth = 0;
+                 depth < FineResolution;
+                 depth++)
             {
                 Array.Clear(visible);
 
-                for (var v = 0; v < FineResolution; v++)
+                for (var v = 0;
+                     v < FineResolution;
+                     v++)
                 {
-                    for (var u = 0; u < FineResolution; u++)
+                    for (var u = 0;
+                         u < FineResolution;
+                         u++)
                     {
                         var (localX, localY, localZ) =
-                            FinePosition(face, depth, u, v);
+                            FinePosition(
+                                face,
+                                depth,
+                                u,
+                                v);
 
                         if (!BlockGeometry.IsOccupied(
                                 definition,
@@ -274,19 +591,23 @@ public static class ChunkMeshDataBuilder
                             continue;
                         }
 
-                        visible[u + v * FineResolution] = true;
+                        visible[
+                            u +
+                            v * FineResolution] = true;
                     }
                 }
 
-                EmitGreedyRectangles(
+                EmitGreedyFineRectangles(
                     surface,
+                    collision,
                     origin,
                     face,
                     depth,
                     visible,
                     cell,
                     faceMaterial,
-                    faceLighting);
+                    faceLighting,
+                    definition.IsCollidable);
             }
         }
     }
@@ -320,10 +641,11 @@ public static class ChunkMeshDataBuilder
             ref neighborWorldZ,
             ref neighborLocalZ);
 
-        var neighborPosition = new WorldVoxelCoord(
-            neighborWorldX,
-            neighborWorldY,
-            neighborWorldZ);
+        var neighborPosition =
+            new WorldVoxelCoord(
+                neighborWorldX,
+                neighborWorldY,
+                neighborWorldZ);
 
         if (!world.TryGetCell(
                 neighborPosition,
@@ -336,7 +658,8 @@ public static class ChunkMeshDataBuilder
         var neighborDefinition =
             blocks.GetDefinition(neighbor.Block);
         var neighborMask =
-            world.GetMicroblockMaskOrEmpty(neighborPosition);
+            world.GetMicroblockMaskOrEmpty(
+                neighborPosition);
 
         if (!BlockGeometry.IsOccupied(
                 neighborDefinition,
@@ -362,9 +685,13 @@ public static class ChunkMeshDataBuilder
         VoxelCell neighbor,
         BlockDefinition neighborDefinition) =>
         neighborDefinition.IsOpaque ||
-        (source.Block == neighbor.Block && sourceDefinition.RenderMode != BlockRenderMode.Opaque);
+        (source.Block == neighbor.Block &&
+         sourceDefinition.RenderMode !=
+             BlockRenderMode.Opaque);
 
-    private static void WrapFineCoordinate(ref int block, ref int local)
+    private static void WrapFineCoordinate(
+        ref int block,
+        ref int local)
     {
         if (local < 0)
         {
@@ -378,39 +705,57 @@ public static class ChunkMeshDataBuilder
         }
     }
 
-    private static void EmitGreedyRectangles(
+    private static void EmitGreedyFineRectangles(
         List<ChunkMeshVertex> surface,
+        List<Vector3> collision,
         Vector3 origin,
         BlockFace face,
         int depth,
         bool[] visible,
         VoxelCell cell,
         TerrainFaceMaterial faceMaterial,
-        VoxelFaceLighting faceLighting)
+        VoxelFaceLighting faceLighting,
+        bool isCollidable)
     {
-        for (var v = 0; v < FineResolution; v++)
+        for (var v = 0;
+             v < FineResolution;
+             v++)
         {
-            for (var u = 0; u < FineResolution; u++)
+            for (var u = 0;
+                 u < FineResolution;
+                 u++)
             {
-                if (!visible[u + v * FineResolution])
+                if (!visible[
+                        u +
+                        v * FineResolution])
                 {
                     continue;
                 }
 
                 var width = 1;
-                while (u + width < FineResolution &&
-                       visible[u + width + v * FineResolution])
+                while (u + width <
+                           FineResolution &&
+                       visible[
+                           u + width +
+                           v * FineResolution])
                 {
                     width++;
                 }
 
                 var height = 1;
-                while (v + height < FineResolution)
+                while (v + height <
+                       FineResolution)
                 {
                     var rowVisible = true;
-                    for (var column = u; column < u + width; column++)
+
+                    for (var column = u;
+                         column < u + width;
+                         column++)
                     {
-                        if (!visible[column + (v + height) * FineResolution])
+                        if (!visible[
+                                column +
+                                (v + height) *
+                                FineResolution])
                         {
                             rowVisible = false;
                             break;
@@ -425,16 +770,23 @@ public static class ChunkMeshDataBuilder
                     height++;
                 }
 
-                for (var row = v; row < v + height; row++)
+                for (var row = v;
+                     row < v + height;
+                     row++)
                 {
-                    for (var column = u; column < u + width; column++)
+                    for (var column = u;
+                         column < u + width;
+                         column++)
                     {
-                        visible[column + row * FineResolution] = false;
+                        visible[
+                            column +
+                            row * FineResolution] = false;
                     }
                 }
 
                 EmitFineRectangle(
                     surface,
+                    collision,
                     origin,
                     face,
                     depth,
@@ -444,13 +796,15 @@ public static class ChunkMeshDataBuilder
                     height,
                     cell,
                     faceMaterial,
-                    faceLighting);
+                    faceLighting,
+                    isCollidable);
             }
         }
     }
 
     private static void EmitFineRectangle(
         List<ChunkMeshVertex> surface,
+        List<Vector3> collision,
         Vector3 origin,
         BlockFace face,
         int depth,
@@ -460,9 +814,15 @@ public static class ChunkMeshDataBuilder
         int height,
         VoxelCell cell,
         TerrainFaceMaterial faceMaterial,
-        VoxelFaceLighting faceLighting)
+        VoxelFaceLighting faceLighting,
+        bool isCollidable)
     {
-        var (minX, minY, minZ) = FinePosition(face, depth, u, v);
+        var (minX, minY, minZ) =
+            FinePosition(
+                face,
+                depth,
+                u,
+                v);
         var lowerX = minX;
         var lowerY = minY;
         var lowerZ = minZ;
@@ -494,7 +854,8 @@ public static class ChunkMeshDataBuilder
                 break;
 
             default:
-                throw new ArgumentOutOfRangeException(nameof(face));
+                throw new ArgumentOutOfRangeException(
+                    nameof(face));
         }
 
         switch (face)
@@ -520,97 +881,133 @@ public static class ChunkMeshDataBuilder
         }
 
         var scale = 1f / FineResolution;
-        var lower = new Vector3(lowerX * scale, lowerY * scale, lowerZ * scale);
-        var upper = new Vector3(upperX * scale, upperY * scale, upperZ * scale);
+        var lower = new Vector3(
+            lowerX * scale,
+            lowerY * scale,
+            lowerZ * scale);
+        var upper = new Vector3(
+            upperX * scale,
+            upperY * scale,
+            upperZ * scale);
         var corners = FaceCorners(face);
-        var normal = FaceNormal(face);
+        Span<Vector3> positions =
+            stackalloc Vector3[4];
 
-        var triangleOrder = faceLighting.ShouldFlipDiagonal
-            ? FlippedTriangleOrder
-            : TriangleOrder;
-
-        foreach (var index in triangleOrder)
+        for (var index = 0; index < 4; index++)
         {
             var selector = corners[index];
-            var local = new Vector3(
-                selector.X == 0f ? lower.X : upper.X,
-                selector.Y == 0f ? lower.Y : upper.Y,
-                selector.Z == 0f ? lower.Z : upper.Z);
-
-            WriteVertex(
-                surface,
-                origin + local,
-                normal,
-                face,
-                local,
-                cell,
-                faceMaterial,
-                faceLighting[index]);
+            positions[index] =
+                origin +
+                new Vector3(
+                    selector.X == 0f
+                        ? lower.X
+                        : upper.X,
+                    selector.Y == 0f
+                        ? lower.Y
+                        : upper.Y,
+                    selector.Z == 0f
+                        ? lower.Z
+                        : upper.Z);
         }
+
+        var uvRotation =
+            BlockUvRotation.ForWorldFace(
+                face,
+                cell.Orientation,
+                cell.TextureRotation,
+                faceMaterial.RotateTexture);
+
+        EmitQuadVertices(
+            surface,
+            collision,
+            positions,
+            FaceNormal(face),
+            face,
+            faceMaterial,
+            uvRotation,
+            faceLighting,
+            isCollidable,
+            useAbsoluteUv: false,
+            uvOrigin: origin);
     }
 
-    private static void AddQuad(
+    private static void EmitQuadVertices(
         List<ChunkMeshVertex> surface,
-        Vector3 origin,
+        List<Vector3> collision,
+        ReadOnlySpan<Vector3> positions,
         Vector3 normal,
-        Vector3[] corners,
         BlockFace face,
-        VoxelCell cell,
         TerrainFaceMaterial faceMaterial,
-        VoxelFaceLighting faceLighting)
+        TextureRotation uvRotation,
+        VoxelFaceLighting lighting,
+        bool isCollidable,
+        bool useAbsoluteUv,
+        Vector3 uvOrigin = default)
     {
-        var triangleOrder = faceLighting.ShouldFlipDiagonal
-            ? FlippedTriangleOrder
-            : TriangleOrder;
+        var triangleOrder =
+            lighting.ShouldFlipDiagonal
+                ? FlippedTriangleOrder
+                : TriangleOrder;
 
         foreach (var index in triangleOrder)
         {
-            var local = corners[index];
-            WriteVertex(
-                surface,
-                origin + local,
-                normal,
-                face,
-                local,
-                cell,
-                faceMaterial,
-                faceLighting[index]);
+            var position = positions[index];
+            var uvPoint = useAbsoluteUv
+                ? position
+                : position - uvOrigin;
+            var uv = RotateUv(
+                MacroUv(face, uvPoint),
+                uvRotation);
+            var vertexLighting = lighting[index];
+
+            surface.Add(
+                new ChunkMeshVertex(
+                    position,
+                    normal,
+                    uv,
+                    faceMaterial.EncodedLayers,
+                    new Vector4(
+                        faceMaterial.Tint.X,
+                        faceMaterial.Tint.Y,
+                        faceMaterial.Tint.Z,
+                        vertexLighting.AmbientOcclusion),
+                    new Vector4(
+                        vertexLighting.Sky,
+                        vertexLighting.BlockRed,
+                        vertexLighting.BlockGreen,
+                        vertexLighting.BlockBlue)));
+
+            if (isCollidable)
+            {
+                collision.Add(position);
+            }
         }
     }
 
-    private static void WriteVertex(
-        List<ChunkMeshVertex> vertices,
-        Vector3 position,
-        Vector3 normal,
-        BlockFace worldFace,
-        Vector3 local,
-        VoxelCell cell,
-        TerrainFaceMaterial faceMaterial,
-        VoxelVertexLighting lighting)
+    private static bool TryUniformLighting(
+        VoxelFaceLighting lighting,
+        out VoxelVertexLighting uniform)
     {
-        var uv = MacroUv(worldFace, local);
-        var uvRotation = BlockUvRotation.ForWorldFace(
-            worldFace,
-            cell.Orientation,
-            cell.TextureRotation,
-            faceMaterial.RotateTexture);
-        uv = RotateUv(uv, uvRotation);
+        uniform = lighting.Corner0;
+        return lighting.Corner1 == uniform &&
+               lighting.Corner2 == uniform &&
+               lighting.Corner3 == uniform;
+    }
 
-        vertices.Add(new ChunkMeshVertex(
-            position,
-            normal,
-            uv,
-            faceMaterial.EncodedLayers,
-            new Vector4(
-                faceMaterial.Tint.X,
-                faceMaterial.Tint.Y,
-                faceMaterial.Tint.Z,
-                lighting.AmbientOcclusion),
-            new Vector4(
-                lighting.Sky,
-                lighting.BlockRed,
-                lighting.BlockGreen,
-                lighting.BlockBlue)));
+    private static List<ChunkMeshVertex> GetSurface(
+        Dictionary<TerrainRenderBatch, List<ChunkMeshVertex>> surfaces,
+        TerrainRenderBatch batch)
+    {
+        if (!surfaces.TryGetValue(
+                batch,
+                out var surface))
+        {
+            surface =
+                new List<ChunkMeshVertex>(1024);
+            surfaces.Add(batch, surface);
+        }
+
+        return surface;
     }
 
     private static TerrainFaceMaterial ResolveFaceMaterial(
@@ -619,8 +1016,14 @@ public static class ChunkMeshDataBuilder
         VoxelCell cell,
         BlockFace worldFace)
     {
-        var sourceFace = BlockFaceTransform.SourceFaceForWorldFace(worldFace, cell, definition);
-        var layers = definition.Textures.ResolveForFace(sourceFace);
+        var sourceFace =
+            BlockFaceTransform.SourceFaceForWorldFace(
+                worldFace,
+                cell,
+                definition);
+        var layers =
+            definition.Textures.ResolveForFace(
+                sourceFace);
 
         if (layers.Count > 2)
         {
@@ -634,128 +1037,383 @@ public static class ChunkMeshDataBuilder
 
         if (layers.Count > 0)
         {
-            baseCode = textures.GetIndex(layers[0].Texture) +
-                       (layers[0].Dyable ? DyableLayerFlag : 0f);
+            baseCode =
+                textures.GetIndex(
+                    layers[0].Texture) +
+                (layers[0].Dyable
+                    ? DyableLayerFlag
+                    : 0f);
         }
 
         if (layers.Count > 1)
         {
-            overlayCode = textures.GetIndex(layers[1].Texture) +
-                          (layers[1].Dyable ? DyableLayerFlag : 0f);
+            overlayCode =
+                textures.GetIndex(
+                    layers[1].Texture) +
+                (layers[1].Dyable
+                    ? DyableLayerFlag
+                    : 0f);
         }
 
-        var tint = definition.Tint == BlockTint.None
-            ? Vector3.One
-            : ToTint(definition.PreviewColor);
+        var tint =
+            definition.Tint == BlockTint.None
+                ? Vector3.One
+                : ToTint(
+                    definition.PreviewColor);
 
         return new TerrainFaceMaterial(
-            new Vector2(baseCode, overlayCode),
+            new Vector2(
+                baseCode,
+                overlayCode),
             tint,
-            definition.RotateTexture.Rotates(sourceFace));
+            definition.RotateTexture.Rotates(
+                sourceFace));
     }
 
-    private static Vector2 MacroUv(BlockFace face, Vector3 point) => face switch
-    {
-        BlockFace.Right => new Vector2(1f - point.Z, 1f - point.Y),
-        BlockFace.Left => new Vector2(point.Z, 1f - point.Y),
-        BlockFace.Top => new Vector2(point.X, point.Z),
-        BlockFace.Bottom => new Vector2(point.X, 1f - point.Z),
-        BlockFace.Front => new Vector2(point.X, 1f - point.Y),
-        BlockFace.Back => new Vector2(1f - point.X, 1f - point.Y),
-        _ => throw new ArgumentOutOfRangeException(nameof(face)),
-    };
+    private static PlaneRange PlaneBounds(
+        BlockFace face,
+        (
+            int MinX,
+            int MinY,
+            int MinZ,
+            int MaxXExclusive,
+            int MaxYExclusive,
+            int MaxZExclusive) bounds) =>
+        face switch
+        {
+            BlockFace.Right or
+            BlockFace.Left =>
+                new PlaneRange(
+                    bounds.MinX,
+                    bounds.MaxXExclusive,
+                    bounds.MinZ,
+                    bounds.MaxZExclusive,
+                    bounds.MinY,
+                    bounds.MaxYExclusive),
+
+            BlockFace.Top or
+            BlockFace.Bottom =>
+                new PlaneRange(
+                    bounds.MinY,
+                    bounds.MaxYExclusive,
+                    bounds.MinX,
+                    bounds.MaxXExclusive,
+                    bounds.MinZ,
+                    bounds.MaxZExclusive),
+
+            BlockFace.Front or
+            BlockFace.Back =>
+                new PlaneRange(
+                    bounds.MinZ,
+                    bounds.MaxZExclusive,
+                    bounds.MinX,
+                    bounds.MaxXExclusive,
+                    bounds.MinY,
+                    bounds.MaxYExclusive),
+
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(face)),
+        };
+
+    private static (int X, int Y, int Z) PlanePosition(
+        BlockFace face,
+        int depth,
+        int u,
+        int v) =>
+        face switch
+        {
+            BlockFace.Right or
+            BlockFace.Left =>
+                (depth, v, u),
+
+            BlockFace.Top or
+            BlockFace.Bottom =>
+                (u, depth, v),
+
+            BlockFace.Front or
+            BlockFace.Back =>
+                (u, v, depth),
+
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(face)),
+        };
+
+    private static (Vector3 Lower, Vector3 Upper)
+        CubeRectangleBounds(
+            BlockFace face,
+            int depth,
+            int u,
+            int v,
+            int width,
+            int height) =>
+        face switch
+        {
+            BlockFace.Right =>
+                (
+                    new Vector3(
+                        depth + 1,
+                        v,
+                        u),
+                    new Vector3(
+                        depth + 1,
+                        v + height,
+                        u + width)
+                ),
+
+            BlockFace.Left =>
+                (
+                    new Vector3(
+                        depth,
+                        v,
+                        u),
+                    new Vector3(
+                        depth,
+                        v + height,
+                        u + width)
+                ),
+
+            BlockFace.Top =>
+                (
+                    new Vector3(
+                        u,
+                        depth + 1,
+                        v),
+                    new Vector3(
+                        u + width,
+                        depth + 1,
+                        v + height)
+                ),
+
+            BlockFace.Bottom =>
+                (
+                    new Vector3(
+                        u,
+                        depth,
+                        v),
+                    new Vector3(
+                        u + width,
+                        depth,
+                        v + height)
+                ),
+
+            BlockFace.Front =>
+                (
+                    new Vector3(
+                        u,
+                        v,
+                        depth + 1),
+                    new Vector3(
+                        u + width,
+                        v + height,
+                        depth + 1)
+                ),
+
+            BlockFace.Back =>
+                (
+                    new Vector3(
+                        u,
+                        v,
+                        depth),
+                    new Vector3(
+                        u + width,
+                        v + height,
+                        depth)
+                ),
+
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(face)),
+        };
+
+    private static Vector2 MacroUv(
+        BlockFace face,
+        Vector3 point) =>
+        face switch
+        {
+            BlockFace.Right =>
+                new Vector2(
+                    1f - point.Z,
+                    1f - point.Y),
+            BlockFace.Left =>
+                new Vector2(
+                    point.Z,
+                    1f - point.Y),
+            BlockFace.Top =>
+                new Vector2(
+                    point.X,
+                    point.Z),
+            BlockFace.Bottom =>
+                new Vector2(
+                    point.X,
+                    1f - point.Z),
+            BlockFace.Front =>
+                new Vector2(
+                    point.X,
+                    1f - point.Y),
+            BlockFace.Back =>
+                new Vector2(
+                    1f - point.X,
+                    1f - point.Y),
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(face)),
+        };
 
     private static Vector2 RotateUv(
         Vector2 uv,
-        TextureRotation rotation) => rotation switch
-    {
-        TextureRotation.Degrees0 => uv,
-        TextureRotation.Degrees90 => new Vector2(1f - uv.Y, uv.X),
-        TextureRotation.Degrees180 => new Vector2(1f - uv.X, 1f - uv.Y),
-        TextureRotation.Degrees270 => new Vector2(uv.Y, 1f - uv.X),
-        _ => throw new ArgumentOutOfRangeException(nameof(rotation)),
-    };
+        TextureRotation rotation) =>
+        rotation switch
+        {
+            TextureRotation.Degrees0 =>
+                uv,
+            TextureRotation.Degrees90 =>
+                new Vector2(
+                    1f - uv.Y,
+                    uv.X),
+            TextureRotation.Degrees180 =>
+                new Vector2(
+                    1f - uv.X,
+                    1f - uv.Y),
+            TextureRotation.Degrees270 =>
+                new Vector2(
+                    uv.Y,
+                    1f - uv.X),
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(rotation)),
+        };
 
     private static (int X, int Y, int Z) FinePosition(
         BlockFace face,
         int depth,
         int u,
-        int v) => face switch
-    {
-        BlockFace.Right or BlockFace.Left => (depth, v, u),
-        BlockFace.Top or BlockFace.Bottom => (u, depth, v),
-        BlockFace.Front or BlockFace.Back => (u, v, depth),
-        _ => throw new ArgumentOutOfRangeException(nameof(face)),
-    };
+        int v) =>
+        face switch
+        {
+            BlockFace.Right or
+            BlockFace.Left =>
+                (depth, v, u),
+            BlockFace.Top or
+            BlockFace.Bottom =>
+                (u, depth, v),
+            BlockFace.Front or
+            BlockFace.Back =>
+                (u, v, depth),
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(face)),
+        };
 
-    private static (int X, int Y, int Z) FaceOffset(BlockFace face) => face switch
-    {
-        BlockFace.Right => (1, 0, 0),
-        BlockFace.Left => (-1, 0, 0),
-        BlockFace.Top => (0, 1, 0),
-        BlockFace.Bottom => (0, -1, 0),
-        BlockFace.Front => (0, 0, 1),
-        BlockFace.Back => (0, 0, -1),
-        _ => throw new ArgumentOutOfRangeException(nameof(face)),
-    };
+    private static (int X, int Y, int Z) FaceOffset(
+        BlockFace face) =>
+        face switch
+        {
+            BlockFace.Right => (1, 0, 0),
+            BlockFace.Left => (-1, 0, 0),
+            BlockFace.Top => (0, 1, 0),
+            BlockFace.Bottom => (0, -1, 0),
+            BlockFace.Front => (0, 0, 1),
+            BlockFace.Back => (0, 0, -1),
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(face)),
+        };
 
-    private static Vector3 FaceNormal(BlockFace face) => face switch
-    {
-        BlockFace.Right => Vector3.UnitX,
-        BlockFace.Left => -Vector3.UnitX,
-        BlockFace.Top => Vector3.UnitY,
-        BlockFace.Bottom => -Vector3.UnitY,
-        BlockFace.Front => Vector3.UnitZ,
-        BlockFace.Back => -Vector3.UnitZ,
-        _ => throw new ArgumentOutOfRangeException(nameof(face)),
-    };
+    private static Vector3 FaceNormal(
+        BlockFace face) =>
+        face switch
+        {
+            BlockFace.Right => Vector3.UnitX,
+            BlockFace.Left => -Vector3.UnitX,
+            BlockFace.Top => Vector3.UnitY,
+            BlockFace.Bottom => -Vector3.UnitY,
+            BlockFace.Front => Vector3.UnitZ,
+            BlockFace.Back => -Vector3.UnitZ,
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(face)),
+        };
 
-    private static Vector3[] FaceCorners(BlockFace face) => face switch
-    {
-        BlockFace.Right => FacePositiveX,
-        BlockFace.Left => FaceNegativeX,
-        BlockFace.Top => FacePositiveY,
-        BlockFace.Bottom => FaceNegativeY,
-        BlockFace.Front => FacePositiveZ,
-        BlockFace.Back => FaceNegativeZ,
-        _ => throw new ArgumentOutOfRangeException(nameof(face)),
-    };
+    private static Vector3[] FaceCorners(
+        BlockFace face) =>
+        face switch
+        {
+            BlockFace.Right => FacePositiveX,
+            BlockFace.Left => FaceNegativeX,
+            BlockFace.Top => FacePositiveY,
+            BlockFace.Bottom => FaceNegativeY,
+            BlockFace.Front => FacePositiveZ,
+            BlockFace.Back => FaceNegativeZ,
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(face)),
+        };
 
-    private static Vector3 ToTint(BlockPreviewColor color) =>
-        new(color.Red / 255f, color.Green / 255f, color.Blue / 255f);
+    private static Vector3 ToTint(
+        BlockPreviewColor color) =>
+        new(
+            color.Red / 255f,
+            color.Green / 255f,
+            color.Blue / 255f);
 
     private readonly record struct TerrainFaceMaterial(
         Vector2 EncodedLayers,
         Vector3 Tint,
         bool RotateTexture);
 
+    private readonly record struct GreedyCubeFace(
+        TerrainRenderBatch Batch,
+        TerrainFaceMaterial FaceMaterial,
+        TextureRotation UvRotation,
+        VoxelVertexLighting Lighting,
+        bool IsCollidable);
+
+    private readonly record struct PlaneRange(
+        int DepthMin,
+        int DepthMaxExclusive,
+        int UMin,
+        int UMaxExclusive,
+        int VMin,
+        int VMaxExclusive);
+
     private static readonly Vector3[] FacePositiveX =
     [
-        new(1, 0, 0), new(1, 1, 0), new(1, 1, 1), new(1, 0, 1),
+        new(1, 0, 0),
+        new(1, 1, 0),
+        new(1, 1, 1),
+        new(1, 0, 1),
     ];
 
     private static readonly Vector3[] FaceNegativeX =
     [
-        new(0, 0, 1), new(0, 1, 1), new(0, 1, 0), new(0, 0, 0),
+        new(0, 0, 1),
+        new(0, 1, 1),
+        new(0, 1, 0),
+        new(0, 0, 0),
     ];
 
     private static readonly Vector3[] FacePositiveY =
     [
-        new(0, 1, 1), new(1, 1, 1), new(1, 1, 0), new(0, 1, 0),
+        new(0, 1, 1),
+        new(1, 1, 1),
+        new(1, 1, 0),
+        new(0, 1, 0),
     ];
 
     private static readonly Vector3[] FaceNegativeY =
     [
-        new(0, 0, 0), new(1, 0, 0), new(1, 0, 1), new(0, 0, 1),
+        new(0, 0, 0),
+        new(1, 0, 0),
+        new(1, 0, 1),
+        new(0, 0, 1),
     ];
 
     private static readonly Vector3[] FacePositiveZ =
     [
-        new(1, 0, 1), new(1, 1, 1), new(0, 1, 1), new(0, 0, 1),
+        new(1, 0, 1),
+        new(1, 1, 1),
+        new(0, 1, 1),
+        new(0, 0, 1),
     ];
 
     private static readonly Vector3[] FaceNegativeZ =
     [
-        new(0, 0, 0), new(0, 1, 0), new(1, 1, 0), new(1, 0, 0),
+        new(0, 0, 0),
+        new(0, 1, 0),
+        new(1, 1, 0),
+        new(1, 0, 0),
     ];
 }

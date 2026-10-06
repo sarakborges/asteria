@@ -6,50 +6,63 @@ public static class ChunkMeshBuilder
 {
     public static ArrayMesh CreateMesh(
         ChunkMeshData data,
-        Material material)
+        VoxelTerrainMaterialSet materials)
     {
         ArgumentNullException.ThrowIfNull(data);
-        ArgumentNullException.ThrowIfNull(material);
+        ArgumentNullException.ThrowIfNull(materials);
 
-        if (data.Vertices.Length == 0)
+        var mesh = new ArrayMesh();
+
+        foreach (var batch in data.RenderBatches)
         {
-            return new ArrayMesh();
-        }
+            if (batch.Vertices.Length == 0)
+            {
+                continue;
+            }
 
-        var surface = new SurfaceTool();
-        surface.Begin(Mesh.PrimitiveType.Triangles);
-        surface.SetCustomFormat(0, SurfaceTool.CustomFormat.Rgba8Unorm);
-
-        foreach (var vertex in data.Vertices)
-        {
-            surface.SetNormal(new Vector3(
-                vertex.Normal.X,
-                vertex.Normal.Y,
-                vertex.Normal.Z));
-            surface.SetColor(new Color(
-                vertex.TintAndAo.X,
-                vertex.TintAndAo.Y,
-                vertex.TintAndAo.Z,
-                vertex.TintAndAo.W));
-            surface.SetCustom(
+            var surfaceIndex = mesh.GetSurfaceCount();
+            var surface = new SurfaceTool();
+            surface.Begin(Mesh.PrimitiveType.Triangles);
+            surface.SetCustomFormat(
                 0,
-                new Color(
-                    vertex.VoxelLight.X,
-                    vertex.VoxelLight.Y,
-                    vertex.VoxelLight.Z,
-                    vertex.VoxelLight.W));
-            surface.SetUV(new Vector2(vertex.Uv.X, vertex.Uv.Y));
-            surface.SetUV2(new Vector2(
-                vertex.EncodedTextureLayers.X,
-                vertex.EncodedTextureLayers.Y));
-            surface.AddVertex(new Vector3(
-                vertex.Position.X,
-                vertex.Position.Y,
-                vertex.Position.Z));
+                SurfaceTool.CustomFormat.Rgba8Unorm);
+
+            foreach (var vertex in batch.Vertices)
+            {
+                surface.SetNormal(new Vector3(
+                    vertex.Normal.X,
+                    vertex.Normal.Y,
+                    vertex.Normal.Z));
+                surface.SetColor(new Color(
+                    vertex.TintAndAo.X,
+                    vertex.TintAndAo.Y,
+                    vertex.TintAndAo.Z,
+                    vertex.TintAndAo.W));
+                surface.SetCustom(
+                    0,
+                    new Color(
+                        vertex.VoxelLight.X,
+                        vertex.VoxelLight.Y,
+                        vertex.VoxelLight.Z,
+                        vertex.VoxelLight.W));
+                surface.SetUV(new Vector2(
+                    vertex.Uv.X,
+                    vertex.Uv.Y));
+                surface.SetUV2(new Vector2(
+                    vertex.EncodedTextureLayers.X,
+                    vertex.EncodedTextureLayers.Y));
+                surface.AddVertex(new Vector3(
+                    vertex.Position.X,
+                    vertex.Position.Y,
+                    vertex.Position.Z));
+            }
+
+            surface.Commit(mesh);
+            mesh.SurfaceSetMaterial(
+                surfaceIndex,
+                materials.Get(batch.Batch));
         }
 
-        var mesh = surface.Commit();
-        mesh.SurfaceSetMaterial(0, material);
         return mesh;
     }
 
@@ -58,15 +71,23 @@ public static class ChunkMeshBuilder
     {
         ArgumentNullException.ThrowIfNull(data);
 
-        var faces = new Vector3[data.Vertices.Length];
+        var faces =
+            new Vector3[data.CollisionFaces.Length];
 
-        for (var index = 0; index < data.Vertices.Length; index++)
+        for (var index = 0;
+             index < data.CollisionFaces.Length;
+             index++)
         {
-            var position = data.Vertices[index].Position;
-            faces[index] = new Vector3(position.X, position.Y, position.Z);
+            var position =
+                data.CollisionFaces[index];
+            faces[index] = new Vector3(
+                position.X,
+                position.Y,
+                position.Z);
         }
 
-        var shape = new ConcavePolygonShape3D();
+        var shape =
+            new ConcavePolygonShape3D();
         shape.SetFaces(faces);
         return shape;
     }

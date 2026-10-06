@@ -76,15 +76,19 @@ public sealed class ChunkPresentation
     public void Apply(
         int meshletIndex,
         ChunkMeshData data,
-        Material material)
+        VoxelTerrainMaterialSet materials)
     {
         _meshes[meshletIndex].Mesh =
-            ChunkMeshBuilder.CreateMesh(data, material);
+            data.HasRenderGeometry
+                ? ChunkMeshBuilder.CreateMesh(
+                    data,
+                    materials)
+                : null;
 
         _collisions[meshletIndex].Shape =
-            data.Vertices.Length == 0
-                ? null
-                : ChunkMeshBuilder.CreateCollisionShape(data);
+            data.HasCollision
+                ? ChunkMeshBuilder.CreateCollisionShape(data)
+                : null;
 
         if (!_published[meshletIndex])
         {
