@@ -2,6 +2,10 @@
 
 Fresh Godot + C# rewrite of Asteria.
 
+## Architecture canon
+
+Repository changes must follow [AGENTS.md](AGENTS.md), [ARCHITECTURE.md](ARCHITECTURE.md), and [ENGINEERING_PRACTICES.md](ENGINEERING_PRACTICES.md). These documents are jointly normative for implementation and refactoring.
+
 ## Current runtime foundation
 
 The current milestone proves the base runtime architecture without introducing world generation yet:

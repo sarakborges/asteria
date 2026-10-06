@@ -1,6 +1,8 @@
 # Asteria agent rules
 
-Read this file before changing the repository.
+Before changing the repository, you MUST read this file, `ARCHITECTURE.md`, and `ENGINEERING_PRACTICES.md`. These three documents are jointly normative. A change is not complete if it knowingly violates them unless the user explicitly requests an exception.
+
+When touching an area that already violates the canon, do not add new code on top of the violation. Fix, reduce, or clearly isolate the violation as part of the same change when practical.
 
 ## Architecture
 
@@ -12,6 +14,14 @@ Read this file before changing the repository.
 
 ## Development rules
 
+- The architecture and engineering review checklist in `ENGINEERING_PRACTICES.md` is mandatory before accepting a coherent change block.
+- Every mutable gameplay/world fact must have one authoritative owner. Consumers request capabilities; they do not mutate another subsystem's storage directly.
+- Engine-agnostic calculation, mesh-data generation, scheduling, simulation, validation and snapshot logic belongs in `Asteria.Core`. Godot owns engine objects and publication only.
+- Async/background work must use immutable snapshots or isolated worker state and must reject stale results with revisions/generations.
+- Repeated queue, budgeting, revision, cache and scheduling mechanics must use shared primitives instead of local copies.
+- Prefer change-driven work. Per-frame polling/recomputation requires a concrete lifecycle or performance reason.
+- Hash/dictionary/set iteration order must never decide gameplay, streaming, publication or simulation behavior; define deterministic tie-breakers.
+- New unbounded queues, caches, histories, task registries or collections require an explicit bounded lifecycle or a documented reason why unbounded growth is safe.
 - New features do not preserve compatibility with old implementations unless explicitly requested.
 - Prefer small, explicit modules and deterministic data transformations.
 - Do not perform broad repository/tree searches when a targeted path or symbol search will work.
