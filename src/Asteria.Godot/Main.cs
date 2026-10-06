@@ -13,127 +13,100 @@ namespace Asteria.Client;
 public partial class Main : Node3D
 {
     private const float InteractionDistance = 6f;
+    private const int RenderDistanceChunks = 4;
+    private const int RetentionMarginChunks = 10;
+    private const int MaxMaterializationTasksInFlight = 4;
+    private const int MaxMaterializationDispatchesPerFrame = 4;
+    private const int MaxMaterializationResultsPerFrame = 8;
+    private const int MaxPresentationPublicationsPerFrame = 4;
     private const int MaxMeshletPublishesPerFrame = 4;
+    private const int MaxChunkEvictionsPerFrame = 2;
 
     private readonly WorldUpdateQueue _worldUpdates = new();
     private readonly MeshletContentRevisions _contentRevisions = new();
+    private readonly ChunkStreamingState _streaming = new();
+    private readonly ChunkPresentationSelection _presentationSelection = new();
     private readonly Dictionary<ChunkCoord, ChunkPresentation>
         _presentations = [];
+    private readonly Dictionary<ChunkCoord, Task<MaterializedChunkBuild>>
+        _materializationTasks = [];
     private readonly Queue<MeshletPublication>
         _pendingMeshletPublications = new();
 
-    private Task<InitialWorldBuild>? _fixtureTask;
+    private readonly VoxelWorld _world = new();
+
     private Task<MeshUpdateBuild>? _meshTask;
     private Task<LightingUpdateBuild>? _lightingTask;
 
-    private TestWorldFixture? _fixture;
+    private BlockRegistry _blocks = null!;
     private FpsPlayer? _player;
     private Node _webUi = null!;
     private TerrainTextureCatalog _terrainTextures = null!;
     private TerrainTextureLookup _terrainTextureLookup = null!;
     private ShaderMaterial _terrainMaterial = null!;
     private BlockRuntimeId _placementBlock;
-    private bool _worldAttached;
-    private bool _fixtureErrorReported;
+
+    private ChunkCoord _streamingCenter;
+    private ulong _appliedPresentationSelectionRevision;
+    private long _worldFrameDeadlineTimestamp;
+    private bool _worldReadySent;
 
     public override void _Ready()
     {
         SetupWebUi();
 
-        var blocks = BlockContentLoader.LoadProjectBlocks();
-        _terrainTextures = TerrainTextureCatalog.Create(blocks);
+        _blocks = BlockContentLoader.LoadProjectBlocks();
+        _terrainTextures = TerrainTextureCatalog.Create(_blocks);
         _terrainTextureLookup = _terrainTextures.CreateLookup();
         _terrainMaterial = VoxelTerrainMaterial.Create(_terrainTextures);
+        _placementBlock =
+            _blocks.GetId(TestChunkFactory.StoneId);
 
         GD.Print(
-            $"block content: loaded {blocks.AuthoredCount} definitions, " +
+            $"block content: loaded {_blocks.AuthoredCount} definitions, " +
             $"{_terrainTextures.TextureCount} terrain textures");
+        GD.Print(
+            $"streaming: render_distance={RenderDistanceChunks} " +
+            $"retention_margin={RetentionMarginChunks} " +
+            $"materialization_in_flight={MaxMaterializationTasksInFlight}");
 
-        var textures = _terrainTextureLookup;
-
-        // Deterministic multi-chunk QA fixture. Still not world generation.
-        _fixtureTask = Task.Run(() =>
-        {
-            var stopwatch = Stopwatch.StartNew();
-            var fixture = TestWorldFactory.Create(blocks);
-            VoxelWorldLightingSolver.Initialize(
-                fixture.World,
-                blocks);
-            var meshlets = BuildAllMeshlets(
-                fixture.World,
-                blocks,
-                textures);
-            stopwatch.Stop();
-
-            return new InitialWorldBuild(
-                fixture,
-                meshlets,
-                stopwatch.Elapsed.TotalMilliseconds);
-        });
+        // Loading starts around the origin. The player is spawned only after
+        // the center chunk presentation is fully published, so physics cannot
+        // fall through an empty world while initial streaming catches up.
+        _streamingCenter = ChunkCoord.Zero;
+        SyncStreamingSelection();
     }
 
     public override void _Process(double delta)
     {
-        if (!_worldAttached)
-        {
-            PollFixture();
-            return;
-        }
+        BeginWorldFrameBudget(delta);
+
+        SyncStreamingSelection();
+
+        CollectMaterializationResults();
+        DispatchMaterializationTasks();
+        PublishPendingPresentations();
 
         PollMeshTask();
         IntegrateMeshletPublications();
+
         PollLightingTask();
 
-        // Geometry is deliberately dispatched before lighting. A content edit
-        // should disappear/appear as soon as its meshlet is rebuilt; lighting
-        // catches up independently, matching Mineclone's separate queues.
         TryStartMeshTask();
         TryStartLightingTask();
-    }
 
-    private void PollFixture()
-    {
-        if (_fixtureTask is null)
+        SyncPresentationVisibility();
+        EvictDistantChunks();
+
+        if (!_worldReadySent &&
+            _presentations.TryGetValue(
+                ChunkCoord.Zero,
+                out var origin) &&
+            origin.IsFullyPublished)
         {
-            return;
-        }
-
-        if (_fixtureTask.IsCompletedSuccessfully)
-        {
-            var result = _fixtureTask.Result;
-            _fixture = result.Fixture;
-            _placementBlock =
-                _fixture.Blocks.GetId(TestChunkFactory.StoneId);
-
-            AttachWorld(result.Meshlets);
+            _worldReadySent = true;
             SetupPlayer();
-            _worldAttached = true;
-
-            var voxelCount = CountVoxels(_fixture.World);
-            var triangleCount = result.Meshlets.Sum(
-                meshlet => meshlet.Data.TriangleCount);
-
-            GD.Print(
-                $"test-10: split geometry/lighting meshlet runtime ready; " +
-                $"chunks={_fixture.World.ChunkCount}, " +
-                $"voxels={voxelCount}, " +
-                $"triangles={triangleCount}, " +
-                $"worker_ms={result.WorkerMilliseconds:F2}");
-
             SendWorldReady();
-            SendWebUi(
-                "game.player_ready",
-                new { controller = "fps" });
-            return;
-        }
-
-        if (_fixtureTask.IsFaulted &&
-            !_fixtureErrorReported)
-        {
-            _fixtureErrorReported = true;
-            GD.PushError(
-                _fixtureTask.Exception?.ToString() ??
-                "Test world fixture failed.");
         }
     }
 
@@ -183,8 +156,7 @@ public partial class Main : Node3D
         catch (JsonException exception)
         {
             GD.PushWarning(
-                $"Ignoring invalid WebUI message: " +
-                $"{exception.Message}");
+                $"Ignoring invalid WebUI message: {exception.Message}");
         }
     }
 
@@ -194,7 +166,7 @@ public partial class Main : Node3D
             "game.ready",
             new { bridge = 1, engine = "godot" });
 
-        if (_worldAttached && _fixture is not null)
+        if (_worldReadySent)
         {
             SendWorldReady();
         }
@@ -211,19 +183,18 @@ public partial class Main : Node3D
 
     private void SendWorldReady()
     {
-        if (_fixture is null)
-        {
-            return;
-        }
-
         SendWebUi(
             "game.chunk_ready",
             new
             {
                 size = Chunk.Size,
-                chunks = _fixture.World.ChunkCount,
-                voxels = CountVoxels(_fixture.World),
-                blocks = _fixture.Blocks.AuthoredCount,
+                chunks = _world.ChunkCount,
+                desiredChunks = _streaming.DesiredCount,
+                retainedChunks = _streaming.RetainedCount,
+                pendingChunks = _streaming.PendingCount,
+                materializingChunks = _streaming.MaterializingCount,
+                presentedChunks = _presentations.Count,
+                blocks = _blocks.AuthoredCount,
                 textures = _terrainTextures.TextureCount,
                 meshletsPerChunk = ChunkMeshletMask.Count,
             });
@@ -249,35 +220,13 @@ public partial class Main : Node3D
             new { captured });
     }
 
-    private void AttachWorld(
-        IReadOnlyList<MeshletBuild> meshlets)
+    private void SetupPlayer()
     {
-        if (_fixture is null)
+        if (_player is not null)
         {
             return;
         }
 
-        foreach (var coord in _fixture.World.LoadedChunkCoords
-                     .OrderBy(coord => coord.Y)
-                     .ThenBy(coord => coord.Z)
-                     .ThenBy(coord => coord.X))
-        {
-            var presentation = new ChunkPresentation(coord);
-            _presentations.Add(coord, presentation);
-            AddChild(presentation.Root);
-        }
-
-        foreach (var meshlet in meshlets)
-        {
-            _presentations[meshlet.Coord].Apply(
-                meshlet.MeshletIndex,
-                meshlet.Data,
-                _terrainMaterial);
-        }
-    }
-
-    private void SetupPlayer()
-    {
         _player = new FpsPlayer
         {
             Name = "Player",
@@ -289,6 +238,390 @@ public partial class Main : Node3D
         _player.MouseCaptureChanged +=
             SendMouseCaptureState;
         AddChild(_player);
+
+        SendWebUi(
+            "game.player_ready",
+            new { controller = "fps" });
+
+        GD.Print(
+            "streaming: origin presentation ready; player activated");
+    }
+
+    private void SyncStreamingSelection()
+    {
+        var center = CurrentStreamingCenter();
+        var desired =
+            ChunkStreamingSelection.DesiredQaChunks(
+                center,
+                RenderDistanceChunks,
+                minimumChunkY: 0,
+                maximumChunkY: 1);
+        var retentionRadius =
+            RenderDistanceChunks + RetentionMarginChunks;
+
+        var changed = _streaming.RebuildSelection(
+            center,
+            RenderDistanceChunks,
+            retentionRadius,
+            desired);
+
+        _presentationSelection.Sync(
+            center,
+            RenderDistanceChunks);
+
+        if (!changed)
+        {
+            return;
+        }
+
+        _streamingCenter = center;
+        _streaming.SyncResidentState(
+            _world.LoadedChunkCoords,
+            _presentations.Keys);
+
+        GD.Print(
+            $"streaming.selection center={center} " +
+            $"desired={_streaming.DesiredCount} " +
+            $"retained={_streaming.RetainedCount} " +
+            $"pending={_streaming.PendingCount} " +
+            $"movement={_streaming.MovementDirection}");
+    }
+
+    private ChunkCoord CurrentStreamingCenter()
+    {
+        if (_player is null)
+        {
+            return _streamingCenter;
+        }
+
+        var position = _player.GlobalPosition;
+        var address = VoxelCoordinates.FromWorld(
+            Mathf.FloorToInt(position.X),
+            Math.Max(0, Mathf.FloorToInt(position.Y)),
+            Mathf.FloorToInt(position.Z));
+
+        return new ChunkCoord(
+            address.Chunk.X,
+            Math.Max(0, address.Chunk.Y),
+            address.Chunk.Z);
+    }
+
+    private void CollectMaterializationResults()
+    {
+        if (_materializationTasks.Count == 0)
+        {
+            return;
+        }
+
+        var completed = _materializationTasks
+            .Where(entry => entry.Value.IsCompleted)
+            .OrderBy(entry =>
+                ChunkStreamingState.Priority(
+                    entry.Key,
+                    _streamingCenter,
+                    _streaming.MovementDirection))
+            .Take(MaxMaterializationResultsPerFrame)
+            .ToArray();
+
+        var processed = 0;
+
+        foreach (var (coord, task) in completed)
+        {
+            if (processed > 0 && WorldBudgetExhausted())
+            {
+                break;
+            }
+
+            processed++;
+            _materializationTasks.Remove(coord);
+            _streaming.FinishMaterializing(coord);
+
+            if (task.IsFaulted)
+            {
+                GD.PushError(
+                    task.Exception?.ToString() ??
+                    $"Chunk materialization failed: {coord}");
+
+                if (_streaming.IsDesired(coord))
+                {
+                    _streaming.EnqueuePending(coord);
+                }
+
+                continue;
+            }
+
+            if (task.IsCanceled)
+            {
+                if (_streaming.IsDesired(coord))
+                {
+                    _streaming.EnqueuePending(coord);
+                }
+
+                continue;
+            }
+
+            var result = task.Result;
+
+            if (!_streaming.KeepsLoaded(coord))
+            {
+                continue;
+            }
+
+            if (_world.ContainsChunk(coord))
+            {
+                continue;
+            }
+
+            _world.InsertChunk(
+                coord,
+                result.Chunk);
+
+            _streaming.EnqueuePresentation(coord);
+            EnqueueChunkLightingReconciliation(coord);
+
+            GD.Print(
+                $"chunk.resident coord={coord} " +
+                $"worker_ms={result.WorkerMilliseconds:F2} " +
+                $"resident={_world.ChunkCount}");
+        }
+
+        if (processed > 0)
+        {
+            _streaming.SyncResidentState(
+                _world.LoadedChunkCoords,
+                _presentations.Keys);
+        }
+    }
+
+    private void DispatchMaterializationTasks()
+    {
+        var dispatched = 0;
+
+        while (_materializationTasks.Count <
+                   MaxMaterializationTasksInFlight &&
+               dispatched <
+                   MaxMaterializationDispatchesPerFrame)
+        {
+            if (dispatched > 0 && WorldBudgetExhausted())
+            {
+                break;
+            }
+
+            var coord =
+                _streaming.PopPendingByPriority();
+
+            if (coord is null)
+            {
+                break;
+            }
+
+            if (!_streaming.IsDesired(coord.Value) ||
+                _world.ContainsChunk(coord.Value) ||
+                _materializationTasks.ContainsKey(coord.Value))
+            {
+                continue;
+            }
+
+            var selected = coord.Value;
+            _streaming.MarkMaterializing(selected);
+
+            _materializationTasks.Add(
+                selected,
+                Task.Run(() =>
+                {
+                    var stopwatch = Stopwatch.StartNew();
+                    var chunk =
+                        DeterministicChunkProvider.Materialize(
+                            _blocks,
+                            selected);
+
+                    // Provisional local light prevents a newly resident chunk
+                    // from presenting black while cross-chunk reconciliation
+                    // catches up asynchronously.
+                    ChunkLightingSolver.Initialize(
+                        chunk,
+                        _blocks);
+
+                    stopwatch.Stop();
+                    return new MaterializedChunkBuild(
+                        selected,
+                        chunk,
+                        stopwatch.Elapsed.TotalMilliseconds);
+                }));
+
+            dispatched++;
+        }
+    }
+
+    private void PublishPendingPresentations()
+    {
+        var published = 0;
+
+        while (published <
+                   MaxPresentationPublicationsPerFrame)
+        {
+            if (published > 0 && WorldBudgetExhausted())
+            {
+                break;
+            }
+
+            var coord =
+                _streaming.PopPresentationByPriority(
+                    _presentationSelection);
+
+            if (coord is null)
+            {
+                break;
+            }
+
+            if (!_world.ContainsChunk(coord.Value) ||
+                _presentations.ContainsKey(coord.Value))
+            {
+                continue;
+            }
+
+            var presentation =
+                new ChunkPresentation(coord.Value);
+            presentation.SetVisible(
+                _presentationSelection.ShouldBeVisible(
+                    coord.Value,
+                    currentlyVisible: false));
+
+            _presentations.Add(
+                coord.Value,
+                presentation);
+            AddChild(presentation.Root);
+
+            _worldUpdates.EnqueueMeshlets(
+                coord.Value,
+                ChunkMeshletMask.All);
+
+            foreach (var (neighbor, meshlets) in
+                     ChunkTopologyFrontier
+                         .PresentedNeighborMeshlets(
+                             coord.Value,
+                             _presentations.ContainsKey))
+            {
+                _contentRevisions.Bump(
+                    neighbor,
+                    meshlets);
+                _worldUpdates.EnqueueMeshlets(
+                    neighbor,
+                    meshlets);
+            }
+
+            published++;
+
+            GD.Print(
+                $"chunk.presentation.reserve coord={coord.Value} " +
+                $"presented={_presentations.Count}");
+        }
+    }
+
+    private void SyncPresentationVisibility()
+    {
+        if (_appliedPresentationSelectionRevision ==
+            _presentationSelection.Revision)
+        {
+            return;
+        }
+
+        foreach (var (coord, presentation) in _presentations)
+        {
+            presentation.SetVisible(
+                _presentationSelection.ShouldBeVisible(
+                    coord,
+                    presentation.IsVisible));
+        }
+
+        _appliedPresentationSelectionRevision =
+            _presentationSelection.Revision;
+    }
+
+    private void EvictDistantChunks()
+    {
+        var maxEvictions =
+            _streaming.HasRenderableBacklog
+                ? 1
+                : MaxChunkEvictionsPerFrame;
+        var evicted = 0;
+        var retentionRadius =
+            RenderDistanceChunks + RetentionMarginChunks;
+
+        while (evicted < maxEvictions)
+        {
+            if (evicted > 0 && WorldBudgetExhausted())
+            {
+                break;
+            }
+
+            var coord =
+                _streaming.PopRetiredOutsideHorizontalRadius(
+                    _streamingCenter,
+                    retentionRadius);
+
+            if (coord is null)
+            {
+                break;
+            }
+
+            if (_streaming.KeepsLoaded(coord.Value))
+            {
+                continue;
+            }
+
+            if (_presentations.Remove(
+                    coord.Value,
+                    out var presentation))
+            {
+                presentation.Retire();
+            }
+
+            _worldUpdates.RemoveMeshChunk(coord.Value);
+
+            if (_world.TryRemoveChunk(
+                    coord.Value,
+                    out _))
+            {
+                foreach (var (neighbor, meshlets) in
+                         ChunkTopologyFrontier
+                             .PresentedNeighborMeshlets(
+                                 coord.Value,
+                                 _presentations.ContainsKey))
+                {
+                    _contentRevisions.Bump(
+                        neighbor,
+                        meshlets);
+                    _worldUpdates.EnqueueMeshlets(
+                        neighbor,
+                        meshlets);
+                }
+
+                EnqueueChunkLightingReconciliation(
+                    coord.Value);
+            }
+
+            _streaming.Forget(coord.Value);
+            evicted++;
+
+            GD.Print(
+                $"chunk.unload coord={coord.Value} " +
+                $"resident={_world.ChunkCount} " +
+                $"presented={_presentations.Count}");
+        }
+    }
+
+    private void EnqueueChunkLightingReconciliation(
+        ChunkCoord coord)
+    {
+        foreach (var position in
+                 ChunkTopologyFrontier.LightingSeeds(coord))
+        {
+            if (_world.IsLoadedAt(position))
+            {
+                _worldUpdates.EnqueueLighting(position);
+            }
+        }
     }
 
     private void BreakTargetBlock()
@@ -300,8 +633,7 @@ public partial class Main : Node3D
             return;
         }
 
-        var world = _fixture!.World;
-        var cell = world.GetCellOrEmpty(hitVoxel);
+        var cell = _world.GetCellOrEmpty(hitVoxel);
         if (cell.IsEmpty)
         {
             return;
@@ -309,7 +641,7 @@ public partial class Main : Node3D
 
         _placementBlock = cell.Block;
 
-        if (world.SetBlockAt(
+        if (_world.SetBlockAt(
                 hitVoxel,
                 BlockRuntimeId.Air,
                 out var edit))
@@ -328,10 +660,9 @@ public partial class Main : Node3D
         }
 
         var target = hitVoxel + faceOffset;
-        var world = _fixture!.World;
 
-        if (!world.IsLoadedAt(target) ||
-            !world.GetCellOrEmpty(target).IsEmpty)
+        if (!_world.IsLoadedAt(target) ||
+            !_world.GetCellOrEmpty(target).IsEmpty)
         {
             return;
         }
@@ -347,7 +678,7 @@ public partial class Main : Node3D
             return;
         }
 
-        if (world.SetBlockAt(
+        if (_world.SetBlockAt(
                 target,
                 _placementBlock,
                 out var edit))
@@ -356,15 +687,14 @@ public partial class Main : Node3D
         }
     }
 
-    private void QueueVoxelEdit(WorldVoxelCoord position)
+    private void QueueVoxelEdit(
+        WorldVoxelCoord position)
     {
-        var world = _fixture!.World;
-
         _contentRevisions.BumpVoxelEdit(
-            world,
+            _world,
             position);
         _worldUpdates.EnqueueVoxelEdit(
-            world,
+            _world,
             position);
 
         TryStartMeshTask();
@@ -378,7 +708,7 @@ public partial class Main : Node3D
         hitVoxel = default;
         faceOffset = default;
 
-        if (_player is null || _fixture is null)
+        if (_player is null)
         {
             return false;
         }
@@ -389,8 +719,8 @@ public partial class Main : Node3D
         var direction = to - from;
 
         var hit = VoxelWorldRaycaster.Raycast(
-            _fixture.World,
-            _fixture.Blocks,
+            _world,
+            _blocks,
             new NVector3(from.X, from.Y, from.Z),
             new NVector3(
                 direction.X,
@@ -414,25 +744,44 @@ public partial class Main : Node3D
 
     private void TryStartMeshTask()
     {
-        if (_fixture is null ||
-            _meshTask is not null ||
+        if (_meshTask is not null ||
             !_worldUpdates.HasMeshWork)
         {
             return;
         }
 
-        var batch = _worldUpdates.DrainMeshlets();
-        if (batch.IsEmpty)
+        var drained =
+            _worldUpdates.DrainMeshlets();
+
+        if (drained.IsEmpty)
         {
             return;
         }
 
-        var snapshot = _fixture.World.CloneForWorker();
-        var blocks = _fixture.Blocks;
-        var textures = _terrainTextureLookup;
+        var filtered =
+            drained.DirtyMeshlets
+                .Where(entry =>
+                    _presentations.ContainsKey(entry.Key) &&
+                    _world.ContainsChunk(entry.Key))
+                .ToDictionary(
+                    entry => entry.Key,
+                    entry => entry.Value);
+
+        if (filtered.Count == 0)
+        {
+            return;
+        }
+
+        var batch =
+            new WorldMeshBatch(filtered);
+        var snapshot =
+            _world.CloneMeshNeighborhood(
+                batch.DirtyMeshlets.Keys);
         var revisions =
             _contentRevisions.Capture(
                 batch.DirtyMeshlets);
+        var blocks = _blocks;
+        var textures = _terrainTextureLookup;
 
         _meshTask = Task.Run(() =>
         {
@@ -476,6 +825,12 @@ public partial class Main : Node3D
 
         foreach (var meshlet in result.Meshlets)
         {
+            if (!_world.ContainsChunk(meshlet.Coord) ||
+                !_presentations.ContainsKey(meshlet.Coord))
+            {
+                continue;
+            }
+
             var key = new ChunkMeshletKey(
                 meshlet.Coord,
                 meshlet.MeshletIndex);
@@ -512,8 +867,7 @@ public partial class Main : Node3D
 
     private void TryStartLightingTask()
     {
-        if (_fixture is null ||
-            _lightingTask is not null ||
+        if (_lightingTask is not null ||
             !_worldUpdates.HasLightingWork)
         {
             return;
@@ -525,9 +879,9 @@ public partial class Main : Node3D
             return;
         }
 
-        var worldRevision = _fixture.World.Revision;
-        var snapshot = _fixture.World.CloneForWorker();
-        var blocks = _fixture.Blocks;
+        var worldRevision = _world.Revision;
+        var snapshot = _world.CloneForWorker();
+        var blocks = _blocks;
 
         _lightingTask = Task.Run(() =>
         {
@@ -568,13 +922,8 @@ public partial class Main : Node3D
         var result = _lightingTask.Result;
         _lightingTask = null;
 
-        if (_fixture is null)
-        {
-            return;
-        }
-
         if (result.WorldRevision !=
-            _fixture.World.Revision)
+            _world.Revision)
         {
             _worldUpdates.RequeueLighting(
                 result.SourceBatch);
@@ -582,17 +931,14 @@ public partial class Main : Node3D
             return;
         }
 
-        _fixture.World.CopyLightFrom(
+        _world.CopyLightFrom(
             result.LightingSnapshot);
 
         foreach (var position in
                  result.Lighting.ChangedPositions)
         {
-            // Lighting dirties presentation, but it does not invalidate
-            // content geometry already built for the same meshlet. A follow-up
-            // mesh pass refreshes vertex light independently.
             _worldUpdates.EnqueueVoxelMeshlets(
-                _fixture.World,
+                _world,
                 position);
         }
 
@@ -610,11 +956,6 @@ public partial class Main : Node3D
 
     private void IntegrateMeshletPublications()
     {
-        if (_fixture is null)
-        {
-            return;
-        }
-
         var stopwatch = Stopwatch.StartNew();
         var published = 0;
         var stale = 0;
@@ -623,11 +964,26 @@ public partial class Main : Node3D
                    MaxMeshletPublishesPerFrame &&
                _pendingMeshletPublications.Count > 0)
         {
+            if (published + stale > 0 &&
+                WorldBudgetExhausted())
+            {
+                break;
+            }
+
             var pending =
                 _pendingMeshletPublications.Dequeue();
             var key = new ChunkMeshletKey(
                 pending.Meshlet.Coord,
                 pending.Meshlet.MeshletIndex);
+
+            if (!_world.ContainsChunk(
+                    pending.Meshlet.Coord) ||
+                !_presentations.TryGetValue(
+                    pending.Meshlet.Coord,
+                    out var presentation))
+            {
+                continue;
+            }
 
             if (!_contentRevisions.IsCurrent(
                     key,
@@ -641,15 +997,10 @@ public partial class Main : Node3D
                 continue;
             }
 
-            if (_presentations.TryGetValue(
-                    pending.Meshlet.Coord,
-                    out var presentation))
-            {
-                presentation.Apply(
-                    pending.Meshlet.MeshletIndex,
-                    pending.Meshlet.Data,
-                    _terrainMaterial);
-            }
+            presentation.Apply(
+                pending.Meshlet.MeshletIndex,
+                pending.Meshlet.Data,
+                _terrainMaterial);
 
             published++;
         }
@@ -661,28 +1012,9 @@ public partial class Main : Node3D
             GD.Print(
                 $"world.meshlets published={published} " +
                 $"stale={stale} " +
-                $"remaining=" +
-                $"{_pendingMeshletPublications.Count} " +
-                $"publish_ms=" +
-                $"{stopwatch.Elapsed.TotalMilliseconds:F2}");
+                $"remaining={_pendingMeshletPublications.Count} " +
+                $"publish_ms={stopwatch.Elapsed.TotalMilliseconds:F2}");
         }
-    }
-
-    private static List<MeshletBuild> BuildAllMeshlets(
-        VoxelWorld world,
-        BlockRegistry blocks,
-        TerrainTextureLookup textures)
-    {
-        var dirty =
-            world.LoadedChunkCoords.ToDictionary(
-                coord => coord,
-                _ => ChunkMeshletMask.All);
-
-        return BuildMeshlets(
-            world,
-            blocks,
-            textures,
-            dirty);
     }
 
     private static List<MeshletBuild> BuildMeshlets(
@@ -698,6 +1030,11 @@ public partial class Main : Node3D
                      .ThenBy(entry => entry.Key.Z)
                      .ThenBy(entry => entry.Key.X))
         {
+            if (!world.ContainsChunk(coord))
+            {
+                continue;
+            }
+
             foreach (var meshletIndex in mask.Indices())
             {
                 result.Add(
@@ -716,12 +1053,32 @@ public partial class Main : Node3D
         return result;
     }
 
-    private static int CountVoxels(
-        VoxelWorld world) =>
-        world.LoadedChunkCoords.Sum(
-            coord =>
-                world.GetChunk(coord)
-                    .NonEmptyVoxelCount);
+    private void BeginWorldFrameBudget(double delta)
+    {
+        var seconds = (float)Math.Max(delta, 0.0001);
+        var milliseconds = seconds > 1f / 55f
+            ? 2.0
+            : seconds > 1f / 70f
+                ? 3.0
+                : 4.0;
+
+        var ticks =
+            (long)(Stopwatch.Frequency *
+                   milliseconds /
+                   1000.0);
+
+        _worldFrameDeadlineTimestamp =
+            Stopwatch.GetTimestamp() + ticks;
+    }
+
+    private bool WorldBudgetExhausted() =>
+        Stopwatch.GetTimestamp() >=
+        _worldFrameDeadlineTimestamp;
+
+    private sealed record MaterializedChunkBuild(
+        ChunkCoord Coord,
+        Chunk Chunk,
+        double WorkerMilliseconds);
 
     private sealed record MeshletBuild(
         ChunkCoord Coord,
@@ -731,11 +1088,6 @@ public partial class Main : Node3D
     private sealed record MeshletPublication(
         MeshletBuild Meshlet,
         ulong ContentRevision);
-
-    private sealed record InitialWorldBuild(
-        TestWorldFixture Fixture,
-        IReadOnlyList<MeshletBuild> Meshlets,
-        double WorkerMilliseconds);
 
     private sealed record MeshUpdateBuild(
         WorldMeshBatch SourceBatch,

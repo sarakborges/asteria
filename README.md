@@ -11,6 +11,8 @@ The current milestone proves the base runtime architecture without introducing w
 - `VoxelCell` runtime state separated from block definitions;
 - 16×16×16 chunks with palette-backed voxel storage;
 - multi-chunk `VoxelWorld` runtime with world-space reads/writes across chunk boundaries;
+- player-centered chunk streaming with desired/retained residency, async deterministic QA materialization, prioritized load queues and visibility hysteresis;
+- adaptive world-work budgets modeled after Mineclone: roughly 2 ms under frame pressure, 3 ms at normal cadence and 4 ms when frames are fast;
 - 8³ chunk meshlets with dirty-halo remesh masks and revision-stale async work rejection;
 - incremental cross-chunk voxel lighting after edits: edited voxels seed a deduplicated propagation frontier instead of relighting every resident chunk;
 - correct world ↔ chunk/local coordinate conversion across negative coordinates;
@@ -24,7 +26,7 @@ The current milestone proves the base runtime architecture without introducing w
 - HTML/CSS/TypeScript WebUI embedded over the game through Godot WRY;
 - bidirectional JSON bridge between C# and the WebUI.
 
-The visible terrain is a temporary deterministic `TestWorldFactory` QA fixture: a 3×3×2 resident chunk grid used to validate cross-chunk meshing, lighting, raycasts and edits. It is deliberately not a world-generation API.
+Visible terrain now comes from a temporary deterministic chunk provider used by the streaming runtime. It materializes QA chunks on demand around the player and is deliberately not a world-generation API. Chunks outside the desired radius are retained for a hysteresis/cache margin before authoritative residency is removed.
 
 ### Block content
 
@@ -65,7 +67,7 @@ Open the repository root with the Godot 4.7.2 .NET editor and run the project.
 
 Expected result:
 
-- a deterministic 3×3×2 resident chunk QA world rendered as 8³ meshlets;
+- a deterministic streamed QA world around the player, rendered as 8³ meshlets;
 - QA examples for thin sand/snow layers, oriented logs, hollow logs and a sculpted microblock;
 - an FPS camera controlled by mouse + WASD, with Space to jump and Esc to release/capture the cursor;
 - a transparent WebUI card in the top-left;
@@ -130,7 +132,7 @@ Initial messages:
 - `ui.ping` → WebUI bridge test;
 - `game.ready` → Godot bridge ready;
 - `game.pong` → Godot bridge response;
-- `game.chunk_ready` → test chunk fixture is resident and rendered;
+- `game.chunk_ready` → the streamed center presentation is resident and rendered;
 - `game.player_ready` → FPS controller is active.
 
 `src/Asteria.Godot/UI/WebUiHost.gd` is the only layer that knows about Godot WRY. Gameplay/core code must not depend on the browser implementation.

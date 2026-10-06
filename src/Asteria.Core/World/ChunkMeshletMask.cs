@@ -87,6 +87,49 @@ public readonly record struct ChunkMeshletMask(byte Bits)
         return new ChunkMeshletMask(bits);
     }
 
+    public static ChunkMeshletMask ForDependencyOffset(
+        int x,
+        int y,
+        int z)
+    {
+        if (x is < -1 or > 1 ||
+            y is < -1 or > 1 ||
+            z is < -1 or > 1 ||
+            (x == 0 && y == 0 && z == 0))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(x),
+                "Dependency offset must be a non-zero 3D neighbor offset.");
+        }
+
+        byte bits = 0;
+
+        for (var meshletY = 0; meshletY < PerAxis; meshletY++)
+        {
+            if (y < 0 && meshletY != 0) continue;
+            if (y > 0 && meshletY != PerAxis - 1) continue;
+
+            for (var meshletZ = 0; meshletZ < PerAxis; meshletZ++)
+            {
+                if (z < 0 && meshletZ != 0) continue;
+                if (z > 0 && meshletZ != PerAxis - 1) continue;
+
+                for (var meshletX = 0; meshletX < PerAxis; meshletX++)
+                {
+                    if (x < 0 && meshletX != 0) continue;
+                    if (x > 0 && meshletX != PerAxis - 1) continue;
+
+                    bits |= (byte)(1 << Index(
+                        meshletX,
+                        meshletY,
+                        meshletZ));
+                }
+            }
+        }
+
+        return new ChunkMeshletMask(bits);
+    }
+
     public static (
         int MinX,
         int MinY,

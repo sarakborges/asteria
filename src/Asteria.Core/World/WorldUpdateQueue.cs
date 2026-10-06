@@ -25,6 +25,12 @@ public sealed class WorldUpdateQueue
         EnqueueVoxelMeshlets(world, position);
     }
 
+    public void EnqueueLighting(
+        WorldVoxelCoord position)
+    {
+        _lightingEdits.Add(position);
+    }
+
     public void EnqueueVoxelMeshlets(
         VoxelWorld world,
         WorldVoxelCoord position)
@@ -61,6 +67,11 @@ public sealed class WorldUpdateQueue
             _dirtyMeshlets.TryGetValue(coord, out var existing)
                 ? existing.Union(mask)
                 : mask;
+    }
+
+    public void RemoveMeshChunk(ChunkCoord coord)
+    {
+        _dirtyMeshlets.Remove(coord);
     }
 
     public WorldLightingBatch DrainLighting()

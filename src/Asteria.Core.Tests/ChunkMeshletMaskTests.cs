@@ -49,3 +49,27 @@ public sealed class ChunkMeshletMaskTests
             batch.DirtyMeshlets.Keys);
     }
 }
+
+public sealed class ChunkMeshletDependencyMaskTests
+{
+    [Fact]
+    public void PositiveXDependencySelectsPositiveXMeshlets()
+    {
+        var mask = ChunkMeshletMask.ForDependencyOffset(1, 0, 0);
+
+        Assert.Equal(4, mask.SelectedCount);
+        Assert.True(mask.ContainsIndex(1));
+        Assert.True(mask.ContainsIndex(3));
+        Assert.True(mask.ContainsIndex(5));
+        Assert.True(mask.ContainsIndex(7));
+    }
+
+    [Fact]
+    public void CornerDependencySelectsSingleCornerMeshlet()
+    {
+        var mask = ChunkMeshletMask.ForDependencyOffset(-1, 1, -1);
+
+        Assert.Equal(1, mask.SelectedCount);
+        Assert.True(mask.ContainsIndex(4));
+    }
+}

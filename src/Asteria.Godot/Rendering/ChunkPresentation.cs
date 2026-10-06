@@ -9,6 +9,9 @@ public sealed class ChunkPresentation
         new MeshInstance3D[ChunkMeshletMask.Count];
     private readonly CollisionShape3D[] _collisions =
         new CollisionShape3D[ChunkMeshletMask.Count];
+    private readonly bool[] _published =
+        new bool[ChunkMeshletMask.Count];
+    private int _publishedCount;
 
     public ChunkPresentation(ChunkCoord coord)
     {
@@ -67,5 +70,11 @@ public sealed class ChunkPresentation
             data.Vertices.Length == 0
                 ? null
                 : ChunkMeshBuilder.CreateCollisionShape(data);
+
+        if (!_published[meshletIndex])
+        {
+            _published[meshletIndex] = true;
+            _publishedCount++;
+        }
     }
 }

@@ -40,6 +40,19 @@ public sealed class VoxelWorld
 
     public bool ContainsChunk(ChunkCoord coord) => _chunks.ContainsKey(coord);
 
+    public bool TryRemoveChunk(
+        ChunkCoord coord,
+        out Chunk chunk)
+    {
+        if (!_chunks.Remove(coord, out chunk!))
+        {
+            return false;
+        }
+
+        Revision++;
+        return true;
+    }
+
     public bool TryGetChunk(ChunkCoord coord, out Chunk chunk) =>
         _chunks.TryGetValue(coord, out chunk!);
 
@@ -181,17 +194,56 @@ public sealed class VoxelWorld
         out VoxelWorldEdit edit) =>
         SetCellAt(position, new VoxelCell(block), out edit);
 
-    public VoxelWorld CloneForWorker()
+    public VoxelWorld CloneForWorker() =>
+        CloneForWorker(_chunks.Keys);
+
+    public VoxelWorld CloneForWorker(
+        IEnumerable<ChunkCoord> coordinates)
     {
+        ArgumentNullException.ThrowIfNull(coordinates);
+
         var clone = new VoxelWorld();
 
-        foreach (var (coord, chunk) in _chunks)
+        foreach (var coord in coordinates.Distinct())
         {
-            clone._chunks.Add(coord, chunk.CloneForWorker());
+            if (_chunks.TryGetValue(coord, out var chunk))
+            {
+                clone._chunks.Add(
+                    coord,
+                    chunk.CloneForWorker());
+            }
         }
 
         clone.Revision = Revision;
         return clone;
+    }
+
+    public VoxelWorld CloneMeshNeighborhood(
+        IEnumerable<ChunkCoord> dirtyChunks)
+    {
+        ArgumentNullException.ThrowIfNull(dirtyChunks);
+
+        var required = new HashSet<ChunkCoord>();
+
+        foreach (var coord in dirtyChunks)
+        {
+            for (var y = -1; y <= 1; y++)
+            {
+                for (var z = -1; z <= 1; z++)
+                {
+                    for (var x = -1; x <= 1; x++)
+                    {
+                        required.Add(
+                            new ChunkCoord(
+                                coord.X + x,
+                                coord.Y + y,
+                                coord.Z + z));
+                    }
+                }
+            }
+        }
+
+        return CloneForWorker(required);
     }
 
     public void CopyLightFrom(VoxelWorld source)
