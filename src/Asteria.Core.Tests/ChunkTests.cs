@@ -186,11 +186,10 @@ public sealed class ChunkTests
             1,
             14,
             3,
-            new FluidCell(
+            FluidCell.Spreading(
                 water,
                 level: 4,
-                isSource: false,
-                isFalling: true));
+                spreadDistance: 2));
 
         var visited =
             new List<(int X, int Y, int Z, FluidCell Fluid)>();
