@@ -65,6 +65,32 @@ public sealed class VoxelMutationRuntime
         return true;
     }
 
+    public bool SetBlockStateAt(
+        WorldVoxelCoord position,
+        BlockStateSnapshot state,
+        out VoxelWorldEdit edit)
+    {
+        var displacedFluid =
+            _world.GetFluidOrEmpty(position);
+
+        if (!_world.SetBlockStateAt(
+                position,
+                state,
+                out edit))
+        {
+            return false;
+        }
+
+        EnqueueBlockEdit(position);
+
+        if (!displacedFluid.IsEmpty)
+        {
+            EnqueueFluidEdit(position);
+        }
+
+        return true;
+    }
+
     public bool SetFluidAt(
         WorldVoxelCoord position,
         FluidCell fluid,

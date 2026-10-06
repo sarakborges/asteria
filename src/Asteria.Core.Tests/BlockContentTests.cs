@@ -56,6 +56,28 @@ public sealed class BlockContentTests
         var gravel = registry.GetDefinition(registry.GetId("asteria:gravel"));
         Assert.True(sand.HasTag("gravity"));
         Assert.True(gravel.HasTag("gravity"));
+        Assert.True(stone.DropsSelf);
+    }
+
+    [Fact]
+    public void DropsSelfCanBeDisabledByAuthoredContent()
+    {
+        const string json = """
+            {
+              "id": "asteria:fixture",
+              "dropsSelf": false
+            }
+            """;
+
+        var registry =
+            BlockRegistry.FromJson([json]);
+
+        Assert.False(
+            registry
+                .GetDefinition(
+                    registry.GetId(
+                        "asteria:fixture"))
+                .DropsSelf);
     }
 
     [Fact]

@@ -5,6 +5,7 @@ public enum BlockBreakRejection : byte
     None = 0,
     Unloaded = 1,
     Empty = 2,
+    MutationRejected = 3,
 }
 
 public readonly record struct BlockBreakDecision(
@@ -33,6 +34,7 @@ public enum BlockPlacementRejection : byte
     PlayerIntersection = 5,
     MissingSupport = 6,
     SupportUnloaded = 7,
+    MutationRejected = 8,
 }
 
 public readonly record struct BlockPlacementDecision(

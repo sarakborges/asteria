@@ -144,12 +144,17 @@ public sealed class ChunkResidencyRuntimeTests
                 physicsUpdates,
                 terrainRevisions,
                 fluidRevisions);
+        var dropped =
+            new DroppedBlockRuntime(
+                world,
+                blocks);
         var physics =
             new BlockPhysicsRuntime(
                 world,
                 blocks,
                 mutations,
-                physicsUpdates);
+                physicsUpdates,
+                dropped);
         var runtime =
             new ChunkResidencyRuntime(
                 world,

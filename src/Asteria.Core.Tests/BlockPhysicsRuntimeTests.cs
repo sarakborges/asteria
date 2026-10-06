@@ -69,12 +69,17 @@ public sealed class BlockPhysicsRuntimeTests
                 physicsUpdates,
                 new MeshletContentRevisions(),
                 new MeshletContentRevisions());
+        var dropped =
+            new DroppedBlockRuntime(
+                world,
+                blocks);
         var physics =
             new BlockPhysicsRuntime(
                 world,
                 blocks,
                 mutations,
-                physicsUpdates);
+                physicsUpdates,
+                dropped);
 
         Assert.Equal(
             1,
@@ -197,6 +202,83 @@ public sealed class BlockPhysicsRuntimeTests
     }
 
     [Fact]
+    public void SculptedGravityBlockPreservesMaskAcrossFall()
+    {
+        var fixture = CreateFixture();
+        var sand =
+            fixture.Blocks.GetId(
+                "asteria:sand");
+        var support =
+            new WorldVoxelCoord(3, 0, 3);
+        var start =
+            new WorldVoxelCoord(3, 4, 3);
+        var mask =
+            MicroblockMask.Full.Edit(
+                0,
+                0,
+                0,
+                MicroblockResolution.Thin,
+                occupied: false);
+
+        Assert.True(
+            fixture.Mutations.SetBlockAt(
+                support,
+                fixture.Blocks.GetId("asteria:stone"),
+                out _));
+        Assert.True(
+            fixture.Mutations.SetBlockAt(
+                start,
+                sand,
+                out _));
+
+        var address =
+            VoxelCoordinates.FromWorld(
+                start.X,
+                start.Y,
+                start.Z);
+        Assert.True(
+            fixture.World
+                .GetChunk(address.Chunk)
+                .SetMicroblockMask(
+                    address.Local.X,
+                    address.Local.Y,
+                    address.Local.Z,
+                    mask));
+
+        fixture.Physics.ProcessWakeups();
+
+        var falling =
+            Assert.Single(
+                fixture.Physics.ActiveBlocks);
+        Assert.Equal(
+            mask,
+            falling.Block.MicroblockMask);
+
+        for (var frame = 0;
+             frame < 240 &&
+             fixture.Physics.ActiveCount > 0;
+             frame++)
+        {
+            fixture.Physics.Advance(
+                1.0 / 60.0,
+                18.0);
+        }
+
+        var landing =
+            new WorldVoxelCoord(3, 1, 3);
+        Assert.Equal(
+            sand,
+            fixture.World
+                .GetCellOrEmpty(landing)
+                .Block);
+        Assert.Equal(
+            mask,
+            fixture.World
+                .GetMicroblockMaskOrEmpty(
+                    landing));
+    }
+
+    [Fact]
     public void NonGravityBlockDoesNotStartFalling()
     {
         var fixture = CreateFixture();
@@ -262,12 +344,17 @@ public sealed class BlockPhysicsRuntimeTests
                 physicsUpdates,
                 new MeshletContentRevisions(),
                 new MeshletContentRevisions());
+        var dropped =
+            new DroppedBlockRuntime(
+                world,
+                blocks);
         var physics =
             new BlockPhysicsRuntime(
                 world,
                 blocks,
                 mutations,
-                physicsUpdates);
+                physicsUpdates,
+                dropped);
         var position =
             new WorldVoxelCoord(3, 4, 3);
 
@@ -280,13 +367,15 @@ public sealed class BlockPhysicsRuntimeTests
         var wake =
             physics.ProcessWakeups();
 
-        var removal =
+        Assert.Equal(
+            1,
+            wake.UnsupportedRemoved);
+        var drop =
             Assert.Single(
-                wake.UnsupportedRemovals);
-        Assert.Equal(position, removal.Position);
+                dropped.ActiveBlocks);
         Assert.Equal(
             blocks.GetId("asteria:snow_layer"),
-            removal.Cell.Block);
+            drop.Block.Cell.Block);
         Assert.True(
             world.GetCellOrEmpty(position).IsEmpty);
     }
@@ -331,23 +420,30 @@ public sealed class BlockPhysicsRuntimeTests
                 physicsUpdates,
                 terrainRevisions,
                 fluidRevisions);
+        var dropped =
+            new DroppedBlockRuntime(
+                world,
+                blocks);
         var physics =
             new BlockPhysicsRuntime(
                 world,
                 blocks,
                 mutations,
-                physicsUpdates);
+                physicsUpdates,
+                dropped);
 
         return new Fixture(
             world,
             blocks,
             mutations,
-            physics);
+            physics,
+            dropped);
     }
 
     private sealed record Fixture(
         VoxelWorld World,
         BlockRegistry Blocks,
         VoxelMutationRuntime Mutations,
-        BlockPhysicsRuntime Physics);
+        BlockPhysicsRuntime Physics,
+        DroppedBlockRuntime Dropped);
 }

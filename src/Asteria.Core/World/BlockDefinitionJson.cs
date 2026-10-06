@@ -24,6 +24,7 @@ public static class BlockDefinitionJson
         var lightDampening = OptionalByte(root, "lightDampening") ?? (byte)15;
         var castsShadow = OptionalBoolean(root, "castsShadow") ?? true;
         var isCollidable = OptionalBoolean(root, "isCollidable") ?? true;
+        var dropsSelf = OptionalBoolean(root, "dropsSelf") ?? true;
         var alphaBlend = OptionalBoolean(root, "alphaBlend") ?? false;
         var hasAlphaCutoff = root.TryGetProperty("alphaCutoff", out var alphaCutoff) &&
                              alphaCutoff.ValueKind != JsonValueKind.Null;
@@ -55,7 +56,8 @@ public static class BlockDefinitionJson
             castsShadow: castsShadow,
             lightDampening: lightDampening,
             lightEmission: emission,
-            previewColor: previewColor);
+            previewColor: previewColor,
+            dropsSelf: dropsSelf);
     }
 
     private static BlockLightEmission ParseLightEmission(JsonElement root, string blockId)

@@ -398,6 +398,89 @@ public sealed class VoxelWorld
         out VoxelWorldEdit edit) =>
         SetCellAt(position, new VoxelCell(block), out edit);
 
+    public bool SetBlockStateAt(
+        WorldVoxelCoord position,
+        BlockStateSnapshot state,
+        out VoxelWorldEdit edit)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        var address = VoxelCoordinates.FromWorld(
+            position.X,
+            position.Y,
+            position.Z);
+
+        if (!_chunks.TryGetValue(
+                address.Chunk,
+                out var chunk))
+        {
+            edit = default;
+            return false;
+        }
+
+        var previous = chunk.GetCell(
+            address.Local.X,
+            address.Local.Y,
+            address.Local.Z);
+
+        var previousSnapshot =
+            previous.IsEmpty
+                ? (BlockStateSnapshot?)null
+                : new BlockStateSnapshot(
+                    previous,
+                    previous.HasMicroblockGeometry
+                        ? chunk.GetMicroblockMask(
+                            address.Local.X,
+                            address.Local.Y,
+                            address.Local.Z)
+                        : MicroblockMask.Empty);
+
+        if (previousSnapshot is { } existing &&
+            existing == state)
+        {
+            edit = default;
+            return false;
+        }
+
+        chunk.SetCell(
+            address.Local.X,
+            address.Local.Y,
+            address.Local.Z,
+            state.Cell);
+
+        if (state.HasMicroblockGeometry)
+        {
+            chunk.SetMicroblockMask(
+                address.Local.X,
+                address.Local.Y,
+                address.Local.Z,
+                state.MicroblockMask);
+        }
+
+        chunk.SetFluid(
+            address.Local.X,
+            address.Local.Y,
+            address.Local.Z,
+            FluidCell.Empty);
+
+        _archive.MarkDirty(address.Chunk);
+        Revision++;
+
+        var current = chunk.GetCell(
+            address.Local.X,
+            address.Local.Y,
+            address.Local.Z);
+
+        edit = new VoxelWorldEdit(
+            position,
+            address.Chunk,
+            address.Local,
+            previous,
+            current,
+            Revision);
+        return true;
+    }
+
     public bool SetFluidAt(
         WorldVoxelCoord position,
         FluidCell fluid,

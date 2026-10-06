@@ -46,40 +46,5 @@ public sealed class FallingBlockPresentation
         Root.QueueFree();
     }
 
-    public static ArrayMesh BuildMesh(
-        VoxelCell cell,
-        BlockRegistry blocks,
-        FluidRegistry fluids,
-        TerrainTextureLookup textures,
-        VoxelTerrainMaterialSet materials)
-    {
-        var chunk = new Chunk();
-        chunk.SetCell(
-            0,
-            0,
-            0,
-            cell);
 
-        ChunkLightingSolver.Initialize(
-            chunk,
-            blocks,
-            fluids);
-
-        var world = new VoxelWorld();
-        world.InsertChunk(
-            ChunkCoord.Zero,
-            chunk);
-
-        var data =
-            ChunkMeshDataBuilder.BuildMeshlet(
-                world,
-                ChunkCoord.Zero,
-                blocks,
-                textures,
-                meshletIndex: 0);
-
-        return ChunkMeshBuilder.CreateMesh(
-            data,
-            materials);
-    }
 }

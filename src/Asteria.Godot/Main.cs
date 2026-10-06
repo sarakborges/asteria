@@ -36,12 +36,11 @@ public partial class Main : Node3D
     private ChunkPresentationController _chunkPresentations = null!;
 
     private readonly VoxelWorld _world = new();
-    private readonly Dictionary<FallingBlockId, FallingBlockPresentation>
-        _fallingBlockPresentations = [];
-    private readonly Dictionary<VoxelCell, ArrayMesh>
-        _fallingBlockMeshes = [];
     private VoxelMutationRuntime _mutations = null!;
     private BlockPhysicsRuntime _blockPhysics = null!;
+    private DroppedBlockRuntime _droppedBlocks = null!;
+    private BlockInteractionRuntime _blockInteractions = null!;
+    private BlockEntityPresentationController _blockEntityPresentations = null!;
 
     private readonly TerrainMeshWorker _terrainMeshWorker = new();
     private readonly FluidMeshWorker _fluidMeshWorker = new();
@@ -64,6 +63,13 @@ public partial class Main : Node3D
     public override void _Ready()
     {
         SetupWebUi();
+
+        _blocks = BlockContentLoader.LoadProjectBlocks();
+        _fluids = FluidContentLoader.LoadProjectFluids();
+        _droppedBlocks =
+            new DroppedBlockRuntime(
+                _world,
+                _blocks);
         _mutations = new VoxelMutationRuntime(
             _world,
             _worldUpdates,
@@ -72,18 +78,29 @@ public partial class Main : Node3D
             _blockPhysicsUpdates,
             _contentRevisions,
             _fluidContentRevisions);
-
-        _blocks = BlockContentLoader.LoadProjectBlocks();
-        _fluids = FluidContentLoader.LoadProjectFluids();
         _blockPhysics = new BlockPhysicsRuntime(
             _world,
             _blocks,
             _mutations,
-            _blockPhysicsUpdates);
+            _blockPhysicsUpdates,
+            _droppedBlocks);
+        _blockInteractions =
+            new BlockInteractionRuntime(
+                _world,
+                _blocks,
+                _mutations,
+                _droppedBlocks);
         _terrainTextures = TerrainTextureCatalog.Create(_blocks);
         _terrainTextureLookup = _terrainTextures.CreateLookup();
         _terrainMaterials = VoxelTerrainMaterialSet.Create(_terrainTextures);
         _fluidMaterials = FluidMaterialCatalog.Create(_fluids);
+        _blockEntityPresentations =
+            new BlockEntityPresentationController(
+                this,
+                _blocks,
+                _fluids,
+                _terrainTextureLookup,
+                _terrainMaterials);
         _residency =
             new ChunkResidencyRuntime(
                 _world,
@@ -264,6 +281,7 @@ public partial class Main : Node3D
                 fluidScheduled = _fluidUpdates.ScheduledCount,
                 fluidDormantChunks = _fluidUpdates.DormantChunkCount,
                 fallingBlocks = _blockPhysics.ActiveCount,
+                droppedBlocks = _droppedBlocks.ActiveCount,
                 physicsUpdates = _blockPhysicsUpdates.Count,
                 worldTick = _worldTicks.CurrentTick,
                 textures = _terrainTextures.TextureCount,
@@ -461,9 +479,7 @@ public partial class Main : Node3D
         }
 
         var decision =
-            BlockInteractionResolver.ResolveBreak(
-                _world,
-                hit);
+            _blockInteractions.Break(hit);
 
         if (!decision.Accepted)
         {
@@ -472,14 +488,7 @@ public partial class Main : Node3D
 
         _placementBlock =
             decision.Cell.Block;
-
-        if (_mutations.SetCellAt(
-                decision.Position,
-                VoxelCell.Empty,
-                out _))
-        {
-            KickWorldMutationWorkers();
-        }
+        KickWorldMutationWorkers();
     }
 
     private void PlaceTargetBlock()
@@ -491,9 +500,7 @@ public partial class Main : Node3D
         }
 
         var decision =
-            BlockInteractionResolver.ResolvePlacement(
-                _world,
-                _blocks,
+            _blockInteractions.Place(
                 hit,
                 new VoxelCell(_placementBlock),
                 _player!.CollisionBounds);
@@ -503,13 +510,7 @@ public partial class Main : Node3D
             return;
         }
 
-        if (_mutations.SetCellAt(
-                decision.Position,
-                decision.Cell,
-                out _))
-        {
-            KickWorldMutationWorkers();
-        }
+        KickWorldMutationWorkers();
     }
 
     private void KickWorldMutationWorkers()
@@ -535,10 +536,19 @@ public partial class Main : Node3D
             _blockPhysics.Advance(
                 delta,
                 WorldGravityStrength);
+        var dropped =
+            _droppedBlocks.Advance(
+                delta,
+                WorldGravityStrength);
 
-        SyncFallingBlockPresentations();
+        _blockEntityPresentations.Sync(
+            _blockPhysics.ActiveBlocks,
+            _droppedBlocks.ActiveBlocks);
 
-        if (wake.HasChanges || landed > 0)
+        if (wake.HasChanges ||
+            landed > 0 ||
+            dropped.Settled > 0 ||
+            dropped.Expired > 0)
         {
             GD.Print(
                 $"world.block_physics falling_started=" +
@@ -546,60 +556,11 @@ public partial class Main : Node3D
                 $"unsupported_removed=" +
                 $"{wake.UnsupportedRemoved} " +
                 $"landed={landed} " +
-                $"active={_blockPhysics.ActiveCount} " +
+                $"falling_active={_blockPhysics.ActiveCount} " +
+                $"drops_active={_droppedBlocks.ActiveCount} " +
+                $"drops_settled={dropped.Settled} " +
+                $"drops_expired={dropped.Expired} " +
                 $"queued={_blockPhysicsUpdates.Count}");
-        }
-    }
-
-    private void SyncFallingBlockPresentations()
-    {
-        var active = new HashSet<FallingBlockId>();
-
-        foreach (var state in
-                 _blockPhysics.ActiveBlocks)
-        {
-            active.Add(state.Id);
-
-            if (!_fallingBlockPresentations.TryGetValue(
-                    state.Id,
-                    out var presentation))
-            {
-                if (!_fallingBlockMeshes.TryGetValue(
-                        state.Cell,
-                        out var mesh))
-                {
-                    mesh =
-                        FallingBlockPresentation.BuildMesh(
-                            state.Cell,
-                            _blocks,
-                            _fluids,
-                            _terrainTextureLookup,
-                            _terrainMaterials);
-                    _fallingBlockMeshes.Add(
-                        state.Cell,
-                        mesh);
-                }
-
-                presentation =
-                    new FallingBlockPresentation(
-                        state,
-                        mesh);
-                _fallingBlockPresentations.Add(
-                    state.Id,
-                    presentation);
-                AddChild(presentation.Root);
-            }
-
-            presentation.Apply(state);
-        }
-
-        foreach (var id in
-                 _fallingBlockPresentations.Keys
-                     .Where(id => !active.Contains(id))
-                     .ToArray())
-        {
-            _fallingBlockPresentations[id].Retire();
-            _fallingBlockPresentations.Remove(id);
         }
     }
 

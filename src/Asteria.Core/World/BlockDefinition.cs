@@ -21,7 +21,8 @@ public sealed class BlockDefinition
         bool castsShadow = true,
         byte lightDampening = 15,
         BlockLightEmission lightEmission = default,
-        BlockPreviewColor? previewColor = null)
+        BlockPreviewColor? previewColor = null,
+        bool dropsSelf = true)
     {
         ValidateId(id);
 
@@ -58,6 +59,7 @@ public sealed class BlockDefinition
         LightDampening = lightDampening;
         LightEmission = lightEmission;
         PreviewColor = previewColor ?? BlockPreviewColor.Missing;
+        DropsSelf = dropsSelf;
     }
 
     public string Id { get; }
@@ -77,6 +79,7 @@ public sealed class BlockDefinition
     public byte LightDampening { get; }
     public BlockLightEmission LightEmission { get; }
     public BlockPreviewColor PreviewColor { get; }
+    public bool DropsSelf { get; }
     public bool IsRotatable => Orientations.Count > 1;
     public bool SupportsMicroblocks => HasTag("fragmentable");
     public bool UsesHorizontalFacing => HasTag("horizontal_facing");
@@ -90,7 +93,8 @@ public sealed class BlockDefinition
         renderMode: BlockRenderMode.Translucent,
         castsShadow: false,
         lightDampening: 0,
-        previewColor: new BlockPreviewColor(0, 0, 0));
+        previewColor: new BlockPreviewColor(0, 0, 0),
+        dropsSelf: false);
 
     private static HashSet<string> ValidateTags(IEnumerable<string>? tags)
     {

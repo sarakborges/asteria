@@ -1,28 +1,25 @@
+using System.Numerics;
+
 namespace Asteria.Core.World;
 
 public readonly record struct FallingBlockId(ulong Value);
 
 public readonly record struct FallingBlockState(
     FallingBlockId Id,
-    VoxelCell Cell,
+    BlockStateSnapshot Block,
     int ColumnX,
     int ColumnZ,
     double CenterY,
-    double VelocityY);
-
-public readonly record struct UnsupportedBlockRemoval(
-    WorldVoxelCoord Position,
-    VoxelCell Cell);
-
-public sealed record BlockPhysicsWakeResult(
-    int FallingStarted,
-    IReadOnlyList<UnsupportedBlockRemoval> UnsupportedRemovals)
+    double VelocityY)
 {
-    public static BlockPhysicsWakeResult Empty { get; } =
-        new(0, Array.Empty<UnsupportedBlockRemoval>());
+    public VoxelCell Cell => Block.Cell;
+}
 
-    public int UnsupportedRemoved =>
-        UnsupportedRemovals.Count;
+public readonly record struct BlockPhysicsWakeResult(
+    int FallingStarted,
+    int UnsupportedRemoved)
+{
+    public static BlockPhysicsWakeResult Empty => default;
 
     public bool HasChanges =>
         FallingStarted > 0 ||
@@ -38,6 +35,7 @@ public sealed class BlockPhysicsRuntime
     private readonly BlockRegistry _blocks;
     private readonly VoxelMutationRuntime _mutations;
     private readonly BlockPhysicsUpdateQueue _updates;
+    private readonly DroppedBlockRuntime _droppedBlocks;
     private readonly Dictionary<FallingBlockId, FallingBlockState>
         _active = [];
 
@@ -47,12 +45,16 @@ public sealed class BlockPhysicsRuntime
         VoxelWorld world,
         BlockRegistry blocks,
         VoxelMutationRuntime mutations,
-        BlockPhysicsUpdateQueue updates)
+        BlockPhysicsUpdateQueue updates,
+        DroppedBlockRuntime droppedBlocks)
     {
         _world = world ?? throw new ArgumentNullException(nameof(world));
         _blocks = blocks ?? throw new ArgumentNullException(nameof(blocks));
         _mutations = mutations ?? throw new ArgumentNullException(nameof(mutations));
         _updates = updates ?? throw new ArgumentNullException(nameof(updates));
+        _droppedBlocks =
+            droppedBlocks ??
+            throw new ArgumentNullException(nameof(droppedBlocks));
     }
 
     public IReadOnlyCollection<FallingBlockState> ActiveBlocks =>
@@ -108,11 +110,11 @@ public sealed class BlockPhysicsRuntime
     public BlockPhysicsWakeResult ProcessWakeups()
     {
         var fallingStarted = 0;
-        var unsupported =
-            new List<UnsupportedBlockRemoval>();
+        var unsupportedRemoved = 0;
 
         foreach (var position in _updates.DrainBatch())
         {
+            _droppedBlocks.NotifyVoxelEdit(position);
             if (!_world.TryGetCell(position, out var cell) ||
                 cell.IsEmpty)
             {
@@ -135,15 +137,28 @@ public sealed class BlockPhysicsRuntime
 
             if (support == BlockSupportState.Unsupported)
             {
+                var snapshot =
+                    BlockStateSnapshot.Capture(
+                        _world,
+                        position,
+                        cell);
+
                 if (_mutations.SetCellAt(
                         position,
                         VoxelCell.Empty,
                         out _))
                 {
-                    unsupported.Add(
-                        new UnsupportedBlockRemoval(
-                            position,
-                            cell));
+                    unsupportedRemoved++;
+
+                    if (definition.DropsSelf)
+                    {
+                        _droppedBlocks.Spawn(
+                            snapshot,
+                            new Vector3(
+                                position.X + 0.5f,
+                                position.Y + 0.5f,
+                                position.Z + 0.5f));
+                    }
                 }
                 else
                 {
@@ -177,6 +192,12 @@ public sealed class BlockPhysicsRuntime
                 continue;
             }
 
+            var snapshot =
+                BlockStateSnapshot.Capture(
+                    _world,
+                    position,
+                    cell);
+
             if (!_mutations.SetCellAt(
                     position,
                     VoxelCell.Empty,
@@ -194,7 +215,7 @@ public sealed class BlockPhysicsRuntime
                 id,
                 new FallingBlockState(
                     id,
-                    cell,
+                    snapshot,
                     position.X,
                     position.Z,
                     position.Y + 0.5,
@@ -204,7 +225,7 @@ public sealed class BlockPhysicsRuntime
 
         return new BlockPhysicsWakeResult(
             fallingStarted,
-            unsupported);
+            unsupportedRemoved);
     }
 
     public int Advance(
@@ -331,9 +352,9 @@ public sealed class BlockPhysicsRuntime
                 continue;
             }
 
-            if (_mutations.SetCellAt(
+            if (_mutations.SetBlockStateAt(
                     landing,
-                    state.Cell,
+                    state.Block,
                     out _))
             {
                 _active.Remove(id);
