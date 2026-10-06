@@ -303,6 +303,59 @@ public sealed class MeshletContentRevisionsTests
     }
 
     [Fact]
+    public void RemovingOneChunkKeepsOtherChunkRevisions()
+    {
+        var revisions =
+            new MeshletContentRevisions();
+        var kept =
+            new ChunkCoord(
+                1,
+                0,
+                0);
+        var removed =
+            ChunkCoord.Zero;
+        var keptKey =
+            new ChunkMeshletKey(
+                kept,
+                3);
+        var removedKey =
+            new ChunkMeshletKey(
+                removed,
+                2);
+
+        revisions.Bump(
+            kept,
+            ChunkMeshletMask.Single(3));
+        revisions.Bump(
+            removed,
+            ChunkMeshletMask.Single(2));
+
+        revisions.RemoveChunk(
+            removed);
+
+        Assert.Equal(
+            0UL,
+            revisions.Get(removedKey));
+        Assert.Equal(
+            1UL,
+            revisions.Get(keptKey));
+    }
+
+    [Fact]
+    public void InvalidMeshletRevisionKeyIsRejected()
+    {
+        var revisions =
+            new MeshletContentRevisions();
+
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () =>
+                revisions.Get(
+                    new ChunkMeshletKey(
+                        ChunkCoord.Zero,
+                        ChunkMeshletMask.Count)));
+    }
+
+    [Fact]
     public void SameMeshletEditInvalidatesCapturedRevision()
     {
         var world = new VoxelWorld();
