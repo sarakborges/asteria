@@ -28,13 +28,14 @@ public enum BlockPlacementRejection : byte
 {
     None = 0,
     InvalidSurfaceNormal = 1,
-    BelowWorld = 2,
-    Unloaded = 3,
-    Occupied = 4,
-    PlayerIntersection = 5,
-    MissingSupport = 6,
-    SupportUnloaded = 7,
-    MutationRejected = 8,
+    UnsupportedPlacementFace = 2,
+    BelowWorld = 3,
+    Unloaded = 4,
+    Occupied = 5,
+    PlayerIntersection = 6,
+    MissingSupport = 7,
+    SupportUnloaded = 8,
+    MutationRejected = 9,
 }
 
 public readonly record struct BlockPlacementDecision(
@@ -141,6 +142,18 @@ public static class BlockInteractionResolver
 
         var definition =
             blocks.GetDefinition(cell.Block);
+        var placementFace =
+            FaceFromNormal(hit);
+
+        if (!definition.SupportsPlacementFace(
+                placementFace))
+        {
+            return BlockPlacementDecision.Reject(
+                target,
+                cell,
+                BlockPlacementRejection.UnsupportedPlacementFace);
+        }
+
         var support =
             BlockSupportRules.Evaluate(
                 world,
@@ -166,7 +179,8 @@ public static class BlockInteractionResolver
                 BlockPlacementRejection.MissingSupport);
         }
 
-        if (BlockGeometry.Intersects(
+        if (definition.IsCollidable &&
+            BlockGeometry.Intersects(
                 definition,
                 cell,
                 MicroblockMask.Empty,
@@ -185,6 +199,21 @@ public static class BlockInteractionResolver
             cell,
             BlockPlacementRejection.None);
     }
+
+    private static BlockFace FaceFromNormal(
+        VoxelWorldHit hit) =>
+        (hit.NormalX, hit.NormalY, hit.NormalZ)
+            switch
+            {
+                (0, 1, 0) => BlockFace.Top,
+                (0, -1, 0) => BlockFace.Bottom,
+                (-1, 0, 0) => BlockFace.Left,
+                (1, 0, 0) => BlockFace.Right,
+                (0, 0, 1) => BlockFace.Front,
+                (0, 0, -1) => BlockFace.Back,
+                _ => throw new InvalidOperationException(
+                    "Placement face requires a cardinal hit normal."),
+            };
 
     private static bool IsCardinalNormal(
         VoxelWorldHit hit) =>
