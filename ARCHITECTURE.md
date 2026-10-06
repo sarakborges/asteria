@@ -53,6 +53,8 @@ WebUI owns presentation and browser-side interaction state.
 - Message/state binding remains in `ui/src/controllers`.
 - Reusable presentation follows Atomic Design.
 - Components do not own game transport or authoritative gameplay state.
+- Godot is the authoritative input boundary for global/gameplay keyboard and mouse actions. WebUI must not register document/window-level keyboard or mouse handlers for gameplay, camera, hotkeys or debug toggles.
+- WebUI may consume browser input only for explicit UI interaction (for example clicking a button, typing in a field or navigating a focused menu). It publishes semantic UI intent; it does not forward raw gameplay input.
 
 ## 3. Thin orchestration; no god objects
 
