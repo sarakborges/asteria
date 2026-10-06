@@ -52,8 +52,6 @@ public sealed class BlockVisualDefinition
         int planes = 2,
         float baseOffset = 0f)
     {
-        ArgumentNullException.ThrowIfNull(texture);
-
         if (!float.IsFinite(width) ||
             width <= 0f ||
             width > 1f)
