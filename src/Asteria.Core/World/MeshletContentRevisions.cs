@@ -6,12 +6,20 @@ public readonly record struct ChunkMeshletKey(
 
 public sealed class MeshletContentRevisions
 {
-    private readonly Dictionary<ChunkMeshletKey, ulong> _revisions = [];
+    private readonly Dictionary<ChunkCoord, ulong[]>
+        _revisions = [];
 
-    public ulong Get(ChunkMeshletKey key) =>
-        _revisions.TryGetValue(key, out var revision)
-            ? revision
+    public ulong Get(ChunkMeshletKey key)
+    {
+        ValidateMeshletIndex(
+            key.MeshletIndex);
+
+        return _revisions.TryGetValue(
+                key.Chunk,
+                out var revisions)
+            ? revisions[key.MeshletIndex]
             : 0;
+    }
 
     public void BumpVoxelEdit(
         VoxelWorld world,
@@ -40,13 +48,37 @@ public sealed class MeshletContentRevisions
         ChunkCoord coord,
         ChunkMeshletMask mask)
     {
-        foreach (var meshletIndex in mask.Indices())
+        if (mask.IsEmpty)
         {
-            var key =
-                new ChunkMeshletKey(
-                    coord,
-                    meshletIndex);
-            _revisions[key] = checked(Get(key) + 1);
+            return;
+        }
+
+        if (!_revisions.TryGetValue(
+                coord,
+                out var revisions))
+        {
+            revisions =
+                new ulong[
+                    ChunkMeshletMask.Count];
+            _revisions.Add(
+                coord,
+                revisions);
+        }
+
+        for (var meshletIndex = 0;
+             meshletIndex < ChunkMeshletMask.Count;
+             meshletIndex++)
+        {
+            if (!mask.ContainsIndex(
+                    meshletIndex))
+            {
+                continue;
+            }
+
+            revisions[meshletIndex] =
+                checked(
+                    revisions[meshletIndex] +
+                    1);
         }
     }
 
@@ -66,7 +98,9 @@ public sealed class MeshletContentRevisions
                     new ChunkMeshletKey(
                         coord,
                         meshletIndex);
-                captured.Add(key, Get(key));
+                captured.Add(
+                    key,
+                    Get(key));
             }
         }
 
@@ -78,14 +112,18 @@ public sealed class MeshletContentRevisions
         ulong revision) =>
         Get(key) == revision;
 
-    public void RemoveChunk(ChunkCoord coord)
+    public void RemoveChunk(
+        ChunkCoord coord) =>
+        _revisions.Remove(coord);
+
+    private static void ValidateMeshletIndex(
+        int meshletIndex)
     {
-        foreach (var key in
-                 _revisions.Keys
-                     .Where(key => key.Chunk == coord)
-                     .ToArray())
+        if ((uint)meshletIndex >=
+            ChunkMeshletMask.Count)
         {
-            _revisions.Remove(key);
+            throw new ArgumentOutOfRangeException(
+                nameof(meshletIndex));
         }
     }
 }
