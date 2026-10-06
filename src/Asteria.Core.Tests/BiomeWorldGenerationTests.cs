@@ -230,7 +230,12 @@ public sealed class BiomeWorldGenerationTests
                         x,
                         z);
                 if (sample.Influences.Count >
-                    1)
+                        1 &&
+                    sample.Influences
+                        .Skip(1)
+                        .Any(influence =>
+                            influence.Weight >=
+                            0.1f))
                 {
                     blended =
                         sample;
