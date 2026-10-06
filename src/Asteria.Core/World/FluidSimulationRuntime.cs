@@ -30,6 +30,8 @@ public sealed class FluidSimulationRuntime
     private readonly int _maximumUpdatesPerWorker;
     private readonly FluidSimulationWorker _worker = new();
 
+    private bool _acceptingWork = true;
+
     private FluidWorkBatch? _inFlightBatch;
 
     public FluidSimulationRuntime(
@@ -76,8 +78,18 @@ public sealed class FluidSimulationRuntime
 
     public bool IsRunning => _worker.IsRunning;
 
+    public void BeginRetirement()
+    {
+        _acceptingWork = false;
+    }
+
     public bool TryStartReadyWork()
     {
+        if (!_acceptingWork)
+        {
+            return false;
+        }
+
         if (_worker.IsRunning ||
             !_updates.HasReadyWork(
                 _ticks.CurrentTick))

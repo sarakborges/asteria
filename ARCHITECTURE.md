@@ -122,7 +122,7 @@ Background work is allowed only when ownership is explicit.
 - Stale validation must cover the exact dependency envelope of the snapshot, including residency of chunks that were absent when the snapshot was captured; unrelated residency outside that envelope must not invalidate correct work.
 - Worker completion order must not determine gameplay behavior.
 - Background tasks are bounded.
-- Long-running work that can become irrelevant should be cancellable or cheaply discardable.
+- Long-running work that can become irrelevant should be cancellable or cheaply discardable. Dimension retirement uses cooperative quiescence: no new work starts after retirement begins, already-running bounded snapshot jobs are drained, and their owning session remains isolated until completion.
 - Draining a queue transfers ownership of that batch to exactly one in-flight worker owner. Start failure, worker exception, null completion, stale dependency validation or publication rejection must either requeue the still-relevant batch or explicitly retire it; drained work must not disappear silently.
 - Detached world entities without persistence/pickup ownership must still have explicit population and lifetime bounds; bounded capacity and expiry are required until a higher-level lifecycle owns them.
 - Detached block drops also participate in deterministic entity contact resolution. Broadphase/contact state stays bounded by the active-drop cap, pair ordering is deterministic, and separation must respect voxel collision instead of pushing drops through terrain.
@@ -198,8 +198,12 @@ Dimensions are the top-level authored world-runtime boundary.
 - One root world seed deterministically derives a distinct dimension seed from the dimension identity. All generation inside that dimension consumes the derived seed, so equivalent coordinates in different dimensions are independent without requiring unrelated random state.
 - Dimension definitions own world-wide gravity, authored spawn coordinates and environment presentation inputs. Gravity is consumed by both player movement and block/drop physics; adapters must not maintain a competing hard-coded gravity value.
 - Dimension environment data is engine-agnostic RGB/energy/fog data. Godot's `DimensionEnvironmentPresentation` is only the adapter that maps it into a `WorldEnvironment`.
-- An active runtime session owns exactly one dimension and one `VoxelWorld` plus its queues/revisions/archive/workers. Dimension changes must never reuse those mutable owners by clearing them in place. A future portal/transition retires session A and constructs/restores session B.
-- Live dimension transition is intentionally not implemented until that session retirement/construction lifecycle is explicit. Startup selection is already data-driven, and both Overworld and Umbral can instantiate independent generation sessions.
+- An active runtime session owns exactly one dimension and one `VoxelWorld` plus its queues/revisions/archive/workers. Dimension changes never reuse those transient owners by clearing them in place.
+- `DimensionRuntimeSession` is the Godot-side session composition boundary. It owns fresh queues, revisions, simulation/mesh workers, streaming controllers and one presentation subtree for exactly one `DimensionSessionState`.
+- `DimensionSessionStateStore` is the bounded Core owner of inactive dimension state. It contains at most one state per authored dimension and preserves the dimension's `VoxelWorld` archive, world tick, player position, falling-block snapshot and dropped-block snapshot.
+- Transition is cooperative: the active session stops accepting new worker work, drains already in-flight materialization/simulation/lighting/mesh jobs, snapshots detached entities, archives all resident chunks deterministically, retires the complete presentation subtree, then constructs/restores the destination session. No worker result from the retired session can publish into the new one.
+- Session retirement drops pristine resident chunks and keeps only dirty chunk state in the in-memory archive; unchanged terrain is rematerialized from the dimension provider on return. This keeps inactive-session memory tied to authored edits/state instead of render distance.
+- Dimension transition accepts an explicit destination position. Portal-style callers can preserve exact coordinates across dimensions, while each dimension state also retains its last player position for resume-style activation.
 
 Surface world generation is an engine-agnostic Core domain.
 

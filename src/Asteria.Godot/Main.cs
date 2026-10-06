@@ -29,40 +29,62 @@ public partial class Main : Node3D
     private const int MaxFluidUpdatesPerWorker = 512;
     private const int MaxChunkEvictionsPerFrame = 2;
 
-    private readonly WorldUpdateQueue _worldUpdates = new();
-    private readonly WorldTickClock _worldTicks = new();
-    private readonly FluidUpdateQueue _fluidUpdates = new();
-    private readonly FluidMeshUpdateQueue _fluidMeshUpdates = new();
-    private readonly BlockPhysicsUpdateQueue _blockPhysicsUpdates = new();
-    private readonly MeshletContentRevisions _contentRevisions = new();
-    private readonly MeshletContentRevisions _fluidContentRevisions = new();
-    private ChunkResidencyRuntime _residency = null!;
-    private ChunkPresentationController _chunkPresentations = null!;
-    private ChunkStreamingController _chunkStreaming = null!;
+    private WorldUpdateQueue _worldUpdates =>
+        _sessions.Active.WorldUpdates;
+    private WorldTickClock _worldTicks =>
+        _sessions.Active.WorldTicks;
+    private FluidUpdateQueue _fluidUpdates =>
+        _sessions.Active.FluidUpdates;
+    private FluidMeshUpdateQueue _fluidMeshUpdates =>
+        _sessions.Active.FluidMeshUpdates;
+    private BlockPhysicsUpdateQueue _blockPhysicsUpdates =>
+        _sessions.Active.BlockPhysicsUpdates;
+    private MeshletContentRevisions _contentRevisions =>
+        _sessions.Active.ContentRevisions;
+    private MeshletContentRevisions _fluidContentRevisions =>
+        _sessions.Active.FluidContentRevisions;
+    private ChunkResidencyRuntime _residency =>
+        _sessions.Active.Residency;
+    private ChunkPresentationController _chunkPresentations =>
+        _sessions.Active.Presentations;
+    private ChunkStreamingController _chunkStreaming =>
+        _sessions.Active.Streaming;
 
     private PackSelection _packSelection =
         PackSelection.Default;
     private JsonElement _uiTheme;
 
-    private readonly VoxelWorld _world = new();
-    private VoxelMutationRuntime _mutations = null!;
-    private BlockInteractionRuntime _blockInteractions = null!;
-    private BlockEntityFrameController _blockEntities = null!;
+    private VoxelWorld _world =>
+        _sessions.Active.World;
+    private VoxelMutationRuntime _mutations =>
+        _sessions.Active.Mutations;
+    private BlockInteractionRuntime _blockInteractions =>
+        _sessions.Active.BlockInteractions;
+    private BlockEntityFrameController _blockEntities =>
+        _sessions.Active.BlockEntities;
     private UnderwaterViewPresentation? _underwaterView;
 
-    private TerrainMeshPipeline _terrainMeshPipeline = null!;
-    private FluidMeshPipeline _fluidMeshPipeline = null!;
-    private FluidSimulationRuntime _fluidSimulationRuntime = null!;
-    private LightingRuntime _lightingRuntime = null!;
+    private TerrainMeshPipeline _terrainMeshPipeline =>
+        _sessions.Active.TerrainMesh;
+    private FluidMeshPipeline _fluidMeshPipeline =>
+        _sessions.Active.FluidMesh;
+    private FluidSimulationRuntime _fluidSimulationRuntime =>
+        _sessions.Active.FluidSimulation;
+    private LightingRuntime _lightingRuntime =>
+        _sessions.Active.Lighting;
 
     private BlockRegistry _blocks = null!;
     private FluidRegistry _fluids = null!;
     private BiomeRegistry _biomes = null!;
     private DimensionRegistry _dimensions = null!;
-    private DimensionDefinition _dimension = null!;
-    private BiomeWorldGenerator _worldGenerator = null!;
-    private ulong _dimensionSeed;
-    private ChunkCoord _spawnChunk;
+    private DimensionSessionStateStore _sessionStates = null!;
+    private DimensionSessionController _sessions = null!;
+    private DimensionDefinition _dimension =>
+        _sessions.Active.Dimension;
+    private ulong _dimensionSeed =>
+        _sessions.Active.DimensionSeed;
+    private ChunkCoord _spawnChunk =>
+        _sessions.Active.InitialStreamingCenter;
     private DimensionEnvironmentPresentation _dimensionEnvironment = null!;
     private FpsPlayer? _player;
     private Node _webUi = null!;
@@ -87,163 +109,51 @@ public partial class Main : Node3D
                 _packSelection);
         SetupWebUi();
 
-        _blocks = BlockContentLoader.LoadProjectBlocks(_packSelection);
-        _fluids = FluidContentLoader.LoadProjectFluids(_packSelection);
-        _biomes = BiomeContentLoader.LoadProjectBiomes(_packSelection);
+        _blocks =
+            BlockContentLoader.LoadProjectBlocks(
+                _packSelection);
+        _fluids =
+            FluidContentLoader.LoadProjectFluids(
+                _packSelection);
+        _biomes =
+            BiomeContentLoader.LoadProjectBiomes(
+                _packSelection);
         _dimensions =
             DimensionContentLoader.LoadProjectDimensions(
                 _packSelection);
         _dimensions.ValidateBiomes(
             _biomes);
-        _dimension =
-            _dimensions.Get(
-                new DimensionId(
-                    StartupDimensionId));
-        _dimensionSeed =
-            DimensionSeed.Derive(
-                WorldSeed,
-                _dimension.Id);
-        _worldGenerator =
-            new BiomeWorldGenerator(
-                _dimensionSeed,
-                _dimension,
+
+        _terrainTextures =
+            TerrainTextureCatalog.Create(
                 _blocks,
-                _biomes);
-        _spawnChunk =
-            VoxelCoordinates.FromWorld(
-                _dimension.Spawn.X,
-                0,
-                _dimension.Spawn.Z).Chunk;
-        _dimensionEnvironment =
-            new DimensionEnvironmentPresentation(
-                this);
-        _dimensionEnvironment.Apply(
-            _dimension);
-        var droppedBlocks =
-            new DroppedBlockRuntime(
-                _world,
-                _blocks);
-        _mutations = new VoxelMutationRuntime(
-            _world,
-            _worldUpdates,
-            _fluidUpdates,
-            _fluidMeshUpdates,
-            _blockPhysicsUpdates,
-            _contentRevisions,
-            _fluidContentRevisions);
-        var lightingIntegration =
-            new LightingResultIntegrator(
-                _world,
-                _worldUpdates,
-                _fluidMeshUpdates);
-        _fluidSimulationRuntime =
-            new FluidSimulationRuntime(
-                _world,
-                _fluids,
-                _fluidUpdates,
-                _mutations,
-                _worldTicks,
-                WorldTicksPerSecond,
-                MaxFluidUpdatesPerWorker);
-        _lightingRuntime =
-            new LightingRuntime(
-                _world,
-                _blocks,
-                _fluids,
-                _worldUpdates,
-                lightingIntegration);
-        var blockPhysics =
-            new BlockPhysicsRuntime(
-                _world,
-                _blocks,
-                _mutations,
-                _blockPhysicsUpdates,
-                droppedBlocks);
-        _blockInteractions =
-            new BlockInteractionRuntime(
-                _world,
-                _blocks,
-                _mutations,
-                droppedBlocks);
-        _terrainTextures = TerrainTextureCatalog.Create(_blocks, _packSelection);
-        _terrainTextureLookup = _terrainTextures.CreateLookup();
-        _terrainMaterials = VoxelTerrainMaterialSet.Create(_terrainTextures);
+                _packSelection);
+        _terrainTextureLookup =
+            _terrainTextures.CreateLookup();
+        _terrainMaterials =
+            VoxelTerrainMaterialSet.Create(
+                _terrainTextures);
         _fluidMaterials =
             FluidMaterialCatalog.Create(
                 _fluids,
                 _packSelection);
-        var blockEntityPresentations =
-            new BlockEntityPresentationController(
-                this,
-                _blocks,
-                _fluids,
-                _terrainTextureLookup,
-                _terrainMaterials);
-        _blockEntities =
-            new BlockEntityFrameController(
-                _worldTicks,
-                blockPhysics,
-                droppedBlocks,
-                _blockPhysicsUpdates,
-                blockEntityPresentations);
-        _residency =
-            new ChunkResidencyRuntime(
-                _world,
-                _blocks,
-                _fluids,
-                _worldGenerator,
-                _worldUpdates,
-                _fluidUpdates,
-                _fluidMeshUpdates,
-                blockPhysics,
-                _contentRevisions,
-                _fluidContentRevisions,
-                _worldTicks,
-                new ChunkResidencySettings(
-                    MaxMaterializationTasksInFlight,
-                    MaxMaterializationDispatchesPerFrame,
-                    MaxMaterializationResultsPerFrame,
-                    MaxChunkEvictionsPerFrame,
-                    WorldTicksPerSecond));
-        _chunkPresentations =
-            new ChunkPresentationController(
-                this,
-                _world,
-                _worldUpdates,
-                _fluidMeshUpdates,
-                _contentRevisions,
-                _fluidContentRevisions,
-                _terrainMaterials,
-                _fluidMaterials);
-        _terrainMeshPipeline =
-            new TerrainMeshPipeline(
-                _world,
-                _blocks,
-                _terrainTextureLookup,
-                _worldUpdates,
-                _contentRevisions,
-                _chunkPresentations,
-                MaxInteractiveTerrainMeshletsPerWorker,
-                MaxTerrainMeshletsPerWorker);
-        _fluidMeshPipeline =
-            new FluidMeshPipeline(
-                _world,
-                _blocks,
-                _fluids,
-                _fluidMeshUpdates,
-                _fluidContentRevisions,
-                _chunkPresentations,
-                MaxFluidMeshletsPerWorker);
-        _chunkStreaming =
-            new ChunkStreamingController(
-                _residency,
-                _chunkPresentations,
-                new ChunkStreamingControllerSettings(
-                    RenderDistanceChunks,
-                    RetentionMarginChunks,
-                    minimumChunkY: 0,
-                    maximumChunkY: 1,
-                    MaxPresentationPublicationsPerFrame));
+
+        _dimensionEnvironment =
+            new DimensionEnvironmentPresentation(
+                this);
+        _sessionStates =
+            new DimensionSessionStateStore(
+                WorldSeed,
+                _dimensions);
+        _sessions =
+            new DimensionSessionController(
+                _sessionStates,
+                CreateDimensionSession);
+        _sessions.Start(
+            new DimensionId(
+                StartupDimensionId));
+        ActivateCurrentDimensionPresentation();
+
         _placementBlock =
             _blocks.GetId(TestChunkFactory.StoneId);
         SendHotbarState();
@@ -266,9 +176,8 @@ public partial class Main : Node3D
             $"retention_margin={RetentionMarginChunks} " +
             $"materialization_in_flight={MaxMaterializationTasksInFlight}");
 
-        // Loading starts around the origin. The player is spawned only after
-        // the center chunk presentation is fully published, so physics cannot
-        // fall through an empty world while initial streaming catches up.
+        // Player activation waits for the active dimension's streaming center
+        // presentation so physics never starts over an unpublished world.
         ReportStreamingSelection(
             _chunkStreaming.SyncSelection(
                 CurrentStreamingCenter()));
@@ -278,24 +187,43 @@ public partial class Main : Node3D
     {
         if (@event is not InputEventKey keyEvent ||
             !keyEvent.Pressed ||
-            keyEvent.Echo ||
-            keyEvent.Keycode != Key.F3)
+            keyEvent.Echo)
         {
             return;
         }
 
-        _debugHudVisible =
-            !_debugHudVisible;
-        SendDebugHudState();
-        GetViewport().SetInputAsHandled();
+        switch (keyEvent.Keycode)
+        {
+            case Key.F3:
+                _debugHudVisible =
+                    !_debugHudVisible;
+                SendDebugHudState();
+                GetViewport().SetInputAsHandled();
+                break;
+
+            case Key.F4:
+                if (TryCycleDimensionForQa())
+                {
+                    GetViewport().SetInputAsHandled();
+                }
+
+                break;
+        }
     }
 
     public override void _Process(double delta)
     {
+        BeginWorldFrameBudget(delta);
+
+        if (_sessions.IsTransitioning)
+        {
+            AdvanceDimensionTransition();
+            return;
+        }
+
         _worldTicks.Advance(
             delta,
             WorldTicksPerSecond);
-        BeginWorldFrameBudget(delta);
 
         var streamingBegin =
             _chunkStreaming.BeginFrame(
@@ -342,6 +270,216 @@ public partial class Main : Node3D
             _worldReadySent = true;
             SetupPlayer();
             SendWorldReady();
+        }
+    }
+
+    public bool TransitionToDimension(
+        string dimensionId)
+    {
+        if (_player is null ||
+            _sessions.IsTransitioning)
+        {
+            return false;
+        }
+
+        var position =
+            _player.GlobalPosition;
+        return BeginDimensionTransition(
+            new DimensionId(
+                dimensionId),
+            new NVector3(
+                position.X,
+                position.Y,
+                position.Z));
+    }
+
+    private bool BeginDimensionTransition(
+        DimensionId target,
+        NVector3 destination)
+    {
+        if (_player is null)
+        {
+            return false;
+        }
+
+        var position =
+            _player.GlobalPosition;
+        var source =
+            new NVector3(
+                position.X,
+                position.Y,
+                position.Z);
+
+        if (!_sessions.RequestTransition(
+                target,
+                source,
+                destination))
+        {
+            return false;
+        }
+
+        RetirePlayerForDimensionTransition();
+        _worldReadySent = false;
+
+        SendWebUi(
+            "game.dimension_transition",
+            new
+            {
+                from =
+                    _dimension.Id.Value,
+                to =
+                    target.Value,
+            });
+
+        GD.Print(
+            $"dimension.transition begin from={_dimension.Id} to={target}");
+        return true;
+    }
+
+    private void AdvanceDimensionTransition()
+    {
+        var completion =
+            _sessions.AdvanceTransition(
+                _worldFrameBudget,
+                ReportDimensionRetirementDrain);
+
+        if (completion is null)
+        {
+            return;
+        }
+
+        ActivateCurrentDimensionPresentation();
+
+        ReportStreamingSelection(
+            _chunkStreaming.SyncSelection(
+                CurrentStreamingCenter()));
+
+        SendWebUi(
+            "game.dimension_changed",
+            new
+            {
+                from =
+                    completion.From.Value,
+                to =
+                    completion.To.Value,
+                dimensionSeed =
+                    _dimensionSeed,
+                gravityStrength =
+                    _dimension.GravityStrength,
+            });
+
+        GD.Print(
+            $"dimension.transition complete from={completion.From} " +
+            $"to={completion.To} archived_dirty={completion.Archive.ArchivedDirty} " +
+            $"dropped_pristine={completion.Archive.DroppedPristine}");
+    }
+
+    private void ActivateCurrentDimensionPresentation()
+    {
+        _dimensionEnvironment.Apply(
+            _dimension);
+    }
+
+    private DimensionRuntimeSession CreateDimensionSession(
+        DimensionSessionState state) =>
+        new(
+            this,
+            state,
+            _blocks,
+            _fluids,
+            _biomes,
+            _terrainTextureLookup,
+            _terrainMaterials,
+            _fluidMaterials,
+            new DimensionRuntimeSessionSettings(
+                WorldTicksPerSecond,
+                RenderDistanceChunks,
+                RetentionMarginChunks,
+                MaxMaterializationTasksInFlight,
+                MaxMaterializationDispatchesPerFrame,
+                MaxMaterializationResultsPerFrame,
+                MaxPresentationPublicationsPerFrame,
+                MaxInteractiveTerrainMeshletsPerWorker,
+                MaxTerrainMeshletsPerWorker,
+                MaxFluidMeshletsPerWorker,
+                MaxFluidUpdatesPerWorker,
+                MaxChunkEvictionsPerFrame));
+
+    private bool TryCycleDimensionForQa()
+    {
+        if (_player is null ||
+            _sessions.IsTransitioning)
+        {
+            return false;
+        }
+
+        var definitions =
+            _dimensions
+                .Definitions()
+                .ToArray();
+
+        if (definitions.Length < 2)
+        {
+            return false;
+        }
+
+        var currentIndex =
+            Array.FindIndex(
+                definitions,
+                definition =>
+                    definition.Id ==
+                    _dimension.Id);
+        var next =
+            definitions[
+                (currentIndex + 1) %
+                definitions.Length];
+        var position =
+            _player.GlobalPosition;
+
+        return BeginDimensionTransition(
+            next.Id,
+            new NVector3(
+                position.X,
+                position.Y,
+                position.Z));
+    }
+
+    private void RetirePlayerForDimensionTransition()
+    {
+        if (_player is null)
+        {
+            return;
+        }
+
+        _player.BreakRequested -=
+            BreakTargetBlock;
+        _player.PlaceRequested -=
+            PlaceTargetBlock;
+        _player.MouseCaptureChanged -=
+            SendMouseCaptureState;
+        _player.FluidContactChanged -=
+            OnPlayerFluidContactChanged;
+        _player.QueueFree();
+        _player = null;
+        _underwaterView = null;
+
+        Input.MouseMode =
+            Input.MouseModeEnum.Visible;
+        SendMouseCaptureState(
+            captured: false);
+    }
+
+    private void ReportDimensionRetirementDrain(
+        DimensionRetirementDrainReport report)
+    {
+        ReportResidencyUpdate(
+            report.Materialization);
+
+        foreach (var error in
+                 report.WorkerErrors)
+        {
+            GD.PushError(
+                $"Dimension retirement worker failed:\n{error}");
         }
     }
 
@@ -521,19 +659,17 @@ public partial class Main : Node3D
             return;
         }
 
-        var spawnSurfaceY =
-            _worldGenerator.SurfaceHeight(
-                _dimension.Spawn.X,
-                _dimension.Spawn.Z);
+        var initialPosition =
+            _sessions.Active.InitialPlayerPosition;
 
         _player = new FpsPlayer
         {
             Name = "Player",
             Position =
                 new Vector3(
-                    _dimension.Spawn.X + 0.5f,
-                    spawnSurfaceY + 1f,
-                    _dimension.Spawn.Z + 0.5f),
+                    initialPosition.X,
+                    initialPosition.Y,
+                    initialPosition.Z),
             GravityStrength =
                 _dimension.GravityStrength,
         };
@@ -567,7 +703,7 @@ public partial class Main : Node3D
             new { controller = "fps" });
 
         GD.Print(
-            $"streaming: dimension={_dimension.Id} spawn presentation ready; player activated");
+            $"streaming: dimension={_dimension.Id} presentation ready; player activated");
     }
 
     private void OnPlayerFluidContactChanged(

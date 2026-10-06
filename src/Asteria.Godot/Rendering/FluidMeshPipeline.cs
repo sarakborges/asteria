@@ -13,6 +13,8 @@ public sealed class FluidMeshPipeline
     private readonly int _maximumMeshletsPerWorker;
     private readonly FluidMeshWorker _worker = new();
 
+    private bool _acceptingWork = true;
+
     private WorldMeshBatch? _inFlightBatch;
 
     public FluidMeshPipeline(
@@ -55,8 +57,18 @@ public sealed class FluidMeshPipeline
 
     public bool IsRunning => _worker.IsRunning;
 
+    public void BeginRetirement()
+    {
+        _acceptingWork = false;
+    }
+
     public bool TryStartReadyWork()
     {
+        if (!_acceptingWork)
+        {
+            return false;
+        }
+
         if (_worker.IsRunning ||
             !_updates.HasWork)
         {
