@@ -1,0 +1,26 @@
+{
+  "id": "asteria:overworld/alps",
+  "surfaceLayout": {
+    "weight": 0.35,
+    "regionSize": {
+      "min": 256,
+      "max": 512
+    }
+  },
+  "surfaceTerrain": {
+    "baseHeight": 10,
+    "macroAmplitude": 4,
+    "macroScale": 1024,
+    "detailAmplitude": 1,
+    "detailScale": 112
+  },
+  "surfaceLayers": [
+    {
+      "block": "asteria:snow",
+      "depth": 2
+    },
+    {
+      "block": "asteria:stone"
+    }
+  ]
+}
