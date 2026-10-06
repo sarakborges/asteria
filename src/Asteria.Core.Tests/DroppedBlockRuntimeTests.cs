@@ -91,6 +91,121 @@ public sealed class DroppedBlockRuntimeTests
     }
 
     [Fact]
+    public void OverlappingDropsSeparateDeterministically()
+    {
+        var blocks =
+            new BlockRegistry(
+            [
+                new BlockDefinition(
+                    "asteria:stone"),
+            ]);
+        var stone =
+            blocks.GetId("asteria:stone");
+        var runtime =
+            new DroppedBlockRuntime(
+                LoadedWorld(),
+                blocks);
+        var block =
+            BlockStateSnapshot.FromCell(
+                new VoxelCell(stone));
+        var center =
+            new Vector3(
+                4.5f,
+                4.5f,
+                4.5f);
+
+        var first =
+            runtime.Spawn(
+                block,
+                center);
+        var second =
+            runtime.Spawn(
+                block,
+                center);
+
+        runtime.Advance(
+            1.0 / 60.0,
+            gravityStrength: 0.0);
+
+        var states =
+            runtime.ActiveBlocks
+                .ToDictionary(
+                    state => state.Id);
+
+        Assert.False(
+            DroppedBlockRuntime.BoundsAt(
+                    states[first].Position)
+                .Intersects(
+                    DroppedBlockRuntime.BoundsAt(
+                        states[second].Position)));
+        Assert.True(
+            states[first].Position.X <
+            states[second].Position.X);
+    }
+
+    [Fact]
+    public void ContactResolutionDoesNotPushDropIntoSolidVoxel()
+    {
+        var blocks =
+            new BlockRegistry(
+            [
+                new BlockDefinition(
+                    "asteria:stone"),
+            ]);
+        var stone =
+            blocks.GetId("asteria:stone");
+        var world =
+            LoadedWorld();
+
+        Assert.True(
+            world.SetBlockAt(
+                new WorldVoxelCoord(
+                    3,
+                    4,
+                    4),
+                stone,
+                out _));
+
+        var runtime =
+            new DroppedBlockRuntime(
+                world,
+                blocks);
+        var block =
+            BlockStateSnapshot.FromCell(
+                new VoxelCell(stone));
+
+        runtime.Spawn(
+            block,
+            new Vector3(
+                4.18f,
+                4.5f,
+                4.5f));
+        runtime.Spawn(
+            block,
+            new Vector3(
+                4.34f,
+                4.5f,
+                4.5f));
+
+        runtime.Advance(
+            1.0 / 60.0,
+            gravityStrength: 0.0);
+
+        foreach (var state in
+                 runtime.ActiveBlocks)
+        {
+            Assert.True(
+                VoxelWorldCollision
+                    .QueryDetailed(
+                        world,
+                        blocks,
+                        DroppedBlockRuntime.BoundsAt(
+                            state.Position))
+                    .IsClear);
+        }
+    }
+
+    [Fact]
     public void CapacityEvictsOldestDropDeterministically()
     {
         var blocks =
