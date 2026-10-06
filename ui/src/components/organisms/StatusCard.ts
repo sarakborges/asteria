@@ -44,7 +44,7 @@ export function createStatusCard(props: StatusCardProps): StatusCardView {
   });
 
   const controls = createText({
-    text: "WASD · mouse look · Space jump · LMB break · RMB place · Esc cursor",
+    text: "F3 debug · WASD move · LMB break · RMB place · Esc cursor",
     variant: "detail",
   });
 
@@ -62,11 +62,11 @@ export function createStatusCard(props: StatusCardProps): StatusCardView {
 
   card.append(
     createText({
-      text: "ASTERIA / GODOT SPIKE",
+      text: "ASTERIA / DEBUG",
       variant: "eyebrow",
     }),
     createText({
-      text: "WEBUI ONLINE",
+      text: "RUNTIME STATUS",
       variant: "title",
     }),
     bridgeStatus.element,
