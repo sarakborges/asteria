@@ -11,6 +11,15 @@ public static class ChunkMeshDataBuilder
     // Asteria render mesh data uses clockwise front-face winding.
     private static readonly int[] TriangleOrder = [0, 2, 1, 0, 3, 2];
     private static readonly int[] FlippedTriangleOrder = [0, 3, 1, 1, 3, 2];
+    private static readonly int[] SpriteFrontOrder = [0, 2, 1, 0, 3, 2];
+    private static readonly int[] SpriteBackOrder = [0, 1, 2, 0, 2, 3];
+    private static readonly Vector2[] SpriteUvs =
+    [
+        new(0f, 1f),
+        new(0f, 0f),
+        new(1f, 0f),
+        new(1f, 1f),
+    ];
 
     private static readonly BlockFace[] Faces =
     [
@@ -60,6 +69,22 @@ public static class ChunkMeshDataBuilder
                         originX + x,
                         originY + y,
                         originZ + z);
+
+                    if (definition.Visual.Kind ==
+                        BlockVisualKind.CrossedSprite)
+                    {
+                        EmitCrossedSprite(
+                            surfaces,
+                            world,
+                            blocks,
+                            textures,
+                            x,
+                            y,
+                            z,
+                            worldPosition,
+                            definition);
+                        continue;
+                    }
 
                     if (!RequiresFineMeshing(
                             world,
@@ -162,6 +187,13 @@ public static class ChunkMeshDataBuilder
 
                         var definition =
                             blocks.GetDefinition(cell.Block);
+
+                        if (definition.Visual.Kind !=
+                            BlockVisualKind.Geometry)
+                        {
+                            continue;
+                        }
+
                         var worldPosition =
                             new WorldVoxelCoord(
                                 originX + x,
@@ -457,11 +489,159 @@ public static class ChunkMeshDataBuilder
         var neighborDefinition =
             blocks.GetDefinition(neighbor.Block);
 
+        if (neighborDefinition.Visual.Kind !=
+            BlockVisualKind.Geometry)
+        {
+            return true;
+        }
+
         return !Occludes(
             source,
             sourceDefinition,
             neighbor,
             neighborDefinition);
+    }
+
+    private static void EmitCrossedSprite(
+        Dictionary<TerrainRenderBatch, List<ChunkMeshVertex>> surfaces,
+        VoxelWorld world,
+        BlockRegistry blocks,
+        TerrainTextureLookup textures,
+        int blockX,
+        int blockY,
+        int blockZ,
+        WorldVoxelCoord worldPosition,
+        BlockDefinition definition)
+    {
+        var visual = definition.Visual;
+        var texture =
+            visual.Texture ??
+            throw new InvalidOperationException(
+                $"Crossed-sprite block {definition.Id} is missing its visual texture.");
+        var baseCode =
+            textures.GetIndex(
+                texture.Texture) +
+            (texture.Dyable
+                ? DyableLayerFlag
+                : 0f);
+        var tint =
+            definition.Tint == BlockTint.None
+                ? Vector3.One
+                : ToTint(
+                    definition.PreviewColor);
+        var material =
+            new TerrainFaceMaterial(
+                new Vector2(
+                    baseCode,
+                    -1f),
+                tint,
+                false);
+        var batch =
+            new TerrainRenderBatch(
+                definition.RenderMode,
+                definition.CastsShadow);
+        var surface =
+            GetSurface(
+                surfaces,
+                batch);
+        var lighting =
+            VoxelMeshLighting.SampleFace(
+                world,
+                blocks,
+                worldPosition,
+                BlockFace.Top);
+        var centerX =
+            blockX + 0.5f;
+        var centerZ =
+            blockZ + 0.5f;
+        var bottomY =
+            blockY +
+            visual.BaseOffset;
+        var topY =
+            bottomY +
+            visual.Height;
+        var halfWidth =
+            visual.Width * 0.5f;
+
+        for (var plane = 0;
+             plane < visual.Planes;
+             plane++)
+        {
+            var angle =
+                MathF.PI *
+                plane /
+                visual.Planes;
+            var offsetX =
+                MathF.Cos(angle) *
+                halfWidth;
+            var offsetZ =
+                MathF.Sin(angle) *
+                halfWidth;
+            Span<Vector3> positions =
+                stackalloc Vector3[4]
+                {
+                    new(
+                        centerX - offsetX,
+                        bottomY,
+                        centerZ - offsetZ),
+                    new(
+                        centerX - offsetX,
+                        topY,
+                        centerZ - offsetZ),
+                    new(
+                        centerX + offsetX,
+                        topY,
+                        centerZ + offsetZ),
+                    new(
+                        centerX + offsetX,
+                        bottomY,
+                        centerZ + offsetZ),
+                };
+
+            EmitSpriteSide(
+                surface,
+                positions,
+                SpriteFrontOrder,
+                material,
+                lighting);
+            EmitSpriteSide(
+                surface,
+                positions,
+                SpriteBackOrder,
+                material,
+                lighting);
+        }
+    }
+
+    private static void EmitSpriteSide(
+        List<ChunkMeshVertex> surface,
+        ReadOnlySpan<Vector3> positions,
+        IReadOnlyList<int> triangleOrder,
+        TerrainFaceMaterial material,
+        VoxelFaceLighting lighting)
+    {
+        foreach (var index in triangleOrder)
+        {
+            var vertexLighting =
+                lighting[index];
+
+            surface.Add(
+                new ChunkMeshVertex(
+                    positions[index],
+                    Vector3.UnitY,
+                    SpriteUvs[index],
+                    material.EncodedLayers,
+                    new Vector4(
+                        material.Tint.X,
+                        material.Tint.Y,
+                        material.Tint.Z,
+                        vertexLighting.AmbientOcclusion),
+                    new Vector4(
+                        vertexLighting.Sky,
+                        vertexLighting.BlockRed,
+                        vertexLighting.BlockGreen,
+                        vertexLighting.BlockBlue)));
+        }
     }
 
     private static void EmitCubeFace(

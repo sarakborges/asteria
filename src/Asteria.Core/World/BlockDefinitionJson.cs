@@ -16,10 +16,12 @@ public static class BlockDefinitionJson
         var tags = StringArray(root, "tags");
         var tint = ParseTint(OptionalString(root, "tint"));
         var textures = ParseTextures(root);
+        var visual = ParseVisual(root);
         var textureRotations = ParseTextureRotations(root);
         var mining = ParseMining(root);
         var shape = ParseShape(root);
         var orientations = ParseOrientations(root);
+        var placementFaces = ParsePlacementFaces(root);
         var variant = ParseVariant(root);
         var lightDampening = OptionalByte(root, "lightDampening") ?? (byte)15;
         var castsShadow = OptionalBoolean(root, "castsShadow") ?? true;
@@ -46,10 +48,12 @@ public static class BlockDefinitionJson
             tags: tags,
             tint: tint,
             textures: textures,
+            visual: visual,
             rotateTexture: textureRotations,
             mining: mining,
             shape: shape,
             orientations: orientations,
+            placementFaces: placementFaces,
             variant: variant,
             isCollidable: isCollidable,
             renderMode: renderMode,
@@ -239,6 +243,141 @@ public static class BlockDefinitionJson
             OptionalBoolean(value, "dyeable") ??
             false;
         return new BlockTextureLayer(texture, dyable);
+    }
+
+    private static BlockVisualDefinition ParseVisual(
+        JsonElement root)
+    {
+        if (!root.TryGetProperty(
+                "visual",
+                out var visual))
+        {
+            return BlockVisualDefinition.Geometry;
+        }
+
+        if (visual.ValueKind !=
+            JsonValueKind.Object)
+        {
+            throw new FormatException(
+                "visual must be an object.");
+        }
+
+        return RequiredString(
+                visual,
+                "type") switch
+        {
+            "geometry" =>
+                BlockVisualDefinition.Geometry,
+            "crossedSprite" =>
+                BlockVisualDefinition.CrossedSprite(
+                    ParseTextureLayerValue(
+                        RequiredProperty(
+                            visual,
+                            "texture")),
+                    OptionalSingle(
+                        visual,
+                        "width") ??
+                    0.72f,
+                    OptionalSingle(
+                        visual,
+                        "height") ??
+                    0.62f,
+                    OptionalInt32(
+                        visual,
+                        "planes") ??
+                    2,
+                    OptionalSingle(
+                        visual,
+                        "baseOffset") ??
+                    0f),
+            var type =>
+                throw new FormatException(
+                    $"Unknown block visual type: {type}"),
+        };
+    }
+
+    private static IReadOnlyList<BlockFace>
+        ParsePlacementFaces(
+            JsonElement root)
+    {
+        if (!root.TryGetProperty(
+                "placementFaces",
+                out var placementFaces))
+        {
+            return Enum.GetValues<BlockFace>();
+        }
+
+        if (placementFaces.ValueKind !=
+            JsonValueKind.Array)
+        {
+            throw new FormatException(
+                "placementFaces must be an array.");
+        }
+
+        return placementFaces
+            .EnumerateArray()
+            .Select(value =>
+                value.ValueKind ==
+                    JsonValueKind.String
+                    ? ParseBlockFace(
+                        value.GetString())
+                    : throw new FormatException(
+                        "placementFaces can contain only strings."))
+            .ToArray();
+    }
+
+    private static BlockFace ParseBlockFace(
+        string? value) =>
+        value switch
+        {
+            "top" => BlockFace.Top,
+            "bottom" => BlockFace.Bottom,
+            "left" => BlockFace.Left,
+            "right" => BlockFace.Right,
+            "front" => BlockFace.Front,
+            "back" => BlockFace.Back,
+            _ => throw new FormatException(
+                $"Unknown placement face: {value}"),
+        };
+
+    private static JsonElement RequiredProperty(
+        JsonElement value,
+        string propertyName)
+    {
+        if (!value.TryGetProperty(
+                propertyName,
+                out var property))
+        {
+            throw new FormatException(
+                $"Missing required property: {propertyName}");
+        }
+
+        return property;
+    }
+
+    private static int? OptionalInt32(
+        JsonElement value,
+        string propertyName)
+    {
+        if (!value.TryGetProperty(
+                propertyName,
+                out var property) ||
+            property.ValueKind ==
+                JsonValueKind.Null)
+        {
+            return null;
+        }
+
+        if (property.ValueKind !=
+                JsonValueKind.Number ||
+            !property.TryGetInt32(
+                out var result))
+        {
+            throw new FormatException(
+                $"{propertyName} must be an integer.");
+        }
+
+        return result;
     }
 
     private static BlockTextureRotations ParseTextureRotations(JsonElement root)

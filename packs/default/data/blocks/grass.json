@@ -1,0 +1,30 @@
+{
+  "id": "asteria:grass",
+  "category": "foliage",
+  "tags": [
+    "support_below"
+  ],
+  "tint": "foliage",
+  "visual": {
+    "type": "crossedSprite",
+    "texture": {
+      "texture": "textures/objects/grass.png",
+      "dyable": true
+    },
+    "width": 0.72,
+    "height": 0.62,
+    "planes": 4
+  },
+  "placementFaces": [
+    "top"
+  ],
+  "mining": {
+    "hardness": 0.05
+  },
+  "isCollidable": false,
+  "castsShadow": false,
+  "lightDampening": 0,
+  "alphaCutoff": 0.5,
+  "previewColor": "6f9f50",
+  "dropsSelf": false
+}

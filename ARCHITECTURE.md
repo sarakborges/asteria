@@ -152,7 +152,8 @@ Examples:
 - fluid spread, visual properties (including optional pack-relative texture paths), lighting behavior, timing and movement response belong to `FluidDefinition`; Godot resolves authored fluid textures through the selected pack rather than special-casing fluid IDs;
 - fluid immersion is queried from authoritative voxel/fluid data in Core; engine adapters consume that contact state for swimming instead of inventing a second fluid-occupancy model. Passive immersion sinks; upward velocity requires explicit swim input;
 - fluid movement response is authored data: horizontal speed multiplier/acceleration, passive sink speed, swim ascent, surface-exit speed, vertical acceleration and exit margin must not be hard-coded to a fluid ID in the player adapter;
-- block rendering/mining/light behavior belongs to block definitions;
+- block rendering/mining/light behavior belongs to block definitions; block visuals are distinct from physical occupancy, so a non-collidable `crossedSprite` can share the normal voxel lifecycle without pretending its render planes are collision geometry;
+- placement-face capability is authored data; ground plants restrict placement to the top face instead of branching on grass/mushroom IDs;
 - platform adapters must not special-case gameplay IDs to reproduce definition-owned policy.
 
 Derived immutable metadata should be computed once near the registry owner when it avoids repeated hot-path discovery.
@@ -165,6 +166,7 @@ Derived immutable metadata should be computed once near the registry owner when 
 - `support_below` is a surface-coverage contract: the dependent block's occupied bottom-face footprint must be covered by collidable geometry on the support block's top face. A non-empty voxel or a single touching microblock is not sufficient.
 - Voxel-cell ownership is distinct from physical shape occupancy. Until the storage model explicitly supports co-occupancy, a non-empty block still owns its voxel cell even when its physical geometry occupies only part of that cell; systems must not conflate this storage invariant with collision geometry.
 - Collision meshes are generated from Core geometry and Godot only publishes the resulting physics shape.
+- Crossed-sprite visuals are meshed in Core into the same chunk/meshlet render batches as terrain. They are double-sided cutout presentation, contribute no voxel occlusion/collision, and must remain inside their owning voxel so existing meshlet dependency envelopes stay correct.
 
 ## 9. Lighting and rendering
 

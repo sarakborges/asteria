@@ -11,6 +11,8 @@ public static class TestChunkFactory
     public const string GravelId = "asteria:gravel";
     public const string ClayId = "asteria:clay";
     public const string MudId = "asteria:mud";
+    public const string GrassPlantId = "asteria:grass";
+    public const string BrownMushroomId = "asteria:mushroom_brown";
 
     public static TestChunkFixture Create(BlockRegistry blocks)
     {
@@ -23,6 +25,12 @@ public static class TestChunkFactory
         var gravel = blocks.GetId(GravelId);
         var clay = blocks.GetId(ClayId);
         var mud = blocks.GetId(MudId);
+        blocks.TryGetId(
+            GrassPlantId,
+            out var grassPlant);
+        blocks.TryGetId(
+            BrownMushroomId,
+            out var brownMushroom);
         var chunk = new Chunk();
 
         for (var x = 0; x < Chunk.Size; x++)
@@ -51,12 +59,65 @@ public static class TestChunkFactory
 
                     chunk.SetBlock(x, y, z, block);
                 }
+
+                var decorationY =
+                    surfaceY + 1;
+
+                if (decorationY < Chunk.Size &&
+                    surfaceBlock == grass &&
+                    !grassPlant.IsAir &&
+                    GroundDecorationHash(
+                        x,
+                        z,
+                        salt: 11) %
+                        3 == 0)
+                {
+                    chunk.SetBlock(
+                        x,
+                        decorationY,
+                        z,
+                        grassPlant);
+                }
+                else if (
+                    decorationY < Chunk.Size &&
+                    surfaceBlock == mud &&
+                    !brownMushroom.IsAir &&
+                    GroundDecorationHash(
+                        x,
+                        z,
+                        salt: 29) %
+                        5 == 0)
+                {
+                    chunk.SetBlock(
+                        x,
+                        decorationY,
+                        z,
+                        brownMushroom);
+                }
             }
         }
 
         PlaceShapeShowcase(chunk, blocks, stone);
 
         return new TestChunkFixture(blocks, chunk);
+    }
+
+    private static uint GroundDecorationHash(
+        int x,
+        int z,
+        uint salt)
+    {
+        unchecked
+        {
+            var hash =
+                (uint)x * 0x9E3779B9u ^
+                (uint)z * 0x85EBCA6Bu ^
+                salt * 0xC2B2AE35u;
+            hash ^= hash >> 16;
+            hash *= 0x7FEB352Du;
+            hash ^= hash >> 15;
+            return hash;
+        }
     }
 
     private static void PlaceShapeShowcase(

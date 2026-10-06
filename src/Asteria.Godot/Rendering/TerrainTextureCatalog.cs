@@ -39,7 +39,9 @@ public sealed class TerrainTextureCatalog
 
         var paths = blocks
             .AuthoredDefinitions()
-            .SelectMany(entry => entry.Definition.Textures.AllLayers())
+            .SelectMany(entry =>
+                TextureLayers(
+                    entry.Definition))
             .Select(layer => layer.Texture)
             .Distinct(StringComparer.Ordinal)
             .OrderBy(path => path, StringComparer.Ordinal)
@@ -78,6 +80,23 @@ public sealed class TerrainTextureCatalog
 
         GD.Print($"terrain textures: {indices.Count} authored layers + fallback, {width}x{height}");
         return new TerrainTextureCatalog(textureArray, indices);
+    }
+
+    private static IEnumerable<BlockTextureLayer>
+        TextureLayers(
+            BlockDefinition definition)
+    {
+        foreach (var layer in
+                 definition.Textures.AllLayers())
+        {
+            yield return layer;
+        }
+
+        if (definition.Visual.Texture is
+            { } visualTexture)
+        {
+            yield return visualTexture;
+        }
     }
 
     private static Image LoadImage(

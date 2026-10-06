@@ -39,7 +39,7 @@ The current milestone proves the base runtime architecture without introducing w
 - adaptive world-work budgets modeled after Mineclone: roughly 2 ms under frame pressure, 3 ms at normal cadence and 4 ms when frames are fast;
 - 8³ chunk meshlets with dirty-halo remesh masks and revision-stale async work rejection; terrain/fluid pending mesh maps stay incrementally ordered by chunk coordinate, so bounded worker drains no longer sort/materialize the whole backlog on every dispatch; meshlet content revisions are stored as eight fixed slots per chunk, making chunk retirement O(1) instead of scanning every tracked meshlet;
 - interactive voxel edits use an independent terrain fast lane: up to 8 interactive meshlets run on a dedicated worker and publish ahead of background terrain results, while the normal terrain worker remains capped at 16 meshlets; placement/destruction therefore no longer waits for an already-running streaming/remesh batch, and lighting refreshes still enqueue a later vertex-light remesh without invalidating a structurally current result;
-- terrain render batches split by opaque/cutout/translucent + shadow policy, with collision geometry kept independent from visual surfaces;
+- terrain render batches split by opaque/cutout/translucent + shadow policy, with collision geometry kept independent from visual surfaces; non-collidable `crossedSprite` block visuals share the same meshlet batches, texture array, tint and voxel-light pipeline without creating Godot nodes per plant;
 - terrain/fluid mesh DTOs, culling, greedy geometry, AO/light sampling and mesh-data generation live in `Asteria.Core`; Godot only converts those engine-agnostic results into `ArrayMesh`, materials, collision shapes and nodes;
 - greedy ordinary-cube meshing inside each 8³ meshlet for opaque/cutout faces when material, UV transform and vertex lighting are compatible; translucent faces stay independent for ordering;
 - data-driven fluid registry plus chunk-local palette fluid storage independent from blocks;
@@ -77,7 +77,7 @@ Visible terrain now comes from a temporary deterministic chunk provider used by 
 
 ### Block content
 
-Authorial block definitions in the built-in data pack live in `packs/default/data/blocks/*.json`. The current base catalog contains grass, dirt, stone, sand, gravel, clay, mud, snow, sand/snow layers and the initial oak-log variants.
+Authorial block definitions in the built-in data pack live in `packs/default/data/blocks/*.json`. The current base catalog contains grass block, ground grass, brown mushroom, dirt, stone, sand, gravel, clay, mud, snow, sand/snow layers and the initial oak-log variants. Ground grass and brown mushroom use the generic `crossedSprite` visual contract, top-face placement and `support_below`; losing support pops them through the existing block-physics lifecycle. Grass does not self-drop yet, while brown mushroom does.
 
 Built-in block textures live under `packs/default/resources/textures/blocks/`. Definitions keep pack-relative logical paths such as `textures/blocks/stone.png`; the selected resource-pack root is resolved centrally. The initial textures were ported directly from the Mineclone `world-systems-rebuild` reference.
 
@@ -85,7 +85,7 @@ Built-in resource assets may have Godot-generated `.import` sidecars checked in 
 
 The current startup selection is the unified `default` pack. One runtime `PackSelection` resolves `packs/default/data/`, `packs/default/resources/` and `packs/default/ui/`, so future import/selection can replace the complete visual/data package without changing individual loaders. The WebUI receives declarative theme tokens from `packs/default/ui/theme.json`.
 
-The renderer builds one deterministic texture array from every texture referenced by the loaded block registry. A block face can currently use a base layer plus one alpha-composited overlay, matching the grass side/base-overlay setup.
+The renderer builds one deterministic texture array from every face texture and crossed-sprite texture referenced by the loaded block registry. A block face can currently use a base layer plus one alpha-composited overlay, while crossed sprites use one cutout layer and may opt into authored tint.
 
 ### Requirements
 
