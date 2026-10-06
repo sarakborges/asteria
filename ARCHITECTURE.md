@@ -196,7 +196,24 @@ Never rely on:
 
 Streaming, simulation, queue priority, content loading and publication must use explicit deterministic tie-breakers where order affects observable results.
 
-## 11. Storage and hot data
+## 11. Pack and content boundaries
+
+Asteria's external content formats are engine-agnostic contracts owned by the game, not by Godot.
+
+- **Resource packs** override presentation resources such as textures, audio, fonts, model assets and presentation descriptors. They must not define authoritative gameplay behavior.
+- **Data packs** add or override authored gameplay/content data such as blocks, fluids, biomes, structures, recipes, loot/content tables, dimensions and similar definition-driven systems. They must not contain presentation binaries as an implicit gameplay dependency.
+- External packs use Asteria-owned manifests and namespaced identifiers. Loading resolves those files into the same immutable registries/content models used by built-in content.
+- Pack precedence is deterministic. The base game is the lowest layer; enabled packs are applied in an explicit ordered list. Later layers may replace earlier definitions/resources only through the documented namespace/path key.
+- No pack may depend on Godot import artifacts or project resources. `.import`, `.godot/`, `.tres`, `.res`, `.tscn`, Godot UID files and engine-specific importer state are never part of the pack contract.
+- Repository-local `.import` files may remain versioned for built-in development assets because they preserve Godot editor import settings. They are build/editor metadata only and must not leak into pack APIs or distributed pack requirements.
+- Pack loading, validation, dependency/version checks, path normalization, layering and definition merging belong outside Godot-specific presentation code. Godot receives already resolved presentation inputs.
+- Data packs are declarative by default. Executable scripts/plugins are a separate future extension boundary and must not be smuggled into the data-pack format.
+- Resource/data pack caches may exist for performance, but they are derived disposable caches owned by Asteria. A cache format is never the authored pack format.
+- Pack paths and IDs must be deterministic and portable across operating systems; case/collision rules must be validated explicitly rather than inherited from the host filesystem.
+
+The initial authored contract is defined in [PACKS.md](PACKS.md). Implementations may extend it, but must preserve this engine-independence boundary.
+
+## 12. Storage and hot data
 
 Chunk storage is a hot-path data structure.
 

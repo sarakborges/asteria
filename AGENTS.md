@@ -31,6 +31,8 @@ When touching an area that already violates the canon, do not add new code on to
 - Hash/dictionary/set iteration order must never decide gameplay, streaming, publication or simulation behavior; define deterministic tie-breakers.
 - New unbounded queues, caches, histories, task registries or collections require an explicit bounded lifecycle or a documented reason why unbounded growth is safe.
 - New features do not preserve compatibility with old implementations unless explicitly requested.
+- Resource packs and data packs are Asteria formats, not Godot formats. External packs must never require Godot sidecars/resources such as `.import`, `.godot/`, `.tres`, `.res`, `.tscn`, or engine-specific import metadata.
+- Resource packs contain presentation assets/descriptors only; data packs contain gameplay/content definitions only. Pack layering and override order must be deterministic and explicit.
 - Prefer small, explicit modules and deterministic data transformations.
 - Do not perform broad repository/tree searches when a targeted path or symbol search will work.
 - Keep the first implementation measurable: correctness first, then profile before optimizing.

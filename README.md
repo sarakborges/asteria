@@ -4,7 +4,7 @@ Fresh Godot + C# rewrite of Asteria.
 
 ## Architecture canon
 
-Repository changes must follow [AGENTS.md](AGENTS.md), [ARCHITECTURE.md](ARCHITECTURE.md), and [ENGINEERING_PRACTICES.md](ENGINEERING_PRACTICES.md). These documents are jointly normative for implementation and refactoring.
+Repository changes must follow [AGENTS.md](AGENTS.md), [ARCHITECTURE.md](ARCHITECTURE.md), and [ENGINEERING_PRACTICES.md](ENGINEERING_PRACTICES.md). These documents are jointly normative for implementation and refactoring. External content packaging follows [PACKS.md](PACKS.md).
 
 ## Current runtime foundation
 
@@ -80,6 +80,8 @@ Visible terrain now comes from a temporary deterministic chunk provider used by 
 Authorial block definitions live in `content/blocks/*.json`. The current base catalog contains grass, dirt, stone, sand, gravel, clay, mud, snow, sand/snow layers and the initial oak-log variants.
 
 Block textures live under `textures/blocks/`. The initial textures were ported directly from the Mineclone `world-systems-rebuild` reference.
+
+Built-in repository assets may have Godot-generated `.import` sidecars checked in so editor import settings stay stable. Those files are development metadata only. Future Asteria resource packs and data packs are engine-agnostic and never require or distribute Godot `.import` files/resources; see [PACKS.md](PACKS.md).
 
 The renderer builds one deterministic texture array from every texture referenced by the loaded block registry. A block face can currently use a base layer plus one alpha-composited overlay, matching the grass side/base-overlay setup.
 
