@@ -205,29 +205,29 @@ public sealed class ChunkPresentationController
     public void EnqueueTerrainPublication(
         TerrainMeshletBuild meshlet,
         ulong contentRevision,
-        ChunkContentStamp contentStamp) =>
+        MeshDependencyStamp dependencies) =>
         EnqueueTerrainPublication(
             meshlet,
             contentRevision,
-            contentStamp,
+            dependencies,
             priority: false);
 
     public void EnqueuePriorityTerrainPublication(
         TerrainMeshletBuild meshlet,
         ulong contentRevision,
-        ChunkContentStamp contentStamp) =>
+        MeshDependencyStamp dependencies) =>
         EnqueueTerrainPublication(
             meshlet,
             contentRevision,
-            contentStamp,
+            dependencies,
             priority: true);
 
     public void EnqueueFluidPublication(
         FluidMeshletBuild meshlet,
         ulong contentRevision,
-        ChunkContentStamp contentStamp)
+        MeshDependencyStamp dependencies)
     {
-        ArgumentNullException.ThrowIfNull(contentStamp);
+        ArgumentNullException.ThrowIfNull(dependencies);
 
         var key =
             new ChunkMeshletKey(
@@ -238,7 +238,7 @@ public sealed class ChunkPresentationController
             new FluidPublication(
                 meshlet,
                 contentRevision,
-                contentStamp);
+                dependencies);
         _fluidPublicationOrder.Enqueue(key);
     }
 
@@ -288,8 +288,8 @@ public sealed class ChunkPresentationController
             if (!_terrainRevisions.IsCurrent(
                     key,
                     pending.ContentRevision) ||
-                !_world.IsContentStampCurrent(
-                    pending.ContentStamp))
+                !pending.Dependencies.IsCurrent(
+                    _world))
             {
                 var mask =
                     ChunkMeshletMask.Single(
@@ -371,8 +371,8 @@ public sealed class ChunkPresentationController
             if (!_fluidRevisions.IsCurrent(
                     key,
                     pending.ContentRevision) ||
-                !_world.IsContentStampCurrent(
-                    pending.ContentStamp))
+                !pending.Dependencies.IsCurrent(
+                    _world))
             {
                 _fluidMeshUpdates.EnqueueMeshlets(
                     pending.Meshlet.Coord,
@@ -401,10 +401,10 @@ public sealed class ChunkPresentationController
     private void EnqueueTerrainPublication(
         TerrainMeshletBuild meshlet,
         ulong contentRevision,
-        ChunkContentStamp contentStamp,
+        MeshDependencyStamp dependencies,
         bool priority)
     {
-        ArgumentNullException.ThrowIfNull(contentStamp);
+        ArgumentNullException.ThrowIfNull(dependencies);
 
         var key =
             new ChunkMeshletKey(
@@ -421,7 +421,7 @@ public sealed class ChunkPresentationController
             new TerrainPublication(
                 meshlet,
                 contentRevision,
-                contentStamp);
+                dependencies);
 
         if (priority)
         {
@@ -521,10 +521,10 @@ public sealed class ChunkPresentationController
     private sealed record TerrainPublication(
         TerrainMeshletBuild Meshlet,
         ulong ContentRevision,
-        ChunkContentStamp ContentStamp);
+        MeshDependencyStamp Dependencies);
 
     private sealed record FluidPublication(
         FluidMeshletBuild Meshlet,
         ulong ContentRevision,
-        ChunkContentStamp ContentStamp);
+        MeshDependencyStamp Dependencies);
 }
