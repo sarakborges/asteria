@@ -111,6 +111,7 @@ Background work is allowed only when ownership is explicit.
 - Background tasks are bounded.
 - Long-running work that can become irrelevant should be cancellable or cheaply discardable.
 - Detached world entities without persistence/pickup ownership must still have explicit population and lifetime bounds; bounded capacity and expiry are required until a higher-level lifecycle owns them.
+- Detached block drops also participate in deterministic entity contact resolution. Broadphase/contact state stays bounded by the active-drop cap, pair ordering is deterministic, and separation must respect voxel collision instead of pushing drops through terrain.
 - Snapshot creation must not perform hidden O(chunk-volume) reconstruction when a structural copy/share can preserve the same isolation contract more cheaply.
 
 Godot objects stay on the Godot thread unless the API explicitly permits otherwise.
@@ -135,6 +136,7 @@ Examples:
 
 - gravity participation is a block capability/tag, not a sand-ID branch;
 - fluid spread, visual properties, lighting behavior and timing belong to `FluidDefinition`;
+- fluid immersion is queried from authoritative voxel/fluid data in Core; engine adapters consume that contact state for swimming/buoyancy instead of inventing a second fluid-occupancy model;
 - block rendering/mining/light behavior belongs to block definitions;
 - platform adapters must not special-case gameplay IDs to reproduce definition-owned policy.
 
@@ -151,6 +153,9 @@ Lighting is authoritative runtime data; meshes are derived presentation data.
 - A light change should invalidate only the presentation region that can observe it.
 - Applying an accepted lighting worker result is a Core responsibility. Changed voxel positions are coalesced into chunk/meshlet halo masks before terrain/fluid revisions and remesh queues are published, so one relight does not repeatedly bump the same meshlet.
 - Terrain and fluid meshes may have distinct invalidation/publication lifecycles.
+- Lighting refresh is presentation dirtiness, not a structural voxel mutation. It may enqueue a follow-up remesh but must not invalidate a structurally current mesh result solely because vertex lighting changed while that result was in flight.
+- Interactive block edits use a priority mesh lane and bounded worker batches so player-visible placement/destruction cannot sit behind an unbounded streaming/remesh backlog.
+- Translucent fluid surfaces must be renderable from both sides so entering a fluid volume does not make its enclosing surface disappear because of back-face culling.
 - Engine-agnostic mesh vertices, batches, culling/greedy logic, collision-face generation and fluid-surface geometry belong in Core.
 - Godot rendering code converts those results into `ArrayMesh`, materials, collision shapes and nodes.
 
