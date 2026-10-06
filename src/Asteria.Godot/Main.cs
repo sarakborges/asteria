@@ -81,8 +81,6 @@ public partial class Main : Node3D
     private DimensionSessionController _sessions = null!;
     private DimensionDefinition _dimension =>
         _sessions.Active.Dimension;
-    private BiomeWorldGenerator _worldGenerator =>
-        _sessions.Active.Generator;
     private ulong _dimensionSeed =>
         _sessions.Active.DimensionSeed;
     private ChunkCoord _spawnChunk =>
@@ -401,11 +399,9 @@ public partial class Main : Node3D
                 MaxMaterializationDispatchesPerFrame,
                 MaxMaterializationResultsPerFrame,
                 MaxPresentationPublicationsPerFrame,
-                MaxMeshletPublishesPerFrame,
                 MaxInteractiveTerrainMeshletsPerWorker,
                 MaxTerrainMeshletsPerWorker,
                 MaxFluidMeshletsPerWorker,
-                MaxFluidMeshletPublishesPerFrame,
                 MaxFluidUpdatesPerWorker,
                 MaxChunkEvictionsPerFrame));
 
