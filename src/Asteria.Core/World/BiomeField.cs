@@ -199,7 +199,8 @@ public sealed class BiomeField
         int originX,
         int originZ,
         int width,
-        int depth)
+        int depth,
+        int step = 1)
     {
         if (width <= 0 ||
             depth <= 0)
@@ -207,6 +208,13 @@ public sealed class BiomeField
             throw new ArgumentOutOfRangeException(
                 nameof(width),
                 "Biome sample grid must be non-empty.");
+        }
+
+        if (step <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(step),
+                "Biome sample grid step must be positive.");
         }
 
         var sampleCount =
@@ -231,8 +239,12 @@ public sealed class BiomeField
                     z * width +
                     x] =
                     SampleCached(
-                        checked(originX + x),
-                        checked(originZ + z),
+                        checked(
+                            originX +
+                            x * step),
+                        checked(
+                            originZ +
+                            z * step),
                         assignments);
             }
         }
