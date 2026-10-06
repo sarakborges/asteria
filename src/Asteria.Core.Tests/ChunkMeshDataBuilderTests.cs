@@ -153,6 +153,75 @@ public sealed class ChunkMeshDataBuilderTests
     }
 
     [Fact]
+    public void FluidTopSurfaceHasDedicatedInteriorFacingTriangles()
+    {
+        var blocks =
+            new BlockRegistry([]);
+        var fluids =
+            new FluidRegistry(
+            [
+                new FluidDefinition(
+                    "asteria:water",
+                    new FluidColor(
+                        79,
+                        159,
+                        214),
+                    opacity: 0.72f),
+            ]);
+        var water =
+            fluids.GetId(
+                "asteria:water");
+        var chunk =
+            new Chunk();
+
+        chunk.SetFluid(
+            1,
+            1,
+            1,
+            FluidCell.Source(water));
+
+        var world =
+            new VoxelWorld();
+        world.InsertChunk(
+            ChunkCoord.Zero,
+            chunk);
+
+        var data =
+            FluidMeshDataBuilder.BuildMeshlet(
+                world,
+                ChunkCoord.Zero,
+                blocks,
+                fluids,
+                meshletIndex: 0);
+        var vertices =
+            Assert.Single(
+                data.Batches)
+                .Vertices;
+        var topHeight =
+            2f;
+
+        var exterior =
+            vertices.Count(vertex =>
+                vertex.Normal ==
+                    System.Numerics.Vector3.UnitY &&
+                MathF.Abs(
+                    vertex.Position.Y -
+                    topHeight) <
+                0.0001f);
+        var interior =
+            vertices.Count(vertex =>
+                vertex.Normal ==
+                    -System.Numerics.Vector3.UnitY &&
+                MathF.Abs(
+                    vertex.Position.Y -
+                    topHeight) <
+                0.0001f);
+
+        Assert.Equal(6, exterior);
+        Assert.Equal(6, interior);
+    }
+
+    [Fact]
     public void FluidSurfaceHeightMatchesAcrossChunkSeam()
     {
         var blocks =

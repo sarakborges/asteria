@@ -9,7 +9,7 @@ public partial class FpsPlayer : CharacterBody3D
     private const float JumpSpeed = 8.0f;
     private const float Gravity = 24.0f;
     private const float SwimAscendSpeed = 3.8f;
-    private const float SwimBuoyancySpeed = 0.6f;
+    private const float SwimSinkSpeed = 0.9f;
     private const float SwimVerticalAcceleration = 12.0f;
     private const float SwimExitSurfaceMargin = 0.35f;
     private const float MouseSensitivity = 0.0022f;
@@ -113,7 +113,7 @@ public partial class FpsPlayer : CharacterBody3D
                         SwimExitSurfaceMargin)
                         ? JumpSpeed
                         : SwimAscendSpeed
-                    : SwimBuoyancySpeed;
+                    : -SwimSinkSpeed;
 
             velocity.Y =
                 Mathf.MoveToward(

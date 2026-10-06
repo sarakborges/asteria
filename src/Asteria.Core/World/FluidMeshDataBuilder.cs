@@ -8,6 +8,10 @@ public static class FluidMeshDataBuilder
         [0, 2, 1, 0, 3, 2];
     private static readonly int[] FlippedTriangleOrder =
         [0, 3, 1, 1, 3, 2];
+    private static readonly int[] ReverseTriangleOrder =
+        [0, 1, 2, 0, 2, 3];
+    private static readonly int[] ReverseFlippedTriangleOrder =
+        [0, 1, 3, 1, 2, 3];
 
     private static readonly BlockFace[] Faces =
     [
@@ -264,6 +268,51 @@ public static class FluidMeshDataBuilder
             position,
             BlockFace.Top,
             points);
+        EmitTopUnderside(
+            vertices,
+            world,
+            blocks,
+            position,
+            points);
+    }
+
+    private static void EmitTopUnderside(
+        List<FluidMeshVertex> vertices,
+        VoxelWorld world,
+        BlockRegistry blocks,
+        WorldVoxelCoord position,
+        ReadOnlySpan<Vector3> points)
+    {
+        var lighting =
+            VoxelMeshLighting.SampleFace(
+                world,
+                blocks,
+                position,
+                BlockFace.Top);
+        var triangleOrder =
+            lighting.ShouldFlipDiagonal
+                ? ReverseFlippedTriangleOrder
+                : ReverseTriangleOrder;
+
+        foreach (var index in triangleOrder)
+        {
+            var light = lighting[index];
+
+            vertices.Add(
+                new FluidMeshVertex(
+                    points[index],
+                    -Vector3.UnitY,
+                    new Vector4(
+                        1f,
+                        1f,
+                        1f,
+                        light.AmbientOcclusion),
+                    new Vector4(
+                        light.Sky,
+                        light.BlockRed,
+                        light.BlockGreen,
+                        light.BlockBlue)));
+        }
     }
 
     private static void EmitSide(

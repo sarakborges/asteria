@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode unshaded, cull_disabled, blend_mix, depth_draw_never, shadows_disabled;
+render_mode unshaded, cull_back, blend_mix, depth_draw_never, shadows_disabled;
 
 uniform vec4 fluid_color : source_color = vec4(0.31, 0.62, 0.84, 1.0);
 uniform float fluid_opacity : hint_range(0.0, 1.0) = 0.72;
