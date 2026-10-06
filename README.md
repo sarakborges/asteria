@@ -18,6 +18,8 @@ The current milestone proves the base runtime architecture without introducing w
 - chunk residency is a Core lifecycle concern: selection, archive-first restore, bounded materialization and eviction are owned by `ChunkResidencyRuntime`, while Godot owns only presentation nodes and publication;
 - residency and presentation are distinct facts; meshlet publications are deduplicated per chunk/meshlet and stale publications are revision-checked before touching Godot objects;
 - block interaction decisions live in Core: break/place resolve against the authoritative target, loaded/occupied state, authored support rules and the placed block's real collision geometry before the mutation boundary is invoked;
+- `BlockGeometry` is the single shape-occupancy oracle for cube/layer/hollow/oriented/microblock geometry; world raycast, AABB collision, support footprints, fine meshing and collision-face generation share it, and the obsolete duplicate chunk-local fine raycaster was removed;
+- `support_below` now requires actual bottom-footprint coverage by the support block's collidable top face, so thin layers or isolated microblocks cannot falsely support a full-width dependent block;
 - voxel targeting uses macro-voxel DDA and enters the 32³ narrow phase only for partial or microblock geometry, preserving exact layer/hollow/microblock hits without fine-stepping through ordinary empty/cube space;
 - one authoritative voxel-mutation runtime for block and fluid edits: successful mutations enforce block/fluid co-occupancy rules and publish all required terrain/fluid mesh, lighting, topology and block-physics consequences through one owner;
 - shared deterministic work primitives own deduplicated FIFO scheduling and adaptive frame budgets instead of local queue/set and stopwatch patterns;
@@ -37,7 +39,8 @@ The current milestone proves the base runtime architecture without introducing w
 - terrain/fluid mesh DTOs, culling, greedy geometry, AO/light sampling and mesh-data generation live in `Asteria.Core`; Godot only converts those engine-agnostic results into `ArrayMesh`, materials, collision shapes and nodes;
 - greedy ordinary-cube meshing inside each 8³ meshlet for opaque/cutout faces when material, UV transform and vertex lighting are compatible; translucent faces stay independent for ordering;
 - data-driven fluid registry plus chunk-local palette fluid storage independent from blocks;
-- player fluid contact is sampled in Core from actual fluid surface height; immersed movement applies buoyancy plus swim ascent/near-surface exit behavior, and fluid surfaces render double-sided so the enclosing surface remains visible from inside the volume;
+- player fluid contact is sampled in Core from actual fluid surface height; passive immersion sinks while Space swims upward/helps exit near the surface;
+- fluid side/bottom faces remain back-face culled to avoid the broken transparent interior seen with a fully double-sided volume; exposed top surfaces alone receive reverse-wound underside triangles so the water surface stays visible from below;
 - block and fluid occupancy are mutually exclusive: placing or settling a block replaces fluid in that voxel, fluid cannot enter a solid cell, breaking/removing a block immediately wakes fluid topology, and refill still follows authored fluid timing;
 - a block mutation that displaces fluid publishes one shared consequence fan-out—terrain/fluid mesh halos, lighting, topology, physics and revisions are not double-enqueued or double-revisioned; boundary edits invalidate every loaded chunk whose one-voxel halo observes the change;
 - incremental bounded fluid simulation with source cells, 8 visual levels, vertical falling columns and authored horizontal spread distance;

@@ -136,11 +136,20 @@ Examples:
 
 - gravity participation is a block capability/tag, not a sand-ID branch;
 - fluid spread, visual properties, lighting behavior and timing belong to `FluidDefinition`;
-- fluid immersion is queried from authoritative voxel/fluid data in Core; engine adapters consume that contact state for swimming/buoyancy instead of inventing a second fluid-occupancy model;
+- fluid immersion is queried from authoritative voxel/fluid data in Core; engine adapters consume that contact state for swimming instead of inventing a second fluid-occupancy model. Passive immersion sinks; upward velocity requires explicit swim input;
 - block rendering/mining/light behavior belongs to block definitions;
 - platform adapters must not special-case gameplay IDs to reproduce definition-owned policy.
 
 Derived immutable metadata should be computed once near the registry owner when it avoids repeated hot-path discovery.
+
+### Geometry and collision
+
+`BlockGeometry` is the canonical engine-agnostic occupancy model for authored cube/layer/hollow shapes, orientation and microblock masks.
+
+- Ray targeting, AABB narrow-phase collision, support/attachment checks, fine render geometry and collision-face generation must derive from the same `BlockGeometry` occupancy rules. Do not add a second shape interpretation in Godot or another raycaster.
+- `support_below` is a surface-coverage contract: the dependent block's occupied bottom-face footprint must be covered by collidable geometry on the support block's top face. A non-empty voxel or a single touching microblock is not sufficient.
+- Voxel-cell ownership is distinct from physical shape occupancy. Until the storage model explicitly supports co-occupancy, a non-empty block still owns its voxel cell even when its physical geometry occupies only part of that cell; systems must not conflate this storage invariant with collision geometry.
+- Collision meshes are generated from Core geometry and Godot only publishes the resulting physics shape.
 
 ## 9. Lighting and rendering
 
@@ -155,7 +164,7 @@ Lighting is authoritative runtime data; meshes are derived presentation data.
 - Terrain and fluid meshes may have distinct invalidation/publication lifecycles.
 - Lighting refresh is presentation dirtiness, not a structural voxel mutation. It may enqueue a follow-up remesh but must not invalidate a structurally current mesh result solely because vertex lighting changed while that result was in flight.
 - Interactive block edits use a priority mesh lane and bounded worker batches so player-visible placement/destruction cannot sit behind an unbounded streaming/remesh backlog.
-- Translucent fluid surfaces must be renderable from both sides so entering a fluid volume does not make its enclosing surface disappear because of back-face culling.
+- Fluid volume sides and bottoms keep back-face culling to avoid alpha-sorted interior walls/triangles. Only an exposed fluid top surface emits dedicated reverse-wound underside geometry so the water surface remains visible from below without making the entire translucent volume double-sided.
 - Engine-agnostic mesh vertices, batches, culling/greedy logic, collision-face generation and fluid-surface geometry belong in Core.
 - Godot rendering code converts those results into `ArrayMesh`, materials, collision shapes and nodes.
 
