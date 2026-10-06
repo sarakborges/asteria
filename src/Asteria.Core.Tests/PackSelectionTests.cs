@@ -5,17 +5,14 @@ namespace Asteria.Core.Tests;
 public sealed class PackSelectionTests
 {
     [Fact]
-    public void DefaultSelectionUsesDefaultPackForBothKinds()
+    public void DefaultSelectionUsesDefaultPack()
     {
         var selection =
             PackSelection.Default;
 
         Assert.Equal(
             "default",
-            selection.ResourcePack);
-        Assert.Equal(
-            "default",
-            selection.DataPack);
+            selection.Name);
     }
 
     [Theory]
@@ -29,7 +26,6 @@ public sealed class PackSelectionTests
         Assert.Throws<ArgumentException>(
             () =>
                 new PackSelection(
-                    value,
-                    PackSelection.DefaultPackName));
+                    value));
     }
 }
