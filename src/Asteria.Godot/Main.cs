@@ -41,10 +41,8 @@ public partial class Main : Node3D
 
     private readonly VoxelWorld _world = new();
     private VoxelMutationRuntime _mutations = null!;
-    private BlockPhysicsRuntime _blockPhysics = null!;
-    private DroppedBlockRuntime _droppedBlocks = null!;
     private BlockInteractionRuntime _blockInteractions = null!;
-    private BlockEntityPresentationController _blockEntityPresentations = null!;
+    private BlockEntityFrameController _blockEntities = null!;
     private UnderwaterViewPresentation? _underwaterView;
 
     private TerrainMeshPipeline _terrainMeshPipeline = null!;
@@ -71,7 +69,7 @@ public partial class Main : Node3D
 
         _blocks = BlockContentLoader.LoadProjectBlocks();
         _fluids = FluidContentLoader.LoadProjectFluids();
-        _droppedBlocks =
+        var droppedBlocks =
             new DroppedBlockRuntime(
                 _world,
                 _blocks);
@@ -104,29 +102,37 @@ public partial class Main : Node3D
                 _fluids,
                 _worldUpdates,
                 lightingIntegration);
-        _blockPhysics = new BlockPhysicsRuntime(
-            _world,
-            _blocks,
-            _mutations,
-            _blockPhysicsUpdates,
-            _droppedBlocks);
+        var blockPhysics =
+            new BlockPhysicsRuntime(
+                _world,
+                _blocks,
+                _mutations,
+                _blockPhysicsUpdates,
+                droppedBlocks);
         _blockInteractions =
             new BlockInteractionRuntime(
                 _world,
                 _blocks,
                 _mutations,
-                _droppedBlocks);
+                droppedBlocks);
         _terrainTextures = TerrainTextureCatalog.Create(_blocks);
         _terrainTextureLookup = _terrainTextures.CreateLookup();
         _terrainMaterials = VoxelTerrainMaterialSet.Create(_terrainTextures);
         _fluidMaterials = FluidMaterialCatalog.Create(_fluids);
-        _blockEntityPresentations =
+        var blockEntityPresentations =
             new BlockEntityPresentationController(
                 this,
                 _blocks,
                 _fluids,
                 _terrainTextureLookup,
                 _terrainMaterials);
+        _blockEntities =
+            new BlockEntityFrameController(
+                _worldTicks,
+                blockPhysics,
+                droppedBlocks,
+                _blockPhysicsUpdates,
+                blockEntityPresentations);
         _residency =
             new ChunkResidencyRuntime(
                 _world,
@@ -135,7 +141,7 @@ public partial class Main : Node3D
                 _worldUpdates,
                 _fluidUpdates,
                 _fluidMeshUpdates,
-                _blockPhysics,
+                blockPhysics,
                 _contentRevisions,
                 _fluidContentRevisions,
                 _worldTicks,
@@ -225,7 +231,10 @@ public partial class Main : Node3D
         ReportPresentationReservations(
             streamingBegin.ReservedPresentations);
 
-        ProcessBlockPhysics(delta);
+        ReportBlockEntityFrame(
+            _blockEntities.Advance(
+                delta,
+                WorldGravityStrength));
 
         PollFluidWorker();
         PollFluidMeshWorker();
@@ -348,9 +357,9 @@ public partial class Main : Node3D
                 fluidUpdates = _fluidUpdates.Count,
                 fluidScheduled = _fluidUpdates.ScheduledCount,
                 fluidDormantChunks = _fluidUpdates.DormantChunkCount,
-                fallingBlocks = _blockPhysics.ActiveCount,
-                droppedBlocks = _droppedBlocks.ActiveCount,
-                physicsUpdates = _blockPhysicsUpdates.Count,
+                fallingBlocks = _blockEntities.FallingCount,
+                droppedBlocks = _blockEntities.DroppedCount,
+                physicsUpdates = _blockEntities.PendingPhysicsUpdates,
                 worldTick = _worldTicks.CurrentTick,
                 textures = _terrainTextures.TextureCount,
                 meshletsPerChunk = ChunkMeshletMask.Count,
@@ -564,47 +573,25 @@ public partial class Main : Node3D
         TryStartLightingWorker();
     }
 
-    private void ProcessBlockPhysics(double delta)
+    private static void ReportBlockEntityFrame(
+        BlockEntityFrameReport report)
     {
-        var wake =
-            BlockPhysicsWakeResult.Empty;
-
-        if (_worldTicks.TicksThisFrame > 0)
+        if (!report.HasChanges)
         {
-            wake =
-                _blockPhysics.ProcessWakeups();
+            return;
         }
 
-        var landed =
-            _blockPhysics.Advance(
-                delta,
-                WorldGravityStrength);
-        var dropped =
-            _droppedBlocks.Advance(
-                delta,
-                WorldGravityStrength);
-
-        _blockEntityPresentations.Sync(
-            _blockPhysics.ActiveBlocks,
-            _droppedBlocks.ActiveBlocks);
-
-        if (wake.HasChanges ||
-            landed > 0 ||
-            dropped.Settled > 0 ||
-            dropped.Expired > 0)
-        {
-            GD.Print(
-                $"world.block_physics falling_started=" +
-                $"{wake.FallingStarted} " +
-                $"unsupported_removed=" +
-                $"{wake.UnsupportedRemoved} " +
-                $"landed={landed} " +
-                $"falling_active={_blockPhysics.ActiveCount} " +
-                $"drops_active={_droppedBlocks.ActiveCount} " +
-                $"drops_settled={dropped.Settled} " +
-                $"drops_expired={dropped.Expired} " +
-                $"queued={_blockPhysicsUpdates.Count}");
-        }
+        GD.Print(
+            $"world.block_physics falling_started=" +
+            $"{report.Wake.FallingStarted} " +
+            $"unsupported_removed=" +
+            $"{report.Wake.UnsupportedRemoved} " +
+            $"landed={report.Landed} " +
+            $"falling_active={report.FallingCount} " +
+            $"drops_active={report.DroppedCount} " +
+            $"drops_settled={report.Dropped.Settled} " +
+            $"drops_expired={report.Dropped.Expired} " +
+            $"queued={report.PendingPhysicsUpdates}");
     }
 
     private bool TryGetTarget(
