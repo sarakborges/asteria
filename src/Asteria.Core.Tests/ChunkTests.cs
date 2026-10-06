@@ -97,7 +97,10 @@ public sealed class ChunkTests
         ]);
         var fluids = new FluidRegistry(
         [
-            new FluidDefinition("asteria:water"),
+            new FluidDefinition(
+                "asteria:water",
+                new FluidColor(64, 96, 255),
+                opacity: 0.7f),
         ]);
         var chunk = new Chunk();
         var stone = blocks.GetId("asteria:stone");
@@ -172,7 +175,10 @@ public sealed class ChunkTests
     {
         var fluids = new FluidRegistry(
         [
-            new FluidDefinition("asteria:water"),
+            new FluidDefinition(
+                "asteria:water",
+                new FluidColor(64, 96, 255),
+                opacity: 0.7f),
         ]);
         var chunk = new Chunk();
         var water = fluids.GetId("asteria:water");
