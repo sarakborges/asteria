@@ -64,6 +64,6 @@ npm run dev
 npm run build
 ```
 
-The production bundle is written to `ui/dist/` and loaded by Godot WRY through `res://ui/dist/index.html`.
+The production bundle is written to `ui/dist/` and loaded by Godot WRY through `res://ui/dist/index.html`. During debug/editor runs, the Godot host rebuilds the bundle automatically when it is missing or older than `ui/src`/WebUI build config, so source changes cannot silently leave the game running a stale ignored `ui/dist`.
 
 The trusted WebUI application code stays here. Visual customization comes from `packs/{selected}/ui/theme.json` (and future `ui/assets/`) through the Godot bridge; packs do not replace HTML/TypeScript or inject executable UI code.
