@@ -12,6 +12,8 @@ public sealed class BlockGeometryParityTests
             new BlockRegistry(
             [
                 new BlockDefinition(
+                    "asteria:stone"),
+                new BlockDefinition(
                     "asteria:layer",
                     shape:
                         BlockShapeDefinition.SurfaceLayer(
