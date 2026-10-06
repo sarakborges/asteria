@@ -36,6 +36,7 @@ public partial class Main : Node3D
     private readonly MeshletContentRevisions _fluidContentRevisions = new();
     private ChunkResidencyRuntime _residency = null!;
     private ChunkPresentationController _chunkPresentations = null!;
+    private ChunkStreamingController _chunkStreaming = null!;
 
     private readonly VoxelWorld _world = new();
     private VoxelMutationRuntime _mutations = null!;
@@ -171,6 +172,16 @@ public partial class Main : Node3D
                 _fluidContentRevisions,
                 _chunkPresentations,
                 MaxFluidMeshletsPerWorker);
+        _chunkStreaming =
+            new ChunkStreamingController(
+                _residency,
+                _chunkPresentations,
+                new ChunkStreamingControllerSettings(
+                    RenderDistanceChunks,
+                    RetentionMarginChunks,
+                    minimumChunkY: 0,
+                    maximumChunkY: 1,
+                    MaxPresentationPublicationsPerFrame));
         _placementBlock =
             _blocks.GetId(TestChunkFactory.StoneId);
 
@@ -187,7 +198,9 @@ public partial class Main : Node3D
         // Loading starts around the origin. The player is spawned only after
         // the center chunk presentation is fully published, so physics cannot
         // fall through an empty world while initial streaming catches up.
-        SyncStreamingSelection();
+        ReportStreamingSelection(
+            _chunkStreaming.SyncSelection(
+                CurrentStreamingCenter()));
     }
 
     public override void _Process(double delta)
@@ -197,11 +210,19 @@ public partial class Main : Node3D
             WorldTicksPerSecond);
         BeginWorldFrameBudget(delta);
 
-        SyncStreamingSelection();
+        var streamingBegin =
+            _chunkStreaming.BeginFrame(
+                CurrentStreamingCenter(),
+                _worldFrameBudget);
+        ReportStreamingSelection(
+            streamingBegin.Selection);
+        ReportResidencyUpdate(
+            streamingBegin.Collected);
+        ReportResidencyUpdate(
+            streamingBegin.Dispatched);
+        ReportPresentationReservations(
+            streamingBegin.ReservedPresentations);
 
-        CollectMaterializationResults();
-        DispatchMaterializationTasks();
-        PublishPendingPresentations();
         ProcessBlockPhysics(delta);
 
         PollFluidWorker();
@@ -218,8 +239,11 @@ public partial class Main : Node3D
         TryStartTerrainMeshWorker();
         TryStartLightingWorker();
 
-        SyncPresentationVisibility();
-        EvictDistantChunks();
+        var streamingEnd =
+            _chunkStreaming.EndFrame(
+                _worldFrameBudget);
+        ReportRetirements(
+            streamingEnd.Retirements);
 
         if (!_worldReadySent &&
             _chunkPresentations.IsFullyPublished(
@@ -403,40 +427,6 @@ public partial class Main : Node3D
             contact);
     }
 
-    private void SyncStreamingSelection()
-    {
-        var center = CurrentStreamingCenter();
-        var desired =
-            ChunkStreamingSelection.DesiredQaChunks(
-                center,
-                RenderDistanceChunks,
-                minimumChunkY: 0,
-                maximumChunkY: 1);
-        var retentionRadius =
-            RenderDistanceChunks +
-            RetentionMarginChunks;
-
-        var changed =
-            _residency.SyncSelection(
-                center,
-                RenderDistanceChunks,
-                retentionRadius,
-                desired,
-                _chunkPresentations.Coordinates);
-
-        if (!changed)
-        {
-            return;
-        }
-
-        GD.Print(
-            $"streaming.selection center={center} " +
-            $"desired={_residency.DesiredCount} " +
-            $"retained={_residency.RetainedCount} " +
-            $"pending={_residency.PendingCount} " +
-            $"movement={_residency.MovementDirection}");
-    }
-
     private ChunkCoord CurrentStreamingCenter()
     {
         if (_player is null)
@@ -456,20 +446,20 @@ public partial class Main : Node3D
             address.Chunk.Z);
     }
 
-    private void CollectMaterializationResults()
+    private static void ReportStreamingSelection(
+        ChunkStreamingSelectionReport selection)
     {
-        ReportResidencyUpdate(
-            _residency.CollectMaterializationResults(
-                _worldFrameBudget,
-                _chunkPresentations.Coordinates));
-    }
+        if (!selection.Changed)
+        {
+            return;
+        }
 
-    private void DispatchMaterializationTasks()
-    {
-        ReportResidencyUpdate(
-            _residency.DispatchMaterializationTasks(
-                _worldFrameBudget,
-                _chunkPresentations.Coordinates));
+        GD.Print(
+            $"streaming.selection center={selection.Center} " +
+            $"desired={selection.DesiredCount} " +
+            $"retained={selection.RetainedCount} " +
+            $"pending={selection.PendingCount} " +
+            $"movement={selection.MovementDirection}");
     }
 
     private void ReportResidencyUpdate(
@@ -494,40 +484,24 @@ public partial class Main : Node3D
         }
     }
 
-    private void PublishPendingPresentations()
+    private void ReportPresentationReservations(
+        int reserved)
     {
-        var reserved =
-            _chunkPresentations.ReservePending(
-                _residency,
-                MaxPresentationPublicationsPerFrame,
-                _worldFrameBudget);
-
-        if (reserved > 0)
+        if (reserved <= 0)
         {
-            _residency.SyncResidentState(
-                _chunkPresentations.Coordinates);
-
-            GD.Print(
-                $"chunk.presentation.reserve count={reserved} " +
-                $"presented={_chunkPresentations.Count}");
+            return;
         }
+
+        GD.Print(
+            $"chunk.presentation.reserve count={reserved} " +
+            $"presented={_chunkPresentations.Count}");
     }
 
-    private void SyncPresentationVisibility()
+    private void ReportRetirements(
+        IReadOnlyList<ChunkResidencyRetirement> retirements)
     {
-        _chunkPresentations.SyncVisibility(
-            _residency);
-    }
-
-    private void EvictDistantChunks()
-    {
-        foreach (var retirement in
-                 _residency.RetireDistantChunks(
-                     _worldFrameBudget))
+        foreach (var retirement in retirements)
         {
-            _chunkPresentations.Retire(
-                retirement.Coord);
-
             GD.Print(
                 $"chunk.unload coord={retirement.Coord} " +
                 $"archive={retirement.ArchiveResult} " +
