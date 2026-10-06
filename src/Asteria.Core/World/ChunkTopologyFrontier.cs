@@ -1,5 +1,10 @@
 namespace Asteria.Core.World;
 
+public readonly record struct ChunkNeighborMeshInvalidation(
+    ChunkCoord Neighbor,
+    ChunkMeshletMask Terrain,
+    ChunkMeshletMask Fluid);
+
 public static class ChunkTopologyFrontier
 {
     public static IEnumerable<WorldVoxelCoord> LightingSeeds(
@@ -74,6 +79,122 @@ public static class ChunkTopologyFrontier
                     originX + x,
                     originY + y,
                     originZ + Chunk.Size);
+            }
+        }
+    }
+
+    public static IEnumerable<ChunkNeighborMeshInvalidation>
+        PresentedNeighborMeshInvalidationsForAddition(
+            ChunkCoord source,
+            VoxelWorld world,
+            Func<ChunkCoord, bool> isPresented)
+    {
+        ArgumentNullException.ThrowIfNull(
+            world);
+        ArgumentNullException.ThrowIfNull(
+            isPresented);
+
+        if (!world.TryGetChunk(
+                source,
+                out var sourceChunk))
+        {
+            yield break;
+        }
+
+        for (var y = -1;
+             y <= 1;
+             y++)
+        {
+            for (var z = -1;
+                 z <= 1;
+                 z++)
+            {
+                for (var x = -1;
+                     x <= 1;
+                     x++)
+                {
+                    if (x == 0 &&
+                        y == 0 &&
+                        z == 0)
+                    {
+                        continue;
+                    }
+
+                    var neighbor =
+                        new ChunkCoord(
+                            source.X + x,
+                            source.Y + y,
+                            source.Z + z);
+
+                    if (!isPresented(
+                            neighbor) ||
+                        !world.TryGetChunk(
+                            neighbor,
+                            out var neighborChunk))
+                    {
+                        continue;
+                    }
+
+                    var sourceHasContent =
+                        sourceChunk
+                            .DependencyBoundaryHasContent(
+                                x,
+                                y,
+                                z);
+                    var neighborHasContent =
+                        neighborChunk
+                            .DependencyBoundaryHasContent(
+                                -x,
+                                -y,
+                                -z);
+                    var neighborHasFluid =
+                        neighborChunk
+                            .DependencyBoundaryHasFluid(
+                                -x,
+                                -y,
+                                -z);
+                    var cardinal =
+                        Math.Abs(x) +
+                        Math.Abs(y) +
+                        Math.Abs(z) ==
+                        1;
+                    var sourceHasCardinalFluid =
+                        cardinal &&
+                        sourceChunk
+                            .DependencyBoundaryHasFluid(
+                                x,
+                                y,
+                                z);
+                    var meshlets =
+                        ChunkMeshletMask
+                            .ForDependencyOffset(
+                                -x,
+                                -y,
+                                -z);
+                    var terrain =
+                        sourceHasContent &&
+                        neighborHasContent
+                            ? meshlets
+                            : ChunkMeshletMask.None;
+                    var fluid =
+                        neighborHasFluid &&
+                        sourceHasContent ||
+                        sourceHasCardinalFluid
+                            ? meshlets
+                            : ChunkMeshletMask.None;
+
+                    if (terrain.IsEmpty &&
+                        fluid.IsEmpty)
+                    {
+                        continue;
+                    }
+
+                    yield return
+                        new ChunkNeighborMeshInvalidation(
+                            neighbor,
+                            terrain,
+                            fluid);
+                }
             }
         }
     }

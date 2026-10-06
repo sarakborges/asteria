@@ -267,9 +267,19 @@ public sealed class ChunkStreamingState
     }
 
     public ChunkCoord? PopPresentationByPriority(
-        ChunkPresentationSelection selection)
+        ChunkPresentationSelection selection) =>
+        PopPresentationByPriority(
+            selection,
+            static _ => true);
+
+    public ChunkCoord? PopPresentationByPriority(
+        ChunkPresentationSelection selection,
+        Func<ChunkCoord, bool> isReady)
     {
-        ArgumentNullException.ThrowIfNull(selection);
+        ArgumentNullException.ThrowIfNull(
+            selection);
+        ArgumentNullException.ThrowIfNull(
+            isReady);
 
         if (Center is not { } center)
         {
@@ -284,6 +294,8 @@ public sealed class ChunkStreamingState
                  _presentationPending)
         {
             if (!selection.RetainsRenderMesh(
+                    coord) ||
+                !isReady(
                     coord))
             {
                 continue;

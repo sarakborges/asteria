@@ -285,6 +285,76 @@ public sealed class ChunkTests
     }
 
     [Fact]
+    public void DependencyBoundaryQueriesOnlyInspectRelevantRegion()
+    {
+        var blocks =
+            new BlockRegistry(
+            [
+                new BlockDefinition(
+                    "asteria:stone"),
+            ]);
+        var fluids =
+            new FluidRegistry(
+            [
+                new FluidDefinition(
+                    "asteria:water",
+                    new FluidColor(
+                        64,
+                        96,
+                        255),
+                    opacity: 0.7f),
+            ]);
+        var chunk =
+            new Chunk();
+
+        Assert.True(
+            chunk.SetBlock(
+                Chunk.Size - 1,
+                4,
+                5,
+                blocks.GetId(
+                    "asteria:stone")));
+        Assert.True(
+            chunk.SetFluid(
+                0,
+                6,
+                7,
+                FluidCell.Source(
+                    fluids.GetId(
+                        "asteria:water"))));
+
+        Assert.True(
+            chunk.HasTerrainContent);
+        Assert.True(
+            chunk.HasFluidContent);
+        Assert.True(
+            chunk.DependencyBoundaryHasContent(
+                1,
+                0,
+                0));
+        Assert.False(
+            chunk.DependencyBoundaryHasFluid(
+                1,
+                0,
+                0));
+        Assert.True(
+            chunk.DependencyBoundaryHasContent(
+                -1,
+                0,
+                0));
+        Assert.True(
+            chunk.DependencyBoundaryHasFluid(
+                -1,
+                0,
+                0));
+        Assert.False(
+            chunk.DependencyBoundaryHasContent(
+                0,
+                1,
+                1));
+    }
+
+    [Fact]
     public void AirCellsNormalizeRuntimeState()
     {
         var cell = new VoxelCell(

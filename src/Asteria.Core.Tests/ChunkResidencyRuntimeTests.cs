@@ -51,6 +51,51 @@ public sealed class ChunkResidencyRuntimeTests
     }
 
     [Fact]
+    public void PresentationWaitsForDesiredDependencyHalo()
+    {
+        var fixture =
+            CreateFixture();
+        var center =
+            ChunkCoord.Zero;
+        var neighbor =
+            new ChunkCoord(
+                1,
+                0,
+                0);
+
+        fixture.World.InsertChunk(
+            center,
+            new Chunk());
+        fixture.Runtime.SyncSelection(
+            center,
+            horizontalRadius: 1,
+            retentionRadius: 2,
+            desired:
+                new HashSet<ChunkCoord>
+                {
+                    center,
+                    neighbor,
+                },
+            presented:
+                Array.Empty<ChunkCoord>());
+
+        Assert.Null(
+            fixture.Runtime
+                .PopPresentationByPriority());
+
+        fixture.World.InsertChunk(
+            neighbor,
+            new Chunk());
+        fixture.Runtime.SyncResidentState(
+            Array.Empty<ChunkCoord>());
+
+        Assert.Equal(
+            center,
+            fixture.Runtime
+                .PopPresentationByPriority());
+    }
+
+    [Fact]
     public void RetirementArchivesDirtyChunkAndClearsResidency()
     {
         var fixture = CreateFixture();

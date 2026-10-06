@@ -49,6 +49,32 @@ public sealed class Chunk
         NonEmptyVoxelCount == 0 &&
         FluidCount == 0;
 
+    public bool HasTerrainContent =>
+        NonEmptyVoxelCount > 0;
+
+    public bool HasFluidContent =>
+        FluidCount > 0;
+
+    public bool DependencyBoundaryHasContent(
+        int xOffset,
+        int yOffset,
+        int zOffset) =>
+        DependencyBoundaryHas(
+            xOffset,
+            yOffset,
+            zOffset,
+            fluidOnly: false);
+
+    public bool DependencyBoundaryHasFluid(
+        int xOffset,
+        int yOffset,
+        int zOffset) =>
+        DependencyBoundaryHas(
+            xOffset,
+            yOffset,
+            zOffset,
+            fluidOnly: true);
+
     public VoxelCell GetCell(int x, int y, int z)
     {
         ValidateCoordinates(x, y, z);
@@ -203,6 +229,95 @@ public sealed class Chunk
 
     public static bool Contains(int x, int y, int z) =>
         (uint)x < Size && (uint)y < Size && (uint)z < Size;
+
+    private bool DependencyBoundaryHas(
+        int xOffset,
+        int yOffset,
+        int zOffset,
+        bool fluidOnly)
+    {
+        ValidateDependencyOffset(
+            xOffset,
+            yOffset,
+            zOffset);
+
+        var (minX, maxX) =
+            DependencyAxisRange(
+                xOffset);
+        var (minY, maxY) =
+            DependencyAxisRange(
+                yOffset);
+        var (minZ, maxZ) =
+            DependencyAxisRange(
+                zOffset);
+
+        for (var y = minY;
+             y <= maxY;
+             y++)
+        {
+            for (var z = minZ;
+                 z <= maxZ;
+                 z++)
+            {
+                for (var x = minX;
+                     x <= maxX;
+                     x++)
+                {
+                    var index =
+                        ToIndex(
+                            x,
+                            y,
+                            z);
+                    var fluid =
+                        _fluids.Get(
+                            index);
+
+                    if (!fluid.IsEmpty)
+                    {
+                        return true;
+                    }
+
+                    if (!fluidOnly &&
+                        !_cells.Get(
+                                index)
+                            .IsEmpty)
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static (int Min, int Max)
+        DependencyAxisRange(
+            int offset) =>
+        offset switch
+        {
+            < 0 => (0, 0),
+            > 0 => (Size - 1, Size - 1),
+            _ => (0, Size - 1),
+        };
+
+    private static void ValidateDependencyOffset(
+        int x,
+        int y,
+        int z)
+    {
+        if (x is < -1 or > 1 ||
+            y is < -1 or > 1 ||
+            z is < -1 or > 1 ||
+            (x == 0 &&
+             y == 0 &&
+             z == 0))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(x),
+                "Dependency offset must be a non-zero 3D neighbor offset.");
+        }
+    }
 
     private static int ToIndex(
         int x,

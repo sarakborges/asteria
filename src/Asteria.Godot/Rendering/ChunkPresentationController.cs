@@ -128,8 +128,11 @@ public sealed class ChunkPresentationController
 
             processed++;
 
-            if (!_world.ContainsChunk(coord.Value) ||
-                _presentations.ContainsKey(coord.Value))
+            if (!_world.TryGetChunk(
+                    coord.Value,
+                    out var chunk) ||
+                _presentations.ContainsKey(
+                    coord.Value))
             {
                 continue;
             }
@@ -147,14 +150,26 @@ public sealed class ChunkPresentationController
                 presentation);
             _parent.AddChild(presentation.Root);
 
-            _worldUpdates.EnqueueMeshlets(
-                coord.Value,
-                ChunkMeshletMask.All);
-            _fluidMeshUpdates.EnqueueMeshlets(
-                coord.Value,
-                ChunkMeshletMask.All);
+            if (chunk.HasTerrainContent)
+            {
+                _worldUpdates.EnqueueMeshlets(
+                    coord.Value,
+                    ChunkMeshletMask.All);
+            }
+            else
+            {
+                presentation.MarkTerrainPublished(
+                    ChunkMeshletMask.All);
+            }
 
-            InvalidatePresentedNeighbors(
+            if (chunk.HasFluidContent)
+            {
+                _fluidMeshUpdates.EnqueueMeshlets(
+                    coord.Value,
+                    ChunkMeshletMask.All);
+            }
+
+            InvalidatePresentedNeighborsForAddition(
                 coord.Value);
             reserved++;
         }
@@ -470,6 +485,38 @@ public sealed class ChunkPresentationController
         {
             _backgroundTerrainPublicationOrder.EnqueueFront(
                 key);
+        }
+    }
+
+    private void InvalidatePresentedNeighborsForAddition(
+        ChunkCoord coord)
+    {
+        foreach (var invalidation in
+                 ChunkTopologyFrontier
+                     .PresentedNeighborMeshInvalidationsForAddition(
+                         coord,
+                         _world,
+                         Contains))
+        {
+            if (!invalidation.Terrain.IsEmpty)
+            {
+                _terrainRevisions.Bump(
+                    invalidation.Neighbor,
+                    invalidation.Terrain);
+                _worldUpdates.EnqueueMeshlets(
+                    invalidation.Neighbor,
+                    invalidation.Terrain);
+            }
+
+            if (!invalidation.Fluid.IsEmpty)
+            {
+                _fluidRevisions.Bump(
+                    invalidation.Neighbor,
+                    invalidation.Fluid);
+                _fluidMeshUpdates.EnqueueMeshlets(
+                    invalidation.Neighbor,
+                    invalidation.Fluid);
+            }
         }
     }
 

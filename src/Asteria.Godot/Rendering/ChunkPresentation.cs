@@ -81,6 +81,24 @@ public sealed class ChunkPresentation
         Root.QueueFree();
     }
 
+    public void MarkTerrainPublished(
+        ChunkMeshletMask meshlets)
+    {
+        foreach (var meshletIndex in
+                 meshlets.Indices())
+        {
+            if (_published[
+                    meshletIndex])
+            {
+                continue;
+            }
+
+            _published[
+                meshletIndex] = true;
+            _publishedCount++;
+        }
+    }
+
     public void ApplyFluid(
         int meshletIndex,
         ChunkFluidMeshData data,

@@ -251,7 +251,8 @@ public sealed class ChunkResidencyRuntime
 
     public ChunkCoord? PopPresentationByPriority() =>
         _streaming.PopPresentationByPriority(
-            _presentationSelection);
+            _presentationSelection,
+            PresentationDependenciesReady);
 
     public ChunkResidencyUpdate CollectMaterializationResults(
         WorldFrameWorkBudget budget,
@@ -487,6 +488,54 @@ public sealed class ChunkResidencyRuntime
         }
 
         return retired;
+    }
+
+    private bool PresentationDependenciesReady(
+        ChunkCoord coord)
+    {
+        if (!_world.ContainsChunk(
+                coord))
+        {
+            return false;
+        }
+
+        for (var y = -1;
+             y <= 1;
+             y++)
+        {
+            for (var z = -1;
+                 z <= 1;
+                 z++)
+            {
+                for (var x = -1;
+                     x <= 1;
+                     x++)
+                {
+                    if (x == 0 &&
+                        y == 0 &&
+                        z == 0)
+                    {
+                        continue;
+                    }
+
+                    var dependency =
+                        new ChunkCoord(
+                            coord.X + x,
+                            coord.Y + y,
+                            coord.Z + z);
+
+                    if (_streaming.IsDesired(
+                            dependency) &&
+                        !_world.ContainsChunk(
+                            dependency))
+                    {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        return true;
     }
 
     private ChunkResidencyActivation ActivateResidentChunk(
