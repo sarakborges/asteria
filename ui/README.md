@@ -27,6 +27,7 @@ Godot transport is not a component concern:
 
 - `src/bridge/` owns WRY/IPC message transport and parsing.
 - `src/controllers/` binds bridge messages and user events to page/component state.
+- `src/theme/` validates and applies declarative UI theme tokens received from the selected Asteria pack.
 - `src/main.ts` is composition/bootstrap only.
 
 Do not put bridge calls, global event listeners, or gameplay message parsing inside atoms, molecules, organisms, or templates.
@@ -60,3 +61,5 @@ npm run build
 ```
 
 The production bundle is written to `ui/dist/` and loaded by Godot WRY through `res://ui/dist/index.html`.
+
+The trusted WebUI application code stays here. Visual customization comes from `packs/{selected}/ui/theme.json` (and future `ui/assets/`) through the Godot bridge; packs do not replace HTML/TypeScript or inject executable UI code.
