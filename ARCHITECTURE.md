@@ -203,7 +203,8 @@ Surface world generation is an engine-agnostic Core domain.
 - Generation entropy is domain-separated and based only on the world seed, stable domain names and world coordinates. Hash/dictionary iteration order, task order and chunk materialization order cannot change generated content.
 - `BiomeWorldGenerator` has no mutable generation cache shared between worker calls; chunk materialization is safe to dispatch concurrently.
 - The initial surface profiles are deliberately bounded below Y=16 because the current spawn readiness gate is still the Y=0 chunk presentation. Expanding vertical surface generation requires first making column/vertical spawn readiness explicit rather than silently exceeding that lifecycle invariant.
-- Hydrology, caves and true 3D/volume biomes are future generation domains. They must extend the same single-owner generation pipeline rather than independently rewriting surface voxels after generation.
+- **Hydrology is explicitly prohibited.** Asteria must not have a hydrology subsystem, pipeline, generation pass, abstraction, owner, or roadmap item. Water-related world features, when explicitly requested, are modeled by their concrete feature/domain and must not be routed through or generalized into a hydrology layer.
+- Caves and true 3D/volume biomes are future generation domains. They must extend the same single-owner generation pipeline rather than independently rewriting surface voxels after generation.
 
 `DeterministicChunkProvider` remains only as a QA/test fixture and is not the production world-generation owner.
 
