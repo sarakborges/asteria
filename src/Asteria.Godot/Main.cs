@@ -119,7 +119,6 @@ public partial class Main : Node3D
                 _world,
                 _blocks,
                 _fluids,
-                worldGenerator,
                 _worldUpdates,
                 lightingIntegration);
         var blockPhysics =
@@ -161,6 +160,7 @@ public partial class Main : Node3D
                 _world,
                 _blocks,
                 _fluids,
+                worldGenerator,
                 _worldUpdates,
                 _fluidUpdates,
                 _fluidMeshUpdates,
