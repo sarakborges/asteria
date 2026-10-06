@@ -12,6 +12,7 @@ The current milestone proves the base runtime architecture without introducing w
 - 16×16×16 chunks with palette-backed voxel storage;
 - multi-chunk `VoxelWorld` runtime with world-space reads/writes across chunk boundaries;
 - 8³ chunk meshlets with dirty-halo remesh masks and revision-stale async work rejection;
+- incremental cross-chunk voxel lighting after edits: edited voxels seed a deduplicated propagation frontier instead of relighting every resident chunk;
 - correct world ↔ chunk/local coordinate conversion across negative coordinates;
 - cube, surface-layer, centered-layer, hollow and 8³ microblock geometry;
 - independent block orientation, horizontal facing and texture rotation state;
@@ -64,7 +65,7 @@ Open the repository root with the Godot 4.7.2 .NET editor and run the project.
 
 Expected result:
 
-- one 16³ palette-backed textured voxel test chunk;
+- a deterministic 3×3×2 resident chunk QA world rendered as 8³ meshlets;
 - QA examples for thin sand/snow layers, oriented logs, hollow logs and a sculpted microblock;
 - an FPS camera controlled by mouse + WASD, with Space to jump and Esc to release/capture the cursor;
 - a transparent WebUI card in the top-left;

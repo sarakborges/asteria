@@ -32,6 +32,174 @@ public static class VoxelWorldLightingSolver
         return FindChanges(world, previous);
     }
 
+    public static VoxelLightingUpdateResult RelightAfterEdits(
+        VoxelWorld world,
+        BlockRegistry blocks,
+        IEnumerable<WorldVoxelCoord> editedPositions)
+    {
+        ArgumentNullException.ThrowIfNull(world);
+        ArgumentNullException.ThrowIfNull(blocks);
+        ArgumentNullException.ThrowIfNull(editedPositions);
+
+        var queue = new Queue<WorldVoxelCoord>();
+        var queued = new HashSet<WorldVoxelCoord>();
+        var changed = new HashSet<WorldVoxelCoord>();
+        var directSky = new DirectSkyContext(world, blocks);
+
+        foreach (var position in editedPositions)
+        {
+            EnqueueWithNeighbors(world, queue, queued, position);
+        }
+
+        var processed = 0;
+
+        while (queue.Count > 0)
+        {
+            var position = queue.Dequeue();
+            queued.Remove(position);
+
+            if (!world.TryGetCell(position, out var cell))
+            {
+                continue;
+            }
+
+            processed++;
+            var desired = DesiredLight(
+                world,
+                blocks,
+                directSky,
+                position,
+                cell);
+            var current = world.GetLightOrDark(position);
+
+            if (desired == current)
+            {
+                continue;
+            }
+
+            world.TrySetLight(position, desired);
+            changed.Add(position);
+
+            EnqueueWithNeighbors(
+                world,
+                queue,
+                queued,
+                position);
+        }
+
+        return new VoxelLightingUpdateResult(
+            changed
+                .OrderBy(position => position.Y)
+                .ThenBy(position => position.Z)
+                .ThenBy(position => position.X)
+                .ToArray(),
+            processed);
+    }
+
+    private static VoxelLight DesiredLight(
+        VoxelWorld world,
+        BlockRegistry blocks,
+        DirectSkyContext directSky,
+        WorldVoxelCoord position,
+        VoxelCell cell)
+    {
+        var address = VoxelCoordinates.FromWorld(
+            position.X,
+            position.Y,
+            position.Z);
+        var chunk = world.GetChunk(address.Chunk);
+        var dampening = MediumDampening(
+            chunk,
+            blocks,
+            address.Local.X,
+            address.Local.Y,
+            address.Local.Z,
+            cell);
+
+        var emission = cell.IsEmpty
+            ? default
+            : blocks.GetDefinition(cell.Block).LightEmission;
+
+        if (dampening >= VoxelLight.MaxLevel)
+        {
+            return new VoxelLight(
+                0,
+                emission.Red,
+                emission.Green,
+                emission.Blue);
+        }
+
+        var attenuation = Math.Max((byte)1, dampening);
+        var sky = directSky.LevelAt(position);
+        var red = emission.Red;
+        var green = emission.Green;
+        var blue = emission.Blue;
+
+        foreach (var offset in Neighbors)
+        {
+            var neighbor = position + offset;
+            if (!world.IsLoadedAt(neighbor))
+            {
+                continue;
+            }
+
+            var neighborLight = world.GetLightOrDark(neighbor);
+            sky = Math.Max(
+                sky,
+                SaturatingSubtract(
+                    neighborLight.Sky,
+                    attenuation));
+            red = Math.Max(
+                red,
+                SaturatingSubtract(
+                    neighborLight.Red,
+                    attenuation));
+            green = Math.Max(
+                green,
+                SaturatingSubtract(
+                    neighborLight.Green,
+                    attenuation));
+            blue = Math.Max(
+                blue,
+                SaturatingSubtract(
+                    neighborLight.Blue,
+                    attenuation));
+        }
+
+        return new VoxelLight(sky, red, green, blue);
+    }
+
+    private static void EnqueueWithNeighbors(
+        VoxelWorld world,
+        Queue<WorldVoxelCoord> queue,
+        HashSet<WorldVoxelCoord> queued,
+        WorldVoxelCoord position)
+    {
+        EnqueueIfLoaded(world, queue, queued, position);
+
+        foreach (var offset in Neighbors)
+        {
+            EnqueueIfLoaded(
+                world,
+                queue,
+                queued,
+                position + offset);
+        }
+    }
+
+    private static void EnqueueIfLoaded(
+        VoxelWorld world,
+        Queue<WorldVoxelCoord> queue,
+        HashSet<WorldVoxelCoord> queued,
+        WorldVoxelCoord position)
+    {
+        if (world.IsLoadedAt(position) &&
+            queued.Add(position))
+        {
+            queue.Enqueue(position);
+        }
+    }
+
     private static Dictionary<ChunkCoord, VoxelLight[]> CaptureLight(
         VoxelWorld world)
     {
@@ -314,4 +482,127 @@ public static class VoxelWorldLightingSolver
         value > amount
             ? (byte)(value - amount)
             : (byte)0;
+    private sealed class DirectSkyContext
+    {
+        private readonly VoxelWorld _world;
+        private readonly BlockRegistry _blocks;
+        private readonly Dictionary<(int X, int Z), Column> _columns = [];
+
+        public DirectSkyContext(
+            VoxelWorld world,
+            BlockRegistry blocks)
+        {
+            _world = world;
+            _blocks = blocks;
+        }
+
+        public byte LevelAt(WorldVoxelCoord position)
+        {
+            var key = (position.X, position.Z);
+
+            if (!_columns.TryGetValue(key, out var column))
+            {
+                column = BuildColumn(
+                    position.X,
+                    position.Z);
+                _columns.Add(key, column);
+            }
+
+            return column.LevelAt(position.Y);
+        }
+
+        private Column BuildColumn(int worldX, int worldZ)
+        {
+            var horizontalAddress =
+                VoxelCoordinates.FromWorld(
+                    worldX,
+                    0,
+                    worldZ);
+            var matchingChunks = _world.LoadedChunkCoords
+                .Where(coord =>
+                    coord.X == horizontalAddress.Chunk.X &&
+                    coord.Z == horizontalAddress.Chunk.Z)
+                .OrderByDescending(coord => coord.Y)
+                .ToArray();
+
+            if (matchingChunks.Length == 0)
+            {
+                return Column.Empty;
+            }
+
+            var highestY =
+                (matchingChunks[0].Y + 1) * Chunk.Size - 1;
+            var lowestY =
+                matchingChunks[^1].Y * Chunk.Size;
+            var levels = new byte[highestY - lowestY + 1];
+            var sky = VoxelLight.MaxLevel;
+
+            for (var worldY = highestY;
+                 worldY >= lowestY;
+                 worldY--)
+            {
+                var position =
+                    new WorldVoxelCoord(
+                        worldX,
+                        worldY,
+                        worldZ);
+
+                if (_world.TryGetCell(
+                        position,
+                        out var cell))
+                {
+                    var address =
+                        VoxelCoordinates.FromWorld(
+                            worldX,
+                            worldY,
+                            worldZ);
+                    var chunk =
+                        _world.GetChunk(address.Chunk);
+
+                    sky = SaturatingSubtract(
+                        sky,
+                        MediumDampening(
+                            chunk,
+                            _blocks,
+                            address.Local.X,
+                            address.Local.Y,
+                            address.Local.Z,
+                            cell));
+                }
+
+                levels[worldY - lowestY] = sky;
+            }
+
+            return new Column(
+                lowestY,
+                highestY,
+                levels);
+        }
+
+        private sealed record Column(
+            int LowestY,
+            int HighestY,
+            byte[] Levels)
+        {
+            public static Column Empty { get; } =
+                new(0, -1, []);
+
+            public byte LevelAt(int worldY)
+            {
+                if (worldY > HighestY)
+                {
+                    return VoxelLight.MaxLevel;
+                }
+
+                if (worldY < LowestY ||
+                    Levels.Length == 0)
+                {
+                    return 0;
+                }
+
+                return Levels[worldY - LowestY];
+            }
+        }
+    }
+
 }
