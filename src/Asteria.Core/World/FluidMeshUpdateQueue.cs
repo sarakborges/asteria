@@ -2,8 +2,9 @@ namespace Asteria.Core.World;
 
 public sealed class FluidMeshUpdateQueue
 {
-    private readonly Dictionary<ChunkCoord, ChunkMeshletMask>
-        _dirty = [];
+    private readonly SortedDictionary<ChunkCoord, ChunkMeshletMask>
+        _dirty =
+            new(ChunkCoordOrdering.YThenZThenX);
 
     public bool HasWork => _dirty.Count > 0;
 
