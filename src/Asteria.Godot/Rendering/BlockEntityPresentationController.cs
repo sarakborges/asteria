@@ -5,6 +5,19 @@ namespace Asteria.Client.Rendering;
 
 public sealed class BlockEntityPresentationController
 {
+    private static readonly IComparer<FallingBlockId>
+        FallingBlockIdComparer =
+            Comparer<FallingBlockId>.Create(
+                static (left, right) =>
+                    left.Value.CompareTo(
+                        right.Value));
+    private static readonly IComparer<DroppedBlockId>
+        DroppedBlockIdComparer =
+            Comparer<DroppedBlockId>.Create(
+                static (left, right) =>
+                    left.Value.CompareTo(
+                        right.Value));
+
     private const int MaximumSharedMeshCount = 256;
 
     private readonly Node3D _parent;
@@ -13,9 +26,11 @@ public sealed class BlockEntityPresentationController
     private readonly TerrainTextureLookup _textures;
     private readonly VoxelTerrainMaterialSet _materials;
     private readonly SortedDictionary<FallingBlockId, FallingBlockPresentation>
-        _falling = [];
+        _falling =
+            new(FallingBlockIdComparer);
     private readonly SortedDictionary<DroppedBlockId, DroppedBlockPresentation>
-        _dropped = [];
+        _dropped =
+            new(DroppedBlockIdComparer);
     private readonly Dictionary<BlockStateSnapshot, ArrayMesh>
         _sharedMeshes = [];
     private readonly List<FallingBlockState> _fallingStates = [];

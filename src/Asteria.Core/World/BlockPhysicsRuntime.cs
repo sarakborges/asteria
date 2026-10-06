@@ -28,6 +28,13 @@ public readonly record struct BlockPhysicsWakeResult(
 
 public sealed class BlockPhysicsRuntime
 {
+    private static readonly IComparer<FallingBlockId>
+        FallingBlockIdComparer =
+            Comparer<FallingBlockId>.Create(
+                static (left, right) =>
+                    left.Value.CompareTo(
+                        right.Value));
+
     private const double MaximumDeltaSeconds = 0.05;
     private const double SupportEpsilon = 0.0001;
 
@@ -38,7 +45,8 @@ public sealed class BlockPhysicsRuntime
     private readonly DroppedBlockRuntime _droppedBlocks;
     private readonly int _maximumActive;
     private readonly SortedDictionary<FallingBlockId, FallingBlockState>
-        _active = [];
+        _active =
+            new(FallingBlockIdComparer);
     private readonly FallingBlockId[] _advanceIds;
 
     private ulong _nextId;
