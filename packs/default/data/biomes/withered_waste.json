@@ -1,0 +1,39 @@
+{
+  "id": "asteria:umbral/withered_waste",
+  "surfaceLayout": {
+    "weight": 0.78,
+    "regionSize": {
+      "min": 224,
+      "max": 416
+    }
+  },
+  "surfaceTerrain": {
+    "baseHeight": 7.0,
+    "macroAmplitude": 4.5,
+    "macroScale": 640,
+    "detailAmplitude": 1.5,
+    "detailScale": 96
+  },
+  "surfaceLayers": [
+    {
+      "block": "asteria:dirt",
+      "depth": 2,
+      "patch": {
+        "spacing": 20,
+        "radius": 7,
+        "jitter": 3,
+        "chance": 0.65,
+        "blocks": [
+          "asteria:gravel"
+        ]
+      }
+    },
+    {
+      "block": "asteria:gravel",
+      "depth": 3
+    },
+    {
+      "block": "asteria:stone"
+    }
+  ]
+}
