@@ -1,0 +1,21 @@
+{
+  "id": "asteria:overworld",
+  "biomes": [
+    "asteria:overworld/plains",
+    "asteria:overworld/swamp",
+    "asteria:overworld/wasteland",
+    "asteria:overworld/desert"
+  ],
+  "gravityStrength": 18.0,
+  "spawn": {
+    "x": 0,
+    "z": 0
+  },
+  "environment": {
+    "backgroundColor": "86B8D8",
+    "ambientColor": "DCEAF0",
+    "ambientEnergy": 0.85,
+    "fogColor": "B8CDD5",
+    "fogDensity": 0.003
+  }
+}
