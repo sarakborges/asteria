@@ -222,6 +222,54 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
+    public void TerrainValueNoiseIsContinuousAcrossNegativeLatticeBoundary()
+    {
+        var domain =
+            GenerationDomain.Named(
+                "test/terrain-noise");
+        const ulong seed = 91;
+        const uint scale = 64;
+
+        var left =
+            WorldGenerationEntropy
+                .ValueNoise2D(
+                    seed,
+                    domain,
+                    -65,
+                    17,
+                    scale);
+        var boundary =
+            WorldGenerationEntropy
+                .ValueNoise2D(
+                    seed,
+                    domain,
+                    -64,
+                    17,
+                    scale);
+        var right =
+            WorldGenerationEntropy
+                .ValueNoise2D(
+                    seed,
+                    domain,
+                    -63,
+                    17,
+                    scale);
+
+        Assert.InRange(
+            Math.Abs(
+                boundary -
+                left),
+            0d,
+            0.05d);
+        Assert.InRange(
+            Math.Abs(
+                right -
+                boundary),
+            0d,
+            0.05d);
+    }
+
+    [Fact]
     public void TerrainHeightBlendsBiomeInfluencesInsteadOfCuttingAtBoundary()
     {
         var blocks =
@@ -308,8 +356,7 @@ public sealed class BiomeWorldGenerationTests
 
         Assert.Equal(
             (int)Math.Floor(
-                expected +
-                0.5f),
+                expected),
             generator.SurfaceHeight(
                 sampleX,
                 sampleZ));

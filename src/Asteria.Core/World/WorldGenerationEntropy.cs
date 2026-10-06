@@ -22,6 +22,26 @@ internal readonly record struct GenerationDomain(ulong Key)
             Mix(hash));
     }
 
+    private static long FloorDivRem(
+        int value,
+        long divisor,
+        out long remainder)
+    {
+        var quotient =
+            Math.DivRem(
+                (long)value,
+                divisor,
+                out remainder);
+
+        if (remainder >= 0)
+        {
+            return quotient;
+        }
+
+        remainder += divisor;
+        return quotient - 1;
+    }
+
     private static ulong Mix(
         ulong value)
     {
@@ -134,6 +154,91 @@ internal static class WorldGenerationEntropy
         return Lerp(
             Lerp(a, b, tx),
             Lerp(c, d, tx),
+            tz);
+    }
+
+    public static double ValueNoise2D(
+        ulong seed,
+        GenerationDomain domain,
+        int x,
+        int z,
+        uint scale)
+    {
+        if (scale < 2)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(scale));
+        }
+
+        var scaleValue =
+            (long)scale;
+        var cellX =
+            FloorDivRem(
+                x,
+                scaleValue,
+                out var remainderX);
+        var cellZ =
+            FloorDivRem(
+                z,
+                scaleValue,
+                out var remainderZ);
+        var x0 =
+            checked((int)cellX);
+        var z0 =
+            checked((int)cellZ);
+        var x1 =
+            checked(
+                x0 + 1);
+        var z1 =
+            checked(
+                z0 + 1);
+        var tx =
+            SmoothStep(
+                remainderX /
+                (double)scale);
+        var tz =
+            SmoothStep(
+                remainderZ /
+                (double)scale);
+
+        var n00 =
+            SignedUnit(
+                Sample2D(
+                    seed,
+                    domain,
+                    x0,
+                    z0));
+        var n10 =
+            SignedUnit(
+                Sample2D(
+                    seed,
+                    domain,
+                    x1,
+                    z0));
+        var n01 =
+            SignedUnit(
+                Sample2D(
+                    seed,
+                    domain,
+                    x0,
+                    z1));
+        var n11 =
+            SignedUnit(
+                Sample2D(
+                    seed,
+                    domain,
+                    x1,
+                    z1));
+
+        return Lerp(
+            Lerp(
+                n00,
+                n10,
+                tx),
+            Lerp(
+                n01,
+                n11,
+                tx),
             tz);
     }
 

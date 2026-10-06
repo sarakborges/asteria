@@ -343,8 +343,7 @@ public sealed class BiomeWorldGenerator : IChunkProvider, IChunkSurfaceRangeProv
         var surfaceY =
             checked(
                 (int)Math.Floor(
-                    height +
-                    0.5d));
+                    height));
 
         if (_roofY is
                 { } roofY &&
@@ -480,10 +479,10 @@ public sealed class BiomeWorldGenerator : IChunkProvider, IChunkSurfaceRangeProv
             Decorations = decorations;
             MacroDomain =
                 GenerationDomain.Named(
-                    $"worldgen/terrain/{id}/macro/v1");
+                    $"terrain/base-surface/macro/v1/{id}");
             DetailDomain =
                 GenerationDomain.Named(
-                    $"worldgen/terrain/{id}/detail/v1");
+                    $"terrain/base-surface/detail/v1/{id}");
         }
 
         public string Id { get; }
@@ -505,7 +504,7 @@ public sealed class BiomeWorldGenerator : IChunkProvider, IChunkSurfaceRangeProv
         {
             var macro =
                 WorldGenerationEntropy
-                    .SmoothNoise2D(
+                    .ValueNoise2D(
                         seed,
                         MacroDomain,
                         worldX,
@@ -513,7 +512,7 @@ public sealed class BiomeWorldGenerator : IChunkProvider, IChunkSurfaceRangeProv
                         Terrain.MacroScale);
             var detail =
                 WorldGenerationEntropy
-                    .SmoothNoise2D(
+                    .ValueNoise2D(
                         seed,
                         DetailDomain,
                         worldX,

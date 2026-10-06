@@ -98,41 +98,45 @@ public sealed class BiomeField
     private const int CompatibilityClassPeriod =
         CompatibilityRadiusBuckets * 2 + 1;
     private const double JitterFraction = 0.32;
-    private const double BlendScoreBand = 0.18;
+    // Tall biome profiles can differ by well over 100 blocks. A narrow
+    // ownership blend produces artificial walls even though the height field
+    // is mathematically continuous, so presentation/material/height blending
+    // intentionally spans a broader part of the organic score field.
+    private const double BlendScoreBand = 0.50;
 
     private readonly ulong _seed;
     private readonly BiomeRule[] _rules;
     private readonly int _seedSpacing;
     private readonly GenerationDomain _seedPickDomain =
         GenerationDomain.Named(
-            "biome-layout/seed-pick/v1");
+            "biome-layout/seed-pick/v3");
     private readonly GenerationDomain _jitterXDomain =
         GenerationDomain.Named(
-            "biome-layout/seed-jitter-x/v1");
+            "biome-layout/seed-jitter-x/v3");
     private readonly GenerationDomain _jitterZDomain =
         GenerationDomain.Named(
-            "biome-layout/seed-jitter-z/v1");
+            "biome-layout/seed-jitter-z/v3");
     private readonly GenerationDomain _shapeADomain =
         GenerationDomain.Named(
-            "biome-layout/seed-shape-a/v1");
+            "biome-layout/seed-shape-a/v3");
     private readonly GenerationDomain _shapeBDomain =
         GenerationDomain.Named(
-            "biome-layout/seed-shape-b/v1");
+            "biome-layout/seed-shape-b/v3");
     private readonly GenerationDomain _seedBiasDomain =
         GenerationDomain.Named(
-            "biome-layout/seed-bias/v1");
+            "biome-layout/seed-bias/v3");
     private readonly GenerationDomain _warpCoarseXDomain =
         GenerationDomain.Named(
-            "biome-layout/warp-coarse-x/v1");
+            "biome-layout/warp-coarse-x/v3");
     private readonly GenerationDomain _warpCoarseZDomain =
         GenerationDomain.Named(
-            "biome-layout/warp-coarse-z/v1");
+            "biome-layout/warp-coarse-z/v3");
     private readonly GenerationDomain _warpFineXDomain =
         GenerationDomain.Named(
-            "biome-layout/warp-fine-x/v1");
+            "biome-layout/warp-fine-x/v3");
     private readonly GenerationDomain _warpFineZDomain =
         GenerationDomain.Named(
-            "biome-layout/warp-fine-z/v1");
+            "biome-layout/warp-fine-z/v3");
 
     public BiomeField(
         ulong seed,
@@ -1190,7 +1194,7 @@ public sealed class BiomeField
                     layout.CannotBorder,
                     StringComparer.Ordinal),
                 GenerationDomain.Named(
-                    "biome-layout/formation-target/v1/" +
+                    "biome-layout/formation-target/v2/" +
                     definition.Id));
         }
     }
