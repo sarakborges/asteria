@@ -659,39 +659,26 @@ public partial class Main : Node3D
             return;
         }
 
+        var applied =
+            _mutations.ApplyFluidChanges(
+                result.Simulation.Changes);
+
+        if (!applied.Accepted)
+        {
+            _fluidUpdates.RequeueTopology(
+                result.SourceBatch.TopologyPositions);
+            _fluidUpdates.RequeueDue(
+                result.SourceBatch.DueTicks,
+                _worldTicks.CurrentTick);
+            TryStartFluidWorker();
+            return;
+        }
+
         foreach (var dormant in
                  result.Simulation.DormantTicks)
         {
             _fluidUpdates.DeferUnloaded(
                 dormant);
-        }
-
-        var applied = 0;
-
-        foreach (var change in
-                 result.Simulation.Changes)
-        {
-            if (!_world.IsLoadedAt(
-                    change.Position))
-            {
-                _fluidUpdates.DeferUnloaded(
-                    new FluidTickKey(
-                        !change.Current.IsEmpty
-                            ? change.Current.Fluid
-                            : change.Previous.Fluid,
-                        change.Position));
-                continue;
-            }
-
-            if (!_mutations.SetFluidAt(
-                    change.Position,
-                    change.Current,
-                    out _))
-            {
-                continue;
-            }
-
-            applied++;
         }
 
         foreach (var request in
@@ -704,7 +691,8 @@ public partial class Main : Node3D
             $"world.fluid tick={_worldTicks.CurrentTick} " +
             $"worker_ms={result.WorkerMilliseconds:F2} " +
             $"processed={result.Simulation.ProcessedVoxelCount} " +
-            $"changes={applied} " +
+            $"changes={applied.AppliedChangeCount} " +
+            $"changed_voxels={applied.UniquePositionCount} " +
             $"scheduled={result.Simulation.ScheduleRequests.Count} " +
             $"downhill_searches={result.Simulation.DownhillSearchCount} " +
             $"downhill_nodes={result.Simulation.DownhillVisitedNodeCount} " +

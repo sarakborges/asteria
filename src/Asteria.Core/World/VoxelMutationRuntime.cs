@@ -1,5 +1,17 @@
 namespace Asteria.Core.World;
 
+public readonly record struct FluidMutationBatchResult(
+    bool Accepted,
+    int AppliedChangeCount,
+    int UniquePositionCount)
+{
+    public static FluidMutationBatchResult Empty =>
+        new(true, 0, 0);
+
+    public static FluidMutationBatchResult Rejected =>
+        new(false, 0, 0);
+}
+
 public sealed class VoxelMutationRuntime
 {
     private readonly VoxelWorld _world;
@@ -88,6 +100,81 @@ public sealed class VoxelMutationRuntime
         return true;
     }
 
+    public FluidMutationBatchResult ApplyFluidChanges(
+        IReadOnlyList<FluidCellChange> changes)
+    {
+        ArgumentNullException.ThrowIfNull(changes);
+
+        if (changes.Count == 0)
+        {
+            return FluidMutationBatchResult.Empty;
+        }
+
+        var virtualState =
+            new Dictionary<WorldVoxelCoord, FluidCell>();
+
+        foreach (var change in changes)
+        {
+            if (!_world.IsLoadedAt(
+                    change.Position))
+            {
+                return FluidMutationBatchResult.Rejected;
+            }
+
+            var current =
+                virtualState.TryGetValue(
+                    change.Position,
+                    out var pending)
+                    ? pending
+                    : _world.GetFluidOrEmpty(
+                        change.Position);
+
+            if (current != change.Previous)
+            {
+                return FluidMutationBatchResult.Rejected;
+            }
+
+            if (!change.Current.IsEmpty &&
+                !_world.GetCellOrEmpty(
+                        change.Position)
+                    .IsEmpty)
+            {
+                return FluidMutationBatchResult.Rejected;
+            }
+
+            virtualState[change.Position] =
+                change.Current;
+        }
+
+        var changedPositions =
+            new HashSet<WorldVoxelCoord>();
+        var applied = 0;
+
+        foreach (var change in changes)
+        {
+            if (!_world.SetFluidAt(
+                    change.Position,
+                    change.Current,
+                    out _))
+            {
+                throw new InvalidOperationException(
+                    $"Validated fluid mutation unexpectedly failed at {change.Position}.");
+            }
+
+            changedPositions.Add(
+                change.Position);
+            applied++;
+        }
+
+        PublishFluidBatchConsequences(
+            changedPositions);
+
+        return new FluidMutationBatchResult(
+            true,
+            applied,
+            changedPositions.Count);
+    }
+
     private void EnqueueBlockEdit(
         WorldVoxelCoord position)
     {
@@ -113,15 +200,60 @@ public sealed class VoxelMutationRuntime
     private void EnqueueFluidEdit(
         WorldVoxelCoord position)
     {
-        _fluidContentRevisions.BumpVoxelEdit(
-            _world,
-            position);
-        _fluidMeshUpdates.EnqueueVoxelEdit(
-            _world,
-            position);
-        _worldUpdates.EnqueueLighting(
-            position);
-        _fluidUpdates.EnqueueTopologyNeighborhood(
-            position);
+        PublishFluidBatchConsequences(
+            [position]);
+    }
+
+    private void PublishFluidBatchConsequences(
+        IEnumerable<WorldVoxelCoord> positions)
+    {
+        var dirty =
+            new Dictionary<ChunkCoord, ChunkMeshletMask>();
+
+        foreach (var position in positions)
+        {
+            VoxelCoordinates
+                .VisitChunkCoordsWhoseVoxelHaloContains(
+                    position,
+                    coord =>
+                    {
+                        if (!_world.ContainsChunk(coord))
+                        {
+                            return;
+                        }
+
+                        var mask =
+                            ChunkMeshletMask.ForWorldPosition(
+                                coord,
+                                position);
+
+                        if (mask.IsEmpty)
+                        {
+                            return;
+                        }
+
+                        dirty[coord] =
+                            dirty.TryGetValue(
+                                coord,
+                                out var existing)
+                                ? existing.Union(mask)
+                                : mask;
+                    });
+
+            _worldUpdates.EnqueueLighting(
+                position);
+            _fluidUpdates.EnqueueTopologyNeighborhood(
+                position);
+        }
+
+        foreach (var (coord, mask) in dirty)
+        {
+            _fluidContentRevisions.Bump(
+                coord,
+                mask);
+            _fluidMeshUpdates.EnqueueMeshlets(
+                coord,
+                mask);
+        }
     }
 }

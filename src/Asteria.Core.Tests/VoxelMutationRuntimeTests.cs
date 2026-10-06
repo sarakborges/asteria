@@ -432,6 +432,187 @@ public sealed class VoxelMutationRuntimeTests
     }
 
     [Fact]
+    public void FluidBatchCoalescesRevisionAndMeshInvalidationPerMeshlet()
+    {
+        var world = new VoxelWorld();
+        world.InsertChunk(
+            ChunkCoord.Zero,
+            new Chunk());
+        var worldUpdates = new WorldUpdateQueue();
+        var fluidUpdates = new FluidUpdateQueue();
+        var fluidMeshUpdates =
+            new FluidMeshUpdateQueue();
+        var fluidRevisions =
+            new MeshletContentRevisions();
+        var runtime =
+            new VoxelMutationRuntime(
+                world,
+                worldUpdates,
+                fluidUpdates,
+                fluidMeshUpdates,
+                new BlockPhysicsUpdateQueue(),
+                new MeshletContentRevisions(),
+                fluidRevisions);
+        var water =
+            new FluidRuntimeId(1);
+        var first =
+            new WorldVoxelCoord(2, 2, 2);
+        var second =
+            new WorldVoxelCoord(3, 2, 2);
+        var key =
+            new ChunkMeshletKey(
+                ChunkCoord.Zero,
+                0);
+
+        var result =
+            runtime.ApplyFluidChanges(
+            [
+                new FluidCellChange(
+                    first,
+                    FluidCell.Empty,
+                    FluidCell.Source(water)),
+                new FluidCellChange(
+                    second,
+                    FluidCell.Empty,
+                    FluidCell.Source(water)),
+            ]);
+
+        Assert.True(result.Accepted);
+        Assert.Equal(2, result.AppliedChangeCount);
+        Assert.Equal(2, result.UniquePositionCount);
+        Assert.Equal(
+            1UL,
+            fluidRevisions.Get(key));
+
+        var dirty =
+            fluidMeshUpdates.Drain();
+
+        Assert.True(
+            dirty.DirtyMeshlets[
+                ChunkCoord.Zero]
+                .ContainsIndex(0));
+        Assert.True(
+            worldUpdates.HasLightingWork);
+    }
+
+    [Fact]
+    public void FluidBatchAllowsSequentialTransitionsAtSameVoxel()
+    {
+        var world = new VoxelWorld();
+        world.InsertChunk(
+            ChunkCoord.Zero,
+            new Chunk());
+        var fluidRevisions =
+            new MeshletContentRevisions();
+        var runtime =
+            new VoxelMutationRuntime(
+                world,
+                new WorldUpdateQueue(),
+                new FluidUpdateQueue(),
+                new FluidMeshUpdateQueue(),
+                new BlockPhysicsUpdateQueue(),
+                new MeshletContentRevisions(),
+                fluidRevisions);
+        var position =
+            new WorldVoxelCoord(2, 2, 2);
+        var water =
+            new FluidRuntimeId(1);
+        var spreading =
+            FluidCell.Spreading(
+                water,
+                4,
+                2);
+
+        var result =
+            runtime.ApplyFluidChanges(
+            [
+                new FluidCellChange(
+                    position,
+                    FluidCell.Empty,
+                    spreading),
+                new FluidCellChange(
+                    position,
+                    spreading,
+                    FluidCell.Source(water)),
+            ]);
+
+        Assert.True(result.Accepted);
+        Assert.Equal(2, result.AppliedChangeCount);
+        Assert.Equal(1, result.UniquePositionCount);
+        Assert.Equal(
+            FluidCell.Source(water),
+            world.GetFluidOrEmpty(
+                position));
+        Assert.Equal(
+            1UL,
+            fluidRevisions.Get(
+                new ChunkMeshletKey(
+                    ChunkCoord.Zero,
+                    0)));
+    }
+
+    [Fact]
+    public void StaleFluidBatchRejectsBeforeApplyingAnyChange()
+    {
+        var world = new VoxelWorld();
+        world.InsertChunk(
+            ChunkCoord.Zero,
+            new Chunk());
+        var water =
+            new FluidRuntimeId(1);
+        var stale =
+            new WorldVoxelCoord(2, 2, 2);
+        var untouched =
+            new WorldVoxelCoord(3, 2, 2);
+
+        Assert.True(
+            world.SetFluidAt(
+                stale,
+                FluidCell.Source(water),
+                out _));
+
+        var fluidRevisions =
+            new MeshletContentRevisions();
+        var runtime =
+            new VoxelMutationRuntime(
+                world,
+                new WorldUpdateQueue(),
+                new FluidUpdateQueue(),
+                new FluidMeshUpdateQueue(),
+                new BlockPhysicsUpdateQueue(),
+                new MeshletContentRevisions(),
+                fluidRevisions);
+
+        var result =
+            runtime.ApplyFluidChanges(
+            [
+                new FluidCellChange(
+                    stale,
+                    FluidCell.Empty,
+                    FluidCell.Spreading(
+                        water,
+                        7,
+                        1)),
+                new FluidCellChange(
+                    untouched,
+                    FluidCell.Empty,
+                    FluidCell.Source(water)),
+            ]);
+
+        Assert.False(result.Accepted);
+        Assert.True(
+            world.GetFluidOrEmpty(
+                    untouched)
+                .IsEmpty);
+        Assert.Equal(
+            0UL,
+            fluidRevisions.Get(
+                new ChunkMeshletKey(
+                    ChunkCoord.Zero,
+                    0)));
+    }
+
+    [Fact]
     public void NoOpBlockEditDoesNotWakeDerivedSystemsAgain()
     {
         var world = new VoxelWorld();
