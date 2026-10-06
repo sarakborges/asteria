@@ -1,7 +1,6 @@
 using System.Numerics;
-using Asteria.Core.World;
 
-namespace Asteria.Client.Rendering;
+namespace Asteria.Core.World;
 
 public readonly record struct FluidMeshVertex(
     Vector3 Position,

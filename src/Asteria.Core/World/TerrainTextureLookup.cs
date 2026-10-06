@@ -1,4 +1,4 @@
-namespace Asteria.Client.Rendering;
+namespace Asteria.Core.World;
 
 public sealed class TerrainTextureLookup
 {

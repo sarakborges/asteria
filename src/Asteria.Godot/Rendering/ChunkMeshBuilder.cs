@@ -1,3 +1,4 @@
+using Asteria.Core.World;
 using Godot;
 
 namespace Asteria.Client.Rendering;

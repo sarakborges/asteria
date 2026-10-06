@@ -1,7 +1,6 @@
-using Asteria.Core.World;
 using System.Numerics;
 
-namespace Asteria.Client.Rendering;
+namespace Asteria.Core.World;
 
 public static class ChunkMeshDataBuilder
 {
@@ -9,7 +8,7 @@ public static class ChunkMeshDataBuilder
     private const int FinePlaneArea = FineResolution * FineResolution;
     private const float DyableLayerFlag = 0.25f;
 
-    // Godot treats clockwise triangle winding as the front face.
+    // Asteria render mesh data uses clockwise front-face winding.
     private static readonly int[] TriangleOrder = [0, 2, 1, 0, 3, 2];
     private static readonly int[] FlippedTriangleOrder = [0, 3, 1, 1, 3, 2];
 
