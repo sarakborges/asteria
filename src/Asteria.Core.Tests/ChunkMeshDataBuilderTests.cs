@@ -46,7 +46,7 @@ public sealed class ChunkMeshDataBuilderTests
                     }),
                 meshletIndex: 0);
 
-        Assert.True(data.HasGeometry);
+        Assert.True(data.TriangleCount > 0);
         Assert.Equal(12, data.TriangleCount);
         Assert.Equal(12, data.CollisionTriangleCount);
     }
