@@ -339,9 +339,16 @@ public sealed class VoxelWorld
     }
 
     public VoxelWorld CloneFluidNeighborhood(
-        IEnumerable<WorldVoxelCoord> seeds)
+        IEnumerable<WorldVoxelCoord> seeds,
+        int horizontalVoxelRadius)
     {
         ArgumentNullException.ThrowIfNull(seeds);
+
+        if (horizontalVoxelRadius < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(horizontalVoxelRadius));
+        }
 
         var centers = seeds
             .Select(position =>
@@ -358,11 +365,17 @@ public sealed class VoxelWorld
             return new VoxelWorld();
         }
 
+        var chunkRadius =
+            Math.Max(
+                1,
+                (horizontalVoxelRadius + Chunk.Size) /
+                Chunk.Size);
+
         var required = _chunks.Keys
             .Where(coord =>
                 centers.Any(center =>
-                    Math.Abs(coord.X - center.X) <= 1 &&
-                    Math.Abs(coord.Z - center.Z) <= 1))
+                    Math.Abs(coord.X - center.X) <= chunkRadius &&
+                    Math.Abs(coord.Z - center.Z) <= chunkRadius))
             .ToArray();
 
         return CloneForWorker(required);

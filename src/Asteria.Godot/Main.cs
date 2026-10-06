@@ -13,6 +13,7 @@ namespace Asteria.Client;
 public partial class Main : Node3D
 {
     private const float InteractionDistance = 6f;
+    private const uint WorldTicksPerSecond = 40;
     private const int RenderDistanceChunks = 4;
     private const int RetentionMarginChunks = 10;
     private const int MaxMaterializationTasksInFlight = 4;
@@ -25,6 +26,7 @@ public partial class Main : Node3D
     private const int MaxChunkEvictionsPerFrame = 2;
 
     private readonly WorldUpdateQueue _worldUpdates = new();
+    private readonly WorldTickClock _worldTicks = new();
     private readonly FluidUpdateQueue _fluidUpdates = new();
     private readonly FluidMeshUpdateQueue _fluidMeshUpdates = new();
     private readonly MeshletContentRevisions _contentRevisions = new();
@@ -94,6 +96,9 @@ public partial class Main : Node3D
 
     public override void _Process(double delta)
     {
+        _worldTicks.Advance(
+            delta,
+            WorldTicksPerSecond);
         BeginWorldFrameBudget(delta);
 
         SyncStreamingSelection();
@@ -220,6 +225,9 @@ public partial class Main : Node3D
                 blocks = _blocks.AuthoredCount,
                 fluids = _fluids.AuthoredCount,
                 fluidUpdates = _fluidUpdates.Count,
+                fluidScheduled = _fluidUpdates.ScheduledCount,
+                fluidDormantChunks = _fluidUpdates.DormantChunkCount,
+                worldTick = _worldTicks.CurrentTick,
                 textures = _terrainTextures.TextureCount,
                 meshletsPerChunk = ChunkMeshletMask.Count,
             });
@@ -732,15 +740,20 @@ public partial class Main : Node3D
         var (originX, originY, originZ) =
             VoxelCoordinates.ChunkOrigin(coord);
 
+        _fluidUpdates.ReactivateLoadedChunk(
+            coord,
+            _worldTicks.CurrentTick);
+
         chunk.VisitFluidCells(
-            (x, y, z, _) =>
+            (x, y, z, fluid) =>
             {
                 var position =
                     new WorldVoxelCoord(
                         originX + x,
                         originY + y,
                         originZ + z);
-                _fluidUpdates.EnqueueNeighborhood(
+                ScheduleFluidNeighborhood(
+                    fluid.Fluid,
                     position);
             });
     }
@@ -817,7 +830,7 @@ public partial class Main : Node3D
         _worldUpdates.EnqueueVoxelEdit(
             _world,
             position);
-        _fluidUpdates.EnqueueNeighborhood(
+        _fluidUpdates.EnqueueTopologyNeighborhood(
             position);
 
         TryStartFluidTask();
@@ -869,12 +882,17 @@ public partial class Main : Node3D
     private void TryStartFluidTask()
     {
         if (_fluidTask is not null ||
-            !_fluidUpdates.HasWork)
+            !_fluidUpdates.HasReadyWork(
+                _worldTicks.CurrentTick))
         {
             return;
         }
 
-        var batch = _fluidUpdates.Drain();
+        var batch =
+            _fluidUpdates.DrainReady(
+                _worldTicks.CurrentTick,
+                MaxFluidUpdatesPerWorker);
+
         if (batch.IsEmpty)
         {
             return;
@@ -882,7 +900,8 @@ public partial class Main : Node3D
 
         var snapshot =
             _world.CloneFluidNeighborhood(
-                batch.Positions);
+                batch.Positions,
+                _fluids.MaximumSpread);
         var revisions =
             CaptureChunkRevisions(
                 snapshot.LoadedChunkCoords);
@@ -895,8 +914,7 @@ public partial class Main : Node3D
                 FluidSimulationSolver.Process(
                     snapshot,
                     fluids,
-                    batch.Positions,
-                    MaxFluidUpdatesPerWorker);
+                    batch);
             stopwatch.Stop();
 
             return new FluidSimulationBuild(
@@ -930,12 +948,20 @@ public partial class Main : Node3D
         if (!ChunkRevisionsAreCurrent(
                 result.ChunkRevisions))
         {
-            _fluidUpdates.Requeue(
-                result.SourceBatch.Positions);
-            _fluidUpdates.Requeue(
-                result.Simulation.RemainingPositions);
+            _fluidUpdates.RequeueTopology(
+                result.SourceBatch.TopologyPositions);
+            _fluidUpdates.RequeueDue(
+                result.SourceBatch.DueTicks,
+                _worldTicks.CurrentTick);
             TryStartFluidTask();
             return;
+        }
+
+        foreach (var dormant in
+                 result.Simulation.DormantTicks)
+        {
+            _fluidUpdates.DeferUnloaded(
+                dormant);
         }
 
         var applied = 0;
@@ -946,12 +972,18 @@ public partial class Main : Node3D
             if (!_world.IsLoadedAt(
                     change.Position))
             {
+                _fluidUpdates.DeferUnloaded(
+                    new FluidTickKey(
+                        !change.Current.IsEmpty
+                            ? change.Current.Fluid
+                            : change.Previous.Fluid,
+                        change.Position));
                 continue;
             }
 
             if (!_world.SetFluidAt(
                     change.Position,
-                    change.Fluid,
+                    change.Current,
                     out _))
             {
                 continue;
@@ -966,20 +998,83 @@ public partial class Main : Node3D
             applied++;
         }
 
-        _fluidUpdates.Requeue(
-            result.Simulation.RemainingPositions);
+        foreach (var request in
+                 result.Simulation.ScheduleRequests)
+        {
+            ScheduleFluidRequest(request);
+        }
 
         GD.Print(
-            $"world.fluid worker_ms=" +
-            $"{result.WorkerMilliseconds:F2} " +
-            $"processed=" +
-            $"{result.Simulation.ProcessedVoxelCount} " +
+            $"world.fluid tick={_worldTicks.CurrentTick} " +
+            $"worker_ms={result.WorkerMilliseconds:F2} " +
+            $"processed={result.Simulation.ProcessedVoxelCount} " +
             $"changes={applied} " +
-            $"remaining=" +
-            $"{result.Simulation.RemainingPositions.Count}");
+            $"scheduled={result.Simulation.ScheduleRequests.Count} " +
+            $"downhill_searches={result.Simulation.DownhillSearchCount} " +
+            $"downhill_nodes={result.Simulation.DownhillVisitedNodeCount} " +
+            $"backlog={_fluidUpdates.Count}");
 
         TryStartFluidTask();
         TryStartFluidMeshTask();
+    }
+
+    private void ScheduleFluidRequest(
+        FluidScheduleRequest request)
+    {
+        var delay =
+            FluidTiming.DelayTicks(
+                _fluids,
+                request.Fluid,
+                WorldTicksPerSecond);
+
+        if (delay is null)
+        {
+            return;
+        }
+
+        var dueTick =
+            SaturatingAdd(
+                _worldTicks.CurrentTick,
+                delay.Value);
+
+        if (request.Neighborhood)
+        {
+            _fluidUpdates.ScheduleNeighborhood(
+                request.Fluid,
+                request.Position,
+                dueTick);
+        }
+        else
+        {
+            _fluidUpdates.ScheduleAt(
+                new FluidTickKey(
+                    request.Fluid,
+                    request.Position),
+                dueTick);
+        }
+    }
+
+    private void ScheduleFluidNeighborhood(
+        FluidRuntimeId fluid,
+        WorldVoxelCoord position)
+    {
+        var delay =
+            FluidTiming.DelayTicks(
+                _fluids,
+                fluid,
+                WorldTicksPerSecond);
+
+        if (delay is null)
+        {
+            return;
+        }
+
+        _fluidUpdates.ScheduleNeighborhood(
+            fluid,
+            position,
+            SaturatingAdd(
+                _worldTicks.CurrentTick,
+                delay.Value));
     }
 
     private void TryStartFluidMeshTask()
@@ -1555,6 +1650,13 @@ public partial class Main : Node3D
         return result;
     }
 
+    private static ulong SaturatingAdd(
+        ulong value,
+        ulong amount) =>
+        ulong.MaxValue - value < amount
+            ? ulong.MaxValue
+            : value + amount;
+
     private void BeginWorldFrameBudget(double delta)
     {
         var seconds = (float)Math.Max(delta, 0.0001);
@@ -1608,7 +1710,7 @@ public partial class Main : Node3D
         double WorkerMilliseconds);
 
     private sealed record FluidSimulationBuild(
-        FluidUpdateBatch SourceBatch,
+        FluidWorkBatch SourceBatch,
         IReadOnlyDictionary<ChunkCoord, ulong>
             ChunkRevisions,
         FluidSimulationResult Simulation,

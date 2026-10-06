@@ -2,12 +2,21 @@ namespace Asteria.Core.World;
 
 public readonly record struct FluidCellChange(
     WorldVoxelCoord Position,
-    FluidCell Fluid);
+    FluidCell Previous,
+    FluidCell Current);
+
+public readonly record struct FluidScheduleRequest(
+    FluidRuntimeId Fluid,
+    WorldVoxelCoord Position,
+    bool Neighborhood);
 
 public sealed record FluidSimulationResult(
     IReadOnlyList<FluidCellChange> Changes,
-    IReadOnlyList<WorldVoxelCoord> RemainingPositions,
-    int ProcessedVoxelCount);
+    IReadOnlyList<FluidScheduleRequest> ScheduleRequests,
+    IReadOnlyList<FluidTickKey> DormantTicks,
+    int ProcessedVoxelCount,
+    int DownhillSearchCount,
+    int DownhillVisitedNodeCount);
 
 public static class FluidSimulationSolver
 {
@@ -19,62 +28,34 @@ public static class FluidSimulationSolver
         (0, 0, -1),
     ];
 
-    private static readonly (int X, int Y, int Z)[] ChangedNeighborhood =
-    [
-        (0, 0, 0),
-        (0, 1, 0),
-        (0, -1, 0),
-        (1, 0, 0),
-        (-1, 0, 0),
-        (0, 0, 1),
-        (0, 0, -1),
-    ];
-
     public static FluidSimulationResult Process(
         VoxelWorld world,
         FluidRegistry fluids,
-        IEnumerable<WorldVoxelCoord> seeds,
-        int maximumProcessedVoxels = 512)
+        FluidWorkBatch batch)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(fluids);
-        ArgumentNullException.ThrowIfNull(seeds);
+        ArgumentNullException.ThrowIfNull(batch);
 
-        if (maximumProcessedVoxels <= 0)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(maximumProcessedVoxels));
-        }
-
-        var queue = new Queue<WorldVoxelCoord>();
-        var queued = new HashSet<WorldVoxelCoord>();
-        var changed = new HashSet<WorldVoxelCoord>();
-
-        void Enqueue(WorldVoxelCoord position)
-        {
-            if (position.Y < 0 ||
-                !world.IsLoadedAt(position) ||
-                !queued.Add(position))
-            {
-                return;
-            }
-
-            queue.Enqueue(position);
-        }
-
-        foreach (var seed in seeds)
-        {
-            Enqueue(seed);
-        }
-
+        var changes =
+            new List<FluidCellChange>();
+        var requests =
+            new HashSet<FluidScheduleRequest>();
+        var dormant =
+            new List<FluidTickKey>();
+        var scratch =
+            new SolverScratch();
         var processed = 0;
 
-        while (queue.Count > 0 &&
-               processed < maximumProcessedVoxels)
+        foreach (var position in
+                 batch.TopologyPositions)
         {
-            var position = queue.Dequeue();
-            queued.Remove(position);
             processed++;
+
+            if (!world.IsLoadedAt(position))
+            {
+                continue;
+            }
 
             var current =
                 world.GetFluidOrEmpty(position);
@@ -83,10 +64,74 @@ public static class FluidSimulationSolver
                     world,
                     fluids,
                     position,
-                    current);
+                    current,
+                    scratch);
 
             if (current == desired)
             {
+                continue;
+            }
+
+            var transition =
+                TransitionFluid(
+                    current,
+                    desired);
+
+            if (!transition.IsNone)
+            {
+                requests.Add(
+                    new FluidScheduleRequest(
+                        transition,
+                        position,
+                        Neighborhood: false));
+            }
+        }
+
+        foreach (var scheduled in
+                 batch.DueTicks)
+        {
+            processed++;
+            var position =
+                scheduled.Position;
+
+            if (!world.IsLoadedAt(position))
+            {
+                dormant.Add(scheduled);
+                continue;
+            }
+
+            var current =
+                world.GetFluidOrEmpty(position);
+            var desired =
+                DesiredFluid(
+                    world,
+                    fluids,
+                    position,
+                    current,
+                    scratch);
+
+            if (current == desired)
+            {
+                continue;
+            }
+
+            var transition =
+                TransitionFluid(
+                    current,
+                    desired);
+
+            if (transition.IsNone)
+            {
+                continue;
+            }
+
+            if (transition != scheduled.Fluid)
+            {
+                requests.Add(
+                    new FluidScheduleRequest(
+                        transition,
+                        position,
+                        Neighborhood: false));
                 continue;
             }
 
@@ -98,38 +143,77 @@ public static class FluidSimulationSolver
                 continue;
             }
 
-            changed.Add(position);
+            changes.Add(
+                new FluidCellChange(
+                    position,
+                    current,
+                    desired));
 
-            foreach (var offset in ChangedNeighborhood)
+            if (!current.IsEmpty)
             {
-                Enqueue(position + offset);
+                requests.Add(
+                    new FluidScheduleRequest(
+                        current.Fluid,
+                        position,
+                        Neighborhood: true));
+            }
+
+            if (!desired.IsEmpty &&
+                desired.Fluid != current.Fluid)
+            {
+                requests.Add(
+                    new FluidScheduleRequest(
+                        desired.Fluid,
+                        position,
+                        Neighborhood: true));
+            }
+            else if (!desired.IsEmpty)
+            {
+                requests.Add(
+                    new FluidScheduleRequest(
+                        desired.Fluid,
+                        position,
+                        Neighborhood: true));
             }
         }
 
-        var changes = changed
-            .OrderBy(position => position.Y)
-            .ThenBy(position => position.Z)
-            .ThenBy(position => position.X)
-            .Select(position =>
-                new FluidCellChange(
-                    position,
-                    world.GetFluidOrEmpty(position)))
-            .ToArray();
-
         return new FluidSimulationResult(
             changes,
-            queue.ToArray(),
-            processed);
+            requests
+                .OrderBy(request => request.Fluid.Value)
+                .ThenBy(request => request.Position.Y)
+                .ThenBy(request => request.Position.Z)
+                .ThenBy(request => request.Position.X)
+                .ThenBy(request => request.Neighborhood)
+                .ToArray(),
+            dormant,
+            processed,
+            scratch.DownhillSearchCount,
+            scratch.DownhillVisitedNodeCount);
     }
 
     public static FluidCell DesiredFluid(
         VoxelWorld world,
         FluidRegistry fluids,
         WorldVoxelCoord position,
-        FluidCell current)
+        FluidCell current) =>
+        DesiredFluid(
+            world,
+            fluids,
+            position,
+            current,
+            new SolverScratch());
+
+    public static FluidCell DesiredFluid(
+        VoxelWorld world,
+        FluidRegistry fluids,
+        WorldVoxelCoord position,
+        FluidCell current,
+        SolverScratch scratch)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(fluids);
+        ArgumentNullException.ThrowIfNull(scratch);
 
         if (!world.IsLoadedAt(position) ||
             !world.GetCellOrEmpty(position).IsEmpty)
@@ -154,7 +238,8 @@ public static class FluidSimulationSolver
                 spreadDistance: 0);
         }
 
-        FluidCell best = default;
+        var candidates =
+            new List<HorizontalCandidate>(4);
 
         foreach (var offset in Horizontal)
         {
@@ -184,22 +269,52 @@ public static class FluidSimulationSolver
                 continue;
             }
 
-            if (best.IsEmpty ||
-                candidate.Level > best.Level ||
-                (candidate.Level == best.Level &&
-                 candidate.SpreadDistance <
-                 best.SpreadDistance) ||
-                (candidate.Level == best.Level &&
-                 candidate.SpreadDistance ==
-                 best.SpreadDistance &&
-                 candidate.Fluid.Value <
-                 best.Fluid.Value))
+            candidates.Add(
+                new HorizontalCandidate(
+                    origin,
+                    candidate,
+                    definition.MaxSpread
+                        .SaturatingSubtract(
+                            neighbor.SpreadDistance)));
+        }
+
+        candidates.Sort(
+            static (left, right) =>
             {
-                best = candidate;
+                var level =
+                    right.Fluid.Level.CompareTo(
+                        left.Fluid.Level);
+
+                if (level != 0)
+                {
+                    return level;
+                }
+
+                var distance =
+                    left.Fluid.SpreadDistance.CompareTo(
+                        right.Fluid.SpreadDistance);
+
+                return distance != 0
+                    ? distance
+                    : left.Fluid.Fluid.Value.CompareTo(
+                        right.Fluid.Fluid.Value);
+            });
+
+        foreach (var candidate in candidates)
+        {
+            if (HorizontalSpreadIsPreferred(
+                    world,
+                    candidate.Origin,
+                    position,
+                    candidate.Fluid.Fluid,
+                    candidate.RemainingSteps,
+                    scratch))
+            {
+                return candidate.Fluid;
             }
         }
 
-        return best;
+        return FluidCell.Empty;
     }
 
     public static bool CanSpreadHorizontallyFrom(
@@ -214,8 +329,6 @@ public static class FluidSimulationSolver
             return true;
         }
 
-        // Dynamic falling columns stay vertical until they land. A source at
-        // an exposed edge can still spill sideways into a waterfall.
         return fluid.IsSource &&
                world.GetFluidOrEmpty(
                    position + (0, 1, 0)).IsEmpty;
@@ -232,8 +345,10 @@ public static class FluidSimulationSolver
         }
 
         var distance =
-            checked((ushort)(
-                neighbor.SpreadDistance + 1));
+            neighbor.SpreadDistance == ushort.MaxValue
+                ? ushort.MaxValue
+                : (ushort)(
+                    neighbor.SpreadDistance + 1);
 
         if (distance > maxSpread)
         {
@@ -259,4 +374,319 @@ public static class FluidSimulationSolver
             level,
             distance);
     }
+
+    public static bool HorizontalSpreadIsPreferred(
+        VoxelWorld world,
+        WorldVoxelCoord origin,
+        WorldVoxelCoord target,
+        FluidRuntimeId fluid,
+        ushort remainingSteps) =>
+        HorizontalSpreadIsPreferred(
+            world,
+            origin,
+            target,
+            fluid,
+            remainingSteps,
+            new SolverScratch());
+
+    private static bool HorizontalSpreadIsPreferred(
+        VoxelWorld world,
+        WorldVoxelCoord origin,
+        WorldVoxelCoord target,
+        FluidRuntimeId fluid,
+        ushort remainingSteps,
+        SolverScratch scratch)
+    {
+        var preferred =
+            PreferredHorizontalDirections(
+                world,
+                origin,
+                fluid,
+                remainingSteps,
+                scratch);
+
+        if (preferred is null)
+        {
+            return true;
+        }
+
+        var direction =
+            HorizontalDirectionBit(
+                target.X - origin.X,
+                target.Z - origin.Z);
+
+        return direction is not null &&
+               (preferred.Value &
+                direction.Value) != 0;
+    }
+
+    private static byte? PreferredHorizontalDirections(
+        VoxelWorld world,
+        WorldVoxelCoord origin,
+        FluidRuntimeId fluid,
+        ushort remainingSteps,
+        SolverScratch scratch)
+    {
+        if (remainingSteps == 0)
+        {
+            return null;
+        }
+
+        scratch.DownhillSearchCount++;
+        scratch.Queue.Clear();
+        scratch.Visited.Clear();
+        scratch.Visited.Add(
+            origin,
+            new VisitedPath(0, 0));
+
+        for (var index = 0;
+             index < Horizontal.Length;
+             index++)
+        {
+            var offset = Horizontal[index];
+            var position =
+                origin + offset;
+
+            if (!CanFlowHorizontallyThrough(
+                    world,
+                    position,
+                    fluid))
+            {
+                continue;
+            }
+
+            var direction =
+                checked((byte)(1 << index));
+            scratch.Visited[position] =
+                new VisitedPath(
+                    1,
+                    direction);
+            scratch.Queue.Enqueue(
+                new SearchNode(
+                    position,
+                    1));
+        }
+
+        ushort? nearestDrop = null;
+        byte preferred = 0;
+
+        while (scratch.Queue.Count > 0)
+        {
+            var node =
+                scratch.Queue.Dequeue();
+            scratch.DownhillVisitedNodeCount++;
+
+            if (nearestDrop is { } best &&
+                node.Distance > best)
+            {
+                break;
+            }
+
+            var visited =
+                scratch.Visited[node.Position];
+
+            if (CanFallFrom(
+                    world,
+                    node.Position,
+                    fluid))
+            {
+                if (nearestDrop is null)
+                {
+                    nearestDrop =
+                        node.Distance;
+                    preferred =
+                        visited.Directions;
+                }
+                else if (
+                    nearestDrop.Value ==
+                    node.Distance)
+                {
+                    preferred |=
+                        visited.Directions;
+                }
+
+                continue;
+            }
+
+            if (node.Distance >= remainingSteps ||
+                nearestDrop is not null)
+            {
+                continue;
+            }
+
+            var nextDistance =
+                checked((ushort)(
+                    node.Distance + 1));
+
+            foreach (var offset in Horizontal)
+            {
+                var next =
+                    node.Position + offset;
+
+                if (scratch.Visited.TryGetValue(
+                        next,
+                        out var known))
+                {
+                    if (known.Distance ==
+                        nextDistance)
+                    {
+                        var merged =
+                            (byte)(
+                                known.Directions |
+                                visited.Directions);
+
+                        if (merged !=
+                            known.Directions)
+                        {
+                            scratch.Visited[next] =
+                                known with
+                                {
+                                    Directions =
+                                        merged,
+                                };
+                            scratch.Queue.Enqueue(
+                                new SearchNode(
+                                    next,
+                                    nextDistance));
+                        }
+                    }
+
+                    continue;
+                }
+
+                if (!CanFlowHorizontallyThrough(
+                        world,
+                        next,
+                        fluid))
+                {
+                    continue;
+                }
+
+                scratch.Visited.Add(
+                    next,
+                    new VisitedPath(
+                        nextDistance,
+                        visited.Directions));
+                scratch.Queue.Enqueue(
+                    new SearchNode(
+                        next,
+                        nextDistance));
+            }
+        }
+
+        return nearestDrop is null
+            ? null
+            : preferred;
+    }
+
+    private static bool CanFlowHorizontallyThrough(
+        VoxelWorld world,
+        WorldVoxelCoord position,
+        FluidRuntimeId fluid)
+    {
+        if (!world.IsLoadedAt(position) ||
+            !world.GetCellOrEmpty(position).IsEmpty)
+        {
+            return false;
+        }
+
+        var existing =
+            world.GetFluidOrEmpty(position);
+
+        return existing.IsEmpty ||
+               existing.Fluid == fluid;
+    }
+
+    private static bool CanFallFrom(
+        VoxelWorld world,
+        WorldVoxelCoord position,
+        FluidRuntimeId fluid)
+    {
+        if (position.Y == 0)
+        {
+            return false;
+        }
+
+        var below =
+            position + (0, -1, 0);
+
+        if (!world.IsLoadedAt(below) ||
+            !world.GetCellOrEmpty(below).IsEmpty)
+        {
+            return false;
+        }
+
+        var existing =
+            world.GetFluidOrEmpty(below);
+
+        return existing.IsEmpty ||
+               (existing.Fluid == fluid &&
+                !existing.IsSource &&
+                existing.SpreadDistance == 0);
+    }
+
+    private static byte? HorizontalDirectionBit(
+        int dx,
+        int dz)
+    {
+        for (var index = 0;
+             index < Horizontal.Length;
+             index++)
+        {
+            var offset = Horizontal[index];
+
+            if (offset.X == dx &&
+                offset.Z == dz)
+            {
+                return checked(
+                    (byte)(1 << index));
+            }
+        }
+
+        return null;
+    }
+
+    private static FluidRuntimeId TransitionFluid(
+        FluidCell current,
+        FluidCell desired) =>
+        !desired.IsEmpty
+            ? desired.Fluid
+            : !current.IsEmpty
+                ? current.Fluid
+                : FluidRuntimeId.None;
+
+    public sealed class SolverScratch
+    {
+        internal Queue<SearchNode> Queue { get; } = new();
+
+        internal Dictionary<WorldVoxelCoord, VisitedPath>
+            Visited { get; } = [];
+
+        public int DownhillSearchCount { get; internal set; }
+
+        public int DownhillVisitedNodeCount { get; internal set; }
+    }
+
+    private readonly record struct HorizontalCandidate(
+        WorldVoxelCoord Origin,
+        FluidCell Fluid,
+        ushort RemainingSteps);
+
+    internal readonly record struct SearchNode(
+        WorldVoxelCoord Position,
+        ushort Distance);
+
+    internal readonly record struct VisitedPath(
+        ushort Distance,
+        byte Directions);
+}
+
+internal static class UShortMath
+{
+    public static ushort SaturatingSubtract(
+        this ushort value,
+        ushort amount) =>
+        amount >= value
+            ? (ushort)0
+            : (ushort)(value - amount);
 }

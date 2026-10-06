@@ -273,6 +273,14 @@ public sealed class FluidRegistry
     public int AuthoredCount =>
         _definitions.Length - 1;
 
+    public ushort MaximumSpread =>
+        _definitions
+            .Skip(1)
+            .Where(definition => definition is not null)
+            .Select(definition => definition!.MaxSpread)
+            .DefaultIfEmpty((ushort)0)
+            .Max();
+
     public static FluidRegistry FromJson(
         IEnumerable<string> documents)
     {

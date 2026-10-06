@@ -19,6 +19,8 @@ The current milestone proves the base runtime architecture without introducing w
 - greedy ordinary-cube meshing inside each 8³ meshlet for opaque/cutout faces when material, UV transform and vertex lighting are compatible; translucent faces stay independent for ordering;
 - data-driven fluid registry plus chunk-local palette fluid storage independent from blocks;
 - incremental bounded fluid simulation with source cells, 8 visual levels, vertical falling columns and authored horizontal spread distance;
+- a 40 Hz engine-agnostic world tick clock drives authored fluid spreadSpeed; fluid ticks keep the earliest due time, round-robin equal-due work across chunks and become dormant while their chunk is unloaded;
+- horizontal fluid spreading searches for the nearest reachable drop within the remaining authored range and prefers first-step directions that lead downhill, while falling columns reset their horizontal spread run;
 - fluid meshlets are built and published independently from terrain meshlets, using smoothed corner heights and a dedicated translucent material path;
 - incremental cross-chunk voxel lighting after edits: edited voxels seed a deduplicated propagation frontier instead of relighting every resident chunk;
 - correct world ↔ chunk/local coordinate conversion across negative coordinates;
