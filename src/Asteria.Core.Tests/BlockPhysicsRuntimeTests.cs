@@ -439,6 +439,71 @@ public sealed class BlockPhysicsRuntimeTests
     }
 
     [Fact]
+    public void FallingCapacityKeepsAdditionalBlockAuthoritative()
+    {
+        var fixture =
+            CreateFixture(
+                maximumActive: 1);
+        var sand =
+            fixture.Blocks.GetId(
+                "asteria:sand");
+        var first =
+            new WorldVoxelCoord(
+                3,
+                4,
+                3);
+        var second =
+            new WorldVoxelCoord(
+                4,
+                4,
+                3);
+
+        Assert.True(
+            fixture.Mutations.SetBlockAt(
+                first,
+                sand,
+                out _));
+        Assert.True(
+            fixture.Mutations.SetBlockAt(
+                second,
+                sand,
+                out _));
+
+        var wake =
+            fixture.Physics.ProcessWakeups();
+
+        Assert.Equal(
+            1,
+            wake.FallingStarted);
+        Assert.Equal(
+            1,
+            fixture.Physics.ActiveCount);
+        Assert.True(
+            fixture.World
+                .GetCellOrEmpty(first)
+                .IsEmpty);
+        Assert.Equal(
+            sand,
+            fixture.World
+                .GetCellOrEmpty(second)
+                .Block);
+        Assert.True(
+            fixture.PhysicsUpdates.Count > 0);
+
+        var saturatedWake =
+            fixture.Physics.ProcessWakeups();
+
+        Assert.Equal(
+            0,
+            saturatedWake.FallingStarted);
+        Assert.Equal(
+            sand,
+            fixture.World
+                .GetCellOrEmpty(second)
+                .Block);
+    }
+
+    [Fact]
     public void NonGravityBlockDoesNotStartFalling()
     {
         var fixture = CreateFixture();
@@ -540,7 +605,8 @@ public sealed class BlockPhysicsRuntimeTests
             world.GetCellOrEmpty(position).IsEmpty);
     }
 
-    private static Fixture CreateFixture()
+    private static Fixture CreateFixture(
+        int maximumActive = 2048)
     {
         var world = new VoxelWorld();
         world.InsertChunk(
@@ -590,7 +656,8 @@ public sealed class BlockPhysicsRuntimeTests
                 blocks,
                 mutations,
                 physicsUpdates,
-                dropped);
+                dropped,
+                maximumActive);
 
         return new Fixture(
             world,

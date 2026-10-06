@@ -284,6 +284,52 @@ public sealed class DroppedBlockRuntimeTests
         Assert.Equal(0, runtime.ActiveCount);
     }
 
+    [Fact]
+    public void AdvanceCanExpireMultipleDropsInOnePass()
+    {
+        var blocks =
+            new BlockRegistry(
+            [
+                new BlockDefinition(
+                    "asteria:stone"),
+            ]);
+        var stone =
+            blocks.GetId("asteria:stone");
+        var runtime =
+            new DroppedBlockRuntime(
+                new VoxelWorld(),
+                blocks,
+                lifetimeSeconds: 0.1);
+        var block =
+            BlockStateSnapshot.FromCell(
+                new VoxelCell(stone));
+
+        runtime.Spawn(
+            block,
+            new Vector3(
+                20.5f,
+                20.5f,
+                20.5f));
+        runtime.Spawn(
+            block,
+            new Vector3(
+                21.5f,
+                20.5f,
+                20.5f));
+
+        var result =
+            runtime.Advance(
+                0.2,
+                18.0);
+
+        Assert.Equal(
+            2,
+            result.Expired);
+        Assert.Equal(
+            0,
+            runtime.ActiveCount);
+    }
+
     private static VoxelWorld LoadedWorld()
     {
         var world = new VoxelWorld();

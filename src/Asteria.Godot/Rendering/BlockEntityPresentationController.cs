@@ -12,12 +12,18 @@ public sealed class BlockEntityPresentationController
     private readonly FluidRegistry _fluids;
     private readonly TerrainTextureLookup _textures;
     private readonly VoxelTerrainMaterialSet _materials;
-    private readonly Dictionary<FallingBlockId, FallingBlockPresentation>
+    private readonly SortedDictionary<FallingBlockId, FallingBlockPresentation>
         _falling = [];
-    private readonly Dictionary<DroppedBlockId, DroppedBlockPresentation>
+    private readonly SortedDictionary<DroppedBlockId, DroppedBlockPresentation>
         _dropped = [];
     private readonly Dictionary<BlockStateSnapshot, ArrayMesh>
         _sharedMeshes = [];
+    private readonly List<FallingBlockState> _fallingStates = [];
+    private readonly List<DroppedBlockState> _droppedStates = [];
+    private readonly HashSet<FallingBlockId> _activeFalling = [];
+    private readonly HashSet<DroppedBlockId> _activeDropped = [];
+    private readonly List<FallingBlockId> _retiredFalling = [];
+    private readonly List<DroppedBlockId> _retiredDropped = [];
 
     public BlockEntityPresentationController(
         Node3D parent,
@@ -50,23 +56,32 @@ public sealed class BlockEntityPresentationController
         ArgumentNullException.ThrowIfNull(falling);
         ArgumentNullException.ThrowIfNull(dropped);
 
-        SyncFalling(
-            falling.OrderBy(
-                state => state.Id.Value));
-        SyncDropped(
-            dropped.OrderBy(
-                state => state.Id.Value));
+        _fallingStates.Clear();
+        _fallingStates.AddRange(falling);
+        _fallingStates.Sort(
+            static (left, right) =>
+                left.Id.Value.CompareTo(
+                    right.Id.Value));
+
+        _droppedStates.Clear();
+        _droppedStates.AddRange(dropped);
+        _droppedStates.Sort(
+            static (left, right) =>
+                left.Id.Value.CompareTo(
+                    right.Id.Value));
+
+        SyncFalling(_fallingStates);
+        SyncDropped(_droppedStates);
     }
 
     private void SyncFalling(
         IEnumerable<FallingBlockState> states)
     {
-        var active =
-            new HashSet<FallingBlockId>();
+        _activeFalling.Clear();
 
         foreach (var state in states)
         {
-            active.Add(state.Id);
+            _activeFalling.Add(state.Id);
 
             if (!_falling.TryGetValue(
                     state.Id,
@@ -86,12 +101,17 @@ public sealed class BlockEntityPresentationController
             presentation.Apply(state);
         }
 
-        foreach (var id in
-                 _falling.Keys
-                     .Where(id =>
-                         !active.Contains(id))
-                     .OrderBy(id => id.Value)
-                     .ToArray())
+        _retiredFalling.Clear();
+
+        foreach (var id in _falling.Keys)
+        {
+            if (!_activeFalling.Contains(id))
+            {
+                _retiredFalling.Add(id);
+            }
+        }
+
+        foreach (var id in _retiredFalling)
         {
             _falling[id].Retire();
             _falling.Remove(id);
@@ -101,12 +121,11 @@ public sealed class BlockEntityPresentationController
     private void SyncDropped(
         IEnumerable<DroppedBlockState> states)
     {
-        var active =
-            new HashSet<DroppedBlockId>();
+        _activeDropped.Clear();
 
         foreach (var state in states)
         {
-            active.Add(state.Id);
+            _activeDropped.Add(state.Id);
 
             if (!_dropped.TryGetValue(
                     state.Id,
@@ -126,12 +145,17 @@ public sealed class BlockEntityPresentationController
             presentation.Apply(state);
         }
 
-        foreach (var id in
-                 _dropped.Keys
-                     .Where(id =>
-                         !active.Contains(id))
-                     .OrderBy(id => id.Value)
-                     .ToArray())
+        _retiredDropped.Clear();
+
+        foreach (var id in _dropped.Keys)
+        {
+            if (!_activeDropped.Contains(id))
+            {
+                _retiredDropped.Add(id);
+            }
+        }
+
+        foreach (var id in _retiredDropped)
         {
             _dropped[id].Retire();
             _dropped.Remove(id);

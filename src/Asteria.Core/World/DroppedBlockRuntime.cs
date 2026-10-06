@@ -181,9 +181,18 @@ public sealed class DroppedBlockRuntime
         var settled = 0;
         var expired = 0;
 
-        foreach (var id in
-                 _active.Keys.ToArray())
+        var activeCount = 0;
+
+        foreach (var id in _active.Keys)
         {
+            _contactIds[activeCount++] = id;
+        }
+
+        for (var index = 0;
+             index < activeCount;
+             index++)
+        {
+            var id = _contactIds[index];
             var state = _active[id];
             var age =
                 state.AgeSeconds +

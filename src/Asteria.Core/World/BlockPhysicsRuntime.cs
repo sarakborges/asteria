@@ -36,8 +36,10 @@ public sealed class BlockPhysicsRuntime
     private readonly VoxelMutationRuntime _mutations;
     private readonly BlockPhysicsUpdateQueue _updates;
     private readonly DroppedBlockRuntime _droppedBlocks;
-    private readonly Dictionary<FallingBlockId, FallingBlockState>
+    private readonly int _maximumActive;
+    private readonly SortedDictionary<FallingBlockId, FallingBlockState>
         _active = [];
+    private readonly FallingBlockId[] _advanceIds;
 
     private ulong _nextId;
 
@@ -46,7 +48,8 @@ public sealed class BlockPhysicsRuntime
         BlockRegistry blocks,
         VoxelMutationRuntime mutations,
         BlockPhysicsUpdateQueue updates,
-        DroppedBlockRuntime droppedBlocks)
+        DroppedBlockRuntime droppedBlocks,
+        int maximumActive = 2048)
     {
         _world = world ?? throw new ArgumentNullException(nameof(world));
         _blocks = blocks ?? throw new ArgumentNullException(nameof(blocks));
@@ -55,6 +58,16 @@ public sealed class BlockPhysicsRuntime
         _droppedBlocks =
             droppedBlocks ??
             throw new ArgumentNullException(nameof(droppedBlocks));
+
+        if (maximumActive <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(maximumActive));
+        }
+
+        _maximumActive = maximumActive;
+        _advanceIds =
+            new FallingBlockId[maximumActive];
     }
 
     public IReadOnlyCollection<FallingBlockState> ActiveBlocks =>
@@ -204,6 +217,13 @@ public sealed class BlockPhysicsRuntime
                 continue;
             }
 
+            if (_active.Count >=
+                _maximumActive)
+            {
+                _updates.Enqueue(position);
+                continue;
+            }
+
             var fallingBlock =
                 BlockStateSnapshot.Capture(
                     _world,
@@ -269,8 +289,18 @@ public sealed class BlockPhysicsRuntime
             Math.Min(deltaSeconds, MaximumDeltaSeconds);
         var landed = 0;
 
-        foreach (var id in _active.Keys.ToArray())
+        var activeCount = 0;
+
+        foreach (var id in _active.Keys)
         {
+            _advanceIds[activeCount++] = id;
+        }
+
+        for (var index = 0;
+             index < activeCount;
+             index++)
+        {
+            var id = _advanceIds[index];
             var state = _active[id];
             var velocity =
                 state.VelocityY -
