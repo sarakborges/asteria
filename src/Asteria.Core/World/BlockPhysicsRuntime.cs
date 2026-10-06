@@ -137,7 +137,7 @@ public sealed class BlockPhysicsRuntime
 
             if (support == BlockSupportState.Unsupported)
             {
-                var snapshot =
+                var detachedBlock =
                     BlockStateSnapshot.Capture(
                         _world,
                         position,
@@ -153,7 +153,7 @@ public sealed class BlockPhysicsRuntime
                     if (definition.DropsSelf)
                     {
                         _droppedBlocks.Spawn(
-                            snapshot,
+                            detachedBlock,
                             new Vector3(
                                 position.X + 0.5f,
                                 position.Y + 0.5f,
@@ -192,7 +192,7 @@ public sealed class BlockPhysicsRuntime
                 continue;
             }
 
-            var snapshot =
+            var fallingBlock =
                 BlockStateSnapshot.Capture(
                     _world,
                     position,
@@ -215,7 +215,7 @@ public sealed class BlockPhysicsRuntime
                 id,
                 new FallingBlockState(
                     id,
-                    snapshot,
+                    fallingBlock,
                     position.X,
                     position.Z,
                     position.Y + 0.5,
