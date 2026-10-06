@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Text.Json;
-using System.Threading.Tasks;
 using Asteria.Client.Content;
 using Asteria.Client.Gameplay;
 using Asteria.Client.Rendering;
@@ -33,16 +32,8 @@ public partial class Main : Node3D
     private readonly BlockGravityUpdateQueue _blockGravityUpdates = new();
     private readonly MeshletContentRevisions _contentRevisions = new();
     private readonly MeshletContentRevisions _fluidContentRevisions = new();
-    private readonly ChunkStreamingState _streaming = new();
-    private readonly ChunkPresentationSelection _presentationSelection = new();
-    private readonly Dictionary<ChunkCoord, ChunkPresentation>
-        _presentations = [];
-    private readonly Dictionary<ChunkCoord, Task<MaterializedChunkBuild>>
-        _materializationTasks = [];
-    private readonly Queue<MeshletPublication>
-        _pendingMeshletPublications = new();
-    private readonly Queue<FluidMeshletPublication>
-        _pendingFluidMeshletPublications = new();
+    private ChunkResidencyRuntime _residency = null!;
+    private ChunkPresentationController _chunkPresentations = null!;
 
     private readonly VoxelWorld _world = new();
     private readonly Dictionary<FallingBlockId, FallingBlockPresentation>
@@ -67,8 +58,6 @@ public partial class Main : Node3D
     private FluidMaterialCatalog _fluidMaterials = null!;
     private BlockRuntimeId _placementBlock;
 
-    private ChunkCoord _streamingCenter;
-    private ulong _appliedPresentationSelectionRevision;
     private WorldFrameWorkBudget _worldFrameBudget;
     private bool _worldReadySent;
 
@@ -95,6 +84,34 @@ public partial class Main : Node3D
         _terrainTextureLookup = _terrainTextures.CreateLookup();
         _terrainMaterials = VoxelTerrainMaterialSet.Create(_terrainTextures);
         _fluidMaterials = FluidMaterialCatalog.Create(_fluids);
+        _residency =
+            new ChunkResidencyRuntime(
+                _world,
+                _blocks,
+                _fluids,
+                _worldUpdates,
+                _fluidUpdates,
+                _fluidMeshUpdates,
+                _blockGravity,
+                _contentRevisions,
+                _fluidContentRevisions,
+                _worldTicks,
+                new ChunkResidencySettings(
+                    MaxMaterializationTasksInFlight,
+                    MaxMaterializationDispatchesPerFrame,
+                    MaxMaterializationResultsPerFrame,
+                    MaxChunkEvictionsPerFrame,
+                    WorldTicksPerSecond));
+        _chunkPresentations =
+            new ChunkPresentationController(
+                this,
+                _world,
+                _worldUpdates,
+                _fluidMeshUpdates,
+                _contentRevisions,
+                _fluidContentRevisions,
+                _terrainMaterials,
+                _fluidMaterials);
         _placementBlock =
             _blocks.GetId(TestChunkFactory.StoneId);
 
@@ -111,7 +128,6 @@ public partial class Main : Node3D
         // Loading starts around the origin. The player is spawned only after
         // the center chunk presentation is fully published, so physics cannot
         // fall through an empty world while initial streaming catches up.
-        _streamingCenter = ChunkCoord.Zero;
         SyncStreamingSelection();
     }
 
@@ -147,10 +163,8 @@ public partial class Main : Node3D
         EvictDistantChunks();
 
         if (!_worldReadySent &&
-            _presentations.TryGetValue(
-                ChunkCoord.Zero,
-                out var origin) &&
-            origin.IsFullyPublished)
+            _chunkPresentations.IsFullyPublished(
+                ChunkCoord.Zero))
         {
             _worldReadySent = true;
             SetupPlayer();
@@ -237,11 +251,11 @@ public partial class Main : Node3D
             {
                 size = Chunk.Size,
                 chunks = _world.ChunkCount,
-                desiredChunks = _streaming.DesiredCount,
-                retainedChunks = _streaming.RetainedCount,
-                pendingChunks = _streaming.PendingCount,
-                materializingChunks = _streaming.MaterializingCount,
-                presentedChunks = _presentations.Count,
+                desiredChunks = _residency.DesiredCount,
+                retainedChunks = _residency.RetainedCount,
+                pendingChunks = _residency.PendingCount,
+                materializingChunks = _residency.MaterializingCount,
+                presentedChunks = _chunkPresentations.Count,
                 archivedChunks = _world.ArchivedChunkCount,
                 dirtyChunks = _world.DirtyChunkCount,
                 blocks = _blocks.AuthoredCount,
@@ -314,41 +328,35 @@ public partial class Main : Node3D
                 minimumChunkY: 0,
                 maximumChunkY: 1);
         var retentionRadius =
-            RenderDistanceChunks + RetentionMarginChunks;
+            RenderDistanceChunks +
+            RetentionMarginChunks;
 
-        var changed = _streaming.RebuildSelection(
-            center,
-            RenderDistanceChunks,
-            retentionRadius,
-            desired);
-
-        _presentationSelection.Sync(
-            center,
-            RenderDistanceChunks);
+        var changed =
+            _residency.SyncSelection(
+                center,
+                RenderDistanceChunks,
+                retentionRadius,
+                desired,
+                _chunkPresentations.Coordinates);
 
         if (!changed)
         {
             return;
         }
 
-        _streamingCenter = center;
-        _streaming.SyncResidentState(
-            _world.LoadedChunkCoords,
-            _presentations.Keys);
-
         GD.Print(
             $"streaming.selection center={center} " +
-            $"desired={_streaming.DesiredCount} " +
-            $"retained={_streaming.RetainedCount} " +
-            $"pending={_streaming.PendingCount} " +
-            $"movement={_streaming.MovementDirection}");
+            $"desired={_residency.DesiredCount} " +
+            $"retained={_residency.RetainedCount} " +
+            $"pending={_residency.PendingCount} " +
+            $"movement={_residency.MovementDirection}");
     }
 
     private ChunkCoord CurrentStreamingCenter()
     {
         if (_player is null)
         {
-            return _streamingCenter;
+            return _residency.Center;
         }
 
         var position = _player.GlobalPosition;
@@ -365,425 +373,83 @@ public partial class Main : Node3D
 
     private void CollectMaterializationResults()
     {
-        if (_materializationTasks.Count == 0)
-        {
-            return;
-        }
-
-        var completed = _materializationTasks
-            .Where(entry => entry.Value.IsCompleted)
-            .OrderBy(entry =>
-                ChunkStreamingState.Priority(
-                    entry.Key,
-                    _streamingCenter,
-                    _streaming.MovementDirection))
-            .Take(MaxMaterializationResultsPerFrame)
-            .ToArray();
-
-        var processed = 0;
-
-        foreach (var (coord, task) in completed)
-        {
-            if (processed > 0 && WorldBudgetExhausted())
-            {
-                break;
-            }
-
-            processed++;
-            _materializationTasks.Remove(coord);
-            _streaming.FinishMaterializing(coord);
-
-            if (task.IsFaulted)
-            {
-                GD.PushError(
-                    task.Exception?.ToString() ??
-                    $"Chunk materialization failed: {coord}");
-
-                if (_streaming.IsDesired(coord))
-                {
-                    _streaming.EnqueuePending(coord);
-                }
-
-                continue;
-            }
-
-            if (task.IsCanceled)
-            {
-                if (_streaming.IsDesired(coord))
-                {
-                    _streaming.EnqueuePending(coord);
-                }
-
-                continue;
-            }
-
-            var result = task.Result;
-
-            if (!_streaming.KeepsLoaded(coord))
-            {
-                continue;
-            }
-
-            var restore =
-                _world.RestoreChunk(coord);
-
-            if (restore == ChunkRestoreResult.Restored)
-            {
-                ActivateResidentChunk(
-                    coord,
-                    source: "archive",
-                    workerMilliseconds: 0.0);
-                continue;
-            }
-
-            if (restore == ChunkRestoreResult.AlreadyResident)
-            {
-                continue;
-            }
-
-            _world.InsertChunk(
-                coord,
-                result.Chunk);
-
-            ActivateResidentChunk(
-                coord,
-                source: "provider",
-                workerMilliseconds: result.WorkerMilliseconds);
-        }
-
-        if (processed > 0)
-        {
-            _streaming.SyncResidentState(
-                _world.LoadedChunkCoords,
-                _presentations.Keys);
-        }
+        ReportResidencyUpdate(
+            _residency.CollectMaterializationResults(
+                _worldFrameBudget,
+                _chunkPresentations.Coordinates));
     }
 
     private void DispatchMaterializationTasks()
     {
-        var dispatched = 0;
-
-        while (_materializationTasks.Count <
-                   MaxMaterializationTasksInFlight &&
-               dispatched <
-                   MaxMaterializationDispatchesPerFrame)
-        {
-            if (dispatched > 0 && WorldBudgetExhausted())
-            {
-                break;
-            }
-
-            var coord =
-                _streaming.PopPendingByPriority();
-
-            if (coord is null)
-            {
-                break;
-            }
-
-            if (!_streaming.IsDesired(coord.Value) ||
-                _world.ContainsChunk(coord.Value) ||
-                _materializationTasks.ContainsKey(coord.Value))
-            {
-                continue;
-            }
-
-            var selected = coord.Value;
-
-            var restore =
-                _world.RestoreChunk(selected);
-
-            if (restore == ChunkRestoreResult.Restored)
-            {
-                ActivateResidentChunk(
-                    selected,
-                    source: "archive",
-                    workerMilliseconds: 0.0);
-                _streaming.SyncResidentState(
-                    _world.LoadedChunkCoords,
-                    _presentations.Keys);
-                continue;
-            }
-
-            if (restore == ChunkRestoreResult.AlreadyResident)
-            {
-                continue;
-            }
-
-            _streaming.MarkMaterializing(selected);
-
-            _materializationTasks.Add(
-                selected,
-                Task.Run(() =>
-                {
-                    var stopwatch = Stopwatch.StartNew();
-                    var chunk =
-                        DeterministicChunkProvider.Materialize(
-                            _blocks,
-                            _fluids,
-                            selected);
-
-                    // Provisional local light prevents a newly resident chunk
-                    // from presenting black while cross-chunk reconciliation
-                    // catches up asynchronously.
-                    ChunkLightingSolver.Initialize(
-                        chunk,
-                        _blocks,
-                        _fluids);
-
-                    stopwatch.Stop();
-                    return new MaterializedChunkBuild(
-                        selected,
-                        chunk,
-                        stopwatch.Elapsed.TotalMilliseconds);
-                }));
-
-            dispatched++;
-        }
+        ReportResidencyUpdate(
+            _residency.DispatchMaterializationTasks(
+                _worldFrameBudget,
+                _chunkPresentations.Coordinates));
     }
 
-    private void ActivateResidentChunk(
-        ChunkCoord coord,
-        string source,
-        double workerMilliseconds)
+    private void ReportResidencyUpdate(
+        ChunkResidencyUpdate update)
     {
-        _streaming.EnqueuePresentation(coord);
-        EnqueueChunkLightingReconciliation(coord);
-        EnqueueResidentChunkFluids(coord);
-        _blockGravity.EnqueueResidentChunk(coord);
+        foreach (var failure in update.Failures)
+        {
+            GD.PushError(
+                $"Chunk materialization failed: " +
+                $"{failure.Coord}\n{failure.Error}");
+        }
 
-        GD.Print(
-            $"chunk.resident coord={coord} " +
-            $"source={source} " +
-            $"worker_ms={workerMilliseconds:F2} " +
-            $"resident={_world.ChunkCount} " +
-            $"archived={_world.ArchivedChunkCount}");
+        foreach (var activation in
+                 update.Activations)
+        {
+            GD.Print(
+                $"chunk.resident coord={activation.Coord} " +
+                $"source={activation.Source.ToString().ToLowerInvariant()} " +
+                $"worker_ms={activation.WorkerMilliseconds:F2} " +
+                $"resident={_world.ChunkCount} " +
+                $"archived={_world.ArchivedChunkCount}");
+        }
     }
 
     private void PublishPendingPresentations()
     {
-        var published = 0;
+        var reserved =
+            _chunkPresentations.ReservePending(
+                _residency,
+                MaxPresentationPublicationsPerFrame,
+                _worldFrameBudget);
 
-        while (published <
-                   MaxPresentationPublicationsPerFrame)
+        if (reserved > 0)
         {
-            if (published > 0 && WorldBudgetExhausted())
-            {
-                break;
-            }
-
-            var coord =
-                _streaming.PopPresentationByPriority(
-                    _presentationSelection);
-
-            if (coord is null)
-            {
-                break;
-            }
-
-            if (!_world.ContainsChunk(coord.Value) ||
-                _presentations.ContainsKey(coord.Value))
-            {
-                continue;
-            }
-
-            var presentation =
-                new ChunkPresentation(coord.Value);
-            presentation.SetVisible(
-                _presentationSelection.ShouldBeVisible(
-                    coord.Value,
-                    currentlyVisible: false));
-
-            _presentations.Add(
-                coord.Value,
-                presentation);
-            AddChild(presentation.Root);
-
-            _worldUpdates.EnqueueMeshlets(
-                coord.Value,
-                ChunkMeshletMask.All);
-            _fluidMeshUpdates.EnqueueMeshlets(
-                coord.Value,
-                ChunkMeshletMask.All);
-
-            foreach (var (neighbor, meshlets) in
-                     ChunkTopologyFrontier
-                         .PresentedNeighborMeshlets(
-                             coord.Value,
-                             _presentations.ContainsKey))
-            {
-                _contentRevisions.Bump(
-                    neighbor,
-                    meshlets);
-                _worldUpdates.EnqueueMeshlets(
-                    neighbor,
-                    meshlets);
-
-                _fluidContentRevisions.Bump(
-                    neighbor,
-                    meshlets);
-                _fluidMeshUpdates.EnqueueMeshlets(
-                    neighbor,
-                    meshlets);
-            }
-
-            published++;
+            _residency.SyncResidentState(
+                _chunkPresentations.Coordinates);
 
             GD.Print(
-                $"chunk.presentation.reserve coord={coord.Value} " +
-                $"presented={_presentations.Count}");
+                $"chunk.presentation.reserve count={reserved} " +
+                $"presented={_chunkPresentations.Count}");
         }
     }
 
     private void SyncPresentationVisibility()
     {
-        if (_appliedPresentationSelectionRevision ==
-            _presentationSelection.Revision)
-        {
-            return;
-        }
-
-        foreach (var (coord, presentation) in _presentations)
-        {
-            presentation.SetVisible(
-                _presentationSelection.ShouldBeVisible(
-                    coord,
-                    presentation.IsVisible));
-        }
-
-        _appliedPresentationSelectionRevision =
-            _presentationSelection.Revision;
+        _chunkPresentations.SyncVisibility(
+            _residency);
     }
 
     private void EvictDistantChunks()
     {
-        var maxEvictions =
-            _streaming.HasRenderableBacklog
-                ? 1
-                : MaxChunkEvictionsPerFrame;
-        var evicted = 0;
-        var retentionRadius =
-            RenderDistanceChunks + RetentionMarginChunks;
-
-        while (evicted < maxEvictions)
+        foreach (var retirement in
+                 _residency.RetireDistantChunks(
+                     _worldFrameBudget))
         {
-            if (evicted > 0 && WorldBudgetExhausted())
-            {
-                break;
-            }
-
-            var coord =
-                _streaming.PopRetiredOutsideHorizontalRadius(
-                    _streamingCenter,
-                    retentionRadius);
-
-            if (coord is null)
-            {
-                break;
-            }
-
-            if (_streaming.KeepsLoaded(coord.Value))
-            {
-                continue;
-            }
-
-            if (_presentations.Remove(
-                    coord.Value,
-                    out var presentation))
-            {
-                presentation.Retire();
-            }
-
-            _worldUpdates.RemoveMeshChunk(coord.Value);
-            _fluidMeshUpdates.RemoveChunk(coord.Value);
-            _contentRevisions.RemoveChunk(coord.Value);
-            _fluidContentRevisions.RemoveChunk(coord.Value);
-
-            var archiveResult =
-                _world.ArchiveChunk(coord.Value);
-
-            if (archiveResult !=
-                ChunkArchiveResult.NotResident)
-            {
-                foreach (var (neighbor, meshlets) in
-                         ChunkTopologyFrontier
-                             .PresentedNeighborMeshlets(
-                                 coord.Value,
-                                 _presentations.ContainsKey))
-                {
-                    _contentRevisions.Bump(
-                        neighbor,
-                        meshlets);
-                    _worldUpdates.EnqueueMeshlets(
-                        neighbor,
-                        meshlets);
-
-                    _fluidContentRevisions.Bump(
-                        neighbor,
-                        meshlets);
-                    _fluidMeshUpdates.EnqueueMeshlets(
-                        neighbor,
-                        meshlets);
-                }
-
-                EnqueueChunkLightingReconciliation(
-                    coord.Value);
-            }
-
-            _streaming.Forget(coord.Value);
-            evicted++;
+            _chunkPresentations.Retire(
+                retirement.Coord);
 
             GD.Print(
-                $"chunk.unload coord={coord.Value} " +
-                $"archive={archiveResult} " +
+                $"chunk.unload coord={retirement.Coord} " +
+                $"archive={retirement.ArchiveResult} " +
                 $"resident={_world.ChunkCount} " +
                 $"archived={_world.ArchivedChunkCount} " +
-                $"presented={_presentations.Count}");
+                $"presented={_chunkPresentations.Count}");
         }
-    }
-
-    private void EnqueueChunkLightingReconciliation(
-        ChunkCoord coord)
-    {
-        foreach (var position in
-                 ChunkTopologyFrontier.LightingSeeds(coord))
-        {
-            if (_world.IsLoadedAt(position))
-            {
-                _worldUpdates.EnqueueLighting(position);
-            }
-        }
-    }
-
-    private void EnqueueResidentChunkFluids(
-        ChunkCoord coord)
-    {
-        if (!_world.TryGetChunk(
-                coord,
-                out var chunk))
-        {
-            return;
-        }
-
-        var (originX, originY, originZ) =
-            VoxelCoordinates.ChunkOrigin(coord);
-
-        _fluidUpdates.ReactivateLoadedChunk(
-            coord,
-            _worldTicks.CurrentTick);
-
-        chunk.VisitFluidCells(
-            (x, y, z, fluid) =>
-            {
-                var position =
-                    new WorldVoxelCoord(
-                        originX + x,
-                        originY + y,
-                        originZ + z);
-                ScheduleFluidNeighborhood(
-                    fluid.Fluid,
-                    position);
-            });
     }
 
     private void BreakTargetBlock()
@@ -1125,29 +791,6 @@ public partial class Main : Node3D
         }
     }
 
-    private void ScheduleFluidNeighborhood(
-        FluidRuntimeId fluid,
-        WorldVoxelCoord position)
-    {
-        var delay =
-            FluidTiming.DelayTicks(
-                _fluids,
-                fluid,
-                WorldTicksPerSecond);
-
-        if (delay is null)
-        {
-            return;
-        }
-
-        _fluidUpdates.ScheduleNeighborhood(
-            fluid,
-            position,
-            SaturatingAdd(
-                _worldTicks.CurrentTick,
-                delay.Value));
-    }
-
     private void TryStartFluidMeshWorker()
     {
         if (_fluidMeshWorker.IsRunning ||
@@ -1167,7 +810,7 @@ public partial class Main : Node3D
         var filtered =
             drained.DirtyMeshlets
                 .Where(entry =>
-                    _presentations.ContainsKey(entry.Key) &&
+                    _chunkPresentations.Contains(entry.Key) &&
                     _world.ContainsChunk(entry.Key))
                 .ToDictionary(
                     entry => entry.Key,
@@ -1222,7 +865,7 @@ public partial class Main : Node3D
         {
             if (!_world.ContainsChunk(
                     meshlet.Coord) ||
-                !_presentations.ContainsKey(
+                !_chunkPresentations.Contains(
                     meshlet.Coord))
             {
                 continue;
@@ -1239,11 +882,10 @@ public partial class Main : Node3D
                     key,
                     revision))
             {
-                _pendingFluidMeshletPublications.Enqueue(
-                    new FluidMeshletPublication(
-                        meshlet,
-                        revision,
-                        result.ContentStamp));
+                _chunkPresentations.EnqueueFluidPublication(
+                    meshlet,
+                    revision,
+                    result.ContentStamp);
                 accepted++;
             }
             else
@@ -1266,63 +908,17 @@ public partial class Main : Node3D
 
     private void IntegrateFluidMeshletPublications()
     {
-        var published = 0;
-        var stale = 0;
+        var stats =
+            _chunkPresentations.IntegrateFluidPublications(
+                MaxFluidMeshletPublishesPerFrame,
+                _worldFrameBudget);
 
-        while (published + stale <
-                   MaxFluidMeshletPublishesPerFrame &&
-               _pendingFluidMeshletPublications.Count > 0)
-        {
-            if (published + stale > 0 &&
-                WorldBudgetExhausted())
-            {
-                break;
-            }
-
-            var pending =
-                _pendingFluidMeshletPublications.Dequeue();
-            var key =
-                new ChunkMeshletKey(
-                    pending.Meshlet.Coord,
-                    pending.Meshlet.MeshletIndex);
-
-            if (!_world.ContainsChunk(
-                    pending.Meshlet.Coord) ||
-                !_presentations.TryGetValue(
-                    pending.Meshlet.Coord,
-                    out var presentation))
-            {
-                continue;
-            }
-
-            if (!_fluidContentRevisions.IsCurrent(
-                    key,
-                    pending.ContentRevision) ||
-                !_world.IsContentStampCurrent(
-                    pending.ContentStamp))
-            {
-                _fluidMeshUpdates.EnqueueMeshlets(
-                    pending.Meshlet.Coord,
-                    ChunkMeshletMask.Single(
-                        pending.Meshlet.MeshletIndex));
-                stale++;
-                continue;
-            }
-
-            presentation.ApplyFluid(
-                pending.Meshlet.MeshletIndex,
-                pending.Meshlet.Data,
-                _fluidMaterials);
-            published++;
-        }
-
-        if (published > 0 || stale > 0)
+        if (stats.Handled > 0)
         {
             GD.Print(
-                $"world.fluid_meshlets published={published} " +
-                $"stale={stale} " +
-                $"remaining=" +
-                $"{_pendingFluidMeshletPublications.Count}");
+                $"world.fluid_meshlets published={stats.Published} " +
+                $"stale={stats.Stale} " +
+                $"remaining={stats.Remaining}");
         }
     }
 
@@ -1345,7 +941,7 @@ public partial class Main : Node3D
         var filtered =
             drained.DirtyMeshlets
                 .Where(entry =>
-                    _presentations.ContainsKey(entry.Key) &&
+                    _chunkPresentations.Contains(entry.Key) &&
                     _world.ContainsChunk(entry.Key))
                 .ToDictionary(
                     entry => entry.Key,
@@ -1414,11 +1010,10 @@ public partial class Main : Node3D
                     key,
                     revision))
             {
-                _pendingMeshletPublications.Enqueue(
-                    new MeshletPublication(
-                        meshlet,
-                        revision,
-                        result.ContentStamp));
+                _chunkPresentations.EnqueueTerrainPublication(
+                    meshlet,
+                    revision,
+                    result.ContentStamp);
                 accepted++;
             }
             else
@@ -1526,66 +1121,18 @@ public partial class Main : Node3D
 
     private void IntegrateMeshletPublications()
     {
-        var stopwatch = Stopwatch.StartNew();
-        var published = 0;
-        var stale = 0;
+        var stats =
+            _chunkPresentations.IntegrateTerrainPublications(
+                MaxMeshletPublishesPerFrame,
+                _worldFrameBudget);
 
-        while (published + stale <
-                   MaxMeshletPublishesPerFrame &&
-               _pendingMeshletPublications.Count > 0)
-        {
-            if (published + stale > 0 &&
-                WorldBudgetExhausted())
-            {
-                break;
-            }
-
-            var pending =
-                _pendingMeshletPublications.Dequeue();
-            var key = new ChunkMeshletKey(
-                pending.Meshlet.Coord,
-                pending.Meshlet.MeshletIndex);
-
-            if (!_world.ContainsChunk(
-                    pending.Meshlet.Coord) ||
-                !_presentations.TryGetValue(
-                    pending.Meshlet.Coord,
-                    out var presentation))
-            {
-                continue;
-            }
-
-            if (!_contentRevisions.IsCurrent(
-                    key,
-                    pending.ContentRevision) ||
-                !_world.IsContentStampCurrent(
-                    pending.ContentStamp))
-            {
-                _worldUpdates.EnqueueMeshlets(
-                    pending.Meshlet.Coord,
-                    ChunkMeshletMask.Single(
-                        pending.Meshlet.MeshletIndex));
-                stale++;
-                continue;
-            }
-
-            presentation.Apply(
-                pending.Meshlet.MeshletIndex,
-                pending.Meshlet.Data,
-                _terrainMaterials);
-
-            published++;
-        }
-
-        stopwatch.Stop();
-
-        if (published > 0 || stale > 0)
+        if (stats.Handled > 0)
         {
             GD.Print(
-                $"world.meshlets published={published} " +
-                $"stale={stale} " +
-                $"remaining={_pendingMeshletPublications.Count} " +
-                $"publish_ms={stopwatch.Elapsed.TotalMilliseconds:F2}");
+                $"world.meshlets published={stats.Published} " +
+                $"stale={stats.Stale} " +
+                $"remaining={stats.Remaining} " +
+                $"publish_ms={stats.ElapsedMilliseconds:F2}");
         }
     }
 
@@ -1608,21 +1155,6 @@ public partial class Main : Node3D
     private bool WorldBudgetExhausted() =>
         _worldFrameBudget.Exhausted(
             Stopwatch.GetTimestamp());
-
-    private sealed record MaterializedChunkBuild(
-        ChunkCoord Coord,
-        Chunk Chunk,
-        double WorkerMilliseconds);
-
-    private sealed record MeshletPublication(
-        TerrainMeshletBuild Meshlet,
-        ulong ContentRevision,
-        ChunkContentStamp ContentStamp);
-
-    private sealed record FluidMeshletPublication(
-        FluidMeshletBuild Meshlet,
-        ulong ContentRevision,
-        ChunkContentStamp ContentStamp);
 
 
 }
