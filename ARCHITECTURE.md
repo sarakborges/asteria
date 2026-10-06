@@ -189,12 +189,22 @@ Lighting is authoritative runtime data; meshes are derived presentation data.
 
 Do not rebuild whole chunks when a smaller stable meshlet/dirty region is sufficient.
 
-## 10. World generation and biomes
+## 10. Dimensions, world generation and biomes
+
+Dimensions are the top-level authored world-runtime boundary.
+
+- `DimensionRegistry` owns immutable definitions loaded from `packs/{selected}/data/dimensions/`; `DimensionId` is a validated strong runtime identity rather than an arbitrary string.
+- A dimension explicitly selects its biome pool. Biome membership is not discovered by scanning ID prefixes; referenced biomes are validated to belong to that dimension.
+- One root world seed deterministically derives a distinct dimension seed from the dimension identity. All generation inside that dimension consumes the derived seed, so equivalent coordinates in different dimensions are independent without requiring unrelated random state.
+- Dimension definitions own world-wide gravity, authored spawn coordinates and environment presentation inputs. Gravity is consumed by both player movement and block/drop physics; adapters must not maintain a competing hard-coded gravity value.
+- Dimension environment data is engine-agnostic RGB/energy/fog data. Godot's `DimensionEnvironmentPresentation` is only the adapter that maps it into a `WorldEnvironment`.
+- An active runtime session owns exactly one dimension and one `VoxelWorld` plus its queues/revisions/archive/workers. Dimension changes must never reuse those mutable owners by clearing them in place. A future portal/transition retires session A and constructs/restores session B.
+- Live dimension transition is intentionally not implemented until that session retirement/construction lifecycle is explicit. Startup selection is already data-driven, and both Overworld and Umbral can instantiate independent generation sessions.
 
 Surface world generation is an engine-agnostic Core domain.
 
 - `BiomeRegistry` owns validated authored biome definitions loaded from `packs/{selected}/data/biomes/`.
-- Surface biome IDs are dimension-qualified (for example `asteria:overworld/swamp`). The active world generator selects the subset belonging to its dimension.
+- Surface biome IDs are dimension-qualified (for example `asteria:overworld/swamp`) for ownership validation and stable identity. The active dimension definition supplies the exact pool consumed by `BiomeField`.
 - `BiomeField` owns deterministic 2D surface-biome placement. Definitions are sorted by canonical ID before spatial rules are built, so JSON/filesystem insertion order cannot change the world.
 - Biome layout uses deterministic organic formation seeds rather than chunk/grid ownership. `regionSize` controls target formation span, authored weights affect seed assignment and `cannotBorder` is enforced while assignments are established.
 - Sampling returns a primary biome plus normalized nearby influences. Terrain height is blended from those influences; biome boundaries must not introduce a discontinuous height cut merely because the primary ID changed.
