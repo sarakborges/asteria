@@ -202,6 +202,91 @@ public sealed class BlockPhysicsRuntimeTests
     }
 
     [Fact]
+    public void FallingBlockPassesThroughFluidAndReplacesItOnLanding()
+    {
+        var fixture = CreateFixture();
+        var stone =
+            fixture.Blocks.GetId(
+                "asteria:stone");
+        var sand =
+            fixture.Blocks.GetId(
+                "asteria:sand");
+        var support =
+            new WorldVoxelCoord(3, 0, 3);
+        var landing =
+            new WorldVoxelCoord(3, 1, 3);
+        var start =
+            new WorldVoxelCoord(3, 4, 3);
+        var water =
+            new FluidRuntimeId(1);
+
+        Assert.True(
+            fixture.Mutations.SetBlockAt(
+                support,
+                stone,
+                out _));
+        Assert.True(
+            fixture.World.SetFluidAt(
+                landing,
+                FluidCell.Source(water),
+                out _));
+        Assert.True(
+            fixture.Mutations.SetBlockAt(
+                start,
+                sand,
+                out _));
+
+        fixture.Physics.ProcessWakeups();
+
+        fixture.WorldUpdates.DrainLighting();
+        fixture.WorldUpdates.DrainMeshlets();
+        fixture.FluidUpdates.DrainReady(
+            currentTick: 0,
+            maximumItems: 64);
+        fixture.FluidMeshUpdates.Drain();
+        fixture.PhysicsUpdates.DrainBatch();
+
+        var landingMask =
+            ChunkMeshletMask.ForWorldPosition(
+                ChunkCoord.Zero,
+                landing);
+        var landingMeshlet =
+            landingMask.Indices().First();
+        var key =
+            new ChunkMeshletKey(
+                ChunkCoord.Zero,
+                landingMeshlet);
+        var before =
+            fixture.FluidRevisions.Get(key);
+
+        for (var frame = 0;
+             frame < 240 &&
+             fixture.Physics.ActiveCount > 0;
+             frame++)
+        {
+            fixture.Physics.Advance(
+                1.0 / 60.0,
+                18.0);
+        }
+
+        Assert.Equal(
+            sand,
+            fixture.World
+                .GetCellOrEmpty(landing)
+                .Block);
+        Assert.True(
+            fixture.World
+                .GetFluidOrEmpty(landing)
+                .IsEmpty);
+        Assert.Equal(
+            before + 1,
+            fixture.FluidRevisions.Get(key));
+        Assert.Equal(
+            7,
+            fixture.FluidUpdates.TopologyCount);
+    }
+
+    [Fact]
     public void SculptedGravityBlockPreservesMaskAcrossFall()
     {
         var fixture = CreateFixture();
@@ -437,7 +522,12 @@ public sealed class BlockPhysicsRuntimeTests
             blocks,
             mutations,
             physics,
-            dropped);
+            dropped,
+            worldUpdates,
+            fluidUpdates,
+            fluidMeshUpdates,
+            physicsUpdates,
+            fluidRevisions);
     }
 
     private sealed record Fixture(
@@ -445,5 +535,10 @@ public sealed class BlockPhysicsRuntimeTests
         BlockRegistry Blocks,
         VoxelMutationRuntime Mutations,
         BlockPhysicsRuntime Physics,
-        DroppedBlockRuntime Dropped);
+        DroppedBlockRuntime Dropped,
+        WorldUpdateQueue WorldUpdates,
+        FluidUpdateQueue FluidUpdates,
+        FluidMeshUpdateQueue FluidMeshUpdates,
+        BlockPhysicsUpdateQueue PhysicsUpdates,
+        MeshletContentRevisions FluidRevisions);
 }

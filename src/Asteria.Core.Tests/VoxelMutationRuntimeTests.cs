@@ -137,6 +137,301 @@ public sealed class VoxelMutationRuntimeTests
     }
 
     [Fact]
+    public void BlockReplacingFluidPublishesFluidConsequencesExactlyOnce()
+    {
+        var world = new VoxelWorld();
+        world.InsertChunk(
+            ChunkCoord.Zero,
+            new Chunk());
+        var position =
+            new WorldVoxelCoord(3, 3, 3);
+        var water =
+            new FluidRuntimeId(1);
+
+        Assert.True(
+            world.SetFluidAt(
+                position,
+                FluidCell.Source(water),
+                out _));
+
+        var worldUpdates = new WorldUpdateQueue();
+        var fluidUpdates = new FluidUpdateQueue();
+        var fluidMeshUpdates =
+            new FluidMeshUpdateQueue();
+        var physicsUpdates =
+            new BlockPhysicsUpdateQueue();
+        var terrainRevisions =
+            new MeshletContentRevisions();
+        var fluidRevisions =
+            new MeshletContentRevisions();
+        var runtime =
+            new VoxelMutationRuntime(
+                world,
+                worldUpdates,
+                fluidUpdates,
+                fluidMeshUpdates,
+                physicsUpdates,
+                terrainRevisions,
+                fluidRevisions);
+        var key =
+            new ChunkMeshletKey(
+                ChunkCoord.Zero,
+                0);
+
+        Assert.Equal(
+            0UL,
+            fluidRevisions.Get(key));
+
+        Assert.True(
+            runtime.SetBlockAt(
+                position,
+                new BlockRuntimeId(1),
+                out _));
+
+        Assert.Equal(
+            1UL,
+            fluidRevisions.Get(key));
+        Assert.Equal(
+            7,
+            fluidUpdates.TopologyCount);
+        Assert.True(
+            world.GetFluidOrEmpty(
+                    position)
+                .IsEmpty);
+    }
+
+    [Fact]
+    public void PortableBlockReplacingFluidPublishesConsequencesExactlyOnce()
+    {
+        var world = new VoxelWorld();
+        world.InsertChunk(
+            ChunkCoord.Zero,
+            new Chunk());
+        var position =
+            new WorldVoxelCoord(3, 3, 3);
+        var water =
+            new FluidRuntimeId(1);
+
+        Assert.True(
+            world.SetFluidAt(
+                position,
+                FluidCell.Source(water),
+                out _));
+
+        var worldUpdates = new WorldUpdateQueue();
+        var fluidUpdates = new FluidUpdateQueue();
+        var fluidMeshUpdates =
+            new FluidMeshUpdateQueue();
+        var physicsUpdates =
+            new BlockPhysicsUpdateQueue();
+        var terrainRevisions =
+            new MeshletContentRevisions();
+        var fluidRevisions =
+            new MeshletContentRevisions();
+        var runtime =
+            new VoxelMutationRuntime(
+                world,
+                worldUpdates,
+                fluidUpdates,
+                fluidMeshUpdates,
+                physicsUpdates,
+                terrainRevisions,
+                fluidRevisions);
+        var key =
+            new ChunkMeshletKey(
+                ChunkCoord.Zero,
+                0);
+
+        Assert.True(
+            runtime.SetBlockStateAt(
+                position,
+                BlockStateSnapshot.FromCell(
+                    new VoxelCell(
+                        new BlockRuntimeId(1))),
+                out _));
+
+        Assert.Equal(
+            1UL,
+            fluidRevisions.Get(key));
+        Assert.Equal(
+            7,
+            fluidUpdates.TopologyCount);
+        Assert.True(
+            world.GetFluidOrEmpty(
+                    position)
+                .IsEmpty);
+    }
+
+    [Fact]
+    public void BoundaryBlockEditInvalidatesFluidHaloAcrossChunksOnce()
+    {
+        var world = new VoxelWorld();
+        var left =
+            ChunkCoord.Zero;
+        var right =
+            new ChunkCoord(1, 0, 0);
+
+        world.InsertChunk(
+            left,
+            new Chunk());
+        world.InsertChunk(
+            right,
+            new Chunk());
+
+        var position =
+            new WorldVoxelCoord(
+                Chunk.Size - 1,
+                3,
+                3);
+        var worldUpdates = new WorldUpdateQueue();
+        var fluidUpdates = new FluidUpdateQueue();
+        var fluidMeshUpdates =
+            new FluidMeshUpdateQueue();
+        var physicsUpdates =
+            new BlockPhysicsUpdateQueue();
+        var terrainRevisions =
+            new MeshletContentRevisions();
+        var fluidRevisions =
+            new MeshletContentRevisions();
+        var runtime =
+            new VoxelMutationRuntime(
+                world,
+                worldUpdates,
+                fluidUpdates,
+                fluidMeshUpdates,
+                physicsUpdates,
+                terrainRevisions,
+                fluidRevisions);
+
+        Assert.True(
+            runtime.SetBlockAt(
+                position,
+                new BlockRuntimeId(1),
+                out _));
+
+        foreach (var coord in new[] { left, right })
+        {
+            var mask =
+                ChunkMeshletMask.ForWorldPosition(
+                    coord,
+                    position);
+
+            Assert.False(mask.IsEmpty);
+
+            foreach (var meshletIndex in
+                     mask.Indices())
+            {
+                Assert.Equal(
+                    1UL,
+                    fluidRevisions.Get(
+                        new ChunkMeshletKey(
+                            coord,
+                            meshletIndex)));
+            }
+        }
+
+        var dirty =
+            fluidMeshUpdates.Drain();
+
+        Assert.Contains(
+            left,
+            dirty.DirtyMeshlets.Keys);
+        Assert.Contains(
+            right,
+            dirty.DirtyMeshlets.Keys);
+
+        var topology =
+            fluidUpdates.DrainReady(
+                currentTick: 0,
+                maximumItems: 32);
+
+        Assert.Contains(
+            new WorldVoxelCoord(
+                Chunk.Size,
+                3,
+                3),
+            topology.TopologyPositions);
+    }
+
+    [Fact]
+    public void RemovingBlockImmediatelyWakesFluidTopologyForAuthoredDelay()
+    {
+        var world = new VoxelWorld();
+        world.InsertChunk(
+            ChunkCoord.Zero,
+            new Chunk());
+        var target =
+            new WorldVoxelCoord(3, 3, 3);
+        var above =
+            target + (0, 1, 0);
+        var fluids =
+            new FluidRegistry(
+            [
+                new FluidDefinition(
+                    "asteria:water",
+                    new FluidColor(79, 159, 214),
+                    opacity: 0.72f,
+                    spreadSpeed: 4f),
+            ]);
+        var water =
+            fluids.GetId("asteria:water");
+
+        Assert.True(
+            world.SetBlockAt(
+                target,
+                new BlockRuntimeId(1),
+                out _));
+        Assert.True(
+            world.SetFluidAt(
+                above,
+                FluidCell.Source(water),
+                out _));
+
+        var worldUpdates = new WorldUpdateQueue();
+        var fluidUpdates = new FluidUpdateQueue();
+        var fluidMeshUpdates =
+            new FluidMeshUpdateQueue();
+        var physicsUpdates =
+            new BlockPhysicsUpdateQueue();
+        var runtime =
+            new VoxelMutationRuntime(
+                world,
+                worldUpdates,
+                fluidUpdates,
+                fluidMeshUpdates,
+                physicsUpdates,
+                new MeshletContentRevisions(),
+                new MeshletContentRevisions());
+
+        Assert.True(
+            runtime.SetBlockAt(
+                target,
+                BlockRuntimeId.Air,
+                out _));
+
+        var batch =
+            fluidUpdates.DrainReady(
+                currentTick: 0,
+                maximumItems: 32);
+        var result =
+            FluidSimulationSolver.Process(
+                world,
+                fluids,
+                batch);
+
+        Assert.Contains(
+            result.ScheduleRequests,
+            request =>
+                request.Fluid == water &&
+                request.Position == target &&
+                !request.Neighborhood);
+        Assert.True(
+            world.GetFluidOrEmpty(
+                    target)
+                .IsEmpty);
+    }
+
+    [Fact]
     public void NoOpBlockEditDoesNotWakeDerivedSystemsAgain()
     {
         var world = new VoxelWorld();

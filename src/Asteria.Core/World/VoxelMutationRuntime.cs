@@ -42,11 +42,6 @@ public sealed class VoxelMutationRuntime
         VoxelCell cell,
         out VoxelWorldEdit edit)
     {
-        var displacedFluid =
-            cell.IsEmpty
-                ? FluidCell.Empty
-                : _world.GetFluidOrEmpty(position);
-
         if (!_world.SetCellAt(
                 position,
                 cell,
@@ -56,12 +51,6 @@ public sealed class VoxelMutationRuntime
         }
 
         EnqueueBlockEdit(position);
-
-        if (!displacedFluid.IsEmpty)
-        {
-            EnqueueFluidEdit(position);
-        }
-
         return true;
     }
 
@@ -70,9 +59,6 @@ public sealed class VoxelMutationRuntime
         BlockStateSnapshot state,
         out VoxelWorldEdit edit)
     {
-        var displacedFluid =
-            _world.GetFluidOrEmpty(position);
-
         if (!_world.SetBlockStateAt(
                 position,
                 state,
@@ -82,12 +68,6 @@ public sealed class VoxelMutationRuntime
         }
 
         EnqueueBlockEdit(position);
-
-        if (!displacedFluid.IsEmpty)
-        {
-            EnqueueFluidEdit(position);
-        }
-
         return true;
     }
 
