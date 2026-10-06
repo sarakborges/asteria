@@ -4,6 +4,9 @@ public sealed class BiomeWorldGenerator : IChunkProvider, IChunkSurfaceRangeProv
 {
     private readonly ulong _seed;
     private readonly int _seaLevel;
+    private readonly BlockRuntimeId _shellBlock;
+    private readonly int? _floorY;
+    private readonly int? _roofY;
     private readonly BlockRegistry _blocks;
     private readonly BiomeField _field;
     private readonly Dictionary<
@@ -34,6 +37,16 @@ public sealed class BiomeWorldGenerator : IChunkProvider, IChunkSurfaceRangeProv
         _seed = seed;
         _seaLevel =
             dimension.SeaLevel;
+        _shellBlock =
+            dimension.Shell is
+                { } shell
+                ? blocks.GetId(
+                    shell.Block)
+                : BlockRuntimeId.Air;
+        _floorY =
+            dimension.Shell?.FloorY;
+        _roofY =
+            dimension.Shell?.RoofY;
         DimensionId =
             dimension.Id;
         _field =
@@ -76,6 +89,13 @@ public sealed class BiomeWorldGenerator : IChunkProvider, IChunkSurfaceRangeProv
     public Chunk Materialize(
         ChunkCoord coord)
     {
+        if (coord.Y < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(coord),
+                "Sphere chunk Y cannot be negative.");
+        }
+
         var chunk =
             new Chunk();
         var (originX, originY, originZ) =
@@ -131,8 +151,21 @@ public sealed class BiomeWorldGenerator : IChunkProvider, IChunkSurfaceRangeProv
                             originY +
                             localY);
 
-                    if (worldY >
-                        surfaceY)
+                    if (IsShellY(
+                            worldY))
+                    {
+                        chunk.SetBlock(
+                            localX,
+                            localY,
+                            localZ,
+                            _shellBlock);
+                        continue;
+                    }
+
+                    if (IsOutsideSphere(
+                            worldY) ||
+                        worldY >
+                            surfaceY)
                     {
                         continue;
                     }
@@ -178,7 +211,11 @@ public sealed class BiomeWorldGenerator : IChunkProvider, IChunkSurfaceRangeProv
                     checked(
                         surfaceY +
                         1);
-                if (decorationY <
+                if (IsShellY(
+                        decorationY) ||
+                    IsOutsideSphere(
+                        decorationY) ||
+                    decorationY <
                         originY ||
                     decorationY >=
                         originY +
@@ -303,11 +340,45 @@ public sealed class BiomeWorldGenerator : IChunkProvider, IChunkSurfaceRangeProv
                 influence.Weight;
         }
 
-        return checked(
-            (int)Math.Floor(
-                height +
-                0.5d));
+        var surfaceY =
+            checked(
+                (int)Math.Floor(
+                    height +
+                    0.5d));
+
+        if (_roofY is
+                { } roofY &&
+            surfaceY >=
+                roofY)
+        {
+            surfaceY =
+                roofY -
+                1;
+        }
+
+        return surfaceY;
     }
+
+    private bool IsShellY(
+        int worldY) =>
+        !_shellBlock.IsAir &&
+        (
+            _floorY ==
+                worldY ||
+            _roofY ==
+                worldY
+        );
+
+    private bool IsOutsideSphere(
+        int worldY) =>
+        (_floorY is
+             { } floorY &&
+         worldY <
+             floorY) ||
+        (_roofY is
+             { } roofY &&
+         worldY >
+             roofY);
 
     private ResolvedBiomeProfile SelectProfile(
         BiomeSample sample,

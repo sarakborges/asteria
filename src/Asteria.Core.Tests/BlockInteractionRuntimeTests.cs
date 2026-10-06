@@ -53,6 +53,53 @@ public sealed class BlockInteractionRuntimeTests
     }
 
     [Fact]
+    public void UnbreakableBlockRejectsBreakWithoutMutationOrDrop()
+    {
+        var fixture =
+            CreateFixture(
+                new BlockDefinition(
+                    "asteria:sphere_shell",
+                    mining:
+                        new BlockMiningDefinition(
+                            unbreakable: true),
+                    dropsSelf: false));
+        var shell =
+            fixture.Blocks.GetId(
+                "asteria:sphere_shell");
+        var position =
+            new WorldVoxelCoord(2, 2, 2);
+
+        Assert.True(
+            fixture.Mutations.SetBlockAt(
+                position,
+                shell,
+                out _));
+
+        var decision =
+            fixture.Interactions.Break(
+                new VoxelWorldHit(
+                    position,
+                    0,
+                    0,
+                    0));
+
+        Assert.False(
+            decision.Accepted);
+        Assert.Equal(
+            BlockBreakRejection.Unbreakable,
+            decision.Rejection);
+        Assert.Equal(
+            shell,
+            fixture.World
+                .GetCellOrEmpty(
+                    position)
+                .Block);
+        Assert.Equal(
+            0,
+            fixture.Dropped.ActiveCount);
+    }
+
+    [Fact]
     public void DropsSelfFalseBreaksWithoutSpawningDrop()
     {
         var fixture =

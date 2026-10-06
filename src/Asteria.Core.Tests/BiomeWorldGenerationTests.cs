@@ -322,6 +322,104 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
+    public void SphereShellMaterializesFloorAndRoofAndRejectsNegativeChunks()
+    {
+        var blocks =
+            new BlockRegistry(
+            [
+                new BlockDefinition(
+                    "asteria:sphere_shell",
+                    mining:
+                        new BlockMiningDefinition(
+                            unbreakable: true),
+                    dropsSelf: false),
+                new BlockDefinition(
+                    "asteria:stone"),
+            ]);
+        var biome =
+            TestBiome(
+                "asteria:test/plain",
+                baseHeightOffset: 20f);
+        var dimension =
+            new DimensionDefinition(
+                new DimensionId(
+                    "asteria:test"),
+                [
+                    biome.Id,
+                ],
+                seaLevel: 0,
+                gravityStrength: 18f,
+                new DimensionSpawnDefinition(
+                    0,
+                    0),
+                new DimensionEnvironmentDefinition(
+                    new DimensionColor(0, 0, 0),
+                    new DimensionColor(255, 255, 255),
+                    1f,
+                    new DimensionColor(0, 0, 0),
+                    0f),
+                new DimensionShellDefinition(
+                    "asteria:sphere_shell",
+                    floorY: 0,
+                    roofY: 12));
+        var generator =
+            new BiomeWorldGenerator(
+                5,
+                dimension,
+                blocks,
+                new BiomeRegistry(
+                [
+                    biome,
+                ]));
+        var chunk =
+            generator.Materialize(
+                ChunkCoord.Zero);
+        var shell =
+            blocks.GetId(
+                "asteria:sphere_shell");
+        var stone =
+            blocks.GetId(
+                "asteria:stone");
+
+        Assert.Equal(
+            11,
+            generator.SurfaceHeight(
+                0,
+                0));
+        Assert.Equal(
+            shell,
+            chunk.GetBlock(
+                0,
+                0,
+                0));
+        Assert.Equal(
+            stone,
+            chunk.GetBlock(
+                0,
+                11,
+                0));
+        Assert.Equal(
+            shell,
+            chunk.GetBlock(
+                0,
+                12,
+                0));
+        Assert.True(
+            chunk.GetCell(
+                    0,
+                    13,
+                    0)
+                .IsEmpty);
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () =>
+                generator.Materialize(
+                    new ChunkCoord(
+                        0,
+                        -1,
+                        0)));
+    }
+
+    [Fact]
     public void DimensionSeaLevelOffsetsAuthoredBiomeHeight()
     {
         var blocks =

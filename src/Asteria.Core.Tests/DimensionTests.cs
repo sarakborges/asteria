@@ -14,6 +14,10 @@ public sealed class DimensionTests
 
         dimensions.ValidateBiomes(
             biomes);
+        var blocks =
+            LoadDefaultBlocks();
+        dimensions.ValidateBlocks(
+            blocks);
 
         Assert.Equal(
             2,
@@ -70,9 +74,35 @@ public sealed class DimensionTests
         Assert.Equal(
             18f,
             umbral.GravityStrength);
+        Assert.Equal(
+            "asteria:sphere_shell",
+            overworld.Shell?.Block);
+        Assert.Equal(
+            0,
+            overworld.Shell?.FloorY);
+        Assert.Null(
+            overworld.Shell?.RoofY);
+        Assert.Equal(
+            "asteria:sphere_shell",
+            umbral.Shell?.Block);
+        Assert.Equal(
+            0,
+            umbral.Shell?.FloorY);
+        Assert.Null(
+            umbral.Shell?.RoofY);
         Assert.True(
             umbral.Environment.FogDensity >
             overworld.Environment.FogDensity);
+    }
+
+    [Fact]
+    public void SphereShellRejectsNegativeFloor()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () =>
+                new DimensionShellDefinition(
+                    "asteria:sphere_shell",
+                    floorY: -1));
     }
 
     [Fact]

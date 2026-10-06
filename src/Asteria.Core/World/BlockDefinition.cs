@@ -154,7 +154,7 @@ public sealed class BlockDefinition
         return result;
     }
 
-    private static void ValidateId(string id)
+    internal static void ValidateId(string id)
     {
         if (string.IsNullOrWhiteSpace(id) || id != id.Trim())
         {

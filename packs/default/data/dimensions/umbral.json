@@ -7,6 +7,10 @@
   ],
   "seaLevel": 90,
   "gravityStrength": 18,
+  "shell": {
+    "block": "asteria:sphere_shell",
+    "floorY": 0
+  },
   "spawn": {
     "x": 0,
     "z": 0

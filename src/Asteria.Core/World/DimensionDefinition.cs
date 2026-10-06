@@ -32,6 +32,57 @@ public sealed record DimensionSpawnDefinition(
     int X,
     int Z);
 
+public sealed class DimensionShellDefinition
+{
+    public DimensionShellDefinition(
+        string block,
+        int? floorY = null,
+        int? roofY = null)
+    {
+        BlockDefinition.ValidateId(
+            block);
+
+        if (floorY is null &&
+            roofY is null)
+        {
+            throw new ArgumentException(
+                "Sphere shell must define a floor, a roof, or both.");
+        }
+
+        if (floorY is < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(floorY),
+                "Sphere shell floor cannot use negative Y.");
+        }
+
+        if (roofY is < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(roofY),
+                "Sphere shell roof cannot use negative Y.");
+        }
+
+        if (floorY is { } floor &&
+            roofY is { } roof &&
+            (long)roof - floor <= 1L)
+        {
+            throw new ArgumentException(
+                "Sphere shell roof must leave at least one interior voxel above the floor.");
+        }
+
+        Block = block;
+        FloorY = floorY;
+        RoofY = roofY;
+    }
+
+    public string Block { get; }
+
+    public int? FloorY { get; }
+
+    public int? RoofY { get; }
+}
+
 public sealed class DimensionEnvironmentDefinition
 {
     public DimensionEnvironmentDefinition(
@@ -85,7 +136,8 @@ public sealed class DimensionDefinition
         int seaLevel,
         float gravityStrength,
         DimensionSpawnDefinition spawn,
-        DimensionEnvironmentDefinition environment)
+        DimensionEnvironmentDefinition environment,
+        DimensionShellDefinition? shell = null)
     {
         if (!float.IsFinite(gravityStrength) ||
             gravityStrength < 0f ||
@@ -142,6 +194,7 @@ public sealed class DimensionDefinition
             environment ??
             throw new ArgumentNullException(
                 nameof(environment));
+        Shell = shell;
     }
 
     public DimensionId Id { get; }
@@ -155,4 +208,6 @@ public sealed class DimensionDefinition
     public DimensionSpawnDefinition Spawn { get; }
 
     public DimensionEnvironmentDefinition Environment { get; }
+
+    public DimensionShellDefinition? Shell { get; }
 }

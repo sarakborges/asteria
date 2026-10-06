@@ -74,7 +74,40 @@ public static class DimensionDefinitionJson
                     "environment.fogColor"),
                 RequiredSingle(
                     environment,
-                    "fogDensity")));
+                    "fogDensity")),
+            ParseShell(
+                root));
+    }
+
+    private static DimensionShellDefinition? ParseShell(
+        JsonElement root)
+    {
+        if (!root.TryGetProperty(
+                "shell",
+                out var shell) ||
+            shell.ValueKind ==
+                JsonValueKind.Null)
+        {
+            return null;
+        }
+
+        if (shell.ValueKind !=
+            JsonValueKind.Object)
+        {
+            throw new FormatException(
+                "shell must be an object.");
+        }
+
+        return new DimensionShellDefinition(
+            RequiredString(
+                shell,
+                "block"),
+            OptionalInt32(
+                shell,
+                "floorY"),
+            OptionalInt32(
+                shell,
+                "roofY"));
     }
 
     private static JsonElement RequiredObject(
@@ -151,6 +184,31 @@ public static class DimensionDefinitionJson
         {
             throw new FormatException(
                 $"{name} must be a number.");
+        }
+
+        return result;
+    }
+
+    private static int? OptionalInt32(
+        JsonElement parent,
+        string name)
+    {
+        if (!parent.TryGetProperty(
+                name,
+                out var value) ||
+            value.ValueKind ==
+                JsonValueKind.Null)
+        {
+            return null;
+        }
+
+        if (value.ValueKind !=
+                JsonValueKind.Number ||
+            !value.TryGetInt32(
+                out var result))
+        {
+            throw new FormatException(
+                $"{name} must be an integer.");
         }
 
         return result;

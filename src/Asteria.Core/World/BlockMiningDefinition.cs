@@ -5,7 +5,8 @@ public sealed class BlockMiningDefinition
     public BlockMiningDefinition(
         float hardness = 1f,
         IEnumerable<string>? requiredTools = null,
-        IEnumerable<string>? preferredTools = null)
+        IEnumerable<string>? preferredTools = null,
+        bool unbreakable = false)
     {
         if (!float.IsFinite(hardness) || hardness < 0f)
         {
@@ -15,11 +16,13 @@ public sealed class BlockMiningDefinition
         Hardness = hardness;
         RequiredTools = ValidateTags(requiredTools, nameof(requiredTools));
         PreferredTools = ValidateTags(preferredTools, nameof(preferredTools));
+        Unbreakable = unbreakable;
     }
 
     public float Hardness { get; }
     public IReadOnlyList<string> RequiredTools { get; }
     public IReadOnlyList<string> PreferredTools { get; }
+    public bool Unbreakable { get; }
 
     private static IReadOnlyList<string> ValidateTags(IEnumerable<string>? values, string parameterName)
     {

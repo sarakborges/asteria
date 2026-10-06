@@ -74,6 +74,31 @@ public sealed class DimensionRegistry
         Definitions() =>
         _definitions;
 
+    public void ValidateBlocks(
+        BlockRegistry blocks)
+    {
+        ArgumentNullException.ThrowIfNull(
+            blocks);
+
+        foreach (var dimension in
+                 _definitions)
+        {
+            if (dimension.Shell is not
+                { } shell)
+            {
+                continue;
+            }
+
+            if (!blocks.TryGetId(
+                    shell.Block,
+                    out _))
+            {
+                throw new ArgumentException(
+                    $"Dimension {dimension.Id} references missing sphere shell block {shell.Block}.");
+            }
+        }
+    }
+
     public void ValidateBiomes(
         BiomeRegistry biomes)
     {

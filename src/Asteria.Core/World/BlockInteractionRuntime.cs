@@ -45,6 +45,14 @@ public sealed class BlockInteractionRuntime
         var definition =
             _blocks.GetDefinition(
                 decision.Cell.Block);
+
+        if (definition.Mining.Unbreakable)
+        {
+            return BlockBreakDecision.Reject(
+                decision.Position,
+                BlockBreakRejection.Unbreakable);
+        }
+
         var snapshot =
             definition.DropsSelf
                 ? BlockStateSnapshot.Capture(

@@ -128,6 +128,39 @@ public sealed class BlockContentTests
         Assert.True(sand.HasTag("gravity"));
         Assert.True(gravel.HasTag("gravity"));
         Assert.True(stone.DropsSelf);
+
+        var sphereShell =
+            registry.GetDefinition(
+                registry.GetId(
+                    "asteria:sphere_shell"));
+        Assert.True(
+            sphereShell.Mining.Unbreakable);
+        Assert.False(
+            sphereShell.DropsSelf);
+    }
+
+    [Fact]
+    public void UnbreakableCanBeEnabledByAuthoredContent()
+    {
+        const string json = """
+            {
+              "id": "asteria:fixture",
+              "mining": {
+                "unbreakable": true
+              }
+            }
+            """;
+
+        var registry =
+            BlockRegistry.FromJson([json]);
+
+        Assert.True(
+            registry
+                .GetDefinition(
+                    registry.GetId(
+                        "asteria:fixture"))
+                .Mining
+                .Unbreakable);
     }
 
     [Fact]

@@ -416,7 +416,8 @@ public static class BlockDefinitionJson
         return new BlockMiningDefinition(
             OptionalSingle(mining, "hardness") ?? 1f,
             StringArray(mining, "requiredTools"),
-            StringArray(mining, "preferredTools"));
+            StringArray(mining, "preferredTools"),
+            OptionalBoolean(mining, "unbreakable") ?? false);
     }
 
     private static BlockTint ParseTint(string? value) => value switch
