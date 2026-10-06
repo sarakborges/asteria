@@ -11,6 +11,7 @@ The current milestone proves the base runtime architecture without introducing w
 - `VoxelCell` runtime state separated from block definitions;
 - 16×16×16 chunks with palette-backed voxel storage;
 - multi-chunk `VoxelWorld` runtime with world-space reads/writes across chunk boundaries;
+- one authoritative voxel-mutation runtime for block edits: successful mutations invalidate terrain and fluid meshlets, enqueue incremental lighting, and wake local fluid topology together;
 - player-centered chunk streaming with desired/retained residency, async deterministic QA materialization, prioritized load queues and visibility hysteresis;
 - zero-copy in-memory session archive for edited chunks: eviction moves dirty chunks out of residency and restore happens before provider materialization; pristine deterministic chunks are dropped and regenerated instead of consuming archive memory;
 - adaptive world-work budgets modeled after Mineclone: roughly 2 ms under frame pressure, 3 ms at normal cadence and 4 ms when frames are fast;

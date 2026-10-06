@@ -43,6 +43,7 @@ public partial class Main : Node3D
         _pendingFluidMeshletPublications = new();
 
     private readonly VoxelWorld _world = new();
+    private VoxelMutationRuntime _mutations = null!;
 
     private Task<MeshUpdateBuild>? _meshTask;
     private Task<FluidMeshUpdateBuild>? _fluidMeshTask;
@@ -67,6 +68,13 @@ public partial class Main : Node3D
     public override void _Ready()
     {
         SetupWebUi();
+        _mutations = new VoxelMutationRuntime(
+            _world,
+            _worldUpdates,
+            _fluidUpdates,
+            _fluidMeshUpdates,
+            _contentRevisions,
+            _fluidContentRevisions);
 
         _blocks = BlockContentLoader.LoadProjectBlocks();
         _fluids = FluidContentLoader.LoadProjectFluids();
@@ -776,12 +784,12 @@ public partial class Main : Node3D
 
         _placementBlock = cell.Block;
 
-        if (_world.SetBlockAt(
+        if (_mutations.SetBlockAt(
                 hitVoxel,
                 BlockRuntimeId.Air,
-                out var edit))
+                out _))
         {
-            QueueVoxelEdit(edit.Position);
+            KickWorldMutationWorkers();
         }
     }
 
@@ -813,28 +821,19 @@ public partial class Main : Node3D
             return;
         }
 
-        if (_world.SetBlockAt(
+        if (_mutations.SetBlockAt(
                 target,
                 _placementBlock,
-                out var edit))
+                out _))
         {
-            QueueVoxelEdit(edit.Position);
+            KickWorldMutationWorkers();
         }
     }
 
-    private void QueueVoxelEdit(
-        WorldVoxelCoord position)
+    private void KickWorldMutationWorkers()
     {
-        _contentRevisions.BumpVoxelEdit(
-            _world,
-            position);
-        _worldUpdates.EnqueueVoxelEdit(
-            _world,
-            position);
-        _fluidUpdates.EnqueueTopologyNeighborhood(
-            position);
-
         TryStartFluidTask();
+        TryStartFluidMeshTask();
         TryStartMeshTask();
         TryStartLightingTask();
     }
