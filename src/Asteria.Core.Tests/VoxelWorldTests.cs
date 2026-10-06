@@ -314,6 +314,107 @@ public sealed class VoxelWorldTests
     }
 
     [Fact]
+    public void MeshWorkerSnapshotClonesOnlySelectedMeshletDependencies()
+    {
+        var world =
+            new VoxelWorld();
+        var center =
+            new ChunkCoord(
+                0,
+                1,
+                0);
+
+        for (var y = 0;
+             y <= 2;
+             y++)
+        {
+            for (var z = -1;
+                 z <= 1;
+                 z++)
+            {
+                for (var x = -1;
+                     x <= 1;
+                     x++)
+                {
+                    world.InsertChunk(
+                        new ChunkCoord(
+                            x,
+                            y,
+                            z),
+                        new Chunk());
+                }
+            }
+        }
+
+        var snapshot =
+            world.CaptureMeshWorkerSnapshot(
+                new Dictionary<ChunkCoord, ChunkMeshletMask>
+                {
+                    [center] =
+                        ChunkMeshletMask.Single(0),
+                });
+
+        var loaded =
+            snapshot.World.LoadedChunkCoords
+                .OrderBy(coord => coord.Y)
+                .ThenBy(coord => coord.Z)
+                .ThenBy(coord => coord.X)
+                .ToArray();
+
+        Assert.Equal(
+            new[]
+            {
+                new ChunkCoord(-1, 0, -1),
+                new ChunkCoord(0, 0, -1),
+                new ChunkCoord(-1, 0, 0),
+                new ChunkCoord(0, 0, 0),
+                new ChunkCoord(-1, 1, -1),
+                new ChunkCoord(0, 1, -1),
+                new ChunkCoord(-1, 1, 0),
+                new ChunkCoord(0, 1, 0),
+            },
+            loaded);
+    }
+
+    [Fact]
+    public void MeshWorkerDependenciesDetectPreviouslyAbsentNeighbor()
+    {
+        var world =
+            new VoxelWorld();
+        var center =
+            new ChunkCoord(
+                0,
+                1,
+                0);
+        world.InsertChunk(
+            center,
+            new Chunk());
+
+        var snapshot =
+            world.CaptureMeshWorkerSnapshot(
+                new Dictionary<ChunkCoord, ChunkMeshletMask>
+                {
+                    [center] =
+                        ChunkMeshletMask.Single(0),
+                });
+
+        Assert.True(
+            snapshot.Dependencies.IsCurrent(
+                world));
+
+        world.InsertChunk(
+            new ChunkCoord(
+                -1,
+                1,
+                0),
+            new Chunk());
+
+        Assert.False(
+            snapshot.Dependencies.IsCurrent(
+                world));
+    }
+
+    [Fact]
     public void WorkerCloneKeepsIndependentChunkStateAndRevision()
     {
         var world = new VoxelWorld();
