@@ -12,19 +12,6 @@ export function createHudController(
   view: GameHudPageView,
   postMessage: (type: string, payload?: unknown) => void,
 ): HudController {
-  let debugVisible = false;
-
-  const handleContextMenu = (event: Event): void => {
-    event.preventDefault();
-  };
-
-  const handleKeyDown = (event: KeyboardEvent): void => {
-    if (event.key !== "F3") return;
-    event.preventDefault();
-    debugVisible = !debugVisible;
-    view.shell.setDebugVisible(debugVisible);
-  };
-
   const handlePing = (): void => {
     view.statusCard.lastMessage.textContent =
       "webui → godot: ping sent";
@@ -33,8 +20,6 @@ export function createHudController(
 
   return {
     mount() {
-      document.addEventListener("contextmenu", handleContextMenu);
-      document.addEventListener("keydown", handleKeyDown);
       view.statusCard.pingButton.addEventListener("click", handlePing);
     },
 
@@ -46,6 +31,14 @@ export function createHudController(
         case "game.ui_theme":
           applyUiTheme(message.payload);
           break;
+
+        case "game.hud.debug": {
+          const payload = asRecord(message.payload);
+          view.shell.setDebugVisible(
+            payload?.visible === true,
+          );
+          break;
+        }
 
         case "game.hud.hotbar":
           applyHotbar(view, message.payload);

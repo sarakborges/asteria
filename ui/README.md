@@ -32,6 +32,8 @@ Godot transport is not a component concern:
 
 Do not put bridge calls, global event listeners, or gameplay message parsing inside atoms, molecules, organisms, or templates.
 
+Global/gameplay keyboard and mouse input belongs to Godot, not the browser. Do not attach `document`/`window` keyboard or mouse listeners for gameplay controls, captured mouse, hotkeys or debug toggles. Browser events are allowed only for explicit interaction with a WebUI control/surface; controllers exchange semantic UI actions/state over the bridge.
+
 The gameplay HUD currently composes crosshair, hotbar, player vitals, status effects, contextual prompts and bounded toasts. Surfaces that do not yet have authoritative gameplay state remain hidden rather than fabricating UI state. The runtime/debug status card is a separate debug overlay and is not part of the normal HUD.
 
 ## Storybook
