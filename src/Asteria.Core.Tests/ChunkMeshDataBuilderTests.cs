@@ -52,6 +52,104 @@ public sealed class ChunkMeshDataBuilderTests
     }
 
     [Fact]
+    public void CrossedSpriteBuildsDoubleSidedCutoutWithoutCollision()
+    {
+        var texture =
+            new BlockTextureLayer(
+                "textures/objects/grass.png",
+                dyable: true);
+        var blocks =
+            new BlockRegistry(
+            [
+                new BlockDefinition(
+                    "asteria:grass",
+                    tint: BlockTint.Foliage,
+                    visual:
+                        BlockVisualDefinition.CrossedSprite(
+                            texture,
+                            width: 0.72f,
+                            height: 0.62f,
+                            planes: 2),
+                    isCollidable: false,
+                    renderMode: BlockRenderMode.Cutout,
+                    castsShadow: false,
+                    lightDampening: 0,
+                    previewColor:
+                        new BlockPreviewColor(
+                            111,
+                            159,
+                            80)),
+            ]);
+        var grass =
+            blocks.GetId(
+                "asteria:grass");
+        var chunk =
+            new Chunk();
+        chunk.SetBlock(
+            1,
+            1,
+            1,
+            grass);
+
+        ChunkLightingSolver.Initialize(
+            chunk,
+            blocks,
+            new FluidRegistry([]));
+
+        var world =
+            new VoxelWorld();
+        world.InsertChunk(
+            ChunkCoord.Zero,
+            chunk);
+
+        var data =
+            ChunkMeshDataBuilder.BuildMeshlet(
+                world,
+                ChunkCoord.Zero,
+                blocks,
+                new TerrainTextureLookup(
+                    new Dictionary<string, int>
+                    {
+                        ["textures/objects/grass.png"] = 3,
+                    }),
+                meshletIndex: 0);
+
+        var batch =
+            Assert.Single(
+                data.RenderBatches);
+
+        Assert.Equal(
+            BlockRenderMode.Cutout,
+            batch.Batch.RenderMode);
+        Assert.Equal(
+            8,
+            batch.TriangleCount);
+        Assert.Equal(
+            0,
+            data.CollisionTriangleCount);
+        Assert.All(
+            batch.Vertices,
+            vertex =>
+            {
+                Assert.InRange(
+                    vertex.Position.X,
+                    1f,
+                    2f);
+                Assert.InRange(
+                    vertex.Position.Y,
+                    1f,
+                    1.62f);
+                Assert.InRange(
+                    vertex.Position.Z,
+                    1f,
+                    2f);
+                Assert.Equal(
+                    3.25f,
+                    vertex.EncodedTextureLayers.X);
+            });
+    }
+
+    [Fact]
     public void FluidGeometryBuildsWithoutGodotTypes()
     {
         var blocks =
