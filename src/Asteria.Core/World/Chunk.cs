@@ -8,6 +8,7 @@ public sealed class Chunk
 
     private readonly PaletteStorage<VoxelCell> _cells = new();
     private readonly MicroblockMaskPalette _microblockMasks = new();
+    private readonly VoxelLight[] _light = new VoxelLight[Volume];
 
     public ulong Revision { get; private set; }
 
@@ -51,6 +52,23 @@ public sealed class Chunk
 
     public bool SetBlock(int x, int y, int z, BlockRuntimeId block) =>
         SetCell(x, y, z, new VoxelCell(block));
+
+    public VoxelLight GetLight(int x, int y, int z)
+    {
+        ValidateCoordinates(x, y, z);
+        return _light[ToIndex(x, y, z)];
+    }
+
+    public void SetLight(int x, int y, int z, VoxelLight light)
+    {
+        ValidateCoordinates(x, y, z);
+        _light[ToIndex(x, y, z)] = light;
+    }
+
+    public void ClearLight()
+    {
+        Array.Clear(_light);
+    }
 
     public MicroblockMask GetMicroblockMask(int x, int y, int z)
     {

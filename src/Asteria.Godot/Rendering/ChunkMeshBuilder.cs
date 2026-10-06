@@ -11,6 +11,7 @@ public static class ChunkMeshBuilder
 
     // Godot treats clockwise triangle winding as the front face.
     private static readonly int[] TriangleOrder = [0, 2, 1, 0, 3, 2];
+    private static readonly int[] FlippedTriangleOrder = [0, 3, 1, 1, 3, 2];
 
     private static readonly BlockFace[] Faces =
     [
@@ -30,6 +31,7 @@ public static class ChunkMeshBuilder
     {
         var surface = new SurfaceTool();
         surface.Begin(Mesh.PrimitiveType.Triangles);
+        surface.SetCustomFormat(0, SurfaceTool.CustomFormat.Rgba8Unorm);
 
         for (var y = 0; y < Chunk.Size; y++)
         {
@@ -123,6 +125,13 @@ public static class ChunkMeshBuilder
             }
 
             var faceMaterial = ResolveFaceMaterial(textures, definition, cell, face);
+            var faceLighting = VoxelMeshLighting.SampleFace(
+                chunk,
+                blocks,
+                x,
+                y,
+                z,
+                face);
             AddQuad(
                 surface,
                 origin,
@@ -130,7 +139,8 @@ public static class ChunkMeshBuilder
                 FaceCorners(face),
                 face,
                 cell,
-                faceMaterial);
+                faceMaterial,
+                faceLighting);
         }
     }
 
@@ -171,6 +181,13 @@ public static class ChunkMeshBuilder
         foreach (var face in Faces)
         {
             var faceMaterial = ResolveFaceMaterial(textures, definition, cell, face);
+            var faceLighting = VoxelMeshLighting.SampleFace(
+                chunk,
+                blocks,
+                blockX,
+                blockY,
+                blockZ,
+                face);
 
             for (var depth = 0; depth < FineResolution; depth++)
             {
@@ -219,7 +236,8 @@ public static class ChunkMeshBuilder
                     depth,
                     visible,
                     cell,
-                    faceMaterial);
+                    faceMaterial,
+                    faceLighting);
             }
         }
     }
@@ -306,7 +324,8 @@ public static class ChunkMeshBuilder
         int depth,
         bool[] visible,
         VoxelCell cell,
-        TerrainFaceMaterial faceMaterial)
+        TerrainFaceMaterial faceMaterial,
+        VoxelFaceLighting faceLighting)
     {
         for (var v = 0; v < FineResolution; v++)
         {
@@ -363,7 +382,8 @@ public static class ChunkMeshBuilder
                     width,
                     height,
                     cell,
-                    faceMaterial);
+                    faceMaterial,
+                    faceLighting);
             }
         }
     }
@@ -378,7 +398,8 @@ public static class ChunkMeshBuilder
         int width,
         int height,
         VoxelCell cell,
-        TerrainFaceMaterial faceMaterial)
+        TerrainFaceMaterial faceMaterial,
+        VoxelFaceLighting faceLighting)
     {
         var (minX, minY, minZ) = FinePosition(face, depth, u, v);
         var lowerX = minX;
@@ -443,7 +464,11 @@ public static class ChunkMeshBuilder
         var corners = FaceCorners(face);
         var normal = FaceNormal(face);
 
-        foreach (var index in TriangleOrder)
+        var triangleOrder = faceLighting.ShouldFlipDiagonal
+            ? FlippedTriangleOrder
+            : TriangleOrder;
+
+        foreach (var index in triangleOrder)
         {
             var selector = corners[index];
             var local = new Vector3(
@@ -458,7 +483,8 @@ public static class ChunkMeshBuilder
                 face,
                 local,
                 cell,
-                faceMaterial);
+                faceMaterial,
+                faceLighting[index]);
         }
     }
 
@@ -469,9 +495,14 @@ public static class ChunkMeshBuilder
         Vector3[] corners,
         BlockFace face,
         VoxelCell cell,
-        TerrainFaceMaterial faceMaterial)
+        TerrainFaceMaterial faceMaterial,
+        VoxelFaceLighting faceLighting)
     {
-        foreach (var index in TriangleOrder)
+        var triangleOrder = faceLighting.ShouldFlipDiagonal
+            ? FlippedTriangleOrder
+            : TriangleOrder;
+
+        foreach (var index in triangleOrder)
         {
             var local = corners[index];
             WriteVertex(
@@ -481,7 +512,8 @@ public static class ChunkMeshBuilder
                 face,
                 local,
                 cell,
-                faceMaterial);
+                faceMaterial,
+                faceLighting[index]);
         }
     }
 
@@ -492,7 +524,8 @@ public static class ChunkMeshBuilder
         BlockFace worldFace,
         Vector3 local,
         VoxelCell cell,
-        TerrainFaceMaterial faceMaterial)
+        TerrainFaceMaterial faceMaterial,
+        VoxelVertexLighting lighting)
     {
         var uv = MacroUv(worldFace, local);
         var uvRotation = BlockUvRotation.ForWorldFace(
@@ -503,7 +536,18 @@ public static class ChunkMeshBuilder
         uv = RotateUv(uv, uvRotation);
 
         surface.SetNormal(normal);
-        surface.SetColor(faceMaterial.Tint);
+        surface.SetColor(new Color(
+            faceMaterial.Tint.R,
+            faceMaterial.Tint.G,
+            faceMaterial.Tint.B,
+            lighting.AmbientOcclusion));
+        surface.SetCustom(
+            0,
+            new Color(
+                lighting.Sky,
+                lighting.BlockRed,
+                lighting.BlockGreen,
+                lighting.BlockBlue));
         surface.SetUV(uv);
         surface.SetUV2(faceMaterial.EncodedLayers);
         surface.AddVertex(position);

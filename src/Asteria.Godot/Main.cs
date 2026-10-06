@@ -20,7 +20,6 @@ public partial class Main : Node3D
 
     public override void _Ready()
     {
-        SetupLighting();
         SetupWebUi();
 
         var blocks = BlockContentLoader.LoadProjectBlocks();
@@ -32,7 +31,12 @@ public partial class Main : Node3D
             $"{_terrainTextures.TextureCount} terrain textures");
 
         // Temporary QA fixture only. This is not a world-generation path.
-        _fixtureTask = Task.Run(() => TestChunkFactory.Create(blocks));
+        _fixtureTask = Task.Run(() =>
+        {
+            var fixture = TestChunkFactory.Create(blocks);
+            ChunkLightingSolver.Initialize(fixture.Chunk, blocks);
+            return fixture;
+        });
     }
 
     public override void _Process(double delta)
@@ -50,7 +54,7 @@ public partial class Main : Node3D
             _chunkAttached = true;
 
             GD.Print(
-                $"test-5: texture-array terrain + partial geometry ready; " +
+                $"test-6: voxel lighting + AO + textured partial geometry ready; " +
                 $"voxels={fixture.Chunk.NonEmptyVoxelCount}, " +
                 $"palette={fixture.Chunk.PaletteEntryCount}");
             SendWebUi("game.chunk_ready", new
@@ -188,25 +192,4 @@ public partial class Main : Node3D
         AddChild(_player);
     }
 
-    private void SetupLighting()
-    {
-        var sun = new DirectionalLight3D
-        {
-            Name = "Sun",
-            RotationDegrees = new Vector3(-55f, -35f, 0f),
-            LightEnergy = 1.35f,
-            ShadowEnabled = true,
-        };
-
-        var fill = new DirectionalLight3D
-        {
-            Name = "FillLight",
-            RotationDegrees = new Vector3(-35f, 145f, 0f),
-            LightEnergy = 0.55f,
-            ShadowEnabled = false,
-        };
-
-        AddChild(sun);
-        AddChild(fill);
-    }
 }

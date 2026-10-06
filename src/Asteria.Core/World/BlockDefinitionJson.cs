@@ -33,11 +33,7 @@ public static class BlockDefinitionJson
                 ? BlockRenderMode.Cutout
                 : BlockRenderMode.Opaque;
 
-        var emission = OptionalByte(root, "lightEmission") ?? (byte)0;
-        if (emission > 15)
-        {
-            throw new FormatException($"Block {id} lightEmission must be within 0..15.");
-        }
+        var emission = ParseLightEmission(root, id);
 
         var previewColor = root.TryGetProperty("previewColor", out var previewElement)
             ? BlockPreviewColor.Parse(previewElement.GetString() ?? throw new FormatException($"Block {id} previewColor must be a string."))
@@ -58,8 +54,55 @@ public static class BlockDefinitionJson
             renderMode: renderMode,
             castsShadow: castsShadow,
             lightDampening: lightDampening,
-            lightEmission: new BlockLightEmission(emission, emission, emission),
+            lightEmission: emission,
             previewColor: previewColor);
+    }
+
+    private static BlockLightEmission ParseLightEmission(JsonElement root, string blockId)
+    {
+        if (!root.TryGetProperty("lightEmission", out var emission) ||
+            emission.ValueKind == JsonValueKind.Null)
+        {
+            return default;
+        }
+
+        if (emission.ValueKind == JsonValueKind.Number)
+        {
+            if (!emission.TryGetByte(out var level) || level > VoxelLight.MaxLevel)
+            {
+                throw new FormatException($"Block {blockId} lightEmission must be within 0..15.");
+            }
+
+            return new BlockLightEmission(level, level, level);
+        }
+
+        if (emission.ValueKind != JsonValueKind.Object)
+        {
+            throw new FormatException(
+                $"Block {blockId} lightEmission must be a 0..15 number or RGB object.");
+        }
+
+        var red = RequiredLightChannel(emission, "red", blockId);
+        var green = RequiredLightChannel(emission, "green", blockId);
+        var blue = RequiredLightChannel(emission, "blue", blockId);
+        return new BlockLightEmission(red, green, blue);
+    }
+
+    private static byte RequiredLightChannel(
+        JsonElement emission,
+        string channel,
+        string blockId)
+    {
+        if (!emission.TryGetProperty(channel, out var value) ||
+            value.ValueKind != JsonValueKind.Number ||
+            !value.TryGetByte(out var level) ||
+            level > VoxelLight.MaxLevel)
+        {
+            throw new FormatException(
+                $"Block {blockId} lightEmission.{channel} must be within 0..15.");
+        }
+
+        return level;
     }
 
     private static BlockShapeDefinition ParseShape(JsonElement root)
