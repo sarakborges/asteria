@@ -1,3 +1,5 @@
+using Asteria.Client.Content;
+using Asteria.Core.Content;
 using Asteria.Core.World;
 using Godot;
 
@@ -29,7 +31,9 @@ public sealed class TerrainTextureCatalog
     public TerrainTextureLookup CreateLookup() =>
         new(_indices);
 
-    public static TerrainTextureCatalog Create(BlockRegistry blocks)
+    public static TerrainTextureCatalog Create(
+        BlockRegistry blocks,
+        PackSelection selection)
     {
         ArgumentNullException.ThrowIfNull(blocks);
 
@@ -44,7 +48,7 @@ public sealed class TerrainTextureCatalog
         var loaded = new List<(string Path, Image Image)>(paths.Length);
         foreach (var path in paths)
         {
-            loaded.Add((path, LoadImage(path)));
+            loaded.Add((path, LoadImage(selection, path)));
         }
 
         var width = loaded.Count > 0 ? loaded[0].Image.GetWidth() : FallbackSize;
@@ -76,11 +80,14 @@ public sealed class TerrainTextureCatalog
         return new TerrainTextureCatalog(textureArray, indices);
     }
 
-    private static Image LoadImage(string relativePath)
+    private static Image LoadImage(
+        PackSelection selection,
+        string relativePath)
     {
-        var resourcePath = relativePath.StartsWith("res://", StringComparison.Ordinal)
-            ? relativePath
-            : $"res://{relativePath}";
+        var resourcePath =
+            ProjectPackPaths.Resource(
+                selection,
+                relativePath);
 
         var texture = ResourceLoader.Load<Texture2D>(resourcePath);
         if (texture is null)
