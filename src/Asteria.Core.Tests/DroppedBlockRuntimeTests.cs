@@ -177,7 +177,7 @@ public sealed class DroppedBlockRuntimeTests
         runtime.Spawn(
             block,
             new Vector3(
-                4.18f,
+                4.20f,
                 4.5f,
                 4.5f));
         runtime.Spawn(
