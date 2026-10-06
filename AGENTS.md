@@ -24,3 +24,9 @@ Read this file before changing the repository.
 - Keep Godot WRY/IPC transport in `ui/src/bridge`; keep event/state binding in `ui/src/controllers`; components must not own transport logic.
 - Every reusable WebUI component or page must have a colocated Storybook `*.stories.ts` file covering meaningful visual states.
 - Storybook is part of WebUI validation. `npm run build-storybook` must stay green together with `npm run build`.
+
+## Mineclone reference rule
+
+- Before implementing or materially changing a system that already exists in `sarakborges/mineclone`, inspect the equivalent implementation on the `world-systems-rebuild` branch first.
+- Use Mineclone as the architecture/behavior reference, then adapt deliberately to Asteria's Godot + C# boundaries rather than copying engine-specific code blindly.
+- Prefer the rebuild branch over Mineclone `main` for chunk, voxel, world, lighting, meshing, placement, streaming and other world-runtime systems unless the task explicitly concerns old presentation behavior.

@@ -64,6 +64,40 @@ public static class VoxelMeshLighting
             SampleCorner(chunk, blocks, x, y, z, face, basis, basis.Signs[3]));
     }
 
+    public static VoxelFaceLighting SampleFace(
+        VoxelWorld world,
+        BlockRegistry blocks,
+        WorldVoxelCoord position,
+        BlockFace face)
+    {
+        ArgumentNullException.ThrowIfNull(world);
+        ArgumentNullException.ThrowIfNull(blocks);
+
+        var basis = GetFaceBasis(face);
+
+        return new VoxelFaceLighting(
+            SampleCorner(world, blocks, position, basis, basis.Signs[0]),
+            SampleCorner(world, blocks, position, basis, basis.Signs[1]),
+            SampleCorner(world, blocks, position, basis, basis.Signs[2]),
+            SampleCorner(world, blocks, position, basis, basis.Signs[3]));
+    }
+
+    public static float OccupancyFraction(
+        VoxelWorld world,
+        BlockRegistry blocks,
+        WorldVoxelCoord position)
+    {
+        if (!world.TryGetCell(position, out var cell) || cell.IsEmpty)
+        {
+            return 0f;
+        }
+
+        return OccupancyFraction(
+            cell,
+            blocks.GetDefinition(cell.Block),
+            world.GetMicroblockMaskOrEmpty(position));
+    }
+
     public static float OccupancyFraction(
         Chunk chunk,
         BlockRegistry blocks,
@@ -94,7 +128,16 @@ public static class VoxelMeshLighting
         int y,
         int z,
         VoxelCell cell,
-        BlockDefinition definition)
+        BlockDefinition definition) =>
+        OccupancyFraction(
+            cell,
+            definition,
+            chunk.GetMicroblockMask(x, y, z));
+
+    internal static float OccupancyFraction(
+        VoxelCell cell,
+        BlockDefinition definition,
+        MicroblockMask mask)
     {
         if (cell.IsEmpty)
         {
@@ -103,7 +146,7 @@ public static class VoxelMeshLighting
 
         if (cell.HasMicroblockGeometry)
         {
-            return chunk.GetMicroblockMask(x, y, z).OccupiedCount /
+            return mask.OccupiedCount /
                    (float)MicroblockMask.CellCount;
         }
 
@@ -193,6 +236,89 @@ public static class VoxelMeshLighting
             true,
             chunk.GetLight(x, y, z),
             OccupancyFraction(chunk, blocks, x, y, z));
+    }
+
+    private static VoxelVertexLighting SampleCorner(
+        VoxelWorld world,
+        BlockRegistry blocks,
+        WorldVoxelCoord position,
+        FaceBasis basis,
+        (int A, int B) signs)
+    {
+        var basePosition = new WorldVoxelCoord(
+            position.X + basis.Normal.X,
+            position.Y + basis.Normal.Y,
+            position.Z + basis.Normal.Z);
+
+        var sideA = Sample(
+            world,
+            blocks,
+            basePosition + (
+                basis.TangentA.X * signs.A,
+                basis.TangentA.Y * signs.A,
+                basis.TangentA.Z * signs.A));
+
+        var sideB = Sample(
+            world,
+            blocks,
+            basePosition + (
+                basis.TangentB.X * signs.B,
+                basis.TangentB.Y * signs.B,
+                basis.TangentB.Z * signs.B));
+
+        var corner = Sample(
+            world,
+            blocks,
+            basePosition + (
+                basis.TangentA.X * signs.A + basis.TangentB.X * signs.B,
+                basis.TangentA.Y * signs.A + basis.TangentB.Y * signs.B,
+                basis.TangentA.Z * signs.A + basis.TangentB.Z * signs.B));
+
+        var center = Sample(world, blocks, basePosition);
+
+        var occlusion = sideA.Occupancy >= 0.999f &&
+                        sideB.Occupancy >= 0.999f
+            ? 3f
+            : sideA.Occupancy +
+              sideB.Occupancy +
+              corner.Occupancy;
+
+        var ao = AoBrightness(occlusion);
+        var (sky, red, green, blue) =
+            AverageLight(center, sideA, sideB, corner);
+
+        return new VoxelVertexLighting(
+            sky / VoxelLight.MaxLevel,
+            red / VoxelLight.MaxLevel,
+            green / VoxelLight.MaxLevel,
+            blue / VoxelLight.MaxLevel,
+            ao);
+    }
+
+    private static LightingSample Sample(
+        VoxelWorld world,
+        BlockRegistry blocks,
+        WorldVoxelCoord position)
+    {
+        if (!world.TryGetCell(position, out var cell))
+        {
+            // Missing residency is provisional open air for presentation.
+            // When the neighbor becomes resident its halo is remeshed.
+            return new LightingSample(
+                true,
+                new VoxelLight(VoxelLight.MaxLevel, 0, 0, 0),
+                0f);
+        }
+
+        return new LightingSample(
+            true,
+            world.GetLightOrDark(position),
+            cell.IsEmpty
+                ? 0f
+                : OccupancyFraction(
+                    cell,
+                    blocks.GetDefinition(cell.Block),
+                    world.GetMicroblockMaskOrEmpty(position)));
     }
 
     private static (float Sky, float Red, float Green, float Blue) AverageLight(

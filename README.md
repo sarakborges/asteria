@@ -10,6 +10,8 @@ The current milestone proves the base runtime architecture without introducing w
 - immutable, data-driven block definitions with namespaced IDs and compact runtime IDs;
 - `VoxelCell` runtime state separated from block definitions;
 - 16×16×16 chunks with palette-backed voxel storage;
+- multi-chunk `VoxelWorld` runtime with world-space reads/writes across chunk boundaries;
+- 8³ chunk meshlets with dirty-halo remesh masks and revision-stale async work rejection;
 - correct world ↔ chunk/local coordinate conversion across negative coordinates;
 - cube, surface-layer, centered-layer, hollow and 8³ microblock geometry;
 - independent block orientation, horizontal facing and texture rotation state;
@@ -21,7 +23,7 @@ The current milestone proves the base runtime architecture without introducing w
 - HTML/CSS/TypeScript WebUI embedded over the game through Godot WRY;
 - bidirectional JSON bridge between C# and the WebUI.
 
-The visible terrain is a temporary `TestChunkFactory` QA fixture. It is deliberately not a world-generation API.
+The visible terrain is a temporary deterministic `TestWorldFactory` QA fixture: a 3×3×2 resident chunk grid used to validate cross-chunk meshing, lighting, raycasts and edits. It is deliberately not a world-generation API.
 
 ### Block content
 

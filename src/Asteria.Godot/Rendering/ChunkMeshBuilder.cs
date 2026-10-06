@@ -11,6 +11,11 @@ public static class ChunkMeshBuilder
         ArgumentNullException.ThrowIfNull(data);
         ArgumentNullException.ThrowIfNull(material);
 
+        if (data.Vertices.Length == 0)
+        {
+            return new ArrayMesh();
+        }
+
         var surface = new SurfaceTool();
         surface.Begin(Mesh.PrimitiveType.Triangles);
         surface.SetCustomFormat(0, SurfaceTool.CustomFormat.Rgba8Unorm);

@@ -23,22 +23,28 @@ public static class ChunkMeshDataBuilder
         BlockFace.Back,
     ];
 
-    public static ChunkMeshData Build(
-        Chunk chunk,
+    public static ChunkMeshData BuildMeshlet(
+        VoxelWorld world,
+        ChunkCoord coord,
         BlockRegistry blocks,
-        TerrainTextureLookup textures)
+        TerrainTextureLookup textures,
+        int meshletIndex)
     {
-        ArgumentNullException.ThrowIfNull(chunk);
+        ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(blocks);
         ArgumentNullException.ThrowIfNull(textures);
 
-        var vertices = new List<ChunkMeshVertex>(8192);
+        var chunk = world.GetChunk(coord);
+        var vertices = new List<ChunkMeshVertex>(2048);
+        var bounds = ChunkMeshletMask.Bounds(meshletIndex);
+        var (originX, originY, originZ) =
+            VoxelCoordinates.ChunkOrigin(coord);
 
-        for (var y = 0; y < Chunk.Size; y++)
+        for (var y = bounds.MinY; y < bounds.MaxYExclusive; y++)
         {
-            for (var z = 0; z < Chunk.Size; z++)
+            for (var z = bounds.MinZ; z < bounds.MaxZExclusive; z++)
             {
-                for (var x = 0; x < Chunk.Size; x++)
+                for (var x = bounds.MinX; x < bounds.MaxXExclusive; x++)
                 {
                     var cell = chunk.GetCell(x, y, z);
                     if (cell.IsEmpty)
@@ -47,13 +53,43 @@ public static class ChunkMeshDataBuilder
                     }
 
                     var definition = blocks.GetDefinition(cell.Block);
-                    if (RequiresFineMeshing(chunk, blocks, x, y, z, cell, definition))
+                    var worldPosition = new WorldVoxelCoord(
+                        originX + x,
+                        originY + y,
+                        originZ + z);
+
+                    if (RequiresFineMeshing(
+                            world,
+                            blocks,
+                            worldPosition,
+                            cell,
+                            definition))
                     {
-                        EmitFineCell(vertices, chunk, blocks, textures, x, y, z, cell, definition);
+                        EmitFineCell(
+                            vertices,
+                            world,
+                            blocks,
+                            textures,
+                            x,
+                            y,
+                            z,
+                            worldPosition,
+                            cell,
+                            definition);
                     }
                     else
                     {
-                        EmitCubeCell(vertices, chunk, blocks, textures, x, y, z, cell, definition);
+                        EmitCubeCell(
+                            vertices,
+                            world,
+                            blocks,
+                            textures,
+                            x,
+                            y,
+                            z,
+                            worldPosition,
+                            cell,
+                            definition);
                     }
                 }
             }
@@ -63,11 +99,9 @@ public static class ChunkMeshDataBuilder
     }
 
     private static bool RequiresFineMeshing(
-        Chunk chunk,
+        VoxelWorld world,
         BlockRegistry blocks,
-        int x,
-        int y,
-        int z,
+        WorldVoxelCoord position,
         VoxelCell cell,
         BlockDefinition definition)
     {
@@ -78,15 +112,21 @@ public static class ChunkMeshDataBuilder
 
         foreach (var face in Faces)
         {
-            var (dx, dy, dz) = FaceOffset(face);
-            var neighbor = chunk.GetCellOrEmpty(x + dx, y + dy, z + dz);
+            var offset = FaceOffset(face);
+            var neighbor = world.GetCellOrEmpty(
+                position + offset);
+
             if (neighbor.IsEmpty)
             {
                 continue;
             }
 
-            var neighborDefinition = blocks.GetDefinition(neighbor.Block);
-            if (BlockGeometry.RequiresFineMeshing(neighborDefinition, neighbor))
+            var neighborDefinition =
+                blocks.GetDefinition(neighbor.Block);
+
+            if (BlockGeometry.RequiresFineMeshing(
+                    neighborDefinition,
+                    neighbor))
             {
                 return true;
             }
@@ -97,12 +137,13 @@ public static class ChunkMeshDataBuilder
 
     private static void EmitCubeCell(
         List<ChunkMeshVertex> surface,
-        Chunk chunk,
+        VoxelWorld world,
         BlockRegistry blocks,
         TerrainTextureLookup textures,
         int x,
         int y,
         int z,
+        WorldVoxelCoord worldPosition,
         VoxelCell cell,
         BlockDefinition definition)
     {
@@ -110,27 +151,28 @@ public static class ChunkMeshDataBuilder
 
         foreach (var face in Faces)
         {
-            var (dx, dy, dz) = FaceOffset(face);
+            var offset = FaceOffset(face);
             if (!FaceIsExposed(
-                    chunk,
+                    world,
                     blocks,
                     cell,
                     definition,
-                    x + dx,
-                    y + dy,
-                    z + dz))
+                    worldPosition + offset))
             {
                 continue;
             }
 
-            var faceMaterial = ResolveFaceMaterial(textures, definition, cell, face);
-            var faceLighting = VoxelMeshLighting.SampleFace(
-                chunk,
-                blocks,
-                x,
-                y,
-                z,
+            var faceMaterial = ResolveFaceMaterial(
+                textures,
+                definition,
+                cell,
                 face);
+            var faceLighting = VoxelMeshLighting.SampleFace(
+                world,
+                blocks,
+                worldPosition,
+                face);
+
             AddQuad(
                 surface,
                 origin,
@@ -144,48 +186,56 @@ public static class ChunkMeshDataBuilder
     }
 
     private static bool FaceIsExposed(
-        Chunk chunk,
+        VoxelWorld world,
         BlockRegistry blocks,
         VoxelCell source,
         BlockDefinition sourceDefinition,
-        int x,
-        int y,
-        int z)
+        WorldVoxelCoord neighborPosition)
     {
-        var neighbor = chunk.GetCellOrEmpty(x, y, z);
+        var neighbor = world.GetCellOrEmpty(neighborPosition);
         if (neighbor.IsEmpty)
         {
             return true;
         }
 
-        var neighborDefinition = blocks.GetDefinition(neighbor.Block);
-        return !Occludes(source, sourceDefinition, neighbor, neighborDefinition);
+        var neighborDefinition =
+            blocks.GetDefinition(neighbor.Block);
+
+        return !Occludes(
+            source,
+            sourceDefinition,
+            neighbor,
+            neighborDefinition);
     }
 
     private static void EmitFineCell(
         List<ChunkMeshVertex> surface,
-        Chunk chunk,
+        VoxelWorld world,
         BlockRegistry blocks,
         TerrainTextureLookup textures,
         int blockX,
         int blockY,
         int blockZ,
+        WorldVoxelCoord worldPosition,
         VoxelCell cell,
         BlockDefinition definition)
     {
         var origin = new Vector3(blockX, blockY, blockZ);
-        var sourceMask = chunk.GetMicroblockMask(blockX, blockY, blockZ);
+        var sourceMask =
+            world.GetMicroblockMaskOrEmpty(worldPosition);
         var visible = new bool[FinePlaneArea];
 
         foreach (var face in Faces)
         {
-            var faceMaterial = ResolveFaceMaterial(textures, definition, cell, face);
+            var faceMaterial = ResolveFaceMaterial(
+                textures,
+                definition,
+                cell,
+                face);
             var faceLighting = VoxelMeshLighting.SampleFace(
-                chunk,
+                world,
                 blocks,
-                blockX,
-                blockY,
-                blockZ,
+                worldPosition,
                 face);
 
             for (var depth = 0; depth < FineResolution; depth++)
@@ -196,7 +246,9 @@ public static class ChunkMeshDataBuilder
                 {
                     for (var u = 0; u < FineResolution; u++)
                     {
-                        var (localX, localY, localZ) = FinePosition(face, depth, u, v);
+                        var (localX, localY, localZ) =
+                            FinePosition(face, depth, u, v);
+
                         if (!BlockGeometry.IsOccupied(
                                 definition,
                                 cell,
@@ -209,11 +261,9 @@ public static class ChunkMeshDataBuilder
                         }
 
                         if (FineNeighborOccludes(
-                                chunk,
+                                world,
                                 blocks,
-                                blockX,
-                                blockY,
-                                blockZ,
+                                worldPosition,
                                 localX,
                                 localY,
                                 localZ,
@@ -242,11 +292,9 @@ public static class ChunkMeshDataBuilder
     }
 
     private static bool FineNeighborOccludes(
-        Chunk chunk,
+        VoxelWorld world,
         BlockRegistry blocks,
-        int blockX,
-        int blockY,
-        int blockZ,
+        WorldVoxelCoord sourcePosition,
         int localX,
         int localY,
         int localZ,
@@ -255,30 +303,40 @@ public static class ChunkMeshDataBuilder
         BlockDefinition sourceDefinition)
     {
         var (dx, dy, dz) = FaceOffset(face);
-        var neighborBlockX = blockX;
-        var neighborBlockY = blockY;
-        var neighborBlockZ = blockZ;
+        var neighborWorldX = sourcePosition.X;
+        var neighborWorldY = sourcePosition.Y;
+        var neighborWorldZ = sourcePosition.Z;
         var neighborLocalX = localX + dx;
         var neighborLocalY = localY + dy;
         var neighborLocalZ = localZ + dz;
 
-        WrapFineCoordinate(ref neighborBlockX, ref neighborLocalX);
-        WrapFineCoordinate(ref neighborBlockY, ref neighborLocalY);
-        WrapFineCoordinate(ref neighborBlockZ, ref neighborLocalZ);
+        WrapFineCoordinate(
+            ref neighborWorldX,
+            ref neighborLocalX);
+        WrapFineCoordinate(
+            ref neighborWorldY,
+            ref neighborLocalY);
+        WrapFineCoordinate(
+            ref neighborWorldZ,
+            ref neighborLocalZ);
 
-        if (!Chunk.Contains(neighborBlockX, neighborBlockY, neighborBlockZ))
+        var neighborPosition = new WorldVoxelCoord(
+            neighborWorldX,
+            neighborWorldY,
+            neighborWorldZ);
+
+        if (!world.TryGetCell(
+                neighborPosition,
+                out var neighbor) ||
+            neighbor.IsEmpty)
         {
             return false;
         }
 
-        var neighbor = chunk.GetCell(neighborBlockX, neighborBlockY, neighborBlockZ);
-        if (neighbor.IsEmpty)
-        {
-            return false;
-        }
-
-        var neighborDefinition = blocks.GetDefinition(neighbor.Block);
-        var neighborMask = chunk.GetMicroblockMask(neighborBlockX, neighborBlockY, neighborBlockZ);
+        var neighborDefinition =
+            blocks.GetDefinition(neighbor.Block);
+        var neighborMask =
+            world.GetMicroblockMaskOrEmpty(neighborPosition);
 
         if (!BlockGeometry.IsOccupied(
                 neighborDefinition,
@@ -291,7 +349,11 @@ public static class ChunkMeshDataBuilder
             return false;
         }
 
-        return Occludes(source, sourceDefinition, neighbor, neighborDefinition);
+        return Occludes(
+            source,
+            sourceDefinition,
+            neighbor,
+            neighborDefinition);
     }
 
     private static bool Occludes(
