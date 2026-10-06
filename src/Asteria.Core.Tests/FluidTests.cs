@@ -125,6 +125,37 @@ public sealed class FluidTests
                     2,
                     6),
                 7));
+
+        Assert.Equal(
+            FluidCell.Spreading(
+                water,
+                6,
+                1),
+            FluidSimulationSolver.HorizontalSpread(
+                source,
+                3));
+        Assert.Equal(
+            FluidCell.Spreading(
+                water,
+                3,
+                2),
+            FluidSimulationSolver.HorizontalSpread(
+                FluidCell.Spreading(
+                    water,
+                    6,
+                    1),
+                3));
+        Assert.Equal(
+            FluidCell.Spreading(
+                water,
+                1,
+                3),
+            FluidSimulationSolver.HorizontalSpread(
+                FluidCell.Spreading(
+                    water,
+                    3,
+                    2),
+                3));
     }
 
     [Fact]
@@ -199,6 +230,87 @@ public sealed class FluidTests
                     origin + offset,
                     FluidCell.Empty).IsEmpty);
         }
+    }
+
+    [Fact]
+    public void HorizontalFlowCrossesChunkBoundary()
+    {
+        var fluids = CreateFluids();
+        var water =
+            fluids.GetId("asteria:water");
+        var world =
+            WorldWithTwoChunkFloor();
+        var source =
+            new WorldVoxelCoord(
+                Chunk.Size - 1,
+                1,
+                8);
+        var target =
+            source + (1, 0, 0);
+
+        Assert.True(
+            world.SetFluidAt(
+                source,
+                FluidCell.Source(water),
+                out _));
+
+        var desired =
+            FluidSimulationSolver.DesiredFluid(
+                world,
+                fluids,
+                target,
+                FluidCell.Empty);
+
+        Assert.Equal(
+            FluidCell.Spreading(
+                water,
+                7,
+                1),
+            desired);
+    }
+
+    [Fact]
+    public void VerticalFallCrossesChunkBoundary()
+    {
+        var fluids = CreateFluids();
+        var water =
+            fluids.GetId("asteria:water");
+        var world = new VoxelWorld();
+
+        world.InsertChunk(
+            ChunkCoord.Zero,
+            new Chunk());
+        world.InsertChunk(
+            new ChunkCoord(0, 1, 0),
+            new Chunk());
+
+        var above =
+            new WorldVoxelCoord(
+                4,
+                Chunk.Size,
+                4);
+        var target =
+            above + (0, -1, 0);
+
+        Assert.True(
+            world.SetFluidAt(
+                above,
+                FluidCell.Spreading(
+                    water,
+                    FluidCell.MinLevel,
+                    7),
+                out _));
+
+        Assert.Equal(
+            FluidCell.Spreading(
+                water,
+                FluidCell.MaxLevel,
+                0),
+            FluidSimulationSolver.DesiredFluid(
+                world,
+                fluids,
+                target,
+                FluidCell.Empty));
     }
 
     [Fact]
@@ -308,6 +420,43 @@ public sealed class FluidTests
         world.InsertChunk(
             ChunkCoord.Zero,
             chunk);
+        return world;
+    }
+
+    private static VoxelWorld WorldWithTwoChunkFloor()
+    {
+        var world = new VoxelWorld();
+
+        for (var chunkX = 0;
+             chunkX <= 1;
+             chunkX++)
+        {
+            var chunk = new Chunk();
+
+            for (var z = 0;
+                 z < Chunk.Size;
+                 z++)
+            {
+                for (var x = 0;
+                     x < Chunk.Size;
+                     x++)
+                {
+                    chunk.SetBlock(
+                        x,
+                        0,
+                        z,
+                        new BlockRuntimeId(1));
+                }
+            }
+
+            world.InsertChunk(
+                new ChunkCoord(
+                    chunkX,
+                    0,
+                    0),
+                chunk);
+        }
+
         return world;
     }
 

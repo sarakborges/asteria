@@ -238,8 +238,9 @@ public static class FluidSimulationSolver
                 spreadDistance: 0);
         }
 
-        var candidates =
-            new List<HorizontalCandidate>(4);
+        Span<HorizontalCandidate> candidates =
+            stackalloc HorizontalCandidate[4];
+        var candidateCount = 0;
 
         foreach (var offset in Horizontal)
         {
@@ -269,39 +270,25 @@ public static class FluidSimulationSolver
                 continue;
             }
 
-            candidates.Add(
+            candidates[candidateCount++] =
                 new HorizontalCandidate(
                     origin,
                     candidate,
                     definition.MaxSpread
                         .SaturatingSubtract(
-                            neighbor.SpreadDistance)));
+                            neighbor.SpreadDistance));
         }
 
-        candidates.Sort(
-            static (left, right) =>
-            {
-                var level =
-                    right.Fluid.Level.CompareTo(
-                        left.Fluid.Level);
+        SortHorizontalCandidates(
+            candidates[..candidateCount]);
 
-                if (level != 0)
-                {
-                    return level;
-                }
-
-                var distance =
-                    left.Fluid.SpreadDistance.CompareTo(
-                        right.Fluid.SpreadDistance);
-
-                return distance != 0
-                    ? distance
-                    : left.Fluid.Fluid.Value.CompareTo(
-                        right.Fluid.Fluid.Value);
-            });
-
-        foreach (var candidate in candidates)
+        for (var index = 0;
+             index < candidateCount;
+             index++)
         {
+            var candidate =
+                candidates[index];
+
             if (HorizontalSpreadIsPreferred(
                     world,
                     candidate.Origin,
@@ -315,6 +302,56 @@ public static class FluidSimulationSolver
         }
 
         return FluidCell.Empty;
+    }
+
+    private static void SortHorizontalCandidates(
+        Span<HorizontalCandidate> candidates)
+    {
+        for (var index = 1;
+             index < candidates.Length;
+             index++)
+        {
+            var candidate =
+                candidates[index];
+            var insertion =
+                index - 1;
+
+            while (insertion >= 0 &&
+                   CompareHorizontalCandidates(
+                       candidate,
+                       candidates[insertion]) < 0)
+            {
+                candidates[insertion + 1] =
+                    candidates[insertion];
+                insertion--;
+            }
+
+            candidates[insertion + 1] =
+                candidate;
+        }
+    }
+
+    private static int CompareHorizontalCandidates(
+        HorizontalCandidate left,
+        HorizontalCandidate right)
+    {
+        var level =
+            right.Fluid.Level.CompareTo(
+                left.Fluid.Level);
+
+        if (level != 0)
+        {
+            return level;
+        }
+
+        var distance =
+            left.Fluid.SpreadDistance.CompareTo(
+                right.Fluid.SpreadDistance);
+
+        return distance != 0
+            ? distance
+            : left.Fluid.Fluid.Value.CompareTo(
+                right.Fluid.Fluid.Value);
     }
 
     public static bool CanSpreadHorizontallyFrom(
