@@ -77,7 +77,7 @@ public sealed class BlockEntityFrameController
                 deltaSeconds,
                 gravityStrength);
 
-        _presentations.Sync(
+        _presentations.SyncByIdOrder(
             _blockPhysics.ActiveBlocks,
             _droppedBlocks.ActiveBlocks);
 
