@@ -124,7 +124,7 @@ Expected result:
 - a centered gameplay crosshair and bottom-center nine-slot hotbar;
 - slot 1 mirrors the currently selected placement block until the future inventory/hotbar owner replaces that temporary source;
 - player vitals, status effects, contextual prompts and toast regions stay hidden until authoritative state is published;
-- the old runtime card is now a debug overlay, hidden by default and toggled with F3 when the WebUI has keyboard focus.
+- the old runtime card is now a debug overlay, hidden by default and toggled with F3 through Godot's input layer; WebUI only renders the resulting state.
 
 ### WebUI development
 
@@ -182,6 +182,7 @@ Initial messages:
 - `ui.ready` → WebUI loaded;
 - `ui.ping` → WebUI bridge test;
 - `game.ui_theme` → selected pack's validated declarative UI theme;
+- `game.hud.debug` → Godot-owned debug-overlay visibility;
 - `game.hud.hotbar` → current hotbar slots/selection;
 - `game.hud.vitals` → authoritative health/stamina values when those systems exist;
 - `game.hud.effects` → active buffs/debuffs;
