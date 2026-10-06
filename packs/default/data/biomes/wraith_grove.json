@@ -1,0 +1,56 @@
+{
+  "id": "asteria:umbral/wraith_grove",
+  "surfaceLayout": {
+    "weight": 0.7,
+    "regionSize": {
+      "min": 192,
+      "max": 352
+    }
+  },
+  "surfaceTerrain": {
+    "baseHeight": 7.0,
+    "macroAmplitude": 3.5,
+    "macroScale": 768,
+    "detailAmplitude": 1.25,
+    "detailScale": 128
+  },
+  "surfaceLayers": [
+    {
+      "block": "asteria:grass_block",
+      "depth": 1,
+      "patch": {
+        "spacing": 18,
+        "radius": 6,
+        "jitter": 2,
+        "chance": 0.75,
+        "blocks": [
+          "asteria:dirt"
+        ]
+      }
+    },
+    {
+      "block": "asteria:dirt",
+      "depth": 4
+    },
+    {
+      "block": "asteria:stone"
+    }
+  ],
+  "decorations": [
+    {
+      "block": "asteria:grass",
+      "chance": 0.18,
+      "surfaceBlocks": [
+        "asteria:grass_block",
+        "asteria:dirt"
+      ]
+    },
+    {
+      "block": "asteria:mushroom_brown",
+      "chance": 0.05,
+      "surfaceBlocks": [
+        "asteria:dirt"
+      ]
+    }
+  ]
+}
