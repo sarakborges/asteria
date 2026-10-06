@@ -42,6 +42,7 @@ public partial class Main : Node3D
     private DroppedBlockRuntime _droppedBlocks = null!;
     private BlockInteractionRuntime _blockInteractions = null!;
     private BlockEntityPresentationController _blockEntityPresentations = null!;
+    private UnderwaterViewPresentation? _underwaterView;
 
     private readonly TerrainMeshWorker _terrainMeshWorker = new();
     private readonly FluidMeshWorker _fluidMeshWorker = new();
@@ -339,7 +340,14 @@ public partial class Main : Node3D
         _player.PlaceRequested += PlaceTargetBlock;
         _player.MouseCaptureChanged +=
             SendMouseCaptureState;
+        _player.FluidContactChanged +=
+            OnPlayerFluidContactChanged;
         AddChild(_player);
+
+        _underwaterView =
+            new UnderwaterViewPresentation(
+                _player.Camera,
+                _fluids);
 
         SendWebUi(
             "game.player_ready",
@@ -347,6 +355,13 @@ public partial class Main : Node3D
 
         GD.Print(
             "streaming: origin presentation ready; player activated");
+    }
+
+    private void OnPlayerFluidContactChanged(
+        FluidBodyContact contact)
+    {
+        _underwaterView?.Apply(
+            contact);
     }
 
     private void SyncStreamingSelection()

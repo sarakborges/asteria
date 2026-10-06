@@ -73,6 +73,48 @@ public sealed class FluidBodyQueryTests
     }
 
     [Fact]
+    public void EyeSubmersionSamplesEyeVoxelInStackedFluid()
+    {
+        var world =
+            LoadedWorld();
+        var water =
+            new FluidRuntimeId(1);
+
+        Assert.True(
+            world.SetFluidAt(
+                new WorldVoxelCoord(
+                    2,
+                    1,
+                    2),
+                FluidCell.Source(water),
+                out _));
+        Assert.True(
+            world.SetFluidAt(
+                new WorldVoxelCoord(
+                    2,
+                    2,
+                    2),
+                FluidCell.Source(water),
+                out _));
+
+        var contact =
+            FluidBodyQuery.Sample(
+                world,
+                BodyAt(
+                    new Vector3(
+                        2.5f,
+                        0.8f,
+                        2.5f)),
+                eyeY: 2.4f);
+
+        Assert.True(contact.IsImmersed);
+        Assert.True(contact.EyeSubmerged);
+        Assert.Equal(
+            water,
+            contact.Fluid);
+    }
+
+    [Fact]
     public void NearSurfaceUsesActualFluidHeight()
     {
         var world =

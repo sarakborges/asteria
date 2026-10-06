@@ -56,26 +56,53 @@ public static class FluidBodyQuery
                 (int)MathF.Floor(centerX),
                 (int)MathF.Floor(sampleY),
                 (int)MathF.Floor(centerZ));
-        var fluid =
+        var bodyFluid =
             world.GetFluidOrEmpty(voxel);
+        var bodySurfaceY =
+            bodyFluid.IsEmpty
+                ? 0f
+                : voxel.Y +
+                  bodyFluid.Height;
+        var immersed =
+            !bodyFluid.IsEmpty &&
+            sampleY <
+            bodySurfaceY;
 
-        if (fluid.IsEmpty)
+        var eyeVoxel =
+            new WorldVoxelCoord(
+                voxel.X,
+                (int)MathF.Floor(eyeY),
+                voxel.Z);
+        var eyeFluid =
+            world.GetFluidOrEmpty(
+                eyeVoxel);
+        var eyeSurfaceY =
+            eyeFluid.IsEmpty
+                ? 0f
+                : eyeVoxel.Y +
+                  eyeFluid.Height;
+        var eyeSubmerged =
+            !eyeFluid.IsEmpty &&
+            eyeY <
+            eyeSurfaceY;
+        var contactFluid =
+            eyeSubmerged
+                ? eyeFluid.Fluid
+                : bodyFluid.Fluid;
+
+        if (!immersed &&
+            !eyeSubmerged)
         {
             return default;
         }
 
-        var surfaceY =
-            voxel.Y +
-            fluid.Height;
-        var immersed =
-            sampleY <
-            surfaceY;
-
         return new FluidBodyContact(
             immersed,
-            eyeY < surfaceY,
-            fluid.Fluid,
-            surfaceY,
+            eyeSubmerged,
+            contactFluid,
+            immersed
+                ? bodySurfaceY
+                : eyeSurfaceY,
             sampleY);
     }
 }

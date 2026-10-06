@@ -22,12 +22,18 @@ public partial class FpsPlayer : CharacterBody3D
     private bool _moveLeft;
     private bool _moveRight;
     private bool _jumpHeld;
+    private bool _lastEyeSubmerged;
+    private FluidRuntimeId _lastVisualFluid;
 
     public event Action? BreakRequested;
     public event Action? PlaceRequested;
     public event Action<bool>? MouseCaptureChanged;
+    public event Action<FluidBodyContact>?
+        FluidContactChanged;
 
     public bool IsMouseCaptured => _mouseCaptured;
+
+    public Camera3D Camera => _camera;
 
     public Func<WorldAabb, float, FluidBodyContact>?
         FluidContactProvider { get; set; }
@@ -104,6 +110,9 @@ public partial class FpsPlayer : CharacterBody3D
                 CollisionBounds,
                 _camera.GlobalPosition.Y) ??
             default;
+
+        PublishFluidContact(
+            fluidContact);
 
         if (fluidContact.IsImmersed)
         {
@@ -205,6 +214,30 @@ public partial class FpsPlayer : CharacterBody3D
         {
             Input.MouseMode = Input.MouseModeEnum.Visible;
         }
+    }
+
+    private void PublishFluidContact(
+        FluidBodyContact contact)
+    {
+        var visualFluid =
+            contact.EyeSubmerged
+                ? contact.Fluid
+                : FluidRuntimeId.None;
+
+        if (contact.EyeSubmerged ==
+                _lastEyeSubmerged &&
+            visualFluid ==
+                _lastVisualFluid)
+        {
+            return;
+        }
+
+        _lastEyeSubmerged =
+            contact.EyeSubmerged;
+        _lastVisualFluid =
+            visualFluid;
+        FluidContactChanged?.Invoke(
+            contact);
     }
 
     private void HandleKey(InputEventKey key)
