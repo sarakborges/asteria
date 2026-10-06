@@ -299,7 +299,7 @@ public sealed class DimensionTests
                 regionMin: 192,
                 regionMax: 192),
             new BiomeTerrainDefinition(
-                baseHeight: 8f,
+                baseHeightOffset: 8f,
                 macroAmplitude: 0f,
                 macroScale: 128,
                 detailAmplitude: 0f,
