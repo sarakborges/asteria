@@ -282,9 +282,24 @@ public sealed class LightingResultIntegratorTests
     public void MultipleLightChangesInOneMeshletBumpRevisionOnce()
     {
         var world = new VoxelWorld();
+        var chunk =
+            new Chunk();
+        Assert.True(
+            chunk.SetBlock(
+                2,
+                2,
+                2,
+                new BlockRuntimeId(1)));
+        Assert.True(
+            chunk.SetFluid(
+                4,
+                2,
+                2,
+                FluidCell.Source(
+                    new FluidRuntimeId(1))));
         world.InsertChunk(
             ChunkCoord.Zero,
-            new Chunk());
+            chunk);
         var snapshot =
             world.CloneForWorker();
 
@@ -398,12 +413,44 @@ public sealed class LightingResultIntegratorTests
     public void BoundaryLightChangeInvalidatesBothLoadedChunkHalos()
     {
         var world = new VoxelWorld();
+        var left =
+            new Chunk();
+        var right =
+            new Chunk();
+
+        Assert.True(
+            left.SetBlock(
+                Chunk.Size - 1,
+                4,
+                4,
+                new BlockRuntimeId(1)));
+        Assert.True(
+            left.SetFluid(
+                Chunk.Size - 1,
+                6,
+                6,
+                FluidCell.Source(
+                    new FluidRuntimeId(1))));
+        Assert.True(
+            right.SetBlock(
+                0,
+                4,
+                4,
+                new BlockRuntimeId(1)));
+        Assert.True(
+            right.SetFluid(
+                0,
+                6,
+                6,
+                FluidCell.Source(
+                    new FluidRuntimeId(1))));
+
         world.InsertChunk(
             ChunkCoord.Zero,
-            new Chunk());
+            left);
         world.InsertChunk(
             new ChunkCoord(1, 0, 0),
-            new Chunk());
+            right);
         var snapshot =
             world.CloneForWorker();
         var position =
