@@ -364,6 +364,81 @@ public sealed class BlockPhysicsRuntimeTests
     }
 
     [Fact]
+    public void PartialSupportCellStillOwnsVoxelForGravityMaterialization()
+    {
+        var world =
+            new VoxelWorld();
+        world.InsertChunk(
+            ChunkCoord.Zero,
+            new Chunk());
+
+        var blocks =
+            new BlockRegistry(
+            [
+                new BlockDefinition(
+                    "asteria:sand",
+                    tags:
+                    [
+                        BlockPhysicsCapabilities.Gravity,
+                    ]),
+                new BlockDefinition(
+                    "asteria:layer",
+                    shape:
+                        BlockShapeDefinition.SurfaceLayer(
+                            0.125f,
+                            "asteria:sand")),
+            ]);
+        var updates =
+            new BlockPhysicsUpdateQueue();
+        var mutations =
+            new VoxelMutationRuntime(
+                world,
+                new WorldUpdateQueue(),
+                new FluidUpdateQueue(),
+                new FluidMeshUpdateQueue(),
+                updates,
+                new MeshletContentRevisions(),
+                new MeshletContentRevisions());
+        var dropped =
+            new DroppedBlockRuntime(
+                world,
+                blocks);
+        var physics =
+            new BlockPhysicsRuntime(
+                world,
+                blocks,
+                mutations,
+                updates,
+                dropped);
+
+        Assert.True(
+            mutations.SetBlockAt(
+                new WorldVoxelCoord(3, 0, 3),
+                blocks.GetId("asteria:layer"),
+                out _));
+        Assert.True(
+            mutations.SetBlockAt(
+                new WorldVoxelCoord(3, 1, 3),
+                blocks.GetId("asteria:sand"),
+                out _));
+
+        var wake =
+            physics.ProcessWakeups();
+
+        Assert.Equal(
+            0,
+            wake.FallingStarted);
+        Assert.Equal(
+            blocks.GetId("asteria:sand"),
+            world.GetCellOrEmpty(
+                    new WorldVoxelCoord(
+                        3,
+                        1,
+                        3))
+                .Block);
+    }
+
+    [Fact]
     public void NonGravityBlockDoesNotStartFalling()
     {
         var fixture = CreateFixture();
