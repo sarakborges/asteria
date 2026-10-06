@@ -15,6 +15,10 @@ public readonly record struct FallingBlockState(
     public VoxelCell Cell => Block.Cell;
 }
 
+public sealed record BlockPhysicsRuntimeSnapshot(
+    ulong NextId,
+    IReadOnlyList<FallingBlockState> ActiveBlocks);
+
 public readonly record struct BlockPhysicsWakeResult(
     int FallingStarted,
     int UnsupportedRemoved)
@@ -57,7 +61,8 @@ public sealed class BlockPhysicsRuntime
         VoxelMutationRuntime mutations,
         BlockPhysicsUpdateQueue updates,
         DroppedBlockRuntime droppedBlocks,
-        int maximumActive = 2048)
+        int maximumActive = 2048,
+        BlockPhysicsRuntimeSnapshot? restore = null)
     {
         _world = world ?? throw new ArgumentNullException(nameof(world));
         _blocks = blocks ?? throw new ArgumentNullException(nameof(blocks));
@@ -76,12 +81,47 @@ public sealed class BlockPhysicsRuntime
         _maximumActive = maximumActive;
         _advanceIds =
             new FallingBlockId[maximumActive];
+
+        if (restore is not null)
+        {
+            if (restore.ActiveBlocks.Count >
+                maximumActive)
+            {
+                throw new ArgumentException(
+                    "Restored falling-block state exceeds active capacity.",
+                    nameof(restore));
+            }
+
+            _nextId =
+                restore.NextId;
+
+            foreach (var state in
+                     restore.ActiveBlocks
+                         .OrderBy(
+                             value =>
+                                 value.Id.Value))
+            {
+                if (!_active.TryAdd(
+                        state.Id,
+                        state))
+                {
+                    throw new ArgumentException(
+                        $"Duplicate restored falling-block id: {state.Id.Value}",
+                        nameof(restore));
+                }
+            }
+        }
     }
 
     public IReadOnlyCollection<FallingBlockState> ActiveBlocks =>
         _active.Values;
 
     public int ActiveCount => _active.Count;
+
+    public BlockPhysicsRuntimeSnapshot CaptureState() =>
+        new(
+            _nextId,
+            _active.Values.ToArray());
 
     public int EnqueueResidentChunk(ChunkCoord coord)
     {
