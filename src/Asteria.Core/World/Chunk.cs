@@ -70,6 +70,54 @@ public sealed class Chunk
         Array.Clear(_light);
     }
 
+    public Chunk CloneForWorker()
+    {
+        var clone = new Chunk();
+
+        for (var y = 0; y < Size; y++)
+        {
+            for (var z = 0; z < Size; z++)
+            {
+                for (var x = 0; x < Size; x++)
+                {
+                    var cell = GetCell(x, y, z);
+                    if (cell.IsEmpty)
+                    {
+                        continue;
+                    }
+
+                    if (cell.HasMicroblockGeometry)
+                    {
+                        clone.SetCell(
+                            x,
+                            y,
+                            z,
+                            cell.WithMicroblockMaskId(0));
+                        clone.SetMicroblockMask(
+                            x,
+                            y,
+                            z,
+                            GetMicroblockMask(x, y, z));
+                    }
+                    else
+                    {
+                        clone.SetCell(x, y, z, cell);
+                    }
+                }
+            }
+        }
+
+        Array.Copy(_light, clone._light, Volume);
+        clone.Revision = Revision;
+        return clone;
+    }
+
+    public void CopyLightFrom(Chunk source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        Array.Copy(source._light, _light, Volume);
+    }
+
     public MicroblockMask GetMicroblockMask(int x, int y, int z)
     {
         var cell = GetCell(x, y, z);

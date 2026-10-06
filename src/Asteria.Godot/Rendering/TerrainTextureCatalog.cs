@@ -26,6 +26,9 @@ public sealed class TerrainTextureCatalog
             ? index
             : throw new KeyNotFoundException($"Texture is not present in terrain array: {path}");
 
+    public TerrainTextureLookup CreateLookup() =>
+        new(_indices);
+
     public static TerrainTextureCatalog Create(BlockRegistry blocks)
     {
         ArgumentNullException.ThrowIfNull(blocks);

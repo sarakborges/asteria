@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Asteria.Client.Content;
@@ -5,26 +6,30 @@ using Asteria.Client.Gameplay;
 using Asteria.Client.Rendering;
 using Asteria.Core.World;
 using Godot;
+using NVector3 = System.Numerics.Vector3;
 
 namespace Asteria.Client;
 
 public partial class Main : Node3D
 {
     private const float InteractionDistance = 6f;
-    private const float HitEpsilon = 0.001f;
 
     private Task<TestChunkFixture>? _fixtureTask;
+    private Task<ChunkPresentationBuild>? _presentationTask;
     private TestChunkFixture? _fixture;
     private FpsPlayer? _player;
     private Node _webUi = null!;
     private TerrainTextureCatalog _terrainTextures = null!;
+    private TerrainTextureLookup _terrainTextureLookup = null!;
     private ShaderMaterial _terrainMaterial = null!;
     private Node3D? _chunkRoot;
     private MeshInstance3D? _chunkMesh;
     private CollisionShape3D? _chunkCollision;
     private BlockRuntimeId _placementBlock;
+    private ChunkMeshData? _pendingCollisionData;
+    private ulong _pendingCollisionRevision;
+    private bool _deferCollisionOneFrame;
     private bool _chunkAttached;
-    private bool _chunkDirty;
     private bool _fixtureErrorReported;
 
     public override void _Ready()
@@ -33,6 +38,7 @@ public partial class Main : Node3D
 
         var blocks = BlockContentLoader.LoadProjectBlocks();
         _terrainTextures = TerrainTextureCatalog.Create(blocks);
+        _terrainTextureLookup = _terrainTextures.CreateLookup();
         _terrainMaterial = VoxelTerrainMaterial.Create(_terrainTextures);
 
         GD.Print(
@@ -56,10 +62,8 @@ public partial class Main : Node3D
             return;
         }
 
-        if (_chunkDirty)
-        {
-            RebuildChunkPresentation();
-        }
+        PollPresentationBuild();
+        PublishDeferredCollision();
     }
 
     private void PollFixture()
@@ -73,14 +77,20 @@ public partial class Main : Node3D
         {
             _fixture = _fixtureTask.Result;
             _placementBlock = _fixture.Blocks.GetId(TestChunkFactory.StoneId);
-            AttachChunk(_fixture.Chunk, _fixture.Blocks);
+
+            var meshData = ChunkMeshDataBuilder.Build(
+                _fixture.Chunk,
+                _fixture.Blocks,
+                _terrainTextureLookup);
+
+            AttachChunk(meshData);
             SetupPlayer();
             _chunkAttached = true;
 
             GD.Print(
-                $"test-7: interactive voxel runtime ready; " +
+                $"test-8: queued voxel edits + DDA targeting ready; " +
                 $"voxels={_fixture.Chunk.NonEmptyVoxelCount}, " +
-                $"palette={_fixture.Chunk.PaletteEntryCount}");
+                $"triangles={meshData.TriangleCount}");
             SendWebUi("game.chunk_ready", new
             {
                 size = Chunk.Size,
@@ -171,16 +181,13 @@ public partial class Main : Node3D
 
     private void SendMouseCaptureState(bool captured)
     {
+        _webUi.Call("set_mouse_captured", captured);
         SendWebUi("game.mouse_capture", new { captured });
     }
 
-    private void AttachChunk(Chunk chunk, BlockRegistry blocks)
+    private void AttachChunk(ChunkMeshData meshData)
     {
-        var mesh = ChunkMeshBuilder.Build(
-            chunk,
-            blocks,
-            _terrainTextures,
-            _terrainMaterial);
+        var mesh = ChunkMeshBuilder.CreateMesh(meshData, _terrainMaterial);
 
         _chunkRoot = new Node3D
         {
@@ -202,7 +209,7 @@ public partial class Main : Node3D
         _chunkCollision = new CollisionShape3D
         {
             Name = "Shape",
-            Shape = mesh.CreateTrimeshShape(),
+            Shape = ChunkMeshBuilder.CreateCollisionShape(meshData),
         };
 
         staticBody.AddChild(_chunkCollision);
@@ -242,7 +249,7 @@ public partial class Main : Node3D
         _placementBlock = cell.Block;
         if (chunk.SetBlock(hitVoxel.X, hitVoxel.Y, hitVoxel.Z, BlockRuntimeId.Air))
         {
-            _chunkDirty = true;
+            QueuePresentationRebuild();
         }
     }
 
@@ -265,9 +272,16 @@ public partial class Main : Node3D
             return;
         }
 
+        var worldVoxelMin = _chunkRoot!.ToGlobal(
+            new Vector3(target.X, target.Y, target.Z));
+        if (_player!.IntersectsVoxelAabb(worldVoxelMin))
+        {
+            return;
+        }
+
         if (chunk.SetBlock(target.X, target.Y, target.Z, _placementBlock))
         {
-            _chunkDirty = true;
+            QueuePresentationRebuild();
         }
     }
 
@@ -281,77 +295,164 @@ public partial class Main : Node3D
             return false;
         }
 
-        var (from, to) = _player.GetInteractionRay(InteractionDistance);
-        var query = PhysicsRayQueryParameters3D.Create(from, to);
-        query.CollideWithAreas = false;
-        query.CollideWithBodies = true;
+        var (worldFrom, worldTo) = _player.GetInteractionRay(InteractionDistance);
+        var localFrom = _chunkRoot.ToLocal(worldFrom);
+        var localTo = _chunkRoot.ToLocal(worldTo);
+        var direction = localTo - localFrom;
 
-        var result = GetWorld3D().DirectSpaceState.IntersectRay(query);
-        if (result.Count == 0)
+        var hit = ChunkVoxelRaycaster.Raycast(
+            _fixture.Chunk,
+            _fixture.Blocks,
+            new NVector3(localFrom.X, localFrom.Y, localFrom.Z),
+            new NVector3(direction.X, direction.Y, direction.Z),
+            InteractionDistance);
+
+        if (hit is null || !hit.Value.HasSurfaceNormal)
         {
             return false;
         }
 
-        var worldPosition = result["position"].AsVector3();
-        var worldNormal = result["normal"].AsVector3();
-        var localPosition = _chunkRoot.ToLocal(worldPosition);
-        var localNormal = (_chunkRoot.GlobalTransform.Basis.Inverse() * worldNormal).Normalized();
-
-        hitVoxel = FloorVoxel(localPosition - localNormal * HitEpsilon);
-        if (!Chunk.Contains(hitVoxel.X, hitVoxel.Y, hitVoxel.Z))
-        {
-            return false;
-        }
-
-        faceOffset = DominantAxis(localNormal);
-        return faceOffset != Vector3I.Zero;
+        var voxel = hit.Value.Voxel;
+        hitVoxel = new Vector3I(voxel.X, voxel.Y, voxel.Z);
+        faceOffset = new Vector3I(
+            hit.Value.NormalX,
+            hit.Value.NormalY,
+            hit.Value.NormalZ);
+        return true;
     }
 
-    private void RebuildChunkPresentation()
+    private void QueuePresentationRebuild()
     {
-        if (_fixture is null || _chunkMesh is null || _chunkCollision is null)
+        if (_presentationTask is null)
         {
-            _chunkDirty = false;
+            StartPresentationBuild();
+        }
+    }
+
+    private void StartPresentationBuild()
+    {
+        if (_fixture is null)
+        {
             return;
         }
 
-        ChunkLightingSolver.Initialize(_fixture.Chunk, _fixture.Blocks);
+        var revision = _fixture.Chunk.Revision;
+        var snapshot = _fixture.Chunk.CloneForWorker();
+        var blocks = _fixture.Blocks;
+        var textures = _terrainTextureLookup;
 
-        var mesh = ChunkMeshBuilder.Build(
-            _fixture.Chunk,
-            _fixture.Blocks,
-            _terrainTextures,
+        _presentationTask = Task.Run(() =>
+        {
+            var stopwatch = Stopwatch.StartNew();
+            ChunkLightingSolver.Initialize(snapshot, blocks);
+            var meshData = ChunkMeshDataBuilder.Build(snapshot, blocks, textures);
+            stopwatch.Stop();
+
+            return new ChunkPresentationBuild(
+                revision,
+                snapshot,
+                meshData,
+                stopwatch.Elapsed.TotalMilliseconds);
+        });
+    }
+
+    private void PollPresentationBuild()
+    {
+        if (_presentationTask is null || !_presentationTask.IsCompleted)
+        {
+            return;
+        }
+
+        if (_presentationTask.IsFaulted)
+        {
+            GD.PushError(
+                _presentationTask.Exception?.ToString() ??
+                "Queued chunk presentation build failed.");
+            _presentationTask = null;
+            return;
+        }
+
+        var result = _presentationTask.Result;
+        _presentationTask = null;
+
+        if (_fixture is null)
+        {
+            return;
+        }
+
+        if (result.Revision == _fixture.Chunk.Revision)
+        {
+            PublishPresentation(result);
+        }
+
+        if (result.Revision != _fixture.Chunk.Revision)
+        {
+            StartPresentationBuild();
+        }
+    }
+
+    private void PublishPresentation(ChunkPresentationBuild result)
+    {
+        if (_fixture is null || _chunkMesh is null)
+        {
+            return;
+        }
+
+        var stopwatch = Stopwatch.StartNew();
+
+        _fixture.Chunk.CopyLightFrom(result.LightingSnapshot);
+        _chunkMesh.Mesh = ChunkMeshBuilder.CreateMesh(
+            result.MeshData,
             _terrainMaterial);
 
-        _chunkMesh.Mesh = mesh;
-        _chunkCollision.Shape = mesh.CreateTrimeshShape();
-        _chunkDirty = false;
+        _pendingCollisionData = result.MeshData;
+        _pendingCollisionRevision = result.Revision;
+        _deferCollisionOneFrame = true;
+
+        stopwatch.Stop();
+        GD.Print(
+            $"chunk.presentation revision={result.Revision} " +
+            $"worker_ms={result.WorkerMilliseconds:F2} " +
+            $"publish_ms={stopwatch.Elapsed.TotalMilliseconds:F2} " +
+            $"triangles={result.MeshData.TriangleCount}");
+    }
+
+    private void PublishDeferredCollision()
+    {
+        if (_pendingCollisionData is null ||
+            _chunkCollision is null ||
+            _fixture is null)
+        {
+            return;
+        }
+
+        if (_deferCollisionOneFrame)
+        {
+            _deferCollisionOneFrame = false;
+            return;
+        }
+
+        if (_pendingCollisionRevision != _fixture.Chunk.Revision)
+        {
+            _pendingCollisionData = null;
+            return;
+        }
+
+        var stopwatch = Stopwatch.StartNew();
+        _chunkCollision.Shape =
+            ChunkMeshBuilder.CreateCollisionShape(_pendingCollisionData);
+        stopwatch.Stop();
 
         GD.Print(
-            $"chunk.edit revision={_fixture.Chunk.Revision} " +
-            $"voxels={_fixture.Chunk.NonEmptyVoxelCount}");
+            $"chunk.collision revision={_pendingCollisionRevision} " +
+            $"publish_ms={stopwatch.Elapsed.TotalMilliseconds:F2}");
+
+        _pendingCollisionData = null;
     }
 
-    private static Vector3I FloorVoxel(Vector3 point) =>
-        new(
-            Mathf.FloorToInt(point.X),
-            Mathf.FloorToInt(point.Y),
-            Mathf.FloorToInt(point.Z));
-
-    private static Vector3I DominantAxis(Vector3 normal)
-    {
-        var abs = normal.Abs();
-
-        if (abs.X >= abs.Y && abs.X >= abs.Z)
-        {
-            return new Vector3I(Math.Sign(normal.X), 0, 0);
-        }
-
-        if (abs.Y >= abs.X && abs.Y >= abs.Z)
-        {
-            return new Vector3I(0, Math.Sign(normal.Y), 0);
-        }
-
-        return new Vector3I(0, 0, Math.Sign(normal.Z));
-    }
+    private sealed record ChunkPresentationBuild(
+        ulong Revision,
+        Chunk LightingSnapshot,
+        ChunkMeshData MeshData,
+        double WorkerMilliseconds);
 }

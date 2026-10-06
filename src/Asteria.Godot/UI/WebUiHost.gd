@@ -48,6 +48,16 @@ func set_webui_visible(visible: bool) -> void:
 		if visible:
 			call_deferred("_focus_game")
 
+func set_mouse_captured(captured: bool) -> void:
+	if _webview == null or not _loaded:
+		return
+
+	var cursor_value := "none" if captured else ""
+	var script := "document.documentElement.style.cursor='%s';" % cursor_value
+	script += "if(document.body){document.body.style.cursor='%s';}" % cursor_value
+	script += "document.querySelectorAll('*').forEach(function(e){e.style.cursor='%s';});" % cursor_value
+	_webview.call("eval", script)
+
 func _on_page_load_finished(_url: String) -> void:
 	_loaded = true
 	_focus_game()
