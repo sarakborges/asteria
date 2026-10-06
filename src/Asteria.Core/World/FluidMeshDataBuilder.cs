@@ -302,6 +302,9 @@ public static class FluidMeshDataBuilder
                 new FluidMeshVertex(
                     points[index],
                     -Vector3.UnitY,
+                    FaceUv(
+                        BlockFace.Top,
+                        points[index]),
                     new Vector4(
                         1f,
                         1f,
@@ -452,6 +455,9 @@ public static class FluidMeshDataBuilder
                 new FluidMeshVertex(
                     points[index],
                     normal,
+                    FaceUv(
+                        face,
+                        points[index]),
                     new Vector4(
                         1f,
                         1f,
@@ -464,6 +470,30 @@ public static class FluidMeshDataBuilder
                         light.BlockBlue)));
         }
     }
+
+    private static Vector2 FaceUv(
+        BlockFace face,
+        Vector3 point) =>
+        face switch
+        {
+            BlockFace.Top or
+            BlockFace.Bottom =>
+                new Vector2(
+                    point.X,
+                    point.Z),
+            BlockFace.Right or
+            BlockFace.Left =>
+                new Vector2(
+                    point.Z,
+                    point.Y),
+            BlockFace.Front or
+            BlockFace.Back =>
+                new Vector2(
+                    point.X,
+                    point.Y),
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(face)),
+        };
 
     private static FluidFaceHeights SurfaceHeights(
         VoxelWorld world,
