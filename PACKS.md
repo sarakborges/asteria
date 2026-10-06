@@ -1,14 +1,44 @@
 # Asteria Packs
 
-This document defines the authored contract for external **resource packs** and **data packs**.
+This document defines the authored contract for Asteria content packs.
 
-The format belongs to Asteria. It is deliberately independent from Godot so packs remain portable across runtime/rendering changes.
+A pack is one selectable unit. It owns data plus presentation customizations while preserving strict domain boundaries.
 
-## 1. Non-negotiable boundary
+## 1. Canonical layout
 
-An authored pack must contain only portable source assets/data understood by Asteria.
+Every pack lives under one root:
 
-The following are **not pack formats** and must never be required inside a distributed pack:
+```text
+packs/
+  default/
+    pack.json
+    data/
+      blocks/
+      fluids/
+      biomes/
+      structures/
+      recipes/
+      loot/
+      dimensions/
+    resources/
+      textures/
+      audio/
+      fonts/
+      models/
+    ui/
+      theme.json
+      assets/
+```
+
+The built-in startup pack is `packs/default/`.
+
+Runtime selection is represented by one `PackSelection` value. The initial value is `default`; future import/selection UI may change it without changing individual content loaders.
+
+## 2. Non-negotiable engine boundary
+
+The authored format belongs to Asteria, not Godot.
+
+External packs must never require:
 
 - Godot `.import` sidecars;
 - `.godot/` generated content;
@@ -17,173 +47,111 @@ The following are **not pack formats** and must never be required inside a distr
 - editor-specific absolute paths;
 - generated runtime caches.
 
-Repository-local built-in assets are different: their `.import` files may be versioned because they preserve editor import settings. Those sidecars remain next to assets under the selected built-in resource directory and are an implementation detail of the Godot project, not part of the external pack API.
+Built-in assets may keep Godot-generated `.import` files beside files in `packs/default/resources/` so editor import settings remain stable. Those sidecars are internal repository metadata and are never part of the external pack API.
 
-## 2. Common manifest
+## 3. Manifest
 
-Every pack has one Asteria-owned manifest at its root:
+Each pack has one manifest at `packs/{name}/pack.json`:
 
 ```json
 {
   "format": 1,
   "id": "example:my_pack",
-  "type": "resource",
   "version": "1.0.0",
   "name": "My Pack",
-  "description": "Optional human-readable description",
+  "description": "Optional description",
   "dependencies": []
 }
 ```
 
-Initial contract:
-
 - `format` is the Asteria pack-format version.
 - `id` is a stable namespaced identifier.
-- `type` is `resource` or `data`.
 - `version` is the authored pack version.
-- `dependencies` declares other pack IDs/version requirements when needed.
-- unknown mandatory format versions must fail clearly instead of being partially loaded.
+- `dependencies` declares pack dependencies/version requirements.
+- unsupported mandatory format versions fail clearly.
 
-A future implementation may extend manifest fields without changing the engine-independence rule.
+## 4. Data domain
 
-## 3. Resource packs
+`data/` owns declarative gameplay/content definitions.
 
-Resource packs own **presentation**, not gameplay authority.
+Definitions may add or override namespaced blocks, fluids, biomes, structures, recipes, loot, dimensions and future definition-driven systems.
 
-Typical authored resource-pack root:
+Data must not contain executable gameplay code. Native/code plugins are a separate future extension system.
 
-```text
-pack.json
-textures/
-  blocks/
-  items/
-  ui/
-audio/
-fonts/
-models/
-presentation/
-```
+Data definitions may reference presentation resources by logical pack-relative keys, but must not embed Godot-specific metadata.
 
-The built-in initial resource pack is stored at `resources/default/`. Its pack-relative references remain logical, for example `textures/blocks/stone.png`; the selected resource-pack root is prepended by the runtime resolver.
+## 5. Resource domain
 
-Initial texture sources should use portable image files such as PNG. Model/audio formats, when added, must likewise use portable documented source formats rather than engine-native serialized resources.
+`resources/` owns non-UI presentation assets: textures, item/world images, audio, fonts, models and related declarative presentation descriptors.
 
-Resource packs may replace resources by canonical namespaced/path keys. They do not mutate block physics, crafting rules, biome selection, drops, fluid behavior or other gameplay facts.
-
-Presentation metadata must use Asteria-owned declarative files, not Godot resources.
-
-## 4. Data packs
-
-Data packs own **declarative gameplay/content definitions**.
-
-Expected data-pack root as those systems exist:
+Definitions reference these by logical paths such as:
 
 ```text
-pack.json
-blocks/
-fluids/
-biomes/
-structures/
-recipes/
-loot/
-dimensions/
-...
+textures/blocks/stone.png
 ```
 
-The built-in initial data pack is stored at `data/default/`.
-
-Data packs may add or override namespaced definitions through the same definition models/registries used by built-in content.
-
-Data packs must not contain executable gameplay code. Native/code plugins are a separate future extension system with separate trust/security/versioning rules.
-
-A data definition may reference a presentation resource by namespaced resource key, but it must not embed or require Godot-specific asset metadata.
-
-## 5. Base content and layering
-
-Built-in Asteria content is conceptually the **base layer**. The startup selection is `resource=default` and `data=default`; this selection is a runtime value rather than a path hard-coded into individual loaders, so a future importer/pack UI can replace either side.
-
-Runtime resolution order is deterministic:
-
-1. built-in/base content;
-2. enabled packs in their explicit configured order;
-3. later packs override earlier packs only for the same canonical key.
-
-Never use filesystem enumeration order, archive entry order, hash-map order or modification timestamps to decide precedence.
-
-Conflicting definitions in the same effective layer are errors unless the format explicitly defines a merge strategy for that content type.
-
-## 6. Namespaces and paths
-
-Pack IDs and authored content IDs use namespaced identifiers such as:
+The selected pack resolver maps that to:
 
 ```text
-asteria:grass
-example:blue_grass
-example:misty_swamp
+packs/{selected}/resources/textures/blocks/stone.png
 ```
 
-Rules:
+## 6. UI domain
 
-- IDs are normalized and validated before registry insertion.
-- pack paths are relative; `..` traversal and absolute paths are invalid.
-- path comparison/collision behavior is defined by Asteria and must behave consistently on Windows/Linux/macOS.
-- duplicate logical keys that differ only by unsupported casing/path normalization are rejected.
-- authored references are resolved after layering so overrides are visible consistently.
+`ui/` owns UI presentation customization.
 
-## 7. Runtime/import boundary
+The initial supported contract is `ui/theme.json`, a declarative map of whitelisted semantic design tokens. The WebUI receives the selected theme through the existing Godot → WebUI bridge and applies only recognized CSS variables.
 
-The external pack loader should produce engine-agnostic resolved content first.
+Current theme token categories include colors, borders, radii, spacing and typography. UI-specific images/fonts may later live under `ui/assets/` and use the same validated pack-relative resolution.
 
-For resource packs:
+A pack **does not** replace the trusted WebUI application code. It must not inject arbitrary HTML or JavaScript, redefine IPC messages, own controllers, or bypass Atomic Design/bridge boundaries.
 
-1. validate manifest/paths;
-2. resolve deterministic layering;
-3. decode portable source assets;
-4. build Asteria presentation descriptors/runtime asset data;
-5. let the Godot adapter create `ImageTexture`, texture arrays, audio resources or other engine objects as needed.
+The built-in WebUI implementation remains under `ui/`; `packs/{name}/ui/` only supplies presentation data/assets.
 
-For data packs:
+## 7. Layering
 
-1. validate manifest/paths;
-2. parse declarative definitions;
-3. resolve layering and references deterministically;
-4. validate the final definition graph;
-5. build immutable registries/runtime definitions.
+Built-in/default content is the base layer.
 
-Godot must not become the parser, authority or schema owner for either pack type.
+When overlays are added, resolution order is deterministic:
 
-## 8. Caching
+1. base/default pack;
+2. enabled overlays in explicit configured order;
+3. later layers replace earlier content only through canonical keys.
 
-Asteria may later cache decoded/resolved pack data for startup performance.
+Never use filesystem enumeration order, archive entry order, hash-map order or timestamps to decide precedence.
 
-Caches are:
+## 8. Names and paths
 
-- derived;
-- disposable;
-- versioned separately from authored pack format;
-- safe to regenerate from the original pack;
-- never required from pack authors.
+Pack folder names use lowercase ASCII letters, digits, `.`, `_` or `-`.
 
-Godot's `.import` mechanism is not the Asteria pack cache contract.
+Pack paths are relative. Absolute paths, `..`, empty segments, backslashes and URI/scheme separators are invalid.
 
-## 9. Compatibility policy
+Path comparison/collision behavior is defined by Asteria and must be consistent across Windows/Linux/macOS.
+
+## 9. Runtime boundary
+
+Loaders validate the selected pack root, parse portable source data and produce resolved engine-agnostic/runtime presentation inputs.
+
+Godot may consume resolved resource paths to create engine objects, but it does not own pack schema or gameplay definitions.
+
+The WebUI consumes validated UI theme payloads through its controller boundary; individual components do not parse pack files.
+
+## 10. Caching and compatibility
+
+Derived caches are disposable, regenerate from authored pack contents and are versioned separately from the pack format.
 
 While Asteria is pre-release, new pack-format versions do not promise backward compatibility unless explicitly required.
 
-When compatibility becomes a product requirement, migration/version handling must be explicit and tested rather than inferred.
+## 11. Security
 
-## 10. Security boundary
+Pack files are untrusted input. Loaders must enforce or evolve toward:
 
-Pack files are untrusted input.
-
-Loaders must eventually enforce:
-
-- bounded file/archive sizes;
-- bounded decoded image/model dimensions;
+- bounded files/archive sizes;
+- bounded decoded asset dimensions;
 - path traversal rejection;
 - duplicate/collision detection;
 - schema validation;
 - dependency-cycle detection;
 - deterministic failure reporting.
 
-Data packs remain declarative specifically so loading content does not implicitly grant code execution.
+Keeping data and UI customization declarative prevents pack installation from implicitly granting code execution.
