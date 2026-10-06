@@ -43,12 +43,8 @@
 .hud-shell__toast-area {
   position: absolute;
   top: 22px;
-  right: 22px;
-  transform: translateY(0);
-}
-
-.hud-shell__top-right:not(:empty) + .hud-shell__toast-area {
-  top: 132px;
+  left: 50%;
+  transform: translateX(-50%);
 }
 
 .hud-shell__debug {
