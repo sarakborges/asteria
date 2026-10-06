@@ -1,3 +1,5 @@
+using System.Numerics;
+
 namespace Asteria.Core.World;
 
 public static class BlockGeometry
@@ -8,6 +10,90 @@ public static class BlockGeometry
 
     public static bool RequiresFineMeshing(BlockDefinition definition, VoxelCell cell) =>
         cell.HasMicroblockGeometry || definition.Shape.Kind != BlockShapeKind.Cube;
+
+    public static bool Intersects(
+        BlockDefinition definition,
+        VoxelCell cell,
+        MicroblockMask microblockMask,
+        WorldVoxelCoord position,
+        WorldAabb bounds)
+    {
+        ArgumentNullException.ThrowIfNull(definition);
+
+        if (cell.IsEmpty ||
+            !definition.IsCollidable)
+        {
+            return false;
+        }
+
+        var blockBounds =
+            new WorldAabb(
+                new Vector3(
+                    position.X,
+                    position.Y,
+                    position.Z),
+                new Vector3(
+                    position.X + 1f,
+                    position.Y + 1f,
+                    position.Z + 1f));
+
+        if (!blockBounds.Intersects(bounds))
+        {
+            return false;
+        }
+
+        if (!cell.HasMicroblockGeometry &&
+            definition.Shape.Kind ==
+                BlockShapeKind.Cube)
+        {
+            return true;
+        }
+
+        var scale =
+            1f / Resolution;
+
+        for (var y = 0; y < Resolution; y++)
+        {
+            for (var z = 0; z < Resolution; z++)
+            {
+                for (var x = 0; x < Resolution; x++)
+                {
+                    if (!IsOccupied(
+                            definition,
+                            cell,
+                            microblockMask,
+                            x,
+                            y,
+                            z))
+                    {
+                        continue;
+                    }
+
+                    var minimum =
+                        new Vector3(
+                            position.X + x * scale,
+                            position.Y + y * scale,
+                            position.Z + z * scale);
+                    var maximum =
+                        minimum +
+                        new Vector3(
+                            scale,
+                            scale,
+                            scale);
+
+                    if (bounds.Intersects(
+                            new WorldAabb(
+                                minimum,
+                                maximum)))
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
 
     public static bool IsOccupied(
         BlockDefinition definition,

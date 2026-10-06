@@ -455,23 +455,27 @@ public partial class Main : Node3D
     private void BreakTargetBlock()
     {
         if (!TryGetTarget(
-                out var hitVoxel,
-                out _))
+                out var hit))
         {
             return;
         }
 
-        var cell = _world.GetCellOrEmpty(hitVoxel);
-        if (cell.IsEmpty)
+        var decision =
+            BlockInteractionResolver.ResolveBreak(
+                _world,
+                hit);
+
+        if (!decision.Accepted)
         {
             return;
         }
 
-        _placementBlock = cell.Block;
+        _placementBlock =
+            decision.Cell.Block;
 
-        if (_mutations.SetBlockAt(
-                hitVoxel,
-                BlockRuntimeId.Air,
+        if (_mutations.SetCellAt(
+                decision.Position,
+                VoxelCell.Empty,
                 out _))
         {
             KickWorldMutationWorkers();
@@ -481,34 +485,27 @@ public partial class Main : Node3D
     private void PlaceTargetBlock()
     {
         if (!TryGetTarget(
-                out var hitVoxel,
-                out var faceOffset))
+                out var hit))
         {
             return;
         }
 
-        var target = hitVoxel + faceOffset;
+        var decision =
+            BlockInteractionResolver.ResolvePlacement(
+                _world,
+                _blocks,
+                hit,
+                new VoxelCell(_placementBlock),
+                _player!.CollisionBounds);
 
-        if (!_world.IsLoadedAt(target) ||
-            !_world.GetCellOrEmpty(target).IsEmpty)
+        if (!decision.Accepted)
         {
             return;
         }
 
-        var worldVoxelMin = new Vector3(
-            target.X,
-            target.Y,
-            target.Z);
-
-        if (_player!.IntersectsVoxelAabb(
-                worldVoxelMin))
-        {
-            return;
-        }
-
-        if (_mutations.SetBlockAt(
-                target,
-                _placementBlock,
+        if (_mutations.SetCellAt(
+                decision.Position,
+                decision.Cell,
                 out _))
         {
             KickWorldMutationWorkers();
@@ -603,11 +600,9 @@ public partial class Main : Node3D
     }
 
     private bool TryGetTarget(
-        out WorldVoxelCoord hitVoxel,
-        out (int X, int Y, int Z) faceOffset)
+        out VoxelWorldHit hit)
     {
-        hitVoxel = default;
-        faceOffset = default;
+        hit = default;
 
         if (_player is null)
         {
@@ -619,27 +614,26 @@ public partial class Main : Node3D
                 InteractionDistance);
         var direction = to - from;
 
-        var hit = VoxelWorldRaycaster.Raycast(
-            _world,
-            _blocks,
-            new NVector3(from.X, from.Y, from.Z),
-            new NVector3(
-                direction.X,
-                direction.Y,
-                direction.Z),
-            InteractionDistance);
+        var resolved =
+            VoxelWorldRaycaster.Raycast(
+                _world,
+                _blocks,
+                new NVector3(
+                    from.X,
+                    from.Y,
+                    from.Z),
+                new NVector3(
+                    direction.X,
+                    direction.Y,
+                    direction.Z),
+                InteractionDistance);
 
-        if (hit is null ||
-            !hit.Value.HasSurfaceNormal)
+        if (resolved is null)
         {
             return false;
         }
 
-        hitVoxel = hit.Value.Voxel;
-        faceOffset = (
-            hit.Value.NormalX,
-            hit.Value.NormalY,
-            hit.Value.NormalZ);
+        hit = resolved.Value;
         return true;
     }
 

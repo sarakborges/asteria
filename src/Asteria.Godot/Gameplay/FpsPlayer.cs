@@ -1,3 +1,4 @@
+using Asteria.Core.World;
 using Godot;
 
 namespace Asteria.Client.Gameplay;
@@ -134,21 +135,36 @@ public partial class FpsPlayer : CharacterBody3D
         return (from, from + forward * distance);
     }
 
-    public bool IntersectsVoxelAabb(Vector3 worldVoxelMin)
+    public WorldAabb CollisionBounds
     {
-        const float halfWidth = 0.35f;
-        const float height = 1.8f;
+        get
+        {
+            const float halfWidth = 0.35f;
+            const float height = 1.8f;
 
-        var playerMin = GlobalPosition + new Vector3(-halfWidth, 0f, -halfWidth);
-        var playerMax = GlobalPosition + new Vector3(halfWidth, height, halfWidth);
-        var voxelMax = worldVoxelMin + Vector3.One;
+            var minimum =
+                GlobalPosition +
+                new Vector3(
+                    -halfWidth,
+                    0f,
+                    -halfWidth);
+            var maximum =
+                GlobalPosition +
+                new Vector3(
+                    halfWidth,
+                    height,
+                    halfWidth);
 
-        return playerMin.X < voxelMax.X &&
-               playerMax.X > worldVoxelMin.X &&
-               playerMin.Y < voxelMax.Y &&
-               playerMax.Y > worldVoxelMin.Y &&
-               playerMin.Z < voxelMax.Z &&
-               playerMax.Z > worldVoxelMin.Z;
+            return new WorldAabb(
+                new System.Numerics.Vector3(
+                    minimum.X,
+                    minimum.Y,
+                    minimum.Z),
+                new System.Numerics.Vector3(
+                    maximum.X,
+                    maximum.Y,
+                    maximum.Z));
+        }
     }
 
     public override void _ExitTree()
