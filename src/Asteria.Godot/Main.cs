@@ -734,8 +734,8 @@ public partial class Main : Node3D
             return;
         }
 
-        if (report is null ||
-            report.Kind !=
+        if (report is not { } completed ||
+            completed.Kind !=
                 MeshPipelineCompletionKind.Applied)
         {
             return;
@@ -743,9 +743,9 @@ public partial class Main : Node3D
 
         GD.Print(
             $"world.fluid_mesh worker_ms=" +
-            $"{report.WorkerMilliseconds:F2} " +
-            $"accepted={report.Accepted} " +
-            $"stale={report.Stale}");
+            $"{completed.WorkerMilliseconds:F2} " +
+            $"accepted={completed.Accepted} " +
+            $"stale={completed.Stale}");
     }
 
     private void IntegrateFluidMeshletPublications()
@@ -784,8 +784,8 @@ public partial class Main : Node3D
             return;
         }
 
-        if (report is null ||
-            report.Kind !=
+        if (report is not { } completed ||
+            completed.Kind !=
                 MeshPipelineCompletionKind.Applied)
         {
             return;
@@ -793,9 +793,9 @@ public partial class Main : Node3D
 
         GD.Print(
             $"world.geometry worker_ms=" +
-            $"{report.WorkerMilliseconds:F2} " +
-            $"accepted={report.Accepted} " +
-            $"stale={report.Stale}");
+            $"{completed.WorkerMilliseconds:F2} " +
+            $"accepted={completed.Accepted} " +
+            $"stale={completed.Stale}");
     }
 
     private void TryStartLightingWorker()
