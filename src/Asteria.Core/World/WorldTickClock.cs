@@ -4,6 +4,13 @@ public sealed class WorldTickClock
 {
     private double _accumulatedTicks;
 
+    public WorldTickClock(
+        ulong initialTick = 0)
+    {
+        CurrentTick =
+            initialTick;
+    }
+
     public ulong CurrentTick { get; private set; }
 
     public uint TicksThisFrame { get; private set; }
