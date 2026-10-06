@@ -87,7 +87,9 @@ Authorial dimensions live in `packs/default/data/dimensions/*.json`. Their curre
 
 Authorial surface biomes live in `packs/default/data/biomes/*.json`. The biome schema owns `surfaceLayout` (weight, region-size target, adjacency constraints), `surfaceTerrain`, ordered `surfaceLayers` with optional deterministic patches, and block decorators. Generation lives entirely in Core; Godot loads the selected pack, selects the startup dimension and composes its provider/presentation adapters.
 
-`Main.StartupDimensionId` defaults to `asteria:overworld` and is an exported startup setting, so the runtime can be launched directly in `asteria:umbral` without changing generation code. Live portal/dimension transition is not wired yet; it will retire the current dimension session and create/restore another rather than clearing and reusing the same mutable world.
+`Main.StartupDimensionId` defaults to `asteria:overworld` and is an exported startup setting, so the runtime can be launched directly in `asteria:umbral` without changing generation code. Live dimension transition now retires the current `DimensionRuntimeSession` and creates/restores the destination session instead of clearing a shared world. Dirty chunk edits, world tick, player position, falling blocks and dropped blocks remain dimension-scoped across round trips. Pristine chunks are discarded and deterministically regenerated on return.
+
+For QA, F4 cycles authored dimensions in canonical ID order and uses the current exact player coordinates as the destination. Gameplay/global input still belongs to Godot; WebUI does not capture this key. Future portals call the same transition boundary with their authored destination coordinates.
 
 ### Block content
 
