@@ -39,7 +39,7 @@ public sealed class ChunkMeshletMaskTests
             world,
             new WorldVoxelCoord(15, 2, 2));
 
-        var batch = queue.Drain();
+        var batch = queue.DrainMeshlets();
 
         Assert.Contains(
             new ChunkCoord(0, 0, 0),
