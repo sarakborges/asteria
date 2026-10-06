@@ -55,7 +55,7 @@ public static class VoxelMeshLighting
         ArgumentNullException.ThrowIfNull(chunk);
         ArgumentNullException.ThrowIfNull(blocks);
 
-        var basis = FaceBasis(face);
+        var basis = GetFaceBasis(face);
 
         return new VoxelFaceLighting(
             SampleCorner(chunk, blocks, x, y, z, face, basis, basis.Signs[0]),
@@ -260,7 +260,7 @@ public static class VoxelMeshLighting
         return levels[lower] * (1f - fraction) + levels[lower + 1] * fraction;
     }
 
-    private static FaceBasis FaceBasis(BlockFace face) => face switch
+    private static FaceBasis GetFaceBasis(BlockFace face) => face switch
     {
         BlockFace.Right => new(
             new Axis(1, 0, 0),
