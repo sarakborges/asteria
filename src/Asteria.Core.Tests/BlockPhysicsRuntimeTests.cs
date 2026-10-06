@@ -85,7 +85,7 @@ public sealed class BlockPhysicsRuntimeTests
             physicsUpdates.Count);
         Assert.Equal(
             1,
-            physics.ProcessWakeups());
+            physics.ProcessWakeups().FallingStarted);
     }
 
     [Fact]
@@ -107,7 +107,9 @@ public sealed class BlockPhysicsRuntimeTests
         var started =
             fixture.Physics.ProcessWakeups();
 
-        Assert.Equal(1, started);
+        Assert.Equal(
+            1,
+            started.FallingStarted);
         Assert.True(
             fixture.World
                 .GetCellOrEmpty(position)
@@ -212,7 +214,7 @@ public sealed class BlockPhysicsRuntimeTests
 
         Assert.Equal(
             0,
-            fixture.Physics.ProcessWakeups());
+            fixture.Physics.ProcessWakeups().FallingStarted);
         Assert.Equal(
             0,
             fixture.Physics.ActiveCount);
