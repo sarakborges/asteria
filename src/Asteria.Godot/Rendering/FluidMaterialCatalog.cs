@@ -1,3 +1,5 @@
+using Asteria.Client.Content;
+using Asteria.Core.Content;
 using Asteria.Core.World;
 using Godot;
 
@@ -24,7 +26,8 @@ public sealed class FluidMaterialCatalog
                 $"Missing material for fluid {fluid.Value}.");
 
     public static FluidMaterialCatalog Create(
-        FluidRegistry fluids)
+        FluidRegistry fluids,
+        PackSelection selection)
     {
         ArgumentNullException.ThrowIfNull(fluids);
 
@@ -58,6 +61,32 @@ public sealed class FluidMaterialCatalog
             material.SetShaderParameter(
                 "fluid_roughness",
                 definition.Roughness);
+
+            if (definition.Texture is { } texturePath)
+            {
+                var resourcePath =
+                    ProjectPackPaths.Resource(
+                        selection,
+                        texturePath);
+                var texture =
+                    ResourceLoader.Load<Texture2D>(
+                        resourcePath)
+                    ?? throw new FileNotFoundException(
+                        $"Fluid texture was not imported by Godot: {resourcePath}");
+
+                material.SetShaderParameter(
+                    "fluid_texture",
+                    texture);
+                material.SetShaderParameter(
+                    "use_fluid_texture",
+                    true);
+            }
+            else
+            {
+                material.SetShaderParameter(
+                    "use_fluid_texture",
+                    false);
+            }
 
             materials.Add(
                 runtimeId,
