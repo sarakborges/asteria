@@ -38,6 +38,10 @@ public static class ChunkFluidMeshBuilder
                         vertex.Normal.X,
                         vertex.Normal.Y,
                         vertex.Normal.Z));
+                surface.SetUv(
+                    new Vector2(
+                        vertex.Uv.X,
+                        vertex.Uv.Y));
                 surface.SetColor(
                     new Color(
                         vertex.TintAndAo.X,
