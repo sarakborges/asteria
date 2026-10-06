@@ -18,6 +18,13 @@ body,
   background: transparent;
 }
 
+
+html.mouse-captured,
+html.mouse-captured body,
+html.mouse-captured * {
+  cursor: none !important;
+}
+
 .hud-shell {
   position: relative;
   width: 100%;

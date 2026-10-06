@@ -11,12 +11,18 @@ public partial class FpsPlayer : CharacterBody3D
     private const float MaxPitch = 1.52f;
 
     private Camera3D _camera = null!;
-    private bool _mouseCaptured = true;
+    private bool _mouseCaptured;
     private bool _moveForward;
     private bool _moveBackward;
     private bool _moveLeft;
     private bool _moveRight;
     private bool _jumpHeld;
+
+    public event Action? BreakRequested;
+    public event Action? PlaceRequested;
+    public event Action<bool>? MouseCaptureChanged;
+
+    public bool IsMouseCaptured => _mouseCaptured;
 
     public override void _Ready()
     {
@@ -52,13 +58,32 @@ public partial class FpsPlayer : CharacterBody3D
             return;
         }
 
-        if (_mouseCaptured && inputEvent is InputEventMouseMotion mouseMotion)
+        if (!_mouseCaptured)
+        {
+            return;
+        }
+
+        if (inputEvent is InputEventMouseMotion mouseMotion)
         {
             RotateY(-mouseMotion.Relative.X * MouseSensitivity);
             _camera.Rotation = new Vector3(
                 Mathf.Clamp(_camera.Rotation.X - mouseMotion.Relative.Y * MouseSensitivity, -MaxPitch, MaxPitch),
                 0f,
                 0f);
+            return;
+        }
+
+        if (inputEvent is InputEventMouseButton mouseButton && mouseButton.Pressed)
+        {
+            switch (mouseButton.ButtonIndex)
+            {
+                case MouseButton.Left:
+                    BreakRequested?.Invoke();
+                    break;
+                case MouseButton.Right:
+                    PlaceRequested?.Invoke();
+                    break;
+            }
         }
     }
 
@@ -100,6 +125,13 @@ public partial class FpsPlayer : CharacterBody3D
 
         Velocity = velocity;
         MoveAndSlide();
+    }
+
+    public (Vector3 From, Vector3 To) GetInteractionRay(float distance)
+    {
+        var from = _camera.GlobalPosition;
+        var forward = -_camera.GlobalTransform.Basis.Z;
+        return (from, from + forward * distance);
     }
 
     public override void _ExitTree()
@@ -148,11 +180,13 @@ public partial class FpsPlayer : CharacterBody3D
     {
         _mouseCaptured = true;
         Input.MouseMode = Input.MouseModeEnum.Captured;
+        MouseCaptureChanged?.Invoke(true);
     }
 
     private void ReleaseMouse()
     {
         _mouseCaptured = false;
         Input.MouseMode = Input.MouseModeEnum.Visible;
+        MouseCaptureChanged?.Invoke(false);
     }
 }

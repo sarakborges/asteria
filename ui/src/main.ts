@@ -30,7 +30,7 @@ root.innerHTML = `
       </span>
       <span id="world-status" class="detail">waiting for chunk</span>
       <span id="player-status" class="detail">waiting for player</span>
-      <span class="detail">WASD move · mouse look · Space jump · Esc cursor</span>
+      <span class="detail">WASD · mouse look · Space jump · LMB break · RMB place · Esc cursor</span>
       <span id="last-message" class="detail">no bridge messages yet</span>
       <button id="ping" type="button" ${embedded ? "" : "disabled"}>Ping Godot</button>
     </section>
@@ -63,6 +63,14 @@ function handleGodotMessage(message: BridgeMessage): void {
     case "game.player_ready":
       if (playerStatus) playerStatus.textContent = "FPS controller ready";
       break;
+    case "game.mouse_capture": {
+      const payload = message.payload as { captured?: boolean } | undefined;
+      document.documentElement.classList.toggle(
+        "mouse-captured",
+        payload?.captured === true,
+      );
+      break;
+    }
     case "game.pong":
       if (lastMessage) lastMessage.textContent = "godot → webui: pong received";
       break;
@@ -77,6 +85,10 @@ document.addEventListener("message", (event) => {
   } catch (error) {
     console.error("Invalid message from Godot", error);
   }
+});
+
+document.addEventListener("contextmenu", (event) => {
+  event.preventDefault();
 });
 
 pingButton?.addEventListener("click", () => {
