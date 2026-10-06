@@ -18,7 +18,10 @@ public sealed class VoxelMeshLightingTests
         chunk.SetBlock(7, 9, 8, stone);
         chunk.SetBlock(8, 9, 9, stone);
 
-        ChunkLightingSolver.Initialize(chunk, blocks);
+        ChunkLightingSolver.Initialize(
+            chunk,
+            blocks,
+            new FluidRegistry([]));
         var lighting = VoxelMeshLighting.SampleFace(
             chunk,
             blocks,

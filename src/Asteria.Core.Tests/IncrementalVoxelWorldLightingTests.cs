@@ -102,6 +102,7 @@ public sealed class IncrementalVoxelWorldLightingTests
         VoxelWorldLightingSolver.RelightAfterEdits(
             world,
             blocks,
+            new FluidRegistry([]),
             [edited]);
 
         Assert.Equal(

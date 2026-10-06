@@ -23,7 +23,10 @@ public sealed class VoxelWorldLightingSolverTests
             lamp,
             out _);
 
-        VoxelWorldLightingSolver.Initialize(world, blocks);
+        VoxelWorldLightingSolver.Initialize(
+            world,
+            blocks,
+            new FluidRegistry([]));
 
         Assert.Equal(
             (byte)14,
