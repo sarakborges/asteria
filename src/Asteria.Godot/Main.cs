@@ -396,8 +396,6 @@ public partial class Main : Node3D
             new
             {
                 selectedIndex = 0,
-                selectedName =
-                    definition.Id,
                 slots = new[]
                 {
                     new
