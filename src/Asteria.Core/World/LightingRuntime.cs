@@ -16,6 +16,12 @@ public sealed record LightingRuntimeReport(
 
 public sealed class LightingRuntime
 {
+    // Snapshot capture is synchronous because it must observe one coherent
+    // live-world state before the worker starts. Keep each capture bounded so
+    // streaming cannot turn a large reconciliation backlog into a main-thread
+    // clone spike.
+    private const int MaximumSeedsPerWorker = 512;
+
     private readonly VoxelWorld _world;
     private readonly BlockRegistry _blocks;
     private readonly FluidRegistry _fluids;
@@ -72,7 +78,8 @@ public sealed class LightingRuntime
         }
 
         var batch =
-            _updates.DrainLighting();
+            _updates.DrainLighting(
+                MaximumSeedsPerWorker);
 
         if (batch.IsEmpty)
         {

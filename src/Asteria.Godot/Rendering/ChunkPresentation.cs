@@ -16,6 +16,7 @@ public sealed class ChunkPresentation
 
     private StaticBody3D? _collisionBody;
     private int _publishedCount;
+    private bool _physicsEnabled = true;
 
     public ChunkPresentation(ChunkCoord coord)
     {
@@ -45,6 +46,25 @@ public sealed class ChunkPresentation
     public void SetVisible(bool visible)
     {
         Root.Visible = visible;
+
+        if (_physicsEnabled ==
+            visible)
+        {
+            return;
+        }
+
+        _physicsEnabled =
+            visible;
+
+        foreach (var collision in
+                 _collisions)
+        {
+            if (collision is not null)
+            {
+                collision.Disabled =
+                    !visible;
+            }
+        }
     }
 
     public void Retire()
@@ -176,6 +196,8 @@ public sealed class ChunkPresentation
             {
                 Name =
                     $"Meshlet_{meshletIndex}",
+                Disabled =
+                    !_physicsEnabled,
             };
 
         _collisions[

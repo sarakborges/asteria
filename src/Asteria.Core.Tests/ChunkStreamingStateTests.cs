@@ -60,6 +60,52 @@ public sealed class ChunkStreamingStateTests
     }
 
     [Fact]
+    public void SurfaceRangeWindowReusesOverlappingColumnsWhenCenterMoves()
+    {
+        var source =
+            new CountingSurfaceRangeProvider();
+        var window =
+            new ChunkSurfaceRangeWindow(
+                source);
+
+        window.RetainWindow(
+            0,
+            0,
+            horizontalRadius: 2);
+        _ =
+            ChunkStreamingSelection.DesiredSurfaceChunks(
+                ChunkCoord.Zero,
+                2,
+                window);
+        var firstCalls =
+            source.CallCount;
+
+        window.RetainWindow(
+            1,
+            0,
+            horizontalRadius: 2);
+        _ =
+            ChunkStreamingSelection.DesiredSurfaceChunks(
+                new ChunkCoord(
+                    1,
+                    0,
+                    0),
+                2,
+                window);
+
+        Assert.Equal(
+            13,
+            firstCalls);
+        Assert.True(
+            source.CallCount <
+            firstCalls * 2);
+        Assert.InRange(
+            window.CachedColumnCount,
+            1,
+            25);
+    }
+
+    [Fact]
     public void SelectionRebuildPredicateIsOwnedByStreamingState()
     {
         var state =
@@ -283,6 +329,22 @@ public sealed class ChunkStreamingStateTests
             selection.ShouldBeVisible(
                 coord,
                 currentlyVisible: true));
+    }
+
+    private sealed class CountingSurfaceRangeProvider :
+        IChunkSurfaceRangeProvider
+    {
+        public int CallCount { get; private set; }
+
+        public ChunkSurfaceRange GetSurfaceRange(
+            int chunkX,
+            int chunkZ)
+        {
+            CallCount++;
+            return new ChunkSurfaceRange(
+                chunkX,
+                chunkZ);
+        }
     }
 
     private sealed class ConstantSurfaceRangeProvider(

@@ -5,6 +5,33 @@ namespace Asteria.Core.Tests;
 public sealed class ChunkLightingSolverTests
 {
     [Fact]
+    public void EmptyChunkInitializesToFullDirectSkylight()
+    {
+        var chunk =
+            new Chunk();
+
+        ChunkLightingSolver.Initialize(
+            chunk,
+            new BlockRegistry([]),
+            new FluidRegistry([]));
+
+        Assert.Equal(
+            VoxelLight.MaxLevel,
+            chunk.GetLight(
+                    0,
+                    0,
+                    0)
+                .Sky);
+        Assert.Equal(
+            VoxelLight.MaxLevel,
+            chunk.GetLight(
+                    Chunk.Size - 1,
+                    Chunk.Size - 1,
+                    Chunk.Size - 1)
+                .Sky);
+    }
+
+    [Fact]
     public void OpaqueBlockStopsDirectSkylightButAllowsLateralBounceAroundIt()
     {
         var blocks = new BlockRegistry(

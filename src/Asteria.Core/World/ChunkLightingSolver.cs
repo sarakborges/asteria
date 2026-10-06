@@ -26,6 +26,12 @@ public static class ChunkLightingSolver
             chunk,
             blocks,
             fluids);
+
+        if (chunk.IsEmpty)
+        {
+            return;
+        }
+
         Relax(
             chunk,
             blocks,

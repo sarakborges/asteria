@@ -63,7 +63,7 @@ public sealed class ChunkStreamingController
 {
     private readonly ChunkResidencyRuntime _residency;
     private readonly ChunkPresentationController _presentations;
-    private readonly IChunkSurfaceRangeProvider _surfaceRanges;
+    private readonly ChunkSurfaceRangeWindow _surfaceRanges;
     private readonly ChunkStreamingControllerSettings _settings;
 
     public ChunkStreamingController(
@@ -79,8 +79,10 @@ public sealed class ChunkStreamingController
             presentations ??
             throw new ArgumentNullException(nameof(presentations));
         _surfaceRanges =
-            surfaceRanges ??
-            throw new ArgumentNullException(nameof(surfaceRanges));
+            new ChunkSurfaceRangeWindow(
+                surfaceRanges ??
+                throw new ArgumentNullException(
+                    nameof(surfaceRanges)));
         _settings =
             settings ??
             throw new ArgumentNullException(nameof(settings));
@@ -101,6 +103,11 @@ public sealed class ChunkStreamingController
                 _residency.PendingCount,
                 _residency.MovementDirection);
         }
+
+        _surfaceRanges.RetainWindow(
+            center.X,
+            center.Z,
+            _settings.RenderDistanceChunks);
 
         var desired =
             ChunkStreamingSelection.DesiredSurfaceChunks(

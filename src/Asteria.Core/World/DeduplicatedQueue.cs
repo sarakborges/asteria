@@ -76,16 +76,48 @@ public sealed class DeduplicatedQueue<T>
         return true;
     }
 
-    public IReadOnlyList<T> Drain()
+    public IReadOnlyList<T> Drain() =>
+        Drain(int.MaxValue);
+
+    public IReadOnlyList<T> Drain(
+        int maximumItems)
     {
+        if (maximumItems <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(maximumItems));
+        }
+
         if (_order.Count == 0)
         {
             return Array.Empty<T>();
         }
 
-        var result = _order.ToArray();
-        _order.Clear();
-        _nodes.Clear();
+        var count =
+            Math.Min(
+                maximumItems,
+                _order.Count);
+        var result =
+            new T[count];
+
+        for (var index = 0;
+             index < count;
+             index++)
+        {
+            var node =
+                _order.First ??
+                throw new InvalidOperationException(
+                    "Deduplicated queue order and index are inconsistent.");
+            var value =
+                node.Value;
+
+            result[index] =
+                value;
+            _order.RemoveFirst();
+            _nodes.Remove(
+                value);
+        }
+
         BumpRevision();
         return result;
     }

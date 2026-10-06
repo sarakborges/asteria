@@ -141,6 +141,7 @@ Generic queue mechanics are shared primitives.
 - Predicate scans that can repeatedly miss unchanged work need revision-based miss caching when profiling shows the scan is meaningful.
 - Latency-sensitive world loops use a shared frame/work-budget abstraction instead of hand-rolled elapsed-time loops.
 - Meshlet-mask queues use the shared deterministic bounded-drain primitive. Terrain and fluid mesh workers both cap work per job; a large fluid remesh backlog must not be drained into one unbounded worker batch.
+- Lighting worker input is bounded before snapshot capture. Snapshot capture is synchronous at the authoritative-world boundary, so streaming reconciliation must never drain an unbounded lighting backlog into one capture/job.
 
 Consumers enqueue intent; queue owners control deduplication, fairness and draining semantics.
 
@@ -187,7 +188,7 @@ Lighting is authoritative runtime data; meshes are derived presentation data.
 - Interactive block edits use a dedicated latency terrain lane with its own bounded worker and priority publication queue. Background streaming/remesh work uses a separate worker, so a player-visible placement/destruction cannot wait for an already-running background batch or sit behind queued background publications.
 - Fluid volume sides and bottoms keep back-face culling to avoid alpha-sorted interior walls/triangles. Only an exposed fluid top surface emits dedicated reverse-wound underside geometry so the water surface remains visible from below without making the entire translucent volume double-sided.
 - Engine-agnostic mesh vertices, batches, culling/greedy logic, collision-face generation and fluid-surface geometry belong in Core.
-- Godot rendering code converts those results into `ArrayMesh`, materials, collision shapes and nodes. Chunk presentation nodes are allocated lazily from published meshlet data; empty terrain/fluid/collision meshlets must not create placeholder Godot nodes.
+- Godot rendering code converts those results into `ArrayMesh`, materials, collision shapes and nodes. Chunk presentation nodes are allocated lazily from published meshlet data; empty terrain/fluid/collision meshlets must not create placeholder Godot nodes. Hidden retained chunk presentations also disable their collision shapes; visual retention must not leave off-screen physics bodies participating in broadphase.
 - High-volume world/worker diagnostics are opt-in debug instrumentation. Normal gameplay must not continuously print per-chunk, per-worker or per-publication telemetry on the main thread.
 
 Do not rebuild whole chunks when a smaller stable meshlet/dirty region is sufficient.
@@ -221,7 +222,7 @@ Surface world generation is an engine-agnostic Core domain.
 - Ground decorators are a separate authored layer from terrain density/materials. Their effective chance is weighted by biome influence and they may restrict allowed supporting surface blocks. Decorators write normal block content and therefore reuse support, rendering, drops and mutation semantics instead of owning a parallel object store.
 - Generation entropy is domain-separated and based only on the world seed, stable domain names and world coordinates. Hash/dictionary iteration order, task order and chunk materialization order cannot change generated content.
 - `BiomeWorldGenerator` has no mutable generation cache shared between worker calls; chunk materialization is safe to dispatch concurrently.
-- Surface profiles may span arbitrary positive vertical chunks. Streaming selection samples the generator-owned minimum/maximum surface height for each desired horizontal chunk column, keeps deterministic padding below/above that range, and also retains a bounded player-local vertical band. Spawn readiness follows the player's actual initial streaming chunk rather than assuming Y=0.
+- Surface profiles may span arbitrary positive vertical chunks. Streaming selection samples the generator-owned minimum/maximum surface height for each desired horizontal chunk column, keeps deterministic padding below/above that range, and also retains a bounded player-local vertical band. Surface-range queries are cached only inside the current bounded horizontal selection window so moving one chunk reuses overlap instead of resampling the whole render footprint. Spawn readiness follows the player's actual initial streaming chunk rather than assuming Y=0.
 - **Hydrology is explicitly prohibited.** Asteria must not have a hydrology subsystem, pipeline, generation pass, abstraction, owner, or roadmap item. Water-related world features, when explicitly requested, are modeled by their concrete feature/domain and must not be routed through or generalized into a hydrology layer.
 - Caves and true 3D/volume biomes are future generation domains. They must extend the same single-owner generation pipeline rather than independently rewriting surface voxels after generation.
 

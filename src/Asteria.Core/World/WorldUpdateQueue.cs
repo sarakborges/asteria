@@ -155,9 +155,19 @@ public sealed class WorldUpdateQueue
         _backgroundMeshlets.Remove(coord);
     }
 
-    public WorldLightingBatch DrainLighting() =>
-        new(
-            _lightingEdits.Drain());
+    public WorldLightingBatch DrainLighting(
+        int maximumPositions = int.MaxValue)
+    {
+        if (maximumPositions <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(maximumPositions));
+        }
+
+        return new WorldLightingBatch(
+            _lightingEdits.Drain(
+                maximumPositions));
+    }
 
     public WorldMeshBatch DrainMeshlets(
         int maximumMeshlets = int.MaxValue)

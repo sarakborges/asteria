@@ -17,8 +17,13 @@ public partial class Main : Node3D
     private const ulong WorldSeed = 0xA57E_2026UL;
     private const int RenderDistanceChunks = 4;
     private const int RetentionMarginChunks = 10;
-    private const int MaxMaterializationTasksInFlight = 4;
-    private const int MaxMaterializationDispatchesPerFrame = 4;
+    private static readonly int MaxMaterializationTasksInFlight =
+        Math.Clamp(
+            (Environment.ProcessorCount - 2) / 2,
+            1,
+            2);
+    private static readonly int MaxMaterializationDispatchesPerFrame =
+        MaxMaterializationTasksInFlight;
     private const int MaxMaterializationResultsPerFrame = 8;
     private const int MaxPresentationPublicationsPerFrame = 4;
     private const int MaxMeshletPublishesPerFrame = 4;

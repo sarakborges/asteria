@@ -43,6 +43,44 @@ public sealed class WorldUpdateQueueTests
     }
 
     [Fact]
+    public void LightingDrainIsBoundedAndPreservesRemainingOrder()
+    {
+        var queue =
+            new WorldUpdateQueue();
+        var positions =
+            Enumerable.Range(
+                    0,
+                    5)
+                .Select(index =>
+                    new WorldVoxelCoord(
+                        index,
+                        2,
+                        3))
+                .ToArray();
+
+        foreach (var position in
+                 positions)
+        {
+            queue.EnqueueLighting(
+                position);
+        }
+
+        Assert.Equal(
+            positions.Take(2),
+            queue.DrainLighting(
+                    maximumPositions: 2)
+                .EditedPositions);
+        Assert.True(
+            queue.HasLightingWork);
+        Assert.Equal(
+            positions.Skip(2),
+            queue.DrainLighting()
+                .EditedPositions);
+        Assert.False(
+            queue.HasLightingWork);
+    }
+
+    [Fact]
     public void LightingOnlyRemeshDoesNotCreateAnotherLightingEdit()
     {
         var world = new VoxelWorld();
