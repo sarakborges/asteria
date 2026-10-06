@@ -3,7 +3,7 @@ namespace Asteria.Core.World;
 internal static class MeshletMaskQueueDrain
 {
     public static void Drain(
-        Dictionary<ChunkCoord, ChunkMeshletMask> source,
+        SortedDictionary<ChunkCoord, ChunkMeshletMask> source,
         Dictionary<ChunkCoord, ChunkMeshletMask> destination,
         ref int remaining)
     {
@@ -16,29 +16,31 @@ internal static class MeshletMaskQueueDrain
             return;
         }
 
-        foreach (var coord in
-                 source.Keys
-                     .OrderBy(coord => coord.Y)
-                     .ThenBy(coord => coord.Z)
-                     .ThenBy(coord => coord.X)
-                     .ToArray())
+        while (remaining > 0 &&
+               source.Count > 0)
         {
-            if (remaining <= 0)
+            var enumerator =
+                source.GetEnumerator();
+
+            if (!enumerator.MoveNext())
             {
                 break;
             }
 
-            var pending =
-                source[coord];
+            var (coord, pending) =
+                enumerator.Current;
             var selected =
                 ChunkMeshletMask.None;
 
-            foreach (var meshletIndex in
-                     pending.Indices())
+            for (var meshletIndex = 0;
+                 meshletIndex < ChunkMeshletMask.Count &&
+                 remaining > 0;
+                 meshletIndex++)
             {
-                if (remaining <= 0)
+                if (!pending.ContainsIndex(
+                        meshletIndex))
                 {
-                    break;
+                    continue;
                 }
 
                 selected =
@@ -46,11 +48,6 @@ internal static class MeshletMaskQueueDrain
                         ChunkMeshletMask.Single(
                             meshletIndex));
                 remaining--;
-            }
-
-            if (selected.IsEmpty)
-            {
-                continue;
             }
 
             destination[coord] =
