@@ -45,6 +45,11 @@ The current milestone proves the base runtime architecture without introducing w
 - horizontal fluid spreading searches for the nearest reachable drop within the remaining authored range and prefers first-step directions that lead downhill, while falling columns reset their horizontal spread run;
 - fluid meshlets are built and published independently from terrain meshlets, using smoothed corner heights and a dedicated translucent material path;
 - fluid occupancy now participates in voxel lighting as a medium: authored fluid light dampening scales by fill level, direct sky and RGB propagation attenuate through fluid, and accepted fluid changes enqueue incremental relighting plus terrain/fluid vertex-light refreshes;
+- block and fluid definitions can author RGB light emission; fluid emission scales with fill level, while equal-strength colored sources combine deterministically per RGB channel and propagate across chunk boundaries;
+- block light dampening follows actual occupied geometry: layers and microblocks attenuate proportionally to occupied volume, and translucent/cutout behavior remains explicitly authored through `lightDampening` rather than inferred from render mode;
+- incremental skylight treats unloaded vertical gaps as provisional open sky, matching initial chunk seeding; later residency changes enqueue reconciliation instead of allowing distant loaded chunks to incorrectly shadow across unknown space;
+- accepted lighting worker results are integrated by a Core owner that copies authoritative light data and coalesces terrain/fluid mesh invalidation per affected meshlet before bumping revisions;
+- voxel face/AO sampling is allocation-free in the repeated mesh-build path; static face bases and direct four-sample accumulation avoid per-vertex temporary arrays;
 - incremental cross-chunk voxel lighting after edits: edited voxels seed a deduplicated propagation frontier instead of relighting every resident chunk;
 - correct world ↔ chunk/local coordinate conversion across negative coordinates;
 - cube, surface-layer, centered-layer, hollow and 8³ microblock geometry;

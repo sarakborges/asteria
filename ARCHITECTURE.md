@@ -145,7 +145,11 @@ Derived immutable metadata should be computed once near the registry owner when 
 Lighting is authoritative runtime data; meshes are derived presentation data.
 
 - Light propagation and medium rules live in Core.
+- Block and fluid light emission are authored RGB data. Fluid emission scales with fill level; block dampening scales with actual authored/microblock geometry; fluid dampening scales with fill level.
+- RGB block light propagates per channel with deterministic strongest-channel composition. Asteria deliberately does not inherit Mineclone's HSI-specific source-reset machinery because the RGB field does not require it for convergence.
+- Direct skylight is computed only through contiguous loaded vertical chunk segments. An unloaded vertical gap is provisional open sky; chunk residency changes must enqueue reconciliation so newly known blockers/openings converge incrementally.
 - A light change should invalidate only the presentation region that can observe it.
+- Applying an accepted lighting worker result is a Core responsibility. Changed voxel positions are coalesced into chunk/meshlet halo masks before terrain/fluid revisions and remesh queues are published, so one relight does not repeatedly bump the same meshlet.
 - Terrain and fluid meshes may have distinct invalidation/publication lifecycles.
 - Engine-agnostic mesh vertices, batches, culling/greedy logic, collision-face generation and fluid-surface geometry belong in Core.
 - Godot rendering code converts those results into `ArrayMesh`, materials, collision shapes and nodes.
