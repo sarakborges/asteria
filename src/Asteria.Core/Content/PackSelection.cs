@@ -4,28 +4,18 @@ public readonly record struct PackSelection
 {
     public const string DefaultPackName = "default";
 
-    public PackSelection(
-        string resourcePack,
-        string dataPack)
+    public PackSelection(string name)
     {
-        ResourcePack =
+        Name =
             ValidatePackName(
-                resourcePack,
-                nameof(resourcePack));
-        DataPack =
-            ValidatePackName(
-                dataPack,
-                nameof(dataPack));
+                name,
+                nameof(name));
     }
 
-    public string ResourcePack { get; }
-
-    public string DataPack { get; }
+    public string Name { get; }
 
     public static PackSelection Default =>
-        new(
-            DefaultPackName,
-            DefaultPackName);
+        new(DefaultPackName);
 
     private static string ValidatePackName(
         string value,
