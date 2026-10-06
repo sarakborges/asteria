@@ -58,10 +58,10 @@ public static class VoxelMeshLighting
         var basis = GetFaceBasis(face);
 
         return new VoxelFaceLighting(
-            SampleCorner(chunk, blocks, x, y, z, face, basis, basis.Signs[0]),
-            SampleCorner(chunk, blocks, x, y, z, face, basis, basis.Signs[1]),
-            SampleCorner(chunk, blocks, x, y, z, face, basis, basis.Signs[2]),
-            SampleCorner(chunk, blocks, x, y, z, face, basis, basis.Signs[3]));
+            SampleCorner(chunk, blocks, x, y, z, face, basis, basis.Corner0),
+            SampleCorner(chunk, blocks, x, y, z, face, basis, basis.Corner1),
+            SampleCorner(chunk, blocks, x, y, z, face, basis, basis.Corner2),
+            SampleCorner(chunk, blocks, x, y, z, face, basis, basis.Corner3));
     }
 
     public static VoxelFaceLighting SampleFace(
@@ -76,10 +76,10 @@ public static class VoxelMeshLighting
         var basis = GetFaceBasis(face);
 
         return new VoxelFaceLighting(
-            SampleCorner(world, blocks, position, basis, basis.Signs[0]),
-            SampleCorner(world, blocks, position, basis, basis.Signs[1]),
-            SampleCorner(world, blocks, position, basis, basis.Signs[2]),
-            SampleCorner(world, blocks, position, basis, basis.Signs[3]));
+            SampleCorner(world, blocks, position, basis, basis.Corner0),
+            SampleCorner(world, blocks, position, basis, basis.Corner1),
+            SampleCorner(world, blocks, position, basis, basis.Corner2),
+            SampleCorner(world, blocks, position, basis, basis.Corner3));
     }
 
     public static float OccupancyFraction(
@@ -167,7 +167,7 @@ public static class VoxelMeshLighting
         int z,
         BlockFace face,
         FaceBasis basis,
-        (int A, int B) signs)
+        CornerSigns signs)
     {
         var baseX = x + basis.Normal.X;
         var baseY = y + basis.Normal.Y;
@@ -243,7 +243,7 @@ public static class VoxelMeshLighting
         BlockRegistry blocks,
         WorldVoxelCoord position,
         FaceBasis basis,
-        (int A, int B) signs)
+        CornerSigns signs)
     {
         var basePosition = new WorldVoxelCoord(
             position.X + basis.Normal.X,
@@ -321,38 +321,50 @@ public static class VoxelMeshLighting
                     world.GetMicroblockMaskOrEmpty(position)));
     }
 
-    private static (float Sky, float Red, float Green, float Blue) AverageLight(
+    private static (
+        float Sky,
+        float Red,
+        float Green,
+        float Blue) AverageLight(
         LightingSample center,
         LightingSample sideA,
         LightingSample sideB,
         LightingSample corner)
     {
-        var samples = new[] { center, sideA, sideB, corner };
         var sky = 0f;
         var red = 0f;
         var green = 0f;
         var blue = 0f;
         var weightTotal = 0f;
 
-        foreach (var sample in samples)
-        {
-            if (!sample.Loaded)
-            {
-                continue;
-            }
-
-            var weight = 1f - sample.Occupancy;
-            if (weight <= float.Epsilon)
-            {
-                continue;
-            }
-
-            sky += sample.Light.Sky * weight;
-            red += sample.Light.Red * weight;
-            green += sample.Light.Green * weight;
-            blue += sample.Light.Blue * weight;
-            weightTotal += weight;
-        }
+        AccumulateLight(
+            center,
+            ref sky,
+            ref red,
+            ref green,
+            ref blue,
+            ref weightTotal);
+        AccumulateLight(
+            sideA,
+            ref sky,
+            ref red,
+            ref green,
+            ref blue,
+            ref weightTotal);
+        AccumulateLight(
+            sideB,
+            ref sky,
+            ref red,
+            ref green,
+            ref blue,
+            ref weightTotal);
+        AccumulateLight(
+            corner,
+            ref sky,
+            ref red,
+            ref green,
+            ref blue,
+            ref weightTotal);
 
         if (weightTotal <= float.Epsilon)
         {
@@ -366,74 +378,172 @@ public static class VoxelMeshLighting
             blue / weightTotal);
     }
 
+    private static void AccumulateLight(
+        LightingSample sample,
+        ref float sky,
+        ref float red,
+        ref float green,
+        ref float blue,
+        ref float weightTotal)
+    {
+        if (!sample.Loaded)
+        {
+            return;
+        }
+
+        var weight =
+            1f - sample.Occupancy;
+
+        if (weight <= float.Epsilon)
+        {
+            return;
+        }
+
+        sky += sample.Light.Sky * weight;
+        red += sample.Light.Red * weight;
+        green += sample.Light.Green * weight;
+        blue += sample.Light.Blue * weight;
+        weightTotal += weight;
+    }
+
     private static float HollowOccupancy(float wallThickness)
     {
         var inner = Math.Clamp(1f - 2f * wallThickness, 0f, 1f);
         return 1f - inner * inner;
     }
 
-    private static float AoBrightness(float occlusion)
+    private static float AoBrightness(
+        float occlusion)
     {
-        var clamped = Math.Clamp(occlusion, 0f, 3f);
-        var lower = (int)MathF.Floor(clamped);
+        var clamped =
+            Math.Clamp(
+                occlusion,
+                0f,
+                3f);
+        var lower =
+            (int)MathF.Floor(
+                clamped);
+
         if (lower >= 3)
         {
             return AoLevel3;
         }
 
-        var levels = new[] { AoLevel0, AoLevel1, AoLevel2, AoLevel3 };
-        var fraction = clamped - lower;
-        return levels[lower] * (1f - fraction) + levels[lower + 1] * fraction;
+        var lowerLevel =
+            lower switch
+            {
+                0 => AoLevel0,
+                1 => AoLevel1,
+                2 => AoLevel2,
+                _ => AoLevel3,
+            };
+        var upperLevel =
+            lower switch
+            {
+                0 => AoLevel1,
+                1 => AoLevel2,
+                _ => AoLevel3,
+            };
+        var fraction =
+            clamped - lower;
+
+        return lowerLevel *
+                   (1f - fraction) +
+               upperLevel *
+                   fraction;
     }
 
-    private static FaceBasis GetFaceBasis(BlockFace face) => face switch
-    {
-        BlockFace.Right => new(
+    private static readonly FaceBasis RightBasis =
+        new(
             new Axis(1, 0, 0),
             new Axis(0, 1, 0),
             new Axis(0, 0, 1),
-            [(-1, -1), (1, -1), (1, 1), (-1, 1)]),
+            new CornerSigns(-1, -1),
+            new CornerSigns(1, -1),
+            new CornerSigns(1, 1),
+            new CornerSigns(-1, 1));
 
-        BlockFace.Left => new(
+    private static readonly FaceBasis LeftBasis =
+        new(
             new Axis(-1, 0, 0),
             new Axis(0, 1, 0),
             new Axis(0, 0, 1),
-            [(-1, 1), (1, 1), (1, -1), (-1, -1)]),
+            new CornerSigns(-1, 1),
+            new CornerSigns(1, 1),
+            new CornerSigns(1, -1),
+            new CornerSigns(-1, -1));
 
-        BlockFace.Top => new(
+    private static readonly FaceBasis TopBasis =
+        new(
             new Axis(0, 1, 0),
             new Axis(1, 0, 0),
             new Axis(0, 0, 1),
-            [(-1, 1), (1, 1), (1, -1), (-1, -1)]),
+            new CornerSigns(-1, 1),
+            new CornerSigns(1, 1),
+            new CornerSigns(1, -1),
+            new CornerSigns(-1, -1));
 
-        BlockFace.Bottom => new(
+    private static readonly FaceBasis BottomBasis =
+        new(
             new Axis(0, -1, 0),
             new Axis(1, 0, 0),
             new Axis(0, 0, 1),
-            [(-1, -1), (1, -1), (1, 1), (-1, 1)]),
+            new CornerSigns(-1, -1),
+            new CornerSigns(1, -1),
+            new CornerSigns(1, 1),
+            new CornerSigns(-1, 1));
 
-        BlockFace.Front => new(
+    private static readonly FaceBasis FrontBasis =
+        new(
             new Axis(0, 0, 1),
             new Axis(1, 0, 0),
             new Axis(0, 1, 0),
-            [(1, -1), (1, 1), (-1, 1), (-1, -1)]),
+            new CornerSigns(1, -1),
+            new CornerSigns(1, 1),
+            new CornerSigns(-1, 1),
+            new CornerSigns(-1, -1));
 
-        BlockFace.Back => new(
+    private static readonly FaceBasis BackBasis =
+        new(
             new Axis(0, 0, -1),
             new Axis(1, 0, 0),
             new Axis(0, 1, 0),
-            [(-1, -1), (-1, 1), (1, 1), (1, -1)]),
+            new CornerSigns(-1, -1),
+            new CornerSigns(-1, 1),
+            new CornerSigns(1, 1),
+            new CornerSigns(1, -1));
 
-        _ => throw new ArgumentOutOfRangeException(nameof(face)),
-    };
+    private static FaceBasis GetFaceBasis(
+        BlockFace face) =>
+        face switch
+        {
+            BlockFace.Right => RightBasis,
+            BlockFace.Left => LeftBasis,
+            BlockFace.Top => TopBasis,
+            BlockFace.Bottom => BottomBasis,
+            BlockFace.Front => FrontBasis,
+            BlockFace.Back => BackBasis,
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(face)),
+        };
 
-    private readonly record struct Axis(int X, int Y, int Z);
+    private readonly record struct Axis(
+        int X,
+        int Y,
+        int Z);
+
+    private readonly record struct CornerSigns(
+        int A,
+        int B);
 
     private readonly record struct FaceBasis(
         Axis Normal,
         Axis TangentA,
         Axis TangentB,
-        (int A, int B)[] Signs);
+        CornerSigns Corner0,
+        CornerSigns Corner1,
+        CornerSigns Corner2,
+        CornerSigns Corner3);
 
     private readonly record struct LightingSample(
         bool Loaded,
