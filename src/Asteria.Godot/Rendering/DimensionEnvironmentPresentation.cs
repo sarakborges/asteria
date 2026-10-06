@@ -1,5 +1,6 @@
 using Asteria.Core.World;
 using Godot;
+using GEnvironment = Godot.Environment;
 
 namespace Asteria.Client.Rendering;
 
@@ -26,15 +27,15 @@ public sealed class DimensionEnvironmentPresentation
         var definition =
             dimension.Environment;
         var environment =
-            new Environment
+            new GEnvironment
             {
                 BackgroundMode =
-                    Environment.BGMode.Color,
+                    GEnvironment.BGMode.Color,
                 BackgroundColor =
                     ToColor(
                         definition.BackgroundColor),
                 AmbientLightSource =
-                    Environment.AmbientSource.Color,
+                    GEnvironment.AmbientSource.Color,
                 AmbientLightColor =
                     ToColor(
                         definition.AmbientColor),
