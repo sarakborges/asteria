@@ -13,6 +13,14 @@ public readonly record struct DroppedBlockState(
     double AgeSeconds,
     bool IsSettled);
 
+public sealed record DroppedBlockRuntimeEntry(
+    DroppedBlockState State,
+    WorldVoxelCoord? SettledSupport);
+
+public sealed record DroppedBlockRuntimeSnapshot(
+    ulong NextId,
+    IReadOnlyList<DroppedBlockRuntimeEntry> ActiveBlocks);
+
 public readonly record struct DroppedBlockAdvanceResult(
     int Moved,
     int Settled,
@@ -51,7 +59,8 @@ public sealed class DroppedBlockRuntime
         VoxelWorld world,
         BlockRegistry blocks,
         int maximumActive = 2048,
-        double lifetimeSeconds = 300.0)
+        double lifetimeSeconds = 300.0,
+        DroppedBlockRuntimeSnapshot? restore = null)
     {
         _world =
             world ??
@@ -78,12 +87,68 @@ public sealed class DroppedBlockRuntime
         _contactIds = new ulong[maximumActive];
         _contactNext = new int[maximumActive];
         _contactMoved = new bool[maximumActive];
+
+        if (restore is not null)
+        {
+            if (restore.ActiveBlocks.Count >
+                maximumActive)
+            {
+                throw new ArgumentException(
+                    "Restored dropped-block state exceeds active capacity.",
+                    nameof(restore));
+            }
+
+            _nextId =
+                restore.NextId;
+
+            foreach (var entry in
+                     restore.ActiveBlocks
+                         .OrderBy(
+                             value =>
+                                 value.State.Id.Value))
+            {
+                var state =
+                    entry.State;
+
+                if (!_active.TryAdd(
+                        state.Id.Value,
+                        state))
+                {
+                    throw new ArgumentException(
+                        $"Duplicate restored dropped-block id: {state.Id.Value}",
+                        nameof(restore));
+                }
+
+                if (entry.SettledSupport is
+                    { } support)
+                {
+                    IndexSettledSupport(
+                        state,
+                        support);
+                }
+            }
+        }
     }
 
     public int ActiveCount => _active.Count;
 
     public IEnumerable<DroppedBlockState> ActiveBlocks =>
         _active.Values;
+
+    public DroppedBlockRuntimeSnapshot CaptureState() =>
+        new(
+            _nextId,
+            _active.Values
+                .Select(
+                    state =>
+                        new DroppedBlockRuntimeEntry(
+                            state,
+                            _supportById.TryGetValue(
+                                state.Id.Value,
+                                out var support)
+                                ? support
+                                : null))
+                .ToArray());
 
     public DroppedBlockId Spawn(
         BlockStateSnapshot block,
