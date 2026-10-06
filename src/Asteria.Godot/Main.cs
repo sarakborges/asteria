@@ -1620,7 +1620,7 @@ public partial class Main : Node3D
         ChunkContentStamp ContentStamp);
 
     private sealed record FluidMeshletPublication(
-        FluidTerrainMeshletBuild Meshlet,
+        FluidMeshletBuild Meshlet,
         ulong ContentRevision,
         ChunkContentStamp ContentStamp);
 
