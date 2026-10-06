@@ -73,15 +73,21 @@ The current milestone proves the base runtime architecture without introducing w
 - HTML/CSS/TypeScript WebUI embedded over the game through Godot WRY;
 - bidirectional JSON bridge between C# and the WebUI.
 
-Visible terrain now comes from the Core `BiomeWorldGenerator`, selected by world seed + dimension and injected into the streaming residency runtime. The initial overworld pack authors plains, swamp, wasteland and desert biomes with formation weights/region sizes, terrain profiles and surface layers. Swamp and desert currently declare `cannotBorder`; height is blended across biome influences so primary-biome changes do not cut the terrain vertically. Surface material selection is influence-weighted, and authored world-space patches let swamp grass/dirt/mud intermix across chunk boundaries.
+Visible terrain now comes from the Core `BiomeWorldGenerator`, selected through an authored `DimensionDefinition` and injected into the streaming residency runtime. `packs/default/data/dimensions/` currently contains `asteria:overworld` and `asteria:umbral`. Each dimension explicitly selects its biome pool, derives an independent seed from the root world seed, and owns gravity, spawn coordinates and environment colors/fog.
+
+Overworld authors plains, swamp, wasteland and desert. The Umbral currently authors Umbral Reach, Withered Waste and Wraith Grove, with its own dark environment/fog presentation. Swamp and desert currently declare `cannotBorder`; height is blended across biome influences so primary-biome changes do not cut the terrain vertically. Surface material selection is influence-weighted, and authored world-space patches cross chunk boundaries.
 
 Ground vegetation now comes from biome decorators rather than the QA fixture: plains/swamp can place grass and brown mushrooms are authored only by swamp. Generation is deterministic for the same seed regardless of chunk/task order. The old `DeterministicChunkProvider` remains only for test/QA fixtures.
 
 Chunks outside the desired radius are retained for a hysteresis/cache margin before authoritative residency is removed. Edited chunks are then archived in memory and restored before provider fallback, so break/place survives unload/reload during the current session. This is not save-game persistence and writes nothing to disk. Hydrology is intentionally prohibited by the architecture; caves/3D biome generation are not implemented yet.
 
-### Biome content
+### Dimension and biome content
 
-Authorial surface biomes live in `packs/default/data/biomes/*.json`. The current schema owns `surfaceLayout` (weight, region-size target, adjacency constraints), `surfaceTerrain`, ordered `surfaceLayers` with optional deterministic patches, and block decorators. Biome generation lives entirely in Core; Godot only loads the selected pack and composes the provider into streaming.
+Authorial dimensions live in `packs/default/data/dimensions/*.json`. Their current schema owns the explicit biome pool, `gravityStrength`, spawn X/Z and environment background/ambient/fog values. The root world seed derives a distinct seed for each dimension.
+
+Authorial surface biomes live in `packs/default/data/biomes/*.json`. The biome schema owns `surfaceLayout` (weight, region-size target, adjacency constraints), `surfaceTerrain`, ordered `surfaceLayers` with optional deterministic patches, and block decorators. Generation lives entirely in Core; Godot loads the selected pack, selects the startup dimension and composes its provider/presentation adapters.
+
+`Main.StartupDimensionId` defaults to `asteria:overworld` and is an exported startup setting, so the runtime can be launched directly in `asteria:umbral` without changing generation code. Live portal/dimension transition is not wired yet; it will retire the current dimension session and create/restore another rather than clearing and reusing the same mutable world.
 
 ### Block content
 
@@ -126,7 +132,7 @@ Open the repository root with the Godot 4.7.2 .NET editor and run the project.
 
 Expected result:
 
-- a deterministic streamed QA world around the player, rendered as 8³ meshlets;
+- a deterministic streamed authored dimension around the player, rendered as 8³ meshlets;
 - QA examples for thin sand/snow layers, oriented logs, hollow logs and a sculpted microblock;
 - an FPS camera controlled by mouse + WASD, with Space to jump and Esc to release/capture the cursor;
 - a centered gameplay crosshair and bottom-center nine-slot hotbar;

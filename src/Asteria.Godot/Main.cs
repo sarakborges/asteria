@@ -15,7 +15,6 @@ public partial class Main : Node3D
     private const float InteractionDistance = 6f;
     private const uint WorldTicksPerSecond = 40;
     private const ulong WorldSeed = 0xA57E_2026UL;
-    private const string WorldDimensionId = "asteria:overworld";
     private const int RenderDistanceChunks = 4;
     private const int RetentionMarginChunks = 10;
     private const int MaxMaterializationTasksInFlight = 4;
@@ -29,7 +28,6 @@ public partial class Main : Node3D
     private const int MaxFluidMeshletPublishesPerFrame = 4;
     private const int MaxFluidUpdatesPerWorker = 512;
     private const int MaxChunkEvictionsPerFrame = 2;
-    private const double WorldGravityStrength = 18.0;
 
     private readonly WorldUpdateQueue _worldUpdates = new();
     private readonly WorldTickClock _worldTicks = new();
@@ -60,6 +58,12 @@ public partial class Main : Node3D
     private BlockRegistry _blocks = null!;
     private FluidRegistry _fluids = null!;
     private BiomeRegistry _biomes = null!;
+    private DimensionRegistry _dimensions = null!;
+    private DimensionDefinition _dimension = null!;
+    private BiomeWorldGenerator _worldGenerator = null!;
+    private ulong _dimensionSeed;
+    private ChunkCoord _spawnChunk;
+    private DimensionEnvironmentPresentation _dimensionEnvironment = null!;
     private FpsPlayer? _player;
     private Node _webUi = null!;
     private TerrainTextureCatalog _terrainTextures = null!;
@@ -72,6 +76,10 @@ public partial class Main : Node3D
     private bool _worldReadySent;
     private bool _debugHudVisible;
 
+    [Export]
+    public string StartupDimensionId { get; set; } =
+        "asteria:overworld";
+
     public override void _Ready()
     {
         _uiTheme =
@@ -82,12 +90,35 @@ public partial class Main : Node3D
         _blocks = BlockContentLoader.LoadProjectBlocks(_packSelection);
         _fluids = FluidContentLoader.LoadProjectFluids(_packSelection);
         _biomes = BiomeContentLoader.LoadProjectBiomes(_packSelection);
-        var worldGenerator =
-            new BiomeWorldGenerator(
+        _dimensions =
+            DimensionContentLoader.LoadProjectDimensions(
+                _packSelection);
+        _dimensions.ValidateBiomes(
+            _biomes);
+        _dimension =
+            _dimensions.Get(
+                new DimensionId(
+                    StartupDimensionId));
+        _dimensionSeed =
+            DimensionSeed.Derive(
                 WorldSeed,
-                WorldDimensionId,
+                _dimension.Id);
+        _worldGenerator =
+            new BiomeWorldGenerator(
+                _dimensionSeed,
+                _dimension,
                 _blocks,
                 _biomes);
+        _spawnChunk =
+            VoxelCoordinates.FromWorld(
+                _dimension.Spawn.X,
+                0,
+                _dimension.Spawn.Z).Chunk;
+        _dimensionEnvironment =
+            new DimensionEnvironmentPresentation(
+                this);
+        _dimensionEnvironment.Apply(
+            _dimension);
         var droppedBlocks =
             new DroppedBlockRuntime(
                 _world,
@@ -160,7 +191,7 @@ public partial class Main : Node3D
                 _world,
                 _blocks,
                 _fluids,
-                worldGenerator,
+                _worldGenerator,
                 _worldUpdates,
                 _fluidUpdates,
                 _fluidMeshUpdates,
@@ -225,8 +256,11 @@ public partial class Main : Node3D
         GD.Print(
             $"fluid content: loaded {_fluids.AuthoredCount} definitions");
         GD.Print(
-            $"biome content: loaded {_biomes.Count} definitions " +
-            $"dimension={WorldDimensionId} seed={WorldSeed}");
+            $"biome content: loaded {_biomes.Count} definitions");
+        GD.Print(
+            $"dimension content: loaded {_dimensions.Count} definitions " +
+            $"active={_dimension.Id} world_seed={WorldSeed} " +
+            $"dimension_seed={_dimensionSeed} gravity={_dimension.GravityStrength:F2}");
         GD.Print(
             $"streaming: render_distance={RenderDistanceChunks} " +
             $"retention_margin={RetentionMarginChunks} " +
@@ -279,7 +313,7 @@ public partial class Main : Node3D
         ReportBlockEntityFrame(
             _blockEntities.Advance(
                 delta,
-                WorldGravityStrength));
+                _dimension.GravityStrength));
 
         PollFluidWorker();
         PollFluidMeshWorker();
@@ -303,7 +337,7 @@ public partial class Main : Node3D
 
         if (!_worldReadySent &&
             _chunkPresentations.IsFullyPublished(
-                ChunkCoord.Zero))
+                _spawnChunk))
         {
             _worldReadySent = true;
             SetupPlayer();
@@ -405,8 +439,11 @@ public partial class Main : Node3D
                 blocks = _blocks.AuthoredCount,
                 fluids = _fluids.AuthoredCount,
                 biomes = _biomes.Count,
+                dimensions = _dimensions.Count,
                 worldSeed = WorldSeed,
-                dimension = WorldDimensionId,
+                dimensionSeed = _dimensionSeed,
+                dimension = _dimension.Id.Value,
+                gravityStrength = _dimension.GravityStrength,
                 fluidUpdates = _fluidUpdates.Count,
                 fluidScheduled = _fluidUpdates.ScheduledCount,
                 fluidDormantChunks = _fluidUpdates.DormantChunkCount,
@@ -484,10 +521,21 @@ public partial class Main : Node3D
             return;
         }
 
+        var spawnSurfaceY =
+            _worldGenerator.SurfaceHeight(
+                _dimension.Spawn.X,
+                _dimension.Spawn.Z);
+
         _player = new FpsPlayer
         {
             Name = "Player",
-            Position = new Vector3(0f, 20f, 0f),
+            Position =
+                new Vector3(
+                    _dimension.Spawn.X + 0.5f,
+                    spawnSurfaceY + 1f,
+                    _dimension.Spawn.Z + 0.5f),
+            GravityStrength =
+                _dimension.GravityStrength,
         };
 
         _player.FluidContactProvider =
@@ -519,7 +567,7 @@ public partial class Main : Node3D
             new { controller = "fps" });
 
         GD.Print(
-            "streaming: origin presentation ready; player activated");
+            $"streaming: dimension={_dimension.Id} spawn presentation ready; player activated");
     }
 
     private void OnPlayerFluidContactChanged(
@@ -533,7 +581,7 @@ public partial class Main : Node3D
     {
         if (_player is null)
         {
-            return _residency.Center;
+            return _spawnChunk;
         }
 
         var position = _player.GlobalPosition;

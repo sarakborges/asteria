@@ -1,0 +1,30 @@
+{
+  "id": "asteria:umbral/umbral_reach",
+  "surfaceLayout": {
+    "weight": 1.0,
+    "regionSize": {
+      "min": 224,
+      "max": 448
+    }
+  },
+  "surfaceTerrain": {
+    "baseHeight": 8.0,
+    "macroAmplitude": 4.0,
+    "macroScale": 704,
+    "detailAmplitude": 1.5,
+    "detailScale": 112
+  },
+  "surfaceLayers": [
+    {
+      "block": "asteria:dirt",
+      "depth": 3
+    },
+    {
+      "block": "asteria:gravel",
+      "depth": 2
+    },
+    {
+      "block": "asteria:stone"
+    }
+  ]
+}
