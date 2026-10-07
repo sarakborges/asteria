@@ -104,7 +104,8 @@ var farZ =
     OffsetWorldAxis(
         options.CenterZ,
         -1_000_000);
-const int searchRadius = 4096;
+var searchRadius =
+    options.SearchRadius;
 
 var metrics = new SortedDictionary<string, Measurement>(
     StringComparer.Ordinal);
@@ -320,6 +321,7 @@ var result = new
     options.Samples,
     options.AreaSize,
     options.Chunks,
+    options.SearchRadius,
     Metrics = metrics,
     Notes = new[]
     {
@@ -489,6 +491,7 @@ internal sealed record Arguments(
     int Samples,
     int AreaSize,
     int Chunks,
+    int SearchRadius,
     string? Output)
 {
     public static Arguments Parse(string[] input)
@@ -502,6 +505,7 @@ internal sealed record Arguments(
         var samples = 16;
         var areaSize = 16;
         var chunks = 2;
+        var searchRadius = 1024;
         string? output = null;
 
         if (input.Length % 2 != 0)
@@ -546,6 +550,9 @@ internal sealed record Arguments(
                 case "--chunks":
                     chunks = int.Parse(value);
                     break;
+                case "--search-radius":
+                    searchRadius = int.Parse(value);
+                    break;
                 case "--output":
                     output = value;
                     break;
@@ -556,11 +563,12 @@ internal sealed record Arguments(
 
         if (samples is < 1 or > 4096 ||
             areaSize is < 1 or > 128 ||
-            chunks is < 1 or > 16)
+            chunks is < 1 or > 16 ||
+            searchRadius is < 1 or > 8192)
         {
             throw new ArgumentOutOfRangeException(
                 nameof(input),
-                "Samples must be 1–4096, area-size 1–128 and chunks 1–16.");
+                "Samples must be 1–4096, area-size 1–128, chunks 1–16 and search-radius 1–8192.");
         }
 
         return new Arguments(
@@ -573,6 +581,7 @@ internal sealed record Arguments(
             samples,
             areaSize,
             chunks,
+            searchRadius,
             output);
     }
 }
