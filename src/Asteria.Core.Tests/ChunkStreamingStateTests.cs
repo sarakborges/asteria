@@ -2,6 +2,7 @@ using Asteria.Core.World;
 
 namespace Asteria.Core.Tests;
 
+[Collection("ChunkStreamingConcurrency")]
 public sealed class ChunkStreamingStateTests
 {
     [Fact]
