@@ -29,7 +29,7 @@ This document is the active parity map for the migration. It must be updated whe
 | 3 — Biome Layout | Organic formation field, `regionSize`, weights, `cannotBorder`, primary + normalized influences, deterministic search, biome-map sampling. | **Ported / Adapted** | Add the optional debug biome-map renderer if still useful. The semantic layout itself is already ported. |
 | 4 — Terrain | Continuous surface field plus authoritative 3D density, caves/floating terrain, bounded queries, seam/order independence. | **Ported / Adapted** | Continue only through the single terrain-density owner; no parallel terrain generators. |
 | 5 — Surface/material/generated fluids | Deterministic layers, patches, generated natural fluids and runtime handoff. | **Partial** | Ocean generation is active; remaining authored generated-fluid behaviors from the rebuild/content set, including swamp puddles where required, still need their concrete owner. |
-| 6 — Structures/features | One authoritative Structure placement/query owner; StructureSets, variants, conflicts, connectors/chains, biome/terrain/fluid restrictions and cross-chunk materialization. | **Partial** | Authoritative queries, deterministic multi-piece StructureSets, and connector/chains are implemented. Remaining Phase 6 work is the authored generic connected-feature content path used by river/lake/waterfall/pond content. Do not introduce hydrology. |
+| 6 — Structures/features | One authoritative Structure placement/query owner; StructureSets, variants, conflicts, connectors/chains, biome/terrain/fluid restrictions and cross-chunk materialization. | **Ported / Adapted** | Authoritative queries, deterministic multi-piece StructureSets, connector/chains, fluid/clear payloads, biome-margin roots, and the lake/river/mountain-pond/mountain-waterfall content path are implemented through generic Structures. No hydrology subsystem exists. |
 | 7 — Chunk synthesis | One procedural writer composes density/materials/features/structures/generated fluids into runtime chunks. | **Ported for current content** | Keep `SurfaceChunkMaterializer` as the single writer while Phase 5/6 capabilities expand. |
 | 8 — Consumer integration | Streaming, biome/Structure locate, spawn, warp and dimension travel consume narrow generator query capabilities; no hidden chunk generation. | **Partial / Missing parity** | Add generator-owned biome/Structure search and shared destination preparation, then route every applicable consumer through those capabilities. |
 | 9 — Persistence | First materialization makes a chunk authoritative persisted spatial state, including unedited/empty chunks; query-only access does not persist. | **Divergent** | Asteria currently archives dirty chunks and regenerates pristine chunks. Reconcile this with the rebuild contract before claiming Phase 9 parity. |
@@ -41,14 +41,7 @@ This document is the active parity map for the migration. It must be updated whe
 
 Until parity is closed, worldgen work should follow this order unless the user explicitly changes priority:
 
-1. **Phase 6 — complete generic Structure capability**
-   - StructureSets/groups/variants are implemented and must remain root-owned multi-piece placement;
-   - generic connectors/chains are implemented inside `SurfaceStructureField`;
-   - authoritative bounded Structure search is implemented in `SurfaceStructureField` and must remain the single search owner;
-   - connected river/lake/waterfall/pond content through Structure/connectors only;
-   - preserve `SurfaceStructureField` as the placement/conflict owner and `SurfaceChunkMaterializer` as the writer.
-
-2. **Phase 8 — complete generated-world consumers**
+1. **Phase 8 — complete generated-world consumers**
    - biome search;
    - Structure search;
    - spawn destination selection;
@@ -56,18 +49,18 @@ Until parity is closed, worldgen work should follow this order unless the user e
    - dimension-travel destination preparation;
    - no consumer may reconstruct generator rules from seed/registries or materialize chunks merely to answer an untouched generated-world query.
 
-3. **Phase 9 — reconcile persistence**
+2. **Phase 9 — reconcile persistence**
    - MineClone rebuild semantics persist every materialized chunk;
    - current Asteria semantics retain only dirty authoritative chunk state and rematerialize pristine terrain;
    - this is an explicit semantic conflict, not an implementation detail;
    - resolve the contract deliberately before loading/save work depends on it.
 
-4. **Phases 10–11 — shared loading + presentation**
+3. **Phases 10–11 — shared loading + presentation**
    - one loading pipeline for world entry/load/dimension travel;
    - progress is real residency/materialization work;
    - WebUI renders authoritative progress and owns no world-loading state.
 
-5. **Phase 12 — close validation/performance**
+4. **Phase 12 — close validation/performance**
    - deterministic fixed-seed fixtures;
    - cold/warm scalar and bounded queries;
    - near/far destination paths;
