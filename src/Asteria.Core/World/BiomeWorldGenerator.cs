@@ -177,6 +177,30 @@ public sealed class BiomeWorldGenerator :
 
     public BiomeTintField Tints { get; }
 
+    public IReadOnlyList<SurfaceStructureQueryResult>
+        SurfaceStructuresIntersecting(
+            int originX,
+            int originZ,
+            int width,
+            int depth) =>
+        _surfaceStructures.PlacementsIntersecting(
+            originX,
+            originZ,
+            width,
+            depth);
+
+    public SurfaceStructureQueryResult?
+        FindNearestSurfaceStructure(
+            string reference,
+            int originX,
+            int originZ,
+            int maxDistance) =>
+        _surfaceStructures.FindNearest(
+            reference,
+            originX,
+            originZ,
+            maxDistance);
+
     public Chunk Materialize(ChunkCoord coord) =>
         _materializer.Materialize(coord);
 
