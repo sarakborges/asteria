@@ -163,6 +163,12 @@ public sealed class DimensionGeneratedOceanDefinition
     public DimensionOceanShoreDefinition Shore { get; }
 }
 
+public enum DimensionGeneratedSurfaceStructurePlacement
+{
+    BiomeInterior,
+    BiomeMargin,
+}
+
 public sealed class DimensionGeneratedSurfaceStructureDefinition
 {
     public DimensionGeneratedSurfaceStructureDefinition(
@@ -170,7 +176,9 @@ public sealed class DimensionGeneratedSurfaceStructureDefinition
         string structure,
         int spacing,
         float chance,
-        int jitter = 0)
+        int jitter = 0,
+        DimensionGeneratedSurfaceStructurePlacement placement =
+            DimensionGeneratedSurfaceStructurePlacement.BiomeInterior)
     {
         BiomeDefinition.ValidateId(
             biome);
@@ -205,6 +213,7 @@ public sealed class DimensionGeneratedSurfaceStructureDefinition
         Spacing = spacing;
         Chance = chance;
         Jitter = jitter;
+        Placement = placement;
     }
 
     public string Biome { get; }
@@ -216,6 +225,8 @@ public sealed class DimensionGeneratedSurfaceStructureDefinition
     public float Chance { get; }
 
     public int Jitter { get; }
+
+    public DimensionGeneratedSurfaceStructurePlacement Placement { get; }
 }
 
 public sealed class DimensionEnvironmentDefinition
