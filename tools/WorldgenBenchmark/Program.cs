@@ -41,11 +41,20 @@ var blocks = BlockRegistry.FromJson(Documents(root, "blocks"));
 var fluids = FluidRegistry.FromJson(Documents(root, "fluids"));
 var biomes = BiomeRegistry.FromJson(Documents(root, "biomes"));
 var structures = StructureRegistry.FromJson(OptionalDocuments(root, "structures"));
+var structureSets =
+    StructureSetRegistry.FromJson(
+        OptionalDocuments(
+            root,
+            "structure_sets"));
 var dimensions = DimensionRegistry.FromJson(Documents(root, "dimensions"));
 dimensions.ValidateBlocks(blocks);
 dimensions.ValidateFluids(fluids);
 dimensions.ValidateBiomes(biomes);
-dimensions.ValidateStructures(structures);
+dimensions.ValidateStructures(
+    structures,
+    structureSets);
+structureSets.ValidateStructures(
+    structures);
 biomes.ValidateBlocks(blocks);
 structures.ValidateBlocks(blocks);
 structures.ValidateFluids(fluids);
@@ -58,7 +67,44 @@ BiomeWorldGenerator NewGenerator() => new(
     blocks,
     fluids,
     biomes,
-    structures);
+    structures,
+    structureSets);
+
+var targetProbeGenerator =
+    NewGenerator();
+var centerBiome =
+    targetProbeGenerator.Biomes.Sample(
+        options.CenterX,
+        options.CenterZ)
+    .Primary;
+var biomeSearchTarget =
+    dimension.SurfaceBiomes
+        .OrderBy(
+            id => id,
+            StringComparer.Ordinal)
+        .FirstOrDefault(id =>
+            !string.Equals(
+                id,
+                centerBiome,
+                StringComparison.Ordinal)) ??
+    centerBiome;
+var structureSearchTarget =
+    dimension.GeneratedSurfaceStructures
+        .Select(definition =>
+            definition.Structure)
+        .OrderBy(
+            reference => reference,
+            StringComparer.Ordinal)
+        .FirstOrDefault();
+var farX =
+    OffsetWorldAxis(
+        options.CenterX,
+        1_000_000);
+var farZ =
+    OffsetWorldAxis(
+        options.CenterZ,
+        -1_000_000);
+const int searchRadius = 4096;
 
 var metrics = new SortedDictionary<string, Measurement>(
     StringComparer.Ordinal);
@@ -167,6 +213,67 @@ metrics.Add("densityVolume", Measure(
         return digest;
     }));
 
+metrics.Add("biomeSearchNear", Measure(
+    1,
+    generator =>
+        HashBiomeSearch(
+            generator.FindNearestSurfaceBiome(
+                biomeSearchTarget,
+                options.CenterX,
+                options.CenterZ,
+                searchRadius))));
+
+metrics.Add("biomeSearchFar", Measure(
+    1,
+    generator =>
+        HashBiomeSearch(
+            generator.FindNearestSurfaceBiome(
+                biomeSearchTarget,
+                farX,
+                farZ,
+                searchRadius))));
+
+metrics.Add("destinationNear", Measure(
+    1,
+    generator =>
+        HashDestination(
+            generator.FindGeneratedSurfaceDestination(
+                options.CenterX,
+                options.CenterZ,
+                maxRadius: 64))));
+
+metrics.Add("destinationFar", Measure(
+    1,
+    generator =>
+        HashDestination(
+            generator.FindGeneratedSurfaceDestination(
+                farX,
+                farZ,
+                maxRadius: 64))));
+
+if (structureSearchTarget is not null)
+{
+    metrics.Add("structureSearchNear", Measure(
+        1,
+        generator =>
+            HashStructureSearch(
+                generator.FindNearestSurfaceStructure(
+                    structureSearchTarget,
+                    options.CenterX,
+                    options.CenterZ,
+                    searchRadius))));
+
+    metrics.Add("structureSearchFar", Measure(
+        1,
+        generator =>
+            HashStructureSearch(
+                generator.FindNearestSurfaceStructure(
+                    structureSearchTarget,
+                    farX,
+                    farZ,
+                    searchRadius))));
+}
+
 metrics.Add("chunkSynthesis", Measure(
     options.Chunks,
     generator =>
@@ -218,6 +325,8 @@ var result = new
     {
         "Cold and warm passes use identical coordinates and independent generator instances per metric.",
         "Elapsed times include immutable query/cache cost, not Godot meshing, physics or GPU publication.",
+        "Every metric records its generated-result digest so determinism can be compared across runs.",
+        "Search/destination metrics include near and far world coordinates without chunk materialization.",
         "No time thresholds: compare representative builds on the same machine and configuration.",
     },
 };
@@ -257,7 +366,8 @@ Measurement Measure(
     return new Measurement(
         operations,
         coldMs,
-        timer.Elapsed.TotalMilliseconds);
+        timer.Elapsed.TotalMilliseconds,
+        coldDigest);
 }
 
 static (int X, int Z) Position(Arguments options, int index) =>
@@ -265,6 +375,90 @@ static (int X, int Z) Position(Arguments options, int index) =>
     checked(options.CenterX + (index % 8) * 11),
     checked(options.CenterZ - (index / 8) * 13)
 );
+
+static ulong HashBiomeSearch(
+    SurfaceBiomeSearchResult? result)
+{
+    if (result is null)
+    {
+        return 0UL;
+    }
+
+    var digest = 14695981039346656037UL;
+    digest = HashNumber(
+        digest,
+        unchecked((ulong)result.X));
+    digest = HashNumber(
+        digest,
+        unchecked((ulong)result.Z));
+    return HashText(
+        digest,
+        result.Sample.Primary);
+}
+
+static ulong HashDestination(
+    GeneratedSurfaceDestination? result)
+{
+    if (result is null)
+    {
+        return 0UL;
+    }
+
+    var digest = 14695981039346656037UL;
+    digest = HashNumber(
+        digest,
+        unchecked((ulong)result.Value.X));
+    digest = HashNumber(
+        digest,
+        unchecked((ulong)result.Value.Y));
+    return HashNumber(
+        digest,
+        unchecked((ulong)result.Value.Z));
+}
+
+static ulong HashStructureSearch(
+    SurfaceStructureQueryResult? result)
+{
+    if (result is null)
+    {
+        return 0UL;
+    }
+
+    var digest = 14695981039346656037UL;
+    digest = HashText(
+        digest,
+        result.Value.Reference);
+    digest = HashText(
+        digest,
+        result.Value.StructureId);
+    digest = HashNumber(
+        digest,
+        unchecked((ulong)result.Value.AnchorX));
+    digest = HashNumber(
+        digest,
+        unchecked((ulong)result.Value.AnchorY));
+    return HashNumber(
+        digest,
+        unchecked((ulong)result.Value.AnchorZ));
+}
+
+static int OffsetWorldAxis(
+    int value,
+    int offset)
+{
+    var result =
+        (long)value +
+        offset;
+    return result switch
+    {
+        <= int.MinValue =>
+            int.MinValue,
+        >= int.MaxValue =>
+            int.MaxValue,
+        _ =>
+            (int)result,
+    };
+}
 
 static ulong HashText(ulong current, string value)
 {
@@ -282,7 +476,8 @@ static ulong HashNumber(ulong current, ulong value) =>
 internal sealed record Measurement(
     int Operations,
     double ColdMs,
-    double WarmMs);
+    double WarmMs,
+    ulong Digest);
 
 internal sealed record Arguments(
     string ProjectRoot,
