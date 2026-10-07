@@ -40,6 +40,11 @@ public sealed class DimensionTests
             overworld.SurfaceBiomes.Count);
         Assert.Single(
             overworld.VolumeBiomes);
+        Assert.Single(
+            overworld.UndergroundBiomes);
+        Assert.Contains(
+            "asteria:overworld/caverns",
+            overworld.UndergroundBiomes);
         Assert.Contains(
             "asteria:overworld/ocean",
             overworld.SurfaceBiomes);
@@ -86,6 +91,8 @@ public sealed class DimensionTests
             umbral.SurfaceBiomes.Count);
         Assert.Empty(
             umbral.VolumeBiomes);
+        Assert.Empty(
+            umbral.UndergroundBiomes);
         Assert.All(
             overworld.SurfaceBiomes,
             biome =>
@@ -94,6 +101,12 @@ public sealed class DimensionTests
                     biome));
         Assert.All(
             overworld.VolumeBiomes,
+            biome =>
+                Assert.StartsWith(
+                    "asteria:overworld/",
+                    biome));
+        Assert.All(
+            overworld.UndergroundBiomes,
             biome =>
                 Assert.StartsWith(
                     "asteria:overworld/",
