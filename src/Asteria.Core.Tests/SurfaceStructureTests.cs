@@ -29,7 +29,7 @@ public sealed class SurfaceStructureTests
             structures);
 
         Assert.Equal(
-            4,
+            8,
             structures.Count);
         Assert.Equal(
             new[]
@@ -38,6 +38,10 @@ public sealed class SurfaceStructureTests
                 "asteria:boulder_huge",
                 "asteria:boulder_medium",
                 "asteria:boulder_small",
+                "asteria:tree_oak_01",
+                "asteria:tree_oak_02",
+                "asteria:tree_oak_03",
+                "asteria:tree_oak_04",
             },
             structures
                 .Definitions()
@@ -46,7 +50,7 @@ public sealed class SurfaceStructureTests
                         definition.Id)
                 .ToArray());
         Assert.Equal(
-            23,
+            24,
             overworld
                 .GeneratedSurfaceStructures
                 .Count);
@@ -81,6 +85,262 @@ public sealed class SurfaceStructureTests
                     "asteria:boulder_huge")
                 .Voxels
                 .Count);
+    }
+
+    [Fact]
+    public void OakGroupAuthorsGroundAndGenerationPolicies()
+    {
+        var structures =
+            StructureRegistry.FromJson(
+                ReadJsonDirectory(
+                    "structures"));
+        var oak =
+            structures.ResolveReference(
+                "asteria:tree_oak");
+
+        Assert.Equal(
+            4,
+            oak.Count);
+
+        Assert.All(
+            oak,
+            definition =>
+            {
+                Assert.Equal(
+                    new[]
+                    {
+                        "asteria:grass_block",
+                        "asteria:dirt",
+                    },
+                    definition.Restrictions
+                        .GroundBlocks);
+                Assert.Equal(
+                    StructureReplacePolicy.Terrain,
+                    definition.Generation.ReplacePolicy);
+                Assert.Equal(
+                    StructureFluidPolicy.Forbid,
+                    definition.Generation.FluidPolicy);
+                Assert.False(
+                    definition.Generation.ReserveSpace);
+                Assert.Contains(
+                    "tree",
+                    definition.ConflictGroups);
+            });
+    }
+
+    [Fact]
+    public void OakGroupMaterializesOnlyOnAllowedGround()
+    {
+        var blocks =
+            BlockRegistry.FromJson(
+                ReadJsonDirectory(
+                    "blocks"));
+        var structures =
+            StructureRegistry.FromJson(
+                ReadJsonDirectory(
+                    "structures"));
+        var oakLog =
+            blocks.GetId(
+                "asteria:log_oak");
+
+        var allowed =
+            FlatStructureGenerator(
+                blocks,
+                structures,
+                "asteria:grass_block",
+                "asteria:tree_oak");
+        var rejected =
+            FlatStructureGenerator(
+                blocks,
+                structures,
+                "asteria:stone",
+                "asteria:tree_oak");
+
+        Assert.True(
+            ChunkContains(
+                allowed.Materialize(
+                    new ChunkCoord(
+                        0,
+                        2,
+                        0)),
+                oakLog));
+        Assert.False(
+            ChunkContains(
+                rejected.Materialize(
+                    new ChunkCoord(
+                        0,
+                        2,
+                        0)),
+                oakLog));
+    }
+
+    [Fact]
+    public void HigherPriorityConflictRejectsWholeLowerCandidate()
+    {
+        var blocks =
+            new BlockRegistry(
+            [
+                new BlockDefinition(
+                    "asteria:grass_block"),
+                new BlockDefinition(
+                    "asteria:stone"),
+                new BlockDefinition(
+                    "asteria:marker_high"),
+                new BlockDefinition(
+                    "asteria:marker_low"),
+            ]);
+        var sharedRestrictions =
+            new StructureRestrictionsDefinition(
+                maxSlope: 0,
+                requiresDryGround: true,
+                requiredBiomeCoverage: 1f);
+        var structures =
+            new StructureRegistry(
+            [
+                new StructureDefinition(
+                    "asteria:high",
+                    rotation: false,
+                    anchor: default,
+                    voxels:
+                    [
+                        new StructureVoxelDefinition(
+                            0,
+                            0,
+                            0,
+                            "asteria:marker_high",
+                            BlockOrientation.Y),
+                    ],
+                    restrictions:
+                        sharedRestrictions,
+                    priority: 10,
+                    conflictGroups:
+                    [
+                        "test",
+                    ]),
+                new StructureDefinition(
+                    "asteria:low",
+                    rotation: false,
+                    anchor: default,
+                    voxels:
+                    [
+                        new StructureVoxelDefinition(
+                            0,
+                            0,
+                            0,
+                            "asteria:marker_low",
+                            BlockOrientation.Y),
+                    ],
+                    restrictions:
+                        sharedRestrictions,
+                    priority: 0,
+                    conflictGroups:
+                    [
+                        "test",
+                    ]),
+            ]);
+        var generator =
+            FlatStructureGenerator(
+                blocks,
+                structures,
+                "asteria:grass_block",
+                "asteria:high",
+                "asteria:low");
+        var chunk =
+            generator.Materialize(
+                new ChunkCoord(
+                    0,
+                    2,
+                    0));
+
+        Assert.Equal(
+            blocks.GetId(
+                "asteria:marker_high"),
+            chunk.GetBlock(
+                8,
+                0,
+                8));
+    }
+
+    [Fact]
+    public void TerrainReplacementDoesNotOverwritePreviouslyClaimedStructureVoxel()
+    {
+        var blocks =
+            new BlockRegistry(
+            [
+                new BlockDefinition(
+                    "asteria:grass_block"),
+                new BlockDefinition(
+                    "asteria:stone"),
+                new BlockDefinition(
+                    "asteria:marker_any"),
+                new BlockDefinition(
+                    "asteria:marker_terrain"),
+            ]);
+        var restrictions =
+            new StructureRestrictionsDefinition(
+                maxSlope: 0,
+                requiresDryGround: true,
+                requiredBiomeCoverage: 1f);
+        var structures =
+            new StructureRegistry(
+            [
+                new StructureDefinition(
+                    "asteria:a_any",
+                    rotation: false,
+                    anchor: default,
+                    voxels:
+                    [
+                        new StructureVoxelDefinition(
+                            0,
+                            0,
+                            0,
+                            "asteria:marker_any",
+                            BlockOrientation.Y),
+                    ],
+                    restrictions:
+                        restrictions),
+                new StructureDefinition(
+                    "asteria:z_terrain",
+                    rotation: false,
+                    anchor: default,
+                    voxels:
+                    [
+                        new StructureVoxelDefinition(
+                            0,
+                            0,
+                            0,
+                            "asteria:marker_terrain",
+                            BlockOrientation.Y),
+                    ],
+                    restrictions:
+                        restrictions,
+                    generation:
+                        new StructureGenerationDefinition(
+                            StructureReplacePolicy.Terrain,
+                            StructureFluidPolicy.Displace,
+                            false)),
+            ]);
+        var generator =
+            FlatStructureGenerator(
+                blocks,
+                structures,
+                "asteria:grass_block",
+                "asteria:a_any",
+                "asteria:z_terrain");
+        var chunk =
+            generator.Materialize(
+                new ChunkCoord(
+                    0,
+                    2,
+                    0));
+
+        Assert.Equal(
+            blocks.GetId(
+                "asteria:marker_any"),
+            chunk.GetBlock(
+                8,
+                0,
+                8));
     }
 
     [Fact]
@@ -345,6 +605,116 @@ public sealed class SurfaceStructureTests
                 StructureRotation.Degrees270,
                 BlockOrientation.Y));
     } 
+    private static BiomeWorldGenerator FlatStructureGenerator(
+        BlockRegistry blocks,
+        StructureRegistry structures,
+        string surfaceBlock,
+        params string[] structureReferences)
+    {
+        var biome =
+            new BiomeDefinition(
+                "asteria:test/flat",
+                new BiomeSurfaceLayoutDefinition(),
+                new BiomeTerrainDefinition(
+                    0f,
+                    0f,
+                    64,
+                    0f,
+                    32),
+                surfaceBlock ==
+                    "asteria:grass_block"
+                    ?
+                    [
+                        new BiomeSurfaceLayerDefinition(
+                            "asteria:grass_block",
+                            1),
+                        new BiomeSurfaceLayerDefinition(
+                            blocks.TryGetId(
+                                    "asteria:dirt",
+                                    out _)
+                                ? "asteria:dirt"
+                                : "asteria:stone",
+                            4),
+                        new BiomeSurfaceLayerDefinition(
+                            "asteria:stone"),
+                    ]
+                    :
+                    [
+                        new BiomeSurfaceLayerDefinition(
+                            surfaceBlock),
+                    ]);
+        var dimension =
+            new DimensionDefinition(
+                new DimensionId(
+                    "asteria:test"),
+                [
+                    biome.Id,
+                ],
+                32,
+                18f,
+                new DimensionSpawnDefinition(
+                    0,
+                    0),
+                new DimensionEnvironmentDefinition(
+                    new DimensionColor(
+                        0,
+                        0,
+                        0),
+                    new DimensionColor(
+                        255,
+                        255,
+                        255),
+                    1f,
+                    new DimensionColor(
+                        0,
+                        0,
+                        0),
+                    0f),
+                generatedSurfaceStructures:
+                    structureReferences
+                        .Select(reference =>
+                            new DimensionGeneratedSurfaceStructureDefinition(
+                                biome.Id,
+                                reference,
+                                spacing: 16,
+                                chance: 1f,
+                                jitter: 0))
+                        .ToArray());
+
+        return new BiomeWorldGenerator(
+            77UL,
+            dimension,
+            blocks,
+            new FluidRegistry(
+                Array.Empty<FluidDefinition>()),
+            new BiomeRegistry(
+            [
+                biome,
+            ]),
+            structures);
+    }
+
+    private static bool ChunkContains(
+        Chunk chunk,
+        BlockRuntimeId block)
+    {
+        var found =
+            false;
+
+        chunk.VisitBlockCells(
+            (_, _, _, candidate) =>
+            {
+                if (candidate.Block ==
+                    block)
+                {
+                    found =
+                        true;
+                }
+            });
+
+        return found;
+    }
+
     private static IEnumerable<string> ReadJsonDirectory(
         string category)
     {

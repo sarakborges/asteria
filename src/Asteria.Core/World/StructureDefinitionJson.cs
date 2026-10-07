@@ -34,6 +34,9 @@ public static class StructureDefinitionJson
             "id",
             "groupId",
             "rotation",
+            "priority",
+            "conflictGroups",
+            "generation",
             "restrictions",
             "anchor",
             "palette",
@@ -67,7 +70,16 @@ public static class StructureDefinitionJson
                 root),
             OptionalString(
                 root,
-                "groupId"));
+                "groupId"),
+            OptionalInt32(
+                root,
+                "priority") ??
+            0,
+            OptionalStringArray(
+                root,
+                "conflictGroups"),
+            ParseGeneration(
+                root));
     }
 
     private static StructureAnchor ParseAnchor(
@@ -129,7 +141,8 @@ public static class StructureDefinitionJson
             "restrictions",
             "maxSlope",
             "requiresDryGround",
-            "requiredBiomeCoverage");
+            "requiredBiomeCoverage",
+            "groundBlocks");
         return new StructureRestrictionsDefinition(
             OptionalInt32(
                 value,
@@ -142,7 +155,77 @@ public static class StructureDefinitionJson
             OptionalSingle(
                 value,
                 "requiredBiomeCoverage") ??
-            0f);
+            0f,
+            OptionalStringArray(
+                value,
+                "groundBlocks"));
+    }
+
+    private static StructureGenerationDefinition
+        ParseGeneration(
+            JsonElement root)
+    {
+        if (!root.TryGetProperty(
+                "generation",
+                out var value) ||
+            value.ValueKind ==
+                JsonValueKind.Null)
+        {
+            return StructureGenerationDefinition.Default;
+        }
+
+        if (value.ValueKind !=
+            JsonValueKind.Object)
+        {
+            throw new FormatException(
+                "generation must be an object.");
+        }
+
+        EnsureKnownProperties(
+            value,
+            "generation",
+            "replacePolicy",
+            "fluidPolicy",
+            "reserveSpace");
+
+        var replacePolicy =
+            OptionalString(
+                value,
+                "replacePolicy") switch
+            {
+                null or "any" =>
+                    StructureReplacePolicy.Any,
+                "air_only" =>
+                    StructureReplacePolicy.AirOnly,
+                "terrain" =>
+                    StructureReplacePolicy.Terrain,
+                var authored =>
+                    throw new FormatException(
+                        $"Unsupported structure replacePolicy: {authored}."),
+            };
+        var fluidPolicy =
+            OptionalString(
+                value,
+                "fluidPolicy") switch
+            {
+                null or "displace" =>
+                    StructureFluidPolicy.Displace,
+                "preserve" =>
+                    StructureFluidPolicy.Preserve,
+                "forbid" =>
+                    StructureFluidPolicy.Forbid,
+                var authored =>
+                    throw new FormatException(
+                        $"Unsupported structure fluidPolicy: {authored}."),
+            };
+
+        return new StructureGenerationDefinition(
+            replacePolicy,
+            fluidPolicy,
+            OptionalBoolean(
+                value,
+                "reserveSpace") ??
+            false);
     }
 
     private static IReadOnlyDictionary<
@@ -418,6 +501,38 @@ public static class StructureDefinitionJson
         }
 
         return value;
+    }
+
+    private static IReadOnlyList<string>
+        OptionalStringArray(
+            JsonElement parent,
+            string name)
+    {
+        if (!parent.TryGetProperty(
+                name,
+                out var value) ||
+            value.ValueKind ==
+                JsonValueKind.Null)
+        {
+            return Array.Empty<string>();
+        }
+
+        if (value.ValueKind !=
+            JsonValueKind.Array)
+        {
+            throw new FormatException(
+                $"{name} must be an array.");
+        }
+
+        return value
+            .EnumerateArray()
+            .Select(item =>
+                item.ValueKind ==
+                    JsonValueKind.String
+                    ? item.GetString()!
+                    : throw new FormatException(
+                        $"{name} can contain only strings."))
+            .ToArray();
     }
 
     private static IReadOnlyList<string>

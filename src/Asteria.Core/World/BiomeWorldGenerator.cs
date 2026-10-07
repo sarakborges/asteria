@@ -126,6 +126,11 @@ public sealed class BiomeWorldGenerator :
             new GeneratedFluidField(
                 dimension,
                 fluids);
+        var materials =
+            new BiomeSurfaceMaterialField(
+                seed,
+                materialDefinitions,
+                blocks);
         _surfaceStructures =
             new SurfaceStructureField(
                 seed,
@@ -134,12 +139,8 @@ public sealed class BiomeWorldGenerator :
                 blocks,
                 Biomes,
                 _surfaceColumns,
+                materials,
                 _generatedFluids);
-        var materials =
-            new BiomeSurfaceMaterialField(
-                seed,
-                materialDefinitions,
-                blocks);
         var decorations =
             new SurfaceDecorationField(
                 seed,

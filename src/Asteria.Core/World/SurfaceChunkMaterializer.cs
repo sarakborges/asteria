@@ -239,11 +239,42 @@ public sealed class SurfaceChunkMaterializer
         var origin =
             VoxelCoordinates.ChunkOrigin(
                 coord);
+        var placements =
+            _structures.PlacementsForChunk(
+                coord.X,
+                coord.Z);
+        var needsBaseOccupancy =
+            placements.Any(placement =>
+                placement.Generation.ReplacePolicy ==
+                StructureReplacePolicy.AirOnly);
+        var baseOccupied =
+            needsBaseOccupancy
+                ? new HashSet<int>()
+                : null;
+
+        if (baseOccupied is not null)
+        {
+            chunk.VisitBlockCells(
+                (x, y, z, _) =>
+                    baseOccupied.Add(
+                        StructureCellKey(
+                            x,
+                            y,
+                            z)));
+            chunk.VisitFluidCells(
+                (x, y, z, _) =>
+                    baseOccupied.Add(
+                        StructureCellKey(
+                            x,
+                            y,
+                            z)));
+        }
+
+        var claimed =
+            new HashSet<int>();
 
         foreach (var placement in
-                 _structures.PlacementsForChunk(
-                     coord.X,
-                     coord.Z))
+                 placements)
         {
             foreach (var voxel in
                      placement.Voxels)
@@ -274,17 +305,62 @@ public sealed class SurfaceChunkMaterializer
                     continue;
                 }
 
-                chunk.SetCell(
+                var localX =
                     voxel.X -
-                    origin.X,
+                    origin.X;
+                var localY =
                     voxel.Y -
-                    originY,
+                    originY;
+                var localZ =
                     voxel.Z -
-                    origin.Z,
+                    origin.Z;
+                var key =
+                    StructureCellKey(
+                        localX,
+                        localY,
+                        localZ);
+                var replace =
+                    placement.Generation.ReplacePolicy switch
+                    {
+                        StructureReplacePolicy.Any =>
+                            true,
+                        StructureReplacePolicy.AirOnly =>
+                            !claimed.Contains(
+                                key) &&
+                            !(baseOccupied?.Contains(
+                                  key) ??
+                              false),
+                        StructureReplacePolicy.Terrain =>
+                            !claimed.Contains(
+                                key),
+                        _ =>
+                            throw new InvalidOperationException(
+                                $"Unknown structure replace policy {placement.Generation.ReplacePolicy}."),
+                    };
+
+                if (!replace)
+                {
+                    continue;
+                }
+
+                chunk.SetCell(
+                    localX,
+                    localY,
+                    localZ,
                     voxel.Cell);
+                claimed.Add(
+                    key);
             }
         }
     }
+
+    private static int StructureCellKey(
+        int x,
+        int y,
+        int z) =>
+        x |
+        y << 8 |
+        z << 16;
 
     private void MaterializeGeneratedFluids(
         Chunk chunk,
