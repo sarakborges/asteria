@@ -2,6 +2,7 @@
   "id": "asteria:umbral/umbral_reach",
   "surfaceLayout": {
     "weight": 1,
+    "spawnWeight": 1,
     "regionSize": {
       "min": 224,
       "max": 448
