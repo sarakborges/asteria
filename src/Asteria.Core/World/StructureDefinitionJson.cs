@@ -33,12 +33,15 @@ public static class StructureDefinitionJson
             "structure",
             "id",
             "groupId",
+            "locatable",
             "rotation",
             "priority",
             "conflictGroups",
             "generation",
             "restrictions",
             "anchor",
+            "groundAnchorY",
+            "clearAbove",
             "palette",
             "layers");
 
@@ -80,7 +83,20 @@ public static class StructureDefinitionJson
                 "conflictGroups"),
             ParseGeneration(
                 root),
-            content.Connectors);
+            content.Connectors,
+            content.FluidVoxels,
+            content.ClearVoxels,
+            OptionalInt32(
+                root,
+                "groundAnchorY"),
+            OptionalInt32(
+                root,
+                "clearAbove") ??
+            0,
+            OptionalBoolean(
+                root,
+                "locatable") ??
+            true);
     }
 
     private static StructureAnchor ParseAnchor(
@@ -140,6 +156,7 @@ public static class StructureDefinitionJson
         EnsureKnownProperties(
             value,
             "restrictions",
+            "minSlope",
             "maxSlope",
             "requiresDryGround",
             "requiredBiomeCoverage",
@@ -162,7 +179,11 @@ public static class StructureDefinitionJson
                 value,
                 "groundBlocks"),
             ParseProximity(
-                value));
+                value),
+            OptionalInt32(
+                value,
+                "minSlope") ??
+            0);
     }
 
     private static IReadOnlyList<StructureProximityRestrictionDefinition>
@@ -356,6 +377,8 @@ public static class StructureDefinitionJson
                 property.Value,
                 $"structure palette {property.Name}",
                 "block",
+                "fluid",
+                "clear",
                 "orientation",
                 "connector");
 
@@ -363,26 +386,26 @@ public static class StructureDefinitionJson
                 OptionalString(
                     property.Value,
                     "block");
-            var connector =
-                ParseConnector(
-                    property.Value);
-
-            if (block is null &&
-                connector is null)
+            var fluid =
+                OptionalString(
+                    property.Value,
+                    "fluid");
+            var clear =
+                OptionalBoolean(
+                    property.Value,
+                    "clear") ??
+                false;
+            var primaryPayloads =
+                (block is null ? 0 : 1) +
+                (fluid is null ? 0 : 1) +
+                (clear ? 1 : 0);
+            if (primaryPayloads > 1)
             {
                 throw new FormatException(
-                    $"Structure palette {property.Name} must define block and/or connector.");
+                    $"Structure palette {property.Name} cannot define multiple primary payloads.");
             }
 
-            if (connector is
-                    { Target: null } &&
-                block is not null)
-            {
-                throw new FormatException(
-                    $"Structure palette {property.Name} input connector must be connector-only.");
-            }
-
-            var orientation =
+            var connector =            var orientation =
                 OptionalString(
                     property.Value,
                     "orientation") switch
@@ -411,6 +434,8 @@ public static class StructureDefinitionJson
                 property.Name[0],
                 new PaletteEntry(
                     block,
+                    fluid,
+                    clear,
                     orientation,
                     connector));
         }
@@ -526,6 +551,10 @@ public static class StructureDefinitionJson
 
         var voxels =
             new List<StructureVoxelDefinition>();
+        var fluidVoxels =
+            new List<StructureFluidVoxelDefinition>();
+        var clearVoxels =
+            new List<StructureClearVoxelDefinition>();
         var connectors =
             new List<StructureConnectorDefinition>();
         int? width = null;
@@ -672,6 +701,24 @@ public static class StructureDefinitionJson
                                 block,
                                 entry.Orientation));
                     }
+                    else if (entry.Fluid is
+                             { } fluid)
+                    {
+                        fluidVoxels.Add(
+                            new StructureFluidVoxelDefinition(
+                                offsetX,
+                                offsetY,
+                                offsetZ,
+                                fluid));
+                    }
+                    else if (entry.Clear)
+                    {
+                        clearVoxels.Add(
+                            new StructureClearVoxelDefinition(
+                                offsetX,
+                                offsetY,
+                                offsetZ));
+                    }
                 }
             }
         }
@@ -679,6 +726,10 @@ public static class StructureDefinitionJson
         return new StructureTemplateContent(
             Array.AsReadOnly(
                 voxels.ToArray()),
+            Array.AsReadOnly(
+                fluidVoxels.ToArray()),
+            Array.AsReadOnly(
+                clearVoxels.ToArray()),
             Array.AsReadOnly(
                 connectors.ToArray()));
     }
@@ -907,10 +958,14 @@ public static class StructureDefinitionJson
 
     private sealed record PaletteEntry(
         string? Block,
+        string? Fluid,
+        bool Clear,
         BlockOrientation Orientation,
         PaletteConnector? Connector);
 
     private sealed record StructureTemplateContent(
         IReadOnlyList<StructureVoxelDefinition> Voxels,
+        IReadOnlyList<StructureFluidVoxelDefinition> FluidVoxels,
+        IReadOnlyList<StructureClearVoxelDefinition> ClearVoxels,
         IReadOnlyList<StructureConnectorDefinition> Connectors);
 }
