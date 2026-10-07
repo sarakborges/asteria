@@ -4,6 +4,11 @@ namespace Asteria.Core.World;
 
 public static class StructureDefinitionJson
 {
+    private const int MaximumLayerCount = 256;
+    private const int MaximumGridWidth = 128;
+    private const int MaximumGridDepth = 128;
+    private const int MaximumPaletteEntries = 128;
+
     public static StructureDefinition Parse(
         string json)
     {
@@ -22,6 +27,17 @@ public static class StructureDefinitionJson
             throw new FormatException(
                 "Structure definition root must be an object.");
         }
+
+        EnsureKnownProperties(
+            root,
+            "structure",
+            "id",
+            "groupId",
+            "rotation",
+            "restrictions",
+            "anchor",
+            "palette",
+            "layers");
 
         var id =
             RequiredString(
@@ -70,6 +86,12 @@ public static class StructureDefinitionJson
             RequiredObject(
                 root,
                 "anchor");
+        EnsureKnownProperties(
+            value,
+            "anchor",
+            "x",
+            "y",
+            "z");
         return new StructureAnchor(
             OptionalInt32(
                 value,
@@ -102,6 +124,12 @@ public static class StructureDefinitionJson
             RequiredObject(
                 root,
                 "restrictions");
+        EnsureKnownProperties(
+            value,
+            "restrictions",
+            "maxSlope",
+            "requiresDryGround",
+            "requiredBiomeCoverage");
         return new StructureRestrictionsDefinition(
             OptionalInt32(
                 value,
@@ -126,6 +154,13 @@ public static class StructureDefinitionJson
             RequiredObject(
                 root,
                 "palette");
+        if (value.EnumerateObject().Count() >
+            MaximumPaletteEntries)
+        {
+            throw new FormatException(
+                $"Structure palette may contain at most {MaximumPaletteEntries} entries.");
+        }
+
         var entries =
             new Dictionary<
                 char,
@@ -213,6 +248,13 @@ public static class StructureDefinitionJson
                 "Structure layers must be an array.");
         }
 
+        if (array.GetArrayLength() >
+            MaximumLayerCount)
+        {
+            throw new FormatException(
+                $"Structure may contain at most {MaximumLayerCount} layers.");
+        }
+
         var voxels =
             new List<StructureVoxelDefinition>();
         int? width = null;
@@ -229,6 +271,12 @@ public static class StructureDefinitionJson
                 throw new FormatException(
                     "Structure layer entries must be objects.");
             }
+
+            EnsureKnownProperties(
+                layer,
+                "structure layer",
+                "y",
+                "rows");
 
             var y =
                 RequiredInt32(
@@ -251,6 +299,13 @@ public static class StructureDefinitionJson
                     "Structure layer rows cannot be empty.");
             }
 
+            if (rows.Count >
+                MaximumGridDepth)
+            {
+                throw new FormatException(
+                    $"Structure layer depth may not exceed {MaximumGridDepth} rows.");
+            }
+
             depth ??=
                 rows.Count;
             if (depth !=
@@ -270,6 +325,13 @@ public static class StructureDefinitionJson
                 {
                     throw new FormatException(
                         "Structure rows must be non-empty and share one width.");
+                }
+
+                if (row.Length >
+                    MaximumGridWidth)
+                {
+                    throw new FormatException(
+                        $"Structure row width may not exceed {MaximumGridWidth} symbols.");
                 }
             }
 
@@ -317,6 +379,28 @@ public static class StructureDefinitionJson
         }
 
         return voxels;
+    }
+
+    private static void EnsureKnownProperties(
+        JsonElement value,
+        string context,
+        params string[] allowed)
+    {
+        var known =
+            new HashSet<string>(
+                allowed,
+                StringComparer.Ordinal);
+
+        foreach (var property in
+                 value.EnumerateObject())
+        {
+            if (!known.Contains(
+                    property.Name))
+            {
+                throw new FormatException(
+                    $"Unsupported {context} field: {property.Name}.");
+            }
+        }
     }
 
     private static JsonElement RequiredObject(

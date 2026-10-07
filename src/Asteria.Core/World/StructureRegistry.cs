@@ -162,11 +162,27 @@ public sealed class StructureRegistry
                 var block =
                     blocks.GetDefinition(
                         runtimeId);
-                if (!block.Orientations.Contains(
-                        voxel.Orientation))
+                var rotations =
+                    definition.Rotation
+                        ? Enum.GetValues<StructureRotation>()
+                        : [
+                            StructureRotation.Degrees0,
+                        ];
+
+                foreach (var rotation in
+                         rotations)
                 {
-                    throw new ArgumentException(
-                        $"Structure {definition.Id} uses unsupported orientation {voxel.Orientation} for block {voxel.Block}.");
+                    var orientation =
+                        StructureDefinition
+                            .RotateOrientation(
+                                rotation,
+                                voxel.Orientation);
+                    if (!block.Orientations.Contains(
+                            orientation))
+                    {
+                        throw new ArgumentException(
+                            $"Structure {definition.Id} rotation {rotation} produces unsupported orientation {orientation} for block {voxel.Block}.");
+                    }
                 }
             }
         }

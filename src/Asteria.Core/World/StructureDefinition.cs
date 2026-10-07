@@ -57,6 +57,9 @@ public readonly record struct StructureVoxelDefinition(
 
 public sealed class StructureDefinition
 {
+    public const int MaximumVoxelCount = 131_072;
+    public const int MaximumOffsetMagnitude = 2_048;
+
     public StructureDefinition(
         string id,
         bool rotation,
@@ -68,15 +71,10 @@ public sealed class StructureDefinition
         ValidateId(
             id);
 
-        if (groupId is not null &&
-            (string.IsNullOrWhiteSpace(groupId) ||
-             groupId != groupId.Trim() ||
-             groupId.Contains(
-                 ':',
-                 StringComparison.Ordinal)))
+        if (groupId is not null)
         {
-            throw new ArgumentException(
-                "Structure groupId must be a trimmed local id without a namespace.",
+            ValidateLocalId(
+                groupId,
                 nameof(groupId));
         }
 
@@ -91,10 +89,33 @@ public sealed class StructureDefinition
                 nameof(voxels));
         }
 
+        if (authoredVoxels.Length >
+            MaximumVoxelCount)
+        {
+            throw new ArgumentException(
+                $"Structure may contain at most {MaximumVoxelCount} block voxels.",
+                nameof(voxels));
+        }
+
         var occupied =
             new HashSet<(int X, int Y, int Z)>();
         foreach (var voxel in authoredVoxels)
         {
+            if (Math.Abs(
+                    (long)voxel.X) >
+                    MaximumOffsetMagnitude ||
+                Math.Abs(
+                    (long)voxel.Y) >
+                    MaximumOffsetMagnitude ||
+                Math.Abs(
+                    (long)voxel.Z) >
+                    MaximumOffsetMagnitude)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(voxels),
+                    $"Structure voxel offsets must stay within ±{MaximumOffsetMagnitude} blocks of the anchor.");
+            }
+
             BlockDefinition.ValidateId(
                 voxel.Block);
             if (!occupied.Add(
@@ -256,30 +277,49 @@ public sealed class StructureDefinition
             : orientation;
 
     internal static void ValidateId(
-        string id)
+        string id) =>
+        BiomeDefinition.ValidateId(
+            id);
+
+    private static void ValidateLocalId(
+        string id,
+        string parameterName)
     {
-        if (string.IsNullOrWhiteSpace(id) ||
-            id != id.Trim())
+        if (string.IsNullOrWhiteSpace(
+                id) ||
+            id != id.Trim() ||
+            id.Contains(
+                ':',
+                StringComparison.Ordinal))
         {
             throw new ArgumentException(
-                "Structure id must be non-empty and trimmed.",
-                nameof(id));
+                "Structure local id must be non-empty, trimmed, and unnamespaced.",
+                parameterName);
         }
 
-        var separator =
-            id.IndexOf(
-                ':');
-        if (separator <= 0 ||
-            separator ==
-                id.Length - 1 ||
-            id.IndexOf(
-                ':',
-                separator + 1) >=
-            0)
+        foreach (var character in id)
+        {
+            var valid =
+                character is >= 'a' and <= 'z' ||
+                character is >= '0' and <= '9' ||
+                character is '/' or '_' or '-' or '.';
+
+            if (!valid)
+            {
+                throw new ArgumentException(
+                    $"Invalid structure local id character '{character}' in {id}.",
+                    parameterName);
+            }
+        }
+
+        if (id.Contains(
+                "..",
+                StringComparison.Ordinal))
         {
             throw new ArgumentException(
-                "Structure id must use namespace:name.",
-                nameof(id));
+                $"Structure local id cannot contain '..': {id}",
+                parameterName);
         }
     }
+
 }
