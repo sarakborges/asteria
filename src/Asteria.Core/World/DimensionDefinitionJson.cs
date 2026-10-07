@@ -85,7 +85,69 @@ public static class DimensionDefinitionJson
                 root,
                 "undergroundBiomes"),
             ParseGeneratedSurfaceStructures(
+                root),
+            ParseGeneratedSurfaceFluids(
                 root));
+    }
+
+    private static IReadOnlyList<DimensionGeneratedSurfaceFluidDefinition>
+        ParseGeneratedSurfaceFluids(
+            JsonElement root)
+    {
+        if (!root.TryGetProperty(
+                "generatedSurfaceFluids",
+                out var value) ||
+            value.ValueKind ==
+                JsonValueKind.Null)
+        {
+            return Array.Empty<DimensionGeneratedSurfaceFluidDefinition>();
+        }
+
+        if (value.ValueKind !=
+            JsonValueKind.Array)
+        {
+            throw new FormatException(
+                "generatedSurfaceFluids must be an array.");
+        }
+
+        return value
+            .EnumerateArray()
+            .Select(entry =>
+            {
+                if (entry.ValueKind !=
+                    JsonValueKind.Object)
+                {
+                    throw new FormatException(
+                        "generatedSurfaceFluids entries must be objects.");
+                }
+
+                return new DimensionGeneratedSurfaceFluidDefinition(
+                    RequiredString(
+                        entry,
+                        "biome"),
+                    RequiredString(
+                        entry,
+                        "fluid"),
+                    RequiredInt32(
+                        entry,
+                        "spacing"),
+                    RequiredInt32(
+                        entry,
+                        "radius"),
+                    OptionalInt32(
+                        entry,
+                        "jitter") ??
+                    0,
+                    OptionalSingle(
+                        entry,
+                        "chance") ??
+                    1f,
+                    OptionalInt32(
+                        entry,
+                        "depth") ??
+                    1);
+            })
+            .ToArray();
     }
 
     private static IReadOnlyList<DimensionGeneratedSurfaceStructureDefinition>
@@ -372,6 +434,31 @@ public static class DimensionDefinitionJson
                 name,
                 out var value) ||
             value.ValueKind !=
+                JsonValueKind.Number ||
+            !value.TryGetSingle(
+                out var result))
+        {
+            throw new FormatException(
+                $"{name} must be a number.");
+        }
+
+        return result;
+    }
+
+    private static float? OptionalSingle(
+        JsonElement parent,
+        string name)
+    {
+        if (!parent.TryGetProperty(
+                name,
+                out var value) ||
+            value.ValueKind ==
+                JsonValueKind.Null)
+        {
+            return null;
+        }
+
+        if (value.ValueKind !=
                 JsonValueKind.Number ||
             !value.TryGetSingle(
                 out var result))
