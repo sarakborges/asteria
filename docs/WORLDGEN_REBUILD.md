@@ -32,7 +32,7 @@ This document is the active parity map for the migration. It must be updated whe
 | 6 — Structures/features | One authoritative Structure placement/query owner; StructureSets, variants, conflicts, connectors/chains, biome/terrain/fluid restrictions and cross-chunk materialization. | **Ported / Adapted** | Authoritative queries, deterministic multi-piece StructureSets, connector/chains, fluid/clear payloads, biome-margin roots, and the lake/river/mountain-pond/mountain-waterfall content path are implemented through generic Structures. No hydrology subsystem exists. |
 | 7 — Chunk synthesis | One procedural writer composes density/materials/features/structures/generated fluids into runtime chunks. | **Ported for current content** | Keep `SurfaceChunkMaterializer` as the single writer while Phase 5/6 capabilities expand. |
 | 8 — Consumer integration | Streaming, biome/Structure locate, spawn, warp and dimension travel consume narrow generator query capabilities; no hidden chunk generation. | **Ported / Adapted for active consumers** | Biome and Structure search plus exact-first/surface destination preparation are generator-owned and query-only. Initial spawn and dimension travel use destination preparation. Asteria currently has no local-warp or /locate gameplay consumer; when added, they must call these existing capabilities rather than scan/materialize chunks. |
-| 9 — Persistence | First materialization makes a chunk authoritative persisted spatial state, including unedited/empty chunks; query-only access does not persist. | **Divergent** | Asteria currently archives dirty chunks and regenerates pristine chunks. Reconcile this with the rebuild contract before claiming Phase 9 parity. |
+| 9 — Persistence | First materialization makes a chunk authoritative persisted spatial state, including unedited/empty chunks; query-only access does not persist. | **Ported / Adapted for current persistence owner** | Session archive now retains every materialized chunk zero-copy, including pristine/empty chunks; dirty state is tracked separately. Query-only generator access never enters persistence. Asteria still has no disk-save subsystem, so this phase applies to the current per-dimension session persistence owner rather than inventing one. |
 | 10 — Loading pipeline | New world, save load and dimension travel share one loading path using real required-residency work. | **Missing parity** | Introduce the shared loading/residency pipeline after Phase 8/9 semantics are settled. |
 | 11 — Loading screen | UI renders only authoritative loading phase/progress; no fake timers or duplicate loading state. | **Missing parity** | Add only after the loading owner exists; WebUI must remain presentation-only. |
 | 12 — End-to-end/performance | Fixed-seed fixtures, near/far/order tests, visual probes and evidence-based performance baselines. | **In progress, but not a substitute for missing phases** | Keep benchmarking, but close Phases 6/8/9/10/11 before calling the rebuild migrated. |
@@ -41,18 +41,12 @@ This document is the active parity map for the migration. It must be updated whe
 
 Until parity is closed, worldgen work should follow this order unless the user explicitly changes priority:
 
-1. **Phase 9 — reconcile persistence**
-   - MineClone rebuild semantics persist every materialized chunk;
-   - current Asteria semantics retain only dirty authoritative chunk state and rematerialize pristine terrain;
-   - this is an explicit semantic conflict, not an implementation detail;
-   - resolve the contract deliberately before loading/save work depends on it.
-
-2. **Phases 10–11 — shared loading + presentation**
+1. **Phases 10–11 — shared loading + presentation**
    - one loading pipeline for world entry/load/dimension travel;
    - progress is real residency/materialization work;
    - WebUI renders authoritative progress and owns no world-loading state.
 
-3. **Phase 12 — close validation/performance**
+2. **Phase 12 — close validation/performance**
    - deterministic fixed-seed fixtures;
    - cold/warm scalar and bounded queries;
    - near/far destination paths;
@@ -69,7 +63,7 @@ Until parity is closed, worldgen work should follow this order unless the user e
 - **Local warp** — no current Asteria gameplay consumer. `FindGeneratedDestination` and `FindGeneratedSurfaceDestination` are the required generated-world preparation capabilities when warp is introduced.
 - **Dimension travel** — explicit destination requests are transient, not written into saved session position. The target session tries the exact generated 3D destination first and falls back to a safe generated surface destination near the same X/Z.
 - **Loading** — current streaming readiness consumes the resulting destination/streaming center, but a unified new/load/travel loading pipeline is still Phase 10.
-- **Persistence** — current dirty-only archive semantics are intentionally listed as Phase 9 divergence; generated queries never persist or materialize chunks.
+- **Persistence** — every resident materialized chunk is archived on retirement, including pristine/empty chunks; dirty is independent mutation metadata. Generated queries never persist or materialize chunks.
 - **Debug/map tooling** — F3/HUD does not reconstruct worldgen. The optional standalone biome-map renderer remains absent and is not a semantic owner.
 
 ## Biome layout / biome map clarification
