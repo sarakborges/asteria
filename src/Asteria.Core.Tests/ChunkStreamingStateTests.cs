@@ -60,6 +60,105 @@ public sealed class ChunkStreamingStateTests
     }
 
     [Fact]
+    public void PlayerLocalSelectionNeedsNoSurfaceRangeQueries()
+    {
+        var desired =
+            ChunkStreamingSelection
+                .DesiredPlayerLocalChunks(
+                    new ChunkCoord(
+                        4,
+                        6,
+                        -3),
+                    horizontalRadius: 4);
+
+        Assert.Contains(
+            new ChunkCoord(
+                4,
+                6,
+                -3),
+            desired);
+        Assert.Contains(
+            new ChunkCoord(
+                6,
+                8,
+                -1),
+            desired);
+        Assert.DoesNotContain(
+            new ChunkCoord(
+                7,
+                6,
+                -3),
+            desired);
+    }
+
+    [Fact]
+    public async Task SelectionRuntimeDiscardsStaleCenterResults()
+    {
+        var provider =
+            new BlockingSurfaceRangeProvider();
+        var runtime =
+            new ChunkStreamingSelectionRuntime(
+                provider);
+        var callerThread =
+            Environment.CurrentManagedThreadId;
+
+        runtime.Request(
+            ChunkCoord.Zero,
+            horizontalRadius: 1);
+
+        Assert.True(
+            provider.Started.Wait(
+                TimeSpan.FromSeconds(2)));
+        Assert.NotEqual(
+            callerThread,
+            provider.WorkerThreadId);
+
+        var latest =
+            new ChunkCoord(
+                3,
+                2,
+                -2);
+        runtime.Request(
+            latest,
+            horizontalRadius: 1);
+        provider.Release.Set();
+
+        ChunkStreamingSelectionSnapshot? result =
+            null;
+        Exception? error =
+            null;
+
+        for (var attempt = 0;
+             attempt < 400 &&
+             result is null &&
+             error is null;
+             attempt++)
+        {
+            if (runtime.TryPollCompleted(
+                    out var completed,
+                    out var completedError))
+            {
+                error =
+                    completedError;
+                result ??=
+                    completed;
+            }
+
+            if (result is null &&
+                error is null)
+            {
+                await Task.Delay(5);
+            }
+        }
+
+        Assert.Null(error);
+        Assert.NotNull(result);
+        Assert.Equal(
+            latest,
+            result!.Center);
+    }
+
+    [Fact]
     public void SurfaceRangeWindowReusesOverlappingColumnsWhenCenterMoves()
     {
         var source =
@@ -329,6 +428,33 @@ public sealed class ChunkStreamingStateTests
             selection.ShouldBeVisible(
                 coord,
                 currentlyVisible: true));
+    }
+
+    private sealed class BlockingSurfaceRangeProvider :
+        IChunkSurfaceRangeProvider
+    {
+        public ManualResetEventSlim Started { get; } =
+            new(false);
+
+        public ManualResetEventSlim Release { get; } =
+            new(false);
+
+        public int WorkerThreadId { get; private set; }
+
+        public ChunkSurfaceRange GetSurfaceRange(
+            int chunkX,
+            int chunkZ)
+        {
+            WorkerThreadId =
+                Environment.CurrentManagedThreadId;
+            Started.Set();
+            Release.Wait(
+                TimeSpan.FromSeconds(2));
+
+            return new ChunkSurfaceRange(
+                0,
+                15);
+        }
     }
 
     private sealed class CountingSurfaceRangeProvider :

@@ -292,6 +292,7 @@ public sealed class DimensionRuntimeSession
 
     public bool IsQuiescent =>
         Residency.MaterializingCount == 0 &&
+        !Streaming.IsSelectionRunning &&
         !FluidSimulation.IsRunning &&
         !Lighting.IsRunning &&
         !TerrainMesh.IsRunning &&
@@ -347,6 +348,7 @@ public sealed class DimensionRuntimeSession
         }
 
         _retiring = true;
+        Streaming.BeginRetirement();
         FluidSimulation.BeginRetirement();
         Lighting.BeginRetirement();
         TerrainMesh.BeginRetirement();
@@ -370,6 +372,13 @@ public sealed class DimensionRuntimeSession
         var errors =
             new List<Exception>();
 
+        DrainWorker(
+            () =>
+                Streaming.TryDrainSelection(
+                    out var error)
+                    ? error
+                    : null,
+            errors);
         DrainWorker(
             () =>
                 FluidSimulation.TryPollCompleted(
