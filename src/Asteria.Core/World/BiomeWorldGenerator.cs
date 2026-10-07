@@ -15,6 +15,7 @@ public sealed class BiomeWorldGenerator :
     private readonly SurfaceTerrainColumnCache _surfaceColumns;
     private readonly GeneratedFluidField _generatedFluids;
     private readonly SurfaceChunkMaterializer _materializer;
+    private readonly SurfaceStructureField _surfaceStructures;
     private readonly VolumeBiomeField _volumeBiomes;
     private readonly UndergroundBiomeField _undergroundBiomes;
 
@@ -28,7 +29,8 @@ public sealed class BiomeWorldGenerator :
             dimension,
             blocks,
             EmptyFluids,
-            biomes)
+            biomes,
+            StructureRegistry.Empty)
     {
     }
 
@@ -38,12 +40,31 @@ public sealed class BiomeWorldGenerator :
         BlockRegistry blocks,
         FluidRegistry fluids,
         BiomeRegistry biomes)
+        : this(
+            seed,
+            dimension,
+            blocks,
+            fluids,
+            biomes,
+            StructureRegistry.Empty)
+    {
+    }
+
+    public BiomeWorldGenerator(
+        ulong seed,
+        DimensionDefinition dimension,
+        BlockRegistry blocks,
+        FluidRegistry fluids,
+        BiomeRegistry biomes,
+        StructureRegistry structures)
     {
         ArgumentNullException.ThrowIfNull(dimension);
         ArgumentNullException.ThrowIfNull(blocks);
         ArgumentNullException.ThrowIfNull(fluids);
         ArgumentNullException.ThrowIfNull(biomes);
+        ArgumentNullException.ThrowIfNull(structures);
         biomes.ValidateBlocks(blocks);
+        structures.ValidateBlocks(blocks);
 
         DimensionId =
             dimension.Id;
@@ -105,6 +126,15 @@ public sealed class BiomeWorldGenerator :
             new GeneratedFluidField(
                 dimension,
                 fluids);
+        _surfaceStructures =
+            new SurfaceStructureField(
+                seed,
+                dimension,
+                structures,
+                blocks,
+                Biomes,
+                _surfaceColumns,
+                _generatedFluids);
         var materials =
             new BiomeSurfaceMaterialField(
                 seed,
@@ -122,6 +152,7 @@ public sealed class BiomeWorldGenerator :
                 materials,
                 decorations,
                 _generatedFluids,
+                _surfaceStructures,
                 dimension,
                 blocks);
         Tints =
@@ -211,9 +242,23 @@ public sealed class BiomeWorldGenerator :
         _terrain.SampleDensityVolume(
             originX, originY, originZ, width, height, depth);
 
-    public ChunkSurfaceRange GetSurfaceRange(int chunkX, int chunkZ) =>
-        _generatedFluids.ExpandSurfaceRange(
+    public ChunkSurfaceRange GetSurfaceRange(
+        int chunkX,
+        int chunkZ)
+    {
+        var column =
             _surfaceColumns.Get(
                 chunkX,
-                chunkZ));
+                chunkZ);
+        var withFluid =
+            _generatedFluids
+                .ExpandSurfaceRange(
+                    column);
+
+        return _surfaceStructures
+            .ExpandSurfaceRange(
+                withFluid,
+                chunkX,
+                chunkZ);
+    }
 }

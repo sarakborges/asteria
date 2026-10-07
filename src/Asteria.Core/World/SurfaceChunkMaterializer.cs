@@ -11,6 +11,7 @@ public sealed class SurfaceChunkMaterializer
     private readonly BiomeSurfaceMaterialField _materials;
     private readonly SurfaceDecorationField _decorations;
     private readonly GeneratedFluidField _generatedFluids;
+    private readonly SurfaceStructureField _structures;
     private readonly BlockRuntimeId _shellBlock;
     private readonly int? _floorY;
     private readonly int? _roofY;
@@ -21,6 +22,7 @@ public sealed class SurfaceChunkMaterializer
         BiomeSurfaceMaterialField materials,
         SurfaceDecorationField decorations,
         GeneratedFluidField generatedFluids,
+        SurfaceStructureField structures,
         DimensionDefinition dimension,
         BlockRegistry blocks)
     {
@@ -34,6 +36,8 @@ public sealed class SurfaceChunkMaterializer
             throw new ArgumentNullException(nameof(decorations));
         _generatedFluids = generatedFluids ??
             throw new ArgumentNullException(nameof(generatedFluids));
+        _structures = structures ??
+            throw new ArgumentNullException(nameof(structures));
         ArgumentNullException.ThrowIfNull(dimension);
         ArgumentNullException.ThrowIfNull(blocks);
 
@@ -204,6 +208,12 @@ public sealed class SurfaceChunkMaterializer
             }
         }
 
+        MaterializeStructures(
+            chunk,
+            coord,
+            originY,
+            topExclusive);
+
         MaterializeGeneratedFluids(
             chunk,
             column,
@@ -213,6 +223,67 @@ public sealed class SurfaceChunkMaterializer
             topExclusive);
 
         return chunk;
+    }
+
+    private void MaterializeStructures(
+        Chunk chunk,
+        ChunkCoord coord,
+        int originY,
+        int topExclusive)
+    {
+        if (!_structures.HasRules)
+        {
+            return;
+        }
+
+        var origin =
+            VoxelCoordinates.ChunkOrigin(
+                coord);
+
+        foreach (var placement in
+                 _structures.PlacementsForChunk(
+                     coord.X,
+                     coord.Z))
+        {
+            foreach (var voxel in
+                     placement.Voxels)
+            {
+                if (voxel.Y < originY ||
+                    voxel.Y >= topExclusive ||
+                    voxel.X < origin.X ||
+                    voxel.X >=
+                        origin.X +
+                        Chunk.Size ||
+                    voxel.Z < origin.Z ||
+                    voxel.Z >=
+                        origin.Z +
+                        Chunk.Size)
+                {
+                    continue;
+                }
+
+                if ((_floorY is
+                         { } floorY &&
+                     voxel.Y ==
+                         floorY) ||
+                    (_roofY is
+                         { } roofY &&
+                     voxel.Y ==
+                         roofY))
+                {
+                    continue;
+                }
+
+                chunk.SetCell(
+                    voxel.X -
+                    origin.X,
+                    voxel.Y -
+                    originY,
+                    voxel.Z -
+                    origin.Z,
+                    voxel.Cell);
+            }
+        }
     }
 
     private void MaterializeGeneratedFluids(
