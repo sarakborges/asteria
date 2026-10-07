@@ -14,8 +14,8 @@ Asteria keeps Godot as its presentation adapter and C# Core as its semantic owne
 | Dedicated surface terrain queries and batch samples | Implemented |
 | Deterministic material layers and patches | Implemented |
 | Dedicated ground decoration query | Implemented for current authored content |
-| Composed chunk materializer | Implemented for existing 2D surface rules |
-| Authoritative 3D density/caves/overhangs/floating formations | Not yet implemented |
+| Composed chunk materializer | Consumes final 3D density, material layers and ground decorators |
+| Authoritative 3D density/caves/floating formations | Implemented in Core (configured caves, optional biome mass); full 3D biome layout and overhang features remain future work |
 | Structure field and cross-chunk structure placements | Not yet implemented |
 | Natural generated-fluid materialization | Not yet implemented |
 | Full loading/persistence integration | Not yet implemented |
@@ -71,11 +71,11 @@ performance budget without measuring representative hardware.
 
 ## Next implementation contracts
 
-1. Extend `SurfaceTerrainField` with one final 3D occupancy/density
-   field (including authored caves and floating formations), preserving
-   scalar/volume equivalence and no negative world Y.
-2. Make materials consume that final occupancy rather than inferring
-   solidity from height alone; keep generated-fluid placement explicit.
+1. Measure the new 3D density query on the intended hardware and extend
+   the density owner with additional authored volume formations/overhangs
+   without breaking scalar/volume equivalence or negative-Y constraints.
+2. Add generated-fluid placement as an explicit next capability; current
+   materials already consume final 3D solidity.
 3. Add authoritative deterministic `StructureField` placements and
    integrate intersecting portions into chunk synthesis, not per-chunk
    independent decisions.
