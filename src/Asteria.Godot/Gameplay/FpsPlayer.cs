@@ -139,20 +139,13 @@ public partial class FpsPlayer : CharacterBody3D
 
         if (fluidContact.IsImmersed)
         {
-            var targetVerticalSpeed =
-                _jumpHeld
-                    ? fluidContact.IsNearSurface(
-                        fluidMotion.SurfaceExitMargin)
-                        ? fluidMotion.SurfaceExitSpeed
-                        : fluidMotion.AscendSpeed
-                    : -fluidMotion.SinkSpeed;
-
             velocity.Y =
-                Mathf.MoveToward(
+                FluidMotionSolver.VerticalSpeed(
                     velocity.Y,
-                    targetVerticalSpeed,
-                    fluidMotion.VerticalAcceleration *
-                    (float)delta);
+                    (float)delta,
+                    fluidContact,
+                    fluidMotion,
+                    _jumpHeld);
         }
         else if (IsOnFloor())
         {
