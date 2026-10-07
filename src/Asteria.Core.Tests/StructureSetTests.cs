@@ -247,10 +247,10 @@ public sealed class StructureSetTests
         Assert.True(
             nearest.HasValue);
         Assert.Equal(
-            8,
+            -8,
             nearest.Value.PlacementAnchorX);
         Assert.Equal(
-            8,
+            -8,
             nearest.Value.PlacementAnchorZ);
 
         var chunk =
