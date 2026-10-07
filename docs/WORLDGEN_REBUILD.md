@@ -29,7 +29,7 @@ This document is the active parity map for the migration. It must be updated whe
 | 3 — Biome Layout | Organic formation field, `regionSize`, weights, `cannotBorder`, primary + normalized influences, deterministic search, biome-map sampling. | **Ported / Adapted** | Add the optional debug biome-map renderer if still useful. The semantic layout itself is already ported. |
 | 4 — Terrain | Continuous surface field plus authoritative 3D density, caves/floating terrain, bounded queries, seam/order independence. | **Ported / Adapted** | Continue only through the single terrain-density owner; no parallel terrain generators. |
 | 5 — Surface/material/generated fluids | Deterministic layers, patches, generated natural fluids and runtime handoff. | **Partial** | Ocean generation is active; remaining authored generated-fluid behaviors from the rebuild/content set, including swamp puddles where required, still need their concrete owner. |
-| 6 — Structures/features | One authoritative Structure placement/query owner; StructureSets, variants, conflicts, connectors/chains, biome/terrain/fluid restrictions and cross-chunk materialization. | **Partial** | Authoritative bounded area queries and nearest-root search are implemented. Finish StructureSets, connectors/chains and the generic connected-feature path used by river/lake/waterfall/pond content. Do not introduce hydrology. |
+| 6 — Structures/features | One authoritative Structure placement/query owner; StructureSets, variants, conflicts, connectors/chains, biome/terrain/fluid restrictions and cross-chunk materialization. | **Partial** | Authoritative bounded area/nearest-root queries and deterministic multi-piece StructureSets are implemented. Finish connectors/chains and the generic connected-feature path used by river/lake/waterfall/pond content. Do not introduce hydrology. |
 | 7 — Chunk synthesis | One procedural writer composes density/materials/features/structures/generated fluids into runtime chunks. | **Ported for current content** | Keep `SurfaceChunkMaterializer` as the single writer while Phase 5/6 capabilities expand. |
 | 8 — Consumer integration | Streaming, biome/Structure locate, spawn, warp and dimension travel consume narrow generator query capabilities; no hidden chunk generation. | **Partial / Missing parity** | Add generator-owned biome/Structure search and shared destination preparation, then route every applicable consumer through those capabilities. |
 | 9 — Persistence | First materialization makes a chunk authoritative persisted spatial state, including unedited/empty chunks; query-only access does not persist. | **Divergent** | Asteria currently archives dirty chunks and regenerates pristine chunks. Reconcile this with the rebuild contract before claiming Phase 9 parity. |
@@ -42,7 +42,7 @@ This document is the active parity map for the migration. It must be updated whe
 Until parity is closed, worldgen work should follow this order unless the user explicitly changes priority:
 
 1. **Phase 6 — complete generic Structure capability**
-   - StructureSets/groups/variants where still absent;
+   - StructureSets/groups/variants are implemented and must remain root-owned multi-piece placement;
    - generic connectors/chains;
    - authoritative bounded Structure search is implemented in `SurfaceStructureField` and must remain the single search owner;
    - connected river/lake/waterfall/pond content through Structure/connectors only;
