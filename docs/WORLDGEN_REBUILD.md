@@ -26,28 +26,20 @@ This document is the active parity map for the migration. It must be updated whe
 | 0 — Impact audit and external contracts | Audit every consumer of generated-world facts and classify preserved/adapted/rewritten/obsolete dependencies. | **Ported / Audited** | Active consumers are inventoried below. Future generated-world consumers must enter through the same narrow generator capabilities rather than reconstructing worldgen. |
 | 1 — Cleanup | Remove old biome/worldgen/loading ownership and repair/fallback paths before building replacement ownership. | **Ported for active worldgen** | Keep deleted/obsolete ownership from re-entering through compatibility helpers or consumer-side reconstruction. |
 | 2 — Generation foundation/query model | Immutable deterministic generator; pure scalar + bounded queries; no semantic generation tiles; order-independent direct far-coordinate access. | **Ported / Adapted** | Preserve scalar/batch equivalence and bounded cache semantics as later capabilities are added. |
-| 3 — Biome Layout | Organic formation field, `regionSize`, weights, `cannotBorder`, primary + normalized influences, deterministic search, biome-map sampling. | **Ported / Adapted** | Add the optional debug biome-map renderer if still useful. The semantic layout itself is already ported. |
+| 3 — Biome Layout | Organic formation field, `regionSize`, weights, `cannotBorder`, primary + normalized influences, deterministic search, biome-map sampling. | **Ported / Adapted** | Semantic layout, deterministic search and query-only biome-map diagnostics are implemented. Asteria emits SVG + legend instead of MineClone's PNG renderer. |
 | 4 — Terrain | Continuous surface field plus authoritative 3D density, caves/floating terrain, bounded queries, seam/order independence. | **Ported / Adapted** | Continue only through the single terrain-density owner; no parallel terrain generators. |
 | 5 — Surface/material/generated fluids | Deterministic layers, patches, generated natural fluids and runtime handoff. | **Ported / Adapted** | Ocean generation plus bounded authored swamp water puddles and volcano lava pools are owned by `GeneratedFluidField`; `SurfaceTerrainField` applies only the owner-provided shallow cut and runtime simulation takes over after residency. |
 | 6 — Structures/features | One authoritative Structure placement/query owner; StructureSets, variants, conflicts, connectors/chains, biome/terrain/fluid restrictions and cross-chunk materialization. | **Ported / Adapted** | Authoritative queries, deterministic multi-piece StructureSets, connector/chains, fluid/clear payloads, biome-margin roots, and the lake/river/mountain-pond/mountain-waterfall content path are implemented through generic Structures. No hydrology subsystem exists. |
-| 7 — Chunk synthesis | One procedural writer composes density/materials/features/structures/generated fluids into runtime chunks. | **Ported for current content** | Keep `SurfaceChunkMaterializer` as the single writer while Phase 5/6 capabilities expand. |
+| 7 — Chunk synthesis | One procedural writer composes density/materials/features/structures/generated fluids into runtime chunks. | **Ported / Adapted** | `SurfaceChunkMaterializer` remains the single procedural writer for all current generation content. |
 | 8 — Consumer integration | Streaming, biome/Structure locate, spawn, warp and dimension travel consume narrow generator query capabilities; no hidden chunk generation. | **Ported / Adapted for active consumers** | Biome and Structure search plus exact-first/surface destination preparation are generator-owned and query-only. Initial spawn and dimension travel use destination preparation. Asteria currently has no local-warp or /locate gameplay consumer; when added, they must call these existing capabilities rather than scan/materialize chunks. |
 | 9 — Persistence | First materialization makes a chunk authoritative persisted spatial state, including unedited/empty chunks; query-only access does not persist. | **Ported / Adapted for current persistence owner** | Session archive now retains every materialized chunk zero-copy, including pristine/empty chunks; dirty state is tracked separately. Query-only generator access never enters persistence. Asteria still has no disk-save subsystem, so this phase applies to the current per-dimension session persistence owner rather than inventing one. |
 | 10 — Loading pipeline | New world, save load and dimension travel share one loading path using real required-residency work. | **Ported / Adapted for active entry paths** | New-world entry, restored in-memory dimension sessions and dimension travel share `WorldLoadingState` over the existing streaming/residency pipeline. Bootstrap uses a 2-chunk horizontal radius, then expands to normal render distance after readiness. Asteria has no disk-save/load subsystem, so no fake save-load path is introduced. |
 | 11 — Loading screen | UI renders only authoritative loading phase/progress; no fake timers or duplicate loading state. | **Ported / Adapted** | Godot emits `game.loading` from `WorldLoadingState`; WebUI's `LoadingOverlay` only renders phase/completed/total. Retirement is indeterminate `0/0`; materialization and destination presentation use real counters. No timer or synthetic percentage exists. |
-| 12 — End-to-end/performance | Fixed-seed fixtures, near/far/order tests, visual probes and evidence-based performance baselines. | **In progress, but not a substitute for missing phases** | Keep benchmarking, but close Phases 6/8/9/10/11 before calling the rebuild migrated. |
+| 12 — End-to-end/performance | Fixed-seed fixtures, near/far/order tests, visual probes and evidence-based performance baselines. | **Ported / Validated** | Multi-seed/order/concurrency tests, near/far biome/Structure/destination queries, allocation-aware cold/warm benchmarks, initial playable-area synthesis, evidence-based CI budgets, and fixed-seed Overworld/Umbral biome-map artifacts are active. |
 
-## Immediate migration order
+## Migration status
 
-Until parity is closed, worldgen work should follow this order unless the user explicitly changes priority:
-
-1. **Phase 12 — close validation/performance**
-   - deterministic fixed-seed fixtures;
-   - cold/warm scalar and bounded queries;
-   - near/far destination paths;
-   - request-order and concurrent-query equivalence;
-   - biome boundaries/junctions, ocean/coast, caves, floating terrain and Structure-heavy fixtures;
-   - measured budgets only after the correct path exists.
+The MineClone world-systems rebuild migration checklist is complete for Asteria's current runtime/content surface. No required phase remains **Partial**, **Missing**, or **Divergent**. Future worldgen/content work extends these owners; it does not reopen legacy ownership or add compatibility layers.
 
 ## Generated-world consumer audit
 
@@ -59,7 +51,7 @@ Until parity is closed, worldgen work should follow this order unless the user e
 - **Dimension travel** — explicit destination requests are transient, not written into saved session position. The target session tries the exact generated 3D destination first and falls back to a safe generated surface destination near the same X/Z.
 - **Loading** — new-world entry, restored in-memory dimension sessions and dimension travel all enter the same `WorldLoadingState` path. The same `ChunkStreamingController` owns bootstrap residency at radius 2 and ordinary gameplay residency afterward; readiness is based on completed required residency plus the destination presentation needed by Godot collision/rendering.
 - **Persistence** — every resident materialized chunk is archived on retirement, including pristine/empty chunks; dirty is independent mutation metadata. Generated queries never persist or materialize chunks.
-- **Debug/map tooling** — F3/HUD does not reconstruct worldgen. The optional standalone biome-map renderer remains absent and is not a semantic owner.
+- **Debug/map tooling** — F3/HUD does not reconstruct worldgen. `BiomeMapDiagnostic` and `tools/BiomeMap` sample the authoritative `BiomeField` and emit deterministic SVG/legend fixtures; they are consumers, not semantic owners.
 
 ## Biome layout / biome map clarification
 
@@ -83,7 +75,7 @@ Asteria **has ported the Biome Layout**. `Asteria.Core/World/BiomeField.cs` mirr
 - bounded formation-assignment memoization;
 - scalar and bounded-grid sampling.
 
-The standalone MineClone PNG/legend renderer has not been ported as a required runtime system. Its absence does **not** mean the biome-distribution algorithm is absent.
+Asteria also ports the diagnostic role through `BiomeMapDiagnostic` + `tools/BiomeMap`. The tool samples the same authoritative `BiomeField` and emits deterministic SVG + legend output. The SVG choice is a tooling adaptation; it owns no biome semantics. CI publishes fixed-seed Overworld and Umbral maps for visual review.
 
 ### Deliberate Biome Layout difference
 
@@ -101,6 +93,7 @@ BiomeWorldGenerator
   |- SurfaceDecorationField
   |- GeneratedFluidField
   |- SurfaceStructureField
+  |- GeneratedSurfaceDestinationQuery
   `- SurfaceChunkMaterializer
 ```
 
@@ -113,7 +106,8 @@ Binding ownership rules:
 - `BiomeSurfaceMaterialField` owns generated solid-material classification.
 - `SurfaceDecorationField` owns ground decorators.
 - `GeneratedFluidField` owns explicit generation-time fluid placement; runtime fluid simulation takes over after residency.
-- `SurfaceStructureField` owns generated surface-Structure placement/conflicts.
+- `SurfaceStructureField` owns generated surface-Structure placement/conflicts and Structure search.
+- `GeneratedSurfaceDestinationQuery` composes generated-world queries for safe spawn/travel destinations without chunk materialization.
 - `SurfaceChunkMaterializer` is the only procedural voxel writer.
 - streaming/residency owns scheduling and publication lifecycle, not generated-world truth.
 
@@ -133,16 +127,41 @@ These adaptations are not permission to skip rebuild phases.
 
 ## Reproducible benchmarking
 
-From the repository root:
+The canonical CI fixture is:
 
 ```sh
 dotnet run -c Release --project tools/WorldgenBenchmark -- \
   --seed 181960897289965 --dimension asteria:overworld \
-  --center-x 0 --center-z 0 --samples 16 --area-size 16 \
-  --chunks 2 --output worldgen-benchmark.json
+  --center-x 0 --center-z 0 --samples 2 --area-size 4 \
+  --map-size 64 --map-step 4 --chunks 1 --search-radius 1024 \
+  --enforce-ci-budgets true --output worldgen-benchmark.json
 ```
 
-The CLI is a query/CPU baseline, not proof that the rebuild is complete. Cold and warm runs must preserve identical content digests. Performance work must not redefine generated output, cache semantics or request-order behavior.
+The benchmark records cold/warm elapsed time, current-thread allocations and a generated-content digest for biome scalar/area/map queries, terrain scalar/area/density, near/far biome search, near/far Structure search, near/far destination preparation, chunk synthesis and the radius-2 initial playable-area synthesis used by loading.
+
+Baseline from successful CI run `37696389347` on 2026-10-07:
+
+| Metric | Cold | Warm |
+| --- | ---: | ---: |
+| biome map (4096 samples) | 85.3 ms | 48.6 ms |
+| biome search near / far | 24.3 / 46.5 ms | 0.18 / 0.28 ms |
+| destination near / far | 303.9 / 420.2 ms | 0.35 / 0.16 ms |
+| Structure search near / far | 919.3 / 986.6 ms | 2.27 / 0.74 ms |
+| chunk synthesis | 262.5 ms | 1.32 ms |
+| initial playable area | 547.3 ms | 167.1 ms |
+
+CI budgets intentionally include substantial runner headroom and apply only to this canonical fixture. Digests must remain identical between cold/warm passes; caches may change cost, never output.
+
+Visual fixtures are generated with:
+
+```sh
+dotnet run -c Release --project tools/BiomeMap -- \
+  --seed 181960897289965 --dimension asteria:overworld \
+  --width 64 --depth 64 --step 8 --mode influences \
+  --output biome-map-overworld.svg
+```
+
+CI publishes equivalent fixed-seed SVG artifacts for both `asteria:overworld` and `asteria:umbral`.
 
 ## Non-regression rules
 
