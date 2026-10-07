@@ -1,0 +1,35 @@
+{
+  "id": "asteria:overworld/floating_islands",
+  "surfaceLayout": {},
+  "surfaceTerrain": {
+    "baseHeightOffset": 6,
+    "macroAmplitude": 6,
+    "macroScale": 896,
+    "detailAmplitude": 2,
+    "detailScale": 128
+  },
+  "surfaceLayers": [
+    {
+      "block": "asteria:grass_block",
+      "depth": 1
+    },
+    {
+      "block": "asteria:dirt",
+      "depth": 4
+    },
+    {
+      "block": "asteria:stone"
+    }
+  ],
+  "terrain3d": {
+    "floatingFormation": {
+      "minY": 200,
+      "maxY": 280,
+      "horizontalScale": 112,
+      "detailScale": 40,
+      "coverage": 0.55,
+      "roughness": 0.18,
+      "densityScale": 28
+    }
+  }
+}
