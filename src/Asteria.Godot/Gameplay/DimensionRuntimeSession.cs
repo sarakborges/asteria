@@ -102,6 +102,7 @@ public sealed class DimensionRuntimeSession
                 state.DimensionSeed,
                 state.Dimension,
                 blocks,
+                fluids,
                 biomes);
         _droppedBlocks =
             new DroppedBlockRuntime(
