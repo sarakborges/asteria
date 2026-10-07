@@ -106,12 +106,14 @@ public sealed class ChunkStreamingStateTests
             ChunkCoord.Zero,
             horizontalRadius: 1);
 
-        Assert.True(
-            provider.Started.Wait(
-                TimeSpan.FromSeconds(2)));
+        var workerThreadId =
+            await provider.Started
+                .Task
+                .WaitAsync(
+                    TimeSpan.FromSeconds(2));
         Assert.NotEqual(
             callerThread,
-            provider.WorkerThreadId);
+            workerThreadId);
 
         var latest =
             new ChunkCoord(
@@ -433,21 +435,19 @@ public sealed class ChunkStreamingStateTests
     private sealed class BlockingSurfaceRangeProvider :
         IChunkSurfaceRangeProvider
     {
-        public ManualResetEventSlim Started { get; } =
-            new(false);
+        public TaskCompletionSource<int> Started { get; } =
+            new(
+                TaskCreationOptions.RunContinuationsAsynchronously);
 
         public ManualResetEventSlim Release { get; } =
             new(false);
-
-        public int WorkerThreadId { get; private set; }
 
         public ChunkSurfaceRange GetSurfaceRange(
             int chunkX,
             int chunkZ)
         {
-            WorkerThreadId =
-                Environment.CurrentManagedThreadId;
-            Started.Set();
+            Started.TrySetResult(
+                Environment.CurrentManagedThreadId);
             Release.Wait(
                 TimeSpan.FromSeconds(2));
 
