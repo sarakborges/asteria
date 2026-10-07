@@ -107,6 +107,39 @@ public sealed class WorldGenerationQueryTests
     }
 
     [Fact]
+    public void ExactGeneratedDestinationFallsBackToSurfaceWhenUnsafe()
+    {
+        var generator =
+            FlatGenerator();
+
+        var exact =
+            generator.FindGeneratedDestination(
+                0,
+                33,
+                0,
+                4);
+        var fallback =
+            generator.FindGeneratedDestination(
+                0,
+                50,
+                0,
+                4);
+
+        Assert.Equal(
+            new GeneratedSurfaceDestination(
+                0,
+                33,
+                0),
+            exact);
+        Assert.Equal(
+            new GeneratedSurfaceDestination(
+                0,
+                33,
+                0),
+            fallback);
+    }
+
+    [Fact]
     public void GeneratedDestinationAvoidsShallowGeneratedFluid()
     {
         var blocks =
