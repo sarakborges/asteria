@@ -10,7 +10,7 @@ internal sealed class SurfaceTerrainRule
 {
     private readonly string _biomeId;
     private readonly BiomeTerrainShapeDefinition _shape;
-    private readonly IReadOnlyList<BiomeTerrainModifierDefinition> _modifiers;
+    private readonly ModifierRule[] _modifiers;
     private readonly GenerationDomain _macroDomain;
     private readonly GenerationDomain _detailDomain;
     private readonly GenerationDomain _secondaryDomain;
@@ -30,7 +30,15 @@ internal sealed class SurfaceTerrainRule
 
         _biomeId = definition.Id;
         _shape = terrain.Shape;
-        _modifiers = terrain.Modifiers;
+        _modifiers =
+            terrain.Modifiers
+                .Select(
+                    (modifier, index) =>
+                        ModifierRule.Create(
+                            definition.Id,
+                            index,
+                            modifier))
+                .ToArray();
         _macroDomain =
             GenerationDomain.Named(
                 $"terrain/shape/macro/v2/{definition.Id}");
@@ -607,8 +615,11 @@ internal sealed class SurfaceTerrainRule
         int x,
         int z,
         int index,
-        BiomeTerrainModifierDefinition modifier)
+        ModifierRule rule)
     {
+        var modifier =
+            rule.Definition;
+
         if (modifier is
             BiomeHeightOffsetTerrainModifierDefinition heightOffset)
         {
@@ -622,31 +633,17 @@ internal sealed class SurfaceTerrainRule
                 $"Unsupported terrain modifier for {_biomeId}.");
         }
 
-        var prefix =
-            $"terrain/shape/modifier/{index}/v2/{_biomeId}";
-        var warpXDomain =
-            GenerationDomain.Named(
-                prefix +
-                "/warp-x");
-        var warpZDomain =
-            GenerationDomain.Named(
-                prefix +
-                "/warp-z");
-        var noiseDomain =
-            GenerationDomain.Named(
-                prefix +
-                "/noise");
         var warpX =
             Fractal(
                 seed,
-                warpXDomain,
+                rule.WarpXDomain,
                 x,
                 z,
                 cliffs.WarpScale);
         var warpZ =
             Fractal(
                 seed,
-                warpZDomain,
+                rule.WarpZDomain,
                 x - 23.1d,
                 z + 41.9d,
                 cliffs.WarpScale);
@@ -662,7 +659,7 @@ internal sealed class SurfaceTerrainRule
             Math.Clamp(
                 (Fractal(
                      seed,
-                     noiseDomain,
+                     rule.NoiseDomain,
                      warpedX,
                      warpedZ,
                      cliffs.Scale) +
@@ -702,6 +699,34 @@ internal sealed class SurfaceTerrainRule
                    .SmoothStep(
                        progress) *
                cliffs.Height;
+    }
+
+    private readonly record struct ModifierRule(
+        BiomeTerrainModifierDefinition Definition,
+        GenerationDomain WarpXDomain,
+        GenerationDomain WarpZDomain,
+        GenerationDomain NoiseDomain)
+    {
+        public static ModifierRule Create(
+            string biomeId,
+            int index,
+            BiomeTerrainModifierDefinition definition)
+        {
+            var prefix =
+                $"terrain/shape/modifier/{index}/v2/{biomeId}";
+
+            return new ModifierRule(
+                definition,
+                GenerationDomain.Named(
+                    prefix +
+                    "/warp-x"),
+                GenerationDomain.Named(
+                    prefix +
+                    "/warp-z"),
+                GenerationDomain.Named(
+                    prefix +
+                    "/noise"));
+        }
     }
 
     private static double Fractal(
