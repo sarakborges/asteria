@@ -185,6 +185,18 @@ public sealed class BiomeWorldGenerator :
 
     public BiomeTintField Tints { get; }
 
+    public SurfaceBiomeSearchResult?
+        FindNearestSurfaceBiome(
+            string biomeId,
+            int originX,
+            int originZ,
+            int maxDistance) =>
+        Biomes.FindNearestSurfaceBiome(
+            biomeId,
+            originX,
+            originZ,
+            maxDistance);
+
     public IReadOnlyList<SurfaceStructureQueryResult>
         SurfaceStructuresIntersecting(
             int originX,
