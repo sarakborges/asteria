@@ -24,7 +24,7 @@ public sealed class SurfaceStructureTests
                 "asteria:test/flat",
                 new BiomeSurfaceLayoutDefinition(),
                 new BiomeTerrainDefinition(
-                    32f,
+                    0f,
                     0f,
                     64,
                     0f,
