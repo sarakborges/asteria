@@ -66,6 +66,12 @@ public sealed class BiomeWorldGenerationTests
         var floating =
             biomes.Get(
                 "asteria:overworld/floating_islands");
+        Assert.Null(
+            floating.SurfaceLayout);
+        Assert.Null(
+            floating.SurfaceTerrain);
+        Assert.NotNull(
+            floating.VolumeLayout);
         Assert.NotNull(
             floating.Terrain3d?.FloatingFormation);
         Assert.Equal(
@@ -333,10 +339,27 @@ public sealed class BiomeWorldGenerationTests
     {
         var definitions = StandardBiomeDefinitions();
         var dimension = TestDimension(definitions.Select(x => x.Id));
-        var biomes = new BiomeField(
-            947UL, dimension, new BiomeRegistry(definitions));
-        var terrain = new SurfaceTerrainField(
-            947UL, dimension, biomes, definitions);
+        var registry =
+            new BiomeRegistry(
+                definitions);
+        var biomes =
+            new BiomeField(
+                947UL,
+                dimension,
+                registry);
+        var volumes =
+            new VolumeBiomeField(
+                947UL,
+                dimension,
+                registry);
+        var terrain =
+            new SurfaceTerrainField(
+                947UL,
+                dimension,
+                biomes,
+                volumes,
+                definitions,
+                Array.Empty<BiomeDefinition>());
         var column = terrain.SampleColumn(-2, 1);
         var originX = -2 * Chunk.Size;
         var originZ = Chunk.Size;
@@ -368,10 +391,27 @@ public sealed class BiomeWorldGenerationTests
     {
         var definitions = StandardBiomeDefinitions();
         var dimension = TestDimension(definitions.Select(x => x.Id));
-        var biomes = new BiomeField(
-            157UL, dimension, new BiomeRegistry(definitions));
-        var terrain = new SurfaceTerrainField(
-            157UL, dimension, biomes, definitions);
+        var registry =
+            new BiomeRegistry(
+                definitions);
+        var biomes =
+            new BiomeField(
+                157UL,
+                dimension,
+                registry);
+        var volumes =
+            new VolumeBiomeField(
+                157UL,
+                dimension,
+                registry);
+        var terrain =
+            new SurfaceTerrainField(
+                157UL,
+                dimension,
+                biomes,
+                volumes,
+                definitions,
+                Array.Empty<BiomeDefinition>());
         var columns = new SurfaceTerrainColumnCache(
             terrain, capacity: 4);
         var grid = columns.SampleChunkBiomes(-2, 1);
@@ -401,10 +441,27 @@ public sealed class BiomeWorldGenerationTests
     {
         var definitions = new[] { TestBiome("asteria:test/only") };
         var dimension = TestDimension(definitions.Select(x => x.Id));
-        var biomes = new BiomeField(
-            17UL, dimension, new BiomeRegistry(definitions));
-        var terrain = new SurfaceTerrainField(
-            17UL, dimension, biomes, definitions);
+        var registry =
+            new BiomeRegistry(
+                definitions);
+        var biomes =
+            new BiomeField(
+                17UL,
+                dimension,
+                registry);
+        var volumes =
+            new VolumeBiomeField(
+                17UL,
+                dimension,
+                registry);
+        var terrain =
+            new SurfaceTerrainField(
+                17UL,
+                dimension,
+                biomes,
+                volumes,
+                definitions,
+                Array.Empty<BiomeDefinition>());
         var cache = new SurfaceTerrainColumnCache(terrain, capacity: 2);
         var first = cache.Get(-1, 0);
         var second = cache.Get(0, 0);
@@ -1269,9 +1326,10 @@ public sealed class BiomeWorldGenerationTests
                 fluids,
                 biomes);
         var floating =
-            FindBiomeInterior(
-                generator.Biomes,
-                "asteria:overworld/floating_islands");
+            FindVolumeBiomeInterior(
+                generator.VolumeBiomes,
+                "asteria:overworld/floating_islands",
+                y: 220);
 
         var surfaceBiome =
             generator.EffectiveBiomeAt(
@@ -1344,6 +1402,41 @@ public sealed class BiomeWorldGenerationTests
                 generator,
                 swamp,
                 mushroom));
+    }
+
+    private static (int X, int Z) FindVolumeBiomeInterior(
+        VolumeBiomeField field,
+        string biomeId,
+        int y)
+    {
+        for (var z = -4096;
+             z <= 4096;
+             z += 64)
+        {
+            for (var x = -4096;
+                 x <= 4096;
+                 x += 64)
+            {
+                var sample =
+                    field.Sample(
+                        x,
+                        y,
+                        z);
+
+                if (sample?.Primary ==
+                        biomeId &&
+                    sample.PrimaryWeight >=
+                        0.9f)
+                {
+                    return (
+                        x,
+                        z);
+                }
+            }
+        }
+
+        throw new Xunit.Sdk.XunitException(
+            $"Could not find an interior volume sample for {biomeId}.");
     }
 
     private static (int X, int Z) FindBiomeInterior(

@@ -36,23 +36,28 @@ public sealed class DimensionTests
                     "asteria:umbral"));
 
         Assert.Equal(
-            12,
-            overworld.Biomes.Count);
+            11,
+            overworld.SurfaceBiomes.Count);
+        Assert.Single(
+            overworld.VolumeBiomes);
         Assert.Contains(
             "asteria:overworld/ocean",
-            overworld.Biomes);
+            overworld.SurfaceBiomes);
         Assert.DoesNotContain(
             "asteria:overworld/enchanted_forest",
-            overworld.Biomes);
+            overworld.SurfaceBiomes);
         Assert.Contains(
             "asteria:overworld/alps",
-            overworld.Biomes);
+            overworld.SurfaceBiomes);
+        Assert.DoesNotContain(
+            "asteria:overworld/floating_islands",
+            overworld.SurfaceBiomes);
         Assert.Contains(
             "asteria:overworld/floating_islands",
-            overworld.Biomes);
+            overworld.VolumeBiomes);
         Assert.Contains(
             "asteria:overworld/volcano",
-            overworld.Biomes);
+            overworld.SurfaceBiomes);
         Assert.Equal(
             "asteria:overworld/ocean",
             overworld.GeneratedOcean?.Biome);
@@ -78,15 +83,23 @@ public sealed class DimensionTests
             umbral.GeneratedOcean);
         Assert.Equal(
             3,
-            umbral.Biomes.Count);
+            umbral.SurfaceBiomes.Count);
+        Assert.Empty(
+            umbral.VolumeBiomes);
         Assert.All(
-            overworld.Biomes,
+            overworld.SurfaceBiomes,
             biome =>
                 Assert.StartsWith(
                     "asteria:overworld/",
                     biome));
         Assert.All(
-            umbral.Biomes,
+            overworld.VolumeBiomes,
+            biome =>
+                Assert.StartsWith(
+                    "asteria:overworld/",
+                    biome));
+        Assert.All(
+            umbral.SurfaceBiomes,
             biome =>
                 Assert.StartsWith(
                     "asteria:umbral/",
@@ -181,7 +194,7 @@ public sealed class DimensionTests
                     dimension,
                     biomes);
             var allowed =
-                dimension.Biomes.ToHashSet(
+                dimension.SurfaceBiomes.ToHashSet(
                     StringComparer.Ordinal);
             var grid =
                 field.SampleGrid(
