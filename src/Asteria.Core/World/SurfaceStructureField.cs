@@ -242,39 +242,30 @@ public sealed class SurfaceStructureField
                 continue;
             }
 
-            var halfSpacing =
-                rule.Spacing /
-                2;
             var reach =
-                (long)maxDistance +
-                rule.Jitter +
-                1L;
+                (long)maxDistance;
             var minimumCellX =
                 FloorDiv(
                     (long)originX -
-                    reach -
-                    halfSpacing,
+                    reach,
                     rule.Spacing) -
                 1L;
             var maximumCellX =
                 FloorDiv(
                     (long)originX +
-                    reach -
-                    halfSpacing,
+                    reach,
                     rule.Spacing) +
                 1L;
             var minimumCellZ =
                 FloorDiv(
                     (long)originZ -
-                    reach -
-                    halfSpacing,
+                    reach,
                     rule.Spacing) -
                 1L;
             var maximumCellZ =
                 FloorDiv(
                     (long)originZ +
-                    reach -
-                    halfSpacing,
+                    reach,
                     rule.Spacing) +
                 1L;
 
@@ -561,37 +552,29 @@ public sealed class SurfaceStructureField
             var padding =
                 checked(
                     rule.MaximumHorizontalRadius +
-                    rule.Jitter +
                     1);
-            var halfSpacing =
-                rule.Spacing /
-                2;
             var minimumCellX =
                 FloorDiv(
                     (long)minimumX -
-                    padding -
-                    halfSpacing,
+                    padding,
                     rule.Spacing) -
                 1;
             var maximumCellX =
                 FloorDiv(
                     (long)maximumX +
-                    padding -
-                    halfSpacing,
+                    padding,
                     rule.Spacing) +
                 1;
             var minimumCellZ =
                 FloorDiv(
                     (long)minimumZ -
-                    padding -
-                    halfSpacing,
+                    padding,
                     rule.Spacing) -
                 1;
             var maximumCellZ =
                 FloorDiv(
                     (long)maximumZ +
-                    padding -
-                    halfSpacing,
+                    padding,
                     rule.Spacing) +
                 1;
 
