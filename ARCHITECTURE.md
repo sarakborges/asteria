@@ -78,6 +78,8 @@ Current world-work ownership follows that rule explicitly:
 
 Generated-world consumers must not reconstruct generator rules or materialize chunks to answer untouched-world questions. Biome search belongs to `BiomeField`; Structure search belongs to `SurfaceStructureField`; cross-domain safe-destination preparation belongs to `GeneratedSurfaceDestinationQuery`. Saved/mutated session state may still be consulted for runtime-authoritative questions. Initial spawn uses surface destination preparation around the authored spawn column; explicit dimension travel tries the exact generated 3D destination first, then falls back to a nearby safe generated surface column. Future locate/warp/portal consumers reuse these capabilities.
 
+WorldLoadingState is the single runtime loading-progress owner for world entry and dimension travel. It does not own generation or scheduling: it observes the existing ChunkStreamingController/ChunkResidencyRuntime and destination presentation. Bootstrap residency uses the same streaming owner with a bounded two-chunk horizontal radius, then gameplay expands the same selection to the configured render distance. Loading progress consists only of authoritative logical phase plus completed/total work; there is no duration, fake timer or second queue. WebUI is a renderer of the `game.loading` message only.
+
 ## 4. Mutation pipeline
 
 Meaningful world state changes flow through intent-revealing mutation APIs.
