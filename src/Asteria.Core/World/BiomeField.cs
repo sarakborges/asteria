@@ -1748,10 +1748,14 @@ public sealed class BiomeField
                             layout.Weight *
                             4096d))),
                 layout is BiomeSurfaceLayoutDefinition surface
-                    ? checked((ulong)
-                        Math.Round(
-                            surface.SpawnWeight *
-                            4096d))
+                    ? surface.SpawnWeight <= 0f
+                        ? 0UL
+                        : Math.Max(
+                            1UL,
+                            checked((ulong)
+                                Math.Round(
+                                    surface.SpawnWeight *
+                                    4096d)))
                     : 0UL,
                 layout.RegionMin,
                 layout.RegionMax,
