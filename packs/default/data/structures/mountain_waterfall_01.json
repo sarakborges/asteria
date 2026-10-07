@@ -1,0 +1,151 @@
+{
+  "id": "asteria:mountain_waterfall_01",
+  "locatable": false,
+  "rotation": true,
+  "priority": 4,
+  "restrictions": {
+    "minSlope": 3,
+    "maxSlope": 8,
+    "requiresDryGround": true,
+    "requiredBiomeCoverage": 0.5
+  },
+  "generation": {
+    "replacePolicy": "terrain",
+    "fluidPolicy": "displace",
+    "reserveSpace": false
+  },
+  "anchor": {
+    "x": 4,
+    "y": 0,
+    "z": 6
+  },
+  "groundAnchorY": -1,
+  "clearAbove": 2,
+  "palette": {
+    "S": {
+      "block": "asteria:stone"
+    },
+    "W": {
+      "fluid": "asteria:water"
+    },
+    "O": {
+      "fluid": "asteria:water",
+      "connector": {
+        "target": "asteria:mountain_pond",
+        "face": "front",
+        "strength": 1
+      }
+    }
+  },
+  "layers": [
+    {
+      "y": -1,
+      "rows": [
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        ".SSSSSSS.",
+        ".SSSSSSS.",
+        "..SSSSS.."
+      ]
+    },
+    {
+      "y": 0,
+      "rows": [
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        "..SSSSS..",
+        "..SSSSS..",
+        ".SWWWWWS.",
+        ".SWWWWWS.",
+        "..SWOWS.."
+      ]
+    },
+    {
+      "y": 1,
+      "rows": [
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        "..SSSSS..",
+        "..SSSSS..",
+        "..SWWWS..",
+        "..SWWWS..",
+        ".........",
+        ".........",
+        "........."
+      ]
+    },
+    {
+      "y": 2,
+      "rows": [
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        "..SSSSS..",
+        "..SSSSS..",
+        "..SWWWS..",
+        "..SWWWS..",
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        "........."
+      ]
+    },
+    {
+      "y": 3,
+      "rows": [
+        ".SSSSSSS.",
+        ".SSSSSSS.",
+        ".SSSSSSS.",
+        "..SSSSS..",
+        "..SWWWS..",
+        "..SWWWS..",
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        "........."
+      ]
+    },
+    {
+      "y": 4,
+      "rows": [
+        ".SWWWWWS.",
+        ".SWWWWWS.",
+        ".SWWWWWS.",
+        "..SWWWS..",
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        "........."
+      ]
+    }
+  ],
+  "groupId": "mountain_waterfall"
+}
