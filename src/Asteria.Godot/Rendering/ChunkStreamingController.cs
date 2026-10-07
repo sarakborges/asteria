@@ -101,11 +101,24 @@ public sealed class ChunkStreamingController
             out error);
 
     public ChunkStreamingSelectionReport SyncSelection(
-        ChunkCoord center)
+        ChunkCoord center) =>
+        SyncSelection(
+            center,
+            _settings.RenderDistanceChunks);
+
+    public ChunkStreamingSelectionReport SyncSelection(
+        ChunkCoord center,
+        int horizontalRadius)
     {
+        if (horizontalRadius <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(horizontalRadius));
+        }
+
         var changed = false;
         var radius =
-            _settings.RenderDistanceChunks;
+            horizontalRadius;
         var retentionRadius =
             radius +
             _settings.RetentionMarginChunks;
@@ -167,10 +180,21 @@ public sealed class ChunkStreamingController
 
     public ChunkStreamingBeginFrameReport BeginFrame(
         ChunkCoord center,
-        WorldFrameWorkBudget budget)
+        WorldFrameWorkBudget budget) =>
+        BeginFrame(
+            center,
+            budget,
+            _settings.RenderDistanceChunks);
+
+    public ChunkStreamingBeginFrameReport BeginFrame(
+        ChunkCoord center,
+        WorldFrameWorkBudget budget,
+        int horizontalRadius)
     {
         var selection =
-            SyncSelection(center);
+            SyncSelection(
+                center,
+                horizontalRadius);
         var collected =
             _residency.CollectMaterializationResults(
                 budget,
