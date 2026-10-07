@@ -3186,67 +3186,129 @@ public sealed class SurfaceStructureField
     private sealed class RuntimeStructure
     {
         private readonly RuntimeVoxel[] _voxels;
+        private readonly RuntimeFluidVoxel[] _fluidVoxels;
+        private readonly RuntimeClearVoxel[] _clearVoxels;
         private readonly (int X, int Z)[] _footprint;
         private readonly (int X, int Z)[] _supports;
+        private readonly RuntimeColumn[] _columns;
 
         public RuntimeStructure(
             StructureDefinition definition,
             BlockRegistry blocks,
             FluidRegistry fluids)
         {
-            Definition = definition;
+            Definition =
+                definition ??
+                throw new ArgumentNullException(
+                    nameof(definition));
+
             _voxels =
                 definition.Voxels
-                    .Select(
-                        voxel =>
-                        {
-                            var block =
+                    .Select(voxel =>
+                        new RuntimeVoxel(
+                            voxel.X,
+                            voxel.Y,
+                            voxel.Z,
+                            new VoxelCell(
                                 blocks.GetId(
-                                    voxel.Block);
-                            return new RuntimeVoxel(
-                                voxel.X,
-                                voxel.Y,
-                                voxel.Z,
-                                new VoxelCell(
-                                    block,
-                                    orientation:
-                                        voxel.Orientation));
-                        })
+                                    voxel.Block),
+                                orientation:
+                                    voxel.Orientation)))
                     .ToArray();
+            _fluidVoxels =
+                definition.FluidVoxels
+                    .Select(voxel =>
+                        new RuntimeFluidVoxel(
+                            voxel.X,
+                            voxel.Y,
+                            voxel.Z,
+                            FluidCell.Source(
+                                fluids.GetId(
+                                    voxel.Fluid))))
+                    .ToArray();
+            _clearVoxels =
+                definition.ClearVoxels
+                    .Select(voxel =>
+                        new RuntimeClearVoxel(
+                            voxel.X,
+                            voxel.Y,
+                            voxel.Z))
+                    .ToArray();
+
+            var payloadOffsets =
+                _voxels
+                    .Select(value =>
+                        (
+                            value.X,
+                            value.Y,
+                            value.Z))
+                    .Concat(
+                        _fluidVoxels.Select(value =>
+                            (
+                                value.X,
+                                value.Y,
+                                value.Z)))
+                    .Concat(
+                        _clearVoxels.Select(value =>
+                            (
+                                value.X,
+                                value.Y,
+                                value.Z)))
+                    .ToArray();
+
             _footprint =
-                _voxels
-                    .Select(
-                        voxel =>
+                payloadOffsets.Length == 0
+                    ? [
+                        (
+                            0,
+                            0),
+                    ]
+                    : payloadOffsets
+                        .Select(value =>
                             (
-                                voxel.X,
-                                voxel.Z))
-                    .Distinct()
-                    .OrderBy(
-                        offset =>
-                            offset.X)
-                    .ThenBy(
-                        offset =>
-                            offset.Z)
-                    .ToArray();
+                                value.X,
+                                value.Z))
+                        .Distinct()
+                        .OrderBy(value =>
+                            value.X)
+                        .ThenBy(value =>
+                            value.Z)
+                        .ToArray();
             _supports =
-                _voxels
-                    .Where(
-                        voxel =>
-                            voxel.Y ==
+                payloadOffsets.Length == 0
+                    ? _footprint
+                    : payloadOffsets
+                        .Where(value =>
+                            value.Y ==
                             definition.MinimumY)
-                    .Select(
-                        voxel =>
+                        .Select(value =>
                             (
-                                voxel.X,
-                                voxel.Z))
-                    .Distinct()
-                    .OrderBy(
-                        offset =>
-                            offset.X)
-                    .ThenBy(
-                        offset =>
-                            offset.Z)
+                                value.X,
+                                value.Z))
+                        .Distinct()
+                        .OrderBy(value =>
+                            value.X)
+                        .ThenBy(value =>
+                            value.Z)
+                        .ToArray();
+            _columns =
+                payloadOffsets
+                    .GroupBy(value =>
+                        (
+                            value.X,
+                            value.Z))
+                    .Select(group =>
+                        new RuntimeColumn(
+                            group.Key.X,
+                            group.Key.Z,
+                            group.Max(value =>
+                                value.Y)))
+                    .OrderBy(value =>
+                        value.X)
+                    .ThenBy(value =>
+                        value.Z)
                     .ToArray();
+
             AllowedGroundBlocks =
                 definition.Restrictions
                     .GroundBlocks
@@ -3273,14 +3335,18 @@ public sealed class SurfaceStructureField
                                     fluid)
                                 : FluidRuntimeId.None))
                     .ToArray();
+
             var maximumRadius =
-                _footprint.Max(
-                    offset =>
+                _footprint
+                    .Select(offset =>
                         Math.Max(
                             Math.Abs(
                                 (long)offset.X),
                             Math.Abs(
-                                (long)offset.Z)));
+                                (long)offset.Z)))
+                    .DefaultIfEmpty(
+                        0L)
+                    .Max();
             MaximumHorizontalRadius =
                 maximumRadius >
                 int.MaxValue
@@ -3316,19 +3382,18 @@ public sealed class SurfaceStructureField
                 IEnumerable<(int X, int Z)> offsets,
                 StructureRotation rotation) =>
             offsets
-                .Select(
-                    offset =>
-                    {
-                        var rotated =
-                            StructureDefinition.RotateOffset(
-                                rotation,
-                                offset.X,
-                                0,
-                                offset.Z);
-                        return (
-                            rotated.X,
-                            rotated.Z);
-                    })
+                .Select(offset =>
+                {
+                    var rotated =
+                        StructureDefinition.RotateOffset(
+                            rotation,
+                            offset.X,
+                            0,
+                            offset.Z);
+                    return (
+                        rotated.X,
+                        rotated.Z);
+                })
                 .Distinct()
                 .ToArray();
 
@@ -3342,18 +3407,14 @@ public sealed class SurfaceStructureField
             var voxels =
                 new PlacedStructureVoxel[
                     _voxels.Length];
-            var minimumX =
-                int.MaxValue;
-            var maximumX =
-                int.MinValue;
-            var minimumY =
-                int.MaxValue;
-            var maximumY =
-                int.MinValue;
-            var minimumZ =
-                int.MaxValue;
-            var maximumZ =
-                int.MinValue;
+            var fluids =
+                new PlacedStructureFluidVoxel[
+                    _fluidVoxels.Length];
+            var clears =
+                new HashSet<(
+                    int X,
+                    int Y,
+                    int Z)>();
 
             for (var index = 0;
                  index < _voxels.Length;
@@ -3367,56 +3428,173 @@ public sealed class SurfaceStructureField
                         voxel.X,
                         voxel.Y,
                         voxel.Z);
-                var x =
-                    checked(
-                        anchorX +
-                        rotated.X);
-                var y =
-                    checked(
-                        anchorY +
-                        rotated.Y);
-                var z =
-                    checked(
-                        anchorZ +
-                        rotated.Z);
                 var cell =
                     voxel.Cell.WithOrientation(
                         StructureDefinition
                             .RotateOrientation(
                                 rotation,
                                 voxel.Cell.Orientation));
-
                 voxels[index] =
                     new PlacedStructureVoxel(
-                        x,
-                        y,
-                        z,
+                        checked(
+                            anchorX +
+                            rotated.X),
+                        checked(
+                            anchorY +
+                            rotated.Y),
+                        checked(
+                            anchorZ +
+                            rotated.Z),
                         cell);
-                minimumX =
-                    Math.Min(
-                        minimumX,
-                        x);
-                maximumX =
-                    Math.Max(
-                        maximumX,
-                        x);
-                minimumY =
-                    Math.Min(
-                        minimumY,
-                        y);
-                maximumY =
-                    Math.Max(
-                        maximumY,
-                        y);
-                minimumZ =
-                    Math.Min(
-                        minimumZ,
-                        z);
-                maximumZ =
-                    Math.Max(
-                        maximumZ,
-                        z);
             }
+
+            for (var index = 0;
+                 index < _fluidVoxels.Length;
+                 index++)
+            {
+                var voxel =
+                    _fluidVoxels[index];
+                var rotated =
+                    StructureDefinition.RotateOffset(
+                        rotation,
+                        voxel.X,
+                        voxel.Y,
+                        voxel.Z);
+                fluids[index] =
+                    new PlacedStructureFluidVoxel(
+                        checked(
+                            anchorX +
+                            rotated.X),
+                        checked(
+                            anchorY +
+                            rotated.Y),
+                        checked(
+                            anchorZ +
+                            rotated.Z),
+                        voxel.Fluid);
+            }
+
+            foreach (var voxel in
+                     _clearVoxels)
+            {
+                var rotated =
+                    StructureDefinition.RotateOffset(
+                        rotation,
+                        voxel.X,
+                        voxel.Y,
+                        voxel.Z);
+                clears.Add(
+                    (
+                        checked(
+                            anchorX +
+                            rotated.X),
+                        checked(
+                            anchorY +
+                            rotated.Y),
+                        checked(
+                            anchorZ +
+                            rotated.Z)));
+            }
+
+            if (Definition.ClearAbove > 0)
+            {
+                foreach (var column in
+                         _columns)
+                {
+                    for (var delta = 1;
+                         delta <=
+                         Definition.ClearAbove;
+                         delta++)
+                    {
+                        var rotated =
+                            StructureDefinition.RotateOffset(
+                                rotation,
+                                column.X,
+                                checked(
+                                    column.MaximumY +
+                                    delta),
+                                column.Z);
+                        clears.Add(
+                            (
+                                checked(
+                                    anchorX +
+                                    rotated.X),
+                                checked(
+                                    anchorY +
+                                    rotated.Y),
+                                checked(
+                                    anchorZ +
+                                    rotated.Z)));
+                    }
+                }
+            }
+
+            var clearVoxels =
+                clears
+                    .OrderBy(value =>
+                        value.X)
+                    .ThenBy(value =>
+                        value.Y)
+                    .ThenBy(value =>
+                        value.Z)
+                    .Select(value =>
+                        new PlacedStructureClearVoxel(
+                            value.X,
+                            value.Y,
+                            value.Z))
+                    .ToArray();
+
+            var positions =
+                voxels
+                    .Select(value =>
+                        (
+                            value.X,
+                            value.Y,
+                            value.Z))
+                    .Concat(
+                        fluids.Select(value =>
+                            (
+                                value.X,
+                                value.Y,
+                                value.Z)))
+                    .Concat(
+                        clearVoxels.Select(value =>
+                            (
+                                value.X,
+                                value.Y,
+                                value.Z)))
+                    .ToArray();
+
+            var minimumX =
+                positions.Length == 0
+                    ? anchorX
+                    : positions.Min(value =>
+                        value.X);
+            var maximumX =
+                positions.Length == 0
+                    ? anchorX
+                    : positions.Max(value =>
+                        value.X);
+            var minimumY =
+                positions.Length == 0
+                    ? anchorY
+                    : positions.Min(value =>
+                        value.Y);
+            var maximumY =
+                positions.Length == 0
+                    ? anchorY
+                    : positions.Max(value =>
+                        value.Y);
+            var minimumZ =
+                positions.Length == 0
+                    ? anchorZ
+                    : positions.Min(value =>
+                        value.Z);
+            var maximumZ =
+                positions.Length == 0
+                    ? anchorZ
+                    : positions.Max(value =>
+                        value.Z);
 
             return new SurfaceStructurePlacement(
                 reference,
@@ -3427,6 +3605,8 @@ public sealed class SurfaceStructureField
                 rotation,
                 Definition.Generation,
                 voxels,
+                fluids,
+                clearVoxels,
                 minimumX,
                 maximumX,
                 minimumY,
@@ -3440,6 +3620,22 @@ public sealed class SurfaceStructureField
             int Y,
             int Z,
             VoxelCell Cell);
+
+        private readonly record struct RuntimeFluidVoxel(
+            int X,
+            int Y,
+            int Z,
+            FluidCell Fluid);
+
+        private readonly record struct RuntimeClearVoxel(
+            int X,
+            int Y,
+            int Z);
+
+        private readonly record struct RuntimeColumn(
+            int X,
+            int Z,
+            int MaximumY);
     }
 }
 
@@ -3454,6 +3650,8 @@ internal sealed class SurfaceStructurePlacement
         StructureRotation rotation,
         StructureGenerationDefinition generation,
         IReadOnlyList<PlacedStructureVoxel> voxels,
+        IReadOnlyList<PlacedStructureFluidVoxel> fluidVoxels,
+        IReadOnlyList<PlacedStructureClearVoxel> clearVoxels,
         int minimumX,
         int maximumX,
         int minimumY,
@@ -3469,6 +3667,8 @@ internal sealed class SurfaceStructurePlacement
         Rotation = rotation;
         Generation = generation;
         Voxels = voxels;
+        FluidVoxels = fluidVoxels;
+        ClearVoxels = clearVoxels;
         MinimumX = minimumX;
         MaximumX = maximumX;
         MinimumY = minimumY;
@@ -3493,6 +3693,10 @@ internal sealed class SurfaceStructurePlacement
 
     public IReadOnlyList<PlacedStructureVoxel> Voxels { get; }
 
+    public IReadOnlyList<PlacedStructureFluidVoxel> FluidVoxels { get; }
+
+    public IReadOnlyList<PlacedStructureClearVoxel> ClearVoxels { get; }
+
     public int MinimumX { get; }
 
     public int MaximumX { get; }
@@ -3504,6 +3708,37 @@ internal sealed class SurfaceStructurePlacement
     public int MinimumZ { get; }
 
     public int MaximumZ { get; }
+
+    public IEnumerable<(int X, int Y, int Z)>
+        PayloadPositions()
+    {
+        foreach (var voxel in
+                 Voxels)
+        {
+            yield return (
+                voxel.X,
+                voxel.Y,
+                voxel.Z);
+        }
+
+        foreach (var voxel in
+                 FluidVoxels)
+        {
+            yield return (
+                voxel.X,
+                voxel.Y,
+                voxel.Z);
+        }
+
+        foreach (var voxel in
+                 ClearVoxels)
+        {
+            yield return (
+                voxel.X,
+                voxel.Y,
+                voxel.Z);
+        }
+    }
 
     public bool IntersectsHorizontal(
         int minimumX,
@@ -3560,3 +3795,14 @@ internal readonly record struct PlacedStructureVoxel(
     int Y,
     int Z,
     VoxelCell Cell);
+
+internal readonly record struct PlacedStructureFluidVoxel(
+    int X,
+    int Y,
+    int Z,
+    FluidCell Fluid);
+
+internal readonly record struct PlacedStructureClearVoxel(
+    int X,
+    int Y,
+    int Z);
