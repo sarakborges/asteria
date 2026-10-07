@@ -90,6 +90,47 @@ A Sphere may define a shell floor, roof, or both:
 
 `floorY` and `roofY` are optional individually, but at least one is required when `shell` is present. Negative Y is not part of Asteria's world contract, so shell bounds cannot be negative. Block mining policy remains block-authored; the default Sphere Shell uses optional `mining.unbreakable: true`.
 
+A Sphere may additionally define a bounded subtractive cave field. This
+is part of its single terrain-density owner, not a separate generator:
+
+```json
+"caves": {
+  "minDepth": 10,
+  "maxDepth": 120,
+  "horizontalScale": 56,
+  "verticalScale": 36,
+  "noiseHalfWidth": 0.18,
+  "densityScale": 24,
+  "boundaryFade": 8
+}
+```
+
+Caves are optional, occur below the exposed base surface, and cannot
+puncture the top terrain crossing. Both scales are bounded. Depth and
+boundary fade must fit within a finite positive underground band.
+
+Surface biomes may also author a bounded additive 3D formation:
+
+```json
+"terrain3d": {
+  "floatingFormation": {
+    "minY": 200,
+    "maxY": 280,
+    "horizontalScale": 112,
+    "detailScale": 40,
+    "coverage": 0.55,
+    "roughness": 0.18,
+    "densityScale": 28
+  }
+}
+```
+
+`terrain3d` is optional. Floating bounds use non-negative absolute world Y,
+with positive span at most 512 blocks. A floating mass contributes solidity
+through the same final density query used by materials and streaming; biome
+influence gradually suppresses formations toward their borders. The exposed
+tops of disconnected masses restart their own surface material layering.
+
 Surface-biome material is authored with ordered `surfaceLayers`, using the same contract as MineClone's rebuilt material field:
 
 ```json
