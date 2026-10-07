@@ -11,11 +11,13 @@
     ]
   },
   "surfaceTerrain": {
-    "baseHeightOffset": 2,
-    "macroAmplitude": 4,
-    "macroScale": 896,
-    "detailAmplitude": 1.5,
-    "detailScale": 160
+    "type": "swamp",
+    "baseHeight": 0.9,
+    "depth": 4.8,
+    "amplitude": 0.7,
+    "scale": 0.0065,
+    "detailAmplitude": 0.4,
+    "detailScale": 0.045
   },
   "surfaceLayers": [
     {
