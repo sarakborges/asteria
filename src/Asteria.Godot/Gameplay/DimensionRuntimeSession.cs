@@ -30,7 +30,7 @@ public sealed class DimensionRuntimeSession
     private const int SpawnSearchRadiusBlocks = 64;
 
     private readonly DimensionSessionState _state;
-    private readonly NVector3 _initialPlayerPosition;
+    private NVector3 _initialPlayerPosition;
     private readonly BlockPhysicsRuntime _blockPhysics;
     private readonly DroppedBlockRuntime _droppedBlocks;
     private bool _retiring;
@@ -327,6 +327,37 @@ public sealed class DimensionRuntimeSession
             destination.X + 0.5f,
             destination.Y,
             destination.Z + 0.5f);
+    }
+
+    public void PrepareGeneratedDestination(
+        NVector3 preferred)
+    {
+        var preferredX =
+            checked(
+                (int)MathF.Floor(
+                    preferred.X));
+        var preferredY =
+            checked(
+                (int)MathF.Floor(
+                    preferred.Y));
+        var preferredZ =
+            checked(
+                (int)MathF.Floor(
+                    preferred.Z));
+        var destination =
+            Generator.FindGeneratedDestination(
+                preferredX,
+                preferredY,
+                preferredZ,
+                SpawnSearchRadiusBlocks) ??
+            throw new InvalidOperationException(
+                $"Dimension {Dimension.Id} has no safe generated destination within {SpawnSearchRadiusBlocks} blocks of ({preferredX}, {preferredY}, {preferredZ}).");
+
+        _initialPlayerPosition =
+            new NVector3(
+                destination.X + 0.5f,
+                destination.Y,
+                destination.Z + 0.5f);
     }
 
     public ChunkCoord InitialStreamingCenter
