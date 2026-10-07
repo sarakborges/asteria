@@ -1,0 +1,45 @@
+{
+  "id": "asteria:boulder_small",
+  "rotation": true,
+  "restrictions": {
+    "requiredBiomeCoverage": 1,
+    "maxSlope": 1,
+    "requiresDryGround": true
+  },
+  "anchor": {
+    "x": 3,
+    "y": 0,
+    "z": 3
+  },
+  "palette": {
+    "S": {
+      "block": "asteria:stone"
+    }
+  },
+  "layers": [
+    {
+      "y": 0,
+      "rows": [
+        ".......",
+        ".......",
+        "...SS..",
+        "..SSS..",
+        "...SS..",
+        ".......",
+        "......."
+      ]
+    },
+    {
+      "y": 1,
+      "rows": [
+        ".......",
+        ".......",
+        ".......",
+        "...SS..",
+        "...S...",
+        ".......",
+        "......."
+      ]
+    }
+  ]
+}
