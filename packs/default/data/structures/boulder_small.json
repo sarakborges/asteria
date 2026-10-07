@@ -1,0 +1,51 @@
+{
+  "id": "asteria:boulder_small",
+  "locatable": false,
+  "rotation": true,
+  "restrictions": {
+    "requiredBiomeCoverage": 1.0
+  },
+  "anchor": {
+    "x": 3,
+    "y": 0,
+    "z": 3
+  },
+  "palette": {
+    "S": {
+      "block": "asteria:stone"
+    },
+    "P": {
+      "objects": [
+        {
+          "object": "asteria:pebble"
+        }
+      ]
+    }
+  },
+  "layers": [
+    {
+      "y": 0,
+      "rows": [
+        ".......",
+        ".P...P.",
+        "...SS..",
+        "..SSS..",
+        "...SS..",
+        ".P.....",
+        "......."
+      ]
+    },
+    {
+      "y": 1,
+      "rows": [
+        ".......",
+        ".......",
+        ".......",
+        "...SS..",
+        "...S...",
+        ".......",
+        "......."
+      ]
+    }
+  ]
+}
