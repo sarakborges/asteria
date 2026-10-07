@@ -307,6 +307,18 @@ public sealed class StructureRegistry
                         $"Structure {definition.Id} proximity references missing fluid {targetFluid}.");
                 }
             }
+
+            foreach (var voxel in
+                     definition.FluidVoxels)
+            {
+                if (!fluids.TryGetId(
+                        voxel.Fluid,
+                        out _))
+                {
+                    throw new ArgumentException(
+                        $"Structure {definition.Id} references missing fluid {voxel.Fluid}.");
+                }
+            }
         }
     }
 }
