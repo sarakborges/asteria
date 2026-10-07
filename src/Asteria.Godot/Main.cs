@@ -567,6 +567,9 @@ public partial class Main : Node3D
                         "game.pong",
                         new { timestamp = Time.GetTicksMsec() });
                     break;
+                case "ui.app.exit":
+                    GetTree().Quit();
+                    break;
                 case "ui.world.randomize":
                     if (_worldSeed is null)
                     {

@@ -1,0 +1,51 @@
+.ui-toggle {
+  position: relative;
+  width: 52px;
+  height: 30px;
+  flex: 0 0 52px;
+  padding: 0;
+  border: 2px solid var(--ui-color-border);
+  border-radius: 0;
+  background: var(--ui-color-hud-surface);
+  cursor: pointer;
+  transition:
+    background-color 90ms ease-out,
+    border-color 90ms ease-out;
+}
+
+.ui-toggle:hover:not(:disabled) {
+  background: var(--ui-color-surface-elevated);
+}
+
+.ui-toggle--checked {
+  border-color: var(--ui-color-border-focus);
+  background: var(--ui-color-accent-soft);
+}
+
+.ui-toggle--checked:hover:not(:disabled) {
+  background: var(--ui-color-accent-hover);
+}
+
+.ui-toggle__thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  background: var(--ui-color-text);
+  transition: left 90ms ease-out;
+}
+
+.ui-toggle--checked .ui-toggle__thumb {
+  left: 25px;
+}
+
+.ui-toggle:focus-visible {
+  outline: 2px solid var(--ui-color-border-focus);
+  outline-offset: 2px;
+}
+
+.ui-toggle:disabled {
+  opacity: 0.45;
+  cursor: default;
+}

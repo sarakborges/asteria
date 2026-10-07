@@ -99,11 +99,18 @@ export type WorldCreationState = {
   error: string | null;
 };
 
+export type UiNavigationState = {
+  preWorldScreen:
+    | "starting"
+    | "new-world";
+};
+
 export type UiState = {
   mouseCaptured: boolean;
   hud: HudState;
   loading: LoadingState | null;
   worldCreation: WorldCreationState;
+  navigation: UiNavigationState;
 };
 
 export function createInitialUiState(
@@ -142,6 +149,9 @@ export function createInitialUiState(
       pending: true,
       generating: false,
       error: null,
+    },
+    navigation: {
+      preWorldScreen: "starting",
     },
   };
 }

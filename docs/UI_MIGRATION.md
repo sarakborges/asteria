@@ -29,14 +29,18 @@ MineClone reference: `sarakborges/mineclone`, branch `world-systems-rebuild`.
 
 `NewWorldPage` consumes the migrated design-system primitives. It deliberately exposes only controls backed by Asteria's current world-creation contract rather than inventing unsupported MineClone settings.
 
+## Screen migration status
+
+- Starting screen: **ported and wired**. Play enters Asteria's existing world-creation flow; Exit crosses the bridge as `ui.app.exit`. Settings/Controls buttons stay disabled until authoritative runtime owners exist.
+- World selection: **presentation ported**. Cards, metadata, load/delete actions, empty/error states and screen layout are available in React/Storybook; runtime wiring intentionally waits for disk save/catalog ownership.
+- Settings: **presentation ported**. Navigation, section cards, `Toggle`, `Select`, `Slider` and `SettingRow` are available; runtime wiring waits for authoritative settings ownership.
+- Controls: **presentation ported**. Group/card/keycap layout is available; editable keybind behavior waits for a real keybind owner.
+
 ## Next screen/component families
 
-1. Starting screen.
-2. World selection.
-3. Settings + controls.
-4. Pause menu.
-5. Inventory + creative inventory.
-6. Crafting.
-7. Remaining HUD presentation details.
+1. Pause menu.
+2. Inventory + creative inventory.
+3. Crafting.
+4. Remaining HUD presentation details.
 
 Each screen must reuse migrated primitives instead of introducing page-local copies of button, surface, input or screen-shell styling.

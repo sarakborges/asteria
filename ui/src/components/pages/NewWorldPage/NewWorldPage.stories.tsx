@@ -15,6 +15,7 @@ const meta = {
       generating: false,
       error: null,
     },
+    onBack: () => undefined,
     onCreate: () => undefined,
     onRandomize: () => undefined,
   },
