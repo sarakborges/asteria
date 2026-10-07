@@ -10,6 +10,7 @@ public sealed class SurfaceChunkMaterializer
     private readonly SurfaceTerrainField _terrain;
     private readonly BiomeSurfaceMaterialField _materials;
     private readonly SurfaceDecorationField _decorations;
+    private readonly GeneratedFluidField _generatedFluids;
     private readonly BlockRuntimeId _shellBlock;
     private readonly int? _floorY;
     private readonly int? _roofY;
@@ -19,6 +20,7 @@ public sealed class SurfaceChunkMaterializer
         SurfaceTerrainField terrain,
         BiomeSurfaceMaterialField materials,
         SurfaceDecorationField decorations,
+        GeneratedFluidField generatedFluids,
         DimensionDefinition dimension,
         BlockRegistry blocks)
     {
@@ -30,6 +32,8 @@ public sealed class SurfaceChunkMaterializer
             throw new ArgumentNullException(nameof(materials));
         _decorations = decorations ??
             throw new ArgumentNullException(nameof(decorations));
+        _generatedFluids = generatedFluids ??
+            throw new ArgumentNullException(nameof(generatedFluids));
         ArgumentNullException.ThrowIfNull(dimension);
         ArgumentNullException.ThrowIfNull(blocks);
 
@@ -152,7 +156,88 @@ public sealed class SurfaceChunkMaterializer
             }
         }
 
+        MaterializeGeneratedFluids(
+            chunk,
+            column,
+            originX,
+            originY,
+            originZ,
+            topExclusive);
+
         return chunk;
+    }
+
+    private void MaterializeGeneratedFluids(
+        Chunk chunk,
+        SurfaceTerrainColumn column,
+        int originX,
+        int originY,
+        int originZ,
+        int topExclusive)
+    {
+        if (!_generatedFluids.HasRules)
+        {
+            return;
+        }
+
+        for (var localZ = 0; localZ < Chunk.Size; localZ++)
+        {
+            for (var localX = 0; localX < Chunk.Size; localX++)
+            {
+                var sample = column.BiomeAt(localX, localZ);
+                var baseY = column.BaseHeightAt(localX, localZ);
+
+                if (!_generatedFluids.TryGetColumnBounds(
+                        sample,
+                        baseY,
+                        out var minimumY,
+                        out var maximumY))
+                {
+                    continue;
+                }
+
+                var firstY = Math.Max(originY, minimumY);
+                var lastY = Math.Min(topExclusive - 1, maximumY);
+                if (firstY > lastY)
+                {
+                    continue;
+                }
+
+                var worldX = checked(originX + localX);
+                var worldZ = checked(originZ + localZ);
+
+                for (var worldY = firstY; worldY <= lastY; worldY++)
+                {
+                    var localY = worldY - originY;
+
+                    if (!chunk.GetCell(localX, localY, localZ).IsEmpty ||
+                        !chunk.GetFluid(localX, localY, localZ).IsEmpty)
+                    {
+                        continue;
+                    }
+
+                    var fluid = _generatedFluids.FluidAt(
+                        sample,
+                        baseY,
+                        worldY,
+                        _terrain.DensityAt(
+                            sample,
+                            baseY,
+                            worldX,
+                            worldY,
+                            worldZ));
+
+                    if (!fluid.IsEmpty)
+                    {
+                        chunk.SetFluid(
+                            localX,
+                            localY,
+                            localZ,
+                            fluid);
+                    }
+                }
+            }
+        }
     }
 
     private void SetShellIfInChunk(
