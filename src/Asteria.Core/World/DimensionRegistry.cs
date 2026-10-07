@@ -106,15 +106,26 @@ public sealed class DimensionRegistry
 
         foreach (var dimension in _definitions)
         {
-            if (dimension.GeneratedOcean is not { } ocean)
-            {
-                continue;
-            }
-
-            if (!fluids.TryGetId(ocean.Fluid, out _))
+            if (dimension.GeneratedOcean is
+                    { } ocean &&
+                !fluids.TryGetId(
+                    ocean.Fluid,
+                    out _))
             {
                 throw new ArgumentException(
                     $"Dimension {dimension.Id} references missing generated ocean fluid {ocean.Fluid}.");
+            }
+
+            foreach (var generated in
+                     dimension.GeneratedSurfaceFluids)
+            {
+                if (!fluids.TryGetId(
+                        generated.Fluid,
+                        out _))
+                {
+                    throw new ArgumentException(
+                        $"Dimension {dimension.Id} references missing generated surface fluid {generated.Fluid} for biome {generated.Biome}.");
+                }
             }
         }
     }
