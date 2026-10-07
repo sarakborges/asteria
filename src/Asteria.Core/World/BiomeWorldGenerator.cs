@@ -15,9 +15,7 @@ public sealed class BiomeWorldGenerator :
     private readonly SurfaceTerrainColumnCache _surfaceColumns;
     private readonly GeneratedFluidField _generatedFluids;
     private readonly SurfaceChunkMaterializer _materializer;
-    private readonly BiomeField _surfaceBiomeQuery;
-    private readonly IReadOnlyDictionary<string, BiomeFloatingFormationDefinition>
-        _volumeBiomes;
+    private readonly VolumeBiomeField _volumeBiomes;
 
     public BiomeWorldGenerator(
         ulong seed,
@@ -46,67 +44,93 @@ public sealed class BiomeWorldGenerator :
         ArgumentNullException.ThrowIfNull(biomes);
         biomes.ValidateBlocks(blocks);
 
-        DimensionId = dimension.Id;
-        var activeBiomes = dimension.Biomes
-            .Select(biomes.Get)
-            .OrderBy(definition => definition.Id, StringComparer.Ordinal)
-            .ToArray();
-
-        Biomes = new BiomeField(seed, dimension, biomes);
-
-        var volumeBiomes =
-            activeBiomes
-                .Where(definition =>
-                    definition.Terrain3d?.FloatingFormation is not null)
+        DimensionId =
+            dimension.Id;
+        var surfaceDefinitions =
+            dimension.SurfaceBiomes
+                .Select(
+                    biomes.Get)
+                .OrderBy(
+                    definition =>
+                        definition.Id,
+                    StringComparer.Ordinal)
                 .ToArray();
-        var surfaceBiomeIds =
-            activeBiomes
-                .Except(volumeBiomes)
-                .Select(definition =>
-                    definition.Id)
+        var volumeDefinitions =
+            dimension.VolumeBiomes
+                .Select(
+                    biomes.Get)
+                .OrderBy(
+                    definition =>
+                        definition.Id,
+                    StringComparer.Ordinal)
+                .ToArray();
+        var materialDefinitions =
+            surfaceDefinitions
+                .Concat(
+                    volumeDefinitions)
+                .OrderBy(
+                    definition =>
+                        definition.Id,
+                    StringComparer.Ordinal)
                 .ToArray();
 
-        _surfaceBiomeQuery =
-            surfaceBiomeIds.Length > 0
-                ? new BiomeField(
-                    seed,
-                    surfaceBiomeIds,
-                    biomes)
-                : Biomes;
+        Biomes =
+            new BiomeField(
+                seed,
+                dimension,
+                biomes);
         _volumeBiomes =
-            volumeBiomes.ToDictionary(
-                definition =>
-                    definition.Id,
-                definition =>
-                    definition.Terrain3d!.FloatingFormation!,
-                StringComparer.Ordinal);
-
-        _terrain = new SurfaceTerrainField(
-            seed, dimension, Biomes, activeBiomes);
-        _surfaceColumns = new SurfaceTerrainColumnCache(_terrain);
+            new VolumeBiomeField(
+                seed,
+                dimension,
+                biomes);
+        _terrain =
+            new SurfaceTerrainField(
+                seed,
+                dimension,
+                Biomes,
+                _volumeBiomes,
+                surfaceDefinitions,
+                volumeDefinitions);
+        _surfaceColumns =
+            new SurfaceTerrainColumnCache(
+                _terrain);
         _generatedFluids =
             new GeneratedFluidField(
                 dimension,
                 fluids);
-        var materials = new BiomeSurfaceMaterialField(
-            seed, activeBiomes, blocks);
-        var decorations = new SurfaceDecorationField(
-            seed, activeBiomes, blocks);
-        _materializer = new SurfaceChunkMaterializer(
-            _surfaceColumns,
-            _terrain,
-            materials,
-            decorations,
-            _generatedFluids,
-            dimension,
-            blocks);
-        Tints = new BiomeTintField(
-            Biomes, activeBiomes, _surfaceColumns);
+        var materials =
+            new BiomeSurfaceMaterialField(
+                seed,
+                materialDefinitions,
+                blocks);
+        var decorations =
+            new SurfaceDecorationField(
+                seed,
+                materialDefinitions,
+                blocks);
+        _materializer =
+            new SurfaceChunkMaterializer(
+                _surfaceColumns,
+                _terrain,
+                materials,
+                decorations,
+                _generatedFluids,
+                dimension,
+                blocks);
+        Tints =
+            new BiomeTintField(
+                Biomes,
+                surfaceDefinitions,
+                _surfaceColumns);
     }
 
     public DimensionId DimensionId { get; }
 
     public BiomeField Biomes { get; }
+
+    public VolumeBiomeField VolumeBiomes =>
+        _volumeBiomes;
 
     public BiomeTintField Tints { get; }
 
@@ -130,25 +154,15 @@ public sealed class BiomeWorldGenerator :
                 nameof(worldY));
         }
 
-        var generated =
+        return _volumeBiomes.Sample(
+                    worldX,
+                    worldY,
+                    worldZ)
+                ?.Primary ??
             Biomes.Sample(
-                worldX,
-                worldZ);
-
-        if (_volumeBiomes.TryGetValue(
-                generated.Primary,
-                out var volume) &&
-            worldY >= volume.MinY &&
-            worldY <= volume.MaxY)
-        {
-            return generated.Primary;
-        }
-
-        return _surfaceBiomeQuery
-            .Sample(
-                worldX,
-                worldZ)
-            .Primary;
+                    worldX,
+                    worldZ)
+                .Primary;
     }
 
     public TerrainDensityVolume SampleDensityVolume(

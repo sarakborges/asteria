@@ -1,6 +1,6 @@
 {
   "id": "asteria:umbral",
-  "biomes": [
+  "surfaceBiomes": [
     "asteria:umbral/umbral_reach",
     "asteria:umbral/withered_waste",
     "asteria:umbral/wraith_grove"

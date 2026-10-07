@@ -6,21 +6,40 @@ public sealed class BiomeDefinition
 {
     public BiomeDefinition(
         string id,
-        BiomeSurfaceLayoutDefinition surfaceLayout,
-        BiomeTerrainDefinition surfaceTerrain,
+        BiomeSurfaceLayoutDefinition? surfaceLayout,
+        BiomeTerrainDefinition? surfaceTerrain,
         IEnumerable<BiomeSurfaceLayerDefinition> surfaceLayers,
         IEnumerable<BiomeDecorationDefinition>? decorations = null,
         BiomeTintPaletteDefinition? tints = null,
-        BiomeTerrain3dDefinition? terrain3d = null)
+        BiomeTerrain3dDefinition? terrain3d = null,
+        BiomeVolumeLayoutDefinition? volumeLayout = null)
     {
         ValidateId(id);
         Id = id;
-        SurfaceLayout =
-            surfaceLayout ??
-            throw new ArgumentNullException(nameof(surfaceLayout));
-        SurfaceTerrain =
-            surfaceTerrain ??
-            throw new ArgumentNullException(nameof(surfaceTerrain));
+        if ((surfaceLayout is null) !=
+            (surfaceTerrain is null))
+        {
+            throw new ArgumentException(
+                "Biome surfaceLayout and surfaceTerrain must either both be authored or both be absent.");
+        }
+
+        if (surfaceLayout is null &&
+            volumeLayout is null)
+        {
+            throw new ArgumentException(
+                "Biome must participate in at least one placement domain.");
+        }
+
+        if (volumeLayout is not null &&
+            terrain3d?.FloatingFormation is null)
+        {
+            throw new ArgumentException(
+                "Volume biome currently requires terrain3d.floatingFormation.");
+        }
+
+        SurfaceLayout = surfaceLayout;
+        SurfaceTerrain = surfaceTerrain;
+        VolumeLayout = volumeLayout;
 
         var layers =
             surfaceLayers?.ToArray() ??
@@ -42,9 +61,11 @@ public sealed class BiomeDefinition
 
     public string Id { get; }
 
-    public BiomeSurfaceLayoutDefinition SurfaceLayout { get; }
+    public BiomeSurfaceLayoutDefinition? SurfaceLayout { get; }
 
-    public BiomeTerrainDefinition SurfaceTerrain { get; }
+    public BiomeTerrainDefinition? SurfaceTerrain { get; }
+
+    public BiomeVolumeLayoutDefinition? VolumeLayout { get; }
 
     public IReadOnlyList<BiomeSurfaceLayerDefinition> SurfaceLayers { get; }
 
@@ -177,13 +198,13 @@ public sealed class BiomeDefinition
     }
 }
 
-public sealed class BiomeSurfaceLayoutDefinition
+public abstract class BiomePlacementLayoutDefinition
 {
-    public BiomeSurfaceLayoutDefinition(
-        float weight = 1f,
-        uint regionMin = 192,
-        uint regionMax = 384,
-        IEnumerable<string>? cannotBorder = null)
+    protected BiomePlacementLayoutDefinition(
+        float weight,
+        uint regionMin,
+        uint regionMax,
+        IEnumerable<string>? cannotBorder)
     {
         if (!float.IsFinite(weight) ||
             weight <= 0f)
@@ -233,6 +254,40 @@ public sealed class BiomeSurfaceLayoutDefinition
     public uint RegionMax { get; }
 
     public IReadOnlyList<string> CannotBorder { get; }
+}
+
+public sealed class BiomeSurfaceLayoutDefinition :
+    BiomePlacementLayoutDefinition
+{
+    public BiomeSurfaceLayoutDefinition(
+        float weight = 1f,
+        uint regionMin = 192,
+        uint regionMax = 384,
+        IEnumerable<string>? cannotBorder = null)
+        : base(
+            weight,
+            regionMin,
+            regionMax,
+            cannotBorder)
+    {
+    }
+}
+
+public sealed class BiomeVolumeLayoutDefinition :
+    BiomePlacementLayoutDefinition
+{
+    public BiomeVolumeLayoutDefinition(
+        float weight = 1f,
+        uint regionMin = 192,
+        uint regionMax = 384,
+        IEnumerable<string>? cannotBorder = null)
+        : base(
+            weight,
+            regionMin,
+            regionMax,
+            cannotBorder)
+    {
+    }
 }
 
 public sealed class BiomeTerrainDefinition

@@ -78,7 +78,21 @@ Each pack has one manifest at `packs/{name}/pack.json`:
 
 Definitions may add or override namespaced blocks, fluids, biomes, structures, recipes, loot, dimensions and future definition-driven systems.
 
-Dimensions live under `data/dimensions/*.json`. A dimension is one authored world-runtime configuration; in-game, dimensions are called **Spheres**. It declares its stable ID, explicit biome pool, sea level, gravity strength, spawn coordinates, optional Sphere Shell bounds and engine-agnostic environment presentation values. Surface biomes author `baseHeightOffset` relative to that dimension sea level rather than baking an absolute world height into each biome. A root world seed is not duplicated into the pack; runtime derives a stable per-dimension seed from the world seed + dimension ID.
+Dimensions live under `data/dimensions/*.json`. A dimension is one authored world-runtime configuration; in-game, dimensions are called **Spheres**. It declares its stable ID, explicit `surfaceBiomes` and optional `volumeBiomes` pools, sea level, gravity strength, spawn coordinates, optional Sphere Shell bounds and engine-agnostic environment presentation values. Surface biomes author `baseHeightOffset` relative to that dimension sea level rather than baking an absolute world height into each biome. A root world seed is not duplicated into the pack; runtime derives a stable per-dimension seed from the world seed + dimension ID.
+
+Example placement pools:
+
+```json
+"surfaceBiomes": [
+  "asteria:overworld/plains",
+  "asteria:overworld/ocean"
+],
+"volumeBiomes": [
+  "asteria:overworld/floating_islands"
+]
+```
+
+A biome ID may not be repeated across placement pools. Surface entries must author `surfaceLayout` + `surfaceTerrain`; volume entries must author `volumeLayout` and the bounded volume capability required by that biome.
 
 A Sphere may define a shell floor, roof, or both:
 
@@ -108,7 +122,7 @@ A Sphere may define one explicit generated ocean rule:
 }
 ```
 
-The referenced biome must be in that Sphere's active biome pool and the referenced fluid must exist in the selected pack. Ocean fill is generation-time content, not a separate hydrology layer: only columns whose authoritative primary biome matches the rule are filled, only density-empty voxels above the base terrain are eligible, and fill stops at `seaLevel` (or below an authored Sphere roof). Generated cells are normal full source fluid cells and enter the existing runtime fluid simulation after residency. Caves below the base terrain are not flooded by this rule.
+The referenced biome must be in that Sphere's `surfaceBiomes` pool and the referenced fluid must exist in the selected pack. Ocean fill is generation-time content, not a separate hydrology layer: only columns whose authoritative primary biome matches the rule are filled, only density-empty voxels above the base terrain are eligible, and fill stops at `seaLevel` (or below an authored Sphere roof). Generated cells are normal full source fluid cells and enter the existing runtime fluid simulation after residency. Caves below the base terrain are not flooded by this rule.
 
 `shore` is the terrain-side coastal profile for that generated ocean. `shelfDepth` is the shallow shelf depth below sea level and `beachHeight` is the dry beach floor above sea level. The three dominance values are normalized pairwise ocean-vs-strongest-neighbor blend thresholds and must satisfy `0.5 < beachStartDominance < shelfStartDominance < deepWaterStartDominance <= 1`. The coast is reshaped continuously on both sides of the biome boundary so the ocean-owned sand surface becomes dry before ownership changes to the neighboring biome.
 
@@ -131,29 +145,37 @@ Caves are optional, occur below the exposed base surface, and cannot
 puncture the top terrain crossing. Both scales are bounded. Depth and
 boundary fade must fit within a finite positive underground band.
 
-Surface biomes may also author a bounded additive 3D formation:
+Volume biomes author their own horizontal placement and bounded additive 3D formation:
 
 ```json
-"terrain3d": {
-  "floatingFormation": {
-    "minY": 200,
-    "maxY": 280,
-    "horizontalScale": 112,
-    "detailScale": 40,
-    "coverage": 0.55,
-    "roughness": 0.18,
-    "densityScale": 28
+{
+  "id": "asteria:overworld/floating_islands",
+  "volumeLayout": {
+    "weight": 1,
+    "regionSize": { "min": 192, "max": 384 }
+  },
+  "surfaceLayers": [
+    { "block": "asteria:grass_block", "depth": 1 },
+    { "block": "asteria:dirt", "depth": 4 },
+    { "block": "asteria:stone" }
+  ],
+  "terrain3d": {
+    "floatingFormation": {
+      "minY": 200,
+      "maxY": 280,
+      "horizontalScale": 112,
+      "detailScale": 40,
+      "coverage": 0.55,
+      "roughness": 0.18,
+      "densityScale": 28
+    }
   }
 }
 ```
 
-`terrain3d` is optional. Floating bounds use non-negative absolute world Y,
-with positive span at most 512 blocks. A floating mass contributes solidity
-through the same final density query used by materials and streaming; biome
-influence gradually suppresses formations toward their borders. The exposed
-tops of disconnected masses restart their own surface material layering.
+A volume-only biome omits `surfaceLayout` and `surfaceTerrain`; it cannot become the ground/surface owner. `volumeLayout` uses the same deterministic region-shaping inputs as surface placement, while surface biomes act only as internal no-volume competitors that bound volume regions. Floating bounds use non-negative absolute world Y with positive span at most 512 blocks. Additive density is emitted only for the authoritative volume owner. The exposed tops of disconnected masses restart their own material layering from that volume biome's `surfaceLayers`.
 
-Surface-biome material is authored with ordered `surfaceLayers`, using the same contract as MineClone's rebuilt material field:
+Exposed solid material for surface and volume biomes is authored with ordered `surfaceLayers`:
 
 ```json
 "surfaceLayers": [

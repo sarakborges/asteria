@@ -10,51 +10,94 @@ public sealed class SurfaceTerrainField
     private readonly ulong _seed;
     private readonly int _seaLevel;
     private readonly int? _roofY;
-    private readonly BiomeField _biomes;
-    private readonly IReadOnlyDictionary<string, TerrainRule> _rules;
+    private readonly BiomeField _surfaceBiomes;
+    private readonly VolumeBiomeField _volumeBiomes;
+    private readonly IReadOnlyDictionary<string, SurfaceRule> _surfaceRules;
+    private readonly IReadOnlyDictionary<string, FloatingRule> _floatingRules;
     private readonly OceanShoreRule? _oceanShore;
     private readonly CaveRule? _caves;
 
     public SurfaceTerrainField(
         ulong seed,
         DimensionDefinition dimension,
-        BiomeField biomes,
-        IEnumerable<BiomeDefinition> definitions)
+        BiomeField surfaceBiomes,
+        VolumeBiomeField volumeBiomes,
+        IEnumerable<BiomeDefinition> surfaceDefinitions,
+        IEnumerable<BiomeDefinition> volumeDefinitions)
     {
-        ArgumentNullException.ThrowIfNull(dimension);
-        ArgumentNullException.ThrowIfNull(definitions);
-        _biomes = biomes ??
-            throw new ArgumentNullException(nameof(biomes));
+        ArgumentNullException.ThrowIfNull(
+            dimension);
+        ArgumentNullException.ThrowIfNull(
+            surfaceDefinitions);
+        ArgumentNullException.ThrowIfNull(
+            volumeDefinitions);
+        _surfaceBiomes =
+            surfaceBiomes ??
+            throw new ArgumentNullException(
+                nameof(surfaceBiomes));
+        _volumeBiomes =
+            volumeBiomes ??
+            throw new ArgumentNullException(
+                nameof(volumeBiomes));
 
         _seed = seed;
         _seaLevel = dimension.SeaLevel;
         _roofY = dimension.Shell?.RoofY;
-        _rules = definitions
-            .OrderBy(definition => definition.Id, StringComparer.Ordinal)
-            .ToDictionary(
-                definition => definition.Id,
-                definition => new TerrainRule(definition),
-                StringComparer.Ordinal);
-        _oceanShore = dimension.GeneratedOcean is { } ocean
-            ? new OceanShoreRule(
-                ocean.Biome,
-                ocean.Shore)
-            : null;
-        _caves = dimension.Caves is { } definition
-            ? new CaveRule(definition)
-            : null;
+        _surfaceRules =
+            surfaceDefinitions
+                .OrderBy(
+                    definition =>
+                        definition.Id,
+                    StringComparer.Ordinal)
+                .ToDictionary(
+                    definition =>
+                        definition.Id,
+                    definition =>
+                        new SurfaceRule(
+                            definition),
+                    StringComparer.Ordinal);
+        _floatingRules =
+            volumeDefinitions
+                .Where(
+                    definition =>
+                        definition.Terrain3d?.FloatingFormation is not null)
+                .OrderBy(
+                    definition =>
+                        definition.Id,
+                    StringComparer.Ordinal)
+                .ToDictionary(
+                    definition =>
+                        definition.Id,
+                    definition =>
+                        new FloatingRule(
+                            definition.Id,
+                            definition.Terrain3d!.FloatingFormation!),
+                    StringComparer.Ordinal);
+        _oceanShore =
+            dimension.GeneratedOcean is
+                { } ocean
+                ? new OceanShoreRule(
+                    ocean.Biome,
+                    ocean.Shore)
+                : null;
+        _caves =
+            dimension.Caves is
+                { } definition
+                ? new CaveRule(
+                    definition)
+                : null;
 
-        if (_rules.Count == 0)
+        if (_surfaceRules.Count == 0)
         {
             throw new ArgumentException(
-                "Surface terrain requires at least one biome.",
-                nameof(definitions));
+                "Surface terrain requires at least one surface biome.",
+                nameof(surfaceDefinitions));
         }
     }
 
     public int SurfaceHeight(int worldX, int worldZ)
     {
-        var biome = _biomes.Sample(worldX, worldZ);
+        var biome = _surfaceBiomes.Sample(worldX, worldZ);
         var baseY = BaseHeightAt(biome, worldX, worldZ);
         return FinalSurfaceHeight(biome, baseY, worldX, worldZ);
     }
@@ -66,10 +109,19 @@ public sealed class SurfaceTerrainField
             throw new ArgumentOutOfRangeException(nameof(worldY));
         }
 
-        var biome = _biomes.Sample(worldX, worldZ);
+        var biome = _surfaceBiomes.Sample(worldX, worldZ);
         var baseY = BaseHeightAt(biome, worldX, worldZ);
         return DensityAt(biome, baseY, worldX, worldY, worldZ);
     }
+
+    public BiomeSample? VolumeBiomeAt(
+        int worldX,
+        int worldY,
+        int worldZ) =>
+        _volumeBiomes.Sample(
+            worldX,
+            worldY,
+            worldZ);
 
     /// <summary>
     /// Pure density query with already-sampled X/Z biome and base height.
@@ -87,25 +139,30 @@ public sealed class SurfaceTerrainField
             throw new ArgumentOutOfRangeException(nameof(worldY));
         }
 
-        double density = baseY - (double)worldY;
-        foreach (var influence in biome.Influences)
-        {
-            var rule = _rules[influence.BiomeId].Floating;
-            if (rule is null ||
-                worldY < rule.MinimumY ||
-                worldY > rule.MaximumY)
-            {
-                continue;
-            }
+        double density =
+            baseY -
+            (double)worldY;
+        var volumeBiome =
+            _volumeBiomes.SamplePlacement(
+                worldX,
+                worldZ);
 
-            density = Math.Max(
-                density,
-                rule.DensityAt(
-                    _seed,
-                    worldX,
-                    worldY,
-                    worldZ,
-                    influence.Weight));
+        if (volumeBiome is not null &&
+            _floatingRules.TryGetValue(
+                volumeBiome.Primary,
+                out var floating) &&
+            worldY >= floating.MinimumY &&
+            worldY <= floating.MaximumY)
+        {
+            density =
+                Math.Max(
+                    density,
+                    floating.DensityAt(
+                        _seed,
+                        worldX,
+                        worldY,
+                        worldZ,
+                        volumeBiome.PrimaryWeight));
         }
 
         if (_caves is not null &&
@@ -191,7 +248,7 @@ public sealed class SurfaceTerrainField
             for (var x = 0; x < width; x++)
             {
                 var worldX = originX + x;
-                var biome = _biomes.Sample(worldX, worldZ);
+                var biome = _surfaceBiomes.Sample(worldX, worldZ);
                 var baseY = BaseHeightAt(biome, worldX, worldZ);
 
                 for (var y = 0; y < height; y++)
@@ -211,7 +268,7 @@ public sealed class SurfaceTerrainField
         var (originX, _, originZ) =
             VoxelCoordinates.ChunkOrigin(
                 new ChunkCoord(chunkX, 0, chunkZ));
-        var biomes = _biomes.SampleGrid(
+        var biomes = _surfaceBiomes.SampleGrid(
             originX,
             originZ,
             Chunk.Size,
@@ -254,7 +311,7 @@ public sealed class SurfaceTerrainField
         var offset = 0d;
         foreach (var influence in sample.Influences)
         {
-            offset += _rules[influence.BiomeId].HeightOffsetAt(
+            offset += _surfaceRules[influence.BiomeId].HeightOffsetAt(
                 _seed, worldX, worldZ) * influence.Weight;
         }
 
@@ -276,48 +333,56 @@ public sealed class SurfaceTerrainField
     }
 
     private int FinalSurfaceHeight(
-        BiomeSample biome,
+        BiomeSample surfaceBiome,
         int baseY,
         int worldX,
         int worldZ)
     {
-        var highestCandidate = baseY;
-        var lowestCandidate = int.MaxValue;
-        var hasPotential = false;
+        var volumeBiome =
+            _volumeBiomes.SamplePlacement(
+                worldX,
+                worldZ);
 
-        foreach (var influence in biome.Influences)
-        {
-            var rule = _rules[influence.BiomeId].Floating;
-            if (rule is null ||
-                rule.MaximumY <= baseY ||
-                !rule.MayExistAt(_seed, worldX, worldZ, influence.Weight))
-            {
-                continue;
-            }
-
-            hasPotential = true;
-            lowestCandidate = Math.Min(
-                lowestCandidate, rule.MinimumY);
-            highestCandidate = Math.Max(
-                highestCandidate, rule.MaximumY);
-        }
-
-        if (!hasPotential)
+        if (volumeBiome is null ||
+            !_floatingRules.TryGetValue(
+                volumeBiome.Primary,
+                out var rule) ||
+            rule.MaximumY <= baseY ||
+            !rule.MayExistAt(
+                _seed,
+                worldX,
+                worldZ,
+                volumeBiome.PrimaryWeight))
         {
             return baseY;
         }
 
+        var lowestCandidate =
+            rule.MinimumY;
+        var highestCandidate =
+            Math.Max(
+                baseY,
+                rule.MaximumY);
+
         if (_roofY is { } roofY)
         {
-            highestCandidate = Math.Min(
-                highestCandidate, roofY - 1);
+            highestCandidate =
+                Math.Min(
+                    highestCandidate,
+                    roofY - 1);
         }
 
         for (var y = highestCandidate;
-             y > baseY && y >= lowestCandidate;
+             y > baseY &&
+             y >= lowestCandidate;
              y--)
         {
-            if (DensityAt(biome, baseY, worldX, y, worldZ) >= 0d)
+            if (DensityAt(
+                    surfaceBiome,
+                    baseY,
+                    worldX,
+                    y,
+                    worldZ) >= 0d)
             {
                 return y;
             }
@@ -510,45 +575,52 @@ public sealed class SurfaceTerrainField
             amount;
     }
 
-    private sealed class TerrainRule
+    private sealed class SurfaceRule
     {
         private readonly BiomeTerrainDefinition _terrain;
         private readonly GenerationDomain _macroDomain;
         private readonly GenerationDomain _detailDomain;
 
-        public TerrainRule(BiomeDefinition definition)
+        public SurfaceRule(
+            BiomeDefinition definition)
         {
-            _terrain = definition.SurfaceTerrain;
-            _macroDomain = GenerationDomain.Named(
-                $"terrain/base-surface/macro/v1/{definition.Id}");
-            _detailDomain = GenerationDomain.Named(
-                $"terrain/base-surface/detail/v1/{definition.Id}");
-            Floating = definition.Terrain3d?.FloatingFormation is
-                { } floating
-                ? new FloatingRule(definition.Id, floating)
-                : null;
+            _terrain =
+                definition.SurfaceTerrain ??
+                throw new ArgumentException(
+                    $"Surface biome {definition.Id} requires surfaceTerrain.");
+            _macroDomain =
+                GenerationDomain.Named(
+                    $"terrain/base-surface/macro/v1/{definition.Id}");
+            _detailDomain =
+                GenerationDomain.Named(
+                    $"terrain/base-surface/detail/v1/{definition.Id}");
         }
 
-        public FloatingRule? Floating { get; }
-
-        public double HeightOffsetAt(ulong seed, int x, int z)
+        public double HeightOffsetAt(
+            ulong seed,
+            int x,
+            int z)
         {
-            var macro = WorldGenerationEntropy.ValueNoise2D(
-                seed,
-                _macroDomain,
-                x,
-                z,
-                _terrain.MacroScale);
-            var detail = WorldGenerationEntropy.ValueNoise2D(
-                seed,
-                _detailDomain,
-                x,
-                z,
-                _terrain.DetailScale);
+            var macro =
+                WorldGenerationEntropy.ValueNoise2D(
+                    seed,
+                    _macroDomain,
+                    x,
+                    z,
+                    _terrain.MacroScale);
+            var detail =
+                WorldGenerationEntropy.ValueNoise2D(
+                    seed,
+                    _detailDomain,
+                    x,
+                    z,
+                    _terrain.DetailScale);
 
             return _terrain.BaseHeightOffset +
-                   macro * _terrain.MacroAmplitude +
-                   detail * _terrain.DetailAmplitude;
+                   macro *
+                   _terrain.MacroAmplitude +
+                   detail *
+                   _terrain.DetailAmplitude;
         }
     }
 

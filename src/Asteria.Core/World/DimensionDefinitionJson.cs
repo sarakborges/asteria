@@ -39,7 +39,7 @@ public static class DimensionDefinitionJson
                     "id")),
             RequiredStringArray(
                 root,
-                "biomes"),
+                "surfaceBiomes"),
             RequiredInt32(
                 root,
                 "seaLevel"),
@@ -77,7 +77,10 @@ public static class DimensionDefinitionJson
                     "fogDensity")),
             ParseShell(root),
             ParseCaves(root),
-            ParseGeneratedOcean(root));
+            ParseGeneratedOcean(root),
+            OptionalStringArray(
+                root,
+                "volumeBiomes"));
     }
 
     private static DimensionGeneratedOceanDefinition? ParseGeneratedOcean(
@@ -212,6 +215,38 @@ public static class DimensionDefinitionJson
         }
 
         return value.GetString()!;
+    }
+
+    private static IReadOnlyList<string>
+        OptionalStringArray(
+            JsonElement parent,
+            string name)
+    {
+        if (!parent.TryGetProperty(
+                name,
+                out var value) ||
+            value.ValueKind ==
+                JsonValueKind.Null)
+        {
+            return Array.Empty<string>();
+        }
+
+        if (value.ValueKind !=
+            JsonValueKind.Array)
+        {
+            throw new FormatException(
+                $"{name} must be an array.");
+        }
+
+        return value
+            .EnumerateArray()
+            .Select(item =>
+                item.ValueKind ==
+                    JsonValueKind.String
+                    ? item.GetString()!
+                    : throw new FormatException(
+                        $"{name} may contain only strings."))
+            .ToArray();
     }
 
     private static IReadOnlyList<string>

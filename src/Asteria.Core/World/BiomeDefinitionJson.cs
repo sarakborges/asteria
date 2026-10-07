@@ -22,27 +22,35 @@ public static class BiomeDefinitionJson
 
         return new BiomeDefinition(
             RequiredString(root, "id"),
-            ParseSurfaceLayout(
-                GetRequiredObject(
-                    root,
-                    "surfaceLayout")),
-            ParseTerrain(
-                GetRequiredObject(
-                    root,
-                    "surfaceTerrain")),
+            ParseSurfaceLayout(root),
+            ParseTerrain(root),
             ParseLayers(
                 GetRequiredArray(
                     root,
                     "surfaceLayers")),
             ParseDecorations(root),
             ParseTints(root),
-            ParseTerrain3d(root));
+            ParseTerrain3d(root),
+            ParseVolumeLayout(root));
     }
 
-    private static BiomeSurfaceLayoutDefinition
+    private static BiomeSurfaceLayoutDefinition?
         ParseSurfaceLayout(
-            JsonElement value)
+            JsonElement root)
     {
+        if (!root.TryGetProperty(
+                "surfaceLayout",
+                out var value) ||
+            value.ValueKind ==
+                JsonValueKind.Null)
+        {
+            return null;
+        }
+
+        value =
+            EnsureObject(
+                value,
+                "surfaceLayout");
         var region =
             value.TryGetProperty(
                 "regionSize",
@@ -74,9 +82,24 @@ public static class BiomeDefinitionJson
                 "cannotBorder"));
     }
 
-    private static BiomeTerrainDefinition ParseTerrain(
-        JsonElement value) =>
-        new(
+    private static BiomeTerrainDefinition? ParseTerrain(
+        JsonElement root)
+    {
+        if (!root.TryGetProperty(
+                "surfaceTerrain",
+                out var value) ||
+            value.ValueKind ==
+                JsonValueKind.Null)
+        {
+            return null;
+        }
+
+        value =
+            EnsureObject(
+                value,
+                "surfaceTerrain");
+
+        return new BiomeTerrainDefinition(
             RequiredSingle(
                 value,
                 "baseHeightOffset"),
@@ -92,6 +115,55 @@ public static class BiomeDefinitionJson
             RequiredUInt32(
                 value,
                 "detailScale"));
+    }
+
+    private static BiomeVolumeLayoutDefinition?
+        ParseVolumeLayout(
+            JsonElement root)
+    {
+        if (!root.TryGetProperty(
+                "volumeLayout",
+                out var value) ||
+            value.ValueKind ==
+                JsonValueKind.Null)
+        {
+            return null;
+        }
+
+        value =
+            EnsureObject(
+                value,
+                "volumeLayout");
+        var region =
+            value.TryGetProperty(
+                "regionSize",
+                out var authoredRegion)
+                ? EnsureObject(
+                    authoredRegion,
+                    "regionSize")
+                : default;
+
+        return new BiomeVolumeLayoutDefinition(
+            OptionalSingle(
+                value,
+                "weight") ??
+            1f,
+            region.ValueKind ==
+                JsonValueKind.Object
+                ? RequiredUInt32(
+                    region,
+                    "min")
+                : 192,
+            region.ValueKind ==
+                JsonValueKind.Object
+                ? RequiredUInt32(
+                    region,
+                    "max")
+                : 384,
+            OptionalStringArray(
+                value,
+                "cannotBorder"));
+    }
 
     private static BiomeTerrain3dDefinition? ParseTerrain3d(
         JsonElement root)

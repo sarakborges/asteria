@@ -1,13 +1,6 @@
 {
   "id": "asteria:overworld/floating_islands",
-  "surfaceLayout": {},
-  "surfaceTerrain": {
-    "baseHeightOffset": 6,
-    "macroAmplitude": 6,
-    "macroScale": 896,
-    "detailAmplitude": 2,
-    "detailScale": 128
-  },
+  "volumeLayout": {},
   "surfaceLayers": [
     {
       "block": "asteria:grass_block",

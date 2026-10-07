@@ -63,20 +63,59 @@ public sealed class TerrainDensityTests
                 roughness: 0f,
                 densityScale: 30f));
 
-        var top = generator.SurfaceHeight(0, 0);
-        Assert.InRange(top, 97, 112);
-        Assert.True(generator.DensityAt(0, 96, 0) >= 0d);
-        Assert.True(generator.DensityAt(0, top + 1, 0) < 0d);
+        var point =
+            FindVolumeSolid(
+                generator,
+                y: 100);
+        var top =
+            generator.SurfaceHeight(
+                point.X,
+                point.Z);
+        Assert.InRange(
+            top,
+            100,
+            112);
+        Assert.True(
+            generator.DensityAt(
+                point.X,
+                100,
+                point.Z) >=
+            0d);
+        Assert.True(
+            generator.DensityAt(
+                point.X,
+                top + 1,
+                point.Z) <
+            0d);
 
-        var range = generator.GetSurfaceRange(0, 0);
-        Assert.True(range.MaximumWorldY >= top);
+        var horizontal =
+            VoxelCoordinates.FromWorld(
+                    point.X,
+                    0,
+                    point.Z)
+                .Chunk;
+        var range =
+            generator.GetSurfaceRange(
+                horizontal.X,
+                horizontal.Z);
+        Assert.True(
+            range.MaximumWorldY >=
+            top);
 
-        var chunk = generator.Materialize(
-            new ChunkCoord(0, top / Chunk.Size, 0));
-        var localY = top % Chunk.Size;
+        var address =
+            VoxelCoordinates.FromWorld(
+                point.X,
+                top,
+                point.Z);
+        var chunk =
+            generator.Materialize(
+                address.Chunk);
         Assert.Equal(
             Block("asteria:grass_block"),
-            chunk.GetBlock(0, localY, 0));
+            chunk.GetBlock(
+                address.Local.X,
+                address.Local.Y,
+                address.Local.Z));
     }
 
     [Fact]
@@ -92,24 +131,58 @@ public sealed class TerrainDensityTests
                 coverage: 1f,
                 roughness: 0.2f,
                 densityScale: 30f));
-        var lower = generator.Materialize(
-            new ChunkCoord(0, 95 / Chunk.Size, 0));
-        var upper = generator.Materialize(
-            new ChunkCoord(0, 96 / Chunk.Size, 0));
+        var point =
+            FindVolumeSolid(
+                generator,
+                y: 96);
+        var horizontal =
+            VoxelCoordinates.FromWorld(
+                    point.X,
+                    0,
+                    point.Z)
+                .Chunk;
+        var (originX, _, originZ) =
+            VoxelCoordinates.ChunkOrigin(
+                horizontal);
+        var lower =
+            generator.Materialize(
+                new ChunkCoord(
+                    horizontal.X,
+                    95 / Chunk.Size,
+                    horizontal.Z));
+        var upper =
+            generator.Materialize(
+                new ChunkCoord(
+                    horizontal.X,
+                    96 / Chunk.Size,
+                    horizontal.Z));
 
-        foreach (var (y, localY, chunk) in new[]
+        foreach (var (y, localY, chunk) in
+                 new[]
                  {
                      (95, 95 % Chunk.Size, lower),
                      (96, 0, upper),
                  })
         {
-            for (var z = 0; z < Chunk.Size; z += 7)
+            for (var z = 0;
+                 z < Chunk.Size;
+                 z += 7)
             {
-                for (var x = 0; x < Chunk.Size; x += 7)
+                for (var x = 0;
+                     x < Chunk.Size;
+                     x += 7)
                 {
                     Assert.Equal(
-                        generator.DensityAt(x, y, z) >= 0d,
-                        !chunk.GetBlock(x, localY, z).IsAir);
+                        generator.DensityAt(
+                            originX + x,
+                            y,
+                            originZ + z) >=
+                        0d,
+                        !chunk.GetBlock(
+                                x,
+                                localY,
+                                z)
+                            .IsAir);
                 }
             }
         }
@@ -161,14 +234,7 @@ public sealed class TerrainDensityTests
             """
             {
               "id":"asteria:test/floating",
-              "surfaceLayout":{},
-              "surfaceTerrain":{
-                "baseHeightOffset":12,
-                "macroAmplitude":0,
-                "macroScale":64,
-                "detailAmplitude":0,
-                "detailScale":32
-              },
+              "volumeLayout":{},
               "surfaceLayers":[{"block":"asteria:stone"}],
               "terrain3d":{"floatingFormation":{
                 "minY":80,"maxY":112,"horizontalScale":64,
@@ -177,14 +243,23 @@ public sealed class TerrainDensityTests
               }}
             }
             """);
-        Assert.Equal(80, biome.Terrain3d!.FloatingFormation!.MinY);
-        Assert.Equal(112, biome.Terrain3d.FloatingFormation.MaxY);
+        Assert.Null(
+            biome.SurfaceLayout);
+        Assert.NotNull(
+            biome.VolumeLayout);
+        Assert.Equal(
+            80,
+            biome.Terrain3d!.FloatingFormation!.MinY);
+        Assert.Equal(
+            112,
+            biome.Terrain3d.FloatingFormation.MaxY);
 
         var dimension = DimensionDefinitionJson.Parse(
             """
             {
               "id":"asteria:test",
-              "biomes":["asteria:test/floating"],
+              "surfaceBiomes":["asteria:test/ground"],
+              "volumeBiomes":["asteria:test/floating"],
               "seaLevel":32,
               "gravityStrength":18,
               "spawn":{"x":0,"z":0},
@@ -233,44 +308,142 @@ public sealed class TerrainDensityTests
         int? floorY = null,
         int? roofY = null)
     {
-        var biome = new BiomeDefinition(
-            "asteria:test/flat",
-            new BiomeSurfaceLayoutDefinition(),
-            new BiomeTerrainDefinition(
-                32f, 0f, 64, 0f, 32),
-            [
-                new BiomeSurfaceLayerDefinition(
-                    "asteria:grass_block", 1),
-                new BiomeSurfaceLayerDefinition(
-                    "asteria:dirt", 4),
-                new BiomeSurfaceLayerDefinition(
-                    "asteria:stone"),
-            ],
-            terrain3d: floating is { } authored
-                ? new BiomeTerrain3dDefinition(authored)
-                : null);
-        var dimension = new DimensionDefinition(
-            new DimensionId("asteria:test"),
-            [biome.Id],
-            64,
-            18f,
-            new DimensionSpawnDefinition(0, 0),
-            new DimensionEnvironmentDefinition(
-                new DimensionColor(0, 0, 0),
-                new DimensionColor(255, 255, 255),
-                1f,
-                new DimensionColor(0, 0, 0),
-                0f),
-            floorY.HasValue || roofY.HasValue
-                ? new DimensionShellDefinition(
-                    "asteria:sphere_shell", floorY, roofY)
-                : null,
-            caves);
+        var surfaceBiome =
+            new BiomeDefinition(
+                "asteria:test/flat",
+                new BiomeSurfaceLayoutDefinition(),
+                new BiomeTerrainDefinition(
+                    32f,
+                    0f,
+                    64,
+                    0f,
+                    32),
+                [
+                    new BiomeSurfaceLayerDefinition(
+                        "asteria:grass_block",
+                        1),
+                    new BiomeSurfaceLayerDefinition(
+                        "asteria:dirt",
+                        4),
+                    new BiomeSurfaceLayerDefinition(
+                        "asteria:stone"),
+                ]);
+        var volumeBiome =
+            floating is
+                { } authored
+                ? new BiomeDefinition(
+                    "asteria:test/floating",
+                    surfaceLayout: null,
+                    surfaceTerrain: null,
+                    [
+                        new BiomeSurfaceLayerDefinition(
+                            "asteria:grass_block",
+                            1),
+                        new BiomeSurfaceLayerDefinition(
+                            "asteria:dirt",
+                            4),
+                        new BiomeSurfaceLayerDefinition(
+                            "asteria:stone"),
+                    ],
+                    terrain3d:
+                        new BiomeTerrain3dDefinition(
+                            authored),
+                    volumeLayout:
+                        new BiomeVolumeLayoutDefinition())
+                : null;
+        var definitions =
+            volumeBiome is null
+                ? new[]
+                {
+                    surfaceBiome,
+                }
+                : new[]
+                {
+                    surfaceBiome,
+                    volumeBiome,
+                };
+        var dimension =
+            new DimensionDefinition(
+                new DimensionId(
+                    "asteria:test"),
+                [
+                    surfaceBiome.Id,
+                ],
+                64,
+                18f,
+                new DimensionSpawnDefinition(
+                    0,
+                    0),
+                new DimensionEnvironmentDefinition(
+                    new DimensionColor(
+                        0,
+                        0,
+                        0),
+                    new DimensionColor(
+                        255,
+                        255,
+                        255),
+                    1f,
+                    new DimensionColor(
+                        0,
+                        0,
+                        0),
+                    0f),
+                floorY.HasValue ||
+                roofY.HasValue
+                    ? new DimensionShellDefinition(
+                        "asteria:sphere_shell",
+                        floorY,
+                        roofY)
+                    : null,
+                caves,
+                volumeBiomes:
+                    volumeBiome is null
+                        ? null
+                        : new[]
+                        {
+                            volumeBiome.Id,
+                        });
 
         return new BiomeWorldGenerator(
             8192UL,
             dimension,
             Blocks,
-            new BiomeRegistry([biome]));
+            new BiomeRegistry(
+                definitions));
     }
+
+    private static (int X, int Z) FindVolumeSolid(
+        BiomeWorldGenerator generator,
+        int y)
+    {
+        for (var z = -2048;
+             z <= 2048;
+             z += 16)
+        {
+            for (var x = -2048;
+                 x <= 2048;
+                 x += 16)
+            {
+                if (generator.VolumeBiomes.Sample(
+                        x,
+                        y,
+                        z) is not null &&
+                    generator.DensityAt(
+                        x,
+                        y,
+                        z) >=
+                    0d)
+                {
+                    return (
+                        x,
+                        z);
+                }
+            }
+        }
+
+        throw new Xunit.Sdk.XunitException(
+            $"Could not find a solid volume biome sample at Y={y}.");
+    }
+
 }

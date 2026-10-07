@@ -1,19 +1,5 @@
 {
   "id": "asteria:overworld",
-  "biomes": [
-    "asteria:overworld/plains",
-    "asteria:overworld/swamp",
-    "asteria:overworld/wasteland",
-    "asteria:overworld/desert",
-    "asteria:overworld/alps",
-    "asteria:overworld/arctic",
-    "asteria:overworld/floating_islands",
-    "asteria:overworld/ocean",
-    "asteria:overworld/gorge",
-    "asteria:overworld/mountain_belt",
-    "asteria:overworld/mountains",
-    "asteria:overworld/volcano"
-  ],
   "seaLevel": 90,
   "generatedOcean": {
     "biome": "asteria:overworld/ocean",
@@ -50,5 +36,21 @@
     "noiseHalfWidth": 0.18,
     "densityScale": 24,
     "boundaryFade": 8
-  }
+  },
+  "surfaceBiomes": [
+    "asteria:overworld/plains",
+    "asteria:overworld/swamp",
+    "asteria:overworld/wasteland",
+    "asteria:overworld/desert",
+    "asteria:overworld/alps",
+    "asteria:overworld/arctic",
+    "asteria:overworld/ocean",
+    "asteria:overworld/gorge",
+    "asteria:overworld/mountain_belt",
+    "asteria:overworld/mountains",
+    "asteria:overworld/volcano"
+  ],
+  "volumeBiomes": [
+    "asteria:overworld/floating_islands"
+  ]
 }

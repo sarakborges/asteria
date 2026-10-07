@@ -132,43 +132,73 @@ public sealed class BiomeRegistry
         foreach (var definition in
                  _definitions)
         {
-            foreach (var forbidden in
-                     definition
-                         .SurfaceLayout
-                         .CannotBorder)
+            ValidateLayoutReferences(
+                definition,
+                definition.SurfaceLayout,
+                target =>
+                    target.SurfaceLayout is not null,
+                "surfaceLayout");
+            ValidateLayoutReferences(
+                definition,
+                definition.VolumeLayout,
+                target =>
+                    target.VolumeLayout is not null,
+                "volumeLayout");
+        }
+    }
+
+    private void ValidateLayoutReferences(
+        BiomeDefinition definition,
+        BiomePlacementLayoutDefinition? layout,
+        Func<BiomeDefinition, bool> participates,
+        string domain)
+    {
+        if (layout is null)
+        {
+            return;
+        }
+
+        foreach (var forbidden in
+                 layout.CannotBorder)
+        {
+            if (!_definitionsById.TryGetValue(
+                    forbidden,
+                    out var target))
             {
-                if (!_definitionsById.TryGetValue(
-                        forbidden,
-                        out var target))
-                {
-                    throw new ArgumentException(
-                        $"Biome {definition.Id} cannotBorder references missing biome {forbidden}.");
-                }
+                throw new ArgumentException(
+                    $"Biome {definition.Id} {domain}.cannotBorder references missing biome {forbidden}.");
+            }
 
-                var ownDimension =
-                    DimensionId(
-                        definition.Id);
-                var targetDimension =
-                    DimensionId(
-                        target.Id);
+            var ownDimension =
+                DimensionId(
+                    definition.Id);
+            var targetDimension =
+                DimensionId(
+                    target.Id);
 
-                if (!string.Equals(
-                        ownDimension,
-                        targetDimension,
-                        StringComparison.Ordinal))
-                {
-                    throw new ArgumentException(
-                        $"Biome {definition.Id} cannotBorder target {forbidden} belongs to another dimension.");
-                }
+            if (!string.Equals(
+                    ownDimension,
+                    targetDimension,
+                    StringComparison.Ordinal))
+            {
+                throw new ArgumentException(
+                    $"Biome {definition.Id} {domain}.cannotBorder target {forbidden} belongs to another dimension.");
+            }
 
-                if (string.Equals(
-                        definition.Id,
-                        forbidden,
-                        StringComparison.Ordinal))
-                {
-                    throw new ArgumentException(
-                        $"Biome {definition.Id} cannot forbid bordering itself.");
-                }
+            if (string.Equals(
+                    definition.Id,
+                    forbidden,
+                    StringComparison.Ordinal))
+            {
+                throw new ArgumentException(
+                    $"Biome {definition.Id} cannot forbid bordering itself.");
+            }
+
+            if (!participates(
+                    target))
+            {
+                throw new ArgumentException(
+                    $"Biome {definition.Id} {domain}.cannotBorder target {forbidden} does not participate in the same placement domain.");
             }
         }
     }
@@ -184,7 +214,7 @@ public sealed class BiomeRegistry
         if (slash <= 0)
         {
             throw new ArgumentException(
-                $"Surface biome id must include a dimension path: {biomeId}");
+                $"Biome id must include a dimension path: {biomeId}");
         }
 
         return biomeId[..slash];
