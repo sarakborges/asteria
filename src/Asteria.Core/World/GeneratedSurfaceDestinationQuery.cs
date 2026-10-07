@@ -338,14 +338,18 @@ internal sealed class GeneratedSurfaceDestinationQuery
                     surface.Biome,
                     surface.BaseY,
                     surface.SurfaceFluidCutDepth,
-                    feetY)
+                    worldX,
+                    feetY,
+                    worldZ)
                 .IsEmpty ||
             !_generatedFluids
                 .FluidAtEmptyVoxel(
                     surface.Biome,
                     surface.BaseY,
                     surface.SurfaceFluidCutDepth,
-                    headY)
+                    worldX,
+                    headY,
+                    worldZ)
                 .IsEmpty)
         {
             return null;

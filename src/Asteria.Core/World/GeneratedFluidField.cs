@@ -116,7 +116,8 @@ public sealed class GeneratedFluidField
                             fluid,
                             fluids.GetId(
                                 fluid.Fluid),
-                            dimension.SeaLevel);
+                            dimension.SeaLevel,
+                            seed);
                     },
                     StringComparer.Ordinal);
 
@@ -672,7 +673,7 @@ public sealed class GeneratedFluidField
 
     private sealed class VolcanoCraterRule
     {
-        private readonly BiomeVolcanoTerrainShapeDefinition _terrain;
+        private readonly ulong _seed;
         private readonly BiomeVolcanoCraterFluidDefinition _definition;
         private readonly GenerationDomain _spillDomain;
         private readonly double _craterLevel;
@@ -682,9 +683,10 @@ public sealed class GeneratedFluidField
             BiomeVolcanoTerrainShapeDefinition terrain,
             BiomeVolcanoCraterFluidDefinition definition,
             FluidRuntimeId fluid,
-            int seaLevel)
+            int seaLevel,
+            ulong seed)
         {
-            _terrain = terrain;
+            _seed = seed;
             _definition = definition;
             Fluid = fluid;
             _craterLevel =

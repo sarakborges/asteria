@@ -240,7 +240,9 @@ public sealed class SurfaceChunkMaterializer
             chunk,
             column,
             densityVolume,
+            originX,
             originY,
+            originZ,
             topExclusive);
 
         MaterializeStructures(
@@ -579,7 +581,9 @@ public sealed class SurfaceChunkMaterializer
         Chunk chunk,
         SurfaceTerrainColumn column,
         TerrainDensityVolume densityVolume,
+        int originX,
         int originY,
+        int originZ,
         int topExclusive)
     {
         if (!_generatedFluids.HasRules)
@@ -598,10 +602,21 @@ public sealed class SurfaceChunkMaterializer
                         localX,
                         localZ);
 
+                var worldX =
+                    checked(
+                        originX +
+                        localX);
+                var worldZ =
+                    checked(
+                        originZ +
+                        localZ);
+
                 if (!_generatedFluids.TryGetColumnBounds(
                         sample,
                         baseY,
                         surfaceCutDepth,
+                        worldX,
+                        worldZ,
                         out var minimumY,
                         out var maximumY))
                 {
@@ -629,7 +644,9 @@ public sealed class SurfaceChunkMaterializer
                         sample,
                         baseY,
                         surfaceCutDepth,
+                        worldX,
                         worldY,
+                        worldZ,
                         densityVolume.DensityAt(
                             localX,
                             localY,

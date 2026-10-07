@@ -2068,7 +2068,9 @@ public sealed class SurfaceStructureField
         return new SurfaceSample(
             surface.Biome,
             surface.BaseY,
-            surface.SurfaceFluidCutDepth);
+            surface.SurfaceFluidCutDepth,
+            worldX,
+            worldZ);
     }
 
     private bool IsGeneratedFluidAbove(
@@ -2079,6 +2081,8 @@ public sealed class SurfaceStructureField
                     surface.Biome,
                     surface.BaseY,
                     surface.SurfaceFluidCutDepth,
+                    surface.X,
+                    surface.Z,
                     out var minimumY,
                     out var maximumY))
         {
@@ -2355,7 +2359,9 @@ public sealed class SurfaceStructureField
     private readonly record struct SurfaceSample(
         BiomeSample Biome,
         int BaseY,
-        int SurfaceFluidCutDepth);
+        int SurfaceFluidCutDepth,
+        int X,
+        int Z);
 
     private readonly record struct RootAnchor(
         int X,
