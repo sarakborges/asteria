@@ -13,6 +13,7 @@ public sealed class SurfaceTerrainField
     private readonly int? _roofY;
     private readonly BiomeField _surfaceBiomes;
     private readonly VolumeBiomeField _volumeBiomes;
+    private readonly GeneratedFluidField _generatedFluids;
     private readonly IReadOnlyDictionary<string, SurfaceRule> _surfaceRules;
     private readonly IReadOnlyDictionary<string, FloatingRule> _floatingRules;
     private readonly OceanShoreRule? _oceanShore;
@@ -23,6 +24,7 @@ public sealed class SurfaceTerrainField
         DimensionDefinition dimension,
         BiomeField surfaceBiomes,
         VolumeBiomeField volumeBiomes,
+        GeneratedFluidField generatedFluids,
         IEnumerable<BiomeDefinition> surfaceDefinitions,
         IEnumerable<BiomeDefinition> volumeDefinitions)
     {
@@ -40,6 +42,10 @@ public sealed class SurfaceTerrainField
             volumeBiomes ??
             throw new ArgumentNullException(
                 nameof(volumeBiomes));
+        _generatedFluids =
+            generatedFluids ??
+            throw new ArgumentNullException(
+                nameof(generatedFluids));
 
         _seed = seed;
         _seaLevel = dimension.SeaLevel;
@@ -112,6 +118,30 @@ public sealed class SurfaceTerrainField
                 biome,
                 worldX,
                 worldZ));
+    }
+
+    internal (
+        BiomeSample Biome,
+        int BaseY,
+        int SurfaceFluidCutDepth)
+        SampleBaseSurfaceWithGeneratedFluid(
+            int worldX,
+            int worldZ)
+    {
+        var biome =
+            _surfaceBiomes.Sample(
+                worldX,
+                worldZ);
+        var resolved =
+            BaseHeightAndSurfaceFluidCutAt(
+                biome,
+                worldX,
+                worldZ);
+
+        return (
+            biome,
+            resolved.BaseY,
+            resolved.SurfaceFluidCutDepth);
     }
 
     public int SurfaceHeight(int worldX, int worldZ)
@@ -528,6 +558,8 @@ public sealed class SurfaceTerrainField
                 Chunk.Size,
                 Chunk.Size);
         var baseHeights = new int[Chunk.Size * Chunk.Size];
+        var surfaceFluidCutDepths =
+            new int[baseHeights.Length];
         var surfaceHeights = new int[baseHeights.Length];
         var minimum = int.MaxValue;
         var maximum = int.MinValue;
@@ -539,15 +571,22 @@ public sealed class SurfaceTerrainField
                 var worldX = checked(originX + x);
                 var worldZ = checked(originZ + z);
                 var biome = biomes[x, z];
-                var baseY = BaseHeightAt(biome, worldX, worldZ);
+                var resolved =
+                    BaseHeightAndSurfaceFluidCutAt(
+                        biome,
+                        worldX,
+                        worldZ);
                 var surfaceY = FinalSurfaceHeight(
                     biome,
-                    baseY,
+                    resolved.BaseY,
                     worldX,
                     worldZ,
                     volumeBiomes[x, z]);
                 var index = z * Chunk.Size + x;
-                baseHeights[index] = baseY;
+                baseHeights[index] =
+                    resolved.BaseY;
+                surfaceFluidCutDepths[index] =
+                    resolved.SurfaceFluidCutDepth;
                 surfaceHeights[index] = surfaceY;
                 minimum = Math.Min(minimum, surfaceY);
                 maximum = Math.Max(maximum, surfaceY);
@@ -557,6 +596,7 @@ public sealed class SurfaceTerrainField
         return new SurfaceTerrainColumn(
             biomes,
             baseHeights,
+            surfaceFluidCutDepths,
             surfaceHeights,
             new ChunkSurfaceRange(minimum, maximum));
     }
@@ -564,13 +604,33 @@ public sealed class SurfaceTerrainField
     private int BaseHeightAt(
         BiomeSample sample,
         int worldX,
-        int worldZ)
+        int worldZ) =>
+        BaseHeightAndSurfaceFluidCutAt(
+            sample,
+            worldX,
+            worldZ)
+        .BaseY;
+
+    private (
+        int BaseY,
+        int SurfaceFluidCutDepth)
+        BaseHeightAndSurfaceFluidCutAt(
+            BiomeSample sample,
+            int worldX,
+            int worldZ)
     {
         var offset = 0d;
-        foreach (var influence in sample.Influences)
+        foreach (var influence in
+                 sample.Influences)
         {
-            offset += _surfaceRules[influence.BiomeId].HeightOffsetAt(
-                _seed, worldX, worldZ) * influence.Weight;
+            offset +=
+                _surfaceRules[
+                    influence.BiomeId]
+                    .HeightOffsetAt(
+                        _seed,
+                        worldX,
+                        worldZ) *
+                influence.Weight;
         }
 
         if (_oceanShore is not null)
@@ -584,10 +644,55 @@ public sealed class SurfaceTerrainField
         var height =
             _seaLevel +
             offset;
-        var surfaceY = checked((int)Math.Floor(height));
-        return _roofY is { } roofY && surfaceY >= roofY
-            ? roofY - 1
-            : surfaceY;
+        var authoredSurfaceY =
+            checked(
+                (int)Math.Floor(
+                    height));
+        if (_roofY is
+                { } roofY &&
+            authoredSurfaceY >=
+                roofY)
+        {
+            authoredSurfaceY =
+                roofY -
+                1;
+        }
+
+        var requestedCutDepth =
+            _generatedFluids
+                .SurfaceCutDepthAt(
+                    sample,
+                    worldX,
+                    worldZ);
+        if (requestedCutDepth <= 0)
+        {
+            return (
+                authoredSurfaceY,
+                0);
+        }
+
+        var minimumSurfaceY =
+            _floorY is
+                { } floorY
+                ? (long)floorY +
+                  1L
+                : 0L;
+        var availableDepth =
+            Math.Max(
+                0L,
+                (long)authoredSurfaceY -
+                minimumSurfaceY);
+        var actualCutDepth =
+            checked(
+                (int)Math.Min(
+                    requestedCutDepth,
+                    availableDepth));
+
+        return (
+            checked(
+                authoredSurfaceY -
+                actualCutDepth),
+            actualCutDepth);
     }
 
     private int FinalSurfaceHeight(
@@ -1027,16 +1132,20 @@ public sealed class SurfaceTerrainColumn
 {
     private readonly BiomeSampleGrid _biomes;
     private readonly int[] _baseHeights;
+    private readonly int[] _surfaceFluidCutDepths;
     private readonly int[] _surfaceHeights;
 
     internal SurfaceTerrainColumn(
         BiomeSampleGrid biomes,
         int[] baseHeights,
+        int[] surfaceFluidCutDepths,
         int[] surfaceHeights,
         ChunkSurfaceRange range)
     {
         _biomes = biomes;
         _baseHeights = baseHeights;
+        _surfaceFluidCutDepths =
+            surfaceFluidCutDepths;
         _surfaceHeights = surfaceHeights;
         Range = range;
     }
@@ -1048,6 +1157,14 @@ public sealed class SurfaceTerrainColumn
 
     public int BaseHeightAt(int localX, int localZ) =>
         _baseHeights[Index(localX, localZ)];
+
+    public int SurfaceFluidCutDepthAt(
+        int localX,
+        int localZ) =>
+        _surfaceFluidCutDepths[
+            Index(
+                localX,
+                localZ)];
 
     public int HeightAt(int localX, int localZ) =>
         _surfaceHeights[Index(localX, localZ)];
