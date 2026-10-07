@@ -195,9 +195,21 @@ public sealed class DimensionRegistry
         }
     } 
     public void ValidateStructures(
-        StructureRegistry structures)
+        StructureRegistry structures) =>
+        ValidateStructures(
+            structures,
+            StructureSetRegistry.Empty);
+
+    public void ValidateStructures(
+        StructureRegistry structures,
+        StructureSetRegistry structureSets)
     {
         ArgumentNullException.ThrowIfNull(
+            structures);
+        ArgumentNullException.ThrowIfNull(
+            structureSets);
+
+        structureSets.ValidateStructures(
             structures);
 
         foreach (var dimension in
@@ -207,10 +219,12 @@ public sealed class DimensionRegistry
                      dimension.GeneratedSurfaceStructures)
             {
                 if (!structures.ResolvesReference(
+                        generated.Structure) &&
+                    !structureSets.ResolvesReference(
                         generated.Structure))
                 {
                     throw new ArgumentException(
-                        $"Dimension {dimension.Id} references missing generated surface structure {generated.Structure}.");
+                        $"Dimension {dimension.Id} references missing generated surface structure/set {generated.Structure}.");
                 }
             }
         }

@@ -41,11 +41,13 @@ var blocks = BlockRegistry.FromJson(Documents(root, "blocks"));
 var fluids = FluidRegistry.FromJson(Documents(root, "fluids"));
 var biomes = BiomeRegistry.FromJson(Documents(root, "biomes"));
 var structures = StructureRegistry.FromJson(OptionalDocuments(root, "structures"));
+var structureSets = StructureSetRegistry.FromJson(OptionalDocuments(root, "structure_sets"));
 var dimensions = DimensionRegistry.FromJson(Documents(root, "dimensions"));
 dimensions.ValidateBlocks(blocks);
 dimensions.ValidateFluids(fluids);
 dimensions.ValidateBiomes(biomes);
-dimensions.ValidateStructures(structures);
+structureSets.ValidateStructures(structures);
+dimensions.ValidateStructures(structures, structureSets);
 biomes.ValidateBlocks(blocks);
 structures.ValidateBlocks(blocks);
 structures.ValidateFluids(fluids);
@@ -58,7 +60,8 @@ BiomeWorldGenerator NewGenerator() => new(
     blocks,
     fluids,
     biomes,
-    structures);
+    structures,
+    structureSets);
 
 var metrics = new SortedDictionary<string, Measurement>(
     StringComparer.Ordinal);

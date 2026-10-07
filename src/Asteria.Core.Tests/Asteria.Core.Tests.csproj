@@ -34,6 +34,10 @@
       <Link>packs/default/data/structures/%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="../../packs/default/data/structure_sets/*.json">
+      <Link>packs/default/data/structure_sets/%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="../../packs/default/data/fluids/*.json">
       <Link>packs/default/data/fluids/%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
