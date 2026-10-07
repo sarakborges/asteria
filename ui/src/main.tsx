@@ -1,4 +1,5 @@
 import "./styles/global.css";
+import { LocalizationProvider } from "./localization/LocalizationProvider";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import {
@@ -46,6 +47,7 @@ subscribeGodotMessages((message) => {
 });
 
 createRoot(rootElement).render(
+  <LocalizationProvider>
   <App
     embedded={embedded}
     store={store}
@@ -58,7 +60,8 @@ createRoot(rootElement).render(
       exitGame: navigation.exitGame,
       dismissToast: store.dismissToast,
     }}
-  />,
+  />
+  </LocalizationProvider>,
 );
 
 postGodotMessage("ui.ready", {
