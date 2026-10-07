@@ -212,14 +212,15 @@ public sealed class DimensionDefinition
 {
     public DimensionDefinition(
         DimensionId id,
-        IEnumerable<string> biomes,
+        IEnumerable<string> surfaceBiomes,
         int seaLevel,
         float gravityStrength,
         DimensionSpawnDefinition spawn,
         DimensionEnvironmentDefinition environment,
         DimensionShellDefinition? shell = null,
         DimensionCaveDefinition? caves = null,
-        DimensionGeneratedOceanDefinition? generatedOcean = null)
+        DimensionGeneratedOceanDefinition? generatedOcean = null,
+        IEnumerable<string>? volumeBiomes = null)
     {
         if (!float.IsFinite(gravityStrength) ||
             gravityStrength < 0f ||
@@ -230,23 +231,27 @@ public sealed class DimensionDefinition
                 "Dimension gravity strength must be finite and within 0..256.");
         }
 
-        var authoredBiomes =
-            biomes?.ToArray() ??
+        var authoredSurfaceBiomes =
+            surfaceBiomes?.ToArray() ??
             throw new ArgumentNullException(
-                nameof(biomes));
+                nameof(surfaceBiomes));
+        var authoredVolumeBiomes =
+            volumeBiomes?.ToArray() ??
+            Array.Empty<string>();
 
-        if (authoredBiomes.Length == 0)
+        if (authoredSurfaceBiomes.Length == 0)
         {
             throw new ArgumentException(
-                "Dimension must reference at least one biome.",
-                nameof(biomes));
+                "Dimension must reference at least one surface biome.",
+                nameof(surfaceBiomes));
         }
 
         var unique =
             new HashSet<string>(
                 StringComparer.Ordinal);
 
-        foreach (var biomeId in authoredBiomes)
+        foreach (var biomeId in
+                 authoredSurfaceBiomes)
         {
             BiomeDefinition.ValidateId(
                 biomeId);
@@ -256,22 +261,42 @@ public sealed class DimensionDefinition
             {
                 throw new ArgumentException(
                     $"Dimension {id} repeats biome {biomeId}.",
-                    nameof(biomes));
+                    nameof(surfaceBiomes));
+            }
+        }
+
+        foreach (var biomeId in
+                 authoredVolumeBiomes)
+        {
+            BiomeDefinition.ValidateId(
+                biomeId);
+
+            if (!unique.Add(
+                    biomeId))
+            {
+                throw new ArgumentException(
+                    $"Dimension {id} repeats biome {biomeId} across placement domains.",
+                    nameof(volumeBiomes));
             }
         }
 
         if (generatedOcean is { } ocean &&
-            !unique.Contains(ocean.Biome))
+            !authoredSurfaceBiomes.Contains(
+                ocean.Biome,
+                StringComparer.Ordinal))
         {
             throw new ArgumentException(
-                $"Dimension {id} generated ocean biome {ocean.Biome} must be part of the active biome pool.",
+                $"Dimension {id} generated ocean biome {ocean.Biome} must be part of the surface biome pool.",
                 nameof(generatedOcean));
         }
 
         Id = id;
-        Biomes =
+        SurfaceBiomes =
             Array.AsReadOnly(
-                authoredBiomes);
+                authoredSurfaceBiomes);
+        VolumeBiomes =
+            Array.AsReadOnly(
+                authoredVolumeBiomes);
         SeaLevel =
             seaLevel;
         GravityStrength =
@@ -291,7 +316,9 @@ public sealed class DimensionDefinition
 
     public DimensionId Id { get; }
 
-    public IReadOnlyList<string> Biomes { get; }
+    public IReadOnlyList<string> SurfaceBiomes { get; }
+
+    public IReadOnlyList<string> VolumeBiomes { get; }
 
     public int SeaLevel { get; }
 

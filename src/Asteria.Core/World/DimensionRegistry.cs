@@ -129,7 +129,7 @@ public sealed class DimensionRegistry
                  _definitions)
         {
             foreach (var biomeId in
-                     dimension.Biomes)
+                     dimension.SurfaceBiomes)
             {
                 var biome =
                     biomes.Get(
@@ -139,7 +139,36 @@ public sealed class DimensionRegistry
                         dimension.Id.Value))
                 {
                     throw new ArgumentException(
-                        $"Dimension {dimension.Id} references biome {biomeId} owned by another dimension.");
+                        $"Dimension {dimension.Id} references surface biome {biomeId} owned by another dimension.");
+                }
+
+                if (biome.SurfaceLayout is null ||
+                    biome.SurfaceTerrain is null)
+                {
+                    throw new ArgumentException(
+                        $"Dimension {dimension.Id} surface biome {biomeId} does not author surfaceLayout + surfaceTerrain.");
+                }
+            }
+
+            foreach (var biomeId in
+                     dimension.VolumeBiomes)
+            {
+                var biome =
+                    biomes.Get(
+                        biomeId);
+
+                if (!biome.BelongsToDimension(
+                        dimension.Id.Value))
+                {
+                    throw new ArgumentException(
+                        $"Dimension {dimension.Id} references volume biome {biomeId} owned by another dimension.");
+                }
+
+                if (biome.VolumeLayout is null ||
+                    biome.Terrain3d?.FloatingFormation is null)
+                {
+                    throw new ArgumentException(
+                        $"Dimension {dimension.Id} volume biome {biomeId} does not author volumeLayout + terrain3d.floatingFormation.");
                 }
             }
         }
