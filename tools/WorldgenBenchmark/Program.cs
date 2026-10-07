@@ -104,6 +104,38 @@ metrics.Add("surfaceArea", Measure(
         return digest;
     }));
 
+metrics.Add("densityVolume", Measure(
+    4 * 8 * 4,
+    generator =>
+    {
+        var surfaceY = generator.SurfaceHeight(
+            options.CenterX,
+            options.CenterZ);
+        var volume = generator.SampleDensityVolume(
+            options.CenterX,
+            Math.Max(0, surfaceY - 24),
+            options.CenterZ,
+            width: 4,
+            height: 8,
+            depth: 4);
+        ulong digest = 14695981039346656037UL;
+        for (var z = 0; z < volume.Depth; z++)
+        {
+            for (var y = 0; y < volume.Height; y++)
+            {
+                for (var x = 0; x < volume.Width; x++)
+                {
+                    digest = HashNumber(
+                        digest,
+                        unchecked((ulong)BitConverter.DoubleToInt64Bits(
+                            volume.DensityAt(x, y, z))));
+                }
+            }
+        }
+
+        return digest;
+    }));
+
 metrics.Add("chunkSynthesis", Measure(
     options.Chunks,
     generator =>

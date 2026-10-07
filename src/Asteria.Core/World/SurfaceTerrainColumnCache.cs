@@ -1,7 +1,7 @@
 namespace Asteria.Core.World;
 
 /// <summary>
-/// Query-side cache of immutable 32x32 biome/terrain samples shared by range
+/// Query-side cache of immutable 16x16 biome/terrain samples shared by range
 /// selection and vertical chunk materialization. Entries belong to one
 /// dimension's generator lifetime, and eviction changes no generated fact.
 /// </summary>
@@ -31,8 +31,8 @@ public sealed class SurfaceTerrainColumnCache
             () => _terrain.SampleColumn(chunkX, chunkZ));
 
     /// <summary>
-    /// Samples the 33x33 vertex grid for one chunk from its four immutable
-    /// neighboring 32x32 column snapshots. The extra row/column preserves
+    /// Samples the 17x17 vertex grid for one chunk from its four immutable
+    /// neighboring 16x16 column snapshots. The extra row/column preserves
     /// the same world-space biome values on both sides of a chunk seam.
     /// </summary>
     public BiomeSampleGrid SampleChunkBiomes(int chunkX, int chunkZ)

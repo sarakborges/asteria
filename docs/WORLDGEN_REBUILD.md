@@ -36,13 +36,13 @@ BiomeField
 activation. The separation is based on the MineClone rebuild, not its Bevy
 or Rust runtime types. No semantic generation tile/region has been added.
 
-The `SurfaceTerrainColumnCache` shares a 32x32 immutable biome/height
+The `SurfaceTerrainColumnCache` shares a 16x16 immutable biome/height
 snapshot between surface selection and every vertical chunk request with
 that X/Z coordinate. Maximum retained columns: 128 per Sphere. Formation
 assignment memoization is separately bounded to 4096 seeds per Sphere.
 Both caches are eviction-independent and are discarded with the Sphere.
-Terrain-mesh biome tint uses a stitched 33x33 grid from four cached
-32x32 world-space columns; it no longer resamples the full area with
+Terrain-mesh biome tint uses a stitched 17x17 grid from four cached
+16x16 world-space columns; it no longer resamples the full area with
 another recursive biome pass. Adjacent chunk seams reuse identical
 world-coordinate samples.
 
@@ -62,7 +62,7 @@ dotnet run -c Release --project tools/WorldgenBenchmark -- \
 ```
 
 The CLI records cold/warm measurements for biome scalar/area queries,
-surface scalar/area queries and chunk synthesis. Each metric uses its
+surface scalar/area queries, a bounded 3D density volume and chunk synthesis. Each metric uses its
 own fresh generator instance, and both passes must produce the same
 content digest. This is a query/CPU baseline, **not** an end-to-end
 FPS or loading-time benchmark. Record the same seed and settings before
