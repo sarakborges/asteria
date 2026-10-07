@@ -15,6 +15,10 @@ public sealed class SurfaceStructureTests
             StructureRegistry.FromJson(
                 ReadJsonDirectory(
                     "structures"));
+        var fluids =
+            FluidRegistry.FromJson(
+                ReadJsonDirectory(
+                    "fluids"));
         var dimensions =
             DimensionRegistry.FromJson(
                 ReadJsonDirectory(
@@ -25,11 +29,13 @@ public sealed class SurfaceStructureTests
 
         structures.ValidateBlocks(
             blocks);
+        structures.ValidateFluids(
+            fluids);
         dimensions.ValidateStructures(
             structures);
 
         Assert.Equal(
-            8,
+            11,
             structures.Count);
         Assert.Equal(
             new[]
@@ -42,6 +48,9 @@ public sealed class SurfaceStructureTests
                 "asteria:tree_oak_02",
                 "asteria:tree_oak_03",
                 "asteria:tree_oak_04",
+                "asteria:tree_willow_01",
+                "asteria:tree_willow_02",
+                "asteria:tree_willow_03",
             },
             structures
                 .Definitions()
@@ -50,7 +59,7 @@ public sealed class SurfaceStructureTests
                         definition.Id)
                 .ToArray());
         Assert.Equal(
-            24,
+            26,
             overworld
                 .GeneratedSurfaceStructures
                 .Count);
@@ -126,6 +135,96 @@ public sealed class SurfaceStructureTests
                     "tree",
                     definition.ConflictGroups);
             });
+    }
+
+    [Fact]
+    public void WillowGroupAuthorsBoundedWaterProximity()
+    {
+        var structures =
+            StructureRegistry.FromJson(
+                ReadJsonDirectory(
+                    "structures"));
+        var willow =
+            structures.ResolveReference(
+                "asteria:tree_willow");
+
+        Assert.Equal(
+            3,
+            willow.Count);
+
+        Assert.All(
+            willow,
+            definition =>
+            {
+                Assert.Equal(
+                    new[]
+                    {
+                        "asteria:grass_block",
+                        "asteria:dirt",
+                        "asteria:mud",
+                    },
+                    definition.Restrictions
+                        .GroundBlocks);
+                var proximity =
+                    Assert.Single(
+                        definition.Restrictions
+                            .Proximity);
+                Assert.Equal(
+                    StructureProximityMode.Required,
+                    proximity.Mode);
+                Assert.Equal(
+                    "asteria:water",
+                    proximity.Target.Fluid);
+                Assert.Null(
+                    proximity.Target.Block);
+                Assert.Equal(
+                    1,
+                    proximity.MinDistance);
+                Assert.Equal(
+                    12,
+                    proximity.MaxDistance);
+                Assert.Equal(
+                    StructureReplacePolicy.Terrain,
+                    definition.Generation.ReplacePolicy);
+                Assert.Equal(
+                    StructureFluidPolicy.Forbid,
+                    definition.Generation.FluidPolicy);
+                Assert.Contains(
+                    "tree",
+                    definition.ConflictGroups);
+            });
+    }
+
+    [Fact]
+    public void RequiredFluidProximityUsesActualGeneratedFluid()
+    {
+        var accepted =
+            FluidProximityGenerator(
+                "asteria:water",
+                out var blocks);
+        var rejected =
+            FluidProximityGenerator(
+                "asteria:lava",
+                out _);
+        var marker =
+            blocks.GetId(
+                "asteria:marker");
+        var coord =
+            new ChunkCoord(
+                0,
+                1,
+                0);
+
+        Assert.True(
+            ChunkContains(
+                accepted.Materialize(
+                    coord),
+                marker));
+        Assert.False(
+            ChunkContains(
+                rejected.Materialize(
+                    coord),
+                marker));
     }
 
     [Fact]
@@ -605,6 +704,137 @@ public sealed class SurfaceStructureTests
                 StructureRotation.Degrees270,
                 BlockOrientation.Y));
     } 
+    private static BiomeWorldGenerator FluidProximityGenerator(
+        string targetFluid,
+        out BlockRegistry blocks)
+    {
+        blocks =
+            new BlockRegistry(
+            [
+                new BlockDefinition(
+                    "asteria:stone"),
+                new BlockDefinition(
+                    "asteria:marker"),
+            ]);
+        var fluids =
+            new FluidRegistry(
+            [
+                new FluidDefinition(
+                    "asteria:water",
+                    new FluidColor(
+                        0,
+                        96,
+                        192),
+                    0.7f),
+                new FluidDefinition(
+                    "asteria:lava",
+                    new FluidColor(
+                        255,
+                        96,
+                        0),
+                    0.9f),
+            ]);
+        var biome =
+            new BiomeDefinition(
+                "asteria:test/ocean",
+                new BiomeSurfaceLayoutDefinition(),
+                new BiomeTerrainDefinition(
+                    -4f,
+                    0f,
+                    64,
+                    0f,
+                    32),
+                [
+                    new BiomeSurfaceLayerDefinition(
+                        "asteria:stone"),
+                ]);
+        var structure =
+            new StructureDefinition(
+                "asteria:test_marker",
+                rotation: false,
+                anchor: default,
+                voxels:
+                [
+                    new StructureVoxelDefinition(
+                        0,
+                        0,
+                        0,
+                        "asteria:marker",
+                        BlockOrientation.Y),
+                ],
+                restrictions:
+                    new StructureRestrictionsDefinition(
+                        maxSlope: 0,
+                        requiresDryGround: false,
+                        requiredBiomeCoverage: 1f,
+                        proximity:
+                        [
+                            new StructureProximityRestrictionDefinition(
+                                new StructureProximityTargetDefinition(
+                                    fluid:
+                                        targetFluid),
+                                StructureProximityMode.Required,
+                                maxDistance: 2,
+                                minDistance: 1),
+                        ]));
+        var structures =
+            new StructureRegistry(
+            [
+                structure,
+            ]);
+        var dimension =
+            new DimensionDefinition(
+                new DimensionId(
+                    "asteria:test"),
+                [
+                    biome.Id,
+                ],
+                32,
+                18f,
+                new DimensionSpawnDefinition(
+                    0,
+                    0),
+                new DimensionEnvironmentDefinition(
+                    new DimensionColor(
+                        0,
+                        0,
+                        0),
+                    new DimensionColor(
+                        255,
+                        255,
+                        255),
+                    1f,
+                    new DimensionColor(
+                        0,
+                        0,
+                        0),
+                    0f),
+                generatedOcean:
+                    new DimensionGeneratedOceanDefinition(
+                        biome.Id,
+                        "asteria:water"),
+                generatedSurfaceStructures:
+                [
+                    new DimensionGeneratedSurfaceStructureDefinition(
+                        biome.Id,
+                        structure.Id,
+                        spacing: 16,
+                        chance: 1f,
+                        jitter: 0),
+                ]);
+
+        return new BiomeWorldGenerator(
+            91UL,
+            dimension,
+            blocks,
+            fluids,
+            new BiomeRegistry(
+            [
+                biome,
+            ]),
+            structures);
+    }
+
     private static BiomeWorldGenerator FlatStructureGenerator(
         BlockRegistry blocks,
         StructureRegistry structures,
