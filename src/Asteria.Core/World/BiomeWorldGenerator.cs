@@ -14,6 +14,7 @@ public sealed class BiomeWorldGenerator :
     private readonly SurfaceTerrainField _terrain;
     private readonly SurfaceTerrainColumnCache _surfaceColumns;
     private readonly GeneratedFluidField _generatedFluids;
+    private readonly GeneratedSurfaceDestinationQuery _destinations;
     private readonly SurfaceChunkMaterializer _materializer;
     private readonly SurfaceStructureField _surfaceStructures;
     private readonly VolumeBiomeField _volumeBiomes;
@@ -151,6 +152,12 @@ public sealed class BiomeWorldGenerator :
                 _terrain,
                 materials,
                 _generatedFluids);
+        _destinations =
+            new GeneratedSurfaceDestinationQuery(
+                dimension,
+                _terrain,
+                _generatedFluids,
+                _surfaceStructures);
         var decorations =
             new SurfaceDecorationField(
                 seed,
@@ -196,6 +203,18 @@ public sealed class BiomeWorldGenerator :
             originX,
             originZ,
             maxDistance);
+
+    public GeneratedSurfaceDestination?
+        FindGeneratedSurfaceDestination(
+            int preferredX,
+            int preferredZ,
+            int maxRadius,
+            Func<int, int, bool>? acceptsColumn = null) =>
+        _destinations.Find(
+            preferredX,
+            preferredZ,
+            maxRadius,
+            acceptsColumn);
 
     public IReadOnlyList<SurfaceStructureQueryResult>
         SurfaceStructuresIntersecting(
