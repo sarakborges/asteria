@@ -101,7 +101,10 @@ public partial class Main : Node3D
     private BlockRuntimeId _placementBlock;
     private readonly WorldHudStateTracker _worldHud =
         new();
+    private readonly WorldLoadingState _loading =
+        new();
 
+    private WorldLoadingProgress? _lastLoadingProgress;
     private WorldFrameWorkBudget _worldFrameBudget;
     private bool _worldReadySent;
     private bool _debugHudVisible;
@@ -244,10 +247,24 @@ public partial class Main : Node3D
             delta,
             WorldTicksPerSecond);
 
+        var loadingWorld =
+            _loading.Progress.Phase is
+                WorldLoadingPhase.MaterializingInitialArea or
+                WorldLoadingPhase.PreparingPresentation;
+        var streamingCenter =
+            loadingWorld
+                ? _loading.Center
+                : CurrentStreamingCenter();
+        var streamingRadius =
+            loadingWorld
+                ? WorldLoadingState.InitialHorizontalRadiusChunks
+                : RenderDistanceChunks;
+
         var streamingBegin =
             _chunkStreaming.BeginFrame(
-                CurrentStreamingCenter(),
-                _worldFrameBudget);
+                streamingCenter,
+                _worldFrameBudget,
+                streamingRadius);
         ReportStreamingSelection(
             streamingBegin.Selection);
         ReportResidencyUpdate(
@@ -282,16 +299,13 @@ public partial class Main : Node3D
         ReportRetirements(
             streamingEnd.Retirements);
 
-        SendWorldHudState();
-
-        if (!_worldReadySent &&
-            _chunkPresentations.IsFullyPublished(
-                _spawnChunk))
+        if (loadingWorld)
         {
-            _worldReadySent = true;
-            SetupPlayer();
-            SendWorldReady();
+            AdvanceWorldLoading();
+            return;
         }
+
+        SendWorldHudState();
     }
 
     public bool TransitionToDimension(
@@ -341,6 +355,9 @@ public partial class Main : Node3D
 
         RetirePlayerForDimensionTransition();
         _worldReadySent = false;
+        _loading.BeginRetirement();
+        _lastLoadingProgress = null;
+        SendLoadingState();
 
         SendWebUi(
             "game.dimension_transition",
@@ -370,10 +387,7 @@ public partial class Main : Node3D
         }
 
         ActivateCurrentDimensionPresentation();
-
-        ReportStreamingSelection(
-            _chunkStreaming.SyncSelection(
-                CurrentStreamingCenter()));
+        BeginWorldLoading();
 
         SendWebUi(
             "game.dimension_changed",
@@ -599,6 +613,12 @@ public partial class Main : Node3D
         SendWorldHudState(
             force: true);
 
+        if (_loading.IsActive)
+        {
+            SendLoadingState(
+                force: true);
+        }
+
         if (_worldReadySent)
         {
             SendWorldReady();
@@ -718,9 +738,112 @@ public partial class Main : Node3D
             $"retention_margin={RetentionMarginChunks} " +
             $"materialization_in_flight={MaxMaterializationTasksInFlight}");
 
+        BeginWorldLoading();
+    }
+
+    private void BeginWorldLoading()
+    {
+        _worldReadySent = false;
+        _loading.Begin(
+            _spawnChunk);
+        _lastLoadingProgress = null;
+
+        ReportStreamingSelection(
+            _chunkStreaming.SyncSelection(
+                _loading.Center,
+                WorldLoadingState.InitialHorizontalRadiusChunks));
+        SendLoadingState();
+    }
+
+    private void AdvanceWorldLoading()
+    {
+        _loading.UpdateResidency(
+            _residency.DesiredCount,
+            _residency.PendingCount,
+            _residency.MaterializingCount,
+            _chunkStreaming.IsSelectionRunning);
+
+        if (_loading.Progress.Phase ==
+            WorldLoadingPhase.PreparingPresentation)
+        {
+            _ = _loading.UpdatePresentation(
+                _chunkPresentations.IsFullyPublished(
+                    _spawnChunk));
+        }
+
+        SendLoadingState();
+
+        if (!_loading.Progress.IsReady)
+        {
+            return;
+        }
+
+        _worldReadySent = true;
+        SetupPlayer();
+        SendLoadingState(
+            force: true);
+        SendWorldReady();
+
+        _loading.Reset();
+        _lastLoadingProgress = null;
+
         ReportStreamingSelection(
             _chunkStreaming.SyncSelection(
                 CurrentStreamingCenter()));
+    }
+
+    private void SendLoadingState(
+        bool force = false)
+    {
+        var progress =
+            _loading.Progress;
+
+        if (progress.Phase ==
+            WorldLoadingPhase.Inactive)
+        {
+            return;
+        }
+
+        if (!force &&
+            _lastLoadingProgress is
+                { } previous &&
+            previous ==
+                progress)
+        {
+            return;
+        }
+
+        _lastLoadingProgress =
+            progress;
+
+        var phase =
+            progress.Phase switch
+            {
+                WorldLoadingPhase.RetiringCurrentDimension =>
+                    "retiring_current_dimension",
+                WorldLoadingPhase.MaterializingInitialArea =>
+                    "materializing_initial_area",
+                WorldLoadingPhase.PreparingPresentation =>
+                    "preparing_presentation",
+                WorldLoadingPhase.Ready =>
+                    "ready",
+                _ =>
+                    throw new InvalidOperationException(
+                        $"Unsupported loading phase {progress.Phase}."),
+            };
+
+        SendWebUi(
+            "game.loading",
+            new
+            {
+                phase,
+                completed =
+                    progress.Completed,
+                total =
+                    progress.Total,
+                dimension =
+                    _dimension.Id.Value,
+            });
     }
 
     private void SendWorldCreationError(
