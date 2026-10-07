@@ -92,7 +92,26 @@ public static class DimensionDefinitionJson
         value = RequiredObject(root, "generatedOcean");
         return new DimensionGeneratedOceanDefinition(
             RequiredString(value, "biome"),
-            RequiredString(value, "fluid"));
+            RequiredString(value, "fluid"),
+            ParseOceanShore(value));
+    }
+
+    private static DimensionOceanShoreDefinition? ParseOceanShore(
+        JsonElement ocean)
+    {
+        if (!ocean.TryGetProperty("shore", out var value) ||
+            value.ValueKind == JsonValueKind.Null)
+        {
+            return null;
+        }
+
+        value = RequiredObject(ocean, "shore");
+        return new DimensionOceanShoreDefinition(
+            RequiredInt32(value, "shelfDepth"),
+            RequiredInt32(value, "beachHeight"),
+            RequiredSingle(value, "beachStartDominance"),
+            RequiredSingle(value, "shelfStartDominance"),
+            RequiredSingle(value, "deepWaterStartDominance"));
     }
 
     private static DimensionCaveDefinition? ParseCaves(
