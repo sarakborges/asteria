@@ -76,7 +76,23 @@ public static class DimensionDefinitionJson
                     environment,
                     "fogDensity")),
             ParseShell(root),
-            ParseCaves(root));
+            ParseCaves(root),
+            ParseGeneratedOcean(root));
+    }
+
+    private static DimensionGeneratedOceanDefinition? ParseGeneratedOcean(
+        JsonElement root)
+    {
+        if (!root.TryGetProperty("generatedOcean", out var value) ||
+            value.ValueKind == JsonValueKind.Null)
+        {
+            return null;
+        }
+
+        value = RequiredObject(root, "generatedOcean");
+        return new DimensionGeneratedOceanDefinition(
+            RequiredString(value, "biome"),
+            RequiredString(value, "fluid"));
     }
 
     private static DimensionCaveDefinition? ParseCaves(
