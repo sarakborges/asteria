@@ -371,6 +371,11 @@ public sealed class BiomeWorldGenerationTests
                 dimension,
                 biomes,
                 volumes,
+                new GeneratedFluidField(
+                    947UL,
+                    dimension,
+                    new FluidRegistry(
+                        Array.Empty<FluidDefinition>())),
                 definitions,
                 Array.Empty<BiomeDefinition>());
         var column = terrain.SampleColumn(-2, 1);
@@ -423,6 +428,11 @@ public sealed class BiomeWorldGenerationTests
                 dimension,
                 biomes,
                 volumes,
+                new GeneratedFluidField(
+                    157UL,
+                    dimension,
+                    new FluidRegistry(
+                        Array.Empty<FluidDefinition>())),
                 definitions,
                 Array.Empty<BiomeDefinition>());
         var columns = new SurfaceTerrainColumnCache(
@@ -473,6 +483,11 @@ public sealed class BiomeWorldGenerationTests
                 dimension,
                 biomes,
                 volumes,
+                new GeneratedFluidField(
+                    17UL,
+                    dimension,
+                    new FluidRegistry(
+                        Array.Empty<FluidDefinition>())),
                 definitions,
                 Array.Empty<BiomeDefinition>());
         var cache = new SurfaceTerrainColumnCache(terrain, capacity: 2);
