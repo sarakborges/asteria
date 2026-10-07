@@ -822,6 +822,7 @@ public sealed class SurfaceStructureField
                 _generatedFluids.FluidAtEmptyVoxel(
                     insideSurface.Biome,
                     insideSurface.BaseY,
+                    insideSurface.SurfaceFluidCutDepth,
                     _seaLevel);
             if (!insideFluid.IsEmpty)
             {
@@ -1368,6 +1369,7 @@ public sealed class SurfaceStructureField
             .FluidAtEmptyVoxel(
                 surface.Biome,
                 surface.BaseY,
+                surface.SurfaceFluidCutDepth,
                 worldY)
             .IsEmpty;
     }
@@ -1499,6 +1501,7 @@ public sealed class SurfaceStructureField
                        .FluidAtEmptyVoxel(
                            surface.Biome,
                            surface.BaseY,
+                           surface.SurfaceFluidCutDepth,
                            (int)aboveY)
                        .Fluid ==
                    rule.Fluid;
@@ -2020,13 +2023,14 @@ public sealed class SurfaceStructureField
         int worldZ)
     {
         var surface =
-            _terrain.SampleBaseSurface(
+            _terrain.SampleBaseSurfaceWithGeneratedFluid(
                 worldX,
                 worldZ);
 
         return new SurfaceSample(
             surface.Biome,
-            surface.BaseY);
+            surface.BaseY,
+            surface.SurfaceFluidCutDepth);
     }
 
     private bool IsGeneratedFluidAbove(
@@ -2036,6 +2040,7 @@ public sealed class SurfaceStructureField
                 .TryGetColumnBounds(
                     surface.Biome,
                     surface.BaseY,
+                    surface.SurfaceFluidCutDepth,
                     out var minimumY,
                     out var maximumY))
         {
@@ -2306,7 +2311,8 @@ public sealed class SurfaceStructureField
 
     private readonly record struct SurfaceSample(
         BiomeSample Biome,
-        int BaseY);
+        int BaseY,
+        int SurfaceFluidCutDepth);
 
     private readonly record struct RootAnchor(
         int X,
