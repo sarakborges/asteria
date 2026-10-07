@@ -161,10 +161,9 @@ Surface-biome material is authored with ordered `surfaceLayers`, using the same 
     "block": "asteria:grass_block",
     "depth": 1,
     "patch": {
-      "spacing": 14,
-      "radius": 6,
-      "jitter": 2,
-      "chance": 0.9,
+      "scale": 28,
+      "coverage": 0.52,
+      "roughness": 0.3,
       "blocks": ["asteria:dirt", "asteria:mud"]
     }
   },
@@ -173,7 +172,7 @@ Surface-biome material is authored with ordered `surfaceLayers`, using the same 
 ]
 ```
 
-Every entry before the last requires a positive `depth`; those depths accumulate downward from the exposed surface. The final entry omits `depth` and is the unlimited core material. A patch may exist only on a finite layer and replaces that layer's base block inside deterministic world-space patch footprints. Patch alternatives cannot repeat the base block. Material ownership follows the sampled primary biome; nearby biome influence weights blend terrain shape, not material identity.
+Every entry before the last requires a positive `depth`; those depths accumulate downward from the exposed surface. The final entry omits `depth` and is the unlimited core material. A patch may exist only on a finite layer and replaces that layer's base block through a deterministic continuous world-space noise field. `scale` controls the broad material-region size, `coverage` controls how much of the layer is replaced, and `roughness` adds bounded smaller-scale irregularity. Patch boundaries are organic and continuous across chunk borders; radial/circular footprints are not part of the contract. Patch alternatives cannot repeat the base block. Material ownership follows the sampled primary biome; nearby biome influence weights blend terrain shape, not material identity.
 
 Tintable blocks declare a semantic block tint category such as `grass`, `leaf` or `foliage`. Surface biomes may author matching RGB colors:
 
