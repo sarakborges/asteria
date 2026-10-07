@@ -40,7 +40,7 @@ metrics.Add("biomeScalar", Measure(
         for (var i = 0; i < options.Samples; i++)
         {
             var (x, z) = Position(options, i);
-            digest = Hash(digest, generator.Biomes.Sample(x, z).Primary);
+            digest = HashText(digest, generator.Biomes.Sample(x, z).Primary);
         }
 
         return digest;
@@ -60,7 +60,7 @@ metrics.Add("biomeArea", Measure(
         {
             for (var x = 0; x < sample.Width; x++)
             {
-                digest = Hash(digest, sample[x, z].Primary);
+                digest = HashText(digest, sample[x, z].Primary);
             }
         }
 
@@ -75,7 +75,7 @@ metrics.Add("surfaceScalar", Measure(
         for (var i = 0; i < options.Samples; i++)
         {
             var (x, z) = Position(options, i);
-            digest = Hash(
+            digest = HashNumber(
                 digest,
                 unchecked((ulong)generator.SurfaceHeight(x, z)));
         }
@@ -93,10 +93,10 @@ metrics.Add("surfaceArea", Measure(
             var range = generator.GetSurfaceRange(
                 options.CenterX / Chunk.Size + i,
                 options.CenterZ / Chunk.Size);
-            digest = Hash(
+            digest = HashNumber(
                 digest,
                 unchecked((ulong)range.MinimumWorldY));
-            digest = Hash(
+            digest = HashNumber(
                 digest,
                 unchecked((ulong)range.MaximumWorldY));
         }
@@ -131,10 +131,10 @@ metrics.Add("chunkSynthesis", Measure(
             chunk.VisitBlockCells(
                 (localX, localY, localZ, cell) =>
                 {
-                    digest = Hash(digest, (ulong)localX);
-                    digest = Hash(digest, (ulong)localY);
-                    digest = Hash(digest, (ulong)localZ);
-                    digest = Hash(digest, cell.Block.Value);
+                    digest = HashNumber(digest, (ulong)localX);
+                    digest = HashNumber(digest, (ulong)localY);
+                    digest = HashNumber(digest, (ulong)localZ);
+                    digest = HashNumber(digest, cell.Block.Value);
                 });
         }
 
@@ -203,17 +203,17 @@ static (int X, int Z) Position(Arguments options, int index) =>
     checked(options.CenterZ - (index / 8) * 13)
 );
 
-static ulong Hash(ulong current, string value)
+static ulong HashText(ulong current, string value)
 {
     foreach (var character in value)
     {
-        current = Hash(current, character);
+        current = HashNumber(current, character);
     }
 
     return current;
 }
 
-static ulong Hash(ulong current, ulong value) =>
+static ulong HashNumber(ulong current, ulong value) =>
     unchecked((current ^ value) * 1099511628211UL);
 
 internal sealed record Measurement(
