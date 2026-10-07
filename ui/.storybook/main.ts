@@ -1,8 +1,8 @@
-import type { StorybookConfig } from "@storybook/html-vite";
+import type { StorybookConfig } from "@storybook/react-vite";
 
 const config: StorybookConfig = {
-  framework: "@storybook/html-vite",
-  stories: ["../src/**/*.stories.ts"],
+  framework: "@storybook/react-vite",
+  stories: ["../src/**/*.stories.tsx"],
 };
 
 export default config;

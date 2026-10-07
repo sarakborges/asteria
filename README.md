@@ -2,6 +2,10 @@
 
 Fresh Godot + C# rewrite of Asteria.
 
+## WebUI stack
+
+The WebUI uses React 19 + TypeScript + Vite + Storybook. Godot/WRY transport stays in `ui/src/bridge`, message/state binding stays in `ui/src/controllers`, browser presentation state is owned by `UiStore`, and React components remain presentation-only. Atomic Design components live in per-component directories with colocated TSX, CSS and stories.
+
 ## Architecture canon
 
 Repository changes must follow [AGENTS.md](AGENTS.md), [ARCHITECTURE.md](ARCHITECTURE.md), and [ENGINEERING_PRACTICES.md](ENGINEERING_PRACTICES.md). These documents are jointly normative for implementation and refactoring. External content packaging follows [PACKS.md](PACKS.md).

@@ -1,17 +1,19 @@
 import type { BridgeMessage } from "../bridge/godotBridge";
-import type { LoadingOverlayView } from "../components/organisms/LoadingOverlay";
+import type { LoadingState } from "../state/uiState";
+import type { UiStore } from "../state/uiStore";
+import { asRecord } from "./messagePayload";
 
 export type LoadingController = {
   handleGodotMessage(message: BridgeMessage): void;
 };
 
 export function createLoadingController(
-  view: LoadingOverlayView,
+  store: UiStore,
 ): LoadingController {
   return {
     handleGodotMessage(message) {
       if (message.type === "game.chunk_ready") {
-        view.hide();
+        setLoading(store, null);
         return;
       }
 
@@ -20,40 +22,45 @@ export function createLoadingController(
       }
 
       const payload = asRecord(message.payload);
-      if (!payload) {
-        return;
-      }
+      if (!payload) return;
 
       const phase =
         typeof payload.phase === "string"
           ? payload.phase
           : "";
+
       if (phase === "ready") {
-        view.hide();
+        setLoading(store, null);
         return;
       }
 
-      const completed =
-        typeof payload.completed === "number"
-          ? Math.max(0, Math.trunc(payload.completed))
-          : 0;
-      const total =
-        typeof payload.total === "number"
-          ? Math.max(0, Math.trunc(payload.total))
-          : 0;
-      const dimension =
-        typeof payload.dimension === "string"
-          ? payload.dimension
-          : "";
-
-      view.show({
+      setLoading(store, {
         phaseLabel: phaseLabel(phase),
-        completed,
-        total,
-        dimension,
+        completed:
+          typeof payload.completed === "number"
+            ? Math.max(0, Math.trunc(payload.completed))
+            : 0,
+        total:
+          typeof payload.total === "number"
+            ? Math.max(0, Math.trunc(payload.total))
+            : 0,
+        dimension:
+          typeof payload.dimension === "string"
+            ? payload.dimension
+            : "",
       });
     },
   };
+}
+
+function setLoading(
+  store: UiStore,
+  loading: LoadingState | null,
+): void {
+  store.update((state) => ({
+    ...state,
+    loading,
+  }));
 }
 
 function phaseLabel(phase: string): string {
@@ -67,14 +74,4 @@ function phaseLabel(phase: string): string {
     default:
       return "Preparando mundo";
   }
-}
-
-function asRecord(
-  value: unknown,
-): Record<string, unknown> | null {
-  return value !== null &&
-    typeof value === "object" &&
-    !Array.isArray(value)
-    ? value as Record<string, unknown>
-    : null;
 }

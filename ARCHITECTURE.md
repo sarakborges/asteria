@@ -50,6 +50,10 @@ Godot code must not become a second owner of world simulation state.
 
 WebUI owns presentation and browser-side interaction state.
 
+- React is the declarative renderer; it does not own gameplay/world facts or IPC.
+- `UiStore` is the single browser-side presentation-state owner. Godot bridge messages are parsed/bound by controllers, controllers update `UiStore`, and React subscribes to immutable snapshots.
+- Explicit UI interaction state local to a component, such as an editable seed field or toast leave animation, may remain local presentation state. Semantic actions are injected callbacks routed through controllers; components never import the bridge.
+- Atomic Design components are directory-scoped and colocate TSX, CSS and Storybook stories.
 - Transport remains in `ui/src/bridge`.
 - Message/state binding remains in `ui/src/controllers`.
 - Reusable presentation follows Atomic Design.

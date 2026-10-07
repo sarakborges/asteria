@@ -1,31 +1,43 @@
 import type { BridgeMessage } from "../bridge/godotBridge";
-import type { GameHudPageView } from "../components/pages/GameHudPage";
-import type { StatusEffectState } from "../components/organisms/StatusEffects";
+import type {
+  HotbarState,
+  HudState,
+  InteractionPromptState,
+  PlayerVitalsState,
+  StatusEffectState,
+  StatusEffectTone,
+  ToastTone,
+  VitalValue,
+  WorldBannerState,
+} from "../state/uiState";
+import type { UiStore } from "../state/uiStore";
 import { applyUiTheme } from "../theme/uiTheme";
+import {
+  asRecord,
+  isFiniteNumber,
+} from "./messagePayload";
 
 export type HudController = {
-  mount(): void;
+  ping(): void;
   handleGodotMessage(message: BridgeMessage): void;
 };
 
 export function createHudController(
-  view: GameHudPageView,
+  store: UiStore,
   postMessage: (type: string, payload?: unknown) => void,
 ): HudController {
-  const handlePing = (): void => {
-    view.statusCard.lastMessage.textContent =
-      "webui → godot: ping sent";
-    postMessage("ui.ping");
-  };
-
   return {
-    mount() {
-      view.statusCard.pingButton.addEventListener("click", handlePing);
+    ping() {
+      patchStatusCard(store, {
+        lastMessage: "webui → godot: ping sent",
+      });
+      postMessage("ui.ping");
     },
 
     handleGodotMessage(message) {
-      view.statusCard.lastMessage.textContent =
-        `godot → webui: ${message.type}`;
+      patchStatusCard(store, {
+        lastMessage: "godot → webui: " + message.type,
+      });
 
       switch (message.type) {
         case "game.ui_theme":
@@ -34,72 +46,160 @@ export function createHudController(
 
         case "game.hud.debug": {
           const payload = asRecord(message.payload);
-          view.shell.setDebugVisible(
-            payload?.visible === true,
-          );
+          patchHud(store, {
+            debugVisible: payload?.visible === true,
+          });
           break;
         }
 
         case "game.hud.hotbar":
-          applyHotbar(view, message.payload);
+          patchHud(store, {
+            hotbar: readHotbar(message.payload),
+          });
           break;
 
         case "game.hud.world":
-          applyWorld(view, message.payload);
+          patchHud(store, {
+            world: readWorld(message.payload),
+          });
           break;
 
         case "game.hud.vitals":
-          applyVitals(view, message.payload);
+          patchHud(store, {
+            vitals: readVitals(message.payload),
+          });
           break;
 
         case "game.hud.effects":
-          applyEffects(view, message.payload);
+          patchHud(store, {
+            effects: readEffects(message.payload),
+          });
           break;
 
         case "game.hud.prompt":
-          applyPrompt(view, message.payload);
+          patchHud(store, {
+            prompt: readPrompt(message.payload),
+          });
           break;
 
-        case "game.hud.toast":
-          applyToast(view, message.payload);
+        case "game.hud.toast": {
+          const toast = readToast(message.payload);
+          if (toast) {
+            store.pushToast(toast);
+          }
           break;
+        }
 
         case "game.ready":
-          view.statusCard.bridgeStatus.setLabel("bridge connected");
-          view.statusCard.bridgeStatus.setTone("connected");
+          patchStatusCard(store, {
+            bridgeLabel: "bridge connected",
+            bridgeTone: "connected",
+          });
           break;
 
         case "game.chunk_ready":
-          view.statusCard.worldStatus.textContent =
-            "chunk generated + collision ready";
+          patchStatusCard(store, {
+            worldStatus: "chunk generated + collision ready",
+          });
           break;
 
         case "game.player_ready":
-          view.statusCard.playerStatus.textContent =
-            "FPS controller ready";
+          patchStatusCard(store, {
+            playerStatus: "FPS controller ready",
+          });
           break;
 
         case "game.mouse_capture": {
           const payload = asRecord(message.payload);
-          document.documentElement.classList.toggle(
-            "mouse-captured",
-            payload?.captured === true,
-          );
+          store.update((state) => ({
+            ...state,
+            mouseCaptured: payload?.captured === true,
+          }));
           break;
         }
 
         case "game.pong":
-          view.statusCard.lastMessage.textContent =
-            "godot → webui: pong received";
+          patchStatusCard(store, {
+            lastMessage: "godot → webui: pong received",
+          });
           break;
       }
     },
   };
 }
 
-function applyWorld(view: GameHudPageView, payload: unknown): void {
-  const value = asRecord(payload);
+function patchHud(
+  store: UiStore,
+  patch: Partial<HudState>,
+): void {
+  store.update((state) => ({
+    ...state,
+    hud: {
+      ...state.hud,
+      ...patch,
+    },
+  }));
+}
 
+function patchStatusCard(
+  store: UiStore,
+  patch: Partial<HudState["statusCard"]>,
+): void {
+  store.update((state) => ({
+    ...state,
+    hud: {
+      ...state.hud,
+      statusCard: {
+        ...state.hud.statusCard,
+        ...patch,
+      },
+    },
+  }));
+}
+
+function readHotbar(payload: unknown): HotbarState {
+  const value = asRecord(payload);
+  if (!value) {
+    return {
+      slots: [],
+      selectedIndex: null,
+      selectedName: null,
+    };
+  }
+
+  const slots = Array.isArray(value.slots)
+    ? value.slots.map((raw) => {
+        const slot = asRecord(raw);
+        return {
+          id:
+            slot && typeof slot.id === "string"
+              ? slot.id
+              : undefined,
+          quantity:
+            slot && typeof slot.quantity === "number"
+              ? slot.quantity
+              : undefined,
+        };
+      })
+    : [];
+
+  return {
+    slots,
+    selectedIndex:
+      typeof value.selectedIndex === "number"
+        ? value.selectedIndex
+        : null,
+    selectedName:
+      typeof value.selectedName === "string"
+        ? value.selectedName
+        : null,
+  };
+}
+
+function readWorld(
+  payload: unknown,
+): WorldBannerState | null {
+  const value = asRecord(payload);
   if (
     !value ||
     typeof value.sphere !== "string" ||
@@ -109,65 +209,58 @@ function applyWorld(view: GameHudPageView, payload: unknown): void {
     !isFiniteNumber(value.z) ||
     !isFiniteNumber(value.heading)
   ) {
-    view.worldBanner.setState(null);
-    return;
+    return null;
   }
 
-  view.worldBanner.setState({
+  return {
     sphere: value.sphere,
     biome: value.biome,
     x: value.x,
     y: value.y,
     z: value.z,
     heading: value.heading,
-  });
+  };
 }
 
-function applyHotbar(view: GameHudPageView, payload: unknown): void {
+function readVitals(
+  payload: unknown,
+): PlayerVitalsState | null {
   const value = asRecord(payload);
-  if (!value) return;
-
-  const slots = Array.isArray(value.slots)
-    ? value.slots.map((slot) => {
-        const item = asRecord(slot);
-        return {
-          id: item && typeof item.id === "string" ? item.id : undefined,
-          quantity:
-            item && typeof item.quantity === "number"
-              ? item.quantity
-              : undefined,
-        };
-      })
-    : [];
-
-  view.hotbar.setState({
-    slots,
-    selectedIndex:
-      typeof value.selectedIndex === "number" ? value.selectedIndex : null,
-    selectedName:
-      typeof value.selectedName === "string" ? value.selectedName : null,
-  });
-}
-
-function applyVitals(view: GameHudPageView, payload: unknown): void {
-  const value = asRecord(payload);
-  if (!value) {
-    view.playerVitals.setState(null);
-    return;
-  }
+  if (!value) return null;
 
   const health = readVital(value.health);
   const stamina = readVital(value.stamina);
-  view.playerVitals.setState(
-    health || stamina ? { health, stamina } : null,
-  );
+
+  return health || stamina
+    ? {
+        health,
+        stamina,
+      }
+    : null;
 }
 
-function applyEffects(view: GameHudPageView, payload: unknown): void {
+function readVital(value: unknown): VitalValue | null {
+  const item = asRecord(value);
+  if (
+    !item ||
+    typeof item.current !== "number" ||
+    typeof item.maximum !== "number"
+  ) {
+    return null;
+  }
+
+  return {
+    current: item.current,
+    maximum: item.maximum,
+  };
+}
+
+function readEffects(
+  payload: unknown,
+): StatusEffectState[] {
   const value = asRecord(payload);
   if (!value || !Array.isArray(value.effects)) {
-    view.statusEffects.setEffects([]);
-    return;
+    return [];
   }
 
   const effects: StatusEffectState[] = [];
@@ -188,38 +281,46 @@ function applyEffects(view: GameHudPageView, payload: unknown): void {
         typeof effect.duration === "string"
           ? effect.duration
           : undefined,
-      tone:
-        effect.tone === "positive" || effect.tone === "negative"
-          ? effect.tone
-          : "neutral",
+      tone: readEffectTone(effect.tone),
     });
   }
 
-  view.statusEffects.setEffects(effects);
+  return effects;
 }
 
-function applyPrompt(view: GameHudPageView, payload: unknown): void {
+function readEffectTone(value: unknown): StatusEffectTone {
+  return value === "positive" || value === "negative"
+    ? value
+    : "neutral";
+}
+
+function readPrompt(
+  payload: unknown,
+): InteractionPromptState {
   const value = asRecord(payload);
-  if (
-    !value ||
-    typeof value.key !== "string" ||
-    typeof value.text !== "string"
-  ) {
-    view.interactionPrompt.setPrompt(null);
-    return;
+  return value &&
+    typeof value.key === "string" &&
+    typeof value.text === "string"
+    ? {
+        key: value.key,
+        text: value.text,
+      }
+    : null;
+}
+
+function readToast(
+  payload: unknown,
+): {
+  message: string;
+  tone: ToastTone;
+  durationMs?: number;
+} | null {
+  const value = asRecord(payload);
+  if (!value || typeof value.message !== "string") {
+    return null;
   }
 
-  view.interactionPrompt.setPrompt({
-    key: value.key,
-    text: value.text,
-  });
-}
-
-function applyToast(view: GameHudPageView, payload: unknown): void {
-  const value = asRecord(payload);
-  if (!value || typeof value.message !== "string") return;
-
-  view.toasts.push({
+  return {
     message: value.message,
     tone:
       value.tone === "success" || value.tone === "warning"
@@ -229,36 +330,5 @@ function applyToast(view: GameHudPageView, payload: unknown): void {
       typeof value.durationMs === "number"
         ? value.durationMs
         : undefined,
-  });
-}
-
-function readVital(
-  value: unknown,
-): { current: number; maximum: number } | null {
-  const item = asRecord(value);
-  if (
-    !item ||
-    typeof item.current !== "number" ||
-    typeof item.maximum !== "number"
-  ) {
-    return null;
-  }
-
-  return {
-    current: item.current,
-    maximum: item.maximum,
   };
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return typeof value === "object" &&
-    value !== null &&
-    !Array.isArray(value)
-    ? value as Record<string, unknown>
-    : null;
-}
-
-
-function isFiniteNumber(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value);
 }

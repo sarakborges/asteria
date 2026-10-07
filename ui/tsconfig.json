@@ -6,8 +6,9 @@
     "moduleResolution": "Bundler",
     "strict": true,
     "noEmit": true,
+    "jsx": "react-jsx",
     "lib": ["ES2022", "DOM", "DOM.Iterable"]
   },
   "include": ["src"],
-  "exclude": ["src/**/*.stories.ts"]
+  "exclude": ["src/**/*.stories.tsx"]
 }
