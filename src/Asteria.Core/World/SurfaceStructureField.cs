@@ -28,6 +28,7 @@ public sealed class SurfaceStructureField
         ulong seed,
         DimensionDefinition dimension,
         StructureRegistry structures,
+        StructureSetRegistry structureSets,
         BlockRegistry blocks,
         FluidRegistry fluids,
         BiomeField biomes,
@@ -39,6 +40,8 @@ public sealed class SurfaceStructureField
             dimension);
         ArgumentNullException.ThrowIfNull(
             structures);
+        ArgumentNullException.ThrowIfNull(
+            structureSets);
         ArgumentNullException.ThrowIfNull(
             blocks);
         ArgumentNullException.ThrowIfNull(
@@ -82,6 +85,7 @@ public sealed class SurfaceStructureField
                         RootRule.Create(
                             generated,
                             structures,
+                            structureSets,
                             blocks,
                             fluids))
                 .ToArray();
@@ -173,9 +177,9 @@ public sealed class SurfaceStructureField
         var placements =
             ResolveConflicts(
                     direct)
-                .Select(
+                .SelectMany(
                     candidate =>
-                        candidate.Placement)
+                        candidate.Placements)
                 .Where(
                     placement =>
                         placement.IntersectsHorizontal(
@@ -276,12 +280,11 @@ public sealed class SurfaceStructureField
                             (int)cellZ);
 
                     if (candidate is null ||
-                        !candidate.Placement
-                            .IntersectsHorizontal(
-                                minimumX,
-                                minimumZ,
-                                maximumX,
-                                maximumZ))
+                        !candidate.IntersectsHorizontal(
+                            minimumX,
+                            minimumZ,
+                            maximumX,
+                            maximumZ))
                     {
                         continue;
                     }
@@ -318,10 +321,10 @@ public sealed class SurfaceStructureField
         {
             foreach (var other in
                      CollectCandidatesIntersectingBounds(
-                         candidate.Placement.MinimumX,
-                         candidate.Placement.MinimumZ,
-                         candidate.Placement.MaximumX,
-                         candidate.Placement.MaximumZ))
+                         candidate.MinimumX,
+                         candidate.MinimumZ,
+                         candidate.MaximumX,
+                         candidate.MaximumZ))
             {
                 if (SameCandidate(
                         other,
@@ -385,25 +388,6 @@ public sealed class SurfaceStructureField
             return null;
         }
 
-        var memberHash =
-            WorldGenerationEntropy.Sample2D(
-                _seed,
-                rule.VariantDomain,
-                cellX,
-                cellZ);
-        var member =
-            rule.Members[
-                checked((int)(
-                    memberHash %
-                    (ulong)rule.Members.Length))];
-        var rotation =
-            member.Definition
-                .RotationForHash(
-                    WorldGenerationEntropy.Sample2D(
-                        _seed,
-                        rule.RotationDomain,
-                        cellX,
-                        cellZ));
         var anchorX =
             CandidateAxis(
                 cellX,
@@ -443,6 +427,145 @@ public sealed class SurfaceStructureField
             return null;
         }
 
+        IReadOnlyList<SurfaceStructurePlacement>
+            placements;
+        int priority;
+        bool reserveSpace;
+        IReadOnlyList<string> conflictGroups;
+
+        if (rule.Set is
+            { } set)
+        {
+            var resolved =
+                set.Resolve(
+                    _seed,
+                    cellX,
+                    cellZ,
+                    anchorX.Value,
+                    anchorZ.Value,
+                    (member, rotation, pieceX, pieceZ) =>
+                        TryPlaceStructure(
+                            rule,
+                            member,
+                            pieceX,
+                            pieceZ,
+                            rotation));
+
+            if (resolved is null ||
+                resolved.Count == 0)
+            {
+                return null;
+            }
+
+            placements = resolved;
+            priority =
+                set.Definition.Priority;
+            reserveSpace =
+                set.Definition.ReserveSpace;
+            conflictGroups =
+                set.Definition.ConflictGroups;
+        }
+        else
+        {
+            var memberHash =
+                WorldGenerationEntropy.Sample2D(
+                    _seed,
+                    rule.VariantDomain,
+                    cellX,
+                    cellZ);
+            var member =
+                rule.Members[
+                    checked((int)(
+                        memberHash %
+                        (ulong)rule.Members.Length))];
+            var rotation =
+                member.Definition
+                    .RotationForHash(
+                        WorldGenerationEntropy.Sample2D(
+                            _seed,
+                            rule.RotationDomain,
+                            cellX,
+                            cellZ));
+            var placement =
+                TryPlaceStructure(
+                    rule,
+                    member,
+                    anchorX.Value,
+                    anchorZ.Value,
+                    rotation);
+
+            if (placement is null)
+            {
+                return null;
+            }
+
+            placements =
+            [
+                placement,
+            ];
+            priority =
+                member.Definition.Priority;
+            reserveSpace =
+                member.Definition.Generation.ReserveSpace;
+            conflictGroups =
+                member.Definition.ConflictGroups;
+        }
+
+        var minimumX =
+            placements.Min(
+                placement =>
+                    placement.MinimumX);
+        var maximumX =
+            placements.Max(
+                placement =>
+                    placement.MaximumX);
+        var minimumY =
+            placements.Min(
+                placement =>
+                    placement.MinimumY);
+        var maximumY =
+            placements.Max(
+                placement =>
+                    placement.MaximumY);
+        var minimumZ =
+            placements.Min(
+                placement =>
+                    placement.MinimumZ);
+        var maximumZ =
+            placements.Max(
+                placement =>
+                    placement.MaximumZ);
+
+        return new StructureCandidate(
+            ruleIndex,
+            cellX,
+            cellZ,
+            priority,
+            reserveSpace,
+            conflictGroups,
+            placements,
+            anchorX.Value,
+            anchorZ.Value,
+            minimumX,
+            maximumX,
+            minimumY,
+            maximumY,
+            minimumZ,
+            maximumZ);
+    }
+
+    private SurfaceStructurePlacement?
+        TryPlaceStructure(
+            RootRule rule,
+            RuntimeStructure member,
+            int anchorX,
+            int anchorZ,
+            StructureRotation rotation)
+    {
+        var anchorSurface =
+            SurfaceAt(
+                anchorX,
+                anchorZ);
         var footprint =
             member.HorizontalFootprint(
                 rotation);
@@ -458,11 +581,11 @@ public sealed class SurfaceStructureField
         {
             var x =
                 checked(
-                    anchorX.Value +
+                    anchorX +
                     offset.X);
             var z =
                 checked(
-                    anchorZ.Value +
+                    anchorZ +
                     offset.Z);
             var surface =
                 SurfaceAt(
@@ -505,11 +628,11 @@ public sealed class SurfaceStructureField
             {
                 var x =
                     checked(
-                        anchorX.Value +
+                        anchorX +
                         offset.X);
                 var z =
                     checked(
-                        anchorZ.Value +
+                        anchorZ +
                         offset.Z);
                 var surface =
                     SurfaceAt(
@@ -551,11 +674,11 @@ public sealed class SurfaceStructureField
             return null;
         }
 
-        if (member.Proximity.Any(rule =>
+        if (member.Proximity.Any(proximity =>
                 !ProximityRuleSatisfied(
-                    anchorX.Value,
-                    anchorZ.Value,
-                    rule)))
+                    anchorX,
+                    anchorZ,
+                    proximity)))
         {
             return null;
         }
@@ -563,9 +686,9 @@ public sealed class SurfaceStructureField
         var placement =
             member.Place(
                 rule.Reference,
-                anchorX.Value,
+                anchorX,
                 anchorSurface.BaseY,
-                anchorZ.Value,
+                anchorZ,
                 rotation);
 
         if (placement.MinimumY < 0 ||
@@ -592,14 +715,7 @@ public sealed class SurfaceStructureField
             return null;
         }
 
-        return new StructureCandidate(
-            ruleIndex,
-            cellX,
-            cellZ,
-            member.Definition.Priority,
-            member.Definition.Generation.ReserveSpace,
-            member.Definition.ConflictGroups,
-            placement);
+        return placement;
     }
 
     private bool GeneratedFluidExistsAt(
@@ -795,43 +911,38 @@ public sealed class SurfaceStructureField
         }
 
         var x =
-            left.Placement.AnchorX.CompareTo(
-                right.Placement.AnchorX);
+            left.AnchorX.CompareTo(
+                right.AnchorX);
         if (x != 0)
         {
             return x < 0;
         }
 
         var z =
-            left.Placement.AnchorZ.CompareTo(
-                right.Placement.AnchorZ);
+            left.AnchorZ.CompareTo(
+                right.AnchorZ);
         if (z != 0)
         {
             return z < 0;
         }
 
-        return left.Placement.MinimumY <
-               right.Placement.MinimumY;
+        return left.MinimumY <
+               right.MinimumY;
     }
 
     private static bool CandidatesConflict(
         StructureCandidate higher,
         StructureCandidate lower)
     {
-        var left =
-            higher.Placement;
-        var right =
-            lower.Placement;
-
-        if (!left.IntersectsHorizontal(
-                right.MinimumX,
-                right.MinimumZ,
-                right.MaximumX,
-                right.MaximumZ) ||
-            left.MaximumY <
-                right.MinimumY ||
-            left.MinimumY >
-                right.MaximumY)
+        if (!higher.IntersectsHorizontal(
+                lower.MinimumX,
+                lower.MinimumZ,
+                lower.MaximumX,
+                lower.MaximumZ) ||
+            higher.MaximumY <
+                lower.MinimumY ||
+            higher.MinimumY >
+                lower.MaximumY)
         {
             return false;
         }
@@ -957,7 +1068,9 @@ public sealed class SurfaceStructureField
             int spacing,
             float chance,
             int jitter,
-            RuntimeStructure[] members)
+            RuntimeStructure[] members,
+            RuntimeStructureSet? set,
+            int maximumHorizontalRadius)
         {
             Biome = biome;
             Reference = reference;
@@ -965,11 +1078,9 @@ public sealed class SurfaceStructureField
             Chance = chance;
             Jitter = jitter;
             Members = members;
+            Set = set;
             MaximumHorizontalRadius =
-                members.Max(
-                    member =>
-                        member
-                            .MaximumHorizontalRadius);
+                maximumHorizontalRadius;
             var prefix =
                 $"surface-structure/{biome}/{reference}/v1/";
             PresenceDomain =
@@ -1006,6 +1117,8 @@ public sealed class SurfaceStructureField
 
         public RuntimeStructure[] Members { get; }
 
+        public RuntimeStructureSet? Set { get; }
+
         public int MaximumHorizontalRadius { get; }
 
         public GenerationDomain PresenceDomain { get; }
@@ -1021,9 +1134,33 @@ public sealed class SurfaceStructureField
         public static RootRule Create(
             DimensionGeneratedSurfaceStructureDefinition generated,
             StructureRegistry structures,
+            StructureSetRegistry structureSets,
             BlockRegistry blocks,
             FluidRegistry fluids)
         {
+            if (structureSets.TryGet(
+                    generated.Structure,
+                    out var setDefinition))
+            {
+                var set =
+                    RuntimeStructureSet.Create(
+                        setDefinition,
+                        structures,
+                        blocks,
+                        fluids,
+                        $"{generated.Biome}/{generated.Structure}");
+
+                return new RootRule(
+                    generated.Biome,
+                    generated.Structure,
+                    generated.Spacing,
+                    generated.Chance,
+                    generated.Jitter,
+                    Array.Empty<RuntimeStructure>(),
+                    set,
+                    set.MaximumHorizontalRadius);
+            }
+
             var members =
                 structures
                     .ResolveReference(
@@ -1042,7 +1179,11 @@ public sealed class SurfaceStructureField
                 generated.Spacing,
                 generated.Chance,
                 generated.Jitter,
-                members);
+                members,
+                null,
+                members.Max(
+                    member =>
+                        member.MaximumHorizontalRadius));
         }
     }
 
@@ -1053,7 +1194,590 @@ public sealed class SurfaceStructureField
         int Priority,
         bool ReserveSpace,
         IReadOnlyList<string> ConflictGroups,
-        SurfaceStructurePlacement Placement);
+        IReadOnlyList<SurfaceStructurePlacement> Placements,
+        int AnchorX,
+        int AnchorZ,
+        int MinimumX,
+        int MaximumX,
+        int MinimumY,
+        int MaximumY,
+        int MinimumZ,
+        int MaximumZ)
+    {
+        public bool IntersectsHorizontal(
+            int minimumX,
+            int minimumZ,
+            int maximumX,
+            int maximumZ) =>
+            MinimumX <= maximumX &&
+            MaximumX >= minimumX &&
+            MinimumZ <= maximumZ &&
+            MaximumZ >= minimumZ;
+    }
+
+    private delegate SurfaceStructurePlacement?
+        SetPieceResolver(
+            RuntimeStructure member,
+            StructureRotation rotation,
+            int anchorX,
+            int anchorZ);
+
+    private sealed class RuntimeStructureSet
+    {
+        private const ulong ElementHashSalt =
+            0x9e37_79b1_85eb_ca87UL;
+        private const ulong InstanceHashSalt =
+            0xc2b2_ae3d_27d4_eb4fUL;
+        private const ulong AttemptHashSalt =
+            0x1656_67b1_9e37_79f9UL;
+
+        private readonly RuntimeSetElement[] _elements;
+
+        private RuntimeStructureSet(
+            StructureSetDefinition definition,
+            RuntimeSetElement[] elements,
+            int maximumHorizontalRadius)
+        {
+            Definition = definition;
+            _elements = elements;
+            MaximumHorizontalRadius =
+                maximumHorizontalRadius;
+        }
+
+        public StructureSetDefinition Definition { get; }
+
+        public int MaximumHorizontalRadius { get; }
+
+        public IReadOnlyList<SurfaceStructurePlacement>?
+            Resolve(
+                ulong seed,
+                int cellX,
+                int cellZ,
+                int rootX,
+                int rootZ,
+                SetPieceResolver resolvePiece)
+        {
+            var resolved =
+                new List<SurfaceStructurePlacement>();
+            var anchorsByElement =
+                new Dictionary<
+                    string,
+                    List<(int X, int Z)>>(
+                    StringComparer.Ordinal);
+            var allAnchors =
+                new List<(int X, int Z)>();
+
+            for (var elementIndex = 0;
+                 elementIndex < _elements.Length;
+                 elementIndex++)
+            {
+                var element =
+                    _elements[elementIndex];
+                var elementHash =
+                    Avalanche(
+                        WorldGenerationEntropy.Sample2D(
+                            seed,
+                            element.Domain,
+                            cellX,
+                            cellZ) ^
+                        (ulong)elementIndex *
+                        ElementHashSalt);
+
+                if (!ChanceSelects(
+                        element.Definition.Chance,
+                        elementHash))
+                {
+                    if (element.Definition.Required &&
+                        element.Definition.Count.Minimum >
+                        0)
+                    {
+                        return null;
+                    }
+
+                    anchorsByElement.Add(
+                        element.Definition.Id,
+                        []);
+                    continue;
+                }
+
+                var targetCount =
+                    ChooseCount(
+                        element.Definition.Count,
+                        elementHash);
+                var placedForElement =
+                    new List<(int X, int Z)>();
+
+                for (var instance = 0;
+                     instance < targetCount;
+                     instance++)
+                {
+                    var instanceHash =
+                        Avalanche(
+                            elementHash ^
+                            (ulong)(instance + 1) *
+                            InstanceHashSalt);
+                    var member =
+                        element.Variants[
+                            checked((int)(
+                                instanceHash %
+                                (ulong)element.Variants.Length))];
+                    var rotation =
+                        member.Definition.RotationForHash(
+                            RotateLeft(
+                                instanceHash,
+                                23));
+                    SurfaceStructurePlacement?
+                        accepted =
+                            null;
+
+                    for (var attempt = 0;
+                         attempt <
+                             element.Definition
+                                 .Placement
+                                 .Attempts;
+                         attempt++)
+                    {
+                        var attemptHash =
+                            Avalanche(
+                                instanceHash ^
+                                (ulong)(attempt + 1) *
+                                AttemptHashSalt);
+                        var reference =
+                            ResolveReferenceAnchor(
+                                element.Definition
+                                    .Placement
+                                    .RelativeTo,
+                                rootX,
+                                rootZ,
+                                allAnchors,
+                                anchorsByElement,
+                                attemptHash);
+
+                        if (reference is null)
+                        {
+                            continue;
+                        }
+
+                        var offset =
+                            AnnulusOffset(
+                                RotateLeft(
+                                    attemptHash,
+                                    13),
+                                element.Definition
+                                    .Placement
+                                    .MinimumDistance,
+                                element.Definition
+                                    .Placement
+                                    .MaximumDistance);
+
+                        if (offset is null)
+                        {
+                            continue;
+                        }
+
+                        var anchorX =
+                            (long)reference.Value.X +
+                            offset.Value.X;
+                        var anchorZ =
+                            (long)reference.Value.Z +
+                            offset.Value.Z;
+
+                        if (anchorX is <
+                                int.MinValue or
+                                > int.MaxValue ||
+                            anchorZ is <
+                                int.MinValue or
+                                > int.MaxValue)
+                        {
+                            continue;
+                        }
+
+                        var candidateAnchor =
+                            (
+                                X: (int)anchorX,
+                                Z: (int)anchorZ);
+
+                        if (!SeparationSatisfied(
+                                candidateAnchor,
+                                allAnchors,
+                                element.Definition
+                                    .Placement
+                                    .MinimumSeparation))
+                        {
+                            continue;
+                        }
+
+                        var placement =
+                            resolvePiece(
+                                member,
+                                rotation,
+                                candidateAnchor.X,
+                                candidateAnchor.Z);
+
+                        if (placement is null)
+                        {
+                            continue;
+                        }
+
+                        if (!element.Definition
+                                .Placement
+                                .AllowOverlap &&
+                            resolved.Any(existing =>
+                                RectanglesOverlap(
+                                    placement.MinimumX,
+                                    placement.MinimumZ,
+                                    placement.MaximumX,
+                                    placement.MaximumZ,
+                                    existing.MinimumX,
+                                    existing.MinimumZ,
+                                    existing.MaximumX,
+                                    existing.MaximumZ)))
+                        {
+                            continue;
+                        }
+
+                        accepted =
+                            placement;
+                        break;
+                    }
+
+                    if (accepted is null)
+                    {
+                        continue;
+                    }
+
+                    placedForElement.Add(
+                        (
+                            accepted.AnchorX,
+                            accepted.AnchorZ));
+                    allAnchors.Add(
+                        (
+                            accepted.AnchorX,
+                            accepted.AnchorZ));
+                    resolved.Add(
+                        accepted);
+                }
+
+                if (element.Definition.Required &&
+                    placedForElement.Count <
+                        element.Definition.Count.Minimum)
+                {
+                    return null;
+                }
+
+                anchorsByElement.Add(
+                    element.Definition.Id,
+                    placedForElement);
+            }
+
+            return resolved.Count > 0
+                ? resolved
+                : null;
+        }
+
+        public static RuntimeStructureSet Create(
+            StructureSetDefinition definition,
+            StructureRegistry structures,
+            BlockRegistry blocks,
+            FluidRegistry fluids,
+            string domainSuffix)
+        {
+            var anchorRadii =
+                new Dictionary<string, int>(
+                    StringComparer.Ordinal);
+            var maximumPriorAnchorRadius =
+                0;
+            var maximumHorizontalRadius =
+                0;
+            var elements =
+                new RuntimeSetElement[
+                    definition.Elements.Count];
+
+            for (var index = 0;
+                 index < definition.Elements.Count;
+                 index++)
+            {
+                var element =
+                    definition.Elements[index];
+                var variants =
+                    structures
+                        .ResolveReference(
+                            element.Structure)
+                        .Select(
+                            structure =>
+                                new RuntimeStructure(
+                                    structure,
+                                    blocks,
+                                    fluids))
+                        .ToArray();
+                var baseRadius =
+                    element.Placement.RelativeTo switch
+                    {
+                        "origin" =>
+                            0,
+                        "any" =>
+                            maximumPriorAnchorRadius,
+                        var relativeTo =>
+                            anchorRadii[
+                                relativeTo],
+                    };
+                var anchorRadius =
+                    checked(
+                        baseRadius +
+                        element.Placement
+                            .MaximumDistance);
+                var memberRadius =
+                    variants.Max(
+                        variant =>
+                            variant.MaximumHorizontalRadius);
+                maximumHorizontalRadius =
+                    Math.Max(
+                        maximumHorizontalRadius,
+                        checked(
+                            anchorRadius +
+                            memberRadius));
+                anchorRadii.Add(
+                    element.Id,
+                    anchorRadius);
+                maximumPriorAnchorRadius =
+                    Math.Max(
+                        maximumPriorAnchorRadius,
+                        anchorRadius);
+                elements[index] =
+                    new RuntimeSetElement(
+                        element,
+                        variants,
+                        GenerationDomain.Named(
+                            $"structure/set/element/v1/{domainSuffix}/{element.Id}"));
+            }
+
+            return new RuntimeStructureSet(
+                definition,
+                elements,
+                maximumHorizontalRadius);
+        }
+
+        private static int ChooseCount(
+            StructureSetCountDefinition count,
+            ulong hash)
+        {
+            if (count.Minimum ==
+                count.Maximum)
+            {
+                return count.Minimum;
+            }
+
+            var span =
+                checked(
+                    count.Maximum -
+                    count.Minimum +
+                    1);
+
+            return checked(
+                count.Minimum +
+                (int)(
+                    Avalanche(
+                        RotateLeft(
+                            hash,
+                            31)) %
+                    (ulong)span));
+        }
+
+        private static (int X, int Z)?
+            ResolveReferenceAnchor(
+                string relativeTo,
+                int rootX,
+                int rootZ,
+                IReadOnlyList<(int X, int Z)> allAnchors,
+                IReadOnlyDictionary<
+                    string,
+                    List<(int X, int Z)>> anchorsByElement,
+                ulong hash)
+        {
+            if (relativeTo ==
+                "origin")
+            {
+                return (
+                    rootX,
+                    rootZ);
+            }
+
+            if (relativeTo ==
+                "any")
+            {
+                return allAnchors.Count == 0
+                    ? (
+                        rootX,
+                        rootZ)
+                    : allAnchors[
+                        checked((int)(
+                            hash %
+                            (ulong)allAnchors.Count))];
+            }
+
+            if (!anchorsByElement.TryGetValue(
+                    relativeTo,
+                    out var anchors) ||
+                anchors.Count == 0)
+            {
+                return null;
+            }
+
+            return anchors[
+                checked((int)(
+                    hash %
+                    (ulong)anchors.Count))];
+        }
+
+        private static (int X, int Z)?
+            AnnulusOffset(
+                ulong hash,
+                int minimumDistance,
+                int maximumDistance)
+        {
+            if (maximumDistance == 0)
+            {
+                return minimumDistance == 0
+                    ? (
+                        0,
+                        0)
+                    : null;
+            }
+
+            var diameter =
+                (long)maximumDistance *
+                2L +
+                1L;
+            var x =
+                (long)(
+                    hash %
+                    (ulong)diameter) -
+                maximumDistance;
+            var zHash =
+                Avalanche(
+                    RotateLeft(
+                        hash,
+                        29));
+            var z =
+                (long)(
+                    zHash %
+                    (ulong)diameter) -
+                maximumDistance;
+            var squared =
+                x *
+                x +
+                z *
+                z;
+            var minimumSquared =
+                (long)minimumDistance *
+                minimumDistance;
+            var maximumSquared =
+                (long)maximumDistance *
+                maximumDistance;
+
+            if (squared <
+                    minimumSquared ||
+                squared >
+                    maximumSquared)
+            {
+                return null;
+            }
+
+            return (
+                checked((int)x),
+                checked((int)z));
+        }
+
+        private static bool SeparationSatisfied(
+            (int X, int Z) anchor,
+            IReadOnlyList<(int X, int Z)> existing,
+            int minimumSeparation)
+        {
+            if (minimumSeparation == 0)
+            {
+                return true;
+            }
+
+            var minimumSquared =
+                (long)minimumSeparation *
+                minimumSeparation;
+
+            return existing.All(other =>
+            {
+                var dx =
+                    (long)anchor.X -
+                    other.X;
+                var dz =
+                    (long)anchor.Z -
+                    other.Z;
+
+                return dx *
+                       dx +
+                       dz *
+                       dz >=
+                       minimumSquared;
+            });
+        }
+
+        private static bool RectanglesOverlap(
+            int leftMinimumX,
+            int leftMinimumZ,
+            int leftMaximumX,
+            int leftMaximumZ,
+            int rightMinimumX,
+            int rightMinimumZ,
+            int rightMaximumX,
+            int rightMaximumZ) =>
+            leftMinimumX <=
+                rightMaximumX &&
+            leftMaximumX >=
+                rightMinimumX &&
+            leftMinimumZ <=
+                rightMaximumZ &&
+            leftMaximumZ >=
+                rightMinimumZ;
+
+        private static bool ChanceSelects(
+            float chance,
+            ulong value) =>
+            chance >= 1f ||
+            chance > 0f &&
+            WorldGenerationEntropy.Unit(
+                value) <
+            chance;
+
+        private static ulong RotateLeft(
+            ulong value,
+            int count) =>
+            value <<
+                count |
+            value >>
+                (64 -
+                 count);
+
+        private static ulong Avalanche(
+            ulong value)
+        {
+            value ^=
+                value >>
+                30;
+            value *=
+                0xbf58_476d_1ce4_e5b9UL;
+            value ^=
+                value >>
+                27;
+            value *=
+                0x94d0_49bb_1331_11ebUL;
+            return value ^
+                   value >>
+                       31;
+        }
+
+        private sealed record RuntimeSetElement(
+            StructureSetElementDefinition Definition,
+            RuntimeStructure[] Variants,
+            GenerationDomain Domain);
+    }
 
     private sealed record RuntimeProximityRule(
         StructureProximityMode Mode,

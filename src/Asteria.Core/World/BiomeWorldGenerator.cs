@@ -10,6 +10,8 @@ public sealed class BiomeWorldGenerator :
 {
     private static readonly FluidRegistry EmptyFluids =
         new(Array.Empty<FluidDefinition>());
+    private static readonly StructureSetRegistry EmptyStructureSets =
+        StructureSetRegistry.Empty;
 
     private readonly SurfaceTerrainField _terrain;
     private readonly SurfaceTerrainColumnCache _surfaceColumns;
@@ -30,7 +32,8 @@ public sealed class BiomeWorldGenerator :
             blocks,
             EmptyFluids,
             biomes,
-            StructureRegistry.Empty)
+            StructureRegistry.Empty,
+            EmptyStructureSets)
     {
     }
 
@@ -46,7 +49,8 @@ public sealed class BiomeWorldGenerator :
             blocks,
             fluids,
             biomes,
-            StructureRegistry.Empty)
+            StructureRegistry.Empty,
+            EmptyStructureSets)
     {
     }
 
@@ -57,15 +61,37 @@ public sealed class BiomeWorldGenerator :
         FluidRegistry fluids,
         BiomeRegistry biomes,
         StructureRegistry structures)
+        : this(
+            seed,
+            dimension,
+            blocks,
+            fluids,
+            biomes,
+            structures,
+            EmptyStructureSets)
+    {
+    }
+
+    public BiomeWorldGenerator(
+        ulong seed,
+        DimensionDefinition dimension,
+        BlockRegistry blocks,
+        FluidRegistry fluids,
+        BiomeRegistry biomes,
+        StructureRegistry structures,
+        StructureSetRegistry structureSets)
     {
         ArgumentNullException.ThrowIfNull(dimension);
         ArgumentNullException.ThrowIfNull(blocks);
         ArgumentNullException.ThrowIfNull(fluids);
         ArgumentNullException.ThrowIfNull(biomes);
         ArgumentNullException.ThrowIfNull(structures);
+        ArgumentNullException.ThrowIfNull(structureSets);
         biomes.ValidateBlocks(blocks);
         structures.ValidateBlocks(blocks);
         structures.ValidateFluids(fluids);
+        structureSets.ValidateStructures(
+            structures);
 
         DimensionId =
             dimension.Id;
@@ -137,6 +163,7 @@ public sealed class BiomeWorldGenerator :
                 seed,
                 dimension,
                 structures,
+                structureSets,
                 blocks,
                 fluids,
                 Biomes,
