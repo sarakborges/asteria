@@ -127,6 +127,30 @@ public sealed class BiomeRegistry
         }
     }
 
+    public void ValidateFluids(
+        FluidRegistry fluids)
+    {
+        ArgumentNullException.ThrowIfNull(fluids);
+
+        foreach (var definition in
+                 _definitions)
+        {
+            if (definition.SurfaceFluid is
+                not { } surfaceFluid)
+            {
+                continue;
+            }
+
+            if (!fluids.TryGetId(
+                    surfaceFluid.Fluid,
+                    out _))
+            {
+                throw new ArgumentException(
+                    $"Biome {definition.Id} references missing fluid {surfaceFluid.Fluid}.");
+            }
+        }
+    }
+
     private void ValidateReferences()
     {
         foreach (var definition in

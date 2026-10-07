@@ -2,7 +2,8 @@ namespace Asteria.Core.World;
 
 public readonly record struct BiomeInfluence(
     string BiomeId,
-    float Weight);
+    float Weight,
+    float TerrainStrength = 1f);
 
 public sealed class BiomeSample
 {
@@ -31,13 +32,18 @@ public sealed class BiomeSample
     public IReadOnlyList<BiomeInfluence> Influences { get; }
 
     public float PrimaryWeight =>
+        PrimaryInfluence.Weight;
+
+    public float PrimaryTerrainStrength =>
+        PrimaryInfluence.TerrainStrength;
+
+    private BiomeInfluence PrimaryInfluence =>
         Influences
             .First(influence =>
                 string.Equals(
                     influence.BiomeId,
                     Primary,
-                    StringComparison.Ordinal))
-            .Weight;
+                    StringComparison.Ordinal));
 }
 
 public sealed record SurfaceBiomeSearchResult(
@@ -553,6 +559,14 @@ public sealed class BiomeField
                     _rules.Length];
         bestScores.Fill(
             double.NegativeInfinity);
+        Span<FormationSeed> bestSeeds =
+            _rules.Length <= 64
+                ? stackalloc FormationSeed[_rules.Length]
+                : new FormationSeed[_rules.Length];
+        Span<byte> hasBestSeed =
+            _rules.Length <= 64
+                ? stackalloc byte[_rules.Length]
+                : new byte[_rules.Length];
 
         for (var dz =
                  -CandidateRadiusBuckets;
@@ -592,6 +606,12 @@ public sealed class BiomeField
                     bestScores[
                         seed.Assignment.Rule] =
                         score;
+                    bestSeeds[
+                        seed.Assignment.Rule] =
+                        seed;
+                    hasBestSeed[
+                        seed.Assignment.Rule] =
+                        1;
                 }
             }
         }
@@ -637,7 +657,8 @@ public sealed class BiomeField
         var weighted =
             new List<(
                 int Rule,
-                double Weight)>(
+                double Weight,
+                double TerrainStrength)>(
                 _rules.Length);
         var total =
             0d;
@@ -671,10 +692,20 @@ public sealed class BiomeField
                 WorldGenerationEntropy
                     .SmoothStep(
                         proximity);
+            if (hasBestSeed[rule] == 0)
+            {
+                throw new InvalidOperationException(
+                    "Biome score is missing its formation seed.");
+            }
+
             weighted.Add(
                 (
                     rule,
-                    weight));
+                    weight,
+                    FormationStrength(
+                        bestSeeds[rule].Assignment,
+                        warpedX,
+                        warpedZ)));
             total += weight;
         }
 
@@ -715,7 +746,9 @@ public sealed class BiomeField
                             entry.Rule].Id,
                         checked((float)(
                             entry.Weight /
-                            total))))
+                            total)),
+                        checked((float)
+                            entry.TerrainStrength)))
                 .ToArray();
 
         return new BiomeSample(
@@ -1279,6 +1312,77 @@ public sealed class BiomeField
         return (
             baseX + jitterX,
             baseZ + jitterZ);
+    }
+
+    private double FormationStrength(
+        SeedAssignment assignment,
+        double x,
+        double z)
+    {
+        var (centerX, centerZ) =
+            SeedCenter(
+                assignment.Root);
+        var dx =
+            x -
+            centerX;
+        var dz =
+            z -
+            centerZ;
+        var distance =
+            Math.Sqrt(
+                dx * dx +
+                dz * dz);
+        var angle =
+            Math.Atan2(
+                dz,
+                dx);
+        var phaseA =
+            WorldGenerationEntropy
+                .Unit(
+                    WorldGenerationEntropy
+                        .Sample2D(
+                            _seed,
+                            _shapeADomain,
+                            assignment.Root.X,
+                            assignment.Root.Z)) *
+            Math.Tau;
+        var phaseB =
+            WorldGenerationEntropy
+                .Unit(
+                    WorldGenerationEntropy
+                        .Sample2D(
+                            _seed,
+                            _shapeBDomain,
+                            assignment.Root.X,
+                            assignment.Root.Z)) *
+            Math.Tau;
+        var shape =
+            1d +
+            0.13d *
+            Math.Sin(
+                angle * 3d +
+                phaseA) +
+            0.07d *
+            Math.Sin(
+                angle * 5d +
+                phaseB);
+        var radius =
+            Math.Max(
+                _seedSpacing,
+                assignment.TargetSpan) *
+            0.5d *
+            shape;
+
+        if (radius <= 0d)
+        {
+            return 0d;
+        }
+
+        return WorldGenerationEntropy
+            .SmoothStep(
+                1d -
+                distance /
+                radius);
     }
 
     private double SeedScore(
