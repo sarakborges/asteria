@@ -35,6 +35,7 @@ public sealed class BiomeWorldGenerationTests
                      "asteria:overworld/alps",
                      "asteria:overworld/arctic",
                      "asteria:overworld/enchanted_forest",
+                     "asteria:overworld/floating_islands",
                      "asteria:overworld/gorge",
                      "asteria:overworld/mountain_belt",
                      "asteria:overworld/mountains",
@@ -61,6 +62,18 @@ public sealed class BiomeWorldGenerationTests
                 "asteria:mushroom_brown");
         Assert.NotNull(
             swamp.SurfaceLayers[0].Patch);
+
+        var floating =
+            biomes.Get(
+                "asteria:overworld/floating_islands");
+        Assert.NotNull(
+            floating.Terrain3d?.FloatingFormation);
+        Assert.Equal(
+            200,
+            floating.Terrain3d!.FloatingFormation!.MinY);
+        Assert.Equal(
+            280,
+            floating.Terrain3d.FloatingFormation.MaxY);
 
         Assert.Equal(
             new[]
