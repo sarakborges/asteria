@@ -2,24 +2,32 @@ using System.Collections.ObjectModel;
 
 namespace Asteria.Core.World;
 
-public readonly record struct StructureSetCount(
-    int Min,
-    int Max)
+public readonly record struct StructureSetCount
 {
+    public StructureSetCount(
+        int min,
+        int max)
+    {
+        if (min < 0 ||
+            max < min)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(min),
+                "StructureSet count must satisfy 0 <= min <= max.");
+        }
+
+        Min = min;
+        Max = max;
+    }
+
     public static StructureSetCount One { get; } =
         new(
             1,
             1);
 
-    public StructureSetCount
-    {
-        if (Min < 0 || Max < Min)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(Min),
-                "StructureSet count must satisfy 0 <= min <= max.");
-        }
-    }
+    public int Min { get; }
+
+    public int Max { get; }
 }
 
 public sealed class StructureSetElementPlacementDefinition
