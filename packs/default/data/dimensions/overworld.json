@@ -93,13 +93,6 @@
       "jitter": 15
     },
     {
-      "biome": "asteria:overworld/enchanted_forest",
-      "structure": "asteria:boulder_small",
-      "spacing": 48,
-      "chance": 0.2,
-      "jitter": 14
-    },
-    {
       "biome": "asteria:overworld/wasteland",
       "structure": "asteria:boulder_small",
       "spacing": 24,
