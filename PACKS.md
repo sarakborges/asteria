@@ -49,6 +49,8 @@ External packs must never require:
 
 Built-in packs follow the same rule as external packs: Godot-generated sidecars and import metadata are forbidden inside `packs/`. The repository root contains `packs/.gdignore`, so Godot must not scan or import pack contents. Runtime pack loaders resolve validated pack-relative paths and read authored files directly from the filesystem; rendering adapters create runtime Godot resources from those decoded files when needed.
 
+Because Godot intentionally excludes `.gdignore` trees from normal resource export, desktop/release packaging must ship the selected pack tree as ordinary files rather than relying on the PCK resource importer. This is deliberate: Asteria packs remain externally inspectable/selectable content, not compiled Godot resources.
+
 ## 3. Manifest
 
 Each pack has one manifest at `packs/{name}/pack.json`:
