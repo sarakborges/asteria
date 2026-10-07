@@ -274,6 +274,122 @@ public sealed class GeneratedSurfaceFluidTests
     }
 
     [Fact]
+    public void SwampTerrainUsesStaticSeaFill()
+    {
+        var fluids =
+            new FluidRegistry(
+            [
+                new FluidDefinition(
+                    "asteria:water",
+                    new FluidColor(
+                        79,
+                        159,
+                        214),
+                    0.72f),
+            ]);
+        var biome =
+            new BiomeDefinition(
+                "asteria:test/swamp",
+                new BiomeSurfaceLayoutDefinition(),
+                new BiomeTerrainDefinition(
+                    new BiomeSwampTerrainShapeDefinition(
+                        baseHeight: 0.9f,
+                        depth: 4.8f,
+                        amplitude: 0.7f,
+                        scale: 0.0065f,
+                        detailAmplitude: 0.4f,
+                        detailScale: 0.045f)),
+                [
+                    new BiomeSurfaceLayerDefinition(
+                        "asteria:stone"),
+                ]);
+        var dimension =
+            new DimensionDefinition(
+                new DimensionId(
+                    "asteria:test"),
+                [
+                    biome.Id,
+                ],
+                seaLevel: 32,
+                gravityStrength: 18f,
+                new DimensionSpawnDefinition(
+                    0,
+                    0),
+                new DimensionEnvironmentDefinition(
+                    new DimensionColor(
+                        0,
+                        0,
+                        0),
+                    new DimensionColor(
+                        255,
+                        255,
+                        255),
+                    1f,
+                    new DimensionColor(
+                        0,
+                        0,
+                        0),
+                    0f),
+                generatedOcean:
+                    new DimensionGeneratedOceanDefinition(
+                        biome.Id,
+                        "asteria:water"));
+        var field =
+            new GeneratedFluidField(
+                91UL,
+                dimension,
+                fluids,
+                [
+                    biome,
+                ]);
+        var sample =
+            new BiomeSample(
+                biome.Id,
+                [
+                    new BiomeInfluence(
+                        biome.Id,
+                        1f,
+                        1f),
+                ]);
+
+        Assert.True(
+            field.TryGetColumnBounds(
+                sample,
+                baseSurfaceY: 28,
+                surfaceCutDepth: 0,
+                worldX: 7,
+                worldZ: 11,
+                out var minimumY,
+                out var maximumY));
+        Assert.Equal(
+            29,
+            minimumY);
+        Assert.Equal(
+            32,
+            maximumY);
+        Assert.Equal(
+            fluids.GetId(
+                "asteria:water"),
+            field.FluidAtEmptyVoxel(
+                    sample,
+                    28,
+                    0,
+                    7,
+                    32,
+                    11)
+                .Fluid);
+        Assert.True(
+            field.FluidAtEmptyVoxel(
+                    sample,
+                    28,
+                    0,
+                    7,
+                    33,
+                    11)
+                .IsEmpty);
+    }
+
+    [Fact]
     public void DefaultBiomePackRestoresMineCloneTerrainTypes()
     {
         var biomes =
