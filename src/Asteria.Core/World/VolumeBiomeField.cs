@@ -108,7 +108,32 @@ public sealed class VolumeBiomeField
             return null;
         }
 
-        return sample;
+        var ownedInfluences =
+            sample.Influences
+                .Where(influence =>
+                    _formations.ContainsKey(
+                        influence.BiomeId))
+                .ToArray();
+        var total =
+            ownedInfluences.Sum(
+                influence =>
+                    influence.Weight);
+
+        if (total <= 0f)
+        {
+            throw new InvalidOperationException(
+                "Volume biome placement selected an owner without a volume influence.");
+        }
+
+        return new BiomeSample(
+            sample.Primary,
+            ownedInfluences
+                .Select(influence =>
+                    new BiomeInfluence(
+                        influence.BiomeId,
+                        influence.Weight /
+                        total))
+                .ToArray());
     }
 
     internal BiomeSample? SamplePlacement(
