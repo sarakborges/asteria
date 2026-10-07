@@ -213,7 +213,7 @@ Connector faces are `right`, `left`, `top`, `bottom`, `front`, or `back`. Output
 
 Structures may additionally author bounded `restrictions.proximity` rules. Each rule targets exactly one block or fluid, uses mode `required` or `forbidden`, has a required `maxDistance` capped at 64, and may set `minDistance` to form an annulus. Block targets query the authoritative exposed surface material; fluid targets query the existing generated-fluid owner one voxel above the target column's base surface. Proximity never creates terrain or fluid and does not introduce a hydrology subsystem.
 
-The Structure contract still deliberately does **not** support MineClone object attachments or Structure-authored surface-layer decorators; those require their own explicit owners before import. StructureSets, connector chains, Structure-owned source-fluid payloads and explicit clear cells are supported. Unsupported palette/template fields fail validation instead of being silently ignored. The default pack currently ports the four MineClone boulder geometries, four oak-tree block variants, three willow-tree block variants, and the 27 connected-water Structure variants used by lakes, mountain ponds, mountain waterfalls, river lakes, river segments and the ocean-margin river mouth. Plains references `asteria:lake`, while Mountains/Alps/Mountain Belt reference `asteria:mountain_waterfall`; Ocean references `asteria:river_ocean_mouth` with `biomeMargin`. River/lake/waterfall/pond expansion stays entirely inside generic Structure groups/connectors—no hydrology subsystem exists. Stick object cells and willow moss surface layers remain omitted. Willow preserves MineClone's required water proximity of 1..12 blocks. Because swamp does not yet author its separate generated puddle/fluid feature, current willow water proximity is satisfied only by water that actually exists through the present concrete fluid-generation owners. The inactive Enchanted Forest root is not imported into active Overworld rules.
+The Structure contract still deliberately does **not** support MineClone object attachments or Structure-authored surface-layer decorators; those require their own explicit owners before import. StructureSets, connector chains, Structure-owned source-fluid payloads and explicit clear cells are supported. Unsupported palette/template fields fail validation instead of being silently ignored. The default pack currently ports the four MineClone boulder geometries, four oak-tree block variants, three willow-tree block variants, and the 27 connected-water Structure variants used by lakes, mountain ponds, mountain waterfalls, river lakes, river segments and the ocean-margin river mouth. Plains references `asteria:lake`, while Mountains/Alps/Mountain Belt reference `asteria:mountain_waterfall`; Ocean references `asteria:river_ocean_mouth` with `biomeMargin`. River/lake/waterfall/pond expansion stays entirely inside generic Structure groups/connectors—no hydrology subsystem exists. Stick object cells and willow moss surface layers remain omitted. Willow preserves MineClone's required water proximity of 1..12 blocks. Swamp puddles are authored through the dimension's bounded generated-surface-fluid rule, so willow proximity can resolve against actual generated swamp water. The inactive Enchanted Forest root is not imported into active Overworld rules.
 
 A Sphere may define one explicit generated ocean rule:
 
@@ -232,6 +232,26 @@ A Sphere may define one explicit generated ocean rule:
 ```
 
 The referenced biome must be in that Sphere's `surfaceBiomes` pool and the referenced fluid must exist in the selected pack. Ocean fill is generation-time content, not a separate hydrology layer: only columns whose authoritative primary biome matches the rule are filled, only density-empty voxels above the base terrain are eligible, and fill stops at `seaLevel` (or below an authored Sphere roof). Generated cells are normal full source fluid cells and enter the existing runtime fluid simulation after residency. Caves below the base terrain are not flooded by this rule.
+
+A Sphere may also define bounded `generatedSurfaceFluids` for shallow local pools owned by a surface biome:
+
+```json
+"generatedSurfaceFluids": [
+  {
+    "biome": "asteria:overworld/swamp",
+    "fluid": "asteria:water",
+    "spacing": 18,
+    "radius": 5,
+    "jitter": 3,
+    "chance": 0.75,
+    "depth": 1
+  }
+]
+```
+
+Each surface biome may have at most one local rule. `spacing` is 2..512, `radius` is 1..256, `jitter` cannot exceed half the spacing, `radius + jitter` cannot exceed spacing, `chance` is within `(0, 1]`, and `depth` is 1..4. Presence is a deterministic world-space lattice patch derived only from the dimension seed, biome ID and coordinates. `GeneratedFluidField` owns patch presence/fluid identity and returns the shallow cut depth; `SurfaceTerrainField` applies that cut to its authoritative base surface and stores the resolved cut in the column snapshot. `SurfaceChunkMaterializer` then fills only the matching cut's density-empty cells with full source fluid cells. Ground decorators are suppressed inside a resolved cut so they cannot occupy the reserved pool volume. Runtime fluid simulation owns behavior after residency. No hydrology owner is introduced.
+
+The default Overworld ports MineClone's authored swamp water puddles (`18/5/3/0.75/depth 1`) and volcano lava pools (`96/10/12/0.4/depth 2`).
 
 `shore` is the terrain-side coastal profile for that generated ocean. `shelfDepth` is the shallow shelf depth below sea level and `beachHeight` is the dry beach floor above sea level. The three dominance values are normalized pairwise ocean-vs-strongest-neighbor blend thresholds and must satisfy `0.5 < beachStartDominance < shelfStartDominance < deepWaterStartDominance <= 1`. The coast is reshaped continuously on both sides of the biome boundary so the ocean-owned sand surface becomes dry before ownership changes to the neighboring biome.
 
