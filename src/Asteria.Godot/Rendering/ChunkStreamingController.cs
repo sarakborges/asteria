@@ -63,7 +63,7 @@ public sealed class ChunkStreamingController
 {
     private readonly ChunkResidencyRuntime _residency;
     private readonly ChunkPresentationController _presentations;
-    private readonly ChunkSurfaceRangeWindow _surfaceRanges;
+    private readonly ChunkStreamingSelectionRuntime _selection;
     private readonly ChunkStreamingControllerSettings _settings;
 
     public ChunkStreamingController(
@@ -78,8 +78,8 @@ public sealed class ChunkStreamingController
         _presentations =
             presentations ??
             throw new ArgumentNullException(nameof(presentations));
-        _surfaceRanges =
-            new ChunkSurfaceRangeWindow(
+        _selection =
+            new ChunkStreamingSelectionRuntime(
                 surfaceRanges ??
                 throw new ArgumentNullException(
                     nameof(surfaceRanges)));
@@ -88,42 +88,73 @@ public sealed class ChunkStreamingController
             throw new ArgumentNullException(nameof(settings));
     }
 
+    public bool IsSelectionRunning =>
+        _selection.IsRunning;
+
+    public void BeginRetirement() =>
+        _selection.BeginRetirement();
+
+    public bool TryDrainSelection(
+        out Exception? error) =>
+        _selection.TryPollCompleted(
+            out _,
+            out error);
+
     public ChunkStreamingSelectionReport SyncSelection(
         ChunkCoord center)
     {
-        if (!_residency.SelectionNeedsRebuild(
+        var changed = false;
+        var radius =
+            _settings.RenderDistanceChunks;
+        var retentionRadius =
+            radius +
+            _settings.RetentionMarginChunks;
+
+        if (_residency.SelectionNeedsRebuild(
                 center,
-                _settings.RenderDistanceChunks))
+                radius))
         {
-            return new ChunkStreamingSelectionReport(
-                false,
+            var bootstrap =
+                ChunkStreamingSelection
+                    .DesiredPlayerLocalChunks(
+                        center,
+                        radius);
+            changed =
+                _residency.SyncSelection(
+                    center,
+                    radius,
+                    retentionRadius,
+                    bootstrap,
+                    _presentations.Coordinates);
+            _selection.Request(
                 center,
-                _residency.DesiredCount,
-                _residency.RetainedCount,
-                _residency.PendingCount,
-                _residency.MovementDirection);
+                radius);
         }
 
-        _surfaceRanges.RetainWindow(
-            center.X,
-            center.Z,
-            _settings.RenderDistanceChunks);
+        if (_selection.TryPollCompleted(
+                out var completed,
+                out var error))
+        {
+            if (error is not null)
+            {
+                throw new InvalidOperationException(
+                    "Chunk streaming selection worker failed.",
+                    error);
+            }
 
-        var desired =
-            ChunkStreamingSelection.DesiredSurfaceChunks(
-                center,
-                _settings.RenderDistanceChunks,
-                _surfaceRanges);
-        var retentionRadius =
-            _settings.RenderDistanceChunks +
-            _settings.RetentionMarginChunks;
-        var changed =
-            _residency.SyncSelection(
-                center,
-                _settings.RenderDistanceChunks,
-                retentionRadius,
-                desired,
-                _presentations.Coordinates);
+            if (completed is not null)
+            {
+                changed =
+                    _residency.SyncSelection(
+                        completed.Center,
+                        completed.HorizontalRadius,
+                        completed.HorizontalRadius +
+                        _settings.RetentionMarginChunks,
+                        completed.Desired,
+                        _presentations.Coordinates) ||
+                    changed;
+            }
+        }
 
         return new ChunkStreamingSelectionReport(
             changed,

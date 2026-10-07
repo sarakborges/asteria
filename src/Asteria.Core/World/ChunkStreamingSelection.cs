@@ -23,7 +23,9 @@ public static class ChunkStreamingSelection
             radius *
             radius;
         var desired =
-            new HashSet<ChunkCoord>();
+            DesiredPlayerLocalChunks(
+                center,
+                horizontalRadius);
 
         for (var dz = -radius;
              dz <= radius;
@@ -80,29 +82,61 @@ public static class ChunkStreamingSelection
                     minimumChunk,
                     maximumChunk);
 
-                if (Math.Abs(dx) <=
-                        PlayerLocalHorizontalRadiusChunks &&
-                    Math.Abs(dz) <=
+            }
+        }
+
+        return desired;
+    }
+
+    public static HashSet<ChunkCoord> DesiredPlayerLocalChunks(
+        ChunkCoord center,
+        int horizontalRadius)
+    {
+        var radius =
+            Math.Max(
+                1,
+                horizontalRadius);
+        var radiusSquared =
+            radius *
+            radius;
+        var desired =
+            new HashSet<ChunkCoord>();
+        var minimumLocal =
+            Math.Max(
+                0,
+                center.Y -
+                PlayerLocalVerticalRadiusChunks);
+        var maximumLocal =
+            Math.Max(
+                minimumLocal,
+                center.Y +
+                PlayerLocalVerticalRadiusChunks);
+
+        for (var dz = -radius;
+             dz <= radius;
+             dz++)
+        {
+            for (var dx = -radius;
+                 dx <= radius;
+                 dx++)
+            {
+                if (dx * dx +
+                        dz * dz >
+                    radiusSquared ||
+                    Math.Abs(dx) >
+                        PlayerLocalHorizontalRadiusChunks ||
+                    Math.Abs(dz) >
                         PlayerLocalHorizontalRadiusChunks)
                 {
-                    var minimumLocal =
-                        Math.Max(
-                            0,
-                            center.Y -
-                            PlayerLocalVerticalRadiusChunks);
-                    var maximumLocal =
-                        Math.Max(
-                            minimumLocal,
-                            center.Y +
-                            PlayerLocalVerticalRadiusChunks);
-
-                    InsertVerticalRange(
-                        desired,
-                        chunkX,
-                        chunkZ,
-                        minimumLocal,
-                        maximumLocal);
+                    continue;
                 }
+
+                InsertVerticalRange(
+                    desired,
+                    checked(center.X + dx),
+                    checked(center.Z + dz),
+                    minimumLocal,
+                    maximumLocal);
             }
         }
 
