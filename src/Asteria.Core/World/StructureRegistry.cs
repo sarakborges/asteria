@@ -139,11 +139,71 @@ public sealed class StructureRegistry
         _groups.ContainsKey(
             reference);
 
+    public void ValidateConnectors()
+    {
+        foreach (var definition in
+                 _definitions)
+        {
+            foreach (var connector in
+                     definition.Connectors)
+            {
+                if (connector.Target is not
+                    { } target)
+                {
+                    continue;
+                }
+
+                if (!ResolvesReference(
+                        target))
+                {
+                    throw new ArgumentException(
+                        $"Structure {definition.Id} connector references missing Structure/group {target}.");
+                }
+
+                foreach (var member in
+                         ResolveReference(
+                             target))
+                {
+                    foreach (var rotation in
+                             definition.SupportedRotations())
+                    {
+                        var worldFace =
+                            StructureDefinition.RotateConnectorFace(
+                                rotation,
+                                connector.Face);
+                        var requiredInput =
+                            StructureDefinition.OppositeConnectorFace(
+                                worldFace);
+                        var offset =
+                            StructureDefinition.RotateOffset(
+                                rotation,
+                                connector.X,
+                                connector.Y,
+                                connector.Z);
+
+                        if (member.ResolveInputAttachment(
+                                offset.X,
+                                offset.Y,
+                                offset.Z,
+                                requiredInput,
+                                0UL) is null)
+                        {
+                            throw new ArgumentException(
+                                $"Structure {definition.Id} connector target {target} member {member.Id} cannot align an input connector against {worldFace}.");
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     public void ValidateBlocks(
         BlockRegistry blocks)
     {
         ArgumentNullException.ThrowIfNull(
             blocks);
+
+        ValidateConnectors();
 
         foreach (var definition in
                  _definitions)
