@@ -1,0 +1,10 @@
+{
+  "id": "asteria:lava",
+  "color": "851701",
+  "opacity": 1,
+  "roughness": 0.34,
+  "lightDampening": 15,
+  "lightEmission": 15,
+  "spreadSpeed": 4,
+  "maxSpread": 3
+}
