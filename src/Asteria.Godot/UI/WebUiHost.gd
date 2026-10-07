@@ -16,6 +16,7 @@ const UI_SOURCE_PATHS := [
 
 var _webview: Control
 var _loaded := false
+var _creation_mode := true
 
 func _ready() -> void:
 	if not _ensure_webui_bundle():
@@ -46,7 +47,7 @@ func _input(event: InputEvent) -> void:
 	# WRY is a native child webview layered over the game window. A mouse
 	# interaction may give that child keyboard focus, so restore game focus
 	# immediately after the click. Mouse events themselves are still forwarded.
-	if event is InputEventMouseButton and event.pressed:
+	if not _creation_mode and event is InputEventMouseButton and event.pressed:
 		call_deferred("_focus_game")
 
 func post_message(message: String) -> void:
@@ -58,6 +59,11 @@ func set_webui_visible(visible: bool) -> void:
 		_webview.call("set_visible", visible)
 		if visible:
 			call_deferred("_focus_game")
+
+func set_creation_mode(creating: bool) -> void:
+	_creation_mode = creating
+	if not creating:
+		call_deferred("_focus_game")
 
 func set_mouse_captured(captured: bool) -> void:
 	if _webview == null or not _loaded:
@@ -71,12 +77,14 @@ func set_mouse_captured(captured: bool) -> void:
 
 func _on_page_load_finished(_url: String) -> void:
 	_loaded = true
-	_focus_game()
+	if not _creation_mode:
+		_focus_game()
 	webui_ready.emit()
 
 func _on_ipc_message(message: String) -> void:
 	message_received.emit(message)
-	call_deferred("_focus_game")
+	if not _creation_mode:
+		call_deferred("_focus_game")
 
 func _focus_game() -> void:
 	if _webview != null:

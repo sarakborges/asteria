@@ -14,7 +14,6 @@ public partial class Main : Node3D
 {
     private const float InteractionDistance = 6f;
     private const uint WorldTicksPerSecond = 40;
-    private const ulong WorldSeed = 0xA57E_2026UL;
     private const int RenderDistanceChunks = 4;
     private const int RetentionMarginChunks = 10;
     private static readonly int MaxMaterializationTasksInFlight =
@@ -104,6 +103,8 @@ public partial class Main : Node3D
     private WorldFrameWorkBudget _worldFrameBudget;
     private bool _worldReadySent;
     private bool _debugHudVisible;
+    private ulong? _worldSeed;
+    private ulong _suggestedWorldSeed;
 
     [Export]
     public string StartupDimensionId { get; set; } =
@@ -150,22 +151,11 @@ public partial class Main : Node3D
         _dimensionEnvironment =
             new DimensionEnvironmentPresentation(
                 this);
-        _sessionStates =
-            new DimensionSessionStateStore(
-                WorldSeed,
-                _dimensions);
-        _sessions =
-            new DimensionSessionController(
-                _sessionStates,
-                CreateDimensionSession);
-        _sessions.Start(
-            new DimensionId(
-                StartupDimensionId));
-        ActivateCurrentDimensionPresentation();
-
-        _placementBlock =
-            _blocks.GetId(TestChunkFactory.StoneId);
-        SendHotbarState();
+        _suggestedWorldSeed =
+            WorldCreationSeed.GenerateRandom();
+        _webUi.Call(
+            "set_creation_mode",
+            true);
 
         GD.Print(
             $"pack: {_packSelection.Name}");
@@ -177,23 +167,17 @@ public partial class Main : Node3D
         GD.Print(
             $"biome content: loaded {_biomes.Count} definitions");
         GD.Print(
-            $"dimension content: loaded {_dimensions.Count} definitions " +
-            $"active={_dimension.Id} world_seed={WorldSeed} " +
-            $"dimension_seed={_dimensionSeed} gravity={_dimension.GravityStrength:F2}");
-        GD.Print(
-            $"streaming: render_distance={RenderDistanceChunks} " +
-            $"retention_margin={RetentionMarginChunks} " +
-            $"materialization_in_flight={MaxMaterializationTasksInFlight}");
-
-        // Player activation waits for the active dimension's streaming center
-        // presentation so physics never starts over an unpublished world.
-        ReportStreamingSelection(
-            _chunkStreaming.SyncSelection(
-                CurrentStreamingCenter()));
+            $"dimension content: loaded {_dimensions.Count} definitions; " +
+            "waiting for world creation");
     }
 
     public override void _Input(InputEvent @event)
     {
+        if (_worldSeed is null)
+        {
+            return;
+        }
+
         if (@event is not InputEventKey keyEvent ||
             !keyEvent.Pressed ||
             keyEvent.Echo)
@@ -222,6 +206,11 @@ public partial class Main : Node3D
 
     public override void _Process(double delta)
     {
+        if (_worldSeed is null)
+        {
+            return;
+        }
+
         BeginWorldFrameBudget(delta);
 
         if (_sessions.IsTransitioning)
@@ -541,6 +530,23 @@ public partial class Main : Node3D
                         "game.pong",
                         new { timestamp = Time.GetTicksMsec() });
                     break;
+                case "ui.world.randomize":
+                    if (_worldSeed is null)
+                    {
+                        _suggestedWorldSeed =
+                            WorldCreationSeed.GenerateRandom();
+                        SendWorldCreationState();
+                    }
+
+                    break;
+                case "ui.world.create":
+                    if (_worldSeed is null)
+                    {
+                        StartRequestedWorld(
+                            document.RootElement);
+                    }
+
+                    break;
             }
         }
         catch (JsonException exception)
@@ -559,6 +565,13 @@ public partial class Main : Node3D
             "game.ready",
             new { bridge = 1, engine = "godot" });
         SendDebugHudState();
+
+        if (_worldSeed is null)
+        {
+            SendWorldCreationState();
+            return;
+        }
+
         SendHotbarState();
         SendWorldHudState(
             force: true);
@@ -576,6 +589,123 @@ public partial class Main : Node3D
             SendMouseCaptureState(
                 _player.IsMouseCaptured);
         }
+    }
+
+    private void SendWorldCreationState()
+    {
+        SendWebUi(
+            "game.world_creation",
+            new
+            {
+                seed =
+                    WorldCreationSeed.Format(
+                        _suggestedWorldSeed),
+            });
+    }
+
+    private void StartRequestedWorld(
+        JsonElement message)
+    {
+        if (!message.TryGetProperty(
+                "payload",
+                out var payload) ||
+            payload.ValueKind !=
+                JsonValueKind.Object ||
+            !payload.TryGetProperty(
+                "seed",
+                out var seedValue) ||
+            seedValue.ValueKind !=
+                JsonValueKind.String)
+        {
+            SendWorldCreationError(
+                "Seed must be a decimal string.");
+            return;
+        }
+
+        var rawSeed =
+            seedValue.GetString();
+        var validSeed =
+            string.IsNullOrWhiteSpace(
+                rawSeed)
+                ? _suggestedWorldSeed
+                : WorldCreationSeed.TryParse(
+                    rawSeed,
+                    out var manualSeed)
+                    ? manualSeed
+                    : (ulong?)null;
+
+        if (validSeed is not
+            { } selectedSeed)
+        {
+            SendWorldCreationError(
+                "Seed must be an unsigned 64-bit decimal number (0–18446744073709551615).");
+            return;
+        }
+
+        StartWorld(
+            selectedSeed);
+    }
+
+    private void StartWorld(
+        ulong worldSeed)
+    {
+        if (_worldSeed is not null)
+        {
+            return;
+        }
+
+        _sessionStates =
+            new DimensionSessionStateStore(
+                worldSeed,
+                _dimensions);
+        _sessions =
+            new DimensionSessionController(
+                _sessionStates,
+                CreateDimensionSession);
+        _sessions.Start(
+            new DimensionId(
+                StartupDimensionId));
+        ActivateCurrentDimensionPresentation();
+
+        _placementBlock =
+            _blocks.GetId(
+                TestChunkFactory.StoneId);
+        _worldSeed =
+            worldSeed;
+
+        _webUi.Call(
+            "set_creation_mode",
+            false);
+        SendWebUi(
+            "game.world_creation.started",
+            new
+            {
+                seed =
+                    WorldCreationSeed.Format(
+                        worldSeed),
+            });
+        SendHotbarState();
+
+        GD.Print(
+            $"world.start seed={worldSeed} " +
+            $"dimension={_dimension.Id} " +
+            $"dimension_seed={_dimensionSeed}");
+        GD.Print(
+            $"streaming: render_distance={RenderDistanceChunks} " +
+            $"retention_margin={RetentionMarginChunks} " +
+            $"materialization_in_flight={MaxMaterializationTasksInFlight}");
+
+        ReportStreamingSelection(
+            _chunkStreaming.SyncSelection(
+                CurrentStreamingCenter()));
+    }
+
+    private void SendWorldCreationError(
+        string message)
+    {
+        SendWebUi(
+            "game.world_creation.error",
+            new { message });
     }
 
     private void SendWorldReady()
@@ -597,7 +727,9 @@ public partial class Main : Node3D
                 fluids = _fluids.AuthoredCount,
                 biomes = _biomes.Count,
                 dimensions = _dimensions.Count,
-                worldSeed = WorldSeed,
+                worldSeed =
+                    WorldCreationSeed.Format(
+                        _worldSeed!.Value),
                 dimensionSeed = _dimensionSeed,
                 dimension = _dimension.Id.Value,
                 gravityStrength = _dimension.GravityStrength,
