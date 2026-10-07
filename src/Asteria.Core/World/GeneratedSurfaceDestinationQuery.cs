@@ -57,7 +57,7 @@ internal sealed class GeneratedSurfaceDestinationQuery
                 "Destination search radius must be non-negative.");
         }
 
-        var bounds =
+        var searchBounds =
             SearchBounds(
                 preferredX,
                 preferredZ,
@@ -65,10 +65,10 @@ internal sealed class GeneratedSurfaceDestinationQuery
         var structureBounds =
             _structures
                 .PlacementsIntersecting(
-                    bounds.MinimumX,
-                    bounds.MinimumZ,
-                    bounds.Width,
-                    bounds.Depth)
+                    searchBounds.MinimumX,
+                    searchBounds.MinimumZ,
+                    searchBounds.Width,
+                    searchBounds.Depth)
                 .Select(result =>
                     (
                         result.MinimumX,
@@ -91,15 +91,15 @@ internal sealed class GeneratedSurfaceDestinationQuery
                 continue;
             }
 
-            if (structureBounds.Any(bounds =>
+            if (structureBounds.Any(structure =>
                     column.X >=
-                        bounds.MinimumX &&
+                        structure.MinimumX &&
                     column.X <=
-                        bounds.MaximumX &&
+                        structure.MaximumX &&
                     column.Z >=
-                        bounds.MinimumZ &&
+                        structure.MinimumZ &&
                     column.Z <=
-                        bounds.MaximumZ))
+                        structure.MaximumZ))
             {
                 continue;
             }
