@@ -148,7 +148,7 @@ public sealed class BiomeField
         int assignmentCacheCapacity = 4096)
         : this(
             seed,
-            dimension?.Biomes ??
+            dimension?.SurfaceBiomes ??
                 throw new ArgumentNullException(nameof(dimension)),
             biomes,
             assignmentCacheCapacity)
@@ -160,28 +160,37 @@ public sealed class BiomeField
         IEnumerable<string> biomeIds,
         BiomeRegistry biomes,
         int assignmentCacheCapacity = 4096)
+        : this(
+            seed,
+            SurfaceRules(
+                biomeIds,
+                biomes),
+            assignmentCacheCapacity)
+    {
+    }
+
+    internal BiomeField(
+        ulong seed,
+        IEnumerable<BiomeFieldRuleSource> ruleSources,
+        int assignmentCacheCapacity = 4096)
     {
         ArgumentNullException.ThrowIfNull(
-            biomeIds);
-        ArgumentNullException.ThrowIfNull(
-            biomes);
+            ruleSources);
 
         _seed = seed;
         _assignments =
             new BoundedMemoCache<SeedBucket, SeedAssignment>(
                 assignmentCacheCapacity);
         _rules =
-            biomeIds
-                .Select(
-                    biomes.Get)
+            ruleSources
                 .OrderBy(
-                    definition =>
-                        definition.Id,
+                    source =>
+                        source.Id,
                     StringComparer.Ordinal)
                 .Select(
-                    (definition, index) =>
+                    (source, index) =>
                         BiomeRule.Create(
-                            definition,
+                            source,
                             index))
                 .ToArray();
 
@@ -189,7 +198,7 @@ public sealed class BiomeField
         {
             throw new ArgumentException(
                 "Biome field requires at least one active biome.",
-                nameof(biomeIds));
+                nameof(ruleSources));
         }
 
         _seedSpacing =
@@ -200,6 +209,35 @@ public sealed class BiomeField
                     .DivCeiling(3)),
                 MinimumSeedSpacing,
                 MaximumSeedSpacing);
+    }
+
+    private static IEnumerable<BiomeFieldRuleSource>
+        SurfaceRules(
+            IEnumerable<string> biomeIds,
+            BiomeRegistry biomes)
+    {
+        ArgumentNullException.ThrowIfNull(
+            biomeIds);
+        ArgumentNullException.ThrowIfNull(
+            biomes);
+
+        return biomeIds
+            .Select(
+                biomeId =>
+                {
+                    var definition =
+                        biomes.Get(
+                            biomeId);
+                    var layout =
+                        definition.SurfaceLayout ??
+                        throw new ArgumentException(
+                            $"Biome {biomeId} does not author surfaceLayout.");
+
+                    return new BiomeFieldRuleSource(
+                        definition.Id,
+                        layout);
+                })
+            .ToArray();
     }
 
     public int SeedSpacing =>
@@ -1204,14 +1242,14 @@ public sealed class BiomeField
         public GenerationDomain TargetDomain { get; }
 
         public static BiomeRule Create(
-            BiomeDefinition definition,
+            BiomeFieldRuleSource source,
             int _)
         {
             var layout =
-                definition.SurfaceLayout;
+                source.Layout;
 
             return new BiomeRule(
-                definition.Id,
+                source.Id,
                 Math.Max(
                     1UL,
                     checked((ulong)
@@ -1225,7 +1263,7 @@ public sealed class BiomeField
                     StringComparer.Ordinal),
                 GenerationDomain.Named(
                     "biome-layout/formation-target/v2/" +
-                    definition.Id));
+                    source.Id));
         }
     }
 
@@ -1274,6 +1312,10 @@ public sealed class BiomeField
         double CenterX,
         double CenterZ);
 }
+
+internal readonly record struct BiomeFieldRuleSource(
+    string Id,
+    BiomePlacementLayoutDefinition Layout);
 
 internal static class UInt32MathExtensions
 {
