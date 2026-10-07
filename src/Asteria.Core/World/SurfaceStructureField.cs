@@ -1113,6 +1113,7 @@ public sealed class SurfaceStructureField
                 originZ) =>
             {
                 var preserveConnectorY =
+                    member.Definition.GroundAnchorY is null &&
                     member.AllowedGroundBlocks.Count ==
                     0;
                 return TryResolvePlacement(
@@ -1141,22 +1142,51 @@ public sealed class SurfaceStructureField
         int? anchorYOverride = null)
     {
         placement = null!;
-        var anchorSurface =
-            SurfaceAt(
-                anchorX,
-                anchorZ);
         var footprint =
             member.HorizontalFootprint(
                 rotation);
+        var supportOffsets =
+            member.Definition.GroundAnchorY is not null
+                ? footprint
+                : member.SupportOffsets(
+                    rotation);
+        if (supportOffsets.Count == 0)
+        {
+            return false;
+        }
+
         var matchingBiome =
             0;
-        var minimumSurfaceY =
-            int.MaxValue;
-        var maximumSurfaceY =
-            int.MinValue;
-
         foreach (var offset in
                  footprint)
+        {
+            var x =
+                checked(
+                    anchorX +
+                    offset.X);
+            var z =
+                checked(
+                    anchorZ +
+                    offset.Z);
+            if (string.Equals(
+                    SurfaceAt(
+                        x,
+                        z)
+                    .Biome
+                    .Primary,
+                    biome,
+                    StringComparison.Ordinal))
+            {
+                matchingBiome++;
+            }
+        }
+
+        var minimumGroundY =
+            int.MaxValue;
+        var maximumGroundY =
+            int.MinValue;
+        foreach (var offset in
+                 supportOffsets)
         {
             var x =
                 checked(
@@ -1171,21 +1201,13 @@ public sealed class SurfaceStructureField
                     x,
                     z);
 
-            if (string.Equals(
-                    surface.Biome.Primary,
-                    biome,
-                    StringComparison.Ordinal))
-            {
-                matchingBiome++;
-            }
-
-            minimumSurfaceY =
+            minimumGroundY =
                 Math.Min(
-                    minimumSurfaceY,
+                    minimumGroundY,
                     surface.BaseY);
-            maximumSurfaceY =
+            maximumGroundY =
                 Math.Max(
-                    maximumSurfaceY,
+                    maximumGroundY,
                     surface.BaseY);
 
             if (member.Definition
@@ -1246,11 +1268,17 @@ public sealed class SurfaceStructureField
             return false;
         }
 
-        if ((long)maximumSurfaceY -
-                minimumSurfaceY >
-            member.Definition
-                .Restrictions
-                .MaxSlope)
+        var slope =
+            (long)maximumGroundY -
+            minimumGroundY;
+        if (slope <
+                member.Definition
+                    .Restrictions
+                    .MinSlope ||
+            slope >
+                member.Definition
+                    .Restrictions
+                    .MaxSlope)
         {
             return false;
         }
@@ -1264,12 +1292,17 @@ public sealed class SurfaceStructureField
             return false;
         }
 
+        var anchorY =
+            anchorYOverride ??
+            checked(
+                minimumGroundY -
+                member.Definition
+                    .GroundAnchorYOffset);
         placement =
             member.Place(
                 reference,
                 anchorX,
-                anchorYOverride ??
-                anchorSurface.BaseY,
+                anchorY,
                 anchorZ,
                 rotation);
 
@@ -1288,11 +1321,12 @@ public sealed class SurfaceStructureField
                 .Generation
                 .FluidPolicy ==
             StructureFluidPolicy.Forbid &&
-            placement.Voxels.Any(voxel =>
-                GeneratedFluidExistsAt(
-                    voxel.X,
-                    voxel.Y,
-                    voxel.Z)))
+            placement.PayloadPositions()
+                .Any(position =>
+                    GeneratedFluidExistsAt(
+                        position.X,
+                        position.Y,
+                        position.Z)))
         {
             return false;
         }
