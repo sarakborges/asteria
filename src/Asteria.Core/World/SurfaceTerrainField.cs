@@ -101,7 +101,14 @@ public sealed class SurfaceTerrainField
     {
         var biome = _surfaceBiomes.Sample(worldX, worldZ);
         var baseY = BaseHeightAt(biome, worldX, worldZ);
-        return FinalSurfaceHeight(biome, baseY, worldX, worldZ);
+        return FinalSurfaceHeight(
+            biome,
+            baseY,
+            worldX,
+            worldZ,
+            _volumeBiomes.SamplePlacement(
+                worldX,
+                worldZ));
     }
 
     public double DensityAt(int worldX, int worldY, int worldZ)
@@ -497,6 +504,12 @@ public sealed class SurfaceTerrainField
             originZ,
             Chunk.Size,
             Chunk.Size);
+        var volumeBiomes =
+            _volumeBiomes.SamplePlacementGrid(
+                originX,
+                originZ,
+                Chunk.Size,
+                Chunk.Size);
         var baseHeights = new int[Chunk.Size * Chunk.Size];
         var surfaceHeights = new int[baseHeights.Length];
         var minimum = int.MaxValue;
@@ -511,7 +524,11 @@ public sealed class SurfaceTerrainField
                 var biome = biomes[x, z];
                 var baseY = BaseHeightAt(biome, worldX, worldZ);
                 var surfaceY = FinalSurfaceHeight(
-                    biome, baseY, worldX, worldZ);
+                    biome,
+                    baseY,
+                    worldX,
+                    worldZ,
+                    volumeBiomes[x, z]);
                 var index = z * Chunk.Size + x;
                 baseHeights[index] = baseY;
                 surfaceHeights[index] = surfaceY;
@@ -560,13 +577,9 @@ public sealed class SurfaceTerrainField
         BiomeSample surfaceBiome,
         int baseY,
         int worldX,
-        int worldZ)
+        int worldZ,
+        BiomeSample? volumeBiome)
     {
-        var volumeBiome =
-            _volumeBiomes.SamplePlacement(
-                worldX,
-                worldZ);
-
         if (volumeBiome is null ||
             !_floatingRules.TryGetValue(
                 volumeBiome.Primary,
