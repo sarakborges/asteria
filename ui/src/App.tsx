@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { LoadingOverlay } from "./components/organisms/LoadingOverlay/LoadingOverlay";
 import { GameHudPage } from "./components/pages/GameHudPage/GameHudPage";
 import { NewWorldPage } from "./components/pages/NewWorldPage/NewWorldPage";
+import { StartingScreenPage } from "./components/pages/StartingScreenPage/StartingScreenPage";
 import type { UiStore } from "./state/uiStore";
 import { useUiStore } from "./state/useUiStore";
 
@@ -9,6 +10,9 @@ export type AppActions = {
   ping(): void;
   createWorld(seed: string): void;
   randomizeWorld(): void;
+  openWorldCreation(): void;
+  backToStart(): void;
+  exitGame(): void;
   dismissToast(id: number): void;
 };
 
@@ -32,6 +36,9 @@ export function App({
     );
   }, [state.mouseCaptured]);
 
+  const preWorldVisible =
+    state.worldCreation.visible;
+
   return (
     <>
       <GameHudPage
@@ -40,11 +47,27 @@ export function App({
         onPing={actions.ping}
         onDismissToast={actions.dismissToast}
       />
-      <NewWorldPage
-        state={state.worldCreation}
-        onCreate={actions.createWorld}
-        onRandomize={actions.randomizeWorld}
-      />
+
+      {preWorldVisible &&
+        state.navigation.preWorldScreen ===
+          "starting" && (
+          <StartingScreenPage
+            onPlay={actions.openWorldCreation}
+            onExit={actions.exitGame}
+          />
+        )}
+
+      {preWorldVisible &&
+        state.navigation.preWorldScreen ===
+          "new-world" && (
+          <NewWorldPage
+            state={state.worldCreation}
+            onBack={actions.backToStart}
+            onCreate={actions.createWorld}
+            onRandomize={actions.randomizeWorld}
+          />
+        )}
+
       <LoadingOverlay state={state.loading} />
     </>
   );

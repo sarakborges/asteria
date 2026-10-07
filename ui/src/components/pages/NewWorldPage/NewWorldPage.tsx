@@ -14,12 +14,14 @@ import "./NewWorldPage.css";
 
 export type NewWorldPageProps = {
   state: WorldCreationState;
+  onBack(): void;
   onCreate(seed: string): void;
   onRandomize(): void;
 };
 
 export function NewWorldPage({
   state,
+  onBack,
   onCreate,
   onRandomize,
 }: NewWorldPageProps) {
@@ -43,16 +45,25 @@ export function NewWorldPage({
     state.generating
       ? undefined
       : (
-          <Button
-            label="Criar mundo"
-            variant="primary"
-            size="menu"
-            className="new-world__create"
-            disabled={state.pending}
-            onClick={() =>
-              onCreate(seed.trim())
-            }
-          />
+          <>
+            <Button
+              label="Menu principal"
+              size="menu"
+              className="new-world__create"
+              disabled={state.pending}
+              onClick={onBack}
+            />
+            <Button
+              label="Criar mundo"
+              variant="primary"
+              size="menu"
+              className="new-world__create"
+              disabled={state.pending}
+              onClick={() =>
+                onCreate(seed.trim())
+              }
+            />
+          </>
         );
 
   return (

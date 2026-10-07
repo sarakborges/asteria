@@ -1,0 +1,55 @@
+.world-card {
+  display: grid;
+  grid-template-columns: 256px minmax(0, 1fr) 170px;
+  gap: 24px;
+  width: 100%;
+  padding: var(--ui-surface-padding);
+}
+
+.world-card__preview {
+  width: 256px;
+  height: 144px;
+  border: 2px solid var(--ui-color-border);
+  background: var(--ui-color-surface-inset);
+}
+
+.world-card__info {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 24px;
+  align-content: start;
+}
+
+.world-card__info > .ui-text--heading {
+  grid-column: 1 / -1;
+}
+
+.world-card__metadata {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.world-card__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+@media (max-width: 900px) {
+  .world-card {
+    grid-template-columns: 1fr;
+  }
+
+  .world-card__preview {
+    width: 100%;
+    max-width: 256px;
+  }
+
+  .world-card__actions {
+    flex-direction: row;
+  }
+}

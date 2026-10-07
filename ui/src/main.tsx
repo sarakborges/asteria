@@ -8,6 +8,7 @@ import {
 } from "./bridge/godotBridge";
 import { createHudController } from "./controllers/HudController";
 import { createLoadingController } from "./controllers/LoadingController";
+import { createUiNavigationController } from "./controllers/UiNavigationController";
 import { createWorldCreationController } from "./controllers/WorldCreationController";
 import { createInitialUiState } from "./state/uiState";
 import { createUiStore } from "./state/uiStore";
@@ -27,6 +28,11 @@ const hud = createHudController(
   postGodotMessage,
 );
 const loading = createLoadingController(store);
+const navigation =
+  createUiNavigationController(
+    store,
+    postGodotMessage,
+  );
 const worldCreation =
   createWorldCreationController(
     store,
@@ -47,6 +53,9 @@ createRoot(rootElement).render(
       ping: hud.ping,
       createWorld: worldCreation.createWorld,
       randomizeWorld: worldCreation.randomizeWorld,
+      openWorldCreation: navigation.openWorldCreation,
+      backToStart: navigation.backToStart,
+      exitGame: navigation.exitGame,
       dismissToast: store.dismissToast,
     }}
   />,

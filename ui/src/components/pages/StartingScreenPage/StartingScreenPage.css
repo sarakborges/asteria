@@ -1,0 +1,38 @@
+.starting-screen {
+  position: fixed;
+  z-index: 30;
+  inset: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ui-color-text);
+  background: var(--ui-color-screen-background);
+  pointer-events: auto;
+}
+
+.starting-screen__content {
+  position: relative;
+  z-index: 1;
+  width: min(var(--ui-menu-button-width), calc(100vw - 36px));
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 11px;
+}
+
+.starting-screen__brand {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 26px;
+}
+
+.starting-screen__logo {
+  font-size: clamp(54px, 10vw, 86px);
+  letter-spacing: 0.08em;
+  text-shadow: 0 6px 22px rgb(0 0 0 / 45%);
+}
+
+.starting-screen__button {
+  width: 100%;
+}
