@@ -103,24 +103,9 @@ public sealed class TerrainTextureCatalog
         PackSelection selection,
         string relativePath)
     {
-        var resourcePath =
-            ProjectPackPaths.Resource(
-                selection,
-                relativePath);
-
-        var texture = ResourceLoader.Load<Texture2D>(resourcePath);
-        if (texture is null)
-        {
-            throw new FileNotFoundException($"Block texture was not imported by Godot: {resourcePath}");
-        }
-
-        var image = texture.GetImage();
-        if (image is null || image.IsEmpty())
-        {
-            throw new InvalidOperationException($"Block texture has no image data: {resourcePath}");
-        }
-
-        return image;
+        return ProjectPackFiles.LoadImage(
+            selection,
+            relativePath);
     }
 
     private static void Normalize(Image image, int width, int height, string path)
