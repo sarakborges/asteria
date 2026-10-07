@@ -205,12 +205,16 @@ public sealed class DimensionTests
             0xA57E_2026UL;
         var blocks =
             LoadDefaultBlocks();
+        var fluids =
+            LoadDefaultFluids();
         var biomes =
             LoadDefaultBiomes();
         var dimensions =
             LoadDefaultDimensions();
         dimensions.ValidateBiomes(
             biomes);
+        dimensions.ValidateFluids(
+            fluids);
 
         var overworld =
             dimensions.Get(
@@ -226,6 +230,7 @@ public sealed class DimensionTests
                     overworld.Id),
                 overworld,
                 blocks,
+                fluids,
                 biomes);
         var umbralGenerator =
             new BiomeWorldGenerator(
@@ -234,6 +239,7 @@ public sealed class DimensionTests
                     umbral.Id),
                 umbral,
                 blocks,
+                fluids,
                 biomes);
 
         Assert.Equal(
