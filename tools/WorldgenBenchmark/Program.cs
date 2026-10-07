@@ -14,14 +14,40 @@ static IEnumerable<string> Documents(string root, string kind) =>
         .OrderBy(path => path, StringComparer.Ordinal)
         .Select(File.ReadAllText);
 
+static IEnumerable<string> OptionalDocuments(
+    string root,
+    string kind)
+{
+    var directory =
+        Path.Combine(
+            root,
+            kind);
+
+    return Directory.Exists(
+            directory)
+        ? Directory
+            .EnumerateFiles(
+                directory,
+                "*.json")
+            .OrderBy(
+                path => path,
+                StringComparer.Ordinal)
+            .Select(
+                File.ReadAllText)
+        : Array.Empty<string>();
+}
+
 var blocks = BlockRegistry.FromJson(Documents(root, "blocks"));
 var fluids = FluidRegistry.FromJson(Documents(root, "fluids"));
 var biomes = BiomeRegistry.FromJson(Documents(root, "biomes"));
+var structures = StructureRegistry.FromJson(OptionalDocuments(root, "structures"));
 var dimensions = DimensionRegistry.FromJson(Documents(root, "dimensions"));
 dimensions.ValidateBlocks(blocks);
 dimensions.ValidateFluids(fluids);
 dimensions.ValidateBiomes(biomes);
+dimensions.ValidateStructures(structures);
 biomes.ValidateBlocks(blocks);
+structures.ValidateBlocks(blocks);
 
 var dimension = dimensions.Get(new DimensionId(options.Dimension));
 var dimensionSeed = DimensionSeed.Derive(options.Seed, dimension.Id);
@@ -30,7 +56,8 @@ BiomeWorldGenerator NewGenerator() => new(
     dimension,
     blocks,
     fluids,
-    biomes);
+    biomes,
+    structures);
 
 var metrics = new SortedDictionary<string, Measurement>(
     StringComparer.Ordinal);

@@ -79,11 +79,13 @@ Overworld actively authors plains, swamp, wasteland, desert, alps, arctic, gorge
 
 Ground vegetation now comes from biome decorators rather than the QA fixture: plains/swamp can place grass and brown mushrooms are authored only by swamp. Generation is deterministic for the same seed regardless of chunk/task order. The old `DeterministicChunkProvider` remains only for test/QA fixtures.
 
+Generated surface structures now use a separate Core placement owner and the same single chunk materializer. The default pack ports MineClone's small/medium/big/huge boulder block geometry plus its active-biome spacing/chance/jitter rules; placement is deterministic, footprint-validated, may cross chunk boundaries, and expands vertical streaming bounds instead of being clipped by a chunk. This first structure slice is block-only: MineClone object attachments, structure fluids, surface layers, connectors and structure sets remain deferred until their own capabilities exist.
+
 Chunks outside the desired radius are retained for a hysteresis/cache margin before authoritative residency is removed. Edited chunks are then archived in memory and restored before provider fallback, so break/place survives unload/reload during the current session. This is not save-game persistence and writes nothing to disk. Hydrology is intentionally prohibited by the architecture; Sphere-wide caves, biome-authored additive 3D terrain and explicit generated-ocean fill extend the existing Core generation owners without introducing a generalized water-generation layer.
 
 ### Dimension and biome content
 
-Authorial dimensions live in `packs/default/data/dimensions/*.json`. Their current schema owns explicit `surfaceBiomes`, `volumeBiomes` and `undergroundBiomes` pools, `seaLevel`, `gravityStrength`, spawn X/Z and environment background/ambient/fog values. The root world seed derives a distinct seed for each dimension.
+Authorial dimensions live in `packs/default/data/dimensions/*.json`. Their current schema owns explicit `surfaceBiomes`, `volumeBiomes` and `undergroundBiomes` pools, optional `generatedSurfaceStructures`, `seaLevel`, `gravityStrength`, spawn X/Z and environment background/ambient/fog values. The root world seed derives a distinct seed for each dimension.
 
 Biome definitions live in `packs/default/data/biomes/*.json`. Surface biomes author `surfaceLayout` + `surfaceTerrain`; volume biomes author `volumeLayout` plus bounded `terrain3d`; underground biomes author `undergroundLayout`. Surface/volume biomes may use ordered `surfaceLayers` as the exposed-solid material profile, while an underground-only biome may currently be identity-only. Generation lives entirely in Core; Godot loads the selected pack, selects the startup dimension and composes its provider/presentation adapters.
 

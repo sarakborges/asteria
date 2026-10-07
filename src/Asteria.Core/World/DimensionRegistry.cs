@@ -193,5 +193,27 @@ public sealed class DimensionRegistry
                 }
             }
         }
+    } 
+    public void ValidateStructures(
+        StructureRegistry structures)
+    {
+        ArgumentNullException.ThrowIfNull(
+            structures);
+
+        foreach (var dimension in
+                 _definitions)
+        {
+            foreach (var generated in
+                     dimension.GeneratedSurfaceStructures)
+            {
+                if (!structures.ResolvesReference(
+                        generated.Structure))
+                {
+                    throw new ArgumentException(
+                        $"Dimension {dimension.Id} references missing generated surface structure {generated.Structure}.");
+                }
+            }
+        }
     }
+
 }

@@ -80,6 +80,7 @@ public partial class Main : Node3D
     private BlockRegistry _blocks = null!;
     private FluidRegistry _fluids = null!;
     private BiomeRegistry _biomes = null!;
+    private StructureRegistry _structures = null!;
     private DimensionRegistry _dimensions = null!;
     private DimensionSessionStateStore _sessionStates = null!;
     private DimensionSessionController _sessions = null!;
@@ -126,6 +127,9 @@ public partial class Main : Node3D
         _biomes =
             BiomeContentLoader.LoadProjectBiomes(
                 _packSelection);
+        _structures =
+            StructureContentLoader.LoadProjectStructures(
+                _packSelection);
         _dimensions =
             DimensionContentLoader.LoadProjectDimensions(
                 _packSelection);
@@ -135,6 +139,10 @@ public partial class Main : Node3D
             _blocks);
         _dimensions.ValidateFluids(
             _fluids);
+        _structures.ValidateBlocks(
+            _blocks);
+        _dimensions.ValidateStructures(
+            _structures);
 
         _terrainTextures =
             TerrainTextureCatalog.Create(
@@ -168,6 +176,8 @@ public partial class Main : Node3D
             $"fluid content: loaded {_fluids.AuthoredCount} definitions");
         GD.Print(
             $"biome content: loaded {_biomes.Count} definitions");
+        GD.Print(
+            $"structure content: loaded {_structures.Count} definitions");
         GD.Print(
             $"dimension content: loaded {_dimensions.Count} definitions; " +
             "waiting for world creation");
@@ -390,6 +400,7 @@ public partial class Main : Node3D
             _blocks,
             _fluids,
             _biomes,
+            _structures,
             _terrainTextureLookup,
             _terrainMaterials,
             _fluidMaterials,

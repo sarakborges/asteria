@@ -39,6 +39,7 @@ public sealed class DimensionRuntimeSession
         BlockRegistry blocks,
         FluidRegistry fluids,
         BiomeRegistry biomes,
+        StructureRegistry structures,
         TerrainTextureLookup terrainTextures,
         VoxelTerrainMaterialSet terrainMaterials,
         FluidMaterialCatalog fluidMaterials,
@@ -60,6 +61,8 @@ public sealed class DimensionRuntimeSession
                 nameof(fluids));
         ArgumentNullException.ThrowIfNull(
             biomes);
+        ArgumentNullException.ThrowIfNull(
+            structures);
         ArgumentNullException.ThrowIfNull(
             terrainTextures);
         ArgumentNullException.ThrowIfNull(
@@ -103,7 +106,8 @@ public sealed class DimensionRuntimeSession
                 state.Dimension,
                 blocks,
                 fluids,
-                biomes);
+                biomes,
+                structures);
         _droppedBlocks =
             new DroppedBlockRuntime(
                 World,

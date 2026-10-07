@@ -83,7 +83,61 @@ public static class DimensionDefinitionJson
                 "volumeBiomes"),
             OptionalStringArray(
                 root,
-                "undergroundBiomes"));
+                "undergroundBiomes"),
+            ParseGeneratedSurfaceStructures(
+                root));
+    }
+
+    private static IReadOnlyList<DimensionGeneratedSurfaceStructureDefinition>
+        ParseGeneratedSurfaceStructures(
+            JsonElement root)
+    {
+        if (!root.TryGetProperty(
+                "generatedSurfaceStructures",
+                out var value) ||
+            value.ValueKind ==
+                JsonValueKind.Null)
+        {
+            return Array.Empty<DimensionGeneratedSurfaceStructureDefinition>();
+        }
+
+        if (value.ValueKind !=
+            JsonValueKind.Array)
+        {
+            throw new FormatException(
+                "generatedSurfaceStructures must be an array.");
+        }
+
+        return value
+            .EnumerateArray()
+            .Select(entry =>
+            {
+                if (entry.ValueKind !=
+                    JsonValueKind.Object)
+                {
+                    throw new FormatException(
+                        "generatedSurfaceStructures entries must be objects.");
+                }
+
+                return new DimensionGeneratedSurfaceStructureDefinition(
+                    RequiredString(
+                        entry,
+                        "biome"),
+                    RequiredString(
+                        entry,
+                        "structure"),
+                    RequiredInt32(
+                        entry,
+                        "spacing"),
+                    RequiredSingle(
+                        entry,
+                        "chance"),
+                    OptionalInt32(
+                        entry,
+                        "jitter") ??
+                    0);
+            })
+            .ToArray();
     }
 
     private static DimensionGeneratedOceanDefinition? ParseGeneratedOcean(
