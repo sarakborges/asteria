@@ -24,6 +24,7 @@ public readonly record struct SurfaceStructureQueryResult(
 public sealed class SurfaceStructureField
 {
     private const int PlacementCacheCapacity = 128;
+    private const int MarginSampleDivisions = 16;
 
     private readonly ulong _seed;
     private readonly BiomeField _biomes;
@@ -32,6 +33,7 @@ public sealed class SurfaceStructureField
     private readonly GeneratedFluidField _generatedFluids;
     private readonly ConnectorGraph _connectors;
     private readonly RootRule[] _rules;
+    private readonly int _seaLevel;
     private readonly int? _floorY;
     private readonly int? _roofY;
     private readonly BoundedMemoCache<
@@ -81,6 +83,8 @@ public sealed class SurfaceStructureField
                 nameof(generatedFluids));
 
         _seed = seed;
+        _seaLevel =
+            dimension.SeaLevel;
         _floorY =
             dimension.Shell?.FloorY;
         _roofY =
@@ -1847,6 +1851,7 @@ public sealed class SurfaceStructureField
             int spacing,
             float chance,
             int jitter,
+            DimensionGeneratedSurfaceStructurePlacement placement,
             RuntimeStructure[] members,
             RuntimeStructureSet? set,
             int maximumHorizontalRadius)
@@ -1856,6 +1861,7 @@ public sealed class SurfaceStructureField
             Spacing = spacing;
             Chance = chance;
             Jitter = jitter;
+            Placement = placement;
             Members = members;
             Set = set;
             MaximumHorizontalRadius =
@@ -1894,6 +1900,8 @@ public sealed class SurfaceStructureField
 
         public int Jitter { get; }
 
+        public DimensionGeneratedSurfaceStructurePlacement Placement { get; }
+
         public RuntimeStructure[] Members { get; }
 
         public RuntimeStructureSet? Set { get; }
@@ -1922,6 +1930,13 @@ public sealed class SurfaceStructureField
                     generated.Structure,
                     out var setDefinition))
             {
+                if (generated.Placement ==
+                    DimensionGeneratedSurfaceStructurePlacement.BiomeMargin)
+                {
+                    throw new ArgumentException(
+                        $"Generated biomeMargin root {generated.Structure} cannot reference a StructureSet.");
+                }
+
                 var set =
                     new RuntimeStructureSet(
                         setDefinition,
@@ -1936,6 +1951,7 @@ public sealed class SurfaceStructureField
                     generated.Spacing,
                     generated.Chance,
                     generated.Jitter,
+                    generated.Placement,
                     Array.Empty<RuntimeStructure>(),
                     set,
                     set.MaximumHorizontalRadius);
@@ -1959,6 +1975,7 @@ public sealed class SurfaceStructureField
                 generated.Spacing,
                 generated.Chance,
                 generated.Jitter,
+                generated.Placement,
                 members,
                 null,
                 connectors.MaximumHorizontalRadiusForReference(
