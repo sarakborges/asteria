@@ -27,7 +27,10 @@ public sealed record DimensionRetirementDrainReport(
 
 public sealed class DimensionRuntimeSession
 {
+    private const int SpawnSearchRadiusBlocks = 64;
+
     private readonly DimensionSessionState _state;
+    private readonly NVector3 _initialPlayerPosition;
     private readonly BlockPhysicsRuntime _blockPhysics;
     private readonly DroppedBlockRuntime _droppedBlocks;
     private bool _retiring;
@@ -112,6 +115,9 @@ public sealed class DimensionRuntimeSession
                 biomes,
                 structures,
                 structureSets);
+        _initialPlayerPosition =
+            state.PlayerPosition ??
+            ResolveGeneratedSpawn();
         _droppedBlocks =
             new DroppedBlockRuntime(
                 World,
@@ -302,27 +308,25 @@ public sealed class DimensionRuntimeSession
         !TerrainMesh.IsRunning &&
         !FluidMesh.IsRunning;
 
-    public NVector3 InitialPlayerPosition
-    {
-        get
-        {
-            if (_state.PlayerPosition is
-                { } restored)
-            {
-                return restored;
-            }
+    public NVector3 InitialPlayerPosition =>
+        _initialPlayerPosition;
 
-            var spawn =
-                Dimension.Spawn;
-            var surfaceY =
-                Generator.SurfaceHeight(
-                    spawn.X,
-                    spawn.Z);
-            return new NVector3(
-                spawn.X + 0.5f,
-                surfaceY + 1f,
-                spawn.Z + 0.5f);
-        }
+    private NVector3 ResolveGeneratedSpawn()
+    {
+        var spawn =
+            Dimension.Spawn;
+        var destination =
+            Generator.FindGeneratedSurfaceDestination(
+                spawn.X,
+                spawn.Z,
+                SpawnSearchRadiusBlocks) ??
+            throw new InvalidOperationException(
+                $"Dimension {Dimension.Id} has no safe generated spawn within {SpawnSearchRadiusBlocks} blocks of ({spawn.X}, {spawn.Z}).");
+
+        return new NVector3(
+            destination.X + 0.5f,
+            destination.Y,
+            destination.Z + 0.5f);
     }
 
     public ChunkCoord InitialStreamingCenter
