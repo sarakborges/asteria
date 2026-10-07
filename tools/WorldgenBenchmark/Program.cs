@@ -15,9 +15,11 @@ static IEnumerable<string> Documents(string root, string kind) =>
         .Select(File.ReadAllText);
 
 var blocks = BlockRegistry.FromJson(Documents(root, "blocks"));
+var fluids = FluidRegistry.FromJson(Documents(root, "fluids"));
 var biomes = BiomeRegistry.FromJson(Documents(root, "biomes"));
 var dimensions = DimensionRegistry.FromJson(Documents(root, "dimensions"));
 dimensions.ValidateBlocks(blocks);
+dimensions.ValidateFluids(fluids);
 dimensions.ValidateBiomes(biomes);
 biomes.ValidateBlocks(blocks);
 
@@ -27,6 +29,7 @@ BiomeWorldGenerator NewGenerator() => new(
     dimensionSeed,
     dimension,
     blocks,
+    fluids,
     biomes);
 
 var metrics = new SortedDictionary<string, Measurement>(
