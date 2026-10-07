@@ -133,6 +133,8 @@ public partial class Main : Node3D
             _biomes);
         _dimensions.ValidateBlocks(
             _blocks);
+        _dimensions.ValidateFluids(
+            _fluids);
 
         _terrainTextures =
             TerrainTextureCatalog.Create(

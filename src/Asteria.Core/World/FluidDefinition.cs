@@ -137,14 +137,7 @@ public sealed class FluidDefinition
         FluidMotionDefinition? motion = null,
         string? texture = null)
     {
-        if (string.IsNullOrWhiteSpace(id) ||
-            id != id.Trim() ||
-            id.Count(character => character == ':') != 1)
-        {
-            throw new ArgumentException(
-                "Fluid id must use the namespaced form namespace:name.",
-                nameof(id));
-        }
+        ValidateId(id);
 
         if (!float.IsFinite(opacity) ||
             opacity is < 0f or > 1f)
@@ -219,6 +212,18 @@ public sealed class FluidDefinition
     public FluidMotionDefinition Motion { get; }
 
     public string? Texture { get; }
+
+    internal static void ValidateId(string id)
+    {
+        if (string.IsNullOrWhiteSpace(id) ||
+            id != id.Trim() ||
+            id.Count(character => character == ':') != 1)
+        {
+            throw new ArgumentException(
+                "Fluid id must use the namespaced form namespace:name.",
+                nameof(id));
+        }
+    }
 }
 
 public static class FluidDefinitionJson
@@ -550,6 +555,14 @@ public sealed class FluidRegistry
             ? runtimeId
             : throw new KeyNotFoundException(
                 $"Unknown fluid id: {id}");
+    }
+
+    public bool TryGetId(
+        string id,
+        out FluidRuntimeId runtimeId)
+    {
+        ArgumentNullException.ThrowIfNull(id);
+        return _idsByName.TryGetValue(id, out runtimeId);
     }
 
     public FluidDefinition GetDefinition(

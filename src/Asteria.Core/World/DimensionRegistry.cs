@@ -99,6 +99,26 @@ public sealed class DimensionRegistry
         }
     }
 
+    public void ValidateFluids(
+        FluidRegistry fluids)
+    {
+        ArgumentNullException.ThrowIfNull(fluids);
+
+        foreach (var dimension in _definitions)
+        {
+            if (dimension.GeneratedOcean is not { } ocean)
+            {
+                continue;
+            }
+
+            if (!fluids.TryGetId(ocean.Fluid, out _))
+            {
+                throw new ArgumentException(
+                    $"Dimension {dimension.Id} references missing generated ocean fluid {ocean.Fluid}.");
+            }
+        }
+    }
+
     public void ValidateBiomes(
         BiomeRegistry biomes)
     {

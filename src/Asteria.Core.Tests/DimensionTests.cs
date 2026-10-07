@@ -11,6 +11,8 @@ public sealed class DimensionTests
             LoadDefaultBiomes();
         var dimensions =
             LoadDefaultDimensions();
+        var fluids =
+            LoadDefaultFluids();
 
         dimensions.ValidateBiomes(
             biomes);
@@ -18,6 +20,8 @@ public sealed class DimensionTests
             LoadDefaultBlocks();
         dimensions.ValidateBlocks(
             blocks);
+        dimensions.ValidateFluids(
+            fluids);
 
         Assert.Equal(
             2,
@@ -32,9 +36,9 @@ public sealed class DimensionTests
                     "asteria:umbral"));
 
         Assert.Equal(
-            11,
+            12,
             overworld.Biomes.Count);
-        Assert.DoesNotContain(
+        Assert.Contains(
             "asteria:overworld/ocean",
             overworld.Biomes);
         Assert.DoesNotContain(
@@ -49,6 +53,14 @@ public sealed class DimensionTests
         Assert.Contains(
             "asteria:overworld/volcano",
             overworld.Biomes);
+        Assert.Equal(
+            "asteria:overworld/ocean",
+            overworld.GeneratedOcean?.Biome);
+        Assert.Equal(
+            "asteria:water",
+            overworld.GeneratedOcean?.Fluid);
+        Assert.Null(
+            umbral.GeneratedOcean);
         Assert.Equal(
             3,
             umbral.Biomes.Count);
@@ -193,12 +205,16 @@ public sealed class DimensionTests
             0xA57E_2026UL;
         var blocks =
             LoadDefaultBlocks();
+        var fluids =
+            LoadDefaultFluids();
         var biomes =
             LoadDefaultBiomes();
         var dimensions =
             LoadDefaultDimensions();
         dimensions.ValidateBiomes(
             biomes);
+        dimensions.ValidateFluids(
+            fluids);
 
         var overworld =
             dimensions.Get(
@@ -214,6 +230,7 @@ public sealed class DimensionTests
                     overworld.Id),
                 overworld,
                 blocks,
+                fluids,
                 biomes);
         var umbralGenerator =
             new BiomeWorldGenerator(
@@ -222,6 +239,7 @@ public sealed class DimensionTests
                     umbral.Id),
                 umbral,
                 blocks,
+                fluids,
                 biomes);
 
         Assert.Equal(
@@ -267,6 +285,137 @@ public sealed class DimensionTests
     }
 
     [Fact]
+    public void DefaultOverworldGeneratedOceanFillsToSeaLevel()
+    {
+        const ulong worldSeed =
+            0xA57E_2026UL;
+        var blocks =
+            LoadDefaultBlocks();
+        var fluids =
+            LoadDefaultFluids();
+        var biomes =
+            LoadDefaultBiomes();
+        var dimensions =
+            LoadDefaultDimensions();
+
+        dimensions.ValidateBlocks(blocks);
+        dimensions.ValidateFluids(fluids);
+        dimensions.ValidateBiomes(biomes);
+
+        var dimension =
+            dimensions.Get(
+                DimensionId.Overworld);
+        var generator =
+            new BiomeWorldGenerator(
+                DimensionSeed.Derive(
+                    worldSeed,
+                    dimension.Id),
+                dimension,
+                blocks,
+                fluids,
+                biomes);
+        var point =
+            FindOceanColumn(
+                generator,
+                dimension.SeaLevel);
+        var address =
+            VoxelCoordinates.FromWorld(
+                point.X,
+                dimension.SeaLevel,
+                point.Z);
+        var chunk =
+            generator.Materialize(
+                address.Chunk);
+        var fluid =
+            chunk.GetFluid(
+                address.Local.X,
+                address.Local.Y,
+                address.Local.Z);
+
+        Assert.Equal(
+            fluids.GetId("asteria:water"),
+            fluid.Fluid);
+        Assert.True(fluid.IsSource);
+        Assert.Equal(
+            FluidCell.MaxLevel,
+            fluid.Level);
+        Assert.True(
+            chunk.GetCell(
+                address.Local.X,
+                address.Local.Y,
+                address.Local.Z).IsEmpty);
+
+        var above =
+            VoxelCoordinates.FromWorld(
+                point.X,
+                dimension.SeaLevel + 1,
+                point.Z);
+        var aboveChunk =
+            above.Chunk == address.Chunk
+                ? chunk
+                : generator.Materialize(
+                    above.Chunk);
+
+        Assert.True(
+            aboveChunk.GetFluid(
+                above.Local.X,
+                above.Local.Y,
+                above.Local.Z).IsEmpty);
+
+        var horizontal =
+            VoxelCoordinates.FromWorld(
+                point.X,
+                0,
+                point.Z).Chunk;
+        Assert.True(
+            generator.GetSurfaceRange(
+                horizontal.X,
+                horizontal.Z).MaximumWorldY >=
+            dimension.SeaLevel);
+    }
+
+    [Fact]
+    public void DimensionRejectsMissingGeneratedOceanFluid()
+    {
+        var dimensions =
+            new DimensionRegistry(
+            [
+                new DimensionDefinition(
+                    new DimensionId(
+                        "asteria:test"),
+                    [
+                        "asteria:test/ocean",
+                    ],
+                    seaLevel: 32,
+                    gravityStrength: 18f,
+                    new DimensionSpawnDefinition(
+                        0,
+                        0),
+                    TestEnvironment(),
+                    generatedOcean:
+                        new DimensionGeneratedOceanDefinition(
+                            "asteria:test/ocean",
+                            "asteria:missing")),
+            ]);
+        var fluids =
+            new FluidRegistry(
+            [
+                new FluidDefinition(
+                    "asteria:water",
+                    new FluidColor(
+                        79,
+                        159,
+                        214),
+                    0.72f),
+            ]);
+
+        Assert.Throws<ArgumentException>(
+            () =>
+                dimensions.ValidateFluids(
+                    fluids));
+    }
+
+    [Fact]
     public void DimensionRejectsBiomeOwnedByAnotherDimension()
     {
         var biomes =
@@ -296,6 +445,36 @@ public sealed class DimensionTests
             () =>
                 dimensions.ValidateBiomes(
                     biomes));
+    }
+
+    private static (int X, int Z) FindOceanColumn(
+        BiomeWorldGenerator generator,
+        int seaLevel)
+    {
+        for (var z = -4096;
+             z <= 4096;
+             z += 64)
+        {
+            for (var x = -4096;
+                 x <= 4096;
+                 x += 64)
+            {
+                if (generator.Biomes.Sample(
+                        x,
+                        z).Primary ==
+                        "asteria:overworld/ocean" &&
+                    generator.SurfaceHeight(
+                        x,
+                        z) <
+                    seaLevel)
+                {
+                    return (x, z);
+                }
+            }
+        }
+
+        throw new Xunit.Sdk.XunitException(
+            "Could not find a generated ocean column.");
     }
 
     private static ulong ContentFingerprint(
@@ -366,6 +545,11 @@ public sealed class DimensionTests
         BlockRegistry.FromJson(
             ReadJsonDirectory(
                 "blocks"));
+
+    private static FluidRegistry LoadDefaultFluids() =>
+        FluidRegistry.FromJson(
+            ReadJsonDirectory(
+                "fluids"));
 
     private static BiomeRegistry LoadDefaultBiomes() =>
         BiomeRegistry.FromJson(
