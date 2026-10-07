@@ -227,16 +227,16 @@ public sealed class SurfaceChunkMaterializer
             }
         }
 
-        MaterializeStructures(
-            chunk,
-            coord,
-            originY,
-            topExclusive);
-
         MaterializeGeneratedFluids(
             chunk,
             column,
             densityVolume,
+            originY,
+            topExclusive);
+
+        MaterializeStructures(
+            chunk,
+            coord,
             originY,
             topExclusive);
 
@@ -353,68 +353,32 @@ public sealed class SurfaceChunkMaterializer
                  placements)
         {
             foreach (var voxel in
-                     placement.Voxels)
+                     placement.ClearVoxels)
             {
-                if (voxel.Y < originY ||
-                    voxel.Y >= topExclusive ||
-                    voxel.X < origin.X ||
-                    voxel.X >=
-                        origin.X +
-                        Chunk.Size ||
-                    voxel.Z < origin.Z ||
-                    voxel.Z >=
-                        origin.Z +
-                        Chunk.Size)
+                if (!TryStructureLocal(
+                        voxel.X,
+                        voxel.Y,
+                        voxel.Z,
+                        origin,
+                        originY,
+                        topExclusive,
+                        out var localX,
+                        out var localY,
+                        out var localZ))
                 {
                     continue;
                 }
 
-                if ((_floorY is
-                         { } floorY &&
-                     voxel.Y ==
-                         floorY) ||
-                    (_roofY is
-                         { } roofY &&
-                     voxel.Y ==
-                         roofY))
-                {
-                    continue;
-                }
-
-                var localX =
-                    voxel.X -
-                    origin.X;
-                var localY =
-                    voxel.Y -
-                    originY;
-                var localZ =
-                    voxel.Z -
-                    origin.Z;
                 var key =
                     StructureCellKey(
                         localX,
                         localY,
                         localZ);
-                var replace =
-                    placement.Generation.ReplacePolicy switch
-                    {
-                        StructureReplacePolicy.Any =>
-                            true,
-                        StructureReplacePolicy.AirOnly =>
-                            !claimed.Contains(
-                                key) &&
-                            !(baseOccupied?.Contains(
-                                  key) ??
-                              false),
-                        StructureReplacePolicy.Terrain =>
-                            !claimed.Contains(
-                                key),
-                        _ =>
-                            throw new InvalidOperationException(
-                                $"Unknown structure replace policy {placement.Generation.ReplacePolicy}."),
-                    };
-
-                if (!replace)
+                if (!CanReplaceStructureCell(
+                        placement.Generation.ReplacePolicy,
+                        key,
+                        claimed,
+                        baseOccupied))
                 {
                     continue;
                 }
@@ -423,12 +387,176 @@ public sealed class SurfaceChunkMaterializer
                     localX,
                     localY,
                     localZ,
+                    VoxelCell.Empty);
+                chunk.SetFluid(
+                    localX,
+                    localY,
+                    localZ,
+                    FluidCell.Empty);
+                claimed.Add(
+                    key);
+            }
+
+            foreach (var voxel in
+                     placement.Voxels)
+            {
+                if (!TryStructureLocal(
+                        voxel.X,
+                        voxel.Y,
+                        voxel.Z,
+                        origin,
+                        originY,
+                        topExclusive,
+                        out var localX,
+                        out var localY,
+                        out var localZ))
+                {
+                    continue;
+                }
+
+                var key =
+                    StructureCellKey(
+                        localX,
+                        localY,
+                        localZ);
+                if (!CanReplaceStructureCell(
+                        placement.Generation.ReplacePolicy,
+                        key,
+                        claimed,
+                        baseOccupied))
+                {
+                    continue;
+                }
+
+                chunk.SetFluid(
+                    localX,
+                    localY,
+                    localZ,
+                    FluidCell.Empty);
+                chunk.SetCell(
+                    localX,
+                    localY,
+                    localZ,
                     voxel.Cell);
+                claimed.Add(
+                    key);
+            }
+
+            foreach (var voxel in
+                     placement.FluidVoxels)
+            {
+                if (!TryStructureLocal(
+                        voxel.X,
+                        voxel.Y,
+                        voxel.Z,
+                        origin,
+                        originY,
+                        topExclusive,
+                        out var localX,
+                        out var localY,
+                        out var localZ))
+                {
+                    continue;
+                }
+
+                var key =
+                    StructureCellKey(
+                        localX,
+                        localY,
+                        localZ);
+                if (!CanReplaceStructureCell(
+                        placement.Generation.ReplacePolicy,
+                        key,
+                        claimed,
+                        baseOccupied))
+                {
+                    continue;
+                }
+
+                chunk.SetCell(
+                    localX,
+                    localY,
+                    localZ,
+                    VoxelCell.Empty);
+                chunk.SetFluid(
+                    localX,
+                    localY,
+                    localZ,
+                    voxel.Fluid);
                 claimed.Add(
                     key);
             }
         }
     }
+
+    private bool TryStructureLocal(
+        int worldX,
+        int worldY,
+        int worldZ,
+        (int X, int Y, int Z) origin,
+        int originY,
+        int topExclusive,
+        out int localX,
+        out int localY,
+        out int localZ)
+    {
+        localX =
+            localY =
+            localZ =
+            0;
+
+        if (worldY < originY ||
+            worldY >= topExclusive ||
+            worldX < origin.X ||
+            worldX >=
+                origin.X +
+                Chunk.Size ||
+            worldZ < origin.Z ||
+            worldZ >=
+                origin.Z +
+                Chunk.Size ||
+            (_floorY is { } floorY &&
+             worldY == floorY) ||
+            (_roofY is { } roofY &&
+             worldY == roofY))
+        {
+            return false;
+        }
+
+        localX =
+            worldX -
+            origin.X;
+        localY =
+            worldY -
+            originY;
+        localZ =
+            worldZ -
+            origin.Z;
+        return true;
+    }
+
+    private static bool CanReplaceStructureCell(
+        StructureReplacePolicy policy,
+        int key,
+        IReadOnlySet<int> claimed,
+        IReadOnlySet<int>? baseOccupied) =>
+        policy switch
+        {
+            StructureReplacePolicy.Any =>
+                true,
+            StructureReplacePolicy.AirOnly =>
+                !claimed.Contains(
+                    key) &&
+                !(baseOccupied?.Contains(
+                      key) ??
+                  false),
+            StructureReplacePolicy.Terrain =>
+                !claimed.Contains(
+                    key),
+            _ =>
+                throw new InvalidOperationException(
+                    $"Unknown structure replace policy {policy}."),
+        };
 
     private static int StructureCellKey(
         int x,
