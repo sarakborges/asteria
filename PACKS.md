@@ -90,6 +90,17 @@ A Sphere may define a shell floor, roof, or both:
 
 `floorY` and `roofY` are optional individually, but at least one is required when `shell` is present. Negative Y is not part of Asteria's world contract, so shell bounds cannot be negative. Block mining policy remains block-authored; the default Sphere Shell uses optional `mining.unbreakable: true`.
 
+A Sphere may define one explicit generated ocean rule:
+
+```json
+"generatedOcean": {
+  "biome": "asteria:overworld/ocean",
+  "fluid": "asteria:water"
+}
+```
+
+The referenced biome must be in that Sphere's active biome pool and the referenced fluid must exist in the selected pack. Ocean fill is generation-time content, not a separate hydrology layer: only columns whose authoritative primary biome matches the rule are filled, only density-empty voxels above the base terrain are eligible, and fill stops at `seaLevel` (or below an authored Sphere roof). Generated cells are normal full source fluid cells and enter the existing runtime fluid simulation after residency. Caves below the base terrain are not flooded by this rule.
+
 A Sphere may additionally define a bounded subtractive cave field. This
 is part of its single terrain-density owner, not a separate generator:
 
