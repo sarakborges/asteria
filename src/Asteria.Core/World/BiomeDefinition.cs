@@ -13,7 +13,8 @@ public sealed class BiomeDefinition
         BiomeTintPaletteDefinition? tints = null,
         BiomeTerrain3dDefinition? terrain3d = null,
         BiomeVolumeLayoutDefinition? volumeLayout = null,
-        BiomeUndergroundLayoutDefinition? undergroundLayout = null)
+        BiomeUndergroundLayoutDefinition? undergroundLayout = null,
+        BiomeSurfaceFluidDefinition? surfaceFluid = null)
     {
         ValidateId(id);
         Id = id;
@@ -73,6 +74,16 @@ public sealed class BiomeDefinition
             tints ??
             BiomeTintPaletteDefinition.Empty;
         Terrain3d = terrain3d;
+
+        if (surfaceFluid is BiomeVolcanoCraterFluidDefinition &&
+            surfaceTerrain?.Shape is not BiomeVolcanoTerrainShapeDefinition)
+        {
+            throw new ArgumentException(
+                "volcano_crater surfaceFluid requires volcano surfaceTerrain.",
+                nameof(surfaceFluid));
+        }
+
+        SurfaceFluid = surfaceFluid;
     }
 
     public string Id { get; }
@@ -92,6 +103,8 @@ public sealed class BiomeDefinition
     public BiomeTintPaletteDefinition Tints { get; }
 
     public BiomeTerrain3dDefinition? Terrain3d { get; }
+
+    public BiomeSurfaceFluidDefinition? SurfaceFluid { get; }
 
     public bool BelongsToDimension(string dimensionId)
     {
@@ -333,69 +346,36 @@ public sealed class BiomeTerrainDefinition
         uint macroScale,
         float detailAmplitude,
         uint detailScale)
+        : this(
+            new BiomeNoiseTerrainShapeDefinition(
+                baseHeightOffset,
+                macroAmplitude,
+                macroScale,
+                detailAmplitude,
+                detailScale))
     {
-        if (!float.IsFinite(baseHeightOffset))
-        {
-            throw new ArgumentOutOfRangeException(nameof(baseHeightOffset));
-        }
-
-        ValidateNoise(
-            macroAmplitude,
-            macroScale,
-            nameof(macroAmplitude),
-            nameof(macroScale));
-        ValidateNoise(
-            detailAmplitude,
-            detailScale,
-            nameof(detailAmplitude),
-            nameof(detailScale));
-
-        if (detailScale > macroScale)
-        {
-            throw new ArgumentException(
-                "Biome detail scale cannot exceed macro scale.",
-                nameof(detailScale));
-        }
-
-        BaseHeightOffset = baseHeightOffset;
-        MacroAmplitude = macroAmplitude;
-        MacroScale = macroScale;
-        DetailAmplitude = detailAmplitude;
-        DetailScale = detailScale;
     }
 
-    public float BaseHeightOffset { get; }
-
-    public float MacroAmplitude { get; }
-
-    public uint MacroScale { get; }
-
-    public float DetailAmplitude { get; }
-
-    public uint DetailScale { get; }
-
-    private static void ValidateNoise(
-        float amplitude,
-        uint scale,
-        string amplitudeName,
-        string scaleName)
+    public BiomeTerrainDefinition(
+        BiomeTerrainShapeDefinition shape,
+        IEnumerable<BiomeTerrainModifierDefinition>? modifiers = null)
     {
-        if (!float.IsFinite(amplitude) ||
-            amplitude < 0f ||
-            amplitude > 512f)
-        {
-            throw new ArgumentOutOfRangeException(
-                amplitudeName,
-                "Terrain amplitude must be finite and within 0..512.");
-        }
-
-        if (scale is < 2 or > 16_384)
-        {
-            throw new ArgumentOutOfRangeException(
-                scaleName,
-                "Terrain scale must be within 2..16384.");
-        }
+        Shape =
+            shape ??
+            throw new ArgumentNullException(nameof(shape));
+        Modifiers =
+            Array.AsReadOnly(
+                modifiers?.ToArray() ??
+                Array.Empty<BiomeTerrainModifierDefinition>());
     }
+
+    public BiomeTerrainShapeDefinition Shape { get; }
+
+    public IReadOnlyList<BiomeTerrainModifierDefinition> Modifiers { get; }
+
+    public float MaximumHeightOffset =>
+        Shape.MaximumHeightOffset +
+        Modifiers.Sum(modifier => modifier.MaximumHeightOffset);
 }
 
 public sealed class BiomeSurfaceLayerDefinition

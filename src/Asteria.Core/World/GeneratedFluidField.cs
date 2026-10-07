@@ -2,15 +2,16 @@ namespace Asteria.Core.World;
 
 /// <summary>
 /// Immutable generation-time fluid placement policy. It owns authored ocean
-/// fill and shallow local surface-fluid presence. Terrain consumes only the
-/// local cut depth; runtime fluid simulation remains a separate owner after
-/// the chunk becomes resident.
+/// fill, terrain-driven surface fluids and optional bounded local surface
+/// fluid patches. Runtime fluid simulation remains the owner after residency.
 /// </summary>
 public sealed class GeneratedFluidField
 {
     private readonly ulong _seed;
     private readonly OceanRule? _ocean;
     private readonly IReadOnlyDictionary<string, SurfaceRule> _surface;
+    private readonly HashSet<string> _staticSeaBiomes;
+    private readonly IReadOnlyDictionary<string, VolcanoCraterRule> _volcanoCraters;
     private readonly int _minimumInteriorY;
     private readonly int _maximumInteriorY;
 
@@ -18,11 +19,26 @@ public sealed class GeneratedFluidField
         ulong seed,
         DimensionDefinition dimension,
         FluidRegistry fluids)
+        : this(
+            seed,
+            dimension,
+            fluids,
+            Array.Empty<BiomeDefinition>())
+    {
+    }
+
+    public GeneratedFluidField(
+        ulong seed,
+        DimensionDefinition dimension,
+        FluidRegistry fluids,
+        IEnumerable<BiomeDefinition> surfaceDefinitions)
     {
         ArgumentNullException.ThrowIfNull(
             dimension);
         ArgumentNullException.ThrowIfNull(
             fluids);
+        ArgumentNullException.ThrowIfNull(
+            surfaceDefinitions);
 
         _seed = seed;
         _minimumInteriorY =
@@ -54,6 +70,57 @@ public sealed class GeneratedFluidField
                                 definition.Fluid)),
                     StringComparer.Ordinal);
 
+        var definitions =
+            surfaceDefinitions
+                .OrderBy(
+                    definition =>
+                        definition.Id,
+                    StringComparer.Ordinal)
+                .ToArray();
+
+        _staticSeaBiomes =
+            definitions
+                .Where(
+                    definition =>
+                        definition.SurfaceTerrain?.Shape is
+                            BiomeSwampTerrainShapeDefinition)
+                .Select(
+                    definition =>
+                        definition.Id)
+                .ToHashSet(
+                    StringComparer.Ordinal);
+
+        _volcanoCraters =
+            definitions
+                .Where(
+                    definition =>
+                        definition.SurfaceFluid is
+                            BiomeVolcanoCraterFluidDefinition)
+                .ToDictionary(
+                    definition =>
+                        definition.Id,
+                    definition =>
+                    {
+                        var fluid =
+                            (BiomeVolcanoCraterFluidDefinition)
+                            definition.SurfaceFluid!;
+                        var terrain =
+                            definition.SurfaceTerrain?.Shape as
+                                BiomeVolcanoTerrainShapeDefinition ??
+                            throw new ArgumentException(
+                                $"Biome {definition.Id} volcano crater fluid requires volcano terrain.");
+
+                        return new VolcanoCraterRule(
+                            definition.Id,
+                            terrain,
+                            fluid,
+                            fluids.GetId(
+                                fluid.Fluid),
+                            dimension.SeaLevel,
+                            seed);
+                    },
+                    StringComparer.Ordinal);
+
         if (dimension.GeneratedOcean is not
             { } ocean)
         {
@@ -75,7 +142,8 @@ public sealed class GeneratedFluidField
 
     public bool HasRules =>
         _ocean is not null ||
-        _surface.Count > 0;
+        _surface.Count > 0 ||
+        _volcanoCraters.Count > 0;
 
     public int SurfaceCutDepthAt(
         BiomeSample sample,
@@ -101,6 +169,23 @@ public sealed class GeneratedFluidField
         int baseSurfaceY,
         int surfaceCutDepth,
         out int minimumY,
+        out int maximumY) =>
+        TryGetColumnBounds(
+            sample,
+            baseSurfaceY,
+            surfaceCutDepth,
+            0,
+            0,
+            out minimumY,
+            out maximumY);
+
+    public bool TryGetColumnBounds(
+        BiomeSample sample,
+        int baseSurfaceY,
+        int surfaceCutDepth,
+        int worldX,
+        int worldZ,
+        out int minimumY,
         out int maximumY)
     {
         ArgumentNullException.ThrowIfNull(
@@ -115,53 +200,49 @@ public sealed class GeneratedFluidField
             _surface.ContainsKey(
                 sample.Primary))
         {
-            var localMinimum =
-                Math.Max(
-                    (long)_minimumInteriorY,
-                    (long)baseSurfaceY +
-                    1L);
-            var localMaximum =
-                Math.Min(
-                    (long)_maximumInteriorY,
-                    (long)baseSurfaceY +
-                    surfaceCutDepth);
-
-            if (localMinimum <=
-                localMaximum)
-            {
-                minimumY =
-                    checked(
-                        (int)localMinimum);
-                maximumY =
-                    checked(
-                        (int)localMaximum);
-            }
+            AddBounds(
+                checked(
+                    baseSurfaceY +
+                    1),
+                checked(
+                    baseSurfaceY +
+                    surfaceCutDepth),
+                ref minimumY,
+                ref maximumY);
         }
 
         if (_ocean is
                 { } ocean &&
-            sample.Primary ==
-                ocean.Biome &&
-            ocean.MaximumY >=
-                ocean.MinimumY &&
+            UsesStaticSea(
+                sample,
+                ocean) &&
             baseSurfaceY <
                 ocean.MaximumY)
         {
-            var oceanMinimum =
+            AddBounds(
                 Math.Max(
                     ocean.MinimumY,
                     checked(
                         baseSurfaceY +
-                        1));
+                        1)),
+                ocean.MaximumY,
+                ref minimumY,
+                ref maximumY);
+        }
 
-            minimumY =
-                Math.Min(
-                    minimumY,
-                    oceanMinimum);
-            maximumY =
-                Math.Max(
-                    maximumY,
-                    ocean.MaximumY);
+        if (_volcanoCraters.TryGetValue(
+                sample.Primary,
+                out var crater))
+        {
+            crater.AddBounds(
+                sample.PrimaryTerrainStrength,
+                baseSurfaceY,
+                worldX,
+                worldZ,
+                _minimumInteriorY,
+                _maximumInteriorY,
+                ref minimumY,
+                ref maximumY);
         }
 
         if (minimumY <=
@@ -179,10 +260,33 @@ public sealed class GeneratedFluidField
         BiomeSample sample,
         int baseSurfaceY,
         int surfaceCutDepth,
-        int worldY)
+        int worldY) =>
+        FluidAtEmptyVoxel(
+            sample,
+            baseSurfaceY,
+            surfaceCutDepth,
+            0,
+            worldY,
+            0);
+
+    public FluidCell FluidAtEmptyVoxel(
+        BiomeSample sample,
+        int baseSurfaceY,
+        int surfaceCutDepth,
+        int worldX,
+        int worldY,
+        int worldZ)
     {
         ArgumentNullException.ThrowIfNull(
             sample);
+
+        if (worldY <
+                _minimumInteriorY ||
+            worldY >
+                _maximumInteriorY)
+        {
+            return FluidCell.Empty;
+        }
 
         if (surfaceCutDepth > 0 &&
             _surface.TryGetValue(
@@ -192,20 +296,35 @@ public sealed class GeneratedFluidField
                 baseSurfaceY &&
             (long)worldY <=
                 (long)baseSurfaceY +
-                surfaceCutDepth &&
-            worldY >=
-                _minimumInteriorY &&
-            worldY <=
-                _maximumInteriorY)
+                surfaceCutDepth)
         {
             return FluidCell.Source(
                 local.Fluid);
         }
 
+        if (_volcanoCraters.TryGetValue(
+                sample.Primary,
+                out var crater))
+        {
+            var fluid =
+                crater.FluidAt(
+                    sample.PrimaryTerrainStrength,
+                    baseSurfaceY,
+                    worldX,
+                    worldY,
+                    worldZ);
+
+            if (!fluid.IsEmpty)
+            {
+                return fluid;
+            }
+        }
+
         if (_ocean is not
                 { } ocean ||
-            sample.Primary !=
-                ocean.Biome ||
+            !UsesStaticSea(
+                sample,
+                ocean) ||
             worldY <
                 ocean.MinimumY ||
             worldY >
@@ -226,16 +345,44 @@ public sealed class GeneratedFluidField
         int surfaceCutDepth,
         int worldY,
         double terrainDensity) =>
+        FluidAt(
+            sample,
+            baseSurfaceY,
+            surfaceCutDepth,
+            0,
+            worldY,
+            0,
+            terrainDensity);
+
+    public FluidCell FluidAt(
+        BiomeSample sample,
+        int baseSurfaceY,
+        int surfaceCutDepth,
+        int worldX,
+        int worldY,
+        int worldZ,
+        double terrainDensity) =>
         terrainDensity >= 0d
             ? FluidCell.Empty
             : FluidAtEmptyVoxel(
                 sample,
                 baseSurfaceY,
                 surfaceCutDepth,
-                worldY);
+                worldX,
+                worldY,
+                worldZ);
 
     public ChunkSurfaceRange ExpandSurfaceRange(
-        SurfaceTerrainColumn column)
+        SurfaceTerrainColumn column) =>
+        ExpandSurfaceRange(
+            column,
+            0,
+            0);
+
+    public ChunkSurfaceRange ExpandSurfaceRange(
+        SurfaceTerrainColumn column,
+        int chunkX,
+        int chunkZ)
     {
         ArgumentNullException.ThrowIfNull(
             column);
@@ -245,6 +392,12 @@ public sealed class GeneratedFluidField
             return column.Range;
         }
 
+        var (originX, _, originZ) =
+            VoxelCoordinates.ChunkOrigin(
+                new ChunkCoord(
+                    chunkX,
+                    0,
+                    chunkZ));
         var maximum =
             column.Range.MaximumWorldY;
 
@@ -265,30 +418,25 @@ public sealed class GeneratedFluidField
                         x,
                         z);
 
-                if (cutDepth > 0)
-                {
-                    maximum =
-                        Math.Max(
-                            maximum,
-                            checked(
-                                baseY +
-                                cutDepth));
-                }
-
-                if (_ocean is
-                        { } ocean &&
-                    column.BiomeAt(
+                if (TryGetColumnBounds(
+                        column.BiomeAt(
                             x,
-                            z)
-                        .Primary ==
-                    ocean.Biome &&
-                    baseY <
-                    ocean.MaximumY)
+                            z),
+                        baseY,
+                        cutDepth,
+                        checked(
+                            originX +
+                            x),
+                        checked(
+                            originZ +
+                            z),
+                        out _,
+                        out var fluidMaximum))
                 {
                     maximum =
                         Math.Max(
                             maximum,
-                            ocean.MaximumY);
+                            fluidMaximum);
                 }
             }
         }
@@ -298,6 +446,38 @@ public sealed class GeneratedFluidField
             ? column.Range
             : new ChunkSurfaceRange(
                 column.Range.MinimumWorldY,
+                maximum);
+    }
+
+    private bool UsesStaticSea(
+        BiomeSample sample,
+        OceanRule ocean) =>
+        string.Equals(
+            sample.Primary,
+            ocean.Biome,
+            StringComparison.Ordinal) ||
+        _staticSeaBiomes.Contains(
+            sample.Primary);
+
+    private static void AddBounds(
+        int minimum,
+        int maximum,
+        ref int currentMinimum,
+        ref int currentMaximum)
+    {
+        if (minimum >
+            maximum)
+        {
+            return;
+        }
+
+        currentMinimum =
+            Math.Min(
+                currentMinimum,
+                minimum);
+        currentMaximum =
+            Math.Max(
+                currentMaximum,
                 maximum);
     }
 
@@ -488,6 +668,193 @@ public sealed class GeneratedFluidField
                     value %
                     span) -
                 jitter);
+        }
+    }
+
+    private sealed class VolcanoCraterRule
+    {
+        private readonly ulong _seed;
+        private readonly BiomeVolcanoCraterFluidDefinition _definition;
+        private readonly GenerationDomain _spillDomain;
+        private readonly double _craterLevel;
+
+        public VolcanoCraterRule(
+            string biomeId,
+            BiomeVolcanoTerrainShapeDefinition terrain,
+            BiomeVolcanoCraterFluidDefinition definition,
+            FluidRuntimeId fluid,
+            int seaLevel,
+            ulong seed)
+        {
+            _seed = seed;
+            _definition = definition;
+            Fluid = fluid;
+            _craterLevel =
+                seaLevel +
+                terrain.BaseHeight +
+                terrain.Height -
+                terrain.CraterDepth +
+                definition.LevelOffset;
+            _spillDomain =
+                GenerationDomain.Named(
+                    $"generated-fluid/volcano/spill/v1/{biomeId}");
+        }
+
+        public FluidRuntimeId Fluid { get; }
+
+        public void AddBounds(
+            float terrainStrength,
+            int baseSurfaceY,
+            int worldX,
+            int worldZ,
+            int minimumInteriorY,
+            int maximumInteriorY,
+            ref int minimumY,
+            ref int maximumY)
+        {
+            if (terrainStrength >=
+                _definition.MinimumStrength)
+            {
+                var craterMinimum =
+                    Math.Max(
+                        minimumInteriorY,
+                        checked(
+                            baseSurfaceY +
+                            1));
+                var craterMaximum =
+                    Math.Min(
+                        maximumInteriorY,
+                        HighestCoveredVoxel(
+                            _craterLevel));
+
+                GeneratedFluidField.AddBounds(
+                    craterMinimum,
+                    craterMaximum,
+                    ref minimumY,
+                    ref maximumY);
+            }
+
+            if (IsSpill(
+                    terrainStrength,
+                    worldX,
+                    worldZ))
+            {
+                var spillY =
+                    checked(
+                        baseSurfaceY +
+                        1);
+                if (spillY >=
+                        minimumInteriorY &&
+                    spillY <=
+                        maximumInteriorY)
+                {
+                    GeneratedFluidField.AddBounds(
+                        spillY,
+                        spillY,
+                        ref minimumY,
+                        ref maximumY);
+                }
+            }
+        }
+
+        public FluidCell FluidAt(
+            float terrainStrength,
+            int baseSurfaceY,
+            int worldX,
+            int worldY,
+            int worldZ)
+        {
+            if (terrainStrength >=
+                    _definition.MinimumStrength &&
+                worldY >
+                    baseSurfaceY &&
+                TryFluidLevel(
+                    _craterLevel,
+                    worldY,
+                    out var craterLevel))
+            {
+                return FluidCell.Source(
+                    Fluid,
+                    craterLevel);
+            }
+
+            return IsSpill(
+                       terrainStrength,
+                       worldX,
+                       worldZ) &&
+                   worldY ==
+                       checked(
+                           baseSurfaceY +
+                           1)
+                ? FluidCell.Source(
+                    Fluid,
+                    _definition.SpillLevel)
+                : FluidCell.Empty;
+        }
+
+        private bool IsSpill(
+            float terrainStrength,
+            int worldX,
+            int worldZ)
+        {
+            if (terrainStrength <
+                    _definition.SpillMinimumStrength ||
+                terrainStrength >
+                    _definition.SpillMaximumStrength)
+            {
+                return false;
+            }
+
+            var noise =
+                WorldGenerationNoise
+                    .FractalNoise2D(
+                        _seed,
+                        _spillDomain,
+                        worldX +
+                        0.5d,
+                        worldZ +
+                        0.5d,
+                        _definition.SpillScale,
+                        octaves: 3);
+
+            return Math.Abs(
+                       noise) <=
+                   _definition.SpillWidth;
+        }
+
+        private static int HighestCoveredVoxel(
+            double surfaceLevel) =>
+            checked(
+                (int)Math.Ceiling(
+                    surfaceLevel) -
+                1);
+
+        private static bool TryFluidLevel(
+            double surfaceLevel,
+            int worldY,
+            out byte level)
+        {
+            var coverage =
+                surfaceLevel -
+                worldY;
+
+            if (coverage <= 0d)
+            {
+                level = 0;
+                return false;
+            }
+
+            level =
+                checked((byte)Math.Clamp(
+                    (int)Math.Ceiling(
+                        Math.Clamp(
+                            coverage,
+                            0d,
+                            1d) *
+                        FluidCell.MaxLevel),
+                    FluidCell.MinLevel,
+                    FluidCell.MaxLevel));
+            return true;
         }
     }
 

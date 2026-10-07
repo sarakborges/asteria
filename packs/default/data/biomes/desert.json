@@ -11,11 +11,15 @@
     ]
   },
   "surfaceTerrain": {
-    "baseHeightOffset": 12,
-    "macroAmplitude": 16,
-    "macroScale": 768,
-    "detailAmplitude": 5,
-    "detailScale": 96
+    "type": "dunes",
+    "baseHeight": 3,
+    "amplitude": 11,
+    "scale": 0.018,
+    "sharpness": 1.7,
+    "warpScale": 0.0045,
+    "warpStrength": 13,
+    "detailAmplitude": 1.5,
+    "detailScale": 0.05
   },
   "surfaceLayers": [
     {

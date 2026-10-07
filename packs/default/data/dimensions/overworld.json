@@ -12,26 +12,6 @@
       "deepWaterStartDominance": 0.85
     }
   },
-  "generatedSurfaceFluids": [
-    {
-      "biome": "asteria:overworld/swamp",
-      "fluid": "asteria:water",
-      "spacing": 18,
-      "radius": 5,
-      "jitter": 3,
-      "chance": 0.75,
-      "depth": 1
-    },
-    {
-      "biome": "asteria:overworld/volcano",
-      "fluid": "asteria:lava",
-      "spacing": 96,
-      "radius": 10,
-      "jitter": 12,
-      "chance": 0.4,
-      "depth": 2
-    }
-  ],
   "gravityStrength": 18,
   "shell": {
     "block": "asteria:sphere_shell",

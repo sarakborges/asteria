@@ -186,12 +186,22 @@ public sealed class SurfaceChunkMaterializer
                     }
                 }
 
-                if (surfaceFluidCutDepth > 0)
+                var decorationY = (long)surfaceY + 1;
+                if (_generatedFluids.TryGetColumnBounds(
+                        sample,
+                        baseY,
+                        surfaceFluidCutDepth,
+                        worldX,
+                        worldZ,
+                        out var fluidMinimumY,
+                        out var fluidMaximumY) &&
+                    decorationY >=
+                        fluidMinimumY &&
+                    decorationY <=
+                        fluidMaximumY)
                 {
                     continue;
                 }
-
-                var decorationY = (long)surfaceY + 1;
                 if (decorationY < originY ||
                     decorationY >= topExclusive ||
                     (_floorY is { } floorY && decorationY < floorY) ||
@@ -240,7 +250,9 @@ public sealed class SurfaceChunkMaterializer
             chunk,
             column,
             densityVolume,
+            originX,
             originY,
+            originZ,
             topExclusive);
 
         MaterializeStructures(
@@ -579,7 +591,9 @@ public sealed class SurfaceChunkMaterializer
         Chunk chunk,
         SurfaceTerrainColumn column,
         TerrainDensityVolume densityVolume,
+        int originX,
         int originY,
+        int originZ,
         int topExclusive)
     {
         if (!_generatedFluids.HasRules)
@@ -598,10 +612,21 @@ public sealed class SurfaceChunkMaterializer
                         localX,
                         localZ);
 
+                var worldX =
+                    checked(
+                        originX +
+                        localX);
+                var worldZ =
+                    checked(
+                        originZ +
+                        localZ);
+
                 if (!_generatedFluids.TryGetColumnBounds(
                         sample,
                         baseY,
                         surfaceCutDepth,
+                        worldX,
+                        worldZ,
                         out var minimumY,
                         out var maximumY))
                 {
@@ -629,7 +654,9 @@ public sealed class SurfaceChunkMaterializer
                         sample,
                         baseY,
                         surfaceCutDepth,
+                        worldX,
                         worldY,
+                        worldZ,
                         densityVolume.DensityAt(
                             localX,
                             localY,

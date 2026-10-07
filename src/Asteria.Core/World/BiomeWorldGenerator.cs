@@ -68,6 +68,7 @@ public sealed class BiomeWorldGenerator :
         structureSets ??=
             StructureSetRegistry.Empty;
         biomes.ValidateBlocks(blocks);
+        biomes.ValidateFluids(fluids);
         structures.ValidateBlocks(blocks);
         structures.ValidateFluids(fluids);
         structureSets.ValidateStructures(
@@ -122,7 +123,8 @@ public sealed class BiomeWorldGenerator :
             new GeneratedFluidField(
                 seed,
                 dimension,
-                fluids);
+                fluids,
+                surfaceDefinitions);
         _terrain =
             new SurfaceTerrainField(
                 seed,
@@ -333,7 +335,9 @@ public sealed class BiomeWorldGenerator :
         var withFluid =
             _generatedFluids
                 .ExpandSurfaceRange(
-                    column);
+                    column,
+                    chunkX,
+                    chunkZ);
 
         return _surfaceStructures
             .ExpandSurfaceRange(

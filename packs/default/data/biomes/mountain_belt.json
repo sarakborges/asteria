@@ -8,11 +8,13 @@
     }
   },
   "surfaceTerrain": {
-    "baseHeightOffset": 42,
-    "macroAmplitude": 34,
-    "macroScale": 896,
-    "detailAmplitude": 8,
-    "detailScale": 112
+    "type": "mountain_belt",
+    "baseHeight": 10,
+    "amplitude": 58,
+    "scale": 0.0055,
+    "sharpness": 1.9,
+    "detailAmplitude": 14,
+    "detailScale": 0.018
   },
   "surfaceLayers": [
     {
