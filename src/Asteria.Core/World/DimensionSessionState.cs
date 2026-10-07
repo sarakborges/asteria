@@ -4,11 +4,11 @@ namespace Asteria.Core.World;
 
 public readonly record struct DimensionSessionArchiveReport(
     int ArchivedDirty,
-    int DroppedPristine)
+    int ArchivedPristine)
 {
     public int Total =>
         ArchivedDirty +
-        DroppedPristine;
+        ArchivedPristine;
 }
 
 public sealed class DimensionSessionState
@@ -47,7 +47,7 @@ public sealed class DimensionSessionState
         ArchiveResidentWorld()
     {
         var archivedDirty = 0;
-        var droppedPristine = 0;
+        var archivedPristine = 0;
 
         foreach (var result in
                  World.ArchiveAllResidentChunks())
@@ -57,15 +57,15 @@ public sealed class DimensionSessionState
                 case ChunkArchiveResult.ArchivedDirty:
                     archivedDirty++;
                     break;
-                case ChunkArchiveResult.DroppedPristine:
-                    droppedPristine++;
+                case ChunkArchiveResult.ArchivedPristine:
+                    archivedPristine++;
                     break;
             }
         }
 
         return new DimensionSessionArchiveReport(
             archivedDirty,
-            droppedPristine);
+            archivedPristine);
     }
 }
 
