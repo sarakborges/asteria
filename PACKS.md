@@ -95,7 +95,14 @@ A Sphere may define one explicit generated ocean rule:
 ```json
 "generatedOcean": {
   "biome": "asteria:overworld/ocean",
-  "fluid": "asteria:water"
+  "fluid": "asteria:water",
+  "shore": {
+    "shelfDepth": 4,
+    "beachHeight": 2,
+    "beachStartDominance": 0.62,
+    "shelfStartDominance": 0.72,
+    "deepWaterStartDominance": 0.85
+  }
 }
 ```
 
