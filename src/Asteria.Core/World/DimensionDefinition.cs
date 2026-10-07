@@ -83,6 +83,23 @@ public sealed class DimensionShellDefinition
     public int? RoofY { get; }
 }
 
+public sealed class DimensionGeneratedOceanDefinition
+{
+    public DimensionGeneratedOceanDefinition(
+        string biome,
+        string fluid)
+    {
+        BiomeDefinition.ValidateId(biome);
+        FluidDefinition.ValidateId(fluid);
+        Biome = biome;
+        Fluid = fluid;
+    }
+
+    public string Biome { get; }
+
+    public string Fluid { get; }
+}
+
 public sealed class DimensionEnvironmentDefinition
 {
     public DimensionEnvironmentDefinition(
@@ -138,7 +155,8 @@ public sealed class DimensionDefinition
         DimensionSpawnDefinition spawn,
         DimensionEnvironmentDefinition environment,
         DimensionShellDefinition? shell = null,
-        DimensionCaveDefinition? caves = null)
+        DimensionCaveDefinition? caves = null,
+        DimensionGeneratedOceanDefinition? generatedOcean = null)
     {
         if (!float.IsFinite(gravityStrength) ||
             gravityStrength < 0f ||
@@ -179,6 +197,14 @@ public sealed class DimensionDefinition
             }
         }
 
+        if (generatedOcean is { } ocean &&
+            !unique.Contains(ocean.Biome))
+        {
+            throw new ArgumentException(
+                $"Dimension {id} generated ocean biome {ocean.Biome} must be part of the active biome pool.",
+                nameof(generatedOcean));
+        }
+
         Id = id;
         Biomes =
             Array.AsReadOnly(
@@ -197,6 +223,7 @@ public sealed class DimensionDefinition
                 nameof(environment));
         Shell = shell;
         Caves = caves;
+        GeneratedOcean = generatedOcean;
     }
 
     public DimensionId Id { get; }
@@ -214,6 +241,8 @@ public sealed class DimensionDefinition
     public DimensionShellDefinition? Shell { get; }
 
     public DimensionCaveDefinition? Caves { get; }
+
+    public DimensionGeneratedOceanDefinition? GeneratedOcean { get; }
 }
 
 
