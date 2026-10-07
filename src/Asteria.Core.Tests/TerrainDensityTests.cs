@@ -17,10 +17,15 @@ public sealed class TerrainDensityTests
         Assert.True(generator.DensityAt(4, surface - 2, -9) >= 0d);
         Assert.True(generator.DensityAt(4, surface - 36, -9) < 0d);
 
+        var caveY = surface - 36;
+        var caveChunkY = caveY / Chunk.Size;
         var underground = generator.Materialize(
-            new ChunkCoord(0, 1, -1));
+            new ChunkCoord(0, caveChunkY, -1));
         Assert.True(
-            underground.GetBlock(4, surface - 36 - Chunk.Size, 23).IsAir);
+            underground.GetBlock(
+                4,
+                caveY % Chunk.Size,
+                Chunk.Size - 9).IsAir);
     }
 
     [Fact]
@@ -88,13 +93,13 @@ public sealed class TerrainDensityTests
                 roughness: 0.2f,
                 densityScale: 30f));
         var lower = generator.Materialize(
-            new ChunkCoord(0, 2, 0));
+            new ChunkCoord(0, 95 / Chunk.Size, 0));
         var upper = generator.Materialize(
-            new ChunkCoord(0, 3, 0));
+            new ChunkCoord(0, 96 / Chunk.Size, 0));
 
         foreach (var (y, localY, chunk) in new[]
                  {
-                     (95, 31, lower),
+                     (95, 95 % Chunk.Size, lower),
                      (96, 0, upper),
                  })
         {
@@ -119,13 +124,14 @@ public sealed class TerrainDensityTests
             roofY: 140);
 
         var floor = generator.Materialize(new ChunkCoord(0, 0, 0));
-        var roof = generator.Materialize(new ChunkCoord(0, 4, 0));
+        var roof = generator.Materialize(
+            new ChunkCoord(0, 140 / Chunk.Size, 0));
         Assert.Equal(
             Block("asteria:sphere_shell"),
             floor.GetBlock(0, 0, 0));
         Assert.Equal(
             Block("asteria:sphere_shell"),
-            roof.GetBlock(0, 12, 0));
+            roof.GetBlock(0, 140 % Chunk.Size, 0));
         Assert.Throws<ArgumentOutOfRangeException>(
             () => generator.Materialize(new ChunkCoord(0, -1, 0)));
         Assert.Throws<ArgumentOutOfRangeException>(
