@@ -78,7 +78,11 @@ Each pack has one manifest at `packs/{name}/pack.json`:
 
 Definitions may add or override namespaced blocks, fluids, biomes, structures, recipes, loot, dimensions and future definition-driven systems.
 
-Dimensions live under `data/dimensions/*.json`. A dimension is one authored world-runtime configuration; in-game, dimensions are called **Spheres**. It declares its stable ID, explicit `surfaceBiomes`, optional `volumeBiomes` and optional `undergroundBiomes` pools, sea level, gravity strength, spawn coordinates, optional Sphere Shell bounds and engine-agnostic environment presentation values. Surface biomes author `baseHeightOffset` relative to that dimension sea level rather than baking an absolute world height into each biome. A root world seed is not duplicated into the pack; runtime derives a stable per-dimension seed from the world seed + dimension ID.
+Dimensions live under `data/dimensions/*.json`. A dimension is one authored world-runtime configuration; in-game, dimensions are called **Spheres**. It declares its stable ID, explicit `surfaceBiomes`, optional `volumeBiomes` and optional `undergroundBiomes` pools, sea level, gravity strength, spawn coordinates, optional Sphere Shell bounds and engine-agnostic environment presentation values.
+
+A dimension may also declare `generatedSurfaceStructures`. Each rule targets an active surface biome and references an exact structure ID or namespaced structure group, with deterministic `spacing`, `chance`, optional `jitter`, and placement mode. Phase 1 supports `biomeInterior` only.
+
+Structure definitions live under `data/structures/*.json`. Phase 1 supports MineClone-compatible simple block structures: layered palette rows, anchor, horizontal rotation, priority/conflict groups, ground/slope/dry-ground/biome-coverage restrictions, and `replacePolicy`, `fluidPolicy`, and `reserveSpace`. `group_id` forms a namespaced group reference from the structure namespace. Attached objects, structure surface layers/fluids, proximity rules, structure sets, connector graphs and `biomeMargin` are not runtime capabilities yet. The default pack currently activates four boulders plus four oak-tree variants; water-shaped structures remain inactive and do not create a hydrology owner. Surface biomes author `baseHeightOffset` relative to that dimension sea level rather than baking an absolute world height into each biome. A root world seed is not duplicated into the pack; runtime derives a stable per-dimension seed from the world seed + dimension ID.
 
 Example placement pools:
 
