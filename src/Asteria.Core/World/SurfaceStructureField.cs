@@ -760,14 +760,37 @@ public sealed class SurfaceStructureField
             return null;
         }
 
-        var rootSurface =
-            SurfaceAt(
-                anchorX.Value,
-                anchorZ.Value);
-        if (!string.Equals(
-                rootSurface.Biome.Primary,
-                rule.Biome,
-                StringComparison.Ordinal))
+        RootAnchor? root =
+            rule.Placement switch
+            {
+                DimensionGeneratedSurfaceStructurePlacement.BiomeInterior =>
+                    string.Equals(
+                        SurfaceAt(
+                            anchorX.Value,
+                            anchorZ.Value)
+                        .Biome
+                        .Primary,
+                        rule.Biome,
+                        StringComparison.Ordinal)
+                        ? new RootAnchor(
+                            anchorX.Value,
+                            anchorZ.Value,
+                            null,
+                            null)
+                        : null,
+                DimensionGeneratedSurfaceStructurePlacement.BiomeMargin =>
+                    FindBiomeMarginAnchor(
+                        rule,
+                        cellX,
+                        cellZ,
+                        anchorX.Value,
+                        anchorZ.Value),
+                _ =>
+                    throw new InvalidOperationException(
+                        $"Unknown generated Structure placement {rule.Placement}."),
+            };
+
+        if (root is null)
         {
             return null;
         }
@@ -779,8 +802,8 @@ public sealed class SurfaceStructureField
                 rule,
                 cellX,
                 cellZ,
-                anchorX.Value,
-                anchorZ.Value);
+                root.Value.X,
+                root.Value.Z);
         }
 
         var memberHash =
@@ -795,6 +818,7 @@ public sealed class SurfaceStructureField
                     memberHash %
                     (ulong)rule.Members.Length))];
         var rotation =
+            root.Value.ForcedRotation ??
             member.Definition
                 .RotationForHash(
                     WorldGenerationEntropy.Sample2D(
@@ -803,14 +827,38 @@ public sealed class SurfaceStructureField
                         cellX,
                         cellZ));
 
+        int? rootYOverride = null;
+        if (root.Value.MarginInside is
+                { } marginInside)
+        {
+            var insideSurface =
+                SurfaceAt(
+                    marginInside.X,
+                    marginInside.Z);
+            var insideFluid =
+                _generatedFluids.FluidAtEmptyVoxel(
+                    insideSurface.Biome,
+                    insideSurface.BaseY,
+                    _seaLevel);
+            if (!insideFluid.IsEmpty)
+            {
+                rootYOverride =
+                    checked(
+                        _seaLevel -
+                        member.Definition
+                            .GroundAnchorYOffset);
+            }
+        }
+
         if (!TryResolvePlacement(
                 member,
                 rule.Reference,
                 rule.Biome,
-                anchorX.Value,
-                anchorZ.Value,
+                root.Value.X,
+                root.Value.Z,
                 rotation,
-                out var placement))
+                out var placement,
+                rootYOverride))
         {
             return null;
         }
@@ -826,8 +874,8 @@ public sealed class SurfaceStructureField
             ruleIndex,
             cellX,
             cellZ,
-            anchorX.Value,
-            anchorZ.Value,
+            root.Value.X,
+            root.Value.Z,
             member.Definition.Priority,
             member.Definition.Generation.ReserveSpace,
             member.Definition.ConflictGroups,
@@ -1550,6 +1598,406 @@ public sealed class SurfaceStructureField
             candidate.CellX,
             candidate.CellZ);
 
+    private RootAnchor?
+        FindBiomeMarginAnchor(
+            RootRule rule,
+            int cellX,
+            int cellZ,
+            int hintX,
+            int hintZ)
+    {
+        var minimumX =
+            (long)cellX *
+            rule.Spacing;
+        var minimumZ =
+            (long)cellZ *
+            rule.Spacing;
+        var maximumX =
+            minimumX +
+            rule.Spacing -
+            1L;
+        var maximumZ =
+            minimumZ +
+            rule.Spacing -
+            1L;
+        if (minimumX is < int.MinValue or > int.MaxValue ||
+            minimumZ is < int.MinValue or > int.MaxValue ||
+            maximumX is < int.MinValue or > int.MaxValue ||
+            maximumZ is < int.MinValue or > int.MaxValue)
+        {
+            return null;
+        }
+
+        var side =
+            MarginSampleDivisions +
+            1;
+        var positions =
+            new (int X, int Z)[
+                side *
+                side];
+        var target =
+            new bool[
+                positions.Length];
+
+        for (var zIndex = 0;
+             zIndex <= MarginSampleDivisions;
+             zIndex++)
+        {
+            var z =
+                SampleCellAxis(
+                    (int)minimumZ,
+                    (int)maximumZ,
+                    zIndex);
+            for (var xIndex = 0;
+                 xIndex <= MarginSampleDivisions;
+                 xIndex++)
+            {
+                var x =
+                    SampleCellAxis(
+                        (int)minimumX,
+                        (int)maximumX,
+                        xIndex);
+                var index =
+                    zIndex *
+                    side +
+                    xIndex;
+                positions[index] =
+                    (
+                        x,
+                        z);
+                target[index] =
+                    string.Equals(
+                        SurfaceAt(
+                            x,
+                            z)
+                        .Biome
+                        .Primary,
+                        rule.Biome,
+                        StringComparison.Ordinal);
+            }
+        }
+
+        (long Distance, int OutsideX, int OutsideZ, int OutwardX, int OutwardZ)?
+            best = null;
+
+        void Consider(
+            (int X, int Z) left,
+            (int X, int Z) right)
+        {
+            var refined =
+                RefineBiomeMargin(
+                    rule.Biome,
+                    left,
+                    right);
+            if (refined is null)
+            {
+                return;
+            }
+
+            var inside =
+                refined.Value.Inside;
+            var outside =
+                refined.Value.Outside;
+            var outward =
+                (
+                    X: outside.X -
+                       inside.X,
+                    Z: outside.Z -
+                       inside.Z);
+            var dx =
+                (long)outside.X -
+                hintX;
+            var dz =
+                (long)outside.Z -
+                hintZ;
+            var candidate =
+                (
+                    Distance:
+                        dx * dx +
+                        dz * dz,
+                    OutsideX:
+                        outside.X,
+                    OutsideZ:
+                        outside.Z,
+                    OutwardX:
+                        outward.X,
+                    OutwardZ:
+                        outward.Z);
+
+            if (best is null ||
+                CompareMarginCandidate(
+                    candidate,
+                    best.Value) < 0)
+            {
+                best =
+                    candidate;
+            }
+        }
+
+        for (var zIndex = 0;
+             zIndex <= MarginSampleDivisions;
+             zIndex++)
+        {
+            for (var xIndex = 0;
+                 xIndex < MarginSampleDivisions;
+                 xIndex++)
+            {
+                var leftIndex =
+                    zIndex *
+                    side +
+                    xIndex;
+                var rightIndex =
+                    leftIndex +
+                    1;
+                if (target[leftIndex] !=
+                    target[rightIndex])
+                {
+                    Consider(
+                        positions[leftIndex],
+                        positions[rightIndex]);
+                }
+            }
+        }
+
+        for (var zIndex = 0;
+             zIndex < MarginSampleDivisions;
+             zIndex++)
+        {
+            for (var xIndex = 0;
+                 xIndex <= MarginSampleDivisions;
+                 xIndex++)
+            {
+                var topIndex =
+                    zIndex *
+                    side +
+                    xIndex;
+                var bottomIndex =
+                    topIndex +
+                    side;
+                if (target[topIndex] !=
+                    target[bottomIndex])
+                {
+                    Consider(
+                        positions[topIndex],
+                        positions[bottomIndex]);
+                }
+            }
+        }
+
+        if (best is not
+            { } selected)
+        {
+            return null;
+        }
+
+        var rotation =
+            RotationForOutwardNormal(
+                selected.OutwardX,
+                selected.OutwardZ);
+        return rotation is null
+            ? null
+            : new RootAnchor(
+                selected.OutsideX,
+                selected.OutsideZ,
+                rotation,
+                (
+                    selected.OutsideX -
+                    selected.OutwardX,
+                    selected.OutsideZ -
+                    selected.OutwardZ));
+    }
+
+    private ((
+        int X,
+        int Z) Inside,
+        (
+        int X,
+        int Z) Outside)?
+        RefineBiomeMargin(
+            string biome,
+            (int X, int Z) left,
+            (int X, int Z) right)
+    {
+        var leftIsTarget =
+            string.Equals(
+                SurfaceAt(
+                    left.X,
+                    left.Z)
+                .Biome
+                .Primary,
+                biome,
+                StringComparison.Ordinal);
+        var rightIsTarget =
+            string.Equals(
+                SurfaceAt(
+                    right.X,
+                    right.Z)
+                .Biome
+                .Primary,
+                biome,
+                StringComparison.Ordinal);
+        if (leftIsTarget ==
+            rightIsTarget)
+        {
+            return null;
+        }
+
+        while (Math.Max(
+                   Math.Abs(
+                       (long)right.X -
+                       left.X),
+                   Math.Abs(
+                       (long)right.Z -
+                       left.Z)) >
+               1L)
+        {
+            var middle =
+                (
+                    X: checked(
+                        (int)(
+                            ((long)left.X +
+                             right.X) /
+                            2L)),
+                    Z: checked(
+                        (int)(
+                            ((long)left.Z +
+                             right.Z) /
+                            2L)));
+            if (middle == left ||
+                middle == right)
+            {
+                break;
+            }
+
+            var middleIsTarget =
+                string.Equals(
+                    SurfaceAt(
+                        middle.X,
+                        middle.Z)
+                    .Biome
+                    .Primary,
+                    biome,
+                    StringComparison.Ordinal);
+            if (middleIsTarget ==
+                leftIsTarget)
+            {
+                left =
+                    middle;
+                leftIsTarget =
+                    middleIsTarget;
+            }
+            else
+            {
+                right =
+                    middle;
+            }
+        }
+
+        var inside =
+            leftIsTarget
+                ? left
+                : right;
+        var outside =
+            leftIsTarget
+                ? right
+                : left;
+        var manhattan =
+            Math.Abs(
+                (long)outside.X -
+                inside.X) +
+            Math.Abs(
+                (long)outside.Z -
+                inside.Z);
+        return manhattan == 1L
+            ? (
+                inside,
+                outside)
+            : null;
+    }
+
+    private static int SampleCellAxis(
+        int minimum,
+        int maximum,
+        int index)
+    {
+        var span =
+            (long)maximum -
+            minimum;
+        return checked(
+            (int)(
+                minimum +
+                span *
+                index /
+                MarginSampleDivisions));
+    }
+
+    private static int CompareMarginCandidate(
+        (
+            long Distance,
+            int OutsideX,
+            int OutsideZ,
+            int OutwardX,
+            int OutwardZ) left,
+        (
+            long Distance,
+            int OutsideX,
+            int OutsideZ,
+            int OutwardX,
+            int OutwardZ) right)
+    {
+        var distance =
+            left.Distance.CompareTo(
+                right.Distance);
+        if (distance != 0)
+        {
+            return distance;
+        }
+
+        var z =
+            left.OutsideZ.CompareTo(
+                right.OutsideZ);
+        if (z != 0)
+        {
+            return z;
+        }
+
+        var x =
+            left.OutsideX.CompareTo(
+                right.OutsideX);
+        if (x != 0)
+        {
+            return x;
+        }
+
+        var outwardZ =
+            left.OutwardZ.CompareTo(
+                right.OutwardZ);
+        return outwardZ != 0
+            ? outwardZ
+            : left.OutwardX.CompareTo(
+                right.OutwardX);
+    }
+
+    private static StructureRotation?
+        RotationForOutwardNormal(
+            int outwardX,
+            int outwardZ) =>
+        (
+            outwardX,
+            outwardZ) switch
+        {
+            (0, 1) =>
+                StructureRotation.Degrees0,
+            (-1, 0) =>
+                StructureRotation.Degrees90,
+            (0, -1) =>
+                StructureRotation.Degrees180,
+            (1, 0) =>
+                StructureRotation.Degrees270,
+            _ =>
+                null,
+        };
+
     private SurfaceSample SurfaceAt(
         int worldX,
         int worldZ)
@@ -1842,6 +2290,12 @@ public sealed class SurfaceStructureField
     private readonly record struct SurfaceSample(
         BiomeSample Biome,
         int BaseY);
+
+    private readonly record struct RootAnchor(
+        int X,
+        int Z,
+        StructureRotation? ForcedRotation,
+        (int X, int Z)? MarginInside);
 
     private sealed class RootRule
     {
