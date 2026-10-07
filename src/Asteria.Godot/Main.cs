@@ -18,9 +18,9 @@ public partial class Main : Node3D
     private const int RetentionMarginChunks = 10;
     private static readonly int MaxMaterializationTasksInFlight =
         Math.Clamp(
-            (System.Environment.ProcessorCount - 2) / 2,
+            System.Environment.ProcessorCount - 2,
             1,
-            2);
+            4);
     private static readonly int MaxMaterializationDispatchesPerFrame =
         MaxMaterializationTasksInFlight;
     private const int MaxMaterializationResultsPerFrame = 8;
