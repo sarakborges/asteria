@@ -233,13 +233,22 @@ public sealed class StructureRestrictionsDefinition
         bool requiresDryGround = true,
         float requiredBiomeCoverage = 0f,
         IEnumerable<string>? groundBlocks = null,
-        IEnumerable<StructureProximityRestrictionDefinition>? proximity = null)
+        IEnumerable<StructureProximityRestrictionDefinition>? proximity = null,
+        int minSlope = 0)
     {
         if (maxSlope is < 0 or > 64)
         {
             throw new ArgumentOutOfRangeException(
                 nameof(maxSlope),
                 "Structure maxSlope must be within 0..64.");
+        }
+
+        if (minSlope < 0 ||
+            minSlope > maxSlope)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(minSlope),
+                "Structure minSlope must satisfy 0 <= minSlope <= maxSlope.");
         }
 
         if (!float.IsFinite(
@@ -313,6 +322,7 @@ public sealed class StructureRestrictionsDefinition
             }
         }
 
+        MinSlope = minSlope;
         MaxSlope = maxSlope;
         RequiresDryGround = requiresDryGround;
         RequiredBiomeCoverage = requiredBiomeCoverage;
@@ -323,6 +333,8 @@ public sealed class StructureRestrictionsDefinition
             Array.AsReadOnly(
                 authoredProximity);
     }
+
+    public int MinSlope { get; }
 
     public int MaxSlope { get; }
 
@@ -343,6 +355,17 @@ public readonly record struct StructureVoxelDefinition(
     string Block,
     BlockOrientation Orientation);
 
+public readonly record struct StructureFluidVoxelDefinition(
+    int X,
+    int Y,
+    int Z,
+    string Fluid);
+
+public readonly record struct StructureClearVoxelDefinition(
+    int X,
+    int Y,
+    int Z);
+
 public sealed class StructureDefinition
 {
     public const int MaximumVoxelCount = 131_072;
@@ -358,7 +381,12 @@ public sealed class StructureDefinition
         int priority = 0,
         IEnumerable<string>? conflictGroups = null,
         StructureGenerationDefinition? generation = null,
-        IEnumerable<StructureConnectorDefinition>? connectors = null)
+        IEnumerable<StructureConnectorDefinition>? connectors = null,
+        IEnumerable<StructureFluidVoxelDefinition>? fluidVoxels = null,
+        IEnumerable<StructureClearVoxelDefinition>? clearVoxels = null,
+        int? groundAnchorY = null,
+        int clearAbove = 0,
+        bool locatable = true)
     {
         ValidateId(
             id);
@@ -374,19 +402,38 @@ public sealed class StructureDefinition
             voxels?.ToArray() ??
             throw new ArgumentNullException(
                 nameof(voxels));
-        if (authoredVoxels.Length == 0)
+        var authoredFluidVoxels =
+            fluidVoxels?.ToArray() ??
+            Array.Empty<StructureFluidVoxelDefinition>();
+        var authoredClearVoxels =
+            clearVoxels?.ToArray() ??
+            Array.Empty<StructureClearVoxelDefinition>();
+
+        var payloadCount =
+            authoredVoxels.Length +
+            authoredFluidVoxels.Length +
+            authoredClearVoxels.Length;
+        if (payloadCount == 0 &&
+            !(connectors?.Any() ?? false))
         {
             throw new ArgumentException(
-                "Structure must contain at least one block voxel.",
+                "Structure must contain payload voxels or connectors.",
                 nameof(voxels));
         }
 
-        if (authoredVoxels.Length >
+        if (payloadCount >
             MaximumVoxelCount)
         {
             throw new ArgumentException(
-                $"Structure may contain at most {MaximumVoxelCount} block voxels.",
+                $"Structure may contain at most {MaximumVoxelCount} payload voxels.",
                 nameof(voxels));
+        }
+
+        if (clearAbove is < 0 or > 64)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(clearAbove),
+                "Structure clearAbove must be within 0..64.");
         }
 
         var occupied =
@@ -419,6 +466,48 @@ public sealed class StructureDefinition
                 throw new ArgumentException(
                     $"Structure {id} repeats voxel offset ({voxel.X}, {voxel.Y}, {voxel.Z}).",
                     nameof(voxels));
+            }
+        }
+
+        foreach (var fluidVoxel in
+                 authoredFluidVoxels)
+        {
+            ValidatePayloadOffset(
+                fluidVoxel.X,
+                fluidVoxel.Y,
+                fluidVoxel.Z,
+                nameof(fluidVoxels));
+            FluidDefinition.ValidateId(
+                fluidVoxel.Fluid);
+            if (!occupied.Add(
+                    (
+                        fluidVoxel.X,
+                        fluidVoxel.Y,
+                        fluidVoxel.Z)))
+            {
+                throw new ArgumentException(
+                    $"Structure {id} repeats payload offset ({fluidVoxel.X}, {fluidVoxel.Y}, {fluidVoxel.Z}).",
+                    nameof(fluidVoxels));
+            }
+        }
+
+        foreach (var clearVoxel in
+                 authoredClearVoxels)
+        {
+            ValidatePayloadOffset(
+                clearVoxel.X,
+                clearVoxel.Y,
+                clearVoxel.Z,
+                nameof(clearVoxels));
+            if (!occupied.Add(
+                    (
+                        clearVoxel.X,
+                        clearVoxel.Y,
+                        clearVoxel.Z)))
+            {
+                throw new ArgumentException(
+                    $"Structure {id} repeats payload offset ({clearVoxel.X}, {clearVoxel.Y}, {clearVoxel.Z}).",
+                    nameof(clearVoxels));
             }
         }
 
@@ -510,30 +599,71 @@ public sealed class StructureDefinition
             Array.AsReadOnly(
                 authoredConnectors);
 
-        MinimumX =
-            authoredVoxels.Min(
-                voxel =>
-                    voxel.X);
-        MaximumX =
-            authoredVoxels.Max(
-                voxel =>
-                    voxel.X);
-        MinimumY =
-            authoredVoxels.Min(
-                voxel =>
-                    voxel.Y);
-        MaximumY =
-            authoredVoxels.Max(
-                voxel =>
-                    voxel.Y);
-        MinimumZ =
-            authoredVoxels.Min(
-                voxel =>
-                    voxel.Z);
-        MaximumZ =
-            authoredVoxels.Max(
-                voxel =>
-                    voxel.Z);
+        FluidVoxels =
+            Array.AsReadOnly(
+                authoredFluidVoxels);
+        ClearVoxels =
+            Array.AsReadOnly(
+                authoredClearVoxels);
+        GroundAnchorY =
+            groundAnchorY;
+        ClearAbove =
+            clearAbove;
+        Locatable =
+            locatable;
+
+        var payloadOffsets =
+            authoredVoxels
+                .Select(voxel =>
+                    (
+                        voxel.X,
+                        voxel.Y,
+                        voxel.Z))
+                .Concat(
+                    authoredFluidVoxels.Select(voxel =>
+                        (
+                            voxel.X,
+                            voxel.Y,
+                            voxel.Z)))
+                .Concat(
+                    authoredClearVoxels.Select(voxel =>
+                        (
+                            voxel.X,
+                            voxel.Y,
+                            voxel.Z)))
+                .ToArray();
+
+        if (payloadOffsets.Length == 0)
+        {
+            MinimumX =
+                MaximumX =
+                MinimumY =
+                MaximumY =
+                MinimumZ =
+                MaximumZ =
+                0;
+        }
+        else
+        {
+            MinimumX =
+                payloadOffsets.Min(value =>
+                    value.X);
+            MaximumX =
+                payloadOffsets.Max(value =>
+                    value.X);
+            MinimumY =
+                payloadOffsets.Min(value =>
+                    value.Y);
+            MaximumY =
+                payloadOffsets.Max(value =>
+                    value.Y);
+            MinimumZ =
+                payloadOffsets.Min(value =>
+                    value.Z);
+            MaximumZ =
+                payloadOffsets.Max(value =>
+                    value.Z);
+        }
     }
 
     public string Id { get; }
@@ -556,6 +686,25 @@ public sealed class StructureDefinition
 
     public IReadOnlyList<StructureConnectorDefinition>
         Connectors { get; }
+
+    public IReadOnlyList<StructureFluidVoxelDefinition>
+        FluidVoxels { get; }
+
+    public IReadOnlyList<StructureClearVoxelDefinition>
+        ClearVoxels { get; }
+
+    public int? GroundAnchorY { get; }
+
+    public int ClearAbove { get; }
+
+    public bool Locatable { get; }
+
+    public int GroundAnchorYOffset =>
+        GroundAnchorY is { } groundY
+            ? checked(
+                groundY -
+                Anchor.Y)
+            : MinimumY;
 
     public int MinimumX { get; }
 
@@ -893,6 +1042,28 @@ public sealed class StructureDefinition
             checked((int)(
                 hash %
                 (ulong)candidates.Count))];
+    }
+
+    private static void ValidatePayloadOffset(
+        int x,
+        int y,
+        int z,
+        string parameterName)
+    {
+        if (Math.Abs(
+                (long)x) >
+                MaximumOffsetMagnitude ||
+            Math.Abs(
+                (long)y) >
+                MaximumOffsetMagnitude ||
+            Math.Abs(
+                (long)z) >
+                MaximumOffsetMagnitude)
+        {
+            throw new ArgumentOutOfRangeException(
+                parameterName,
+                $"Structure payload offsets must stay within ±{MaximumOffsetMagnitude} blocks of the anchor.");
+        }
     }
 
     internal static void ValidateId(
