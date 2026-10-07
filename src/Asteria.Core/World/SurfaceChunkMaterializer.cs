@@ -75,6 +75,10 @@ public sealed class SurfaceChunkMaterializer
             {
                 var surfaceY = column.HeightAt(localX, localZ);
                 var baseY = column.BaseHeightAt(localX, localZ);
+                var surfaceFluidCutDepth =
+                    column.SurfaceFluidCutDepthAt(
+                        localX,
+                        localZ);
                 var worldX = checked(originX + localX);
                 var worldZ = checked(originZ + localZ);
                 var sample = column.BiomeAt(localX, localZ);
@@ -180,6 +184,11 @@ public sealed class SurfaceChunkMaterializer
                             localZ,
                             block);
                     }
+                }
+
+                if (surfaceFluidCutDepth > 0)
+                {
+                    continue;
                 }
 
                 var decorationY = (long)surfaceY + 1;
