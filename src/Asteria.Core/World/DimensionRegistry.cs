@@ -172,6 +172,18 @@ public sealed class DimensionRegistry
                 }
             }
 
+            foreach (var rule in
+                     dimension.GeneratedSurfaceStructures)
+            {
+                if (!dimension.SurfaceBiomes.Contains(
+                        rule.Biome,
+                        StringComparer.Ordinal))
+                {
+                    throw new ArgumentException(
+                        $"Dimension {dimension.Id} generated surface structure targets non-surface biome {rule.Biome}.");
+                }
+            }
+
             foreach (var biomeId in
                      dimension.UndergroundBiomes)
             {
@@ -190,6 +202,32 @@ public sealed class DimensionRegistry
                 {
                     throw new ArgumentException(
                         $"Dimension {dimension.Id} underground biome {biomeId} does not author undergroundLayout.");
+                }
+            }
+        }
+    }
+
+    public void ValidateStructures(
+        StructureRegistry structures)
+    {
+        ArgumentNullException.ThrowIfNull(
+            structures);
+
+        foreach (var dimension in
+                 _definitions)
+        {
+            foreach (var rule in
+                     dimension.GeneratedSurfaceStructures)
+            {
+                _ =
+                    structures.ReferenceMembers(
+                        rule.Structure);
+
+                if (rule.Placement ==
+                    GeneratedSurfaceStructurePlacement.BiomeMargin)
+                {
+                    throw new ArgumentException(
+                        $"Dimension {dimension.Id} structure rule {rule.Structure} uses biomeMargin, which is not supported by the current Asteria structure phase.");
                 }
             }
         }

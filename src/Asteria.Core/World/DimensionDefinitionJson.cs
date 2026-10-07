@@ -83,7 +83,9 @@ public static class DimensionDefinitionJson
                 "volumeBiomes"),
             OptionalStringArray(
                 root,
-                "undergroundBiomes"));
+                "undergroundBiomes"),
+            ParseGeneratedSurfaceStructures(
+                root));
     }
 
     private static DimensionGeneratedOceanDefinition? ParseGeneratedOcean(
@@ -120,6 +122,72 @@ public static class DimensionDefinitionJson
             RequiredSingle(value, "deepWaterStartDominance"));
     }
 
+    private static IReadOnlyList<DimensionGeneratedSurfaceStructureDefinition>
+        ParseGeneratedSurfaceStructures(
+            JsonElement root)
+    {
+        if (!root.TryGetProperty(
+                "generatedSurfaceStructures",
+                out var value) ||
+            value.ValueKind ==
+                JsonValueKind.Null)
+        {
+            return Array.Empty<DimensionGeneratedSurfaceStructureDefinition>();
+        }
+
+        if (value.ValueKind !=
+            JsonValueKind.Array)
+        {
+            throw new FormatException(
+                "generatedSurfaceStructures must be an array.");
+        }
+
+        return value
+            .EnumerateArray()
+            .Select(item =>
+                {
+                    var rule =
+                        item.ValueKind ==
+                            JsonValueKind.Object
+                            ? item
+                            : throw new FormatException(
+                                "generatedSurfaceStructures entries must be objects.");
+                    var placement =
+                        OptionalString(
+                            rule,
+                            "placement") switch
+                        {
+                            null or "biomeInterior" =>
+                                GeneratedSurfaceStructurePlacement.BiomeInterior,
+                            "biomeMargin" =>
+                                GeneratedSurfaceStructurePlacement.BiomeMargin,
+                            var authored =>
+                                throw new FormatException(
+                                    $"Unsupported structure placement: {authored}."),
+                        };
+
+                    return new DimensionGeneratedSurfaceStructureDefinition(
+                        RequiredString(
+                            rule,
+                            "biome"),
+                        RequiredString(
+                            rule,
+                            "structure"),
+                        RequiredUInt32(
+                            rule,
+                            "spacing"),
+                        RequiredSingle(
+                            rule,
+                            "chance"),
+                        OptionalUInt32(
+                            rule,
+                            "jitter") ??
+                        0,
+                        placement);
+                })
+            .ToArray();
+    }
+
     private static DimensionCaveDefinition? ParseCaves(
         JsonElement root)
     {
@@ -138,6 +206,54 @@ public static class DimensionDefinitionJson
             RequiredSingle(value, "noiseHalfWidth"),
             RequiredSingle(value, "densityScale"),
             RequiredUInt32(value, "boundaryFade"));
+    }
+
+    private static uint? OptionalUInt32(
+        JsonElement parent,
+        string name)
+    {
+        if (!parent.TryGetProperty(
+                name,
+                out var value) ||
+            value.ValueKind ==
+                JsonValueKind.Null)
+        {
+            return null;
+        }
+
+        if (value.ValueKind !=
+                JsonValueKind.Number ||
+            !value.TryGetUInt32(
+                out var result))
+        {
+            throw new FormatException(
+                $"{name} must be a non-negative 32-bit integer.");
+        }
+
+        return result;
+    }
+
+    private static string? OptionalString(
+        JsonElement parent,
+        string name)
+    {
+        if (!parent.TryGetProperty(
+                name,
+                out var value) ||
+            value.ValueKind ==
+                JsonValueKind.Null)
+        {
+            return null;
+        }
+
+        if (value.ValueKind !=
+                JsonValueKind.String)
+        {
+            throw new FormatException(
+                $"{name} must be a string.");
+        }
+
+        return value.GetString();
     }
 
     private static uint RequiredUInt32(
