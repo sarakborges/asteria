@@ -52,7 +52,7 @@ public static class StructureDefinitionJson
         var palette =
             ParsePalette(
                 root);
-        var voxels =
+        var content =
             ParseLayers(
                 root,
                 anchor,
@@ -65,7 +65,7 @@ public static class StructureDefinitionJson
                 "rotation") ??
             false,
             anchor,
-            voxels,
+            content.Voxels,
             ParseRestrictions(
                 root),
             OptionalString(
@@ -79,7 +79,8 @@ public static class StructureDefinitionJson
                 root,
                 "conflictGroups"),
             ParseGeneration(
-                root));
+                root),
+            content.Connectors);
     }
 
     private static StructureAnchor ParseAnchor(
@@ -351,21 +352,36 @@ public static class StructureDefinitionJson
                     $"Structure palette {property.Name} must be an object.");
             }
 
-            foreach (var field in
-                     property.Value.EnumerateObject())
-            {
-                if (field.Name is not
-                    ("block" or "orientation"))
-                {
-                    throw new FormatException(
-                        $"Unsupported block-template palette field: {field.Name}.");
-                }
-            }
+            EnsureKnownProperties(
+                property.Value,
+                $"structure palette {property.Name}",
+                "block",
+                "orientation",
+                "connector");
 
             var block =
-                RequiredString(
+                OptionalString(
                     property.Value,
                     "block");
+            var connector =
+                ParseConnector(
+                    property.Value);
+
+            if (block is null &&
+                connector is null)
+            {
+                throw new FormatException(
+                    $"Structure palette {property.Name} must define block and/or connector.");
+            }
+
+            if (connector is
+                    { Target: null } &&
+                block is not null)
+            {
+                throw new FormatException(
+                    $"Structure palette {property.Name} input connector must be connector-only.");
+            }
+
             var orientation =
                 OptionalString(
                     property.Value,
@@ -382,11 +398,21 @@ public static class StructureDefinitionJson
                             $"Unknown structure block orientation: {authored}"),
                 };
 
+            if (block is null &&
+                property.Value.TryGetProperty(
+                    "orientation",
+                    out _))
+            {
+                throw new FormatException(
+                    $"Structure palette {property.Name} orientation requires a block.");
+            }
+
             entries.Add(
                 property.Name[0],
                 new PaletteEntry(
                     block,
-                    orientation));
+                    orientation,
+                    connector));
         }
 
         if (entries.Count == 0)
@@ -398,7 +424,82 @@ public static class StructureDefinitionJson
         return entries;
     }
 
-    private static IReadOnlyList<StructureVoxelDefinition>
+    private static PaletteConnector?
+        ParseConnector(
+            JsonElement paletteEntry)
+    {
+        if (!paletteEntry.TryGetProperty(
+                "connector",
+                out var value) ||
+            value.ValueKind ==
+                JsonValueKind.Null)
+        {
+            return null;
+        }
+
+        if (value.ValueKind !=
+            JsonValueKind.Object)
+        {
+            throw new FormatException(
+                "Structure connector must be an object.");
+        }
+
+        EnsureKnownProperties(
+            value,
+            "structure connector",
+            "target",
+            "face",
+            "strength",
+            "strengthLossOnEachLoop",
+            "minDistance",
+            "maxDistance");
+
+        var face =
+            RequiredString(
+                value,
+                "face") switch
+            {
+                "right" =>
+                    StructureConnectorFace.Right,
+                "left" =>
+                    StructureConnectorFace.Left,
+                "top" =>
+                    StructureConnectorFace.Top,
+                "bottom" =>
+                    StructureConnectorFace.Bottom,
+                "front" =>
+                    StructureConnectorFace.Front,
+                "back" =>
+                    StructureConnectorFace.Back,
+                var authored =>
+                    throw new FormatException(
+                        $"Unsupported structure connector face: {authored}."),
+            };
+
+        return new PaletteConnector(
+            OptionalString(
+                value,
+                "target"),
+            face,
+            OptionalSingle(
+                value,
+                "strength") ??
+            1f,
+            OptionalSingle(
+                value,
+                "strengthLossOnEachLoop") ??
+            0f,
+            OptionalInt32(
+                value,
+                "minDistance") ??
+            0,
+            OptionalInt32(
+                value,
+                "maxDistance") ??
+            0);
+    }
+
+    private static StructureTemplateContent
         ParseLayers(
             JsonElement root,
             StructureAnchor anchor,
@@ -425,6 +526,8 @@ public static class StructureDefinitionJson
 
         var voxels =
             new List<StructureVoxelDefinition>();
+        var connectors =
+            new List<StructureConnectorDefinition>();
         int? width = null;
         int? depth = null;
         var authoredY =
@@ -529,24 +632,55 @@ public static class StructureDefinitionJson
                             $"Structure layer uses undefined palette symbol: {symbol}.");
                     }
 
-                    voxels.Add(
-                        new StructureVoxelDefinition(
-                            checked(
-                                x -
-                                anchor.X),
-                            checked(
-                                y -
-                                anchor.Y),
-                            checked(
-                                z -
-                                anchor.Z),
-                            entry.Block,
-                            entry.Orientation));
+                    var offsetX =
+                        checked(
+                            x -
+                            anchor.X);
+                    var offsetY =
+                        checked(
+                            y -
+                            anchor.Y);
+                    var offsetZ =
+                        checked(
+                            z -
+                            anchor.Z);
+
+                    if (entry.Connector is
+                        { } connector)
+                    {
+                        connectors.Add(
+                            new StructureConnectorDefinition(
+                                offsetX,
+                                offsetY,
+                                offsetZ,
+                                connector.Face,
+                                connector.Target,
+                                connector.Strength,
+                                connector.StrengthLossOnEachLoop,
+                                connector.MinDistance,
+                                connector.MaxDistance));
+                    }
+
+                    if (entry.Block is
+                        { } block)
+                    {
+                        voxels.Add(
+                            new StructureVoxelDefinition(
+                                offsetX,
+                                offsetY,
+                                offsetZ,
+                                block,
+                                entry.Orientation));
+                    }
                 }
             }
         }
 
-        return voxels;
+        return new StructureTemplateContent(
+            Array.AsReadOnly(
+                voxels.ToArray()),
+            Array.AsReadOnly(
+                connectors.ToArray()));
     }
 
     private static void EnsureKnownProperties(
@@ -763,7 +897,20 @@ public static class StructureDefinitionJson
         throw new FormatException(
             $"{name} must be an integer.");
 
+    private sealed record PaletteConnector(
+        string? Target,
+        StructureConnectorFace Face,
+        float Strength,
+        float StrengthLossOnEachLoop,
+        int MinDistance,
+        int MaxDistance);
+
     private sealed record PaletteEntry(
-        string Block,
-        BlockOrientation Orientation);
+        string? Block,
+        BlockOrientation Orientation,
+        PaletteConnector? Connector);
+
+    private sealed record StructureTemplateContent(
+        IReadOnlyList<StructureVoxelDefinition> Voxels,
+        IReadOnlyList<StructureConnectorDefinition> Connectors);
 }
