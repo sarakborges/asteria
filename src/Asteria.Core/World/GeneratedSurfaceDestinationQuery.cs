@@ -50,32 +50,80 @@ internal sealed class GeneratedSurfaceDestinationQuery
             int maxRadius,
             Func<int, int, bool>? acceptsColumn = null)
     {
+        var structureBounds =
+            StructureBoundsForSearch(
+                preferredX,
+                preferredZ,
+                maxRadius);
+
+        return FindSurface(
+            preferredX,
+            preferredZ,
+            maxRadius,
+            structureBounds,
+            acceptsColumn);
+    }
+
+    public GeneratedSurfaceDestination?
+        FindNear(
+            int preferredX,
+            int preferredY,
+            int preferredZ,
+            int maxRadius,
+            Func<int, int, bool>? acceptsColumn = null)
+    {
+        var structureBounds =
+            StructureBoundsForSearch(
+                preferredX,
+                preferredZ,
+                maxRadius);
+
+        if ((acceptsColumn is null ||
+             acceptsColumn(
+                 preferredX,
+                 preferredZ)) &&
+            !InsideStructureBounds(
+                preferredX,
+                preferredZ,
+                structureBounds))
+        {
+            var exact =
+                GeneratedFeetAt(
+                    preferredX,
+                    preferredY,
+                    preferredZ);
+            if (exact is not null)
+            {
+                return exact;
+            }
+        }
+
+        return FindSurface(
+            preferredX,
+            preferredZ,
+            maxRadius,
+            structureBounds,
+            acceptsColumn);
+    }
+
+    private GeneratedSurfaceDestination?
+        FindSurface(
+            int preferredX,
+            int preferredZ,
+            int maxRadius,
+            IReadOnlyList<(
+                int MinimumX,
+                int MaximumX,
+                int MinimumZ,
+                int MaximumZ)> structureBounds,
+            Func<int, int, bool>? acceptsColumn)
+    {
         if (maxRadius < 0)
         {
             throw new ArgumentOutOfRangeException(
                 nameof(maxRadius),
                 "Destination search radius must be non-negative.");
         }
-
-        var searchBounds =
-            SearchBounds(
-                preferredX,
-                preferredZ,
-                maxRadius);
-        var structureBounds =
-            _structures
-                .PlacementsIntersecting(
-                    searchBounds.MinimumX,
-                    searchBounds.MinimumZ,
-                    searchBounds.Width,
-                    searchBounds.Depth)
-                .Select(result =>
-                    (
-                        result.MinimumX,
-                        result.MaximumX,
-                        result.MinimumZ,
-                        result.MaximumZ))
-                .ToArray();
 
         foreach (var column in
                  SquareRings(
@@ -91,15 +139,10 @@ internal sealed class GeneratedSurfaceDestinationQuery
                 continue;
             }
 
-            if (structureBounds.Any(structure =>
-                    column.X >=
-                        structure.MinimumX &&
-                    column.X <=
-                        structure.MaximumX &&
-                    column.Z >=
-                        structure.MinimumZ &&
-                    column.Z <=
-                        structure.MaximumZ))
+            if (InsideStructureBounds(
+                    column.X,
+                    column.Z,
+                    structureBounds))
             {
                 continue;
             }
@@ -117,6 +160,62 @@ internal sealed class GeneratedSurfaceDestinationQuery
         return null;
     }
 
+    private IReadOnlyList<(
+        int MinimumX,
+        int MaximumX,
+        int MinimumZ,
+        int MaximumZ)>
+        StructureBoundsForSearch(
+            int preferredX,
+            int preferredZ,
+            int maxRadius)
+    {
+        if (maxRadius < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(maxRadius),
+                "Destination search radius must be non-negative.");
+        }
+
+        var searchBounds =
+            SearchBounds(
+                preferredX,
+                preferredZ,
+                maxRadius);
+
+        return _structures
+            .PlacementsIntersecting(
+                searchBounds.MinimumX,
+                searchBounds.MinimumZ,
+                searchBounds.Width,
+                searchBounds.Depth)
+            .Select(result =>
+                (
+                    result.MinimumX,
+                    result.MaximumX,
+                    result.MinimumZ,
+                    result.MaximumZ))
+            .ToArray();
+    }
+
+    private static bool InsideStructureBounds(
+        int worldX,
+        int worldZ,
+        IReadOnlyList<(
+            int MinimumX,
+            int MaximumX,
+            int MinimumZ,
+            int MaximumZ)> structureBounds) =>
+        structureBounds.Any(structure =>
+            worldX >=
+                structure.MinimumX &&
+            worldX <=
+                structure.MaximumX &&
+            worldZ >=
+                structure.MinimumZ &&
+            worldZ <=
+                structure.MaximumZ);
+
     private GeneratedSurfaceDestination?
         GeneratedSurfaceFeetAt(
             int worldX,
@@ -126,33 +225,42 @@ internal sealed class GeneratedSurfaceDestinationQuery
             _terrain.SurfaceHeight(
                 worldX,
                 worldZ);
-        if (surfaceY < 0)
+        if (surfaceY < 0 ||
+            surfaceY ==
+                int.MaxValue)
         {
             return null;
         }
 
-        var feetYLong =
-            (long)surfaceY +
-            1L;
-        var headYLong =
-            feetYLong +
-            1L;
-        if (headYLong >
-                int.MaxValue ||
-            feetYLong <
-                0L)
+        return GeneratedFeetAt(
+            worldX,
+            surfaceY + 1,
+            worldZ);
+    }
+
+    private GeneratedSurfaceDestination?
+        GeneratedFeetAt(
+            int worldX,
+            int feetY,
+            int worldZ)
+    {
+        if (feetY <= 0 ||
+            feetY ==
+                int.MaxValue)
         {
             return null;
         }
 
-        var feetY =
-            (int)feetYLong;
+        var supportY =
+            feetY -
+            1;
         var headY =
-            (int)headYLong;
+            feetY +
+            1;
 
         if (_floorY is
                 { } floorY &&
-            surfaceY <=
+            supportY <=
                 floorY)
         {
             return null;
@@ -170,7 +278,7 @@ internal sealed class GeneratedSurfaceDestinationQuery
 
         if (_terrain.DensityAt(
                 worldX,
-                surfaceY,
+                supportY,
                 worldZ) <
             0d ||
             _terrain.DensityAt(
