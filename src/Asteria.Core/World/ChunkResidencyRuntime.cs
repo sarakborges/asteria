@@ -95,6 +95,14 @@ public sealed record ChunkResidencyUpdate(
 
 public sealed class ChunkResidencyRuntime
 {
+    private static readonly (int X, int Y, int Z)[] FluidSpreadTargets =
+    [
+        (0, -1, 0),
+        (1, 0, 0),
+        (-1, 0, 0),
+        (0, 0, 1),
+        (0, 0, -1),
+    ];
     private readonly VoxelWorld _world;
     private readonly BlockRegistry _blocks;
     private readonly FluidRegistry _fluids;
@@ -612,10 +620,55 @@ public sealed class ChunkResidencyRuntime
                         originY + y,
                         originZ + z);
 
-                ScheduleFluidNeighborhood(
-                    fluid.Fluid,
-                    position);
+                if (ShouldWakeResidentFluid(
+                        position,
+                        fluid))
+                {
+                    ScheduleFluidNeighborhood(
+                        fluid.Fluid,
+                        position);
+                }
             });
+    }
+
+    private bool ShouldWakeResidentFluid(
+        WorldVoxelCoord position,
+        FluidCell fluid)
+    {
+        if (!fluid.IsSource)
+        {
+            return true;
+        }
+
+        foreach (var offset in FluidSpreadTargets)
+        {
+            var target = position + offset;
+
+            if (target.Y < 0)
+            {
+                continue;
+            }
+
+            if (!_world.IsLoadedAt(target))
+            {
+                return true;
+            }
+
+            if (!_world.GetCellOrEmpty(target).IsEmpty)
+            {
+                continue;
+            }
+
+            var neighbor = _world.GetFluidOrEmpty(target);
+            if (neighbor.IsEmpty ||
+                neighbor.Fluid != fluid.Fluid ||
+                neighbor.Level < fluid.Level)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void ScheduleFluidNeighborhood(
