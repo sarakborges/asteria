@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
 using Asteria.Core.Content;
+using Asteria.Core.Diagnostics;
 using Asteria.Core.World;
 
 var options = Arguments.Parse(args);
@@ -140,6 +141,44 @@ metrics.Add("biomeArea", Measure(
             {
                 digest = HashText(digest, sample[x, z].Primary);
             }
+        }
+
+        return digest;
+    }));
+
+metrics.Add("biomeMap", Measure(
+    checked(
+        options.MapSize *
+        options.MapSize),
+    generator =>
+    {
+        var raster =
+            BiomeMapDiagnostic.Render(
+                generator.Biomes,
+                options.CenterX,
+                options.CenterZ,
+                options.MapSize,
+                options.MapSize,
+                options.MapStep,
+                BiomeMapMode.Influences);
+        ulong digest =
+            14695981039346656037UL;
+
+        foreach (var pixel in
+                 raster.Pixels)
+        {
+            digest =
+                HashNumber(
+                    digest,
+                    pixel.Red);
+            digest =
+                HashNumber(
+                    digest,
+                    pixel.Green);
+            digest =
+                HashNumber(
+                    digest,
+                    pixel.Blue);
         }
 
         return digest;
@@ -320,6 +359,8 @@ var result = new
     Center = new[] { options.CenterX, options.CenterZ },
     options.Samples,
     options.AreaSize,
+    options.MapSize,
+    options.MapStep,
     options.Chunks,
     options.SearchRadius,
     Metrics = metrics,
@@ -327,6 +368,7 @@ var result = new
     {
         "Cold and warm passes use identical coordinates and independent generator instances per metric.",
         "Elapsed times include immutable query/cache cost, not Godot meshing, physics or GPU publication.",
+        "Allocation counters use the current benchmark thread and are comparative diagnostics, not retained-memory truth.",
         "Every metric records its generated-result digest so determinism can be compared across runs.",
         "Search/destination metrics include near and far world coordinates without chunk materialization.",
         "No time thresholds: compare representative builds on the same machine and configuration.",
@@ -351,14 +393,35 @@ Measurement Measure(
     Func<BiomeWorldGenerator, ulong> work)
 {
     var generator = NewGenerator();
-    var timer = Stopwatch.StartNew();
-    var coldDigest = work(generator);
+    var beforeCold =
+        GC.GetAllocatedBytesForCurrentThread();
+    var timer =
+        Stopwatch.StartNew();
+    var coldDigest =
+        work(
+            generator);
     timer.Stop();
-    var coldMs = timer.Elapsed.TotalMilliseconds;
+    var coldMs =
+        timer.Elapsed.TotalMilliseconds;
+    var coldAllocated =
+        checked(
+            GC.GetAllocatedBytesForCurrentThread() -
+            beforeCold);
 
+    var beforeWarm =
+        GC.GetAllocatedBytesForCurrentThread();
     timer.Restart();
-    var warmDigest = work(generator);
+    var warmDigest =
+        work(
+            generator);
     timer.Stop();
+    var warmMs =
+        timer.Elapsed.TotalMilliseconds;
+    var warmAllocated =
+        checked(
+            GC.GetAllocatedBytesForCurrentThread() -
+            beforeWarm);
+
     if (coldDigest != warmDigest)
     {
         throw new InvalidOperationException(
@@ -368,7 +431,9 @@ Measurement Measure(
     return new Measurement(
         operations,
         coldMs,
-        timer.Elapsed.TotalMilliseconds,
+        warmMs,
+        coldAllocated,
+        warmAllocated,
         coldDigest);
 }
 
@@ -479,6 +544,8 @@ internal sealed record Measurement(
     int Operations,
     double ColdMs,
     double WarmMs,
+    long ColdAllocatedBytes,
+    long WarmAllocatedBytes,
     ulong Digest);
 
 internal sealed record Arguments(
@@ -490,6 +557,8 @@ internal sealed record Arguments(
     int CenterZ,
     int Samples,
     int AreaSize,
+    int MapSize,
+    int MapStep,
     int Chunks,
     int SearchRadius,
     string? Output)
@@ -504,6 +573,8 @@ internal sealed record Arguments(
         var z = 0;
         var samples = 16;
         var areaSize = 16;
+        var mapSize = 64;
+        var mapStep = 4;
         var chunks = 2;
         var searchRadius = 1024;
         string? output = null;
@@ -547,6 +618,12 @@ internal sealed record Arguments(
                 case "--area-size":
                     areaSize = int.Parse(value);
                     break;
+                case "--map-size":
+                    mapSize = int.Parse(value);
+                    break;
+                case "--map-step":
+                    mapStep = int.Parse(value);
+                    break;
                 case "--chunks":
                     chunks = int.Parse(value);
                     break;
@@ -563,12 +640,14 @@ internal sealed record Arguments(
 
         if (samples is < 1 or > 4096 ||
             areaSize is < 1 or > 128 ||
+            mapSize is < 1 or > 512 ||
+            mapStep is < 1 or > 4096 ||
             chunks is < 1 or > 16 ||
             searchRadius is < 1 or > 8192)
         {
             throw new ArgumentOutOfRangeException(
                 nameof(input),
-                "Samples must be 1–4096, area-size 1–128, chunks 1–16 and search-radius 1–8192.");
+                "Samples must be 1–4096, area-size 1–128, map-size 1–512, map-step 1–4096, chunks 1–16 and search-radius 1–8192.");
         }
 
         return new Arguments(
@@ -580,6 +659,8 @@ internal sealed record Arguments(
             z,
             samples,
             areaSize,
+            mapSize,
+            mapStep,
             chunks,
             searchRadius,
             output);
