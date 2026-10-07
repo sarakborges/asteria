@@ -915,8 +915,9 @@ public sealed class SurfaceStructureTests
             77UL,
             dimension,
             blocks,
-            new FluidRegistry(
-                Array.Empty<FluidDefinition>()),
+            FluidRegistry.FromJson(
+                ReadJsonDirectory(
+                    "fluids")),
             new BiomeRegistry(
             [
                 biome,
