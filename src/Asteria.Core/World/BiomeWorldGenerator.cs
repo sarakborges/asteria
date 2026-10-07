@@ -67,10 +67,12 @@ public sealed class BiomeWorldGenerator :
                 .ToArray();
 
         _surfaceBiomeQuery =
-            new BiomeField(
-                seed,
-                surfaceBiomeIds,
-                biomes);
+            surfaceBiomeIds.Length > 0
+                ? new BiomeField(
+                    seed,
+                    surfaceBiomeIds,
+                    biomes)
+                : Biomes;
         _volumeBiomes =
             volumeBiomes.ToDictionary(
                 definition =>
