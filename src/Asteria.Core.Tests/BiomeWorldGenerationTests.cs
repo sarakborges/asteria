@@ -1341,13 +1341,36 @@ public sealed class BiomeWorldGenerationTests
                 floating.X,
                 220,
                 floating.Z);
+        var surfaceSample =
+            generator.Biomes.Sample(
+                floating.X,
+                floating.Z);
+        var volumeSample =
+            generator.VolumeBiomes.Sample(
+                floating.X,
+                220,
+                floating.Z);
 
         Assert.NotEqual(
             "asteria:overworld/floating_islands",
             surfaceBiome);
+        Assert.DoesNotContain(
+            surfaceSample.Influences,
+            influence =>
+                dimension.VolumeBiomes.Contains(
+                    influence.BiomeId,
+                    StringComparer.Ordinal));
         Assert.Equal(
             "asteria:overworld/floating_islands",
             volumeBiome);
+        Assert.NotNull(
+            volumeSample);
+        Assert.All(
+            volumeSample!.Influences,
+            influence =>
+                Assert.Contains(
+                    influence.BiomeId,
+                    dimension.VolumeBiomes));
     }
 
     [Fact]
