@@ -52,5 +52,8 @@
   ],
   "volumeBiomes": [
     "asteria:overworld/floating_islands"
+  ],
+  "undergroundBiomes": [
+    "asteria:overworld/caverns"
   ]
 }

@@ -34,6 +34,7 @@ public sealed class BiomeWorldGenerationTests
                  {
                      "asteria:overworld/alps",
                      "asteria:overworld/arctic",
+                     "asteria:overworld/caverns",
                      "asteria:overworld/enchanted_forest",
                      "asteria:overworld/floating_islands",
                      "asteria:overworld/gorge",
@@ -62,6 +63,18 @@ public sealed class BiomeWorldGenerationTests
                 "asteria:mushroom_brown");
         Assert.NotNull(
             swamp.SurfaceLayers[0].Patch);
+
+        var caverns =
+            biomes.Get(
+                "asteria:overworld/caverns");
+        Assert.Null(
+            caverns.SurfaceLayout);
+        Assert.Null(
+            caverns.VolumeLayout);
+        Assert.NotNull(
+            caverns.UndergroundLayout);
+        Assert.Empty(
+            caverns.SurfaceLayers);
 
         var floating =
             biomes.Get(
@@ -1374,6 +1387,71 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
+    public void EffectiveBiomeUsesCavernsOnlyInsideCarvedCaveVoid()
+    {
+        var blocks =
+            LoadDefaultBlocks();
+        var biomes =
+            LoadDefaultBiomes();
+        var fluids =
+            LoadDefaultFluids();
+        var dimensions =
+            LoadDefaultDimensions();
+        var dimension =
+            dimensions.Get(
+                DimensionId.Overworld);
+        var generator =
+            new BiomeWorldGenerator(
+                DimensionSeed.Derive(
+                    0xA57E_2026UL,
+                    dimension.Id),
+                dimension,
+                blocks,
+                fluids,
+                biomes);
+        var cave =
+            FindCaveVoid(
+                generator);
+
+        Assert.True(
+            generator.IsCaveVoidAt(
+                cave.X,
+                cave.Y,
+                cave.Z));
+        Assert.True(
+            generator.DensityAt(
+                cave.X,
+                cave.Y,
+                cave.Z) <
+            0d);
+        Assert.Equal(
+            "asteria:overworld/caverns",
+            generator.EffectiveBiomeAt(
+                cave.X,
+                cave.Y,
+                cave.Z));
+
+        var solidY =
+            generator.SurfaceHeight(
+                cave.X,
+                cave.Z) -
+            1;
+        Assert.True(
+            solidY >= 0);
+        Assert.False(
+            generator.IsCaveVoidAt(
+                cave.X,
+                solidY,
+                cave.Z));
+        Assert.NotEqual(
+            "asteria:overworld/caverns",
+            generator.EffectiveBiomeAt(
+                cave.X,
+                solidY,
+                cave.Z));
+    }
+
+    [Fact]
     public void DefaultWorldGeneratorProducesGroundPlantsFromBiomeDecorators()
     {
         var blocks =
@@ -1425,6 +1503,50 @@ public sealed class BiomeWorldGenerationTests
                 generator,
                 swamp,
                 mushroom));
+    }
+
+    private static (int X, int Y, int Z) FindCaveVoid(
+        BiomeWorldGenerator generator)
+    {
+        for (var z = -1024;
+             z <= 1024;
+             z += 32)
+        {
+            for (var x = -1024;
+                 x <= 1024;
+                 x += 32)
+            {
+                var surfaceY =
+                    generator.SurfaceHeight(
+                        x,
+                        z);
+                var minimumY =
+                    Math.Max(
+                        1,
+                        surfaceY - 110);
+                var maximumY =
+                    surfaceY - 10;
+
+                for (var y = minimumY;
+                     y <= maximumY;
+                     y += 3)
+                {
+                    if (generator.IsCaveVoidAt(
+                            x,
+                            y,
+                            z))
+                    {
+                        return (
+                            x,
+                            y,
+                            z);
+                    }
+                }
+            }
+        }
+
+        throw new Xunit.Sdk.XunitException(
+            "Could not find a deterministic carved cave void.");
     }
 
     private static (int X, int Z) FindVolumeBiomeInterior(

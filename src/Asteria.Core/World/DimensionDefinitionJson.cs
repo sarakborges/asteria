@@ -80,7 +80,10 @@ public static class DimensionDefinitionJson
             ParseGeneratedOcean(root),
             OptionalStringArray(
                 root,
-                "volumeBiomes"));
+                "volumeBiomes"),
+            OptionalStringArray(
+                root,
+                "undergroundBiomes"));
     }
 
     private static DimensionGeneratedOceanDefinition? ParseGeneratedOcean(

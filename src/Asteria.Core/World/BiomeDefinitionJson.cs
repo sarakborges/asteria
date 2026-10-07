@@ -24,22 +24,21 @@ public static class BiomeDefinitionJson
             RequiredString(root, "id"),
             ParseSurfaceLayout(root),
             ParseTerrain(root),
-            ParseLayers(
-                GetRequiredArray(
-                    root,
-                    "surfaceLayers")),
+            ParseLayers(root),
             ParseDecorations(root),
             ParseTints(root),
             ParseTerrain3d(root),
-            ParseVolumeLayout(root));
+            ParseVolumeLayout(root),
+            ParseUndergroundLayout(root));
     }
 
-    private static BiomeSurfaceLayoutDefinition?
-        ParseSurfaceLayout(
-            JsonElement root)
+    private static PlacementLayoutValues?
+        ParsePlacementLayout(
+            JsonElement root,
+            string propertyName)
     {
         if (!root.TryGetProperty(
-                "surfaceLayout",
+                propertyName,
                 out var value) ||
             value.ValueKind ==
                 JsonValueKind.Null)
@@ -50,7 +49,7 @@ public static class BiomeDefinitionJson
         value =
             EnsureObject(
                 value,
-                "surfaceLayout");
+                propertyName);
         var region =
             value.TryGetProperty(
                 "regionSize",
@@ -60,7 +59,7 @@ public static class BiomeDefinitionJson
                     "regionSize")
                 : default;
 
-        return new BiomeSurfaceLayoutDefinition(
+        return new PlacementLayoutValues(
             OptionalSingle(
                 value,
                 "weight") ??
@@ -80,6 +79,25 @@ public static class BiomeDefinitionJson
             OptionalStringArray(
                 value,
                 "cannotBorder"));
+    }
+
+    private static BiomeSurfaceLayoutDefinition?
+        ParseSurfaceLayout(
+            JsonElement root)
+    {
+        var layout =
+            ParsePlacementLayout(
+                root,
+                "surfaceLayout");
+
+        return layout is
+            { } values
+            ? new BiomeSurfaceLayoutDefinition(
+                values.Weight,
+                values.RegionMin,
+                values.RegionMax,
+                values.CannotBorder)
+            : null;
     }
 
     private static BiomeTerrainDefinition? ParseTerrain(
@@ -121,48 +139,38 @@ public static class BiomeDefinitionJson
         ParseVolumeLayout(
             JsonElement root)
     {
-        if (!root.TryGetProperty(
-                "volumeLayout",
-                out var value) ||
-            value.ValueKind ==
-                JsonValueKind.Null)
-        {
-            return null;
-        }
-
-        value =
-            EnsureObject(
-                value,
+        var layout =
+            ParsePlacementLayout(
+                root,
                 "volumeLayout");
-        var region =
-            value.TryGetProperty(
-                "regionSize",
-                out var authoredRegion)
-                ? EnsureObject(
-                    authoredRegion,
-                    "regionSize")
-                : default;
 
-        return new BiomeVolumeLayoutDefinition(
-            OptionalSingle(
-                value,
-                "weight") ??
-            1f,
-            region.ValueKind ==
-                JsonValueKind.Object
-                ? RequiredUInt32(
-                    region,
-                    "min")
-                : 192,
-            region.ValueKind ==
-                JsonValueKind.Object
-                ? RequiredUInt32(
-                    region,
-                    "max")
-                : 384,
-            OptionalStringArray(
-                value,
-                "cannotBorder"));
+        return layout is
+            { } values
+            ? new BiomeVolumeLayoutDefinition(
+                values.Weight,
+                values.RegionMin,
+                values.RegionMax,
+                values.CannotBorder)
+            : null;
+    }
+
+    private static BiomeUndergroundLayoutDefinition?
+        ParseUndergroundLayout(
+            JsonElement root)
+    {
+        var layout =
+            ParsePlacementLayout(
+                root,
+                "undergroundLayout");
+
+        return layout is
+            { } values
+            ? new BiomeUndergroundLayoutDefinition(
+                values.Weight,
+                values.RegionMin,
+                values.RegionMax,
+                values.CannotBorder)
+            : null;
     }
 
     private static BiomeTerrain3dDefinition? ParseTerrain3d(
@@ -195,8 +203,21 @@ public static class BiomeDefinitionJson
 
     private static IReadOnlyList<BiomeSurfaceLayerDefinition>
         ParseLayers(
-            JsonElement array)
+            JsonElement root)
     {
+        if (!root.TryGetProperty(
+                "surfaceLayers",
+                out var array) ||
+            array.ValueKind ==
+                JsonValueKind.Null)
+        {
+            return Array.Empty<BiomeSurfaceLayerDefinition>();
+        }
+
+        array =
+            EnsureArray(
+                array,
+                "surfaceLayers");
         var layers =
             new List<BiomeSurfaceLayerDefinition>();
 
@@ -568,4 +589,10 @@ public static class BiomeDefinitionJson
                         $"{name} can contain only strings."))
             .ToArray();
     }
+    private sealed record PlacementLayoutValues(
+        float Weight,
+        uint RegionMin,
+        uint RegionMax,
+        IReadOnlyList<string> CannotBorder);
+
 }

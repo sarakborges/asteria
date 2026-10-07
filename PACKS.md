@@ -78,7 +78,7 @@ Each pack has one manifest at `packs/{name}/pack.json`:
 
 Definitions may add or override namespaced blocks, fluids, biomes, structures, recipes, loot, dimensions and future definition-driven systems.
 
-Dimensions live under `data/dimensions/*.json`. A dimension is one authored world-runtime configuration; in-game, dimensions are called **Spheres**. It declares its stable ID, explicit `surfaceBiomes` and optional `volumeBiomes` pools, sea level, gravity strength, spawn coordinates, optional Sphere Shell bounds and engine-agnostic environment presentation values. Surface biomes author `baseHeightOffset` relative to that dimension sea level rather than baking an absolute world height into each biome. A root world seed is not duplicated into the pack; runtime derives a stable per-dimension seed from the world seed + dimension ID.
+Dimensions live under `data/dimensions/*.json`. A dimension is one authored world-runtime configuration; in-game, dimensions are called **Spheres**. It declares its stable ID, explicit `surfaceBiomes`, optional `volumeBiomes` and optional `undergroundBiomes` pools, sea level, gravity strength, spawn coordinates, optional Sphere Shell bounds and engine-agnostic environment presentation values. Surface biomes author `baseHeightOffset` relative to that dimension sea level rather than baking an absolute world height into each biome. A root world seed is not duplicated into the pack; runtime derives a stable per-dimension seed from the world seed + dimension ID.
 
 Example placement pools:
 
@@ -89,10 +89,13 @@ Example placement pools:
 ],
 "volumeBiomes": [
   "asteria:overworld/floating_islands"
+],
+"undergroundBiomes": [
+  "asteria:overworld/caverns"
 ]
 ```
 
-A biome ID may not be repeated across placement pools. Surface entries must author `surfaceLayout` + `surfaceTerrain`; volume entries must author `volumeLayout` and the bounded volume capability required by that biome.
+A biome ID may not be repeated across placement pools. Surface entries must author `surfaceLayout` + `surfaceTerrain`; volume entries must author `volumeLayout` and the bounded volume capability required by that biome; underground entries must author `undergroundLayout`. A Sphere may only declare underground biomes when it also authors a cave field.
 
 A Sphere may define a shell floor, roof, or both:
 
@@ -144,6 +147,17 @@ is part of its single terrain-density owner, not a separate generator:
 Caves are optional, occur below the exposed base surface, and cannot
 puncture the top terrain crossing. Both scales are bounded. Depth and
 boundary fade must fit within a finite positive underground band.
+
+Underground biomes are a separate identity domain layered on top of the authoritative cave carve:
+
+```json
+{
+  "id": "asteria:overworld/caverns",
+  "undergroundLayout": {}
+}
+```
+
+An underground-only biome may omit `surfaceLayout`, `surfaceTerrain`, `volumeLayout` and `surfaceLayers`. `undergroundLayout` controls deterministic underground identity placement, but it never decides where air exists. The biome becomes effective only at voxels that the Sphere's existing cave field actually carved. Solid rock, the exposed surface and Sphere Shell boundaries never become underground biomes merely because their X/Z lies inside an underground region.
 
 Volume biomes author their own horizontal placement and bounded additive 3D formation:
 

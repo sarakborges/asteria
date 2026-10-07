@@ -9,6 +9,7 @@ public sealed class SurfaceTerrainField
 {
     private readonly ulong _seed;
     private readonly int _seaLevel;
+    private readonly int? _floorY;
     private readonly int? _roofY;
     private readonly BiomeField _surfaceBiomes;
     private readonly VolumeBiomeField _volumeBiomes;
@@ -42,6 +43,7 @@ public sealed class SurfaceTerrainField
 
         _seed = seed;
         _seaLevel = dimension.SeaLevel;
+        _floorY = dimension.Shell?.FloorY;
         _roofY = dimension.Shell?.RoofY;
         _surfaceRules =
             surfaceDefinitions
@@ -123,6 +125,43 @@ public sealed class SurfaceTerrainField
             worldY,
             worldZ);
 
+    public bool IsCaveVoidAt(
+        int worldX,
+        int worldY,
+        int worldZ)
+    {
+        if (worldY < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(worldY));
+        }
+
+        if (_caves is null ||
+            worldY == _floorY ||
+            worldY == _roofY)
+        {
+            return false;
+        }
+
+        var biome =
+            _surfaceBiomes.Sample(
+                worldX,
+                worldZ);
+        var baseY =
+            BaseHeightAt(
+                biome,
+                worldX,
+                worldZ);
+
+        return worldY <= baseY &&
+               CaveVoidDensityAt(
+                   baseY,
+                   worldX,
+                   worldY,
+                   worldZ) >
+               0d;
+    }
+
     /// <summary>
     /// Pure density query with already-sampled X/Z biome and base height.
     /// Used by the chunk materializer across all Y voxels in a column.
@@ -165,24 +204,57 @@ public sealed class SurfaceTerrainField
                         volumeBiome.PrimaryWeight));
         }
 
-        if (_caves is not null &&
-            density >= 0d &&
+        if (density >= 0d &&
             worldY <= baseY)
         {
-            var depth = (long)baseY - worldY;
-            if (depth >= _caves.MinimumDepth &&
-                depth <= _caves.MaximumDepth)
+            var voidDensity =
+                CaveVoidDensityAt(
+                    baseY,
+                    worldX,
+                    worldY,
+                    worldZ);
+
+            if (voidDensity > 0d)
             {
-                var voidDensity = _caves.VoidDensityAt(
-                    _seed, worldX, worldY, worldZ, depth);
-                if (voidDensity > 0d)
-                {
-                    density = Math.Min(density, -voidDensity);
-                }
+                density =
+                    Math.Min(
+                        density,
+                        -voidDensity);
             }
         }
 
         return density;
+    }
+
+    private double CaveVoidDensityAt(
+        int baseY,
+        int worldX,
+        int worldY,
+        int worldZ)
+    {
+        if (_caves is null ||
+            worldY == _floorY ||
+            worldY == _roofY)
+        {
+            return 0d;
+        }
+
+        var depth =
+            (long)baseY -
+            worldY;
+
+        if (depth < _caves.MinimumDepth ||
+            depth > _caves.MaximumDepth)
+        {
+            return 0d;
+        }
+
+        return _caves.VoidDensityAt(
+            _seed,
+            worldX,
+            worldY,
+            worldZ,
+            depth);
     }
 
     /// <summary>

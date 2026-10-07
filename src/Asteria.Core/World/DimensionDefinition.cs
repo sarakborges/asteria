@@ -220,7 +220,8 @@ public sealed class DimensionDefinition
         DimensionShellDefinition? shell = null,
         DimensionCaveDefinition? caves = null,
         DimensionGeneratedOceanDefinition? generatedOcean = null,
-        IEnumerable<string>? volumeBiomes = null)
+        IEnumerable<string>? volumeBiomes = null,
+        IEnumerable<string>? undergroundBiomes = null)
     {
         if (!float.IsFinite(gravityStrength) ||
             gravityStrength < 0f ||
@@ -237,6 +238,9 @@ public sealed class DimensionDefinition
                 nameof(surfaceBiomes));
         var authoredVolumeBiomes =
             volumeBiomes?.ToArray() ??
+            Array.Empty<string>();
+        var authoredUndergroundBiomes =
+            undergroundBiomes?.ToArray() ??
             Array.Empty<string>();
 
         if (authoredSurfaceBiomes.Length == 0)
@@ -280,6 +284,29 @@ public sealed class DimensionDefinition
             }
         }
 
+        foreach (var biomeId in
+                 authoredUndergroundBiomes)
+        {
+            BiomeDefinition.ValidateId(
+                biomeId);
+
+            if (!unique.Add(
+                    biomeId))
+            {
+                throw new ArgumentException(
+                    $"Dimension {id} repeats biome {biomeId} across placement domains.",
+                    nameof(undergroundBiomes));
+            }
+        }
+
+        if (authoredUndergroundBiomes.Length > 0 &&
+            caves is null)
+        {
+            throw new ArgumentException(
+                $"Dimension {id} cannot author underground biomes without a cave field.",
+                nameof(undergroundBiomes));
+        }
+
         if (generatedOcean is { } ocean &&
             !authoredSurfaceBiomes.Contains(
                 ocean.Biome,
@@ -297,6 +324,9 @@ public sealed class DimensionDefinition
         VolumeBiomes =
             Array.AsReadOnly(
                 authoredVolumeBiomes);
+        UndergroundBiomes =
+            Array.AsReadOnly(
+                authoredUndergroundBiomes);
         SeaLevel =
             seaLevel;
         GravityStrength =
@@ -319,6 +349,8 @@ public sealed class DimensionDefinition
     public IReadOnlyList<string> SurfaceBiomes { get; }
 
     public IReadOnlyList<string> VolumeBiomes { get; }
+
+    public IReadOnlyList<string> UndergroundBiomes { get; }
 
     public int SeaLevel { get; }
 

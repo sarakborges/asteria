@@ -144,6 +144,12 @@ public sealed class BiomeRegistry
                 target =>
                     target.VolumeLayout is not null,
                 "volumeLayout");
+            ValidateLayoutReferences(
+                definition,
+                definition.UndergroundLayout,
+                target =>
+                    target.UndergroundLayout is not null,
+                "undergroundLayout");
         }
     }
 

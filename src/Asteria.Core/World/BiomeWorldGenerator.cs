@@ -16,6 +16,7 @@ public sealed class BiomeWorldGenerator :
     private readonly GeneratedFluidField _generatedFluids;
     private readonly SurfaceChunkMaterializer _materializer;
     private readonly VolumeBiomeField _volumeBiomes;
+    private readonly UndergroundBiomeField _undergroundBiomes;
 
     public BiomeWorldGenerator(
         ulong seed,
@@ -84,6 +85,11 @@ public sealed class BiomeWorldGenerator :
                 seed,
                 dimension,
                 biomes);
+        _undergroundBiomes =
+            new UndergroundBiomeField(
+                seed,
+                dimension,
+                biomes);
         _terrain =
             new SurfaceTerrainField(
                 seed,
@@ -132,6 +138,9 @@ public sealed class BiomeWorldGenerator :
     public VolumeBiomeField VolumeBiomes =>
         _volumeBiomes;
 
+    public UndergroundBiomeField UndergroundBiomes =>
+        _undergroundBiomes;
+
     public BiomeTintField Tints { get; }
 
     public Chunk Materialize(ChunkCoord coord) =>
@@ -154,16 +163,47 @@ public sealed class BiomeWorldGenerator :
                 nameof(worldY));
         }
 
-        return _volumeBiomes.Sample(
+        var volume =
+            _volumeBiomes.Sample(
+                worldX,
+                worldY,
+                worldZ);
+
+        if (volume is not null)
+        {
+            return volume.Primary;
+        }
+
+        if (_terrain.IsCaveVoidAt(
+                worldX,
+                worldY,
+                worldZ))
+        {
+            var underground =
+                _undergroundBiomes.Sample(
                     worldX,
-                    worldY,
-                    worldZ)
-                ?.Primary ??
-            Biomes.Sample(
-                    worldX,
-                    worldZ)
-                .Primary;
+                    worldZ);
+
+            if (underground is not null)
+            {
+                return underground.Primary;
+            }
+        }
+
+        return Biomes.Sample(
+                worldX,
+                worldZ)
+            .Primary;
     }
+
+    public bool IsCaveVoidAt(
+        int worldX,
+        int worldY,
+        int worldZ) =>
+        _terrain.IsCaveVoidAt(
+            worldX,
+            worldY,
+            worldZ);
 
     public TerrainDensityVolume SampleDensityVolume(
         int originX, int originY, int originZ,
