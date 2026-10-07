@@ -35,31 +35,38 @@ public sealed class SurfaceStructureTests
             structures);
 
         Assert.Equal(
-            11,
+            38,
             structures.Count);
         Assert.Equal(
-            new[]
-            {
-                "asteria:boulder_big",
-                "asteria:boulder_huge",
-                "asteria:boulder_medium",
-                "asteria:boulder_small",
-                "asteria:tree_oak_01",
-                "asteria:tree_oak_02",
-                "asteria:tree_oak_03",
-                "asteria:tree_oak_04",
-                "asteria:tree_willow_01",
-                "asteria:tree_willow_02",
-                "asteria:tree_willow_03",
-            },
-            structures
-                .Definitions()
-                .Select(
-                    definition =>
-                        definition.Id)
-                .ToArray());
+            10,
+            structures.ResolveReference(
+                "asteria:river_segment")
+                .Count);
         Assert.Equal(
-            26,
+            4,
+            structures.ResolveReference(
+                "asteria:lake")
+                .Count);
+        Assert.Equal(
+            4,
+            structures.ResolveReference(
+                "asteria:mountain_pond")
+                .Count);
+        Assert.Equal(
+            4,
+            structures.ResolveReference(
+                "asteria:mountain_waterfall")
+                .Count);
+        Assert.Equal(
+            4,
+            structures.ResolveReference(
+                "asteria:river_lake")
+                .Count);
+        Assert.True(
+            structures.ResolvesReference(
+                "asteria:river_ocean_mouth"));
+        Assert.Equal(
+            31,
             overworld
                 .GeneratedSurfaceStructures
                 .Count);
