@@ -64,15 +64,10 @@ public sealed class FluidMaterialCatalog
 
             if (definition.Texture is { } texturePath)
             {
-                var resourcePath =
-                    ProjectPackPaths.Resource(
+                var texture =
+                    ProjectPackFiles.LoadTexture(
                         selection,
                         texturePath);
-                var texture =
-                    ResourceLoader.Load<Texture2D>(
-                        resourcePath)
-                    ?? throw new FileNotFoundException(
-                        $"Fluid texture was not imported by Godot: {resourcePath}");
 
                 material.SetShaderParameter(
                     "fluid_texture",

@@ -40,6 +40,7 @@ Godot is an adapter. It owns:
 - input and platform integration;
 - Godot nodes, resources, materials, shaders and physics-engine objects;
 - conversion of engine-agnostic mesh/presentation data into Godot objects;
+- decoding pack-owned raw files into runtime engine objects without routing those files through Godot's import/resource pipeline;
 - publication/retirement of presentation objects;
 - orchestration needed specifically to cross the Godot main-thread boundary.
 
