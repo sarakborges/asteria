@@ -1,54 +1,149 @@
-# Asteria Worldgen Rebuild — implementation map
+# Asteria Worldgen Rebuild — MineClone parity map
 
-Reference contract: MineClone `world-systems-rebuild`,
-`docs/design/world-systems-rebuild.md`.
-Asteria keeps Godot as its presentation adapter and C# Core as its semantic owner.
+Reference implementation and behavioral contract:
 
-## Status
+- repository: `sarakborges/mineclone`
+- branch: `world-systems-rebuild`
+- primary design: `docs/design/world-systems-rebuild.md`
+- implementation status reference: `docs/design/world-systems-rebuild-status.md`
 
-| Capability | Asteria status |
-| --- | --- |
-| Deterministic seed and Sphere selection | Implemented |
-| Biome primary/influences and bounded-area queries | Implemented |
-| Cached formation assignment | Implemented, bounded per Sphere |
-| Dedicated surface terrain queries and batch samples | Implemented |
-| Deterministic material layers and patches | Implemented |
-| Dedicated ground decoration query | Implemented for current authored content |
-| Composed chunk materializer | Consumes final 3D density, material layers and ground decorators |
-| Authoritative 3D density/caves/floating formations | Implemented in Core (configured caves, optional biome mass); full 3D biome layout and overhang features remain future work |
-| Structure field and cross-chunk structure placements | Not yet implemented |
-| Natural generated-fluid materialization | Not yet implemented |
-| Full loading/persistence integration | Not yet implemented |
-| Performance baselines | CLI available; real gameplay profile still required |
+Asteria adapts that contract to Godot + C#, but the rebuild phases and proven world-generation invariants are the migration checklist. Deliberate Asteria improvements are allowed when they preserve the same ownership and behavioral intent and are documented explicitly.
 
-## Ownership and ordering
+This document is the active parity map for the migration. It must be updated whenever a worldgen phase moves forward. Do not treat isolated feature ports as completion of the corresponding phase.
+
+## Status vocabulary
+
+- **Ported** — the MineClone rebuild contract exists in Asteria with equivalent ownership/behavior.
+- **Adapted** — equivalent contract exists, with a deliberate Asteria-specific implementation difference.
+- **Partial** — part of the phase exists, but one or more required contracts are still missing.
+- **Missing** — the phase contract has not been implemented.
+- **Divergent** — Asteria currently implements a conflicting semantic contract that must be reconciled deliberately.
+
+## Phase parity
+
+| Phase | MineClone contract | Asteria status | Required work |
+| --- | --- | --- | --- |
+| 0 — Impact audit and external contracts | Audit every consumer of generated-world facts and classify preserved/adapted/rewritten/obsolete dependencies. | **Partial** | Complete one explicit consumer inventory covering streaming, biome/Structure search, spawn, warp, dimension travel, loading, persistence and debug/map tooling. |
+| 1 — Cleanup | Remove old biome/worldgen/loading ownership and repair/fallback paths before building replacement ownership. | **Ported for active worldgen** | Keep deleted/obsolete ownership from re-entering through compatibility helpers or consumer-side reconstruction. |
+| 2 — Generation foundation/query model | Immutable deterministic generator; pure scalar + bounded queries; no semantic generation tiles; order-independent direct far-coordinate access. | **Ported / Adapted** | Preserve scalar/batch equivalence and bounded cache semantics as later capabilities are added. |
+| 3 — Biome Layout | Organic formation field, `regionSize`, weights, `cannotBorder`, primary + normalized influences, deterministic search, biome-map sampling. | **Ported / Adapted** | Add the optional debug biome-map renderer if still useful. The semantic layout itself is already ported. |
+| 4 — Terrain | Continuous surface field plus authoritative 3D density, caves/floating terrain, bounded queries, seam/order independence. | **Ported / Adapted** | Continue only through the single terrain-density owner; no parallel terrain generators. |
+| 5 — Surface/material/generated fluids | Deterministic layers, patches, generated natural fluids and runtime handoff. | **Partial** | Ocean generation is active; remaining authored generated-fluid behaviors from the rebuild/content set, including swamp puddles where required, still need their concrete owner. |
+| 6 — Structures/features | One authoritative Structure placement/query owner; StructureSets, variants, conflicts, connectors/chains, biome/terrain/fluid restrictions and cross-chunk materialization. | **Partial** | Finish StructureSets/connectors/chains/search and the generic connected-feature path used by river/lake/waterfall/pond content. Do not introduce hydrology. |
+| 7 — Chunk synthesis | One procedural writer composes density/materials/features/structures/generated fluids into runtime chunks. | **Ported for current content** | Keep `SurfaceChunkMaterializer` as the single writer while Phase 5/6 capabilities expand. |
+| 8 — Consumer integration | Streaming, biome/Structure locate, spawn, warp and dimension travel consume narrow generator query capabilities; no hidden chunk generation. | **Partial / Missing parity** | Add generator-owned biome/Structure search and shared destination preparation, then route every applicable consumer through those capabilities. |
+| 9 — Persistence | First materialization makes a chunk authoritative persisted spatial state, including unedited/empty chunks; query-only access does not persist. | **Divergent** | Asteria currently archives dirty chunks and regenerates pristine chunks. Reconcile this with the rebuild contract before claiming Phase 9 parity. |
+| 10 — Loading pipeline | New world, save load and dimension travel share one loading path using real required-residency work. | **Missing parity** | Introduce the shared loading/residency pipeline after Phase 8/9 semantics are settled. |
+| 11 — Loading screen | UI renders only authoritative loading phase/progress; no fake timers or duplicate loading state. | **Missing parity** | Add only after the loading owner exists; WebUI must remain presentation-only. |
+| 12 — End-to-end/performance | Fixed-seed fixtures, near/far/order tests, visual probes and evidence-based performance baselines. | **In progress, but not a substitute for missing phases** | Keep benchmarking, but close Phases 6/8/9/10/11 before calling the rebuild migrated. |
+
+## Immediate migration order
+
+Until parity is closed, worldgen work should follow this order unless the user explicitly changes priority:
+
+1. **Phase 6 — complete generic Structure capability**
+   - StructureSets/groups/variants where still absent;
+   - generic connectors/chains;
+   - authoritative bounded Structure search;
+   - connected river/lake/waterfall/pond content through Structure/connectors only;
+   - preserve `SurfaceStructureField` as the placement/conflict owner and `SurfaceChunkMaterializer` as the writer.
+
+2. **Phase 8 — complete generated-world consumers**
+   - biome search;
+   - Structure search;
+   - spawn destination selection;
+   - warp destination preparation;
+   - dimension-travel destination preparation;
+   - no consumer may reconstruct generator rules from seed/registries or materialize chunks merely to answer an untouched generated-world query.
+
+3. **Phase 9 — reconcile persistence**
+   - MineClone rebuild semantics persist every materialized chunk;
+   - current Asteria semantics retain only dirty authoritative chunk state and rematerialize pristine terrain;
+   - this is an explicit semantic conflict, not an implementation detail;
+   - resolve the contract deliberately before loading/save work depends on it.
+
+4. **Phases 10–11 — shared loading + presentation**
+   - one loading pipeline for world entry/load/dimension travel;
+   - progress is real residency/materialization work;
+   - WebUI renders authoritative progress and owns no world-loading state.
+
+5. **Phase 12 — close validation/performance**
+   - deterministic fixed-seed fixtures;
+   - cold/warm scalar and bounded queries;
+   - near/far destination paths;
+   - request-order and concurrent-query equivalence;
+   - biome boundaries/junctions, ocean/coast, caves, floating terrain and Structure-heavy fixtures;
+   - measured budgets only after the correct path exists.
+
+## Biome layout / biome map clarification
+
+The MineClone rebuild has two related but distinct pieces:
+
+1. **Biome Layout** — the semantic generated-world owner implemented in `src/world/generator/biome.rs`.
+2. **Biome map renderer** — the debug/visual tool in `src/world/generator/biome_map.rs`, which samples the same Biome Layout and writes a PNG + legend.
+
+Asteria **has ported the Biome Layout**. `Asteria.Core/World/BiomeField.cs` mirrors the rebuild algorithm closely:
+
+- deterministic organic formation seeds;
+- seed spacing derived from minimum authored region span;
+- weighted biome assignment;
+- formation continuation/growth;
+- `cannotBorder` filtering during assignment;
+- deterministic absorption when a new compatible formation cannot be created;
+- jittered formation centers;
+- shape/bias entropy domains;
+- coarse/fine domain warping;
+- primary biome plus normalized local influences;
+- bounded formation-assignment memoization;
+- scalar and bounded-grid sampling.
+
+The standalone MineClone PNG/legend renderer has not been ported as a required runtime system. Its absence does **not** mean the biome-distribution algorithm is absent.
+
+### Deliberate Biome Layout difference
+
+MineClone currently uses `BLEND_SCORE_BAND = 0.18`. Asteria uses a wider `0.50` band so tall biome profiles and visible tint gradients transition without artificial walls. This is an intentional Asteria adaptation, not a separate biome-layout algorithm.
+
+## Current generation ownership
 
 ```text
-BiomeField
-  -> SurfaceTerrainField (base surface height)
-    -> BiomeSurfaceMaterialField (surface layers/patches)
-      -> SurfaceDecorationField (ground decoration)
-        -> SurfaceChunkMaterializer (runtime block content)
+BiomeWorldGenerator
+  |- BiomeField
+  |- VolumeBiomeField
+  |- UndergroundBiomeField
+  |- SurfaceTerrainField
+  |- BiomeSurfaceMaterialField
+  |- SurfaceDecorationField
+  |- GeneratedFluidField
+  |- SurfaceStructureField
+  `- SurfaceChunkMaterializer
 ```
 
-`BiomeWorldGenerator` composes these immutable capabilities, and
-`ChunkResidencyRuntime` continues to own async materialization and
-activation. The separation is based on the MineClone rebuild, not its Bevy
-or Rust runtime types. No semantic generation tile/region has been added.
+Binding ownership rules:
 
-The `SurfaceTerrainColumnCache` shares a 16x16 immutable biome/height
-snapshot between surface selection and every vertical chunk request with
-that X/Z coordinate. Maximum retained columns: 128 per Sphere. Formation
-assignment memoization is separately bounded to 4096 seeds per Sphere.
-Both caches are eviction-independent and are discarded with the Sphere.
-Terrain-mesh biome tint uses a stitched 17x17 grid from four cached
-16x16 world-space columns; it no longer resamples the full area with
-another recursive biome pass. Adjacent chunk seams reuse identical
-world-coordinate samples.
+- `BiomeField` owns surface biome identity/influences.
+- `VolumeBiomeField` owns bounded volume-biome identity.
+- `UndergroundBiomeField` owns underground identity only where authoritative cave geometry creates a void.
+- `SurfaceTerrainField` owns base terrain and final 3D density.
+- `BiomeSurfaceMaterialField` owns generated solid-material classification.
+- `SurfaceDecorationField` owns ground decorators.
+- `GeneratedFluidField` owns explicit generation-time fluid placement; runtime fluid simulation takes over after residency.
+- `SurfaceStructureField` owns generated surface-Structure placement/conflicts.
+- `SurfaceChunkMaterializer` is the only procedural voxel writer.
+- streaming/residency owns scheduling and publication lifecycle, not generated-world truth.
 
-Material sampling resolves each finite layer's deterministic patch once
-per materialized X/Z column, rather than performing patch search for every
-solid Y voxel. Content semantics are unchanged.
+No later migration phase may create a second biome resolver, terrain sampler, generated-fluid planner, Structure planner or procedural chunk writer.
+
+## Current known deliberate improvements over MineClone
+
+Asteria may improve the reference when the ownership contract is preserved. Current documented examples:
+
+- surface material patches use continuous deterministic world-space noise instead of MineClone's radius-based patch footprints;
+- biome influence blending is wider to support Asteria's tall terrain profiles and tint transitions;
+- Core/Godot separation keeps generated-world calculation engine-agnostic;
+- negative world Y is prohibited and Sphere Shell boundaries are explicit dimension content;
+- hydrology is prohibited; water-related authored features use their concrete owner or generic Structure/connectors.
+
+These adaptations are not permission to skip rebuild phases.
 
 ## Reproducible benchmarking
 
@@ -61,31 +156,18 @@ dotnet run -c Release --project tools/WorldgenBenchmark -- \
   --chunks 2 --output worldgen-benchmark.json
 ```
 
-The CLI records cold/warm measurements for biome scalar/area queries,
-surface scalar/area queries, a bounded 3D density volume and chunk synthesis. Each metric uses its
-own fresh generator instance, and both passes must produce the same
-content digest. This is a query/CPU baseline, **not** an end-to-end
-FPS or loading-time benchmark. Record the same seed and settings before
-and after each subsequent architecture slice; never invent a fixed
-performance budget without measuring representative hardware.
+The CLI is a query/CPU baseline, not proof that the rebuild is complete. Cold and warm runs must preserve identical content digests. Performance work must not redefine generated output, cache semantics or request-order behavior.
 
-## Next implementation contracts
+## Non-regression rules
 
-1. Measure the new 3D density query on the intended hardware and extend
-   the density owner with additional authored volume formations/overhangs
-   without breaking scalar/volume equivalence or negative-Y constraints.
-2. Add generated-fluid placement as an explicit next capability; current
-   materials already consume final 3D solidity.
-3. Add authoritative deterministic `StructureField` placements and
-   integrate intersecting portions into chunk synthesis, not per-chunk
-   independent decisions.
-4. Introduce generator-backed destination/spawn/locate capabilities and
-   a shared loading state that separates required residency from
-   background presentation, as described in MineClone Phases 8–11.
-5. Measure cold/warm near/far paths, overlap/edge cases, materialization,
-   mesh publication and frame-work budgets. Verify seam, order, and
-   concurrent-query equivalence before expanding content.
-
-Forbidden: duplicate semantic ownership, order-dependent generation,
-unbounded caches, hidden runtime chunk generation from queries,
-negative Y, or a separate water-planning subsystem.
+- No legacy worldgen implementation may be restored for convenience.
+- No compatibility shim for obsolete generation contracts unless explicitly requested.
+- No semantic generation region/tile or chunk-owned generated truth.
+- No duplicate biome-layout, terrain, generated-fluid or Structure owner.
+- No hydrology subsystem, planner or abstraction.
+- No negative world Y.
+- Queries remain pure, deterministic and independent of chunk/request/task order.
+- Scalar and bounded/batch APIs must remain semantically equivalent.
+- Caches are bounded acceleration only; cache warmth/eviction never changes output.
+- Runtime mutable-world questions may inspect `VoxelWorld`; untouched generated-world facts come from generator capabilities.
+- Do not mark the migration complete while any required rebuild phase remains Partial, Missing or Divergent.
