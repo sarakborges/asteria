@@ -163,6 +163,94 @@ public sealed class DimensionGeneratedOceanDefinition
     public DimensionOceanShoreDefinition Shore { get; }
 }
 
+public sealed class DimensionGeneratedSurfaceFluidDefinition
+{
+    public DimensionGeneratedSurfaceFluidDefinition(
+        string biome,
+        string fluid,
+        int spacing,
+        int radius,
+        int jitter = 0,
+        float chance = 1f,
+        int depth = 1)
+    {
+        BiomeDefinition.ValidateId(
+            biome);
+        FluidDefinition.ValidateId(
+            fluid);
+
+        if (spacing is < 2 or > 512)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(spacing),
+                "Generated surface fluid spacing must be within 2..512.");
+        }
+
+        if (radius is < 1 or > 256)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(radius),
+                "Generated surface fluid radius must be within 1..256.");
+        }
+
+        if (jitter < 0 ||
+            jitter > spacing / 2)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(jitter),
+                "Generated surface fluid jitter must be within 0..spacing/2.");
+        }
+
+        if ((long)radius +
+            jitter >
+            spacing)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(radius),
+                "Generated surface fluid radius + jitter must not exceed spacing.");
+        }
+
+        if (!float.IsFinite(
+                chance) ||
+            chance <= 0f ||
+            chance > 1f)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(chance),
+                "Generated surface fluid chance must be within (0, 1].");
+        }
+
+        if (depth is < 1 or > 4)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(depth),
+                "Generated surface fluid depth must be within 1..4.");
+        }
+
+        Biome = biome;
+        Fluid = fluid;
+        Spacing = spacing;
+        Radius = radius;
+        Jitter = jitter;
+        Chance = chance;
+        Depth = depth;
+    }
+
+    public string Biome { get; }
+
+    public string Fluid { get; }
+
+    public int Spacing { get; }
+
+    public int Radius { get; }
+
+    public int Jitter { get; }
+
+    public float Chance { get; }
+
+    public int Depth { get; }
+}
+
 public enum DimensionGeneratedSurfaceStructurePlacement
 {
     BiomeInterior,
@@ -288,7 +376,8 @@ public sealed class DimensionDefinition
         DimensionGeneratedOceanDefinition? generatedOcean = null,
         IEnumerable<string>? volumeBiomes = null,
         IEnumerable<string>? undergroundBiomes = null,
-        IEnumerable<DimensionGeneratedSurfaceStructureDefinition>? generatedSurfaceStructures = null)
+        IEnumerable<DimensionGeneratedSurfaceStructureDefinition>? generatedSurfaceStructures = null,
+        IEnumerable<DimensionGeneratedSurfaceFluidDefinition>? generatedSurfaceFluids = null)
     {
         if (!float.IsFinite(gravityStrength) ||
             gravityStrength < 0f ||
@@ -312,6 +401,9 @@ public sealed class DimensionDefinition
         var authoredSurfaceStructures =
             generatedSurfaceStructures?.ToArray() ??
             Array.Empty<DimensionGeneratedSurfaceStructureDefinition>();
+        var authoredSurfaceFluids =
+            generatedSurfaceFluids?.ToArray() ??
+            Array.Empty<DimensionGeneratedSurfaceFluidDefinition>();
 
         if (authoredSurfaceBiomes.Length == 0)
         {
@@ -377,6 +469,31 @@ public sealed class DimensionDefinition
                 nameof(undergroundBiomes));
         }
 
+        var generatedSurfaceFluidBiomes =
+            new HashSet<string>(
+                StringComparer.Ordinal);
+
+        foreach (var generated in
+                 authoredSurfaceFluids)
+        {
+            if (!authoredSurfaceBiomes.Contains(
+                    generated.Biome,
+                    StringComparer.Ordinal))
+            {
+                throw new ArgumentException(
+                    $"Dimension {id} generated surface fluid biome {generated.Biome} must be part of the surface biome pool.",
+                    nameof(generatedSurfaceFluids));
+            }
+
+            if (!generatedSurfaceFluidBiomes.Add(
+                    generated.Biome))
+            {
+                throw new ArgumentException(
+                    $"Dimension {id} repeats generated surface fluid for biome {generated.Biome}.",
+                    nameof(generatedSurfaceFluids));
+            }
+        }
+
         var generatedStructureKeys =
             new HashSet<(string Biome, string Structure)>();
 
@@ -438,6 +555,9 @@ public sealed class DimensionDefinition
         Shell = shell;
         Caves = caves;
         GeneratedOcean = generatedOcean;
+        GeneratedSurfaceFluids =
+            Array.AsReadOnly(
+                authoredSurfaceFluids);
         GeneratedSurfaceStructures =
             Array.AsReadOnly(
                 authoredSurfaceStructures);
@@ -464,6 +584,9 @@ public sealed class DimensionDefinition
     public DimensionCaveDefinition? Caves { get; }
 
     public DimensionGeneratedOceanDefinition? GeneratedOcean { get; }
+
+    public IReadOnlyList<DimensionGeneratedSurfaceFluidDefinition>
+        GeneratedSurfaceFluids { get; }
 
     public IReadOnlyList<DimensionGeneratedSurfaceStructureDefinition>
         GeneratedSurfaceStructures { get; }
