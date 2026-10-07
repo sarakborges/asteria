@@ -1,20 +1,16 @@
 namespace Asteria.Core.World;
 
 /// <summary>
-/// Bounded memoization of immutable surface columns. The cache is an
-/// acceleration detail, never a generated-world ownership boundary.
-/// Lazy materialization avoids duplicate concurrent requests for the same
-/// column without holding the global cache lock during expensive sampling.
+/// Query-side cache of immutable 32x32 biome/terrain samples shared by range
+/// selection and vertical chunk materialization. Entries belong to one
+/// dimension's generator lifetime, and eviction changes no generated fact.
 /// </summary>
 public sealed class SurfaceTerrainColumnCache
 {
     private readonly SurfaceTerrainField _terrain;
-    private readonly int _capacity;
-    private readonly object _gate = new();
-    private readonly Dictionary<
+    private readonly BoundedMemoCache<
         (int X, int Z),
-        LinkedListNode<CachedColumn>> _entries = [];
-    private readonly LinkedList<CachedColumn> _recent = new();
+        SurfaceTerrainColumn> _columns;
 
     public SurfaceTerrainColumnCache(
         SurfaceTerrainField terrain,
@@ -22,60 +18,15 @@ public sealed class SurfaceTerrainColumnCache
     {
         _terrain = terrain ??
             throw new ArgumentNullException(nameof(terrain));
-        if (capacity < 1)
-        {
-            throw new ArgumentOutOfRangeException(nameof(capacity));
-        }
-
-        _capacity = capacity;
+        _columns = new BoundedMemoCache<
+            (int X, int Z),
+            SurfaceTerrainColumn>(capacity);
     }
 
-    public int CachedColumnCount
-    {
-        get
-        {
-            lock (_gate)
-            {
-                return _entries.Count;
-            }
-        }
-    }
+    public int CachedColumnCount => _columns.Count;
 
-    public SurfaceTerrainColumn Get(int chunkX, int chunkZ)
-    {
-        Lazy<SurfaceTerrainColumn> sample;
-        var key = (X: chunkX, Z: chunkZ);
-
-        lock (_gate)
-        {
-            if (_entries.TryGetValue(key, out var cached))
-            {
-                _recent.Remove(cached);
-                _recent.AddFirst(cached);
-                sample = cached.Value.Sample;
-            }
-            else
-            {
-                sample = new Lazy<SurfaceTerrainColumn>(
-                    () => _terrain.SampleColumn(chunkX, chunkZ),
-                    LazyThreadSafetyMode.ExecutionAndPublication);
-                var entry = _recent.AddFirst(
-                    new CachedColumn(key, sample));
-                _entries.Add(key, entry);
-
-                if (_entries.Count > _capacity)
-                {
-                    var eldest = _recent.Last!;
-                    _entries.Remove(eldest.Value.Key);
-                    _recent.RemoveLast();
-                }
-            }
-        }
-
-        return sample.Value;
-    }
-
-    private sealed record CachedColumn(
-        (int X, int Z) Key,
-        Lazy<SurfaceTerrainColumn> Sample);
+    public SurfaceTerrainColumn Get(int chunkX, int chunkZ) =>
+        _columns.GetOrAdd(
+            (chunkX, chunkZ),
+            () => _terrain.SampleColumn(chunkX, chunkZ));
 }

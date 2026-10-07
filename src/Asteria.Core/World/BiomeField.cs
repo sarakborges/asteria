@@ -107,6 +107,8 @@ public sealed class BiomeField
 
     private readonly ulong _seed;
     private readonly BiomeRule[] _rules;
+    private readonly BoundedMemoCache<SeedBucket, SeedAssignment>
+        _assignments;
     private readonly int _seedSpacing;
     private readonly GenerationDomain _seedPickDomain =
         GenerationDomain.Named(
@@ -142,7 +144,8 @@ public sealed class BiomeField
     public BiomeField(
         ulong seed,
         DimensionDefinition dimension,
-        BiomeRegistry biomes)
+        BiomeRegistry biomes,
+        int assignmentCacheCapacity = 4096)
     {
         ArgumentNullException.ThrowIfNull(
             dimension);
@@ -150,6 +153,9 @@ public sealed class BiomeField
             biomes);
 
         _seed = seed;
+        _assignments =
+            new BoundedMemoCache<SeedBucket, SeedAssignment>(
+                assignmentCacheCapacity);
         _rules =
             dimension
                 .Biomes
@@ -525,6 +531,19 @@ public sealed class BiomeField
             return cached;
         }
 
+        var assignment = _assignments.GetOrAdd(
+            bucket,
+            () => ComputeSeedAssignment(bucket, cache));
+        cache.Add(bucket, assignment);
+        return assignment;
+    }
+
+    private SeedAssignment ComputeSeedAssignment(
+        SeedBucket bucket,
+        Dictionary<
+            SeedBucket,
+            SeedAssignment> cache)
+    {
         var classification =
             bucket.Classification();
         var established =
@@ -760,9 +779,6 @@ public sealed class BiomeField
                         bucket));
         }
 
-        cache.Add(
-            bucket,
-            assignment);
         return assignment;
     }
 

@@ -166,6 +166,49 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
+    public void BiomeAssignmentMemoEvictionAndConcurrentQueriesPreserveSemantics()
+    {
+        var definitions = StandardBiomeDefinitions();
+        var dimension = TestDimension(definitions.Select(x => x.Id));
+        var registry = new BiomeRegistry(definitions);
+        var smallCache = new BiomeField(
+            157UL, dimension, registry, assignmentCacheCapacity: 32);
+        var regularCache = new BiomeField(
+            157UL, dimension, registry);
+        var coordinates = Enumerable.Range(0, 96)
+            .Select(index => (
+                X: -2048 + index * 47,
+                Z: 1536 - index * 61))
+            .ToArray();
+        var actual = new BiomeSample[coordinates.Length];
+
+        Parallel.For(
+            0,
+            coordinates.Length,
+            index =>
+            {
+                var (x, z) = coordinates[index];
+                actual[index] = smallCache.Sample(x, z);
+            });
+
+        for (var index = 0; index < coordinates.Length; index++)
+        {
+            var (x, z) = coordinates[index];
+            var expected = regularCache.Sample(x, z);
+            Assert.Equal(expected.Primary, actual[index].Primary);
+            Assert.Equal(
+                expected.Influences.ToArray(),
+                actual[index].Influences.ToArray());
+
+            var repeated = smallCache.Sample(x, z);
+            Assert.Equal(actual[index].Primary, repeated.Primary);
+            Assert.Equal(
+                actual[index].Influences.ToArray(),
+                repeated.Influences.ToArray());
+        }
+    }
+
+    [Fact]
     public void BiomeInfluencesAreNormalizedAndContainPrimary()
     {
         var field =
