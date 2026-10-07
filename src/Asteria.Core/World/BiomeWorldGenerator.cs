@@ -140,7 +140,7 @@ public sealed class BiomeWorldGenerator :
                 blocks,
                 fluids,
                 Biomes,
-                _surfaceColumns,
+                _terrain,
                 materials,
                 _generatedFluids);
         var decorations =

@@ -97,6 +97,23 @@ public sealed class SurfaceTerrainField
         }
     }
 
+    internal (BiomeSample Biome, int BaseY) SampleBaseSurface(
+        int worldX,
+        int worldZ)
+    {
+        var biome =
+            _surfaceBiomes.Sample(
+                worldX,
+                worldZ);
+
+        return (
+            biome,
+            BaseHeightAt(
+                biome,
+                worldX,
+                worldZ));
+    }
+
     public int SurfaceHeight(int worldX, int worldZ)
     {
         var biome = _surfaceBiomes.Sample(worldX, worldZ);
