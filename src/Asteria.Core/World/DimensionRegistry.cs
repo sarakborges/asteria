@@ -171,6 +171,27 @@ public sealed class DimensionRegistry
                         $"Dimension {dimension.Id} volume biome {biomeId} does not author volumeLayout + terrain3d.floatingFormation.");
                 }
             }
+
+            foreach (var biomeId in
+                     dimension.UndergroundBiomes)
+            {
+                var biome =
+                    biomes.Get(
+                        biomeId);
+
+                if (!biome.BelongsToDimension(
+                        dimension.Id.Value))
+                {
+                    throw new ArgumentException(
+                        $"Dimension {dimension.Id} references underground biome {biomeId} owned by another dimension.");
+                }
+
+                if (biome.UndergroundLayout is null)
+                {
+                    throw new ArgumentException(
+                        $"Dimension {dimension.Id} underground biome {biomeId} does not author undergroundLayout.");
+                }
+            }
         }
     }
 }

@@ -8,11 +8,12 @@ public sealed class BiomeDefinition
         string id,
         BiomeSurfaceLayoutDefinition? surfaceLayout,
         BiomeTerrainDefinition? surfaceTerrain,
-        IEnumerable<BiomeSurfaceLayerDefinition> surfaceLayers,
+        IEnumerable<BiomeSurfaceLayerDefinition>? surfaceLayers = null,
         IEnumerable<BiomeDecorationDefinition>? decorations = null,
         BiomeTintPaletteDefinition? tints = null,
         BiomeTerrain3dDefinition? terrain3d = null,
-        BiomeVolumeLayoutDefinition? volumeLayout = null)
+        BiomeVolumeLayoutDefinition? volumeLayout = null,
+        BiomeUndergroundLayoutDefinition? undergroundLayout = null)
     {
         ValidateId(id);
         Id = id;
@@ -24,7 +25,8 @@ public sealed class BiomeDefinition
         }
 
         if (surfaceLayout is null &&
-            volumeLayout is null)
+            volumeLayout is null &&
+            undergroundLayout is null)
         {
             throw new ArgumentException(
                 "Biome must participate in at least one placement domain.");
@@ -40,11 +42,25 @@ public sealed class BiomeDefinition
         SurfaceLayout = surfaceLayout;
         SurfaceTerrain = surfaceTerrain;
         VolumeLayout = volumeLayout;
+        UndergroundLayout = undergroundLayout;
 
         var layers =
             surfaceLayers?.ToArray() ??
-            throw new ArgumentNullException(nameof(surfaceLayers));
-        ValidateSurfaceLayers(layers);
+            Array.Empty<BiomeSurfaceLayerDefinition>();
+
+        if ((surfaceLayout is not null ||
+             volumeLayout is not null) &&
+            layers.Length == 0)
+        {
+            throw new ArgumentException(
+                "Surface and volume biomes require an exposed solid material profile.",
+                nameof(surfaceLayers));
+        }
+
+        if (layers.Length > 0)
+        {
+            ValidateSurfaceLayers(layers);
+        }
         SurfaceLayers =
             Array.AsReadOnly(layers);
 
@@ -66,6 +82,8 @@ public sealed class BiomeDefinition
     public BiomeTerrainDefinition? SurfaceTerrain { get; }
 
     public BiomeVolumeLayoutDefinition? VolumeLayout { get; }
+
+    public BiomeUndergroundLayoutDefinition? UndergroundLayout { get; }
 
     public IReadOnlyList<BiomeSurfaceLayerDefinition> SurfaceLayers { get; }
 
@@ -277,6 +295,23 @@ public sealed class BiomeVolumeLayoutDefinition :
     BiomePlacementLayoutDefinition
 {
     public BiomeVolumeLayoutDefinition(
+        float weight = 1f,
+        uint regionMin = 192,
+        uint regionMax = 384,
+        IEnumerable<string>? cannotBorder = null)
+        : base(
+            weight,
+            regionMin,
+            regionMax,
+            cannotBorder)
+    {
+    }
+}
+
+public sealed class BiomeUndergroundLayoutDefinition :
+    BiomePlacementLayoutDefinition
+{
+    public BiomeUndergroundLayoutDefinition(
         float weight = 1f,
         uint regionMin = 192,
         uint regionMax = 384,
