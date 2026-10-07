@@ -1,4 +1,5 @@
-@import url("https://fonts.googleapis.com/css2?family=Winky+Rough:ital,wght@0,300..900;1,300..900&display=swap");
+@import "@fontsource-variable/winky-rough/wght.css";
+@import "@fontsource-variable/winky-rough/wght-italic.css";
 
 @import "./tokens.css";
 
