@@ -14,7 +14,7 @@ public readonly record struct WorldHudState(
 public sealed class WorldHudStateTracker
 {
     private WorldHudState? _last;
-    private (int X, int Z)? _biomePosition;
+    private (int X, int Y, int Z)? _biomePosition;
     private string _biomeId = "";
 
     public void Reset()
@@ -27,13 +27,13 @@ public sealed class WorldHudStateTracker
     public bool TryCapture(
         FpsPlayer player,
         DimensionId dimension,
-        BiomeField biomes,
+        Func<int, int, int, string> biomeAt,
         out WorldHudState state)
     {
         ArgumentNullException.ThrowIfNull(
             player);
         ArgumentNullException.ThrowIfNull(
-            biomes);
+            biomeAt);
 
         var position =
             player.GlobalPosition;
@@ -45,19 +45,25 @@ public sealed class WorldHudStateTracker
         var x =
             Mathf.FloorToInt(
                 position.X);
+        var y =
+            Math.Max(
+                0,
+                Mathf.FloorToInt(
+                    position.Y));
         var z =
             Mathf.FloorToInt(
                 position.Z);
 
         if (_biomePosition !=
-            (x, z))
+            (x, y, z))
         {
             _biomeId =
-                biomes.Sample(
+                biomeAt(
                     x,
-                    z).Primary;
+                    y,
+                    z);
             _biomePosition =
-                (x, z);
+                (x, y, z);
         }
 
         state =
@@ -65,10 +71,7 @@ public sealed class WorldHudStateTracker
                 dimension.Value,
                 _biomeId,
                 x,
-                Math.Max(
-                    0,
-                    Mathf.FloorToInt(
-                        position.Y)),
+                y,
                 z,
                 heading);
 
