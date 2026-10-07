@@ -351,6 +351,13 @@ metrics.Add("chunkSynthesis", Measure(
         return digest;
     }));
 
+if (options.EnforceCiBudgets)
+{
+    EnforceCiBudgets(
+        options,
+        metrics);
+}
+
 var result = new
 {
     options.Seed,
@@ -371,7 +378,9 @@ var result = new
         "Allocation counters use the current benchmark thread and are comparative diagnostics, not retained-memory truth.",
         "Every metric records its generated-result digest so determinism can be compared across runs.",
         "Search/destination metrics include near and far world coordinates without chunk materialization.",
-        "No time thresholds: compare representative builds on the same machine and configuration.",
+        options.EnforceCiBudgets
+            ? "CI regression budgets are enforced only for the canonical fixed-seed fixture and include deliberate headroom over the measured baseline."
+            : "No time thresholds are enforced unless --enforce-ci-budgets true is supplied.",
     },
 };
 
@@ -442,6 +451,133 @@ static (int X, int Z) Position(Arguments options, int index) =>
     checked(options.CenterX + (index % 8) * 11),
     checked(options.CenterZ - (index / 8) * 13)
 );
+
+static void EnforceCiBudgets(
+    Arguments options,
+    IReadOnlyDictionary<string, Measurement> metrics)
+{
+    const ulong ciSeed =
+        181960897289965UL;
+
+    if (options.Seed != ciSeed ||
+        !string.Equals(
+            options.Dimension,
+            "asteria:overworld",
+            StringComparison.Ordinal) ||
+        options.CenterX != 0 ||
+        options.CenterZ != 0 ||
+        options.Samples != 2 ||
+        options.AreaSize != 4 ||
+        options.MapSize != 64 ||
+        options.MapStep != 4 ||
+        options.Chunks != 1 ||
+        options.SearchRadius != 1024)
+    {
+        throw new InvalidOperationException(
+            "--enforce-ci-budgets requires the canonical fixed-seed CI fixture.");
+    }
+
+    var budgets =
+        new[]
+        {
+            new BenchmarkBudget(
+                "biomeMap",
+                maximumColdMs: 250d,
+                maximumWarmMs: 150d,
+                maximumColdAllocatedBytes: 64L * 1024L * 1024L,
+                maximumWarmAllocatedBytes: 32L * 1024L * 1024L),
+            new BenchmarkBudget(
+                "biomeSearchNear",
+                maximumColdMs: 250d,
+                maximumWarmMs: 25d,
+                maximumColdAllocatedBytes: 64L * 1024L * 1024L,
+                maximumWarmAllocatedBytes: 8L * 1024L * 1024L),
+            new BenchmarkBudget(
+                "biomeSearchFar",
+                maximumColdMs: 250d,
+                maximumWarmMs: 25d,
+                maximumColdAllocatedBytes: 64L * 1024L * 1024L,
+                maximumWarmAllocatedBytes: 8L * 1024L * 1024L),
+            new BenchmarkBudget(
+                "destinationNear",
+                maximumColdMs: 1000d,
+                maximumWarmMs: 25d,
+                maximumColdAllocatedBytes: 512L * 1024L * 1024L,
+                maximumWarmAllocatedBytes: 16L * 1024L * 1024L),
+            new BenchmarkBudget(
+                "destinationFar",
+                maximumColdMs: 1000d,
+                maximumWarmMs: 25d,
+                maximumColdAllocatedBytes: 768L * 1024L * 1024L,
+                maximumWarmAllocatedBytes: 16L * 1024L * 1024L),
+            new BenchmarkBudget(
+                "structureSearchNear",
+                maximumColdMs: 2000d,
+                maximumWarmMs: 50d,
+                maximumColdAllocatedBytes: 1536L * 1024L * 1024L,
+                maximumWarmAllocatedBytes: 32L * 1024L * 1024L),
+            new BenchmarkBudget(
+                "structureSearchFar",
+                maximumColdMs: 2000d,
+                maximumWarmMs: 50d,
+                maximumColdAllocatedBytes: 1792L * 1024L * 1024L,
+                maximumWarmAllocatedBytes: 32L * 1024L * 1024L),
+            new BenchmarkBudget(
+                "chunkSynthesis",
+                maximumColdMs: 1000d,
+                maximumWarmMs: 50d,
+                maximumColdAllocatedBytes: 768L * 1024L * 1024L,
+                maximumWarmAllocatedBytes: 32L * 1024L * 1024L),
+        };
+
+    foreach (var budget in budgets)
+    {
+        if (!metrics.TryGetValue(
+                budget.Metric,
+                out var measurement))
+        {
+            throw new InvalidOperationException(
+                $"Missing benchmark metric {budget.Metric}.");
+        }
+
+        var failures =
+            new List<string>();
+
+        if (measurement.ColdMs >
+            budget.MaximumColdMs)
+        {
+            failures.Add(
+                $"cold {measurement.ColdMs:F3}ms > {budget.MaximumColdMs:F3}ms");
+        }
+
+        if (measurement.WarmMs >
+            budget.MaximumWarmMs)
+        {
+            failures.Add(
+                $"warm {measurement.WarmMs:F3}ms > {budget.MaximumWarmMs:F3}ms");
+        }
+
+        if (measurement.ColdAllocatedBytes >
+            budget.MaximumColdAllocatedBytes)
+        {
+            failures.Add(
+                $"cold alloc {measurement.ColdAllocatedBytes} > {budget.MaximumColdAllocatedBytes}");
+        }
+
+        if (measurement.WarmAllocatedBytes >
+            budget.MaximumWarmAllocatedBytes)
+        {
+            failures.Add(
+                $"warm alloc {measurement.WarmAllocatedBytes} > {budget.MaximumWarmAllocatedBytes}");
+        }
+
+        if (failures.Count > 0)
+        {
+            throw new InvalidOperationException(
+                $"Worldgen benchmark budget failed for {budget.Metric}: {string.Join(", ", failures)}.");
+        }
+    }
+}
 
 static ulong HashBiomeSearch(
     SurfaceBiomeSearchResult? result)
@@ -548,6 +684,13 @@ internal sealed record Measurement(
     long WarmAllocatedBytes,
     ulong Digest);
 
+internal sealed record BenchmarkBudget(
+    string Metric,
+    double MaximumColdMs,
+    double MaximumWarmMs,
+    long MaximumColdAllocatedBytes,
+    long MaximumWarmAllocatedBytes);
+
 internal sealed record Arguments(
     string ProjectRoot,
     string Pack,
@@ -561,6 +704,7 @@ internal sealed record Arguments(
     int MapStep,
     int Chunks,
     int SearchRadius,
+    bool EnforceCiBudgets,
     string? Output)
 {
     public static Arguments Parse(string[] input)
@@ -577,6 +721,7 @@ internal sealed record Arguments(
         var mapStep = 4;
         var chunks = 2;
         var searchRadius = 1024;
+        var enforceCiBudgets = false;
         string? output = null;
 
         if (input.Length % 2 != 0)
@@ -630,6 +775,11 @@ internal sealed record Arguments(
                 case "--search-radius":
                     searchRadius = int.Parse(value);
                     break;
+                case "--enforce-ci-budgets":
+                    enforceCiBudgets =
+                        bool.Parse(
+                            value);
+                    break;
                 case "--output":
                     output = value;
                     break;
@@ -663,6 +813,7 @@ internal sealed record Arguments(
             mapStep,
             chunks,
             searchRadius,
+            enforceCiBudgets,
             output);
     }
 }
