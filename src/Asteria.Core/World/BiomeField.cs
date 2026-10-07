@@ -40,6 +40,11 @@ public sealed class BiomeSample
             .Weight;
 }
 
+public sealed record SurfaceBiomeSearchResult(
+    int X,
+    int Z,
+    BiomeSample Sample);
+
 public sealed class BiomeSampleGrid
 {
     private readonly BiomeSample[] _samples;
@@ -320,6 +325,177 @@ public sealed class BiomeField
             samples);
     }
 
+    public SurfaceBiomeSearchResult?
+        FindNearestSurfaceBiome(
+            string biomeId,
+            int originX,
+            int originZ,
+            int maxDistance)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(
+            biomeId);
+
+        if (maxDistance < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(maxDistance),
+                "Biome search distance must be non-negative.");
+        }
+
+        var targetRule =
+            Array.FindIndex(
+                _rules,
+                rule =>
+                    string.Equals(
+                        rule.Id,
+                        biomeId,
+                        StringComparison.Ordinal));
+        if (targetRule < 0)
+        {
+            return null;
+        }
+
+        var originSample =
+            Sample(
+                originX,
+                originZ);
+        if (string.Equals(
+                originSample.Primary,
+                biomeId,
+                StringComparison.Ordinal))
+        {
+            return new SurfaceBiomeSearchResult(
+                originX,
+                originZ,
+                originSample);
+        }
+
+        var warped =
+            WarpedPosition(
+                originX,
+                originZ);
+        var originBucket =
+            BucketForPosition(
+                warped.X,
+                warped.Z);
+        var bucketRadius =
+            checked(
+                maxDistance /
+                    _seedSpacing +
+                (maxDistance %
+                     _seedSpacing ==
+                 0
+                    ? 0
+                    : 1) +
+                CandidateRadiusBuckets +
+                2);
+        var maximumDistanceSquared =
+            (Int128)maxDistance *
+            maxDistance;
+        var assignments =
+            new Dictionary<
+                SeedBucket,
+                SeedAssignment>();
+        (
+            Int128 DistanceSquared,
+            SurfaceBiomeSearchResult Result)?
+            best = null;
+
+        for (var ring = 0;
+             ring <= bucketRadius;
+             ring++)
+        {
+            foreach (var bucket in
+                     RingBuckets(
+                         originBucket,
+                         ring))
+            {
+                if (SeedAssignmentFor(
+                        bucket,
+                        assignments)
+                    .Rule !=
+                    targetRule)
+                {
+                    continue;
+                }
+
+                var seed =
+                    FormationSeedFor(
+                        bucket,
+                        assignments);
+
+                foreach (var point in
+                         SearchProbePoints(
+                             seed))
+                {
+                    var dx =
+                        (Int128)point.X -
+                        originX;
+                    var dz =
+                        (Int128)point.Z -
+                        originZ;
+                    var distanceSquared =
+                        dx * dx +
+                        dz * dz;
+
+                    if (distanceSquared >
+                            maximumDistanceSquared ||
+                        (best is
+                             { } current &&
+                         distanceSquared >=
+                            current.DistanceSquared))
+                    {
+                        continue;
+                    }
+
+                    var sample =
+                        SampleCached(
+                            point.X,
+                            point.Z,
+                            assignments);
+                    if (!string.Equals(
+                            sample.Primary,
+                            biomeId,
+                            StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    best =
+                        (
+                            distanceSquared,
+                            new SurfaceBiomeSearchResult(
+                                point.X,
+                                point.Z,
+                                sample));
+                }
+            }
+
+            if (best is
+                { } found)
+            {
+                var conservativeRing =
+                    Math.Max(
+                        0,
+                        ring -
+                        (CandidateRadiusBuckets +
+                         2));
+                var conservativeDistance =
+                    (Int128)conservativeRing *
+                    _seedSpacing;
+
+                if (conservativeDistance *
+                        conservativeDistance >
+                    found.DistanceSquared)
+                {
+                    break;
+                }
+            }
+        }
+
+        return best?.Result;
+    }
+
     public bool AreCompatible(
         string leftId,
         string rightId)
@@ -547,6 +723,143 @@ public sealed class BiomeField
                 primaryRule].Id,
             influences);
     }
+
+    private (int X, int Z)[]
+        SearchProbePoints(
+            FormationSeed seed)
+    {
+        var centerX =
+            ClampWorldAxis(
+                checked(
+                    (long)Math.Round(
+                        seed.CenterX,
+                        MidpointRounding.AwayFromZero)));
+        var centerZ =
+            ClampWorldAxis(
+                checked(
+                    (long)Math.Round(
+                        seed.CenterZ,
+                        MidpointRounding.AwayFromZero)));
+        var offset =
+            _seedSpacing /
+            3;
+        var offsets =
+            new[]
+            {
+                -offset,
+                0,
+                offset,
+            };
+        var points =
+            new (int X, int Z)[9];
+        var index =
+            0;
+
+        foreach (var zOffset in
+                 offsets)
+        {
+            foreach (var xOffset in
+                     offsets)
+            {
+                points[index++] =
+                    (
+                        ClampWorldAxis(
+                            (long)centerX +
+                            xOffset),
+                        ClampWorldAxis(
+                            (long)centerZ +
+                            zOffset));
+            }
+        }
+
+        return points;
+    }
+
+    private static IEnumerable<SeedBucket>
+        RingBuckets(
+            SeedBucket center,
+            int ring)
+    {
+        if (ring < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(ring));
+        }
+
+        if (ring == 0)
+        {
+            yield return center;
+            yield break;
+        }
+
+        for (var dx = -ring;
+             dx <= ring;
+             dx++)
+        {
+            if (TryOffset(
+                    center,
+                    dx,
+                    -ring,
+                    out var bucket))
+            {
+                yield return bucket;
+            }
+        }
+
+        for (var dz = -ring + 1;
+             dz <= ring;
+             dz++)
+        {
+            if (TryOffset(
+                    center,
+                    ring,
+                    dz,
+                    out var bucket))
+            {
+                yield return bucket;
+            }
+        }
+
+        for (var dx = ring - 1;
+             dx >= -ring;
+             dx--)
+        {
+            if (TryOffset(
+                    center,
+                    dx,
+                    ring,
+                    out var bucket))
+            {
+                yield return bucket;
+            }
+        }
+
+        for (var dz = ring - 1;
+             dz >= -ring + 1;
+             dz--)
+        {
+            if (TryOffset(
+                    center,
+                    -ring,
+                    dz,
+                    out var bucket))
+            {
+                yield return bucket;
+            }
+        }
+    }
+
+    private static int ClampWorldAxis(
+        long value) =>
+        value switch
+        {
+            <= int.MinValue =>
+                int.MinValue,
+            >= int.MaxValue =>
+                int.MaxValue,
+            _ =>
+                (int)value,
+        };
 
     private FormationSeed FormationSeedFor(
         SeedBucket bucket,
