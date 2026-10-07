@@ -216,46 +216,34 @@ public sealed class BiomeSurfaceMaterialField
     private sealed class ResolvedPatch
     {
         private ResolvedPatch(
-            int spacing,
-            long radius,
-            uint jitter,
-            float chance,
+            uint scale,
+            float coverage,
+            float roughness,
             BlockRuntimeId[] blocks,
-            GenerationDomain presenceDomain,
-            GenerationDomain jitterXDomain,
-            GenerationDomain jitterZDomain,
+            GenerationDomain shapeDomain,
+            GenerationDomain detailDomain,
             GenerationDomain blockDomain)
         {
-            Spacing = spacing;
-            Radius = radius;
-            Jitter = jitter;
-            Chance = chance;
+            Scale = scale;
+            Coverage = coverage;
+            Roughness = roughness;
             Blocks = blocks;
-            PresenceDomain =
-                presenceDomain;
-            JitterXDomain =
-                jitterXDomain;
-            JitterZDomain =
-                jitterZDomain;
-            BlockDomain =
-                blockDomain;
+            ShapeDomain = shapeDomain;
+            DetailDomain = detailDomain;
+            BlockDomain = blockDomain;
         }
 
-        private int Spacing { get; }
+        private uint Scale { get; }
 
-        private long Radius { get; }
+        private float Coverage { get; }
 
-        private uint Jitter { get; }
-
-        private float Chance { get; }
+        private float Roughness { get; }
 
         private BlockRuntimeId[] Blocks { get; }
 
-        private GenerationDomain PresenceDomain { get; }
+        private GenerationDomain ShapeDomain { get; }
 
-        private GenerationDomain JitterXDomain { get; }
-
-        private GenerationDomain JitterZDomain { get; }
+        private GenerationDomain DetailDomain { get; }
 
         private GenerationDomain BlockDomain { get; }
 
@@ -264,128 +252,69 @@ public sealed class BiomeSurfaceMaterialField
             int worldX,
             int worldZ)
         {
-            var centerCellX =
-                FloorDiv(
-                    worldX,
-                    Spacing);
-            var centerCellZ =
-                FloorDiv(
-                    worldZ,
-                    Spacing);
-            var radiusSquared =
-                (Int128)Radius *
-                Radius;
-            PatchCandidate? winner =
-                null;
+            var detailScale =
+                Math.Max(
+                    2u,
+                    Scale / 4u);
+            var macro =
+                WorldGenerationEntropy
+                    .ValueNoise2D(
+                        seed,
+                        ShapeDomain,
+                        worldX,
+                        worldZ,
+                        Scale);
+            var detail =
+                WorldGenerationEntropy
+                    .ValueNoise2D(
+                        seed,
+                        DetailDomain,
+                        worldX,
+                        worldZ,
+                        detailScale);
+            var field =
+                (macro +
+                 detail * Roughness) /
+                (1d + Roughness);
+            var threshold =
+                1d -
+                Coverage * 2d;
 
-            for (var dz = -1;
-                 dz <= 1;
-                 dz++)
+            if (field < threshold)
             {
-                if (!TryOffset(
-                        centerCellZ,
-                        dz,
-                        out var cellZ))
-                {
-                    continue;
-                }
-
-                for (var dx = -1;
-                     dx <= 1;
-                     dx++)
-                {
-                    if (!TryOffset(
-                            centerCellX,
-                            dx,
-                            out var cellX))
-                    {
-                        continue;
-                    }
-
-                    var presence =
-                        WorldGenerationEntropy
-                            .Sample2D(
-                                seed,
-                                PresenceDomain,
-                                cellX,
-                                cellZ);
-
-                    if (UnitProbability(
-                            presence) >
-                        Chance)
-                    {
-                        continue;
-                    }
-
-                    var patchX =
-                        (long)cellX *
-                        Spacing +
-                        Spacing / 2L +
-                        JitterOffset(
-                            seed,
-                            JitterXDomain,
-                            cellX,
-                            cellZ);
-                    var patchZ =
-                        (long)cellZ *
-                        Spacing +
-                        Spacing / 2L +
-                        JitterOffset(
-                            seed,
-                            JitterZDomain,
-                            cellX,
-                            cellZ);
-                    var deltaX =
-                        (Int128)worldX -
-                        patchX;
-                    var deltaZ =
-                        (Int128)worldZ -
-                        patchZ;
-                    var distanceSquared =
-                        deltaX *
-                        deltaX +
-                        deltaZ *
-                        deltaZ;
-
-                    if (distanceSquared >
-                        radiusSquared)
-                    {
-                        continue;
-                    }
-
-                    var blockIndex =
-                        checked(
-                            (int)(
-                                WorldGenerationEntropy
-                                    .Sample2D(
-                                        seed,
-                                        BlockDomain,
-                                        cellX,
-                                        cellZ) %
-                                (ulong)Blocks.Length));
-                    var candidate =
-                        new PatchCandidate(
-                            distanceSquared,
-                            cellX,
-                            cellZ,
-                            blockIndex);
-
-                    if (winner is null ||
-                        candidate.CompareTo(
-                            winner.Value) <
-                        0)
-                    {
-                        winner =
-                            candidate;
-                    }
-                }
+                return null;
             }
 
-            return winner is
-                { } matched
-                ? Blocks[
-                    matched.BlockIndex]
-                : null;
+            if (Blocks.Length == 1)
+            {
+                return Blocks[0];
+            }
+
+            var blockScale =
+                checked(
+                    Scale * 2u);
+            var selection =
+                WorldGenerationEntropy
+                    .ValueNoise2D(
+                        seed,
+                        BlockDomain,
+                        worldX,
+                        worldZ,
+                        blockScale);
+            var unit =
+                Math.Clamp(
+                    (selection + 1d) *
+                    0.5d,
+                    0d,
+                    0.999999999999d);
+            var blockIndex =
+                Math.Min(
+                    Blocks.Length - 1,
+                    (int)(
+                        unit *
+                        Blocks.Length));
+
+            return Blocks[blockIndex];
         }
 
         public static ResolvedPatch Create(
@@ -398,129 +327,19 @@ public sealed class BiomeSurfaceMaterialField
                 $"{biomeId}/{layerIndex}";
 
             return new ResolvedPatch(
-                checked(
-                    (int)definition.Spacing),
-                definition.Radius,
-                definition.Jitter,
-                definition.Chance,
+                definition.Scale,
+                definition.Coverage,
+                definition.Roughness,
                 definition.Blocks
                     .Select(
                         blocks.GetId)
                     .ToArray(),
                 GenerationDomain.Named(
-                    $"material/surface-patch/presence/v1/{suffix}"),
+                    $"material/surface-patch/shape/v2/{suffix}"),
                 GenerationDomain.Named(
-                    $"material/surface-patch/jitter-x/v1/{suffix}"),
+                    $"material/surface-patch/detail/v2/{suffix}"),
                 GenerationDomain.Named(
-                    $"material/surface-patch/jitter-z/v1/{suffix}"),
-                GenerationDomain.Named(
-                    $"material/surface-patch/block/v1/{suffix}"));
-        }
-
-        private long JitterOffset(
-            ulong seed,
-            GenerationDomain domain,
-            int cellX,
-            int cellZ)
-        {
-            if (Jitter == 0)
-            {
-                return 0;
-            }
-
-            var span =
-                (ulong)Jitter *
-                2UL +
-                1UL;
-            var value =
-                WorldGenerationEntropy
-                    .Sample2D(
-                        seed,
-                        domain,
-                        cellX,
-                        cellZ);
-
-            return checked(
-                (long)(value % span) -
-                (long)Jitter);
-        }
-
-        private static double UnitProbability(
-            ulong value) =>
-            value /
-            (double)ulong.MaxValue;
-
-        private static int FloorDiv(
-            int value,
-            int divisor)
-        {
-            var quotient =
-                Math.DivRem(
-                    value,
-                    divisor,
-                    out var remainder);
-
-            return remainder >= 0
-                ? quotient
-                : quotient - 1;
-        }
-
-        private static bool TryOffset(
-            int value,
-            int offset,
-            out int result)
-        {
-            var candidate =
-                (long)value +
-                offset;
-
-            if (candidate is <
-                    int.MinValue or >
-                    int.MaxValue)
-            {
-                result = default;
-                return false;
-            }
-
-            result =
-                (int)candidate;
-            return true;
-        }
-
-        private readonly record struct PatchCandidate(
-            Int128 DistanceSquared,
-            int CellX,
-            int CellZ,
-            int BlockIndex) :
-            IComparable<PatchCandidate>
-        {
-            public int CompareTo(
-                PatchCandidate other)
-            {
-                var result =
-                    DistanceSquared.CompareTo(
-                        other.DistanceSquared);
-                if (result != 0)
-                {
-                    return result;
-                }
-
-                result =
-                    CellX.CompareTo(
-                        other.CellX);
-                if (result != 0)
-                {
-                    return result;
-                }
-
-                result =
-                    CellZ.CompareTo(
-                        other.CellZ);
-                return result != 0
-                    ? result
-                    : BlockIndex.CompareTo(
-                        other.BlockIndex);
-            }
+                    $"material/surface-patch/block/v2/{suffix}"));
         }
     }
 }
