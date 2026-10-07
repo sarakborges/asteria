@@ -186,12 +186,22 @@ public sealed class SurfaceChunkMaterializer
                     }
                 }
 
-                if (surfaceFluidCutDepth > 0)
+                var decorationY = (long)surfaceY + 1;
+                if (_generatedFluids.TryGetColumnBounds(
+                        sample,
+                        baseY,
+                        surfaceFluidCutDepth,
+                        worldX,
+                        worldZ,
+                        out var fluidMinimumY,
+                        out var fluidMaximumY) &&
+                    decorationY >=
+                        fluidMinimumY &&
+                    decorationY <=
+                        fluidMaximumY)
                 {
                     continue;
                 }
-
-                var decorationY = (long)surfaceY + 1;
                 if (decorationY < originY ||
                     decorationY >= topExclusive ||
                     (_floorY is { } floorY && decorationY < floorY) ||
