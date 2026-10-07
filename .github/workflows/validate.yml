@@ -24,6 +24,21 @@ jobs:
       - name: Test engine-agnostic core
         run: dotnet test src/Asteria.Core.Tests/Asteria.Core.Tests.csproj --configuration Release
 
+      - name: Record bounded worldgen query baseline
+        run: |
+          dotnet run --project tools/WorldgenBenchmark --configuration Release -- \
+            --seed 181960897289965 --dimension asteria:overworld \
+            --samples 2 --area-size 4 --chunks 1 \
+            --output worldgen-benchmark.json
+
+      - name: Upload worldgen query baseline
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: worldgen-query-baseline
+          path: worldgen-benchmark.json
+          if-no-files-found: ignore
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
