@@ -8,11 +8,14 @@
     }
   },
   "surfaceTerrain": {
-    "baseHeightOffset": 18,
-    "macroAmplitude": 22,
-    "macroScale": 640,
-    "detailAmplitude": 6,
-    "detailScale": 80
+    "type": "gorge",
+    "baseHeight": 18,
+    "depth": 42,
+    "wallHeight": 20,
+    "topAmplitude": 10,
+    "topScale": 0.008,
+    "floorAmplitude": 6,
+    "floorScale": 0.032
   },
   "surfaceLayers": [
     {

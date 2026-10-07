@@ -8,11 +8,12 @@
     }
   },
   "surfaceTerrain": {
-    "baseHeightOffset": -30,
-    "macroAmplitude": 9,
-    "macroScale": 1024,
+    "type": "ocean",
+    "depth": 18,
+    "amplitude": 6,
+    "scale": 0.006,
     "detailAmplitude": 3,
-    "detailScale": 160
+    "detailScale": 0.026
   },
   "surfaceLayers": [
     {
