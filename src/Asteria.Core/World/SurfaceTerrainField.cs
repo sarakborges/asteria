@@ -88,24 +88,21 @@ public sealed class SurfaceTerrainField
         }
 
         double density = baseY - (double)worldY;
-        foreach (var influence in biome.Influences)
-        {
-            var rule = _rules[influence.BiomeId].Floating;
-            if (rule is null ||
-                worldY < rule.MinimumY ||
-                worldY > rule.MaximumY)
-            {
-                continue;
-            }
+        var floating =
+            _rules[biome.Primary].Floating;
 
+        if (floating is not null &&
+            worldY >= floating.MinimumY &&
+            worldY <= floating.MaximumY)
+        {
             density = Math.Max(
                 density,
-                rule.DensityAt(
+                floating.DensityAt(
                     _seed,
                     worldX,
                     worldY,
                     worldZ,
-                    influence.Weight));
+                    biome.PrimaryWeight));
         }
 
         if (_caves is not null &&
@@ -281,31 +278,26 @@ public sealed class SurfaceTerrainField
         int worldX,
         int worldZ)
     {
-        var highestCandidate = baseY;
-        var lowestCandidate = int.MaxValue;
-        var hasPotential = false;
+        var rule =
+            _rules[biome.Primary].Floating;
 
-        foreach (var influence in biome.Influences)
-        {
-            var rule = _rules[influence.BiomeId].Floating;
-            if (rule is null ||
-                rule.MaximumY <= baseY ||
-                !rule.MayExistAt(_seed, worldX, worldZ, influence.Weight))
-            {
-                continue;
-            }
-
-            hasPotential = true;
-            lowestCandidate = Math.Min(
-                lowestCandidate, rule.MinimumY);
-            highestCandidate = Math.Max(
-                highestCandidate, rule.MaximumY);
-        }
-
-        if (!hasPotential)
+        if (rule is null ||
+            rule.MaximumY <= baseY ||
+            !rule.MayExistAt(
+                _seed,
+                worldX,
+                worldZ,
+                biome.PrimaryWeight))
         {
             return baseY;
         }
+
+        var lowestCandidate =
+            rule.MinimumY;
+        var highestCandidate =
+            Math.Max(
+                baseY,
+                rule.MaximumY);
 
         if (_roofY is { } roofY)
         {
