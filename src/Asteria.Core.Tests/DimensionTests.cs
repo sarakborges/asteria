@@ -187,7 +187,7 @@ public sealed class DimensionTests
     }
 
     [Fact]
-    public void OverworldAndUmbralMaterializeIndependentWorlds()
+    public void OverworldAndUmbralMaterializationRemainIndependentWhenInterleaved()
     {
         const ulong worldSeed =
             0xA57E_2026UL;
@@ -232,18 +232,38 @@ public sealed class DimensionTests
                 "asteria:umbral"),
             umbralGenerator.DimensionId);
 
-        var overworldChunk =
-            overworldGenerator.Materialize(
-                ChunkCoord.Zero);
-        var umbralChunk =
-            umbralGenerator.Materialize(
-                ChunkCoord.Zero);
+        var overworldBefore =
+            ContentFingerprint(
+                overworldGenerator.Materialize(
+                    ChunkCoord.Zero));
+        var umbralBefore =
+            ContentFingerprint(
+                umbralGenerator.Materialize(
+                    ChunkCoord.Zero));
 
-        Assert.NotEqual(
+        _ =
+            overworldGenerator.Materialize(
+                new ChunkCoord(
+                    2,
+                    6,
+                    -3));
+        _ =
+            umbralGenerator.Materialize(
+                new ChunkCoord(
+                    -4,
+                    5,
+                    1));
+
+        Assert.Equal(
+            overworldBefore,
             ContentFingerprint(
-                overworldChunk),
+                overworldGenerator.Materialize(
+                    ChunkCoord.Zero)));
+        Assert.Equal(
+            umbralBefore,
             ContentFingerprint(
-                umbralChunk));
+                umbralGenerator.Materialize(
+                    ChunkCoord.Zero)));
     }
 
     [Fact]
