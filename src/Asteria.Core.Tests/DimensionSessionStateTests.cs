@@ -166,7 +166,7 @@ public sealed class DimensionSessionStateTests
                     0,
                     0,
                     0)
-                .IsNone);
+                .IsAir);
     }
 
     [Fact]
