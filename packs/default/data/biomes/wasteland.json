@@ -1,11 +1,16 @@
 {
   "id": "asteria:overworld/wasteland",
   "surfaceLayout": {
-    "weight": 0.72,
+    "weight": 1.3,
+    "spawnWeight": 1,
     "regionSize": {
       "min": 224,
       "max": 448
-    }
+    },
+    "cannotBorder": [
+      "asteria:overworld/arctic",
+      "asteria:overworld/ocean"
+    ]
   },
   "surfaceTerrain": {
     "type": "rolling",
