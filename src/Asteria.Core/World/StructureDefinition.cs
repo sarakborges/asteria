@@ -8,6 +8,108 @@ public enum StructureRotation
     Degrees270,
 }
 
+public enum StructureConnectorFace
+{
+    Right,
+    Left,
+    Top,
+    Bottom,
+    Front,
+    Back,
+}
+
+public readonly record struct StructureConnectorAttachment(
+    StructureRotation Rotation,
+    int OriginX,
+    int OriginY,
+    int OriginZ);
+
+public readonly record struct StructureConnectorDefinition
+{
+    public StructureConnectorDefinition(
+        int x,
+        int y,
+        int z,
+        StructureConnectorFace face,
+        string? target = null,
+        float strength = 1f,
+        float strengthLossOnEachLoop = 0f,
+        int minDistance = 0,
+        int maxDistance = 0)
+    {
+        if (target is not null)
+        {
+            StructureDefinition.ValidateId(
+                target);
+        }
+
+        if (minDistance < 0 ||
+            maxDistance < minDistance)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(minDistance),
+                "Structure connector distance must satisfy 0 <= min <= max.");
+        }
+
+        if (target is null &&
+            (minDistance != 0 ||
+             maxDistance != 0))
+        {
+            throw new ArgumentException(
+                "Input connectors cannot define minDistance/maxDistance.");
+        }
+
+        if (target is not null &&
+            (!float.IsFinite(strength) ||
+             strength <= 0f ||
+             strength > 1f))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(strength),
+                "Output connector strength must be within (0, 1].");
+        }
+
+        if (!float.IsFinite(
+                strengthLossOnEachLoop) ||
+            strengthLossOnEachLoop < 0f ||
+            strengthLossOnEachLoop > 1f)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(strengthLossOnEachLoop),
+                "Connector strength loss must be within 0..1.");
+        }
+
+        X = x;
+        Y = y;
+        Z = z;
+        Face = face;
+        Target = target;
+        Strength = strength;
+        StrengthLossOnEachLoop =
+            strengthLossOnEachLoop;
+        MinDistance = minDistance;
+        MaxDistance = maxDistance;
+    }
+
+    public int X { get; }
+
+    public int Y { get; }
+
+    public int Z { get; }
+
+    public StructureConnectorFace Face { get; }
+
+    public string? Target { get; }
+
+    public float Strength { get; }
+
+    public float StrengthLossOnEachLoop { get; }
+
+    public int MinDistance { get; }
+
+    public int MaxDistance { get; }
+}
+
 public readonly record struct StructureAnchor(
     int X,
     int Y,
@@ -255,7 +357,8 @@ public sealed class StructureDefinition
         string? groupId = null,
         int priority = 0,
         IEnumerable<string>? conflictGroups = null,
-        StructureGenerationDefinition? generation = null)
+        StructureGenerationDefinition? generation = null,
+        IEnumerable<StructureConnectorDefinition>? connectors = null)
     {
         ValidateId(
             id);
@@ -319,6 +422,49 @@ public sealed class StructureDefinition
             }
         }
 
+        var authoredConnectors =
+            connectors?.ToArray() ??
+            Array.Empty<StructureConnectorDefinition>();
+        var uniqueConnectors =
+            new HashSet<(
+                int X,
+                int Y,
+                int Z,
+                StructureConnectorFace Face,
+                string? Target)>();
+
+        foreach (var connector in
+                 authoredConnectors)
+        {
+            if (Math.Abs(
+                    (long)connector.X) >
+                    MaximumOffsetMagnitude ||
+                Math.Abs(
+                    (long)connector.Y) >
+                    MaximumOffsetMagnitude ||
+                Math.Abs(
+                    (long)connector.Z) >
+                    MaximumOffsetMagnitude)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(connectors),
+                    $"Structure connector offsets must stay within ±{MaximumOffsetMagnitude} blocks of the anchor.");
+            }
+
+            if (!uniqueConnectors.Add(
+                    (
+                        connector.X,
+                        connector.Y,
+                        connector.Z,
+                        connector.Face,
+                        connector.Target)))
+            {
+                throw new ArgumentException(
+                    $"Structure {id} repeats connector at ({connector.X}, {connector.Y}, {connector.Z}) face {connector.Face} target {connector.Target ?? "<input>"}.",
+                    nameof(connectors));
+            }
+        }
+
         var authoredConflictGroups =
             conflictGroups?.ToArray() ??
             Array.Empty<string>();
@@ -359,6 +505,10 @@ public sealed class StructureDefinition
         Voxels =
             Array.AsReadOnly(
                 authoredVoxels);
+
+        Connectors =
+            Array.AsReadOnly(
+                authoredConnectors);
 
         MinimumX =
             authoredVoxels.Min(
@@ -403,6 +553,9 @@ public sealed class StructureDefinition
     public StructureRestrictionsDefinition Restrictions { get; }
 
     public IReadOnlyList<StructureVoxelDefinition> Voxels { get; }
+
+    public IReadOnlyList<StructureConnectorDefinition>
+        Connectors { get; }
 
     public int MinimumX { get; }
 
@@ -500,6 +653,247 @@ public sealed class StructureDefinition
                     orientation,
             }
             : orientation;
+
+    public IReadOnlyList<StructureRotation>
+        SupportedRotations() =>
+        Rotation
+            ? Enum.GetValues<StructureRotation>()
+            : [
+                StructureRotation.Degrees0,
+            ];
+
+    public static StructureConnectorFace
+        RotateConnectorFace(
+            StructureRotation rotation,
+            StructureConnectorFace face) =>
+        rotation switch
+        {
+            StructureRotation.Degrees90 =>
+                face switch
+                {
+                    StructureConnectorFace.Right =>
+                        StructureConnectorFace.Front,
+                    StructureConnectorFace.Front =>
+                        StructureConnectorFace.Left,
+                    StructureConnectorFace.Left =>
+                        StructureConnectorFace.Back,
+                    StructureConnectorFace.Back =>
+                        StructureConnectorFace.Right,
+                    _ =>
+                        face,
+                },
+            StructureRotation.Degrees180 =>
+                face switch
+                {
+                    StructureConnectorFace.Right =>
+                        StructureConnectorFace.Left,
+                    StructureConnectorFace.Left =>
+                        StructureConnectorFace.Right,
+                    StructureConnectorFace.Front =>
+                        StructureConnectorFace.Back,
+                    StructureConnectorFace.Back =>
+                        StructureConnectorFace.Front,
+                    _ =>
+                        face,
+                },
+            StructureRotation.Degrees270 =>
+                face switch
+                {
+                    StructureConnectorFace.Right =>
+                        StructureConnectorFace.Back,
+                    StructureConnectorFace.Back =>
+                        StructureConnectorFace.Left,
+                    StructureConnectorFace.Left =>
+                        StructureConnectorFace.Front,
+                    StructureConnectorFace.Front =>
+                        StructureConnectorFace.Right,
+                    _ =>
+                        face,
+                },
+            _ =>
+                face,
+        };
+
+    public static StructureConnectorFace
+        OppositeConnectorFace(
+            StructureConnectorFace face) =>
+        face switch
+        {
+            StructureConnectorFace.Right =>
+                StructureConnectorFace.Left,
+            StructureConnectorFace.Left =>
+                StructureConnectorFace.Right,
+            StructureConnectorFace.Top =>
+                StructureConnectorFace.Bottom,
+            StructureConnectorFace.Bottom =>
+                StructureConnectorFace.Top,
+            StructureConnectorFace.Front =>
+                StructureConnectorFace.Back,
+            StructureConnectorFace.Back =>
+                StructureConnectorFace.Front,
+            _ =>
+                throw new ArgumentOutOfRangeException(
+                    nameof(face)),
+        };
+
+    public static (
+        int X,
+        int Y,
+        int Z)
+        ConnectorFaceOffset(
+            StructureConnectorFace face) =>
+        face switch
+        {
+            StructureConnectorFace.Right =>
+                (1, 0, 0),
+            StructureConnectorFace.Left =>
+                (-1, 0, 0),
+            StructureConnectorFace.Top =>
+                (0, 1, 0),
+            StructureConnectorFace.Bottom =>
+                (0, -1, 0),
+            StructureConnectorFace.Front =>
+                (0, 0, 1),
+            StructureConnectorFace.Back =>
+                (0, 0, -1),
+            _ =>
+                throw new ArgumentOutOfRangeException(
+                    nameof(face)),
+        };
+
+    public IReadOnlyList<StructureConnectorAttachment>
+        CompatibleInputAttachments(
+            int worldX,
+            int worldY,
+            int worldZ,
+            StructureConnectorFace requiredWorldFace)
+    {
+        var candidates =
+            new List<(
+                StructureConnectorAttachment Attachment,
+                int ConnectorIndex)>();
+
+        for (var connectorIndex = 0;
+             connectorIndex < Connectors.Count;
+             connectorIndex++)
+        {
+            var connector =
+                Connectors[connectorIndex];
+            if (connector.Target is not null)
+            {
+                continue;
+            }
+
+            foreach (var rotation in
+                     SupportedRotations())
+            {
+                if (RotateConnectorFace(
+                        rotation,
+                        connector.Face) !=
+                    requiredWorldFace)
+                {
+                    continue;
+                }
+
+                var rotated =
+                    RotateOffset(
+                        rotation,
+                        connector.X,
+                        connector.Y,
+                        connector.Z);
+                candidates.Add(
+                    (
+                        new StructureConnectorAttachment(
+                            rotation,
+                            checked(
+                                worldX -
+                                rotated.X),
+                            checked(
+                                worldY -
+                                rotated.Y),
+                            checked(
+                                worldZ -
+                                rotated.Z)),
+                        connectorIndex));
+            }
+        }
+
+        candidates.Sort(
+            (left, right) =>
+            {
+                var byRotation =
+                    left.Attachment
+                        .Rotation
+                        .CompareTo(
+                            right.Attachment.Rotation);
+                if (byRotation != 0)
+                {
+                    return byRotation;
+                }
+
+                var byX =
+                    left.Attachment
+                        .OriginX
+                        .CompareTo(
+                            right.Attachment.OriginX);
+                if (byX != 0)
+                {
+                    return byX;
+                }
+
+                var byY =
+                    left.Attachment
+                        .OriginY
+                        .CompareTo(
+                            right.Attachment.OriginY);
+                if (byY != 0)
+                {
+                    return byY;
+                }
+
+                var byZ =
+                    left.Attachment
+                        .OriginZ
+                        .CompareTo(
+                            right.Attachment.OriginZ);
+                return byZ != 0
+                    ? byZ
+                    : left.ConnectorIndex
+                        .CompareTo(
+                            right.ConnectorIndex);
+            });
+
+        return Array.AsReadOnly(
+            candidates
+                .Select(value =>
+                    value.Attachment)
+                .ToArray());
+    }
+
+    public StructureConnectorAttachment?
+        ResolveInputAttachment(
+            int worldX,
+            int worldY,
+            int worldZ,
+            StructureConnectorFace requiredWorldFace,
+            ulong hash)
+    {
+        var candidates =
+            CompatibleInputAttachments(
+                worldX,
+                worldY,
+                worldZ,
+                requiredWorldFace);
+        if (candidates.Count == 0)
+        {
+            return null;
+        }
+
+        return candidates[
+            checked((int)(
+                hash %
+                (ulong)candidates.Count))];
+    }
 
     internal static void ValidateId(
         string id) =>
