@@ -109,6 +109,47 @@ A Sphere may define a shell floor, roof, or both:
 
 `floorY` and `roofY` are optional individually, but at least one is required when `shell` is present. Negative Y is not part of Asteria's world contract, so shell bounds cannot be negative. Block mining policy remains block-authored; the default Sphere Shell uses optional `mining.unbreakable: true`.
 
+A Sphere may author deterministic generated surface structures:
+
+```json
+"generatedSurfaceStructures": [
+  {
+    "biome": "asteria:overworld/plains",
+    "structure": "asteria:boulder_small",
+    "spacing": 36,
+    "chance": 0.28,
+    "jitter": 11
+  }
+]
+```
+
+The referenced biome must be in that Sphere's active `surfaceBiomes` pool and the structure reference must resolve in the selected pack. `spacing` defines the deterministic candidate lattice, `chance` gates each candidate, and `jitter` offsets it within at most half a spacing cell. Placement is evaluated against the base surface rather than additive volume terrain. Structure footprint constraints are checked before materialization; accepted templates may cross chunk boundaries and expand the generator's vertical streaming range.
+
+Block structure templates live under `data/structures/*.json`. The first supported capability is intentionally narrow:
+
+```json
+{
+  "id": "asteria:boulder_small",
+  "rotation": true,
+  "restrictions": {
+    "requiredBiomeCoverage": 1,
+    "maxSlope": 1,
+    "requiresDryGround": true
+  },
+  "anchor": { "x": 1, "y": 0, "z": 1 },
+  "palette": {
+    "S": { "block": "asteria:stone" }
+  },
+  "layers": [
+    { "y": 0, "rows": ["SS.", "SSS", ".S."] }
+  ]
+}
+```
+
+`anchor` converts authored grid positions into offsets from the placement origin. `.` is empty; every other symbol must resolve through the palette. Palette entries currently support `block` plus optional block `orientation` (`x`, `y`, or `z`). A template may opt into deterministic quarter-turn rotation. Current restrictions are `maxSlope`, `requiresDryGround`, and `requiredBiomeCoverage`.
+
+This block-only contract deliberately does **not** pretend to support MineClone's object attachments, structure-owned fluids, surface layers, connectors, clear/layers-only cells, replacement policies, reserved-space/conflict rules, or structure sets yet. Unsupported palette/template fields fail validation instead of being silently ignored. The default pack currently ports the four MineClone boulder block geometries; pebble object cells are omitted until the object-placement capability exists. The inactive Enchanted Forest root is not imported into the active Overworld structure rules.
+
 A Sphere may define one explicit generated ocean rule:
 
 ```json
