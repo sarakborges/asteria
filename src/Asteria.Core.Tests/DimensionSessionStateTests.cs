@@ -129,6 +129,12 @@ public sealed class DimensionSessionStateTests
         Assert.Equal(
             0,
             state.World.ChunkCount);
+        Assert.Equal(
+            2,
+            state.World.ArchivedChunkCount);
+        Assert.Equal(
+            1,
+            state.World.DirtyChunkCount);
         Assert.True(
             state.World.HasArchivedChunk(
                 editedCoord));
