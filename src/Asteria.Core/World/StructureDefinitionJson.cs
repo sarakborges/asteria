@@ -405,7 +405,26 @@ public static class StructureDefinitionJson
                     $"Structure palette {property.Name} cannot define multiple primary payloads.");
             }
 
-            var connector =            var orientation =
+            var connector =
+                ParseConnector(
+                    property.Value);
+
+            if (primaryPayloads == 0 &&
+                connector is null)
+            {
+                throw new FormatException(
+                    $"Structure palette {property.Name} must define payload and/or connector.");
+            }
+
+            if (connector is
+                    { Target: null } &&
+                primaryPayloads != 0)
+            {
+                throw new FormatException(
+                    $"Structure palette {property.Name} input connector must be connector-only.");
+            }
+
+            var orientation =
                 OptionalString(
                     property.Value,
                     "orientation") switch
