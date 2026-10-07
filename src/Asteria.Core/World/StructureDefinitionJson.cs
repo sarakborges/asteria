@@ -142,7 +142,8 @@ public static class StructureDefinitionJson
             "maxSlope",
             "requiresDryGround",
             "requiredBiomeCoverage",
-            "groundBlocks");
+            "groundBlocks",
+            "proximity");
         return new StructureRestrictionsDefinition(
             OptionalInt32(
                 value,
@@ -158,7 +159,91 @@ public static class StructureDefinitionJson
             0f,
             OptionalStringArray(
                 value,
-                "groundBlocks"));
+                "groundBlocks"),
+            ParseProximity(
+                value));
+    }
+
+    private static IReadOnlyList<StructureProximityRestrictionDefinition>
+        ParseProximity(
+            JsonElement restrictions)
+    {
+        if (!restrictions.TryGetProperty(
+                "proximity",
+                out var value) ||
+            value.ValueKind ==
+                JsonValueKind.Null)
+        {
+            return Array.Empty<StructureProximityRestrictionDefinition>();
+        }
+
+        if (value.ValueKind !=
+            JsonValueKind.Array)
+        {
+            throw new FormatException(
+                "restrictions.proximity must be an array.");
+        }
+
+        return value
+            .EnumerateArray()
+            .Select(
+                item =>
+                {
+                    if (item.ValueKind !=
+                        JsonValueKind.Object)
+                    {
+                        throw new FormatException(
+                            "restrictions.proximity entries must be objects.");
+                    }
+
+                    EnsureKnownProperties(
+                        item,
+                        "restrictions.proximity entry",
+                        "target",
+                        "mode",
+                        "minDistance",
+                        "maxDistance");
+                    var target =
+                        RequiredObject(
+                            item,
+                            "target");
+                    EnsureKnownProperties(
+                        target,
+                        "restrictions.proximity target",
+                        "block",
+                        "fluid");
+
+                    var mode =
+                        RequiredString(
+                            item,
+                            "mode") switch
+                        {
+                            "required" =>
+                                StructureProximityMode.Required,
+                            "forbidden" =>
+                                StructureProximityMode.Forbidden,
+                            var authored =>
+                                throw new FormatException(
+                                    $"Unsupported structure proximity mode: {authored}."),
+                        };
+
+                    return new StructureProximityRestrictionDefinition(
+                        new StructureProximityTargetDefinition(
+                            OptionalString(
+                                target,
+                                "block"),
+                            OptionalString(
+                                target,
+                                "fluid")),
+                        mode,
+                        RequiredInt32(
+                            item,
+                            "maxDistance"),
+                        OptionalInt32(
+                            item,
+                            "minDistance"));
+                })
+            .ToArray();
     }
 
     private static StructureGenerationDefinition

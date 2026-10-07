@@ -155,6 +155,20 @@ public sealed class StructureRegistry
                     $"Structure {definition.Id} uses fluidPolicy preserve, which is unsupported by the current block-only structure contract.");
             }
 
+            foreach (var proximity in
+                     definition.Restrictions.Proximity)
+            {
+                if (proximity.Target.Block is
+                        { } targetBlock &&
+                    !blocks.TryGetId(
+                        targetBlock,
+                        out _))
+                {
+                    throw new ArgumentException(
+                        $"Structure {definition.Id} proximity references missing block {targetBlock}.");
+                }
+            }
+
             foreach (var groundBlock in
                      definition.Restrictions.GroundBlocks)
             {
@@ -210,4 +224,29 @@ public sealed class StructureRegistry
     public IEnumerable<StructureDefinition>
         Definitions() =>
         _definitions;
+
+    public void ValidateFluids(
+        FluidRegistry fluids)
+    {
+        ArgumentNullException.ThrowIfNull(
+            fluids);
+
+        foreach (var definition in
+                 _definitions)
+        {
+            foreach (var proximity in
+                     definition.Restrictions.Proximity)
+            {
+                if (proximity.Target.Fluid is
+                        { } targetFluid &&
+                    !fluids.TryGetId(
+                        targetFluid,
+                        out _))
+                {
+                    throw new ArgumentException(
+                        $"Structure {definition.Id} proximity references missing fluid {targetFluid}.");
+                }
+            }
+        }
+    }
 }
