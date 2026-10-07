@@ -24,6 +24,7 @@ public readonly record struct SurfaceStructureQueryResult(
 public sealed class SurfaceStructureField
 {
     private const int PlacementCacheCapacity = 128;
+    private const int CandidateCacheCapacity = 8192;
     private const int MarginSampleDivisions = 16;
 
     private readonly ulong _seed;
@@ -42,6 +43,16 @@ public sealed class SurfaceStructureField
         _placements =
             new(
                 PlacementCacheCapacity);
+    private readonly BoundedMemoCache<
+        StructureCandidateKey,
+        StructureCandidate?> _candidates =
+            new(
+                CandidateCacheCapacity);
+    private readonly BoundedMemoCache<
+        StructureCandidateKey,
+        bool> _candidateAcceptance =
+            new(
+                CandidateCacheCapacity);
 
     public SurfaceStructureField(
         ulong seed,
@@ -289,9 +300,7 @@ public sealed class SurfaceStructureField
                             rule,
                             (int)cellX,
                             (int)cellZ);
-                    if (candidate is null ||
-                        !CandidateIsAccepted(
-                            candidate))
+                    if (candidate is null)
                     {
                         continue;
                     }
@@ -306,7 +315,12 @@ public sealed class SurfaceStructureField
                         dx * dx +
                         dz * dz;
                     if (distanceSquared >
-                        maximumDistanceSquared)
+                            maximumDistanceSquared ||
+                        (best is not null &&
+                         distanceSquared >
+                            bestDistanceSquared) ||
+                        !CandidateIsAccepted(
+                            candidate))
                     {
                         continue;
                     }
@@ -338,21 +352,27 @@ public sealed class SurfaceStructureField
 
     private bool CandidateIsAccepted(
         StructureCandidate candidate) =>
-        !CollectCandidatesIntersectingBounds(
-                candidate.MinimumX,
-                candidate.MinimumZ,
-                candidate.MaximumX,
-                candidate.MaximumZ)
-            .Any(other =>
-                !SameCandidate(
-                    other,
-                    candidate) &&
-                CandidateOutranks(
-                    other,
-                    candidate) &&
-                CandidatesConflict(
-                    other,
-                    candidate));
+        _candidateAcceptance.GetOrAdd(
+            new StructureCandidateKey(
+                candidate.RuleIndex,
+                candidate.CellX,
+                candidate.CellZ),
+            () =>
+                !CollectCandidatesIntersectingBounds(
+                        candidate.MinimumX,
+                        candidate.MinimumZ,
+                        candidate.MaximumX,
+                        candidate.MaximumZ)
+                    .Any(other =>
+                        !SameCandidate(
+                            other,
+                            candidate) &&
+                        CandidateOutranks(
+                            other,
+                            candidate) &&
+                        CandidatesConflict(
+                            other,
+                            candidate)));
 
     private static SurfaceStructureQueryResult
         ToQueryResult(
@@ -694,6 +714,24 @@ public sealed class SurfaceStructureField
 
     private StructureCandidate?
         ResolveCandidate(
+            int ruleIndex,
+            RootRule rule,
+            int cellX,
+            int cellZ) =>
+        _candidates.GetOrAdd(
+            new StructureCandidateKey(
+                ruleIndex,
+                cellX,
+                cellZ),
+            () =>
+                ResolveCandidateUncached(
+                    ruleIndex,
+                    rule,
+                    cellX,
+                    cellZ));
+
+    private StructureCandidate?
+        ResolveCandidateUncached(
             int ruleIndex,
             RootRule rule,
             int cellX,
@@ -2308,6 +2346,11 @@ public sealed class SurfaceStructureField
     private readonly record struct StructureChunkKey(
         int X,
         int Z);
+
+    private readonly record struct StructureCandidateKey(
+        int RuleIndex,
+        int CellX,
+        int CellZ);
 
     private readonly record struct SurfaceSample(
         BiomeSample Biome,
