@@ -774,7 +774,7 @@ public partial class Main : Node3D
         if (!_worldHud.TryCapture(
                 _player,
                 _dimension.Id,
-                _sessions.Active.Generator.Biomes,
+                _sessions.Active.Generator.EffectiveBiomeAt,
                 out var state))
         {
             return;

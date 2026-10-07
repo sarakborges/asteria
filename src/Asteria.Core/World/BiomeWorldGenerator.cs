@@ -15,6 +15,9 @@ public sealed class BiomeWorldGenerator :
     private readonly SurfaceTerrainColumnCache _surfaceColumns;
     private readonly GeneratedFluidField _generatedFluids;
     private readonly SurfaceChunkMaterializer _materializer;
+    private readonly BiomeField _surfaceBiomeQuery;
+    private readonly IReadOnlyDictionary<string, BiomeFloatingFormationDefinition>
+        _volumeBiomes;
 
     public BiomeWorldGenerator(
         ulong seed,
@@ -50,6 +53,34 @@ public sealed class BiomeWorldGenerator :
             .ToArray();
 
         Biomes = new BiomeField(seed, dimension, biomes);
+
+        var volumeBiomes =
+            activeBiomes
+                .Where(definition =>
+                    definition.Terrain3d?.FloatingFormation is not null)
+                .ToArray();
+        var surfaceBiomeIds =
+            activeBiomes
+                .Except(volumeBiomes)
+                .Select(definition =>
+                    definition.Id)
+                .ToArray();
+
+        _surfaceBiomeQuery =
+            surfaceBiomeIds.Length > 0
+                ? new BiomeField(
+                    seed,
+                    surfaceBiomeIds,
+                    biomes)
+                : Biomes;
+        _volumeBiomes =
+            volumeBiomes.ToDictionary(
+                definition =>
+                    definition.Id,
+                definition =>
+                    definition.Terrain3d!.FloatingFormation!,
+                StringComparer.Ordinal);
+
         _terrain = new SurfaceTerrainField(
             seed, dimension, Biomes, activeBiomes);
         _surfaceColumns = new SurfaceTerrainColumnCache(_terrain);
@@ -87,6 +118,38 @@ public sealed class BiomeWorldGenerator :
 
     public double DensityAt(int worldX, int worldY, int worldZ) =>
         _terrain.DensityAt(worldX, worldY, worldZ);
+
+    public string EffectiveBiomeAt(
+        int worldX,
+        int worldY,
+        int worldZ)
+    {
+        if (worldY < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(worldY));
+        }
+
+        var generated =
+            Biomes.Sample(
+                worldX,
+                worldZ);
+
+        if (_volumeBiomes.TryGetValue(
+                generated.Primary,
+                out var volume) &&
+            worldY >= volume.MinY &&
+            worldY <= volume.MaxY)
+        {
+            return generated.Primary;
+        }
+
+        return _surfaceBiomeQuery
+            .Sample(
+                worldX,
+                worldZ)
+            .Primary;
+    }
 
     public TerrainDensityVolume SampleDensityVolume(
         int originX, int originY, int originZ,
