@@ -42,12 +42,16 @@ jobs:
             --samples 2 --area-size 4 --chunks 1 \
             --output worldgen-benchmark.json
 
-      - name: Render fixed-seed biome map fixture
+      - name: Render fixed-seed biome map fixtures
         run: |
           dotnet run --project tools/BiomeMap --configuration Release -- \
             --seed 181960897289965 --dimension asteria:overworld \
             --width 64 --depth 64 --step 8 --mode influences \
-            --output biome-map.svg
+            --output biome-map-overworld.svg
+          dotnet run --project tools/BiomeMap --configuration Release -- \
+            --seed 181960897289965 --dimension asteria:umbral \
+            --width 64 --depth 64 --step 8 --mode influences \
+            --output biome-map-umbral.svg
 
       - name: Upload worldgen query baseline
         if: always()
@@ -62,7 +66,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: worldgen-biome-map
-          path: biome-map.svg
+          path: biome-map-*.svg
           if-no-files-found: ignore
 
       - name: Setup Node.js
