@@ -48,6 +48,7 @@ dimensions.ValidateBiomes(biomes);
 dimensions.ValidateStructures(structures);
 biomes.ValidateBlocks(blocks);
 structures.ValidateBlocks(blocks);
+structures.ValidateFluids(fluids);
 
 var dimension = dimensions.Get(new DimensionId(options.Dimension));
 var dimensionSeed = DimensionSeed.Derive(options.Seed, dimension.Id);
