@@ -780,7 +780,7 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
-    public void SurfacePatchIsWorldSpaceAndDoesNotReplaceOutsideRadius()
+    public void SurfacePatchUsesOrganicDeterministicWorldSpaceNoise()
     {
         var blocks =
             new BlockRegistry(
@@ -808,10 +808,9 @@ public sealed class BiomeWorldGenerationTests
                         depth: 1,
                         patch:
                             new BiomeSurfacePatchDefinition(
-                                spacing: 10,
-                                radius: 4,
-                                jitter: 0,
-                                chance: 1f,
+                                scale: 24,
+                                coverage: 0.5f,
+                                roughness: 0.3f,
                                 blocks:
                                 [
                                     "asteria:mud",
@@ -819,7 +818,14 @@ public sealed class BiomeWorldGenerationTests
                     new BiomeSurfaceLayerDefinition(
                         "asteria:stone"),
                 ]);
-        var materials =
+        var first =
+            new BiomeSurfaceMaterialField(
+                33,
+                [
+                    biome,
+                ],
+                blocks);
+        var second =
             new BiomeSurfaceMaterialField(
                 33,
                 [
@@ -834,24 +840,60 @@ public sealed class BiomeWorldGenerationTests
                         biome.Id,
                         1f),
                 ]);
+        var grass =
+            blocks.GetId(
+                "asteria:grass_block");
+        var mud =
+            blocks.GetId(
+                "asteria:mud");
+        var grassCount = 0;
+        var mudCount = 0;
 
-        Assert.Equal(
-            blocks.GetId(
-                "asteria:mud"),
-            materials.BlockAt(
-                sample,
-                5,
-                5,
-                0));
-        Assert.Equal(
-            blocks.GetId(
-                "asteria:grass_block"),
-            materials.BlockAt(
-                sample,
-                0,
-                0,
-                0));
+        for (var z = -32;
+             z <= 32;
+             z++)
+        {
+            for (var x = -32;
+                 x <= 32;
+                 x++)
+            {
+                var material =
+                    first.BlockAt(
+                        sample,
+                        x,
+                        z,
+                        0);
+
+                Assert.Equal(
+                    material,
+                    second.BlockAt(
+                        sample,
+                        x,
+                        z,
+                        0));
+
+                if (material == grass)
+                {
+                    grassCount++;
+                }
+                else if (material == mud)
+                {
+                    mudCount++;
+                }
+                else
+                {
+                    throw new Xunit.Sdk.XunitException(
+                        $"Unexpected patch material {material}.");
+                }
+            }
+        }
+
+        Assert.True(
+            grassCount > 0);
+        Assert.True(
+            mudCount > 0);
     }
+
 
     [Fact]
     public void TerrainHeightBlendsBiomeInfluencesInsteadOfCuttingAtBoundary()
