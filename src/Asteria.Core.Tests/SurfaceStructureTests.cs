@@ -84,6 +84,66 @@ public sealed class SurfaceStructureTests
     }
 
     [Fact]
+    public void BlockTemplateRejectsUnsupportedPaletteCapabilities()
+    {
+        Assert.Throws<FormatException>(
+            () =>
+                StructureDefinitionJson.Parse(
+                    """
+                    {
+                      "id":"asteria:test_structure",
+                      "rotation":false,
+                      "palette":{
+                        "S":{
+                          "block":"asteria:stone",
+                          "objects":[{"object":"asteria:pebble"}]
+                        }
+                      },
+                      "layers":[
+                        {"y":0,"rows":["S"]}
+                      ]
+                    }
+                    """));
+    }
+
+    [Fact]
+    public void RotatingTemplateValidatesEveryProducedBlockOrientation()
+    {
+        var blocks =
+            new BlockRegistry(
+            [
+                new BlockDefinition(
+                    "asteria:log",
+                    orientations:
+                    [
+                        BlockOrientation.X,
+                    ]),
+            ]);
+        var structures =
+            new StructureRegistry(
+            [
+                new StructureDefinition(
+                    "asteria:test_structure",
+                    rotation: true,
+                    anchor: default,
+                    voxels:
+                    [
+                        new StructureVoxelDefinition(
+                            0,
+                            0,
+                            0,
+                            "asteria:log",
+                            BlockOrientation.X),
+                    ]),
+            ]);
+
+        Assert.Throws<ArgumentException>(
+            () =>
+                structures.ValidateBlocks(
+                    blocks));
+    }
+
+    [Fact]
     public void StructureCrossesHorizontalAndVerticalChunkBoundariesWithoutClipping()
     {
         var blocks =
