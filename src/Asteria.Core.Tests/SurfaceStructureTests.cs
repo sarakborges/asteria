@@ -681,6 +681,146 @@ public sealed class SurfaceStructureTests
     }
 
     [Fact]
+    public void StructureQueriesReturnTheSameAcceptedPlacementUsedByMaterialization()
+    {
+        var blocks =
+            new BlockRegistry(
+            [
+                new BlockDefinition(
+                    "asteria:stone"),
+                new BlockDefinition(
+                    "asteria:marker"),
+            ]);
+        var structure =
+            new StructureDefinition(
+                "asteria:test_marker",
+                rotation: false,
+                anchor: default,
+                voxels:
+                [
+                    new StructureVoxelDefinition(
+                        0,
+                        0,
+                        0,
+                        "asteria:marker",
+                        BlockOrientation.Y),
+                ],
+                restrictions:
+                    new StructureRestrictionsDefinition(
+                        maxSlope: 0,
+                        requiresDryGround: true,
+                        requiredBiomeCoverage: 1f));
+        var generator =
+            FlatStructureGenerator(
+                blocks,
+                new StructureRegistry(
+                [
+                    structure,
+                ]),
+                "asteria:stone",
+                structure.Id);
+
+        var area =
+            generator.SurfaceStructuresIntersecting(
+                0,
+                0,
+                Chunk.Size,
+                Chunk.Size);
+        var placement =
+            Assert.Single(
+                area);
+        var nearest =
+            generator.FindNearestSurfaceStructure(
+                structure.Id,
+                0,
+                0,
+                64);
+
+        Assert.True(
+            nearest.HasValue);
+        Assert.Equal(
+            placement,
+            nearest.Value);
+        Assert.Equal(
+            8,
+            placement.AnchorX);
+        Assert.Equal(
+            8,
+            placement.AnchorZ);
+
+        var chunk =
+            generator.Materialize(
+                new ChunkCoord(
+                    0,
+                    placement.AnchorY /
+                    Chunk.Size,
+                    0));
+        Assert.Equal(
+            blocks.GetId(
+                "asteria:marker"),
+            chunk.GetBlock(
+                placement.AnchorX,
+                placement.AnchorY %
+                Chunk.Size,
+                placement.AnchorZ));
+    }
+
+    [Fact]
+    public void StructureSearchIsBoundedByReferenceAndDistance()
+    {
+        var blocks =
+            new BlockRegistry(
+            [
+                new BlockDefinition(
+                    "asteria:stone"),
+                new BlockDefinition(
+                    "asteria:marker"),
+            ]);
+        var structure =
+            new StructureDefinition(
+                "asteria:test_marker",
+                rotation: false,
+                anchor: default,
+                voxels:
+                [
+                    new StructureVoxelDefinition(
+                        0,
+                        0,
+                        0,
+                        "asteria:marker",
+                        BlockOrientation.Y),
+                ]);
+        var generator =
+            FlatStructureGenerator(
+                blocks,
+                new StructureRegistry(
+                [
+                    structure,
+                ]),
+                "asteria:stone",
+                structure.Id);
+
+        Assert.Null(
+            generator.FindNearestSurfaceStructure(
+                "asteria:missing",
+                0,
+                0,
+                64));
+        Assert.Null(
+            generator.FindNearestSurfaceStructure(
+                structure.Id,
+                0,
+                0,
+                4));
+        Assert.NotNull(
+            generator.FindNearestSurfaceStructure(
+                structure.Id,
+                0,
+                0,
+                12));
+    }
+
+    [Fact]
     public void StructureRotationRotatesOffsetsAndHorizontalBlockOrientation()
     {
         Assert.Equal(
