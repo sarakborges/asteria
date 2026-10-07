@@ -87,6 +87,123 @@ public sealed class WorldGenerationQueryTests
     }
 
     [Fact]
+    public void SurfaceBiomeQueriesAreDeterministicAcrossSeedsAndRequestOrder()
+    {
+        var positions =
+            new[]
+            {
+                (-511, 257),
+                (-97, -131),
+                (0, 0),
+                (83, -211),
+                (509, 383),
+            };
+
+        foreach (var seed in
+                 new ulong[]
+                 {
+                     1UL,
+                     77UL,
+                     181960897289965UL,
+                 })
+        {
+            var first =
+                TwoBiomeField(
+                    seed);
+            var second =
+                TwoBiomeField(
+                    seed);
+            var expected =
+                positions.ToDictionary(
+                    position =>
+                        position,
+                    position =>
+                        first.Sample(
+                                position.Item1,
+                                position.Item2)
+                            .Primary);
+
+            foreach (var position in
+                     positions.Reverse())
+            {
+                Assert.Equal(
+                    expected[position],
+                    second.Sample(
+                            position.Item1,
+                            position.Item2)
+                        .Primary);
+            }
+        }
+    }
+
+    [Fact]
+    public void StructureAndDestinationQueriesAreRequestOrderIndependent()
+    {
+        var positions =
+            QueryPositions();
+        var expectedGenerator =
+            StructuredGenerator(
+                987UL);
+        var expected =
+            positions.ToDictionary(
+                position =>
+                    position,
+                position =>
+                    QuerySignatureAt(
+                        expectedGenerator,
+                        position.X,
+                        position.Z));
+        var reordered =
+            StructuredGenerator(
+                987UL);
+
+        foreach (var position in
+                 positions.Reverse())
+        {
+            Assert.Equal(
+                expected[position],
+                QuerySignatureAt(
+                    reordered,
+                    position.X,
+                    position.Z));
+        }
+    }
+
+    [Fact]
+    public async Task StructureAndDestinationQueriesAreSafeUnderConcurrentReads()
+    {
+        var positions =
+            QueryPositions();
+        var expectedGenerator =
+            StructuredGenerator(
+                456UL);
+        var expected =
+            positions
+                .Select(position =>
+                    QuerySignatureAt(
+                        expectedGenerator,
+                        position.X,
+                        position.Z))
+                .ToArray();
+        var shared =
+            StructuredGenerator(
+                456UL);
+
+        var actual =
+            await Task.WhenAll(
+                positions.Select(position =>
+                    Task.Run(() =>
+                        QuerySignatureAt(
+                            shared,
+                            position.X,
+                            position.Z))));
+
+        Assert.Equal(
+            expected,
+            actual);
+    }
+
+    [Fact]
     public void GeneratedDestinationKeepsPreferredSafeColumn()
     {
         var generator =
@@ -304,6 +421,145 @@ public sealed class WorldGenerationQueryTests
                 destination.Value.Z));
     }
 
+    private static BiomeField TwoBiomeField(
+        ulong seed)
+    {
+        var first =
+            TestBiome(
+                "asteria:test/a");
+        var second =
+            TestBiome(
+                "asteria:test/b");
+        var registry =
+            new BiomeRegistry(
+            [
+                first,
+                second,
+            ]);
+
+        return new BiomeField(
+            seed,
+            TestDimension(
+            [
+                first.Id,
+                second.Id,
+            ]),
+            registry);
+    }
+
+    private static BiomeWorldGenerator
+        StructuredGenerator(
+            ulong seed)
+    {
+        var blocks =
+            new BlockRegistry(
+            [
+                new BlockDefinition(
+                    "asteria:stone"),
+                new BlockDefinition(
+                    "asteria:marker"),
+            ]);
+        var biome =
+            TestBiome(
+                "asteria:test/flat");
+        var structure =
+            new StructureDefinition(
+                "asteria:test_marker",
+                rotation: false,
+                anchor: default,
+                voxels:
+                [
+                    new StructureVoxelDefinition(
+                        0,
+                        0,
+                        0,
+                        "asteria:marker",
+                        BlockOrientation.Y),
+                ],
+                restrictions:
+                    new StructureRestrictionsDefinition(
+                        maxSlope: 0,
+                        requiresDryGround: true,
+                        requiredBiomeCoverage: 1f));
+        var dimension =
+            TestDimension(
+                [
+                    biome.Id,
+                ],
+                generatedSurfaceStructures:
+                [
+                    new DimensionGeneratedSurfaceStructureDefinition(
+                        biome.Id,
+                        structure.Id,
+                        spacing: 24,
+                        chance: 0.75f,
+                        jitter: 6),
+                ]);
+
+        return new BiomeWorldGenerator(
+            seed,
+            dimension,
+            blocks,
+            new FluidRegistry(
+                Array.Empty<FluidDefinition>()),
+            new BiomeRegistry(
+            [
+                biome,
+            ]),
+            new StructureRegistry(
+            [
+                structure,
+            ]));
+    }
+
+    private static (int X, int Z)[]
+        QueryPositions() =>
+        [
+            (-37, -29),
+            (-11, 23),
+            (0, 0),
+            (19, -31),
+            (43, 17),
+            (61, 47),
+        ];
+
+    private static QuerySignature
+        QuerySignatureAt(
+            BiomeWorldGenerator generator,
+            int worldX,
+            int worldZ)
+    {
+        var structure =
+            generator.FindNearestSurfaceStructure(
+                "asteria:test_marker",
+                worldX,
+                worldZ,
+                64);
+
+        return new QuerySignature(
+            generator.Biomes.Sample(
+                    worldX,
+                    worldZ)
+                .Primary,
+            generator.SurfaceHeight(
+                worldX,
+                worldZ),
+            generator.FindGeneratedSurfaceDestination(
+                worldX,
+                worldZ,
+                8),
+            structure is null
+                ? null
+                : new StructureSignature(
+                    structure.Value.Reference,
+                    structure.Value.StructureId,
+                    structure.Value.PlacementAnchorX,
+                    structure.Value.PlacementAnchorZ,
+                    structure.Value.AnchorX,
+                    structure.Value.AnchorY,
+                    structure.Value.AnchorZ));
+    }
+
     private static BiomeWorldGenerator
         FlatGenerator()
     {
@@ -380,4 +636,19 @@ public sealed class WorldGenerationQueryTests
                 generatedSurfaceStructures,
             generatedSurfaceFluids:
                 generatedSurfaceFluids);
+    private readonly record struct QuerySignature(
+        string Biome,
+        int SurfaceY,
+        GeneratedSurfaceDestination? Destination,
+        StructureSignature? Structure);
+
+    private readonly record struct StructureSignature(
+        string Reference,
+        string StructureId,
+        int PlacementAnchorX,
+        int PlacementAnchorZ,
+        int AnchorX,
+        int AnchorY,
+        int AnchorZ);
+
 }
