@@ -11,6 +11,8 @@ public sealed class SurfaceChunkMaterializer
     private readonly BiomeSurfaceMaterialField _materials;
     private readonly SurfaceDecorationField _decorations;
     private readonly GeneratedFluidField _generatedFluids;
+    private readonly SurfaceStructureField _structures;
+    private readonly BlockRegistry _blocks;
     private readonly BlockRuntimeId _shellBlock;
     private readonly int? _floorY;
     private readonly int? _roofY;
@@ -21,6 +23,7 @@ public sealed class SurfaceChunkMaterializer
         BiomeSurfaceMaterialField materials,
         SurfaceDecorationField decorations,
         GeneratedFluidField generatedFluids,
+        SurfaceStructureField structures,
         DimensionDefinition dimension,
         BlockRegistry blocks)
     {
@@ -34,8 +37,11 @@ public sealed class SurfaceChunkMaterializer
             throw new ArgumentNullException(nameof(decorations));
         _generatedFluids = generatedFluids ??
             throw new ArgumentNullException(nameof(generatedFluids));
+        _structures = structures ??
+            throw new ArgumentNullException(nameof(structures));
         ArgumentNullException.ThrowIfNull(dimension);
-        ArgumentNullException.ThrowIfNull(blocks);
+        _blocks = blocks ??
+            throw new ArgumentNullException(nameof(blocks));
 
         _shellBlock = dimension.Shell is { } shell
             ? blocks.GetId(shell.Block)
@@ -211,9 +217,174 @@ public sealed class SurfaceChunkMaterializer
             originY,
             originZ,
             topExclusive);
+        MaterializeStructures(
+            chunk,
+            originX,
+            originY,
+            originZ,
+            topExclusive);
 
         return chunk;
     }
+
+    private void MaterializeStructures(
+        Chunk chunk,
+        int originX,
+        int originY,
+        int originZ,
+        int topExclusive)
+    {
+        if (!_structures.HasRules)
+        {
+            return;
+        }
+
+        var baseOccupied =
+            new HashSet<int>();
+        var claimed =
+            new HashSet<int>();
+
+        chunk.VisitBlockCells(
+            (x, y, z, _) =>
+                baseOccupied.Add(
+                    StructureCellKey(
+                        x,
+                        y,
+                        z)));
+        chunk.VisitFluidCells(
+            (x, y, z, _) =>
+                baseOccupied.Add(
+                    StructureCellKey(
+                        x,
+                        y,
+                        z)));
+
+        var placements =
+            _structures.PlacementsIntersecting(
+                originX,
+                originZ,
+                Chunk.Size,
+                Chunk.Size);
+
+        foreach (var placement in
+                 placements)
+        {
+            var generation =
+                placement.Structure.Generation;
+
+            foreach (var voxel in
+                     placement.Structure.RotatedVoxels(
+                         placement.Rotation))
+            {
+                var worldX =
+                    checked(
+                        placement.OriginX +
+                        voxel.Offset.X);
+                var worldY =
+                    checked(
+                        placement.OriginY +
+                        voxel.Offset.Y);
+                var worldZ =
+                    checked(
+                        placement.OriginZ +
+                        voxel.Offset.Z);
+
+                if (worldX < originX ||
+                    worldX >= originX + Chunk.Size ||
+                    worldY < originY ||
+                    worldY >= topExclusive ||
+                    worldZ < originZ ||
+                    worldZ >= originZ + Chunk.Size)
+                {
+                    continue;
+                }
+
+                var localX =
+                    worldX -
+                    originX;
+                var localY =
+                    worldY -
+                    originY;
+                var localZ =
+                    worldZ -
+                    originZ;
+                var key =
+                    StructureCellKey(
+                        localX,
+                        localY,
+                        localZ);
+
+                var canReplace =
+                    generation.ReplacePolicy switch
+                    {
+                        StructureReplacePolicy.Any =>
+                            true,
+                        StructureReplacePolicy.AirOnly =>
+                            !claimed.Contains(
+                                key) &&
+                            !baseOccupied.Contains(
+                                key),
+                        StructureReplacePolicy.Terrain =>
+                            !claimed.Contains(
+                                key),
+                        _ =>
+                            throw new InvalidOperationException(
+                                $"Unsupported structure replace policy {generation.ReplacePolicy}."),
+                    };
+
+                if (!canReplace)
+                {
+                    continue;
+                }
+
+                var fluid =
+                    chunk.GetFluid(
+                        localX,
+                        localY,
+                        localZ);
+
+                if (generation.FluidPolicy ==
+                        StructureFluidPolicy.Forbid &&
+                    !fluid.IsEmpty)
+                {
+                    throw new InvalidOperationException(
+                        $"Validated structure {placement.Structure.Id} overlaps generated fluid.");
+                }
+
+                chunk.SetCell(
+                    localX,
+                    localY,
+                    localZ,
+                    new VoxelCell(
+                        _blocks.GetId(
+                            voxel.Block),
+                        orientation:
+                            voxel.Orientation));
+
+                if (generation.FluidPolicy ==
+                        StructureFluidPolicy.Displace &&
+                    !fluid.IsEmpty)
+                {
+                    chunk.SetFluid(
+                        localX,
+                        localY,
+                        localZ,
+                        FluidCell.Empty);
+                }
+
+                claimed.Add(
+                    key);
+            }
+        }
+    }
+
+    private static int StructureCellKey(
+        int x,
+        int y,
+        int z) =>
+        x |
+        y << 8 |
+        z << 16;
 
     private void MaterializeGeneratedFluids(
         Chunk chunk,
