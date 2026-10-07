@@ -50,6 +50,27 @@ internal sealed class GeneratedSurfaceDestinationQuery
             int maxRadius,
             Func<int, int, bool>? acceptsColumn = null)
     {
+        ValidateRadius(
+            maxRadius);
+
+        if ((acceptsColumn is null ||
+             acceptsColumn(
+                 preferredX,
+                 preferredZ)) &&
+            !ColumnInsideStructure(
+                preferredX,
+                preferredZ))
+        {
+            var preferred =
+                GeneratedSurfaceFeetAt(
+                    preferredX,
+                    preferredZ);
+            if (preferred is not null)
+            {
+                return preferred;
+            }
+        }
+
         var structureBounds =
             StructureBoundsForSearch(
                 preferredX,
@@ -72,20 +93,16 @@ internal sealed class GeneratedSurfaceDestinationQuery
             int maxRadius,
             Func<int, int, bool>? acceptsColumn = null)
     {
-        var structureBounds =
-            StructureBoundsForSearch(
-                preferredX,
-                preferredZ,
-                maxRadius);
+        ValidateRadius(
+            maxRadius);
 
         if ((acceptsColumn is null ||
              acceptsColumn(
                  preferredX,
                  preferredZ)) &&
-            !InsideStructureBounds(
+            !ColumnInsideStructure(
                 preferredX,
-                preferredZ,
-                structureBounds))
+                preferredZ))
         {
             var exact =
                 GeneratedFeetAt(
@@ -97,6 +114,12 @@ internal sealed class GeneratedSurfaceDestinationQuery
                 return exact;
             }
         }
+
+        var structureBounds =
+            StructureBoundsForSearch(
+                preferredX,
+                preferredZ,
+                maxRadius);
 
         return FindSurface(
             preferredX,
@@ -118,13 +141,6 @@ internal sealed class GeneratedSurfaceDestinationQuery
                 int MaximumZ)> structureBounds,
             Func<int, int, bool>? acceptsColumn)
     {
-        if (maxRadius < 0)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(maxRadius),
-                "Destination search radius must be non-negative.");
-        }
-
         foreach (var column in
                  SquareRings(
                      preferredX,
@@ -170,13 +186,6 @@ internal sealed class GeneratedSurfaceDestinationQuery
             int preferredZ,
             int maxRadius)
     {
-        if (maxRadius < 0)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(maxRadius),
-                "Destination search radius must be non-negative.");
-        }
-
         var searchBounds =
             SearchBounds(
                 preferredX,
@@ -196,6 +205,29 @@ internal sealed class GeneratedSurfaceDestinationQuery
                     result.MinimumZ,
                     result.MaximumZ))
             .ToArray();
+    }
+
+    private bool ColumnInsideStructure(
+        int worldX,
+        int worldZ) =>
+        _structures
+            .PlacementsIntersecting(
+                worldX,
+                worldZ,
+                1,
+                1)
+            .Count >
+        0;
+
+    private static void ValidateRadius(
+        int maxRadius)
+    {
+        if (maxRadius < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(maxRadius),
+                "Destination search radius must be non-negative.");
+        }
     }
 
     private static bool InsideStructureBounds(
