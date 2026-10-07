@@ -6,15 +6,20 @@ const meta = {
   component: Text,
   args: {
     text: "Asteria",
-    variant: "detail",
+    variant: "body",
   },
   argTypes: {
     variant: {
       control: "select",
       options: [
         "eyebrow",
-        "title",
         "detail",
+        "caption",
+        "body",
+        "title",
+        "setting-title",
+        "heading",
+        "screen-title",
       ],
     },
   },
@@ -23,18 +28,28 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Detail: Story = {};
-
-export const Eyebrow: Story = {
+export const Body: Story = {};
+export const Caption: Story = {
   args: {
-    text: "ASTERIA / WEBUI",
-    variant: "eyebrow",
+    text: "Secondary information",
+    variant: "caption",
   },
 };
-
-export const Title: Story = {
+export const SettingTitle: Story = {
   args: {
-    text: "WEBUI ONLINE",
-    variant: "title",
+    text: "World Seed",
+    variant: "setting-title",
+  },
+};
+export const Heading: Story = {
+  args: {
+    text: "World Settings",
+    variant: "heading",
+  },
+};
+export const ScreenTitle: Story = {
+  args: {
+    text: "Create World",
+    variant: "screen-title",
   },
 };

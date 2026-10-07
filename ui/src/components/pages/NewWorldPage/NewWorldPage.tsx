@@ -4,6 +4,12 @@ import {
   type FormEvent,
 } from "react";
 import type { WorldCreationState } from "../../../state/uiState";
+import { Button } from "../../atoms/Button/Button";
+import { Surface } from "../../atoms/Surface/Surface";
+import { Text } from "../../atoms/Text/Text";
+import { TextInput } from "../../atoms/TextInput/TextInput";
+import { CosmicBackground } from "../../organisms/CosmicBackground/CosmicBackground";
+import { ScreenShell } from "../../templates/ScreenShell/ScreenShell";
 import "./NewWorldPage.css";
 
 export type NewWorldPageProps = {
@@ -17,7 +23,8 @@ export function NewWorldPage({
   onCreate,
   onRandomize,
 }: NewWorldPageProps) {
-  const [seed, setSeed] = useState(state.seed);
+  const [seed, setSeed] =
+    useState(state.seed);
 
   useEffect(() => {
     setSeed(state.seed);
@@ -32,90 +39,105 @@ export function NewWorldPage({
     onCreate(seed.trim());
   };
 
-  return (
-    <section
-      className={[
-        "new-world",
-        state.generating
-          ? "new-world--generating"
-          : "",
-      ]
-        .filter(Boolean)
-        .join(" ")}
-    >
-      <div className="new-world__card">
-        <p className="new-world__eyebrow">
-          ASTERIA / WORLD CREATION
-        </p>
-        <h1 className="new-world__title">
-          {state.generating
-            ? "Gerando mundo"
-            : "Um novo mundo"}
-        </h1>
-        <p className="new-world__description">
-          {state.generating
-            ? "Preparando terreno, iluminação e regiões próximas ao spawn."
-            : "Explore uma Sphere inédita. Use uma seed para recriar exatamente o mesmo terreno."}
-        </p>
-        <form
-          className="new-world__form"
-          onSubmit={submit}
-          hidden={state.generating}
-        >
-          <label
-            className="new-world__label"
-            htmlFor="world-seed"
-          >
-            Seed do mundo
-          </label>
-          <div className="new-world__field">
-            <input
-              id="world-seed"
-              className="new-world__input"
-              type="text"
-              inputMode="numeric"
-              maxLength={20}
-              spellCheck={false}
-              autoComplete="off"
-              placeholder="Seed de 64 bits"
-              aria-describedby="world-seed-help"
-              value={seed}
-              disabled={state.pending}
-              onChange={(event) =>
-                setSeed(event.target.value)
-              }
-            />
-            <button
-              className="new-world__randomize"
-              type="button"
-              disabled={state.pending}
-              onClick={onRandomize}
-            >
-              Gerar outra
-            </button>
-          </div>
-          <p
-            id="world-seed-help"
-            className="new-world__help"
-          >
-            Um número entre 0 e 18446744073709551615. Você pode alterar a seed antes de criar.
-          </p>
-          <p
-            className="new-world__error"
-            role="alert"
-            hidden={!state.error}
-          >
-            {state.error ?? ""}
-          </p>
-          <button
+  const footer =
+    state.generating
+      ? undefined
+      : (
+          <Button
+            label="Criar mundo"
+            variant="primary"
+            size="menu"
             className="new-world__create"
-            type="submit"
             disabled={state.pending}
-          >
-            Criar mundo
-          </button>
-        </form>
+            onClick={() =>
+              onCreate(seed.trim())
+            }
+          />
+        );
+
+  return (
+    <ScreenShell
+      title={
+        state.generating
+          ? "Gerando mundo"
+          : "Criar mundo"
+      }
+      background={<CosmicBackground />}
+      footer={footer}
+      className={
+        state.generating
+          ? "new-world new-world--generating"
+          : "new-world"
+      }
+    >
+      <div className="new-world__content">
+        <Surface
+          variant="frosted"
+          className="new-world__panel"
+        >
+          {state.generating ? (
+            <div className="new-world__generating-copy">
+              <Text
+                text="Preparando terreno, iluminação e regiões próximas ao spawn."
+                variant="body"
+              />
+            </div>
+          ) : (
+            <form
+              className="new-world__form"
+              onSubmit={submit}
+            >
+              <div className="new-world__setting">
+                <Text
+                  text="Seed do mundo"
+                  variant="setting-title"
+                />
+                <Text
+                  text="Use uma seed para recriar exatamente o mesmo terreno."
+                  variant="caption"
+                />
+                <div className="new-world__seed-row">
+                  <TextInput
+                    id="world-seed"
+                    inputMode="numeric"
+                    maxLength={20}
+                    spellCheck={false}
+                    autoComplete="off"
+                    placeholder="Seed de 64 bits"
+                    aria-describedby="world-seed-help"
+                    value={seed}
+                    disabled={state.pending}
+                    invalid={Boolean(state.error)}
+                    onChange={(event) =>
+                      setSeed(event.target.value)
+                    }
+                  />
+                  <Button
+                    label="Gerar outra"
+                    disabled={state.pending}
+                    onClick={onRandomize}
+                    className="new-world__randomize"
+                  />
+                </div>
+                <span
+                  id="world-seed-help"
+                  className="new-world__help"
+                >
+                  Um número entre 0 e 18446744073709551615.
+                </span>
+                {state.error && (
+                  <span
+                    className="new-world__error"
+                    role="alert"
+                  >
+                    {state.error}
+                  </span>
+                )}
+              </div>
+            </form>
+          )}
+        </Surface>
       </div>
-    </section>
+    </ScreenShell>
   );
 }

@@ -1,0 +1,40 @@
+.cosmic-background {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      135deg,
+      var(--ui-color-cosmic-glow),
+      transparent 58%
+    ),
+    var(--ui-color-screen-background);
+}
+
+.cosmic-background__star {
+  position: absolute;
+  display: block;
+  animation-name: cosmic-star-pulse;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+  will-change: opacity, transform;
+}
+
+@keyframes cosmic-star-pulse {
+  0% {
+    opacity: 0.42;
+    transform: translate(-0.8px, 0.5px) scale(0.9);
+  }
+
+  55% {
+    opacity: 1;
+    transform: translate(0.5px, -0.4px) scale(1.08);
+  }
+
+  100% {
+    opacity: 0.58;
+    transform: translate(0.9px, 0.3px) scale(0.96);
+  }
+}

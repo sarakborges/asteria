@@ -1,0 +1,36 @@
+.ui-surface {
+  border: var(--ui-control-border-width) solid var(--ui-color-border);
+  border-radius: 0;
+}
+
+.ui-surface--frosted {
+  background:
+    linear-gradient(
+      to bottom,
+      var(--ui-color-frosted-highlight) 0%,
+      transparent 20%,
+      rgb(0 0 0 / 3.5%) 100%
+    ),
+    var(--ui-color-frosted-surface);
+  box-shadow: 0 8px 18px rgb(0 0 0 / 38%);
+}
+
+.ui-surface--hud {
+  background:
+    linear-gradient(
+      to bottom,
+      var(--ui-color-frosted-highlight) 0%,
+      transparent 20%,
+      rgb(0 0 0 / 3.5%) 100%
+    ),
+    var(--ui-color-hud-surface);
+  box-shadow: 0 3px 10px rgb(0 0 0 / 30%);
+}
+
+.ui-surface--inset {
+  background: var(--ui-color-surface-inset);
+}
+
+.ui-surface--elevated {
+  background: var(--ui-color-surface-elevated);
+}

@@ -3,17 +3,48 @@
 }
 
 .ui-text--eyebrow,
-.ui-text--detail {
-  font-size: var(--ui-font-size-detail);
-  letter-spacing: var(--ui-letter-spacing-detail);
+.ui-text--detail,
+.ui-text--caption {
   color: var(--ui-color-muted);
 }
 
 .ui-text--eyebrow {
+  font-size: var(--ui-font-size-caption);
+  font-weight: 500;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
-.ui-text--title {
-  font-size: var(--ui-font-size-title);
-  letter-spacing: 0.04em;
+.ui-text--detail {
+  font-size: var(--ui-font-size-detail);
+  letter-spacing: var(--ui-letter-spacing-detail);
+}
+
+.ui-text--caption {
+  font-size: var(--ui-font-size-caption);
+  letter-spacing: 0.01em;
+  color: var(--ui-color-subtle);
+}
+
+.ui-text--body {
+  font-size: var(--ui-font-size-body);
+  font-weight: 400;
+}
+
+.ui-text--title,
+.ui-text--setting-title {
+  font-size: var(--ui-font-size-setting-title);
+  font-weight: 600;
+}
+
+.ui-text--heading {
+  font-size: var(--ui-font-size-heading);
+  font-weight: 500;
+  letter-spacing: 0.004em;
+}
+
+.ui-text--screen-title {
+  font-size: var(--ui-font-size-screen-title);
+  font-weight: 600;
+  letter-spacing: 0.006em;
 }

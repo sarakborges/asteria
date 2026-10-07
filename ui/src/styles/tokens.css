@@ -1,35 +1,84 @@
 :root {
-  --ui-color-text: #f4f7f8;
-  --ui-color-muted: #9da8b2;
+  --ui-color-screen-background: #0b0b0f;
+  --ui-color-frosted-surface: #1d1b25;
+  --ui-color-frosted-highlight: rgb(148 107 199 / 8%);
+  --ui-color-cosmic-glow: rgb(87 56 133 / 10%);
+  --ui-color-hud-surface: rgb(18 16 23 / 96%);
+  --ui-color-surface-elevated: #282431;
+  --ui-color-surface-inset: #0a090d;
+
+  --ui-color-text: #f0f0f5;
+  --ui-color-muted: #b3adc2;
+  --ui-color-subtle: rgb(179 173 194 / 68%);
+
+  --ui-color-accent: #7a4db8;
+  --ui-color-accent-hover: #9461d6;
+  --ui-color-accent-pressed: #613894;
+  --ui-color-accent-strong: #b894fa;
+  --ui-color-accent-soft: rgb(107 69 158 / 72%);
+  --ui-color-accent-glow: rgb(184 148 250 / 22%);
+
   --ui-color-success: #8ed27b;
   --ui-color-warning: #e3c86d;
-  --ui-color-danger: #dc6f72;
+  --ui-color-danger: #c73333;
+  --ui-color-danger-hover: #db4747;
+  --ui-color-danger-pressed: #9e2424;
   --ui-color-health: #d95f67;
   --ui-color-stamina: #d9b85f;
-  --ui-color-accent: #8f6bd8;
-  --ui-color-accent-strong: #c3a9ff;
-  --ui-color-accent-glow: rgb(143 107 216 / 28%);
+
+  --ui-color-border: rgb(140 128 168 / 62%);
+  --ui-color-border-strong: rgb(209 199 230 / 88%);
+  --ui-color-border-focus: rgb(184 148 250 / 98%);
+
+  --ui-color-slider-track: #332e3d;
+  --ui-color-slider-thumb: #e0e0e6;
+
   --ui-color-crosshair: rgb(255 255 255 / 90%);
   --ui-color-shadow: rgb(0 0 0 / 48%);
   --ui-color-meter-track: rgb(0 0 0 / 42%);
-  --ui-color-slot: rgb(21 19 29 / 84%);
-  --ui-color-slot-selected: rgb(42 33 59 / 94%);
-  --ui-color-hotbar: rgb(11 10 16 / 72%);
-  --ui-color-border: rgb(255 255 255 / 12%);
-  --ui-color-border-strong: rgb(255 255 255 / 22%);
-  --ui-color-panel: rgb(10 13 16 / 78%);
-  --ui-color-control: rgb(255 255 255 / 8%);
-  --ui-color-control-hover: rgb(255 255 255 / 14%);
-  --ui-radius-sm: 6px;
-  --ui-radius-md: 8px;
+
+  --ui-color-slot: rgb(18 16 23 / 96%);
+  --ui-color-slot-selected: rgb(107 69 158 / 72%);
+  --ui-color-hotbar: rgb(18 16 23 / 96%);
+  --ui-color-panel: rgb(18 16 23 / 96%);
+  --ui-color-control: #282431;
+  --ui-color-control-hover: #7a4db8;
+
+  --ui-control-border-width: 2px;
+  --ui-control-height-compact: 44px;
+  --ui-control-height-menu: 54px;
+  --ui-menu-button-width: 470px;
+
+  --ui-screen-content-width: 1120px;
+  --ui-screen-header-height: 116px;
+  --ui-screen-footer-height: 104px;
+  --ui-screen-action-gap: 18px;
+  --ui-screen-body-padding-x: 32px;
+  --ui-screen-body-padding-y: 18px;
+
+  --ui-settings-group-gap: 18px;
+  --ui-settings-setting-gap: 8px;
+  --ui-surface-padding: 18px;
+  --ui-input-padding-x: 14px;
+
+  --ui-radius-sm: 0;
+  --ui-radius-md: 0;
+
   --ui-space-1: 6px;
-  --ui-space-2: 10px;
-  --ui-space-3: 14px;
-  --ui-space-4: 16px;
+  --ui-space-2: 8px;
+  --ui-space-3: 12px;
+  --ui-space-4: 18px;
   --ui-space-5: 24px;
+
   --ui-font-family: "Winky Rough Variable", ui-sans-serif, system-ui, sans-serif;
-  --ui-font-size-detail: 11px;
-  --ui-font-size-title: 18px;
-  --ui-letter-spacing-detail: 0.08em;
+  --ui-font-size-caption: 13px;
+  --ui-font-size-detail: 15px;
+  --ui-font-size-body: 16px;
+  --ui-font-size-button: 18px;
+  --ui-font-size-setting-title: 19px;
+  --ui-font-size-title: 19px;
+  --ui-font-size-heading: 26px;
+  --ui-font-size-screen-title: 36px;
+  --ui-letter-spacing-detail: 0;
   --ui-hotbar-slot-size: 46px;
 }

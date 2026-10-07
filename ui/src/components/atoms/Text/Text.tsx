@@ -3,7 +3,12 @@ import "./Text.css";
 export type TextVariant =
   | "eyebrow"
   | "title"
-  | "detail";
+  | "detail"
+  | "caption"
+  | "body"
+  | "setting-title"
+  | "heading"
+  | "screen-title";
 
 export type TextProps = {
   text: string;
@@ -26,7 +31,12 @@ export function Text({
     .filter(Boolean)
     .join(" ");
 
-  if (variant === "title") {
+  if (
+    variant === "title" ||
+    variant === "setting-title" ||
+    variant === "heading" ||
+    variant === "screen-title"
+  ) {
     return (
       <strong
         className={classes}

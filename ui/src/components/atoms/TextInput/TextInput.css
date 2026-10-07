@@ -1,0 +1,32 @@
+.ui-text-input {
+  width: 100%;
+  min-width: 0;
+  height: var(--ui-control-height-compact);
+  padding-inline: var(--ui-input-padding-x);
+  border: var(--ui-control-border-width) solid var(--ui-color-border);
+  border-radius: 0;
+  outline: none;
+  color: var(--ui-color-text);
+  font: inherit;
+  font-size: var(--ui-font-size-button);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  background: var(--ui-color-surface-inset);
+}
+
+.ui-text-input::placeholder {
+  color: var(--ui-color-subtle);
+}
+
+.ui-text-input:focus {
+  border-color: var(--ui-color-border-focus);
+}
+
+.ui-text-input--invalid {
+  border-color: var(--ui-color-danger);
+}
+
+.ui-text-input:disabled {
+  opacity: 0.45;
+  cursor: default;
+}

@@ -10,7 +10,7 @@ const meta = {
   args: {
     state: {
       visible: true,
-      seed: "18446744073709551615",
+      seed: "181960897289965",
       pending: false,
       generating: false,
       error: null,
