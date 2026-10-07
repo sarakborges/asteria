@@ -92,13 +92,12 @@ public sealed class ConnectedWaterStructureTests
                 DimensionId.Overworld);
         var mouthRoot =
             Assert.Single(
-                overworld
-                    .GeneratedSurfaceStructures
-                    .Where(root =>
-                        string.Equals(
-                            root.Structure,
-                            "asteria:river_ocean_mouth",
-                            StringComparison.Ordinal)));
+                overworld.GeneratedSurfaceStructures,
+                root =>
+                    string.Equals(
+                        root.Structure,
+                        "asteria:river_ocean_mouth",
+                        StringComparison.Ordinal));
         Assert.Equal(
             DimensionGeneratedSurfaceStructurePlacement.BiomeMargin,
             mouthRoot.Placement);
