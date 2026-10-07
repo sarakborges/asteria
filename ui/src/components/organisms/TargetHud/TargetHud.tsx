@@ -1,3 +1,4 @@
+import { useLocalization } from "../../../localization/LocalizationProvider";
 import type { TargetHudState } from "../../../state/uiState";
 import { abbreviateContentId } from "../../../presentation/formatters";
 import "./TargetHud.css";
@@ -9,6 +10,7 @@ export type TargetHudProps = {
 export function TargetHud({
   state,
 }: TargetHudProps) {
+  const { contentName } = useLocalization();
   if (!state) return null;
 
   return (
@@ -21,7 +23,7 @@ export function TargetHud({
         </span>
       </div>
       <div className="target-hud__copy">
-        <strong>{state.name}</strong>
+        <strong>{state.kind === "block" || state.kind === "fluid" ? contentName(state.id) : state.name}</strong>
         {state.details.map(
           (detail, index) => (
             <span key={index}>

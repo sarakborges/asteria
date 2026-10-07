@@ -1,3 +1,4 @@
+import { useLocalization } from "../../../localization/LocalizationProvider";
 import type { CurrentStationView } from "../../../presentation/inventoryModels";
 import { ItemGlyph } from "../../atoms/ItemGlyph/ItemGlyph";
 import { Surface } from "../../atoms/Surface/Surface";
@@ -11,13 +12,14 @@ export type CurrentStationPanelProps = {
 export function CurrentStationPanel({
   station,
 }: CurrentStationPanelProps) {
+  const { t } = useLocalization();
   return (
     <Surface
       variant="hud"
       className="current-station-panel"
     >
       <Text
-        text="Current Station"
+        text={t("ui.currentStation")}
         variant="heading"
       />
 

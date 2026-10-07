@@ -1,0 +1,218 @@
+{
+  "asteria:basalt": {
+    "/name": "Basalt"
+  },
+  "asteria:basalt_bricks": {
+    "/name": "Basalt Bricks"
+  },
+  "asteria:basalt_cobble": {
+    "/name": "Basalt Cobble"
+  },
+  "asteria:basalt_polished": {
+    "/name": "Polished Basalt"
+  },
+  "asteria:basalt_tiles": {
+    "/name": "Basalt Tiles"
+  },
+  "asteria:bricks": {
+    "/name": "Bricks"
+  },
+  "asteria:clay": {
+    "/name": "Clay"
+  },
+  "asteria:dirt": {
+    "/name": "Dirt"
+  },
+  "asteria:glass": {
+    "/name": "Glass"
+  },
+  "asteria:grass": {
+    "/name": "Grass"
+  },
+  "asteria:grass_block": {
+    "/name": "Grass Block"
+  },
+  "asteria:gravel": {
+    "/name": "Gravel"
+  },
+  "asteria:ice": {
+    "/name": "Ice"
+  },
+  "asteria:ice_bricks": {
+    "/name": "Ice Bricks"
+  },
+  "asteria:ice_polished": {
+    "/name": "Polished Ice"
+  },
+  "asteria:ice_tiles": {
+    "/name": "Ice Tiles"
+  },
+  "asteria:lamp": {
+    "/name": "Lamp"
+  },
+  "asteria:leaf_enchanted": {
+    "/name": "Enchanted Leaf"
+  },
+  "asteria:leaf_oak": {
+    "/name": "Oak Leaf"
+  },
+  "asteria:leaf_willow": {
+    "/name": "Willow Leaf"
+  },
+  "asteria:leaf_world_tree": {
+    "/name": "World Tree Leaf"
+  },
+  "asteria:log_enchanted": {
+    "/name": "Enchanted Log"
+  },
+  "asteria:log_enchanted_hollow": {
+    "/name": "Hollow Enchanted Log"
+  },
+  "asteria:log_enchanted_stripped": {
+    "/name": "Stripped Enchanted Log"
+  },
+  "asteria:log_enchanted_stripped_hollow": {
+    "/name": "Stripped Hollow Enchanted Log"
+  },
+  "asteria:log_oak": {
+    "/name": "Oak Log"
+  },
+  "asteria:log_oak_hollow": {
+    "/name": "Hollow Oak Log"
+  },
+  "asteria:log_oak_stripped": {
+    "/name": "Stripped Oak Log"
+  },
+  "asteria:log_oak_stripped_hollow": {
+    "/name": "Stripped Hollow Oak Log"
+  },
+  "asteria:log_willow": {
+    "/name": "Willow Log"
+  },
+  "asteria:log_willow_hollow": {
+    "/name": "Hollow Willow Log"
+  },
+  "asteria:log_willow_stripped": {
+    "/name": "Stripped Willow Log"
+  },
+  "asteria:log_willow_stripped_hollow": {
+    "/name": "Stripped Hollow Willow Log"
+  },
+  "asteria:log_world_tree": {
+    "/name": "World Tree Log"
+  },
+  "asteria:log_world_tree_hollow": {
+    "/name": "Hollow World Tree Log"
+  },
+  "asteria:log_world_tree_stripped": {
+    "/name": "Stripped World Tree Log"
+  },
+  "asteria:log_world_tree_stripped_hollow": {
+    "/name": "Stripped Hollow World Tree Log"
+  },
+  "asteria:mud": {
+    "/name": "Mud"
+  },
+  "asteria:mud_bricks": {
+    "/name": "Mud Bricks"
+  },
+  "asteria:mud_dry": {
+    "/name": "Dry Mud"
+  },
+  "asteria:mud_polished": {
+    "/name": "Polished Mud"
+  },
+  "asteria:mud_tiles": {
+    "/name": "Mud Tiles"
+  },
+  "asteria:mushroom_blue": {
+    "/name": "Blue Mushroom"
+  },
+  "asteria:mushroom_brown": {
+    "/name": "Brown Mushroom"
+  },
+  "asteria:mushroom_green": {
+    "/name": "Green Mushroom"
+  },
+  "asteria:mushroom_pink": {
+    "/name": "Pink Mushroom"
+  },
+  "asteria:mushroom_purple": {
+    "/name": "Purple Mushroom"
+  },
+  "asteria:mushroom_red": {
+    "/name": "Red Mushroom"
+  },
+  "asteria:mushroom_yellow": {
+    "/name": "Yellow Mushroom"
+  },
+  "asteria:planks_enchanted": {
+    "/name": "Enchanted Planks"
+  },
+  "asteria:planks_oak": {
+    "/name": "Oak Planks"
+  },
+  "asteria:planks_willow": {
+    "/name": "Willow Planks"
+  },
+  "asteria:planks_world_tree": {
+    "/name": "World Tree Planks"
+  },
+  "asteria:sand": {
+    "/name": "Sand"
+  },
+  "asteria:sand_layer": {
+    "/name": "Sand Layer"
+  },
+  "asteria:sandstone": {
+    "/name": "Sandstone"
+  },
+  "asteria:sandstone_bricks": {
+    "/name": "Sandstone Bricks"
+  },
+  "asteria:sandstone_polished": {
+    "/name": "Polished Sandstone"
+  },
+  "asteria:sandstone_tiles": {
+    "/name": "Sandstone Tiles"
+  },
+  "asteria:snow": {
+    "/name": "Snow"
+  },
+  "asteria:snow_bricks": {
+    "/name": "Snow Bricks"
+  },
+  "asteria:snow_layer": {
+    "/name": "Snow Layer"
+  },
+  "asteria:snow_polished": {
+    "/name": "Polished Snow"
+  },
+  "asteria:snow_tiles": {
+    "/name": "Snow Tiles"
+  },
+  "asteria:sphere_shell": {
+    "/name": "Sphere Shell"
+  },
+  "asteria:stone": {
+    "/name": "Stone"
+  },
+  "asteria:stone_bricks": {
+    "/name": "Stone Bricks"
+  },
+  "asteria:stone_cobble": {
+    "/name": "Stone Cobble"
+  },
+  "asteria:stone_polished": {
+    "/name": "Polished Stone"
+  },
+  "asteria:stone_tiles": {
+    "/name": "Stone Tiles"
+  },
+  "asteria:storage_box": {
+    "/name": "Storage Box"
+  },
+  "asteria:terracotta": {
+    "/name": "Terracotta"
+  }
+}

@@ -1,4 +1,4 @@
-import { displayContentName } from "../../../presentation/formatters";
+import { useLocalization } from "../../../localization/LocalizationProvider";
 import type { HotbarState } from "../../../state/uiState";
 import { HotbarSlot } from "../../molecules/HotbarSlot/HotbarSlot";
 import "./Hotbar.css";
@@ -14,16 +14,14 @@ export function Hotbar({
   state,
   slotCount = DEFAULT_SLOT_COUNT,
 }: HotbarProps) {
+  const { contentName } = useLocalization();
   const selectedIndex =
     normalizeSelectedIndex(
       state.selectedIndex,
       slotCount,
     );
-  const selectedName =
-    state.selectedName?.trim() ??
-    displayContentName(
-      state.slots[selectedIndex ?? -1]?.id ?? "",
-    );
+  const selectedId = state.slots[selectedIndex ?? -1]?.id;
+  const selectedName = selectedId ? contentName(selectedId) : (state.selectedName?.trim() ?? "");
 
   return (
     <section className="hotbar">

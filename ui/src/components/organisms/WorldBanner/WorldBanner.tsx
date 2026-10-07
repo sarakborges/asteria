@@ -1,4 +1,4 @@
-import { displayContentName } from "../../../presentation/formatters";
+import { useLocalization } from "../../../localization/LocalizationProvider";
 import type { WorldBannerState } from "../../../state/uiState";
 import { Compass } from "../../molecules/Compass/Compass";
 import "./WorldBanner.css";
@@ -10,25 +10,21 @@ export type WorldBannerProps = {
 export function WorldBanner({
   state,
 }: WorldBannerProps) {
+  const { contentName, t } = useLocalization();
   if (!state) return null;
 
   return (
     <section className="world-banner">
       <div className="world-banner__identity">
         <strong className="world-banner__name">
-          {displayContentName(state.sphere)}
+          {contentName(state.sphere)}
         </strong>
       </div>
       <span className="world-banner__biome">
-        {displayContentName(state.biome)}
+        {contentName(state.biome)}
       </span>
       <div className="world-banner__coordinates">
-        {"X: " +
-          Math.floor(state.x) +
-          " | Z: " +
-          Math.floor(state.z) +
-          " | Y: " +
-          Math.floor(state.y)}
+        {t("hud.coordinates", { x: Math.floor(state.x), z: Math.floor(state.z), y: Math.floor(state.y) })}
       </div>
       <Compass heading={state.heading} />
     </section>

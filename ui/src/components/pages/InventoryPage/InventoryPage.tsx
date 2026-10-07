@@ -1,3 +1,4 @@
+import { useLocalization } from "../../../localization/LocalizationProvider";
 import type {
   CharacterInfoView,
   CraftingRecipeView,
@@ -104,10 +105,11 @@ function InventoryViewTabs({
     creative: boolean,
   ): void;
 }) {
+  const { t } = useLocalization();
   return (
     <aside className="inventory-page__tabs">
       <Button
-        label="Inventory"
+        label={t("ui.inventory")}
         variant={
           creative
             ? "normal"
@@ -120,7 +122,7 @@ function InventoryViewTabs({
         }
       />
       <Button
-        label="Creative"
+        label={t("ui.creative")}
         variant={
           creative
             ? "primary"

@@ -1,3 +1,4 @@
+import { useLocalization } from "../../../localization/LocalizationProvider";
 import type { CharacterInfoView } from "../../../presentation/inventoryModels";
 import { InventorySlot } from "../../molecules/InventorySlot/InventorySlot";
 import { Surface } from "../../atoms/Surface/Surface";
@@ -11,6 +12,7 @@ export type CharacterInfoPanelProps = {
 export function CharacterInfoPanel({
   state,
 }: CharacterInfoPanelProps) {
+  const { t, contentName } = useLocalization();
   const maximum =
     state.healthMaximum > 0
       ? state.healthMaximum
@@ -30,7 +32,7 @@ export function CharacterInfoPanel({
       className="character-info-panel"
     >
       <div className="character-info-panel__preview">
-        <span aria-hidden="true">PLAYER</span>
+        <span aria-hidden="true">{t("ui.player")}</span>
       </div>
 
       <div className="character-info-panel__details">
@@ -41,7 +43,7 @@ export function CharacterInfoPanel({
 
         <section className="character-info-panel__section">
           <Text
-            text="Health"
+            text={t("ui.health")}
             variant="setting-title"
           />
           <div className="character-info-panel__health">
@@ -68,7 +70,7 @@ export function CharacterInfoPanel({
 
         <section className="character-info-panel__section">
           <Text
-            text="Armor"
+            text={t("ui.armor")}
             variant="setting-title"
           />
           <div className="character-info-panel__equipment">
@@ -89,16 +91,16 @@ export function CharacterInfoPanel({
                   <div className="character-info-panel__equipment-copy">
                     <Text
                       text={
-                        entry.item
-                          ?.name ??
-                        entry.emptyLabel
+                        entry.item?.id
+                          ? contentName(entry.item.id)
+                          : entry.emptyLabel
                       }
                       variant="caption"
                     />
                     <Text
                       text={
                         entry.effectLabel ??
-                        "No effect"
+                        t("ui.noEffect")
                       }
                       variant="caption"
                     />

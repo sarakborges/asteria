@@ -1,3 +1,4 @@
+import { useLocalization } from "../../../localization/LocalizationProvider";
 import type { ReactNode } from "react";
 import { Button } from "../../atoms/Button/Button";
 import { Surface } from "../../atoms/Surface/Surface";
@@ -25,13 +26,14 @@ export function SettingsPage({
   onSelect,
   onBack,
 }: SettingsPageProps) {
+  const { t } = useLocalization();
   return (
     <ScreenShell
-      title="Settings"
+      title={t("common.settings")}
       background={<CosmicBackground />}
       footer={
         <Button
-          label="Back"
+          label={t("ui.back")}
           size="menu"
           className="settings-page__back"
           onClick={onBack}

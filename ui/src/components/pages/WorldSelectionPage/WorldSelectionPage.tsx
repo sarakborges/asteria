@@ -1,3 +1,4 @@
+import { useLocalization } from "../../../localization/LocalizationProvider";
 import { Button } from "../../atoms/Button/Button";
 import { CosmicBackground } from "../../organisms/CosmicBackground/CosmicBackground";
 import {
@@ -26,20 +27,21 @@ export function WorldSelectionPage({
   onLoad,
   onDelete,
 }: WorldSelectionPageProps) {
+  const { t } = useLocalization();
   return (
     <ScreenShell
-      title="Worlds"
+      title={t("ui.worlds")}
       background={<CosmicBackground />}
       footer={
         <>
           <Button
-            label="Back"
+            label={t("ui.back")}
             size="menu"
             className="world-selection__footer-button"
             onClick={onBack}
           />
           <Button
-            label="New World"
+            label={t("ui.newWorld")}
             variant="primary"
             size="menu"
             className="world-selection__footer-button"

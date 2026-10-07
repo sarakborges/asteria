@@ -1,3 +1,4 @@
+import { useLocalization } from "../../../localization/LocalizationProvider";
 import type {
   ChatMessageView,
   ChatSuggestionView,
@@ -28,6 +29,7 @@ export function ChatPanel({
   onSubmit,
   onMessageAction,
 }: ChatPanelProps) {
+  const { t } = useLocalization();
   if (!visible) return null;
 
   return (
@@ -74,7 +76,7 @@ export function ChatPanel({
           0 && (
           <div className="chat-panel__suggestions">
             <span className="chat-panel__suggestion-hint">
-              Use ↑ and ↓ to choose an option. Press Tab to complete it.
+              {t("ui.chatHint")}
             </span>
             {suggestions
               .slice(0, 7)
@@ -131,7 +133,7 @@ export function ChatPanel({
           <TextInput
             value={draft}
             maxLength={512}
-            aria-label="Chat message"
+            aria-label={t("ui.chatMessage")}
             onChange={(event) =>
               onDraftChange?.(
                 event.target.value,

@@ -1,3 +1,4 @@
+import { useLocalization } from "../../../localization/LocalizationProvider";
 import type { WorldClockState } from "../../../state/uiState";
 import "./WorldClock.css";
 
@@ -8,12 +9,13 @@ export type WorldClockProps = {
 export function WorldClock({
   state,
 }: WorldClockProps) {
+  const { t } = useLocalization();
   if (!state) return null;
 
   return (
     <div className="world-clock">
       <span>
-        Day {state.day}
+        {t("ui.day", { day: state.day })}
       </span>
       <span>
         {String(

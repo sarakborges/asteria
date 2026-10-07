@@ -1,3 +1,4 @@
+import { useLocalization } from "../../../localization/LocalizationProvider";
 import type {
   CraftingRecipeView,
 } from "../../../presentation/inventoryModels";
@@ -22,6 +23,7 @@ export function CraftingPanel({
   onSelectRecipe,
   onCraft,
 }: CraftingPanelProps) {
+  const { t, contentName } = useLocalization();
   const selected =
     recipes.find(
       (recipe) =>
@@ -37,13 +39,13 @@ export function CraftingPanel({
     >
       <section className="crafting-panel__column crafting-panel__column--recipes">
         <Text
-          text="Available Recipes"
+          text={t("ui.recipes")}
           variant="heading"
         />
         <div className="crafting-panel__recipe-list">
           {recipes.length === 0 && (
             <Text
-              text="No recipes available."
+              text={t("ui.noRecipes")}
               variant="detail"
             />
           )}
@@ -84,16 +86,10 @@ export function CraftingPanel({
                   </span>
                   <span className="crafting-panel__recipe-copy">
                     <strong>
-                      {recipe.result
-                        .name ??
-                        recipe.result
-                          .id}
+                      {contentName(recipe.result.id)}
                     </strong>
                     <span>
-                      Creates ×
-                      {
-                        recipe.outputQuantity
-                      }
+                      {t("ui.creates", { quantity: recipe.outputQuantity })}
                     </span>
                   </span>
                 </button>
@@ -105,7 +101,7 @@ export function CraftingPanel({
 
       <section className="crafting-panel__column crafting-panel__column--selected">
         <Text
-          text="Selected Recipe"
+          text={t("ui.selectedRecipe")}
           variant="heading"
         />
 
@@ -122,22 +118,18 @@ export function CraftingPanel({
               </span>
               <div className="crafting-panel__result-copy">
                 <Text
-                  text="RESULT"
+                  text={t("ui.result")}
                   variant="caption"
                 />
                 <Text
                   text={
-                    selected.result
-                      .name ??
-                    selected.result
-                      .id
+                    contentName(selected.result.id)
                   }
                   variant="setting-title"
                 />
                 <Text
                   text={
-                    "Output ×" +
-                    selected.outputQuantity
+                    t("ui.output", { quantity: selected.outputQuantity })
                   }
                   variant="detail"
                 />
@@ -145,7 +137,7 @@ export function CraftingPanel({
             </div>
 
             <Text
-              text="Ingredients"
+              text={t("ui.ingredients")}
               variant="setting-title"
             />
 
@@ -181,15 +173,10 @@ export function CraftingPanel({
                       </span>
                       <div className="crafting-panel__ingredient-copy">
                         <strong>
-                          {ingredient
-                            .item
-                            .name ??
-                            ingredient
-                              .item
-                              .id}
+                          {contentName(ingredient.item.id)}
                         </strong>
                         <span>
-                          Material
+                          {t("ui.material")}
                         </span>
                       </div>
                       <strong
@@ -217,7 +204,7 @@ export function CraftingPanel({
             </div>
 
             <Button
-              label="Craft Item"
+              label={t("ui.craft")}
               variant={
                 selected.craftable
                   ? "primary"
@@ -238,15 +225,15 @@ export function CraftingPanel({
               text={
                 status ??
                 (selected.craftable
-                  ? "All materials available."
-                  : "Missing required materials.")
+                  ? t("ui.allMaterials")
+                  : t("ui.missingMaterials"))
               }
               variant="caption"
             />
           </>
         ) : (
           <Text
-            text="Select a recipe."
+            text={t("ui.selectRecipe")}
             variant="detail"
           />
         )}
