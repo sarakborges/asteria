@@ -18,6 +18,17 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
+      - name: Reject Godot metadata inside packs
+        shell: bash
+        run: |
+          forbidden="$(
+            find packs               \( -type f \(                 -name '*.import' -o                 -name '*.uid' -o                 -name '*.tres' -o                 -name '*.res' -o                 -name '*.tscn'               \) -o -type d -name '.godot' \)               -print
+          )"
+          if [ -n "$forbidden" ]; then
+            printf 'Godot-specific metadata/resources are forbidden inside packs:\n%s\n' "$forbidden"
+            exit 1
+          fi
+
       - name: Build Godot C# project
         run: dotnet build Asteria.csproj --configuration Release
 
