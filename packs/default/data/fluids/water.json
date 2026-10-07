@@ -12,7 +12,7 @@
     "horizontalAcceleration": 10,
     "sinkSpeed": 0.9,
     "ascendSpeed": 2.4,
-    "surfaceExitSpeed": 5,
+    "surfaceExitSpeed": 8,
     "verticalAcceleration": 10,
     "surfaceExitMargin": 0.35
   }
