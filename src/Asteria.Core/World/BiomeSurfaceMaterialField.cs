@@ -65,6 +65,22 @@ public sealed class BiomeSurfaceMaterialField
             depth);
     }
 
+    public BiomeSurfaceMaterialColumn SampleColumn(
+        BiomeSample sample,
+        int worldX,
+        int worldZ)
+    {
+        ArgumentNullException.ThrowIfNull(sample);
+
+        if (!_rules.TryGetValue(sample.Primary, out var rule))
+        {
+            throw new KeyNotFoundException(
+                $"Surface biome {sample.Primary} has no material rule.");
+        }
+
+        return rule.SampleColumn(_seed, worldX, worldZ);
+    }
+
     private sealed class MaterialRule
     {
         private MaterialRule(
@@ -98,6 +114,25 @@ public sealed class BiomeSurfaceMaterialField
 
             throw new InvalidOperationException(
                 "Validated surface material profile must end with a core layer.");
+        }
+
+        public BiomeSurfaceMaterialColumn SampleColumn(
+            ulong seed,
+            int worldX,
+            int worldZ)
+        {
+            var depths = new uint[Layers.Length];
+            var blocks = new BlockRuntimeId[Layers.Length];
+
+            for (var index = 0; index < Layers.Length; index++)
+            {
+                var layer = Layers[index];
+                depths[index] =
+                    layer.EndDepthExclusive ?? uint.MaxValue;
+                blocks[index] = layer.Resolve(seed, worldX, worldZ);
+            }
+
+            return new BiomeSurfaceMaterialColumn(depths, blocks);
         }
 
         public static MaterialRule Create(
@@ -487,5 +522,38 @@ public sealed class BiomeSurfaceMaterialField
                         other.BlockIndex);
             }
         }
+    }
+}
+
+
+/// <summary>
+/// A resolved X/Z material profile; patch decisions are constant for an
+/// authored layer and are evaluated once, not for every voxel depth.
+/// </summary>
+public sealed class BiomeSurfaceMaterialColumn
+{
+    private readonly uint[] _endDepths;
+    private readonly BlockRuntimeId[] _blocks;
+
+    internal BiomeSurfaceMaterialColumn(
+        uint[] endDepths,
+        BlockRuntimeId[] blocks)
+    {
+        _endDepths = endDepths;
+        _blocks = blocks;
+    }
+
+    public BlockRuntimeId BlockAt(uint depth)
+    {
+        for (var i = 0; i < _endDepths.Length; i++)
+        {
+            if (depth < _endDepths[i])
+            {
+                return _blocks[i];
+            }
+        }
+
+        throw new InvalidOperationException(
+            "Validated surface material profile must end with a core layer.");
     }
 }

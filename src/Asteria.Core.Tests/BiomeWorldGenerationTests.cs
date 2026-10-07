@@ -273,6 +273,107 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
+    public void SurfaceColumnBatchMatchesScalarAtNegativeCoordinates()
+    {
+        var definitions = StandardBiomeDefinitions();
+        var dimension = TestDimension(definitions.Select(x => x.Id));
+        var biomes = new BiomeField(
+            947UL, dimension, new BiomeRegistry(definitions));
+        var terrain = new SurfaceTerrainField(
+            947UL, dimension, biomes, definitions);
+        var column = terrain.SampleColumn(-2, 1);
+        var originX = -2 * Chunk.Size;
+        var originZ = Chunk.Size;
+        var minimum = int.MaxValue;
+        var maximum = int.MinValue;
+
+        for (var z = 0; z < Chunk.Size; z++)
+        {
+            for (var x = 0; x < Chunk.Size; x++)
+            {
+                var worldX = originX + x;
+                var worldZ = originZ + z;
+                var height = terrain.SurfaceHeight(worldX, worldZ);
+                Assert.Equal(height, column.HeightAt(x, z));
+                Assert.Equal(
+                    biomes.Sample(worldX, worldZ).Primary,
+                    column.BiomeAt(x, z).Primary);
+                minimum = Math.Min(minimum, height);
+                maximum = Math.Max(maximum, height);
+            }
+        }
+
+        Assert.Equal(minimum, column.Range.MinimumWorldY);
+        Assert.Equal(maximum, column.Range.MaximumWorldY);
+    }
+
+    [Fact]
+    public void SurfaceColumnCacheIsBoundedAndEvictionCannotChangeResults()
+    {
+        var definitions = new[] { TestBiome("asteria:test/only") };
+        var dimension = TestDimension(definitions.Select(x => x.Id));
+        var biomes = new BiomeField(
+            17UL, dimension, new BiomeRegistry(definitions));
+        var terrain = new SurfaceTerrainField(
+            17UL, dimension, biomes, definitions);
+        var cache = new SurfaceTerrainColumnCache(terrain, capacity: 2);
+        var first = cache.Get(-1, 0);
+        var second = cache.Get(0, 0);
+
+        Assert.Same(first, cache.Get(-1, 0));
+        _ = cache.Get(1, 0);
+        Assert.Equal(2, cache.CachedColumnCount);
+        Assert.Same(first, cache.Get(-1, 0));
+
+        var restored = cache.Get(0, 0);
+        Assert.NotSame(second, restored);
+        for (var z = 0; z < Chunk.Size; z++)
+        {
+            for (var x = 0; x < Chunk.Size; x++)
+            {
+                Assert.Equal(
+                    second.HeightAt(x, z),
+                    restored.HeightAt(x, z));
+                Assert.Equal(
+                    second.BiomeAt(x, z).Influences.ToArray(),
+                    restored.BiomeAt(x, z).Influences.ToArray());
+            }
+        }
+    }
+
+    [Fact]
+    public void ResolvedMaterialColumnMatchesScalarDepthAndPatchQueries()
+    {
+        var blocks = LoadDefaultBlocks();
+        var biomes = LoadDefaultBiomes();
+        var materials = new BiomeSurfaceMaterialField(
+            123UL,
+            [
+                biomes.Get("asteria:overworld/swamp"),
+            ],
+            blocks);
+        var sample = new BiomeSample(
+            "asteria:overworld/swamp",
+            [
+                new BiomeInfluence("asteria:overworld/swamp", 1f),
+            ]);
+
+        for (var z = -17; z <= 17; z += 17)
+        {
+            for (var x = -17; x <= 17; x += 17)
+            {
+                var column = materials.SampleColumn(sample, x, z);
+                for (uint depth = 0; depth < 80; depth++)
+                {
+                    Assert.Equal(
+                        materials.BlockAt(sample, x, z, depth),
+                        column.BlockAt(depth));
+                }
+            }
+        }
+    }
+
+    [Fact]
     public void TerrainHeightRemainsContinuousAcrossNegativeNoiseLatticeBoundary()
     {
         var blocks =
