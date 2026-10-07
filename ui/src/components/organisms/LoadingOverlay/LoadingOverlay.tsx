@@ -1,3 +1,4 @@
+import { useLocalization } from "../../../localization/LocalizationProvider";
 import type { LoadingState } from "../../../state/uiState";
 import { Text } from "../../atoms/Text/Text";
 import "./LoadingOverlay.css";
@@ -9,6 +10,7 @@ export type LoadingOverlayProps = {
 export function LoadingOverlay({
   state,
 }: LoadingOverlayProps) {
+  const { t } = useLocalization();
   if (!state) return null;
 
   const hasProgress = state.total > 0;
@@ -21,11 +23,11 @@ export function LoadingOverlay({
     >
       <div className="loading-overlay__card">
         <Text
-          text="ASTERIA / LOADING"
+          text={t("loading.asteria")}
           variant="eyebrow"
         />
         <h1 className="loading-overlay__title">
-          Preparando Sphere
+          {t("loading.preparingSphere")}
         </h1>
         <Text
           text={state.phaseLabel}

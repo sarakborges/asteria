@@ -3,6 +3,7 @@ import {
   useState,
   type FormEvent,
 } from "react";
+import { useLocalization } from "../../../localization/LocalizationProvider";
 import type { WorldCreationState } from "../../../state/uiState";
 import { Button } from "../../atoms/Button/Button";
 import { Surface } from "../../atoms/Surface/Surface";
@@ -25,6 +26,7 @@ export function NewWorldPage({
   onCreate,
   onRandomize,
 }: NewWorldPageProps) {
+  const { t } = useLocalization();
   const [seed, setSeed] =
     useState(state.seed);
 
@@ -47,14 +49,14 @@ export function NewWorldPage({
       : (
           <>
             <Button
-              label="Menu principal"
+              label={t("newWorld.backToMenu")}
               size="menu"
               className="new-world__create"
               disabled={state.pending}
               onClick={onBack}
             />
             <Button
-              label="Criar mundo"
+              label={t("newWorld.creating")}
               variant="primary"
               size="menu"
               className="new-world__create"
@@ -70,8 +72,8 @@ export function NewWorldPage({
     <ScreenShell
       title={
         state.generating
-          ? "Gerando mundo"
-          : "Criar mundo"
+          ? t("newWorld.generating")
+          : t("newWorld.creating")
       }
       background={<CosmicBackground />}
       footer={footer}
@@ -89,7 +91,7 @@ export function NewWorldPage({
           {state.generating ? (
             <div className="new-world__generating-copy">
               <Text
-                text="Preparando terreno, iluminação e regiões próximas ao spawn."
+                text={t("newWorld.preparing")}
                 variant="body"
               />
             </div>
@@ -100,11 +102,11 @@ export function NewWorldPage({
             >
               <div className="new-world__setting">
                 <Text
-                  text="Seed do mundo"
+                  text={t("newWorld.seedLabel")}
                   variant="setting-title"
                 />
                 <Text
-                  text="Use uma seed para recriar exatamente o mesmo terreno."
+                  text={t("newWorld.seedHint")}
                   variant="caption"
                 />
                 <div className="new-world__seed-row">
@@ -114,7 +116,7 @@ export function NewWorldPage({
                     maxLength={20}
                     spellCheck={false}
                     autoComplete="off"
-                    placeholder="Seed de 64 bits"
+                    placeholder={t("newWorld.seedPlaceholder")}
                     aria-describedby="world-seed-help"
                     value={seed}
                     disabled={state.pending}
@@ -124,7 +126,7 @@ export function NewWorldPage({
                     }
                   />
                   <Button
-                    label="Gerar outra"
+                    label={t("newWorld.randomize")}
                     disabled={state.pending}
                     onClick={onRandomize}
                     className="new-world__randomize"
@@ -134,7 +136,7 @@ export function NewWorldPage({
                   id="world-seed-help"
                   className="new-world__help"
                 >
-                  Um número entre 0 e 18446744073709551615.
+                  {t("newWorld.seedRange")}
                 </span>
                 {state.error && (
                   <span
