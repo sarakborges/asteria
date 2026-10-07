@@ -40,6 +40,7 @@ jobs:
           dotnet run --project tools/WorldgenBenchmark --configuration Release -- \
             --seed 181960897289965 --dimension asteria:overworld \
             --samples 2 --area-size 4 --chunks 1 \
+            --enforce-ci-budgets true \
             --output worldgen-benchmark.json
 
       - name: Render fixed-seed biome map fixtures
