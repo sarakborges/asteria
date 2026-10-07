@@ -41,7 +41,13 @@ This document is the active parity map for the migration. It must be updated whe
 
 Until parity is closed, worldgen work should follow this order unless the user explicitly changes priority:
 
-1. **Phase 8 — complete generated-world consumers**
+1. **Phase 5 — finish authored generated-fluid parity**
+   - port the rebuild's bounded `generatedSurfaceFluids` contract through the existing `GeneratedFluidField`;
+   - restore authored swamp water puddles and volcano lava pools from dimension data;
+   - keep generation-time fluid ownership concrete and deterministic;
+   - do not introduce a hydrology subsystem.
+
+2. **Phase 8 — complete generated-world consumers**
    - biome search;
    - Structure search;
    - spawn destination selection;
@@ -49,18 +55,18 @@ Until parity is closed, worldgen work should follow this order unless the user e
    - dimension-travel destination preparation;
    - no consumer may reconstruct generator rules from seed/registries or materialize chunks merely to answer an untouched generated-world query.
 
-2. **Phase 9 — reconcile persistence**
+3. **Phase 9 — reconcile persistence**
    - MineClone rebuild semantics persist every materialized chunk;
    - current Asteria semantics retain only dirty authoritative chunk state and rematerialize pristine terrain;
    - this is an explicit semantic conflict, not an implementation detail;
    - resolve the contract deliberately before loading/save work depends on it.
 
-3. **Phases 10–11 — shared loading + presentation**
+4. **Phases 10–11 — shared loading + presentation**
    - one loading pipeline for world entry/load/dimension travel;
    - progress is real residency/materialization work;
    - WebUI renders authoritative progress and owns no world-loading state.
 
-4. **Phase 12 — close validation/performance**
+5. **Phase 12 — close validation/performance**
    - deterministic fixed-seed fixtures;
    - cold/warm scalar and bounded queries;
    - near/far destination paths;
