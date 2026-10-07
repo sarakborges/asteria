@@ -59,6 +59,21 @@ public sealed class DimensionTests
         Assert.Equal(
             "asteria:water",
             overworld.GeneratedOcean?.Fluid);
+        Assert.Equal(
+            4,
+            overworld.GeneratedOcean?.Shore.ShelfDepth);
+        Assert.Equal(
+            2,
+            overworld.GeneratedOcean?.Shore.BeachHeight);
+        Assert.Equal(
+            0.62f,
+            overworld.GeneratedOcean?.Shore.BeachStartDominance);
+        Assert.Equal(
+            0.72f,
+            overworld.GeneratedOcean?.Shore.ShelfStartDominance);
+        Assert.Equal(
+            0.85f,
+            overworld.GeneratedOcean?.Shore.DeepWaterStartDominance);
         Assert.Null(
             umbral.GeneratedOcean);
         Assert.Equal(
@@ -375,6 +390,108 @@ public sealed class DimensionTests
     }
 
     [Fact]
+    public void DefaultOverworldOceanEndsInDryOceanOwnedBeach()
+    {
+        const ulong worldSeed =
+            0xA57E_2026UL;
+        var blocks =
+            LoadDefaultBlocks();
+        var fluids =
+            LoadDefaultFluids();
+        var biomes =
+            LoadDefaultBiomes();
+        var dimensions =
+            LoadDefaultDimensions();
+        var dimension =
+            dimensions.Get(
+                DimensionId.Overworld);
+        var generator =
+            new BiomeWorldGenerator(
+                DimensionSeed.Derive(
+                    worldSeed,
+                    dimension.Id),
+                dimension,
+                blocks,
+                fluids,
+                biomes);
+        var boundary =
+            FindOceanBoundaryWithDeepWater(
+                generator,
+                dimension.SeaLevel);
+        var beachY =
+            generator.SurfaceHeight(
+                boundary.OceanX,
+                boundary.Z);
+
+        Assert.Equal(
+            "asteria:overworld/ocean",
+            generator.Biomes.Sample(
+                boundary.OceanX,
+                boundary.Z).Primary);
+        Assert.True(
+            beachY >=
+            dimension.SeaLevel);
+
+        var beach =
+            VoxelCoordinates.FromWorld(
+                boundary.OceanX,
+                beachY,
+                boundary.Z);
+        var beachChunk =
+            generator.Materialize(
+                beach.Chunk);
+        Assert.Equal(
+            blocks.GetId(
+                "asteria:sand"),
+            beachChunk.GetBlock(
+                beach.Local.X,
+                beach.Local.Y,
+                beach.Local.Z));
+
+        var beachSeaLevel =
+            VoxelCoordinates.FromWorld(
+                boundary.OceanX,
+                dimension.SeaLevel,
+                boundary.Z);
+        var beachSeaChunk =
+            beachSeaLevel.Chunk ==
+                beach.Chunk
+                ? beachChunk
+                : generator.Materialize(
+                    beachSeaLevel.Chunk);
+        Assert.True(
+            beachSeaChunk.GetFluid(
+                beachSeaLevel.Local.X,
+                beachSeaLevel.Local.Y,
+                beachSeaLevel.Local.Z).IsEmpty);
+
+        var deepX =
+            boundary.OceanX +
+            boundary.InteriorDirection *
+            boundary.DeepWaterDistance;
+        var deep =
+            VoxelCoordinates.FromWorld(
+                deepX,
+                dimension.SeaLevel,
+                boundary.Z);
+        var deepChunk =
+            generator.Materialize(
+                deep.Chunk);
+        var water =
+            deepChunk.GetFluid(
+                deep.Local.X,
+                deep.Local.Y,
+                deep.Local.Z);
+
+        Assert.Equal(
+            fluids.GetId(
+                "asteria:water"),
+            water.Fluid);
+        Assert.True(
+            water.IsSource);
+    }
+
+    [Fact]
     public void DimensionRejectsMissingGeneratedOceanFluid()
     {
         var dimensions =
@@ -446,6 +563,136 @@ public sealed class DimensionTests
                 dimensions.ValidateBiomes(
                     biomes));
     }
+
+    private static OceanBoundary FindOceanBoundaryWithDeepWater(
+        BiomeWorldGenerator generator,
+        int seaLevel)
+    {
+        const string ocean =
+            "asteria:overworld/ocean";
+        const int minimum =
+            -4096;
+        const int maximum =
+            4096;
+        const int coarseStep =
+            16;
+
+        for (var z = minimum;
+             z <= maximum;
+             z += 64)
+        {
+            var previousX =
+                minimum;
+            var previousOcean =
+                generator.Biomes.Sample(
+                    previousX,
+                    z).Primary ==
+                ocean;
+
+            for (var x =
+                     minimum +
+                     coarseStep;
+                 x <= maximum;
+                 x += coarseStep)
+            {
+                var currentOcean =
+                    generator.Biomes.Sample(
+                        x,
+                        z).Primary ==
+                    ocean;
+
+                if (currentOcean ==
+                    previousOcean)
+                {
+                    previousX = x;
+                    previousOcean =
+                        currentOcean;
+                    continue;
+                }
+
+                var leftOcean =
+                    generator.Biomes.Sample(
+                        previousX,
+                        z).Primary ==
+                    ocean;
+
+                for (var exactX =
+                         previousX + 1;
+                     exactX <= x;
+                     exactX++)
+                {
+                    var rightOcean =
+                        generator.Biomes.Sample(
+                            exactX,
+                            z).Primary ==
+                        ocean;
+
+                    if (rightOcean ==
+                        leftOcean)
+                    {
+                        continue;
+                    }
+
+                    var oceanX =
+                        leftOcean
+                            ? exactX - 1
+                            : exactX;
+                    var direction =
+                        leftOcean
+                            ? -1
+                            : 1;
+
+                    for (var distance = 1;
+                         distance <= 512;
+                         distance++)
+                    {
+                        var candidateX =
+                            oceanX +
+                            direction *
+                            distance;
+                        var sample =
+                            generator.Biomes.Sample(
+                                candidateX,
+                                z);
+
+                        if (sample.Primary !=
+                            ocean)
+                        {
+                            break;
+                        }
+
+                        if (generator.SurfaceHeight(
+                                candidateX,
+                                z) <
+                            seaLevel)
+                        {
+                            return new OceanBoundary(
+                                oceanX,
+                                z,
+                                direction,
+                                distance);
+                        }
+                    }
+
+                    leftOcean =
+                        rightOcean;
+                }
+
+                previousX = x;
+                previousOcean =
+                    currentOcean;
+            }
+        }
+
+        throw new Xunit.Sdk.XunitException(
+            "Could not find an ocean boundary with deep water behind its shore.");
+    }
+
+    private readonly record struct OceanBoundary(
+        int OceanX,
+        int Z,
+        int InteriorDirection,
+        int DeepWaterDistance);
 
     private static (int X, int Z) FindOceanColumn(
         BiomeWorldGenerator generator,

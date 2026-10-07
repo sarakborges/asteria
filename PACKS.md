@@ -95,11 +95,20 @@ A Sphere may define one explicit generated ocean rule:
 ```json
 "generatedOcean": {
   "biome": "asteria:overworld/ocean",
-  "fluid": "asteria:water"
+  "fluid": "asteria:water",
+  "shore": {
+    "shelfDepth": 4,
+    "beachHeight": 2,
+    "beachStartDominance": 0.62,
+    "shelfStartDominance": 0.72,
+    "deepWaterStartDominance": 0.85
+  }
 }
 ```
 
 The referenced biome must be in that Sphere's active biome pool and the referenced fluid must exist in the selected pack. Ocean fill is generation-time content, not a separate hydrology layer: only columns whose authoritative primary biome matches the rule are filled, only density-empty voxels above the base terrain are eligible, and fill stops at `seaLevel` (or below an authored Sphere roof). Generated cells are normal full source fluid cells and enter the existing runtime fluid simulation after residency. Caves below the base terrain are not flooded by this rule.
+
+`shore` is the terrain-side coastal profile for that generated ocean. `shelfDepth` is the shallow shelf depth below sea level and `beachHeight` is the dry beach floor above sea level. The three dominance values are normalized pairwise ocean-vs-strongest-neighbor blend thresholds and must satisfy `0.5 < beachStartDominance < shelfStartDominance < deepWaterStartDominance <= 1`. The coast is reshaped continuously on both sides of the biome boundary so the ocean-owned sand surface becomes dry before ownership changes to the neighboring biome.
 
 A Sphere may additionally define a bounded subtractive cave field. This
 is part of its single terrain-density owner, not a separate generator:

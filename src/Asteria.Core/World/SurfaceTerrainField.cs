@@ -12,6 +12,7 @@ public sealed class SurfaceTerrainField
     private readonly int? _roofY;
     private readonly BiomeField _biomes;
     private readonly IReadOnlyDictionary<string, TerrainRule> _rules;
+    private readonly OceanShoreRule? _oceanShore;
     private readonly CaveRule? _caves;
 
     public SurfaceTerrainField(
@@ -34,6 +35,11 @@ public sealed class SurfaceTerrainField
                 definition => definition.Id,
                 definition => new TerrainRule(definition),
                 StringComparer.Ordinal);
+        _oceanShore = dimension.GeneratedOcean is { } ocean
+            ? new OceanShoreRule(
+                ocean.Biome,
+                ocean.Shore)
+            : null;
         _caves = dimension.Caves is { } definition
             ? new CaveRule(definition)
             : null;
@@ -245,13 +251,24 @@ public sealed class SurfaceTerrainField
         int worldX,
         int worldZ)
     {
-        var height = (double)_seaLevel;
+        var offset = 0d;
         foreach (var influence in sample.Influences)
         {
-            height += _rules[influence.BiomeId].HeightOffsetAt(
+            offset += _rules[influence.BiomeId].HeightOffsetAt(
                 _seed, worldX, worldZ) * influence.Weight;
         }
 
+        if (_oceanShore is not null)
+        {
+            offset =
+                _oceanShore.AdjustHeightOffset(
+                    sample,
+                    offset);
+        }
+
+        var height =
+            _seaLevel +
+            offset;
         var surfaceY = checked((int)Math.Floor(height));
         return _roofY is { } roofY && surfaceY >= roofY
             ? roofY - 1
@@ -307,6 +324,190 @@ public sealed class SurfaceTerrainField
         }
 
         return baseY;
+    }
+
+    private sealed class OceanShoreRule
+    {
+        private const double BoundaryDominance = 0.5d;
+
+        private readonly string _biome;
+        private readonly DimensionOceanShoreDefinition _definition;
+
+        public OceanShoreRule(
+            string biome,
+            DimensionOceanShoreDefinition definition)
+        {
+            _biome = biome;
+            _definition = definition;
+        }
+
+        public double AdjustHeightOffset(
+            BiomeSample sample,
+            double rawOffset)
+        {
+            var oceanWeight = 0d;
+            var strongestOther = 0d;
+
+            foreach (var influence in sample.Influences)
+            {
+                if (string.Equals(
+                        influence.BiomeId,
+                        _biome,
+                        StringComparison.Ordinal))
+                {
+                    oceanWeight =
+                        influence.Weight;
+                }
+                else
+                {
+                    strongestOther =
+                        Math.Max(
+                            strongestOther,
+                            influence.Weight);
+                }
+            }
+
+            if (oceanWeight <= 0d ||
+                strongestOther <= 0d)
+            {
+                return rawOffset;
+            }
+
+            var dominance =
+                oceanWeight /
+                (oceanWeight +
+                 strongestOther);
+            var deep =
+                _definition
+                    .DeepWaterStartDominance;
+            var shelf =
+                _definition
+                    .ShelfStartDominance;
+            var beach =
+                _definition
+                    .BeachStartDominance;
+            var shelfDepth =
+                -(double)_definition
+                    .ShelfDepth;
+            var beachHeight =
+                (double)_definition
+                    .BeachHeight;
+
+            if (dominance >= deep)
+            {
+                return rawOffset;
+            }
+
+            if (dominance >= shelf)
+            {
+                var progress =
+                    SmoothRange(
+                        deep,
+                        shelf,
+                        dominance);
+                return Lerp(
+                    rawOffset,
+                    Math.Max(
+                        rawOffset,
+                        shelfDepth),
+                    progress);
+            }
+
+            if (dominance >= beach)
+            {
+                var progress =
+                    SmoothRange(
+                        shelf,
+                        beach,
+                        dominance);
+                var floor =
+                    Lerp(
+                        shelfDepth,
+                        beachHeight,
+                        progress);
+                return Math.Max(
+                    rawOffset,
+                    floor);
+            }
+
+            if (dominance >=
+                BoundaryDominance)
+            {
+                return Math.Max(
+                    rawOffset,
+                    beachHeight);
+            }
+
+            var landBeach =
+                1d -
+                beach;
+            var landShelf =
+                1d -
+                shelf;
+            var landDeep =
+                1d -
+                deep;
+
+            if (dominance >= landBeach)
+            {
+                return Math.Max(
+                    rawOffset,
+                    beachHeight);
+            }
+
+            if (dominance >= landShelf)
+            {
+                var progress =
+                    WorldGenerationEntropy
+                        .SmoothStep(
+                            (dominance -
+                             landShelf) /
+                            (landBeach -
+                             landShelf));
+                var floor =
+                    beachHeight *
+                    progress;
+                return Math.Max(
+                    rawOffset,
+                    floor);
+            }
+
+            if (dominance <= landDeep)
+            {
+                return rawOffset;
+            }
+
+            var fade =
+                WorldGenerationEntropy
+                    .SmoothStep(
+                        (dominance -
+                         landDeep) /
+                        (landShelf -
+                         landDeep));
+            return Lerp(
+                rawOffset,
+                Math.Max(
+                    rawOffset,
+                    0d),
+                fade);
+        }
+
+        private static double SmoothRange(
+            double start,
+            double end,
+            double value) =>
+            WorldGenerationEntropy
+                .SmoothStep(
+                    (start - value) /
+                    (start - end));
+
+        private static double Lerp(
+            double start,
+            double end,
+            double amount) =>
+            start +
+            (end - start) *
+            amount;
     }
 
     private sealed class TerrainRule

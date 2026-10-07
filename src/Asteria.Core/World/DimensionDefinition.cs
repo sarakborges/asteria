@@ -83,21 +83,84 @@ public sealed class DimensionShellDefinition
     public int? RoofY { get; }
 }
 
+public sealed class DimensionOceanShoreDefinition
+{
+    public static DimensionOceanShoreDefinition Default { get; } =
+        new();
+
+    public DimensionOceanShoreDefinition(
+        int shelfDepth = 4,
+        int beachHeight = 2,
+        float beachStartDominance = 0.62f,
+        float shelfStartDominance = 0.72f,
+        float deepWaterStartDominance = 0.85f)
+    {
+        if (shelfDepth is < 1 or > 32)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(shelfDepth),
+                "Ocean shelf depth must be within 1..32 blocks.");
+        }
+
+        if (beachHeight is < 1 or > 16)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(beachHeight),
+                "Ocean beach height must be within 1..16 blocks above sea level.");
+        }
+
+        if (!float.IsFinite(beachStartDominance) ||
+            !float.IsFinite(shelfStartDominance) ||
+            !float.IsFinite(deepWaterStartDominance) ||
+            beachStartDominance <= 0.5f ||
+            shelfStartDominance <= beachStartDominance ||
+            deepWaterStartDominance <= shelfStartDominance ||
+            deepWaterStartDominance > 1f)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(beachStartDominance),
+                "Ocean shore dominance must satisfy 0.5 < beach < shelf < deepWater <= 1.");
+        }
+
+        ShelfDepth = shelfDepth;
+        BeachHeight = beachHeight;
+        BeachStartDominance = beachStartDominance;
+        ShelfStartDominance = shelfStartDominance;
+        DeepWaterStartDominance = deepWaterStartDominance;
+    }
+
+    public int ShelfDepth { get; }
+
+    public int BeachHeight { get; }
+
+    public float BeachStartDominance { get; }
+
+    public float ShelfStartDominance { get; }
+
+    public float DeepWaterStartDominance { get; }
+}
+
 public sealed class DimensionGeneratedOceanDefinition
 {
     public DimensionGeneratedOceanDefinition(
         string biome,
-        string fluid)
+        string fluid,
+        DimensionOceanShoreDefinition? shore = null)
     {
         BiomeDefinition.ValidateId(biome);
         FluidDefinition.ValidateId(fluid);
         Biome = biome;
         Fluid = fluid;
+        Shore =
+            shore ??
+            DimensionOceanShoreDefinition.Default;
     }
 
     public string Biome { get; }
 
     public string Fluid { get; }
+
+    public DimensionOceanShoreDefinition Shore { get; }
 }
 
 public sealed class DimensionEnvironmentDefinition
