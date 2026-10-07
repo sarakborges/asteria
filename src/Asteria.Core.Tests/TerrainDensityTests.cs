@@ -66,19 +66,19 @@ public sealed class TerrainDensityTests
         var point =
             FindVolumeSolid(
                 generator,
-                y: 96);
+                y: 100);
         var top =
             generator.SurfaceHeight(
                 point.X,
                 point.Z);
         Assert.InRange(
             top,
-            97,
+            100,
             112);
         Assert.True(
             generator.DensityAt(
                 point.X,
-                96,
+                100,
                 point.Z) >=
             0d);
         Assert.True(
