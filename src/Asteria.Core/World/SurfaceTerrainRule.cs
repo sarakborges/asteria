@@ -153,7 +153,7 @@ internal sealed class SurfaceTerrainRule
             };
 
         for (var index = 0;
-             index < _modifiers.Count;
+             index < _modifiers.Length;
              index++)
         {
             height +=
@@ -161,7 +161,6 @@ internal sealed class SurfaceTerrainRule
                     seed,
                     x,
                     z,
-                    index,
                     _modifiers[index]);
         }
 
@@ -614,7 +613,6 @@ internal sealed class SurfaceTerrainRule
         ulong seed,
         int x,
         int z,
-        int index,
         ModifierRule rule)
     {
         var modifier =
