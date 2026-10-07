@@ -33,20 +33,15 @@ This document is the active parity map for the migration. It must be updated whe
 | 7 — Chunk synthesis | One procedural writer composes density/materials/features/structures/generated fluids into runtime chunks. | **Ported for current content** | Keep `SurfaceChunkMaterializer` as the single writer while Phase 5/6 capabilities expand. |
 | 8 — Consumer integration | Streaming, biome/Structure locate, spawn, warp and dimension travel consume narrow generator query capabilities; no hidden chunk generation. | **Ported / Adapted for active consumers** | Biome and Structure search plus exact-first/surface destination preparation are generator-owned and query-only. Initial spawn and dimension travel use destination preparation. Asteria currently has no local-warp or /locate gameplay consumer; when added, they must call these existing capabilities rather than scan/materialize chunks. |
 | 9 — Persistence | First materialization makes a chunk authoritative persisted spatial state, including unedited/empty chunks; query-only access does not persist. | **Ported / Adapted for current persistence owner** | Session archive now retains every materialized chunk zero-copy, including pristine/empty chunks; dirty state is tracked separately. Query-only generator access never enters persistence. Asteria still has no disk-save subsystem, so this phase applies to the current per-dimension session persistence owner rather than inventing one. |
-| 10 — Loading pipeline | New world, save load and dimension travel share one loading path using real required-residency work. | **Missing parity** | Introduce the shared loading/residency pipeline after Phase 8/9 semantics are settled. |
-| 11 — Loading screen | UI renders only authoritative loading phase/progress; no fake timers or duplicate loading state. | **Missing parity** | Add only after the loading owner exists; WebUI must remain presentation-only. |
+| 10 — Loading pipeline | New world, save load and dimension travel share one loading path using real required-residency work. | **Ported / Adapted for active entry paths** | New-world entry, restored in-memory dimension sessions and dimension travel share `WorldLoadingState` over the existing streaming/residency pipeline. Bootstrap uses a 2-chunk horizontal radius, then expands to normal render distance after readiness. Asteria has no disk-save/load subsystem, so no fake save-load path is introduced. |
+| 11 — Loading screen | UI renders only authoritative loading phase/progress; no fake timers or duplicate loading state. | **Ported / Adapted** | Godot emits `game.loading` from `WorldLoadingState`; WebUI's `LoadingOverlay` only renders phase/completed/total. Retirement is indeterminate `0/0`; materialization and destination presentation use real counters. No timer or synthetic percentage exists. |
 | 12 — End-to-end/performance | Fixed-seed fixtures, near/far/order tests, visual probes and evidence-based performance baselines. | **In progress, but not a substitute for missing phases** | Keep benchmarking, but close Phases 6/8/9/10/11 before calling the rebuild migrated. |
 
 ## Immediate migration order
 
 Until parity is closed, worldgen work should follow this order unless the user explicitly changes priority:
 
-1. **Phases 10–11 — shared loading + presentation**
-   - one loading pipeline for world entry/load/dimension travel;
-   - progress is real residency/materialization work;
-   - WebUI renders authoritative progress and owns no world-loading state.
-
-2. **Phase 12 — close validation/performance**
+1. **Phase 12 — close validation/performance**
    - deterministic fixed-seed fixtures;
    - cold/warm scalar and bounded queries;
    - near/far destination paths;
@@ -62,7 +57,7 @@ Until parity is closed, worldgen work should follow this order unless the user e
 - **Initial spawn** — `DimensionRuntimeSession` uses `BiomeWorldGenerator.FindGeneratedSurfaceDestination` around authored spawn X/Z with a 64-block radius. A restored session position remains authoritative.
 - **Local warp** — no current Asteria gameplay consumer. `FindGeneratedDestination` and `FindGeneratedSurfaceDestination` are the required generated-world preparation capabilities when warp is introduced.
 - **Dimension travel** — explicit destination requests are transient, not written into saved session position. The target session tries the exact generated 3D destination first and falls back to a safe generated surface destination near the same X/Z.
-- **Loading** — current streaming readiness consumes the resulting destination/streaming center, but a unified new/load/travel loading pipeline is still Phase 10.
+- **Loading** — new-world entry, restored in-memory dimension sessions and dimension travel all enter the same `WorldLoadingState` path. The same `ChunkStreamingController` owns bootstrap residency at radius 2 and ordinary gameplay residency afterward; readiness is based on completed required residency plus the destination presentation needed by Godot collision/rendering.
 - **Persistence** — every resident materialized chunk is archived on retirement, including pristine/empty chunks; dirty is independent mutation metadata. Generated queries never persist or materialize chunks.
 - **Debug/map tooling** — F3/HUD does not reconstruct worldgen. The optional standalone biome-map renderer remains absent and is not a semantic owner.
 
