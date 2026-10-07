@@ -24,6 +24,7 @@ const meta = {
     const worldBanner = createWorldBanner();
     worldBanner.setState({
       sphere: "asteria:overworld",
+      biome: "asteria:overworld/plains",
       x: 148,
       y: 93,
       z: -72,

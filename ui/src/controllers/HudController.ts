@@ -103,6 +103,7 @@ function applyWorld(view: GameHudPageView, payload: unknown): void {
   if (
     !value ||
     typeof value.sphere !== "string" ||
+    typeof value.biome !== "string" ||
     !isFiniteNumber(value.x) ||
     !isFiniteNumber(value.y) ||
     !isFiniteNumber(value.z) ||
@@ -114,6 +115,7 @@ function applyWorld(view: GameHudPageView, payload: unknown): void {
 
   view.worldBanner.setState({
     sphere: value.sphere,
+    biome: value.biome,
     x: value.x,
     y: value.y,
     z: value.z,

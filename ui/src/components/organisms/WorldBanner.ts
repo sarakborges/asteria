@@ -6,6 +6,7 @@ import "./WorldBanner.css";
 
 export type WorldBannerState = {
   sphere: string;
+  biome: string;
   x: number;
   y: number;
   z: number;
@@ -35,12 +36,15 @@ export function createWorldBanner(): WorldBannerView {
 
   identity.append(kind, name);
 
+  const biome = document.createElement("span");
+  biome.className = "world-banner__biome";
+
   const coordinates = document.createElement("div");
   coordinates.className = "world-banner__coordinates";
 
   const compass = createCompass();
 
-  root.append(identity, coordinates, compass.element);
+  root.append(identity, biome, coordinates, compass.element);
 
   return {
     element: root,
@@ -49,12 +53,14 @@ export function createWorldBanner(): WorldBannerView {
       root.hidden = state === null;
       if (state === null) {
         name.textContent = "";
+        biome.textContent = "";
         coordinates.textContent = "";
         compass.setHeading(0);
         return;
       }
 
-      name.textContent = displaySphereName(state.sphere);
+      name.textContent = displayName(state.sphere);
+      biome.textContent = displayName(state.biome);
       coordinates.textContent =
         `X ${Math.floor(state.x)}   Z ${Math.floor(state.z)}   Y ${Math.floor(state.y)}`;
       compass.setHeading(state.heading);
@@ -62,7 +68,7 @@ export function createWorldBanner(): WorldBannerView {
   };
 }
 
-function displaySphereName(id: string): string {
+function displayName(id: string): string {
   const local = id.split(":").at(-1)?.split("/").at(-1) ?? id;
   return local
     .split(/[_-]+/)

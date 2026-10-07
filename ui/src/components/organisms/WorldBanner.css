@@ -56,3 +56,11 @@
   line-height: 12px;
   text-shadow: 0 1px 5px var(--ui-color-shadow);
 }
+
+.world-banner__biome {
+  color: var(--ui-color-accent-strong);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-shadow: 0 1px 5px var(--ui-color-shadow);
+}

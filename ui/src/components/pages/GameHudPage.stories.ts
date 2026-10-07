@@ -20,6 +20,7 @@ export const Runtime: Story = {
     const view = createGameHudPage(args);
     view.worldBanner.setState({
       sphere: "asteria:overworld",
+      biome: "asteria:overworld/plains",
       x: 148,
       y: 93,
       z: -72,

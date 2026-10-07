@@ -640,6 +640,7 @@ public partial class Main : Node3D
         if (!_worldHud.TryCapture(
                 _player,
                 _dimension.Id,
+                _sessions.Active.Generator.Biomes,
                 out var state))
         {
             return;
@@ -651,6 +652,8 @@ public partial class Main : Node3D
             {
                 sphere =
                     state.Sphere,
+                biome =
+                    state.Biome,
                 x =
                     state.X,
                 y =

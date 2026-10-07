@@ -5,6 +5,7 @@ namespace Asteria.Client.Gameplay;
 
 public readonly record struct WorldHudState(
     string Sphere,
+    string Biome,
     int X,
     int Y,
     int Z,
@@ -13,19 +14,26 @@ public readonly record struct WorldHudState(
 public sealed class WorldHudStateTracker
 {
     private WorldHudState? _last;
+    private (int X, int Z)? _biomePosition;
+    private string _biomeId = "";
 
     public void Reset()
     {
         _last = null;
+        _biomePosition = null;
+        _biomeId = "";
     }
 
     public bool TryCapture(
         FpsPlayer player,
         DimensionId dimension,
+        BiomeField biomes,
         out WorldHudState state)
     {
         ArgumentNullException.ThrowIfNull(
             player);
+        ArgumentNullException.ThrowIfNull(
+            biomes);
 
         var position =
             player.GlobalPosition;
@@ -34,17 +42,34 @@ public sealed class WorldHudStateTracker
                 -Mathf.RadToDeg(
                     player.Rotation.Y));
 
+        var x =
+            Mathf.FloorToInt(
+                position.X);
+        var z =
+            Mathf.FloorToInt(
+                position.Z);
+
+        if (_biomePosition !=
+            (x, z))
+        {
+            _biomeId =
+                biomes.Sample(
+                    x,
+                    z).Primary;
+            _biomePosition =
+                (x, z);
+        }
+
         state =
             new WorldHudState(
                 dimension.Value,
-                Mathf.FloorToInt(
-                    position.X),
+                _biomeId,
+                x,
                 Math.Max(
                     0,
                     Mathf.FloorToInt(
                         position.Y)),
-                Mathf.FloorToInt(
-                    position.Z),
+                z,
                 heading);
 
         if (_last is
