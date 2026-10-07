@@ -137,7 +137,8 @@ public sealed class DimensionDefinition
         float gravityStrength,
         DimensionSpawnDefinition spawn,
         DimensionEnvironmentDefinition environment,
-        DimensionShellDefinition? shell = null)
+        DimensionShellDefinition? shell = null,
+        DimensionCaveDefinition? caves = null)
     {
         if (!float.IsFinite(gravityStrength) ||
             gravityStrength < 0f ||
@@ -195,6 +196,7 @@ public sealed class DimensionDefinition
             throw new ArgumentNullException(
                 nameof(environment));
         Shell = shell;
+        Caves = caves;
     }
 
     public DimensionId Id { get; }
@@ -210,4 +212,65 @@ public sealed class DimensionDefinition
     public DimensionEnvironmentDefinition Environment { get; }
 
     public DimensionShellDefinition? Shell { get; }
+
+    public DimensionCaveDefinition? Caves { get; }
+}
+
+
+/// <summary>
+/// Optional Sphere-wide subtractive cave contribution. A null definition
+/// leaves the 3D terrain field without caves.
+/// </summary>
+public sealed class DimensionCaveDefinition
+{
+    public DimensionCaveDefinition(
+        uint minDepth,
+        uint maxDepth,
+        uint horizontalScale,
+        uint verticalScale,
+        float noiseHalfWidth,
+        float densityScale,
+        uint boundaryFade)
+    {
+        if (minDepth < 2 || maxDepth <= minDepth ||
+            maxDepth > 2048 || boundaryFade == 0 ||
+            boundaryFade * 2UL > (ulong)maxDepth - minDepth)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(maxDepth),
+                "Cave depth and boundary fade must fit a positive bounded underground band.");
+        }
+
+        if (horizontalScale is < 2 or > 16_384 ||
+            verticalScale is < 2 or > 16_384)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(horizontalScale));
+        }
+
+        if (!float.IsFinite(noiseHalfWidth) ||
+            noiseHalfWidth is <= 0f or > 1f ||
+            !float.IsFinite(densityScale) ||
+            densityScale is <= 0f or > 512f)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(noiseHalfWidth));
+        }
+
+        MinDepth = minDepth;
+        MaxDepth = maxDepth;
+        HorizontalScale = horizontalScale;
+        VerticalScale = verticalScale;
+        NoiseHalfWidth = noiseHalfWidth;
+        DensityScale = densityScale;
+        BoundaryFade = boundaryFade;
+    }
+
+    public uint MinDepth { get; }
+    public uint MaxDepth { get; }
+    public uint HorizontalScale { get; }
+    public uint VerticalScale { get; }
+    public float NoiseHalfWidth { get; }
+    public float DensityScale { get; }
+    public uint BoundaryFade { get; }
 }

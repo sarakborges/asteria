@@ -21,5 +21,14 @@
     "ambientEnergy": 0.72,
     "fogColor": "2D2438",
     "fogDensity": 0.018
+  },
+  "caves": {
+    "minDepth": 10,
+    "maxDepth": 120,
+    "horizontalScale": 56,
+    "verticalScale": 36,
+    "noiseHalfWidth": 0.18,
+    "densityScale": 24,
+    "boundaryFade": 8
   }
 }

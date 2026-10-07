@@ -75,8 +75,43 @@ public static class DimensionDefinitionJson
                 RequiredSingle(
                     environment,
                     "fogDensity")),
-            ParseShell(
-                root));
+            ParseShell(root),
+            ParseCaves(root));
+    }
+
+    private static DimensionCaveDefinition? ParseCaves(
+        JsonElement root)
+    {
+        if (!root.TryGetProperty("caves", out var value) ||
+            value.ValueKind == JsonValueKind.Null)
+        {
+            return null;
+        }
+
+        value = RequiredObject(root, "caves");
+        return new DimensionCaveDefinition(
+            RequiredUInt32(value, "minDepth"),
+            RequiredUInt32(value, "maxDepth"),
+            RequiredUInt32(value, "horizontalScale"),
+            RequiredUInt32(value, "verticalScale"),
+            RequiredSingle(value, "noiseHalfWidth"),
+            RequiredSingle(value, "densityScale"),
+            RequiredUInt32(value, "boundaryFade"));
+    }
+
+    private static uint RequiredUInt32(
+        JsonElement parent,
+        string name)
+    {
+        if (!parent.TryGetProperty(name, out var value) ||
+            value.ValueKind != JsonValueKind.Number ||
+            !value.TryGetUInt32(out var result))
+        {
+            throw new FormatException(
+                $"{name} must be a non-negative 32-bit integer.");
+        }
+
+        return result;
     }
 
     private static DimensionShellDefinition? ParseShell(

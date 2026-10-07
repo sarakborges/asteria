@@ -61,6 +61,68 @@ internal static class WorldGenerationEntropy
         }
     }
 
+    public static ulong Sample3D(
+        ulong seed,
+        GenerationDomain domain,
+        int x,
+        int y,
+        int z)
+    {
+        unchecked
+        {
+            return Mix(
+                seed ^
+                domain.Key ^
+                ((ulong)(uint)x * 0x9e3779b185ebca87UL) ^
+                ((ulong)(uint)y * 0x165667b19e3779f9UL) ^
+                ((ulong)(uint)z * 0xc2b2ae3d27d4eb4fUL));
+        }
+    }
+
+    public static double ValueNoise3D(
+        ulong seed,
+        GenerationDomain domain,
+        int x,
+        int y,
+        int z,
+        uint horizontalScale,
+        uint verticalScale)
+    {
+        if (horizontalScale < 2 || verticalScale < 2)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(horizontalScale));
+        }
+
+        var x0 = FloorDivRem(x, horizontalScale, out var rx);
+        var y0 = FloorDivRem(y, verticalScale, out var ry);
+        var z0 = FloorDivRem(z, horizontalScale, out var rz);
+        var x1 = checked((int)x0 + 1);
+        var y1 = checked((int)y0 + 1);
+        var z1 = checked((int)z0 + 1);
+        var xBase = checked((int)x0);
+        var yBase = checked((int)y0);
+        var zBase = checked((int)z0);
+
+        var tx = SmoothStep(rx / (double)horizontalScale);
+        var ty = SmoothStep(ry / (double)verticalScale);
+        var tz = SmoothStep(rz / (double)horizontalScale);
+
+        double Slice(int layerZ) =>
+            Lerp(
+                Lerp(
+                    SignedUnit(Sample3D(seed, domain, xBase, yBase, layerZ)),
+                    SignedUnit(Sample3D(seed, domain, x1, yBase, layerZ)),
+                    tx),
+                Lerp(
+                    SignedUnit(Sample3D(seed, domain, xBase, y1, layerZ)),
+                    SignedUnit(Sample3D(seed, domain, x1, y1, layerZ)),
+                    tx),
+                ty);
+
+        return Lerp(Slice(zBase), Slice(z1), tz);
+    }
+
     public static double SmoothNoise2D(
         ulong seed,
         GenerationDomain domain,

@@ -35,7 +35,8 @@ public static class BiomeDefinitionJson
                     root,
                     "surfaceLayers")),
             ParseDecorations(root),
-            ParseTints(root));
+            ParseTints(root),
+            ParseTerrain3d(root));
     }
 
     private static BiomeSurfaceLayoutDefinition
@@ -91,6 +92,34 @@ public static class BiomeDefinitionJson
             RequiredUInt32(
                 value,
                 "detailScale"));
+
+    private static BiomeTerrain3dDefinition? ParseTerrain3d(
+        JsonElement root)
+    {
+        if (!root.TryGetProperty("terrain3d", out var terrain) ||
+            terrain.ValueKind == JsonValueKind.Null)
+        {
+            return null;
+        }
+
+        terrain = EnsureObject(terrain, "terrain3d");
+        if (!terrain.TryGetProperty("floatingFormation", out var value) ||
+            value.ValueKind == JsonValueKind.Null)
+        {
+            return new BiomeTerrain3dDefinition();
+        }
+
+        value = EnsureObject(value, "terrain3d.floatingFormation");
+        return new BiomeTerrain3dDefinition(
+            new BiomeFloatingFormationDefinition(
+                RequiredInt32(value, "minY"),
+                RequiredInt32(value, "maxY"),
+                RequiredUInt32(value, "horizontalScale"),
+                RequiredUInt32(value, "detailScale"),
+                RequiredSingle(value, "coverage"),
+                RequiredSingle(value, "roughness"),
+                RequiredSingle(value, "densityScale")));
+    }
 
     private static IReadOnlyList<BiomeSurfaceLayerDefinition>
         ParseLayers(
@@ -368,6 +397,21 @@ public static class BiomeDefinitionJson
         {
             throw new FormatException(
                 $"{name} must be a number.");
+        }
+
+        return result;
+    }
+
+    private static int RequiredInt32(
+        JsonElement parent,
+        string name)
+    {
+        if (!parent.TryGetProperty(name, out var value) ||
+            value.ValueKind != JsonValueKind.Number ||
+            !value.TryGetInt32(out var result))
+        {
+            throw new FormatException(
+                $"{name} must be a signed 32-bit integer.");
         }
 
         return result;

@@ -10,7 +10,8 @@ public sealed class BiomeDefinition
         BiomeTerrainDefinition surfaceTerrain,
         IEnumerable<BiomeSurfaceLayerDefinition> surfaceLayers,
         IEnumerable<BiomeDecorationDefinition>? decorations = null,
-        BiomeTintPaletteDefinition? tints = null)
+        BiomeTintPaletteDefinition? tints = null,
+        BiomeTerrain3dDefinition? terrain3d = null)
     {
         ValidateId(id);
         Id = id;
@@ -36,6 +37,7 @@ public sealed class BiomeDefinition
         Tints =
             tints ??
             BiomeTintPaletteDefinition.Empty;
+        Terrain3d = terrain3d;
     }
 
     public string Id { get; }
@@ -49,6 +51,8 @@ public sealed class BiomeDefinition
     public IReadOnlyList<BiomeDecorationDefinition> Decorations { get; }
 
     public BiomeTintPaletteDefinition Tints { get; }
+
+    public BiomeTerrain3dDefinition? Terrain3d { get; }
 
     public bool BelongsToDimension(string dimensionId)
     {
@@ -562,4 +566,70 @@ public sealed class BiomeTintPaletteDefinition
             _ => throw new ArgumentOutOfRangeException(
                 nameof(tint)),
         };
+}
+
+
+/// <summary>
+/// Biome-owned optional additive contributions to the single terrain
+/// density field. Absence leaves the base surface unchanged.
+/// </summary>
+public sealed record BiomeTerrain3dDefinition(
+    BiomeFloatingFormationDefinition? FloatingFormation = null);
+
+public sealed class BiomeFloatingFormationDefinition
+{
+    public BiomeFloatingFormationDefinition(
+        int minY,
+        int maxY,
+        uint horizontalScale,
+        uint detailScale,
+        float coverage,
+        float roughness,
+        float densityScale)
+    {
+        if (minY < 0 || maxY <= minY ||
+            (long)maxY - minY > 512)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(maxY),
+                "Floating formation needs non-negative minY, maxY > minY, and span <= 512.");
+        }
+
+        if (horizontalScale is < 2 or > 16_384 ||
+            detailScale is < 2 or > 16_384 ||
+            detailScale > horizontalScale)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(detailScale),
+                "Floating noise scales must satisfy 2 <= detail <= horizontal <= 16384.");
+        }
+
+        if (!float.IsFinite(coverage) ||
+            coverage is <= 0f or > 1f ||
+            !float.IsFinite(roughness) ||
+            roughness is < 0f or > 0.5f ||
+            !float.IsFinite(densityScale) ||
+            densityScale is <= 0f or > 512f)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(coverage),
+                "Floating coverage, roughness, and density scale must be finite and within their authored bounds.");
+        }
+
+        MinY = minY;
+        MaxY = maxY;
+        HorizontalScale = horizontalScale;
+        DetailScale = detailScale;
+        Coverage = coverage;
+        Roughness = roughness;
+        DensityScale = densityScale;
+    }
+
+    public int MinY { get; }
+    public int MaxY { get; }
+    public uint HorizontalScale { get; }
+    public uint DetailScale { get; }
+    public float Coverage { get; }
+    public float Roughness { get; }
+    public float DensityScale { get; }
 }
