@@ -83,10 +83,10 @@ public sealed class SurfaceChunkMaterializer
                     Math.Min(topExclusive - 1, surfaceY),
                     _roofY ?? int.MaxValue);
 
-                BiomeSurfaceMaterialColumn? materials = null;
+                BiomeSurfaceMaterialColumn? surfaceMaterials = null;
                 if (firstSolidY <= lastSolidY)
                 {
-                    materials = _materials.SampleColumn(
+                    surfaceMaterials = _materials.SampleColumn(
                         sample,
                         worldX,
                         worldZ);
@@ -107,20 +107,56 @@ public sealed class SurfaceChunkMaterializer
                             continue;
                         }
 
-                        var depth = worldY <= baseY
-                            ? checked((uint)(baseY - worldY))
-                            : _terrain.AdditiveDepthAt(
-                                sample,
-                                baseY,
-                                worldX,
-                                worldY,
-                                worldZ,
-                                materials.FiniteDepth);
+                        BlockRuntimeId block;
+
+                        if (worldY <= baseY)
+                        {
+                            surfaceMaterials ??=
+                                _materials.SampleColumn(
+                                    sample,
+                                    worldX,
+                                    worldZ);
+                            var depth =
+                                checked(
+                                    (uint)(
+                                        baseY -
+                                        worldY));
+                            block =
+                                surfaceMaterials.BlockAt(
+                                    depth);
+                        }
+                        else
+                        {
+                            var volumeSample =
+                                _terrain.VolumeBiomeAt(
+                                    worldX,
+                                    worldY,
+                                    worldZ) ??
+                                throw new InvalidOperationException(
+                                    "Additive solid voxel has no volume biome owner.");
+                            var volumeMaterials =
+                                _materials.SampleColumn(
+                                    volumeSample,
+                                    worldX,
+                                    worldZ);
+                            var depth =
+                                _terrain.AdditiveDepthAt(
+                                    sample,
+                                    baseY,
+                                    worldX,
+                                    worldY,
+                                    worldZ,
+                                    volumeMaterials.FiniteDepth);
+                            block =
+                                volumeMaterials.BlockAt(
+                                    depth);
+                        }
+
                         chunk.SetBlock(
                             localX,
                             worldY - originY,
                             localZ,
-                            materials.BlockAt(depth));
+                            block);
                     }
                 }
 
@@ -135,15 +171,27 @@ public sealed class SurfaceChunkMaterializer
                     continue;
                 }
 
-                materials ??= _materials.SampleColumn(
-                    sample,
-                    worldX,
-                    worldZ);
-                var decoration = _decorations.BlockAt(
-                    sample,
-                    materials.BlockAt(0),
-                    worldX,
-                    worldZ);
+                var topSample =
+                    surfaceY > baseY
+                        ? _terrain.VolumeBiomeAt(
+                            worldX,
+                            surfaceY,
+                            worldZ) ??
+                          throw new InvalidOperationException(
+                              "Additive surface has no volume biome owner.")
+                        : sample;
+                var topMaterials =
+                    _materials.SampleColumn(
+                        topSample,
+                        worldX,
+                        worldZ);
+                var decoration =
+                    _decorations.BlockAt(
+                        topSample,
+                        topMaterials.BlockAt(
+                            0),
+                        worldX,
+                        worldZ);
 
                 if (!decoration.IsAir)
                 {
