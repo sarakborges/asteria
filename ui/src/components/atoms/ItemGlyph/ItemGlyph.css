@@ -1,0 +1,34 @@
+.item-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  object-fit: contain;
+  color: var(--ui-color-text);
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+}
+
+.item-glyph--slot {
+  width: 30px;
+  height: 30px;
+  font-size: 12px;
+}
+
+.item-glyph--recipe {
+  width: 32px;
+  height: 32px;
+  font-size: 12px;
+}
+
+.item-glyph--result {
+  width: 54px;
+  height: 54px;
+  font-size: 18px;
+}
+
+.item-glyph--station {
+  width: 112px;
+  height: 112px;
+  font-size: 28px;
+}

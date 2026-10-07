@@ -1,0 +1,136 @@
+.crafting-panel {
+  width: var(--ui-inventory-crafting-width);
+  padding: var(--ui-inventory-panel-padding);
+  display: grid;
+  grid-template-columns: 218px minmax(0, 1fr);
+  gap: var(--ui-inventory-section-gap);
+  align-items: start;
+}
+
+.crafting-panel__column {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-inventory-section-gap);
+}
+
+.crafting-panel__recipe-list {
+  padding: 8px;
+  border: var(--ui-inventory-panel-border-width) solid var(--ui-color-border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--ui-color-surface-inset);
+}
+
+.crafting-panel__recipe {
+  position: relative;
+  width: 100%;
+  min-height: 58px;
+  padding: 8px;
+  border: var(--ui-inventory-panel-border-width) solid var(--ui-color-border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ui-color-text);
+  font: inherit;
+  text-align: left;
+  background: var(--ui-color-surface-elevated);
+  cursor: pointer;
+}
+
+.crafting-panel__recipe:hover,
+.crafting-panel__recipe--selected {
+  border-color: var(--ui-color-border-focus);
+  background: var(--ui-color-accent-soft);
+}
+
+.crafting-panel__recipe--selected::before {
+  content: "";
+  width: 3px;
+  align-self: stretch;
+  background: var(--ui-color-border-focus);
+}
+
+.crafting-panel__icon-frame,
+.crafting-panel__result-frame {
+  flex: 0 0 auto;
+  border: var(--ui-inventory-panel-border-width) solid var(--ui-color-border);
+  display: grid;
+  place-items: center;
+  background: var(--ui-color-surface-elevated);
+}
+
+.crafting-panel__icon-frame {
+  width: 42px;
+  height: 42px;
+}
+
+.crafting-panel__result-frame {
+  width: 72px;
+  height: 72px;
+}
+
+.crafting-panel__recipe-copy,
+.crafting-panel__result-copy,
+.crafting-panel__ingredient-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.crafting-panel__recipe-copy span,
+.crafting-panel__ingredient-copy span {
+  color: var(--ui-color-muted);
+  font-size: var(--ui-font-size-caption);
+}
+
+.crafting-panel__result-card,
+.crafting-panel__ingredient {
+  border: var(--ui-inventory-panel-border-width) solid var(--ui-color-border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--ui-color-surface-inset);
+}
+
+.crafting-panel__result-card {
+  min-height: 96px;
+  padding: 8px;
+  border-color: var(--ui-color-border-strong);
+}
+
+.crafting-panel__ingredients {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.crafting-panel__ingredient {
+  min-height: 58px;
+  padding: 8px;
+}
+
+.crafting-panel__ingredient--ready {
+  border-color: var(--ui-color-success);
+}
+
+.crafting-panel__availability {
+  margin-left: auto;
+}
+
+.crafting-panel__availability--ready {
+  color: var(--ui-color-success);
+}
+
+.crafting-panel__availability--missing {
+  color: var(--ui-color-danger);
+}
+
+@media (max-width: 720px) {
+  .crafting-panel {
+    width: 100%;
+    grid-template-columns: 1fr;
+  }
+}

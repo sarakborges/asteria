@@ -61,6 +61,19 @@
   --ui-surface-padding: 18px;
   --ui-input-padding-x: 14px;
 
+  --ui-inventory-slot-size: 40px;
+  --ui-inventory-slot-gap: 4px;
+  --ui-inventory-section-gap: 18px;
+  --ui-inventory-panel-gap: 24px;
+  --ui-inventory-panel-padding: 18px;
+  --ui-inventory-panel-border-width: 2px;
+  --ui-inventory-character-width: 320px;
+  --ui-inventory-crafting-width: 482px;
+  --ui-inventory-station-width: 244px;
+  --ui-inventory-category-width: 172px;
+  --ui-inventory-search-width: 210px;
+  --ui-inventory-search-height: 40px;
+
   --ui-radius-sm: 0;
   --ui-radius-md: 0;
 

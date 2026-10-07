@@ -6,11 +6,9 @@
   "colorHudSurface": "rgb(18 16 23 / 96%)",
   "colorSurfaceElevated": "#282431",
   "colorSurfaceInset": "#0a090d",
-
   "colorText": "#f0f0f5",
   "colorMuted": "#b3adc2",
   "colorSubtle": "rgb(179 173 194 / 68%)",
-
   "colorSuccess": "#8ed27b",
   "colorWarning": "#e3c86d",
   "colorDanger": "#c73333",
@@ -18,21 +16,17 @@
   "colorDangerPressed": "#9e2424",
   "colorHealth": "#d95f67",
   "colorStamina": "#d9b85f",
-
   "colorAccent": "#7a4db8",
   "colorAccentHover": "#9461d6",
   "colorAccentPressed": "#613894",
   "colorAccentStrong": "#b894fa",
   "colorAccentSoft": "rgb(107 69 158 / 72%)",
   "colorAccentGlow": "rgb(184 148 250 / 22%)",
-
   "colorBorder": "rgb(140 128 168 / 62%)",
   "colorBorderStrong": "rgb(209 199 230 / 88%)",
   "colorBorderFocus": "rgb(184 148 250 / 98%)",
-
   "colorSliderTrack": "#332e3d",
   "colorSliderThumb": "#e0e0e6",
-
   "colorCrosshair": "rgb(255 255 255 / 90%)",
   "colorShadow": "rgb(0 0 0 / 48%)",
   "colorMeterTrack": "rgb(0 0 0 / 42%)",
@@ -42,24 +36,20 @@
   "colorPanel": "rgb(18 16 23 / 96%)",
   "colorControl": "#282431",
   "colorControlHover": "#7a4db8",
-
   "controlBorderWidth": "2px",
   "controlHeightCompact": "44px",
   "controlHeightMenu": "54px",
   "menuButtonWidth": "470px",
-
   "screenContentWidth": "1120px",
   "screenHeaderHeight": "116px",
   "screenFooterHeight": "104px",
   "screenActionGap": "18px",
   "screenBodyPaddingX": "32px",
   "screenBodyPaddingY": "18px",
-
   "settingsGroupGap": "18px",
   "settingsSettingGap": "8px",
   "surfacePadding": "18px",
   "inputPaddingX": "14px",
-
   "radiusSm": "0px",
   "radiusMd": "0px",
   "space1": "6px",
@@ -67,7 +57,6 @@
   "space3": "12px",
   "space4": "18px",
   "space5": "24px",
-
   "fontFamily": "\"Winky Rough Variable\", ui-sans-serif, system-ui, sans-serif",
   "fontSizeCaption": "13px",
   "fontSizeDetail": "15px",
@@ -78,5 +67,17 @@
   "fontSizeHeading": "26px",
   "fontSizeScreenTitle": "36px",
   "letterSpacingDetail": "0",
-  "hotbarSlotSize": "46px"
+  "hotbarSlotSize": "46px",
+  "inventorySlotSize": "40px",
+  "inventorySlotGap": "4px",
+  "inventorySectionGap": "18px",
+  "inventoryPanelGap": "24px",
+  "inventoryPanelPadding": "18px",
+  "inventoryPanelBorderWidth": "2px",
+  "inventoryCharacterWidth": "320px",
+  "inventoryCraftingWidth": "482px",
+  "inventoryStationWidth": "244px",
+  "inventoryCategoryWidth": "172px",
+  "inventorySearchWidth": "210px",
+  "inventorySearchHeight": "40px"
 }

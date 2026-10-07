@@ -1,0 +1,28 @@
+.current-station-panel {
+  width: var(--ui-inventory-station-width);
+  padding: var(--ui-inventory-panel-padding);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-inventory-section-gap);
+}
+
+.current-station-panel__preview {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.current-station-panel__icon-frame {
+  width: 160px;
+  height: 160px;
+  border: var(--ui-inventory-panel-border-width) solid var(--ui-color-border);
+  display: grid;
+  place-items: center;
+  background: var(--ui-color-surface-elevated);
+}
+
+.current-station-panel__copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-inventory-slot-gap);
+}

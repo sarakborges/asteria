@@ -1,0 +1,29 @@
+.pause-menu {
+  position: fixed;
+  z-index: 50;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgb(0 0 0 / 68%);
+  pointer-events: auto;
+}
+
+.pause-menu__actions {
+  width: 360px;
+  max-width: calc(100vw - 36px);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+}
+
+.pause-menu__settings-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.pause-menu__feedback {
+  min-height: 1.4em;
+  text-align: center;
+}

@@ -1,0 +1,73 @@
+.character-info-panel {
+  width: var(--ui-inventory-character-width);
+  padding: var(--ui-inventory-panel-padding);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-inventory-section-gap);
+}
+
+.character-info-panel__preview {
+  width: 100%;
+  height: 180px;
+  border: var(--ui-inventory-panel-border-width) solid var(--ui-color-border);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  color: var(--ui-color-subtle);
+  font-size: var(--ui-font-size-caption);
+  background: var(--ui-color-surface-inset);
+}
+
+.character-info-panel__details,
+.character-info-panel__section,
+.character-info-panel__equipment,
+.character-info-panel__equipment-copy {
+  display: flex;
+  flex-direction: column;
+}
+
+.character-info-panel__details,
+.character-info-panel__section {
+  gap: var(--ui-inventory-section-gap);
+}
+
+.character-info-panel__equipment {
+  gap: var(--ui-inventory-slot-gap);
+}
+
+.character-info-panel__equipment-row {
+  min-height: var(--ui-inventory-slot-size);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.character-info-panel__equipment-copy {
+  min-width: 0;
+  gap: 2px;
+}
+
+.character-info-panel__health {
+  position: relative;
+  width: 100%;
+  height: 22px;
+  border: 1px solid var(--ui-color-border);
+  overflow: hidden;
+  background: var(--ui-color-slider-track);
+}
+
+.character-info-panel__health-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--ui-color-health);
+}
+
+.character-info-panel__health-label {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--ui-color-text);
+  font-size: var(--ui-font-size-caption);
+  text-shadow: 0 1px 2px rgb(0 0 0 / 90%);
+}

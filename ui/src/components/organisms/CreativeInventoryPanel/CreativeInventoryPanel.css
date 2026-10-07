@@ -1,0 +1,64 @@
+.creative-inventory-panel {
+  width: fit-content;
+  padding: var(--ui-inventory-panel-padding);
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+}
+
+.creative-inventory-panel__categories {
+  width: var(--ui-inventory-category-width);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-inventory-section-gap);
+}
+
+.creative-inventory-panel__category-list {
+  height: 216px;
+  padding-right: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+}
+
+.creative-inventory-panel__category-list .ui-button {
+  min-height: var(--ui-inventory-slot-size);
+  height: var(--ui-inventory-slot-size);
+  padding-inline: 8px;
+  justify-content: flex-start;
+  font-size: var(--ui-font-size-detail);
+}
+
+.creative-inventory-panel__catalog {
+  width: 386px;
+  min-width: 386px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-inventory-section-gap);
+}
+
+.creative-inventory-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.creative-inventory-panel__header .ui-text-input {
+  width: var(--ui-inventory-search-width);
+  height: var(--ui-inventory-search-height);
+}
+
+.creative-inventory-panel__grid {
+  max-height: 216px;
+  padding-right: 6px;
+  display: grid;
+  grid-template-columns:
+    repeat(
+      9,
+      var(--ui-inventory-slot-size)
+    );
+  gap: var(--ui-inventory-slot-gap);
+  overflow-y: auto;
+}

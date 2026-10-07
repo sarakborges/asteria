@@ -35,12 +35,17 @@ MineClone reference: `sarakborges/mineclone`, branch `world-systems-rebuild`.
 - World selection: **presentation ported**. Cards, metadata, load/delete actions, empty/error states and screen layout are available in React/Storybook; runtime wiring intentionally waits for disk save/catalog ownership.
 - Settings: **presentation ported**. Navigation, section cards, `Toggle`, `Select`, `Slider` and `SettingRow` are available; runtime wiring waits for authoritative settings ownership.
 - Controls: **presentation ported**. Group/card/keycap layout is available; editable keybind behavior waits for a real keybind owner.
+- Pause menu: **presentation ported**. The 360 px centered menu, paired settings actions, leave/exit hierarchy and save-feedback area match the MineClone contract. Runtime pause/resume/leave wiring intentionally waits for a real pause/save owner.
+- Inventory: **presentation ported**. Character Info, 3×9 backpack, hotbar footer, search/sort/trash controls and 40 px slot system are reusable React components.
+- Creative inventory: **presentation ported**. Category rail, search field, 9-column catalog and Inventory/Creative view tabs are available.
+- Crafting: **presentation ported**. Available Recipes, Selected Recipe, result/ingredient states, craftability, Current Station and the MineClone sizing contracts are available.
+
+### Inventory layout adaptation
+
+Asteria deliberately orders the survival center column as **Inventory → Crafting** instead of MineClone's current **Crafting → Inventory** order. This keeps Character Info on the left and Current Station on the right top-aligned with Inventory, while Crafting sits directly below Inventory with the normal panel gap. `Available Recipes`, `Selected Recipe`, and `Current Station` use equivalent heading hierarchy, and Current Station is always rendered as a surfaced card.
 
 ## Next screen/component families
 
-1. Pause menu.
-2. Inventory + creative inventory.
-3. Crafting.
-4. Remaining HUD presentation details.
+1. Remaining HUD presentation details.
 
 Each screen must reuse migrated primitives instead of introducing page-local copies of button, surface, input or screen-shell styling.
