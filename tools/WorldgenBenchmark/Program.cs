@@ -364,9 +364,9 @@ metrics.Add("initialAreaSynthesis", Measure(
                 "Benchmark dimension has no safe generated spawn within 64 blocks.");
         var center =
             VoxelCoordinates.FromWorld(
-                    spawn.Value.X,
-                    spawn.Value.Y,
-                    spawn.Value.Z)
+                    spawn.X,
+                    spawn.Y,
+                    spawn.Z)
                 .Chunk;
         var desired =
             ChunkStreamingSelection
