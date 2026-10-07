@@ -1,3 +1,4 @@
+import { useLocalization } from "../../../localization/LocalizationProvider";
 import { Button } from "../../atoms/Button/Button";
 import { Text } from "../../atoms/Text/Text";
 import "./PauseMenuPage.css";
@@ -27,18 +28,19 @@ export function PauseMenuPage({
   onLeaveWorld,
   onExitGame,
 }: PauseMenuPageProps) {
+  const { t } = useLocalization();
   return (
     <main className="pause-menu">
       <section className="pause-menu__actions">
         <Button
-          label="Resume"
+          label={t("ui.resume")}
           stretch
           onClick={onResume}
         />
 
         <div className="pause-menu__settings-row">
           <Button
-            label="World Settings"
+            label={t("ui.worldSettings")}
             stretch
             disabled={
               !worldSettingsAvailable
@@ -48,7 +50,7 @@ export function PauseMenuPage({
             }
           />
           <Button
-            label="Game Settings"
+            label={t("common.gameSettings")}
             stretch
             disabled={
               !gameSettingsAvailable
@@ -60,7 +62,7 @@ export function PauseMenuPage({
         </div>
 
         <Button
-          label="Controls"
+          label={t("common.controls")}
           stretch
           disabled={
             !controlsAvailable
@@ -69,7 +71,7 @@ export function PauseMenuPage({
         />
 
         <Button
-          label="Leave World"
+          label={t("ui.leaveWorld")}
           stretch
           disabled={
             !onLeaveWorld
@@ -78,7 +80,7 @@ export function PauseMenuPage({
         />
 
         <Button
-          label="Exit Game"
+          label={t("common.exitGame")}
           variant="danger"
           stretch
           onClick={onExitGame}

@@ -1,3 +1,4 @@
+import { useLocalization } from "../../../localization/LocalizationProvider";
 import type {
   ItemStackView,
   PlayerInventoryView,
@@ -31,6 +32,7 @@ export function PlayerInventoryPanel({
   onTrash,
   onSlotClick,
 }: PlayerInventoryPanelProps) {
+  const { t } = useLocalization();
   const backpack = normalizedSlots(
     state.backpack,
     BACKPACK_COLUMNS *
@@ -48,7 +50,7 @@ export function PlayerInventoryPanel({
     >
       <header className="player-inventory-panel__header">
         <Text
-          text="Inventory"
+          text={t("ui.inventory")}
           variant="heading"
         />
         <div className="player-inventory-panel__controls">
@@ -56,8 +58,8 @@ export function PlayerInventoryPanel({
             value={
               state.searchQuery
             }
-            placeholder="Search inventory"
-            aria-label="Search inventory"
+            placeholder={t("ui.searchInventory")}
+            aria-label={t("ui.searchInventory")}
             onChange={
               (event) =>
                 onSearchChange?.(
@@ -112,7 +114,7 @@ export function PlayerInventoryPanel({
         <button
           type="button"
           className="player-inventory-panel__trash"
-          aria-label="Trash selected item"
+          aria-label={t("ui.trashItem")}
           onClick={onTrash}
         >
           ×

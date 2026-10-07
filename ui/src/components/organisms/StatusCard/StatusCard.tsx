@@ -1,3 +1,4 @@
+import { useLocalization } from "../../../localization/LocalizationProvider";
 import type { StatusCardState } from "../../../state/uiState";
 import { Button } from "../../atoms/Button/Button";
 import { Text } from "../../atoms/Text/Text";
@@ -15,10 +16,11 @@ export function StatusCard({
   state,
   onPing,
 }: StatusCardProps) {
+  const { t } = useLocalization();
   return (
     <section className="status-card">
       <Text text="ASTERIA / DEBUG" variant="eyebrow" />
-      <Text text="RUNTIME STATUS" variant="title" />
+      <Text text={t("ui.runtimeStatus")} variant="title" />
       <StatusIndicator
         label={state.bridgeLabel}
         tone={state.bridgeTone}
@@ -35,7 +37,7 @@ export function StatusCard({
         dataUi="player-status"
       />
       <Text
-        text="F3 debug · WASD move · LMB break · RMB place · Esc cursor"
+        text={t("ui.debugControls")}
         variant="detail"
       />
       <Text
@@ -44,7 +46,7 @@ export function StatusCard({
         dataUi="last-message"
       />
       <Button
-        label="Ping Godot"
+        label={t("ui.pingGodot")}
         disabled={!embedded}
         dataUi="ping"
         onClick={onPing}

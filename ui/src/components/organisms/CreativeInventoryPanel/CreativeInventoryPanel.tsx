@@ -1,3 +1,4 @@
+import { useLocalization } from "../../../localization/LocalizationProvider";
 import type {
   CreativeInventoryView,
   ItemStackView,
@@ -26,6 +27,7 @@ export function CreativeInventoryPanel({
   onCategoryChange,
   onItemClick,
 }: CreativeInventoryPanelProps) {
+  const { t } = useLocalization();
   return (
     <Surface
       variant="hud"
@@ -33,12 +35,12 @@ export function CreativeInventoryPanel({
     >
       <aside className="creative-inventory-panel__categories">
         <Text
-          text="Creative"
+          text={t("ui.creative")}
           variant="heading"
         />
         <div className="creative-inventory-panel__category-list">
           <Button
-            label="Everything"
+            label={t("inventory.everything")}
             variant={
               state.selectedCategoryId ===
               null
@@ -82,15 +84,15 @@ export function CreativeInventoryPanel({
       <section className="creative-inventory-panel__catalog">
         <header className="creative-inventory-panel__header">
           <Text
-            text="Catalog"
+            text={t("ui.catalog")}
             variant="heading"
           />
           <TextInput
             value={
               state.searchQuery
             }
-            placeholder="Search items"
-            aria-label="Search creative items"
+            placeholder={t("ui.searchItems")}
+            aria-label={t("ui.searchCreativeItems")}
             onChange={
               (event) =>
                 onSearchChange?.(

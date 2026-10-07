@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "npm run check:localization && tsc && vite build",
     "preview": "vite preview",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    "build-storybook": "npm run check:localization && storybook build",
+    "check:localization": "node scripts/check-localizations.mjs"
   },
   "dependencies": {
     "react": "19.3.0",

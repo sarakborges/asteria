@@ -1,3 +1,4 @@
+import { useLocalization } from "../../../localization/LocalizationProvider";
 import type { ItemStackView } from "../../../presentation/inventoryModels";
 import { ItemGlyph } from "../../atoms/ItemGlyph/ItemGlyph";
 import "./InventorySlot.css";
@@ -15,6 +16,7 @@ export function InventorySlot({
   disabled = false,
   onClick,
 }: InventorySlotProps) {
+  const { contentName, t } = useLocalization();
   return (
     <button
       type="button"
@@ -28,9 +30,7 @@ export function InventorySlot({
         .join(" ")}
       disabled={disabled}
       aria-label={
-        item?.name ??
-        item?.id ??
-        "Empty inventory slot"
+        item?.id ? contentName(item.id) : t("ui.emptySlot")
       }
       onClick={onClick}
     >

@@ -1,3 +1,4 @@
+import { useLocalization } from "../../../localization/LocalizationProvider";
 import type { PlayerVitalsState } from "../../../state/uiState";
 import { HudEntityCard } from "../HudEntityCard/HudEntityCard";
 import "./PlayerVitals.css";
@@ -9,6 +10,7 @@ export type PlayerVitalsProps = {
 export function PlayerVitals({
   state,
 }: PlayerVitalsProps) {
+  const { t } = useLocalization();
   const health = state?.health ?? null;
   if (!health) return null;
 
@@ -16,13 +18,13 @@ export function PlayerVitals({
     <section className="player-vitals">
       <HudEntityCard
         entity={{
-          name: "Player",
+          name: t("ui.player"),
           health,
         }}
         secondaryVital={
           state?.stamina
             ? {
-                label: "Stamina",
+                label: t("ui.stamina"),
                 value: state.stamina,
               }
             : null

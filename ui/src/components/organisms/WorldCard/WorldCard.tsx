@@ -1,3 +1,4 @@
+import { useLocalization } from "../../../localization/LocalizationProvider";
 import { Button } from "../../atoms/Button/Button";
 import { Surface } from "../../atoms/Surface/Surface";
 import { Text } from "../../atoms/Text/Text";
@@ -24,6 +25,7 @@ export function WorldCard({
   onLoad,
   onDelete,
 }: WorldCardProps) {
+  const { t, contentName } = useLocalization();
   return (
     <Surface
       variant="frosted"
@@ -40,29 +42,29 @@ export function WorldCard({
         {world.compatible ? (
           <>
             <Metadata
-              label="Last saved"
+              label={t("ui.lastSaved")}
               value={world.lastSaved}
             />
             <Metadata
-              label="Seed"
+              label={t("worldSelection.seed")}
               value={world.seed}
             />
             <Metadata
-              label="Days passed"
+              label={t("ui.daysPassed")}
               value={world.daysPassed}
             />
             <Metadata
-              label="Sphere"
-              value={world.sphere}
+              label={t("ui.sphere")}
+              value={world.sphere.startsWith("asteria:") ? contentName(world.sphere) : world.sphere}
             />
             <Metadata
-              label="Coordinates"
+              label={t("worldSelection.coordinates")}
               value={world.coordinates}
             />
           </>
         ) : (
           <Text
-            text="This world is incompatible with the current runtime."
+            text={t("ui.worldIncompatible")}
             variant="body"
           />
         )}
@@ -71,7 +73,7 @@ export function WorldCard({
       <div className="world-card__actions">
         {world.compatible && (
           <Button
-            label="Load"
+            label={t("ui.load")}
             variant="primary"
             stretch
             onClick={() =>
@@ -80,7 +82,7 @@ export function WorldCard({
           />
         )}
         <Button
-          label="Delete"
+          label={t("ui.delete")}
           variant="danger"
           stretch
           onClick={() =>

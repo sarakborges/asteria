@@ -1,3 +1,4 @@
+import { useLocalization } from "../../../localization/LocalizationProvider";
 import { Button } from "../../atoms/Button/Button";
 import { KeyCap } from "../../atoms/KeyCap/KeyCap";
 import { Surface } from "../../atoms/Surface/Surface";
@@ -25,13 +26,14 @@ export function ControlsPage({
   groups,
   onBack,
 }: ControlsPageProps) {
+  const { t } = useLocalization();
   return (
     <ScreenShell
-      title="Controls"
+      title={t("common.controls")}
       background={<CosmicBackground />}
       footer={
         <Button
-          label="Back"
+          label={t("ui.back")}
           className="controls-page__back"
           onClick={onBack}
         />
