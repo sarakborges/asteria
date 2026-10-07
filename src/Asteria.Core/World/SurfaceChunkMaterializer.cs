@@ -7,6 +7,7 @@ namespace Asteria.Core.World;
 public sealed class SurfaceChunkMaterializer
 {
     private readonly SurfaceTerrainColumnCache _columns;
+    private readonly SurfaceTerrainField _terrain;
     private readonly BiomeSurfaceMaterialField _materials;
     private readonly SurfaceDecorationField _decorations;
     private readonly BlockRuntimeId _shellBlock;
@@ -15,6 +16,7 @@ public sealed class SurfaceChunkMaterializer
 
     public SurfaceChunkMaterializer(
         SurfaceTerrainColumnCache columns,
+        SurfaceTerrainField terrain,
         BiomeSurfaceMaterialField materials,
         SurfaceDecorationField decorations,
         DimensionDefinition dimension,
@@ -22,6 +24,8 @@ public sealed class SurfaceChunkMaterializer
     {
         _columns = columns ??
             throw new ArgumentNullException(nameof(columns));
+        _terrain = terrain ??
+            throw new ArgumentNullException(nameof(terrain));
         _materials = materials ??
             throw new ArgumentNullException(nameof(materials));
         _decorations = decorations ??
@@ -56,6 +60,7 @@ public sealed class SurfaceChunkMaterializer
             for (var localX = 0; localX < Chunk.Size; localX++)
             {
                 var surfaceY = column.HeightAt(localX, localZ);
+                var baseY = column.BaseHeightAt(localX, localZ);
                 var worldX = checked(originX + localX);
                 var worldZ = checked(originZ + localZ);
                 var sample = column.BiomeAt(localX, localZ);
@@ -92,7 +97,21 @@ public sealed class SurfaceChunkMaterializer
                             continue;
                         }
 
-                        var depth = checked((uint)(surfaceY - worldY));
+                        if (_terrain.DensityAt(
+                                sample, baseY, worldX, worldY, worldZ) < 0d)
+                        {
+                            continue;
+                        }
+
+                        var depth = worldY <= baseY
+                            ? checked((uint)(baseY - worldY))
+                            : _terrain.AdditiveDepthAt(
+                                sample,
+                                baseY,
+                                worldX,
+                                worldY,
+                                worldZ,
+                                materials.FiniteDepth);
                         chunk.SetBlock(
                             localX,
                             worldY - originY,

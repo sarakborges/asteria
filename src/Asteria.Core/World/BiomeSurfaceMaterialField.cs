@@ -543,6 +543,11 @@ public sealed class BiomeSurfaceMaterialColumn
         _blocks = blocks;
     }
 
+    public uint FiniteDepth =>
+        _endDepths.Length > 1
+            ? _endDepths[^2]
+            : 0u;
+
     public BlockRuntimeId BlockAt(uint depth)
     {
         for (var i = 0; i < _endDepths.Length; i++)

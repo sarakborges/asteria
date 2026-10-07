@@ -1,8 +1,9 @@
 namespace Asteria.Core.World;
 
 /// <summary>
-/// Authoritative immutable base-surface height queries.
-/// Samples the biome ownership field once per X/Z when evaluating an area.
+/// Single authoritative terrain field: a surface crossing plus optional
+/// subtractive caves and additive biome-authored floating formations.
+/// Biomes and height are sampled once per X/Z column, never per Y voxel.
 /// </summary>
 public sealed class SurfaceTerrainField
 {
@@ -11,6 +12,7 @@ public sealed class SurfaceTerrainField
     private readonly int? _roofY;
     private readonly BiomeField _biomes;
     private readonly IReadOnlyDictionary<string, TerrainRule> _rules;
+    private readonly CaveRule? _caves;
 
     public SurfaceTerrainField(
         ulong seed,
@@ -32,6 +34,9 @@ public sealed class SurfaceTerrainField
                 definition => definition.Id,
                 definition => new TerrainRule(definition),
                 StringComparer.Ordinal);
+        _caves = dimension.Caves is { } definition
+            ? new CaveRule(definition)
+            : null;
 
         if (_rules.Count == 0)
         {
@@ -41,11 +46,159 @@ public sealed class SurfaceTerrainField
         }
     }
 
-    public int SurfaceHeight(int worldX, int worldZ) =>
-        HeightAt(
-            _biomes.Sample(worldX, worldZ),
-            worldX,
-            worldZ);
+    public int SurfaceHeight(int worldX, int worldZ)
+    {
+        var biome = _biomes.Sample(worldX, worldZ);
+        var baseY = BaseHeightAt(biome, worldX, worldZ);
+        return FinalSurfaceHeight(biome, baseY, worldX, worldZ);
+    }
+
+    public double DensityAt(int worldX, int worldY, int worldZ)
+    {
+        if (worldY < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(worldY));
+        }
+
+        var biome = _biomes.Sample(worldX, worldZ);
+        var baseY = BaseHeightAt(biome, worldX, worldZ);
+        return DensityAt(biome, baseY, worldX, worldY, worldZ);
+    }
+
+    /// <summary>
+    /// Pure density query with already-sampled X/Z biome and base height.
+    /// Used by the chunk materializer across all Y voxels in a column.
+    /// </summary>
+    public double DensityAt(
+        BiomeSample biome,
+        int baseY,
+        int worldX,
+        int worldY,
+        int worldZ)
+    {
+        if (worldY < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(worldY));
+        }
+
+        double density = baseY - (double)worldY;
+        foreach (var influence in biome.Influences)
+        {
+            var rule = _rules[influence.BiomeId].Floating;
+            if (rule is null ||
+                worldY < rule.MinimumY ||
+                worldY > rule.MaximumY)
+            {
+                continue;
+            }
+
+            density = Math.Max(
+                density,
+                rule.DensityAt(
+                    _seed,
+                    worldX,
+                    worldY,
+                    worldZ,
+                    influence.Weight));
+        }
+
+        if (_caves is not null &&
+            density >= 0d &&
+            worldY <= baseY)
+        {
+            var depth = (long)baseY - worldY;
+            if (depth >= _caves.MinimumDepth &&
+                depth <= _caves.MaximumDepth)
+            {
+                var voidDensity = _caves.VoidDensityAt(
+                    _seed, worldX, worldY, worldZ, depth);
+                if (voidDensity > 0d)
+                {
+                    density = Math.Min(density, -voidDensity);
+                }
+            }
+        }
+
+        return density;
+    }
+
+    /// <summary>
+    /// Number of contiguous additive solid voxels immediately above y,
+    /// capped at finite authored material depth. A gap restarts surface
+    /// material layering even when a higher floating mass exists.
+    /// </summary>
+    public uint AdditiveDepthAt(
+        BiomeSample biome,
+        int baseY,
+        int worldX,
+        int worldY,
+        int worldZ,
+        uint finiteDepth)
+    {
+        uint depth = 0;
+        while (depth < finiteDepth)
+        {
+            var above = (long)worldY + depth + 1L;
+            if (above > int.MaxValue ||
+                DensityAt(
+                    biome,
+                    baseY,
+                    worldX,
+                    (int)above,
+                    worldZ) < 0d)
+            {
+                break;
+            }
+
+            depth++;
+        }
+
+        return depth;
+    }
+
+    public TerrainDensityVolume SampleDensityVolume(
+        int originX,
+        int originY,
+        int originZ,
+        int width,
+        int height,
+        int depth)
+    {
+        if (originY < 0 ||
+            width is < 1 or > Chunk.Size ||
+            height is < 1 or > Chunk.Size ||
+            depth is < 1 or > Chunk.Size)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(width),
+                "Density samples must be non-negative-Y and bounded to one chunk.");
+        }
+
+        _ = checked(originX + width - 1);
+        _ = checked(originY + height - 1);
+        _ = checked(originZ + depth - 1);
+        var values = new double[checked(width * height * depth)];
+
+        for (var z = 0; z < depth; z++)
+        {
+            var worldZ = originZ + z;
+            for (var x = 0; x < width; x++)
+            {
+                var worldX = originX + x;
+                var biome = _biomes.Sample(worldX, worldZ);
+                var baseY = BaseHeightAt(biome, worldX, worldZ);
+
+                for (var y = 0; y < height; y++)
+                {
+                    values[(z * height + y) * width + x] =
+                        DensityAt(
+                            biome, baseY, worldX, originY + y, worldZ);
+                }
+            }
+        }
+
+        return new TerrainDensityVolume(width, height, depth, values);
+    }
 
     public SurfaceTerrainColumn SampleColumn(int chunkX, int chunkZ)
     {
@@ -57,7 +210,8 @@ public sealed class SurfaceTerrainField
             originZ,
             Chunk.Size,
             Chunk.Size);
-        var heights = new int[Chunk.Size * Chunk.Size];
+        var baseHeights = new int[Chunk.Size * Chunk.Size];
+        var surfaceHeights = new int[baseHeights.Length];
         var minimum = int.MaxValue;
         var maximum = int.MinValue;
 
@@ -65,37 +219,94 @@ public sealed class SurfaceTerrainField
         {
             for (var x = 0; x < Chunk.Size; x++)
             {
-                var height = HeightAt(
-                    biomes[x, z],
-                    checked(originX + x),
-                    checked(originZ + z));
-                heights[z * Chunk.Size + x] = height;
-                minimum = Math.Min(minimum, height);
-                maximum = Math.Max(maximum, height);
+                var worldX = checked(originX + x);
+                var worldZ = checked(originZ + z);
+                var biome = biomes[x, z];
+                var baseY = BaseHeightAt(biome, worldX, worldZ);
+                var surfaceY = FinalSurfaceHeight(
+                    biome, baseY, worldX, worldZ);
+                var index = z * Chunk.Size + x;
+                baseHeights[index] = baseY;
+                surfaceHeights[index] = surfaceY;
+                minimum = Math.Min(minimum, surfaceY);
+                maximum = Math.Max(maximum, surfaceY);
             }
         }
 
         return new SurfaceTerrainColumn(
             biomes,
-            heights,
+            baseHeights,
+            surfaceHeights,
             new ChunkSurfaceRange(minimum, maximum));
     }
 
-    private int HeightAt(BiomeSample sample, int worldX, int worldZ)
+    private int BaseHeightAt(
+        BiomeSample sample,
+        int worldX,
+        int worldZ)
     {
         var height = (double)_seaLevel;
         foreach (var influence in sample.Influences)
         {
             height += _rules[influence.BiomeId].HeightOffsetAt(
-                _seed,
-                worldX,
-                worldZ) * influence.Weight;
+                _seed, worldX, worldZ) * influence.Weight;
         }
 
         var surfaceY = checked((int)Math.Floor(height));
         return _roofY is { } roofY && surfaceY >= roofY
             ? roofY - 1
             : surfaceY;
+    }
+
+    private int FinalSurfaceHeight(
+        BiomeSample biome,
+        int baseY,
+        int worldX,
+        int worldZ)
+    {
+        var highestCandidate = baseY;
+        var lowestCandidate = int.MaxValue;
+        var hasPotential = false;
+
+        foreach (var influence in biome.Influences)
+        {
+            var rule = _rules[influence.BiomeId].Floating;
+            if (rule is null ||
+                rule.MaximumY <= baseY ||
+                !rule.MayExistAt(_seed, worldX, worldZ, influence.Weight))
+            {
+                continue;
+            }
+
+            hasPotential = true;
+            lowestCandidate = Math.Min(
+                lowestCandidate, rule.MinimumY);
+            highestCandidate = Math.Max(
+                highestCandidate, rule.MaximumY);
+        }
+
+        if (!hasPotential)
+        {
+            return baseY;
+        }
+
+        if (_roofY is { } roofY)
+        {
+            highestCandidate = Math.Min(
+                highestCandidate, roofY - 1);
+        }
+
+        for (var y = highestCandidate;
+             y > baseY && y >= lowestCandidate;
+             y--)
+        {
+            if (DensityAt(biome, baseY, worldX, y, worldZ) >= 0d)
+            {
+                return y;
+            }
+        }
+
+        return baseY;
     }
 
     private sealed class TerrainRule
@@ -111,7 +322,13 @@ public sealed class SurfaceTerrainField
                 $"terrain/base-surface/macro/v1/{definition.Id}");
             _detailDomain = GenerationDomain.Named(
                 $"terrain/base-surface/detail/v1/{definition.Id}");
+            Floating = definition.Terrain3d?.FloatingFormation is
+                { } floating
+                ? new FloatingRule(definition.Id, floating)
+                : null;
         }
+
+        public FloatingRule? Floating { get; }
 
         public double HeightOffsetAt(ulong seed, int x, int z)
         {
@@ -133,24 +350,166 @@ public sealed class SurfaceTerrainField
                    detail * _terrain.DetailAmplitude;
         }
     }
+
+    private sealed class FloatingRule
+    {
+        private readonly BiomeFloatingFormationDefinition _authored;
+        private readonly GenerationDomain _maskDomain;
+        private readonly GenerationDomain _detailDomain;
+
+        public FloatingRule(
+            string biomeId,
+            BiomeFloatingFormationDefinition authored)
+        {
+            _authored = authored;
+            _maskDomain = GenerationDomain.Named(
+                $"terrain/density/floating/mask/v1/{biomeId}");
+            _detailDomain = GenerationDomain.Named(
+                $"terrain/density/floating/detail/v1/{biomeId}");
+        }
+
+        public int MinimumY => _authored.MinY;
+        public int MaximumY => _authored.MaxY;
+
+        public bool MayExistAt(
+            ulong seed,
+            int x,
+            int z,
+            float influenceWeight) =>
+            HorizontalSupport(seed, x, z) +
+            _authored.Roughness >
+            1d - influenceWeight;
+
+        public double DensityAt(
+            ulong seed,
+            int x,
+            int y,
+            int z,
+            float influenceWeight)
+        {
+            var center = (_authored.MinY + (double)_authored.MaxY) * 0.5d;
+            var halfSpan = (_authored.MaxY - (double)_authored.MinY) * 0.5d;
+            var verticalDistance = Math.Abs((y - center) / halfSpan);
+            var shape = HorizontalSupport(seed, x, z) - verticalDistance;
+            var detail = WorldGenerationEntropy.ValueNoise3D(
+                seed,
+                _detailDomain,
+                x,
+                y,
+                z,
+                _authored.DetailScale,
+                _authored.DetailScale);
+            return (shape +
+                    detail * _authored.Roughness -
+                    (1d - influenceWeight)) *
+                   _authored.DensityScale;
+        }
+
+        private double HorizontalSupport(
+            ulong seed,
+            int x,
+            int z)
+        {
+            var mask = WorldGenerationEntropy.ValueNoise2D(
+                seed,
+                _maskDomain,
+                x,
+                z,
+                _authored.HorizontalScale);
+            var unit = mask * 0.5d + 0.5d;
+            var threshold = 1d - _authored.Coverage;
+            return Math.Clamp(
+                (unit - threshold) / _authored.Coverage,
+                0d,
+                1d);
+        }
+    }
+
+    private sealed class CaveRule
+    {
+        private readonly DimensionCaveDefinition _authored;
+        private readonly GenerationDomain _primary =
+            GenerationDomain.Named("terrain/density/caves/primary/v1");
+        private readonly GenerationDomain _secondary =
+            GenerationDomain.Named("terrain/density/caves/secondary/v1");
+
+        public CaveRule(DimensionCaveDefinition authored)
+        {
+            _authored = authored;
+        }
+
+        public uint MinimumDepth => _authored.MinDepth;
+        public uint MaximumDepth => _authored.MaxDepth;
+
+        public double VoidDensityAt(
+            ulong seed,
+            int x,
+            int y,
+            int z,
+            long depth)
+        {
+            var primary = Math.Abs(WorldGenerationEntropy.ValueNoise3D(
+                seed,
+                _primary,
+                x,
+                y,
+                z,
+                _authored.HorizontalScale,
+                _authored.VerticalScale));
+            if (primary >= _authored.NoiseHalfWidth)
+            {
+                return 0d;
+            }
+
+            var secondary = Math.Abs(WorldGenerationEntropy.ValueNoise3D(
+                seed,
+                _secondary,
+                x,
+                y,
+                z,
+                _authored.HorizontalScale,
+                _authored.VerticalScale));
+            var clearance =
+                _authored.NoiseHalfWidth - Math.Max(primary, secondary);
+            if (clearance <= 0d)
+            {
+                return 0d;
+            }
+
+            var fade = Math.Min(
+                ((double)depth - _authored.MinDepth) / _authored.BoundaryFade,
+                ((double)_authored.MaxDepth - depth) / _authored.BoundaryFade);
+            if (fade <= 0d)
+            {
+                return 0d;
+            }
+
+            return clearance / _authored.NoiseHalfWidth *
+                   Math.Min(1d, fade) *
+                   _authored.DensityScale;
+        }
+    }
 }
 
 /// <summary>
-/// Read-only world-space biome and surface snapshot for one 32x32 X/Z column.
-/// May be reused for any vertical chunk with the same X/Z chunk coordinates.
+/// Read-only X/Z biome/base/final terrain height snapshot shared by
+/// vertical materializations and render queries.
 /// </summary>
 public sealed class SurfaceTerrainColumn
 {
     private readonly BiomeSampleGrid _biomes;
-    private readonly int[] _heights;
+    private readonly int[] _baseHeights;
+    private readonly int[] _surfaceHeights;
 
     internal SurfaceTerrainColumn(
         BiomeSampleGrid biomes,
-        int[] heights,
+        int[] baseHeights,
+        int[] surfaceHeights,
         ChunkSurfaceRange range)
     {
         _biomes = biomes;
-        _heights = heights;
+        _baseHeights = baseHeights;
+        _surfaceHeights = surfaceHeights;
         Range = range;
     }
 
@@ -159,14 +518,57 @@ public sealed class SurfaceTerrainColumn
     public BiomeSample BiomeAt(int localX, int localZ) =>
         _biomes[localX, localZ];
 
-    public int HeightAt(int localX, int localZ)
+    public int BaseHeightAt(int localX, int localZ) =>
+        _baseHeights[Index(localX, localZ)];
+
+    public int HeightAt(int localX, int localZ) =>
+        _surfaceHeights[Index(localX, localZ)];
+
+    private static int Index(int x, int z)
     {
-        if ((uint)localX >= Chunk.Size ||
-            (uint)localZ >= Chunk.Size)
+        if ((uint)x >= Chunk.Size ||
+            (uint)z >= Chunk.Size)
+        {
+            throw new ArgumentOutOfRangeException(nameof(x));
+        }
+
+        return z * Chunk.Size + x;
+    }
+}
+
+/// <summary>
+/// Immutable bounded 3D query snapshot with Z/Y/X row major storage.
+/// </summary>
+public sealed class TerrainDensityVolume
+{
+    private readonly double[] _densities;
+
+    internal TerrainDensityVolume(
+        int width,
+        int height,
+        int depth,
+        double[] densities)
+    {
+        Width = width;
+        Height = height;
+        Depth = depth;
+        _densities = densities;
+    }
+
+    public int Width { get; }
+    public int Height { get; }
+    public int Depth { get; }
+
+    public double DensityAt(int localX, int localY, int localZ)
+    {
+        if ((uint)localX >= Width ||
+            (uint)localY >= Height ||
+            (uint)localZ >= Depth)
         {
             throw new ArgumentOutOfRangeException(nameof(localX));
         }
 
-        return _heights[localZ * Chunk.Size + localX];
+        return _densities[
+            (localZ * Height + localY) * Width + localX];
     }
 }

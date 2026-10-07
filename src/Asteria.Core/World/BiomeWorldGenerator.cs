@@ -39,6 +39,7 @@ public sealed class BiomeWorldGenerator :
             seed, activeBiomes, blocks);
         _materializer = new SurfaceChunkMaterializer(
             _surfaceColumns,
+            _terrain,
             materials,
             decorations,
             dimension,
@@ -58,6 +59,15 @@ public sealed class BiomeWorldGenerator :
 
     public int SurfaceHeight(int worldX, int worldZ) =>
         _terrain.SurfaceHeight(worldX, worldZ);
+
+    public double DensityAt(int worldX, int worldY, int worldZ) =>
+        _terrain.DensityAt(worldX, worldY, worldZ);
+
+    public TerrainDensityVolume SampleDensityVolume(
+        int originX, int originY, int originZ,
+        int width, int height, int depth) =>
+        _terrain.SampleDensityVolume(
+            originX, originY, originZ, width, height, depth);
 
     public ChunkSurfaceRange GetSurfaceRange(int chunkX, int chunkZ) =>
         _surfaceColumns.Get(chunkX, chunkZ).Range;
