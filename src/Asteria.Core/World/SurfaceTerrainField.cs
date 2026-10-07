@@ -14,7 +14,7 @@ public sealed class SurfaceTerrainField
     private readonly BiomeField _surfaceBiomes;
     private readonly VolumeBiomeField _volumeBiomes;
     private readonly GeneratedFluidField _generatedFluids;
-    private readonly IReadOnlyDictionary<string, SurfaceRule> _surfaceRules;
+    private readonly IReadOnlyDictionary<string, SurfaceTerrainRule> _surfaceRules;
     private readonly IReadOnlyDictionary<string, FloatingRule> _floatingRules;
     private readonly OceanShoreRule? _oceanShore;
     private readonly CaveRule? _caves;
@@ -61,7 +61,7 @@ public sealed class SurfaceTerrainField
                     definition =>
                         definition.Id,
                     definition =>
-                        new SurfaceRule(
+                        new SurfaceTerrainRule(
                             definition),
                     StringComparer.Ordinal);
         _floatingRules =
@@ -611,6 +611,86 @@ public sealed class SurfaceTerrainField
             worldZ)
         .BaseY;
 
+    private double HeightOffsetAt(
+        BiomeSample sample,
+        int worldX,
+        int worldZ)
+    {
+        var primary =
+            _surfaceRules[
+                sample.Primary];
+
+        if (primary.IsVolcano)
+        {
+            return primary.HeightOffsetAt(
+                _seed,
+                worldX,
+                worldZ,
+                sample.PrimaryTerrainStrength);
+        }
+
+        var blendedSum = 0d;
+        var blendedWeight = 0d;
+        var unrestrictedSum = 0d;
+        var unrestrictedWeight = 0d;
+
+        foreach (var influence in
+                 sample.Influences)
+        {
+            if (influence.Weight <= 0f)
+            {
+                continue;
+            }
+
+            var rule =
+                _surfaceRules[
+                    influence.BiomeId];
+            var height =
+                rule.HeightOffsetAt(
+                    _seed,
+                    worldX,
+                    worldZ,
+                    influence.TerrainStrength);
+
+            blendedSum +=
+                height *
+                influence.Weight;
+            blendedWeight +=
+                influence.Weight;
+
+            if (rule.InfluencePolicy !=
+                SurfaceHeightInfluencePolicy.Blend)
+            {
+                continue;
+            }
+
+            unrestrictedSum +=
+                height *
+                influence.Weight;
+            unrestrictedWeight +=
+                influence.Weight;
+        }
+
+        if (blendedWeight <=
+            double.Epsilon)
+        {
+            throw new InvalidOperationException(
+                "Biome sample has no positive terrain influence.");
+        }
+
+        var blended =
+            blendedSum /
+            blendedWeight;
+
+        return unrestrictedWeight <=
+               double.Epsilon
+            ? blended
+            : Math.Min(
+                blended,
+                unrestrictedSum /
+                unrestrictedWeight);
+    }
+
     private (
         int BaseY,
         int SurfaceFluidCutDepth)
@@ -619,19 +699,11 @@ public sealed class SurfaceTerrainField
             int worldX,
             int worldZ)
     {
-        var offset = 0d;
-        foreach (var influence in
-                 sample.Influences)
-        {
-            offset +=
-                _surfaceRules[
-                    influence.BiomeId]
-                    .HeightOffsetAt(
-                        _seed,
-                        worldX,
-                        worldZ) *
-                influence.Weight;
-        }
+        var offset =
+            HeightOffsetAt(
+                sample,
+                worldX,
+                worldZ);
 
         if (_oceanShore is not null)
         {
@@ -933,55 +1005,6 @@ public sealed class SurfaceTerrainField
             start +
             (end - start) *
             amount;
-    }
-
-    private sealed class SurfaceRule
-    {
-        private readonly BiomeTerrainDefinition _terrain;
-        private readonly GenerationDomain _macroDomain;
-        private readonly GenerationDomain _detailDomain;
-
-        public SurfaceRule(
-            BiomeDefinition definition)
-        {
-            _terrain =
-                definition.SurfaceTerrain ??
-                throw new ArgumentException(
-                    $"Surface biome {definition.Id} requires surfaceTerrain.");
-            _macroDomain =
-                GenerationDomain.Named(
-                    $"terrain/base-surface/macro/v1/{definition.Id}");
-            _detailDomain =
-                GenerationDomain.Named(
-                    $"terrain/base-surface/detail/v1/{definition.Id}");
-        }
-
-        public double HeightOffsetAt(
-            ulong seed,
-            int x,
-            int z)
-        {
-            var macro =
-                WorldGenerationEntropy.ValueNoise2D(
-                    seed,
-                    _macroDomain,
-                    x,
-                    z,
-                    _terrain.MacroScale);
-            var detail =
-                WorldGenerationEntropy.ValueNoise2D(
-                    seed,
-                    _detailDomain,
-                    x,
-                    z,
-                    _terrain.DetailScale);
-
-            return _terrain.BaseHeightOffset +
-                   macro *
-                   _terrain.MacroAmplitude +
-                   detail *
-                   _terrain.DetailAmplitude;
-        }
     }
 
     private sealed class FloatingRule
