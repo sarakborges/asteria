@@ -206,59 +206,253 @@ public sealed class GeneratedSurfaceFluidTests
     }
 
     [Fact]
-    public void DefaultOverworldRestoresSwampAndVolcanoSurfaceFluids()
+    public void DefaultOverworldUsesTerrainDrivenSurfaceFluids()
     {
         var dimensions =
             DimensionRegistry.FromJson(
                 ReadJsonDirectory(
                     "dimensions"));
+        var biomes =
+            BiomeRegistry.FromJson(
+                ReadJsonDirectory(
+                    "biomes"));
+        var fluids =
+            FluidRegistry.FromJson(
+                ReadJsonDirectory(
+                    "fluids"));
         var overworld =
             dimensions.Get(
                 DimensionId.Overworld);
 
-        Assert.Equal(
-            2,
-            overworld.GeneratedSurfaceFluids.Count);
+        Assert.Empty(
+            overworld.GeneratedSurfaceFluids);
+        biomes.ValidateFluids(
+            fluids);
 
         var swamp =
-            Assert.Single(
-                overworld.GeneratedSurfaceFluids,
-                rule =>
-                    string.Equals(
-                        rule.Biome,
-                        "asteria:overworld/swamp",
-                        StringComparison.Ordinal));
-        Assert.Equal(
-            "asteria:water",
-            swamp.Fluid);
-        Assert.Equal(
-            (18, 5, 3, 0.75f, 1),
-            (
-                swamp.Spacing,
-                swamp.Radius,
-                swamp.Jitter,
-                swamp.Chance,
-                swamp.Depth));
+            biomes.Get(
+                "asteria:overworld/swamp");
+        _ =
+            Assert.IsType<
+                BiomeSwampTerrainShapeDefinition>(
+                swamp.SurfaceTerrain!.Shape);
+        Assert.Null(
+            swamp.SurfaceFluid);
 
         var volcano =
-            Assert.Single(
-                overworld.GeneratedSurfaceFluids,
-                rule =>
-                    string.Equals(
-                        rule.Biome,
-                        "asteria:overworld/volcano",
-                        StringComparison.Ordinal));
+            biomes.Get(
+                "asteria:overworld/volcano");
+        var terrain =
+            Assert.IsType<
+                BiomeVolcanoTerrainShapeDefinition>(
+                volcano.SurfaceTerrain!.Shape);
+        var crater =
+            Assert.IsType<
+                BiomeVolcanoCraterFluidDefinition>(
+                volcano.SurfaceFluid);
+
+        Assert.Equal(
+            (12f, 72f, 38f, 0.14f),
+            (
+                terrain.BaseHeight,
+                terrain.Height,
+                terrain.CraterDepth,
+                terrain.CraterRadius));
         Assert.Equal(
             "asteria:lava",
-            volcano.Fluid);
+            crater.Fluid);
         Assert.Equal(
-            (96, 10, 12, 0.4f, 2),
+            (0.91f, 8f, 0.56f, 0.9f, 0.012f, 0.055f, (byte)6),
             (
-                volcano.Spacing,
-                volcano.Radius,
-                volcano.Jitter,
-                volcano.Chance,
-                volcano.Depth));
+                crater.MinimumStrength,
+                crater.LevelOffset,
+                crater.SpillMinimumStrength,
+                crater.SpillMaximumStrength,
+                crater.SpillScale,
+                crater.SpillWidth,
+                crater.SpillLevel));
+    }
+
+    [Fact]
+    public void DefaultBiomePackRestoresMineCloneTerrainTypes()
+    {
+        var biomes =
+            BiomeRegistry.FromJson(
+                ReadJsonDirectory(
+                    "biomes"));
+
+        var expected =
+            new Dictionary<string, Type>(
+                StringComparer.Ordinal)
+            {
+                ["asteria:overworld/plains"] =
+                    typeof(BiomeRollingTerrainShapeDefinition),
+                ["asteria:overworld/desert"] =
+                    typeof(BiomeDunesTerrainShapeDefinition),
+                ["asteria:overworld/ocean"] =
+                    typeof(BiomeOceanTerrainShapeDefinition),
+                ["asteria:overworld/swamp"] =
+                    typeof(BiomeSwampTerrainShapeDefinition),
+                ["asteria:overworld/mountains"] =
+                    typeof(BiomeMountainsTerrainShapeDefinition),
+                ["asteria:overworld/gorge"] =
+                    typeof(BiomeGorgeTerrainShapeDefinition),
+                ["asteria:overworld/alps"] =
+                    typeof(BiomeAlpsTerrainShapeDefinition),
+                ["asteria:overworld/mountain_belt"] =
+                    typeof(BiomeMountainBeltTerrainShapeDefinition),
+                ["asteria:overworld/volcano"] =
+                    typeof(BiomeVolcanoTerrainShapeDefinition),
+                ["asteria:umbral/umbral_reach"] =
+                    typeof(BiomeRollingTerrainShapeDefinition),
+                ["asteria:umbral/withered_waste"] =
+                    typeof(BiomeRollingTerrainShapeDefinition),
+                ["asteria:umbral/wraith_grove"] =
+                    typeof(BiomeRollingTerrainShapeDefinition),
+            };
+
+        foreach (var (biomeId, terrainType) in
+                 expected)
+        {
+            Assert.Equal(
+                terrainType,
+                biomes.Get(
+                        biomeId)
+                    .SurfaceTerrain!
+                    .Shape
+                    .GetType());
+        }
+
+        var mountains =
+            biomes.Get(
+                "asteria:overworld/mountains");
+        _ =
+            Assert.IsType<
+                BiomeCliffsTerrainModifierDefinition>(
+                Assert.Single(
+                    mountains.SurfaceTerrain!
+                        .Modifiers));
+    }
+
+    [Fact]
+    public void VolcanoCoreMaterializesCraterLava()
+    {
+        var blocks =
+            BlockRegistry.FromJson(
+                ReadJsonDirectory(
+                    "blocks"));
+        var fluids =
+            FluidRegistry.FromJson(
+                ReadJsonDirectory(
+                    "fluids"));
+        var biomes =
+            BiomeRegistry.FromJson(
+                ReadJsonDirectory(
+                    "biomes"));
+        var structures =
+            StructureRegistry.FromJson(
+                ReadJsonDirectory(
+                    "structures"));
+        var dimensions =
+            DimensionRegistry.FromJson(
+                ReadJsonDirectory(
+                    "dimensions"));
+        var dimension =
+            dimensions.Get(
+                DimensionId.Overworld);
+        var generator =
+            new BiomeWorldGenerator(
+                DimensionSeed.Derive(
+                    0xA57E_2026UL,
+                    dimension.Id),
+                dimension,
+                blocks,
+                fluids,
+                biomes,
+                structures);
+        var core =
+            FindVolcanoCore(
+                generator.Biomes);
+        var surfaceY =
+            generator.SurfaceHeight(
+                core.X,
+                core.Z);
+        var lava =
+            fluids.GetId(
+                "asteria:lava");
+        var foundLava =
+            false;
+
+        for (var worldY =
+                 surfaceY +
+                 1;
+             worldY <=
+                 surfaceY +
+                 16;
+             worldY++)
+        {
+            var address =
+                VoxelCoordinates.FromWorld(
+                    core.X,
+                    worldY,
+                    core.Z);
+            var chunk =
+                generator.Materialize(
+                    address.Chunk);
+            var fluid =
+                chunk.GetFluid(
+                    address.Local.X,
+                    address.Local.Y,
+                    address.Local.Z);
+
+            if (fluid.Fluid !=
+                lava)
+            {
+                continue;
+            }
+
+            foundLava = true;
+            break;
+        }
+
+        Assert.True(
+            foundLava,
+            "A strong volcano core must place authored lava above the crater floor.");
+    }
+
+    private static (int X, int Z)
+        FindVolcanoCore(
+            BiomeField field)
+    {
+        for (var z = -4096;
+             z <= 4096;
+             z += 32)
+        {
+            for (var x = -4096;
+                 x <= 4096;
+                 x += 32)
+            {
+                var sample =
+                    field.Sample(
+                        x,
+                        z);
+
+                if (string.Equals(
+                        sample.Primary,
+                        "asteria:overworld/volcano",
+                        StringComparison.Ordinal) &&
+                    sample.PrimaryTerrainStrength >=
+                        0.94f)
+                {
+                    return (
+                        x,
+                        z);
+                }
+            }
+        }
+
+        throw new Xunit.Sdk.XunitException(
+            "Could not find a deterministic strong volcano core.");
     }
 
     private static IEnumerable<string> ReadJsonDirectory(
