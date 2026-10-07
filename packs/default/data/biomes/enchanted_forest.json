@@ -1,11 +1,17 @@
 {
   "id": "asteria:overworld/enchanted_forest",
   "surfaceLayout": {
-    "weight": 0.45,
+    "weight": 1.25,
+    "spawnWeight": 1,
     "regionSize": {
       "min": 224,
       "max": 448
-    }
+    },
+    "cannotBorder": [
+      "asteria:overworld/arctic",
+      "asteria:overworld/desert",
+      "asteria:overworld/volcano"
+    ]
   },
   "surfaceTerrain": {
     "type": "rolling",

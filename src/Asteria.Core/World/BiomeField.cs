@@ -139,6 +139,9 @@ public sealed class BiomeField
     private readonly GenerationDomain _seedBiasDomain =
         GenerationDomain.Named(
             "biome-layout/seed-bias/v3");
+    private readonly GenerationDomain _spawnPickDomain =
+        GenerationDomain.Named(
+            "biome-layout/spawn-pick/v1");
     private readonly GenerationDomain _warpCoarseXDomain =
         GenerationDomain.Named(
             "biome-layout/warp-coarse-x/v3");
@@ -253,6 +256,73 @@ public sealed class BiomeField
 
     public int SeedSpacing =>
         _seedSpacing;
+
+    public string? SelectSpawnBiome(
+        string? excludedBiomeId = null)
+    {
+        var total = 0UL;
+
+        foreach (var rule in _rules)
+        {
+            if (rule.SpawnWeightUnits == 0 ||
+                string.Equals(
+                    rule.Id,
+                    excludedBiomeId,
+                    StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            total =
+                SaturatingAdd(
+                    total,
+                    rule.SpawnWeightUnits);
+        }
+
+        if (total == 0)
+        {
+            return null;
+        }
+
+        var pick =
+            WorldGenerationEntropy.Sample2D(
+                _seed,
+                _spawnPickDomain,
+                0,
+                0) %
+            total;
+        var cursor = 0UL;
+
+        foreach (var rule in _rules)
+        {
+            if (rule.SpawnWeightUnits == 0 ||
+                string.Equals(
+                    rule.Id,
+                    excludedBiomeId,
+                    StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            cursor =
+                SaturatingAdd(
+                    cursor,
+                    rule.SpawnWeightUnits);
+            if (pick < cursor)
+            {
+                return rule.Id;
+            }
+        }
+
+        return _rules
+            .Last(rule =>
+                rule.SpawnWeightUnits > 0 &&
+                !string.Equals(
+                    rule.Id,
+                    excludedBiomeId,
+                    StringComparison.Ordinal))
+            .Id;
+    }
 
     public BiomeSample Sample(
         int x,
@@ -1633,6 +1703,7 @@ public sealed class BiomeField
         private BiomeRule(
             string id,
             ulong weightUnits,
+            ulong spawnWeightUnits,
             uint regionMin,
             uint regionMax,
             HashSet<string> cannotBorder,
@@ -1640,6 +1711,7 @@ public sealed class BiomeField
         {
             Id = id;
             WeightUnits = weightUnits;
+            SpawnWeightUnits = spawnWeightUnits;
             RegionMin = regionMin;
             RegionMax = regionMax;
             CannotBorder = cannotBorder;
@@ -1649,6 +1721,8 @@ public sealed class BiomeField
         public string Id { get; }
 
         public ulong WeightUnits { get; }
+
+        public ulong SpawnWeightUnits { get; }
 
         public uint RegionMin { get; }
 
@@ -1673,6 +1747,16 @@ public sealed class BiomeField
                         Math.Round(
                             layout.Weight *
                             4096d))),
+                layout is BiomeSurfaceLayoutDefinition surface
+                    ? surface.SpawnWeight <= 0f
+                        ? 0UL
+                        : Math.Max(
+                            1UL,
+                            checked((ulong)
+                                Math.Round(
+                                    surface.SpawnWeight *
+                                    4096d)))
+                    : 0UL,
                 layout.RegionMin,
                 layout.RegionMax,
                 new HashSet<string>(

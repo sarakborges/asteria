@@ -1,11 +1,18 @@
 {
   "id": "asteria:overworld/mountains",
   "surfaceLayout": {
-    "weight": 0.35,
+    "weight": 0.85,
+    "spawnWeight": 0.5,
     "regionSize": {
       "min": 256,
       "max": 512
-    }
+    },
+    "cannotBorder": [
+      "asteria:overworld/gorge",
+      "asteria:overworld/alps",
+      "asteria:overworld/mountain_belt",
+      "asteria:overworld/volcano"
+    ]
   },
   "surfaceTerrain": {
     "type": "mountains",

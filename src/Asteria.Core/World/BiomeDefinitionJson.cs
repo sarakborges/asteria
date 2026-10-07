@@ -91,14 +91,27 @@ public static class BiomeDefinitionJson
                 root,
                 "surfaceLayout");
 
-        return layout is
-            { } values
-            ? new BiomeSurfaceLayoutDefinition(
-                values.Weight,
-                values.RegionMin,
-                values.RegionMax,
-                values.CannotBorder)
-            : null;
+        if (layout is not
+            { } values)
+        {
+            return null;
+        }
+
+        var authored =
+            EnsureObject(
+                root.GetProperty(
+                    "surfaceLayout"),
+                "surfaceLayout");
+
+        return new BiomeSurfaceLayoutDefinition(
+            values.Weight,
+            values.RegionMin,
+            values.RegionMax,
+            values.CannotBorder,
+            OptionalSingle(
+                authored,
+                "spawnWeight") ??
+            1f);
     }
 
     private static BiomeTerrainDefinition? ParseTerrain(

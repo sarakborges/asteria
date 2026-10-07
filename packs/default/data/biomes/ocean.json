@@ -1,7 +1,8 @@
 {
   "id": "asteria:overworld/ocean",
   "surfaceLayout": {
-    "weight": 0.6,
+    "weight": 1,
+    "spawnWeight": 1,
     "regionSize": {
       "min": 256,
       "max": 512

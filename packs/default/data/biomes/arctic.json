@@ -1,11 +1,17 @@
 {
   "id": "asteria:overworld/arctic",
   "surfaceLayout": {
-    "weight": 0.55,
+    "weight": 0.9,
+    "spawnWeight": 0.5,
     "regionSize": {
       "min": 224,
       "max": 448
-    }
+    },
+    "cannotBorder": [
+      "asteria:overworld/volcano",
+      "asteria:overworld/desert",
+      "asteria:overworld/swamp"
+    ]
   },
   "surfaceTerrain": {
     "type": "rolling",

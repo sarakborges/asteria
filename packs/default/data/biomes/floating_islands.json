@@ -1,6 +1,8 @@
 {
   "id": "asteria:overworld/floating_islands",
-  "volumeLayout": {},
+  "volumeLayout": {
+    "weight": 0.25
+  },
   "surfaceLayers": [
     {
       "block": "asteria:grass_block",

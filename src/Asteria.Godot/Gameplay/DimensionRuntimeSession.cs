@@ -28,6 +28,7 @@ public sealed record DimensionRetirementDrainReport(
 public sealed class DimensionRuntimeSession
 {
     private const int SpawnSearchRadiusBlocks = 64;
+    private const int SpawnBiomeSearchRadiusBlocks = 512;
 
     private readonly DimensionSessionState _state;
     private NVector3 _initialPlayerPosition;
@@ -316,12 +317,11 @@ public sealed class DimensionRuntimeSession
         var spawn =
             Dimension.Spawn;
         var destination =
-            Generator.FindGeneratedSurfaceDestination(
-                spawn.X,
-                spawn.Z,
+            Generator.FindGeneratedSpawn(
+                SpawnBiomeSearchRadiusBlocks,
                 SpawnSearchRadiusBlocks) ??
             throw new InvalidOperationException(
-                $"Dimension {Dimension.Id} has no safe generated spawn within {SpawnSearchRadiusBlocks} blocks of ({spawn.X}, {spawn.Z}).");
+                $"Dimension {Dimension.Id} has no safe generated spawn near ({spawn.X}, {spawn.Z}).");
 
         return new NVector3(
             destination.X + 0.5f,

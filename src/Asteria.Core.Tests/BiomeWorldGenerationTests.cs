@@ -53,8 +53,11 @@ public sealed class BiomeWorldGenerationTests
             biomes.Get(
                 "asteria:overworld/swamp");
 
-        Assert.Contains(
+        Assert.DoesNotContain(
             "asteria:overworld/desert",
+            swamp.SurfaceLayout!.CannotBorder);
+        Assert.Contains(
+            "asteria:overworld/mountains",
             swamp.SurfaceLayout.CannotBorder);
         Assert.Contains(
             swamp.Decorations,

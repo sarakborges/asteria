@@ -294,14 +294,26 @@ public sealed class BiomeSurfaceLayoutDefinition :
         float weight = 1f,
         uint regionMin = 192,
         uint regionMax = 384,
-        IEnumerable<string>? cannotBorder = null)
+        IEnumerable<string>? cannotBorder = null,
+        float spawnWeight = 1f)
         : base(
             weight,
             regionMin,
             regionMax,
             cannotBorder)
     {
+        if (!float.IsFinite(spawnWeight) ||
+            spawnWeight < 0f)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(spawnWeight),
+                "Biome spawn weight must be finite and non-negative.");
+        }
+
+        SpawnWeight = spawnWeight;
     }
+
+    public float SpawnWeight { get; }
 }
 
 public sealed class BiomeVolumeLayoutDefinition :

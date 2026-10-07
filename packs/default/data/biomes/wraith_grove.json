@@ -1,7 +1,8 @@
 {
   "id": "asteria:umbral/wraith_grove",
   "surfaceLayout": {
-    "weight": 0.7,
+    "weight": 1.25,
+    "spawnWeight": 1,
     "regionSize": {
       "min": 192,
       "max": 352

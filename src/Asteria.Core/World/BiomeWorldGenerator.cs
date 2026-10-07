@@ -11,6 +11,7 @@ public sealed class BiomeWorldGenerator :
     private static readonly FluidRegistry EmptyFluids =
         new(Array.Empty<FluidDefinition>());
 
+    private readonly DimensionDefinition _dimension;
     private readonly SurfaceTerrainField _terrain;
     private readonly SurfaceTerrainColumnCache _surfaceColumns;
     private readonly GeneratedFluidField _generatedFluids;
@@ -74,6 +75,8 @@ public sealed class BiomeWorldGenerator :
         structureSets.ValidateStructures(
             structures);
 
+        _dimension =
+            dimension;
         DimensionId =
             dimension.Id;
         var surfaceDefinitions =
@@ -193,6 +196,55 @@ public sealed class BiomeWorldGenerator :
         _undergroundBiomes;
 
     public BiomeTintField Tints { get; }
+
+    public GeneratedSurfaceDestination?
+        FindGeneratedSpawn(
+            int maxBiomeDistance,
+            int maxLocalRadius)
+    {
+        var spawn =
+            _dimension.Spawn;
+        var targetBiome =
+            Biomes.SelectSpawnBiome(
+                _dimension.GeneratedOcean?.Biome);
+
+        if (targetBiome is not null)
+        {
+            var target =
+                Biomes.FindNearestSurfaceBiome(
+                    targetBiome,
+                    spawn.X,
+                    spawn.Z,
+                    maxBiomeDistance);
+
+            if (target is not null)
+            {
+                var preferred =
+                    _destinations.Find(
+                        target.X,
+                        target.Z,
+                        maxLocalRadius,
+                        (x, z) =>
+                            string.Equals(
+                                Biomes.Sample(
+                                        x,
+                                        z)
+                                    .Primary,
+                                targetBiome,
+                                StringComparison.Ordinal));
+
+                if (preferred is not null)
+                {
+                    return preferred;
+                }
+            }
+        }
+
+        return _destinations.Find(
+            spawn.X,
+            spawn.Z,
+            maxLocalRadius);
+    }
 
     public SurfaceBiomeSearchResult?
         FindNearestSurfaceBiome(

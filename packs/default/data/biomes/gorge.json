@@ -1,11 +1,18 @@
 {
   "id": "asteria:overworld/gorge",
   "surfaceLayout": {
-    "weight": 0.35,
+    "weight": 1,
+    "spawnWeight": 0.5,
     "regionSize": {
       "min": 192,
       "max": 320
-    }
+    },
+    "cannotBorder": [
+      "asteria:overworld/mountains",
+      "asteria:overworld/alps",
+      "asteria:overworld/mountain_belt",
+      "asteria:overworld/volcano"
+    ]
   },
   "surfaceTerrain": {
     "type": "gorge",
