@@ -2910,12 +2910,7 @@ public sealed class SurfaceStructureField
             var occupied =
                 pieces
                     .SelectMany(value =>
-                        value.Voxels)
-                    .Select(value =>
-                        (
-                            value.X,
-                            value.Y,
-                            value.Z))
+                        value.PayloadPositions())
                     .ToHashSet();
             var pending =
                 new Queue<(
@@ -3055,12 +3050,7 @@ public sealed class SurfaceStructureField
                     }
 
                     var childPositions =
-                        childPiece.Voxels
-                            .Select(value =>
-                                (
-                                    value.X,
-                                    value.Y,
-                                    value.Z))
+                        childPiece.PayloadPositions()
                             .ToArray();
                     if (childPositions.Any(
                             occupied.Contains))
