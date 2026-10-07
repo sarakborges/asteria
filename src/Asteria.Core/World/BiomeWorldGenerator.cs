@@ -117,21 +117,23 @@ public sealed class BiomeWorldGenerator :
                 seed,
                 dimension,
                 biomes);
+        _generatedFluids =
+            new GeneratedFluidField(
+                seed,
+                dimension,
+                fluids);
         _terrain =
             new SurfaceTerrainField(
                 seed,
                 dimension,
                 Biomes,
                 _volumeBiomes,
+                _generatedFluids,
                 surfaceDefinitions,
                 volumeDefinitions);
         _surfaceColumns =
             new SurfaceTerrainColumnCache(
                 _terrain);
-        _generatedFluids =
-            new GeneratedFluidField(
-                dimension,
-                fluids);
         var materials =
             new BiomeSurfaceMaterialField(
                 seed,
