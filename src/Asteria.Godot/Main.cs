@@ -392,7 +392,7 @@ public partial class Main : Node3D
         GD.Print(
             $"dimension.transition complete from={completion.From} " +
             $"to={completion.To} archived_dirty={completion.Archive.ArchivedDirty} " +
-            $"dropped_pristine={completion.Archive.DroppedPristine}");
+            $"archived_pristine={completion.Archive.ArchivedPristine}");
     }
 
     private void ActivateCurrentDimensionPresentation()
