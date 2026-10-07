@@ -186,9 +186,34 @@ StructureSets live under `data/structure_sets/*.json`. A set is one logical gene
 
 Elements are resolved in authored order. `relativeTo` may be `origin`, `any`, or an earlier element ID. Count, chance, placement attempts, annulus distance, separation, variant choice and rotation are deterministic functions of the world seed/root cell. Required elements reject the whole set when their minimum count cannot be placed. Internal overlap is rejected unless explicitly allowed. The set's `priority`, `conflictGroups` and `reserveSpace` apply to the complete logical root, while each piece keeps its own Structure restrictions and generation policy. Queries expose the shared logical root anchor even though individual pieces have independent voxel origins. Chunk boundaries never become StructureSet boundaries.
 
+Palette entries may also author `connector`. A connector is a logical marker on the authored Structure grid and does not become a persistent voxel by itself. `target: null` (or omitted) defines an input connector and must be connector-only. A namespaced `target` defines an output connector and may coexist with a block payload:
+
+```json
+"palette": {
+  "A": {
+    "block": "asteria:stone",
+    "connector": {
+      "target": "asteria:bridge_segment",
+      "face": "right",
+      "strength": 1.0,
+      "strengthLossOnEachLoop": 0.25,
+      "minDistance": 1,
+      "maxDistance": 3
+    }
+  },
+  "I": {
+    "connector": {
+      "face": "left"
+    }
+  }
+}
+```
+
+Connector faces are `right`, `left`, `top`, `bottom`, `front`, or `back`. Output targets may reference a Structure or Structure group. Generation aligns an input connector with the output world face, chooses variants/rotations/distances deterministically, rejects block-voxel overlap, and expands breadth-first while connector strength remains positive. Recursive connector cycles are valid only when strength decreases; unchanged-strength cycles are rejected because their world-space bounds would be unbounded. Connector expansion is part of the same logical Structure candidate, so conflict resolution, queries, cross-chunk materialization and streaming bounds all see the complete chain.
+
 Structures may additionally author bounded `restrictions.proximity` rules. Each rule targets exactly one block or fluid, uses mode `required` or `forbidden`, has a required `maxDistance` capped at 64, and may set `minDistance` to form an annulus. Block targets query the authoritative exposed surface material; fluid targets query the existing generated-fluid owner one voxel above the target column's base surface. Proximity never creates terrain or fluid and does not introduce a hydrology subsystem.
 
-This block-voxel contract still deliberately does **not** pretend to support MineClone's object attachments, structure-owned fluid payloads, surface layers, connectors, or clear/layers-only cells. StructureSets are supported as deterministic multi-piece composition over the existing Structure contract. Unsupported palette/template fields fail validation instead of being silently ignored. The default pack currently ports the four MineClone boulder geometries, four oak-tree block variants, and three willow-tree block variants. Stick object cells and willow moss surface layers are omitted until their respective owners exist. Plains references both `asteria:tree_oak` and `asteria:tree_willow`; swamp references `asteria:tree_willow`. Willow preserves MineClone's required water proximity of 1..12 blocks. Because swamp does not yet author its own generated puddle/fluid feature, current willow water proximity is satisfied only by water that actually exists through the present generated-fluid owners, chiefly ocean/coast water. The inactive Enchanted Forest root is not imported into active Overworld rules.
+This block-voxel contract still deliberately does **not** pretend to support MineClone's object attachments, structure-owned fluid payloads, surface layers, or clear/layers-only cells. StructureSets and connector chains are supported as deterministic multi-piece composition over the existing Structure contract. Unsupported palette/template fields fail validation instead of being silently ignored. The default pack currently ports the four MineClone boulder geometries, four oak-tree block variants, and three willow-tree block variants. Stick object cells and willow moss surface layers are omitted until their respective owners exist. Plains references both `asteria:tree_oak` and `asteria:tree_willow`; swamp references `asteria:tree_willow`. Willow preserves MineClone's required water proximity of 1..12 blocks. Because swamp does not yet author its own generated puddle/fluid feature, current willow water proximity is satisfied only by water that actually exists through the present generated-fluid owners, chiefly ocean/coast water. The inactive Enchanted Forest root is not imported into active Overworld rules.
 
 A Sphere may define one explicit generated ocean rule:
 
