@@ -120,22 +120,40 @@ public sealed class VoxelWorldTests
     }
 
     [Fact]
-    public void PristineChunkIsDroppedInsteadOfConsumingArchiveMemory()
+    public void PristineMaterializedChunkIsArchivedAndRestored()
     {
         var world = new VoxelWorld();
         var coord = ChunkCoord.Zero;
-        world.InsertChunk(coord, new Chunk());
+        var chunk = new Chunk();
+        world.InsertChunk(
+            coord,
+            chunk);
 
         Assert.Equal(
-            ChunkArchiveResult.DroppedPristine,
-            world.ArchiveChunk(coord));
+            ChunkArchiveResult.ArchivedPristine,
+            world.ArchiveChunk(
+                coord));
 
-        Assert.False(world.ContainsChunk(coord));
-        Assert.False(world.HasArchivedChunk(coord));
-        Assert.Equal(0, world.ArchivedChunkCount);
+        Assert.False(
+            world.ContainsChunk(
+                coord));
+        Assert.True(
+            world.HasArchivedChunk(
+                coord));
         Assert.Equal(
-            ChunkRestoreResult.Missing,
-            world.RestoreChunk(coord));
+            1,
+            world.ArchivedChunkCount);
+        Assert.Equal(
+            0,
+            world.DirtyChunkCount);
+        Assert.Equal(
+            ChunkRestoreResult.Restored,
+            world.RestoreChunk(
+                coord));
+        Assert.Same(
+            chunk,
+            world.GetChunk(
+                coord));
     }
 
     [Fact]
