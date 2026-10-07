@@ -1324,6 +1324,8 @@ public sealed class BiomeWorldGenerationTests
             LoadDefaultBiomes();
         var fluids =
             LoadDefaultFluids();
+        var structures =
+            LoadDefaultStructures();
         var dimensions =
             LoadDefaultDimensions();
         var dimension =
@@ -1337,7 +1339,8 @@ public sealed class BiomeWorldGenerationTests
                 dimension,
                 blocks,
                 fluids,
-                biomes);
+                biomes,
+                structures);
         var floating =
             FindVolumeBiomeInterior(
                 generator.VolumeBiomes,
@@ -1395,6 +1398,8 @@ public sealed class BiomeWorldGenerationTests
             LoadDefaultBiomes();
         var fluids =
             LoadDefaultFluids();
+        var structures =
+            LoadDefaultStructures();
         var dimensions =
             LoadDefaultDimensions();
         var dimension =
@@ -1408,7 +1413,8 @@ public sealed class BiomeWorldGenerationTests
                 dimension,
                 blocks,
                 fluids,
-                biomes);
+                biomes,
+                structures);
         var cave =
             FindCaveVoid(
                 generator);
@@ -1460,6 +1466,8 @@ public sealed class BiomeWorldGenerationTests
             LoadDefaultBiomes();
         var fluids =
             LoadDefaultFluids();
+        var structures =
+            LoadDefaultStructures();
         var dimensions =
             LoadDefaultDimensions();
         dimensions.ValidateBiomes(
@@ -1477,7 +1485,8 @@ public sealed class BiomeWorldGenerationTests
                 dimension,
                 blocks,
                 fluids,
-                biomes);
+                biomes,
+                structures);
         var grass =
             blocks.GetId(
                 "asteria:grass");
@@ -1727,6 +1736,28 @@ public sealed class BiomeWorldGenerationTests
                 "fluids");
 
         return FluidRegistry.FromJson(
+            Directory
+                .EnumerateFiles(
+                    directory,
+                    "*.json")
+                .OrderBy(
+                    path => path,
+                    StringComparer.Ordinal)
+                .Select(
+                    File.ReadAllText));
+    }
+
+    private static StructureRegistry LoadDefaultStructures()
+    {
+        var directory =
+            Path.Combine(
+                AppContext.BaseDirectory,
+                "packs",
+                "default",
+                "data",
+                "structures");
+
+        return StructureRegistry.FromJson(
             Directory
                 .EnumerateFiles(
                     directory,

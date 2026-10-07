@@ -13,6 +13,8 @@ public sealed class DimensionTests
             LoadDefaultDimensions();
         var fluids =
             LoadDefaultFluids();
+        var structures =
+            LoadDefaultStructures();
 
         dimensions.ValidateBiomes(
             biomes);
@@ -22,6 +24,10 @@ public sealed class DimensionTests
             blocks);
         dimensions.ValidateFluids(
             fluids);
+        structures.ValidateBlocks(
+            blocks);
+        dimensions.ValidateStructures(
+            structures);
 
         Assert.Equal(
             2,
@@ -248,6 +254,8 @@ public sealed class DimensionTests
             LoadDefaultBlocks();
         var fluids =
             LoadDefaultFluids();
+        var structures =
+            LoadDefaultStructures();
         var biomes =
             LoadDefaultBiomes();
         var dimensions =
@@ -272,7 +280,8 @@ public sealed class DimensionTests
                 overworld,
                 blocks,
                 fluids,
-                biomes);
+                biomes,
+                structures);
         var umbralGenerator =
             new BiomeWorldGenerator(
                 DimensionSeed.Derive(
@@ -281,7 +290,8 @@ public sealed class DimensionTests
                 umbral,
                 blocks,
                 fluids,
-                biomes);
+                biomes,
+                structures);
 
         Assert.Equal(
             DimensionId.Overworld,
@@ -334,6 +344,8 @@ public sealed class DimensionTests
             LoadDefaultBlocks();
         var fluids =
             LoadDefaultFluids();
+        var structures =
+            LoadDefaultStructures();
         var biomes =
             LoadDefaultBiomes();
         var dimensions =
@@ -354,7 +366,8 @@ public sealed class DimensionTests
                 dimension,
                 blocks,
                 fluids,
-                biomes);
+                biomes,
+                structures);
         var point =
             FindOceanColumn(
                 generator,
@@ -424,6 +437,8 @@ public sealed class DimensionTests
             LoadDefaultBlocks();
         var fluids =
             LoadDefaultFluids();
+        var structures =
+            LoadDefaultStructures();
         var biomes =
             LoadDefaultBiomes();
         var dimensions =
@@ -439,7 +454,8 @@ public sealed class DimensionTests
                 dimension,
                 blocks,
                 fluids,
-                biomes);
+                biomes,
+                structures);
         var boundary =
             FindOceanBoundaryWithDeepWater(
                 generator,
@@ -828,6 +844,11 @@ public sealed class DimensionTests
         BiomeRegistry.FromJson(
             ReadJsonDirectory(
                 "biomes"));
+
+    private static StructureRegistry LoadDefaultStructures() =>
+        StructureRegistry.FromJson(
+            ReadJsonDirectory(
+                "structures"));
 
     private static DimensionRegistry LoadDefaultDimensions() =>
         DimensionRegistry.FromJson(
