@@ -65,6 +65,7 @@ public sealed class BiomeWorldGenerator :
         ArgumentNullException.ThrowIfNull(structures);
         biomes.ValidateBlocks(blocks);
         structures.ValidateBlocks(blocks);
+        structures.ValidateFluids(fluids);
 
         DimensionId =
             dimension.Id;
@@ -137,6 +138,7 @@ public sealed class BiomeWorldGenerator :
                 dimension,
                 structures,
                 blocks,
+                fluids,
                 Biomes,
                 _surfaceColumns,
                 materials,

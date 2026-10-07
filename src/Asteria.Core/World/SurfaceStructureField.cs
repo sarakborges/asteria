@@ -29,6 +29,7 @@ public sealed class SurfaceStructureField
         DimensionDefinition dimension,
         StructureRegistry structures,
         BlockRegistry blocks,
+        FluidRegistry fluids,
         BiomeField biomes,
         SurfaceTerrainColumnCache columns,
         BiomeSurfaceMaterialField materials,
@@ -40,6 +41,8 @@ public sealed class SurfaceStructureField
             structures);
         ArgumentNullException.ThrowIfNull(
             blocks);
+        ArgumentNullException.ThrowIfNull(
+            fluids);
         _biomes =
             biomes ??
             throw new ArgumentNullException(
@@ -79,7 +82,8 @@ public sealed class SurfaceStructureField
                         RootRule.Create(
                             generated,
                             structures,
-                            blocks))
+                            blocks,
+                            fluids))
                 .ToArray();
     }
 
@@ -547,6 +551,15 @@ public sealed class SurfaceStructureField
             return null;
         }
 
+        if (member.Proximity.Any(rule =>
+                !ProximityRuleSatisfied(
+                    anchorX.Value,
+                    anchorZ.Value,
+                    rule)))
+        {
+            return null;
+        }
+
         var placement =
             member.Place(
                 rule.Reference,
@@ -599,14 +612,148 @@ public sealed class SurfaceStructureField
                 worldX,
                 worldZ);
 
-        return _generatedFluids
-                   .TryGetColumnBounds(
+        return !_generatedFluids
+            .FluidAtEmptyVoxel(
+                surface.Biome,
+                surface.BaseY,
+                worldY)
+            .IsEmpty;
+    }
+
+    private bool ProximityRuleSatisfied(
+        int anchorX,
+        int anchorZ,
+        RuntimeProximityRule rule)
+    {
+        var minimumSquared =
+            (long)rule.MinimumDistance *
+            rule.MinimumDistance;
+        var maximumSquared =
+            (long)rule.MaximumDistance *
+            rule.MaximumDistance;
+        var found =
+            false;
+
+        for (var offsetZ =
+                 -rule.MaximumDistance;
+             offsetZ <=
+                 rule.MaximumDistance;
+             offsetZ++)
+        {
+            for (var offsetX =
+                     -rule.MaximumDistance;
+                 offsetX <=
+                     rule.MaximumDistance;
+                 offsetX++)
+            {
+                var squared =
+                    (long)offsetX *
+                    offsetX +
+                    (long)offsetZ *
+                    offsetZ;
+
+                if (squared <
+                        minimumSquared ||
+                    squared >
+                        maximumSquared)
+                {
+                    continue;
+                }
+
+                var worldX =
+                    (long)anchorX +
+                    offsetX;
+                var worldZ =
+                    (long)anchorZ +
+                    offsetZ;
+
+                if (worldX is <
+                        int.MinValue or >
+                        int.MaxValue ||
+                    worldZ is <
+                        int.MinValue or >
+                        int.MaxValue)
+                {
+                    continue;
+                }
+
+                if (!ProximityTargetMatches(
+                        (int)worldX,
+                        (int)worldZ,
+                        rule))
+                {
+                    continue;
+                }
+
+                found =
+                    true;
+
+                if (rule.Mode ==
+                    StructureProximityMode.Required)
+                {
+                    return true;
+                }
+
+                return false;
+            }
+        }
+
+        return rule.Mode switch
+        {
+            StructureProximityMode.Required =>
+                found,
+            StructureProximityMode.Forbidden =>
+                true,
+            _ =>
+                throw new InvalidOperationException(
+                    $"Unknown structure proximity mode {rule.Mode}."),
+        };
+    }
+
+    private bool ProximityTargetMatches(
+        int worldX,
+        int worldZ,
+        RuntimeProximityRule rule)
+    {
+        var surface =
+            SurfaceAt(
+                worldX,
+                worldZ);
+
+        if (!rule.Block.IsAir)
+        {
+            return _materials.BlockAt(
                        surface.Biome,
-                       surface.BaseY,
-                       out var minimumY,
-                       out var maximumY) &&
-               worldY >= minimumY &&
-               worldY <= maximumY;
+                       worldX,
+                       worldZ,
+                       0) ==
+                   rule.Block;
+        }
+
+        if (!rule.Fluid.IsNone)
+        {
+            var aboveY =
+                (long)surface.BaseY +
+                1L;
+
+            if (aboveY is <
+                    int.MinValue or >
+                    int.MaxValue)
+            {
+                return false;
+            }
+
+            return _generatedFluids
+                       .FluidAtEmptyVoxel(
+                           surface.Biome,
+                           surface.BaseY,
+                           (int)aboveY)
+                       .Fluid ==
+                   rule.Fluid;
+        }
+
+        throw new InvalidOperationException(
+            "Validated structure proximity rule has no runtime target.");
     }
 
     private bool CandidateOutranks(
@@ -885,7 +1032,8 @@ public sealed class SurfaceStructureField
         public static RootRule Create(
             DimensionGeneratedSurfaceStructureDefinition generated,
             StructureRegistry structures,
-            BlockRegistry blocks)
+            BlockRegistry blocks,
+            FluidRegistry fluids)
         {
             var members =
                 structures
@@ -895,7 +1043,8 @@ public sealed class SurfaceStructureField
                         definition =>
                             new RuntimeStructure(
                                 definition,
-                                blocks))
+                                blocks,
+                                fluids))
                     .ToArray();
 
             return new RootRule(
@@ -917,6 +1066,13 @@ public sealed class SurfaceStructureField
         IReadOnlyList<string> ConflictGroups,
         SurfaceStructurePlacement Placement);
 
+    private sealed record RuntimeProximityRule(
+        StructureProximityMode Mode,
+        int MinimumDistance,
+        int MaximumDistance,
+        BlockRuntimeId Block,
+        FluidRuntimeId Fluid);
+
     private sealed class RuntimeStructure
     {
         private readonly RuntimeVoxel[] _voxels;
@@ -925,7 +1081,8 @@ public sealed class SurfaceStructureField
 
         public RuntimeStructure(
             StructureDefinition definition,
-            BlockRegistry blocks)
+            BlockRegistry blocks,
+            FluidRegistry fluids)
         {
             Definition = definition;
             _voxels =
@@ -986,6 +1143,26 @@ public sealed class SurfaceStructureField
                     .Select(
                         blocks.GetId)
                     .ToHashSet();
+            Proximity =
+                definition.Restrictions
+                    .Proximity
+                    .Select(rule =>
+                        new RuntimeProximityRule(
+                            rule.Mode,
+                            rule.MinDistance ??
+                            0,
+                            rule.MaxDistance,
+                            rule.Target.Block is
+                                { } block
+                                ? blocks.GetId(
+                                    block)
+                                : BlockRuntimeId.Air,
+                            rule.Target.Fluid is
+                                { } fluid
+                                ? fluids.GetId(
+                                    fluid)
+                                : FluidRuntimeId.None))
+                    .ToArray();
             var maximumRadius =
                 _footprint.Max(
                     offset =>
@@ -1005,6 +1182,8 @@ public sealed class SurfaceStructureField
         public StructureDefinition Definition { get; }
 
         public HashSet<BlockRuntimeId> AllowedGroundBlocks { get; }
+
+        public RuntimeProximityRule[] Proximity { get; }
 
         public int MaximumHorizontalRadius { get; }
 

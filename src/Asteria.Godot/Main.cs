@@ -141,6 +141,8 @@ public partial class Main : Node3D
             _fluids);
         _structures.ValidateBlocks(
             _blocks);
+        _structures.ValidateFluids(
+            _fluids);
         _dimensions.ValidateStructures(
             _structures);
 

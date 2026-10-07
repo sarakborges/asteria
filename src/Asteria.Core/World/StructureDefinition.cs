@@ -39,13 +39,99 @@ public sealed record StructureGenerationDefinition(
             false);
 }
 
+public enum StructureProximityMode
+{
+    Required,
+    Forbidden,
+}
+
+public sealed record StructureProximityTargetDefinition
+{
+    public StructureProximityTargetDefinition(
+        string? block = null,
+        string? fluid = null)
+    {
+        if ((block is null) ==
+            (fluid is null))
+        {
+            throw new ArgumentException(
+                "Structure proximity target must define exactly one of block or fluid.");
+        }
+
+        if (block is not null)
+        {
+            BlockDefinition.ValidateId(
+                block);
+        }
+
+        if (fluid is not null)
+        {
+            FluidDefinition.ValidateId(
+                fluid);
+        }
+
+        Block = block;
+        Fluid = fluid;
+    }
+
+    public string? Block { get; }
+
+    public string? Fluid { get; }
+}
+
+public sealed record StructureProximityRestrictionDefinition
+{
+    public const int MaximumDistanceLimit = 64;
+
+    public StructureProximityRestrictionDefinition(
+        StructureProximityTargetDefinition target,
+        StructureProximityMode mode,
+        int maxDistance,
+        int? minDistance = null)
+    {
+        Target =
+            target ??
+            throw new ArgumentNullException(
+                nameof(target));
+
+        if (maxDistance is < 0 or > MaximumDistanceLimit)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(maxDistance),
+                $"Structure proximity maxDistance must be within 0..{MaximumDistanceLimit}.");
+        }
+
+        if (minDistance is { } minimum &&
+            (minimum < 0 ||
+             minimum > maxDistance))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(minDistance),
+                "Structure proximity minDistance must be non-negative and cannot exceed maxDistance.");
+        }
+
+        Mode = mode;
+        MaxDistance = maxDistance;
+        MinDistance = minDistance;
+    }
+
+    public StructureProximityTargetDefinition Target { get; }
+
+    public StructureProximityMode Mode { get; }
+
+    public int MaxDistance { get; }
+
+    public int? MinDistance { get; }
+}
+
 public sealed class StructureRestrictionsDefinition
 {
     public StructureRestrictionsDefinition(
         int maxSlope = 1,
         bool requiresDryGround = true,
         float requiredBiomeCoverage = 0f,
-        IEnumerable<string>? groundBlocks = null)
+        IEnumerable<string>? groundBlocks = null,
+        IEnumerable<StructureProximityRestrictionDefinition>? proximity = null)
     {
         if (maxSlope is < 0 or > 64)
         {
@@ -85,12 +171,55 @@ public sealed class StructureRestrictionsDefinition
             }
         }
 
+        var authoredProximity =
+            proximity?.ToArray() ??
+            Array.Empty<StructureProximityRestrictionDefinition>();
+
+        for (var index = 0;
+             index < authoredProximity.Length;
+             index++)
+        {
+            var current =
+                authoredProximity[index] ??
+                throw new ArgumentException(
+                    "Structure proximity rules cannot contain null entries.",
+                    nameof(proximity));
+
+            for (var previousIndex = 0;
+                 previousIndex < index;
+                 previousIndex++)
+            {
+                var previous =
+                    authoredProximity[previousIndex];
+
+                if (previous == current)
+                {
+                    throw new ArgumentException(
+                        "Structure proximity rules cannot contain duplicates.",
+                        nameof(proximity));
+                }
+
+                if (previous.Target == current.Target &&
+                    previous.MinDistance == current.MinDistance &&
+                    previous.MaxDistance == current.MaxDistance &&
+                    previous.Mode != current.Mode)
+                {
+                    throw new ArgumentException(
+                        "Structure proximity cannot require and forbid the same target over the same distance range.",
+                        nameof(proximity));
+                }
+            }
+        }
+
         MaxSlope = maxSlope;
         RequiresDryGround = requiresDryGround;
         RequiredBiomeCoverage = requiredBiomeCoverage;
         GroundBlocks =
             Array.AsReadOnly(
                 authoredGroundBlocks);
+        Proximity =
+            Array.AsReadOnly(
+                authoredProximity);
     }
 
     public int MaxSlope { get; }
@@ -100,6 +229,9 @@ public sealed class StructureRestrictionsDefinition
     public float RequiredBiomeCoverage { get; }
 
     public IReadOnlyList<string> GroundBlocks { get; }
+
+    public IReadOnlyList<StructureProximityRestrictionDefinition>
+        Proximity { get; }
 }
 
 public readonly record struct StructureVoxelDefinition(

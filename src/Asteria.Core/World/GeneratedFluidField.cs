@@ -62,14 +62,12 @@ public sealed class GeneratedFluidField
         return minimumY <= maximumY;
     }
 
-    public FluidCell FluidAt(
+    public FluidCell FluidAtEmptyVoxel(
         BiomeSample sample,
         int baseSurfaceY,
-        int worldY,
-        double terrainDensity)
+        int worldY)
     {
-        if (terrainDensity >= 0d ||
-            !TryGetColumnBounds(
+        if (!TryGetColumnBounds(
                 sample,
                 baseSurfaceY,
                 out var minimumY,
@@ -80,7 +78,22 @@ public sealed class GeneratedFluidField
             return FluidCell.Empty;
         }
 
-        return FluidCell.Source(_ocean!.Fluid);
+        return FluidCell.Source(
+            _ocean!.Fluid);
+    }
+
+    public FluidCell FluidAt(
+        BiomeSample sample,
+        int baseSurfaceY,
+        int worldY,
+        double terrainDensity)
+    {
+        return terrainDensity >= 0d
+            ? FluidCell.Empty
+            : FluidAtEmptyVoxel(
+                sample,
+                baseSurfaceY,
+                worldY);
     }
 
     public ChunkSurfaceRange ExpandSurfaceRange(
