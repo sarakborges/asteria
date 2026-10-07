@@ -106,7 +106,7 @@ public sealed class StructureConnectorTests
                         StructureConnectorFace.Right,
                         "asteria:child_piece",
                         strength: 1f,
-                        strengthLossOnEachLoop: 1f,
+                        strengthLossOnEachLoop: 0.5f,
                         minDistance: 1,
                         maxDistance: 1),
                 ]);
@@ -237,15 +237,18 @@ public sealed class StructureConnectorTests
             3,
             placements.Count);
         Assert.Equal(
+            new HashSet<string>(
             [
                 parent.Id,
                 child.Id,
                 leaf.Id,
             ],
+            StringComparer.Ordinal),
             placements
                 .Select(value =>
                     value.StructureId)
-                .ToArray());
+                .ToHashSet(
+                    StringComparer.Ordinal));
         Assert.All(
             placements,
             placement =>
