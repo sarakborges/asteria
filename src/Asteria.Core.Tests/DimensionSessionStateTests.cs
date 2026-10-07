@@ -68,7 +68,7 @@ public sealed class DimensionSessionStateTests
     }
 
     [Fact]
-    public void RetiredDimensionArchivesDirtyEditsAndDropsPristineChunks()
+    public void RetiredDimensionArchivesDirtyAndPristineMaterializedChunks()
     {
         var dimensions =
             new DimensionRegistry(
@@ -125,14 +125,14 @@ public sealed class DimensionSessionStateTests
             report.ArchivedDirty);
         Assert.Equal(
             1,
-            report.DroppedPristine);
+            report.ArchivedPristine);
         Assert.Equal(
             0,
             state.World.ChunkCount);
         Assert.True(
             state.World.HasArchivedChunk(
                 editedCoord));
-        Assert.False(
+        Assert.True(
             state.World.HasArchivedChunk(
                 pristineCoord));
 
@@ -148,6 +148,19 @@ public sealed class DimensionSessionStateTests
                     2,
                     3,
                     4));
+
+        Assert.Equal(
+            ChunkRestoreResult.Restored,
+            state.World.RestoreChunk(
+                pristineCoord));
+        Assert.True(
+            state.World.GetChunk(
+                    pristineCoord)
+                .GetBlock(
+                    0,
+                    0,
+                    0)
+                .IsNone);
     }
 
     [Fact]
