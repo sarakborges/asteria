@@ -238,6 +238,42 @@
       "spacing": 9,
       "chance": 0.9,
       "jitter": 3
+    },
+    {
+      "biome": "asteria:overworld/plains",
+      "structure": "asteria:lake",
+      "spacing": 256,
+      "chance": 0.5,
+      "jitter": 64
+    },
+    {
+      "biome": "asteria:overworld/mountains",
+      "structure": "asteria:mountain_waterfall",
+      "spacing": 192,
+      "chance": 0.45,
+      "jitter": 48
+    },
+    {
+      "biome": "asteria:overworld/alps",
+      "structure": "asteria:mountain_waterfall",
+      "spacing": 224,
+      "chance": 0.4,
+      "jitter": 56
+    },
+    {
+      "biome": "asteria:overworld/mountain_belt",
+      "structure": "asteria:mountain_waterfall",
+      "spacing": 224,
+      "chance": 0.32,
+      "jitter": 56
+    },
+    {
+      "biome": "asteria:overworld/ocean",
+      "structure": "asteria:river_ocean_mouth",
+      "spacing": 192,
+      "chance": 0.55,
+      "jitter": 48,
+      "placement": "biomeMargin"
     }
   ]
 }
