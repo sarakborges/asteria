@@ -171,7 +171,24 @@ public sealed class SurfaceTerrainField
         int baseY,
         int worldX,
         int worldY,
-        int worldZ)
+        int worldZ) =>
+        DensityAt(
+            biome,
+            baseY,
+            worldX,
+            worldY,
+            worldZ,
+            _volumeBiomes.SamplePlacement(
+                worldX,
+                worldZ));
+
+    internal double DensityAt(
+        BiomeSample biome,
+        int baseY,
+        int worldX,
+        int worldY,
+        int worldZ,
+        BiomeSample? volumeBiome)
     {
         if (worldY < 0)
         {
@@ -181,10 +198,6 @@ public sealed class SurfaceTerrainField
         double density =
             baseY -
             (double)worldY;
-        var volumeBiome =
-            _volumeBiomes.SamplePlacement(
-                worldX,
-                worldZ);
 
         if (volumeBiome is not null &&
             _floatingRules.TryGetValue(
@@ -270,7 +283,12 @@ public sealed class SurfaceTerrainField
         int worldZ,
         uint finiteDepth)
     {
+        var volumeBiome =
+            _volumeBiomes.SamplePlacement(
+                worldX,
+                worldZ);
         uint depth = 0;
+
         while (depth < finiteDepth)
         {
             var above = (long)worldY + depth + 1L;
@@ -280,7 +298,8 @@ public sealed class SurfaceTerrainField
                     baseY,
                     worldX,
                     (int)above,
-                    worldZ) < 0d)
+                    worldZ,
+                    volumeBiome) < 0d)
             {
                 break;
             }
@@ -312,7 +331,16 @@ public sealed class SurfaceTerrainField
         _ = checked(originX + width - 1);
         _ = checked(originY + height - 1);
         _ = checked(originZ + depth - 1);
-        var values = new double[checked(width * height * depth)];
+
+        var biomes =
+            _surfaceBiomes.SampleGrid(
+                originX,
+                originZ,
+                width,
+                depth);
+        var baseHeights =
+            new int[
+                checked(width * depth)];
 
         for (var z = 0; z < depth; z++)
         {
@@ -320,19 +348,143 @@ public sealed class SurfaceTerrainField
             for (var x = 0; x < width; x++)
             {
                 var worldX = originX + x;
-                var biome = _surfaceBiomes.Sample(worldX, worldZ);
-                var baseY = BaseHeightAt(biome, worldX, worldZ);
+                baseHeights[
+                    z * width +
+                    x] =
+                    BaseHeightAt(
+                        biomes[x, z],
+                        worldX,
+                        worldZ);
+            }
+        }
 
-                for (var y = 0; y < height; y++)
+        var volumeBiomes =
+            _volumeBiomes.SamplePlacementGrid(
+                originX,
+                originZ,
+                width,
+                depth);
+        var values =
+            new double[
+                checked(width * height * depth)];
+
+        for (var z = 0; z < depth; z++)
+        {
+            var worldZ = originZ + z;
+            for (var y = 0; y < height; y++)
+            {
+                var worldY = originY + y;
+                for (var x = 0; x < width; x++)
                 {
-                    values[(z * height + y) * width + x] =
+                    var worldX = originX + x;
+                    values[
+                        (z * height + y) *
+                        width +
+                        x] =
                         DensityAt(
-                            biome, baseY, worldX, originY + y, worldZ);
+                            biomes[x, z],
+                            baseHeights[
+                                z * width +
+                                x],
+                            worldX,
+                            worldY,
+                            worldZ,
+                            volumeBiomes[x, z]);
                 }
             }
         }
 
-        return new TerrainDensityVolume(width, height, depth, values);
+        return new TerrainDensityVolume(
+            width,
+            height,
+            depth,
+            values,
+            volumeBiomes,
+            _volumeBiomes);
+    }
+
+    internal TerrainDensityVolume SampleDensityVolume(
+        SurfaceTerrainColumn column,
+        int originX,
+        int originY,
+        int originZ)
+    {
+        ArgumentNullException.ThrowIfNull(
+            column);
+
+        if (originY < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(originY));
+        }
+
+        var volumeBiomes =
+            _volumeBiomes.SamplePlacementGrid(
+                originX,
+                originZ,
+                Chunk.Size,
+                Chunk.Size);
+        var values =
+            new double[
+                Chunk.Size *
+                Chunk.Size *
+                Chunk.Size];
+
+        for (var localZ = 0;
+             localZ < Chunk.Size;
+             localZ++)
+        {
+            var worldZ =
+                checked(
+                    originZ +
+                    localZ);
+
+            for (var localY = 0;
+                 localY < Chunk.Size;
+                 localY++)
+            {
+                var worldY =
+                    checked(
+                        originY +
+                        localY);
+
+                for (var localX = 0;
+                     localX < Chunk.Size;
+                     localX++)
+                {
+                    var worldX =
+                        checked(
+                            originX +
+                            localX);
+                    values[
+                        (localZ * Chunk.Size +
+                         localY) *
+                        Chunk.Size +
+                        localX] =
+                        DensityAt(
+                            column.BiomeAt(
+                                localX,
+                                localZ),
+                            column.BaseHeightAt(
+                                localX,
+                                localZ),
+                            worldX,
+                            worldY,
+                            worldZ,
+                            volumeBiomes[
+                                localX,
+                                localZ]);
+                }
+            }
+        }
+
+        return new TerrainDensityVolume(
+            Chunk.Size,
+            Chunk.Size,
+            Chunk.Size,
+            values,
+            volumeBiomes,
+            _volumeBiomes);
     }
 
     public SurfaceTerrainColumn SampleColumn(int chunkX, int chunkZ)
@@ -454,7 +606,8 @@ public sealed class SurfaceTerrainField
                     baseY,
                     worldX,
                     y,
-                    worldZ) >= 0d)
+                    worldZ,
+                    volumeBiome) >= 0d)
             {
                 return y;
             }
@@ -887,33 +1040,87 @@ public sealed class SurfaceTerrainColumn
 public sealed class TerrainDensityVolume
 {
     private readonly double[] _densities;
+    private readonly VolumeBiomePlacementGrid? _volumeBiomes;
+    private readonly VolumeBiomeField? _volumeBiomeField;
 
     internal TerrainDensityVolume(
         int width,
         int height,
         int depth,
-        double[] densities)
+        double[] densities,
+        VolumeBiomePlacementGrid? volumeBiomes = null,
+        VolumeBiomeField? volumeBiomeField = null)
     {
+        if ((volumeBiomes is null) !=
+            (volumeBiomeField is null))
+        {
+            throw new ArgumentException(
+                "Volume biome snapshot metadata must be supplied together.");
+        }
+
         Width = width;
         Height = height;
         Depth = depth;
         _densities = densities;
+        _volumeBiomes = volumeBiomes;
+        _volumeBiomeField = volumeBiomeField;
     }
 
     public int Width { get; }
+
     public int Height { get; }
+
     public int Depth { get; }
 
-    public double DensityAt(int localX, int localY, int localZ)
+    public double DensityAt(
+        int localX,
+        int localY,
+        int localZ)
     {
         if ((uint)localX >= Width ||
             (uint)localY >= Height ||
             (uint)localZ >= Depth)
         {
-            throw new ArgumentOutOfRangeException(nameof(localX));
+            throw new ArgumentOutOfRangeException(
+                nameof(localX));
         }
 
         return _densities[
-            (localZ * Height + localY) * Width + localX];
+            (localZ * Height + localY) *
+            Width +
+            localX];
+    }
+
+    internal BiomeSample? VolumePlacementAt(
+        int localX,
+        int localZ)
+    {
+        if (_volumeBiomes is null)
+        {
+            throw new InvalidOperationException(
+                "Density volume does not carry volume-biome placement metadata.");
+        }
+
+        return _volumeBiomes[
+            localX,
+            localZ];
+    }
+
+    internal BiomeSample? VolumeBiomeAt(
+        int localX,
+        int worldY,
+        int localZ)
+    {
+        if (_volumeBiomeField is null)
+        {
+            throw new InvalidOperationException(
+                "Density volume does not carry volume-biome placement metadata.");
+        }
+
+        return _volumeBiomeField.SampleAtY(
+            VolumePlacementAt(
+                localX,
+                localZ),
+            worldY);
     }
 }

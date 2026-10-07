@@ -61,6 +61,12 @@ public sealed class SurfaceChunkMaterializer
         var (originX, originY, originZ) =
             VoxelCoordinates.ChunkOrigin(coord);
         var column = _columns.Get(coord.X, coord.Z);
+        var densityVolume =
+            _terrain.SampleDensityVolume(
+                column,
+                originX,
+                originY,
+                originZ);
         var topExclusive = checked(originY + Chunk.Size);
 
         for (var localZ = 0; localZ < Chunk.Size; localZ++)
@@ -88,6 +94,9 @@ public sealed class SurfaceChunkMaterializer
                     _roofY ?? int.MaxValue);
 
                 BiomeSurfaceMaterialColumn? surfaceMaterials = null;
+                BiomeSample? volumeSample = null;
+                BiomeSurfaceMaterialColumn? volumeMaterials = null;
+
                 if (firstSolidY <= lastSolidY)
                 {
                     surfaceMaterials = _materials.SampleColumn(
@@ -105,8 +114,13 @@ public sealed class SurfaceChunkMaterializer
                             continue;
                         }
 
-                        if (_terrain.DensityAt(
-                                sample, baseY, worldX, worldY, worldZ) < 0d)
+                        var localY =
+                            worldY -
+                            originY;
+                        if (densityVolume.DensityAt(
+                                localX,
+                                localY,
+                                localZ) < 0d)
                         {
                             continue;
                         }
@@ -131,22 +145,26 @@ public sealed class SurfaceChunkMaterializer
                         }
                         else
                         {
-                            var volumeSample =
-                                _terrain.VolumeBiomeAt(
-                                    worldX,
+                            volumeSample ??=
+                                densityVolume.VolumeBiomeAt(
+                                    localX,
                                     worldY,
-                                    worldZ) ??
+                                    localZ) ??
                                 throw new InvalidOperationException(
                                     "Additive solid voxel has no volume biome owner.");
-                            var volumeMaterials =
+                            volumeMaterials ??=
                                 _materials.SampleColumn(
                                     volumeSample,
                                     worldX,
                                     worldZ);
                             var depth =
-                                _terrain.AdditiveDepthAt(
+                                AdditiveDepthAt(
+                                    densityVolume,
                                     sample,
                                     baseY,
+                                    localX,
+                                    localY,
+                                    localZ,
                                     worldX,
                                     worldY,
                                     worldZ,
@@ -177,10 +195,11 @@ public sealed class SurfaceChunkMaterializer
 
                 var topSample =
                     surfaceY > baseY
-                        ? _terrain.VolumeBiomeAt(
-                            worldX,
-                            surfaceY,
-                            worldZ) ??
+                        ? volumeSample ??
+                          densityVolume.VolumeBiomeAt(
+                              localX,
+                              surfaceY,
+                              localZ) ??
                           throw new InvalidOperationException(
                               "Additive surface has no volume biome owner.")
                         : sample;
@@ -217,12 +236,69 @@ public sealed class SurfaceChunkMaterializer
         MaterializeGeneratedFluids(
             chunk,
             column,
-            originX,
+            densityVolume,
             originY,
-            originZ,
             topExclusive);
 
         return chunk;
+    }
+
+    private uint AdditiveDepthAt(
+        TerrainDensityVolume densityVolume,
+        BiomeSample surfaceBiome,
+        int baseY,
+        int localX,
+        int localY,
+        int localZ,
+        int worldX,
+        int worldY,
+        int worldZ,
+        uint finiteDepth)
+    {
+        var volumeBiome =
+            densityVolume.VolumePlacementAt(
+                localX,
+                localZ);
+        uint depth = 0;
+
+        while (depth < finiteDepth)
+        {
+            var above =
+                (long)worldY +
+                depth +
+                1L;
+            if (above > int.MaxValue)
+            {
+                break;
+            }
+
+            var localAbove =
+                (long)localY +
+                depth +
+                1L;
+            var density =
+                localAbove < densityVolume.Height
+                    ? densityVolume.DensityAt(
+                        localX,
+                        (int)localAbove,
+                        localZ)
+                    : _terrain.DensityAt(
+                        surfaceBiome,
+                        baseY,
+                        worldX,
+                        (int)above,
+                        worldZ,
+                        volumeBiome);
+
+            if (density < 0d)
+            {
+                break;
+            }
+
+            depth++;
+        }
+
+        return depth;
     }
 
     private void MaterializeStructures(
@@ -365,9 +441,8 @@ public sealed class SurfaceChunkMaterializer
     private void MaterializeGeneratedFluids(
         Chunk chunk,
         SurfaceTerrainColumn column,
-        int originX,
+        TerrainDensityVolume densityVolume,
         int originY,
-        int originZ,
         int topExclusive)
     {
         if (!_generatedFluids.HasRules)
@@ -398,9 +473,6 @@ public sealed class SurfaceChunkMaterializer
                     continue;
                 }
 
-                var worldX = checked(originX + localX);
-                var worldZ = checked(originZ + localZ);
-
                 for (var worldY = firstY; worldY <= lastY; worldY++)
                 {
                     var localY = worldY - originY;
@@ -415,12 +487,10 @@ public sealed class SurfaceChunkMaterializer
                         sample,
                         baseY,
                         worldY,
-                        _terrain.DensityAt(
-                            sample,
-                            baseY,
-                            worldX,
-                            worldY,
-                            worldZ));
+                        densityVolume.DensityAt(
+                            localX,
+                            localY,
+                            localZ));
 
                     if (!fluid.IsEmpty)
                     {

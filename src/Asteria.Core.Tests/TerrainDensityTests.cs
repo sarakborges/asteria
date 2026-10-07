@@ -51,6 +51,66 @@ public sealed class TerrainDensityTests
     }
 
     [Fact]
+    public void SampleDensityVolumeMatchesScalarForFloatingFormation()
+    {
+        var generator = Generator(
+            floating: new BiomeFloatingFormationDefinition(
+                minY: 80,
+                maxY: 112,
+                horizontalScale: 64,
+                detailScale: 24,
+                coverage: 1f,
+                roughness: 0.2f,
+                densityScale: 30f));
+        var point =
+            FindVolumeSolid(
+                generator,
+                y: 100);
+        var coord =
+            VoxelCoordinates.FromWorld(
+                    point.X,
+                    96,
+                    point.Z)
+                .Chunk;
+        var (originX, originY, originZ) =
+            VoxelCoordinates.ChunkOrigin(
+                coord);
+        var volume =
+            generator.SampleDensityVolume(
+                originX,
+                originY,
+                originZ,
+                Chunk.Size,
+                Chunk.Size,
+                Chunk.Size);
+
+        for (var z = 0;
+             z < Chunk.Size;
+             z += 5)
+        {
+            for (var y = 0;
+                 y < Chunk.Size;
+                 y += 5)
+            {
+                for (var x = 0;
+                     x < Chunk.Size;
+                     x += 5)
+                {
+                    Assert.Equal(
+                        generator.DensityAt(
+                            originX + x,
+                            originY + y,
+                            originZ + z),
+                        volume.DensityAt(
+                            x,
+                            y,
+                            z));
+                }
+            }
+        }
+    }
+
+    [Fact]
     public void FloatingFormationExtendsSurfaceRangeAndMaterializesAboveBase()
     {
         var generator = Generator(

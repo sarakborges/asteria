@@ -85,18 +85,22 @@ public sealed class VolumeBiomeField
     public BiomeSample? Sample(
         int worldX,
         int worldY,
-        int worldZ)
+        int worldZ) =>
+        SampleAtY(
+            SamplePlacement(
+                worldX,
+                worldZ),
+            worldY);
+
+    internal BiomeSample? SampleAtY(
+        BiomeSample? sample,
+        int worldY)
     {
         if (worldY < 0)
         {
             throw new ArgumentOutOfRangeException(
                 nameof(worldY));
         }
-
-        var sample =
-            SamplePlacement(
-                worldX,
-                worldZ);
 
         if (sample is null ||
             !_formations.TryGetValue(
@@ -136,6 +140,63 @@ public sealed class VolumeBiomeField
                 .ToArray());
     }
 
+    internal VolumeBiomePlacementGrid SamplePlacementGrid(
+        int originX,
+        int originZ,
+        int width,
+        int depth)
+    {
+        if (width <= 0 ||
+            depth <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(width),
+                "Volume biome placement grid must be non-empty.");
+        }
+
+        _ = checked(originX + width - 1);
+        _ = checked(originZ + depth - 1);
+        var placements =
+            new BiomeSample?[
+                checked(width * depth)];
+
+        if (_placement is null)
+        {
+            return new VolumeBiomePlacementGrid(
+                width,
+                depth,
+                placements);
+        }
+
+        var samples =
+            _placement.SampleGrid(
+                originX,
+                originZ,
+                width,
+                depth);
+
+        for (var z = 0; z < depth; z++)
+        {
+            for (var x = 0; x < width; x++)
+            {
+                var sample =
+                    samples[x, z];
+                if (_formations.ContainsKey(
+                        sample.Primary))
+                {
+                    placements[
+                        z * width +
+                        x] = sample;
+                }
+            }
+        }
+
+        return new VolumeBiomePlacementGrid(
+            width,
+            depth,
+            placements);
+    }
+
     internal BiomeSample? SamplePlacement(
         int worldX,
         int worldZ)
@@ -154,5 +215,41 @@ public sealed class VolumeBiomeField
             sample.Primary)
             ? sample
             : null;
+    }
+}
+
+internal sealed class VolumeBiomePlacementGrid
+{
+    private readonly BiomeSample?[] _placements;
+
+    internal VolumeBiomePlacementGrid(
+        int width,
+        int depth,
+        BiomeSample?[] placements)
+    {
+        Width = width;
+        Depth = depth;
+        _placements = placements;
+    }
+
+    public int Width { get; }
+
+    public int Depth { get; }
+
+    public BiomeSample? this[int x, int z]
+    {
+        get
+        {
+            if ((uint)x >= Width ||
+                (uint)z >= Depth)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(x));
+            }
+
+            return _placements[
+                z * Width +
+                x];
+        }
     }
 }
