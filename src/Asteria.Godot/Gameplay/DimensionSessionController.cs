@@ -23,6 +23,7 @@ public sealed class DimensionSessionController
 
     private DimensionId? _target;
     private NVector3? _sourcePosition;
+    private NVector3? _destinationPosition;
 
     public DimensionSessionController(
         DimensionSessionStateStore states,
@@ -89,19 +90,13 @@ public sealed class DimensionSessionController
             return false;
         }
 
-        var targetState =
-            _states.GetOrCreate(
-                target);
-
-        if (destinationPosition is
-            { } destination)
-        {
-            targetState.PlayerPosition =
-                destination;
-        }
+        _ = _states.GetOrCreate(
+            target);
 
         _sourcePosition =
             sourcePosition;
+        _destinationPosition =
+            destinationPosition;
         _target =
             target;
         Active.BeginRetirement();
@@ -141,8 +136,16 @@ public sealed class DimensionSessionController
             _factory(
                 _states.GetOrCreate(
                     target));
+        if (_destinationPosition is
+            { } destination)
+        {
+            Active.PrepareGeneratedDestination(
+                destination);
+        }
+
         _target = null;
         _sourcePosition = null;
+        _destinationPosition = null;
 
         return new DimensionTransitionCompletion(
             previous,
