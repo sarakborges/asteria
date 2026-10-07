@@ -163,6 +163,61 @@ public sealed class DimensionGeneratedOceanDefinition
     public DimensionOceanShoreDefinition Shore { get; }
 }
 
+public sealed class DimensionGeneratedSurfaceStructureDefinition
+{
+    public DimensionGeneratedSurfaceStructureDefinition(
+        string biome,
+        string structure,
+        int spacing,
+        float chance,
+        int jitter = 0)
+    {
+        BiomeDefinition.ValidateId(
+            biome);
+        StructureDefinition.ValidateId(
+            structure);
+
+        if (spacing is < 4 or > 16_384)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(spacing),
+                "Generated surface structure spacing must be within 4..16384.");
+        }
+
+        if (jitter < 0 ||
+            jitter > spacing / 2)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(jitter),
+                "Generated surface structure jitter must be within 0..spacing/2.");
+        }
+
+        if (!float.IsFinite(chance) ||
+            chance is < 0f or > 1f)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(chance),
+                "Generated surface structure chance must be within 0..1.");
+        }
+
+        Biome = biome;
+        Structure = structure;
+        Spacing = spacing;
+        Chance = chance;
+        Jitter = jitter;
+    }
+
+    public string Biome { get; }
+
+    public string Structure { get; }
+
+    public int Spacing { get; }
+
+    public float Chance { get; }
+
+    public int Jitter { get; }
+}
+
 public sealed class DimensionEnvironmentDefinition
 {
     public DimensionEnvironmentDefinition(
@@ -221,7 +276,8 @@ public sealed class DimensionDefinition
         DimensionCaveDefinition? caves = null,
         DimensionGeneratedOceanDefinition? generatedOcean = null,
         IEnumerable<string>? volumeBiomes = null,
-        IEnumerable<string>? undergroundBiomes = null)
+        IEnumerable<string>? undergroundBiomes = null,
+        IEnumerable<DimensionGeneratedSurfaceStructureDefinition>? generatedSurfaceStructures = null)
     {
         if (!float.IsFinite(gravityStrength) ||
             gravityStrength < 0f ||
@@ -242,6 +298,9 @@ public sealed class DimensionDefinition
         var authoredUndergroundBiomes =
             undergroundBiomes?.ToArray() ??
             Array.Empty<string>();
+        var authoredSurfaceStructures =
+            generatedSurfaceStructures?.ToArray() ??
+            Array.Empty<DimensionGeneratedSurfaceStructureDefinition>();
 
         if (authoredSurfaceBiomes.Length == 0)
         {
@@ -307,6 +366,32 @@ public sealed class DimensionDefinition
                 nameof(undergroundBiomes));
         }
 
+        var generatedStructureKeys =
+            new HashSet<(string Biome, string Structure)>();
+
+        foreach (var generated in
+                 authoredSurfaceStructures)
+        {
+            if (!authoredSurfaceBiomes.Contains(
+                    generated.Biome,
+                    StringComparer.Ordinal))
+            {
+                throw new ArgumentException(
+                    $"Dimension {id} generated surface structure biome {generated.Biome} must be part of the surface biome pool.",
+                    nameof(generatedSurfaceStructures));
+            }
+
+            if (!generatedStructureKeys.Add(
+                    (
+                        generated.Biome,
+                        generated.Structure)))
+            {
+                throw new ArgumentException(
+                    $"Dimension {id} repeats generated surface structure {generated.Structure} for biome {generated.Biome}.",
+                    nameof(generatedSurfaceStructures));
+            }
+        }
+
         if (generatedOcean is { } ocean &&
             !authoredSurfaceBiomes.Contains(
                 ocean.Biome,
@@ -342,6 +427,9 @@ public sealed class DimensionDefinition
         Shell = shell;
         Caves = caves;
         GeneratedOcean = generatedOcean;
+        GeneratedSurfaceStructures =
+            Array.AsReadOnly(
+                authoredSurfaceStructures);
     }
 
     public DimensionId Id { get; }
@@ -365,6 +453,9 @@ public sealed class DimensionDefinition
     public DimensionCaveDefinition? Caves { get; }
 
     public DimensionGeneratedOceanDefinition? GeneratedOcean { get; }
+
+    public IReadOnlyList<DimensionGeneratedSurfaceStructureDefinition>
+        GeneratedSurfaceStructures { get; }
 }
 
 
