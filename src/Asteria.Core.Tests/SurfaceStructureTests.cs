@@ -5,6 +5,85 @@ namespace Asteria.Core.Tests;
 public sealed class SurfaceStructureTests
 {
     [Fact]
+    public void DefaultStructurePackParsesAndMatchesActiveOverworldRoots()
+    {
+        var blocks =
+            BlockRegistry.FromJson(
+                ReadJsonDirectory(
+                    "blocks"));
+        var structures =
+            StructureRegistry.FromJson(
+                ReadJsonDirectory(
+                    "structures"));
+        var dimensions =
+            DimensionRegistry.FromJson(
+                ReadJsonDirectory(
+                    "dimensions"));
+        var overworld =
+            dimensions.Get(
+                DimensionId.Overworld);
+
+        structures.ValidateBlocks(
+            blocks);
+        dimensions.ValidateStructures(
+            structures);
+
+        Assert.Equal(
+            4,
+            structures.Count);
+        Assert.Equal(
+            new[]
+            {
+                "asteria:boulder_big",
+                "asteria:boulder_huge",
+                "asteria:boulder_medium",
+                "asteria:boulder_small",
+            },
+            structures
+                .Definitions()
+                .Select(
+                    definition =>
+                        definition.Id)
+                .ToArray());
+        Assert.Equal(
+            23,
+            overworld
+                .GeneratedSurfaceStructures
+                .Count);
+        Assert.All(
+            overworld
+                .GeneratedSurfaceStructures,
+            generated =>
+            {
+                Assert.Contains(
+                    generated.Biome,
+                    overworld.SurfaceBiomes);
+                Assert.True(
+                    structures.ResolvesReference(
+                        generated.Structure));
+                Assert.DoesNotContain(
+                    "enchanted_forest",
+                    generated.Biome,
+                    StringComparison.Ordinal);
+            });
+
+        Assert.Equal(
+            10,
+            structures
+                .Get(
+                    "asteria:boulder_small")
+                .Voxels
+                .Count);
+        Assert.Equal(
+            168,
+            structures
+                .Get(
+                    "asteria:boulder_huge")
+                .Voxels
+                .Count);
+    }
+
+    [Fact]
     public void StructureCrossesHorizontalAndVerticalChunkBoundariesWithoutClipping()
     {
         var blocks =
@@ -205,5 +284,27 @@ public sealed class SurfaceStructureTests
             StructureDefinition.RotateOrientation(
                 StructureRotation.Degrees270,
                 BlockOrientation.Y));
+    } 
+    private static IEnumerable<string> ReadJsonDirectory(
+        string category)
+    {
+        var directory =
+            Path.Combine(
+                AppContext.BaseDirectory,
+                "packs",
+                "default",
+                "data",
+                category);
+
+        return Directory
+            .EnumerateFiles(
+                directory,
+                "*.json")
+            .OrderBy(
+                path => path,
+                StringComparer.Ordinal)
+            .Select(
+                File.ReadAllText);
     }
+
 }

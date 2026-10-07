@@ -663,23 +663,20 @@ public sealed class SurfaceStructureField
                         offset =>
                             offset.Z)
                     .ToArray();
-            MaximumHorizontalRadius =
+            var maximumRadius =
                 _footprint.Max(
                     offset =>
                         Math.Max(
                             Math.Abs(
                                 (long)offset.X),
                             Math.Abs(
-                                (long)offset.Z))) >
+                                (long)offset.Z)));
+            MaximumHorizontalRadius =
+                maximumRadius >
                 int.MaxValue
                     ? int.MaxValue
-                    : checked((int)_footprint.Max(
-                        offset =>
-                            Math.Max(
-                                Math.Abs(
-                                    (long)offset.X),
-                                Math.Abs(
-                                    (long)offset.Z))));
+                    : checked(
+                        (int)maximumRadius);
         }
 
         public StructureDefinition Definition { get; }
@@ -688,31 +685,8 @@ public sealed class SurfaceStructureField
 
         public IReadOnlyList<(int X, int Z)>
             HorizontalFootprint(
-                StructureRotation rotation)
-        {
-            if (rotation is
-                StructureRotation.Degrees0 or
-                StructureRotation.Degrees180)
-            {
-                return _footprint
-                    .Select(
-                        offset =>
-                        {
-                            var rotated =
-                                StructureDefinition.RotateOffset(
-                                    rotation,
-                                    offset.X,
-                                    0,
-                                    offset.Z);
-                            return (
-                                rotated.X,
-                                rotated.Z);
-                        })
-                    .Distinct()
-                    .ToArray();
-            }
-
-            return _footprint
+                StructureRotation rotation) =>
+            _footprint
                 .Select(
                     offset =>
                     {
@@ -728,7 +702,6 @@ public sealed class SurfaceStructureField
                     })
                 .Distinct()
                 .ToArray();
-        }
 
         public SurfaceStructurePlacement Place(
             string reference,

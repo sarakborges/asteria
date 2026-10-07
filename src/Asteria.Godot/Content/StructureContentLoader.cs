@@ -8,7 +8,7 @@ public static class StructureContentLoader
     public static StructureRegistry LoadProjectStructures(
         PackSelection selection) =>
         StructureRegistry.FromJson(
-            ProjectDataDocuments.Load(
+            ProjectDataDocuments.LoadOptional(
                 selection,
                 "structures"));
 }
