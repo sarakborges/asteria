@@ -135,7 +135,19 @@ public static class DimensionDefinitionJson
                     OptionalInt32(
                         entry,
                         "jitter") ??
-                    0);
+                    0,
+                    OptionalString(
+                        entry,
+                        "placement") switch
+                    {
+                        null or "biomeInterior" =>
+                            DimensionGeneratedSurfaceStructurePlacement.BiomeInterior,
+                        "biomeMargin" =>
+                            DimensionGeneratedSurfaceStructurePlacement.BiomeMargin,
+                        var authored =>
+                            throw new FormatException(
+                                $"Unsupported generatedSurfaceStructures placement: {authored}."),
+                    });
             })
             .ToArray();
     }
@@ -272,6 +284,26 @@ public static class DimensionDefinitionJson
         }
 
         return value.GetString()!;
+    }
+
+    private static string? OptionalString(
+        JsonElement parent,
+        string name)
+    {
+        if (!parent.TryGetProperty(
+                name,
+                out var value) ||
+            value.ValueKind ==
+                JsonValueKind.Null)
+        {
+            return null;
+        }
+
+        return value.ValueKind ==
+            JsonValueKind.String
+            ? value.GetString()
+            : throw new FormatException(
+                $"{name} must be a string.");
     }
 
     private static IReadOnlyList<string>
