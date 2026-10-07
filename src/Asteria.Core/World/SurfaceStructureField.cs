@@ -5,6 +5,20 @@ namespace Asteria.Core.World;
 /// logical placements only; SurfaceChunkMaterializer remains the single
 /// procedural voxel writer.
 /// </summary>
+public readonly record struct SurfaceStructureQueryResult(
+    string Reference,
+    string StructureId,
+    int AnchorX,
+    int AnchorY,
+    int AnchorZ,
+    StructureRotation Rotation,
+    int MinimumX,
+    int MaximumX,
+    int MinimumY,
+    int MaximumY,
+    int MinimumZ,
+    int MaximumZ);
+
 public sealed class SurfaceStructureField
 {
     private const int PlacementCacheCapacity = 128;
@@ -89,6 +103,239 @@ public sealed class SurfaceStructureField
 
     public bool HasRules =>
         _rules.Length > 0;
+
+    public bool HasReference(
+        string reference)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(
+            reference);
+
+        return _rules.Any(rule =>
+            string.Equals(
+                rule.Reference,
+                reference,
+                StringComparison.Ordinal));
+    }
+
+    public IReadOnlyList<SurfaceStructureQueryResult>
+        PlacementsIntersecting(
+            int originX,
+            int originZ,
+            int width,
+            int depth)
+    {
+        if (width <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(width),
+                "Structure query width must be positive.");
+        }
+
+        if (depth <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(depth),
+                "Structure query depth must be positive.");
+        }
+
+        var maximumX =
+            (long)originX +
+            width -
+            1L;
+        var maximumZ =
+            (long)originZ +
+            depth -
+            1L;
+        if (maximumX > int.MaxValue ||
+            maximumZ > int.MaxValue)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(width),
+                "Structure query area exceeds world coordinate range.");
+        }
+
+        var placements =
+            ResolveConflicts(
+                    CollectCandidatesIntersectingBounds(
+                        originX,
+                        originZ,
+                        (int)maximumX,
+                        (int)maximumZ))
+                .Select(candidate =>
+                    candidate.Placement)
+                .Where(placement =>
+                    placement.IntersectsHorizontal(
+                        originX,
+                        originZ,
+                        (int)maximumX,
+                        (int)maximumZ))
+                .ToArray();
+
+        Array.Sort(
+            placements,
+            SurfaceStructurePlacement
+                .CompareDeterministically);
+        return Array.AsReadOnly(
+            placements
+                .Select(ToQueryResult)
+                .ToArray());
+    }
+
+    public SurfaceStructureQueryResult?
+        FindNearest(
+            string reference,
+            int originX,
+            int originZ,
+            int maxDistance)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(
+            reference);
+        if (maxDistance < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(maxDistance));
+        }
+
+        SurfaceStructurePlacement? best = null;
+        long bestDistanceSquared = long.MaxValue;
+        var maximumDistanceSquared =
+            (long)maxDistance *
+            maxDistance;
+
+        for (var ruleIndex = 0;
+             ruleIndex < _rules.Length;
+             ruleIndex++)
+        {
+            var rule =
+                _rules[ruleIndex];
+            if (!string.Equals(
+                    rule.Reference,
+                    reference,
+                    StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var halfSpacing =
+                rule.Spacing /
+                2;
+            var reach =
+                (long)maxDistance +
+                rule.Jitter +
+                1L;
+            var minimumCellX =
+                FloorDiv(
+                    (long)originX -
+                    reach -
+                    halfSpacing,
+                    rule.Spacing) -
+                1L;
+            var maximumCellX =
+                FloorDiv(
+                    (long)originX +
+                    reach -
+                    halfSpacing,
+                    rule.Spacing) +
+                1L;
+            var minimumCellZ =
+                FloorDiv(
+                    (long)originZ -
+                    reach -
+                    halfSpacing,
+                    rule.Spacing) -
+                1L;
+            var maximumCellZ =
+                FloorDiv(
+                    (long)originZ +
+                    reach -
+                    halfSpacing,
+                    rule.Spacing) +
+                1L;
+
+            for (var cellZ = minimumCellZ;
+                 cellZ <= maximumCellZ;
+                 cellZ++)
+            {
+                for (var cellX = minimumCellX;
+                     cellX <= maximumCellX;
+                     cellX++)
+                {
+                    if (cellX is < int.MinValue or > int.MaxValue ||
+                        cellZ is < int.MinValue or > int.MaxValue)
+                    {
+                        continue;
+                    }
+
+                    var candidate =
+                        ResolveCandidate(
+                            ruleIndex,
+                            rule,
+                            (int)cellX,
+                            (int)cellZ);
+                    if (candidate is null ||
+                        ResolveConflicts(
+                            [candidate]).Count == 0)
+                    {
+                        continue;
+                    }
+
+                    var placement =
+                        candidate.Placement;
+                    var dx =
+                        (long)placement.AnchorX -
+                        originX;
+                    var dz =
+                        (long)placement.AnchorZ -
+                        originZ;
+                    var distanceSquared =
+                        dx * dx +
+                        dz * dz;
+                    if (distanceSquared >
+                        maximumDistanceSquared)
+                    {
+                        continue;
+                    }
+
+                    if (best is null ||
+                        distanceSquared <
+                        bestDistanceSquared ||
+                        (distanceSquared ==
+                             bestDistanceSquared &&
+                         SurfaceStructurePlacement
+                             .CompareDeterministically(
+                                 placement,
+                                 best) < 0))
+                    {
+                        best = placement;
+                        bestDistanceSquared =
+                            distanceSquared;
+                    }
+                }
+            }
+        }
+
+        return best is null
+            ? null
+            : ToQueryResult(
+                best);
+    }
+
+    private static SurfaceStructureQueryResult
+        ToQueryResult(
+            SurfaceStructurePlacement placement) =>
+        new(
+            placement.Reference,
+            placement.StructureId,
+            placement.AnchorX,
+            placement.AnchorY,
+            placement.AnchorZ,
+            placement.Rotation,
+            placement.MinimumX,
+            placement.MaximumX,
+            placement.MinimumY,
+            placement.MaximumY,
+            placement.MinimumZ,
+            placement.MaximumZ);
 
     internal IReadOnlyList<SurfaceStructurePlacement>
         PlacementsForChunk(
