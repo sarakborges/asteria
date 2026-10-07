@@ -173,18 +173,14 @@ public static class BiomeDefinitionJson
         return new BiomeSurfacePatchDefinition(
             RequiredUInt32(
                 patch,
-                "spacing"),
-            RequiredUInt32(
+                "scale"),
+            RequiredSingle(
                 patch,
-                "radius"),
-            OptionalUInt32(
-                patch,
-                "jitter") ??
-            0,
+                "coverage"),
             OptionalSingle(
                 patch,
-                "chance") ??
-            1f,
+                "roughness") ??
+            0.25f,
             RequiredStringArray(
                 patch,
                 "blocks"));

@@ -22,10 +22,9 @@
       "block": "asteria:grass_block",
       "depth": 1,
       "patch": {
-        "spacing": 14,
-        "radius": 6,
-        "jitter": 2,
-        "chance": 0.9,
+        "scale": 28,
+        "coverage": 0.52,
+        "roughness": 0.3,
         "blocks": [
           "asteria:dirt",
           "asteria:mud"
@@ -36,10 +35,9 @@
       "block": "asteria:dirt",
       "depth": 4,
       "patch": {
-        "spacing": 16,
-        "radius": 6,
-        "jitter": 3,
-        "chance": 0.7,
+        "scale": 38,
+        "coverage": 0.44,
+        "roughness": 0.24,
         "blocks": [
           "asteria:mud"
         ]

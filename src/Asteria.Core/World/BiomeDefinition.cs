@@ -380,36 +380,34 @@ public sealed class BiomeSurfaceLayerDefinition
 public sealed class BiomeSurfacePatchDefinition
 {
     public BiomeSurfacePatchDefinition(
-        uint spacing,
-        uint radius,
-        uint jitter,
-        float chance,
+        uint scale,
+        float coverage,
+        float roughness,
         IEnumerable<string> blocks)
     {
-        if (spacing is < 2 or > 512)
-        {
-            throw new ArgumentOutOfRangeException(nameof(spacing));
-        }
-
-        if (radius == 0 ||
-            radius > 256 ||
-            radius + jitter > spacing)
+        if (scale is < 2 or > 512)
         {
             throw new ArgumentOutOfRangeException(
-                nameof(radius),
-                "Patch radius + jitter must fit inside spacing.");
+                nameof(scale),
+                "Surface patch scale must be within 2..512.");
         }
 
-        if (jitter > spacing / 2)
+        if (!float.IsFinite(coverage) ||
+            coverage <= 0f ||
+            coverage > 1f)
         {
-            throw new ArgumentOutOfRangeException(nameof(jitter));
+            throw new ArgumentOutOfRangeException(
+                nameof(coverage),
+                "Surface patch coverage must be within (0, 1].");
         }
 
-        if (!float.IsFinite(chance) ||
-            chance <= 0f ||
-            chance > 1f)
+        if (!float.IsFinite(roughness) ||
+            roughness < 0f ||
+            roughness > 0.5f)
         {
-            throw new ArgumentOutOfRangeException(nameof(chance));
+            throw new ArgumentOutOfRangeException(
+                nameof(roughness),
+                "Surface patch roughness must be within 0..0.5.");
         }
 
         var alternatives =
@@ -438,21 +436,18 @@ public sealed class BiomeSurfacePatchDefinition
             }
         }
 
-        Spacing = spacing;
-        Radius = radius;
-        Jitter = jitter;
-        Chance = chance;
+        Scale = scale;
+        Coverage = coverage;
+        Roughness = roughness;
         Blocks =
             Array.AsReadOnly(alternatives);
     }
 
-    public uint Spacing { get; }
+    public uint Scale { get; }
 
-    public uint Radius { get; }
+    public float Coverage { get; }
 
-    public uint Jitter { get; }
-
-    public float Chance { get; }
+    public float Roughness { get; }
 
     public IReadOnlyList<string> Blocks { get; }
 }
