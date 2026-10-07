@@ -42,7 +42,7 @@ public sealed class DimensionTests
                     "asteria:umbral"));
 
         Assert.Equal(
-            11,
+            12,
             overworld.SurfaceBiomes.Count);
         Assert.Single(
             overworld.VolumeBiomes);
@@ -54,7 +54,7 @@ public sealed class DimensionTests
         Assert.Contains(
             "asteria:overworld/ocean",
             overworld.SurfaceBiomes);
-        Assert.DoesNotContain(
+        Assert.Contains(
             "asteria:overworld/enchanted_forest",
             overworld.SurfaceBiomes);
         Assert.Contains(
