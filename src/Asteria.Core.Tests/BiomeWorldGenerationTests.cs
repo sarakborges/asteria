@@ -1210,10 +1210,14 @@ public sealed class BiomeWorldGenerationTests
             LoadDefaultBlocks();
         var biomes =
             LoadDefaultBiomes();
+        var fluids =
+            LoadDefaultFluids();
         var dimensions =
             LoadDefaultDimensions();
         dimensions.ValidateBiomes(
             biomes);
+        dimensions.ValidateFluids(
+            fluids);
         var dimension =
             dimensions.Get(
                 DimensionId.Overworld);
@@ -1224,6 +1228,7 @@ public sealed class BiomeWorldGenerationTests
                     dimension.Id),
                 dimension,
                 blocks,
+                fluids,
                 biomes);
         var grass =
             blocks.GetId(
@@ -1373,6 +1378,28 @@ public sealed class BiomeWorldGenerationTests
                 "blocks");
 
         return BlockRegistry.FromJson(
+            Directory
+                .EnumerateFiles(
+                    directory,
+                    "*.json")
+                .OrderBy(
+                    path => path,
+                    StringComparer.Ordinal)
+                .Select(
+                    File.ReadAllText));
+    }
+
+    private static FluidRegistry LoadDefaultFluids()
+    {
+        var directory =
+            Path.Combine(
+                AppContext.BaseDirectory,
+                "packs",
+                "default",
+                "data",
+                "fluids");
+
+        return FluidRegistry.FromJson(
             Directory
                 .EnumerateFiles(
                     directory,
