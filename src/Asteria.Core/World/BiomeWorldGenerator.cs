@@ -216,6 +216,20 @@ public sealed class BiomeWorldGenerator :
             maxRadius,
             acceptsColumn);
 
+    public GeneratedSurfaceDestination?
+        FindGeneratedDestination(
+            int preferredX,
+            int preferredY,
+            int preferredZ,
+            int maxRadius,
+            Func<int, int, bool>? acceptsColumn = null) =>
+        _destinations.FindNear(
+            preferredX,
+            preferredY,
+            preferredZ,
+            maxRadius,
+            acceptsColumn);
+
     public IReadOnlyList<SurfaceStructureQueryResult>
         SurfaceStructuresIntersecting(
             int originX,
