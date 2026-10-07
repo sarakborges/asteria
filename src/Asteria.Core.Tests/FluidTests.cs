@@ -516,6 +516,70 @@ public sealed class FluidTests
         ]);
 }
 
+public sealed class FluidMotionSolverTests
+{
+    [Fact]
+    public void NearSurfaceAscendAppliesImmediateExitImpulse()
+    {
+        var motion =
+            new FluidMotionDefinition(
+                horizontalSpeedMultiplier: 0.45f,
+                horizontalAcceleration: 10f,
+                sinkSpeed: 0.9f,
+                ascendSpeed: 2.4f,
+                surfaceExitSpeed: 8f,
+                verticalAcceleration: 10f,
+                surfaceExitMargin: 0.35f);
+        var contact =
+            new FluidBodyContact(
+                IsImmersed: true,
+                EyeSubmerged: false,
+                Fluid: new FluidRuntimeId(1),
+                SurfaceY: 10f,
+                SampleY: 9.8f);
+
+        Assert.Equal(
+            8f,
+            FluidMotionSolver.VerticalSpeed(
+                currentSpeed: 2.4f,
+                deltaSeconds: 1f / 60f,
+                contact,
+                motion,
+                ascendRequested: true));
+    }
+
+    [Fact]
+    public void DeepWaterAscendStillUsesAuthoredAcceleration()
+    {
+        var motion =
+            new FluidMotionDefinition(
+                horizontalSpeedMultiplier: 0.45f,
+                horizontalAcceleration: 10f,
+                sinkSpeed: 0.9f,
+                ascendSpeed: 2.4f,
+                surfaceExitSpeed: 8f,
+                verticalAcceleration: 10f,
+                surfaceExitMargin: 0.35f);
+        var contact =
+            new FluidBodyContact(
+                IsImmersed: true,
+                EyeSubmerged: true,
+                Fluid: new FluidRuntimeId(1),
+                SurfaceY: 10f,
+                SampleY: 9f);
+
+        Assert.Equal(
+            1f,
+            FluidMotionSolver.VerticalSpeed(
+                currentSpeed: 0f,
+                deltaSeconds: 0.1f,
+                contact,
+                motion,
+                ascendRequested: true),
+            5);
+    }
+}
+
 public sealed class FluidMotionDefinitionTests
 {
     [Fact]
