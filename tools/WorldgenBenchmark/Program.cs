@@ -351,6 +351,92 @@ metrics.Add("chunkSynthesis", Measure(
         return digest;
     }));
 
+metrics.Add("initialAreaSynthesis", Measure(
+    1,
+    generator =>
+    {
+        var spawn =
+            generator.FindGeneratedSurfaceDestination(
+                dimension.Spawn.X,
+                dimension.Spawn.Z,
+                maxRadius: 64) ??
+            throw new InvalidOperationException(
+                "Benchmark dimension has no safe generated spawn within 64 blocks.");
+        var center =
+            VoxelCoordinates.FromWorld(
+                    spawn.Value.X,
+                    spawn.Value.Y,
+                    spawn.Value.Z)
+                .Chunk;
+        var desired =
+            ChunkStreamingSelection
+                .DesiredSurfaceChunks(
+                    center,
+                    horizontalRadius: 2,
+                    generator)
+                .OrderBy(
+                    coord =>
+                        coord.Z)
+                .ThenBy(
+                    coord =>
+                        coord.X)
+                .ThenBy(
+                    coord =>
+                        coord.Y)
+                .ToArray();
+        ulong digest =
+            14695981039346656037UL;
+
+        foreach (var coord in
+                 desired)
+        {
+            var chunk =
+                generator.Materialize(
+                    coord);
+            digest =
+                HashNumber(
+                    digest,
+                    unchecked(
+                        (ulong)coord.X));
+            digest =
+                HashNumber(
+                    digest,
+                    unchecked(
+                        (ulong)coord.Y));
+            digest =
+                HashNumber(
+                    digest,
+                    unchecked(
+                        (ulong)coord.Z));
+            chunk.VisitBlockCells(
+                (localX, localY, localZ, cell) =>
+                {
+                    digest =
+                        HashNumber(
+                            digest,
+                            (ulong)localX);
+                    digest =
+                        HashNumber(
+                            digest,
+                            (ulong)localY);
+                    digest =
+                        HashNumber(
+                            digest,
+                            (ulong)localZ);
+                    digest =
+                        HashNumber(
+                            digest,
+                            cell.Block.Value);
+                });
+        }
+
+        digest =
+            HashNumber(
+                digest,
+                (ulong)desired.Length);
+        return digest;
+    }));
+
 if (options.EnforceCiBudgets)
 {
     EnforceCiBudgets(
