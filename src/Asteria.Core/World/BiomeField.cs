@@ -146,9 +146,23 @@ public sealed class BiomeField
         DimensionDefinition dimension,
         BiomeRegistry biomes,
         int assignmentCacheCapacity = 4096)
+        : this(
+            seed,
+            dimension?.Biomes ??
+                throw new ArgumentNullException(nameof(dimension)),
+            biomes,
+            assignmentCacheCapacity)
+    {
+    }
+
+    public BiomeField(
+        ulong seed,
+        IEnumerable<string> biomeIds,
+        BiomeRegistry biomes,
+        int assignmentCacheCapacity = 4096)
     {
         ArgumentNullException.ThrowIfNull(
-            dimension);
+            biomeIds);
         ArgumentNullException.ThrowIfNull(
             biomes);
 
@@ -157,8 +171,7 @@ public sealed class BiomeField
             new BoundedMemoCache<SeedBucket, SeedAssignment>(
                 assignmentCacheCapacity);
         _rules =
-            dimension
-                .Biomes
+            biomeIds
                 .Select(
                     biomes.Get)
                 .OrderBy(
@@ -175,8 +188,8 @@ public sealed class BiomeField
         if (_rules.Length == 0)
         {
             throw new ArgumentException(
-                $"Dimension {dimension.Id} has no surface biomes.",
-                nameof(dimension));
+                "Biome field requires at least one active biome.",
+                nameof(biomeIds));
         }
 
         _seedSpacing =
