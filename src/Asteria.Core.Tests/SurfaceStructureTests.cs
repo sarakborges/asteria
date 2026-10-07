@@ -746,8 +746,17 @@ public sealed class SurfaceStructureTests
         Assert.True(
             nearest.HasValue);
         Assert.Equal(
-            placement,
-            nearest.Value);
+            -8,
+            nearest.Value.PlacementAnchorX);
+        Assert.Equal(
+            -8,
+            nearest.Value.PlacementAnchorZ);
+        Assert.Equal(
+            -8,
+            nearest.Value.AnchorX);
+        Assert.Equal(
+            -8,
+            nearest.Value.AnchorZ);
         Assert.Equal(
             8,
             placement.AnchorX);
