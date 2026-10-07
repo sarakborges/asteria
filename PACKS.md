@@ -79,7 +79,7 @@ Each pack has one manifest at `packs/{name}/pack.json`:
 
 Definitions may add or override namespaced blocks, fluids, biomes, structures, recipes, loot, dimensions and future definition-driven systems.
 
-Dimensions live under `data/dimensions/*.json`. A dimension is one authored world-runtime configuration; in-game, dimensions are called **Spheres**. It declares its stable ID, explicit `surfaceBiomes`, optional `volumeBiomes` and optional `undergroundBiomes` pools, sea level, gravity strength, spawn coordinates, optional Sphere Shell bounds and engine-agnostic environment presentation values. Surface biomes author `baseHeightOffset` relative to that dimension sea level rather than baking an absolute world height into each biome. A root world seed is not duplicated into the pack; runtime derives a stable per-dimension seed from the world seed + dimension ID.
+Dimensions live under `data/dimensions/*.json`. A dimension is one authored world-runtime configuration; in-game, dimensions are called **Spheres**. It declares its stable ID, explicit `surfaceBiomes`, optional `volumeBiomes` and optional `undergroundBiomes` pools, sea level, gravity strength, spawn coordinates, optional Sphere Shell bounds and engine-agnostic environment presentation values. Surface-terrain heights are authored as offsets relative to that dimension sea level rather than baking an absolute world height into each biome. A root world seed is not duplicated into the pack; runtime derives a stable per-dimension seed from the world seed + dimension ID.
 
 Example placement pools:
 
@@ -97,6 +97,43 @@ Example placement pools:
 ```
 
 A biome ID may not be repeated across placement pools. Surface entries must author `surfaceLayout` + `surfaceTerrain`; volume entries must author `volumeLayout` and the bounded volume capability required by that biome; underground entries must author `undergroundLayout`. A Sphere may only declare underground biomes when it also authors a cave field.
+
+Surface terrain is a tagged authored profile. The supported profile types are `rolling`, `dunes`, `ocean`, `swamp`, `mountains`, `gorge`, `alps`, `mountain_belt`, and `volcano`; the untagged macro/detail form remains valid for simple/custom noise terrain. Example:
+
+```json
+"surfaceTerrain": {
+  "type": "volcano",
+  "baseHeight": 12,
+  "height": 72,
+  "craterDepth": 38,
+  "craterRadius": 0.14,
+  "irregularity": 0.13,
+  "irregularityScale": 0.009,
+  "detailIrregularity": 0.055,
+  "detailScale": 0.031,
+  "craterIrregularity": 0.08
+}
+```
+
+Typed terrain is still evaluated only by `SurfaceTerrainField`. `swamp`, `gorge`, and `volcano` consume the deterministic formation strength supplied by `BiomeField`; they do not create a parallel placement/distribution owner. Optional `surfaceTerrain.modifiers` currently supports `height_offset` and `cliffs`.
+
+A volcano biome may author crater lava without putting random lava patches on the Sphere:
+
+```json
+"surfaceFluid": {
+  "type": "volcano_crater",
+  "fluid": "asteria:lava",
+  "minimumStrength": 0.91,
+  "levelOffset": 8,
+  "spillMinimumStrength": 0.56,
+  "spillMaximumStrength": 0.9,
+  "spillScale": 0.012,
+  "spillWidth": 0.055,
+  "spillLevel": 6
+}
+```
+
+`volcano_crater` is valid only with `surfaceTerrain.type = "volcano"`. `GeneratedFluidField` derives the crater fill level from that terrain definition and may add deterministic spill channels; it never modifies the volcano shape.
 
 A Sphere may define a shell floor, roof, or both:
 
@@ -213,7 +250,7 @@ Connector faces are `right`, `left`, `top`, `bottom`, `front`, or `back`. Output
 
 Structures may additionally author bounded `restrictions.proximity` rules. Each rule targets exactly one block or fluid, uses mode `required` or `forbidden`, has a required `maxDistance` capped at 64, and may set `minDistance` to form an annulus. Block targets query the authoritative exposed surface material; fluid targets query the existing generated-fluid owner one voxel above the target column's base surface. Proximity never creates terrain or fluid and does not introduce a hydrology subsystem.
 
-The Structure contract still deliberately does **not** support MineClone object attachments or Structure-authored surface-layer decorators; those require their own explicit owners before import. StructureSets, connector chains, Structure-owned source-fluid payloads and explicit clear cells are supported. Unsupported palette/template fields fail validation instead of being silently ignored. The default pack currently ports the four MineClone boulder geometries, four oak-tree block variants, three willow-tree block variants, and the 27 connected-water Structure variants used by lakes, mountain ponds, mountain waterfalls, river lakes, river segments and the ocean-margin river mouth. Plains references `asteria:lake`, while Mountains/Alps/Mountain Belt reference `asteria:mountain_waterfall`; Ocean references `asteria:river_ocean_mouth` with `biomeMargin`. River/lake/waterfall/pond expansion stays entirely inside generic Structure groups/connectors—no hydrology subsystem exists. Stick object cells and willow moss surface layers remain omitted. Willow preserves MineClone's required water proximity of 1..12 blocks. Swamp puddles are authored through the dimension's bounded generated-surface-fluid rule, so willow proximity can resolve against actual generated swamp water. The inactive Enchanted Forest root is not imported into active Overworld rules.
+The Structure contract still deliberately does **not** support MineClone object attachments or Structure-authored surface-layer decorators; those require their own explicit owners before import. StructureSets, connector chains, Structure-owned source-fluid payloads and explicit clear cells are supported. Unsupported palette/template fields fail validation instead of being silently ignored. The default pack currently ports the four MineClone boulder geometries, four oak-tree block variants, three willow-tree block variants, and the 27 connected-water Structure variants used by lakes, mountain ponds, mountain waterfalls, river lakes, river segments and the ocean-margin river mouth. Plains references `asteria:lake`, while Mountains/Alps/Mountain Belt reference `asteria:mountain_waterfall`; Ocean references `asteria:river_ocean_mouth` with `biomeMargin`. River/lake/waterfall/pond expansion stays entirely inside generic Structure groups/connectors—no hydrology subsystem exists. Stick object cells and willow moss surface layers remain omitted. Willow preserves MineClone's required water proximity of 1..12 blocks. Swamp water is produced when the typed swamp terrain falls below the Sphere's authored sea level, so proximity queries resolve against the same generated-fluid owner used by materialization. The inactive Enchanted Forest root is not imported into active Overworld rules.
 
 A Sphere may define one explicit generated ocean rule:
 
@@ -251,7 +288,7 @@ A Sphere may also define bounded `generatedSurfaceFluids` for shallow local pool
 
 Each surface biome may have at most one local rule. `spacing` is 2..512, `radius` is 1..256, `jitter` cannot exceed half the spacing, `radius + jitter` cannot exceed spacing, `chance` is within `(0, 1]`, and `depth` is 1..4. Presence is a deterministic world-space lattice patch derived only from the dimension seed, biome ID and coordinates. `GeneratedFluidField` owns patch presence/fluid identity and returns the shallow cut depth; `SurfaceTerrainField` applies that cut to its authoritative base surface and stores the resolved cut in the column snapshot. `SurfaceChunkMaterializer` then fills only the matching cut's density-empty cells with full source fluid cells. Ground decorators are suppressed inside a resolved cut so they cannot occupy the reserved pool volume. Runtime fluid simulation owns behavior after residency. No hydrology owner is introduced.
 
-The default Overworld ports MineClone's authored swamp water puddles (`18/5/3/0.75/depth 1`) and volcano lava pools (`96/10/12/0.4/depth 2`).
+The default Overworld does not use `generatedSurfaceFluids` for Swamp or Volcano. Swamp water follows the typed swamp terrain below sea level; Volcano uses its authored crater geometry plus `surfaceFluid.type = "volcano_crater"`. The generic bounded-pool capability remains available to packs that explicitly want it.
 
 `shore` is the terrain-side coastal profile for that generated ocean. `shelfDepth` is the shallow shelf depth below sea level and `beachHeight` is the dry beach floor above sea level. The three dominance values are normalized pairwise ocean-vs-strongest-neighbor blend thresholds and must satisfy `0.5 < beachStartDominance < shelfStartDominance < deepWaterStartDominance <= 1`. The coast is reshaped continuously on both sides of the biome boundary so the ocean-owned sand surface becomes dry before ownership changes to the neighboring biome.
 
