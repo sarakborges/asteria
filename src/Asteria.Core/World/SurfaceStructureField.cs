@@ -30,6 +30,7 @@ public sealed class SurfaceStructureField
     private readonly SurfaceTerrainField _terrain;
     private readonly BiomeSurfaceMaterialField _materials;
     private readonly GeneratedFluidField _generatedFluids;
+    private readonly ConnectorGraph _connectors;
     private readonly RootRule[] _rules;
     private readonly int? _floorY;
     private readonly int? _roofY;
@@ -84,6 +85,11 @@ public sealed class SurfaceStructureField
             dimension.Shell?.FloorY;
         _roofY =
             dimension.Shell?.RoofY;
+        _connectors =
+            new ConnectorGraph(
+                structures,
+                blocks,
+                fluids);
 
         _rules =
             dimension
@@ -103,7 +109,8 @@ public sealed class SurfaceStructureField
                             structures,
                             structureSets,
                             blocks,
-                            fluids))
+                            fluids,
+                            _connectors))
                 .ToArray();
     }
 
@@ -804,6 +811,13 @@ public sealed class SurfaceStructureField
             return null;
         }
 
+        var pieces =
+            ExpandConnectors(
+                rule,
+                [
+                    placement,
+                ]);
+
         return CreateCandidate(
             ruleIndex,
             cellX,
@@ -813,7 +827,7 @@ public sealed class SurfaceStructureField
             member.Definition.Priority,
             member.Definition.Generation.ReserveSpace,
             member.Definition.ConflictGroups,
-            [placement]);
+            pieces);
     }
 
     private StructureCandidate?
@@ -1015,6 +1029,11 @@ public sealed class SurfaceStructureField
             return null;
         }
 
+        var expanded =
+            ExpandConnectors(
+                rule,
+                pieces);
+
         return CreateCandidate(
             ruleIndex,
             cellX,
@@ -1024,8 +1043,40 @@ public sealed class SurfaceStructureField
             set.Priority,
             set.ReserveSpace,
             set.ConflictGroups,
-            pieces);
+            expanded);
     }
+
+    private IReadOnlyList<SurfaceStructurePlacement>
+        ExpandConnectors(
+            RootRule rule,
+            IReadOnlyList<SurfaceStructurePlacement> roots) =>
+        _connectors.Expand(
+            _seed,
+            roots,
+            (
+                member,
+                rotation,
+                originX,
+                originY,
+                originZ) =>
+            {
+                var preserveConnectorY =
+                    member.AllowedGroundBlocks.Count ==
+                    0;
+                return TryResolvePlacement(
+                    member,
+                    rule.Reference,
+                    rule.Biome,
+                    originX,
+                    originZ,
+                    rotation,
+                    out var placement,
+                    preserveConnectorY
+                        ? originY
+                        : null)
+                    ? placement
+                    : null;
+            });
 
     private bool TryResolvePlacement(
         RuntimeStructure member,
@@ -1034,7 +1085,8 @@ public sealed class SurfaceStructureField
         int anchorX,
         int anchorZ,
         StructureRotation rotation,
-        out SurfaceStructurePlacement placement)
+        out SurfaceStructurePlacement placement,
+        int? anchorYOverride = null)
     {
         placement = null!;
         var anchorSurface =
@@ -1164,6 +1216,7 @@ public sealed class SurfaceStructureField
             member.Place(
                 reference,
                 anchorX,
+                anchorYOverride ??
                 anchorSurface.BaseY,
                 anchorZ,
                 rotation);
@@ -1795,7 +1848,8 @@ public sealed class SurfaceStructureField
             float chance,
             int jitter,
             RuntimeStructure[] members,
-            RuntimeStructureSet? set)
+            RuntimeStructureSet? set,
+            int maximumHorizontalRadius)
         {
             Biome = biome;
             Reference = reference;
@@ -1805,10 +1859,7 @@ public sealed class SurfaceStructureField
             Members = members;
             Set = set;
             MaximumHorizontalRadius =
-                set?.MaximumHorizontalRadius ??
-                members.Max(
-                    member =>
-                        member.MaximumHorizontalRadius);
+                maximumHorizontalRadius;
             var prefix =
                 $"surface-structure/{biome}/{reference}/v1/";
             PresenceDomain =
@@ -1864,12 +1915,21 @@ public sealed class SurfaceStructureField
             StructureRegistry structures,
             StructureSetRegistry structureSets,
             BlockRegistry blocks,
-            FluidRegistry fluids)
+            FluidRegistry fluids,
+            ConnectorGraph connectors)
         {
             if (structureSets.TryGet(
                     generated.Structure,
                     out var setDefinition))
             {
+                var set =
+                    new RuntimeStructureSet(
+                        setDefinition,
+                        structures,
+                        blocks,
+                        fluids,
+                        generated.Biome,
+                        connectors);
                 return new RootRule(
                     generated.Biome,
                     generated.Structure,
@@ -1877,12 +1937,8 @@ public sealed class SurfaceStructureField
                     generated.Chance,
                     generated.Jitter,
                     Array.Empty<RuntimeStructure>(),
-                    new RuntimeStructureSet(
-                        setDefinition,
-                        structures,
-                        blocks,
-                        fluids,
-                        generated.Biome));
+                    set,
+                    set.MaximumHorizontalRadius);
             }
 
             var members =
@@ -1904,7 +1960,9 @@ public sealed class SurfaceStructureField
                 generated.Chance,
                 generated.Jitter,
                 members,
-                null);
+                null,
+                connectors.MaximumHorizontalRadiusForReference(
+                    generated.Structure));
         }
     }
 
@@ -1946,7 +2004,8 @@ public sealed class SurfaceStructureField
             StructureRegistry structures,
             BlockRegistry blocks,
             FluidRegistry fluids,
-            string biome)
+            string biome,
+            ConnectorGraph connectors)
         {
             Priority = definition.Priority;
             ReserveSpace = definition.ReserveSpace;
@@ -1998,7 +2057,9 @@ public sealed class SurfaceStructureField
                         anchorRadius);
                 var memberRadius =
                     element.Members.Max(value =>
-                        (long)value.MaximumHorizontalRadius);
+                        (long)connectors
+                            .MaximumHorizontalRadiusForDefinition(
+                                value.Definition.Id));
                 maximumExtent =
                     Math.Max(
                         maximumExtent,
@@ -2051,6 +2112,562 @@ public sealed class SurfaceStructureField
                     "StructureSet element must resolve at least one Structure.",
                     nameof(members));
             }
+        }
+    }
+
+    private sealed class ConnectorGraph
+    {
+        private const ulong ConnectorIndexSalt =
+            0x9e37_79b1_85eb_ca87UL;
+        private const ulong ConnectorDepthSalt =
+            0xc2b2_ae3d_27d4_eb4fUL;
+        private const ulong ConnectorRotationSalt =
+            0x1656_67b1_9e37_79f9UL;
+
+        private readonly StructureRegistry _structures;
+        private readonly BlockRegistry _blocks;
+        private readonly FluidRegistry _fluids;
+        private readonly Dictionary<string, RuntimeStructure>
+            _byId =
+                new(
+                    StringComparer.Ordinal);
+        private readonly Dictionary<string, RuntimeStructure[]>
+            _byReference =
+                new(
+                    StringComparer.Ordinal);
+        private readonly GenerationDomain _entropyDomain =
+            GenerationDomain.Named(
+                "structure/connector/expansion/v1");
+
+        public ConnectorGraph(
+            StructureRegistry structures,
+            BlockRegistry blocks,
+            FluidRegistry fluids)
+        {
+            _structures = structures;
+            _blocks = blocks;
+            _fluids = fluids;
+
+            foreach (var definition in
+                     structures.Definitions())
+            {
+                _byId.Add(
+                    definition.Id,
+                    new RuntimeStructure(
+                        definition,
+                        blocks,
+                        fluids));
+            }
+        }
+
+        public int MaximumHorizontalRadiusForReference(
+            string reference)
+        {
+            var memo =
+                new Dictionary<(
+                    string Id,
+                    StructureRotation Rotation,
+                    int StrengthBits),
+                    int>();
+            var active =
+                new HashSet<(
+                    string Id,
+                    StructureRotation Rotation,
+                    int StrengthBits)>();
+            var maximum = 0;
+
+            foreach (var member in
+                     Members(
+                         reference))
+            {
+                foreach (var rotation in
+                         member.Definition
+                             .SupportedRotations())
+                {
+                    maximum =
+                        Math.Max(
+                            maximum,
+                            MaximumHorizontalRadiusForPiece(
+                                member,
+                                rotation,
+                                1f,
+                                memo,
+                                active));
+                }
+            }
+
+            return maximum;
+        }
+
+        public int MaximumHorizontalRadiusForDefinition(
+            string id)
+        {
+            var member =
+                _byId[id];
+            var memo =
+                new Dictionary<(
+                    string Id,
+                    StructureRotation Rotation,
+                    int StrengthBits),
+                    int>();
+            var active =
+                new HashSet<(
+                    string Id,
+                    StructureRotation Rotation,
+                    int StrengthBits)>();
+            var maximum = 0;
+
+            foreach (var rotation in
+                     member.Definition
+                         .SupportedRotations())
+            {
+                maximum =
+                    Math.Max(
+                        maximum,
+                        MaximumHorizontalRadiusForPiece(
+                            member,
+                            rotation,
+                            1f,
+                            memo,
+                            active));
+            }
+
+            return maximum;
+        }
+
+        private int MaximumHorizontalRadiusForPiece(
+            RuntimeStructure member,
+            StructureRotation rotation,
+            float remainingStrength,
+            Dictionary<(
+                string Id,
+                StructureRotation Rotation,
+                int StrengthBits),
+                int> memo,
+            HashSet<(
+                string Id,
+                StructureRotation Rotation,
+                int StrengthBits)> active)
+        {
+            var key =
+                (
+                    member.Definition.Id,
+                    rotation,
+                    BitConverter.SingleToInt32Bits(
+                        remainingStrength));
+            if (memo.TryGetValue(
+                    key,
+                    out var known))
+            {
+                return known;
+            }
+
+            var maximum =
+                member.MaximumHorizontalRadius;
+            if (remainingStrength <= 0f)
+            {
+                memo.Add(
+                    key,
+                    maximum);
+                return maximum;
+            }
+
+            if (!active.Add(
+                    key))
+            {
+                throw new InvalidOperationException(
+                    $"Structure connector graph reaches {member.Definition.Id} with unchanged strength; recursive connector cycles must lose strength.");
+            }
+
+            foreach (var output in
+                     member.Definition
+                         .Connectors
+                         .Where(value =>
+                             value.Target is not null))
+            {
+                var effective =
+                    Math.Min(
+                        remainingStrength,
+                        output.Strength);
+                if (effective <= 0f)
+                {
+                    continue;
+                }
+
+                var target =
+                    output.Target!;
+                var rotatedOutput =
+                    StructureDefinition.RotateOffset(
+                        rotation,
+                        output.X,
+                        output.Y,
+                        output.Z);
+                var outputRadius =
+                    Math.Max(
+                        Math.Abs(
+                            (long)rotatedOutput.X),
+                        Math.Abs(
+                            (long)rotatedOutput.Z));
+                var worldFace =
+                    StructureDefinition.RotateConnectorFace(
+                        rotation,
+                        output.Face);
+                var requiredInput =
+                    StructureDefinition.OppositeConnectorFace(
+                        worldFace);
+                var nextStrength =
+                    Math.Max(
+                        0f,
+                        effective -
+                        output.StrengthLossOnEachLoop);
+
+                foreach (var child in
+                         Members(
+                             target))
+                {
+                    foreach (var childRotation in
+                             child.Definition
+                                 .SupportedRotations())
+                    {
+                        foreach (var input in
+                                 child.Definition
+                                     .Connectors
+                                     .Where(value =>
+                                         value.Target is null &&
+                                         StructureDefinition
+                                             .RotateConnectorFace(
+                                                 childRotation,
+                                                 value.Face) ==
+                                         requiredInput))
+                        {
+                            var rotatedInput =
+                                StructureDefinition.RotateOffset(
+                                    childRotation,
+                                    input.X,
+                                    input.Y,
+                                    input.Z);
+                            var inputRadius =
+                                Math.Max(
+                                    Math.Abs(
+                                        (long)rotatedInput.X),
+                                    Math.Abs(
+                                        (long)rotatedInput.Z));
+                            var childRadius =
+                                MaximumHorizontalRadiusForPiece(
+                                    child,
+                                    childRotation,
+                                    nextStrength,
+                                    memo,
+                                    active);
+                            var candidate =
+                                outputRadius +
+                                output.MaxDistance +
+                                inputRadius +
+                                childRadius;
+                            maximum =
+                                Math.Max(
+                                    maximum,
+                                    candidate >= int.MaxValue
+                                        ? int.MaxValue
+                                        : (int)candidate);
+                        }
+                    }
+                }
+            }
+
+            active.Remove(
+                key);
+            memo.Add(
+                key,
+                maximum);
+            return maximum;
+        }
+
+        public IReadOnlyList<SurfaceStructurePlacement>
+            Expand(
+                ulong seed,
+                IReadOnlyList<SurfaceStructurePlacement> roots,
+                Func<
+                    RuntimeStructure,
+                    StructureRotation,
+                    int,
+                    int,
+                    int,
+                    SurfaceStructurePlacement?> resolveChild)
+        {
+            if (roots.Count == 0)
+            {
+                return roots;
+            }
+
+            var pieces =
+                roots.ToList();
+            var occupied =
+                pieces
+                    .SelectMany(value =>
+                        value.Voxels)
+                    .Select(value =>
+                        (
+                            value.X,
+                            value.Y,
+                            value.Z))
+                    .ToHashSet();
+            var pending =
+                new Queue<(
+                    int Index,
+                    float? RemainingStrength,
+                    int Depth)>();
+
+            for (var index = 0;
+                 index < pieces.Count;
+                 index++)
+            {
+                pending.Enqueue(
+                    (
+                        index,
+                        null,
+                        0));
+            }
+
+            while (pending.Count > 0)
+            {
+                var state =
+                    pending.Dequeue();
+                var parent =
+                    pieces[state.Index];
+                var parentRuntime =
+                    _byId[
+                        parent.StructureId];
+
+                for (var connectorIndex = 0;
+                     connectorIndex <
+                     parentRuntime.Definition
+                         .Connectors.Count;
+                     connectorIndex++)
+                {
+                    var output =
+                        parentRuntime.Definition
+                            .Connectors[
+                                connectorIndex];
+                    if (output.Target is null)
+                    {
+                        continue;
+                    }
+
+                    var effective =
+                        state.RemainingStrength
+                            .HasValue
+                            ? Math.Min(
+                                state.RemainingStrength.Value,
+                                output.Strength)
+                            : output.Strength;
+                    if (effective <= 0f)
+                    {
+                        continue;
+                    }
+
+                    var hash =
+                        ConnectorHash(
+                            seed,
+                            parent,
+                            connectorIndex,
+                            state.Depth);
+                    var variants =
+                        Members(
+                            output.Target);
+                    var child =
+                        variants[
+                            checked((int)(
+                                hash %
+                                (ulong)variants.Length))];
+                    var worldFace =
+                        StructureDefinition.RotateConnectorFace(
+                            parent.Rotation,
+                            output.Face);
+                    var distance =
+                        ConnectorDistance(
+                            RotateLeft(
+                                hash,
+                                11),
+                            output.MinDistance,
+                            output.MaxDistance);
+                    var outputOffset =
+                        StructureDefinition.RotateOffset(
+                            parent.Rotation,
+                            output.X,
+                            output.Y,
+                            output.Z);
+                    var faceOffset =
+                        StructureDefinition.ConnectorFaceOffset(
+                            worldFace);
+                    var worldX =
+                        (long)parent.AnchorX +
+                        outputOffset.X +
+                        (long)faceOffset.X *
+                        distance;
+                    var worldY =
+                        (long)parent.AnchorY +
+                        outputOffset.Y +
+                        (long)faceOffset.Y *
+                        distance;
+                    var worldZ =
+                        (long)parent.AnchorZ +
+                        outputOffset.Z +
+                        (long)faceOffset.Z *
+                        distance;
+                    if (worldX is < int.MinValue or > int.MaxValue ||
+                        worldY is < int.MinValue or > int.MaxValue ||
+                        worldZ is < int.MinValue or > int.MaxValue)
+                    {
+                        continue;
+                    }
+
+                    var attachment =
+                        child.Definition.ResolveInputAttachment(
+                            (int)worldX,
+                            (int)worldY,
+                            (int)worldZ,
+                            StructureDefinition.OppositeConnectorFace(
+                                worldFace),
+                            RotateLeft(
+                                hash,
+                                23));
+                    if (attachment is null)
+                    {
+                        continue;
+                    }
+
+                    var childPiece =
+                        resolveChild(
+                            child,
+                            attachment.Value.Rotation,
+                            attachment.Value.OriginX,
+                            attachment.Value.OriginY,
+                            attachment.Value.OriginZ);
+                    if (childPiece is null)
+                    {
+                        continue;
+                    }
+
+                    var childPositions =
+                        childPiece.Voxels
+                            .Select(value =>
+                                (
+                                    value.X,
+                                    value.Y,
+                                    value.Z))
+                            .ToArray();
+                    if (childPositions.Any(
+                            occupied.Contains))
+                    {
+                        continue;
+                    }
+
+                    foreach (var position in
+                             childPositions)
+                    {
+                        occupied.Add(
+                            position);
+                    }
+
+                    var pieceIndex =
+                        pieces.Count;
+                    pieces.Add(
+                        childPiece);
+
+                    var nextStrength =
+                        effective -
+                        output.StrengthLossOnEachLoop;
+                    if (nextStrength > 0f)
+                    {
+                        pending.Enqueue(
+                            (
+                                pieceIndex,
+                                nextStrength,
+                                state.Depth + 1));
+                    }
+                }
+            }
+
+            return Array.AsReadOnly(
+                pieces.ToArray());
+        }
+
+        private RuntimeStructure[] Members(
+            string reference)
+        {
+            if (_byReference.TryGetValue(
+                    reference,
+                    out var known))
+            {
+                return known;
+            }
+
+            var members =
+                _structures
+                    .ResolveReference(
+                        reference)
+                    .Select(definition =>
+                        _byId[
+                            definition.Id])
+                    .ToArray();
+            _byReference.Add(
+                reference,
+                members);
+            return members;
+        }
+
+        private ulong ConnectorHash(
+            ulong seed,
+            SurfaceStructurePlacement parent,
+            int connectorIndex,
+            int depth)
+        {
+            var hash =
+                WorldGenerationEntropy.Sample3D(
+                    seed,
+                    _entropyDomain,
+                    parent.AnchorX,
+                    parent.AnchorY,
+                    parent.AnchorZ);
+            hash ^=
+                GenerationDomain.Named(
+                    parent.StructureId)
+                    .Key;
+            hash ^=
+                (ulong)(connectorIndex + 1) *
+                ConnectorIndexSalt;
+            hash ^=
+                (ulong)(depth + 1) *
+                ConnectorDepthSalt;
+            hash ^=
+                (ulong)((int)parent.Rotation + 1) *
+                ConnectorRotationSalt;
+            return Avalanche(
+                hash);
+        }
+
+        private static int ConnectorDistance(
+            ulong hash,
+            int minimum,
+            int maximum)
+        {
+            if (minimum ==
+                maximum)
+            {
+                return minimum;
+            }
+
+            var span =
+                (ulong)(
+                    maximum -
+                    minimum +
+                    1);
+            return checked(
+                minimum +
+                (int)(
+                    hash %
+                    span));
         }
     }
 
