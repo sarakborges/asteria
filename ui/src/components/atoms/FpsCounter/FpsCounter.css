@@ -1,0 +1,6 @@
+.fps-counter {
+  color: var(--ui-color-text);
+  font-size: var(--ui-font-size-detail);
+  text-shadow: 0 1px 5px var(--ui-color-shadow);
+  pointer-events: none;
+}

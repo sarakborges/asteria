@@ -2,13 +2,16 @@ import type { BridgeMessage } from "../bridge/godotBridge";
 import type {
   HotbarState,
   HudState,
+  HudEntityState,
   InteractionPromptState,
   PlayerVitalsState,
   StatusEffectState,
   StatusEffectTone,
+  TargetHudState,
   ToastTone,
   VitalValue,
   WorldBannerState,
+  WorldClockState,
 } from "../state/uiState";
 import type { UiStore } from "../state/uiStore";
 import { applyUiTheme } from "../theme/uiTheme";
@@ -67,6 +70,30 @@ export function createHudController(
         case "game.hud.vitals":
           patchHud(store, {
             vitals: readVitals(message.payload),
+          });
+          break;
+
+        case "game.hud.target":
+          patchHud(store, {
+            target: readTarget(message.payload),
+          });
+          break;
+
+        case "game.hud.target_entity":
+          patchHud(store, {
+            targetEntity: readEntity(message.payload),
+          });
+          break;
+
+        case "game.hud.clock":
+          patchHud(store, {
+            clock: readClock(message.payload),
+          });
+          break;
+
+        case "game.hud.fps":
+          patchHud(store, {
+            fps: readFps(message.payload),
           });
           break;
 
@@ -331,4 +358,106 @@ function readToast(
         ? value.durationMs
         : undefined,
   };
+}
+
+
+function readTarget(
+  payload: unknown,
+): TargetHudState | null {
+  const value = asRecord(payload);
+  if (
+    !value ||
+    (value.kind !== "block" &&
+      value.kind !== "object" &&
+      value.kind !== "fluid") ||
+    typeof value.id !== "string" ||
+    typeof value.name !== "string"
+  ) {
+    return null;
+  }
+
+  const details = Array.isArray(value.details)
+    ? value.details.filter(
+        (detail): detail is string =>
+          typeof detail === "string",
+      )
+    : [];
+
+  return {
+    kind: value.kind,
+    id: value.id,
+    name: value.name,
+    details,
+  };
+}
+
+function readEntity(
+  payload: unknown,
+): HudEntityState | null {
+  const value = asRecord(payload);
+  if (
+    !value ||
+    typeof value.name !== "string"
+  ) {
+    return null;
+  }
+
+  const health = readVital(value.health);
+  if (!health) {
+    return null;
+  }
+
+  return {
+    name: value.name,
+    health,
+    portraitUrl:
+      typeof value.portraitUrl === "string"
+        ? value.portraitUrl
+        : undefined,
+  };
+}
+
+function readClock(
+  payload: unknown,
+): WorldClockState | null {
+  const value = asRecord(payload);
+  if (
+    !value ||
+    !isFiniteNumber(value.day) ||
+    !isFiniteNumber(value.hour) ||
+    !isFiniteNumber(value.minute)
+  ) {
+    return null;
+  }
+
+  const day = Math.trunc(value.day);
+  const hour = Math.trunc(value.hour);
+  const minute = Math.trunc(value.minute);
+
+  if (
+    day < 0 ||
+    hour < 0 ||
+    hour > 23 ||
+    minute < 0 ||
+    minute > 59
+  ) {
+    return null;
+  }
+
+  return {
+    day,
+    hour,
+    minute,
+  };
+}
+
+function readFps(
+  payload: unknown,
+): number | null {
+  const value = asRecord(payload);
+  return value &&
+    isFiniteNumber(value.fps) &&
+    value.fps >= 0
+    ? Math.round(value.fps)
+    : null;
 }

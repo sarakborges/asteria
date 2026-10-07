@@ -4,11 +4,14 @@ import "./HudShell.css";
 export type HudShellProps = {
   crosshair: ReactNode;
   interactionPrompt: ReactNode;
+  targetOverlay: ReactNode;
   worldBanner: ReactNode;
+  worldClock: ReactNode;
   hotbar: ReactNode;
-  playerVitals: ReactNode;
+  playerHud: ReactNode;
   statusEffects: ReactNode;
   toastStack: ReactNode;
+  fpsCounter: ReactNode;
   debugOverlay: ReactNode;
   debugVisible: boolean;
 };
@@ -16,11 +19,14 @@ export type HudShellProps = {
 export function HudShell({
   crosshair,
   interactionPrompt,
+  targetOverlay,
   worldBanner,
+  worldClock,
   hotbar,
-  playerVitals,
+  playerHud,
   statusEffects,
   toastStack,
+  fpsCounter,
   debugOverlay,
   debugVisible,
 }: HudShellProps) {
@@ -30,20 +36,29 @@ export function HudShell({
         {crosshair}
         {interactionPrompt}
       </div>
+      <div className="hud-shell__target">
+        {targetOverlay}
+      </div>
       <div className="hud-shell__world">
         {worldBanner}
+      </div>
+      <div className="hud-shell__clock">
+        {worldClock}
       </div>
       <div className="hud-shell__bottom-center">
         {hotbar}
       </div>
       <div className="hud-shell__bottom-left">
-        {playerVitals}
+        {playerHud}
       </div>
       <div className="hud-shell__top-right">
         {statusEffects}
       </div>
       <div className="hud-shell__toast-area">
         {toastStack}
+      </div>
+      <div className="hud-shell__fps">
+        {fpsCounter}
       </div>
       <div
         className="hud-shell__debug"

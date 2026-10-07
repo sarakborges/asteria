@@ -17,14 +17,14 @@
 
 .crosshair::before {
   top: 8px;
-  left: 1px;
-  width: 16px;
+  left: 2px;
+  width: 14px;
   height: 2px;
 }
 
 .crosshair::after {
-  top: 1px;
+  top: 2px;
   left: 8px;
   width: 2px;
-  height: 16px;
+  height: 14px;
 }

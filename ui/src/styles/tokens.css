@@ -93,5 +93,13 @@
   --ui-font-size-heading: 26px;
   --ui-font-size-screen-title: 36px;
   --ui-letter-spacing-detail: 0;
-  --ui-hotbar-slot-size: 46px;
+  --ui-hotbar-slot-size: 44px;
+
+  --ui-hud-margin: 18px;
+  --ui-hud-target-offset: 62px;
+  --ui-hud-entity-avatar-size: 64px;
+  --ui-hud-entity-info-width: 180px;
+  --ui-hud-entity-health-height: 22px;
+  --ui-hud-world-banner-width: 520px;
+  --ui-hud-compass-width: 360px;
 }

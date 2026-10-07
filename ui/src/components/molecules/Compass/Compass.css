@@ -1,10 +1,10 @@
 .compass {
-  width: min(360px, 72vw);
+  width: min(var(--ui-hud-compass-width), 100%);
   height: 30px;
+  margin-top: 2px;
   overflow: hidden;
   color: var(--ui-color-text);
   pointer-events: none;
-  margin-top: 8px;
 }
 
 .compass__viewport {
@@ -12,13 +12,16 @@
   width: 100%;
   height: 100%;
   overflow: hidden;
-  mask-image: linear-gradient(
-    90deg,
-    transparent,
-    black 12%,
-    black 88%,
-    transparent
-  );
+}
+
+.compass__viewport::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: rgb(255 255 255 / 12%);
 }
 
 .compass__track {
@@ -32,50 +35,45 @@
 
 .compass__marker {
   position: absolute;
-  top: 3px;
-  width: 1px;
-  height: 18px;
+  top: 0;
+  width: 44px;
+  height: 100%;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: 1px;
   transform: translateX(-50%);
-  opacity: 0.46;
+  color: rgb(255 255 255 / 35%);
 }
 
 .compass__tick {
   display: block;
   width: 1px;
-  height: 6px;
+  height: 4px;
   background: currentColor;
-  box-shadow: 0 1px 4px var(--ui-color-shadow);
 }
 
 .compass__marker--major {
-  opacity: 0.96;
+  color: rgb(255 255 255 / 70%);
 }
 
 .compass__marker--major .compass__tick {
-  height: 9px;
+  height: 7px;
 }
 
 .compass__label {
-  position: absolute;
-  top: 10px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.05em;
+  color: var(--ui-color-text);
+  font-size: var(--ui-font-size-detail);
   line-height: 1;
   text-shadow: 0 1px 5px var(--ui-color-shadow);
 }
 
 .compass__center {
   position: absolute;
-  top: 1px;
+  top: 0;
   left: 50%;
-  width: 1px;
-  height: 21px;
-  transform: translateX(-50%);
-  background: var(--ui-color-accent-strong);
-  box-shadow:
-    0 0 5px var(--ui-color-accent-glow),
-    0 1px 5px var(--ui-color-shadow);
+  width: 2px;
+  height: 6px;
+  transform: translateX(-1px);
+  background: rgb(255 255 255 / 90%);
 }

@@ -44,8 +44,20 @@ MineClone reference: `sarakborges/mineclone`, branch `world-systems-rebuild`.
 
 Asteria deliberately orders the survival center column as **Inventory → Crafting** instead of MineClone's current **Crafting → Inventory** order. This keeps Character Info on the left and Current Station on the right top-aligned with Inventory, while Crafting sits directly below Inventory with the normal panel gap. `Available Recipes`, `Selected Recipe`, and `Current Station` use equivalent heading hierarchy, and Current Station is always rendered as a surfaced card.
 
-## Next screen/component families
+## HUD migration status
 
-1. Remaining HUD presentation details.
+- Crosshair/action hint: **ported/adapted** to MineClone's 18 px crosshair and lightweight hint placement.
+- Hotbar: **ported** to the 44 px slot, 4 px gap, 4 px row padding and selected-state contract. Asteria keeps its existing selected-item name.
+- World HUD: **ported/adapted** to the 520 px banner and 360×30 compass. Asteria deliberately keeps the current biome label as an extra presentation line.
+- Player HUD: **ported/adapted** to the shared 64 px entity card + 180 px info area. Asteria may additionally show stamina when an authoritative runtime value exists.
+- Target HUD/entity target HUD: **presentation ported**. Optional typed bridge messages are supported, but the WebUI does not invent target data.
+- World clock and FPS: **presentation ported**. They remain hidden until authoritative runtime messages exist.
+- Status effects and toast stack: **retained Asteria extensions** using the migrated design-system tokens.
+- Chat: **presentation ported** with the MineClone 500 px history panel, 15-line history cap, autocomplete surface and input contract. Runtime/chat-command ownership is not invented in WebUI.
+- Storage Box: **presentation ported** with the 3×9 storage grid, search/sort controls, 3×9 player backpack and hotbar row. Runtime storage ownership remains outside WebUI.
+
+## Migration status
+
+The MineClone UI design-system, screen, modal, inventory/crafting and HUD presentation migration is now complete for the currently identified reference components. Remaining work is runtime integration for features Asteria does not yet own (save catalog, settings/keybinds, pause/session save, inventory/crafting/storage/chat, target metadata, clock/FPS messages) rather than additional presentation copying.
 
 Each screen must reuse migrated primitives instead of introducing page-local copies of button, surface, input or screen-shell styling.

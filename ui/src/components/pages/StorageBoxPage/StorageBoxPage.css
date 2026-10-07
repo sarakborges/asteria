@@ -1,0 +1,68 @@
+.storage-box-page {
+  position: fixed;
+  z-index: 40;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: auto;
+}
+
+.storage-box-page__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: rgb(0 0 0 / 48%);
+}
+
+.storage-box-page__panel {
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.storage-box-page__header {
+  width: 392px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.storage-box-page__controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.storage-box-page__controls .ui-text-input {
+  width: 210px;
+  height: 40px;
+}
+
+.storage-box-page__sort {
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  min-height: 40px;
+  padding-inline: 0;
+}
+
+.storage-box-page__grid,
+.storage-box-page__hotbar {
+  display: grid;
+  grid-template-columns:
+    repeat(
+      9,
+      var(--ui-inventory-slot-size)
+    );
+  gap: var(--ui-inventory-slot-gap);
+}
+
+.storage-box-page__hotbar {
+  margin-top: calc(
+    var(--ui-inventory-slot-gap) *
+      -1
+  );
+}

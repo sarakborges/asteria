@@ -1,0 +1,71 @@
+.hud-entity-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.hud-entity-card__avatar {
+  width: var(--ui-hud-entity-avatar-size);
+  height: var(--ui-hud-entity-avatar-size);
+  min-width: var(--ui-hud-entity-avatar-size);
+  min-height: var(--ui-hud-entity-avatar-size);
+  border: 2px solid var(--ui-color-border);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  color: var(--ui-color-text);
+  font-size: var(--ui-font-size-setting-title);
+  background: var(--ui-color-hud-surface);
+}
+
+.hud-entity-card__avatar img {
+  width: 54px;
+  height: 54px;
+  object-fit: contain;
+}
+
+.hud-entity-card__info {
+  width: var(--ui-hud-entity-info-width);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+}
+
+.hud-entity-card__name {
+  color: var(--ui-color-text);
+  font-size: var(--ui-font-size-body);
+  font-weight: 500;
+  text-shadow: 0 1px 5px var(--ui-color-shadow);
+}
+
+.hud-entity-card__health {
+  position: relative;
+  width: 100%;
+  height: var(--ui-hud-entity-health-height);
+  border: 1px solid var(--ui-color-border);
+  overflow: hidden;
+  background: var(--ui-color-slider-track);
+}
+
+.hud-entity-card__health-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--ui-color-health);
+}
+
+.hud-entity-card__health--stamina .hud-entity-card__health-fill {
+  background: var(--ui-color-stamina);
+}
+
+.hud-entity-card__health-label {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--ui-color-text);
+  font-size: var(--ui-font-size-caption);
+  font-weight: 500;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 90%);
+}

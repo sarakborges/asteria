@@ -33,6 +33,25 @@ export type PlayerVitalsState = {
   stamina?: VitalValue | null;
 };
 
+export type HudEntityState = {
+  name: string;
+  health: VitalValue;
+  portraitUrl?: string;
+};
+
+export type TargetHudState = {
+  kind: "block" | "object" | "fluid";
+  id: string;
+  name: string;
+  details: string[];
+};
+
+export type WorldClockState = {
+  day: number;
+  hour: number;
+  minute: number;
+};
+
 export type StatusEffectTone =
   | "positive"
   | "negative"
@@ -78,6 +97,10 @@ export type HudState = {
   hotbar: HotbarState;
   world: WorldBannerState | null;
   vitals: PlayerVitalsState | null;
+  target: TargetHudState | null;
+  targetEntity: HudEntityState | null;
+  clock: WorldClockState | null;
+  fps: number | null;
   effects: StatusEffectState[];
   prompt: InteractionPromptState;
   toasts: ToastState[];
@@ -127,6 +150,10 @@ export function createInitialUiState(
       },
       world: null,
       vitals: null,
+      target: null,
+      targetEntity: null,
+      clock: null,
+      fps: null,
       effects: [],
       prompt: null,
       toasts: [],

@@ -1,14 +1,16 @@
 .interaction-prompt {
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  min-height: 18px;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: var(--ui-space-1);
-  padding: 7px 10px;
-  border: 1px solid var(--ui-color-border);
-  background: var(--ui-color-panel);
-  box-shadow: 0 8px 24px var(--ui-color-shadow);
   color: var(--ui-color-text);
   font-size: var(--ui-font-size-detail);
-  letter-spacing: 0.03em;
+  text-align: center;
+  text-shadow: 0 1px 5px var(--ui-color-shadow);
+  pointer-events: none;
 }
 
 .interaction-prompt[hidden] {
@@ -16,17 +18,20 @@
 }
 
 .interaction-prompt__key {
-  min-width: 24px;
-  padding: 3px 6px;
-  border: 1px solid var(--ui-color-border-strong);
-  background: var(--ui-color-control);
+  padding: 0;
+  border: 0;
   color: var(--ui-color-text);
   font: inherit;
-  font-weight: 800;
-  text-align: center;
+  font-weight: 700;
+  background: transparent;
+}
+
+.interaction-prompt__key:not(:empty)::after {
+  content: " ·";
+  color: var(--ui-color-muted);
 }
 
 .interaction-prompt__text {
-  color: var(--ui-color-muted);
-  font-weight: 650;
+  color: var(--ui-color-text);
+  font-weight: 500;
 }

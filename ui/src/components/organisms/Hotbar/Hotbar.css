@@ -1,20 +1,18 @@
 .hotbar {
   display: grid;
   justify-items: center;
-  gap: var(--ui-space-1);
+  gap: 8px;
   pointer-events: none;
 }
 
 .hotbar__selected-name {
-  min-height: 16px;
-  padding: 0 8px;
+  min-height: 18px;
   color: var(--ui-color-text);
   font-size: var(--ui-font-size-detail);
-  font-weight: 700;
-  letter-spacing: 0.035em;
-  line-height: 16px;
+  font-weight: 500;
+  line-height: 18px;
   text-align: center;
-  text-shadow: 0 2px 8px var(--ui-color-shadow);
+  text-shadow: 0 1px 5px var(--ui-color-shadow);
 }
 
 .hotbar__selected-name:empty {
@@ -23,10 +21,7 @@
 
 .hotbar__row {
   display: flex;
-  gap: 3px;
-  padding: 5px;
-  border: 1px solid var(--ui-color-border);
-  background: var(--ui-color-hotbar);
-  box-shadow: 0 12px 30px var(--ui-color-shadow);
-  backdrop-filter: blur(10px);
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
 }

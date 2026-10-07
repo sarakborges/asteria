@@ -1,12 +1,15 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Crosshair } from "../../atoms/Crosshair/Crosshair";
+import { FpsCounter } from "../../atoms/FpsCounter/FpsCounter";
 import { InteractionPrompt } from "../../molecules/InteractionPrompt/InteractionPrompt";
 import { Hotbar } from "../../organisms/Hotbar/Hotbar";
-import { PlayerVitals } from "../../organisms/PlayerVitals/PlayerVitals";
+import { HudEntityCard } from "../../organisms/HudEntityCard/HudEntityCard";
 import { StatusCard } from "../../organisms/StatusCard/StatusCard";
 import { StatusEffects } from "../../organisms/StatusEffects/StatusEffects";
+import { TargetHud } from "../../organisms/TargetHud/TargetHud";
 import { ToastStack } from "../../organisms/ToastStack/ToastStack";
 import { WorldBanner } from "../../organisms/WorldBanner/WorldBanner";
+import { WorldClock } from "../../organisms/WorldClock/WorldClock";
 import { HudShell } from "./HudShell";
 
 const meta = {
@@ -26,6 +29,19 @@ const meta = {
         }}
       />
     ),
+    targetOverlay: (
+      <TargetHud
+        state={{
+          kind: "block",
+          id: "asteria:stone",
+          name: "Stone",
+          details: [
+            "Sky Light: 12 | Block Light: 0",
+            "12, 88, 40",
+          ],
+        }}
+      />
+    ),
     worldBanner: (
       <WorldBanner
         state={{
@@ -38,34 +54,68 @@ const meta = {
         }}
       />
     ),
+    worldClock: (
+      <WorldClock
+        state={{
+          day: 3,
+          hour: 17,
+          minute: 42,
+        }}
+      />
+    ),
     hotbar: (
       <Hotbar
         state={{
           selectedIndex: 0,
-          selectedName: null,
+          selectedName: "Stone",
           slots: [
-            { id: "asteria:stone", quantity: 64 },
+            {
+              id: "asteria:stone",
+              quantity: 64,
+            },
           ],
         }}
       />
     ),
-    playerVitals: <PlayerVitals state={null} />,
-    statusEffects: <StatusEffects effects={[]} />,
+    playerHud: (
+      <HudEntityCard
+        entity={{
+          name: "Player",
+          health: {
+            current: 86,
+            maximum: 100,
+          },
+        }}
+      />
+    ),
+    statusEffects: (
+      <StatusEffects
+        effects={[]}
+      />
+    ),
     toastStack: (
       <ToastStack
         toasts={[]}
         onDismiss={() => undefined}
       />
     ),
+    fpsCounter: (
+      <FpsCounter fps={144} />
+    ),
     debugOverlay: (
       <StatusCard
         embedded
         state={{
-          bridgeLabel: "connecting to Godot",
-          bridgeTone: "connecting",
-          worldStatus: "waiting for chunk",
-          playerStatus: "waiting for player",
-          lastMessage: "no bridge messages yet",
+          bridgeLabel:
+            "connecting to Godot",
+          bridgeTone:
+            "connecting",
+          worldStatus:
+            "waiting for chunk",
+          playerStatus:
+            "waiting for player",
+          lastMessage:
+            "no bridge messages yet",
         }}
         onPing={() => undefined}
       />

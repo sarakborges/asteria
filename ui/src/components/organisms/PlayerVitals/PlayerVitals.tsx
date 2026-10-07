@@ -1,9 +1,5 @@
-import {
-  formatVital,
-  vitalRatio,
-} from "../../../presentation/formatters";
 import type { PlayerVitalsState } from "../../../state/uiState";
-import { HudMeter } from "../../molecules/HudMeter/HudMeter";
+import { HudEntityCard } from "../HudEntityCard/HudEntityCard";
 import "./PlayerVitals.css";
 
 export type PlayerVitalsProps = {
@@ -14,26 +10,24 @@ export function PlayerVitals({
   state,
 }: PlayerVitalsProps) {
   const health = state?.health ?? null;
-  const stamina = state?.stamina ?? null;
-
-  if (!health && !stamina) return null;
+  if (!health) return null;
 
   return (
     <section className="player-vitals">
-      {health && (
-        <HudMeter
-          label={"Health  " + formatVital(health)}
-          value={vitalRatio(health)}
-          tone="health"
-        />
-      )}
-      {stamina && (
-        <HudMeter
-          label={"Stamina  " + formatVital(stamina)}
-          value={vitalRatio(stamina)}
-          tone="stamina"
-        />
-      )}
+      <HudEntityCard
+        entity={{
+          name: "Player",
+          health,
+        }}
+        secondaryVital={
+          state?.stamina
+            ? {
+                label: "Stamina",
+                value: state.stamina,
+              }
+            : null
+        }
+      />
     </section>
   );
 }

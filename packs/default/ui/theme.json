@@ -67,7 +67,7 @@
   "fontSizeHeading": "26px",
   "fontSizeScreenTitle": "36px",
   "letterSpacingDetail": "0",
-  "hotbarSlotSize": "46px",
+  "hotbarSlotSize": "44px",
   "inventorySlotSize": "40px",
   "inventorySlotGap": "4px",
   "inventorySectionGap": "18px",
@@ -79,5 +79,12 @@
   "inventoryStationWidth": "244px",
   "inventoryCategoryWidth": "172px",
   "inventorySearchWidth": "210px",
-  "inventorySearchHeight": "40px"
+  "inventorySearchHeight": "40px",
+  "hudMargin": "18px",
+  "hudTargetOffset": "62px",
+  "hudEntityAvatarSize": "64px",
+  "hudEntityInfoWidth": "180px",
+  "hudEntityHealthHeight": "22px",
+  "hudWorldBannerWidth": "520px",
+  "hudCompassWidth": "360px"
 }

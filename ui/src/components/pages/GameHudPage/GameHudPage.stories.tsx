@@ -9,11 +9,20 @@ const runtimeState = {
   ...initial,
   hotbar: {
     selectedIndex: 1,
-    selectedName: null,
+    selectedName: "Grass Block",
     slots: [
-      { id: "asteria:stone", quantity: 64 },
-      { id: "asteria:grass_block", quantity: 32 },
-      { id: "asteria:log_oak", quantity: 12 },
+      {
+        id: "asteria:stone",
+        quantity: 64,
+      },
+      {
+        id: "asteria:grass_block",
+        quantity: 32,
+      },
+      {
+        id: "asteria:log_oak",
+        quantity: 12,
+      },
     ],
   },
   world: {
@@ -25,9 +34,31 @@ const runtimeState = {
     heading: 37.5,
   },
   vitals: {
-    health: { current: 86, maximum: 100 },
-    stamina: { current: 63, maximum: 100 },
+    health: {
+      current: 86,
+      maximum: 100,
+    },
+    stamina: {
+      current: 63,
+      maximum: 100,
+    },
   },
+  target: {
+    kind: "block" as const,
+    id: "asteria:grass_block",
+    name: "Grass Block",
+    details: [
+      "Sky Light: 15 | Block Light: 0",
+      "148, 92, -72",
+    ],
+  },
+  targetEntity: null,
+  clock: {
+    day: 3,
+    hour: 17,
+    minute: 42,
+  },
+  fps: 144,
   effects: [
     {
       id: "haste",
@@ -37,8 +68,8 @@ const runtimeState = {
     },
   ],
   prompt: {
-    key: "E",
-    text: "Open storage",
+    key: "RMB",
+    text: "Place block",
   },
   toasts: [
     {
@@ -68,6 +99,22 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Runtime: Story = {};
+
+export const CreatureTarget: Story = {
+  args: {
+    state: {
+      ...runtimeState,
+      target: null,
+      targetEntity: {
+        name: "Slime",
+        health: {
+          current: 18,
+          maximum: 24,
+        },
+      },
+    },
+  },
+};
 
 export const DebugOverlay: Story = {
   args: {

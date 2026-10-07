@@ -16,9 +16,18 @@
 
 .hud-shell__center .interaction-prompt {
   position: absolute;
-  top: calc(50% + 22px);
+  top: calc(50% + 17px);
   left: 50%;
   transform: translateX(-50%);
+}
+
+.hud-shell__target {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform:
+    translate(-50%, -50%)
+    translateY(calc(-1 * var(--ui-hud-target-offset)));
 }
 
 .hud-shell__world {
@@ -28,23 +37,29 @@
   transform: translateX(-50%);
 }
 
+.hud-shell__clock {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+}
+
 .hud-shell__bottom-center {
   position: absolute;
-  bottom: 20px;
+  bottom: var(--ui-hud-margin);
   left: 50%;
   transform: translateX(-50%);
 }
 
 .hud-shell__bottom-left {
   position: absolute;
-  bottom: 22px;
-  left: 22px;
+  bottom: var(--ui-hud-margin);
+  left: var(--ui-hud-margin);
 }
 
 .hud-shell__top-right {
   position: absolute;
-  top: 22px;
-  right: 22px;
+  top: var(--ui-hud-margin);
+  right: var(--ui-hud-margin);
 }
 
 .hud-shell__toast-area {
@@ -52,6 +67,12 @@
   top: 98px;
   left: 50%;
   transform: translateX(-50%);
+}
+
+.hud-shell__fps {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
 }
 
 .hud-shell__debug {
@@ -67,7 +88,7 @@
 
 @media (max-width: 760px) {
   .hud-shell__bottom-left {
-    bottom: 88px;
+    bottom: 82px;
   }
 
   .hud-shell__bottom-center {

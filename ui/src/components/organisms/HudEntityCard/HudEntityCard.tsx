@@ -1,0 +1,103 @@
+import type {
+  HudEntityState,
+  VitalValue,
+} from "../../../state/uiState";
+import "./HudEntityCard.css";
+
+export type HudEntityCardProps = {
+  entity: HudEntityState;
+  secondaryVital?: {
+    label: string;
+    value: VitalValue;
+  } | null;
+};
+
+export function HudEntityCard({
+  entity,
+  secondaryVital = null,
+}: HudEntityCardProps) {
+  return (
+    <section className="hud-entity-card">
+      <div className="hud-entity-card__avatar">
+        {entity.portraitUrl ? (
+          <img
+            src={entity.portraitUrl}
+            alt=""
+          />
+        ) : (
+          <span aria-hidden="true">?</span>
+        )}
+      </div>
+
+      <div className="hud-entity-card__info">
+        <strong className="hud-entity-card__name">
+          {entity.name}
+        </strong>
+        <VitalBar
+          value={entity.health}
+          tone="health"
+        />
+        {secondaryVital && (
+          <VitalBar
+            value={secondaryVital.value}
+            tone="stamina"
+            label={secondaryVital.label}
+          />
+        )}
+      </div>
+    </section>
+  );
+}
+
+function VitalBar({
+  value,
+  tone,
+  label,
+}: {
+  value: VitalValue;
+  tone: "health" | "stamina";
+  label?: string;
+}) {
+  const ratio =
+    value.maximum > 0
+      ? Math.min(
+          1,
+          Math.max(
+            0,
+            value.current /
+              value.maximum,
+          ),
+        )
+      : 0;
+
+  return (
+    <div
+      className={
+        "hud-entity-card__health hud-entity-card__health--" +
+        tone
+      }
+      role="meter"
+      aria-valuemin={0}
+      aria-valuemax={value.maximum}
+      aria-valuenow={value.current}
+    >
+      <span
+        className="hud-entity-card__health-fill"
+        style={{
+          width:
+            ratio * 100 + "%",
+        }}
+      />
+      <span className="hud-entity-card__health-label">
+        {label ? label + " " : ""}
+        {Math.round(
+          value.current,
+        )}{" "}
+        /{" "}
+        {Math.round(
+          value.maximum,
+        )}
+      </span>
+    </div>
+  );
+}

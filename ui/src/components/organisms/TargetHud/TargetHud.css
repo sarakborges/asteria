@@ -1,0 +1,37 @@
+.target-hud {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ui-color-text);
+  text-shadow: 0 1px 5px var(--ui-color-shadow);
+  pointer-events: none;
+}
+
+.target-hud__slot {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  border: 2px solid var(--ui-color-border);
+  display: grid;
+  place-items: center;
+  color: var(--ui-color-text);
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--ui-color-hud-surface);
+}
+
+.target-hud__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: var(--ui-font-size-detail);
+}
+
+.target-hud__copy strong {
+  font-weight: 500;
+}
+
+.target-hud__copy span {
+  color: var(--ui-color-muted);
+}

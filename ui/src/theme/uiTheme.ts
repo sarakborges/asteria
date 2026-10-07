@@ -92,6 +92,14 @@ const themeTokenMap = {
   fontSizeScreenTitle: "--ui-font-size-screen-title",
   letterSpacingDetail: "--ui-letter-spacing-detail",
   hotbarSlotSize: "--ui-hotbar-slot-size",
+
+  hudMargin: "--ui-hud-margin",
+  hudTargetOffset: "--ui-hud-target-offset",
+  hudEntityAvatarSize: "--ui-hud-entity-avatar-size",
+  hudEntityInfoWidth: "--ui-hud-entity-info-width",
+  hudEntityHealthHeight: "--ui-hud-entity-health-height",
+  hudWorldBannerWidth: "--ui-hud-world-banner-width",
+  hudCompassWidth: "--ui-hud-compass-width",
 } as const;
 
 type ThemeToken = keyof typeof themeTokenMap;

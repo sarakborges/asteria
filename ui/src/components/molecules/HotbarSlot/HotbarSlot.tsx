@@ -34,11 +34,6 @@ export function HotbarSlot({
       data-slot={index}
       data-item-id={id}
     >
-      <span className="hotbar-slot__number">
-        {index < 9
-          ? index + 1
-          : ""}
-      </span>
       <span className="hotbar-slot__glyph">
         {id === ""
           ? ""
