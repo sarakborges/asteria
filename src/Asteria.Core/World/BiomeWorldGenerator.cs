@@ -56,16 +56,21 @@ public sealed class BiomeWorldGenerator :
         BlockRegistry blocks,
         FluidRegistry fluids,
         BiomeRegistry biomes,
-        StructureRegistry structures)
+        StructureRegistry structures,
+        StructureSetRegistry? structureSets = null)
     {
         ArgumentNullException.ThrowIfNull(dimension);
         ArgumentNullException.ThrowIfNull(blocks);
         ArgumentNullException.ThrowIfNull(fluids);
         ArgumentNullException.ThrowIfNull(biomes);
         ArgumentNullException.ThrowIfNull(structures);
+        structureSets ??=
+            StructureSetRegistry.Empty;
         biomes.ValidateBlocks(blocks);
         structures.ValidateBlocks(blocks);
         structures.ValidateFluids(fluids);
+        structureSets.ValidateStructures(
+            structures);
 
         DimensionId =
             dimension.Id;
@@ -137,6 +142,7 @@ public sealed class BiomeWorldGenerator :
                 seed,
                 dimension,
                 structures,
+                structureSets,
                 blocks,
                 fluids,
                 Biomes,
