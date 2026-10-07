@@ -5,12 +5,14 @@ namespace Asteria.Core.World;
 public sealed class BiomeTintField
 {
     private readonly BiomeField _biomes;
+    private readonly SurfaceTerrainColumnCache? _columns;
     private readonly IReadOnlyDictionary<string, BiomeTintPaletteDefinition>
         _palettes;
 
     public BiomeTintField(
         BiomeField biomes,
-        IEnumerable<BiomeDefinition> definitions)
+        IEnumerable<BiomeDefinition> definitions,
+        SurfaceTerrainColumnCache? columns = null)
     {
         _biomes =
             biomes ??
@@ -18,6 +20,7 @@ public sealed class BiomeTintField
                 nameof(biomes));
         ArgumentNullException.ThrowIfNull(
             definitions);
+        _columns = columns;
 
         _palettes =
             definitions
@@ -52,6 +55,24 @@ public sealed class BiomeTintField
                 width,
                 depth),
             _palettes);
+
+    public BiomeTintSampleGrid SampleChunkGrid(int chunkX, int chunkZ)
+    {
+        if (_columns is null)
+        {
+            var (originX, _, originZ) = VoxelCoordinates.ChunkOrigin(
+                new ChunkCoord(chunkX, 0, chunkZ));
+            return SampleGrid(
+                originX,
+                originZ,
+                Chunk.Size + 1,
+                Chunk.Size + 1);
+        }
+
+        return new BiomeTintSampleGrid(
+            _columns.SampleChunkBiomes(chunkX, chunkZ),
+            _palettes);
+    }
 }
 
 public sealed class BiomeTintSampleGrid

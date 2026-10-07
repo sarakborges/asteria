@@ -351,6 +351,39 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
+    public void BiomeMeshTintGridReusesWorldSpaceSamplesAcrossChunkSeams()
+    {
+        var definitions = StandardBiomeDefinitions();
+        var dimension = TestDimension(definitions.Select(x => x.Id));
+        var biomes = new BiomeField(
+            157UL, dimension, new BiomeRegistry(definitions));
+        var terrain = new SurfaceTerrainField(
+            157UL, dimension, biomes, definitions);
+        var columns = new SurfaceTerrainColumnCache(
+            terrain, capacity: 4);
+        var grid = columns.SampleChunkBiomes(-2, 1);
+        var direct = biomes.SampleGrid(
+            -2 * Chunk.Size,
+            Chunk.Size,
+            Chunk.Size + 1,
+            Chunk.Size + 1);
+
+        Assert.Equal(4, columns.CachedColumnCount);
+        for (var z = 0; z <= Chunk.Size; z++)
+        {
+            for (var x = 0; x <= Chunk.Size; x++)
+            {
+                Assert.Equal(
+                    direct[x, z].Primary,
+                    grid[x, z].Primary);
+                Assert.Equal(
+                    direct[x, z].Influences.ToArray(),
+                    grid[x, z].Influences.ToArray());
+            }
+        }
+    }
+
+    [Fact]
     public void SurfaceColumnCacheIsBoundedAndEvictionCannotChangeResults()
     {
         var definitions = new[] { TestBiome("asteria:test/only") };

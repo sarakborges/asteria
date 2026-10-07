@@ -29,4 +29,44 @@ public sealed class SurfaceTerrainColumnCache
         _columns.GetOrAdd(
             (chunkX, chunkZ),
             () => _terrain.SampleColumn(chunkX, chunkZ));
+
+    /// <summary>
+    /// Samples the 33x33 vertex grid for one chunk from its four immutable
+    /// neighboring 32x32 column snapshots. The extra row/column preserves
+    /// the same world-space biome values on both sides of a chunk seam.
+    /// </summary>
+    public BiomeSampleGrid SampleChunkBiomes(int chunkX, int chunkZ)
+    {
+        var nextX = checked(chunkX + 1);
+        var nextZ = checked(chunkZ + 1);
+        var (originX, _, originZ) = VoxelCoordinates.ChunkOrigin(
+            new ChunkCoord(chunkX, 0, chunkZ));
+        var columns = new[,]
+        {
+            { Get(chunkX, chunkZ), Get(chunkX, nextZ) },
+            { Get(nextX, chunkZ), Get(nextX, nextZ) },
+        };
+        var width = Chunk.Size + 1;
+        var samples = new BiomeSample[width * width];
+
+        for (var z = 0; z < width; z++)
+        {
+            var tileZ = z / Chunk.Size;
+            var localZ = z % Chunk.Size;
+            for (var x = 0; x < width; x++)
+            {
+                var tileX = x / Chunk.Size;
+                var localX = x % Chunk.Size;
+                samples[z * width + x] =
+                    columns[tileX, tileZ].BiomeAt(localX, localZ);
+            }
+        }
+
+        return new BiomeSampleGrid(
+            originX,
+            originZ,
+            width,
+            width,
+            samples);
+    }
 }

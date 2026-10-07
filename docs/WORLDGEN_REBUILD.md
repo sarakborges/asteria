@@ -41,6 +41,10 @@ snapshot between surface selection and every vertical chunk request with
 that X/Z coordinate. Maximum retained columns: 128 per Sphere. Formation
 assignment memoization is separately bounded to 4096 seeds per Sphere.
 Both caches are eviction-independent and are discarded with the Sphere.
+Terrain-mesh biome tint uses a stitched 33x33 grid from four cached
+32x32 world-space columns; it no longer resamples the full area with
+another recursive biome pass. Adjacent chunk seams reuse identical
+world-coordinate samples.
 
 Material sampling resolves each finite layer's deterministic patch once
 per materialized X/Z column, rather than performing patch search for every

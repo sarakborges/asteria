@@ -43,7 +43,8 @@ public sealed class BiomeWorldGenerator :
             decorations,
             dimension,
             blocks);
-        Tints = new BiomeTintField(Biomes, activeBiomes);
+        Tints = new BiomeTintField(
+            Biomes, activeBiomes, _surfaceColumns);
     }
 
     public DimensionId DimensionId { get; }

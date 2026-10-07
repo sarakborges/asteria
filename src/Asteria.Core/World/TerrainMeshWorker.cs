@@ -99,15 +99,10 @@ public sealed class TerrainMeshWorker
                 continue;
             }
 
-            var (originX, _, originZ) =
-                VoxelCoordinates.ChunkOrigin(
-                    coord);
             var tintSamples =
-                biomeTints.SampleGrid(
-                    originX,
-                    originZ,
-                    Chunk.Size + 1,
-                    Chunk.Size + 1);
+                biomeTints.SampleChunkGrid(
+                    coord.X,
+                    coord.Z);
 
             foreach (var meshletIndex in mask.Indices())
             {
