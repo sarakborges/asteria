@@ -29,7 +29,6 @@
     inset 0 0 0 1px var(--ui-color-accent),
     0 0 18px var(--ui-color-accent-glow);
   color: var(--ui-color-text);
-  transform: translateY(-4px);
 }
 
 .hotbar-slot__number {

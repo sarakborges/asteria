@@ -1,7 +1,4 @@
-import {
-  createCompass,
-  type CompassView,
-} from "../molecules/Compass";
+import { createCompass, type CompassView } from "../molecules/Compass";
 import "./WorldBanner.css";
 
 export type WorldBannerState = {
@@ -27,14 +24,10 @@ export function createWorldBanner(): WorldBannerView {
   const identity = document.createElement("div");
   identity.className = "world-banner__identity";
 
-  const kind = document.createElement("span");
-  kind.className = "world-banner__kind";
-  kind.textContent = "Sphere";
-
   const name = document.createElement("strong");
   name.className = "world-banner__name";
 
-  identity.append(kind, name);
+  identity.append(name);
 
   const biome = document.createElement("span");
   biome.className = "world-banner__biome";
@@ -61,8 +54,7 @@ export function createWorldBanner(): WorldBannerView {
 
       name.textContent = displayName(state.sphere);
       biome.textContent = displayName(state.biome);
-      coordinates.textContent =
-        `X ${Math.floor(state.x)}   Z ${Math.floor(state.z)}   Y ${Math.floor(state.y)}`;
+      coordinates.textContent = `X: ${Math.floor(state.x)} | Z: ${Math.floor(state.z)} | Y: ${Math.floor(state.y)}`;
       compass.setHeading(state.heading);
     },
   };

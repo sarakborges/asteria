@@ -5,7 +5,7 @@
 }
 
 .hud-meter__label {
-  color: var(--ui-color-muted);
+  color: var(--ui-color-text);
   font-size: var(--ui-font-size-detail);
   font-weight: 700;
   letter-spacing: var(--ui-letter-spacing-detail);

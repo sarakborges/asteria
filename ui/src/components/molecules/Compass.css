@@ -4,6 +4,7 @@
   overflow: hidden;
   color: var(--ui-color-text);
   pointer-events: none;
+  margin-top: 8px;
 }
 
 .compass__viewport {

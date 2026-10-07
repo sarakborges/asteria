@@ -1,20 +1,19 @@
 .world-banner {
-  display: grid;
+  display: flex;
+  flex-flow: column;
   width: min(520px, 80vw);
-  justify-items: center;
+  place-items: center;
   gap: 2px;
   padding: 8px 16px 7px;
   border: 1px solid rgb(255 255 255 / 7%);
-  background:
-    linear-gradient(
-      90deg,
-      transparent 0%,
-      rgb(10 8 16 / 28%) 12%,
-      rgb(20 14 30 / 62%) 50%,
-      rgb(10 8 16 / 28%) 88%,
-      transparent 100%
-    );
-  box-shadow: 0 10px 28px rgb(0 0 0 / 18%);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgb(10 8 16 / 28%) 12%,
+    rgb(20 14 30 / 62%) 50%,
+    rgb(10 8 16 / 28%) 88%,
+    transparent 100%
+  );
   pointer-events: none;
 }
 
@@ -26,41 +25,38 @@
   display: flex;
   align-items: baseline;
   justify-content: center;
-  gap: 7px;
+  gap: 4px;
   line-height: 1;
   text-shadow: 0 2px 8px var(--ui-color-shadow);
 }
 
-.world-banner__kind {
-  color: var(--ui-color-muted);
-  font-size: 8px;
-  font-weight: 800;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-}
-
 .world-banner__name {
   color: var(--ui-color-text);
-  font-size: 14px;
-  font-weight: 800;
+  font-size: 24px;
+  font-weight: 500;
   letter-spacing: 0.045em;
+
+  &:before {
+    content: "The ";
+  }
 }
 
 .world-banner__coordinates {
   min-height: 12px;
-  color: var(--ui-color-muted);
-  font-size: 9px;
+  color: var(--ui-color-text);
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
-  font-weight: 700;
+  font-weight: 500;
   letter-spacing: 0.08em;
   line-height: 12px;
   text-shadow: 0 1px 5px var(--ui-color-shadow);
+  margin-top: 6px;
 }
 
 .world-banner__biome {
   color: var(--ui-color-accent-strong);
-  font-size: 10px;
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 500;
   letter-spacing: 0.07em;
   text-shadow: 0 1px 5px var(--ui-color-shadow);
 }
