@@ -61,6 +61,35 @@ public sealed class BiomePlacementParityTests
     }
 
     [Fact]
+    public void TinyPositiveSpawnWeightRemainsEligible()
+    {
+        var registry =
+            new BiomeRegistry(
+            [
+                SurfaceBiome(
+                    "asteria:test/tiny",
+                    weight: 1f,
+                    spawnWeight: 0.00001f),
+                SurfaceBiome(
+                    "asteria:test/disabled",
+                    weight: 1f,
+                    spawnWeight: 0f),
+            ]);
+        var field =
+            new BiomeField(
+                17UL,
+                [
+                    "asteria:test/tiny",
+                    "asteria:test/disabled",
+                ],
+                registry);
+
+        Assert.Equal(
+            "asteria:test/tiny",
+            field.SelectSpawnBiome());
+    }
+
+    [Fact]
     public void BiomeJsonParsesSpawnWeight()
     {
         var definition =
