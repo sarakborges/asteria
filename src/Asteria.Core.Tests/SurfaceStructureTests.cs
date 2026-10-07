@@ -88,41 +88,51 @@ public sealed class SurfaceStructureTests
             DefaultOverworldGenerator(
                 out var blocks);
         var first =
-            generator.Structures
-                .PlacementsIntersecting(
-                    -2048,
-                    -2048,
-                    4096,
-                    4096)
-                .Where(
-                    placement =>
-                        placement.Reference ==
-                        "asteria:tree_oak")
-                .ToArray();
+            FindPlacements(
+                generator,
+                "asteria:tree_oak",
+                minimumCount: 8);
 
         Assert.NotEmpty(
             first);
 
+        var sampleChunk =
+            VoxelCoordinates.FromWorld(
+                    first[0].AnchorX,
+                    0,
+                    first[0].AnchorZ)
+                .Chunk;
         var repeated =
             generator.Structures
                 .PlacementsIntersecting(
-                    -2048,
-                    -2048,
-                    4096,
-                    4096)
-                .Where(
-                    placement =>
-                        placement.Reference ==
-                        "asteria:tree_oak")
+                    checked(
+                        sampleChunk.X *
+                        Chunk.Size),
+                    checked(
+                        sampleChunk.Z *
+                        Chunk.Size),
+                    Chunk.Size,
+                    Chunk.Size)
+                .Select(
+                    PlacementIdentity)
+                .ToArray();
+        var firstChunkQuery =
+            generator.Structures
+                .PlacementsIntersecting(
+                    checked(
+                        sampleChunk.X *
+                        Chunk.Size),
+                    checked(
+                        sampleChunk.Z *
+                        Chunk.Size),
+                    Chunk.Size,
+                    Chunk.Size)
                 .Select(
                     PlacementIdentity)
                 .ToArray();
 
         Assert.Equal(
-            first
-                .Select(
-                    PlacementIdentity)
-                .ToArray(),
+            firstChunkQuery,
             repeated);
 
         Assert.All(
@@ -211,12 +221,10 @@ public sealed class SurfaceStructureTests
             DefaultOverworldGenerator(
                 out _);
         var placement =
-            generator.Structures
-                .PlacementsIntersecting(
-                    -2048,
-                    -2048,
-                    4096,
-                    4096)
+            FindPlacements(
+                generator,
+                reference: null,
+                minimumCount: 1)
                 .First();
 
         var bounds =
@@ -235,6 +243,85 @@ public sealed class SurfaceStructureTests
         Assert.True(
             range.MaximumWorldY >=
             placement.MaximumY);
+    }
+
+    private static SurfaceStructurePlacement[] FindPlacements(
+        BiomeWorldGenerator generator,
+        string? reference,
+        int minimumCount)
+    {
+        var found =
+            new Dictionary<string, SurfaceStructurePlacement>(
+                StringComparer.Ordinal);
+
+        for (var radius = 0;
+             radius <= 64 &&
+             found.Count < minimumCount;
+             radius++)
+        {
+            for (var chunkZ = -radius;
+                 chunkZ <= radius;
+                 chunkZ++)
+            {
+                for (var chunkX = -radius;
+                     chunkX <= radius;
+                     chunkX++)
+                {
+                    if (radius > 0 &&
+                        Math.Abs(chunkX) != radius &&
+                        Math.Abs(chunkZ) != radius)
+                    {
+                        continue;
+                    }
+
+                    var placements =
+                        generator.Structures
+                            .PlacementsIntersecting(
+                                checked(
+                                    chunkX *
+                                    Chunk.Size),
+                                checked(
+                                    chunkZ *
+                                    Chunk.Size),
+                                Chunk.Size,
+                                Chunk.Size);
+
+                    foreach (var placement in placements)
+                    {
+                        if (reference is not null &&
+                            placement.Reference != reference)
+                        {
+                            continue;
+                        }
+
+                        found.TryAdd(
+                            PlacementIdentity(
+                                placement),
+                            placement);
+                    }
+                }
+            }
+        }
+
+        if (found.Count < minimumCount)
+        {
+            throw new Xunit.Sdk.XunitException(
+                $"Could not find {minimumCount} placements for {reference ?? "any structure"}.");
+        }
+
+        return found
+            .Values
+            .OrderBy(
+                placement =>
+                    placement.AnchorX)
+            .ThenBy(
+                placement =>
+                    placement.AnchorZ)
+            .ThenBy(
+                placement =>
+                    placement.Reference,
+                StringComparer.Ordinal)
+            .ToArray();
     }
 
     private static string PlacementIdentity(
