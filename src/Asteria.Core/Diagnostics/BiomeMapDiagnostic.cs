@@ -308,8 +308,8 @@ public static class BiomeMapDiagnostic
              saturation);
 
         var (red, green, blue) =
-            sector %
-            6 switch
+            (sector %
+             6) switch
             {
                 0 =>
                     (
