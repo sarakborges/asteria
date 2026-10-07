@@ -584,10 +584,15 @@ public sealed class SurfaceChunkMaterializer
             {
                 var sample = column.BiomeAt(localX, localZ);
                 var baseY = column.BaseHeightAt(localX, localZ);
+                var surfaceCutDepth =
+                    column.SurfaceFluidCutDepthAt(
+                        localX,
+                        localZ);
 
                 if (!_generatedFluids.TryGetColumnBounds(
                         sample,
                         baseY,
+                        surfaceCutDepth,
                         out var minimumY,
                         out var maximumY))
                 {
@@ -614,6 +619,7 @@ public sealed class SurfaceChunkMaterializer
                     var fluid = _generatedFluids.FluidAt(
                         sample,
                         baseY,
+                        surfaceCutDepth,
                         worldY,
                         densityVolume.DensityAt(
                             localX,
