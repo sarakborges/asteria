@@ -1204,6 +1204,53 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
+    public void EffectiveBiomeUsesSurfaceBiomeOutsideFloatingVolume()
+    {
+        var blocks =
+            LoadDefaultBlocks();
+        var biomes =
+            LoadDefaultBiomes();
+        var fluids =
+            LoadDefaultFluids();
+        var dimensions =
+            LoadDefaultDimensions();
+        var dimension =
+            dimensions.Get(
+                DimensionId.Overworld);
+        var generator =
+            new BiomeWorldGenerator(
+                DimensionSeed.Derive(
+                    0xA57E_2026UL,
+                    dimension.Id),
+                dimension,
+                blocks,
+                fluids,
+                biomes);
+        var floating =
+            FindBiomeInterior(
+                generator.Biomes,
+                "asteria:overworld/floating_islands");
+
+        var surfaceBiome =
+            generator.EffectiveBiomeAt(
+                floating.X,
+                dimension.SeaLevel,
+                floating.Z);
+        var volumeBiome =
+            generator.EffectiveBiomeAt(
+                floating.X,
+                220,
+                floating.Z);
+
+        Assert.NotEqual(
+            "asteria:overworld/floating_islands",
+            surfaceBiome);
+        Assert.Equal(
+            "asteria:overworld/floating_islands",
+            volumeBiome);
+    }
+
+    [Fact]
     public void DefaultWorldGeneratorProducesGroundPlantsFromBiomeDecorators()
     {
         var blocks =
