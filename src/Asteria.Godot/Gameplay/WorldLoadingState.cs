@@ -5,9 +5,10 @@ namespace Asteria.Client.Gameplay;
 public enum WorldLoadingPhase : byte
 {
     Inactive = 0,
-    MaterializingInitialArea = 1,
-    PreparingPresentation = 2,
-    Ready = 3,
+    RetiringCurrentDimension = 1,
+    MaterializingInitialArea = 2,
+    PreparingPresentation = 3,
+    Ready = 4,
 }
 
 public readonly record struct WorldLoadingProgress(
@@ -37,6 +38,7 @@ public sealed class WorldLoadingState
 
     public bool IsActive =>
         _progress.Phase is
+            WorldLoadingPhase.RetiringCurrentDimension or
             WorldLoadingPhase.MaterializingInitialArea or
             WorldLoadingPhase.PreparingPresentation;
 
@@ -44,6 +46,15 @@ public sealed class WorldLoadingState
 
     public WorldLoadingProgress Progress =>
         _progress;
+
+    public void BeginRetirement()
+    {
+        _progress =
+            new WorldLoadingProgress(
+                WorldLoadingPhase.RetiringCurrentDimension,
+                0,
+                0);
+    }
 
     public void Begin(
         ChunkCoord center)
