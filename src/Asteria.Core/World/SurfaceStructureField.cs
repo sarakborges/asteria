@@ -11,7 +11,7 @@ public sealed class SurfaceStructureField
 
     private readonly ulong _seed;
     private readonly BiomeField _biomes;
-    private readonly SurfaceTerrainColumnCache _columns;
+    private readonly SurfaceTerrainField _terrain;
     private readonly BiomeSurfaceMaterialField _materials;
     private readonly GeneratedFluidField _generatedFluids;
     private readonly RootRule[] _rules;
@@ -31,7 +31,7 @@ public sealed class SurfaceStructureField
         BlockRegistry blocks,
         FluidRegistry fluids,
         BiomeField biomes,
-        SurfaceTerrainColumnCache columns,
+        SurfaceTerrainField terrain,
         BiomeSurfaceMaterialField materials,
         GeneratedFluidField generatedFluids)
     {
@@ -47,10 +47,10 @@ public sealed class SurfaceStructureField
             biomes ??
             throw new ArgumentNullException(
                 nameof(biomes));
-        _columns =
-            columns ??
+        _terrain =
+            terrain ??
             throw new ArgumentNullException(
-                nameof(columns));
+                nameof(terrain));
         _materials =
             materials ??
             throw new ArgumentNullException(
@@ -866,25 +866,14 @@ public sealed class SurfaceStructureField
         int worldX,
         int worldZ)
     {
-        var address =
-            VoxelCoordinates.FromWorld(
+        var surface =
+            _terrain.SampleBaseSurface(
                 worldX,
-                0,
                 worldZ);
-        var column =
-            _columns.Get(
-                address.Chunk.X,
-                address.Chunk.Z);
-        var local =
-            address.Local;
 
         return new SurfaceSample(
-            column.BiomeAt(
-                local.X,
-                local.Z),
-            column.BaseHeightAt(
-                local.X,
-                local.Z));
+            surface.Biome,
+            surface.BaseY);
     }
 
     private bool IsGeneratedFluidAbove(
