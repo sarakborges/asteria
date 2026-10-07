@@ -23,7 +23,7 @@ This document is the active parity map for the migration. It must be updated whe
 
 | Phase | MineClone contract | Asteria status | Required work |
 | --- | --- | --- | --- |
-| 0 — Impact audit and external contracts | Audit every consumer of generated-world facts and classify preserved/adapted/rewritten/obsolete dependencies. | **Partial** | Complete one explicit consumer inventory covering streaming, biome/Structure search, spawn, warp, dimension travel, loading, persistence and debug/map tooling. |
+| 0 — Impact audit and external contracts | Audit every consumer of generated-world facts and classify preserved/adapted/rewritten/obsolete dependencies. | **Ported / Audited** | Active consumers are inventoried below. Future generated-world consumers must enter through the same narrow generator capabilities rather than reconstructing worldgen. |
 | 1 — Cleanup | Remove old biome/worldgen/loading ownership and repair/fallback paths before building replacement ownership. | **Ported for active worldgen** | Keep deleted/obsolete ownership from re-entering through compatibility helpers or consumer-side reconstruction. |
 | 2 — Generation foundation/query model | Immutable deterministic generator; pure scalar + bounded queries; no semantic generation tiles; order-independent direct far-coordinate access. | **Ported / Adapted** | Preserve scalar/batch equivalence and bounded cache semantics as later capabilities are added. |
 | 3 — Biome Layout | Organic formation field, `regionSize`, weights, `cannotBorder`, primary + normalized influences, deterministic search, biome-map sampling. | **Ported / Adapted** | Add the optional debug biome-map renderer if still useful. The semantic layout itself is already ported. |
@@ -31,7 +31,7 @@ This document is the active parity map for the migration. It must be updated whe
 | 5 — Surface/material/generated fluids | Deterministic layers, patches, generated natural fluids and runtime handoff. | **Ported / Adapted** | Ocean generation plus bounded authored swamp water puddles and volcano lava pools are owned by `GeneratedFluidField`; `SurfaceTerrainField` applies only the owner-provided shallow cut and runtime simulation takes over after residency. |
 | 6 — Structures/features | One authoritative Structure placement/query owner; StructureSets, variants, conflicts, connectors/chains, biome/terrain/fluid restrictions and cross-chunk materialization. | **Ported / Adapted** | Authoritative queries, deterministic multi-piece StructureSets, connector/chains, fluid/clear payloads, biome-margin roots, and the lake/river/mountain-pond/mountain-waterfall content path are implemented through generic Structures. No hydrology subsystem exists. |
 | 7 — Chunk synthesis | One procedural writer composes density/materials/features/structures/generated fluids into runtime chunks. | **Ported for current content** | Keep `SurfaceChunkMaterializer` as the single writer while Phase 5/6 capabilities expand. |
-| 8 — Consumer integration | Streaming, biome/Structure locate, spawn, warp and dimension travel consume narrow generator query capabilities; no hidden chunk generation. | **Partial / Missing parity** | Add generator-owned biome/Structure search and shared destination preparation, then route every applicable consumer through those capabilities. |
+| 8 — Consumer integration | Streaming, biome/Structure locate, spawn, warp and dimension travel consume narrow generator query capabilities; no hidden chunk generation. | **Ported / Adapted for active consumers** | Biome and Structure search plus exact-first/surface destination preparation are generator-owned and query-only. Initial spawn and dimension travel use destination preparation. Asteria currently has no local-warp or /locate gameplay consumer; when added, they must call these existing capabilities rather than scan/materialize chunks. |
 | 9 — Persistence | First materialization makes a chunk authoritative persisted spatial state, including unedited/empty chunks; query-only access does not persist. | **Divergent** | Asteria currently archives dirty chunks and regenerates pristine chunks. Reconcile this with the rebuild contract before claiming Phase 9 parity. |
 | 10 — Loading pipeline | New world, save load and dimension travel share one loading path using real required-residency work. | **Missing parity** | Introduce the shared loading/residency pipeline after Phase 8/9 semantics are settled. |
 | 11 — Loading screen | UI renders only authoritative loading phase/progress; no fake timers or duplicate loading state. | **Missing parity** | Add only after the loading owner exists; WebUI must remain presentation-only. |
@@ -41,32 +41,36 @@ This document is the active parity map for the migration. It must be updated whe
 
 Until parity is closed, worldgen work should follow this order unless the user explicitly changes priority:
 
-1. **Phase 8 — complete generated-world consumers**
-   - biome search;
-   - Structure search;
-   - spawn destination selection;
-   - warp destination preparation;
-   - dimension-travel destination preparation;
-   - no consumer may reconstruct generator rules from seed/registries or materialize chunks merely to answer an untouched generated-world query.
-
-2. **Phase 9 — reconcile persistence**
+1. **Phase 9 — reconcile persistence**
    - MineClone rebuild semantics persist every materialized chunk;
    - current Asteria semantics retain only dirty authoritative chunk state and rematerialize pristine terrain;
    - this is an explicit semantic conflict, not an implementation detail;
    - resolve the contract deliberately before loading/save work depends on it.
 
-3. **Phases 10–11 — shared loading + presentation**
+2. **Phases 10–11 — shared loading + presentation**
    - one loading pipeline for world entry/load/dimension travel;
    - progress is real residency/materialization work;
    - WebUI renders authoritative progress and owns no world-loading state.
 
-4. **Phase 12 — close validation/performance**
+3. **Phase 12 — close validation/performance**
    - deterministic fixed-seed fixtures;
    - cold/warm scalar and bounded queries;
    - near/far destination paths;
    - request-order and concurrent-query equivalence;
    - biome boundaries/junctions, ocean/coast, caves, floating terrain and Structure-heavy fixtures;
    - measured budgets only after the correct path exists.
+
+## Generated-world consumer audit
+
+- **Streaming/residency** — preserved. `ChunkStreamingController`/Core residency consume `IChunkSurfaceRangeProvider` and `IChunkProvider`; they do not own biome/terrain/Structure truth.
+- **Biome search / future locate** — `BiomeField.FindNearestSurfaceBiome` owns deterministic formation-aware search and `BiomeWorldGenerator.FindNearestSurfaceBiome` exposes it. Asteria currently has no `/locate biome` command.
+- **Structure search / future locate** — `SurfaceStructureField.FindNearest` remains the authoritative bounded search and `BiomeWorldGenerator.FindNearestSurfaceStructure` exposes it. Asteria currently has no `/locate structure` command.
+- **Initial spawn** — `DimensionRuntimeSession` uses `BiomeWorldGenerator.FindGeneratedSurfaceDestination` around authored spawn X/Z with a 64-block radius. A restored session position remains authoritative.
+- **Local warp** — no current Asteria gameplay consumer. `FindGeneratedDestination` and `FindGeneratedSurfaceDestination` are the required generated-world preparation capabilities when warp is introduced.
+- **Dimension travel** — explicit destination requests are transient, not written into saved session position. The target session tries the exact generated 3D destination first and falls back to a safe generated surface destination near the same X/Z.
+- **Loading** — current streaming readiness consumes the resulting destination/streaming center, but a unified new/load/travel loading pipeline is still Phase 10.
+- **Persistence** — current dirty-only archive semantics are intentionally listed as Phase 9 divergence; generated queries never persist or materialize chunks.
+- **Debug/map tooling** — F3/HUD does not reconstruct worldgen. The optional standalone biome-map renderer remains absent and is not a semantic owner.
 
 ## Biome layout / biome map clarification
 
