@@ -3,7 +3,7 @@ namespace Asteria.Core.World;
 public enum ChunkArchiveResult
 {
     NotResident,
-    DroppedPristine,
+    ArchivedPristine,
     ArchivedDirty,
 }
 
@@ -54,19 +54,26 @@ public sealed class SessionChunkArchiveStore
     {
         ArgumentNullException.ThrowIfNull(chunk);
 
-        if (!IsDirty(coord, chunk.Revision))
+        var dirty =
+            IsDirty(
+                coord,
+                chunk.Revision);
+
+        if (dirty)
         {
-            _archived.Remove(coord);
-            return ChunkArchiveResult.DroppedPristine;
+            _dirty.Add(
+                coord);
         }
 
-        _dirty.Add(coord);
-
-        // Session persistence is intentionally zero-copy. The exact resident
-        // chunk object moves into archive ownership; no palette expansion,
-        // serialization or clone is needed just to leave residency.
+        // Session persistence is intentionally zero-copy. Every materialized
+        // chunk becomes authoritative spatial state, including pristine and
+        // empty chunks. The exact resident object moves into archive ownership;
+        // query-only generator access never enters this store.
         _archived[coord] = chunk;
-        return ChunkArchiveResult.ArchivedDirty;
+
+        return dirty
+            ? ChunkArchiveResult.ArchivedDirty
+            : ChunkArchiveResult.ArchivedPristine;
     }
 
     public bool TryRestore(
