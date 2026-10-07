@@ -8,8 +8,12 @@ public sealed class BiomeWorldGenerator :
     IChunkProvider,
     IChunkSurfaceRangeProvider
 {
+    private static readonly FluidRegistry EmptyFluids =
+        new(Array.Empty<FluidDefinition>());
+
     private readonly SurfaceTerrainField _terrain;
     private readonly SurfaceTerrainColumnCache _surfaceColumns;
+    private readonly GeneratedFluidField _generatedFluids;
     private readonly SurfaceChunkMaterializer _materializer;
 
     public BiomeWorldGenerator(
@@ -17,9 +21,25 @@ public sealed class BiomeWorldGenerator :
         DimensionDefinition dimension,
         BlockRegistry blocks,
         BiomeRegistry biomes)
+        : this(
+            seed,
+            dimension,
+            blocks,
+            EmptyFluids,
+            biomes)
+    {
+    }
+
+    public BiomeWorldGenerator(
+        ulong seed,
+        DimensionDefinition dimension,
+        BlockRegistry blocks,
+        FluidRegistry fluids,
+        BiomeRegistry biomes)
     {
         ArgumentNullException.ThrowIfNull(dimension);
         ArgumentNullException.ThrowIfNull(blocks);
+        ArgumentNullException.ThrowIfNull(fluids);
         ArgumentNullException.ThrowIfNull(biomes);
         biomes.ValidateBlocks(blocks);
 
@@ -33,6 +53,10 @@ public sealed class BiomeWorldGenerator :
         _terrain = new SurfaceTerrainField(
             seed, dimension, Biomes, activeBiomes);
         _surfaceColumns = new SurfaceTerrainColumnCache(_terrain);
+        _generatedFluids =
+            new GeneratedFluidField(
+                dimension,
+                fluids);
         var materials = new BiomeSurfaceMaterialField(
             seed, activeBiomes, blocks);
         var decorations = new SurfaceDecorationField(
@@ -42,6 +66,7 @@ public sealed class BiomeWorldGenerator :
             _terrain,
             materials,
             decorations,
+            _generatedFluids,
             dimension,
             blocks);
         Tints = new BiomeTintField(
@@ -70,5 +95,8 @@ public sealed class BiomeWorldGenerator :
             originX, originY, originZ, width, height, depth);
 
     public ChunkSurfaceRange GetSurfaceRange(int chunkX, int chunkZ) =>
-        _surfaceColumns.Get(chunkX, chunkZ).Range;
+        _generatedFluids.ExpandSurfaceRange(
+            _surfaceColumns.Get(
+                chunkX,
+                chunkZ));
 }
