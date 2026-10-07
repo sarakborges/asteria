@@ -47,7 +47,7 @@ External packs must never require:
 - editor-specific absolute paths;
 - generated runtime caches.
 
-Built-in assets may keep Godot-generated `.import` files beside files in `packs/default/resources/` so editor import settings remain stable. Those sidecars are internal repository metadata and are never part of the external pack API.
+Built-in packs follow the same rule as external packs: Godot-generated sidecars and import metadata are forbidden inside `packs/`. The repository root contains `packs/.gdignore`, so Godot must not scan or import pack contents. Runtime pack loaders resolve validated pack-relative paths and read authored files directly from the filesystem; rendering adapters create runtime Godot resources from those decoded files when needed.
 
 ## 3. Manifest
 
@@ -241,7 +241,7 @@ Path comparison/collision behavior is defined by Asteria and must be consistent 
 
 Loaders validate the selected pack root, parse portable source data and produce resolved engine-agnostic/runtime presentation inputs.
 
-Godot may consume resolved resource paths to create engine objects, but it does not own pack schema or gameplay definitions.
+Godot may consume decoded pack files to create runtime engine objects, but it does not own pack schema or gameplay definitions. Pack files are not Godot resources and must not be loaded through `ResourceLoader`/engine import metadata.
 
 The WebUI consumes validated UI theme payloads through its controller boundary; individual components do not parse pack files.
 
