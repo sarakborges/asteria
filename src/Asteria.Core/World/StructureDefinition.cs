@@ -13,12 +13,39 @@ public readonly record struct StructureAnchor(
     int Y,
     int Z);
 
+public enum StructureReplacePolicy
+{
+    Any,
+    AirOnly,
+    Terrain,
+}
+
+public enum StructureFluidPolicy
+{
+    Displace,
+    Preserve,
+    Forbid,
+}
+
+public sealed record StructureGenerationDefinition(
+    StructureReplacePolicy ReplacePolicy,
+    StructureFluidPolicy FluidPolicy,
+    bool ReserveSpace)
+{
+    public static StructureGenerationDefinition Default { get; } =
+        new(
+            StructureReplacePolicy.Any,
+            StructureFluidPolicy.Displace,
+            false);
+}
+
 public sealed class StructureRestrictionsDefinition
 {
     public StructureRestrictionsDefinition(
         int maxSlope = 1,
         bool requiresDryGround = true,
-        float requiredBiomeCoverage = 0f)
+        float requiredBiomeCoverage = 0f,
+        IEnumerable<string>? groundBlocks = null)
     {
         if (maxSlope is < 0 or > 64)
         {
@@ -36,9 +63,34 @@ public sealed class StructureRestrictionsDefinition
                 "Structure requiredBiomeCoverage must be within 0..1.");
         }
 
+        var authoredGroundBlocks =
+            groundBlocks?.ToArray() ??
+            Array.Empty<string>();
+        var uniqueGroundBlocks =
+            new HashSet<string>(
+                StringComparer.Ordinal);
+
+        foreach (var block in
+                 authoredGroundBlocks)
+        {
+            BlockDefinition.ValidateId(
+                block);
+
+            if (!uniqueGroundBlocks.Add(
+                    block))
+            {
+                throw new ArgumentException(
+                    $"Duplicate structure ground block: {block}",
+                    nameof(groundBlocks));
+            }
+        }
+
         MaxSlope = maxSlope;
         RequiresDryGround = requiresDryGround;
         RequiredBiomeCoverage = requiredBiomeCoverage;
+        GroundBlocks =
+            Array.AsReadOnly(
+                authoredGroundBlocks);
     }
 
     public int MaxSlope { get; }
@@ -46,6 +98,8 @@ public sealed class StructureRestrictionsDefinition
     public bool RequiresDryGround { get; }
 
     public float RequiredBiomeCoverage { get; }
+
+    public IReadOnlyList<string> GroundBlocks { get; }
 }
 
 public readonly record struct StructureVoxelDefinition(
@@ -66,7 +120,10 @@ public sealed class StructureDefinition
         StructureAnchor anchor,
         IEnumerable<StructureVoxelDefinition> voxels,
         StructureRestrictionsDefinition? restrictions = null,
-        string? groupId = null)
+        string? groupId = null,
+        int priority = 0,
+        IEnumerable<string>? conflictGroups = null,
+        StructureGenerationDefinition? generation = null)
     {
         ValidateId(
             id);
@@ -130,6 +187,29 @@ public sealed class StructureDefinition
             }
         }
 
+        var authoredConflictGroups =
+            conflictGroups?.ToArray() ??
+            Array.Empty<string>();
+        var uniqueConflictGroups =
+            new HashSet<string>(
+                StringComparer.Ordinal);
+
+        foreach (var group in
+                 authoredConflictGroups)
+        {
+            ValidateLocalId(
+                group,
+                nameof(conflictGroups));
+
+            if (!uniqueConflictGroups.Add(
+                    group))
+            {
+                throw new ArgumentException(
+                    $"Duplicate structure conflict group: {group}",
+                    nameof(conflictGroups));
+            }
+        }
+
         Id = id;
         Rotation = rotation;
         Anchor = anchor;
@@ -137,6 +217,13 @@ public sealed class StructureDefinition
             restrictions ??
             new StructureRestrictionsDefinition();
         GroupId = groupId;
+        Priority = priority;
+        ConflictGroups =
+            Array.AsReadOnly(
+                authoredConflictGroups);
+        Generation =
+            generation ??
+            StructureGenerationDefinition.Default;
         Voxels =
             Array.AsReadOnly(
                 authoredVoxels);
@@ -170,6 +257,12 @@ public sealed class StructureDefinition
     public string Id { get; }
 
     public string? GroupId { get; }
+
+    public int Priority { get; }
+
+    public IReadOnlyList<string> ConflictGroups { get; }
+
+    public StructureGenerationDefinition Generation { get; }
 
     public bool Rotation { get; }
 

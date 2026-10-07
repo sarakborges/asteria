@@ -148,6 +148,18 @@ public sealed class StructureRegistry
         foreach (var definition in
                  _definitions)
         {
+            foreach (var groundBlock in
+                     definition.Restrictions.GroundBlocks)
+            {
+                if (!blocks.TryGetId(
+                        groundBlock,
+                        out _))
+                {
+                    throw new ArgumentException(
+                        $"Structure {definition.Id} restrictions.groundBlocks references missing block {groundBlock}.");
+                }
+            }
+
             foreach (var voxel in
                      definition.Voxels)
             {
