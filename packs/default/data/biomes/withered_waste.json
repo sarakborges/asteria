@@ -8,11 +8,12 @@
     }
   },
   "surfaceTerrain": {
-    "baseHeightOffset": 4,
-    "macroAmplitude": 16,
-    "macroScale": 704,
-    "detailAmplitude": 5,
-    "detailScale": 96
+    "type": "rolling",
+    "baseHeight": 4,
+    "amplitude": 3,
+    "scale": 0.012,
+    "detailAmplitude": 1,
+    "detailScale": 0.045
   },
   "surfaceLayers": [
     {
