@@ -43,3 +43,27 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
+
+export const ReadOnly: Story = {
+  args: {
+    onStorageSearchChange: undefined,
+    onInventorySearchChange: undefined,
+    onSortStorage: undefined,
+    onSortInventory: undefined,
+    onStorageSlotClick: undefined,
+    onInventorySlotClick: undefined,
+  },
+};
+
+export const Filtered: Story = {
+  args: {
+    storageSearch: "stone",
+    inventorySearch: "dirt",
+    onStorageSearchChange: () => undefined,
+    onInventorySearchChange: () => undefined,
+    onSortStorage: () => undefined,
+    onSortInventory: () => undefined,
+    onStorageSlotClick: () => undefined,
+    onInventorySlotClick: () => undefined,
+  },
+};
