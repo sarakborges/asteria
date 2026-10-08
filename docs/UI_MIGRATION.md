@@ -26,6 +26,8 @@ MineClone reference: `sarakborges/mineclone`, branch `world-systems-rebuild`.
 - `src/ui/settings.rs` -> shared settings gaps/tokens.
 - `src/ui/numeric_input.rs` -> digit-only `NumericInput` editor (Escape cancels, Enter/blur validates); `NumericStepper` reuses it rather than browser number controls.
 - `src/ui/dropdown.rs` -> `Dropdown` with 44 px control, 40 px options, anchored floating panel and selected/hover states; game settings and language selectors use it.
+- `src/ui/scrollbar.rs` -> `ScrollArea` uses native browser scroll input with an 8 px visual track, min 28 px thumb, 6 px gap, and ResizeObserver-based real-overflow visibility; SettingsPage navigation and panels use the shared component.
+- `src/ui/transition.rs` -> `ScreenTransition` uses 160 ms eased fade-out and 160 ms fade-in for pre-world screen swaps. It is presentation-only and does not delay backend navigation or loading state.
 
 ## First migrated screen
 
@@ -65,8 +67,8 @@ Major MineClone screens, modals, inventory/crafting and HUD surfaces have been m
 
 ## Remaining presentation differences
 
-- `src/ui/scrollbar.rs`: scroll containers currently use CSS scrollbar styling; MineClone's auto-overflow visibility and 8 px track / minimum 28 px thumb are not yet consistently applied.
-- `src/ui/transition.rs`: MineClone's 160 ms fade-out + fade-in transition is not yet represented by a shared WebUI screen transition. Keep this presentation-only; navigation ownership stays in controllers.
+- `src/ui/scrollbar.rs`: custom overflow-aware visuals are used in SettingsPage; Chat history and other independent scroll containers still use native/CSS styling.
+- `src/ui/transition.rs`: the shared pre-world fade applies to starting/world selection/new world only. Pause, gameplay overlays and dimension loading intentionally remain immediate to preserve Godot input ownership and authoritative loading state.
 - Runtime-backed screens marked presentation-only above still need their authoritative gameplay owners before activation. Never invent save, inventory, pause or command behavior merely to make a screen clickable.
 
 ## Runtime integration status
@@ -77,6 +79,6 @@ Major MineClone screens, modals, inventory/crafting and HUD surfaces have been m
 - World clock: **wired** to the authoritative per-Sphere `DayNightClock`. `game.hud.clock` publishes changes of minute/day and an initial snapshot. The full day/night runtime is documented in `docs/DAY_NIGHT.md`; shader/voxel lighting changes are explicitly excluded.
 - Save catalog, settings/keybinds, pause/session save, inventory/crafting/storage/chat remain pending their authoritative runtime owners.
 
-Remaining work is runtime integration, not additional presentation copying.
+Remaining work includes scoped presentation parity for standalone scroll regions and authoritative runtime integration. Do not invent gameplay actions.
 
 Each screen must reuse migrated primitives instead of introducing page-local copies of button, surface, input or screen-shell styling.

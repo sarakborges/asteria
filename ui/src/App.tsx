@@ -15,6 +15,7 @@ import { StartingScreenPage } from "./components/pages/StartingScreenPage/Starti
 import type { UiStore } from "./state/uiStore";
 import { useUiStore } from "./state/useUiStore";
 import { buildControlGroups } from "./presentation/controlGroups";
+import { ScreenTransition } from "./components/templates/ScreenTransition/ScreenTransition";
 
 export type AppActions = {
   ping(): void;
@@ -100,9 +101,9 @@ export function App({
         onDismissToast={actions.dismissToast}
       />
 
-      {preWorldVisible &&
-        state.navigation.preWorldScreen ===
-          "starting" && (
+      {preWorldVisible && (
+        <ScreenTransition screenKey={state.navigation.preWorldScreen}>
+          {state.navigation.preWorldScreen === "starting" && (
           <StartingScreenPage
             onPlay={actions.openWorldSelection}
             onExit={actions.exitGame}
@@ -152,6 +153,9 @@ export function App({
             onRandomize={actions.randomizeWorld}
           />
         )}
+
+        </ScreenTransition>
+      )}
 
       {!preWorldVisible &&
         state.navigation.overlay === "pause" && (

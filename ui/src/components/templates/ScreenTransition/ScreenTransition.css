@@ -1,0 +1,31 @@
+.screen-transition__veil {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  background: var(--ui-color-screen-background);
+  pointer-events: auto;
+}
+
+.screen-transition__veil--out {
+  animation: screen-transition-to-black 160ms ease-in-out both;
+}
+
+.screen-transition__veil--in {
+  animation: screen-transition-from-black 160ms ease-in-out both;
+}
+
+@keyframes screen-transition-to-black {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes screen-transition-from-black {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .screen-transition__veil {
+    display: none;
+  }
+}
