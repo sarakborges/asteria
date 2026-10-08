@@ -122,7 +122,7 @@ public sealed class ToolGameplayRuntime
 
         if (behavior == "asteria:layer/remove")
         {
-            if (!TryHitFace(hit, out var face) ||
+            if (!VoxelHitFace.TryResolve(hit, out var face) ||
                 !_world.TryGetCell(hit.Voxel, out var host) ||
                 host.IsEmpty)
                 return false;
@@ -173,21 +173,6 @@ public sealed class ToolGameplayRuntime
             hit.Voxel,
             new BlockStateSnapshot(converted, snapshot.MicroblockMask, snapshot.SurfaceState),
             out _);
-    }
-
-    private static bool TryHitFace(VoxelWorldHit hit, out BlockFace face)
-    {
-        face = (hit.NormalX, hit.NormalY, hit.NormalZ) switch
-        {
-            (1, 0, 0) => BlockFace.Right,
-            (-1, 0, 0) => BlockFace.Left,
-            (0, 1, 0) => BlockFace.Top,
-            (0, -1, 0) => BlockFace.Bottom,
-            (0, 0, 1) => BlockFace.Front,
-            (0, 0, -1) => BlockFace.Back,
-            _ => (BlockFace)byte.MaxValue,
-        };
-        return Enum.IsDefined(face);
     }
 
     private string? GetBehavior(InventoryStack? stack, ToolUseHand hand)

@@ -116,4 +116,34 @@ public sealed class InventoryContentCatalogTests
         Assert.Equal(InventoryEntryKind.Block, item.Kind);
         Assert.Equal(snapshot, item.Block);
     }
+    [Fact]
+    public void AuthoredLayersAreCreativeInventoryChoices()
+    {
+        var layers = AttachedLayerRegistry.FromJson([
+            """
+            {"id":"asteria:moss","category":"natural_blocks",
+             "texture":"textures/layers/moss.png"}
+            """
+        ]);
+        var catalog = new InventoryContentCatalog(
+            new BlockRegistry([new BlockDefinition("asteria:stone")]),
+            PackContentRegistry<ItemDefinition>.FromJson([],
+                ItemDefinition.Parse, x => x.Id),
+            PackContentRegistry<ToolDefinition>.FromJson([],
+                ToolDefinition.Parse, x => x.Id),
+            layers);
+
+        Assert.Single(catalog.Choices.Where(choice =>
+            choice.Entry.Kind == InventoryEntryKind.Layer));
+        Assert.True(catalog.TryResolve(InventoryEntryKind.Layer,
+            "asteria:moss", null, null, out var entry));
+        Assert.Equal(64, entry!.MaxStackSize);
+        Assert.Null(entry.Block);
+        Assert.False(catalog.TryResolve(InventoryEntryKind.Layer,
+            "asteria:missing", null, null, out _));
+        Assert.Equal("textures/layers/moss.png",
+            catalog.Choices.Single(choice => choice.Entry.Kind ==
+                InventoryEntryKind.Layer).IconResourcePath);
+    }
+
 }

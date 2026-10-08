@@ -69,3 +69,10 @@ The native input, mutation, content and Sphere boundaries remain unchanged: no U
 - Pintura rejeita IDs desconhecidos, blocos incompatíveis, invioláveis e no-ops. O mesher consulta a tintura do estado autoritativo: blocos pintados substituem biome tint apenas nas texturas dyable, e o greedy mesher não mescla faces com cores diferentes.
 - Clique direito nativo do Brush abre a paleta mesmo sem alvo; Godot suspende o input do jogador enquanto aberta, e Escape/fechar restauram a captura. A WebUI React apenas exibe as 16 cores e envia seleção/limpeza sem capturar controles globais de gameplay.
 - A interface segue Atomic Design e preserva o font family da Asteria; Storybook e traduções inglês, português brasileiro e espanhol foram acrescentados.
+
+## Creative layer inventory / Shears (2026-10-08)
+
+- The authored `Layer` entry kind is a fourth inventory identity (blocks/items/tools/layers). Creative inventory is populated from selected-pack `AttachedLayerRegistry`, with resource-path-derived icons and category, not browser-fabricated items.
+- Native right-click with a selected layer places it onto the hit block face; `AttachedLayerPlacementRuntime` validates layer definition, face, loaded host, geometry kind, unbreakable guard, duplicate/16-layer limit and then asks `VoxelMutationRuntime` to update the sparse state. Survival consumes exactly one selected layer after acceptance; Creative is non-consuming.
+- The existing Shears right-click removes the most recently attached layer on the target face. Layers are rendered through the same Core worker mesh path, without collision or per-voxel nodes.
+- The default `asteria:foliage_layer` now appears in the creative catalog and uses the existing grass overlay PNG. The original MineClone moss PNG is not yet imported; unavailable binary assets must not be replaced by a disguised texture or referenced by an unresolved pack definition.

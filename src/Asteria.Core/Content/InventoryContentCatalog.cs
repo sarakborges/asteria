@@ -14,7 +14,8 @@ public sealed class InventoryContentCatalog
     public InventoryContentCatalog(
         BlockRegistry blocks,
         PackContentRegistry<ItemDefinition> items,
-        PackContentRegistry<ToolDefinition> tools)
+        PackContentRegistry<ToolDefinition> tools,
+        AttachedLayerRegistry? layers = null)
     {
         _blocks = blocks ?? throw new ArgumentNullException(nameof(blocks));
         ArgumentNullException.ThrowIfNull(items);
@@ -64,6 +65,16 @@ public sealed class InventoryContentCatalog
                 InventoryEntry.FromTool(
                     definition.Id, maxStackSize: definition.MaxStackSize),
                 definition.Category, definition.Icon));
+        }
+
+        if (layers is not null)
+        {
+            foreach (var layer in layers.Definitions)
+            {
+                choices.Add(new InventoryCatalogChoice(
+                    InventoryEntry.FromLayer(layer.Id),
+                    layer.Category, layer.Texture));
+            }
         }
 
         _choices = choices

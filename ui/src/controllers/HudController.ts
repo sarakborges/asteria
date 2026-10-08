@@ -248,7 +248,7 @@ function readHotbar(payload: unknown): HotbarState {
               : undefined,
           kind:
             slot?.kind === "block" || slot?.kind === "item" ||
-            slot?.kind === "tool"
+            slot?.kind === "tool" || slot?.kind === "layer"
               ? slot.kind as HotbarSlotState["kind"] : undefined,
           metadata:
             slot && typeof slot.metadata === "object" &&

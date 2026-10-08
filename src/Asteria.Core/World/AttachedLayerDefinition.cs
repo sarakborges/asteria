@@ -10,11 +10,14 @@ public sealed class AttachedLayerDefinition
 
     public AttachedLayerDefinition(
         string id, string texture, IEnumerable<BlockFace>? faces = null,
+        string category = "natural_blocks",
         BlockTint tint = BlockTint.None, float offset = 1f / 1024f,
         float? alphaCutoff = 0.5f, bool alphaBlend = false, bool castsShadow = false)
     {
         BlockDefinition.ValidateId(id);
         PackContentFields.ResourcePath(texture, nameof(texture));
+        if (string.IsNullOrWhiteSpace(category) || category != category.Trim())
+            throw new ArgumentException("Layer category must be nonempty and trimmed.", nameof(category));
         if (!Enum.IsDefined(tint)) throw new ArgumentOutOfRangeException(nameof(tint));
         if (!float.IsFinite(offset) || offset < 0f || offset > 1f / 8f)
             throw new ArgumentOutOfRangeException(nameof(offset));
@@ -27,13 +30,14 @@ public sealed class AttachedLayerDefinition
             allowed.Distinct().Count() != allowed.Length)
             throw new ArgumentException("Attached layer faces must be nonempty and distinct.", nameof(faces));
 
-        Id = id; Texture = texture; Tint = tint; Offset = offset;
+        Id = id; Texture = texture; Category = category; Tint = tint; Offset = offset;
         AlphaCutoff = alphaCutoff; AlphaBlend = alphaBlend; CastsShadow = castsShadow;
         _faces = allowed.ToHashSet();
     }
 
     public string Id { get; }
     public string Texture { get; }
+    public string Category { get; }
     public BlockTint Tint { get; }
     public float Offset { get; }
     public float? AlphaCutoff { get; }
@@ -69,7 +73,8 @@ public sealed class AttachedLayerDefinition
         return new AttachedLayerDefinition(
             PackContentFields.Id(root),
             PackContentFields.ResourcePath(PackContentFields.RequiredString(root, "texture"), "texture"),
-            faces, tint, offset, cutoff, blend, shadows);
+            faces, PackContentFields.OptionalString(root, "category") ?? "natural_blocks",
+            tint, offset, cutoff, blend, shadows);
     }
 
     private static BlockFace[] ParseFaces(JsonElement value)
