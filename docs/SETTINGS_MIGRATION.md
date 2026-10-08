@@ -8,9 +8,9 @@ MineClone separates three lifetimes. Asteria must preserve them without copying 
 
 | Scope | MineClone reference | Asteria target | Current Asteria status |
 | --- | --- | --- | --- |
-| Per-world gamerules | `src/world/game_rules.rs` | Core world/session settings; Godot runtime consumer | Not modeled; tick rate hardcoded in `Main.cs` |
-| Per-world creation | `src/world/new_world.rs`, `src/screens/settings_screen/new_world_section.rs` | Core validated creation request, active world identity | Only unsigned 64-bit seed is wired |
-| Per-player mode | `src/player/game_mode.rs`, `src/screens/settings_screen/world_settings_section.rs` | Core player state and Godot movement/interaction adapter | Not implemented |
+| Per-world gamerules | `src/world/game_rules.rs` | Core world/session settings; Godot runtime consumer | WorldGameRules runtime owner implemented; WebUI editing pending |
+| Per-world creation | `src/world/new_world.rs`, `src/screens/settings_screen/new_world_section.rs` | Core validated creation request, active world identity | Validated WorldCreationOptions exists; runtime UI still sends seed only |
+| Per-player mode | `src/player/game_mode.rs`, `src/screens/settings_screen/world_settings_section.rs` | Core player state and Godot movement/interaction adapter | Mode enum and creation selection modeled; gameplay behavior pending |
 | Client graphics | `src/world/render_distance.rs`, `src/app/game_config.rs` | Godot client config/streaming selection | Hardcoded at 4 chunks in `Main.cs` |
 | Client HUD | `src/hud/mod.rs`, `src/screens/settings_screen/hud_section.rs` | Client preferences; derived WebUI HUD state | HUD view exists; preferences not wired |
 | Client keybinds | `src/app/keybinds.rs`, `src/screens/settings_screen/keybinds_section.rs` | Godot input action/keymap owner | Hardcoded player keys; ControlsPage is display-only |
@@ -24,7 +24,7 @@ MineClone separates three lifetimes. Asteria must preserve them without copying 
 - **World name**: authored text, world catalog identity and validation. Asteria has no disk catalog or user-editable world name yet.
 - **World seed**: unsigned 64-bit decimal value, with random generation. **Already supported in Asteria**; keep Core validation.
 - **Game mode**: **Survival** (default), **Creative**, **Spectator**. This is player state, even when initially selected during world creation. Respect inventory, flight, collision/targeting, and spectator visibility semantics rather than storing a cosmetic string.
-- **Gamerule `ticksPerSecond`**: default **40**, integer **greater than zero**, editable on new and active worlds. MineClone increments/decrements with numeric input and saves a changed value in the world state. Asteria's `WorldTickClock` already accepts a rate, but `Main.cs` currently passes constant 40.
+- **Gamerule `ticksPerSecond`**: default **40**, integer **greater than zero**, editable on new and active worlds. MineClone increments/decrements with numeric input and saves a changed value in the world state. Asteria's world clock, fluid simulation and residency scheduling now read a shared per-world `WorldGameRules` rate; WebUI editing remains pending.
 - **Gamerule `spawnCreatures`**: default **true**; editable on new and active worlds and saved with world state. Asteria currently has no compatible creature-spawning owner. Introduce the stored rule with a tested consumer when spawn behavior exists; do not claim turning it off changes a nonexistent system.
 - The rebuild branch's `NewWorldConfig` explicitly does **not** own extra generator knobs. Do not infer additional worldgen controls from old MineClone code or automatically expose unrequested biome/terrain sliders.
 
@@ -50,7 +50,7 @@ MineClone separates three lifetimes. Asteria must preserve them without copying 
 
 ## Migration order and completion gates
 
-- [ ] **A. Core models and session wiring**: `WorldGameRules`, creation options and player mode, defaults, validation, world/session lifetime and unit tests. Do not silently advertise creature spawning or flight before their consumer exists.
+- [x] **A. Core models and session wiring**: `WorldGameRules`, creation options and player mode, defaults, validation, world/session lifetime and unit tests. Do not silently advertise creature spawning or flight before their consumer exists.
 - [ ] **B. Client preferences**: mutable render distance with streaming integration, persisted graphics/HUD/keybind settings, typed config store, explicit change notifications and tests.
 - [ ] **C. Input and gameplay consumers**: modes/flight/spectator targeting and visibility, action routing and key capture. Implement only actions that exist; carry the rest as visible gaps.
 - [ ] **D. UI/controller integration**: wire NewWorldPage, SettingsPage, ControlsPage and PauseMenuPage to authoritative snapshots/actions; apply React/Storybook conventions and all three locales.
@@ -59,6 +59,15 @@ MineClone separates three lifetimes. Asteria must preserve them without copying 
 
 ## Explicit gaps as of this audit
 
-Asteria's `App.tsx` mounts gameplay HUD, start and new-world screens only. `SettingsPage`, `ControlsPage`, `PauseMenuPage` and `WorldSelectionPage` are available as presentation but not connected to application flow. `WorldCreationController` sends only `seed`. `Main.cs` uses fixed `WorldTicksPerSecond = 40` and `RenderDistanceChunks = 4`. `FpsPlayer` implements hardcoded movement/jump keys and no complete mode/keybind switching. Thus **visual presence is not runtime parity**.
+Asteria's `App.tsx` mounts gameplay HUD, start and new-world screens only. `SettingsPage`, `ControlsPage`, `PauseMenuPage` and `WorldSelectionPage` are available as presentation but not connected to application flow. `WorldCreationController` sends only `seed`. `Main.cs` continues to use fixed `RenderDistanceChunks = 4`, but world tick rate now reads its shared Core rule. `FpsPlayer` implements hardcoded movement/jump keys and no complete mode/keybind switching. Thus **visual presence is not runtime parity**.
 
 Audit references: MineClone `src/world/game_rules.rs`, `src/world/new_world.rs`, `src/app/game_config.rs`, `src/app/keybinds.rs`, `src/hud/mod.rs`, `src/screens/settings_screen/{layout,game_rules_section,world_settings_section,new_world_section,hud_section,keybinds_section,languages_section,render_distance_section}.rs`; Asteria `docs/UI_MIGRATION.md`, `src/Asteria.Godot/Main.cs`, `src/Asteria.Godot/Gameplay/FpsPlayer.cs`, `src/Asteria.Core/World/WorldTickClock.cs`, `ui/src/{App.tsx,controllers/WorldCreationController.ts,localization/LocalizationProvider.tsx}`.
+
+## Phase A delivery (2026-10-07)
+
+- Implemented Core `WorldGameRules` with MineClone defaults (40 ticks/second, creature spawning enabled), positive-rate validation and no-op mutation reporting.
+- Implemented immutable `WorldCreationOptions` with name/seed/initial game mode and rule values, plus `PlayerGameMode` capability policy.
+- Each `DimensionSessionStateStore` owns one shared mutable `WorldGameRules`. Its Sphere states share that owner across retirement/reactivation and never mirror the tick rate.
+- The Godot runtime now reads the rate from the same owner for the world tick clock, active-fluid scheduling and chunk-activation fluid scheduling; no hardcoded tick rate remains in `Main.cs`.
+- Added Core regression tests for defaults, validation, changes, game-mode capability policy, tick timing and session ownership.
+- **Not included**: WebUI editing, runtime creature spawner, actual Creative/Spectator physics and inventory, disk save, and complete world-name collision handling. These remain later migration gates, not falsely enabled settings.
