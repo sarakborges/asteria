@@ -59,7 +59,7 @@ export function createHudController(
             patchHud(store, {
               gameMode: mode,
               ...(mode === "spectator"
-                ? { target: null, targetEntity: null, prompt: null }
+                ? { target: null, targetEntity: null, miningProgress: null, prompt: null }
                 : {}),
             });
           }
@@ -97,6 +97,18 @@ export function createHudController(
             target: readTarget(message.payload),
           });
           break;
+
+        case "game.hud.mining": {
+          const payload = asRecord(message.payload);
+          if (!payload) break;
+          if (payload.progress === null) {
+            patchHud(store, { miningProgress: null });
+          } else if (isFiniteNumber(payload.progress) &&
+                     payload.progress >= 0 && payload.progress <= 1) {
+            patchHud(store, { miningProgress: payload.progress });
+          }
+          break;
+        }
 
         case "game.hud.target_entity":
           patchHud(store, {

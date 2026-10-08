@@ -35,3 +35,10 @@
 .target-hud__copy span {
   color: var(--ui-color-muted);
 }
+
+.target-hud__mining-progress {
+  width: 100%;
+  min-width: 120px;
+  height: 8px;
+  accent-color: var(--ui-color-accent);
+}

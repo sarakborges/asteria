@@ -2188,13 +2188,13 @@ public partial class Main : Node3D
     {
         var progress = _sessions.Active.Mining.Progress;
         var stage = progress is { } value
-            ? Math.Clamp((int)MathF.Floor(value * 10f), 0, 9)
+            ? Math.Clamp((int)MathF.Ceiling(value * 10f), 0, 10)
             : -1;
         if (stage == _publishedMiningStage) return;
         _publishedMiningStage = stage;
         SendWebUi("game.hud.mining", new
         {
-            progress = stage < 0 ? (float?)null : (stage + 1) / 10f,
+            progress = stage < 0 ? (float?)null : stage / 10f,
         });
     }
 
