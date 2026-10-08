@@ -24,6 +24,8 @@ MineClone reference: `sarakborges/mineclone`, branch `world-systems-rebuild`.
 - `src/ui/cosmic_background.rs` -> `CosmicBackground`.
 - `src/ui/screen.rs` -> `ScreenShell` 1120 px content/header/body/footer layout.
 - `src/ui/settings.rs` -> shared settings gaps/tokens.
+- `src/ui/numeric_input.rs` -> digit-only `NumericInput` editor (Escape cancels, Enter/blur validates); `NumericStepper` reuses it rather than browser number controls.
+- `src/ui/dropdown.rs` -> `Dropdown` with 44 px control, 40 px options, anchored floating panel and selected/hover states; game settings and language selectors use it.
 
 ## First migrated screen
 
@@ -55,10 +57,17 @@ Asteria deliberately orders the survival center column as **Inventory → Crafti
 - Status effects and toast stack: **retained Asteria extensions** using the migrated design-system tokens.
 - Chat: **presentation ported** with the MineClone 500 px history panel, 15-line history cap, autocomplete surface and input contract. Runtime/chat-command ownership is not invented in WebUI.
 - Storage Box: **presentation ported** with the 3×9 storage grid, search/sort controls, 3×9 player backpack and hotbar row. Runtime storage ownership remains outside WebUI.
+- Loading screen: **presentation ported** to MineClone's cosmic background, 560 px frosted card, 18 px gaps and 12 px progress bar. Its progress and phase remain exclusively supplied by Asteria's authoritative `WorldLoadingState`.
 
 ## Migration status
 
-The MineClone UI design-system, screen, modal, inventory/crafting and HUD presentation migration is now complete for the currently identified reference components.
+Major MineClone screens, modals, inventory/crafting and HUD surfaces have been migrated, but reusable-control and transition parity is not yet complete.
+
+## Remaining presentation differences
+
+- `src/ui/scrollbar.rs`: scroll containers currently use CSS scrollbar styling; MineClone's auto-overflow visibility and 8 px track / minimum 28 px thumb are not yet consistently applied.
+- `src/ui/transition.rs`: MineClone's 160 ms fade-out + fade-in transition is not yet represented by a shared WebUI screen transition. Keep this presentation-only; navigation ownership stays in controllers.
+- Runtime-backed screens marked presentation-only above still need their authoritative gameplay owners before activation. Never invent save, inventory, pause or command behavior merely to make a screen clickable.
 
 ## Runtime integration status
 

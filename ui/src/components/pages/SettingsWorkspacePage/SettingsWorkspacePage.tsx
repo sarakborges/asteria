@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocalization } from "../../../localization/LocalizationProvider";
 import type { GameMode, SettingsState } from "../../../state/uiState";
-import { Select } from "../../atoms/Select/Select";
+import { Dropdown } from "../../atoms/Dropdown/Dropdown";
 import { Slider } from "../../atoms/Slider/Slider";
 import { Toggle } from "../../atoms/Toggle/Toggle";
 import { Text } from "../../atoms/Text/Text";
@@ -76,7 +76,7 @@ export function SettingsWorkspacePage({
           ))}
           <SettingRow title={t("settings.targetBlockPosition")}
           description={t("settings.targetBlockPosition.description")}
-          control={<Select
+          control={<Dropdown
             ariaLabel={t("settings.targetBlockPosition")}
             disabled={!settings.client}
             value={settings.client?.hud.targetBlockPosition ?? "Center"}
@@ -84,19 +84,19 @@ export function SettingsWorkspacePage({
               value, label: t("settings.targetBlockPosition." +
                 (value === "TopRight" ? "topRight" : value.toLowerCase())),
             }))}
-            onChange={event => onTargetPosition(
-              event.target.value as "Center" | "TopRight" | "Hidden")} />} />
+            onChange={value => onTargetPosition(
+              value as "Center" | "TopRight" | "Hidden")} />} />
           </div>,
       },
       {
         id: "language", label: t("settings.section.languages"),
         content: <SettingRow title={t("settings.language")}
-          control={<Select value={language} ariaLabel={t("settings.language")}
+          control={<Dropdown value={language} ariaLabel={t("settings.language")}
             options={languages.map(value => ({
               value, label: t(value === "portuguese_brazil"
                 ? "language.portugueseBrazil" : "language." + value),
             }))}
-            onChange={event => setLanguage(event.target.value as typeof language)} />} />,
+            onChange={value => setLanguage(value as typeof language)} />} />,
       },
     ] : [
       {

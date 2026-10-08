@@ -1,5 +1,5 @@
 import { Button } from "../../atoms/Button/Button";
-import { TextInput } from "../../atoms/TextInput/TextInput";
+import { NumericInput, readValidInteger } from "../../atoms/NumericInput/NumericInput";
 import "./NumericStepper.css";
 
 export type NumericStepperProps = {
@@ -11,13 +11,6 @@ export type NumericStepperProps = {
   onChange(value: string): void;
   onCommit?(value: number): void;
 };
-
-function readValidInteger(value: string, min: number, max: number): number | null {
-  if (!/^[0-9]+$/.test(value)) return null;
-  const parsed = Number(value);
-  return Number.isSafeInteger(parsed) && parsed >= min && parsed <= max
-    ? parsed : null;
-}
 
 export function NumericStepper({
   value, min, max, ariaLabel, disabled = false, onChange, onCommit,
@@ -35,26 +28,14 @@ export function NumericStepper({
       <Button label="−" ariaLabel={ariaLabel + ": −1"}
         disabled={disabled || valid === min}
         onClick={() => step(-1)} />
-      <TextInput
-        type="number"
-        inputMode="numeric"
-        aria-label={ariaLabel}
+      <NumericInput
+        ariaLabel={ariaLabel}
         min={min}
         max={max}
-        step={1}
         value={value}
         disabled={disabled}
-        onChange={event => onChange(event.target.value)}
-        onBlur={() => {
-          const committed = readValidInteger(value, min, max);
-          if (committed !== null) onCommit?.(committed);
-        }}
-        onKeyDown={event => {
-          if (event.key === "Enter" && onCommit) {
-            event.preventDefault();
-            event.currentTarget.blur();
-          }
-        }}
+        onChange={onChange}
+        onCommit={onCommit}
       />
       <Button label="+" ariaLabel={ariaLabel + ": +1"}
         disabled={disabled || valid === max}
