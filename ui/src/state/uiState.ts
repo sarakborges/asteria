@@ -162,13 +162,13 @@ export type ClientSettingsState = {
   };
   keybinds: {
     jump: string; descend: string; toolAction: string;
-    inventory: string; dropItem: string;
+    inventory: string; chat: string; dropItem: string;
   };
 };
 export type SettingsState = {
   client: ClientSettingsState | null;
   world: WorldSettingsState | null;
-  captureAction: "Jump" | "Descend" | "ToolAction" | "Inventory" | "DropItem" | null;
+  captureAction: "Jump" | "Descend" | "ToolAction" | "Inventory" | "Chat" | "DropItem" | null;
   errorKey: string | null;
 };
 
