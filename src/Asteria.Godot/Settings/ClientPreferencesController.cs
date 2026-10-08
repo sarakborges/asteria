@@ -140,7 +140,6 @@ public sealed class ClientPreferencesController
             _ => throw new InvalidOperationException(
                 "Unhandled keybind change result."),
         };
-    }
 
     private ClientPreferenceUpdate Persist(ClientPreferenceUpdate update) =>
         update != ClientPreferenceUpdate.Changed
