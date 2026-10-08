@@ -739,7 +739,6 @@ public sealed class BiomeWorldGenerationTests
     [Theory]
     [InlineData("asteria:overworld/plains", "asteria:leaf_oak")]
     [InlineData("asteria:overworld/swamp", "asteria:leaf_willow")]
-    [InlineData("asteria:overworld/enchanted_forest", "asteria:leaf_enchanted")]
     public void AuthoredTreeLeavesReceiveBiomeTintInRenderedMesh(
         string biomeId,
         string leafId)
@@ -795,6 +794,15 @@ public sealed class BiomeWorldGenerationTests
                 MathF.Floor(vertex.EncodedTextureLayers.X);
             Assert.InRange(encodedFlags, 0.74f, 0.76f);
         });
+    }
+
+    [Fact]
+    public void EnchantedTreeLeavesStayIntentionallyUntinted()
+    {
+        var blocks = LoadDefaultBlocks();
+        var leaf = blocks.GetDefinition(blocks.GetId("asteria:leaf_enchanted"));
+        Assert.Equal(BlockTint.None, leaf.Tint);
+        Assert.All(leaf.Textures.AllLayers(), layer => Assert.False(layer.Dyable));
     }
 
     [Fact]
