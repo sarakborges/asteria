@@ -1,16 +1,23 @@
 import { useMemo, useState } from "react";
 import { useLocalization } from "../../../localization/LocalizationProvider";
-import type { GameplayInventoryState, InventoryCatalogEntry } from "../../../state/uiState";
+import type {
+  GameplayInventoryState, InventoryCatalogEntry, InventoryMetadata, VitalValue,
+} from "../../../state/uiState";
 import type { ItemStackView } from "../../../presentation/inventoryModels";
 import { Button } from "../../atoms/Button/Button";
 import { Text } from "../../atoms/Text/Text";
 import { InventorySlot } from "../../molecules/InventorySlot/InventorySlot";
-import { PlayerInventoryPanel } from "../../organisms/PlayerInventoryPanel/PlayerInventoryPanel";
+import { CharacterInfoPanel } from "../../organisms/CharacterInfoPanel/CharacterInfoPanel";
+import { CraftingPanel } from "../../organisms/CraftingPanel/CraftingPanel";
 import { CreativeInventoryPanel } from "../../organisms/CreativeInventoryPanel/CreativeInventoryPanel";
+import { CurrentStationPanel } from "../../organisms/CurrentStationPanel/CurrentStationPanel";
+import { PlayerInventoryPanel } from "../../organisms/PlayerInventoryPanel/PlayerInventoryPanel";
+import { InventoryWorkspace } from "../../templates/InventoryWorkspace/InventoryWorkspace";
 import "./InventoryGameplayPage.css";
 
 export type InventoryGameplayPageProps = {
   state: GameplayInventoryState;
+  health?: VitalValue | null;
   onClose(): void;
   onSlotClick(index: number): void;
   onSort(): void;
@@ -18,17 +25,26 @@ export type InventoryGameplayPageProps = {
   onCreativePick(choice: InventoryCatalogEntry): void;
 };
 
+function sameMetadata(a: InventoryMetadata, b: InventoryMetadata): boolean {
+  const keys = Object.keys(a);
+  return keys.length === Object.keys(b).length &&
+    keys.every(key => a[key] === b[key]);
+}
+
+function findCatalogEntry(
+  slot: NonNullable<GameplayInventoryState["cursor"]>,
+  catalog: GameplayInventoryState["catalog"],
+): InventoryCatalogEntry | undefined {
+  return catalog.find(choice => choice.id === slot.id &&
+    choice.kind === slot.kind && sameMetadata(choice.metadata, slot.metadata));
+}
+
 function itemView(
   slot: GameplayInventoryState["cursor"],
   catalog: GameplayInventoryState["catalog"],
 ): ItemStackView | null {
   if (!slot) return null;
-  const authored = catalog.find(choice =>
-    choice.id === slot.id &&
-    choice.kind === slot.kind &&
-    Object.keys(choice.metadata).length === Object.keys(slot.metadata).length &&
-    Object.entries(choice.metadata).every(([key, value]) =>
-      slot.metadata[key] === value));
+  const authored = findCatalogEntry(slot, catalog);
   return {
     id: slot.id, kind: slot.kind, quantity: slot.quantity,
     metadata: slot.metadata, iconUrl: authored?.iconUrl,
@@ -36,11 +52,11 @@ function itemView(
 }
 
 /**
- * Presentation-only inventory surface. Slot state and cursor mutations are
- * published by Core; local filters/tabs do not manufacture gameplay data.
+ * In-game inventory and Storybook use the same panel composition.
+ * Only Godot-sourced slots and vitals are displayed as gameplay facts.
  */
 export function InventoryGameplayPage({
-  state, onClose, onSlotClick, onSort,
+  state, health, onClose, onSlotClick, onSort,
   onDiscardCursor, onCreativePick,
 }: InventoryGameplayPageProps) {
   const { t } = useLocalization();
@@ -50,41 +66,47 @@ export function InventoryGameplayPage({
   const [category, setCategory] = useState<string | null>(null);
   const categories = useMemo(
     () => [...new Set(state.catalog.map(item => item.category))]
-      .sort((a, b) => a.localeCompare(b))
+      .sort((a, b) => a < b ? -1 : a > b ? 1 : 0)
       .map(id => ({ id, label: id })),
     [state.catalog],
   );
   const creative = state.creativeAvailable && creativeTab;
-  // Search never masks occupied slots as empty.
   const creativeItems = state.catalog.filter(item =>
     (category === null || item.category === category) &&
-    item.id.toLowerCase().includes(creativeSearch.trim().toLowerCase()),
+    (item.name.toLowerCase().includes(creativeSearch.trim().toLowerCase()) ||
+      item.id.toLowerCase().includes(creativeSearch.trim().toLowerCase())),
   );
+  const backpack = state.backpack.map(slot => itemView(slot, state.catalog));
+  const hotbar = state.hotbar.map(slot => itemView(slot, state.catalog));
+  const cursor = itemView(state.cursor, state.catalog);
 
   return (
     <main className="inventory-gameplay">
-      <header className="inventory-gameplay__header">
-        <Text text={t("ui.inventory")} variant="heading" />
-        <div className="inventory-gameplay__header-actions">
-          {state.creativeAvailable && (
-            <>
-              <Button
-                label={t("ui.inventory")}
-                variant={!creative ? "primary" : "normal"}
-                onClick={() => setCreativeTab(false)} />
-              <Button
-                label={t("ui.creative")}
-                variant={creative ? "primary" : "normal"}
-                onClick={() => setCreativeTab(true)} />
-            </>
-          )}
-          <Button label={t("inventory.close")} onClick={onClose} />
-        </div>
-      </header>
-
-      <section className="inventory-gameplay__content">
-        {creative ? (
-          <CreativeInventoryPanel
+      <div className="inventory-gameplay__actions">
+        <Button label={t("inventory.close")} onClick={onClose} />
+      </div>
+      <div className="inventory-gameplay__workspace">
+        <InventoryWorkspace
+          creativeAvailable={state.creativeAvailable}
+          creativeVisible={creative}
+          onViewChange={setCreativeTab}
+          character={<CharacterInfoPanel state={health ? {
+            name: t("ui.player"),
+            healthCurrent: health.current,
+            healthMaximum: health.maximum,
+            equipment: [],
+          } : null} />}
+          crafting={<CraftingPanel recipes={[]} selectedRecipeId={null}
+            status={t("inventory.craftingUnavailable")} />}
+          inventory={<PlayerInventoryPanel
+            state={{ searchQuery: search, backpack, hotbar }}
+            onSearchChange={setSearch}
+            onSort={onSort}
+            onTrash={cursor ? onDiscardCursor : undefined}
+            onSlotClick={index => onSlotClick(index)}
+          />}
+          station={<CurrentStationPanel station={null} />}
+          creative={<CreativeInventoryPanel
             state={{
               searchQuery: creativeSearch,
               selectedCategoryId: category,
@@ -93,41 +115,36 @@ export function InventoryGameplayPage({
                 ...item,
                 quantity: 1,
                 name: Object.keys(item.metadata).length > 0
-                  ? item.id + " (" + Object.values(item.metadata).join(", ") + ")"
+                  ? item.name + " (" + Object.values(item.metadata).join(", ") + ")"
                   : item.name,
               })),
             }}
+            hotbar={hotbar}
+            onHotbarSlotClick={index => onSlotClick(index)}
+            onTrash={cursor ? onDiscardCursor : undefined}
             onSearchChange={setCreativeSearch}
             onCategoryChange={setCategory}
             onItemClick={item => {
               const choice = state.catalog.find(entry =>
-                entry.kind === item.kind &&
-                entry.id === item.id &&
-                JSON.stringify(entry.metadata) === JSON.stringify(item.metadata));
+                entry.id === item.id && entry.kind === item.kind &&
+                sameMetadata(entry.metadata, item.metadata ?? {}));
               if (choice) onCreativePick(choice);
             }}
-          />
-        ) : (
-          <PlayerInventoryPanel
-            state={{
-              searchQuery: search,
-              backpack: state.backpack.map(slot => itemView(slot, state.catalog)),
-              hotbar: state.hotbar.map(slot => itemView(slot, state.catalog)),
-            }}
-            onSearchChange={setSearch}
-            onSort={onSort}
-            onTrash={state.cursor ? onDiscardCursor : undefined}
-            onSlotClick={onSlotClick}
-          />
-        )}
-      </section>
-
-      <footer className="inventory-gameplay__footer">
-        <Text text={t("inventory.cursor")} variant="detail" />
-        <InventorySlot item={itemView(state.cursor, state.catalog)} disabled />
-        {state.cursor && <Text text={t("inventory.cursor.help")} variant="caption" />}
-        {state.errorKey && <Text text={t(state.errorKey)} variant="caption" />}
-      </footer>
+          />}
+        />
+      </div>
+      {(cursor || state.errorKey) && (
+        <aside className="inventory-gameplay__cursor-status" role="status">
+          {cursor && (
+            <>
+              <Text text={t("inventory.cursor")} variant="detail" />
+              <InventorySlot item={cursor} disabled />
+              <Text text={t("inventory.cursor.help")} variant="caption" />
+            </>
+          )}
+          {state.errorKey && <Text text={t(state.errorKey)} variant="caption" />}
+        </aside>
+      )}
     </main>
   );
 }
