@@ -15,8 +15,9 @@ public readonly record struct CreatureInstanceState(
 {
     public uint AttacksReceived { get; init; }
 
-    /// <summary>Authored NO_AI tag: freezes hopping and rejects ordinary damage.</summary>
-    public bool NoAi { get; init; }
+    public CreatureMetaTags MetaTags { get; init; }
+    public bool NoAi => MetaTags.NoAi;
+    public bool Persistent => MetaTags.Persistent;
 
     /// <summary>Combat feedback is owned by the creature lifecycle, not Godot.</summary>
     public float HurtSecondsRemaining { get; init; }
@@ -89,6 +90,7 @@ public sealed class CreatureRuntime
                 creature.HurtSecondsRemaining < 0f ||
                 !float.IsFinite(creature.DeathSecondsRemaining) ||
                 creature.DeathSecondsRemaining < 0f ||
+                !creature.MetaTags.IsValid ||
                 (creature.Health == 0f && creature.DeathSecondsRemaining <= 0f) ||
                 (creature.Health > 0f && creature.DeathSecondsRemaining != 0f))
             {
@@ -118,7 +120,18 @@ public sealed class CreatureRuntime
 
     public bool TrySpawn(string definitionId, Vector3 feet, out CreatureInstanceState creature, bool noAi = false)
     {
-        if (!IsFinite(feet) || feet.Y < 0f)
+        var tags = default(CreatureMetaTags);
+        if (noAi)
+            _ = tags.TryChange(CreatureMetaTagAction.Add,
+                CreatureMetaTags.NoAiTag, null, out tags, out _);
+        return TrySpawnWithTags(definitionId, feet, tags, out creature);
+    }
+
+    public bool TrySpawnWithTags(
+        string definitionId, Vector3 feet, CreatureMetaTags tags,
+        out CreatureInstanceState creature)
+    {
+        if (!IsFinite(feet) || feet.Y < 0f || !tags.IsValid)
         {
             throw new ArgumentOutOfRangeException(nameof(feet));
         }
@@ -133,7 +146,7 @@ public sealed class CreatureRuntime
         var id = new CreatureInstanceId(checked(_nextId + 1));
         creature = new CreatureInstanceState(
             id, definition.Id, feet, definition.Health, 0.0,
-            CreatureHopMotion.Initial) { NoAi = noAi };
+            CreatureHopMotion.Initial) { MetaTags = tags };
         _active.Add(id.Value, creature);
         _counts[definition.Id] = CountFor(definition.Id) + 1;
         _nextId = id.Value;
@@ -275,10 +288,37 @@ public sealed class CreatureRuntime
         if (!_active.TryGetValue(id.Value, out var creature) || creature.IsDying)
             return false;
         if (creature.NoAi == enabled) return true;
+        var action = enabled ? CreatureMetaTagAction.Add :
+            CreatureMetaTagAction.Remove;
+        if (!creature.MetaTags.TryChange(action, CreatureMetaTags.NoAiTag,
+                null, out var tags, out _))
+            return false;
         _active[id.Value] = creature with
         {
-            NoAi = enabled,
+            MetaTags = tags,
             Motion = enabled ? CreatureHopMotion.Initial : creature.Motion,
+        };
+        return true;
+    }
+
+    public bool TryChangeMetaTag(
+        CreatureInstanceId id,
+        CreatureMetaTagAction action, string tag, string? value,
+        out CreatureMetaTagError error)
+    {
+        error = CreatureMetaTagError.NotSet;
+        if (!_active.TryGetValue(id.Value, out var creature) ||
+            creature.IsDying)
+            return false;
+        if (!creature.MetaTags.TryChange(
+                action, tag, value, out var updated, out error))
+            return false;
+
+        _active[id.Value] = creature with
+        {
+            MetaTags = updated,
+            Motion = updated.NoAi && !creature.NoAi
+                ? CreatureHopMotion.Initial : creature.Motion,
         };
         return true;
     }
@@ -367,7 +407,7 @@ public sealed class CreatureRuntime
                 continue;
             }
 
-            if (age >= DespawnGraceSeconds &&
+            if (!creature.Persistent && age >= DespawnGraceSeconds &&
                 Vector3.DistanceSquared(creature.Position, playerPosition) >
                     DespawnRadius * DespawnRadius)
             {
