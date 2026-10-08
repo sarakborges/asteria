@@ -107,8 +107,14 @@ export type HudState = {
   statusCard: StatusCardState;
 };
 
+export type LoadingPhase =
+  | "retiring_current_dimension"
+  | "materializing_initial_area"
+  | "preparing_presentation"
+  | "preparing_world";
+
 export type LoadingState = {
-  phaseLabel: string;
+  phase: LoadingPhase;
   completed: number;
   total: number;
   dimension: string;
