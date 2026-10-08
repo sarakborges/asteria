@@ -1,8 +1,8 @@
 .spawn-biome-select__trigger {
   width: 100%; height: 44px; display: flex; align-items: center;
   justify-content: space-between; gap: 12px;
-  border: 1px solid var(--ui-color-border); border-radius: var(--ui-radius-control);
-  background: var(--ui-color-surface); color: var(--ui-color-text);
+  border: 1px solid var(--ui-color-border); border-radius: var(--ui-radius-sm);
+  background: var(--ui-color-surface-elevated); color: var(--ui-color-text);
   font: inherit; padding-inline: 14px; text-align: left; cursor: pointer;
 }
 .spawn-biome-select__trigger:disabled { opacity: .5; cursor: default; }
@@ -14,8 +14,8 @@
 .spawn-biome-select__panel {
   position: fixed; z-index: 1; padding: 8px;
   display: flex; flex-direction: column; gap: 8px;
-  background: var(--ui-color-surface); border: 1px solid var(--ui-color-border);
-  border-radius: var(--ui-radius-control); box-shadow: 0 12px 26px rgb(0 0 0 / 35%);
+  background: var(--ui-color-surface-elevated); border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-sm); box-shadow: 0 12px 26px rgb(0 0 0 / 35%);
 }
 .spawn-biome-select__options {
   max-height: 216px; overflow-y: auto; display: flex; flex-direction: column;
@@ -25,11 +25,11 @@
   flex: 0 0 auto; min-height: 40px; padding: 8px 12px;
   text-align: left; font: inherit; color: var(--ui-color-text);
   background: transparent; border: 1px solid transparent;
-  border-radius: var(--ui-radius-control); cursor: pointer;
+  border-radius: var(--ui-radius-sm); cursor: pointer;
 }
 .spawn-biome-select__option:hover, .spawn-biome-select__option:focus-visible {
-  background: var(--ui-color-surface-hover);
+  background: var(--ui-color-accent-soft);
 }
 .spawn-biome-select__option[aria-selected="true"] {
-  border-color: var(--ui-color-accent); background: var(--ui-color-surface-selected);
+  border-color: var(--ui-color-accent); background: var(--ui-color-accent-soft);
 }
