@@ -136,6 +136,12 @@ public partial class Main : Node3D
     private readonly PlayerChatSession _chat = new();
     private WarpArrival? _warpArrival;
 
+    private enum DimensionTravelPurpose : byte
+    {
+        Ordinary,
+        ChatWarp,
+    }
+
     private enum WarpArrivalPhase : byte
     {
         Requested,
@@ -534,7 +540,7 @@ public partial class Main : Node3D
     private bool BeginDimensionTransition(
         DimensionId target,
         NVector3 destination,
-        bool fromWarpCommand = false)
+        DimensionTravelPurpose purpose = DimensionTravelPurpose.Ordinary)
     {
         if (_player is null)
         {
@@ -557,7 +563,7 @@ public partial class Main : Node3D
             return false;
         }
 
-        _warpArrival = fromWarpCommand
+        _warpArrival = purpose == DimensionTravelPurpose.ChatWarp
             ? new WarpArrival(_dimension.Id, source, WarpArrivalPhase.Requested)
             : null;
         StartDimensionRetirement(target);
@@ -2034,7 +2040,7 @@ public partial class Main : Node3D
         if (target.Id != _dimension.Id)
         {
             if (!BeginDimensionTransition(
-                    target.Id, position, fromWarpCommand: true))
+                    target.Id, position, purpose: DimensionTravelPurpose.ChatWarp))
                 ChatFeedback("chat.command.warp.failed", error: true);
             else
                 ChatFeedback("chat.command.warp.start", error: false,
@@ -2060,7 +2066,7 @@ public partial class Main : Node3D
             // A distant warp uses the same cooperative retirement, archive,
             // restore and progress pipeline as an inter-Sphere transition.
             if (!BeginDimensionTransition(
-                    target.Id, preferred, fromWarpCommand: true))
+                    target.Id, preferred, purpose: DimensionTravelPurpose.ChatWarp))
                 ChatFeedback("chat.command.warp.failed", error: true);
             else
                 ChatFeedback("chat.command.warp.start", error: false,
