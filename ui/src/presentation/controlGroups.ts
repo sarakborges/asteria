@@ -20,6 +20,7 @@ export function buildControlGroups(
   const jump = keybinds?.jump ?? "Space";
   const descend = keybinds?.descend ?? "ShiftLeft";
   const inventory = keybinds?.inventory ?? "KeyE";
+  const chat = keybinds?.chat ?? "KeyT";
   const tool = keybinds?.toolAction ?? "KeyR";
   const drop = keybinds?.dropItem ?? "KeyQ";
 
@@ -39,6 +40,7 @@ export function buildControlGroups(
       entries: [
         { key: "1–9", action: t("controls.hotbar") },
         { key: inventory, action: t("settings.keybind.inventory"), bindAction: "Inventory" },
+        { key: chat, action: t("settings.keybind.chat"), bindAction: "Chat" },
         { key: "ESC", action: t("controls.pauseClose") },
       ],
     },
