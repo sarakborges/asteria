@@ -146,12 +146,15 @@ export type ClientSettingsState = {
       breakOrPlaceBlock: boolean;
     };
   };
-  keybinds: { jump: string; descend: string; toolAction: string };
+  keybinds: {
+    jump: string; descend: string; toolAction: string;
+    inventory: string; dropItem: string;
+  };
 };
 export type SettingsState = {
   client: ClientSettingsState | null;
   world: WorldSettingsState | null;
-  captureAction: "Jump" | "Descend" | "ToolAction" | null;
+  captureAction: "Jump" | "Descend" | "ToolAction" | "Inventory" | "DropItem" | null;
   errorKey: string | null;
 };
 

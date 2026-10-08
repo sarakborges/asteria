@@ -31,7 +31,7 @@ export function createSettingsController(
     setGameMode(value: GameMode) {
       post("ui.player.set_game_mode", { mode: value });
     },
-    beginKeyCapture(action: "Jump" | "Descend" | "ToolAction") {
+    beginKeyCapture(action: "Jump" | "Descend" | "ToolAction" | "Inventory" | "DropItem") {
       post("ui.client_preferences.capture_keybind", { action });
     },
     cancelKeyCapture() {
@@ -51,7 +51,9 @@ export function createSettingsController(
               typeof payload.renderDistanceChunks !== "number" ||
               !["Center", "TopRight", "Hidden"].includes(String(position)) ||
               typeof keys.jump !== "string" || typeof keys.descend !== "string" ||
-              typeof keys.toolAction !== "string") break;
+              typeof keys.toolAction !== "string" ||
+              typeof keys.inventory !== "string" ||
+              typeof keys.dropItem !== "string") break;
           const client: ClientSettingsState = {
             renderDistanceChunks: payload.renderDistanceChunks,
             hud: {
@@ -63,7 +65,8 @@ export function createSettingsController(
               },
             },
             keybinds: { jump: keys.jump, descend: keys.descend,
-              toolAction: keys.toolAction },
+              toolAction: keys.toolAction,
+              inventory: keys.inventory, dropItem: keys.dropItem },
           };
           store.update(state => ({
             ...state,
@@ -89,7 +92,9 @@ export function createSettingsController(
           const status = payload?.status;
           const isActive = ["Capturing", "ReservedKey", "KeyConflict", "UnsupportedKey"].includes(String(status));
           const captureAction = isActive &&
-            (action === "Jump" || action === "Descend" || action === "ToolAction")
+            (action === "Jump" || action === "Descend" ||
+             action === "ToolAction" || action === "Inventory" ||
+             action === "DropItem")
             ? action : null;
           const errors: Record<string, string> = {
             ReservedKey: "settings.error.reservedKey",

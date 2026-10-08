@@ -34,7 +34,7 @@ export type AppActions = {
   setGameplayHint(kind: "RotateBlock" | "BreakOrPlaceBlock", value: boolean): void;
   setWorldTicks(value: number): void;
   setGameMode(value: import("./state/uiState").GameMode): void;
-  beginKeyCapture(action: "Jump" | "Descend" | "ToolAction"): void;
+  beginKeyCapture(action: "Jump" | "Descend" | "ToolAction" | "Inventory" | "DropItem"): void;
   cancelKeyCapture(): void;
   closeInventory(): void;
   clickInventorySlot(index: number): void;
@@ -141,6 +141,10 @@ export function App({
                   action: t("settings.keybind.descend"), bindAction: "Descend" },
                 { key: state.settings.client?.keybinds.toolAction ?? "KeyR",
                   action: t("settings.keybind.toolAction"), bindAction: "ToolAction" },
+                { key: state.settings.client?.keybinds.inventory ?? "KeyE",
+                  action: t("settings.keybind.inventory"), bindAction: "Inventory" },
+                { key: state.settings.client?.keybinds.dropItem ?? "KeyQ",
+                  action: t("settings.keybind.dropItem"), bindAction: "DropItem" },
                 { key: "WASD", action: t("settings.controls.movement") },
                 { key: "ESC", action: t("settings.controls.pause") },
               ],
