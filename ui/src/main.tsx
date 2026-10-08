@@ -10,6 +10,7 @@ import {
 import { createHudController } from "./controllers/HudController";
 import { createLoadingController } from "./controllers/LoadingController";
 import { createUiNavigationController } from "./controllers/UiNavigationController";
+import { createSettingsController } from "./controllers/SettingsController";
 import { createWorldCreationController } from "./controllers/WorldCreationController";
 import { createInitialUiState } from "./state/uiState";
 import { createUiStore } from "./state/uiStore";
@@ -39,9 +40,12 @@ const worldCreation =
     store,
     postGodotMessage,
   );
+const settings = createSettingsController(store, postGodotMessage);
 
 subscribeGodotMessages((message) => {
+  navigation.handleGodotMessage(message);
   hud.handleGodotMessage(message);
+  settings.handleGodotMessage(message);
   worldCreation.handleGodotMessage(message);
   loading.handleGodotMessage(message);
 });
@@ -59,6 +63,17 @@ createRoot(rootElement).render(
       backToStart: navigation.backToStart,
       exitGame: navigation.exitGame,
       dismissToast: store.dismissToast,
+      resumeGame: navigation.resumeGame,
+      openGameSettings: navigation.openGameSettings,
+      openWorldSettings: navigation.openWorldSettings,
+      openControls: navigation.openControls,
+      backFromOverlay: navigation.backFromOverlay,
+      setRenderDistance: settings.setRenderDistance,
+      setTargetPosition: settings.setTargetPosition,
+      setWorldTicks: settings.setWorldTicks,
+      setGameMode: settings.setGameMode,
+      beginKeyCapture: settings.beginKeyCapture,
+      cancelKeyCapture: settings.cancelKeyCapture,
     }}
   />
   </LocalizationProvider>,
