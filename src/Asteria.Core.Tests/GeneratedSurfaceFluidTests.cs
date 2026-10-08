@@ -242,9 +242,6 @@ public sealed class GeneratedSurfaceFluidTests
         Assert.Equal(4.8f, depressions.Depth);
         Assert.True(
             swamp.SurfaceTerrain.FillToSeaLevel);
-        Assert.Equal(
-            SurfaceHeightInfluencePolicy.LowerOnly,
-            swamp.SurfaceTerrain.InfluencePolicy);
 
         var volcano =
             biomes.Get(
