@@ -116,11 +116,18 @@ public sealed class BiomeWorldGenerationTests
         Assert.Empty(stoneSpike.SurfaceBiomes);
         Assert.Contains(CaveSpikeDirection.Up, stoneSpike.Directions);
         Assert.Contains(CaveSpikeDirection.Down, stoneSpike.Directions);
+        Assert.Equal(1, stoneSpike.MinSpacing);
+        Assert.NotNull(stoneSpike.Cluster);
+        Assert.Equal(32, stoneSpike.Cluster.HorizontalScale);
+        Assert.Equal(22, stoneSpike.Cluster.VerticalScale);
         var iceSpike = Assert.Single(caverns.CaveSpikes,
             spike => spike.Block == "asteria:ice_spike");
         Assert.Equal(
             ["asteria:overworld/alps", "asteria:overworld/arctic"],
             iceSpike.SurfaceBiomes);
+        Assert.Equal(1, iceSpike.MinSpacing);
+        Assert.NotNull(iceSpike.Cluster);
+        Assert.Equal(24, iceSpike.Cluster.HorizontalScale);
 
         var floating =
             biomes.Get(

@@ -111,6 +111,103 @@ public sealed class TerrainDensityTests
     }
 
     [Fact]
+    public void CaveSpikeClusterCanSuppressGrowthWithoutChangingCaveDensity()
+    {
+        var allowed = Generator(
+            caves: WideCaves(),
+            caveSpike: new BiomeCaveSpikeDefinition(
+                "asteria:stone_spike", 1f, 2, 8, 9,
+                [CaveSpikeDirection.Up, CaveSpikeDirection.Down],
+                minSpacing: 1));
+        var suppressed = Generator(
+            caves: WideCaves(),
+            caveSpike: new BiomeCaveSpikeDefinition(
+                "asteria:stone_spike", 1f, 2, 8, 9,
+                [CaveSpikeDirection.Up, CaveSpikeDirection.Down],
+                cluster: new CaveSpikeClusterDefinition(
+                    20, 14, 1f, 0f),
+                minSpacing: 1));
+
+        var floor = allowed.Materialize(new ChunkCoord(0, 1, 0));
+        var ceiling = allowed.Materialize(new ChunkCoord(0, 5, 0));
+        var emptyFloor = suppressed.Materialize(new ChunkCoord(0, 1, 0));
+        var emptyCeiling = suppressed.Materialize(new ChunkCoord(0, 5, 0));
+        var floorCandidates = 0;
+        var ceilingCandidates = 0;
+        for (var z = 0; z < Chunk.Size; z++)
+        for (var x = 0; x < Chunk.Size; x++)
+        for (var y = 0; y < Chunk.Size; y++)
+        {
+            floorCandidates += floor.GetCell(x, y, z).Block ==
+                Block("asteria:stone_spike") ? 1 : 0;
+            ceilingCandidates += ceiling.GetCell(x, y, z).Block ==
+                Block("asteria:stone_spike") ? 1 : 0;
+            Assert.NotEqual(Block("asteria:stone_spike"),
+                emptyFloor.GetCell(x, y, z).Block);
+            Assert.NotEqual(Block("asteria:stone_spike"),
+                emptyCeiling.GetCell(x, y, z).Block);
+            Assert.Equal(allowed.DensityAt(x, 16 + y, z),
+                suppressed.DensityAt(x, 16 + y, z));
+        }
+
+        Assert.True(floorCandidates > 0);
+        Assert.True(ceilingCandidates > 0);
+    }
+
+    [Fact]
+    public void CaveSpikeSpacingIsStableAcrossDirectionsAndHorizontalChunks()
+    {
+        var generator = Generator(
+            caves: WideCaves(),
+            caveSpike: new BiomeCaveSpikeDefinition(
+                "asteria:stone_spike", 1f, 2, 8, 9,
+                [CaveSpikeDirection.Up, CaveSpikeDirection.Down],
+                minSpacing: 1));
+        var coordinates = new HashSet<(int X, int Z)>();
+        for (var chunkX = 0; chunkX <= 1; chunkX++)
+        for (var chunkY = 1; chunkY <= 5; chunkY += 4)
+        {
+            var chunk = generator.Materialize(
+                new ChunkCoord(chunkX, chunkY, 0));
+            for (var z = 0; z < Chunk.Size; z++)
+            for (var x = 0; x < Chunk.Size; x++)
+            for (var y = 0; y < Chunk.Size; y++)
+            {
+                if (chunk.GetCell(x, y, z).Block ==
+                    Block("asteria:stone_spike"))
+                    coordinates.Add((chunkX * Chunk.Size + x, z));
+            }
+        }
+
+        Assert.NotEmpty(coordinates);
+        foreach (var (x, z) in coordinates)
+        for (var dz = -1; dz <= 1; dz++)
+        for (var dx = -1; dx <= 1; dx++)
+        {
+            if (dx == 0 && dz == 0)
+                continue;
+            Assert.DoesNotContain((x + dx, z + dz), coordinates);
+        }
+    }
+
+    [Fact]
+    public void CaveSpikeClusteringRejectsInvalidScalesAndSpacing()
+    {
+        Assert.ThrowsAny<ArgumentException>(() =>
+            new CaveSpikeClusterDefinition(1, 14, -0.2f, 0.25f));
+        Assert.ThrowsAny<ArgumentException>(() =>
+            new CaveSpikeClusterDefinition(24, 1, -0.2f, 0.25f));
+        Assert.ThrowsAny<ArgumentException>(() =>
+            new CaveSpikeClusterDefinition(24, 16, float.NaN, 0.25f));
+        Assert.ThrowsAny<ArgumentException>(() =>
+            new CaveSpikeClusterDefinition(24, 16, -0.2f, -0.1f));
+        Assert.ThrowsAny<ArgumentException>(() =>
+            new BiomeCaveSpikeDefinition(
+                "asteria:stone_spike", 0.1f, 2, 8, 9,
+                [CaveSpikeDirection.Up], minSpacing: 5));
+    }
+
+    [Fact]
     public void SpikeShapeProfileTapersAndSupportsReversedGrowth()
     {
         var shape = BlockShapeDefinition.Spike();
