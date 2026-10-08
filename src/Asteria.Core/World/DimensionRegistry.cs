@@ -176,6 +176,15 @@ public sealed class DimensionRegistry
                     throw new ArgumentException(
                         $"Dimension {dimension.Id} surface biome {biomeId} does not author surfaceLayout + surfaceTerrain.");
                 }
+                foreach (var root in dimension.GeneratedSurfaceStructures
+                    .Where(rule => string.Equals(rule.Biome, biomeId, StringComparison.Ordinal)))
+                {
+                    if (root.HabitatWeights is null) continue;
+                    if (biome.SurfaceHabitats is null)
+                        throw new ArgumentException(
+                            $"Habitat-weighted root {root.Structure} requires surfaceHabitats on {biomeId}.");
+                    biome.SurfaceHabitats.ValidateWeights(root.HabitatWeights);
+                }
             }
 
             foreach (var biomeId in

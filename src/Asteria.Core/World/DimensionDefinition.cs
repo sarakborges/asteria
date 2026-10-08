@@ -290,7 +290,8 @@ public sealed class DimensionGeneratedSurfaceStructureDefinition
         float chance,
         int jitter = 0,
         DimensionGeneratedSurfaceStructurePlacement placement =
-            DimensionGeneratedSurfaceStructurePlacement.BiomeInterior)
+            DimensionGeneratedSurfaceStructurePlacement.BiomeInterior,
+        SurfaceHabitatWeights? habitatWeights = null)
     {
         BiomeDefinition.ValidateId(
             biome);
@@ -326,6 +327,10 @@ public sealed class DimensionGeneratedSurfaceStructureDefinition
         Chance = chance;
         Jitter = jitter;
         Placement = placement;
+        HabitatWeights = habitatWeights;
+        if (habitatWeights is not null &&
+            placement == DimensionGeneratedSurfaceStructurePlacement.BiomeMargin)
+            throw new ArgumentException("Habitat-weighted roots require biomeInterior.");
     }
 
     public string Biome { get; }
@@ -339,6 +344,7 @@ public sealed class DimensionGeneratedSurfaceStructureDefinition
     public int Jitter { get; }
 
     public DimensionGeneratedSurfaceStructurePlacement Placement { get; }
+    public SurfaceHabitatWeights? HabitatWeights { get; }
 }
 
 public sealed class DimensionEnvironmentDefinition
