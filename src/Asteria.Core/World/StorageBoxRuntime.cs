@@ -27,9 +27,7 @@ public sealed class StorageBoxRuntime
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(blocks);
-        if (position.Y < 0 || !world.IsLoadedAt(position) ||
-            !blocks.TryGetId(StorageBlockId, out var id) ||
-            world.GetCellOrEmpty(position).Block != id)
+        if (!IsActualBox(position, world, blocks))
             return false;
 
         if (!_boxes.ContainsKey(position))
@@ -57,11 +55,16 @@ public sealed class StorageBoxRuntime
 
     /// <summary>One in-process transactional cursor/slot exchange.
     /// Invalid indices and unopened storage never consume the cursor.</summary>
-    public bool TryClickActive(int index, PlayerInventory player)
+    public bool TryClickActive(
+        int index, PlayerInventory player, VoxelWorld world,
+        BlockRegistry blocks)
     {
         ArgumentNullException.ThrowIfNull(player);
+        ArgumentNullException.ThrowIfNull(world);
+        ArgumentNullException.ThrowIfNull(blocks);
         if (index is < 0 or >= SlotCount || _active is not { } position ||
-            !_boxes.TryGetValue(position, out var slots))
+            !_boxes.TryGetValue(position, out var slots) ||
+            !IsActualBox(position, world, blocks))
             return false;
 
         if (!player.ClickExternalSlot(slots[index], out var replacement))
@@ -71,11 +74,15 @@ public sealed class StorageBoxRuntime
         return true;
     }
 
-    public bool TryInsertActive(InventoryStack incoming)
+    public bool TryInsertActive(
+        InventoryStack incoming, VoxelWorld world, BlockRegistry blocks)
     {
         ArgumentNullException.ThrowIfNull(incoming);
+        ArgumentNullException.ThrowIfNull(world);
+        ArgumentNullException.ThrowIfNull(blocks);
         if (_active is not { } position ||
-            !_boxes.TryGetValue(position, out var slots))
+            !_boxes.TryGetValue(position, out var slots) ||
+            !IsActualBox(position, world, blocks))
             return false;
 
         var capacity = 0;
@@ -121,6 +128,12 @@ public sealed class StorageBoxRuntime
         return slots.Where(stack => stack is not null)
             .Select(stack => stack!).ToArray();
     }
+
+    private static bool IsActualBox(
+        WorldVoxelCoord position, VoxelWorld world, BlockRegistry blocks) =>
+        position.Y >= 0 && world.IsLoadedAt(position) &&
+        blocks.TryGetId(StorageBlockId, out var id) &&
+        world.GetCellOrEmpty(position).Block == id;
 
     /// <summary>Deterministic occupied positions for session serialization.</summary>
     public IReadOnlyList<StorageBoxSnapshot> CaptureOccupied() =>
