@@ -5,11 +5,53 @@
     "biome": "asteria:overworld/ocean",
     "fluid": "asteria:water",
     "shore": {
-      "shelfDepth": 4,
-      "beachHeight": 2,
-      "beachStartDominance": 0.62,
-      "shelfStartDominance": 0.72,
-      "deepWaterStartDominance": 0.85
+      "samples": [
+        {
+          "dominance": 0,
+          "minimumHeight": 0,
+          "strength": 0
+        },
+        {
+          "dominance": 0.15,
+          "minimumHeight": 0,
+          "strength": 0
+        },
+        {
+          "dominance": 0.28,
+          "minimumHeight": 0,
+          "strength": 1
+        },
+        {
+          "dominance": 0.38,
+          "minimumHeight": 2,
+          "strength": 1
+        },
+        {
+          "dominance": 0.5,
+          "minimumHeight": 2,
+          "strength": 1
+        },
+        {
+          "dominance": 0.62,
+          "minimumHeight": 2,
+          "strength": 1
+        },
+        {
+          "dominance": 0.72,
+          "minimumHeight": -4,
+          "strength": 1
+        },
+        {
+          "dominance": 0.85,
+          "minimumHeight": -4,
+          "strength": 0
+        },
+        {
+          "dominance": 1,
+          "minimumHeight": -4,
+          "strength": 0
+        }
+      ]
     }
   },
   "gravityStrength": 18,
@@ -290,5 +332,14 @@
       "placement": "biomeMargin"
     }
   ],
-  "dayNightCycle": "asteria:overworld/day_night_cycle"
+  "dayNightCycle": "asteria:overworld/day_night_cycle",
+  "biomeBlending": {
+    "scoreBand": 0.5,
+    "jitterFraction": 0.32,
+    "coarseWarpPeriod": 4,
+    "fineWarpPeriod": 1.35,
+    "coarseWarpStrength": 0.42,
+    "fineWarpStrength": 0.16,
+    "influenceCurve": "smoothStep"
+  }
 }
