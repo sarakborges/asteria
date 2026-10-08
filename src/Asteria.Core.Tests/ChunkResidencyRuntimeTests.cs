@@ -46,8 +46,36 @@ public sealed class ChunkResidencyRuntimeTests
         Assert.Equal(
             1,
             fixture.Runtime.PresentationPendingCount);
-        Assert.True(
+        // Without resident neighbors, the archived chunk already has
+        // its own light state and no cross-chunk reconciliation is needed.
+        Assert.False(
             fixture.WorldUpdates.HasLightingWork);
+    }
+
+    [Fact]
+    public void RestoringChunkWithResidentNeighborQueuesLightingFrontier()
+    {
+        var fixture = CreateFixture();
+        var coord = ChunkCoord.Zero;
+        var neighbor = new ChunkCoord(1, 0, 0);
+        fixture.World.InsertChunk(coord, new Chunk());
+        fixture.World.InsertChunk(neighbor, new Chunk());
+        fixture.World.ArchiveChunk(coord);
+
+        fixture.Runtime.SyncSelection(
+            coord,
+            horizontalRadius: 1,
+            retentionRadius: 2,
+            desired: new HashSet<ChunkCoord> { coord, neighbor },
+            presented: Array.Empty<ChunkCoord>());
+        var update = fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(),
+            Array.Empty<ChunkCoord>());
+
+        Assert.Equal(
+            ChunkActivationSource.Archive,
+            Assert.Single(update.Activations).Source);
+        Assert.True(fixture.WorldUpdates.HasLightingWork);
     }
 
     [Fact]
