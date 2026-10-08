@@ -84,6 +84,34 @@ public readonly struct MicroblockMask : IEquatable<MicroblockMask>
         return mask;
     }
 
+    /// <summary>Rotate occupancy around the local vertical voxel axis.</summary>
+    public MicroblockMask RotateAroundY(StructureRotation rotation)
+    {
+        if (!Enum.IsDefined(rotation))
+            throw new ArgumentOutOfRangeException(nameof(rotation));
+        if (rotation == StructureRotation.Degrees0 || IsEmpty || IsFull)
+            return this;
+
+        Span<ulong> output = stackalloc ulong[Edge];
+        output.Clear();
+        for (var z = 0; z < Edge; z++)
+        for (var y = 0; y < Edge; y++)
+        for (var x = 0; x < Edge; x++)
+        {
+            if (!Contains(x, y, z))
+                continue;
+            var (rotatedX, rotatedZ) = rotation switch
+            {
+                StructureRotation.Degrees90 => (Edge - 1 - z, x),
+                StructureRotation.Degrees180 => (Edge - 1 - x, Edge - 1 - z),
+                StructureRotation.Degrees270 => (z, Edge - 1 - x),
+                _ => throw new ArgumentOutOfRangeException(nameof(rotation))
+            };
+            output[rotatedZ] |= 1UL << (rotatedX + y * Edge);
+        }
+        return FromLayers(output);
+    }
+
     public int OccupiedCount =>
         BitOperations.PopCount(_layer0) +
         BitOperations.PopCount(_layer1) +

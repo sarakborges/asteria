@@ -121,7 +121,7 @@ public static class StructureSelectionExporter
         {
             id,
             locatable = false,
-            rotation = false,
+            rotation = true,
             anchor = new { x = 0, y = 0, z = 0 },
             palette,
             layers

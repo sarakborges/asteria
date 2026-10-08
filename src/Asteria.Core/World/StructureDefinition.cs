@@ -471,10 +471,6 @@ public sealed class StructureDefinition
 
             BlockDefinition.ValidateId(
                 voxel.Block);
-            if (rotation && voxel.Detail is { IsDefault: false })
-                throw new ArgumentException(
-                    $"Structure {id} cannot rotate non-default voxel state.",
-                    nameof(voxels));
             if (!occupied.Add(
                     (
                         voxel.X,

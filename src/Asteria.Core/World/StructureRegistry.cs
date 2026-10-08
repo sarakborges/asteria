@@ -269,14 +269,6 @@ public sealed class StructureRegistry
                             throw new ArgumentException(
                                 $"Structure {definition.Id} has unsupported dye {dye} for {voxel.Block}.");
                     }
-                    foreach (var layer in detail.Surface.Layers)
-                    {
-                        if (attachedLayers is null) continue;
-                        if (!attachedLayers.TryGet(layer.LayerId, out var authoredLayer) ||
-                            authoredLayer is null || !authoredLayer.Supports(layer.Face))
-                            throw new ArgumentException(
-                                $"Structure {definition.Id} uses unsupported layer {layer.LayerId} on {layer.Face}.");
-                    }
                 }
                 var rotations =
                     definition.Rotation
@@ -288,6 +280,22 @@ public sealed class StructureRegistry
                 foreach (var rotation in
                          rotations)
                 {
+                    if (voxel.Detail is { } rotatedDetail)
+                    {
+                        foreach (var attached in rotatedDetail.Surface.Layers)
+                        {
+                            if (block.Visual.Kind != BlockVisualKind.Geometry)
+                                throw new ArgumentException(
+                                    $"Structure {definition.Id} attaches layers to non-geometry block {voxel.Block}.");
+                            if (attachedLayers is null)
+                                continue;
+                            var face = StructureVoxelRotation.RotateFace(attached.Face, rotation);
+                            if (!attachedLayers.TryGet(attached.LayerId, out var authoredLayer) ||
+                                authoredLayer is null || !authoredLayer.Supports(face))
+                                throw new ArgumentException(
+                                    $"Structure {definition.Id} uses layer {attached.LayerId} on unsupported rotated face {face}.");
+                        }
+                    }
                     var orientation =
                         StructureDefinition
                             .RotateOrientation(

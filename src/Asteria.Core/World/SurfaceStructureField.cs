@@ -3558,11 +3558,7 @@ public sealed class SurfaceStructureField
                         voxel.Y,
                         voxel.Z);
                 var cell =
-                    voxel.Cell.WithOrientation(
-                        StructureDefinition
-                            .RotateOrientation(
-                                rotation,
-                                voxel.Cell.Orientation));
+                    StructureVoxelRotation.RotateCell(voxel.Cell, rotation);
                 voxels[index] =
                     new PlacedStructureVoxel(
                         checked(
@@ -3575,8 +3571,8 @@ public sealed class SurfaceStructureField
                             anchorZ +
                             rotated.Z),
                         cell,
-                        voxel.Mask,
-                        voxel.Surface);
+                        voxel.Mask.RotateAroundY(rotation),
+                        StructureVoxelRotation.RotateSurface(voxel.Surface, rotation));
             }
 
             for (var index = 0;

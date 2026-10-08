@@ -28,7 +28,7 @@ public sealed class StructureDetailedPlacementTests
             new BiomeTerrainDefinition(0f, 0f, 64, 0f, 32),
             [new BiomeSurfaceLayerDefinition("asteria:stone")]);
         var structure = new StructureDefinition(
-            "asteria:detailed", rotation: false, anchor: default,
+            "asteria:detailed", rotation: true, anchor: default,
             voxels: [new StructureVoxelDefinition(
                 0, 0, 0, "asteria:sculptable",
                 BlockOrientation.Y, detail)],
@@ -76,10 +76,13 @@ public sealed class StructureDetailedPlacementTests
         var cell = chunk.GetCell(lx, ly, lz);
         Assert.Equal(blocks.GetId("asteria:sculptable"), cell.Block);
         Assert.Equal(TextureRotation.Degrees90, cell.TextureRotation);
-        Assert.Equal(HorizontalFacing.North, cell.Facing);
+        Assert.Equal(StructureVoxelRotation.RotateFacing(
+            HorizontalFacing.North, placement.Rotation), cell.Facing);
         Assert.Equal((ushort)11, cell.State);
         Assert.True(cell.HasMicroblockGeometry);
-        Assert.Equal(mask, chunk.GetMicroblockMask(lx, ly, lz));
-        Assert.Equal(surface, chunk.GetSurfaceState(lx, ly, lz));
+        Assert.Equal(mask.RotateAroundY(placement.Rotation),
+            chunk.GetMicroblockMask(lx, ly, lz));
+        Assert.Equal(StructureVoxelRotation.RotateSurface(surface, placement.Rotation),
+            chunk.GetSurfaceState(lx, ly, lz));
     }
 }

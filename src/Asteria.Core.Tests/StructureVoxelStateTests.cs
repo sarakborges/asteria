@@ -92,11 +92,12 @@ public sealed class StructureVoxelStateTests
     }
 
     [Fact]
-    public void RejectsRotatingStatefulStructuresAndInvalidAuthoredContent()
+    public void ValidatesRotatingStatefulStructuresAndInvalidAuthoredContent()
     {
         var (_, original, _, _) = ExportDetailedBlock();
-        Assert.Throws<ArgumentException>(() => new StructureDefinition(
-            "asteria:rotating", true, default, original.Voxels));
+        var rotating = new StructureDefinition(
+            "asteria:rotating", true, default, original.Voxels);
+        Assert.True(rotating.Rotation);
         var (blocks, dyes, layers) = Registries();
         var detail = Assert.IsType<StructureVoxelState>(
             Assert.Single(original.Voxels).Detail);
