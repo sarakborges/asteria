@@ -28,7 +28,9 @@ public readonly record struct WorldLoadingProgress(
 /// </summary>
 public sealed class WorldLoadingState
 {
-    public const int InitialHorizontalRadiusChunks = 2;
+    // Bootstrap the spawn chunk and its immediate neighbors. The full
+    // configured render distance streams after the spawn is presented.
+    public const int InitialHorizontalRadiusChunks = 1;
 
     private WorldLoadingProgress _progress =
         new(
