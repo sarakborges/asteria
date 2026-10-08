@@ -13,6 +13,7 @@ import { WorldSelectionPage } from "./components/pages/WorldSelectionPage/WorldS
 import { StartingScreenPage } from "./components/pages/StartingScreenPage/StartingScreenPage";
 import type { UiStore } from "./state/uiStore";
 import { useUiStore } from "./state/useUiStore";
+import { buildControlGroups } from "./presentation/controlGroups";
 
 export type AppActions = {
   ping(): void;
@@ -131,6 +132,7 @@ export function App({
           <NewWorldPage
             state={state.worldCreation}
             onBack={actions.openWorldSelection}
+            onMainMenu={actions.backToStart}
             onCreate={actions.createWorld}
             onRandomize={actions.randomizeWorld}
           />
@@ -168,23 +170,7 @@ export function App({
       {state.navigation.overlay === "controls" && (
         <div className="settings-workspace">
           <ControlsPage
-            groups={[{
-              title: t("settings.section.keybinds"),
-              entries: [
-                { key: state.settings.client?.keybinds.jump ?? "Space",
-                  action: t("settings.keybind.jump"), bindAction: "Jump" },
-                { key: state.settings.client?.keybinds.descend ?? "ShiftLeft",
-                  action: t("settings.keybind.descend"), bindAction: "Descend" },
-                { key: state.settings.client?.keybinds.toolAction ?? "KeyR",
-                  action: t("settings.keybind.toolAction"), bindAction: "ToolAction" },
-                { key: state.settings.client?.keybinds.inventory ?? "KeyE",
-                  action: t("settings.keybind.inventory"), bindAction: "Inventory" },
-                { key: state.settings.client?.keybinds.dropItem ?? "KeyQ",
-                  action: t("settings.keybind.dropItem"), bindAction: "DropItem" },
-                { key: "WASD", action: t("settings.controls.movement") },
-                { key: "ESC", action: t("settings.controls.pause") },
-              ],
-            }]}
+            groups={buildControlGroups(t, state.settings.client?.keybinds)}
             capturingAction={state.settings.captureAction}
             captureError={state.settings.errorKey ? t(state.settings.errorKey) : null}
             onCapture={actions.beginKeyCapture}

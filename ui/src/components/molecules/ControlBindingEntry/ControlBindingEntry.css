@@ -1,0 +1,29 @@
+.control-binding-entry {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  min-height: 36px;
+  gap: 10px;
+}
+
+.control-binding-entry__binding {
+  width: 92px;
+  min-width: 92px;
+  flex: 0 0 92px;
+}
+
+.control-binding-entry__binding .ui-button,
+.control-binding-entry__binding .ui-key-cap {
+  width: 100%;
+  min-width: 0;
+  height: 36px;
+  min-height: 36px;
+  padding-inline: 4px;
+  overflow: hidden;
+  font-size: var(--ui-font-size-caption);
+}
+
+.control-binding-entry > .ui-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

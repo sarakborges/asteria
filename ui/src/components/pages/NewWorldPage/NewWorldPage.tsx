@@ -1,43 +1,39 @@
-import {
-  useEffect,
-  useState,
-  type FormEvent,
-} from "react";
+import { useEffect, useState, type FormEventHandler } from "react";
 import { useLocalization } from "../../../localization/LocalizationProvider";
-import type { WorldCreationState } from "../../../state/uiState";
+import type { WorldCreationState, GameMode } from "../../../state/uiState";
 import { Button } from "../../atoms/Button/Button";
 import { Surface } from "../../atoms/Surface/Surface";
 import { Text } from "../../atoms/Text/Text";
-import { Select } from "../../atoms/Select/Select";
-import { SettingRow } from "../../molecules/SettingRow/SettingRow";
 import { TextInput } from "../../atoms/TextInput/TextInput";
+import { SettingRow } from "../../molecules/SettingRow/SettingRow";
+import { GameModePicker } from "../../molecules/GameModePicker/GameModePicker";
+import { NumericStepper } from "../../molecules/NumericStepper/NumericStepper";
 import { CosmicBackground } from "../../organisms/CosmicBackground/CosmicBackground";
 import { ScreenShell } from "../../templates/ScreenShell/ScreenShell";
+import { SettingsPage, type SettingsSectionView } from "../SettingsPage/SettingsPage";
 import "./NewWorldPage.css";
+
+const FORM_ID = "world-creation-form";
 
 export type NewWorldPageProps = {
   state: WorldCreationState;
   onBack(): void;
+  onMainMenu?(): void;
   onCreate(request: {
-    seed: string; name: string;
-    mode: import("../../../state/uiState").GameMode;
-    ticksPerSecond: string;
+    seed: string; name: string; mode: GameMode; ticksPerSecond: string;
   }): void;
   onRandomize(): void;
 };
 
 export function NewWorldPage({
-  state,
-  onBack,
-  onCreate,
-  onRandomize,
+  state, onBack, onMainMenu, onCreate, onRandomize,
 }: NewWorldPageProps) {
   const { t } = useLocalization();
+  const [selectedSection, setSelectedSection] = useState("world-settings");
   const [seed, setSeed] = useState(state.seed);
   const [name, setName] = useState(state.name);
   const [mode, setMode] = useState(state.mode);
   const [ticksPerSecond, setTicksPerSecond] = useState(state.ticksPerSecond);
-  const request = () => onCreate({ seed: seed.trim(), name, mode, ticksPerSecond });
 
   useEffect(() => {
     setSeed(state.seed);
@@ -45,139 +41,118 @@ export function NewWorldPage({
 
   if (!state.visible) return null;
 
-  const submit = (
-    event: FormEvent<HTMLFormElement>,
-  ): void => {
+  const request = () => onCreate({ seed: seed.trim(), name, mode, ticksPerSecond });
+  const submit: FormEventHandler<HTMLFormElement> = event => {
     event.preventDefault();
-    request();
+    if (!state.pending) request();
   };
 
-  const footer =
-    state.generating
-      ? undefined
-      : (
-          <>
-            <Button
-              label={t("newWorld.return")}
-              size="menu"
-              className="new-world__create"
-              disabled={state.pending}
-              onClick={onBack}
-            />
-            <Button
-              label={t("newWorld.creating")}
-              variant="primary"
-              size="menu"
-              className="new-world__create"
-              disabled={state.pending}
-              onClick={() =>
-                request()
-              }
-            />
-          </>
-        );
+  if (state.generating) {
+    return (
+      <ScreenShell title={t("newWorld.generating")} background={<CosmicBackground />}
+        className="new-world new-world--generating">
+        <div className="new-world__generating-content">
+          <Surface variant="frosted" className="new-world__generating-panel">
+            <Text text={t("newWorld.preparing")} variant="body" />
+          </Surface>
+        </div>
+      </ScreenShell>
+    );
+  }
+
+  const sections: SettingsSectionView[] = [
+    {
+      id: "world-settings",
+      label: t("settings.section.worldSettings"),
+      content: (
+        <div className="new-world__form-rows">
+          <SettingRow title={t("newWorld.name")}
+            description={t("newWorld.name.description")}
+            control={<TextInput aria-label={t("newWorld.name")}
+              value={name} disabled={state.pending} maxLength={200}
+              onChange={event => setName(event.target.value)} />} />
+          <SettingRow title={t("settings.gameMode")}
+            description={t("settings.gameMode.description")}
+            control={<GameModePicker value={mode} disabled={state.pending}
+              onChange={setMode} />} />
+          <div className="new-world__setting">
+            <Text text={t("newWorld.seedLabel")} variant="setting-title" />
+            <Text text={t("newWorld.seed.description")} variant="caption" />
+            <div className="new-world__seed-row">
+              <TextInput
+                id="world-seed"
+                inputMode="numeric"
+                maxLength={20}
+                spellCheck={false}
+                autoComplete="off"
+                placeholder={t("newWorld.seedPlaceholder")}
+                aria-describedby="world-seed-help"
+                value={seed}
+                disabled={state.pending}
+                invalid={Boolean(state.errorKey)}
+                onChange={event => setSeed(event.target.value)}
+              />
+              <Button label={t("newWorld.randomSeed")} disabled={state.pending}
+                onClick={onRandomize} className="new-world__randomize" />
+            </div>
+            <span id="world-seed-help" className="new-world__help">
+              {t("newWorld.seedRange")}
+            </span>
+            {state.errorKey && (
+              <span className="new-world__error" role="alert">
+                {t(state.errorKey)}
+              </span>
+            )}
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: "game-rules",
+      label: t("settings.section.gameRules"),
+      content: (
+        <div className="new-world__form-rows">
+          <SettingRow title={t("settings.ticksBySecond")}
+            description={t("settings.ticksBySecond.description")}
+            control={<NumericStepper
+              ariaLabel={t("settings.ticksBySecond")}
+              min={1} max={4294967295}
+              value={ticksPerSecond} disabled={state.pending}
+              onChange={setTicksPerSecond}
+            />} />
+        </div>
+      ),
+    },
+  ];
+
+  const footer = (
+    <>
+      {onMainMenu && (
+        <Button label={t("newWorld.backToMenu")} size="menu"
+          className="new-world__create" disabled={state.pending}
+          onClick={onMainMenu} />
+      )}
+      <Button label={t("newWorld.backToWorlds")} size="menu"
+        className="new-world__create" disabled={state.pending}
+        onClick={onBack} />
+      <Button label={t("newWorld.createWorld")}
+        variant="primary" size="menu" type="submit"
+        formId={FORM_ID} className="new-world__create"
+        disabled={state.pending} />
+    </>
+  );
 
   return (
-    <ScreenShell
-      title={
-        state.generating
-          ? t("newWorld.generating")
-          : t("newWorld.creating")
-      }
-      background={<CosmicBackground />}
+    <SettingsPage
+      className="new-world"
+      title={t("newWorld.title")}
+      sections={sections}
+      selectedId={selectedSection}
+      onSelect={setSelectedSection}
+      onBack={onBack}
       footer={footer}
-      className={
-        state.generating
-          ? "new-world new-world--generating"
-          : "new-world"
-      }
-    >
-      <div className="new-world__content">
-        <Surface
-          variant="frosted"
-          className="new-world__panel"
-        >
-          {state.generating ? (
-            <div className="new-world__generating-copy">
-              <Text
-                text={t("newWorld.preparing")}
-                variant="body"
-              />
-            </div>
-          ) : (
-            <form
-              className="new-world__form"
-              onSubmit={submit}
-            >
-              <div className="new-world__settings-extra">
-                <SettingRow title={t("newWorld.name")}
-                  control={<TextInput aria-label={t("newWorld.name")}
-                    value={name} disabled={state.pending} maxLength={200}
-                    onChange={event => setName(event.target.value)} />} />
-                <SettingRow title={t("settings.gameMode")}
-                  control={<Select ariaLabel={t("settings.gameMode")}
-                    value={mode} disabled={state.pending}
-                    options={(["Survival", "Creative", "Spectator"] as const).map(value => ({
-                      value, label: t("settings.gameMode." + value.toLowerCase()),
-                    }))}
-                    onChange={event => setMode(event.target.value as typeof mode)} />} />
-                <SettingRow title={t("settings.ticksBySecond")}
-                  control={<TextInput aria-label={t("settings.ticksBySecond")}
-                    type="number" min={1} step={1} value={ticksPerSecond}
-                    disabled={state.pending}
-                    onChange={event => setTicksPerSecond(event.target.value)} />} />
-              </div>
-              <div className="new-world__setting">
-                <Text
-                  text={t("newWorld.seedLabel")}
-                  variant="setting-title"
-                />
-                <Text
-                  text={t("newWorld.seedHint")}
-                  variant="caption"
-                />
-                <div className="new-world__seed-row">
-                  <TextInput
-                    id="world-seed"
-                    inputMode="numeric"
-                    maxLength={20}
-                    spellCheck={false}
-                    autoComplete="off"
-                    placeholder={t("newWorld.seedPlaceholder")}
-                    aria-describedby="world-seed-help"
-                    value={seed}
-                    disabled={state.pending}
-                    invalid={Boolean(state.errorKey)}
-                    onChange={(event) =>
-                      setSeed(event.target.value)
-                    }
-                  />
-                  <Button
-                    label={t("newWorld.randomize")}
-                    disabled={state.pending}
-                    onClick={onRandomize}
-                    className="new-world__randomize"
-                  />
-                </div>
-                <span
-                  id="world-seed-help"
-                  className="new-world__help"
-                >
-                  {t("newWorld.seedRange")}
-                </span>
-                {state.errorKey && (
-                  <span
-                    className="new-world__error"
-                    role="alert"
-                  >
-                    {t(state.errorKey)}
-                  </span>
-                )}
-              </div>
-            </form>
-          )}
-        </Surface>
-      </div>
-    </ScreenShell>
+      formId={FORM_ID}
+      onSubmit={submit}
+    />
   );
 }

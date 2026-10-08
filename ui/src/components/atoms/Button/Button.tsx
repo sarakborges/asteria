@@ -15,6 +15,9 @@ export type ButtonProps = {
   disabled?: boolean;
   dataUi?: string;
   type?: "button" | "submit";
+  formId?: string;
+  ariaPressed?: boolean;
+  ariaLabel?: string;
   variant?: ButtonVariant;
   size?: ButtonSize;
   stretch?: boolean;
@@ -27,6 +30,9 @@ export function Button({
   disabled = false,
   dataUi,
   type = "button",
+  formId,
+  ariaPressed,
+  ariaLabel,
   variant = "normal",
   size = "compact",
   stretch = false,
@@ -46,6 +52,9 @@ export function Button({
   return (
     <button
       type={type}
+      form={formId}
+      aria-pressed={ariaPressed}
+      aria-label={ariaLabel}
       className={classes}
       disabled={disabled}
       data-ui={dataUi}

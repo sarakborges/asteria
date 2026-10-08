@@ -299,6 +299,19 @@ therefore a gray visual effect on Wasteland dirt should first be
 investigated in voxel lighting/AO, face shading, geometry or adjacent
 gravel layers, rather than changing Wasteland's grass/foliage tint data.
 
+## Authored biome tint blends
+
+The biome tint sampler blends only defined colors for the requested tint
+channel. A neighboring surface biome without a leaf/grass/foliage palette
+does **not** contribute a color. The sampler renormalizes the participating
+influence weights to prevent `BlockPreviewColor.Missing` (magenta) from
+desaturating oak foliage across Plains/Mountains and similar boundaries.
+If none of the influencing biomes specifies that channel, the original
+block preview fallback is preserved. This is purely material presentation:
+world-space biome placement, tree generation and authoritative block tint
+settings remain unchanged. Enchanted/world-tree foliage stays intentionally
+untinted.
+
 ## Tree leaf biome tint
 
 Oak and willow foliage use `tint: "leaf"` and tint-enabled texture layers;

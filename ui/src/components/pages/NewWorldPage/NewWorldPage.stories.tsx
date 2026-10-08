@@ -17,6 +17,7 @@ const meta = {
       errorKey: null,
     },
     onBack: () => undefined,
+    onMainMenu: () => undefined,
     onCreate: () => undefined,
     onRandomize: () => undefined,
   },
@@ -48,6 +49,36 @@ export const Generating: Story = {
       name: "New World", mode: "Survival", ticksPerSecond: "40",
       pending: true,
       generating: true,
+      errorKey: null,
+    },
+  },
+};
+
+export const Pending: Story = {
+  args: {
+    state: {
+      visible: true,
+      seed: "123456789",
+      name: "New World",
+      mode: "Survival",
+      ticksPerSecond: "40",
+      pending: true,
+      generating: false,
+      errorKey: null,
+    },
+  },
+};
+
+export const Creative: Story = {
+  args: {
+    state: {
+      visible: true,
+      seed: "420",
+      name: "Creative World",
+      mode: "Creative",
+      ticksPerSecond: "40",
+      pending: false,
+      generating: false,
       errorKey: null,
     },
   },

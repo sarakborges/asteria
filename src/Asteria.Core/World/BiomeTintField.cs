@@ -129,36 +129,28 @@ public sealed class BiomeTintSampleGrid
             _samples[
                 localX,
                 localZ];
-        var fallbackLinear =
-            ToLinear(
-                fallback);
-        var blended =
-            Vector3.Zero;
+        var blended = Vector3.Zero;
+        var authoredWeight = 0f;
 
-        foreach (var influence in
-                 sample.Influences)
+        foreach (var influence in sample.Influences)
         {
-            var color =
-                _palettes.TryGetValue(
-                    influence.BiomeId,
-                    out var palette)
-                    ? palette.For(
-                        tint)
-                    : null;
-            var linear =
-                color is
-                    { } authored
-                    ? ToLinear(
-                        authored)
-                    : fallbackLinear;
+            if (!_palettes.TryGetValue(influence.BiomeId, out var palette) ||
+                palette.For(tint) is not { } authored)
+            {
+                // An unspecified tint channel is not a color contribution.
+                // Blending the missing preview color desaturates foliage.
+                continue;
+            }
 
-            blended +=
-                linear *
-                influence.Weight;
+            blended += ToLinear(authored) * influence.Weight;
+            authoredWeight += influence.Weight;
         }
 
-        return ToSrgb(
-            blended);
+        // Normalize the weights of defined palette colors only.
+        // Preserve the original fallback if no influence defines the tint.
+        return authoredWeight > 0f
+            ? ToSrgb(blended / authoredWeight)
+            : ToSrgb(ToLinear(fallback));
     }
 
     private static Vector3 ToLinear(
