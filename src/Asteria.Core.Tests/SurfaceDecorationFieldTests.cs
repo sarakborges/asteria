@@ -58,6 +58,51 @@ public sealed class SurfaceDecorationFieldTests
     }
 
     [Fact]
+    public void GroundObjectsUseIndependentDeterministicChances()
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition("asteria:grass_block"),
+            new BlockDefinition("asteria:stone"),
+            new BlockDefinition("asteria:pebble"),
+            new BlockDefinition("asteria:stick"),
+        ]);
+        var biome = new BiomeDefinition(
+            "asteria:test/plains",
+            new BiomeSurfaceLayoutDefinition(),
+            new BiomeTerrainDefinition(0, 0, 64, 0, 32),
+            [new BiomeSurfaceLayerDefinition("asteria:grass_block")],
+            decorations:
+            [
+                new BiomeDecorationDefinition(
+                    "asteria:pebble", 0.3f, ["asteria:grass_block"]),
+                new BiomeDecorationDefinition(
+                    "asteria:stick", 0.5f, ["asteria:grass_block"],
+                    new BiomeDecorationClusterDefinition(18, -0.5f)),
+            ]);
+        var field = new SurfaceDecorationField(71, [biome], blocks);
+        var sameSeed = new SurfaceDecorationField(71, [biome], blocks);
+        var sample = new BiomeSample(
+            biome.Id, [new BiomeInfluence(biome.Id, 1f)]);
+        var observed = new HashSet<BlockRuntimeId>();
+        var grass = blocks.GetId("asteria:grass_block");
+        for (var z = -32; z <= 32; z++)
+        {
+            for (var x = -32; x <= 32; x++)
+            {
+                var actual = field.BlockAt(sample, grass, x, z);
+                Assert.Equal(actual, sameSeed.BlockAt(sample, grass, x, z));
+                observed.Add(actual);
+                Assert.True(field.BlockAt(
+                    sample, blocks.GetId("asteria:stone"), x, z).IsAir);
+            }
+        }
+        Assert.Contains(blocks.GetId("asteria:stick"), observed);
+        Assert.Contains(blocks.GetId("asteria:pebble"), observed);
+        Assert.Contains(BlockRuntimeId.Air, observed);
+    }
+
+    [Fact]
     public void ClusterParametersRejectInvalidValues()
     {
         Assert.Throws<ArgumentOutOfRangeException>(

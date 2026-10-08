@@ -146,6 +146,9 @@
   "asteria:mushroom_yellow": {
     "/name": "Hongo Amarillo"
   },
+  "asteria:pebble": {
+    "/name": "Guijarro"
+  },
   "asteria:planks_enchanted": {
     "/name": "Tablones Encantados"
   },
@@ -193,6 +196,9 @@
   },
   "asteria:sphere_shell": {
     "/name": "Corteza de Esfera"
+  },
+  "asteria:stick": {
+    "/name": "Palo"
   },
   "asteria:stone": {
     "/name": "Piedra"

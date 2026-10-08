@@ -1,0 +1,26 @@
+{
+  "id": "asteria:stick",
+  "category": "crafting_materials",
+  "tags": [
+    "support_below"
+  ],
+  "visual": {
+    "type": "groundSprite",
+    "texture": "textures/items/stick.png",
+    "width": 0.68,
+    "height": 0.012,
+    "baseOffset": 0.0125
+  },
+  "placementFaces": [
+    "top"
+  ],
+  "mining": {
+    "hardness": 0.05
+  },
+  "isCollidable": false,
+  "castsShadow": false,
+  "lightDampening": 0,
+  "alphaCutoff": 0.5,
+  "previewColor": "96714c",
+  "dropsSelf": true
+}

@@ -146,6 +146,9 @@
   "asteria:mushroom_yellow": {
     "/name": "Cogumelo Amarelo"
   },
+  "asteria:pebble": {
+    "/name": "Pedregulho"
+  },
   "asteria:planks_enchanted": {
     "/name": "Tábuas Encantadas"
   },
@@ -193,6 +196,9 @@
   },
   "asteria:sphere_shell": {
     "/name": "Casca da Esfera"
+  },
+  "asteria:stick": {
+    "/name": "Graveto"
   },
   "asteria:stone": {
     "/name": "Pedra"

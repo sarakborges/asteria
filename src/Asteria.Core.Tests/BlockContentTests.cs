@@ -92,6 +92,16 @@ public sealed class BlockContentTests
         Assert.True(pebble.DropsSelf);
         Assert.False(pebble.IsCollidable);
 
+        var stick =
+            registry.GetDefinition(registry.GetId("asteria:stick"));
+        Assert.Equal(BlockVisualKind.GroundSprite, stick.Visual.Kind);
+        Assert.Equal(0.68f, stick.Visual.Width);
+        Assert.Equal("textures/items/stick.png",
+            stick.Visual.Texture!.Value.Texture);
+        Assert.True(stick.HasTag(BlockPhysicsCapabilities.SupportBelow));
+        Assert.True(stick.DropsSelf);
+        Assert.False(stick.IsCollidable);
+
         foreach (var mushroomId in
                  new[]
                  {

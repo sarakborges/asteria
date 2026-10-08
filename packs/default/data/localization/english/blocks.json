@@ -146,6 +146,9 @@
   "asteria:mushroom_yellow": {
     "/name": "Yellow Mushroom"
   },
+  "asteria:pebble": {
+    "/name": "Pebble"
+  },
   "asteria:planks_enchanted": {
     "/name": "Enchanted Planks"
   },
@@ -193,6 +196,9 @@
   },
   "asteria:sphere_shell": {
     "/name": "Sphere Shell"
+  },
+  "asteria:stick": {
+    "/name": "Stick"
   },
   "asteria:stone": {
     "/name": "Stone"

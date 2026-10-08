@@ -80,6 +80,22 @@ public sealed class BiomeWorldGenerationTests
             Assert.NotNull(pebble.Cluster);
         }
 
+        foreach (var biomeId in new[]
+                 {
+                     "asteria:overworld/plains",
+                     "asteria:overworld/swamp",
+                     "asteria:overworld/enchanted_forest",
+                     "asteria:umbral/wraith_grove",
+                 })
+        {
+            var biome = biomes.Get(biomeId);
+            var stick = Assert.Single(
+                biome.Decorations,
+                decoration => decoration.Block == "asteria:stick");
+            Assert.True(stick.Cluster is { Scale: >= 2 });
+            Assert.NotEmpty(stick.SurfaceBlocks);
+        }
+
         var caverns =
             biomes.Get(
                 "asteria:overworld/caverns");

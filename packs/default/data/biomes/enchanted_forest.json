@@ -57,6 +57,18 @@
         "asteria:grass_block",
         "asteria:dirt"
       ]
+    },
+    {
+      "block": "asteria:stick",
+      "chance": 0.15,
+      "surfaceBlocks": [
+        "asteria:grass_block",
+        "asteria:dirt"
+      ],
+      "cluster": {
+        "scale": 22,
+        "threshold": -0.12
+      }
     }
   ],
   "tints": {
