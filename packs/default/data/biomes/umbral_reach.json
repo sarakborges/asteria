@@ -19,7 +19,27 @@
   "surfaceLayers": [
     {
       "block": "asteria:grass_block",
-      "depth": 1
+      "depth": 1,
+      "patch": {
+        "scale": 30,
+        "coverage": 0.24,
+        "roughness": 0.34,
+        "blocks": [
+          "asteria:dirt",
+          "asteria:gravel",
+          "asteria:stone"
+        ],
+        "detailScale": 10,
+        "selectionScale": 78,
+        "warpScale": 73,
+        "warpStrength": 12,
+        "stretchZ": 1.43,
+        "weights": {
+          "asteria:dirt": 4,
+          "asteria:gravel": 2,
+          "asteria:stone": 1
+        }
+      }
     },
     {
       "block": "asteria:dirt",
@@ -33,5 +53,78 @@
     "grass": "44526E",
     "leaf": "373F6F",
     "foliage": "465975"
+  },
+  "decorations": [
+    {
+      "block": "asteria:grass",
+      "chance": 0.24,
+      "surfaceBlocks": [
+        "asteria:grass_block"
+      ],
+      "habitatWeights": {
+        "shadow_meadows": 1.85,
+        "spectral_groves": 0.62,
+        "stony_fields": 0.13
+      }
+    },
+    {
+      "block": "asteria:pebble",
+      "chance": 0.1,
+      "surfaceBlocks": [
+        "asteria:grass_block",
+        "asteria:dirt",
+        "asteria:gravel",
+        "asteria:stone"
+      ],
+      "cluster": {
+        "scale": 18,
+        "threshold": -0.14,
+        "octaves": 4,
+        "transitionWidth": 0.12
+      },
+      "habitatWeights": {
+        "shadow_meadows": 0.37,
+        "spectral_groves": 0.17,
+        "stony_fields": 2.35
+      }
+    },
+    {
+      "block": "asteria:stick",
+      "chance": 0.1,
+      "surfaceBlocks": [
+        "asteria:grass_block",
+        "asteria:dirt",
+        "asteria:gravel"
+      ],
+      "cluster": {
+        "scale": 21,
+        "threshold": -0.17,
+        "octaves": 4,
+        "transitionWidth": 0.11
+      },
+      "habitatWeights": {
+        "shadow_meadows": 0.24,
+        "spectral_groves": 1.9,
+        "stony_fields": 0.14
+      }
+    }
+  ],
+  "surfaceHabitats": {
+    "scale": 138,
+    "transitionWidth": 0.12,
+    "bands": [
+      {
+        "id": "shadow_meadows",
+        "maximum": -0.19
+      },
+      {
+        "id": "spectral_groves",
+        "maximum": 0.18
+      },
+      {
+        "id": "stony_fields",
+        "maximum": 1
+      }
+    ]
   }
 }

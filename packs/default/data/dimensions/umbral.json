@@ -103,6 +103,138 @@
         "pale_clearing": 0.06,
         "decay_pockets": 2.25
       }
+    },
+    {
+      "biome": "asteria:umbral/umbral_reach",
+      "structure": "asteria:tree_wraith",
+      "spacing": 60,
+      "chance": 0.52,
+      "jitter": 18,
+      "habitatWeights": {
+        "shadow_meadows": 0.11,
+        "spectral_groves": 1.9,
+        "stony_fields": 0.04
+      }
+    },
+    {
+      "biome": "asteria:umbral/umbral_reach",
+      "structure": "asteria:wraith_grove",
+      "spacing": 183,
+      "chance": 0.58,
+      "jitter": 53,
+      "habitatWeights": {
+        "shadow_meadows": 0,
+        "spectral_groves": 2.05,
+        "stony_fields": 0
+      }
+    },
+    {
+      "biome": "asteria:umbral/umbral_reach",
+      "structure": "asteria:boulder_small",
+      "spacing": 48,
+      "chance": 0.25,
+      "jitter": 14,
+      "habitatWeights": {
+        "shadow_meadows": 0.24,
+        "spectral_groves": 0.16,
+        "stony_fields": 2.25
+      }
+    },
+    {
+      "biome": "asteria:umbral/umbral_reach",
+      "structure": "asteria:boulder_medium",
+      "spacing": 89,
+      "chance": 0.16,
+      "jitter": 26,
+      "habitatWeights": {
+        "shadow_meadows": 0.08,
+        "spectral_groves": 0.07,
+        "stony_fields": 2.05
+      }
+    },
+    {
+      "biome": "asteria:umbral/umbral_reach",
+      "structure": "asteria:rock_cluster",
+      "spacing": 128,
+      "chance": 0.42,
+      "jitter": 38,
+      "habitatWeights": {
+        "shadow_meadows": 0.06,
+        "spectral_groves": 0.03,
+        "stony_fields": 2.2
+      }
+    },
+    {
+      "biome": "asteria:umbral/withered_waste",
+      "structure": "asteria:withered_snag",
+      "spacing": 59,
+      "chance": 0.51,
+      "jitter": 18,
+      "habitatWeights": {
+        "dead_expanse": 0.14,
+        "withered_thickets": 1.8,
+        "rocky_barrens": 0.26
+      }
+    },
+    {
+      "biome": "asteria:umbral/withered_waste",
+      "structure": "asteria:fallen_log_wraith",
+      "spacing": 76,
+      "chance": 0.4,
+      "jitter": 23,
+      "habitatWeights": {
+        "dead_expanse": 0.27,
+        "withered_thickets": 1.7,
+        "rocky_barrens": 0.06
+      }
+    },
+    {
+      "biome": "asteria:umbral/withered_waste",
+      "structure": "asteria:boulder_small",
+      "spacing": 39,
+      "chance": 0.41,
+      "jitter": 12,
+      "habitatWeights": {
+        "dead_expanse": 0.22,
+        "withered_thickets": 0.12,
+        "rocky_barrens": 2.15
+      }
+    },
+    {
+      "biome": "asteria:umbral/withered_waste",
+      "structure": "asteria:boulder_medium",
+      "spacing": 70,
+      "chance": 0.3,
+      "jitter": 21,
+      "habitatWeights": {
+        "dead_expanse": 0.12,
+        "withered_thickets": 0.12,
+        "rocky_barrens": 1.85
+      }
+    },
+    {
+      "biome": "asteria:umbral/withered_waste",
+      "structure": "asteria:boulder_big",
+      "spacing": 113,
+      "chance": 0.17,
+      "jitter": 34,
+      "habitatWeights": {
+        "dead_expanse": 0.04,
+        "withered_thickets": 0,
+        "rocky_barrens": 1.8
+      }
+    },
+    {
+      "biome": "asteria:umbral/withered_waste",
+      "structure": "asteria:rock_cluster",
+      "spacing": 142,
+      "chance": 0.44,
+      "jitter": 43,
+      "habitatWeights": {
+        "dead_expanse": 0.03,
+        "withered_thickets": 0.05,
+        "rocky_barrens": 2.25
+      }
     }
   ]
 }
