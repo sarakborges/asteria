@@ -73,6 +73,7 @@ public sealed class MountainBiomeContentTests
         var sample = new BiomeSample(biome.Id,
             [new BiomeInfluence(biome.Id, 1f)]);
         var original = blocks.GetId(originalBlock);
+        var core = blocks.GetId(biome.SurfaceLayers[^1].Block);
         var seen = new HashSet<BlockRuntimeId>();
         var flat = new SurfacePlacementContext(eligibleY, 0);
         var excluded = new SurfacePlacementContext(ineligibleY, 0);
@@ -85,7 +86,7 @@ public sealed class MountainBiomeContentTests
             seen.Add(eligible);
             Assert.Equal(original, a.BlockAt(sample, x, z, 0, excluded));
             Assert.Equal(original, a.BlockAt(sample, x, z, 0, tooSteep));
-            Assert.Equal(original, a.BlockAt(sample, x, z, 3, flat));
+            Assert.Equal(core, a.BlockAt(sample, x, z, 3, flat));
         }
         Assert.True(seen.Contains(original));
         Assert.True(seen.Count > 1);
