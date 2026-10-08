@@ -4,6 +4,7 @@ import { ChatPanel } from "./ChatPanel";
 const meta = {
   title: "Organisms/ChatPanel",
   component: ChatPanel,
+  parameters: { layout: "fullscreen" },
   args: {
     open: true,
     visible: true,
@@ -45,3 +46,28 @@ export const HistoryOnly: Story = {
     suggestions: [],
   },
 };
+
+export const LongHistory: Story = {
+  args: {
+    open: true,
+    history: Array.from({ length: 70 }, (_, i) => ({
+      id: String(i),
+      text: "Message " + i,
+    })),
+    suggestions: [],
+    draft: "",
+  },
+};
+
+export const SuggestionWindow: Story = {
+  args: {
+    draft: "/",
+    selectedSuggestionIndex: 12,
+    suggestions: Array.from({ length: 15 }, (_, i) => ({
+      value: "/command" + i,
+      description: "Command " + i,
+    })),
+  },
+};
+
+export const Hidden: Story = { args: { visible: false } };
