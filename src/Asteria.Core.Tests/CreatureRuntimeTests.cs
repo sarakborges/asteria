@@ -32,6 +32,25 @@ public sealed class CreatureRuntimeTests
     }
 
     [Fact]
+    public void CommandKillUsesTheSameDeathLifecycleAsLethalCombat()
+    {
+        var runtime = new CreatureRuntime(Definitions());
+        Assert.True(runtime.TrySpawn("asteria:slime_aqua",
+            new Vector3(3, 20, 4), out var creature));
+
+        Assert.True(runtime.TryKill(creature.Id, out var death));
+        Assert.True(death.Killed);
+        Assert.Equal(creature.Id, death.Id);
+        Assert.Equal(0f, death.Health);
+        Assert.True(Assert.Single(runtime.ActiveCreatures).IsDying);
+        Assert.False(runtime.TryKill(creature.Id, out _));
+
+        runtime.Advance(CreatureRuntime.DeathAnimationSeconds,
+            new Vector3(3, 20, 4));
+        Assert.Equal(0, runtime.Count);
+    }
+
+    [Fact]
     public void SpawnObeysTypeCapacityAndStableIdOrder()
     {
         var runtime = new CreatureRuntime(Definitions());
