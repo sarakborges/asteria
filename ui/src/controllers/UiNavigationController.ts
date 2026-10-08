@@ -65,7 +65,7 @@ export function createUiNavigationController(
         show("none");
       } else {
         const state = store.getSnapshot();
-        if (state.mouseCaptured && !state.worldCreation.visible &&
+        if (state.mouseCaptured && !state.chat.open && !state.worldCreation.visible &&
             !state.loading && state.navigation.overlay === "none") show("pause");
       }
     },
