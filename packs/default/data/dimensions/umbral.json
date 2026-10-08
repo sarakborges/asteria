@@ -66,5 +66,43 @@
     "sizeExponent": 0.12,
     "seedBiasAmplitude": 0.045,
     "continuationBonus": 0.055
-  }
+  },
+  "generatedSurfaceStructures": [
+    {
+      "biome": "asteria:umbral/wraith_grove",
+      "structure": "asteria:tree_wraith",
+      "spacing": 39,
+      "chance": 0.72,
+      "jitter": 12,
+      "habitatWeights": {
+        "dusky_underbrush": 1.9,
+        "pale_clearing": 0.12,
+        "decay_pockets": 0.48
+      }
+    },
+    {
+      "biome": "asteria:umbral/wraith_grove",
+      "structure": "asteria:wraith_grove",
+      "spacing": 156,
+      "chance": 0.64,
+      "jitter": 45,
+      "habitatWeights": {
+        "dusky_underbrush": 2.1,
+        "pale_clearing": 0,
+        "decay_pockets": 0.27
+      }
+    },
+    {
+      "biome": "asteria:umbral/wraith_grove",
+      "structure": "asteria:wraith_snag",
+      "spacing": 58,
+      "chance": 0.49,
+      "jitter": 18,
+      "habitatWeights": {
+        "dusky_underbrush": 0.4,
+        "pale_clearing": 0.06,
+        "decay_pockets": 2.25
+      }
+    }
+  ]
 }

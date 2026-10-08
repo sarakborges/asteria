@@ -177,6 +177,45 @@ public sealed class SurfaceHabitatTests
     }
 
     [Fact]
+    public void WraithTreeAndSnagRootsFollowTheirAuthoredHabitats()
+    {
+        var biomePath = Path.Combine(AppContext.BaseDirectory, "packs",
+            "default", "data", "biomes", "wraith_grove.json");
+        var biome = BiomeDefinitionJson.Parse(File.ReadAllText(biomePath));
+        var dimensionPath = Path.Combine(AppContext.BaseDirectory, "packs",
+            "default", "data", "dimensions", "umbral.json");
+        var dimension = DimensionDefinitionJson.Parse(File.ReadAllText(dimensionPath));
+        var roots = dimension.GeneratedSurfaceStructures
+            .Where(root => root.Biome == biome.Id).ToArray();
+        Assert.Equal(3, roots.Length);
+        Assert.All(roots, rule =>
+            biome.SurfaceHabitats!.ValidateWeights(rule.HabitatWeights));
+
+        var tree = Assert.Single(roots,
+            root => root.Structure == "asteria:tree_wraith");
+        var grove = Assert.Single(roots,
+            root => root.Structure == "asteria:wraith_grove");
+        var snag = Assert.Single(roots,
+            root => root.Structure == "asteria:wraith_snag");
+
+        Assert.True(tree.HabitatWeights!.For("dusky_underbrush") >
+                    tree.HabitatWeights.For("pale_clearing"));
+        Assert.Equal(0, grove.HabitatWeights!.For("pale_clearing"));
+        Assert.True(snag.HabitatWeights!.For("decay_pockets") >
+                    snag.HabitatWeights.For("dusky_underbrush"));
+
+        var a = new SurfaceHabitatField(53UL, [biome]);
+        var b = new SurfaceHabitatField(53UL, [biome]);
+        foreach (var (x, z) in new[] { (-281, 71), (0, 0), (299, -112) })
+        {
+            Assert.Equal(a.Sample(biome.Id, x, z),
+                         b.Sample(biome.Id, x, z));
+            Assert.Equal(a.Weight(biome.Id, tree.HabitatWeights, x, z),
+                         b.Weight(biome.Id, tree.HabitatWeights, x, z));
+        }
+    }
+
+    [Fact]
     public void RejectInvalidBandsAndMissingHabitatReferences()
     {
         Assert.ThrowsAny<ArgumentException>(() =>
