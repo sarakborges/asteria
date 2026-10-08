@@ -1031,9 +1031,18 @@ public sealed class SurfaceTerrainField
             ulong seed,
             int x,
             int z,
-            float influenceWeight) =>
-            _rules.Any(rule =>
-                rule.MayExistAt(seed, x, z, influenceWeight));
+            float influenceWeight)
+        {
+            foreach (var rule in _rules)
+            {
+                if (rule.MayExistAt(seed, x, z, influenceWeight))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
 
         public double DensityAt(
             ulong seed,
