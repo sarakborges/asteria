@@ -15,7 +15,7 @@ namespace Asteria.Client;
 public partial class Main : Node3D
 {
     private const float InteractionDistance = 6f;
-    private const int RetentionMarginChunks = 10;
+    private const int RetentionMarginChunks = 4;
     private static readonly int MaxMaterializationTasksInFlight =
         Math.Clamp(
             System.Environment.ProcessorCount - 2,

@@ -51,6 +51,13 @@ public static class ChunkMeshDataBuilder
             new Dictionary<TerrainRenderBatch, List<ChunkMeshVertex>>();
         var collision = new List<Vector3>(1024);
         var bounds = ChunkMeshletMask.Bounds(meshletIndex);
+        // The fine-geometry decision depends on the immutable worker snapshot.
+        // Reuse it in all six greedy face passes rather than re-reading six
+        // neighbors for every occupied voxel on every face.
+        var fineMeshing = new bool[
+            ChunkMeshletMask.Edge *
+            ChunkMeshletMask.Edge *
+            ChunkMeshletMask.Edge];
         var (originX, originY, originZ) =
             VoxelCoordinates.ChunkOrigin(coord);
 
@@ -103,6 +110,7 @@ public static class ChunkMeshDataBuilder
                     if (definition.Shape.Kind == BlockShapeKind.Spike &&
                         !cell.HasMicroblockGeometry)
                     {
+                        fineMeshing[MeshletVoxelIndex(x, y, z)] = true;
                         EmitSpike(
                             surfaces, collision, world, blocks, textures,
                             x, y, z, worldPosition, cell, definition,
@@ -110,15 +118,12 @@ public static class ChunkMeshDataBuilder
                         continue;
                     }
 
-                    if (!RequiresFineMeshing(
-                            world,
-                            blocks,
-                            worldPosition,
-                            cell,
-                            definition))
-                    {
+                    var requiresFine = RequiresFineMeshing(
+                        world, blocks, worldPosition, cell, definition);
+                    fineMeshing[MeshletVoxelIndex(x, y, z)] =
+                        requiresFine;
+                    if (!requiresFine)
                         continue;
-                    }
 
                     EmitFineCell(
                         surfaces,
@@ -147,7 +152,8 @@ public static class ChunkMeshDataBuilder
             textures,
             bounds,
             tintSamples,
-            dyes);
+            dyes,
+            fineMeshing);
 
         EmitAttachedLayers(
             surfaces, collision, world, blocks, textures,
@@ -183,7 +189,8 @@ public static class ChunkMeshDataBuilder
             int MaxYExclusive,
             int MaxZExclusive) bounds,
         BiomeTintSampleGrid? tintSamples,
-        DyeRegistry? dyes)
+        DyeRegistry? dyes,
+        bool[] fineMeshing)
     {
         var chunk = world.GetChunk(coord);
         var (originX, originY, originZ) =
@@ -235,15 +242,8 @@ public static class ChunkMeshDataBuilder
                                 originY + y,
                                 originZ + z);
 
-                        if (RequiresFineMeshing(
-                                world,
-                                blocks,
-                                worldPosition,
-                                cell,
-                                definition))
-                        {
+                        if (fineMeshing[MeshletVoxelIndex(x, y, z)])
                             continue;
-                        }
 
                         var offset = FaceOffset(face);
                         if (!FaceIsExposed(
@@ -483,6 +483,13 @@ public static class ChunkMeshDataBuilder
             worldOriginX: worldOriginX,
             worldOriginZ: worldOriginZ,
             tintSamples: tintSamples);
+    }
+
+    private static int MeshletVoxelIndex(int x, int y, int z)
+    {
+        const int edge = ChunkMeshletMask.Edge;
+        return (x % edge) + (z % edge) * edge +
+            (y % edge) * edge * edge;
     }
 
     private static bool RequiresFineMeshing(

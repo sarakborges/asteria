@@ -54,6 +54,43 @@ public sealed class ChunkMeshDataBuilderTests
     }
 
     [Fact]
+    public void CubeBesidePartialNeighborPreservesFineFaceAndCollision()
+    {
+        const string texture = "textures/test/stone.png";
+        var layerTexture = new BlockTextureLayer(texture);
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition(
+                "asteria:stone",
+                textures: new BlockTextureSet(top: [layerTexture])),
+            new BlockDefinition(
+                "asteria:layer",
+                textures: new BlockTextureSet(top: [layerTexture]),
+                shape: BlockShapeDefinition.SurfaceLayer(
+                    0.5f, "asteria:stone")),
+        ]);
+        var chunk = new Chunk();
+        chunk.SetBlock(2, 2, 2, blocks.GetId("asteria:stone"));
+        chunk.SetBlock(3, 2, 2, blocks.GetId("asteria:layer"));
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, chunk);
+        var mesh = ChunkMeshDataBuilder.BuildMeshlet(
+            world, ChunkCoord.Zero, blocks,
+            new TerrainTextureLookup(new Dictionary<string, int>
+            {
+                [texture] = 0,
+            }), meshletIndex: 0);
+
+        Assert.True(mesh.HasRenderGeometry);
+        Assert.True(mesh.HasCollision);
+        Assert.Contains(mesh.RenderBatches.SelectMany(batch => batch.Vertices),
+            vertex =>
+                vertex.Normal == Vector3.UnitX &&
+                Math.Abs(vertex.Position.X - 3f) < 0.0001f &&
+                vertex.Position.Y > 2.5f);
+    }
+
+    [Fact]
     public void SingleOpaqueCubeBuildsTerrainAndCollisionInCore()
     {
         var texture =
