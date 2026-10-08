@@ -38,7 +38,7 @@ Reference: `sarakborges/mineclone` branch `world-systems-rebuild`. Screens live 
 | Game HUD | `GameHudPage`, HUD atoms/molecules/organisms` | Hotbar, target, crosshair, clock, world banner, toasts, vitals | Compare MineClone spacing, breakpoints, presentation and status effects |
 | Inventory / Crafting | Shared `InventoryWorkspace`, `InventoryGameplayPage` and `InventoryPage`; `InventoryHotbarFooter`, player/creative, character/crafting/station organisms | In-game survival uses three-column Character → Crafting-over-Inventory → Station layout; creative catalog has real hotbar/trash and tabs; metadata comes from runtime | Character 3D portrait/equipment data, recipe and station gameplay bridges, real crafting selection/action; item tooltips and cursor-follow stack icon now exist |
 | Storage Box | `StorageBoxPage`, shared `InventoryPanelHeader` and `InventoryHotbarFooter` | Nine-column storage/backpack grid, hotbar, sort/search actions and localized copy; read-only Storybook states | **Not mounted in gameplay**: needs Storage Box authoritative state and transport for operations |
-| Chat | `ChatPanel` + `ChatDock`, `ChatController`, Core `PlayerChatSession` | Native configured Chat key, bounded local 64-line history, 10-second feedback, local `/help`, `/position`, `/time`, localized outcomes and up/down/Tab suggestions | Multiplayer delivery and advanced MineClone commands are not implemented |
+| Chat | `ChatPanel` + `ChatDock`, `ChatController`, Core `PlayerChatSession` | Native configured Chat key, bounded local 64-line history, 10-second feedback, MineClone command grammar and actual `/spawn`, `/locate`, `/warp`, `/kill` runtime capabilities, localized feedback and up/down/Tab suggestions | `/place`, `/modify`, spawn metadata, locate-structure variations, distant same-Sphere warp and parameter ID completion remain pending |
 | Character Info | `CharacterInfoPanel` | Shown at inventory left in Survival and uses real HUD health when provided; missing portrait/equipment state is explicit | Wire authoritative equipment and 3D player preview without inventing state |
 | Brush Palette | `BrushPalettePage` | Asteria-specific gameplay overlay | Preserve semantic input/bridge ownership; no forced MineClone analogue |
 
@@ -71,8 +71,24 @@ MineClone sources inspected: `src/hud/inventory/layout/item.rs`, `src/hud/invent
 
 ## Live local Chat bridge (2026-10-08)
 
-- Core `PlayerChatSession` is the sole transcript owner: 64 bounded lines, monotonically increasing IDs, 256-character trimmed input and explicit open/close. `PlayerChatCommandProcessor` interprets only `/help`, `/position` and `/time`; unknown commands produce localized errors. Ordinary text is **local echo only**, not network messaging.
+- Core `PlayerChatSession` is the sole transcript owner: 64 bounded lines, monotonically increasing IDs, 256-character trimmed input and explicit open/close. `PlayerChatCommandProcessor` parses the exact MineClone rebuild command set: `/spawn`, `/place`, `/locate`, `/warp`, `/kill`, `/modify`, including authored grammar, coordinate order X Z Y, optional arguments and usage feedback. The invented `/help`, `/position`, `/time` commands were removed. Ordinary text is **local echo only**, not network messaging.
 - `FpsPlayer.ChatRequested` uses the **existing configurable Chat key** from `ClientPreferences` (default T). The Godot `Main` composition root enters/exits a modal, suspends gameplay input, publishes `game.chat.state` and handles semantic `ui.chat.submit`/`ui.chat.close` calls. World coordinates and clock are read from the current authoritative runtime. Closing restores normal mouse capture.
 - WebUI `ChatController` validates the state boundary, `UiStore.chat` holds a readonly presentation snapshot, and `ChatDock` owns only the text draft and focused autocomplete keyboard controls. `ChatPanel` localizes server feedback; browser-level gameplay keys and command mutation are prohibited.
 - Messages fade after 10 seconds of closed-chat activity, but the full Core transcript remains available when reopening.
 - `StorageBoxPage` still lacks an authoritative Core storage owner or active block/container interaction. Its Storybook fixtures cannot imply a functional container.
+
+## MineClone command parity correction (2026-10-08)
+
+Reference source: `mineclone/src/hud/chat/commands.rs` and `autocomplete.rs` on `world-systems-rebuild`. Previous local-only `/help`, `/position`, `/time` were **not** MineClone commands and have been removed from parser, autocomplete and translations.
+
+| Original command | Asteria state | Notes |
+| --- | --- | --- |
+| `/spawn <id> [meta_tag]` | Partial, real | Spawns authored creature at generator-validated loaded destination via `DimensionRuntimeSession.TrySpawnCreature`; meta-tag argument explicitly unimplemented until tags are modeled |
+| `/place structure <id> [variation]` | Parsed, not executable | No manual placement capability through the `SurfaceStructureField`/voxel mutation owners yet; displays an explicit error |
+| `/locate biome <id>` | Real | Searches only an authored active surface biome; work runs off-thread with stale-Sphere rejection |
+| `/locate structure <id> [variation]` | Partial, real | Finds generated surface structures using the authoritative field; selecting an explicit variation is not implemented |
+| `/warp <x> <z> <y> [dimension]` | Partial, real | Existing loaded same-Sphere safe destinations or standard cross-Sphere transition path; long-distance unloaded same-Sphere streaming not yet wired, returns failure rather than teleporting into unloaded terrain |
+| `/kill` | Real | Uses player target ray, authoritative CreatureRuntime death transition, loot and animation |
+| `/modify <add|remove|edit> <meta_tag> [value]` | Parsed, not executable | Requires creature meta-tag storage/semantics, serialization and authoritative mutation owner, currently absent |
+
+All command names are present in the grammar and autocomplete, but unsupported operations report `chat.command.notImplemented`. The UI must never report them as successful. **The full command port is not complete.** The parser is Core-owned with dedicated regression tests; commands call the existing content, generator and creature runtimes.
