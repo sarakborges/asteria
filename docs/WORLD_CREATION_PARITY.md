@@ -14,17 +14,17 @@ For current **UI** contracts inspect `mineclone/main/src/screens/settings_screen
 2. **World Generation**: World Type/Generation Mode (Normal, Flat, Void) → Spawn Biome → Biome Size Multiplier → Spawn Structures → Single Biome → Spawn Caves → Spawn Oceans.
 3. **Game Rules**: Ticks Per Second → Spawn Creatures.
 
-**Asteria currently has only sections 1 and 3; all seven World Generation controls above are missing.**
+**Implemented in Asteria source in PR #61:** all three creation sections, including World Generation. This is not yet an in-game WRY screenshot parity claim. All settings cross the creation/controller/IPC/Core generator boundary.
 
 | Setting | MineClone `main` behavior | Asteria state |
 | --- | --- | --- |
-| Normal / Flat / Void | Mode selector; Normal defaults true for Caves/Oceans, Flat and Void reset both to false | **Missing UI and Core generation mode** |
-| Spawn Biome | Searchable dropdown with Random or selectable *surface* biomes from default dimension, sorted by localized name; excludes ocean | **Missing UI/creation contract**. Core's `BiomeField.SelectSpawnBiome()` already handles automatic weighted selection, but no user override |
-| Biome Size Multiplier | Range **0.5–5.0** in 0.1 increments, slider + numeric editor, default 1.0; **hidden when Single Biome** | **Missing UI + scaled biome layout behavior** |
-| Spawn Structures | Independent boolean, default true | **Missing UI + per-world generator gating** |
-| Single Biome | Independent boolean, default false, **requires explicit Spawn Biome** before Create; Random entry withheld while enabled | **Missing UI + biome-field behavior** |
-| Spawn Caves | Boolean, default true in Normal; disabled when Void, reset false on Flat or Void selection | **Missing UI + generator cave gating** |
-| Spawn Oceans | Boolean, default true in Normal; disabled when Void, reset false on Flat or Void selection | **Missing UI + generated-ocean gating** |
+| Normal / Flat / Void | Mode selector; Normal defaults true for Caves/Oceans, Flat and Void reset both to false | Implemented: native Core Flat/Void terrain fields and world mode selector; Void uses a deterministic starter platform. |
+| Spawn Biome | Searchable dropdown with Random or selectable *surface* biomes from default dimension, sorted by localized name; excludes ocean | Implemented: scoped searchable dropdown and explicit Core spawn search. Option display names are currently humanized IDs, **not yet biome-localized names**. |
+| Biome Size Multiplier | Range **0.5–5.0** in 0.1 increments, slider + numeric editor, default 1.0; **hidden when Single Biome** | Implemented in field rule region bounds and responsive slider/numeric editor. |
+| Spawn Structures | Independent boolean, default true | Implemented: generator omits authored procedural surface structures, retaining separate manual structure APIs. |
+| Single Biome | Independent boolean, default false, **requires explicit Spawn Biome** before Create; Random entry withheld while enabled | Implemented: validates selected Sphere biome and uses a single surface-biome pool. |
+| Spawn Caves | Boolean, default true in Normal; disabled when Void, reset false on Flat or Void selection | Implemented through Core SurfaceTerrainField; Void disables cave generation. |
+| Spawn Oceans | Boolean, default true in Normal; disabled when Void, reset false on Flat or Void selection | Implemented in GeneratedFluidField, ocean surface-pool selection, and Flat coast policy. |
 | Ticks Per Second | Positive integer (Game Rules) | Wired |
 | Spawn Creatures | Boolean (Game Rules) | Wired via `WorldGameRules` and `WorldCreationOptions` |
 | Seed | Exact unsigned 64-bit decimal string (World Settings) | Wired and precision-safe |
@@ -38,7 +38,7 @@ There are **four World Generation toggles**, plus **Spawn Creatures** in Game Ru
 
 `NewWorldPage` → `WorldCreationController` → semantic `ui.world.create` payload → Godot validation → immutable `WorldCreationOptions` → `DimensionSessionStateStore` / per-dimension session generation policy → `BiomeWorldGenerator` → responsible Core terrain/biome/structure/fluid owners.
 
-Implement in coherent, independently validated batches:
+The following acceptance work is implemented in source under PR #61, with further in-game verification pending:
 
 1. Define immutable, validated per-world generation configuration (mode, flags, spawn biome, 0.1-resolution biome size); keep settings with the creation/session owner. Enforce Single Biome requires an actual surface biome, reject invalid IDs before creation. Do not copy MineClone's Bevy types directly.
 2. Implement **Normal/Flat/Void** as genuine deterministic world-generation modes, keeping nonnegative Y and Sphere Shell floor/roof, valid loading/spawn, saved-session isolation and manual changes/persistence. Flat/Void are **not** cosmetic terrain overrides.
@@ -51,6 +51,6 @@ Implement in coherent, independently validated batches:
 ## Source and verification rules
 
 - MineClone `main` code is the UI reference; `world-systems-rebuild` is still relevant for runtime internals **but does not include the above UI features**.
-- Asteria is *not* fully pareado until the actual generator respects these settings and visual tests include all three sections.
+- Asteria's creation flow now applies generation settings to Core and renders all three sections. In-game WRY/visual comparison and localized biome display labels remain pending; CI tests cannot substitute for those.
 - MineClone has **no active Spawn Rivers or Spawn Lakes controls** in `main` `new_world_generation_section()` despite Asteria localization keys existing. Do not invent UI toggles merely from localization strings.
 - Seed location is fixed: **World Settings**, not World Generation and not Game Rules.
