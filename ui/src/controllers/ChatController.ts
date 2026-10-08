@@ -1,5 +1,6 @@
 import type { BridgeMessage } from "../bridge/godotBridge";
 import type { ChatMessageView } from "../presentation/chatModels";
+import type { ChatCompletionCatalog } from "../state/uiState";
 import type { UiStore } from "../state/uiStore";
 import { asRecord } from "./messagePayload";
 
@@ -45,6 +46,9 @@ export function createChatController(
       if (!commands.every(value => typeof value === "string" &&
           SUPPORTED_COMMANDS.has(value))) return;
 
+      const catalog = readCatalog(payload.catalog);
+      if (!catalog) return;
+
       store.update(state => ({
         ...state,
         chat: {
@@ -52,6 +56,7 @@ export function createChatController(
           visible: payload.visible as boolean,
           history: entries as ChatMessageView[],
           commands: commands as string[],
+          catalog,
         },
       }));
     },
@@ -80,5 +85,54 @@ function readMessage(value: unknown): ChatMessageView | null {
     text: entry.text,
     tone: entry.tone,
     localizationKey: (entry.localizationKey ?? undefined) as ChatMessageView["localizationKey"],
+  };
+}
+
+const MAX_CATALOG_ITEMS = 512;
+const MAX_NAME_CHARS = 128;
+
+function readStringArray(value: unknown, maximum = MAX_CATALOG_ITEMS): string[] | null {
+  if (!Array.isArray(value) || value.length > maximum ||
+      !value.every(entry => typeof entry === "string" &&
+        entry.length > 0 && entry.length <= MAX_NAME_CHARS))
+    return null;
+  return value;
+}
+
+function readCatalog(value: unknown): ChatCompletionCatalog | null {
+  const catalog = asRecord(value);
+  if (!catalog) return null;
+  const creatures = readStringArray(catalog.creatures);
+  const biomes = readStringArray(catalog.biomes);
+  const structures = readStringArray(catalog.structures);
+  const dimensions = readStringArray(catalog.dimensions, 64);
+  if (!creatures || !biomes || !structures || !dimensions ||
+      !Array.isArray(catalog.variations) || catalog.variations.length > 256)
+    return null;
+
+  const variations: Record<string, readonly string[]> = {};
+  for (const raw of catalog.variations) {
+    const entry = asRecord(raw);
+    if (!entry || typeof entry.id !== "string" ||
+        !structures.includes(entry.id) ||
+        Object.prototype.hasOwnProperty.call(variations, entry.id))
+      return null;
+    const ids = readStringArray(entry.ids, 128);
+    if (!ids) return null;
+    Object.defineProperty(variations, entry.id, {
+      value: ids, enumerable: true, writable: false, configurable: false,
+    });
+  }
+
+  const position = catalog.position === null ? null : asRecord(catalog.position);
+  if (position === undefined || (position !== null &&
+      !["x", "y", "z"].every(axis =>
+        Number.isSafeInteger(position[axis]))))
+    return null;
+  return {
+    creatures, biomes, structures, dimensions, variations,
+    position: position === null ? null : {
+      x: position.x as number, y: position.y as number, z: position.z as number,
+    },
   };
 }
