@@ -211,7 +211,7 @@ export type GameplayInventoryState = {
 };
 
 export type UiNavigationState = {
-  preWorldScreen: "starting" | "new-world";
+  preWorldScreen: "starting" | "world-selection" | "new-world";
   overlay: OverlayScreen;
 };
 
