@@ -5,6 +5,8 @@ import { Button } from "../../atoms/Button/Button";
 import { Surface } from "../../atoms/Surface/Surface";
 import { Text } from "../../atoms/Text/Text";
 import { TextInput } from "../../atoms/TextInput/TextInput";
+import { UInt64Input } from "../../atoms/UInt64Input/UInt64Input";
+import { Toggle } from "../../atoms/Toggle/Toggle";
 import { SettingRow } from "../../molecules/SettingRow/SettingRow";
 import { GameModePicker } from "../../molecules/GameModePicker/GameModePicker";
 import { NumericStepper } from "../../molecules/NumericStepper/NumericStepper";
@@ -21,6 +23,7 @@ export type NewWorldPageProps = {
   onMainMenu?(): void;
   onCreate(request: {
     seed: string; name: string; mode: GameMode; ticksPerSecond: string;
+    spawnCreatures: boolean;
   }): void;
   onRandomize(): void;
 };
@@ -34,6 +37,7 @@ export function NewWorldPage({
   const [name, setName] = useState(state.name);
   const [mode, setMode] = useState(state.mode);
   const [ticksPerSecond, setTicksPerSecond] = useState(state.ticksPerSecond);
+  const [spawnCreatures, setSpawnCreatures] = useState(state.spawnCreatures);
 
   useEffect(() => {
     setSeed(state.seed);
@@ -41,7 +45,7 @@ export function NewWorldPage({
 
   if (!state.visible) return null;
 
-  const request = () => onCreate({ seed: seed.trim(), name, mode, ticksPerSecond });
+  const request = () => onCreate({ seed: seed.trim(), name, mode, ticksPerSecond, spawnCreatures });
   const submit: FormEventHandler<HTMLFormElement> = event => {
     event.preventDefault();
     if (!state.pending) request();
@@ -71,27 +75,15 @@ export function NewWorldPage({
             control={<TextInput aria-label={t("newWorld.name")}
               value={name} disabled={state.pending} maxLength={200}
               onChange={event => setName(event.target.value)} />} />
-          <SettingRow title={t("settings.gameMode")}
-            description={t("settings.gameMode.description")}
-            control={<GameModePicker value={mode} disabled={state.pending}
-              onChange={setMode} />} />
           <div className="new-world__setting">
             <Text text={t("newWorld.seedLabel")} variant="setting-title" />
             <Text text={t("newWorld.seed.description")} variant="caption" />
             <div className="new-world__seed-row">
-              <TextInput
-                id="world-seed"
-                inputMode="numeric"
-                maxLength={20}
-                spellCheck={false}
-                autoComplete="off"
-                placeholder={t("newWorld.seedPlaceholder")}
-                aria-describedby="world-seed-help"
-                value={seed}
-                disabled={state.pending}
-                invalid={Boolean(state.errorKey)}
-                onChange={event => setSeed(event.target.value)}
-              />
+              <UInt64Input id="world-seed" ariaLabel={t("newWorld.seed")}
+                descriptionId="world-seed-help" placeholder={t("newWorld.seedPlaceholder")}
+                value={seed} disabled={state.pending}
+                invalid={state.errorKey === "newWorld.error.invalidSeed"}
+                onChange={setSeed} />
               <Button label={t("newWorld.randomSeed")} disabled={state.pending}
                 onClick={onRandomize} className="new-world__randomize" />
             </div>
@@ -104,6 +96,10 @@ export function NewWorldPage({
               </span>
             )}
           </div>
+          <SettingRow title={t("settings.gameMode")}
+            description={t("settings.gameMode.description")}
+            control={<GameModePicker value={mode} disabled={state.pending}
+              onChange={setMode} />} />
         </div>
       ),
     },
@@ -111,7 +107,7 @@ export function NewWorldPage({
       id: "game-rules",
       label: t("settings.section.gameRules"),
       content: (
-        <div className="new-world__form-rows">
+        <div className="new-world__form-rows new-world__form-rows--rules">
           <SettingRow title={t("settings.ticksBySecond")}
             description={t("settings.ticksBySecond.description")}
             control={<NumericStepper
@@ -120,6 +116,11 @@ export function NewWorldPage({
               value={ticksPerSecond} disabled={state.pending}
               onChange={setTicksPerSecond}
             />} />
+          <SettingRow title={t("settings.spawnCreatures")}
+            description={t("settings.spawnCreatures.description")}
+            control={<Toggle ariaLabel={t("settings.spawnCreatures")}
+              checked={spawnCreatures} disabled={state.pending}
+              onChange={setSpawnCreatures} />} />
         </div>
       ),
     },

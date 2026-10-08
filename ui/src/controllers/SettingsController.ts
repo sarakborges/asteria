@@ -28,6 +28,9 @@ export function createSettingsController(
     setWorldTicks(value: number) {
       post("ui.world.set_ticks", { value });
     },
+    setSpawnCreatures(value: boolean) {
+      post("ui.world.set_spawn_creatures", { value });
+    },
     setGameMode(value: GameMode) {
       post("ui.player.set_game_mode", { mode: value });
     },
@@ -82,6 +85,7 @@ export function createSettingsController(
           const world: WorldSettingsState = {
             name: payload.name,
             ticksPerSecond: payload.ticksPerSecond,
+            spawnCreatures: payload.spawnCreatures === true,
             mode: payload.mode as GameMode,
           };
           change({ world, errorKey: null });

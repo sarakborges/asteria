@@ -23,6 +23,7 @@ export type AppActions = {
     seed: string; name: string;
     mode: import("./state/uiState").GameMode;
     ticksPerSecond: string;
+    spawnCreatures: boolean;
   }): void;
   randomizeWorld(): void;
   openWorldSelection(): void;
@@ -41,6 +42,7 @@ export type AppActions = {
   setHideHints(value: boolean): void;
   setGameplayHint(kind: "RotateBlock" | "BreakOrPlaceBlock", value: boolean): void;
   setWorldTicks(value: number): void;
+  setSpawnCreatures(value: boolean): void;
   setGameMode(value: import("./state/uiState").GameMode): void;
   beginKeyCapture(action: "Jump" | "Descend" | "ToolAction" | "Inventory" | "Chat" | "DropItem"): void;
   cancelKeyCapture(): void;
@@ -182,6 +184,7 @@ export function App({
           onHideHints={actions.setHideHints}
           onGameplayHint={actions.setGameplayHint}
           onWorldTicks={actions.setWorldTicks}
+          onSpawnCreatures={actions.setSpawnCreatures}
           onGameMode={actions.setGameMode}
         />
       )}
