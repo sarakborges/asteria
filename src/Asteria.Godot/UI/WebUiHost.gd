@@ -5,6 +5,7 @@ signal webui_ready
 
 const WEBVIEW_CLASS := "WebView"
 const UI_URL := "res://ui/dist/index.html"
+const UI_SOURCE_MANIFEST := "res://ui/dist/source-manifest.txt"
 const UI_SOURCE_PATHS := [
 	"res://ui/src",
 	"res://ui/index.html",
@@ -12,6 +13,7 @@ const UI_SOURCE_PATHS := [
 	"res://ui/package-lock.json",
 	"res://ui/tsconfig.json",
 	"res://ui/vite.config.ts",
+	"res://packs/default/data/localization",
 ]
 
 var _webview: Control
@@ -148,38 +150,49 @@ func _ensure_webui_bundle() -> bool:
 
 
 func _webui_bundle_is_stale() -> bool:
-	if not FileAccess.file_exists(UI_URL):
+	# Timestamps cannot prove bundle freshness after git checkouts or same-second
+	# file updates. The Vite build writes hashes for every source file instead.
+	if not FileAccess.file_exists(UI_URL) or not FileAccess.file_exists(UI_SOURCE_MANIFEST):
 		return true
 
-	var bundle_modified := FileAccess.get_modified_time(UI_URL)
-
-	for source_path in UI_SOURCE_PATHS:
-		if _latest_modified_time(source_path) > bundle_modified:
+	var expected := {}
+	var manifest := FileAccess.get_file_as_string(UI_SOURCE_MANIFEST)
+	for line in manifest.split("\n", false):
+		var columns := line.split("\t", false)
+		if columns.size() != 2:
 			return true
+		expected["res://" + columns[0]] = columns[1]
 
+	var source_files: Array[String] = []
+	for root in UI_SOURCE_PATHS:
+		_collect_ui_sources(root, source_files)
+	if source_files.size() != expected.size():
+		return true
+
+	for source_path in source_files:
+		if not expected.has(source_path):
+			return true
+		if FileAccess.get_sha256(source_path) != expected[source_path]:
+			return true
 	return false
 
 
-func _latest_modified_time(path: String) -> int:
+func _collect_ui_sources(path: String, files: Array[String]) -> void:
 	if FileAccess.file_exists(path):
-		return FileAccess.get_modified_time(path)
+		files.append(path)
+		return
 
 	var directory := DirAccess.open(path)
 	if directory == null:
-		return 0
+		return
 
-	var latest := 0
 	directory.list_dir_begin()
-
 	var entry := directory.get_next()
 	while entry != "":
-		var child_path := path.path_join(entry)
+		var child := path.path_join(entry)
 		if directory.current_is_dir():
-			latest = max(latest, _latest_modified_time(child_path))
+			_collect_ui_sources(child, files)
 		else:
-			latest = max(latest, FileAccess.get_modified_time(child_path))
-
+			files.append(child)
 		entry = directory.get_next()
-
 	directory.list_dir_end()
-	return latest

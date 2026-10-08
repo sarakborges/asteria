@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run check:localization && tsc && vite build",
+    "build": "npm run check:localization && tsc && vite build && node scripts/write-source-manifest.mjs",
     "preview": "vite preview",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "npm run check:localization && storybook build",
