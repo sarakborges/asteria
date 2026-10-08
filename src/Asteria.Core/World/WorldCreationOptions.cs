@@ -13,7 +13,8 @@ public sealed class WorldCreationOptions
         ulong seed,
         PlayerGameMode gameMode = PlayerGameMode.Survival,
         uint ticksPerSecond = WorldGameRules.DefaultTicksPerSecond,
-        bool spawnCreatures = true)
+        bool spawnCreatures = true,
+        WorldGenerationOptions? generation = null)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -62,6 +63,7 @@ public sealed class WorldCreationOptions
         GameMode = gameMode;
         TicksPerSecond = ticksPerSecond;
         SpawnCreatures = spawnCreatures;
+        Generation = generation ?? new WorldGenerationOptions();
     }
 
     public string Name { get; }
@@ -69,4 +71,5 @@ public sealed class WorldCreationOptions
     public PlayerGameMode GameMode { get; }
     public uint TicksPerSecond { get; }
     public bool SpawnCreatures { get; }
+    public WorldGenerationOptions Generation { get; }
 }
