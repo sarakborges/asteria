@@ -2164,6 +2164,41 @@ public partial class Main : Node3D
                 parameters = line.Parameters,
             }).ToArray(),
             commands = PlayerChatCommandProcessor.SupportedCommands,
+            catalog = new
+            {
+                creatures = _creatures.Definitions.Select(definition => definition.Id)
+                    .Take(512).ToArray(),
+                biomes = _dimension.SurfaceBiomes
+                    .OrderBy(id => id, StringComparer.Ordinal).Take(512).ToArray(),
+                structures = _structures.Definitions()
+                    .Select(definition => definition.GroupReference ?? definition.Id)
+                    .Concat(_structureSets.Definitions().Select(definition => definition.Id))
+                    .Distinct(StringComparer.Ordinal)
+                    .OrderBy(id => id, StringComparer.Ordinal).Take(512).ToArray(),
+                variations = _structures.Definitions()
+                    .Where(definition => definition.GroupReference is not null)
+                    .GroupBy(definition => definition.GroupReference!, StringComparer.Ordinal)
+                    .OrderBy(group => group.Key, StringComparer.Ordinal)
+                    .Take(256)
+                    .Select(group => new
+                    {
+                        id = group.Key,
+                        ids = group.Select(definition => definition.Id)
+                            .OrderBy(id => id, StringComparer.Ordinal)
+                            .Take(128).ToArray(),
+                    }).ToArray(),
+                dimensions = _dimensions.Definitions()
+                    .Select(definition => definition.Id.Value)
+                    .OrderBy(id => id, StringComparer.Ordinal).Take(64).ToArray(),
+                position = _player is { } player
+                    ? new
+                    {
+                        x = Mathf.FloorToInt(player.GlobalPosition.X),
+                        y = Mathf.FloorToInt(player.GlobalPosition.Y),
+                        z = Mathf.FloorToInt(player.GlobalPosition.Z),
+                    }
+                    : null,
+            },
         });
     }
 
