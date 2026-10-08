@@ -197,6 +197,9 @@
   "asteria:sphere_shell": {
     "/name": "Corteza de Esfera"
   },
+  "asteria:spike": {
+    "/name": "Pico"
+  },
   "asteria:stick": {
     "/name": "Palo"
   },

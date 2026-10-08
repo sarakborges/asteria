@@ -197,6 +197,9 @@
   "asteria:sphere_shell": {
     "/name": "Sphere Shell"
   },
+  "asteria:spike": {
+    "/name": "Spike"
+  },
   "asteria:stick": {
     "/name": "Stick"
   },

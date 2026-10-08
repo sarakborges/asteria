@@ -197,6 +197,9 @@
   "asteria:sphere_shell": {
     "/name": "Casca da Esfera"
   },
+  "asteria:spike": {
+    "/name": "Espigão"
+  },
   "asteria:stick": {
     "/name": "Graveto"
   },
