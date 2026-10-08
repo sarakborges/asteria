@@ -2229,8 +2229,10 @@ public partial class Main : Node3D
             {
                 creatures = _creatures.Definitions.Select(definition => definition.Id)
                     .Take(512).ToArray(),
-                biomes = _dimension.SurfaceBiomes
-                    .OrderBy(id => id, StringComparer.Ordinal).Take(512).ToArray(),
+                biomes = _worldSeed is null
+                    ? Array.Empty<string>()
+                    : _dimension.SurfaceBiomes.OrderBy(id => id, StringComparer.Ordinal)
+                        .Take(512).ToArray(),
                 structures = _structures.Definitions()
                     .Select(definition => definition.GroupReference ?? definition.Id)
                     .Concat(_structureSets.Definitions().Select(definition => definition.Id))
