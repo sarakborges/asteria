@@ -767,6 +767,54 @@
         "rubble_slopes": 1.8,
         "high_rims": 0.8
       }
+    },
+    {
+      "biome": "asteria:overworld/volcano",
+      "structure": "asteria:basalt_outcrop",
+      "spacing": 54,
+      "chance": 0.47,
+      "jitter": 16,
+      "habitatWeights": {
+        "ash_aprons": 0.18,
+        "fractured_flanks": 1.75,
+        "hardened_highlands": 0.74
+      }
+    },
+    {
+      "biome": "asteria:overworld/volcano",
+      "structure": "asteria:basalt_boulder",
+      "spacing": 112,
+      "chance": 0.27,
+      "jitter": 33,
+      "habitatWeights": {
+        "ash_aprons": 0.06,
+        "fractured_flanks": 1.05,
+        "hardened_highlands": 1.7
+      }
+    },
+    {
+      "biome": "asteria:overworld/volcano",
+      "structure": "asteria:basalt_spire",
+      "spacing": 152,
+      "chance": 0.28,
+      "jitter": 46,
+      "habitatWeights": {
+        "ash_aprons": 0,
+        "fractured_flanks": 0.32,
+        "hardened_highlands": 2.1
+      }
+    },
+    {
+      "biome": "asteria:overworld/volcano",
+      "structure": "asteria:basalt_cluster",
+      "spacing": 127,
+      "chance": 0.42,
+      "jitter": 38,
+      "habitatWeights": {
+        "ash_aprons": 0.13,
+        "fractured_flanks": 1.85,
+        "hardened_highlands": 0.3
+      }
     }
   ],
   "dayNightCycle": "asteria:overworld/day_night_cycle",

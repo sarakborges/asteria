@@ -1,0 +1,33 @@
+{
+  "id": "asteria:basalt_cluster",
+  "locatable": false,
+  "priority": 0,
+  "conflictGroups": [
+    "rock"
+  ],
+  "reserveSpace": false,
+  "elements": [
+    {
+      "id": "root",
+      "structure": "asteria:basalt_outcrop",
+      "required": true
+    },
+    {
+      "id": "satellites",
+      "structure": "asteria:basalt_outcrop",
+      "count": {
+        "min": 1,
+        "max": 2
+      },
+      "chance": 1,
+      "placement": {
+        "relativeTo": "root",
+        "minDistance": 7,
+        "maxDistance": 17,
+        "minSeparation": 6,
+        "attempts": 32,
+        "allowOverlap": false
+      }
+    }
+  ]
+}

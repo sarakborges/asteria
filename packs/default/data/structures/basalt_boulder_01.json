@@ -1,0 +1,101 @@
+{
+  "id": "asteria:basalt_boulder_01",
+  "rotation": true,
+  "restrictions": {
+    "groundBlocks": [
+      "asteria:basalt",
+      "asteria:basalt_cobble",
+      "asteria:gravel"
+    ],
+    "maxSlope": 1,
+    "requiredBiomeCoverage": 1,
+    "requiresDryGround": true
+  },
+  "anchor": {
+    "x": 5,
+    "y": 0,
+    "z": 5
+  },
+  "palette": {
+    "S": {
+      "block": "asteria:basalt"
+    }
+  },
+  "layers": [
+    {
+      "y": 0,
+      "rows": [
+        "...........",
+        "...........",
+        "....SS.....",
+        "...SSSS....",
+        "..SSSSSS...",
+        "..SSSSSSS..",
+        "...SSSSSS..",
+        "....SSSS...",
+        ".....SS....",
+        "...........",
+        "..........."
+      ]
+    },
+    {
+      "y": 1,
+      "rows": [
+        "...........",
+        "...........",
+        ".....S.....",
+        "...SSSS....",
+        "..SSSSSS...",
+        "...SSSSS...",
+        "...SSSS....",
+        "....SSS....",
+        "...........",
+        "...........",
+        "..........."
+      ]
+    },
+    {
+      "y": 2,
+      "rows": [
+        "...........",
+        "...........",
+        "...........",
+        "....SS.....",
+        "...SSSS....",
+        "...SSSS....",
+        "....SSS....",
+        "...........",
+        "...........",
+        "...........",
+        "..........."
+      ]
+    },
+    {
+      "y": 3,
+      "rows": [
+        "...........",
+        "...........",
+        "...........",
+        "...........",
+        "....SS.....",
+        "....SSS....",
+        ".....S.....",
+        "...........",
+        "...........",
+        "...........",
+        "..........."
+      ]
+    }
+  ],
+  "groupId": "basalt_boulder",
+  "locatable": false,
+  "priority": 0,
+  "conflictGroups": [
+    "rock"
+  ],
+  "generation": {
+    "replacePolicy": "terrain",
+    "fluidPolicy": "forbid",
+    "reserveSpace": false
+  }
+}

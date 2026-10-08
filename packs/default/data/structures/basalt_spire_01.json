@@ -1,0 +1,78 @@
+{
+  "id": "asteria:basalt_spire_01",
+  "groupId": "basalt_spire",
+  "locatable": false,
+  "rotation": true,
+  "priority": 0,
+  "conflictGroups": [
+    "rock"
+  ],
+  "restrictions": {
+    "groundBlocks": [
+      "asteria:basalt",
+      "asteria:basalt_cobble",
+      "asteria:gravel"
+    ],
+    "maxSlope": 2,
+    "requiredBiomeCoverage": 1,
+    "requiresDryGround": true
+  },
+  "generation": {
+    "replacePolicy": "terrain",
+    "fluidPolicy": "forbid",
+    "reserveSpace": false
+  },
+  "anchor": {
+    "x": 2,
+    "y": 0,
+    "z": 2
+  },
+  "groundAnchorY": 0,
+  "palette": {
+    "S": {
+      "block": "asteria:basalt"
+    }
+  },
+  "layers": [
+    {
+      "y": 1,
+      "rows": [
+        ".....",
+        "..S..",
+        ".SSS.",
+        "..SS.",
+        "....."
+      ]
+    },
+    {
+      "y": 2,
+      "rows": [
+        ".....",
+        "..S..",
+        "..SS.",
+        "..S..",
+        "....."
+      ]
+    },
+    {
+      "y": 3,
+      "rows": [
+        ".....",
+        ".....",
+        "..S..",
+        "..S..",
+        "....."
+      ]
+    },
+    {
+      "y": 4,
+      "rows": [
+        ".....",
+        ".....",
+        "..S..",
+        ".....",
+        "....."
+      ]
+    }
+  ]
+}
