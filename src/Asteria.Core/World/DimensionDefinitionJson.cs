@@ -231,7 +231,7 @@ public static class DimensionDefinitionJson
             ParseOceanShore(value));
     }
 
-    private static DimensionOceanShoreDefinition? ParseOceanShore(
+    private static DimensionShoreProfileDefinition? ParseOceanShore(
         JsonElement ocean)
     {
         if (!ocean.TryGetProperty("shore", out var value) ||
@@ -241,12 +241,26 @@ public static class DimensionDefinitionJson
         }
 
         value = RequiredObject(ocean, "shore");
-        return new DimensionOceanShoreDefinition(
-            RequiredInt32(value, "shelfDepth"),
-            RequiredInt32(value, "beachHeight"),
-            RequiredSingle(value, "beachStartDominance"),
-            RequiredSingle(value, "shelfStartDominance"),
-            RequiredSingle(value, "deepWaterStartDominance"));
+        if (!value.TryGetProperty("samples", out var samples) ||
+            samples.ValueKind != JsonValueKind.Array)
+        {
+            throw new FormatException("shore.samples must be an array.");
+        }
+
+        return new DimensionShoreProfileDefinition(
+            samples.EnumerateArray().Select(sample =>
+            {
+                if (sample.ValueKind != JsonValueKind.Object)
+                {
+                    throw new FormatException(
+                        "Each shore sample must be an object.");
+                }
+
+                return new DimensionShoreSampleDefinition(
+                    RequiredSingle(sample, "dominance"),
+                    RequiredSingle(sample, "minimumHeight"),
+                    RequiredSingle(sample, "strength"));
+            }));
     }
 
     private static DimensionCaveDefinition? ParseCaves(
