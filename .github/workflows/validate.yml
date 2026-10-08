@@ -93,3 +93,19 @@ jobs:
       - name: Build WebUI Storybook
         working-directory: ui
         run: npm run build-storybook
+
+      - name: Install Chromium for screen parity tests
+        working-directory: ui
+        run: npx playwright install --with-deps chromium
+
+      - name: Test rendered screen parity
+        working-directory: ui
+        run: npm run test:screen-parity
+
+      - name: Upload screen parity evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: webui-screen-parity
+          path: ui/test-results/
+          if-no-files-found: ignore
