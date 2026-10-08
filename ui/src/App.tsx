@@ -33,7 +33,7 @@ export type AppActions = {
   setGameplayHint(kind: "RotateBlock" | "BreakOrPlaceBlock", value: boolean): void;
   setWorldTicks(value: number): void;
   setGameMode(value: import("./state/uiState").GameMode): void;
-  beginKeyCapture(action: "Jump" | "Descend"): void;
+  beginKeyCapture(action: "Jump" | "Descend" | "ToolAction"): void;
   cancelKeyCapture(): void;
 };
 
@@ -133,6 +133,8 @@ export function App({
                   action: t("settings.keybind.jump"), bindAction: "Jump" },
                 { key: state.settings.client?.keybinds.descend ?? "ShiftLeft",
                   action: t("settings.keybind.descend"), bindAction: "Descend" },
+                { key: state.settings.client?.keybinds.toolAction ?? "KeyR",
+                  action: t("settings.keybind.toolAction"), bindAction: "ToolAction" },
                 { key: "WASD", action: t("settings.controls.movement") },
                 { key: "ESC", action: t("settings.controls.pause") },
               ],

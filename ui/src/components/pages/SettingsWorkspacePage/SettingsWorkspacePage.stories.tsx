@@ -15,7 +15,7 @@ const meta = {
           targetBlockPosition: "Center",
           hints: { rotateBlock: true, breakOrPlaceBlock: true },
         },
-        keybinds: { jump: "Space", descend: "ShiftLeft" },
+        keybinds: { jump: "Space", descend: "ShiftLeft", toolAction: "KeyR" },
       },
       world: { name: "New World", mode: "Survival", ticksPerSecond: 40 },
       captureAction: null,

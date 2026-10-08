@@ -31,7 +31,7 @@ export function createSettingsController(
     setGameMode(value: GameMode) {
       post("ui.player.set_game_mode", { mode: value });
     },
-    beginKeyCapture(action: "Jump" | "Descend") {
+    beginKeyCapture(action: "Jump" | "Descend" | "ToolAction") {
       post("ui.client_preferences.capture_keybind", { action });
     },
     cancelKeyCapture() {
@@ -50,7 +50,8 @@ export function createSettingsController(
               typeof hints.breakOrPlaceBlock !== "boolean" ||
               typeof payload.renderDistanceChunks !== "number" ||
               !["Center", "TopRight", "Hidden"].includes(String(position)) ||
-              typeof keys.jump !== "string" || typeof keys.descend !== "string") break;
+              typeof keys.jump !== "string" || typeof keys.descend !== "string" ||
+              typeof keys.toolAction !== "string") break;
           const client: ClientSettingsState = {
             renderDistanceChunks: payload.renderDistanceChunks,
             hud: {
@@ -61,7 +62,8 @@ export function createSettingsController(
                 breakOrPlaceBlock: hints.breakOrPlaceBlock,
               },
             },
-            keybinds: { jump: keys.jump, descend: keys.descend },
+            keybinds: { jump: keys.jump, descend: keys.descend,
+              toolAction: keys.toolAction },
           };
           store.update(state => ({
             ...state,
@@ -87,7 +89,8 @@ export function createSettingsController(
           const status = payload?.status;
           const isActive = ["Capturing", "ReservedKey", "KeyConflict", "UnsupportedKey"].includes(String(status));
           const captureAction = isActive &&
-            (action === "Jump" || action === "Descend") ? action : null;
+            (action === "Jump" || action === "Descend" || action === "ToolAction")
+            ? action : null;
           const errors: Record<string, string> = {
             ReservedKey: "settings.error.reservedKey",
             KeyConflict: "settings.error.keyConflict",

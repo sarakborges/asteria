@@ -116,3 +116,5 @@ Asteria reserves **F3/F4** in addition to MineClone's WASD/hotbar keys because t
 - `HeldBlockPlacement` is the one Core owner of the player's selected block/rotation, retained across Sphere switches; Tool Action uses the native rebinding and respects the selected block's authored valid orientations or horizontal facing. Block placement now uses that validated cell, not a hardcoded unrotated cell.
 - The existing target prompt is now driven by the client-owned `HideHints`, `BreakOrPlaceBlock` and `RotateBlock` settings, and the latter appears only for authored rotatable/facing blocks. The UI exposes only these hints with actual gameplay consumers; the other hint flags remain data-only pending tools.
 - These changes **do not** implement true item inventory, chat, item-drop keybinding, third-person camera or creature spawning. No inert control is advertised as functional.
+
+- Tool Action (`R` by default) is now an active rebindable action in ControlsPage, alongside Jump and Descend. It is captured by native Godot input and drives the authored held block rotation policy.

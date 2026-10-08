@@ -10,7 +10,7 @@ import "./ControlsPage.css";
 export type ControlEntryView = {
   key: string;
   action: string;
-  bindAction?: "Jump" | "Descend";
+  bindAction?: "Jump" | "Descend" | "ToolAction";
 };
 
 export type ControlGroupView = {
@@ -20,9 +20,9 @@ export type ControlGroupView = {
 
 export type ControlsPageProps = {
   groups: readonly ControlGroupView[];
-  capturingAction?: "Jump" | "Descend" | null;
+  capturingAction?: "Jump" | "Descend" | "ToolAction" | null;
   captureError?: string | null;
-  onCapture?(action: "Jump" | "Descend"): void;
+  onCapture?(action: "Jump" | "Descend" | "ToolAction"): void;
   onCancelCapture?(): void;
   onBack(): void;
 };
