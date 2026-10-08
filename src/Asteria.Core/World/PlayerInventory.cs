@@ -86,24 +86,38 @@ public sealed class PlayerInventory
     public bool ClickSlot(int index)
     {
         if (index is < 0 or >= TotalSlots) return false;
-        var slot = _slots[index];
-        if (slot is null && Cursor is null) return false;
+        if (!ClickExternalSlot(_slots[index], out var replacement))
+            return false;
+        _slots[index] = replacement;
+        return true;
+    }
 
+    /// <summary>
+    /// Transfers the player's cursor against one externally owned slot.
+    /// The caller must validate that slot and synchronously publish the
+    /// returned replacement. No UI or container can change Cursor directly.
+    /// </summary>
+    public bool ClickExternalSlot(
+        InventoryStack? slot, out InventoryStack? replacement)
+    {
+        replacement = slot;
+        if (slot is null && Cursor is null) return false;
         if (slot is not null && Cursor is not null &&
             slot.CanStackWith(Cursor))
         {
             var move = Math.Min(
                 slot.MaxStackSize - slot.Quantity, Cursor.Quantity);
             if (move == 0) return false;
-            _slots[index] = slot.WithQuantity(slot.Quantity + move);
+            replacement = slot.WithQuantity(slot.Quantity + move);
             Cursor = move == Cursor.Quantity
                 ? null : Cursor.WithQuantity(Cursor.Quantity - move);
         }
         else
         {
-            _slots[index] = Cursor;
+            replacement = Cursor;
             Cursor = slot;
         }
+
         Revision++;
         return true;
     }
