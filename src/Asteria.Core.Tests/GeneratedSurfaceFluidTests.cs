@@ -394,7 +394,7 @@ public sealed class GeneratedSurfaceFluidTests
                         scale: 0.0065f,
                         detailAmplitude: 0.4f,
                         detailScale: 0.045f),
-                    fillToSeaLevel: true)),
+                    fillToSeaLevel: true),
                 [
                     new BiomeSurfaceLayerDefinition(
                         "asteria:stone"),
