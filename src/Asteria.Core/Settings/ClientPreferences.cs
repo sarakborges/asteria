@@ -286,6 +286,7 @@ public sealed class ClientPreferences
     public static bool IsReserved(KeyboardKey key) =>
         key is KeyboardKey.KeyW or KeyboardKey.KeyA or
             KeyboardKey.KeyS or KeyboardKey.KeyD or
+            KeyboardKey.F3 or KeyboardKey.F4 or
             >= KeyboardKey.Digit1 and <= KeyboardKey.Digit9;
 
     private static void ValidateAction(KeybindAction action)

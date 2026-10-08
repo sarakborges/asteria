@@ -60,6 +60,10 @@ public sealed class ClientPreferencesTests
         Assert.Equal(KeybindChangeResult.Reserved,
             settings.SetKeybind(KeybindAction.Jump, KeyboardKey.KeyW));
         Assert.Equal(KeybindChangeResult.Reserved,
+            settings.SetKeybind(KeybindAction.Jump, KeyboardKey.F3));
+        Assert.Equal(KeybindChangeResult.Reserved,
+            settings.SetKeybind(KeybindAction.Jump, KeyboardKey.F4));
+        Assert.Equal(KeybindChangeResult.Reserved,
             settings.SetKeybind(KeybindAction.Jump, KeyboardKey.Digit1));
         Assert.Equal(KeybindChangeResult.Conflict,
             settings.SetKeybind(KeybindAction.Jump, KeyboardKey.KeyE));
