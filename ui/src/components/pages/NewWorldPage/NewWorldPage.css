@@ -36,3 +36,27 @@
  }
  .new-world .screen-shell__footer { gap: 8px; padding-inline: 12px; }
 }
+
+.new-world__mode-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.new-world__mode-picker > .ui-button { flex: 0 0 auto; }
+.new-world__biome-size {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+.new-world__biome-size .ui-slider { flex: 1 1 auto; min-width: 0; }
+.new-world__biome-size .ui-text-input {
+  flex: 0 0 100px;
+  width: 100px;
+  font-variant-numeric: tabular-nums;
+}
+.new-world__form-rows > .new-world__form-rows--rules { gap: 18px; }
+@media (max-width: 760px) {
+  .new-world__biome-size .ui-text-input { flex: 0 0 72px; width: 72px; }
+}
