@@ -1058,6 +1058,88 @@ public sealed class SurfaceStructureTests
 
     }
 
+    [Fact]
+    public void ManualStructureUsesAuthoredGroundAndMutationRuntime()
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition("asteria:stone"),
+            new BlockDefinition("asteria:marker"),
+        ]);
+        var definition = new StructureDefinition(
+            "asteria:test_manual",
+            rotation: false,
+            anchor: default,
+            voxels:
+            [
+                new StructureVoxelDefinition(0, 0, 0,
+                    "asteria:marker", BlockOrientation.Y),
+            ],
+            restrictions: new StructureRestrictionsDefinition(
+                maxSlope: 0, requiresDryGround: false));
+        var registry = new StructureRegistry([definition]);
+        // No procedural structure roots: this is a manual-only definition.
+        var generator = FlatStructureGenerator(
+            blocks, registry, "asteria:stone");
+        var height = generator.SurfaceHeight(8, 8);
+        var coordinate = VoxelCoordinates.FromWorld(8, height, 8).Chunk;
+        var world = new VoxelWorld();
+        world.InsertChunk(coordinate, generator.Materialize(coordinate));
+
+        var mutations = new VoxelMutationRuntime(
+            world, new WorldUpdateQueue(), new FluidUpdateQueue(),
+            new FluidMeshUpdateQueue(), new BlockPhysicsUpdateQueue(),
+            new MeshletContentRevisions(), new MeshletContentRevisions());
+        var runtime = new ManualStructurePlacementRuntime(
+            generator, world, mutations, blocks, registry);
+        var playerBounds = new WorldAabb(
+            new System.Numerics.Vector3(12, height + 2, 12),
+            new System.Numerics.Vector3(13, height + 4, 13));
+
+        Assert.Equal(ManualStructurePlacementResult.Placed,
+            runtime.TryPlace(definition.Id, null, 8, 8, playerBounds));
+        Assert.Equal(blocks.GetId("asteria:marker"),
+            world.GetCellOrEmpty(new WorldVoxelCoord(8, height, 8)).Block);
+        Assert.Equal(ManualStructurePlacementResult.UnknownReference,
+            runtime.TryPlace("asteria:missing", null, 8, 8, playerBounds));
+    }
+
+    [Fact]
+    public void ManualStructureNeverChangesUnloadedWorld()
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition("asteria:stone"),
+            new BlockDefinition("asteria:marker"),
+        ]);
+        var definition = new StructureDefinition(
+            "asteria:test_manual", rotation: false,
+            anchor: default,
+            voxels:
+            [
+                new StructureVoxelDefinition(0, 0, 0,
+                    "asteria:marker", BlockOrientation.Y),
+            ]);
+        var registry = new StructureRegistry([definition]);
+        var world = new VoxelWorld();
+        var generator = FlatStructureGenerator(
+            blocks, registry, "asteria:stone");
+        var mutations = new VoxelMutationRuntime(
+            world, new WorldUpdateQueue(), new FluidUpdateQueue(),
+            new FluidMeshUpdateQueue(), new BlockPhysicsUpdateQueue(),
+            new MeshletContentRevisions(), new MeshletContentRevisions());
+        var runtime = new ManualStructurePlacementRuntime(
+            generator, world, mutations, blocks, registry);
+        var bounds = new WorldAabb(
+            new System.Numerics.Vector3(12, 70, 12),
+            new System.Numerics.Vector3(13, 72, 13));
+
+        Assert.Equal(ManualStructurePlacementResult.NonResident,
+            runtime.TryPlace(definition.Id, null, 8, 8, bounds));
+        Assert.Equal(0, world.ChunkCount);
+        Assert.Equal(0UL, world.Revision);
+    }
+
     [Theory]
     [InlineData(0, 0)]
     [InlineData(31, 17)]
