@@ -87,6 +87,7 @@ export function App({
           visible={state.chat.visible}
           history={state.chat.history}
           commands={state.chat.commands}
+          catalog={state.chat.catalog}
           onClose={actions.closeChat}
           onSubmit={actions.submitChat}
         />
