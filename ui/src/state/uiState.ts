@@ -6,6 +6,9 @@ export type BridgeStatusTone =
 export type HotbarSlotState = {
   id?: string;
   quantity?: number;
+  kind?: "block" | "item" | "tool";
+  metadata?: Record<string, string>;
+  iconUrl?: string;
 };
 
 export type HotbarState = {
@@ -185,6 +188,7 @@ export type InventoryCatalogEntry = {
   name: string;
   category: string;
   metadata: InventoryMetadata;
+  iconUrl?: string;
 };
 
 export type GameplayInventoryState = {

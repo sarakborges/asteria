@@ -20,11 +20,19 @@ export type InventoryGameplayPageProps = {
 
 function itemView(
   slot: GameplayInventoryState["cursor"],
+  catalog: GameplayInventoryState["catalog"],
 ): ItemStackView | null {
-  return slot ? {
+  if (!slot) return null;
+  const authored = catalog.find(choice =>
+    choice.id === slot.id &&
+    choice.kind === slot.kind &&
+    Object.keys(choice.metadata).length === Object.keys(slot.metadata).length &&
+    Object.entries(choice.metadata).every(([key, value]) =>
+      slot.metadata[key] === value));
+  return {
     id: slot.id, kind: slot.kind, quantity: slot.quantity,
-    metadata: slot.metadata,
-  } : null;
+    metadata: slot.metadata, iconUrl: authored?.iconUrl,
+  };
 }
 
 /**
@@ -103,8 +111,8 @@ export function InventoryGameplayPage({
           <PlayerInventoryPanel
             state={{
               searchQuery: search,
-              backpack: state.backpack.map(itemView),
-              hotbar: state.hotbar.map(itemView),
+              backpack: state.backpack.map(slot => itemView(slot, state.catalog)),
+              hotbar: state.hotbar.map(slot => itemView(slot, state.catalog)),
             }}
             onSearchChange={setSearch}
             onSort={onSort}
@@ -116,7 +124,7 @@ export function InventoryGameplayPage({
 
       <footer className="inventory-gameplay__footer">
         <Text text={t("inventory.cursor")} variant="detail" />
-        <InventorySlot item={itemView(state.cursor)} disabled />
+        <InventorySlot item={itemView(state.cursor, state.catalog)} disabled />
         {state.cursor && <Text text={t("inventory.cursor.help")} variant="caption" />}
         {state.errorKey && <Text text={t(state.errorKey)} variant="caption" />}
       </footer>

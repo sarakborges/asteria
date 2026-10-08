@@ -1,4 +1,4 @@
-import type { HudState } from "../../../state/uiState";
+import type { HudState, InventoryCatalogEntry } from "../../../state/uiState";
 import { Crosshair } from "../../atoms/Crosshair/Crosshair";
 import { FpsCounter } from "../../atoms/FpsCounter/FpsCounter";
 import { InteractionPrompt } from "../../molecules/InteractionPrompt/InteractionPrompt";
@@ -16,6 +16,7 @@ import { HudShell } from "../../templates/HudShell/HudShell";
 export type GameHudPageProps = {
   embedded: boolean;
   state: HudState;
+  catalog?: InventoryCatalogEntry[];
   onPing(): void;
   onDismissToast(id: number): void;
 };
@@ -23,6 +24,7 @@ export type GameHudPageProps = {
 export function GameHudPage({
   embedded,
   state,
+  catalog = [],
   onPing,
   onDismissToast,
 }: GameHudPageProps) {
@@ -60,7 +62,19 @@ export function GameHudPage({
         />
       }
       hotbar={spectator ? null : (
-        <Hotbar state={state.hotbar} />
+        <Hotbar state={{
+          ...state.hotbar,
+          slots: state.hotbar.slots.map(slot => ({
+            ...slot,
+            iconUrl: catalog.find(choice =>
+              choice.id === slot.id &&
+              choice.kind === slot.kind &&
+              Object.keys(choice.metadata).length ===
+                Object.keys(slot.metadata ?? {}).length &&
+              Object.entries(choice.metadata).every(([key, value]) =>
+                slot.metadata?.[key] === value))?.iconUrl,
+          })),
+        }} />
       )}
       playerHud={spectator ? null : (
         <PlayerVitals state={state.vitals} />

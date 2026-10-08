@@ -38,6 +38,10 @@ public sealed class InventoryContentCatalogTests
     {
         var catalog = CreateCatalog();
         Assert.Equal(4, catalog.Choices.Count);
+        Assert.Equal(
+            "textures/items/dimensional_slicer_umbral.png",
+            catalog.Choices.Single(choice =>
+                choice.Entry.Metadata.ContainsKey("target_dimension")).IconResourcePath);
         Assert.True(catalog.TryResolve(
             InventoryEntryKind.Item, "asteria:dimensional_slicer",
             "target_dimension", "asteria:umbral", out var item));

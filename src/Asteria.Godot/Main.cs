@@ -86,6 +86,8 @@ public partial class Main : Node3D
     private PackContentRegistry<ItemDefinition> _items = null!;
     private PackContentRegistry<ToolDefinition> _tools = null!;
     private InventoryContentCatalog _inventoryCatalog = null!;
+    private readonly Dictionary<string, string> _inventoryIconCache =
+        new(StringComparer.Ordinal);
     private PackContentRegistry<CreatureDefinition> _creatures = null!;
     private FluidRegistry _fluids = null!;
     private BiomeRegistry _biomes = null!;
@@ -1522,9 +1524,31 @@ public partial class Main : Node3D
                     category = choice.Entry.Kind.ToString().ToLowerInvariant() +
                         "/" + choice.Category,
                     metadata = choice.Entry.Metadata,
+                    iconUrl = choice.IconResourcePath is { } path
+                        ? IconDataUri(path) : null,
                 })
                 .ToArray(),
         });
+    }
+
+    private string IconDataUri(string resourcePath)
+    {
+        if (_inventoryIconCache.TryGetValue(resourcePath, out var cached))
+            return cached;
+
+        if (!resourcePath.EndsWith(".png", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException(
+                $"Inventory icon must be PNG: {resourcePath}");
+        var absolute = ProjectPackFiles.AbsoluteResourcePath(
+            _packSelection, resourcePath);
+        var info = new FileInfo(absolute);
+        if (info.Length is < 1 or > 131072)
+            throw new InvalidDataException(
+                $"Inventory icon exceeds allowed size: {resourcePath}");
+        var encoded = "data:image/png;base64," +
+            Convert.ToBase64String(File.ReadAllBytes(absolute));
+        _inventoryIconCache.Add(resourcePath, encoded);
+        return encoded;
     }
 
     private void SyncHeldBlock()

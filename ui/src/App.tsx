@@ -73,6 +73,7 @@ export function App({
       <GameHudPage
         embedded={embedded}
         state={state.hud}
+        catalog={state.inventory.catalog}
         onPing={actions.ping}
         onDismissToast={actions.dismissToast}
       />

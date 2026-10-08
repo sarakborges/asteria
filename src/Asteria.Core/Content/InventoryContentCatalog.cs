@@ -27,7 +27,7 @@ public sealed class InventoryContentCatalog
                 InventoryEntry.FromBlock(
                     definition.Id,
                     BlockStateSnapshot.FromCell(new VoxelCell(runtimeId))),
-                definition.Category));
+                definition.Category, null));
         }
 
         foreach (var definition in items.Definitions)
@@ -35,7 +35,7 @@ public sealed class InventoryContentCatalog
             choices.Add(new InventoryCatalogChoice(
                 InventoryEntry.FromItem(
                     definition.Id, maxStackSize: definition.MaxStackSize),
-                definition.Category));
+                definition.Category, definition.Icon));
             foreach (var variant in definition.IconVariants)
             {
                 choices.Add(new InventoryCatalogChoice(
@@ -44,7 +44,7 @@ public sealed class InventoryContentCatalog
                         {
                             [variant.MetadataKey] = variant.MetadataValue,
                         }, definition.MaxStackSize),
-                    definition.Category));
+                    definition.Category, variant.Icon));
             }
         }
 
@@ -116,4 +116,5 @@ public sealed class InventoryContentCatalog
 
 public sealed record InventoryCatalogChoice(
     InventoryEntry Entry,
-    string Category);
+    string Category,
+    string? IconResourcePath);

@@ -104,6 +104,9 @@ export function createInventoryController(
               ? [{
                 id: item.id, kind, name: item.name,
                 category: item.category, metadata,
+                iconUrl: typeof item.iconUrl === "string" &&
+                  item.iconUrl.startsWith("data:image/png;base64,")
+                    ? item.iconUrl : undefined,
               }]
               : [];
         });

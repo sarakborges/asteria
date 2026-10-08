@@ -1,4 +1,4 @@
-import { abbreviateContentId } from "../../../presentation/formatters";
+import { ItemGlyph } from "../../atoms/ItemGlyph/ItemGlyph";
 import type { HotbarSlotState } from "../../../state/uiState";
 import "./HotbarSlot.css";
 
@@ -37,7 +37,7 @@ export function HotbarSlot({
       <span className="hotbar-slot__glyph">
         {id === ""
           ? ""
-          : abbreviateContentId(id)}
+          : <ItemGlyph item={{ id, iconUrl: state?.iconUrl }} />}
       </span>
       <span className="hotbar-slot__quantity">
         {quantity > 1

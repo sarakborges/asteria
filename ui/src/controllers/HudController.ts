@@ -224,6 +224,14 @@ function readHotbar(payload: unknown): HotbarState {
             slot && typeof slot.quantity === "number"
               ? slot.quantity
               : undefined,
+          kind:
+            slot?.kind === "block" || slot?.kind === "item" ||
+            slot?.kind === "tool" ? slot.kind : undefined,
+          metadata:
+            slot && typeof slot.metadata === "object" &&
+            slot.metadata !== null && !Array.isArray(slot.metadata)
+              ? slot.metadata as Record<string, string>
+              : undefined,
         };
       })
     : [];
