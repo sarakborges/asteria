@@ -47,6 +47,24 @@ export function createHudController(
           applyUiTheme(message.payload);
           break;
 
+        case "game.player_mode": {
+          const payload = asRecord(message.payload);
+          const mode = payload?.mode;
+          if (
+            mode === "survival" ||
+            mode === "creative" ||
+            mode === "spectator"
+          ) {
+            patchHud(store, {
+              gameMode: mode,
+              ...(mode === "spectator"
+                ? { target: null, targetEntity: null, prompt: null }
+                : {}),
+            });
+          }
+          break;
+        }
+
         case "game.hud.debug": {
           const payload = asRecord(message.payload);
           patchHud(store, {

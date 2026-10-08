@@ -26,8 +26,9 @@ export function GameHudPage({
   onPing,
   onDismissToast,
 }: GameHudPageProps) {
+  const spectator = state.gameMode === "spectator";
   const targetOverlay =
-    state.targetEntity ? (
+    spectator ? null : state.targetEntity ? (
       <HudEntityCard
         entity={state.targetEntity}
       />
@@ -40,11 +41,11 @@ export function GameHudPage({
   return (
     <HudShell
       debugVisible={state.debugVisible}
-      crosshair={<Crosshair />}
+      crosshair={spectator ? null : <Crosshair />}
       interactionPrompt={
-        <InteractionPrompt
-          prompt={state.prompt}
-        />
+        spectator ? null : (
+          <InteractionPrompt prompt={state.prompt} />
+        )
       }
       targetOverlay={targetOverlay}
       worldBanner={
@@ -57,16 +58,12 @@ export function GameHudPage({
           state={state.clock}
         />
       }
-      hotbar={
-        <Hotbar
-          state={state.hotbar}
-        />
-      }
-      playerHud={
-        <PlayerVitals
-          state={state.vitals}
-        />
-      }
+      hotbar={spectator ? null : (
+        <Hotbar state={state.hotbar} />
+      )}
+      playerHud={spectator ? null : (
+        <PlayerVitals state={state.vitals} />
+      )}
       statusEffects={
         <StatusEffects
           effects={state.effects}

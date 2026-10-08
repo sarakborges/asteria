@@ -29,6 +29,7 @@ public partial class FpsPlayer : CharacterBody3D
 
     public event Action? BreakRequested;
     public event Action? PlaceRequested;
+    public event Action? FlightStateChanged;
     public event Action<bool>? MouseCaptureChanged;
     public event Action<FluidBodyContact>?
         FluidContactChanged;
@@ -175,6 +176,7 @@ public partial class FpsPlayer : CharacterBody3D
                 if (PlayerState.Land())
                 {
                     Velocity = Vector3.Zero;
+                    FlightStateChanged?.Invoke();
                 }
             }
             return;
@@ -408,7 +410,10 @@ public partial class FpsPlayer : CharacterBody3D
         {
             if (key.Pressed && !key.Echo && !_jumpHeld)
             {
-                PlayerState.JumpPressed(CurrentWorldTick());
+                if (PlayerState.JumpPressed(CurrentWorldTick()))
+                {
+                    FlightStateChanged?.Invoke();
+                }
             }
             _jumpHeld = key.Pressed;
         }

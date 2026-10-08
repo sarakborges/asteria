@@ -93,6 +93,7 @@ export type StatusCardState = {
 };
 
 export type HudState = {
+  gameMode?: "survival" | "creative" | "spectator";
   debugVisible: boolean;
   hotbar: HotbarState;
   world: WorldBannerState | null;
@@ -153,6 +154,7 @@ export function createInitialUiState(
   return {
     mouseCaptured: false,
     hud: {
+      gameMode: "survival",
       debugVisible: false,
       hotbar: {
         slots: [],

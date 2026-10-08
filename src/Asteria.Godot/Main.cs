@@ -619,6 +619,8 @@ public partial class Main : Node3D
             PlaceTargetBlock;
         _player.MouseCaptureChanged -=
             SendMouseCaptureState;
+        _player.FlightStateChanged -=
+            SendPlayerModeState;
         _player.FluidContactChanged -=
             OnPlayerFluidContactChanged;
         _sessionStates.Player.CancelDoubleTap();
@@ -1400,6 +1402,8 @@ public partial class Main : Node3D
         _player.PlaceRequested += PlaceTargetBlock;
         _player.MouseCaptureChanged +=
             SendMouseCaptureState;
+        _player.FlightStateChanged +=
+            SendPlayerModeState;
         _player.FluidContactChanged +=
             OnPlayerFluidContactChanged;
         AddChild(_player);
