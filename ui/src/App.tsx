@@ -194,6 +194,7 @@ export function App({
       {!preWorldVisible && state.navigation.overlay === "inventory" && (
         <InventoryGameplayPage
           state={state.inventory}
+          health={state.hud.vitals?.health}
           onClose={actions.closeInventory}
           onSlotClick={actions.clickInventorySlot}
           onSort={actions.sortInventory}
