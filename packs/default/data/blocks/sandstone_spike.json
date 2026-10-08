@@ -1,0 +1,31 @@
+{
+  "id": "asteria:sandstone_spike",
+  "category": "natural_blocks",
+  "shape": {
+    "type": "spike",
+    "baseRadius": 0.46,
+    "tipRadius": 0.025,
+    "sides": 7
+  },
+  "placementFaces": [
+    "top",
+    "bottom"
+  ],
+  "textures": {
+    "top": "textures/blocks/sandstone.png",
+    "bottom": "textures/blocks/sandstone.png",
+    "left": "textures/blocks/sandstone.png",
+    "right": "textures/blocks/sandstone.png",
+    "front": "textures/blocks/sandstone.png",
+    "back": "textures/blocks/sandstone.png"
+  },
+  "lightDampening": 0,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1.5,
+    "requiredTools": [
+      "pickaxe"
+    ]
+  },
+  "previewColor": "e1c88d"
+}

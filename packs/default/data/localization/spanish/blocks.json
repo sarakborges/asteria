@@ -11,6 +11,9 @@
   "asteria:basalt_polished": {
     "/name": "Basalto Pulido"
   },
+  "asteria:basalt_spike": {
+    "/name": "Pico de Basalto"
+  },
   "asteria:basalt_tiles": {
     "/name": "Baldosas de Basalto"
   },
@@ -43,6 +46,9 @@
   },
   "asteria:ice_polished": {
     "/name": "Hielo Pulido"
+  },
+  "asteria:ice_spike": {
+    "/name": "Pico de Hielo"
   },
   "asteria:ice_tiles": {
     "/name": "Baldosas de Hielo"
@@ -176,6 +182,9 @@
   "asteria:sandstone_polished": {
     "/name": "Arenisca Pulida"
   },
+  "asteria:sandstone_spike": {
+    "/name": "Pico de Arenisca"
+  },
   "asteria:sandstone_tiles": {
     "/name": "Baldosas de Arenisca"
   },
@@ -197,9 +206,6 @@
   "asteria:sphere_shell": {
     "/name": "Corteza de Esfera"
   },
-  "asteria:spike": {
-    "/name": "Pico"
-  },
   "asteria:stick": {
     "/name": "Palo"
   },
@@ -215,6 +221,9 @@
   "asteria:stone_polished": {
     "/name": "Piedra Pulida"
   },
+  "asteria:stone_spike": {
+    "/name": "Pico de Piedra"
+  },
   "asteria:stone_tiles": {
     "/name": "Baldosas de Piedra"
   },
@@ -223,5 +232,8 @@
   },
   "asteria:terracotta": {
     "/name": "Terracota"
+  },
+  "asteria:terracotta_spike": {
+    "/name": "Pico de Terracota"
   }
 }

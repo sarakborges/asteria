@@ -59,7 +59,7 @@
   ],
   "caveSpikes": [
     {
-      "block": "asteria:spike",
+      "block": "asteria:stone_spike",
       "chance": 0.035,
       "minHeight": 2,
       "maxHeight": 9,

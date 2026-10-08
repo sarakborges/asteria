@@ -1,5 +1,5 @@
 {
-  "id": "asteria:spike",
+  "id": "asteria:stone_spike",
   "category": "natural_blocks",
   "shape": {
     "type": "spike",
@@ -23,7 +23,7 @@
   "castsShadow": true,
   "mining": {
     "hardness": 1.5,
-    "preferredTools": [
+    "requiredTools": [
       "pickaxe"
     ]
   },

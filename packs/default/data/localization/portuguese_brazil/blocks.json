@@ -11,6 +11,9 @@
   "asteria:basalt_polished": {
     "/name": "Basalto Polido"
   },
+  "asteria:basalt_spike": {
+    "/name": "Espigão de Basalto"
+  },
   "asteria:basalt_tiles": {
     "/name": "Ladrilhos de Basalto"
   },
@@ -43,6 +46,9 @@
   },
   "asteria:ice_polished": {
     "/name": "Gelo Polido"
+  },
+  "asteria:ice_spike": {
+    "/name": "Espigão de Gelo"
   },
   "asteria:ice_tiles": {
     "/name": "Ladrilhos de Gelo"
@@ -176,6 +182,9 @@
   "asteria:sandstone_polished": {
     "/name": "Arenito Polido"
   },
+  "asteria:sandstone_spike": {
+    "/name": "Espigão de Arenito"
+  },
   "asteria:sandstone_tiles": {
     "/name": "Ladrilhos de Arenito"
   },
@@ -197,9 +206,6 @@
   "asteria:sphere_shell": {
     "/name": "Casca da Esfera"
   },
-  "asteria:spike": {
-    "/name": "Espigão"
-  },
   "asteria:stick": {
     "/name": "Graveto"
   },
@@ -215,6 +221,9 @@
   "asteria:stone_polished": {
     "/name": "Pedra Polida"
   },
+  "asteria:stone_spike": {
+    "/name": "Espigão de Pedra"
+  },
   "asteria:stone_tiles": {
     "/name": "Ladrilhos de Pedra"
   },
@@ -223,5 +232,8 @@
   },
   "asteria:terracotta": {
     "/name": "Terracota"
+  },
+  "asteria:terracotta_spike": {
+    "/name": "Espigão de Terracota"
   }
 }

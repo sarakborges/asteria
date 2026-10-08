@@ -92,7 +92,7 @@ public sealed class TerrainDensityTests
         var generator = Generator(
             caves: WideCaves(),
             caveSpike: new BiomeCaveSpikeDefinition(
-                "asteria:spike", 1f, 3, 5, 6,
+                "asteria:stone_spike", 1f, 3, 5, 6,
                 [CaveSpikeDirection.Up, CaveSpikeDirection.Down]));
         var floor = generator.Materialize(new ChunkCoord(0, 1, 0));
         var ceiling = generator.Materialize(new ChunkCoord(0, 5, 0));
@@ -100,13 +100,13 @@ public sealed class TerrainDensityTests
             Enumerable.Range(0, Chunk.Size)
                 .SelectMany(y => Enumerable.Range(0, Chunk.Size)
                     .Select(x => floor.GetCell(x, y, 0))),
-            cell => cell.Block == Block("asteria:spike") &&
+            cell => cell.Block == Block("asteria:stone_spike") &&
                 !SpikeSegmentState.IsDown(cell.State));
         Assert.Contains(
             Enumerable.Range(0, Chunk.Size)
                 .SelectMany(y => Enumerable.Range(0, Chunk.Size)
                     .Select(x => ceiling.GetCell(x, y, 0))),
-            cell => cell.Block == Block("asteria:spike") &&
+            cell => cell.Block == Block("asteria:stone_spike") &&
                 SpikeSegmentState.IsDown(cell.State));
     }
 
@@ -603,7 +603,7 @@ public sealed class TerrainDensityTests
         new BlockDefinition("asteria:grass_block"),
         new BlockDefinition("asteria:dirt"),
         new BlockDefinition("asteria:sphere_shell"),
-        new BlockDefinition("asteria:spike",
+        new BlockDefinition("asteria:stone_spike",
             shape: BlockShapeDefinition.Spike(), lightDampening: 0),
     ]);
 

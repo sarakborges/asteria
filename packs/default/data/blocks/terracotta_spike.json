@@ -1,0 +1,31 @@
+{
+  "id": "asteria:terracotta_spike",
+  "category": "natural_blocks",
+  "shape": {
+    "type": "spike",
+    "baseRadius": 0.46,
+    "tipRadius": 0.025,
+    "sides": 7
+  },
+  "placementFaces": [
+    "top",
+    "bottom"
+  ],
+  "textures": {
+    "top": "textures/blocks/terracotta.png",
+    "bottom": "textures/blocks/terracotta.png",
+    "left": "textures/blocks/terracotta.png",
+    "right": "textures/blocks/terracotta.png",
+    "front": "textures/blocks/terracotta.png",
+    "back": "textures/blocks/terracotta.png"
+  },
+  "lightDampening": 0,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 2,
+    "requiredTools": [
+      "pickaxe"
+    ]
+  },
+  "previewColor": "b46f57"
+}

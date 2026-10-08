@@ -1,0 +1,32 @@
+{
+  "id": "asteria:ice_spike",
+  "category": "natural_blocks",
+  "shape": {
+    "type": "spike",
+    "baseRadius": 0.46,
+    "tipRadius": 0.025,
+    "sides": 7
+  },
+  "placementFaces": [
+    "top",
+    "bottom"
+  ],
+  "textures": {
+    "top": "textures/blocks/ice.png",
+    "bottom": "textures/blocks/ice.png",
+    "left": "textures/blocks/ice.png",
+    "right": "textures/blocks/ice.png",
+    "front": "textures/blocks/ice.png",
+    "back": "textures/blocks/ice.png"
+  },
+  "alphaBlend": true,
+  "lightDampening": 0,
+  "castsShadow": false,
+  "mining": {
+    "hardness": 0.5,
+    "requiredTools": [
+      "pickaxe"
+    ]
+  },
+  "previewColor": "b5e5fa"
+}

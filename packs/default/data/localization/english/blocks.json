@@ -11,6 +11,9 @@
   "asteria:basalt_polished": {
     "/name": "Polished Basalt"
   },
+  "asteria:basalt_spike": {
+    "/name": "Basalt Spike"
+  },
   "asteria:basalt_tiles": {
     "/name": "Basalt Tiles"
   },
@@ -43,6 +46,9 @@
   },
   "asteria:ice_polished": {
     "/name": "Polished Ice"
+  },
+  "asteria:ice_spike": {
+    "/name": "Ice Spike"
   },
   "asteria:ice_tiles": {
     "/name": "Ice Tiles"
@@ -176,6 +182,9 @@
   "asteria:sandstone_polished": {
     "/name": "Polished Sandstone"
   },
+  "asteria:sandstone_spike": {
+    "/name": "Sandstone Spike"
+  },
   "asteria:sandstone_tiles": {
     "/name": "Sandstone Tiles"
   },
@@ -197,9 +206,6 @@
   "asteria:sphere_shell": {
     "/name": "Sphere Shell"
   },
-  "asteria:spike": {
-    "/name": "Spike"
-  },
   "asteria:stick": {
     "/name": "Stick"
   },
@@ -215,6 +221,9 @@
   "asteria:stone_polished": {
     "/name": "Polished Stone"
   },
+  "asteria:stone_spike": {
+    "/name": "Stone Spike"
+  },
   "asteria:stone_tiles": {
     "/name": "Stone Tiles"
   },
@@ -223,5 +232,8 @@
   },
   "asteria:terracotta": {
     "/name": "Terracotta"
+  },
+  "asteria:terracotta_spike": {
+    "/name": "Terracotta Spike"
   }
 }
