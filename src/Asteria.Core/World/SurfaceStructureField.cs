@@ -33,6 +33,9 @@ public sealed class SurfaceStructureField
     private readonly BiomeSurfaceMaterialField _materials;
     private readonly GeneratedFluidField _generatedFluids;
     private readonly ConnectorGraph _connectors;
+    private readonly StructureRegistry _structures;
+    private readonly BlockRegistry _blocks;
+    private readonly FluidRegistry _fluids;
     private readonly SurfaceHabitatField _habitats;
     private readonly RootRule[] _rules;
     private readonly int _seaLevel;
@@ -95,6 +98,9 @@ public sealed class SurfaceStructureField
             throw new ArgumentNullException(
                 nameof(generatedFluids));
 
+        _structures = structures;
+        _blocks = blocks;
+        _fluids = fluids;
         _seed = seed;
         _habitats = habitats ?? new SurfaceHabitatField(
             seed, Array.Empty<BiomeDefinition>());
@@ -137,6 +143,63 @@ public sealed class SurfaceStructureField
 
     public bool HasRules =>
         _rules.Length > 0;
+
+    /// <summary>
+    /// Resolve one explicit manual structure using the same authored
+    /// ground, biome, fluid and vertical policies as generated placements.
+    /// This is a logical decision only; a separate mutation capability
+    /// validates live residency before applying all payload operations.
+    /// </summary>
+    internal bool TryPrepareManualPlacement(
+        string reference,
+        int? variation,
+        int anchorX,
+        int anchorZ,
+        out SurfaceStructurePlacement placement)
+    {
+        placement = null!;
+        if (!_structures.ResolvesReference(reference))
+            return false;
+
+        var definitions = _structures.ResolveReference(reference);
+        var index = (variation ?? 1) - 1;
+        if (index < 0 || index >= definitions.Count)
+            return false;
+        var definition = definitions[index];
+        // Connector graph / StructureSet placement requires multiple coordinated
+        // pieces. Reject rather than silently materializing an incomplete tree.
+        if (definition.Connectors.Count > 0)
+            return false;
+
+        var member = new RuntimeStructure(
+            definition, _blocks, _fluids);
+        var biome = SurfaceAt(anchorX, anchorZ).Biome.Primary;
+        if (!TryResolvePlacement(
+                member, reference, biome, anchorX, anchorZ,
+                StructureRotation.Degrees0, out placement))
+            return false;
+
+        var extentX = (long)placement.MaximumX - placement.MinimumX;
+        var extentZ = (long)placement.MaximumZ - placement.MinimumZ;
+        if (placement.PayloadPositions().Take(
+                ManualStructurePlacementRuntime.MaximumPayloadCount + 1).Count() >
+                    ManualStructurePlacementRuntime.MaximumPayloadCount ||
+            extentX > ManualStructurePlacementRuntime.MaximumHorizontalSpan ||
+            extentZ > ManualStructurePlacementRuntime.MaximumHorizontalSpan)
+            return false;
+
+        // Never superimpose a manual structure over an accepted generated
+        // structure (including reserved/conflict-driven placements).
+        var width = checked(placement.MaximumX - placement.MinimumX + 1);
+        var depth = checked(placement.MaximumZ - placement.MinimumZ + 1);
+        if (PlacementsIntersecting(
+                placement.MinimumX, placement.MinimumZ, width, depth)
+            .Any(existing =>
+                existing.MinimumY <= placement.MaximumY &&
+                existing.MaximumY >= placement.MinimumY))
+            return false;
+        return true;
+    }
 
     public bool HasReference(
         string reference)
