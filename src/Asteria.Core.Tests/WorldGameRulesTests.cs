@@ -39,6 +39,10 @@ public sealed class WorldGameRulesTests
             () => new WorldCreationOptions("../world", 42));
         Assert.Throws<ArgumentException>(
             () => new WorldCreationOptions("CON.txt", 42));
+        Assert.Throws<ArgumentException>(
+            () => new WorldCreationOptions("foo.", 42));
+        Assert.Throws<ArgumentException>(
+            () => new WorldCreationOptions("COM¹", 42));
         Assert.Throws<ArgumentOutOfRangeException>(
             () => new WorldCreationOptions("World", 42, ticksPerSecond: 0));
         Assert.Throws<ArgumentOutOfRangeException>(

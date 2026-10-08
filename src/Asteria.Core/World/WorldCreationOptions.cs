@@ -25,6 +25,7 @@ public sealed class WorldCreationOptions
         var normalized = name.Trim();
         if (normalized.Length > 200 ||
             normalized is "." or ".." ||
+            normalized.EndsWith(".", StringComparison.Ordinal) ||
             normalized.IndexOfAny(
                 ['<', '>', ':', '"', '/', '\\', '|', '?', '*']) >= 0 ||
             normalized.Any(char.IsControl))
@@ -39,7 +40,7 @@ public sealed class WorldCreationOptions
             (stem.Length == 4 &&
              (stem.StartsWith("COM", StringComparison.Ordinal) ||
               stem.StartsWith("LPT", StringComparison.Ordinal)) &&
-             stem[3] is >= '1' and <= '9'))
+             (stem[3] is (>= '1' and <= '9') or '¹' or '²' or '³'))
         {
             throw new ArgumentException(
                 "World name is reserved.",
