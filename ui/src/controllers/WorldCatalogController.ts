@@ -1,0 +1,87 @@
+import type { BridgeMessage } from "../bridge/godotBridge";
+import type { WorldSummaryView } from "../presentation/worldCatalogModels";
+import type { UiStore } from "../state/uiStore";
+import { asRecord } from "./messagePayload";
+
+const MAX_WORLDS = 256;
+
+export function createWorldCatalogController(
+  store: UiStore,
+  postMessage: (type: string, payload?: unknown) => void,
+) {
+  return {
+    openSavesFolder() {
+      postMessage("ui.world.catalog.open_folder");
+    },
+    handleGodotMessage(message: BridgeMessage) {
+      if (message.type === "game.world_catalog.folder_error") {
+        store.update(state => ({
+          ...state,
+          worldCatalog: { ...state.worldCatalog, folderError: true },
+        }));
+        return;
+      }
+
+      if (message.type !== "game.world_catalog") return;
+      const payload = asRecord(message.payload);
+      if (!payload) return;
+
+      if (payload.status === "verifying") {
+        store.update(state => ({
+          ...state,
+          worldCatalog: { ...state.worldCatalog, status: "verifying", folderError: false },
+        }));
+        return;
+      }
+
+      if (payload.status === "error") {
+        store.update(state => ({
+          ...state,
+          worldCatalog: { status: "error", worlds: [], folderError: false },
+        }));
+        return;
+      }
+
+      if (payload.status !== "ready" || !Array.isArray(payload.worlds)) return;
+      const worlds = payload.worlds.map(readWorldSummary);
+      if (worlds.length > MAX_WORLDS || worlds.some(world => world === null)) {
+        store.update(state => ({
+          ...state,
+          worldCatalog: { status: "error", worlds: [], folderError: false },
+        }));
+        return;
+      }
+      store.update(state => ({
+        ...state,
+        worldCatalog: {
+          status: "ready",
+          worlds: worlds as WorldSummaryView[],
+          folderError: false,
+        },
+      }));
+    },
+  };
+}
+
+function readWorldSummary(value: unknown): WorldSummaryView | null {
+  const entry = asRecord(value);
+  if (!entry ||
+      typeof entry.id !== "string" ||
+      !entry.id.trim() ||
+      typeof entry.lastSaved !== "string" ||
+      typeof entry.seed !== "string" ||
+      typeof entry.daysPassed !== "string" ||
+      typeof entry.sphere !== "string" ||
+      typeof entry.coordinates !== "string" ||
+      typeof entry.compatible !== "boolean") return null;
+
+  return {
+    id: entry.id,
+    lastSaved: entry.lastSaved,
+    seed: entry.seed,
+    daysPassed: entry.daysPassed,
+    sphere: entry.sphere,
+    coordinates: entry.coordinates,
+    compatible: entry.compatible,
+  };
+}
