@@ -146,6 +146,7 @@ public sealed class BiomeWorldGenerator :
                 materialDefinitions,
                 blocks,
                 _terrain);
+        var habitats = new SurfaceHabitatField(seed, surfaceDefinitions);
         _surfaceStructures =
             new SurfaceStructureField(
                 seed,
@@ -157,7 +158,8 @@ public sealed class BiomeWorldGenerator :
                 Biomes,
                 _terrain,
                 materials,
-                _generatedFluids);
+                _generatedFluids,
+                habitats);
         _destinations =
             new GeneratedSurfaceDestinationQuery(
                 dimension,
@@ -169,7 +171,8 @@ public sealed class BiomeWorldGenerator :
                 seed,
                 materialDefinitions,
                 blocks,
-                _terrain);
+                _terrain,
+                habitats);
         _materializer =
             new SurfaceChunkMaterializer(
                 _surfaceColumns,

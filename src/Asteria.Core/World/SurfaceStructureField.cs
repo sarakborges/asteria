@@ -33,6 +33,7 @@ public sealed class SurfaceStructureField
     private readonly BiomeSurfaceMaterialField _materials;
     private readonly GeneratedFluidField _generatedFluids;
     private readonly ConnectorGraph _connectors;
+    private readonly SurfaceHabitatField _habitats;
     private readonly RootRule[] _rules;
     private readonly int _seaLevel;
     private readonly int? _floorY;
@@ -64,7 +65,8 @@ public sealed class SurfaceStructureField
         BiomeField biomes,
         SurfaceTerrainField terrain,
         BiomeSurfaceMaterialField materials,
-        GeneratedFluidField generatedFluids)
+        GeneratedFluidField generatedFluids,
+        SurfaceHabitatField? habitats = null)
     {
         ArgumentNullException.ThrowIfNull(
             dimension);
@@ -94,6 +96,10 @@ public sealed class SurfaceStructureField
                 nameof(generatedFluids));
 
         _seed = seed;
+        _habitats = habitats ?? new SurfaceHabitatField(
+            seed, Array.Empty<BiomeDefinition>());
+        foreach (var rule in dimension.GeneratedSurfaceStructures)
+            _habitats.Validate(rule.Biome, rule.HabitatWeights);
         _seaLevel =
             dimension.SeaLevel;
         _floorY =
@@ -742,7 +748,8 @@ public sealed class SurfaceStructureField
             return null;
         }
 
-        if (rule.Chance < 1f &&
+        if (rule.HabitatWeights is null &&
+            rule.Chance < 1f &&
             WorldGenerationEntropy.Unit(
                 WorldGenerationEntropy.Sample2D(
                     _seed,
@@ -814,6 +821,17 @@ public sealed class SurfaceStructureField
         if (root is null)
         {
             return null;
+        }
+
+        if (rule.HabitatWeights is not null)
+        {
+            var effectiveChance = Math.Min(1d,
+                rule.Chance * _habitats.Weight(
+                    rule.Biome, rule.HabitatWeights, root.Value.X, root.Value.Z));
+            if (WorldGenerationEntropy.Unit(
+                    WorldGenerationEntropy.Sample2D(
+                        _seed, rule.PresenceDomain, cellX, cellZ)) >= effectiveChance)
+                return null;
         }
 
         if (rule.Set is not null)
@@ -2378,6 +2396,7 @@ public sealed class SurfaceStructureField
             float chance,
             int jitter,
             DimensionGeneratedSurfaceStructurePlacement placement,
+            SurfaceHabitatWeights? habitatWeights,
             RuntimeStructure[] members,
             RuntimeStructureSet? set,
             int maximumHorizontalRadius)
@@ -2387,6 +2406,7 @@ public sealed class SurfaceStructureField
             Spacing = spacing;
             Chance = chance;
             Jitter = jitter;
+            HabitatWeights = habitatWeights;
             Placement = placement;
             Members = members;
             Set = set;
@@ -2423,6 +2443,8 @@ public sealed class SurfaceStructureField
         public int Spacing { get; }
 
         public float Chance { get; }
+
+        public SurfaceHabitatWeights? HabitatWeights { get; }
 
         public int Jitter { get; }
 
@@ -2478,6 +2500,7 @@ public sealed class SurfaceStructureField
                     generated.Chance,
                     generated.Jitter,
                     generated.Placement,
+                    generated.HabitatWeights,
                     Array.Empty<RuntimeStructure>(),
                     set,
                     set.MaximumHorizontalRadius);
@@ -2502,6 +2525,7 @@ public sealed class SurfaceStructureField
                 generated.Chance,
                 generated.Jitter,
                 generated.Placement,
+                generated.HabitatWeights,
                 members,
                 null,
                 connectors.MaximumHorizontalRadiusForReference(
