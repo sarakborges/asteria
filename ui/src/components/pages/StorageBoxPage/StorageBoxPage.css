@@ -42,3 +42,15 @@
     overflow-x: auto;
   }
 }
+
+.storage-box-page__actions {
+  align-self: flex-end;
+}
+
+.storage-box-page__cursor-status {
+  position: fixed;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
+}

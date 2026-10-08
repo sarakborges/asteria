@@ -357,7 +357,8 @@ public partial class Main : Node3D
         {
             if (@event is InputEventKey storageKey &&
                 storageKey.Pressed && !storageKey.Echo &&
-                storageKey.Keycode == Key.Escape)
+                (storageKey.Keycode == Key.Escape ||
+                 GameplayKeyMap.Matches(storageKey, _clientPreferences, KeybindAction.Inventory)))
             {
                 CloseStorageBox();
                 GetViewport().SetInputAsHandled();
@@ -1105,6 +1106,11 @@ public partial class Main : Node3D
                 case "ui.storage_box.slot":
                     HandleStorageBoxSlot(document.RootElement);
                     break;
+                case "ui.storage_box.sort":
+                    if (_sessions.Active.ActiveStorageBox is not null &&
+                        _sessions.Active.TrySortStorageBox())
+                        SendStorageBoxState();
+                    break;
                 case "ui.brush.select":
                     SelectBrushDye(document.RootElement);
                     break;
@@ -1115,7 +1121,8 @@ public partial class Main : Node3D
                     HandleInventorySlot(document.RootElement);
                     break;
                 case "ui.inventory.sort":
-                    if (_inventoryOpen && _sessionStates.Player.Inventory.SortBackpack())
+                    if ((_inventoryOpen || _sessions.Active.ActiveStorageBox is not null) &&
+                        _sessionStates.Player.Inventory.SortBackpack())
                         SendInventoryState();
                     break;
                 case "ui.inventory.discard_cursor":
@@ -2703,7 +2710,7 @@ public partial class Main : Node3D
 
     private void HandleInventorySlot(JsonElement message)
     {
-        if (!_inventoryOpen ||
+        if ((!_inventoryOpen && _sessions.Active.ActiveStorageBox is null) ||
             !message.TryGetProperty("payload", out var payload) ||
             payload.ValueKind != JsonValueKind.Object ||
             !payload.TryGetProperty("index", out var indexValue) ||

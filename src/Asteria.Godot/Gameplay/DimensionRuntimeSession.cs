@@ -527,6 +527,10 @@ public sealed class DimensionRuntimeSession
         !_retiring && !_retired &&
         _state.StorageBoxes.TryClickActive(index, player, World, Blocks);
 
+    public bool TrySortStorageBox() =>
+        !_retiring && !_retired &&
+        _state.StorageBoxes.TrySortActive(World, Blocks);
+
     public void CloseStorageBox() => _state.StorageBoxes.Close();
 
 

@@ -86,6 +86,30 @@ public sealed class StorageBoxRuntime
         return true;
     }
 
+    /// <summary>Sorts and merges only this container's slots, with live voxel
+    /// validation. Rejected/no-op sorting does not alter cursor or revisions.</summary>
+    public bool TrySortActive(VoxelWorld world, BlockRegistry blocks)
+    {
+        ArgumentNullException.ThrowIfNull(world);
+        ArgumentNullException.ThrowIfNull(blocks);
+        if (_active is not { } position ||
+            !_boxes.TryGetValue(position, out var slots) ||
+            !IsActualBox(position, world, blocks))
+            return false;
+
+        var sorted = InventoryStackSorter.SortAndCompact(slots);
+        var changed = false;
+        for (var index = 0; index < SlotCount; index++)
+        {
+            var next = index < sorted.Count ? sorted[index] : null;
+            if (slots[index] == next) continue;
+            slots[index] = next;
+            changed = true;
+        }
+        if (changed) _revision++;
+        return changed;
+    }
+
     public bool TryInsertActive(
         InventoryStack incoming, VoxelWorld world, BlockRegistry blocks)
     {

@@ -215,4 +215,48 @@ public sealed class StorageBoxRuntimeTests
         Assert.True(storage.TryOpen(new WorldVoxelCoord(3, 5, 3), world, blocks));
         Assert.Equal(7, storage.CaptureActive()!.Slots[0]!.Quantity);
     }
+    [Fact]
+    public void SortingStorageIsDeterministicAndLeavesPlayerCursorUntouched()
+    {
+        var (storage, world, blocks) = OpenStorage();
+        var wood = InventoryEntry.FromItem("asteria:wood");
+        var stone = InventoryEntry.FromItem("asteria:stone");
+        var player = new PlayerInventory();
+        Assert.True(storage.TryInsertActive(new InventoryStack(wood, 7), world, blocks));
+        Assert.True(storage.TryInsertActive(new InventoryStack(stone, 3), world, blocks));
+        Assert.True(player.TryCreativePick(wood, 5));
+        var cursor = player.Cursor;
+        Assert.True(storage.TrySortActive(world, blocks));
+        var ordered = storage.CaptureActive()!;
+        Assert.Equal("asteria:stone", ordered.Slots[0]!.Id);
+        Assert.Equal(3, ordered.Slots[0]!.Quantity);
+        Assert.Equal("asteria:wood", ordered.Slots[1]!.Id);
+        Assert.Equal(7, ordered.Slots[1]!.Quantity);
+        Assert.Equal(cursor, player.Cursor);
+        Assert.False(storage.TrySortActive(world, blocks));
+        Assert.Equal(ordered.Revision, storage.Revision);
+
+        world.ArchiveChunk(ChunkCoord.Zero);
+        Assert.False(storage.TrySortActive(world, blocks));
+        Assert.Equal(ordered.Revision, storage.Revision);
+    }
+
+    [Fact]
+    public void SortingKeepsDifferentMetadataAsDistinctStacks()
+    {
+        var (storage, world, blocks) = OpenStorage();
+        var first = InventoryEntry.FromItem("asteria:wood",
+            new Dictionary<string, string> { ["variant"] = "b" });
+        var second = InventoryEntry.FromItem("asteria:wood",
+            new Dictionary<string, string> { ["variant"] = "a" });
+        Assert.True(storage.TryInsertActive(new InventoryStack(first, 12), world, blocks));
+        Assert.True(storage.TryInsertActive(new InventoryStack(second, 6), world, blocks));
+        Assert.True(storage.TrySortActive(world, blocks));
+        var slots = storage.CaptureActive()!.Slots;
+        Assert.Equal("a", slots[0]!.Entry.Metadata["variant"]);
+        Assert.Equal(6, slots[0]!.Quantity);
+        Assert.Equal("b", slots[1]!.Entry.Metadata["variant"]);
+        Assert.Equal(12, slots[1]!.Quantity);
+    }
+
 }

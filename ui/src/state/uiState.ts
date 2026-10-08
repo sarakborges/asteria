@@ -146,7 +146,7 @@ export type BrushPaletteState = {
 };
 
 export type GameMode = "Survival" | "Creative" | "Spectator";
-export type OverlayScreen = "none" | "pause" | "game" | "world" | "controls" | "inventory" | "brush";
+export type OverlayScreen = "none" | "pause" | "game" | "world" | "controls" | "inventory" | "brush" | "storage";
 
 export type WorldSettingsState = {
   name: string; mode: GameMode; ticksPerSecond: number; spawnCreatures: boolean;
@@ -219,6 +219,13 @@ export type InventoryCatalogEntry = {
   iconUrl?: string;
 };
 
+export type StorageBoxState = {
+  open: boolean;
+  position: { x: number; y: number; z: number } | null;
+  slots: InventorySlotState[];
+  errorKey: string | null;
+};
+
 export type GameplayInventoryState = {
   open: boolean;
   creativeAvailable: boolean;
@@ -268,6 +275,7 @@ export type UiState = {
   navigation: UiNavigationState;
   settings: SettingsState;
   inventory: GameplayInventoryState;
+  storageBox: StorageBoxState;
   brush: BrushPaletteState;
 };
 
@@ -345,6 +353,7 @@ export function createInitialUiState(
     brush: {
       selectedId: null, colors: [],
     },
+    storageBox: { open: false, position: null, slots: Array(27).fill(null), errorKey: null },
     inventory: {
       open: false,
       creativeAvailable: false,

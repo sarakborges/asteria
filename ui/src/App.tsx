@@ -4,6 +4,7 @@ import { LoadingOverlay } from "./components/organisms/LoadingOverlay/LoadingOve
 import { GameHudPage } from "./components/pages/GameHudPage/GameHudPage";
 import { ChatDock } from "./components/organisms/ChatDock/ChatDock";
 import { InventoryGameplayPage } from "./components/pages/InventoryGameplayPage/InventoryGameplayPage";
+import { StorageBoxPage } from "./components/pages/StorageBoxPage/StorageBoxPage";
 import { SettingsWorkspacePage } from "./components/pages/SettingsWorkspacePage/SettingsWorkspacePage";
 import { ControlsPage } from "./components/pages/ControlsPage/ControlsPage";
 import { PauseMenuPage } from "./components/pages/PauseMenuPage/PauseMenuPage";
@@ -51,6 +52,9 @@ export type AppActions = {
   closeBrushPalette(): void;
   selectBrushDye(id: string | null): void;
   closeInventory(): void;
+  closeStorageBox(): void;
+  clickStorageBoxSlot(index: number): void;
+  sortStorageBox(): void;
   closeChat(): void;
   submitChat(text: string): void;
   clickInventorySlot(index: number): void;
@@ -102,6 +106,7 @@ export function App({
     if (state.settings.captureAction) actions.cancelKeyCapture();
     else if (state.chat.open) actions.closeChat();
     else if (state.navigation.overlay === "inventory") actions.closeInventory();
+    else if (state.navigation.overlay === "storage") actions.closeStorageBox();
     else if (state.navigation.overlay === "brush") actions.closeBrushPalette();
     else actions.escapeNavigation();
     event.preventDefault();
@@ -257,6 +262,19 @@ export function App({
           onSort={actions.sortInventory}
           onDiscardCursor={actions.discardInventoryCursor}
           onCreativePick={actions.pickCreativeBlock}
+        />
+      )}
+
+      {!preWorldVisible && state.navigation.overlay === "storage" &&
+        state.storageBox.open && (
+        <StorageBoxPage
+          storage={state.storageBox}
+          inventory={state.inventory}
+          onClose={actions.closeStorageBox}
+          onStorageSlotClick={actions.clickStorageBoxSlot}
+          onInventorySlotClick={actions.clickInventorySlot}
+          onSortStorage={actions.sortStorageBox}
+          onSortInventory={actions.sortInventory}
         />
       )}
 

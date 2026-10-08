@@ -1,9 +1,9 @@
 import { useMemo, useRef, useState, type PointerEvent } from "react";
 import { useLocalization } from "../../../localization/LocalizationProvider";
 import type {
-  GameplayInventoryState, InventoryCatalogEntry, InventoryMetadata, VitalValue,
+  GameplayInventoryState, InventoryCatalogEntry, VitalValue,
 } from "../../../state/uiState";
-import type { ItemStackView } from "../../../presentation/inventoryModels";
+import { inventoryItemView, sameInventoryMetadata } from "../../../presentation/inventoryModels";
 import { Button } from "../../atoms/Button/Button";
 import { Text } from "../../atoms/Text/Text";
 import { InventoryCursorOverlay } from "../../molecules/InventoryCursorOverlay/InventoryCursorOverlay";
@@ -24,32 +24,6 @@ export type InventoryGameplayPageProps = {
   onDiscardCursor(): void;
   onCreativePick(choice: InventoryCatalogEntry): void;
 };
-
-function sameMetadata(a: InventoryMetadata, b: InventoryMetadata): boolean {
-  const keys = Object.keys(a);
-  return keys.length === Object.keys(b).length &&
-    keys.every(key => a[key] === b[key]);
-}
-
-function findCatalogEntry(
-  slot: NonNullable<GameplayInventoryState["cursor"]>,
-  catalog: GameplayInventoryState["catalog"],
-): InventoryCatalogEntry | undefined {
-  return catalog.find(choice => choice.id === slot.id &&
-    choice.kind === slot.kind && sameMetadata(choice.metadata, slot.metadata));
-}
-
-function itemView(
-  slot: GameplayInventoryState["cursor"],
-  catalog: GameplayInventoryState["catalog"],
-): ItemStackView | null {
-  if (!slot) return null;
-  const authored = findCatalogEntry(slot, catalog);
-  return {
-    id: slot.id, kind: slot.kind, quantity: slot.quantity,
-    metadata: slot.metadata, iconUrl: authored?.iconUrl,
-  };
-}
 
 /**
  * In-game inventory and Storybook use the same panel composition.
@@ -86,9 +60,9 @@ export function InventoryGameplayPage({
     }));
   }, [state.catalog, category, creativeSearch]);
   const { backpack, hotbar, cursor } = useMemo(() => ({
-    backpack: state.backpack.map(slot => itemView(slot, state.catalog)),
-    hotbar: state.hotbar.map(slot => itemView(slot, state.catalog)),
-    cursor: itemView(state.cursor, state.catalog),
+    backpack: state.backpack.map(slot => inventoryItemView(slot, state.catalog)),
+    hotbar: state.hotbar.map(slot => inventoryItemView(slot, state.catalog)),
+    cursor: inventoryItemView(state.cursor, state.catalog),
   }), [state.backpack, state.hotbar, state.cursor, state.catalog]);
 
   const followPointer = (event: PointerEvent<HTMLElement>) => {
@@ -144,7 +118,7 @@ export function InventoryGameplayPage({
             onItemClick={item => {
               const choice = state.catalog.find(entry =>
                 entry.id === item.id && entry.kind === item.kind &&
-                sameMetadata(entry.metadata, item.metadata ?? {}));
+                sameInventoryMetadata(entry.metadata, item.metadata ?? {}));
               if (choice) onCreativePick(choice);
             }}
           />}

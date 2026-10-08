@@ -1,3 +1,5 @@
+import type { GameplayInventoryState, InventoryMetadata, InventoryCatalogEntry } from "../state/uiState";
+
 export type ItemStackView = {
   id: string;
   name?: string;
@@ -59,3 +61,22 @@ export type CurrentStationView = {
   description: string;
   iconUrl?: string;
 };
+
+export function sameInventoryMetadata(a: InventoryMetadata, b: InventoryMetadata): boolean {
+  const keys = Object.keys(a);
+  return keys.length === Object.keys(b).length &&
+    keys.every(key => a[key] === b[key]);
+}
+
+export function inventoryItemView(
+  slot: GameplayInventoryState["cursor"],
+  catalog: readonly InventoryCatalogEntry[],
+): ItemStackView | null {
+  if (!slot) return null;
+  const authored = catalog.find(choice => choice.id === slot.id &&
+    choice.kind === slot.kind && sameInventoryMetadata(choice.metadata, slot.metadata));
+  return {
+    id: slot.id, kind: slot.kind, quantity: slot.quantity,
+    metadata: slot.metadata, iconUrl: authored?.iconUrl,
+  };
+}

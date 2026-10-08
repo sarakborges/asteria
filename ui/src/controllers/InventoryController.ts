@@ -1,42 +1,10 @@
 import type { BridgeMessage } from "../bridge/godotBridge";
 import type {
-  GameplayInventoryState, InventoryCatalogEntry, InventorySlotState,
-  InventoryEntryKind, InventoryMetadata,
+  GameplayInventoryState, InventoryCatalogEntry,
 } from "../state/uiState";
 import type { UiStore } from "../state/uiStore";
 import { asRecord } from "./messagePayload";
-
-function readKind(value: unknown): InventoryEntryKind | null {
-  return value === "block" || value === "item" || value === "tool" || value === "layer"
-    ? value : null;
-}
-
-function readMetadata(value: unknown): InventoryMetadata | null {
-  const raw = asRecord(value);
-  if (!raw || Object.values(raw).some(x => typeof x !== "string"))
-    return null;
-  return raw as InventoryMetadata;
-}
-
-function readSlot(value: unknown): InventorySlotState {
-  if (value === null) return null;
-  const record = asRecord(value);
-  if (!record || typeof record.id !== "string" ||
-      !Number.isInteger(record.quantity) ||
-      (record.quantity as number) < 1 ||
-      (record.quantity as number) > 64) return null;
-  const kind = readKind(record.kind);
-  const metadata = readMetadata(record.metadata);
-  if (!kind || !metadata) return null;
-  return {
-    id: record.id, kind, quantity: record.quantity as number, metadata,
-  };
-}
-
-function readSlots(value: unknown, count: number): InventorySlotState[] | null {
-  if (!Array.isArray(value) || value.length !== count) return null;
-  return value.map(readSlot);
-}
+import { readKind, readMetadata, readSlot, readSlots } from "./inventoryMessageSlots";
 
 export function createInventoryController(
   store: UiStore,

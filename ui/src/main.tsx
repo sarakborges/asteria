@@ -11,6 +11,7 @@ import { createHudController } from "./controllers/HudController";
 import { createLoadingController } from "./controllers/LoadingController";
 import { createUiNavigationController } from "./controllers/UiNavigationController";
 import { createInventoryController } from "./controllers/InventoryController";
+import { createStorageBoxController } from "./controllers/StorageBoxController";
 import { createBrushController } from "./controllers/BrushController";
 import { createSettingsController } from "./controllers/SettingsController";
 import { createWorldCreationController } from "./controllers/WorldCreationController";
@@ -46,6 +47,7 @@ const worldCreation =
   );
 const settings = createSettingsController(store, postGodotMessage);
 const inventory = createInventoryController(store, postGodotMessage);
+const storageBox = createStorageBoxController(store, postGodotMessage);
 const brush = createBrushController(store, postGodotMessage);
 const worldCatalog = createWorldCatalogController(store, postGodotMessage);
 const chat = createChatController(store, postGodotMessage);
@@ -54,6 +56,7 @@ subscribeGodotMessages((message) => {
   navigation.handleGodotMessage(message);
   worldCatalog.handleGodotMessage(message);
   inventory.handleGodotMessage(message);
+  storageBox.handleGodotMessage(message);
   chat.handleGodotMessage(message);
   brush.handleGodotMessage(message);
   hud.handleGodotMessage(message);
@@ -95,6 +98,9 @@ createRoot(rootElement).render(
       closeBrushPalette: brush.close,
       selectBrushDye: brush.select,
       closeInventory: inventory.close,
+      closeStorageBox: storageBox.close,
+      clickStorageBoxSlot: storageBox.clickSlot,
+      sortStorageBox: storageBox.sort,
       closeChat: chat.close,
       submitChat: chat.submit,
       clickInventorySlot: inventory.clickSlot,

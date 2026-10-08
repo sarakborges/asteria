@@ -41,7 +41,9 @@ export function createUiNavigationController(
   // mouse capture remain native; a paused menu never directly captures it.
   const escape = () => {
     const state = store.getSnapshot();
-    if (state.navigation.overlay === "game" ||
+    if (state.navigation.overlay === "storage") {
+      postMessage("ui.storage_box.close");
+    } else if (state.navigation.overlay === "game" ||
         state.navigation.overlay === "world" ||
         state.navigation.overlay === "controls") {
       show(state.worldCreation.visible ? "none" : "pause");
@@ -90,7 +92,8 @@ export function createUiNavigationController(
       } else {
         const state = store.getSnapshot();
         if (state.mouseCaptured && !state.chat.open && !state.worldCreation.visible &&
-            !state.loading && state.navigation.overlay === "none") show("pause");
+            !state.loading && state.navigation.overlay === "none" &&
+            !state.storageBox.open) show("pause");
       }
     },
   };
