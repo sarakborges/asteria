@@ -73,6 +73,25 @@ keeps Godot as an I/O/interaction adapter.
 - Unit tests verify deterministic binary roundtrip, generation rotation,
   damage fallback, truncated files, ignored staging, and malformed input.
 
+## Stage 5: shared player and Sphere scalar state
+
+- `GameplaySessionSaveCodec` captures/restores inventory slots and cursor,
+  selected hotbar slot, item metadata, game mode/creative flight, mutable
+  gamerules, every initialized Sphere's world tick, day/night clock,
+  last player position, and natural-spawn scheduling tick.
+- Saved player inventory is detached from exposed arrays; the Core owner
+  validates the complete slot layout before restoring and never routes
+  authoritative mutations through the UI or Godot.
+- Session restoration first validates the spatial snapshot and constructs
+  a new `DimensionSessionStateStore`; active sessions remain untouched on
+  mismatched world identity, missing Sphere or invalid content.
+- No save is marked playable at this stage: container contents, dropped
+  entities, physics, manual structures and full metadata disk publication
+  still require integration.
+- Added regression tests for shared cursor/metadata and per-Sphere clock
+  isolation, immutable inventory views, flight validation, corrupted
+  snapshot and world-name mismatch.
+
 ## Remaining
 
 Wire the spatial snapshot capture and disk publisher into a quiescent

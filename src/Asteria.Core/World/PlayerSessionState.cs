@@ -27,6 +27,23 @@ public sealed class PlayerSessionState
 
     public PlayerInventory Inventory { get; } = new();
 
+    internal PlayerSessionSnapshot CaptureState() =>
+        new(GameMode, IsFlying, Inventory.Capture());
+
+    internal void RestoreState(PlayerSessionSnapshot snapshot)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        Validate(snapshot.GameMode);
+        if (snapshot.Flying && !snapshot.GameMode.AllowsFlight() ||
+            snapshot.GameMode.IsSpectator() && !snapshot.Flying)
+            throw new InvalidDataException("Invalid saved flight state.");
+
+        Inventory.Restore(snapshot.Inventory);
+        GameMode = snapshot.GameMode;
+        IsFlying = snapshot.Flying;
+        CancelDoubleTap();
+    }
+
     public bool SetGameMode(PlayerGameMode mode)
     {
         Validate(mode);

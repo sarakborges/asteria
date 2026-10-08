@@ -39,6 +39,30 @@ public sealed class PlayerInventory
             _slots.Skip(BackpackSlots).ToArray(),
             Cursor);
 
+    /// <summary>
+    /// Replaces all authoritative slots/cursor in a fresh restored session.
+    /// Validates the entire snapshot before changing any live inventory slot.
+    /// </summary>
+    internal void Restore(PlayerInventorySnapshot snapshot)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        if (snapshot.SelectedSlot is < 0 or >= HotbarSlots ||
+            snapshot.Backpack is null || snapshot.Backpack.Length != BackpackSlots ||
+            snapshot.Hotbar is null || snapshot.Hotbar.Length != HotbarSlots)
+        {
+            throw new InvalidDataException("Invalid saved player inventory shape.");
+        }
+
+        var restored = new InventoryStack?[TotalSlots];
+        Array.Copy(snapshot.Backpack, 0, restored, 0, BackpackSlots);
+        Array.Copy(snapshot.Hotbar, 0, restored, BackpackSlots, HotbarSlots);
+        // InventoryStack is validated and immutable; all arrays are detached.
+        Array.Copy(restored, _slots, TotalSlots);
+        SelectedSlot = snapshot.SelectedSlot;
+        Cursor = snapshot.Cursor;
+        Revision++;
+    }
+
     public bool SelectHotbar(int index)
     {
         if (index is < 0 or >= HotbarSlots || index == SelectedSlot)
