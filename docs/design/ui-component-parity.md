@@ -83,12 +83,20 @@ Reference source: `mineclone/src/hud/chat/commands.rs` and `autocomplete.rs` on 
 
 | Original command | Asteria state | Notes |
 | --- | --- | --- |
-| `/spawn <id> [meta_tag]` | Partial, real | Spawns authored creature at generator-validated loaded destination via `DimensionRuntimeSession.TrySpawnCreature`; meta-tag argument explicitly unimplemented until tags are modeled |
+| `/spawn <id> [meta_tag]` | Partial, real | Spawns authored creature at generator-validated loaded destination via `DimensionRuntimeSession.TrySpawnCreature`; `NO_AI` tag now persists in authoritative creature snapshot and freezes AI/ordinary damage. Other tags unsupported |
 | `/place structure <id> [variation]` | Parsed, not executable | No manual placement capability through the `SurfaceStructureField`/voxel mutation owners yet; displays an explicit error |
 | `/locate biome <id>` | Real | Searches only an authored active surface biome; work runs off-thread with stale-Sphere rejection |
-| `/locate structure <id> [variation]` | Partial, real | Finds generated surface structures using the authoritative field; selecting an explicit variation is not implemented |
+| `/locate structure <id> [variation]` | Real for authored groups | Resolves a numbered group member and filters accepted generated placements via `SurfaceStructureField` without bypassing conflict resolution. Explicit variation on StructureSet is unsupported |
 | `/warp <x> <z> <y> [dimension]` | Partial, real | Existing loaded same-Sphere safe destinations or standard cross-Sphere transition path; long-distance unloaded same-Sphere streaming not yet wired, returns failure rather than teleporting into unloaded terrain |
 | `/kill` | Real | Uses player target ray, authoritative CreatureRuntime death transition, loot and animation |
-| `/modify <add|remove|edit> <meta_tag> [value]` | Parsed, not executable | Requires creature meta-tag storage/semantics, serialization and authoritative mutation owner, currently absent |
+| `/modify <add|remove|edit> <meta_tag> [value]` | Partial, real | `add/remove NO_AI` operate on targeted authoritative creature and survive snapshots; arbitrary tags/valued `edit` remain unsupported |
 
-All command names are present in the grammar and autocomplete, but unsupported operations report `chat.command.notImplemented`. The UI must never report them as successful. **The full command port is not complete.** The parser is Core-owned with dedicated regression tests; commands call the existing content, generator and creature runtimes.
+All command names are present in the grammar and **contextual autocomplete** (creature IDs, active biomes, structures/groups, group variations, Espheres, current X/Z/Y, NO_AI); unsupported operations report `chat.command.notImplemented`. The UI must never report them as successful. **The full command port is not complete.** The parser is Core-owned with dedicated regression tests; commands call the existing content, generator and creature runtimes.
+
+## Contextual autocomplete and NO_AI
+
+- `ChatDock` uses a pure caret-aware `chatAutocomplete.ts` function to complete a token under the cursor (not the full draft). Supported argument categories match MineClone: command, creature ID, metadata tag, modify verb, structure literal/reference/variation, locate kind, biome, coordinate and Sphere.
+- The Godot chat snapshot sends bounded, authoritative lists from current pack registries and player position. `ChatController` validates the complete catalog before presenting it; React never searches the world or invents definitions.
+- `CreatureRuntime` owns the initial and mutable `NO_AI` tag: spawn with `NO_AI`, `/modify add NO_AI`, `/modify remove NO_AI`. The flag survives Sphere snapshots and suppresses ordinary movement and damage. Arbitrary metadata keys and value-bearing tag edits have **not** been ported.
+- The query API `SurfaceStructureField.FindNearest` optionally filters accepted candidate pieces by a specific member ID and preserves existing placement/conflict semantics. The asynchronous locate controller rejects stale results from retired Espheres. Group variations resolve in deterministic authored ID order.
+- `/place` in the MineClone rebuild reference is itself marked temporarily unavailable; the Asteria equivalent remains unimplemented rather than creating a second procedural world writer. Similarly, unloaded same-Sphere distant `/warp` must acquire residency/prepare destinations first.
