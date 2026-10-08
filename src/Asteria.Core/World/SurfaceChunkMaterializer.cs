@@ -15,6 +15,7 @@ public sealed class SurfaceChunkMaterializer
     private readonly UndergroundBiomeField? _undergroundBiomes;
     private readonly VoidSpawnPlatform? _voidSpawnPlatform;
     private readonly CaveSpikeField? _caveSpikes;
+    private readonly CaveMaterialField? _caveMaterials;
     private readonly BlockRuntimeId _shellBlock;
     private readonly int? _floorY;
     private readonly int? _roofY;
@@ -45,7 +46,8 @@ public sealed class SurfaceChunkMaterializer
         BlockRegistry blocks,
         UndergroundBiomeField? undergroundBiomes,
         VoidSpawnPlatform? voidSpawnPlatform,
-        CaveSpikeField? caveSpikes = null)
+        CaveSpikeField? caveSpikes = null,
+        CaveMaterialField? caveMaterials = null)
     {
         _columns = columns ??
             throw new ArgumentNullException(nameof(columns));
@@ -62,6 +64,7 @@ public sealed class SurfaceChunkMaterializer
         _undergroundBiomes = undergroundBiomes;
         _voidSpawnPlatform = voidSpawnPlatform;
         _caveSpikes = caveSpikes;
+        _caveMaterials = caveMaterials;
         ArgumentNullException.ThrowIfNull(dimension);
         ArgumentNullException.ThrowIfNull(blocks);
 
@@ -265,6 +268,9 @@ public sealed class SurfaceChunkMaterializer
                 }
             }
         }
+
+        MaterializeCaveMaterials(
+            chunk, column, densityVolume, originX, originY, originZ);
 
         MaterializeVerticalDecorations(
             chunk, column, densityVolume,
@@ -637,6 +643,82 @@ public sealed class SurfaceChunkMaterializer
         x |
         y << 8 |
         z << 16;
+
+    /// <summary>
+    /// Paint only exposed cave solids. In-chunk neighbors reuse the already
+    /// sampled density volume; cross-chunk seams query the same terrain owner.
+    /// </summary>
+    private void MaterializeCaveMaterials(
+        Chunk chunk,
+        SurfaceTerrainColumn column,
+        TerrainDensityVolume densityVolume,
+        int originX, int originY, int originZ)
+    {
+        if (_caveMaterials is not { HasRules: true } materials ||
+            _undergroundBiomes is not { HasBiomes: true } underground)
+            return;
+
+        for (var z = 0; z < Chunk.Size; z++)
+        for (var x = 0; x < Chunk.Size; x++)
+        {
+            var worldX = originX + x;
+            var worldZ = originZ + z;
+            var caveBiome = underground.Sample(worldX, worldZ);
+            if (caveBiome is null || !materials.HasRulesFor(caveBiome.Primary))
+                continue;
+
+            var baseY = column.BaseHeightAt(x, z);
+            for (var y = 0; y < Chunk.Size; y++)
+            {
+                var worldY = originY + y;
+                if (worldY <= 0 || worldY > baseY - 4 ||
+                    (_floorY is { } floorY && worldY <= floorY) ||
+                    (_roofY is { } roofY && worldY >= roofY))
+                    continue;
+
+                var block = chunk.GetBlock(x, y, z);
+                if (block.IsAir ||
+                    densityVolume.DensityAt(x, y, z) < 0d)
+                    continue;
+
+                bool CaveAir(int dx, int dy, int dz)
+                {
+                    var nx = x + dx;
+                    var ny = y + dy;
+                    var nz = z + dz;
+                    if ((uint)nx < Chunk.Size &&
+                        (uint)ny < Chunk.Size &&
+                        (uint)nz < Chunk.Size)
+                        return originY + ny <= column.BaseHeightAt(nx, nz) - 4 &&
+                               densityVolume.DensityAt(nx, ny, nz) < 0d;
+
+                    var neighborY = worldY + dy;
+                    return neighborY >= 0 &&
+                        _terrain.IsCaveVoidAt(
+                            worldX + dx, neighborY, worldZ + dz);
+                }
+
+                var hasFloor = CaveAir(0, 1, 0);
+                var hasCeiling = CaveAir(0, -1, 0);
+                var hasWall = !hasFloor && !hasCeiling &&
+                    (CaveAir(-1, 0, 0) || CaveAir(1, 0, 0) ||
+                     CaveAir(0, 0, -1) || CaveAir(0, 0, 1));
+                if (!hasFloor && !hasCeiling && !hasWall)
+                    continue;
+
+                var face = hasFloor
+                    ? CaveSurfaceFace.Floor
+                    : hasCeiling
+                        ? CaveSurfaceFace.Ceiling
+                        : CaveSurfaceFace.Wall;
+                var replacement = materials.Select(
+                    caveBiome.Primary, block, face,
+                    worldX, worldY, worldZ);
+                if (replacement != block)
+                    chunk.SetBlock(x, y, z, replacement);
+            }
+        }
+    }
 
     /// <summary>
     /// Decorates exposed tops of disconnected additive solids and carved

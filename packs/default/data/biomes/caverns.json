@@ -4,15 +4,19 @@
   "decorations": [
     {
       "block": "asteria:mushroom_brown",
-      "chance": 0.13,
+      "chance": 0.035,
       "surfaceBlocks": [
         "asteria:stone",
         "asteria:gravel",
-        "asteria:dirt"
+        "asteria:dirt",
+        "asteria:basalt",
+        "asteria:sandstone",
+        "asteria:clay",
+        "asteria:terracotta"
       ],
       "cluster": {
         "scale": 26,
-        "threshold": -0.08,
+        "threshold": 0.04,
         "octaves": 4,
         "transitionWidth": 0.13
       },
@@ -22,17 +26,21 @@
     },
     {
       "block": "asteria:mushroom_purple",
-      "chance": 0.065,
+      "chance": 0.012,
       "surfaceBlocks": [
         "asteria:stone",
         "asteria:gravel",
-        "asteria:dirt"
+        "asteria:dirt",
+        "asteria:basalt",
+        "asteria:sandstone",
+        "asteria:clay",
+        "asteria:terracotta"
       ],
       "cluster": {
         "scale": 36,
-        "threshold": -0.05,
+        "threshold": 0.08,
         "octaves": 3,
-        "transitionWidth": 0.14
+        "transitionWidth": 0.16
       },
       "conditions": {
         "maxY": 90
@@ -40,15 +48,19 @@
     },
     {
       "block": "asteria:pebble",
-      "chance": 0.15,
+      "chance": 0.19,
       "surfaceBlocks": [
         "asteria:stone",
         "asteria:gravel",
-        "asteria:dirt"
+        "asteria:dirt",
+        "asteria:basalt",
+        "asteria:sandstone",
+        "asteria:clay",
+        "asteria:terracotta"
       ],
       "cluster": {
         "scale": 19,
-        "threshold": -0.16,
+        "threshold": -0.1,
         "octaves": 4,
         "transitionWidth": 0.12
       },
@@ -160,6 +172,96 @@
         "verticalScale": 16,
         "threshold": -0.23,
         "transitionWidth": 0.33
+      }
+    }
+  ],
+  "caveMaterials": [
+    {
+      "block": "asteria:gravel",
+      "replaceBlocks": [
+        "asteria:stone"
+      ],
+      "faces": [
+        "floor",
+        "wall"
+      ],
+      "chance": 1,
+      "cluster": {
+        "horizontalScale": 22,
+        "verticalScale": 13,
+        "threshold": -0.14,
+        "transitionWidth": 0.16
+      }
+    },
+    {
+      "block": "asteria:basalt",
+      "replaceBlocks": [
+        "asteria:stone"
+      ],
+      "faces": [
+        "floor",
+        "ceiling",
+        "wall"
+      ],
+      "chance": 1,
+      "cluster": {
+        "horizontalScale": 43,
+        "verticalScale": 24,
+        "threshold": 0.02,
+        "transitionWidth": 0.17
+      }
+    },
+    {
+      "block": "asteria:sandstone",
+      "replaceBlocks": [
+        "asteria:stone"
+      ],
+      "faces": [
+        "floor",
+        "ceiling",
+        "wall"
+      ],
+      "chance": 1,
+      "cluster": {
+        "horizontalScale": 34,
+        "verticalScale": 19,
+        "threshold": 0.07,
+        "transitionWidth": 0.16
+      }
+    },
+    {
+      "block": "asteria:clay",
+      "replaceBlocks": [
+        "asteria:stone"
+      ],
+      "faces": [
+        "floor",
+        "wall"
+      ],
+      "chance": 1,
+      "cluster": {
+        "horizontalScale": 27,
+        "verticalScale": 17,
+        "threshold": 0.08,
+        "transitionWidth": 0.14
+      }
+    },
+    {
+      "block": "asteria:terracotta",
+      "replaceBlocks": [
+        "asteria:stone"
+      ],
+      "faces": [
+        "floor",
+        "ceiling",
+        "wall"
+      ],
+      "chance": 1,
+      "cluster": {
+        "horizontalScale": 48,
+        "verticalScale": 27,
+        "threshold": 0.12,
+        "transitionWidth": 0.17
       }
     }
   ]

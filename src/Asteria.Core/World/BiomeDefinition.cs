@@ -15,7 +15,8 @@ public sealed class BiomeDefinition
         BiomeVolumeLayoutDefinition? volumeLayout = null,
         BiomeUndergroundLayoutDefinition? undergroundLayout = null,
         SurfaceHabitatDefinition? surfaceHabitats = null,
-        IEnumerable<BiomeCaveSpikeDefinition>? caveSpikes = null)
+        IEnumerable<BiomeCaveSpikeDefinition>? caveSpikes = null,
+        IEnumerable<BiomeCaveMaterialDefinition>? caveMaterials = null)
     {
         ValidateId(id);
         Id = id;
@@ -49,6 +50,10 @@ public sealed class BiomeDefinition
         if (spikes.Length > 0 && undergroundLayout is null)
             throw new ArgumentException("Cave spikes require an underground biome.", nameof(caveSpikes));
         CaveSpikes = Array.AsReadOnly(spikes);
+        var materials = caveMaterials?.ToArray() ?? Array.Empty<BiomeCaveMaterialDefinition>();
+        if (materials.Length > 0 && undergroundLayout is null)
+            throw new ArgumentException("Cave materials require an underground biome.", nameof(caveMaterials));
+        CaveMaterials = Array.AsReadOnly(materials);
 
         var layers =
             surfaceLayers?.ToArray() ??
@@ -101,6 +106,7 @@ public sealed class BiomeDefinition
     public BiomeUndergroundLayoutDefinition? UndergroundLayout { get; }
 
     public IReadOnlyList<BiomeCaveSpikeDefinition> CaveSpikes { get; }
+    public IReadOnlyList<BiomeCaveMaterialDefinition> CaveMaterials { get; }
 
     public IReadOnlyList<BiomeSurfaceLayerDefinition> SurfaceLayers { get; }
 
