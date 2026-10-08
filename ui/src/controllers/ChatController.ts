@@ -18,6 +18,9 @@ const LOCAL_KEYS = new Set([
   "chat.command.failed", "chat.command.notImplemented",
   "chat.command.spectatorUnavailable", "chat.command.spawn.playerUnavailable",
   "chat.command.spawn.noSpace",
+  "chat.command.meta.unknown", "chat.command.meta.exists",
+  "chat.command.meta.notSet", "chat.command.modify.addSuccess",
+  "chat.command.modify.removeSuccess", "chat.command.modify.editSuccess",
 ]);
 
 export function createChatController(
