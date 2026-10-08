@@ -402,7 +402,8 @@ public sealed class DimensionDefinition
         IEnumerable<string>? undergroundBiomes = null,
         IEnumerable<DimensionGeneratedSurfaceStructureDefinition>? generatedSurfaceStructures = null,
         IEnumerable<DimensionGeneratedSurfaceFluidDefinition>? generatedSurfaceFluids = null,
-        string? dayNightCycleId = null)
+        string? dayNightCycleId = null,
+        BiomeBlendingDefinition? biomeBlending = null)
     {
         if (!float.IsFinite(gravityStrength) ||
             gravityStrength < 0f ||
@@ -585,6 +586,7 @@ public sealed class DimensionDefinition
                 nameof(environment));
         Shell = shell;
         Caves = caves;
+        BiomeBlending = biomeBlending ?? BiomeBlendingDefinition.Default;
         GeneratedOcean = generatedOcean;
         GeneratedSurfaceFluids =
             Array.AsReadOnly(
@@ -615,6 +617,8 @@ public sealed class DimensionDefinition
     public DimensionShellDefinition? Shell { get; }
 
     public DimensionCaveDefinition? Caves { get; }
+
+    public BiomeBlendingDefinition BiomeBlending { get; }
 
     public DimensionGeneratedOceanDefinition? GeneratedOcean { get; }
 
