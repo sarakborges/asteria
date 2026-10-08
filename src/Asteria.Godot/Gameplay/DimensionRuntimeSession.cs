@@ -183,7 +183,7 @@ public sealed class DimensionRuntimeSession
                 FluidContentRevisions);
         ManualStructures =
             new ManualStructurePlacementRuntime(
-                Generator, World, Mutations, blocks, structures);
+                Generator, World, Mutations, blocks, structures, structureSets);
         var lightingIntegration =
             new LightingResultIntegrator(
                 World,
