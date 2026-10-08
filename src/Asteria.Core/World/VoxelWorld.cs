@@ -45,6 +45,38 @@ public sealed class VoxelWorld
 
     public IEnumerable<ChunkCoord> LoadedChunkCoords => _chunks.Keys;
 
+    // Both resident and archived chunks are authoritative. A newly created
+    // world is populated from saved chunks before any worker/session sees it.
+    internal IEnumerable<(ChunkCoord Coord, Chunk Chunk, bool Resident, bool Dirty)>
+        CaptureChunkSources()
+    {
+        foreach (var (coord, chunk) in _chunks)
+            yield return (coord, chunk, true, _archive.IsDirty(coord, chunk.Revision));
+
+        foreach (var (coord, chunk) in _archive.ArchivedChunks)
+            yield return (coord, chunk, false, _archive.IsDirty(coord, chunk.Revision));
+    }
+
+    internal void RestoreSavedChunk(ChunkCoord coord, Chunk chunk, bool resident, bool dirty)
+    {
+        ArgumentNullException.ThrowIfNull(chunk);
+        if (coord.Y < 0 || ContainsChunk(coord) || HasArchivedChunk(coord))
+            throw new InvalidOperationException(
+                $"Saved chunk {coord} cannot overwrite an existing chunk.");
+
+        if (resident)
+        {
+            InsertChunk(coord, chunk);
+            if (dirty)
+                _archive.MarkDirty(coord);
+        }
+        else
+        {
+            _archive.RestoreArchived(coord, chunk, dirty);
+            Revision++;
+        }
+    }
+
     public void InsertChunk(ChunkCoord coord, Chunk chunk)
     {
         ArgumentNullException.ThrowIfNull(chunk);

@@ -23,6 +23,20 @@ keeps Godot as an I/O/interaction adapter.
 - No claim of playable disk saves yet. \`WorldSaveCatalog\` continues to mark
   manifests incompatible until the full world/session restore contract exists.
 
+## Stage 2: complete voxel world snapshot
+
+- `VoxelWorldSaveCodec` captures both resident and archived materialized chunks,
+  retaining residency/dirty metadata and preserving pristine or empty chunks.
+- Snapshot payloads are detached byte copies. Save capture does not unload
+  chunks, mutate the world or materialize unexplored areas.
+- Restore returns a new `VoxelWorld`, validated in isolation; archived chunks
+  remain unavailable to materializers until restored through normal residency.
+- Chunk order is stable Y/Z/X; duplicate positions, negative Y, corrupted
+  payloads, invalid content and unbounded chunk counts are rejected.
+- Dirty/pristine classification stays distinct from residency and is preserved.
+- Core regression tests cover capture/restore, missing chunks, archives, corruption
+  and deterministic output.
+
 ## Remaining
 
 Persist and restore *all* materialized chunks (resident and archived),

@@ -76,6 +76,24 @@ public sealed class SessionChunkArchiveStore
             : ChunkArchiveResult.ArchivedPristine;
     }
 
+    // Persistence reads both residency and archive state without moving chunks.
+    // The caller captures at a quiescent world boundary.
+    internal IEnumerable<(ChunkCoord Coord, Chunk Chunk)> ArchivedChunks =>
+        _archived.Select(entry => (entry.Key, entry.Value));
+
+    internal void RestoreArchived(ChunkCoord coord, Chunk chunk, bool dirty)
+    {
+        ArgumentNullException.ThrowIfNull(chunk);
+        if (coord.Y < 0 || _materializedBaselines.ContainsKey(coord))
+            throw new InvalidOperationException(
+                $"Saved chunk {coord} has an invalid or duplicate archive identity.");
+
+        _archived.Add(coord, chunk);
+        _materializedBaselines.Add(coord, chunk.Revision);
+        if (dirty)
+            _dirty.Add(coord);
+    }
+
     public bool TryRestore(
         ChunkCoord coord,
         out Chunk chunk)
