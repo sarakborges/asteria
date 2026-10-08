@@ -167,6 +167,51 @@ dotnet run -c Release --project tools/BiomeMap -- \
 
 CI publishes equivalent fixed-seed SVG artifacts for both `asteria:overworld` and `asteria:umbral`.
 
+## Conditional surface materials and decorators
+
+Surface patches and ground decorators can share an optional `conditions`
+object, evaluated against the owning biome's **authoritative terrain
+surface** at the world-space X/Z column. Surface biomes read the base surface;
+volume biomes read the final additive surface, so floating masses do not
+change the placement conditions of the underlying ground:
+
+- `minY` / `maxY`: inclusive, non-negative surface-altitude bounds.
+- `minSlope` / `maxSlope`: inclusive maximum adjacent terrain height
+  difference (blocks vertically per one horizontal block), sampled from
+  the four directly adjacent X/Z positions. The condition uses the same
+  world-space queries on chunk boundaries, so there is no chunk-local
+  discontinuity.
+- Any omitted bound is unconstrained. A conditional **surface patch**
+  falls back to its authored base layer block when conditions fail; a
+  conditional **decorator** is skipped. The original biome/terrain/material
+  owner remains unchanged.
+
+Example:
+
+```json
+{
+  "patch": {
+    "scale": 28,
+    "coverage": 0.52,
+    "roughness": 0.3,
+    "blocks": ["asteria:mud"],
+    "conditions": {"maxY": 94, "maxSlope": 2}
+  }
+}
+```
+
+Decorators additionally support `cluster.octaves` (1..6, default 3) and
+`cluster.transitionWidth` (0..2, default 0). Zero preserves the
+existing hard threshold; positive widths use smoothstep to reduce the
+effective spawn chance across an organic noise transition. Biome influence
+and existing `chance` still govern the final probability. No new
+generation pass, chunk writer, or hydrology subsystem is created.
+
+Terrain context is sampled lazily: unconditioned rules incur no extra
+terrain queries, altitude-only restrictions query only the local column,
+and adjacent heights are read only when at least one authored condition
+needs slope. Content JSON belongs to the selected pack.
+
 ## Non-regression rules
 
 - No legacy worldgen implementation may be restored for convenience.
