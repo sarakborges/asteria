@@ -69,3 +69,22 @@ export const FullCursor: Story = {
     },
   },
 };
+
+export const CharacterVitals: Story = {
+  args: {
+    state: { ...meta.args.state, creativeAvailable: false, cursor: null },
+    health: { current: 18, maximum: 20 },
+  },
+};
+
+export const EmptySurvival: Story = {
+  args: {
+    state: {
+      ...meta.args.state,
+      creativeAvailable: false,
+      backpack: Array(27).fill(null),
+      hotbar: Array(9).fill(null),
+      cursor: null,
+    },
+  },
+};
