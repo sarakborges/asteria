@@ -206,7 +206,10 @@ public sealed class DroppedBlockRuntime
         var acceptedIds = new List<ulong>();
         foreach (var pair in _active)
         {
-            if (Vector3.DistanceSquared(pair.Value.Position, position) >
+            // Dropped/just-thrown blocks need to leave the player's
+            // immediate pickup range before being eligible again.
+            if (pair.Value.AgeSeconds < 0.4 ||
+                Vector3.DistanceSquared(pair.Value.Position, position) >
                 radiusSquared)
                 continue;
             if (!tryAccept(pair.Value.Block))

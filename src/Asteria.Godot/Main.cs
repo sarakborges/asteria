@@ -1528,6 +1528,7 @@ public partial class Main : Node3D
     {
         if (!_inventoryOpen ||
             !message.TryGetProperty("payload", out var payload) ||
+            payload.ValueKind != JsonValueKind.Object ||
             !payload.TryGetProperty("index", out var indexValue) ||
             !indexValue.TryGetInt32(out var index)) return;
         if (!_sessionStates.Player.Inventory.ClickSlot(index)) return;
@@ -1541,6 +1542,7 @@ public partial class Main : Node3D
         if (!_inventoryOpen ||
             _sessionStates.Player.GameMode != PlayerGameMode.Creative ||
             !message.TryGetProperty("payload", out var payload) ||
+            payload.ValueKind != JsonValueKind.Object ||
             !payload.TryGetProperty("id", out var idValue) ||
             idValue.ValueKind != JsonValueKind.String) return;
         var id = idValue.GetString();

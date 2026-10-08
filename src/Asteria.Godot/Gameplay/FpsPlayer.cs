@@ -438,7 +438,7 @@ public partial class FpsPlayer : CharacterBody3D
         if (key.Pressed && !key.Echo)
         {
             if (code is >= Key.Key1 and <= Key.Key9)
-                HotbarSlotRequested?.Invoke((int)(code - Key.Key1));
+                HotbarSlotRequested?.Invoke((int)code - (int)Key.Key1);
 
             if (GameplayKeyMap.Matches(
                     key, InputPreferences, KeybindAction.Inventory))
