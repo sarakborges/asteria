@@ -37,22 +37,13 @@ public sealed class ToolGameplayRuntime
         PlayerGameMode mode)
     {
         ArgumentNullException.ThrowIfNull(target);
-        if (mode == PlayerGameMode.Creative) return true;
-        if (mode == PlayerGameMode.Spectator) return false;
-
-        ToolDefinition? tool = null;
-        if (held?.Kind == InventoryEntryKind.Tool)
+        return mode switch
         {
-            if (!_tools.TryGet(held.Id, out tool) ||
-                tool is null || tool.LeftBehavior != "asteria:mine")
-                return false;
-        }
-
-        var required = target.Mining.RequiredTools;
-        if (required.Count == 0) return true;
-
-        return tool?.Mining is { } mining &&
-            required.Contains(mining.Category, StringComparer.Ordinal);
+            PlayerGameMode.Creative => true,
+            PlayerGameMode.Survival =>
+                EffectiveMiningSpeed(held, target) is not null,
+            _ => false,
+        };
     }
 
     /// <summary>
