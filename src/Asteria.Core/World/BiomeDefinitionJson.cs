@@ -636,7 +636,8 @@ public static class BiomeDefinitionJson
                 RequiredInt32(entry, "minHeight"),
                 RequiredInt32(entry, "maxHeight"),
                 RequiredInt32(entry, "minClearance"),
-                directions);
+                directions,
+                OptionalStringArray(entry, "surfaceBiomes"));
         }).ToArray();
     }
 

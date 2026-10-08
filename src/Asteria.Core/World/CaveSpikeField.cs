@@ -73,6 +73,10 @@ public sealed class CaveSpikeField
             var direction = down ? CaveSpikeDirection.Down : CaveSpikeDirection.Up;
             if (!rule.Definition.Directions.Contains(direction))
                 continue;
+            if (rule.Definition.SurfaceBiomes.Count > 0 &&
+                !rule.Definition.SurfaceBiomes.Contains(
+                    surfaceBiome.Primary, StringComparer.Ordinal))
+                continue;
             var domain = down ? rule.DownDomain : rule.UpDomain;
             if (WorldGenerationEntropy.Unit(
                     WorldGenerationEntropy.Sample3D(_seed, domain, x, y, z)) >=

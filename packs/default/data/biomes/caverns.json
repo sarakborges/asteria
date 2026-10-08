@@ -68,6 +68,64 @@
         "up",
         "down"
       ]
+    },
+    {
+      "block": "asteria:ice_spike",
+      "surfaceBiomes": [
+        "asteria:overworld/alps",
+        "asteria:overworld/arctic"
+      ],
+      "chance": 0.065,
+      "minHeight": 2,
+      "maxHeight": 9,
+      "minClearance": 10,
+      "directions": [
+        "up",
+        "down"
+      ]
+    },
+    {
+      "block": "asteria:basalt_spike",
+      "surfaceBiomes": [
+        "asteria:overworld/volcano"
+      ],
+      "chance": 0.065,
+      "minHeight": 2,
+      "maxHeight": 9,
+      "minClearance": 10,
+      "directions": [
+        "up",
+        "down"
+      ]
+    },
+    {
+      "block": "asteria:sandstone_spike",
+      "surfaceBiomes": [
+        "asteria:overworld/desert",
+        "asteria:overworld/gorge"
+      ],
+      "chance": 0.065,
+      "minHeight": 2,
+      "maxHeight": 9,
+      "minClearance": 10,
+      "directions": [
+        "up",
+        "down"
+      ]
+    },
+    {
+      "block": "asteria:terracotta_spike",
+      "surfaceBiomes": [
+        "asteria:overworld/wasteland"
+      ],
+      "chance": 0.065,
+      "minHeight": 2,
+      "maxHeight": 9,
+      "minClearance": 10,
+      "directions": [
+        "up",
+        "down"
+      ]
     }
   ]
 }

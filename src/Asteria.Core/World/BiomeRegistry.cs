@@ -186,6 +186,24 @@ public sealed class BiomeRegistry
                 target =>
                     target.UndergroundLayout is not null,
                 "undergroundLayout");
+            ValidateCaveSpikeSurfaceReferences(definition);
+        }
+    }
+
+    private void ValidateCaveSpikeSurfaceReferences(
+        BiomeDefinition definition)
+    {
+        foreach (var spike in definition.CaveSpikes)
+        foreach (var biomeId in spike.SurfaceBiomes)
+        {
+            if (!_definitionsById.TryGetValue(biomeId, out var target) ||
+                target.SurfaceLayout is null ||
+                DimensionId(target.Id) != DimensionId(definition.Id))
+            {
+                throw new ArgumentException(
+                    $"Biome {definition.Id} cave spike {spike.Block} references " +
+                    $"an unknown or incompatible surface biome: {biomeId}.");
+            }
         }
     }
 

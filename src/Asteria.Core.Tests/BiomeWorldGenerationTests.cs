@@ -110,10 +110,17 @@ public sealed class BiomeWorldGenerationTests
             caverns.UndergroundLayout);
         Assert.Empty(
             caverns.SurfaceLayers);
-        var spike = Assert.Single(caverns.CaveSpikes);
-        Assert.Equal("asteria:stone_spike", spike.Block);
-        Assert.Contains(CaveSpikeDirection.Up, spike.Directions);
-        Assert.Contains(CaveSpikeDirection.Down, spike.Directions);
+        Assert.Equal(5, caverns.CaveSpikes.Count);
+        var stoneSpike = Assert.Single(caverns.CaveSpikes,
+            spike => spike.Block == "asteria:stone_spike");
+        Assert.Empty(stoneSpike.SurfaceBiomes);
+        Assert.Contains(CaveSpikeDirection.Up, stoneSpike.Directions);
+        Assert.Contains(CaveSpikeDirection.Down, stoneSpike.Directions);
+        var iceSpike = Assert.Single(caverns.CaveSpikes,
+            spike => spike.Block == "asteria:ice_spike");
+        Assert.Equal(
+            ["asteria:overworld/alps", "asteria:overworld/arctic"],
+            iceSpike.SurfaceBiomes);
 
         var floating =
             biomes.Get(
@@ -183,6 +190,22 @@ public sealed class BiomeWorldGenerationTests
                 .SurfaceLayers
                 .Select(layer =>
                     (layer.Block, layer.Depth)));
+    }
+
+    [Fact]
+    public void CaveSpikeSurfaceBiomesMustReferenceActualSurfaceBiomes()
+    {
+        var cave = new BiomeDefinition(
+            "asteria:test/caverns", null, null,
+            undergroundLayout: new BiomeUndergroundLayoutDefinition(),
+            caveSpikes:
+            [
+                new BiomeCaveSpikeDefinition(
+                    "asteria:stone_spike", 0.1f, 2, 5, 6,
+                    [CaveSpikeDirection.Up],
+                    ["asteria:test/unknown"]),
+            ]);
+        Assert.Throws<ArgumentException>(() => new BiomeRegistry([cave]));
     }
 
     [Fact]

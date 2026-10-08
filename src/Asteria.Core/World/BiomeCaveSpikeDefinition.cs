@@ -15,7 +15,8 @@ public sealed class BiomeCaveSpikeDefinition
         int minHeight,
         int maxHeight,
         int minClearance,
-        IEnumerable<CaveSpikeDirection> directions)
+        IEnumerable<CaveSpikeDirection> directions,
+        IEnumerable<string>? surfaceBiomes = null)
     {
         BlockDefinition.ValidateId(block);
         if (!float.IsFinite(chance) || chance <= 0f || chance > 1f)
@@ -35,6 +36,19 @@ public sealed class BiomeCaveSpikeDefinition
                 "Spike directions must be unique valid orientations.",
                 nameof(directions));
 
+        var allowedBiomes = surfaceBiomes?.ToArray() ??
+            Array.Empty<string>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var biomeId in allowedBiomes)
+        {
+            BiomeDefinition.ValidateId(biomeId);
+            if (!seen.Add(biomeId))
+                throw new ArgumentException(
+                    $"Duplicate cave spike surface biome: {biomeId}",
+                    nameof(surfaceBiomes));
+        }
+
+        SurfaceBiomes = Array.AsReadOnly(allowedBiomes);
         Block = block;
         Chance = chance;
         MinHeight = minHeight;
@@ -49,4 +63,6 @@ public sealed class BiomeCaveSpikeDefinition
     public int MaxHeight { get; }
     public int MinClearance { get; }
     public IReadOnlyList<CaveSpikeDirection> Directions { get; }
+    /// <summary>Empty means any surface biome in the same Sphere.</summary>
+    public IReadOnlyList<string> SurfaceBiomes { get; }
 }
