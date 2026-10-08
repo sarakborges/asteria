@@ -23,8 +23,8 @@ type Story = StoryObj<typeof meta>;
 export const Compatible: Story = { args: { onLoad: () => undefined, onDelete: () => undefined } };
 
 export const Incompatible: Story = {
-  args: { onDelete: () => undefined,
   args: {
+    onDelete: () => undefined,
     world: {
       id: "Legacy World",
       lastSaved: "",
