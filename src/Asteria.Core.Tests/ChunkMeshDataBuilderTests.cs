@@ -38,6 +38,19 @@ public sealed class ChunkMeshDataBuilderTests
             vertex => vertex.Normal == Vector3.UnitY);
         Assert.Contains(mesh.RenderBatches.SelectMany(batch => batch.Vertices),
             vertex => vertex.Normal == -Vector3.UnitY);
+
+        var vertices = mesh.RenderBatches.SelectMany(batch => batch.Vertices).ToArray();
+        for (var index = 0; index < vertices.Length; index += 3)
+        {
+            var normal = vertices[index].Normal;
+            if (normal != Vector3.UnitY && normal != -Vector3.UnitY)
+                continue;
+            var a = vertices[index].Position;
+            var b = vertices[index + 1].Position;
+            var c = vertices[index + 2].Position;
+            Assert.True(Vector3.Dot(Vector3.Cross(b - a, c - a), normal) > 0f,
+                $"Spike end cap winding is reversed at triangle {index / 3}.");
+        }
     }
 
     [Fact]

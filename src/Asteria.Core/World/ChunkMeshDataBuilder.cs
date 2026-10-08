@@ -656,8 +656,8 @@ public static class ChunkMeshDataBuilder
             if (topCap && topRadius > 0f)
             {
                 cap[0] = position + Vector3.UnitY;
-                cap[1] = quad[2];
-                cap[2] = quad[1];
+                cap[1] = quad[1];
+                cap[2] = quad[2];
                 EmitSpikeCapTriangle(
                     surface, collision, cap, Vector3.UnitY,
                     topMaterial, capTint, upperLight, definition.IsCollidable,
@@ -667,8 +667,8 @@ public static class ChunkMeshDataBuilder
             if (bottomCap && bottomRadius > 0f)
             {
                 cap[0] = position;
-                cap[1] = quad[0];
-                cap[2] = quad[3];
+                cap[1] = quad[3];
+                cap[2] = quad[0];
                 EmitSpikeCapTriangle(
                     surface, collision, cap, -Vector3.UnitY,
                     bottomMaterial, capTint, lowerLight, definition.IsCollidable,
