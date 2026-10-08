@@ -57,6 +57,7 @@ export function ChatDock({
   };
 
   return (
+    <div className="chat-dock">
     <ChatPanel
       open={open}
       visible={visible}
@@ -71,5 +72,6 @@ export function ChatDock({
       }}
       onSubmit={() => onSubmit(draft)}
     />
+    </div>
   );
 }
