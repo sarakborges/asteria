@@ -2222,15 +2222,31 @@ public partial class Main : Node3D
 
     private void PlaceTargetBlock()
     {
-        if (!_sessionStates.Player.CanInteract ||
-            !TryGetTarget(
-                out var hit))
-        {
+        if (!_sessionStates.Player.CanInteract || _player is null)
             return;
-        }
 
         var inventory = _sessionStates.Player.Inventory;
         var selected = inventory.SelectedStack;
+        if (_sessions.Active.Bucket.IsEquipped(selected))
+        {
+            var (from, to) = _player.GetInteractionRay(
+                BucketGameplayRuntime.MaximumReach);
+            var origin = new NVector3(from.X, from.Y, from.Z);
+            var direction = new NVector3(
+                to.X - from.X, to.Y - from.Y, to.Z - from.Z);
+            if (_sessions.Active.Bucket.TryUse(
+                    inventory, origin, direction, CurrentTarget()))
+            {
+                SendHotbarState();
+                SendInventoryState();
+                KickWorldMutationWorkers();
+            }
+            return;
+        }
+
+        if (!TryGetTarget(out var hit))
+            return;
+
         if (_sessions.Active.Tools.TryUse(
                 selected, ToolUseHand.Right, hit))
         {
