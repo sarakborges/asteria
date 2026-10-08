@@ -5,7 +5,7 @@ import { Select } from "../../atoms/Select/Select";
 import { Slider } from "../../atoms/Slider/Slider";
 import { Toggle } from "../../atoms/Toggle/Toggle";
 import { Text } from "../../atoms/Text/Text";
-import { TextInput } from "../../atoms/TextInput/TextInput";
+import { NumericStepper } from "../../molecules/NumericStepper/NumericStepper";
 import { SettingRow } from "../../molecules/SettingRow/SettingRow";
 import { GameModePicker } from "../../molecules/GameModePicker/GameModePicker";
 import { SettingsPage, type SettingsSectionView } from "../SettingsPage/SettingsPage";
@@ -113,19 +113,14 @@ export function SettingsWorkspacePage({
         id: "rules", label: t("settings.section.gameRules"),
         content: <SettingRow title={t("settings.ticksBySecond")}
           description={t("settings.ticksBySecond.description")}
-          control={<TextInput type="number" min={1} step={1}
-            aria-label={t("settings.ticksBySecond")} disabled={!settings.world}
+          control={<NumericStepper
+            ariaLabel={t("settings.ticksBySecond")}
+            min={1} max={4294967295}
+            disabled={!settings.world}
             value={ticks}
-            onChange={event => setTicks(event.target.value)}
-            onBlur={() => {
-              const value = Number(ticks);
-              if (/^[1-9][0-9]*$/.test(ticks) &&
-                  Number.isSafeInteger(value) && value <= 4294967295)
-                onWorldTicks(value);
-            }}
-            onKeyDown={event => {
-              if (event.key === "Enter") event.currentTarget.blur();
-            }} />} />,
+            onChange={setTicks}
+            onCommit={onWorldTicks}
+          />} />,
       },
     ];
 
