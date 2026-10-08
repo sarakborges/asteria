@@ -201,34 +201,18 @@ public sealed class DimensionRegistry
                         $"Dimension {dimension.Id} references volume biome {biomeId} owned by another dimension.");
                 }
 
-                if (biome.VolumeLayout is null ||
-                    biome.Terrain3d?.Additive.Count is not > 0)
-                {
+                if (biome.VolumeLayout is null)
                     throw new ArgumentException(
-                        $"Dimension {dimension.Id} volume biome {biomeId} does not author volumeLayout + terrain3d.additive.");
-                }
+                        $"Dimension {dimension.Id} volume biome {biomeId} lacks volumeLayout.");
+                if (biome.VolumeLayout.Placement == VolumeBiomePlacement.CarvedVoid &&
+                    dimension.Caves is null)
+                    throw new ArgumentException(
+                        $"Dimension {dimension.Id} cave volume biome {biomeId} requires caves.");
+                if (biome.SurfaceLayers.Count == 0)
+                    throw new ArgumentException(
+                        $"Dimension {dimension.Id} volume biome {biomeId} requires surfaceLayers.");
             }
 
-            foreach (var biomeId in
-                     dimension.UndergroundBiomes)
-            {
-                var biome =
-                    biomes.Get(
-                        biomeId);
-
-                if (!biome.BelongsToDimension(
-                        dimension.Id.Value))
-                {
-                    throw new ArgumentException(
-                        $"Dimension {dimension.Id} references underground biome {biomeId} owned by another dimension.");
-                }
-
-                if (biome.UndergroundLayout is null)
-                {
-                    throw new ArgumentException(
-                        $"Dimension {dimension.Id} underground biome {biomeId} does not author undergroundLayout.");
-                }
-            }
         }
     } 
     public void ValidateStructures(

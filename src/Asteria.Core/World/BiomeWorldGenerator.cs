@@ -21,7 +21,6 @@ public sealed class BiomeWorldGenerator :
     private readonly SurfaceChunkMaterializer _materializer;
     private readonly SurfaceStructureField _surfaceStructures;
     private readonly VolumeBiomeField _volumeBiomes;
-    private readonly UndergroundBiomeField _undergroundBiomes;
 
     public BiomeWorldGenerator(
         ulong seed,
@@ -127,11 +126,7 @@ public sealed class BiomeWorldGenerator :
                 .Concat(volumeDefinitions)
                 .OrderBy(definition => definition.Id, StringComparer.Ordinal)
                 .ToArray();
-        var decorationDefinitions =
-            materialDefinitions
-                .Concat(dimension.UndergroundBiomes.Select(biomes.Get))
-                .OrderBy(definition => definition.Id, StringComparer.Ordinal)
-                .ToArray();
+        var decorationDefinitions = materialDefinitions;
 
         _generation = generation;
         Biomes =
@@ -143,11 +138,6 @@ public sealed class BiomeWorldGenerator :
                 biomeSizeMultiplier: generation.BiomeSizeMultiplier);
         _volumeBiomes =
             new VolumeBiomeField(
-                seed,
-                dimension,
-                biomes);
-        _undergroundBiomes =
-            new UndergroundBiomeField(
                 seed,
                 dimension,
                 biomes);
@@ -210,12 +200,10 @@ public sealed class BiomeWorldGenerator :
                 _terrain,
                 habitats,
                 generateDecorations: generation.Mode != WorldGenerationMode.Void);
-        var undergroundDefinitions =
-            dimension.UndergroundBiomes.Select(biomes.Get).ToArray();
         var caveSpikes = new CaveSpikeField(
-            seed, undergroundDefinitions, blocks, _terrain);
-        var caveMaterials = new CaveMaterialField(
-            seed, undergroundDefinitions, blocks);
+            seed, volumeDefinitions.Where(biome =>
+                biome.VolumeLayout!.Placement == VolumeBiomePlacement.CarvedVoid),
+            blocks, _terrain);
         _materializer =
             new SurfaceChunkMaterializer(
                 _surfaceColumns,
@@ -226,10 +214,9 @@ public sealed class BiomeWorldGenerator :
                 _surfaceStructures,
                 dimension,
                 blocks,
-                _undergroundBiomes,
+                _volumeBiomes,
                 _voidSpawnPlatform,
-                caveSpikes,
-                caveMaterials);
+                caveSpikes);
         Tints =
             new BiomeTintField(
                 Biomes,
@@ -243,9 +230,6 @@ public sealed class BiomeWorldGenerator :
 
     public VolumeBiomeField VolumeBiomes =>
         _volumeBiomes;
-
-    public UndergroundBiomeField UndergroundBiomes =>
-        _undergroundBiomes;
 
     public BiomeTintField Tints { get; }
 
@@ -426,15 +410,9 @@ public sealed class BiomeWorldGenerator :
                 worldY,
                 worldZ))
         {
-            var underground =
-                _undergroundBiomes.Sample(
-                    worldX,
-                    worldZ);
-
-            if (underground is not null)
-            {
-                return underground.Primary;
-            }
+            var cave = _volumeBiomes.SampleCave(worldX, worldZ);
+            if (cave is not null)
+                return cave.Primary;
         }
 
         return Biomes.Sample(

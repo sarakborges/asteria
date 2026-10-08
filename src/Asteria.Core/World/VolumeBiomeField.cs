@@ -8,6 +8,7 @@ namespace Asteria.Core.World;
 public sealed class VolumeBiomeField
 {
     private readonly BiomeField? _placement;
+    private readonly BiomeField? _cavePlacement;
     private readonly IReadOnlyDictionary<
         string,
         IReadOnlyList<BiomeAdditiveDensityDefinition>> _formations;
@@ -32,8 +33,15 @@ public sealed class VolumeBiomeField
                     StringComparer.Ordinal)
                 .ToArray();
 
+        var additiveDefinitions = volumeDefinitions
+            .Where(biome => biome.VolumeLayout!.Placement == VolumeBiomePlacement.Additive)
+            .ToArray();
+        var caveDefinitions = volumeDefinitions
+            .Where(biome => biome.VolumeLayout!.Placement == VolumeBiomePlacement.CarvedVoid)
+            .ToArray();
+
         _formations =
-            volumeDefinitions
+            additiveDefinitions
                 .ToDictionary(
                     definition =>
                         definition.Id,
@@ -50,10 +58,14 @@ public sealed class VolumeBiomeField
                     },
                     StringComparer.Ordinal);
 
-        if (volumeDefinitions.Length == 0)
-        {
+        if (caveDefinitions.Length > 0)
+            _cavePlacement = new BiomeField(
+                seed,
+                caveDefinitions.Select(biome => new BiomeFieldRuleSource(
+                    biome.Id, biome.VolumeLayout!)).ToArray());
+
+        if (additiveDefinitions.Length == 0)
             return;
-        }
 
         var placementRules =
             dimension.SurfaceBiomes
@@ -70,7 +82,7 @@ public sealed class VolumeBiomeField
                                 $"Surface biome {definition.Id} requires surfaceLayout."));
                     })
                 .Concat(
-                    volumeDefinitions
+                    additiveDefinitions
                         .Select(
                             definition =>
                                 new BiomeFieldRuleSource(
@@ -88,7 +100,11 @@ public sealed class VolumeBiomeField
     }
 
     public bool HasBiomes =>
-        _placement is not null;
+        _placement is not null || _cavePlacement is not null;
+
+    /// <summary>Volume identity at a carved cave surface. Density owns occupancy.</summary>
+    public BiomeSample? SampleCave(int worldX, int worldZ) =>
+        _cavePlacement?.Sample(worldX, worldZ);
 
     public BiomeSample? Sample(
         int worldX,

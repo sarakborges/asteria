@@ -82,9 +82,6 @@ public static class DimensionDefinitionJson
             OptionalStringArray(
                 root,
                 "volumeBiomes"),
-            OptionalStringArray(
-                root,
-                "undergroundBiomes"),
             ParseGeneratedSurfaceStructures(
                 root),
             ParseGeneratedSurfaceFluids(

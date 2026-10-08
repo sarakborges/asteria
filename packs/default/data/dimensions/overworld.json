@@ -121,9 +121,7 @@
     "asteria:overworld/volcano"
   ],
   "volumeBiomes": [
-    "asteria:overworld/floating_islands"
-  ],
-  "undergroundBiomes": [
+    "asteria:overworld/floating_islands",
     "asteria:overworld/caverns"
   ],
   "generatedSurfaceStructures": [

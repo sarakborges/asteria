@@ -13,10 +13,8 @@ public sealed class BiomeDefinition
         BiomeTintPaletteDefinition? tints = null,
         BiomeTerrain3dDefinition? terrain3d = null,
         BiomeVolumeLayoutDefinition? volumeLayout = null,
-        BiomeUndergroundLayoutDefinition? undergroundLayout = null,
         SurfaceHabitatDefinition? surfaceHabitats = null,
-        IEnumerable<BiomeCaveSpikeDefinition>? caveSpikes = null,
-        IEnumerable<BiomeCaveMaterialDefinition>? caveMaterials = null)
+        IEnumerable<BiomeCaveSpikeDefinition>? caveSpikes = null)
     {
         ValidateId(id);
         Id = id;
@@ -28,33 +26,31 @@ public sealed class BiomeDefinition
         }
 
         if (surfaceLayout is null &&
-            volumeLayout is null &&
-            undergroundLayout is null)
+            volumeLayout is null)
         {
             throw new ArgumentException(
                 "Biome must participate in at least one placement domain.");
         }
 
-        if (volumeLayout is not null &&
-            terrain3d?.Additive.Count is not > 0)
+        if (volumeLayout is { } authoredVolume)
         {
-            throw new ArgumentException(
-                "Volume biome currently requires terrain3d.additive.");
+            if (authoredVolume.Placement == VolumeBiomePlacement.Additive &&
+                terrain3d?.Additive.Count is not > 0)
+                throw new ArgumentException(
+                    "Additive volume biomes require terrain3d.additive.");
+            if (authoredVolume.Placement == VolumeBiomePlacement.CarvedVoid &&
+                terrain3d?.Additive.Count is > 0)
+                throw new ArgumentException(
+                    "Carved-void volume biomes cannot also author additive terrain.");
         }
 
         SurfaceLayout = surfaceLayout;
         SurfaceTerrain = surfaceTerrain;
         VolumeLayout = volumeLayout;
-        UndergroundLayout = undergroundLayout;
         var spikes = caveSpikes?.ToArray() ?? Array.Empty<BiomeCaveSpikeDefinition>();
-        if (spikes.Length > 0 && undergroundLayout is null)
-            throw new ArgumentException("Cave spikes require an underground biome.", nameof(caveSpikes));
+        if (spikes.Length > 0 && volumeLayout?.Placement != VolumeBiomePlacement.CarvedVoid)
+            throw new ArgumentException("Cave spikes require carved-void volume placement.", nameof(caveSpikes));
         CaveSpikes = Array.AsReadOnly(spikes);
-        var materials = caveMaterials?.ToArray() ?? Array.Empty<BiomeCaveMaterialDefinition>();
-        if (materials.Length > 0 && undergroundLayout is null)
-            throw new ArgumentException("Cave materials require an underground biome.", nameof(caveMaterials));
-        CaveMaterials = Array.AsReadOnly(materials);
-
         var layers =
             surfaceLayers?.ToArray() ??
             Array.Empty<BiomeSurfaceLayerDefinition>();
@@ -103,10 +99,7 @@ public sealed class BiomeDefinition
 
     public BiomeVolumeLayoutDefinition? VolumeLayout { get; }
 
-    public BiomeUndergroundLayoutDefinition? UndergroundLayout { get; }
-
     public IReadOnlyList<BiomeCaveSpikeDefinition> CaveSpikes { get; }
-    public IReadOnlyList<BiomeCaveMaterialDefinition> CaveMaterials { get; }
 
     public IReadOnlyList<BiomeSurfaceLayerDefinition> SurfaceLayers { get; }
 
@@ -327,6 +320,12 @@ public sealed class BiomeSurfaceLayoutDefinition :
     public float SpawnWeight { get; }
 }
 
+public enum VolumeBiomePlacement : byte
+{
+    Additive,
+    CarvedVoid,
+}
+
 public sealed class BiomeVolumeLayoutDefinition :
     BiomePlacementLayoutDefinition
 {
@@ -334,31 +333,16 @@ public sealed class BiomeVolumeLayoutDefinition :
         float weight = 1f,
         uint regionMin = 192,
         uint regionMax = 384,
-        IEnumerable<string>? cannotBorder = null)
-        : base(
-            weight,
-            regionMin,
-            regionMax,
-            cannotBorder)
+        IEnumerable<string>? cannotBorder = null,
+        VolumeBiomePlacement placement = VolumeBiomePlacement.Additive)
+        : base(weight, regionMin, regionMax, cannotBorder)
     {
+        if (!Enum.IsDefined(placement))
+            throw new ArgumentOutOfRangeException(nameof(placement));
+        Placement = placement;
     }
-}
 
-public sealed class BiomeUndergroundLayoutDefinition :
-    BiomePlacementLayoutDefinition
-{
-    public BiomeUndergroundLayoutDefinition(
-        float weight = 1f,
-        uint regionMin = 192,
-        uint regionMax = 384,
-        IEnumerable<string>? cannotBorder = null)
-        : base(
-            weight,
-            regionMin,
-            regionMax,
-            cannotBorder)
-    {
-    }
+    public VolumeBiomePlacement Placement { get; }
 }
 
 public sealed class BiomeTerrainDefinition

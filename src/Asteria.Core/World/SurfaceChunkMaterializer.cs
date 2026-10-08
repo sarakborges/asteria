@@ -12,10 +12,9 @@ public sealed class SurfaceChunkMaterializer
     private readonly SurfaceDecorationField _decorations;
     private readonly GeneratedFluidField _generatedFluids;
     private readonly SurfaceStructureField _structures;
-    private readonly UndergroundBiomeField? _undergroundBiomes;
+    private readonly VolumeBiomeField? _volumeBiomes;
     private readonly VoidSpawnPlatform? _voidSpawnPlatform;
     private readonly CaveSpikeField? _caveSpikes;
-    private readonly CaveMaterialField? _caveMaterials;
     private readonly BlockRuntimeId _shellBlock;
     private readonly int? _floorY;
     private readonly int? _roofY;
@@ -29,9 +28,9 @@ public sealed class SurfaceChunkMaterializer
         SurfaceStructureField structures,
         DimensionDefinition dimension,
         BlockRegistry blocks,
-        UndergroundBiomeField? undergroundBiomes = null)
+        VolumeBiomeField? volumeBiomes = null)
         : this(columns, terrain, materials, decorations, generatedFluids,
-            structures, dimension, blocks, undergroundBiomes, null)
+            structures, dimension, blocks, volumeBiomes, null)
     {
     }
 
@@ -44,10 +43,9 @@ public sealed class SurfaceChunkMaterializer
         SurfaceStructureField structures,
         DimensionDefinition dimension,
         BlockRegistry blocks,
-        UndergroundBiomeField? undergroundBiomes,
+        VolumeBiomeField? volumeBiomes,
         VoidSpawnPlatform? voidSpawnPlatform,
-        CaveSpikeField? caveSpikes = null,
-        CaveMaterialField? caveMaterials = null)
+        CaveSpikeField? caveSpikes = null)
     {
         _columns = columns ??
             throw new ArgumentNullException(nameof(columns));
@@ -61,10 +59,9 @@ public sealed class SurfaceChunkMaterializer
             throw new ArgumentNullException(nameof(generatedFluids));
         _structures = structures ??
             throw new ArgumentNullException(nameof(structures));
-        _undergroundBiomes = undergroundBiomes;
+        _volumeBiomes = volumeBiomes;
         _voidSpawnPlatform = voidSpawnPlatform;
         _caveSpikes = caveSpikes;
-        _caveMaterials = caveMaterials;
         ArgumentNullException.ThrowIfNull(dimension);
         ArgumentNullException.ThrowIfNull(blocks);
 
@@ -269,7 +266,7 @@ public sealed class SurfaceChunkMaterializer
             }
         }
 
-        MaterializeCaveMaterials(
+        MaterializeVolumeCavePalette(
             chunk, column, densityVolume, originX, originY, originZ);
 
         MaterializeVerticalDecorations(
@@ -645,17 +642,16 @@ public sealed class SurfaceChunkMaterializer
         z << 16;
 
     /// <summary>
-    /// Paint only exposed cave solids. In-chunk neighbors reuse the already
-    /// sampled density volume; cross-chunk seams query the same terrain owner.
+    /// Apply volume-biome surfaceLayers to exposed cave solids; the terrain
+    /// density owner determines actual carved-void occupancy.
     /// </summary>
-    private void MaterializeCaveMaterials(
+    private void MaterializeVolumeCavePalette(
         Chunk chunk,
         SurfaceTerrainColumn column,
         TerrainDensityVolume densityVolume,
         int originX, int originY, int originZ)
     {
-        if (_caveMaterials is not { HasRules: true } materials ||
-            _undergroundBiomes is not { HasBiomes: true } underground)
+        if (_volumeBiomes is not { HasBiomes: true } volumes)
             return;
 
         for (var z = 0; z < Chunk.Size; z++)
@@ -663,8 +659,8 @@ public sealed class SurfaceChunkMaterializer
         {
             var worldX = originX + x;
             var worldZ = originZ + z;
-            var caveBiome = underground.Sample(worldX, worldZ);
-            if (caveBiome is null || !materials.HasRulesFor(caveBiome.Primary))
+            var caveBiome = volumes.SampleCave(worldX, worldZ);
+            if (caveBiome is null)
                 continue;
 
             var baseY = column.BaseHeightAt(x, z);
@@ -706,14 +702,8 @@ public sealed class SurfaceChunkMaterializer
                 if (!hasFloor && !hasCeiling && !hasWall)
                     continue;
 
-                var face = hasFloor
-                    ? CaveSurfaceFace.Floor
-                    : hasCeiling
-                        ? CaveSurfaceFace.Ceiling
-                        : CaveSurfaceFace.Wall;
-                var replacement = materials.Select(
-                    caveBiome.Primary, block, face,
-                    worldX, worldY, worldZ);
+                var replacement = _materials.VolumeBlockAt(
+                    caveBiome, worldX, worldY, worldZ);
                 if (replacement != block)
                     chunk.SetBlock(x, y, z, replacement);
             }
@@ -790,9 +780,10 @@ public sealed class SurfaceChunkMaterializer
                 }
                 else
                 {
-                    if (_undergroundBiomes is not { HasBiomes: true })
+                    if (_volumeBiomes is not { HasBiomes: true } ||
+                        !_terrain.IsCaveVoidAt(worldX, worldY, worldZ))
                         continue;
-                    underground ??= _undergroundBiomes.Sample(worldX, worldZ);
+                    underground ??= _volumeBiomes.SampleCave(worldX, worldZ);
                     decoratorBiome = underground;
                     if (decoratorBiome is null ||
                         !_decorations.HasVerticalDecorationsFor(
@@ -801,9 +792,8 @@ public sealed class SurfaceChunkMaterializer
 
                     support = localY > 0
                         ? chunk.GetBlock(localX, localY - 1, localZ)
-                        : _materials.BlockAt(
-                            surfaceBiome, worldX, worldZ,
-                            checked((uint)(baseY - worldY + 1)));
+                        : _materials.VolumeBlockAt(
+                            decoratorBiome, worldX, worldY - 1, worldZ);
                 }
 
                 if (support.IsAir)
@@ -831,7 +821,7 @@ public sealed class SurfaceChunkMaterializer
         int originZ)
     {
         if (_caveSpikes is not { HasRules: true } spikes ||
-            _undergroundBiomes is not { HasBiomes: true } undergroundBiomes)
+            _volumeBiomes is not { HasBiomes: true } volumeBiomes)
             return;
 
         var maximumHeight = spikes.MaximumHeight;
@@ -840,7 +830,7 @@ public sealed class SurfaceChunkMaterializer
         {
             var worldX = originX + x;
             var worldZ = originZ + z;
-            var biome = undergroundBiomes.Sample(worldX, worldZ);
+            var biome = volumeBiomes.SampleCave(worldX, worldZ);
             if (biome is null || !spikes.HasRulesFor(biome.Primary))
                 continue;
 
