@@ -86,7 +86,7 @@ public sealed class SurfaceDecorationField
                     }
                 }
 
-                var effectiveChance = rule.Chance * influence.Weight;
+                double effectiveChance = rule.Chance * influence.Weight;
                 if (rule.Cluster is { } cluster)
                 {
                     var noise = WorldGenerationNoise.FractalNoise2D(
