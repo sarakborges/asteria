@@ -1,4 +1,5 @@
 import type { WorldSummaryView } from "../presentation/worldCatalogModels";
+import type { ChatMessageView } from "../presentation/chatModels";
 
 export type BridgeStatusTone =
   | "neutral"
@@ -223,12 +224,20 @@ export type WorldCatalogState = {
   folderError: boolean;
 };
 
+export type ChatState = {
+  open: boolean;
+  visible: boolean;
+  history: readonly ChatMessageView[];
+  commands: readonly string[];
+};
+
 export type UiState = {
   mouseCaptured: boolean;
   hud: HudState;
   loading: LoadingState | null;
   worldCreation: WorldCreationState;
   worldCatalog: WorldCatalogState;
+  chat: ChatState;
   navigation: UiNavigationState;
   settings: SettingsState;
   inventory: GameplayInventoryState;
@@ -274,6 +283,7 @@ export function createInitialUiState(
     },
     loading: null,
     worldCatalog: { status: "unavailable", worlds: [], folderError: false },
+    chat: { open: false, visible: false, history: [], commands: [] },
     worldCreation: {
       visible: true,
       seed: "",
