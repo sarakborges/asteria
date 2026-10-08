@@ -47,7 +47,9 @@
   width: min(360px, 90vw);
 }
 
-@media (max-width: 760px) {
+/* Keep MineClone's left navigation even in compact game windows.
+   Only stack the sidebar at phone-sized widths. */
+@media (max-width: 520px) {
   .settings-page {
     grid-template-columns: 1fr;
     grid-template-rows: auto minmax(0, 1fr);

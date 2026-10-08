@@ -95,3 +95,15 @@ Statuses: **MATCHING FOUNDATION** (main geometry or semantics correspond, manual
 - Never let WebUI own gameplay keyboard/mouse input or invent runtime data/progress.
 - Preserve explicit Asteria differences already agreed upon (Sphere terminology, additional biome label, Survival inventory above Crafting, Godot immersion shader).
 - During parallel command/world work, re-check `main` and the exact affected files before implementing a batch; this audit is a **source snapshot**, not a lock on ongoing development.
+
+## Executable browser audit gate — New World (2026-10-08)
+
+The original check only looked for isolated components and missed a visible in-game discrepancy. CI now builds Storybook and starts a real Chromium browser. Tests navigate through the **actual React `App`**, using the real `UiStore` and `UiNavigationController` but deliberately fake/non-operative Godot bridge actions, from Starting → World Selection → New World. Checks assert:
+
+- The New World sidebar is visibly left of the content panel at 1920 px **and 640 px**; the former Asteria breakpoint at 760 px wrongly moved it above the form, unlike MineClone's persistent left navigation. Phone-only stacking is now limited to 520 px or narrower.
+- Exactly two real sections (World Settings and Game Rules), with the sidebar labels matching the section headings.
+- **Seed resides inside World Settings**, after World Name and before Game Mode; it does **not** belong to Game Rules. This follows MineClone `new_world_settings_section()` exactly.
+- Game Rules contains both tick-rate and Spawn Creatures controls, and their appropriate interactive state.
+- Chromium screenshots at desktop and narrow widths are uploaded as CI artifacts for visual review.
+
+**Boundary:** Chromium Storybook screenshots are *not* proof of what an embedded Godot/WRY executable displays, and are *not* screenshots of the MineClone reference. The reported runtime discrepancy remains open until an in-game A/B comparison is performed.

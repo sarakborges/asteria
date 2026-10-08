@@ -1,3 +1,2 @@
-.game-mode-picker { display: flex; align-items: stretch; gap: 8px; width: 100%; }
+.game-mode-picker { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; width: 100%; }
 .game-mode-picker > .ui-button { flex: 0 0 auto; min-width: 0; }
-@media (max-width: 520px) { .game-mode-picker { flex-wrap: wrap; } }
