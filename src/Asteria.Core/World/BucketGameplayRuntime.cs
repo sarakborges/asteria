@@ -53,13 +53,13 @@ public sealed class BucketGameplayRuntime
             var fluid = _world.GetFluidOrEmpty(found);
             if (!fluid.IsSource || fluid.IsEmpty) return false;
             var fluidId = _fluids.GetDefinition(fluid.Fluid).Id;
+            var metadata = new Dictionary<string, string>(
+                selected.Entry.Metadata, StringComparer.Ordinal)
+            {
+                [FluidMetadataKey] = fluidId,
+            };
             var filled = InventoryEntry.FromTool(
-                selected.Id,
-                new Dictionary<string, string>(StringComparer.Ordinal)
-                {
-                    [FluidMetadataKey] = fluidId,
-                },
-                selected.MaxStackSize);
+                selected.Id, metadata, selected.MaxStackSize);
 
             if (!_mutations.SetFluidAt(found, FluidCell.Empty, out _))
                 return false;
@@ -83,9 +83,11 @@ public sealed class BucketGameplayRuntime
             !_world.GetFluidOrEmpty(dest).IsEmpty)
             return false;
 
+        var metadataWithoutFluid = new Dictionary<string, string>(
+            selected.Entry.Metadata, StringComparer.Ordinal);
+        metadataWithoutFluid.Remove(FluidMetadataKey);
         var emptied = InventoryEntry.FromTool(
-            selected.Id,
-            maxStackSize: selected.MaxStackSize);
+            selected.Id, metadataWithoutFluid, selected.MaxStackSize);
         var placed = FluidCell.Source(fluidRuntimeId);
         if (!_mutations.SetFluidAt(dest, placed, out _))
             return false;
