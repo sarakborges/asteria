@@ -23,6 +23,7 @@ export function buildControlGroups(
   const chat = keybinds?.chat ?? "KeyT";
   const tool = keybinds?.toolAction ?? "KeyR";
   const drop = keybinds?.dropItem ?? "KeyQ";
+  const perspective = keybinds?.changePerspective ?? "F5";
 
   return [
     {
@@ -33,6 +34,8 @@ export function buildControlGroups(
         { key: jump + " ×2", action: t("controls.toggleFlight") },
         { key: descend, action: t("settings.keybind.descend"), bindAction: "Descend" },
         { key: "MOUSE", action: t("controls.look") },
+        { key: perspective, action: t("settings.keybind.changePerspective"),
+          bindAction: "ChangePerspective" },
       ],
     },
     {
