@@ -1,37 +1,14 @@
 namespace Asteria.Core.World;
 
-/// <summary>Portable blocks are stacked by complete authored voxel state.</summary>
-public sealed record InventoryBlockStack
-{
-    public const int MaxQuantity = 64;
-
-    public InventoryBlockStack(BlockStateSnapshot block, int quantity = 1)
-    {
-        Block = block ?? throw new ArgumentNullException(nameof(block));
-        if (quantity is < 1 or > MaxQuantity)
-            throw new ArgumentOutOfRangeException(nameof(quantity));
-        Quantity = quantity;
-    }
-
-    public BlockStateSnapshot Block { get; }
-    public int Quantity { get; }
-
-    public bool CanStackWith(InventoryBlockStack other) =>
-        Block == other.Block;
-
-    public InventoryBlockStack WithQuantity(int quantity) => new(Block, quantity);
-}
-
 public sealed record PlayerInventorySnapshot(
     int SelectedSlot,
-    InventoryBlockStack?[] Backpack,
-    InventoryBlockStack?[] Hotbar,
-    InventoryBlockStack? Cursor);
+    InventoryStack?[] Backpack,
+    InventoryStack?[] Hotbar,
+    InventoryStack? Cursor);
 
 /// <summary>
-/// One player-owned inventory across Spheres, with deterministic slot priority:
-/// merge into existing hotbar, then backpack, then first free hotbar/backpack.
-/// Inventory cursor is authoritative, and no drop disappears unless accepted.
+/// The player owns one inventory across Spheres. Insertions and cursor
+/// transfers are transactional and deterministic, independent of the UI.
 /// </summary>
 public sealed class PlayerInventory
 {
@@ -39,15 +16,15 @@ public sealed class PlayerInventory
     public const int HotbarSlots = 9;
     public const int TotalSlots = BackpackSlots + HotbarSlots;
 
-    private readonly InventoryBlockStack?[] _slots = new InventoryBlockStack?[TotalSlots];
+    private readonly InventoryStack?[] _slots = new InventoryStack?[TotalSlots];
 
     public int SelectedSlot { get; private set; }
-    public InventoryBlockStack? Cursor { get; private set; }
+    public InventoryStack? Cursor { get; private set; }
     public ulong Revision { get; private set; }
 
-    public InventoryBlockStack? SelectedStack => _slots[BackpackSlots + SelectedSlot];
+    public InventoryStack? SelectedStack => _slots[BackpackSlots + SelectedSlot];
 
-    public InventoryBlockStack? SlotAt(int index)
+    public InventoryStack? SlotAt(int index)
     {
         CheckIndex(index);
         return _slots[index];
@@ -62,23 +39,17 @@ public sealed class PlayerInventory
 
     public bool SelectHotbar(int index)
     {
-        if (index is < 0 or >= HotbarSlots)
-            return false;
-        if (index == SelectedSlot)
+        if (index is < 0 or >= HotbarSlots || index == SelectedSlot)
             return false;
         SelectedSlot = index;
         Revision++;
         return true;
     }
 
-    public bool TryInsert(BlockStateSnapshot block) =>
-        TryInsert(new InventoryBlockStack(block));
-
-    public bool TryInsert(InventoryBlockStack incoming)
+    public bool TryInsert(InventoryStack incoming)
     {
         ArgumentNullException.ThrowIfNull(incoming);
-        // A whole dropped stack must fit, or no item is collected.
-        if (AvailableCapacity(incoming.Block) < incoming.Quantity)
+        if (AvailableCapacity(incoming) < incoming.Quantity)
             return false;
         var remaining = incoming.Quantity;
         for (var phase = 0; phase < 2; phase++)
@@ -87,17 +58,14 @@ public sealed class PlayerInventory
             {
                 var slot = _slots[index];
                 if (phase == 0 && (slot is null ||
-                                   !slot.CanStackWith(incoming)))
-                    continue;
-                if (phase == 1 && slot is not null)
-                    continue;
-                var movable = Math.Min(
-                    InventoryBlockStack.MaxQuantity - (slot?.Quantity ?? 0),
-                    remaining);
-                if (movable == 0) continue;
-                _slots[index] = new InventoryBlockStack(
-                    incoming.Block, (slot?.Quantity ?? 0) + movable);
-                remaining -= movable;
+                                   !slot.CanStackWith(incoming))) continue;
+                if (phase == 1 && slot is not null) continue;
+                var move = Math.Min(
+                    incoming.MaxStackSize - (slot?.Quantity ?? 0), remaining);
+                if (move == 0) continue;
+                _slots[index] = incoming.WithQuantity(
+                    (slot?.Quantity ?? 0) + move);
+                remaining -= move;
                 if (remaining == 0)
                 {
                     Revision++;
@@ -106,23 +74,20 @@ public sealed class PlayerInventory
             }
         }
         throw new InvalidOperationException(
-            "Capacity was reserved but the stack could not be inserted.");
+            "Reserved inventory capacity could not accommodate a stack.");
     }
 
     public bool ClickSlot(int index)
     {
-        if (index is < 0 or >= TotalSlots)
-            return false;
+        if (index is < 0 or >= TotalSlots) return false;
         var slot = _slots[index];
-        if (slot is null && Cursor is null)
-            return false;
+        if (slot is null && Cursor is null) return false;
 
         if (slot is not null && Cursor is not null &&
             slot.CanStackWith(Cursor))
         {
             var move = Math.Min(
-                InventoryBlockStack.MaxQuantity - slot.Quantity,
-                Cursor.Quantity);
+                slot.MaxStackSize - slot.Quantity, Cursor.Quantity);
             if (move == 0) return false;
             _slots[index] = slot.WithQuantity(slot.Quantity + move);
             Cursor = move == Cursor.Quantity
@@ -137,17 +102,15 @@ public sealed class PlayerInventory
         return true;
     }
 
-    public bool TryCreativePick(BlockStateSnapshot block, int quantity)
+    public bool TryCreativePick(InventoryEntry entry, int quantity = 1)
     {
-        var picked = new InventoryBlockStack(block, quantity);
+        var picked = new InventoryStack(entry, quantity);
         if (Cursor is null)
-        {
             Cursor = picked;
-        }
         else
         {
             if (!Cursor.CanStackWith(picked) ||
-                Cursor.Quantity + quantity > InventoryBlockStack.MaxQuantity)
+                Cursor.Quantity + quantity > Cursor.MaxStackSize)
                 return false;
             Cursor = Cursor.WithQuantity(Cursor.Quantity + quantity);
         }
@@ -183,8 +146,9 @@ public sealed class PlayerInventory
         return true;
     }
 
-    public bool TryDropSelected(out BlockStateSnapshot? block)
+    public bool TryDropSelectedBlock(out BlockStateSnapshot? block)
     {
+        // Physical dropped-entity runtime currently only presents blocks.
         block = SelectedStack?.Block;
         return block is not null && TryConsumeSelected();
     }
@@ -194,9 +158,9 @@ public sealed class PlayerInventory
         var sorted = _slots.Take(BackpackSlots)
             .Where(s => s is not null)
             .Select(s => s!)
-            .OrderBy(s => s.Block.Cell.Block.Value)
-            .ThenBy(s => s.Block.Cell.Orientation)
-            .ThenBy(s => s.Block.Cell.Facing)
+            .OrderBy(s => s.Kind)
+            .ThenBy(s => s.Id, StringComparer.Ordinal)
+            .ThenBy(s => s.Entry.GetHashCode())
             .ToArray();
         var changed = false;
         for (var i = 0; i < BackpackSlots; i++)
@@ -210,14 +174,14 @@ public sealed class PlayerInventory
         return changed;
     }
 
-    private int AvailableCapacity(BlockStateSnapshot block)
+    private int AvailableCapacity(InventoryStack incoming)
     {
         var capacity = 0;
         foreach (var slot in _slots)
         {
-            if (slot is null) capacity += InventoryBlockStack.MaxQuantity;
-            else if (slot.Block == block)
-                capacity += InventoryBlockStack.MaxQuantity - slot.Quantity;
+            if (slot is null) capacity += incoming.MaxStackSize;
+            else if (slot.CanStackWith(incoming))
+                capacity += slot.MaxStackSize - slot.Quantity;
         }
         return capacity;
     }

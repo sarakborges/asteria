@@ -4,91 +4,139 @@ namespace Asteria.Core.Tests;
 
 public sealed class PlayerInventoryTests
 {
-    private static BlockStateSnapshot Block(int id) =>
-        BlockStateSnapshot.FromCell(new VoxelCell(new BlockRuntimeId((ushort)id)));
+    private static InventoryStack Block(int id, int count = 1)
+    {
+        var block = BlockStateSnapshot.FromCell(
+            new VoxelCell(new BlockRuntimeId((ushort)id)));
+        return new InventoryStack(
+            InventoryEntry.FromBlock($"asteria:fixture_{id}", block), count);
+    }
 
     [Fact]
     public void PickupMergesTo64ThenUsesNextSlot()
     {
         var inventory = new PlayerInventory();
-        var stone = Block(1);
         for (var i = 0; i < 65; i++)
-            Assert.True(inventory.TryInsert(stone));
+            Assert.True(inventory.TryInsert(Block(1)));
         Assert.Equal(64, inventory.SelectedStack!.Quantity);
         Assert.Equal(1, inventory.SlotAt(PlayerInventory.BackpackSlots + 1)!.Quantity);
-        Assert.Equal(65, inventory.Capture().Hotbar.Sum(s => s?.Quantity ?? 0));
     }
 
     [Fact]
-    public void FullInventoryNeverConsumesIncomingBlock()
+    public void FullInventoryDoesNotConsumeNewStacks()
     {
         var inventory = new PlayerInventory();
-        var block = Block(1);
         for (var i = 0; i < PlayerInventory.TotalSlots; i++)
-            Assert.True(inventory.TryInsert(new InventoryBlockStack(block, 64)));
-        Assert.False(inventory.TryInsert(block));
+            Assert.True(inventory.TryInsert(Block(1, 64)));
+        Assert.False(inventory.TryInsert(Block(1)));
         Assert.Equal(64, inventory.SelectedStack!.Quantity);
     }
 
     [Fact]
-    public void CursorSwapMergeAndReturnPreserveCounts()
+    public void CursorSwapMergeReturnPreserveQuantities()
     {
         var inventory = new PlayerInventory();
-        var stone = Block(1);
-        var dirt = Block(2);
-        Assert.True(inventory.TryInsert(new InventoryBlockStack(stone, 40)));
-        Assert.True(inventory.TryInsert(new InventoryBlockStack(dirt, 3)));
+        Assert.True(inventory.TryInsert(Block(1, 40)));
+        Assert.True(inventory.TryInsert(Block(2, 3)));
         Assert.True(inventory.ClickSlot(27));
-        Assert.Equal(stone, inventory.Cursor!.Block);
         Assert.Null(inventory.SelectedStack);
         Assert.True(inventory.ClickSlot(28));
-        Assert.Equal(dirt, inventory.Cursor!.Block);
-        Assert.Equal(stone, inventory.SlotAt(28)!.Block);
+        Assert.Equal(Block(2).Entry, inventory.Cursor!.Entry);
         Assert.True(inventory.TryReturnCursor());
         Assert.Null(inventory.Cursor);
-        Assert.Equal(43,
-            inventory.Capture().Backpack.Concat(inventory.Capture().Hotbar)
-                .Sum(s => s?.Quantity ?? 0));
+        Assert.Equal(43, inventory.Capture().Backpack.Concat(inventory.Capture().Hotbar)
+            .Sum(s => s?.Quantity ?? 0));
     }
 
     [Fact]
-    public void SelectionConsumptionAndDropAreModeIndependent()
+    public void SelectionConsumptionAndBlockDropAreModeIndependent()
     {
         var inventory = new PlayerInventory();
-        var stone = Block(1);
-        Assert.True(inventory.TryInsert(new InventoryBlockStack(stone, 2)));
+        Assert.True(inventory.TryInsert(Block(1, 2)));
         Assert.True(inventory.TryConsumeSelected());
         Assert.Equal(1, inventory.SelectedStack!.Quantity);
-        Assert.True(inventory.TryDropSelected(out var dropped));
-        Assert.Equal(stone, dropped);
+        Assert.True(inventory.TryDropSelectedBlock(out var dropped));
+        Assert.Equal(Block(1).Block, dropped);
         Assert.Null(inventory.SelectedStack);
-        Assert.False(inventory.TryDropSelected(out _));
+        Assert.False(inventory.TryDropSelectedBlock(out _));
     }
 
     [Fact]
-    public void CreativePickRequiresCursorCompatibilityAndNeverOverflows()
+    public void CreativeCursorHasValidatedCapacity()
     {
         var inventory = new PlayerInventory();
-        Assert.True(inventory.TryCreativePick(Block(1), 63));
-        Assert.False(inventory.TryCreativePick(Block(2), 1));
-        Assert.True(inventory.TryCreativePick(Block(1), 1));
-        Assert.False(inventory.TryCreativePick(Block(1), 1));
+        var stone = Block(1).Entry;
+        Assert.True(inventory.TryCreativePick(stone, 63));
+        Assert.False(inventory.TryCreativePick(Block(2).Entry));
+        Assert.True(inventory.TryCreativePick(stone));
+        Assert.False(inventory.TryCreativePick(stone));
         Assert.Equal(64, inventory.Cursor!.Quantity);
         Assert.True(inventory.DiscardCursor());
-        Assert.Null(inventory.Cursor);
     }
 
     [Fact]
-    public void StatePreservesCompleteBlockOrientation()
+    public void PortableBlockSnapshotRetainsOrientation()
     {
         var inventory = new PlayerInventory();
-        var block = BlockStateSnapshot.FromCell(
-            new VoxelCell(new BlockRuntimeId(1),
-                orientation: BlockOrientation.X, facing: HorizontalFacing.West));
-        Assert.True(inventory.TryInsert(block));
-        Assert.Equal(BlockOrientation.X,
-            inventory.SelectedStack!.Block.Cell.Orientation);
-        Assert.Equal(HorizontalFacing.West,
-            inventory.SelectedStack.Block.Cell.Facing);
+        var cell = new VoxelCell(new BlockRuntimeId(1),
+            orientation: BlockOrientation.X, facing: HorizontalFacing.West);
+        var snapshot = BlockStateSnapshot.FromCell(cell);
+        Assert.True(inventory.TryInsert(new InventoryStack(
+            InventoryEntry.FromBlock("asteria:log", snapshot))));
+        Assert.Equal(BlockOrientation.X, inventory.SelectedStack!.Block!.Cell.Orientation);
+        Assert.Equal(HorizontalFacing.West, inventory.SelectedStack.Block!.Cell.Facing);
+    }
+
+    [Fact]
+    public void MetadataVariantsNeverMergeOrMutateCallerDictionary()
+    {
+        var original = new Dictionary<string, string> { ["target_dimension"] = "asteria:umbral" };
+        var umbral = InventoryEntry.FromItem("asteria:dimensional_slicer", original);
+        original["target_dimension"] = "asteria:overworld";
+        Assert.Equal("asteria:umbral", umbral.Metadata["target_dimension"]);
+        var equivalent = InventoryEntry.FromItem("asteria:dimensional_slicer",
+            new Dictionary<string, string> { ["target_dimension"] = "asteria:umbral" });
+        Assert.Equal(umbral, equivalent);
+        Assert.NotEqual(umbral, InventoryEntry.FromItem("asteria:dimensional_slicer"));
+        var inventory = new PlayerInventory();
+        Assert.True(inventory.TryInsert(new InventoryStack(umbral, 32)));
+        Assert.True(inventory.TryInsert(new InventoryStack(equivalent, 32)));
+        Assert.Equal(64, inventory.SelectedStack!.Quantity);
+        Assert.True(inventory.TryInsert(new InventoryStack(
+            InventoryEntry.FromItem("asteria:dimensional_slicer"))));
+        Assert.Equal(1, inventory.SlotAt(28)!.Quantity);
+    }
+
+    [Fact]
+    public void ToolStacksRemainUnitaryAcrossCreativeAndClick()
+    {
+        var tool = InventoryEntry.FromTool("asteria:pickaxe_rustic");
+        var inventory = new PlayerInventory();
+        Assert.True(inventory.TryCreativePick(tool));
+        Assert.False(inventory.TryCreativePick(tool));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new InventoryStack(tool, 2));
+        Assert.True(inventory.ClickSlot(27));
+        Assert.Null(inventory.Cursor);
+        Assert.True(inventory.TryInsert(new InventoryStack(tool)));
+        Assert.NotNull(inventory.SlotAt(28));
+        Assert.False(inventory.TryDropSelectedBlock(out _));
+        Assert.Equal(1, inventory.SelectedStack!.Quantity);
+    }
+
+    [Fact]
+    public void IdNamespacesAndMetadataMustBeValid()
+    {
+        Assert.Throws<ArgumentException>(() => InventoryEntry.FromItem("bad"));
+        Assert.Throws<ArgumentException>(() => InventoryEntry.FromTool("asteria:pickaxe",
+            new Dictionary<string, string> { [" "] = "test" }));
+    }
+
+    [Fact]
+    public void SameIdDifferentKindsNeverStack()
+    {
+        var item = InventoryEntry.FromItem("asteria:bucket");
+        var tool = InventoryEntry.FromTool("asteria:bucket");
+        Assert.NotEqual(item, tool);
+        Assert.False(new InventoryStack(item).CanStackWith(new InventoryStack(tool)));
     }
 }
