@@ -306,6 +306,92 @@ public sealed class BiomePlacementParityTests
                 .CannotBorder);
     }
 
+    [Fact]
+    public void AuthoredBlendCurveChangesInfluenceWithoutChangingPrimaryBiome()
+    {
+        var registry = new BiomeRegistry(
+        [
+            SurfaceBiome("asteria:test/a", 1f, 1f),
+            SurfaceBiome("asteria:test/b", 1f, 1f),
+        ]);
+        var narrow = new BiomeField(
+            121UL,
+            ["asteria:test/a", "asteria:test/b"],
+            registry,
+            blending: new BiomeBlendingDefinition(scoreBand: 0.05));
+        var wide = new BiomeField(
+            121UL,
+            ["asteria:test/a", "asteria:test/b"],
+            registry,
+            blending: new BiomeBlendingDefinition(scoreBand: 1d));
+        var mixedNarrow = 0;
+        var mixedWide = 0;
+
+        for (var z = -1024; z < 1024; z += 96)
+        {
+            for (var x = -1024; x < 1024; x += 96)
+            {
+                var a = narrow.Sample(x, z);
+                var b = wide.Sample(x, z);
+                Assert.Equal(a.Primary, b.Primary);
+                mixedNarrow += a.Influences.Count > 1 ? 1 : 0;
+                mixedWide += b.Influences.Count > 1 ? 1 : 0;
+            }
+        }
+
+        Assert.True(
+            mixedWide > mixedNarrow,
+            "Increasing scoreBand should admit more neighboring biome influences.");
+    }
+
+    [Fact]
+    public void BlendCurvesAndParametersAreValidated()
+    {
+        var linear = new BiomeBlendingDefinition(
+            influenceCurve: BiomeInfluenceCurve.Linear);
+        var smooth = new BiomeBlendingDefinition(
+            influenceCurve: BiomeInfluenceCurve.SmoothStep);
+        var smoother = new BiomeBlendingDefinition(
+            influenceCurve: BiomeInfluenceCurve.SmootherStep);
+
+        Assert.Equal(0.25d, linear.WeightAt(0.25d));
+        Assert.True(smoother.WeightAt(0.25d) <
+                    smooth.WeightAt(0.25d));
+        Assert.True(smooth.WeightAt(0.25d) <
+                    linear.WeightAt(0.25d));
+        Assert.ThrowsAny<ArgumentException>(() =>
+            new BiomeBlendingDefinition(scoreBand: 0d));
+        Assert.ThrowsAny<ArgumentException>(() =>
+            new BiomeBlendingDefinition(jitterFraction: 0.6d));
+        Assert.ThrowsAny<ArgumentException>(() =>
+            new BiomeBlendingDefinition(
+                coarseWarpStrength: 0.6d,
+                fineWarpStrength: 0.3d));
+    }
+
+    [Fact]
+    public void ShoreProfileSamplesAreOrderedAndBounded()
+    {
+        var profile = new DimensionShoreProfileDefinition(
+        [
+            new DimensionShoreSampleDefinition(0d, 0d, 0d),
+            new DimensionShoreSampleDefinition(0.5d, 2d, 1d),
+            new DimensionShoreSampleDefinition(1d, 0d, 0d),
+        ]);
+        Assert.Equal(3, profile.Samples.Count);
+
+        Assert.ThrowsAny<ArgumentException>(() =>
+            new DimensionShoreProfileDefinition(
+            [
+                new DimensionShoreSampleDefinition(0d, 0d, 0d),
+                new DimensionShoreSampleDefinition(0.5d, 0d, 1d),
+                new DimensionShoreSampleDefinition(0.5d, 1d, 0d),
+                new DimensionShoreSampleDefinition(1d, 0d, 0d),
+            ]));
+        Assert.ThrowsAny<ArgumentException>(() =>
+            new DimensionShoreSampleDefinition(0.5d, 0d, -0.1d));
+    }
+
     private static void AssertLayout(
         BiomeRegistry biomes,
         string biomeId,
