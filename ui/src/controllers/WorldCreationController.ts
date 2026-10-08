@@ -1,5 +1,5 @@
 import type { BridgeMessage } from "../bridge/godotBridge";
-import type { WorldCreationErrorKey, WorldCreationState, GameMode } from "../state/uiState";
+import type { WorldCreationErrorKey, WorldCreationState, GameMode, WorldGenerationDraft, SpawnBiomeOption } from "../state/uiState";
 import type { UiStore } from "../state/uiStore";
 import { asRecord } from "./messagePayload";
 
@@ -7,6 +7,7 @@ export type WorldCreationController = {
   createWorld(request: {
     seed: string; name: string; mode: GameMode; ticksPerSecond: string;
     spawnCreatures: boolean;
+    generation: WorldGenerationDraft;
   }): void;
   randomizeWorld(): void;
   handleGodotMessage(message: BridgeMessage): void;
@@ -25,11 +26,23 @@ export function createWorldCreationController(
         updateWorldCreation(store, { errorKey: "newWorld.error.invalidTickRate" });
         return;
       }
+      const generation = request.generation;
+      const eligible = store.getSnapshot().worldCreation.spawnBiomes;
+      const biomeValid = generation.spawnBiome === null ||
+        eligible.some(entry => entry.id === generation.spawnBiome);
+      if (!biomeValid || (generation.singleBiome && generation.spawnBiome === null) ||
+          !Number.isInteger(generation.biomeSizeTenths) ||
+          generation.biomeSizeTenths < 5 || generation.biomeSizeTenths > 50 ||
+          !["Normal", "Flat", "Void"].includes(generation.mode)) {
+        updateWorldCreation(store, { errorKey: "newWorld.error.invalidGeneration" });
+        return;
+      }
       updateWorldCreation(store, { pending: true, errorKey: null });
       postMessage("ui.world.create", {
         seed: request.seed.trim(), name: request.name, mode: request.mode,
         ticksPerSecond: Number(ticks),
         spawnCreatures: request.spawnCreatures,
+        generation,
       });
     },
 
@@ -47,6 +60,7 @@ export function createWorldCreationController(
           const payload = asRecord(message.payload);
           if (payload && typeof payload.seed === "string") {
             updateWorldCreation(store, {
+              spawnBiomes: readSpawnBiomes(payload.spawnBiomes),
               visible: true,
               seed: payload.seed,
               pending: false,
@@ -112,8 +126,20 @@ function readErrorKey(value: unknown): WorldCreationErrorKey {
     case "newWorld.error.invalidName":
     case "newWorld.error.invalidMode":
     case "newWorld.error.invalidTickRate":
+    case "newWorld.error.invalidGeneration":
       return value;
     default:
       return "newWorld.error.unexpected";
   }
+}
+
+function readSpawnBiomes(raw: unknown): SpawnBiomeOption[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap(option => {
+    const value = asRecord(option);
+    return value && typeof value.id === "string" &&
+        typeof value.label === "string"
+      ? [{ id: value.id, label: value.label }]
+      : [];
+  });
 }
