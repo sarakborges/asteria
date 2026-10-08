@@ -8,6 +8,7 @@ namespace Asteria.Core.World;
 public sealed class HeldBlockPlacement
 {
     private BlockDefinition? _definition;
+    private VoxelCell _sourceCell;
 
     public BlockRuntimeId Block { get; private set; }
 
@@ -25,29 +26,32 @@ public sealed class HeldBlockPlacement
     {
         Block = BlockRuntimeId.Air;
         _definition = null;
+        _sourceCell = VoxelCell.Empty;
         Orientation = BlockOrientation.Y;
         Facing = HorizontalFacing.South;
     }
 
-    public void Select(BlockRuntimeId id, BlockDefinition definition)
+    public void Select(BlockRuntimeId id, BlockDefinition definition) =>
+        Select(BlockStateSnapshot.FromCell(new VoxelCell(id)), definition);
+
+    public void Select(BlockStateSnapshot snapshot, BlockDefinition definition)
     {
+        ArgumentNullException.ThrowIfNull(snapshot);
         ArgumentNullException.ThrowIfNull(definition);
-        if (id.IsAir)
-        {
-            throw new ArgumentException(
-                "The selected placement block must not be air.",
-                nameof(id));
-        }
+        if (snapshot.Cell.IsEmpty)
+            throw new ArgumentException("Cannot hold an empty block.", nameof(snapshot));
 
-        if (id == Block && ReferenceEquals(definition, _definition))
-        {
+        if (snapshot.Cell.Block == Block && _sourceCell == snapshot.Cell &&
+            ReferenceEquals(definition, _definition))
             return;
-        }
 
-        Block = id;
+        Block = snapshot.Cell.Block;
         _definition = definition;
-        Orientation = definition.Orientations[0];
-        Facing = HorizontalFacing.South;
+        _sourceCell = snapshot.Cell.WithMicroblockMaskId(0);
+        Orientation = definition.Orientations.Contains(snapshot.Cell.Orientation)
+            ? snapshot.Cell.Orientation
+            : definition.Orientations[0];
+        Facing = snapshot.Cell.Facing;
     }
 
     public bool Rotate()
@@ -98,5 +102,5 @@ public sealed class HeldBlockPlacement
     public VoxelCell CurrentCell() =>
         Block.IsAir
             ? VoxelCell.Empty
-            : new VoxelCell(Block, orientation: Orientation, facing: Facing);
+            : _sourceCell.WithOrientation(Orientation).WithFacing(Facing);
 }

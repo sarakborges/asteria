@@ -1473,7 +1473,7 @@ public partial class Main : Node3D
         }
         var block = selected.Block.Cell.Block;
         _sessionStates.Player.HeldBlock.Select(
-            block, _blocks.GetDefinition(block));
+            selected.Block, _blocks.GetDefinition(block));
     }
 
     private void SelectHotbar(int index)

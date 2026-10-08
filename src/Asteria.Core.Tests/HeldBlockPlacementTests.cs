@@ -59,6 +59,32 @@ public sealed class HeldBlockPlacementTests
     }
 
     [Fact]
+    public void PortableBlockStateIsPreservedWhenSelectedFromInventory()
+    {
+        var registry = new BlockRegistry([
+            new BlockDefinition("asteria:rotatable",
+                orientations: [BlockOrientation.Y, BlockOrientation.X]),
+        ]);
+        var held = new HeldBlockPlacement();
+        var block = registry.GetId("asteria:rotatable");
+        var source = BlockStateSnapshot.FromCell(new VoxelCell(
+            block,
+            TextureRotation.Degrees90,
+            BlockOrientation.X,
+            HorizontalFacing.West,
+            state: 7));
+        held.Select(source, registry.GetDefinition(block));
+        var result = held.CurrentCell();
+        Assert.Equal(TextureRotation.Degrees90, result.TextureRotation);
+        Assert.Equal(BlockOrientation.X, result.Orientation);
+        Assert.Equal(HorizontalFacing.West, result.Facing);
+        Assert.Equal((ushort)7, result.State);
+        held.Rotate();
+        Assert.Equal(BlockOrientation.Y, held.CurrentCell().Orientation);
+        Assert.Equal((ushort)7, held.CurrentCell().State);
+    }
+
+    [Fact]
     public void SelectingAnotherBlockResetsRotation()
     {
         var blocks = new BlockRegistry([
