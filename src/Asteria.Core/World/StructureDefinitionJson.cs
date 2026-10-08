@@ -456,7 +456,13 @@ public static class StructureDefinitionJson
             }
 
             var detail = StructureVoxelStateJson.Parse(property.Value);
-            if (detail is not null && block is null)
+            if (block is null && (detail is not null ||
+                property.Value.TryGetProperty("textureRotation", out _) ||
+                property.Value.TryGetProperty("facing", out _) ||
+                property.Value.TryGetProperty("state", out _) ||
+                property.Value.TryGetProperty("microblocks", out _) ||
+                property.Value.TryGetProperty("dye", out _) ||
+                property.Value.TryGetProperty("attachments", out _)))
                 throw new FormatException(
                     $"Structure palette {property.Name} has state without a block.");
             entries.Add(
