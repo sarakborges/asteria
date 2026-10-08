@@ -86,17 +86,13 @@ export function App({
   const uiVisible = preWorldVisible || state.navigation.overlay !== "none" ||
     state.chat.open;
 
-  // Focusing the explicit UI surface (not window/document) lets WRY deliver
-  // Escape even when the pointer has interacted with an overlay.
+  // On an explicit UI screen change, the previous screen's focused button
+  // can linger during ScreenTransition's exit animation. Move keyboard focus
+  // to the stable App surface immediately instead of waiting for that button
+  // to unmount; otherwise Escape is lost to document.body.
   useEffect(() => {
-    if (!uiVisible) return;
-    const root = interactionRoot.current;
-    if (!root) return;
-    const active = document.activeElement;
-    if (!active || active === document.body ||
-        active === document.documentElement || !root.contains(active)) {
-      root.focus({ preventScroll: true });
-    }
+    if (!uiVisible || state.chat.open) return;
+    interactionRoot.current?.focus({ preventScroll: true });
   }, [uiVisible, state.navigation.overlay, state.navigation.preWorldScreen,
       state.chat.open]);
 
