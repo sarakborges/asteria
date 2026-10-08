@@ -117,16 +117,11 @@ export function createInventoryController(
       } else if (message.type === "game.inventory.error") {
         const errorKey = payload?.code === "InventoryFull"
           ? "inventory.error.full"
-          : payload?.code === "UnsupportedDropKind"
-            ? "inventory.error.unsupportedDrop"
-            : "inventory.error.invalid";
+          : "inventory.error.invalid";
         store.update(state => ({
           ...state,
           inventory: { ...state.inventory, errorKey },
         }));
-        if (payload?.code === "UnsupportedDropKind") {
-          store.pushToast({ message: errorKey, tone: "warning" });
-        }
       }
     },
   };

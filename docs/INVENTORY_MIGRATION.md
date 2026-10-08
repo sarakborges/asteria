@@ -21,7 +21,6 @@ WebUI observes `game.inventory.state` and `game.inventory.catalog` through `Inve
 ## Not yet parity
 
 - Mining-time/hardness progression and additional authored behaviors for brush, bucket, artisans kit, shears and structure tool; item usage, equipment and crafting/recipe validation
-- World-entity simulation/presentation, dropping and pickup for non-block items/tools — implemented; see below
 - Cursor splitting/shift-click, equipped slots, authored rewards/loot tables for non-block drops
 - Re-placing microblock geometry (portable snapshot retains the mask; invalid placement is rejected instead of corrupting geometry)
 - Player/world disk saves, catalog, inventory snapshot versioning and migrations
