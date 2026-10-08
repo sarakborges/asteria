@@ -31,7 +31,8 @@ public sealed class GeneratedFluidField
         ulong seed,
         DimensionDefinition dimension,
         FluidRegistry fluids,
-        IEnumerable<BiomeDefinition> surfaceDefinitions)
+        IEnumerable<BiomeDefinition> surfaceDefinitions,
+        bool spawnOceans = true)
     {
         ArgumentNullException.ThrowIfNull(
             dimension);
@@ -107,7 +108,7 @@ public sealed class GeneratedFluidField
                     },
                     StringComparer.Ordinal);
 
-        if (dimension.GeneratedOcean is not
+        if (!spawnOceans || dimension.GeneratedOcean is not
             { } ocean)
         {
             return;
