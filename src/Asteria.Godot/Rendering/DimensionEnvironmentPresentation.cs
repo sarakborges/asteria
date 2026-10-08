@@ -21,6 +21,9 @@ public sealed class DimensionEnvironmentPresentation
     private Vector3 _moonDirection;
     private float _sunDistance;
     private float _moonDistance;
+    private bool _cameraReady;
+    private bool _sunActive;
+    private bool _moonActive;
 
     public DimensionEnvironmentPresentation(Node parent)
     {
@@ -38,6 +41,7 @@ public sealed class DimensionEnvironmentPresentation
         ArgumentNullException.ThrowIfNull(clock);
 
         _definition = dimension.Environment;
+        _cameraReady = false;
         _environment ??= new GEnvironment
         {
             BackgroundMode = GEnvironment.BGMode.Color,
@@ -107,16 +111,25 @@ public sealed class DimensionEnvironmentPresentation
 
     public void FollowCamera(Vector3 position)
     {
-        if (_sunOrb is { Visible: true })
+        _cameraReady = true;
+        if (_sunOrb is not null)
         {
-            _sunOrb.GlobalPosition =
-                position + _sunDirection * _sunDistance;
+            _sunOrb.Visible = _sunActive;
+            if (_sunActive)
+            {
+                _sunOrb.GlobalPosition =
+                    position + _sunDirection * _sunDistance;
+            }
         }
 
-        if (_moonOrb is { Visible: true })
+        if (_moonOrb is not null)
         {
-            _moonOrb.GlobalPosition =
-                position + _moonDirection * _moonDistance;
+            _moonOrb.Visible = _moonActive;
+            if (_moonActive)
+            {
+                _moonOrb.GlobalPosition =
+                    position + _moonDirection * _moonDistance;
+            }
         }
     }
 
@@ -148,6 +161,7 @@ public sealed class DimensionEnvironmentPresentation
                 ShadingMode =
                     BaseMaterial3D.ShadingModeEnum.Unshaded,
                 AlbedoColor = initialColor,
+                DisableFog = true,
             },
             CastShadow =
                 GeometryInstance3D.ShadowCastingSetting.Off,
@@ -172,6 +186,8 @@ public sealed class DimensionEnvironmentPresentation
 
         if (body is null || progress is null)
         {
+            if (isSun) _sunActive = false;
+            else _moonActive = false;
             orb.Visible = false;
             if (isSun && _sunLight is not null)
             {
@@ -195,7 +211,9 @@ public sealed class DimensionEnvironmentPresentation
             Mathf.Sin(altitude),
             horizontal * Mathf.Cos(azimuth));
 
-        orb.Visible = true;
+        if (isSun) _sunActive = true;
+        else _moonActive = true;
+        orb.Visible = _cameraReady;
         orb.Scale = Vector3.One * (body.Size / 2f);
         if (orb.MaterialOverride is StandardMaterial3D material)
         {
