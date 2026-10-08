@@ -38,10 +38,14 @@ public sealed class SurfaceStructureTests
             structures, structureSets);
 
         Assert.Equal(
-            41,
+            48,
             structures.Count);
         Assert.Equal(3, structures.ResolveReference("asteria:bush_oak").Count);
-        Assert.Equal(2, structureSets.Count);
+        Assert.Equal(3, structureSets.Count);
+        Assert.Equal(4, structures.ResolveReference("asteria:fallen_log_oak").Count);
+        Assert.Equal(3, structures.ResolveReference("asteria:oak_stump").Count);
+        Assert.Equal("asteria:boulder_small",
+            structureSets.Get("asteria:rock_cluster").Elements[0].Structure);
         Assert.Equal("asteria:bush_oak",
             structureSets.Get("asteria:thicket_oak").Elements[0].Structure);
         Assert.Equal("asteria:tree_oak",
@@ -75,7 +79,7 @@ public sealed class SurfaceStructureTests
             structures.ResolvesReference(
                 "asteria:river_ocean_mouth"));
         Assert.Equal(
-            34,
+            37,
             overworld
                 .GeneratedSurfaceStructures
                 .Count);
@@ -95,6 +99,21 @@ public sealed class SurfaceStructureTests
                     generated.Biome,
                     StringComparison.Ordinal);
             });
+
+        foreach (var reference in new[] { "asteria:fallen_log_oak", "asteria:oak_stump" })
+        {
+            Assert.All(structures.ResolveReference(reference), detail =>
+            {
+                Assert.True(detail.Rotation);
+                Assert.Equal(0, detail.GroundAnchorY);
+                Assert.Equal(0, detail.Restrictions.MaxSlope);
+                Assert.Equal(1f, detail.Restrictions.RequiredBiomeCoverage);
+                Assert.True(detail.Restrictions.RequiresDryGround);
+                Assert.Equal(StructureFluidPolicy.Forbid, detail.Generation.FluidPolicy);
+                Assert.True(detail.Voxels.All(voxel => voxel.Y >= 1));
+                Assert.Contains("asteria:gravel", detail.Restrictions.GroundBlocks);
+            });
+        }
 
         Assert.All(
             structures.ResolveReference("asteria:bush_oak"),

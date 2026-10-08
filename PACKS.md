@@ -192,6 +192,8 @@ Structures may also author `priority`, `conflictGroups`, and a `generation` obje
 
 StructureSets live under `data/structure_sets/*.json`. A set is one logical generated root composed from multiple existing Structure or Structure-group references:
 
+Plains ground details extend the same pack-authored generation system: a sparse, irregular `surfaceLayers[0].patch` alternates grass with dirt/gravel without painting circles, while Pebbles and Sticks accept the exposed alternative surfaces. Four `fallen_log_oak` rotated horizontal log variants (including hollow/stripped pieces) and three `oak_stump` templates use `groundAnchorY: 0` to preserve the actual surface voxels below them. Their dry-ground, flat-footprint and 100% biome-coverage restrictions prevent floating logs or edge bleed. The `rock_cluster` StructureSet composes small boulders with bounded distance and separation. All densities reside on the dimension's generated-surface rules; no Plains-specific engine branch was added.
+
 Default Plains vegetation uses reusable authored content: `asteria:bush_oak` groups three irregular Structure templates made of existing oak leaves/logs, `asteria:thicket_oak` groups multiple shrubs into one bounded natural cluster, and `asteria:oak_grove` groups oak variants into small groves. Ground/slope/biome/fluid checks apply to every member. A Sphere chooses frequency in `generatedSurfaceStructures`; individual templates and StructureSets are dimension-agnostic. Willow keeps the authored fluid-proximity restriction and is less frequent than Oak in Plains.
 
 ```json
