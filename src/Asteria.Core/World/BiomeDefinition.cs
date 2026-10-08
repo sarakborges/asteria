@@ -691,7 +691,8 @@ public sealed class BiomeTerrain3dDefinition
     {
         var authored = additive?.ToArray() ??
             Array.Empty<BiomeAdditiveDensityDefinition>();
-        if (authored.Length > 8)
+        if (authored.Length > 8 ||
+            authored.Any(formation => formation is null))
         {
             throw new ArgumentOutOfRangeException(
                 nameof(additive),
