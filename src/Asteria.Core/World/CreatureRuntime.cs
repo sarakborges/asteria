@@ -15,6 +15,9 @@ public readonly record struct CreatureInstanceState(
 {
     public uint AttacksReceived { get; init; }
 
+    /// <summary>Authored NO_AI tag: freezes hopping and rejects ordinary damage.</summary>
+    public bool NoAi { get; init; }
+
     /// <summary>Combat feedback is owned by the creature lifecycle, not Godot.</summary>
     public float HurtSecondsRemaining { get; init; }
 
@@ -113,7 +116,7 @@ public sealed class CreatureRuntime
     public CreatureRuntimeSnapshot CaptureState() =>
         new(_nextId, _active.Values.ToArray());
 
-    public bool TrySpawn(string definitionId, Vector3 feet, out CreatureInstanceState creature)
+    public bool TrySpawn(string definitionId, Vector3 feet, out CreatureInstanceState creature, bool noAi = false)
     {
         if (!IsFinite(feet) || feet.Y < 0f)
         {
@@ -130,7 +133,7 @@ public sealed class CreatureRuntime
         var id = new CreatureInstanceId(checked(_nextId + 1));
         creature = new CreatureInstanceState(
             id, definition.Id, feet, definition.Health, 0.0,
-            CreatureHopMotion.Initial);
+            CreatureHopMotion.Initial) { NoAi = noAi };
         _active.Add(id.Value, creature);
         _counts[definition.Id] = CountFor(definition.Id) + 1;
         _nextId = id.Value;
@@ -171,7 +174,7 @@ public sealed class CreatureRuntime
         }
 
         if (!_active.TryGetValue(id.Value, out var current) ||
-            current.IsDying)
+            current.IsDying || current.NoAi)
         {
             result = default;
             return false;
@@ -266,6 +269,20 @@ public sealed class CreatureRuntime
         };
     }
 
+    /// <summary>Only the active Sphere's creature owner mutates NO_AI.</summary>
+    public bool TrySetNoAi(CreatureInstanceId id, bool enabled)
+    {
+        if (!_active.TryGetValue(id.Value, out var creature) || creature.IsDying)
+            return false;
+        if (creature.NoAi == enabled) return true;
+        _active[id.Value] = creature with
+        {
+            NoAi = enabled,
+            Motion = enabled ? CreatureHopMotion.Initial : creature.Motion,
+        };
+        return true;
+    }
+
     private static bool EffectApplies(
         ulong id,
         uint hit,
@@ -294,7 +311,7 @@ public sealed class CreatureRuntime
         }
 
         if (!_active.TryGetValue(id.Value, out var creature) ||
-            creature.IsDying) return false;
+            creature.IsDying || creature.NoAi) return false;
 
         var health = Math.Max(0f, creature.Health - amount);
         _active[id.Value] = creature with
@@ -399,7 +416,7 @@ public sealed class CreatureRuntime
         foreach (var id in _active.Keys.ToArray())
         {
             var creature = _active[id];
-            if (creature.IsDying) continue;
+            if (creature.IsDying || creature.NoAi) continue;
             var definition = _definitions.Get(creature.DefinitionId);
             var next = CreatureHopSolver.Step(
                 creature, definition, world, blocks,
