@@ -1,0 +1,32 @@
+{
+  "id": "asteria:enchanted_grove",
+  "locatable": true,
+  "priority": 0,
+  "conflictGroups": [
+    "tree"
+  ],
+  "reserveSpace": false,
+  "elements": [
+    {
+      "id": "root",
+      "structure": "asteria:tree_enchanted",
+      "required": true
+    },
+    {
+      "id": "companions",
+      "structure": "asteria:tree_enchanted",
+      "count": {
+        "min": 2,
+        "max": 5
+      },
+      "placement": {
+        "relativeTo": "root",
+        "minDistance": 16,
+        "maxDistance": 30,
+        "minSeparation": 14,
+        "attempts": 48,
+        "allowOverlap": false
+      }
+    }
+  ]
+}
