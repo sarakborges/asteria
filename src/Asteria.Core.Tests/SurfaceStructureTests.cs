@@ -723,6 +723,17 @@ public sealed class SurfaceStructureTests
                 8,
                 1,
                 8));
+
+        // Vertical bands outside the entire payload retain normal
+        // terrain/air even with horizontal structure overlap.
+        var underground = generator.Materialize(
+            new ChunkCoord(0, 0, 0));
+        var above = generator.Materialize(
+            new ChunkCoord(0, 5, 0));
+        Assert.Equal(
+            blocks.GetId("asteria:stone"),
+            underground.GetBlock(8, 0, 8));
+        Assert.True(above.IsEmpty);
     }
 
     [Fact]

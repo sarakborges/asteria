@@ -340,8 +340,22 @@ public sealed class SurfaceChunkMaterializer
             _structures.PlacementsForChunk(
                 coord.X,
                 coord.Z);
+
+        // Placement bounds include blocks, fluids and explicit clears.
+        // Surface structures must not scan underground occupancy or
+        // rasterize every payload in unrelated vertical chunk bands.
+        bool IntersectsThisChunk(SurfaceStructurePlacement placement) =>
+            placement.MinimumY < topExclusive &&
+            placement.MaximumY >= originY;
+
+        if (!placements.Any(IntersectsThisChunk))
+        {
+            return;
+        }
+
         var needsBaseOccupancy =
             placements.Any(placement =>
+                IntersectsThisChunk(placement) &&
                 placement.Generation.ReplacePolicy ==
                 StructureReplacePolicy.AirOnly);
         var baseOccupied =
@@ -373,6 +387,11 @@ public sealed class SurfaceChunkMaterializer
         foreach (var placement in
                  placements)
         {
+            if (!IntersectsThisChunk(placement))
+            {
+                continue;
+            }
+
             foreach (var voxel in
                      placement.ClearVoxels)
             {
