@@ -29,13 +29,26 @@
     "fogDensity": 0.003
   },
   "caves": {
-    "minDepth": 10,
-    "maxDepth": 120,
-    "horizontalScale": 56,
-    "verticalScale": 36,
-    "noiseHalfWidth": 0.18,
-    "densityScale": 24,
-    "boundaryFade": 8
+    "layers": [
+      {
+        "minDepth": 10,
+        "maxDepth": 120,
+        "noiseHalfWidth": 0.18,
+        "densityScale": 24,
+        "boundaryFade": 8,
+        "combination": "intersection",
+        "channels": [
+          {
+            "horizontalScale": 56,
+            "verticalScale": 36
+          },
+          {
+            "horizontalScale": 56,
+            "verticalScale": 36
+          }
+        ]
+      }
+    ]
   },
   "surfaceBiomes": [
     "asteria:overworld/plains",
