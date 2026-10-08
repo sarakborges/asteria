@@ -74,6 +74,12 @@ public sealed class BucketGameplayRuntime
             blockTarget is not { HasSurfaceNormal: true } target)
             return false;
 
+        // A block ray result is a hint, never authority after the world
+        // changes: reject a stale or unloaded placement face.
+        if (!_world.IsLoadedAt(target.Voxel) ||
+            _world.GetCellOrEmpty(target.Voxel).IsEmpty)
+            return false;
+
         var dest = new WorldVoxelCoord(
             target.Voxel.X + target.NormalX,
             target.Voxel.Y + target.NormalY,
