@@ -15,31 +15,38 @@
     ]
   },
   "surfaceTerrain": {
-    "type": "volcano",
+    "type": "cone",
     "baseHeight": 12,
     "height": 72,
-    "craterDepth": 38,
-    "craterRadius": 0.14,
     "irregularity": 0.13,
     "irregularityScale": 0.009,
     "detailIrregularity": 0.055,
     "detailScale": 0.031,
-    "craterIrregularity": 0.08
+    "influenceMode": "primary",
+    "slopeNoiseGain": 4,
+    "crater": {
+      "depth": 38,
+      "radius": 0.14,
+      "irregularity": 0.08,
+      "noiseScale": 0.0153,
+      "transitionWidth": 0.01,
+      "fluidFill": {
+        "fluid": "asteria:lava",
+        "minimumStrength": 0.91,
+        "topLevel": 54,
+        "spill": {
+          "minimumStrength": 0.56,
+          "maximumStrength": 0.9,
+          "scale": 0.012,
+          "width": 0.055,
+          "level": 6
+        }
+      }
+    }
   },
   "surfaceLayers": [
     {
       "block": "asteria:basalt"
     }
-  ],
-  "surfaceFluid": {
-    "type": "volcano_crater",
-    "fluid": "asteria:lava",
-    "minimumStrength": 0.91,
-    "levelOffset": 8,
-    "spillMinimumStrength": 0.56,
-    "spillMaximumStrength": 0.9,
-    "spillScale": 0.012,
-    "spillWidth": 0.055,
-    "spillLevel": 6
-  }
+  ]
 }

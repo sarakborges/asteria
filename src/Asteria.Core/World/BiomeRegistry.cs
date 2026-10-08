@@ -135,18 +135,16 @@ public sealed class BiomeRegistry
         foreach (var definition in
                  _definitions)
         {
-            if (definition.SurfaceFluid is
-                not { } surfaceFluid)
+            var fill = definition.SurfaceTerrain?.Crater?.FluidFill;
+            if (fill is null)
             {
                 continue;
             }
 
-            if (!fluids.TryGetId(
-                    surfaceFluid.Fluid,
-                    out _))
+            if (!fluids.TryGetId(fill.Fluid, out _))
             {
                 throw new ArgumentException(
-                    $"Biome {definition.Id} references missing fluid {surfaceFluid.Fluid}.");
+                    $"Biome {definition.Id} references missing fluid {fill.Fluid}.");
             }
         }
     }

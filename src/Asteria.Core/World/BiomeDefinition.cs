@@ -13,8 +13,7 @@ public sealed class BiomeDefinition
         BiomeTintPaletteDefinition? tints = null,
         BiomeTerrain3dDefinition? terrain3d = null,
         BiomeVolumeLayoutDefinition? volumeLayout = null,
-        BiomeUndergroundLayoutDefinition? undergroundLayout = null,
-        BiomeSurfaceFluidDefinition? surfaceFluid = null)
+        BiomeUndergroundLayoutDefinition? undergroundLayout = null)
     {
         ValidateId(id);
         Id = id;
@@ -75,15 +74,6 @@ public sealed class BiomeDefinition
             BiomeTintPaletteDefinition.Empty;
         Terrain3d = terrain3d;
 
-        if (surfaceFluid is BiomeVolcanoCraterFluidDefinition &&
-            surfaceTerrain?.Shape is not BiomeVolcanoTerrainShapeDefinition)
-        {
-            throw new ArgumentException(
-                "volcano_crater surfaceFluid requires volcano surfaceTerrain.",
-                nameof(surfaceFluid));
-        }
-
-        SurfaceFluid = surfaceFluid;
     }
 
     public string Id { get; }
@@ -103,8 +93,6 @@ public sealed class BiomeDefinition
     public BiomeTintPaletteDefinition Tints { get; }
 
     public BiomeTerrain3dDefinition? Terrain3d { get; }
-
-    public BiomeSurfaceFluidDefinition? SurfaceFluid { get; }
 
     public bool BelongsToDimension(string dimensionId)
     {
@@ -370,8 +358,16 @@ public sealed class BiomeTerrainDefinition
 
     public BiomeTerrainDefinition(
         BiomeTerrainShapeDefinition shape,
-        IEnumerable<BiomeTerrainModifierDefinition>? modifiers = null)
+        IEnumerable<BiomeTerrainModifierDefinition>? modifiers = null,
+        SurfaceHeightInfluencePolicy influencePolicy = SurfaceHeightInfluencePolicy.Blend,
+        BiomeCraterDefinition? crater = null,
+        bool fillToSeaLevel = false)
     {
+        if (!Enum.IsDefined(influencePolicy))
+        {
+            throw new ArgumentOutOfRangeException(nameof(influencePolicy));
+        }
+
         Shape =
             shape ??
             throw new ArgumentNullException(nameof(shape));
@@ -379,11 +375,20 @@ public sealed class BiomeTerrainDefinition
             Array.AsReadOnly(
                 modifiers?.ToArray() ??
                 Array.Empty<BiomeTerrainModifierDefinition>());
+        InfluencePolicy = influencePolicy;
+        Crater = crater;
+        FillToSeaLevel = fillToSeaLevel;
     }
 
     public BiomeTerrainShapeDefinition Shape { get; }
 
     public IReadOnlyList<BiomeTerrainModifierDefinition> Modifiers { get; }
+
+    public SurfaceHeightInfluencePolicy InfluencePolicy { get; }
+
+    public BiomeCraterDefinition? Crater { get; }
+
+    public bool FillToSeaLevel { get; }
 
     public float MaximumHeightOffset =>
         Shape.MaximumHeightOffset +

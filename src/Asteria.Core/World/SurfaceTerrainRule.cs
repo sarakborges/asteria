@@ -1,14 +1,16 @@
 namespace Asteria.Core.World;
 
-internal enum SurfaceHeightInfluencePolicy
+public enum SurfaceHeightInfluencePolicy
 {
     Blend,
     LowerOnly,
+    Primary,
 }
 
 internal sealed class SurfaceTerrainRule
 {
     private readonly string _biomeId;
+    private readonly BiomeTerrainDefinition _terrain;
     private readonly BiomeTerrainShapeDefinition _shape;
     private readonly IReadOnlyList<BiomeTerrainModifierDefinition> _modifiers;
     private readonly GenerationDomain _macroDomain;
@@ -29,6 +31,7 @@ internal sealed class SurfaceTerrainRule
                 $"Surface biome {definition.Id} requires surfaceTerrain.");
 
         _biomeId = definition.Id;
+        _terrain = terrain;
         _shape = terrain.Shape;
         _modifiers = terrain.Modifiers;
         _macroDomain =
@@ -51,15 +54,8 @@ internal sealed class SurfaceTerrainRule
                 $"terrain/shape/crater/v2/{definition.Id}");
     }
 
-    public bool IsVolcano =>
-        _shape is BiomeVolcanoTerrainShapeDefinition;
-
     public SurfaceHeightInfluencePolicy InfluencePolicy =>
-        _shape is
-            BiomeOceanTerrainShapeDefinition or
-            BiomeSwampTerrainShapeDefinition
-            ? SurfaceHeightInfluencePolicy.LowerOnly
-            : SurfaceHeightInfluencePolicy.Blend;
+        _terrain.InfluencePolicy;
 
     public double HeightOffsetAt(
         ulong seed,
@@ -73,76 +69,45 @@ internal sealed class SurfaceTerrainRule
                 0d,
                 1d);
 
-        var height =
-            _shape switch
-            {
-                BiomeNoiseTerrainShapeDefinition noise =>
-                    NoiseHeight(
-                        seed,
-                        x,
-                        z,
-                        noise),
-                BiomeRollingTerrainShapeDefinition rolling =>
-                    RollingHeight(
-                        seed,
-                        x,
-                        z,
-                        rolling),
-                BiomeDunesTerrainShapeDefinition dunes =>
-                    DunesHeight(
-                        seed,
-                        x,
-                        z,
-                        dunes),
-                BiomeOceanTerrainShapeDefinition ocean =>
-                    OceanHeight(
-                        seed,
-                        x,
-                        z,
-                        ocean),
-                BiomeSwampTerrainShapeDefinition swamp =>
-                    SwampHeight(
-                        seed,
-                        x,
-                        z,
-                        strength,
-                        swamp),
-                BiomeMountainsTerrainShapeDefinition mountains =>
-                    MountainsHeight(
-                        seed,
-                        x,
-                        z,
-                        mountains),
-                BiomeGorgeTerrainShapeDefinition gorge =>
-                    GorgeHeight(
-                        seed,
-                        x,
-                        z,
-                        strength,
-                        gorge),
-                BiomeAlpsTerrainShapeDefinition alps =>
-                    AlpsHeight(
-                        seed,
-                        x,
-                        z,
-                        alps),
-                BiomeMountainBeltTerrainShapeDefinition belt =>
-                    MountainBeltHeight(
-                        seed,
-                        x,
-                        z,
-                        belt),
-                BiomeVolcanoTerrainShapeDefinition volcano =>
-                    VolcanoHeight(
-                        seed,
-                        x,
-                        z,
-                        strength,
-                        volcano),
-                _ =>
-                    throw new InvalidOperationException(
+        var craterStrength = strength;
+        double height;
+        if (_shape is BiomeConeTerrainShapeDefinition cone)
+        {
+            craterStrength = ConeStrength(seed, x, z, strength, cone);
+            height = cone.BaseHeight + cone.Height * craterStrength;
+        }
+        else
+        {
+            height =
+                _shape switch
+                {
+                    BiomeNoiseTerrainShapeDefinition noise =>
+                        NoiseHeight(seed, x, z, noise),
+                    BiomeRollingTerrainShapeDefinition rolling =>
+                        RollingHeight(seed, x, z, rolling),
+                    BiomeDunesTerrainShapeDefinition dunes =>
+                        DunesHeight(seed, x, z, dunes),
+                    BiomeOceanTerrainShapeDefinition ocean =>
+                        OceanHeight(seed, x, z, ocean),
+                    BiomeSwampTerrainShapeDefinition swamp =>
+                        SwampHeight(seed, x, z, strength, swamp),
+                    BiomeMountainsTerrainShapeDefinition mountains =>
+                        MountainsHeight(seed, x, z, mountains),
+                    BiomeGorgeTerrainShapeDefinition gorge =>
+                        GorgeHeight(seed, x, z, strength, gorge),
+                    BiomeAlpsTerrainShapeDefinition alps =>
+                        AlpsHeight(seed, x, z, alps),
+                    BiomeMountainBeltTerrainShapeDefinition belt =>
+                        MountainBeltHeight(seed, x, z, belt),
+                    _ => throw new InvalidOperationException(
                         $"Unsupported terrain shape for {_biomeId}."),
-            };
+                };
+        }
+
+        if (_terrain.Crater is { } crater)
+        {
+            height -= CraterDepthAt(seed, x, z, craterStrength, crater);
+        }
 
         for (var index = 0;
              index < _modifiers.Count;
@@ -524,82 +489,47 @@ internal sealed class SurfaceTerrainRule
                ridge;
     }
 
-    private double VolcanoHeight(
+    private double ConeStrength(
         ulong seed,
         int x,
         int z,
-        double terrainStrength,
-        BiomeVolcanoTerrainShapeDefinition terrain)
+        double strength,
+        BiomeConeTerrainShapeDefinition cone)
     {
-        var strength =
-            Math.Clamp(
-                terrainStrength,
-                0d,
-                1d);
         var broad =
-            Fractal(
-                seed,
-                _macroDomain,
-                x,
-                z,
-                terrain.IrregularityScale);
+            Fractal(seed, _macroDomain, x, z, cone.IrregularityScale);
         var detail =
-            Fractal(
-                seed,
-                _detailDomain,
-                x,
-                z,
-                terrain.DetailScale);
+            Fractal(seed, _detailDomain, x, z, cone.DetailScale);
         var slopeBand =
-            4d *
-            strength *
-            (1d - strength);
-        var distortedStrength =
+            cone.SlopeNoiseGain * strength * (1d - strength);
+        return Math.Clamp(
+            strength +
+            (broad * cone.Irregularity +
+             detail * cone.DetailIrregularity) * slopeBand,
+            0d,
+            1d);
+    }
+
+    private double CraterDepthAt(
+        ulong seed,
+        int x,
+        int z,
+        double strength,
+        BiomeCraterDefinition crater)
+    {
+        var noise =
+            Fractal(seed, _craterDomain, x, z, crater.NoiseScale);
+        var start =
             Math.Clamp(
-                strength +
-                (broad *
-                     terrain.Irregularity +
-                 detail *
-                     terrain.DetailIrregularity) *
-                slopeBand,
-                0d,
-                1d);
-        var craterNoise =
-            Fractal(
-                seed,
-                _craterDomain,
-                x,
-                z,
-                terrain.IrregularityScale *
-                1.7d);
-        var craterStart =
-            Math.Clamp(
-                1d -
-                terrain.CraterRadius +
-                craterNoise *
-                terrain.CraterIrregularity,
+                1d - crater.Radius + noise * crater.Irregularity,
                 0d,
                 0.99d);
-        var craterWidth =
-            Math.Max(
-                0.01d,
-                1d -
-                craterStart);
-        var craterStrength =
-            WorldGenerationEntropy
-                .SmoothStep(
-                    Math.Clamp(
-                        (distortedStrength -
-                         craterStart) /
-                        craterWidth,
-                        0d,
-                        1d));
-
-        return terrain.BaseHeight +
-               terrain.Height *
-               distortedStrength -
-               terrain.CraterDepth *
-               craterStrength;
+        var width =
+            Math.Max(crater.TransitionWidth, 1d - start);
+        var depthStrength =
+            WorldGenerationEntropy.SmoothStep(
+                Math.Clamp((strength - start) / width, 0d, 1d));
+        return crater.Depth * depthStrength;
     }
 
     private double ModifierHeight(

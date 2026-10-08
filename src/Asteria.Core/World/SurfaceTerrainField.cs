@@ -620,7 +620,8 @@ public sealed class SurfaceTerrainField
             _surfaceRules[
                 sample.Primary];
 
-        if (primary.IsVolcano)
+        if (primary.InfluencePolicy ==
+            SurfaceHeightInfluencePolicy.Primary)
         {
             return primary.HeightOffsetAt(
                 _seed,

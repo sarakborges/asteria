@@ -309,40 +309,34 @@ public sealed class BiomeMountainBeltTerrainShapeDefinition :
         BaseHeight + Amplitude + DetailAmplitude;
 }
 
-public sealed class BiomeVolcanoTerrainShapeDefinition :
+public sealed class BiomeConeTerrainShapeDefinition :
     BiomeTerrainShapeDefinition
 {
-    public BiomeVolcanoTerrainShapeDefinition(
+    public BiomeConeTerrainShapeDefinition(
         float baseHeight,
         float height,
-        float craterDepth,
-        float craterRadius,
         float irregularity,
         float irregularityScale,
         float detailIrregularity,
         float detailScale,
-        float craterIrregularity)
+        float slopeNoiseGain = 4f)
     {
         BaseHeight = TerrainValue.Finite(baseHeight, nameof(baseHeight));
         Height = TerrainValue.Positive(height, nameof(height));
-        CraterDepth = TerrainValue.NonNegative(craterDepth, nameof(craterDepth));
-        CraterRadius = TerrainValue.OpenUnit(craterRadius, nameof(craterRadius));
         Irregularity = TerrainValue.NonNegative(irregularity, nameof(irregularity));
         IrregularityScale = TerrainValue.Positive(irregularityScale, nameof(irregularityScale));
         DetailIrregularity = TerrainValue.NonNegative(detailIrregularity, nameof(detailIrregularity));
         DetailScale = TerrainValue.Positive(detailScale, nameof(detailScale));
-        CraterIrregularity = TerrainValue.NonNegative(craterIrregularity, nameof(craterIrregularity));
+        SlopeNoiseGain = TerrainValue.NonNegative(slopeNoiseGain, nameof(slopeNoiseGain));
     }
 
     public float BaseHeight { get; }
     public float Height { get; }
-    public float CraterDepth { get; }
-    public float CraterRadius { get; }
     public float Irregularity { get; }
     public float IrregularityScale { get; }
     public float DetailIrregularity { get; }
     public float DetailScale { get; }
-    public float CraterIrregularity { get; }
+    public float SlopeNoiseGain { get; }
 
     public override float MaximumHeightOffset =>
         BaseHeight + Height;

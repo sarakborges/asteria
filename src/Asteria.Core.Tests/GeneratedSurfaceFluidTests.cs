@@ -236,41 +236,46 @@ public sealed class GeneratedSurfaceFluidTests
             Assert.IsType<
                 BiomeSwampTerrainShapeDefinition>(
                 swamp.SurfaceTerrain!.Shape);
-        Assert.Null(
-            swamp.SurfaceFluid);
+        Assert.True(
+            swamp.SurfaceTerrain.FillToSeaLevel);
+        Assert.Equal(
+            SurfaceHeightInfluencePolicy.LowerOnly,
+            swamp.SurfaceTerrain.InfluencePolicy);
 
         var volcano =
             biomes.Get(
                 "asteria:overworld/volcano");
         var terrain =
             Assert.IsType<
-                BiomeVolcanoTerrainShapeDefinition>(
+                BiomeConeTerrainShapeDefinition>(
                 volcano.SurfaceTerrain!.Shape);
         var crater =
-            Assert.IsType<
-                BiomeVolcanoCraterFluidDefinition>(
-                volcano.SurfaceFluid);
+            Assert.IsType<BiomeCraterDefinition>(
+                volcano.SurfaceTerrain.Crater);
+        var fill = Assert.IsType<BiomeCraterFluidFillDefinition>(
+            crater.FluidFill);
+        var spill = Assert.IsType<BiomeCraterSpillDefinition>(fill.Spill);
 
         Assert.Equal(
             (12f, 72f, 38f, 0.14f),
             (
                 terrain.BaseHeight,
                 terrain.Height,
-                terrain.CraterDepth,
-                terrain.CraterRadius));
+                crater.Depth,
+                crater.Radius));
         Assert.Equal(
             "asteria:lava",
-            crater.Fluid);
+            fill.Fluid);
         Assert.Equal(
-            (0.91f, 8f, 0.56f, 0.9f, 0.012f, 0.055f, (byte)6),
+            (0.91f, 54f, 0.56f, 0.9f, 0.012f, 0.055f, (byte)6),
             (
-                crater.MinimumStrength,
-                crater.LevelOffset,
-                crater.SpillMinimumStrength,
-                crater.SpillMaximumStrength,
-                crater.SpillScale,
-                crater.SpillWidth,
-                crater.SpillLevel));
+                fill.MinimumStrength,
+                fill.TopLevel,
+                spill.MinimumStrength,
+                spill.MaximumStrength,
+                spill.Scale,
+                spill.Width,
+                spill.Level));
     }
 
     [Fact]
@@ -298,7 +303,8 @@ public sealed class GeneratedSurfaceFluidTests
                         amplitude: 0.7f,
                         scale: 0.0065f,
                         detailAmplitude: 0.4f,
-                        detailScale: 0.045f)),
+                        detailScale: 0.045f),
+                    fillToSeaLevel: true)),
                 [
                     new BiomeSurfaceLayerDefinition(
                         "asteria:stone"),
@@ -418,7 +424,7 @@ public sealed class GeneratedSurfaceFluidTests
                 ["asteria:overworld/mountain_belt"] =
                     typeof(BiomeMountainBeltTerrainShapeDefinition),
                 ["asteria:overworld/volcano"] =
-                    typeof(BiomeVolcanoTerrainShapeDefinition),
+                    typeof(BiomeConeTerrainShapeDefinition),
                 ["asteria:umbral/umbral_reach"] =
                     typeof(BiomeRollingTerrainShapeDefinition),
                 ["asteria:umbral/withered_waste"] =

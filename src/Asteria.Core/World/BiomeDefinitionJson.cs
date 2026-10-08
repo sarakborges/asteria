@@ -29,8 +29,7 @@ public static class BiomeDefinitionJson
             ParseTints(root),
             ParseTerrain3d(root),
             ParseVolumeLayout(root),
-            ParseUndergroundLayout(root),
-            ParseSurfaceFluid(root));
+            ParseUndergroundLayout(root));
     }
 
     private static PlacementLayoutValues?
@@ -227,17 +226,15 @@ public static class BiomeDefinitionJson
                         RequiredSingle(value, "sharpness"),
                         RequiredSingle(value, "detailAmplitude"),
                         RequiredSingle(value, "detailScale")),
-                "volcano" =>
-                    new BiomeVolcanoTerrainShapeDefinition(
+                "cone" =>
+                    new BiomeConeTerrainShapeDefinition(
                         RequiredSingle(value, "baseHeight"),
                         RequiredSingle(value, "height"),
-                        RequiredSingle(value, "craterDepth"),
-                        RequiredSingle(value, "craterRadius"),
                         RequiredSingle(value, "irregularity"),
                         RequiredSingle(value, "irregularityScale"),
                         RequiredSingle(value, "detailIrregularity"),
                         RequiredSingle(value, "detailScale"),
-                        RequiredSingle(value, "craterIrregularity")),
+                        OptionalSingle(value, "slopeNoiseGain") ?? 4f),
                 _ =>
                     throw new FormatException(
                         $"Unknown surfaceTerrain.type: {type}"),
@@ -245,7 +242,90 @@ public static class BiomeDefinitionJson
 
         return new BiomeTerrainDefinition(
             shape,
-            ParseTerrainModifiers(value));
+            ParseTerrainModifiers(value),
+            ParseInfluencePolicy(value),
+            ParseCrater(value),
+            ParseFillToSeaLevel(value));
+    }
+
+    private static SurfaceHeightInfluencePolicy ParseInfluencePolicy(
+        JsonElement terrain)
+    {
+        if (!terrain.TryGetProperty("influenceMode", out var mode))
+        {
+            return SurfaceHeightInfluencePolicy.Blend;
+        }
+
+        if (mode.ValueKind != JsonValueKind.String)
+        {
+            throw new FormatException("surfaceTerrain.influenceMode must be a string.");
+        }
+
+        return mode.GetString() switch
+        {
+            "blend" => SurfaceHeightInfluencePolicy.Blend,
+            "lowerOnly" => SurfaceHeightInfluencePolicy.LowerOnly,
+            "primary" => SurfaceHeightInfluencePolicy.Primary,
+            _ => throw new FormatException("Unknown surfaceTerrain.influenceMode."),
+        };
+    }
+
+    private static bool ParseFillToSeaLevel(JsonElement terrain)
+    {
+        if (!terrain.TryGetProperty("fillToSeaLevel", out var value))
+        {
+            return false;
+        }
+
+        return value.ValueKind switch
+        {
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            _ => throw new FormatException("surfaceTerrain.fillToSeaLevel must be boolean."),
+        };
+    }
+
+    private static BiomeCraterDefinition? ParseCrater(JsonElement terrain)
+    {
+        if (!terrain.TryGetProperty("crater", out var value) ||
+            value.ValueKind == JsonValueKind.Null)
+        {
+            return null;
+        }
+
+        value = EnsureObject(value, "surfaceTerrain.crater");
+        BiomeCraterFluidFillDefinition? fill = null;
+        if (value.TryGetProperty("fluidFill", out var fluidValue) &&
+            fluidValue.ValueKind != JsonValueKind.Null)
+        {
+            fluidValue = EnsureObject(fluidValue, "surfaceTerrain.crater.fluidFill");
+            BiomeCraterSpillDefinition? spill = null;
+            if (fluidValue.TryGetProperty("spill", out var spillValue) &&
+                spillValue.ValueKind != JsonValueKind.Null)
+            {
+                spillValue = EnsureObject(spillValue, "surfaceTerrain.crater.fluidFill.spill");
+                spill = new BiomeCraterSpillDefinition(
+                    RequiredSingle(spillValue, "minimumStrength"),
+                    RequiredSingle(spillValue, "maximumStrength"),
+                    RequiredSingle(spillValue, "scale"),
+                    RequiredSingle(spillValue, "width"),
+                    checked((byte)RequiredUInt32(spillValue, "level")));
+            }
+
+            fill = new BiomeCraterFluidFillDefinition(
+                RequiredString(fluidValue, "fluid"),
+                RequiredSingle(fluidValue, "minimumStrength"),
+                RequiredSingle(fluidValue, "topLevel"),
+                spill);
+        }
+
+        return new BiomeCraterDefinition(
+            RequiredSingle(value, "depth"),
+            RequiredSingle(value, "radius"),
+            RequiredSingle(value, "irregularity"),
+            RequiredSingle(value, "noiseScale"),
+            RequiredSingle(value, "transitionWidth"),
+            fill);
     }
 
     private static IReadOnlyList<BiomeTerrainModifierDefinition>
@@ -367,46 +447,6 @@ public static class BiomeDefinitionJson
                 RequiredSingle(value, "coverage"),
                 RequiredSingle(value, "roughness"),
                 RequiredSingle(value, "densityScale")));
-    }
-
-    private static BiomeSurfaceFluidDefinition?
-        ParseSurfaceFluid(
-            JsonElement root)
-    {
-        if (!root.TryGetProperty(
-                "surfaceFluid",
-                out var value) ||
-            value.ValueKind ==
-                JsonValueKind.Null)
-        {
-            return null;
-        }
-
-        value =
-            EnsureObject(
-                value,
-                "surfaceFluid");
-        var type =
-            RequiredString(
-                value,
-                "type");
-
-        return type switch
-        {
-            "volcano_crater" =>
-                new BiomeVolcanoCraterFluidDefinition(
-                    RequiredString(value, "fluid"),
-                    RequiredSingle(value, "minimumStrength"),
-                    RequiredSingle(value, "levelOffset"),
-                    RequiredSingle(value, "spillMinimumStrength"),
-                    RequiredSingle(value, "spillMaximumStrength"),
-                    RequiredSingle(value, "spillScale"),
-                    RequiredSingle(value, "spillWidth"),
-                    checked((byte)RequiredUInt32(value, "spillLevel"))),
-            _ =>
-                throw new FormatException(
-                    $"Unknown surfaceFluid.type: {type}"),
-        };
     }
 
     private static IReadOnlyList<BiomeSurfaceLayerDefinition>
