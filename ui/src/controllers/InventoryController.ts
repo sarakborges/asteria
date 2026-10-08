@@ -7,7 +7,7 @@ import type { UiStore } from "../state/uiStore";
 import { asRecord } from "./messagePayload";
 
 function readKind(value: unknown): InventoryEntryKind | null {
-  return value === "block" || value === "item" || value === "tool"
+  return value === "block" || value === "item" || value === "tool" || value === "layer"
     ? value : null;
 }
 

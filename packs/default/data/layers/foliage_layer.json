@@ -4,5 +4,6 @@
   "tint": "foliage",
   "offset": 0.001,
   "alphaCutoff": 0.5,
-  "castsShadow": false
+  "castsShadow": false,
+  "category": "natural_blocks"
 }

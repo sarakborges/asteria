@@ -166,7 +166,7 @@ public partial class Main : Node3D
             ToolContentLoader.LoadProjectTools(
                 _packSelection);
         _inventoryCatalog = new InventoryContentCatalog(
-            _blocks, _items, _tools);
+            _blocks, _items, _tools, _layers);
         _inventoryDropIcons = new InventoryDropIconCatalog(
             _packSelection, _inventoryCatalog);
         _creatures =
@@ -2364,6 +2364,24 @@ public partial class Main : Node3D
         }
 
         var target = CurrentTarget();
+        if (selected?.Kind == InventoryEntryKind.Layer)
+        {
+            if (target is { } layerHit &&
+                _sessions.Active.LayerPlacement.TryPlace(selected, layerHit))
+            {
+                if (_sessionStates.Player.GameMode == PlayerGameMode.Survival)
+                {
+                    if (!inventory.TryConsumeSelected())
+                        throw new InvalidOperationException("Accepted layer placement lost selected item.");
+                    SyncHeldBlock();
+                    SendHotbarState();
+                    SendInventoryState();
+                }
+                KickWorldMutationWorkers();
+            }
+            return;
+        }
+
         if (target is { } pickupHit)
         {
             var targetDefinition = _blocks.GetDefinition(

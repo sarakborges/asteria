@@ -6,7 +6,7 @@ export type BridgeStatusTone =
 export type HotbarSlotState = {
   id?: string;
   quantity?: number;
-  kind?: "block" | "item" | "tool";
+  kind?: "block" | "item" | "tool" | "layer";
   metadata?: Record<string, string>;
   iconUrl?: string;
 };
@@ -180,7 +180,7 @@ export type WorldCreationState = {
   errorKey: WorldCreationErrorKey | null;
 };
 
-export type InventoryEntryKind = "block" | "item" | "tool";
+export type InventoryEntryKind = "block" | "item" | "tool" | "layer";
 export type InventoryMetadata = Record<string, string>;
 
 export type InventorySlotState = {
