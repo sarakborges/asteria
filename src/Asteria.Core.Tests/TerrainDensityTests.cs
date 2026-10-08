@@ -344,6 +344,92 @@ public sealed class TerrainDensityTests
         Assert.Equal(120u, dimension.Caves!.MaximumDepth);
     }
 
+    [Fact]
+    public void AdditiveLayersUseIndependentVerticalBounds()
+    {
+        var generator = Generator(
+            additive:
+            [
+                new BiomeAdditiveDensityDefinition(
+                    80, 104, 64, 24, 1f, 0f, 30f,
+                    verticalFalloff: 2f),
+                new BiomeAdditiveDensityDefinition(
+                    120, 144, 64, 24, 1f, 0f, 30f,
+                    horizontalFalloff: 2f),
+            ]);
+        var point = FindVolumeSolid(generator, y: 92);
+
+        Assert.NotNull(generator.VolumeBiomes.Sample(
+            point.X, 92, point.Z));
+        Assert.Null(generator.VolumeBiomes.Sample(
+            point.X, 112, point.Z));
+        Assert.NotNull(generator.VolumeBiomes.Sample(
+            point.X, 132, point.Z));
+        Assert.True(generator.DensityAt(
+            point.X, 112, point.Z) < 0d);
+    }
+
+    [Fact]
+    public void UnionCaveChannelsCarveAtLeastAsMuchAsIntersection()
+    {
+        var intersection = Generator(caves: LayeredCaves(
+            CaveNoiseCombination.Intersection));
+        var union = Generator(caves: LayeredCaves(
+            CaveNoiseCombination.Union));
+        var foundDifference = false;
+
+        for (var z = -48; z <= 48; z += 12)
+        {
+            for (var x = -48; x <= 48; x += 12)
+            {
+                var strict = intersection.DensityAt(x, 56, z);
+                var broad = union.DensityAt(x, 56, z);
+                Assert.True(
+                    broad <= strict,
+                    $"Union caves must not be less subtractive at {x},56,{z}.");
+                foundDifference |= broad < strict;
+            }
+        }
+
+        Assert.True(foundDifference);
+    }
+
+    [Fact]
+    public void ComposableDensityDefinitionsRejectInvalidBounds()
+    {
+        Assert.ThrowsAny<ArgumentException>(() =>
+            new BiomeAdditiveDensityDefinition(
+                80, 112, 64, 24, 1f, 0f, 30f,
+                verticalFalloff: 0f));
+        Assert.ThrowsAny<ArgumentException>(() =>
+            new BiomeAdditiveDensityDefinition(
+                80, 112, 64, 24, 1f, 0f, 30f,
+                densityBias: 1f));
+        Assert.ThrowsAny<ArgumentException>(() =>
+            new DimensionCaveDefinition([]));
+        Assert.ThrowsAny<ArgumentException>(() =>
+            new DimensionCaveLayerDefinition(
+                10, 80, [], 0.4f, 24f, 6));
+    }
+
+    private static DimensionCaveDefinition LayeredCaves(
+        CaveNoiseCombination combination) =>
+        new(
+        [
+            new DimensionCaveLayerDefinition(
+                minDepth: 10,
+                maxDepth: 80,
+                channels:
+                [
+                    new DimensionCaveNoiseChannelDefinition(24, 16),
+                    new DimensionCaveNoiseChannelDefinition(96, 64),
+                ],
+                noiseHalfWidth: 0.45f,
+                densityScale: 24f,
+                boundaryFade: 6,
+                combination: combination),
+        ]);
+
     private static BlockRuntimeId Block(string id) =>
         Blocks.GetId(id);
 
@@ -375,7 +461,8 @@ public sealed class TerrainDensityTests
         DimensionCaveDefinition? caves = null,
         BiomeAdditiveDensityDefinition? floating = null,
         int? floorY = null,
-        int? roofY = null)
+        int? roofY = null,
+        IEnumerable<BiomeAdditiveDensityDefinition>? additive = null)
     {
         var surfaceBiome =
             new BiomeDefinition(
@@ -397,9 +484,12 @@ public sealed class TerrainDensityTests
                     new BiomeSurfaceLayerDefinition(
                         "asteria:stone"),
                 ]);
+        var formations = additive?.ToArray() ??
+            (floating is { } authored
+                ? [authored]
+                : Array.Empty<BiomeAdditiveDensityDefinition>());
         var volumeBiome =
-            floating is
-                { } authored
+            formations.Length > 0
                 ? new BiomeDefinition(
                     "asteria:test/floating",
                     surfaceLayout: null,
@@ -416,7 +506,7 @@ public sealed class TerrainDensityTests
                     ],
                     terrain3d:
                         new BiomeTerrain3dDefinition(
-                            [authored]),
+                            formations),
                     volumeLayout:
                         new BiomeVolumeLayoutDefinition())
                 : null;
