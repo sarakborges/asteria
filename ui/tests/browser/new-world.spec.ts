@@ -11,17 +11,21 @@ async function expectActualWorldSettings(page: Page) {
   const content = page.locator(".new-world .settings-page__sections");
   await expect(nav).toBeVisible();
   await expect(content).toBeVisible();
-  await expect(nav.locator("button")).toHaveCount(2);
-  await expect(page.locator(sections)).toHaveCount(2);
+  await expect(nav.locator("button")).toHaveCount(3);
+  await expect(page.locator(sections)).toHaveCount(3);
 
   const worldSettings = page.locator(sections).first();
+  const worldGeneration = page.locator(sections).nth(1);
   const gameRules = page.locator(sections).last();
   const labels = nav.locator("button");
   await expect(worldSettings.locator(".ui-text--heading").first()).toHaveText(
     (await labels.nth(0).innerText()).trim(),
   );
-  await expect(gameRules.locator(".ui-text--heading").first()).toHaveText(
+  await expect(worldGeneration.locator(".ui-text--heading").first()).toHaveText(
     (await labels.nth(1).innerText()).trim(),
+  );
+  await expect(gameRules.locator(".ui-text--heading").first()).toHaveText(
+    (await labels.nth(2).innerText()).trim(),
   );
 
   // Exact MineClone hierarchy: new_world_settings_section() contains
@@ -33,6 +37,9 @@ async function expectActualWorldSettings(page: Page) {
   await expect(seed).toBeVisible();
   await expect(mode).toBeVisible();
   await expect(gameRules.locator("#world-seed")).toHaveCount(0);
+  await expect(worldGeneration.locator("#world-seed")).toHaveCount(0);
+  await expect(worldGeneration.getByRole("switch")).toHaveCount(4);
+  await expect(worldGeneration.getByRole("button", { name: /Normal|Flat|Void/ })).toHaveCount(3);
 
   const nameRect = await nameInput.boundingBox();
   const seedRect = await seed.boundingBox();
@@ -44,7 +51,7 @@ async function expectActualWorldSettings(page: Page) {
   await expect(gameRules.locator(".numeric-stepper")).toHaveCount(1);
   await expect(gameRules.getByRole("switch")).toHaveCount(1);
 
-  return { nav, content, worldSettings, gameRules };
+  return { nav, content, worldSettings, worldGeneration, gameRules };
 }
 
 test("Create New World preserves the MineClone sidebar and section ownership", async ({ page }) => {
@@ -110,4 +117,29 @@ test("initial menu contains no language selector", async ({ page }) => {
   await expect(page.locator(".starting-screen")).toBeVisible();
   await expect(page.locator(".starting-screen__language")).toHaveCount(0);
   await expect(page.locator(".starting-screen select")).toHaveCount(0);
+});
+
+test("World Generation respects Void cave/ocean disabling and Single Biome validation", async ({ page }) => {
+  await page.goto(STORY + "ready&viewMode=story");
+  const { worldGeneration } = await expectActualWorldSettings(page);
+  await worldGeneration.getByRole("button", { name: "Void" }).click();
+  const cave = worldGeneration.getByRole("switch", { name: "Spawn Caves" });
+  const ocean = worldGeneration.getByRole("switch", { name: "Spawn Oceans" });
+  await expect(cave).toBeDisabled();
+  await expect(ocean).toBeDisabled();
+  await expect(cave).toHaveAttribute("aria-checked", "false");
+  await expect(ocean).toHaveAttribute("aria-checked", "false");
+
+  await worldGeneration.getByRole("switch", { name: "Single Biome" }).click();
+  await page.locator(".new-world__create[type=submit]").click();
+  await expect(worldGeneration.getByRole("alert")).toBeVisible();
+});
+
+test("Spawn Biome options support focused search and exact selection", async ({ page }) => {
+  await page.goto(STORY + "ready&viewMode=story");
+  const { worldGeneration } = await expectActualWorldSettings(page);
+  await worldGeneration.getByRole("button", { name: "Spawn Biome" }).click();
+  await page.getByRole("textbox", { name: "Search biomes..." }).fill("swa");
+  await page.getByRole("option", { name: "Swamp" }).click();
+  await expect(worldGeneration.getByRole("button", { name: "Spawn Biome" })).toContainText("Swamp");
 });
