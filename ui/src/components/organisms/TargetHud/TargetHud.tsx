@@ -8,10 +8,12 @@ import "./TargetHud.css";
 
 export type TargetHudProps = {
   state: TargetHudState | null;
+  miningProgress?: number | null;
 };
 
 export function TargetHud({
   state,
+  miningProgress = null,
 }: TargetHudProps) {
   const { contentName } = useLocalization();
   if (!state) return null;
@@ -34,6 +36,15 @@ export function TargetHud({
             </span>
           ),
         )}
+        {state.kind === "block" &&
+          miningProgress !== null && miningProgress > 0 && (
+            <progress
+              className="target-hud__mining-progress"
+              value={miningProgress}
+              max={1}
+              aria-label="Block mining progress"
+            />
+          )}
       </div>
     </section>
   );

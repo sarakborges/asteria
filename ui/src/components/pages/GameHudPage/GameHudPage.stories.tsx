@@ -52,6 +52,7 @@ const runtimeState = {
       "148, 92, -72",
     ],
   },
+  miningProgress: null,
   targetEntity: null,
   clock: {
     day: 3,
@@ -112,6 +113,15 @@ export const CreatureTarget: Story = {
           maximum: 24,
         },
       },
+    },
+  },
+};
+
+export const MiningInProgress: Story = {
+  args: {
+    state: {
+      ...runtimeState,
+      miningProgress: 0.6,
     },
   },
 };

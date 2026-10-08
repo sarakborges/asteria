@@ -127,6 +127,7 @@ public partial class Main : Node3D
     private WorldFrameWorkBudget _worldFrameBudget;
     private bool _worldReadySent;
     private bool _inventoryOpen;
+    private int _publishedMiningStage = -1;
     private double _pickupAccumulator;
     private bool _debugHudVisible;
     private ulong? _worldSeed;
@@ -408,6 +409,8 @@ public partial class Main : Node3D
             AdvanceWorldLoading();
             return;
         }
+
+        AdvanceSurvivalMining();
 
         if (_worldReadySent && _player is { } creatureObserver)
         {
@@ -720,6 +723,7 @@ public partial class Main : Node3D
             _inventoryOpen = false;
             SendInventoryState();
         }
+        _sessions.Active.Mining.Cancel();
         _player.QueueFree();
         _player = null;
         _underwaterView = null;
@@ -2116,6 +2120,10 @@ public partial class Main : Node3D
                 KickWorldMutationWorkers();
             return;
         }
+        // Only Creative breaks on a click; Survival uses held-input work.
+        if (_sessionStates.Player.GameMode == PlayerGameMode.Survival)
+            return;
+
         var definition = _blocks.GetDefinition(
             _world.GetCellOrEmpty(hit.Voxel).Block);
         if (!_sessions.Active.Tools.CanMine(
@@ -2135,6 +2143,59 @@ public partial class Main : Node3D
         // Destruction creates a physical block drop; collection is handled
         // by DroppedBlockRuntime and the authoritative inventory.
         KickWorldMutationWorkers();
+    }
+
+    private void AdvanceSurvivalMining()
+    {
+        if (!_worldReadySent || _player is not { IsBreakHeld: true } player ||
+            !_sessionStates.Player.CanInteract ||
+            _sessionStates.Player.GameMode != PlayerGameMode.Survival)
+        {
+            _sessions.Active.Mining.Cancel();
+            PublishMiningProgress();
+            return;
+        }
+
+        var held = _sessionStates.Player.Inventory.SelectedStack;
+        if (_sessions.Active.Tools.IsSpecialLeftAction(held))
+        {
+            _sessions.Active.Mining.Cancel();
+            PublishMiningProgress();
+            return;
+        }
+
+        var (from, to) = player.GetInteractionRay(InteractionDistance);
+        var origin = new NVector3(from.X, from.Y, from.Z);
+        var direction = new NVector3(
+            to.X - from.X, to.Y - from.Y, to.Z - from.Z);
+        if (_sessions.Active.FindCreatureTarget(
+                origin, direction, InteractionDistance) is not null)
+        {
+            _sessions.Active.Mining.Cancel();
+            PublishMiningProgress();
+            return;
+        }
+
+        var inventory = _sessionStates.Player.Inventory;
+        var completed = _sessions.Active.Mining.Advance(
+            CurrentTarget(), held, inventory.SelectedSlot,
+            _worldTicks.TicksThisFrame, _sessionStates.Player.GameMode);
+        PublishMiningProgress();
+        if (completed) KickWorldMutationWorkers();
+    }
+
+    private void PublishMiningProgress()
+    {
+        var progress = _sessions.Active.Mining.Progress;
+        var stage = progress is { } value
+            ? Math.Clamp((int)MathF.Ceiling(value * 10f), 0, 10)
+            : -1;
+        if (stage == _publishedMiningStage) return;
+        _publishedMiningStage = stage;
+        SendWebUi("game.hud.mining", new
+        {
+            progress = stage < 0 ? (float?)null : stage / 10f,
+        });
     }
 
     private void RotateHeldBlock()

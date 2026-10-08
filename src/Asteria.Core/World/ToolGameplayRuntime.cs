@@ -55,6 +55,38 @@ public sealed class ToolGameplayRuntime
             required.Contains(mining.Category, StringComparer.Ordinal);
     }
 
+    /// <summary>
+    /// Required categories gate mining. Preferred categories accelerate it;
+    /// other held items mine at the hand speed, while non-mining tools cannot.
+    /// </summary>
+    public float? EffectiveMiningSpeed(
+        InventoryStack? held,
+        BlockDefinition target)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        ToolDefinition? tool = null;
+        if (held?.Kind == InventoryEntryKind.Tool)
+        {
+            if (!_tools.TryGet(held.Id, out tool) ||
+                tool is null || tool.LeftBehavior != "asteria:mine")
+                return null;
+        }
+
+        var mining = tool?.Mining;
+        if (target.Mining.RequiredTools.Count > 0)
+        {
+            return mining is not null &&
+                target.Mining.RequiredTools.Contains(
+                    mining.Category, StringComparer.Ordinal)
+                ? mining.Speed : null;
+        }
+
+        return mining is not null &&
+            target.Mining.PreferredTools.Contains(
+                mining.Category, StringComparer.Ordinal)
+            ? mining.Speed : 1f;
+    }
+
     public bool IsSpecialLeftAction(InventoryStack? held) =>
         GetBehavior(held, ToolUseHand.Left) is
             "asteria:log/hollow" or

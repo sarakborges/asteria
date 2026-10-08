@@ -103,6 +103,7 @@ export type HudState = {
   world: WorldBannerState | null;
   vitals: PlayerVitalsState | null;
   target: TargetHudState | null;
+  miningProgress: number | null;
   targetEntity: HudEntityState | null;
   clock: WorldClockState | null;
   fps: number | null;
@@ -234,6 +235,7 @@ export function createInitialUiState(
       world: null,
       vitals: null,
       target: null,
+      miningProgress: null,
       targetEntity: null,
       clock: null,
       fps: null,

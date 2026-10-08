@@ -36,6 +36,8 @@ public sealed record CreatureDefinition(
     public IReadOnlyList<CreatureLootEntry> LootTable { get; init; } =
         Array.Empty<CreatureLootEntry>();
 
+    public CreatureNaturalSpawnDefinition? NaturalSpawn { get; init; }
+
     public static CreatureDefinition Parse(string json)
     {
         ArgumentNullException.ThrowIfNull(json);
@@ -66,6 +68,7 @@ public sealed record CreatureDefinition(
             ParseParticleEffects(root))
         {
             LootTable = CreatureLootTable.Parse(root),
+            NaturalSpawn = CreatureNaturalSpawnDefinition.Parse(root),
         };
     }
 
