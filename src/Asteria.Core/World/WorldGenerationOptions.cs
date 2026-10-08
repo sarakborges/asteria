@@ -49,4 +49,18 @@ public sealed record WorldGenerationOptions
     public bool SingleBiome { get; }
     public bool SpawnCaves { get; }
     public bool SpawnOceans { get; }
+
+    /// <summary>Biome IDs are Sphere-scoped. Keep the world flags while
+    /// dropping an origin-Sphere spawn choice on unrelated Spheres.</summary>
+    public WorldGenerationOptions ForSphere(DimensionDefinition dimension)
+    {
+        ArgumentNullException.ThrowIfNull(dimension);
+        if (SpawnBiome is null ||
+            dimension.SurfaceBiomes.Contains(SpawnBiome, StringComparer.Ordinal))
+            return this;
+
+        return new WorldGenerationOptions(
+            Mode, spawnBiome: null, BiomeSizeTenths, SpawnStructures,
+            singleBiome: false, SpawnCaves, SpawnOceans);
+    }
 }
