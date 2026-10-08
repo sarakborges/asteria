@@ -134,26 +134,13 @@ public partial class Main : Node3D
     private bool _worldReadySent;
     private bool _inventoryOpen;
     private readonly PlayerChatSession _chat = new();
-    private WarpArrival? _warpArrival;
+    private WarpArrivalPlan? _warpArrival;
 
     private enum DimensionTravelPurpose : byte
     {
         Ordinary,
         ChatWarp,
     }
-
-    private enum WarpArrivalPhase : byte
-    {
-        Requested,
-        DestinationFallback,
-        Returning,
-        ReturnFallback,
-    }
-
-    private sealed record WarpArrival(
-        DimensionId Origin,
-        NVector3 OriginPosition,
-        WarpArrivalPhase Phase);
     private readonly ChatLocateController _chatLocate = new();
     private double _chatFeedbackSeconds;
     private bool _brushPaletteOpen;
@@ -564,7 +551,7 @@ public partial class Main : Node3D
         }
 
         _warpArrival = purpose == DimensionTravelPurpose.ChatWarp
-            ? new WarpArrival(_dimension.Id, source, WarpArrivalPhase.Requested)
+            ? new WarpArrivalPlan(_dimension.Id, source)
             : null;
         StartDimensionRetirement(target);
         return true;
@@ -1502,40 +1489,29 @@ public partial class Main : Node3D
 
         if (_warpArrival is { } warp)
         {
-            if (!_sessions.Active.TryPrepareResidentWarpEntry())
+            var disposition = warp.Evaluate(
+                _sessions.Active.TryPrepareResidentWarpEntry());
+            switch (disposition)
             {
-                switch (warp.Phase)
-                {
-                    case WarpArrivalPhase.Requested:
-                    case WarpArrivalPhase.Returning:
-                        // Both legs use exactly the same residency/edits
-                        // validation; never assume an authored spawn is clear.
-                        _warpArrival = warp with
-                        {
-                            Phase = warp.Phase == WarpArrivalPhase.Requested
-                                ? WarpArrivalPhase.DestinationFallback
-                                : WarpArrivalPhase.ReturnFallback,
-                        };
-                        _sessions.Active.PrepareGeneratedSpawn();
-                        BeginWorldLoading();
-                        return;
-                    case WarpArrivalPhase.DestinationFallback:
-                        BeginWarpRollback(warp);
-                        return;
-                    case WarpArrivalPhase.ReturnFallback:
-                        // The player has not been instantiated. There is no
-                        // valid resident source OR destination position; fail
-                        // instead of releasing collision inside solid terrain.
-                        throw new InvalidOperationException(
-                            "Warp rollback has no safe resident arrival " +
-                            $"in Sphere {_dimension.Id}.");
-                }
+                case WarpArrivalDisposition.RetryAtGeneratedSpawn:
+                    _warpArrival = warp.RetryAtGeneratedSpawn();
+                    _sessions.Active.PrepareGeneratedSpawn();
+                    BeginWorldLoading();
+                    return;
+                case WarpArrivalDisposition.ReturnToOrigin:
+                    BeginWarpRollback(warp);
+                    return;
+                case WarpArrivalDisposition.NoSafeEntry:
+                    // The player has not been instantiated: no valid
+                    // resident destination or source exists.
+                    throw new InvalidOperationException(
+                        "Warp rollback has no safe resident arrival " +
+                        $"in Sphere {_dimension.Id}.");
             }
 
             _warpArrival = null;
             var position = _sessions.Active.InitialPlayerPosition;
-            if (warp.Phase is WarpArrivalPhase.Returning or
-                WarpArrivalPhase.ReturnFallback)
+            if (warp.IsReturning)
             {
                 ChatFeedback("chat.command.warp.failed", error: true);
             }
@@ -1566,7 +1542,7 @@ public partial class Main : Node3D
                 _clientPreferences.RenderDistanceChunks));
     }
 
-    private void BeginWarpRollback(WarpArrival warp)
+    private void BeginWarpRollback(WarpArrivalPlan warp)
     {
         // Keep the player retired. Reentry to the archived origin uses the
         // normal world/session transition and must validate residency again.
@@ -1581,7 +1557,7 @@ public partial class Main : Node3D
                 "Failed to initiate rollback after unsafe warp arrival.");
         }
 
-        _warpArrival = warp with { Phase = WarpArrivalPhase.Returning };
+        _warpArrival = warp.BeginReturn();
         StartDimensionRetirement(warp.Origin);
     }
 
