@@ -291,6 +291,13 @@ public sealed class BiomeWorldGenerator :
             maxRadius,
             acceptsColumn);
 
+    internal bool TryPrepareManualStructure(
+        string reference, int? variation,
+        int anchorX, int anchorZ,
+        out SurfaceStructurePlacement placement) =>
+        _surfaceStructures.TryPrepareManualPlacement(
+            reference, variation, anchorX, anchorZ, out placement);
+
     public bool HasGeneratedSurfaceStructure(string reference) =>
         _surfaceStructures.HasReference(reference);
 
