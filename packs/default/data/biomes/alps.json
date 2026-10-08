@@ -44,7 +44,13 @@
       ],
       "cluster": {
         "scale": 16,
-        "threshold": -0.2
+        "threshold": -0.2,
+        "octaves": 4,
+        "transitionWidth": 0.15
+      },
+      "conditions": {
+        "minY": 100,
+        "maxSlope": 15
       }
     }
   ]
