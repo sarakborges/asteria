@@ -2050,19 +2050,10 @@ public partial class Main : Node3D
     private void ExecuteChatModify(ParsedChatCommand command)
     {
         var tag = command.Argument!;
-        if (tag != "NO_AI")
+        if (!CreatureMetaTags.TryNormalize(tag, out var canonical))
         {
             ChatFeedback("chat.command.meta.unknown", error: true,
                 ("tag", tag));
-            return;
-        }
-
-        // The currently authored NO_AI tag has no value. Do not silently
-        // accept arbitrary metadata or claim that edit is supported.
-        if (command.Option == "edit" || command.Value is not null)
-        {
-            ChatFeedback("chat.command.notImplemented", error: true,
-                ("command", "/modify edit NO_AI"));
             return;
         }
 
@@ -2082,23 +2073,38 @@ public partial class Main : Node3D
             return;
         }
 
-        var adding = command.Option == "add";
-        if (hit.Creature.NoAi == adding)
+        var action = command.Option switch
         {
-            ChatFeedback(adding ? "chat.command.meta.exists" :
-                "chat.command.meta.notSet", error: true, ("tag", tag));
-            return;
-        }
-        if (!_sessions.Active.TrySetCreatureNoAi(hit.Creature.Id, adding))
+            "add" => CreatureMetaTagAction.Add,
+            "remove" => CreatureMetaTagAction.Remove,
+            "edit" => CreatureMetaTagAction.Edit,
+            _ => throw new InvalidOperationException(
+                "Parser accepted an unsupported metadata action."),
+        };
+        if (!_sessions.Active.TryChangeCreatureMetaTag(
+                hit.Creature.Id, action, canonical, command.Value, out var error))
         {
-            ChatFeedback("chat.command.target.unavailable", error: true);
+            var key = error switch
+            {
+                CreatureMetaTagError.UnknownTag => "chat.command.meta.unknown",
+                CreatureMetaTagError.AlreadyPresent => "chat.command.meta.exists",
+                CreatureMetaTagError.NotSet => "chat.command.meta.notSet",
+                CreatureMetaTagError.InvalidValue => "chat.command.failed",
+                _ => "chat.command.target.unavailable",
+            };
+            ChatFeedback(key, error: true, ("tag", canonical));
             return;
         }
 
         var position = hit.Creature.Position;
-        ChatFeedback(adding ? "chat.command.modify.addSuccess" :
-            "chat.command.modify.removeSuccess", error: false,
-            ("tag", tag),
+        var feedback = action switch
+        {
+            CreatureMetaTagAction.Add => "chat.command.modify.addSuccess",
+            CreatureMetaTagAction.Remove => "chat.command.modify.removeSuccess",
+            _ => "chat.command.modify.editSuccess",
+        };
+        ChatFeedback(feedback, error: false,
+            ("tag", canonical),
             ("name", hit.Creature.DefinitionId),
             ("position", $"({Mathf.FloorToInt(position.X)}, " +
                 $"{Mathf.FloorToInt(position.Z)}, {Mathf.FloorToInt(position.Y)})"));
@@ -2114,10 +2120,13 @@ public partial class Main : Node3D
             return;
         }
 
-        if (command.Option is not null && command.Option != "NO_AI")
+        var tags = default(CreatureMetaTags);
+        if (command.Option is { } tag &&
+            !tags.TryChange(CreatureMetaTagAction.Add,
+                tag, null, out tags, out _))
         {
             ChatFeedback("chat.command.meta.unknown", error: true,
-                ("tag", command.Option));
+                ("tag", tag));
             return;
         }
 
@@ -2142,8 +2151,7 @@ public partial class Main : Node3D
 
         var feet = new NVector3(
             safe.Value.X + 0.5f, safe.Value.Y, safe.Value.Z + 0.5f);
-        if (!_sessions.Active.TrySpawnCreature(id, feet,
-                noAi: command.Option == "NO_AI"))
+        if (!_sessions.Active.TrySpawnCreature(id, feet, tags))
         {
             ChatFeedback("chat.command.spawn.failed", error: true, ("id", id));
             return;
