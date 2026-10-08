@@ -64,6 +64,9 @@ public sealed class BiomeRegistry
                 BiomeDefinitionJson.Parse));
     }
 
+    public bool Contains(string id) =>
+        id is not null && _definitionsById.ContainsKey(id);
+
     public BiomeDefinition Get(
         string id)
     {
