@@ -3,9 +3,11 @@
   "category": "natural_blocks",
   "shape": {
     "type": "spike",
-    "baseRadius": 0.46,
+    "baseRadius": 0.42,
     "tipRadius": 0.025,
-    "sides": 7
+    "sides": 7,
+    "irregularity": 0.12,
+    "taperPower": 1.2
   },
   "placementFaces": [
     "top",

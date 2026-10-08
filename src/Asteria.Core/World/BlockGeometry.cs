@@ -341,6 +341,9 @@ public static class BlockGeometry
             shape, state, (y + 0.5f) / Resolution);
         var dx = (x + 0.5f) / Resolution - 0.5f;
         var dz = (z + 0.5f) / Resolution - 0.5f;
+        // World-space per-side irregularity is only available to the mesh
+        // builder. Use its conservative radial envelope for gameplay hits.
+        radius = MathF.Min(0.5f, radius * (1f + shape.SpikeIrregularity));
         return dx * dx + dz * dz <= radius * radius;
     }
 

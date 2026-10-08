@@ -1,9 +1,45 @@
+using System.Numerics;
 using Asteria.Core.World;
 
 namespace Asteria.Core.Tests;
 
 public sealed class ChunkMeshDataBuilderTests
 {
+    [Fact]
+    public void SpikeClosesItsEndsAndProvidesMatchingCollisionTriangles()
+    {
+        var texture = new BlockTextureLayer("textures/test/spike.png");
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition("asteria:stone_spike",
+                textures: new BlockTextureSet(top: [texture]),
+                shape: BlockShapeDefinition.Spike(
+                    baseRadius: 0.42f, sides: 7,
+                    irregularity: 0.12f, taperPower: 1.3f)),
+        ]);
+        var chunk = new Chunk();
+        var spike = blocks.GetId("asteria:stone_spike");
+        chunk.SetCell(2, 2, 2, new VoxelCell(spike));
+        ChunkLightingSolver.Initialize(chunk, blocks, new FluidRegistry([]));
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, chunk);
+        var mesh = ChunkMeshDataBuilder.BuildMeshlet(
+            world, ChunkCoord.Zero, blocks,
+            new TerrainTextureLookup(new Dictionary<string, int>
+            {
+                ["textures/test/spike.png"] = 0,
+            }), 0);
+
+        // Each of seven sides contributes 2 side triangles, one top
+        // triangle, and one bottom triangle. The ends have no gaps.
+        Assert.Equal(28, mesh.TriangleCount);
+        Assert.Equal(28, mesh.CollisionTriangleCount);
+        Assert.Contains(mesh.RenderBatches.SelectMany(batch => batch.Vertices),
+            vertex => vertex.Normal == Vector3.UnitY);
+        Assert.Contains(mesh.RenderBatches.SelectMany(batch => batch.Vertices),
+            vertex => vertex.Normal == -Vector3.UnitY);
+    }
+
     [Fact]
     public void SingleOpaqueCubeBuildsTerrainAndCollisionInCore()
     {

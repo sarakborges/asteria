@@ -40,6 +40,6 @@ public static class SpikeSegmentState
             Height(state);
         return shape.SpikeBaseRadius +
             (shape.SpikeTipRadius - shape.SpikeBaseRadius) *
-            Math.Clamp(progress, 0f, 1f);
+            MathF.Pow(Math.Clamp(progress, 0f, 1f), shape.SpikeTaperPower);
     }
 }

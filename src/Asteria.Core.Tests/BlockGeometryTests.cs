@@ -5,6 +5,22 @@ namespace Asteria.Core.Tests;
 public sealed class BlockGeometryTests
 {
     [Fact]
+    public void SpikeTaperAndIrregularityAreValidatedAndAffectProfile()
+    {
+        var smooth = BlockShapeDefinition.Spike(
+            taperPower: 1f);
+        var curved = BlockShapeDefinition.Spike(
+            taperPower: 1.5f, irregularity: 0.12f);
+        var state = SpikeSegmentState.Encode(1, 5, false);
+        Assert.True(SpikeSegmentState.RadiusAt(curved, state, 0.5f) >
+                    SpikeSegmentState.RadiusAt(smooth, state, 0.5f));
+        Assert.ThrowsAny<ArgumentException>(() =>
+            BlockShapeDefinition.Spike(irregularity: 0.26f));
+        Assert.ThrowsAny<ArgumentException>(() =>
+            BlockShapeDefinition.Spike(taperPower: 0.4f));
+    }
+
+    [Fact]
     public void SurfaceLayerOccupiesOnlyItsAuthoredThickness()
     {
         var definition = new BlockDefinition(

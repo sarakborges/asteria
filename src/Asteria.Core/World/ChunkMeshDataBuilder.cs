@@ -597,19 +597,49 @@ public static class ChunkMeshDataBuilder
         var topRadius = SpikeSegmentState.RadiusAt(
             shape, cell.State, 1f);
 
+        var topCap = SpikeSegmentState.IsDown(cell.State)
+            ? SpikeSegmentState.Index(cell.State) == 0
+            : SpikeSegmentState.Index(cell.State) == SpikeSegmentState.Height(cell.State) - 1;
+        var bottomCap = !topCap &&
+            (SpikeSegmentState.IsDown(cell.State)
+                ? SpikeSegmentState.Index(cell.State) == SpikeSegmentState.Height(cell.State) - 1
+                : SpikeSegmentState.Index(cell.State) == 0);
+        var topMaterial = topCap
+            ? ResolveFaceMaterial(textures, definition, cell, BlockFace.Top)
+            : default;
+        var bottomMaterial = bottomCap
+            ? ResolveFaceMaterial(textures, definition, cell, BlockFace.Bottom)
+            : default;
+        var capTint = ResolveTint(
+            definition.Tint, definition.PreviewColor, tintSamples,
+            worldPosition.X, worldPosition.Z);
+        var upperLight = topCap
+            ? VoxelMeshLighting.SampleFace(world, blocks, worldPosition, BlockFace.Top).Corner0
+            : default;
+        var lowerLight = bottomCap
+            ? VoxelMeshLighting.SampleFace(world, blocks, worldPosition, BlockFace.Bottom).Corner0
+            : default;
+
         Span<Vector3> quad = stackalloc Vector3[4];
+        Span<Vector3> cap = stackalloc Vector3[3];
         for (var side = 0; side < shape.SpikeSides; side++)
         {
+            var nextSide = (side + 1) % shape.SpikeSides;
             var angle0 = angleOffset + side * MathF.Tau / shape.SpikeSides;
             var angle1 = angleOffset + (side + 1) * MathF.Tau / shape.SpikeSides;
             var c0 = MathF.Cos(angle0);
             var s0 = MathF.Sin(angle0);
             var c1 = MathF.Cos(angle1);
             var s1 = MathF.Sin(angle1);
-            quad[0] = position + new Vector3(c1 * bottomRadius, 0f, s1 * bottomRadius);
-            quad[1] = position + new Vector3(c1 * topRadius, 1f, s1 * topRadius);
-            quad[2] = position + new Vector3(c0 * topRadius, 1f, s0 * topRadius);
-            quad[3] = position + new Vector3(c0 * bottomRadius, 0f, s0 * bottomRadius);
+            var radius0 = SpikeCornerRadius(
+                shape, worldPosition.X, baseY, worldPosition.Z, side);
+            var radius1 = SpikeCornerRadius(
+                shape, worldPosition.X, baseY, worldPosition.Z, nextSide);
+
+            quad[0] = position + new Vector3(c1 * bottomRadius * radius1, 0f, s1 * bottomRadius * radius1);
+            quad[1] = position + new Vector3(c1 * topRadius * radius1, 1f, s1 * topRadius * radius1);
+            quad[2] = position + new Vector3(c0 * topRadius * radius0, 1f, s0 * topRadius * radius0);
+            quad[3] = position + new Vector3(c0 * bottomRadius * radius0, 0f, s0 * bottomRadius * radius0);
             var normal = Vector3.Cross(quad[2] - quad[0], quad[1] - quad[0]);
             if (normal.LengthSquared() < 1e-7f)
                 continue;
@@ -622,11 +652,74 @@ public static class ChunkMeshDataBuilder
                 worldOriginX: worldPosition.X - x,
                 worldOriginZ: worldPosition.Z - z,
                 tintSamples: tintSamples);
+
+            if (topCap && topRadius > 0f)
+            {
+                cap[0] = position + Vector3.UnitY;
+                cap[1] = quad[2];
+                cap[2] = quad[1];
+                EmitSpikeCapTriangle(
+                    surface, collision, cap, Vector3.UnitY,
+                    topMaterial, capTint, upperLight, definition.IsCollidable,
+                    x, z);
+            }
+
+            if (bottomCap && bottomRadius > 0f)
+            {
+                cap[0] = position;
+                cap[1] = quad[0];
+                cap[2] = quad[3];
+                EmitSpikeCapTriangle(
+                    surface, collision, cap, -Vector3.UnitY,
+                    bottomMaterial, capTint, lowerLight, definition.IsCollidable,
+                    x, z);
+            }
+        }
+    }
+
+    private static float SpikeCornerRadius(
+        BlockShapeDefinition shape, int x, int baseY, int z, int side)
+    {
+        if (shape.SpikeIrregularity == 0f)
+            return 1f;
+
+        var entropy = WorldGenerationEntropy.Sample3D(
+            0UL, SpikeIrregularityDomain, x, baseY, z + side);
+        return 1f +
+            ((float)WorldGenerationEntropy.Unit(entropy) * 2f - 1f) *
+            shape.SpikeIrregularity;
+    }
+
+    private static void EmitSpikeCapTriangle(
+        List<ChunkMeshVertex> surface,
+        List<Vector3> collision,
+        ReadOnlySpan<Vector3> triangle,
+        Vector3 normal,
+        TerrainFaceMaterial material,
+        Vector3 tint,
+        VoxelVertexLighting lighting,
+        bool isCollidable,
+        int blockX,
+        int blockZ)
+    {
+        foreach (var point in triangle)
+        {
+            surface.Add(new ChunkMeshVertex(
+                point, normal,
+                new Vector2(point.X - blockX, point.Z - blockZ),
+                material.EncodedLayers,
+                new Vector4(tint.X, tint.Y, tint.Z, lighting.AmbientOcclusion),
+                new Vector4(lighting.Sky, lighting.BlockRed,
+                    lighting.BlockGreen, lighting.BlockBlue)));
+            if (isCollidable)
+                collision.Add(point);
         }
     }
 
     private static readonly GenerationDomain SpikeRotationDomain =
         GenerationDomain.Named("terrain/mesh/spike/rotation/v1");
+    private static readonly GenerationDomain SpikeIrregularityDomain =
+        GenerationDomain.Named("terrain/mesh/spike/irregularity/v1");
 
     private static void EmitCrossedSprite(
         Dictionary<TerrainRenderBatch, List<ChunkMeshVertex>> surfaces,
