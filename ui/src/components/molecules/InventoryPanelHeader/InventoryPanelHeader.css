@@ -1,0 +1,43 @@
+.inventory-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: calc(9 * var(--ui-inventory-slot-size) + 8 * var(--ui-inventory-slot-gap));
+  max-width: 100%;
+  min-width: 0;
+}
+
+.inventory-panel-header__controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.inventory-panel-header__controls .ui-text-input {
+  width: var(--ui-inventory-search-width);
+  height: var(--ui-inventory-search-height);
+}
+
+.inventory-panel-header__sort {
+  width: var(--ui-inventory-search-height);
+  min-width: var(--ui-inventory-search-height);
+  height: var(--ui-inventory-search-height);
+  padding-inline: 0;
+}
+
+@media (max-width: 470px) {
+  .inventory-panel-header {
+    flex-wrap: wrap;
+  }
+
+  .inventory-panel-header__controls {
+    width: 100%;
+  }
+
+  .inventory-panel-header__controls .ui-text-input {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}
