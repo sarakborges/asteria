@@ -114,15 +114,18 @@ public sealed class BiomeSurfaceMaterialField
         }
 
         return SurfacePlacementContext.Sample(
-            _terrain, worldX, worldZ, rule.RequiresSlope);
+            _terrain, worldX, worldZ,
+            rule.RequiresSlope, rule.UsesBaseSurface);
     }
 
     private sealed class MaterialRule
     {
         private MaterialRule(
-            ResolvedLayer[] layers)
+            ResolvedLayer[] layers,
+            bool usesBaseSurface)
         {
             Layers = layers;
+            UsesBaseSurface = usesBaseSurface;
             HasConditions = layers.Any(layer => layer.HasConditions);
             RequiresSlope = layers.Any(layer => layer.RequiresSlope);
         }
@@ -132,6 +135,8 @@ public sealed class BiomeSurfaceMaterialField
         public bool HasConditions { get; }
 
         public bool RequiresSlope { get; }
+
+        public bool UsesBaseSurface { get; }
 
         public BlockRuntimeId BlockAtDepth(
             ulong seed,
@@ -225,7 +230,8 @@ public sealed class BiomeSurfaceMaterialField
             }
 
             return new MaterialRule(
-                layers);
+                layers,
+                biome.SurfaceLayout is not null);
         }
     }
 
