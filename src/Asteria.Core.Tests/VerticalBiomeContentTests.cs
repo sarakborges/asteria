@@ -105,11 +105,13 @@ public sealed class VerticalBiomeContentTests
         var floating = BiomeDefinitionJson.Parse(File.ReadAllText(
             Path.Combine(PackData, "biomes", "floating_islands.json")));
         Assert.Null(cave.SurfaceLayout);
-        Assert.Null(cave.VolumeLayout);
-        Assert.NotNull(cave.UndergroundLayout);
+        Assert.NotNull(cave.VolumeLayout);
+        Assert.Equal(VolumeBiomePlacement.CarvedVoid, cave.VolumeLayout.Placement);
+        Assert.NotEmpty(cave.SurfaceLayers);
+        Assert.NotNull(cave.SurfaceLayers[0].Patch);
         Assert.Null(floating.SurfaceLayout);
-        Assert.Null(floating.UndergroundLayout);
         Assert.NotNull(floating.VolumeLayout);
+        Assert.Equal(VolumeBiomePlacement.Additive, floating.VolumeLayout.Placement);
         Assert.Null(cave.SurfaceHabitats);
         Assert.Null(floating.SurfaceHabitats);
         Assert.Equal(3, cave.Decorations.Count);

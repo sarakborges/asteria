@@ -104,12 +104,11 @@ public sealed class BiomeWorldGenerationTests
                 "asteria:overworld/caverns");
         Assert.Null(
             caverns.SurfaceLayout);
-        Assert.Null(
-            caverns.VolumeLayout);
-        Assert.NotNull(
-            caverns.UndergroundLayout);
-        Assert.Empty(
-            caverns.SurfaceLayers);
+        Assert.NotNull(caverns.VolumeLayout);
+        Assert.Equal(VolumeBiomePlacement.CarvedVoid,
+            caverns.VolumeLayout.Placement);
+        Assert.Equal("asteria:stone", caverns.SurfaceLayers[0].Block);
+        Assert.NotNull(caverns.SurfaceLayers[0].Patch);
         Assert.Equal(5, caverns.CaveSpikes.Count);
         var stoneSpike = Assert.Single(caverns.CaveSpikes,
             spike => spike.Block == "asteria:stone_spike");
@@ -204,7 +203,9 @@ public sealed class BiomeWorldGenerationTests
     {
         var cave = new BiomeDefinition(
             "asteria:test/caverns", null, null,
-            undergroundLayout: new BiomeUndergroundLayoutDefinition(),
+            volumeLayout: new BiomeVolumeLayoutDefinition(
+                placement: VolumeBiomePlacement.CarvedVoid),
+            surfaceLayers: [new BiomeSurfaceLayerDefinition("asteria:stone")],
             caveSpikes:
             [
                 new BiomeCaveSpikeDefinition(
