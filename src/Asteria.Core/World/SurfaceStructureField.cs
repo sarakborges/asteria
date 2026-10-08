@@ -192,11 +192,13 @@ public sealed class SurfaceStructureField
         // structure (including reserved/conflict-driven placements).
         var width = checked(placement.MaximumX - placement.MinimumX + 1);
         var depth = checked(placement.MaximumZ - placement.MinimumZ + 1);
+        var plannedMinimumY = placement.MinimumY;
+        var plannedMaximumY = placement.MaximumY;
         if (PlacementsIntersecting(
                 placement.MinimumX, placement.MinimumZ, width, depth)
             .Any(existing =>
-                existing.MinimumY <= placement.MaximumY &&
-                existing.MaximumY >= placement.MinimumY))
+                existing.MinimumY <= plannedMaximumY &&
+                existing.MaximumY >= plannedMinimumY))
             return false;
         return true;
     }
