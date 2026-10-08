@@ -13,6 +13,7 @@ public partial class FpsPlayer : CharacterBody3D
     private const float MaxPitch = 1.52f;
 
     private Camera3D _camera = null!;
+    private CollisionShape3D _collider = null!;
     private bool _mouseCaptured;
     private bool _moveForward;
     private bool _moveBackward;
@@ -75,7 +76,7 @@ public partial class FpsPlayer : CharacterBody3D
 
         _solidCollisionLayer = CollisionLayer;
         _solidCollisionMask = CollisionMask;
-        var collider = new CollisionShape3D
+        _collider = new CollisionShape3D
         {
             Name = "Collider",
             Position = new Vector3(0f, 0.9f, 0f),
@@ -94,7 +95,7 @@ public partial class FpsPlayer : CharacterBody3D
             Fov = 75f,
         };
 
-        AddChild(collider);
+        AddChild(_collider);
         AddChild(_camera);
         ApplyGameMode();
         CaptureMouse();
@@ -266,6 +267,23 @@ public partial class FpsPlayer : CharacterBody3D
         if (_moveLeft) movement.X -= 1f;
         if (_moveRight) movement.X += 1f;
         return movement.LimitLength(1f);
+    }
+
+    /// <summary>
+    /// Checks the actual published Godot collision shapes before leaving
+    /// spectator. The caller also ensures the full body volume is resident.
+    /// </summary>
+    public bool CanEnterSolidMode()
+    {
+        var query = new PhysicsShapeQueryParameters3D
+        {
+            Shape = _collider.Shape,
+            Transform = _collider.GlobalTransform,
+            CollisionMask = _solidCollisionMask,
+            CollideWithBodies = true,
+            CollideWithAreas = false,
+        };
+        return GetWorld3D().DirectSpaceState.IntersectShape(query, 1).Count == 0;
     }
 
     public void ApplyGameMode()

@@ -855,6 +855,18 @@ public partial class Main : Node3D
             return;
         }
 
+        if (_player is not null &&
+            _sessionStates.Player.GameMode.IsSpectator() &&
+            !requestedMode.IsSpectator() &&
+            (!PlayerCollisionVolumeIsResident(_player) ||
+             !_player.CanEnterSolidMode()))
+        {
+            SendWebUi(
+                "game.player_mode.error",
+                new { code = "NoSafeCollisionSpace" });
+            return;
+        }
+
         if (!_sessionStates.Player.SetGameMode(requestedMode))
         {
             return;
@@ -871,6 +883,36 @@ public partial class Main : Node3D
         }
 
         SendPlayerModeState();
+    }
+
+    private bool PlayerCollisionVolumeIsResident(FpsPlayer player)
+    {
+        var volume = player.CollisionBounds;
+        var minX = Mathf.FloorToInt(volume.Minimum.X);
+        var minY = Mathf.FloorToInt(volume.Minimum.Y);
+        var minZ = Mathf.FloorToInt(volume.Minimum.Z);
+        var maxX = Mathf.CeilToInt(volume.Maximum.X) - 1;
+        var maxY = Mathf.CeilToInt(volume.Maximum.Y) - 1;
+        var maxZ = Mathf.CeilToInt(volume.Maximum.Z) - 1;
+
+        if (minY < 0)
+        {
+            return false;
+        }
+
+        // The player capsule is less than two blocks wide and high:
+        // this checks only its small, bounded voxel neighborhood.
+        for (var x = minX; x <= maxX; x++)
+        for (var y = minY; y <= maxY; y++)
+        for (var z = minZ; z <= maxZ; z++)
+        {
+            if (!_world.IsLoadedAt(new WorldVoxelCoord(x, y, z)))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private void SendPlayerModeState()
