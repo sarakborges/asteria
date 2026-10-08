@@ -60,7 +60,7 @@ export function createUiNavigationController(
       } else {
         const state = store.getSnapshot();
         if (state.mouseCaptured && !state.worldCreation.visible &&
-            state.navigation.overlay === "none") show("pause");
+            !state.loading && state.navigation.overlay === "none") show("pause");
       }
     },
   };

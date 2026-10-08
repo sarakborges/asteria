@@ -72,7 +72,8 @@ export function createSettingsController(
         case "game.client_preferences.key_capture": {
           const action = payload?.action;
           const status = payload?.status;
-          const captureAction = status === "Capturing" &&
+          const isActive = ["Capturing", "ReservedKey", "KeyConflict", "UnsupportedKey"].includes(String(status));
+          const captureAction = isActive &&
             (action === "Jump" || action === "Descend") ? action : null;
           const errors: Record<string, string> = {
             ReservedKey: "settings.error.reservedKey",
