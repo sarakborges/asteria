@@ -35,3 +35,18 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
+
+export const Unavailable: Story = {
+  args: { state: null },
+};
+
+export const WithoutEquipment: Story = {
+  args: {
+    state: {
+      name: "Player",
+      healthCurrent: 20,
+      healthMaximum: 20,
+      equipment: [],
+    },
+  },
+};
