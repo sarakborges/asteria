@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import type { InventoryCatalogEntry } from "./state/uiState";
 import { LoadingOverlay } from "./components/organisms/LoadingOverlay/LoadingOverlay";
 import { GameHudPage } from "./components/pages/GameHudPage/GameHudPage";
+import { ChatDock } from "./components/organisms/ChatDock/ChatDock";
 import { InventoryGameplayPage } from "./components/pages/InventoryGameplayPage/InventoryGameplayPage";
 import { SettingsWorkspacePage } from "./components/pages/SettingsWorkspacePage/SettingsWorkspacePage";
 import { ControlsPage } from "./components/pages/ControlsPage/ControlsPage";
@@ -45,6 +46,8 @@ export type AppActions = {
   closeBrushPalette(): void;
   selectBrushDye(id: string | null): void;
   closeInventory(): void;
+  closeChat(): void;
+  submitChat(text: string): void;
   clickInventorySlot(index: number): void;
   sortInventory(): void;
   discardInventoryCursor(): void;
@@ -77,6 +80,16 @@ export function App({
 
   return (
     <>
+      {!preWorldVisible && !state.loading && (
+        <ChatDock
+          open={state.chat.open}
+          visible={state.chat.visible}
+          history={state.chat.history}
+          commands={state.chat.commands}
+          onClose={actions.closeChat}
+          onSubmit={actions.submitChat}
+        />
+      )}
       <GameHudPage
         embedded={embedded}
         state={state.hud}
