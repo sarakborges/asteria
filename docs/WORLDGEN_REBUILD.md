@@ -167,6 +167,64 @@ dotnet run -c Release --project tools/BiomeMap -- \
 
 CI publishes equivalent fixed-seed SVG artifacts for both `asteria:overworld` and `asteria:umbral`.
 
+## Data-driven biome contours and surface-patch morphology
+
+The Sphere-level `biomeBlending.contourHarmonics` list configures the
+organic shape of each biome formation. Each harmonic defines `lobes`
+(1..12) and `amplitude` (0..0.4). Up to four harmonics may contribute,
+with a combined amplitude no greater than 0.75 to keep formation radii
+positive. An empty list yields a circular contour; the default is
+`[{lobes:3, amplitude:0.13}, {lobes:5, amplitude:0.07}]`.
+`sizeExponent`, `seedBiasAmplitude` and `continuationBonus` tune the
+authored formation score without changing its deterministic ownership.
+The same contour computation is used for placement scoring and formation
+terrain-strength falloff; additional harmonic phases have distinct
+stable generation domains. The default Overworld preserves its original
+parameters; Umbral authors a different contour to show the extension.
+
+Surface `patch` supports independently authored noise scales:
+`detailScale` (default `max(2,scale/4)`) and `selectionScale` (default
+`scale*2`). The optional `warpScale`, `warpStrength` (default `0`)
+and `stretchZ` (default `1`) deform the noise coordinates into less
+circular/anisotropic patches. Warp samples are evaluated only when enabled,
+and the original integer-value-noise path is preserved when deformation
+is disabled. All scales and amplitudes are validated and bounded.
+
+`patch.weights` is an optional block-ID-to-relative-weight object for
+the existing `blocks` alternatives (unspecified weights default to 1).
+The material registry validates the named blocks and precomputes
+cumulative weights once; runtime queries never create weighted
+collections. Patches remain resolved by the authoritative
+`BiomeSurfaceMaterialField` on world-space X/Z, so scalar and chunk
+synthesis use the same material choice. There is no per-chunk selection
+state or secondary terrain generator.
+
+Example:
+
+```json
+{
+  "patch": {
+    "scale": 24,
+    "coverage": 0.24,
+    "roughness": 0.34,
+    "detailScale": 9,
+    "selectionScale": 64,
+    "warpScale": 72,
+    "warpStrength": 12,
+    "stretchZ": 1.6,
+    "blocks": ["asteria:dirt", "asteria:gravel"],
+    "weights": {
+      "asteria:dirt": 3,
+      "asteria:gravel": 1
+    }
+  }
+}
+```
+
+Patch noise morphing intentionally changes authored worldgen patterns;
+existing material-depth, placement, no-negative-Y and chunk-query
+contracts are unchanged.
+
 ## Conditional surface materials and decorators
 
 Surface patches and ground decorators can share an optional `conditions`
