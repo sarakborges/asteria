@@ -80,7 +80,8 @@ export function App({
 
   return (
     <>
-      {!preWorldVisible && !state.loading && (
+      {!preWorldVisible && !state.loading &&
+        state.navigation.overlay === "none" && (
         <ChatDock
           open={state.chat.open}
           visible={state.chat.visible}
