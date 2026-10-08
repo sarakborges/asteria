@@ -39,6 +39,7 @@ public sealed class SurfaceDecorationField
                                 $"worldgen/decorator/{biome.Id}/{decoration.Block}/v1"),
                             decoration.Cluster,
                             decoration.Conditions,
+                            biome.SurfaceLayout is not null,
                             GenerationDomain.Named(
                                 $"worldgen/decorator-cluster/{biome.Id}/{decoration.Block}/v1")))
                     .ToArray(),
@@ -76,7 +77,8 @@ public sealed class SurfaceDecorationField
 
                         placement = SurfacePlacementContext.Sample(
                             _terrain, worldX, worldZ,
-                            conditions.RequiresSlope);
+                            conditions.RequiresSlope,
+                            rule.UsesBaseSurface);
                         slopeSampled = conditions.RequiresSlope;
                     }
 
@@ -130,5 +132,6 @@ public sealed class SurfaceDecorationField
         GenerationDomain Domain,
         BiomeDecorationClusterDefinition? Cluster,
         SurfacePlacementConditions? Conditions,
+        bool UsesBaseSurface,
         GenerationDomain ClusterDomain);
 }
