@@ -136,6 +136,7 @@ export type WorldCreationErrorKey =
   | "newWorld.error.invalidName"
   | "newWorld.error.invalidMode"
   | "newWorld.error.invalidTickRate"
+  | "newWorld.error.invalidGeneration"
   | "newWorld.error.unexpected";
 
 export type BrushPaletteColor = { id: string; rgb: string };
