@@ -273,45 +273,46 @@ public sealed class BiomeSurfaceMaterialField
 
     private sealed class ResolvedPatch
     {
+        private readonly BiomeSurfacePatchDefinition _definition;
+        private readonly BlockRuntimeId[] _blocks;
+        private readonly double[] _cumulativeWeights;
+        private readonly double _totalWeight;
+        private readonly GenerationDomain _shapeDomain;
+        private readonly GenerationDomain _detailDomain;
+        private readonly GenerationDomain _blockDomain;
+        private readonly GenerationDomain _warpXDomain;
+        private readonly GenerationDomain _warpZDomain;
+
         private ResolvedPatch(
-            uint scale,
-            float coverage,
-            float roughness,
+            BiomeSurfacePatchDefinition definition,
             BlockRuntimeId[] blocks,
-            GenerationDomain shapeDomain,
-            GenerationDomain detailDomain,
-            GenerationDomain blockDomain,
-            SurfacePlacementConditions? conditions)
+            string suffix)
         {
-            Scale = scale;
-            Coverage = coverage;
-            Roughness = roughness;
-            Blocks = blocks;
-            ShapeDomain = shapeDomain;
-            DetailDomain = detailDomain;
-            BlockDomain = blockDomain;
-            Conditions = conditions;
+            _definition = definition;
+            _blocks = blocks;
+            _cumulativeWeights = new double[blocks.Length];
+            var total = 0d;
+            for (var index = 0; index < blocks.Length; index++)
+            {
+                total += definition.BlockWeights[index];
+                _cumulativeWeights[index] = total;
+            }
+
+            _totalWeight = total;
+            _shapeDomain = GenerationDomain.Named(
+                $"material/surface-patch/shape/v2/{suffix}");
+            _detailDomain = GenerationDomain.Named(
+                $"material/surface-patch/detail/v2/{suffix}");
+            _blockDomain = GenerationDomain.Named(
+                $"material/surface-patch/block/v2/{suffix}");
+            _warpXDomain = GenerationDomain.Named(
+                $"material/surface-patch/warp-x/v1/{suffix}");
+            _warpZDomain = GenerationDomain.Named(
+                $"material/surface-patch/warp-z/v1/{suffix}");
         }
 
-        private uint Scale { get; }
-
-        private float Coverage { get; }
-
-        private float Roughness { get; }
-
-        private BlockRuntimeId[] Blocks { get; }
-
-        private GenerationDomain ShapeDomain { get; }
-
-        private GenerationDomain DetailDomain { get; }
-
-        private GenerationDomain BlockDomain { get; }
-
-        private SurfacePlacementConditions? Conditions { get; }
-
-        public bool HasConditions => Conditions is not null;
-
-        public bool RequiresSlope => Conditions?.RequiresSlope == true;
+        public bool HasConditions => _definition.Conditions is not null;
+        public bool RequiresSlope => _definition.Conditions?.RequiresSlope == true;
 
         public BlockRuntimeId? Resolve(
             ulong seed,
@@ -319,105 +320,90 @@ public sealed class BiomeSurfaceMaterialField
             int worldZ,
             SurfacePlacementContext? placement)
         {
-            if (Conditions is { } conditions)
-            {
-                if (placement is not { } context ||
-                    !conditions.Allows(context))
-                {
-                    return null;
-                }
-            }
-
-            var detailScale =
-                Math.Max(
-                    2u,
-                    Scale / 4u);
-            var macro =
-                WorldGenerationEntropy
-                    .ValueNoise2D(
-                        seed,
-                        ShapeDomain,
-                        worldX,
-                        worldZ,
-                        Scale);
-            var detail =
-                WorldGenerationEntropy
-                    .ValueNoise2D(
-                        seed,
-                        DetailDomain,
-                        worldX,
-                        worldZ,
-                        detailScale);
-            var field =
-                (macro +
-                 detail * Roughness) /
-                (1d + Roughness);
-            var threshold =
-                1d -
-                Coverage * 2d;
-
-            if (field < threshold)
+            if (_definition.Conditions is { } conditions &&
+                (placement is not { } context ||
+                 !conditions.Allows(context)))
             {
                 return null;
             }
 
-            if (Blocks.Length == 1)
+            var x = (double)worldX;
+            var z = (double)worldZ;
+            if (_definition.WarpStrength > 0d)
             {
-                return Blocks[0];
+                var dx = WorldGenerationEntropy.SmoothNoise2D(
+                    seed, _warpXDomain, x, z, _definition.WarpScale);
+                var dz = WorldGenerationEntropy.SmoothNoise2D(
+                    seed, _warpZDomain, x + 19.7d, z - 11.3d,
+                    _definition.WarpScale);
+                x += dx * _definition.WarpStrength;
+                z += dz * _definition.WarpStrength;
             }
 
-            var blockScale =
-                checked(
-                    Scale * 2u);
-            var selection =
-                WorldGenerationEntropy
-                    .ValueNoise2D(
-                        seed,
-                        BlockDomain,
-                        worldX,
-                        worldZ,
-                        blockScale);
-            var unit =
-                Math.Clamp(
-                    (selection + 1d) *
-                    0.5d,
-                    0d,
-                    0.999999999999d);
-            var blockIndex =
-                Math.Min(
-                    Blocks.Length - 1,
-                    (int)(
-                        unit *
-                        Blocks.Length));
+            z /= _definition.StretchZ;
+            var morphed = _definition.WarpStrength > 0d ||
+                _definition.StretchZ != 1d;
+            var macro = Noise(
+                seed, _shapeDomain, worldX, worldZ, x, z,
+                _definition.Scale, morphed);
+            var detail = Noise(
+                seed, _detailDomain, worldX, worldZ, x, z,
+                _definition.DetailScale, morphed);
+            var field = (macro + detail * _definition.Roughness) /
+                (1d + _definition.Roughness);
+            if (field < 1d - _definition.Coverage * 2d)
+            {
+                return null;
+            }
 
-            return Blocks[blockIndex];
+            if (_blocks.Length == 1)
+            {
+                return _blocks[0];
+            }
+
+            var selection = Noise(
+                seed, _blockDomain, worldX, worldZ, x, z,
+                _definition.SelectionScale, morphed);
+            var unit = Math.Clamp(
+                (selection + 1d) * 0.5d,
+                0d,
+                0.999999999999d);
+            var target = unit * _totalWeight;
+            for (var index = 0; index < _blocks.Length; index++)
+            {
+                if (target < _cumulativeWeights[index])
+                {
+                    return _blocks[index];
+                }
+            }
+
+            return _blocks[^1];
         }
+
+        private static double Noise(
+            ulong seed,
+            GenerationDomain domain,
+            int worldX,
+            int worldZ,
+            double x,
+            double z,
+            uint scale,
+            bool morphed) =>
+            morphed
+                ? WorldGenerationEntropy.SmoothNoise2D(
+                    seed, domain, x, z, scale)
+                : WorldGenerationEntropy.ValueNoise2D(
+                    seed, domain, worldX, worldZ, scale);
 
         public static ResolvedPatch Create(
             string biomeId,
             int layerIndex,
             BiomeSurfacePatchDefinition definition,
-            BlockRegistry blocks)
-        {
-            var suffix =
-                $"{biomeId}/{layerIndex}";
-
-            return new ResolvedPatch(
-                definition.Scale,
-                definition.Coverage,
-                definition.Roughness,
-                definition.Blocks
-                    .Select(
-                        blocks.GetId)
-                    .ToArray(),
-                GenerationDomain.Named(
-                    $"material/surface-patch/shape/v2/{suffix}"),
-                GenerationDomain.Named(
-                    $"material/surface-patch/detail/v2/{suffix}"),
-                GenerationDomain.Named(
-                    $"material/surface-patch/block/v2/{suffix}"),
-                definition.Conditions);
-        }
+            BlockRegistry blocks) =>
+            new(
+                definition,
+                definition.Blocks.Select(blocks.GetId).ToArray(),
+                $"{biomeId}/{layerIndex}");
     }
 }
 
