@@ -107,6 +107,10 @@ public sealed class BiomeWorldGenerationTests
             caverns.UndergroundLayout);
         Assert.Empty(
             caverns.SurfaceLayers);
+        var spike = Assert.Single(caverns.CaveSpikes);
+        Assert.Equal("asteria:spike", spike.Block);
+        Assert.Contains(CaveSpikeDirection.Up, spike.Directions);
+        Assert.Contains(CaveSpikeDirection.Down, spike.Directions);
 
         var floating =
             biomes.Get(

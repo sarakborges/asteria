@@ -87,6 +87,45 @@ public sealed class TerrainDensityTests
     }
 
     [Fact]
+    public void CaveSpikesGenerateOnFloorsAndCeilings()
+    {
+        var generator = Generator(
+            caves: WideCaves(),
+            caveSpike: new BiomeCaveSpikeDefinition(
+                "asteria:spike", 1f, 3, 5, 6,
+                [CaveSpikeDirection.Up, CaveSpikeDirection.Down]));
+        var floor = generator.Materialize(new ChunkCoord(0, 1, 0));
+        var ceiling = generator.Materialize(new ChunkCoord(0, 5, 0));
+        Assert.Contains(
+            Enumerable.Range(0, Chunk.Size)
+                .SelectMany(y => Enumerable.Range(0, Chunk.Size)
+                    .Select(x => floor.GetCell(x, y, 0))),
+            cell => cell.Block == Block("asteria:spike") &&
+                !SpikeSegmentState.IsDown(cell.State));
+        Assert.Contains(
+            Enumerable.Range(0, Chunk.Size)
+                .SelectMany(y => Enumerable.Range(0, Chunk.Size)
+                    .Select(x => ceiling.GetCell(x, y, 0))),
+            cell => cell.Block == Block("asteria:spike") &&
+                SpikeSegmentState.IsDown(cell.State));
+    }
+
+    [Fact]
+    public void SpikeShapeProfileTapersAndSupportsReversedGrowth()
+    {
+        var shape = BlockShapeDefinition.Spike();
+        var low = SpikeSegmentState.Encode(0, 5, false);
+        var high = SpikeSegmentState.Encode(4, 5, false);
+        var downward = SpikeSegmentState.Encode(0, 5, true);
+        Assert.True(SpikeSegmentState.RadiusAt(shape, low, 0f) >
+                    SpikeSegmentState.RadiusAt(shape, high, 1f));
+        Assert.Equal(SpikeSegmentState.RadiusAt(shape, low, 0f),
+            SpikeSegmentState.RadiusAt(shape, downward, 1f));
+        Assert.ThrowsAny<ArgumentException>(() =>
+            SpikeSegmentState.Encode(5, 5, false));
+    }
+
+    [Fact]
     public void SampleDensityVolumeMatchesScalarAcrossNegativeCoordinates()
     {
         var generator = Generator(caves: WideCaves());
@@ -564,6 +603,8 @@ public sealed class TerrainDensityTests
         new BlockDefinition("asteria:grass_block"),
         new BlockDefinition("asteria:dirt"),
         new BlockDefinition("asteria:sphere_shell"),
+        new BlockDefinition("asteria:spike",
+            shape: BlockShapeDefinition.Spike(), lightDampening: 0),
     ]);
 
     private static DimensionCaveDefinition ChamberCaves(bool withChambers) =>
@@ -607,7 +648,8 @@ public sealed class TerrainDensityTests
         BiomeAdditiveDensityDefinition? floating = null,
         int? floorY = null,
         int? roofY = null,
-        IEnumerable<BiomeAdditiveDensityDefinition>? additive = null)
+        IEnumerable<BiomeAdditiveDensityDefinition>? additive = null,
+        BiomeCaveSpikeDefinition? caveSpike = null)
     {
         var surfaceBiome =
             new BiomeDefinition(
@@ -655,17 +697,19 @@ public sealed class TerrainDensityTests
                     volumeLayout:
                         new BiomeVolumeLayoutDefinition())
                 : null;
+        var undergroundBiome =
+            caveSpike is null
+                ? null
+                : new BiomeDefinition(
+                    "asteria:test/caverns",
+                    null, null,
+                    undergroundLayout: new BiomeUndergroundLayoutDefinition(),
+                    caveSpikes: [caveSpike]);
         var definitions =
-            volumeBiome is null
-                ? new[]
-                {
-                    surfaceBiome,
-                }
-                : new[]
-                {
-                    surfaceBiome,
-                    volumeBiome,
-                };
+            new[] { surfaceBiome, volumeBiome, undergroundBiome }
+                .Where(definition => definition is not null)
+                .Select(definition => definition!)
+                .ToArray();
         var dimension =
             new DimensionDefinition(
                 new DimensionId(
@@ -707,7 +751,11 @@ public sealed class TerrainDensityTests
                         : new[]
                         {
                             volumeBiome.Id,
-                        });
+                        },
+                undergroundBiomes:
+                    undergroundBiome is null
+                        ? null
+                        : [undergroundBiome.Id]);
 
         return new BiomeWorldGenerator(
             8192UL,

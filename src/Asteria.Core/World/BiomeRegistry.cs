@@ -110,6 +110,17 @@ public sealed class BiomeRegistry
                 }
             }
 
+            foreach (var spike in definition.CaveSpikes)
+            {
+                RequireBlock(blocks, definition.Id, spike.Block);
+                if (blocks.GetDefinition(
+                        blocks.GetId(spike.Block)).Shape.Kind != BlockShapeKind.Spike)
+                {
+                    throw new ArgumentException(
+                        $"Biome {definition.Id} caveSpikes block {spike.Block} must use spike geometry.");
+                }
+            }
+
             foreach (var decoration in
                      definition.Decorations)
             {

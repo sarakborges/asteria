@@ -210,6 +210,9 @@ public sealed class BiomeWorldGenerator :
                 _terrain,
                 habitats,
                 generateDecorations: generation.Mode != WorldGenerationMode.Void);
+        var caveSpikes = new CaveSpikeField(
+            seed, dimension.UndergroundBiomes.Select(biomes.Get),
+            blocks, _terrain);
         _materializer =
             new SurfaceChunkMaterializer(
                 _surfaceColumns,
@@ -221,7 +224,8 @@ public sealed class BiomeWorldGenerator :
                 dimension,
                 blocks,
                 _undergroundBiomes,
-                _voidSpawnPlatform);
+                _voidSpawnPlatform,
+                caveSpikes);
         Tints =
             new BiomeTintField(
                 Biomes,

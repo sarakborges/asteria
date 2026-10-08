@@ -56,5 +56,18 @@
         "maxY": 115
       }
     }
+  ],
+  "caveSpikes": [
+    {
+      "block": "asteria:spike",
+      "chance": 0.035,
+      "minHeight": 2,
+      "maxHeight": 9,
+      "minClearance": 10,
+      "directions": [
+        "up",
+        "down"
+      ]
+    }
   ]
 }

@@ -36,7 +36,8 @@ public static class BiomeDefinitionJson
             ParseTerrain3d(root),
             ParseVolumeLayout(root),
             ParseUndergroundLayout(root),
-            SurfaceHabitatDefinitionJson.Parse(root));
+            SurfaceHabitatDefinitionJson.Parse(root),
+            ParseCaveSpikes(root));
     }
 
     private static PlacementLayoutValues?
@@ -632,6 +633,34 @@ public static class BiomeDefinitionJson
 
         return BiomeTintColor.Parse(
             property.GetString()!);
+    }
+
+    private static IReadOnlyList<BiomeCaveSpikeDefinition> ParseCaveSpikes(
+        JsonElement root)
+    {
+        if (!root.TryGetProperty("caveSpikes", out var array))
+            return Array.Empty<BiomeCaveSpikeDefinition>();
+
+        array = EnsureArray(array, "caveSpikes");
+        return array.EnumerateArray().Select((entry, index) =>
+        {
+            entry = EnsureObject(entry, $"caveSpikes[{index}]");
+            var directions = RequiredStringArray(entry, "directions")
+                .Select(value => value switch
+                {
+                    "up" => CaveSpikeDirection.Up,
+                    "down" => CaveSpikeDirection.Down,
+                    _ => throw new FormatException(
+                        $"Unknown cave spike direction: {value}"),
+                });
+            return new BiomeCaveSpikeDefinition(
+                RequiredString(entry, "block"),
+                RequiredSingle(entry, "chance"),
+                RequiredInt32(entry, "minHeight"),
+                RequiredInt32(entry, "maxHeight"),
+                RequiredInt32(entry, "minClearance"),
+                directions);
+        }).ToArray();
     }
 
     private static IReadOnlyList<BiomeDecorationDefinition>

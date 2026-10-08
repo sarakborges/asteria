@@ -14,6 +14,7 @@ public sealed class SurfaceChunkMaterializer
     private readonly SurfaceStructureField _structures;
     private readonly UndergroundBiomeField? _undergroundBiomes;
     private readonly VoidSpawnPlatform? _voidSpawnPlatform;
+    private readonly CaveSpikeField? _caveSpikes;
     private readonly BlockRuntimeId _shellBlock;
     private readonly int? _floorY;
     private readonly int? _roofY;
@@ -43,7 +44,8 @@ public sealed class SurfaceChunkMaterializer
         DimensionDefinition dimension,
         BlockRegistry blocks,
         UndergroundBiomeField? undergroundBiomes,
-        VoidSpawnPlatform? voidSpawnPlatform)
+        VoidSpawnPlatform? voidSpawnPlatform,
+        CaveSpikeField? caveSpikes = null)
     {
         _columns = columns ??
             throw new ArgumentNullException(nameof(columns));
@@ -59,6 +61,7 @@ public sealed class SurfaceChunkMaterializer
             throw new ArgumentNullException(nameof(structures));
         _undergroundBiomes = undergroundBiomes;
         _voidSpawnPlatform = voidSpawnPlatform;
+        _caveSpikes = caveSpikes;
         ArgumentNullException.ThrowIfNull(dimension);
         ArgumentNullException.ThrowIfNull(blocks);
 
@@ -281,6 +284,8 @@ public sealed class SurfaceChunkMaterializer
             coord,
             originY,
             topExclusive);
+        MaterializeCaveSpikes(
+            chunk, column, densityVolume, originX, originY, originZ);
         // SurfaceChunkMaterializer remains the sole procedural voxel writer.
         _voidSpawnPlatform?.Apply(chunk, coord);
 
@@ -731,6 +736,63 @@ public sealed class SurfaceChunkMaterializer
                     verticalY: worldY);
                 if (!decorator.IsAir)
                     chunk.SetBlock(localX, localY, localZ, decorator);
+            }
+        }
+    }
+
+    private void MaterializeCaveSpikes(
+        Chunk chunk,
+        SurfaceTerrainColumn column,
+        TerrainDensityVolume densityVolume,
+        int originX,
+        int originY,
+        int originZ)
+    {
+        if (_caveSpikes is not { HasRules: true } spikes ||
+            _undergroundBiomes is not { HasBiomes: true } undergroundBiomes)
+            return;
+
+        var maximumHeight = spikes.MaximumHeight;
+        for (var z = 0; z < Chunk.Size; z++)
+        for (var x = 0; x < Chunk.Size; x++)
+        {
+            var worldX = originX + x;
+            var worldZ = originZ + z;
+            var biome = undergroundBiomes.Sample(worldX, worldZ);
+            if (biome is null || !spikes.HasRulesFor(biome.Primary))
+                continue;
+
+            var baseY = column.BaseHeightAt(x, z);
+            var surfaceBiome = column.BiomeAt(x, z);
+            var volumeBiome = densityVolume.VolumePlacementAt(x, z);
+            var first = Math.Max(1, originY - maximumHeight + 1);
+            var last = Math.Min(baseY - 1,
+                originY + Chunk.Size + maximumHeight - 2);
+            for (var anchorY = first; anchorY <= last; anchorY++)
+            {
+                for (var direction = 0; direction < 2; direction++)
+                {
+                    var down = direction == 1;
+                    if (!spikes.TrySample(
+                            biome.Primary, surfaceBiome, volumeBiome, baseY,
+                            worldX, anchorY, worldZ, down, out var placement))
+                        continue;
+
+                    for (var segment = 0; segment < placement.Height; segment++)
+                    {
+                        var y = anchorY + (down ? -segment : segment);
+                        var localY = y - originY;
+                        if ((uint)localY >= Chunk.Size ||
+                            !chunk.GetCell(x, localY, z).IsEmpty ||
+                            !chunk.GetFluid(x, localY, z).IsEmpty)
+                            continue;
+
+                        chunk.SetCell(x, localY, z,
+                            new VoxelCell(placement.Block,
+                                state: SpikeSegmentState.Encode(
+                                    segment, placement.Height, down)));
+                    }
+                }
             }
         }
     }
