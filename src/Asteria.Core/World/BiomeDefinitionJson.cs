@@ -536,7 +536,8 @@ public static class BiomeDefinitionJson
             0.25f,
             RequiredStringArray(
                 patch,
-                "blocks"));
+                "blocks"),
+            ParsePlacementConditions(patch));
     }
 
     private static BiomeTintPaletteDefinition
@@ -633,7 +634,8 @@ public static class BiomeDefinitionJson
                     RequiredStringArray(
                         value,
                         "surfaceBlocks"),
-                    ParseDecorationCluster(value)));
+                    ParseDecorationCluster(value),
+                    ParsePlacementConditions(value)));
         }
 
         return decorations;
@@ -651,7 +653,26 @@ public static class BiomeDefinitionJson
         cluster = EnsureObject(cluster, "decorations.cluster");
         return new BiomeDecorationClusterDefinition(
             RequiredInt32(cluster, "scale"),
-            RequiredSingle(cluster, "threshold"));
+            RequiredSingle(cluster, "threshold"),
+            OptionalInt32(cluster, "octaves") ?? 3,
+            OptionalSingle(cluster, "transitionWidth") ?? 0f);
+    }
+
+    private static SurfacePlacementConditions? ParsePlacementConditions(
+        JsonElement authored)
+    {
+        if (!authored.TryGetProperty("conditions", out var value) ||
+            value.ValueKind == JsonValueKind.Null)
+        {
+            return null;
+        }
+
+        value = EnsureObject(value, "conditions");
+        return new SurfacePlacementConditions(
+            OptionalInt32(value, "minY"),
+            OptionalInt32(value, "maxY"),
+            OptionalSingle(value, "minSlope"),
+            OptionalSingle(value, "maxSlope"));
     }
 
     private static JsonElement GetRequiredObject(
