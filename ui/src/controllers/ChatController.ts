@@ -6,6 +6,10 @@ import { asRecord } from "./messagePayload";
 
 const SUPPORTED_COMMANDS = new Set(["/spawn", "/place", "/locate", "/warp", "/kill", "/modify"]);
 const LOCAL_KEYS = new Set([
+  "chat.command.place.success", "chat.command.place.unknownStructure",
+  "chat.command.place.unknownVariation", "chat.command.place.playerUnavailable",
+  "chat.command.place.noLoadedSpace", "chat.command.place.noSafeSpace",
+  "chat.command.place.noGround",
   "chat.command.usage", "chat.command.unknown",
   "chat.command.spawn.success", "chat.command.spawn.failed",
   "chat.command.spawn.unknownCreature", "chat.command.locate.found",
