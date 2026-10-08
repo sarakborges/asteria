@@ -12,6 +12,7 @@ public sealed class SurfaceChunkMaterializer
     private readonly SurfaceDecorationField _decorations;
     private readonly GeneratedFluidField _generatedFluids;
     private readonly SurfaceStructureField _structures;
+    private readonly UndergroundBiomeField? _undergroundBiomes;
     private readonly BlockRuntimeId _shellBlock;
     private readonly int? _floorY;
     private readonly int? _roofY;
@@ -24,7 +25,8 @@ public sealed class SurfaceChunkMaterializer
         GeneratedFluidField generatedFluids,
         SurfaceStructureField structures,
         DimensionDefinition dimension,
-        BlockRegistry blocks)
+        BlockRegistry blocks,
+        UndergroundBiomeField? undergroundBiomes = null)
     {
         _columns = columns ??
             throw new ArgumentNullException(nameof(columns));
@@ -38,6 +40,7 @@ public sealed class SurfaceChunkMaterializer
             throw new ArgumentNullException(nameof(generatedFluids));
         _structures = structures ??
             throw new ArgumentNullException(nameof(structures));
+        _undergroundBiomes = undergroundBiomes;
         ArgumentNullException.ThrowIfNull(dimension);
         ArgumentNullException.ThrowIfNull(blocks);
 
@@ -216,6 +219,13 @@ public sealed class SurfaceChunkMaterializer
                         topSample, worldX, worldZ)
                     : surfaceMaterials ??= _materials.SampleColumn(
                         sample, worldX, worldZ);
+                // Disconnected additive surfaces are owned by the vertical
+                // decoration pass, including when they cross chunk boundaries.
+                if (surfaceY > baseY &&
+                    _decorations.HasVerticalDecorationsFor(topSample.Primary))
+                {
+                    continue;
+                }
                 var decoration =
                     _decorations.BlockAt(
                         topSample,
@@ -234,6 +244,10 @@ public sealed class SurfaceChunkMaterializer
                 }
             }
         }
+
+        MaterializeVerticalDecorations(
+            chunk, column, densityVolume,
+            originX, originY, originZ);
 
         MaterializeGeneratedFluids(
             chunk,
@@ -598,6 +612,108 @@ public sealed class SurfaceChunkMaterializer
         x |
         y << 8 |
         z << 16;
+
+    /// <summary>
+    /// Decorates exposed tops of disconnected additive solids and carved
+    /// cave floors. Only the immutable density/material owners determine
+    /// support, so placement remains identical across vertical chunk seams.
+    /// </summary>
+    private void MaterializeVerticalDecorations(
+        Chunk chunk,
+        SurfaceTerrainColumn column,
+        TerrainDensityVolume densityVolume,
+        int originX,
+        int originY,
+        int originZ)
+    {
+        if (!_decorations.HasVerticalDecorations)
+            return;
+
+        for (var localZ = 0; localZ < Chunk.Size; localZ++)
+        for (var localX = 0; localX < Chunk.Size; localX++)
+        {
+            var baseY = column.BaseHeightAt(localX, localZ);
+            var surfaceBiome = column.BiomeAt(localX, localZ);
+            var worldX = originX + localX;
+            var worldZ = originZ + localZ;
+            BiomeSample? underground = null;
+            BiomeSurfaceMaterialColumn? volumeMaterials = null;
+
+            for (var localY = 0; localY < Chunk.Size; localY++)
+            {
+                var worldY = originY + localY;
+                if (worldY <= 0 ||
+                    (_floorY is { } floorY && worldY <= floorY) ||
+                    (_roofY is { } roofY && worldY >= roofY) ||
+                    !chunk.GetCell(localX, localY, localZ).IsEmpty ||
+                    densityVolume.DensityAt(localX, localY, localZ) >= 0d)
+                    continue;
+
+                var belowDensity = localY > 0
+                    ? densityVolume.DensityAt(localX, localY - 1, localZ)
+                    : _terrain.DensityAt(
+                        surfaceBiome,
+                        baseY,
+                        worldX,
+                        worldY - 1,
+                        worldZ,
+                        densityVolume.VolumePlacementAt(localX, localZ));
+                if (belowDensity < 0d)
+                    continue;
+
+                BiomeSample? decoratorBiome;
+                BlockRuntimeId support;
+                if (worldY > baseY)
+                {
+                    // The ordinary base-surface top is not an additive
+                    // island even if a volume biome owns this X/Z column.
+                    if (worldY - 1 <= baseY)
+                        continue;
+                    decoratorBiome = densityVolume.VolumeBiomeAt(
+                        localX, worldY - 1, localZ);
+                    if (decoratorBiome is null ||
+                        !_decorations.HasVerticalDecorationsFor(
+                            decoratorBiome.Primary))
+                        continue;
+
+                    support = localY > 0
+                        ? chunk.GetBlock(localX, localY - 1, localZ)
+                        : (volumeMaterials ??= _materials.SampleColumn(
+                            decoratorBiome, worldX, worldZ)).BlockAt(0);
+                }
+                else
+                {
+                    if (_undergroundBiomes is not { HasBiomes: true })
+                        continue;
+                    underground ??= _undergroundBiomes.Sample(worldX, worldZ);
+                    decoratorBiome = underground;
+                    if (decoratorBiome is null ||
+                        !_decorations.HasVerticalDecorationsFor(
+                            decoratorBiome.Primary))
+                        continue;
+
+                    support = localY > 0
+                        ? chunk.GetBlock(localX, localY - 1, localZ)
+                        : _materials.BlockAt(
+                            surfaceBiome, worldX, worldZ,
+                            checked((uint)(baseY - worldY + 1)));
+                }
+
+                if (support.IsAir)
+                    continue;
+
+                var decorator = _decorations.BlockAt(
+                    decoratorBiome,
+                    support,
+                    worldX,
+                    worldZ,
+                    new SurfacePlacementContext(worldY, 0),
+                    verticalY: worldY);
+                if (!decorator.IsAir)
+                    chunk.SetBlock(localX, localY, localZ, decorator);
+            }
+        }
+    }
 
     private void MaterializeGeneratedFluids(
         Chunk chunk,

@@ -1720,6 +1720,111 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
+    public void UndergroundDecoratorsOnlyMaterializeOnActuallyCarvedCaveFloors()
+    {
+        var blocks = LoadDefaultBlocks();
+        var dimension = LoadDefaultDimensions().Get(DimensionId.Overworld);
+        var caveId = "asteria:overworld/caverns";
+        var biomes = BiomeRegistry.FromJson(
+            Directory.EnumerateFiles(
+                Path.Combine(AppContext.BaseDirectory, "packs", "default", "data", "biomes"),
+                "*.json").OrderBy(path => path, StringComparer.Ordinal)
+                .Select(path =>
+                {
+                    var content = File.ReadAllText(path);
+                    if (!path.EndsWith("caverns.json", StringComparison.Ordinal))
+                        return content;
+                    var node = System.Text.Json.Nodes.JsonNode.Parse(content)!;
+                    node["decorations"] = System.Text.Json.Nodes.JsonNode.Parse(
+                        """[{"block":"asteria:pebble","chance":1,"surfaceBlocks":["asteria:stone"]}]""");
+                    return node.ToJsonString();
+                }));
+        const ulong seed = 0xA57E_2026UL;
+        var generator = new BiomeWorldGenerator(
+            DimensionSeed.Derive(seed, dimension.Id), dimension, blocks,
+            LoadDefaultFluids(), biomes, LoadDefaultStructures(),
+            LoadDefaultStructureSets());
+
+        var cave = FindCaveVoid(generator);
+        var floorY = cave.Y;
+        while (floorY > 1 && generator.IsCaveVoidAt(cave.X, floorY - 1, cave.Z))
+            floorY--;
+
+        Assert.True(generator.IsCaveVoidAt(cave.X, floorY, cave.Z));
+        Assert.True(generator.DensityAt(cave.X, floorY - 1, cave.Z) >= 0d);
+        Assert.Equal(caveId, generator.EffectiveBiomeAt(cave.X, floorY, cave.Z));
+
+        var (targetChunk, targetLocal) = VoxelCoordinates.FromWorld(
+            cave.X, floorY, cave.Z);
+        var actual = generator.Materialize(targetChunk).GetBlock(
+            targetLocal.X, targetLocal.Y, targetLocal.Z);
+        Assert.Equal(blocks.GetId("asteria:pebble"), actual);
+
+        // The same XY position above normal solid rock must never be
+        // decorated as Caverns merely because of the X/Z underground owner.
+        Assert.False(generator.IsCaveVoidAt(cave.X, floorY - 1, cave.Z));
+        Assert.Equal(actual, generator.Materialize(targetChunk).GetBlock(
+            targetLocal.X, targetLocal.Y, targetLocal.Z));
+    }
+
+    [Fact]
+    public void FloatingVolumeDecoratorsUseEachExposedTopNotTheBaseSurface()
+    {
+        var blocks = LoadDefaultBlocks();
+        var dimension = LoadDefaultDimensions().Get(DimensionId.Overworld);
+        var volumeId = "asteria:overworld/floating_islands";
+        var biomes = BiomeRegistry.FromJson(
+            Directory.EnumerateFiles(
+                Path.Combine(AppContext.BaseDirectory, "packs", "default", "data", "biomes"),
+                "*.json").OrderBy(path => path, StringComparer.Ordinal)
+                .Select(path =>
+                {
+                    var content = File.ReadAllText(path);
+                    if (!path.EndsWith("floating_islands.json", StringComparison.Ordinal))
+                        return content;
+                    var node = System.Text.Json.Nodes.JsonNode.Parse(content)!;
+                    node["decorations"] = System.Text.Json.Nodes.JsonNode.Parse(
+                        """[{"block":"asteria:grass","chance":1,"surfaceBlocks":["asteria:grass_block"]}]""");
+                    return node.ToJsonString();
+                }));
+        var generator = new BiomeWorldGenerator(
+            DimensionSeed.Derive(0xA57E_2026UL, dimension.Id), dimension, blocks,
+            LoadDefaultFluids(), biomes, LoadDefaultStructures(),
+            LoadDefaultStructureSets());
+        var floating = FindVolumeBiomeInterior(
+            generator.VolumeBiomes, volumeId, 220);
+
+        (int X, int Y, int Z)? target = null;
+        for (var dz = -32; dz <= 32 && target is null; dz += 2)
+        for (var dx = -32; dx <= 32 && target is null; dx += 2)
+        {
+            var x = floating.X + dx;
+            var z = floating.Z + dz;
+            var surface = generator.SurfaceHeight(x, z);
+            for (var y = Math.Min(281, surface + 1); y >= 204; y--)
+            {
+                if (generator.VolumeBiomes.Sample(x, y - 1, z)?.Primary != volumeId ||
+                    generator.DensityAt(x, y - 1, z) < 0d ||
+                    generator.DensityAt(x, y, z) >= 0d)
+                    continue;
+                target = (x, y, z);
+                break;
+            }
+        }
+
+        Assert.NotNull(target);
+        var found = target!.Value;
+        var (chunkCoord, local) = VoxelCoordinates.FromWorld(
+            found.X, found.Y, found.Z);
+        var chunk = generator.Materialize(chunkCoord);
+        Assert.Equal(blocks.GetId("asteria:grass"),
+            chunk.GetBlock(local.X, local.Y, local.Z));
+        Assert.Equal(
+            chunk.GetCell(local.X, local.Y, local.Z),
+            generator.Materialize(chunkCoord).GetCell(local.X, local.Y, local.Z));
+    }
+
+    [Fact]
     public void EffectiveBiomeUsesSurfaceBiomeOutsideFloatingVolume()
     {
         var blocks =
