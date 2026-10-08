@@ -54,7 +54,7 @@ public sealed class TerrainDensityTests
     public void SampleDensityVolumeMatchesScalarForFloatingFormation()
     {
         var generator = Generator(
-            floating: new BiomeFloatingFormationDefinition(
+            floating: new BiomeAdditiveDensityDefinition(
                 minY: 80,
                 maxY: 112,
                 horizontalScale: 64,
@@ -114,7 +114,7 @@ public sealed class TerrainDensityTests
     public void FloatingFormationExtendsSurfaceRangeAndMaterializesAboveBase()
     {
         var generator = Generator(
-            floating: new BiomeFloatingFormationDefinition(
+            floating: new BiomeAdditiveDensityDefinition(
                 minY: 80,
                 maxY: 112,
                 horizontalScale: 64,
@@ -183,7 +183,7 @@ public sealed class TerrainDensityTests
     {
         var generator = Generator(
             caves: WideCaves(),
-            floating: new BiomeFloatingFormationDefinition(
+            floating: new BiomeAdditiveDensityDefinition(
                 minY: 80,
                 maxY: 112,
                 horizontalScale: 64,
@@ -282,7 +282,7 @@ public sealed class TerrainDensityTests
         float coverage, float roughness, float densityScale)
     {
         Assert.ThrowsAny<ArgumentException>(() =>
-            new BiomeFloatingFormationDefinition(
+            new BiomeAdditiveDensityDefinition(
                 minY, maxY, horizontalScale, detailScale,
                 coverage, roughness, densityScale));
     }
@@ -296,11 +296,11 @@ public sealed class TerrainDensityTests
               "id":"asteria:test/floating",
               "volumeLayout":{},
               "surfaceLayers":[{"block":"asteria:stone"}],
-              "terrain3d":{"floatingFormation":{
+              "terrain3d":{"additive":[{
                 "minY":80,"maxY":112,"horizontalScale":64,
                 "detailScale":24,"coverage":0.55,"roughness":0.18,
                 "densityScale":28
-              }}
+              }]}
             }
             """);
         Assert.Null(
@@ -309,10 +309,10 @@ public sealed class TerrainDensityTests
             biome.VolumeLayout);
         Assert.Equal(
             80,
-            biome.Terrain3d!.FloatingFormation!.MinY);
+            biome.Terrain3d!.Additive[0].MinY);
         Assert.Equal(
             112,
-            biome.Terrain3d.FloatingFormation.MaxY);
+            biome.Terrain3d.Additive[0].MaxY);
 
         var dimension = DimensionDefinitionJson.Parse(
             """
@@ -330,15 +330,18 @@ public sealed class TerrainDensityTests
                 "fogColor":"000000",
                 "fogDensity":0
               },
-              "caves":{
+              "caves":{"layers":[{
                 "minDepth":10,"maxDepth":120,
-                "horizontalScale":56,"verticalScale":36,
                 "noiseHalfWidth":0.18,"densityScale":24,
-                "boundaryFade":8
-              }
+                "boundaryFade":8,"combination":"intersection",
+                "channels":[
+                  {"horizontalScale":56,"verticalScale":36},
+                  {"horizontalScale":56,"verticalScale":36}
+                ]
+              }]}
             }
             """);
-        Assert.Equal(120u, dimension.Caves!.MaxDepth);
+        Assert.Equal(120u, dimension.Caves!.MaximumDepth);
     }
 
     private static BlockRuntimeId Block(string id) =>
@@ -354,17 +357,23 @@ public sealed class TerrainDensityTests
 
     private static DimensionCaveDefinition WideCaves() =>
         new(
-            minDepth: 10,
-            maxDepth: 80,
-            horizontalScale: 56,
-            verticalScale: 36,
-            noiseHalfWidth: 1f,
-            densityScale: 24f,
-            boundaryFade: 6);
+        [
+            new DimensionCaveLayerDefinition(
+                minDepth: 10,
+                maxDepth: 80,
+                channels:
+                [
+                    new DimensionCaveNoiseChannelDefinition(56, 36),
+                    new DimensionCaveNoiseChannelDefinition(56, 36),
+                ],
+                noiseHalfWidth: 1f,
+                densityScale: 24f,
+                boundaryFade: 6),
+        ]);
 
     private static BiomeWorldGenerator Generator(
         DimensionCaveDefinition? caves = null,
-        BiomeFloatingFormationDefinition? floating = null,
+        BiomeAdditiveDensityDefinition? floating = null,
         int? floorY = null,
         int? roofY = null)
     {
@@ -407,7 +416,7 @@ public sealed class TerrainDensityTests
                     ],
                     terrain3d:
                         new BiomeTerrain3dDefinition(
-                            authored),
+                            [authored]),
                     volumeLayout:
                         new BiomeVolumeLayoutDefinition())
                 : null;
