@@ -58,6 +58,16 @@ Asteria deliberately orders the survival center column as **Inventory → Crafti
 
 ## Migration status
 
-The MineClone UI design-system, screen, modal, inventory/crafting and HUD presentation migration is now complete for the currently identified reference components. Remaining work is runtime integration for features Asteria does not yet own (save catalog, settings/keybinds, pause/session save, inventory/crafting/storage/chat, target metadata, clock/FPS messages) rather than additional presentation copying.
+The MineClone UI design-system, screen, modal, inventory/crafting and HUD presentation migration is now complete for the currently identified reference components.
+
+## Runtime integration status
+
+- FPS HUD: **wired**. Godot owns the 250 ms frame-sampling presentation tracker and publishes only changed values.
+- Block target HUD + action hint: **wired**. The existing authoritative voxel raycast is shared by block interaction and HUD projection; WebUI receives only a changed presentation snapshot and never performs targeting.
+- Target entity metadata: presentation remains ready, but no creature/entity-targeting owner exists in Asteria yet.
+- World clock: intentionally **not faked from world ticks**. MineClone's clock is backed by a full authored day/night cycle (phase timings, world-time mapping and skylight factor). Asteria needs that owner ported as a coherent world feature before the clock is wired.
+- Save catalog, settings/keybinds, pause/session save, inventory/crafting/storage/chat remain pending their authoritative runtime owners.
+
+Remaining work is runtime integration, not additional presentation copying.
 
 Each screen must reuse migrated primitives instead of introducing page-local copies of button, surface, input or screen-shell styling.

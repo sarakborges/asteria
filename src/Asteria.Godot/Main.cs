@@ -101,6 +101,10 @@ public partial class Main : Node3D
     private BlockRuntimeId _placementBlock;
     private readonly WorldHudStateTracker _worldHud =
         new();
+    private readonly FpsHudStateTracker _fpsHud =
+        new();
+    private readonly TargetHudStateTracker _targetHud =
+        new();
     private readonly WorldLoadingState _loading =
         new();
 
@@ -236,6 +240,7 @@ public partial class Main : Node3D
         }
 
         BeginWorldFrameBudget(delta);
+        AdvanceFpsHudState(delta);
 
         if (_sessions.IsTransitioning)
         {
@@ -306,6 +311,7 @@ public partial class Main : Node3D
         }
 
         SendWorldHudState();
+        SendTargetHudState();
     }
 
     public bool TransitionToDimension(
@@ -500,6 +506,7 @@ public partial class Main : Node3D
         _player = null;
         _underwaterView = null;
         _worldHud.Reset();
+        ClearTargetHudState();
 
         Input.MouseMode =
             Input.MouseModeEnum.Visible;
@@ -614,6 +621,9 @@ public partial class Main : Node3D
 
         SendHotbarState();
         SendWorldHudState(
+            force: true);
+        SendFpsHudState();
+        SendTargetHudState(
             force: true);
 
         if (_loading.IsActive)
@@ -973,6 +983,104 @@ public partial class Main : Node3D
             });
     }
 
+    private void AdvanceFpsHudState(
+        double delta)
+    {
+        if (!_fpsHud.TryAdvance(
+                delta,
+                out var fps))
+        {
+            return;
+        }
+
+        SendFpsHudState(
+            fps);
+    }
+
+    private void SendFpsHudState()
+    {
+        if (_fpsHud.Current is
+            { } fps)
+        {
+            SendFpsHudState(
+                fps);
+        }
+    }
+
+    private void SendFpsHudState(
+        int fps)
+    {
+        SendWebUi(
+            "game.hud.fps",
+            new { fps });
+    }
+
+    private void SendTargetHudState(
+        bool force = false)
+    {
+        var hit =
+            _player is
+                { IsMouseCaptured: true }
+                ? CurrentTarget()
+                : null;
+
+        if (!_targetHud.TryCapture(
+                _world,
+                _blocks,
+                hit,
+                force,
+                out var snapshot))
+        {
+            return;
+        }
+
+        if (snapshot is null)
+        {
+            SendWebUi(
+                "game.hud.target",
+                new { });
+            SendWebUi(
+                "game.hud.prompt",
+                new { });
+            return;
+        }
+
+        var value =
+            snapshot.Value;
+
+        SendWebUi(
+            "game.hud.target",
+            new
+            {
+                kind = "block",
+                id = value.BlockId,
+                name = value.BlockId,
+                details = new[]
+                {
+                    $"Sky Light: {value.SkyLight} | Block Light: {value.BlockLight}",
+                    $"X: {value.X} | Z: {value.Z} | Y: {value.Y}",
+                },
+            });
+        SendWebUi(
+            "game.hud.prompt",
+            new
+            {
+                key = "LMB/RMB",
+                text = "Break / place block",
+            });
+    }
+
+    private void ClearTargetHudState()
+    {
+        _targetHud.Reset();
+        SendWebUi(
+            "game.hud.target",
+            new { });
+        SendWebUi(
+            "game.hud.prompt",
+            new { });
+    }
+
     private void SendWebUi(
         string type,
         object payload)
@@ -1226,14 +1334,11 @@ public partial class Main : Node3D
             $"queued={report.PendingPhysicsUpdates}");
     }
 
-    private bool TryGetTarget(
-        out VoxelWorldHit hit)
+    private VoxelWorldHit? CurrentTarget()
     {
-        hit = default;
-
         if (_player is null)
         {
-            return false;
+            return null;
         }
 
         var (from, to) =
@@ -1241,22 +1346,29 @@ public partial class Main : Node3D
                 InteractionDistance);
         var direction = to - from;
 
+        return VoxelWorldRaycaster.Raycast(
+            _world,
+            _blocks,
+            new NVector3(
+                from.X,
+                from.Y,
+                from.Z),
+            new NVector3(
+                direction.X,
+                direction.Y,
+                direction.Z),
+            InteractionDistance);
+    }
+
+    private bool TryGetTarget(
+        out VoxelWorldHit hit)
+    {
         var resolved =
-            VoxelWorldRaycaster.Raycast(
-                _world,
-                _blocks,
-                new NVector3(
-                    from.X,
-                    from.Y,
-                    from.Z),
-                new NVector3(
-                    direction.X,
-                    direction.Y,
-                    direction.Z),
-                InteractionDistance);
+            CurrentTarget();
 
         if (resolved is null)
         {
+            hit = default;
             return false;
         }
 

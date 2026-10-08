@@ -1,6 +1,9 @@
 import { useLocalization } from "../../../localization/LocalizationProvider";
 import type { TargetHudState } from "../../../state/uiState";
-import { abbreviateContentId } from "../../../presentation/formatters";
+import {
+  abbreviateContentId,
+  displayContentName,
+} from "../../../presentation/formatters";
 import "./TargetHud.css";
 
 export type TargetHudProps = {
