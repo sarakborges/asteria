@@ -129,6 +129,7 @@ public partial class Main : Node3D
     private WorldFrameWorkBudget _worldFrameBudget;
     private bool _worldReadySent;
     private bool _inventoryOpen;
+    private bool _brushPaletteOpen;
     private int _publishedMiningStage = -1;
     private double _pickupAccumulator;
     private bool _debugHudVisible;
@@ -287,6 +288,16 @@ public partial class Main : Node3D
 
         if (_worldSeed is null)
         {
+            return;
+        }
+
+        if (_brushPaletteOpen &&
+            @event is InputEventKey brushKey &&
+            brushKey.Pressed && !brushKey.Echo &&
+            brushKey.Keycode == Key.Escape)
+        {
+            CloseBrushPalette();
+            GetViewport().SetInputAsHandled();
             return;
         }
 
@@ -731,6 +742,11 @@ public partial class Main : Node3D
             _inventoryOpen = false;
             SendInventoryState();
         }
+        if (_brushPaletteOpen)
+        {
+            _brushPaletteOpen = false;
+            SendBrushPalette();
+        }
         _sessions.Active.Mining.Cancel();
         PublishMiningProgress();
         _player.QueueFree();
@@ -911,6 +927,12 @@ public partial class Main : Node3D
                 case "ui.inventory.close":
                     CloseInventory();
                     break;
+                case "ui.brush.select":
+                    SelectBrushDye(document.RootElement);
+                    break;
+                case "ui.brush.close":
+                    CloseBrushPalette();
+                    break;
                 case "ui.inventory.slot":
                     HandleInventorySlot(document.RootElement);
                     break;
@@ -955,6 +977,7 @@ public partial class Main : Node3D
         SendWorldSettings();
         SendHotbarState();
         SendInventoryState();
+        SendBrushPalette();
         SendCreativeCatalog();
         SendWorldHudState(
             force: true);
@@ -1615,6 +1638,56 @@ public partial class Main : Node3D
         SendTargetHudState(force: true);
     }
 
+    private void OpenBrushPalette()
+    {
+        if (!_worldReadySent || _inventoryOpen || _brushPaletteOpen ||
+            _sessions.IsTransitioning || _player is null ||
+            !_sessionStates.Player.CanInteract)
+            return;
+        _brushPaletteOpen = true;
+        SendBrushPalette();
+        _player.SuspendForModal();
+    }
+
+    private void SendBrushPalette()
+    {
+        if (_worldSeed is null) return;
+        var brush = _sessions.Active.Tools;
+        SendWebUi("game.tool.brush_palette", new
+        {
+            open = _brushPaletteOpen,
+            selectedId = brush.SelectedBrushDyeId,
+            colors = brush.BrushPalette.Select(dye => new
+            {
+                id = dye.Id,
+                rgb = $"#{(byte)MathF.Round(dye.Rgb.X * 255f):x2}{(byte)MathF.Round(dye.Rgb.Y * 255f):x2}{(byte)MathF.Round(dye.Rgb.Z * 255f):x2}"
+            }).ToArray()
+        });
+    }
+
+    private void SelectBrushDye(JsonElement message)
+    {
+        if (!_brushPaletteOpen || _sessions.IsTransitioning ||
+            !message.TryGetProperty("payload", out var payload) ||
+            payload.ValueKind != JsonValueKind.Object ||
+            !payload.TryGetProperty("id", out var idValue) ||
+            (idValue.ValueKind != JsonValueKind.Null &&
+             idValue.ValueKind != JsonValueKind.String))
+            return;
+
+        var id = idValue.ValueKind == JsonValueKind.Null ? null : idValue.GetString();
+        if (_sessions.Active.Tools.TrySelectBrushDye(id))
+            CloseBrushPalette();
+    }
+
+    private void CloseBrushPalette()
+    {
+        if (!_brushPaletteOpen) return;
+        _brushPaletteOpen = false;
+        SendBrushPalette();
+        CallDeferred(nameof(ResumeGameplayAfterInventory));
+    }
+
     private void OpenInventory()
     {
         if (!_worldReadySent || _inventoryOpen || _sessions.IsTransitioning ||
@@ -1644,7 +1717,8 @@ public partial class Main : Node3D
 
     private void ResumeGameplayAfterInventory()
     {
-        if (!_inventoryOpen && !_keybindCapture.IsCapturing)
+        if (!_inventoryOpen && !_brushPaletteOpen &&
+            !_keybindCapture.IsCapturing)
             _player?.ResumeGameplay();
     }
 
@@ -2312,6 +2386,12 @@ public partial class Main : Node3D
         }
 
         var selected = inventory.SelectedStack;
+        if (_sessions.Active.Tools.OpensBrushPalette(selected))
+        {
+            OpenBrushPalette();
+            return;
+        }
+
         if (_sessions.Active.Bucket.IsEquipped(selected))
         {
             var (from, to) = _player.GetInteractionRay(

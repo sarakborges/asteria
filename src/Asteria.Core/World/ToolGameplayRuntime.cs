@@ -94,6 +94,9 @@ public sealed class ToolGameplayRuntime
             ? mining.Speed : 1f;
     }
 
+    public bool OpensBrushPalette(InventoryStack? held) =>
+        GetBehavior(held, ToolUseHand.Right) == "asteria:brush/open_palette";
+
     public bool IsSpecialLeftAction(InventoryStack? held) =>
         GetBehavior(held, ToolUseHand.Left) is
             "asteria:log/hollow" or
