@@ -1,10 +1,12 @@
 import type { BridgeMessage } from "../bridge/godotBridge";
-import type { WorldCreationErrorKey, WorldCreationState } from "../state/uiState";
+import type { WorldCreationErrorKey, WorldCreationState, GameMode } from "../state/uiState";
 import type { UiStore } from "../state/uiStore";
 import { asRecord } from "./messagePayload";
 
 export type WorldCreationController = {
-  createWorld(seed: string): void;
+  createWorld(request: {
+    seed: string; name: string; mode: GameMode; ticksPerSecond: string;
+  }): void;
   randomizeWorld(): void;
   handleGodotMessage(message: BridgeMessage): void;
 };
@@ -14,13 +16,18 @@ export function createWorldCreationController(
   postMessage: (type: string, payload?: unknown) => void,
 ): WorldCreationController {
   return {
-    createWorld(seed) {
-      updateWorldCreation(store, {
-        pending: true,
-        errorKey: null,
-      });
+    createWorld(request) {
+      const ticks = request.ticksPerSecond.trim();
+      if (!/^[1-9][0-9]*$/.test(ticks) ||
+          !Number.isSafeInteger(Number(ticks)) ||
+          Number(ticks) > 4294967295) {
+        updateWorldCreation(store, { errorKey: "newWorld.error.invalidTickRate" });
+        return;
+      }
+      updateWorldCreation(store, { pending: true, errorKey: null });
       postMessage("ui.world.create", {
-        seed: seed.trim(),
+        seed: request.seed.trim(), name: request.name, mode: request.mode,
+        ticksPerSecond: Number(ticks),
       });
     },
 
@@ -100,6 +107,9 @@ function readErrorKey(value: unknown): WorldCreationErrorKey {
   switch (value) {
     case "newWorld.error.seedMustBeString":
     case "newWorld.error.invalidSeed":
+    case "newWorld.error.invalidName":
+    case "newWorld.error.invalidMode":
+    case "newWorld.error.invalidTickRate":
       return value;
     default:
       return "newWorld.error.unexpected";

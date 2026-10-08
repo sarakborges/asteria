@@ -124,20 +124,46 @@ export type LoadingState = {
 export type WorldCreationErrorKey =
   | "newWorld.error.seedMustBeString"
   | "newWorld.error.invalidSeed"
+  | "newWorld.error.invalidName"
+  | "newWorld.error.invalidMode"
+  | "newWorld.error.invalidTickRate"
   | "newWorld.error.unexpected";
+
+export type GameMode = "Survival" | "Creative" | "Spectator";
+export type OverlayScreen = "none" | "pause" | "game" | "world" | "controls";
+
+export type WorldSettingsState = {
+  name: string; mode: GameMode; ticksPerSecond: number;
+};
+export type ClientSettingsState = {
+  renderDistanceChunks: number;
+  hud: {
+    hideHints: boolean;
+    targetBlockPosition: "Center" | "TopRight" | "Hidden";
+  };
+  keybinds: { jump: string; descend: string };
+};
+export type SettingsState = {
+  client: ClientSettingsState | null;
+  world: WorldSettingsState | null;
+  captureAction: "Jump" | "Descend" | null;
+  errorKey: string | null;
+};
 
 export type WorldCreationState = {
   visible: boolean;
   seed: string;
+  name: string;
+  mode: GameMode;
+  ticksPerSecond: string;
   pending: boolean;
   generating: boolean;
   errorKey: WorldCreationErrorKey | null;
 };
 
 export type UiNavigationState = {
-  preWorldScreen:
-    | "starting"
-    | "new-world";
+  preWorldScreen: "starting" | "new-world";
+  overlay: OverlayScreen;
 };
 
 export type UiState = {
@@ -146,6 +172,7 @@ export type UiState = {
   loading: LoadingState | null;
   worldCreation: WorldCreationState;
   navigation: UiNavigationState;
+  settings: SettingsState;
 };
 
 export function createInitialUiState(
@@ -186,12 +213,20 @@ export function createInitialUiState(
     worldCreation: {
       visible: true,
       seed: "",
+      name: "New World",
+      mode: "Survival",
+      ticksPerSecond: "40",
       pending: true,
       generating: false,
       errorKey: null,
     },
     navigation: {
       preWorldScreen: "starting",
+      overlay: "none",
+    },
+    settings: {
+      client: null, world: null,
+      captureAction: null, errorKey: null,
     },
   };
 }

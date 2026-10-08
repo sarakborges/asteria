@@ -8,6 +8,8 @@ import type { WorldCreationState } from "../../../state/uiState";
 import { Button } from "../../atoms/Button/Button";
 import { Surface } from "../../atoms/Surface/Surface";
 import { Text } from "../../atoms/Text/Text";
+import { Select } from "../../atoms/Select/Select";
+import { SettingRow } from "../../molecules/SettingRow/SettingRow";
 import { TextInput } from "../../atoms/TextInput/TextInput";
 import { CosmicBackground } from "../../organisms/CosmicBackground/CosmicBackground";
 import { ScreenShell } from "../../templates/ScreenShell/ScreenShell";
@@ -16,7 +18,11 @@ import "./NewWorldPage.css";
 export type NewWorldPageProps = {
   state: WorldCreationState;
   onBack(): void;
-  onCreate(seed: string): void;
+  onCreate(request: {
+    seed: string; name: string;
+    mode: import("../../../state/uiState").GameMode;
+    ticksPerSecond: string;
+  }): void;
   onRandomize(): void;
 };
 
@@ -27,8 +33,11 @@ export function NewWorldPage({
   onRandomize,
 }: NewWorldPageProps) {
   const { t } = useLocalization();
-  const [seed, setSeed] =
-    useState(state.seed);
+  const [seed, setSeed] = useState(state.seed);
+  const [name, setName] = useState(state.name);
+  const [mode, setMode] = useState(state.mode);
+  const [ticksPerSecond, setTicksPerSecond] = useState(state.ticksPerSecond);
+  const request = () => onCreate({ seed: seed.trim(), name, mode, ticksPerSecond });
 
   useEffect(() => {
     setSeed(state.seed);
@@ -40,7 +49,7 @@ export function NewWorldPage({
     event: FormEvent<HTMLFormElement>,
   ): void => {
     event.preventDefault();
-    onCreate(seed.trim());
+    request();
   };
 
   const footer =
@@ -62,7 +71,7 @@ export function NewWorldPage({
               className="new-world__create"
               disabled={state.pending}
               onClick={() =>
-                onCreate(seed.trim())
+                request()
               }
             />
           </>
@@ -100,6 +109,24 @@ export function NewWorldPage({
               className="new-world__form"
               onSubmit={submit}
             >
+              <div className="new-world__settings-extra">
+                <SettingRow title={t("newWorld.name")}
+                  control={<TextInput aria-label={t("newWorld.name")}
+                    value={name} disabled={state.pending} maxLength={200}
+                    onChange={event => setName(event.target.value)} />} />
+                <SettingRow title={t("settings.gameMode")}
+                  control={<Select ariaLabel={t("settings.gameMode")}
+                    value={mode} disabled={state.pending}
+                    options={(["Survival", "Creative", "Spectator"] as const).map(value => ({
+                      value, label: t("settings.gameMode." + value.toLowerCase()),
+                    }))}
+                    onChange={event => setMode(event.target.value as typeof mode)} />} />
+                <SettingRow title={t("settings.ticksBySecond")}
+                  control={<TextInput aria-label={t("settings.ticksBySecond")}
+                    type="number" min={1} step={1} value={ticksPerSecond}
+                    disabled={state.pending}
+                    onChange={event => setTicksPerSecond(event.target.value)} />} />
+              </div>
               <div className="new-world__setting">
                 <Text
                   text={t("newWorld.seedLabel")}

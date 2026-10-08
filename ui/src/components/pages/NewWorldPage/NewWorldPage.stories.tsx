@@ -11,6 +11,7 @@ const meta = {
     state: {
       visible: true,
       seed: "181960897289965",
+      name: "New World", mode: "Survival", ticksPerSecond: "40",
       pending: false,
       generating: false,
       errorKey: null,
@@ -31,6 +32,7 @@ export const ValidationError: Story = {
     state: {
       visible: true,
       seed: "18446744073709551615",
+      name: "New World", mode: "Survival", ticksPerSecond: "40",
       pending: false,
       generating: false,
       errorKey: "newWorld.error.invalidSeed",
@@ -43,6 +45,7 @@ export const Generating: Story = {
     state: {
       visible: true,
       seed: "123456789",
+      name: "New World", mode: "Survival", ticksPerSecond: "40",
       pending: true,
       generating: true,
       errorKey: null,

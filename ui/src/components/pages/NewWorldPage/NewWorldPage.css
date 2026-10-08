@@ -88,3 +88,6 @@
     width: min(300px, calc(100vw - 36px));
   }
 }
+
+.new-world__settings-extra { display: flex; flex-direction: column; gap: var(--ui-settings-setting-gap); }
+.new-world__settings-extra .setting-row__control { min-width: 180px; }
