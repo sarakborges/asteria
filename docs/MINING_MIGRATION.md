@@ -16,7 +16,14 @@ Reference: MineClone `world-systems-rebuild`, `src/targeting/mining.rs` and `src
 
 - Better authored swing cadence/animation and mining audiovisual feedback; the world-space crack stage overlay is now active.
 - Authored swing cadence/animation and mining audiovisual feedback.
-- Extended item/tool behaviors (Brush, Bucket, Shears, Artisan's Kit, Architect's Compass) and consumable item use.
+- Extended item/tool behaviors (Brush, Shears, Artisan's Kit, Architect's Compass) and consumable item use. Bucket fluid collect/place is implemented and documented below.
 - Loot-table policy parity beyond existing `dropsSelf` and creature-specific drops.
 
 The native input, mutation, content and Sphere boundaries remain unchanged: no UI-side key capture, no negative Y, and no pack-owned Godot resource imports.
+
+## Bucket source-fluid use (2026-10-08)
+
+- Ported the MineClone `src/tools/bucket.rs` contract to Core `BucketGameplayRuntime` using `FluidRegistry`, `VoxelWorld`, `VoxelMutationRuntime` and the existing player inventory. Godot only forwards a native right-click camera ray and block target. No duplicate fluid simulation owner is created.
+- An empty authored `asteria:bucket/use` tool uses a loaded-world block-occluded DDA to collect a **source** fluid cell, excluding spreading fluid. The resulting single bucket is tagged `contained_fluid` with the loaded fluid definition ID. A filled bucket places one full source cell in an adjacent loaded, empty voxel, checking Y≥0 and rejecting occupied fluid/block positions.
+- `PlayerInventory.TryReplaceSelected` permits only a one-item same-ID/same-kind/same-stack-limit metadata transition. The world mutation rolls back if the inventory transition is rejected; failed/invalid uses do not consume inventory or fluid.
+- This covers the fluid flow and metadata contract only. The current authored bucket entry retains its default icon when filled; variant icons and audible/visual use feedback can be authored later. Existing fluid simulation remains authoritative for spread.
