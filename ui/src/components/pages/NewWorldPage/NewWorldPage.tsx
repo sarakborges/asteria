@@ -58,7 +58,7 @@ export function NewWorldPage({
       : (
           <>
             <Button
-              label={t("newWorld.backToMenu")}
+              label={t("newWorld.return")}
               size="menu"
               className="new-world__create"
               disabled={state.pending}
