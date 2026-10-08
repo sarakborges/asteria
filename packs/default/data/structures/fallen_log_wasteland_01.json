@@ -1,0 +1,59 @@
+{
+  "id": "asteria:fallen_log_wasteland_01",
+  "groupId": "fallen_log_wasteland",
+  "rotation": true,
+  "locatable": false,
+  "priority": -1,
+  "conflictGroups": [
+    "wood_debris"
+  ],
+  "restrictions": {
+    "groundBlocks": [
+      "asteria:dirt",
+      "asteria:gravel",
+      "asteria:stone"
+    ],
+    "maxSlope": 0,
+    "requiresDryGround": true,
+    "requiredBiomeCoverage": 1
+  },
+  "generation": {
+    "replacePolicy": "terrain",
+    "fluidPolicy": "forbid",
+    "reserveSpace": false
+  },
+  "anchor": {
+    "x": 3,
+    "y": 0,
+    "z": 3
+  },
+  "groundAnchorY": 0,
+  "palette": {
+    "L": {
+      "block": "asteria:log_oak_stripped",
+      "orientation": "x"
+    },
+    "H": {
+      "block": "asteria:log_oak_stripped_hollow",
+      "orientation": "x"
+    },
+    "S": {
+      "block": "asteria:log_oak",
+      "orientation": "x"
+    }
+  },
+  "layers": [
+    {
+      "y": 1,
+      "rows": [
+        ".......",
+        ".......",
+        ".......",
+        "..LLS..",
+        ".......",
+        ".......",
+        "......."
+      ]
+    }
+  ]
+}

@@ -206,28 +206,48 @@
       "structure": "asteria:boulder_small",
       "spacing": 24,
       "chance": 0.4,
-      "jitter": 7
+      "jitter": 7,
+      "habitatWeights": {
+        "barren_flats": 0.35,
+        "deadwood_pockets": 0.16,
+        "rocky_scrub": 2.1
+      }
     },
     {
       "biome": "asteria:overworld/wasteland",
       "structure": "asteria:boulder_medium",
       "spacing": 40,
       "chance": 0.3,
-      "jitter": 12
+      "jitter": 12,
+      "habitatWeights": {
+        "barren_flats": 0.25,
+        "deadwood_pockets": 0.14,
+        "rocky_scrub": 1.9
+      }
     },
     {
       "biome": "asteria:overworld/wasteland",
       "structure": "asteria:boulder_big",
       "spacing": 64,
       "chance": 0.2,
-      "jitter": 20
+      "jitter": 20,
+      "habitatWeights": {
+        "barren_flats": 0.1,
+        "deadwood_pockets": 0.08,
+        "rocky_scrub": 1.65
+      }
     },
     {
       "biome": "asteria:overworld/wasteland",
       "structure": "asteria:boulder_huge",
       "spacing": 104,
       "chance": 0.1,
-      "jitter": 32
+      "jitter": 32,
+      "habitatWeights": {
+        "barren_flats": 0.07,
+        "deadwood_pockets": 0,
+        "rocky_scrub": 1.1
+      }
     },
     {
       "biome": "asteria:overworld/mountains",
@@ -478,6 +498,102 @@
       "chance": 0.55,
       "jitter": 48,
       "placement": "biomeMargin"
+    },
+    {
+      "biome": "asteria:overworld/arctic",
+      "structure": "asteria:ice_outcrop",
+      "spacing": 61,
+      "chance": 0.45,
+      "jitter": 18,
+      "habitatWeights": {
+        "frozen_plain": 0.08,
+        "ice_fields": 2.2,
+        "rocky_ridges": 0.5
+      }
+    },
+    {
+      "biome": "asteria:overworld/arctic",
+      "structure": "asteria:boulder_small",
+      "spacing": 77,
+      "chance": 0.28,
+      "jitter": 23,
+      "habitatWeights": {
+        "frozen_plain": 0.03,
+        "ice_fields": 0.18,
+        "rocky_ridges": 2.25
+      }
+    },
+    {
+      "biome": "asteria:overworld/arctic",
+      "structure": "asteria:rock_cluster",
+      "spacing": 151,
+      "chance": 0.28,
+      "jitter": 46,
+      "habitatWeights": {
+        "frozen_plain": 0,
+        "ice_fields": 0.09,
+        "rocky_ridges": 2.1
+      }
+    },
+    {
+      "biome": "asteria:overworld/desert",
+      "structure": "asteria:sandstone_outcrop",
+      "spacing": 67,
+      "chance": 0.48,
+      "jitter": 20,
+      "habitatWeights": {
+        "open_dunes": 0.04,
+        "gravel_flats": 0.45,
+        "sandstone_outcrops": 2.15
+      }
+    },
+    {
+      "biome": "asteria:overworld/desert",
+      "structure": "asteria:sandstone_spire",
+      "spacing": 124,
+      "chance": 0.35,
+      "jitter": 37,
+      "habitatWeights": {
+        "open_dunes": 0.015,
+        "gravel_flats": 0.3,
+        "sandstone_outcrops": 2
+      }
+    },
+    {
+      "biome": "asteria:overworld/wasteland",
+      "structure": "asteria:wasteland_snag",
+      "spacing": 67,
+      "chance": 0.4,
+      "jitter": 20,
+      "habitatWeights": {
+        "barren_flats": 0.12,
+        "deadwood_pockets": 1.8,
+        "rocky_scrub": 0.2
+      }
+    },
+    {
+      "biome": "asteria:overworld/wasteland",
+      "structure": "asteria:fallen_log_wasteland",
+      "spacing": 88,
+      "chance": 0.42,
+      "jitter": 26,
+      "habitatWeights": {
+        "barren_flats": 0.14,
+        "deadwood_pockets": 1.9,
+        "rocky_scrub": 0.04
+      }
+    },
+    {
+      "biome": "asteria:overworld/wasteland",
+      "structure": "asteria:rock_cluster",
+      "spacing": 141,
+      "chance": 0.39,
+      "jitter": 42,
+      "habitatWeights": {
+        "barren_flats": 0.02,
+        "deadwood_pockets": 0.1,
+        "rocky_scrub": 2.25
+      }
     }
   ],
   "dayNightCycle": "asteria:overworld/day_night_cycle",

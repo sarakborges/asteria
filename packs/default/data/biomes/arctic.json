@@ -24,7 +24,25 @@
   "surfaceLayers": [
     {
       "block": "asteria:snow",
-      "depth": 4
+      "depth": 4,
+      "patch": {
+        "scale": 34,
+        "coverage": 0.14,
+        "roughness": 0.32,
+        "blocks": [
+          "asteria:ice",
+          "asteria:gravel"
+        ],
+        "detailScale": 10,
+        "selectionScale": 80,
+        "warpScale": 76,
+        "warpStrength": 11,
+        "stretchZ": 1.45,
+        "weights": {
+          "asteria:ice": 4,
+          "asteria:gravel": 1
+        }
+      }
     },
     {
       "block": "asteria:dirt",
@@ -42,14 +60,41 @@
   "decorations": [
     {
       "block": "asteria:pebble",
-      "chance": 0.055,
+      "chance": 0.095,
       "surfaceBlocks": [
-        "asteria:snow"
+        "asteria:snow",
+        "asteria:ice",
+        "asteria:gravel"
       ],
       "cluster": {
         "scale": 18,
-        "threshold": -0.25
+        "threshold": -0.25,
+        "octaves": 4,
+        "transitionWidth": 0.12
+      },
+      "habitatWeights": {
+        "frozen_plain": 0.2,
+        "ice_fields": 0.75,
+        "rocky_ridges": 2.35
       }
     }
-  ]
+  ],
+  "surfaceHabitats": {
+    "scale": 136,
+    "transitionWidth": 0.12,
+    "bands": [
+      {
+        "id": "frozen_plain",
+        "maximum": -0.19
+      },
+      {
+        "id": "ice_fields",
+        "maximum": 0.19
+      },
+      {
+        "id": "rocky_ridges",
+        "maximum": 1
+      }
+    ]
+  }
 }
