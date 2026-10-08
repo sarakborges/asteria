@@ -68,11 +68,19 @@ public sealed class SavedStorageBoxContents
 public sealed record SphereClockSnapshot
 {
     private readonly IReadOnlyList<SavedStorageBoxContents> _storageBoxes;
+    private readonly IReadOnlyList<ManualStructurePlacementFootprint> _manualStructures;
+    private readonly BlockPhysicsRuntimeSnapshot? _blockPhysics;
+    private readonly DroppedBlockRuntimeSnapshot? _droppedBlocks;
+    private readonly CreatureRuntimeSnapshot? _creatures;
 
     public SphereClockSnapshot(
         DimensionId dimension, ulong worldTick, DayNightClockState? dayNight,
         Vector3? position, ulong naturalSpawnNextAttemptTick,
-        IEnumerable<SavedStorageBoxContents>? storageBoxes = null)
+        IEnumerable<SavedStorageBoxContents>? storageBoxes = null,
+        IEnumerable<ManualStructurePlacementFootprint>? manualStructures = null,
+        BlockPhysicsRuntimeSnapshot? blockPhysics = null,
+        DroppedBlockRuntimeSnapshot? droppedBlocks = null,
+        CreatureRuntimeSnapshot? creatures = null)
     {
         if (string.IsNullOrWhiteSpace(dimension.Value) ||
             dayNight is { Day: 0 } ||
@@ -86,15 +94,31 @@ public sealed record SphereClockSnapshot
             boxes.Select(box => box.Position).Distinct().Count() != boxes.Length)
             throw new InvalidDataException("Invalid saved storage box identities.");
 
+        var footprints = (manualStructures ?? []).Take(65537).ToArray();
+        if (footprints.Length > 65536 || footprints.Any(value => value is null))
+            throw new InvalidDataException("Invalid saved manual structure count.");
+
         Dimension = dimension;
         WorldTick = worldTick;
         DayNight = dayNight;
         Position = position;
         NaturalSpawnNextAttemptTick = naturalSpawnNextAttemptTick;
         _storageBoxes = Array.AsReadOnly(boxes);
+        _manualStructures = Array.AsReadOnly(footprints);
+        _blockPhysics = SphereDynamicSnapshot.ValidateAndCopy(blockPhysics);
+        _droppedBlocks = SphereDynamicSnapshot.ValidateAndCopy(droppedBlocks);
+        _creatures = SphereDynamicSnapshot.ValidateAndCopy(creatures);
     }
 
     public IReadOnlyList<SavedStorageBoxContents> StorageBoxes => _storageBoxes;
+    public IReadOnlyList<ManualStructurePlacementFootprint> ManualStructures =>
+        _manualStructures;
+    public BlockPhysicsRuntimeSnapshot? BlockPhysics =>
+        SphereDynamicSnapshot.Copy(_blockPhysics);
+    public DroppedBlockRuntimeSnapshot? DroppedBlocks =>
+        SphereDynamicSnapshot.Copy(_droppedBlocks);
+    public CreatureRuntimeSnapshot? Creatures =>
+        SphereDynamicSnapshot.Copy(_creatures);
 
     public DimensionId Dimension { get; }
     public ulong WorldTick { get; }
@@ -167,7 +191,9 @@ public static class GameplaySessionSaveCodec
                 state.Dimension.Id, state.WorldTick, state.DayNight,
                 state.PlayerPosition, state.NaturalSpawnNextAttemptTick,
                 state.StorageBoxes.CaptureOccupied().Select(box =>
-                    new SavedStorageBoxContents(box.Position, box.Slots))));
+                    new SavedStorageBoxContents(box.Position, box.Slots)),
+                state.ManualStructures.Snapshot(),
+                state.BlockPhysics, state.DroppedBlocks, state.Creatures));
         return new GameplaySessionSnapshot(
             spatial, source.Name, source.GameRules.TicksPerSecond,
             source.GameRules.SpawnCreatures,
@@ -202,6 +228,10 @@ public static class GameplaySessionSaveCodec
             state.NaturalSpawnNextAttemptTick = clock.NaturalSpawnNextAttemptTick;
             state.StorageBoxes.RestoreOccupied(
                 clock.StorageBoxes, state.World, blocks);
+            state.ManualStructures.RestoreCommitted(clock.ManualStructures);
+            state.BlockPhysics = clock.BlockPhysics;
+            state.DroppedBlocks = clock.DroppedBlocks;
+            state.Creatures = clock.Creatures;
         }
 
         return restored;

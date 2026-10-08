@@ -107,6 +107,25 @@ keeps Godot as an I/O/interaction adapter.
   disk save: detached creatures, manual structures, physics and full
   generation publication remain outstanding.
 
+## Stage 7: Sphere manual history and detached dynamics
+
+- The per-Sphere session snapshot now carries committed manual-structure
+  footprints, falling blocks with velocity and IDs, dropped stacks with
+  position/velocity/age/settled support, and creature identity, health,
+  motion, tags and age. Every runtime snapshot is copied behind read-only
+  arrays with explicit count, unique-ID and finite-value validation.
+- Manual placement journals rebuild their sparse reservation index using
+  a validated temporary ledger. Overlaps and oversized 2D footprints are
+  rejected before publishing any reservations to the restored Sphere.
+- Restored dynamics remain attached to the target `DimensionSessionState`.
+  The normal owning runtimes receive and further validate them on session
+  initialization; no shadow entity owner is introduced.
+- Tests cover per-Sphere separation, recovered overlapping placement
+  prevention, detached snapshot immutability and malformed entity rejection.
+- Runtime block IDs in captured falling blocks/drops are still in-process
+  identities. They must be mapped to authored IDs by the full disk session
+  codec before any playable load is enabled.
+
 ## Remaining
 
 Wire the spatial snapshot capture and disk publisher into a quiescent

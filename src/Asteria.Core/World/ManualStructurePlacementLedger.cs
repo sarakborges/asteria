@@ -60,6 +60,47 @@ public sealed class ManualStructurePlacementLedger
     public IReadOnlyList<ManualStructurePlacementFootprint> Snapshot() =>
         Array.AsReadOnly(_entries.ToArray());
 
+    /// <summary>
+    /// Restores an authored reservation journal in its original commit order.
+    /// Preflight uses an isolated ledger so a conflict or oversized footprint
+    /// never partially changes the authoritative index.
+    /// </summary>
+    internal void RestoreCommitted(IReadOnlyList<ManualStructurePlacementFootprint> saved)
+    {
+        ArgumentNullException.ThrowIfNull(saved);
+        if (_entries.Count != 0)
+            throw new InvalidOperationException(
+                "Cannot restore manual structures into a populated ledger.");
+        if (saved.Count > 65536)
+            throw new InvalidDataException("Too many saved manual structures.");
+
+        var candidate = new ManualStructurePlacementLedger();
+        foreach (var footprint in saved)
+        {
+            if (footprint is null)
+                throw new InvalidDataException("Null manual structure footprint.");
+
+            var minimum = VoxelCoordinates.FromWorld(
+                footprint.MinimumX, 0, footprint.MinimumZ).Chunk;
+            var maximum = VoxelCoordinates.FromWorld(
+                footprint.MaximumX, 0, footprint.MaximumZ).Chunk;
+            var columns = (long)maximum.X - minimum.X + 1;
+            var rows = (long)maximum.Z - minimum.Z + 1;
+            if (columns * rows > 4096)
+                throw new InvalidDataException(
+                    "Saved manual structure footprint covers too many columns.");
+
+            if (candidate.Overlaps(footprint))
+                throw new InvalidDataException(
+                    "Saved manual structure reservations overlap.");
+            candidate.RecordCommitted(footprint);
+        }
+
+        _entries.AddRange(candidate._entries);
+        foreach (var (key, positions) in candidate._byColumn)
+            _byColumn.Add(key, positions);
+    }
+
     public bool Overlaps(ManualStructurePlacementFootprint candidate)
     {
         ArgumentNullException.ThrowIfNull(candidate);
