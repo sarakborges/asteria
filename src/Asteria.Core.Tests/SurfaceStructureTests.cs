@@ -1106,6 +1106,53 @@ public sealed class SurfaceStructureTests
     }
 
     [Fact]
+    public void ManualStructureReservationSurvivesChunkArchiveAndSessionReconstruction()
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition("asteria:stone"),
+            new BlockDefinition("asteria:marker"),
+        ]);
+        var structure = new StructureDefinition("asteria:manual_marker",
+            rotation: false, anchor: default,
+            voxels: [new StructureVoxelDefinition(
+                0, 0, 0, "asteria:marker", BlockOrientation.Y)],
+            restrictions: new StructureRestrictionsDefinition(
+                maxSlope: 0, requiresDryGround: false));
+        var structures = new StructureRegistry([structure]);
+        var generator = FlatStructureGenerator(
+            blocks, structures, "asteria:stone");
+        var y = generator.SurfaceHeight(8, 8);
+        var chunk = VoxelCoordinates.FromWorld(8, y, 8).Chunk;
+        var world = new VoxelWorld();
+        world.InsertChunk(chunk, generator.Materialize(chunk));
+        var journal = new ManualStructurePlacementLedger();
+        var player = new WorldAabb(
+            new System.Numerics.Vector3(12, y + 2, 12),
+            new System.Numerics.Vector3(13, y + 4, 13));
+
+        var before = ManualRuntime(
+            generator, world, blocks, structures, StructureSetRegistry.Empty,
+            journal);
+        Assert.Equal(ManualStructurePlacementResult.Placed,
+            before.TryPlace(structure.Id, null, 8, 8, player));
+        Assert.Single(journal.Snapshot());
+        world.ArchiveChunk(chunk);
+        Assert.Equal(ChunkRestoreResult.Restored, world.RestoreChunk(chunk));
+
+        var after = ManualRuntime(
+            generator, world, blocks, structures, StructureSetRegistry.Empty,
+            journal);
+        var revision = world.Revision;
+        Assert.Equal(ManualStructurePlacementResult.InvalidPlacement,
+            after.TryPlace(structure.Id, null, 8, 8, player));
+        Assert.Equal(revision, world.Revision);
+        Assert.Single(journal.Snapshot());
+        Assert.Equal(blocks.GetId("asteria:marker"),
+            world.GetCellOrEmpty(new WorldVoxelCoord(8, y, 8)).Block);
+    }
+
+    [Fact]
     public void ManualStructureNeverChangesUnloadedWorld()
     {
         var blocks = new BlockRegistry(
@@ -1295,13 +1342,15 @@ public sealed class SurfaceStructureTests
     private static ManualStructurePlacementRuntime ManualRuntime(
         BiomeWorldGenerator generator, VoxelWorld world,
         BlockRegistry blocks, StructureRegistry structures,
-        StructureSetRegistry sets) =>
+        StructureSetRegistry sets,
+        ManualStructurePlacementLedger? journal = null) =>
         new(generator, world,
             new VoxelMutationRuntime(
                 world, new WorldUpdateQueue(), new FluidUpdateQueue(),
                 new FluidMeshUpdateQueue(), new BlockPhysicsUpdateQueue(),
                 new MeshletContentRevisions(), new MeshletContentRevisions()),
-            blocks, structures, sets, new ManualStructurePlacementLedger());
+            blocks, structures, sets,
+            journal ?? new ManualStructurePlacementLedger());
 
     [Theory]
     [InlineData(0, 0)]
