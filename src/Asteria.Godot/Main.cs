@@ -1851,19 +1851,165 @@ public partial class Main : Node3D
         if (_chat.TrySubmit(value.GetString(), out var text))
         {
             _chatFeedbackSeconds = 10.0;
-            var position = _player?.GlobalPosition ?? Vector3.Zero;
-            var coordinates = $"X: {Mathf.FloorToInt(position.X)} " +
-                $"Z: {Mathf.FloorToInt(position.Z)} Y: {Mathf.FloorToInt(position.Y)}";
-            var clock = _sessions.Active.DayNight;
-            var (hour, minute) = clock.WorldTime;
-            PlayerChatCommandProcessor.Execute(_chat, text, coordinates,
-                $"{clock.Day} · {hour:D2}:{minute:D2}");
+            ExecuteChatCommand(PlayerChatCommandProcessor.Parse(text));
         }
 
         // Invalid/empty submissions also close the chat, without echoing.
         SendChatState();
         _player?.ResumeAfterKeyCapture();
         CallDeferred(nameof(ResumeGameplayAfterChat));
+    }
+
+    private void ExecuteChatCommand(ParsedChatCommand command)
+    {
+        if (_sessionStates.Player.GameMode.IsSpectator() &&
+            command.Kind != ChatCommandKind.Say)
+        {
+            ChatFeedback("chat.command.spectatorUnavailable", error: true);
+            return;
+        }
+
+        switch (command.Kind)
+        {
+            case ChatCommandKind.Say:
+                _chat.Append($"<Player>: {command.Argument}");
+                break;
+            case ChatCommandKind.Usage:
+                ChatFeedback("chat.command.usage", error: true,
+                    ("usage", command.Argument ?? ""));
+                break;
+            case ChatCommandKind.Unknown:
+                ChatFeedback("chat.command.unknown", error: true,
+                    ("command", command.Argument ?? ""));
+                break;
+            case ChatCommandKind.Spawn:
+                ExecuteChatSpawn(command);
+                break;
+            case ChatCommandKind.LocateBiome:
+            case ChatCommandKind.LocateStructure:
+                ExecuteChatLocate(command);
+                break;
+            default:
+                ChatFeedback("chat.command.notImplemented", error: true,
+                    ("command", command.Kind.ToString().ToLowerInvariant()));
+                break;
+        }
+    }
+
+    private void ChatFeedback(
+        string key, bool error = false,
+        params (string Key, string Value)[] parameters)
+    {
+        var arguments = parameters.ToDictionary(
+            pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+        _chat.Append("", error, key, arguments);
+    }
+
+    private void ExecuteChatSpawn(ParsedChatCommand command)
+    {
+        var id = command.Argument!;
+        if (!_creatures.TryGet(id, out _))
+        {
+            ChatFeedback("chat.command.spawn.unknownCreature", error: true,
+                ("id", id));
+            return;
+        }
+
+        if (command.Option is not null)
+        {
+            ChatFeedback("chat.command.notImplemented", error: true,
+                ("command", "/spawn <id> [meta_tag]"));
+            return;
+        }
+
+        if (_player is null)
+        {
+            ChatFeedback("chat.command.spawn.playerUnavailable", error: true);
+            return;
+        }
+
+        var (_, target) = _player.GetInteractionRay(5f);
+        var safe = _sessions.Active.Generator.FindGeneratedDestination(
+            Mathf.FloorToInt(target.X),
+            Math.Max(0, Mathf.FloorToInt(target.Y)),
+            Mathf.FloorToInt(target.Z), maxRadius: 12);
+        if (safe is null ||
+            !_world.IsLoadedAt(new WorldVoxelCoord(
+                safe.Value.X, safe.Value.Y, safe.Value.Z)))
+        {
+            ChatFeedback("chat.command.spawn.noSpace", error: true, ("id", id));
+            return;
+        }
+
+        var feet = new NVector3(
+            safe.Value.X + 0.5f, safe.Value.Y, safe.Value.Z + 0.5f);
+        if (!_sessions.Active.TrySpawnCreature(id, feet))
+        {
+            ChatFeedback("chat.command.spawn.failed", error: true, ("id", id));
+            return;
+        }
+
+        ChatFeedback("chat.command.spawn.success",
+            ("name", id),
+            ("position", $"({safe.Value.X}, {safe.Value.Z}, {safe.Value.Y})"));
+    }
+
+    private void ExecuteChatLocate(ParsedChatCommand command)
+    {
+        if (_player is null)
+        {
+            ChatFeedback("chat.command.locate.playerUnavailable", error: true);
+            return;
+        }
+
+        var id = command.Argument!;
+        if (command.Option is not null)
+        {
+            ChatFeedback("chat.command.notImplemented", error: true,
+                ("command", "/locate structure <id> [variation]"));
+            return;
+        }
+
+        var origin = _player.GlobalPosition;
+        var x = Mathf.FloorToInt(origin.X);
+        var z = Mathf.FloorToInt(origin.Z);
+        const int maxDistance = 512;
+        if (command.Kind == ChatCommandKind.LocateBiome)
+        {
+            if (!_biomes.TryGet(id, out _))
+            {
+                ChatFeedback("chat.command.locate.unknownBiome", error: true, ("id", id));
+                return;
+            }
+
+            var found = _sessions.Active.Generator.FindNearestSurfaceBiome(
+                id, x, z, maxDistance);
+            if (found is null)
+            {
+                ChatFeedback("chat.command.locate.notFound", error: true,
+                    ("name", id), ("radius", maxDistance.ToString()));
+                return;
+            }
+
+            var y = _sessions.Active.Generator.SurfaceHeight(found.X, found.Z);
+            ChatFeedback("chat.command.locate.found",
+                ("name", id),
+                ("position", $"({found.X}, {found.Z}, {y})"));
+            return;
+        }
+
+        var structure = _sessions.Active.Generator.FindNearestSurfaceStructure(
+            id, x, z, maxDistance);
+        if (structure is null)
+        {
+            ChatFeedback("chat.command.locate.notFound", error: true,
+                ("name", id), ("radius", maxDistance.ToString()));
+            return;
+        }
+        ChatFeedback("chat.command.locate.found",
+            ("name", id),
+            ("position", $"({structure.Value.AnchorX}, " +
+                $"{structure.Value.AnchorZ}, {structure.Value.AnchorY})"));
     }
 
     private void AdvanceChatPresentation(double delta)
@@ -1885,6 +2031,7 @@ public partial class Main : Node3D
                 text = line.Text,
                 tone = line.IsError ? "error" : "normal",
                 localizationKey = line.LocalizationKey,
+                parameters = line.Parameters,
             }).ToArray(),
             commands = PlayerChatCommandProcessor.SupportedCommands,
         });
