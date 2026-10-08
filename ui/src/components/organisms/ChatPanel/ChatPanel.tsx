@@ -17,7 +17,8 @@ export type ChatPanelProps = {
   suggestions?: readonly ChatSuggestionView[];
   selectedSuggestionIndex?: number;
   draft: string;
-  onDraftChange?(value: string): void;
+  onDraftChange?(value: string, caret: number): void;
+  onInputSelect?(caret: number): void;
   onSubmit?(): void;
   onInputKeyDown?(event: KeyboardEvent<HTMLInputElement>): void;
   onMessageAction?(messageId: string): void;
@@ -26,6 +27,7 @@ export type ChatPanelProps = {
 export function ChatPanel({
   open, visible, history, suggestions = [], selectedSuggestionIndex = 0,
   draft, onDraftChange, onSubmit, onMessageAction, onInputKeyDown,
+  onInputSelect,
 }: ChatPanelProps) {
   const { t } = useLocalization();
   const historyRef = useRef<HTMLDivElement>(null);
@@ -95,7 +97,10 @@ export function ChatPanel({
             maxLength={MAX_DRAFT_CHARS}
             aria-label={t("ui.chatMessage")}
             readOnly={!onDraftChange}
-            onChange={event => onDraftChange?.(event.target.value)}
+            onSelect={event => onInputSelect?.(event.currentTarget.selectionStart ?? draft.length)}
+            onChange={event => onDraftChange?.(
+              event.target.value, event.target.selectionStart ?? event.target.value.length,
+            )}
           />
         </form>
       )}
