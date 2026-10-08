@@ -176,7 +176,7 @@ public sealed class SurfaceStructureTests
             Assert.True(tree.Restrictions.RequiresDryGround);
             Assert.Equal(new[] { "asteria:grass_block", "asteria:dirt" },
                 tree.Restrictions.GroundBlocks);
-            Assert.Equal(0, tree.GroundAnchorY);
+            Assert.Equal(0, tree.GroundAnchorYOffset);
             Assert.True(tree.Voxels.Count >= 20);
             Assert.Contains(tree.Voxels, voxel => voxel.Block == "asteria:log_enchanted" && voxel.Orientation == BlockOrientation.Y);
             Assert.Contains(tree.Voxels, voxel => voxel.Block == "asteria:leaf_enchanted");
