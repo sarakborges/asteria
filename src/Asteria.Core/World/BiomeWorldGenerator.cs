@@ -294,9 +294,10 @@ public sealed class BiomeWorldGenerator :
     internal bool TryPrepareManualStructure(
         string reference, int? variation,
         int anchorX, int anchorZ,
-        out IReadOnlyList<SurfaceStructurePlacement> placements) =>
+        ManualStructurePlacementLedger committed,
+        out ManualStructurePlacementPlan? plan) =>
         _surfaceStructures.TryPrepareManualPlacement(
-            reference, variation, anchorX, anchorZ, out placements);
+            reference, variation, anchorX, anchorZ, committed, out plan);
 
     public bool HasGeneratedSurfaceStructure(string reference) =>
         _surfaceStructures.HasReference(reference);
