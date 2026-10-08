@@ -62,6 +62,11 @@ public sealed class BiomeSurfaceMaterialField
                 $"Surface biome {sample.Primary} has no material rule.");
         }
 
+        if (depth >= rule.CoreStartDepth)
+        {
+            return rule.CoreBlock;
+        }
+
         return rule.BlockAtDepth(
             _seed,
             worldX,
