@@ -2571,7 +2571,7 @@ public sealed class SurfaceStructureField
 
     private sealed class RootRule
     {
-        private RootRule(
+        public RootRule(
             string biome,
             string reference,
             int spacing,
