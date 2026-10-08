@@ -270,6 +270,31 @@ terrain queries, altitude-only restrictions query only the local column,
 and adjacent heights are read only when at least one authored condition
 needs slope. Content JSON belongs to the selected pack.
 
+## Persistent world diagnostics and deep-material fast path
+
+The Godot adapter writes `user://logs/worldgen-latest.log` automatically
+at startup. Its absolute OS path is printed once to the Godot output; the
+file is overwritten on the next client launch. Collection does not depend
+on F3 or the WebUI. Every five seconds, it records actual chunk
+materializations/restores, mean-independent total and maximum materializer
+worker milliseconds, pending/in-flight/resident/presented counts, terrain
+mesh-worker work, stale meshlets, and lighting-worker work. Materialization
+errors are written immediately. Diagnostics report existing runtime facts;
+they do not own queues, scheduling decisions or derived simulation state.
+
+Worldgen materialization now checks the validated immutable deepest
+material layer before resolving conditional surface patches. When the
+whole requested voxel depth belongs to the core layer, it avoids patch
+noise, terrain-condition queries and material-column allocations.
+The current surface/volume biome remains authoritative and shallow
+layers retain the original material selection. This is especially
+valuable for underground vertical chunk bands.
+
+The `asteria:dirt` block has no biome tint and a single base texture;
+therefore a gray visual effect on Wasteland dirt should first be
+investigated in voxel lighting/AO, face shading, geometry or adjacent
+gravel layers, rather than changing Wasteland's grass/foliage tint data.
+
 ## Non-regression rules
 
 - No legacy worldgen implementation may be restored for convenience.
