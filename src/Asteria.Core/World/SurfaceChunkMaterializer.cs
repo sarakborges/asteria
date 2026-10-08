@@ -665,6 +665,10 @@ public sealed class SurfaceChunkMaterializer
                 BlockRuntimeId support;
                 if (worldY > baseY)
                 {
+                    // The ordinary base-surface top is not an additive
+                    // island even if a volume biome owns this X/Z column.
+                    if (worldY - 1 <= baseY)
+                        continue;
                     decoratorBiome = densityVolume.VolumeBiomeAt(
                         localX, worldY - 1, localZ);
                     if (decoratorBiome is null ||

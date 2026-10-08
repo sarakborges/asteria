@@ -38,14 +38,17 @@ public sealed class SurfaceStructureTests
             structures, structureSets);
 
         Assert.Equal(
-            79,
+            81,
             structures.Count);
+        Assert.Equal(2, structures.ResolveReference("asteria:ocean_rock").Count);
         Assert.Equal(2, structures.ResolveReference("asteria:basalt_outcrop").Count);
         Assert.Equal(2, structures.ResolveReference("asteria:basalt_boulder").Count);
         Assert.Equal(2, structures.ResolveReference("asteria:basalt_spire").Count);
         Assert.Equal(2, structures.ResolveReference("asteria:talus_outcrop").Count);
         Assert.Equal(3, structures.ResolveReference("asteria:bush_oak").Count);
-        Assert.Equal(6, structureSets.Count);
+        Assert.Equal(7, structureSets.Count);
+        Assert.Equal("asteria:ocean_rock",
+            structureSets.Get("asteria:ocean_rock_cluster").Elements[0].Structure);
         Assert.Equal("asteria:basalt_outcrop",
             structureSets.Get("asteria:basalt_cluster").Elements[0].Structure);
         Assert.Equal(2, structures.ResolveReference("asteria:fallen_log_wraith").Count);
@@ -93,7 +96,7 @@ public sealed class SurfaceStructureTests
             structures.ResolvesReference(
                 "asteria:river_ocean_mouth"));
         Assert.Equal(
-            59,
+            61,
             overworld
                 .GeneratedSurfaceStructures
                 .Count);
