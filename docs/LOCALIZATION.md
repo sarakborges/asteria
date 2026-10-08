@@ -7,7 +7,7 @@ Ported from MineClone's domain-keyed catalog contract. English, Brazilian Portug
 - Player-facing text in React components must use `useLocalization().t("domain.key")`. Keep components otherwise independent of localization.
 - The starting screen selects the active language, stored as `asteria.language` in browser storage. English is the initial default.
 - Never mutate the font family when adding translations.
-- Additional translated data catalogs for blocks, items, creatures and others should only be activated after wiring their definition loading paths; MineClone definition IDs must not be assumed to match Asteria IDs.
+- Domain catalogs for blocks, fluids, dimensions, items, tools, and creatures are checked against the authored Asteria pack IDs; translation never changes a stable runtime ID.
 - New user-facing text must be added to all three locale files together.
 
 ## Localized game content
@@ -26,3 +26,10 @@ Ported from MineClone's domain-keyed catalog contract. English, Brazilian Portug
 - World-creation error keys are `newWorld.error.seedMustBeString`, `newWorld.error.invalidSeed` and `newWorld.error.unexpected`. Runtime loading phase keys live under `loading.runtime.*`.
 - Debug status keys are presentation-only; bridge event names and runtime diagnostic payloads are technical, untranslated identifiers.
 - The catalog check additionally cross-validates every block, biome, dimension and fluid definition ID against domain `/name` translations. This detects missed content during subsequent ports.
+
+## Item, tool and creature migration
+
+- Source: MineClone `world-systems-rebuild`. The default pack now contains 12 items, 9 tools and 20 creatures alongside their EN/PT-BR/ES JSON Pointer (`/name`, `/hint`) catalogs. Tools retain authored behavior IDs but Asteria has not implemented those interactions yet.
+- `Asteria.Core.Content` owns immutable typed definition parsing/registries. Godot's selected-pack loaders read authored JSONs through `ProjectDataDocuments`; the Godot composition root loads registries. Creature spawn, movement, combat, inventory use and renderer wiring require separate runtime systems; importing definitions alone does **not** make entities appear in the game.
+- Original textures and model GLBs are stored under `packs/default/resources` and stay outside Godot's import scanner. The Architect's Compass image comes from MineClone `main`, where it exists, because the rebuild branch references it without including the file.
+- The WebUI translates IDs using the three new domain catalogs; `check:localization` rejects missing/extra IDs, pointer mismatches, placeholder mismatches or broken item/tool/creature resource references.

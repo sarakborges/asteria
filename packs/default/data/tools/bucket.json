@@ -1,0 +1,7 @@
+{
+  "id": "asteria:bucket",
+  "category": "tools",
+  "icon": "textures/tools/iron_bucket_empty.png",
+  "leftBehavior": "asteria:none",
+  "rightBehavior": "asteria:bucket/use"
+}

@@ -1,70 +1,100 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 
 const languages = ["english", "portuguese_brazil", "spanish"];
-const domains = ["ui", "blocks", "dimensions", "fluids"];
-const dataRoot = fileURLToPath(new URL("../../packs/default/data/", import.meta.url));
+const domains = ["ui", "blocks", "dimensions", "fluids", "items", "tools", "creatures"];
+const packRoot = fileURLToPath(new URL("../../packs/default/", import.meta.url));
+const dataRoot = join(packRoot, "data");
+const resourcesRoot = join(packRoot, "resources");
 const catalogsRoot = join(dataRoot, "localization");
-const readCatalog = (language, domain) =>
+const catalog = (language, domain) =>
   JSON.parse(readFileSync(join(catalogsRoot, language, domain + ".json"), "utf8"));
 const placeholders = value =>
   [...value.matchAll(/\{([^{}]+)\}/g)].map(match => match[1]).sort().join("|");
 
 for (const domain of domains) {
-  const original = readCatalog("english", domain);
+  const original = catalog("english", domain);
   const keys = Object.keys(original).sort();
   for (const language of languages) {
-    const catalog = readCatalog(language, domain);
-    if (JSON.stringify(Object.keys(catalog).sort()) !== JSON.stringify(keys)) {
-      throw new Error(language + "/" + domain + " keys differ from English");
+    const localized = catalog(language, domain);
+    if (JSON.stringify(Object.keys(localized).sort()) !== JSON.stringify(keys)) {
+      throw new Error(language + "/" + domain + " ids differ from English");
     }
     for (const key of keys) {
-      const source = domain === "ui" ? original[key] : original[key]["/name"];
-      const translated = domain === "ui" ? catalog[key] : catalog[key]["/name"];
-      if (typeof translated !== "string" || !translated.trim()) {
-        throw new Error(language + "/" + domain + " missing entry " + key);
+      const sourceFields = domain === "ui" ? { text: original[key] } : original[key];
+      const fields = domain === "ui" ? { text: localized[key] } : localized[key];
+      if (JSON.stringify(Object.keys(fields).sort()) !==
+          JSON.stringify(Object.keys(sourceFields).sort())) {
+        throw new Error(language + "/" + domain + " pointers differ at " + key);
       }
-      if (placeholders(translated) !== placeholders(source)) {
-        throw new Error(language + "/" + domain + " mismatched placeholders for " + key);
-      }
-      if (domain !== "ui" && JSON.stringify(Object.keys(original[key]).sort()) !== JSON.stringify(Object.keys(catalog[key]).sort())) {
-        throw new Error(language + "/" + domain + " pointer mismatch for " + key);
+      for (const pointer of Object.keys(sourceFields)) {
+        if (domain !== "ui" && !pointer.startsWith("/")) {
+          throw new Error(domain + " localization field must be a JSON pointer: " + pointer);
+        }
+        const translated = fields[pointer];
+        if (typeof translated !== "string" || !translated.trim()) {
+          throw new Error(language + "/" + domain + " missing text " + key + pointer);
+        }
+        if (placeholders(translated) !== placeholders(sourceFields[pointer])) {
+          throw new Error(language + "/" + domain + " placeholder mismatch: " + key + pointer);
+        }
       }
     }
   }
   console.log("Validated " + domain + ": " + keys.length + " entries");
 }
 
-// Every authored block, biome, dimension and fluid must have a display name.
-// Validate coverage at build time so missing translations never ship silently.
+const resource = (path, context) => {
+  if (typeof path !== "string" || !path ||
+      path.includes("\\") || path.includes(":") ||
+      path.startsWith("/") ||
+      path.split("/").some(segment => !segment || segment === "." || segment === "..")) {
+    throw new Error(context + ": invalid pack resource path");
+  }
+  if (!existsSync(join(resourcesRoot, path))) {
+    throw new Error(context + ": missing pack resource " + path);
+  }
+};
+
 for (const [domain, directories] of [
   ["blocks", ["blocks"]],
   ["dimensions", ["biomes", "dimensions"]],
   ["fluids", ["fluids"]],
+  ["items", ["items"]],
+  ["tools", ["tools"]],
+  ["creatures", ["creatures"]],
 ]) {
-  const keys = new Set(Object.keys(readCatalog("english", domain)));
+  const ids = new Set(Object.keys(catalog("english", domain)));
   const seen = new Set();
   for (const directory of directories) {
-    const dir = join(dataRoot, directory);
-    for (const file of readdirSync(dir).filter(file => file.endsWith(".json")).sort()) {
-      const definition = JSON.parse(readFileSync(join(dir, file), "utf8"));
+    for (const file of readdirSync(join(dataRoot, directory))
+      .filter(filename => filename.endsWith(".json")).sort()) {
+      const definition = JSON.parse(readFileSync(join(dataRoot, directory, file), "utf8"));
       if (typeof definition.id !== "string" || !definition.id) {
-        throw new Error("Missing definition id in " + directory + "/" + file);
+        throw new Error("Missing id in " + directory + "/" + file);
       }
-      if (seen.has(definition.id)) {
-        throw new Error("Duplicate definition id: " + definition.id);
+      if (seen.has(definition.id) || !ids.has(definition.id)) {
+        throw new Error("Duplicate or untranslated " + domain + " id " + definition.id);
       }
       seen.add(definition.id);
-      if (!keys.has(definition.id)) {
-        throw new Error("Missing " + domain + " translation for " + definition.id);
+      if (domain === "items" || domain === "tools") {
+        resource(definition.icon, definition.id + ".icon");
+        if (definition.tintIcon) resource(definition.tintIcon, definition.id + ".tintIcon");
+        for (const variant of definition.iconVariants ?? []) {
+          resource(variant.icon, definition.id + ".iconVariants");
+        }
+      }
+      if (domain === "creatures") {
+        resource(definition.model, definition.id + ".model");
+        for (const [material, texture] of Object.entries(definition.textures ?? {})) {
+          resource(texture, definition.id + ".textures." + material);
+        }
       }
     }
   }
-  for (const key of keys) {
-    if (!seen.has(key)) {
-      throw new Error("Unused " + domain + " localization: " + key);
-    }
+  for (const id of ids) {
+    if (!seen.has(id)) throw new Error("Unused " + domain + " localization: " + id);
   }
   console.log("Validated authored " + domain + ": " + seen.size + " definitions");
 }

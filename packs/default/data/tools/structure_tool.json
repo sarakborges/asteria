@@ -1,0 +1,7 @@
+{
+  "id": "asteria:architects_compass",
+  "category": "creative_tools",
+  "icon": "textures/tools/architects-compass.png",
+  "leftBehavior": "asteria:none",
+  "rightBehavior": "asteria:structure/select"
+}

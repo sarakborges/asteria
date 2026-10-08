@@ -1,0 +1,7 @@
+{
+  "id": "asteria:artisans_kit_rustic",
+  "category": "tools",
+  "icon": "textures/tools/artisans-kit.png",
+  "leftBehavior": "asteria:artisans_kit/remove",
+  "rightBehavior": "asteria:artisans_kit/restore"
+}

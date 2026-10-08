@@ -12,6 +12,15 @@ import dimensionsEs from "../../../packs/default/data/localization/spanish/dimen
 import fluidsEn from "../../../packs/default/data/localization/english/fluids.json";
 import fluidsPt from "../../../packs/default/data/localization/portuguese_brazil/fluids.json";
 import fluidsEs from "../../../packs/default/data/localization/spanish/fluids.json";
+import itemsEn from "../../../packs/default/data/localization/english/items.json";
+import itemsPt from "../../../packs/default/data/localization/portuguese_brazil/items.json";
+import itemsEs from "../../../packs/default/data/localization/spanish/items.json";
+import toolsEn from "../../../packs/default/data/localization/english/tools.json";
+import toolsPt from "../../../packs/default/data/localization/portuguese_brazil/tools.json";
+import toolsEs from "../../../packs/default/data/localization/spanish/tools.json";
+import creaturesEn from "../../../packs/default/data/localization/english/creatures.json";
+import creaturesPt from "../../../packs/default/data/localization/portuguese_brazil/creatures.json";
+import creaturesEs from "../../../packs/default/data/localization/spanish/creatures.json";
 
 export const languages = ["english", "portuguese_brazil", "spanish"] as const;
 export type Language = (typeof languages)[number];
@@ -21,9 +30,9 @@ const uiCatalogs: Record<Language, UiCatalog> = {
   english, portuguese_brazil: portugueseBrazil, spanish,
 };
 const nameCatalogs: Record<Language, readonly Names[]> = {
-  english: [blocksEn, dimensionsEn, fluidsEn],
-  portuguese_brazil: [blocksPt, dimensionsPt, fluidsPt],
-  spanish: [blocksEs, dimensionsEs, fluidsEs],
+  english: [blocksEn, dimensionsEn, fluidsEn, itemsEn, toolsEn, creaturesEn],
+  portuguese_brazil: [blocksPt, dimensionsPt, fluidsPt, itemsPt, toolsPt, creaturesPt],
+  spanish: [blocksEs, dimensionsEs, fluidsEs, itemsEs, toolsEs, creaturesEs],
 };
 
 type Localization = {

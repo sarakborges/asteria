@@ -1,0 +1,7 @@
+{
+  "id": "asteria:shears",
+  "category": "tools",
+  "icon": "textures/tools/shears.png",
+  "leftBehavior": "asteria:none",
+  "rightBehavior": "asteria:layer/remove"
+}

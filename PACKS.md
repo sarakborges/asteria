@@ -466,3 +466,9 @@ Pack files are untrusted input. Loaders must enforce or evolve toward:
 - deterministic failure reporting.
 
 Keeping data and UI customization declarative prevents pack installation from implicitly granting code execution.
+
+## Imported item, tool and creature definitions
+
+`data/items`, `data/tools` and `data/creatures` are separate authored categories, each loaded deterministically through typed Core registries. Items author category, icon and optional metadata-selected icon variants. Tools author icon, optional tint icon, left/right behavior IDs, and optional mining category/speed. Creatures author model, health, population cap, colliders, animation names, movement settings, material textures and particle effects. All referenced presentation assets use validated relative paths under the **selected** pack's `resources/` directory; pack JSON retains technical IDs and has no translated player-facing names.
+
+Localized names and tool hints are authored under `data/localization/{english,portuguese_brazil,spanish}/{items,tools,creatures}.json` with definition-ID / JSON-Pointer entries. These definitions are available to runtime systems but do not themselves implement item interactions, creature spawning, AI, combat or rendering. Gameplay capabilities must be added behind Core-owned runtime boundaries; do not interpret a copied MineClone behavior ID as an implemented Asteria action.

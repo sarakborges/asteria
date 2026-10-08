@@ -78,6 +78,9 @@ public partial class Main : Node3D
         _sessions.Active.Lighting;
 
     private BlockRegistry _blocks = null!;
+    private PackContentRegistry<ItemDefinition> _items = null!;
+    private PackContentRegistry<ToolDefinition> _tools = null!;
+    private PackContentRegistry<CreatureDefinition> _creatures = null!;
     private FluidRegistry _fluids = null!;
     private BiomeRegistry _biomes = null!;
     private StructureRegistry _structures = null!;
@@ -133,6 +136,15 @@ public partial class Main : Node3D
                 _packSelection);
         _fluids =
             FluidContentLoader.LoadProjectFluids(
+                _packSelection);
+        _items =
+            ItemContentLoader.LoadProjectItems(
+                _packSelection);
+        _tools =
+            ToolContentLoader.LoadProjectTools(
+                _packSelection);
+        _creatures =
+            CreatureContentLoader.LoadProjectCreatures(
                 _packSelection);
         _biomes =
             BiomeContentLoader.LoadProjectBiomes(
@@ -195,6 +207,12 @@ public partial class Main : Node3D
             $"{_terrainTextures.TextureCount} terrain textures");
         GD.Print(
             $"fluid content: loaded {_fluids.AuthoredCount} definitions");
+        GD.Print(
+            $"item content: loaded {_items.Count} definitions");
+        GD.Print(
+            $"tool content: loaded {_tools.Count} definitions");
+        GD.Print(
+            $"creature content: loaded {_creatures.Count} definitions");
         GD.Print(
             $"biome content: loaded {_biomes.Count} definitions");
         GD.Print(

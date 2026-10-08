@@ -1,0 +1,11 @@
+{
+  "id": "asteria:hatchet_rustic",
+  "category": "tools",
+  "icon": "textures/tools/hatchet-rustic.png",
+  "leftBehavior": "asteria:mine",
+  "rightBehavior": "asteria:none",
+  "mining": {
+    "category": "hatchet",
+    "speed": 1.5
+  }
+}

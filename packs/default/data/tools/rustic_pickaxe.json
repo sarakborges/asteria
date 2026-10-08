@@ -1,0 +1,11 @@
+{
+  "id": "asteria:pickaxe_rustic",
+  "category": "tools",
+  "icon": "textures/tools/pickaxe-rustic.png",
+  "leftBehavior": "asteria:mine",
+  "rightBehavior": "asteria:none",
+  "mining": {
+    "category": "pickaxe",
+    "speed": 1.5
+  }
+}
