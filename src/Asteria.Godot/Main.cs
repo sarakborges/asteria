@@ -1506,6 +1506,18 @@ public partial class Main : Node3D
                         inventory.SlotAt(PlayerInventory.BackpackSlots + index)))
                     .ToArray(),
             });
+        SendArtisansKitState();
+    }
+
+    private void SendArtisansKitState()
+    {
+        var kit = _sessions.Active.ArtisansKit;
+        SendWebUi("game.tool.artisans_kit", new
+        {
+            resolution = kit.IsEquipped(
+                _sessionStates.Player.Inventory.SelectedStack)
+                ? (int?)kit.Resolution : null,
+        });
     }
 
     private void SendInventoryState()
@@ -2234,9 +2246,8 @@ public partial class Main : Node3D
             _sessions.Active.ArtisansKit.IsEquipped(
                 _sessionStates.Player.Inventory.SelectedStack))
         {
-            var resolution = _sessions.Active.ArtisansKit.CycleResolution();
-            SendWebUi("game.tool.artisans_kit",
-                new { resolution = (int)resolution });
+            _sessions.Active.ArtisansKit.CycleResolution();
+            SendArtisansKitState();
             return;
         }
 

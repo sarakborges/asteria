@@ -9,11 +9,13 @@ import "./TargetHud.css";
 export type TargetHudProps = {
   state: TargetHudState | null;
   miningProgress?: number | null;
+  artisansKitResolution?: 1 | 2 | 4 | null;
 };
 
 export function TargetHud({
   state,
   miningProgress = null,
+  artisansKitResolution = null,
 }: TargetHudProps) {
   const { contentName, t } = useLocalization();
   if (!state) return null;
@@ -35,6 +37,9 @@ export function TargetHud({
               {detail}
             </span>
           ),
+        )}
+        {state.kind === "block" && artisansKitResolution !== null && (
+          <span>{t("hud.artisansKit.resolution")}: 1/{8 / artisansKitResolution}</span>
         )}
         {state.kind === "block" &&
           miningProgress !== null && miningProgress > 0 && (
