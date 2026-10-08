@@ -93,6 +93,7 @@ export type StatusCardState = {
 };
 
 export type HudState = {
+  targetPosition?: "Center" | "TopRight" | "Hidden";
   gameMode?: "survival" | "creative" | "spectator";
   debugVisible: boolean;
   hotbar: HotbarState;
@@ -181,6 +182,7 @@ export function createInitialUiState(
   return {
     mouseCaptured: false,
     hud: {
+      targetPosition: "Center",
       gameMode: "survival",
       debugVisible: false,
       hotbar: {

@@ -47,7 +47,8 @@ export function GameHudPage({
           <InteractionPrompt prompt={state.prompt} />
         )
       }
-      targetOverlay={targetOverlay}
+      targetOverlay={state.targetPosition === "Hidden" ? null : targetOverlay}
+      targetPosition={state.targetPosition ?? "Center"}
       worldBanner={
         <WorldBanner
           state={state.world}

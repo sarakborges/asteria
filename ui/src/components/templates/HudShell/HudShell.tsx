@@ -5,6 +5,7 @@ export type HudShellProps = {
   crosshair: ReactNode;
   interactionPrompt: ReactNode;
   targetOverlay: ReactNode;
+  targetPosition?: "Center" | "TopRight" | "Hidden";
   worldBanner: ReactNode;
   worldClock: ReactNode;
   hotbar: ReactNode;
@@ -20,6 +21,7 @@ export function HudShell({
   crosshair,
   interactionPrompt,
   targetOverlay,
+  targetPosition = "Center",
   worldBanner,
   worldClock,
   hotbar,
@@ -36,7 +38,9 @@ export function HudShell({
         {crosshair}
         {interactionPrompt}
       </div>
-      <div className="hud-shell__target">
+      <div className={"hud-shell__target" + (
+        targetPosition === "TopRight" ? " hud-shell__target--top-right" : ""
+      )}>
         {targetOverlay}
       </div>
       <div className="hud-shell__world">

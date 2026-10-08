@@ -50,7 +50,11 @@ export function createSettingsController(
             },
             keybinds: { jump: keys.jump, descend: keys.descend },
           };
-          change({ client });
+          store.update(state => ({
+            ...state,
+            settings: { ...state.settings, client },
+            hud: { ...state.hud, targetPosition: client.hud.targetBlockPosition },
+          }));
           break;
         }
         case "game.world_settings": {

@@ -95,3 +95,10 @@
     bottom: 14px;
   }
 }
+
+.hud-shell__target--top-right {
+  top: calc(var(--ui-hud-margin) + 64px);
+  right: var(--ui-hud-margin);
+  left: auto;
+  transform: none;
+}
