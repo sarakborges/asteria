@@ -92,6 +92,21 @@ keeps Godot as an I/O/interaction adapter.
   isolation, immutable inventory views, flight validation, corrupted
   snapshot and world-name mismatch.
 
+## Stage 6: per-Sphere Storage Box contents
+
+- Occupied Storage Boxes now snapshot as detached 27-slot arrays under
+  the owning Sphere (including items with authored metadata).
+- Restoration verifies each container has the actual Storage Box block in
+  an already materialized resident **or archived** chunk, without moving
+  archived chunks into residency. Duplicate/missing containers are rejected.
+- Contents are installed only after all containers have been validated.
+  Tests cover identical coordinates with different inventories in two
+  Spheres, archived block validation, snapshot immutability, and corruption.
+- Inventories are not exposed to Godot/UI as mutable saved-state arrays.
+  This is still an in-memory full-session capture layer, not a playable
+  disk save: detached creatures, manual structures, physics and full
+  generation publication remain outstanding.
+
 ## Remaining
 
 Wire the spatial snapshot capture and disk publisher into a quiescent

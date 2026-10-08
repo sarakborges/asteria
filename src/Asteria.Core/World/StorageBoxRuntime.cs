@@ -171,6 +171,46 @@ public sealed class StorageBoxRuntime
         blocks.TryGetId(BlockId, out var id) &&
         world.GetCellOrEmpty(position).Block == id;
 
+    /// <summary>
+    /// Imports validated occupied containers into a new session. Archived
+    /// storage block identity is checked without restoring chunk residency.
+    /// No partial import occurs when a saved box is invalid or duplicated.
+    /// </summary>
+    internal void RestoreOccupied(
+        IReadOnlyList<SavedStorageBoxContents> saved,
+        VoxelWorld world, BlockRegistry blocks)
+    {
+        ArgumentNullException.ThrowIfNull(saved);
+        ArgumentNullException.ThrowIfNull(world);
+        ArgumentNullException.ThrowIfNull(blocks);
+        if (_boxes.Count != 0)
+            throw new InvalidOperationException(
+                "Cannot import saved containers into a populated storage runtime.");
+        if (saved.Count > 65536)
+            throw new InvalidDataException("Too many saved storage boxes.");
+        if (saved.Count == 0)
+            return;
+
+        if (!blocks.TryGetId(BlockId, out var storageBlock))
+            throw new InvalidDataException("Saved storage boxes require their authored block.");
+
+        var prepared = new Dictionary<WorldVoxelCoord, InventoryStack?[]>(
+            saved.Count);
+        foreach (var box in saved)
+        {
+            if (box is null || box.Position.Y < 0 ||
+                !world.TryGetSavedCell(box.Position, out var cell) ||
+                cell.Block != storageBlock ||
+                !prepared.TryAdd(box.Position, box.Slots))
+                throw new InvalidDataException(
+                    "Saved storage box is duplicated or is missing its world block.");
+        }
+        foreach (var (position, slots) in prepared)
+            _boxes.Add(position, slots);
+        _active = null;
+        _revision++;
+    }
+
     /// <summary>Deterministic occupied positions for session serialization.</summary>
     public IReadOnlyList<StorageBoxSnapshot> CaptureOccupied() =>
         _boxes

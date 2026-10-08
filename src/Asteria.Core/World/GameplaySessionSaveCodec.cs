@@ -41,12 +41,38 @@ public sealed class PlayerSessionSnapshot
         new(_selectedSlot, _backpack.ToArray(), _hotbar.ToArray(), _cursor);
 }
 
+/// <summary>
+/// Detached contents of one placed Storage Box; no browser or IO adapter may
+/// modify the authoritative saved slots through a returned array.
+/// </summary>
+public sealed class SavedStorageBoxContents
+{
+    private readonly InventoryStack?[] _slots;
+
+    public SavedStorageBoxContents(
+        WorldVoxelCoord position, IReadOnlyList<InventoryStack?> slots)
+    {
+        ArgumentNullException.ThrowIfNull(slots);
+        if (position.Y < 0 || slots.Count != StorageBoxRuntime.SlotCount ||
+            !slots.Any(stack => stack is not null))
+            throw new InvalidDataException("Invalid saved storage box contents.");
+        Position = position;
+        _slots = slots.ToArray();
+    }
+
+    public WorldVoxelCoord Position { get; }
+    public InventoryStack?[] Slots => (InventoryStack?[])_slots.Clone();
+}
+
 /// <summary>Saved scalar state for one initialized Sphere.</summary>
 public sealed record SphereClockSnapshot
 {
+    private readonly IReadOnlyList<SavedStorageBoxContents> _storageBoxes;
+
     public SphereClockSnapshot(
         DimensionId dimension, ulong worldTick, DayNightClockState? dayNight,
-        Vector3? position, ulong naturalSpawnNextAttemptTick)
+        Vector3? position, ulong naturalSpawnNextAttemptTick,
+        IEnumerable<SavedStorageBoxContents>? storageBoxes = null)
     {
         if (string.IsNullOrWhiteSpace(dimension.Value) ||
             dayNight is { Day: 0 } ||
@@ -55,12 +81,20 @@ public sealed record SphereClockSnapshot
              !float.IsFinite(pos.Z) || pos.Y < 0))
             throw new InvalidDataException("Invalid saved Sphere clock or position.");
 
+        var boxes = (storageBoxes ?? []).Take(65537).ToArray();
+        if (boxes.Length > 65536 || boxes.Any(box => box is null) ||
+            boxes.Select(box => box.Position).Distinct().Count() != boxes.Length)
+            throw new InvalidDataException("Invalid saved storage box identities.");
+
         Dimension = dimension;
         WorldTick = worldTick;
         DayNight = dayNight;
         Position = position;
         NaturalSpawnNextAttemptTick = naturalSpawnNextAttemptTick;
+        _storageBoxes = Array.AsReadOnly(boxes);
     }
+
+    public IReadOnlyList<SavedStorageBoxContents> StorageBoxes => _storageBoxes;
 
     public DimensionId Dimension { get; }
     public ulong WorldTick { get; }
@@ -131,7 +165,9 @@ public static class GameplaySessionSaveCodec
         var clocks = source.CreatedDimensions().Select(state =>
             new SphereClockSnapshot(
                 state.Dimension.Id, state.WorldTick, state.DayNight,
-                state.PlayerPosition, state.NaturalSpawnNextAttemptTick));
+                state.PlayerPosition, state.NaturalSpawnNextAttemptTick,
+                state.StorageBoxes.CaptureOccupied().Select(box =>
+                    new SavedStorageBoxContents(box.Position, box.Slots))));
         return new GameplaySessionSnapshot(
             spatial, source.Name, source.GameRules.TicksPerSecond,
             source.GameRules.SpawnCreatures,
@@ -164,6 +200,8 @@ public static class GameplaySessionSaveCodec
             state.DayNight = clock.DayNight;
             state.PlayerPosition = clock.Position;
             state.NaturalSpawnNextAttemptTick = clock.NaturalSpawnNextAttemptTick;
+            state.StorageBoxes.RestoreOccupied(
+                clock.StorageBoxes, state.World, blocks);
         }
 
         return restored;

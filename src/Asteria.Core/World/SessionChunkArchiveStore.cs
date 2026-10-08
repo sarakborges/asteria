@@ -81,6 +81,9 @@ public sealed class SessionChunkArchiveStore
     internal IEnumerable<(ChunkCoord Coord, Chunk Chunk)> ArchivedChunks =>
         _archived.Select(entry => (entry.Key, entry.Value));
 
+    internal bool TryPeek(ChunkCoord coord, out Chunk chunk) =>
+        _archived.TryGetValue(coord, out chunk!);
+
     internal void RestoreArchived(ChunkCoord coord, Chunk chunk, bool dirty)
     {
         ArgumentNullException.ThrowIfNull(chunk);

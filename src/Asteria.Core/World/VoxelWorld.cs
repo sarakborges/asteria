@@ -185,6 +185,31 @@ public sealed class VoxelWorld
         return ChunkRestoreResult.Restored;
     }
 
+    /// <summary>
+    /// Reads an already materialized voxel for restore validation without
+    /// moving archived chunks into live residency or generating new terrain.
+    /// </summary>
+    internal bool TryGetSavedCell(WorldVoxelCoord position, out VoxelCell cell)
+    {
+        if (position.Y < 0)
+        {
+            cell = VoxelCell.Empty;
+            return false;
+        }
+        var address = VoxelCoordinates.FromWorld(
+            position.X, position.Y, position.Z);
+        if (!_chunks.TryGetValue(address.Chunk, out var chunk) &&
+            !_archive.TryPeek(address.Chunk, out chunk!))
+        {
+            cell = VoxelCell.Empty;
+            return false;
+        }
+
+        cell = chunk.GetCell(
+            address.Local.X, address.Local.Y, address.Local.Z);
+        return true;
+    }
+
     public bool TryGetChunk(ChunkCoord coord, out Chunk chunk) =>
         _chunks.TryGetValue(coord, out chunk!);
 
