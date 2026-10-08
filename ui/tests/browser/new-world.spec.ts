@@ -17,10 +17,10 @@ async function expectActualWorldSettings(page: Page) {
   const worldSettings = page.locator(sections).first();
   const gameRules = page.locator(sections).last();
   const labels = nav.locator("button");
-  await expect(worldSettings.locator("h2, h3").first()).toHaveText(
+  await expect(worldSettings.locator(".ui-text--heading").first()).toHaveText(
     (await labels.nth(0).innerText()).trim(),
   );
-  await expect(gameRules.locator("h2, h3").first()).toHaveText(
+  await expect(gameRules.locator(".ui-text--heading").first()).toHaveText(
     (await labels.nth(1).innerText()).trim(),
   );
 
