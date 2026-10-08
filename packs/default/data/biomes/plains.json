@@ -27,7 +27,16 @@
         "blocks": [
           "asteria:dirt",
           "asteria:gravel"
-        ]
+        ],
+        "detailScale": 9,
+        "selectionScale": 64,
+        "warpScale": 72,
+        "warpStrength": 12,
+        "stretchZ": 1.6,
+        "weights": {
+          "asteria:dirt": 3,
+          "asteria:gravel": 1
+        }
       }
     },
     {
