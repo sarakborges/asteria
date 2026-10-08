@@ -27,6 +27,10 @@
   scrollbar-width: thin;
 }
 
+.settings-page__section[data-selected="false"] {
+  display: none;
+}
+
 .settings-page__section {
   display: flex;
   flex-direction: column;
