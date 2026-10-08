@@ -45,7 +45,7 @@ export function CraftingPanel({
         <div className="crafting-panel__recipe-list">
           {recipes.length === 0 && (
             <Text
-              text={t("ui.noRecipes")}
+              text={status ?? t("ui.noRecipes")}
               variant="detail"
             />
           )}
@@ -70,6 +70,8 @@ export function CraftingPanel({
                   ]
                     .filter(Boolean)
                     .join(" ")}
+                  disabled={!onSelectRecipe}
+                  aria-pressed={active}
                   onClick={() =>
                     onSelectRecipe?.(
                       recipe.id,
@@ -212,7 +214,7 @@ export function CraftingPanel({
               }
               stretch
               disabled={
-                !selected.craftable
+                !selected.craftable || !onCraft
               }
               onClick={() =>
                 onCraft?.(
@@ -233,7 +235,7 @@ export function CraftingPanel({
           </>
         ) : (
           <Text
-            text={t("ui.selectRecipe")}
+            text={status ?? t("ui.selectRecipe")}
             variant="detail"
           />
         )}
