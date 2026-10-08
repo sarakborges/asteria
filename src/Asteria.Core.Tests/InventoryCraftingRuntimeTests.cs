@@ -62,8 +62,7 @@ public sealed class InventoryCraftingRuntimeTests
         Assert.Equal(0, inventory.ItemQuantity("asteria:stick"));
         Assert.Equal(0, inventory.ItemQuantity("asteria:plant_fiber"));
         Assert.Contains(inventory.Capture().Hotbar,
-            stack => stack?.Id == "asteria:hatchet_rustic" &&
-                stack.Kind == InventoryEntryKind.Tool);
+            stack => stack is { Id: "asteria:hatchet_rustic", Kind: InventoryEntryKind.Tool });
         Assert.False(crafting.TryCraft(inventory, "asteria:rustic_hatchet"));
     }
 
@@ -82,8 +81,10 @@ public sealed class InventoryCraftingRuntimeTests
         Assert.False(crafting.CanCraft(inventory, "asteria:rustic_hatchet"));
         Assert.False(crafting.TryCraft(inventory, "asteria:rustic_hatchet"));
         Assert.Equal(revision, inventory.Revision);
-        Assert.Equal(original, inventory.Capture());
-        Assert.Equal(original.Cursor, inventory.Cursor);
+        var unchanged = inventory.Capture();
+        Assert.Equal(original.Backpack, unchanged.Backpack);
+        Assert.Equal(original.Hotbar, unchanged.Hotbar);
+        Assert.Equal(original.Cursor, unchanged.Cursor);
     }
 
     [Fact]
@@ -96,9 +97,8 @@ public sealed class InventoryCraftingRuntimeTests
         for (var i = 0; i < 33; i++)
             Assert.True(inventory.TryInsert(new InventoryStack(
                 InventoryEntry.FromItem($"asteria:filler_{i}", maxStackSize: 1))));
-        // The three ingredient slots disappear after consumption, so a
-        // normal hatchet can fit. Exercise true full-output failure using
-        // a recipe with a larger result than consumed capacity.
+        // The requested input consumes only part of a pebble stack,
+        // so no slot is freed for the larger tool output.
         var large = CraftingRecipeDefinition.Parse("""
             {
               "id": "asteria:large_batch",
@@ -112,7 +112,10 @@ public sealed class InventoryCraftingRuntimeTests
         Assert.False(inventory.TryCraft(large,
             InventoryEntry.FromTool("asteria:hatchet_rustic")));
         Assert.Equal(revision, inventory.Revision);
-        Assert.Equal(before, inventory.Capture());
+        var unchanged = inventory.Capture();
+        Assert.Equal(before.Backpack, unchanged.Backpack);
+        Assert.Equal(before.Hotbar, unchanged.Hotbar);
+        Assert.Equal(before.Cursor, unchanged.Cursor);
     }
 
     [Fact]
@@ -134,7 +137,8 @@ public sealed class InventoryCraftingRuntimeTests
                 "asteria:hatchet_rustic", "bad_id")));
         Assert.Throws<FormatException>(() =>
             CraftingRecipeDefinition.Parse(json.Replace(
-                "\"result\":", "\"ingredients\": [{\"item\":\"asteria:pebble\",\"quantity\":1}], \"result\":")));
+                "{\"item\": \"asteria:pebble\", \"quantity\": 1}",
+                "{\"item\": \"asteria:pebble\", \"quantity\": 1}, {\"item\": \"asteria:pebble\", \"quantity\": 1}")));
         var bad = PackContentRegistry<CraftingRecipeDefinition>.FromJson(
             [json.Replace("asteria:pebble", "asteria:nonexistent")],
             CraftingRecipeDefinition.Parse, recipe => recipe.Id);
