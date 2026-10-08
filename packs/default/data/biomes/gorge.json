@@ -28,5 +28,18 @@
     {
       "block": "asteria:stone"
     }
+  ],
+  "decorations": [
+    {
+      "block": "asteria:pebble",
+      "chance": 0.18,
+      "surfaceBlocks": [
+        "asteria:stone"
+      ],
+      "cluster": {
+        "scale": 12,
+        "threshold": -0.2
+      }
+    }
   ]
 }

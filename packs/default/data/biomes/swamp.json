@@ -71,6 +71,19 @@
         "asteria:dirt",
         "asteria:mud"
       ]
+    },
+    {
+      "block": "asteria:pebble",
+      "chance": 0.035,
+      "surfaceBlocks": [
+        "asteria:grass_block",
+        "asteria:dirt",
+        "asteria:mud"
+      ],
+      "cluster": {
+        "scale": 18,
+        "threshold": -0.1
+      }
     }
   ],
   "tints": {

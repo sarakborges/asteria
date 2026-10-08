@@ -36,6 +36,17 @@
       "surfaceBlocks": [
         "asteria:grass_block"
       ]
+    },
+    {
+      "block": "asteria:pebble",
+      "chance": 0.12,
+      "surfaceBlocks": [
+        "asteria:grass_block"
+      ],
+      "cluster": {
+        "scale": 14,
+        "threshold": -0.12
+      }
     }
   ],
   "tints": {

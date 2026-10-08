@@ -37,5 +37,19 @@
     "grass": "8C4F2E",
     "leaf": "8C4F2E",
     "foliage": "8C4F2E"
-  }
+  },
+  "decorations": [
+    {
+      "block": "asteria:pebble",
+      "chance": 0.2,
+      "surfaceBlocks": [
+        "asteria:dirt",
+        "asteria:gravel"
+      ],
+      "cluster": {
+        "scale": 14,
+        "threshold": -0.3
+      }
+    }
+  ]
 }

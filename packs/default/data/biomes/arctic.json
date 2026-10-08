@@ -38,5 +38,18 @@
     "grass": "5A7077",
     "leaf": "53656B",
     "foliage": "576A71"
-  }
+  },
+  "decorations": [
+    {
+      "block": "asteria:pebble",
+      "chance": 0.055,
+      "surfaceBlocks": [
+        "asteria:snow"
+      ],
+      "cluster": {
+        "scale": 18,
+        "threshold": -0.25
+      }
+    }
+  ]
 }
