@@ -2,6 +2,12 @@ using System.Numerics;
 
 namespace Asteria.Core.World;
 
+public enum BlockBreakLootPolicy : byte
+{
+    DropSelf,
+    Suppress,
+}
+
 public sealed class BlockInteractionRuntime
 {
     private readonly VoxelWorld _world;
@@ -30,8 +36,12 @@ public sealed class BlockInteractionRuntime
     }
 
     public BlockBreakDecision Break(
-        VoxelWorldHit hit)
+        VoxelWorldHit hit,
+        BlockBreakLootPolicy lootPolicy = BlockBreakLootPolicy.DropSelf)
     {
+        if (!Enum.IsDefined(lootPolicy))
+            throw new ArgumentOutOfRangeException(nameof(lootPolicy));
+
         var decision =
             BlockInteractionResolver.ResolveBreak(
                 _world,
@@ -54,6 +64,7 @@ public sealed class BlockInteractionRuntime
         }
 
         var snapshot =
+            lootPolicy == BlockBreakLootPolicy.DropSelf &&
             definition.DropsSelf
                 ? BlockStateSnapshot.Capture(
                     _world,

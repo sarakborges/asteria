@@ -16,6 +16,11 @@ public static class PlayerGameModePolicy
     public static bool HasCreativeInventory(this PlayerGameMode mode) =>
         mode == PlayerGameMode.Creative;
 
+    public static BlockBreakLootPolicy BreakLootPolicy(this PlayerGameMode mode) =>
+        mode == PlayerGameMode.Survival
+            ? BlockBreakLootPolicy.DropSelf
+            : BlockBreakLootPolicy.Suppress;
+
     public static bool IsSpectator(this PlayerGameMode mode) =>
         mode == PlayerGameMode.Spectator;
 }

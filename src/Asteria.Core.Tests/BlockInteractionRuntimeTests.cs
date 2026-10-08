@@ -53,6 +53,25 @@ public sealed class BlockInteractionRuntimeTests
     }
 
     [Fact]
+    public void CreativeBreakSuppressesLootButStillRemovesVoxel()
+    {
+        var fixture = CreateFixture(new BlockDefinition("asteria:stone"));
+        var block = fixture.Blocks.GetId("asteria:stone");
+        var pos = new WorldVoxelCoord(2, 2, 2);
+        Assert.True(fixture.Mutations.SetBlockAt(pos, block, out _));
+
+        var decision = fixture.Interactions.Break(
+            new VoxelWorldHit(pos, 0, 0, 0),
+            PlayerGameMode.Creative.BreakLootPolicy());
+
+        Assert.True(decision.Accepted);
+        Assert.True(fixture.World.GetCellOrEmpty(pos).IsEmpty);
+        Assert.Equal(0, fixture.Dropped.ActiveCount);
+        Assert.Equal(BlockBreakLootPolicy.DropSelf,
+            PlayerGameMode.Survival.BreakLootPolicy());
+    }
+
+    [Fact]
     public void UnbreakableBlockRejectsBreakWithoutMutationOrDrop()
     {
         var fixture =

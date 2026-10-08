@@ -1977,7 +1977,9 @@ public partial class Main : Node3D
         }
 
         var decision =
-            _blockInteractions.Break(hit);
+            _blockInteractions.Break(
+                hit,
+                _sessionStates.Player.GameMode.BreakLootPolicy());
 
         if (!decision.Accepted)
         {
