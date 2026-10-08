@@ -1374,6 +1374,16 @@ public sealed class SurfaceStructureTests
         BlockRegistry blocks,
         StructureRegistry structures,
         string surfaceBlock,
+        params string[] structureReferences) =>
+        FlatStructureGenerator(
+            blocks, structures, surfaceBlock,
+            StructureSetRegistry.Empty, structureReferences);
+
+    private static BiomeWorldGenerator FlatStructureGenerator(
+        BlockRegistry blocks,
+        StructureRegistry structures,
+        string surfaceBlock,
+        StructureSetRegistry structureSets,
         params string[] structureReferences)
     {
         var biome =
@@ -1457,7 +1467,8 @@ public sealed class SurfaceStructureTests
             [
                 biome,
             ]),
-            structures);
+            structures,
+            structureSets);
     }
 
     private static bool ChunkContains(
