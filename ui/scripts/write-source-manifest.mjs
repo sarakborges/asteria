@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { resolve, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -11,6 +11,7 @@ const sourceRoots = [
 ];
 
 function visit(path) {
+  if (!existsSync(path)) return [];
   const stats = statSync(path);
   if (stats.isDirectory()) {
     return readdirSync(path).flatMap(entry => visit(resolve(path, entry)));
