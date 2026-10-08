@@ -51,6 +51,15 @@
         ],
         "conditions": {
           "maxSlope": 2
+        },
+        "detailScale": 9,
+        "selectionScale": 70,
+        "warpScale": 62,
+        "warpStrength": 9,
+        "stretchZ": 0.75,
+        "weights": {
+          "asteria:dirt": 1,
+          "asteria:mud": 3
         }
       }
     },

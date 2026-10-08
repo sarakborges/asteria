@@ -470,7 +470,13 @@ public sealed class BiomeSurfacePatchDefinition
         float coverage,
         float roughness,
         IEnumerable<string> blocks,
-        SurfacePlacementConditions? conditions = null)
+        SurfacePlacementConditions? conditions = null,
+        uint? detailScale = null,
+        uint? selectionScale = null,
+        uint? warpScale = null,
+        double warpStrength = 0d,
+        double stretchZ = 1d,
+        IReadOnlyDictionary<string, double>? weights = null)
     {
         if (scale is < 2 or > 512)
         {
@@ -479,9 +485,24 @@ public sealed class BiomeSurfacePatchDefinition
                 "Surface patch scale must be within 2..512.");
         }
 
+        DetailScale = detailScale ?? Math.Max(2u, scale / 4u);
+        SelectionScale = selectionScale ?? checked(scale * 2u);
+        WarpScale = warpScale ?? scale;
+        if (DetailScale is < 2 or > 2048 ||
+            SelectionScale is < 2 or > 2048 ||
+            WarpScale is < 2 or > 2048 ||
+            !double.IsFinite(warpStrength) ||
+            warpStrength is < 0d or > 128d ||
+            !double.IsFinite(stretchZ) ||
+            stretchZ is < 0.25d or > 4d)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(detailScale),
+                "Patch noise scales must be 2..2048, warp strength 0..128 and stretchZ 0.25..4.");
+        }
+
         if (!float.IsFinite(coverage) ||
-            coverage <= 0f ||
-            coverage > 1f)
+            coverage is <= 0f or > 1f)
         {
             throw new ArgumentOutOfRangeException(
                 nameof(coverage),
@@ -489,18 +510,15 @@ public sealed class BiomeSurfacePatchDefinition
         }
 
         if (!float.IsFinite(roughness) ||
-            roughness < 0f ||
-            roughness > 0.5f)
+            roughness is < 0f or > 0.5f)
         {
             throw new ArgumentOutOfRangeException(
                 nameof(roughness),
                 "Surface patch roughness must be within 0..0.5.");
         }
 
-        var alternatives =
-            blocks?.ToArray() ??
+        var alternatives = blocks?.ToArray() ??
             throw new ArgumentNullException(nameof(blocks));
-
         if (alternatives.Length is < 1 or > 8)
         {
             throw new ArgumentException(
@@ -508,37 +526,65 @@ public sealed class BiomeSurfacePatchDefinition
                 nameof(blocks));
         }
 
-        var seen =
-            new HashSet<string>(
-                StringComparer.Ordinal);
+        var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var block in alternatives)
         {
-            BiomeSurfaceLayerDefinition.ValidateBlockId(
-                block);
+            BiomeSurfaceLayerDefinition.ValidateBlockId(block);
             if (!seen.Add(block))
             {
                 throw new ArgumentException(
-                    $"Duplicate patch block: {block}",
-                    nameof(blocks));
+                    $"Duplicate patch block: {block}", nameof(blocks));
             }
+        }
+
+        if (weights is not null &&
+            weights.Keys.Any(block => !seen.Contains(block)))
+        {
+            throw new ArgumentException(
+                "Patch weights must name an authored patch block.",
+                nameof(weights));
+        }
+
+        var authoredWeights = new double[alternatives.Length];
+        var totalWeight = 0d;
+        for (var index = 0; index < alternatives.Length; index++)
+        {
+            var block = alternatives[index];
+            var weight = weights is not null &&
+                weights.TryGetValue(block, out var authored)
+                ? authored
+                : 1d;
+            if (!double.IsFinite(weight) || weight is <= 0d or > 1000d)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(weights),
+                    "Each patch material weight must be finite within (0,1000].");
+            }
+
+            authoredWeights[index] = weight;
+            totalWeight += weight;
         }
 
         Scale = scale;
         Coverage = coverage;
         Roughness = roughness;
         Conditions = conditions;
-        Blocks =
-            Array.AsReadOnly(alternatives);
+        WarpStrength = warpStrength;
+        StretchZ = stretchZ;
+        Blocks = Array.AsReadOnly(alternatives);
+        BlockWeights = Array.AsReadOnly(authoredWeights);
     }
 
     public uint Scale { get; }
-
+    public uint DetailScale { get; }
+    public uint SelectionScale { get; }
+    public uint WarpScale { get; }
+    public double WarpStrength { get; }
+    public double StretchZ { get; }
     public float Coverage { get; }
-
     public float Roughness { get; }
-
     public IReadOnlyList<string> Blocks { get; }
-
+    public IReadOnlyList<double> BlockWeights { get; }
     public SurfacePlacementConditions? Conditions { get; }
 }
 

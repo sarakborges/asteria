@@ -370,6 +370,69 @@ public sealed class BiomePlacementParityTests
     }
 
     [Fact]
+    public void AuthoredContourHarmonicsChangeShapesButRemainDeterministic()
+    {
+        var registry = new BiomeRegistry(
+        [
+            SurfaceBiome("asteria:test/a", 1f, 1f),
+            SurfaceBiome("asteria:test/b", 1f, 1f),
+        ]);
+        var original = new BiomeField(
+            121UL, ["asteria:test/a", "asteria:test/b"], registry);
+        var authored = new BiomeBlendingDefinition(
+            contourHarmonics:
+            [
+                new BiomeContourHarmonicDefinition(2, 0.3d),
+                new BiomeContourHarmonicDefinition(7, 0.2d),
+            ],
+            sizeExponent: 0.25d,
+            seedBiasAmplitude: 0.1d,
+            continuationBonus: 0.02d);
+        var different = new BiomeField(
+            121UL, ["asteria:test/a", "asteria:test/b"], registry,
+            blending: authored);
+        var repeat = new BiomeField(
+            121UL, ["asteria:test/a", "asteria:test/b"], registry,
+            blending: authored);
+        var changed = 0;
+
+        for (var z = -1024; z <= 1024; z += 96)
+        {
+            for (var x = -1024; x <= 1024; x += 96)
+            {
+                var before = original.Sample(x, z);
+                var after = different.Sample(x, z);
+                Assert.Equal(after.Primary, repeat.Sample(x, z).Primary);
+                changed += before.Primary != after.Primary ? 1 : 0;
+            }
+        }
+
+        Assert.True(changed > 0);
+        Assert.Equal(2, authored.ContourHarmonics.Count);
+    }
+
+    [Fact]
+    public void ContourParametersRejectInvalidHarmonicGeometry()
+    {
+        Assert.ThrowsAny<ArgumentException>(() =>
+            new BiomeContourHarmonicDefinition(0, 0.1d));
+        Assert.ThrowsAny<ArgumentException>(() =>
+            new BiomeContourHarmonicDefinition(3, double.NaN));
+        Assert.ThrowsAny<ArgumentException>(() =>
+            new BiomeBlendingDefinition(
+                contourHarmonics:
+                [
+                    new BiomeContourHarmonicDefinition(3, 0.4d),
+                    new BiomeContourHarmonicDefinition(5, 0.4d),
+                ]));
+        Assert.ThrowsAny<ArgumentException>(() =>
+            new BiomeBlendingDefinition(sizeExponent: -0.1d));
+        Assert.ThrowsAny<ArgumentException>(() =>
+            new BiomeBlendingDefinition(
+                seedBiasAmplitude: double.PositiveInfinity));
+    }
+
+    [Fact]
     public void ShoreProfileSamplesAreOrderedAndBounded()
     {
         var profile = new DimensionShoreProfileDefinition(
