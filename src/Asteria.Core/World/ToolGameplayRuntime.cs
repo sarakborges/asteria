@@ -107,9 +107,9 @@ public sealed class ToolGameplayRuntime
         var behavior = GetBehavior(held, hand);
         if (behavior == "asteria:brush/paint")
         {
-            if (_dyes is null || !_world.TryGetCell(hit.Voxel, out var cell) || cell.IsEmpty)
+            if (_dyes is null || !_world.TryGetCell(hit.Voxel, out var paintCell) || paintCell.IsEmpty)
                 return false;
-            var definition = _blocks.GetDefinition(cell.Block);
+            var definition = _blocks.GetDefinition(paintCell.Block);
             if (!definition.SupportsDye || definition.Mining.Unbreakable)
                 return false;
             var previous = _world.GetBlockSurfaceStateOrEmpty(hit.Voxel);
