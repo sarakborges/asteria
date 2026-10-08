@@ -20,7 +20,8 @@ WebUI observes `game.inventory.state` and `game.inventory.catalog` through `Inve
 
 ## Not yet parity
 
-- Mining-time/hardness progression and additional authored behaviors for brush, bucket, artisans kit, shears and structure tool; item usage, equipment and crafting/recipe validation
+- Additional authored behaviors for brush, bucket, artisans kit, shears and structure tool; item usage, equipment and crafting/recipe validation
+- World-space crack overlays and held-tool swing animation during mining
 - Cursor splitting/shift-click, equipped slots, authored rewards/loot tables for non-block drops
 - Re-placing microblock geometry (portable snapshot retains the mask; invalid placement is rejected instead of corrupting geometry)
 - Player/world disk saves, catalog, inventory snapshot versioning and migrations
@@ -40,4 +41,4 @@ WebUI observes `game.inventory.state` and `game.inventory.catalog` through `Inve
 - Expanded the existing Core world-drop simulation to carry a one-item `InventoryStack`, rather than starting parallel physics for non-block objects. Gravity, world collision, settle/wake, contact separation, 0.4-second pickup grace, bounded active count, lifetime, Sphere archival and deterministic drop IDs remain shared for blocks/items/tools.
 - Godot publishes block drops using existing 3D block meshes and non-block drops as spinning authored PNG sprites. One validated pack resource path owns each cached texture; no Godot import artifacts are written into packs. The inventory only consumes after a successful spawn; pickup uses the Core inventory acceptance boundary to preserve metadata and prevent capacity loss.
 - `ToolGameplayRuntime` uses authored `leftBehavior`/`rightBehavior` and category requirements in Core. The Carpenter's Axe supports `asteria:log/hollow` on left and `asteria:log/strip` on right, with logged variant transitions authored through block registries and mutations published through `VoxelMutationRuntime`. In Survival, `requiredTools` now rejects the wrong mining category; Creative can break mineable blocks independently of held tool.
-- `preferredTools`, hardness and speed fields are present, but **timed block breaking is not yet implemented**. Do not describe their numerical effects as active. No invented item use, recipe, generic tool effect, or unsupported catalog action is considered functional. Remaining authored tool behaviors must be ported with specific gameplay mutation contracts.
+- `preferredTools`, hardness and speed are now active through `BlockMiningRuntime` as described in [Mining migration](MINING_MIGRATION.md). No invented item use, recipe, generic tool effect, or unsupported catalog action is considered functional.

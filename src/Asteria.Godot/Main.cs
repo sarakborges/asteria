@@ -724,6 +724,7 @@ public partial class Main : Node3D
             SendInventoryState();
         }
         _sessions.Active.Mining.Cancel();
+        PublishMiningProgress();
         _player.QueueFree();
         _player = null;
         _underwaterView = null;

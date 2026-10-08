@@ -133,11 +133,18 @@ Asteria reserves **F3/F4** in addition to MineClone's WASD/hotbar keys because t
 
 - Native inventory supports typed Block/Item/Tool stacks in one Core owner. Item/tool authored registries and metadata-aware creative variants are now real catalog entries; the item/tools data contract accepts an optional `maxStackSize` (1–64), with defaults of 64 items, 1 tools.
 - Sort is stable and compacts compatible backpack stacks. Icons are decoded from the active pack resources by the Godot adapter and published once in the Creative catalog; variants preserve their authored icon selection without modifying Winky Rough Variable.
-- Non-block drops are **not** physically simulated yet. Q never consumes such an entry; it reports a localized unsupported-drop message instead. Tool actions, crafting, equipment, world save and item pickups from gameplay rewards still require real runtime behavior, not UI controls.
+- Non-block physical drops have subsequently been implemented. Crafting, equipment, world save and additional authored item/tool effects still require real runtime behavior, not UI controls.
 - See [`docs/INVENTORY_MIGRATION.md`](INVENTORY_MIGRATION.md) for authoritative invariants and remaining parity work.
 
 ## Tools and physical inventory drops (2026-10-08)
 
 - Native Q now spawns an authored physical drop for blocks, items and tools, keeping stack metadata on pickup; input remains engine-owned. The existing drop simulator is one authoritative owner. Each world drop contains exactly one item.
-- Survival mining checks authored required tool categories; Carpenter's Axe uses Core block-variant transforms to hollow/strip logs with unchanged voxel state and physics/mesh invalidation via the canonical mutation runtime. Tool speed and block hardness still require time-based mining mechanics; other right/left tool behavior endpoints and general item use remain pending.
+- Survival mining checks authored required tool categories; Carpenter's Axe uses Core block-variant transforms to hollow/strip logs with unchanged voxel state and physics/mesh invalidation via the canonical mutation runtime. Hardness/preferred tool speed are now implemented by `BlockMiningRuntime`; other right/left tool behaviors and general item use remain pending.
 - See [inventory migration](INVENTORY_MIGRATION.md) for remaining implementation gaps.
+
+## Progressive block mining (2026-10-08)
+
+- A Survival left-click now starts tick-driven mining while held; it does not instantly break the targeted block. The active Sphere's `BlockMiningRuntime` owns accumulated work, target voxel state, selected tool identity and hotbar slot. Completion delegates through the existing `BlockInteractionRuntime` for mutation and physical loot.
+- `requiredTools` gates mining, `preferredTools` accelerates matching tools and `hardness` determines duration, using the MineClone baseline of 200 logical work ticks per hardness unit. Tool `mining.speed` comes from loaded tool definitions. The world tick-rate setting controls real-time pacing because work uses `WorldTickClock.TicksThisFrame` instead of a local real-time counter.
+- Godot exclusively owns held LMB, capture/modal cancellation and targeting. React only renders the authorized ten-stage progress snapshot next to the target block. Creative instant breaking, spectator restrictions and special carpenter actions stay independent of Survival mining.
+- See [`docs/MINING_MIGRATION.md`](MINING_MIGRATION.md) for remaining visual and tool behavior parity.
