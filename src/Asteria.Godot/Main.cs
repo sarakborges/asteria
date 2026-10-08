@@ -134,6 +134,7 @@ public partial class Main : Node3D
     private bool _worldReadySent;
     private bool _inventoryOpen;
     private readonly PlayerChatSession _chat = new();
+    private double _chatFeedbackSeconds;
     private bool _brushPaletteOpen;
     private int _publishedMiningStage = -1;
     private double _pickupAccumulator;
@@ -379,6 +380,7 @@ public partial class Main : Node3D
     public override void _Process(double delta)
     {
         PollWorldCatalog();
+        AdvanceChatPresentation(delta);
         if (_worldSeed is null)
         {
             return;
@@ -1824,6 +1826,7 @@ public partial class Main : Node3D
     private void CloseChat()
     {
         if (!_chat.Close()) return;
+        _chatFeedbackSeconds = _chat.History.Count > 0 ? 10.0 : 0.0;
         SendChatState();
         _player?.ResumeAfterKeyCapture();
         CallDeferred(nameof(ResumeGameplayAfterChat));
@@ -1847,6 +1850,7 @@ public partial class Main : Node3D
 
         if (_chat.TrySubmit(value.GetString(), out var text))
         {
+            _chatFeedbackSeconds = 10.0;
             var position = _player?.GlobalPosition ?? Vector3.Zero;
             var coordinates = $"X: {Mathf.FloorToInt(position.X)} " +
                 $"Z: {Mathf.FloorToInt(position.Z)} Y: {Mathf.FloorToInt(position.Y)}";
@@ -1862,12 +1866,19 @@ public partial class Main : Node3D
         CallDeferred(nameof(ResumeGameplayAfterChat));
     }
 
+    private void AdvanceChatPresentation(double delta)
+    {
+        if (_chat.IsOpen || _chatFeedbackSeconds <= 0.0) return;
+        _chatFeedbackSeconds = Math.Max(0.0, _chatFeedbackSeconds - delta);
+        if (_chatFeedbackSeconds == 0.0) SendChatState();
+    }
+
     private void SendChatState()
     {
         SendWebUi("game.chat.state", new
         {
             open = _chat.IsOpen,
-            visible = _chat.IsOpen || _chat.History.Count > 0,
+            visible = _chat.IsOpen || _chatFeedbackSeconds > 0.0,
             history = _chat.History.Select(line => new
             {
                 id = line.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
