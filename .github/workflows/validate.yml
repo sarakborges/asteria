@@ -70,6 +70,13 @@ jobs:
           path: biome-map-*.svg
           if-no-files-found: ignore
 
+  webui:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
