@@ -14,7 +14,7 @@ The migration ports layout, color, surface, spacing, control, interaction and hi
 
 ## Reference branch
 
-MineClone reference: `sarakborges/mineclone`, branch `world-systems-rebuild`.
+MineClone references: `sarakborges/mineclone` **`main` for current UI/creation settings**, cross-checked against `world-systems-rebuild` for world-runtime internals. **The original migration referenced only `world-systems-rebuild` and missed the entire World Generation section present on `main`.** See [WORLD_CREATION_PARITY.md](WORLD_CREATION_PARITY.md).
 
 ## Ported foundation
 
@@ -33,7 +33,7 @@ MineClone reference: `sarakborges/mineclone`, branch `world-systems-rebuild`.
 
 ## First migrated screen
 
-`NewWorldPage` uses the MineClone-authored name → seed → game-mode ordering, 8 px inner gaps, aligned game-rule rows, digit-only uint64 seed editor and Spawn Creatures toggle backed by `WorldCreationOptions`/`WorldGameRules`. **Observed embedded WRY parity remains unverified:** the user reports sidebar/sections not visible in the runtime although source composes them. See the audit and do not mark 1:1 until a live screenshot comparison passes.
+`NewWorldPage` currently has **only 2 of 3 MineClone `main` creation sections**: World Settings (Name/Seed/Game Mode) and Game Rules (Ticks Per Second/Spawn Creatures). **World Generation is not ported** (Normal/Flat/Void; searchable Spawn Biome; size multiplier; Spawn Structures; Single Biome; Spawn Caves; Spawn Oceans). Existing controls remain runtime-backed. **Observed embedded WRY parity remains unverified:** the user reports sidebar/sections not visible in the runtime although source composes them. See the audit and do not mark 1:1 until a live screenshot comparison passes.
 
 ## Screen migration status
 
