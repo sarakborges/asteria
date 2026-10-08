@@ -2123,29 +2123,66 @@ public partial class Main : Node3D
 
         var id = command.Argument!;
         string? structureId = null;
-        if (command.Kind == ChatCommandKind.LocateStructure &&
-            command.Option is { } variationText)
+        if (command.Kind == ChatCommandKind.LocateStructure)
         {
-            if (!_structures.ResolvesReference(id) ||
-                !PlayerChatCommandProcessor.TryVariation(variationText,
-                    out var variation))
+            if (_structureSets.TryGet(id, out var set))
             {
-                ChatFeedback("chat.command.locate.unknownStructure",
-                    error: true, ("id", id));
+                if (command.Option is not null)
+                {
+                    ChatFeedback("chat.command.locate.setNoVariations", error: true,
+                        ("id", id));
+                    return;
+                }
+                if (!set.Locatable)
+                {
+                    ChatFeedback("chat.command.locate.setNotLocatable", error: true,
+                        ("id", id));
+                    return;
+                }
+                if (!_sessions.Active.Generator.HasGeneratedSurfaceStructure(id))
+                {
+                    ChatFeedback("chat.command.locate.setNotGenerated", error: true,
+                        ("id", id));
+                    return;
+                }
+            }
+            else if (_structures.ResolvesReference(id))
+            {
+                var members = _structures.ResolveReference(id);
+                var variation = 1;
+                if (command.Option is { } selection &&
+                    (!PlayerChatCommandProcessor.TryVariation(selection, out variation) ||
+                     variation > members.Count))
+                {
+                    ChatFeedback("chat.command.locate.unknownVariation", error: true,
+                        ("id", id), ("variation", selection),
+                        ("count", members.Count.ToString()));
+                    return;
+                }
+                var member = members[variation - 1];
+                if (!member.Locatable)
+                {
+                    ChatFeedback("chat.command.locate.structureNotLocatable",
+                        error: true, ("id", id));
+                    return;
+                }
+                if (!_sessions.Active.Generator.HasGeneratedSurfaceStructure(id))
+                {
+                    ChatFeedback("chat.command.locate.structureNotGenerated",
+                        error: true, ("id", id));
+                    return;
+                }
+                if (command.Option is not null)
+                    structureId = member.Id;
+            }
+            else
+            {
+                ChatFeedback("chat.command.locate.unknownStructure", error: true,
+                    ("id", id));
                 return;
             }
-
-            var members = _structures.ResolveReference(id);
-            if (variation > members.Count)
-            {
-                ChatFeedback("chat.command.locate.unknownStructure",
-                    error: true, ("id", id));
-                return;
-            }
-            structureId = members[variation - 1].Id;
         }
-
-        if (command.Kind == ChatCommandKind.LocateBiome)
+        else
         {
             if (!_biomes.Contains(id))
             {
