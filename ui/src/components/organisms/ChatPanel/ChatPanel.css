@@ -1,4 +1,8 @@
 .chat-panel {
+  position: fixed;
+  left: 18px;
+  bottom: 138px;
+  z-index: 20;
   width: min(500px, 92vw);
   padding: 10px;
   border: 1px solid rgb(189 179 235 / 20%);
@@ -12,6 +16,8 @@
 
 .chat-panel__history {
   max-height: 330px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--ui-color-border) transparent;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -97,4 +103,30 @@
   height: 38px;
   min-height: 38px;
   font-size: 17px;
+}
+
+.chat-panel__link:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
+.chat-panel__input {
+  padding: 0 10px;
+  border: 1px solid var(--ui-color-border);
+  background: var(--ui-color-surface-inset);
+}
+
+.chat-panel__input .ui-text-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+}
+
+@media (max-width: 600px) {
+  .chat-panel {
+    left: 8px;
+    bottom: 110px;
+    width: min(500px, calc(100vw - 16px));
+  }
 }
