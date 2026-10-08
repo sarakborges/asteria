@@ -13,7 +13,7 @@ public sealed record StorageBoxSnapshot(
 public sealed class StorageBoxRuntime
 {
     public const int SlotCount = 27;
-    private const string StorageBlockId = "asteria:storage_box";
+    public const string BlockId = "asteria:storage_box";
     private readonly Dictionary<WorldVoxelCoord, InventoryStack?[]> _boxes = [];
     private WorldVoxelCoord? _active;
     private ulong _revision;
@@ -43,6 +43,18 @@ public sealed class StorageBoxRuntime
         if (_active is null) return;
         _active = null;
         _revision++;
+    }
+
+    /// <summary>Closes a modal whose voxel is no longer resident or no longer
+    /// contains the original container. Archived contents are not drained.</summary>
+    public bool CloseIfUnavailable(VoxelWorld world, BlockRegistry blocks)
+    {
+        ArgumentNullException.ThrowIfNull(world);
+        ArgumentNullException.ThrowIfNull(blocks);
+        if (_active is not { } position || IsActualBox(position, world, blocks))
+            return false;
+        Close();
+        return true;
     }
 
     public StorageBoxSnapshot? CaptureActive()
@@ -132,7 +144,7 @@ public sealed class StorageBoxRuntime
     private static bool IsActualBox(
         WorldVoxelCoord position, VoxelWorld world, BlockRegistry blocks) =>
         position.Y >= 0 && world.IsLoadedAt(position) &&
-        blocks.TryGetId(StorageBlockId, out var id) &&
+        blocks.TryGetId(BlockId, out var id) &&
         world.GetCellOrEmpty(position).Block == id;
 
     /// <summary>Deterministic occupied positions for session serialization.</summary>

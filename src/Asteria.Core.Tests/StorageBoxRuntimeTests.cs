@@ -157,4 +157,62 @@ public sealed class StorageBoxRuntimeTests
         Assert.False(storage.TryOpen(position, world, blocks));
         Assert.Equal(0, storage.Count);
     }
+
+    [Fact]
+    public void CommittedBlockRemovalDropsEachStoredItemExactlyOnce()
+    {
+        var (storage, world, blocks) = OpenStorage();
+        var position = new WorldVoxelCoord(3, 5, 3);
+        var entry = InventoryEntry.FromItem("asteria:wood",
+            new Dictionary<string, string> { ["quality"] = "fine" });
+        Assert.True(storage.TryInsertActive(
+            new InventoryStack(entry, 4), world, blocks));
+
+        var drops = new DroppedBlockRuntime(world, blocks);
+        var lifecycle = new StorageBoxBlockLifecycle(storage, blocks, drops);
+        var mutations = new VoxelMutationRuntime(
+            world, new WorldUpdateQueue(), new FluidUpdateQueue(),
+            new FluidMeshUpdateQueue(), new BlockPhysicsUpdateQueue(),
+            new MeshletContentRevisions(), new MeshletContentRevisions());
+        mutations.BlockCellChanged += lifecycle.OnBlockCellChanged;
+
+        // Replacing the box through the canonical mutation pipeline
+        // drains its contents even when the replacement is not air.
+        Assert.True(mutations.SetBlockAt(
+            position, blocks.GetId("asteria:stone"), out _));
+        Assert.Null(storage.ActivePosition);
+        Assert.Empty(storage.CaptureOccupied());
+        Assert.Equal(4, drops.ActiveCount);
+        Assert.All(drops.ActiveBlocks, drop =>
+        {
+            Assert.Equal("asteria:wood", drop.Stack.Id);
+            Assert.Equal(1, drop.Stack.Quantity);
+            Assert.Equal("fine", drop.Stack.Entry.Metadata["quality"]);
+        });
+
+        Assert.False(mutations.SetBlockAt(
+            position, blocks.GetId("asteria:stone"), out _));
+        Assert.Equal(4, drops.ActiveCount);
+        Assert.Empty(storage.Drain(position));
+    }
+
+    [Fact]
+    public void UnloadingClosesModalWithoutDrainingStoredItems()
+    {
+        var (storage, world, blocks) = OpenStorage();
+        Assert.True(storage.TryInsertActive(
+            new InventoryStack(InventoryEntry.FromItem("asteria:wood"), 7),
+            world, blocks));
+
+        world.ArchiveChunk(ChunkCoord.Zero);
+        Assert.True(storage.CloseIfUnavailable(world, blocks));
+        Assert.Null(storage.ActivePosition);
+        Assert.Single(storage.CaptureOccupied());
+        Assert.False(storage.CloseIfUnavailable(world, blocks));
+
+        Assert.Equal(ChunkRestoreResult.Restored,
+            world.RestoreChunk(ChunkCoord.Zero));
+        Assert.True(storage.TryOpen(new WorldVoxelCoord(3, 5, 3), world, blocks));
+        Assert.Equal(7, storage.CaptureActive()!.Slots[0]!.Quantity);
+    }
 }

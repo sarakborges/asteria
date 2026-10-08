@@ -182,6 +182,9 @@ public sealed class DimensionRuntimeSession
                 BlockPhysicsUpdates,
                 ContentRevisions,
                 FluidContentRevisions);
+        var storageBoxLifecycle = new StorageBoxBlockLifecycle(
+            state.StorageBoxes, blocks, _droppedBlocks);
+        Mutations.BlockCellChanged += storageBoxLifecycle.OnBlockCellChanged;
         ManualStructures =
             new ManualStructurePlacementRuntime(
                 Generator, World, Mutations, blocks, structures, structureSets,
@@ -509,6 +512,10 @@ public sealed class DimensionRuntimeSession
     public ManualStructurePlacementRuntime ManualStructures { get; }
     public StorageBoxSnapshot? ActiveStorageBox =>
         _state.StorageBoxes.CaptureActive();
+    public ulong StorageBoxRevision => _state.StorageBoxes.Revision;
+
+    public void RefreshStorageBoxAvailability() =>
+        _state.StorageBoxes.CloseIfUnavailable(World, Blocks);
 
     /// <summary>Game-side access to this Sphere's storage block entities;
     /// WebUI state and transport never mutate the container directly.</summary>

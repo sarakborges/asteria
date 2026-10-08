@@ -29,6 +29,10 @@ public sealed class VoxelMutationRuntime
     private readonly MeshletContentRevisions _terrainContentRevisions;
     private readonly MeshletContentRevisions _fluidContentRevisions;
 
+    /// <summary>Committed voxel changes; never raised for a rejected edit.
+    /// Lifecycle consumers must not bypass this canonical mutation boundary.</summary>
+    public event Action<VoxelWorldEdit>? BlockCellChanged;
+
     public VoxelMutationRuntime(
         VoxelWorld world,
         WorldUpdateQueue worldUpdates,
@@ -70,6 +74,7 @@ public sealed class VoxelMutationRuntime
         }
 
         EnqueueBlockEdit(position);
+        BlockCellChanged?.Invoke(edit);
         return true;
     }
 
@@ -87,6 +92,7 @@ public sealed class VoxelMutationRuntime
         }
 
         EnqueueBlockEdit(position);
+        BlockCellChanged?.Invoke(edit);
         return true;
     }
 

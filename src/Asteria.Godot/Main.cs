@@ -133,6 +133,7 @@ public partial class Main : Node3D
     private WorldFrameWorkBudget _worldFrameBudget;
     private bool _worldReadySent;
     private bool _inventoryOpen;
+    private ulong? _publishedStorageRevision;
     private readonly PlayerChatSession _chat = new();
     private WarpArrivalPlan? _warpArrival;
 
@@ -351,6 +352,18 @@ public partial class Main : Node3D
             return;
         }
 
+        if (_sessions.Active.ActiveStorageBox is not null)
+        {
+            if (@event is InputEventKey storageKey &&
+                storageKey.Pressed && !storageKey.Echo &&
+                storageKey.Keycode == Key.Escape)
+            {
+                CloseStorageBox();
+                GetViewport().SetInputAsHandled();
+            }
+            return;
+        }
+
         if (@event is not InputEventKey keyEvent ||
             !keyEvent.Pressed ||
             keyEvent.Echo)
@@ -500,6 +513,7 @@ public partial class Main : Node3D
                 _worldFrameBudget);
         ReportRetirements(
             streamingEnd.Retirements);
+        PublishStorageBoxChanges();
         _worldDiagnostics?.FlushIfDue(
             _world.ChunkCount,
             _residency.PendingCount,
@@ -866,6 +880,8 @@ public partial class Main : Node3D
             _brushPaletteOpen = false;
             SendBrushPalette();
         }
+        _sessions.Active.CloseStorageBox();
+        SendStorageBoxState();
         _sessions.Active.Mining.Cancel();
         PublishMiningProgress();
         _player.QueueFree();
@@ -1067,6 +1083,12 @@ public partial class Main : Node3D
                 case "ui.inventory.close":
                     CloseInventory();
                     break;
+                case "ui.storage_box.close":
+                    CloseStorageBox();
+                    break;
+                case "ui.storage_box.slot":
+                    HandleStorageBoxSlot(document.RootElement);
+                    break;
                 case "ui.brush.select":
                     SelectBrushDye(document.RootElement);
                     break;
@@ -1118,6 +1140,7 @@ public partial class Main : Node3D
         SendWorldSettings();
         SendHotbarState();
         SendInventoryState();
+        SendStorageBoxState();
         SendBrushPalette();
         SendCreativeCatalog();
         SendChatState();
@@ -1523,6 +1546,7 @@ public partial class Main : Node3D
             });
         SendHotbarState();
         SendInventoryState();
+        SendStorageBoxState();
         SendCreativeCatalog();
 
         _worldDiagnostics?.WorldStarted(creation.Seed, _dimension.Id);
@@ -1854,6 +1878,43 @@ public partial class Main : Node3D
                 .ToArray(),
             cursor = InventorySlotView(inventory.Cursor),
         });
+    }
+
+    private void SendStorageBoxState()
+    {
+        if (_worldSeed is null) return;
+        var snapshot = _sessions.Active.ActiveStorageBox;
+        _publishedStorageRevision = _sessions.Active.StorageBoxRevision;
+        SendWebUi("game.storage_box.state", new
+        {
+            open = snapshot is not null,
+            position = snapshot is null ? null : new
+            {
+                x = snapshot.Position.X,
+                y = snapshot.Position.Y,
+                z = snapshot.Position.Z,
+            },
+            slots = snapshot?.Slots.Select(InventorySlotView).ToArray()
+                ?? Array.Empty<object?>(),
+            revision = _sessions.Active.StorageBoxRevision,
+        });
+    }
+
+    private void PublishStorageBoxChanges()
+    {
+        _sessions.Active.RefreshStorageBoxAvailability();
+        if (_publishedStorageRevision == _sessions.Active.StorageBoxRevision)
+            return;
+        SendStorageBoxState();
+        if (_sessions.Active.ActiveStorageBox is not null) return;
+
+        // A removed/unloaded container closes without consuming the cursor.
+        // The authoritative player inventory retains it until returned.
+        SyncHeldBlock();
+        SendHotbarState();
+        SendInventoryState();
+        _player?.ResumeAfterKeyCapture();
+        CallDeferred(nameof(ResumeGameplayAfterInventory));
     }
 
     private void SendCreativeCatalog()
@@ -2582,9 +2643,45 @@ public partial class Main : Node3D
 
     private void ResumeGameplayAfterInventory()
     {
-        if (!_inventoryOpen && !_brushPaletteOpen &&
+        if (!_inventoryOpen && _sessions.Active.ActiveStorageBox is null &&
+            !_brushPaletteOpen &&
             !_keybindCapture.IsCapturing)
             _player?.ResumeGameplay();
+    }
+
+    private void CloseStorageBox()
+    {
+        if (_sessions.Active.ActiveStorageBox is null) return;
+        if (!_sessionStates.Player.Inventory.TryReturnCursor())
+        {
+            SendWebUi("game.storage_box.error",
+                new { code = "InventoryFull" });
+            return;
+        }
+
+        _sessions.Active.CloseStorageBox();
+        SyncHeldBlock();
+        SendStorageBoxState();
+        SendInventoryState();
+        SendHotbarState();
+        _player?.ResumeAfterKeyCapture();
+        CallDeferred(nameof(ResumeGameplayAfterInventory));
+    }
+
+    private void HandleStorageBoxSlot(JsonElement message)
+    {
+        if (_sessions.Active.ActiveStorageBox is null ||
+            !message.TryGetProperty("payload", out var payload) ||
+            payload.ValueKind != JsonValueKind.Object ||
+            !payload.TryGetProperty("index", out var value) ||
+            !value.TryGetInt32(out var index)) return;
+
+        if (!_sessions.Active.TryClickStorageBox(
+                index, _sessionStates.Player.Inventory)) return;
+        SyncHeldBlock();
+        SendHotbarState();
+        SendInventoryState();
+        SendStorageBoxState();
     }
 
     private void HandleInventorySlot(JsonElement message)
@@ -3220,6 +3317,16 @@ public partial class Main : Node3D
         if (!_sessionStates.Player.CanInteract || _player is null)
             return;
 
+        var target = CurrentTarget();
+        if (target is { } storageHit &&
+            _sessions.Active.TryOpenStorageBox(storageHit.Voxel))
+        {
+            _player.SuspendForModal();
+            SendStorageBoxState();
+            SendInventoryState();
+            return;
+        }
+
         var inventory = _sessionStates.Player.Inventory;
         var selected = inventory.SelectedStack;
         if (_sessions.Active.Tools.OpensBrushPalette(selected))
@@ -3234,7 +3341,6 @@ public partial class Main : Node3D
             return;
         }
 
-        var target = CurrentTarget();
         if (selected?.Kind == InventoryEntryKind.Layer)
         {
             if (target is { } layerHit &&
