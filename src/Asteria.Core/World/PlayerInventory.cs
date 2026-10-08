@@ -160,7 +160,14 @@ public sealed class PlayerInventory
             .Select(s => s!)
             .OrderBy(s => s.Kind)
             .ThenBy(s => s.Id, StringComparer.Ordinal)
-            .ThenBy(s => s.Entry.GetHashCode())
+            .ThenBy(s => string.Join("", s.Entry.Metadata.Select(
+                pair => $"{pair.Key.Length}:{pair.Key}{pair.Value.Length}:{pair.Value}")),
+                StringComparer.Ordinal)
+            .ThenBy(s => s.Block?.Cell.Block.Value ?? 0)
+            .ThenBy(s => s.Block?.Cell.TextureRotation ?? TextureRotation.Degrees0)
+            .ThenBy(s => s.Block?.Cell.Orientation ?? BlockOrientation.Y)
+            .ThenBy(s => s.Block?.Cell.Facing ?? HorizontalFacing.South)
+            .ThenBy(s => s.Block?.Cell.State ?? 0)
             .ToArray();
         var changed = false;
         for (var i = 0; i < BackpackSlots; i++)
