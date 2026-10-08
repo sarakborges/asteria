@@ -28,7 +28,31 @@
   "surfaceLayers": [
     {
       "block": "asteria:snow",
-      "depth": 2
+      "depth": 2,
+      "patch": {
+        "scale": 36,
+        "coverage": 0.31,
+        "roughness": 0.36,
+        "blocks": [
+          "asteria:ice",
+          "asteria:gravel",
+          "asteria:stone"
+        ],
+        "detailScale": 11,
+        "selectionScale": 88,
+        "warpScale": 82,
+        "warpStrength": 14,
+        "stretchZ": 1.55,
+        "weights": {
+          "asteria:ice": 5,
+          "asteria:gravel": 1,
+          "asteria:stone": 2
+        },
+        "conditions": {
+          "minY": 110,
+          "maxSlope": 9
+        }
+      }
     },
     {
       "block": "asteria:stone"
@@ -40,8 +64,15 @@
       "chance": 0.12,
       "surfaceBlocks": [
         "asteria:snow",
-        "asteria:stone"
+        "asteria:ice",
+        "asteria:stone",
+        "asteria:gravel"
       ],
+      "habitatWeights": {
+        "snowfields": 0.14,
+        "glacial_ice": 0.44,
+        "wind_scoured_rock": 2.2
+      },
       "cluster": {
         "scale": 16,
         "threshold": -0.2,
@@ -53,5 +84,23 @@
         "maxSlope": 15
       }
     }
-  ]
+  ],
+  "surfaceHabitats": {
+    "scale": 150,
+    "transitionWidth": 0.12,
+    "bands": [
+      {
+        "id": "snowfields",
+        "maximum": -0.23
+      },
+      {
+        "id": "glacial_ice",
+        "maximum": 0.14
+      },
+      {
+        "id": "wind_scoured_rock",
+        "maximum": 1
+      }
+    ]
+  }
 }

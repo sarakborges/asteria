@@ -28,20 +28,123 @@
   },
   "surfaceLayers": [
     {
+      "block": "asteria:stone",
+      "depth": 1,
+      "patch": {
+        "scale": 30,
+        "coverage": 0.29,
+        "roughness": 0.36,
+        "blocks": [
+          "asteria:gravel",
+          "asteria:dirt",
+          "asteria:stone_cobble"
+        ],
+        "detailScale": 9,
+        "selectionScale": 75,
+        "warpScale": 69,
+        "warpStrength": 11,
+        "stretchZ": 1.65,
+        "weights": {
+          "asteria:gravel": 5,
+          "asteria:dirt": 2,
+          "asteria:stone_cobble": 1
+        },
+        "conditions": {
+          "maxY": 112,
+          "maxSlope": 3
+        }
+      }
+    },
+    {
       "block": "asteria:stone"
     }
   ],
   "decorations": [
     {
       "block": "asteria:pebble",
-      "chance": 0.18,
+      "chance": 0.17,
       "surfaceBlocks": [
-        "asteria:stone"
+        "asteria:stone",
+        "asteria:gravel",
+        "asteria:stone_cobble"
       ],
+      "habitatWeights": {
+        "valley_floor": 0.6,
+        "rubble_slopes": 1.9,
+        "high_rims": 0.43
+      },
       "cluster": {
         "scale": 12,
-        "threshold": -0.2
+        "threshold": -0.2,
+        "octaves": 4,
+        "transitionWidth": 0.12
+      },
+      "conditions": {
+        "maxSlope": 8
+      }
+    },
+    {
+      "block": "asteria:grass",
+      "chance": 0.065,
+      "surfaceBlocks": [
+        "asteria:dirt"
+      ],
+      "habitatWeights": {
+        "valley_floor": 1.95,
+        "rubble_slopes": 0.07,
+        "high_rims": 0
+      },
+      "cluster": {
+        "scale": 20,
+        "threshold": -0.15,
+        "octaves": 4,
+        "transitionWidth": 0.12
+      },
+      "conditions": {
+        "maxY": 105,
+        "maxSlope": 1
+      }
+    },
+    {
+      "block": "asteria:stick",
+      "chance": 0.05,
+      "surfaceBlocks": [
+        "asteria:dirt",
+        "asteria:gravel"
+      ],
+      "habitatWeights": {
+        "valley_floor": 1.75,
+        "rubble_slopes": 0.1,
+        "high_rims": 0
+      },
+      "cluster": {
+        "scale": 20,
+        "threshold": -0.15,
+        "octaves": 4,
+        "transitionWidth": 0.12
+      },
+      "conditions": {
+        "maxY": 110,
+        "maxSlope": 2
       }
     }
-  ]
+  ],
+  "surfaceHabitats": {
+    "scale": 119,
+    "transitionWidth": 0.12,
+    "bands": [
+      {
+        "id": "valley_floor",
+        "maximum": -0.22
+      },
+      {
+        "id": "rubble_slopes",
+        "maximum": 0.18
+      },
+      {
+        "id": "high_rims",
+        "maximum": 1
+      }
+    ]
+  }
 }

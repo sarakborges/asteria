@@ -34,20 +34,123 @@
   },
   "surfaceLayers": [
     {
+      "block": "asteria:stone",
+      "depth": 1,
+      "patch": {
+        "scale": 34,
+        "coverage": 0.23,
+        "roughness": 0.35,
+        "blocks": [
+          "asteria:gravel",
+          "asteria:dirt",
+          "asteria:stone_cobble"
+        ],
+        "detailScale": 10,
+        "selectionScale": 83,
+        "warpScale": 78,
+        "warpStrength": 12,
+        "stretchZ": 1.6,
+        "weights": {
+          "asteria:gravel": 4,
+          "asteria:dirt": 2,
+          "asteria:stone_cobble": 1
+        },
+        "conditions": {
+          "maxY": 126,
+          "maxSlope": 3
+        }
+      }
+    },
+    {
       "block": "asteria:stone"
     }
   ],
   "decorations": [
     {
       "block": "asteria:pebble",
-      "chance": 0.18,
+      "chance": 0.17,
       "surfaceBlocks": [
-        "asteria:stone"
+        "asteria:stone",
+        "asteria:gravel",
+        "asteria:stone_cobble"
       ],
+      "habitatWeights": {
+        "foothill_shelves": 0.37,
+        "talus_fields": 1.9,
+        "exposed_ridges": 0.95
+      },
       "cluster": {
         "scale": 12,
-        "threshold": -0.2
+        "threshold": -0.2,
+        "octaves": 4,
+        "transitionWidth": 0.12
+      },
+      "conditions": {
+        "maxSlope": 8
+      }
+    },
+    {
+      "block": "asteria:grass",
+      "chance": 0.075,
+      "surfaceBlocks": [
+        "asteria:dirt"
+      ],
+      "habitatWeights": {
+        "foothill_shelves": 2,
+        "talus_fields": 0.15,
+        "exposed_ridges": 0
+      },
+      "cluster": {
+        "scale": 20,
+        "threshold": -0.15,
+        "octaves": 4,
+        "transitionWidth": 0.12
+      },
+      "conditions": {
+        "maxY": 122,
+        "maxSlope": 1
+      }
+    },
+    {
+      "block": "asteria:stick",
+      "chance": 0.065,
+      "surfaceBlocks": [
+        "asteria:dirt",
+        "asteria:gravel"
+      ],
+      "habitatWeights": {
+        "foothill_shelves": 1.8,
+        "talus_fields": 0.15,
+        "exposed_ridges": 0
+      },
+      "cluster": {
+        "scale": 20,
+        "threshold": -0.15,
+        "octaves": 4,
+        "transitionWidth": 0.12
+      },
+      "conditions": {
+        "maxY": 124,
+        "maxSlope": 2
       }
     }
-  ]
+  ],
+  "surfaceHabitats": {
+    "scale": 136,
+    "transitionWidth": 0.12,
+    "bands": [
+      {
+        "id": "foothill_shelves",
+        "maximum": -0.22
+      },
+      {
+        "id": "talus_fields",
+        "maximum": 0.18
+      },
+      {
+        "id": "exposed_ridges",
+        "maximum": 1
+      }
+    ]
+  }
 }

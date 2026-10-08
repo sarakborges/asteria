@@ -70,7 +70,10 @@
     "fogColor": "B8CDD5",
     "fogDensity": 0.003,
     "wind": {
-      "direction": [0.93, 0.37],
+      "direction": [
+        0.93,
+        0.37
+      ],
       "strength": 0.45
     }
   },
@@ -258,98 +261,168 @@
       "structure": "asteria:boulder_small",
       "spacing": 28,
       "chance": 0.34,
-      "jitter": 8
+      "jitter": 8,
+      "habitatWeights": {
+        "foothill_shelves": 0.34,
+        "talus_fields": 1.85,
+        "exposed_ridges": 0.76
+      }
     },
     {
       "biome": "asteria:overworld/mountains",
       "structure": "asteria:boulder_medium",
       "spacing": 44,
       "chance": 0.27,
-      "jitter": 13
+      "jitter": 13,
+      "habitatWeights": {
+        "foothill_shelves": 0.25,
+        "talus_fields": 1.75,
+        "exposed_ridges": 1
+      }
     },
     {
       "biome": "asteria:overworld/mountains",
       "structure": "asteria:boulder_big",
       "spacing": 68,
       "chance": 0.18,
-      "jitter": 21
+      "jitter": 21,
+      "habitatWeights": {
+        "foothill_shelves": 0.1,
+        "talus_fields": 1.25,
+        "exposed_ridges": 1.6
+      }
     },
     {
       "biome": "asteria:overworld/mountains",
       "structure": "asteria:boulder_huge",
       "spacing": 108,
       "chance": 0.1,
-      "jitter": 33
+      "jitter": 33,
+      "habitatWeights": {
+        "foothill_shelves": 0.04,
+        "talus_fields": 0.55,
+        "exposed_ridges": 1.85
+      }
     },
     {
       "biome": "asteria:overworld/gorge",
       "structure": "asteria:boulder_small",
       "spacing": 30,
       "chance": 0.3,
-      "jitter": 9
+      "jitter": 9,
+      "habitatWeights": {
+        "valley_floor": 0.3,
+        "rubble_slopes": 2.05,
+        "high_rims": 0.34
+      }
     },
     {
       "biome": "asteria:overworld/gorge",
       "structure": "asteria:boulder_medium",
       "spacing": 48,
       "chance": 0.24,
-      "jitter": 14
+      "jitter": 14,
+      "habitatWeights": {
+        "valley_floor": 0.25,
+        "rubble_slopes": 1.65,
+        "high_rims": 0.53
+      }
     },
     {
       "biome": "asteria:overworld/gorge",
       "structure": "asteria:boulder_big",
       "spacing": 78,
       "chance": 0.16,
-      "jitter": 23
+      "jitter": 23,
+      "habitatWeights": {
+        "valley_floor": 0.09,
+        "rubble_slopes": 0.65,
+        "high_rims": 1.35
+      }
     },
     {
       "biome": "asteria:overworld/alps",
       "structure": "asteria:boulder_medium",
       "spacing": 42,
       "chance": 0.25,
-      "jitter": 13
+      "jitter": 13,
+      "habitatWeights": {
+        "snowfields": 0.18,
+        "glacial_ice": 0.35,
+        "wind_scoured_rock": 1.75
+      }
     },
     {
       "biome": "asteria:overworld/alps",
       "structure": "asteria:boulder_big",
       "spacing": 64,
       "chance": 0.19,
-      "jitter": 20
+      "jitter": 20,
+      "habitatWeights": {
+        "snowfields": 0.08,
+        "glacial_ice": 0.22,
+        "wind_scoured_rock": 1.85
+      }
     },
     {
       "biome": "asteria:overworld/alps",
       "structure": "asteria:boulder_huge",
       "spacing": 102,
       "chance": 0.11,
-      "jitter": 31
+      "jitter": 31,
+      "habitatWeights": {
+        "snowfields": 0.03,
+        "glacial_ice": 0.12,
+        "wind_scoured_rock": 1.65
+      }
     },
     {
       "biome": "asteria:overworld/mountain_belt",
       "structure": "asteria:boulder_small",
       "spacing": 28,
       "chance": 0.32,
-      "jitter": 8
+      "jitter": 8,
+      "habitatWeights": {
+        "sheltered_passes": 0.23,
+        "boulder_runs": 1.85,
+        "bare_crests": 0.75
+      }
     },
     {
       "biome": "asteria:overworld/mountain_belt",
       "structure": "asteria:boulder_medium",
       "spacing": 44,
       "chance": 0.26,
-      "jitter": 13
+      "jitter": 13,
+      "habitatWeights": {
+        "sheltered_passes": 0.14,
+        "boulder_runs": 1.8,
+        "bare_crests": 0.95
+      }
     },
     {
       "biome": "asteria:overworld/mountain_belt",
       "structure": "asteria:boulder_big",
       "spacing": 70,
       "chance": 0.17,
-      "jitter": 21
+      "jitter": 21,
+      "habitatWeights": {
+        "sheltered_passes": 0.07,
+        "boulder_runs": 1.5,
+        "bare_crests": 1.4
+      }
     },
     {
       "biome": "asteria:overworld/mountain_belt",
       "structure": "asteria:boulder_huge",
       "spacing": 112,
       "chance": 0.09,
-      "jitter": 34
+      "jitter": 34,
+      "habitatWeights": {
+        "sheltered_passes": 0.02,
+        "boulder_runs": 0.55,
+        "bare_crests": 2
+      }
     },
     {
       "biome": "asteria:overworld/plains",
@@ -597,6 +670,102 @@
         "barren_flats": 0.02,
         "deadwood_pockets": 0.1,
         "rocky_scrub": 2.25
+      }
+    },
+    {
+      "biome": "asteria:overworld/mountains",
+      "structure": "asteria:talus_outcrop",
+      "spacing": 93,
+      "chance": 0.41,
+      "jitter": 28,
+      "habitatWeights": {
+        "foothill_shelves": 0.23,
+        "talus_fields": 2,
+        "exposed_ridges": 0.35
+      }
+    },
+    {
+      "biome": "asteria:overworld/mountains",
+      "structure": "asteria:rock_cluster",
+      "spacing": 162,
+      "chance": 0.36,
+      "jitter": 48,
+      "habitatWeights": {
+        "foothill_shelves": 0.08,
+        "talus_fields": 1.4,
+        "exposed_ridges": 1.2
+      }
+    },
+    {
+      "biome": "asteria:overworld/mountain_belt",
+      "structure": "asteria:talus_outcrop",
+      "spacing": 91,
+      "chance": 0.43,
+      "jitter": 27,
+      "habitatWeights": {
+        "sheltered_passes": 0.12,
+        "boulder_runs": 1.85,
+        "bare_crests": 0.54
+      }
+    },
+    {
+      "biome": "asteria:overworld/mountain_belt",
+      "structure": "asteria:rock_cluster",
+      "spacing": 173,
+      "chance": 0.4,
+      "jitter": 52,
+      "habitatWeights": {
+        "sheltered_passes": 0.05,
+        "boulder_runs": 1.7,
+        "bare_crests": 0.85
+      }
+    },
+    {
+      "biome": "asteria:overworld/alps",
+      "structure": "asteria:ice_outcrop",
+      "spacing": 103,
+      "chance": 0.44,
+      "jitter": 31,
+      "habitatWeights": {
+        "snowfields": 0.13,
+        "glacial_ice": 2.25,
+        "wind_scoured_rock": 0.16
+      }
+    },
+    {
+      "biome": "asteria:overworld/alps",
+      "structure": "asteria:rock_cluster",
+      "spacing": 185,
+      "chance": 0.32,
+      "jitter": 55,
+      "habitatWeights": {
+        "snowfields": 0.02,
+        "glacial_ice": 0.24,
+        "wind_scoured_rock": 1.85
+      }
+    },
+    {
+      "biome": "asteria:overworld/gorge",
+      "structure": "asteria:talus_outcrop",
+      "spacing": 96,
+      "chance": 0.42,
+      "jitter": 29,
+      "habitatWeights": {
+        "valley_floor": 0.9,
+        "rubble_slopes": 1.9,
+        "high_rims": 0.35
+      }
+    },
+    {
+      "biome": "asteria:overworld/gorge",
+      "structure": "asteria:rock_cluster",
+      "spacing": 148,
+      "chance": 0.32,
+      "jitter": 44,
+      "habitatWeights": {
+        "valley_floor": 0.25,
+        "rubble_slopes": 1.8,
+        "high_rims": 0.8
       }
     }
   ],
