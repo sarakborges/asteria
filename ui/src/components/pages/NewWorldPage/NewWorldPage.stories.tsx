@@ -46,6 +46,7 @@ function PreWorldFlow() {
       openWorldSettings: noop,
       openControls: noop,
       backFromOverlay: noop,
+      escapeNavigation: navigation.escape,
       setRenderDistance: noop,
       setTargetPosition: noop,
       setHideHints: noop,
@@ -67,6 +68,81 @@ function PreWorldFlow() {
     };
     return { store, actions };
   }, []);
+
+  return <App embedded={false} store={store} actions={actions} />;
+}
+
+/** Actual App/UiStore modal navigation, without a fake DOM-only shell. */
+function InGameFlow({ initialOverlay }: { initialOverlay: "pause" | "inventory" }) {
+  const { store, actions } = useMemo(() => {
+    const initial = createInitialUiState(false);
+    const store = createUiStore({
+      ...initial,
+      worldCreation: { ...initial.worldCreation, visible: false },
+      navigation: { preWorldScreen: "starting", overlay: initialOverlay },
+      inventory: { ...initial.inventory, open: initialOverlay === "inventory" },
+      settings: {
+        ...initial.settings,
+        world: { name: "New World", mode: "Survival",
+          ticksPerSecond: 40, spawnCreatures: true },
+        client: {
+          renderDistanceChunks: 8,
+          hud: { hideHints: false, targetBlockPosition: "Center",
+            hints: { rotateBlock: true, breakOrPlaceBlock: true } },
+          keybinds: { jump: "Space", descend: "ShiftLeft",
+            inventory: "KeyE", chat: "KeyT", toolAction: "KeyR",
+            dropItem: "KeyQ", changePerspective: "F5" },
+        },
+      },
+    });
+    const post = (type: string) => {
+      if (type === "ui.game.resume") store.update(state => ({
+        ...state, navigation: { ...state.navigation, overlay: "none" },
+      }));
+    };
+    const navigation = createUiNavigationController(store, post);
+    const noop = () => undefined;
+    const actions: AppActions = {
+      ping: noop,
+      createWorld: noop,
+      randomizeWorld: noop,
+      openWorldSelection: navigation.openWorldSelection,
+      openSavesFolder: noop,
+      openWorldCreation: navigation.openWorldCreation,
+      backToStart: navigation.backToStart,
+      exitGame: noop,
+      dismissToast: noop,
+      resumeGame: () => post("ui.game.resume"),
+      openGameSettings: navigation.openGameSettings,
+      openWorldSettings: navigation.openWorldSettings,
+      openControls: navigation.openControls,
+      backFromOverlay: navigation.backFromOverlay,
+      escapeNavigation: navigation.escape,
+      setRenderDistance: noop,
+      setTargetPosition: noop,
+      setHideHints: noop,
+      setGameplayHint: noop,
+      setWorldTicks: noop,
+      setSpawnCreatures: noop,
+      setGameMode: noop,
+      beginKeyCapture: noop,
+      cancelKeyCapture: noop,
+      closeBrushPalette: noop,
+      selectBrushDye: noop,
+      closeInventory: () => store.update(state => ({
+        ...state,
+        inventory: { ...state.inventory, open: false },
+        navigation: { ...state.navigation, overlay: "none" },
+      })),
+      closeChat: noop,
+      submitChat: noop,
+      clickInventorySlot: noop,
+      sortInventory: noop,
+      discardInventoryCursor: noop,
+      pickCreativeBlock: noop,
+    };
+    return { store, actions };
+  }, [initialOverlay]);
 
   return <App embedded={false} store={store} actions={actions} />;
 }
@@ -132,4 +208,11 @@ export const SingleBiome: Story = {
     ...defaultGeneration, singleBiome: true,
     spawnBiome: "asteria:overworld/plains",
   } } },
+};
+
+export const ModalNavigation: Story = {
+  render: () => <InGameFlow initialOverlay="pause" />,
+};
+export const InventoryNavigation: Story = {
+  render: () => <InGameFlow initialOverlay="inventory" />,
 };
