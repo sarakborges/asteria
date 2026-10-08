@@ -53,11 +53,11 @@ public sealed class ManualStructurePlacementLedgerTests
     [Fact]
     public void DifferentSpheresOwnIndependentPlacementHistories()
     {
-        var dimensions = DimensionRegistry.FromJson(new[]
-        {
-            DimensionJson("asteria:alpha"),
-            DimensionJson("asteria:beta"),
-        });
+        var dimensions = new DimensionRegistry(
+        [
+            Dimension("asteria:alpha"),
+            Dimension("asteria:beta"),
+        ]);
         var sessions = new DimensionSessionStateStore(42UL, dimensions);
         var alpha = sessions.GetOrCreate(new DimensionId("asteria:alpha"));
         var beta = sessions.GetOrCreate(new DimensionId("asteria:beta"));
@@ -71,23 +71,11 @@ public sealed class ManualStructurePlacementLedgerTests
         Assert.Equal(1, alpha.ManualStructures.Count);
     }
 
-    private static string DimensionJson(string id) =>
-        $$"""
-        {
-          "id": "{{id}}",
-          "surfaceBiomes": ["asteria:test"],
-          "volumeBiomes": [],
-          "undergroundBiomes": [],
-          "seaLevel": 32,
-          "gravity": 18,
-          "spawn": {"x": 0, "z": 0},
-          "environment": {
-            "skyTop": "#000000",
-            "skyBottom": "#ffffff",
-            "ambient": 1,
-            "fogColor": "#000000",
-            "fogDensity": 0
-          }
-        }
-        """;
+    private static DimensionDefinition Dimension(string id) =>
+        new(new DimensionId(id), [id + "/plains"],
+            seaLevel: 64, 18f, new DimensionSpawnDefinition(0, 0),
+            new DimensionEnvironmentDefinition(
+                new DimensionColor(0, 0, 0),
+                new DimensionColor(255, 255, 255),
+                1f, new DimensionColor(0, 0, 0), 0f));
 }
