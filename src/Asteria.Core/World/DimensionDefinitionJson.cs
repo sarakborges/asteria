@@ -235,6 +235,31 @@ public static class DimensionDefinitionJson
                 $"Unsupported biome influenceCurve: {authored}."),
         };
 
+        BiomeContourHarmonicDefinition[]? harmonics = null;
+        if (value.TryGetProperty("contourHarmonics", out var entries))
+        {
+            if (entries.ValueKind != JsonValueKind.Array)
+            {
+                throw new FormatException(
+                    "biomeBlending.contourHarmonics must be an array.");
+            }
+
+            harmonics = entries.EnumerateArray()
+                .Select(entry =>
+                {
+                    if (entry.ValueKind != JsonValueKind.Object)
+                    {
+                        throw new FormatException(
+                            "Contour harmonics must be objects.");
+                    }
+
+                    return new BiomeContourHarmonicDefinition(
+                        RequiredInt32(entry, "lobes"),
+                        RequiredSingle(entry, "amplitude"));
+                })
+                .ToArray();
+        }
+
         return new BiomeBlendingDefinition(
             OptionalSingle(value, "scoreBand") ?? 0.50d,
             OptionalSingle(value, "jitterFraction") ?? 0.32d,
@@ -242,7 +267,11 @@ public static class DimensionDefinitionJson
             OptionalSingle(value, "fineWarpPeriod") ?? 1.35d,
             OptionalSingle(value, "coarseWarpStrength") ?? 0.42d,
             OptionalSingle(value, "fineWarpStrength") ?? 0.16d,
-            curve);
+            curve,
+            harmonics,
+            OptionalSingle(value, "sizeExponent") ?? 0.12d,
+            OptionalSingle(value, "seedBiasAmplitude") ?? 0.045d,
+            OptionalSingle(value, "continuationBonus") ?? 0.055d);
     }
 
     private static DimensionGeneratedOceanDefinition? ParseGeneratedOcean(
