@@ -16,3 +16,7 @@ export const NoCursorAction: Story = { args: { onTrash: undefined } };
 export const ReadOnly: Story = {
   args: { onSlotClick: undefined, onTrash: undefined },
 };
+
+export const StorageHotbar: Story = {
+  args: { showTrash: false, onTrash: undefined },
+};
