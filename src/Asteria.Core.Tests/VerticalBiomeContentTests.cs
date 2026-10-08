@@ -83,7 +83,7 @@ public sealed class VerticalBiomeContentTests
         Assert.Equal(3, oceanRoots.Length);
         Assert.Single(oceanRoots, r =>
             r.Structure == "asteria:river_ocean_mouth" &&
-            r.Placement == SurfaceStructurePlacementMode.BiomeMargin);
+            r.Placement == DimensionGeneratedSurfaceStructurePlacement.BiomeMargin);
         var ocean = BiomeDefinitionJson.Parse(File.ReadAllText(
             Path.Combine(PackData, "biomes", "ocean.json")));
         Assert.Equal(new[] { "sand_flats", "gravel_banks", "rocky_reefs" },
