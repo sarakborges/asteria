@@ -2,42 +2,42 @@
   "id": "asteria:leaf_enchanted",
   "windSway": true,
   "category": "foliage",
-  "tint": "none",
+  "tint": "leaf",
   "textures": {
     "top": [
       {
         "texture": "textures/blocks/trees/enchanted_tree/leaf.png",
-        "dyable": false
+        "dyable": true
       }
     ],
     "bottom": [
       {
         "texture": "textures/blocks/trees/enchanted_tree/leaf.png",
-        "dyable": false
+        "dyable": true
       }
     ],
     "left": [
       {
         "texture": "textures/blocks/trees/enchanted_tree/leaf.png",
-        "dyable": false
+        "dyable": true
       }
     ],
     "right": [
       {
         "texture": "textures/blocks/trees/enchanted_tree/leaf.png",
-        "dyable": false
+        "dyable": true
       }
     ],
     "front": [
       {
         "texture": "textures/blocks/trees/enchanted_tree/leaf.png",
-        "dyable": false
+        "dyable": true
       }
     ],
     "back": [
       {
         "texture": "textures/blocks/trees/enchanted_tree/leaf.png",
-        "dyable": false
+        "dyable": true
       }
     ]
   },
