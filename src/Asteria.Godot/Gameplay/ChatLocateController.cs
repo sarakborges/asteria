@@ -17,7 +17,8 @@ public sealed class ChatLocateController
         ChatCommandKind kind,
         string id,
         int worldX,
-        int worldZ)
+        int worldZ,
+        string? structureId = null)
     {
         ArgumentNullException.ThrowIfNull(generator);
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
@@ -33,7 +34,7 @@ public sealed class ChatLocateController
             if (kind == ChatCommandKind.LocateBiome)
             {
                 var found = generator.FindNearestSurfaceBiome(
-                    id, worldX, worldZ, radius);
+                    id, worldX, worldZ, radius, structureId);
                 return found is null ? null : new ChatLocateResult(
                     id, found.X, generator.SurfaceHeight(found.X, found.Z),
                     found.Z);
