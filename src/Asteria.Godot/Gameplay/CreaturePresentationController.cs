@@ -18,6 +18,7 @@ public sealed class CreaturePresentationController
     private readonly Dictionary<string, Node3D> _models = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Texture2D> _textures = new(StringComparer.Ordinal);
     private readonly SortedDictionary<ulong, Node3D> _instances = [];
+    private readonly Dictionary<ulong, CreatureHopPhase> _phases = [];
 
     public CreaturePresentationController(
         Node3D root,
@@ -50,6 +51,24 @@ public sealed class CreaturePresentationController
                 creature.Position.X,
                 creature.Position.Y,
                 creature.Position.Z);
+            model.Rotation = new Vector3(0f, creature.Motion.FacingRadians, 0f);
+
+            if (!_phases.TryGetValue(id, out var phase) ||
+                phase != creature.Motion.Phase)
+            {
+                PlayAnimation(
+                    model,
+                    _definitions.Get(creature.DefinitionId),
+                    creature.Motion.Phase switch
+                    {
+                        CreatureHopPhase.Idle => "idle",
+                        CreatureHopPhase.Anticipate => "anticipate",
+                        CreatureHopPhase.Airborne => "airborne",
+                        CreatureHopPhase.Land => "land",
+                        _ => "idle",
+                    });
+                _phases[id] = creature.Motion.Phase;
+            }
         }
 
         foreach (var entry in _instances.ToArray())
@@ -57,6 +76,7 @@ public sealed class CreaturePresentationController
             if (current.Contains(entry.Key)) continue;
             entry.Value.QueueFree();
             _instances.Remove(entry.Key);
+            _phases.Remove(entry.Key);
         }
     }
 
@@ -67,6 +87,7 @@ public sealed class CreaturePresentationController
         // Active scene nodes are owned by the dimension root, which is retired
         // by DimensionRuntimeSession.
         _instances.Clear();
+        _phases.Clear();
         _textures.Clear();
     }
 
@@ -96,7 +117,7 @@ public sealed class CreaturePresentationController
             throw new InvalidOperationException(
                 $"Could not instantiate creature model {definition.Model}.");
 
-        PlayIdle(model, definition);
+        PlayAnimation(model, definition, "idle");
         return model;
     }
 
@@ -130,9 +151,12 @@ public sealed class CreaturePresentationController
         foreach (var child in node.GetChildren()) ApplyTextures(child, definition);
     }
 
-    private static bool PlayIdle(Node node, CreatureDefinition definition)
+    private static bool PlayAnimation(
+        Node node,
+        CreatureDefinition definition,
+        string phase)
     {
-        if (!definition.Animations.TryGetValue("idle", out var animation))
+        if (!definition.Animations.TryGetValue(phase, out var animation))
             return false;
 
         if (node is AnimationPlayer player && player.HasAnimation(animation))
@@ -143,7 +167,7 @@ public sealed class CreaturePresentationController
 
         foreach (var child in node.GetChildren())
         {
-            if (PlayIdle(child, definition)) return true;
+            if (PlayAnimation(child, definition, phase)) return true;
         }
 
         return false;

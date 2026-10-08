@@ -10,7 +10,8 @@ public readonly record struct CreatureInstanceState(
     string DefinitionId,
     Vector3 Position,
     float Health,
-    double AgeSeconds);
+    double AgeSeconds,
+    CreatureHopMotion Motion = default);
 
 public sealed record CreatureRuntimeSnapshot(
     ulong NextId,
@@ -49,7 +50,13 @@ public sealed class CreatureRuntime
         {
             if (creature.Id.Value == 0 || creature.Id.Value > restore.NextId ||
                 !IsFinite(creature.Position) || creature.Position.Y < 0 ||
-                !double.IsFinite(creature.AgeSeconds) || creature.AgeSeconds < 0)
+                !double.IsFinite(creature.AgeSeconds) || creature.AgeSeconds < 0 ||
+                !Enum.IsDefined(creature.Motion.Phase) ||
+                !float.IsFinite(creature.Motion.SecondsRemaining) ||
+                !float.IsFinite(creature.Motion.VerticalSpeed) ||
+                !float.IsFinite(creature.Motion.Direction.X) ||
+                !float.IsFinite(creature.Motion.Direction.Y) ||
+                !float.IsFinite(creature.Motion.FacingRadians))
             {
                 throw new ArgumentException("Creature snapshot contains an invalid state.", nameof(restore));
             }
@@ -90,7 +97,9 @@ public sealed class CreatureRuntime
         }
 
         var id = new CreatureInstanceId(checked(_nextId + 1));
-        creature = new CreatureInstanceState(id, definition.Id, feet, definition.Health, 0.0);
+        creature = new CreatureInstanceState(
+            id, definition.Id, feet, definition.Health, 0.0,
+            CreatureHopMotion.Initial);
         _active.Add(id.Value, creature);
         _counts[definition.Id] = CountFor(definition.Id) + 1;
         _nextId = id.Value;
@@ -151,6 +160,48 @@ public sealed class CreatureRuntime
         }
 
         return removed;
+    }
+
+    /// <summary>
+    /// Moves creatures only through resident voxel collision, preserving
+    /// their hop phase and heading in the same Sphere-owned snapshot.
+    /// Returns true only when presentation must change.
+    /// </summary>
+    public bool AdvanceWorld(
+        double deltaSeconds,
+        Vector3 observerPosition,
+        VoxelWorld world,
+        BlockRegistry blocks,
+        float gravityStrength)
+    {
+        ArgumentNullException.ThrowIfNull(world);
+        ArgumentNullException.ThrowIfNull(blocks);
+        if (!double.IsFinite(deltaSeconds) || deltaSeconds < 0 ||
+            !float.IsFinite(gravityStrength) || gravityStrength < 0f)
+        {
+            throw new ArgumentOutOfRangeException(nameof(deltaSeconds));
+        }
+
+        var changed = Advance(deltaSeconds, observerPosition) > 0;
+        foreach (var id in _active.Keys.ToArray())
+        {
+            var creature = _active[id];
+            var definition = _definitions.Get(creature.DefinitionId);
+            var next = CreatureHopSolver.Step(
+                creature, definition, world, blocks,
+                gravityStrength, (float)Math.Min(deltaSeconds, 0.05));
+
+            if (next.Position != creature.Position ||
+                next.Motion.Phase != creature.Motion.Phase ||
+                next.Motion.FacingRadians != creature.Motion.FacingRadians)
+            {
+                changed = true;
+            }
+
+            _active[id] = next;
+        }
+
+        return changed;
     }
 
     private bool CanAdd(CreatureDefinition definition) =>

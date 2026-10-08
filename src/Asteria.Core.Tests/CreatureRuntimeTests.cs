@@ -90,6 +90,66 @@ public sealed class CreatureRuntimeTests
     }
 
     [Fact]
+    public void SlimeHoppingIsDeterministicAndRespectsVoxelGround()
+    {
+        var (world, blocks) = FlatTestGround();
+        var definitions = Definitions();
+        var first = new CreatureRuntime(definitions);
+        var second = new CreatureRuntime(definitions);
+        Assert.True(first.TrySpawn("asteria:slime_aqua", new Vector3(7.5f, 1f, 7.5f), out _));
+        Assert.True(second.TrySpawn("asteria:slime_aqua", new Vector3(7.5f, 1f, 7.5f), out _));
+
+        var sawAirborne = false;
+        for (var i = 0; i < 160; i++)
+        {
+            first.AdvanceWorld(0.025, new Vector3(7, 1, 7), world, blocks, 18f);
+            second.AdvanceWorld(0.025, new Vector3(7, 1, 7), world, blocks, 18f);
+            var state = Assert.Single(first.ActiveCreatures);
+            sawAirborne |= state.Motion.Phase == CreatureHopPhase.Airborne;
+            Assert.True(state.Position.Y >= 1f - 0.0001f);
+            Assert.Equal(state, Assert.Single(second.ActiveCreatures));
+        }
+
+        Assert.True(sawAirborne);
+        var restored = new CreatureRuntime(definitions, first.CaptureState());
+        Assert.Equal(Assert.Single(first.ActiveCreatures), Assert.Single(restored.ActiveCreatures));
+    }
+
+    [Fact]
+    public void HoppingCannotMoveIntoUnloadedNeighborChunks()
+    {
+        var (world, blocks) = FlatTestGround();
+        var definitions = Definitions();
+        var instance = new CreatureInstanceState(
+            new CreatureInstanceId(1),
+            "asteria:slime_aqua",
+            new Vector3(15.5f, 1.1f, 7.5f),
+            11, 0,
+            new CreatureHopMotion(
+                CreatureHopPhase.Airborne, 0f, 0f,
+                Vector2.UnitX, 0f, 1));
+        var next = CreatureHopSolver.Step(
+            instance, definitions.Get(instance.DefinitionId),
+            world, blocks, 18f, 0.05f);
+
+        Assert.True(next.Position.X <= 15.61f);
+        Assert.True(next.Position.Y >= 1f);
+    }
+
+    private static (VoxelWorld World, BlockRegistry Blocks) FlatTestGround()
+    {
+        var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, new Chunk());
+        for (var x = 0; x < Chunk.Size; x++)
+        for (var z = 0; z < Chunk.Size; z++)
+            Assert.True(world.SetBlockAt(
+                new WorldVoxelCoord(x, 0, z),
+                blocks.GetId("asteria:stone"), out _));
+        return (world, blocks);
+    }
+
+    [Fact]
     public void DimensionStateCanHoldRetiredCreaturePopulation()
     {
         var registry = Definitions();

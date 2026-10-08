@@ -299,8 +299,15 @@ public sealed class DimensionRuntimeSession
         if (_retiring || _retired || Creatures.Count == 0)
             return;
 
-        if (Creatures.Advance(deltaSeconds, playerPosition) > 0)
+        if (Creatures.AdvanceWorld(
+                deltaSeconds,
+                playerPosition,
+                World,
+                Blocks,
+                Dimension.GravityStrength))
+        {
             _creaturePresentation.Sync(Creatures.ActiveCreatures);
+        }
     }
 
     public VoxelWorld World { get; }
