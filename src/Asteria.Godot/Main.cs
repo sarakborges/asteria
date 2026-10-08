@@ -1894,6 +1894,9 @@ public partial class Main : Node3D
             case ChatCommandKind.Kill:
                 ExecuteChatKill();
                 break;
+            case ChatCommandKind.Modify:
+                ExecuteChatModify(command);
+                break;
             case ChatCommandKind.Warp:
                 ExecuteChatWarp(command);
                 break;
@@ -2003,6 +2006,63 @@ public partial class Main : Node3D
         SendTargetHudState(force: true);
     }
 
+    private void ExecuteChatModify(ParsedChatCommand command)
+    {
+        var tag = command.Argument!;
+        if (tag != "NO_AI")
+        {
+            ChatFeedback("chat.command.meta.unknown", error: true,
+                ("tag", tag));
+            return;
+        }
+
+        // The currently authored NO_AI tag has no value. Do not silently
+        // accept arbitrary metadata or claim that edit is supported.
+        if (command.Option == "edit" || command.Value is not null)
+        {
+            ChatFeedback("chat.command.notImplemented", error: true,
+                ("command", "/modify edit NO_AI"));
+            return;
+        }
+
+        if (_player is null)
+        {
+            ChatFeedback("chat.command.target.none", error: true);
+            return;
+        }
+        var (from, to) = _player.GetInteractionRay(InteractionDistance);
+        var target = _sessions.Active.FindCreatureTarget(
+            new NVector3(from.X, from.Y, from.Z),
+            new NVector3(to.X - from.X, to.Y - from.Y, to.Z - from.Z),
+            InteractionDistance);
+        if (target is not { } hit)
+        {
+            ChatFeedback("chat.command.target.none", error: true);
+            return;
+        }
+
+        var adding = command.Option == "add";
+        if (hit.Creature.NoAi == adding)
+        {
+            ChatFeedback(adding ? "chat.command.meta.exists" :
+                "chat.command.meta.notSet", error: true, ("tag", tag));
+            return;
+        }
+        if (!_sessions.Active.TrySetCreatureNoAi(hit.Creature.Id, adding))
+        {
+            ChatFeedback("chat.command.target.unavailable", error: true);
+            return;
+        }
+
+        var position = hit.Creature.Position;
+        ChatFeedback(adding ? "chat.command.modify.addSuccess" :
+            "chat.command.modify.removeSuccess", error: false,
+            ("tag", tag),
+            ("name", hit.Creature.DefinitionId),
+            ("position", $"({Mathf.FloorToInt(position.X)}, " +
+                $"{Mathf.FloorToInt(position.Z)}, {Mathf.FloorToInt(position.Y)})"));
+    }
+
     private void ExecuteChatSpawn(ParsedChatCommand command)
     {
         var id = command.Argument!;
@@ -2013,10 +2073,10 @@ public partial class Main : Node3D
             return;
         }
 
-        if (command.Option is not null)
+        if (command.Option is not null && command.Option != "NO_AI")
         {
-            ChatFeedback("chat.command.notImplemented", error: true,
-                ("command", "/spawn <id> [meta_tag]"));
+            ChatFeedback("chat.command.meta.unknown", error: true,
+                ("tag", command.Option));
             return;
         }
 
@@ -2041,7 +2101,8 @@ public partial class Main : Node3D
 
         var feet = new NVector3(
             safe.Value.X + 0.5f, safe.Value.Y, safe.Value.Z + 0.5f);
-        if (!_sessions.Active.TrySpawnCreature(id, feet))
+        if (!_sessions.Active.TrySpawnCreature(id, feet,
+                noAi: command.Option == "NO_AI"))
         {
             ChatFeedback("chat.command.spawn.failed", error: true, ("id", id));
             return;
