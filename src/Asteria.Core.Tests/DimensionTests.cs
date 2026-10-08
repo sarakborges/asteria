@@ -27,7 +27,7 @@ public sealed class DimensionTests
         structures.ValidateBlocks(
             blocks);
         dimensions.ValidateStructures(
-            structures);
+            structures, LoadDefaultStructureSets());
 
         Assert.Equal(
             2,
@@ -281,7 +281,8 @@ public sealed class DimensionTests
                 blocks,
                 fluids,
                 biomes,
-                structures);
+                structures,
+                LoadDefaultStructureSets());
         var umbralGenerator =
             new BiomeWorldGenerator(
                 DimensionSeed.Derive(
@@ -291,7 +292,8 @@ public sealed class DimensionTests
                 blocks,
                 fluids,
                 biomes,
-                structures);
+                structures,
+                LoadDefaultStructureSets());
 
         Assert.Equal(
             DimensionId.Overworld,
@@ -367,7 +369,8 @@ public sealed class DimensionTests
                 blocks,
                 fluids,
                 biomes,
-                structures);
+                structures,
+                LoadDefaultStructureSets());
         var point =
             FindOceanColumn(
                 generator,
@@ -455,7 +458,8 @@ public sealed class DimensionTests
                 blocks,
                 fluids,
                 biomes,
-                structures);
+                structures,
+                LoadDefaultStructureSets());
         var boundary =
             FindOceanBoundaryWithDeepWater(
                 generator,
@@ -849,6 +853,10 @@ public sealed class DimensionTests
         StructureRegistry.FromJson(
             ReadJsonDirectory(
                 "structures"));
+
+    private static StructureSetRegistry LoadDefaultStructureSets() =>
+        StructureSetRegistry.FromJson(
+            ReadJsonDirectory("structure_sets"));
 
     private static DimensionRegistry LoadDefaultDimensions() =>
         DimensionRegistry.FromJson(

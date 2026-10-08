@@ -29,7 +29,9 @@ public sealed class ConnectedWaterStructureTests
         structures.ValidateFluids(
             fluids);
         dimensions.ValidateStructures(
-            structures);
+            structures,
+            StructureSetRegistry.FromJson(
+                ReadJsonDirectory("structure_sets")));
 
         Assert.Equal(
             10,

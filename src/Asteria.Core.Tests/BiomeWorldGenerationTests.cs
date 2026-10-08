@@ -1387,7 +1387,8 @@ public sealed class BiomeWorldGenerationTests
                 blocks,
                 fluids,
                 biomes,
-                structures);
+                structures,
+                LoadDefaultStructureSets());
         var floating =
             FindVolumeBiomeInterior(
                 generator.VolumeBiomes,
@@ -1461,7 +1462,8 @@ public sealed class BiomeWorldGenerationTests
                 blocks,
                 fluids,
                 biomes,
-                structures);
+                structures,
+                LoadDefaultStructureSets());
         var cave =
             FindCaveVoid(
                 generator);
@@ -1533,7 +1535,8 @@ public sealed class BiomeWorldGenerationTests
                 blocks,
                 fluids,
                 biomes,
-                structures);
+                structures,
+                LoadDefaultStructureSets());
         var grass =
             blocks.GetId(
                 "asteria:grass");
@@ -1814,6 +1817,16 @@ public sealed class BiomeWorldGenerationTests
                     StringComparer.Ordinal)
                 .Select(
                     File.ReadAllText));
+    }
+
+    private static StructureSetRegistry LoadDefaultStructureSets()
+    {
+        var directory = Path.Combine(
+            AppContext.BaseDirectory, "packs", "default", "data", "structure_sets");
+        return StructureSetRegistry.FromJson(
+            Directory.EnumerateFiles(directory, "*.json")
+                .OrderBy(path => path, StringComparer.Ordinal)
+                .Select(File.ReadAllText));
     }
 
     private static DimensionRegistry LoadDefaultDimensions()
