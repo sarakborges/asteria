@@ -24,7 +24,6 @@ export function InventoryWorkspace({
   station,
   creative,
 }: InventoryWorkspaceProps) {
-  const { t } = useLocalization();
   const showCreative = creativeAvailable && creativeVisible;
 
   return (
