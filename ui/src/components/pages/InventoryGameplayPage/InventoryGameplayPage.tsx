@@ -44,10 +44,7 @@ export function InventoryGameplayPage({
     [state.catalog],
   );
   const creative = state.creativeAvailable && creativeTab;
-  const matches = (id: string) =>
-    id.toLowerCase().includes(search.trim().toLowerCase());
-  const filteredSlots = (slots: GameplayInventoryState["backpack"]) =>
-    slots.map(slot => slot && matches(slot.id) ? itemView(slot) : null);
+  // Search never masks occupied slots as empty.
   const creativeItems = state.catalog.filter(item =>
     (category === null || item.category === category) &&
     item.id.toLowerCase().includes(creativeSearch.trim().toLowerCase()),
@@ -91,8 +88,8 @@ export function InventoryGameplayPage({
           <PlayerInventoryPanel
             state={{
               searchQuery: search,
-              backpack: filteredSlots(state.backpack),
-              hotbar: filteredSlots(state.hotbar),
+              backpack: state.backpack.map(itemView),
+              hotbar: state.hotbar.map(itemView),
             }}
             onSearchChange={setSearch}
             onSort={onSort}
@@ -103,7 +100,7 @@ export function InventoryGameplayPage({
       </section>
 
       <footer className="inventory-gameplay__footer">
-        <Text text={t("inventory.cursor")} variant="label" />
+        <Text text={t("inventory.cursor")} variant="detail" />
         <InventorySlot item={itemView(state.cursor)} disabled />
         {state.cursor && <Text text={t("inventory.cursor.help")} variant="caption" />}
         {state.errorKey && <Text text={t(state.errorKey)} variant="caption" />}
