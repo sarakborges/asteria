@@ -65,6 +65,7 @@ createRoot(rootElement).render(
       ping: hud.ping,
       createWorld: worldCreation.createWorld,
       randomizeWorld: worldCreation.randomizeWorld,
+      openWorldSelection: navigation.openWorldSelection,
       openWorldCreation: navigation.openWorldCreation,
       backToStart: navigation.backToStart,
       exitGame: navigation.exitGame,
