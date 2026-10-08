@@ -155,6 +155,20 @@ keeps Godot as an I/O/interaction adapter.
   block records. The complete session container format and atomic publication
   remain pending.
 
+## Stage 10: complete session stream format
+
+- `GameplaySessionFileCodec` writes one versioned deterministic stream with
+  player mode, flight, inventory/cursor, rules, the complete multi-Sphere
+  spatial snapshot and each Sphere's non-voxel session state.
+- `SphereSessionFileCodec` includes clock, last player position, natural
+  spawn time, Storage Boxes, manual placement records, falling blocks, drops,
+  creatures and both pending work queues. Block and fluid entities are
+  remapped to pack-authored namespaced IDs when serialized.
+- Bounds and validation reject malformed sizes, duplicate state, unknown
+  content and trailing bytes before building the detached session snapshot.
+- Publication, generation rotation and end-to-end native save wiring remain
+  separate from the stream format until recovery behavior is verified.
+
 ## Remaining
 
 Wire the spatial snapshot capture and disk publisher into a quiescent
