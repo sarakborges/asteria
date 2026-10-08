@@ -258,6 +258,23 @@ Structures may additionally author bounded `restrictions.proximity` rules. Each 
 
 Ground-level decorative blocks support the `visual.type: "groundSprite"` visual contract: a small horizontal cutout sprite with pack-relative `texture`, `width` (0..1), `height` and `baseOffset` inside its voxel. Unlike MineClone's separate object entity system, Asteria currently stores these as lightweight support-dependent voxel decorators. Their break/drop behavior follows the normal block mutation and drop pipeline.
 
+An optional biome-owned `surfaceHabitats` distribution organizes decorations and generated surface structures into persistent natural regions. Ordered noise bands describe habitats independently of chunk boundaries. Placement rules may author `habitatWeights` (multipliers 0..4, omitted bands treated as zero). Neighboring bands blend continuously over `transitionWidth`; the same deterministic noise sample and biome ID drive every participating rule. Unweighted rules keep their previous behavior. Habitat rules only alter candidate probability, not terrain height, biome identity, fluid ownership or Structure fit/conflict logic.
+
+```json
+"surfaceHabitats": {
+  "scale": 128,
+  "transitionWidth": 0.12,
+  "bands": [
+    {"id": "grove", "maximum": -0.3},
+    {"id": "open", "maximum": 0.1},
+    {"id": "thicket", "maximum": 0.34},
+    {"id": "rocky", "maximum": 1.0}
+  ]
+}
+```
+
+For example, `decorations[].habitatWeights: { "grove": 2, "open": 0.4 }` raises sticks around groves and reduces them in open fields; `generatedSurfaceStructures[].habitatWeights` uses the same contract for tree, thicket and rock roots. The default Plains pack separates open grass meadows, Oak groves with fallen wood, shrubby thickets, and rocky areas with boulders/pebbles. There is no secondary biome registry or habitat-owned mutation state.
+
 Any surface biome can author deterministic decorators through `decorations`; optional `cluster` noise limits eligible locations to irregular patches, independent of chunk boundaries:
 
 ```json

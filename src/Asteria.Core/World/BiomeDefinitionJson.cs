@@ -35,7 +35,8 @@ public static class BiomeDefinitionJson
             ParseTints(root),
             ParseTerrain3d(root),
             ParseVolumeLayout(root),
-            ParseUndergroundLayout(root));
+            ParseUndergroundLayout(root),
+            SurfaceHabitatDefinitionJson.Parse(root));
     }
 
     private static PlacementLayoutValues?
@@ -674,7 +675,8 @@ public static class BiomeDefinitionJson
                         value,
                         "surfaceBlocks"),
                     ParseDecorationCluster(value),
-                    ParsePlacementConditions(value)));
+                    ParsePlacementConditions(value),
+                    SurfaceHabitatDefinitionJson.ParseWeights(value)));
         }
 
         return decorations;

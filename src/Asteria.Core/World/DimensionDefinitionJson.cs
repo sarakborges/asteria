@@ -211,7 +211,8 @@ public static class DimensionDefinitionJson
                         var authored =>
                             throw new FormatException(
                                 $"Unsupported generatedSurfaceStructures placement: {authored}."),
-                    });
+                    },
+                    SurfaceHabitatDefinitionJson.ParseWeights(entry));
             })
             .ToArray();
     }

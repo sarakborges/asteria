@@ -83,6 +83,18 @@ public sealed class SurfaceStructureTests
             overworld
                 .GeneratedSurfaceStructures
                 .Count);
+        var plainsRoots = overworld.GeneratedSurfaceStructures
+            .Where(root => root.Biome == "asteria:overworld/plains")
+            .ToArray();
+        Assert.Equal(13, plainsRoots.Length);
+        Assert.All(plainsRoots.Where(root => root.Structure != "asteria:lake"),
+            root => Assert.NotNull(root.HabitatWeights));
+        Assert.Equal(2.5f, Assert.Single(plainsRoots,
+            root => root.Structure == "asteria:rock_cluster")
+            .HabitatWeights!.For("rocky"));
+        Assert.Equal(0f, Assert.Single(plainsRoots,
+            root => root.Structure == "asteria:oak_grove")
+            .HabitatWeights!.For("rocky"));
         Assert.All(
             overworld
                 .GeneratedSurfaceStructures,

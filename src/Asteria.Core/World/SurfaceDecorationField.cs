@@ -8,19 +8,23 @@ public sealed class SurfaceDecorationField
 {
     private readonly ulong _seed;
     private readonly SurfaceTerrainField? _terrain;
+    private readonly SurfaceHabitatField _habitats;
     private readonly IReadOnlyDictionary<string, DecorationRule[]> _rules;
 
     public SurfaceDecorationField(
         ulong seed,
         IEnumerable<BiomeDefinition> biomes,
         BlockRegistry blocks,
-        SurfaceTerrainField? terrain = null)
+        SurfaceTerrainField? terrain = null,
+        SurfaceHabitatField? habitats = null)
     {
         ArgumentNullException.ThrowIfNull(biomes);
         ArgumentNullException.ThrowIfNull(blocks);
         _seed = seed;
         _terrain = terrain;
-        _rules = biomes
+        var definitions = biomes.ToArray();
+        _habitats = habitats ?? new SurfaceHabitatField(seed, definitions);
+        _rules = definitions
             .OrderBy(biome => biome.Id, StringComparer.Ordinal)
             .ToDictionary(
                 biome => biome.Id,
@@ -41,9 +45,13 @@ public sealed class SurfaceDecorationField
                             decoration.Conditions,
                             biome.SurfaceLayout is not null,
                             GenerationDomain.Named(
-                                $"worldgen/decorator-cluster/{biome.Id}/{decoration.Block}/v1")))
+                                $"worldgen/decorator-cluster/{biome.Id}/{decoration.Block}/v1"),
+                            decoration.HabitatWeights))
                     .ToArray(),
                 StringComparer.Ordinal);
+        foreach (var biome in definitions)
+            foreach (var decoration in biome.Decorations)
+                _habitats.Validate(biome.Id, decoration.HabitatWeights);
     }
 
     public BlockRuntimeId BlockAt(
@@ -57,6 +65,7 @@ public sealed class SurfaceDecorationField
         var slopeSampled = suppliedPlacement.HasValue;
         foreach (var influence in sample.Influences)
         {
+            double? sampledHabitat = null;
             foreach (var rule in _rules[influence.BiomeId])
             {
                 if (!rule.SurfaceBlocks.Contains(surfaceBlock))
@@ -89,6 +98,15 @@ public sealed class SurfaceDecorationField
                 }
 
                 double effectiveChance = rule.Chance * influence.Weight;
+                if (rule.HabitatWeights is { } weights)
+                {
+                    sampledHabitat ??= _habitats.Sample(
+                        influence.BiomeId, worldX, worldZ);
+                    effectiveChance *= _habitats.Weight(
+                        influence.BiomeId, weights, sampledHabitat.Value);
+                    if (effectiveChance <= 0d)
+                        continue;
+                }
                 if (rule.Cluster is { } cluster)
                 {
                     var noise = WorldGenerationNoise.FractalNoise2D(
@@ -133,5 +151,6 @@ public sealed class SurfaceDecorationField
         BiomeDecorationClusterDefinition? Cluster,
         SurfacePlacementConditions? Conditions,
         bool UsesBaseSurface,
-        GenerationDomain ClusterDomain);
+        GenerationDomain ClusterDomain,
+        SurfaceHabitatWeights? HabitatWeights);
 }

@@ -118,28 +118,52 @@
       "structure": "asteria:boulder_small",
       "spacing": 36,
       "chance": 0.28,
-      "jitter": 11
+      "jitter": 11,
+      "habitatWeights": {
+        "grove": 0.15,
+        "open": 0.35,
+        "thicket": 0.15,
+        "rocky": 2.6
+      }
     },
     {
       "biome": "asteria:overworld/plains",
       "structure": "asteria:boulder_medium",
       "spacing": 58,
       "chance": 0.2,
-      "jitter": 18
+      "jitter": 18,
+      "habitatWeights": {
+        "grove": 0.1,
+        "open": 0.23,
+        "thicket": 0.09,
+        "rocky": 2.3
+      }
     },
     {
       "biome": "asteria:overworld/plains",
       "structure": "asteria:boulder_big",
       "spacing": 88,
       "chance": 0.13,
-      "jitter": 27
+      "jitter": 27,
+      "habitatWeights": {
+        "grove": 0.05,
+        "open": 0.1,
+        "thicket": 0,
+        "rocky": 1.75
+      }
     },
     {
       "biome": "asteria:overworld/plains",
       "structure": "asteria:boulder_huge",
       "spacing": 140,
       "chance": 0.07,
-      "jitter": 43
+      "jitter": 43,
+      "habitatWeights": {
+        "grove": 0,
+        "open": 0.09,
+        "thicket": 0,
+        "rocky": 1.1
+      }
     },
     {
       "biome": "asteria:overworld/swamp",
@@ -279,56 +303,104 @@
       "structure": "asteria:bush_oak",
       "spacing": 14,
       "chance": 0.62,
-      "jitter": 4
+      "jitter": 4,
+      "habitatWeights": {
+        "grove": 0.8,
+        "open": 0.16,
+        "thicket": 2,
+        "rocky": 0.08
+      }
     },
     {
       "biome": "asteria:overworld/plains",
       "structure": "asteria:thicket_oak",
       "spacing": 76,
       "chance": 0.68,
-      "jitter": 24
+      "jitter": 24,
+      "habitatWeights": {
+        "grove": 0.75,
+        "open": 0.02,
+        "thicket": 2.25,
+        "rocky": 0
+      }
     },
     {
       "biome": "asteria:overworld/plains",
       "structure": "asteria:oak_grove",
       "spacing": 188,
       "chance": 0.65,
-      "jitter": 53
+      "jitter": 53,
+      "habitatWeights": {
+        "grove": 2,
+        "open": 0.05,
+        "thicket": 0.1,
+        "rocky": 0
+      }
     },
     {
       "biome": "asteria:overworld/plains",
       "structure": "asteria:fallen_log_oak",
       "spacing": 50,
       "chance": 0.44,
-      "jitter": 15
+      "jitter": 15,
+      "habitatWeights": {
+        "grove": 1.75,
+        "open": 0.17,
+        "thicket": 0.55,
+        "rocky": 0
+      }
     },
     {
       "biome": "asteria:overworld/plains",
       "structure": "asteria:oak_stump",
       "spacing": 64,
       "chance": 0.38,
-      "jitter": 20
+      "jitter": 20,
+      "habitatWeights": {
+        "grove": 1.6,
+        "open": 0.14,
+        "thicket": 0.7,
+        "rocky": 0
+      }
     },
     {
       "biome": "asteria:overworld/plains",
       "structure": "asteria:rock_cluster",
       "spacing": 112,
       "chance": 0.42,
-      "jitter": 35
+      "jitter": 35,
+      "habitatWeights": {
+        "grove": 0.05,
+        "open": 0.05,
+        "thicket": 0,
+        "rocky": 2.5
+      }
     },
     {
       "biome": "asteria:overworld/plains",
       "structure": "asteria:tree_oak",
       "spacing": 74,
       "chance": 0.5,
-      "jitter": 23
+      "jitter": 23,
+      "habitatWeights": {
+        "grove": 1.6,
+        "open": 0.24,
+        "thicket": 0.32,
+        "rocky": 0.08
+      }
     },
     {
       "biome": "asteria:overworld/plains",
       "structure": "asteria:tree_willow",
       "spacing": 64,
       "chance": 0.42,
-      "jitter": 20
+      "jitter": 20,
+      "habitatWeights": {
+        "grove": 0.6,
+        "open": 0.9,
+        "thicket": 0.45,
+        "rocky": 0.15
+      }
     },
     {
       "biome": "asteria:overworld/swamp",

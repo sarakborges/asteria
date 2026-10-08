@@ -13,7 +13,8 @@ public sealed class BiomeDefinition
         BiomeTintPaletteDefinition? tints = null,
         BiomeTerrain3dDefinition? terrain3d = null,
         BiomeVolumeLayoutDefinition? volumeLayout = null,
-        BiomeUndergroundLayoutDefinition? undergroundLayout = null)
+        BiomeUndergroundLayoutDefinition? undergroundLayout = null,
+        SurfaceHabitatDefinition? surfaceHabitats = null)
     {
         ValidateId(id);
         Id = id;
@@ -73,6 +74,15 @@ public sealed class BiomeDefinition
             tints ??
             BiomeTintPaletteDefinition.Empty;
         Terrain3d = terrain3d;
+        if (surfaceHabitats is not null && surfaceLayout is null)
+            throw new ArgumentException("surfaceHabitats require a surface biome.");
+        SurfaceHabitats = surfaceHabitats;
+        foreach (var decoration in authoredDecorations)
+        {
+            if (decoration.HabitatWeights is not null && surfaceHabitats is null)
+                throw new ArgumentException("Habitat-weighted decorations require surfaceHabitats.");
+            surfaceHabitats?.ValidateWeights(decoration.HabitatWeights);
+        }
     }
 
     public string Id { get; }
@@ -92,6 +102,7 @@ public sealed class BiomeDefinition
     public BiomeTintPaletteDefinition Tints { get; }
 
     public BiomeTerrain3dDefinition? Terrain3d { get; }
+    public SurfaceHabitatDefinition? SurfaceHabitats { get; }
 
     public bool BelongsToDimension(string dimensionId)
     {
@@ -595,7 +606,8 @@ public sealed class BiomeDecorationDefinition
         float chance,
         IEnumerable<string> surfaceBlocks,
         BiomeDecorationClusterDefinition? cluster = null,
-        SurfacePlacementConditions? conditions = null)
+        SurfacePlacementConditions? conditions = null,
+        SurfaceHabitatWeights? habitatWeights = null)
     {
         BiomeSurfaceLayerDefinition.ValidateBlockId(
             block);
@@ -639,6 +651,7 @@ public sealed class BiomeDecorationDefinition
         Chance = chance;
         Cluster = cluster;
         Conditions = conditions;
+        HabitatWeights = habitatWeights;
         SurfaceBlocks =
             Array.AsReadOnly(supports);
     }
@@ -652,6 +665,7 @@ public sealed class BiomeDecorationDefinition
     public BiomeDecorationClusterDefinition? Cluster { get; }
 
     public SurfacePlacementConditions? Conditions { get; }
+    public SurfaceHabitatWeights? HabitatWeights { get; }
 }
 
 /// <summary>
