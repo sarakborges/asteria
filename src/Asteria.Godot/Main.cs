@@ -1902,7 +1902,7 @@ public partial class Main : Node3D
     {
         var arguments = parameters.ToDictionary(
             pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
-        _chat.Append("", error, key, arguments);
+        _chat.Append(key, error, key, arguments);
     }
 
     private void ExecuteChatSpawn(ParsedChatCommand command)
