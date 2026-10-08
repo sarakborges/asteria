@@ -12,6 +12,13 @@ public readonly record struct FluidMutationBatchResult(
         new(false, 0, 0);
 }
 
+/// <summary>Final block and fluid state of one voxel in a structure batch.
+/// A null block means air; fluid may be present only in air.</summary>
+public sealed record VoxelStructureChange(
+    WorldVoxelCoord Position,
+    BlockStateSnapshot? Block,
+    FluidCell Fluid);
+
 public sealed class VoxelMutationRuntime
 {
     private readonly VoxelWorld _world;
@@ -110,6 +117,59 @@ public sealed class VoxelMutationRuntime
         }
 
         EnqueueFluidEdit(position);
+        return true;
+    }
+
+    /// <summary>
+    /// Applies a fully planned structure as one noninterleavable main-thread
+    /// mutation operation. All input/residency preconditions are checked
+    /// before a single cell or dependent queue is changed.
+    /// </summary>
+    public bool ApplyStructureChanges(IReadOnlyList<VoxelStructureChange> changes)
+    {
+        ArgumentNullException.ThrowIfNull(changes);
+        var positions = new HashSet<WorldVoxelCoord>();
+        foreach (var change in changes)
+        {
+            if (!positions.Add(change.Position) ||
+                change.Position.Y < 0 ||
+                !_world.IsLoadedAt(change.Position) ||
+                (change.Block is not null && !change.Fluid.IsEmpty))
+                return false;
+        }
+
+        foreach (var change in changes)
+        {
+            var currentCell = _world.GetCellOrEmpty(change.Position);
+            var currentFluid = _world.GetFluidOrEmpty(change.Position);
+            if (change.Block is { } block)
+            {
+                var currentBlock = currentCell.IsEmpty ? null :
+                    BlockStateSnapshot.Capture(_world, change.Position, currentCell);
+                if (currentBlock != block)
+                {
+                    if (!SetBlockStateAt(change.Position, block, out _))
+                        throw new InvalidOperationException(
+                            $"Validated structure mutation failed at {change.Position}.");
+                }
+                else if (!currentFluid.IsEmpty &&
+                         !SetFluidAt(change.Position, FluidCell.Empty, out _))
+                    throw new InvalidOperationException(
+                        $"Validated structure fluid clear failed at {change.Position}.");
+            }
+            else
+            {
+                if (!currentCell.IsEmpty &&
+                    !SetCellAt(change.Position, VoxelCell.Empty, out _))
+                    throw new InvalidOperationException(
+                        $"Validated structure clearing failed at {change.Position}.");
+                if (_world.GetFluidOrEmpty(change.Position) != change.Fluid &&
+                    !SetFluidAt(change.Position, change.Fluid, out _))
+                    throw new InvalidOperationException(
+                        $"Validated structure fluid mutation failed at {change.Position}.");
+            }
+        }
+
         return true;
     }
 
