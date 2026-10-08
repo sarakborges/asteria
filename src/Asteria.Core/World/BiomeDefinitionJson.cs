@@ -788,6 +788,26 @@ public static class BiomeDefinitionJson
         return result;
     }
 
+    private static int? OptionalInt32(
+        JsonElement parent,
+        string name)
+    {
+        if (!parent.TryGetProperty(name, out var value) ||
+            value.ValueKind == JsonValueKind.Null)
+        {
+            return null;
+        }
+
+        if (value.ValueKind != JsonValueKind.Number ||
+            !value.TryGetInt32(out var result))
+        {
+            throw new FormatException(
+                $"{name} must be a signed 32-bit integer.");
+        }
+
+        return result;
+    }
+
     private static int RequiredInt32(
         JsonElement parent,
         string name)
