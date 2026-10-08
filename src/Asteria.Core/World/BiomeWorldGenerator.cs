@@ -220,7 +220,8 @@ public sealed class BiomeWorldGenerator :
                 _surfaceStructures,
                 dimension,
                 blocks,
-                _undergroundBiomes);
+                _undergroundBiomes,
+                _voidSpawnPlatform);
         Tints =
             new BiomeTintField(
                 Biomes,
@@ -379,12 +380,8 @@ public sealed class BiomeWorldGenerator :
             maxDistance,
             structureId);
 
-    public Chunk Materialize(ChunkCoord coord)
-    {
-        var chunk = _materializer.Materialize(coord);
-        _voidSpawnPlatform?.Apply(chunk, coord);
-        return chunk;
-    }
+    public Chunk Materialize(ChunkCoord coord) =>
+        _materializer.Materialize(coord);
 
     public int SurfaceHeight(int worldX, int worldZ) =>
         _voidSpawnPlatform?.SurfaceHeight(worldX, worldZ) ??
