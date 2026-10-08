@@ -297,6 +297,27 @@
     },
     {
       "biome": "asteria:overworld/plains",
+      "structure": "asteria:fallen_log_oak",
+      "spacing": 50,
+      "chance": 0.44,
+      "jitter": 15
+    },
+    {
+      "biome": "asteria:overworld/plains",
+      "structure": "asteria:oak_stump",
+      "spacing": 64,
+      "chance": 0.38,
+      "jitter": 20
+    },
+    {
+      "biome": "asteria:overworld/plains",
+      "structure": "asteria:rock_cluster",
+      "spacing": 112,
+      "chance": 0.42,
+      "jitter": 35
+    },
+    {
+      "biome": "asteria:overworld/plains",
       "structure": "asteria:tree_oak",
       "spacing": 74,
       "chance": 0.5,

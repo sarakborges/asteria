@@ -548,6 +548,40 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
+    public void PlainsSurfaceHasDeterministicDirtAndGravelPatches()
+    {
+        var blocks = LoadDefaultBlocks();
+        var biomes = LoadDefaultBiomes();
+        var plains = biomes.Get("asteria:overworld/plains");
+        var patch = Assert.IsType<BiomeSurfacePatchDefinition>(
+            plains.SurfaceLayers[0].Patch);
+        Assert.Equal(new[] { "asteria:dirt", "asteria:gravel" },
+            patch.Blocks);
+        var first = new BiomeSurfaceMaterialField(112233, [plains], blocks);
+        var second = new BiomeSurfaceMaterialField(112233, [plains], blocks);
+        var sample = new BiomeSample(plains.Id,
+            [new BiomeInfluence(plains.Id, 1f)]);
+        var materials = new HashSet<BlockRuntimeId>();
+
+        for (var z = -96; z <= 96; z += 2)
+        {
+            for (var x = -96; x <= 96; x += 2)
+            {
+                var at = first.BlockAt(sample, x, z, 0);
+                Assert.Equal(at, second.BlockAt(sample, x, z, 0));
+                materials.Add(at);
+            }
+        }
+
+        Assert.Contains(blocks.GetId("asteria:grass_block"), materials);
+        Assert.Contains(blocks.GetId("asteria:dirt"), materials);
+        Assert.Contains(blocks.GetId("asteria:gravel"), materials);
+        Assert.All(plains.Decorations.Where(decoration =>
+            decoration.Block is "asteria:pebble" or "asteria:stick"),
+            decoration => Assert.Contains("asteria:gravel", decoration.SurfaceBlocks));
+    }
+
+    [Fact]
     public void ResolvedMaterialColumnMatchesScalarDepthAndPatchQueries()
     {
         var blocks = LoadDefaultBlocks();

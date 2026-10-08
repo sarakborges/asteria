@@ -19,7 +19,16 @@
   "surfaceLayers": [
     {
       "block": "asteria:grass_block",
-      "depth": 1
+      "depth": 1,
+      "patch": {
+        "scale": 24,
+        "coverage": 0.24,
+        "roughness": 0.34,
+        "blocks": [
+          "asteria:dirt",
+          "asteria:gravel"
+        ]
+      }
     },
     {
       "block": "asteria:dirt",
@@ -32,7 +41,7 @@
   "decorations": [
     {
       "block": "asteria:grass",
-      "chance": 0.5,
+      "chance": 0.52,
       "surfaceBlocks": [
         "asteria:grass_block"
       ]
@@ -41,7 +50,9 @@
       "block": "asteria:pebble",
       "chance": 0.12,
       "surfaceBlocks": [
-        "asteria:grass_block"
+        "asteria:grass_block",
+        "asteria:dirt",
+        "asteria:gravel"
       ],
       "cluster": {
         "scale": 14,
@@ -52,7 +63,9 @@
       "block": "asteria:stick",
       "chance": 0.13,
       "surfaceBlocks": [
-        "asteria:grass_block"
+        "asteria:grass_block",
+        "asteria:dirt",
+        "asteria:gravel"
       ],
       "cluster": {
         "scale": 18,

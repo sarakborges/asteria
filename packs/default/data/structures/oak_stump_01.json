@@ -1,0 +1,69 @@
+{
+  "id": "asteria:oak_stump_01",
+  "groupId": "oak_stump",
+  "rotation": true,
+  "locatable": false,
+  "priority": -1,
+  "conflictGroups": [
+    "stump"
+  ],
+  "restrictions": {
+    "groundBlocks": [
+      "asteria:grass_block",
+      "asteria:dirt",
+      "asteria:gravel"
+    ],
+    "maxSlope": 0,
+    "requiresDryGround": true,
+    "requiredBiomeCoverage": 1
+  },
+  "generation": {
+    "replacePolicy": "terrain",
+    "fluidPolicy": "forbid",
+    "reserveSpace": false
+  },
+  "anchor": {
+    "x": 1,
+    "y": 0,
+    "z": 1
+  },
+  "groundAnchorY": 0,
+  "palette": {
+    "L": {
+      "block": "asteria:log_oak",
+      "orientation": "x"
+    },
+    "H": {
+      "block": "asteria:log_oak_hollow",
+      "orientation": "x"
+    },
+    "S": {
+      "block": "asteria:log_oak_stripped",
+      "orientation": "x"
+    },
+    "B": {
+      "block": "asteria:leaf_oak"
+    },
+    "G": {
+      "block": "asteria:log_oak",
+      "orientation": "y"
+    },
+    "C": {
+      "block": "asteria:log_oak_hollow",
+      "orientation": "y"
+    },
+    "M": {
+      "block": "asteria:mushroom_brown"
+    }
+  },
+  "layers": [
+    {
+      "y": 1,
+      "rows": [
+        "...",
+        ".G.",
+        "..."
+      ]
+    }
+  ]
+}
