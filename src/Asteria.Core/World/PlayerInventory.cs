@@ -135,6 +135,24 @@ public sealed class PlayerInventory
         return true;
     }
 
+    /// <summary>
+    /// Changes authored metadata on a single selected item without permitting
+    /// stale selections, item type substitution or stack-size duplication.
+    /// </summary>
+    public bool TryReplaceSelected(InventoryStack expected, InventoryEntry replacement)
+    {
+        ArgumentNullException.ThrowIfNull(expected);
+        ArgumentNullException.ThrowIfNull(replacement);
+        var index = BackpackSlots + SelectedSlot;
+        if (_slots[index] != expected || expected.Quantity != 1 ||
+            expected.Kind != replacement.Kind || expected.Id != replacement.Id ||
+            expected.MaxStackSize != replacement.MaxStackSize)
+            return false;
+        _slots[index] = new InventoryStack(replacement);
+        Revision++;
+        return true;
+    }
+
     public bool TryConsumeSelected()
     {
         var index = BackpackSlots + SelectedSlot;
