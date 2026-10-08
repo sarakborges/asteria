@@ -1949,7 +1949,7 @@ public partial class Main : Node3D
             return;
         }
 
-        ChatFeedback("chat.command.spawn.success",
+        ChatFeedback("chat.command.spawn.success", error: false,
             ("name", id),
             ("position", $"({safe.Value.X}, {safe.Value.Z}, {safe.Value.Y})"));
     }
@@ -1992,7 +1992,7 @@ public partial class Main : Node3D
             }
 
             var y = _sessions.Active.Generator.SurfaceHeight(found.X, found.Z);
-            ChatFeedback("chat.command.locate.found",
+            ChatFeedback("chat.command.locate.found", error: false,
                 ("name", id),
                 ("position", $"({found.X}, {found.Z}, {y})"));
             return;
@@ -2006,7 +2006,7 @@ public partial class Main : Node3D
                 ("name", id), ("radius", maxDistance.ToString()));
             return;
         }
-        ChatFeedback("chat.command.locate.found",
+        ChatFeedback("chat.command.locate.found", error: false,
             ("name", id),
             ("position", $"({structure.Value.AnchorX}, " +
                 $"{structure.Value.AnchorZ}, {structure.Value.AnchorY})"));
