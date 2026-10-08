@@ -63,6 +63,7 @@ public sealed class BlockMiningRuntime
 
         var block = _blocks.GetDefinition(cell.Block);
         if (block.Mining.Unbreakable ||
+            block.Interaction == BlockInteractionKind.Pickup ||
             _tools.EffectiveMiningSpeed(held, block) is not { } speed)
         {
             Cancel();

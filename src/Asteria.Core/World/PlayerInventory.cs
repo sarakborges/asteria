@@ -46,10 +46,16 @@ public sealed class PlayerInventory
         return true;
     }
 
+    public bool CanInsert(InventoryStack incoming)
+    {
+        ArgumentNullException.ThrowIfNull(incoming);
+        return AvailableCapacity(incoming) >= incoming.Quantity;
+    }
+
     public bool TryInsert(InventoryStack incoming)
     {
         ArgumentNullException.ThrowIfNull(incoming);
-        if (AvailableCapacity(incoming) < incoming.Quantity)
+        if (!CanInsert(incoming))
             return false;
         var remaining = incoming.Quantity;
         for (var phase = 0; phase < 2; phase++)

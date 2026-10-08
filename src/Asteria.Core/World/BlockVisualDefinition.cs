@@ -15,7 +15,8 @@ public sealed class BlockVisualDefinition
         float width,
         float height,
         int planes,
-        float baseOffset)
+        float baseOffset,
+        float targetHeight = 0f)
     {
         Kind = kind;
         Texture = texture;
@@ -23,6 +24,7 @@ public sealed class BlockVisualDefinition
         Height = height;
         Planes = planes;
         BaseOffset = baseOffset;
+        TargetHeight = targetHeight;
     }
 
     public BlockVisualKind Kind { get; }
@@ -36,6 +38,9 @@ public sealed class BlockVisualDefinition
     public int Planes { get; }
 
     public float BaseOffset { get; }
+
+    /// <summary>Interaction hitbox height for a compact ground sprite.</summary>
+    public float TargetHeight { get; }
 
     public static BlockVisualDefinition Geometry { get; } =
         new(
@@ -53,7 +58,8 @@ public sealed class BlockVisualDefinition
         BlockTextureLayer texture,
         float width = 0.42f,
         float height = 0.012f,
-        float baseOffset = 0.0125f)
+        float baseOffset = 0.0125f,
+        float targetHeight = 0.14f)
     {
         if (!float.IsFinite(width) || width <= 0f || width > 1f)
         {
@@ -68,8 +74,16 @@ public sealed class BlockVisualDefinition
                 "Ground-sprite height and offset must fit inside its voxel.");
         }
 
+        if (!float.IsFinite(targetHeight) || targetHeight < height ||
+            baseOffset + targetHeight > 1f)
+        {
+            throw new ArgumentOutOfRangeException(nameof(targetHeight),
+                "Ground-sprite hitbox must contain its visual inside the voxel.");
+        }
+
         return new BlockVisualDefinition(
-            BlockVisualKind.GroundSprite, texture, width, height, 0, baseOffset);
+            BlockVisualKind.GroundSprite, texture, width, height, 0,
+            baseOffset, targetHeight);
     }
 
     public static BlockVisualDefinition CrossedSprite(
