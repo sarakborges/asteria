@@ -537,7 +537,46 @@ public static class BiomeDefinitionJson
             RequiredStringArray(
                 patch,
                 "blocks"),
-            ParsePlacementConditions(patch));
+            ParsePlacementConditions(patch),
+            OptionalUInt32(patch, "detailScale"),
+            OptionalUInt32(patch, "selectionScale"),
+            OptionalUInt32(patch, "warpScale"),
+            OptionalSingle(patch, "warpStrength") ?? 0d,
+            OptionalSingle(patch, "stretchZ") ?? 1d,
+            ParsePatchWeights(patch));
+    }
+
+    private static IReadOnlyDictionary<string, double>? ParsePatchWeights(
+        JsonElement patch)
+    {
+        if (!patch.TryGetProperty("weights", out var value))
+        {
+            return null;
+        }
+
+        if (value.ValueKind != JsonValueKind.Object)
+        {
+            throw new FormatException("Patch weights must be an object.");
+        }
+
+        var weights = new Dictionary<string, double>(StringComparer.Ordinal);
+        foreach (var entry in value.EnumerateObject())
+        {
+            if (entry.Value.ValueKind != JsonValueKind.Number ||
+                !entry.Value.TryGetDouble(out var weight))
+            {
+                throw new FormatException(
+                    $"Patch weight for {entry.Name} must be a number.");
+            }
+
+            if (!weights.TryAdd(entry.Name, weight))
+            {
+                throw new FormatException(
+                    $"Duplicate patch weight for {entry.Name}.");
+            }
+        }
+
+        return weights;
     }
 
     private static BiomeTintPaletteDefinition
