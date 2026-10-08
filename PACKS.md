@@ -435,6 +435,14 @@ Data must not contain executable gameplay code. Native/code plugins are a separa
 
 Data definitions may reference presentation resources by logical pack-relative keys, but must not embed Godot-specific metadata.
 
+## Ambient wind and particles
+
+- Sphere environment `data/dimensions/*.json` may contain `environment.wind: { "direction": [0.93, 0.37], "strength": 0.45 }`. The vector defines a horizontal X/Z direction; strength is nonnegative. Absent settings use the engine-independent default. Wind has a single authoritative definition per Sphere.
+- A block may opt in to GPU vertex sway with `"windSway": true`. It is intended for foliage and small vegetation, and does not change physics, voxels or chunk meshing per frame. All six terrain shader variants receive the same wind vector on Sphere activation.
+- Ambient particle definitions live in `data/ambient_particles/*.json`. They use the MineClone schema: `id`, `source: { "type": "dimension" | "biome" | "fluid_surface", "id": "..." }`, HSI `color`, `opacity`, `size`, `lifetime`, `spawnRate`, `velocity`, `velocityJitter`, `acceleration`, `wanderStrength`, `windInfluence`, `popAtEnd`, `spawnRadius` and `verticalRange`.
+- Source references are validated when the pack is loaded. Biome particles consult the 3D effective-biome query rather than assuming the surface biome is always active; fluid-surface emitters inspect resident fluid cells without changing them.
+- The particle runtime is presentation-only and uses an explicit global cap of 512 particles, a 64-block maximum distance and bounded emission/sample attempts. Godot publishes at most one MultiMesh node per particle rule within the active Sphere subtree, and removes all particles on Sphere retirement. No pack-authored Godot metadata or per-particle gameplay nodes are needed.
+
 ## 5. Resource domain
 
 `resources/` owns non-UI presentation assets: textures, item/world images, audio, fonts, models and related declarative presentation descriptors.
