@@ -17,7 +17,8 @@ public sealed class SurfaceDecorationField
         IEnumerable<BiomeDefinition> biomes,
         BlockRegistry blocks,
         SurfaceTerrainField? terrain = null,
-        SurfaceHabitatField? habitats = null)
+        SurfaceHabitatField? habitats = null,
+        bool generateDecorations = true)
     {
         ArgumentNullException.ThrowIfNull(biomes);
         ArgumentNullException.ThrowIfNull(blocks);
@@ -25,7 +26,8 @@ public sealed class SurfaceDecorationField
         _terrain = terrain;
         var definitions = biomes.ToArray();
         _verticalBiomes = definitions
-            .Where(biome => biome.SurfaceLayout is null &&
+            .Where(biome => generateDecorations &&
+                            biome.SurfaceLayout is null &&
                             biome.Decorations.Count > 0)
             .Select(biome => biome.Id)
             .ToHashSet(StringComparer.Ordinal);
@@ -34,7 +36,9 @@ public sealed class SurfaceDecorationField
             .OrderBy(biome => biome.Id, StringComparer.Ordinal)
             .ToDictionary(
                 biome => biome.Id,
-                biome => biome.Decorations
+                biome => (generateDecorations
+                    ? biome.Decorations
+                    : Array.Empty<BiomeDecorationDefinition>())
                     .OrderBy(
                         decoration => decoration.Block,
                         StringComparer.Ordinal)
