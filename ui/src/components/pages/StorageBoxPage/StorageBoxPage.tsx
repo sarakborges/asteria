@@ -6,7 +6,6 @@ import { InventoryHotbarFooter } from "../../molecules/InventoryHotbarFooter/Inv
 import { InventorySlot } from "../../molecules/InventorySlot/InventorySlot";
 import "./StorageBoxPage.css";
 
-const COLUMNS = 9;
 const STORAGE_SLOTS = 27;
 const BACKPACK_SLOTS = 27;
 const HOTBAR_SLOTS = 9;
@@ -67,7 +66,7 @@ function SlotGrid({
 }) {
   const query = searchQuery.trim().toLowerCase();
   return (
-    <div className="storage-box-page__grid" style={{ "--storage-columns": COLUMNS } as React.CSSProperties}>
+    <div className="storage-box-page__grid">
       {items.map((item, index) => (
         <InventorySlot key={index} item={item}
           disabled={!onClick || Boolean(query && !item?.id.toLowerCase().includes(query))}
