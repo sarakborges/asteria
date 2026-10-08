@@ -1915,6 +1915,9 @@ public partial class Main : Node3D
             case ChatCommandKind.Spawn:
                 ExecuteChatSpawn(command);
                 break;
+            case ChatCommandKind.Place:
+                ExecuteChatPlace(command);
+                break;
             case ChatCommandKind.LocateBiome:
             case ChatCommandKind.LocateStructure:
                 ExecuteChatLocate(command);
@@ -2160,6 +2163,73 @@ public partial class Main : Node3D
         ChatFeedback("chat.command.spawn.success", error: false,
             ("name", id),
             ("position", $"({safe.Value.X}, {safe.Value.Z}, {safe.Value.Y})"));
+    }
+
+    private void ExecuteChatPlace(ParsedChatCommand command)
+    {
+        var id = command.Argument!;
+        if (_structureSets.TryGet(id, out _))
+        {
+            ChatFeedback("chat.command.notImplemented", error: true,
+                ("command", "/place structure set"));
+            return;
+        }
+        if (!_structures.ResolvesReference(id))
+        {
+            ChatFeedback("chat.command.place.unknownStructure",
+                error: true, ("id", id));
+            return;
+        }
+
+        var definitions = _structures.ResolveReference(id);
+        var variation = command.Option is { } number
+            ? int.Parse(number, System.Globalization.CultureInfo.InvariantCulture)
+            : 1;
+        if (variation > definitions.Count)
+        {
+            ChatFeedback("chat.command.place.unknownVariation",
+                error: true, ("id", id), ("variation", variation.ToString()),
+                ("count", definitions.Count.ToString()));
+            return;
+        }
+
+        if (definitions[variation - 1].Connectors.Count > 0)
+        {
+            ChatFeedback("chat.command.notImplemented", error: true,
+                ("command", "/place structure connected"));
+            return;
+        }
+        if (_player is null)
+        {
+            ChatFeedback("chat.command.place.playerUnavailable", error: true);
+            return;
+        }
+
+        var (_, target) = _player.GetInteractionRay(InteractionDistance);
+        var result = _sessions.Active.TryPlaceManualStructure(
+            id, command.Option is null ? null : variation,
+            Mathf.FloorToInt(target.X), Mathf.FloorToInt(target.Z),
+            _player.CollisionBounds);
+        if (result != ManualStructurePlacementResult.Placed)
+        {
+            var message = result switch
+            {
+                ManualStructurePlacementResult.UnknownReference =>
+                    "chat.command.place.unknownStructure",
+                ManualStructurePlacementResult.NonResident =>
+                    "chat.command.place.noLoadedSpace",
+                ManualStructurePlacementResult.ProtectedVoxel or
+                    ManualStructurePlacementResult.PlayerCollision =>
+                    "chat.command.place.noSafeSpace",
+                _ => "chat.command.place.noGround",
+            };
+            ChatFeedback(message, error: true, ("id", id));
+            return;
+        }
+
+        KickWorldMutationWorkers();
+        ChatFeedback("chat.command.place.success", error: false,
+            ("name", definitions[variation - 1].Id), ("id", id));
     }
 
     private void ExecuteChatLocate(ParsedChatCommand command)
