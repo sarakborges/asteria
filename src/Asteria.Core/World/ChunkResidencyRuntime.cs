@@ -580,7 +580,9 @@ public sealed class ChunkResidencyRuntime
         ChunkCoord coord)
     {
         foreach (var position in
-                 ChunkTopologyFrontier.LightingSeeds(coord))
+                 ChunkTopologyFrontier.LightingSeeds(
+                     coord,
+                     _world.ContainsChunk))
         {
             if (_world.IsLoadedAt(position))
             {
