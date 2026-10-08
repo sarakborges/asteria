@@ -43,7 +43,6 @@ public sealed class VoxelWorldSaveCodecTests
         var pristineResident = new ChunkCoord(3, 0, 0);
 
         world.InsertChunk(edited, new Chunk());
-        var sourceRevision = world.Revision;
         Assert.True(world.SetBlockAt(new WorldVoxelCoord(1, 2, 3), stone, out _));
         world.InsertChunk(pristineArchived, new Chunk());
         world.InsertChunk(editedArchived, new Chunk());
@@ -57,6 +56,7 @@ public sealed class VoxelWorldSaveCodecTests
         Assert.Equal(ChunkArchiveResult.ArchivedPristine, world.ArchiveChunk(pristineArchived));
         Assert.Equal(ChunkArchiveResult.ArchivedDirty, world.ArchiveChunk(editedArchived));
 
+        var sourceRevision = world.Revision;
         var snapshot = Capture(world, content);
         Assert.Equal(4, snapshot.Chunks.Count);
         Assert.Equal(new[] { edited, pristineArchived, editedArchived, pristineResident },
@@ -83,7 +83,7 @@ public sealed class VoxelWorldSaveCodecTests
             restored.GetChunk(editedArchived).GetFluid(4, 1, 5));
 
         // Capturing is observational; it must not change either source chunk.
-        Assert.Equal(sourceRevision + 5, world.Revision);
+        Assert.Equal(sourceRevision, world.Revision);
         Assert.Equal(2, world.ChunkCount);
         Assert.Equal(2, world.ArchivedChunkCount);
         Assert.Equal(2, world.DirtyChunkCount);
