@@ -86,6 +86,7 @@ public partial class Main : Node3D
     private PackContentRegistry<ItemDefinition> _items = null!;
     private PackContentRegistry<ToolDefinition> _tools = null!;
     private InventoryContentCatalog _inventoryCatalog = null!;
+    private InventoryDropIconCatalog _inventoryDropIcons = null!;
     private readonly Dictionary<string, string> _inventoryIconCache =
         new(StringComparer.Ordinal);
     private PackContentRegistry<CreatureDefinition> _creatures = null!;
@@ -160,6 +161,8 @@ public partial class Main : Node3D
                 _packSelection);
         _inventoryCatalog = new InventoryContentCatalog(
             _blocks, _items, _tools);
+        _inventoryDropIcons = new InventoryDropIconCatalog(
+            _packSelection, _inventoryCatalog);
         _creatures =
             CreatureContentLoader.LoadProjectCreatures(
                 _packSelection);
@@ -594,6 +597,7 @@ public partial class Main : Node3D
             _dayNightCycles,
             _creatures,
             _packSelection,
+            _inventoryDropIcons.Resolve,
             _terrainTextureLookup,
             _terrainMaterials,
             _fluidMaterials,
@@ -1670,25 +1674,21 @@ public partial class Main : Node3D
         if (_player is null || _inventoryOpen ||
             !_sessionStates.Player.CanInteract) return;
         var inventory = _sessionStates.Player.Inventory;
-        if (inventory.SelectedStack is { Block: null })
-        {
-            // Physical drops for generic items and tools need a separate
-            // world-entity presentation contract; never silently delete them.
-            SendWebUi("game.inventory.error",
-                new { code = "UnsupportedDropKind" });
-            return;
-        }
-        if (!inventory.TryDropSelectedBlock(out var block) || block is null)
-            return;
-
+        var selected = inventory.SelectedStack;
+        if (selected is null) return;
+        // Consume only after the drop is successfully registered in the
+        // authoritative dimension entity simulation.
         var ray = _player.GetInteractionRay(2f);
         var direction = (ray.To - ray.From).Normalized();
         var from = ray.From + direction * 0.6f;
         _blockEntities.SpawnPlayerDrop(
-            block,
+            selected.WithQuantity(1),
             new NVector3(from.X, MathF.Max(from.Y, 0.2f), from.Z),
             new NVector3(direction.X * 3f,
                 direction.Y * 3f + 2f, direction.Z * 3f));
+        if (!inventory.TryConsumeSelected())
+            throw new InvalidOperationException(
+                "Selected inventory stack changed during player drop.");
         SyncHeldBlock();
         SendHotbarState();
         SendInventoryState();
@@ -1711,9 +1711,7 @@ public partial class Main : Node3D
         var collected = _blockEntities.CollectNearby(
             new NVector3(player.X, player.Y, player.Z),
             1.2f,
-            snapshot => _sessionStates.Player.Inventory.TryInsert(
-                new InventoryStack(
-                    _inventoryCatalog.ForDroppedBlock(snapshot))));
+            _sessionStates.Player.Inventory.TryInsert);
         if (collected == 0) return;
         SyncHeldBlock();
         SendHotbarState();
