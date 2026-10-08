@@ -11,7 +11,8 @@ public sealed record ItemDefinition(
     string Id,
     string Category,
     string Icon,
-    IReadOnlyList<ItemIconVariant> IconVariants)
+    IReadOnlyList<ItemIconVariant> IconVariants,
+    int MaxStackSize = 64)
 {
     public static ItemDefinition Parse(string json)
     {
@@ -50,10 +51,17 @@ public sealed record ItemDefinition(
             }
         }
 
+        var maxStackSize = root.TryGetProperty("maxStackSize", out _)
+            ? PackContentFields.PositiveInt(root, "maxStackSize")
+            : 64;
+        if (maxStackSize > 64)
+            throw new FormatException("maxStackSize must not exceed 64");
+
         return new ItemDefinition(
             PackContentFields.Id(root),
             PackContentFields.RequiredString(root, "category"),
             PackContentFields.ResourcePath(PackContentFields.RequiredString(root, "icon"), "icon"),
-            variants.AsReadOnly());
+            variants.AsReadOnly(),
+            maxStackSize);
     }
 }

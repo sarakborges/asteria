@@ -33,7 +33,8 @@ public sealed class InventoryContentCatalog
         foreach (var definition in items.Definitions)
         {
             choices.Add(new InventoryCatalogChoice(
-                InventoryEntry.FromItem(definition.Id),
+                InventoryEntry.FromItem(
+                    definition.Id, maxStackSize: definition.MaxStackSize),
                 definition.Category));
             foreach (var variant in definition.IconVariants)
             {
@@ -42,7 +43,7 @@ public sealed class InventoryContentCatalog
                         new Dictionary<string, string>(StringComparer.Ordinal)
                         {
                             [variant.MetadataKey] = variant.MetadataValue,
-                        }),
+                        }, definition.MaxStackSize),
                     definition.Category));
             }
         }
@@ -50,7 +51,8 @@ public sealed class InventoryContentCatalog
         foreach (var definition in tools.Definitions)
         {
             choices.Add(new InventoryCatalogChoice(
-                InventoryEntry.FromTool(definition.Id),
+                InventoryEntry.FromTool(
+                    definition.Id, maxStackSize: definition.MaxStackSize),
                 definition.Category));
         }
 

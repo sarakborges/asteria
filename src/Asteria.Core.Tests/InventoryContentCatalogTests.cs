@@ -56,6 +56,51 @@ public sealed class InventoryContentCatalogTests
     }
 
     [Fact]
+    public void AuthoredStackLimitsAreValidatedAndApplied()
+    {
+        var item = ItemDefinition.Parse("""
+            {
+              "id":"asteria:compact_item",
+              "category":"materials",
+              "icon":"textures/items/compact.png",
+              "maxStackSize":16
+            }
+            """);
+        Assert.Equal(16, item.MaxStackSize);
+        var tool = ToolDefinition.Parse("""
+            {
+              "id":"asteria:stackable_tool",
+              "category":"tools",
+              "icon":"textures/tools/tool.png",
+              "leftBehavior":"asteria:none",
+              "rightBehavior":"asteria:none",
+              "maxStackSize":4
+            }
+            """);
+        Assert.Equal(4, tool.MaxStackSize);
+        Assert.Throws<FormatException>(() => ItemDefinition.Parse("""
+            {
+              "id":"asteria:invalid",
+              "category":"materials",
+              "icon":"textures/items/x.png",
+              "maxStackSize":65
+            }
+            """));
+        Assert.Throws<FormatException>(() => ToolDefinition.Parse("""
+            {
+              "id":"asteria:invalid_tool",
+              "category":"tools",
+              "icon":"textures/tools/x.png",
+              "leftBehavior":"asteria:none",
+              "rightBehavior":"asteria:none",
+              "maxStackSize":0
+            }
+            """));
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => InventoryEntry.FromItem("asteria:x", maxStackSize: 65));
+    }
+
+    [Fact]
     public void DropsPreserveFullBlockGeometryIdentity()
     {
         var catalog = CreateCatalog();

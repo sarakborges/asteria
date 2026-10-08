@@ -23,8 +23,11 @@ public sealed class InventoryEntry : IEquatable<InventoryEntry>
         InventoryEntryKind kind,
         string id,
         BlockStateSnapshot? block,
-        IReadOnlyDictionary<string, string>? metadata)
+        IReadOnlyDictionary<string, string>? metadata,
+        int maxStackSize)
     {
+        if (maxStackSize is < 1 or > 64)
+            throw new ArgumentOutOfRangeException(nameof(maxStackSize));
         if (!Enum.IsDefined(kind))
             throw new ArgumentOutOfRangeException(nameof(kind));
         BlockDefinition.ValidateId(id);
@@ -36,6 +39,7 @@ public sealed class InventoryEntry : IEquatable<InventoryEntry>
         Kind = kind;
         Id = id;
         Block = block;
+        MaxStackSize = maxStackSize;
         var sorted = new SortedDictionary<string, string>(StringComparer.Ordinal);
         if (metadata is not null)
         {
@@ -59,28 +63,30 @@ public sealed class InventoryEntry : IEquatable<InventoryEntry>
     public string Id { get; }
     public BlockStateSnapshot? Block { get; }
     public IReadOnlyDictionary<string, string> Metadata => _metadata;
-    public int MaxStackSize => Kind == InventoryEntryKind.Tool ? 1 : 64;
+    public int MaxStackSize { get; }
 
     public static InventoryEntry FromBlock(
         string id,
         BlockStateSnapshot block) =>
-        new(InventoryEntryKind.Block, id, block, null);
+        new(InventoryEntryKind.Block, id, block, null, 64);
 
     public static InventoryEntry FromItem(
         string id,
-        IReadOnlyDictionary<string, string>? metadata = null) =>
-        new(InventoryEntryKind.Item, id, null, metadata);
+        IReadOnlyDictionary<string, string>? metadata = null,
+        int maxStackSize = 64) =>
+        new(InventoryEntryKind.Item, id, null, metadata, maxStackSize);
 
     public static InventoryEntry FromTool(
         string id,
-        IReadOnlyDictionary<string, string>? metadata = null) =>
-        new(InventoryEntryKind.Tool, id, null, metadata);
+        IReadOnlyDictionary<string, string>? metadata = null,
+        int maxStackSize = 1) =>
+        new(InventoryEntryKind.Tool, id, null, metadata, maxStackSize);
 
     public bool Equals(InventoryEntry? other)
     {
         if (ReferenceEquals(this, other)) return true;
         if (other is null || Kind != other.Kind || Id != other.Id ||
-            Block != other.Block ||
+            MaxStackSize != other.MaxStackSize || Block != other.Block ||
             _orderedMetadata.Length != other._orderedMetadata.Length)
             return false;
         return _orderedMetadata.AsSpan().SequenceEqual(other._orderedMetadata);
@@ -93,6 +99,7 @@ public sealed class InventoryEntry : IEquatable<InventoryEntry>
     {
         var hash = new HashCode();
         hash.Add(Kind);
+        hash.Add(MaxStackSize);
         hash.Add(Id, StringComparer.Ordinal);
         hash.Add(Block);
         foreach (var (key, value) in _orderedMetadata)

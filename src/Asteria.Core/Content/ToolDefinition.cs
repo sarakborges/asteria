@@ -13,7 +13,8 @@ public sealed record ToolDefinition(
     string? TintIcon,
     string LeftBehavior,
     string RightBehavior,
-    ToolMiningDefinition? Mining)
+    ToolMiningDefinition? Mining,
+    int MaxStackSize = 1)
 {
     public static ToolDefinition Parse(string json)
     {
@@ -34,6 +35,12 @@ public sealed record ToolDefinition(
                 PackContentFields.PositiveFloat(miningValue, "speed"));
         }
 
+        var maxStackSize = root.TryGetProperty("maxStackSize", out _)
+            ? PackContentFields.PositiveInt(root, "maxStackSize")
+            : 1;
+        if (maxStackSize > 64)
+            throw new FormatException("maxStackSize must not exceed 64");
+
         var tint = PackContentFields.OptionalString(root, "tintIcon");
         return new ToolDefinition(
             PackContentFields.Id(root),
@@ -42,6 +49,7 @@ public sealed record ToolDefinition(
             tint is null ? null : PackContentFields.ResourcePath(tint, "tintIcon"),
             PackContentFields.Namespaced(PackContentFields.RequiredString(root, "leftBehavior"), "leftBehavior"),
             PackContentFields.Namespaced(PackContentFields.RequiredString(root, "rightBehavior"), "rightBehavior"),
-            mining);
+            mining,
+            maxStackSize);
     }
 }
