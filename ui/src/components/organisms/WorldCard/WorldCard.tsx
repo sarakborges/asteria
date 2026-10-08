@@ -37,7 +37,7 @@ export function WorldCard({
           variant="heading"
         />
 
-        {world.compatible ? (
+        {world.seed && world.sphere ? (
           <>
             <Metadata
               label={t("ui.lastSaved")}
@@ -60,7 +60,8 @@ export function WorldCard({
               value={world.coordinates}
             />
           </>
-        ) : (
+        ) : null}
+        {!world.compatible && (
           <Text
             text={t("ui.worldIncompatible")}
             variant="body"
