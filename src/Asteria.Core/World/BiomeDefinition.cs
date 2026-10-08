@@ -469,7 +469,8 @@ public sealed class BiomeSurfacePatchDefinition
         uint scale,
         float coverage,
         float roughness,
-        IEnumerable<string> blocks)
+        IEnumerable<string> blocks,
+        SurfacePlacementConditions? conditions = null)
     {
         if (scale is < 2 or > 512)
         {
@@ -525,6 +526,7 @@ public sealed class BiomeSurfacePatchDefinition
         Scale = scale;
         Coverage = coverage;
         Roughness = roughness;
+        Conditions = conditions;
         Blocks =
             Array.AsReadOnly(alternatives);
     }
@@ -536,6 +538,8 @@ public sealed class BiomeSurfacePatchDefinition
     public float Roughness { get; }
 
     public IReadOnlyList<string> Blocks { get; }
+
+    public SurfacePlacementConditions? Conditions { get; }
 }
 
 public sealed class BiomeDecorationDefinition
@@ -544,7 +548,8 @@ public sealed class BiomeDecorationDefinition
         string block,
         float chance,
         IEnumerable<string> surfaceBlocks,
-        BiomeDecorationClusterDefinition? cluster = null)
+        BiomeDecorationClusterDefinition? cluster = null,
+        SurfacePlacementConditions? conditions = null)
     {
         BiomeSurfaceLayerDefinition.ValidateBlockId(
             block);
@@ -587,6 +592,7 @@ public sealed class BiomeDecorationDefinition
         Block = block;
         Chance = chance;
         Cluster = cluster;
+        Conditions = conditions;
         SurfaceBlocks =
             Array.AsReadOnly(supports);
     }
@@ -598,6 +604,8 @@ public sealed class BiomeDecorationDefinition
     public IReadOnlyList<string> SurfaceBlocks { get; }
 
     public BiomeDecorationClusterDefinition? Cluster { get; }
+
+    public SurfacePlacementConditions? Conditions { get; }
 }
 
 /// <summary>
@@ -605,7 +613,11 @@ public sealed class BiomeDecorationDefinition
 /// </summary>
 public sealed class BiomeDecorationClusterDefinition
 {
-    public BiomeDecorationClusterDefinition(int scale, float threshold)
+    public BiomeDecorationClusterDefinition(
+        int scale,
+        float threshold,
+        int octaves = 3,
+        float transitionWidth = 0f)
     {
         if (scale is < 2 or > 512)
         {
@@ -617,13 +629,28 @@ public sealed class BiomeDecorationClusterDefinition
             throw new ArgumentOutOfRangeException(nameof(threshold));
         }
 
+        if (octaves is < 1 or > 6 ||
+            !float.IsFinite(transitionWidth) ||
+            transitionWidth is < 0f or > 2f)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(octaves),
+                "Decoration cluster octaves must be 1..6 and transitionWidth 0..2.");
+        }
+
         Scale = scale;
         Threshold = threshold;
+        Octaves = octaves;
+        TransitionWidth = transitionWidth;
     }
 
     public int Scale { get; }
 
     public float Threshold { get; }
+
+    public int Octaves { get; }
+
+    public float TransitionWidth { get; }
 }
 
 
