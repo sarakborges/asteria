@@ -36,9 +36,9 @@ Reference: `sarakborges/mineclone` branch `world-systems-rebuild`. Screens live 
 | Pause | `PauseMenuPage` | Resume, settings, controls, exit | Leave World vs Exit semantics and feedback require persistence |
 | Loading | `LoadingOverlay` | Real runtime loading progress | Visual calibration and states |
 | Game HUD | `GameHudPage`, HUD atoms/molecules/organisms` | Hotbar, target, crosshair, clock, world banner, toasts, vitals | Compare MineClone spacing, breakpoints, presentation and status effects |
-| Inventory / Crafting | Shared `InventoryWorkspace`, `InventoryGameplayPage` and `InventoryPage`; `InventoryHotbarFooter`, player/creative, character/crafting/station organisms | In-game survival uses three-column Character → Crafting-over-Inventory → Station layout; creative catalog has real hotbar/trash and tabs; metadata comes from runtime | Character 3D portrait/equipment data, recipe and station gameplay bridges, real crafting selection/action, contextual tooltips and cursor-follow presentation remain pending |
-| Storage Box | `StorageBoxPage` | Component exists | Audit game integration and interaction parity with `src/hud/storage_box.rs` |
-| Chat | `ChatPanel` | Component exists | Audit runtime commands, history, completion and screen placement against `src/hud/chat` |
+| Inventory / Crafting | Shared `InventoryWorkspace`, `InventoryGameplayPage` and `InventoryPage`; `InventoryHotbarFooter`, player/creative, character/crafting/station organisms | In-game survival uses three-column Character → Crafting-over-Inventory → Station layout; creative catalog has real hotbar/trash and tabs; metadata comes from runtime | Character 3D portrait/equipment data, recipe and station gameplay bridges, real crafting selection/action; item tooltips and cursor-follow stack icon now exist |
+| Storage Box | `StorageBoxPage`, shared `InventoryPanelHeader` and `InventoryHotbarFooter` | Nine-column storage/backpack grid, hotbar, sort/search actions and localized copy; read-only Storybook states | **Not mounted in gameplay**: needs Storage Box authoritative state and transport for operations |
+| Chat | `ChatPanel` | Fixed HUD placement above hotbar, last 64 messages, seven-item selected suggestion window and input layout; Storybook states | **Not mounted in gameplay**: needs chat command/history transport and Godot-owned open/close input |
 | Character Info | `CharacterInfoPanel` | Shown at inventory left in Survival and uses real HUD health when provided; missing portrait/equipment state is explicit | Wire authoritative equipment and 3D player preview without inventing state |
 | Brush Palette | `BrushPalettePage` | Asteria-specific gameplay overlay | Preserve semantic input/bridge ownership; no forced MineClone analogue |
 
@@ -57,3 +57,14 @@ The MineClone source at `src/hud/inventory/layout.rs` composes Survival as Chara
 Asteria now shares a single `templates/InventoryWorkspace` between the Storybook Inventory page and the **live** `InventoryGameplayPage`. `molecules/InventoryHotbarFooter` owns the reusable nine-slot hotbar/trash presentation, and existing `PlayerInventoryPanel`, `CreativeInventoryPanel`, `CraftingPanel`, `CharacterInfoPanel`, and `CurrentStationPanel` preserve their separate responsibilities.
 
 **Gameplay truth:** inventory slots, creative catalog and inventory mutations come from the existing inventory controller. Character health is read from the authoritative HUD snapshot. There is **no** connected recipe list/craft action, active crafting station data, equipment model or real 3D portrait in this gameplay modal; the UI visibly labels those portions unavailable, disables missing action callbacks and does not fabricate recipes, gear or a station. Storybook examples still use fixtures. Pending runtime work must cross the normal bridge/controller/UiStore boundary.
+
+## Inventory tooltip, pointer, storage and chat slice
+
+MineClone sources inspected: `src/hud/inventory/layout/item.rs`, `src/hud/inventory/sync.rs`, `src/hud/storage_box.rs`, `src/hud/chat.rs` and `src/hud/chat/visual.rs`.
+
+- `molecules/ItemTooltip` shows localized item name, canonical ID and existing metadata in a portal to avoid slot-grid overflow clipping. `InventorySlot` positions it only during explicit UI control hover/focus, clamps to the viewport and never attaches global input listeners.
+- `molecules/InventoryCursorOverlay` displays the actual inventory cursor stack icon and quantity, repositioned by pointer movement **inside** the open `InventoryGameplayPage` only. Its movement is purely presentation; Godot/Core continue to own pickup/place/swap. The fixed old cursor preview card was replaced.
+- `molecules/InventoryPanelHeader` is shared by the player inventory and `StorageBoxPage`; the latter also reuses `InventoryHotbarFooter` without an invented trash action. Storage search disables nonmatching slots without erasing occupied slots.
+- `ChatPanel` now matches MineClone's 500px-wide, bottom-left chat frame, 330px/15-line history, 64 latest messages and centered seven-result autocomplete viewport. The chat is **a reusable story-backed organism only** until the gameplay bridge/controller exists; no fictional chat history or command engine is created.
+- Storage is likewise **presentation-only** until an authoritative Storage Box subsystem and UI message handlers are implemented; absent callbacks disable actions.
+- The Winky Rough Variable family is unchanged. No gameplay/global browser listeners were introduced. Existing Storybook fixture data remains isolated from live gameplay.
