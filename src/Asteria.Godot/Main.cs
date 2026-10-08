@@ -134,6 +134,7 @@ public partial class Main : Node3D
     private bool _worldReadySent;
     private bool _inventoryOpen;
     private readonly PlayerChatSession _chat = new();
+    private bool _pendingSameSphereWarp;
     private readonly ChatLocateController _chatLocate = new();
     private double _chatFeedbackSeconds;
     private bool _brushPaletteOpen;
@@ -534,14 +535,15 @@ public partial class Main : Node3D
                 position.Y,
                 position.Z);
 
-        if (!_sessions.RequestTransition(
-                target,
-                source,
-                destination))
+        var sameSphere = target == _dimension.Id;
+        if (!(sameSphere
+                ? _sessions.RequestRelocation(source, destination)
+                : _sessions.RequestTransition(target, source, destination)))
         {
             return false;
         }
 
+        _pendingSameSphereWarp = sameSphere;
         RetirePlayerForDimensionTransition();
         _ambientParticleRuntime?.Clear();
         _ambientParticlePresentation?.Clear();
@@ -1471,6 +1473,32 @@ public partial class Main : Node3D
             return;
         }
 
+        if (_pendingSameSphereWarp)
+        {
+            _pendingSameSphereWarp = false;
+            if (!_sessions.Active.TryPrepareResidentWarpEntry())
+            {
+                // Resident terrain may have been edited since its generated
+                // destination was selected. Never spawn the player in blocks.
+                // Return through the normal loader at the authored safe spawn.
+                _sessions.Active.PrepareGeneratedSpawn();
+                ChatFeedback("chat.command.warp.failed", error: true);
+                _chatFeedbackSeconds = 10.0;
+                SendChatState();
+                BeginWorldLoading();
+                return;
+            }
+
+            var position = _sessions.Active.InitialPlayerPosition;
+            ChatFeedback("chat.command.warp.success", error: false,
+                ("position",
+                    $"({Mathf.FloorToInt(position.X)}, " +
+                    $"{Mathf.FloorToInt(position.Z)}, " +
+                    $"{Mathf.FloorToInt(position.Y)})"));
+            _chatFeedbackSeconds = 10.0;
+            SendChatState();
+        }
+
         _worldReadySent = true;
         SetupPlayer();
         SendLoadingState(
@@ -1954,11 +1982,24 @@ public partial class Main : Node3D
             ChatFeedback("chat.command.warp.failed", error: true);
             return;
         }
+        var preferred = new NVector3(
+            location.X + 0.5f, location.Y, location.Z + 0.5f);
         var feet = new WorldVoxelCoord(location.X, location.Y, location.Z);
         var head = new WorldVoxelCoord(location.X, location.Y + 1, location.Z);
-        if (!_world.IsLoadedAt(feet) || !_world.IsLoadedAt(head) ||
-            !_world.GetCellOrEmpty(feet).IsEmpty ||
-            !_world.GetCellOrEmpty(head).IsEmpty)
+        if (!_world.IsLoadedAt(feet) || !_world.IsLoadedAt(head))
+        {
+            // A distant warp uses the same cooperative retirement, archive,
+            // restore and progress pipeline as an inter-Sphere transition.
+            if (!BeginDimensionTransition(target.Id, preferred))
+                ChatFeedback("chat.command.warp.failed", error: true);
+            else
+                ChatFeedback("chat.command.warp.start", error: false,
+                    ("position", $"({location.X}, {location.Z}, {location.Y})"));
+            return;
+        }
+
+        var resident = ResidentWarpDestinationQuery.Find(_world, preferred);
+        if (resident is not { } destination)
         {
             ChatFeedback("chat.command.warp.failed", error: true);
             return;
@@ -1966,7 +2007,7 @@ public partial class Main : Node3D
 
         _player.ClearGameplayInput();
         _player.GlobalPosition = new Vector3(
-            location.X + 0.5f, location.Y, location.Z + 0.5f);
+            destination.X, destination.Y, destination.Z);
         ChatFeedback("chat.command.warp.success", error: false,
             ("position", $"({location.X}, {location.Z}, {location.Y})"));
         SendWorldHudState(force: true);
