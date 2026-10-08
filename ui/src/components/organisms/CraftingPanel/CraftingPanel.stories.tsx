@@ -63,3 +63,18 @@ export const MissingMaterials: Story = {
       "asteria:workbench",
   },
 };
+
+export const Unavailable: Story = {
+  args: {
+    recipes: [],
+    selectedRecipeId: null,
+    status: "Crafting is not available in the current runtime yet.",
+  },
+};
+
+export const ReadOnlyRecipes: Story = { args: {
+  recipes,
+  selectedRecipeId: "asteria:planks",
+  onCraft: undefined,
+  onSelectRecipe: undefined,
+} };
