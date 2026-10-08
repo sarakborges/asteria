@@ -18,9 +18,6 @@ public enum ManualStructurePlacementResult : byte
 /// </summary>
 public sealed class ManualStructurePlacementRuntime
 {
-    public const int MaximumPayloadCount = 4096;
-    public const int MaximumHorizontalSpan = 64;
-
     private readonly BiomeWorldGenerator _generator;
     private readonly VoxelWorld _world;
     private readonly VoxelMutationRuntime _mutations;
