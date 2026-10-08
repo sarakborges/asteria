@@ -306,6 +306,14 @@ public partial class Main : Node3D
                 }
 
                 break;
+
+            case Key.F5:
+                if (_debugHudVisible && TrySpawnCreatureForQa())
+                {
+                    GetViewport().SetInputAsHandled();
+                }
+
+                break;
         }
     }
 
@@ -386,6 +394,14 @@ public partial class Main : Node3D
         {
             AdvanceWorldLoading();
             return;
+        }
+
+        if (_worldReadySent && _player is { } creatureObserver)
+        {
+            var position = creatureObserver.GlobalPosition;
+            _sessions.Active.AdvanceCreatures(
+                delta,
+                new NVector3(position.X, position.Y, position.Z));
         }
 
         SendWorldHudState();
@@ -566,6 +582,8 @@ public partial class Main : Node3D
             _structures,
             _structureSets,
             _dayNightCycles,
+            _creatures,
+            _packSelection,
             _terrainTextureLookup,
             _terrainMaterials,
             _fluidMaterials,
@@ -580,6 +598,43 @@ public partial class Main : Node3D
                 MaxFluidMeshletsPerWorker,
                 MaxFluidUpdatesPerWorker,
                 MaxChunkEvictionsPerFrame));
+
+    private bool TrySpawnCreatureForQa()
+    {
+        if (!_worldReadySent || _inventoryOpen ||
+            _sessions.IsTransitioning ||
+            _player is not { IsMouseCaptured: true } player)
+        {
+            return false;
+        }
+
+        // QA-only explicit spawn; the generator owns safe destinations.
+        var (_, target) = player.GetInteractionRay(5f);
+        var safe = _sessions.Active.Generator.FindGeneratedDestination(
+            Mathf.FloorToInt(target.X),
+            Math.Max(0, Mathf.FloorToInt(target.Y)),
+            Mathf.FloorToInt(target.Z),
+            maxRadius: 12);
+
+        if (safe is null ||
+            !_world.IsLoadedAt(new WorldVoxelCoord(
+                safe.Value.X, safe.Value.Y, safe.Value.Z)))
+        {
+            return false;
+        }
+
+        var feet = new NVector3(
+            safe.Value.X + 0.5f,
+            safe.Value.Y,
+            safe.Value.Z + 0.5f);
+        if (!_sessions.Active.TrySpawnCreature("asteria:slime_aqua", feet))
+        {
+            return false;
+        }
+
+        GD.Print($"creature.qa_spawn id=asteria:slime_aqua position={feet}");
+        return true;
+    }
 
     private bool TryCycleDimensionForQa()
     {

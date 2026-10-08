@@ -50,6 +50,8 @@ public sealed class DimensionSessionState
     public DroppedBlockRuntimeSnapshot?
         DroppedBlocks { get; set; }
 
+    public CreatureRuntimeSnapshot? Creatures { get; set; }
+
     public DimensionSessionArchiveReport
         ArchiveResidentWorld()
     {

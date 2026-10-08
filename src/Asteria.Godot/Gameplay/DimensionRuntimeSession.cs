@@ -32,6 +32,7 @@ public sealed class DimensionRuntimeSession
     private NVector3 _initialPlayerPosition;
     private readonly BlockPhysicsRuntime _blockPhysics;
     private readonly DroppedBlockRuntime _droppedBlocks;
+    private readonly CreaturePresentationController _creaturePresentation;
     private bool _retiring;
     private bool _retired;
 
@@ -44,6 +45,8 @@ public sealed class DimensionRuntimeSession
         StructureRegistry structures,
         StructureSetRegistry structureSets,
         DayNightCycleRegistry dayNightCycles,
+        PackContentRegistry<CreatureDefinition> creatures,
+        PackSelection packSelection,
         TerrainTextureLookup terrainTextures,
         VoxelTerrainMaterialSet terrainMaterials,
         FluidMaterialCatalog fluidMaterials,
@@ -72,6 +75,8 @@ public sealed class DimensionRuntimeSession
         ArgumentNullException.ThrowIfNull(
             dayNightCycles);
         ArgumentNullException.ThrowIfNull(
+            creatures);
+        ArgumentNullException.ThrowIfNull(
             terrainTextures);
         ArgumentNullException.ThrowIfNull(
             terrainMaterials);
@@ -90,6 +95,17 @@ public sealed class DimensionRuntimeSession
             };
         parent.AddChild(
             Root);
+        Creatures =
+            new CreatureRuntime(
+                creatures,
+                state.Creatures);
+        _creaturePresentation =
+            new CreaturePresentationController(
+                Root,
+                packSelection,
+                creatures);
+        _creaturePresentation.Sync(
+            Creatures.ActiveCreatures);
 
         World =
             state.World;
@@ -266,6 +282,26 @@ public sealed class DimensionRuntimeSession
     public BlockRegistry Blocks { get; }
 
     public FluidRegistry Fluids { get; }
+
+    public CreatureRuntime Creatures { get; }
+
+    public bool TrySpawnCreature(string id, NVector3 feet)
+    {
+        if (_retiring || _retired || !Creatures.TrySpawn(id, feet, out _))
+            return false;
+
+        _creaturePresentation.Sync(Creatures.ActiveCreatures);
+        return true;
+    }
+
+    public void AdvanceCreatures(double deltaSeconds, NVector3 playerPosition)
+    {
+        if (_retiring || _retired || Creatures.Count == 0)
+            return;
+
+        if (Creatures.Advance(deltaSeconds, playerPosition) > 0)
+            _creaturePresentation.Sync(Creatures.ActiveCreatures);
+    }
 
     public VoxelWorld World { get; }
 
@@ -500,6 +536,9 @@ public sealed class DimensionRuntimeSession
             _blockPhysics.CaptureState();
         _state.DroppedBlocks =
             _droppedBlocks.CaptureState();
+        _state.Creatures =
+            Creatures.CaptureState();
+        _creaturePresentation.Retire();
 
         var archive =
             _state.ArchiveResidentWorld();
