@@ -69,6 +69,17 @@ public sealed class WorldSaveCatalogTests
         });
     }
 
+    [Fact]
+    public void CatalogLimitFailsExplicitlyInsteadOfSilentlyTruncating()
+    {
+        WithRoot(root =>
+        {
+            for (var i = 0; i < 257; i++)
+                Directory.CreateDirectory(Path.Combine(root, i.ToString("D3")));
+            Assert.Throws<IOException>(() => WorldSaveCatalog.Scan(root));
+        });
+    }
+
     private static void WithRoot(Action<string> run)
     {
         var root = Path.Combine(Path.GetTempPath(), "asteria-catalog-" + Guid.NewGuid());
