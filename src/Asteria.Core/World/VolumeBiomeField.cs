@@ -10,7 +10,7 @@ public sealed class VolumeBiomeField
     private readonly BiomeField? _placement;
     private readonly IReadOnlyDictionary<
         string,
-        (int MinY, int MaxY)> _formations;
+        IReadOnlyList<BiomeAdditiveDensityDefinition>> _formations;
 
     public VolumeBiomeField(
         ulong seed,
@@ -46,9 +46,7 @@ public sealed class VolumeBiomeField
                                 $"Volume biome {definition.Id} requires non-empty terrain3d.additive.");
                         }
 
-                        return (
-                            MinY: formations.Min(formation => formation.MinY),
-                            MaxY: formations.Max(formation => formation.MaxY));
+                        return formations;
                     },
                     StringComparer.Ordinal);
 
@@ -115,8 +113,9 @@ public sealed class VolumeBiomeField
             !_formations.TryGetValue(
                 sample.Primary,
                 out var formation) ||
-            worldY < formation.MinY ||
-            worldY > formation.MaxY)
+            !formation.Any(rule =>
+                worldY >= rule.MinY &&
+                worldY <= rule.MaxY))
         {
             return null;
         }
