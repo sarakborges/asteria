@@ -129,10 +129,25 @@ public static class StructureSelectionExporter
         var json = JsonSerializer.Serialize(
             model, new JsonSerializerOptions { WriteIndented = true }) + "\n";
 
-        // The exporter is not allowed to invent a second structure format.
-        var definitionResult = StructureDefinitionJson.Parse(json);
-        new StructureRegistry([definitionResult])
-            .ValidateBlocks(blocks, dyes, attachedLayers);
+        // Validate the exact import path before publishing any file.
+        // Bad user-edited voxel states are expected rejection, not exceptions.
+        try
+        {
+            var definitionResult = StructureDefinitionJson.Parse(json);
+            new StructureRegistry([definitionResult])
+                .ValidateBlocks(blocks, dyes, attachedLayers);
+        }
+        catch (ArgumentException exception)
+        {
+            error = exception.Message;
+            return false;
+        }
+        catch (FormatException exception)
+        {
+            error = exception.Message;
+            return false;
+        }
+
         export = new StructureSelectionExport(json, bounds.Volume, filled);
         return true;
     }
