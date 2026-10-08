@@ -134,7 +134,20 @@ public partial class Main : Node3D
     private bool _worldReadySent;
     private bool _inventoryOpen;
     private readonly PlayerChatSession _chat = new();
-    private bool _pendingSameSphereWarp;
+    private WarpArrival? _warpArrival;
+
+    private enum WarpArrivalPhase : byte
+    {
+        Requested,
+        DestinationFallback,
+        Returning,
+        ReturnFallback,
+    }
+
+    private sealed record WarpArrival(
+        DimensionId Origin,
+        NVector3 OriginPosition,
+        WarpArrivalPhase Phase);
     private readonly ChatLocateController _chatLocate = new();
     private double _chatFeedbackSeconds;
     private bool _brushPaletteOpen;
@@ -520,7 +533,8 @@ public partial class Main : Node3D
 
     private bool BeginDimensionTransition(
         DimensionId target,
-        NVector3 destination)
+        NVector3 destination,
+        bool fromWarpCommand = false)
     {
         if (_player is null)
         {
@@ -543,7 +557,15 @@ public partial class Main : Node3D
             return false;
         }
 
-        _pendingSameSphereWarp = sameSphere;
+        _warpArrival = fromWarpCommand
+            ? new WarpArrival(_dimension.Id, source, WarpArrivalPhase.Requested)
+            : null;
+        StartDimensionRetirement(target);
+        return true;
+    }
+
+    private void StartDimensionRetirement(DimensionId target)
+    {
         RetirePlayerForDimensionTransition();
         _ambientParticleRuntime?.Clear();
         _ambientParticlePresentation?.Clear();
@@ -564,7 +586,6 @@ public partial class Main : Node3D
 
         GD.Print(
             $"dimension.transition begin from={_dimension.Id} to={target}");
-        return true;
     }
 
     private void AdvanceDimensionTransition()
@@ -1473,28 +1494,53 @@ public partial class Main : Node3D
             return;
         }
 
-        if (_pendingSameSphereWarp)
+        if (_warpArrival is { } warp)
         {
-            _pendingSameSphereWarp = false;
             if (!_sessions.Active.TryPrepareResidentWarpEntry())
             {
-                // Resident terrain may have been edited since its generated
-                // destination was selected. Never spawn the player in blocks.
-                // Return through the normal loader at the authored safe spawn.
-                _sessions.Active.PrepareGeneratedSpawn();
-                ChatFeedback("chat.command.warp.failed", error: true);
-                _chatFeedbackSeconds = 10.0;
-                SendChatState();
-                BeginWorldLoading();
-                return;
+                switch (warp.Phase)
+                {
+                    case WarpArrivalPhase.Requested:
+                    case WarpArrivalPhase.Returning:
+                        // Both legs use exactly the same residency/edits
+                        // validation; never assume an authored spawn is clear.
+                        _warpArrival = warp with
+                        {
+                            Phase = warp.Phase == WarpArrivalPhase.Requested
+                                ? WarpArrivalPhase.DestinationFallback
+                                : WarpArrivalPhase.ReturnFallback,
+                        };
+                        _sessions.Active.PrepareGeneratedSpawn();
+                        BeginWorldLoading();
+                        return;
+                    case WarpArrivalPhase.DestinationFallback:
+                        BeginWarpRollback(warp);
+                        return;
+                    case WarpArrivalPhase.ReturnFallback:
+                        // The player has not been instantiated. There is no
+                        // valid resident source OR destination position; fail
+                        // instead of releasing collision inside solid terrain.
+                        throw new InvalidOperationException(
+                            "Warp rollback has no safe resident arrival " +
+                            $"in Sphere {_dimension.Id}.");
+                }
             }
 
+            _warpArrival = null;
             var position = _sessions.Active.InitialPlayerPosition;
-            ChatFeedback("chat.command.warp.success", error: false,
-                ("position",
-                    $"({Mathf.FloorToInt(position.X)}, " +
-                    $"{Mathf.FloorToInt(position.Z)}, " +
-                    $"{Mathf.FloorToInt(position.Y)})"));
+            if (warp.Phase is WarpArrivalPhase.Returning or
+                WarpArrivalPhase.ReturnFallback)
+            {
+                ChatFeedback("chat.command.warp.failed", error: true);
+            }
+            else
+            {
+                ChatFeedback("chat.command.warp.success", error: false,
+                    ("position",
+                        $"({Mathf.FloorToInt(position.X)}, " +
+                        $"{Mathf.FloorToInt(position.Z)}, " +
+                        $"{Mathf.FloorToInt(position.Y)})"));
+            }
             _chatFeedbackSeconds = 10.0;
             SendChatState();
         }
@@ -1512,6 +1558,25 @@ public partial class Main : Node3D
             _chunkStreaming.SyncSelection(
                 CurrentStreamingCenter(),
                 _clientPreferences.RenderDistanceChunks));
+    }
+
+    private void BeginWarpRollback(WarpArrival warp)
+    {
+        // Keep the player retired. Reentry to the archived origin uses the
+        // normal world/session transition and must validate residency again.
+        var current = _sessions.Active.InitialPlayerPosition;
+        var accepted = warp.Origin == _dimension.Id
+            ? _sessions.RequestRelocation(current, warp.OriginPosition)
+            : _sessions.RequestTransition(
+                warp.Origin, current, warp.OriginPosition);
+        if (!accepted)
+        {
+            throw new InvalidOperationException(
+                "Failed to initiate rollback after unsafe warp arrival.");
+        }
+
+        _warpArrival = warp with { Phase = WarpArrivalPhase.Returning };
+        StartDimensionRetirement(warp.Origin);
     }
 
     private void SendLoadingState(
@@ -1968,7 +2033,8 @@ public partial class Main : Node3D
             command.X + 0.5f, command.Y, command.Z + 0.5f);
         if (target.Id != _dimension.Id)
         {
-            if (!BeginDimensionTransition(target.Id, position))
+            if (!BeginDimensionTransition(
+                    target.Id, position, fromWarpCommand: true))
                 ChatFeedback("chat.command.warp.failed", error: true);
             else
                 ChatFeedback("chat.command.warp.start", error: false,
@@ -1993,7 +2059,8 @@ public partial class Main : Node3D
         {
             // A distant warp uses the same cooperative retirement, archive,
             // restore and progress pipeline as an inter-Sphere transition.
-            if (!BeginDimensionTransition(target.Id, preferred))
+            if (!BeginDimensionTransition(
+                    target.Id, preferred, fromWarpCommand: true))
                 ChatFeedback("chat.command.warp.failed", error: true);
             else
                 ChatFeedback("chat.command.warp.start", error: false,
