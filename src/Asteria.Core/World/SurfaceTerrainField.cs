@@ -18,6 +18,8 @@ public sealed class SurfaceTerrainField
     private readonly IReadOnlyDictionary<string, AdditiveRuleSet> _additiveRules;
     private readonly CoastProfileRule? _coastProfile;
     private readonly CaveRule? _caves;
+    private readonly WorldGenerationMode _mode;
+    private readonly int _planarSurfaceY;
 
     public SurfaceTerrainField(
         ulong seed,
@@ -28,7 +30,8 @@ public sealed class SurfaceTerrainField
         IEnumerable<BiomeDefinition> surfaceDefinitions,
         IEnumerable<BiomeDefinition> volumeDefinitions,
         bool spawnCaves = true,
-        bool spawnOceans = true)
+        bool spawnOceans = true,
+        WorldGenerationMode mode = WorldGenerationMode.Normal)
     {
         ArgumentNullException.ThrowIfNull(
             dimension);
@@ -50,7 +53,14 @@ public sealed class SurfaceTerrainField
                 nameof(generatedFluids));
 
         _seed = seed;
+        _mode = mode;
         _seaLevel = dimension.SeaLevel;
+        _planarSurfaceY = Math.Clamp(
+            dimension.SeaLevel,
+            Math.Max(1, (dimension.Shell?.FloorY ?? 0) + 2),
+            dimension.Shell?.RoofY is { } roof
+                ? Math.Max(1, roof - 2)
+                : int.MaxValue);
         _floorY = dimension.Shell?.FloorY;
         _roofY = dimension.Shell?.RoofY;
         _surfaceRules =
@@ -70,6 +80,7 @@ public sealed class SurfaceTerrainField
             volumeDefinitions
                 .Where(
                     definition =>
+                        mode == WorldGenerationMode.Normal &&
                         definition.Terrain3d?.Additive.Count > 0)
                 .OrderBy(
                     definition =>
@@ -91,6 +102,7 @@ public sealed class SurfaceTerrainField
                     ocean.Shore)
                 : null;
         _caves =
+            mode == WorldGenerationMode.Normal &&
             spawnCaves && dimension.Caves is
                 { } definition
                 ? new CaveRule(
@@ -711,6 +723,11 @@ public sealed class SurfaceTerrainField
             int worldX,
             int worldZ)
     {
+        if (_mode == WorldGenerationMode.Flat)
+            return (_planarSurfaceY, 0);
+        if (_mode == WorldGenerationMode.Void)
+            return (-1, 0); // No solid surface; Y voxels still start at zero.
+
         var offset =
             HeightOffsetAt(
                 sample,
