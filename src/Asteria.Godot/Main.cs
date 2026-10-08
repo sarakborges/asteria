@@ -5,6 +5,7 @@ using Asteria.Client.Gameplay;
 using Asteria.Client.Rendering;
 using Asteria.Client.Settings;
 using Asteria.Core.Content;
+using Asteria.Core.Settings;
 using Asteria.Core.World;
 using Godot;
 using NVector3 = System.Numerics.Vector3;
