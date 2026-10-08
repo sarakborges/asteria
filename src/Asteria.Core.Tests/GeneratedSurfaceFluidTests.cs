@@ -593,7 +593,9 @@ public sealed class GeneratedSurfaceFluidTests
                 blocks,
                 fluids,
                 biomes,
-                structures);
+                structures,
+                StructureSetRegistry.FromJson(
+                    ReadJsonDirectory("structure_sets")));
         var core =
             FindVolcanoCore(
                 generator.Biomes);
