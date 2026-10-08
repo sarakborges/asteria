@@ -3,6 +3,7 @@ import type { ChatMessageView } from "../presentation/chatModels";
 import type { UiStore } from "../state/uiStore";
 import { asRecord } from "./messagePayload";
 
+const SUPPORTED_COMMANDS = new Set(["/help", "/position", "/time"]);
 const LOCAL_KEYS = new Set([
   "chat.local.help", "chat.local.position", "chat.local.time", "chat.local.unknown",
 ]);
@@ -31,7 +32,7 @@ export function createChatController(
       if (entries.some(value => value === null)) return;
       const commands = payload.commands;
       if (!commands.every(value => typeof value === "string" &&
-          /^\/[a-z]+$/.test(value) && value.length <= 32)) return;
+          SUPPORTED_COMMANDS.has(value))) return;
 
       store.update(state => ({
         ...state,
