@@ -1,6 +1,7 @@
 import type { BridgeMessage } from "../bridge/godotBridge";
 import type {
   HotbarState,
+  HotbarSlotState,
   HudState,
   HudEntityState,
   InteractionPromptState,
@@ -226,7 +227,8 @@ function readHotbar(payload: unknown): HotbarState {
               : undefined,
           kind:
             slot?.kind === "block" || slot?.kind === "item" ||
-            slot?.kind === "tool" ? slot.kind : undefined,
+            slot?.kind === "tool"
+              ? slot.kind as HotbarSlotState["kind"] : undefined,
           metadata:
             slot && typeof slot.metadata === "object" &&
             slot.metadata !== null && !Array.isArray(slot.metadata)
