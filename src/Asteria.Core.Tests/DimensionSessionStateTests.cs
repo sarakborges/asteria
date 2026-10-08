@@ -91,7 +91,8 @@ public sealed class DimensionSessionStateTests
         Assert.True(overworld.StorageBoxes.TryOpen(
             position, overworld.World, blocks));
         Assert.True(overworld.StorageBoxes.TryInsertActive(
-            new InventoryStack(InventoryEntry.FromItem("asteria:wood"), 5)));
+            new InventoryStack(InventoryEntry.FromItem("asteria:wood"), 5),
+            overworld.World, blocks));
         overworld.StorageBoxes.Close();
 
         overworld.ArchiveResidentWorld();
