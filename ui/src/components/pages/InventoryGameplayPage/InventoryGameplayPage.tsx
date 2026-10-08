@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState, type PointerEvent } from "react";
 import { useLocalization } from "../../../localization/LocalizationProvider";
 import type {
   GameplayInventoryState, InventoryCatalogEntry, InventoryMetadata, VitalValue,
@@ -6,7 +6,7 @@ import type {
 import type { ItemStackView } from "../../../presentation/inventoryModels";
 import { Button } from "../../atoms/Button/Button";
 import { Text } from "../../atoms/Text/Text";
-import { InventorySlot } from "../../molecules/InventorySlot/InventorySlot";
+import { InventoryCursorOverlay } from "../../molecules/InventoryCursorOverlay/InventoryCursorOverlay";
 import { CharacterInfoPanel } from "../../organisms/CharacterInfoPanel/CharacterInfoPanel";
 import { CraftingPanel } from "../../organisms/CraftingPanel/CraftingPanel";
 import { CreativeInventoryPanel } from "../../organisms/CreativeInventoryPanel/CreativeInventoryPanel";
@@ -60,6 +60,7 @@ export function InventoryGameplayPage({
   onDiscardCursor, onCreativePick,
 }: InventoryGameplayPageProps) {
   const { t } = useLocalization();
+  const cursorRef = useRef<HTMLDivElement>(null);
   const [creativeTab, setCreativeTab] = useState(false);
   const [search, setSearch] = useState("");
   const [creativeSearch, setCreativeSearch] = useState("");
@@ -90,8 +91,20 @@ export function InventoryGameplayPage({
     cursor: itemView(state.cursor, state.catalog),
   }), [state.backpack, state.hotbar, state.cursor, state.catalog]);
 
+  const followPointer = (event: PointerEvent<HTMLElement>) => {
+    const overlay = cursorRef.current;
+    if (!overlay) return;
+    overlay.style.left = event.clientX - 20 + "px";
+    overlay.style.top = event.clientY - 20 + "px";
+    overlay.style.visibility = "visible";
+  };
+
   return (
-    <main className="inventory-gameplay">
+    <main className="inventory-gameplay"
+      onPointerMove={followPointer}
+      onPointerLeave={() => {
+        if (cursorRef.current) cursorRef.current.style.visibility = "hidden";
+      }}>
       <div className="inventory-gameplay__actions">
         <Button label={t("inventory.close")} onClick={onClose} />
       </div>
@@ -137,16 +150,10 @@ export function InventoryGameplayPage({
           />}
         />
       </div>
-      {(cursor || state.errorKey) && (
+      {cursor && <InventoryCursorOverlay ref={cursorRef} item={cursor} />}
+      {state.errorKey && (
         <aside className="inventory-gameplay__cursor-status" role="status">
-          {cursor && (
-            <>
-              <Text text={t("inventory.cursor")} variant="detail" />
-              <InventorySlot item={cursor} disabled />
-              <Text text={t("inventory.cursor.help")} variant="caption" />
-            </>
-          )}
-          {state.errorKey && <Text text={t(state.errorKey)} variant="caption" />}
+          <Text text={t(state.errorKey)} variant="caption" />
         </aside>
       )}
     </main>
