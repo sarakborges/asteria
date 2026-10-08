@@ -85,6 +85,7 @@ public partial class Main : Node3D
     private BlockRegistry _blocks = null!;
     private PackContentRegistry<ItemDefinition> _items = null!;
     private PackContentRegistry<ToolDefinition> _tools = null!;
+    private InventoryContentCatalog _inventoryCatalog = null!;
     private PackContentRegistry<CreatureDefinition> _creatures = null!;
     private FluidRegistry _fluids = null!;
     private BiomeRegistry _biomes = null!;
@@ -153,6 +154,8 @@ public partial class Main : Node3D
         _tools =
             ToolContentLoader.LoadProjectTools(
                 _packSelection);
+        _inventoryCatalog = new InventoryContentCatalog(
+            _blocks, _items, _tools);
         _creatures =
             CreatureContentLoader.LoadProjectCreatures(
                 _packSelection);
@@ -1244,7 +1247,7 @@ public partial class Main : Node3D
             });
         SendHotbarState();
         SendInventoryState();
-        SendCreativeBlockCatalog();
+        SendCreativeCatalog();
 
         GD.Print(
             $"world.start seed={creation.Seed} " +
@@ -1461,11 +1464,13 @@ public partial class Main : Node3D
             });
     }
 
-    private object? InventorySlotView(InventoryBlockStack? stack) =>
+    private static object? InventorySlotView(InventoryStack? stack) =>
         stack is null ? null : new
         {
-            id = _blocks.GetDefinition(stack.Block.Cell.Block).Id,
+            id = stack.Id,
+            kind = stack.Kind.ToString().ToLowerInvariant(),
             quantity = stack.Quantity,
+            metadata = stack.Entry.Metadata,
         };
 
     private void SendHotbarState()
@@ -1503,16 +1508,19 @@ public partial class Main : Node3D
         });
     }
 
-    private void SendCreativeBlockCatalog()
+    private void SendCreativeCatalog()
     {
         SendWebUi("game.inventory.catalog", new
         {
-            items = _blocks.AuthoredDefinitions()
-                .Select(block => new
+            items = _inventoryCatalog.Choices
+                .Select(choice => new
                 {
-                    id = block.Definition.Id,
-                    name = block.Definition.Id,
-                    category = block.Definition.Category,
+                    id = choice.Entry.Id,
+                    kind = choice.Entry.Kind.ToString().ToLowerInvariant(),
+                    name = choice.Entry.Id,
+                    category = choice.Entry.Kind.ToString().ToLowerInvariant() +
+                        "/" + choice.Category,
+                    metadata = choice.Entry.Metadata,
                 })
                 .ToArray(),
         });
@@ -1521,14 +1529,14 @@ public partial class Main : Node3D
     private void SyncHeldBlock()
     {
         var selected = _sessionStates.Player.Inventory.SelectedStack;
-        if (selected is null)
+        if (selected?.Block is not { } selectedBlock)
         {
             _sessionStates.Player.HeldBlock.Clear();
             return;
         }
-        var block = selected.Block.Cell.Block;
+        var block = selectedBlock.Cell.Block;
         _sessionStates.Player.HeldBlock.Select(
-            selected.Block, _blocks.GetDefinition(block));
+            selectedBlock, _blocks.GetDefinition(block));
     }
 
     private void SelectHotbar(int index)
@@ -1601,11 +1609,29 @@ public partial class Main : Node3D
             !payload.TryGetProperty("id", out var idValue) ||
             idValue.ValueKind != JsonValueKind.String) return;
         var id = idValue.GetString();
-        if (id is null || !_blocks.TryGetId(id, out var block) ||
-            block.IsAir) return;
-        if (!_sessionStates.Player.Inventory.TryCreativePick(
-            BlockStateSnapshot.FromCell(new VoxelCell(block)), 1))
-            return;
+        if (id is null ||
+            !payload.TryGetProperty("kind", out var kindValue) ||
+            kindValue.ValueKind != JsonValueKind.String ||
+            !Enum.TryParse<InventoryEntryKind>(
+                kindValue.GetString(), true, out var kind) ||
+            !Enum.IsDefined(kind)) return;
+
+        var metadataKey = (string?)null;
+        var metadataValue = (string?)null;
+        if (payload.TryGetProperty("metadata", out var metadata))
+        {
+            if (metadata.ValueKind != JsonValueKind.Object) return;
+            var properties = metadata.EnumerateObject().ToArray();
+            if (properties.Length != 1 ||
+                properties[0].Value.ValueKind != JsonValueKind.String) return;
+            metadataKey = properties[0].Name;
+            metadataValue = properties[0].Value.GetString();
+        }
+
+        if (!_inventoryCatalog.TryResolve(
+                kind, id, metadataKey, metadataValue, out var entry) ||
+            entry is null ||
+            !_sessionStates.Player.Inventory.TryCreativePick(entry)) return;
         SendInventoryState();
     }
 
@@ -1614,7 +1640,16 @@ public partial class Main : Node3D
         if (_player is null || _inventoryOpen ||
             !_sessionStates.Player.CanInteract) return;
         var inventory = _sessionStates.Player.Inventory;
-        if (!inventory.TryDropSelected(out var block) || block is null) return;
+        if (inventory.SelectedStack is { Block: null })
+        {
+            // Physical drops for generic items and tools need a separate
+            // world-entity presentation contract; never silently delete them.
+            SendWebUi("game.inventory.error",
+                new { code = "UnsupportedDropKind" });
+            return;
+        }
+        if (!inventory.TryDropSelectedBlock(out var block) || block is null)
+            return;
 
         var ray = _player.GetInteractionRay(2f);
         var direction = (ray.To - ray.From).Normalized();
@@ -1646,7 +1681,9 @@ public partial class Main : Node3D
         var collected = _blockEntities.CollectNearby(
             new NVector3(player.X, player.Y, player.Z),
             1.2f,
-            _sessionStates.Player.Inventory.TryInsert);
+            snapshot => _sessionStates.Player.Inventory.TryInsert(
+                new InventoryStack(
+                    _inventoryCatalog.ForDroppedBlock(snapshot))));
         if (collected == 0) return;
         SyncHeldBlock();
         SendHotbarState();
@@ -2022,8 +2059,8 @@ public partial class Main : Node3D
 
         var inventory = _sessionStates.Player.Inventory;
         var selected = inventory.SelectedStack;
-        if (selected is null || selected.Block.HasMicroblockGeometry)
-            return;
+        if (selected?.Block is not { } block ||
+            block.HasMicroblockGeometry) return;
 
         var decision =
             _blockInteractions.Place(
