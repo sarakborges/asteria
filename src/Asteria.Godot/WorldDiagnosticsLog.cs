@@ -39,7 +39,7 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         Directory.CreateDirectory(directory);
         var path = Path.Combine(directory, "worldgen-latest.log");
         var stream = new FileStream(
-            path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
+            path, FileMode.Create, System.IO.FileAccess.Write, FileShare.ReadWrite);
         var writer = new StreamWriter(stream, new UTF8Encoding(false))
         {
             AutoFlush = true,
