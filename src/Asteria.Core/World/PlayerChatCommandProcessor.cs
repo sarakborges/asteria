@@ -9,8 +9,11 @@ namespace Asteria.Core.World;
 /// </summary>
 public static class PlayerChatCommandProcessor
 {
-    public static readonly string[] SupportedCommands =
-        ["/spawn", "/place", "/locate", "/warp", "/kill", "/modify"];
+    public static IReadOnlyList<string> SupportedCommands { get; } =
+        Array.AsReadOnly(new[]
+        {
+            "/spawn", "/place", "/locate", "/warp", "/kill", "/modify",
+        });
 
     public static ParsedChatCommand Parse(string input)
     {
