@@ -15,6 +15,7 @@ import { createBrushController } from "./controllers/BrushController";
 import { createSettingsController } from "./controllers/SettingsController";
 import { createWorldCreationController } from "./controllers/WorldCreationController";
 import { createWorldCatalogController } from "./controllers/WorldCatalogController";
+import { createChatController } from "./controllers/ChatController";
 import { createInitialUiState } from "./state/uiState";
 import { createUiStore } from "./state/uiStore";
 
@@ -47,11 +48,13 @@ const settings = createSettingsController(store, postGodotMessage);
 const inventory = createInventoryController(store, postGodotMessage);
 const brush = createBrushController(store, postGodotMessage);
 const worldCatalog = createWorldCatalogController(store, postGodotMessage);
+const chat = createChatController(store, postGodotMessage);
 
 subscribeGodotMessages((message) => {
   navigation.handleGodotMessage(message);
   worldCatalog.handleGodotMessage(message);
   inventory.handleGodotMessage(message);
+  chat.handleGodotMessage(message);
   brush.handleGodotMessage(message);
   hud.handleGodotMessage(message);
   settings.handleGodotMessage(message);
@@ -90,6 +93,8 @@ createRoot(rootElement).render(
       closeBrushPalette: brush.close,
       selectBrushDye: brush.select,
       closeInventory: inventory.close,
+      closeChat: chat.close,
+      submitChat: chat.submit,
       clickInventorySlot: inventory.clickSlot,
       sortInventory: inventory.sort,
       discardInventoryCursor: inventory.discardCursor,
