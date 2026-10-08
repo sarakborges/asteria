@@ -44,7 +44,7 @@ public static class WorldSaveCatalog
             // A missing serializer/loader is never treated as compatibility.
             var id = Path.GetFileName(directory);
             var entry = new WorldSaveSummary(
-                id, "", "", "", "", "", compatible: false);
+                id, "", "", "", "", "", Compatible: false);
             try
             {
                 var file = new FileInfo(path);
@@ -86,7 +86,7 @@ public static class WorldSaveCatalog
                     id, lastSaved, seed.GetString()!,
                     worldDay > 0 ? (worldDay - 1).ToString(CultureInfo.InvariantCulture) : "0",
                     dimension.GetString()!, position,
-                    compatible: false);
+                    Compatible: false);
             }
             catch (Exception error) when (
                 error is IOException or UnauthorizedAccessException or JsonException
