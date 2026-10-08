@@ -217,6 +217,8 @@ public sealed class DimensionRuntimeSession
                 _droppedBlocks);
         Tools = new ToolGameplayRuntime(
             World, blocks, Mutations, tools);
+        Mining = new BlockMiningRuntime(
+            World, blocks, Tools, BlockInteractions);
 
         var blockEntityPresentations =
             new BlockEntityPresentationController(
@@ -436,6 +438,7 @@ public sealed class DimensionRuntimeSession
 
     public BlockInteractionRuntime BlockInteractions { get; }
     public ToolGameplayRuntime Tools { get; }
+    public BlockMiningRuntime Mining { get; }
 
     public BlockEntityFrameController BlockEntities { get; }
 

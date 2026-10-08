@@ -19,6 +19,7 @@ public partial class FpsPlayer : CharacterBody3D
     private bool _moveBackward;
     private bool _moveLeft;
     private bool _moveRight;
+    private bool _breakHeld;
     private bool _jumpHeld;
     private bool _descendHeld;
     private bool _inputSuspended;
@@ -46,6 +47,7 @@ public partial class FpsPlayer : CharacterBody3D
     public Func<ulong> CurrentWorldTick { get; set; } = null!;
 
     public bool IsMouseCaptured => _mouseCaptured;
+    public bool IsBreakHeld => _breakHeld && _mouseCaptured && !_inputSuspended;
 
     public Camera3D Camera => _camera;
 
@@ -133,8 +135,11 @@ public partial class FpsPlayer : CharacterBody3D
             return;
         }
 
-        if (inputEvent is InputEventMouseButton mouseButton && mouseButton.Pressed)
+        if (inputEvent is InputEventMouseButton mouseButton)
         {
+            if (mouseButton.ButtonIndex == MouseButton.Left)
+                _breakHeld = mouseButton.Pressed;
+            if (!mouseButton.Pressed) return;
             if (mouseButton.ButtonIndex is MouseButton.WheelUp or MouseButton.WheelDown)
             {
                 HotbarSlotRequested?.Invoke(
@@ -322,6 +327,7 @@ public partial class FpsPlayer : CharacterBody3D
 
     public void ClearGameplayInput()
     {
+        _breakHeld = false;
         _moveForward = false;
         _moveBackward = false;
         _moveLeft = false;
