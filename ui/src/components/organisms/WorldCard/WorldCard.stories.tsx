@@ -20,9 +20,10 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Compatible: Story = {};
+export const Compatible: Story = { args: { onLoad: () => undefined, onDelete: () => undefined } };
 
 export const Incompatible: Story = {
+  args: { onDelete: () => undefined,
   args: {
     world: {
       id: "Legacy World",
