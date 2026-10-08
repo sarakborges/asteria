@@ -736,6 +736,67 @@ public sealed class BiomeWorldGenerationTests
             2);
     }
 
+    [Theory]
+    [InlineData("asteria:overworld/plains", "asteria:leaf_oak")]
+    [InlineData("asteria:overworld/swamp", "asteria:leaf_willow")]
+    [InlineData("asteria:overworld/enchanted_forest", "asteria:leaf_enchanted")]
+    public void AuthoredTreeLeavesReceiveBiomeTintInRenderedMesh(
+        string biomeId,
+        string leafId)
+    {
+        var blocks = LoadDefaultBlocks();
+        var biomes = LoadDefaultBiomes();
+        var biome = biomes.Get(biomeId);
+        var leaf = blocks.GetDefinition(blocks.GetId(leafId));
+
+        Assert.Equal(BlockTint.Leaf, leaf.Tint);
+        Assert.NotEmpty(leaf.Textures.AllLayers());
+        Assert.All(leaf.Textures.AllLayers(),
+            layer => Assert.True(layer.Dyable));
+
+        var field = new BiomeField(17UL, [biomeId], biomes);
+        var tintGrid = new BiomeTintField(
+            field, [biome]).SampleGrid(0, 0, Chunk.Size + 1, Chunk.Size + 1);
+        var expected = tintGrid.Resolve(
+            BlockTint.Leaf, leaf.PreviewColor, 2, 2);
+
+        var chunk = new Chunk();
+        chunk.SetBlock(2, 2, 2, blocks.GetId(leafId));
+        ChunkLightingSolver.Initialize(
+            chunk, blocks, new FluidRegistry([]));
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, chunk);
+        var layer = Assert.Single(
+            leaf.Textures.ResolveForFace(BlockFace.Top));
+        var mesh = ChunkMeshDataBuilder.BuildMeshlet(
+            world, ChunkCoord.Zero, blocks,
+            new TerrainTextureLookup(
+                new Dictionary<string, int>
+                {
+                    [layer.Texture] = 1,
+                }),
+            meshletIndex: 0,
+            tintSamples: tintGrid);
+        var vertices = mesh.RenderBatches
+            .SelectMany(batch => batch.Vertices)
+            .ToArray();
+
+        Assert.NotEmpty(vertices);
+        Assert.All(vertices, vertex =>
+        {
+            Assert.InRange(
+                MathF.Abs(vertex.TintAndAo.X - expected.X), 0f, 0.02f);
+            Assert.InRange(
+                MathF.Abs(vertex.TintAndAo.Y - expected.Y), 0f, 0.02f);
+            Assert.InRange(
+                MathF.Abs(vertex.TintAndAo.Z - expected.Z), 0f, 0.02f);
+            // Texture code includes tint and wind flags: 0.25 + 0.5.
+            var encodedFlags = vertex.EncodedTextureLayers.X -
+                MathF.Floor(vertex.EncodedTextureLayers.X);
+            Assert.InRange(encodedFlags, 0.74f, 0.76f);
+        });
+    }
+
     [Fact]
     public void BiomeTintBlendsAuthoredInfluenceColors()
     {
