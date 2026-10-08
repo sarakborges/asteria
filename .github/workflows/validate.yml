@@ -13,6 +13,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # TEMPORARY: recover upstream public asset bytes; removed before merge.
+      - name: Recover MineClone moss PNG
+        shell: bash
+        run: |
+          curl -fsSL --retry 3 --max-time 40 \
+            'https://raw.githubusercontent.com/sarakborges/mineclone/world-systems-rebuild/assets/textures/layers/moss.png' \
+            -o /tmp/asteria-original-moss.png
+          test "$(git hash-object /tmp/asteria-original-moss.png)" = \
+            '8662adb0a4c3a2be39aedda0f666a25d80e85e1d'
+          echo MOSS_TRANSFER_BEGIN
+          base64 -w0 /tmp/asteria-original-moss.png
+          echo
+          echo MOSS_TRANSFER_END
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
