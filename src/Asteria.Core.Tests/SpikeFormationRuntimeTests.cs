@@ -194,6 +194,114 @@ public sealed class SpikeFormationRuntimeTests
     }
 
     [Fact]
+    public void ArchivedTipRemainsUntouchedUntilItsChunkIsRestored()
+    {
+        var f = Fixture(verticalChunks: 2);
+        var support = new WorldVoxelCoord(2, 13, 2);
+        var stone = f.Blocks.GetId("asteria:stone");
+        var spike = f.Blocks.GetId("asteria:stone_spike");
+        Assert.True(f.Mutations.SetBlockAt(support, stone, out _));
+
+        for (var i = 0; i < 3; i++)
+            Assert.True(f.Interactions.Place(
+                Hit(2, 13 + i, 2, normalY: 1),
+                new VoxelCell(spike), AwayFromPlayer).Accepted);
+
+        var archivedTip = new WorldVoxelCoord(2, 16, 2);
+        Assert.Equal(ChunkArchiveResult.Archived,
+            f.World.ArchiveChunk(new ChunkCoord(0, 1, 0)));
+        Assert.True(f.Mutations.SetCellAt(
+            new WorldVoxelCoord(2, 15, 2), VoxelCell.Empty, out _));
+
+        // Old root and archived tip must not be destroyed based on a
+        // missing chunk. Recovery happens after residency is restored.
+        Assert.Equal(spike, f.World.GetCellOrEmpty(
+            new WorldVoxelCoord(2, 14, 2)).Block);
+        Assert.Equal(0, f.Drops.ActiveCount);
+
+        Assert.Equal(ChunkRestoreResult.Restored,
+            f.World.RestoreChunk(new ChunkCoord(0, 1, 0)));
+        Assert.Equal(1, SpikeSegmentState.Height(
+            f.World.GetCellOrEmpty(new WorldVoxelCoord(2, 14, 2)).State));
+        Assert.True(f.World.GetCellOrEmpty(archivedTip).IsEmpty);
+        Assert.Single(f.Drops.ActiveBlocks);
+        Assert.Equal((ushort)0,
+            Assert.Single(f.Drops.ActiveBlocks).Block!.Cell.State);
+    }
+
+    [Fact]
+    public void RestoringArchivedRootDetachesWhenSupportWasRemoved()
+    {
+        var f = Fixture(verticalChunks: 2);
+        var stone = f.Blocks.GetId("asteria:stone");
+        var spike = f.Blocks.GetId("asteria:ice_spike");
+        var support = new WorldVoxelCoord(2, 15, 2);
+        Assert.True(f.Mutations.SetBlockAt(support, stone, out _));
+        Assert.True(f.Interactions.Place(
+            Hit(2, 15, 2, normalY: 1),
+            new VoxelCell(spike), AwayFromPlayer).Accepted);
+
+        Assert.Equal(ChunkArchiveResult.Archived,
+            f.World.ArchiveChunk(new ChunkCoord(0, 1, 0)));
+        Assert.True(f.Mutations.SetCellAt(support, VoxelCell.Empty, out _));
+        Assert.Equal(0, f.Drops.ActiveCount);
+
+        Assert.Equal(ChunkRestoreResult.Restored,
+            f.World.RestoreChunk(new ChunkCoord(0, 1, 0)));
+        Assert.True(f.World.GetCellOrEmpty(new WorldVoxelCoord(2, 16, 2)).IsEmpty);
+        Assert.Equal(spike, Assert.Single(f.Drops.ActiveBlocks).Block!.Cell.Block);
+    }
+
+    [Fact]
+    public void RestoringArchivedTipDetachesWhenRootLostItsSupport()
+    {
+        var f = Fixture(verticalChunks: 2);
+        var stone = f.Blocks.GetId("asteria:stone");
+        var spike = f.Blocks.GetId("asteria:stone_spike");
+        var support = new WorldVoxelCoord(2, 13, 2);
+        Assert.True(f.Mutations.SetBlockAt(support, stone, out _));
+        for (var i = 0; i < 3; i++)
+            Assert.True(f.Interactions.Place(
+                Hit(2, 13 + i, 2, normalY: 1),
+                new VoxelCell(spike), AwayFromPlayer).Accepted);
+
+        Assert.Equal(ChunkArchiveResult.Archived,
+            f.World.ArchiveChunk(new ChunkCoord(0, 1, 0)));
+        Assert.True(f.Mutations.SetCellAt(support, VoxelCell.Empty, out _));
+        Assert.Equal(0, f.Drops.ActiveCount);
+
+        Assert.Equal(ChunkRestoreResult.Restored,
+            f.World.RestoreChunk(new ChunkCoord(0, 1, 0)));
+        for (var y = 14; y <= 16; y++)
+            Assert.True(f.World.GetCellOrEmpty(
+                new WorldVoxelCoord(2, y, 2)).IsEmpty);
+        Assert.Equal(3, f.Drops.ActiveCount);
+    }
+
+    [Fact]
+    public void RestoringArchivedChunkWithIntactFormationIsNonMutating()
+    {
+        var f = Fixture(verticalChunks: 2);
+        var stone = f.Blocks.GetId("asteria:stone");
+        var spike = f.Blocks.GetId("asteria:sandstone_spike");
+        Assert.True(f.Mutations.SetBlockAt(
+            new WorldVoxelCoord(2, 14, 2), stone, out _));
+        for (var i = 0; i < 2; i++)
+            Assert.True(f.Interactions.Place(
+                Hit(2, 14 + i, 2, normalY: 1),
+                new VoxelCell(spike), AwayFromPlayer).Accepted);
+
+        var before = f.World.GetCellOrEmpty(new WorldVoxelCoord(2, 15, 2));
+        Assert.Equal(ChunkArchiveResult.Archived,
+            f.World.ArchiveChunk(new ChunkCoord(0, 1, 0)));
+        Assert.Equal(ChunkRestoreResult.Restored,
+            f.World.RestoreChunk(new ChunkCoord(0, 1, 0)));
+        Assert.Equal(before,
+            f.World.GetCellOrEmpty(new WorldVoxelCoord(2, 15, 2)));
+        Assert.Equal(0, f.Drops.ActiveCount);
+    }
+
+    [Fact]
     public void DifferentMaterialDoesNotJoinExistingSpikeColumn()
     {
         var f = Fixture();

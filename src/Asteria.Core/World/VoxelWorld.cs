@@ -45,6 +45,12 @@ public sealed class VoxelWorld
 
     public IEnumerable<ChunkCoord> LoadedChunkCoords => _chunks.Keys;
 
+    /// <summary>
+    /// Raised after a chunk becomes resident, whether materialized or restored.
+    /// Consumers may reconcile bounded dependencies across newly loaded seams.
+    /// </summary>
+    public event Action<ChunkCoord>? ChunkBecameResident;
+
     // Both resident and archived chunks are authoritative. A newly created
     // world is populated from saved chunks before any worker/session sees it.
     internal IEnumerable<(ChunkCoord Coord, Chunk Chunk, bool Resident, bool Dirty)>
@@ -98,6 +104,7 @@ public sealed class VoxelWorld
         AssignResidencyEpoch(coord);
         MarkColumnResidencyChanged(coord);
         Revision++;
+        ChunkBecameResident?.Invoke(coord);
     }
 
     public bool ContainsChunk(ChunkCoord coord) => _chunks.ContainsKey(coord);
@@ -174,6 +181,7 @@ public sealed class VoxelWorld
         AssignResidencyEpoch(coord);
         MarkColumnResidencyChanged(coord);
         Revision++;
+        ChunkBecameResident?.Invoke(coord);
         return ChunkRestoreResult.Restored;
     }
 

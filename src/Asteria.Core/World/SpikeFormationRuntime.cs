@@ -26,6 +26,7 @@ public sealed class SpikeFormationRuntime
         _mutations = mutations ?? throw new ArgumentNullException(nameof(mutations));
         _drops = drops ?? throw new ArgumentNullException(nameof(drops));
         _mutations.BlockCellChanged += OnVoxelEdited;
+        _world.ChunkBecameResident += OnChunkResident;
     }
 
     public BlockPlacementDecision Place(
@@ -255,6 +256,124 @@ public sealed class SpikeFormationRuntime
             DetachUnsupportedBase(
                 Offset(edit.Position, -1), down: true,
                 BlockBreakLootPolicy.DropSelf);
+    }
+
+    /// <summary>
+    /// Rechecks only the two horizontal faces at a residency seam.
+    /// An unresolved formation is never interpreted as air: all of its
+    /// original voxels and its support must be resident before repair.
+    /// This creates no long-lived pending registry or full-chunk scan.
+    /// </summary>
+    private void OnChunkResident(ChunkCoord coord)
+    {
+        ScanFace(coord, 0);
+        ScanFace(coord, Chunk.Size - 1);
+
+        if (coord.Y > 0)
+            ScanFace(new ChunkCoord(coord.X, coord.Y - 1, coord.Z),
+                Chunk.Size - 1);
+
+        ScanFace(new ChunkCoord(coord.X, coord.Y + 1, coord.Z), 0);
+    }
+
+    private void ScanFace(ChunkCoord coord, int localY)
+    {
+        if (!_world.TryGetChunk(coord, out var chunk) ||
+            chunk.NonEmptyVoxelCount == 0)
+            return;
+
+        var (originX, originY, originZ) =
+            VoxelCoordinates.ChunkOrigin(coord);
+        for (var localZ = 0; localZ < Chunk.Size; localZ++)
+        for (var localX = 0; localX < Chunk.Size; localX++)
+        {
+            var cell = chunk.GetCell(localX, localY, localZ);
+            if (cell.IsEmpty ||
+                _blocks.GetDefinition(cell.Block).Shape.Kind !=
+                    BlockShapeKind.Spike)
+                continue;
+
+            ReconcileAt(new WorldVoxelCoord(
+                originX + localX,
+                originY + localY,
+                originZ + localZ));
+        }
+    }
+
+    private void ReconcileAt(WorldVoxelCoord candidate)
+    {
+        if (!_world.TryGetCell(candidate, out var cell) ||
+            cell.IsEmpty ||
+            _blocks.GetDefinition(cell.Block).Shape.Kind !=
+                BlockShapeKind.Spike)
+            return;
+
+        var height = SpikeSegmentState.Height(cell.State);
+        var down = SpikeSegmentState.IsDown(cell.State);
+        var step = down ? -1 : 1;
+        var root = Offset(candidate,
+            -step * SpikeSegmentState.Index(cell.State));
+
+        // Do not infer absence from nonresidency. A formation occupies at
+        // most 16 vertical voxels, hence at most two vertical chunks.
+        var original = new VoxelCell[height];
+        for (var index = 0; index < height; index++)
+        {
+            var position = Offset(root, step * index);
+            if (position.Y < 0 ||
+                !_world.TryGetCell(position, out original[index]))
+                return;
+        }
+
+        var support = Offset(root, -step);
+        if (support.Y >= 0 && !_world.IsLoadedAt(support))
+            return;
+
+        bool Matches(int index)
+        {
+            var segment = original[index];
+            return segment.Block == cell.Block &&
+                SpikeSegmentState.Index(segment.State) == index &&
+                SpikeSegmentState.Height(segment.State) == height &&
+                SpikeSegmentState.IsDown(segment.State) == down;
+        }
+
+        var baseSupported = Matches(0) &&
+            SupportsBase(support, cell.Block, down);
+        var retained = 0;
+        if (baseSupported)
+        {
+            while (retained < height && Matches(retained))
+                retained++;
+        }
+
+        if (retained == height)
+            return;
+
+        var edits = new List<SpikeVoxelChange>(height);
+        var detached = new List<WorldVoxelCoord>(height);
+        for (var index = 0; index < height; index++)
+        {
+            if (!Matches(index))
+                continue;
+
+            var position = Offset(root, step * index);
+            if (index < retained)
+            {
+                edits.Add(new SpikeVoxelChange(
+                    position, WithProfile(original[index],
+                        index, retained, down)));
+            }
+            else
+            {
+                edits.Add(new SpikeVoxelChange(position, VoxelCell.Empty));
+                detached.Add(position);
+            }
+        }
+
+        Apply(edits);
+        foreach (var position in detached)
+            SpawnDrop(cell.Block, position);
     }
 
     private void DetachUnsupportedBase(
