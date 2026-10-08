@@ -287,8 +287,12 @@ material layer before resolving conditional surface patches. When the
 whole requested voxel depth belongs to the core layer, it avoids patch
 noise, terrain-condition queries and material-column allocations.
 The current surface/volume biome remains authoritative and shallow
-layers retain the original material selection. This is especially
-valuable for underground vertical chunk bands.
+layers retain the original material selection. Scalar deep-layer queries
+use the same bypass. This is especially valuable for underground vertical
+chunk bands. For completely light-opaque chunks, direct lighting remains
+authoritative and the local relaxation queue is skipped: no voxel in
+such a chunk can transmit light. Partially empty or translucent chunks
+continue through the full propagation algorithm.
 
 The `asteria:dirt` block has no biome tint and a single base texture;
 therefore a gray visual effect on Wasteland dirt should first be
