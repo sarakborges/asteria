@@ -99,12 +99,13 @@ public sealed class BiomeWorldGenerator :
                 .ToArray();
         var materialDefinitions =
             surfaceDefinitions
-                .Concat(
-                    volumeDefinitions)
-                .OrderBy(
-                    definition =>
-                        definition.Id,
-                    StringComparer.Ordinal)
+                .Concat(volumeDefinitions)
+                .OrderBy(definition => definition.Id, StringComparer.Ordinal)
+                .ToArray();
+        var decorationDefinitions =
+            materialDefinitions
+                .Concat(dimension.UndergroundBiomes.Select(biomes.Get))
+                .OrderBy(definition => definition.Id, StringComparer.Ordinal)
                 .ToArray();
 
         Biomes =
@@ -169,7 +170,7 @@ public sealed class BiomeWorldGenerator :
         var decorations =
             new SurfaceDecorationField(
                 seed,
-                materialDefinitions,
+                decorationDefinitions,
                 blocks,
                 _terrain,
                 habitats);
@@ -182,7 +183,8 @@ public sealed class BiomeWorldGenerator :
                 _generatedFluids,
                 _surfaceStructures,
                 dimension,
-                blocks);
+                blocks,
+                _undergroundBiomes);
         Tints =
             new BiomeTintField(
                 Biomes,

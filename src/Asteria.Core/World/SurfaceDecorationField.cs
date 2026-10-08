@@ -10,6 +10,7 @@ public sealed class SurfaceDecorationField
     private readonly SurfaceTerrainField? _terrain;
     private readonly SurfaceHabitatField _habitats;
     private readonly IReadOnlyDictionary<string, DecorationRule[]> _rules;
+    private readonly HashSet<string> _verticalBiomes;
 
     public SurfaceDecorationField(
         ulong seed,
@@ -23,6 +24,11 @@ public sealed class SurfaceDecorationField
         _seed = seed;
         _terrain = terrain;
         var definitions = biomes.ToArray();
+        _verticalBiomes = definitions
+            .Where(biome => biome.SurfaceLayout is null &&
+                            biome.Decorations.Count > 0)
+            .Select(biome => biome.Id)
+            .ToHashSet(StringComparer.Ordinal);
         _habitats = habitats ?? new SurfaceHabitatField(seed, definitions);
         _rules = definitions
             .OrderBy(biome => biome.Id, StringComparer.Ordinal)
@@ -54,12 +60,18 @@ public sealed class SurfaceDecorationField
                 _habitats.Validate(biome.Id, decoration.HabitatWeights);
     }
 
+    public bool HasVerticalDecorations => _verticalBiomes.Count > 0;
+
+    public bool HasVerticalDecorationsFor(string biomeId) =>
+        _verticalBiomes.Contains(biomeId);
+
     public BlockRuntimeId BlockAt(
         BiomeSample sample,
         BlockRuntimeId surfaceBlock,
         int worldX,
         int worldZ,
-        SurfacePlacementContext? suppliedPlacement = null)
+        SurfacePlacementContext? suppliedPlacement = null,
+        int? verticalY = null)
     {
         SurfacePlacementContext? placement = suppliedPlacement;
         var slopeSampled = suppliedPlacement.HasValue;
@@ -128,11 +140,11 @@ public sealed class SurfaceDecorationField
                 }
 
                 var roll = WorldGenerationEntropy.Unit(
-                    WorldGenerationEntropy.Sample2D(
-                        _seed,
-                        rule.Domain,
-                        worldX,
-                        worldZ));
+                    verticalY is { } y
+                        ? WorldGenerationEntropy.Sample3D(
+                            _seed, rule.Domain, worldX, y, worldZ)
+                        : WorldGenerationEntropy.Sample2D(
+                            _seed, rule.Domain, worldX, worldZ));
                 if (roll < effectiveChance)
                 {
                     return rule.Block;
