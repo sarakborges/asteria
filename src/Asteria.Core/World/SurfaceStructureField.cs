@@ -36,6 +36,7 @@ public sealed class SurfaceStructureField
     private readonly GeneratedFluidField _generatedFluids;
     private readonly ConnectorGraph _connectors;
     private readonly StructureRegistry _structures;
+    private readonly StructureSetRegistry _structureSets;
     private readonly BlockRegistry _blocks;
     private readonly FluidRegistry _fluids;
     private readonly SurfaceHabitatField _habitats;
@@ -101,6 +102,7 @@ public sealed class SurfaceStructureField
                 nameof(generatedFluids));
 
         _structures = structures;
+        _structureSets = structureSets;
         _blocks = blocks;
         _fluids = fluids;
         _seed = seed;
@@ -147,61 +149,94 @@ public sealed class SurfaceStructureField
         _rules.Length > 0;
 
     /// <summary>
-    /// Resolve one explicit manual structure using the same authored
-    /// ground, biome, fluid and vertical policies as generated placements.
-    /// This is a logical decision only; a separate mutation capability
-    /// validates live residency before applying all payload operations.
+    /// Resolves manual root, connector graph and StructureSet using the
+    /// authored worldgen expansion algorithms and conflict owner.
+    /// No voxel is modified by this query.
     /// </summary>
     internal bool TryPrepareManualPlacement(
-        string reference,
-        int? variation,
-        int anchorX,
-        int anchorZ,
-        out SurfaceStructurePlacement placement)
+        string reference, int? variation, int anchorX, int anchorZ,
+        out IReadOnlyList<SurfaceStructurePlacement> placements)
     {
-        placement = null!;
-        if (!_structures.ResolvesReference(reference))
-            return false;
-
-        var definitions = _structures.ResolveReference(reference);
-        var index = (variation ?? 1) - 1;
-        if (index < 0 || index >= definitions.Count)
-            return false;
-        var definition = definitions[index];
-        // Connector graph / StructureSet placement requires multiple coordinated
-        // pieces. Reject rather than silently materializing an incomplete tree.
-        if (definition.Connectors.Count > 0)
-            return false;
-
-        var member = new RuntimeStructure(
-            definition, _blocks, _fluids);
+        placements = Array.Empty<SurfaceStructurePlacement>();
         var biome = SurfaceAt(anchorX, anchorZ).Biome.Primary;
-        if (!TryResolvePlacement(
-                member, reference, biome, anchorX, anchorZ,
-                StructureRotation.Degrees0, out placement))
+        var members = Array.Empty<RuntimeStructure>();
+        RuntimeStructureSet? set = null;
+        if (_structureSets.TryGet(reference, out var setDefinition))
+        {
+            if (variation is not null) return false;
+            set = new RuntimeStructureSet(
+                setDefinition, _structures, _blocks, _fluids, biome, _connectors);
+        }
+        else
+        {
+            if (!_structures.ResolvesReference(reference)) return false;
+            var definitions = _structures.ResolveReference(reference);
+            var index = (variation ?? 1) - 1;
+            if (index < 0 || index >= definitions.Count) return false;
+            members =
+            [
+                new RuntimeStructure(definitions[index], _blocks, _fluids),
+            ];
+        }
+
+        // The manual anchor replaces a procedural grid candidate. All child
+        // placement and connector rules remain authored/worldgen owned.
+        var rule = new RootRule(
+            biome, reference, spacing: 1, chance: 1f, jitter: 0,
+            placement: DimensionGeneratedSurfaceStructurePlacement.BiomeInterior,
+            habitatWeights: null, members, set,
+            maximumHorizontalRadius: set?.MaximumHorizontalRadius ??
+                _connectors.MaximumHorizontalRadiusForReference(reference));
+
+        IReadOnlyList<SurfaceStructurePlacement> pieces;
+        if (set is not null)
+        {
+            var candidate = ResolveSetCandidate(
+                -1, rule, anchorX, anchorZ, anchorX, anchorZ);
+            if (candidate is null) return false;
+            pieces = candidate.Placements;
+        }
+        else
+        {
+            var member = members[0];
+            if (!TryResolvePlacement(
+                    member, reference, biome, anchorX, anchorZ,
+                    StructureRotation.Degrees0, out var root))
+                return false;
+            pieces = ExpandConnectors(rule, [root]);
+        }
+
+        if (pieces.Count == 0) return false;
+        var minX = pieces.Min(piece => piece.MinimumX);
+        var maxX = pieces.Max(piece => piece.MaximumX);
+        var minY = pieces.Min(piece => piece.MinimumY);
+        var maxY = pieces.Max(piece => piece.MaximumY);
+        var minZ = pieces.Min(piece => piece.MinimumZ);
+        var maxZ = pieces.Max(piece => piece.MaximumZ);
+        if ((long)maxX - minX > MaximumManualHorizontalSpan ||
+            (long)maxZ - minZ > MaximumManualHorizontalSpan ||
+            (long)maxX - minX + 1 > int.MaxValue ||
+            (long)maxZ - minZ + 1 > int.MaxValue)
             return false;
 
-        var extentX = (long)placement.MaximumX - placement.MinimumX;
-        var extentZ = (long)placement.MaximumZ - placement.MinimumZ;
-        if (placement.PayloadPositions().Take(
-                MaximumManualPayloadCount + 1).Count() >
-                    MaximumManualPayloadCount ||
-            extentX > MaximumManualHorizontalSpan ||
-            extentZ > MaximumManualHorizontalSpan)
-            return false;
+        var count = 0;
+        foreach (var piece in pieces)
+        {
+            foreach (var _ in piece.PayloadPositions())
+            {
+                if (++count > MaximumManualPayloadCount) return false;
+            }
+        }
 
-        // Never superimpose a manual structure over an accepted generated
-        // structure (including reserved/conflict-driven placements).
-        var width = checked(placement.MaximumX - placement.MinimumX + 1);
-        var depth = checked(placement.MaximumZ - placement.MinimumZ + 1);
-        var plannedMinimumY = placement.MinimumY;
-        var plannedMaximumY = placement.MaximumY;
+        // The generated field remains the exclusive logical conflict owner,
+        // including reserveSpace and candidate acceptance/precedence.
         if (PlacementsIntersecting(
-                placement.MinimumX, placement.MinimumZ, width, depth)
-            .Any(existing =>
-                existing.MinimumY <= plannedMaximumY &&
-                existing.MaximumY >= plannedMinimumY))
+                minX, minZ, maxX - minX + 1, maxZ - minZ + 1)
+            .Any(existing => existing.MinimumY <= maxY &&
+                             existing.MaximumY >= minY))
             return false;
+
+        placements = pieces;
         return true;
     }
 
