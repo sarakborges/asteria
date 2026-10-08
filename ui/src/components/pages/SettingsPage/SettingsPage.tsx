@@ -19,6 +19,7 @@ export type SettingsPageProps = {
   onSelect(id: string): void;
   onBack(): void;
   title?: string;
+  className?: string;
   footer?: ReactNode;
   formId?: string;
   onSubmit?: FormEventHandler<HTMLFormElement>;
@@ -30,6 +31,7 @@ export function SettingsPage({
   onSelect,
   onBack,
   title,
+  className,
   footer,
   formId,
   onSubmit,
@@ -65,6 +67,7 @@ export function SettingsPage({
   return (
     <ScreenShell
       title={title ?? t("common.settings")}
+      className={className}
       background={<CosmicBackground />}
       footer={footer ?? (
         <Button
