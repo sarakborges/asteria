@@ -88,14 +88,14 @@ test("seed accepts uint64 maximum without Number precision loss", async ({ page 
   await expect(seed).toHaveValue("18446744073709551615");
 });
 
-test("narrow layout keeps World Settings and Game Rules accessible", async ({ page }) => {
+test("640px game window retains MineClone left navigation", async ({ page }) => {
   await page.setViewportSize({ width: 640, height: 900 });
   await page.goto(STORY + "ready&viewMode=story");
   const { nav, content } = await expectActualWorldSettings(page);
   const navRect = await nav.boundingBox();
   const panelRect = await content.boundingBox();
   expect(navRect && panelRect).toBeTruthy();
-  expect(navRect!.y).toBeLessThan(panelRect!.y);
+  expect(navRect!.x + navRect!.width).toBeLessThan(panelRect!.x);
   await page.screenshot({ path: "test-results/new-world-narrow.png", fullPage: true });
 });
 
