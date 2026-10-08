@@ -114,7 +114,14 @@ export function App({
 
   return (
     <div ref={interactionRoot} className="app-interaction-root"
-      tabIndex={-1} onKeyDown={handleUiKeyDown}>
+      tabIndex={-1} onKeyDown={handleUiKeyDown}
+      onBlurCapture={event => {
+        // A child editor can blur itself on Escape. Return keyboard focus to
+        // this explicit UI surface, not document/window; avoid stealing focus
+        // when the user switches away from the application.
+        if (uiVisible && !event.relatedTarget && document.hasFocus())
+          interactionRoot.current?.focus({ preventScroll: true });
+      }}>
       {!preWorldVisible && !state.loading &&
         state.navigation.overlay === "none" && (
         <ChatDock
