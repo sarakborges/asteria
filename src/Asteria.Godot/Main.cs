@@ -2061,11 +2061,27 @@ public partial class Main : Node3D
         }
 
         var id = command.Argument!;
-        if (command.Option is not null)
+        string? structureId = null;
+        if (command.Kind == ChatCommandKind.LocateStructure &&
+            command.Option is { } variationText)
         {
-            ChatFeedback("chat.command.notImplemented", error: true,
-                ("command", "/locate structure <id> [variation]"));
-            return;
+            if (!_structures.ResolvesReference(id) ||
+                !PlayerChatCommandProcessor.TryVariation(variationText,
+                    out var variation))
+            {
+                ChatFeedback("chat.command.locate.unknownStructure",
+                    error: true, ("id", id));
+                return;
+            }
+
+            var members = _structures.ResolveReference(id);
+            if (variation > members.Count)
+            {
+                ChatFeedback("chat.command.locate.unknownStructure",
+                    error: true, ("id", id));
+                return;
+            }
+            structureId = members[variation - 1].Id;
         }
 
         if (command.Kind == ChatCommandKind.LocateBiome)
@@ -2087,7 +2103,8 @@ public partial class Main : Node3D
         var origin = _player.GlobalPosition;
         if (!_chatLocate.Begin(_sessions.Active.Generator,
                 command.Kind, id,
-                Mathf.FloorToInt(origin.X), Mathf.FloorToInt(origin.Z)))
+                Mathf.FloorToInt(origin.X), Mathf.FloorToInt(origin.Z),
+                structureId))
         {
             ChatFeedback("chat.command.failed", error: true);
             return;
