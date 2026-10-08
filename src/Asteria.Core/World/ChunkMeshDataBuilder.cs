@@ -38,7 +38,8 @@ public static class ChunkMeshDataBuilder
         TerrainTextureLookup textures,
         int meshletIndex,
         BiomeTintSampleGrid? tintSamples = null,
-        AttachedLayerRegistry? attachedLayers = null)
+        AttachedLayerRegistry? attachedLayers = null,
+        DyeRegistry? dyes = null)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(blocks);
@@ -120,7 +121,8 @@ public static class ChunkMeshDataBuilder
                         worldPosition,
                         cell,
                         definition,
-                        tintSamples);
+                        tintSamples,
+                        ResolveDye(dyes, definition, chunk.GetSurfaceState(x, y, z).DyeId));
                 }
             }
         }
@@ -133,7 +135,8 @@ public static class ChunkMeshDataBuilder
             blocks,
             textures,
             bounds,
-            tintSamples);
+            tintSamples,
+            dyes);
 
         EmitAttachedLayers(
             surfaces, collision, world, blocks, textures,
@@ -168,7 +171,8 @@ public static class ChunkMeshDataBuilder
             int MaxXExclusive,
             int MaxYExclusive,
             int MaxZExclusive) bounds,
-        BiomeTintSampleGrid? tintSamples)
+        BiomeTintSampleGrid? tintSamples,
+        DyeRegistry? dyes)
     {
         var chunk = world.GetChunk(coord);
         var (originX, originY, originZ) =
@@ -246,7 +250,8 @@ public static class ChunkMeshDataBuilder
                                 textures,
                                 definition,
                                 cell,
-                                face);
+                                face,
+                                ResolveDye(dyes, definition, chunk.GetSurfaceState(x, y, z).DyeId));
                         var lighting =
                             VoxelMeshLighting.SampleFace(
                                 world,
@@ -791,7 +796,8 @@ public static class ChunkMeshDataBuilder
         WorldVoxelCoord worldPosition,
         VoxelCell cell,
         BlockDefinition definition,
-        BiomeTintSampleGrid? tintSamples)
+        BiomeTintSampleGrid? tintSamples,
+        System.Numerics.Vector3? dyeTint)
     {
         var origin = new Vector3(blockX, blockY, blockZ);
         var visible = new bool[FinePlaneArea];
@@ -803,7 +809,7 @@ public static class ChunkMeshDataBuilder
             EmitFineFace(
                 surface, collision, world, blocks, worldPosition,
                 cell, definition, origin, face,
-                ResolveFaceMaterial(textures, definition, cell, face),
+                ResolveFaceMaterial(textures, definition, cell, face, dyeTint),
                 definition.IsCollidable, 0f, visible, tintSamples);
         }
     }
@@ -1311,6 +1317,7 @@ public static class ChunkMeshDataBuilder
                 uvRotation);
             var vertexLighting = lighting[index];
             var tint =
+                faceMaterial.DyeTint ??
                 ResolveTint(
                     faceMaterial.Tint,
                     faceMaterial.TintFallback,
@@ -1378,7 +1385,8 @@ public static class ChunkMeshDataBuilder
         TerrainTextureLookup textures,
         BlockDefinition definition,
         VoxelCell cell,
-        BlockFace worldFace)
+        BlockFace worldFace,
+        Vector3? dyeTint = null)
     {
         var sourceFace =
             BlockFaceTransform.SourceFaceForWorldFace(
@@ -1426,7 +1434,8 @@ public static class ChunkMeshDataBuilder
             definition.Tint,
             definition.PreviewColor,
             definition.RotateTexture.Rotates(
-                sourceFace));
+                sourceFace),
+            dyeTint);
     }
 
     private static PlaneRange PlaneBounds(
@@ -1724,11 +1733,23 @@ public static class ChunkMeshDataBuilder
                    fallback.Blue / 255f);
     }
 
+    private static Vector3? ResolveDye(
+        DyeRegistry? dyes, BlockDefinition definition, string? dyeId)
+    {
+        if (!definition.SupportsDye || dyeId is null)
+            return null;
+        if (dyes is null)
+            throw new InvalidOperationException(
+                $"Block {definition.Id} has a dye but no dye registry is loaded.");
+        return dyes.Get(dyeId).Rgb;
+    }
+
     private readonly record struct TerrainFaceMaterial(
         Vector2 EncodedLayers,
         BlockTint Tint,
         BlockPreviewColor TintFallback,
-        bool RotateTexture);
+        bool RotateTexture,
+        Vector3? DyeTint = null);
 
     private readonly record struct GreedyCubeFace(
         TerrainRenderBatch Batch,
