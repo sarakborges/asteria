@@ -1,3 +1,5 @@
+import type { WorldSummaryView } from "../presentation/worldCatalogModels";
+
 export type BridgeStatusTone =
   | "neutral"
   | "connecting"
@@ -215,11 +217,18 @@ export type UiNavigationState = {
   overlay: OverlayScreen;
 };
 
+export type WorldCatalogState = {
+  status: "unavailable" | "verifying" | "ready" | "error";
+  worlds: readonly WorldSummaryView[];
+  folderError: boolean;
+};
+
 export type UiState = {
   mouseCaptured: boolean;
   hud: HudState;
   loading: LoadingState | null;
   worldCreation: WorldCreationState;
+  worldCatalog: WorldCatalogState;
   navigation: UiNavigationState;
   settings: SettingsState;
   inventory: GameplayInventoryState;
@@ -264,6 +273,7 @@ export function createInitialUiState(
       },
     },
     loading: null,
+    worldCatalog: { status: "unavailable", worlds: [], folderError: false },
     worldCreation: {
       visible: true,
       seed: "",
