@@ -6,67 +6,8 @@
   gap: var(--ui-inventory-section-gap);
 }
 
-.player-inventory-panel__header {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.player-inventory-panel__controls {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.player-inventory-panel__controls .ui-text-input {
-  width: var(--ui-inventory-search-width);
-  height: var(--ui-inventory-search-height);
-}
-
-.player-inventory-panel__sort {
-  width: var(--ui-inventory-search-height);
-  min-width: var(--ui-inventory-search-height);
-  padding-inline: 0;
-}
-
 .player-inventory-panel__backpack {
   display: grid;
-  grid-template-columns:
-    repeat(
-      9,
-      var(--ui-inventory-slot-size)
-    );
+  grid-template-columns: repeat(9, var(--ui-inventory-slot-size));
   gap: var(--ui-inventory-slot-gap);
-}
-
-.player-inventory-panel__footer,
-.player-inventory-panel__hotbar {
-  display: flex;
-  align-items: center;
-}
-
-.player-inventory-panel__footer {
-  gap: 10px;
-}
-
-.player-inventory-panel__hotbar {
-  gap: var(--ui-inventory-slot-gap);
-}
-
-.player-inventory-panel__trash {
-  width: var(--ui-inventory-slot-size);
-  height: var(--ui-inventory-slot-size);
-  border: 2px solid var(--ui-color-border-strong);
-  color: var(--ui-color-text);
-  font: inherit;
-  font-size: 24px;
-  line-height: 1;
-  background: var(--ui-color-danger);
-  cursor: pointer;
-}
-
-.player-inventory-panel__trash:hover {
-  background: var(--ui-color-danger-hover);
 }
