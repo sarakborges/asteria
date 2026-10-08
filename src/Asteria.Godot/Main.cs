@@ -1343,13 +1343,29 @@ public partial class Main : Node3D
 
     private void SendWorldCreationState()
     {
+        var initialSphere = _dimensions.Get(
+            new DimensionId(StartupDimensionId));
+        var ocean = initialSphere.GeneratedOcean?.Biome;
+        var spawnBiomes = initialSphere.SurfaceBiomes
+            .Where(id => !string.Equals(id, ocean, StringComparison.Ordinal))
+            .OrderBy(id => id, StringComparer.Ordinal)
+            .Select(id => new
+            {
+                id,
+                label = string.Join(" ", id.Split('/')[^1]
+                    .Split('_')
+                    .Select(part => part.Length > 0
+                        ? char.ToUpperInvariant(part[0]) + part[1..]
+                        : part)),
+            })
+            .ToArray();
+
         SendWebUi(
             "game.world_creation",
             new
             {
-                seed =
-                    WorldCreationSeed.Format(
-                        _suggestedWorldSeed),
+                seed = WorldCreationSeed.Format(_suggestedWorldSeed),
+                spawnBiomes,
             });
     }
 
@@ -1425,20 +1441,26 @@ public partial class Main : Node3D
 
         try
         {
+            var generation = WorldGenerationRequestParser.Parse(
+                payload,
+                _dimensions.Get(new DimensionId(StartupDimensionId)));
             var creation = new WorldCreationOptions(
                 name,
                 selectedSeed,
                 mode,
                 ticks,
-                spawnCreatures);
+                spawnCreatures,
+                generation);
             StartWorld(creation);
         }
         catch (ArgumentException exception)
         {
-            SendWorldCreationError(
-                exception.ParamName == "name"
-                    ? "newWorld.error.invalidName"
-                    : "newWorld.error.invalidTickRate");
+            SendWorldCreationError(exception.ParamName switch
+            {
+                "name" => "newWorld.error.invalidName",
+                "ticksPerSecond" => "newWorld.error.invalidTickRate",
+                _ => "newWorld.error.invalidGeneration",
+            });
         }
     }
 
