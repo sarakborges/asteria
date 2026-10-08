@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useRef, type KeyboardEvent } from "react";
 import { useLocalization } from "../../../localization/LocalizationProvider";
 import type {
   ChatMessageView, ChatSuggestionView,
@@ -19,12 +19,13 @@ export type ChatPanelProps = {
   draft: string;
   onDraftChange?(value: string): void;
   onSubmit?(): void;
+  onInputKeyDown?(event: KeyboardEvent<HTMLInputElement>): void;
   onMessageAction?(messageId: string): void;
 };
 
 export function ChatPanel({
   open, visible, history, suggestions = [], selectedSuggestionIndex = 0,
-  draft, onDraftChange, onSubmit, onMessageAction,
+  draft, onDraftChange, onSubmit, onMessageAction, onInputKeyDown,
 }: ChatPanelProps) {
   const { t } = useLocalization();
   const historyRef = useRef<HTMLDivElement>(null);
@@ -53,7 +54,9 @@ export function ChatPanel({
           <div key={message.id}
             className={"chat-panel__message chat-panel__message--" +
               (message.tone ?? "normal")}>
-            <span>{message.text}</span>
+            <span>{message.localizationKey
+              ? t(message.localizationKey, { value: message.text })
+              : message.text}</span>
             {message.actionLabel && (
               <button type="button" className="chat-panel__link"
                 disabled={!onMessageAction}
@@ -87,6 +90,7 @@ export function ChatPanel({
           <span aria-hidden="true">&gt;</span>
           <TextInput
             autoFocus
+            onKeyDown={onInputKeyDown}
             value={draft}
             maxLength={MAX_DRAFT_CHARS}
             aria-label={t("ui.chatMessage")}
