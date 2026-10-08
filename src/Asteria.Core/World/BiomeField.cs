@@ -108,13 +108,7 @@ public sealed class BiomeField
         CandidateRadiusBuckets * 2;
     private const int CompatibilityClassPeriod =
         CompatibilityRadiusBuckets * 2 + 1;
-    private const double JitterFraction = 0.32;
-    // Tall biome profiles can differ by well over 100 blocks. A narrow
-    // influence blend produces artificial walls even though the height field
-    // is mathematically continuous, so terrain-height blending intentionally
-    // spans a broader part of the organic score field. Surface material
-    // ownership remains the primary biome's responsibility.
-    private const double BlendScoreBand = 0.50;
+    private readonly BiomeBlendingDefinition _blending;
 
     private readonly ulong _seed;
     private readonly BiomeRule[] _rules;
@@ -165,7 +159,8 @@ public sealed class BiomeField
             dimension?.SurfaceBiomes ??
                 throw new ArgumentNullException(nameof(dimension)),
             biomes,
-            assignmentCacheCapacity)
+            assignmentCacheCapacity,
+            dimension.BiomeBlending)
     {
     }
 
@@ -173,23 +168,27 @@ public sealed class BiomeField
         ulong seed,
         IEnumerable<string> biomeIds,
         BiomeRegistry biomes,
-        int assignmentCacheCapacity = 4096)
+        int assignmentCacheCapacity = 4096,
+        BiomeBlendingDefinition? blending = null)
         : this(
             seed,
             SurfaceRules(
                 biomeIds,
                 biomes),
-            assignmentCacheCapacity)
+            assignmentCacheCapacity,
+            blending)
     {
     }
 
     internal BiomeField(
         ulong seed,
         IEnumerable<BiomeFieldRuleSource> ruleSources,
-        int assignmentCacheCapacity = 4096)
+        int assignmentCacheCapacity = 4096,
+        BiomeBlendingDefinition? blending = null)
     {
         ArgumentNullException.ThrowIfNull(
             ruleSources);
+        _blending = blending ?? BiomeBlendingDefinition.Default;
 
         _seed = seed;
         _assignments =
@@ -749,7 +748,7 @@ public sealed class BiomeField
                 primaryScore -
                 score;
             if (delta >
-                BlendScoreBand)
+                _blending.ScoreBand)
             {
                 continue;
             }
@@ -757,11 +756,8 @@ public sealed class BiomeField
             var proximity =
                 1d -
                 delta /
-                BlendScoreBand;
-            var weight =
-                WorldGenerationEntropy
-                    .SmoothStep(
-                        proximity);
+                _blending.ScoreBand;
+            var weight = _blending.WeightAt(proximity);
             if (hasBestSeed[rule] == 0)
             {
                 throw new InvalidOperationException(
@@ -1366,7 +1362,7 @@ public sealed class BiomeField
                             bucket.X,
                             bucket.Z)) *
             spacing *
-            JitterFraction;
+            _blending.JitterFraction;
         var jitterZ =
             WorldGenerationEntropy
                 .SignedUnit(
@@ -1377,7 +1373,7 @@ public sealed class BiomeField
                             bucket.X,
                             bucket.Z)) *
             spacing *
-            JitterFraction;
+            _blending.JitterFraction;
 
         return (
             baseX + jitterX,
@@ -1548,9 +1544,9 @@ public sealed class BiomeField
         var spacing =
             (double)_seedSpacing;
         var coarsePeriod =
-            spacing * 4d;
+            spacing * _blending.CoarseWarpPeriod;
         var finePeriod =
-            spacing * 1.35d;
+            spacing * _blending.FineWarpPeriod;
         var xValue =
             (double)x;
         var zValue =
@@ -1605,17 +1601,17 @@ public sealed class BiomeField
             xValue +
             coarseX *
             spacing *
-            0.42d +
+            _blending.CoarseWarpStrength +
             fineX *
             spacing *
-            0.16d,
+            _blending.FineWarpStrength,
             zValue +
             coarseZ *
             spacing *
-            0.42d +
+            _blending.CoarseWarpStrength +
             fineZ *
             spacing *
-            0.16d);
+            _blending.FineWarpStrength);
     }
 
     private SeedBucket BucketForPosition(
