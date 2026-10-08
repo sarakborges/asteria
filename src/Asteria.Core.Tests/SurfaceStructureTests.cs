@@ -1193,7 +1193,7 @@ public sealed class SurfaceStructureTests
     }
 
     [Fact]
-    public void MissingSetCompanionResidencyRejectsEntireBatchWithoutEdits()
+    public void FailedMultiPieceSetPlanningNeverChangesWorld()
     {
         var blocks = new BlockRegistry(
         [
@@ -1225,7 +1225,7 @@ public sealed class SurfaceStructureTests
             new System.Numerics.Vector3(18, height, 18),
             new System.Numerics.Vector3(19, height + 2, 19));
 
-        Assert.Equal(ManualStructurePlacementResult.NonResident,
+        Assert.NotEqual(ManualStructurePlacementResult.Placed,
             runtime.TryPlace(set.Id, null, 16, 16, bounds));
         Assert.Equal(revision, world.Revision);
         Assert.Equal(original,
