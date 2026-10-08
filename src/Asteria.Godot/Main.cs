@@ -731,6 +731,14 @@ public partial class Main : Node3D
                     ClientPreferenceUpdate.SaveFailed)
                 {
                     SendClientPreferences();
+                    if (type is "ui.client_preferences.hide_hints" or
+                        "ui.client_preferences.hint")
+                    {
+                        if (_worldSeed is not null && _player is not null)
+                        {
+                            SendTargetHudState(force: true);
+                        }
+                    }
                     if (type == "ui.client_preferences.keybind")
                     {
                         _player?.ClearGameplayInput();
@@ -1450,12 +1458,31 @@ public partial class Main : Node3D
                     $"X: {value.X} | Z: {value.Z} | Y: {value.Y}",
                 },
             });
+        var breakHint = _clientPreferences.HintVisible(
+            HintKind.BreakOrPlaceBlock);
+        var rotateHint = _sessionStates.Player.HeldBlock.CanRotate &&
+            _clientPreferences.HintVisible(HintKind.RotateBlock);
+
+        if (!breakHint && !rotateHint)
+        {
+            SendWebUi("game.hud.prompt", new { });
+            return;
+        }
+
         SendWebUi(
             "game.hud.prompt",
             new
             {
-                key = "LMB/RMB",
-                text = "Break / place block",
+                key = breakHint && rotateHint
+                    ? "LMB/RMB · " + _clientPreferences.KeyFor(KeybindAction.ToolAction)
+                    : breakHint
+                        ? "LMB/RMB"
+                        : _clientPreferences.KeyFor(KeybindAction.ToolAction).ToString(),
+                text = breakHint && rotateHint
+                    ? "hud.hint.breakPlaceRotate"
+                    : breakHint
+                        ? "hud.hint.breakPlace"
+                        : "hud.hint.rotate",
             });
     }
 
@@ -1685,6 +1712,10 @@ public partial class Main : Node3D
         if (_sessionStates.Player.CanInteract &&
             _sessionStates.Player.HeldBlock.Rotate())
         {
+            if (_player is not null)
+            {
+                SendTargetHudState(force: true);
+            }
             SendWebUi(
                 "game.held_block",
                 new

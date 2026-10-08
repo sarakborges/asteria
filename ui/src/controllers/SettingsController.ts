@@ -19,6 +19,12 @@ export function createSettingsController(
     setTargetPosition(value: "Center" | "TopRight" | "Hidden") {
       post("ui.client_preferences.target_block_position", { value });
     },
+    setHideHints(value: boolean) {
+      post("ui.client_preferences.hide_hints", { value });
+    },
+    setGameplayHint(kind: "RotateBlock" | "BreakOrPlaceBlock", value: boolean) {
+      post("ui.client_preferences.hint", { kind, value });
+    },
     setWorldTicks(value: number) {
       post("ui.world.set_ticks", { value });
     },
@@ -38,7 +44,10 @@ export function createSettingsController(
           const hud = asRecord(payload?.hud);
           const keys = asRecord(payload?.keybinds);
           const position = hud?.targetBlockPosition;
-          if (!payload || !hud || !keys ||
+          const hints = asRecord(hud?.hints);
+          if (!payload || !hud || !keys || !hints ||
+              typeof hints.rotateBlock !== "boolean" ||
+              typeof hints.breakOrPlaceBlock !== "boolean" ||
               typeof payload.renderDistanceChunks !== "number" ||
               !["Center", "TopRight", "Hidden"].includes(String(position)) ||
               typeof keys.jump !== "string" || typeof keys.descend !== "string") break;
@@ -47,6 +56,10 @@ export function createSettingsController(
             hud: {
               hideHints: hud.hideHints === true,
               targetBlockPosition: position as ClientSettingsState["hud"]["targetBlockPosition"],
+              hints: {
+                rotateBlock: hints.rotateBlock,
+                breakOrPlaceBlock: hints.breakOrPlaceBlock,
+              },
             },
             keybinds: { jump: keys.jump, descend: keys.descend },
           };

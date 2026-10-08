@@ -3,6 +3,7 @@ import { useLocalization } from "../../../localization/LocalizationProvider";
 import type { GameMode, SettingsState } from "../../../state/uiState";
 import { Select } from "../../atoms/Select/Select";
 import { Slider } from "../../atoms/Slider/Slider";
+import { Toggle } from "../../atoms/Toggle/Toggle";
 import { Text } from "../../atoms/Text/Text";
 import { TextInput } from "../../atoms/TextInput/TextInput";
 import { SettingRow } from "../../molecules/SettingRow/SettingRow";
@@ -15,13 +16,15 @@ export type SettingsWorkspacePageProps = {
   onBack(): void;
   onRenderDistance(value: number): void;
   onTargetPosition(value: "Center" | "TopRight" | "Hidden"): void;
+  onHideHints(value: boolean): void;
+  onGameplayHint(kind: "RotateBlock" | "BreakOrPlaceBlock", value: boolean): void;
   onWorldTicks(value: number): void;
   onGameMode(value: GameMode): void;
 };
 
 export function SettingsWorkspacePage({
   scope, settings, onBack, onRenderDistance, onTargetPosition,
-  onWorldTicks, onGameMode,
+  onWorldTicks, onGameMode, onHideHints, onGameplayHint,
 }: SettingsWorkspacePageProps) {
   const { t, language, setLanguage, languages } = useLocalization();
   const [selectedId, setSelectedId] = useState(scope === "game" ? "graphics" : "mode");
@@ -50,7 +53,27 @@ export function SettingsWorkspacePage({
       },
       {
         id: "hud", label: t("settings.section.hud"),
-        content: <SettingRow title={t("settings.targetBlockPosition")}
+        content: <div className="settings-workspace__rows">
+          <SettingRow title={t("settings.hideHints")}
+            description={t("settings.hideHints.description")}
+            control={<Toggle ariaLabel={t("settings.hideHints")}
+              disabled={!settings.client}
+              checked={settings.client?.hud.hideHints ?? false}
+              onChange={onHideHints} />} />
+          {([
+            ["RotateBlock", "rotateBlock"],
+            ["BreakOrPlaceBlock", "breakOrPlaceBlock"],
+          ] as const).map(([kind, property]) => (
+            <SettingRow key={kind}
+              title={t("settings.hint." + property)}
+              description={t("settings.hint.description")}
+              control={<Toggle
+                ariaLabel={t("settings.hint." + property)}
+                disabled={!settings.client}
+                checked={settings.client?.hud.hints[property] ?? true}
+                onChange={value => onGameplayHint(kind, value)} />} />
+          ))}
+          <SettingRow title={t("settings.targetBlockPosition")}
           description={t("settings.targetBlockPosition.description")}
           control={<Select
             ariaLabel={t("settings.targetBlockPosition")}
@@ -61,7 +84,8 @@ export function SettingsWorkspacePage({
                 (value === "TopRight" ? "topRight" : value.toLowerCase())),
             }))}
             onChange={event => onTargetPosition(
-              event.target.value as "Center" | "TopRight" | "Hidden")} />} />,
+              event.target.value as "Center" | "TopRight" | "Hidden")} />} />
+          </div>,
       },
       {
         id: "language", label: t("settings.section.languages"),

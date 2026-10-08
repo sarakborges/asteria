@@ -110,3 +110,9 @@ Asteria reserves **F3/F4** in addition to MineClone's WASD/hotbar keys because t
 - `ControlsPage` captures only **Jump** and **Descend**, the two actions already consumed by Godot. Nonfunctional action keybindings remain unexposed until gameplay systems exist, while reserved WASD/Escape remain view-only.
 - English, Brazilian Portuguese and Spanish have localized new labels and errors. Winky Rough Variable remains unchanged. No authored pack contains engine resources.
 - **Not exposed as functional**: creature spawning toggle (no natural spawn runtime), hide-hints and individual hint switches (no matching hint presenters), inventory/chat/tool/drop/perspective keybinds (no gameplay consumer), world catalog/save (not implemented). These remain explicit incomplete parity, not placeholders.
+
+## Gameplay consumer integration (2026-10-08)
+
+- `HeldBlockPlacement` is the one Core owner of the player's selected block/rotation, retained across Sphere switches; Tool Action uses the native rebinding and respects the selected block's authored valid orientations or horizontal facing. Block placement now uses that validated cell, not a hardcoded unrotated cell.
+- The existing target prompt is now driven by the client-owned `HideHints`, `BreakOrPlaceBlock` and `RotateBlock` settings, and the latter appears only for authored rotatable/facing blocks. The UI exposes only these hints with actual gameplay consumers; the other hint flags remain data-only pending tools.
+- These changes **do not** implement true item inventory, chat, item-drop keybinding, third-person camera or creature spawning. No inert control is advertised as functional.

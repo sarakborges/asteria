@@ -10,7 +10,11 @@ const meta = {
     settings: {
       client: {
         renderDistanceChunks: 8,
-        hud: { hideHints: false, targetBlockPosition: "Center" },
+        hud: {
+          hideHints: false,
+          targetBlockPosition: "Center",
+          hints: { rotateBlock: true, breakOrPlaceBlock: true },
+        },
         keybinds: { jump: "Space", descend: "ShiftLeft" },
       },
       world: { name: "New World", mode: "Survival", ticksPerSecond: 40 },
@@ -20,6 +24,8 @@ const meta = {
     onBack: () => {},
     onRenderDistance: () => {},
     onTargetPosition: () => {},
+    onHideHints: () => {},
+    onGameplayHint: () => {},
     onWorldTicks: () => {},
     onGameMode: () => {},
   },

@@ -1,3 +1,4 @@
+import { useLocalization } from "../../../localization/LocalizationProvider";
 import type { InteractionPromptState } from "../../../state/uiState";
 import "./InteractionPrompt.css";
 
@@ -8,6 +9,8 @@ export type InteractionPromptProps = {
 export function InteractionPrompt({
   prompt,
 }: InteractionPromptProps) {
+  const { t } = useLocalization();
+  const text = prompt?.text;
   return (
     <div
       className="interaction-prompt"
@@ -17,7 +20,7 @@ export function InteractionPrompt({
         {prompt?.key ?? ""}
       </kbd>
       <span className="interaction-prompt__text">
-        {prompt?.text ?? ""}
+        {text?.startsWith("hud.hint.") ? t(text) : text ?? ""}
       </span>
     </div>
   );

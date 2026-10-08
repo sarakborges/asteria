@@ -12,3 +12,5 @@
   transform: translateX(-50%);
   color: var(--ui-color-danger);
 }
+
+.settings-workspace__rows { display: flex; flex-direction: column; gap: var(--ui-settings-group-gap); }

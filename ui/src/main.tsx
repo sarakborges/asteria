@@ -70,6 +70,8 @@ createRoot(rootElement).render(
       backFromOverlay: navigation.backFromOverlay,
       setRenderDistance: settings.setRenderDistance,
       setTargetPosition: settings.setTargetPosition,
+      setHideHints: settings.setHideHints,
+      setGameplayHint: settings.setGameplayHint,
       setWorldTicks: settings.setWorldTicks,
       setGameMode: settings.setGameMode,
       beginKeyCapture: settings.beginKeyCapture,

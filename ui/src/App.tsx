@@ -29,6 +29,8 @@ export type AppActions = {
   backFromOverlay(): void;
   setRenderDistance(value: number): void;
   setTargetPosition(value: "Center" | "TopRight" | "Hidden"): void;
+  setHideHints(value: boolean): void;
+  setGameplayHint(kind: "RotateBlock" | "BreakOrPlaceBlock", value: boolean): void;
   setWorldTicks(value: number): void;
   setGameMode(value: import("./state/uiState").GameMode): void;
   beginKeyCapture(action: "Jump" | "Descend"): void;
@@ -114,6 +116,8 @@ export function App({
           onBack={actions.backFromOverlay}
           onRenderDistance={actions.setRenderDistance}
           onTargetPosition={actions.setTargetPosition}
+          onHideHints={actions.setHideHints}
+          onGameplayHint={actions.setGameplayHint}
           onWorldTicks={actions.setWorldTicks}
           onGameMode={actions.setGameMode}
         />

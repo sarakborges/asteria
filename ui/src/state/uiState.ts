@@ -141,6 +141,10 @@ export type ClientSettingsState = {
   hud: {
     hideHints: boolean;
     targetBlockPosition: "Center" | "TopRight" | "Hidden";
+    hints: {
+      rotateBlock: boolean;
+      breakOrPlaceBlock: boolean;
+    };
   };
   keybinds: { jump: string; descend: string };
 };
