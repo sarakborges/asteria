@@ -314,11 +314,15 @@ public sealed class BiomeWorldGenerator :
             int preferredZ,
             int maxRadius,
             Func<int, int, bool>? acceptsColumn = null) =>
-        _destinations.Find(
-            preferredX,
-            preferredZ,
-            maxRadius,
-            acceptsColumn);
+        _voidSpawnPlatform is { } platform
+            ? platform.IsNear(preferredX, preferredZ, maxRadius) &&
+              (acceptsColumn is null || acceptsColumn(platform.Spawn.X, platform.Spawn.Z))
+                ? platform.Spawn : null
+            : _destinations.Find(
+                preferredX,
+                preferredZ,
+                maxRadius,
+                acceptsColumn);
 
     public GeneratedSurfaceDestination?
         FindGeneratedDestination(
@@ -327,12 +331,16 @@ public sealed class BiomeWorldGenerator :
             int preferredZ,
             int maxRadius,
             Func<int, int, bool>? acceptsColumn = null) =>
-        _destinations.FindNear(
-            preferredX,
-            preferredY,
-            preferredZ,
-            maxRadius,
-            acceptsColumn);
+        _voidSpawnPlatform is { } platform
+            ? platform.IsNear(preferredX, preferredZ, maxRadius) &&
+              (acceptsColumn is null || acceptsColumn(platform.Spawn.X, platform.Spawn.Z))
+                ? platform.Spawn : null
+            : _destinations.FindNear(
+                preferredX,
+                preferredY,
+                preferredZ,
+                maxRadius,
+                acceptsColumn);
 
     internal bool TryPrepareManualStructure(
         string reference, int? variation,
@@ -449,6 +457,9 @@ public sealed class BiomeWorldGenerator :
         int chunkX,
         int chunkZ)
     {
+        if (_voidSpawnPlatform is not null)
+            return _voidSpawnPlatform.SurfaceRange(chunkX, chunkZ);
+
         var column =
             _surfaceColumns.Get(
                 chunkX,
