@@ -24,6 +24,7 @@ MineClone reference: `sarakborges/mineclone`, branch `world-systems-rebuild`.
 - `src/ui/cosmic_background.rs` -> `CosmicBackground`.
 - `src/ui/screen.rs` -> `ScreenShell` 1120 px content/header/body/footer layout.
 - `src/ui/settings.rs` -> shared settings gaps/tokens.
+- `src/ui/numeric_input.rs` -> digit-only `NumericInput` editor (Escape cancels, Enter/blur validates); `NumericStepper` reuses it rather than browser number controls.
 
 ## First migrated screen
 
@@ -55,6 +56,7 @@ Asteria deliberately orders the survival center column as **Inventory → Crafti
 - Status effects and toast stack: **retained Asteria extensions** using the migrated design-system tokens.
 - Chat: **presentation ported** with the MineClone 500 px history panel, 15-line history cap, autocomplete surface and input contract. Runtime/chat-command ownership is not invented in WebUI.
 - Storage Box: **presentation ported** with the 3×9 storage grid, search/sort controls, 3×9 player backpack and hotbar row. Runtime storage ownership remains outside WebUI.
+- Loading screen: **presentation ported** to MineClone's cosmic background, 560 px frosted card, 18 px gaps and 12 px progress bar. Its progress and phase remain exclusively supplied by Asteria's authoritative `WorldLoadingState`.
 
 ## Migration status
 

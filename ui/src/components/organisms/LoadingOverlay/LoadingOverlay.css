@@ -1,33 +1,33 @@
 .loading-overlay {
   position: fixed;
-  z-index: 40;
+  z-index: 100;
   inset: 0;
   display: grid;
   place-items: center;
   padding: 24px;
+  overflow: hidden;
   pointer-events: none;
   color: var(--ui-color-text);
-  background: rgb(9 8 16 / 86%);
-}
-
-.loading-overlay[hidden] {
-  display: none;
+  background: var(--ui-color-screen-background);
 }
 
 .loading-overlay__card {
-  width: min(460px, 100%);
-  padding: 32px;
-  border: 1px solid var(--ui-color-border-strong);
-  border-radius: 16px;
-  background: rgb(21 21 33 / 94%);
-  box-shadow: 0 24px 72px rgb(0 0 0 / 35%);
+  position: relative;
+  z-index: 1;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: min(560px, 100%);
+  padding: 28px;
 }
 
 .loading-overlay__title {
-  margin: 12px 0 18px;
-  font-size: clamp(26px, 5vw, 38px);
-  font-weight: 750;
-  line-height: 1.1;
+  margin: 0;
+  color: var(--ui-color-text);
+  font-size: var(--ui-font-size-heading);
+  font-weight: 700;
+  line-height: 1.2;
 }
 
 .loading-overlay__phase,
@@ -36,25 +36,36 @@
   display: block;
 }
 
-.loading-overlay__phase {
-  margin-bottom: 14px;
-  color: var(--ui-color-text);
-}
-
 .loading-overlay__progress {
   display: block;
   width: 100%;
-  height: 8px;
-  margin: 0 0 10px;
-  accent-color: var(--ui-color-accent-strong);
+  height: 12px;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--ui-color-surface-inset);
+  accent-color: var(--ui-color-accent);
+}
+
+.loading-overlay__progress::-webkit-progress-bar {
+  background: var(--ui-color-surface-inset);
+}
+
+.loading-overlay__progress::-webkit-progress-value {
+  background: var(--ui-color-accent);
+}
+
+.loading-overlay__progress::-moz-progress-bar {
+  background: var(--ui-color-accent);
 }
 
 .loading-overlay__counters {
   min-height: 1.4em;
+  font-variant-numeric: tabular-nums;
   text-align: right;
 }
 
 .loading-overlay__dimension {
-  margin-top: 18px;
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  color: var(--ui-color-muted);
+  overflow-wrap: anywhere;
 }
