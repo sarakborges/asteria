@@ -1,10 +1,8 @@
-import type {
-  ItemStackView,
-} from "../../../presentation/inventoryModels";
-import { Button } from "../../atoms/Button/Button";
+import { useLocalization } from "../../../localization/LocalizationProvider";
+import type { ItemStackView } from "../../../presentation/inventoryModels";
 import { Surface } from "../../atoms/Surface/Surface";
-import { Text } from "../../atoms/Text/Text";
-import { TextInput } from "../../atoms/TextInput/TextInput";
+import { InventoryPanelHeader } from "../../molecules/InventoryPanelHeader/InventoryPanelHeader";
+import { InventoryHotbarFooter } from "../../molecules/InventoryHotbarFooter/InventoryHotbarFooter";
 import { InventorySlot } from "../../molecules/InventorySlot/InventorySlot";
 import "./StorageBoxPage.css";
 
@@ -23,194 +21,65 @@ export type StorageBoxPageProps = {
   onInventorySearchChange?(value: string): void;
   onSortStorage?(): void;
   onSortInventory?(): void;
-  onStorageSlotClick?(
-    index: number,
-    item: ItemStackView | null,
-  ): void;
-  onInventorySlotClick?(
-    index: number,
-    item: ItemStackView | null,
-  ): void;
+  onStorageSlotClick?(index: number, item: ItemStackView | null): void;
+  onInventorySlotClick?(index: number, item: ItemStackView | null): void;
 };
 
 export function StorageBoxPage({
-  storageSearch,
-  inventorySearch,
-  storage,
-  backpack,
-  hotbar,
-  onStorageSearchChange,
-  onInventorySearchChange,
-  onSortStorage,
-  onSortInventory,
-  onStorageSlotClick,
-  onInventorySlotClick,
+  storageSearch, inventorySearch, storage, backpack, hotbar,
+  onStorageSearchChange, onInventorySearchChange,
+  onSortStorage, onSortInventory, onStorageSlotClick, onInventorySlotClick,
 }: StorageBoxPageProps) {
-  const storageSlots =
-    normalizedSlots(
-      storage,
-      STORAGE_SLOTS,
-    );
-  const backpackSlots =
-    normalizedSlots(
-      backpack,
-      BACKPACK_SLOTS,
-    );
-  const hotbarSlots =
-    normalizedSlots(
-      hotbar,
-      HOTBAR_SLOTS,
-    );
+  const { t } = useLocalization();
+  const storageSlots = normalizedSlots(storage, STORAGE_SLOTS);
+  const backpackSlots = normalizedSlots(backpack, BACKPACK_SLOTS);
+  const hotbarSlots = normalizedSlots(hotbar, HOTBAR_SLOTS);
 
   return (
     <main className="storage-box-page">
       <div className="storage-box-page__backdrop" />
-      <Surface
-        variant="hud"
-        className="storage-box-page__panel"
-      >
-        <PanelHeader
-          title="Storage Box"
-          search={storageSearch}
-          searchLabel="Search storage"
-          onSearchChange={
-            onStorageSearchChange
-          }
-          onSort={onSortStorage}
-        />
-
-        <SlotGrid
-          items={storageSlots}
-          onClick={
-            onStorageSlotClick
-          }
-        />
-
-        <PanelHeader
-          title="Inventory"
-          search={inventorySearch}
-          searchLabel="Search inventory"
-          onSearchChange={
-            onInventorySearchChange
-          }
-          onSort={onSortInventory}
-        />
-
-        <SlotGrid
-          items={backpackSlots}
-          onClick={
-            onInventorySlotClick
-          }
-        />
-
-        <div className="storage-box-page__hotbar">
-          {hotbarSlots.map(
-            (item, index) => (
-              <InventorySlot
-                key={index}
-                item={item}
-                onClick={() =>
-                  onInventorySlotClick?.(
-                    BACKPACK_SLOTS +
-                      index,
-                    item,
-                  )
-                }
-              />
-            ),
-          )}
-        </div>
+      <Surface variant="hud" className="storage-box-page__panel">
+        <InventoryPanelHeader title={t("storage.title")}
+          search={storageSearch} searchLabel={t("storage.search")}
+          sortLabel={t("storage.sort")}
+          onSearchChange={onStorageSearchChange} onSort={onSortStorage} />
+        <SlotGrid items={storageSlots} searchQuery={storageSearch}
+          onClick={onStorageSlotClick} />
+        <InventoryPanelHeader title={t("ui.inventory")}
+          search={inventorySearch} searchLabel={t("ui.searchInventory")}
+          sortLabel={t("ui.sortBackpack")}
+          onSearchChange={onInventorySearchChange} onSort={onSortInventory} />
+        <SlotGrid items={backpackSlots} searchQuery={inventorySearch}
+          onClick={onInventorySlotClick} />
+        <InventoryHotbarFooter hotbar={hotbarSlots} showTrash={false}
+          searchQuery={inventorySearch} onSlotClick={onInventorySlotClick} />
       </Surface>
     </main>
   );
 }
 
-function PanelHeader({
-  title,
-  search,
-  searchLabel,
-  onSearchChange,
-  onSort,
-}: {
-  title: string;
-  search: string;
-  searchLabel: string;
-  onSearchChange?(
-    value: string,
-  ): void;
-  onSort?(): void;
-}) {
-  return (
-    <header className="storage-box-page__header">
-      <Text
-        text={title}
-        variant="heading"
-      />
-      <div className="storage-box-page__controls">
-        <TextInput
-          value={search}
-          placeholder={searchLabel}
-          aria-label={searchLabel}
-          onChange={(event) =>
-            onSearchChange?.(
-              event.target.value,
-            )
-          }
-        />
-        <Button
-          label="⇅"
-          className="storage-box-page__sort"
-          onClick={onSort}
-        />
-      </div>
-    </header>
-  );
-}
-
 function SlotGrid({
-  items,
-  onClick,
+  items, searchQuery, onClick,
 }: {
-  items: readonly (
-    ItemStackView |
-    null
-  )[];
-  onClick?(
-    index: number,
-    item: ItemStackView | null,
-  ): void;
+  items: readonly (ItemStackView | null)[];
+  searchQuery: string;
+  onClick?(index: number, item: ItemStackView | null): void;
 }) {
+  const query = searchQuery.trim().toLowerCase();
   return (
-    <div className="storage-box-page__grid">
-      {items.map(
-        (item, index) => (
-          <InventorySlot
-            key={index}
-            item={item}
-            onClick={() =>
-              onClick?.(
-                index,
-                item,
-              )
-            }
-          />
-        ),
-      )}
+    <div className="storage-box-page__grid" style={{ "--storage-columns": COLUMNS } as React.CSSProperties}>
+      {items.map((item, index) => (
+        <InventorySlot key={index} item={item}
+          disabled={!onClick || Boolean(query && !item?.id.toLowerCase().includes(query))}
+          onClick={() => onClick?.(index, item)} />
+      ))}
     </div>
   );
 }
 
 function normalizedSlots(
-  source: readonly (
-    ItemStackView |
-    null
-  )[],
+  source: readonly (ItemStackView | null)[],
   count: number,
 ): (ItemStackView | null)[] {
-  return Array.from(
-    { length: count },
-    (_, index) =>
-      source[index] ??
-      null,
-  );
+  return Array.from({ length: count }, (_, index) => source[index] ?? null);
 }
