@@ -37,7 +37,6 @@ export function createBrushController(
       store.update(state => ({
         ...state,
         brush: {
-          open: payload.open as boolean,
           selectedId: payload.selectedId as string | null,
           colors,
         },

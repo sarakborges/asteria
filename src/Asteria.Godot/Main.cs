@@ -2356,6 +2356,13 @@ public partial class Main : Node3D
             return;
 
         var inventory = _sessionStates.Player.Inventory;
+        var selected = inventory.SelectedStack;
+        if (_sessions.Active.Tools.OpensBrushPalette(selected))
+        {
+            OpenBrushPalette();
+            return;
+        }
+
         var target = CurrentTarget();
         if (target is { } pickupHit)
         {
@@ -2383,13 +2390,6 @@ public partial class Main : Node3D
                 }
                 return;
             }
-        }
-
-        var selected = inventory.SelectedStack;
-        if (_sessions.Active.Tools.OpensBrushPalette(selected))
-        {
-            OpenBrushPalette();
-            return;
         }
 
         if (_sessions.Active.Bucket.IsEquipped(selected))

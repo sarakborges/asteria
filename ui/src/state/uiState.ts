@@ -137,7 +137,6 @@ export type WorldCreationErrorKey =
 
 export type BrushPaletteColor = { id: string; rgb: string };
 export type BrushPaletteState = {
-  open: boolean;
   selectedId: string | null;
   colors: BrushPaletteColor[];
 };
@@ -284,7 +283,7 @@ export function createInitialUiState(
       captureAction: null, errorKey: null,
     },
     brush: {
-      open: false, selectedId: null, colors: [],
+      selectedId: null, colors: [],
     },
     inventory: {
       open: false,

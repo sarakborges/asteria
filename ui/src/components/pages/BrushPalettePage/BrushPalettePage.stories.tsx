@@ -13,7 +13,7 @@ const meta = {
   component: BrushPalettePage,
   parameters: { layout: "fullscreen" },
   args: {
-    state: { open: true, selectedId: "asteria:red", colors },
+    state: { selectedId: "asteria:red", colors },
     onSelect: () => {},
     onClose: () => {},
   },
@@ -24,6 +24,6 @@ type Story = StoryObj<typeof meta>;
 export const SelectedColor: Story = {};
 export const ClearMode: Story = {
   args: {
-    state: { open: true, selectedId: null, colors },
+    state: { selectedId: null, colors },
   },
 };
