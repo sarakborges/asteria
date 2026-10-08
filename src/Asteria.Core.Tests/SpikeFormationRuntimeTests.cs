@@ -208,7 +208,7 @@ public sealed class SpikeFormationRuntimeTests
                 new VoxelCell(spike), AwayFromPlayer).Accepted);
 
         var archivedTip = new WorldVoxelCoord(2, 16, 2);
-        Assert.Equal(ChunkArchiveResult.Archived,
+        Assert.Equal(ChunkArchiveResult.ArchivedDirty,
             f.World.ArchiveChunk(new ChunkCoord(0, 1, 0)));
         Assert.True(f.Mutations.SetCellAt(
             new WorldVoxelCoord(2, 15, 2), VoxelCell.Empty, out _));
@@ -241,7 +241,7 @@ public sealed class SpikeFormationRuntimeTests
             Hit(2, 15, 2, normalY: 1),
             new VoxelCell(spike), AwayFromPlayer).Accepted);
 
-        Assert.Equal(ChunkArchiveResult.Archived,
+        Assert.Equal(ChunkArchiveResult.ArchivedDirty,
             f.World.ArchiveChunk(new ChunkCoord(0, 1, 0)));
         Assert.True(f.Mutations.SetCellAt(support, VoxelCell.Empty, out _));
         Assert.Equal(0, f.Drops.ActiveCount);
@@ -265,7 +265,7 @@ public sealed class SpikeFormationRuntimeTests
                 Hit(2, 13 + i, 2, normalY: 1),
                 new VoxelCell(spike), AwayFromPlayer).Accepted);
 
-        Assert.Equal(ChunkArchiveResult.Archived,
+        Assert.Equal(ChunkArchiveResult.ArchivedDirty,
             f.World.ArchiveChunk(new ChunkCoord(0, 1, 0)));
         Assert.True(f.Mutations.SetCellAt(support, VoxelCell.Empty, out _));
         Assert.Equal(0, f.Drops.ActiveCount);
@@ -292,7 +292,7 @@ public sealed class SpikeFormationRuntimeTests
                 new VoxelCell(spike), AwayFromPlayer).Accepted);
 
         var before = f.World.GetCellOrEmpty(new WorldVoxelCoord(2, 15, 2));
-        Assert.Equal(ChunkArchiveResult.Archived,
+        Assert.Equal(ChunkArchiveResult.ArchivedDirty,
             f.World.ArchiveChunk(new ChunkCoord(0, 1, 0)));
         Assert.Equal(ChunkRestoreResult.Restored,
             f.World.RestoreChunk(new ChunkCoord(0, 1, 0)));
