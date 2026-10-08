@@ -1275,7 +1275,7 @@ public partial class Main : Node3D
     {
         if (_sessionStates.Player.GameMode.IsSpectator())
         {
-            ClearTargetHudState();
+            // Mode changes already clear the HUD once; do not flood the bridge.
             return;
         }
 
