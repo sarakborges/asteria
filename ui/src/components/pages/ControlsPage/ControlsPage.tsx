@@ -10,6 +10,7 @@ import "./ControlsPage.css";
 export type ControlEntryView = {
   key: string;
   action: string;
+  bindAction?: "Jump" | "Descend";
 };
 
 export type ControlGroupView = {
@@ -19,11 +20,19 @@ export type ControlGroupView = {
 
 export type ControlsPageProps = {
   groups: readonly ControlGroupView[];
+  capturingAction?: "Jump" | "Descend" | null;
+  captureError?: string | null;
+  onCapture?(action: "Jump" | "Descend"): void;
+  onCancelCapture?(): void;
   onBack(): void;
 };
 
 export function ControlsPage({
   groups,
+  capturingAction,
+  captureError,
+  onCapture,
+  onCancelCapture,
   onBack,
 }: ControlsPageProps) {
   const { t } = useLocalization();
@@ -40,6 +49,7 @@ export function ControlsPage({
       }
     >
       <div className="controls-page">
+        {captureError && <Text text={captureError} variant="caption" />}
         {groups.map((group) => (
           <Surface
             key={group.title}
@@ -56,7 +66,17 @@ export function ControlsPage({
                   key={group.title + entry.key + entry.action}
                   className="controls-page__entry"
                 >
-                  <KeyCap label={entry.key} />
+                  {entry.bindAction && onCapture ? (
+                    <Button
+                      label={capturingAction === entry.bindAction
+                        ? t("settings.keybind.pressKey") : entry.key}
+                      onClick={() => {
+                        if (capturingAction === entry.bindAction)
+                          onCancelCapture?.();
+                        else onCapture(entry.bindAction!);
+                      }}
+                    />
+                  ) : <KeyCap label={entry.key} />}
                   <Text
                     text={entry.action}
                     variant="detail"
