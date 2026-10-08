@@ -58,10 +58,11 @@ public readonly record struct SurfacePlacementContext(int Y, double Slope)
         SurfaceTerrainField terrain,
         int worldX,
         int worldZ,
-        bool includeSlope = true)
+        bool includeSlope = true,
+        bool baseSurface = false)
     {
         ArgumentNullException.ThrowIfNull(terrain);
-        var y = terrain.SurfaceHeight(worldX, worldZ);
+        var y = HeightAt(terrain, worldX, worldZ, baseSurface);
         if (!includeSlope)
         {
             return new SurfacePlacementContext(y, 0d);
@@ -72,11 +73,20 @@ public readonly record struct SurfacePlacementContext(int Y, double Slope)
         var zMinus = worldZ == int.MinValue ? worldZ : worldZ - 1;
         var slope = Math.Max(
             Math.Max(
-                Math.Abs((long)y - terrain.SurfaceHeight(xPlus, worldZ)),
-                Math.Abs((long)y - terrain.SurfaceHeight(xMinus, worldZ))),
+                Math.Abs((long)y - HeightAt(terrain, xPlus, worldZ, baseSurface)),
+                Math.Abs((long)y - HeightAt(terrain, xMinus, worldZ, baseSurface))),
             Math.Max(
-                Math.Abs((long)y - terrain.SurfaceHeight(worldX, zPlus)),
-                Math.Abs((long)y - terrain.SurfaceHeight(worldX, zMinus))));
+                Math.Abs((long)y - HeightAt(terrain, worldX, zPlus, baseSurface)),
+                Math.Abs((long)y - HeightAt(terrain, worldX, zMinus, baseSurface))));
         return new SurfacePlacementContext(y, slope);
     }
+
+    private static int HeightAt(
+        SurfaceTerrainField terrain,
+        int worldX,
+        int worldZ,
+        bool baseSurface) =>
+        baseSurface
+            ? terrain.SampleBaseSurface(worldX, worldZ).BaseY
+            : terrain.SurfaceHeight(worldX, worldZ);
 }
