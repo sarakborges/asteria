@@ -26,6 +26,8 @@ public sealed class SurfaceStructureField
     private const int PlacementCacheCapacity = 128;
     private const int CandidateCacheCapacity = 8192;
     private const int MarginSampleDivisions = 16;
+    private const int MaximumManualPayloadCount = 4096;
+    private const int MaximumManualHorizontalSpan = 64;
 
     private readonly ulong _seed;
     private readonly BiomeField _biomes;
@@ -182,10 +184,10 @@ public sealed class SurfaceStructureField
         var extentX = (long)placement.MaximumX - placement.MinimumX;
         var extentZ = (long)placement.MaximumZ - placement.MinimumZ;
         if (placement.PayloadPositions().Take(
-                ManualStructurePlacementRuntime.MaximumPayloadCount + 1).Count() >
-                    ManualStructurePlacementRuntime.MaximumPayloadCount ||
-            extentX > ManualStructurePlacementRuntime.MaximumHorizontalSpan ||
-            extentZ > ManualStructurePlacementRuntime.MaximumHorizontalSpan)
+                MaximumManualPayloadCount + 1).Count() >
+                    MaximumManualPayloadCount ||
+            extentX > MaximumManualHorizontalSpan ||
+            extentZ > MaximumManualHorizontalSpan)
             return false;
 
         // Never superimpose a manual structure over an accepted generated
