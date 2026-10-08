@@ -596,6 +596,7 @@ public partial class Main : Node3D
             _structureSets,
             _dayNightCycles,
             _creatures,
+            _inventoryCatalog,
             _tools,
             _packSelection,
             _inventoryDropIcons.Resolve,

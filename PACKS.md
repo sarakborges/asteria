@@ -485,10 +485,17 @@ Localized names and tool hints are authored under `data/localization/{english,po
 - Author attacks in `data/attacks/*.json`. The default `asteria:punch` matches MineClone's 1 damage / guaranteed 0.75 knockback definition. Attack strength and chance are validated at load, and probabilistic effects derive from an instance-local hit serial retained by dimension snapshots.
 - The Core `CreatureTargetQuery` chooses the nearest authored target collider on the player's ray, breaks exact-distance ties by stable creature ID, and rejects hits obscured by voxel raycast. Creature health, hit serial, effects and death are owned by `CreatureRuntime`; Godot only receives the attack input and publishes the model/HUD consequences.
 - Left-click attacks a creature **only if it is the nearest unobstructed target**; otherwise the existing block break path runs unchanged. The existing entity health HUD shows the localized creature name and current/max health without separate authoritative UI state.
-- Creature drops, death animations and player damage are not yet ported; killed creatures are removed by the existing authoritative runtime. Future loot must use the shared inventory/drop ownership and not invent another item cache.
+- Player damage is not yet ported. Creature hurt/death reactions and physical loot now use authoritative Core and the shared drop runtime.
 
 ## Creature hit and death presentation
 
 - MineClone's creature combat attaches a short death timer after lethal damage and triggers authored `hurt` and `death` clips. Asteria now keeps the 0.75-second death lifecycle and 0.4-second hurt reaction in the authoritative `CreatureRuntime`, including remaining time in each Sphere snapshot.
 - Attacks increment the instance's hit revision. The Godot presentation adapter replays a repeated `hurt` animation when the revision changes, shows `death` for the death grace interval, and returns to locomotion after the hurt reaction expires. Dying creatures are no longer hittable or selected by the creature ray query.
-- Loot is not silently inserted into the player inventory: physical item/tool drops still need a shared world-entity representation. Natural spawning remains deferred until it can use authored creature spawn rules and the existing worldgen destination query, without scanning or reproducing worldgen.
+- Creature loot is now emitted as physical, collectible items through the shared bounded drop runtime. Natural spawning remains deferred until it can use authored creature spawn rules and the existing worldgen destination query, without scanning or reproducing worldgen.
+
+## Authored elemental creature loot
+
+- Each `data/creatures/*.json` may author `lootTable: [{ "item": "asteria:...", "chance": 1, "quantity": 1 }]`. Missing `chance` and `quantity` default to 1; all references must resolve to selectable pack items. Loot entries (maximum 16), quantities per entry (maximum 16), and chances in [0,1] are validated.
+- The 18 elemental slime variants have **Asteria-authored** drops, not imported MineClone loot: normal variants yield one corresponding `essence_*` item; large variants yield two. Generic/legacy slimes have no loot. The authored default pack can rebalance this without modifying runtime code.
+- `CreatureLootTable.Roll` is deterministic by creature instance ID and entry index and is evaluated **once** on the lethal player attack. The dimension session validates item IDs at construction and creates single-item `InventoryStack` drops through the **existing** bounded `DroppedBlockRuntime`, which owns falling, contact, pickup, visualization and Sphere snapshot state for blocks, items and tools.
+- The 0.75-second death animation still plays; loot appears at the lethal hit. Attacking the dying creature again cannot duplicate the roll. Natural spawning is not enabled by these loot definitions.

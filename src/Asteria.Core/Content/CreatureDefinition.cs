@@ -33,6 +33,9 @@ public sealed record CreatureDefinition(
     IReadOnlyList<string> UnlitMaterials,
     IReadOnlyDictionary<string, CreatureParticleEffect> ParticleEffects)
 {
+    public IReadOnlyList<CreatureLootEntry> LootTable { get; init; } =
+        Array.Empty<CreatureLootEntry>();
+
     public static CreatureDefinition Parse(string json)
     {
         ArgumentNullException.ThrowIfNull(json);
@@ -60,7 +63,10 @@ public sealed record CreatureDefinition(
             PackContentFields.Strings(root, "animations"),
             ParseTextures(root),
             unlit,
-            ParseParticleEffects(root));
+            ParseParticleEffects(root))
+        {
+            LootTable = CreatureLootTable.Parse(root),
+        };
     }
 
     private static CreatureCollider ParseCollider(JsonElement element)

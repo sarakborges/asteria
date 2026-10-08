@@ -124,5 +124,11 @@
       "gravity": -1,
       "endScale": 0
     }
-  }
+  },
+  "lootTable": [
+    {
+      "item": "asteria:essence_voltra",
+      "quantity": 1
+    }
+  ]
 }

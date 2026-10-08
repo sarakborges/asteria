@@ -127,5 +127,11 @@
       "gravity": -1,
       "endScale": 0
     }
-  }
+  },
+  "lootTable": [
+    {
+      "item": "asteria:essence_terra",
+      "quantity": 2
+    }
+  ]
 }

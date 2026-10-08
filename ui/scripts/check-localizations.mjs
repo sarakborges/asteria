@@ -90,6 +90,12 @@ for (const [domain, directories] of [
         for (const [material, texture] of Object.entries(definition.textures ?? {})) {
           resource(texture, definition.id + ".textures." + material);
         }
+        const items = catalog("english", "items");
+        for (const entry of definition.lootTable ?? []) {
+          if (!Object.hasOwn(items, entry.item)) {
+            throw new Error(definition.id + ": unresolved creature loot item " + entry.item);
+          }
+        }
       }
     }
   }

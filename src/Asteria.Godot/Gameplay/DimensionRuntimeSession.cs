@@ -33,6 +33,7 @@ public sealed class DimensionRuntimeSession
     private readonly BlockPhysicsRuntime _blockPhysics;
     private readonly DroppedBlockRuntime _droppedBlocks;
     private readonly CreaturePresentationController _creaturePresentation;
+    private readonly InventoryContentCatalog _inventoryCatalog;
     private bool _retiring;
     private bool _retired;
 
@@ -46,6 +47,7 @@ public sealed class DimensionRuntimeSession
         StructureSetRegistry structureSets,
         DayNightCycleRegistry dayNightCycles,
         PackContentRegistry<CreatureDefinition> creatures,
+        InventoryContentCatalog inventoryCatalog,
         PackContentRegistry<ToolDefinition> tools,
         PackSelection packSelection,
         Func<InventoryEntry, Texture2D?> itemIcon,
@@ -78,6 +80,17 @@ public sealed class DimensionRuntimeSession
             dayNightCycles);
         ArgumentNullException.ThrowIfNull(
             creatures);
+        _inventoryCatalog = inventoryCatalog ??
+            throw new ArgumentNullException(nameof(inventoryCatalog));
+        foreach (var creature in creatures.Definitions)
+        foreach (var loot in creature.LootTable)
+        {
+            if (!_inventoryCatalog.TryResolve(
+                    InventoryEntryKind.Item, loot.ItemId,
+                    null, null, out _))
+                throw new InvalidOperationException(
+                    $"Creature {creature.Id} loot references unknown item {loot.ItemId}.");
+        }
         ArgumentNullException.ThrowIfNull(tools);
         ArgumentNullException.ThrowIfNull(itemIcon);
         ArgumentNullException.ThrowIfNull(
@@ -314,8 +327,40 @@ public sealed class DimensionRuntimeSession
             return false;
         }
 
+        if (result.Killed)
+            SpawnCreatureLoot(result);
+
         _creaturePresentation.Sync(Creatures.ActiveCreatures);
         return true;
+    }
+
+    private void SpawnCreatureLoot(CreatureAttackResult death)
+    {
+        var index = 0;
+        foreach (var reward in death.Loot)
+        {
+            if (!_inventoryCatalog.TryResolve(
+                    InventoryEntryKind.Item, reward.ItemId,
+                    null, null, out var item) || item is null)
+                throw new InvalidOperationException(
+                    $"Unresolvable loot item: {reward.ItemId}");
+
+            for (var quantity = 0; quantity < reward.Quantity; quantity++)
+            {
+                // Shared physical drop simulation owns pickup and presentation.
+                var ordinal = index++;
+                _droppedBlocks.Spawn(
+                    new InventoryStack(item),
+                    new NVector3(
+                        death.Position.X,
+                        death.Position.Y + 0.6f,
+                        death.Position.Z),
+                    new NVector3(
+                        ((ordinal % 3) - 1) * 1.1f,
+                        2f,
+                        (((ordinal / 3) % 3) - 1) * 1.1f));
+            }
+        }
     }
 
     public bool TrySpawnCreature(string id, NVector3 feet)

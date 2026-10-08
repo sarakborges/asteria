@@ -29,7 +29,8 @@ public readonly record struct CreatureAttackResult(
     Vector3 Position,
     float Health,
     float MaximumHealth,
-    bool Killed);
+    bool Killed,
+    IReadOnlyList<CreatureLootEntry> Loot);
 
 public sealed record CreatureRuntimeSnapshot(
     ulong NextId,
@@ -181,7 +182,10 @@ public sealed class CreatureRuntime
         var killed = health == 0f;
         result = new CreatureAttackResult(
             id, current.DefinitionId, current.Position,
-            health, definition.Health, killed);
+            health, definition.Health, killed,
+            killed
+                ? CreatureLootTable.Roll(definition.LootTable, id.Value)
+                : Array.Empty<CreatureLootEntry>());
 
         if (killed)
         {
