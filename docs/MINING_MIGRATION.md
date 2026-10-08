@@ -82,3 +82,11 @@ The native input, mutation, content and Sphere boundaries remain unchanged: no U
 - Default pack asset: `packs/default/resources/textures/layers/moss.png`; byte-for-byte original, Git blob SHA-1 `8662adb0a4c3a2be39aedda0f666a25d80e85e1d` (8,211 bytes). No image regeneration, palette changes, engine-specific import sidecars or resampling in the stored PNG.
 - `packs/default/data/layers/moss.json` ports the MineClone `asteria:moss` layer definition: `natural_blocks` category, foliage tint, 0.001 offset, 0.5 alpha cutoff, all six faces by default and no layer shadows. Runtime terrain array normalization is independent from the original pack file.
 - The original PNG was transferred with a temporary checksum-verified CI operation; the temporary transfer step is removed from the final PR tree. This is a static pack addition, not a new runtime loader.
+
+ 
+## Architect's Compass selection/export (2026-10-08)
+
+- MineClone reference: `data/tools/structure_tool.json`, `src/tools/structure_tool.rs`. Authored `asteria:architects_compass` is the Structure Tool: right-click one adjacent loaded empty voxel to set the first corner, then right-click a second to export an axis-aligned selection.
+- `ArchitectsCompassRuntime` owns session-scoped selection and tool/slot identity; an equipment change clears it. `StructureSelectionBounds` limits height, width, depth and total scanned volume before any world scan; no negative Y, no hidden chunk loading, and no world mutations are introduced.
+- `StructureSelectionExporter` deterministically samples only loaded-world voxels (Y/Z/X), generates Asteria's existing `palette` + `layers` JSON, and validates it with `StructureDefinitionJson` and `StructureRegistry`. An all-air selection, unloaded cells, unsupported fluids and nonrepresentable per-block state/sculpting/dyes/layers are rejected rather than silently exported with data loss. A Sphere-scoped `StructureSelectionPresentation` draws only one change-driven outline.
+- The Godot adapter saves successful JSON outside authored packs under `user://exports/structures/`; export IDs are unique GUIDs chosen by the adapter, not nondeterministic Core gameplay. WebUI receives ordinary semantic toast notifications. Preview requires a real native target, never browser-captured world input. Export limit is 16,384 voxels per operation to bound synchronous latency.
