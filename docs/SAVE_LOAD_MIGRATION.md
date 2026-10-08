@@ -37,6 +37,19 @@ keeps Godot as an I/O/interaction adapter.
 - Core regression tests cover capture/restore, missing chunks, archives, corruption
   and deterministic output.
 
+## Stage 3: multi-Sphere spatial snapshots
+
+- `DimensionChunkSaveCodec` captures every initialized Sphere in stable ID
+  order without inventing chunks for Spheres the player never entered.
+- The snapshot pins the root seed and immutable generation settings.
+  Restoring with a different seed or generation configuration is rejected.
+- Every Sphere decodes into its own independent `VoxelWorld` before the
+  replacement `DimensionSessionStateStore` is returned. An invalid chunk or
+  unknown Sphere never changes an active game's state.
+- Per-Sphere materialized chunk history remains isolated; untouched Spheres
+  retain lazy initialization. Tests cover multiple Spheres, uninitialized
+  Spheres, seed mismatch and invalid payloads.
+
 ## Remaining
 
 Persist and restore *all* materialized chunks (resident and archived),

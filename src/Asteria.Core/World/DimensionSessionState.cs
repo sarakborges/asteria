@@ -18,6 +18,16 @@ public sealed class DimensionSessionState
         ulong dimensionSeed,
         WorldGameRules gameRules,
         WorldGenerationOptions? generation = null)
+        : this(dimension, dimensionSeed, gameRules, generation, null)
+    {
+    }
+
+    internal DimensionSessionState(
+        DimensionDefinition dimension,
+        ulong dimensionSeed,
+        WorldGameRules gameRules,
+        WorldGenerationOptions? generation,
+        VoxelWorld? restoredWorld)
     {
         Dimension =
             dimension ??
@@ -29,7 +39,7 @@ public sealed class DimensionSessionState
             throw new ArgumentNullException(nameof(gameRules));
         Generation = generation ?? new WorldGenerationOptions();
         World =
-            new VoxelWorld();
+            restoredWorld ?? new VoxelWorld();
     }
 
     public DimensionDefinition Dimension { get; }
@@ -125,6 +135,28 @@ public sealed class DimensionSessionStateStore
         GameRules = new WorldGameRules(
             creation.TicksPerSecond,
             creation.SpawnCreatures);
+    }
+
+    internal ulong WorldSeed => _worldSeed;
+
+    internal IReadOnlyList<DimensionSessionState> CreatedDimensions() =>
+        _states.Values.OrderBy(
+            state => state.Dimension.Id.Value, StringComparer.Ordinal).ToArray();
+
+    /// <summary>
+    /// Restores one validated world into a new store before any session
+    /// starts. A loaded Sphere never shares chunks with the source world.
+    /// </summary>
+    internal void AddRestoredDimension(DimensionId dimensionId, VoxelWorld world)
+    {
+        ArgumentNullException.ThrowIfNull(world);
+        if (_states.ContainsKey(dimensionId) || _states.Count >= _dimensions.Count)
+            throw new InvalidOperationException(
+                $"Sphere {dimensionId} is already initialized or exceeds the registry.");
+        var definition = _dimensions.Get(dimensionId);
+        _states.Add(dimensionId, new DimensionSessionState(
+            definition, DimensionSeed.Derive(_worldSeed, definition.Id),
+            GameRules, Generation.ForSphere(definition), world));
     }
 
     public string Name { get; }
