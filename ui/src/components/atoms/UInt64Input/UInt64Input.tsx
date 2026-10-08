@@ -25,7 +25,12 @@ export function UInt64Input({ id, ariaLabel, descriptionId, placeholder, value,
     onFocus={() => { if (isUInt64Seed(value)) previous.current = value; }}
     onChange={event => { if (isUInt64Seed(event.target.value)) onChange(event.target.value); }}
     onKeyDown={event => {
-      if (event.key === "Escape") { onChange(previous.current); event.currentTarget.blur(); }
+      if (event.key === "Escape") {
+            event.preventDefault();
+            event.stopPropagation();
+            onChange(previous.current);
+            event.currentTarget.blur();
+          }
     }}
   />;
 }
