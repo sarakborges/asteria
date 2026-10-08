@@ -348,12 +348,26 @@ public sealed class StructureRestrictionsDefinition
         Proximity { get; }
 }
 
+public sealed record StructureVoxelState(
+    TextureRotation TextureRotation,
+    HorizontalFacing Facing,
+    ushort State,
+    MicroblockMask Mask,
+    BlockSurfaceState Surface)
+{
+    public bool IsDefault =>
+        TextureRotation == TextureRotation.Degrees0 &&
+        Facing == HorizontalFacing.South &&
+        State == 0 && Mask.IsEmpty && Surface.IsEmpty;
+}
+
 public readonly record struct StructureVoxelDefinition(
     int X,
     int Y,
     int Z,
     string Block,
-    BlockOrientation Orientation);
+    BlockOrientation Orientation,
+    StructureVoxelState? Detail = null);
 
 public readonly record struct StructureFluidVoxelDefinition(
     int X,
@@ -457,6 +471,10 @@ public sealed class StructureDefinition
 
             BlockDefinition.ValidateId(
                 voxel.Block);
+            if (rotation && voxel.Detail is { IsDefault: false })
+                throw new ArgumentException(
+                    $"Structure {id} cannot rotate non-default voxel state.",
+                    nameof(voxels));
             if (!occupied.Add(
                     (
                         voxel.X,

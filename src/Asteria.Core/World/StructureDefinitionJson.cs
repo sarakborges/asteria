@@ -380,7 +380,13 @@ public static class StructureDefinitionJson
                 "fluid",
                 "clear",
                 "orientation",
-                "connector");
+                "connector",
+                "textureRotation",
+                "facing",
+                "state",
+                "microblocks",
+                "dye",
+                "attachments");
 
             var block =
                 OptionalString(
@@ -449,6 +455,10 @@ public static class StructureDefinitionJson
                     $"Structure palette {property.Name} orientation requires a block.");
             }
 
+            var detail = StructureVoxelStateJson.Parse(property.Value);
+            if (detail is not null && block is null)
+                throw new FormatException(
+                    $"Structure palette {property.Name} has state without a block.");
             entries.Add(
                 property.Name[0],
                 new PaletteEntry(
@@ -456,7 +466,8 @@ public static class StructureDefinitionJson
                     fluid,
                     clear,
                     orientation,
-                    connector));
+                    connector,
+                    detail));
         }
 
         if (entries.Count == 0)
@@ -718,7 +729,8 @@ public static class StructureDefinitionJson
                                 offsetY,
                                 offsetZ,
                                 block,
-                                entry.Orientation));
+                                entry.Orientation,
+                                entry.Detail));
                     }
                     else if (entry.Fluid is
                              { } fluid)
@@ -980,7 +992,8 @@ public static class StructureDefinitionJson
         string? Fluid,
         bool Clear,
         BlockOrientation Orientation,
-        PaletteConnector? Connector);
+        PaletteConnector? Connector,
+        StructureVoxelState? Detail);
 
     private sealed record StructureTemplateContent(
         IReadOnlyList<StructureVoxelDefinition> Voxels,
