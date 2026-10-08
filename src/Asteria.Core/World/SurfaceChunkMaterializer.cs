@@ -478,6 +478,10 @@ public sealed class SurfaceChunkMaterializer
                     localY,
                     localZ,
                     voxel.Cell);
+                if (!voxel.Mask.IsEmpty)
+                    chunk.SetMicroblockMask(localX, localY, localZ, voxel.Mask);
+                if (!voxel.Surface.IsEmpty)
+                    chunk.SetSurfaceState(localX, localY, localZ, voxel.Surface);
                 claimed.Add(
                     key);
             }

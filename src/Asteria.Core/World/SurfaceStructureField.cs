@@ -3335,8 +3335,14 @@ public sealed class SurfaceStructureField
                             new VoxelCell(
                                 blocks.GetId(
                                     voxel.Block),
-                                orientation:
-                                    voxel.Orientation)))
+                                textureRotation: voxel.Detail?.TextureRotation ??
+                                    TextureRotation.Degrees0,
+                                orientation: voxel.Orientation,
+                                facing: voxel.Detail?.Facing ??
+                                    HorizontalFacing.South,
+                                state: voxel.Detail?.State ?? 0),
+                            voxel.Detail?.Mask ?? MicroblockMask.Empty,
+                            voxel.Detail?.Surface ?? BlockSurfaceState.Empty))
                     .ToArray();
             _fluidVoxels =
                 definition.FluidVoxels
@@ -3568,7 +3574,9 @@ public sealed class SurfaceStructureField
                         checked(
                             anchorZ +
                             rotated.Z),
-                        cell);
+                        cell,
+                        voxel.Mask,
+                        voxel.Surface);
             }
 
             for (var index = 0;
@@ -3742,7 +3750,9 @@ public sealed class SurfaceStructureField
             int X,
             int Y,
             int Z,
-            VoxelCell Cell);
+            VoxelCell Cell,
+            MicroblockMask Mask,
+            BlockSurfaceState Surface);
 
         private readonly record struct RuntimeFluidVoxel(
             int X,
@@ -3917,7 +3927,9 @@ internal readonly record struct PlacedStructureVoxel(
     int X,
     int Y,
     int Z,
-    VoxelCell Cell);
+    VoxelCell Cell,
+    MicroblockMask Mask,
+    BlockSurfaceState Surface);
 
 internal readonly record struct PlacedStructureFluidVoxel(
     int X,
