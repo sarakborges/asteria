@@ -7,6 +7,7 @@ export type InventoryHotbarFooterProps = {
   hotbar: readonly (ItemStackView | null)[];
   onSlotClick?(index: number, item: ItemStackView | null): void;
   onTrash?(): void;
+  showTrash?: boolean;
   searchQuery?: string;
 };
 
@@ -14,7 +15,7 @@ const HOTBAR_SIZE = 9;
 const HOTBAR_OFFSET = 27;
 
 export function InventoryHotbarFooter({
-  hotbar, onSlotClick, onTrash, searchQuery = "",
+  hotbar, onSlotClick, onTrash, showTrash = true, searchQuery = "",
 }: InventoryHotbarFooterProps) {
   const { t } = useLocalization();
   const query = searchQuery.trim().toLowerCase();
@@ -32,11 +33,13 @@ export function InventoryHotbarFooter({
           );
         })}
       </div>
-      <button type="button" className="inventory-hotbar-footer__trash"
-        aria-label={t("ui.trashItem")} title={t("ui.trashItem")}
-        disabled={!onTrash} onClick={onTrash}>
-        ×
-      </button>
+      {showTrash && (
+        <button type="button" className="inventory-hotbar-footer__trash"
+          aria-label={t("ui.trashItem")} title={t("ui.trashItem")}
+          disabled={!onTrash} onClick={onTrash}>
+          ×
+        </button>
+      )}
     </div>
   );
 }
