@@ -30,6 +30,9 @@ public static class GameplaySessionFileCodec
         PortableStackSaveCodec.WriteString(writer, session.Name, 512);
         writer.Write(session.TicksPerSecond);
         writer.Write(session.SpawnCreatures);
+        writer.Write(session.ActiveSphere.HasValue);
+        if (session.ActiveSphere is { } activeSphere)
+            PortableStackSaveCodec.WriteString(writer, activeSphere.Value, 512);
         writer.Write((byte)session.Player.GameMode);
         writer.Write(session.Player.Flying);
         var inventory = session.Player.Inventory;
@@ -86,6 +89,9 @@ public static class GameplaySessionFileCodec
             var name = PortableStackSaveCodec.ReadString(reader, 512);
             var tickRate = reader.ReadUInt32();
             var spawnCreatures = PortableStackSaveCodec.ReadBool(reader);
+            var activeSphere = PortableStackSaveCodec.ReadBool(reader)
+                ? new DimensionId(PortableStackSaveCodec.ReadString(reader, 512))
+                : (DimensionId?)null;
             var mode = (PlayerGameMode)reader.ReadByte();
             var flying = PortableStackSaveCodec.ReadBool(reader);
             var selection = reader.ReadByte();
@@ -114,7 +120,7 @@ public static class GameplaySessionFileCodec
             if (source.Position != end)
                 throw new InvalidDataException("Unexpected gameplay session trailing bytes.");
             return new GameplaySessionSnapshot(
-                spatial, name, tickRate, spawnCreatures, player, spheres);
+                spatial, name, tickRate, spawnCreatures, player, spheres, activeSphere);
         }
         catch (Exception error) when (error is ArgumentException or EndOfStreamException or
             OverflowException or DecoderFallbackException or FormatException)
