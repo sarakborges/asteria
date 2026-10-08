@@ -35,11 +35,11 @@ Reference: `sarakborges/mineclone` branch `world-systems-rebuild`. Screens live 
 | Controls | `ControlsPage`, `ControlBindingEntry` | Movement/interface/actions, actual editable bindings, capture states | Chat/perspective/pick-block and any unsupported controls remain excluded until implemented |
 | Pause | `PauseMenuPage` | Resume, settings, controls, exit | Leave World vs Exit semantics and feedback require persistence |
 | Loading | `LoadingOverlay` | Real runtime loading progress | Visual calibration and states |
-| Game HUD | `GameHudPage`, HUD atoms/molecules/organisms | Hotbar, target, crosshair, clock, world banner, toasts, vitals | Compare MineClone spacing, breakpoints, presentation and status effects |
-| Inventory / Crafting | `InventoryGameplayPage`, `InventoryPage`, inventory/crafting organisms | Existing presentation structure | Check recipe navigation, selection and creative/survival parity against MineClone `src/hud/inventory` and `src/hud/crafting.rs` |
+| Game HUD | `GameHudPage`, HUD atoms/molecules/organisms` | Hotbar, target, crosshair, clock, world banner, toasts, vitals | Compare MineClone spacing, breakpoints, presentation and status effects |
+| Inventory / Crafting | Shared `InventoryWorkspace`, `InventoryGameplayPage` and `InventoryPage`; `InventoryHotbarFooter`, player/creative, character/crafting/station organisms | In-game survival uses three-column Character → Crafting-over-Inventory → Station layout; creative catalog has real hotbar/trash and tabs; metadata comes from runtime | Character 3D portrait/equipment data, recipe and station gameplay bridges, real crafting selection/action, contextual tooltips and cursor-follow presentation remain pending |
 | Storage Box | `StorageBoxPage` | Component exists | Audit game integration and interaction parity with `src/hud/storage_box.rs` |
 | Chat | `ChatPanel` | Component exists | Audit runtime commands, history, completion and screen placement against `src/hud/chat` |
-| Character Info | `CharacterInfoPanel` | Component exists | Audit inventory alignment/position, stats and `src/hud/character_info.rs` |
+| Character Info | `CharacterInfoPanel` | Shown at inventory left in Survival and uses real HUD health when provided; missing portrait/equipment state is explicit | Wire authoritative equipment and 3D player preview without inventing state |
 | Brush Palette | `BrushPalettePage` | Asteria-specific gameplay overlay | Preserve semantic input/bridge ownership; no forced MineClone analogue |
 
 ## Implementation policy
@@ -49,3 +49,11 @@ Reference: `sarakborges/mineclone` branch `world-systems-rebuild`. Screens live 
 - World state flows `bridge -> controllers -> UiStore -> React`. Local editable form state is acceptable; no gameplay/global event listeners in WebUI.
 - For each subsequent parity slice, inspect the precise MineClone file(s), compare the current Asteria counterpart, implement the component/page changes, and update this matrix.
 - Validate both `npm run build` and `npm run build-storybook` before claiming full completion.
+
+## Inventory and crafting parity slice
+
+The MineClone source at `src/hud/inventory/layout.rs` composes Survival as Character Info (320px), Crafting (482px) over Player Inventory, and Current Station (244px), with 24px panel gaps. Creative uses a single creative catalog with category sidebar, nine-column/five-row scroll and a player hotbar with trash action.
+
+Asteria now shares a single `templates/InventoryWorkspace` between the Storybook Inventory page and the **live** `InventoryGameplayPage`. `molecules/InventoryHotbarFooter` owns the reusable nine-slot hotbar/trash presentation, and existing `PlayerInventoryPanel`, `CreativeInventoryPanel`, `CraftingPanel`, `CharacterInfoPanel`, and `CurrentStationPanel` preserve their separate responsibilities.
+
+**Gameplay truth:** inventory slots, creative catalog and inventory mutations come from the existing inventory controller. Character health is read from the authoritative HUD snapshot. There is **no** connected recipe list/craft action, active crafting station data, equipment model or real 3D portrait in this gameplay modal; the UI visibly labels those portions unavailable, disables missing action callbacks and does not fabricate recipes, gear or a station. Storybook examples still use fixtures. Pending runtime work must cross the normal bridge/controller/UiStore boundary.
