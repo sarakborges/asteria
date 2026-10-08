@@ -24,7 +24,7 @@ export const Materializing: Story = {};
 export const Preparing: Story = {
   args: {
     state: {
-      phase: "preparing_destination",
+      phase: "preparing_world",
       completed: 0,
       total: 0,
       dimension: "asteria:overworld",
