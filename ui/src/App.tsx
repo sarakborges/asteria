@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef, type KeyboardEvent } from "react";
 import type { InventoryCatalogEntry } from "./state/uiState";
 import { LoadingOverlay } from "./components/organisms/LoadingOverlay/LoadingOverlay";
 import { GameHudPage } from "./components/pages/GameHudPage/GameHudPage";
@@ -38,6 +38,7 @@ export type AppActions = {
   openWorldSettings(): void;
   openControls(): void;
   backFromOverlay(): void;
+  escapeNavigation(): void;
   setRenderDistance(value: number): void;
   setTargetPosition(value: "Center" | "TopRight" | "Hidden"): void;
   setHideHints(value: boolean): void;
@@ -71,6 +72,7 @@ export function App({
 }: AppProps) {
   const state = useUiStore(store);
   const { t } = useLocalization();
+  const interactionRoot = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     document.documentElement.classList.toggle(
@@ -81,9 +83,38 @@ export function App({
 
   const preWorldVisible =
     state.worldCreation.visible;
+  const uiVisible = preWorldVisible || state.navigation.overlay !== "none" ||
+    state.chat.open;
+
+  // Focusing the explicit UI surface (not window/document) lets WRY deliver
+  // Escape even when the pointer has interacted with an overlay.
+  useEffect(() => {
+    if (!uiVisible) return;
+    const root = interactionRoot.current;
+    if (!root) return;
+    const active = document.activeElement;
+    if (!active || active === document.body ||
+        active === document.documentElement || !root.contains(active)) {
+      root.focus({ preventScroll: true });
+    }
+  }, [uiVisible, state.navigation.overlay, state.navigation.preWorldScreen,
+      state.chat.open]);
+
+  const handleUiKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "Escape" || event.defaultPrevented ||
+        event.repeat || event.nativeEvent.isComposing || !uiVisible) return;
+    if (state.settings.captureAction) actions.cancelKeyCapture();
+    else if (state.chat.open) actions.closeChat();
+    else if (state.navigation.overlay === "inventory") actions.closeInventory();
+    else if (state.navigation.overlay === "brush") actions.closeBrushPalette();
+    else actions.escapeNavigation();
+    event.preventDefault();
+    event.stopPropagation();
+  };
 
   return (
-    <>
+    <div ref={interactionRoot} className="app-interaction-root"
+      tabIndex={-1} onKeyDown={handleUiKeyDown}>
       {!preWorldVisible && !state.loading &&
         state.navigation.overlay === "none" && (
         <ChatDock
@@ -227,6 +258,6 @@ export function App({
       )}
 
       <LoadingOverlay state={state.loading} />
-    </>
+    </div>
   );
 }
