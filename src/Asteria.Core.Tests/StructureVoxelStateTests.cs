@@ -14,8 +14,7 @@ public sealed class StructureVoxelStateTests
         var dyes = new DyeRegistry([new DyeDefinition("asteria:red", 0, 1, 1f / 3f)]);
         var layers = AttachedLayerRegistry.FromJson([
             """
-            {"id":"asteria:moss","texture":"textures/layers/moss.png",
-             "faces":["top","front"]}
+            {"id":"asteria:moss","texture":"textures/layers/moss.png"}
             """,
             """
             {"id":"asteria:ivy","texture":"textures/layers/ivy.png",
