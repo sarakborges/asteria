@@ -73,16 +73,24 @@ public sealed class CaveSpikeField
 
         // A specific surface material takes precedence over the generic
         // stone fallback. One column cannot spawn competing materials.
-        var primaryRule = rules.FirstOrDefault(rule =>
-            rule.Definition.SurfaceBiomes.Count > 0 &&
-            rule.Definition.SurfaceBiomes.Contains(
-                surfaceBiome.Primary, StringComparer.Ordinal));
-        var selectedRules = primaryRule is null
-            ? rules.Where(rule => rule.Definition.SurfaceBiomes.Count == 0)
-            : Enumerable.Repeat(primaryRule, 1);
-
-        foreach (var rule in selectedRules)
+        SpikeRule? primaryRule = null;
+        foreach (var candidate in rules)
         {
+            if (candidate.Definition.SurfaceBiomes.Contains(
+                    surfaceBiome.Primary, StringComparer.Ordinal))
+            {
+                primaryRule = candidate;
+                break;
+            }
+        }
+
+        foreach (var rule in rules)
+        {
+            if (primaryRule is not null && !ReferenceEquals(rule, primaryRule))
+                continue;
+            if (primaryRule is null && rule.Definition.SurfaceBiomes.Count != 0)
+                continue;
+
             var definition = rule.Definition;
             var direction = down ? CaveSpikeDirection.Down : CaveSpikeDirection.Up;
             if (!definition.Directions.Contains(direction))
