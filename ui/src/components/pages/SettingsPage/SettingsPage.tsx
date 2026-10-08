@@ -5,6 +5,7 @@ import { Surface } from "../../atoms/Surface/Surface";
 import { Text } from "../../atoms/Text/Text";
 import { CosmicBackground } from "../../organisms/CosmicBackground/CosmicBackground";
 import { ScreenShell } from "../../templates/ScreenShell/ScreenShell";
+import { ScrollArea } from "../../molecules/ScrollArea/ScrollArea";
 import "./SettingsPage.css";
 
 export type SettingsSectionView = {
@@ -56,12 +57,19 @@ export function SettingsPage({
     </section>
   ));
 
+  const panelScroll = (
+    <ScrollArea className="settings-page__sections-scroll"
+      contentClassName="settings-page__sections-content"
+      ariaLabel={title ?? t("common.settings")}>
+      {panels}
+    </ScrollArea>
+  );
   const content = formId ? (
     <form id={formId} className="settings-page__sections" onSubmit={onSubmit}>
-      {panels}
+      {panelScroll}
     </form>
   ) : (
-    <div className="settings-page__sections">{panels}</div>
+    <div className="settings-page__sections">{panelScroll}</div>
   );
 
   return (
@@ -80,7 +88,10 @@ export function SettingsPage({
     >
       <div className="settings-page">
         <nav className="settings-page__navigation" aria-label={title ?? t("common.settings")}>
-          {sections.map(section => (
+          <ScrollArea className="settings-page__navigation-scroll"
+            contentClassName="settings-page__navigation-content"
+            ariaLabel={title ?? t("common.settings")}>
+            {sections.map(section => (
             <Button
               key={section.id}
               label={section.label}
@@ -96,7 +107,8 @@ export function SettingsPage({
                 });
               }}
             />
-          ))}
+            ))}
+          </ScrollArea>
         </nav>
         {content}
       </div>
