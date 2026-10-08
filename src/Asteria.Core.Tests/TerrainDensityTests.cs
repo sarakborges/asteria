@@ -370,6 +370,28 @@ public sealed class TerrainDensityTests
     }
 
     [Fact]
+    public void IndependentCaveLayersLeaveUncoveredDepthsSolid()
+    {
+        var generator = Generator(
+            caves: new DimensionCaveDefinition(
+            [
+                new DimensionCaveLayerDefinition(
+                    10, 24,
+                    [new DimensionCaveNoiseChannelDefinition(56, 36)],
+                    1f, 24f, 2),
+                new DimensionCaveLayerDefinition(
+                    50, 70,
+                    [new DimensionCaveNoiseChannelDefinition(56, 36)],
+                    1f, 24f, 2),
+            ]));
+        var surface = generator.SurfaceHeight(0, 0);
+
+        Assert.True(generator.DensityAt(0, surface - 16, 0) < 0d);
+        Assert.True(generator.DensityAt(0, surface - 36, 0) >= 0d);
+        Assert.True(generator.DensityAt(0, surface - 60, 0) < 0d);
+    }
+
+    [Fact]
     public void UnionCaveChannelsCarveAtLeastAsMuchAsIntersection()
     {
         var intersection = Generator(caves: LayeredCaves(
