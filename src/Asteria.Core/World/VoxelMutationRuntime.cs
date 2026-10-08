@@ -83,6 +83,19 @@ public sealed class VoxelMutationRuntime
         return true;
     }
 
+    public bool SetBlockSurfaceStateAt(
+        WorldVoxelCoord position,
+        BlockSurfaceState state,
+        out VoxelWorldEdit edit)
+    {
+        if (!_world.SetBlockSurfaceStateAt(position, state, out edit))
+            return false;
+
+        _terrainContentRevisions.BumpVoxelEdit(_world, position);
+        _worldUpdates.EnqueueSurfaceEdit(_world, position);
+        return true;
+    }
+
     public bool SetFluidAt(
         WorldVoxelCoord position,
         FluidCell fluid,

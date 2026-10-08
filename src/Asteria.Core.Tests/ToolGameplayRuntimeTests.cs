@@ -19,6 +19,15 @@ public sealed class ToolGameplayRuntimeTests
             """,
             """
             {
+              "id":"asteria:shears",
+              "category":"tools",
+              "icon":"textures/tools/shears.png",
+              "leftBehavior":"asteria:none",
+              "rightBehavior":"asteria:layer/remove"
+            }
+            """,
+            """
+            {
               "id":"asteria:carpenters_axe_rustic",
               "category":"tools",
               "icon":"textures/tools/carpenters-axe-rustic.png",
@@ -122,6 +131,31 @@ public sealed class ToolGameplayRuntimeTests
         Assert.False(tools.TryUse(
             held, ToolUseHand.Right, new VoxelWorldHit(pos, 0, 1, 0)));
         Assert.Equal(source, world.GetCellOrEmpty(pos).Block);
+    }
+
+    [Fact]
+    public void ShearsRemoveOnlyTheTopLayerOnTheHitFace()
+    {
+        var (tools, blocks, world, mutations) = Setup();
+        var pos = new WorldVoxelCoord(2, 3, 4);
+        Assert.True(mutations.SetBlockAt(pos, blocks.GetId("asteria:log_oak"), out _));
+        var layers = new BlockSurfaceState("asteria:red",
+            [new AttachedBlockLayer(BlockFace.Top, "asteria:moss"),
+             new AttachedBlockLayer(BlockFace.Front, "asteria:moss"),
+             new AttachedBlockLayer(BlockFace.Top, "asteria:ivy")]);
+        Assert.True(mutations.SetBlockSurfaceStateAt(pos, layers, out _));
+        var shears = new InventoryStack(InventoryEntry.FromTool("asteria:shears"));
+
+        Assert.True(tools.TryUse(shears, ToolUseHand.Right, new VoxelWorldHit(pos, 0, 1, 0)));
+        var current = world.GetBlockSurfaceStateOrEmpty(pos);
+        Assert.Equal("asteria:red", current.DyeId);
+        Assert.Equal(2, current.Layers.Count);
+        Assert.Contains(current.Layers, layer => layer.LayerId == "asteria:moss" && layer.Face == BlockFace.Top);
+        Assert.False(tools.TryUse(shears, ToolUseHand.Right, new VoxelWorldHit(pos, 0, 0, 0)));
+        Assert.True(tools.TryUse(shears, ToolUseHand.Right, new VoxelWorldHit(pos, 0, 1, 0)));
+        Assert.False(tools.TryUse(shears, ToolUseHand.Right, new VoxelWorldHit(pos, 0, 1, 0)));
+        Assert.Single(world.GetBlockSurfaceStateOrEmpty(pos).Layers);
+        Assert.Equal(BlockFace.Front, world.GetBlockSurfaceStateOrEmpty(pos).Layers[0].Face);
     }
 
     [Fact]

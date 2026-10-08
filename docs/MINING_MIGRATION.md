@@ -41,3 +41,10 @@ The native input, mutation, content and Sphere boundaries remain unchanged: no U
 - The current tools have no durability wear or inventory rewards from cutting fragments; neither is invented as a side effect.
 - Brush requires authored secondary dye properties and the palette interaction; Shears requires authored per-face layers and a layer-removal mutation contract. Their MineClone behavior cannot be faithfully emulated by simply changing block IDs.
 - Architect's Compass and structure tool require their own authored world placement/collision policies.
+
+## Block surface state contract (2026-10-08)
+
+- Added chunk-owned sparse, immutable `BlockSurfaceState`: an optional namespaced dye ID plus up to 16 ordered `AttachedBlockLayer` records, each bound to one of the six faces. Attached layers are separate from intrinsic block texture layers; Shears remove only the final attached layer on the hit face.
+- Layer order, duplicate face/layer rejection, no-op semantics, world/chunk revision updates, worker snapshot cloning and portable `BlockStateSnapshot` transfer are defined in Core. Replacing/removing the host block clears its attached surface state. Artisan's Kit preserves surface state when editing that host.
+- `VoxelMutationRuntime.SetBlockSurfaceStateAt` owns presentation invalidation and dirtiness; color/layer-only changes enqueue priority terrain remesh without waking fluid topology, lighting or block physics.
+- Shears' existing authored right-click behavior now uses this mutation contract, but the default pack has not yet been given authored placed layers. Surface-layer definitions, pack loading, mesh rendering and gameplay layer placement remain next tasks. Brush palette, validation of `dyed` color IDs and dyable rendering are also pending; the new dye field is state storage, not a claim that Brush is fully working.

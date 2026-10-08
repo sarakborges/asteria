@@ -407,6 +407,42 @@ public sealed class VoxelWorld
         return true;
     }
 
+    public BlockSurfaceState GetBlockSurfaceStateOrEmpty(WorldVoxelCoord position)
+    {
+        var address = VoxelCoordinates.FromWorld(position.X, position.Y, position.Z);
+        return _chunks.TryGetValue(address.Chunk, out var chunk)
+            ? chunk.GetSurfaceState(address.Local.X, address.Local.Y, address.Local.Z)
+            : BlockSurfaceState.Empty;
+    }
+
+    public bool SetBlockSurfaceStateAt(
+        WorldVoxelCoord position,
+        BlockSurfaceState state,
+        out VoxelWorldEdit edit)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        var address = VoxelCoordinates.FromWorld(position.X, position.Y, position.Z);
+        if (!_chunks.TryGetValue(address.Chunk, out var chunk))
+        {
+            edit = default;
+            return false;
+        }
+
+        var cell = chunk.GetCell(address.Local.X, address.Local.Y, address.Local.Z);
+        if (cell.IsEmpty ||
+            !chunk.SetSurfaceState(address.Local.X, address.Local.Y, address.Local.Z, state))
+        {
+            edit = default;
+            return false;
+        }
+
+        _archive.MarkDirty(address.Chunk);
+        Revision++;
+        edit = new VoxelWorldEdit(
+            position, address.Chunk, address.Local, cell, cell, Revision);
+        return true;
+    }
+
     public MicroblockMask GetMicroblockMaskOrEmpty(WorldVoxelCoord position)
     {
         var address = VoxelCoordinates.FromWorld(
@@ -519,7 +555,11 @@ public sealed class VoxelWorld
                             address.Local.X,
                             address.Local.Y,
                             address.Local.Z)
-                        : MicroblockMask.Empty);
+                        : MicroblockMask.Empty,
+                    chunk.GetSurfaceState(
+                        address.Local.X,
+                        address.Local.Y,
+                        address.Local.Z));
 
         if (previousSnapshot is { } existing &&
             existing == state)
@@ -542,6 +582,12 @@ public sealed class VoxelWorld
                 address.Local.Z,
                 state.MicroblockMask);
         }
+
+        chunk.SetSurfaceState(
+            address.Local.X,
+            address.Local.Y,
+            address.Local.Z,
+            state.SurfaceState);
 
         chunk.SetFluid(
             address.Local.X,

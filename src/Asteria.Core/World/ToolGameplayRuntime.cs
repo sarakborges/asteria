@@ -89,6 +89,18 @@ public sealed class ToolGameplayRuntime
         VoxelWorldHit hit)
     {
         var behavior = GetBehavior(held, hand);
+        if (behavior == "asteria:layer/remove")
+        {
+            if (!TryHitFace(hit, out var face) ||
+                !_world.TryGetCell(hit.Voxel, out var host) ||
+                host.IsEmpty)
+                return false;
+
+            var layers = _world.GetBlockSurfaceStateOrEmpty(hit.Voxel);
+            return layers.TryRemoveTop(face, out var updated, out _) &&
+                _mutations.SetBlockSurfaceStateAt(hit.Voxel, updated, out _);
+        }
+
         var targetKey = behavior switch
         {
             "asteria:log/hollow" => "hollow",
@@ -130,6 +142,21 @@ public sealed class ToolGameplayRuntime
             hit.Voxel,
             new BlockStateSnapshot(converted, snapshot.MicroblockMask),
             out _);
+    }
+
+    private static bool TryHitFace(VoxelWorldHit hit, out BlockFace face)
+    {
+        face = (hit.NormalX, hit.NormalY, hit.NormalZ) switch
+        {
+            (1, 0, 0) => BlockFace.Right,
+            (-1, 0, 0) => BlockFace.Left,
+            (0, 1, 0) => BlockFace.Top,
+            (0, -1, 0) => BlockFace.Bottom,
+            (0, 0, 1) => BlockFace.Front,
+            (0, 0, -1) => BlockFace.Back,
+            _ => (BlockFace)byte.MaxValue,
+        };
+        return Enum.IsDefined(face);
     }
 
     private string? GetBehavior(InventoryStack? stack, ToolUseHand hand)

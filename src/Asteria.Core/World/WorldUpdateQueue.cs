@@ -65,6 +65,10 @@ public sealed class WorldUpdateQueue
             priority: true);
     }
 
+    /// <summary>Visual-only surface edits do not alter voxel lighting, fluid topology or physics.</summary>
+    public void EnqueueSurfaceEdit(VoxelWorld world, WorldVoxelCoord position) =>
+        EnqueueVoxelMeshlets(world, position, priority: true);
+
     public void EnqueueLighting(
         WorldVoxelCoord position)
     {
