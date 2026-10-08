@@ -13,6 +13,7 @@ public sealed class SurfaceChunkMaterializer
     private readonly GeneratedFluidField _generatedFluids;
     private readonly SurfaceStructureField _structures;
     private readonly UndergroundBiomeField? _undergroundBiomes;
+    private readonly VoidSpawnPlatform? _voidSpawnPlatform;
     private readonly BlockRuntimeId _shellBlock;
     private readonly int? _floorY;
     private readonly int? _roofY;
@@ -26,7 +27,8 @@ public sealed class SurfaceChunkMaterializer
         SurfaceStructureField structures,
         DimensionDefinition dimension,
         BlockRegistry blocks,
-        UndergroundBiomeField? undergroundBiomes = null)
+        UndergroundBiomeField? undergroundBiomes = null,
+        VoidSpawnPlatform? voidSpawnPlatform = null)
     {
         _columns = columns ??
             throw new ArgumentNullException(nameof(columns));
@@ -41,6 +43,7 @@ public sealed class SurfaceChunkMaterializer
         _structures = structures ??
             throw new ArgumentNullException(nameof(structures));
         _undergroundBiomes = undergroundBiomes;
+        _voidSpawnPlatform = voidSpawnPlatform;
         ArgumentNullException.ThrowIfNull(dimension);
         ArgumentNullException.ThrowIfNull(blocks);
 
@@ -263,6 +266,8 @@ public sealed class SurfaceChunkMaterializer
             coord,
             originY,
             topExclusive);
+        // SurfaceChunkMaterializer remains the sole procedural voxel writer.
+        _voidSpawnPlatform?.Apply(chunk, coord);
 
         return chunk;
     }
