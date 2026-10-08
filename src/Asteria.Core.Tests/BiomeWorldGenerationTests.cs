@@ -568,11 +568,13 @@ public sealed class BiomeWorldGenerationTests
         {
             for (var x = -17; x <= 17; x += 17)
             {
-                var column = materials.SampleColumn(sample, x, z);
+                var context = new SurfacePlacementContext(90, 1d);
+                var column = materials.SampleColumn(
+                    sample, x, z, context);
                 for (uint depth = 0; depth < 80; depth++)
                 {
                     Assert.Equal(
-                        materials.BlockAt(sample, x, z, depth),
+                        materials.BlockAt(sample, x, z, depth, context),
                         column.BlockAt(depth));
                 }
             }
