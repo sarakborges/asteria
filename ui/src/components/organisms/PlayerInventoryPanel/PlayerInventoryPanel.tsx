@@ -3,12 +3,10 @@ import type {
   ItemStackView,
   PlayerInventoryView,
 } from "../../../presentation/inventoryModels";
-import { Button } from "../../atoms/Button/Button";
 import { Surface } from "../../atoms/Surface/Surface";
-import { Text } from "../../atoms/Text/Text";
-import { TextInput } from "../../atoms/TextInput/TextInput";
 import { InventorySlot } from "../../molecules/InventorySlot/InventorySlot";
 import { InventoryHotbarFooter } from "../../molecules/InventoryHotbarFooter/InventoryHotbarFooter";
+import { InventoryPanelHeader } from "../../molecules/InventoryPanelHeader/InventoryPanelHeader";
 import "./PlayerInventoryPanel.css";
 
 const BACKPACK_COLUMNS = 9;
@@ -49,34 +47,14 @@ export function PlayerInventoryPanel({
       variant="hud"
       className="player-inventory-panel"
     >
-      <header className="player-inventory-panel__header">
-        <Text
-          text={t("ui.inventory")}
-          variant="heading"
-        />
-        <div className="player-inventory-panel__controls">
-          <TextInput
-            value={
-              state.searchQuery
-            }
-            placeholder={t("ui.searchInventory")}
-            aria-label={t("ui.searchInventory")}
-            onChange={
-              (event) =>
-                onSearchChange?.(
-                  event.target
-                    .value,
-                )
-            }
-          />
-          <Button
-            label="⇅"
-            className="player-inventory-panel__sort"
-            onClick={onSort}
-            disabled={!onSort}
-          />
-        </div>
-      </header>
+      <InventoryPanelHeader
+        title={t("ui.inventory")}
+        search={state.searchQuery}
+        searchLabel={t("ui.searchInventory")}
+        sortLabel={t("ui.sortBackpack")}
+        onSearchChange={onSearchChange}
+        onSort={onSort}
+      />
 
       <div className="player-inventory-panel__backpack">
         {backpack.map(
