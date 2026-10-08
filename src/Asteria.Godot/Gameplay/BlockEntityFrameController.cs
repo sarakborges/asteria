@@ -60,14 +60,14 @@ public sealed class BlockEntityFrameController
     public int CollectNearby(
         Vector3 position,
         float radius,
-        Func<BlockStateSnapshot, bool> accept) =>
+        Func<InventoryStack, bool> accept) =>
         _droppedBlocks.CollectNearby(position, radius, accept);
 
     public DroppedBlockId SpawnPlayerDrop(
-        BlockStateSnapshot block,
+        InventoryStack stack,
         Vector3 position,
         Vector3 velocity) =>
-        _droppedBlocks.Spawn(block, position, velocity);
+        _droppedBlocks.Spawn(stack, position, velocity);
 
     public int PendingPhysicsUpdates =>
         _updates.Count;

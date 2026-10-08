@@ -7,11 +7,14 @@ public readonly record struct DroppedBlockId(
 
 public readonly record struct DroppedBlockState(
     DroppedBlockId Id,
-    BlockStateSnapshot Block,
+    InventoryStack Stack,
     Vector3 Position,
     Vector3 Velocity,
     double AgeSeconds,
-    bool IsSettled);
+    bool IsSettled)
+{
+    public BlockStateSnapshot? Block => Stack.Block;
+}
 
 public sealed record DroppedBlockRuntimeEntry(
     DroppedBlockState State,
@@ -110,6 +113,13 @@ public sealed class DroppedBlockRuntime
                 var state =
                     entry.State;
 
+                if (state.Stack is null || state.Stack.Quantity != 1)
+                    throw new ArgumentException(
+                        "Restored drops require exactly one item.",
+                        nameof(restore));
+                if (state.Block is { } block)
+                    _ = _blocks.GetDefinition(block.Cell.Block);
+
                 if (!_active.TryAdd(
                         state.Id.Value,
                         state))
@@ -156,6 +166,22 @@ public sealed class DroppedBlockRuntime
         Vector3 velocity = default)
     {
         ArgumentNullException.ThrowIfNull(block);
+        var id = _blocks.GetDefinition(block.Cell.Block).Id;
+        return Spawn(new InventoryStack(
+            InventoryEntry.FromBlock(id, block)), position, velocity);
+    }
+
+    public DroppedBlockId Spawn(
+        InventoryStack stack,
+        Vector3 position,
+        Vector3 velocity = default)
+    {
+        ArgumentNullException.ThrowIfNull(stack);
+        if (stack.Quantity != 1)
+            throw new ArgumentOutOfRangeException(
+                nameof(stack), "World drops contain exactly one item.");
+        if (stack.Block is { } block)
+            _ = _blocks.GetDefinition(block.Cell.Block);
 
         if (!IsFinite(position) ||
             !IsFinite(velocity))
@@ -178,7 +204,7 @@ public sealed class DroppedBlockRuntime
             id.Value,
             new DroppedBlockState(
                 id,
-                block,
+                stack,
                 position,
                 velocity,
                 AgeSeconds: 0.0,
@@ -194,7 +220,7 @@ public sealed class DroppedBlockRuntime
     public int CollectNearby(
         Vector3 position,
         float radius,
-        Func<BlockStateSnapshot, bool> tryAccept)
+        Func<InventoryStack, bool> tryAccept)
     {
         ArgumentNullException.ThrowIfNull(tryAccept);
         if (!IsFinite(position) || !float.IsFinite(radius) || radius <= 0f)
@@ -212,7 +238,7 @@ public sealed class DroppedBlockRuntime
                 Vector3.DistanceSquared(pair.Value.Position, position) >
                 radiusSquared)
                 continue;
-            if (!tryAccept(pair.Value.Block))
+            if (!tryAccept(pair.Value.Stack))
                 continue;
             acceptedIds.Add(pair.Key);
         }

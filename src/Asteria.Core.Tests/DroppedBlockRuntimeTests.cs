@@ -25,10 +25,10 @@ public sealed class DroppedBlockRuntimeTests
         // Newly thrown blocks are not eligible until the pickup grace period.
         runtime.Advance(0.5, gravityStrength: 0);
         var tried = new List<BlockStateSnapshot>();
-        var count = runtime.CollectNearby(center, 1.5f, block =>
+        var count = runtime.CollectNearby(center, 1.5f, stack =>
         {
-            tried.Add(block);
-            return block == secondBlock;
+            tried.Add(stack.Block!);
+            return stack.Block == secondBlock;
         });
         Assert.Equal(1, count);
         Assert.Equal([firstBlock, secondBlock], tried);
@@ -37,6 +37,40 @@ public sealed class DroppedBlockRuntimeTests
         Assert.Equal(1,
             runtime.CollectNearby(center, 1.5f, _ => true));
         Assert.Equal(distant, Assert.Single(runtime.ActiveBlocks).Id);
+    }
+
+    [Fact]
+    public void NonBlockDropsPreserveMetadataAndRespectPickupCapacity()
+    {
+        var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);
+        var runtime = new DroppedBlockRuntime(LoadedWorld(), blocks);
+        var item = InventoryEntry.FromItem("asteria:dimensional_slicer",
+            new Dictionary<string, string> {
+                ["target_dimension"] = "asteria:umbral",
+            });
+        var tool = InventoryEntry.FromTool("asteria:pickaxe_rustic");
+        var first = runtime.Spawn(new InventoryStack(item), new Vector3(3, 4, 5));
+        runtime.Spawn(new InventoryStack(tool), new Vector3(3.2f, 4, 5));
+        runtime.Advance(0.5, 0);
+
+        var inventory = new PlayerInventory();
+        var count = runtime.CollectNearby(new Vector3(3, 4, 5), 1f,
+            stack => stack.Kind == InventoryEntryKind.Tool &&
+                inventory.TryInsert(stack));
+        Assert.Equal(1, count);
+        Assert.Equal(first, Assert.Single(runtime.ActiveBlocks).Id);
+        Assert.Equal("asteria:umbral",
+            runtime.ActiveBlocks.Single().Stack.Entry.Metadata["target_dimension"]);
+
+        var restored = new DroppedBlockRuntime(
+            LoadedWorld(), blocks, restore: runtime.CaptureState());
+        Assert.Equal(1, restored.CollectNearby(
+            new Vector3(3, 4, 5), 1f, inventory.TryInsert));
+        Assert.Empty(restored.ActiveBlocks);
+        Assert.Equal("asteria:dimensional_slicer",
+            inventory.SlotAt(PlayerInventory.BackpackSlots + 1)!.Id);
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            runtime.Spawn(new InventoryStack(item, 2), new Vector3(3, 4, 5)));
     }
 
     [Fact]
