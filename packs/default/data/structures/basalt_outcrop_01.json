@@ -1,0 +1,61 @@
+{
+  "id": "asteria:basalt_outcrop_01",
+  "rotation": true,
+  "restrictions": {
+    "groundBlocks": [
+      "asteria:basalt",
+      "asteria:basalt_cobble",
+      "asteria:gravel"
+    ],
+    "maxSlope": 2,
+    "requiredBiomeCoverage": 1,
+    "requiresDryGround": true
+  },
+  "anchor": {
+    "x": 3,
+    "y": 0,
+    "z": 3
+  },
+  "palette": {
+    "S": {
+      "block": "asteria:basalt_cobble"
+    }
+  },
+  "layers": [
+    {
+      "y": 0,
+      "rows": [
+        ".......",
+        ".......",
+        "...SS..",
+        "..SSS..",
+        "...SS..",
+        ".......",
+        "......."
+      ]
+    },
+    {
+      "y": 1,
+      "rows": [
+        ".......",
+        ".......",
+        ".......",
+        "...SS..",
+        "...S...",
+        ".......",
+        "......."
+      ]
+    }
+  ],
+  "groupId": "basalt_outcrop",
+  "locatable": false,
+  "priority": 0,
+  "conflictGroups": [
+    "rock"
+  ],
+  "generation": {
+    "replacePolicy": "terrain",
+    "fluidPolicy": "forbid",
+    "reserveSpace": false
+  }
+}
