@@ -229,7 +229,8 @@ public sealed class SurfaceStructureField
             string reference,
             int originX,
             int originZ,
-            int maxDistance)
+            int maxDistance,
+            string? structureId = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(
             reference);
@@ -320,6 +321,10 @@ public sealed class SurfaceStructureField
                 if (distanceSquared > maximumDistanceSquared ||
                     (best is not null &&
                      distanceSquared > bestDistanceSquared) ||
+                    (structureId is not null &&
+                     !candidate.Placements.Any(placement =>
+                         string.Equals(placement.StructureId, structureId,
+                             StringComparison.Ordinal))) ||
                     !CandidateIsAccepted(candidate))
                 {
                     return;
@@ -370,12 +375,16 @@ public sealed class SurfaceStructureField
             }
         }
 
-        return best is null
-            ? null
-            : ToQueryResult(
-                best.Representative,
-                best.PlacementAnchorX,
-                best.PlacementAnchorZ);
+        if (best is null) return null;
+        var placement = structureId is null
+            ? best.Representative
+            : best.Placements.First(piece =>
+                string.Equals(piece.StructureId, structureId,
+                    StringComparison.Ordinal));
+        return ToQueryResult(
+            placement,
+            best.PlacementAnchorX,
+            best.PlacementAnchorZ);
     }
 
     // Lower bound on the possible horizontal anchor distance for a
