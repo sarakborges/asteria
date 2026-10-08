@@ -358,6 +358,29 @@ public partial class Main : Node3D
             return;
         }
 
+        // UI visibility hotkeys belong to the native composition root, not
+        // FpsPlayer's mouse-captured movement path. WRY can temporarily return
+        // mouse focus while still forwarding these key events to Godot.
+        if (_worldReadySent && !_inventoryOpen && !_brushPaletteOpen &&
+            !_chat.IsOpen && !_sessions.IsTransitioning)
+        {
+            if (GameplayKeyMap.Matches(
+                    keyEvent, _clientPreferences, KeybindAction.Inventory))
+            {
+                OpenInventory();
+                GetViewport().SetInputAsHandled();
+                return;
+            }
+
+            if (GameplayKeyMap.Matches(
+                    keyEvent, _clientPreferences, KeybindAction.Chat))
+            {
+                OpenChat();
+                GetViewport().SetInputAsHandled();
+                return;
+            }
+        }
+
         switch (keyEvent.Keycode)
         {
             case Key.F3:
@@ -804,8 +827,6 @@ public partial class Main : Node3D
             PlaceTargetBlock;
         _player.ToolActionRequested -=
             RotateHeldBlock;
-        _player.InventoryRequested -= OpenInventory;
-        _player.ChatRequested -= OpenChat;
         _player.DropItemRequested -= DropSelectedItem;
         _player.HotbarSlotRequested -= SelectHotbar;
         _player.MouseCaptureChanged -=
@@ -2846,8 +2867,6 @@ public partial class Main : Node3D
         _player.BreakRequested += BreakTargetBlock;
         _player.PlaceRequested += PlaceTargetBlock;
         _player.ToolActionRequested += RotateHeldBlock;
-        _player.InventoryRequested += OpenInventory;
-        _player.ChatRequested += OpenChat;
         _player.DropItemRequested += DropSelectedItem;
         _player.HotbarSlotRequested += SelectHotbar;
         _player.MouseCaptureChanged +=

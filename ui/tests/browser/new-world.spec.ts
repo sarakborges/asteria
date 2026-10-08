@@ -104,3 +104,10 @@ test("Game Rules respects the existing Spawn Creatures flag", async ({ page }) =
   const { gameRules } = await expectActualWorldSettings(page);
   await expect(gameRules.getByRole("switch")).toHaveAttribute("aria-checked", "false");
 });
+
+test("initial menu contains no language selector", async ({ page }) => {
+  await page.goto(STORY + "real-navigation&viewMode=story");
+  await expect(page.locator(".starting-screen")).toBeVisible();
+  await expect(page.locator(".starting-screen__language")).toHaveCount(0);
+  await expect(page.locator(".starting-screen select")).toHaveCount(0);
+});
