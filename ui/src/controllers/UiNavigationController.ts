@@ -39,6 +39,7 @@ export function createUiNavigationController(
   return {
     openWorldSelection() {
       setPreWorldScreen("world-selection");
+      postMessage("ui.world.catalog.refresh");
     },
 
     openWorldCreation() {
