@@ -131,6 +131,7 @@ export function App({
           <NewWorldPage
             state={state.worldCreation}
             onBack={actions.openWorldSelection}
+            onMainMenu={actions.backToStart}
             onCreate={actions.createWorld}
             onRandomize={actions.randomizeWorld}
           />
