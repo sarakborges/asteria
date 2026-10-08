@@ -21,3 +21,11 @@ The runtime scans `OS.GetUserDataDir()/worlds` off-thread on UI entry and at Web
 **This is read-only discovery, not a save format implementation.** No serializer or restorer writes/loads Asteria worlds yet. Every candidate remains non-restorable, including valid metadata; load/delete stay disabled. World creation still starts an in-memory session, and exiting still does not persist the world. Do not create a metadata-only "save" or enable Load/Delete until a full snapshot, restoration, and rollback-safe persistence contract exists. Opening the folder is the only enabled file action.
 
 A complete primitive-by-primitive and screen-by-screen backlog now lives in [ui-component-parity.md](ui-component-parity.md); screen parity must progress across HUD, inventory/crafting, storage, chat, and character info without shifting scope to save-system development.
+
+## Tooltip, inventory pointer, Storage Box and Chat
+
+- Runtime inventory: the cursor stack now follows the pointer only while inside the inventory UI surface. Slot tooltips show content name, canonical ID and authored/runtime metadata and are clamped inside the viewport. Godot still owns global gameplay input.
+- Shared inventory/search components: `ItemTooltip`, `InventoryCursorOverlay`, `InventoryPanelHeader`; `PlayerInventoryPanel` and `StorageBoxPage` reuse the header, and Storage reuses `InventoryHotbarFooter` without trash.
+- Storage Box and Chat visual parity is improved and covered by Storybook, **but neither is mounted to the live Godot gameplay bridge**. Storage sorting/mutations and chat submission/autocomplete must first have authoritative runtime state and explicit semantic bridge commands. Absent callbacks are noninteractive; Storybook examples are not runtime data.
+- Chat presentation follows the MineClone 500px bottom-left frame, 64-message bounded history and seven-suggestion selection window. The visual shell does not implement the chat command engine.
+- Remaining UI fronts: tooltip tool stats once runtime supplies data, player portrait/equipment, recipes/station, chat and storage runtime wiring, HUD visual audit.
