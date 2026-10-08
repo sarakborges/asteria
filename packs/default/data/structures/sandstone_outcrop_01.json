@@ -1,0 +1,61 @@
+{
+  "id": "asteria:sandstone_outcrop_01",
+  "rotation": true,
+  "restrictions": {
+    "groundBlocks": [
+      "asteria:sand",
+      "asteria:gravel",
+      "asteria:sandstone"
+    ],
+    "maxSlope": 1,
+    "requiresDryGround": true,
+    "requiredBiomeCoverage": 1
+  },
+  "anchor": {
+    "x": 3,
+    "y": 0,
+    "z": 3
+  },
+  "palette": {
+    "S": {
+      "block": "asteria:sandstone"
+    }
+  },
+  "layers": [
+    {
+      "y": 0,
+      "rows": [
+        ".......",
+        ".......",
+        "...SS..",
+        "..SSS..",
+        "...SS..",
+        ".......",
+        "......."
+      ]
+    },
+    {
+      "y": 1,
+      "rows": [
+        ".......",
+        ".......",
+        ".......",
+        "...SS..",
+        "...S...",
+        ".......",
+        "......."
+      ]
+    }
+  ],
+  "groupId": "sandstone_outcrop",
+  "locatable": false,
+  "priority": 0,
+  "conflictGroups": [
+    "rock"
+  ],
+  "generation": {
+    "replacePolicy": "terrain",
+    "fluidPolicy": "forbid",
+    "reserveSpace": false
+  }
+}

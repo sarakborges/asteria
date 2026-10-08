@@ -38,7 +38,7 @@ public sealed class SurfaceStructureTests
             structures, structureSets);
 
         Assert.Equal(
-            61,
+            71,
             structures.Count);
         Assert.Equal(3, structures.ResolveReference("asteria:bush_oak").Count);
         Assert.Equal(5, structureSets.Count);
@@ -87,7 +87,7 @@ public sealed class SurfaceStructureTests
             structures.ResolvesReference(
                 "asteria:river_ocean_mouth"));
         Assert.Equal(
-            39,
+            47,
             overworld
                 .GeneratedSurfaceStructures
                 .Count);

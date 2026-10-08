@@ -25,7 +25,25 @@
   "surfaceLayers": [
     {
       "block": "asteria:sand",
-      "depth": 8
+      "depth": 8,
+      "patch": {
+        "scale": 42,
+        "coverage": 0.18,
+        "roughness": 0.35,
+        "blocks": [
+          "asteria:gravel",
+          "asteria:sandstone"
+        ],
+        "detailScale": 13,
+        "selectionScale": 92,
+        "warpScale": 84,
+        "warpStrength": 16,
+        "stretchZ": 1.8,
+        "weights": {
+          "asteria:gravel": 2,
+          "asteria:sandstone": 3
+        }
+      }
     },
     {
       "block": "asteria:stone"
@@ -39,14 +57,41 @@
   "decorations": [
     {
       "block": "asteria:pebble",
-      "chance": 0.055,
+      "chance": 0.095,
       "surfaceBlocks": [
-        "asteria:sand"
+        "asteria:sand",
+        "asteria:sandstone",
+        "asteria:gravel"
       ],
       "cluster": {
         "scale": 20,
-        "threshold": -0.3
+        "threshold": -0.22,
+        "octaves": 4,
+        "transitionWidth": 0.12
+      },
+      "habitatWeights": {
+        "open_dunes": 0.18,
+        "gravel_flats": 1.8,
+        "sandstone_outcrops": 0.65
       }
     }
-  ]
+  ],
+  "surfaceHabitats": {
+    "scale": 156,
+    "transitionWidth": 0.12,
+    "bands": [
+      {
+        "id": "open_dunes",
+        "maximum": -0.22
+      },
+      {
+        "id": "gravel_flats",
+        "maximum": 0.18
+      },
+      {
+        "id": "sandstone_outcrops",
+        "maximum": 1
+      }
+    ]
+  }
 }
