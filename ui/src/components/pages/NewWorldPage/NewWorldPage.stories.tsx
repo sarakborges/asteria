@@ -17,6 +17,7 @@ const meta = {
       errorKey: null,
     },
     onBack: () => undefined,
+    onMainMenu: () => undefined,
     onCreate: () => undefined,
     onRandomize: () => undefined,
   },
