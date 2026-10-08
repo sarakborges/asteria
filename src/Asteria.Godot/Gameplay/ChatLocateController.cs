@@ -34,7 +34,7 @@ public sealed class ChatLocateController
             if (kind == ChatCommandKind.LocateBiome)
             {
                 var found = generator.FindNearestSurfaceBiome(
-                    id, worldX, worldZ, radius, structureId);
+                    id, worldX, worldZ, radius);
                 return found is null ? null : new ChatLocateResult(
                     id, found.X, generator.SurfaceHeight(found.X, found.Z),
                     found.Z);
