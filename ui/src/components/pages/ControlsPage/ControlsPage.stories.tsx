@@ -15,6 +15,7 @@ const meta = {
           { key: "Space ×2", action: "Toggle Flight (When Available)" },
           { key: "ShiftLeft", action: "Descend", bindAction: "Descend" },
           { key: "MOUSE", action: "Look Around" },
+          { key: "F5", action: "Change Perspective", bindAction: "ChangePerspective" },
         ],
       },
       {
@@ -22,6 +23,7 @@ const meta = {
         entries: [
           { key: "1–9", action: "Select Hotbar Item" },
           { key: "KeyE", action: "Inventory", bindAction: "Inventory" },
+          { key: "KeyT", action: "Chat", bindAction: "Chat" },
           { key: "ESC", action: "Pause / Close Modal" },
         ],
       },
