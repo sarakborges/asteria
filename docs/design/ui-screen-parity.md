@@ -9,7 +9,7 @@ Reference: `sarakborges/mineclone` at `world-systems-rebuild`; inspect `src/scre
 | New world | Shared MineClone-style `SettingsPage` sidebar and scrolling sections: world name, game mode buttons, seed, tick stepper, three footer actions, validation/generating states | Remaining authored generation options/game rules still depend on runtime capabilities |
 | Pause menu | `PauseMenuPage` | Verify exit/leave world behavior against save-session backend |
 | Game/world settings & controls | Shared scrollable sections, reusable game mode and numeric-stepper controls, categorized Controls screen with current keybinds | More game rules, chat/perspective/other unsupported controls, visual transitions |
-| Inventory/crafting | `InventoryGameplayPage`, `InventoryPage` | Panel geometry, recipes, creative/survival, interactions |
+| Inventory/crafting | Shared `InventoryWorkspace` now mounts on the actual gameplay modal: Character left, Crafting above Inventory center, Current Station right in Survival; creative catalog + real hotbar/trash and tabs | Recipe selection/crafting, player portrait/equipment, station data, item tooltips and pointer-follow cursor need their authoritative gameplay integration |
 | HUD/loading | `GameHudPage`, `LoadingOverlay` | Visual hierarchy and true progress |
 
 Each screen must retain injectable semantic actions, shared design-system components, localized copy and colocated Storybook states, including disabled/busy/empty states where applicable. Validate `npm run build` and `npm run build-storybook`. Never capture global/gameplay input in WebUI.
