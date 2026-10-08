@@ -5,7 +5,7 @@ Reference: `sarakborges/mineclone` at `world-systems-rebuild`; inspect `src/scre
 | Screen | Asteria baseline | Remaining parity |
 | --- | --- | --- |
 | Starting | Original MineClone logo, four centered menu actions, cosmic background and shared language selector | Authoritative game-version caption; Play now opens World Selection |
-| World selection | `WorldSelectionPage` and `WorldCard` accessible via Starting > Play, with a truthful unavailable state | Real save catalog, thumbnails, load/delete/open folder remain pending backend. Storybook worlds are fixtures only. |
+| World selection | `WorldSelectionPage` and `WorldCard` on Starting > Play, with bounded asynchronous filesystem catalog and real Open Saves Folder action | On-disk world snapshot writer/restore and load/delete/thumbnail behavior still pending. Incompatible world candidates cannot load; Storybook entries are fixtures only. |
 | New world | `NewWorldPage`, entered from World Selection; Back returns to selection | Layout, validation and creation progress |
 | Pause menu | `PauseMenuPage` | Verify exit/leave world behavior against save-session backend |
 | Game/world settings & controls | `SettingsWorkspacePage`, `ControlsPage` | Hierarchy, controls, keybinding and navigation states |
