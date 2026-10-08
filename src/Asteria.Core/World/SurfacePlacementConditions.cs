@@ -38,6 +38,8 @@ public sealed class SurfacePlacementConditions
         MaxSlope = maxSlope;
     }
 
+    public bool RequiresSlope => MinSlope.HasValue || MaxSlope.HasValue;
+
     public int? MinY { get; }
     public int? MaxY { get; }
     public double? MinSlope { get; }
@@ -55,10 +57,15 @@ public readonly record struct SurfacePlacementContext(int Y, double Slope)
     public static SurfacePlacementContext Sample(
         SurfaceTerrainField terrain,
         int worldX,
-        int worldZ)
+        int worldZ,
+        bool includeSlope = true)
     {
         ArgumentNullException.ThrowIfNull(terrain);
         var y = terrain.SurfaceHeight(worldX, worldZ);
+        if (!includeSlope)
+        {
+            return new SurfacePlacementContext(y, 0d);
+        }
         var xPlus = worldX == int.MaxValue ? worldX : worldX + 1;
         var xMinus = worldX == int.MinValue ? worldX : worldX - 1;
         var zPlus = worldZ == int.MaxValue ? worldZ : worldZ + 1;
