@@ -23,7 +23,7 @@ public sealed class InventoryCraftingRuntimeTests
         var tools = PackContentRegistry<ToolDefinition>.FromJson(
             Documents("tools"), ToolDefinition.Parse, tool => tool.Id);
         return new InventoryCraftingRuntime(
-            recipes, new InventoryContentCatalog(new BlockRegistry(), items, tools));
+            recipes, new InventoryContentCatalog(new BlockRegistry(Array.Empty<BlockDefinition>()), items, tools));
     }
 
     private static void AddMaterials(PlayerInventory inventory)
@@ -147,7 +147,7 @@ public sealed class InventoryCraftingRuntimeTests
         var tools = PackContentRegistry<ToolDefinition>.FromJson(
             Documents("tools"), ToolDefinition.Parse, tool => tool.Id);
         Assert.Throws<InvalidOperationException>(() => new InventoryCraftingRuntime(
-            bad, new InventoryContentCatalog(new BlockRegistry(), items, tools)));
+            bad, new InventoryContentCatalog(new BlockRegistry(Array.Empty<BlockDefinition>()), items, tools)));
     }
 
     [Fact]
