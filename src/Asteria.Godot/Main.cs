@@ -781,6 +781,15 @@ public partial class Main : Node3D
                 case "ui.player.set_game_mode":
                     SetRequestedGameMode(document.RootElement);
                     break;
+                case "ui.world.set_ticks":
+                    SetRequestedWorldTicks(document.RootElement);
+                    break;
+                case "ui.game.resume":
+                    if (_worldReadySent && !_keybindCapture.IsCapturing)
+                    {
+                        _player?.ResumeGameplay();
+                    }
+                    break;
             }
         }
         catch (JsonException exception)
@@ -808,6 +817,7 @@ public partial class Main : Node3D
         }
 
         SendPlayerModeState();
+        SendWorldSettings();
         SendHotbarState();
         SendWorldHudState(
             force: true);
@@ -883,6 +893,7 @@ public partial class Main : Node3D
         }
 
         SendPlayerModeState();
+        SendWorldSettings();
     }
 
     private bool PlayerCollisionVolumeIsResident(FpsPlayer player)
@@ -913,6 +924,42 @@ public partial class Main : Node3D
         }
 
         return true;
+    }
+
+    private void SetRequestedWorldTicks(JsonElement message)
+    {
+        if (_worldSeed is null ||
+            !message.TryGetProperty("payload", out var payload) ||
+            payload.ValueKind != JsonValueKind.Object ||
+            !payload.TryGetProperty("value", out var raw) ||
+            raw.ValueKind != JsonValueKind.Number ||
+            !raw.TryGetUInt32(out var rate) ||
+            rate == 0)
+        {
+            SendWebUi(
+                "game.world_settings.error",
+                new { code = "InvalidTickRate" });
+            return;
+        }
+
+        if (_sessionStates.GameRules.SetTicksPerSecond(rate))
+        {
+            SendWorldSettings();
+        }
+    }
+
+    private void SendWorldSettings()
+    {
+        if (_worldSeed is null) return;
+        SendWebUi(
+            "game.world_settings",
+            new
+            {
+                name = _sessionStates.Name,
+                mode = _sessionStates.Player.GameMode.ToString(),
+                ticksPerSecond = _sessionStates.GameRules.TicksPerSecond,
+                spawnCreatures = _sessionStates.GameRules.SpawnCreatures,
+            });
     }
 
     private void SendPlayerModeState()
@@ -991,10 +1038,47 @@ public partial class Main : Node3D
             return;
         }
 
-        StartWorld(
-            new WorldCreationOptions(
-                WorldCreationOptions.DefaultName,
-                selectedSeed));
+        var name = payload.TryGetProperty(
+                "name", out var nameElement) &&
+            nameElement.ValueKind == JsonValueKind.String
+                ? nameElement.GetString()!
+                : WorldCreationOptions.DefaultName;
+        var rawMode = payload.TryGetProperty(
+            "mode", out var modeElement) &&
+            modeElement.ValueKind == JsonValueKind.String
+                ? modeElement.GetString()
+                : nameof(PlayerGameMode.Survival);
+        var ticks = payload.TryGetProperty(
+            "ticksPerSecond", out var ticksElement) &&
+            ticksElement.ValueKind == JsonValueKind.Number &&
+            ticksElement.TryGetUInt32(out var parsedTicks)
+                ? parsedTicks
+                : 0u;
+
+        if (!Enum.TryParse<PlayerGameMode>(
+                rawMode, ignoreCase: false, out var mode) ||
+            !Enum.IsDefined(mode))
+        {
+            SendWorldCreationError("newWorld.error.invalidMode");
+            return;
+        }
+
+        try
+        {
+            var creation = new WorldCreationOptions(
+                name,
+                selectedSeed,
+                mode,
+                ticks);
+            StartWorld(creation);
+        }
+        catch (ArgumentException exception)
+        {
+            SendWorldCreationError(
+                exception.ParamName == "name"
+                    ? "newWorld.error.invalidName"
+                    : "newWorld.error.invalidTickRate");
+        }
     }
 
     private void StartWorld(
@@ -1028,6 +1112,7 @@ public partial class Main : Node3D
             "set_creation_mode",
             false);
         SendPlayerModeState();
+        SendWorldSettings();
         SendWebUi(
             "game.world_creation.started",
             new

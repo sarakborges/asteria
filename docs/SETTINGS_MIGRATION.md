@@ -95,3 +95,9 @@ Audit references: MineClone `src/world/game_rules.rs`, `src/world/new_world.rs`,
 - Config/state mutation remains Core authoritative. Mode-specific movement is confined to `FpsPlayer`; web presentation remains bridge/controller/UiStore/React. Configurable keybind capture stays owned by native Godot, never a WebUI global event listener.
 
 Asteria reserves **F3/F4** in addition to MineClone's WASD/hotbar keys because those are engine-owned debug/Sphere-switch hotkeys; allowing their reassignment would create two authoritative handlers for one key.
+
+## Phase D implementation notes (2026-10-08)
+
+- Added typed world creation name, initial mode and ticks-per-second fields over the validated Core `WorldCreationOptions` boundary. The name is session metadata, not a claim of disk saving.
+- Added live `ui.world.set_ticks` and `game.world_settings` bridge messages; the world clock and fluid schedulers already consume the same mutable rules owner.
+- Added `ui.game.resume` for deliberate Godot-native mouse recapture. The WebUI must not capture global gameplay input.

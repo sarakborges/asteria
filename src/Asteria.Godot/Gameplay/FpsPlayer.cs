@@ -443,6 +443,14 @@ public partial class FpsPlayer : CharacterBody3D
         }
     }
 
+    public void ResumeGameplay()
+    {
+        if (!_inputSuspended && !_mouseCaptured)
+        {
+            CaptureMouse();
+        }
+    }
+
     private void CaptureMouse()
     {
         _mouseCaptured = true;
