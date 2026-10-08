@@ -51,6 +51,49 @@ public sealed class CreatureRuntimeTests
     }
 
     [Fact]
+    public void NoAiTagSurvivesSnapshotsAndCanBeRemovedThroughOwner()
+    {
+        var definitions = Definitions();
+        var runtime = new CreatureRuntime(definitions);
+        var feet = new Vector3(5, 20, 6);
+        Assert.True(runtime.TrySpawn("asteria:slime_aqua", feet,
+            out var spawned, noAi: true));
+        Assert.True(spawned.NoAi);
+        Assert.False(runtime.TryDamage(spawned.Id, 1));
+        Assert.False(runtime.TrySetNoAi(new CreatureInstanceId(999), true));
+
+        var restored = new CreatureRuntime(definitions, runtime.CaptureState());
+        Assert.True(Assert.Single(restored.ActiveCreatures).NoAi);
+        Assert.False(restored.TryDamage(spawned.Id, 2));
+        Assert.True(restored.TrySetNoAi(spawned.Id, false));
+        Assert.False(Assert.Single(restored.ActiveCreatures).NoAi);
+        Assert.True(restored.TryDamage(spawned.Id, 2));
+    }
+
+    [Fact]
+    public void FrozenCreatureDoesNotHopUntilTagIsRemoved()
+    {
+        var (world, blocks) = FlatTestGround();
+        var runtime = new CreatureRuntime(Definitions());
+        var feet = new Vector3(7.5f, 1f, 7.5f);
+        Assert.True(runtime.TrySpawn("asteria:slime_aqua", feet,
+            out var creature, noAi: true));
+
+        for (var i = 0; i < 80; i++)
+            runtime.AdvanceWorld(0.025, feet, world, blocks, 18f);
+        Assert.Equal(feet, Assert.Single(runtime.ActiveCreatures).Position);
+
+        Assert.True(runtime.TrySetNoAi(creature.Id, false));
+        var moved = false;
+        for (var i = 0; i < 160; i++)
+        {
+            runtime.AdvanceWorld(0.025, feet, world, blocks, 18f);
+            moved |= Assert.Single(runtime.ActiveCreatures).Position != feet;
+        }
+        Assert.True(moved);
+    }
+
+    [Fact]
     public void SpawnObeysTypeCapacityAndStableIdOrder()
     {
         var runtime = new CreatureRuntime(Definitions());
