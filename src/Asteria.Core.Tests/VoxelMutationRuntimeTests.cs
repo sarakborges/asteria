@@ -613,6 +613,68 @@ public sealed class VoxelMutationRuntimeTests
     }
 
     [Fact]
+    public void StructureBatchRejectsMissingChunkWithoutPublishingAnyEdits()
+    {
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, new Chunk());
+        var updates = new WorldUpdateQueue();
+        var fluids = new FluidUpdateQueue();
+        var meshes = new FluidMeshUpdateQueue();
+        var physics = new BlockPhysicsUpdateQueue();
+        var runtime = new VoxelMutationRuntime(
+            world, updates, fluids, meshes, physics,
+            new MeshletContentRevisions(), new MeshletContentRevisions());
+        var resident = new WorldVoxelCoord(3, 4, 3);
+        var missing = new WorldVoxelCoord(40, 4, 3);
+        var marker = BlockStateSnapshot.FromCell(
+            new VoxelCell(new BlockRuntimeId(1)));
+        var beforeRevision = world.Revision;
+
+        Assert.False(runtime.ApplyStructureChanges(
+        [
+            new VoxelStructureChange(resident, marker, FluidCell.Empty),
+            new VoxelStructureChange(missing, marker, FluidCell.Empty),
+        ]));
+        Assert.Equal(beforeRevision, world.Revision);
+        Assert.True(world.GetCellOrEmpty(resident).IsEmpty);
+        Assert.False(updates.HasWork);
+        Assert.False(meshes.HasWork);
+        Assert.Equal(0, physics.Count);
+    }
+
+    [Fact]
+    public void StructureBatchPublishesCompleteBlockFluidAndClearChanges()
+    {
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, new Chunk());
+        var blocked = new WorldVoxelCoord(3, 3, 3);
+        var fluid = new WorldVoxelCoord(4, 3, 3);
+        var clear = new WorldVoxelCoord(5, 3, 3);
+        Assert.True(world.SetBlockAt(
+            clear, new BlockRuntimeId(1), out _));
+        var updates = new WorldUpdateQueue();
+        var runtime = new VoxelMutationRuntime(
+            world, updates, new FluidUpdateQueue(),
+            new FluidMeshUpdateQueue(), new BlockPhysicsUpdateQueue(),
+            new MeshletContentRevisions(), new MeshletContentRevisions());
+
+        Assert.True(runtime.ApplyStructureChanges(
+        [
+            new VoxelStructureChange(
+                blocked, BlockStateSnapshot.FromCell(
+                    new VoxelCell(new BlockRuntimeId(1))), FluidCell.Empty),
+            new VoxelStructureChange(
+                fluid, null, FluidCell.Source(new FluidRuntimeId(1))),
+            new VoxelStructureChange(clear, null, FluidCell.Empty),
+        ]));
+        Assert.False(world.GetCellOrEmpty(blocked).IsEmpty);
+        Assert.True(world.GetCellOrEmpty(clear).IsEmpty);
+        Assert.Equal(FluidCell.Source(new FluidRuntimeId(1)),
+            world.GetFluidOrEmpty(fluid));
+        Assert.True(updates.HasWork);
+    }
+
+    [Fact]
     public void NoOpBlockEditDoesNotWakeDerivedSystemsAgain()
     {
         var world = new VoxelWorld();
