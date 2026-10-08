@@ -31,14 +31,14 @@
           "asteria:stone_cobble"
         ],
         "detailScale": 13,
-        "selectionScale": 105,
+        "selectionScale": 48,
         "warpScale": 91,
         "warpStrength": 16,
         "stretchZ": 1.65,
         "weights": {
-          "asteria:gravel": 5,
+          "asteria:gravel": 2,
           "asteria:clay": 2,
-          "asteria:stone_cobble": 1
+          "asteria:stone_cobble": 2
         }
       }
     },
