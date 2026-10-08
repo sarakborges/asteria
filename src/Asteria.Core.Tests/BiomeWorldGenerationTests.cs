@@ -933,6 +933,139 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
+    public void WeightedSurfacePatchesStayDeterministicAndPreserveScalarColumnParity()
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition("asteria:grass_block"),
+            new BlockDefinition("asteria:mud"),
+            new BlockDefinition("asteria:gravel"),
+            new BlockDefinition("asteria:stone"),
+        ]);
+
+        BiomeDefinition PatchBiome(
+            IReadOnlyDictionary<string, double>? weights = null,
+            double warp = 0d,
+            double stretch = 1d) =>
+            new(
+                "asteria:test/weighted",
+                new BiomeSurfaceLayoutDefinition(),
+                new BiomeTerrainDefinition(0, 0, 64, 0, 32),
+                [
+                    new BiomeSurfaceLayerDefinition(
+                        "asteria:grass_block", 1,
+                        new BiomeSurfacePatchDefinition(
+                            36, 1f, 0.25f,
+                            ["asteria:mud", "asteria:gravel"],
+                            detailScale: 11,
+                            selectionScale: 48,
+                            warpScale: 52,
+                            warpStrength: warp,
+                            stretchZ: stretch,
+                            weights: weights)),
+                    new BiomeSurfaceLayerDefinition("asteria:stone"),
+                ]);
+        var uniform = new BiomeSurfaceMaterialField(
+            47, [PatchBiome()], blocks);
+        var weighted = new BiomeSurfaceMaterialField(
+            47,
+            [PatchBiome(new Dictionary<string, double>
+            {
+                ["asteria:mud"] = 9d,
+                ["asteria:gravel"] = 1d,
+            })],
+            blocks);
+        var warped = new BiomeSurfaceMaterialField(
+            47, [PatchBiome(warp: 14d, stretch: 1.7d)], blocks);
+        var sample = new BiomeSample(
+            "asteria:test/weighted",
+            [new BiomeInfluence("asteria:test/weighted", 1f)]);
+        var gravel = blocks.GetId("asteria:gravel");
+        var weightedGravel = 0;
+        var uniformGravel = 0;
+        var changedByWarp = 0;
+
+        for (var z = -96; z <= 96; z += 4)
+        {
+            for (var x = -96; x <= 96; x += 4)
+            {
+                var original = uniform.BlockAt(sample, x, z, 0);
+                var chosen = weighted.BlockAt(sample, x, z, 0);
+                var distorted = warped.BlockAt(sample, x, z, 0);
+                if (chosen == gravel)
+                {
+                    Assert.Equal(gravel, original);
+                    weightedGravel++;
+                }
+
+                uniformGravel += original == gravel ? 1 : 0;
+                changedByWarp += original != distorted ? 1 : 0;
+                Assert.Equal(chosen,
+                    weighted.SampleColumn(sample, x, z).BlockAt(0));
+            }
+        }
+
+        Assert.True(weightedGravel < uniformGravel);
+        Assert.True(changedByWarp > 0);
+    }
+
+    [Fact]
+    public void SurfacePatchShapeAndWeightsParseAndValidate()
+    {
+        var biome = BiomeDefinitionJson.Parse(
+            """
+            {
+              "id":"asteria:test/patch",
+              "surfaceLayout":{},
+              "surfaceTerrain":{
+                "baseHeightOffset":0,"macroAmplitude":0,
+                "macroScale":64,"detailAmplitude":0,"detailScale":32
+              },
+              "surfaceLayers":[
+                {"block":"asteria:grass_block","depth":1,
+                 "patch":{"scale":32,"coverage":0.5,"roughness":0.2,
+                          "detailScale":9,"selectionScale":64,
+                          "warpScale":60,"warpStrength":12,"stretchZ":1.5,
+                          "blocks":["asteria:mud","asteria:gravel"],
+                          "weights":{"asteria:mud":4,"asteria:gravel":1}}},
+                {"block":"asteria:stone"}
+              ]
+            }
+            """);
+
+        var patch = biome.SurfaceLayers[0].Patch!;
+        Assert.Equal(9u, patch.DetailScale);
+        Assert.Equal(64u, patch.SelectionScale);
+        Assert.Equal(60u, patch.WarpScale);
+        Assert.Equal(12d, patch.WarpStrength);
+        Assert.Equal(1.5d, patch.StretchZ);
+        Assert.Equal(new[] { 4d, 1d }, patch.BlockWeights);
+
+        Assert.ThrowsAny<ArgumentException>(() =>
+            new BiomeSurfacePatchDefinition(
+                32, 0.5f, 0.2f, ["asteria:mud"],
+                weights: new Dictionary<string, double>
+                {
+                    ["asteria:unknown"] = 2d,
+                }));
+        Assert.ThrowsAny<ArgumentException>(() =>
+            new BiomeSurfacePatchDefinition(
+                32, 0.5f, 0.2f, ["asteria:mud"],
+                weights: new Dictionary<string, double>
+                {
+                    ["asteria:mud"] = double.NaN,
+                }));
+        Assert.ThrowsAny<ArgumentException>(() =>
+            new BiomeSurfacePatchDefinition(
+                32, 0.5f, 0.2f, ["asteria:mud"],
+                stretchZ: 0d));
+        Assert.ThrowsAny<ArgumentException>(() =>
+            new BiomeSurfacePatchDefinition(
+                32, 0.5f, 0.2f, ["asteria:mud"],
+                detailScale: 1));
+    }
+
+    [Fact]
     public void SurfacePatchUsesOrganicDeterministicWorldSpaceNoise()
     {
         var blocks =
