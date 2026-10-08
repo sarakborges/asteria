@@ -516,17 +516,9 @@ public sealed class DimensionRuntimeSession
         !_retiring && !_retired &&
         _state.StorageBoxes.TryOpen(position, World, Blocks);
 
-    public bool TryClickStorageBox(int index, PlayerInventory player)
-    {
-        if (_retiring || _retired ||
-            _state.StorageBoxes.ActivePosition is not { } position ||
-            !World.IsLoadedAt(position) ||
-            Blocks.GetDefinition(World.GetCellOrEmpty(position).Block).Id !=
-                "asteria:storage_box")
-            return false;
-
-        return _state.StorageBoxes.TryClickActive(index, player);
-    }
+    public bool TryClickStorageBox(int index, PlayerInventory player) =>
+        !_retiring && !_retired &&
+        _state.StorageBoxes.TryClickActive(index, player, World, Blocks);
 
     public void CloseStorageBox() => _state.StorageBoxes.Close();
 
