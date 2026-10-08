@@ -16,21 +16,26 @@
     ]
   },
   "surfaceTerrain": {
-    "type": "swamp",
+    "type": "rolling",
     "baseHeight": 0.9,
-    "depth": 4.8,
     "amplitude": 0.7,
     "scale": 0.0065,
     "detailAmplitude": 0.4,
     "detailScale": 0.045,
     "influenceMode": "lowerOnly",
     "fillToSeaLevel": true,
-    "pondBroadScaleMultiplier": 3.2,
-    "pondDetailScaleMultiplier": 0.85,
-    "pondBroadWeight": 0.66,
-    "pondBias": 0.05,
-    "pondTransitionWidth": 0.42,
-    "pondSharpness": 0.82
+    "modifiers": [
+      {
+        "type": "depressions",
+        "depth": 4.8,
+        "broadScale": 0.0208,
+        "detailScale": 0.03825,
+        "broadWeight": 0.66,
+        "bias": 0.05,
+        "transitionWidth": 0.42,
+        "sharpness": 0.82
+      }
+    ]
   },
   "surfaceLayers": [
     {

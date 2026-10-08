@@ -15,7 +15,7 @@
     ]
   },
   "surfaceTerrain": {
-    "type": "gorge",
+    "type": "valley",
     "baseHeight": 18,
     "depth": 42,
     "wallHeight": 20,

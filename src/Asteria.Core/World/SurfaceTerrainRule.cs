@@ -87,18 +87,10 @@ internal sealed class SurfaceTerrainRule
                         RollingHeight(seed, x, z, rolling),
                     BiomeDunesTerrainShapeDefinition dunes =>
                         DunesHeight(seed, x, z, dunes),
-                    BiomeOceanTerrainShapeDefinition ocean =>
-                        OceanHeight(seed, x, z, ocean),
-                    BiomeSwampTerrainShapeDefinition swamp =>
-                        SwampHeight(seed, x, z, strength, swamp),
-                    BiomeMountainsTerrainShapeDefinition mountains =>
-                        MountainsHeight(seed, x, z, mountains),
-                    BiomeGorgeTerrainShapeDefinition gorge =>
-                        GorgeHeight(seed, x, z, strength, gorge),
-                    BiomeAlpsTerrainShapeDefinition alps =>
-                        AlpsHeight(seed, x, z, alps),
-                    BiomeMountainBeltTerrainShapeDefinition belt =>
-                        MountainBeltHeight(seed, x, z, belt),
+                    BiomeRidgesTerrainShapeDefinition ridges =>
+                        RidgesHeight(seed, x, z, ridges),
+                    BiomeValleyTerrainShapeDefinition valley =>
+                        ValleyHeight(seed, x, z, strength, valley),
                     _ => throw new InvalidOperationException(
                         $"Unsupported terrain shape for {_biomeId}."),
                 };
@@ -119,6 +111,7 @@ internal sealed class SurfaceTerrainRule
                     x,
                     z,
                     index,
+                    strength,
                     _modifiers[index]);
         }
 
@@ -241,252 +234,81 @@ internal sealed class SurfaceTerrainRule
                terrain.DetailAmplitude;
     }
 
-    private double OceanHeight(
+    private double RidgesHeight(
         ulong seed,
         int x,
         int z,
-        BiomeOceanTerrainShapeDefinition terrain) =>
-        -terrain.Depth +
-        Fractal(
-            seed,
-            _macroDomain,
-            x,
-            z,
-            terrain.Scale) *
-        terrain.Amplitude +
-        Fractal(
-            seed,
-            _detailDomain,
-            x,
-            z,
-            terrain.DetailScale) *
-        terrain.DetailAmplitude;
+        BiomeRidgesTerrainShapeDefinition terrain)
+    {
+        var broad = Fractal(seed, _macroDomain, x, z, terrain.Scale);
+        var ridge = Math.Pow(
+            Math.Clamp(1d - Math.Abs(broad), 0d, 1d),
+            terrain.Sharpness);
+        if (terrain.DetailAmplitude == 0f)
+        {
+            return terrain.BaseHeight + ridge * terrain.Amplitude;
+        }
 
-    private double SwampHeight(
+        var detail = Fractal(seed, _detailDomain, x, z, terrain.DetailScale);
+        var detailShape = terrain.DetailMode switch
+        {
+            BiomeRidgeDetailMode.Ridged => Math.Pow(
+                Math.Clamp(1d - Math.Abs(detail), 0d, 1d),
+                terrain.DetailSharpness),
+            BiomeRidgeDetailMode.Modulated => detail * ridge,
+            _ => throw new InvalidOperationException(
+                $"Unsupported ridge detail mode for {_biomeId}."),
+        };
+        return terrain.BaseHeight +
+               ridge * terrain.Amplitude +
+               detailShape * terrain.DetailAmplitude;
+    }
+
+    private double ValleyHeight(
         ulong seed,
         int x,
         int z,
         double terrainStrength,
-        BiomeSwampTerrainShapeDefinition terrain)
+        BiomeValleyTerrainShapeDefinition terrain)
     {
-        var strength =
-            WorldGenerationEntropy
-                .SmoothStep(
-                    terrainStrength);
-        var broad =
-            Fractal(
-                seed,
-                _macroDomain,
-                x,
-                z,
-                terrain.Scale);
-        var detail =
-            Fractal(
-                seed,
-                _detailDomain,
-                x,
-                z,
-                terrain.DetailScale);
-        var pondBroad =
-            Fractal(
-                seed,
-                _secondaryDomain,
-                x,
-                z,
-                terrain.Scale *
-                terrain.PondBroadScaleMultiplier);
-        var pondDetail =
-            Fractal(
-                seed,
-                _craterDomain,
-                x,
-                z,
-                terrain.DetailScale *
-                terrain.PondDetailScaleMultiplier);
-        var pondSignal =
-            pondBroad *
-            terrain.PondBroadWeight +
-            pondDetail *
-            (1d - terrain.PondBroadWeight);
-        var pondStrength =
-            Math.Pow(
-                WorldGenerationEntropy
-                    .SmoothStep(
-                        Math.Clamp(
-                            (pondSignal + terrain.PondBias) /
-                            terrain.PondTransitionWidth,
-                            0d,
-                            1d)),
-                terrain.PondSharpness);
-
-        return terrain.BaseHeight -
-               terrain.Depth *
-               strength *
-               pondStrength +
-               broad *
-               terrain.Amplitude +
-               detail *
-               terrain.DetailAmplitude;
-    }
-
-    private double MountainsHeight(
-        ulong seed,
-        int x,
-        int z,
-        BiomeMountainsTerrainShapeDefinition terrain)
-    {
-        var noise =
-            Fractal(
-                seed,
-                _macroDomain,
-                x,
-                z,
-                terrain.Scale);
-        var ridge =
-            Math.Pow(
-                Math.Clamp(
-                    1d -
-                    Math.Abs(
-                        noise),
-                    0d,
-                    1d),
-                terrain.Sharpness);
-
+        var strength = WorldGenerationEntropy.SmoothStep(terrainStrength);
+        var topNoise = Fractal(seed, _macroDomain, x, z, terrain.TopScale);
+        var floorNoise = Fractal(seed, _detailDomain, x, z, terrain.FloorScale);
+        var rimShape = Math.Pow(1d - strength, terrain.RimFalloff);
+        var floorShape = Math.Pow(strength, terrain.FloorFalloff);
         return terrain.BaseHeight +
-               ridge *
-               terrain.Amplitude;
+               terrain.WallHeight * (1d - strength) +
+               topNoise * terrain.TopAmplitude * rimShape -
+               terrain.Depth * strength +
+               floorNoise * terrain.FloorAmplitude * floorShape;
     }
 
-    private double GorgeHeight(
+    private double DepressionsHeight(
         ulong seed,
         int x,
         int z,
+        int index,
         double terrainStrength,
-        BiomeGorgeTerrainShapeDefinition terrain)
+        BiomeDepressionsTerrainModifierDefinition definition)
     {
-        var strength =
-            WorldGenerationEntropy
-                .SmoothStep(
-                    terrainStrength);
-        var topNoise =
-            Fractal(
-                seed,
-                _macroDomain,
-                x,
-                z,
-                terrain.TopScale);
-        var floorNoise =
-            Fractal(
-                seed,
-                _detailDomain,
-                x,
-                z,
-                terrain.FloorScale);
-        var rimShape =
-            Math.Pow(
-                1d -
-                strength,
-                terrain.RimFalloff);
-        var floorShape =
-            Math.Pow(
-                strength,
-                terrain.FloorFalloff);
-
-        return terrain.BaseHeight +
-               terrain.WallHeight *
-               (1d - strength) +
-               topNoise *
-               terrain.TopAmplitude *
-               rimShape -
-               terrain.Depth *
-               strength +
-               floorNoise *
-               terrain.FloorAmplitude *
-               floorShape;
-    }
-
-    private double AlpsHeight(
-        ulong seed,
-        int x,
-        int z,
-        BiomeAlpsTerrainShapeDefinition terrain)
-    {
-        var broad =
-            Fractal(
-                seed,
-                _macroDomain,
-                x,
-                z,
-                terrain.Scale);
-        var ridge =
-            Math.Pow(
+        var prefix = $"terrain/shape/modifier/{index}/depressions/v1/{_biomeId}";
+        var broadDomain = GenerationDomain.Named(prefix + "/broad");
+        var detailDomain = GenerationDomain.Named(prefix + "/detail");
+        var broad = Fractal(seed, broadDomain, x, z, definition.BroadScale);
+        var detail = Fractal(seed, detailDomain, x, z, definition.DetailScale);
+        var signal =
+            broad * definition.BroadWeight +
+            detail * (1d - definition.BroadWeight);
+        var depressionStrength = Math.Pow(
+            WorldGenerationEntropy.SmoothStep(
                 Math.Clamp(
-                    1d -
-                    Math.Abs(
-                        broad),
+                    (signal + definition.Bias) / definition.TransitionWidth,
                     0d,
-                    1d),
-                terrain.Sharpness);
-        var detail =
-            Fractal(
-                seed,
-                _detailDomain,
-                x,
-                z,
-                terrain.DetailScale);
-        var jagged =
-            Math.Pow(
-                Math.Clamp(
-                    1d -
-                    Math.Abs(
-                        detail),
-                    0d,
-                    1d),
-                terrain.DetailSharpness);
-
-        return terrain.BaseHeight +
-               ridge *
-               terrain.Amplitude +
-               jagged *
-               terrain.DetailAmplitude;
-    }
-
-    private double MountainBeltHeight(
-        ulong seed,
-        int x,
-        int z,
-        BiomeMountainBeltTerrainShapeDefinition terrain)
-    {
-        var broad =
-            Fractal(
-                seed,
-                _macroDomain,
-                x,
-                z,
-                terrain.Scale);
-        var ridge =
-            Math.Pow(
-                Math.Clamp(
-                    1d -
-                    Math.Abs(
-                        broad),
-                    0d,
-                    1d),
-                terrain.Sharpness);
-        var detail =
-            Fractal(
-                seed,
-                _detailDomain,
-                x,
-                z,
-                terrain.DetailScale);
-
-        return terrain.BaseHeight +
-               ridge *
-               terrain.Amplitude +
-               detail *
-               terrain.DetailAmplitude *
-               ridge;
+                    1d)),
+            definition.Sharpness);
+        return -definition.Depth *
+               WorldGenerationEntropy.SmoothStep(terrainStrength) *
+               depressionStrength;
     }
 
     private double ConeStrength(
@@ -537,8 +359,14 @@ internal sealed class SurfaceTerrainRule
         int x,
         int z,
         int index,
+        double terrainStrength,
         BiomeTerrainModifierDefinition modifier)
     {
+        if (modifier is BiomeDepressionsTerrainModifierDefinition depressions)
+        {
+            return DepressionsHeight(seed, x, z, index, terrainStrength, depressions);
+        }
+
         if (modifier is
             BiomeHeightOffsetTerrainModifierDefinition heightOffset)
         {

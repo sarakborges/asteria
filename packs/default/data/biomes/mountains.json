@@ -15,7 +15,7 @@
     ]
   },
   "surfaceTerrain": {
-    "type": "mountains",
+    "type": "ridges",
     "baseHeight": 8,
     "amplitude": 48,
     "scale": 0.0115,

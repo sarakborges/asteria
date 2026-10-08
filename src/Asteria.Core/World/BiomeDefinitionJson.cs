@@ -177,35 +177,18 @@ public static class BiomeDefinitionJson
                         OptionalSingle(value, "waveDirectionZ") ?? 0.35f,
                         OptionalSingle(value, "broadScaleMultiplier") ?? 0.55f,
                         OptionalSingle(value, "waveWeight") ?? 0.72f),
-                "ocean" =>
-                    new BiomeOceanTerrainShapeDefinition(
-                        RequiredSingle(value, "depth"),
-                        RequiredSingle(value, "amplitude"),
-                        RequiredSingle(value, "scale"),
-                        RequiredSingle(value, "detailAmplitude"),
-                        RequiredSingle(value, "detailScale")),
-                "swamp" =>
-                    new BiomeSwampTerrainShapeDefinition(
-                        RequiredSingle(value, "baseHeight"),
-                        RequiredSingle(value, "depth"),
-                        RequiredSingle(value, "amplitude"),
-                        RequiredSingle(value, "scale"),
-                        RequiredSingle(value, "detailAmplitude"),
-                        RequiredSingle(value, "detailScale"),
-                        OptionalSingle(value, "pondBroadScaleMultiplier") ?? 3.2f,
-                        OptionalSingle(value, "pondDetailScaleMultiplier") ?? 0.85f,
-                        OptionalSingle(value, "pondBroadWeight") ?? 0.66f,
-                        OptionalSingle(value, "pondBias") ?? 0.05f,
-                        OptionalSingle(value, "pondTransitionWidth") ?? 0.42f,
-                        OptionalSingle(value, "pondSharpness") ?? 0.82f),
-                "mountains" =>
-                    new BiomeMountainsTerrainShapeDefinition(
+                "ridges" =>
+                    new BiomeRidgesTerrainShapeDefinition(
                         RequiredSingle(value, "baseHeight"),
                         RequiredSingle(value, "amplitude"),
                         RequiredSingle(value, "scale"),
-                        RequiredSingle(value, "sharpness")),
-                "gorge" =>
-                    new BiomeGorgeTerrainShapeDefinition(
+                        RequiredSingle(value, "sharpness"),
+                        OptionalSingle(value, "detailAmplitude") ?? 0f,
+                        OptionalSingle(value, "detailScale") ?? 0.02f,
+                        ParseRidgeDetailMode(value),
+                        OptionalSingle(value, "detailSharpness") ?? 1.35f),
+                "valley" =>
+                    new BiomeValleyTerrainShapeDefinition(
                         RequiredSingle(value, "baseHeight"),
                         RequiredSingle(value, "depth"),
                         RequiredSingle(value, "wallHeight"),
@@ -215,23 +198,6 @@ public static class BiomeDefinitionJson
                         RequiredSingle(value, "floorScale"),
                         OptionalSingle(value, "rimFalloff") ?? 0.8f,
                         OptionalSingle(value, "floorFalloff") ?? 1.35f),
-                "alps" =>
-                    new BiomeAlpsTerrainShapeDefinition(
-                        RequiredSingle(value, "baseHeight"),
-                        RequiredSingle(value, "amplitude"),
-                        RequiredSingle(value, "scale"),
-                        RequiredSingle(value, "sharpness"),
-                        RequiredSingle(value, "detailAmplitude"),
-                        RequiredSingle(value, "detailScale"),
-                        OptionalSingle(value, "detailSharpness") ?? 1.35f),
-                "mountain_belt" =>
-                    new BiomeMountainBeltTerrainShapeDefinition(
-                        RequiredSingle(value, "baseHeight"),
-                        RequiredSingle(value, "amplitude"),
-                        RequiredSingle(value, "scale"),
-                        RequiredSingle(value, "sharpness"),
-                        RequiredSingle(value, "detailAmplitude"),
-                        RequiredSingle(value, "detailScale")),
                 "cone" =>
                     new BiomeConeTerrainShapeDefinition(
                         RequiredSingle(value, "baseHeight"),
@@ -252,6 +218,27 @@ public static class BiomeDefinitionJson
             ParseInfluencePolicy(value),
             ParseCrater(value),
             ParseFillToSeaLevel(value));
+    }
+
+    private static BiomeRidgeDetailMode ParseRidgeDetailMode(JsonElement terrain)
+    {
+        if (!terrain.TryGetProperty("detailMode", out var value))
+        {
+            return BiomeRidgeDetailMode.None;
+        }
+
+        if (value.ValueKind != JsonValueKind.String)
+        {
+            throw new FormatException("surfaceTerrain.detailMode must be a string.");
+        }
+
+        return value.GetString() switch
+        {
+            "none" => BiomeRidgeDetailMode.None,
+            "ridged" => BiomeRidgeDetailMode.Ridged,
+            "modulated" => BiomeRidgeDetailMode.Modulated,
+            _ => throw new FormatException("Unknown surfaceTerrain.detailMode."),
+        };
     }
 
     private static SurfaceHeightInfluencePolicy ParseInfluencePolicy(
@@ -372,6 +359,15 @@ public static class BiomeDefinitionJson
                     "height_offset" =>
                         new BiomeHeightOffsetTerrainModifierDefinition(
                             RequiredSingle(modifier, "height")),
+                    "depressions" =>
+                        new BiomeDepressionsTerrainModifierDefinition(
+                            RequiredSingle(modifier, "depth"),
+                            RequiredSingle(modifier, "broadScale"),
+                            RequiredSingle(modifier, "detailScale"),
+                            RequiredSingle(modifier, "broadWeight"),
+                            RequiredSingle(modifier, "bias"),
+                            RequiredSingle(modifier, "transitionWidth"),
+                            RequiredSingle(modifier, "sharpness")),
                     "cliffs" =>
                         new BiomeCliffsTerrainModifierDefinition(
                             RequiredSingle(modifier, "scale"),
