@@ -1,0 +1,8 @@
+{
+  "id": "asteria:foliage_layer",
+  "texture": "textures/blocks/grass/side_overlay.png",
+  "tint": "foliage",
+  "offset": 0.001,
+  "alphaCutoff": 0.5,
+  "castsShadow": false
+}

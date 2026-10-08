@@ -83,6 +83,7 @@ public partial class Main : Node3D
         _sessions.Active.Lighting;
 
     private BlockRegistry _blocks = null!;
+    private AttachedLayerRegistry _layers = null!;
     private PackContentRegistry<ItemDefinition> _items = null!;
     private PackContentRegistry<ToolDefinition> _tools = null!;
     private InventoryContentCatalog _inventoryCatalog = null!;
@@ -151,6 +152,7 @@ public partial class Main : Node3D
         _blocks =
             BlockContentLoader.LoadProjectBlocks(
                 _packSelection);
+        _layers = AttachedLayerContentLoader.LoadProjectLayers(_packSelection);
         _fluids =
             FluidContentLoader.LoadProjectFluids(
                 _packSelection);
@@ -204,6 +206,7 @@ public partial class Main : Node3D
         _terrainTextures =
             TerrainTextureCatalog.Create(
                 _blocks,
+                _layers,
                 _packSelection);
         _terrainTextureLookup =
             _terrainTextures.CreateLookup();
