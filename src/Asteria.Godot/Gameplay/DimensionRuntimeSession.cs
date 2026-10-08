@@ -394,11 +394,20 @@ public sealed class DimensionRuntimeSession
         }
     }
 
-    public bool TrySpawnCreature(string id, NVector3 feet)
+    public bool TrySpawnCreature(string id, NVector3 feet, bool noAi = false)
     {
-        if (_retiring || _retired || !Creatures.TrySpawn(id, feet, out _))
+        if (_retiring || _retired ||
+            !Creatures.TrySpawn(id, feet, out _, noAi))
             return false;
 
+        _creaturePresentation.Sync(Creatures.ActiveCreatures);
+        return true;
+    }
+
+    public bool TrySetCreatureNoAi(CreatureInstanceId id, bool enabled)
+    {
+        if (_retiring || _retired || !Creatures.TrySetNoAi(id, enabled))
+            return false;
         _creaturePresentation.Sync(Creatures.ActiveCreatures);
         return true;
     }
