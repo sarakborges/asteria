@@ -1,19 +1,10 @@
+import type { WorldSummaryView } from "../../../presentation/worldCatalogModels";
+export type { WorldSummaryView } from "../../../presentation/worldCatalogModels";
 import { useLocalization } from "../../../localization/LocalizationProvider";
 import { Button } from "../../atoms/Button/Button";
 import { Surface } from "../../atoms/Surface/Surface";
 import { Text } from "../../atoms/Text/Text";
 import "./WorldCard.css";
-
-export type WorldSummaryView = {
-  id: string;
-  lastSaved: string;
-  seed: string;
-  daysPassed: string;
-  sphere: string;
-  coordinates: string;
-  compatible: boolean;
-  thumbnailUrl?: string;
-};
 
 export type WorldCardProps = {
   world: WorldSummaryView;
