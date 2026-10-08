@@ -100,6 +100,16 @@ public static class ChunkMeshDataBuilder
                         continue;
                     }
 
+                    if (definition.Shape.Kind == BlockShapeKind.Spike &&
+                        !cell.HasMicroblockGeometry)
+                    {
+                        EmitSpike(
+                            surfaces, collision, world, blocks, textures,
+                            x, y, z, worldPosition, cell, definition,
+                            tintSamples);
+                        continue;
+                    }
+
                     if (!RequiresFineMeshing(
                             world,
                             blocks,
@@ -545,6 +555,78 @@ public static class ChunkMeshDataBuilder
             neighbor,
             neighborDefinition);
     }
+
+    private static void EmitSpike(
+        Dictionary<TerrainRenderBatch, List<ChunkMeshVertex>> surfaces,
+        List<Vector3> collision,
+        VoxelWorld world,
+        BlockRegistry blocks,
+        TerrainTextureLookup textures,
+        int x,
+        int y,
+        int z,
+        WorldVoxelCoord worldPosition,
+        VoxelCell cell,
+        BlockDefinition definition,
+        BiomeTintSampleGrid? tintSamples)
+    {
+        var shape = definition.Shape;
+        var material = ResolveFaceMaterial(
+            textures, definition, cell, BlockFace.Front);
+        var surface = GetSurface(
+            surfaces,
+            new TerrainRenderBatch(
+                definition.RenderMode, definition.CastsShadow));
+        var light = VoxelMeshLighting.SampleFace(
+            world, blocks, worldPosition, BlockFace.Front).Corner0;
+        var lighting = new VoxelFaceLighting(light, light, light, light);
+        var position = new Vector3(x + 0.5f, y, z + 0.5f);
+        var baseY = SpikeSegmentState.IsDown(cell.State)
+            ? worldPosition.Y + SpikeSegmentState.Index(cell.State)
+            : worldPosition.Y - SpikeSegmentState.Index(cell.State);
+        var angleEntropy = WorldGenerationEntropy.Sample3D(
+            0UL,
+            SpikeRotationDomain,
+            worldPosition.X,
+            baseY,
+            worldPosition.Z);
+        var angleOffset = (float)(
+            WorldGenerationEntropy.Unit(angleEntropy) * Math.PI * 2d);
+        var bottomRadius = SpikeSegmentState.RadiusAt(
+            shape, cell.State, 0f);
+        var topRadius = SpikeSegmentState.RadiusAt(
+            shape, cell.State, 1f);
+
+        Span<Vector3> quad = stackalloc Vector3[4];
+        for (var side = 0; side < shape.SpikeSides; side++)
+        {
+            var angle0 = angleOffset + side * MathF.Tau / shape.SpikeSides;
+            var angle1 = angleOffset + (side + 1) * MathF.Tau / shape.SpikeSides;
+            var c0 = MathF.Cos(angle0);
+            var s0 = MathF.Sin(angle0);
+            var c1 = MathF.Cos(angle1);
+            var s1 = MathF.Sin(angle1);
+            quad[0] = position + new Vector3(c1 * bottomRadius, 0f, s1 * bottomRadius);
+            quad[1] = position + new Vector3(c1 * topRadius, 1f, s1 * topRadius);
+            quad[2] = position + new Vector3(c0 * topRadius, 1f, s0 * topRadius);
+            quad[3] = position + new Vector3(c0 * bottomRadius, 0f, s0 * bottomRadius);
+            var normal = Vector3.Cross(quad[2] - quad[0], quad[1] - quad[0]);
+            if (normal.LengthSquared() < 1e-7f)
+                continue;
+            normal = Vector3.Normalize(normal);
+            EmitQuadVertices(
+                surface, collision, quad, normal, BlockFace.Front,
+                material, cell.TextureRotation, lighting,
+                definition.IsCollidable, false,
+                uvOrigin: new Vector3(x, y, z),
+                worldOriginX: worldPosition.X - x,
+                worldOriginZ: worldPosition.Z - z,
+                tintSamples: tintSamples);
+        }
+    }
+
+    private static readonly GenerationDomain SpikeRotationDomain =
+        GenerationDomain.Named("terrain/mesh/spike/rotation/v1");
 
     private static void EmitCrossedSprite(
         Dictionary<TerrainRenderBatch, List<ChunkMeshVertex>> surfaces,

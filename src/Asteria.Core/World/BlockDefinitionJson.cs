@@ -138,6 +138,10 @@ public static class BlockDefinitionJson
         return RequiredString(shape, "type") switch
         {
             "cube" => BlockShapeDefinition.Cube,
+            "spike" => BlockShapeDefinition.Spike(
+                OptionalSingle(shape, "baseRadius") ?? 0.46f,
+                OptionalSingle(shape, "tipRadius") ?? 0.025f,
+                OptionalInt32(shape, "sides") ?? 6),
             "layer" => ParseLayerShape(shape),
             "hollow" => BlockShapeDefinition.Hollow(
                 OptionalSingle(shape, "wallThickness") ?? (1f / 16f)),

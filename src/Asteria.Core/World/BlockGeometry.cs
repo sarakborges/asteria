@@ -256,6 +256,8 @@ public static class BlockGeometry
             BlockShapeKind.Cube => true,
             BlockShapeKind.Layer => LayerContains(definition.Shape, sourceY),
             BlockShapeKind.Hollow => HollowContains(definition.Shape, sourceX, sourceZ),
+            BlockShapeKind.Spike => SpikeContains(
+                definition.Shape, cell.State, sourceX, sourceY, sourceZ),
             _ => throw new ArgumentOutOfRangeException(nameof(definition), definition.Shape.Kind, "Unknown block shape."),
         };
     }
@@ -326,6 +328,20 @@ public static class BlockGeometry
                sourceX >= Resolution - wall ||
                sourceZ < wall ||
                sourceZ >= Resolution - wall;
+    }
+
+    private static bool SpikeContains(
+        BlockShapeDefinition shape,
+        ushort state,
+        int x,
+        int y,
+        int z)
+    {
+        var radius = SpikeSegmentState.RadiusAt(
+            shape, state, (y + 0.5f) / Resolution);
+        var dx = (x + 0.5f) / Resolution - 0.5f;
+        var dz = (z + 0.5f) / Resolution - 0.5f;
+        return dx * dx + dz * dz <= radius * radius;
     }
 
     private static (int X, int Y, int Z) ToSourceCoordinates(

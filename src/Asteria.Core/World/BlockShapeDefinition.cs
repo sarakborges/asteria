@@ -5,6 +5,7 @@ public enum BlockShapeKind : byte
     Cube = 0,
     Layer = 1,
     Hollow = 2,
+    Spike = 3,
 }
 
 public enum BlockLayerPlacement : byte
@@ -20,13 +21,19 @@ public sealed class BlockShapeDefinition
         float thickness,
         BlockLayerPlacement layerPlacement,
         string? stackToBlockId,
-        float wallThickness)
+        float wallThickness,
+        float spikeBaseRadius = 0f,
+        float spikeTipRadius = 0f,
+        int spikeSides = 0)
     {
         Kind = kind;
         Thickness = thickness;
         LayerPlacement = layerPlacement;
         StackToBlockId = stackToBlockId;
         WallThickness = wallThickness;
+        SpikeBaseRadius = spikeBaseRadius;
+        SpikeTipRadius = spikeTipRadius;
+        SpikeSides = spikeSides;
     }
 
     public BlockShapeKind Kind { get; }
@@ -38,6 +45,9 @@ public sealed class BlockShapeDefinition
     public string? StackToBlockId { get; }
 
     public float WallThickness { get; }
+    public float SpikeBaseRadius { get; }
+    public float SpikeTipRadius { get; }
+    public int SpikeSides { get; }
 
     public bool IsStackableLayer =>
         Kind == BlockShapeKind.Layer &&
@@ -89,6 +99,29 @@ public sealed class BlockShapeDefinition
             BlockLayerPlacement.Surface,
             null,
             wallThickness);
+    }
+
+    public static BlockShapeDefinition Spike(
+        float baseRadius = 0.46f,
+        float tipRadius = 0.025f,
+        int sides = 6)
+    {
+        if (!float.IsFinite(baseRadius) ||
+            !float.IsFinite(tipRadius) ||
+            baseRadius is <= 0f or > 0.5f ||
+            tipRadius < 0f ||
+            tipRadius >= baseRadius ||
+            sides is < 4 or > 12)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(baseRadius),
+                "Spikes require 4..12 sides and 0 <= tip radius < base radius <= 0.5.");
+        }
+
+        return new BlockShapeDefinition(
+            BlockShapeKind.Spike, 1f,
+            BlockLayerPlacement.Surface, null, 0f,
+            baseRadius, tipRadius, sides);
     }
 
     private static void ValidateThickness(float thickness)
