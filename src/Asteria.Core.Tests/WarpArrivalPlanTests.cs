@@ -54,11 +54,19 @@ public sealed class WarpArrivalPlanTests
     public void PhaseTransitionsAreExplicitAndCannotSkipSafetySteps()
     {
         var initial = Requested();
-        Assert.Throws<InvalidOperationException>(initial.BeginReturn);
+        Assert.Throws<InvalidOperationException>(() =>
+        {
+            _ = initial.BeginReturn();
+        });
         var destinationRetry = initial.RetryAtGeneratedSpawn();
-        Assert.Throws<InvalidOperationException>(
-            destinationRetry.RetryAtGeneratedSpawn);
+        Assert.Throws<InvalidOperationException>(() =>
+        {
+            _ = destinationRetry.RetryAtGeneratedSpawn();
+        });
         var returning = destinationRetry.BeginReturn();
-        Assert.Throws<InvalidOperationException>(returning.BeginReturn);
+        Assert.Throws<InvalidOperationException>(() =>
+        {
+            _ = returning.BeginReturn();
+        });
     }
 }
