@@ -4,8 +4,8 @@ using System.Text.Json;
 namespace Asteria.Core.World;
 
 /// <summary>
-/// Read-only discovery of complete on-disk world candidates. Discovery does
-/// not imply that the current runtime can restore a save.
+/// Read-only discovery of world manifests on disk. Discovery is not a
+/// snapshot or proof that the current runtime can restore the world.
 /// </summary>
 public static class WorldSaveCatalog
 {
@@ -21,8 +21,8 @@ public static class WorldSaveCatalog
             return Array.Empty<WorldSaveSummary>();
 
         var directories = Directory.EnumerateDirectories(worldsDirectory)
-            .OrderBy(path => Path.GetFileName(path), StringComparer.Ordinal)
             .Take(MaxWorlds + 1)
+            .OrderBy(path => Path.GetFileName(path), StringComparer.Ordinal)
             .ToArray();
 
         if (directories.Length > MaxWorlds)
@@ -55,7 +55,13 @@ public static class WorldSaveCatalog
                     continue;
                 }
 
-                using var document = JsonDocument.Parse(File.ReadAllText(path));
+                using var stream = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+                if (stream.Length > MaxManifestBytes || stream.Length == 0)
+                {
+                    entries.Add(entry);
+                    continue;
+                }
+                using var document = JsonDocument.Parse(stream);
                 var root = document.RootElement;
                 if (root.ValueKind != JsonValueKind.Object ||
                     !root.TryGetProperty("formatVersion", out var version) ||
