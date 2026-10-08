@@ -68,6 +68,45 @@ public sealed class DimensionSessionStateTests
     }
 
     [Fact]
+    public void StorageBoxesStayWithTheirSphereAcrossChunkArchival()
+    {
+        var dimensions = new DimensionRegistry(
+        [
+            Dimension("asteria:overworld"),
+            Dimension("asteria:umbral"),
+        ]);
+        var states = new DimensionSessionStateStore(77UL, dimensions);
+        var overworld = states.GetOrCreate(
+            new DimensionId("asteria:overworld"));
+        var umbral = states.GetOrCreate(
+            new DimensionId("asteria:umbral"));
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition("asteria:storage_box"),
+        ]);
+        var position = new WorldVoxelCoord(3, 6, 3);
+        overworld.World.InsertChunk(ChunkCoord.Zero, new Chunk());
+        Assert.True(overworld.World.SetBlockAt(position,
+            blocks.GetId("asteria:storage_box"), out _));
+        Assert.True(overworld.StorageBoxes.TryOpen(
+            position, overworld.World, blocks));
+        Assert.True(overworld.StorageBoxes.TryInsertActive(
+            new InventoryStack(InventoryEntry.FromItem("asteria:wood"), 5)));
+        overworld.StorageBoxes.Close();
+
+        overworld.ArchiveResidentWorld();
+        Assert.Equal(ChunkRestoreResult.Restored,
+            overworld.World.RestoreChunk(ChunkCoord.Zero));
+
+        var restored = states.GetOrCreate(new DimensionId("asteria:overworld"));
+        Assert.Same(overworld.StorageBoxes, restored.StorageBoxes);
+        var stored = Assert.Single(restored.StorageBoxes.CaptureOccupied());
+        Assert.Equal(position, stored.Position);
+        Assert.Equal(5, stored.Slots[0]!.Quantity);
+        Assert.Empty(umbral.StorageBoxes.CaptureOccupied());
+    }
+
+    [Fact]
     public void RetiredDimensionArchivesDirtyAndPristineMaterializedChunks()
     {
         var dimensions =
