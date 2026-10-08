@@ -52,6 +52,7 @@ public sealed class ManualStructurePlacementRuntime
         // Insertion order represents worldgen's authored piece precedence.
         // A later overlapping piece deterministically wins at that voxel.
         var staged = new Dictionary<WorldVoxelCoord, VoxelStructureChange>();
+        var claimed = new HashSet<WorldVoxelCoord>();
         foreach (var placement in placements)
         {
             foreach (var tuple in placement.PayloadPositions())
@@ -87,14 +88,22 @@ public sealed class ManualStructurePlacementRuntime
             foreach (var voxel in placement.ClearVoxels)
             {
                 var at = new WorldVoxelCoord(voxel.X, voxel.Y, voxel.Z);
+                if (placement.Generation.ReplacePolicy != StructureReplacePolicy.Any &&
+                    !claimed.Add(at))
+                    continue;
+                claimed.Add(at);
                 staged[at] = new VoxelStructureChange(at, null, FluidCell.Empty);
             }
 
             foreach (var voxel in placement.Voxels)
             {
+                var at = new WorldVoxelCoord(voxel.X, voxel.Y, voxel.Z);
+                if (placement.Generation.ReplacePolicy != StructureReplacePolicy.Any &&
+                    !claimed.Add(at))
+                    continue;
                 if (Intersects(playerBounds, voxel.X, voxel.Y, voxel.Z))
                     return ManualStructurePlacementResult.PlayerCollision;
-                var at = new WorldVoxelCoord(voxel.X, voxel.Y, voxel.Z);
+                claimed.Add(at);
                 staged[at] = new VoxelStructureChange(
                     at, new BlockStateSnapshot(
                         voxel.Cell, voxel.Mask, voxel.Surface), FluidCell.Empty);
@@ -102,9 +111,13 @@ public sealed class ManualStructurePlacementRuntime
 
             foreach (var voxel in placement.FluidVoxels)
             {
+                var at = new WorldVoxelCoord(voxel.X, voxel.Y, voxel.Z);
+                if (placement.Generation.ReplacePolicy != StructureReplacePolicy.Any &&
+                    !claimed.Add(at))
+                    continue;
                 if (Intersects(playerBounds, voxel.X, voxel.Y, voxel.Z))
                     return ManualStructurePlacementResult.PlayerCollision;
-                var at = new WorldVoxelCoord(voxel.X, voxel.Y, voxel.Z);
+                claimed.Add(at);
                 staged[at] = new VoxelStructureChange(at, null, voxel.Fluid);
             }
         }
