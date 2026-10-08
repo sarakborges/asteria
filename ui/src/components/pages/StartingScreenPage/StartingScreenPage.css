@@ -41,27 +41,7 @@
   width: min(var(--ui-menu-button-width), 100%);
 }
 
-.starting-screen__language {
-  position: absolute;
-  z-index: 2;
-  left: 20px;
-  bottom: 16px;
-  display: flex;
-  gap: var(--ui-space-2);
-  align-items: center;
-  font-size: var(--ui-font-size-caption);
-}
-
-.starting-screen__language .ui-select {
-  width: 180px;
-}
-
 @media (max-height: 600px) {
   .starting-screen__logo { max-height: 160px; }
   .starting-screen__brand { margin-bottom: 8px; }
-}
-
-@media (max-width: 480px) {
-  .starting-screen__language { left: 12px; bottom: 8px; }
-  .starting-screen__language .ui-select { width: 148px; }
 }

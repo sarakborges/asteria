@@ -1,6 +1,5 @@
 import { useLocalization } from "../../../localization/LocalizationProvider";
 import { Button } from "../../atoms/Button/Button";
-import { Select } from "../../atoms/Select/Select";
 import { CosmicBackground } from "../../organisms/CosmicBackground/CosmicBackground";
 import "./StartingScreenPage.css";
 
@@ -26,7 +25,7 @@ export function StartingScreenPage({
   onControls,
   onExit,
 }: StartingScreenPageProps) {
-  const { t, language, setLanguage, languages } = useLocalization();
+  const { t } = useLocalization();
   return (
     <main className="starting-screen">
       <CosmicBackground />
@@ -63,24 +62,6 @@ export function StartingScreenPage({
           onClick={onExit}
         />
       </section>
-      <div className="starting-screen__language">
-        <span>{t("starting.language")}</span>
-        <Select
-          ariaLabel={t("starting.language")}
-          value={language}
-          options={languages.map((option) => ({
-            value: option,
-            label: t(
-              option === "portuguese_brazil"
-                ? "language.portugueseBrazil"
-                : "language." + option,
-            ),
-          }))}
-          onChange={(event) =>
-            setLanguage(event.target.value as typeof language)
-          }
-        />
-      </div>
     </main>
   );
 }

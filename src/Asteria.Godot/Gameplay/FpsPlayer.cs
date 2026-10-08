@@ -32,8 +32,6 @@ public partial class FpsPlayer : CharacterBody3D
     public event Action? BreakRequested;
     public event Action? PlaceRequested;
     public event Action? ToolActionRequested;
-    public event Action? InventoryRequested;
-    public event Action? ChatRequested;
     public event Action? DropItemRequested;
     public event Action<int>? HotbarSlotRequested;
     public event Action? FlightStateChanged;
@@ -446,14 +444,6 @@ public partial class FpsPlayer : CharacterBody3D
         {
             if (code is >= Key.Key1 and <= Key.Key9)
                 HotbarSlotRequested?.Invoke((int)code - (int)Key.Key1);
-
-            if (GameplayKeyMap.Matches(
-                    key, InputPreferences, KeybindAction.Inventory))
-                InventoryRequested?.Invoke();
-
-            if (GameplayKeyMap.Matches(
-                    key, InputPreferences, KeybindAction.Chat))
-                ChatRequested?.Invoke();
 
             if (GameplayKeyMap.Matches(
                     key, InputPreferences, KeybindAction.DropItem))
