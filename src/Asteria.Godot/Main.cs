@@ -134,6 +134,7 @@ public partial class Main : Node3D
     private bool _worldReadySent;
     private bool _inventoryOpen;
     private readonly PlayerChatSession _chat = new();
+    private readonly ChatLocateController _chatLocate = new();
     private double _chatFeedbackSeconds;
     private bool _brushPaletteOpen;
     private int _publishedMiningStage = -1;
@@ -380,6 +381,7 @@ public partial class Main : Node3D
     public override void _Process(double delta)
     {
         PollWorldCatalog();
+        PollChatLocate();
         AdvanceChatPresentation(delta);
         if (_worldSeed is null)
         {
@@ -2066,46 +2068,52 @@ public partial class Main : Node3D
             return;
         }
 
-        var origin = _player.GlobalPosition;
-        var x = Mathf.FloorToInt(origin.X);
-        var z = Mathf.FloorToInt(origin.Z);
-        const int maxDistance = 512;
-        if (command.Kind == ChatCommandKind.LocateBiome)
+        if (command.Kind == ChatCommandKind.LocateBiome && !_biomes.Contains(id))
         {
-            if (!_biomes.Contains(id))
-            {
-                ChatFeedback("chat.command.locate.unknownBiome", error: true, ("id", id));
-                return;
-            }
-
-            var found = _sessions.Active.Generator.FindNearestSurfaceBiome(
-                id, x, z, maxDistance);
-            if (found is null)
-            {
-                ChatFeedback("chat.command.locate.notFound", error: true,
-                    ("name", id), ("radius", maxDistance.ToString()));
-                return;
-            }
-
-            var y = _sessions.Active.Generator.SurfaceHeight(found.X, found.Z);
-            ChatFeedback("chat.command.locate.found", error: false,
-                ("name", id),
-                ("position", $"({found.X}, {found.Z}, {y})"));
+            ChatFeedback("chat.command.locate.unknownBiome", error: true,
+                ("id", id));
             return;
         }
 
-        var structure = _sessions.Active.Generator.FindNearestSurfaceStructure(
-            id, x, z, maxDistance);
-        if (structure is null)
+        var origin = _player.GlobalPosition;
+        if (!_chatLocate.Begin(_sessions.Active.Generator,
+                command.Kind, id,
+                Mathf.FloorToInt(origin.X), Mathf.FloorToInt(origin.Z)))
+        {
+            ChatFeedback("chat.command.failed", error: true);
+            return;
+        }
+        ChatFeedback("chat.command.locate.searching", error: false,
+            ("name", id));
+    }
+
+    private void PollChatLocate()
+    {
+        var generator = _worldSeed is null || _sessions.IsTransitioning
+            ? null : _sessions.Active.Generator;
+        if (!_chatLocate.TryPoll(generator, out var found,
+                out var error, out var searchedId, out var stale) || stale)
+            return;
+
+        if (error is not null)
+        {
+            GD.PushWarning($"chat.locate error: {error}");
+            ChatFeedback("chat.command.failed", error: true);
+        }
+        else if (found is { } result)
+        {
+            ChatFeedback("chat.command.locate.found", error: false,
+                ("name", result.Id),
+                ("position", $"({result.X}, {result.Z}, {result.Y})"));
+        }
+        else
         {
             ChatFeedback("chat.command.locate.notFound", error: true,
-                ("name", id), ("radius", maxDistance.ToString()));
-            return;
+                ("name", searchedId), ("radius", "512"));
         }
-        ChatFeedback("chat.command.locate.found", error: false,
-            ("name", id),
-            ("position", $"({structure.Value.AnchorX}, " +
-                $"{structure.Value.AnchorZ}, {structure.Value.AnchorY})"));
+
+        _chatFeedbackSeconds = 10.0;
+        SendChatState();
     }
 
     private void AdvanceChatPresentation(double delta)
