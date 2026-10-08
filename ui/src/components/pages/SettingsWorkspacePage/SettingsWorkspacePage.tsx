@@ -7,6 +7,7 @@ import { Toggle } from "../../atoms/Toggle/Toggle";
 import { Text } from "../../atoms/Text/Text";
 import { TextInput } from "../../atoms/TextInput/TextInput";
 import { SettingRow } from "../../molecules/SettingRow/SettingRow";
+import { GameModePicker } from "../../molecules/GameModePicker/GameModePicker";
 import { SettingsPage, type SettingsSectionView } from "../SettingsPage/SettingsPage";
 import "./SettingsWorkspacePage.css";
 
@@ -102,12 +103,11 @@ export function SettingsWorkspacePage({
         id: "mode", label: t("settings.section.worldSettings"),
         content: <SettingRow title={t("settings.gameMode")}
           description={t("settings.gameMode.description")}
-          control={<Select disabled={!settings.world}
-            ariaLabel={t("settings.gameMode")} value={settings.world?.mode ?? "Survival"}
-            options={(["Survival", "Creative", "Spectator"] as const).map(value => ({
-              value, label: t("settings.gameMode." + value.toLowerCase()),
-            }))}
-            onChange={event => onGameMode(event.target.value as GameMode)} />} />,
+          control={<GameModePicker
+            value={settings.world?.mode ?? "Survival"}
+            disabled={!settings.world}
+            onChange={onGameMode}
+          />} />,
       },
       {
         id: "rules", label: t("settings.section.gameRules"),
