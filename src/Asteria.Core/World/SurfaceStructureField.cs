@@ -164,6 +164,12 @@ public sealed class SurfaceStructureField
         if (_structureSets.TryGet(reference, out var setDefinition))
         {
             if (variation is not null) return false;
+            // A manual operation is bounded before any set element loop.
+            // Compound definitions with excessive maximum counts must not
+            // schedule unbounded retries or build unbounded candidate lists.
+            if (setDefinition.Elements.Sum(element =>
+                    (long)element.Count.Max) > MaximumManualPayloadCount)
+                return false;
             set = new RuntimeStructureSet(
                 setDefinition, _structures, _blocks, _fluids, biome, _connectors);
         }
@@ -203,7 +209,8 @@ public sealed class SurfaceStructureField
                     member, reference, biome, anchorX, anchorZ,
                     StructureRotation.Degrees0, out var root))
                 return false;
-            pieces = ExpandConnectors(rule, [root]);
+            pieces = ExpandConnectors(
+                rule, [root], MaximumManualPayloadCount);
         }
 
         if (pieces.Count == 0) return false;
@@ -1323,7 +1330,8 @@ public sealed class SurfaceStructureField
     private IReadOnlyList<SurfaceStructurePlacement>
         ExpandConnectors(
             RootRule rule,
-            IReadOnlyList<SurfaceStructurePlacement> roots) =>
+            IReadOnlyList<SurfaceStructurePlacement> roots,
+            int maximumPayloadCount = int.MaxValue) =>
         _connectors.Expand(
             _seed,
             roots,
@@ -1351,7 +1359,7 @@ public sealed class SurfaceStructureField
                         : null)
                     ? placement
                     : null;
-            });
+            }, maximumPayloadCount);
 
     private bool TryResolvePlacement(
         RuntimeStructure member,
@@ -3142,13 +3150,21 @@ public sealed class SurfaceStructureField
                     int,
                     int,
                     int,
-                    SurfaceStructurePlacement?> resolveChild)
+                    SurfaceStructurePlacement?> resolveChild,
+                int maximumPayloadCount = int.MaxValue)
         {
             if (roots.Count == 0)
             {
                 return roots;
             }
 
+            var payloadCount = 0L;
+            foreach (var root in roots)
+            {
+                payloadCount += root.PayloadPositions().LongCount();
+                if (payloadCount > maximumPayloadCount)
+                    return Array.Empty<SurfaceStructurePlacement>();
+            }
             var pieces =
                 roots.ToList();
             var occupied =
@@ -3293,9 +3309,16 @@ public sealed class SurfaceStructureField
                         continue;
                     }
 
+                    // Bound manual expansion before reserving or allocating
+                    // additional connector descendants.
                     var childPositions =
                         childPiece.PayloadPositions()
+                            .Take(maximumPayloadCount == int.MaxValue
+                                ? int.MaxValue : maximumPayloadCount + 1)
                             .ToArray();
+                    if (payloadCount + childPositions.Length >
+                            maximumPayloadCount)
+                        return Array.Empty<SurfaceStructurePlacement>();
                     if (childPositions.Any(
                             occupied.Contains))
                     {
@@ -3313,6 +3336,7 @@ public sealed class SurfaceStructureField
                         pieces.Count;
                     pieces.Add(
                         childPiece);
+                    payloadCount += childPositions.Length;
 
                     var nextStrength =
                         effective -
