@@ -14,6 +14,13 @@ public readonly record struct CreatureInstanceState(
     CreatureHopMotion Motion = default)
 {
     public uint AttacksReceived { get; init; }
+
+    /// <summary>Combat feedback is owned by the creature lifecycle, not Godot.</summary>
+    public float HurtSecondsRemaining { get; init; }
+
+    public float DeathSecondsRemaining { get; init; }
+
+    public bool IsDying => Health == 0f;
 }
 
 public readonly record struct CreatureAttackResult(
@@ -37,6 +44,8 @@ public sealed class CreatureRuntime
     public const int MaximumActive = 128;
     public const float DespawnRadius = 128f;
     public const double DespawnGraceSeconds = 5.0;
+    public const float DeathAnimationSeconds = 0.75f;
+    public const float HurtAnimationSeconds = 0.4f;
 
     private readonly PackContentRegistry<CreatureDefinition> _definitions;
     private readonly SortedDictionary<ulong, CreatureInstanceState> _active = [];
@@ -71,13 +80,19 @@ public sealed class CreatureRuntime
                 !float.IsFinite(creature.Motion.KnockbackVelocity.X) ||
                 !float.IsFinite(creature.Motion.KnockbackVelocity.Y) ||
                 !float.IsFinite(creature.Motion.KnockbackSeconds) ||
-                creature.Motion.KnockbackSeconds < 0f)
+                creature.Motion.KnockbackSeconds < 0f ||
+                !float.IsFinite(creature.HurtSecondsRemaining) ||
+                creature.HurtSecondsRemaining < 0f ||
+                !float.IsFinite(creature.DeathSecondsRemaining) ||
+                creature.DeathSecondsRemaining < 0f ||
+                (creature.Health == 0f && creature.DeathSecondsRemaining <= 0f) ||
+                (creature.Health > 0f && creature.DeathSecondsRemaining != 0f))
             {
                 throw new ArgumentException("Creature snapshot contains an invalid state.", nameof(restore));
             }
             var definition = _definitions.Get(creature.DefinitionId);
             if (!float.IsFinite(creature.Health) ||
-                creature.Health <= 0f || creature.Health > definition.Health ||
+                creature.Health < 0f || creature.Health > definition.Health ||
                 !CanAdd(definition) || !_active.TryAdd(creature.Id.Value, creature))
             {
                 throw new ArgumentException("Creature snapshot exceeds population limits or contains duplicate IDs.", nameof(restore));
@@ -154,7 +169,8 @@ public sealed class CreatureRuntime
             throw new ArgumentOutOfRangeException(nameof(attack));
         }
 
-        if (!_active.TryGetValue(id.Value, out var current))
+        if (!_active.TryGetValue(id.Value, out var current) ||
+            current.IsDying)
         {
             result = default;
             return false;
@@ -169,7 +185,20 @@ public sealed class CreatureRuntime
 
         if (killed)
         {
-            Remove(id);
+            _active[id.Value] = current with
+            {
+                Health = 0f,
+                DeathSecondsRemaining = DeathAnimationSeconds,
+                HurtSecondsRemaining = 0f,
+                AttacksReceived = checked(current.AttacksReceived + 1),
+                Motion = current.Motion with
+                {
+                    VerticalSpeed = 0f,
+                    Direction = Vector2.Zero,
+                    KnockbackVelocity = Vector2.Zero,
+                    KnockbackSeconds = 0f,
+                },
+            };
             return true;
         }
 
@@ -202,6 +231,7 @@ public sealed class CreatureRuntime
             Health = health,
             Motion = motion,
             AttacksReceived = serial,
+            HurtSecondsRemaining = HurtAnimationSeconds,
         };
         return true;
     }
@@ -233,17 +263,19 @@ public sealed class CreatureRuntime
             throw new ArgumentOutOfRangeException(nameof(amount));
         }
 
-        if (!_active.TryGetValue(id.Value, out var creature)) return false;
+        if (!_active.TryGetValue(id.Value, out var creature) ||
+            creature.IsDying) return false;
 
         var health = Math.Max(0f, creature.Health - amount);
-        if (health == 0f)
+        _active[id.Value] = creature with
         {
-            Remove(id);
-        }
-        else
-        {
-            _active[id.Value] = creature with { Health = health };
-        }
+            Health = health,
+            HurtSecondsRemaining = health == 0f
+                ? 0f : HurtAnimationSeconds,
+            DeathSecondsRemaining = health == 0f
+                ? DeathAnimationSeconds : 0f,
+            AttacksReceived = checked(creature.AttacksReceived + 1),
+        };
 
         return true;
     }
@@ -265,6 +297,29 @@ public sealed class CreatureRuntime
         {
             var creature = _active[id];
             var age = creature.AgeSeconds + deltaSeconds;
+            var hurt = MathF.Max(0f,
+                creature.HurtSecondsRemaining - (float)deltaSeconds);
+            var death = MathF.Max(0f,
+                creature.DeathSecondsRemaining - (float)deltaSeconds);
+
+            if (creature.IsDying)
+            {
+                if (death == 0f)
+                {
+                    Remove(creature.Id);
+                    removed++;
+                }
+                else
+                {
+                    _active[id] = creature with
+                    {
+                        AgeSeconds = age,
+                        DeathSecondsRemaining = death,
+                    };
+                }
+                continue;
+            }
+
             if (age >= DespawnGraceSeconds &&
                 Vector3.DistanceSquared(creature.Position, playerPosition) >
                     DespawnRadius * DespawnRadius)
@@ -274,7 +329,11 @@ public sealed class CreatureRuntime
             }
             else
             {
-                _active[id] = creature with { AgeSeconds = age };
+                _active[id] = creature with
+                {
+                    AgeSeconds = age,
+                    HurtSecondsRemaining = hurt,
+                };
             }
         }
 
@@ -301,10 +360,16 @@ public sealed class CreatureRuntime
             throw new ArgumentOutOfRangeException(nameof(deltaSeconds));
         }
 
-        var changed = Advance(deltaSeconds, observerPosition) > 0;
+        var hadEndingReactions = _active.Values.Any(
+            creature => !creature.IsDying &&
+                creature.HurtSecondsRemaining > 0f &&
+                creature.HurtSecondsRemaining <= deltaSeconds);
+        var changed = Advance(deltaSeconds, observerPosition) > 0 ||
+            hadEndingReactions;
         foreach (var id in _active.Keys.ToArray())
         {
             var creature = _active[id];
+            if (creature.IsDying) continue;
             var definition = _definitions.Get(creature.DefinitionId);
             var next = CreatureHopSolver.Step(
                 creature, definition, world, blocks,
@@ -312,7 +377,9 @@ public sealed class CreatureRuntime
 
             if (next.Position != creature.Position ||
                 next.Motion.Phase != creature.Motion.Phase ||
-                next.Motion.FacingRadians != creature.Motion.FacingRadians)
+                next.Motion.FacingRadians != creature.Motion.FacingRadians ||
+                (creature.HurtSecondsRemaining > 0f &&
+                 next.HurtSecondsRemaining == 0f))
             {
                 changed = true;
             }

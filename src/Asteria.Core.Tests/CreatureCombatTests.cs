@@ -113,9 +113,54 @@ public sealed class CreatureCombatTests
             Assert.True(runtime.TryAttack(
                 creature.Id, Punch(), attacker, out var result));
 
-        Assert.Equal(0, runtime.Count);
+        var dying = Assert.Single(runtime.ActiveCreatures);
+        Assert.True(dying.IsDying);
+        Assert.Equal(0f, dying.Health);
         Assert.False(runtime.TryAttack(
             creature.Id, Punch(), attacker, out _));
+
+        // Death animation is observable for 0.75 seconds and survives a
+        // dimension snapshot without a duplicate death.
+        runtime = new CreatureRuntime(Definitions(), runtime.CaptureState());
+        Assert.True(Assert.Single(runtime.ActiveCreatures).IsDying);
+        runtime.AdvanceWorld(0.5, attacker, world, blocks, 18f);
+        Assert.True(Assert.Single(runtime.ActiveCreatures).IsDying);
+        runtime.AdvanceWorld(0.25, attacker, world, blocks, 18f);
+        Assert.Equal(0, runtime.Count);
+    }
+
+    [Fact]
+    public void RepeatedHurtAnimationRetriggersAndExpires()
+    {
+        var runtime = new CreatureRuntime(Definitions());
+        Assert.True(runtime.TrySpawn("asteria:slime_aqua",
+            new Vector3(4, 3, 4), out var creature));
+        Assert.True(runtime.TryAttack(creature.Id, Punch(),
+            new Vector3(1, 3, 4), out _));
+        Assert.Equal(1u, Assert.Single(runtime.ActiveCreatures).AttacksReceived);
+        Assert.True(Assert.Single(runtime.ActiveCreatures).HurtSecondsRemaining > 0);
+        runtime.Advance(0.2, new Vector3(4, 3, 4));
+        Assert.True(runtime.TryAttack(creature.Id, Punch(),
+            new Vector3(1, 3, 4), out _));
+        Assert.Equal(2u, Assert.Single(runtime.ActiveCreatures).AttacksReceived);
+        Assert.Equal(CreatureRuntime.HurtAnimationSeconds,
+            Assert.Single(runtime.ActiveCreatures).HurtSecondsRemaining);
+        runtime.Advance(0.4, new Vector3(4, 3, 4));
+        Assert.Equal(0f, Assert.Single(runtime.ActiveCreatures).HurtSecondsRemaining);
+    }
+
+    [Fact]
+    public void DeadCreatureDoesNotInterceptFurtherRayAttacks()
+    {
+        var (world, blocks) = World();
+        var runtime = new CreatureRuntime(Definitions());
+        Assert.True(runtime.TrySpawn("asteria:slime_aqua",
+            new Vector3(6.5f, 1, 7.5f), out var creature));
+        for (var hit = 0; hit < 11; hit++)
+            Assert.True(runtime.TryAttack(creature.Id, Punch(),
+                new Vector3(2, 1, 7.5f), out _));
+        Assert.Null(runtime.FindTarget(world, blocks,
+            new Vector3(2, 1.4f, 7.5f), Vector3.UnitX, 6));
     }
 
     [Fact]

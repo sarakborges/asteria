@@ -59,6 +59,11 @@ public sealed class CreatureRuntimeTests
         Assert.Equal(2UL, second.Id.Value);
         Assert.False(restored.TrySpawn("asteria:slime_aqua", new Vector3(9, 24, 0), out _));
         Assert.True(restored.TryDamage(first.Id, 7));
+        Assert.Equal(2, restored.Count);
+        Assert.True(restored.ActiveCreatures.Single(c => c.Id == first.Id).IsDying);
+        Assert.False(restored.TryDamage(first.Id, 1));
+        restored.Advance(CreatureRuntime.DeathAnimationSeconds,
+            new Vector3(5, 24, 0));
         Assert.Equal(1, restored.Count);
         Assert.Equal(1, restored.CountType("asteria:slime_aqua"));
     }

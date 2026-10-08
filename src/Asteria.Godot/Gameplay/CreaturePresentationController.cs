@@ -18,7 +18,7 @@ public sealed class CreaturePresentationController
     private readonly Dictionary<string, Node3D> _models = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Texture2D> _textures = new(StringComparer.Ordinal);
     private readonly SortedDictionary<ulong, Node3D> _instances = [];
-    private readonly Dictionary<ulong, CreatureHopPhase> _phases = [];
+    private readonly Dictionary<ulong, (string Animation, uint Revision)> _animations = [];
 
     public CreaturePresentationController(
         Node3D root,
@@ -53,21 +53,29 @@ public sealed class CreaturePresentationController
                 creature.Position.Z);
             model.Rotation = new Vector3(0f, creature.Motion.FacingRadians, 0f);
 
-            if (!_phases.TryGetValue(id, out var phase) ||
-                phase != creature.Motion.Phase)
-            {
-                PlayAnimation(
-                    model,
-                    _definitions.Get(creature.DefinitionId),
-                    creature.Motion.Phase switch
+            var animation = creature.IsDying
+                ? "death"
+                : creature.HurtSecondsRemaining > 0f
+                    ? "hurt"
+                    : creature.Motion.Phase switch
                     {
                         CreatureHopPhase.Idle => "idle",
                         CreatureHopPhase.Anticipate => "anticipate",
                         CreatureHopPhase.Airborne => "airborne",
                         CreatureHopPhase.Land => "land",
                         _ => "idle",
-                    });
-                _phases[id] = creature.Motion.Phase;
+                    };
+            // Repeated attacks must replay the same one-shot clip even if
+            // the last creature animation key was also "hurt".
+            var revision = animation is "hurt" or "death"
+                ? creature.AttacksReceived : 0u;
+            if (!_animations.TryGetValue(id, out var shown) ||
+                shown != (animation, revision))
+            {
+                PlayAnimation(model,
+                    _definitions.Get(creature.DefinitionId),
+                    animation);
+                _animations[id] = (animation, revision);
             }
         }
 
@@ -76,7 +84,7 @@ public sealed class CreaturePresentationController
             if (current.Contains(entry.Key)) continue;
             entry.Value.QueueFree();
             _instances.Remove(entry.Key);
-            _phases.Remove(entry.Key);
+            _animations.Remove(entry.Key);
         }
     }
 
@@ -87,7 +95,7 @@ public sealed class CreaturePresentationController
         // Active scene nodes are owned by the dimension root, which is retired
         // by DimensionRuntimeSession.
         _instances.Clear();
-        _phases.Clear();
+        _animations.Clear();
         _textures.Clear();
     }
 

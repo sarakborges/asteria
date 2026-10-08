@@ -38,6 +38,9 @@ public static class CreatureTargetQuery
         CreatureTargetHit? nearest = null;
         foreach (var creature in creatures)
         {
+            // Dying creatures stay visible for the death clip, but must not
+            // block new combat or mining interactions.
+            if (creature.IsDying) continue;
             var definition = definitions.Get(creature.DefinitionId);
             var collider = definition.TargetCollider ?? definition.Collider;
             var center = creature.Position + new Vector3(
