@@ -1,5 +1,7 @@
 # WebUI MineClone migration
 
+**Detailed parity audit:** [UI_PARITY_AUDIT.md](UI_PARITY_AUDIT.md). That file explicitly distinguishes visually scaffolded screens from actual runtime wiring; this migration log is not evidence of pixel-perfect or behavioral completion.
+
 This document tracks the deliberate migration of MineClone's UI presentation contracts into Asteria's React WebUI.
 
 ## Non-negotiable adaptation
