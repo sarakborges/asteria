@@ -64,6 +64,9 @@ public sealed class ManualStructurePlacementRuntime
             if (!cell.IsEmpty && _blocks.GetDefinition(cell.Block).Mining.Unbreakable)
                 return ManualStructurePlacementResult.ProtectedVoxel;
 
+            if (placement.Generation.FluidPolicy == StructureFluidPolicy.Forbid &&
+                !fluid.IsEmpty)
+                return ManualStructurePlacementResult.InvalidPlacement;
             if (placement.Generation.ReplacePolicy == StructureReplacePolicy.AirOnly &&
                 (!cell.IsEmpty || !fluid.IsEmpty))
                 return ManualStructurePlacementResult.InvalidPlacement;
