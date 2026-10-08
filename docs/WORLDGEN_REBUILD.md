@@ -170,8 +170,10 @@ CI publishes equivalent fixed-seed SVG artifacts for both `asteria:overworld` an
 ## Conditional surface materials and decorators
 
 Surface patches and ground decorators can share an optional `conditions`
-object, evaluated against the **authoritative final terrain surface** at the
-world-space X/Z column:
+object, evaluated against the owning biome's **authoritative terrain
+surface** at the world-space X/Z column. Surface biomes read the base surface;
+volume biomes read the final additive surface, so floating masses do not
+change the placement conditions of the underlying ground:
 
 - `minY` / `maxY`: inclusive, non-negative surface-altitude bounds.
 - `minSlope` / `maxSlope`: inclusive maximum adjacent terrain height
