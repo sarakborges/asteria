@@ -106,7 +106,7 @@ public sealed class BiomeSurfaceMaterialField
         }
 
         return SurfacePlacementContext.Sample(
-            _terrain, worldX, worldZ);
+            _terrain, worldX, worldZ, rule.RequiresSlope);
     }
 
     private sealed class MaterialRule
@@ -116,11 +116,14 @@ public sealed class BiomeSurfaceMaterialField
         {
             Layers = layers;
             HasConditions = layers.Any(layer => layer.HasConditions);
+            RequiresSlope = layers.Any(layer => layer.RequiresSlope);
         }
 
         private ResolvedLayer[] Layers { get; }
 
         public bool HasConditions { get; }
+
+        public bool RequiresSlope { get; }
 
         public BlockRuntimeId BlockAtDepth(
             ulong seed,
@@ -239,6 +242,8 @@ public sealed class BiomeSurfaceMaterialField
 
         public bool HasConditions => Patch?.HasConditions == true;
 
+        public bool RequiresSlope => Patch?.RequiresSlope == true;
+
         public BlockRuntimeId Resolve(
             ulong seed,
             int worldX,
@@ -291,6 +296,8 @@ public sealed class BiomeSurfaceMaterialField
         private SurfacePlacementConditions? Conditions { get; }
 
         public bool HasConditions => Conditions is not null;
+
+        public bool RequiresSlope => Conditions?.RequiresSlope == true;
 
         public BlockRuntimeId? Resolve(
             ulong seed,
