@@ -506,6 +506,29 @@ public sealed class DimensionRuntimeSession
 
     public VoxelMutationRuntime Mutations { get; }
     public ManualStructurePlacementRuntime ManualStructures { get; }
+    public StorageBoxSnapshot? ActiveStorageBox =>
+        _state.StorageBoxes.CaptureActive();
+
+    /// <summary>Game-side access to this Sphere's storage block entities;
+    /// WebUI state and transport never mutate the container directly.</summary>
+    public bool TryOpenStorageBox(WorldVoxelCoord position) =>
+        !_retiring && !_retired &&
+        _state.StorageBoxes.TryOpen(position, World, Blocks);
+
+    public bool TryClickStorageBox(int index, PlayerInventory player)
+    {
+        if (_retiring || _retired ||
+            _state.StorageBoxes.ActivePosition is not { } position ||
+            !World.IsLoadedAt(position) ||
+            Blocks.GetDefinition(World.GetCellOrEmpty(position).Block).Id !=
+                "asteria:storage_box")
+            return false;
+
+        return _state.StorageBoxes.TryClickActive(index, player);
+    }
+
+    public void CloseStorageBox() => _state.StorageBoxes.Close();
+
 
     public BlockInteractionRuntime BlockInteractions { get; }
     public ToolGameplayRuntime Tools { get; }
@@ -627,6 +650,7 @@ public sealed class DimensionRuntimeSession
 
     public void BeginRetirement()
     {
+        _state.StorageBoxes.Close();
         if (_retired)
         {
             throw new ObjectDisposedException(
