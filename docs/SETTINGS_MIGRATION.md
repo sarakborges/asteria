@@ -21,7 +21,7 @@ MineClone separates three lifetimes. Asteria must preserve them without copying 
 
 ### World creation and world settings
 
-- **World name**: authored text, world catalog identity and validation. Asteria has no disk catalog or user-editable world name yet.
+- **World name**: authored text, world catalog identity and validation. Asteria now accepts an editable world name during session creation, but has no disk catalog yet.
 - **World seed**: unsigned 64-bit decimal value, with random generation. **Already supported in Asteria**; keep Core validation.
 - **Game mode**: **Survival** (default), **Creative**, **Spectator**. This is player state, even when initially selected during world creation. Respect inventory, flight, collision/targeting, and spectator visibility semantics rather than storing a cosmetic string.
 - **Gamerule `ticksPerSecond`**: default **40**, integer **greater than zero**, editable on new and active worlds. MineClone increments/decrements with numeric input and saves a changed value in the world state. Asteria's world clock, fluid simulation and residency scheduling now read a shared per-world `WorldGameRules` rate; WebUI editing remains pending.
@@ -53,13 +53,13 @@ MineClone separates three lifetimes. Asteria must preserve them without copying 
 - [x] **A. Core models and session wiring**: `WorldGameRules`, creation options and player mode, defaults, validation, world/session lifetime and unit tests. Do not silently advertise creature spawning or flight before their consumer exists.
 - [x] **B. Client preferences**: mutable render distance with streaming integration, persisted graphics/HUD/keybind settings, typed config store, explicit change notifications and tests.
 - [ ] **C. Input and gameplay consumers**: modes/flight/spectator targeting and visibility, action routing and key capture. Implement only actions that exist; carry the rest as visible gaps.
-- [ ] **D. UI/controller integration**: wire NewWorldPage, SettingsPage, ControlsPage and PauseMenuPage to authoritative snapshots/actions; apply React/Storybook conventions and all three locales.
+- [x] **D. UI/controller integration**: wire NewWorldPage, SettingsPage, ControlsPage and PauseMenuPage to authoritative snapshots/actions; apply React/Storybook conventions and all three locales.
 - [ ] **E. World save/catalog parity**: world name, saved rules, player mode, load/resume and any required save migration policy when world catalog persistence is implemented.
 - [ ] **F. End-to-end parity audit**: check every setting for defaults, mutation, gameplay effect, reload/session transition behavior, localization and tests. No unbacked toggles, placeholders, fake saves, or duplicated owners.
 
 ## Explicit gaps as of this audit
 
-Asteria's `App.tsx` mounts gameplay HUD, start and new-world screens only. `SettingsPage`, `ControlsPage`, `PauseMenuPage` and `WorldSelectionPage` are available as presentation but not connected to application flow. `WorldCreationController` sends only `seed`. `Main.cs` reads the client-owned render distance and the world-owned tick rate. Editing screens are not yet wired. `FpsPlayer` implements hardcoded movement/jump keys and no complete mode/keybind switching. Thus **visual presence is not runtime parity**.
+`App.tsx` now mounts gameplay HUD, creation, pause, world/client settings, and controls. `WorldCreationController` submits name, seed, initial mode, and tick rate. `Main.cs` reads client-owned render distance and world-owned tick rate. Native gameplay input consumes rebound Jump/Descend; remaining bindings still lack gameplay consumers. `WorldSelectionPage` remains presentation-only until world catalog/persistence is implemented. **Not every MineClone setting has a gameplay consumer yet**.
 
 Audit references: MineClone `src/world/game_rules.rs`, `src/world/new_world.rs`, `src/app/game_config.rs`, `src/app/keybinds.rs`, `src/hud/mod.rs`, `src/screens/settings_screen/{layout,game_rules_section,world_settings_section,new_world_section,hud_section,keybinds_section,languages_section,render_distance_section}.rs`; Asteria `docs/UI_MIGRATION.md`, `src/Asteria.Godot/Main.cs`, `src/Asteria.Godot/Gameplay/FpsPlayer.cs`, `src/Asteria.Core/World/WorldTickClock.cs`, `ui/src/{App.tsx,controllers/WorldCreationController.ts,localization/LocalizationProvider.tsx}`.
 
