@@ -38,6 +38,10 @@ public sealed class DimensionSessionState
 
     public VoxelWorld World { get; }
 
+    /// <summary>Committed manual structures remain Sphere-isolated across
+    /// archive/retirement. Like World, the owner survives session recreation.</summary>
+    public ManualStructurePlacementLedger ManualStructures { get; } = new();
+
     public ulong WorldTick { get; set; }
 
     public DayNightClockState? DayNight { get; set; }
