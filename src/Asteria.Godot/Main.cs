@@ -1889,6 +1889,9 @@ public partial class Main : Node3D
             case ChatCommandKind.LocateStructure:
                 ExecuteChatLocate(command);
                 break;
+            case ChatCommandKind.Kill:
+                ExecuteChatKill();
+                break;
             default:
                 ChatFeedback("chat.command.notImplemented", error: true,
                     ("command", command.Kind.ToString().ToLowerInvariant()));
@@ -1903,6 +1906,40 @@ public partial class Main : Node3D
         var arguments = parameters.ToDictionary(
             pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
         _chat.Append(key, error, key, arguments);
+    }
+
+    private void ExecuteChatKill()
+    {
+        if (_player is null)
+        {
+            ChatFeedback("chat.command.target.none", error: true);
+            return;
+        }
+
+        var (from, to) = _player.GetInteractionRay(InteractionDistance);
+        var origin = new NVector3(from.X, from.Y, from.Z);
+        var direction = new NVector3(
+            to.X - from.X, to.Y - from.Y, to.Z - from.Z);
+        var target = _sessions.Active.FindCreatureTarget(
+            origin, direction, InteractionDistance);
+        if (target is not { } hit)
+        {
+            ChatFeedback("chat.command.target.none", error: true);
+            return;
+        }
+
+        if (!_sessions.Active.TryKillCreature(hit.Creature.Id, out var result))
+        {
+            ChatFeedback("chat.command.target.unavailable", error: true);
+            return;
+        }
+
+        ChatFeedback("chat.command.kill.success", error: false,
+            ("name", result.DefinitionId),
+            ("position", $"({Mathf.FloorToInt(result.Position.X)}, " +
+                $"{Mathf.FloorToInt(result.Position.Z)}, " +
+                $"{Mathf.FloorToInt(result.Position.Y)})"));
+        SendTargetHudState(force: true);
     }
 
     private void ExecuteChatSpawn(ParsedChatCommand command)
