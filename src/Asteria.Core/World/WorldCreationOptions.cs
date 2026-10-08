@@ -40,7 +40,7 @@ public sealed class WorldCreationOptions
             (stem.Length == 4 &&
              (stem.StartsWith("COM", StringComparison.Ordinal) ||
               stem.StartsWith("LPT", StringComparison.Ordinal)) &&
-             (stem[3] is (>= '1' and <= '9') or '¹' or '²' or '³'))
+             (stem[3] is (>= '1' and <= '9') or '¹' or '²' or '³')))
         {
             throw new ArgumentException(
                 "World name is reserved.",
