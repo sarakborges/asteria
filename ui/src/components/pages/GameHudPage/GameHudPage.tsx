@@ -38,6 +38,7 @@ export function GameHudPage({
       <TargetHud
         state={state.target}
         miningProgress={state.miningProgress}
+        artisansKitResolution={state.artisansKitResolution}
       />
     );
 

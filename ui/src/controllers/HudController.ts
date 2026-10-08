@@ -110,6 +110,15 @@ export function createHudController(
           break;
         }
 
+        case "game.tool.artisans_kit": {
+          const value = asRecord(message.payload)?.resolution;
+          if (value === null || value === 1 || value === 2 || value === 4)
+            patchHud(store, {
+              artisansKitResolution: value as 1 | 2 | 4 | null,
+            });
+          break;
+        }
+
         case "game.hud.target_entity":
           patchHud(store, {
             targetEntity: readEntity(message.payload),

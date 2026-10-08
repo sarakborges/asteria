@@ -1506,6 +1506,18 @@ public partial class Main : Node3D
                         inventory.SlotAt(PlayerInventory.BackpackSlots + index)))
                     .ToArray(),
             });
+        SendArtisansKitState();
+    }
+
+    private void SendArtisansKitState()
+    {
+        var kit = _sessions.Active.ArtisansKit;
+        SendWebUi("game.tool.artisans_kit", new
+        {
+            resolution = kit.IsEquipped(
+                _sessionStates.Player.Inventory.SelectedStack)
+                ? (int?)kit.Resolution : null,
+        });
     }
 
     private void SendInventoryState()
@@ -2121,6 +2133,12 @@ public partial class Main : Node3D
             return;
 
         var held = _sessionStates.Player.Inventory.SelectedStack;
+        if (_sessions.Active.ArtisansKit.IsEquipped(held))
+        {
+            if (TryUseArtisansKit(held, ToolUseHand.Left, hit))
+                KickWorldMutationWorkers();
+            return;
+        }
         if (_sessions.Active.Tools.IsSpecialLeftAction(held))
         {
             if (_sessions.Active.Tools.TryUse(held, ToolUseHand.Left, hit))
@@ -2164,7 +2182,8 @@ public partial class Main : Node3D
         }
 
         var held = _sessionStates.Player.Inventory.SelectedStack;
-        if (_sessions.Active.Tools.IsSpecialLeftAction(held))
+        if (_sessions.Active.ArtisansKit.IsEquipped(held) ||
+            _sessions.Active.Tools.IsSpecialLeftAction(held))
         {
             _sessions.Active.Mining.Cancel();
             PublishMiningProgress();
@@ -2205,8 +2224,33 @@ public partial class Main : Node3D
         });
     }
 
+    private bool TryUseArtisansKit(
+        InventoryStack? held,
+        ToolUseHand hand,
+        VoxelWorldHit hit)
+    {
+        if (_player is not { IsMouseCaptured: true } player)
+            return false;
+
+        var (from, to) = player.GetInteractionRay(InteractionDistance);
+        return _sessions.Active.ArtisansKit.TryEdit(
+            held, hand, hit,
+            new NVector3(from.X, from.Y, from.Z),
+            new NVector3(to.X - from.X, to.Y - from.Y, to.Z - from.Z),
+            player.CollisionBounds);
+    }
+
     private void RotateHeldBlock()
     {
+        if (_sessionStates.Player.CanInteract &&
+            _sessions.Active.ArtisansKit.IsEquipped(
+                _sessionStates.Player.Inventory.SelectedStack))
+        {
+            _sessions.Active.ArtisansKit.CycleResolution();
+            SendArtisansKitState();
+            return;
+        }
+
         if (_sessionStates.Player.CanInteract &&
             _sessionStates.Player.HeldBlock.Rotate())
         {
@@ -2280,6 +2324,13 @@ public partial class Main : Node3D
 
         if (target is not { } hit)
             return;
+
+        if (_sessions.Active.ArtisansKit.IsEquipped(selected))
+        {
+            if (TryUseArtisansKit(selected, ToolUseHand.Right, hit))
+                KickWorldMutationWorkers();
+            return;
+        }
 
         if (_sessions.Active.Tools.TryUse(
                 selected, ToolUseHand.Right, hit))

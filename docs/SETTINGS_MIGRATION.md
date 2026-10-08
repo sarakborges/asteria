@@ -148,3 +148,8 @@ Asteria reserves **F3/F4** in addition to MineClone's WASD/hotbar keys because t
 - `requiredTools` gates mining, `preferredTools` accelerates matching tools and `hardness` determines duration, using the MineClone baseline of 200 logical work ticks per hardness unit. Tool `mining.speed` comes from loaded tool definitions. The world tick-rate setting controls real-time pacing because work uses `WorldTickClock.TicksThisFrame` instead of a local real-time counter.
 - Godot exclusively owns held LMB, capture/modal cancellation and targeting. React only renders the authorized ten-stage progress snapshot next to the target block. Creative instant breaking, spectator restrictions and special carpenter actions stay independent of Survival mining.
 - See [`docs/MINING_MIGRATION.md`](MINING_MIGRATION.md) for remaining visual and tool behavior parity.
+
+## Artisan's Kit microblock editing (2026-10-08)
+
+- The authored Artisan's Kit uses the existing `MicroblockMask` / `VoxelMutationRuntime` boundary for actual removal/restoration of pieces. Tool Action cycles 1/2, 1/4 and 1/8 precision, with the resolution shown in the localized target HUD. AABB collision prevents restoring a piece inside the player.
+- No parallel block editor, import sidecars or WebUI global input handlers were added. See [`MINING_MIGRATION.md`](MINING_MIGRATION.md).

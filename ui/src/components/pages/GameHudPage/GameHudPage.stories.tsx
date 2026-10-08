@@ -53,6 +53,7 @@ const runtimeState = {
     ],
   },
   miningProgress: null,
+  artisansKitResolution: null,
   targetEntity: null,
   clock: {
     day: 3,
@@ -122,6 +123,15 @@ export const MiningInProgress: Story = {
     state: {
       ...runtimeState,
       miningProgress: 0.6,
+    },
+  },
+};
+
+export const ArtisanMicroblockResolution: Story = {
+  args: {
+    state: {
+      ...runtimeState,
+      artisansKitResolution: 2,
     },
   },
 };
