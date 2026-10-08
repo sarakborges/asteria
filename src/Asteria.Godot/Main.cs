@@ -13,7 +13,6 @@ namespace Asteria.Client;
 public partial class Main : Node3D
 {
     private const float InteractionDistance = 6f;
-    private const uint WorldTicksPerSecond = 40;
     private const int RenderDistanceChunks = 4;
     private const int RetentionMarginChunks = 10;
     private static readonly int MaxMaterializationTasksInFlight =
@@ -517,7 +516,6 @@ public partial class Main : Node3D
             _terrainMaterials,
             _fluidMaterials,
             new DimensionRuntimeSessionSettings(
-                WorldTicksPerSecond,
                 RenderDistanceChunks,
                 RetentionMarginChunks,
                 MaxMaterializationTasksInFlight,
@@ -782,11 +780,13 @@ public partial class Main : Node3D
         }
 
         StartWorld(
-            selectedSeed);
+            new WorldCreationOptions(
+                WorldCreationOptions.DefaultName,
+                selectedSeed));
     }
 
     private void StartWorld(
-        ulong worldSeed)
+        WorldCreationOptions creation)
     {
         if (_worldSeed is not null)
         {
@@ -795,7 +795,7 @@ public partial class Main : Node3D
 
         _sessionStates =
             new DimensionSessionStateStore(
-                worldSeed,
+                creation,
                 _dimensions);
         _sessions =
             new DimensionSessionController(
@@ -810,7 +810,7 @@ public partial class Main : Node3D
             _blocks.GetId(
                 TestChunkFactory.StoneId);
         _worldSeed =
-            worldSeed;
+            creation.Seed;
 
         _webUi.Call(
             "set_creation_mode",
@@ -821,12 +821,12 @@ public partial class Main : Node3D
             {
                 seed =
                     WorldCreationSeed.Format(
-                        worldSeed),
+                        creation.Seed),
             });
         SendHotbarState();
 
         GD.Print(
-            $"world.start seed={worldSeed} " +
+            $"world.start seed={creation.Seed} " +
             $"dimension={_dimension.Id} " +
             $"dimension_seed={_dimensionSeed}");
         GD.Print(

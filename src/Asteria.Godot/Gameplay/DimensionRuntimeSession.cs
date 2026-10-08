@@ -8,7 +8,6 @@ using NVector3 = System.Numerics.Vector3;
 namespace Asteria.Client.Gameplay;
 
 public sealed record DimensionRuntimeSessionSettings(
-    uint WorldTicksPerSecond,
     int RenderDistanceChunks,
     int RetentionMarginChunks,
     int MaxMaterializationTasksInFlight,
@@ -156,7 +155,7 @@ public sealed class DimensionRuntimeSession
                 FluidUpdates,
                 Mutations,
                 WorldTicks,
-                settings.WorldTicksPerSecond,
+                state.GameRules,
                 settings.MaxFluidUpdatesPerWorker);
         Lighting =
             new LightingRuntime(
@@ -214,7 +213,7 @@ public sealed class DimensionRuntimeSession
                     settings.MaxMaterializationDispatchesPerFrame,
                     settings.MaxMaterializationResultsPerFrame,
                     settings.MaxChunkEvictionsPerFrame,
-                    settings.WorldTicksPerSecond));
+                    state.GameRules));
         Presentations =
             new ChunkPresentationController(
                 Root,
@@ -283,7 +282,7 @@ public sealed class DimensionRuntimeSession
     {
         var elapsed = WorldTicks.Advance(
             deltaSeconds,
-            Settings.WorldTicksPerSecond);
+            _state.GameRules.TicksPerSecond);
         DayNight.Advance(elapsed);
     }
 

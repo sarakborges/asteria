@@ -9,7 +9,7 @@ public sealed class ChunkResidencySettings
         int maxDispatchesPerFrame,
         int maxResultsPerFrame,
         int maxEvictionsPerFrame,
-        uint worldTicksPerSecond)
+        WorldGameRules gameRules)
     {
         if (maxMaterializationsInFlight <= 0)
         {
@@ -35,11 +35,8 @@ public sealed class ChunkResidencySettings
                 nameof(maxEvictionsPerFrame));
         }
 
-        if (worldTicksPerSecond == 0)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(worldTicksPerSecond));
-        }
+        GameRules = gameRules ??
+            throw new ArgumentNullException(nameof(gameRules));
 
         MaxMaterializationsInFlight =
             maxMaterializationsInFlight;
@@ -49,8 +46,6 @@ public sealed class ChunkResidencySettings
             maxResultsPerFrame;
         MaxEvictionsPerFrame =
             maxEvictionsPerFrame;
-        WorldTicksPerSecond =
-            worldTicksPerSecond;
     }
 
     public int MaxMaterializationsInFlight { get; }
@@ -61,7 +56,7 @@ public sealed class ChunkResidencySettings
 
     public int MaxEvictionsPerFrame { get; }
 
-    public uint WorldTicksPerSecond { get; }
+    public WorldGameRules GameRules { get; }
 }
 
 public enum ChunkActivationSource
@@ -679,7 +674,7 @@ public sealed class ChunkResidencyRuntime
             FluidTiming.DelayTicks(
                 _fluids,
                 fluid,
-                _settings.WorldTicksPerSecond);
+                _settings.GameRules.TicksPerSecond);
 
         if (delay is null)
         {

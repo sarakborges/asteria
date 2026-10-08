@@ -26,7 +26,7 @@ public sealed class FluidSimulationRuntime
     private readonly FluidUpdateQueue _updates;
     private readonly VoxelMutationRuntime _mutations;
     private readonly WorldTickClock _ticks;
-    private readonly uint _ticksPerSecond;
+    private readonly WorldGameRules _gameRules;
     private readonly int _maximumUpdatesPerWorker;
     private readonly FluidSimulationWorker _worker = new();
 
@@ -40,7 +40,7 @@ public sealed class FluidSimulationRuntime
         FluidUpdateQueue updates,
         VoxelMutationRuntime mutations,
         WorldTickClock ticks,
-        uint ticksPerSecond,
+        WorldGameRules gameRules,
         int maximumUpdatesPerWorker)
     {
         _world =
@@ -59,11 +59,8 @@ public sealed class FluidSimulationRuntime
             ticks ??
             throw new ArgumentNullException(nameof(ticks));
 
-        if (ticksPerSecond == 0)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(ticksPerSecond));
-        }
+        _gameRules = gameRules ??
+            throw new ArgumentNullException(nameof(gameRules));
 
         if (maximumUpdatesPerWorker <= 0)
         {
@@ -71,7 +68,6 @@ public sealed class FluidSimulationRuntime
                 nameof(maximumUpdatesPerWorker));
         }
 
-        _ticksPerSecond = ticksPerSecond;
         _maximumUpdatesPerWorker =
             maximumUpdatesPerWorker;
     }
@@ -248,7 +244,7 @@ public sealed class FluidSimulationRuntime
             FluidTiming.DelayTicks(
                 _fluids,
                 request.Fluid,
-                _ticksPerSecond);
+                _gameRules.TicksPerSecond);
 
         if (delay is null)
         {

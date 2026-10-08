@@ -218,7 +218,7 @@ public sealed class ChunkResidencyRuntimeTests
                     maxDispatchesPerFrame: 2,
                     maxResultsPerFrame: 2,
                     maxEvictionsPerFrame: 2,
-                    worldTicksPerSecond: 40));
+                    gameRules: new WorldGameRules()));
 
         return new RuntimeFixture(
             world,

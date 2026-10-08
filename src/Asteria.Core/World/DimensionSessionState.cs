@@ -15,7 +15,8 @@ public sealed class DimensionSessionState
 {
     public DimensionSessionState(
         DimensionDefinition dimension,
-        ulong dimensionSeed)
+        ulong dimensionSeed,
+        WorldGameRules gameRules)
     {
         Dimension =
             dimension ??
@@ -23,6 +24,8 @@ public sealed class DimensionSessionState
                 nameof(dimension));
         DimensionSeed =
             dimensionSeed;
+        GameRules = gameRules ??
+            throw new ArgumentNullException(nameof(gameRules));
         World =
             new VoxelWorld();
     }
@@ -30,6 +33,8 @@ public sealed class DimensionSessionState
     public DimensionDefinition Dimension { get; }
 
     public ulong DimensionSeed { get; }
+
+    public WorldGameRules GameRules { get; }
 
     public VoxelWorld World { get; }
 
@@ -82,14 +87,34 @@ public sealed class DimensionSessionStateStore
     public DimensionSessionStateStore(
         ulong worldSeed,
         DimensionRegistry dimensions)
+        : this(
+            new WorldCreationOptions(
+                WorldCreationOptions.DefaultName,
+                worldSeed),
+            dimensions)
     {
-        _worldSeed =
-            worldSeed;
-        _dimensions =
-            dimensions ??
-            throw new ArgumentNullException(
-                nameof(dimensions));
     }
+
+    public DimensionSessionStateStore(
+        WorldCreationOptions creation,
+        DimensionRegistry dimensions)
+    {
+        ArgumentNullException.ThrowIfNull(creation);
+        _worldSeed = creation.Seed;
+        _dimensions = dimensions ??
+            throw new ArgumentNullException(nameof(dimensions));
+        Name = creation.Name;
+        InitialGameMode = creation.GameMode;
+        GameRules = new WorldGameRules(
+            creation.TicksPerSecond,
+            creation.SpawnCreatures);
+    }
+
+    public string Name { get; }
+
+    public PlayerGameMode InitialGameMode { get; }
+
+    public WorldGameRules GameRules { get; }
 
     public int Count =>
         _states.Count;
@@ -119,7 +144,8 @@ public sealed class DimensionSessionStateStore
                 definition,
                 DimensionSeed.Derive(
                     _worldSeed,
-                    definition.Id));
+                    definition.Id),
+                GameRules);
         _states.Add(
             dimensionId,
             state);
