@@ -613,7 +613,8 @@ public sealed class DimensionCaveDefinition
     {
         var authored = layers?.ToArray() ??
             throw new ArgumentNullException(nameof(layers));
-        if (authored.Length is < 1 or > 8)
+        if (authored.Length is < 1 or > 8 ||
+            authored.Any(layer => layer is null))
         {
             throw new ArgumentOutOfRangeException(
                 nameof(layers),
