@@ -11,28 +11,34 @@ public sealed class DroppedBlockPresentation
     public DroppedBlockPresentation(
         DroppedBlockState state,
         ArrayMesh mesh)
+        : this(state, new MeshInstance3D
+        {
+            Name = "Mesh",
+            Mesh = mesh,
+            Scale = Vector3.One * VisualScale,
+            Position = -Vector3.One * (VisualScale * 0.5f),
+        })
+    {
+    }
+
+    public DroppedBlockPresentation(
+        DroppedBlockState state,
+        Texture2D icon)
+        : this(state, new Sprite3D
+        {
+            Name = "Icon",
+            Texture = icon ?? throw new ArgumentNullException(nameof(icon)),
+            PixelSize = 0.006f,
+        })
+    {
+    }
+
+    private DroppedBlockPresentation(
+        DroppedBlockState state,
+        Node3D visual)
     {
         Id = state.Id;
-
-        Root = new Node3D
-        {
-            Name =
-                $"DroppedBlock_{state.Id.Value}",
-        };
-
-        var visual =
-            new MeshInstance3D
-            {
-                Name = "Mesh",
-                Mesh = mesh,
-                Scale =
-                    Vector3.One *
-                    VisualScale,
-                Position =
-                    -Vector3.One *
-                    (VisualScale * 0.5f),
-            };
-
+        Root = new Node3D { Name = $"DroppedItem_{state.Id.Value}" };
         Root.AddChild(visual);
         Apply(state);
     }

@@ -47,6 +47,7 @@ public sealed class DimensionRuntimeSession
         DayNightCycleRegistry dayNightCycles,
         PackContentRegistry<CreatureDefinition> creatures,
         PackSelection packSelection,
+        Func<InventoryEntry, Texture2D?> itemIcon,
         TerrainTextureLookup terrainTextures,
         VoxelTerrainMaterialSet terrainMaterials,
         FluidMaterialCatalog fluidMaterials,
@@ -76,6 +77,7 @@ public sealed class DimensionRuntimeSession
             dayNightCycles);
         ArgumentNullException.ThrowIfNull(
             creatures);
+        ArgumentNullException.ThrowIfNull(itemIcon);
         ArgumentNullException.ThrowIfNull(
             terrainTextures);
         ArgumentNullException.ThrowIfNull(
@@ -201,7 +203,8 @@ public sealed class DimensionRuntimeSession
                 blocks,
                 fluids,
                 terrainTextures,
-                terrainMaterials);
+                terrainMaterials,
+                itemIcon);
         BlockEntities =
             new BlockEntityFrameController(
                 WorldTicks,

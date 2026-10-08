@@ -25,6 +25,7 @@ public sealed class BlockEntityPresentationController
     private readonly FluidRegistry _fluids;
     private readonly TerrainTextureLookup _textures;
     private readonly VoxelTerrainMaterialSet _materials;
+    private readonly Func<InventoryEntry, Texture2D?> _itemIcon;
     private readonly SortedDictionary<FallingBlockId, FallingBlockPresentation>
         _falling =
             new(FallingBlockIdComparer);
@@ -43,7 +44,8 @@ public sealed class BlockEntityPresentationController
         BlockRegistry blocks,
         FluidRegistry fluids,
         TerrainTextureLookup textures,
-        VoxelTerrainMaterialSet materials)
+        VoxelTerrainMaterialSet materials,
+        Func<InventoryEntry, Texture2D?> itemIcon)
     {
         _parent =
             parent ??
@@ -60,6 +62,7 @@ public sealed class BlockEntityPresentationController
         _materials =
             materials ??
             throw new ArgumentNullException(nameof(materials));
+        _itemIcon = itemIcon ?? throw new ArgumentNullException(nameof(itemIcon));
     }
 
     public void SyncByIdOrder(
@@ -130,10 +133,13 @@ public sealed class BlockEntityPresentationController
                     state.Id,
                     out var presentation))
             {
-                presentation =
-                    new DroppedBlockPresentation(
+                presentation = state.Block is { } block
+                    ? new DroppedBlockPresentation(state, GetMesh(block))
+                    : new DroppedBlockPresentation(
                         state,
-                        GetMesh(state.Block));
+                        _itemIcon(state.Stack.Entry) ??
+                        throw new InvalidOperationException(
+                            $"Missing icon for dropped item {state.Stack.Id}"));
                 _dropped.Add(
                     state.Id,
                     presentation);
