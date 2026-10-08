@@ -242,15 +242,13 @@ public sealed class SurfaceStructureField
         StructureCandidate? best = null;
         long bestDistanceSquared = long.MaxValue;
         var maximumDistanceSquared =
-            (long)maxDistance *
-            maxDistance;
+            (long)maxDistance * maxDistance;
 
         for (var ruleIndex = 0;
              ruleIndex < _rules.Length;
              ruleIndex++)
         {
-            var rule =
-                _rules[ruleIndex];
+            var rule = _rules[ruleIndex];
             if (!string.Equals(
                     rule.Reference,
                     reference,
@@ -259,32 +257,99 @@ public sealed class SurfaceStructureField
                 continue;
             }
 
-            var reach =
-                (long)maxDistance;
+            var reach = (long)maxDistance;
             var minimumCellX =
-                FloorDiv(
-                    (long)originX -
-                    reach,
-                    rule.Spacing) -
-                1L;
+                FloorDiv((long)originX - reach, rule.Spacing) - 1L;
             var maximumCellX =
-                FloorDiv(
-                    (long)originX +
-                    reach,
-                    rule.Spacing) +
-                1L;
+                FloorDiv((long)originX + reach, rule.Spacing) + 1L;
             var minimumCellZ =
-                FloorDiv(
-                    (long)originZ -
-                    reach,
-                    rule.Spacing) -
-                1L;
+                FloorDiv((long)originZ - reach, rule.Spacing) - 1L;
             var maximumCellZ =
-                FloorDiv(
-                    (long)originZ +
-                    reach,
-                    rule.Spacing) +
-                1L;
+                FloorDiv((long)originZ + reach, rule.Spacing) + 1L;
+
+            // Search nearby cells first so most of the large search area
+            // can be eliminated before any expensive terrain/biome/structure
+            // candidate generation. This changes traversal order only.
+            var centerCellX =
+                FloorDiv(originX, rule.Spacing);
+            var centerCellZ =
+                FloorDiv(originZ, rule.Spacing);
+
+            void Consider(long cellX, long cellZ)
+            {
+                if (cellX is < int.MinValue or > int.MaxValue ||
+                    cellZ is < int.MinValue or > int.MaxValue ||
+                    !CellCanBeatNearest(
+                        rule,
+                        cellX,
+                        cellZ,
+                        originX,
+                        originZ,
+                        maxDistance,
+                        best is null
+                            ? maximumDistanceSquared
+                            : bestDistanceSquared))
+                {
+                    return;
+                }
+
+                var candidate = ResolveCandidate(
+                    ruleIndex,
+                    rule,
+                    (int)cellX,
+                    (int)cellZ);
+                if (candidate is null)
+                {
+                    return;
+                }
+
+                var dx =
+                    (long)candidate.PlacementAnchorX - originX;
+                var dz =
+                    (long)candidate.PlacementAnchorZ - originZ;
+                // Reject out-of-radius coordinates before squaring: a
+                // difference between two int world coordinates can be
+                // larger than int.MaxValue.
+                if (Math.Abs(dx) > maxDistance ||
+                    Math.Abs(dz) > maxDistance)
+                {
+                    return;
+                }
+
+                var distanceSquared = dx * dx + dz * dz;
+                if (distanceSquared > maximumDistanceSquared ||
+                    (best is not null &&
+                     distanceSquared > bestDistanceSquared) ||
+                    !CandidateIsAccepted(candidate))
+                {
+                    return;
+                }
+
+                if (best is null ||
+                    distanceSquared < bestDistanceSquared ||
+                    (distanceSquared == bestDistanceSquared &&
+                     CompareCandidates(candidate, best) < 0))
+                {
+                    best = candidate;
+                    bestDistanceSquared = distanceSquared;
+                }
+            }
+
+            for (var z = centerCellZ - 1L;
+                 z <= centerCellZ + 1L;
+                 z++)
+            {
+                for (var x = centerCellX - 1L;
+                     x <= centerCellX + 1L;
+                     x++)
+                {
+                    if (x >= minimumCellX && x <= maximumCellX &&
+                        z >= minimumCellZ && z <= maximumCellZ)
+                    {
+                        Consider(x, z);
+                    }
+                }
+            }
 
             for (var cellZ = minimumCellZ;
                  cellZ <= maximumCellZ;
@@ -294,56 +359,13 @@ public sealed class SurfaceStructureField
                      cellX <= maximumCellX;
                      cellX++)
                 {
-                    if (cellX is < int.MinValue or > int.MaxValue ||
-                        cellZ is < int.MinValue or > int.MaxValue)
+                    if (Math.Abs(cellX - centerCellX) <= 1L &&
+                        Math.Abs(cellZ - centerCellZ) <= 1L)
                     {
                         continue;
                     }
 
-                    var candidate =
-                        ResolveCandidate(
-                            ruleIndex,
-                            rule,
-                            (int)cellX,
-                            (int)cellZ);
-                    if (candidate is null)
-                    {
-                        continue;
-                    }
-
-                    var dx =
-                        (long)candidate.PlacementAnchorX -
-                        originX;
-                    var dz =
-                        (long)candidate.PlacementAnchorZ -
-                        originZ;
-                    var distanceSquared =
-                        dx * dx +
-                        dz * dz;
-                    if (distanceSquared >
-                            maximumDistanceSquared ||
-                        (best is not null &&
-                         distanceSquared >
-                            bestDistanceSquared) ||
-                        !CandidateIsAccepted(
-                            candidate))
-                    {
-                        continue;
-                    }
-
-                    if (best is null ||
-                        distanceSquared <
-                        bestDistanceSquared ||
-                        (distanceSquared ==
-                             bestDistanceSquared &&
-                         CompareCandidates(
-                             candidate,
-                             best) < 0))
-                    {
-                        best = candidate;
-                        bestDistanceSquared =
-                            distanceSquared;
-                    }
+                    Consider(cellX, cellZ);
                 }
             }
         }
@@ -355,6 +377,55 @@ public sealed class SurfaceStructureField
                 best.PlacementAnchorX,
                 best.PlacementAnchorZ);
     }
+
+    // Lower bound on the possible horizontal anchor distance for a
+    // placement cell. Interior anchors vary only by authored jitter;
+    // biome-margin anchors are located somewhere inside the cell.
+    // Equality must remain eligible for deterministic tie-breaking.
+    private static bool CellCanBeatNearest(
+        RootRule rule,
+        long cellX,
+        long cellZ,
+        int originX,
+        int originZ,
+        int maxDistance,
+        long bestDistanceSquared)
+    {
+        var minX = cellX * rule.Spacing;
+        var minZ = cellZ * rule.Spacing;
+        long maxX;
+        long maxZ;
+        if (rule.Placement ==
+            DimensionGeneratedSurfaceStructurePlacement.BiomeMargin)
+        {
+            maxX = minX + rule.Spacing - 1L;
+            maxZ = minZ + rule.Spacing - 1L;
+        }
+        else
+        {
+            var offset = rule.Spacing / 2L;
+            minX += offset - rule.Jitter;
+            minZ += offset - rule.Jitter;
+            maxX = cellX * rule.Spacing + offset + rule.Jitter;
+            maxZ = cellZ * rule.Spacing + offset + rule.Jitter;
+        }
+
+        var dx = DistanceToInterval(originX, minX, maxX);
+        var dz = DistanceToInterval(originZ, minZ, maxZ);
+        return dx <= maxDistance &&
+               dz <= maxDistance &&
+               dx * dx + dz * dz <= bestDistanceSquared;
+    }
+
+    private static long DistanceToInterval(
+        long point,
+        long minimum,
+        long maximum) =>
+        point < minimum
+            ? minimum - point
+            : point > maximum
+                ? point - maximum
+                : 0L;
 
     private bool CandidateIsAccepted(
         StructureCandidate candidate) =>

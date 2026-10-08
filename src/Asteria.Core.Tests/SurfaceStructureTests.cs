@@ -897,6 +897,79 @@ public sealed class SurfaceStructureTests
                 12));
     }
 
+    [Theory]
+    [InlineData(0, 0)]
+    [InlineData(31, 17)]
+    [InlineData(-13, -20)]
+    [InlineData(47, -33)]
+    public void NearestStructureMatchesExhaustivePlacementQuery(
+        int originX,
+        int originZ)
+    {
+        const int radius = 48;
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition("asteria:stone"),
+            new BlockDefinition("asteria:marker"),
+        ]);
+        var structure = new StructureDefinition(
+            "asteria:test_marker",
+            rotation: false,
+            anchor: default,
+            voxels:
+            [
+                new StructureVoxelDefinition(
+                    0, 0, 0, "asteria:marker", BlockOrientation.Y),
+            ]);
+        var generator = FlatStructureGenerator(
+            blocks,
+            new StructureRegistry([structure]),
+            "asteria:stone",
+            structure.Id);
+
+        var expected = generator.SurfaceStructuresIntersecting(
+                originX - radius,
+                originZ - radius,
+                radius * 2 + 1,
+                radius * 2 + 1)
+            .Where(placement =>
+            {
+                var dx = (long)placement.PlacementAnchorX - originX;
+                var dz = (long)placement.PlacementAnchorZ - originZ;
+                return dx * dx + dz * dz <= (long)radius * radius;
+            })
+            .OrderBy(placement =>
+            {
+                var dx = (long)placement.PlacementAnchorX - originX;
+                var dz = (long)placement.PlacementAnchorZ - originZ;
+                return dx * dx + dz * dz;
+            })
+            .ThenBy(placement => placement.PlacementAnchorX)
+            .ThenBy(placement => placement.PlacementAnchorZ)
+            .FirstOrDefault();
+
+        var nearest = generator.FindNearestSurfaceStructure(
+            structure.Id,
+            originX,
+            originZ,
+            radius);
+
+        if (expected == default)
+        {
+            Assert.Null(nearest);
+        }
+        else
+        {
+            Assert.True(nearest.HasValue);
+            Assert.Equal(
+                expected.PlacementAnchorX,
+                nearest.Value.PlacementAnchorX);
+            Assert.Equal(
+                expected.PlacementAnchorZ,
+                nearest.Value.PlacementAnchorZ);
+        }
+    }
+
     [Fact]
     public void StructureRotationRotatesOffsetsAndHorizontalBlockOrientation()
     {
