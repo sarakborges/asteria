@@ -142,11 +142,11 @@ public sealed class DimensionRuntimeSession
                         $"Dimension {state.Dimension.Id} has no day-night cycle.")),
                 state.DayNight);
         FluidUpdates =
-            new FluidUpdateQueue();
+            new FluidUpdateQueue(state.PendingFluidWork);
         FluidMeshUpdates =
             new FluidMeshUpdateQueue();
         BlockPhysicsUpdates =
-            new BlockPhysicsUpdateQueue();
+            new BlockPhysicsUpdateQueue(state.PendingPhysicsWork);
         ContentRevisions =
             new MeshletContentRevisions();
         FluidContentRevisions =
@@ -760,6 +760,10 @@ public sealed class DimensionRuntimeSession
             playerPosition;
         _state.BlockPhysics =
             _blockPhysics.CaptureState();
+        _state.PendingFluidWork =
+            FluidUpdates.CaptureState();
+        _state.PendingPhysicsWork =
+            BlockPhysicsUpdates.CaptureState();
         _state.DroppedBlocks =
             _droppedBlocks.CaptureState();
         _state.Creatures =

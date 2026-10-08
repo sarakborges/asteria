@@ -72,6 +72,8 @@ public sealed record SphereClockSnapshot
     private readonly BlockPhysicsRuntimeSnapshot? _blockPhysics;
     private readonly DroppedBlockRuntimeSnapshot? _droppedBlocks;
     private readonly CreatureRuntimeSnapshot? _creatures;
+    private readonly FluidUpdateQueueSnapshot? _fluidWork;
+    private readonly BlockPhysicsUpdateQueueSnapshot? _physicsWork;
 
     public SphereClockSnapshot(
         DimensionId dimension, ulong worldTick, DayNightClockState? dayNight,
@@ -80,7 +82,9 @@ public sealed record SphereClockSnapshot
         IEnumerable<ManualStructurePlacementFootprint>? manualStructures = null,
         BlockPhysicsRuntimeSnapshot? blockPhysics = null,
         DroppedBlockRuntimeSnapshot? droppedBlocks = null,
-        CreatureRuntimeSnapshot? creatures = null)
+        CreatureRuntimeSnapshot? creatures = null,
+        FluidUpdateQueueSnapshot? fluidWork = null,
+        BlockPhysicsUpdateQueueSnapshot? physicsWork = null)
     {
         if (string.IsNullOrWhiteSpace(dimension.Value) ||
             dayNight is { Day: 0 } ||
@@ -108,6 +112,8 @@ public sealed record SphereClockSnapshot
         _blockPhysics = SphereDynamicSnapshot.ValidateAndCopy(blockPhysics);
         _droppedBlocks = SphereDynamicSnapshot.ValidateAndCopy(droppedBlocks);
         _creatures = SphereDynamicSnapshot.ValidateAndCopy(creatures);
+        _fluidWork = fluidWork;
+        _physicsWork = physicsWork;
     }
 
     public IReadOnlyList<SavedStorageBoxContents> StorageBoxes => _storageBoxes;
@@ -119,6 +125,8 @@ public sealed record SphereClockSnapshot
         SphereDynamicSnapshot.Copy(_droppedBlocks);
     public CreatureRuntimeSnapshot? Creatures =>
         SphereDynamicSnapshot.Copy(_creatures);
+    public FluidUpdateQueueSnapshot? FluidWork => _fluidWork;
+    public BlockPhysicsUpdateQueueSnapshot? PhysicsWork => _physicsWork;
 
     public DimensionId Dimension { get; }
     public ulong WorldTick { get; }
@@ -193,7 +201,8 @@ public static class GameplaySessionSaveCodec
                 state.StorageBoxes.CaptureOccupied().Select(box =>
                     new SavedStorageBoxContents(box.Position, box.Slots)),
                 state.ManualStructures.Snapshot(),
-                state.BlockPhysics, state.DroppedBlocks, state.Creatures));
+                state.BlockPhysics, state.DroppedBlocks, state.Creatures,
+                state.PendingFluidWork, state.PendingPhysicsWork));
         return new GameplaySessionSnapshot(
             spatial, source.Name, source.GameRules.TicksPerSecond,
             source.GameRules.SpawnCreatures,
@@ -232,6 +241,8 @@ public static class GameplaySessionSaveCodec
             state.BlockPhysics = clock.BlockPhysics;
             state.DroppedBlocks = clock.DroppedBlocks;
             state.Creatures = clock.Creatures;
+            state.PendingFluidWork = clock.FluidWork;
+            state.PendingPhysicsWork = clock.PhysicsWork;
         }
 
         return restored;

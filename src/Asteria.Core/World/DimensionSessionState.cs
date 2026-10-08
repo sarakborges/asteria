@@ -69,6 +69,10 @@ public sealed class DimensionSessionState
     public BlockPhysicsRuntimeSnapshot?
         BlockPhysics { get; set; }
 
+    public FluidUpdateQueueSnapshot? PendingFluidWork { get; set; }
+
+    public BlockPhysicsUpdateQueueSnapshot? PendingPhysicsWork { get; set; }
+
     public DroppedBlockRuntimeSnapshot?
         DroppedBlocks { get; set; }
 

@@ -5,6 +5,16 @@ public sealed class BlockPhysicsUpdateQueue
     private readonly DeduplicatedQueue<WorldVoxelCoord>
         _queue = new();
 
+    public BlockPhysicsUpdateQueue(BlockPhysicsUpdateQueueSnapshot? restore = null)
+    {
+        if (restore is null) return;
+        foreach (var position in restore.Positions)
+            _queue.Enqueue(position);
+    }
+
+    public BlockPhysicsUpdateQueueSnapshot CaptureState() =>
+        new(_queue.ValuesInOrder());
+
     public int Count => _queue.Count;
 
     public void EnqueueVoxelEdit(WorldVoxelCoord position)

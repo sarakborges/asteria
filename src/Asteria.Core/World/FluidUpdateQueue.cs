@@ -82,6 +82,32 @@ public sealed class FluidUpdateQueue
     private readonly Dictionary<FluidTickKey, ulong> _scheduledDue = [];
     private readonly Dictionary<ChunkCoord, HashSet<FluidTickKey>> _dormant = [];
 
+    public FluidUpdateQueue(FluidUpdateQueueSnapshot? restore = null)
+    {
+        if (restore is null) return;
+        RequeueTopology(restore.Topology);
+        foreach (var entry in restore.Scheduled)
+            ScheduleAt(entry.Tick, entry.DueTick);
+        foreach (var key in restore.Dormant)
+            DeferUnloaded(key);
+    }
+
+    public FluidUpdateQueueSnapshot CaptureState() =>
+        new(
+            _topology.Select(entry => entry.Position),
+            _scheduledDue.Select(entry =>
+                new ScheduledFluidTick(entry.Key, entry.Value))
+                .OrderBy(entry => entry.DueTick)
+                .ThenBy(entry => entry.Tick.Position.Y)
+                .ThenBy(entry => entry.Tick.Position.Z)
+                .ThenBy(entry => entry.Tick.Position.X)
+                .ThenBy(entry => entry.Tick.Fluid.Value),
+            _dormant.Values.SelectMany(entries => entries)
+                .OrderBy(entry => entry.Position.Y)
+                .ThenBy(entry => entry.Position.Z)
+                .ThenBy(entry => entry.Position.X)
+                .ThenBy(entry => entry.Fluid.Value));
+
     public int Count =>
         _topology.Count +
         _scheduledDue.Count;

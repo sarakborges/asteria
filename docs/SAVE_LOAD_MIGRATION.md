@@ -126,6 +126,22 @@ keeps Godot as an I/O/interaction adapter.
   identities. They must be mapped to authored IDs by the full disk session
   codec before any playable load is enabled.
 
+## Stage 8: pending fluid and block-physics work on Sphere retirement
+
+- `FluidUpdateQueue` now captures the complete topology work set, due tick
+  schedule, and dormant ticks for unloaded chunks. Pending work follows its
+  owning Sphere through retirement and resumed session initialization.
+- `BlockPhysicsUpdateQueue` preserves its deduplicated FIFO wakeup sequence.
+  Both queue snapshots are detached, bounded and reject duplicate or invalid
+  world coordinates/tick identities.
+- `DimensionRuntimeSession` captures both queues after draining workers,
+  and reconstructs them on Sphere re-entry. This fixes lost pending fluid
+  and block-support work during dimension transitions even without disk save.
+- Session capture/restore includes both pending queues. They still carry
+  runtime fluid IDs, so a final disk codec must remap to namespaced IDs.
+- Regression tests verify topology/schedule/dormant work, FIFO restoration,
+  corruption rejection and per-Sphere session snapshots.
+
 ## Remaining
 
 Wire the spatial snapshot capture and disk publisher into a quiescent
