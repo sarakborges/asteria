@@ -145,7 +145,7 @@ internal static class AtomicSaveGenerationStore
 
     private static FileStream AcquireLease(string directory, string prefix)
     {
-        var path = Path.Combine(directory, prefix + "lock");
+        var path = Path.Combine(directory, prefix.TrimEnd('-') + ".lock");
         if (File.Exists(path) &&
             (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
             throw new InvalidDataException("Save lock cannot be a symbolic link.");

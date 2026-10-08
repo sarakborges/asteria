@@ -142,25 +142,26 @@ public sealed class SessionSaveStorageTests
             var content = Content();
             SessionSaveStorage.Publish(dir, Session(111, content),
                 content.Blocks, content.Fluids, content.Dyes, content.Layers);
-            var original = Session(222, content);
-            var changed = new GameplaySessionSnapshot(
-                original.Spatial, original.Name, original.TicksPerSecond,
-                original.SpawnCreatures, original.Player, original.Spheres,
-                original.ActiveSphere);
-            SessionSaveStorage.Publish(dir, changed,
+            var nextCreation = new WorldCreationOptions("World", 222UL);
+            var nextStates = new DimensionSessionStateStore(nextCreation, Dimensions());
+            nextStates.GetOrCreate(new DimensionId("asteria:umbral"));
+            var umbral = GameplaySessionSaveCodec.Capture(
+                nextStates, content.Blocks, content.Fluids,
+                content.Dyes, content.Layers,
+                activeSphere: new DimensionId("asteria:umbral"));
+            SessionSaveStorage.Publish(dir, umbral,
                 content.Blocks, content.Fluids, content.Dyes, content.Layers);
 
-            // The bytes and checksum are valid, but the current pack no
-            // longer contains the second generation's authored Sphere ID.
-            // Substitute an incompatible but structurally valid pack registry
-            // for the semantic read and verify candidates are not accepted.
-            var incompatible = new DimensionRegistry([
-                Dimension("asteria:other")
+            // Both checksums are intact, but a pack with only Overworld
+            // cannot restore the newest (Umbral) generation.
+            var overworldOnly = new DimensionRegistry([
+                Dimension("asteria:overworld")
             ]);
-            Assert.Throws<InvalidDataException>(() =>
-                SessionSaveStorage.RestoreLatest(
-                    dir, incompatible, content.Blocks, content.Fluids,
-                    content.Dyes, content.Layers));
+            var recovered = SessionSaveStorage.RestoreLatest(
+                dir, overworldOnly, content.Blocks, content.Fluids,
+                content.Dyes, content.Layers);
+            Assert.Equal(111UL, recovered.Snapshot.Spatial.WorldSeed);
+            Assert.Equal(DimensionId.Overworld, recovered.Snapshot.ActiveSphere);
 
             Assert.Equal(222UL, SessionSaveStorage.RestoreLatest(
                 dir, Dimensions(), content.Blocks, content.Fluids,
