@@ -8,6 +8,7 @@ export type ChatMessageView = {
   text: string;
   tone?: ChatMessageTone;
   actionLabel?: string;
+  localizationKey?: "chat.local.help" | "chat.local.position" | "chat.local.time" | "chat.local.unknown";
 };
 
 export type ChatSuggestionView = {
