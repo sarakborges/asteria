@@ -46,6 +46,11 @@ public sealed class ToolGameplayRuntimeTests
                 new BlockVariantDefinition(family, "stripped")),
             new BlockDefinition("asteria:log_oak_stripped_hollow", variant:
                 new BlockVariantDefinition(family, "stripped_hollow")),
+            new BlockDefinition("asteria:protected_log", variant:
+                new BlockVariantDefinition("asteria:protected_log", "natural"),
+                mining: new BlockMiningDefinition(unbreakable: true)),
+            new BlockDefinition("asteria:protected_log_stripped", variant:
+                new BlockVariantDefinition("asteria:protected_log", "stripped")),
         ]);
         var world = new VoxelWorld();
         world.InsertChunk(ChunkCoord.Zero, new Chunk());
@@ -103,6 +108,20 @@ public sealed class ToolGameplayRuntimeTests
         Assert.Equal((ushort)3, hollow.State);
         Assert.False(tools.TryUse(held, ToolUseHand.Right, hit));
         Assert.False(tools.TryUse(held, ToolUseHand.Left, hit));
+    }
+
+    [Fact]
+    public void UnbreakableVariantRejectsToolTransformation()
+    {
+        var (tools, blocks, world, mutations) = Setup();
+        var pos = new WorldVoxelCoord(2, 3, 4);
+        var source = blocks.GetId("asteria:protected_log");
+        Assert.True(mutations.SetBlockAt(pos, source, out _));
+        var held = new InventoryStack(
+            InventoryEntry.FromTool("asteria:carpenters_axe_rustic"));
+        Assert.False(tools.TryUse(
+            held, ToolUseHand.Right, new VoxelWorldHit(pos, 0, 1, 0)));
+        Assert.Equal(source, world.GetCellOrEmpty(pos).Block);
     }
 
     [Fact]
