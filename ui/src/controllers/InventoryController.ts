@@ -39,7 +39,8 @@ export function createInventoryController(
         if (!payload || typeof payload.open !== "boolean" ||
             typeof payload.creativeAvailable !== "boolean" ||
             !Number.isInteger(payload.selectedIndex) ||
-            !Number.isInteger(payload.open ? payload.selectedIndex : payload.selectedIndex))
+            (payload.selectedIndex as number) < 0 ||
+            (payload.selectedIndex as number) >= 9)
           return;
         const backpack = readSlots(payload.backpack, 27);
         const hotbar = readSlots(payload.hotbar, 9);
