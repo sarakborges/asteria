@@ -7,6 +7,7 @@ import { Text } from "../../atoms/Text/Text";
 import { TextInput } from "../../atoms/TextInput/TextInput";
 import { SettingRow } from "../../molecules/SettingRow/SettingRow";
 import { GameModePicker } from "../../molecules/GameModePicker/GameModePicker";
+import { NumericStepper } from "../../molecules/NumericStepper/NumericStepper";
 import { CosmicBackground } from "../../organisms/CosmicBackground/CosmicBackground";
 import { ScreenShell } from "../../templates/ScreenShell/ScreenShell";
 import { SettingsPage, type SettingsSectionView } from "../SettingsPage/SettingsPage";
@@ -113,11 +114,11 @@ export function NewWorldPage({
         <div className="new-world__form-rows">
           <SettingRow title={t("settings.ticksBySecond")}
             description={t("settings.ticksBySecond.description")}
-            control={<TextInput
-              aria-label={t("settings.ticksBySecond")}
-              type="number" min={1} step={1}
+            control={<NumericStepper
+              ariaLabel={t("settings.ticksBySecond")}
+              min={1} max={4294967295}
               value={ticksPerSecond} disabled={state.pending}
-              onChange={event => setTicksPerSecond(event.target.value)}
+              onChange={setTicksPerSecond}
             />} />
         </div>
       ),
