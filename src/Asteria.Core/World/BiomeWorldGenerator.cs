@@ -308,12 +308,14 @@ public sealed class BiomeWorldGenerator :
             string reference,
             int originX,
             int originZ,
-            int maxDistance) =>
+            int maxDistance,
+            string? structureId = null) =>
         _surfaceStructures.FindNearest(
             reference,
             originX,
             originZ,
-            maxDistance);
+            maxDistance,
+            structureId);
 
     public Chunk Materialize(ChunkCoord coord) =>
         _materializer.Materialize(coord);
