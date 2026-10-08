@@ -120,6 +120,8 @@ public partial class Main : Node3D
     private (ulong Day, int Hour, int Minute)? _lastClockHud;
     private WorldFrameWorkBudget _worldFrameBudget;
     private bool _worldReadySent;
+    private bool _inventoryOpen;
+    private double _pickupAccumulator;
     private bool _debugHudVisible;
     private ulong? _worldSeed;
     private ulong _suggestedWorldSeed;
@@ -269,6 +271,18 @@ public partial class Main : Node3D
             return;
         }
 
+        if (_inventoryOpen &&
+            @event is InputEventKey modalKey &&
+            modalKey.Pressed && !modalKey.Echo &&
+            (modalKey.Keycode == Key.Escape ||
+             GameplayKeyMap.Matches(
+                 modalKey, _clientPreferences, KeybindAction.Inventory)))
+        {
+            CloseInventory();
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+
         if (@event is not InputEventKey keyEvent ||
             !keyEvent.Pressed ||
             keyEvent.Echo)
@@ -346,6 +360,7 @@ public partial class Main : Node3D
             _blockEntities.Advance(
                 delta,
                 _dimension.GravityStrength));
+        AdvanceItemPickup(delta);
 
         PollFluidWorker();
         PollFluidMeshWorker();
@@ -618,6 +633,9 @@ public partial class Main : Node3D
             PlaceTargetBlock;
         _player.ToolActionRequested -=
             RotateHeldBlock;
+        _player.InventoryRequested -= OpenInventory;
+        _player.DropItemRequested -= DropSelectedItem;
+        _player.HotbarSlotRequested -= SelectHotbar;
         _player.MouseCaptureChanged -=
             SendMouseCaptureState;
         _player.FlightStateChanged -=
@@ -625,6 +643,12 @@ public partial class Main : Node3D
         _player.FluidContactChanged -=
             OnPlayerFluidContactChanged;
         _sessionStates.Player.CancelDoubleTap();
+        if (_inventoryOpen)
+        {
+            _sessionStates.Player.Inventory.TryReturnCursor();
+            _inventoryOpen = false;
+            SendInventoryState();
+        }
         _player.QueueFree();
         _player = null;
         _underwaterView = null;
@@ -794,10 +818,28 @@ public partial class Main : Node3D
                     SetRequestedWorldTicks(document.RootElement);
                     break;
                 case "ui.game.resume":
-                    if (_worldReadySent && !_keybindCapture.IsCapturing)
+                    if (_worldReadySent && !_keybindCapture.IsCapturing &&
+                        !_inventoryOpen)
                     {
                         _player?.ResumeGameplay();
                     }
+                    break;
+                case "ui.inventory.close":
+                    CloseInventory();
+                    break;
+                case "ui.inventory.slot":
+                    HandleInventorySlot(document.RootElement);
+                    break;
+                case "ui.inventory.sort":
+                    if (_inventoryOpen && _sessionStates.Player.Inventory.SortBackpack())
+                        SendInventoryState();
+                    break;
+                case "ui.inventory.discard_cursor":
+                    if (_inventoryOpen && _sessionStates.Player.Inventory.DiscardCursor())
+                        SendInventoryState();
+                    break;
+                case "ui.inventory.creative_pick":
+                    HandleCreativePick(document.RootElement);
                     break;
             }
         }
@@ -828,6 +870,7 @@ public partial class Main : Node3D
         SendPlayerModeState();
         SendWorldSettings();
         SendHotbarState();
+        SendInventoryState();
         SendWorldHudState(
             force: true);
         SendWorldClockState(force: true);
@@ -874,6 +917,19 @@ public partial class Main : Node3D
             return;
         }
 
+        if (_inventoryOpen && requestedMode.IsSpectator())
+        {
+            if (!_sessionStates.Player.Inventory.TryReturnCursor())
+            {
+                SendWebUi("game.inventory.error",
+                    new { code = "InventoryFull" });
+                return;
+            }
+            _inventoryOpen = false;
+            _player?.ResumeAfterKeyCapture();
+            SendInventoryState();
+        }
+
         if (_player is not null &&
             _sessionStates.Player.GameMode.IsSpectator() &&
             !requestedMode.IsSpectator() &&
@@ -903,6 +959,7 @@ public partial class Main : Node3D
 
         SendPlayerModeState();
         SendWorldSettings();
+        SendInventoryState();
     }
 
     private bool PlayerCollisionVolumeIsResident(FpsPlayer player)
@@ -1111,9 +1168,9 @@ public partial class Main : Node3D
                 StartupDimensionId));
         ActivateCurrentDimensionPresentation();
 
-        var initialBlock = _blocks.GetId(TestChunkFactory.StoneId);
-        _sessionStates.Player.HeldBlock.Select(
-            initialBlock, _blocks.GetDefinition(initialBlock));
+        // Every world starts with an empty, authoritative player inventory.
+        // Creative obtains blocks from the actual authored content catalog.
+        SyncHeldBlock();
         _worldSeed =
             creation.Seed;
 
@@ -1131,6 +1188,8 @@ public partial class Main : Node3D
                         creation.Seed),
             });
         SendHotbarState();
+        SendInventoryState();
+        SendCreativeBlockCatalog();
 
         GD.Print(
             $"world.start seed={creation.Seed} " +
@@ -1347,31 +1406,194 @@ public partial class Main : Node3D
             });
     }
 
+    private object? InventorySlotView(InventoryBlockStack? stack) =>
+        stack is null ? null : new
+        {
+            id = _blocks.GetDefinition(stack.Block.Cell.Block).Id,
+            quantity = stack.Quantity,
+        };
+
     private void SendHotbarState()
     {
-        if (_sessionStates.Player.HeldBlock.Block.IsAir)
-        {
-            return;
-        }
-
-        var definition =
-            _blocks.GetDefinition(
-                _sessionStates.Player.HeldBlock.Block);
-
+        var inventory = _sessionStates.Player.Inventory;
         SendWebUi(
             "game.hud.hotbar",
             new
             {
-                selectedIndex = 0,
-                slots = new[]
-                {
-                    new
-                    {
-                        id = definition.Id,
-                        quantity = 1,
-                    },
-                },
+                selectedIndex = inventory.SelectedSlot,
+                slots = Enumerable.Range(0, PlayerInventory.HotbarSlots)
+                    .Select(index => InventorySlotView(
+                        inventory.SlotAt(PlayerInventory.BackpackSlots + index)))
+                    .ToArray(),
             });
+    }
+
+    private void SendInventoryState()
+    {
+        if (_worldSeed is null) return;
+        var inventory = _sessionStates.Player.Inventory;
+        SendWebUi("game.inventory.state", new
+        {
+            open = _inventoryOpen,
+            creativeAvailable = _sessionStates.Player.GameMode ==
+                PlayerGameMode.Creative,
+            selectedIndex = inventory.SelectedSlot,
+            backpack = Enumerable.Range(0, PlayerInventory.BackpackSlots)
+                .Select(i => InventorySlotView(inventory.SlotAt(i))).ToArray(),
+            hotbar = Enumerable.Range(0, PlayerInventory.HotbarSlots)
+                .Select(i => InventorySlotView(
+                    inventory.SlotAt(PlayerInventory.BackpackSlots + i)))
+                .ToArray(),
+            cursor = InventorySlotView(inventory.Cursor),
+        });
+    }
+
+    private void SendCreativeBlockCatalog()
+    {
+        SendWebUi("game.inventory.catalog", new
+        {
+            items = _blocks.AuthoredDefinitions()
+                .Select(block => new
+                {
+                    id = block.Definition.Id,
+                    name = block.Definition.Id,
+                    category = block.Definition.Category,
+                })
+                .ToArray(),
+        });
+    }
+
+    private void SyncHeldBlock()
+    {
+        var selected = _sessionStates.Player.Inventory.SelectedStack;
+        if (selected is null)
+        {
+            _sessionStates.Player.HeldBlock.Clear();
+            return;
+        }
+        var block = selected.Block.Cell.Block;
+        _sessionStates.Player.HeldBlock.Select(
+            block, _blocks.GetDefinition(block));
+    }
+
+    private void SelectHotbar(int index)
+    {
+        var inventory = _sessionStates.Player.Inventory;
+        if (index == -1)
+            index = (inventory.SelectedSlot + PlayerInventory.HotbarSlots - 1) %
+                PlayerInventory.HotbarSlots;
+        else if (index == -2)
+            index = (inventory.SelectedSlot + 1) % PlayerInventory.HotbarSlots;
+        if (!inventory.SelectHotbar(index)) return;
+        SyncHeldBlock();
+        SendHotbarState();
+        SendInventoryState();
+        SendTargetHudState(force: true);
+    }
+
+    private void OpenInventory()
+    {
+        if (!_worldReadySent || _inventoryOpen || _sessions.IsTransitioning ||
+            _sessionStates.Player.GameMode.IsSpectator() || _player is null)
+            return;
+        _inventoryOpen = true;
+        _player.SuspendForModal();
+        SendInventoryState();
+    }
+
+    private void CloseInventory()
+    {
+        if (!_inventoryOpen) return;
+        if (!_sessionStates.Player.Inventory.TryReturnCursor())
+        {
+            SendWebUi("game.inventory.error",
+                new { code = "InventoryFull" });
+            return;
+        }
+        _inventoryOpen = false;
+        SyncHeldBlock();
+        SendInventoryState();
+        SendHotbarState();
+        _player?.ResumeAfterKeyCapture();
+        CallDeferred(nameof(ResumeGameplayAfterInventory));
+    }
+
+    private void ResumeGameplayAfterInventory()
+    {
+        if (!_inventoryOpen && !_keybindCapture.IsCapturing)
+            _player?.ResumeGameplay();
+    }
+
+    private void HandleInventorySlot(JsonElement message)
+    {
+        if (!_inventoryOpen ||
+            !message.TryGetProperty("payload", out var payload) ||
+            !payload.TryGetProperty("index", out var indexValue) ||
+            !indexValue.TryGetInt32(out var index)) return;
+        if (!_sessionStates.Player.Inventory.ClickSlot(index)) return;
+        SyncHeldBlock();
+        SendHotbarState();
+        SendInventoryState();
+    }
+
+    private void HandleCreativePick(JsonElement message)
+    {
+        if (!_inventoryOpen ||
+            _sessionStates.Player.GameMode != PlayerGameMode.Creative ||
+            !message.TryGetProperty("payload", out var payload) ||
+            !payload.TryGetProperty("id", out var idValue) ||
+            idValue.ValueKind != JsonValueKind.String) return;
+        var id = idValue.GetString();
+        if (id is null || !_blocks.TryGetId(id, out var block) ||
+            block.IsAir) return;
+        if (!_sessionStates.Player.Inventory.TryCreativePick(
+            BlockStateSnapshot.FromCell(new VoxelCell(block)), 1))
+            return;
+        SendInventoryState();
+    }
+
+    private void DropSelectedItem()
+    {
+        if (_player is null || _inventoryOpen ||
+            !_sessionStates.Player.CanInteract) return;
+        var inventory = _sessionStates.Player.Inventory;
+        if (!inventory.TryDropSelected(out var block) || block is null) return;
+
+        var ray = _player.GetInteractionRay(2f);
+        var direction = (ray.To - ray.From).Normalized();
+        var from = ray.From + direction * 0.6f;
+        _blockEntities.SpawnPlayerDrop(
+            block,
+            new NVector3(from.X, MathF.Max(from.Y, 0.2f), from.Z),
+            new NVector3(direction.X * 3f,
+                direction.Y * 3f + 2f, direction.Z * 3f));
+        SyncHeldBlock();
+        SendHotbarState();
+        SendInventoryState();
+    }
+
+    private void AdvanceItemPickup(double delta)
+    {
+        if (_player is null || _blockEntities.DroppedCount == 0 ||
+            _sessionStates.Player.GameMode.IsSpectator())
+        {
+            _pickupAccumulator = 0;
+            return;
+        }
+
+        _pickupAccumulator += delta;
+        if (_pickupAccumulator < 0.1) return;
+        _pickupAccumulator = 0;
+
+        var player = _player.GlobalPosition + new Vector3(0f, 0.9f, 0f);
+        var collected = _blockEntities.CollectNearby(
+            new NVector3(player.X, player.Y, player.Z),
+            1.2f,
+            _sessionStates.Player.Inventory.TryInsert);
+        if (collected == 0) return;
+        SyncHeldBlock();
+        SendHotbarState();
+        SendInventoryState();
     }
 
     private void AdvanceFpsHudState(
@@ -1556,6 +1778,9 @@ public partial class Main : Node3D
         _player.BreakRequested += BreakTargetBlock;
         _player.PlaceRequested += PlaceTargetBlock;
         _player.ToolActionRequested += RotateHeldBlock;
+        _player.InventoryRequested += OpenInventory;
+        _player.DropItemRequested += DropSelectedItem;
+        _player.HotbarSlotRequested += SelectHotbar;
         _player.MouseCaptureChanged +=
             SendMouseCaptureState;
         _player.FlightStateChanged +=
@@ -1573,6 +1798,8 @@ public partial class Main : Node3D
             "game.player_ready",
             new { controller = "fps" });
         SendPlayerModeState();
+        SendHotbarState();
+        SendInventoryState();
         SendWorldHudState(
             force: true);
 
@@ -1700,10 +1927,8 @@ public partial class Main : Node3D
             return;
         }
 
-        _sessionStates.Player.HeldBlock.Select(
-            decision.Cell.Block,
-            _blocks.GetDefinition(decision.Cell.Block));
-        SendHotbarState();
+        // Destruction creates a physical block drop; collection is handled
+        // by DroppedBlockRuntime and the authoritative inventory.
         KickWorldMutationWorkers();
     }
 
@@ -1736,6 +1961,11 @@ public partial class Main : Node3D
             return;
         }
 
+        var inventory = _sessionStates.Player.Inventory;
+        var selected = inventory.SelectedStack;
+        if (selected is null || selected.Block.HasMicroblockGeometry)
+            return;
+
         var decision =
             _blockInteractions.Place(
                 hit,
@@ -1745,6 +1975,16 @@ public partial class Main : Node3D
         if (!decision.Accepted)
         {
             return;
+        }
+
+        if (_sessionStates.Player.GameMode == PlayerGameMode.Survival)
+        {
+            if (!inventory.TryConsumeSelected())
+                throw new InvalidOperationException(
+                    "A selected stack was lost after accepted placement.");
+            SyncHeldBlock();
+            SendHotbarState();
+            SendInventoryState();
         }
 
         KickWorldMutationWorkers();

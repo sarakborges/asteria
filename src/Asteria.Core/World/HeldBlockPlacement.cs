@@ -21,6 +21,14 @@ public sealed class HeldBlockPlacement
         _definition is { } definition &&
         (definition.IsRotatable || definition.UsesHorizontalFacing);
 
+    public void Clear()
+    {
+        Block = BlockRuntimeId.Air;
+        _definition = null;
+        Orientation = BlockOrientation.Y;
+        Facing = HorizontalFacing.South;
+    }
+
     public void Select(BlockRuntimeId id, BlockDefinition definition)
     {
         ArgumentNullException.ThrowIfNull(definition);

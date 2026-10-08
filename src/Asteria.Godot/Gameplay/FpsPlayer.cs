@@ -31,6 +31,9 @@ public partial class FpsPlayer : CharacterBody3D
     public event Action? BreakRequested;
     public event Action? PlaceRequested;
     public event Action? ToolActionRequested;
+    public event Action? InventoryRequested;
+    public event Action? DropItemRequested;
+    public event Action<int>? HotbarSlotRequested;
     public event Action? FlightStateChanged;
     public event Action<bool>? MouseCaptureChanged;
     public event Action<FluidBodyContact>?
@@ -132,6 +135,12 @@ public partial class FpsPlayer : CharacterBody3D
 
         if (inputEvent is InputEventMouseButton mouseButton && mouseButton.Pressed)
         {
+            if (mouseButton.ButtonIndex is MouseButton.WheelUp or MouseButton.WheelDown)
+            {
+                HotbarSlotRequested?.Invoke(
+                    mouseButton.ButtonIndex == MouseButton.WheelUp ? -1 : -2);
+                return;
+            }
             switch (mouseButton.ButtonIndex)
             {
                 case MouseButton.Left:
@@ -296,6 +305,8 @@ public partial class FpsPlayer : CharacterBody3D
         ClearGameplayInput();
     }
 
+    public void SuspendForModal() => SuspendForKeyCapture();
+
     public void SuspendForKeyCapture()
     {
         _inputSuspended = true;
@@ -422,6 +433,20 @@ public partial class FpsPlayer : CharacterBody3D
             case Key.D:
                 _moveRight = key.Pressed;
                 break;
+        }
+
+        if (key.Pressed && !key.Echo)
+        {
+            if (code is >= Key.Key1 and <= Key.Key9)
+                HotbarSlotRequested?.Invoke((int)(code - Key.Key1));
+
+            if (GameplayKeyMap.Matches(
+                    key, InputPreferences, KeybindAction.Inventory))
+                InventoryRequested?.Invoke();
+
+            if (GameplayKeyMap.Matches(
+                    key, InputPreferences, KeybindAction.DropItem))
+                DropItemRequested?.Invoke();
         }
 
         if (GameplayKeyMap.Matches(
