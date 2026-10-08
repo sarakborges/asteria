@@ -26,3 +26,14 @@
   flex-direction: column;
   gap: var(--ui-inventory-slot-gap);
 }
+
+.current-station-panel__unavailable {
+  min-height: 160px;
+  border: var(--ui-inventory-panel-border-width) solid var(--ui-color-border);
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  color: var(--ui-color-muted);
+  text-align: center;
+  background: var(--ui-color-surface-inset);
+}
