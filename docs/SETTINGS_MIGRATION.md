@@ -101,3 +101,12 @@ Asteria reserves **F3/F4** in addition to MineClone's WASD/hotbar keys because t
 - Added typed world creation name, initial mode and ticks-per-second fields over the validated Core `WorldCreationOptions` boundary. The name is session metadata, not a claim of disk saving.
 - Added live `ui.world.set_ticks` and `game.world_settings` bridge messages; the world clock and fluid schedulers already consume the same mutable rules owner.
 - Added `ui.game.resume` for deliberate Godot-native mouse recapture. The WebUI must not capture global gameplay input.
+
+## Phase D WebUI delivery (2026-10-08)
+
+- `NewWorldPage` now passes name, mode, full decimal seed and tick rate to validated Godot/Core creation; extra draft fields remain local to the form, not duplicated gameplay state.
+- `SettingsWorkspacePage` uses existing Atomic Design settings rows, Select, Slider and TextInput for client render distance/target HUD position/language and live world mode/tick rate. A colocated Storybook story covers world/client modes.
+- `UiNavigationController` and `SettingsController` connect authoritative snapshots to UiStore. The pause menu opens when Godot releases a previously captured mouse; returning to play is a semantic `ui.game.resume` action handled by Godot, not a WebUI keyboard shortcut.
+- `ControlsPage` captures only **Jump** and **Descend**, the two actions already consumed by Godot. Nonfunctional action keybindings remain unexposed until gameplay systems exist, while reserved WASD/Escape remain view-only.
+- English, Brazilian Portuguese and Spanish have localized new labels and errors. Winky Rough Variable remains unchanged. No authored pack contains engine resources.
+- **Not exposed as functional**: creature spawning toggle (no natural spawn runtime), hide-hints and individual hint switches (no matching hint presenters), inventory/chat/tool/drop/perspective keybinds (no gameplay consumer), world catalog/save (not implemented). These remain explicit incomplete parity, not placeholders.

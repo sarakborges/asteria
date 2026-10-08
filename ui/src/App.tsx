@@ -137,7 +137,10 @@ export function App({
             captureError={state.settings.errorKey ? t(state.settings.errorKey) : null}
             onCapture={actions.beginKeyCapture}
             onCancelCapture={actions.cancelKeyCapture}
-            onBack={actions.backFromOverlay}
+            onBack={() => {
+              if (state.settings.captureAction) actions.cancelKeyCapture();
+              actions.backFromOverlay();
+            }}
           />
         </div>
       )}
