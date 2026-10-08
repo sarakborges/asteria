@@ -72,7 +72,8 @@ public static class BlockDefinitionJson
             dropsSelf: dropsSelf,
             interaction: interaction,
             pickupItemId: pickupItemId,
-            secondaryProperties: secondaryProperties);
+            secondaryProperties: secondaryProperties,
+            windSway: OptionalBoolean(root, "windSway") ?? false);
     }
 
     private static BlockLightEmission ParseLightEmission(JsonElement root, string blockId)

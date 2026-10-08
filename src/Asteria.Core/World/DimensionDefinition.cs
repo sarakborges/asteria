@@ -354,7 +354,8 @@ public sealed class DimensionEnvironmentDefinition
         DimensionColor ambientColor,
         float ambientEnergy,
         DimensionColor fogColor,
-        float fogDensity)
+        float fogDensity,
+        DimensionWindDefinition? wind = null)
     {
         if (!float.IsFinite(ambientEnergy) ||
             ambientEnergy < 0f ||
@@ -379,6 +380,7 @@ public sealed class DimensionEnvironmentDefinition
         AmbientEnergy = ambientEnergy;
         FogColor = fogColor;
         FogDensity = fogDensity;
+        Wind = wind ?? DimensionWindDefinition.Default;
     }
 
     public DimensionColor BackgroundColor { get; }
@@ -390,6 +392,7 @@ public sealed class DimensionEnvironmentDefinition
     public DimensionColor FogColor { get; }
 
     public float FogDensity { get; }
+    public DimensionWindDefinition Wind { get; }
 }
 
 public sealed class DimensionDefinition

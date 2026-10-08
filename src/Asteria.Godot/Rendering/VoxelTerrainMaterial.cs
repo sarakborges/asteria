@@ -33,6 +33,14 @@ public sealed class VoxelTerrainMaterialSet
             : throw new KeyNotFoundException(
                 $"Missing terrain material for {batch}.");
 
+    public void SetWind(DimensionWindDefinition wind)
+    {
+        var velocity = wind.Velocity;
+        var authored = new Vector2(velocity.X, velocity.Y);
+        foreach (var material in _materials.Values)
+            material.SetShaderParameter("wind_velocity", authored);
+    }
+
     public static VoxelTerrainMaterialSet Create(
         TerrainTextureCatalog textures)
     {

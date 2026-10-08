@@ -546,6 +546,7 @@ public partial class Main : Node3D
 
     private void ActivateCurrentDimensionPresentation()
     {
+        _terrainMaterials.SetWind(_dimension.Environment.Wind);
         _dimensionEnvironment.Apply(
             _dimension,
             ActiveDayNightCycle(),

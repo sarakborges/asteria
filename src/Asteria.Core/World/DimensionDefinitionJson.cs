@@ -74,7 +74,8 @@ public static class DimensionDefinitionJson
                     "environment.fogColor"),
                 RequiredSingle(
                     environment,
-                    "fogDensity")),
+                    "fogDensity"),
+                ParseWind(environment)),
             ParseShell(root),
             ParseCaves(root),
             ParseGeneratedOcean(root),
@@ -90,6 +91,29 @@ public static class DimensionDefinitionJson
                 root),
             OptionalString(root, "dayNightCycle"),
             ParseBiomeBlending(root));
+    }
+
+    private static DimensionWindDefinition? ParseWind(JsonElement environment)
+    {
+        if (!environment.TryGetProperty("wind", out var value) ||
+            value.ValueKind == JsonValueKind.Null)
+            return null;
+
+        value = RequiredObject(environment, "wind");
+        if (!value.TryGetProperty("direction", out var direction) ||
+            direction.ValueKind != JsonValueKind.Array ||
+            direction.GetArrayLength() != 2)
+            throw new FormatException("environment.wind.direction must contain two numbers.");
+
+        var components = direction.EnumerateArray().ToArray();
+        if (components.Any(component => component.ValueKind != JsonValueKind.Number ||
+                                        !component.TryGetSingle(out _)))
+            throw new FormatException("environment.wind.direction must contain two numbers.");
+
+        return new DimensionWindDefinition(
+            components[0].GetSingle(),
+            components[1].GetSingle(),
+            RequiredSingle(value, "strength"));
     }
 
     private static IReadOnlyList<DimensionGeneratedSurfaceFluidDefinition>

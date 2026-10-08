@@ -7,6 +7,7 @@ public static class ChunkMeshDataBuilder
     private const int FineResolution = BlockGeometry.Resolution;
     private const int FinePlaneArea = FineResolution * FineResolution;
     private const float DyableLayerFlag = 0.25f;
+    private const float WindSwayLayerFlag = 0.5f;
 
     // Asteria render mesh data uses clockwise front-face winding.
     private static readonly int[] TriangleOrder = [0, 2, 1, 0, 3, 2];
@@ -567,7 +568,8 @@ public static class ChunkMeshDataBuilder
                 texture.Texture) +
             (texture.Dyable
                 ? DyableLayerFlag
-                : 0f);
+                : 0f) +
+            (definition.WindSway ? WindSwayLayerFlag : 0f);
         var tint =
             ResolveTint(
                 definition.Tint,
@@ -679,7 +681,8 @@ public static class ChunkMeshDataBuilder
                 $"Ground-sprite block {definition.Id} has no visual texture.");
         var encodedLayers = new Vector2(
             textures.GetIndex(texture.Texture) +
-                (texture.Dyable ? DyableLayerFlag : 0f),
+                (texture.Dyable ? DyableLayerFlag : 0f) +
+                (definition.WindSway ? WindSwayLayerFlag : 0f),
             -1f);
         var tint = ResolveTint(
             definition.Tint, definition.PreviewColor, tintSamples,
@@ -1414,7 +1417,8 @@ public static class ChunkMeshDataBuilder
                     layers[0].Texture) +
                 (layers[0].Dyable
                     ? DyableLayerFlag
-                    : 0f);
+                    : 0f) +
+                (definition.WindSway ? WindSwayLayerFlag : 0f);
         }
 
         if (layers.Count > 1)

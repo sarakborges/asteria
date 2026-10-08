@@ -34,7 +34,8 @@ public sealed class BlockDefinition
         bool dropsSelf = true,
         BlockInteractionKind interaction = BlockInteractionKind.Break,
         string? pickupItemId = null,
-        IEnumerable<string>? secondaryProperties = null)
+        IEnumerable<string>? secondaryProperties = null,
+        bool windSway = false)
     {
         ValidateId(id);
         if (!Enum.IsDefined(interaction))
@@ -68,6 +69,7 @@ public sealed class BlockDefinition
         _tags = ValidateTags(tags);
         _secondaryProperties = ValidateTags(secondaryProperties);
         Tint = tint;
+        WindSway = windSway;
         Textures = textures ?? new BlockTextureSet();
         Visual =
             visual ??
@@ -99,6 +101,7 @@ public sealed class BlockDefinition
     public IReadOnlySet<string> SecondaryProperties => _secondaryProperties;
     public bool SupportsDye => _secondaryProperties.Contains("dyed");
     public BlockTint Tint { get; }
+    public bool WindSway { get; }
     public BlockTextureSet Textures { get; }
     public BlockVisualDefinition Visual { get; }
     public BlockTextureRotations RotateTexture { get; }
