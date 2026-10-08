@@ -94,6 +94,52 @@ public sealed class CreatureRuntimeTests
     }
 
     [Fact]
+    public void PersistentCreatureDoesNotDespawnBeyondTheUsualRadius()
+    {
+        var tags = default(CreatureMetaTags);
+        Assert.True(tags.TryChange(CreatureMetaTagAction.Add,
+            CreatureMetaTags.PersistentTag, "saved", out tags, out _));
+        var runtime = new CreatureRuntime(Definitions());
+        Assert.True(runtime.TrySpawnWithTags("asteria:slime_aqua",
+            new Vector3(2, 20, 2), tags, out var creature));
+
+        runtime.Advance(CreatureRuntime.DespawnGraceSeconds + 1,
+            new Vector3(2000, 20, 2000));
+        var current = Assert.Single(runtime.ActiveCreatures);
+        Assert.Equal(creature.Id, current.Id);
+        Assert.True(current.Persistent);
+        Assert.Equal("saved", current.MetaTags.PersistentValue);
+
+        var restored = new CreatureRuntime(Definitions(), runtime.CaptureState());
+        Assert.True(Assert.Single(restored.ActiveCreatures).Persistent);
+        Assert.True(restored.TryChangeMetaTag(creature.Id,
+            CreatureMetaTagAction.Remove, CreatureMetaTags.PersistentTag,
+            null, out _));
+        restored.Advance(0.01, new Vector3(2000, 20, 2000));
+        Assert.Empty(restored.ActiveCreatures);
+    }
+
+    [Fact]
+    public void MetadataEditChangesValueWithoutChangingTagPresence()
+    {
+        var runtime = new CreatureRuntime(Definitions());
+        Assert.True(runtime.TrySpawn("asteria:slime_aqua",
+            new Vector3(2, 20, 2), out var creature));
+        Assert.True(runtime.TryChangeMetaTag(creature.Id,
+            CreatureMetaTagAction.Add, "NO_AI", "freeze",
+            out var error));
+        Assert.Equal(CreatureMetaTagError.None, error);
+        Assert.True(runtime.TryChangeMetaTag(creature.Id,
+            CreatureMetaTagAction.Edit, "NO_AI", "pause",
+            out error));
+        var current = Assert.Single(runtime.ActiveCreatures);
+        Assert.True(current.NoAi);
+        Assert.Equal("pause", current.MetaTags.NoAiValue);
+        Assert.True(Assert.Single(new CreatureRuntime(
+            Definitions(), runtime.CaptureState()).ActiveCreatures).NoAi);
+    }
+
+    [Fact]
     public void SpawnObeysTypeCapacityAndStableIdOrder()
     {
         var runtime = new CreatureRuntime(Definitions());
