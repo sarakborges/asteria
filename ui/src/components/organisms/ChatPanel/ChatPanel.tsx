@@ -55,7 +55,7 @@ export function ChatPanel({
             className={"chat-panel__message chat-panel__message--" +
               (message.tone ?? "normal")}>
             <span>{message.localizationKey
-              ? t(message.localizationKey, { value: message.text })
+              ? t(message.localizationKey, message.parameters ?? {})
               : message.text}</span>
             {message.actionLabel && (
               <button type="button" className="chat-panel__link"
