@@ -22,6 +22,8 @@ public sealed class DroppedBlockRuntimeTests
         var first = runtime.Spawn(firstBlock, center);
         var second = runtime.Spawn(secondBlock, center + new Vector3(0.2f, 0f, 0f));
         var distant = runtime.Spawn(firstBlock, new Vector3(10f, 10f, 10f));
+        // Newly thrown blocks are not eligible until the pickup grace period.
+        runtime.Advance(0.5, gravityStrength: 0);
         var tried = new List<BlockStateSnapshot>();
         var count = runtime.CollectNearby(center, 1.5f, block =>
         {
