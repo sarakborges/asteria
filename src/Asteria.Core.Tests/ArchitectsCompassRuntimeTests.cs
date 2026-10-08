@@ -72,7 +72,7 @@ public sealed class ArchitectsCompassRuntimeTests
         Assert.NotNull(exported);
         Assert.Equal(4, exported!.Volume);
         Assert.Equal(2, exported.OccupiedBlocks);
-        Assert.Contains("..", exported.Json);
+        Assert.Contains("\"rows\"", exported.Json);
         var definition = StructureDefinitionJson.Parse(exported.Json);
         Assert.Equal("asteria:structure_test", definition.Id);
         Assert.False(definition.Rotation);
@@ -113,8 +113,8 @@ public sealed class ArchitectsCompassRuntimeTests
         var (compass, world, blocks) = Setup();
         var held = new InventoryStack(
             InventoryEntry.FromTool("asteria:architects_compass"));
-        var first = new VoxelWorldHit(new WorldVoxelCoord(0, 1, 1), 1, 0, 0);
-        var second = new VoxelWorldHit(new WorldVoxelCoord(1, 1, 2), 1, 0, 0);
+        var first = new VoxelWorldHit(new WorldVoxelCoord(1, 1, 1), 0, 0, -1);
+        var second = new VoxelWorldHit(new WorldVoxelCoord(2, 1, 2), 0, 0, 1);
         Assert.True(world.SetCellAt(new WorldVoxelCoord(1, 1, 1),
             new VoxelCell(blocks.GetId("asteria:stone")), out _));
         Assert.True(world.SetCellAt(new WorldVoxelCoord(2, 1, 2),
@@ -123,7 +123,7 @@ public sealed class ArchitectsCompassRuntimeTests
             compass.Select(held, 0, first, "asteria:first",
                 out _, out _));
         Assert.True(compass.TryPreviewBounds(second, out var bounds));
-        Assert.Equal(4, bounds.Volume);
+        Assert.Equal(8, bounds.Volume);
         Assert.False(compass.ClearUnlessEquipped(held, 0));
         Assert.True(compass.ClearUnlessEquipped(held, 2));
         Assert.Null(compass.SelectionStart);
