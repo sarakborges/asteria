@@ -1,5 +1,6 @@
 {
   "id": "asteria:leaf_enchanted",
+  "windSway": true,
   "category": "foliage",
   "tint": "none",
   "textures": {

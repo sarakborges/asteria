@@ -68,7 +68,11 @@
     "ambientColor": "DCEAF0",
     "ambientEnergy": 0.85,
     "fogColor": "B8CDD5",
-    "fogDensity": 0.003
+    "fogDensity": 0.003,
+    "wind": {
+      "direction": [0.93, 0.37],
+      "strength": 0.45
+    }
   },
   "caves": {
     "layers": [

@@ -1,5 +1,6 @@
 {
   "id": "asteria:leaf_world_tree",
+  "windSway": true,
   "category": "foliage",
   "tint": "none",
   "textures": {

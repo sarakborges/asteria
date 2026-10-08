@@ -1,5 +1,6 @@
 {
   "id": "asteria:leaf_willow",
+  "windSway": true,
   "category": "foliage",
   "tint": "leaf",
   "textures": {

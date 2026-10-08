@@ -1,5 +1,6 @@
 {
   "id": "asteria:grass",
+  "windSway": true,
   "category": "foliage",
   "tags": [
     "support_below"
