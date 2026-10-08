@@ -52,6 +52,7 @@ public sealed class SurfaceDecorationField
         int worldZ)
     {
         SurfacePlacementContext? placement = null;
+        var slopeSampled = false;
         foreach (var influence in sample.Influences)
         {
             foreach (var rule in _rules[influence.BiomeId])
@@ -63,7 +64,8 @@ public sealed class SurfaceDecorationField
 
                 if (rule.Conditions is { } conditions)
                 {
-                    if (placement is null)
+                    if (placement is null ||
+                        (conditions.RequiresSlope && !slopeSampled))
                     {
                         if (_terrain is null)
                         {
@@ -72,7 +74,9 @@ public sealed class SurfaceDecorationField
                         }
 
                         placement = SurfacePlacementContext.Sample(
-                            _terrain, worldX, worldZ);
+                            _terrain, worldX, worldZ,
+                            conditions.RequiresSlope);
+                        slopeSampled = conditions.RequiresSlope;
                     }
 
                     if (!conditions.Allows(placement.Value))
