@@ -64,10 +64,14 @@ public sealed class ResidentWarpDestinationQueryTests
     public void RejectsFullyBlockedRestoredArrivalInsteadOfSpawningInSolid()
     {
         var world = FlatWorld();
+        // The validator can legitimately stand on a newly placed block:
+        // obstruct every feet/head level within its vertical search radius,
+        // not just the original feet level.
         for (var x = 0; x < Chunk.Size; x++)
         for (var z = 0; z < Chunk.Size; z++)
+        for (var y = 1; y <= 5; y++)
             Assert.True(world.SetBlockAt(
-                new WorldVoxelCoord(x, 1, z), new BlockRuntimeId(1), out _));
+                new WorldVoxelCoord(x, y, z), new BlockRuntimeId(1), out _));
 
         world.ArchiveChunk(ChunkCoord.Zero);
         Assert.Equal(ChunkRestoreResult.Restored,
