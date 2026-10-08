@@ -1,0 +1,73 @@
+{
+  "id": "asteria:bush_oak_03",
+  "groupId": "bush_oak",
+  "rotation": true,
+  "locatable": false,
+  "priority": -1,
+  "conflictGroups": [
+    "shrub"
+  ],
+  "restrictions": {
+    "groundBlocks": [
+      "asteria:grass_block",
+      "asteria:dirt"
+    ],
+    "maxSlope": 1,
+    "requiresDryGround": true,
+    "requiredBiomeCoverage": 1
+  },
+  "generation": {
+    "replacePolicy": "terrain",
+    "fluidPolicy": "forbid",
+    "reserveSpace": false
+  },
+  "anchor": {
+    "x": 2,
+    "y": 0,
+    "z": 2
+  },
+  "palette": {
+    "G": {
+      "block": "asteria:grass_block"
+    },
+    "F": {
+      "block": "asteria:leaf_oak"
+    },
+    "W": {
+      "block": "asteria:log_oak",
+      "orientation": "y"
+    }
+  },
+  "layers": [
+    {
+      "y": 0,
+      "rows": [
+        ".....",
+        ".....",
+        "..G..",
+        ".....",
+        "....."
+      ]
+    },
+    {
+      "y": 1,
+      "rows": [
+        "..F..",
+        ".FFFF",
+        "FFWFF",
+        ".FFF.",
+        "...F."
+      ]
+    },
+    {
+      "y": 2,
+      "rows": [
+        ".....",
+        "..FF.",
+        "FFFF.",
+        "..FF.",
+        "....."
+      ]
+    }
+  ]
+}

@@ -192,6 +192,8 @@ Structures may also author `priority`, `conflictGroups`, and a `generation` obje
 
 StructureSets live under `data/structure_sets/*.json`. A set is one logical generated root composed from multiple existing Structure or Structure-group references:
 
+Default Plains vegetation uses reusable authored content: `asteria:bush_oak` groups three irregular Structure templates made of existing oak leaves/logs, `asteria:thicket_oak` groups multiple shrubs into one bounded natural cluster, and `asteria:oak_grove` groups oak variants into small groves. Ground/slope/biome/fluid checks apply to every member. A Sphere chooses frequency in `generatedSurfaceStructures`; individual templates and StructureSets are dimension-agnostic. Willow keeps the authored fluid-proximity restriction and is less frequent than Oak in Plains.
+
 ```json
 {
   "id": "asteria:example_set",

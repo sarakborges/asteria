@@ -32,7 +32,7 @@
   "decorations": [
     {
       "block": "asteria:grass",
-      "chance": 0.34,
+      "chance": 0.5,
       "surfaceBlocks": [
         "asteria:grass_block"
       ]

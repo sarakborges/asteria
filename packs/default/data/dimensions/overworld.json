@@ -234,17 +234,38 @@
     },
     {
       "biome": "asteria:overworld/plains",
-      "structure": "asteria:tree_oak",
-      "spacing": 80,
-      "chance": 0.54,
+      "structure": "asteria:bush_oak",
+      "spacing": 14,
+      "chance": 0.62,
+      "jitter": 4
+    },
+    {
+      "biome": "asteria:overworld/plains",
+      "structure": "asteria:thicket_oak",
+      "spacing": 76,
+      "chance": 0.68,
       "jitter": 24
     },
     {
       "biome": "asteria:overworld/plains",
+      "structure": "asteria:oak_grove",
+      "spacing": 188,
+      "chance": 0.65,
+      "jitter": 53
+    },
+    {
+      "biome": "asteria:overworld/plains",
+      "structure": "asteria:tree_oak",
+      "spacing": 74,
+      "chance": 0.5,
+      "jitter": 23
+    },
+    {
+      "biome": "asteria:overworld/plains",
       "structure": "asteria:tree_willow",
-      "spacing": 36,
-      "chance": 0.72,
-      "jitter": 11
+      "spacing": 64,
+      "chance": 0.42,
+      "jitter": 20
     },
     {
       "biome": "asteria:overworld/swamp",
