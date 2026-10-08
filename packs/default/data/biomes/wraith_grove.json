@@ -36,14 +36,25 @@
       "surfaceBlocks": [
         "asteria:grass_block",
         "asteria:dirt"
-      ]
+      ],
+      "habitatWeights": {
+        "dusky_underbrush": 0.7,
+        "pale_clearing": 1.95,
+        "decay_pockets": 0.4
+      }
     },
     {
       "block": "asteria:mushroom_brown",
       "chance": 0.05,
       "surfaceBlocks": [
+        "asteria:grass_block",
         "asteria:dirt"
-      ]
+      ],
+      "habitatWeights": {
+        "dusky_underbrush": 0.55,
+        "pale_clearing": 0.12,
+        "decay_pockets": 2.55
+      }
     },
     {
       "block": "asteria:stick",
@@ -55,6 +66,11 @@
       "cluster": {
         "scale": 20,
         "threshold": -0.12
+      },
+      "habitatWeights": {
+        "dusky_underbrush": 1.95,
+        "pale_clearing": 0.38,
+        "decay_pockets": 0.9
       }
     }
   ],
@@ -62,5 +78,23 @@
     "grass": "569C7E",
     "leaf": "488E7B",
     "foliage": "62A785"
+  },
+  "surfaceHabitats": {
+    "scale": 104,
+    "transitionWidth": 0.1,
+    "bands": [
+      {
+        "id": "dusky_underbrush",
+        "maximum": -0.22
+      },
+      {
+        "id": "pale_clearing",
+        "maximum": 0.12
+      },
+      {
+        "id": "decay_pockets",
+        "maximum": 1
+      }
+    ]
   }
 }
