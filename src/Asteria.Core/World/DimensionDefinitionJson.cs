@@ -88,7 +88,8 @@ public static class DimensionDefinitionJson
                 root),
             ParseGeneratedSurfaceFluids(
                 root),
-            OptionalString(root, "dayNightCycle"));
+            OptionalString(root, "dayNightCycle"),
+            ParseBiomeBlending(root));
     }
 
     private static IReadOnlyList<DimensionGeneratedSurfaceFluidDefinition>
@@ -213,6 +214,35 @@ public static class DimensionDefinitionJson
                     });
             })
             .ToArray();
+    }
+
+    private static BiomeBlendingDefinition? ParseBiomeBlending(
+        JsonElement root)
+    {
+        if (!root.TryGetProperty("biomeBlending", out var value) ||
+            value.ValueKind == JsonValueKind.Null)
+        {
+            return null;
+        }
+
+        value = RequiredObject(root, "biomeBlending");
+        var curve = OptionalString(value, "influenceCurve") switch
+        {
+            null or "smoothStep" => BiomeInfluenceCurve.SmoothStep,
+            "linear" => BiomeInfluenceCurve.Linear,
+            "smootherStep" => BiomeInfluenceCurve.SmootherStep,
+            var authored => throw new FormatException(
+                $"Unsupported biome influenceCurve: {authored}."),
+        };
+
+        return new BiomeBlendingDefinition(
+            OptionalSingle(value, "scoreBand") ?? 0.50d,
+            OptionalSingle(value, "jitterFraction") ?? 0.32d,
+            OptionalSingle(value, "coarseWarpPeriod") ?? 4d,
+            OptionalSingle(value, "fineWarpPeriod") ?? 1.35d,
+            OptionalSingle(value, "coarseWarpStrength") ?? 0.42d,
+            OptionalSingle(value, "fineWarpStrength") ?? 0.16d,
+            curve);
     }
 
     private static DimensionGeneratedOceanDefinition? ParseGeneratedOcean(
