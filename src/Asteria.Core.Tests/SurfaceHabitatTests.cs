@@ -200,7 +200,7 @@ public sealed class SurfaceHabitatTests
 
         Assert.True(tree.HabitatWeights!.For("dusky_underbrush") >
                     tree.HabitatWeights.For("pale_clearing"));
-        Assert.Equal(0, grove.HabitatWeights!.For("pale_clearing"));
+        Assert.Equal(0f, grove.HabitatWeights!.For("pale_clearing"));
         Assert.True(snag.HabitatWeights!.For("decay_pockets") >
                     snag.HabitatWeights.For("dusky_underbrush"));
 
