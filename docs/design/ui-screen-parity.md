@@ -37,3 +37,7 @@ Native configurable Chat key (default T) now opens a real in-game `ChatDock`, su
 **Limits:** the full MineClone command port is not complete. `/place structure` now applies bounded independent structures and selected group members through canonical voxel mutations; connector trees and StructureSets remain unsupported. `/modify` and `/spawn` support the two MineClone tags, `NO_AI` and `PERSISTENT`, including editable tag values. `/locate structure` supports authored group variations. Distant same-Sphere warp now reenters via the standard loading lifecycle with live voxel safety checks. No multiplayer messaging. `StorageBoxPage` remains a visual-only page while Asteria lacks a native storage block/entity owner; do not turn Storybook fixtures into live inventory contents.
 
 For command-by-command implementation status and limitations, see [ui-component-parity.md](ui-component-parity.md), section *MineClone command parity correction*.
+
+## Cross-Sphere command warp safety
+
+When `/warp` names another Sphere (for example `/warp 100 200 70 asteria:umbral`), both its requested arrival and any generated-spawn fallback are verified against the **loaded authoritative voxels after the transition**. The player is not instantiated in obstructed or nonresident terrain. If no safe destination is available, the transition attempts to return to the archived source Sphere; return positions are checked by the same method. Gameplay key and browser responsibilities remain unchanged.
