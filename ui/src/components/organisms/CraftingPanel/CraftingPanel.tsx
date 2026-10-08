@@ -208,7 +208,7 @@ export function CraftingPanel({
             <Button
               label={t("ui.craft")}
               variant={
-                selected.craftable
+                selected.craftable && onCraft
                   ? "primary"
                   : "normal"
               }
@@ -233,12 +233,9 @@ export function CraftingPanel({
               variant="caption"
             />
           </>
-        ) : (
-          <Text
-            text={status ?? t("ui.selectRecipe")}
-            variant="detail"
-          />
-        )}
+        ) : recipes.length > 0 ? (
+          <Text text={t("ui.selectRecipe")} variant="detail" />
+        ) : null}
       </section>
     </Surface>
   );
