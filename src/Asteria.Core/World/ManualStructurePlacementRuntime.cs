@@ -11,10 +11,9 @@ public enum ManualStructurePlacementResult : byte
 }
 
 /// <summary>
-/// Applies prevalidated authored structure operations to resident voxels
-/// through the one mutation owner. Structure geometry/ground/biome/generated
-/// conflicts are decided by SurfaceStructureField; this capability owns only
-/// authoritative loaded-world mutation validation and publication.
+/// Stages an entire authored structure or connected/set expansion before
+/// asking the canonical voxel mutation owner to publish the resulting changes.
+/// Rejection changes no world cells and enqueues no gameplay work.
 /// </summary>
 public sealed class ManualStructurePlacementRuntime
 {
@@ -23,119 +22,103 @@ public sealed class ManualStructurePlacementRuntime
     private readonly VoxelMutationRuntime _mutations;
     private readonly BlockRegistry _blocks;
     private readonly StructureRegistry _structures;
+    private readonly StructureSetRegistry _sets;
 
     public ManualStructurePlacementRuntime(
         BiomeWorldGenerator generator, VoxelWorld world,
         VoxelMutationRuntime mutations, BlockRegistry blocks,
-        StructureRegistry structures)
+        StructureRegistry structures, StructureSetRegistry sets)
     {
         _generator = generator ?? throw new ArgumentNullException(nameof(generator));
         _world = world ?? throw new ArgumentNullException(nameof(world));
         _mutations = mutations ?? throw new ArgumentNullException(nameof(mutations));
         _blocks = blocks ?? throw new ArgumentNullException(nameof(blocks));
         _structures = structures ?? throw new ArgumentNullException(nameof(structures));
+        _sets = sets ?? throw new ArgumentNullException(nameof(sets));
     }
 
     public ManualStructurePlacementResult TryPlace(
         string reference, int? variation, int anchorX, int anchorZ,
         WorldAabb playerBounds)
     {
-        if (!_structures.ResolvesReference(reference))
+        if (!_structures.ResolvesReference(reference) &&
+            !_sets.ResolvesReference(reference))
             return ManualStructurePlacementResult.UnknownReference;
 
         if (!_generator.TryPrepareManualStructure(
-                reference, variation, anchorX, anchorZ, out var placement))
+                reference, variation, anchorX, anchorZ, out var placements))
             return ManualStructurePlacementResult.InvalidPlacement;
 
-        foreach (var position in placement.PayloadPositions())
+        // Insertion order represents worldgen's authored piece precedence.
+        // A later overlapping piece deterministically wins at that voxel.
+        var staged = new Dictionary<WorldVoxelCoord, VoxelStructureChange>();
+        foreach (var placement in placements)
         {
-            if (position.Y < 0 ||
-                !_world.IsLoadedAt(new WorldVoxelCoord(
-                    position.X, position.Y, position.Z)))
-                return ManualStructurePlacementResult.NonResident;
+            foreach (var tuple in placement.PayloadPositions())
+            {
+                if (tuple.Y < 0)
+                    return ManualStructurePlacementResult.InvalidPlacement;
 
-            var at = new WorldVoxelCoord(position.X, position.Y, position.Z);
-            var cell = _world.GetCellOrEmpty(at);
-            var fluid = _world.GetFluidOrEmpty(at);
+                var at = new WorldVoxelCoord(tuple.X, tuple.Y, tuple.Z);
+                if (!_world.IsLoadedAt(at))
+                    return ManualStructurePlacementResult.NonResident;
 
-            if (!cell.IsEmpty && _blocks.GetDefinition(cell.Block).Mining.Unbreakable)
-                return ManualStructurePlacementResult.ProtectedVoxel;
+                var cell = _world.GetCellOrEmpty(at);
+                var fluid = _world.GetFluidOrEmpty(at);
+                if (!cell.IsEmpty &&
+                    _blocks.GetDefinition(cell.Block).Mining.Unbreakable)
+                    return ManualStructurePlacementResult.ProtectedVoxel;
 
-            if (placement.Generation.FluidPolicy == StructureFluidPolicy.Forbid &&
-                !fluid.IsEmpty)
-                return ManualStructurePlacementResult.InvalidPlacement;
-            if (placement.Generation.ReplacePolicy == StructureReplacePolicy.AirOnly &&
-                (!cell.IsEmpty || !fluid.IsEmpty))
-                return ManualStructurePlacementResult.InvalidPlacement;
+                if (placement.Generation.FluidPolicy ==
+                        StructureFluidPolicy.Forbid && !fluid.IsEmpty)
+                    return ManualStructurePlacementResult.InvalidPlacement;
+                if (placement.Generation.ReplacePolicy ==
+                        StructureReplacePolicy.AirOnly &&
+                    (!cell.IsEmpty || !fluid.IsEmpty))
+                    return ManualStructurePlacementResult.InvalidPlacement;
+
+                if (!staged.ContainsKey(at))
+                    staged.Add(at, new VoxelStructureChange(
+                        at, cell.IsEmpty ? null :
+                            BlockStateSnapshot.Capture(_world, at, cell),
+                        fluid));
+            }
+
+            foreach (var voxel in placement.ClearVoxels)
+            {
+                var at = new WorldVoxelCoord(voxel.X, voxel.Y, voxel.Z);
+                staged[at] = new VoxelStructureChange(at, null, FluidCell.Empty);
+            }
+
+            foreach (var voxel in placement.Voxels)
+            {
+                if (Intersects(playerBounds, voxel.X, voxel.Y, voxel.Z))
+                    return ManualStructurePlacementResult.PlayerCollision;
+                var at = new WorldVoxelCoord(voxel.X, voxel.Y, voxel.Z);
+                staged[at] = new VoxelStructureChange(
+                    at, new BlockStateSnapshot(
+                        voxel.Cell, voxel.Mask, voxel.Surface), FluidCell.Empty);
+            }
+
+            foreach (var voxel in placement.FluidVoxels)
+            {
+                if (Intersects(playerBounds, voxel.X, voxel.Y, voxel.Z))
+                    return ManualStructurePlacementResult.PlayerCollision;
+                var at = new WorldVoxelCoord(voxel.X, voxel.Y, voxel.Z);
+                staged[at] = new VoxelStructureChange(at, null, voxel.Fluid);
+            }
         }
 
-        // Reject rather than displace the player into unknown/unloaded space.
-        foreach (var voxel in placement.Voxels)
-        {
-            if (Intersects(playerBounds, voxel.X, voxel.Y, voxel.Z))
-                return ManualStructurePlacementResult.PlayerCollision;
-        }
-        foreach (var voxel in placement.FluidVoxels)
-        {
-            if (Intersects(playerBounds, voxel.X, voxel.Y, voxel.Z))
-                return ManualStructurePlacementResult.PlayerCollision;
-        }
-
-        // Single-threaded authoritative application after complete validation.
-        // No world work or async dispatch may interleave inside this method.
-        foreach (var voxel in placement.ClearVoxels)
-        {
-            var at = new WorldVoxelCoord(voxel.X, voxel.Y, voxel.Z);
-            Clear(at);
-        }
-
-        foreach (var voxel in placement.Voxels)
-        {
-            var at = new WorldVoxelCoord(voxel.X, voxel.Y, voxel.Z);
-            var snapshot = new BlockStateSnapshot(
-                voxel.Cell, voxel.Mask, voxel.Surface);
-            if (!_mutations.SetBlockStateAt(at, snapshot, out _) &&
-                !SameBlockState(at, snapshot))
-                throw new InvalidOperationException(
-                    $"Validated structure block mutation failed at {at}.");
-        }
-
-        foreach (var voxel in placement.FluidVoxels)
-        {
-            var at = new WorldVoxelCoord(voxel.X, voxel.Y, voxel.Z);
-            if (!_world.GetCellOrEmpty(at).IsEmpty)
-                Clear(at);
-            if (_world.GetFluidOrEmpty(at) != voxel.Fluid &&
-                !_mutations.SetFluidAt(at, voxel.Fluid, out _))
-                throw new InvalidOperationException(
-                    $"Validated structure fluid mutation failed at {at}.");
-        }
+        // All checks are complete before publishing any mutation/side effect.
+        // Canonical mutation owner does the final resident-state validation.
+        if (!_mutations.ApplyStructureChanges(staged.Values
+                .OrderBy(value => value.Position.X)
+                .ThenBy(value => value.Position.Z)
+                .ThenBy(value => value.Position.Y)
+                .ToArray()))
+            return ManualStructurePlacementResult.NonResident;
 
         return ManualStructurePlacementResult.Placed;
-    }
-
-    private void Clear(WorldVoxelCoord position)
-    {
-        if (!_world.GetCellOrEmpty(position).IsEmpty &&
-            !_mutations.SetCellAt(position, VoxelCell.Empty, out _))
-            throw new InvalidOperationException(
-                $"Validated structure clear failed at {position}.");
-
-        if (!_world.GetFluidOrEmpty(position).IsEmpty &&
-            !_mutations.SetFluidAt(position, FluidCell.Empty, out _))
-            throw new InvalidOperationException(
-                $"Validated structure fluid clear failed at {position}.");
-    }
-
-    private bool SameBlockState(
-        WorldVoxelCoord position, BlockStateSnapshot wanted)
-    {
-        var cell = _world.GetCellOrEmpty(position);
-        if (cell.IsEmpty) return false;
-        var state = BlockStateSnapshot.Capture(_world, position, cell);
-        return state.Cell == wanted.Cell &&
-               state.MicroblockMask == wanted.MicroblockMask &&
-               state.SurfaceState == wanted.SurfaceState;
     }
 
     private static bool Intersects(
