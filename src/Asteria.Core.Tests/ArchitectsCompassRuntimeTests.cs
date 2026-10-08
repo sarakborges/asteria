@@ -144,6 +144,27 @@ public sealed class ArchitectsCompassRuntimeTests
     }
 
     [Fact]
+    public void NonCompassToolAndInvalidNormalsCannotCreateSelection()
+    {
+        var (compass, _, _) = Setup();
+        var rightClick = new VoxelWorldHit(
+            new WorldVoxelCoord(1, 1, 1), 0, 1, 0);
+        var wrongTool = new InventoryStack(
+            InventoryEntry.FromTool("asteria:rustic_pickaxe"));
+        Assert.False(compass.IsEquipped(wrongTool));
+        Assert.Equal(ArchitectsCompassResult.Rejected,
+            compass.Select(wrongTool, 0, rightClick,
+                "asteria:wrong_tool", out _, out _));
+        Assert.Equal(ArchitectsCompassResult.Rejected,
+            compass.Select(new InventoryStack(
+                    InventoryEntry.FromTool("asteria:architects_compass")),
+                0,
+                new VoxelWorldHit(new WorldVoxelCoord(1, 1, 1), 0, 0, 0),
+                "asteria:invalid_normal", out _, out _));
+        Assert.Null(compass.SelectionStart);
+    }
+
+    [Fact]
     public void AirOnlySelectionFailsWithoutClearingTheFirstCorner()
     {
         var (compass, _, _) = Setup();
