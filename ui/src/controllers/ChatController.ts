@@ -13,6 +13,7 @@ const LOCAL_KEYS = new Set([
   "chat.command.locate.searching", "chat.command.locate.playerUnavailable",
   "chat.command.warp.start", "chat.command.warp.success", "chat.command.warp.failed",
   "chat.command.kill.success", "chat.command.target.none",
+  "chat.command.target.unavailable",
   "chat.command.failed", "chat.command.notImplemented",
   "chat.command.spectatorUnavailable", "chat.command.spawn.playerUnavailable",
   "chat.command.spawn.noSpace",
