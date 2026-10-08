@@ -169,10 +169,32 @@ public sealed class PlayerInventory
             .ThenBy(s => s.Block?.Cell.Facing ?? HorizontalFacing.South)
             .ThenBy(s => s.Block?.Cell.State ?? 0)
             .ToArray();
+        var compacted = new List<InventoryStack>(sorted.Length);
+        foreach (var original in sorted)
+        {
+            var incoming = original;
+            if (compacted.Count > 0)
+            {
+                var previous = compacted[^1];
+                if (previous.CanStackWith(incoming) &&
+                    previous.Quantity < previous.MaxStackSize)
+                {
+                    var merged = Math.Min(
+                        previous.MaxStackSize - previous.Quantity,
+                        incoming.Quantity);
+                    compacted[^1] = previous.WithQuantity(
+                        previous.Quantity + merged);
+                    if (merged == incoming.Quantity) continue;
+                    incoming = incoming.WithQuantity(incoming.Quantity - merged);
+                }
+            }
+            compacted.Add(incoming);
+        }
+
         var changed = false;
         for (var i = 0; i < BackpackSlots; i++)
         {
-            var value = i < sorted.Length ? sorted[i] : null;
+            var value = i < compacted.Count ? compacted[i] : null;
             if (_slots[i] == value) continue;
             _slots[i] = value;
             changed = true;

@@ -124,6 +124,25 @@ public sealed class PlayerInventoryTests
     }
 
     [Fact]
+    public void SortingBackpackCompactsCompatibleMetadataStacks()
+    {
+        var inventory = new PlayerInventory();
+        var entry = InventoryEntry.FromItem("asteria:essence_aqua",
+            new Dictionary<string, string> { ["source"] = "ocean" });
+        Assert.True(inventory.TryCreativePick(entry, 20));
+        Assert.True(inventory.ClickSlot(0));
+        Assert.True(inventory.TryCreativePick(entry, 30));
+        Assert.True(inventory.ClickSlot(1));
+        Assert.Equal(20, inventory.SlotAt(0)!.Quantity);
+        Assert.Equal(30, inventory.SlotAt(1)!.Quantity);
+
+        Assert.True(inventory.SortBackpack());
+        Assert.Equal(50, inventory.SlotAt(0)!.Quantity);
+        Assert.Null(inventory.SlotAt(1));
+        Assert.False(inventory.SortBackpack());
+    }
+
+    [Fact]
     public void IdNamespacesAndMetadataMustBeValid()
     {
         Assert.Throws<ArgumentException>(() => InventoryEntry.FromItem("bad"));
