@@ -20,12 +20,13 @@ export type SettingsWorkspacePageProps = {
   onHideHints(value: boolean): void;
   onGameplayHint(kind: "RotateBlock" | "BreakOrPlaceBlock", value: boolean): void;
   onWorldTicks(value: number): void;
+  onSpawnCreatures(value: boolean): void;
   onGameMode(value: GameMode): void;
 };
 
 export function SettingsWorkspacePage({
   scope, settings, onBack, onRenderDistance, onTargetPosition,
-  onWorldTicks, onGameMode, onHideHints, onGameplayHint,
+  onWorldTicks, onSpawnCreatures, onGameMode, onHideHints, onGameplayHint,
 }: SettingsWorkspacePageProps) {
   const { t, language, setLanguage, languages } = useLocalization();
   const [selectedId, setSelectedId] = useState(scope === "game" ? "graphics" : "mode");
@@ -111,16 +112,24 @@ export function SettingsWorkspacePage({
       },
       {
         id: "rules", label: t("settings.section.gameRules"),
-        content: <SettingRow title={t("settings.ticksBySecond")}
-          description={t("settings.ticksBySecond.description")}
-          control={<NumericStepper
-            ariaLabel={t("settings.ticksBySecond")}
-            min={1} max={4294967295}
-            disabled={!settings.world}
-            value={ticks}
-            onChange={setTicks}
-            onCommit={onWorldTicks}
-          />} />,
+        content: <div className="settings-workspace__rows">
+          <SettingRow title={t("settings.ticksBySecond")}
+            description={t("settings.ticksBySecond.description")}
+            control={<NumericStepper
+              ariaLabel={t("settings.ticksBySecond")}
+              min={1} max={4294967295}
+              disabled={!settings.world}
+              value={ticks}
+              onChange={setTicks}
+              onCommit={onWorldTicks}
+            />} />
+          <SettingRow title={t("settings.spawnCreatures")}
+            description={t("settings.spawnCreatures.description")}
+            control={<Toggle ariaLabel={t("settings.spawnCreatures")}
+              disabled={!settings.world}
+              checked={settings.world?.spawnCreatures ?? true}
+              onChange={onSpawnCreatures} />} />
+        </div>,
       },
     ];
 

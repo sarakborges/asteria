@@ -148,7 +148,7 @@ export type GameMode = "Survival" | "Creative" | "Spectator";
 export type OverlayScreen = "none" | "pause" | "game" | "world" | "controls" | "inventory" | "brush";
 
 export type WorldSettingsState = {
-  name: string; mode: GameMode; ticksPerSecond: number;
+  name: string; mode: GameMode; ticksPerSecond: number; spawnCreatures: boolean;
 };
 export type ClientSettingsState = {
   renderDistanceChunks: number;
@@ -178,6 +178,7 @@ export type WorldCreationState = {
   name: string;
   mode: GameMode;
   ticksPerSecond: string;
+  spawnCreatures: boolean;
   pending: boolean;
   generating: boolean;
   errorKey: WorldCreationErrorKey | null;
@@ -306,6 +307,7 @@ export function createInitialUiState(
       name: "New World",
       mode: "Survival",
       ticksPerSecond: "40",
+      spawnCreatures: true,
       pending: true,
       generating: false,
       errorKey: null,

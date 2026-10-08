@@ -1010,6 +1010,9 @@ public partial class Main : Node3D
                 case "ui.world.set_ticks":
                     SetRequestedWorldTicks(document.RootElement);
                     break;
+                case "ui.world.set_spawn_creatures":
+                    SetRequestedSpawnCreatures(document.RootElement);
+                    break;
                 case "ui.game.resume":
                     if (_worldReadySent && !_keybindCapture.IsCapturing &&
                         !_inventoryOpen && !_chat.IsOpen)
@@ -1223,6 +1226,24 @@ public partial class Main : Node3D
         }
     }
 
+    private void SetRequestedSpawnCreatures(JsonElement message)
+    {
+        if (_worldSeed is null ||
+            !message.TryGetProperty("payload", out var payload) ||
+            payload.ValueKind != JsonValueKind.Object ||
+            !payload.TryGetProperty("value", out var raw) ||
+            raw.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+        {
+            SendWebUi("game.world_settings.error", new { code = "InvalidValue" });
+            return;
+        }
+
+        if (_sessionStates.GameRules.SetSpawnCreatures(raw.GetBoolean()))
+        {
+            SendWorldSettings();
+        }
+    }
+
     private void SendWorldSettings()
     {
         if (_worldSeed is null) return;
@@ -1375,13 +1396,20 @@ public partial class Main : Node3D
             return;
         }
 
+        var spawnCreatures = payload.TryGetProperty(
+            "spawnCreatures", out var spawnCreaturesElement) &&
+            spawnCreaturesElement.ValueKind is JsonValueKind.True or JsonValueKind.False
+                ? spawnCreaturesElement.GetBoolean()
+                : true;
+
         try
         {
             var creation = new WorldCreationOptions(
                 name,
                 selectedSeed,
                 mode,
-                ticks);
+                ticks,
+                spawnCreatures);
             StartWorld(creation);
         }
         catch (ArgumentException exception)

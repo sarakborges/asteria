@@ -6,6 +6,7 @@ import { asRecord } from "./messagePayload";
 export type WorldCreationController = {
   createWorld(request: {
     seed: string; name: string; mode: GameMode; ticksPerSecond: string;
+    spawnCreatures: boolean;
   }): void;
   randomizeWorld(): void;
   handleGodotMessage(message: BridgeMessage): void;
@@ -28,6 +29,7 @@ export function createWorldCreationController(
       postMessage("ui.world.create", {
         seed: request.seed.trim(), name: request.name, mode: request.mode,
         ticksPerSecond: Number(ticks),
+        spawnCreatures: request.spawnCreatures,
       });
     },
 

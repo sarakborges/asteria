@@ -87,6 +87,7 @@ createRoot(rootElement).render(
       setHideHints: settings.setHideHints,
       setGameplayHint: settings.setGameplayHint,
       setWorldTicks: settings.setWorldTicks,
+      setSpawnCreatures: settings.setSpawnCreatures,
       setGameMode: settings.setGameMode,
       beginKeyCapture: settings.beginKeyCapture,
       cancelKeyCapture: settings.cancelKeyCapture,
