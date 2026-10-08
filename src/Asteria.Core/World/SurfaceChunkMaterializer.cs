@@ -103,10 +103,7 @@ public sealed class SurfaceChunkMaterializer
 
                 if (firstSolidY <= lastSolidY)
                 {
-                    surfaceMaterials = _materials.SampleColumn(
-                        sample,
-                        worldX,
-                        worldZ);
+                    var surfaceCore = _materials.CoreLayer(sample);
 
                     for (var worldY = firstSolidY;
                          worldY <= lastSolidY;
@@ -133,19 +130,11 @@ public sealed class SurfaceChunkMaterializer
 
                         if (worldY <= baseY)
                         {
-                            surfaceMaterials ??=
-                                _materials.SampleColumn(
-                                    sample,
-                                    worldX,
-                                    worldZ);
-                            var depth =
-                                checked(
-                                    (uint)(
-                                        baseY -
-                                        worldY));
-                            block =
-                                surfaceMaterials.BlockAt(
-                                    depth);
+                            var depth = checked((uint)(baseY - worldY));
+                            block = depth >= surfaceCore.StartDepth
+                                ? surfaceCore.Block
+                                : (surfaceMaterials ??= _materials.SampleColumn(
+                                    sample, worldX, worldZ)).BlockAt(depth);
                         }
                         else
                         {
@@ -222,11 +211,11 @@ public sealed class SurfaceChunkMaterializer
                           throw new InvalidOperationException(
                               "Additive surface has no volume biome owner.")
                         : sample;
-                var topMaterials =
-                    _materials.SampleColumn(
-                        topSample,
-                        worldX,
-                        worldZ);
+                var topMaterials = surfaceY > baseY
+                    ? volumeMaterials ??= _materials.SampleColumn(
+                        topSample, worldX, worldZ)
+                    : surfaceMaterials ??= _materials.SampleColumn(
+                        sample, worldX, worldZ);
                 var decoration =
                     _decorations.BlockAt(
                         topSample,

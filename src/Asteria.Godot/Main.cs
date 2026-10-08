@@ -136,6 +136,7 @@ public partial class Main : Node3D
     private int _publishedMiningStage = -1;
     private double _pickupAccumulator;
     private bool _debugHudVisible;
+    private WorldDiagnosticsLog? _worldDiagnostics;
     private ulong? _worldSeed;
     private ulong _suggestedWorldSeed;
 
@@ -145,6 +146,7 @@ public partial class Main : Node3D
 
     public override void _Ready()
     {
+        _worldDiagnostics = WorldDiagnosticsLog.Open();
         _clientSettings = new ClientPreferencesController(
             ClientPreferencesStore.FromUserDataDirectory());
         _keybindCapture = new KeybindCaptureController(
@@ -258,6 +260,12 @@ public partial class Main : Node3D
         GD.Print(
             $"dimension content: loaded {_dimensions.Count} definitions; " +
             "waiting for world creation");
+    }
+
+    public override void _ExitTree()
+    {
+        _worldDiagnostics?.Dispose();
+        _worldDiagnostics = null;
     }
 
     public override void _Input(InputEvent @event)
@@ -425,6 +433,12 @@ public partial class Main : Node3D
                 _worldFrameBudget);
         ReportRetirements(
             streamingEnd.Retirements);
+        _worldDiagnostics?.FlushIfDue(
+            _world.ChunkCount,
+            _residency.PendingCount,
+            _residency.MaterializingCount,
+            _chunkPresentations.Count,
+            _loading.Progress.Phase.ToString());
 
         if (loadingWorld)
         {
@@ -1327,6 +1341,7 @@ public partial class Main : Node3D
         SendInventoryState();
         SendCreativeCatalog();
 
+        _worldDiagnostics?.WorldStarted(creation.Seed, _dimension.Id);
         GD.Print(
             $"world.start seed={creation.Seed} " +
             $"dimension={_dimension.Id} " +
@@ -2147,6 +2162,7 @@ public partial class Main : Node3D
     private void ReportResidencyUpdate(
         ChunkResidencyUpdate update)
     {
+        _worldDiagnostics?.Observe(update);
         foreach (var failure in update.Failures)
         {
             GD.PushError(
@@ -2768,6 +2784,8 @@ public partial class Main : Node3D
             return;
         }
 
+        _worldDiagnostics?.ObserveTerrainMesh(
+            completed.WorkerMilliseconds, completed.Accepted, completed.Stale);
         if (_debugHudVisible)
         {
             GD.Print(
@@ -2805,6 +2823,8 @@ public partial class Main : Node3D
             return;
         }
 
+        _worldDiagnostics?.ObserveLighting(
+            report.WorkerMilliseconds, report.ProcessedVoxelCount);
         if (_debugHudVisible)
         {
             GD.Print(

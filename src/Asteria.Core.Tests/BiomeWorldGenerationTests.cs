@@ -582,6 +582,62 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
+    public void DeepMaterialCoreBypassesSurfacePatchSelectionWithoutChangingBlock()
+    {
+        var blocks = LoadDefaultBlocks();
+        var biomes = LoadDefaultBiomes();
+        var materialField = new BiomeSurfaceMaterialField(
+            123UL,
+            [
+                biomes.Get("asteria:overworld/plains"),
+                biomes.Get("asteria:overworld/swamp"),
+                biomes.Get("asteria:overworld/wasteland"),
+            ],
+            blocks);
+
+        foreach (var biomeId in new[]
+        {
+            "asteria:overworld/plains",
+            "asteria:overworld/swamp",
+            "asteria:overworld/wasteland",
+        })
+        {
+            var sample = new BiomeSample(
+                biomeId,
+                [new BiomeInfluence(biomeId, 1f)]);
+            var core = materialField.CoreLayer(sample);
+            Assert.Equal(blocks.GetId("asteria:stone"), core.Block);
+            Assert.True(core.StartDepth > 0u);
+
+            for (var z = -32; z <= 32; z += 16)
+            {
+                for (var x = -32; x <= 32; x += 16)
+                {
+                    for (uint depth = core.StartDepth;
+                         depth < core.StartDepth + 24u; depth++)
+                    {
+                        Assert.Equal(core.Block, materialField.BlockAt(
+                            sample, x, z, depth));
+                    }
+                }
+            }
+        }
+    }
+
+    [Fact]
+    public void WastelandDirtHasNoBiomeTintOrTextureOverlay()
+    {
+        var blocks = LoadDefaultBlocks();
+        var dirt = blocks.GetDefinition(blocks.GetId("asteria:dirt"));
+        var wasteland = LoadDefaultBiomes().Get("asteria:overworld/wasteland");
+
+        Assert.Equal(BlockTint.None, dirt.Tint);
+        Assert.Single(dirt.Textures.ResolveForFace(BlockFace.Top));
+        Assert.Equal("asteria:dirt", wasteland.SurfaceLayers[0].Block);
+        Assert.Equal(2u, wasteland.SurfaceLayers[0].Depth);
+    }
+
+    [Fact]
     public void ResolvedMaterialColumnMatchesScalarDepthAndPatchQueries()
     {
         var blocks = LoadDefaultBlocks();

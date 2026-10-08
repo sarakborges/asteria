@@ -62,6 +62,11 @@ public sealed class BiomeSurfaceMaterialField
                 $"Surface biome {sample.Primary} has no material rule.");
         }
 
+        if (depth >= rule.CoreStartDepth)
+        {
+            return rule.CoreBlock;
+        }
+
         return rule.BlockAtDepth(
             _seed,
             worldX,
@@ -89,6 +94,23 @@ public sealed class BiomeSurfaceMaterialField
             worldX,
             worldZ,
             PlacementFor(rule, worldX, worldZ, placement));
+    }
+
+    /// <summary>
+    /// Immutable deepest layer; queries below its start depth cannot be
+    /// affected by shallow patches or conditional terrain sampling.
+    /// </summary>
+    public (BlockRuntimeId Block, uint StartDepth) CoreLayer(
+        BiomeSample sample)
+    {
+        ArgumentNullException.ThrowIfNull(sample);
+        if (!_rules.TryGetValue(sample.Primary, out var rule))
+        {
+            throw new KeyNotFoundException(
+                $"Surface biome {sample.Primary} has no material rule.");
+        }
+
+        return (rule.CoreBlock, rule.CoreStartDepth);
     }
 
     private SurfacePlacementContext? PlacementFor(
@@ -128,6 +150,10 @@ public sealed class BiomeSurfaceMaterialField
             UsesBaseSurface = usesBaseSurface;
             HasConditions = layers.Any(layer => layer.HasConditions);
             RequiresSlope = layers.Any(layer => layer.RequiresSlope);
+            CoreBlock = layers[^1].Block;
+            CoreStartDepth = layers.Length > 1
+                ? layers[^2].EndDepthExclusive!.Value
+                : 0u;
         }
 
         private ResolvedLayer[] Layers { get; }
@@ -137,6 +163,8 @@ public sealed class BiomeSurfaceMaterialField
         public bool RequiresSlope { get; }
 
         public bool UsesBaseSurface { get; }
+        public BlockRuntimeId CoreBlock { get; }
+        public uint CoreStartDepth { get; }
 
         public BlockRuntimeId BlockAtDepth(
             ulong seed,
@@ -248,7 +276,7 @@ public sealed class BiomeSurfaceMaterialField
             Patch = patch;
         }
 
-        private BlockRuntimeId Block { get; }
+        public BlockRuntimeId Block { get; }
 
         public uint? EndDepthExclusive { get; }
 
