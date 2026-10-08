@@ -23,6 +23,7 @@ export type AppActions = {
   }): void;
   randomizeWorld(): void;
   openWorldSelection(): void;
+  openSavesFolder(): void;
   openWorldCreation(): void;
   backToStart(): void;
   exitGame(): void;
@@ -100,10 +101,27 @@ export function App({
         state.navigation.preWorldScreen ===
           "world-selection" && (
           <WorldSelectionPage
-            worlds={[]}
-            status={t("worldSelection.unavailable")}
+            worlds={state.worldCatalog.worlds}
+            status={
+              state.worldCatalog.status === "verifying"
+                ? t("worldSelection.verifying")
+                : state.worldCatalog.status === "unavailable"
+                  ? t("worldSelection.unavailable")
+                  : state.worldCatalog.status === "ready" &&
+                      state.worldCatalog.worlds.length === 0
+                    ? t("worldSelection.noRestorable")
+                    : undefined
+            }
+            error={
+              state.worldCatalog.status === "error"
+                ? t("worldSelection.scanError")
+                : state.worldCatalog.folderError
+                  ? t("worldSelection.openSavesFolderError")
+                  : undefined
+            }
             onBack={actions.backToStart}
             onCreateWorld={actions.openWorldCreation}
+            onOpenSavesFolder={actions.openSavesFolder}
           />
         )}
 
