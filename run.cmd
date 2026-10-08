@@ -5,7 +5,7 @@ cd /d "%~dp0"
 if not exist "logs" mkdir "logs"
 
 for /f %%I in ('powershell -NoProfile -Command "Get-Date -Format yyyy-MM-dd_HH-mm-ss-fff"') do set "ASTERIA_RUN_STAMP=%%I"
-set "ASTERIA_LOG=logs\run-%ASTERIA_RUN_STAMP%.log"
+set "ASTERIA_LOG=logs\godot-run-%ASTERIA_RUN_STAMP%.log"
 
 set "GODOT_CMD="
 

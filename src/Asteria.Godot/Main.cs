@@ -160,6 +160,7 @@ public partial class Main : Node3D
     public override void _Ready()
     {
         _worldDiagnostics = WorldDiagnosticsLog.Open();
+        _worldDiagnostics.Write("client.initializing");
         _clientSettings = new ClientPreferencesController(
             ClientPreferencesStore.FromUserDataDirectory());
         _worldCatalog = WorldCatalogScanController.FromUserDataDirectory();
@@ -277,10 +278,17 @@ public partial class Main : Node3D
         GD.Print(
             $"dimension content: loaded {_dimensions.Count} definitions; " +
             "waiting for world creation");
+        _worldDiagnostics?.Write(
+            $"client.ready pack={_packSelection.Name} " +
+            $"blocks={_blocks.AuthoredCount} fluids={_fluids.AuthoredCount} " +
+            $"items={_items.Count} tools={_tools.Count} " +
+            $"biomes={_biomes.Count} structures={_structures.Count} " +
+            $"dimensions={_dimensions.Count}");
     }
 
     public override void _ExitTree()
     {
+        _worldDiagnostics?.Write("client.exiting");
         _worldDiagnostics?.Dispose();
         _worldDiagnostics = null;
     }
@@ -459,11 +467,13 @@ public partial class Main : Node3D
 
     public override void _Process(double delta)
     {
+        _worldDiagnostics?.ObserveFrame(delta);
         PollWorldCatalog();
         PollChatLocate();
         AdvanceChatPresentation(delta);
         if (_worldSeed is null)
         {
+            _worldDiagnostics?.FlushIfDue(0, 0, 0, 0, "MainMenu");
             return;
         }
 
@@ -473,6 +483,7 @@ public partial class Main : Node3D
         if (_sessions.IsTransitioning)
         {
             AdvanceDimensionTransition();
+            _worldDiagnostics?.FlushIfDue(0, 0, 0, 0, "Transitioning");
             return;
         }
 
@@ -650,6 +661,8 @@ public partial class Main : Node3D
                     target.Value,
             });
 
+        _worldDiagnostics?.Write(
+            $"dimension.transition.begin from={_dimension.Id} to={target}");
         GD.Print(
             $"dimension.transition begin from={_dimension.Id} to={target}");
     }
@@ -683,6 +696,10 @@ public partial class Main : Node3D
                     _dimension.GravityStrength,
             });
 
+        _worldDiagnostics?.Write(
+            $"dimension.transition.complete from={completion.From} to={completion.To} " +
+            $"archived_dirty={completion.Archive.ArchivedDirty} " +
+            $"archived_pristine={completion.Archive.ArchivedPristine}");
         GD.Print(
             $"dimension.transition complete from={completion.From} " +
             $"to={completion.To} archived_dirty={completion.Archive.ArchivedDirty} " +
@@ -924,6 +941,7 @@ public partial class Main : Node3D
         foreach (var error in
                  report.WorkerErrors)
         {
+            _worldDiagnostics?.Error("dimension.retirement.worker_failed", error);
             GD.PushError(
                 $"Dimension retirement worker failed:\n{error}");
         }
@@ -1143,6 +1161,7 @@ public partial class Main : Node3D
         }
         catch (JsonException exception)
         {
+            _worldDiagnostics?.Warn("webui.invalid_message", exception.Message);
             GD.PushWarning(
                 $"Ignoring invalid WebUI message: {exception.Message}");
         }
@@ -1579,7 +1598,12 @@ public partial class Main : Node3D
         SendStorageBoxState();
         SendCreativeCatalog();
 
-        _worldDiagnostics?.WorldStarted(creation.Seed, _dimension.Id);
+        _worldDiagnostics?.WorldStarted(
+            creation.Seed, _dimension.Id, _dimensionSeed);
+        _worldDiagnostics?.Write(
+            $"world.settings render_distance_chunks={_clientPreferences.RenderDistanceChunks} " +
+            $"retention_margin_chunks={RetentionMarginChunks} " +
+            $"max_materialization_workers={MaxMaterializationTasksInFlight}");
         GD.Print(
             $"world.start seed={creation.Seed} " +
             $"dimension={_dimension.Id} " +
@@ -1594,6 +1618,8 @@ public partial class Main : Node3D
 
     private void BeginWorldLoading()
     {
+        _worldDiagnostics?.Write(
+            $"world.loading.begin dimension={_dimension.Id} center={_spawnChunk}");
         _worldReadySent = false;
         _loading.Begin(
             _spawnChunk);
@@ -1670,6 +1696,9 @@ public partial class Main : Node3D
         }
 
         _worldReadySent = true;
+        _worldDiagnostics?.Write(
+            $"world.loading.ready dimension={_dimension.Id} " +
+            $"resident={_world.ChunkCount} presented={_chunkPresentations.Count}");
         SetupPlayer();
         SendLoadingState(
             force: true);
@@ -3131,11 +3160,15 @@ public partial class Main : Node3D
     private void ReportStreamingSelection(
         ChunkStreamingSelectionReport selection)
     {
-        if (!_debugHudVisible ||
-            !selection.Changed)
-        {
+        if (!selection.Changed)
             return;
-        }
+
+        _worldDiagnostics?.Write(
+            $"streaming.selection center={selection.Center} " +
+            $"desired={selection.DesiredCount} retained={selection.RetainedCount} " +
+            $"pending={selection.PendingCount} movement={selection.MovementDirection}");
+        if (!_debugHudVisible)
+            return;
 
         GD.Print(
             $"streaming.selection center={selection.Center} " +
@@ -3666,6 +3699,7 @@ public partial class Main : Node3D
 
         if (error is not null)
         {
+            _worldDiagnostics?.Error("worker.fluid.failed", error);
             GD.PushError(error.ToString());
             return;
         }
@@ -3681,6 +3715,9 @@ public partial class Main : Node3D
             return;
         }
 
+        _worldDiagnostics?.ObserveFluid(
+            report.WorkerMilliseconds, report.AppliedChangeCount,
+            report.BacklogCount);
         if (_debugHudVisible)
         {
             GD.Print(
@@ -3714,6 +3751,7 @@ public partial class Main : Node3D
 
         if (error is not null)
         {
+            _worldDiagnostics?.Error("worker.fluid_mesh.failed", error);
             GD.PushError(error.ToString());
             return;
         }
@@ -3725,6 +3763,8 @@ public partial class Main : Node3D
             return;
         }
 
+        _worldDiagnostics?.ObserveFluidMesh(
+            completed.WorkerMilliseconds, completed.Accepted, completed.Stale);
         if (_debugHudVisible)
         {
             GD.Print(
@@ -3768,6 +3808,7 @@ public partial class Main : Node3D
 
         if (error is not null)
         {
+            _worldDiagnostics?.Error("worker.terrain_mesh.failed", error);
             GD.PushError(error.ToString());
             return;
         }
@@ -3807,6 +3848,7 @@ public partial class Main : Node3D
 
         if (error is not null)
         {
+            _worldDiagnostics?.Error("worker.lighting.failed", error);
             GD.PushError(error.ToString());
             return;
         }
@@ -3819,7 +3861,8 @@ public partial class Main : Node3D
         }
 
         _worldDiagnostics?.ObserveLighting(
-            report.WorkerMilliseconds, report.ProcessedVoxelCount);
+            report.WorkerMilliseconds, report.ProcessedVoxelCount,
+            report.ChangedVoxelCount, report.DirtyChunkCount);
         if (_debugHudVisible)
         {
             GD.Print(

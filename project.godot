@@ -23,10 +23,6 @@ window/size/window_width_override=1280
 window/size/window_height_override=720
 window/stretch/mode="canvas_items"
 
-[editor_plugins]
-
-enabled=PackedStringArray("res://addons/asteria_run_logger/plugin.cfg")
-
 [rendering]
 
 environment/defaults/default_clear_color=Color(0.055, 0.065, 0.085, 1)

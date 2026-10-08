@@ -1,65 +1,132 @@
 using System.Diagnostics;
 using System.Globalization;
-using System.Text;
+using Asteria.Core.Diagnostics;
 using Asteria.Core.World;
 using Godot;
 
 namespace Asteria.Client;
 
 /// <summary>
-/// Bounded periodic diagnostics for the active client process. Unlike F3
-/// telemetry, collection is always enabled; writes occur only per interval.
-/// No world state is owned by this observer.
+/// One per-process diagnostics observer. Owns only measurements and the active
+/// session log, never gameplay or worker scheduling state.
 /// </summary>
 internal sealed class WorldDiagnosticsLog : IDisposable
 {
-    private static readonly long IntervalTicks = 5L * Stopwatch.Frequency;
-    private readonly StreamWriter _writer;
+    private static readonly long IntervalTicks = 2L * Stopwatch.Frequency;
+    private readonly DiagnosticSessionLog _session;
+    private readonly Stopwatch _uptime = Stopwatch.StartNew();
     private long _nextFlush = Stopwatch.GetTimestamp() + IntervalTicks;
+    private bool _disposed;
+    private string _phase = "";
+    private int _resident;
+    private int _pending;
+    private int _inflight;
+    private int _presented;
+    private long _frames;
+    private double _frameMsTotal;
+    private double _frameMsMax;
+    private long _framesOver50Ms;
+    private long _framesOver100Ms;
     private int _materialized;
     private double _materializationMs;
     private double _materializationMaxMs;
+    private ChunkCoord? _slowestChunk;
+    private int _slowChunks;
     private int _restored;
     private int _terrainMeshBatches;
     private double _terrainMeshMs;
     private int _terrainMeshAccepted;
     private int _terrainMeshStale;
+    private int _fluidMeshBatches;
+    private double _fluidMeshMs;
+    private int _fluidMeshAccepted;
+    private int _fluidMeshStale;
+    private int _fluidBatches;
+    private double _fluidMs;
+    private int _fluidChanges;
+    private int _fluidBacklogMax;
     private int _lightingBatches;
     private double _lightingMs;
     private int _lightingVoxels;
+    private int _lightingChanged;
+    private int _lightingDirtyChunks;
 
-    private WorldDiagnosticsLog(StreamWriter writer)
+    private WorldDiagnosticsLog(DiagnosticSessionLog session)
     {
-        _writer = writer;
+        _session = session;
+        AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
+        TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
     }
 
     public static WorldDiagnosticsLog Open()
     {
-        var directory = ProjectSettings.GlobalizePath("user://logs");
-        Directory.CreateDirectory(directory);
-        var path = Path.Combine(directory, "worldgen-latest.log");
-        var stream = new FileStream(
-            path, FileMode.Create, System.IO.FileAccess.Write, FileShare.ReadWrite);
-        var writer = new StreamWriter(stream, new UTF8Encoding(false))
+        var preferred = ProjectSettings.GlobalizePath("res://logs");
+        DiagnosticSessionLog session;
+        try
         {
-            AutoFlush = true,
-        };
-        var result = new WorldDiagnosticsLog(writer);
-        result.Write("diagnostics.start path=" + path);
-        GD.Print("world diagnostics: " + path);
+            session = DiagnosticSessionLog.Open(preferred);
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException)
+        {
+            var fallback = ProjectSettings.GlobalizePath("user://logs");
+            GD.PushWarning(
+                $"Project log directory unavailable ({exception.Message}); " +
+                $"using {fallback}");
+            session = DiagnosticSessionLog.Open(fallback);
+        }
+
+        var result = new WorldDiagnosticsLog(session);
+        result.Write($"diagnostics.ready path={session.Path}");
+        GD.Print($"Asteria session diagnostics: {session.Path}");
         return result;
     }
 
     public void Write(string message)
     {
-        _writer.Write(DateTimeOffset.Now.ToString(
-            "yyyy-MM-ddTHH:mm:ss.fffzzz", CultureInfo.InvariantCulture));
-        _writer.Write(' ');
-        _writer.WriteLine(message);
+        var separator = message.IndexOf(' ');
+        var name = separator < 0 ? message : message[..separator];
+        var details = separator < 0 ? "" : message[(separator + 1)..];
+        _session.Write("INFO", name, details);
     }
 
-    public void WorldStarted(ulong seed, DimensionId dimension) =>
-        Write($"world.start seed={seed} dimension={dimension}");
+    public void Warn(string name, string message) =>
+        _session.Write("WARN", name, $"details={message}");
+
+    public void Error(string name, object error) =>
+        _session.Write("ERROR", name, $"error={error}");
+
+    private void OnUnhandledException(object sender, UnhandledExceptionEventArgs args) =>
+        _session.Write(
+            "FATAL", "runtime.unhandled_exception",
+            $"terminating={args.IsTerminating} exception={args.ExceptionObject}");
+
+    private void OnUnobservedTaskException(
+        object? sender, UnobservedTaskExceptionEventArgs args) =>
+        _session.Write(
+            "ERROR", "runtime.unobserved_task_exception",
+            $"exception={args.Exception}");
+
+    public void WorldStarted(ulong seed, DimensionId dimension, ulong dimensionSeed)
+    {
+        Write(
+            $"world.start seed={seed} dimension={dimension} dimension_seed={dimensionSeed}");
+    }
+
+    public void ObserveFrame(double deltaSeconds)
+    {
+        if (deltaSeconds <= 0d)
+            return;
+
+        var milliseconds = deltaSeconds * 1000d;
+        _frames++;
+        _frameMsTotal += milliseconds;
+        _frameMsMax = Math.Max(_frameMsMax, milliseconds);
+        if (milliseconds >= 50d)
+            _framesOver50Ms++;
+        if (milliseconds >= 100d)
+            _framesOver100Ms++;
+    }
 
     public void Observe(ChunkResidencyUpdate update)
     {
@@ -73,16 +140,22 @@ internal sealed class WorldDiagnosticsLog : IDisposable
 
             _materialized++;
             _materializationMs += activation.WorkerMilliseconds;
-            _materializationMaxMs = Math.Max(
-                _materializationMaxMs, activation.WorkerMilliseconds);
+            if (activation.WorkerMilliseconds > _materializationMaxMs)
+            {
+                _materializationMaxMs = activation.WorkerMilliseconds;
+                _slowestChunk = activation.Coord;
+            }
+
+            if (activation.WorkerMilliseconds >= 200d)
+                _slowChunks++;
         }
 
         foreach (var failure in update.Failures)
-            Write($"chunk.materialize.error coord={failure.Coord} error={failure.Error}");
+            Error("chunk.materialize.failed",
+                $"coord={failure.Coord} exception={failure.Error}");
     }
 
-    public void ObserveTerrainMesh(
-        double workerMilliseconds, int accepted, int stale)
+    public void ObserveTerrainMesh(double workerMilliseconds, int accepted, int stale)
     {
         _terrainMeshBatches++;
         _terrainMeshMs += workerMilliseconds;
@@ -90,46 +163,129 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         _terrainMeshStale += stale;
     }
 
+    public void ObserveFluidMesh(double workerMilliseconds, int accepted, int stale)
+    {
+        _fluidMeshBatches++;
+        _fluidMeshMs += workerMilliseconds;
+        _fluidMeshAccepted += accepted;
+        _fluidMeshStale += stale;
+    }
+
+    public void ObserveFluid(double workerMilliseconds, int changes, int backlog)
+    {
+        _fluidBatches++;
+        _fluidMs += workerMilliseconds;
+        _fluidChanges += changes;
+        _fluidBacklogMax = Math.Max(_fluidBacklogMax, backlog);
+    }
+
     public void ObserveLighting(
-        double workerMilliseconds, int processedVoxels)
+        double workerMilliseconds, int processedVoxels,
+        int changedVoxels, int dirtyChunks)
     {
         _lightingBatches++;
         _lightingMs += workerMilliseconds;
         _lightingVoxels += processedVoxels;
+        _lightingChanged += changedVoxels;
+        _lightingDirtyChunks += dirtyChunks;
     }
 
     public void FlushIfDue(
         int resident, int pending, int materializing,
         int presented, string loadingPhase)
     {
+        _resident = resident;
+        _pending = pending;
+        _inflight = materializing;
+        _presented = presented;
+        if (_phase != loadingPhase)
+        {
+            _phase = loadingPhase;
+            Write($"world.phase name={_phase}");
+        }
+
         var now = Stopwatch.GetTimestamp();
         if (now < _nextFlush)
             return;
 
         _nextFlush = now + IntervalTicks;
-        Write(
-            $"world.snapshot phase={loadingPhase} resident={resident} " +
-            $"pending={pending} inflight={materializing} presented={presented} " +
-            $"generated={_materialized} restored={_restored} " +
-            $"generation_ms_total={_materializationMs:F1} " +
-            $"generation_ms_max={_materializationMaxMs:F1} " +
-            $"mesh_batches={_terrainMeshBatches} mesh_ms_total={_terrainMeshMs:F1} " +
-            $"mesh_accepted={_terrainMeshAccepted} mesh_stale={_terrainMeshStale} " +
-            $"lighting_batches={_lightingBatches} lighting_ms_total={_lightingMs:F1} " +
-            $"lighting_voxels={_lightingVoxels}");
+        FlushSnapshot();
+    }
 
+    private void FlushSnapshot()
+    {
+        Write(
+            $"world.snapshot uptime_s={Format1(_uptime.Elapsed.TotalSeconds)} " +
+            $"phase={_phase} resident={_resident} pending={_pending} " +
+            $"inflight={_inflight} presented={_presented} " +
+            $"frames={_frames} frame_ms_avg={Format2((_frames == 0 ? 0d : _frameMsTotal / _frames))} " +
+            $"frame_ms_max={Format2(_frameMsMax)} frames_over_50ms={_framesOver50Ms} " +
+            $"frames_over_100ms={_framesOver100Ms} " +
+            $"generated={_materialized} restored={_restored} " +
+            $"generation_ms_total={Format1(_materializationMs)} " +
+            $"generation_ms_max={Format1(_materializationMaxMs)} " +
+            $"generation_slow_chunks={_slowChunks} slowest_chunk={_slowestChunk} " +
+            $"mesh_batches={_terrainMeshBatches} mesh_ms_total={Format1(_terrainMeshMs)} " +
+            $"mesh_accepted={_terrainMeshAccepted} mesh_stale={_terrainMeshStale} " +
+            $"fluid_mesh_batches={_fluidMeshBatches} fluid_mesh_ms_total={Format1(_fluidMeshMs)} " +
+            $"fluid_mesh_accepted={_fluidMeshAccepted} fluid_mesh_stale={_fluidMeshStale} " +
+            $"fluid_batches={_fluidBatches} fluid_ms_total={Format1(_fluidMs)} " +
+            $"fluid_changes={_fluidChanges} fluid_backlog_max={_fluidBacklogMax} " +
+            $"lighting_batches={_lightingBatches} lighting_ms_total={Format1(_lightingMs)} " +
+            $"lighting_voxels={_lightingVoxels} lighting_changed={_lightingChanged} " +
+            $"lighting_dirty_chunks={_lightingDirtyChunks}");
+
+        _frames = 0;
+        _frameMsTotal = 0d;
+        _frameMsMax = 0d;
+        _framesOver50Ms = 0;
+        _framesOver100Ms = 0;
         _materialized = 0;
         _restored = 0;
         _materializationMs = 0d;
         _materializationMaxMs = 0d;
+        _slowChunks = 0;
+        _slowestChunk = null;
         _terrainMeshBatches = 0;
         _terrainMeshMs = 0d;
         _terrainMeshAccepted = 0;
         _terrainMeshStale = 0;
+        _fluidMeshBatches = 0;
+        _fluidMeshMs = 0d;
+        _fluidMeshAccepted = 0;
+        _fluidMeshStale = 0;
+        _fluidBatches = 0;
+        _fluidMs = 0d;
+        _fluidChanges = 0;
+        _fluidBacklogMax = 0;
         _lightingBatches = 0;
         _lightingMs = 0d;
         _lightingVoxels = 0;
+        _lightingChanged = 0;
+        _lightingDirtyChunks = 0;
     }
 
-    public void Dispose() => _writer.Dispose();
+    private static string Format1(double value) =>
+        value.ToString("F1", CultureInfo.InvariantCulture);
+
+    private static string Format2(double value) =>
+        value.ToString("F2", CultureInfo.InvariantCulture);
+
+    public void Dispose()
+    {
+        if (_disposed)
+            return;
+
+        _disposed = true;
+        AppDomain.CurrentDomain.UnhandledException -= OnUnhandledException;
+        TaskScheduler.UnobservedTaskException -= OnUnobservedTaskException;
+        try
+        {
+            FlushSnapshot(); // Short runs still retain their final measurements.
+        }
+        finally
+        {
+            _session.Dispose();
+        }
+    }
 }
