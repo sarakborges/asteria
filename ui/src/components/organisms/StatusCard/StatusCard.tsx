@@ -22,17 +22,17 @@ export function StatusCard({
       <Text text="ASTERIA / DEBUG" variant="eyebrow" />
       <Text text={t("ui.runtimeStatus")} variant="title" />
       <StatusIndicator
-        label={state.bridgeLabel}
+        label={t(state.bridgeLabel)}
         tone={state.bridgeTone}
         dataUi="bridge-status"
       />
       <Text
-        text={state.worldStatus}
+        text={t(state.worldStatus)}
         variant="detail"
         dataUi="world-status"
       />
       <Text
-        text={state.playerStatus}
+        text={t(state.playerStatus)}
         variant="detail"
         dataUi="player-status"
       />
@@ -41,7 +41,7 @@ export function StatusCard({
         variant="detail"
       />
       <Text
-        text={state.lastMessage}
+        text={state.lastMessage ?? t("debug.bridge.noMessages")}
         variant="detail"
         dataUi="last-message"
       />

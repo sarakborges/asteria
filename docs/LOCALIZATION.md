@@ -18,3 +18,11 @@ Ported from MineClone's domain-keyed catalog contract. English, Brazilian Portug
 - `npm run check:localization` verifies identical keys and placeholders across languages for every catalog; it runs as part of WebUI and Storybook builds.
 - Storybook previews share the React localization provider.
 - In Asteria, pack data JSONs remain translation-free. Any future localized definition fields belong to the content-loader boundary, not duplicate runtime models.
+
+## Godot → WebUI localized messages
+
+- Godot remains authoritative for world creation validation and loading-phase state. It sends stable error **keys** (`game.world_creation.error.payload.key`) and phase identifiers (`game.loading.payload.phase`), not already-translated prose.
+- WebUI controllers validate/normalize incoming identifiers; React calls the active locale catalog when rendering. Changing the language recomputes visible text without restarting Godot or mutating save/protocol IDs.
+- World-creation error keys are `newWorld.error.seedMustBeString`, `newWorld.error.invalidSeed` and `newWorld.error.unexpected`. Runtime loading phase keys live under `loading.runtime.*`.
+- Debug status keys are presentation-only; bridge event names and runtime diagnostic payloads are technical, untranslated identifiers.
+- The catalog check additionally cross-validates every block, biome, dimension and fluid definition ID against domain `/name` translations. This detects missed content during subsequent ports.

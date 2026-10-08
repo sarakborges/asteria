@@ -13,7 +13,7 @@ const meta = {
       seed: "181960897289965",
       pending: false,
       generating: false,
-      error: null,
+      errorKey: null,
     },
     onBack: () => undefined,
     onCreate: () => undefined,
@@ -33,7 +33,7 @@ export const ValidationError: Story = {
       seed: "18446744073709551615",
       pending: false,
       generating: false,
-      error: "Seed inválida. Informe um número decimal de 64 bits.",
+      errorKey: "newWorld.error.invalidSeed",
     },
   },
 };
@@ -45,7 +45,7 @@ export const Generating: Story = {
       seed: "123456789",
       pending: true,
       generating: true,
-      error: null,
+      errorKey: null,
     },
   },
 };

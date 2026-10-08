@@ -9,7 +9,7 @@ const meta = {
   },
   args: {
     state: {
-      phaseLabel: "Materializando área inicial",
+      phase: "materializing_initial_area",
       completed: 23,
       total: 61,
       dimension: "asteria:overworld",
@@ -25,7 +25,7 @@ export const Materializing: Story = {};
 export const RetiringDimension: Story = {
   args: {
     state: {
-      phaseLabel: "Encerrando Sphere atual",
+      phase: "retiring_current_dimension",
       completed: 0,
       total: 0,
       dimension: "asteria:overworld",

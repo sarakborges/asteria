@@ -1,5 +1,5 @@
 import type { BridgeMessage } from "../bridge/godotBridge";
-import type { LoadingState } from "../state/uiState";
+import type { LoadingPhase, LoadingState } from "../state/uiState";
 import type { UiStore } from "../state/uiStore";
 import { asRecord } from "./messagePayload";
 
@@ -35,7 +35,7 @@ export function createLoadingController(
       }
 
       setLoading(store, {
-        phaseLabel: phaseLabel(phase),
+        phase: readLoadingPhase(phase),
         completed:
           typeof payload.completed === "number"
             ? Math.max(0, Math.trunc(payload.completed))
@@ -63,15 +63,13 @@ function setLoading(
   }));
 }
 
-function phaseLabel(phase: string): string {
+function readLoadingPhase(phase: string): LoadingPhase {
   switch (phase) {
     case "retiring_current_dimension":
-      return "Encerrando Sphere atual";
     case "materializing_initial_area":
-      return "Materializando área inicial";
     case "preparing_presentation":
-      return "Preparando apresentação";
+      return phase;
     default:
-      return "Preparando mundo";
+      return "preparing_world";
   }
 }

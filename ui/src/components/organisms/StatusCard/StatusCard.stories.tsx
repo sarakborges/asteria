@@ -2,11 +2,11 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { StatusCard } from "./StatusCard";
 
 const baseState = {
-  bridgeLabel: "connecting to Godot",
+  bridgeLabel: "debug.bridge.connecting",
   bridgeTone: "connecting" as const,
-  worldStatus: "waiting for chunk",
-  playerStatus: "waiting for player",
-  lastMessage: "no bridge messages yet",
+  worldStatus: "debug.world.waiting",
+  playerStatus: "debug.player.waiting",
+  lastMessage: null,
 };
 
 const meta = {
@@ -29,7 +29,7 @@ export const Standalone: Story = {
     embedded: false,
     state: {
       ...baseState,
-      bridgeLabel: "standalone browser mode",
+      bridgeLabel: "debug.bridge.browser",
       bridgeTone: "neutral",
     },
   },
@@ -38,10 +38,10 @@ export const Standalone: Story = {
 export const Ready: Story = {
   args: {
     state: {
-      bridgeLabel: "bridge connected",
+      bridgeLabel: "debug.bridge.connected",
       bridgeTone: "connected",
-      worldStatus: "chunk generated + collision ready",
-      playerStatus: "FPS controller ready",
+      worldStatus: "debug.world.ready",
+      playerStatus: "debug.player.ready",
       lastMessage: "godot → webui: game.player_ready",
     },
   },

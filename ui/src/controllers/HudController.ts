@@ -119,20 +119,20 @@ export function createHudController(
 
         case "game.ready":
           patchStatusCard(store, {
-            bridgeLabel: "bridge connected",
+            bridgeLabel: "debug.bridge.connected",
             bridgeTone: "connected",
           });
           break;
 
         case "game.chunk_ready":
           patchStatusCard(store, {
-            worldStatus: "chunk generated + collision ready",
+            worldStatus: "debug.world.ready",
           });
           break;
 
         case "game.player_ready":
           patchStatusCard(store, {
-            playerStatus: "FPS controller ready",
+            playerStatus: "debug.player.ready",
           });
           break;
 

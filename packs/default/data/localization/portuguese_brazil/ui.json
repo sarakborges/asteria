@@ -324,5 +324,20 @@
   "ui.resume": "Continuar",
   "ui.leaveWorld": "Sair do Mundo",
   "ui.worldSettings": "Configurações do Mundo",
-  "ui.day": "Dia {day}"
+  "ui.day": "Dia {day}",
+  "newWorld.error.seedMustBeString": "A seed deve ser informada como uma string decimal.",
+  "newWorld.error.invalidSeed": "A seed deve ser um número decimal de 64 bits sem sinal (0–18446744073709551615).",
+  "newWorld.error.unexpected": "Não foi possível criar o mundo.",
+  "loading.runtime.retiring_current_dimension": "Encerrando Esfera atual",
+  "loading.runtime.materializing_initial_area": "Materializando área inicial",
+  "loading.runtime.preparing_presentation": "Preparando apresentação do mundo",
+  "loading.runtime.preparing_world": "Preparando mundo",
+  "debug.bridge.connecting": "Conectando ao Godot",
+  "debug.bridge.browser": "Modo navegador independente",
+  "debug.bridge.connected": "Conexão estabelecida",
+  "debug.world.waiting": "Aguardando chunk",
+  "debug.world.ready": "Chunk gerado e colisão pronta",
+  "debug.player.waiting": "Aguardando jogador",
+  "debug.player.ready": "Controlador FPS pronto",
+  "debug.bridge.noMessages": "Nenhuma mensagem da conexão até agora"
 }

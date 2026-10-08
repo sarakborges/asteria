@@ -89,7 +89,7 @@ export type StatusCardState = {
   bridgeTone: BridgeStatusTone;
   worldStatus: string;
   playerStatus: string;
-  lastMessage: string;
+  lastMessage: string | null;
 };
 
 export type HudState = {
@@ -114,12 +114,17 @@ export type LoadingState = {
   dimension: string;
 };
 
+export type WorldCreationErrorKey =
+  | "newWorld.error.seedMustBeString"
+  | "newWorld.error.invalidSeed"
+  | "newWorld.error.unexpected";
+
 export type WorldCreationState = {
   visible: boolean;
   seed: string;
   pending: boolean;
   generating: boolean;
-  error: string | null;
+  errorKey: WorldCreationErrorKey | null;
 };
 
 export type UiNavigationState = {
@@ -159,14 +164,14 @@ export function createInitialUiState(
       toasts: [],
       statusCard: {
         bridgeLabel: embedded
-          ? "connecting to Godot"
-          : "standalone browser mode",
+          ? "debug.bridge.connecting"
+          : "debug.bridge.browser",
         bridgeTone: embedded
           ? "connecting"
           : "neutral",
-        worldStatus: "waiting for chunk",
-        playerStatus: "waiting for player",
-        lastMessage: "no bridge messages yet",
+        worldStatus: "debug.world.waiting",
+        playerStatus: "debug.player.waiting",
+        lastMessage: null,
       },
     },
     loading: null,
@@ -175,7 +180,7 @@ export function createInitialUiState(
       seed: "",
       pending: true,
       generating: false,
-      error: null,
+      errorKey: null,
     },
     navigation: {
       preWorldScreen: "starting",

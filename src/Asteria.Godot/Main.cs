@@ -664,7 +664,7 @@ public partial class Main : Node3D
                 JsonValueKind.String)
         {
             SendWorldCreationError(
-                "Seed must be a decimal string.");
+                "newWorld.error.seedMustBeString");
             return;
         }
 
@@ -684,7 +684,7 @@ public partial class Main : Node3D
             { } selectedSeed)
         {
             SendWorldCreationError(
-                "Seed must be an unsigned 64-bit decimal number (0–18446744073709551615).");
+                "newWorld.error.invalidSeed");
             return;
         }
 
@@ -850,11 +850,11 @@ public partial class Main : Node3D
     }
 
     private void SendWorldCreationError(
-        string message)
+        string key)
     {
         SendWebUi(
             "game.world_creation.error",
-            new { message });
+            new { key });
     }
 
     private void SendWorldReady()

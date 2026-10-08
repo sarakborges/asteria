@@ -120,7 +120,7 @@ export function NewWorldPage({
                     aria-describedby="world-seed-help"
                     value={seed}
                     disabled={state.pending}
-                    invalid={Boolean(state.error)}
+                    invalid={Boolean(state.errorKey)}
                     onChange={(event) =>
                       setSeed(event.target.value)
                     }
@@ -138,12 +138,12 @@ export function NewWorldPage({
                 >
                   {t("newWorld.seedRange")}
                 </span>
-                {state.error && (
+                {state.errorKey && (
                   <span
                     className="new-world__error"
                     role="alert"
                   >
-                    {state.error}
+                    {t(state.errorKey)}
                   </span>
                 )}
               </div>

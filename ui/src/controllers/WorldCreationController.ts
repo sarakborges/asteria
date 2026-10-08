@@ -1,5 +1,5 @@
 import type { BridgeMessage } from "../bridge/godotBridge";
-import type { WorldCreationState } from "../state/uiState";
+import type { WorldCreationErrorKey, WorldCreationState } from "../state/uiState";
 import type { UiStore } from "../state/uiStore";
 import { asRecord } from "./messagePayload";
 
@@ -17,7 +17,7 @@ export function createWorldCreationController(
     createWorld(seed) {
       updateWorldCreation(store, {
         pending: true,
-        error: null,
+        errorKey: null,
       });
       postMessage("ui.world.create", {
         seed: seed.trim(),
@@ -27,7 +27,7 @@ export function createWorldCreationController(
     randomizeWorld() {
       updateWorldCreation(store, {
         pending: true,
-        error: null,
+        errorKey: null,
       });
       postMessage("ui.world.randomize");
     },
@@ -42,7 +42,7 @@ export function createWorldCreationController(
               seed: payload.seed,
               pending: false,
               generating: false,
-              error: null,
+              errorKey: null,
             });
           }
           break;
@@ -54,10 +54,7 @@ export function createWorldCreationController(
             visible: true,
             pending: false,
             generating: false,
-            error:
-              payload && typeof payload.message === "string"
-                ? payload.message
-                : "Não foi possível criar o mundo.",
+            errorKey: readErrorKey(payload?.key),
           });
           break;
         }
@@ -71,7 +68,7 @@ export function createWorldCreationController(
                 : store.getSnapshot().worldCreation.seed,
             pending: true,
             generating: true,
-            error: null,
+            errorKey: null,
           });
           break;
         }
@@ -97,4 +94,14 @@ function updateWorldCreation(
       ...patch,
     },
   }));
+}
+
+function readErrorKey(value: unknown): WorldCreationErrorKey {
+  switch (value) {
+    case "newWorld.error.seedMustBeString":
+    case "newWorld.error.invalidSeed":
+      return value;
+    default:
+      return "newWorld.error.unexpected";
+  }
 }

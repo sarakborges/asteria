@@ -10,7 +10,7 @@ export type LoadingOverlayProps = {
 export function LoadingOverlay({
   state,
 }: LoadingOverlayProps) {
-  const { t } = useLocalization();
+  const { t, contentName } = useLocalization();
   if (!state) return null;
 
   const hasProgress = state.total > 0;
@@ -30,7 +30,7 @@ export function LoadingOverlay({
           {t("loading.preparingSphere")}
         </h1>
         <Text
-          text={state.phaseLabel}
+          text={t("loading.runtime." + state.phase)}
           variant="detail"
           className="loading-overlay__phase"
         />
@@ -58,7 +58,7 @@ export function LoadingOverlay({
           className="loading-overlay__counters"
         />
         <Text
-          text={state.dimension}
+          text={contentName(state.dimension)}
           variant="detail"
           className="loading-overlay__dimension"
         />
