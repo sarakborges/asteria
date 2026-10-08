@@ -114,6 +114,44 @@ internal sealed class PaletteStorage<T>
         }
     }
 
+    // A chunk row is 16 voxels wide and never crosses a 64-bit
+    // occupancy word. This tests a box using only its packed bitset,
+    // without visiting or unpacking voxel palette entries.
+    public bool AnyOccupiedInBox(
+        int minX,
+        int minY,
+        int minZ,
+        int width,
+        int height,
+        int depth)
+    {
+        if (width <= 0 || height <= 0 || depth <= 0 ||
+            !Chunk.Contains(minX, minY, minZ) ||
+            !Chunk.Contains(
+                minX + width - 1,
+                minY + height - 1,
+                minZ + depth - 1))
+        {
+            throw new ArgumentOutOfRangeException(nameof(width));
+        }
+
+        var rowMask = (1UL << width) - 1UL;
+        for (var y = minY; y < minY + height; y++)
+        {
+            for (var z = minZ; z < minZ + depth; z++)
+            {
+                var first = minX + Chunk.Size * (z + Chunk.Size * y);
+                if ((_occupied[first >> 6] &
+                     (rowMask << (first & 63))) != 0UL)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     public PaletteStorage<T> Clone() =>
         new(this);
 

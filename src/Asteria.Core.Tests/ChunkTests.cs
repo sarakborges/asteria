@@ -89,6 +89,58 @@ public sealed class ChunkTests
     }
 
     [Fact]
+    public void OccupiedMeshletMasksTrackBlockAndFluidMutations()
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition("asteria:stone"),
+        ]);
+        var fluids = new FluidRegistry(
+        [
+            new FluidDefinition(
+                "asteria:water",
+                new FluidColor(64, 96, 255),
+                opacity: 0.7f),
+        ]);
+        var stone = blocks.GetId("asteria:stone");
+        var water = fluids.GetId("asteria:water");
+        var chunk = new Chunk();
+
+        Assert.Equal(
+            ChunkMeshletMask.None,
+            chunk.OccupiedTerrainMeshlets());
+        Assert.Equal(
+            ChunkMeshletMask.None,
+            chunk.OccupiedFluidMeshlets());
+
+        chunk.SetBlock(7, 7, 7, stone);
+        chunk.SetBlock(8, 7, 7, stone);
+        chunk.SetBlock(15, 15, 15, stone);
+        chunk.SetFluid(0, 8, 8, FluidCell.Source(water));
+
+        Assert.Equal(
+            new ChunkMeshletMask((byte)((1 << 0) | (1 << 1) | (1 << 7))),
+            chunk.OccupiedTerrainMeshlets());
+        Assert.Equal(
+            ChunkMeshletMask.Single(6),
+            chunk.OccupiedFluidMeshlets());
+
+        chunk.SetBlock(8, 7, 7, BlockRuntimeId.Air);
+        chunk.SetBlock(15, 15, 15, BlockRuntimeId.Air);
+        chunk.SetFluid(0, 8, 8, FluidCell.Empty);
+
+        Assert.Equal(
+            ChunkMeshletMask.Single(0),
+            chunk.OccupiedTerrainMeshlets());
+        Assert.Equal(
+            ChunkMeshletMask.None,
+            chunk.OccupiedFluidMeshlets());
+        Assert.Equal(
+            chunk.OccupiedTerrainMeshlets(),
+            chunk.CloneForWorker().OccupiedTerrainMeshlets());
+    }
+
+    [Fact]
     public void WorkerClonePreservesPaletteMicroblocksFluidsAndRevision()
     {
         var blocks = new BlockRegistry(

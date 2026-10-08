@@ -59,6 +59,38 @@ public sealed class Chunk
     public bool HasFluidContent =>
         FluidCount > 0;
 
+    public ChunkMeshletMask OccupiedTerrainMeshlets() =>
+        OccupiedMeshlets(_cells);
+
+    public ChunkMeshletMask OccupiedFluidMeshlets() =>
+        OccupiedMeshlets(_fluids);
+
+    private static ChunkMeshletMask OccupiedMeshlets<T>(
+        PaletteStorage<T> storage)
+        where T : struct, IEquatable<T>
+    {
+        if (storage.OccupiedCount == 0)
+        {
+            return ChunkMeshletMask.None;
+        }
+
+        byte bits = 0;
+        for (var index = 0; index < ChunkMeshletMask.Count; index++)
+        {
+            var bounds = ChunkMeshletMask.Bounds(index);
+            if (storage.AnyOccupiedInBox(
+                    bounds.MinX, bounds.MinY, bounds.MinZ,
+                    ChunkMeshletMask.Edge,
+                    ChunkMeshletMask.Edge,
+                    ChunkMeshletMask.Edge))
+            {
+                bits |= (byte)(1 << index);
+            }
+        }
+
+        return new ChunkMeshletMask(bits);
+    }
+
     public bool DependencyBoundaryHasContent(
         int xOffset,
         int yOffset,

@@ -150,23 +150,24 @@ public sealed class ChunkPresentationController
                 presentation);
             _parent.AddChild(presentation.Root);
 
-            if (chunk.HasTerrainContent)
+            var terrainMeshlets =
+                chunk.OccupiedTerrainMeshlets();
+            presentation.MarkTerrainPublished(
+                ChunkMeshletMask.All.Except(terrainMeshlets));
+            if (!terrainMeshlets.IsEmpty)
             {
                 _worldUpdates.EnqueueMeshlets(
                     coord.Value,
-                    ChunkMeshletMask.All);
-            }
-            else
-            {
-                presentation.MarkTerrainPublished(
-                    ChunkMeshletMask.All);
+                    terrainMeshlets);
             }
 
-            if (chunk.HasFluidContent)
+            var fluidMeshlets =
+                chunk.OccupiedFluidMeshlets();
+            if (!fluidMeshlets.IsEmpty)
             {
                 _fluidMeshUpdates.EnqueueMeshlets(
                     coord.Value,
-                    ChunkMeshletMask.All);
+                    fluidMeshlets);
             }
 
             InvalidatePresentedNeighborsForAddition(
