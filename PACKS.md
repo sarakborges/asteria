@@ -252,6 +252,23 @@ Connector faces are `right`, `left`, `top`, `bottom`, `front`, or `back`. Output
 
 Structures may additionally author bounded `restrictions.proximity` rules. Each rule targets exactly one block or fluid, uses mode `required` or `forbidden`, has a required `maxDistance` capped at 64, and may set `minDistance` to form an annulus. Block targets query the authoritative exposed surface material; fluid targets query the existing generated-fluid owner one voxel above the target column's base surface. Proximity never creates terrain or fluid and does not introduce a hydrology subsystem.
 
+Ground-level decorative blocks support the `visual.type: "groundSprite"` visual contract: a small horizontal cutout sprite with pack-relative `texture`, `width` (0..1), `height` and `baseOffset` inside its voxel. Unlike MineClone's separate object entity system, Asteria currently stores these as lightweight support-dependent voxel decorators. Their break/drop behavior follows the normal block mutation and drop pipeline.
+
+Any surface biome can author deterministic decorators through `decorations`; optional `cluster` noise limits eligible locations to irregular patches, independent of chunk boundaries:
+
+```json
+"decorations": [
+  {
+    "block": "asteria:pebble",
+    "chance": 0.12,
+    "surfaceBlocks": ["asteria:grass_block"],
+    "cluster": { "scale": 14, "threshold": -0.12 }
+  }
+]
+```
+
+The `chance` roll is per world column and weighted by biome influence; `cluster.scale` is the horizontal noise wavelength and `cluster.threshold` (between -1 and 1) keeps columns above the fractal-noise cutoff. Missing `cluster` preserves existing independent decorator placement. Pebbles use dry, exposed compatible ground and are skipped for generated fluid-filled columns. These are microdecorations, not locatable surface Structures.
+
 The Structure contract still deliberately does **not** support MineClone object attachments or Structure-authored surface-layer decorators; those require their own explicit owners before import. StructureSets, connector chains, Structure-owned source-fluid payloads and explicit clear cells are supported. Unsupported palette/template fields fail validation instead of being silently ignored. The default pack currently ports the four MineClone boulder geometries, four oak-tree block variants, three willow-tree block variants, and the 27 connected-water Structure variants used by lakes, mountain ponds, mountain waterfalls, river lakes, river segments and the ocean-margin river mouth. Plains references `asteria:lake`, while Mountains/Alps/Mountain Belt reference `asteria:mountain_waterfall`; Ocean references `asteria:river_ocean_mouth` with `biomeMargin`. River/lake/waterfall/pond expansion stays entirely inside generic Structure groups/connectors—no hydrology subsystem exists. Stick object cells and willow moss surface layers remain omitted. Willow preserves MineClone's required water proximity of 1..12 blocks. Swamp water is produced when the typed swamp terrain falls below the Sphere's authored sea level, so proximity queries resolve against the same generated-fluid owner used by materialization. Enchanted Forest is active in the Overworld surface-biome pool.
 
 A Sphere may define one explicit generated ocean rule:

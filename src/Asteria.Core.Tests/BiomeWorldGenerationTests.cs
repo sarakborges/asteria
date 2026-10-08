@@ -67,6 +67,19 @@ public sealed class BiomeWorldGenerationTests
         Assert.NotNull(
             swamp.SurfaceLayers[0].Patch);
 
+        foreach (var biomeId in new[]
+                 {
+                     "plains", "wasteland", "mountains", "gorge", "alps",
+                     "desert", "arctic", "swamp", "mountain_belt",
+                 })
+        {
+            var biome = biomes.Get($"asteria:overworld/{biomeId}");
+            var pebble = Assert.Single(
+                biome.Decorations,
+                decoration => decoration.Block == "asteria:pebble");
+            Assert.NotNull(pebble.Cluster);
+        }
+
         var caverns =
             biomes.Get(
                 "asteria:overworld/caverns");

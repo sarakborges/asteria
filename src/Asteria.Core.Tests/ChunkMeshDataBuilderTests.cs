@@ -290,6 +290,47 @@ public sealed class ChunkMeshDataBuilderTests
     }
 
     [Fact]
+    public void GroundSpriteBuildsCompactCutoutWithoutCollision()
+    {
+        const string path = "textures/items/pebble.png";
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition(
+                "asteria:pebble",
+                visual: BlockVisualDefinition.GroundSprite(
+                    new BlockTextureLayer(path)),
+                isCollidable: false,
+                renderMode: BlockRenderMode.Cutout,
+                castsShadow: false,
+                lightDampening: 0),
+        ]);
+        var chunk = new Chunk();
+        chunk.SetBlock(1, 1, 1, blocks.GetId("asteria:pebble"));
+        ChunkLightingSolver.Initialize(
+            chunk, blocks, new FluidRegistry([]));
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, chunk);
+        var mesh = ChunkMeshDataBuilder.BuildMeshlet(
+            world, ChunkCoord.Zero, blocks,
+            new TerrainTextureLookup(new Dictionary<string, int>
+            {
+                [path] = 2,
+            }),
+            meshletIndex: 0);
+
+        var batch = Assert.Single(mesh.RenderBatches);
+        Assert.Equal(BlockRenderMode.Cutout, batch.Batch.RenderMode);
+        Assert.Equal(4, batch.TriangleCount);
+        Assert.Equal(0, mesh.CollisionTriangleCount);
+        Assert.All(batch.Vertices, vertex =>
+        {
+            Assert.InRange(vertex.Position.X, 1.289f, 1.711f);
+            Assert.InRange(vertex.Position.Y, 1.0244f, 1.0246f);
+            Assert.InRange(vertex.Position.Z, 1.289f, 1.711f);
+        });
+    }
+
+    [Fact]
     public void FluidGeometryBuildsWithoutGodotTypes()
     {
         var blocks =
