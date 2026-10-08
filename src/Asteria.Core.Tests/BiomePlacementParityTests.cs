@@ -276,8 +276,13 @@ public sealed class BiomePlacementParityTests
             biomes.Get(
                     "asteria:overworld/swamp")
                 .SurfaceLayout!;
-        Assert.DoesNotContain(
+        // Asteria intentionally excludes desert and wasteland from swamp
+        // borders. MineClone's original permissive adjacency was adapted.
+        Assert.Contains(
             "asteria:overworld/desert",
+            swamp.CannotBorder);
+        Assert.Contains(
+            "asteria:overworld/wasteland",
             swamp.CannotBorder);
         Assert.All(
             mountainGroup,

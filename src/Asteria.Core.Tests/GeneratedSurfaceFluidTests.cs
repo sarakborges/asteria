@@ -593,89 +593,52 @@ public sealed class GeneratedSurfaceFluidTests
                 structures,
                 StructureSetRegistry.FromJson(
                     ReadJsonDirectory("structure_sets")));
-        var core =
-            FindVolcanoCore(
-                generator.Biomes);
-        var surfaceY =
-            generator.SurfaceHeight(
-                core.X,
-                core.Z);
-        var lava =
-            fluids.GetId(
-                "asteria:lava");
-        var foundLava =
-            false;
+        // TopLevel is relative to sea level, not to the sampled ground.
+        // High-strength volcano terrain also includes dry crater rims;
+        // the first strong sample is not necessarily under the lava plane.
+        var craterFill = biomes.Get("asteria:overworld/volcano")
+            .SurfaceTerrain!.Crater!.FluidFill!;
+        var lavaTopY = checked((int)Math.Ceiling(
+            dimension.SeaLevel + craterFill.TopLevel) - 1);
+        var core = FindFloodedVolcanoCore(generator, lavaTopY);
+        var surfaceY = generator.SurfaceHeight(core.X, core.Z);
+        Assert.True(surfaceY < lavaTopY,
+            "Selected crater floor must be below the authored lava surface.");
 
-        for (var worldY =
-                 surfaceY +
-                 1;
-             worldY <=
-                 surfaceY +
-                 16;
-             worldY++)
-        {
-            var address =
-                VoxelCoordinates.FromWorld(
-                    core.X,
-                    worldY,
-                    core.Z);
-            var chunk =
-                generator.Materialize(
-                    address.Chunk);
-            var fluid =
-                chunk.GetFluid(
-                    address.Local.X,
-                    address.Local.Y,
-                    address.Local.Z);
-
-            if (fluid.Fluid !=
-                lava)
-            {
-                continue;
-            }
-
-            foundLava = true;
-            break;
-        }
-
-        Assert.True(
-            foundLava,
-            "A strong volcano core must place authored lava above the crater floor.");
+        // The first empty voxel above the floor must be a source of
+        // lava; checking only this voxel avoids rematerializing the
+        // same chunk repeatedly while testing the actual output.
+        var address = VoxelCoordinates.FromWorld(
+            core.X, surfaceY + 1, core.Z);
+        var chunk = generator.Materialize(address.Chunk);
+        var fluid = chunk.GetFluid(
+            address.Local.X, address.Local.Y, address.Local.Z);
+        Assert.Equal(fluids.GetId("asteria:lava"), fluid.Fluid);
+        Assert.True(fluid.IsSource);
     }
 
-    private static (int X, int Z)
-        FindVolcanoCore(
-            BiomeField field)
+    private static (int X, int Z) FindFloodedVolcanoCore(
+        BiomeWorldGenerator generator, int lavaTopY)
     {
-        for (var z = -4096;
-             z <= 4096;
-             z += 32)
+        for (var z = -4096; z <= 4096; z += 32)
         {
-            for (var x = -4096;
-                 x <= 4096;
-                 x += 32)
+            for (var x = -4096; x <= 4096; x += 32)
             {
-                var sample =
-                    field.Sample(
-                        x,
-                        z);
+                var sample = generator.Biomes.Sample(x, z);
+                if (sample.Primary != "asteria:overworld/volcano" ||
+                    sample.PrimaryTerrainStrength < 0.94f)
+                    continue;
 
-                if (string.Equals(
-                        sample.Primary,
-                        "asteria:overworld/volcano",
-                        StringComparison.Ordinal) &&
-                    sample.PrimaryTerrainStrength >=
-                        0.94f)
-                {
-                    return (
-                        x,
-                        z);
-                }
+                // The crater contains both dry walls and a submerged
+                // floor. Require a strong volcanic column whose surface
+                // is genuinely below the configured absolute lava level.
+                if (generator.SurfaceHeight(x, z) < lavaTopY)
+                    return (x, z);
             }
         }
 
         throw new Xunit.Sdk.XunitException(
-            "Could not find a deterministic strong volcano core.");
+            "Could not find a strong volcanic crater floor below the lava plane.");
     }
 
     private static IEnumerable<string> ReadJsonDirectory(
