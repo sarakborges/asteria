@@ -75,21 +75,18 @@ public sealed class DimensionTests
         Assert.Equal(
             "asteria:water",
             overworld.GeneratedOcean?.Fluid);
+        var shore = overworld.GeneratedOcean!.Shore.Samples;
+        Assert.Equal(9, shore.Count);
+        Assert.Equal(2d, shore[3].MinimumHeight);
+        Assert.Equal(-4d, shore[6].MinimumHeight);
+        Assert.Equal(0.72d, shore[6].Dominance, 5);
+        Assert.Equal(0d, shore[0].Strength);
+        Assert.Equal(0d, shore[^1].Strength);
+        Assert.Equal(0.50d, overworld.BiomeBlending.ScoreBand);
+        Assert.Equal(0.32d, overworld.BiomeBlending.JitterFraction, 5);
         Assert.Equal(
-            4,
-            overworld.GeneratedOcean?.Shore.ShelfDepth);
-        Assert.Equal(
-            2,
-            overworld.GeneratedOcean?.Shore.BeachHeight);
-        Assert.Equal(
-            0.62f,
-            overworld.GeneratedOcean?.Shore.BeachStartDominance);
-        Assert.Equal(
-            0.72f,
-            overworld.GeneratedOcean?.Shore.ShelfStartDominance);
-        Assert.Equal(
-            0.85f,
-            overworld.GeneratedOcean?.Shore.DeepWaterStartDominance);
+            BiomeInfluenceCurve.SmoothStep,
+            overworld.BiomeBlending.InfluenceCurve);
         Assert.Null(
             umbral.GeneratedOcean);
         Assert.Equal(
