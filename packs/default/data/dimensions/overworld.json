@@ -382,6 +382,19 @@
     "fineWarpPeriod": 1.35,
     "coarseWarpStrength": 0.42,
     "fineWarpStrength": 0.16,
-    "influenceCurve": "smoothStep"
+    "influenceCurve": "smoothStep",
+    "contourHarmonics": [
+      {
+        "lobes": 3,
+        "amplitude": 0.13
+      },
+      {
+        "lobes": 5,
+        "amplitude": 0.07
+      }
+    ],
+    "sizeExponent": 0.12,
+    "seedBiasAmplitude": 0.045,
+    "continuationBonus": 0.055
   }
 }
