@@ -109,6 +109,7 @@ public sealed class BiomeField
     private const int CompatibilityClassPeriod =
         CompatibilityRadiusBuckets * 2 + 1;
     private readonly BiomeBlendingDefinition _blending;
+    private readonly GenerationDomain[] _contourDomains;
 
     private readonly ulong _seed;
     private readonly BiomeRule[] _rules;
@@ -189,6 +190,17 @@ public sealed class BiomeField
         ArgumentNullException.ThrowIfNull(
             ruleSources);
         _blending = blending ?? BiomeBlendingDefinition.Default;
+        _contourDomains = new GenerationDomain[_blending.ContourHarmonics.Count];
+        for (var index = 0; index < _contourDomains.Length; index++)
+        {
+            _contourDomains[index] = index switch
+            {
+                0 => _shapeADomain,
+                1 => _shapeBDomain,
+                _ => GenerationDomain.Named(
+                    $"biome-layout/shape-harmonic/{index}/v1"),
+            };
+        }
 
         _seed = seed;
         _assignments =
@@ -1402,36 +1414,7 @@ public sealed class BiomeField
             Math.Atan2(
                 dz,
                 dx);
-        var phaseA =
-            WorldGenerationEntropy
-                .Unit(
-                    WorldGenerationEntropy
-                        .Sample2D(
-                            _seed,
-                            _shapeADomain,
-                            assignment.Root.X,
-                            assignment.Root.Z)) *
-            Math.Tau;
-        var phaseB =
-            WorldGenerationEntropy
-                .Unit(
-                    WorldGenerationEntropy
-                        .Sample2D(
-                            _seed,
-                            _shapeBDomain,
-                            assignment.Root.X,
-                            assignment.Root.Z)) *
-            Math.Tau;
-        var shape =
-            1d +
-            0.13d *
-            Math.Sin(
-                angle * 3d +
-                phaseA) +
-            0.07d *
-            Math.Sin(
-                angle * 5d +
-                phaseB);
+        var shape = ContourShape(angle, assignment.Root);
         var radius =
             Math.Max(
                 _seedSpacing,
@@ -1449,6 +1432,30 @@ public sealed class BiomeField
                 1d -
                 distance /
                 radius);
+    }
+
+    private double ContourShape(double angle, SeedBucket bucket)
+    {
+        var shape = 1d;
+        for (var index = 0; index < _contourDomains.Length; index++)
+        {
+            var harmonic = _blending.ContourHarmonics[index];
+            if (harmonic.Amplitude == 0d)
+            {
+                continue;
+            }
+
+            var phase = WorldGenerationEntropy.Unit(
+                WorldGenerationEntropy.Sample2D(
+                    _seed,
+                    _contourDomains[index],
+                    bucket.X,
+                    bucket.Z)) * Math.Tau;
+            shape += harmonic.Amplitude *
+                Math.Sin(angle * harmonic.Lobes + phase);
+        }
+
+        return shape;
     }
 
     private double SeedScore(
@@ -1473,36 +1480,7 @@ public sealed class BiomeField
             Math.Atan2(
                 dz,
                 dx);
-        var phaseA =
-            WorldGenerationEntropy
-                .Unit(
-                    WorldGenerationEntropy
-                        .Sample2D(
-                            _seed,
-                            _shapeADomain,
-                            seed.Bucket.X,
-                            seed.Bucket.Z)) *
-            Math.Tau;
-        var phaseB =
-            WorldGenerationEntropy
-                .Unit(
-                    WorldGenerationEntropy
-                        .Sample2D(
-                            _seed,
-                            _shapeBDomain,
-                            seed.Bucket.X,
-                            seed.Bucket.Z)) *
-            Math.Tau;
-        var shape =
-            1d +
-            0.13d *
-            Math.Sin(
-                angle * 3d +
-                phaseA) +
-            0.07d *
-            Math.Sin(
-                angle * 5d +
-                phaseB);
+        var shape = ContourShape(angle, seed.Bucket);
         var targetRatio =
             Math.Clamp(
                 seed.Assignment.TargetSpan /
@@ -1512,7 +1490,7 @@ public sealed class BiomeField
         var sizeScale =
             Math.Pow(
                 targetRatio,
-                0.12d);
+                _blending.SizeExponent);
         var bias =
             WorldGenerationEntropy
                 .SignedUnit(
@@ -1522,11 +1500,11 @@ public sealed class BiomeField
                             _seedBiasDomain,
                             seed.Bucket.X,
                             seed.Bucket.Z)) *
-            0.045d;
+            _blending.SeedBiasAmplitude;
         var continuationBonus =
             seed.Assignment.Root !=
             seed.Bucket
-                ? 0.055d
+                ? _blending.ContinuationBonus
                 : 0d;
 
         return -distance /
