@@ -135,3 +135,9 @@ Asteria reserves **F3/F4** in addition to MineClone's WASD/hotbar keys because t
 - Sort is stable and compacts compatible backpack stacks. Icons are decoded from the active pack resources by the Godot adapter and published once in the Creative catalog; variants preserve their authored icon selection without modifying Winky Rough Variable.
 - Non-block drops are **not** physically simulated yet. Q never consumes such an entry; it reports a localized unsupported-drop message instead. Tool actions, crafting, equipment, world save and item pickups from gameplay rewards still require real runtime behavior, not UI controls.
 - See [`docs/INVENTORY_MIGRATION.md`](INVENTORY_MIGRATION.md) for authoritative invariants and remaining parity work.
+
+## Tools and physical inventory drops (2026-10-08)
+
+- Native Q now spawns an authored physical drop for blocks, items and tools, keeping stack metadata on pickup; input remains engine-owned. The existing drop simulator is one authoritative owner. Each world drop contains exactly one item.
+- Survival mining checks authored required tool categories; Carpenter's Axe uses Core block-variant transforms to hollow/strip logs with unchanged voxel state and physics/mesh invalidation via the canonical mutation runtime. Tool speed and block hardness still require time-based mining mechanics; other right/left tool behavior endpoints and general item use remain pending.
+- See [inventory migration](INVENTORY_MIGRATION.md) for remaining implementation gaps.
