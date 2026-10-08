@@ -1,7 +1,22 @@
 import type { BridgeMessage } from "../bridge/godotBridge";
-import type { GameplayInventoryState, InventoryCatalogEntry, InventorySlotState } from "../state/uiState";
+import type {
+  GameplayInventoryState, InventoryCatalogEntry, InventorySlotState,
+  InventoryEntryKind, InventoryMetadata,
+} from "../state/uiState";
 import type { UiStore } from "../state/uiStore";
 import { asRecord } from "./messagePayload";
+
+function readKind(value: unknown): InventoryEntryKind | null {
+  return value === "block" || value === "item" || value === "tool"
+    ? value : null;
+}
+
+function readMetadata(value: unknown): InventoryMetadata | null {
+  const raw = asRecord(value);
+  if (!raw || Object.values(raw).some(x => typeof x !== "string"))
+    return null;
+  return raw as InventoryMetadata;
+}
 
 function readSlot(value: unknown): InventorySlotState {
   if (value === null) return null;
@@ -10,7 +25,13 @@ function readSlot(value: unknown): InventorySlotState {
       !Number.isInteger(record.quantity) ||
       (record.quantity as number) < 1 ||
       (record.quantity as number) > 64) return null;
-  return { id: record.id, quantity: record.quantity as number };
+  const kind = readKind(record.kind);
+  const metadata = readMetadata(record.metadata);
+  if (!kind || !metadata ||
+      (kind === "tool" && record.quantity !== 1)) return null;
+  return {
+    id: record.id, kind, quantity: record.quantity as number, metadata,
+  };
 }
 
 function readSlots(value: unknown, count: number): InventorySlotState[] | null {
@@ -30,8 +51,13 @@ export function createInventoryController(
     },
     sort() { post("ui.inventory.sort"); },
     discardCursor() { post("ui.inventory.discard_cursor"); },
-    pickCreative(id: string) {
-      if (id) post("ui.inventory.creative_pick", { id });
+    pickCreative(choice: InventoryCatalogEntry) {
+      if (!choice.id) return;
+      post("ui.inventory.creative_pick", {
+        id: choice.id, kind: choice.kind,
+        ...(Object.keys(choice.metadata).length > 0
+          ? { metadata: choice.metadata } : {}),
+      });
     },
     handleGodotMessage(message: BridgeMessage) {
       const payload = asRecord(message.payload);
@@ -70,10 +96,16 @@ export function createInventoryController(
         if (!payload || !Array.isArray(payload.items)) return;
         const catalog = payload.items.flatMap((raw): InventoryCatalogEntry[] => {
           const item = asRecord(raw);
-          return item && typeof item.id === "string" &&
+          const kind = readKind(item?.kind);
+          const metadata = readMetadata(item?.metadata);
+          return item && kind && metadata &&
+            typeof item.id === "string" &&
             typeof item.name === "string" &&
             typeof item.category === "string"
-              ? [{ id: item.id, name: item.name, category: item.category }]
+              ? [{
+                id: item.id, kind, name: item.name,
+                category: item.category, metadata,
+              }]
               : [];
         });
         store.update(state => ({
@@ -82,7 +114,10 @@ export function createInventoryController(
         }));
       } else if (message.type === "game.inventory.error") {
         const errorKey = payload?.code === "InventoryFull"
-          ? "inventory.error.full" : "inventory.error.invalid";
+          ? "inventory.error.full"
+          : payload?.code === "UnsupportedDropKind"
+            ? "inventory.error.unsupportedDrop"
+            : "inventory.error.invalid";
         store.update(state => ({
           ...state,
           inventory: { ...state.inventory, errorKey },

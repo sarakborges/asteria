@@ -107,12 +107,10 @@ export function CreativeInventoryPanel({
           {state.items.map(
             (item) => (
               <InventorySlot
-                key={
-                  item.id +
-                  ":" +
-                  (item.name ??
-                    "")
-                }
+                key={[
+                  item.kind ?? "", item.id,
+                  ...Object.entries(item.metadata ?? {}).map(([k, v]) => k + "=" + v),
+                ].join(":")}
                 item={item}
                 onClick={() =>
                   onItemClick?.(

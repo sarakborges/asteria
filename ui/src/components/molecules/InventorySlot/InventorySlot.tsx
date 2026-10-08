@@ -30,7 +30,13 @@ export function InventorySlot({
         .join(" ")}
       disabled={disabled}
       aria-label={
-        item?.id ? contentName(item.id) : t("ui.emptySlot")
+        item?.id
+          ? [
+            contentName(item.id),
+            ...Object.entries(item.metadata ?? {}).map(([key, value]) =>
+              key + ": " + value),
+          ].join(" · ")
+          : t("ui.emptySlot")
       }
       onClick={onClick}
     >

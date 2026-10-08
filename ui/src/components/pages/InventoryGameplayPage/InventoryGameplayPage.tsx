@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useLocalization } from "../../../localization/LocalizationProvider";
-import type { GameplayInventoryState } from "../../../state/uiState";
+import type { GameplayInventoryState, InventoryCatalogEntry } from "../../../state/uiState";
 import type { ItemStackView } from "../../../presentation/inventoryModels";
 import { Button } from "../../atoms/Button/Button";
 import { Text } from "../../atoms/Text/Text";
@@ -15,13 +15,16 @@ export type InventoryGameplayPageProps = {
   onSlotClick(index: number): void;
   onSort(): void;
   onDiscardCursor(): void;
-  onCreativePick(id: string): void;
+  onCreativePick(choice: InventoryCatalogEntry): void;
 };
 
 function itemView(
   slot: GameplayInventoryState["cursor"],
 ): ItemStackView | null {
-  return slot ? { id: slot.id, quantity: slot.quantity } : null;
+  return slot ? {
+    id: slot.id, kind: slot.kind, quantity: slot.quantity,
+    metadata: slot.metadata,
+  } : null;
 }
 
 /**
@@ -78,11 +81,23 @@ export function InventoryGameplayPage({
               searchQuery: creativeSearch,
               selectedCategoryId: category,
               categories,
-              items: creativeItems,
+              items: creativeItems.map(item => ({
+                ...item,
+                quantity: 1,
+                name: Object.keys(item.metadata).length > 0
+                  ? item.id + " (" + Object.values(item.metadata).join(", ") + ")"
+                  : item.name,
+              })),
             }}
             onSearchChange={setCreativeSearch}
             onCategoryChange={setCategory}
-            onItemClick={item => onCreativePick(item.id)}
+            onItemClick={item => {
+              const choice = state.catalog.find(entry =>
+                entry.kind === item.kind &&
+                entry.id === item.id &&
+                JSON.stringify(entry.metadata) === JSON.stringify(item.metadata));
+              if (choice) onCreativePick(choice);
+            }}
           />
         ) : (
           <PlayerInventoryPanel

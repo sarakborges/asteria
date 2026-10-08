@@ -1,6 +1,8 @@
 export type ItemStackView = {
   id: string;
   name?: string;
+  kind?: "block" | "item" | "tool";
+  metadata?: Record<string, string>;
   quantity?: number;
   iconUrl?: string;
 };

@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import type { InventoryCatalogEntry } from "./state/uiState";
 import { LoadingOverlay } from "./components/organisms/LoadingOverlay/LoadingOverlay";
 import { GameHudPage } from "./components/pages/GameHudPage/GameHudPage";
 import { InventoryGameplayPage } from "./components/pages/InventoryGameplayPage/InventoryGameplayPage";
@@ -40,7 +41,7 @@ export type AppActions = {
   clickInventorySlot(index: number): void;
   sortInventory(): void;
   discardInventoryCursor(): void;
-  pickCreativeBlock(id: string): void;
+  pickCreativeBlock(choice: InventoryCatalogEntry): void;
 };
 
 export type AppProps = {

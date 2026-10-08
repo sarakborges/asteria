@@ -169,15 +169,22 @@ export type WorldCreationState = {
   errorKey: WorldCreationErrorKey | null;
 };
 
+export type InventoryEntryKind = "block" | "item" | "tool";
+export type InventoryMetadata = Record<string, string>;
+
 export type InventorySlotState = {
   id: string;
+  kind: InventoryEntryKind;
   quantity: number;
+  metadata: InventoryMetadata;
 } | null;
 
 export type InventoryCatalogEntry = {
   id: string;
+  kind: InventoryEntryKind;
   name: string;
   category: string;
+  metadata: InventoryMetadata;
 };
 
 export type GameplayInventoryState = {
