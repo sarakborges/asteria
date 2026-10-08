@@ -8,17 +8,20 @@ namespace Asteria.Core.World;
 public sealed class BiomeSurfaceMaterialField
 {
     private readonly ulong _seed;
+    private readonly SurfaceTerrainField? _terrain;
     private readonly Dictionary<string, MaterialRule> _rules;
 
     public BiomeSurfaceMaterialField(
         ulong seed,
         IEnumerable<BiomeDefinition> biomes,
-        BlockRegistry blocks)
+        BlockRegistry blocks,
+        SurfaceTerrainField? terrain = null)
     {
         ArgumentNullException.ThrowIfNull(biomes);
         ArgumentNullException.ThrowIfNull(blocks);
 
         _seed = seed;
+        _terrain = terrain;
         _rules =
             biomes
                 .OrderBy(
@@ -62,7 +65,8 @@ public sealed class BiomeSurfaceMaterialField
             _seed,
             worldX,
             worldZ,
-            depth);
+            depth,
+            PlacementFor(rule, worldX, worldZ));
     }
 
     public BiomeSurfaceMaterialColumn SampleColumn(
@@ -78,7 +82,31 @@ public sealed class BiomeSurfaceMaterialField
                 $"Surface biome {sample.Primary} has no material rule.");
         }
 
-        return rule.SampleColumn(_seed, worldX, worldZ);
+        return rule.SampleColumn(
+            _seed,
+            worldX,
+            worldZ,
+            PlacementFor(rule, worldX, worldZ));
+    }
+
+    private SurfacePlacementContext? PlacementFor(
+        MaterialRule rule,
+        int worldX,
+        int worldZ)
+    {
+        if (!rule.HasConditions)
+        {
+            return null;
+        }
+
+        if (_terrain is null)
+        {
+            throw new InvalidOperationException(
+                "Conditional material patches require a terrain field.");
+        }
+
+        return SurfacePlacementContext.Sample(
+            _terrain, worldX, worldZ);
     }
 
     private sealed class MaterialRule
@@ -87,15 +115,19 @@ public sealed class BiomeSurfaceMaterialField
             ResolvedLayer[] layers)
         {
             Layers = layers;
+            HasConditions = layers.Any(layer => layer.HasConditions);
         }
 
         private ResolvedLayer[] Layers { get; }
+
+        public bool HasConditions { get; }
 
         public BlockRuntimeId BlockAtDepth(
             ulong seed,
             int worldX,
             int worldZ,
-            uint depth)
+            uint depth,
+            SurfacePlacementContext? placement)
         {
             foreach (var layer in Layers)
             {
@@ -109,7 +141,8 @@ public sealed class BiomeSurfaceMaterialField
                 return layer.Resolve(
                     seed,
                     worldX,
-                    worldZ);
+                    worldZ,
+                    placement);
             }
 
             throw new InvalidOperationException(
@@ -119,7 +152,8 @@ public sealed class BiomeSurfaceMaterialField
         public BiomeSurfaceMaterialColumn SampleColumn(
             ulong seed,
             int worldX,
-            int worldZ)
+            int worldZ,
+            SurfacePlacementContext? placement)
         {
             var depths = new uint[Layers.Length];
             var blocks = new BlockRuntimeId[Layers.Length];
@@ -129,7 +163,8 @@ public sealed class BiomeSurfaceMaterialField
                 var layer = Layers[index];
                 depths[index] =
                     layer.EndDepthExclusive ?? uint.MaxValue;
-                blocks[index] = layer.Resolve(seed, worldX, worldZ);
+                blocks[index] = layer.Resolve(
+                    seed, worldX, worldZ, placement);
             }
 
             return new BiomeSurfaceMaterialColumn(depths, blocks);
@@ -202,14 +237,18 @@ public sealed class BiomeSurfaceMaterialField
 
         private ResolvedPatch? Patch { get; }
 
+        public bool HasConditions => Patch?.HasConditions == true;
+
         public BlockRuntimeId Resolve(
             ulong seed,
             int worldX,
-            int worldZ) =>
+            int worldZ,
+            SurfacePlacementContext? placement) =>
             Patch?.Resolve(
                 seed,
                 worldX,
-                worldZ) ??
+                worldZ,
+                placement) ??
             Block;
     }
 
@@ -222,7 +261,8 @@ public sealed class BiomeSurfaceMaterialField
             BlockRuntimeId[] blocks,
             GenerationDomain shapeDomain,
             GenerationDomain detailDomain,
-            GenerationDomain blockDomain)
+            GenerationDomain blockDomain,
+            SurfacePlacementConditions? conditions)
         {
             Scale = scale;
             Coverage = coverage;
@@ -231,6 +271,7 @@ public sealed class BiomeSurfaceMaterialField
             ShapeDomain = shapeDomain;
             DetailDomain = detailDomain;
             BlockDomain = blockDomain;
+            Conditions = conditions;
         }
 
         private uint Scale { get; }
@@ -247,11 +288,25 @@ public sealed class BiomeSurfaceMaterialField
 
         private GenerationDomain BlockDomain { get; }
 
+        private SurfacePlacementConditions? Conditions { get; }
+
+        public bool HasConditions => Conditions is not null;
+
         public BlockRuntimeId? Resolve(
             ulong seed,
             int worldX,
-            int worldZ)
+            int worldZ,
+            SurfacePlacementContext? placement)
         {
+            if (Conditions is { } conditions)
+            {
+                if (placement is not { } context ||
+                    !conditions.Allows(context))
+                {
+                    return null;
+                }
+            }
+
             var detailScale =
                 Math.Max(
                     2u,
@@ -339,7 +394,8 @@ public sealed class BiomeSurfaceMaterialField
                 GenerationDomain.Named(
                     $"material/surface-patch/detail/v2/{suffix}"),
                 GenerationDomain.Named(
-                    $"material/surface-patch/block/v2/{suffix}"));
+                    $"material/surface-patch/block/v2/{suffix}"),
+                definition.Conditions);
         }
     }
 }
