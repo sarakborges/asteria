@@ -81,7 +81,6 @@ public sealed class ToolGameplayRuntime
     public bool IsSpecialLeftAction(InventoryStack? held) =>
         GetBehavior(held, ToolUseHand.Left) is
             "asteria:log/hollow" or
-            "asteria:artisans_kit/remove" or
             "asteria:brush/paint";
 
     public bool TryUse(

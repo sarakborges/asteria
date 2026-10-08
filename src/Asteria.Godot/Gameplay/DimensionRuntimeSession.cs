@@ -217,6 +217,8 @@ public sealed class DimensionRuntimeSession
                 _droppedBlocks);
         Tools = new ToolGameplayRuntime(
             World, blocks, Mutations, tools);
+        ArtisansKit = new ArtisansKitRuntime(
+            World, blocks, Mutations, tools);
         Bucket = new BucketGameplayRuntime(World, fluids, Mutations, tools);
         Mining = new BlockMiningRuntime(
             World, blocks, Tools, BlockInteractions);
@@ -441,6 +443,7 @@ public sealed class DimensionRuntimeSession
 
     public BlockInteractionRuntime BlockInteractions { get; }
     public ToolGameplayRuntime Tools { get; }
+    public ArtisansKitRuntime ArtisansKit { get; }
     public BucketGameplayRuntime Bucket { get; }
     public BlockMiningRuntime Mining { get; }
     public MiningCrackPresentation MiningCracks { get; }
