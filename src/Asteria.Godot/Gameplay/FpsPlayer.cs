@@ -1,4 +1,5 @@
 using Asteria.Core.World;
+using Asteria.Core.Settings;
 using Godot;
 
 namespace Asteria.Client.Gameplay;
@@ -7,6 +8,7 @@ public partial class FpsPlayer : CharacterBody3D
 {
     private const float MoveSpeed = 7.5f;
     private const float JumpSpeed = 8.0f;
+    private const float FlySpeedMultiplier = 5.0f;
     private const float MouseSensitivity = 0.0022f;
     private const float MaxPitch = 1.52f;
 
@@ -17,6 +19,10 @@ public partial class FpsPlayer : CharacterBody3D
     private bool _moveLeft;
     private bool _moveRight;
     private bool _jumpHeld;
+    private bool _descendHeld;
+    private bool _inputSuspended;
+    private uint _solidCollisionLayer;
+    private uint _solidCollisionMask;
     private bool _lastEyeSubmerged;
     private FluidRuntimeId _lastVisualFluid;
     private float _gravityStrength = 18f;
@@ -26,6 +32,12 @@ public partial class FpsPlayer : CharacterBody3D
     public event Action<bool>? MouseCaptureChanged;
     public event Action<FluidBodyContact>?
         FluidContactChanged;
+
+    public PlayerSessionState PlayerState { get; set; } = null!;
+
+    public ClientPreferences InputPreferences { get; set; } = null!;
+
+    public Func<ulong> CurrentWorldTick { get; set; } = null!;
 
     public bool IsMouseCaptured => _mouseCaptured;
 
@@ -56,6 +68,12 @@ public partial class FpsPlayer : CharacterBody3D
 
     public override void _Ready()
     {
+        ArgumentNullException.ThrowIfNull(PlayerState);
+        ArgumentNullException.ThrowIfNull(InputPreferences);
+        ArgumentNullException.ThrowIfNull(CurrentWorldTick);
+
+        _solidCollisionLayer = CollisionLayer;
+        _solidCollisionMask = CollisionMask;
         var collider = new CollisionShape3D
         {
             Name = "Collider",
@@ -77,11 +95,17 @@ public partial class FpsPlayer : CharacterBody3D
 
         AddChild(collider);
         AddChild(_camera);
+        ApplyGameMode();
         CaptureMouse();
     }
 
     public override void _Input(InputEvent inputEvent)
     {
+        if (_inputSuspended)
+        {
+            return;
+        }
+
         if (inputEvent is InputEventKey key)
         {
             HandleKey(key);
@@ -120,6 +144,41 @@ public partial class FpsPlayer : CharacterBody3D
     public override void _PhysicsProcess(double delta)
     {
         var velocity = Velocity;
+        var movement = GetMovementInput();
+        var direction = GlobalTransform.Basis *
+            new Vector3(movement.X, 0f, movement.Y);
+        direction.Y = 0f;
+        direction = direction.Normalized();
+
+        if (PlayerState.IsFlying)
+        {
+            var flySpeed = MoveSpeed * FlySpeedMultiplier;
+            var vertical = (_jumpHeld ? 1f : 0f) -
+                (_descendHeld ? 1f : 0f);
+            Velocity = direction * flySpeed +
+                Vector3.Up * (vertical * flySpeed);
+
+            if (PlayerState.GameMode.IsSpectator())
+            {
+                GlobalPosition += Velocity * (float)delta;
+                if (GlobalPosition.Y < 0f)
+                {
+                    GlobalPosition = new Vector3(
+                        GlobalPosition.X, 0f, GlobalPosition.Z);
+                }
+                return;
+            }
+
+            MoveAndSlide();
+            if (_descendHeld && IsOnFloor())
+            {
+                if (PlayerState.Land())
+                {
+                    Velocity = Vector3.Zero;
+                }
+            }
+            return;
+        }
 
         var fluidContact =
             FluidContactProvider?.Invoke(
@@ -161,23 +220,6 @@ public partial class FpsPlayer : CharacterBody3D
                 (float)delta;
         }
 
-        var movement = Vector2.Zero;
-
-        if (_moveForward)
-            movement.Y -= 1f;
-        if (_moveBackward)
-            movement.Y += 1f;
-        if (_moveLeft)
-            movement.X -= 1f;
-        if (_moveRight)
-            movement.X += 1f;
-
-        movement = movement.LimitLength(1f);
-
-        var direction = GlobalTransform.Basis * new Vector3(movement.X, 0f, movement.Y);
-        direction.Y = 0f;
-        direction = direction.Normalized();
-
         if (fluidContact.IsImmersed)
         {
             var targetSpeed =
@@ -212,6 +254,49 @@ public partial class FpsPlayer : CharacterBody3D
 
         Velocity = velocity;
         MoveAndSlide();
+    }
+
+    private Vector2 GetMovementInput()
+    {
+        var movement = Vector2.Zero;
+        if (_moveForward) movement.Y -= 1f;
+        if (_moveBackward) movement.Y += 1f;
+        if (_moveLeft) movement.X -= 1f;
+        if (_moveRight) movement.X += 1f;
+        return movement.LimitLength(1f);
+    }
+
+    public void ApplyGameMode()
+    {
+        var spectator = PlayerState.GameMode.IsSpectator();
+        CollisionLayer = spectator ? 0u : _solidCollisionLayer;
+        CollisionMask = spectator ? 0u : _solidCollisionMask;
+        Velocity = Vector3.Zero;
+        ClearGameplayInput();
+    }
+
+    public void SuspendForKeyCapture()
+    {
+        _inputSuspended = true;
+        ReleaseMouse();
+        ClearGameplayInput();
+    }
+
+    public void ResumeAfterKeyCapture()
+    {
+        _inputSuspended = false;
+        ClearGameplayInput();
+    }
+
+    public void ClearGameplayInput()
+    {
+        _moveForward = false;
+        _moveBackward = false;
+        _moveLeft = false;
+        _moveRight = false;
+        _jumpHeld = false;
+        _descendHeld = false;
+        PlayerState.CancelDoubleTap();
     }
 
     public (Vector3 From, Vector3 To) GetInteractionRay(float distance)
@@ -287,9 +372,22 @@ public partial class FpsPlayer : CharacterBody3D
 
     private void HandleKey(InputEventKey key)
     {
-        var keycode = key.Keycode;
+        if (key.Keycode == Key.Escape && key.Pressed && !key.Echo)
+        {
+            if (_mouseCaptured) ReleaseMouse();
+            else CaptureMouse();
+            return;
+        }
 
-        switch (keycode)
+        if (!_mouseCaptured)
+        {
+            return;
+        }
+
+        var code = key.PhysicalKeycode == Key.None
+            ? key.Keycode : key.PhysicalKeycode;
+
+        switch (code)
         {
             case Key.W:
                 _moveForward = key.Pressed;
@@ -303,19 +401,22 @@ public partial class FpsPlayer : CharacterBody3D
             case Key.D:
                 _moveRight = key.Pressed;
                 break;
-            case Key.Space:
-                _jumpHeld = key.Pressed;
-                break;
-            case Key.Escape when key.Pressed && !key.Echo:
-                if (_mouseCaptured)
-                {
-                    ReleaseMouse();
-                }
-                else
-                {
-                    CaptureMouse();
-                }
-                break;
+        }
+
+        if (GameplayKeyMap.Matches(
+                key, InputPreferences, KeybindAction.Jump))
+        {
+            if (key.Pressed && !key.Echo && !_jumpHeld)
+            {
+                PlayerState.JumpPressed(CurrentWorldTick());
+            }
+            _jumpHeld = key.Pressed;
+        }
+
+        if (GameplayKeyMap.Matches(
+                key, InputPreferences, KeybindAction.Descend))
+        {
+            _descendHeld = key.Pressed;
         }
     }
 
@@ -329,6 +430,7 @@ public partial class FpsPlayer : CharacterBody3D
     private void ReleaseMouse()
     {
         _mouseCaptured = false;
+        ClearGameplayInput();
         Input.MouseMode = Input.MouseModeEnum.Visible;
         MouseCaptureChanged?.Invoke(false);
     }
