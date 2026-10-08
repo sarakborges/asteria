@@ -181,6 +181,9 @@ public sealed class DimensionRuntimeSession
                 BlockPhysicsUpdates,
                 ContentRevisions,
                 FluidContentRevisions);
+        ManualStructures =
+            new ManualStructurePlacementRuntime(
+                Generator, World, Mutations, blocks, structures);
         var lightingIntegration =
             new LightingResultIntegrator(
                 World,
@@ -426,6 +429,16 @@ public sealed class DimensionRuntimeSession
         return true;
     }
 
+    public ManualStructurePlacementResult TryPlaceManualStructure(
+        string reference, int? variation, int x, int z,
+        WorldAabb playerBounds)
+    {
+        if (_retiring || _retired)
+            return ManualStructurePlacementResult.InvalidPlacement;
+        return ManualStructures.TryPlace(
+            reference, variation, x, z, playerBounds);
+    }
+
     public bool TrySetCreatureNoAi(CreatureInstanceId id, bool enabled)
     {
         if (_retiring || _retired || !Creatures.TrySetNoAi(id, enabled))
@@ -491,6 +504,7 @@ public sealed class DimensionRuntimeSession
     public BiomeWorldGenerator Generator { get; }
 
     public VoxelMutationRuntime Mutations { get; }
+    public ManualStructurePlacementRuntime ManualStructures { get; }
 
     public BlockInteractionRuntime BlockInteractions { get; }
     public ToolGameplayRuntime Tools { get; }
