@@ -297,12 +297,18 @@ public sealed class BiomePlacementParityTests
                     "asteria:overworld/arctic")
                 .SurfaceLayout!
                 .CannotBorder);
+        // The ocean itself owns its shoreline, so wasteland may border
+        // ocean while the incompatible arctic/wasteland pairing is rejected.
+        var wastelandBorders = biomes.Get(
+                "asteria:overworld/wasteland")
+            .SurfaceLayout!
+            .CannotBorder;
         Assert.Contains(
+            "asteria:overworld/arctic",
+            wastelandBorders);
+        Assert.DoesNotContain(
             "asteria:overworld/ocean",
-            biomes.Get(
-                    "asteria:overworld/wasteland")
-                .SurfaceLayout!
-                .CannotBorder);
+            wastelandBorders);
         Assert.Contains(
             "asteria:overworld/desert",
             biomes.Get(
