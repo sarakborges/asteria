@@ -1892,6 +1892,9 @@ public partial class Main : Node3D
             case ChatCommandKind.Kill:
                 ExecuteChatKill();
                 break;
+            case ChatCommandKind.Warp:
+                ExecuteChatWarp(command);
+                break;
             default:
                 ChatFeedback("chat.command.notImplemented", error: true,
                     ("command", command.Kind.ToString().ToLowerInvariant()));
@@ -1906,6 +1909,62 @@ public partial class Main : Node3D
         var arguments = parameters.ToDictionary(
             pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
         _chat.Append(key, error, key, arguments);
+    }
+
+    private void ExecuteChatWarp(ParsedChatCommand command)
+    {
+        if (_player is null || command.Y < 0 || _sessions.IsTransitioning)
+        {
+            ChatFeedback("chat.command.warp.failed", error: true);
+            return;
+        }
+
+        var dimension = command.Option ?? _dimension.Id.Value;
+        var target = _dimensions.Definitions().FirstOrDefault(
+            definition => definition.Id.Value == dimension);
+        if (target is null)
+        {
+            ChatFeedback("chat.command.warp.failed", error: true);
+            return;
+        }
+
+        var position = new NVector3(
+            command.X + 0.5f, command.Y, command.Z + 0.5f);
+        if (target.Id != _dimension.Id)
+        {
+            if (!BeginDimensionTransition(target.Id, position))
+                ChatFeedback("chat.command.warp.failed", error: true);
+            else
+                ChatFeedback("chat.command.warp.start", error: false,
+                    ("position", $"({command.X}, {command.Z}, {command.Y})"));
+            return;
+        }
+
+        // Do not teleport into an unloaded or mutated/occupied voxel.
+        // A long-range same-Sphere warp requires the streaming/entry path.
+        var safe = _sessions.Active.Generator.FindGeneratedDestination(
+            command.X, command.Y, command.Z, maxRadius: 16);
+        if (safe is not { } location)
+        {
+            ChatFeedback("chat.command.warp.failed", error: true);
+            return;
+        }
+        var feet = new WorldVoxelCoord(location.X, location.Y, location.Z);
+        var head = new WorldVoxelCoord(location.X, location.Y + 1, location.Z);
+        if (!_world.IsLoadedAt(feet) || !_world.IsLoadedAt(head) ||
+            !_world.GetCellOrEmpty(feet).IsEmpty ||
+            !_world.GetCellOrEmpty(head).IsEmpty)
+        {
+            ChatFeedback("chat.command.warp.failed", error: true);
+            return;
+        }
+
+        _player.ClearGameplayInput();
+        _player.GlobalPosition = new Vector3(
+            location.X + 0.5f, location.Y, location.Z + 0.5f);
+        ChatFeedback("chat.command.warp.success", error: false,
+            ("position", $"({location.X}, {location.Z}, {location.Y})"));
+        SendWorldHudState(force: true);
     }
 
     private void ExecuteChatKill()
