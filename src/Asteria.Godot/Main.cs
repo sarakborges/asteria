@@ -2241,35 +2241,28 @@ public partial class Main : Node3D
     private void ExecuteChatPlace(ParsedChatCommand command)
     {
         var id = command.Argument!;
-        if (_structureSets.TryGet(id, out _))
-        {
-            ChatFeedback("chat.command.notImplemented", error: true,
-                ("command", "/place structure set"));
-            return;
-        }
-        if (!_structures.ResolvesReference(id))
+        var isSet = _structureSets.TryGet(id, out _);
+        if (!isSet && !_structures.ResolvesReference(id))
         {
             ChatFeedback("chat.command.place.unknownStructure",
                 error: true, ("id", id));
             return;
         }
-
-        var definitions = _structures.ResolveReference(id);
         var variation = command.Option is { } number
             ? int.Parse(number, System.Globalization.CultureInfo.InvariantCulture)
             : 1;
-        if (variation > definitions.Count)
+        if (isSet && command.Option is not null)
         {
             ChatFeedback("chat.command.place.unknownVariation",
                 error: true, ("id", id), ("variation", variation.ToString()),
-                ("count", definitions.Count.ToString()));
+                ("count", "0"));
             return;
         }
-
-        if (definitions[variation - 1].Connectors.Count > 0)
+        if (!isSet && variation > _structures.ResolveReference(id).Count)
         {
-            ChatFeedback("chat.command.notImplemented", error: true,
-                ("command", "/place structure connected"));
+            ChatFeedback("chat.command.place.unknownVariation",
+                error: true, ("id", id), ("variation", variation.ToString()),
+                ("count", _structures.ResolveReference(id).Count.ToString()));
             return;
         }
         if (_player is null)
@@ -2302,7 +2295,8 @@ public partial class Main : Node3D
 
         KickWorldMutationWorkers();
         ChatFeedback("chat.command.place.success", error: false,
-            ("name", definitions[variation - 1].Id), ("id", id));
+            ("name", isSet ? id : _structures.ResolveReference(id)[variation - 1].Id),
+            ("id", id));
     }
 
     private void ExecuteChatLocate(ParsedChatCommand command)
