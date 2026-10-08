@@ -17,14 +17,17 @@
     }
   ],
   "terrain3d": {
-    "floatingFormation": {
+    "additive": [{
       "minY": 200,
       "maxY": 280,
       "horizontalScale": 112,
       "detailScale": 40,
       "coverage": 0.55,
       "roughness": 0.18,
-      "densityScale": 28
-    }
+      "densityScale": 28,
+      "verticalFalloff": 1,
+      "horizontalFalloff": 1,
+      "densityBias": 0
+    }]
   }
 }
