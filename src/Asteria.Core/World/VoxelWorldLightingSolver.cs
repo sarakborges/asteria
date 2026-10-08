@@ -478,6 +478,10 @@ public static class VoxelWorldLightingSolver
         private readonly BlockRegistry _blocks;
         private readonly FluidRegistry _fluids;
         private readonly Dictionary<(int X, int Z), Column> _columns = [];
+        // Index the snapshot once. A relight can sample hundreds of distinct
+        // voxel columns; filtering all resident chunks for each is quadratic.
+        private readonly Dictionary<(int X, int Z), ChunkCoord[]>
+            _loadedColumns;
 
         public DirectSkyContext(
             VoxelWorld world,
@@ -487,6 +491,11 @@ public static class VoxelWorldLightingSolver
             _world = world;
             _blocks = blocks;
             _fluids = fluids;
+            _loadedColumns = world.LoadedChunkCoords
+                .GroupBy(coord => (coord.X, coord.Z))
+                .ToDictionary(
+                    group => group.Key,
+                    group => group.OrderByDescending(coord => coord.Y).ToArray());
         }
 
         public byte LevelAt(WorldVoxelCoord position)
@@ -511,14 +520,9 @@ public static class VoxelWorldLightingSolver
                     worldX,
                     0,
                     worldZ);
-            var matchingChunks = _world.LoadedChunkCoords
-                .Where(coord =>
-                    coord.X == horizontalAddress.Chunk.X &&
-                    coord.Z == horizontalAddress.Chunk.Z)
-                .OrderByDescending(coord => coord.Y)
-                .ToArray();
-
-            if (matchingChunks.Length == 0)
+            if (!_loadedColumns.TryGetValue(
+                    (horizontalAddress.Chunk.X, horizontalAddress.Chunk.Z),
+                    out var matchingChunks))
             {
                 return Column.Empty;
             }

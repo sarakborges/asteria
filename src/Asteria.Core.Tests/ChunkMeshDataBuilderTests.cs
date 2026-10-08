@@ -83,11 +83,20 @@ public sealed class ChunkMeshDataBuilderTests
 
         Assert.True(mesh.HasRenderGeometry);
         Assert.True(mesh.HasCollision);
-        Assert.Contains(mesh.RenderBatches.SelectMany(batch => batch.Vertices),
+        var vertices = mesh.RenderBatches.SelectMany(batch => batch.Vertices).ToArray();
+        Assert.Contains(vertices,
             vertex =>
                 vertex.Normal == Vector3.UnitX &&
                 Math.Abs(vertex.Position.X - 3f) < 0.0001f &&
                 vertex.Position.Y > 2.5f);
+        // The neighbor requires a fine shared face, but it must not duplicate
+        // the full cube's ordinary outer faces or its collision geometry.
+        Assert.Equal(6, vertices.Count(vertex =>
+            vertex.Normal == -Vector3.UnitX &&
+            Math.Abs(vertex.Position.X - 2f) < 0.0001f));
+        Assert.Contains(vertices, vertex =>
+            vertex.Normal == Vector3.UnitY &&
+            Math.Abs(vertex.Position.Y - 3f) < 0.0001f);
     }
 
     [Fact]

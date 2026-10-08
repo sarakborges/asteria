@@ -1018,7 +1018,24 @@ public static class ChunkMeshDataBuilder
     {
         var sourceMask = world.GetMicroblockMaskOrEmpty(worldPosition);
         var lighting = VoxelMeshLighting.SampleFace(world, blocks, worldPosition, face);
-        for (var depth = 0; depth < FineResolution; depth++)
+        var firstDepth = 0;
+        var lastDepthExclusive = FineResolution;
+
+        // A full cube cannot expose internal subvoxel faces: the adjacent
+        // subvoxel within the cube occludes every interior depth. This applies
+        // even if a partial neighbor forced this cube into fine meshing.
+        if (!cell.HasMicroblockGeometry &&
+            definition.Shape.Kind == BlockShapeKind.Cube &&
+            Occludes(cell, definition, cell, definition))
+        {
+            firstDepth = face is
+                BlockFace.Right or BlockFace.Top or BlockFace.Front
+                ? FineResolution - 1
+                : 0;
+            lastDepthExclusive = firstDepth + 1;
+        }
+
+        for (var depth = firstDepth; depth < lastDepthExclusive; depth++)
         {
             Array.Clear(visible);
             for (var v = 0; v < FineResolution; v++)
