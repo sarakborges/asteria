@@ -404,6 +404,28 @@ public sealed class DimensionRuntimeSession
         return true;
     }
 
+    public bool TrySpawnCreature(
+        string id, NVector3 feet, CreatureMetaTags tags)
+    {
+        if (_retiring || _retired ||
+            !Creatures.TrySpawnWithTags(id, feet, tags, out _))
+            return false;
+        _creaturePresentation.Sync(Creatures.ActiveCreatures);
+        return true;
+    }
+
+    public bool TryChangeCreatureMetaTag(
+        CreatureInstanceId id, CreatureMetaTagAction action,
+        string tag, string? value, out CreatureMetaTagError error)
+    {
+        error = CreatureMetaTagError.NotSet;
+        if (_retiring || _retired ||
+            !Creatures.TryChangeMetaTag(id, action, tag, value, out error))
+            return false;
+        _creaturePresentation.Sync(Creatures.ActiveCreatures);
+        return true;
+    }
+
     public bool TrySetCreatureNoAi(CreatureInstanceId id, bool enabled)
     {
         if (_retiring || _retired || !Creatures.TrySetNoAi(id, enabled))
