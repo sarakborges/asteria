@@ -154,14 +154,16 @@ public sealed class BiomeField
         ulong seed,
         DimensionDefinition dimension,
         BiomeRegistry biomes,
-        int assignmentCacheCapacity = 4096)
+        int assignmentCacheCapacity = 4096,
+        float biomeSizeMultiplier = 1f)
         : this(
             seed,
             dimension?.SurfaceBiomes ??
                 throw new ArgumentNullException(nameof(dimension)),
             biomes,
             assignmentCacheCapacity,
-            dimension.BiomeBlending)
+            dimension.BiomeBlending,
+            biomeSizeMultiplier)
     {
     }
 
@@ -170,14 +172,16 @@ public sealed class BiomeField
         IEnumerable<string> biomeIds,
         BiomeRegistry biomes,
         int assignmentCacheCapacity = 4096,
-        BiomeBlendingDefinition? blending = null)
+        BiomeBlendingDefinition? blending = null,
+        float biomeSizeMultiplier = 1f)
         : this(
             seed,
             SurfaceRules(
                 biomeIds,
                 biomes),
             assignmentCacheCapacity,
-            blending)
+            blending,
+            biomeSizeMultiplier)
     {
     }
 
@@ -185,10 +189,14 @@ public sealed class BiomeField
         ulong seed,
         IEnumerable<BiomeFieldRuleSource> ruleSources,
         int assignmentCacheCapacity = 4096,
-        BiomeBlendingDefinition? blending = null)
+        BiomeBlendingDefinition? blending = null,
+        float biomeSizeMultiplier = 1f)
     {
         ArgumentNullException.ThrowIfNull(
             ruleSources);
+        if (!float.IsFinite(biomeSizeMultiplier) ||
+            biomeSizeMultiplier is < 0.5f or > 5f)
+            throw new ArgumentOutOfRangeException(nameof(biomeSizeMultiplier));
         _blending = blending ?? BiomeBlendingDefinition.Default;
         _contourDomains = new GenerationDomain[_blending.ContourHarmonics.Count];
         for (var index = 0; index < _contourDomains.Length; index++)
@@ -216,7 +224,8 @@ public sealed class BiomeField
                     (source, index) =>
                         BiomeRule.Create(
                             source,
-                            index))
+                            index,
+                            biomeSizeMultiplier))
                 .ToArray();
 
         if (_rules.Length == 0)
@@ -1708,7 +1717,8 @@ public sealed class BiomeField
 
         public static BiomeRule Create(
             BiomeFieldRuleSource source,
-            int _)
+            int _,
+            float biomeSizeMultiplier = 1f)
         {
             var layout =
                 source.Layout;
@@ -1731,8 +1741,10 @@ public sealed class BiomeField
                                     surface.SpawnWeight *
                                     4096d)))
                     : 0UL,
-                layout.RegionMin,
-                layout.RegionMax,
+                Math.Max(1u, checked((uint)Math.Round(
+                    layout.RegionMin * (double)biomeSizeMultiplier))),
+                Math.Max(1u, checked((uint)Math.Round(
+                    layout.RegionMax * (double)biomeSizeMultiplier))),
                 new HashSet<string>(
                     layout.CannotBorder,
                     StringComparer.Ordinal),

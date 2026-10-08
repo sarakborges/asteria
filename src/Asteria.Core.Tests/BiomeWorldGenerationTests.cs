@@ -2427,4 +2427,84 @@ public sealed class BiomeWorldGenerationTests
                 new BiomeSurfaceLayerDefinition(
                     "asteria:stone"),
             ]);
+
+    [Fact]
+    public void CreationGenerationSettingsValidateSingleBiomeAndSizeBounds()
+    {
+        Assert.Throws<ArgumentException>(() =>
+            new WorldGenerationOptions(singleBiome: true));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new WorldGenerationOptions(biomeSizeTenths: 4));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new WorldGenerationOptions(biomeSizeTenths: 51));
+        var creation = new WorldCreationOptions(
+            "Flat Test", 123UL,
+            generation: new WorldGenerationOptions(
+                WorldGenerationMode.Flat, biomeSizeTenths: 23));
+        Assert.Equal(WorldGenerationMode.Flat, creation.Generation.Mode);
+        Assert.Equal(2.3f, creation.Generation.BiomeSizeMultiplier);
+    }
+
+    [Fact]
+    public void FlatAndVoidCreateDifferentDeterministicVoxelTerrain()
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition("asteria:grass_block"),
+            new BlockDefinition("asteria:stone"),
+        ]);
+        var plains = FlatBiome(
+            "asteria:test/plains", "asteria:grass_block", "asteria:stone");
+        var dimension = TestDimension([plains.Id]);
+        var biomes = new BiomeRegistry([plains]);
+        var fluids = new FluidRegistry(Array.Empty<FluidDefinition>());
+        BiomeWorldGenerator Generate(WorldGenerationMode mode) =>
+            new(
+                199UL, dimension, blocks, fluids, biomes,
+                StructureRegistry.Empty,
+                generation: new WorldGenerationOptions(
+                    mode, spawnCaves: false, spawnOceans: false));
+
+        var flat = Generate(WorldGenerationMode.Flat);
+        var voidWorld = Generate(WorldGenerationMode.Void);
+        var flatChunk = flat.Materialize(new ChunkCoord(0, 0, 0));
+        var voidChunk = voidWorld.Materialize(new ChunkCoord(0, 0, 0));
+        Assert.False(flatChunk.GetBlock(8, 2, 8).IsAir);
+        Assert.True(voidChunk.GetBlock(8, 2, 8).IsAir);
+        Assert.False(voidChunk.GetBlock(0, 2, 0).IsAir);
+        Assert.Equal(new GeneratedSurfaceDestination(0, 3, 0),
+            voidWorld.FindGeneratedSpawn(64, 12));
+        Assert.Equal(2, flat.SurfaceHeight(8, 8));
+        Assert.Equal(0, voidWorld.SurfaceHeight(8, 8));
+        Assert.True(voidWorld.Materialize(new ChunkCoord(2, 0, 2)).IsEmpty);
+    }
+
+    [Fact]
+    public void ExplicitSingleBiomeAndBiomeSizeAffectActualFieldRules()
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition("asteria:stone"),
+        ]);
+        var low = TestBiome("asteria:test/low");
+        var high = TestBiome("asteria:test/high");
+        var biomes = new BiomeRegistry([low, high]);
+        var dimension = TestDimension([low.Id, high.Id]);
+        var options = new WorldGenerationOptions(
+            spawnBiome: low.Id, biomeSizeTenths: 25, singleBiome: true);
+        var generator = new BiomeWorldGenerator(
+            541UL, dimension, blocks,
+            new FluidRegistry(Array.Empty<FluidDefinition>()),
+            biomes, StructureRegistry.Empty, generation: options);
+        Assert.Equal(low.Id, generator.Biomes.Sample(310, -270).Primary);
+        Assert.Equal(low.Id, generator.Biomes.Sample(-500, 720).Primary);
+        var defaultField = new BiomeField(541UL, dimension, biomes);
+        var scaledField = new BiomeField(
+            541UL, dimension, biomes, biomeSizeMultiplier: 2.5f);
+        Assert.True(scaledField.SeedSpacing >= defaultField.SeedSpacing);
+        Assert.Equal(options, new DimensionSessionState(
+            dimension, 541UL, new WorldGameRules(),
+            options).Generation);
+    }
+
 }

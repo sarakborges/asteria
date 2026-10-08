@@ -12,6 +12,8 @@ public sealed class BiomeWorldGenerator :
         new(Array.Empty<FluidDefinition>());
 
     private readonly DimensionDefinition _dimension;
+    private readonly WorldGenerationOptions _generation;
+    private readonly VoidSpawnPlatform? _voidSpawnPlatform;
     private readonly SurfaceTerrainField _terrain;
     private readonly SurfaceTerrainColumnCache _surfaceColumns;
     private readonly GeneratedFluidField _generatedFluids;
@@ -59,7 +61,8 @@ public sealed class BiomeWorldGenerator :
         FluidRegistry fluids,
         BiomeRegistry biomes,
         StructureRegistry structures,
-        StructureSetRegistry? structureSets = null)
+        StructureSetRegistry? structureSets = null,
+        WorldGenerationOptions? generation = null)
     {
         ArgumentNullException.ThrowIfNull(dimension);
         ArgumentNullException.ThrowIfNull(blocks);
@@ -68,6 +71,7 @@ public sealed class BiomeWorldGenerator :
         ArgumentNullException.ThrowIfNull(structures);
         structureSets ??=
             StructureSetRegistry.Empty;
+        generation ??= new WorldGenerationOptions();
         biomes.ValidateBlocks(blocks);
         biomes.ValidateFluids(fluids);
         structures.ValidateBlocks(blocks);
@@ -79,8 +83,26 @@ public sealed class BiomeWorldGenerator :
             dimension;
         DimensionId =
             dimension.Id;
+        var surfaceIds = dimension.SurfaceBiomes
+            .Where(id => generation.SpawnOceans ||
+                !string.Equals(id, dimension.GeneratedOcean?.Biome,
+                    StringComparison.Ordinal))
+            .ToArray();
+        if (generation.SpawnBiome is { } requestedBiome &&
+            generation.SingleBiome &&
+            !surfaceIds.Contains(requestedBiome, StringComparer.Ordinal))
+            throw new ArgumentException(
+                "Single Biome is not authored in this Sphere.",
+                nameof(generation));
+        if (generation.SingleBiome)
+            surfaceIds = [generation.SpawnBiome!];
+        if (surfaceIds.Length == 0)
+            throw new ArgumentException(
+                "No surface biomes remain with this generation configuration.",
+                nameof(generation));
+
         var surfaceDefinitions =
-            dimension.SurfaceBiomes
+            surfaceIds
                 .Select(
                     biomes.Get)
                 .OrderBy(
@@ -88,6 +110,9 @@ public sealed class BiomeWorldGenerator :
                         definition.Id,
                     StringComparer.Ordinal)
                 .ToArray();
+        _voidSpawnPlatform = generation.Mode == WorldGenerationMode.Void
+            ? new VoidSpawnPlatform(dimension, blocks, surfaceDefinitions[0])
+            : null;
         var volumeDefinitions =
             dimension.VolumeBiomes
                 .Select(
@@ -108,11 +133,14 @@ public sealed class BiomeWorldGenerator :
                 .OrderBy(definition => definition.Id, StringComparer.Ordinal)
                 .ToArray();
 
+        _generation = generation;
         Biomes =
             new BiomeField(
                 seed,
-                dimension,
-                biomes);
+                surfaceIds,
+                biomes,
+                blending: dimension.BiomeBlending,
+                biomeSizeMultiplier: generation.BiomeSizeMultiplier);
         _volumeBiomes =
             new VolumeBiomeField(
                 seed,
@@ -128,7 +156,9 @@ public sealed class BiomeWorldGenerator :
                 seed,
                 dimension,
                 fluids,
-                surfaceDefinitions);
+                surfaceDefinitions,
+                spawnOceans: generation.SpawnOceans,
+                generatedFluidsEnabled: generation.Mode != WorldGenerationMode.Void);
         _terrain =
             new SurfaceTerrainField(
                 seed,
@@ -137,7 +167,10 @@ public sealed class BiomeWorldGenerator :
                 _volumeBiomes,
                 _generatedFluids,
                 surfaceDefinitions,
-                volumeDefinitions);
+                volumeDefinitions,
+                spawnCaves: generation.SpawnCaves,
+                spawnOceans: generation.SpawnOceans,
+                mode: generation.Mode);
         _surfaceColumns =
             new SurfaceTerrainColumnCache(
                 _terrain);
@@ -160,7 +193,9 @@ public sealed class BiomeWorldGenerator :
                 _terrain,
                 materials,
                 _generatedFluids,
-                habitats);
+                habitats,
+                spawnStructures: generation.SpawnStructures &&
+                    generation.Mode != WorldGenerationMode.Void);
         _destinations =
             new GeneratedSurfaceDestinationQuery(
                 dimension,
@@ -173,7 +208,8 @@ public sealed class BiomeWorldGenerator :
                 decorationDefinitions,
                 blocks,
                 _terrain,
-                habitats);
+                habitats,
+                generateDecorations: generation.Mode != WorldGenerationMode.Void);
         _materializer =
             new SurfaceChunkMaterializer(
                 _surfaceColumns,
@@ -184,7 +220,8 @@ public sealed class BiomeWorldGenerator :
                 _surfaceStructures,
                 dimension,
                 blocks,
-                _undergroundBiomes);
+                _undergroundBiomes,
+                _voidSpawnPlatform);
         Tints =
             new BiomeTintField(
                 Biomes,
@@ -209,11 +246,18 @@ public sealed class BiomeWorldGenerator :
             int maxBiomeDistance,
             int maxLocalRadius)
     {
+        if (_voidSpawnPlatform is not null)
+            return _voidSpawnPlatform.Spawn;
+
         var spawn =
             _dimension.Spawn;
         var targetBiome =
-            Biomes.SelectSpawnBiome(
-                _dimension.GeneratedOcean?.Biome);
+            _generation.SpawnBiome is { } chosen &&
+            _dimension.SurfaceBiomes.Contains(chosen, StringComparer.Ordinal)
+                ? chosen
+                : Biomes.SelectSpawnBiome(
+                    _generation.SpawnOceans
+                        ? _dimension.GeneratedOcean?.Biome : null);
 
         if (targetBiome is not null)
         {
@@ -271,11 +315,15 @@ public sealed class BiomeWorldGenerator :
             int preferredZ,
             int maxRadius,
             Func<int, int, bool>? acceptsColumn = null) =>
-        _destinations.Find(
-            preferredX,
-            preferredZ,
-            maxRadius,
-            acceptsColumn);
+        _voidSpawnPlatform is { } platform
+            ? platform.IsNear(preferredX, preferredZ, maxRadius) &&
+              (acceptsColumn is null || acceptsColumn(platform.Spawn.X, platform.Spawn.Z))
+                ? platform.Spawn : null
+            : _destinations.Find(
+                preferredX,
+                preferredZ,
+                maxRadius,
+                acceptsColumn);
 
     public GeneratedSurfaceDestination?
         FindGeneratedDestination(
@@ -284,12 +332,16 @@ public sealed class BiomeWorldGenerator :
             int preferredZ,
             int maxRadius,
             Func<int, int, bool>? acceptsColumn = null) =>
-        _destinations.FindNear(
-            preferredX,
-            preferredY,
-            preferredZ,
-            maxRadius,
-            acceptsColumn);
+        _voidSpawnPlatform is { } platform
+            ? platform.IsNear(preferredX, preferredZ, maxRadius) &&
+              (acceptsColumn is null || acceptsColumn(platform.Spawn.X, platform.Spawn.Z))
+                ? platform.Spawn : null
+            : _destinations.FindNear(
+                preferredX,
+                preferredY,
+                preferredZ,
+                maxRadius,
+                acceptsColumn);
 
     internal bool TryPrepareManualStructure(
         string reference, int? variation,
@@ -332,10 +384,12 @@ public sealed class BiomeWorldGenerator :
         _materializer.Materialize(coord);
 
     public int SurfaceHeight(int worldX, int worldZ) =>
+        _voidSpawnPlatform?.SurfaceHeight(worldX, worldZ) ??
         _terrain.SurfaceHeight(worldX, worldZ);
 
     public double DensityAt(int worldX, int worldY, int worldZ) =>
-        _terrain.DensityAt(worldX, worldY, worldZ);
+        _voidSpawnPlatform?.IsSolidAt(worldX, worldY, worldZ) == true
+            ? 1d : _terrain.DensityAt(worldX, worldY, worldZ);
 
     public string EffectiveBiomeAt(
         int worldX,
@@ -400,6 +454,9 @@ public sealed class BiomeWorldGenerator :
         int chunkX,
         int chunkZ)
     {
+        if (_voidSpawnPlatform is not null)
+            return _voidSpawnPlatform.SurfaceRange(chunkX, chunkZ);
+
         var column =
             _surfaceColumns.Get(
                 chunkX,

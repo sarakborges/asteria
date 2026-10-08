@@ -33,7 +33,7 @@ MineClone references: `sarakborges/mineclone` **`main` for current UI/creation s
 
 ## First migrated screen
 
-`NewWorldPage` currently has **only 2 of 3 MineClone `main` creation sections**: World Settings (Name/Seed/Game Mode) and Game Rules (Ticks Per Second/Spawn Creatures). **World Generation is not ported** (Normal/Flat/Void; searchable Spawn Biome; size multiplier; Spawn Structures; Single Biome; Spawn Caves; Spawn Oceans). Existing controls remain runtime-backed. **Observed embedded WRY parity remains unverified:** the user reports sidebar/sections not visible in the runtime although source composes them. See the audit and do not mark 1:1 until a live screenshot comparison passes.
+`NewWorldPage` now implements all **three MineClone `main` creation sections**: World Settings (Name/Seed/Game Mode), World Generation (Normal/Flat/Void, searchable Spawn Biome, size multiplier, Spawn Structures / Single Biome / Caves / Oceans), and Game Rules (Ticks/Spawn Creatures). Its generation settings are validated at the native IPC boundary and owned by the Core generator. **Embedded WRY pixel and interaction parity remains unverified**; additionally, displayed biome names are currently humanized identifiers, not localized biome titles. See [WORLD_CREATION_PARITY.md](WORLD_CREATION_PARITY.md).
 
 ## Screen migration status
 

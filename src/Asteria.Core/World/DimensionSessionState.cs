@@ -16,7 +16,8 @@ public sealed class DimensionSessionState
     public DimensionSessionState(
         DimensionDefinition dimension,
         ulong dimensionSeed,
-        WorldGameRules gameRules)
+        WorldGameRules gameRules,
+        WorldGenerationOptions? generation = null)
     {
         Dimension =
             dimension ??
@@ -26,6 +27,7 @@ public sealed class DimensionSessionState
             dimensionSeed;
         GameRules = gameRules ??
             throw new ArgumentNullException(nameof(gameRules));
+        Generation = generation ?? new WorldGenerationOptions();
         World =
             new VoxelWorld();
     }
@@ -35,6 +37,8 @@ public sealed class DimensionSessionState
     public ulong DimensionSeed { get; }
 
     public WorldGameRules GameRules { get; }
+
+    public WorldGenerationOptions Generation { get; }
 
     public VoxelWorld World { get; }
 
@@ -116,6 +120,7 @@ public sealed class DimensionSessionStateStore
         _dimensions = dimensions ??
             throw new ArgumentNullException(nameof(dimensions));
         Name = creation.Name;
+        Generation = creation.Generation;
         Player = new PlayerSessionState(creation.GameMode);
         GameRules = new WorldGameRules(
             creation.TicksPerSecond,
@@ -123,6 +128,8 @@ public sealed class DimensionSessionStateStore
     }
 
     public string Name { get; }
+
+    public WorldGenerationOptions Generation { get; }
 
     public PlayerSessionState Player { get; }
 
@@ -157,7 +164,8 @@ public sealed class DimensionSessionStateStore
                 DimensionSeed.Derive(
                     _worldSeed,
                     definition.Id),
-                GameRules);
+                GameRules,
+                Generation.ForSphere(definition));
         _states.Add(
             dimensionId,
             state);

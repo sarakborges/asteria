@@ -31,7 +31,9 @@ public sealed class GeneratedFluidField
         ulong seed,
         DimensionDefinition dimension,
         FluidRegistry fluids,
-        IEnumerable<BiomeDefinition> surfaceDefinitions)
+        IEnumerable<BiomeDefinition> surfaceDefinitions,
+        bool spawnOceans = true,
+        bool generatedFluidsEnabled = true)
     {
         ArgumentNullException.ThrowIfNull(
             dimension);
@@ -55,7 +57,9 @@ public sealed class GeneratedFluidField
                 : int.MaxValue;
 
         _surface =
-            dimension.GeneratedSurfaceFluids
+            (generatedFluidsEnabled
+                ? dimension.GeneratedSurfaceFluids
+                : Array.Empty<DimensionGeneratedSurfaceFluidDefinition>())
                 .OrderBy(
                     definition =>
                         definition.Biome,
@@ -82,6 +86,7 @@ public sealed class GeneratedFluidField
             definitions
                 .Where(
                     definition =>
+                        generatedFluidsEnabled &&
                         definition.SurfaceTerrain?.FillToSeaLevel == true)
                 .Select(
                     definition =>
@@ -92,6 +97,7 @@ public sealed class GeneratedFluidField
         _craterFills =
             definitions
                 .Where(definition =>
+                    generatedFluidsEnabled &&
                     definition.SurfaceTerrain?.Crater?.FluidFill is not null)
                 .ToDictionary(
                     definition => definition.Id,
@@ -107,7 +113,7 @@ public sealed class GeneratedFluidField
                     },
                     StringComparer.Ordinal);
 
-        if (dimension.GeneratedOcean is not
+        if (!generatedFluidsEnabled || !spawnOceans || dimension.GeneratedOcean is not
             { } ocean)
         {
             return;

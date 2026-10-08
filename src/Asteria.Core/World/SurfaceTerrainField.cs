@@ -18,6 +18,9 @@ public sealed class SurfaceTerrainField
     private readonly IReadOnlyDictionary<string, AdditiveRuleSet> _additiveRules;
     private readonly CoastProfileRule? _coastProfile;
     private readonly CaveRule? _caves;
+    private readonly WorldGenerationMode _mode;
+    private readonly int _planarSurfaceY;
+    private readonly string? _flatOceanBiome;
 
     public SurfaceTerrainField(
         ulong seed,
@@ -26,7 +29,10 @@ public sealed class SurfaceTerrainField
         VolumeBiomeField volumeBiomes,
         GeneratedFluidField generatedFluids,
         IEnumerable<BiomeDefinition> surfaceDefinitions,
-        IEnumerable<BiomeDefinition> volumeDefinitions)
+        IEnumerable<BiomeDefinition> volumeDefinitions,
+        bool spawnCaves = true,
+        bool spawnOceans = true,
+        WorldGenerationMode mode = WorldGenerationMode.Normal)
     {
         ArgumentNullException.ThrowIfNull(
             dimension);
@@ -48,7 +54,16 @@ public sealed class SurfaceTerrainField
                 nameof(generatedFluids));
 
         _seed = seed;
+        _mode = mode;
         _seaLevel = dimension.SeaLevel;
+        var planarMinimum = Math.Max(1, (dimension.Shell?.FloorY ?? 0) + 2);
+        var planarMaximum = dimension.Shell?.RoofY is { } roof
+            ? Math.Max(planarMinimum, roof - 2)
+            : int.MaxValue;
+        _planarSurfaceY = Math.Clamp(
+            dimension.SeaLevel, planarMinimum, planarMaximum);
+        _flatOceanBiome = spawnOceans
+            ? dimension.GeneratedOcean?.Biome : null;
         _floorY = dimension.Shell?.FloorY;
         _roofY = dimension.Shell?.RoofY;
         _surfaceRules =
@@ -68,6 +83,7 @@ public sealed class SurfaceTerrainField
             volumeDefinitions
                 .Where(
                     definition =>
+                        mode == WorldGenerationMode.Normal &&
                         definition.Terrain3d?.Additive.Count > 0)
                 .OrderBy(
                     definition =>
@@ -82,14 +98,15 @@ public sealed class SurfaceTerrainField
                             definition.Terrain3d!.Additive),
                     StringComparer.Ordinal);
         _coastProfile =
-            dimension.GeneratedOcean is
+            spawnOceans && dimension.GeneratedOcean is
                 { } ocean
                 ? new CoastProfileRule(
                     ocean.Biome,
                     ocean.Shore)
                 : null;
         _caves =
-            dimension.Caves is
+            mode != WorldGenerationMode.Void &&
+            spawnCaves && dimension.Caves is
                 { } definition
                 ? new CaveRule(
                     definition)
@@ -709,6 +726,24 @@ public sealed class SurfaceTerrainField
             int worldX,
             int worldZ)
     {
+        if (_mode == WorldGenerationMode.Flat)
+        {
+            // The surface is planar, but enabling oceans forms shallow flat
+            // basins with gradual biome-weighted shores beneath sea level.
+            var oceanWeight = _flatOceanBiome is null ? 0d :
+                sample.Influences
+                    .Where(influence => string.Equals(
+                        influence.BiomeId, _flatOceanBiome,
+                        StringComparison.Ordinal))
+                    .Sum(influence => (double)influence.Weight);
+            var depth = checked((int)Math.Round(
+                Math.Clamp(oceanWeight, 0d, 1d) * 6d));
+            return (Math.Max((_floorY ?? 0) + 1,
+                _planarSurfaceY - depth), 0);
+        }
+        if (_mode == WorldGenerationMode.Void)
+            return (-1, 0); // No solid surface; Y voxels still start at zero.
+
         var offset =
             HeightOffsetAt(
                 sample,

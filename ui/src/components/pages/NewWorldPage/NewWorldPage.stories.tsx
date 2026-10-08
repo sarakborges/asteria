@@ -6,6 +6,16 @@ import { createUiStore } from "../../../state/uiStore";
 import { createUiNavigationController } from "../../../controllers/UiNavigationController";
 import { NewWorldPage } from "./NewWorldPage";
 
+const defaultGeneration = {
+  mode: "Normal" as const, spawnBiome: null, biomeSizeTenths: 10,
+  spawnStructures: true, singleBiome: false,
+  spawnCaves: true, spawnOceans: true,
+};
+const biomes = [
+  { id: "asteria:overworld/plains", label: "Plains" },
+  { id: "asteria:overworld/swamp", label: "Swamp" },
+];
+
 /**
  * Full pre-world flow story: exercises the same App + UiStore + navigation
  * composition as the embedded game, without emulating gameplay or bridge data.
@@ -73,6 +83,8 @@ const meta = {
       mode: "Survival",
       ticksPerSecond: "40",
       spawnCreatures: true,
+      generation: defaultGeneration,
+      spawnBiomes: biomes,
       pending: false,
       generating: false,
       errorKey: null,
@@ -108,4 +120,16 @@ export const NoCreatureSpawning: Story = {
 };
 export const RealNavigation: Story = {
   render: () => <PreWorldFlow />,
+};
+
+export const VoidWorld: Story = {
+  args: { state: { ...meta.args.state, generation: {
+    ...defaultGeneration, mode: "Void", spawnCaves: false, spawnOceans: false,
+  } } },
+};
+export const SingleBiome: Story = {
+  args: { state: { ...meta.args.state, generation: {
+    ...defaultGeneration, singleBiome: true,
+    spawnBiome: "asteria:overworld/plains",
+  } } },
 };

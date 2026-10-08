@@ -77,7 +77,8 @@ public sealed class SurfaceStructureField
         SurfaceTerrainField terrain,
         BiomeSurfaceMaterialField materials,
         GeneratedFluidField generatedFluids,
-        SurfaceHabitatField? habitats = null)
+        SurfaceHabitatField? habitats = null,
+        bool spawnStructures = true)
     {
         ArgumentNullException.ThrowIfNull(
             dimension);
@@ -128,8 +129,9 @@ public sealed class SurfaceStructureField
                 fluids);
 
         _rules =
-            dimension
-                .GeneratedSurfaceStructures
+            (spawnStructures
+                ? dimension.GeneratedSurfaceStructures
+                : Array.Empty<DimensionGeneratedSurfaceStructureDefinition>())
                 .OrderBy(
                     generated =>
                         generated.Biome,

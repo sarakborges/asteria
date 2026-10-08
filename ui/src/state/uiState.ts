@@ -136,6 +136,7 @@ export type WorldCreationErrorKey =
   | "newWorld.error.invalidName"
   | "newWorld.error.invalidMode"
   | "newWorld.error.invalidTickRate"
+  | "newWorld.error.invalidGeneration"
   | "newWorld.error.unexpected";
 
 export type BrushPaletteColor = { id: string; rgb: string };
@@ -172,6 +173,18 @@ export type SettingsState = {
   errorKey: string | null;
 };
 
+export type WorldGenerationMode = "Normal" | "Flat" | "Void";
+export type SpawnBiomeOption = { id: string; label: string };
+export type WorldGenerationDraft = {
+  mode: WorldGenerationMode;
+  spawnBiome: string | null;
+  biomeSizeTenths: number;
+  spawnStructures: boolean;
+  singleBiome: boolean;
+  spawnCaves: boolean;
+  spawnOceans: boolean;
+};
+
 export type WorldCreationState = {
   visible: boolean;
   seed: string;
@@ -179,6 +192,8 @@ export type WorldCreationState = {
   mode: GameMode;
   ticksPerSecond: string;
   spawnCreatures: boolean;
+  generation: WorldGenerationDraft;
+  spawnBiomes: SpawnBiomeOption[];
   pending: boolean;
   generating: boolean;
   errorKey: WorldCreationErrorKey | null;
@@ -308,6 +323,12 @@ export function createInitialUiState(
       mode: "Survival",
       ticksPerSecond: "40",
       spawnCreatures: true,
+      generation: {
+        mode: "Normal", spawnBiome: null, biomeSizeTenths: 10,
+        spawnStructures: true, singleBiome: false,
+        spawnCaves: true, spawnOceans: true,
+      },
+      spawnBiomes: [],
       pending: true,
       generating: false,
       errorKey: null,
