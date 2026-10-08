@@ -3,6 +3,7 @@ import type { BridgeMessage } from "../bridge/godotBridge";
 import type { UiStore } from "../state/uiStore";
 
 export type UiNavigationController = {
+  openWorldSelection(): void;
   openWorldCreation(): void;
   backToStart(): void;
   exitGame(): void;
@@ -19,7 +20,7 @@ export function createUiNavigationController(
   postMessage: (type: string, payload?: unknown) => void,
 ): UiNavigationController {
   const setPreWorldScreen = (
-    preWorldScreen: "starting" | "new-world",
+    preWorldScreen: "starting" | "world-selection" | "new-world",
   ): void => {
     store.update((state) => ({
       ...state,
@@ -36,6 +37,10 @@ export function createUiNavigationController(
     }));
 
   return {
+    openWorldSelection() {
+      setPreWorldScreen("world-selection");
+    },
+
     openWorldCreation() {
       setPreWorldScreen("new-world");
     },
