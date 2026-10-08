@@ -74,7 +74,7 @@ export function SpawnBiomeSelect({
         <div role="dialog" aria-label={label}
           className="spawn-biome-select__panel" style={placement}>
           <TextInput
-            ref={searchRef}
+            inputRef={searchRef}
             aria-label={searchPlaceholder}
             placeholder={searchPlaceholder}
             maxLength={128}
