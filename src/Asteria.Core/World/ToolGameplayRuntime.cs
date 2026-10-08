@@ -79,6 +79,8 @@ public sealed class ToolGameplayRuntime
             return false;
 
         var source = _blocks.GetDefinition(cell.Block);
+        if (source.Mining.Unbreakable)
+            return false;
         var key = source.Variant?.Key;
         if (key is null) return false;
         var variantKey = (targetKey, key) switch
