@@ -7,16 +7,19 @@ namespace Asteria.Core.World;
 public sealed class SurfaceDecorationField
 {
     private readonly ulong _seed;
+    private readonly SurfaceTerrainField? _terrain;
     private readonly IReadOnlyDictionary<string, DecorationRule[]> _rules;
 
     public SurfaceDecorationField(
         ulong seed,
         IEnumerable<BiomeDefinition> biomes,
-        BlockRegistry blocks)
+        BlockRegistry blocks,
+        SurfaceTerrainField? terrain = null)
     {
         ArgumentNullException.ThrowIfNull(biomes);
         ArgumentNullException.ThrowIfNull(blocks);
         _seed = seed;
+        _terrain = terrain;
         _rules = biomes
             .OrderBy(biome => biome.Id, StringComparer.Ordinal)
             .ToDictionary(
@@ -35,6 +38,7 @@ public sealed class SurfaceDecorationField
                             GenerationDomain.Named(
                                 $"worldgen/decorator/{biome.Id}/{decoration.Block}/v1"),
                             decoration.Cluster,
+                            decoration.Conditions,
                             GenerationDomain.Named(
                                 $"worldgen/decorator-cluster/{biome.Id}/{decoration.Block}/v1")))
                     .ToArray(),
@@ -47,6 +51,7 @@ public sealed class SurfaceDecorationField
         int worldX,
         int worldZ)
     {
+        SurfacePlacementContext? placement = null;
         foreach (var influence in sample.Influences)
         {
             foreach (var rule in _rules[influence.BiomeId])
@@ -56,32 +61,57 @@ public sealed class SurfaceDecorationField
                     continue;
                 }
 
+                if (rule.Conditions is { } conditions)
+                {
+                    if (placement is null)
+                    {
+                        if (_terrain is null)
+                        {
+                            throw new InvalidOperationException(
+                                "Conditional ground decorators require a terrain field.");
+                        }
+
+                        placement = SurfacePlacementContext.Sample(
+                            _terrain, worldX, worldZ);
+                    }
+
+                    if (!conditions.Allows(placement.Value))
+                    {
+                        continue;
+                    }
+                }
+
                 var effectiveChance = rule.Chance * influence.Weight;
+                if (rule.Cluster is { } cluster)
+                {
+                    var noise = WorldGenerationNoise.FractalNoise2D(
+                        _seed,
+                        rule.ClusterDomain,
+                        worldX,
+                        worldZ,
+                        1d / cluster.Scale,
+                        octaves: cluster.Octaves);
+                    var distribution = cluster.TransitionWidth <= 0f
+                        ? (noise >= cluster.Threshold ? 1d : 0d)
+                        : WorldGenerationEntropy.SmoothStep(
+                            Math.Clamp(
+                                (noise - cluster.Threshold) /
+                                cluster.TransitionWidth,
+                                0d,
+                                1d));
+                    effectiveChance *= distribution;
+                }
+
                 var roll = WorldGenerationEntropy.Unit(
                     WorldGenerationEntropy.Sample2D(
                         _seed,
                         rule.Domain,
                         worldX,
                         worldZ));
-
-                if (roll >= effectiveChance)
+                if (roll < effectiveChance)
                 {
-                    continue;
+                    return rule.Block;
                 }
-
-                if (rule.Cluster is { } cluster &&
-                    WorldGenerationNoise.FractalNoise2D(
-                        _seed,
-                        rule.ClusterDomain,
-                        worldX,
-                        worldZ,
-                        1d / cluster.Scale,
-                        octaves: 3) < cluster.Threshold)
-                {
-                    continue;
-                }
-
-                return rule.Block;
             }
         }
 
@@ -94,5 +124,6 @@ public sealed class SurfaceDecorationField
         HashSet<BlockRuntimeId> SurfaceBlocks,
         GenerationDomain Domain,
         BiomeDecorationClusterDefinition? Cluster,
+        SurfacePlacementConditions? Conditions,
         GenerationDomain ClusterDomain);
 }
