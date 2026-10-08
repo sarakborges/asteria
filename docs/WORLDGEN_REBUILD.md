@@ -301,19 +301,12 @@ gravel layers, rather than changing Wasteland's grass/foliage tint data.
 
 ## Tree leaf biome tint
 
-Generated oak, willow, and enchanted trees share the existing block-material
-tint path: the leaf block authors `tint: "leaf"`, and its texture layers
-enable tinting via `dyable: true`. The authoritative `BiomeTintField`
-resolves the current Sphere's surface-biome palette at each mesh vertex.
-Enchanted Forest's leaf palette is intended to color enchanted-tree leaves;
-the enchanted leaf texture must not disable its tint flag. Changing that
-block applies equally to all authored enchanted tree variants without
-special casing placement or adding a second tint owner. Rare special-purpose
-tree foliage may deliberately remain untinted by authored definition.
-
-The regression test builds Core render meshes from default block/biome
-definitions and checks both the tinted vertex colors and the texture's
-encoded tint flag for oak, willow and enchanted leaves.
+Oak and willow foliage use `tint: "leaf"` and tint-enabled texture layers;
+`BiomeTintField` resolves authored surface-biome colors at mesh vertices.
+Enchanted and world-tree leaves are **intentionally untinted**, with
+`tint: "none"` and texture `dyable: false`; their authored intrinsic
+texture color must be preserved. Do not generalize oak tint rules to every
+leaf block. Regression coverage distinguishes these two contracts.
 
 ## Non-regression rules
 
