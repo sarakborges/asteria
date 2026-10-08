@@ -49,7 +49,8 @@ public sealed class BiomeSurfaceMaterialField
         BiomeSample sample,
         int worldX,
         int worldZ,
-        uint depth)
+        uint depth,
+        SurfacePlacementContext? placement = null)
     {
         ArgumentNullException.ThrowIfNull(sample);
 
@@ -66,13 +67,14 @@ public sealed class BiomeSurfaceMaterialField
             worldX,
             worldZ,
             depth,
-            PlacementFor(rule, worldX, worldZ));
+            PlacementFor(rule, worldX, worldZ, placement));
     }
 
     public BiomeSurfaceMaterialColumn SampleColumn(
         BiomeSample sample,
         int worldX,
-        int worldZ)
+        int worldZ,
+        SurfacePlacementContext? placement = null)
     {
         ArgumentNullException.ThrowIfNull(sample);
 
@@ -92,8 +94,14 @@ public sealed class BiomeSurfaceMaterialField
     private SurfacePlacementContext? PlacementFor(
         MaterialRule rule,
         int worldX,
-        int worldZ)
+        int worldZ,
+        SurfacePlacementContext? supplied)
     {
+        if (supplied.HasValue)
+        {
+            return supplied;
+        }
+
         if (!rule.HasConditions)
         {
             return null;
