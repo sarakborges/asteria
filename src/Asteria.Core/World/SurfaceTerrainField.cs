@@ -26,7 +26,9 @@ public sealed class SurfaceTerrainField
         VolumeBiomeField volumeBiomes,
         GeneratedFluidField generatedFluids,
         IEnumerable<BiomeDefinition> surfaceDefinitions,
-        IEnumerable<BiomeDefinition> volumeDefinitions)
+        IEnumerable<BiomeDefinition> volumeDefinitions,
+        bool spawnCaves = true,
+        bool spawnOceans = true)
     {
         ArgumentNullException.ThrowIfNull(
             dimension);
@@ -82,14 +84,14 @@ public sealed class SurfaceTerrainField
                             definition.Terrain3d!.Additive),
                     StringComparer.Ordinal);
         _coastProfile =
-            dimension.GeneratedOcean is
+            spawnOceans && dimension.GeneratedOcean is
                 { } ocean
                 ? new CoastProfileRule(
                     ocean.Biome,
                     ocean.Shore)
                 : null;
         _caves =
-            dimension.Caves is
+            spawnCaves && dimension.Caves is
                 { } definition
                 ? new CaveRule(
                     definition)
