@@ -43,7 +43,7 @@ export function ScreenTransition({ screenKey, children }: ScreenTransitionProps)
       window.clearTimeout(swap);
       window.clearTimeout(finish);
     };
-  }, [screenKey, visibleKey]);
+  }, [screenKey]);
 
   return (
     <div className={"screen-transition screen-transition--" + phase}
