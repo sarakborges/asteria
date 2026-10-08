@@ -104,7 +104,7 @@ public sealed class DimensionSessionStateStore
         _dimensions = dimensions ??
             throw new ArgumentNullException(nameof(dimensions));
         Name = creation.Name;
-        InitialGameMode = creation.GameMode;
+        Player = new PlayerSessionState(creation.GameMode);
         GameRules = new WorldGameRules(
             creation.TicksPerSecond,
             creation.SpawnCreatures);
@@ -112,7 +112,7 @@ public sealed class DimensionSessionStateStore
 
     public string Name { get; }
 
-    public PlayerGameMode InitialGameMode { get; }
+    public PlayerSessionState Player { get; }
 
     public WorldGameRules GameRules { get; }
 
