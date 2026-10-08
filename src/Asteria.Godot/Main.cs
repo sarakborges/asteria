@@ -597,6 +597,7 @@ public partial class Main : Node3D
             this,
             state,
             _blocks,
+            _layers,
             _fluids,
             _biomes,
             _structures,

@@ -27,6 +27,7 @@ public sealed class TerrainMeshWorker
         BlockRegistry blocks,
         TerrainTextureLookup textures,
         BiomeTintField biomeTints,
+        AttachedLayerRegistry layers,
         WorldMeshBatch batch,
         MeshletContentRevisions revisions)
     {
@@ -34,6 +35,7 @@ public sealed class TerrainMeshWorker
         ArgumentNullException.ThrowIfNull(blocks);
         ArgumentNullException.ThrowIfNull(textures);
         ArgumentNullException.ThrowIfNull(biomeTints);
+        ArgumentNullException.ThrowIfNull(layers);
         ArgumentNullException.ThrowIfNull(batch);
         ArgumentNullException.ThrowIfNull(revisions);
 
@@ -59,6 +61,7 @@ public sealed class TerrainMeshWorker
                     blocks,
                     textures,
                     biomeTints,
+                    layers,
                     batch.DirtyMeshlets);
             stopwatch.Stop();
 
@@ -84,6 +87,7 @@ public sealed class TerrainMeshWorker
             BlockRegistry blocks,
             TerrainTextureLookup textures,
             BiomeTintField biomeTints,
+            AttachedLayerRegistry layers,
             IReadOnlyDictionary<ChunkCoord, ChunkMeshletMask> dirty)
     {
         var result =
@@ -116,7 +120,8 @@ public sealed class TerrainMeshWorker
                             blocks,
                             textures,
                             meshletIndex,
-                            tintSamples)));
+                            tintSamples,
+                            layers)));
             }
         }
 

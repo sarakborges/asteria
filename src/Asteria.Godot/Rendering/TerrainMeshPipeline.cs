@@ -8,6 +8,7 @@ public sealed class TerrainMeshPipeline
     private readonly BlockRegistry _blocks;
     private readonly TerrainTextureLookup _textures;
     private readonly BiomeTintField _biomeTints;
+    private readonly AttachedLayerRegistry _layers;
     private readonly WorldUpdateQueue _updates;
     private readonly MeshletContentRevisions _revisions;
     private readonly ChunkPresentationController _presentations;
@@ -26,6 +27,7 @@ public sealed class TerrainMeshPipeline
         BlockRegistry blocks,
         TerrainTextureLookup textures,
         BiomeTintField biomeTints,
+        AttachedLayerRegistry layers,
         WorldUpdateQueue updates,
         MeshletContentRevisions revisions,
         ChunkPresentationController presentations,
@@ -44,6 +46,7 @@ public sealed class TerrainMeshPipeline
         _biomeTints =
             biomeTints ??
             throw new ArgumentNullException(nameof(biomeTints));
+        _layers = layers ?? throw new ArgumentNullException(nameof(layers));
         _updates =
             updates ??
             throw new ArgumentNullException(nameof(updates));
@@ -176,6 +179,7 @@ public sealed class TerrainMeshPipeline
                 _blocks,
                 _textures,
                 _biomeTints,
+                _layers,
                 batch,
                 _revisions))
         {
