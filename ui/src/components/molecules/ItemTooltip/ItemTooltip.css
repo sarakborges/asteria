@@ -1,0 +1,50 @@
+.item-tooltip {
+  position: fixed;
+  left: -10000px;
+  top: -10000px;
+  z-index: 150;
+  width: max-content;
+  max-width: min(360px, calc(100vw - 24px));
+  padding: 7px 10px;
+  border: 1px solid var(--ui-color-border);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--ui-color-text);
+  background: var(--ui-color-hud-surface);
+  box-shadow: 0 4px 14px var(--ui-color-shadow);
+  pointer-events: none;
+  overflow-wrap: anywhere;
+}
+
+.item-tooltip__title {
+  font-size: var(--ui-font-size-detail);
+  font-weight: 600;
+}
+
+.item-tooltip__id,
+.item-tooltip__property {
+  color: var(--ui-color-muted);
+  font-size: var(--ui-font-size-caption);
+}
+
+.item-tooltip__metadata {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 6px 0 0;
+  padding-top: 5px;
+  border-top: 1px solid var(--ui-color-border);
+}
+
+.item-tooltip__property {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+  gap: 8px;
+}
+
+.item-tooltip__property dt,
+.item-tooltip__property dd {
+  min-width: 0;
+  margin: 0;
+}
