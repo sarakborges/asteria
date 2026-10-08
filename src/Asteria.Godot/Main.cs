@@ -89,6 +89,8 @@ public partial class Main : Node3D
     private readonly Dictionary<string, string> _inventoryIconCache =
         new(StringComparer.Ordinal);
     private PackContentRegistry<CreatureDefinition> _creatures = null!;
+    private PackContentRegistry<AttackDefinition> _attacks = null!;
+    private (ulong Id, float Health, float Maximum)? _lastCreatureHud;
     private FluidRegistry _fluids = null!;
     private BiomeRegistry _biomes = null!;
     private StructureRegistry _structures = null!;
@@ -160,6 +162,9 @@ public partial class Main : Node3D
             _blocks, _items, _tools);
         _creatures =
             CreatureContentLoader.LoadProjectCreatures(
+                _packSelection);
+        _attacks =
+            AttackContentLoader.LoadProjectAttacks(
                 _packSelection);
         _biomes =
             BiomeContentLoader.LoadProjectBiomes(
@@ -1751,9 +1756,47 @@ public partial class Main : Node3D
         bool force = false)
     {
         if (_sessionStates.Player.GameMode.IsSpectator())
-        {
-            // Mode changes already clear the HUD once; do not flood the bridge.
             return;
+
+        CreatureTargetHit? creatureHit = null;
+        if (_player is { IsMouseCaptured: true } creaturePlayer)
+        {
+            var (from, to) = creaturePlayer.GetInteractionRay(InteractionDistance);
+            creatureHit = _sessions.Active.FindCreatureTarget(
+                new NVector3(from.X, from.Y, from.Z),
+                new NVector3(to.X - from.X, to.Y - from.Y, to.Z - from.Z),
+                InteractionDistance);
+        }
+
+        if (creatureHit is { } target)
+        {
+            var creature = target.Creature;
+            var maximum = _creatures.Get(creature.DefinitionId).Health;
+            var snapshot = (creature.Id.Value, creature.Health, (float)maximum);
+            if (force || _lastCreatureHud != snapshot)
+            {
+                SendWebUi("game.hud.target_entity", new
+                {
+                    name = creature.DefinitionId,
+                    health = new
+                    {
+                        current = creature.Health,
+                        maximum,
+                    },
+                });
+                // Do not allow a stale block target to reappear underneath.
+                SendWebUi("game.hud.target", new { });
+                SendWebUi("game.hud.prompt", new { });
+                _lastCreatureHud = snapshot;
+            }
+            _targetHud.Reset();
+            return;
+        }
+
+        if (_lastCreatureHud is not null)
+        {
+            _lastCreatureHud = null;
+            SendWebUi("game.hud.target_entity", new { });
         }
 
         var hit =
@@ -1830,6 +1873,8 @@ public partial class Main : Node3D
     private void ClearTargetHudState()
     {
         _targetHud.Reset();
+        _lastCreatureHud = null;
+        SendWebUi("game.hud.target_entity", new { });
         SendWebUi(
             "game.hud.target",
             new { });
@@ -2031,12 +2076,38 @@ public partial class Main : Node3D
 
     private void BreakTargetBlock()
     {
-        if (!_sessionStates.Player.CanInteract ||
-            !TryGetTarget(
-                out var hit))
-        {
+        if (!_sessionStates.Player.CanInteract)
             return;
+
+        // A creature before the targeted block receives the attack.
+        // The Core target query owns reach, line of sight and tie breaking.
+        if (_player is { IsMouseCaptured: true } player)
+        {
+            var (from, to) = player.GetInteractionRay(InteractionDistance);
+            var origin = new NVector3(from.X, from.Y, from.Z);
+            var direction = new NVector3(
+                to.X - from.X, to.Y - from.Y, to.Z - from.Z);
+            var creature = _sessions.Active.FindCreatureTarget(
+                origin, direction, InteractionDistance);
+            if (creature is { } target)
+            {
+                if (_sessions.Active.TryAttackCreature(
+                        target.Creature.Id,
+                        _attacks.Get("asteria:punch"),
+                        new NVector3(
+                            player.GlobalPosition.X,
+                            player.GlobalPosition.Y,
+                            player.GlobalPosition.Z),
+                        out _))
+                {
+                    SendTargetHudState(force: true);
+                }
+                return;
+            }
         }
+
+        if (!TryGetTarget(out var hit))
+            return;
 
         var decision =
             _blockInteractions.Break(

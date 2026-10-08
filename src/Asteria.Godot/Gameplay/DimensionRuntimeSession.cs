@@ -285,6 +285,32 @@ public sealed class DimensionRuntimeSession
 
     public CreatureRuntime Creatures { get; }
 
+    public CreatureTargetHit? FindCreatureTarget(
+        NVector3 origin,
+        NVector3 direction,
+        float maximumDistance) =>
+        _retiring || _retired || Creatures.Count == 0
+            ? null
+            : Creatures.FindTarget(
+                World, Blocks, origin, direction, maximumDistance);
+
+    public bool TryAttackCreature(
+        CreatureInstanceId id,
+        AttackDefinition attack,
+        NVector3 attacker,
+        out CreatureAttackResult result)
+    {
+        result = default;
+        if (_retiring || _retired ||
+            !Creatures.TryAttack(id, attack, attacker, out result))
+        {
+            return false;
+        }
+
+        _creaturePresentation.Sync(Creatures.ActiveCreatures);
+        return true;
+    }
+
     public bool TrySpawnCreature(string id, NVector3 feet)
     {
         if (_retiring || _retired || !Creatures.TrySpawn(id, feet, out _))

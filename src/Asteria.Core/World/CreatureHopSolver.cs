@@ -20,6 +20,10 @@ public readonly record struct CreatureHopMotion(
     float FacingRadians,
     uint HopCount)
 {
+    public Vector2 KnockbackVelocity { get; init; }
+
+    public float KnockbackSeconds { get; init; }
+
     public static CreatureHopMotion Initial =>
         new(CreatureHopPhase.Idle, 1f, 0f, Vector2.Zero, 0f, 0);
 }
@@ -71,6 +75,24 @@ public static class CreatureHopSolver
         }
 
         var motion = instance.Motion;
+        if (motion.KnockbackSeconds > 0f)
+        {
+            var impulse = new Vector3(
+                motion.KnockbackVelocity.X * dt,
+                0f,
+                motion.KnockbackVelocity.Y * dt);
+            var collided = Move(world, blocks, definition.Collider, ref feet, impulse);
+            var seconds = MathF.Max(0f, motion.KnockbackSeconds - dt);
+            var velocity = collided || seconds == 0f
+                ? Vector2.Zero
+                : motion.KnockbackVelocity * MathF.Max(0f, 1f - 10f * dt);
+            motion = motion with
+            {
+                KnockbackVelocity = velocity,
+                KnockbackSeconds = collided ? 0f : seconds,
+            };
+        }
+
         if (motion.Phase != CreatureHopPhase.Airborne &&
             IsGrounded(world, blocks, definition.Collider, feet) ==
                 VoxelWorldCollisionState.Clear)

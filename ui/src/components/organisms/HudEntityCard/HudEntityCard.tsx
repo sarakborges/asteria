@@ -1,3 +1,4 @@
+import { useLocalization } from "../../../localization/LocalizationProvider";
 import type {
   HudEntityState,
   VitalValue,
@@ -16,6 +17,11 @@ export function HudEntityCard({
   entity,
   secondaryVital = null,
 }: HudEntityCardProps) {
+  const { contentName } = useLocalization();
+  const name = entity.name.startsWith("asteria:")
+    ? contentName(entity.name)
+    : entity.name;
+
   return (
     <section className="hud-entity-card">
       <div className="hud-entity-card__avatar">
@@ -31,7 +37,7 @@ export function HudEntityCard({
 
       <div className="hud-entity-card__info">
         <strong className="hud-entity-card__name">
-          {entity.name}
+          {name}
         </strong>
         <VitalBar
           value={entity.health}

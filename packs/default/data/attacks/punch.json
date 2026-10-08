@@ -1,0 +1,11 @@
+{
+  "id": "asteria:punch",
+  "damage": 1,
+  "effects": [
+    {
+      "effect": "knockback",
+      "chance": 1,
+      "strength": 0.75
+    }
+  ]
+}

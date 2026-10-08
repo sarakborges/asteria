@@ -26,6 +26,10 @@
       <Link>packs/default/data/tools/%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="../../packs/default/data/attacks/*.json">
+      <Link>packs/default/data/attacks/%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="../../packs/default/data/creatures/*.json">
       <Link>packs/default/data/creatures/%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

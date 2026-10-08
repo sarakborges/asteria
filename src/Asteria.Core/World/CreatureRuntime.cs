@@ -11,7 +11,18 @@ public readonly record struct CreatureInstanceState(
     Vector3 Position,
     float Health,
     double AgeSeconds,
-    CreatureHopMotion Motion = default);
+    CreatureHopMotion Motion = default)
+{
+    public uint AttacksReceived { get; init; }
+}
+
+public readonly record struct CreatureAttackResult(
+    CreatureInstanceId Id,
+    string DefinitionId,
+    Vector3 Position,
+    float Health,
+    float MaximumHealth,
+    bool Killed);
 
 public sealed record CreatureRuntimeSnapshot(
     ulong NextId,
@@ -56,7 +67,11 @@ public sealed class CreatureRuntime
                 !float.IsFinite(creature.Motion.VerticalSpeed) ||
                 !float.IsFinite(creature.Motion.Direction.X) ||
                 !float.IsFinite(creature.Motion.Direction.Y) ||
-                !float.IsFinite(creature.Motion.FacingRadians))
+                !float.IsFinite(creature.Motion.FacingRadians) ||
+                !float.IsFinite(creature.Motion.KnockbackVelocity.X) ||
+                !float.IsFinite(creature.Motion.KnockbackVelocity.Y) ||
+                !float.IsFinite(creature.Motion.KnockbackSeconds) ||
+                creature.Motion.KnockbackSeconds < 0f)
             {
                 throw new ArgumentException("Creature snapshot contains an invalid state.", nameof(restore));
             }
@@ -104,6 +119,110 @@ public sealed class CreatureRuntime
         _counts[definition.Id] = CountFor(definition.Id) + 1;
         _nextId = id.Value;
         return true;
+    }
+
+    public CreatureTargetHit? FindTarget(
+        VoxelWorld world,
+        BlockRegistry blocks,
+        Vector3 origin,
+        Vector3 direction,
+        float maximumDistance) =>
+        CreatureTargetQuery.Find(
+            _active.Values,
+            _definitions,
+            world,
+            blocks,
+            origin,
+            direction,
+            maximumDistance);
+
+    /// <summary>
+    /// Authoritative attack application. Every accepted hit increments an
+    /// instance-local serial to make probabilistic effects deterministic
+    /// even across dimension retirement and restoration.
+    /// </summary>
+    public bool TryAttack(
+        CreatureInstanceId id,
+        AttackDefinition attack,
+        Vector3 attacker,
+        out CreatureAttackResult result)
+    {
+        ArgumentNullException.ThrowIfNull(attack);
+        if (!IsFinite(attacker) ||
+            !float.IsFinite(attack.Damage) || attack.Damage < 0f)
+        {
+            throw new ArgumentOutOfRangeException(nameof(attack));
+        }
+
+        if (!_active.TryGetValue(id.Value, out var current))
+        {
+            result = default;
+            return false;
+        }
+
+        var definition = _definitions.Get(current.DefinitionId);
+        var health = MathF.Max(0f, current.Health - attack.Damage);
+        var killed = health == 0f;
+        result = new CreatureAttackResult(
+            id, current.DefinitionId, current.Position,
+            health, definition.Health, killed);
+
+        if (killed)
+        {
+            Remove(id);
+            return true;
+        }
+
+        var motion = current.Motion;
+        var knockback = new Vector2(
+            current.Position.X - attacker.X,
+            current.Position.Z - attacker.Z);
+        var serial = checked(current.AttacksReceived + 1);
+
+        for (var index = 0; index < attack.Effects.Count; index++)
+        {
+            var effect = attack.Effects[index];
+            if (effect.Effect != "knockback" ||
+                knockback.LengthSquared() <= float.Epsilon ||
+                !EffectApplies(id.Value, serial, (uint)index, effect.Chance))
+            {
+                continue;
+            }
+
+            motion = motion with
+            {
+                KnockbackVelocity = Vector2.Normalize(knockback) *
+                    (effect.Strength * 24f),
+                KnockbackSeconds = effect.Strength == 0f ? 0f : 0.28f,
+            };
+        }
+
+        _active[id.Value] = current with
+        {
+            Health = health,
+            Motion = motion,
+            AttacksReceived = serial,
+        };
+        return true;
+    }
+
+    private static bool EffectApplies(
+        ulong id,
+        uint hit,
+        uint effectIndex,
+        float chance)
+    {
+        if (chance >= 1f) return true;
+        if (chance <= 0f) return false;
+
+        var value = (uint)(id ^ (id >> 32)) ^
+            (hit * 0x9e3779b9u) ^ (effectIndex * 0x85ebca6bu);
+        value ^= value >> 16;
+        value *= 0x7feb352du;
+        value ^= value >> 15;
+        value *= 0x846ca68bu;
+        value ^= value >> 16;
+        return value / (double)uint.MaxValue < chance;
     }
 
     /// <summary>Only known active creatures can receive damage; death retires the entity.</summary>
