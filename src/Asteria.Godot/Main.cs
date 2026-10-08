@@ -107,7 +107,6 @@ public partial class Main : Node3D
     private TerrainTextureLookup _terrainTextureLookup = null!;
     private VoxelTerrainMaterialSet _terrainMaterials = null!;
     private FluidMaterialCatalog _fluidMaterials = null!;
-    private BlockRuntimeId _placementBlock;
     private readonly WorldHudStateTracker _worldHud =
         new();
     private readonly FpsHudStateTracker _fpsHud =
@@ -617,6 +616,8 @@ public partial class Main : Node3D
             BreakTargetBlock;
         _player.PlaceRequested -=
             PlaceTargetBlock;
+        _player.ToolActionRequested -=
+            RotateHeldBlock;
         _player.MouseCaptureChanged -=
             SendMouseCaptureState;
         _player.FlightStateChanged -=
@@ -1102,9 +1103,9 @@ public partial class Main : Node3D
                 StartupDimensionId));
         ActivateCurrentDimensionPresentation();
 
-        _placementBlock =
-            _blocks.GetId(
-                TestChunkFactory.StoneId);
+        var initialBlock = _blocks.GetId(TestChunkFactory.StoneId);
+        _sessionStates.Player.HeldBlock.Select(
+            initialBlock, _blocks.GetDefinition(initialBlock));
         _worldSeed =
             creation.Seed;
 
@@ -1340,14 +1341,14 @@ public partial class Main : Node3D
 
     private void SendHotbarState()
     {
-        if (_placementBlock.IsAir)
+        if (_sessionStates.Player.HeldBlock.Block.IsAir)
         {
             return;
         }
 
         var definition =
             _blocks.GetDefinition(
-                _placementBlock);
+                _sessionStates.Player.HeldBlock.Block);
 
         SendWebUi(
             "game.hud.hotbar",
@@ -1527,6 +1528,7 @@ public partial class Main : Node3D
                     .Motion;
         _player.BreakRequested += BreakTargetBlock;
         _player.PlaceRequested += PlaceTargetBlock;
+        _player.ToolActionRequested += RotateHeldBlock;
         _player.MouseCaptureChanged +=
             SendMouseCaptureState;
         _player.FlightStateChanged +=
@@ -1671,10 +1673,27 @@ public partial class Main : Node3D
             return;
         }
 
-        _placementBlock =
-            decision.Cell.Block;
+        _sessionStates.Player.HeldBlock.Select(
+            decision.Cell.Block,
+            _blocks.GetDefinition(decision.Cell.Block));
         SendHotbarState();
         KickWorldMutationWorkers();
+    }
+
+    private void RotateHeldBlock()
+    {
+        if (_sessionStates.Player.CanInteract &&
+            _sessionStates.Player.HeldBlock.Rotate())
+        {
+            SendWebUi(
+                "game.held_block",
+                new
+                {
+                    orientation = _sessionStates.Player.HeldBlock.Orientation.ToString(),
+                    facing = _sessionStates.Player.HeldBlock.Facing.ToString(),
+                    canRotate = _sessionStates.Player.HeldBlock.CanRotate,
+                });
+        }
     }
 
     private void PlaceTargetBlock()
@@ -1689,7 +1708,7 @@ public partial class Main : Node3D
         var decision =
             _blockInteractions.Place(
                 hit,
-                new VoxelCell(_placementBlock),
+                _sessionStates.Player.HeldBlock.CurrentCell(),
                 _player!.CollisionBounds);
 
         if (!decision.Accepted)

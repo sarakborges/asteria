@@ -23,6 +23,8 @@ public sealed class PlayerSessionState
 
     public bool CanInteract => !GameMode.IsSpectator();
 
+    public HeldBlockPlacement HeldBlock { get; } = new();
+
     public bool SetGameMode(PlayerGameMode mode)
     {
         Validate(mode);

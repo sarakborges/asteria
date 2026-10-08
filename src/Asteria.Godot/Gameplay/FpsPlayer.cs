@@ -30,6 +30,7 @@ public partial class FpsPlayer : CharacterBody3D
 
     public event Action? BreakRequested;
     public event Action? PlaceRequested;
+    public event Action? ToolActionRequested;
     public event Action? FlightStateChanged;
     public event Action<bool>? MouseCaptureChanged;
     public event Action<FluidBodyContact>?
@@ -440,6 +441,13 @@ public partial class FpsPlayer : CharacterBody3D
                 key, InputPreferences, KeybindAction.Descend))
         {
             _descendHeld = key.Pressed;
+        }
+
+        if (key.Pressed && !key.Echo &&
+            GameplayKeyMap.Matches(
+                key, InputPreferences, KeybindAction.ToolAction))
+        {
+            ToolActionRequested?.Invoke();
         }
     }
 
