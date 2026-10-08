@@ -57,6 +57,7 @@ public partial class Main : Node3D
     private PackSelection _packSelection =
         PackSelection.Default;
     private ClientPreferencesController _clientSettings = null!;
+    private WorldCatalogScanController _worldCatalog = null!;
     private KeybindCaptureController _keybindCapture = null!;
 
     private ClientPreferences _clientPreferences =>
@@ -149,6 +150,7 @@ public partial class Main : Node3D
         _worldDiagnostics = WorldDiagnosticsLog.Open();
         _clientSettings = new ClientPreferencesController(
             ClientPreferencesStore.FromUserDataDirectory());
+        _worldCatalog = WorldCatalogScanController.FromUserDataDirectory();
         _keybindCapture = new KeybindCaptureController(
             _clientSettings);
         _uiTheme =
@@ -363,6 +365,7 @@ public partial class Main : Node3D
 
     public override void _Process(double delta)
     {
+        PollWorldCatalog();
         if (_worldSeed is null)
         {
             return;
@@ -936,6 +939,18 @@ public partial class Main : Node3D
                 case "ui.app.exit":
                     GetTree().Quit();
                     break;
+                case "ui.world.catalog.refresh":
+                    if (_worldSeed is null)
+                        BeginWorldCatalogScan();
+                    break;
+                case "ui.world.catalog.open_folder":
+                    if (_worldSeed is null &&
+                        !_worldCatalog.TryOpenFolder(out var openFolderError))
+                    {
+                        GD.PushWarning($"world.catalog.open_folder: {openFolderError}");
+                        SendWebUi("game.world_catalog.folder_error", new { });
+                    }
+                    break;
                 case "ui.world.randomize":
                     if (_worldSeed is null)
                     {
@@ -1012,6 +1027,7 @@ public partial class Main : Node3D
         if (_worldSeed is null)
         {
             SendWorldCreationState();
+            BeginWorldCatalogScan();
             return;
         }
 
@@ -1201,6 +1217,43 @@ public partial class Main : Node3D
         SendWebUi(
             "game.client_preferences",
             document.RootElement);
+    }
+
+    private void BeginWorldCatalogScan()
+    {
+        if (_worldCatalog.Begin())
+            SendWebUi("game.world_catalog", new { status = "verifying" });
+    }
+
+    private void PollWorldCatalog()
+    {
+        if (!_worldCatalog.TryPoll(out var worlds, out var error) ||
+            _worldSeed is not null)
+            return;
+
+        if (error is not null)
+        {
+            GD.PushWarning($"world.catalog.scan: {error}");
+            SendWebUi("game.world_catalog", new { status = "error" });
+            return;
+        }
+
+        SendWebUi(
+            "game.world_catalog",
+            new
+            {
+                status = "ready",
+                worlds = worlds.Select(world => new
+                {
+                    id = world.Id,
+                    lastSaved = world.LastSaved,
+                    seed = world.Seed,
+                    daysPassed = world.DaysPassed,
+                    sphere = world.Sphere,
+                    coordinates = world.Coordinates,
+                    compatible = world.Compatible,
+                }).ToArray(),
+            });
     }
 
     private void SendWorldCreationState()
