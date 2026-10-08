@@ -600,10 +600,10 @@ public static class ChunkMeshDataBuilder
         var topCap = SpikeSegmentState.IsDown(cell.State)
             ? SpikeSegmentState.Index(cell.State) == 0
             : SpikeSegmentState.Index(cell.State) == SpikeSegmentState.Height(cell.State) - 1;
-        var bottomCap = !topCap &&
-            (SpikeSegmentState.IsDown(cell.State)
+        var bottomCap =
+            SpikeSegmentState.IsDown(cell.State)
                 ? SpikeSegmentState.Index(cell.State) == SpikeSegmentState.Height(cell.State) - 1
-                : SpikeSegmentState.Index(cell.State) == 0);
+                : SpikeSegmentState.Index(cell.State) == 0;
         var topMaterial = topCap
             ? ResolveFaceMaterial(textures, definition, cell, BlockFace.Top)
             : default;
