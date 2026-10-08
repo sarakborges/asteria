@@ -14,25 +14,54 @@
 .starting-screen__content {
   position: relative;
   z-index: 1;
-  width: min(var(--ui-menu-button-width), calc(100vw - 36px));
+  width: min(560px, calc(100vw - 36px));
   display: flex;
   flex-direction: column;
-  align-items: stretch;
+  align-items: center;
   gap: 11px;
 }
 
 .starting-screen__brand {
+  width: 100%;
   display: flex;
   justify-content: center;
   margin-bottom: 26px;
 }
 
 .starting-screen__logo {
-  font-size: clamp(54px, 10vw, 86px);
-  letter-spacing: 0.08em;
-  text-shadow: 0 6px 22px rgb(0 0 0 / 45%);
+  display: block;
+  width: min(560px, 100%);
+  height: auto;
+  max-height: min(38vh, 280px);
+  object-fit: contain;
+  filter: drop-shadow(0 6px 22px rgb(0 0 0 / 45%));
 }
 
 .starting-screen__button {
-  width: 100%;
+  width: min(var(--ui-menu-button-width), 100%);
+}
+
+.starting-screen__language {
+  position: absolute;
+  z-index: 2;
+  left: 20px;
+  bottom: 16px;
+  display: flex;
+  gap: var(--ui-space-2);
+  align-items: center;
+  font-size: var(--ui-font-size-caption);
+}
+
+.starting-screen__language .ui-select {
+  width: 180px;
+}
+
+@media (max-height: 600px) {
+  .starting-screen__logo { max-height: 160px; }
+  .starting-screen__brand { margin-bottom: 8px; }
+}
+
+@media (max-width: 480px) {
+  .starting-screen__language { left: 12px; bottom: 8px; }
+  .starting-screen__language .ui-select { width: 148px; }
 }
