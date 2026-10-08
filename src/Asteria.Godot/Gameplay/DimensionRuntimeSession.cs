@@ -558,6 +558,23 @@ public sealed class DimensionRuntimeSession
                 destination.Z + 0.5f);
     }
 
+    /// <summary>Resolve the final entry from authoritative loaded voxels
+    /// after the normal world loading pipeline has prepared the destination.</summary>
+    public bool TryPrepareResidentWarpEntry()
+    {
+        if (_retiring || _retired) return false;
+        var safe = ResidentWarpDestinationQuery.Find(
+            World, _initialPlayerPosition);
+        if (safe is not { } position) return false;
+        _initialPlayerPosition = position;
+        return true;
+    }
+
+    /// <summary>Fallback for an obstructed generated warp entry.
+    /// Starts the usual world loading pipeline around the authored spawn.</summary>
+    public void PrepareGeneratedSpawn() =>
+        _initialPlayerPosition = ResolveGeneratedSpawn();
+
     public ChunkCoord InitialStreamingCenter
     {
         get
