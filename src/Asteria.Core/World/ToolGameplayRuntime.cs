@@ -74,7 +74,8 @@ public sealed class ToolGameplayRuntime
             _ => null,
         };
         if (targetKey is null) return false;
-        if (!_world.TryGetCell(hit.Voxel, out var cell) || cell.IsEmpty)
+        if (!_world.TryGetCell(hit.Voxel, out var cell) ||
+            cell.IsEmpty || cell.HasMicroblockGeometry)
             return false;
 
         var source = _blocks.GetDefinition(cell.Block);

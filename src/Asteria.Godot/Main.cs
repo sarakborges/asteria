@@ -596,6 +596,7 @@ public partial class Main : Node3D
             _structureSets,
             _dayNightCycles,
             _creatures,
+            _tools,
             _packSelection,
             _inventoryDropIcons.Resolve,
             _terrainTextureLookup,
@@ -2107,6 +2108,19 @@ public partial class Main : Node3D
         if (!TryGetTarget(out var hit))
             return;
 
+        var held = _sessionStates.Player.Inventory.SelectedStack;
+        if (_sessions.Active.Tools.IsSpecialLeftAction(held))
+        {
+            if (_sessions.Active.Tools.TryUse(held, ToolUseHand.Left, hit))
+                KickWorldMutationWorkers();
+            return;
+        }
+        var definition = _blocks.GetDefinition(
+            _world.GetCellOrEmpty(hit.Voxel).Block);
+        if (!_sessions.Active.Tools.CanMine(
+                held, definition, _sessionStates.Player.GameMode))
+            return;
+
         var decision =
             _blockInteractions.Break(
                 hit,
@@ -2153,6 +2167,12 @@ public partial class Main : Node3D
 
         var inventory = _sessionStates.Player.Inventory;
         var selected = inventory.SelectedStack;
+        if (_sessions.Active.Tools.TryUse(
+                selected, ToolUseHand.Right, hit))
+        {
+            KickWorldMutationWorkers();
+            return;
+        }
         if (selected?.Block is not { } block ||
             block.HasMicroblockGeometry) return;
 

@@ -46,6 +46,7 @@ public sealed class DimensionRuntimeSession
         StructureSetRegistry structureSets,
         DayNightCycleRegistry dayNightCycles,
         PackContentRegistry<CreatureDefinition> creatures,
+        PackContentRegistry<ToolDefinition> tools,
         PackSelection packSelection,
         Func<InventoryEntry, Texture2D?> itemIcon,
         TerrainTextureLookup terrainTextures,
@@ -77,6 +78,7 @@ public sealed class DimensionRuntimeSession
             dayNightCycles);
         ArgumentNullException.ThrowIfNull(
             creatures);
+        ArgumentNullException.ThrowIfNull(tools);
         ArgumentNullException.ThrowIfNull(itemIcon);
         ArgumentNullException.ThrowIfNull(
             terrainTextures);
@@ -196,6 +198,8 @@ public sealed class DimensionRuntimeSession
                 blocks,
                 Mutations,
                 _droppedBlocks);
+        Tools = new ToolGameplayRuntime(
+            World, blocks, Mutations, tools);
 
         var blockEntityPresentations =
             new BlockEntityPresentationController(
@@ -371,6 +375,7 @@ public sealed class DimensionRuntimeSession
     public VoxelMutationRuntime Mutations { get; }
 
     public BlockInteractionRuntime BlockInteractions { get; }
+    public ToolGameplayRuntime Tools { get; }
 
     public BlockEntityFrameController BlockEntities { get; }
 
