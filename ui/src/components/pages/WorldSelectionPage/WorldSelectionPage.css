@@ -27,5 +27,20 @@
 }
 
 .world-selection__footer-button {
-  width: 300px;
+  width: min(300px, 30vw);
+}
+
+@media (max-width: 640px) {
+  .world-selection__footer-button {
+    width: auto;
+    min-width: 0;
+    flex: 1;
+    padding-inline: 4px;
+    font-size: var(--ui-font-size-caption);
+  }
+
+  .world-selection-screen .screen-shell__footer {
+    padding-inline: 12px;
+    gap: 8px;
+  }
 }
