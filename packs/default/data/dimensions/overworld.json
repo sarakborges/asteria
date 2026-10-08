@@ -170,7 +170,12 @@
       "structure": "asteria:boulder_small",
       "spacing": 52,
       "chance": 0.18,
-      "jitter": 15
+      "jitter": 15,
+      "habitatWeights": {
+        "willow_grove": 0.28,
+        "open_mire": 0.12,
+        "fungal_ground": 0.8
+      }
     },
     {
       "biome": "asteria:overworld/wasteland",
@@ -407,7 +412,12 @@
       "structure": "asteria:tree_willow",
       "spacing": 9,
       "chance": 0.9,
-      "jitter": 3
+      "jitter": 3,
+      "habitatWeights": {
+        "willow_grove": 1.45,
+        "open_mire": 0.23,
+        "fungal_ground": 0.52
+      }
     },
     {
       "biome": "asteria:overworld/plains",

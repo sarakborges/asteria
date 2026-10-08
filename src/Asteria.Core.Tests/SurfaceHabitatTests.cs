@@ -85,6 +85,97 @@ public sealed class SurfaceHabitatTests
                          another.Sample(biome.Id, x, z));
     }
 
+    [Theory]
+    [InlineData("swamp", "willow_grove", "open_mire", "fungal_ground")]
+    [InlineData("enchanted_forest", "luminous_clearing", "violet_undergrowth", "pink_glade")]
+    public void OverworldBiomesAuthorDistinctHabitatRegions(
+        string biomeFile, string firstBand, string middleBand, string lastBand)
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "packs", "default",
+            "data", "biomes", biomeFile + ".json");
+        var biome = BiomeDefinitionJson.Parse(File.ReadAllText(path));
+        var definition = Assert.IsType<SurfaceHabitatDefinition>(biome.SurfaceHabitats);
+        Assert.Equal(new[] { firstBand, middleBand, lastBand },
+            definition.Bands.Select(band => band.Id));
+        Assert.All(biome.Decorations, decoration =>
+        {
+            var weights = Assert.IsType<SurfaceHabitatWeights>(decoration.HabitatWeights);
+            definition.ValidateWeights(weights);
+        });
+
+        var first = new SurfaceHabitatField(741UL, [biome]);
+        var second = new SurfaceHabitatField(741UL, [biome]);
+        foreach (var (x, z) in new[] { (-213, -161), (-16, 23), (85, 272), (401, -370) })
+            Assert.Equal(first.Sample(biome.Id, x, z),
+                         second.Sample(biome.Id, x, z));
+    }
+
+    [Fact]
+    public void SwampHabitatsDistributeWillowsFungiAndSurfaceObjects()
+    {
+        var biomePath = Path.Combine(AppContext.BaseDirectory, "packs", "default",
+            "data", "biomes", "swamp.json");
+        var biome = BiomeDefinitionJson.Parse(File.ReadAllText(biomePath));
+        var rootPath = Path.Combine(AppContext.BaseDirectory, "packs", "default",
+            "data", "dimensions", "overworld.json");
+        var dimension = DimensionDefinitionJson.Parse(File.ReadAllText(rootPath));
+        var roots = dimension.GeneratedSurfaceStructures
+            .Where(rule => rule.Biome == biome.Id).ToArray();
+        Assert.Equal(2, roots.Length);
+        var willows = Assert.Single(roots,
+            root => root.Structure == "asteria:tree_willow");
+        Assert.True(willows.HabitatWeights!.For("willow_grove") >
+                    willows.HabitatWeights.For("open_mire"));
+        var boulder = Assert.Single(roots,
+            root => root.Structure == "asteria:boulder_small");
+        Assert.True(boulder.HabitatWeights!.For("fungal_ground") >
+                    boulder.HabitatWeights.For("open_mire"));
+        var mushroom = Assert.Single(biome.Decorations,
+            rule => rule.Block == "asteria:mushroom_brown");
+        Assert.True(mushroom.HabitatWeights!.For("fungal_ground") >
+                    mushroom.HabitatWeights.For("willow_grove"));
+        Assert.Equal(93, mushroom.Conditions!.MaxY);
+    }
+
+    [Fact]
+    public void EnchantedForestHabitatsKeepExistingMushroomPaletteAndNoInventedTrees()
+    {
+        var biome = BiomeDefinitionJson.Parse(File.ReadAllText(Path.Combine(
+            AppContext.BaseDirectory, "packs", "default", "data",
+            "biomes", "enchanted_forest.json")));
+        var purple = Assert.Single(biome.Decorations,
+            rule => rule.Block == "asteria:mushroom_purple");
+        var pink = Assert.Single(biome.Decorations,
+            rule => rule.Block == "asteria:mushroom_pink");
+        Assert.True(purple.HabitatWeights!.For("violet_undergrowth") >
+                    purple.HabitatWeights.For("pink_glade"));
+        Assert.True(pink.HabitatWeights!.For("pink_glade") >
+                    pink.HabitatWeights.For("violet_undergrowth"));
+    }
+
+    [Fact]
+    public void WraithGroveHabitatsWorkOnAnotherSphereAndEnableGroundMushrooms()
+    {
+        var biome = BiomeDefinitionJson.Parse(File.ReadAllText(Path.Combine(
+            AppContext.BaseDirectory, "packs", "default", "data",
+            "biomes", "wraith_grove.json")));
+        Assert.Equal("asteria:umbral/wraith_grove", biome.Id);
+        var bands = Assert.IsType<SurfaceHabitatDefinition>(biome.SurfaceHabitats);
+        Assert.Equal(new[] { "dusky_underbrush", "pale_clearing", "decay_pockets" },
+            bands.Bands.Select(band => band.Id));
+        Assert.All(biome.Decorations, rule =>
+            bands.ValidateWeights(Assert.IsType<SurfaceHabitatWeights>(rule.HabitatWeights)));
+        var mushrooms = Assert.Single(biome.Decorations,
+            rule => rule.Block == "asteria:mushroom_brown");
+        Assert.Contains("asteria:grass_block", mushrooms.SurfaceBlocks);
+        Assert.True(mushrooms.HabitatWeights!.For("decay_pockets") >
+                    mushrooms.HabitatWeights.For("pale_clearing"));
+        var first = new SurfaceHabitatField(41UL, [biome]);
+        var second = new SurfaceHabitatField(41UL, [biome]);
+        Assert.Equal(first.Sample(biome.Id, -289, 74),
+                     second.Sample(biome.Id, -289, 74));
+    }
+
     [Fact]
     public void RejectInvalidBandsAndMissingHabitatReferences()
     {

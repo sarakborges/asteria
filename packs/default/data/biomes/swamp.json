@@ -90,7 +90,12 @@
         "asteria:grass_block",
         "asteria:dirt",
         "asteria:mud"
-      ]
+      ],
+      "habitatWeights": {
+        "willow_grove": 0.85,
+        "open_mire": 1.7,
+        "fungal_ground": 0.55
+      }
     },
     {
       "block": "asteria:mushroom_brown",
@@ -102,6 +107,11 @@
       "conditions": {
         "maxY": 93,
         "maxSlope": 3
+      },
+      "habitatWeights": {
+        "willow_grove": 0.65,
+        "open_mire": 0.25,
+        "fungal_ground": 2.7
       }
     },
     {
@@ -115,6 +125,11 @@
       "cluster": {
         "scale": 18,
         "threshold": -0.1
+      },
+      "habitatWeights": {
+        "willow_grove": 0.3,
+        "open_mire": 0.3,
+        "fungal_ground": 1.7
       }
     },
     {
@@ -128,6 +143,11 @@
       "cluster": {
         "scale": 18,
         "threshold": -0.16
+      },
+      "habitatWeights": {
+        "willow_grove": 2,
+        "open_mire": 0.4,
+        "fungal_ground": 0.85
       }
     }
   ],
@@ -135,5 +155,23 @@
     "grass": "49683C",
     "leaf": "45653C",
     "foliage": "475C3B"
+  },
+  "surfaceHabitats": {
+    "scale": 112,
+    "transitionWidth": 0.1,
+    "bands": [
+      {
+        "id": "willow_grove",
+        "maximum": -0.17
+      },
+      {
+        "id": "open_mire",
+        "maximum": 0.14
+      },
+      {
+        "id": "fungal_ground",
+        "maximum": 1
+      }
+    ]
   }
 }

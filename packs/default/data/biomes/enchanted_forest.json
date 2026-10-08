@@ -40,7 +40,12 @@
       "chance": 0.28,
       "surfaceBlocks": [
         "asteria:grass_block"
-      ]
+      ],
+      "habitatWeights": {
+        "luminous_clearing": 1.9,
+        "violet_undergrowth": 0.75,
+        "pink_glade": 0.7
+      }
     },
     {
       "block": "asteria:mushroom_purple",
@@ -48,7 +53,12 @@
       "surfaceBlocks": [
         "asteria:grass_block",
         "asteria:dirt"
-      ]
+      ],
+      "habitatWeights": {
+        "luminous_clearing": 0.2,
+        "violet_undergrowth": 2.2,
+        "pink_glade": 0.5
+      }
     },
     {
       "block": "asteria:mushroom_pink",
@@ -56,7 +66,12 @@
       "surfaceBlocks": [
         "asteria:grass_block",
         "asteria:dirt"
-      ]
+      ],
+      "habitatWeights": {
+        "luminous_clearing": 0.24,
+        "violet_undergrowth": 0.55,
+        "pink_glade": 2.4
+      }
     },
     {
       "block": "asteria:stick",
@@ -68,6 +83,11 @@
       "cluster": {
         "scale": 22,
         "threshold": -0.12
+      },
+      "habitatWeights": {
+        "luminous_clearing": 0.35,
+        "violet_undergrowth": 1.7,
+        "pink_glade": 0.55
       }
     }
   ],
@@ -75,5 +95,23 @@
     "grass": "14FF94",
     "leaf": "00F5FF",
     "foliage": "D129FF"
+  },
+  "surfaceHabitats": {
+    "scale": 128,
+    "transitionWidth": 0.12,
+    "bands": [
+      {
+        "id": "luminous_clearing",
+        "maximum": -0.2
+      },
+      {
+        "id": "violet_undergrowth",
+        "maximum": 0.12
+      },
+      {
+        "id": "pink_glade",
+        "maximum": 1
+      }
+    ]
   }
 }
