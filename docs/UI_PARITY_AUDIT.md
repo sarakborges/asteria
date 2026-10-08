@@ -100,7 +100,7 @@ Statuses: **MATCHING FOUNDATION** (main geometry or semantics correspond, manual
 
 The original check only looked for isolated components and missed a visible in-game discrepancy. CI now builds Storybook and starts a real Chromium browser. Tests navigate through the **actual React `App`**, using the real `UiStore` and `UiNavigationController` but deliberately fake/non-operative Godot bridge actions, from Starting → World Selection → New World. Checks assert:
 
-- The New World desktop sidebar is visibly left of the content panel, not merely present in the TSX source.
+- The New World sidebar is visibly left of the content panel at 1920 px **and 640 px**; the former Asteria breakpoint at 760 px wrongly moved it above the form, unlike MineClone's persistent left navigation. Phone-only stacking is now limited to 520 px or narrower.
 - Exactly two real sections (World Settings and Game Rules), with the sidebar labels matching the section headings.
 - **Seed resides inside World Settings**, after World Name and before Game Mode; it does **not** belong to Game Rules. This follows MineClone `new_world_settings_section()` exactly.
 - Game Rules contains both tick-rate and Spawn Creatures controls, and their appropriate interactive state.
