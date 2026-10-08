@@ -21,6 +21,11 @@ public readonly record struct SurfaceStructureQueryResult(
     int MinimumZ,
     int MaximumZ);
 
+/// <summary>Complete field-approved manual expansion and its one reservation.</summary>
+internal sealed record ManualStructurePlacementPlan(
+    IReadOnlyList<SurfaceStructurePlacement> Pieces,
+    ManualStructurePlacementFootprint Footprint);
+
 public sealed class SurfaceStructureField
 {
     private const int PlacementCacheCapacity = 128;
@@ -155,9 +160,11 @@ public sealed class SurfaceStructureField
     /// </summary>
     internal bool TryPrepareManualPlacement(
         string reference, int? variation, int anchorX, int anchorZ,
-        out IReadOnlyList<SurfaceStructurePlacement> placements)
+        ManualStructurePlacementLedger committed,
+        out ManualStructurePlacementPlan? plan)
     {
-        placements = Array.Empty<SurfaceStructurePlacement>();
+        ArgumentNullException.ThrowIfNull(committed);
+        plan = null;
         var biome = SurfaceAt(anchorX, anchorZ).Biome.Primary;
         var members = Array.Empty<RuntimeStructure>();
         RuntimeStructureSet? set = null;
@@ -243,7 +250,13 @@ public sealed class SurfaceStructureField
                              existing.MaximumY >= minY))
             return false;
 
-        placements = pieces;
+        var footprint = new ManualStructurePlacementFootprint(
+            reference, anchorX, anchorZ,
+            minX, maxX, minY, maxY, minZ, maxZ);
+        if (committed.Overlaps(footprint))
+            return false;
+
+        plan = new ManualStructurePlacementPlan(pieces, footprint);
         return true;
     }
 
