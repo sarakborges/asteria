@@ -234,8 +234,12 @@ public sealed class GeneratedSurfaceFluidTests
                 "asteria:overworld/swamp");
         _ =
             Assert.IsType<
-                BiomeSwampTerrainShapeDefinition>(
+                BiomeRollingTerrainShapeDefinition>(
                 swamp.SurfaceTerrain!.Shape);
+        var depressions =
+            Assert.IsType<BiomeDepressionsTerrainModifierDefinition>(
+                Assert.Single(swamp.SurfaceTerrain.Modifiers));
+        Assert.Equal(4.8f, depressions.Depth);
         Assert.True(
             swamp.SurfaceTerrain.FillToSeaLevel);
         Assert.Equal(
@@ -387,9 +391,8 @@ public sealed class GeneratedSurfaceFluidTests
                 "asteria:test/swamp",
                 new BiomeSurfaceLayoutDefinition(),
                 new BiomeTerrainDefinition(
-                    new BiomeSwampTerrainShapeDefinition(
+                    new BiomeRollingTerrainShapeDefinition(
                         baseHeight: 0.9f,
-                        depth: 4.8f,
                         amplitude: 0.7f,
                         scale: 0.0065f,
                         detailAmplitude: 0.4f,
@@ -486,7 +489,7 @@ public sealed class GeneratedSurfaceFluidTests
     }
 
     [Fact]
-    public void DefaultBiomePackRestoresMineCloneTerrainTypes()
+    public void DefaultBiomePackUsesReusableTerrainTypes()
     {
         var biomes =
             BiomeRegistry.FromJson(
@@ -502,17 +505,17 @@ public sealed class GeneratedSurfaceFluidTests
                 ["asteria:overworld/desert"] =
                     typeof(BiomeDunesTerrainShapeDefinition),
                 ["asteria:overworld/ocean"] =
-                    typeof(BiomeOceanTerrainShapeDefinition),
+                    typeof(BiomeRollingTerrainShapeDefinition),
                 ["asteria:overworld/swamp"] =
-                    typeof(BiomeSwampTerrainShapeDefinition),
+                    typeof(BiomeRollingTerrainShapeDefinition),
                 ["asteria:overworld/mountains"] =
-                    typeof(BiomeMountainsTerrainShapeDefinition),
+                    typeof(BiomeRidgesTerrainShapeDefinition),
                 ["asteria:overworld/gorge"] =
-                    typeof(BiomeGorgeTerrainShapeDefinition),
+                    typeof(BiomeValleyTerrainShapeDefinition),
                 ["asteria:overworld/alps"] =
-                    typeof(BiomeAlpsTerrainShapeDefinition),
+                    typeof(BiomeRidgesTerrainShapeDefinition),
                 ["asteria:overworld/mountain_belt"] =
-                    typeof(BiomeMountainBeltTerrainShapeDefinition),
+                    typeof(BiomeRidgesTerrainShapeDefinition),
                 ["asteria:overworld/volcano"] =
                     typeof(BiomeConeTerrainShapeDefinition),
                 ["asteria:umbral/umbral_reach"] =
@@ -534,6 +537,15 @@ public sealed class GeneratedSurfaceFluidTests
                     .Shape
                     .GetType());
         }
+
+        Assert.Equal(
+            BiomeRidgeDetailMode.Ridged,
+            Assert.IsType<BiomeRidgesTerrainShapeDefinition>(
+                biomes.Get("asteria:overworld/alps").SurfaceTerrain!.Shape).DetailMode);
+        Assert.Equal(
+            BiomeRidgeDetailMode.Modulated,
+            Assert.IsType<BiomeRidgesTerrainShapeDefinition>(
+                biomes.Get("asteria:overworld/mountain_belt").SurfaceTerrain!.Shape).DetailMode);
 
         var mountains =
             biomes.Get(

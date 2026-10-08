@@ -27,7 +27,7 @@ This document is the active parity map for the migration. It must be updated whe
 | 1 — Cleanup | Remove old biome/worldgen/loading ownership and repair/fallback paths before building replacement ownership. | **Ported for active worldgen** | Keep deleted/obsolete ownership from re-entering through compatibility helpers or consumer-side reconstruction. |
 | 2 — Generation foundation/query model | Immutable deterministic generator; pure scalar + bounded queries; no semantic generation tiles; order-independent direct far-coordinate access. | **Ported / Adapted** | Preserve scalar/batch equivalence and bounded cache semantics as later capabilities are added. |
 | 3 — Biome Layout | Organic formation field, `regionSize`, weights, `cannotBorder`, primary + normalized influences, deterministic search, biome-map sampling. | **Ported / Adapted** | Semantic layout, deterministic search and query-only biome-map diagnostics are implemented. Asteria emits SVG + legend instead of MineClone's PNG renderer. |
-| 4 — Terrain | Continuous surface field plus authoritative 3D density, caves/floating terrain, bounded queries, seam/order independence. | **Ported / Adapted** | `SurfaceTerrainField` now supports the MineClone terrain profiles `rolling`, `dunes`, `ocean`, `swamp`, `mountains`, `gorge`, `alps`, `mountain_belt`, and `volcano`, plus authored height/cliff modifiers, without adding a second terrain owner. |
+| 4 — Terrain | Continuous surface field plus authoritative 3D density, caves/floating terrain, bounded queries, seam/order independence. | **Ported / Adapted** | `SurfaceTerrainField` now supports the MineClone terrain profiles `noise`, `rolling`, `dunes`, `ridges`, `valley`, and `cone`, plus authored height/cliff modifiers, without adding a second terrain owner. |
 | 5 — Surface/material/generated fluids | Deterministic layers, patches, generated natural fluids and runtime handoff. | **Ported / Adapted** | `GeneratedFluidField` owns ocean/static swamp fill, biome-authored volcano-crater lava + spill channels, and the reusable bounded `generatedSurfaceFluids` capability. Swamp depressions and volcano crater geometry come from `SurfaceTerrainField`; runtime simulation takes over after residency. |
 | 6 — Structures/features | One authoritative Structure placement/query owner; StructureSets, variants, conflicts, connectors/chains, biome/terrain/fluid restrictions and cross-chunk materialization. | **Ported / Adapted** | Authoritative queries, deterministic multi-piece StructureSets, connector/chains, fluid/clear payloads, biome-margin roots, and the lake/river/mountain-pond/mountain-waterfall content path are implemented through generic Structures. No hydrology subsystem exists. |
 | 7 — Chunk synthesis | One procedural writer composes density/materials/features/structures/generated fluids into runtime chunks. | **Ported / Adapted** | `SurfaceChunkMaterializer` remains the single procedural writer for all current generation content. |
@@ -193,3 +193,21 @@ Special surface appearances are authored as **geometry + optional features**, ra
 - Primitive profiles remain useful geometry algorithms, but their shaping constants are now authored: dunes (`waveDirectionZ`, `broadScaleMultiplier`, `waveWeight`); swamp depressions (`pondBroadScaleMultiplier`, `pondDetailScaleMultiplier`, `pondBroadWeight`, `pondBias`, `pondTransitionWidth`, `pondSharpness`); gorge (`rimFalloff`, `floorFalloff`); alps (`detailSharpness`); cone (`slopeNoiseGain`).
 
 The obsolete `surfaceFluid: { type: "volcano_crater" }` and `surfaceTerrain.type: "volcano"` contracts are deliberately removed, not kept as aliases. The default volcano's crater-fluid top stays 54 blocks above dimension sea level. Spill noise uses a new generic generation domain and may produce a different deterministic pattern.
+
+### Generic terrain consolidation
+
+The content-specific surface shape types are eliminated. Biomes are compositions of reusable shapes and modifiers:
+
+| Default biome | Authored shape | Extra authored behavior |
+| --- | --- | --- |
+| ocean | `rolling` with negative `baseHeight` | `influenceMode: lowerOnly`, dimension ocean-shore/fill |
+| swamp | `rolling` | `depressions` modifier, `fillToSeaLevel`, `lowerOnly` |
+| mountains | `ridges` | optional `cliffs` modifier |
+| alps | `ridges` | `detailMode: ridged` and `detailSharpness` |
+| mountain_belt | `ridges` | `detailMode: modulated` (detail follows ridge strength) |
+| gorge | `valley` | `rimFalloff`, `floorFalloff` |
+| volcano | `cone` | optional `crater` + `fluidFill` + `spill` |
+
+The `depressions` modifier can be added to **any** surface shape with `depth`, `broadScale`, `detailScale`, `broadWeight`, `bias`, `transitionWidth`, and `sharpness`. This replaces the special swamp height algorithm. Every modifier has a deterministic per-biome/index noise domain. Existing cliff and height-offset modifiers remain usable on any profile.
+
+The former `ocean`, `swamp`, `mountains`, `gorge`, `alps`, `mountain_belt`, and `volcano` surfaceTerrain types are deliberately not supported: migrate content into the generic shapes rather than carrying aliases. Generalizing the swamp depression's noise domain changes its deterministic layout while retaining the authored shape contract.
