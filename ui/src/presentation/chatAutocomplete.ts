@@ -8,7 +8,7 @@ export type ChatCompletion = {
 };
 
 const SUGGESTION_LIMIT = 64;
-const META_TAGS = ["NO_AI"] as const;
+const META_TAGS = ["NO_AI", "PERSISTENT"] as const;
 const ACTIONS = ["add", "remove", "edit"] as const;
 const LOCATE_KINDS = ["biome", "structure"] as const;
 
