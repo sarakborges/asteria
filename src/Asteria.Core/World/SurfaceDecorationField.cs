@@ -49,10 +49,11 @@ public sealed class SurfaceDecorationField
         BiomeSample sample,
         BlockRuntimeId surfaceBlock,
         int worldX,
-        int worldZ)
+        int worldZ,
+        SurfacePlacementContext? suppliedPlacement = null)
     {
-        SurfacePlacementContext? placement = null;
-        var slopeSampled = false;
+        SurfacePlacementContext? placement = suppliedPlacement;
+        var slopeSampled = suppliedPlacement.HasValue;
         foreach (var influence in sample.Influences)
         {
             foreach (var rule in _rules[influence.BiomeId])
