@@ -60,7 +60,14 @@ Asteria deliberately orders the survival center column as **Inventory → Crafti
 
 ## Migration status
 
-The MineClone UI design-system, screen, modal, inventory/crafting and HUD presentation migration is now complete for the currently identified reference components.
+Major MineClone screens, modals, inventory/crafting and HUD surfaces have been migrated, but reusable-control and transition parity is not yet complete.
+
+## Remaining presentation differences
+
+- `src/ui/dropdown.rs`: Asteria's `Select` uses a native browser menu, not MineClone's 44 px anchored option panel, selected/hovered states or 40 px option rows.
+- `src/ui/scrollbar.rs`: scroll containers currently use CSS scrollbar styling; MineClone's auto-overflow visibility and 8 px track / minimum 28 px thumb are not yet consistently applied.
+- `src/ui/transition.rs`: MineClone's 160 ms fade-out + fade-in transition is not yet represented by a shared WebUI screen transition. Keep this presentation-only; navigation ownership stays in controllers.
+- Runtime-backed screens marked presentation-only above still need their authoritative gameplay owners before activation. Never invent save, inventory, pause or command behavior merely to make a screen clickable.
 
 ## Runtime integration status
 
