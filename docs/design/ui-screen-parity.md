@@ -29,3 +29,9 @@ A complete primitive-by-primitive and screen-by-screen backlog now lives in [ui-
 - Storage Box and Chat visual parity is improved and covered by Storybook, **but neither is mounted to the live Godot gameplay bridge**. Storage sorting/mutations and chat submission/autocomplete must first have authoritative runtime state and explicit semantic bridge commands. Absent callbacks are noninteractive; Storybook examples are not runtime data.
 - Chat presentation follows the MineClone 500px bottom-left frame, 64-message bounded history and seven-suggestion selection window. The visual shell does not implement the chat command engine.
 - Remaining UI fronts: tooltip tool stats once runtime supplies data, player portrait/equipment, recipes/station, chat and storage runtime wiring, HUD visual audit.
+
+## Live Chat parity
+
+Native configurable Chat key (default T) now opens a real in-game `ChatDock`, suspending Godot gameplay input rather than listening for global keys in WebUI. Text submission and `/help`, `/position`, `/time` execute locally against the Core session/current runtime; messages are bounded to 64 and transient chat feedback fades after 10 seconds. Autocomplete allows Up/Down/Tab while the chat input is focused. `ChatController` validates every bridge snapshot and `ChatPanel` localizes command outcomes.
+
+**Limits:** no multiplayer messaging, no unsupported MineClone commands. `StorageBoxPage` remains a visual-only page while Asteria lacks a native storage block/entity owner; do not turn Storybook fixtures into live inventory contents.
