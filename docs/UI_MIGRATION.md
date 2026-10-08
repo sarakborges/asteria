@@ -33,7 +33,7 @@ MineClone reference: `sarakborges/mineclone`, branch `world-systems-rebuild`.
 
 ## First migrated screen
 
-`NewWorldPage` consumes the migrated design-system primitives. It deliberately exposes only controls backed by Asteria's current world-creation contract rather than inventing unsupported MineClone settings.
+`NewWorldPage` uses the MineClone-authored name → seed → game-mode ordering, 8 px inner gaps, aligned game-rule rows, digit-only uint64 seed editor and Spawn Creatures toggle backed by `WorldCreationOptions`/`WorldGameRules`. **Observed embedded WRY parity remains unverified:** the user reports sidebar/sections not visible in the runtime although source composes them. See the audit and do not mark 1:1 until a live screenshot comparison passes.
 
 ## Screen migration status
 

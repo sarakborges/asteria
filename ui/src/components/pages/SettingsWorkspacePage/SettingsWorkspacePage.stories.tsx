@@ -18,7 +18,7 @@ const meta = {
         keybinds: { jump: "Space", descend: "ShiftLeft", toolAction: "KeyR",
           inventory: "KeyE", dropItem: "KeyQ" },
       },
-      world: { name: "New World", mode: "Survival", ticksPerSecond: 40 },
+      world: { name: "New World", mode: "Survival", ticksPerSecond: 40, spawnCreatures: true },
       captureAction: null,
       errorKey: null,
     },
@@ -28,6 +28,7 @@ const meta = {
     onHideHints: () => {},
     onGameplayHint: () => {},
     onWorldTicks: () => {},
+    onSpawnCreatures: () => {},
     onGameMode: () => {},
   },
 } satisfies Meta<typeof SettingsWorkspacePage>;
