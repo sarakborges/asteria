@@ -279,6 +279,7 @@ public sealed class DimensionRuntimeSession
                 terrainTextures,
                 Generator.Tints,
                 layers,
+                dyes,
                 WorldUpdates,
                 ContentRevisions,
                 Presentations,
