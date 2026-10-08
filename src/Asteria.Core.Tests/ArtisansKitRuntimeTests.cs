@@ -93,9 +93,11 @@ public sealed class ArtisansKitRuntimeTests
         Assert.True(kit.TryEdit(
             Equipped(), ToolUseHand.Left, Hit, Eye, Direction, ClearPlayer));
         var before = world.GetMicroblockMaskOrEmpty(Position);
+        // The camera ray enters the upper-right microblock octant:
+        // test player intersection against that exact restored piece.
         var occupiedByPlayer = new WorldAabb(
-            new Vector3(2f, 3f, 4f),
-            new Vector3(2.5f, 3.5f, 4.5f));
+            new Vector3(2f, 3.5f, 4.5f),
+            new Vector3(2.5f, 4f, 5f));
 
         Assert.False(kit.TryEdit(
             Equipped(), ToolUseHand.Right, Hit, Eye, Direction, occupiedByPlayer));
