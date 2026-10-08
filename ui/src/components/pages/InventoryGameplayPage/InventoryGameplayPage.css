@@ -1,0 +1,41 @@
+.inventory-gameplay {
+  position: fixed;
+  inset: 0;
+  z-index: 65;
+  background: rgb(0 0 0 / 86%);
+  pointer-events: auto;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ui-inventory-panel-gap, 16px);
+  padding: var(--ui-inventory-panel-gap, 16px);
+}
+.inventory-gameplay__header {
+  width: min(95vw, 1180px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.inventory-gameplay__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.inventory-gameplay__content {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  min-height: 0;
+}
+.inventory-gameplay__footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+}
+@media (max-width: 600px) {
+  .inventory-gameplay__header { flex-wrap: wrap; }
+  .inventory-gameplay__header-actions { flex-wrap: wrap; }
+}

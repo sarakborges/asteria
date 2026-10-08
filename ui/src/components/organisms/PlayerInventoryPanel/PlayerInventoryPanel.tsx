@@ -72,6 +72,7 @@ export function PlayerInventoryPanel({
             label="⇅"
             className="player-inventory-panel__sort"
             onClick={onSort}
+            disabled={!onSort}
           />
         </div>
       </header>
@@ -116,6 +117,7 @@ export function PlayerInventoryPanel({
           className="player-inventory-panel__trash"
           aria-label={t("ui.trashItem")}
           onClick={onTrash}
+          disabled={!onTrash}
         >
           ×
         </button>
