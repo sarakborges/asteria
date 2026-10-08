@@ -83,6 +83,7 @@ public partial class Main : Node3D
     private StructureRegistry _structures = null!;
     private StructureSetRegistry _structureSets = null!;
     private DimensionRegistry _dimensions = null!;
+    private DayNightCycleRegistry _dayNightCycles = null!;
     private DimensionSessionStateStore _sessionStates = null!;
     private DimensionSessionController _sessions = null!;
     private DimensionDefinition _dimension =>
@@ -109,6 +110,7 @@ public partial class Main : Node3D
         new();
 
     private WorldLoadingProgress? _lastLoadingProgress;
+    private (ulong Day, int Hour, int Minute)? _lastClockHud;
     private WorldFrameWorkBudget _worldFrameBudget;
     private bool _worldReadySent;
     private bool _debugHudVisible;
@@ -144,6 +146,11 @@ public partial class Main : Node3D
         _dimensions =
             DimensionContentLoader.LoadProjectDimensions(
                 _packSelection);
+        _dayNightCycles =
+            DayNightCycleContentLoader.LoadProjectCycles(
+                _packSelection);
+        _dimensions.ValidateDayNightCycles(
+            _dayNightCycles);
         _dimensions.ValidateBiomes(
             _biomes);
         _dimensions.ValidateBlocks(
@@ -248,9 +255,9 @@ public partial class Main : Node3D
             return;
         }
 
-        _worldTicks.Advance(
-            delta,
-            WorldTicksPerSecond);
+        _sessions.Active.AdvanceWorldTime(
+            delta);
+        UpdateDayNightPresentation();
 
         var loadingWorld =
             _loading.Progress.Phase is
@@ -311,6 +318,7 @@ public partial class Main : Node3D
         }
 
         SendWorldHudState();
+        SendWorldClockState();
         SendTargetHudState();
     }
 
@@ -418,7 +426,62 @@ public partial class Main : Node3D
     private void ActivateCurrentDimensionPresentation()
     {
         _dimensionEnvironment.Apply(
-            _dimension);
+            _dimension,
+            ActiveDayNightCycle(),
+            _sessions.Active.DayNight);
+        _lastClockHud = null;
+        SendWorldClockState(force: true);
+    }
+
+    private DayNightCycleDefinition ActiveDayNightCycle() =>
+        _dayNightCycles.Get(
+            _dimension.DayNightCycleId ??
+            throw new InvalidOperationException(
+                $"Dimension {_dimension.Id} has no day-night cycle."));
+
+    private void UpdateDayNightPresentation()
+    {
+        if (_worldTicks.TicksThisFrame != 0)
+        {
+            _dimensionEnvironment.Update(
+                ActiveDayNightCycle(),
+                _sessions.Active.DayNight);
+        }
+
+        if (_player is { } player)
+        {
+            _dimensionEnvironment.FollowCamera(
+                player.Camera.GlobalPosition);
+        }
+    }
+
+    private void SendWorldClockState(
+        bool force = false)
+    {
+        var clock =
+            _sessions.Active.DayNight;
+        var (hour, minute) =
+            clock.WorldTime;
+        var state = (
+            clock.Day,
+            Hour: hour,
+            Minute: minute);
+
+        if (!force &&
+            _lastClockHud == state)
+        {
+            return;
+        }
+
+        _lastClockHud = state;
+        SendWebUi(
+            "game.hud.clock",
+            new
+            {
+                day = state.Day,
+                hour = state.Hour,
+                minute = state.Minute,
+            });
     }
 
     private DimensionRuntimeSession CreateDimensionSession(
@@ -431,6 +494,7 @@ public partial class Main : Node3D
             _biomes,
             _structures,
             _structureSets,
+            _dayNightCycles,
             _terrainTextureLookup,
             _terrainMaterials,
             _fluidMaterials,
@@ -622,6 +686,7 @@ public partial class Main : Node3D
         SendHotbarState();
         SendWorldHudState(
             force: true);
+        SendWorldClockState(force: true);
         SendFpsHudState();
         SendTargetHudState(
             force: true);

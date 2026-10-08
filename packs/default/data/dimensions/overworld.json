@@ -276,5 +276,6 @@
       "jitter": 48,
       "placement": "biomeMargin"
     }
-  ]
+  ],
+  "dayNightCycle": "asteria:overworld/day_night_cycle"
 }

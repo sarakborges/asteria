@@ -30,5 +30,6 @@
     "noiseHalfWidth": 0.18,
     "densityScale": 24,
     "boundaryFade": 8
-  }
+  },
+  "dayNightCycle": "asteria:umbral/day_night_cycle"
 }

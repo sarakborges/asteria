@@ -4,74 +4,234 @@ using GEnvironment = Godot.Environment;
 
 namespace Asteria.Client.Rendering;
 
+/// <summary>
+/// Godot-only presentation of the dimension clock. Voxel skylight and terrain
+/// shaders are deliberately not modified by the day/night cycle.
+/// </summary>
 public sealed class DimensionEnvironmentPresentation
 {
     private readonly Node _parent;
     private WorldEnvironment? _node;
+    private GEnvironment? _environment;
+    private DirectionalLight3D? _sunLight;
+    private MeshInstance3D? _sunOrb;
+    private MeshInstance3D? _moonOrb;
+    private DimensionEnvironmentDefinition? _definition;
+    private Vector3 _sunDirection;
+    private Vector3 _moonDirection;
+    private float _sunDistance;
+    private float _moonDistance;
 
-    public DimensionEnvironmentPresentation(
-        Node parent)
+    public DimensionEnvironmentPresentation(Node parent)
     {
-        _parent =
-            parent ??
-            throw new ArgumentNullException(
-                nameof(parent));
+        _parent = parent ??
+            throw new ArgumentNullException(nameof(parent));
     }
 
     public void Apply(
-        DimensionDefinition dimension)
+        DimensionDefinition dimension,
+        DayNightCycleDefinition cycle,
+        DayNightClock clock)
     {
-        ArgumentNullException.ThrowIfNull(
-            dimension);
+        ArgumentNullException.ThrowIfNull(dimension);
+        ArgumentNullException.ThrowIfNull(cycle);
+        ArgumentNullException.ThrowIfNull(clock);
 
-        var definition =
-            dimension.Environment;
-        var environment =
-            new GEnvironment
-            {
-                BackgroundMode =
-                    GEnvironment.BGMode.Color,
-                BackgroundColor =
-                    ToColor(
-                        definition.BackgroundColor),
-                AmbientLightSource =
-                    GEnvironment.AmbientSource.Color,
-                AmbientLightColor =
-                    ToColor(
-                        definition.AmbientColor),
-                AmbientLightEnergy =
-                    definition.AmbientEnergy,
-                FogEnabled =
-                    definition.FogDensity >
-                    0f,
-                FogLightColor =
-                    ToColor(
-                        definition.FogColor),
-                FogDensity =
-                    definition.FogDensity,
-            };
+        _definition = dimension.Environment;
+        _environment ??= new GEnvironment
+        {
+            BackgroundMode = GEnvironment.BGMode.Color,
+            AmbientLightSource = GEnvironment.AmbientSource.Color,
+        };
 
         if (_node is null)
         {
-            _node =
-                new WorldEnvironment
-                {
-                    Name =
-                        "DimensionEnvironment",
-                };
-            _parent.AddChild(
-                _node);
+            _node = new WorldEnvironment
+            {
+                Name = "DimensionEnvironment",
+            };
+            _parent.AddChild(_node);
+            _node.Environment = _environment;
         }
 
-        _node.Environment =
-            environment;
+        _sunLight ??= CreateSunLight();
+        _sunOrb ??= CreateOrb("DaySun", new Color(1, 1, 1));
+        _moonOrb ??= CreateOrb("NightMoon", new Color(1, 1, 1));
+        Update(cycle, clock);
     }
 
-    private static Color ToColor(
-        DimensionColor color) =>
+    public void Update(
+        DayNightCycleDefinition cycle,
+        DayNightClock clock)
+    {
+        if (_environment is null ||
+            _definition is null)
+        {
+            return;
+        }
+
+        var sample = clock.Sample;
+        // The authored voxel skylight remains unchanged; only the engine
+        // ambient, background, fog and celestials follow this factor.
+        var factor = Math.Clamp(
+            sample.SkyLightFactor, 0f, 1f);
+        var backgroundFactor = 0.22f + 0.78f * factor;
+        var fogFactor = 0.40f + 0.60f * factor;
+
+        _environment.BackgroundColor =
+            ScaledColor(_definition.BackgroundColor, backgroundFactor);
+        _environment.AmbientLightColor =
+            ToColor(_definition.AmbientColor);
+        _environment.AmbientLightEnergy =
+            _definition.AmbientEnergy * factor;
+        _environment.FogEnabled =
+            _definition.FogDensity > 0f;
+        _environment.FogLightColor =
+            ScaledColor(_definition.FogColor, fogFactor);
+        _environment.FogDensity =
+            _definition.FogDensity;
+
+        ApplyCelestial(
+            _sunOrb!,
+            cycle.Sun,
+            cycle,
+            clock,
+            isSun: true);
+        ApplyCelestial(
+            _moonOrb!,
+            cycle.Moon,
+            cycle,
+            clock,
+            isSun: false);
+    }
+
+    public void FollowCamera(Vector3 position)
+    {
+        if (_sunOrb is { Visible: true })
+        {
+            _sunOrb.GlobalPosition =
+                position + _sunDirection * _sunDistance;
+        }
+
+        if (_moonOrb is { Visible: true })
+        {
+            _moonOrb.GlobalPosition =
+                position + _moonDirection * _moonDistance;
+        }
+    }
+
+    private DirectionalLight3D CreateSunLight()
+    {
+        var light = new DirectionalLight3D
+        {
+            Name = "DimensionSunLight",
+            ShadowEnabled = false,
+        };
+        _parent.AddChild(light);
+        return light;
+    }
+
+    private MeshInstance3D CreateOrb(
+        string name,
+        Color initialColor)
+    {
+        var mesh = new MeshInstance3D
+        {
+            Name = name,
+            Mesh = new SphereMesh
+            {
+                Radius = 1,
+                Height = 2,
+            },
+            MaterialOverride = new StandardMaterial3D
+            {
+                ShadingMode =
+                    BaseMaterial3D.ShadingModeEnum.Unshaded,
+                AlbedoColor = initialColor,
+            },
+            CastShadow =
+                GeometryInstance3D.ShadowCastingSetting.Off,
+        };
+        _parent.AddChild(mesh);
+        return mesh;
+    }
+
+    private void ApplyCelestial(
+        MeshInstance3D orb,
+        DayNightCelestialDefinition? body,
+        DayNightCycleDefinition cycle,
+        DayNightClock clock,
+        bool isSun)
+    {
+        var progress = body is null
+            ? null
+            : cycle.ProgressBetweenPhases(
+                clock.TickInDay,
+                body.RisePhase,
+                body.SetPhase);
+
+        if (body is null || progress is null)
+        {
+            orb.Visible = false;
+            if (isSun && _sunLight is not null)
+            {
+                _sunLight.Visible = false;
+            }
+            return;
+        }
+
+        var t = (float)progress.Value;
+        var azimuth = Mathf.DegToRad(
+            Mathf.Lerp(
+                body.RiseAzimuthDegrees,
+                body.SetAzimuthDegrees,
+                t));
+        var altitude = Mathf.DegToRad(
+            Mathf.Sin(t * Mathf.Pi) *
+            body.MaxAltitudeDegrees);
+        var horizontal = Mathf.Cos(altitude);
+        var direction = new Vector3(
+            horizontal * Mathf.Sin(azimuth),
+            Mathf.Sin(altitude),
+            horizontal * Mathf.Cos(azimuth));
+
+        orb.Visible = true;
+        orb.Scale = Vector3.One * (body.Size / 2f);
+        if (orb.MaterialOverride is StandardMaterial3D material)
+        {
+            material.AlbedoColor = ToColor(body.Tint);
+        }
+
+        if (isSun)
+        {
+            _sunDirection = direction;
+            _sunDistance = body.OrbitRadius;
+            _sunLight!.Visible = true;
+            _sunLight.LightColor = ToColor(body.Tint);
+            _sunLight.LightEnergy =
+                1.0f * clock.Sample.SkyLightFactor;
+            _sunLight.LookAt(-direction, Vector3.Up);
+        }
+        else
+        {
+            _moonDirection = direction;
+            _moonDistance = body.OrbitRadius;
+        }
+    }
+
+    private static Color ToColor(DimensionColor color) =>
         new(
             color.Red / 255f,
             color.Green / 255f,
             color.Blue / 255f,
+            1f);
+
+    private static Color ScaledColor(
+        DimensionColor color,
+        float factor) =>
+        new(
+            color.Red / 255f * factor,
+            color.Green / 255f * factor,
+            color.Blue / 255f * factor,
             1f);
 }

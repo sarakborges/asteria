@@ -74,6 +74,23 @@ public sealed class DimensionRegistry
         Definitions() =>
         _definitions;
 
+    public void ValidateDayNightCycles(
+        DayNightCycleRegistry cycles)
+    {
+        ArgumentNullException.ThrowIfNull(cycles);
+
+        foreach (var dimension in _definitions)
+        {
+            if (dimension.DayNightCycleId is not { } id)
+            {
+                throw new ArgumentException(
+                    $"Dimension {dimension.Id} has no dayNightCycle.");
+            }
+
+            _ = cycles.Get(id);
+        }
+    }
+
     public void ValidateBlocks(
         BlockRegistry blocks)
     {

@@ -35,6 +35,8 @@ public sealed class DimensionSessionState
 
     public ulong WorldTick { get; set; }
 
+    public DayNightClockState? DayNight { get; set; }
+
     public Vector3? PlayerPosition { get; set; }
 
     public BlockPhysicsRuntimeSnapshot?

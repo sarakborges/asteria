@@ -377,7 +377,8 @@ public sealed class DimensionDefinition
         IEnumerable<string>? volumeBiomes = null,
         IEnumerable<string>? undergroundBiomes = null,
         IEnumerable<DimensionGeneratedSurfaceStructureDefinition>? generatedSurfaceStructures = null,
-        IEnumerable<DimensionGeneratedSurfaceFluidDefinition>? generatedSurfaceFluids = null)
+        IEnumerable<DimensionGeneratedSurfaceFluidDefinition>? generatedSurfaceFluids = null,
+        string? dayNightCycleId = null)
     {
         if (!float.IsFinite(gravityStrength) ||
             gravityStrength < 0f ||
@@ -530,7 +531,13 @@ public sealed class DimensionDefinition
                 nameof(generatedOcean));
         }
 
+        if (dayNightCycleId is not null)
+        {
+            BlockDefinition.ValidateId(dayNightCycleId);
+        }
+
         Id = id;
+        DayNightCycleId = dayNightCycleId;
         SurfaceBiomes =
             Array.AsReadOnly(
                 authoredSurfaceBiomes);
@@ -564,6 +571,8 @@ public sealed class DimensionDefinition
     }
 
     public DimensionId Id { get; }
+
+    public string? DayNightCycleId { get; }
 
     public IReadOnlyList<string> SurfaceBiomes { get; }
 

@@ -45,6 +45,7 @@ public sealed class DimensionRuntimeSession
         BiomeRegistry biomes,
         StructureRegistry structures,
         StructureSetRegistry structureSets,
+        DayNightCycleRegistry dayNightCycles,
         TerrainTextureLookup terrainTextures,
         VoxelTerrainMaterialSet terrainMaterials,
         FluidMaterialCatalog fluidMaterials,
@@ -70,6 +71,8 @@ public sealed class DimensionRuntimeSession
             structures);
         ArgumentNullException.ThrowIfNull(
             structureSets);
+        ArgumentNullException.ThrowIfNull(
+            dayNightCycles);
         ArgumentNullException.ThrowIfNull(
             terrainTextures);
         ArgumentNullException.ThrowIfNull(
@@ -97,6 +100,13 @@ public sealed class DimensionRuntimeSession
         WorldTicks =
             new WorldTickClock(
                 state.WorldTick);
+        DayNight =
+            new DayNightClock(
+                dayNightCycles.Get(
+                    state.Dimension.DayNightCycleId ??
+                    throw new InvalidOperationException(
+                        $"Dimension {state.Dimension.Id} has no day-night cycle.")),
+                state.DayNight);
         FluidUpdates =
             new FluidUpdateQueue();
         FluidMeshUpdates =
@@ -265,6 +275,17 @@ public sealed class DimensionRuntimeSession
     public WorldUpdateQueue WorldUpdates { get; }
 
     public WorldTickClock WorldTicks { get; }
+
+    public DayNightClock DayNight { get; }
+
+    public void AdvanceWorldTime(
+        double deltaSeconds)
+    {
+        var elapsed = WorldTicks.Advance(
+            deltaSeconds,
+            Settings.WorldTicksPerSecond);
+        DayNight.Advance(elapsed);
+    }
 
     public FluidUpdateQueue FluidUpdates { get; }
 
@@ -474,6 +495,8 @@ public sealed class DimensionRuntimeSession
 
         _state.WorldTick =
             WorldTicks.CurrentTick;
+        _state.DayNight =
+            DayNight.CaptureState();
         _state.PlayerPosition =
             playerPosition;
         _state.BlockPhysics =

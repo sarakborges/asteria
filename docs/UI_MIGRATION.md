@@ -65,7 +65,7 @@ The MineClone UI design-system, screen, modal, inventory/crafting and HUD presen
 - FPS HUD: **wired**. Godot owns the 250 ms frame-sampling presentation tracker and publishes only changed values.
 - Block target HUD + action hint: **wired**. The existing authoritative voxel raycast is shared by block interaction and HUD projection; WebUI receives only a changed presentation snapshot and never performs targeting.
 - Target entity metadata: presentation remains ready, but no creature/entity-targeting owner exists in Asteria yet.
-- World clock: intentionally **not faked from world ticks**. MineClone's clock is backed by a full authored day/night cycle (phase timings, world-time mapping and skylight factor). Asteria needs that owner ported as a coherent world feature before the clock is wired.
+- World clock: **wired** to the authoritative per-Sphere `DayNightClock`. `game.hud.clock` publishes changes of minute/day and an initial snapshot. The full day/night runtime is documented in `docs/DAY_NIGHT.md`; shader/voxel lighting changes are explicitly excluded.
 - Save catalog, settings/keybinds, pause/session save, inventory/crafting/storage/chat remain pending their authoritative runtime owners.
 
 Remaining work is runtime integration, not additional presentation copying.

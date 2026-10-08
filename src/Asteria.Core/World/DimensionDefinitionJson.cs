@@ -87,7 +87,8 @@ public static class DimensionDefinitionJson
             ParseGeneratedSurfaceStructures(
                 root),
             ParseGeneratedSurfaceFluids(
-                root));
+                root),
+            OptionalString(root, "dayNightCycle"));
     }
 
     private static IReadOnlyList<DimensionGeneratedSurfaceFluidDefinition>
