@@ -100,7 +100,7 @@ func webui_has_focus() -> bool:
 func _restore_keyboard_focus() -> void:
 	if _webview == null or not _loaded:
 		return
-	if _mouse_captured or _native_key_capture:
+	if _native_key_capture or (_mouse_captured and not _creation_mode):
 		_focus_game()
 	else:
 		_webview.grab_focus()
