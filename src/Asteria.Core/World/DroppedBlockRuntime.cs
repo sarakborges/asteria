@@ -187,6 +187,41 @@ public sealed class DroppedBlockRuntime
         return id;
     }
 
+    /// <summary>
+    /// Collects bounded active drops in stable drop-ID order. A drop is only
+    /// removed after the recipient accepts its exact portable block state.
+    /// </summary>
+    public int CollectNearby(
+        Vector3 position,
+        float radius,
+        Func<BlockStateSnapshot, bool> tryAccept)
+    {
+        ArgumentNullException.ThrowIfNull(tryAccept);
+        if (!IsFinite(position) || !float.IsFinite(radius) || radius <= 0f)
+            throw new ArgumentOutOfRangeException(nameof(radius));
+
+        var radiusSquared = radius * radius;
+        var collected = 0;
+        // Enumerating is safe because removals are applied after the scan.
+        var acceptedIds = new List<ulong>();
+        foreach (var pair in _active)
+        {
+            if (Vector3.DistanceSquared(pair.Value.Position, position) >
+                radiusSquared)
+                continue;
+            if (!tryAccept(pair.Value.Block))
+                continue;
+            acceptedIds.Add(pair.Key);
+        }
+
+        foreach (var id in acceptedIds)
+        {
+            Remove(id);
+            collected++;
+        }
+        return collected;
+    }
+
     public void NotifyVoxelEdit(
         WorldVoxelCoord position)
     {

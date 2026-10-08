@@ -1,3 +1,4 @@
+using System.Numerics;
 using Asteria.Client.Rendering;
 using Asteria.Core.World;
 
@@ -55,6 +56,18 @@ public sealed class BlockEntityFrameController
 
     public int DroppedCount =>
         _droppedBlocks.ActiveCount;
+
+    public int CollectNearby(
+        Vector3 position,
+        float radius,
+        Func<BlockStateSnapshot, bool> accept) =>
+        _droppedBlocks.CollectNearby(position, radius, accept);
+
+    public DroppedBlockId SpawnPlayerDrop(
+        BlockStateSnapshot block,
+        Vector3 position,
+        Vector3 velocity) =>
+        _droppedBlocks.Spawn(block, position, velocity);
 
     public int PendingPhysicsUpdates =>
         _updates.Count;

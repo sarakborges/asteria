@@ -6,6 +6,38 @@ namespace Asteria.Core.Tests;
 public sealed class DroppedBlockRuntimeTests
 {
     [Fact]
+    public void PickupLeavesRejectedDropsIntactAndCollectsInIdOrder()
+    {
+        var blocks = new BlockRegistry([
+            new BlockDefinition("asteria:stone"),
+            new BlockDefinition("asteria:dirt"),
+        ]);
+        var runtime = new DroppedBlockRuntime(
+            LoadedWorld(), blocks);
+        var firstBlock = BlockStateSnapshot.FromCell(
+            new VoxelCell(blocks.GetId("asteria:stone")));
+        var secondBlock = BlockStateSnapshot.FromCell(
+            new VoxelCell(blocks.GetId("asteria:dirt")));
+        var center = new Vector3(5f, 5f, 5f);
+        var first = runtime.Spawn(firstBlock, center);
+        var second = runtime.Spawn(secondBlock, center + new Vector3(0.2f, 0f, 0f));
+        var distant = runtime.Spawn(firstBlock, new Vector3(10f, 10f, 10f));
+        var tried = new List<BlockStateSnapshot>();
+        var count = runtime.CollectNearby(center, 1.5f, block =>
+        {
+            tried.Add(block);
+            return block == secondBlock;
+        });
+        Assert.Equal(1, count);
+        Assert.Equal([firstBlock, secondBlock], tried);
+        Assert.Equal([first, distant],
+            runtime.ActiveBlocks.Select(s => s.Id).ToArray());
+        Assert.Equal(1,
+            runtime.CollectNearby(center, 1.5f, _ => true));
+        Assert.Equal(distant, Assert.Single(runtime.ActiveBlocks).Id);
+    }
+
+    [Fact]
     public void DroppedBlockFallsSettlesAndWakesWhenSupportChanges()
     {
         var blocks =
