@@ -45,7 +45,7 @@ export type AppActions = {
   setWorldTicks(value: number): void;
   setSpawnCreatures(value: boolean): void;
   setGameMode(value: import("./state/uiState").GameMode): void;
-  beginKeyCapture(action: "Jump" | "Descend" | "ToolAction" | "Inventory" | "Chat" | "DropItem"): void;
+  beginKeyCapture(action: "Jump" | "Descend" | "ToolAction" | "Inventory" | "Chat" | "DropItem" | "ChangePerspective"): void;
   cancelKeyCapture(): void;
   closeBrushPalette(): void;
   selectBrushDye(id: string | null): void;
