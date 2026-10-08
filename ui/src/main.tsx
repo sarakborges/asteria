@@ -14,6 +14,7 @@ import { createInventoryController } from "./controllers/InventoryController";
 import { createBrushController } from "./controllers/BrushController";
 import { createSettingsController } from "./controllers/SettingsController";
 import { createWorldCreationController } from "./controllers/WorldCreationController";
+import { createWorldCatalogController } from "./controllers/WorldCatalogController";
 import { createInitialUiState } from "./state/uiState";
 import { createUiStore } from "./state/uiStore";
 
@@ -45,9 +46,11 @@ const worldCreation =
 const settings = createSettingsController(store, postGodotMessage);
 const inventory = createInventoryController(store, postGodotMessage);
 const brush = createBrushController(store, postGodotMessage);
+const worldCatalog = createWorldCatalogController(store, postGodotMessage);
 
 subscribeGodotMessages((message) => {
   navigation.handleGodotMessage(message);
+  worldCatalog.handleGodotMessage(message);
   inventory.handleGodotMessage(message);
   brush.handleGodotMessage(message);
   hud.handleGodotMessage(message);
@@ -66,6 +69,7 @@ createRoot(rootElement).render(
       createWorld: worldCreation.createWorld,
       randomizeWorld: worldCreation.randomizeWorld,
       openWorldSelection: navigation.openWorldSelection,
+      openSavesFolder: worldCatalog.openSavesFolder,
       openWorldCreation: navigation.openWorldCreation,
       backToStart: navigation.backToStart,
       exitGame: navigation.exitGame,
