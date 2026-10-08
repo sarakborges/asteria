@@ -23,11 +23,13 @@ public sealed class ManualStructurePlacementRuntime
     private readonly BlockRegistry _blocks;
     private readonly StructureRegistry _structures;
     private readonly StructureSetRegistry _sets;
+    private readonly ManualStructurePlacementLedger _committed;
 
     public ManualStructurePlacementRuntime(
         BiomeWorldGenerator generator, VoxelWorld world,
         VoxelMutationRuntime mutations, BlockRegistry blocks,
-        StructureRegistry structures, StructureSetRegistry sets)
+        StructureRegistry structures, StructureSetRegistry sets,
+        ManualStructurePlacementLedger committed)
     {
         _generator = generator ?? throw new ArgumentNullException(nameof(generator));
         _world = world ?? throw new ArgumentNullException(nameof(world));
@@ -35,6 +37,8 @@ public sealed class ManualStructurePlacementRuntime
         _blocks = blocks ?? throw new ArgumentNullException(nameof(blocks));
         _structures = structures ?? throw new ArgumentNullException(nameof(structures));
         _sets = sets ?? throw new ArgumentNullException(nameof(sets));
+        _committed = committed ??
+            throw new ArgumentNullException(nameof(committed));
     }
 
     public ManualStructurePlacementResult TryPlace(
@@ -46,8 +50,11 @@ public sealed class ManualStructurePlacementRuntime
             return ManualStructurePlacementResult.UnknownReference;
 
         if (!_generator.TryPrepareManualStructure(
-                reference, variation, anchorX, anchorZ, out var placements))
+                reference, variation, anchorX, anchorZ, _committed, out var plan) ||
+            plan is null)
             return ManualStructurePlacementResult.InvalidPlacement;
+
+        var placements = plan.Pieces;
 
         // Insertion order represents worldgen's authored piece precedence.
         // A later overlapping piece deterministically wins at that voxel.
@@ -131,6 +138,7 @@ public sealed class ManualStructurePlacementRuntime
                 .ToArray()))
             return ManualStructurePlacementResult.NonResident;
 
+        _committed.RecordCommitted(plan.Footprint);
         return ManualStructurePlacementResult.Placed;
     }
 
