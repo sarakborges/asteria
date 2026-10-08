@@ -184,7 +184,7 @@ public sealed class SurfaceStructureField
         var rule = new RootRule(
             biome, reference, spacing: 1, chance: 1f, jitter: 0,
             placement: DimensionGeneratedSurfaceStructurePlacement.BiomeInterior,
-            habitatWeights: null, members, set,
+            habitatWeights: null, members: members, set: set,
             maximumHorizontalRadius: set?.MaximumHorizontalRadius ??
                 _connectors.MaximumHorizontalRadiusForReference(reference));
 
