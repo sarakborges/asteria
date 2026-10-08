@@ -111,6 +111,51 @@ public sealed class TerrainDensityTests
     }
 
     [Fact]
+    public void CachedColumnDensityMatchesScalarAcrossVerticalChunkBands()
+    {
+        var generator = Generator(
+            caves: WideCaves(),
+            floating: new BiomeAdditiveDensityDefinition(
+                minY: 80,
+                maxY: 112,
+                horizontalScale: 64,
+                detailScale: 24,
+                coverage: 1f,
+                roughness: 0.2f,
+                densityScale: 30f));
+        var point = FindVolumeSolid(generator, y: 96);
+        var column = VoxelCoordinates.FromWorld(
+            point.X, 0, point.Z).Chunk;
+        var (originX, _, originZ) =
+            VoxelCoordinates.ChunkOrigin(column);
+
+        // Includes full rock, cave, surface, additive and empty-sky
+        // bands. Generate out of order to exercise column reuse.
+        foreach (var chunkY in new[] { 8, 0, 6, 2, 7, 4, 5, 3 })
+        {
+            var chunk = generator.Materialize(
+                new ChunkCoord(column.X, chunkY, column.Z));
+
+            for (var z = 0; z < Chunk.Size; z += 7)
+            {
+                for (var x = 0; x < Chunk.Size; x += 7)
+                {
+                    for (var y = 0; y < Chunk.Size; y += 3)
+                    {
+                        var worldY = chunkY * Chunk.Size + y;
+                        Assert.Equal(
+                            generator.DensityAt(
+                                originX + x,
+                                worldY,
+                                originZ + z) >= 0d,
+                            !chunk.GetBlock(x, y, z).IsAir);
+                    }
+                }
+            }
+        }
+    }
+
+    [Fact]
     public void FloatingFormationExtendsSurfaceRangeAndMaterializesAboveBase()
     {
         var generator = Generator(

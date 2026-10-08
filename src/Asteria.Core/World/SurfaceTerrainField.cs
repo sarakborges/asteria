@@ -472,17 +472,15 @@ public sealed class SurfaceTerrainField
                 nameof(originY));
         }
 
-        var volumeBiomes =
-            _volumeBiomes.SamplePlacementGrid(
-                originX,
-                originZ,
-                Chunk.Size,
-                Chunk.Size);
+        // The horizontal placement is immutable and was already sampled
+        // with the surface column. Reuse it across vertical chunk layers.
+        var volumeBiomes = column.VolumeBiomes;
         var values =
             new double[
                 Chunk.Size *
                 Chunk.Size *
                 Chunk.Size];
+        var maximumY = checked(originY + Chunk.Size - 1);
 
         for (var localZ = 0;
              localZ < Chunk.Size;
@@ -493,41 +491,51 @@ public sealed class SurfaceTerrainField
                     originZ +
                     localZ);
 
-            for (var localY = 0;
-                 localY < Chunk.Size;
-                 localY++)
+            for (var localX = 0;
+                 localX < Chunk.Size;
+                 localX++)
             {
-                var worldY =
-                    checked(
-                        originY +
-                        localY);
+                var worldX =
+                    checked(originX + localX);
+                var baseY =
+                    column.BaseHeightAt(localX, localZ);
+                var biome =
+                    column.BiomeAt(localX, localZ);
+                var volumeBiome =
+                    volumeBiomes[localX, localZ];
 
-                for (var localX = 0;
-                     localX < Chunk.Size;
-                     localX++)
+                // Most vertical chunk bands cannot contain caves or
+                // additive formations. Their signed density is exactly
+                // the base-surface distance; no 3D noise is needed.
+                var mayContainCaves =
+                    _caves is not null &&
+                    (long)originY <= (long)baseY - _caves.MinimumDepth &&
+                    (long)maximumY >= (long)baseY - _caves.MaximumDepth;
+                var mayContainAdditive =
+                    volumeBiome is not null &&
+                    _additiveRules.TryGetValue(
+                        volumeBiome.Primary,
+                        out var additive) &&
+                    originY <= additive.MaximumY &&
+                    maximumY >= additive.MinimumY;
+
+                for (var localY = 0;
+                     localY < Chunk.Size;
+                     localY++)
                 {
-                    var worldX =
-                        checked(
-                            originX +
-                            localX);
+                    var worldY = originY + localY;
                     values[
-                        (localZ * Chunk.Size +
-                         localY) *
-                        Chunk.Size +
-                        localX] =
-                        DensityAt(
-                            column.BiomeAt(
-                                localX,
-                                localZ),
-                            column.BaseHeightAt(
-                                localX,
-                                localZ),
-                            worldX,
-                            worldY,
-                            worldZ,
-                            volumeBiomes[
-                                localX,
-                                localZ]);
+                        (localZ * Chunk.Size + localY) *
+                        Chunk.Size + localX] =
+                        mayContainCaves || mayContainAdditive
+                            ? DensityAt(
+                                biome,
+                                baseY,
+                                worldX,
+                                worldY,
+                                worldZ,
+                                volumeBiome)
+                            : baseY - (double)worldY;
                 }
             }
         }
@@ -595,6 +603,7 @@ public sealed class SurfaceTerrainField
 
         return new SurfaceTerrainColumn(
             biomes,
+            volumeBiomes,
             baseHeights,
             surfaceFluidCutDepths,
             surfaceHeights,
@@ -1158,18 +1167,21 @@ public sealed class SurfaceTerrainField
 public sealed class SurfaceTerrainColumn
 {
     private readonly BiomeSampleGrid _biomes;
+    private readonly VolumeBiomePlacementGrid _volumeBiomes;
     private readonly int[] _baseHeights;
     private readonly int[] _surfaceFluidCutDepths;
     private readonly int[] _surfaceHeights;
 
     internal SurfaceTerrainColumn(
         BiomeSampleGrid biomes,
+        VolumeBiomePlacementGrid volumeBiomes,
         int[] baseHeights,
         int[] surfaceFluidCutDepths,
         int[] surfaceHeights,
         ChunkSurfaceRange range)
     {
         _biomes = biomes;
+        _volumeBiomes = volumeBiomes;
         _baseHeights = baseHeights;
         _surfaceFluidCutDepths =
             surfaceFluidCutDepths;
@@ -1178,6 +1190,8 @@ public sealed class SurfaceTerrainColumn
     }
 
     public ChunkSurfaceRange Range { get; }
+
+    internal VolumeBiomePlacementGrid VolumeBiomes => _volumeBiomes;
 
     public BiomeSample BiomeAt(int localX, int localZ) =>
         _biomes[localX, localZ];
