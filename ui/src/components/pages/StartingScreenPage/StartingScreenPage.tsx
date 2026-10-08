@@ -1,8 +1,13 @@
 import { useLocalization } from "../../../localization/LocalizationProvider";
 import { Button } from "../../atoms/Button/Button";
-import { Text } from "../../atoms/Text/Text";
+import { Select } from "../../atoms/Select/Select";
 import { CosmicBackground } from "../../organisms/CosmicBackground/CosmicBackground";
 import "./StartingScreenPage.css";
+
+const logoUrl = new URL(
+  "../../../../../packs/default/ui/branding/asteria_logo.svg",
+  import.meta.url,
+).href;
 
 export type StartingScreenPageProps = {
   settingsAvailable?: boolean;
@@ -27,19 +32,9 @@ export function StartingScreenPage({
       <CosmicBackground />
       <section className="starting-screen__content">
         <div className="starting-screen__brand">
-          <Text
-            text="ASTERIA"
-            variant="screen-title"
-            className="starting-screen__logo"
-          />
+          <img src={logoUrl} alt="Asteria" className="starting-screen__logo" />
         </div>
 
-        <label className="starting-screen__language" style={{display:"flex",justifyContent:"center",gap:8,alignItems:"center"}}>
-          <span>{t("starting.language")}</span>
-          <select aria-label={t("starting.language")} value={language} onChange={event => setLanguage(event.target.value as typeof language)}>
-            {languages.map(option => <option key={option} value={option}>{t(option === "portuguese_brazil" ? "language.portugueseBrazil" : "language." + option)}</option>)}
-          </select>
-        </label>
         <Button
           label={t("starting.play")}
           variant="primary"
@@ -68,6 +63,24 @@ export function StartingScreenPage({
           onClick={onExit}
         />
       </section>
+      <div className="starting-screen__language">
+        <span>{t("starting.language")}</span>
+        <Select
+          ariaLabel={t("starting.language")}
+          value={language}
+          options={languages.map((option) => ({
+            value: option,
+            label: t(
+              option === "portuguese_brazil"
+                ? "language.portugueseBrazil"
+                : "language." + option,
+            ),
+          }))}
+          onChange={(event) =>
+            setLanguage(event.target.value as typeof language)
+          }
+        />
+      </div>
     </main>
   );
 }
