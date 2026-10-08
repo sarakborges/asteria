@@ -22,12 +22,12 @@ public static class ChunkLightingSolver
         ArgumentNullException.ThrowIfNull(fluids);
 
         chunk.ClearLight();
-        SeedDirectLight(
+        var needsRelaxation = SeedDirectLight(
             chunk,
             blocks,
             fluids);
 
-        if (chunk.IsEmpty)
+        if (chunk.IsEmpty || !needsRelaxation)
         {
             return;
         }
@@ -38,11 +38,12 @@ public static class ChunkLightingSolver
             fluids);
     }
 
-    private static void SeedDirectLight(
+    private static bool SeedDirectLight(
         Chunk chunk,
         BlockRegistry blocks,
         FluidRegistry fluids)
     {
+        var hasTransmittingMedium = false;
         for (var z = 0; z < Chunk.Size; z++)
         {
             for (var x = 0; x < Chunk.Size; x++)
@@ -69,6 +70,9 @@ public static class ChunkLightingSolver
                             z,
                             cell,
                             fluid);
+
+                    hasTransmittingMedium |=
+                        dampening < VoxelLight.MaxLevel;
 
                     if (sky > 0)
                     {
@@ -97,6 +101,10 @@ public static class ChunkLightingSolver
                 }
             }
         }
+
+        // An entirely opaque chunk has no voxel through which the local
+        // flood-fill could propagate. Direct light and emissions are final.
+        return hasTransmittingMedium;
     }
 
     private static void Relax(
