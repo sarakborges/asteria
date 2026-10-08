@@ -642,80 +642,62 @@ public sealed class SurfaceTerrainField
         int worldX,
         int worldZ)
     {
-        var primary =
-            _surfaceRules[
-                sample.Primary];
-
-        if (primary.InfluencePolicy ==
-            SurfaceHeightInfluencePolicy.Primary)
-        {
-            return primary.HeightOffsetAt(
+        // A higher neighboring biome must not raise terrain outside its
+        // own boundary. Its slope grows only after it becomes primary.
+        var primaryHeight =
+            _surfaceRules[sample.Primary].HeightOffsetAt(
                 _seed,
                 worldX,
                 worldZ,
                 sample.PrimaryTerrainStrength);
-        }
+        var lowerHeightSum = 0d;
+        var lowerWeightSum = 0d;
+        var strongestLowerWeight = 0d;
 
-        var blendedSum = 0d;
-        var blendedWeight = 0d;
-        var unrestrictedSum = 0d;
-        var unrestrictedWeight = 0d;
-
-        foreach (var influence in
-                 sample.Influences)
+        foreach (var influence in sample.Influences)
         {
-            if (influence.Weight <= 0f)
+            if (influence.Weight <= 0f ||
+                string.Equals(
+                    influence.BiomeId,
+                    sample.Primary,
+                    StringComparison.Ordinal))
             {
                 continue;
             }
 
-            var rule =
-                _surfaceRules[
-                    influence.BiomeId];
-            var height =
-                rule.HeightOffsetAt(
+            var neighborHeight =
+                _surfaceRules[influence.BiomeId].HeightOffsetAt(
                     _seed,
                     worldX,
                     worldZ,
                     influence.TerrainStrength);
-
-            blendedSum +=
-                height *
-                influence.Weight;
-            blendedWeight +=
-                influence.Weight;
-
-            if (rule.InfluencePolicy !=
-                SurfaceHeightInfluencePolicy.Blend)
+            if (neighborHeight >= primaryHeight)
             {
                 continue;
             }
 
-            unrestrictedSum +=
-                height *
-                influence.Weight;
-            unrestrictedWeight +=
-                influence.Weight;
+            lowerHeightSum += neighborHeight * influence.Weight;
+            lowerWeightSum += influence.Weight;
+            strongestLowerWeight = Math.Max(
+                strongestLowerWeight,
+                influence.Weight);
         }
 
-        if (blendedWeight <=
-            double.Epsilon)
+        if (lowerWeightSum <= 0d)
         {
-            throw new InvalidOperationException(
-                "Biome sample has no positive terrain influence.");
+            return primaryHeight;
         }
 
-        var blended =
-            blendedSum /
-            blendedWeight;
-
-        return unrestrictedWeight <=
-               double.Epsilon
-            ? blended
-            : Math.Min(
-                blended,
-                unrestrictedSum /
-                unrestrictedWeight);
+        // Equal dominance is the biome boundary: start at the lower
+        // terrain there and build the entire uphill grade inside the
+        // elevated primary biome, regardless of the height difference.
+        var dominance = Math.Clamp(
+            sample.PrimaryWeight - strongestLowerWeight,
+            0d,
+            1d);
+        var slope = WorldGenerationEntropy.SmoothStep(dominance);
+        var lowerHeight = lowerHeightSum / lowerWeightSum;
+        return lowerHeight + (primaryHeight - lowerHeight) * slope;
     }
 
     private (

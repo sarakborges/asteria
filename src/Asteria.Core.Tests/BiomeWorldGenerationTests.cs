@@ -1373,103 +1373,75 @@ public sealed class BiomeWorldGenerationTests
     }
 
 
-    [Fact]
-    public void TerrainHeightBlendsBiomeInfluencesInsteadOfCuttingAtBoundary()
+    [Theory]
+    [InlineData(3f)]
+    [InlineData(18f)]
+    [InlineData(102f)]
+    public void ElevatedTerrainBeginsOnlyInsideItsPrimaryBiome(
+        float highOffset)
     {
-        var blocks =
-            new BlockRegistry(
-            [
-                new BlockDefinition(
-                    "asteria:stone"),
-            ]);
-        var low =
-            TestBiome(
-                "asteria:test/low",
-                baseHeightOffset: 2f);
-        var high =
-            TestBiome(
-                "asteria:test/high",
-                baseHeightOffset: 18f);
-        var biomes =
-            new BiomeRegistry(
-            [
-                low,
-                high,
-            ]);
-        var generator =
-            new BiomeWorldGenerator(
-                44,
-                TestDimension(
-                [
-                    low.Id,
-                    high.Id,
-                ]),
-                blocks,
-                biomes);
+        var low = TestBiome(
+            "asteria:test/low", baseHeightOffset: 2f);
+        var high = TestBiome(
+            "asteria:test/high", baseHeightOffset: highOffset);
+        var generator = new BiomeWorldGenerator(
+            44,
+            TestDimension([low.Id, high.Id]),
+            new BlockRegistry([new BlockDefinition("asteria:stone")]),
+            new BiomeRegistry([low, high]));
 
-        BiomeSample? blended =
-            null;
-        var sampleX =
-            0;
-        var sampleZ =
-            0;
+        var foundLowEdge = false;
+        var foundHighEdge = false;
+        var foundSlope = false;
 
         for (var z = -1024;
              z <= 1024 &&
-             blended is null;
+             !(foundLowEdge && foundHighEdge &&
+               (foundSlope || highOffset <= 3f));
              z += 8)
         {
-            for (var x = -1024;
-                 x <= 1024;
-                 x += 8)
+            for (var x = -1024; x <= 1024; x += 8)
             {
-                var sample =
-                    generator.Biomes.Sample(
-                        x,
-                        z);
-                if (sample.Influences.Count >
-                        1 &&
-                    sample.Influences
-                        .Skip(1)
-                        .Any(influence =>
-                            influence.Weight >=
-                            0.1f))
+                var sample = generator.Biomes.Sample(x, z);
+                if (sample.Influences.Count < 2)
                 {
-                    blended =
-                        sample;
-                    sampleX =
-                        x;
-                    sampleZ =
-                        z;
-                    break;
+                    continue;
+                }
+
+                var neighbor = sample.Primary == low.Id
+                    ? high.Id
+                    : low.Id;
+                if (!sample.Influences.Any(influence =>
+                        influence.BiomeId == neighbor &&
+                        influence.Weight > 0f))
+                {
+                    continue;
+                }
+
+                var height = generator.SurfaceHeight(x, z);
+                if (sample.Primary == low.Id)
+                {
+                    // Even the smallest positive uplift cannot leak
+                    // into the lower biome's transition band.
+                    Assert.Equal(2, height);
+                    foundLowEdge = true;
+                }
+                else
+                {
+                    Assert.InRange(height, 2, (int)highOffset);
+                    foundHighEdge = true;
+                    foundSlope |= height > 2 &&
+                        height < (int)highOffset;
                 }
             }
         }
 
-        Assert.NotNull(
-            blended);
-
-        var expected =
-            blended!.Influences.Sum(
-                influence =>
-                    influence.Weight *
-                    (influence.BiomeId ==
-                         low.Id
-                        ? 2f
-                        : 18f));
-
-        Assert.Equal(
-            (int)Math.Floor(
-                expected),
-            generator.SurfaceHeight(
-                sampleX,
-                sampleZ));
-        Assert.InRange(
-            generator.SurfaceHeight(
-                sampleX,
-                sampleZ),
-            3,
-            17);
+        Assert.True(foundLowEdge, "Missing low-side boundary sample.");
+        Assert.True(foundHighEdge, "Missing high-side boundary sample.");
+        if (highOffset > 3f)
+        {
+            Assert.True(foundSlope, "Elevation must ramp inside the high biome.");
+        }
     }
 
     [Fact]

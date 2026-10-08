@@ -217,7 +217,6 @@ public static class BiomeDefinitionJson
         return new BiomeTerrainDefinition(
             shape,
             ParseTerrainModifiers(value),
-            ParseInfluencePolicy(value),
             ParseCrater(value),
             ParseFillToSeaLevel(value));
     }
@@ -240,28 +239,6 @@ public static class BiomeDefinitionJson
             "ridged" => BiomeRidgeDetailMode.Ridged,
             "modulated" => BiomeRidgeDetailMode.Modulated,
             _ => throw new FormatException("Unknown surfaceTerrain.detailMode."),
-        };
-    }
-
-    private static SurfaceHeightInfluencePolicy ParseInfluencePolicy(
-        JsonElement terrain)
-    {
-        if (!terrain.TryGetProperty("influenceMode", out var mode))
-        {
-            return SurfaceHeightInfluencePolicy.Blend;
-        }
-
-        if (mode.ValueKind != JsonValueKind.String)
-        {
-            throw new FormatException("surfaceTerrain.influenceMode must be a string.");
-        }
-
-        return mode.GetString() switch
-        {
-            "blend" => SurfaceHeightInfluencePolicy.Blend,
-            "lowerOnly" => SurfaceHeightInfluencePolicy.LowerOnly,
-            "primary" => SurfaceHeightInfluencePolicy.Primary,
-            _ => throw new FormatException("Unknown surfaceTerrain.influenceMode."),
         };
     }
 

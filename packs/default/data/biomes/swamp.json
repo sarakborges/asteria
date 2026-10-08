@@ -22,7 +22,6 @@
     "scale": 0.0065,
     "detailAmplitude": 0.4,
     "detailScale": 0.045,
-    "influenceMode": "lowerOnly",
     "fillToSeaLevel": true,
     "modifiers": [
       {

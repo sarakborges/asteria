@@ -1,12 +1,5 @@
 namespace Asteria.Core.World;
 
-public enum SurfaceHeightInfluencePolicy
-{
-    Blend,
-    LowerOnly,
-    Primary,
-}
-
 internal sealed class SurfaceTerrainRule
 {
     private readonly string _biomeId;
@@ -80,9 +73,6 @@ internal sealed class SurfaceTerrainRule
             GenerationDomain.Named(
                 $"terrain/shape/crater/v2/{definition.Id}");
     }
-
-    public SurfaceHeightInfluencePolicy InfluencePolicy =>
-        _terrain.InfluencePolicy;
 
     public double HeightOffsetAt(
         ulong seed,

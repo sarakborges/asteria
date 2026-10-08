@@ -22,7 +22,6 @@
     "irregularityScale": 0.009,
     "detailIrregularity": 0.055,
     "detailScale": 0.031,
-    "influenceMode": "primary",
     "slopeNoiseGain": 4,
     "crater": {
       "depth": 38,

@@ -376,15 +376,9 @@ public sealed class BiomeTerrainDefinition
     public BiomeTerrainDefinition(
         BiomeTerrainShapeDefinition shape,
         IEnumerable<BiomeTerrainModifierDefinition>? modifiers = null,
-        SurfaceHeightInfluencePolicy influencePolicy = SurfaceHeightInfluencePolicy.Blend,
         BiomeCraterDefinition? crater = null,
         bool fillToSeaLevel = false)
     {
-        if (!Enum.IsDefined(influencePolicy))
-        {
-            throw new ArgumentOutOfRangeException(nameof(influencePolicy));
-        }
-
         Shape =
             shape ??
             throw new ArgumentNullException(nameof(shape));
@@ -392,7 +386,6 @@ public sealed class BiomeTerrainDefinition
             Array.AsReadOnly(
                 modifiers?.ToArray() ??
                 Array.Empty<BiomeTerrainModifierDefinition>());
-        InfluencePolicy = influencePolicy;
         Crater = crater;
         FillToSeaLevel = fillToSeaLevel;
     }
@@ -400,8 +393,6 @@ public sealed class BiomeTerrainDefinition
     public BiomeTerrainShapeDefinition Shape { get; }
 
     public IReadOnlyList<BiomeTerrainModifierDefinition> Modifiers { get; }
-
-    public SurfaceHeightInfluencePolicy InfluencePolicy { get; }
 
     public BiomeCraterDefinition? Crater { get; }
 
