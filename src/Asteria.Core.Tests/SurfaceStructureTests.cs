@@ -1142,6 +1142,167 @@ public sealed class SurfaceStructureTests
         Assert.Equal(0UL, world.Revision);
     }
 
+    [Fact]
+    public void ManualStructureSetPlacesRequiredElementsTogether()
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition("asteria:stone"),
+            new BlockDefinition("asteria:root_marker"),
+            new BlockDefinition("asteria:child_marker"),
+        ]);
+        var root = ManualMarker("asteria:root", "asteria:root_marker");
+        var child = ManualMarker("asteria:child", "asteria:child_marker");
+        var structures = new StructureRegistry([root, child]);
+        var set = new StructureSetDefinition("asteria:test_set",
+        [
+            new StructureSetElementDefinition("root", root.Id, required: true,
+                placement: new StructureSetElementPlacementDefinition(
+                    minDistance: 0, maxDistance: 0, attempts: 1)),
+            new StructureSetElementDefinition("child", child.Id, required: true,
+                placement: new StructureSetElementPlacementDefinition(
+                    minDistance: 4, maxDistance: 4, attempts: 48)),
+        ]);
+        var sets = new StructureSetRegistry([set]);
+        sets.ValidateStructures(structures);
+        var generator = FlatStructureGenerator(
+            blocks, structures, "asteria:stone", sets);
+        var height = generator.SurfaceHeight(8, 8);
+        var world = new VoxelWorld();
+        var chunk = VoxelCoordinates.FromWorld(8, height, 8).Chunk;
+        world.InsertChunk(chunk, generator.Materialize(chunk));
+        var runtime = ManualRuntime(generator, world, blocks, structures, sets);
+        var bounds = new WorldAabb(
+            new System.Numerics.Vector3(19, height, 19),
+            new System.Numerics.Vector3(20, height + 2, 20));
+
+        Assert.Equal(ManualStructurePlacementResult.Placed,
+            runtime.TryPlace(set.Id, null, 8, 8, bounds));
+        var rootCount = 0;
+        var childCount = 0;
+        for (var x = 0; x < Chunk.Size; x++)
+        for (var z = 0; z < Chunk.Size; z++)
+        {
+            var block = world.GetCellOrEmpty(
+                new WorldVoxelCoord(x, height, z)).Block;
+            rootCount += block == blocks.GetId("asteria:root_marker") ? 1 : 0;
+            childCount += block == blocks.GetId("asteria:child_marker") ? 1 : 0;
+        }
+        Assert.Equal(1, rootCount);
+        Assert.Equal(1, childCount);
+    }
+
+    [Fact]
+    public void MissingSetCompanionResidencyRejectsEntireBatchWithoutEdits()
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition("asteria:stone"),
+            new BlockDefinition("asteria:root_marker"),
+            new BlockDefinition("asteria:child_marker"),
+        ]);
+        var root = ManualMarker("asteria:root", "asteria:root_marker");
+        var child = ManualMarker("asteria:child", "asteria:child_marker");
+        var structures = new StructureRegistry([root, child]);
+        var set = new StructureSetDefinition("asteria:test_set",
+        [
+            new StructureSetElementDefinition("root", root.Id, required: true),
+            new StructureSetElementDefinition("child", child.Id, required: true,
+                placement: new StructureSetElementPlacementDefinition(
+                    minDistance: 32, maxDistance: 32, attempts: 48)),
+        ]);
+        var sets = new StructureSetRegistry([set]);
+        var generator = FlatStructureGenerator(
+            blocks, structures, "asteria:stone", sets);
+        var height = generator.SurfaceHeight(16, 16);
+        var world = new VoxelWorld();
+        var chunk = VoxelCoordinates.FromWorld(16, height, 16).Chunk;
+        world.InsertChunk(chunk, generator.Materialize(chunk));
+        var revision = world.Revision;
+        var original = world.GetCellOrEmpty(new WorldVoxelCoord(16, height, 16));
+        var runtime = ManualRuntime(generator, world, blocks, structures, sets);
+        var bounds = new WorldAabb(
+            new System.Numerics.Vector3(18, height, 18),
+            new System.Numerics.Vector3(19, height + 2, 19));
+
+        Assert.Equal(ManualStructurePlacementResult.NonResident,
+            runtime.TryPlace(set.Id, null, 16, 16, bounds));
+        Assert.Equal(revision, world.Revision);
+        Assert.Equal(original,
+            world.GetCellOrEmpty(new WorldVoxelCoord(16, height, 16)));
+    }
+
+    [Fact]
+    public void ManualConnectorUsesAuthoredExpansionAndPlacesChild()
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition("asteria:stone"),
+            new BlockDefinition("asteria:root_marker"),
+            new BlockDefinition("asteria:child_marker"),
+        ]);
+        var root = new StructureDefinition("asteria:root",
+            rotation: false, anchor: default,
+            voxels:
+            [
+                new StructureVoxelDefinition(0, 0, 0,
+                    "asteria:root_marker", BlockOrientation.Y),
+            ],
+            connectors:
+            [
+                new StructureConnectorDefinition(0, 0, 0,
+                    StructureConnectorFace.Right, target: "asteria:child",
+                    minDistance: 1, maxDistance: 1),
+            ]);
+        var child = new StructureDefinition("asteria:child",
+            rotation: false, anchor: default,
+            voxels:
+            [
+                new StructureVoxelDefinition(0, 0, 0,
+                    "asteria:child_marker", BlockOrientation.Y),
+            ],
+            connectors:
+            [
+                new StructureConnectorDefinition(0, 0, 0,
+                    StructureConnectorFace.Left),
+            ]);
+        var structures = new StructureRegistry([root, child]);
+        var generator = FlatStructureGenerator(
+            blocks, structures, "asteria:stone");
+        var height = generator.SurfaceHeight(8, 8);
+        var world = new VoxelWorld();
+        var chunk = VoxelCoordinates.FromWorld(8, height, 8).Chunk;
+        world.InsertChunk(chunk, generator.Materialize(chunk));
+        var runtime = ManualRuntime(
+            generator, world, blocks, structures, StructureSetRegistry.Empty);
+        var bounds = new WorldAabb(
+            new System.Numerics.Vector3(16, height, 16),
+            new System.Numerics.Vector3(17, height + 2, 17));
+
+        Assert.Equal(ManualStructurePlacementResult.Placed,
+            runtime.TryPlace(root.Id, null, 8, 8, bounds));
+        Assert.Equal(blocks.GetId("asteria:root_marker"),
+            world.GetCellOrEmpty(new WorldVoxelCoord(8, height, 8)).Block);
+        Assert.Equal(blocks.GetId("asteria:child_marker"),
+            world.GetCellOrEmpty(new WorldVoxelCoord(9, height, 8)).Block);
+    }
+
+    private static StructureDefinition ManualMarker(string id, string block) =>
+        new(id, rotation: false, anchor: default,
+            voxels: [new StructureVoxelDefinition(
+                0, 0, 0, block, BlockOrientation.Y)]);
+
+    private static ManualStructurePlacementRuntime ManualRuntime(
+        BiomeWorldGenerator generator, VoxelWorld world,
+        BlockRegistry blocks, StructureRegistry structures,
+        StructureSetRegistry sets) =>
+        new(generator, world,
+            new VoxelMutationRuntime(
+                world, new WorldUpdateQueue(), new FluidUpdateQueue(),
+                new FluidMeshUpdateQueue(), new BlockPhysicsUpdateQueue(),
+                new MeshletContentRevisions(), new MeshletContentRevisions()),
+            blocks, structures, sets);
+
     [Theory]
     [InlineData(0, 0)]
     [InlineData(31, 17)]
