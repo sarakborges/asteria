@@ -103,6 +103,34 @@ public sealed class DimensionSessionController
         return true;
     }
 
+    /// <summary>
+    /// Re-enters the current Sphere through the same drain, archive, restore
+    /// and loading lifecycle as travel to another Sphere. This is required
+    /// for distant warp: moving a player before target residency is ready
+    /// would expose nonresident voxels to collision and simulation.
+    /// </summary>
+    public bool RequestRelocation(
+        NVector3 sourcePosition,
+        NVector3 destinationPosition)
+    {
+        if (Active is null)
+            throw new InvalidOperationException(
+                "Dimension session controller has not started.");
+
+        if (_target is not null ||
+            !float.IsFinite(destinationPosition.X) ||
+            !float.IsFinite(destinationPosition.Y) ||
+            !float.IsFinite(destinationPosition.Z) ||
+            destinationPosition.Y < 0)
+            return false;
+
+        _sourcePosition = sourcePosition;
+        _destinationPosition = destinationPosition;
+        _target = Active.Dimension.Id;
+        Active.BeginRetirement();
+        return true;
+    }
+
     public DimensionTransitionCompletion?
         AdvanceTransition(
             WorldFrameWorkBudget budget,
