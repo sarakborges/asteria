@@ -259,14 +259,57 @@ public static class DimensionDefinitionJson
         }
 
         value = RequiredObject(root, "caves");
+        if (!value.TryGetProperty("layers", out var layers) ||
+            layers.ValueKind != JsonValueKind.Array)
+        {
+            throw new FormatException("caves.layers must be an array.");
+        }
+
         return new DimensionCaveDefinition(
-            RequiredUInt32(value, "minDepth"),
-            RequiredUInt32(value, "maxDepth"),
-            RequiredUInt32(value, "horizontalScale"),
-            RequiredUInt32(value, "verticalScale"),
-            RequiredSingle(value, "noiseHalfWidth"),
-            RequiredSingle(value, "densityScale"),
-            RequiredUInt32(value, "boundaryFade"));
+            layers.EnumerateArray().Select(layer =>
+            {
+                if (layer.ValueKind != JsonValueKind.Object)
+                {
+                    throw new FormatException(
+                        "Each caves.layers entry must be an object.");
+                }
+
+                if (!layer.TryGetProperty("channels", out var channels) ||
+                    channels.ValueKind != JsonValueKind.Array)
+                {
+                    throw new FormatException(
+                        "caves.layers.channels must be an array.");
+                }
+
+                var combination = OptionalString(layer, "combination") switch
+                {
+                    null or "intersection" => CaveNoiseCombination.Intersection,
+                    "union" => CaveNoiseCombination.Union,
+                    _ => throw new FormatException(
+                        "Cave combination must be intersection or union."),
+                };
+                var noiseChannels = channels.EnumerateArray().Select(channel =>
+                {
+                    if (channel.ValueKind != JsonValueKind.Object)
+                    {
+                        throw new FormatException(
+                            "Each cave noise channel must be an object.");
+                    }
+
+                    return new DimensionCaveNoiseChannelDefinition(
+                        RequiredUInt32(channel, "horizontalScale"),
+                        RequiredUInt32(channel, "verticalScale"));
+                });
+
+                return new DimensionCaveLayerDefinition(
+                    RequiredUInt32(layer, "minDepth"),
+                    RequiredUInt32(layer, "maxDepth"),
+                    noiseChannels,
+                    RequiredSingle(layer, "noiseHalfWidth"),
+                    RequiredSingle(layer, "densityScale"),
+                    RequiredUInt32(layer, "boundaryFade"),
+                    combination);
+            }));
     }
 
     private static uint RequiredUInt32(
