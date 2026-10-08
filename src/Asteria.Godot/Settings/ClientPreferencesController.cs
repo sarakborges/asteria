@@ -68,9 +68,7 @@ public sealed class ClientPreferencesController
             return update;
         }
 
-        return _store.TrySave(Preferences)
-            ? ClientPreferenceUpdate.Changed
-            : ClientPreferenceUpdate.SaveFailed;
+        return Persist(update);
     }
 
     private ClientPreferenceUpdate UpdateRenderDistance(JsonElement payload)
@@ -114,6 +112,11 @@ public sealed class ClientPreferencesController
         return Changed(Preferences.SetHintPreference(kind, value));
     }
 
+    public ClientPreferenceUpdate SetCapturedKeybind(
+        KeybindAction action,
+        KeyboardKey key) =>
+        Persist(ChangeKeybind(action, key));
+
     private ClientPreferenceUpdate UpdateKeybind(JsonElement payload)
     {
         if (!TryReadEnum<KeybindAction>(payload, "action", out var action) ||
@@ -122,7 +125,13 @@ public sealed class ClientPreferencesController
             return ClientPreferenceUpdate.InvalidValue;
         }
 
-        return Preferences.SetKeybind(action, key) switch
+        return ChangeKeybind(action, key);
+    }
+
+    private ClientPreferenceUpdate ChangeKeybind(
+        KeybindAction action,
+        KeyboardKey key) =>
+        Preferences.SetKeybind(action, key) switch
         {
             KeybindChangeResult.Changed => ClientPreferenceUpdate.Changed,
             KeybindChangeResult.Unchanged => ClientPreferenceUpdate.Unchanged,
@@ -132,6 +141,13 @@ public sealed class ClientPreferencesController
                 "Unhandled keybind change result."),
         };
     }
+
+    private ClientPreferenceUpdate Persist(ClientPreferenceUpdate update) =>
+        update != ClientPreferenceUpdate.Changed
+            ? update
+            : _store.TrySave(Preferences)
+                ? ClientPreferenceUpdate.Changed
+                : ClientPreferenceUpdate.SaveFailed;
 
     private static ClientPreferenceUpdate Changed(bool changed) =>
         changed ? ClientPreferenceUpdate.Changed : ClientPreferenceUpdate.Unchanged;

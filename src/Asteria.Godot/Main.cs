@@ -57,6 +57,7 @@ public partial class Main : Node3D
     private PackSelection _packSelection =
         PackSelection.Default;
     private ClientPreferencesController _clientSettings = null!;
+    private KeybindCaptureController _keybindCapture = null!;
 
     private ClientPreferences _clientPreferences =>
         _clientSettings.Preferences;
@@ -132,6 +133,8 @@ public partial class Main : Node3D
     {
         _clientSettings = new ClientPreferencesController(
             ClientPreferencesStore.FromUserDataDirectory());
+        _keybindCapture = new KeybindCaptureController(
+            _clientSettings);
         _uiTheme =
             UiThemeLoader.LoadProjectTheme(
                 _packSelection);
@@ -232,6 +235,36 @@ public partial class Main : Node3D
 
     public override void _Input(InputEvent @event)
     {
+        if (_keybindCapture.IsCapturing)
+        {
+            if (@event is InputEventKey captureKey &&
+                captureKey.Pressed && !captureKey.Echo)
+            {
+                var action = _keybindCapture.PendingAction;
+                var result = _keybindCapture.Press(captureKey);
+                if (!_keybindCapture.IsCapturing)
+                {
+                    _player?.ResumeAfterKeyCapture();
+                }
+
+                SendWebUi(
+                    "game.client_preferences.key_capture",
+                    new
+                    {
+                        action = action?.ToString(),
+                        status = result.ToString(),
+                    });
+                if (result is KeyCaptureResult.Changed or
+                    KeyCaptureResult.SaveFailed)
+                {
+                    SendClientPreferences();
+                }
+
+                GetViewport().SetInputAsHandled();
+            }
+            return;
+        }
+
         if (_worldSeed is null)
         {
             return;
@@ -588,6 +621,7 @@ public partial class Main : Node3D
             SendMouseCaptureState;
         _player.FluidContactChanged -=
             OnPlayerFluidContactChanged;
+        _sessionStates.Player.CancelDoubleTap();
         _player.QueueFree();
         _player = null;
         _underwaterView = null;
@@ -650,6 +684,40 @@ public partial class Main : Node3D
                     $"webui -> godot: {type}");
             }
 
+            if (type == "ui.client_preferences.capture_keybind")
+            {
+                if (_keybindCapture.Begin(document.RootElement))
+                {
+                    _player?.SuspendForKeyCapture();
+                    SendWebUi(
+                        "game.client_preferences.key_capture",
+                        new
+                        {
+                            action = _keybindCapture.PendingAction?.ToString(),
+                            status = "Capturing",
+                        });
+                }
+                else
+                {
+                    SendWebUi(
+                        "game.client_preferences.key_capture",
+                        new { status = "InvalidRequest" });
+                }
+                return;
+            }
+
+            if (type == "ui.client_preferences.cancel_key_capture")
+            {
+                if (_keybindCapture.Cancel())
+                {
+                    _player?.ResumeAfterKeyCapture();
+                    SendWebUi(
+                        "game.client_preferences.key_capture",
+                        new { status = "Cancelled" });
+                }
+                return;
+            }
+
             var clientUpdate = _clientSettings.Apply(
                 type,
                 document.RootElement);
@@ -660,6 +728,10 @@ public partial class Main : Node3D
                     ClientPreferenceUpdate.SaveFailed)
                 {
                     SendClientPreferences();
+                    if (type == "ui.client_preferences.keybind")
+                    {
+                        _player?.ClearGameplayInput();
+                    }
                 }
 
                 if (clientUpdate is not
@@ -704,6 +776,9 @@ public partial class Main : Node3D
                     }
 
                     break;
+                case "ui.player.set_game_mode":
+                    SetRequestedGameMode(document.RootElement);
+                    break;
             }
         }
         catch (JsonException exception)
@@ -730,6 +805,7 @@ public partial class Main : Node3D
             return;
         }
 
+        SendPlayerModeState();
         SendHotbarState();
         SendWorldHudState(
             force: true);
@@ -757,6 +833,56 @@ public partial class Main : Node3D
             SendMouseCaptureState(
                 _player.IsMouseCaptured);
         }
+    }
+
+    private void SetRequestedGameMode(JsonElement message)
+    {
+        if (_worldSeed is null ||
+            !message.TryGetProperty("payload", out var payload) ||
+            payload.ValueKind != JsonValueKind.Object ||
+            !payload.TryGetProperty("mode", out var modeValue) ||
+            modeValue.ValueKind != JsonValueKind.String ||
+            !Enum.TryParse<PlayerGameMode>(
+                modeValue.GetString(), ignoreCase: false,
+                out var requestedMode) ||
+            !Enum.IsDefined(requestedMode))
+        {
+            SendWebUi(
+                "game.player_mode.error",
+                new { code = "InvalidGameMode" });
+            return;
+        }
+
+        if (!_sessionStates.Player.SetGameMode(requestedMode))
+        {
+            return;
+        }
+
+        _player?.ApplyGameMode();
+        if (requestedMode.IsSpectator())
+        {
+            ClearTargetHudState();
+        }
+        else if (_player is not null)
+        {
+            SendTargetHudState(force: true);
+        }
+
+        SendPlayerModeState();
+    }
+
+    private void SendPlayerModeState()
+    {
+        if (_worldSeed is null) return;
+        var player = _sessionStates.Player;
+        SendWebUi(
+            "game.player_mode",
+            new
+            {
+                mode = player.GameMode.ToString().ToLowerInvariant(),
+                flying = player.IsFlying,
+                canInteract = player.CanInteract,
+            });
     }
 
     private void SendClientPreferences()
@@ -857,6 +983,7 @@ public partial class Main : Node3D
         _webUi.Call(
             "set_creation_mode",
             false);
+        SendPlayerModeState();
         SendWebUi(
             "game.world_creation.started",
             new
@@ -1144,6 +1271,12 @@ public partial class Main : Node3D
     private void SendTargetHudState(
         bool force = false)
     {
+        if (_sessionStates.Player.GameMode.IsSpectator())
+        {
+            ClearTargetHudState();
+            return;
+        }
+
         var hit =
             _player is
                 { IsMouseCaptured: true }
@@ -1240,6 +1373,9 @@ public partial class Main : Node3D
         _player = new FpsPlayer
         {
             Name = "Player",
+            PlayerState = _sessionStates.Player,
+            InputPreferences = _clientPreferences,
+            CurrentWorldTick = () => _worldTicks.CurrentTick,
             Position =
                 new Vector3(
                     initialPosition.X,
@@ -1276,6 +1412,7 @@ public partial class Main : Node3D
         SendWebUi(
             "game.player_ready",
             new { controller = "fps" });
+        SendPlayerModeState();
         SendWorldHudState(
             force: true);
 
@@ -1388,7 +1525,8 @@ public partial class Main : Node3D
 
     private void BreakTargetBlock()
     {
-        if (!TryGetTarget(
+        if (!_sessionStates.Player.CanInteract ||
+            !TryGetTarget(
                 out var hit))
         {
             return;
@@ -1410,7 +1548,8 @@ public partial class Main : Node3D
 
     private void PlaceTargetBlock()
     {
-        if (!TryGetTarget(
+        if (!_sessionStates.Player.CanInteract ||
+            !TryGetTarget(
                 out var hit))
         {
             return;
