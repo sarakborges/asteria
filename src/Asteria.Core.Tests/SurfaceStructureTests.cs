@@ -31,12 +31,21 @@ public sealed class SurfaceStructureTests
             blocks);
         structures.ValidateFluids(
             fluids);
+        var structureSets =
+            StructureSetRegistry.FromJson(
+                ReadJsonDirectory("structure_sets"));
         dimensions.ValidateStructures(
-            structures);
+            structures, structureSets);
 
         Assert.Equal(
-            38,
+            41,
             structures.Count);
+        Assert.Equal(3, structures.ResolveReference("asteria:bush_oak").Count);
+        Assert.Equal(2, structureSets.Count);
+        Assert.Equal("asteria:bush_oak",
+            structureSets.Get("asteria:thicket_oak").Elements[0].Structure);
+        Assert.Equal("asteria:tree_oak",
+            structureSets.Get("asteria:oak_grove").Elements[0].Structure);
         Assert.Equal(
             10,
             structures.ResolveReference(
@@ -66,7 +75,7 @@ public sealed class SurfaceStructureTests
             structures.ResolvesReference(
                 "asteria:river_ocean_mouth"));
         Assert.Equal(
-            31,
+            34,
             overworld
                 .GeneratedSurfaceStructures
                 .Count);
@@ -79,14 +88,24 @@ public sealed class SurfaceStructureTests
                     generated.Biome,
                     overworld.SurfaceBiomes);
                 Assert.True(
-                    structures.ResolvesReference(
-                        generated.Structure));
+                    structures.ResolvesReference(generated.Structure) ||
+                    structureSets.ResolvesReference(generated.Structure));
                 Assert.DoesNotContain(
                     "enchanted_forest",
                     generated.Biome,
                     StringComparison.Ordinal);
             });
 
+        Assert.All(
+            structures.ResolveReference("asteria:bush_oak"),
+            bush =>
+            {
+                Assert.True(bush.Restrictions.RequiresDryGround);
+                Assert.Equal(1f, bush.Restrictions.RequiredBiomeCoverage);
+                Assert.Equal(StructureFluidPolicy.Forbid, bush.Generation.FluidPolicy);
+                Assert.False(bush.Generation.ReserveSpace);
+                Assert.Contains("asteria:leaf_oak", bush.Voxels.Select(v => v.Block));
+            });
         Assert.Equal(
             10,
             structures
