@@ -133,6 +133,37 @@ public sealed class BucketGameplayRuntimeTests
     }
 
     [Fact]
+    public void FluidTransferPreservesUnrelatedBucketMetadata()
+    {
+        var fixture = Setup();
+        var original = fixture.Inventory.SelectedStack!;
+        Assert.True(fixture.Inventory.TryReplaceSelected(
+            original, InventoryEntry.FromTool(
+                "asteria:bucket",
+                new Dictionary<string, string> { ["owner"] = "player" })));
+        Assert.True(fixture.Mutations.SetFluidAt(
+            Source, FluidCell.Source(fixture.Fluids.GetId("asteria:water")),
+            out _));
+
+        Assert.True(fixture.Bucket.TryUse(
+            fixture.Inventory,
+            new Vector3(2.5f, 4.5f, 3.5f), Vector3.UnitZ, null));
+        var filled = fixture.Inventory.SelectedStack!;
+        Assert.Equal("player", filled.Entry.Metadata["owner"]);
+        Assert.Equal("asteria:water",
+            filled.Entry.Metadata[BucketGameplayRuntime.FluidMetadataKey]);
+
+        Assert.True(fixture.Bucket.TryUse(
+            fixture.Inventory,
+            Vector3.Zero, Vector3.UnitZ,
+            new VoxelWorldHit(TargetBlock, 0, 0, 1)));
+        var emptied = fixture.Inventory.SelectedStack!;
+        Assert.Equal("player", emptied.Entry.Metadata["owner"]);
+        Assert.False(emptied.Entry.Metadata.ContainsKey(
+            BucketGameplayRuntime.FluidMetadataKey));
+    }
+
+    [Fact]
     public void MetadataTransitionCannotOverwriteChangedOrMultipleSelectedItems()
     {
         var fixture = Setup();
