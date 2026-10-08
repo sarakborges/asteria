@@ -8,6 +8,7 @@ import { Surface } from "../../atoms/Surface/Surface";
 import { Text } from "../../atoms/Text/Text";
 import { TextInput } from "../../atoms/TextInput/TextInput";
 import { InventorySlot } from "../../molecules/InventorySlot/InventorySlot";
+import { InventoryHotbarFooter } from "../../molecules/InventoryHotbarFooter/InventoryHotbarFooter";
 import "./PlayerInventoryPanel.css";
 
 const BACKPACK_COLUMNS = 9;
@@ -96,36 +97,12 @@ export function PlayerInventoryPanel({
         )}
       </div>
 
-      <div className="player-inventory-panel__footer">
-        <div className="player-inventory-panel__hotbar">
-          {hotbar.map(
-            (item, index) => (
-              <InventorySlot
-                key={index}
-                item={item}
-                disabled={Boolean(state.searchQuery.trim()) &&
-                  !item?.id.toLowerCase().includes(state.searchQuery.trim().toLowerCase())}
-                onClick={() =>
-                  onSlotClick?.(
-                    backpack.length +
-                      index,
-                    item,
-                  )
-                }
-              />
-            ),
-          )}
-        </div>
-        <button
-          type="button"
-          className="player-inventory-panel__trash"
-          aria-label={t("ui.trashItem")}
-          onClick={onTrash}
-          disabled={!onTrash}
-        >
-          ×
-        </button>
-      </div>
+      <InventoryHotbarFooter
+        hotbar={hotbar}
+        searchQuery={state.searchQuery}
+        onSlotClick={onSlotClick}
+        onTrash={onTrash}
+      />
     </Surface>
   );
 }
