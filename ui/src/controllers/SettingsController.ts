@@ -31,7 +31,7 @@ export function createSettingsController(
     setGameMode(value: GameMode) {
       post("ui.player.set_game_mode", { mode: value });
     },
-    beginKeyCapture(action: "Jump" | "Descend" | "ToolAction" | "Inventory" | "DropItem") {
+    beginKeyCapture(action: "Jump" | "Descend" | "ToolAction" | "Inventory" | "Chat" | "DropItem") {
       post("ui.client_preferences.capture_keybind", { action });
     },
     cancelKeyCapture() {
@@ -52,7 +52,7 @@ export function createSettingsController(
               !["Center", "TopRight", "Hidden"].includes(String(position)) ||
               typeof keys.jump !== "string" || typeof keys.descend !== "string" ||
               typeof keys.toolAction !== "string" ||
-              typeof keys.inventory !== "string" ||
+              typeof keys.inventory !== "string" || typeof keys.chat !== "string" ||
               typeof keys.dropItem !== "string") break;
           const client: ClientSettingsState = {
             renderDistanceChunks: payload.renderDistanceChunks,
@@ -66,7 +66,7 @@ export function createSettingsController(
             },
             keybinds: { jump: keys.jump, descend: keys.descend,
               toolAction: keys.toolAction,
-              inventory: keys.inventory, dropItem: keys.dropItem },
+              inventory: keys.inventory, chat: keys.chat, dropItem: keys.dropItem },
           };
           store.update(state => ({
             ...state,
@@ -93,7 +93,7 @@ export function createSettingsController(
           const isActive = ["Capturing", "ReservedKey", "KeyConflict", "UnsupportedKey"].includes(String(status));
           const captureAction = isActive &&
             (action === "Jump" || action === "Descend" ||
-             action === "ToolAction" || action === "Inventory" ||
+             action === "ToolAction" || action === "Inventory" || action === "Chat" ||
              action === "DropItem")
             ? action : null;
           const errors: Record<string, string> = {
