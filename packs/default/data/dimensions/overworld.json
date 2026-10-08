@@ -815,6 +815,30 @@
         "fractured_flanks": 1.85,
         "hardened_highlands": 0.3
       }
+    },
+    {
+      "biome": "asteria:overworld/ocean",
+      "structure": "asteria:ocean_rock",
+      "spacing": 64,
+      "chance": 0.47,
+      "jitter": 19,
+      "habitatWeights": {
+        "sand_flats": 0.13,
+        "gravel_banks": 0.82,
+        "rocky_reefs": 2.05
+      }
+    },
+    {
+      "biome": "asteria:overworld/ocean",
+      "structure": "asteria:ocean_rock_cluster",
+      "spacing": 152,
+      "chance": 0.42,
+      "jitter": 46,
+      "habitatWeights": {
+        "sand_flats": 0,
+        "gravel_banks": 0.28,
+        "rocky_reefs": 2.2
+      }
     }
   ],
   "dayNightCycle": "asteria:overworld/day_night_cycle",

@@ -1,4 +1,60 @@
 {
   "id": "asteria:overworld/caverns",
-  "undergroundLayout": {}
+  "undergroundLayout": {},
+  "decorations": [
+    {
+      "block": "asteria:mushroom_brown",
+      "chance": 0.13,
+      "surfaceBlocks": [
+        "asteria:stone",
+        "asteria:gravel",
+        "asteria:dirt"
+      ],
+      "cluster": {
+        "scale": 26,
+        "threshold": -0.08,
+        "octaves": 4,
+        "transitionWidth": 0.13
+      },
+      "conditions": {
+        "maxY": 100
+      }
+    },
+    {
+      "block": "asteria:mushroom_purple",
+      "chance": 0.065,
+      "surfaceBlocks": [
+        "asteria:stone",
+        "asteria:gravel",
+        "asteria:dirt"
+      ],
+      "cluster": {
+        "scale": 36,
+        "threshold": -0.05,
+        "octaves": 3,
+        "transitionWidth": 0.14
+      },
+      "conditions": {
+        "maxY": 90
+      }
+    },
+    {
+      "block": "asteria:pebble",
+      "chance": 0.15,
+      "surfaceBlocks": [
+        "asteria:stone",
+        "asteria:gravel",
+        "asteria:dirt"
+      ],
+      "cluster": {
+        "scale": 19,
+        "threshold": -0.16,
+        "octaves": 4,
+        "transitionWidth": 0.12
+      },
+      "conditions": {
+        "maxY": 115
+      }
+    }
+  ]
 }

@@ -1,0 +1,33 @@
+{
+  "id": "asteria:ocean_rock_cluster",
+  "locatable": false,
+  "priority": 0,
+  "conflictGroups": [
+    "rock"
+  ],
+  "reserveSpace": false,
+  "elements": [
+    {
+      "id": "root",
+      "structure": "asteria:ocean_rock",
+      "required": true
+    },
+    {
+      "id": "satellites",
+      "structure": "asteria:ocean_rock",
+      "count": {
+        "min": 1,
+        "max": 2
+      },
+      "chance": 1,
+      "placement": {
+        "relativeTo": "root",
+        "minDistance": 8,
+        "maxDistance": 19,
+        "minSeparation": 7,
+        "attempts": 36,
+        "allowOverlap": false
+      }
+    }
+  ]
+}
