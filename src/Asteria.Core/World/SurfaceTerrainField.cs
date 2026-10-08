@@ -1141,15 +1141,63 @@ public sealed class SurfaceTerrainField
 
     private sealed class CaveRule
     {
-        private readonly DimensionCaveDefinition _authored;
-        private readonly GenerationDomain _primary =
-            GenerationDomain.Named("terrain/density/caves/primary/v1");
-        private readonly GenerationDomain _secondary =
-            GenerationDomain.Named("terrain/density/caves/secondary/v1");
+        private readonly CaveLayerRule[] _layers;
 
         public CaveRule(DimensionCaveDefinition authored)
         {
+            _layers = authored.Layers
+                .Select((layer, index) => new CaveLayerRule(index, layer))
+                .ToArray();
+            MinimumDepth = authored.MinimumDepth;
+            MaximumDepth = authored.MaximumDepth;
+        }
+
+        public uint MinimumDepth { get; }
+        public uint MaximumDepth { get; }
+
+        public double VoidDensityAt(
+            ulong seed,
+            int x,
+            int y,
+            int z,
+            long depth)
+        {
+            var result = 0d;
+            foreach (var layer in _layers)
+            {
+                if (depth < layer.MinimumDepth ||
+                    depth > layer.MaximumDepth)
+                {
+                    continue;
+                }
+
+                result = Math.Max(
+                    result,
+                    layer.VoidDensityAt(seed, x, y, z, depth));
+            }
+
+            return result;
+        }
+    }
+
+    private sealed class CaveLayerRule
+    {
+        private readonly DimensionCaveLayerDefinition _authored;
+        private readonly CaveNoiseChannel[] _channels;
+
+        public CaveLayerRule(
+            int layerIndex,
+            DimensionCaveLayerDefinition authored)
+        {
             _authored = authored;
+            _channels = authored.Channels
+                .Select((channel, index) =>
+                    new CaveNoiseChannel(
+                        GenerationDomain.Named(
+                            $"terrain/density/caves/layer/v1/{layerIndex}/{index}"),
+                        channel.HorizontalScale,
+                        channel.VerticalScale))
+                .ToArray();
         }
 
         public uint MinimumDepth => _authored.MinDepth;
@@ -1162,29 +1210,25 @@ public sealed class SurfaceTerrainField
             int z,
             long depth)
         {
-            var primary = Math.Abs(WorldGenerationEntropy.ValueNoise3D(
-                seed,
-                _primary,
-                x,
-                y,
-                z,
-                _authored.HorizontalScale,
-                _authored.VerticalScale));
-            if (primary >= _authored.NoiseHalfWidth)
+            var intersection =
+                _authored.Combination == CaveNoiseCombination.Intersection;
+            var score = intersection ? 0d : double.PositiveInfinity;
+            foreach (var channel in _channels)
             {
-                return 0d;
+                var noise = Math.Abs(WorldGenerationEntropy.ValueNoise3D(
+                    seed,
+                    channel.Domain,
+                    x,
+                    y,
+                    z,
+                    channel.HorizontalScale,
+                    channel.VerticalScale));
+                score = intersection
+                    ? Math.Max(score, noise)
+                    : Math.Min(score, noise);
             }
 
-            var secondary = Math.Abs(WorldGenerationEntropy.ValueNoise3D(
-                seed,
-                _secondary,
-                x,
-                y,
-                z,
-                _authored.HorizontalScale,
-                _authored.VerticalScale));
-            var clearance =
-                _authored.NoiseHalfWidth - Math.Max(primary, secondary);
+            var clearance = _authored.NoiseHalfWidth - score;
             if (clearance <= 0d)
             {
                 return 0d;
@@ -1203,6 +1247,11 @@ public sealed class SurfaceTerrainField
                    _authored.DensityScale;
         }
     }
+
+    private readonly record struct CaveNoiseChannel(
+        GenerationDomain Domain,
+        uint HorizontalScale,
+        uint VerticalScale);
 }
 
 /// <summary>
