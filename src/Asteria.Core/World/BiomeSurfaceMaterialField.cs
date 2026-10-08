@@ -88,7 +88,7 @@ public sealed class BiomeSurfaceMaterialField
             _seed,
             worldX,
             worldZ,
-            PlacementFor(rule, worldX, worldZ));
+            PlacementFor(rule, worldX, worldZ, placement));
     }
 
     private SurfacePlacementContext? PlacementFor(
