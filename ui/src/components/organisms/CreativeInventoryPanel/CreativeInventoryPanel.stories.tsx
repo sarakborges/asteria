@@ -43,3 +43,14 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
+
+export const WithHotbar: Story = {
+  args: {
+    hotbar: Array.from({ length: 9 }, (_, index) =>
+      index === 0 ? { id: "asteria:stone", quantity: 16 } : null),
+    onHotbarSlotClick: () => undefined,
+    onTrash: () => undefined,
+    onItemClick: () => undefined,
+    onCategoryChange: () => undefined,
+  },
+};
