@@ -189,20 +189,7 @@ public sealed class CreatureRuntime
 
         if (killed)
         {
-            _active[id.Value] = current with
-            {
-                Health = 0f,
-                DeathSecondsRemaining = DeathAnimationSeconds,
-                HurtSecondsRemaining = 0f,
-                AttacksReceived = checked(current.AttacksReceived + 1),
-                Motion = current.Motion with
-                {
-                    VerticalSpeed = 0f,
-                    Direction = Vector2.Zero,
-                    KnockbackVelocity = Vector2.Zero,
-                    KnockbackSeconds = 0f,
-                },
-            };
+            SetDying(current);
             return true;
         }
 
@@ -238,6 +225,45 @@ public sealed class CreatureRuntime
             HurtSecondsRemaining = HurtAnimationSeconds,
         };
         return true;
+    }
+
+    /// <summary>Kill a targeted living creature through the same death
+    /// transition and loot-table semantics as lethal combat.</summary>
+    public bool TryKill(
+        CreatureInstanceId id,
+        out CreatureAttackResult result)
+    {
+        if (!_active.TryGetValue(id.Value, out var current) || current.IsDying)
+        {
+            result = default;
+            return false;
+        }
+
+        var definition = _definitions.Get(current.DefinitionId);
+        result = new CreatureAttackResult(
+            id, current.DefinitionId, current.Position,
+            0f, definition.Health, true,
+            CreatureLootTable.Roll(definition.LootTable, id.Value));
+        SetDying(current);
+        return true;
+    }
+
+    private void SetDying(CreatureInstanceState current)
+    {
+        _active[current.Id.Value] = current with
+        {
+            Health = 0f,
+            DeathSecondsRemaining = DeathAnimationSeconds,
+            HurtSecondsRemaining = 0f,
+            AttacksReceived = checked(current.AttacksReceived + 1),
+            Motion = current.Motion with
+            {
+                VerticalSpeed = 0f,
+                Direction = Vector2.Zero,
+                KnockbackVelocity = Vector2.Zero,
+                KnockbackSeconds = 0f,
+            },
+        };
     }
 
     private static bool EffectApplies(
