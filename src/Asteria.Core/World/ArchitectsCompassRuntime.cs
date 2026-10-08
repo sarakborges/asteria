@@ -19,15 +19,21 @@ public sealed class ArchitectsCompassRuntime
     private readonly VoxelWorld _world;
     private readonly BlockRegistry _blocks;
     private readonly PackContentRegistry<ToolDefinition> _tools;
+    private readonly DyeRegistry? _dyes;
+    private readonly AttachedLayerRegistry? _layers;
     private int? _selectionSlot;
 
     public ArchitectsCompassRuntime(
         VoxelWorld world, BlockRegistry blocks,
-        PackContentRegistry<ToolDefinition> tools)
+        PackContentRegistry<ToolDefinition> tools,
+        DyeRegistry? dyes = null,
+        AttachedLayerRegistry? layers = null)
     {
         _world = world ?? throw new ArgumentNullException(nameof(world));
         _blocks = blocks ?? throw new ArgumentNullException(nameof(blocks));
         _tools = tools ?? throw new ArgumentNullException(nameof(tools));
+        _dyes = dyes;
+        _layers = layers;
     }
 
     public WorldVoxelCoord? SelectionStart { get; private set; }
@@ -79,7 +85,8 @@ public sealed class ArchitectsCompassRuntime
         if (!StructureSelectionBounds.TryCreate(SelectionStart.Value, point,
                 out var bounds, out message) ||
             !StructureSelectionExporter.TryExport(
-                _world, _blocks, bounds, exportId, out export, out message))
+                _world, _blocks, bounds, exportId, out export, out message,
+                _dyes, _layers))
             return ArchitectsCompassResult.Failed;
 
         Clear();

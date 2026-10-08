@@ -221,7 +221,8 @@ public sealed class DimensionRuntimeSession
             World, blocks, Mutations, tools, dyes);
         LayerPlacement = new AttachedLayerPlacementRuntime(
             World, blocks, layers, Mutations);
-        ArchitectsCompass = new ArchitectsCompassRuntime(World, blocks, tools);
+        ArchitectsCompass = new ArchitectsCompassRuntime(
+            World, blocks, tools, dyes, layers);
         StructureSelection = new StructureSelectionPresentation(Root);
         ArtisansKit = new ArtisansKitRuntime(
             World, blocks, Mutations, tools);

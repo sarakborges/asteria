@@ -17,7 +17,9 @@ public static class StructureSelectionExporter
         StructureSelectionBounds bounds,
         string id,
         out StructureSelectionExport? export,
-        out string error)
+        out string error,
+        DyeRegistry? dyes = null,
+        AttachedLayerRegistry? attachedLayers = null)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(blocks);
@@ -34,7 +36,8 @@ public static class StructureSelectionExporter
             return false;
         }
 
-        var symbols = new Dictionary<(string Id, BlockOrientation Orientation), char>();
+        var symbols = new Dictionary<
+            (string Id, BlockOrientation Orientation, StructureVoxelState? Detail), char>();
         var palette = new SortedDictionary<string, object>(StringComparer.Ordinal);
         var layers = new List<object>(bounds.Height);
         var filled = 0;
@@ -70,18 +73,19 @@ public static class StructureSelectionExporter
                         continue;
                     }
 
-                    if (cell.HasMicroblockGeometry ||
-                        cell.State != 0 ||
-                        cell.TextureRotation != TextureRotation.Degrees0 ||
-                        cell.Facing != HorizontalFacing.South ||
-                        !world.GetBlockSurfaceStateOrEmpty(position).IsEmpty)
+                    var mask = cell.HasMicroblockGeometry
+                        ? world.GetMicroblockMaskOrEmpty(position) : MicroblockMask.Empty;
+                    if (cell.HasMicroblockGeometry && (mask.IsEmpty || mask.IsFull))
                     {
-                        error = $"Block ({x}, {y}, {z}) has sculpting, tint, attached layers or state not supported by structure JSON.";
+                        error = $"Block ({x}, {y}, {z}) has an invalid microblock mask.";
                         return false;
                     }
-
+                    var surface = world.GetBlockSurfaceStateOrEmpty(position);
+                    var authored = new StructureVoxelState(
+                        cell.TextureRotation, cell.Facing, cell.State, mask, surface);
+                    var detail = authored.IsDefault ? null : authored;
                     var definition = blocks.GetDefinition(cell.Block);
-                    var key = (definition.Id, cell.Orientation);
+                    var key = (definition.Id, cell.Orientation, detail);
                     if (!symbols.TryGetValue(key, out var symbol))
                     {
                         if (symbols.Count >= 128)
@@ -95,17 +99,9 @@ public static class StructureSelectionExporter
                             ? PaletteSymbols[symbolIndex]
                             : (char)(0xE000 + symbolIndex - PaletteSymbols.Length);
                         symbols.Add(key, symbol);
-                        palette.Add(symbol.ToString(), new
-                        {
-                            block = definition.Id,
-                            orientation = cell.Orientation switch
-                            {
-                                BlockOrientation.X => "x",
-                                BlockOrientation.Y => "y",
-                                BlockOrientation.Z => "z",
-                                _ => throw new InvalidOperationException("Unknown block orientation."),
-                            }
-                        });
+                        palette.Add(symbol.ToString(),
+                            StructureVoxelStateJson.PaletteEntry(
+                                definition.Id, cell.Orientation, detail));
                     }
                     row[index] = symbol;
                     filled++;
@@ -135,7 +131,8 @@ public static class StructureSelectionExporter
 
         // The exporter is not allowed to invent a second structure format.
         var definitionResult = StructureDefinitionJson.Parse(json);
-        new StructureRegistry([definitionResult]).ValidateBlocks(blocks);
+        new StructureRegistry([definitionResult])
+            .ValidateBlocks(blocks, dyes, attachedLayers);
         export = new StructureSelectionExport(json, bounds.Volume, filled);
         return true;
     }
