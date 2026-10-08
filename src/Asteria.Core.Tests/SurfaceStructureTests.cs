@@ -1041,6 +1041,21 @@ public sealed class SurfaceStructureTests
                 0,
                 0,
                 12));
+        Assert.NotNull(
+            generator.FindNearestSurfaceStructure(
+                structure.Id,
+                0,
+                0,
+                12,
+                structureId: structure.Id));
+        Assert.Null(
+            generator.FindNearestSurfaceStructure(
+                structure.Id,
+                0,
+                0,
+                12,
+                structureId: "asteria:other"));
+
     }
 
     [Theory]
