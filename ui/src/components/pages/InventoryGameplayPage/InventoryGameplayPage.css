@@ -2,40 +2,73 @@
   position: fixed;
   inset: 0;
   z-index: 65;
-  background: rgb(0 0 0 / 86%);
-  pointer-events: auto;
+  padding: var(--ui-inventory-panel-gap);
   overflow: auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--ui-inventory-panel-gap, 16px);
-  padding: var(--ui-inventory-panel-gap, 16px);
+  display: grid;
+  place-items: center;
+  background: rgb(0 0 0 / 48%);
+  backdrop-filter: blur(2px);
+  pointer-events: auto;
 }
-.inventory-gameplay__header {
-  width: min(95vw, 1180px);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+
+.inventory-gameplay__workspace {
+  width: max-content;
+  max-width: 100%;
+  min-width: 0;
+  margin: auto;
 }
-.inventory-gameplay__header-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+
+.inventory-gameplay__actions {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 2;
 }
-.inventory-gameplay__content {
-  display: flex;
-  justify-content: center;
-  width: 100%;
-  min-height: 0;
+
+.inventory-gameplay__actions .ui-button {
+  min-width: 112px;
 }
-.inventory-gameplay__footer {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+
+.inventory-gameplay__cursor-status {
+  position: fixed;
+  left: 18px;
+  bottom: 18px;
+  z-index: 2;
+  max-width: min(420px, calc(100vw - 36px));
   min-height: 52px;
+  border: 2px solid var(--ui-color-border);
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--ui-color-hud-surface);
+  box-shadow: 0 4px 12px var(--ui-color-shadow);
 }
-@media (max-width: 600px) {
-  .inventory-gameplay__header { flex-wrap: wrap; }
-  .inventory-gameplay__header-actions { flex-wrap: wrap; }
+
+.inventory-gameplay__cursor-status .ui-text {
+  min-width: 0;
+}
+
+.inventory-gameplay__cursor-status .inventory-slot {
+  flex: 0 0 var(--ui-inventory-slot-size);
+}
+
+@media (max-width: 880px) {
+  .inventory-gameplay {
+    place-items: start center;
+    padding-top: 74px;
+  }
+
+  .inventory-gameplay__workspace {
+    margin: 0 auto;
+  }
+
+  .inventory-gameplay__cursor-status {
+    position: sticky;
+    left: auto;
+    bottom: auto;
+    width: fit-content;
+    margin: 18px auto 0;
+    flex-wrap: wrap;
+  }
 }
