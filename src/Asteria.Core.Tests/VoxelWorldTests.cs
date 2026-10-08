@@ -395,6 +395,48 @@ public sealed class VoxelWorldTests
     }
 
     [Fact]
+    public void MeshGeometryDependencyStampsIgnoreLightingButDetectEditsAndResidency()
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition("asteria:stone"),
+        ]);
+        var world = new VoxelWorld();
+        var center = new ChunkCoord(0, 1, 0);
+        world.InsertChunk(center, new Chunk());
+
+        var requested =
+            new Dictionary<ChunkCoord, ChunkMeshletMask>
+            {
+                [center] = ChunkMeshletMask.Single(0),
+            };
+        var first =
+            world.CaptureMeshWorkerSnapshot(requested).Dependencies;
+        var same =
+            world.CaptureMeshWorkerSnapshot(requested).Dependencies;
+        Assert.True(first.HasSameWorldGeometryInputsAs(same));
+
+        world.GetChunk(center).SetLight(
+            0, 0, 0, new VoxelLight(0, 4, 0, 0));
+        var relit =
+            world.CaptureMeshWorkerSnapshot(requested).Dependencies;
+        Assert.True(first.HasSameWorldGeometryInputsAs(relit));
+
+        world.GetChunk(center).SetBlock(
+            0, 0, 0, blocks.GetId("asteria:stone"));
+        var edited =
+            world.CaptureMeshWorkerSnapshot(requested).Dependencies;
+        Assert.False(first.HasSameWorldGeometryInputsAs(edited));
+
+        world.InsertChunk(
+            new ChunkCoord(-1, 1, 0),
+            new Chunk());
+        var expanded =
+            world.CaptureMeshWorkerSnapshot(requested).Dependencies;
+        Assert.False(edited.HasSameWorldGeometryInputsAs(expanded));
+    }
+
+    [Fact]
     public void MeshWorkerDependenciesDetectPreviouslyAbsentNeighbor()
     {
         var world =

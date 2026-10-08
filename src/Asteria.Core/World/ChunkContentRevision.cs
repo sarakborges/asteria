@@ -21,6 +21,13 @@ public sealed class ChunkContentStamp
 
     internal IEnumerable<KeyValuePair<ChunkCoord, ChunkContentRevision>>
         Entries => _revisions;
+
+    internal bool HasSameEntriesAs(ChunkContentStamp other) =>
+        _revisions.Count == other._revisions.Count &&
+        _revisions.All(entry =>
+            other._revisions.TryGetValue(
+                entry.Key, out var revision) &&
+            revision == entry.Value);
 }
 
 public readonly record struct ChunkColumnCoord(int X, int Z)
@@ -57,4 +64,10 @@ public sealed class ChunkResidencyStamp
 
     internal IEnumerable<KeyValuePair<ChunkCoord, ulong>>
         Entries => _epochs;
+
+    internal bool HasSameEntriesAs(ChunkResidencyStamp other) =>
+        _epochs.Count == other._epochs.Count &&
+        _epochs.All(entry =>
+            other._epochs.TryGetValue(entry.Key, out var epoch) &&
+            epoch == entry.Value);
 }

@@ -11,6 +11,8 @@ public sealed class ChunkPresentation
         new MeshInstance3D?[ChunkMeshletMask.Count];
     private readonly CollisionShape3D?[] _collisions =
         new CollisionShape3D?[ChunkMeshletMask.Count];
+    private readonly MeshDependencyStamp?[] _collisionDependencies =
+        new MeshDependencyStamp?[ChunkMeshletMask.Count];
     private readonly bool[] _published =
         new bool[ChunkMeshletMask.Count];
 
@@ -116,8 +118,10 @@ public sealed class ChunkPresentation
     public void Apply(
         int meshletIndex,
         ChunkMeshData data,
-        VoxelTerrainMaterialSet materials)
+        VoxelTerrainMaterialSet materials,
+        MeshDependencyStamp dependencies)
     {
+        ArgumentNullException.ThrowIfNull(dependencies);
         ValidateMeshletIndex(
             meshletIndex);
 
@@ -151,15 +155,23 @@ public sealed class ChunkPresentation
                 CreateCollision(
                     meshletIndex);
 
-            collision.Shape =
-                ChunkMeshBuilder
-                    .CreateCollisionShape(
-                        data);
+            if (_collisionDependencies[meshletIndex] is not
+                    { } previous ||
+                !previous.HasSameWorldGeometryInputsAs(
+                    dependencies))
+            {
+                collision.Shape =
+                    ChunkMeshBuilder
+                        .CreateCollisionShape(
+                            data);
+                _collisionDependencies[meshletIndex] =
+                    dependencies;
+            }
         }
         else
         {
-            RemoveCollision(
-                meshletIndex);
+            RemoveCollision(meshletIndex);
+            _collisionDependencies[meshletIndex] = null;
         }
 
         MarkTerrainPublished(

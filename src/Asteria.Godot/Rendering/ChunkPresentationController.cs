@@ -331,7 +331,8 @@ public sealed class ChunkPresentationController
             presentation.Apply(
                 pending.Meshlet.MeshletIndex,
                 pending.Meshlet.Data,
-                _terrainMaterials);
+                _terrainMaterials,
+                pending.Dependencies);
             published++;
         }
 

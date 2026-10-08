@@ -18,6 +18,17 @@ public sealed class MeshDependencyStamp
 
     public ChunkResidencyStamp Residency { get; }
 
+    // Content and chunk-residency stamps fully describe the world geometry
+    // inputs captured for a mesh worker. Lighting-only changes do not
+    // change either stamp, so the published physics shape can be reused.
+    public bool HasSameWorldGeometryInputsAs(
+        MeshDependencyStamp other)
+    {
+        ArgumentNullException.ThrowIfNull(other);
+        return Content.HasSameEntriesAs(other.Content) &&
+               Residency.HasSameEntriesAs(other.Residency);
+    }
+
     public bool IsCurrent(VoxelWorld world)
     {
         ArgumentNullException.ThrowIfNull(world);
