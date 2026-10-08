@@ -16,7 +16,7 @@ public static class PlayerChatCommandProcessor
         string worldTime)
     {
         ArgumentNullException.ThrowIfNull(session);
-        if (!line.StartsWith('/', StringComparison.Ordinal))
+        if (!line.StartsWith("/", StringComparison.Ordinal))
         {
             session.Append($"Player: {line}");
             return;
