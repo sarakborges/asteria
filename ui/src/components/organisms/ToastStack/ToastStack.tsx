@@ -1,3 +1,4 @@
+import { useLocalization } from "../../../localization/LocalizationProvider";
 import {
   useEffect,
   useState,
@@ -43,6 +44,7 @@ function Toast({
   onDismiss,
 }: ToastProps) {
   const [leaving, setLeaving] = useState(false);
+  const { t } = useLocalization();
 
   useEffect(() => {
     const duration = normalizeDuration(toast.durationMs);
@@ -81,7 +83,8 @@ function Toast({
         .filter(Boolean)
         .join(" ")}
     >
-      {toast.message}
+      {toast.message.startsWith("inventory.error.")
+        ? t(toast.message) : toast.message}
     </div>
   );
 }

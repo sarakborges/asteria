@@ -929,6 +929,7 @@ public partial class Main : Node3D
         SendWorldSettings();
         SendHotbarState();
         SendInventoryState();
+        SendCreativeCatalog();
         SendWorldHudState(
             force: true);
         SendWorldClockState(force: true);

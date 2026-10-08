@@ -27,8 +27,7 @@ function readSlot(value: unknown): InventorySlotState {
       (record.quantity as number) > 64) return null;
   const kind = readKind(record.kind);
   const metadata = readMetadata(record.metadata);
-  if (!kind || !metadata ||
-      (kind === "tool" && record.quantity !== 1)) return null;
+  if (!kind || !metadata) return null;
   return {
     id: record.id, kind, quantity: record.quantity as number, metadata,
   };
@@ -122,6 +121,9 @@ export function createInventoryController(
           ...state,
           inventory: { ...state.inventory, errorKey },
         }));
+        if (payload?.code === "UnsupportedDropKind") {
+          store.pushToast({ message: errorKey, tone: "warning" });
+        }
       }
     },
   };
