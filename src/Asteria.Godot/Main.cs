@@ -1772,8 +1772,8 @@ public partial class Main : Node3D
         {
             var creature = target.Creature;
             var maximum = _creatures.Get(creature.DefinitionId).Health;
-            var snapshot = (creature.Id.Value, creature.Health, (float)maximum);
-            if (force || _lastCreatureHud != snapshot)
+            var creatureSnapshot = (creature.Id.Value, creature.Health, (float)maximum);
+            if (force || _lastCreatureHud != creatureSnapshot)
             {
                 SendWebUi("game.hud.target_entity", new
                 {
@@ -1787,7 +1787,7 @@ public partial class Main : Node3D
                 // Do not allow a stale block target to reappear underneath.
                 SendWebUi("game.hud.target", new { });
                 SendWebUi("game.hud.prompt", new { });
-                _lastCreatureHud = snapshot;
+                _lastCreatureHud = creatureSnapshot;
             }
             _targetHud.Reset();
             return;
