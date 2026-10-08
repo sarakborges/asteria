@@ -433,22 +433,32 @@ public static class BiomeDefinitionJson
         }
 
         terrain = EnsureObject(terrain, "terrain3d");
-        if (!terrain.TryGetProperty("floatingFormation", out var value) ||
-            value.ValueKind == JsonValueKind.Null)
+        if (!terrain.TryGetProperty("additive", out var entries))
         {
             return new BiomeTerrain3dDefinition();
         }
 
-        value = EnsureObject(value, "terrain3d.floatingFormation");
-        return new BiomeTerrain3dDefinition(
-            new BiomeFloatingFormationDefinition(
-                RequiredInt32(value, "minY"),
-                RequiredInt32(value, "maxY"),
-                RequiredUInt32(value, "horizontalScale"),
-                RequiredUInt32(value, "detailScale"),
-                RequiredSingle(value, "coverage"),
-                RequiredSingle(value, "roughness"),
-                RequiredSingle(value, "densityScale")));
+        entries = EnsureArray(entries, "terrain3d.additive");
+        var formations = entries.EnumerateArray()
+            .Select((value, index) =>
+            {
+                value = EnsureObject(
+                    value,
+                    $"terrain3d.additive[{index}]");
+                return new BiomeAdditiveDensityDefinition(
+                    RequiredInt32(value, "minY"),
+                    RequiredInt32(value, "maxY"),
+                    RequiredUInt32(value, "horizontalScale"),
+                    RequiredUInt32(value, "detailScale"),
+                    RequiredSingle(value, "coverage"),
+                    RequiredSingle(value, "roughness"),
+                    RequiredSingle(value, "densityScale"),
+                    OptionalSingle(value, "verticalFalloff") ?? 1f,
+                    OptionalSingle(value, "horizontalFalloff") ?? 1f,
+                    OptionalSingle(value, "densityBias") ?? 0f);
+            });
+
+        return new BiomeTerrain3dDefinition(formations);
     }
 
     private static IReadOnlyList<BiomeSurfaceLayerDefinition>
