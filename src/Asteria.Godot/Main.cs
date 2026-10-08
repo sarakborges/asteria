@@ -25,11 +25,11 @@ public partial class Main : Node3D
         MaxMaterializationTasksInFlight;
     private const int MaxMaterializationResultsPerFrame = 8;
     private const int MaxPresentationPublicationsPerFrame = 4;
-    private const int MaxMeshletPublishesPerFrame = 4;
+    private const int MaxMeshletPublishesPerFrame = 16;
     private const int MaxInteractiveTerrainMeshletsPerWorker = 8;
     private const int MaxTerrainMeshletsPerWorker = 16;
     private const int MaxFluidMeshletsPerWorker = 16;
-    private const int MaxFluidMeshletPublishesPerFrame = 4;
+    private const int MaxFluidMeshletPublishesPerFrame = 16;
     private const int MaxFluidUpdatesPerWorker = 512;
     private const int MaxChunkEvictionsPerFrame = 2;
 
