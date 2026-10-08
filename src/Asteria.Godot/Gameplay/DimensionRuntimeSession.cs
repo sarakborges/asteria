@@ -8,7 +8,6 @@ using NVector3 = System.Numerics.Vector3;
 namespace Asteria.Client.Gameplay;
 
 public sealed record DimensionRuntimeSessionSettings(
-    int RenderDistanceChunks,
     int RetentionMarginChunks,
     int MaxMaterializationTasksInFlight,
     int MaxMaterializationDispatchesPerFrame,
@@ -250,7 +249,6 @@ public sealed class DimensionRuntimeSession
                 Presentations,
                 Generator,
                 new ChunkStreamingControllerSettings(
-                    settings.RenderDistanceChunks,
                     settings.RetentionMarginChunks,
                     settings.MaxPresentationPublicationsPerFrame));
     }

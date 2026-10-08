@@ -3,6 +3,7 @@ using System.Text.Json;
 using Asteria.Client.Content;
 using Asteria.Client.Gameplay;
 using Asteria.Client.Rendering;
+using Asteria.Client.Settings;
 using Asteria.Core.Content;
 using Asteria.Core.World;
 using Godot;
@@ -13,7 +14,6 @@ namespace Asteria.Client;
 public partial class Main : Node3D
 {
     private const float InteractionDistance = 6f;
-    private const int RenderDistanceChunks = 4;
     private const int RetentionMarginChunks = 10;
     private static readonly int MaxMaterializationTasksInFlight =
         Math.Clamp(
@@ -55,6 +55,10 @@ public partial class Main : Node3D
 
     private PackSelection _packSelection =
         PackSelection.Default;
+    private ClientPreferencesController _clientSettings = null!;
+
+    private ClientPreferences _clientPreferences =>
+        _clientSettings.Preferences;
     private JsonElement _uiTheme;
 
     private VoxelWorld _world =>
@@ -125,6 +129,8 @@ public partial class Main : Node3D
 
     public override void _Ready()
     {
+        _clientSettings = new ClientPreferencesController(
+            ClientPreferencesStore.FromUserDataDirectory());
         _uiTheme =
             UiThemeLoader.LoadProjectTheme(
                 _packSelection);
@@ -287,7 +293,7 @@ public partial class Main : Node3D
         var streamingRadius =
             loadingWorld
                 ? WorldLoadingState.InitialHorizontalRadiusChunks
-                : RenderDistanceChunks;
+                : _clientPreferences.RenderDistanceChunks;
 
         var streamingBegin =
             _chunkStreaming.BeginFrame(
@@ -516,7 +522,6 @@ public partial class Main : Node3D
             _terrainMaterials,
             _fluidMaterials,
             new DimensionRuntimeSessionSettings(
-                RenderDistanceChunks,
                 RetentionMarginChunks,
                 MaxMaterializationTasksInFlight,
                 MaxMaterializationDispatchesPerFrame,
@@ -644,6 +649,30 @@ public partial class Main : Node3D
                     $"webui -> godot: {type}");
             }
 
+            var clientUpdate = _clientSettings.Apply(
+                type,
+                document.RootElement);
+            if (clientUpdate != ClientPreferenceUpdate.NotHandled)
+            {
+                if (clientUpdate is
+                    ClientPreferenceUpdate.Changed or
+                    ClientPreferenceUpdate.SaveFailed)
+                {
+                    SendClientPreferences();
+                }
+
+                if (clientUpdate is not
+                    (ClientPreferenceUpdate.Changed or
+                     ClientPreferenceUpdate.Unchanged))
+                {
+                    SendWebUi(
+                        "game.client_preferences.error",
+                        new { code = clientUpdate.ToString() });
+                }
+
+                return;
+            }
+
             switch (type)
             {
                 case "ui.ready":
@@ -692,6 +721,7 @@ public partial class Main : Node3D
             "game.ready",
             new { bridge = 1, engine = "godot" });
         SendDebugHudState();
+        SendClientPreferences();
 
         if (_worldSeed is null)
         {
@@ -726,6 +756,17 @@ public partial class Main : Node3D
             SendMouseCaptureState(
                 _player.IsMouseCaptured);
         }
+    }
+
+    private void SendClientPreferences()
+    {
+        // Keep the same camelCase/string-enum JSON contract used by
+        // persisted settings, without a second handwritten DTO.
+        using var document = JsonDocument.Parse(
+            ClientPreferencesJson.Serialize(_clientPreferences));
+        SendWebUi(
+            "game.client_preferences",
+            document.RootElement);
     }
 
     private void SendWorldCreationState()
@@ -830,7 +871,7 @@ public partial class Main : Node3D
             $"dimension={_dimension.Id} " +
             $"dimension_seed={_dimensionSeed}");
         GD.Print(
-            $"streaming: render_distance={RenderDistanceChunks} " +
+            $"streaming: render_distance={_clientPreferences.RenderDistanceChunks} " +
             $"retention_margin={RetentionMarginChunks} " +
             $"materialization_in_flight={MaxMaterializationTasksInFlight}");
 
@@ -885,7 +926,8 @@ public partial class Main : Node3D
 
         ReportStreamingSelection(
             _chunkStreaming.SyncSelection(
-                CurrentStreamingCenter()));
+                CurrentStreamingCenter(),
+                _clientPreferences.RenderDistanceChunks));
     }
 
     private void SendLoadingState(

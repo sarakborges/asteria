@@ -100,8 +100,8 @@ public sealed class ClientPreferencesTests
                     "\"renderDistanceChunks\": 100")));
         Assert.Throws<ArgumentException>(() =>
             ClientPreferencesJson.Deserialize(
-                valid.Replace("\"Jump\": \"Space\"",
-                    "\"Jump\": \"KeyW\"")));
+                valid.Replace("\"jump\": \"Space\"",
+                    "\"jump\": \"KeyW\"")));
         Assert.Throws<JsonException>(() =>
             ClientPreferencesJson.Deserialize("{ invalid"));
     }

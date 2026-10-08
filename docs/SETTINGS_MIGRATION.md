@@ -11,9 +11,9 @@ MineClone separates three lifetimes. Asteria must preserve them without copying 
 | Per-world gamerules | `src/world/game_rules.rs` | Core world/session settings; Godot runtime consumer | WorldGameRules runtime owner implemented; WebUI editing pending |
 | Per-world creation | `src/world/new_world.rs`, `src/screens/settings_screen/new_world_section.rs` | Core validated creation request, active world identity | Validated WorldCreationOptions exists; runtime UI still sends seed only |
 | Per-player mode | `src/player/game_mode.rs`, `src/screens/settings_screen/world_settings_section.rs` | Core player state and Godot movement/interaction adapter | Mode enum and creation selection modeled; gameplay behavior pending |
-| Client graphics | `src/world/render_distance.rs`, `src/app/game_config.rs` | Godot client config/streaming selection | Hardcoded at 4 chunks in `Main.cs` |
-| Client HUD | `src/hud/mod.rs`, `src/screens/settings_screen/hud_section.rs` | Client preferences; derived WebUI HUD state | HUD view exists; preferences not wired |
-| Client keybinds | `src/app/keybinds.rs`, `src/screens/settings_screen/keybinds_section.rs` | Godot input action/keymap owner | Hardcoded player keys; ControlsPage is display-only |
+| Client graphics | `src/world/render_distance.rs`, `src/app/game_config.rs` | Godot client config/streaming selection | Client preference model, runtime radius and disk settings implemented; UI pending |
+| Client HUD | `src/hud/mod.rs`, `src/screens/settings_screen/hud_section.rs` | Client preferences; derived WebUI HUD state | 10 hints, hideHints and target position modeled/persisted; UI pending |
+| Client keybinds | `src/app/keybinds.rs`, `src/screens/settings_screen/keybinds_section.rs` | Godot input action/keymap owner | 7 keybind preferences persisted with conflict checks; Godot input consumers pending |
 | Language | `src/screens/settings_screen/languages_section.rs` | React localization provider | EN/PT-BR/ES and persistence already implemented |
 | Settings navigation | `src/screens/settings_screen/layout.rs` | React SettingsPage + UI navigation controller | Presentation-only; not mounted in App runtime |
 
@@ -51,7 +51,7 @@ MineClone separates three lifetimes. Asteria must preserve them without copying 
 ## Migration order and completion gates
 
 - [x] **A. Core models and session wiring**: `WorldGameRules`, creation options and player mode, defaults, validation, world/session lifetime and unit tests. Do not silently advertise creature spawning or flight before their consumer exists.
-- [ ] **B. Client preferences**: mutable render distance with streaming integration, persisted graphics/HUD/keybind settings, typed config store, explicit change notifications and tests.
+- [x] **B. Client preferences**: mutable render distance with streaming integration, persisted graphics/HUD/keybind settings, typed config store, explicit change notifications and tests.
 - [ ] **C. Input and gameplay consumers**: modes/flight/spectator targeting and visibility, action routing and key capture. Implement only actions that exist; carry the rest as visible gaps.
 - [ ] **D. UI/controller integration**: wire NewWorldPage, SettingsPage, ControlsPage and PauseMenuPage to authoritative snapshots/actions; apply React/Storybook conventions and all three locales.
 - [ ] **E. World save/catalog parity**: world name, saved rules, player mode, load/resume and any required save migration policy when world catalog persistence is implemented.
@@ -59,7 +59,7 @@ MineClone separates three lifetimes. Asteria must preserve them without copying 
 
 ## Explicit gaps as of this audit
 
-Asteria's `App.tsx` mounts gameplay HUD, start and new-world screens only. `SettingsPage`, `ControlsPage`, `PauseMenuPage` and `WorldSelectionPage` are available as presentation but not connected to application flow. `WorldCreationController` sends only `seed`. `Main.cs` continues to use fixed `RenderDistanceChunks = 4`, but world tick rate now reads its shared Core rule. `FpsPlayer` implements hardcoded movement/jump keys and no complete mode/keybind switching. Thus **visual presence is not runtime parity**.
+Asteria's `App.tsx` mounts gameplay HUD, start and new-world screens only. `SettingsPage`, `ControlsPage`, `PauseMenuPage` and `WorldSelectionPage` are available as presentation but not connected to application flow. `WorldCreationController` sends only `seed`. `Main.cs` reads the client-owned render distance and the world-owned tick rate. Editing screens are not yet wired. `FpsPlayer` implements hardcoded movement/jump keys and no complete mode/keybind switching. Thus **visual presence is not runtime parity**.
 
 Audit references: MineClone `src/world/game_rules.rs`, `src/world/new_world.rs`, `src/app/game_config.rs`, `src/app/keybinds.rs`, `src/hud/mod.rs`, `src/screens/settings_screen/{layout,game_rules_section,world_settings_section,new_world_section,hud_section,keybinds_section,languages_section,render_distance_section}.rs`; Asteria `docs/UI_MIGRATION.md`, `src/Asteria.Godot/Main.cs`, `src/Asteria.Godot/Gameplay/FpsPlayer.cs`, `src/Asteria.Core/World/WorldTickClock.cs`, `ui/src/{App.tsx,controllers/WorldCreationController.ts,localization/LocalizationProvider.tsx}`.
 
@@ -71,3 +71,14 @@ Audit references: MineClone `src/world/game_rules.rs`, `src/world/new_world.rs`,
 - The Godot runtime now reads the rate from the same owner for the world tick clock, active-fluid scheduling and chunk-activation fluid scheduling; no hardcoded tick rate remains in `Main.cs`.
 - Added Core regression tests for defaults, validation, changes, game-mode capability policy, tick timing and session ownership.
 - **Not included**: WebUI editing, runtime creature spawner, actual Creative/Spectator physics and inventory, disk save, and complete world-name collision handling. These remain later migration gates, not falsely enabled settings.
+
+## Phase B delivery (2026-10-08)
+
+- `ClientPreferences` is the Core owner of mutable, validated client graphics/HUD/keybind state, with revision on meaningful changes only.
+- Render distance is 4–24 chunks; **Asteria retains its existing default of 4** to avoid suddenly scaling its still-in-progress worldgen workload up to MineClone's default of 12. The full authored range is supported.
+- `ChunkStreamingController` no longer stores a duplicate radius; streaming selection takes the current client preference explicitly, including after Sphere transitions and after loading. Its existing revisioned worker rejects superseded requests.
+- HUD preferences: global hide-hints, all ten MineClone hint switches, and target position (center, top-right, hidden). They are persisted, but dormant controls await actual HUD consumers in phase D.
+- Keybinding preferences: seven MineClone actions with default bindings, rejection of reserved movement/hotbar keys, and duplicate binding validation. The actual Godot input actions remain hardcoded until phase C; saved keybinding values do **not yet change gameplay input**.
+- Godot reads/writes `user://client-preferences.json` via the OS user-data directory and an atomic temporary-file replacement, not under any pack. Corrupt config is rejected with a warning and defaults restored in memory.
+- WebUI bridge now sends `game.client_preferences` snapshots and accepts semantic `ui.client_preferences.{render_distance,hide_hints,target_block_position,hint,keybind}` mutations, with validation and explicit error statuses; the UI does not yet expose controls.
+- Unit tests cover range bounds, defaults, hint independence, key conflicts and JSON roundtrip/invalid files. This is client config, **not** world disk saving.

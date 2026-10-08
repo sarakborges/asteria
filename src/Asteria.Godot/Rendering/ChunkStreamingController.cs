@@ -5,16 +5,9 @@ namespace Asteria.Client.Rendering;
 public sealed class ChunkStreamingControllerSettings
 {
     public ChunkStreamingControllerSettings(
-        int renderDistanceChunks,
         int retentionMarginChunks,
         int maximumPresentationReservationsPerFrame)
     {
-        if (renderDistanceChunks <= 0)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(renderDistanceChunks));
-        }
-
         if (retentionMarginChunks < 0)
         {
             throw new ArgumentOutOfRangeException(
@@ -27,15 +20,11 @@ public sealed class ChunkStreamingControllerSettings
                 nameof(maximumPresentationReservationsPerFrame));
         }
 
-        RenderDistanceChunks =
-            renderDistanceChunks;
         RetentionMarginChunks =
             retentionMarginChunks;
         MaximumPresentationReservationsPerFrame =
             maximumPresentationReservationsPerFrame;
     }
-
-    public int RenderDistanceChunks { get; }
 
     public int RetentionMarginChunks { get; }
 
@@ -99,12 +88,6 @@ public sealed class ChunkStreamingController
         _selection.TryPollCompleted(
             out _,
             out error);
-
-    public ChunkStreamingSelectionReport SyncSelection(
-        ChunkCoord center) =>
-        SyncSelection(
-            center,
-            _settings.RenderDistanceChunks);
 
     public ChunkStreamingSelectionReport SyncSelection(
         ChunkCoord center,
@@ -177,14 +160,6 @@ public sealed class ChunkStreamingController
             _residency.PendingCount,
             _residency.MovementDirection);
     }
-
-    public ChunkStreamingBeginFrameReport BeginFrame(
-        ChunkCoord center,
-        WorldFrameWorkBudget budget) =>
-        BeginFrame(
-            center,
-            budget,
-            _settings.RenderDistanceChunks);
 
     public ChunkStreamingBeginFrameReport BeginFrame(
         ChunkCoord center,
