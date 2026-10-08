@@ -7,6 +7,7 @@ public enum BlockBreakRejection : byte
     Empty = 2,
     Unbreakable = 3,
     MutationRejected = 4,
+    PickupOnly = 5,
 }
 
 public readonly record struct BlockBreakDecision(

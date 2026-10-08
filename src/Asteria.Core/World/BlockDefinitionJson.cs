@@ -27,6 +27,13 @@ public static class BlockDefinitionJson
         var castsShadow = OptionalBoolean(root, "castsShadow") ?? true;
         var isCollidable = OptionalBoolean(root, "isCollidable") ?? true;
         var dropsSelf = OptionalBoolean(root, "dropsSelf") ?? true;
+        var interaction = OptionalString(root, "interaction") switch
+        {
+            null or "break" => BlockInteractionKind.Break,
+            "pickup" => BlockInteractionKind.Pickup,
+            var value => throw new FormatException($"Unsupported block interaction: {value}"),
+        };
+        var pickupItemId = OptionalString(root, "pickupItem");
         var alphaBlend = OptionalBoolean(root, "alphaBlend") ?? false;
         var hasAlphaCutoff = root.TryGetProperty("alphaCutoff", out var alphaCutoff) &&
                              alphaCutoff.ValueKind != JsonValueKind.Null;
@@ -61,7 +68,9 @@ public static class BlockDefinitionJson
             lightDampening: lightDampening,
             lightEmission: emission,
             previewColor: previewColor,
-            dropsSelf: dropsSelf);
+            dropsSelf: dropsSelf,
+            interaction: interaction,
+            pickupItemId: pickupItemId);
     }
 
     private static BlockLightEmission ParseLightEmission(JsonElement root, string blockId)
@@ -274,7 +283,8 @@ public static class BlockDefinitionJson
                         RequiredProperty(visual, "texture")),
                     OptionalSingle(visual, "width") ?? 0.42f,
                     OptionalSingle(visual, "height") ?? 0.012f,
-                    OptionalSingle(visual, "baseOffset") ?? 0.0125f),
+                    OptionalSingle(visual, "baseOffset") ?? 0.0125f,
+                    OptionalSingle(visual, "targetHeight") ?? 0.14f),
             "crossedSprite" =>
                 BlockVisualDefinition.CrossedSprite(
                     ParseTextureLayerValue(

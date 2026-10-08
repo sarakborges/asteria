@@ -89,24 +89,25 @@ public static class VoxelWorldRaycaster
                     blocks.GetDefinition(
                         cell.Block);
 
-                if (!BlockGeometry.RequiresFineMeshing(
-                        definition,
-                        cell))
+                var exitDistance =
+                    Math.Min(maxX, Math.Min(maxY, maxZ));
+
+                if (definition.Visual.Kind == BlockVisualKind.GroundSprite)
+                {
+                    var groundHit = RaycastGroundSprite(
+                        position, definition.Visual, origin, direction,
+                        entryDistance, Math.Min(exitDistance, maxDistance));
+                    if (groundHit is not null)
+                        return groundHit;
+                }
+                else if (!BlockGeometry.RequiresFineMeshing(definition, cell))
                 {
                     return new VoxelWorldHit(
-                        position,
-                        normalX,
-                        normalY,
-                        normalZ);
+                        position, normalX, normalY, normalZ);
                 }
-
-                var exitDistance =
-                    Math.Min(
-                        maxX,
-                        Math.Min(
-                            maxY,
-                            maxZ));
-                var partialHit =
+                else
+                {
+                    var partialHit =
                     RaycastPartialVoxel(
                         world,
                         definition,
@@ -122,9 +123,8 @@ public static class VoxelWorldRaycaster
                         normalY,
                         normalZ);
 
-                if (partialHit is not null)
-                {
-                    return partialHit;
+                    if (partialHit is not null)
+                        return partialHit;
                 }
             }
 
@@ -168,6 +168,52 @@ public static class VoxelWorldRaycaster
         }
 
         return null;
+    }
+
+    private static VoxelWorldHit? RaycastGroundSprite(
+        WorldVoxelCoord position,
+        BlockVisualDefinition visual,
+        Vector3 origin,
+        Vector3 direction,
+        float entryDistance,
+        float exitDistance)
+    {
+        var halfWidth = visual.Width * 0.5f;
+        var minimumX = position.X + 0.5f - halfWidth;
+        var maximumX = position.X + 0.5f + halfWidth;
+        var minimumZ = position.Z + 0.5f - halfWidth;
+        var maximumZ = position.Z + 0.5f + halfWidth;
+        var minimumY = position.Y + visual.BaseOffset;
+        var maximumY = minimumY + visual.TargetHeight;
+        var near = entryDistance;
+        var far = exitDistance;
+        if (!ClipRayAxis(origin.X, direction.X, minimumX, maximumX, ref near, ref far) ||
+            !ClipRayAxis(origin.Y, direction.Y, minimumY, maximumY, ref near, ref far) ||
+            !ClipRayAxis(origin.Z, direction.Z, minimumZ, maximumZ, ref near, ref far))
+        {
+            return null;
+        }
+
+        // Ground objects are pickup-only; no placement normal is consumed.
+        return new VoxelWorldHit(position, 0, 0, 0);
+    }
+
+    private static bool ClipRayAxis(
+        float origin,
+        float direction,
+        float minimum,
+        float maximum,
+        ref float near,
+        ref float far)
+    {
+        if (direction == 0f)
+            return origin >= minimum && origin <= maximum;
+
+        var first = (minimum - origin) / direction;
+        var second = (maximum - origin) / direction;
+        near = Math.Max(near, Math.Min(first, second));
+        far = Math.Min(far, Math.Max(first, second));
+        return near <= far;
     }
 
     private static VoxelWorldHit? RaycastPartialVoxel(

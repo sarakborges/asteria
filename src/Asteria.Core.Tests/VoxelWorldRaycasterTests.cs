@@ -225,6 +225,42 @@ public sealed class VoxelWorldRaycasterTests
             occupiedHit.Value.NormalX);
     }
 
+    [Fact]
+    public void GroundSpriteRaycastUsesCompactHitboxInsteadOfWholeVoxel()
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition(
+                "asteria:stick",
+                visual: BlockVisualDefinition.GroundSprite(
+                    new BlockTextureLayer("textures/items/stick.png"),
+                    width: 0.68f, targetHeight: 0.12f)),
+            new BlockDefinition("asteria:stone"),
+        ]);
+        var world = LoadedWorld();
+        Assert.True(world.SetBlockAt(
+            new WorldVoxelCoord(2, 2, 2), blocks.GetId("asteria:stick"),
+            out _));
+        Assert.True(world.SetBlockAt(
+            new WorldVoxelCoord(3, 2, 2), blocks.GetId("asteria:stone"),
+            out _));
+
+        var highRay = VoxelWorldRaycaster.Raycast(
+            world, blocks, new Vector3(1.5f, 2.5f, 2.5f),
+            Vector3.UnitX, 4f);
+        Assert.Equal(new WorldVoxelCoord(3, 2, 2), highRay!.Value.Voxel);
+
+        var lowRay = VoxelWorldRaycaster.Raycast(
+            world, blocks, new Vector3(1.5f, 2.07f, 2.5f),
+            Vector3.UnitX, 4f);
+        Assert.Equal(new WorldVoxelCoord(2, 2, 2), lowRay!.Value.Voxel);
+
+        var outsideFootprint = VoxelWorldRaycaster.Raycast(
+            world, blocks, new Vector3(2.93f, 3.5f, 2.93f),
+            -Vector3.UnitY, 3f);
+        Assert.Null(outsideFootprint);
+    }
+
     private static VoxelWorld LoadedWorld()
     {
         var world = new VoxelWorld();

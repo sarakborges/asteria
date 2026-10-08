@@ -20,6 +20,16 @@ public sealed class InventoryContentCatalog
         ArgumentNullException.ThrowIfNull(items);
         ArgumentNullException.ThrowIfNull(tools);
 
+        foreach (var (_, block) in blocks.AuthoredDefinitions())
+        {
+            if (block.Interaction == BlockInteractionKind.Pickup &&
+                !items.TryGet(block.PickupItemId!, out _))
+            {
+                throw new InvalidOperationException(
+                    $"Pickup block {block.Id} references unknown item {block.PickupItemId}.");
+            }
+        }
+
         var choices = new List<InventoryCatalogChoice>();
         foreach (var (runtimeId, definition) in blocks.AuthoredDefinitions())
         {
