@@ -14,8 +14,7 @@ public sealed class StructureVoxelStateTests
         var dyes = new DyeRegistry([new DyeDefinition("asteria:red", 0, 1, 1f / 3f)]);
         var layers = AttachedLayerRegistry.FromJson([
             """
-            {"id":"asteria:moss","texture":"textures/layers/moss.png",
-             "faces":["top","front"]}
+            {"id":"asteria:moss","texture":"textures/layers/moss.png"}
             """,
             """
             {"id":"asteria:ivy","texture":"textures/layers/ivy.png",
@@ -92,11 +91,12 @@ public sealed class StructureVoxelStateTests
     }
 
     [Fact]
-    public void RejectsRotatingStatefulStructuresAndInvalidAuthoredContent()
+    public void ValidatesRotatingStatefulStructuresAndInvalidAuthoredContent()
     {
         var (_, original, _, _) = ExportDetailedBlock();
-        Assert.Throws<ArgumentException>(() => new StructureDefinition(
-            "asteria:rotating", true, default, original.Voxels));
+        var rotating = new StructureDefinition(
+            "asteria:rotating", true, default, original.Voxels);
+        Assert.True(rotating.Rotation);
         var (blocks, dyes, layers) = Registries();
         var detail = Assert.IsType<StructureVoxelState>(
             Assert.Single(original.Voxels).Detail);

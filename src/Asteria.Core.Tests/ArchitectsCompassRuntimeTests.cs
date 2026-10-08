@@ -75,7 +75,7 @@ public sealed class ArchitectsCompassRuntimeTests
         Assert.Contains("\"rows\"", exported.Json);
         var definition = StructureDefinitionJson.Parse(exported.Json);
         Assert.Equal("asteria:structure_test", definition.Id);
-        Assert.False(definition.Rotation);
+        Assert.True(definition.Rotation);
         Assert.False(definition.Locatable);
         Assert.Equal(2, definition.Voxels.Count);
         Assert.Contains(definition.Voxels,
