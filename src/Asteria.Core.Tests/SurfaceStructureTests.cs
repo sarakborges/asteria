@@ -1092,7 +1092,7 @@ public sealed class SurfaceStructureTests
             new MeshletContentRevisions(), new MeshletContentRevisions());
         var runtime = new ManualStructurePlacementRuntime(
             generator, world, mutations, blocks, registry,
-            StructureSetRegistry.Empty);
+            StructureSetRegistry.Empty, new ManualStructurePlacementLedger());
         var playerBounds = new WorldAabb(
             new System.Numerics.Vector3(12, height + 2, 12),
             new System.Numerics.Vector3(13, height + 4, 13));
@@ -1131,7 +1131,7 @@ public sealed class SurfaceStructureTests
             new MeshletContentRevisions(), new MeshletContentRevisions());
         var runtime = new ManualStructurePlacementRuntime(
             generator, world, mutations, blocks, registry,
-            StructureSetRegistry.Empty);
+            StructureSetRegistry.Empty, new ManualStructurePlacementLedger());
         var bounds = new WorldAabb(
             new System.Numerics.Vector3(12, 70, 12),
             new System.Numerics.Vector3(13, 72, 13));
@@ -1301,7 +1301,7 @@ public sealed class SurfaceStructureTests
                 world, new WorldUpdateQueue(), new FluidUpdateQueue(),
                 new FluidMeshUpdateQueue(), new BlockPhysicsUpdateQueue(),
                 new MeshletContentRevisions(), new MeshletContentRevisions()),
-            blocks, structures, sets);
+            blocks, structures, sets, new ManualStructurePlacementLedger());
 
     [Theory]
     [InlineData(0, 0)]
