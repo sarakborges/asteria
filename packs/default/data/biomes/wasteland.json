@@ -8,8 +8,7 @@
       "max": 448
     },
     "cannotBorder": [
-      "asteria:overworld/arctic",
-      "asteria:overworld/ocean"
+      "asteria:overworld/arctic"
     ]
   },
   "surfaceTerrain": {

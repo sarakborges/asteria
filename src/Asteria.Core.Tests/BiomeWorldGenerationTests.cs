@@ -53,9 +53,12 @@ public sealed class BiomeWorldGenerationTests
             biomes.Get(
                 "asteria:overworld/swamp");
 
-        Assert.DoesNotContain(
+        Assert.Contains(
             "asteria:overworld/desert",
             swamp.SurfaceLayout!.CannotBorder);
+        Assert.Contains(
+            "asteria:overworld/wasteland",
+            swamp.SurfaceLayout.CannotBorder);
         Assert.Contains(
             "asteria:overworld/mountains",
             swamp.SurfaceLayout.CannotBorder);
@@ -324,6 +327,25 @@ public sealed class BiomeWorldGenerationTests
                         sample.Primary);
             }
         }
+    }
+
+    [Theory]
+    [InlineData("asteria:overworld/desert", "asteria:overworld/swamp", false)]
+    [InlineData("asteria:overworld/wasteland", "asteria:overworld/swamp", false)]
+    [InlineData("asteria:overworld/wasteland", "asteria:overworld/ocean", true)]
+    public void OverworldBoundaryRulesAreSymmetric(
+        string first,
+        string second,
+        bool canBorder)
+    {
+        var biomes = LoadDefaultBiomes();
+        var field = new BiomeField(
+            123UL,
+            [first, second],
+            biomes);
+
+        Assert.Equal(canBorder, field.AreCompatible(first, second));
+        Assert.Equal(canBorder, field.AreCompatible(second, first));
     }
 
     [Fact]
