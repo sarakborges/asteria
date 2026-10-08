@@ -42,6 +42,10 @@ public sealed class DimensionSessionState
     /// archive/retirement. Like World, the owner survives session recreation.</summary>
     public ManualStructurePlacementLedger ManualStructures { get; } = new();
 
+    /// <summary>Storage-box contents remain isolated by Sphere and survive
+    /// unload/retirement together with the Sphere's authoritative VoxelWorld.</summary>
+    public StorageBoxRuntime StorageBoxes { get; } = new();
+
     public ulong WorldTick { get; set; }
 
     public DayNightClockState? DayNight { get; set; }
