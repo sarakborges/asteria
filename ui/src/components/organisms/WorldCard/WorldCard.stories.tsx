@@ -22,6 +22,20 @@ type Story = StoryObj<typeof meta>;
 
 export const Compatible: Story = { args: { onLoad: () => undefined, onDelete: () => undefined } };
 
+export const MetadataOnlyCandidate: Story = {
+  args: {
+    world: {
+      id: "Metadata World",
+      lastSaved: "2026-10-08 15:00 UTC",
+      seed: "181960897289965",
+      daysPassed: "3",
+      sphere: "asteria:overworld",
+      coordinates: "X: 2 · Z: -4 · Y: 70",
+      compatible: false,
+    },
+  },
+};
+
 export const Incompatible: Story = {
   args: {
     onDelete: () => undefined,
