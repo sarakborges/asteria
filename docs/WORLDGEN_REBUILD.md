@@ -180,3 +180,16 @@ CI publishes equivalent fixed-seed SVG artifacts for both `asteria:overworld` an
 - Caches are bounded acceleration only; cache warmth/eviction never changes output.
 - Runtime mutable-world questions may inspect `VoxelWorld`; untouched generated-world facts come from generator capabilities.
 - Do not mark the migration complete while any required rebuild phase remains Partial, Missing or Divergent.
+
+## Authored special terrain features (data-driven)
+
+Special surface appearances are authored as **geometry + optional features**, rather than branching by biome ID:
+
+- `surfaceTerrain.type: "cone"` is a reusable cone shape. The default volcano uses it, but the generator has no special volcano identity.
+- `surfaceTerrain.crater` is independent of the base shape. Any surface terrain type can author a formation-centered depression using `depth`, `radius`, `irregularity`, `noiseScale`, `transitionWidth`.
+- `surfaceTerrain.crater.fluidFill` optionally fills the depression. `fluid` names any registered fluid, `topLevel` is relative to the **dimension's sea level**, `minimumStrength` limits fill to the formation core. An optional `spill` defines `minimumStrength`, `maximumStrength`, `scale`, `width` and `level`. SurfaceTerrainField owns crater geometry, GeneratedFluidField owns generation-time fluid policy, and SurfaceChunkMaterializer alone writes voxels.
+- `surfaceTerrain.influenceMode`: `blend` (default), `lowerOnly` (blended terrain constrained below unaffected neighbors) and `primary` (formation primary shape overrides neighboring heights) are authored data, replacing special volcano, ocean and swamp blending checks.
+- `surfaceTerrain.fillToSeaLevel: true` opts the biome into the dimension's authored `generatedOcean` fill. There is no swamp-type special case; a dimension must still author `generatedOcean` for this to do anything.
+- Primitive profiles remain useful geometry algorithms, but their shaping constants are now authored: dunes (`waveDirectionZ`, `broadScaleMultiplier`, `waveWeight`); swamp depressions (`pondBroadScaleMultiplier`, `pondDetailScaleMultiplier`, `pondBroadWeight`, `pondBias`, `pondTransitionWidth`, `pondSharpness`); gorge (`rimFalloff`, `floorFalloff`); alps (`detailSharpness`); cone (`slopeNoiseGain`).
+
+The obsolete `surfaceFluid: { type: "volcano_crater" }` and `surfaceTerrain.type: "volcano"` contracts are deliberately removed, not kept as aliases. The default volcano's crater-fluid top stays 54 blocks above dimension sea level. Spill noise uses a new generic generation domain and may produce a different deterministic pattern.

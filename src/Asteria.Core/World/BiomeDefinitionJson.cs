@@ -20,6 +20,12 @@ public static class BiomeDefinitionJson
                 "Biome definition root must be an object.");
         }
 
+        if (root.TryGetProperty("surfaceFluid", out _))
+        {
+            throw new FormatException(
+                "Biome surfaceFluid is obsolete. Author surfaceTerrain.crater.fluidFill.");
+        }
+
         return new BiomeDefinition(
             RequiredString(root, "id"),
             ParseSurfaceLayout(root),
@@ -130,29 +136,17 @@ public static class BiomeDefinitionJson
                 value,
                 "surfaceTerrain");
 
-        if (!value.TryGetProperty(
-                "type",
-                out var typeValue) ||
-            typeValue.ValueKind ==
-                JsonValueKind.Null)
+        var type = "noise";
+        if (value.TryGetProperty("type", out var typeValue) &&
+            typeValue.ValueKind != JsonValueKind.Null)
         {
-            return new BiomeTerrainDefinition(
-                RequiredSingle(value, "baseHeightOffset"),
-                RequiredSingle(value, "macroAmplitude"),
-                RequiredUInt32(value, "macroScale"),
-                RequiredSingle(value, "detailAmplitude"),
-                RequiredUInt32(value, "detailScale"));
-        }
+            if (typeValue.ValueKind != JsonValueKind.String)
+            {
+                throw new FormatException("surfaceTerrain.type must be a string.");
+            }
 
-        if (typeValue.ValueKind !=
-            JsonValueKind.String)
-        {
-            throw new FormatException(
-                "surfaceTerrain.type must be a string.");
+            type = typeValue.GetString()!;
         }
-
-        var type =
-            typeValue.GetString()!;
         BiomeTerrainShapeDefinition shape =
             type switch
             {

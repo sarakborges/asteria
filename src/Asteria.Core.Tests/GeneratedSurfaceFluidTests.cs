@@ -279,6 +279,96 @@ public sealed class GeneratedSurfaceFluidTests
     }
 
     [Fact]
+    public void CraterFillSupportsNonConeTerrain()
+    {
+        var biome = BiomeDefinitionJson.Parse(
+            """
+            {
+              "id": "asteria:test/hills",
+              "surfaceLayout": {},
+              "surfaceTerrain": {
+                "type": "rolling",
+                "baseHeight": 10,
+                "amplitude": 0,
+                "scale": 0.01,
+                "detailAmplitude": 0,
+                "detailScale": 0.02,
+                "crater": {
+                  "depth": 6,
+                  "radius": 0.3,
+                  "irregularity": 0,
+                  "noiseScale": 0.02,
+                  "transitionWidth": 0.01,
+                  "fluidFill": {
+                    "fluid": "asteria:water",
+                    "minimumStrength": 0.8,
+                    "topLevel": 11
+                  }
+                }
+              },
+              "surfaceLayers": [{ "block": "asteria:stone" }]
+            }
+            """);
+
+        Assert.IsType<BiomeRollingTerrainShapeDefinition>(
+            biome.SurfaceTerrain!.Shape);
+        Assert.NotNull(biome.SurfaceTerrain.Crater);
+
+        var fluids = new FluidRegistry(
+        [
+            new FluidDefinition(
+                "asteria:water",
+                new FluidColor(20, 80, 240),
+                0.7f),
+        ]);
+        var dimension = new DimensionDefinition(
+            new DimensionId("asteria:test"),
+            [biome.Id],
+            32,
+            18f,
+            new DimensionSpawnDefinition(0, 0),
+            new DimensionEnvironmentDefinition(
+                new DimensionColor(0, 0, 0),
+                new DimensionColor(255, 255, 255),
+                1f,
+                new DimensionColor(0, 0, 0),
+                0f));
+        var field = new GeneratedFluidField(
+            71UL, dimension, fluids, [biome]);
+        var sample = new BiomeSample(
+            biome.Id,
+            [new BiomeInfluence(biome.Id, 1f, 1f)]);
+        Assert.True(field.TryGetColumnBounds(
+            sample, 35, 0, 0, 0, out var minY, out var maxY));
+        Assert.Equal(36, minY);
+        Assert.Equal(42, maxY);
+        Assert.Equal(
+            fluids.GetId("asteria:water"),
+            field.FluidAtEmptyVoxel(sample, 35, 0, 0, 40, 0).Fluid);
+
+        Assert.Throws<ArgumentException>(() =>
+            new BiomeCraterFluidFillDefinition(
+                "asteria:water",
+                0.5f,
+                11f,
+                new BiomeCraterSpillDefinition(
+                    0.4f, 0.8f, 0.02f, 0.03f, 6)));
+    }
+
+    [Fact]
+    public void LegacySpecialSurfaceFluidContractIsRejected()
+    {
+        Assert.Throws<FormatException>(() =>
+            BiomeDefinitionJson.Parse(
+                """
+                {
+                  "id": "asteria:test/volcano",
+                  "surfaceFluid": { "type": "volcano_crater" }
+                }
+                """));
+    }
+
+    [Fact]
     public void SwampTerrainUsesStaticSeaFill()
     {
         var fluids =

@@ -73,7 +73,6 @@ public sealed class BiomeDefinition
             tints ??
             BiomeTintPaletteDefinition.Empty;
         Terrain3d = terrain3d;
-
     }
 
     public string Id { get; }
