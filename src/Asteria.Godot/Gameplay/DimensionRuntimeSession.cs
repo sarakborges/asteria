@@ -221,6 +221,8 @@ public sealed class DimensionRuntimeSession
             World, blocks, Mutations, tools, dyes);
         LayerPlacement = new AttachedLayerPlacementRuntime(
             World, blocks, layers, Mutations);
+        ArchitectsCompass = new ArchitectsCompassRuntime(World, blocks, tools);
+        StructureSelection = new StructureSelectionPresentation(Root);
         ArtisansKit = new ArtisansKitRuntime(
             World, blocks, Mutations, tools);
         Bucket = new BucketGameplayRuntime(World, fluids, Mutations, tools);
@@ -450,6 +452,8 @@ public sealed class DimensionRuntimeSession
     public BlockInteractionRuntime BlockInteractions { get; }
     public ToolGameplayRuntime Tools { get; }
     public AttachedLayerPlacementRuntime LayerPlacement { get; }
+    public ArchitectsCompassRuntime ArchitectsCompass { get; }
+    public StructureSelectionPresentation StructureSelection { get; }
     public ArtisansKitRuntime ArtisansKit { get; }
     public BucketGameplayRuntime Bucket { get; }
     public BlockMiningRuntime Mining { get; }

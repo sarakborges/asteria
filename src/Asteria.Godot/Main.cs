@@ -440,6 +440,7 @@ public partial class Main : Node3D
         SendWorldHudState();
         SendWorldClockState();
         SendTargetHudState();
+        SyncArchitectsCompassPreview();
     }
 
     public bool TransitionToDimension(
@@ -1613,6 +1614,9 @@ public partial class Main : Node3D
     private void SyncHeldBlock()
     {
         var selected = _sessionStates.Player.Inventory.SelectedStack;
+        if (_sessions.Active.ArchitectsCompass.ClearUnlessEquipped(
+                selected, _sessionStates.Player.Inventory.SelectedSlot))
+            _sessions.Active.StructureSelection.Hide();
         if (selected?.Block is not { } selectedBlock)
         {
             _sessionStates.Player.HeldBlock.Clear();
@@ -2363,6 +2367,12 @@ public partial class Main : Node3D
             return;
         }
 
+        if (_sessions.Active.ArchitectsCompass.IsEquipped(selected))
+        {
+            UseArchitectsCompass(selected, inventory.SelectedSlot, CurrentTarget());
+            return;
+        }
+
         var target = CurrentTarget();
         if (selected?.Kind == InventoryEntryKind.Layer)
         {
@@ -2498,6 +2508,66 @@ public partial class Main : Node3D
             $"drops_settled={report.Dropped.Settled} " +
             $"drops_expired={report.Dropped.Expired} " +
             $"queued={report.PendingPhysicsUpdates}");
+    }
+
+    private void UseArchitectsCompass(
+        InventoryStack selected, int slot, VoxelWorldHit? target)
+    {
+        if (target is not { } hit) return;
+        var compass = _sessions.Active.ArchitectsCompass;
+        var exportId = "asteria:structure_" + Guid.NewGuid().ToString("N");
+        var result = compass.Select(selected, slot, hit, exportId,
+            out var exported, out var message);
+        if (result == ArchitectsCompassResult.Rejected)
+            return;
+
+        if (result == ArchitectsCompassResult.Exported && exported is not null)
+        {
+            try
+            {
+                var dir = ProjectSettings.GlobalizePath("user://exports/structures");
+                Directory.CreateDirectory(dir);
+                var file = Path.Combine(dir, exportId.Split(':')[1] + ".json");
+                File.WriteAllText(file, exported.Json);
+                message += $" Saved to {file}";
+                GD.Print("structure.export " + file);
+            }
+            catch (IOException error)
+            {
+                result = ArchitectsCompassResult.Failed;
+                message = $"Structure export could not be saved: {error.Message}";
+                GD.PushError(message);
+            }
+            catch (UnauthorizedAccessException error)
+            {
+                result = ArchitectsCompassResult.Failed;
+                message = $"Structure export permission denied: {error.Message}";
+                GD.PushError(message);
+            }
+        }
+
+        SendWebUi("game.hud.toast", new
+        {
+            message,
+            tone = result == ArchitectsCompassResult.Failed ? "warning" :
+                result == ArchitectsCompassResult.Exported ? "success" : "info",
+            durationMs = 6500
+        });
+        SyncArchitectsCompassPreview();
+    }
+
+    private void SyncArchitectsCompassPreview()
+    {
+        var compass = _sessions.Active.ArchitectsCompass;
+        if (compass.SelectionStart is null || !_sessionStates.Player.CanInteract ||
+            _player is null || _inventoryOpen || _brushPaletteOpen)
+        {
+            _sessions.Active.StructureSelection.Hide();
+            return;
+        }
+        _sessions.Active.StructureSelection.Sync(
+            compass.TryPreviewBounds(CurrentTarget(), out var bounds)
+                ? bounds : null);
     }
 
     private VoxelWorldHit? CurrentTarget()
