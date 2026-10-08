@@ -9,6 +9,7 @@ import { PauseMenuPage } from "./components/pages/PauseMenuPage/PauseMenuPage";
 import { useLocalization } from "./localization/LocalizationProvider";
 import { BrushPalettePage } from "./components/pages/BrushPalettePage/BrushPalettePage";
 import { NewWorldPage } from "./components/pages/NewWorldPage/NewWorldPage";
+import { WorldSelectionPage } from "./components/pages/WorldSelectionPage/WorldSelectionPage";
 import { StartingScreenPage } from "./components/pages/StartingScreenPage/StartingScreenPage";
 import type { UiStore } from "./state/uiStore";
 import { useUiStore } from "./state/useUiStore";
@@ -21,6 +22,7 @@ export type AppActions = {
     ticksPerSecond: string;
   }): void;
   randomizeWorld(): void;
+  openWorldSelection(): void;
   openWorldCreation(): void;
   backToStart(): void;
   exitGame(): void;
@@ -85,7 +87,7 @@ export function App({
         state.navigation.preWorldScreen ===
           "starting" && (
           <StartingScreenPage
-            onPlay={actions.openWorldCreation}
+            onPlay={actions.openWorldSelection}
             onExit={actions.exitGame}
             settingsAvailable={Boolean(state.settings.client)}
             controlsAvailable={Boolean(state.settings.client)}
@@ -96,10 +98,21 @@ export function App({
 
       {preWorldVisible &&
         state.navigation.preWorldScreen ===
+          "world-selection" && (
+          <WorldSelectionPage
+            worlds={[]}
+            status={t("worldSelection.unavailable")}
+            onBack={actions.backToStart}
+            onCreateWorld={actions.openWorldCreation}
+          />
+        )}
+
+      {preWorldVisible &&
+        state.navigation.preWorldScreen ===
           "new-world" && (
           <NewWorldPage
             state={state.worldCreation}
-            onBack={actions.backToStart}
+            onBack={actions.openWorldSelection}
             onCreate={actions.createWorld}
             onRandomize={actions.randomizeWorld}
           />
