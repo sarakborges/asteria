@@ -45,14 +45,19 @@ public sealed class PlayerChatSession
         return line.Length > 0;
     }
 
-    public void Append(string message, bool isError = false, string? localizationKey = null)
+    public void Append(
+        string message,
+        bool isError = false,
+        string? localizationKey = null,
+        IReadOnlyDictionary<string, string>? parameters = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
         if (_history.Count == HistoryCapacity)
             _history.RemoveAt(0);
 
         var id = ++_nextId;
-        _history.Add(new PlayerChatLine(id, message, isError, localizationKey));
+        _history.Add(new PlayerChatLine(id, message, isError,
+            localizationKey, parameters));
     }
 
     public void Reset()
@@ -63,4 +68,7 @@ public sealed class PlayerChatSession
     }
 }
 
-public sealed record PlayerChatLine(ulong Id, string Text, bool IsError, string? LocalizationKey = null);
+public sealed record PlayerChatLine(
+    ulong Id, string Text, bool IsError,
+    string? LocalizationKey = null,
+    IReadOnlyDictionary<string, string>? Parameters = null);
