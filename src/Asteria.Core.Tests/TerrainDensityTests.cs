@@ -146,12 +146,20 @@ public sealed class TerrainDensityTests
                 emptyFloor.GetCell(x, y, z).Block);
             Assert.NotEqual(Block("asteria:stone_spike"),
                 emptyCeiling.GetCell(x, y, z).Block);
-            Assert.Equal(allowed.DensityAt(x, 16 + y, z),
-                suppressed.DensityAt(x, 16 + y, z));
+
         }
 
         Assert.True(floorCandidates > 0);
         Assert.True(ceilingCandidates > 0);
+
+        // Spike decoration must not alter the authoritative terrain field.
+        for (var z = 0; z < Chunk.Size; z += 8)
+        for (var x = 0; x < Chunk.Size; x += 8)
+        for (var y = 0; y < Chunk.Size; y += 8)
+        {
+            Assert.Equal(allowed.DensityAt(x, 16 + y, z),
+                suppressed.DensityAt(x, 16 + y, z));
+        }
     }
 
     [Fact]
