@@ -1,20 +1,3 @@
-.game-mode-picker {
-  display: flex;
-  align-items: stretch;
-  gap: 8px;
-  width: 100%;
-}
-
-.game-mode-picker > .ui-button {
-  flex: 1 1 0;
-  min-width: 0;
-}
-
-@media (max-width: 520px) {
-  .game-mode-picker {
-    flex-wrap: wrap;
-  }
-  .game-mode-picker > .ui-button {
-    flex-basis: calc(50% - 4px);
-  }
-}
+.game-mode-picker { display: flex; align-items: stretch; gap: 8px; width: 100%; }
+.game-mode-picker > .ui-button { flex: 0 0 auto; min-width: 0; }
+@media (max-width: 520px) { .game-mode-picker { flex-wrap: wrap; } }

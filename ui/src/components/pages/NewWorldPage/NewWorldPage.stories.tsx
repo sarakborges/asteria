@@ -11,7 +11,7 @@ const meta = {
     state: {
       visible: true,
       seed: "181960897289965",
-      name: "New World", mode: "Survival", ticksPerSecond: "40",
+      name: "New World", mode: "Survival", ticksPerSecond: "40", spawnCreatures: true,
       pending: false,
       generating: false,
       errorKey: null,
@@ -33,7 +33,7 @@ export const ValidationError: Story = {
     state: {
       visible: true,
       seed: "18446744073709551615",
-      name: "New World", mode: "Survival", ticksPerSecond: "40",
+      name: "New World", mode: "Survival", ticksPerSecond: "40", spawnCreatures: true,
       pending: false,
       generating: false,
       errorKey: "newWorld.error.invalidSeed",
@@ -46,7 +46,7 @@ export const Generating: Story = {
     state: {
       visible: true,
       seed: "123456789",
-      name: "New World", mode: "Survival", ticksPerSecond: "40",
+      name: "New World", mode: "Survival", ticksPerSecond: "40", spawnCreatures: true,
       pending: true,
       generating: true,
       errorKey: null,
@@ -61,7 +61,7 @@ export const Pending: Story = {
       seed: "123456789",
       name: "New World",
       mode: "Survival",
-      ticksPerSecond: "40",
+      ticksPerSecond: "40", spawnCreatures: true,
       pending: true,
       generating: false,
       errorKey: null,
@@ -76,10 +76,26 @@ export const Creative: Story = {
       seed: "420",
       name: "Creative World",
       mode: "Creative",
-      ticksPerSecond: "40",
+      ticksPerSecond: "40", spawnCreatures: true,
       pending: false,
       generating: false,
       errorKey: null,
     },
   },
+};
+
+export const NoCreatureSpawning: Story = {
+ args: { state: {
+   visible: true, seed: "419", name: "Peaceful World",
+   mode: "Survival", ticksPerSecond: "40", spawnCreatures: false,
+   pending: false, generating: false, errorKey: null,
+ } },
+ play: async ({ canvasElement }) => {
+   const nav = canvasElement.querySelector(".settings-page__navigation");
+   const panels = canvasElement.querySelectorAll(".settings-page__section");
+   if (!nav || panels.length !== 2 ||
+       !canvasElement.querySelector(".new-world__form-rows--rules")) {
+     throw new Error("New World must display World Settings, Game Rules and left navigation");
+   }
+ },
 };
