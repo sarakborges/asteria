@@ -27,8 +27,23 @@ public sealed class SurfaceChunkMaterializer
         SurfaceStructureField structures,
         DimensionDefinition dimension,
         BlockRegistry blocks,
-        UndergroundBiomeField? undergroundBiomes = null,
-        VoidSpawnPlatform? voidSpawnPlatform = null)
+        UndergroundBiomeField? undergroundBiomes = null)
+        : this(columns, terrain, materials, decorations, generatedFluids,
+            structures, dimension, blocks, undergroundBiomes, null)
+    {
+    }
+
+    internal SurfaceChunkMaterializer(
+        SurfaceTerrainColumnCache columns,
+        SurfaceTerrainField terrain,
+        BiomeSurfaceMaterialField materials,
+        SurfaceDecorationField decorations,
+        GeneratedFluidField generatedFluids,
+        SurfaceStructureField structures,
+        DimensionDefinition dimension,
+        BlockRegistry blocks,
+        UndergroundBiomeField? undergroundBiomes,
+        VoidSpawnPlatform? voidSpawnPlatform)
     {
         _columns = columns ??
             throw new ArgumentNullException(nameof(columns));
