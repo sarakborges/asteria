@@ -60,14 +60,21 @@
   "caveSpikes": [
     {
       "block": "asteria:stone_spike",
-      "chance": 0.035,
+      "chance": 0.22,
       "minHeight": 2,
       "maxHeight": 9,
       "minClearance": 10,
       "directions": [
         "up",
         "down"
-      ]
+      ],
+      "minSpacing": 1,
+      "cluster": {
+        "horizontalScale": 32,
+        "verticalScale": 22,
+        "threshold": -0.28,
+        "transitionWidth": 0.36
+      }
     },
     {
       "block": "asteria:ice_spike",
@@ -75,28 +82,42 @@
         "asteria:overworld/alps",
         "asteria:overworld/arctic"
       ],
-      "chance": 0.065,
+      "chance": 0.32,
       "minHeight": 2,
       "maxHeight": 9,
       "minClearance": 10,
       "directions": [
         "up",
         "down"
-      ]
+      ],
+      "minSpacing": 1,
+      "cluster": {
+        "horizontalScale": 24,
+        "verticalScale": 16,
+        "threshold": -0.23,
+        "transitionWidth": 0.33
+      }
     },
     {
       "block": "asteria:basalt_spike",
       "surfaceBiomes": [
         "asteria:overworld/volcano"
       ],
-      "chance": 0.065,
+      "chance": 0.32,
       "minHeight": 2,
       "maxHeight": 9,
       "minClearance": 10,
       "directions": [
         "up",
         "down"
-      ]
+      ],
+      "minSpacing": 1,
+      "cluster": {
+        "horizontalScale": 24,
+        "verticalScale": 16,
+        "threshold": -0.23,
+        "transitionWidth": 0.33
+      }
     },
     {
       "block": "asteria:sandstone_spike",
@@ -104,28 +125,42 @@
         "asteria:overworld/desert",
         "asteria:overworld/gorge"
       ],
-      "chance": 0.065,
+      "chance": 0.32,
       "minHeight": 2,
       "maxHeight": 9,
       "minClearance": 10,
       "directions": [
         "up",
         "down"
-      ]
+      ],
+      "minSpacing": 1,
+      "cluster": {
+        "horizontalScale": 24,
+        "verticalScale": 16,
+        "threshold": -0.23,
+        "transitionWidth": 0.33
+      }
     },
     {
       "block": "asteria:terracotta_spike",
       "surfaceBiomes": [
         "asteria:overworld/wasteland"
       ],
-      "chance": 0.065,
+      "chance": 0.32,
       "minHeight": 2,
       "maxHeight": 9,
       "minClearance": 10,
       "directions": [
         "up",
         "down"
-      ]
+      ],
+      "minSpacing": 1,
+      "cluster": {
+        "horizontalScale": 24,
+        "verticalScale": 16,
+        "threshold": -0.23,
+        "transitionWidth": 0.33
+      }
     }
   ]
 }

@@ -637,8 +637,25 @@ public static class BiomeDefinitionJson
                 RequiredInt32(entry, "maxHeight"),
                 RequiredInt32(entry, "minClearance"),
                 directions,
-                OptionalStringArray(entry, "surfaceBiomes"));
+                OptionalStringArray(entry, "surfaceBiomes"),
+                ParseCaveSpikeCluster(entry),
+                OptionalInt32(entry, "minSpacing") ?? 0);
         }).ToArray();
+    }
+
+    private static CaveSpikeClusterDefinition? ParseCaveSpikeCluster(
+        JsonElement entry)
+    {
+        if (!entry.TryGetProperty("cluster", out var cluster) ||
+            cluster.ValueKind == JsonValueKind.Null)
+            return null;
+
+        cluster = EnsureObject(cluster, "caveSpikes.cluster");
+        return new CaveSpikeClusterDefinition(
+            RequiredInt32(cluster, "horizontalScale"),
+            RequiredInt32(cluster, "verticalScale"),
+            RequiredSingle(cluster, "threshold"),
+            OptionalSingle(cluster, "transitionWidth") ?? 0f);
     }
 
     private static IReadOnlyList<BiomeDecorationDefinition>

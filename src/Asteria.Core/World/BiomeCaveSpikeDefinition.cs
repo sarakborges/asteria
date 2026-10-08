@@ -16,7 +16,9 @@ public sealed class BiomeCaveSpikeDefinition
         int maxHeight,
         int minClearance,
         IEnumerable<CaveSpikeDirection> directions,
-        IEnumerable<string>? surfaceBiomes = null)
+        IEnumerable<string>? surfaceBiomes = null,
+        CaveSpikeClusterDefinition? cluster = null,
+        int minSpacing = 0)
     {
         BlockDefinition.ValidateId(block);
         if (!float.IsFinite(chance) || chance <= 0f || chance > 1f)
@@ -26,6 +28,8 @@ public sealed class BiomeCaveSpikeDefinition
             throw new ArgumentOutOfRangeException(nameof(maxHeight));
         if (minClearance < minHeight || minClearance > 64)
             throw new ArgumentOutOfRangeException(nameof(minClearance));
+        if (minSpacing is < 0 or > 4)
+            throw new ArgumentOutOfRangeException(nameof(minSpacing));
 
         var values = directions?.ToArray() ??
             throw new ArgumentNullException(nameof(directions));
@@ -49,6 +53,8 @@ public sealed class BiomeCaveSpikeDefinition
         }
 
         SurfaceBiomes = Array.AsReadOnly(allowedBiomes);
+        Cluster = cluster;
+        MinSpacing = minSpacing;
         Block = block;
         Chance = chance;
         MinHeight = minHeight;
@@ -65,4 +71,7 @@ public sealed class BiomeCaveSpikeDefinition
     public IReadOnlyList<CaveSpikeDirection> Directions { get; }
     /// <summary>Empty means any surface biome in the same Sphere.</summary>
     public IReadOnlyList<string> SurfaceBiomes { get; }
+    public CaveSpikeClusterDefinition? Cluster { get; }
+    /// <summary>Horizontal Chebyshev radius around each accepted column.</summary>
+    public int MinSpacing { get; }
 }

@@ -9,6 +9,8 @@ public sealed class CaveSpikeField
     private readonly ulong _seed;
     private readonly SurfaceTerrainField _terrain;
     private readonly IReadOnlyDictionary<string, SpikeRule[]> _rules;
+    private static readonly GenerationDomain SpacingDomain =
+        GenerationDomain.Named("worldgen/cave-spike/horizontal-spacing/v1");
 
     public CaveSpikeField(
         ulong seed,
@@ -38,7 +40,8 @@ public sealed class CaveSpikeField
                             blockId, spike,
                             GenerationDomain.Named(domain + "/up"),
                             GenerationDomain.Named(domain + "/down"),
-                            GenerationDomain.Named(domain + "/height"));
+                            GenerationDomain.Named(domain + "/height"),
+                            GenerationDomain.Named(domain + "/cluster"));
                     }).ToArray(),
                 StringComparer.Ordinal);
         MaximumHeight = _rules.Values
@@ -68,19 +71,34 @@ public sealed class CaveSpikeField
             y <= 0 || y >= baseY)
             return false;
 
-        foreach (var rule in rules)
+        // A specific surface material takes precedence over the generic
+        // stone fallback. One column cannot spawn competing materials.
+        var primaryRule = rules.FirstOrDefault(rule =>
+            rule.Definition.SurfaceBiomes.Count > 0 &&
+            rule.Definition.SurfaceBiomes.Contains(
+                surfaceBiome.Primary, StringComparer.Ordinal));
+        var selectedRules = primaryRule is null
+            ? rules.Where(rule => rule.Definition.SurfaceBiomes.Count == 0)
+            : Enumerable.Repeat(primaryRule, 1);
+
+        foreach (var rule in selectedRules)
         {
+            var definition = rule.Definition;
             var direction = down ? CaveSpikeDirection.Down : CaveSpikeDirection.Up;
-            if (!rule.Definition.Directions.Contains(direction))
+            if (!definition.Directions.Contains(direction))
                 continue;
-            if (rule.Definition.SurfaceBiomes.Count > 0 &&
-                !rule.Definition.SurfaceBiomes.Contains(
-                    surfaceBiome.Primary, StringComparer.Ordinal))
-                continue;
+
             var domain = down ? rule.DownDomain : rule.UpDomain;
-            if (WorldGenerationEntropy.Unit(
-                    WorldGenerationEntropy.Sample3D(_seed, domain, x, y, z)) >=
-                rule.Definition.Chance)
+            var roll = WorldGenerationEntropy.Unit(
+                WorldGenerationEntropy.Sample3D(_seed, domain, x, y, z));
+            if (roll >= definition.Chance)
+                continue;
+
+            // Stable 2D priorities prevent near-identical neighboring
+            // columns from becoming a uniform carpet of spikes. Sampling
+            // the same horizontal priority at every Y keeps the spacing
+            // invariant independent of cave shelves and chunk order.
+            if (!HasSpacingPriority(x, z, definition.MinSpacing))
                 continue;
 
             bool IsVoid(int probeY) =>
@@ -91,9 +109,26 @@ public sealed class CaveSpikeField
             if (!IsVoid(y) || IsVoid(supportY))
                 continue;
 
+            if (definition.Cluster is { } cluster)
+            {
+                var noise = WorldGenerationEntropy.ValueNoise3D(
+                    _seed, rule.ClusterDomain, x, y, z,
+                    (uint)cluster.HorizontalScale,
+                    (uint)cluster.VerticalScale);
+                var coverage = cluster.TransitionWidth == 0f
+                    ? (noise >= cluster.Threshold ? 1d : 0d)
+                    : WorldGenerationEntropy.SmoothStep(
+                        (noise - cluster.Threshold) / cluster.TransitionWidth);
+                if (roll >= definition.Chance * coverage)
+                    continue;
+            }
+
+            // Probe far enough to know whether opposite-facing spikes
+            // could meet in a narrow gallery. Larger chambers still
+            // permit the authored maximum height.
             var clear = 0;
             var probeLength = Math.Max(
-                rule.Definition.MinClearance, rule.Definition.MaxHeight);
+                definition.MinClearance, definition.MaxHeight * 2 + 1);
             for (var i = 0; i < probeLength; i++)
             {
                 if (!IsVoid(y + (down ? -i : i)))
@@ -101,17 +136,19 @@ public sealed class CaveSpikeField
                 clear++;
             }
 
-            if (clear < rule.Definition.MinClearance)
+            if (clear < definition.MinClearance)
                 continue;
 
             var variation = WorldGenerationEntropy.Unit(
                 WorldGenerationEntropy.Sample3D(
                     _seed, rule.HeightDomain, x, y, z));
-            var authoredHeight = rule.Definition.MinHeight +
-                (int)(variation *
-                    (rule.Definition.MaxHeight - rule.Definition.MinHeight + 1));
-            var height = Math.Min(clear, authoredHeight);
-            if (height < rule.Definition.MinHeight)
+            var authoredHeight = definition.MinHeight +
+                Math.Min(definition.MaxHeight - definition.MinHeight,
+                    (int)(variation *
+                        (definition.MaxHeight - definition.MinHeight + 1)));
+            var height = Math.Min(
+                authoredHeight, (clear - 1) / 2);
+            if (height < definition.MinHeight)
                 continue;
 
             placement = new CaveSpikePlacement(rule.Block, height);
@@ -121,12 +158,39 @@ public sealed class CaveSpikeField
         return false;
     }
 
+    private bool HasSpacingPriority(int x, int z, int radius)
+    {
+        if (radius == 0)
+            return true;
+
+        var priority = WorldGenerationEntropy.Sample2D(
+            _seed, SpacingDomain, x, z);
+        for (var offsetZ = -radius; offsetZ <= radius; offsetZ++)
+        for (var offsetX = -radius; offsetX <= radius; offsetX++)
+        {
+            if (offsetX == 0 && offsetZ == 0)
+                continue;
+
+            var rival = WorldGenerationEntropy.Sample2D(
+                _seed, SpacingDomain,
+                unchecked(x + offsetX), unchecked(z + offsetZ));
+            if (rival < priority)
+                return false;
+            if (rival == priority &&
+                (offsetZ < 0 || (offsetZ == 0 && offsetX < 0)))
+                return false;
+        }
+
+        return true;
+    }
+
     private sealed record SpikeRule(
         BlockRuntimeId Block,
         BiomeCaveSpikeDefinition Definition,
         GenerationDomain UpDomain,
         GenerationDomain DownDomain,
-        GenerationDomain HeightDomain);
+        GenerationDomain HeightDomain,
+        GenerationDomain ClusterDomain);
 }
 
 public readonly record struct CaveSpikePlacement(
