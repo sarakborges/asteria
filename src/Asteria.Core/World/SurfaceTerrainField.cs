@@ -1125,12 +1125,15 @@ public sealed class SurfaceTerrainField
     {
         private readonly DimensionCaveLayerDefinition _authored;
         private readonly CaveNoiseChannel[] _channels;
+        private readonly GenerationDomain _chamberDomain;
 
         public CaveLayerRule(
             int layerIndex,
             DimensionCaveLayerDefinition authored)
         {
             _authored = authored;
+            _chamberDomain = GenerationDomain.Named(
+                $"terrain/density/caves/layer/v1/{layerIndex}/chambers");
             _channels = authored.Channels
                 .Select((channel, index) =>
                     new CaveNoiseChannel(
@@ -1169,7 +1172,29 @@ public sealed class SurfaceTerrainField
                     : Math.Min(score, noise);
             }
 
-            var clearance = _authored.NoiseHalfWidth - score;
+            var halfWidth = (double)_authored.NoiseHalfWidth;
+            if (_authored.Chambers is { } chambers &&
+                score < chambers.MaxNoiseHalfWidth)
+            {
+                var signal = WorldGenerationEntropy.ValueNoise3D(
+                    seed,
+                    _chamberDomain,
+                    x,
+                    y,
+                    z,
+                    chambers.HorizontalScale,
+                    chambers.VerticalScale);
+                var strength = Math.Clamp(
+                    (signal - chambers.ActivationStart) /
+                    (chambers.ActivationFull - chambers.ActivationStart),
+                    0d,
+                    1d);
+                strength = strength * strength * (3d - 2d * strength);
+                halfWidth +=
+                    (chambers.MaxNoiseHalfWidth - halfWidth) * strength;
+            }
+
+            var clearance = halfWidth - score;
             if (clearance <= 0d)
             {
                 return 0d;
@@ -1183,7 +1208,7 @@ public sealed class SurfaceTerrainField
                 return 0d;
             }
 
-            return clearance / _authored.NoiseHalfWidth *
+            return clearance / halfWidth *
                    Math.Min(1d, fade) *
                    _authored.DensityScale;
         }

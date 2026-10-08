@@ -406,8 +406,24 @@ public static class DimensionDefinitionJson
                     RequiredSingle(layer, "noiseHalfWidth"),
                     RequiredSingle(layer, "densityScale"),
                     RequiredUInt32(layer, "boundaryFade"),
-                    combination);
+                    combination,
+                    ParseCaveChambers(layer));
             }));
+    }
+
+    private static DimensionCaveChamberDefinition? ParseCaveChambers(
+        JsonElement layer)
+    {
+        if (!layer.TryGetProperty("chambers", out _))
+            return null;
+
+        var chambers = RequiredObject(layer, "chambers");
+        return new DimensionCaveChamberDefinition(
+            RequiredUInt32(chambers, "horizontalScale"),
+            RequiredUInt32(chambers, "verticalScale"),
+            RequiredSingle(chambers, "activationStart"),
+            RequiredSingle(chambers, "activationFull"),
+            RequiredSingle(chambers, "maxNoiseHalfWidth"));
     }
 
     private static uint RequiredUInt32(

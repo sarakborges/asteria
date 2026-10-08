@@ -95,7 +95,14 @@
             "horizontalScale": 56,
             "verticalScale": 36
           }
-        ]
+        ],
+        "chambers": {
+          "horizontalScale": 112,
+          "verticalScale": 64,
+          "activationStart": -0.18,
+          "activationFull": 0.32,
+          "maxNoiseHalfWidth": 0.56
+        }
       }
     ]
   },

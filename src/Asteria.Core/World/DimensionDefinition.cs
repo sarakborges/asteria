@@ -696,6 +696,61 @@ public sealed class DimensionCaveNoiseChannelDefinition
     public uint VerticalScale { get; }
 }
 
+/// <summary>
+/// Organic expansion of existing cave channels into larger chambers.
+/// Broad 3D noise changes the cave clearance smoothly, so every chamber
+/// remains part of the original tunnel field rather than an isolated cut.
+/// </summary>
+public sealed class DimensionCaveChamberDefinition
+{
+    public DimensionCaveChamberDefinition(
+        uint horizontalScale,
+        uint verticalScale,
+        float activationStart,
+        float activationFull,
+        float maxNoiseHalfWidth)
+    {
+        if (horizontalScale is < 2 or > 16_384 ||
+            verticalScale is < 2 or > 16_384)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(horizontalScale),
+                "Chamber noise scales must be within 2..16384.");
+        }
+
+        if (!float.IsFinite(activationStart) ||
+            !float.IsFinite(activationFull) ||
+            activationStart < -1f ||
+            activationFull > 1f ||
+            activationStart >= activationFull)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(activationStart),
+                "Chamber activation range must increase within -1..1.");
+        }
+
+        if (!float.IsFinite(maxNoiseHalfWidth) ||
+            maxNoiseHalfWidth is <= 0f or > 1f)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(maxNoiseHalfWidth),
+                "Chamber maximum half-width must be within (0, 1].");
+        }
+
+        HorizontalScale = horizontalScale;
+        VerticalScale = verticalScale;
+        ActivationStart = activationStart;
+        ActivationFull = activationFull;
+        MaxNoiseHalfWidth = maxNoiseHalfWidth;
+    }
+
+    public uint HorizontalScale { get; }
+    public uint VerticalScale { get; }
+    public float ActivationStart { get; }
+    public float ActivationFull { get; }
+    public float MaxNoiseHalfWidth { get; }
+}
+
 public sealed class DimensionCaveLayerDefinition
 {
     public DimensionCaveLayerDefinition(
@@ -705,7 +760,8 @@ public sealed class DimensionCaveLayerDefinition
         float noiseHalfWidth,
         float densityScale,
         uint boundaryFade,
-        CaveNoiseCombination combination = CaveNoiseCombination.Intersection)
+        CaveNoiseCombination combination = CaveNoiseCombination.Intersection,
+        DimensionCaveChamberDefinition? chambers = null)
     {
         if (minDepth < 2 || maxDepth <= minDepth ||
             maxDepth > 2048 || boundaryFade == 0 ||
@@ -740,9 +796,18 @@ public sealed class DimensionCaveLayerDefinition
                 nameof(noiseHalfWidth));
         }
 
+        if (chambers is not null &&
+            chambers.MaxNoiseHalfWidth <= noiseHalfWidth)
+        {
+            throw new ArgumentException(
+                "Chamber maximum half-width must exceed its parent cave width.",
+                nameof(chambers));
+        }
+
         MinDepth = minDepth;
         MaxDepth = maxDepth;
         Channels = Array.AsReadOnly(authored);
+        Chambers = chambers;
         NoiseHalfWidth = noiseHalfWidth;
         DensityScale = densityScale;
         BoundaryFade = boundaryFade;
@@ -752,6 +817,7 @@ public sealed class DimensionCaveLayerDefinition
     public uint MinDepth { get; }
     public uint MaxDepth { get; }
     public IReadOnlyList<DimensionCaveNoiseChannelDefinition> Channels { get; }
+    public DimensionCaveChamberDefinition? Chambers { get; }
     public float NoiseHalfWidth { get; }
     public float DensityScale { get; }
     public uint BoundaryFade { get; }

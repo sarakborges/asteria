@@ -133,6 +133,9 @@ public sealed class DimensionTests
                     "asteria:umbral/",
                     biome));
 
+        Assert.NotNull(overworld.Caves?.Layers[0].Chambers);
+        Assert.Null(umbral.Caves?.Layers[0].Chambers);
+
         Assert.Equal(
             90,
             overworld.SeaLevel);

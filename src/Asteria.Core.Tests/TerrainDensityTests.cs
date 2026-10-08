@@ -29,6 +29,64 @@ public sealed class TerrainDensityTests
     }
 
     [Fact]
+    public void ChambersExpandCavesWithoutPiercingSurfaceOrDepthBounds()
+    {
+        var tunnels = Generator(caves: ChamberCaves(withChambers: false));
+        var chambers = Generator(caves: ChamberCaves(withChambers: true));
+        var surface = chambers.SurfaceHeight(0, 0);
+        var expanded = false;
+
+        for (var z = -72; z <= 72; z += 12)
+        for (var x = -72; x <= 72; x += 12)
+        for (var depth = 16; depth <= 64; depth += 8)
+        {
+            var y = surface - depth;
+            var original = tunnels.DensityAt(x, y, z);
+            var widened = chambers.DensityAt(x, y, z);
+            Assert.True(widened <= original + 1e-9,
+                $"Chambers must not restore solid terrain at {x},{y},{z}.");
+            expanded |= original >= 0d && widened < 0d;
+        }
+
+        Assert.True(expanded, "Chambers should widen some tunnel sections.");
+        Assert.True(chambers.DensityAt(0, surface - 2, 0) >= 0d);
+        Assert.True(chambers.DensityAt(0, surface - 88, 0) >= 0d);
+    }
+
+    [Fact]
+    public void ChamberDensityMatchesScalarAndVolumeAcrossChunkBoundaries()
+    {
+        var generator = Generator(caves: ChamberCaves(withChambers: true));
+        var volume = generator.SampleDensityVolume(-17, 41, -17, 4, 4, 4);
+        for (var z = 0; z < 4; z++)
+        for (var y = 0; y < 4; y++)
+        for (var x = 0; x < 4; x++)
+        {
+            Assert.Equal(
+                generator.DensityAt(-17 + x, 41 + y, -17 + z),
+                volume.DensityAt(x, y, z));
+        }
+    }
+
+    [Fact]
+    public void ChamberConfigurationRejectsInvalidRanges()
+    {
+        Assert.ThrowsAny<ArgumentException>(() =>
+            new DimensionCaveChamberDefinition(
+                1, 64, -0.2f, 0.3f, 0.6f));
+        Assert.ThrowsAny<ArgumentException>(() =>
+            new DimensionCaveChamberDefinition(
+                128, 64, 0.3f, 0.3f, 0.6f));
+        Assert.ThrowsAny<ArgumentException>(() =>
+            new DimensionCaveLayerDefinition(
+                10, 80,
+                [new DimensionCaveNoiseChannelDefinition(56, 36)],
+                0.4f, 24f, 6,
+                chambers: new DimensionCaveChamberDefinition(
+                    128, 64, -0.2f, 0.3f, 0.4f)));
+    }
+
+    [Fact]
     public void SampleDensityVolumeMatchesScalarAcrossNegativeCoordinates()
     {
         var generator = Generator(caves: WideCaves());
@@ -507,6 +565,26 @@ public sealed class TerrainDensityTests
         new BlockDefinition("asteria:dirt"),
         new BlockDefinition("asteria:sphere_shell"),
     ]);
+
+    private static DimensionCaveDefinition ChamberCaves(bool withChambers) =>
+        new(
+        [
+            new DimensionCaveLayerDefinition(
+                minDepth: 10,
+                maxDepth: 80,
+                channels:
+                [
+                    new DimensionCaveNoiseChannelDefinition(56, 36),
+                    new DimensionCaveNoiseChannelDefinition(56, 36),
+                ],
+                noiseHalfWidth: 0.18f,
+                densityScale: 24f,
+                boundaryFade: 6,
+                chambers: withChambers
+                    ? new DimensionCaveChamberDefinition(
+                        112, 64, -1f, -0.9f, 0.75f)
+                    : null),
+        ]);
 
     private static DimensionCaveDefinition WideCaves() =>
         new(
