@@ -9,6 +9,7 @@ public sealed class Chunk
     private readonly PaletteStorage<VoxelCell> _cells;
     private readonly PaletteStorage<FluidCell> _fluids;
     private readonly MicroblockMaskPalette _microblockMasks;
+    private readonly Dictionary<int, BlockSurfaceState> _surfaceStates;
     private readonly VoxelLight[] _light;
 
     public Chunk()
@@ -16,6 +17,7 @@ public sealed class Chunk
         _cells = new PaletteStorage<VoxelCell>();
         _fluids = new PaletteStorage<FluidCell>();
         _microblockMasks = new MicroblockMaskPalette();
+        _surfaceStates = [];
         _light = new VoxelLight[Volume];
     }
 
@@ -23,12 +25,14 @@ public sealed class Chunk
         PaletteStorage<VoxelCell> cells,
         PaletteStorage<FluidCell> fluids,
         MicroblockMaskPalette microblockMasks,
+        Dictionary<int, BlockSurfaceState> surfaceStates,
         VoxelLight[] light,
         ulong revision)
     {
         _cells = cells;
         _fluids = fluids;
         _microblockMasks = microblockMasks;
+        _surfaceStates = surfaceStates;
         _light = light;
         Revision = revision;
     }
@@ -96,11 +100,15 @@ public sealed class Chunk
     public bool SetCell(int x, int y, int z, VoxelCell cell)
     {
         ValidateCoordinates(x, y, z);
-        if (!_cells.Set(ToIndex(x, y, z), cell))
+        var index = ToIndex(x, y, z);
+        var previous = _cells.Get(index);
+        if (!_cells.Set(index, cell))
         {
             return false;
         }
 
+        if (cell.IsEmpty || previous.Block != cell.Block)
+            _surfaceStates.Remove(index);
         Revision++;
         return true;
     }
@@ -193,6 +201,7 @@ public sealed class Chunk
             _cells.Clone(),
             _fluids.Clone(),
             _microblockMasks.Clone(),
+            new Dictionary<int, BlockSurfaceState>(_surfaceStates),
             (VoxelLight[])_light.Clone(),
             Revision);
 
@@ -200,6 +209,35 @@ public sealed class Chunk
     {
         ArgumentNullException.ThrowIfNull(source);
         Array.Copy(source._light, _light, Volume);
+    }
+
+    public BlockSurfaceState GetSurfaceState(int x, int y, int z)
+    {
+        ValidateCoordinates(x, y, z);
+        return _surfaceStates.TryGetValue(ToIndex(x, y, z), out var state)
+            ? state
+            : BlockSurfaceState.Empty;
+    }
+
+    public bool SetSurfaceState(int x, int y, int z, BlockSurfaceState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ValidateCoordinates(x, y, z);
+        if (GetCell(x, y, z).IsEmpty)
+            return false;
+
+        var index = ToIndex(x, y, z);
+        var existing = GetSurfaceState(x, y, z);
+        if (existing.Equals(state))
+            return false;
+
+        if (state.IsEmpty)
+            _surfaceStates.Remove(index);
+        else
+            _surfaceStates[index] = state;
+
+        Revision++;
+        return true;
     }
 
     public MicroblockMask GetMicroblockMask(int x, int y, int z)

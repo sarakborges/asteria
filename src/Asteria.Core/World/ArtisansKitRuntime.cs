@@ -107,7 +107,8 @@ public sealed class ArtisansKitRuntime
                 target.Voxel, VoxelCell.Empty, out _);
 
         var snapshot = new BlockStateSnapshot(
-            cell, updated.IsFull ? MicroblockMask.Empty : updated);
+            cell, updated.IsFull ? MicroblockMask.Empty : updated,
+            _world.GetBlockSurfaceStateOrEmpty(target.Voxel));
         return _mutations.SetBlockStateAt(target.Voxel, snapshot, out _);
     }
 

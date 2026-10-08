@@ -4,7 +4,8 @@ public sealed record BlockStateSnapshot
 {
     public BlockStateSnapshot(
         VoxelCell cell,
-        MicroblockMask microblockMask)
+        MicroblockMask microblockMask,
+        BlockSurfaceState? surfaceState = null)
     {
         if (cell.IsEmpty)
         {
@@ -20,11 +21,14 @@ public sealed record BlockStateSnapshot
             cell.Facing,
             cell.State);
         MicroblockMask = microblockMask;
+        SurfaceState = surfaceState ?? BlockSurfaceState.Empty;
     }
 
     public VoxelCell Cell { get; }
 
     public MicroblockMask MicroblockMask { get; }
+
+    public BlockSurfaceState SurfaceState { get; }
 
     public bool HasMicroblockGeometry =>
         !MicroblockMask.IsEmpty;
@@ -58,7 +62,8 @@ public sealed record BlockStateSnapshot
 
         return new BlockStateSnapshot(
             cell,
-            mask);
+            mask,
+            world.GetBlockSurfaceStateOrEmpty(position));
     }
 
     public static BlockStateSnapshot FromCell(
