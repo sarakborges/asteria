@@ -25,6 +25,8 @@ public sealed class PlayerSessionState
 
     public HeldBlockPlacement HeldBlock { get; } = new();
 
+    public PlayerInventory Inventory { get; } = new();
+
     public bool SetGameMode(PlayerGameMode mode)
     {
         Validate(mode);
