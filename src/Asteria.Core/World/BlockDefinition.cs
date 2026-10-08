@@ -1,5 +1,11 @@
 namespace Asteria.Core.World;
 
+public enum BlockInteractionKind : byte
+{
+    Break = 0,
+    Pickup = 1,
+}
+
 public sealed class BlockDefinition
 {
     private static readonly BlockOrientation[] DefaultOrientations = [BlockOrientation.Y];
@@ -24,9 +30,19 @@ public sealed class BlockDefinition
         byte lightDampening = 15,
         BlockLightEmission lightEmission = default,
         BlockPreviewColor? previewColor = null,
-        bool dropsSelf = true)
+        bool dropsSelf = true,
+        BlockInteractionKind interaction = BlockInteractionKind.Break,
+        string? pickupItemId = null)
     {
         ValidateId(id);
+        if (!Enum.IsDefined(interaction))
+            throw new ArgumentOutOfRangeException(nameof(interaction));
+        if (interaction == BlockInteractionKind.Pickup)
+            ValidateId(pickupItemId ?? id);
+        else if (pickupItemId is not null)
+            throw new ArgumentException(
+                "Only pickup blocks may define a pickup item.",
+                nameof(pickupItemId));
 
         if (string.IsNullOrWhiteSpace(category) || category != category.Trim())
         {
@@ -68,6 +84,10 @@ public sealed class BlockDefinition
         LightEmission = lightEmission;
         PreviewColor = previewColor ?? BlockPreviewColor.Missing;
         DropsSelf = dropsSelf;
+        Interaction = interaction;
+        PickupItemId = interaction == BlockInteractionKind.Pickup
+            ? pickupItemId ?? id
+            : null;
     }
 
     public string Id { get; }
@@ -90,6 +110,8 @@ public sealed class BlockDefinition
     public BlockLightEmission LightEmission { get; }
     public BlockPreviewColor PreviewColor { get; }
     public bool DropsSelf { get; }
+    public BlockInteractionKind Interaction { get; }
+    public string? PickupItemId { get; }
     public bool IsRotatable => Orientations.Count > 1;
     public bool SupportsMicroblocks => HasTag("fragmentable");
     public bool UsesHorizontalFacing => HasTag("horizontal_facing");

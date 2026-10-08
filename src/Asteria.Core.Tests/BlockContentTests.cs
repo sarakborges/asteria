@@ -91,6 +91,9 @@ public sealed class BlockContentTests
         Assert.True(pebble.HasTag(BlockPhysicsCapabilities.SupportBelow));
         Assert.True(pebble.DropsSelf);
         Assert.False(pebble.IsCollidable);
+        Assert.Equal(BlockInteractionKind.Pickup, pebble.Interaction);
+        Assert.Equal("asteria:pebble", pebble.PickupItemId);
+        Assert.Equal(0.14f, pebble.Visual.TargetHeight);
 
         var stick =
             registry.GetDefinition(registry.GetId("asteria:stick"));
@@ -101,6 +104,9 @@ public sealed class BlockContentTests
         Assert.True(stick.HasTag(BlockPhysicsCapabilities.SupportBelow));
         Assert.True(stick.DropsSelf);
         Assert.False(stick.IsCollidable);
+        Assert.Equal(BlockInteractionKind.Pickup, stick.Interaction);
+        Assert.Equal("asteria:stick", stick.PickupItemId);
+        Assert.Equal(0.12f, stick.Visual.TargetHeight);
 
         foreach (var mushroomId in
                  new[]

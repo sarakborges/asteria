@@ -2115,6 +2115,11 @@ public partial class Main : Node3D
         if (!TryGetTarget(out var hit))
             return;
 
+        if (_blocks.GetDefinition(
+                _world.GetCellOrEmpty(hit.Voxel).Block).Interaction ==
+            BlockInteractionKind.Pickup)
+            return;
+
         var held = _sessionStates.Player.Inventory.SelectedStack;
         if (_sessions.Active.Tools.IsSpecialLeftAction(held))
         {
@@ -2226,6 +2231,35 @@ public partial class Main : Node3D
             return;
 
         var inventory = _sessionStates.Player.Inventory;
+        var target = CurrentTarget();
+        if (target is { } pickupHit)
+        {
+            var targetDefinition = _blocks.GetDefinition(
+                _world.GetCellOrEmpty(pickupHit.Voxel).Block);
+            if (targetDefinition.Interaction == BlockInteractionKind.Pickup)
+            {
+                if (!_inventoryCatalog.TryResolve(
+                        InventoryEntryKind.Item,
+                        targetDefinition.PickupItemId!,
+                        null, null, out var pickupItem) || pickupItem is null)
+                {
+                    throw new InvalidOperationException(
+                        $"Unresolved authored pickup item: {targetDefinition.PickupItemId}");
+                }
+
+                if (_blockInteractions.Pickup(pickupHit, inventory, pickupItem) ==
+                    BlockPickupResult.Collected)
+                {
+                    SyncHeldBlock();
+                    SendHotbarState();
+                    SendInventoryState();
+                    SendTargetHudState(force: true);
+                    KickWorldMutationWorkers();
+                }
+                return;
+            }
+        }
+
         var selected = inventory.SelectedStack;
         if (_sessions.Active.Bucket.IsEquipped(selected))
         {
@@ -2235,7 +2269,7 @@ public partial class Main : Node3D
             var direction = new NVector3(
                 to.X - from.X, to.Y - from.Y, to.Z - from.Z);
             if (_sessions.Active.Bucket.TryUse(
-                    inventory, origin, direction, CurrentTarget()))
+                    inventory, origin, direction, target))
             {
                 SendHotbarState();
                 SendInventoryState();
@@ -2244,7 +2278,7 @@ public partial class Main : Node3D
             return;
         }
 
-        if (!TryGetTarget(out var hit))
+        if (target is not { } hit)
             return;
 
         if (_sessions.Active.Tools.TryUse(
