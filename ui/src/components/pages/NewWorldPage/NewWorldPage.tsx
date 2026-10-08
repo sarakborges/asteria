@@ -1,15 +1,17 @@
 import { useEffect, useState, type FormEventHandler } from "react";
 import { useLocalization } from "../../../localization/LocalizationProvider";
-import type { WorldCreationState, GameMode } from "../../../state/uiState";
+import type { WorldCreationState, GameMode, WorldGenerationDraft, WorldGenerationMode } from "../../../state/uiState";
 import { Button } from "../../atoms/Button/Button";
 import { Surface } from "../../atoms/Surface/Surface";
 import { Text } from "../../atoms/Text/Text";
 import { TextInput } from "../../atoms/TextInput/TextInput";
+import { Slider } from "../../atoms/Slider/Slider";
 import { UInt64Input } from "../../atoms/UInt64Input/UInt64Input";
 import { Toggle } from "../../atoms/Toggle/Toggle";
 import { SettingRow } from "../../molecules/SettingRow/SettingRow";
 import { GameModePicker } from "../../molecules/GameModePicker/GameModePicker";
 import { NumericStepper } from "../../molecules/NumericStepper/NumericStepper";
+import { SpawnBiomeSelect } from "../../molecules/SpawnBiomeSelect/SpawnBiomeSelect";
 import { CosmicBackground } from "../../organisms/CosmicBackground/CosmicBackground";
 import { ScreenShell } from "../../templates/ScreenShell/ScreenShell";
 import { SettingsPage, type SettingsSectionView } from "../SettingsPage/SettingsPage";
@@ -24,6 +26,7 @@ export type NewWorldPageProps = {
   onCreate(request: {
     seed: string; name: string; mode: GameMode; ticksPerSecond: string;
     spawnCreatures: boolean;
+    generation: WorldGenerationDraft;
   }): void;
   onRandomize(): void;
 };
@@ -38,6 +41,8 @@ export function NewWorldPage({
   const [mode, setMode] = useState(state.mode);
   const [ticksPerSecond, setTicksPerSecond] = useState(state.ticksPerSecond);
   const [spawnCreatures, setSpawnCreatures] = useState(state.spawnCreatures);
+  const [generation, setGeneration] = useState(state.generation);
+  const [missingBiome, setMissingBiome] = useState(false);
 
   useEffect(() => {
     setSeed(state.seed);
@@ -45,7 +50,25 @@ export function NewWorldPage({
 
   if (!state.visible) return null;
 
-  const request = () => onCreate({ seed: seed.trim(), name, mode, ticksPerSecond, spawnCreatures });
+  const request = () => {
+    if (generation.singleBiome && generation.spawnBiome === null) {
+      setMissingBiome(true);
+      setSelectedSection("world-generation");
+      return;
+    }
+    onCreate({ seed: seed.trim(), name, mode, ticksPerSecond,
+      spawnCreatures, generation });
+  };
+  const setFlag = (
+    key: "spawnStructures" | "singleBiome" | "spawnCaves" | "spawnOceans",
+    checked: boolean,
+  ) => setGeneration(previous => ({ ...previous, [key]: checked }));
+  const setWorldMode = (next: WorldGenerationMode) =>
+    setGeneration(previous => ({
+      ...previous, mode: next,
+      spawnCaves: next === "Normal",
+      spawnOceans: next === "Normal",
+    }));
   const submit: FormEventHandler<HTMLFormElement> = event => {
     event.preventDefault();
     if (!state.pending) request();
@@ -100,6 +123,86 @@ export function NewWorldPage({
             description={t("settings.gameMode.description")}
             control={<GameModePicker value={mode} disabled={state.pending}
               onChange={setMode} />} />
+        </div>
+      ),
+    },
+    {
+      id: "world-generation",
+      label: t("newWorld.section.worldGeneration"),
+      content: (
+        <div className="new-world__form-rows">
+          <SettingRow title={t("newWorld.worldType")}
+            description={t("newWorld.worldType.description")}
+            control={<div className="new-world__mode-picker">
+              {(["Normal", "Flat", "Void"] as const).map(next => (
+                <Button key={next}
+                  label={t("newWorld.worldType." + next.toLowerCase())}
+                  variant={generation.mode === next ? "primary" : "normal"}
+                  ariaPressed={generation.mode === next}
+                  disabled={state.pending}
+                  onClick={() => setWorldMode(next)} />
+              ))}
+            </div>} />
+          <SettingRow title={t("newWorld.spawnBiome")}
+            description={t("newWorld.spawnBiome.description")}
+            control={<SpawnBiomeSelect
+              value={generation.spawnBiome}
+              options={state.spawnBiomes}
+              label={t("newWorld.spawnBiome")}
+              randomLabel={t("newWorld.spawnBiome.random")}
+              searchPlaceholder={t("newWorld.spawnBiome.search")}
+              disabled={state.pending}
+              requireSelection={generation.singleBiome}
+              onChange={selected => {
+                setGeneration(previous => ({ ...previous, spawnBiome: selected }));
+                setMissingBiome(false);
+              }} />} />
+          {missingBiome && <span className="new-world__error" role="alert">
+            {t("newWorld.singleBiome.required")}
+          </span>}
+          {!generation.singleBiome && (
+            <SettingRow title={t("newWorld.biomeSizeMultiplier")}
+              description={t("newWorld.biomeSizeMultiplier.description")}
+              control={<div className="new-world__biome-size">
+                <Slider ariaLabel={t("newWorld.biomeSizeMultiplier")}
+                  value={generation.biomeSizeTenths} min={5} max={50} step={1}
+                  disabled={state.pending}
+                  onChange={event => setGeneration(previous => ({
+                    ...previous, biomeSizeTenths: Number(event.target.value),
+                  }))} />
+                <TextInput aria-label={t("newWorld.biomeSizeMultiplier") + " ×"}
+                  type="number" min="0.5" max="5" step="0.1"
+                  value={(generation.biomeSizeTenths / 10).toFixed(1)}
+                  disabled={state.pending}
+                  onChange={event => {
+                    const parsed = Number(event.target.value);
+                    if (Number.isFinite(parsed) && parsed >= 0.5 && parsed <= 5) {
+                      setGeneration(previous => ({
+                        ...previous, biomeSizeTenths: Math.round(parsed * 10),
+                      }));
+                    }
+                  }} />
+                <span aria-hidden="true">×</span>
+              </div>} />
+          )}
+          <div className="new-world__form-rows new-world__form-rows--rules">
+            {([
+              ["spawnStructures", "newWorld.spawnStructures"],
+              ["singleBiome", "newWorld.singleBiome"],
+              ["spawnCaves", "newWorld.spawnCaves"],
+              ["spawnOceans", "newWorld.spawnOceans"],
+            ] as const).map(([key, title]) => (
+              <SettingRow key={key} title={t(title)}
+                description={t(title + ".description")}
+                control={<Toggle
+                  ariaLabel={t(title)}
+                  checked={generation[key]}
+                  disabled={state.pending ||
+                    (generation.mode === "Void" &&
+                      (key === "spawnCaves" || key === "spawnOceans"))}
+                  onChange={checked => setFlag(key, checked)} />} />
+            ))}
+          </div>
         </div>
       ),
     },
