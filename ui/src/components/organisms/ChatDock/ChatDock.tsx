@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import { useLocalization } from "../../../localization/LocalizationProvider";
 import type { ChatMessageView } from "../../../presentation/chatModels";
 import { ChatPanel } from "../ChatPanel/ChatPanel";
+import "./ChatDock.css";
 
 export type ChatDockProps = {
   open: boolean;
