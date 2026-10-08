@@ -142,6 +142,19 @@ keeps Godot as an I/O/interaction adapter.
 - Regression tests verify topology/schedule/dormant work, FIFO restoration,
   corruption rejection and per-Sphere session snapshots.
 
+## Stage 9: portable stack encoding for the complete session file
+
+- `PortableStackSaveCodec` writes versioned-session-ready, bounded portable
+  stacks for player inventory/cursor, Storage Boxes and detached item drops.
+  All block references use stable authored IDs and preserve orientation,
+  texture rotation, state, microblock geometry, dye and attached layers.
+- Item/tool stacks preserve quantities, max sizes and sorted authored metadata;
+  layer items validate against the selected pack. Corrupt payloads and missing
+  authored definitions are rejected before state publication.
+- Regression tests cover registry reordering, item metadata and invalid/truncated
+  block records. The complete session container format and atomic publication
+  remain pending.
+
 ## Remaining
 
 Wire the spatial snapshot capture and disk publisher into a quiescent
