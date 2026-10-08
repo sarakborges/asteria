@@ -53,7 +53,7 @@ public sealed class InventoryContentCatalog
             choices.Add(new InventoryCatalogChoice(
                 InventoryEntry.FromTool(
                     definition.Id, maxStackSize: definition.MaxStackSize),
-                definition.Category));
+                definition.Category, definition.Icon));
         }
 
         _choices = choices
