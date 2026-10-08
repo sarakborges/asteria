@@ -13,7 +13,7 @@ namespace Asteria.Client;
 /// </summary>
 internal sealed class WorldDiagnosticsLog : IDisposable
 {
-    private const long IntervalTicks = 5L * Stopwatch.Frequency;
+    private static readonly long IntervalTicks = 5L * Stopwatch.Frequency;
     private readonly StreamWriter _writer;
     private long _nextFlush = Stopwatch.GetTimestamp() + IntervalTicks;
     private int _materialized;
