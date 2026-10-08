@@ -1,0 +1,80 @@
+{
+  "id": "asteria:talus_outcrop_02",
+  "rotation": true,
+  "restrictions": {
+    "groundBlocks": [
+      "asteria:stone",
+      "asteria:gravel",
+      "asteria:stone_cobble",
+      "asteria:dirt"
+    ],
+    "maxSlope": 2,
+    "requiresDryGround": true,
+    "requiredBiomeCoverage": 1
+  },
+  "anchor": {
+    "x": 4,
+    "y": 0,
+    "z": 4
+  },
+  "palette": {
+    "S": {
+      "block": "asteria:stone_cobble"
+    }
+  },
+  "layers": [
+    {
+      "y": 0,
+      "rows": [
+        ".........",
+        ".........",
+        "...SS....",
+        "..SSSS...",
+        "..SSSSS..",
+        "...SSSS..",
+        "....SS...",
+        ".........",
+        "........."
+      ]
+    },
+    {
+      "y": 1,
+      "rows": [
+        ".........",
+        ".........",
+        "....SS...",
+        "...SSSS..",
+        "...SSS...",
+        "....SS...",
+        ".........",
+        ".........",
+        "........."
+      ]
+    },
+    {
+      "y": 2,
+      "rows": [
+        ".........",
+        ".........",
+        ".........",
+        "....SS...",
+        "....S....",
+        ".........",
+        ".........",
+        ".........",
+        "........."
+      ]
+    }
+  ],
+  "groupId": "talus_outcrop",
+  "locatable": false,
+  "priority": 0,
+  "conflictGroups": [
+    "rock"
+  ],
+  "generation": {
+    "replacePolicy": "terrain",
+    "fluidPolicy": "forbid",
+    "reserveSpace": false
+  }
+}

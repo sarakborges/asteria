@@ -26,20 +26,123 @@
   },
   "surfaceLayers": [
     {
+      "block": "asteria:stone",
+      "depth": 1,
+      "patch": {
+        "scale": 40,
+        "coverage": 0.2,
+        "roughness": 0.33,
+        "blocks": [
+          "asteria:gravel",
+          "asteria:dirt",
+          "asteria:stone_cobble"
+        ],
+        "detailScale": 12,
+        "selectionScale": 90,
+        "warpScale": 88,
+        "warpStrength": 16,
+        "stretchZ": 1.4,
+        "weights": {
+          "asteria:gravel": 5,
+          "asteria:dirt": 1,
+          "asteria:stone_cobble": 2
+        },
+        "conditions": {
+          "maxY": 132,
+          "maxSlope": 3
+        }
+      }
+    },
+    {
       "block": "asteria:stone"
     }
   ],
   "decorations": [
     {
       "block": "asteria:pebble",
-      "chance": 0.18,
+      "chance": 0.17,
       "surfaceBlocks": [
-        "asteria:stone"
+        "asteria:stone",
+        "asteria:gravel",
+        "asteria:stone_cobble"
       ],
+      "habitatWeights": {
+        "sheltered_passes": 0.24,
+        "boulder_runs": 2,
+        "bare_crests": 0.83
+      },
       "cluster": {
         "scale": 12,
-        "threshold": -0.2
+        "threshold": -0.2,
+        "octaves": 4,
+        "transitionWidth": 0.12
+      },
+      "conditions": {
+        "maxSlope": 8
+      }
+    },
+    {
+      "block": "asteria:grass",
+      "chance": 0.06,
+      "surfaceBlocks": [
+        "asteria:dirt"
+      ],
+      "habitatWeights": {
+        "sheltered_passes": 2.05,
+        "boulder_runs": 0.12,
+        "bare_crests": 0
+      },
+      "cluster": {
+        "scale": 20,
+        "threshold": -0.15,
+        "octaves": 4,
+        "transitionWidth": 0.12
+      },
+      "conditions": {
+        "maxY": 119,
+        "maxSlope": 1
+      }
+    },
+    {
+      "block": "asteria:stick",
+      "chance": 0.045,
+      "surfaceBlocks": [
+        "asteria:dirt",
+        "asteria:gravel"
+      ],
+      "habitatWeights": {
+        "sheltered_passes": 1.7,
+        "boulder_runs": 0.09,
+        "bare_crests": 0
+      },
+      "cluster": {
+        "scale": 20,
+        "threshold": -0.15,
+        "octaves": 4,
+        "transitionWidth": 0.12
+      },
+      "conditions": {
+        "maxY": 120,
+        "maxSlope": 2
       }
     }
-  ]
+  ],
+  "surfaceHabitats": {
+    "scale": 154,
+    "transitionWidth": 0.13,
+    "bands": [
+      {
+        "id": "sheltered_passes",
+        "maximum": -0.2
+      },
+      {
+        "id": "boulder_runs",
+        "maximum": 0.17
+      },
+      {
+        "id": "bare_crests",
+        "maximum": 1
+      }
+    ]
+  }
 }
