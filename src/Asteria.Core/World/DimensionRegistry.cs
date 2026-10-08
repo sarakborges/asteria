@@ -193,10 +193,10 @@ public sealed class DimensionRegistry
                 }
 
                 if (biome.VolumeLayout is null ||
-                    biome.Terrain3d?.FloatingFormation is null)
+                    biome.Terrain3d?.Additive.Count is not > 0)
                 {
                     throw new ArgumentException(
-                        $"Dimension {dimension.Id} volume biome {biomeId} does not author volumeLayout + terrain3d.floatingFormation.");
+                        $"Dimension {dimension.Id} volume biome {biomeId} does not author volumeLayout + terrain3d.additive.");
                 }
             }
 
