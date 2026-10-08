@@ -24,6 +24,7 @@ public sealed class BlockInteractionRuntime
     private readonly BlockRegistry _blocks;
     private readonly VoxelMutationRuntime _mutations;
     private readonly DroppedBlockRuntime _droppedBlocks;
+    private readonly SpikeFormationRuntime _spikes;
 
     public BlockInteractionRuntime(
         VoxelWorld world,
@@ -43,6 +44,8 @@ public sealed class BlockInteractionRuntime
         _droppedBlocks =
             droppedBlocks ??
             throw new ArgumentNullException(nameof(droppedBlocks));
+        _spikes = new SpikeFormationRuntime(
+            _world, _blocks, _mutations, _droppedBlocks);
     }
 
     public BlockBreakDecision Break(
@@ -78,6 +81,9 @@ public sealed class BlockInteractionRuntime
                 decision.Position,
                 BlockBreakRejection.Unbreakable);
         }
+
+        if (definition.Shape.Kind == BlockShapeKind.Spike)
+            return _spikes.Break(decision, lootPolicy);
 
         var snapshot =
             lootPolicy == BlockBreakLootPolicy.DropSelf &&
@@ -155,6 +161,18 @@ public sealed class BlockInteractionRuntime
         VoxelCell cell,
         WorldAabb playerBounds)
     {
+        var spike = !cell.IsEmpty &&
+            _blocks.GetDefinition(cell.Block).Shape.Kind == BlockShapeKind.Spike;
+        if (spike)
+        {
+            // Picked-up/generated segment metadata must never leak into a
+            // newly placed formation.
+            cell = new VoxelCell(
+                cell.Block, cell.TextureRotation, cell.Orientation,
+                cell.Facing,
+                SpikeSegmentState.Encode(0, 1, hit.NormalY < 0));
+        }
+
         var decision =
             BlockInteractionResolver.ResolvePlacement(
                 _world,
@@ -167,6 +185,9 @@ public sealed class BlockInteractionRuntime
         {
             return decision;
         }
+
+        if (spike)
+            return _spikes.Place(decision, hit.NormalY < 0);
 
         if (!_mutations.SetCellAt(
                 decision.Position,

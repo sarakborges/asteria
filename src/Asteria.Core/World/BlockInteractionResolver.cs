@@ -38,6 +38,7 @@ public enum BlockPlacementRejection : byte
     MissingSupport = 7,
     SupportUnloaded = 8,
     MutationRejected = 9,
+    FormationTooTall = 10,
 }
 
 public readonly record struct BlockPlacementDecision(
