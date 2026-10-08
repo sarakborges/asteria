@@ -50,6 +50,29 @@ keeps Godot as an I/O/interaction adapter.
   retain lazy initialization. Tests cover multiple Spheres, uninitialized
   Spheres, seed mismatch and invalid payloads.
 
+## Stage 4: durable spatial-generation files (not playable saves)
+
+- `DimensionChunkFileCodec` writes a versioned binary snapshot with the world
+  seed, immutable generation settings, every created Sphere ID, and every
+  resident/archived chunk's coordinates, dirty status, and checked binary
+  payload. Strict limits reject malformed IDs, booleans, indexes, counts,
+  oversized files and trailing bytes; ordering is deterministic.
+- `SpatialSaveStorage` writes to a private temporary file, flushes it, appends
+  a SHA-256 checksum, flushes again and publishes by same-directory rename.
+  The latest fully intact committed generation is selected on load; damaged
+  newer generations are skipped. Unpublished temporary files are ignored.
+  The four newest generations are retained and old staging files pruned.
+- Saving and loading are serialized with a per-directory exclusive lock.
+  Spatial files use `sphere-chunks-*.bin` and deliberately do not create
+  `world.json` or mark incomplete worlds playable in the world catalog.
+- File renames are atomic on supported local filesystems, but this implementation
+  does not promise directory-metadata fsync durability across sudden power loss
+  on all platforms. Recovery always validates an entire file before returning it.
+- The detached spatial snapshot is the only input to this I/O API; background
+  persistence cannot read or mutate authoritative runtime chunk objects.
+- Unit tests verify deterministic binary roundtrip, generation rotation,
+  damage fallback, truncated files, ignored staging, and malformed input.
+
 ## Remaining
 
 Persist and restore *all* materialized chunks (resident and archived),
