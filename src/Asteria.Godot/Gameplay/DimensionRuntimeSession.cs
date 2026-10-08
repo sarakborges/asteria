@@ -219,6 +219,8 @@ public sealed class DimensionRuntimeSession
             World, blocks, Mutations, tools);
         Mining = new BlockMiningRuntime(
             World, blocks, Tools, BlockInteractions);
+        MiningCracks = new MiningCrackPresentation(
+            Root, packSelection, blocks, fluids, terrainTextures, terrainMaterials);
 
         var blockEntityPresentations =
             new BlockEntityPresentationController(
@@ -439,6 +441,7 @@ public sealed class DimensionRuntimeSession
     public BlockInteractionRuntime BlockInteractions { get; }
     public ToolGameplayRuntime Tools { get; }
     public BlockMiningRuntime Mining { get; }
+    public MiningCrackPresentation MiningCracks { get; }
 
     public BlockEntityFrameController BlockEntities { get; }
 

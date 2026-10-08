@@ -31,6 +31,7 @@ public sealed class BlockMiningRuntime
     }
 
     public float? Progress { get; private set; }
+    public WorldVoxelCoord? Target => _target?.Position;
 
     public void Cancel()
     {

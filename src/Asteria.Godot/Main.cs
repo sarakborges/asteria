@@ -411,6 +411,7 @@ public partial class Main : Node3D
         }
 
         AdvanceSurvivalMining();
+        _sessions.Active.MiningCracks.Sync(_world, _sessions.Active.Mining);
 
         if (_worldReadySent && _player is { } creatureObserver)
         {

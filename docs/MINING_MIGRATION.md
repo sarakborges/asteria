@@ -9,11 +9,12 @@ Reference: MineClone `world-systems-rebuild`, `src/targeting/mining.rs` and `src
 - Accumulated work resets on input release, target loss, player mode changes, target voxel-state change, hotbar slot change or item identity change. A target may be mined only through loaded voxel content. `unbreakable` always wins.
 - Completion invokes the existing `BlockInteractionRuntime.Break` mutation and loot path, avoiding a duplicate voxel writer. Creative retains one-click breaking; spectator cannot interact; special left-hand carpenter/other authored actions are not misinterpreted as mining.
 - Godot `FpsPlayer` owns mouse-button press/release and modal/capture cleanup. `Main` only orchestrates the target query and Core invocation. React's Target HUD renders ten discrete progress stages received from `game.hud.mining`; it does not own mining timing, input, or block state.
+- `MiningCrackPresentation` owns a single transient 3D mesh instance per active Sphere, using `BlockStateMeshBuilder` to reproduce the current block's authored mesh and microblock occupancy. The 10 original staged 64×64 PNGs live in the default pack's resources. Shader stages change only on progress steps, and the overlay is hidden when Core clears the target or mining ends. No per-block scene nodes or pack import sidecars.
 - Core tests cover logical progress, required/preferred categories, speed, zero hardness, unbreakable content, target/tool/slot change and cancellation.
 
 ## Still pending
 
-- World-space crack/decal stage overlays that accurately follow block and microblock geometry (the current HUD progress is a real progress signal, not a fake surface crack texture).
+- Better authored swing cadence/animation and mining audiovisual feedback; the world-space crack stage overlay is now active.
 - Authored swing cadence/animation and mining audiovisual feedback.
 - Extended item/tool behaviors (Brush, Bucket, Shears, Artisan's Kit, Architect's Compass) and consumable item use.
 - Loot-table policy parity beyond existing `dropsSelf` and creature-specific drops.
