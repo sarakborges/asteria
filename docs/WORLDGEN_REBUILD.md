@@ -383,6 +383,62 @@ The default Overworld and Umbral preserve their single cave layer and two
 intersection channels as authored data; more layers can be added without
 changing `SurfaceTerrainField`.
 
+## Cave chambers and clustered spike formations
+
+Cave chambers extend the existing dimension-authored subtractive density
+layers through `caves.layers[].chambers`. They widen interconnected tunnels,
+not a second carving owner. As with all terrain generation, the density
+field is queried deterministically and the chunk materializer is the sole
+voxel writer.
+
+An underground biome can author `caveSpikes[]`. Each rule references a
+registered block with `shape.type: "spike"` and configures:
+
+- `block`, `chance`, `minHeight`, `maxHeight`, `minClearance`,
+  and `directions` (`up`, `down`);
+- optional `surfaceBiomes`: specialized materials take precedence over the
+  unrestricted stone fallback at the same surface column;
+- optional `minSpacing` (0..4): a deterministic horizontal priority
+  neighborhood, stable across negative coordinates, directions, Y levels,
+  and chunk borders;
+- optional `cluster` with `horizontalScale`, `verticalScale`,
+  `threshold`, and `transitionWidth`. It uses a smooth 3D noise
+  envelope to concentrate growth into natural underground pockets.
+
+Example (in `packs/default/data/biomes/caverns.json`):
+
+```json
+{
+  "block": "asteria:stone_spike",
+  "chance": 0.22,
+  "minHeight": 2,
+  "maxHeight": 9,
+  "minClearance": 10,
+  "directions": ["up", "down"],
+  "minSpacing": 1,
+  "cluster": {
+    "horizontalScale": 32,
+    "verticalScale": 22,
+    "threshold": -0.28,
+    "transitionWidth": 0.36
+  }
+}
+```
+
+The initial stochastic chance and spacing priority are tested before
+expensive cave-density probes. The 3D cluster envelope is then evaluated
+only for eligible wall-adjacent anchors; final height is bounded by cave
+clearance to avoid floor/ceiling spike intersections in narrow passages.
+Rules are world-coordinate and seed-based, so cross-chunk materialization
+does not depend on loading order. Stone, ice, basalt, sandstone and
+terracotta reuse one spike geometry; no material-specific generation
+branches belong in Core.
+
+This changes spatial distribution relative to previous uniform cave-spike
+rolls, intentionally. Do not add parallel chamber decorators, per-block
+Godot nodes, or mutations outside the materializer to implement new
+underground formations.
+
 ## Authored special terrain features (data-driven)
 
 Special surface appearances are authored as **geometry + optional features**, rather than branching by biome ID:
