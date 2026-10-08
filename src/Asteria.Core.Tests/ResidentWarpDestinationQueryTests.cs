@@ -39,6 +39,45 @@ public sealed class ResidentWarpDestinationQueryTests
     }
 
     [Fact]
+    public void RestoredModifiedDestinationUsesAuthoritativeArchivedVoxels()
+    {
+        var world = FlatWorld();
+        var requested = new Vector3(7.5f, 1f, 8.5f);
+        Assert.True(world.SetBlockAt(
+            new WorldVoxelCoord(7, 1, 8), new BlockRuntimeId(1), out _));
+
+        world.ArchiveChunk(ChunkCoord.Zero);
+        Assert.Null(ResidentWarpDestinationQuery.Find(world, requested));
+        Assert.Equal(ChunkRestoreResult.Restored,
+            world.RestoreChunk(ChunkCoord.Zero));
+
+        var resolved = ResidentWarpDestinationQuery.Find(world, requested);
+        Assert.NotNull(resolved);
+        Assert.NotEqual(requested, resolved.Value);
+        Assert.True(world.GetCellOrEmpty(new WorldVoxelCoord(7, 1, 8)).Block.Value != 0);
+        Assert.True(world.GetCellOrEmpty(new WorldVoxelCoord(
+            (int)resolved.Value.X, (int)resolved.Value.Y,
+            (int)resolved.Value.Z)).IsEmpty);
+    }
+
+    [Fact]
+    public void RejectsFullyBlockedRestoredArrivalInsteadOfSpawningInSolid()
+    {
+        var world = FlatWorld();
+        for (var x = 0; x < Chunk.Size; x++)
+        for (var z = 0; z < Chunk.Size; z++)
+            Assert.True(world.SetBlockAt(
+                new WorldVoxelCoord(x, 1, z), new BlockRuntimeId(1), out _));
+
+        world.ArchiveChunk(ChunkCoord.Zero);
+        Assert.Equal(ChunkRestoreResult.Restored,
+            world.RestoreChunk(ChunkCoord.Zero));
+
+        Assert.Null(ResidentWarpDestinationQuery.Find(
+            world, new Vector3(7.5f, 1f, 8.5f)));
+    }
+
+    [Fact]
     public void RejectsMissingResidencyAndNegativeHeight()
     {
         var world = new VoxelWorld();
