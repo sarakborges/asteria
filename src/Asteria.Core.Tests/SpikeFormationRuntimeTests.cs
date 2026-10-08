@@ -122,6 +122,29 @@ public sealed class SpikeFormationRuntimeTests
     }
 
     [Fact]
+    public void CreativeBreakOfSupportSuppressesAllDetachedDrops()
+    {
+        var f = Fixture();
+        var support = new WorldVoxelCoord(4, 9, 4);
+        var stone = f.Blocks.GetId("asteria:stone");
+        var spike = f.Blocks.GetId("asteria:stone_spike");
+        Assert.True(f.Mutations.SetBlockAt(support, stone, out _));
+        Assert.True(f.Interactions.Place(
+            Hit(4, 9, 4, normalY: -1),
+            new VoxelCell(spike), AwayFromPlayer).Accepted);
+        Assert.True(f.Interactions.Place(
+            Hit(4, 8, 4, normalY: -1),
+            new VoxelCell(spike), AwayFromPlayer).Accepted);
+
+        Assert.True(f.Interactions.Break(
+            Hit(4, 9, 4), BlockBreakLootPolicy.Suppress).Accepted);
+        Assert.True(f.World.GetCellOrEmpty(support).IsEmpty);
+        Assert.True(f.World.GetCellOrEmpty(new WorldVoxelCoord(4, 8, 4)).IsEmpty);
+        Assert.True(f.World.GetCellOrEmpty(new WorldVoxelCoord(4, 7, 4)).IsEmpty);
+        Assert.Equal(0, f.Drops.ActiveCount);
+    }
+
+    [Fact]
     public void ProfilesConnectAcrossVerticalChunkSeams()
     {
         var f = Fixture(verticalChunks: 2);

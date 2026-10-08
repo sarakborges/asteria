@@ -94,10 +94,7 @@ public sealed class BlockInteractionRuntime
                     decision.Cell)
                 : null;
 
-        if (!_mutations.SetCellAt(
-                decision.Position,
-                VoxelCell.Empty,
-                out _))
+        if (!_spikes.RemoveSupport(decision.Position, lootPolicy))
         {
             return BlockBreakDecision.Reject(
                 decision.Position,

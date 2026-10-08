@@ -114,6 +114,31 @@ public sealed class SpikeFormationRuntime
         return decision;
     }
 
+    /// <summary>
+    /// Applies removal of a supporting block without routing through an
+    /// unrestricted mutation event. This preserves Creative loot policy
+    /// when attached spikes are detached by the same player operation.
+    /// </summary>
+    public bool RemoveSupport(
+        WorldVoxelCoord position, BlockBreakLootPolicy lootPolicy)
+    {
+        _applying = true;
+        try
+        {
+            if (!_mutations.SetCellAt(position, VoxelCell.Empty, out _))
+                return false;
+        }
+        finally
+        {
+            _applying = false;
+        }
+
+        DetachUnsupportedBase(Offset(position, 1), down: false, lootPolicy);
+        if (position.Y > 0)
+            DetachUnsupportedBase(Offset(position, -1), down: true, lootPolicy);
+        return true;
+    }
+
     private bool SupportsBase(
         WorldVoxelCoord position,
         BlockRuntimeId block,
@@ -223,15 +248,17 @@ public sealed class SpikeFormationRuntime
             }
         }
 
-        if (edit.Previous.Block == edit.Current.Block)
-            return;
-
-        DetachUnsupportedBase(Offset(edit.Position, 1), down: false);
+        DetachUnsupportedBase(
+            Offset(edit.Position, 1), down: false,
+            BlockBreakLootPolicy.DropSelf);
         if (edit.Position.Y > 0)
-            DetachUnsupportedBase(Offset(edit.Position, -1), down: true);
+            DetachUnsupportedBase(
+                Offset(edit.Position, -1), down: true,
+                BlockBreakLootPolicy.DropSelf);
     }
 
-    private void DetachUnsupportedBase(WorldVoxelCoord root, bool down)
+    private void DetachUnsupportedBase(
+        WorldVoxelCoord root, bool down, BlockBreakLootPolicy lootPolicy)
     {
         if (root.Y < 0 || !_world.TryGetCell(root, out var cell) ||
             cell.IsEmpty ||
@@ -252,9 +279,12 @@ public sealed class SpikeFormationRuntime
             return;
 
         Apply(edits);
-        foreach (var position in detached)
-            SpawnDrop(cell.Block, position);
-        SpawnDrop(cell.Block, root);
+        if (lootPolicy == BlockBreakLootPolicy.DropSelf)
+        {
+            foreach (var position in detached)
+                SpawnDrop(cell.Block, position);
+            SpawnDrop(cell.Block, root);
+        }
     }
 
     private void Apply(IReadOnlyList<SpikeVoxelChange> changes)
