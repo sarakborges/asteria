@@ -994,7 +994,7 @@ public partial class Main : Node3D
                     break;
                 case "ui.game.resume":
                     if (_worldReadySent && !_keybindCapture.IsCapturing &&
-                        !_inventoryOpen)
+                        !_inventoryOpen && !_chat.IsOpen)
                     {
                         _player?.ResumeGameplay();
                     }
