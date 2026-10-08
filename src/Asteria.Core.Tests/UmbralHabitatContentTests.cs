@@ -98,7 +98,7 @@ public sealed class UmbralHabitatContentTests
         var roots = LoadUmbralRoots(biome);
         Assert.Equal(6, roots.Length);
         var snag = Assert.Single(roots,
-            root => root.Structure == "asteria:wraith_snag");
+            root => root.Structure == "asteria:withered_snag");
         var deadfall = Assert.Single(roots,
             root => root.Structure == "asteria:fallen_log_wraith");
         var cluster = Assert.Single(roots,
@@ -114,6 +114,31 @@ public sealed class UmbralHabitatContentTests
             decoration => decoration.Block == "asteria:grass");
 
         ValidateHabitatRules(biome, roots);
+    }
+
+    [Fact]
+    public void WitheredSnagTemplatesNeverConvertDeadSoilIntoGrass()
+    {
+        var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
+        var structures = StructureRegistry.FromJson(ReadJsonDirectory("structures"));
+        var deadTrees = structures.ResolveReference("asteria:withered_snag");
+        Assert.Equal(2, deadTrees.Count);
+        foreach (var tree in deadTrees)
+        {
+            Assert.Equal(0, tree.GroundAnchorYOffset);
+            Assert.Equal(1f, tree.Restrictions.RequiredBiomeCoverage);
+            Assert.True(tree.Restrictions.RequiresDryGround);
+            Assert.Equal(StructureFluidPolicy.Forbid, tree.Generation.FluidPolicy);
+            Assert.Equal(StructureReplacePolicy.Terrain, tree.Generation.ReplacePolicy);
+            Assert.Contains("asteria:dirt", tree.Restrictions.GroundBlocks);
+            Assert.Contains("asteria:gravel", tree.Restrictions.GroundBlocks);
+            Assert.All(tree.Voxels, voxel =>
+            {
+                Assert.True(voxel.Y >= 1);
+                Assert.NotEqual("asteria:grass_block", voxel.Block);
+            });
+        }
+        structures.ValidateBlocks(blocks);
     }
 
     [Fact]

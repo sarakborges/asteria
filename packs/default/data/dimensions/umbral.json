@@ -166,7 +166,7 @@
     },
     {
       "biome": "asteria:umbral/withered_waste",
-      "structure": "asteria:wraith_snag",
+      "structure": "asteria:withered_snag",
       "spacing": 59,
       "chance": 0.51,
       "jitter": 18,

@@ -38,7 +38,7 @@ public sealed class SurfaceStructureTests
             structures, structureSets);
 
         Assert.Equal(
-            59,
+            61,
             structures.Count);
         Assert.Equal(3, structures.ResolveReference("asteria:bush_oak").Count);
         Assert.Equal(5, structureSets.Count);
