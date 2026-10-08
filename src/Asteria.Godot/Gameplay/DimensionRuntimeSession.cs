@@ -354,6 +354,17 @@ public sealed class DimensionRuntimeSession
         return true;
     }
 
+    public bool TryKillCreature(CreatureInstanceId id, out CreatureAttackResult result)
+    {
+        result = default;
+        if (_retiring || _retired || !Creatures.TryKill(id, out result))
+            return false;
+
+        SpawnCreatureLoot(result);
+        _creaturePresentation.Sync(Creatures.ActiveCreatures);
+        return true;
+    }
+
     private void SpawnCreatureLoot(CreatureAttackResult death)
     {
         var index = 0;
