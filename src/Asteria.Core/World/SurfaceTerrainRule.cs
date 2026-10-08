@@ -13,6 +13,7 @@ internal sealed class SurfaceTerrainRule
     private readonly BiomeTerrainDefinition _terrain;
     private readonly BiomeTerrainShapeDefinition _shape;
     private readonly IReadOnlyList<BiomeTerrainModifierDefinition> _modifiers;
+    private readonly ModifierNoiseDomains[] _modifierDomains;
     private readonly GenerationDomain _macroDomain;
     private readonly GenerationDomain _detailDomain;
     private readonly GenerationDomain _secondaryDomain;
@@ -34,6 +35,32 @@ internal sealed class SurfaceTerrainRule
         _terrain = terrain;
         _shape = terrain.Shape;
         _modifiers = terrain.Modifiers;
+        _modifierDomains = new ModifierNoiseDomains[_modifiers.Count];
+        for (var index = 0; index < _modifiers.Count; index++)
+        {
+            var modifier = _modifiers[index];
+            if (modifier is BiomeCliffsTerrainModifierDefinition)
+            {
+                var prefix = $"terrain/shape/modifier/{index}/v2/{definition.Id}";
+                _modifierDomains[index] = new ModifierNoiseDomains(
+                    WarpX: GenerationDomain.Named(prefix + "/warp-x"),
+                    WarpZ: GenerationDomain.Named(prefix + "/warp-z"),
+                    Noise: GenerationDomain.Named(prefix + "/noise"),
+                    Broad: default,
+                    Detail: default);
+            }
+            else if (modifier is BiomeDepressionsTerrainModifierDefinition)
+            {
+                var prefix = $"terrain/shape/modifier/{index}/depressions/v1/{definition.Id}";
+                _modifierDomains[index] = new ModifierNoiseDomains(
+                    WarpX: default,
+                    WarpZ: default,
+                    Noise: default,
+                    Broad: GenerationDomain.Named(prefix + "/broad"),
+                    Detail: GenerationDomain.Named(prefix + "/detail"));
+            }
+        }
+
         _macroDomain =
             GenerationDomain.Named(
                 $"terrain/shape/macro/v2/{definition.Id}");
@@ -291,11 +318,9 @@ internal sealed class SurfaceTerrainRule
         double terrainStrength,
         BiomeDepressionsTerrainModifierDefinition definition)
     {
-        var prefix = $"terrain/shape/modifier/{index}/depressions/v1/{_biomeId}";
-        var broadDomain = GenerationDomain.Named(prefix + "/broad");
-        var detailDomain = GenerationDomain.Named(prefix + "/detail");
-        var broad = Fractal(seed, broadDomain, x, z, definition.BroadScale);
-        var detail = Fractal(seed, detailDomain, x, z, definition.DetailScale);
+        var domains = _modifierDomains[index];
+        var broad = Fractal(seed, domains.Broad, x, z, definition.BroadScale);
+        var detail = Fractal(seed, domains.Detail, x, z, definition.DetailScale);
         var signal =
             broad * definition.BroadWeight +
             detail * (1d - definition.BroadWeight);
@@ -380,31 +405,18 @@ internal sealed class SurfaceTerrainRule
                 $"Unsupported terrain modifier for {_biomeId}.");
         }
 
-        var prefix =
-            $"terrain/shape/modifier/{index}/v2/{_biomeId}";
-        var warpXDomain =
-            GenerationDomain.Named(
-                prefix +
-                "/warp-x");
-        var warpZDomain =
-            GenerationDomain.Named(
-                prefix +
-                "/warp-z");
-        var noiseDomain =
-            GenerationDomain.Named(
-                prefix +
-                "/noise");
+        var domains = _modifierDomains[index];
         var warpX =
             Fractal(
                 seed,
-                warpXDomain,
+                domains.WarpX,
                 x,
                 z,
                 cliffs.WarpScale);
         var warpZ =
             Fractal(
                 seed,
-                warpZDomain,
+                domains.WarpZ,
                 x - 23.1d,
                 z + 41.9d,
                 cliffs.WarpScale);
@@ -420,7 +432,7 @@ internal sealed class SurfaceTerrainRule
             Math.Clamp(
                 (Fractal(
                      seed,
-                     noiseDomain,
+                     domains.Noise,
                      warpedX,
                      warpedZ,
                      cliffs.Scale) +
@@ -461,6 +473,13 @@ internal sealed class SurfaceTerrainRule
                        progress) *
                cliffs.Height;
     }
+
+    private readonly record struct ModifierNoiseDomains(
+        GenerationDomain WarpX,
+        GenerationDomain WarpZ,
+        GenerationDomain Noise,
+        GenerationDomain Broad,
+        GenerationDomain Detail);
 
     private static double Fractal(
         ulong seed,
