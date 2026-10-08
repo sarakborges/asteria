@@ -580,10 +580,26 @@ public static class BiomeDefinitionJson
                         "chance"),
                     RequiredStringArray(
                         value,
-                        "surfaceBlocks")));
+                        "surfaceBlocks"),
+                    ParseDecorationCluster(value)));
         }
 
         return decorations;
+    }
+
+    private static BiomeDecorationClusterDefinition? ParseDecorationCluster(
+        JsonElement decoration)
+    {
+        if (!decoration.TryGetProperty("cluster", out var cluster) ||
+            cluster.ValueKind == JsonValueKind.Null)
+        {
+            return null;
+        }
+
+        cluster = EnsureObject(cluster, "decorations.cluster");
+        return new BiomeDecorationClusterDefinition(
+            RequiredInt32(cluster, "scale"),
+            RequiredSingle(cluster, "threshold"));
     }
 
     private static JsonElement GetRequiredObject(

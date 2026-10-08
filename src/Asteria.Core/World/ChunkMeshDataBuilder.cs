@@ -88,6 +88,15 @@ public static class ChunkMeshDataBuilder
                         continue;
                     }
 
+                    if (definition.Visual.Kind ==
+                        BlockVisualKind.GroundSprite)
+                    {
+                        EmitGroundSprite(
+                            surfaces, world, blocks, textures,
+                            x, y, z, worldPosition, definition, tintSamples);
+                        continue;
+                    }
+
                     if (!RequiresFineMeshing(
                             world,
                             blocks,
@@ -639,6 +648,51 @@ public static class ChunkMeshDataBuilder
                 tint,
                 lighting);
         }
+    }
+
+    private static void EmitGroundSprite(
+        Dictionary<TerrainRenderBatch, List<ChunkMeshVertex>> surfaces,
+        VoxelWorld world,
+        BlockRegistry blocks,
+        TerrainTextureLookup textures,
+        int blockX,
+        int blockY,
+        int blockZ,
+        WorldVoxelCoord worldPosition,
+        BlockDefinition definition,
+        BiomeTintSampleGrid? tintSamples)
+    {
+        var visual = definition.Visual;
+        var texture = visual.Texture ??
+            throw new InvalidOperationException(
+                $"Ground-sprite block {definition.Id} has no visual texture.");
+        var encodedLayers = new Vector2(
+            textures.GetIndex(texture.Texture) +
+                (texture.Dyable ? DyableLayerFlag : 0f),
+            -1f);
+        var tint = ResolveTint(
+            definition.Tint, definition.PreviewColor, tintSamples,
+            worldPosition.X, worldPosition.Z);
+        var surface = GetSurface(
+            surfaces,
+            new TerrainRenderBatch(definition.RenderMode, definition.CastsShadow));
+        var lighting = VoxelMeshLighting.SampleFace(
+            world, blocks, worldPosition, BlockFace.Top);
+        var centerX = blockX + 0.5f;
+        var centerZ = blockZ + 0.5f;
+        var halfWidth = visual.Width * 0.5f;
+        var topY = blockY + visual.BaseOffset + visual.Height;
+        Span<Vector3> positions = stackalloc Vector3[4];
+        positions[0] = new(centerX - halfWidth, topY, centerZ - halfWidth);
+        positions[1] = new(centerX - halfWidth, topY, centerZ + halfWidth);
+        positions[2] = new(centerX + halfWidth, topY, centerZ + halfWidth);
+        positions[3] = new(centerX + halfWidth, topY, centerZ - halfWidth);
+        EmitSpriteSide(
+            surface, positions, SpriteFrontOrder,
+            encodedLayers, tint, lighting);
+        EmitSpriteSide(
+            surface, positions, SpriteBackOrder,
+            encodedLayers, tint, lighting);
     }
 
     private static void EmitSpriteSide(

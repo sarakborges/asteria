@@ -4,6 +4,7 @@ public enum BlockVisualKind : byte
 {
     Geometry = 0,
     CrossedSprite = 1,
+    GroundSprite = 2,
 }
 
 public sealed class BlockVisualDefinition
@@ -44,6 +45,32 @@ public sealed class BlockVisualDefinition
             1f,
             0,
             0f);
+
+    /// <summary>
+    /// Horizontal cutout sprite inside a voxel; reusable for ground objects.
+    /// </summary>
+    public static BlockVisualDefinition GroundSprite(
+        BlockTextureLayer texture,
+        float width = 0.42f,
+        float height = 0.012f,
+        float baseOffset = 0.0125f)
+    {
+        if (!float.IsFinite(width) || width <= 0f || width > 1f)
+        {
+            throw new ArgumentOutOfRangeException(nameof(width));
+        }
+
+        if (!float.IsFinite(height) || height <= 0f ||
+            !float.IsFinite(baseOffset) || baseOffset < 0f ||
+            baseOffset + height > 1f)
+        {
+            throw new ArgumentOutOfRangeException(nameof(height),
+                "Ground-sprite height and offset must fit inside its voxel.");
+        }
+
+        return new BlockVisualDefinition(
+            BlockVisualKind.GroundSprite, texture, width, height, 0, baseOffset);
+    }
 
     public static BlockVisualDefinition CrossedSprite(
         BlockTextureLayer texture,

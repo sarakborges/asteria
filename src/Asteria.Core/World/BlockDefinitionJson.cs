@@ -268,6 +268,13 @@ public static class BlockDefinitionJson
         {
             "geometry" =>
                 BlockVisualDefinition.Geometry,
+            "groundSprite" =>
+                BlockVisualDefinition.GroundSprite(
+                    ParseTextureLayerValue(
+                        RequiredProperty(visual, "texture")),
+                    OptionalSingle(visual, "width") ?? 0.42f,
+                    OptionalSingle(visual, "height") ?? 0.012f,
+                    OptionalSingle(visual, "baseOffset") ?? 0.0125f),
             "crossedSprite" =>
                 BlockVisualDefinition.CrossedSprite(
                     ParseTextureLayerValue(

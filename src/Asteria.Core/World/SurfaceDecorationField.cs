@@ -33,7 +33,10 @@ public sealed class SurfaceDecorationField
                                 .Select(blocks.GetId)
                                 .ToHashSet(),
                             GenerationDomain.Named(
-                                $"worldgen/decorator/{biome.Id}/{decoration.Block}/v1")))
+                                $"worldgen/decorator/{biome.Id}/{decoration.Block}/v1"),
+                            decoration.Cluster,
+                            GenerationDomain.Named(
+                                $"worldgen/decorator-cluster/{biome.Id}/{decoration.Block}/v1")))
                     .ToArray(),
                 StringComparer.Ordinal);
     }
@@ -61,10 +64,24 @@ public sealed class SurfaceDecorationField
                         worldX,
                         worldZ));
 
-                if (roll < effectiveChance)
+                if (roll >= effectiveChance)
                 {
-                    return rule.Block;
+                    continue;
                 }
+
+                if (rule.Cluster is { } cluster &&
+                    WorldGenerationNoise.FractalNoise2D(
+                        _seed,
+                        rule.ClusterDomain,
+                        worldX,
+                        worldZ,
+                        1d / cluster.Scale,
+                        octaves: 3) < cluster.Threshold)
+                {
+                    continue;
+                }
+
+                return rule.Block;
             }
         }
 
@@ -75,5 +92,7 @@ public sealed class SurfaceDecorationField
         BlockRuntimeId Block,
         float Chance,
         HashSet<BlockRuntimeId> SurfaceBlocks,
-        GenerationDomain Domain);
+        GenerationDomain Domain,
+        BiomeDecorationClusterDefinition? Cluster,
+        GenerationDomain ClusterDomain);
 }

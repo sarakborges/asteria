@@ -539,7 +539,8 @@ public sealed class BiomeDecorationDefinition
     public BiomeDecorationDefinition(
         string block,
         float chance,
-        IEnumerable<string> surfaceBlocks)
+        IEnumerable<string> surfaceBlocks,
+        BiomeDecorationClusterDefinition? cluster = null)
     {
         BiomeSurfaceLayerDefinition.ValidateBlockId(
             block);
@@ -581,6 +582,7 @@ public sealed class BiomeDecorationDefinition
 
         Block = block;
         Chance = chance;
+        Cluster = cluster;
         SurfaceBlocks =
             Array.AsReadOnly(supports);
     }
@@ -590,6 +592,34 @@ public sealed class BiomeDecorationDefinition
     public float Chance { get; }
 
     public IReadOnlyList<string> SurfaceBlocks { get; }
+
+    public BiomeDecorationClusterDefinition? Cluster { get; }
+}
+
+/// <summary>
+/// Noise-based clustering with organic boundaries, independent of chunks.
+/// </summary>
+public sealed class BiomeDecorationClusterDefinition
+{
+    public BiomeDecorationClusterDefinition(int scale, float threshold)
+    {
+        if (scale is < 2 or > 512)
+        {
+            throw new ArgumentOutOfRangeException(nameof(scale));
+        }
+
+        if (!float.IsFinite(threshold) || threshold < -1f || threshold > 1f)
+        {
+            throw new ArgumentOutOfRangeException(nameof(threshold));
+        }
+
+        Scale = scale;
+        Threshold = threshold;
+    }
+
+    public int Scale { get; }
+
+    public float Threshold { get; }
 }
 
 
