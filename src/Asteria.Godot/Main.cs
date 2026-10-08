@@ -1976,7 +1976,7 @@ public partial class Main : Node3D
         const int maxDistance = 512;
         if (command.Kind == ChatCommandKind.LocateBiome)
         {
-            if (!_biomes.TryGet(id, out _))
+            if (!_biomes.Contains(id))
             {
                 ChatFeedback("chat.command.locate.unknownBiome", error: true, ("id", id));
                 return;
