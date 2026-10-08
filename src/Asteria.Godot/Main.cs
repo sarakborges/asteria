@@ -133,6 +133,7 @@ public partial class Main : Node3D
     private WorldFrameWorkBudget _worldFrameBudget;
     private bool _worldReadySent;
     private bool _inventoryOpen;
+    private readonly PlayerChatSession _chat = new();
     private bool _brushPaletteOpen;
     private int _publishedMiningStage = -1;
     private double _pickupAccumulator;
@@ -304,6 +305,18 @@ public partial class Main : Node3D
 
         if (_worldSeed is null)
         {
+            return;
+        }
+
+        if (_chat.IsOpen)
+        {
+            if (@event is InputEventKey chatKey &&
+                chatKey.Pressed && !chatKey.Echo &&
+                chatKey.Keycode == Key.Escape)
+            {
+                CloseChat();
+                GetViewport().SetInputAsHandled();
+            }
             return;
         }
 
@@ -772,6 +785,7 @@ public partial class Main : Node3D
         _player.ToolActionRequested -=
             RotateHeldBlock;
         _player.InventoryRequested -= OpenInventory;
+        _player.ChatRequested -= OpenChat;
         _player.DropItemRequested -= DropSelectedItem;
         _player.HotbarSlotRequested -= SelectHotbar;
         _player.MouseCaptureChanged -=
@@ -781,6 +795,8 @@ public partial class Main : Node3D
         _player.FluidContactChanged -=
             OnPlayerFluidContactChanged;
         _sessionStates.Player.CancelDoubleTap();
+        if (_chat.Close())
+            SendChatState();
         if (_inventoryOpen)
         {
             _sessionStates.Player.Inventory.TryReturnCursor();
@@ -981,6 +997,12 @@ public partial class Main : Node3D
                         _player?.ResumeGameplay();
                     }
                     break;
+                case "ui.chat.close":
+                    CloseChat();
+                    break;
+                case "ui.chat.submit":
+                    SubmitChat(document.RootElement);
+                    break;
                 case "ui.inventory.close":
                     CloseInventory();
                     break;
@@ -1037,6 +1059,7 @@ public partial class Main : Node3D
         SendInventoryState();
         SendBrushPalette();
         SendCreativeCatalog();
+        SendChatState();
         SendWorldHudState(
             force: true);
         SendWorldClockState(force: true);
@@ -1787,9 +1810,79 @@ public partial class Main : Node3D
         CallDeferred(nameof(ResumeGameplayAfterInventory));
     }
 
+    private void OpenChat()
+    {
+        if (!_worldReadySent || _inventoryOpen || _brushPaletteOpen ||
+            _keybindCapture.IsCapturing || _sessions.IsTransitioning ||
+            _player is null || !_player.IsMouseCaptured || !_chat.Open())
+            return;
+
+        SendChatState();
+        _player.SuspendForModal();
+    }
+
+    private void CloseChat()
+    {
+        if (!_chat.Close()) return;
+        SendChatState();
+        _player?.ResumeAfterKeyCapture();
+        CallDeferred(nameof(ResumeGameplayAfterChat));
+    }
+
+    private void ResumeGameplayAfterChat()
+    {
+        if (!_chat.IsOpen && !_inventoryOpen && !_brushPaletteOpen &&
+            !_keybindCapture.IsCapturing && _worldReadySent &&
+            !_sessions.IsTransitioning)
+            _player?.ResumeGameplay();
+    }
+
+    private void SubmitChat(JsonElement message)
+    {
+        if (!_chat.IsOpen || !message.TryGetProperty("payload", out var payload) ||
+            payload.ValueKind != JsonValueKind.Object ||
+            !payload.TryGetProperty("text", out var value) ||
+            value.ValueKind != JsonValueKind.String)
+            return;
+
+        if (_chat.TrySubmit(value.GetString(), out var text))
+        {
+            var position = _player?.GlobalPosition ?? Vector3.Zero;
+            var coordinates = $"X: {Mathf.FloorToInt(position.X)} " +
+                $"Z: {Mathf.FloorToInt(position.Z)} Y: {Mathf.FloorToInt(position.Y)}";
+            var clock = _sessions.Active.DayNight;
+            var (hour, minute) = clock.WorldTime;
+            PlayerChatCommandProcessor.Execute(_chat, text, coordinates,
+                $"{clock.Day} · {hour:D2}:{minute:D2}");
+        }
+
+        // Invalid/empty submissions also close the chat, without echoing.
+        SendChatState();
+        _player?.ResumeAfterKeyCapture();
+        CallDeferred(nameof(ResumeGameplayAfterChat));
+    }
+
+    private void SendChatState()
+    {
+        SendWebUi("game.chat.state", new
+        {
+            open = _chat.IsOpen,
+            visible = _chat.IsOpen || _chat.History.Count > 0,
+            history = _chat.History.Select(line => new
+            {
+                id = line.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                text = line.Text,
+                tone = line.IsError ? "error" : "normal",
+                localizationKey = line.LocalizationKey,
+            }).ToArray(),
+            commands = PlayerChatCommandProcessor.SupportedCommands,
+        });
+    }
+
     private void OpenInventory()
     {
-        if (!_worldReadySent || _inventoryOpen || _sessions.IsTransitioning ||
+        if (!_worldReadySent || _inventoryOpen || _chat.IsOpen ||
+            _sessions.IsTransitioning ||
             _sessionStates.Player.GameMode.IsSpectator() || _player is null)
             return;
         _inventoryOpen = true;
@@ -2141,6 +2234,7 @@ public partial class Main : Node3D
         _player.PlaceRequested += PlaceTargetBlock;
         _player.ToolActionRequested += RotateHeldBlock;
         _player.InventoryRequested += OpenInventory;
+        _player.ChatRequested += OpenChat;
         _player.DropItemRequested += DropSelectedItem;
         _player.HotbarSlotRequested += SelectHotbar;
         _player.MouseCaptureChanged +=
