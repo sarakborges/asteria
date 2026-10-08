@@ -1,4 +1,5 @@
 using System.Numerics;
+using System.Globalization;
 
 namespace Asteria.Core.World;
 
@@ -58,6 +59,30 @@ public readonly struct MicroblockMask : IEquatable<MicroblockMask>
     public bool IsEmpty => Equals(Empty);
 
     public bool IsFull => Equals(Full);
+
+    public string ToHexString()
+    {
+        Span<ulong> layers = stackalloc ulong[Edge];
+        CopyLayersTo(layers);
+        return string.Concat(layers.ToArray().Select(
+            slice => slice.ToString("x16", CultureInfo.InvariantCulture)));
+    }
+
+    public static MicroblockMask ParseHexString(string value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        if (value.Length != 128)
+            throw new FormatException("Microblock mask requires exactly 128 hexadecimal characters.");
+        Span<ulong> layers = stackalloc ulong[Edge];
+        for (var z = 0; z < Edge; z++)
+            if (!ulong.TryParse(value.AsSpan(z * 16, 16), NumberStyles.HexNumber,
+                    CultureInfo.InvariantCulture, out layers[z]))
+                throw new FormatException("Invalid microblock mask hexadecimal character.");
+        var mask = FromLayers(layers);
+        if (mask.IsEmpty || mask.IsFull)
+            throw new FormatException("A stored microblock mask must be partially occupied.");
+        return mask;
+    }
 
     public int OccupiedCount =>
         BitOperations.PopCount(_layer0) +

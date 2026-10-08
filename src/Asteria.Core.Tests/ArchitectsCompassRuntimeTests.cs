@@ -104,7 +104,7 @@ public sealed class ArchitectsCompassRuntimeTests
         Assert.False(StructureSelectionExporter.TryExport(
             world, blocks, single, "asteria:with_dye",
             out _, out var tintError));
-        Assert.Contains("state", tintError);
+        Assert.Contains("unsupported dye", tintError);
     }
 
     [Fact]

@@ -198,7 +198,9 @@ public sealed class StructureRegistry
     }
 
     public void ValidateBlocks(
-        BlockRegistry blocks)
+        BlockRegistry blocks,
+        DyeRegistry? dyes = null,
+        AttachedLayerRegistry? attachedLayers = null)
     {
         ArgumentNullException.ThrowIfNull(
             blocks);
@@ -255,6 +257,27 @@ public sealed class StructureRegistry
                 var block =
                     blocks.GetDefinition(
                         runtimeId);
+                if (voxel.Detail is { } detail)
+                {
+                    if (!detail.Mask.IsEmpty && !block.SupportsMicroblocks)
+                        throw new ArgumentException(
+                            $"Structure {definition.Id} sculpts block {voxel.Block}, which is not fragmentable.");
+                    if (detail.Surface.DyeId is { } dye)
+                    {
+                        if (!block.SupportsDye || (dyes is not null &&
+                            !dyes.TryGet(dye, out _)))
+                            throw new ArgumentException(
+                                $"Structure {definition.Id} has unsupported dye {dye} for {voxel.Block}.");
+                    }
+                    foreach (var layer in detail.Surface.Layers)
+                    {
+                        if (attachedLayers is null) continue;
+                        if (!attachedLayers.TryGet(layer.LayerId, out var authoredLayer) ||
+                            authoredLayer is null || !authoredLayer.Supports(layer.Face))
+                            throw new ArgumentException(
+                                $"Structure {definition.Id} uses unsupported layer {layer.LayerId} on {layer.Face}.");
+                    }
+                }
                 var rotations =
                     definition.Rotation
                         ? Enum.GetValues<StructureRotation>()

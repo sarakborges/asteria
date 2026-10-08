@@ -199,7 +199,7 @@ public partial class Main : Node3D
         _dimensions.ValidateFluids(
             _fluids);
         _structures.ValidateBlocks(
-            _blocks);
+            _blocks, _dyes, _layers);
         _structures.ValidateFluids(
             _fluids);
         _dimensions.ValidateStructures(
