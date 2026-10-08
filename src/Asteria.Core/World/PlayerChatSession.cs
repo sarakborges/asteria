@@ -10,10 +10,14 @@ public sealed class PlayerChatSession
     public const int MaxInputCharacters = 256;
 
     private readonly List<PlayerChatLine> _history = new(HistoryCapacity);
+    private readonly IReadOnlyList<PlayerChatLine> _readOnlyHistory;
+
+    public PlayerChatSession() =>
+        _readOnlyHistory = _history.AsReadOnly();
     private ulong _nextId;
 
     public bool IsOpen { get; private set; }
-    public IReadOnlyList<PlayerChatLine> History => _history;
+    public IReadOnlyList<PlayerChatLine> History => _readOnlyHistory;
 
     public bool Open()
     {
