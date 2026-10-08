@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef, type KeyboardEvent } from "react";
 import type { InventoryCatalogEntry } from "./state/uiState";
 import { LoadingOverlay } from "./components/organisms/LoadingOverlay/LoadingOverlay";
 import { GameHudPage } from "./components/pages/GameHudPage/GameHudPage";
@@ -38,6 +38,7 @@ export type AppActions = {
   openWorldSettings(): void;
   openControls(): void;
   backFromOverlay(): void;
+  escapeNavigation(): void;
   setRenderDistance(value: number): void;
   setTargetPosition(value: "Center" | "TopRight" | "Hidden"): void;
   setHideHints(value: boolean): void;
@@ -71,6 +72,7 @@ export function App({
 }: AppProps) {
   const state = useUiStore(store);
   const { t } = useLocalization();
+  const interactionRoot = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     document.documentElement.classList.toggle(
@@ -81,9 +83,41 @@ export function App({
 
   const preWorldVisible =
     state.worldCreation.visible;
+  const uiVisible = preWorldVisible || state.navigation.overlay !== "none" ||
+    state.chat.open;
+
+  // On an explicit UI screen change, the previous screen's focused button
+  // can linger during ScreenTransition's exit animation. Move keyboard focus
+  // to the stable App surface immediately instead of waiting for that button
+  // to unmount; otherwise Escape is lost to document.body.
+  useEffect(() => {
+    if (!uiVisible || state.chat.open) return;
+    interactionRoot.current?.focus({ preventScroll: true });
+  }, [uiVisible, state.navigation.overlay, state.navigation.preWorldScreen,
+      state.chat.open]);
+
+  const handleUiKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "Escape" || event.defaultPrevented ||
+        event.repeat || event.nativeEvent.isComposing || !uiVisible) return;
+    if (state.settings.captureAction) actions.cancelKeyCapture();
+    else if (state.chat.open) actions.closeChat();
+    else if (state.navigation.overlay === "inventory") actions.closeInventory();
+    else if (state.navigation.overlay === "brush") actions.closeBrushPalette();
+    else actions.escapeNavigation();
+    event.preventDefault();
+    event.stopPropagation();
+  };
 
   return (
-    <>
+    <div ref={interactionRoot} className="app-interaction-root"
+      tabIndex={-1} onKeyDown={handleUiKeyDown}
+      onBlurCapture={event => {
+        // A child editor can blur itself on Escape. Return keyboard focus to
+        // this explicit UI surface, not document/window; avoid stealing focus
+        // when the user switches away from the application.
+        if (uiVisible && !event.relatedTarget && document.hasFocus())
+          interactionRoot.current?.focus({ preventScroll: true });
+      }}>
       {!preWorldVisible && !state.loading &&
         state.navigation.overlay === "none" && (
         <ChatDock
@@ -227,6 +261,6 @@ export function App({
       )}
 
       <LoadingOverlay state={state.loading} />
-    </>
+    </div>
   );
 }

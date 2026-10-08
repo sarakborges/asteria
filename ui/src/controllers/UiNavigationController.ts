@@ -12,6 +12,7 @@ export type UiNavigationController = {
   openWorldSettings(): void;
   openControls(): void;
   backFromOverlay(): void;
+  escape(): void;
   handleGodotMessage(message: BridgeMessage): void;
 };
 
@@ -36,6 +37,24 @@ export function createUiNavigationController(
       ...state, navigation: { ...state.navigation, overlay },
     }));
 
+  // Only explicit WebUI navigation is handled here. Gameplay hotkeys and
+  // mouse capture remain native; a paused menu never directly captures it.
+  const escape = () => {
+    const state = store.getSnapshot();
+    if (state.navigation.overlay === "game" ||
+        state.navigation.overlay === "world" ||
+        state.navigation.overlay === "controls") {
+      show(state.worldCreation.visible ? "none" : "pause");
+    } else if (state.navigation.overlay === "pause") {
+      postMessage("ui.game.resume");
+    } else if (state.worldCreation.visible) {
+      if (state.navigation.preWorldScreen === "new-world")
+        setPreWorldScreen("world-selection");
+      else if (state.navigation.preWorldScreen === "world-selection")
+        setPreWorldScreen("starting");
+    }
+  };
+
   return {
     openWorldSelection() {
       setPreWorldScreen("world-selection");
@@ -58,7 +77,12 @@ export function createUiNavigationController(
     backFromOverlay() {
       show(store.getSnapshot().worldCreation.visible ? "none" : "pause");
     },
+    escape,
     handleGodotMessage(message) {
+      if (message.type === "game.ui.escape") {
+        escape();
+        return;
+      }
       if (message.type !== "game.mouse_capture") return;
       const payload = message.payload as { captured?: unknown } | undefined;
       if (payload?.captured === true) {

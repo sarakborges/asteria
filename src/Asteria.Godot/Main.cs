@@ -292,6 +292,7 @@ public partial class Main : Node3D
                 var result = _keybindCapture.Press(captureKey);
                 if (!_keybindCapture.IsCapturing)
                 {
+                    _webUi.Call("set_native_key_capture", false);
                     _player?.ResumeAfterKeyCapture();
                 }
 
@@ -368,6 +369,19 @@ public partial class Main : Node3D
             !keyEvent.Pressed ||
             keyEvent.Echo)
         {
+            return;
+        }
+
+        // Captured gameplay Escape is handled by FpsPlayer, which releases
+        // mouse capture. With a released pointer the focused WRY UI owns its
+        // own Escape; Godot only supplies a semantic fallback if focus stayed
+        // with the native window. Never re-capture behind an open UI screen.
+        if (keyEvent.Keycode == Key.Escape &&
+            (_worldSeed is null || _player is { IsMouseCaptured: false }))
+        {
+            if (!_webUi.Call("webui_has_focus").AsBool())
+                SendWebUi("game.ui.escape", new { });
+            GetViewport().SetInputAsHandled();
             return;
         }
 
@@ -951,6 +965,7 @@ public partial class Main : Node3D
                 if (_keybindCapture.Begin(document.RootElement))
                 {
                     _player?.SuspendForKeyCapture();
+                    _webUi.Call("set_native_key_capture", true);
                     SendWebUi(
                         "game.client_preferences.key_capture",
                         new
@@ -972,6 +987,7 @@ public partial class Main : Node3D
             {
                 if (_keybindCapture.Cancel())
                 {
+                    _webUi.Call("set_native_key_capture", false);
                     _player?.ResumeAfterKeyCapture();
                     SendWebUi(
                         "game.client_preferences.key_capture",
@@ -2035,6 +2051,7 @@ public partial class Main : Node3D
         if (!_brushPaletteOpen) return;
         _brushPaletteOpen = false;
         SendBrushPalette();
+        _player?.ResumeAfterKeyCapture();
         CallDeferred(nameof(ResumeGameplayAfterInventory));
     }
 

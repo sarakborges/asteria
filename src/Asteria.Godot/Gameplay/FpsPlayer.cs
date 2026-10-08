@@ -436,8 +436,9 @@ public partial class FpsPlayer : CharacterBody3D
     {
         if (key.Keycode == Key.Escape && key.Pressed && !key.Echo)
         {
+            // Escape in a released-pointer UI must navigate the active
+            // overlay; never capture the mouse behind settings/inventory.
             if (_mouseCaptured) ReleaseMouse();
-            else CaptureMouse();
             return;
         }
 

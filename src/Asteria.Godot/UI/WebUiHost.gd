@@ -19,6 +19,8 @@ const UI_SOURCE_PATHS := [
 var _webview: Control
 var _loaded := false
 var _creation_mode := true
+var _mouse_captured := false
+var _native_key_capture := false
 
 func _ready() -> void:
 	if not _ensure_webui_bundle():
@@ -38,6 +40,7 @@ func _ready() -> void:
 	_webview.set("transparent", true)
 	_webview.set("forward_input_events", true)
 	_webview.set("focused_when_created", false)
+	_webview.focus_mode = Control.FOCUS_ALL
 	_webview.set("devtools", OS.is_debug_build())
 	_webview.set("data_directory", "user://webview")
 	_webview.connect("ipc_message", Callable(self, "_on_ipc_message"))
@@ -49,7 +52,7 @@ func _input(event: InputEvent) -> void:
 	# WRY is a native child webview layered over the game window. A mouse
 	# interaction may give that child keyboard focus, so restore game focus
 	# immediately after the click. Mouse events themselves are still forwarded.
-	if not _creation_mode and event is InputEventMouseButton and event.pressed:
+	if _mouse_captured and event is InputEventMouseButton and event.pressed:
 		call_deferred("_focus_game")
 
 func post_message(message: String) -> void:
@@ -60,14 +63,15 @@ func set_webui_visible(visible: bool) -> void:
 	if _webview != null:
 		_webview.call("set_visible", visible)
 		if visible:
-			call_deferred("_focus_game")
+			call_deferred("_restore_keyboard_focus")
 
 func set_creation_mode(creating: bool) -> void:
 	_creation_mode = creating
-	if not creating:
-		call_deferred("_focus_game")
+	call_deferred("_restore_keyboard_focus")
 
 func set_mouse_captured(captured: bool) -> void:
+	_mouse_captured = captured
+	call_deferred("_restore_keyboard_focus")
 	if _webview == null or not _loaded:
 		return
 
@@ -79,14 +83,27 @@ func set_mouse_captured(captured: bool) -> void:
 
 func _on_page_load_finished(_url: String) -> void:
 	_loaded = true
-	if not _creation_mode:
-		_focus_game()
+	_restore_keyboard_focus()
 	webui_ready.emit()
 
 func _on_ipc_message(message: String) -> void:
 	message_received.emit(message)
-	if not _creation_mode:
-		call_deferred("_focus_game")
+	call_deferred("_restore_keyboard_focus")
+
+func set_native_key_capture(active: bool) -> void:
+	_native_key_capture = active
+	call_deferred("_restore_keyboard_focus")
+
+func webui_has_focus() -> bool:
+	return _webview != null and _webview.has_focus()
+
+func _restore_keyboard_focus() -> void:
+	if _webview == null or not _loaded:
+		return
+	if _native_key_capture or (_mouse_captured and not _creation_mode):
+		_focus_game()
+	else:
+		_webview.grab_focus()
 
 func _focus_game() -> void:
 	if _webview != null:

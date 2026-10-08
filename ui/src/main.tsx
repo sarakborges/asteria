@@ -82,6 +82,7 @@ createRoot(rootElement).render(
       openWorldSettings: navigation.openWorldSettings,
       openControls: navigation.openControls,
       backFromOverlay: navigation.backFromOverlay,
+      escapeNavigation: navigation.escape,
       setRenderDistance: settings.setRenderDistance,
       setTargetPosition: settings.setTargetPosition,
       setHideHints: settings.setHideHints,

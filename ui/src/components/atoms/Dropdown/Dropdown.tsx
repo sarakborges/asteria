@@ -76,7 +76,9 @@ export function Dropdown({
           if (event.key === "ArrowDown" || event.key === "ArrowUp") {
             event.preventDefault();
             show(Math.max(0, selectedIndex));
-          } else if (event.key === "Escape") {
+          } else if (event.key === "Escape" && open) {
+            event.preventDefault();
+            event.stopPropagation();
             setOpen(false);
           }
         }}
@@ -106,6 +108,7 @@ export function Dropdown({
               onKeyDown={event => {
                 if (event.key === "Escape") {
                   event.preventDefault();
+                  event.stopPropagation();
                   setOpen(false);
                   triggerRef.current?.focus();
                 } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
