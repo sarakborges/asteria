@@ -83,61 +83,85 @@ public sealed class DimensionShellDefinition
     public int? RoofY { get; }
 }
 
-public sealed class DimensionOceanShoreDefinition
+/// <summary>
+/// Minimum terrain-height envelope authored against a named biome's
+/// normalized dominance at a border. Heights are relative to sea level.
+/// </summary>
+public sealed class DimensionShoreProfileDefinition
 {
-    public static DimensionOceanShoreDefinition Default { get; } =
-        new();
+    public static DimensionShoreProfileDefinition Default { get; } = new(
+    [
+        new DimensionShoreSampleDefinition(0d, 0d, 0d),
+        new DimensionShoreSampleDefinition(0.15d, 0d, 0d),
+        new DimensionShoreSampleDefinition(0.28d, 0d, 1d),
+        new DimensionShoreSampleDefinition(0.38d, 2d, 1d),
+        new DimensionShoreSampleDefinition(0.50d, 2d, 1d),
+        new DimensionShoreSampleDefinition(0.62d, 2d, 1d),
+        new DimensionShoreSampleDefinition(0.72d, -4d, 1d),
+        new DimensionShoreSampleDefinition(0.85d, -4d, 0d),
+        new DimensionShoreSampleDefinition(1d, -4d, 0d),
+    ]);
 
-    public DimensionOceanShoreDefinition(
-        int shelfDepth = 4,
-        int beachHeight = 2,
-        float beachStartDominance = 0.62f,
-        float shelfStartDominance = 0.72f,
-        float deepWaterStartDominance = 0.85f)
+    public DimensionShoreProfileDefinition(
+        IEnumerable<DimensionShoreSampleDefinition> samples)
     {
-        if (shelfDepth is < 1 or > 32)
+        var authored = samples?.ToArray() ??
+            throw new ArgumentNullException(nameof(samples));
+        if (authored.Length is < 2 or > 32 ||
+            authored.Any(sample => sample is null) ||
+            authored[0].Dominance != 0d ||
+            authored[^1].Dominance != 1d ||
+            authored[0].Strength != 0d ||
+            authored[^1].Strength != 0d)
         {
-            throw new ArgumentOutOfRangeException(
-                nameof(shelfDepth),
-                "Ocean shelf depth must be within 1..32 blocks.");
+            throw new ArgumentException(
+                "Shore profiles require 2..32 samples, 0/1 dominance endpoints and inactive endpoints.",
+                nameof(samples));
         }
 
-        if (beachHeight is < 1 or > 16)
+        for (var i = 1; i < authored.Length; i++)
         {
-            throw new ArgumentOutOfRangeException(
-                nameof(beachHeight),
-                "Ocean beach height must be within 1..16 blocks above sea level.");
+            if (authored[i].Dominance <= authored[i - 1].Dominance)
+            {
+                throw new ArgumentException(
+                    "Shore sample dominance must increase strictly.",
+                    nameof(samples));
+            }
         }
 
-        if (!float.IsFinite(beachStartDominance) ||
-            !float.IsFinite(shelfStartDominance) ||
-            !float.IsFinite(deepWaterStartDominance) ||
-            beachStartDominance <= 0.5f ||
-            shelfStartDominance <= beachStartDominance ||
-            deepWaterStartDominance <= shelfStartDominance ||
-            deepWaterStartDominance > 1f)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(beachStartDominance),
-                "Ocean shore dominance must satisfy 0.5 < beach < shelf < deepWater <= 1.");
-        }
-
-        ShelfDepth = shelfDepth;
-        BeachHeight = beachHeight;
-        BeachStartDominance = beachStartDominance;
-        ShelfStartDominance = shelfStartDominance;
-        DeepWaterStartDominance = deepWaterStartDominance;
+        Samples = Array.AsReadOnly(authored);
     }
 
-    public int ShelfDepth { get; }
+    public IReadOnlyList<DimensionShoreSampleDefinition> Samples { get; }
+}
 
-    public int BeachHeight { get; }
+public sealed class DimensionShoreSampleDefinition
+{
+    public DimensionShoreSampleDefinition(
+        double dominance,
+        double minimumHeight,
+        double strength)
+    {
+        if (!double.IsFinite(dominance) ||
+            dominance is < 0d or > 1d ||
+            !double.IsFinite(minimumHeight) ||
+            minimumHeight is < -128d or > 128d ||
+            !double.IsFinite(strength) ||
+            strength is < 0d or > 1d)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(dominance),
+                "Shore dominance and strength must be within 0..1 and the height floor within -128..128.");
+        }
 
-    public float BeachStartDominance { get; }
+        Dominance = dominance;
+        MinimumHeight = minimumHeight;
+        Strength = strength;
+    }
 
-    public float ShelfStartDominance { get; }
-
-    public float DeepWaterStartDominance { get; }
+    public double Dominance { get; }
+    public double MinimumHeight { get; }
+    public double Strength { get; }
 }
 
 public sealed class DimensionGeneratedOceanDefinition
@@ -145,7 +169,7 @@ public sealed class DimensionGeneratedOceanDefinition
     public DimensionGeneratedOceanDefinition(
         string biome,
         string fluid,
-        DimensionOceanShoreDefinition? shore = null)
+        DimensionShoreProfileDefinition? shore = null)
     {
         BiomeDefinition.ValidateId(biome);
         FluidDefinition.ValidateId(fluid);
@@ -153,14 +177,14 @@ public sealed class DimensionGeneratedOceanDefinition
         Fluid = fluid;
         Shore =
             shore ??
-            DimensionOceanShoreDefinition.Default;
+            DimensionShoreProfileDefinition.Default;
     }
 
     public string Biome { get; }
 
     public string Fluid { get; }
 
-    public DimensionOceanShoreDefinition Shore { get; }
+    public DimensionShoreProfileDefinition Shore { get; }
 }
 
 public sealed class DimensionGeneratedSurfaceFluidDefinition
@@ -378,7 +402,8 @@ public sealed class DimensionDefinition
         IEnumerable<string>? undergroundBiomes = null,
         IEnumerable<DimensionGeneratedSurfaceStructureDefinition>? generatedSurfaceStructures = null,
         IEnumerable<DimensionGeneratedSurfaceFluidDefinition>? generatedSurfaceFluids = null,
-        string? dayNightCycleId = null)
+        string? dayNightCycleId = null,
+        BiomeBlendingDefinition? biomeBlending = null)
     {
         if (!float.IsFinite(gravityStrength) ||
             gravityStrength < 0f ||
@@ -561,6 +586,7 @@ public sealed class DimensionDefinition
                 nameof(environment));
         Shell = shell;
         Caves = caves;
+        BiomeBlending = biomeBlending ?? BiomeBlendingDefinition.Default;
         GeneratedOcean = generatedOcean;
         GeneratedSurfaceFluids =
             Array.AsReadOnly(
@@ -591,6 +617,8 @@ public sealed class DimensionDefinition
     public DimensionShellDefinition? Shell { get; }
 
     public DimensionCaveDefinition? Caves { get; }
+
+    public BiomeBlendingDefinition BiomeBlending { get; }
 
     public DimensionGeneratedOceanDefinition? GeneratedOcean { get; }
 

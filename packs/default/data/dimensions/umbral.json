@@ -44,5 +44,14 @@
       }
     ]
   },
-  "dayNightCycle": "asteria:umbral/day_night_cycle"
+  "dayNightCycle": "asteria:umbral/day_night_cycle",
+  "biomeBlending": {
+    "scoreBand": 0.5,
+    "jitterFraction": 0.32,
+    "coarseWarpPeriod": 4,
+    "fineWarpPeriod": 1.35,
+    "coarseWarpStrength": 0.42,
+    "fineWarpStrength": 0.16,
+    "influenceCurve": "smoothStep"
+  }
 }

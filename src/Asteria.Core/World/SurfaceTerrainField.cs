@@ -16,7 +16,7 @@ public sealed class SurfaceTerrainField
     private readonly GeneratedFluidField _generatedFluids;
     private readonly IReadOnlyDictionary<string, SurfaceTerrainRule> _surfaceRules;
     private readonly IReadOnlyDictionary<string, AdditiveRuleSet> _additiveRules;
-    private readonly OceanShoreRule? _oceanShore;
+    private readonly CoastProfileRule? _coastProfile;
     private readonly CaveRule? _caves;
 
     public SurfaceTerrainField(
@@ -81,10 +81,10 @@ public sealed class SurfaceTerrainField
                             definition.Id,
                             definition.Terrain3d!.Additive),
                     StringComparer.Ordinal);
-        _oceanShore =
+        _coastProfile =
             dimension.GeneratedOcean is
                 { } ocean
-                ? new OceanShoreRule(
+                ? new CoastProfileRule(
                     ocean.Biome,
                     ocean.Shore)
                 : null;
@@ -706,10 +706,10 @@ public sealed class SurfaceTerrainField
                 worldX,
                 worldZ);
 
-        if (_oceanShore is not null)
+        if (_coastProfile is not null)
         {
             offset =
-                _oceanShore.AdjustHeightOffset(
+                _coastProfile.AdjustHeightOffset(
                     sample,
                     offset);
         }
@@ -824,28 +824,25 @@ public sealed class SurfaceTerrainField
         return baseY;
     }
 
-    private sealed class OceanShoreRule
+    private sealed class CoastProfileRule
     {
-        private const double BoundaryDominance = 0.5d;
-
         private readonly string _biome;
-        private readonly DimensionOceanShoreDefinition _definition;
+        private readonly IReadOnlyList<DimensionShoreSampleDefinition> _samples;
 
-        public OceanShoreRule(
+        public CoastProfileRule(
             string biome,
-            DimensionOceanShoreDefinition definition)
+            DimensionShoreProfileDefinition definition)
         {
             _biome = biome;
-            _definition = definition;
+            _samples = definition.Samples;
         }
 
         public double AdjustHeightOffset(
             BiomeSample sample,
             double rawOffset)
         {
-            var oceanWeight = 0d;
+            var coastWeight = 0d;
             var strongestOther = 0d;
-
             foreach (var influence in sample.Influences)
             {
                 if (string.Equals(
@@ -853,159 +850,50 @@ public sealed class SurfaceTerrainField
                         _biome,
                         StringComparison.Ordinal))
                 {
-                    oceanWeight =
-                        influence.Weight;
+                    coastWeight = influence.Weight;
                 }
                 else
                 {
-                    strongestOther =
-                        Math.Max(
-                            strongestOther,
-                            influence.Weight);
+                    strongestOther = Math.Max(
+                        strongestOther,
+                        influence.Weight);
                 }
             }
 
-            if (oceanWeight <= 0d ||
+            if (coastWeight <= 0d ||
                 strongestOther <= 0d)
             {
                 return rawOffset;
             }
 
-            var dominance =
-                oceanWeight /
-                (oceanWeight +
-                 strongestOther);
-            var deep =
-                _definition
-                    .DeepWaterStartDominance;
-            var shelf =
-                _definition
-                    .ShelfStartDominance;
-            var beach =
-                _definition
-                    .BeachStartDominance;
-            var shelfDepth =
-                -(double)_definition
-                    .ShelfDepth;
-            var beachHeight =
-                (double)_definition
-                    .BeachHeight;
-
-            if (dominance >= deep)
+            var dominance = coastWeight /
+                (coastWeight + strongestOther);
+            // The strictly increasing authored knots cover [0,1].
+            // Interpolation is deterministic, allocation-free, and
+            // continuous at all profile boundaries.
+            for (var i = 1; i < _samples.Count; i++)
             {
-                return rawOffset;
+                var right = _samples[i];
+                if (dominance > right.Dominance)
+                {
+                    continue;
+                }
+
+                var left = _samples[i - 1];
+                var t = WorldGenerationEntropy.SmoothStep(
+                    (dominance - left.Dominance) /
+                    (right.Dominance - left.Dominance));
+                var floor = left.MinimumHeight +
+                    (right.MinimumHeight - left.MinimumHeight) * t;
+                var strength = left.Strength +
+                    (right.Strength - left.Strength) * t;
+                return rawOffset +
+                    (Math.Max(rawOffset, floor) - rawOffset) *
+                    strength;
             }
 
-            if (dominance >= shelf)
-            {
-                var progress =
-                    SmoothRange(
-                        deep,
-                        shelf,
-                        dominance);
-                return Lerp(
-                    rawOffset,
-                    Math.Max(
-                        rawOffset,
-                        shelfDepth),
-                    progress);
-            }
-
-            if (dominance >= beach)
-            {
-                var progress =
-                    SmoothRange(
-                        shelf,
-                        beach,
-                        dominance);
-                var floor =
-                    Lerp(
-                        shelfDepth,
-                        beachHeight,
-                        progress);
-                return Math.Max(
-                    rawOffset,
-                    floor);
-            }
-
-            if (dominance >=
-                BoundaryDominance)
-            {
-                return Math.Max(
-                    rawOffset,
-                    beachHeight);
-            }
-
-            var landBeach =
-                1d -
-                beach;
-            var landShelf =
-                1d -
-                shelf;
-            var landDeep =
-                1d -
-                deep;
-
-            if (dominance >= landBeach)
-            {
-                return Math.Max(
-                    rawOffset,
-                    beachHeight);
-            }
-
-            if (dominance >= landShelf)
-            {
-                var progress =
-                    WorldGenerationEntropy
-                        .SmoothStep(
-                            (dominance -
-                             landShelf) /
-                            (landBeach -
-                             landShelf));
-                var floor =
-                    beachHeight *
-                    progress;
-                return Math.Max(
-                    rawOffset,
-                    floor);
-            }
-
-            if (dominance <= landDeep)
-            {
-                return rawOffset;
-            }
-
-            var fade =
-                WorldGenerationEntropy
-                    .SmoothStep(
-                        (dominance -
-                         landDeep) /
-                        (landShelf -
-                         landDeep));
-            return Lerp(
-                rawOffset,
-                Math.Max(
-                    rawOffset,
-                    0d),
-                fade);
+            return rawOffset;
         }
-
-        private static double SmoothRange(
-            double start,
-            double end,
-            double value) =>
-            WorldGenerationEntropy
-                .SmoothStep(
-                    (start - value) /
-                    (start - end));
-
-        private static double Lerp(
-            double start,
-            double end,
-            double amount) =>
-            start +
-            (end - start) *
-            amount;
     }
 
     private sealed class AdditiveRuleSet

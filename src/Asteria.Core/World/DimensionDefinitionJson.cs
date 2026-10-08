@@ -88,7 +88,8 @@ public static class DimensionDefinitionJson
                 root),
             ParseGeneratedSurfaceFluids(
                 root),
-            OptionalString(root, "dayNightCycle"));
+            OptionalString(root, "dayNightCycle"),
+            ParseBiomeBlending(root));
     }
 
     private static IReadOnlyList<DimensionGeneratedSurfaceFluidDefinition>
@@ -215,6 +216,35 @@ public static class DimensionDefinitionJson
             .ToArray();
     }
 
+    private static BiomeBlendingDefinition? ParseBiomeBlending(
+        JsonElement root)
+    {
+        if (!root.TryGetProperty("biomeBlending", out var value) ||
+            value.ValueKind == JsonValueKind.Null)
+        {
+            return null;
+        }
+
+        value = RequiredObject(root, "biomeBlending");
+        var curve = OptionalString(value, "influenceCurve") switch
+        {
+            null or "smoothStep" => BiomeInfluenceCurve.SmoothStep,
+            "linear" => BiomeInfluenceCurve.Linear,
+            "smootherStep" => BiomeInfluenceCurve.SmootherStep,
+            var authored => throw new FormatException(
+                $"Unsupported biome influenceCurve: {authored}."),
+        };
+
+        return new BiomeBlendingDefinition(
+            OptionalSingle(value, "scoreBand") ?? 0.50d,
+            OptionalSingle(value, "jitterFraction") ?? 0.32d,
+            OptionalSingle(value, "coarseWarpPeriod") ?? 4d,
+            OptionalSingle(value, "fineWarpPeriod") ?? 1.35d,
+            OptionalSingle(value, "coarseWarpStrength") ?? 0.42d,
+            OptionalSingle(value, "fineWarpStrength") ?? 0.16d,
+            curve);
+    }
+
     private static DimensionGeneratedOceanDefinition? ParseGeneratedOcean(
         JsonElement root)
     {
@@ -231,7 +261,7 @@ public static class DimensionDefinitionJson
             ParseOceanShore(value));
     }
 
-    private static DimensionOceanShoreDefinition? ParseOceanShore(
+    private static DimensionShoreProfileDefinition? ParseOceanShore(
         JsonElement ocean)
     {
         if (!ocean.TryGetProperty("shore", out var value) ||
@@ -241,12 +271,26 @@ public static class DimensionDefinitionJson
         }
 
         value = RequiredObject(ocean, "shore");
-        return new DimensionOceanShoreDefinition(
-            RequiredInt32(value, "shelfDepth"),
-            RequiredInt32(value, "beachHeight"),
-            RequiredSingle(value, "beachStartDominance"),
-            RequiredSingle(value, "shelfStartDominance"),
-            RequiredSingle(value, "deepWaterStartDominance"));
+        if (!value.TryGetProperty("samples", out var samples) ||
+            samples.ValueKind != JsonValueKind.Array)
+        {
+            throw new FormatException("shore.samples must be an array.");
+        }
+
+        return new DimensionShoreProfileDefinition(
+            samples.EnumerateArray().Select(sample =>
+            {
+                if (sample.ValueKind != JsonValueKind.Object)
+                {
+                    throw new FormatException(
+                        "Each shore sample must be an object.");
+                }
+
+                return new DimensionShoreSampleDefinition(
+                    RequiredSingle(sample, "dominance"),
+                    RequiredSingle(sample, "minimumHeight"),
+                    RequiredSingle(sample, "strength"));
+            }));
     }
 
     private static DimensionCaveDefinition? ParseCaves(

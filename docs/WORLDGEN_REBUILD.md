@@ -79,7 +79,7 @@ Asteria also ports the diagnostic role through `BiomeMapDiagnostic` + `tools/Bio
 
 ### Deliberate Biome Layout difference
 
-MineClone currently uses `BLEND_SCORE_BAND = 0.18`. Asteria uses a wider `0.50` band so tall biome profiles and visible tint gradients transition without artificial walls. This is an intentional Asteria adaptation, not a separate biome-layout algorithm.
+MineClone currently uses `BLEND_SCORE_BAND = 0.18`. Asteria's default Sphere packs author a wider `biomeBlending.scoreBand: 0.50` so tall biome profiles and visible tint gradients transition without artificial walls. The value is now a validated per-Sphere setting, not a separate biome-layout algorithm.
 
 ### Terrain-profile extension
 
@@ -241,6 +241,42 @@ Special surface appearances are authored as **geometry + optional features**, ra
 - Primitive profiles remain useful geometry algorithms, but their shaping constants are now authored: dunes (`waveDirectionZ`, `broadScaleMultiplier`, `waveWeight`); swamp depressions (`pondBroadScaleMultiplier`, `pondDetailScaleMultiplier`, `pondBroadWeight`, `pondBias`, `pondTransitionWidth`, `pondSharpness`); gorge (`rimFalloff`, `floorFalloff`); alps (`detailSharpness`); cone (`slopeNoiseGain`).
 
 The obsolete `surfaceFluid: { type: "volcano_crater" }` and `surfaceTerrain.type: "volcano"` contracts are deliberately removed, not kept as aliases. The default volcano's crater-fluid top stays 54 blocks above dimension sea level. Spill noise uses a new generic generation domain and may produce a different deterministic pattern.
+
+### Authored coast profiles and biome blending
+
+A Sphere can configure `biomeBlending` in its dimension data. These
+parameters affect both surface biome placement and volume-biome placement:
+
+- `scoreBand` is the maximum formation-score difference allowed into the
+  normalized influence set (default `0.50`).
+- `influenceCurve` is `linear`, `smoothStep` (default), or `smootherStep`.
+- `jitterFraction` is the fraction of seed spacing used to perturb formation
+  centers (default `0.32`).
+- `coarseWarpPeriod`/`fineWarpPeriod` are noise periods in multiples of
+  seed spacing (defaults `4`/`1.35`), while
+  `coarseWarpStrength`/`fineWarpStrength` are displacement fractions of
+  seed spacing (defaults `0.42`/`0.16`).
+
+The authored values are validated and immutable. They tune the **existing**
+`BiomeField` algorithm and must not introduce a competing layout owner.
+Use larger `scoreBand` for gradual terrain/tint transitions, without
+changing primary-biome ownership or circumventing `cannotBorder`.
+
+The `generatedOcean.shore.samples` profile replaces fixed coast phases
+(`shelfDepth`, `beachHeight` and hard-coded dominance thresholds).
+Samples are sorted by strictly increasing `dominance`, from `0` to `1`,
+and author `minimumHeight` relative to the Sphere's sea level plus an
+effect `strength` between `0` and `1`. Samples interpolate with
+smoothstep. At each sample, the coast can raise blended terrain to a
+minimum height while retaining the underlying raw height wherever higher.
+The first and last strengths must be zero, so pure land and pure ocean
+are unaffected. This profile creates beaches/shelves **inside the existing
+terrain owner**, never by generating water or carving separate geometry.
+
+The default Overworld profile keeps the shallow shelf (`-4`), raised
+beach (`+2`) and two-sided shore transitions; any future Sphere can
+author a distinct coast contour without adding C# terrain special cases.
+Only `GeneratedFluidField` decides actual generated water occupancy.
 
 ### Generic terrain consolidation
 

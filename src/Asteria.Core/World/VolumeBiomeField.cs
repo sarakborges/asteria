@@ -83,7 +83,8 @@ public sealed class VolumeBiomeField
         _placement =
             new BiomeField(
                 seed,
-                placementRules);
+                placementRules,
+                blending: dimension.BiomeBlending);
     }
 
     public bool HasBiomes =>
