@@ -166,12 +166,12 @@ public sealed class UmbralHabitatContentTests
             Assert.All(structure.Voxels, cell =>
             {
                 Assert.True(cell.Y >= 1);
-                Assert.Contains(cell.Block,
-                [
+                Assert.Contains(cell.Block, new[]
+                {
                     "asteria:log_enchanted",
                     "asteria:log_enchanted_stripped",
                     "asteria:log_enchanted_stripped_hollow",
-                ]);
+                });
                 Assert.Equal(BlockOrientation.X, cell.Orientation);
             });
         }
