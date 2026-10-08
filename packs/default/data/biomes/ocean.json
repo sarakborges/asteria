@@ -9,12 +9,13 @@
     }
   },
   "surfaceTerrain": {
-    "type": "ocean",
-    "depth": 18,
+    "type": "rolling",
     "amplitude": 6,
     "scale": 0.006,
     "detailAmplitude": 3,
-    "detailScale": 0.026
+    "detailScale": 0.026,
+    "influenceMode": "lowerOnly",
+    "baseHeight": -18
   },
   "surfaceLayers": [
     {

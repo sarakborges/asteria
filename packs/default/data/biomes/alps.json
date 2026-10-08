@@ -15,13 +15,15 @@
     ]
   },
   "surfaceTerrain": {
-    "type": "alps",
+    "type": "ridges",
     "baseHeight": 14,
     "amplitude": 68,
     "scale": 0.0075,
     "sharpness": 2.25,
     "detailAmplitude": 24,
-    "detailScale": 0.025
+    "detailScale": 0.025,
+    "detailSharpness": 1.35,
+    "detailMode": "ridged"
   },
   "surfaceLayers": [
     {

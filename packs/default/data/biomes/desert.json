@@ -17,7 +17,10 @@
     "warpScale": 0.0045,
     "warpStrength": 13,
     "detailAmplitude": 1.5,
-    "detailScale": 0.05
+    "detailScale": 0.05,
+    "waveDirectionZ": 0.35,
+    "broadScaleMultiplier": 0.55,
+    "waveWeight": 0.72
   },
   "surfaceLayers": [
     {

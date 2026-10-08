@@ -234,43 +234,142 @@ public sealed class GeneratedSurfaceFluidTests
                 "asteria:overworld/swamp");
         _ =
             Assert.IsType<
-                BiomeSwampTerrainShapeDefinition>(
+                BiomeRollingTerrainShapeDefinition>(
                 swamp.SurfaceTerrain!.Shape);
-        Assert.Null(
-            swamp.SurfaceFluid);
+        var depressions =
+            Assert.IsType<BiomeDepressionsTerrainModifierDefinition>(
+                Assert.Single(swamp.SurfaceTerrain.Modifiers));
+        Assert.Equal(4.8f, depressions.Depth);
+        Assert.True(
+            swamp.SurfaceTerrain.FillToSeaLevel);
+        Assert.Equal(
+            SurfaceHeightInfluencePolicy.LowerOnly,
+            swamp.SurfaceTerrain.InfluencePolicy);
 
         var volcano =
             biomes.Get(
                 "asteria:overworld/volcano");
         var terrain =
             Assert.IsType<
-                BiomeVolcanoTerrainShapeDefinition>(
+                BiomeConeTerrainShapeDefinition>(
                 volcano.SurfaceTerrain!.Shape);
         var crater =
-            Assert.IsType<
-                BiomeVolcanoCraterFluidDefinition>(
-                volcano.SurfaceFluid);
+            Assert.IsType<BiomeCraterDefinition>(
+                volcano.SurfaceTerrain.Crater);
+        var fill = Assert.IsType<BiomeCraterFluidFillDefinition>(
+            crater.FluidFill);
+        var spill = Assert.IsType<BiomeCraterSpillDefinition>(fill.Spill);
 
         Assert.Equal(
             (12f, 72f, 38f, 0.14f),
             (
                 terrain.BaseHeight,
                 terrain.Height,
-                terrain.CraterDepth,
-                terrain.CraterRadius));
+                crater.Depth,
+                crater.Radius));
         Assert.Equal(
             "asteria:lava",
-            crater.Fluid);
+            fill.Fluid);
         Assert.Equal(
-            (0.91f, 8f, 0.56f, 0.9f, 0.012f, 0.055f, (byte)6),
+            (0.91f, 54f, 0.56f, 0.9f, 0.012f, 0.055f, (byte)6),
             (
-                crater.MinimumStrength,
-                crater.LevelOffset,
-                crater.SpillMinimumStrength,
-                crater.SpillMaximumStrength,
-                crater.SpillScale,
-                crater.SpillWidth,
-                crater.SpillLevel));
+                fill.MinimumStrength,
+                fill.TopLevel,
+                spill.MinimumStrength,
+                spill.MaximumStrength,
+                spill.Scale,
+                spill.Width,
+                spill.Level));
+    }
+
+    [Fact]
+    public void CraterFillSupportsNonConeTerrain()
+    {
+        var biome = BiomeDefinitionJson.Parse(
+            """
+            {
+              "id": "asteria:test/hills",
+              "surfaceLayout": {},
+              "surfaceTerrain": {
+                "type": "rolling",
+                "baseHeight": 10,
+                "amplitude": 0,
+                "scale": 0.01,
+                "detailAmplitude": 0,
+                "detailScale": 0.02,
+                "crater": {
+                  "depth": 6,
+                  "radius": 0.3,
+                  "irregularity": 0,
+                  "noiseScale": 0.02,
+                  "transitionWidth": 0.01,
+                  "fluidFill": {
+                    "fluid": "asteria:water",
+                    "minimumStrength": 0.8,
+                    "topLevel": 11
+                  }
+                }
+              },
+              "surfaceLayers": [{ "block": "asteria:stone" }]
+            }
+            """);
+
+        Assert.IsType<BiomeRollingTerrainShapeDefinition>(
+            biome.SurfaceTerrain!.Shape);
+        Assert.NotNull(biome.SurfaceTerrain.Crater);
+
+        var fluids = new FluidRegistry(
+        [
+            new FluidDefinition(
+                "asteria:water",
+                new FluidColor(20, 80, 240),
+                0.7f),
+        ]);
+        var dimension = new DimensionDefinition(
+            new DimensionId("asteria:test"),
+            [biome.Id],
+            32,
+            18f,
+            new DimensionSpawnDefinition(0, 0),
+            new DimensionEnvironmentDefinition(
+                new DimensionColor(0, 0, 0),
+                new DimensionColor(255, 255, 255),
+                1f,
+                new DimensionColor(0, 0, 0),
+                0f));
+        var field = new GeneratedFluidField(
+            71UL, dimension, fluids, [biome]);
+        var sample = new BiomeSample(
+            biome.Id,
+            [new BiomeInfluence(biome.Id, 1f, 1f)]);
+        Assert.True(field.TryGetColumnBounds(
+            sample, 35, 0, 0, 0, out var minY, out var maxY));
+        Assert.Equal(36, minY);
+        Assert.Equal(42, maxY);
+        Assert.Equal(
+            fluids.GetId("asteria:water"),
+            field.FluidAtEmptyVoxel(sample, 35, 0, 0, 40, 0).Fluid);
+
+        Assert.Throws<ArgumentException>(() =>
+            new BiomeCraterFluidFillDefinition(
+                "asteria:water",
+                0.5f,
+                11f,
+                new BiomeCraterSpillDefinition(
+                    0.4f, 0.8f, 0.02f, 0.03f, 6)));
+    }
+
+    [Fact]
+    public void LegacySpecialSurfaceFluidContractIsRejected()
+    {
+        Assert.Throws<FormatException>(() =>
+            BiomeDefinitionJson.Parse(
+                """
+                {
+                  "id": "asteria:test/volcano",
+                  "surfaceFluid": { "type": "volcano_crater" }
+                }
+                """));
     }
 
     [Fact]
@@ -292,13 +391,13 @@ public sealed class GeneratedSurfaceFluidTests
                 "asteria:test/swamp",
                 new BiomeSurfaceLayoutDefinition(),
                 new BiomeTerrainDefinition(
-                    new BiomeSwampTerrainShapeDefinition(
+                    new BiomeRollingTerrainShapeDefinition(
                         baseHeight: 0.9f,
-                        depth: 4.8f,
                         amplitude: 0.7f,
                         scale: 0.0065f,
                         detailAmplitude: 0.4f,
-                        detailScale: 0.045f)),
+                        detailScale: 0.045f),
+                    fillToSeaLevel: true),
                 [
                     new BiomeSurfaceLayerDefinition(
                         "asteria:stone"),
@@ -390,7 +489,7 @@ public sealed class GeneratedSurfaceFluidTests
     }
 
     [Fact]
-    public void DefaultBiomePackRestoresMineCloneTerrainTypes()
+    public void DefaultBiomePackUsesReusableTerrainTypes()
     {
         var biomes =
             BiomeRegistry.FromJson(
@@ -406,19 +505,19 @@ public sealed class GeneratedSurfaceFluidTests
                 ["asteria:overworld/desert"] =
                     typeof(BiomeDunesTerrainShapeDefinition),
                 ["asteria:overworld/ocean"] =
-                    typeof(BiomeOceanTerrainShapeDefinition),
+                    typeof(BiomeRollingTerrainShapeDefinition),
                 ["asteria:overworld/swamp"] =
-                    typeof(BiomeSwampTerrainShapeDefinition),
+                    typeof(BiomeRollingTerrainShapeDefinition),
                 ["asteria:overworld/mountains"] =
-                    typeof(BiomeMountainsTerrainShapeDefinition),
+                    typeof(BiomeRidgesTerrainShapeDefinition),
                 ["asteria:overworld/gorge"] =
-                    typeof(BiomeGorgeTerrainShapeDefinition),
+                    typeof(BiomeValleyTerrainShapeDefinition),
                 ["asteria:overworld/alps"] =
-                    typeof(BiomeAlpsTerrainShapeDefinition),
+                    typeof(BiomeRidgesTerrainShapeDefinition),
                 ["asteria:overworld/mountain_belt"] =
-                    typeof(BiomeMountainBeltTerrainShapeDefinition),
+                    typeof(BiomeRidgesTerrainShapeDefinition),
                 ["asteria:overworld/volcano"] =
-                    typeof(BiomeVolcanoTerrainShapeDefinition),
+                    typeof(BiomeConeTerrainShapeDefinition),
                 ["asteria:umbral/umbral_reach"] =
                     typeof(BiomeRollingTerrainShapeDefinition),
                 ["asteria:umbral/withered_waste"] =
@@ -438,6 +537,15 @@ public sealed class GeneratedSurfaceFluidTests
                     .Shape
                     .GetType());
         }
+
+        Assert.Equal(
+            BiomeRidgeDetailMode.Ridged,
+            Assert.IsType<BiomeRidgesTerrainShapeDefinition>(
+                biomes.Get("asteria:overworld/alps").SurfaceTerrain!.Shape).DetailMode);
+        Assert.Equal(
+            BiomeRidgeDetailMode.Modulated,
+            Assert.IsType<BiomeRidgesTerrainShapeDefinition>(
+                biomes.Get("asteria:overworld/mountain_belt").SurfaceTerrain!.Shape).DetailMode);
 
         var mountains =
             biomes.Get(

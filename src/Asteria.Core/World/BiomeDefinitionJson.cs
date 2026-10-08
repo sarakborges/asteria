@@ -20,6 +20,12 @@ public static class BiomeDefinitionJson
                 "Biome definition root must be an object.");
         }
 
+        if (root.TryGetProperty("surfaceFluid", out _))
+        {
+            throw new FormatException(
+                "Biome surfaceFluid is obsolete. Author surfaceTerrain.crater.fluidFill.");
+        }
+
         return new BiomeDefinition(
             RequiredString(root, "id"),
             ParseSurfaceLayout(root),
@@ -29,8 +35,7 @@ public static class BiomeDefinitionJson
             ParseTints(root),
             ParseTerrain3d(root),
             ParseVolumeLayout(root),
-            ParseUndergroundLayout(root),
-            ParseSurfaceFluid(root));
+            ParseUndergroundLayout(root));
     }
 
     private static PlacementLayoutValues?
@@ -131,29 +136,17 @@ public static class BiomeDefinitionJson
                 value,
                 "surfaceTerrain");
 
-        if (!value.TryGetProperty(
-                "type",
-                out var typeValue) ||
-            typeValue.ValueKind ==
-                JsonValueKind.Null)
+        var type = "noise";
+        if (value.TryGetProperty("type", out var typeValue) &&
+            typeValue.ValueKind != JsonValueKind.Null)
         {
-            return new BiomeTerrainDefinition(
-                RequiredSingle(value, "baseHeightOffset"),
-                RequiredSingle(value, "macroAmplitude"),
-                RequiredUInt32(value, "macroScale"),
-                RequiredSingle(value, "detailAmplitude"),
-                RequiredUInt32(value, "detailScale"));
-        }
+            if (typeValue.ValueKind != JsonValueKind.String)
+            {
+                throw new FormatException("surfaceTerrain.type must be a string.");
+            }
 
-        if (typeValue.ValueKind !=
-            JsonValueKind.String)
-        {
-            throw new FormatException(
-                "surfaceTerrain.type must be a string.");
+            type = typeValue.GetString()!;
         }
-
-        var type =
-            typeValue.GetString()!;
         BiomeTerrainShapeDefinition shape =
             type switch
             {
@@ -180,64 +173,40 @@ public static class BiomeDefinitionJson
                         RequiredSingle(value, "warpScale"),
                         RequiredSingle(value, "warpStrength"),
                         RequiredSingle(value, "detailAmplitude"),
-                        RequiredSingle(value, "detailScale")),
-                "ocean" =>
-                    new BiomeOceanTerrainShapeDefinition(
-                        RequiredSingle(value, "depth"),
-                        RequiredSingle(value, "amplitude"),
-                        RequiredSingle(value, "scale"),
-                        RequiredSingle(value, "detailAmplitude"),
-                        RequiredSingle(value, "detailScale")),
-                "swamp" =>
-                    new BiomeSwampTerrainShapeDefinition(
-                        RequiredSingle(value, "baseHeight"),
-                        RequiredSingle(value, "depth"),
-                        RequiredSingle(value, "amplitude"),
-                        RequiredSingle(value, "scale"),
-                        RequiredSingle(value, "detailAmplitude"),
-                        RequiredSingle(value, "detailScale")),
-                "mountains" =>
-                    new BiomeMountainsTerrainShapeDefinition(
+                        RequiredSingle(value, "detailScale"),
+                        OptionalSingle(value, "waveDirectionZ") ?? 0.35f,
+                        OptionalSingle(value, "broadScaleMultiplier") ?? 0.55f,
+                        OptionalSingle(value, "waveWeight") ?? 0.72f),
+                "ridges" =>
+                    new BiomeRidgesTerrainShapeDefinition(
                         RequiredSingle(value, "baseHeight"),
                         RequiredSingle(value, "amplitude"),
                         RequiredSingle(value, "scale"),
-                        RequiredSingle(value, "sharpness")),
-                "gorge" =>
-                    new BiomeGorgeTerrainShapeDefinition(
+                        RequiredSingle(value, "sharpness"),
+                        OptionalSingle(value, "detailAmplitude") ?? 0f,
+                        OptionalSingle(value, "detailScale") ?? 0.02f,
+                        ParseRidgeDetailMode(value),
+                        OptionalSingle(value, "detailSharpness") ?? 1.35f),
+                "valley" =>
+                    new BiomeValleyTerrainShapeDefinition(
                         RequiredSingle(value, "baseHeight"),
                         RequiredSingle(value, "depth"),
                         RequiredSingle(value, "wallHeight"),
                         RequiredSingle(value, "topAmplitude"),
                         RequiredSingle(value, "topScale"),
                         RequiredSingle(value, "floorAmplitude"),
-                        RequiredSingle(value, "floorScale")),
-                "alps" =>
-                    new BiomeAlpsTerrainShapeDefinition(
-                        RequiredSingle(value, "baseHeight"),
-                        RequiredSingle(value, "amplitude"),
-                        RequiredSingle(value, "scale"),
-                        RequiredSingle(value, "sharpness"),
-                        RequiredSingle(value, "detailAmplitude"),
-                        RequiredSingle(value, "detailScale")),
-                "mountain_belt" =>
-                    new BiomeMountainBeltTerrainShapeDefinition(
-                        RequiredSingle(value, "baseHeight"),
-                        RequiredSingle(value, "amplitude"),
-                        RequiredSingle(value, "scale"),
-                        RequiredSingle(value, "sharpness"),
-                        RequiredSingle(value, "detailAmplitude"),
-                        RequiredSingle(value, "detailScale")),
-                "volcano" =>
-                    new BiomeVolcanoTerrainShapeDefinition(
+                        RequiredSingle(value, "floorScale"),
+                        OptionalSingle(value, "rimFalloff") ?? 0.8f,
+                        OptionalSingle(value, "floorFalloff") ?? 1.35f),
+                "cone" =>
+                    new BiomeConeTerrainShapeDefinition(
                         RequiredSingle(value, "baseHeight"),
                         RequiredSingle(value, "height"),
-                        RequiredSingle(value, "craterDepth"),
-                        RequiredSingle(value, "craterRadius"),
                         RequiredSingle(value, "irregularity"),
                         RequiredSingle(value, "irregularityScale"),
                         RequiredSingle(value, "detailIrregularity"),
                         RequiredSingle(value, "detailScale"),
-                        RequiredSingle(value, "craterIrregularity")),
+                        OptionalSingle(value, "slopeNoiseGain") ?? 4f),
                 _ =>
                     throw new FormatException(
                         $"Unknown surfaceTerrain.type: {type}"),
@@ -245,7 +214,111 @@ public static class BiomeDefinitionJson
 
         return new BiomeTerrainDefinition(
             shape,
-            ParseTerrainModifiers(value));
+            ParseTerrainModifiers(value),
+            ParseInfluencePolicy(value),
+            ParseCrater(value),
+            ParseFillToSeaLevel(value));
+    }
+
+    private static BiomeRidgeDetailMode ParseRidgeDetailMode(JsonElement terrain)
+    {
+        if (!terrain.TryGetProperty("detailMode", out var value))
+        {
+            return BiomeRidgeDetailMode.None;
+        }
+
+        if (value.ValueKind != JsonValueKind.String)
+        {
+            throw new FormatException("surfaceTerrain.detailMode must be a string.");
+        }
+
+        return value.GetString() switch
+        {
+            "none" => BiomeRidgeDetailMode.None,
+            "ridged" => BiomeRidgeDetailMode.Ridged,
+            "modulated" => BiomeRidgeDetailMode.Modulated,
+            _ => throw new FormatException("Unknown surfaceTerrain.detailMode."),
+        };
+    }
+
+    private static SurfaceHeightInfluencePolicy ParseInfluencePolicy(
+        JsonElement terrain)
+    {
+        if (!terrain.TryGetProperty("influenceMode", out var mode))
+        {
+            return SurfaceHeightInfluencePolicy.Blend;
+        }
+
+        if (mode.ValueKind != JsonValueKind.String)
+        {
+            throw new FormatException("surfaceTerrain.influenceMode must be a string.");
+        }
+
+        return mode.GetString() switch
+        {
+            "blend" => SurfaceHeightInfluencePolicy.Blend,
+            "lowerOnly" => SurfaceHeightInfluencePolicy.LowerOnly,
+            "primary" => SurfaceHeightInfluencePolicy.Primary,
+            _ => throw new FormatException("Unknown surfaceTerrain.influenceMode."),
+        };
+    }
+
+    private static bool ParseFillToSeaLevel(JsonElement terrain)
+    {
+        if (!terrain.TryGetProperty("fillToSeaLevel", out var value))
+        {
+            return false;
+        }
+
+        return value.ValueKind switch
+        {
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            _ => throw new FormatException("surfaceTerrain.fillToSeaLevel must be boolean."),
+        };
+    }
+
+    private static BiomeCraterDefinition? ParseCrater(JsonElement terrain)
+    {
+        if (!terrain.TryGetProperty("crater", out var value) ||
+            value.ValueKind == JsonValueKind.Null)
+        {
+            return null;
+        }
+
+        value = EnsureObject(value, "surfaceTerrain.crater");
+        BiomeCraterFluidFillDefinition? fill = null;
+        if (value.TryGetProperty("fluidFill", out var fluidValue) &&
+            fluidValue.ValueKind != JsonValueKind.Null)
+        {
+            fluidValue = EnsureObject(fluidValue, "surfaceTerrain.crater.fluidFill");
+            BiomeCraterSpillDefinition? spill = null;
+            if (fluidValue.TryGetProperty("spill", out var spillValue) &&
+                spillValue.ValueKind != JsonValueKind.Null)
+            {
+                spillValue = EnsureObject(spillValue, "surfaceTerrain.crater.fluidFill.spill");
+                spill = new BiomeCraterSpillDefinition(
+                    RequiredSingle(spillValue, "minimumStrength"),
+                    RequiredSingle(spillValue, "maximumStrength"),
+                    RequiredSingle(spillValue, "scale"),
+                    RequiredSingle(spillValue, "width"),
+                    checked((byte)RequiredUInt32(spillValue, "level")));
+            }
+
+            fill = new BiomeCraterFluidFillDefinition(
+                RequiredString(fluidValue, "fluid"),
+                RequiredSingle(fluidValue, "minimumStrength"),
+                RequiredSingle(fluidValue, "topLevel"),
+                spill);
+        }
+
+        return new BiomeCraterDefinition(
+            RequiredSingle(value, "depth"),
+            RequiredSingle(value, "radius"),
+            RequiredSingle(value, "irregularity"),
+            RequiredSingle(value, "noiseScale"),
+            RequiredSingle(value, "transitionWidth"),
+            fill);
     }
 
     private static IReadOnlyList<BiomeTerrainModifierDefinition>
@@ -286,6 +359,15 @@ public static class BiomeDefinitionJson
                     "height_offset" =>
                         new BiomeHeightOffsetTerrainModifierDefinition(
                             RequiredSingle(modifier, "height")),
+                    "depressions" =>
+                        new BiomeDepressionsTerrainModifierDefinition(
+                            RequiredSingle(modifier, "depth"),
+                            RequiredSingle(modifier, "broadScale"),
+                            RequiredSingle(modifier, "detailScale"),
+                            RequiredSingle(modifier, "broadWeight"),
+                            RequiredSingle(modifier, "bias"),
+                            RequiredSingle(modifier, "transitionWidth"),
+                            RequiredSingle(modifier, "sharpness")),
                     "cliffs" =>
                         new BiomeCliffsTerrainModifierDefinition(
                             RequiredSingle(modifier, "scale"),
@@ -367,46 +449,6 @@ public static class BiomeDefinitionJson
                 RequiredSingle(value, "coverage"),
                 RequiredSingle(value, "roughness"),
                 RequiredSingle(value, "densityScale")));
-    }
-
-    private static BiomeSurfaceFluidDefinition?
-        ParseSurfaceFluid(
-            JsonElement root)
-    {
-        if (!root.TryGetProperty(
-                "surfaceFluid",
-                out var value) ||
-            value.ValueKind ==
-                JsonValueKind.Null)
-        {
-            return null;
-        }
-
-        value =
-            EnsureObject(
-                value,
-                "surfaceFluid");
-        var type =
-            RequiredString(
-                value,
-                "type");
-
-        return type switch
-        {
-            "volcano_crater" =>
-                new BiomeVolcanoCraterFluidDefinition(
-                    RequiredString(value, "fluid"),
-                    RequiredSingle(value, "minimumStrength"),
-                    RequiredSingle(value, "levelOffset"),
-                    RequiredSingle(value, "spillMinimumStrength"),
-                    RequiredSingle(value, "spillMaximumStrength"),
-                    RequiredSingle(value, "spillScale"),
-                    RequiredSingle(value, "spillWidth"),
-                    checked((byte)RequiredUInt32(value, "spillLevel"))),
-            _ =>
-                throw new FormatException(
-                    $"Unknown surfaceFluid.type: {type}"),
-        };
     }
 
     private static IReadOnlyList<BiomeSurfaceLayerDefinition>
