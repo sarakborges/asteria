@@ -10,7 +10,7 @@ public sealed class VolumeBiomeField
     private readonly BiomeField? _placement;
     private readonly IReadOnlyDictionary<
         string,
-        BiomeFloatingFormationDefinition> _formations;
+        (int MinY, int MaxY)> _formations;
 
     public VolumeBiomeField(
         ulong seed,
@@ -38,9 +38,18 @@ public sealed class VolumeBiomeField
                     definition =>
                         definition.Id,
                     definition =>
-                        definition.Terrain3d?.FloatingFormation ??
-                        throw new ArgumentException(
-                            $"Volume biome {definition.Id} requires terrain3d.floatingFormation."),
+                    {
+                        var formations = definition.Terrain3d?.Additive;
+                        if (formations is null || formations.Count == 0)
+                        {
+                            throw new ArgumentException(
+                                $"Volume biome {definition.Id} requires non-empty terrain3d.additive.");
+                        }
+
+                        return (
+                            MinY: formations.Min(formation => formation.MinY),
+                            MaxY: formations.Max(formation => formation.MaxY));
+                    },
                     StringComparer.Ordinal);
 
         if (volumeDefinitions.Length == 0)
