@@ -32,6 +32,8 @@ A complete primitive-by-primitive and screen-by-screen backlog now lives in [ui-
 
 ## Live Chat parity
 
-Native configurable Chat key (default T) now opens a real in-game `ChatDock`, suspending Godot gameplay input rather than listening for global keys in WebUI. Text submission and `/help`, `/position`, `/time` execute locally against the Core session/current runtime; messages are bounded to 64 and transient chat feedback fades after 10 seconds. Autocomplete allows Up/Down/Tab while the chat input is focused. `ChatController` validates every bridge snapshot and `ChatPanel` localizes command outcomes.
+Native configurable Chat key (default T) now opens a real in-game `ChatDock`, suspending Godot gameplay input rather than listening for global keys in WebUI. Text submission uses MineClone's six-command grammar rather than invented `/help`, `/position`, `/time`; `/spawn`, `/locate`, `/warp` and `/kill` have real runtime integrations with documented limits; messages are bounded to 64 and transient chat feedback fades after 10 seconds. Autocomplete allows Up/Down/Tab while the chat input is focused. `ChatController` validates every bridge snapshot and `ChatPanel` localizes command outcomes.
 
-**Limits:** no multiplayer messaging, no unsupported MineClone commands. `StorageBoxPage` remains a visual-only page while Asteria lacks a native storage block/entity owner; do not turn Storybook fixtures into live inventory contents.
+**Limits:** the full MineClone command port is not complete. `/place` and `/modify` remain parsed but unimplemented; `/spawn` meta tags, `/locate structure` variations and long-distance same-Sphere warp also need runtime support. No multiplayer messaging. `StorageBoxPage` remains a visual-only page while Asteria lacks a native storage block/entity owner; do not turn Storybook fixtures into live inventory contents.
+
+For command-by-command implementation status and limitations, see [ui-component-parity.md](ui-component-parity.md), section *MineClone command parity correction*.
