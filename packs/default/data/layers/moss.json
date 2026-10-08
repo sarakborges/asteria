@@ -1,0 +1,10 @@
+{
+  "id": "asteria:moss",
+  "category": "natural_blocks",
+  "texture": "textures/layers/moss.png",
+  "tint": "foliage",
+  "offset": 0.001,
+  "alphaCutoff": 0.5,
+  "alphaBlend": false,
+  "castsShadow": false
+}
