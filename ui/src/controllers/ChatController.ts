@@ -3,9 +3,17 @@ import type { ChatMessageView } from "../presentation/chatModels";
 import type { UiStore } from "../state/uiStore";
 import { asRecord } from "./messagePayload";
 
-const SUPPORTED_COMMANDS = new Set(["/help", "/position", "/time"]);
+const SUPPORTED_COMMANDS = new Set(["/spawn", "/place", "/locate", "/warp", "/kill", "/modify"]);
 const LOCAL_KEYS = new Set([
-  "chat.local.help", "chat.local.position", "chat.local.time", "chat.local.unknown",
+  "chat.command.usage", "chat.command.unknown",
+  "chat.command.spawn.success", "chat.command.spawn.failed",
+  "chat.command.spawn.unknownCreature", "chat.command.locate.found",
+  "chat.command.locate.notFound", "chat.command.locate.unknownBiome",
+  "chat.command.locate.biomeInactive", "chat.command.locate.unknownStructure",
+  "chat.command.locate.searching", "chat.command.locate.playerUnavailable",
+  "chat.command.warp.start", "chat.command.warp.success", "chat.command.warp.failed",
+  "chat.command.kill.success", "chat.command.target.none",
+  "chat.command.failed", "chat.command.notImplemented",
 ]);
 
 export function createChatController(
@@ -57,7 +65,14 @@ function readMessage(value: unknown): ChatMessageView | null {
         (typeof entry.localizationKey !== "string" ||
           !LOCAL_KEYS.has(entry.localizationKey)))) return null;
 
+  const parameters = entry.parameters == null ? {} : asRecord(entry.parameters);
+  if (!parameters || Object.keys(parameters).length > 8 ||
+      !Object.entries(parameters).every(([key, value]) =>
+        /^[a-zA-Z]+$/.test(key) && typeof value === "string" && value.length <= 512))
+    return null;
+
   return {
+    parameters: parameters as Record<string, string>,
     id: entry.id,
     text: entry.text,
     tone: entry.tone,
