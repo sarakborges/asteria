@@ -27,3 +27,16 @@ export const Empty: Story = {
     item: null,
   },
 };
+
+export const Metadata: Story = {
+  args: {
+    item: {
+      id: "asteria:iron_bucket",
+      name: "Iron Bucket",
+      quantity: 1,
+      metadata: { fluid_id: "asteria:water" },
+    },
+  },
+};
+
+export const ReadOnly: Story = { args: { disabled: true } };
