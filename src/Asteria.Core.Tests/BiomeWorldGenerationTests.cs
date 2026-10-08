@@ -806,6 +806,69 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
+    public void OakFoliageDoesNotLosePlainsTintNearUncoloredMountains()
+    {
+        var biomes = LoadDefaultBiomes();
+        var blocks = LoadDefaultBlocks();
+        var plains = biomes.Get("asteria:overworld/plains");
+        var mountains = biomes.Get("asteria:overworld/mountains");
+        var oak = blocks.GetDefinition(blocks.GetId("asteria:leaf_oak"));
+        Assert.Equal(BlockTint.Leaf, oak.Tint);
+        Assert.Null(mountains.Tints.Leaf);
+        var expected = plains.Tints.Leaf!.Value;
+
+        var layout = new BiomeField(
+            17UL, [plains.Id, mountains.Id], biomes);
+        var tints = new BiomeTintField(
+            layout, [plains, mountains]);
+        var found = false;
+
+        for (var z = -1024; z <= 1024 && !found; z += 16)
+        {
+            for (var x = -1024; x <= 1024; x += 16)
+            {
+                var biome = layout.Sample(x, z);
+                if (biome.Primary != plains.Id ||
+                    !biome.Influences.Any(influence =>
+                        influence.BiomeId == mountains.Id &&
+                        influence.Weight > 0f))
+                {
+                    continue;
+                }
+
+                var resolved = tints.SampleGrid(x, z, 1, 1).Resolve(
+                    BlockTint.Leaf, oak.PreviewColor, x, z);
+                Assert.InRange(
+                    MathF.Abs(resolved.X - expected.Red / 255f), 0f, 0.001f);
+                Assert.InRange(
+                    MathF.Abs(resolved.Y - expected.Green / 255f), 0f, 0.001f);
+                Assert.InRange(
+                    MathF.Abs(resolved.Z - expected.Blue / 255f), 0f, 0.001f);
+                found = true;
+                break;
+            }
+        }
+
+        Assert.True(found, "Test seed should expose a Plains/Mountains biome blend.");
+    }
+
+    [Fact]
+    public void UncoloredBiomeRetainsLegacyTintFallback()
+    {
+        var biomes = LoadDefaultBiomes();
+        var mountain = biomes.Get("asteria:overworld/mountains");
+        var layout = new BiomeField(17UL, [mountain.Id], biomes);
+        var tints = new BiomeTintField(layout, [mountain]);
+        var fallback = new BlockPreviewColor(12, 64, 178);
+        var actual = tints.SampleGrid(0, 0, 1, 1).Resolve(
+            BlockTint.Leaf, fallback, 0, 0);
+
+        Assert.InRange(MathF.Abs(actual.X - 12f / 255f), 0f, 0.001f);
+        Assert.InRange(MathF.Abs(actual.Y - 64f / 255f), 0f, 0.001f);
+        Assert.InRange(MathF.Abs(actual.Z - 178f / 255f), 0f, 0.001f);
+    }
+
+    [Fact]
     public void BiomeTintBlendsAuthoredInfluenceColors()
     {
         var first =
