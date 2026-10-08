@@ -7,6 +7,7 @@ import { SettingsWorkspacePage } from "./components/pages/SettingsWorkspacePage/
 import { ControlsPage } from "./components/pages/ControlsPage/ControlsPage";
 import { PauseMenuPage } from "./components/pages/PauseMenuPage/PauseMenuPage";
 import { useLocalization } from "./localization/LocalizationProvider";
+import { BrushPalettePage } from "./components/pages/BrushPalettePage/BrushPalettePage";
 import { NewWorldPage } from "./components/pages/NewWorldPage/NewWorldPage";
 import { StartingScreenPage } from "./components/pages/StartingScreenPage/StartingScreenPage";
 import type { UiStore } from "./state/uiStore";
@@ -37,6 +38,8 @@ export type AppActions = {
   setGameMode(value: import("./state/uiState").GameMode): void;
   beginKeyCapture(action: "Jump" | "Descend" | "ToolAction" | "Inventory" | "DropItem"): void;
   cancelKeyCapture(): void;
+  closeBrushPalette(): void;
+  selectBrushDye(id: string | null): void;
   closeInventory(): void;
   clickInventorySlot(index: number): void;
   sortInventory(): void;
@@ -161,6 +164,14 @@ export function App({
             }}
           />
         </div>
+      )}
+
+      {!preWorldVisible && state.navigation.overlay === "brush" && (
+        <BrushPalettePage
+          state={state.brush}
+          onClose={actions.closeBrushPalette}
+          onSelect={actions.selectBrushDye}
+        />
       )}
 
       {!preWorldVisible && state.navigation.overlay === "inventory" && (

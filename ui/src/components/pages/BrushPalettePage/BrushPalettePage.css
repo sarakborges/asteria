@@ -1,0 +1,56 @@
+.brush-palette {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  pointer-events: auto;
+  background: rgb(0 0 0 / 55%);
+  padding: 16px;
+}
+.brush-palette__panel {
+  width: min(100%, 400px);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+  background: var(--ui-surface, #252532);
+  border: 1px solid var(--ui-border, #77778d);
+  border-radius: 12px;
+  box-shadow: 0 14px 44px rgb(0 0 0 / 35%);
+}
+.brush-palette__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.brush-palette__clear {
+  min-height: 36px;
+  border: 1px solid rgb(255 255 255 / 28%);
+  border-radius: 6px;
+  background: rgb(255 255 255 / 8%);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.brush-palette__grid {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 6px;
+}
+.brush-palette__swatch {
+  aspect-ratio: 1;
+  min-width: 0;
+  border: 2px solid rgb(255 255 255 / 24%);
+  border-radius: 5px;
+  cursor: pointer;
+}
+.brush-palette__selected {
+  outline: 2px solid white;
+  outline-offset: 1px;
+}
+.brush-palette button:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 2px;
+}
