@@ -2068,11 +2068,20 @@ public partial class Main : Node3D
             return;
         }
 
-        if (command.Kind == ChatCommandKind.LocateBiome && !_biomes.Contains(id))
+        if (command.Kind == ChatCommandKind.LocateBiome)
         {
-            ChatFeedback("chat.command.locate.unknownBiome", error: true,
-                ("id", id));
-            return;
+            if (!_biomes.Contains(id))
+            {
+                ChatFeedback("chat.command.locate.unknownBiome", error: true,
+                    ("id", id));
+                return;
+            }
+            if (!_dimension.SurfaceBiomes.Contains(id, StringComparer.Ordinal))
+            {
+                ChatFeedback("chat.command.locate.biomeInactive", error: true,
+                    ("id", id));
+                return;
+            }
         }
 
         var origin = _player.GlobalPosition;
