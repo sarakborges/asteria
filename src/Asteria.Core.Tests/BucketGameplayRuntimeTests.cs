@@ -117,6 +117,8 @@ public sealed class BucketGameplayRuntimeTests
                     [BucketGameplayRuntime.FluidMetadataKey] = "asteria:water",
                 })));
         Assert.True(fixture.Mutations.SetBlockAt(
+            TargetBlock, fixture.Blocks.GetId("asteria:stone"), out _));
+        Assert.True(fixture.Mutations.SetBlockAt(
             PourAt, fixture.Blocks.GetId("asteria:stone"), out _));
         var hit = new VoxelWorldHit(TargetBlock, 0, 0, 1);
         Assert.False(fixture.Bucket.TryUse(
@@ -153,6 +155,8 @@ public sealed class BucketGameplayRuntimeTests
         Assert.Equal("asteria:water",
             filled.Entry.Metadata[BucketGameplayRuntime.FluidMetadataKey]);
 
+        Assert.True(fixture.Mutations.SetBlockAt(
+            TargetBlock, fixture.Blocks.GetId("asteria:stone"), out _));
         Assert.True(fixture.Bucket.TryUse(
             fixture.Inventory,
             Vector3.Zero, Vector3.UnitZ,
@@ -161,6 +165,26 @@ public sealed class BucketGameplayRuntimeTests
         Assert.Equal("player", emptied.Entry.Metadata["owner"]);
         Assert.False(emptied.Entry.Metadata.ContainsKey(
             BucketGameplayRuntime.FluidMetadataKey));
+    }
+
+    [Fact]
+    public void RejectsStaleBlockTargetBeforePlacingFluid()
+    {
+        var fixture = Setup();
+        var old = fixture.Inventory.SelectedStack!;
+        Assert.True(fixture.Inventory.TryReplaceSelected(
+            old, InventoryEntry.FromTool(
+                "asteria:bucket",
+                new Dictionary<string, string>
+                {
+                    [BucketGameplayRuntime.FluidMetadataKey] = "asteria:water",
+                })));
+        Assert.False(fixture.Bucket.TryUse(
+            fixture.Inventory, Vector3.Zero, Vector3.UnitZ,
+            new VoxelWorldHit(TargetBlock, 0, 0, 1)));
+        Assert.True(fixture.World.GetFluidOrEmpty(PourAt).IsEmpty);
+        Assert.Contains(BucketGameplayRuntime.FluidMetadataKey,
+            fixture.Inventory.SelectedStack!.Entry.Metadata.Keys);
     }
 
     [Fact]
