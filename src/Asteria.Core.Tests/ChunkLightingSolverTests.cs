@@ -32,6 +32,40 @@ public sealed class ChunkLightingSolverTests
     }
 
     [Fact]
+    public void FullyOpaqueChunkKeepsDirectLightWithoutPropagation()
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition("asteria:stone", lightDampening: 15),
+        ]);
+        var stone = blocks.GetId("asteria:stone");
+        var chunk = new Chunk();
+
+        for (var z = 0; z < Chunk.Size; z++)
+        {
+            for (var x = 0; x < Chunk.Size; x++)
+            {
+                for (var y = 0; y < Chunk.Size; y++)
+                    chunk.SetBlock(x, y, z, stone);
+            }
+        }
+
+        ChunkLightingSolver.Initialize(
+            chunk, blocks, new FluidRegistry([]));
+
+        Assert.Equal(Chunk.Volume, chunk.NonEmptyVoxelCount);
+        Assert.Equal((byte)0, chunk.GetLight(0, 0, 0).Sky);
+        Assert.Equal((byte)0, chunk.GetLight(8, 15, 8).Sky);
+        Assert.Equal((byte)0, chunk.GetLight(15, 7, 15).Sky);
+
+        // Reopening a skylight path still uses the original flood fill.
+        chunk.SetBlock(8, 15, 8, BlockRuntimeId.Air);
+        ChunkLightingSolver.Initialize(
+            chunk, blocks, new FluidRegistry([]));
+        Assert.Equal(VoxelLight.MaxLevel, chunk.GetLight(8, 15, 8).Sky);
+    }
+
+    [Fact]
     public void OpaqueBlockStopsDirectSkylightButAllowsLateralBounceAroundIt()
     {
         var blocks = new BlockRegistry(
