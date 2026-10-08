@@ -12,6 +12,7 @@ export type WorldSummaryView = {
   sphere: string;
   coordinates: string;
   compatible: boolean;
+  thumbnailUrl?: string;
 };
 
 export type WorldCardProps = {
@@ -29,9 +30,15 @@ export function WorldCard({
   return (
     <Surface
       variant="frosted"
-      className="world-card"
+      className={world.compatible ? "world-card" : "world-card world-card--no-preview"}
     >
-      <div className="world-card__preview" />
+      {world.compatible && (
+        <div className="world-card__preview">
+          {world.thumbnailUrl && (
+            <img src={world.thumbnailUrl} alt="" loading="lazy" />
+          )}
+        </div>
+      )}
 
       <div className="world-card__info">
         <Text
@@ -76,6 +83,7 @@ export function WorldCard({
             label={t("ui.load")}
             variant="primary"
             stretch
+            disabled={!onLoad}
             onClick={() =>
               onLoad?.(world.id)
             }
@@ -85,6 +93,7 @@ export function WorldCard({
           label={t("ui.delete")}
           variant="danger"
           stretch
+          disabled={!onDelete}
           onClick={() =>
             onDelete?.(world.id)
           }
