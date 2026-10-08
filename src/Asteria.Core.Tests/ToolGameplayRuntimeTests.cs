@@ -28,6 +28,15 @@ public sealed class ToolGameplayRuntimeTests
             """,
             """
             {
+              "id":"asteria:brush_rustic",
+              "category":"tools",
+              "icon":"textures/tools/brush.png",
+              "leftBehavior":"asteria:brush/paint",
+              "rightBehavior":"asteria:brush/open_palette"
+            }
+            """,
+            """
+            {
               "id":"asteria:carpenters_axe_rustic",
               "category":"tools",
               "icon":"textures/tools/carpenters-axe-rustic.png",
@@ -45,6 +54,9 @@ public sealed class ToolGameplayRuntimeTests
     {
         var family = "asteria:log_oak";
         var blocks = new BlockRegistry([
+            new BlockDefinition("asteria:paintable", secondaryProperties: ["dyed"]),
+            new BlockDefinition("asteria:protected_paintable", secondaryProperties: ["dyed"],
+                mining: new BlockMiningDefinition(unbreakable: true)),
             new BlockDefinition("asteria:stone", mining:
                 new BlockMiningDefinition(2f, requiredTools: ["pickaxe"])),
             new BlockDefinition("asteria:log_oak", variant:
@@ -67,7 +79,8 @@ public sealed class ToolGameplayRuntimeTests
             world, new WorldUpdateQueue(), new FluidUpdateQueue(),
             new FluidMeshUpdateQueue(), new BlockPhysicsUpdateQueue(),
             new MeshletContentRevisions(), new MeshletContentRevisions());
-        return (new ToolGameplayRuntime(world, blocks, mutations, CreateTools()),
+        var dyes = new DyeRegistry([new DyeDefinition("asteria:red", 0f, 1f, 1f / 3f)]);
+        return (new ToolGameplayRuntime(world, blocks, mutations, CreateTools(), dyes),
             blocks, world, mutations);
     }
 
@@ -173,4 +186,32 @@ public sealed class ToolGameplayRuntimeTests
         Assert.False(tools.TryUse(held, ToolUseHand.Right,
             new VoxelWorldHit(new WorldVoxelCoord(200, 3, 4), 0, 1, 0)));
     }
+    [Fact]
+    public void BrushPaintRespectsAuthoredDyeCapabilityAndClearMode()
+    {
+        var (tools, blocks, world, mutations) = Setup();
+        var pos = new WorldVoxelCoord(2, 3, 4);
+        var hit = new VoxelWorldHit(pos, 0, 1, 0);
+        var held = new InventoryStack(InventoryEntry.FromTool("asteria:brush_rustic"));
+        Assert.Null(tools.SelectedBrushDyeId);
+        Assert.Single(tools.BrushPalette);
+        Assert.False(tools.TrySelectBrushDye("asteria:missing"));
+        Assert.True(tools.TrySelectBrushDye("asteria:red"));
+        Assert.True(mutations.SetBlockAt(pos, blocks.GetId("asteria:paintable"), out _));
+        Assert.True(tools.IsSpecialLeftAction(held));
+        Assert.True(tools.TryUse(held, ToolUseHand.Left, hit));
+        Assert.Equal("asteria:red", world.GetBlockSurfaceStateOrEmpty(pos).DyeId);
+        Assert.False(tools.TryUse(held, ToolUseHand.Left, hit));
+        Assert.True(tools.TrySelectBrushDye(null));
+        Assert.True(tools.TryUse(held, ToolUseHand.Left, hit));
+        Assert.Null(world.GetBlockSurfaceStateOrEmpty(pos).DyeId);
+        Assert.False(tools.TryUse(held, ToolUseHand.Left, hit));
+
+        Assert.True(mutations.SetBlockAt(pos, blocks.GetId("asteria:stone"), out _));
+        Assert.True(tools.TrySelectBrushDye("asteria:red"));
+        Assert.False(tools.TryUse(held, ToolUseHand.Left, hit));
+        Assert.True(mutations.SetBlockAt(pos, blocks.GetId("asteria:protected_paintable"), out _));
+        Assert.False(tools.TryUse(held, ToolUseHand.Left, hit));
+    }
+
 }

@@ -43,6 +43,7 @@ public sealed class DimensionRuntimeSession
         DimensionSessionState state,
         BlockRegistry blocks,
         AttachedLayerRegistry layers,
+        DyeRegistry dyes,
         FluidRegistry fluids,
         BiomeRegistry biomes,
         StructureRegistry structures,
@@ -217,7 +218,7 @@ public sealed class DimensionRuntimeSession
                 Mutations,
                 _droppedBlocks);
         Tools = new ToolGameplayRuntime(
-            World, blocks, Mutations, tools);
+            World, blocks, Mutations, tools, dyes);
         ArtisansKit = new ArtisansKitRuntime(
             World, blocks, Mutations, tools);
         Bucket = new BucketGameplayRuntime(World, fluids, Mutations, tools);
@@ -278,6 +279,7 @@ public sealed class DimensionRuntimeSession
                 terrainTextures,
                 Generator.Tints,
                 layers,
+                dyes,
                 WorldUpdates,
                 ContentRevisions,
                 Presentations,

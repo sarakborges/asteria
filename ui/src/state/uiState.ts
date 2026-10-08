@@ -135,8 +135,14 @@ export type WorldCreationErrorKey =
   | "newWorld.error.invalidTickRate"
   | "newWorld.error.unexpected";
 
+export type BrushPaletteColor = { id: string; rgb: string };
+export type BrushPaletteState = {
+  selectedId: string | null;
+  colors: BrushPaletteColor[];
+};
+
 export type GameMode = "Survival" | "Creative" | "Spectator";
-export type OverlayScreen = "none" | "pause" | "game" | "world" | "controls" | "inventory";
+export type OverlayScreen = "none" | "pause" | "game" | "world" | "controls" | "inventory" | "brush";
 
 export type WorldSettingsState = {
   name: string; mode: GameMode; ticksPerSecond: number;
@@ -217,6 +223,7 @@ export type UiState = {
   navigation: UiNavigationState;
   settings: SettingsState;
   inventory: GameplayInventoryState;
+  brush: BrushPaletteState;
 };
 
 export function createInitialUiState(
@@ -274,6 +281,9 @@ export function createInitialUiState(
     settings: {
       client: null, world: null,
       captureAction: null, errorKey: null,
+    },
+    brush: {
+      selectedId: null, colors: [],
     },
     inventory: {
       open: false,

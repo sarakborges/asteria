@@ -14,6 +14,7 @@ public static class BlockDefinitionJson
         var id = RequiredString(root, "id");
         var category = OptionalString(root, "category") ?? "uncategorized";
         var tags = StringArray(root, "tags");
+        var secondaryProperties = StringArray(root, "secondaryProperties");
         var tint = ParseTint(OptionalString(root, "tint"));
         var textures = ParseTextures(root);
         var visual = ParseVisual(root);
@@ -70,7 +71,8 @@ public static class BlockDefinitionJson
             previewColor: previewColor,
             dropsSelf: dropsSelf,
             interaction: interaction,
-            pickupItemId: pickupItemId);
+            pickupItemId: pickupItemId,
+            secondaryProperties: secondaryProperties);
     }
 
     private static BlockLightEmission ParseLightEmission(JsonElement root, string blockId)

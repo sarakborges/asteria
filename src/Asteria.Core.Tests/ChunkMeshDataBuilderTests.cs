@@ -591,4 +591,56 @@ public sealed class ChunkMeshDataBuilderTests
             leftEdgeHeights,
             rightEdgeHeights);
     }
+    [Fact]
+    public void DyedGrassUsesAuthoredTintWhileAdjacentUndyedGrassUsesBiomeTint()
+    {
+        var blocks = new BlockRegistry([
+            new BlockDefinition("asteria:grass_block", tint: BlockTint.Grass,
+                secondaryProperties: ["dyed"],
+                textures: new BlockTextureSet(top: [
+                    new BlockTextureLayer("textures/grass.png", dyable: true)
+                ]),
+                previewColor: new BlockPreviewColor(20, 200, 20))
+        ]);
+        var chunk = new Chunk();
+        var id = blocks.GetId("asteria:grass_block");
+        chunk.SetBlock(1, 1, 1, id);
+        chunk.SetBlock(2, 1, 1, id);
+        chunk.SetSurfaceState(1, 1, 1, new BlockSurfaceState("asteria:red"));
+        ChunkLightingSolver.Initialize(chunk, blocks, new FluidRegistry([]));
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, chunk);
+        var dyes = new DyeRegistry([
+            new DyeDefinition("asteria:red", 0f, 1f, 1f / 3f)
+        ]);
+        var data = ChunkMeshDataBuilder.BuildMeshlet(
+            world, ChunkCoord.Zero, blocks,
+            new TerrainTextureLookup(new Dictionary<string, int> {
+                ["textures/grass.png"] = 1
+            }), 0, dyes: dyes);
+        var vertices = data.RenderBatches.SelectMany(x => x.Vertices).ToArray();
+        Assert.Contains(vertices, vertex =>
+            vertex.TintAndAo.X > .99f && vertex.TintAndAo.Y < .02f &&
+            vertex.TintAndAo.Z < .02f);
+        Assert.Contains(vertices, vertex =>
+            vertex.TintAndAo.Y > .7f && vertex.TintAndAo.X < .2f);
+    }
+
+    [Fact]
+    public void DyedGeometryRejectsUnknownColorIds()
+    {
+        var blocks = new BlockRegistry([
+            new BlockDefinition("asteria:grass_block", secondaryProperties: ["dyed"])
+        ]);
+        var chunk = new Chunk();
+        chunk.SetBlock(1, 1, 1, blocks.GetId("asteria:grass_block"));
+        chunk.SetSurfaceState(1, 1, 1, new BlockSurfaceState("asteria:missing"));
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, chunk);
+        Assert.Throws<KeyNotFoundException>(() => ChunkMeshDataBuilder.BuildMeshlet(
+            world, ChunkCoord.Zero, blocks,
+            new TerrainTextureLookup(new Dictionary<string, int>()),
+            0, dyes: new DyeRegistry([])));
+    }
+
 }

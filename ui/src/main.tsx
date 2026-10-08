@@ -11,6 +11,7 @@ import { createHudController } from "./controllers/HudController";
 import { createLoadingController } from "./controllers/LoadingController";
 import { createUiNavigationController } from "./controllers/UiNavigationController";
 import { createInventoryController } from "./controllers/InventoryController";
+import { createBrushController } from "./controllers/BrushController";
 import { createSettingsController } from "./controllers/SettingsController";
 import { createWorldCreationController } from "./controllers/WorldCreationController";
 import { createInitialUiState } from "./state/uiState";
@@ -43,10 +44,12 @@ const worldCreation =
   );
 const settings = createSettingsController(store, postGodotMessage);
 const inventory = createInventoryController(store, postGodotMessage);
+const brush = createBrushController(store, postGodotMessage);
 
 subscribeGodotMessages((message) => {
   navigation.handleGodotMessage(message);
   inventory.handleGodotMessage(message);
+  brush.handleGodotMessage(message);
   hud.handleGodotMessage(message);
   settings.handleGodotMessage(message);
   worldCreation.handleGodotMessage(message);
@@ -79,6 +82,8 @@ createRoot(rootElement).render(
       setGameMode: settings.setGameMode,
       beginKeyCapture: settings.beginKeyCapture,
       cancelKeyCapture: settings.cancelKeyCapture,
+      closeBrushPalette: brush.close,
+      selectBrushDye: brush.select,
       closeInventory: inventory.close,
       clickInventorySlot: inventory.clickSlot,
       sortInventory: inventory.sort,
