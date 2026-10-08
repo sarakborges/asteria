@@ -224,11 +224,21 @@ export type WorldCatalogState = {
   folderError: boolean;
 };
 
+export type ChatCompletionCatalog = {
+  creatures: readonly string[];
+  biomes: readonly string[];
+  structures: readonly string[];
+  variations: Readonly<Record<string, readonly string[]>>;
+  dimensions: readonly string[];
+  position: { x: number; y: number; z: number } | null;
+};
+
 export type ChatState = {
   open: boolean;
   visible: boolean;
   history: readonly ChatMessageView[];
   commands: readonly string[];
+  catalog: ChatCompletionCatalog;
 };
 
 export type UiState = {
@@ -283,7 +293,13 @@ export function createInitialUiState(
     },
     loading: null,
     worldCatalog: { status: "unavailable", worlds: [], folderError: false },
-    chat: { open: false, visible: false, history: [], commands: [] },
+    chat: {
+      open: false, visible: false, history: [], commands: [],
+      catalog: {
+        creatures: [], biomes: [], structures: [], variations: {},
+        dimensions: [], position: null,
+      },
+    },
     worldCreation: {
       visible: true,
       seed: "",
