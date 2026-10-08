@@ -1,3 +1,5 @@
+using Asteria.Core.Content;
+
 namespace Asteria.Core.World;
 
 public sealed record PlayerInventorySnapshot(
@@ -55,28 +57,119 @@ public sealed class PlayerInventory
     public bool TryInsert(InventoryStack incoming)
     {
         ArgumentNullException.ThrowIfNull(incoming);
-        if (!CanInsert(incoming))
+        if (!TryInsertInto(_slots, incoming)) return false;
+        Revision++;
+        return true;
+    }
+
+    /// <summary>
+    /// Inventory crafting is an atomic player-inventory mutation. Preflight
+    /// uses a private slot array; failed crafts leave slots, cursor and
+    /// revision unchanged. Input quantities count portable item identities,
+    /// not placeable blocks that happen to share the same namespaced ID.
+    /// </summary>
+    public bool CanCraft(CraftingRecipeDefinition recipe, InventoryEntry result) =>
+        TryPrepareCraft(recipe, result, out _);
+
+    public bool TryCraft(CraftingRecipeDefinition recipe, InventoryEntry result)
+    {
+        if (!TryPrepareCraft(recipe, result, out var slots))
             return false;
+
+        Array.Copy(slots, _slots, TotalSlots);
+        Revision++;
+        return true;
+    }
+
+    public int ItemQuantity(string id)
+    {
+        ArgumentNullException.ThrowIfNull(id);
+        var count = 0;
+        foreach (var slot in _slots)
+            if (slot is { Kind: InventoryEntryKind.Item } &&
+                string.Equals(slot.Id, id, StringComparison.Ordinal))
+                count += slot.Quantity;
+        return count;
+    }
+
+    private bool TryPrepareCraft(
+        CraftingRecipeDefinition recipe,
+        InventoryEntry result,
+        out InventoryStack?[] slots)
+    {
+        ArgumentNullException.ThrowIfNull(recipe);
+        ArgumentNullException.ThrowIfNull(result);
+        slots = (InventoryStack?[])_slots.Clone();
+        if (recipe.Environment != "inventory" ||
+            result.Id != recipe.Result.Item ||
+            result.Metadata.Count != 0)
+            return false;
+
+        foreach (var ingredient in recipe.Ingredients)
+        {
+            var required = ingredient.Quantity;
+            foreach (var index in ConsumptionOrder())
+            {
+                var current = slots[index];
+                if (current is not { Kind: InventoryEntryKind.Item } ||
+                    current.Id != ingredient.Item)
+                    continue;
+
+                var taken = Math.Min(current.Quantity, required);
+                required -= taken;
+                slots[index] = current.Quantity == taken
+                    ? null : current.WithQuantity(current.Quantity - taken);
+                if (required == 0) break;
+            }
+            if (required != 0) return false;
+        }
+
+        var remaining = recipe.Result.Quantity;
+        while (remaining > 0)
+        {
+            var quantity = Math.Min(result.MaxStackSize, remaining);
+            if (!TryInsertInto(slots, new InventoryStack(result, quantity)))
+                return false;
+            remaining -= quantity;
+        }
+        return true;
+    }
+
+    // Selected hotbar slot first, then the other hotbar slots and backpack.
+    private IEnumerable<int> ConsumptionOrder()
+    {
+        yield return BackpackSlots + SelectedSlot;
+        for (var i = BackpackSlots; i < TotalSlots; i++)
+            if (i != BackpackSlots + SelectedSlot)
+                yield return i;
+        for (var i = 0; i < BackpackSlots; i++)
+            yield return i;
+    }
+
+    private static bool TryInsertInto(
+        InventoryStack?[] slots, InventoryStack incoming)
+    {
+        if (AvailableCapacity(slots, incoming) < incoming.Quantity)
+            return false;
+
         var remaining = incoming.Quantity;
         for (var phase = 0; phase < 2; phase++)
         {
             foreach (var index in InsertionOrder())
             {
-                var slot = _slots[index];
-                if (phase == 0 && (slot is null ||
-                                   !slot.CanStackWith(incoming))) continue;
-                if (phase == 1 && slot is not null) continue;
-                var move = Math.Min(
+                var slot = slots[index];
+                if (phase == 0 && (slot is null || !slot.CanStackWith(incoming)))
+                    continue;
+                if (phase == 1 && slot is not null)
+                    continue;
+
+                var moved = Math.Min(
                     incoming.MaxStackSize - (slot?.Quantity ?? 0), remaining);
-                if (move == 0) continue;
-                _slots[index] = incoming.WithQuantity(
-                    (slot?.Quantity ?? 0) + move);
-                remaining -= move;
-                if (remaining == 0)
-                {
-                    Revision++;
-                    return true;
-                }
+                if (moved == 0) continue;
+                slots[index] = incoming.WithQuantity(
+                    (slot?.Quantity ?? 0) + moved);
+                remaining -= moved;
+                if (remaining == 0) return true;
             }
         }
         throw new InvalidOperationException(
@@ -207,10 +300,14 @@ public sealed class PlayerInventory
         return changed;
     }
 
-    private int AvailableCapacity(InventoryStack incoming)
+    private int AvailableCapacity(InventoryStack incoming) =>
+        AvailableCapacity(_slots, incoming);
+
+    private static int AvailableCapacity(
+        InventoryStack?[] slots, InventoryStack incoming)
     {
         var capacity = 0;
-        foreach (var slot in _slots)
+        foreach (var slot in slots)
         {
             if (slot is null) capacity += incoming.MaxStackSize;
             else if (slot.CanStackWith(incoming))

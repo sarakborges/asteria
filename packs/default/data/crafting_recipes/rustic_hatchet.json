@@ -1,0 +1,10 @@
+{
+  "id": "asteria:rustic_hatchet",
+  "environment": "inventory",
+  "ingredients": [
+    { "item": "asteria:pebble", "quantity": 2 },
+    { "item": "asteria:stick", "quantity": 3 },
+    { "item": "asteria:plant_fiber", "quantity": 2 }
+  ],
+  "result": { "item": "asteria:hatchet_rustic", "quantity": 1 }
+}
