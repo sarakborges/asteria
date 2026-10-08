@@ -71,14 +71,24 @@ export function InventoryGameplayPage({
     [state.catalog],
   );
   const creative = state.creativeAvailable && creativeTab;
-  const creativeItems = state.catalog.filter(item =>
-    (category === null || item.category === category) &&
-    (item.name.toLowerCase().includes(creativeSearch.trim().toLowerCase()) ||
-      item.id.toLowerCase().includes(creativeSearch.trim().toLowerCase())),
-  );
-  const backpack = state.backpack.map(slot => itemView(slot, state.catalog));
-  const hotbar = state.hotbar.map(slot => itemView(slot, state.catalog));
-  const cursor = itemView(state.cursor, state.catalog);
+  const creativeItems = useMemo(() => {
+    const query = creativeSearch.trim().toLowerCase();
+    return state.catalog.filter(item =>
+      (category === null || item.category === category) &&
+      (item.name.toLowerCase().includes(query) || item.id.toLowerCase().includes(query)),
+    ).map(item => ({
+      ...item,
+      quantity: 1,
+      name: Object.keys(item.metadata).length > 0
+        ? item.name + " (" + Object.values(item.metadata).join(", ") + ")"
+        : item.name,
+    }));
+  }, [state.catalog, category, creativeSearch]);
+  const { backpack, hotbar, cursor } = useMemo(() => ({
+    backpack: state.backpack.map(slot => itemView(slot, state.catalog)),
+    hotbar: state.hotbar.map(slot => itemView(slot, state.catalog)),
+    cursor: itemView(state.cursor, state.catalog),
+  }), [state.backpack, state.hotbar, state.cursor, state.catalog]);
 
   return (
     <main className="inventory-gameplay">
@@ -111,13 +121,7 @@ export function InventoryGameplayPage({
               searchQuery: creativeSearch,
               selectedCategoryId: category,
               categories,
-              items: creativeItems.map(item => ({
-                ...item,
-                quantity: 1,
-                name: Object.keys(item.metadata).length > 0
-                  ? item.name + " (" + Object.values(item.metadata).join(", ") + ")"
-                  : item.name,
-              })),
+              items: creativeItems,
             }}
             hotbar={hotbar}
             onHotbarSlotClick={index => onSlotClick(index)}
