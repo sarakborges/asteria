@@ -299,6 +299,22 @@ therefore a gray visual effect on Wasteland dirt should first be
 investigated in voxel lighting/AO, face shading, geometry or adjacent
 gravel layers, rather than changing Wasteland's grass/foliage tint data.
 
+## Tree leaf biome tint
+
+Generated oak, willow, and enchanted trees share the existing block-material
+tint path: the leaf block authors `tint: "leaf"`, and its texture layers
+enable tinting via `dyable: true`. The authoritative `BiomeTintField`
+resolves the current Sphere's surface-biome palette at each mesh vertex.
+Enchanted Forest's leaf palette is intended to color enchanted-tree leaves;
+the enchanted leaf texture must not disable its tint flag. Changing that
+block applies equally to all authored enchanted tree variants without
+special casing placement or adding a second tint owner. Rare special-purpose
+tree foliage may deliberately remain untinted by authored definition.
+
+The regression test builds Core render meshes from default block/biome
+definitions and checks both the tinted vertex colors and the texture's
+encoded tint flag for oak, willow and enchanted leaves.
+
 ## Non-regression rules
 
 - No legacy worldgen implementation may be restored for convenience.
