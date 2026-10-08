@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { LoadingOverlay } from "./components/organisms/LoadingOverlay/LoadingOverlay";
 import { GameHudPage } from "./components/pages/GameHudPage/GameHudPage";
+import { InventoryGameplayPage } from "./components/pages/InventoryGameplayPage/InventoryGameplayPage";
 import { SettingsWorkspacePage } from "./components/pages/SettingsWorkspacePage/SettingsWorkspacePage";
 import { ControlsPage } from "./components/pages/ControlsPage/ControlsPage";
 import { PauseMenuPage } from "./components/pages/PauseMenuPage/PauseMenuPage";
@@ -35,6 +36,11 @@ export type AppActions = {
   setGameMode(value: import("./state/uiState").GameMode): void;
   beginKeyCapture(action: "Jump" | "Descend" | "ToolAction"): void;
   cancelKeyCapture(): void;
+  closeInventory(): void;
+  clickInventorySlot(index: number): void;
+  sortInventory(): void;
+  discardInventoryCursor(): void;
+  pickCreativeBlock(id: string): void;
 };
 
 export type AppProps = {
@@ -149,6 +155,17 @@ export function App({
             }}
           />
         </div>
+      )}
+
+      {!preWorldVisible && state.navigation.overlay === "inventory" && (
+        <InventoryGameplayPage
+          state={state.inventory}
+          onClose={actions.closeInventory}
+          onSlotClick={actions.clickInventorySlot}
+          onSort={actions.sortInventory}
+          onDiscardCursor={actions.discardInventoryCursor}
+          onCreativePick={actions.pickCreativeBlock}
+        />
       )}
 
       <LoadingOverlay state={state.loading} />

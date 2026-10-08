@@ -10,6 +10,7 @@ import {
 import { createHudController } from "./controllers/HudController";
 import { createLoadingController } from "./controllers/LoadingController";
 import { createUiNavigationController } from "./controllers/UiNavigationController";
+import { createInventoryController } from "./controllers/InventoryController";
 import { createSettingsController } from "./controllers/SettingsController";
 import { createWorldCreationController } from "./controllers/WorldCreationController";
 import { createInitialUiState } from "./state/uiState";
@@ -41,9 +42,11 @@ const worldCreation =
     postGodotMessage,
   );
 const settings = createSettingsController(store, postGodotMessage);
+const inventory = createInventoryController(store, postGodotMessage);
 
 subscribeGodotMessages((message) => {
   navigation.handleGodotMessage(message);
+  inventory.handleGodotMessage(message);
   hud.handleGodotMessage(message);
   settings.handleGodotMessage(message);
   worldCreation.handleGodotMessage(message);
@@ -76,6 +79,11 @@ createRoot(rootElement).render(
       setGameMode: settings.setGameMode,
       beginKeyCapture: settings.beginKeyCapture,
       cancelKeyCapture: settings.cancelKeyCapture,
+      closeInventory: inventory.close,
+      clickInventorySlot: inventory.clickSlot,
+      sortInventory: inventory.sort,
+      discardInventoryCursor: inventory.discardCursor,
+      pickCreativeBlock: inventory.pickCreative,
     }}
   />
   </LocalizationProvider>,

@@ -131,7 +131,7 @@ export type WorldCreationErrorKey =
   | "newWorld.error.unexpected";
 
 export type GameMode = "Survival" | "Creative" | "Spectator";
-export type OverlayScreen = "none" | "pause" | "game" | "world" | "controls";
+export type OverlayScreen = "none" | "pause" | "game" | "world" | "controls" | "inventory";
 
 export type WorldSettingsState = {
   name: string; mode: GameMode; ticksPerSecond: number;
@@ -166,6 +166,28 @@ export type WorldCreationState = {
   errorKey: WorldCreationErrorKey | null;
 };
 
+export type InventorySlotState = {
+  id: string;
+  quantity: number;
+} | null;
+
+export type InventoryCatalogEntry = {
+  id: string;
+  name: string;
+  category: string;
+};
+
+export type GameplayInventoryState = {
+  open: boolean;
+  creativeAvailable: boolean;
+  selectedIndex: number;
+  backpack: InventorySlotState[];
+  hotbar: InventorySlotState[];
+  cursor: InventorySlotState;
+  catalog: InventoryCatalogEntry[];
+  errorKey: string | null;
+};
+
 export type UiNavigationState = {
   preWorldScreen: "starting" | "new-world";
   overlay: OverlayScreen;
@@ -178,6 +200,7 @@ export type UiState = {
   worldCreation: WorldCreationState;
   navigation: UiNavigationState;
   settings: SettingsState;
+  inventory: GameplayInventoryState;
 };
 
 export function createInitialUiState(
@@ -233,6 +256,16 @@ export function createInitialUiState(
     settings: {
       client: null, world: null,
       captureAction: null, errorKey: null,
+    },
+    inventory: {
+      open: false,
+      creativeAvailable: false,
+      selectedIndex: 0,
+      backpack: Array(27).fill(null),
+      hotbar: Array(9).fill(null),
+      cursor: null,
+      catalog: [],
+      errorKey: null,
     },
   };
 }
