@@ -145,5 +145,12 @@
       "gravity": -1.25,
       "endScale": 0
     }
+  },
+  "naturalSpawn": {
+    "surfaceBiomes": [
+      "asteria:overworld/plains",
+      "asteria:overworld/swamp"
+    ],
+    "weight": 1
   }
 }

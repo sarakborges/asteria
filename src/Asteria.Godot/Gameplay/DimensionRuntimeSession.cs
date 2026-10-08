@@ -34,6 +34,7 @@ public sealed class DimensionRuntimeSession
     private readonly DroppedBlockRuntime _droppedBlocks;
     private readonly CreaturePresentationController _creaturePresentation;
     private readonly InventoryContentCatalog _inventoryCatalog;
+    private readonly CreatureNaturalSpawnRuntime _naturalSpawns;
     private bool _retiring;
     private bool _retired;
 
@@ -157,6 +158,9 @@ public sealed class DimensionRuntimeSession
                 biomes,
                 structures,
                 structureSets);
+        _naturalSpawns =
+            new CreatureNaturalSpawnRuntime(
+                creatures, biomes, state.NaturalSpawnNextAttemptTick);
         _initialPlayerPosition =
             state.PlayerPosition ??
             ResolveGeneratedSpawn();
@@ -374,18 +378,29 @@ public sealed class DimensionRuntimeSession
 
     public void AdvanceCreatures(double deltaSeconds, NVector3 playerPosition)
     {
-        if (_retiring || _retired || Creatures.Count == 0)
+        if (_retiring || _retired)
             return;
 
-        if (Creatures.AdvanceWorld(
+        var spawned = _naturalSpawns.TryAdvance(
+            WorldTicks.CurrentTick,
+            _state.GameRules.TicksPerSecond,
+            DimensionSeed,
+            playerPosition,
+            _state.GameRules.SpawnCreatures,
+            Generator,
+            World,
+            Blocks,
+            Creatures);
+
+        var changed = Creatures.Count > 0 &&
+            Creatures.AdvanceWorld(
                 deltaSeconds,
                 playerPosition,
                 World,
                 Blocks,
-                Dimension.GravityStrength))
-        {
+                Dimension.GravityStrength);
+        if (spawned || changed)
             _creaturePresentation.Sync(Creatures.ActiveCreatures);
-        }
     }
 
     public VoxelWorld World { get; }
@@ -624,6 +639,8 @@ public sealed class DimensionRuntimeSession
             _droppedBlocks.CaptureState();
         _state.Creatures =
             Creatures.CaptureState();
+        _state.NaturalSpawnNextAttemptTick =
+            _naturalSpawns.NextAttemptTick;
         _creaturePresentation.Retire();
 
         var archive =

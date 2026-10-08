@@ -52,6 +52,8 @@ public sealed class DimensionSessionState
 
     public CreatureRuntimeSnapshot? Creatures { get; set; }
 
+    public ulong NaturalSpawnNextAttemptTick { get; set; }
+
     public DimensionSessionArchiveReport
         ArchiveResidentWorld()
     {

@@ -96,6 +96,11 @@ for (const [domain, directories] of [
             throw new Error(definition.id + ": unresolved creature loot item " + entry.item);
           }
         }
+        for (const biome of definition.naturalSpawn?.surfaceBiomes ?? []) {
+          if (!Object.hasOwn(catalog("english", "dimensions"), biome)) {
+            throw new Error(definition.id + ": unknown natural spawn biome " + biome);
+          }
+        }
       }
     }
   }
