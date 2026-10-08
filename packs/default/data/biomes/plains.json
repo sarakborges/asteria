@@ -56,7 +56,9 @@
       ],
       "cluster": {
         "scale": 18,
-        "threshold": -0.16
+        "threshold": -0.16,
+        "octaves": 4,
+        "transitionWidth": 0.12
       }
     }
   ],
