@@ -75,9 +75,13 @@ keeps Godot as an I/O/interaction adapter.
 
 ## Remaining
 
-Persist and restore *all* materialized chunks (resident and archived),
-per-Sphere storage boxes and detached entities, pending fluid/physics work,
-player inventory and state, world creation settings/game rules, world tick
-and day-night clock, manual structures and active Sphere. Add bounded atomic
-filesystem publication/recovery with generation validity, world load/delete
-and save/leave UI wiring, then real Godot/Wry tests.
+Wire the spatial snapshot capture and disk publisher into a quiescent
+gameplay save lifecycle. Persist and restore the remaining authoritative
+world/session state: player inventory, cursor, game mode and movement, game
+rules and creation options, per-Sphere storage boxes and manual structures,
+detached creatures/drops and pending fluid/physics work, world ticks, day/night,
+current Sphere and all saved player positions. Publish one manifest only after
+*all* spatial and session components of a generation have been validated.
+Implement world load/delete and save/leave UI after full restore is supported.
+Test recovered worlds end-to-end in Godot/Wry before marking any catalog entry
+compatible. Do not present the spatial-only files as playable saves.
