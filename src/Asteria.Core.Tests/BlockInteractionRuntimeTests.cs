@@ -210,6 +210,76 @@ public sealed class BlockInteractionRuntimeTests
                 .MicroblockMask);
     }
 
+    [Fact]
+    public void GroundObjectPickupMovesOneItemToInventoryWithoutSpawningDrop()
+    {
+        var definition = new BlockDefinition(
+            "asteria:pebble", interaction: BlockInteractionKind.Pickup,
+            pickupItemId: "asteria:pebble");
+        var fixture = CreateFixture(definition);
+        var position = new WorldVoxelCoord(2, 2, 2);
+        Assert.True(fixture.Mutations.SetBlockAt(
+            position, fixture.Blocks.GetId(definition.Id), out _));
+        var inventory = new PlayerInventory();
+        var item = InventoryEntry.FromItem("asteria:pebble");
+        var hit = new VoxelWorldHit(position, 0, 0, 0);
+
+        Assert.Equal(BlockBreakRejection.PickupOnly,
+            fixture.Interactions.Break(hit).Rejection);
+        Assert.Equal(BlockPickupResult.Collected,
+            fixture.Interactions.Pickup(hit, inventory, item));
+        Assert.True(fixture.World.GetCellOrEmpty(position).IsEmpty);
+        Assert.Equal(0, fixture.Dropped.ActiveCount);
+        Assert.Equal(InventoryEntryKind.Item, inventory.SelectedStack!.Kind);
+        Assert.Equal("asteria:pebble", inventory.SelectedStack.Id);
+        Assert.Equal(1, inventory.SelectedStack.Quantity);
+        Assert.Equal(BlockPickupResult.UnloadedOrEmpty,
+            fixture.Interactions.Pickup(hit, inventory, item));
+        Assert.Equal(1, inventory.SelectedStack.Quantity);
+    }
+
+    [Fact]
+    public void GroundObjectPickupPreservesVoxelWhenInventoryFullOrItemIsWrong()
+    {
+        var definition = new BlockDefinition(
+            "asteria:stick", interaction: BlockInteractionKind.Pickup);
+        var fixture = CreateFixture(definition);
+        var position = new WorldVoxelCoord(2, 2, 2);
+        var block = fixture.Blocks.GetId(definition.Id);
+        Assert.True(fixture.Mutations.SetBlockAt(position, block, out _));
+        var hit = new VoxelWorldHit(position, 0, 0, 0);
+        var inventory = new PlayerInventory();
+        Assert.Equal(BlockPickupResult.WrongItem,
+            fixture.Interactions.Pickup(
+                hit, inventory, InventoryEntry.FromItem("asteria:pebble")));
+        for (var index = 0; index < PlayerInventory.TotalSlots; index++)
+        {
+            Assert.True(inventory.TryInsert(
+                new InventoryStack(InventoryEntry.FromItem(
+                    $"asteria:filled_{index}"), 64)));
+        }
+
+        Assert.Equal(BlockPickupResult.InventoryFull,
+            fixture.Interactions.Pickup(
+                hit, inventory, InventoryEntry.FromItem("asteria:stick")));
+        Assert.Equal(block, fixture.World.GetCellOrEmpty(position).Block);
+        Assert.Equal(0, fixture.Dropped.ActiveCount);
+    }
+
+    [Fact]
+    public void NormalBlockCannotBePickedUp()
+    {
+        var fixture = CreateFixture(new BlockDefinition("asteria:stone"));
+        var position = new WorldVoxelCoord(2, 2, 2);
+        Assert.True(fixture.Mutations.SetBlockAt(
+            position, fixture.Blocks.GetId("asteria:stone"), out _));
+        Assert.Equal(BlockPickupResult.NotPickupable,
+            fixture.Interactions.Pickup(
+                new VoxelWorldHit(position, 0, 0, 0),
+                new PlayerInventory(), InventoryEntry.FromItem("asteria:stone")));
+        Assert.Equal(0, fixture.Dropped.ActiveCount);
+    }
+
     private static Fixture CreateFixture(
         BlockDefinition definition)
     {

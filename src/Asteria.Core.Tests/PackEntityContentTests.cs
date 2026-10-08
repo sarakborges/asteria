@@ -21,7 +21,11 @@ public sealed class PackEntityContentTests
         var registry = PackContentRegistry<ItemDefinition>.FromJson(
             documents, ItemDefinition.Parse, item => item.Id);
 
-        Assert.Equal(12, registry.Count);
+        Assert.Equal(14, registry.Count);
+        var pebble = registry.Get("asteria:pebble");
+        Assert.Equal("textures/items/pebble.png", pebble.Icon);
+        var stick = registry.Get("asteria:stick");
+        Assert.Equal("textures/items/stick.png", stick.Icon);
         var slicer = registry.Get("asteria:dimensional_slicer");
         Assert.Equal("tools", slicer.Category);
         var variant = Assert.Single(slicer.IconVariants);

@@ -9,7 +9,8 @@
     "texture": "textures/items/pebble.png",
     "width": 0.42,
     "height": 0.012,
-    "baseOffset": 0.0125
+    "baseOffset": 0.0125,
+    "targetHeight": 0.14
   },
   "placementFaces": [
     "top"
@@ -22,5 +23,7 @@
   "lightDampening": 0,
   "alphaCutoff": 0.5,
   "previewColor": "888988",
-  "dropsSelf": true
+  "dropsSelf": true,
+  "interaction": "pickup",
+  "pickupItem": "asteria:pebble"
 }

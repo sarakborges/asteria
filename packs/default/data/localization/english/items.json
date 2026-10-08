@@ -32,7 +32,13 @@
   "asteria:essence_voltra": {
     "/name": "Voltra Essence"
   },
+  "asteria:pebble": {
+    "/name": "Pebble"
+  },
   "asteria:plant_fiber": {
     "/name": "Plant Fiber"
+  },
+  "asteria:stick": {
+    "/name": "Stick"
   }
 }

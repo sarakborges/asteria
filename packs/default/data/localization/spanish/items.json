@@ -32,7 +32,13 @@
   "asteria:essence_voltra": {
     "/name": "Esencia Voltra"
   },
+  "asteria:pebble": {
+    "/name": "Guijarro"
+  },
   "asteria:plant_fiber": {
     "/name": "Fibra Vegetal"
+  },
+  "asteria:stick": {
+    "/name": "Palo"
   }
 }
