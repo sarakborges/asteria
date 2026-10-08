@@ -84,6 +84,7 @@ public partial class Main : Node3D
 
     private BlockRegistry _blocks = null!;
     private AttachedLayerRegistry _layers = null!;
+    private DyeRegistry _dyes = null!;
     private PackContentRegistry<ItemDefinition> _items = null!;
     private PackContentRegistry<ToolDefinition> _tools = null!;
     private InventoryContentCatalog _inventoryCatalog = null!;
@@ -153,6 +154,7 @@ public partial class Main : Node3D
             BlockContentLoader.LoadProjectBlocks(
                 _packSelection);
         _layers = AttachedLayerContentLoader.LoadProjectLayers(_packSelection);
+        _dyes = DyeContentLoader.LoadProjectDyes(_packSelection);
         _fluids =
             FluidContentLoader.LoadProjectFluids(
                 _packSelection);
@@ -598,6 +600,7 @@ public partial class Main : Node3D
             state,
             _blocks,
             _layers,
+            _dyes,
             _fluids,
             _biomes,
             _structures,

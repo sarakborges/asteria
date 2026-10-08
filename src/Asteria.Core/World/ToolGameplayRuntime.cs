@@ -18,17 +18,33 @@ public sealed class ToolGameplayRuntime
     private readonly BlockRegistry _blocks;
     private readonly VoxelMutationRuntime _mutations;
     private readonly PackContentRegistry<ToolDefinition> _tools;
+    private readonly DyeRegistry? _dyes;
 
     public ToolGameplayRuntime(
         VoxelWorld world,
         BlockRegistry blocks,
         VoxelMutationRuntime mutations,
-        PackContentRegistry<ToolDefinition> tools)
+        PackContentRegistry<ToolDefinition> tools,
+        DyeRegistry? dyes = null)
     {
         _world = world ?? throw new ArgumentNullException(nameof(world));
         _blocks = blocks ?? throw new ArgumentNullException(nameof(blocks));
         _mutations = mutations ?? throw new ArgumentNullException(nameof(mutations));
         _tools = tools ?? throw new ArgumentNullException(nameof(tools));
+        _dyes = dyes;
+    }
+
+    public string? SelectedBrushDyeId { get; private set; }
+
+    public IReadOnlyList<DyeDefinition> BrushPalette =>
+        _dyes?.Palette ?? Array.Empty<DyeDefinition>();
+
+    public bool TrySelectBrushDye(string? id)
+    {
+        if (id is not null && (_dyes is null || !_dyes.TryGet(id, out _)))
+            return false;
+        SelectedBrushDyeId = id;
+        return true;
     }
 
     public bool CanMine(
@@ -89,6 +105,18 @@ public sealed class ToolGameplayRuntime
         VoxelWorldHit hit)
     {
         var behavior = GetBehavior(held, hand);
+        if (behavior == "asteria:brush/paint")
+        {
+            if (_dyes is null || !_world.TryGetCell(hit.Voxel, out var cell) || cell.IsEmpty)
+                return false;
+            var definition = _blocks.GetDefinition(cell.Block);
+            if (!definition.SupportsDye || definition.Mining.Unbreakable)
+                return false;
+            var previous = _world.GetBlockSurfaceStateOrEmpty(hit.Voxel);
+            return _mutations.SetBlockSurfaceStateAt(
+                hit.Voxel, previous.WithDye(SelectedBrushDyeId), out _);
+        }
+
         if (behavior == "asteria:layer/remove")
         {
             if (!TryHitFace(hit, out var face) ||
@@ -140,7 +168,7 @@ public sealed class ToolGameplayRuntime
             _world, hit.Voxel, cell);
         return _mutations.SetBlockStateAt(
             hit.Voxel,
-            new BlockStateSnapshot(converted, snapshot.MicroblockMask),
+            new BlockStateSnapshot(converted, snapshot.MicroblockMask, snapshot.SurfaceState),
             out _);
     }
 

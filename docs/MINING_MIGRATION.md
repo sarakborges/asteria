@@ -61,3 +61,9 @@ The native input, mutation, content and Sphere boundaries remain unchanged: no U
 - A Sphere's terrain mesh worker now receives the immutable `AttachedLayerRegistry` and resolves attached layers from chunk snapshots. `ChunkMeshDataBuilder` projects offset non-colliding quads onto exposed cube faces and onto exposed fine-geometry surfaces of sculpted hosts.
 - Existing greedy terrain and fine geometry paths retain their collision contract. Per-layer rotation, face selection, layered offset and authored tint/render/shadow policy are applied by the existing texture-array mesh data pipeline.
 - Shears can remove layers attached through Core mutations, but no layer placement UI/tool has yet been wired. Brush color rendering and palette are still pending, as are the original MineClone moss and portal textures.
+
+## Brush tintura (2026-10-08)
+
+- Cores HSI do MineClone são authored em `packs/default/data/dyes/*.json`; `DyeRegistry` valida cores, IDs e ordena a paleta.
+- `secondaryProperties: ["dyed"]` opta um bloco à pintura. `ToolGameplayRuntime` mantém a seleção por sessão, inicialmente como modo limpar, e grava a tintura somente via mutação canônica de `BlockSurfaceState`.
+- Pintura rejeita IDs desconhecidos, blocos incompatíveis, invioláveis e no-ops. Renderização e seleção via WebUI devem consumir este contrato.

@@ -10,6 +10,7 @@ public sealed class BlockDefinition
 {
     private static readonly BlockOrientation[] DefaultOrientations = [BlockOrientation.Y];
     private readonly HashSet<string> _tags;
+    private readonly HashSet<string> _secondaryProperties;
 
     public BlockDefinition(
         string id,
@@ -32,7 +33,8 @@ public sealed class BlockDefinition
         BlockPreviewColor? previewColor = null,
         bool dropsSelf = true,
         BlockInteractionKind interaction = BlockInteractionKind.Break,
-        string? pickupItemId = null)
+        string? pickupItemId = null,
+        IEnumerable<string>? secondaryProperties = null)
     {
         ValidateId(id);
         if (!Enum.IsDefined(interaction))
@@ -64,6 +66,7 @@ public sealed class BlockDefinition
         Id = id;
         Category = category;
         _tags = ValidateTags(tags);
+        _secondaryProperties = ValidateTags(secondaryProperties);
         Tint = tint;
         Textures = textures ?? new BlockTextureSet();
         Visual =
@@ -93,6 +96,8 @@ public sealed class BlockDefinition
     public string Id { get; }
     public string Category { get; }
     public IReadOnlySet<string> Tags => _tags;
+    public IReadOnlySet<string> SecondaryProperties => _secondaryProperties;
+    public bool SupportsDye => _secondaryProperties.Contains("dyed");
     public BlockTint Tint { get; }
     public BlockTextureSet Textures { get; }
     public BlockVisualDefinition Visual { get; }
