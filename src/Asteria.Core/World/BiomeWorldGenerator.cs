@@ -144,7 +144,8 @@ public sealed class BiomeWorldGenerator :
             new BiomeSurfaceMaterialField(
                 seed,
                 materialDefinitions,
-                blocks);
+                blocks,
+                _terrain);
         _surfaceStructures =
             new SurfaceStructureField(
                 seed,
@@ -167,7 +168,8 @@ public sealed class BiomeWorldGenerator :
             new SurfaceDecorationField(
                 seed,
                 materialDefinitions,
-                blocks);
+                blocks,
+                _terrain);
         _materializer =
             new SurfaceChunkMaterializer(
                 _surfaceColumns,
