@@ -100,6 +100,9 @@ public partial class Main : Node3D
     private StructureSetRegistry _structureSets = null!;
     private DimensionRegistry _dimensions = null!;
     private DayNightCycleRegistry _dayNightCycles = null!;
+    private AmbientParticleRegistry _ambientParticleDefinitions = null!;
+    private AmbientParticleRuntime? _ambientParticleRuntime;
+    private AmbientParticlePresentation? _ambientParticlePresentation;
     private DimensionSessionStateStore _sessionStates = null!;
     private DimensionSessionController _sessions = null!;
     private DimensionDefinition _dimension =>
@@ -198,6 +201,9 @@ public partial class Main : Node3D
             _blocks);
         _dimensions.ValidateFluids(
             _fluids);
+        _ambientParticleDefinitions =
+            AmbientParticleContentLoader.LoadProjectParticles(_packSelection);
+        _ambientParticleDefinitions.ValidateReferences(_dimensions, _biomes, _fluids);
         _structures.ValidateBlocks(
             _blocks, _dyes, _layers);
         _structures.ValidateFluids(
@@ -437,6 +443,20 @@ public partial class Main : Node3D
                 new NVector3(position.X, position.Y, position.Z));
         }
 
+        if (_worldReadySent && _player is { } particleObserver)
+        {
+            var cameraPosition = particleObserver.Camera.GlobalPosition;
+            _ambientParticleRuntime!.Advance(
+                (float)delta,
+                new NVector3(cameraPosition.X, cameraPosition.Y, cameraPosition.Z),
+                _dimension.Id,
+                _dimension.Environment.Wind,
+                _world,
+                _sessions.Active.Generator,
+                _fluids);
+            _ambientParticlePresentation!.Sync(_ambientParticleRuntime);
+        }
+
         SendWorldHudState();
         SendWorldClockState();
         SendTargetHudState();
@@ -489,6 +509,8 @@ public partial class Main : Node3D
         }
 
         RetirePlayerForDimensionTransition();
+        _ambientParticleRuntime?.Clear();
+        _ambientParticlePresentation?.Clear();
         _worldReadySent = false;
         _loading.BeginRetirement();
         _lastLoadingProgress = null;
@@ -546,6 +568,10 @@ public partial class Main : Node3D
 
     private void ActivateCurrentDimensionPresentation()
     {
+        _ambientParticleRuntime = new AmbientParticleRuntime(
+            _ambientParticleDefinitions, _dimensionSeed);
+        _ambientParticlePresentation = new AmbientParticlePresentation(
+            _sessions.Active.Root, _ambientParticleDefinitions);
         _terrainMaterials.SetWind(_dimension.Environment.Wind);
         _dimensionEnvironment.Apply(
             _dimension,
