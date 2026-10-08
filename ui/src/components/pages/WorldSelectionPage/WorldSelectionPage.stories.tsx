@@ -30,6 +30,9 @@ const meta = {
     ],
     onBack: () => undefined,
     onCreateWorld: () => undefined,
+    onOpenSavesFolder: () => undefined,
+    onLoad: () => undefined,
+    onDelete: () => undefined,
   },
 } satisfies Meta<typeof WorldSelectionPage>;
 
@@ -37,6 +40,22 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const WithWorlds: Story = {};
+
+export const Unavailable: Story = {
+  args: {
+    worlds: [],
+    status: "Saved-world browsing is not available in this build.",
+    onOpenSavesFolder: undefined,
+  },
+};
+
+export const Verifying: Story = {
+  args: {
+    worlds: [],
+    status: "Verifying saved worlds...",
+    onOpenSavesFolder: undefined,
+  },
+};
 
 export const Empty: Story = {
   args: {
