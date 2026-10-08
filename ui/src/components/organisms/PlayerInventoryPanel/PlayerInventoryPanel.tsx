@@ -83,6 +83,8 @@ export function PlayerInventoryPanel({
             <InventorySlot
               key={index}
               item={item}
+              disabled={Boolean(state.searchQuery.trim()) &&
+                !item?.id.toLowerCase().includes(state.searchQuery.trim().toLowerCase())}
               onClick={() =>
                 onSlotClick?.(
                   index,
@@ -101,6 +103,8 @@ export function PlayerInventoryPanel({
               <InventorySlot
                 key={index}
                 item={item}
+                disabled={Boolean(state.searchQuery.trim()) &&
+                  !item?.id.toLowerCase().includes(state.searchQuery.trim().toLowerCase())}
                 onClick={() =>
                   onSlotClick?.(
                     backpack.length +
