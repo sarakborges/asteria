@@ -165,7 +165,7 @@ public sealed class DimensionSessionStateStore
                     _worldSeed,
                     definition.Id),
                 GameRules,
-                Generation);
+                Generation.ForSphere(definition));
         _states.Add(
             dimensionId,
             state);
