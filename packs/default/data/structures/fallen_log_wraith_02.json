@@ -1,0 +1,61 @@
+{
+  "id": "asteria:fallen_log_wraith_02",
+  "groupId": "fallen_log_wraith",
+  "rotation": true,
+  "locatable": false,
+  "priority": -1,
+  "conflictGroups": [
+    "wood_debris"
+  ],
+  "restrictions": {
+    "groundBlocks": [
+      "asteria:dirt",
+      "asteria:gravel",
+      "asteria:stone"
+    ],
+    "maxSlope": 0,
+    "requiresDryGround": true,
+    "requiredBiomeCoverage": 1
+  },
+  "generation": {
+    "replacePolicy": "terrain",
+    "fluidPolicy": "forbid",
+    "reserveSpace": false
+  },
+  "anchor": {
+    "x": 4,
+    "y": 0,
+    "z": 4
+  },
+  "groundAnchorY": 0,
+  "palette": {
+    "L": {
+      "block": "asteria:log_enchanted_stripped",
+      "orientation": "x"
+    },
+    "H": {
+      "block": "asteria:log_enchanted_stripped_hollow",
+      "orientation": "x"
+    },
+    "S": {
+      "block": "asteria:log_enchanted",
+      "orientation": "x"
+    }
+  },
+  "layers": [
+    {
+      "y": 1,
+      "rows": [
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        "..LSLLHL.",
+        ".........",
+        ".........",
+        ".........",
+        "........."
+      ]
+    }
+  ]
+}
