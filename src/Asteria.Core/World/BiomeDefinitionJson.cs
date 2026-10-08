@@ -179,7 +179,10 @@ public static class BiomeDefinitionJson
                         RequiredSingle(value, "warpScale"),
                         RequiredSingle(value, "warpStrength"),
                         RequiredSingle(value, "detailAmplitude"),
-                        RequiredSingle(value, "detailScale")),
+                        RequiredSingle(value, "detailScale"),
+                        OptionalSingle(value, "waveDirectionZ") ?? 0.35f,
+                        OptionalSingle(value, "broadScaleMultiplier") ?? 0.55f,
+                        OptionalSingle(value, "waveWeight") ?? 0.72f),
                 "ocean" =>
                     new BiomeOceanTerrainShapeDefinition(
                         RequiredSingle(value, "depth"),
@@ -194,7 +197,13 @@ public static class BiomeDefinitionJson
                         RequiredSingle(value, "amplitude"),
                         RequiredSingle(value, "scale"),
                         RequiredSingle(value, "detailAmplitude"),
-                        RequiredSingle(value, "detailScale")),
+                        RequiredSingle(value, "detailScale"),
+                        OptionalSingle(value, "pondBroadScaleMultiplier") ?? 3.2f,
+                        OptionalSingle(value, "pondDetailScaleMultiplier") ?? 0.85f,
+                        OptionalSingle(value, "pondBroadWeight") ?? 0.66f,
+                        OptionalSingle(value, "pondBias") ?? 0.05f,
+                        OptionalSingle(value, "pondTransitionWidth") ?? 0.42f,
+                        OptionalSingle(value, "pondSharpness") ?? 0.82f),
                 "mountains" =>
                     new BiomeMountainsTerrainShapeDefinition(
                         RequiredSingle(value, "baseHeight"),
@@ -209,7 +218,9 @@ public static class BiomeDefinitionJson
                         RequiredSingle(value, "topAmplitude"),
                         RequiredSingle(value, "topScale"),
                         RequiredSingle(value, "floorAmplitude"),
-                        RequiredSingle(value, "floorScale")),
+                        RequiredSingle(value, "floorScale"),
+                        OptionalSingle(value, "rimFalloff") ?? 0.8f,
+                        OptionalSingle(value, "floorFalloff") ?? 1.35f),
                 "alps" =>
                     new BiomeAlpsTerrainShapeDefinition(
                         RequiredSingle(value, "baseHeight"),
@@ -217,7 +228,8 @@ public static class BiomeDefinitionJson
                         RequiredSingle(value, "scale"),
                         RequiredSingle(value, "sharpness"),
                         RequiredSingle(value, "detailAmplitude"),
-                        RequiredSingle(value, "detailScale")),
+                        RequiredSingle(value, "detailScale"),
+                        OptionalSingle(value, "detailSharpness") ?? 1.35f),
                 "mountain_belt" =>
                     new BiomeMountainBeltTerrainShapeDefinition(
                         RequiredSingle(value, "baseHeight"),

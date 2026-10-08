@@ -197,7 +197,7 @@ internal sealed class SurfaceTerrainRule
             terrain.WarpStrength;
         var phase =
             (warpedX +
-             warpedZ * 0.35d) *
+             warpedZ * terrain.WaveDirectionZ) *
             terrain.Scale *
             Math.Tau;
         var wave =
@@ -213,7 +213,7 @@ internal sealed class SurfaceTerrainRule
                      _secondaryDomain,
                      warpedX,
                      warpedZ,
-                     terrain.Scale * 0.55d) +
+                     terrain.Scale * terrain.BroadScaleMultiplier) +
                  1d) *
                 0.5d,
                 0d,
@@ -221,8 +221,8 @@ internal sealed class SurfaceTerrainRule
         var dune =
             Math.Pow(
                 Math.Clamp(
-                    wave * 0.72d +
-                    broad * 0.28d,
+                    wave * terrain.WaveWeight +
+                    broad * (1d - terrain.WaveWeight),
                     0d,
                     1d),
                 terrain.Sharpness);
@@ -294,7 +294,7 @@ internal sealed class SurfaceTerrainRule
                 x,
                 z,
                 terrain.Scale *
-                3.2d);
+                terrain.PondBroadScaleMultiplier);
         var pondDetail =
             Fractal(
                 seed,
@@ -302,22 +302,22 @@ internal sealed class SurfaceTerrainRule
                 x,
                 z,
                 terrain.DetailScale *
-                0.85d);
+                terrain.PondDetailScaleMultiplier);
         var pondSignal =
             pondBroad *
-            0.66d +
+            terrain.PondBroadWeight +
             pondDetail *
-            0.34d;
+            (1d - terrain.PondBroadWeight);
         var pondStrength =
             Math.Pow(
                 WorldGenerationEntropy
                     .SmoothStep(
                         Math.Clamp(
-                            (pondSignal + 0.05d) /
-                            0.42d,
+                            (pondSignal + terrain.PondBias) /
+                            terrain.PondTransitionWidth,
                             0d,
                             1d)),
-                0.82d);
+                terrain.PondSharpness);
 
         return terrain.BaseHeight -
                terrain.Depth *
@@ -386,11 +386,11 @@ internal sealed class SurfaceTerrainRule
             Math.Pow(
                 1d -
                 strength,
-                0.8d);
+                terrain.RimFalloff);
         var floorShape =
             Math.Pow(
                 strength,
-                1.35d);
+                terrain.FloorFalloff);
 
         return terrain.BaseHeight +
                terrain.WallHeight *
@@ -442,7 +442,7 @@ internal sealed class SurfaceTerrainRule
                         detail),
                     0d,
                     1d),
-                1.35d);
+                terrain.DetailSharpness);
 
         return terrain.BaseHeight +
                ridge *

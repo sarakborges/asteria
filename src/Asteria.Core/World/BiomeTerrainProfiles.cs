@@ -110,8 +110,14 @@ public sealed class BiomeDunesTerrainShapeDefinition :
         float warpScale,
         float warpStrength,
         float detailAmplitude,
-        float detailScale)
+        float detailScale,
+        float waveDirectionZ = 0.35f,
+        float broadScaleMultiplier = 0.55f,
+        float waveWeight = 0.72f)
     {
+        WaveDirectionZ = TerrainValue.Finite(waveDirectionZ, nameof(waveDirectionZ));
+        BroadScaleMultiplier = TerrainValue.Positive(broadScaleMultiplier, nameof(broadScaleMultiplier));
+        WaveWeight = TerrainValue.ClosedUnit(waveWeight, nameof(waveWeight));
         BaseHeight = TerrainValue.Finite(baseHeight, nameof(baseHeight));
         Amplitude = TerrainValue.NonNegative(amplitude, nameof(amplitude));
         Scale = TerrainValue.Positive(scale, nameof(scale));
@@ -130,6 +136,9 @@ public sealed class BiomeDunesTerrainShapeDefinition :
     public float WarpStrength { get; }
     public float DetailAmplitude { get; }
     public float DetailScale { get; }
+    public float WaveDirectionZ { get; }
+    public float BroadScaleMultiplier { get; }
+    public float WaveWeight { get; }
 
     public override float MaximumHeightOffset =>
         BaseHeight + Amplitude + DetailAmplitude;
@@ -171,8 +180,20 @@ public sealed class BiomeSwampTerrainShapeDefinition :
         float amplitude,
         float scale,
         float detailAmplitude,
-        float detailScale)
+        float detailScale,
+        float pondBroadScaleMultiplier = 3.2f,
+        float pondDetailScaleMultiplier = 0.85f,
+        float pondBroadWeight = 0.66f,
+        float pondBias = 0.05f,
+        float pondTransitionWidth = 0.42f,
+        float pondSharpness = 0.82f)
     {
+        PondBroadScaleMultiplier = TerrainValue.Positive(pondBroadScaleMultiplier, nameof(pondBroadScaleMultiplier));
+        PondDetailScaleMultiplier = TerrainValue.Positive(pondDetailScaleMultiplier, nameof(pondDetailScaleMultiplier));
+        PondBroadWeight = TerrainValue.ClosedUnit(pondBroadWeight, nameof(pondBroadWeight));
+        PondBias = TerrainValue.Finite(pondBias, nameof(pondBias));
+        PondTransitionWidth = TerrainValue.Positive(pondTransitionWidth, nameof(pondTransitionWidth));
+        PondSharpness = TerrainValue.Positive(pondSharpness, nameof(pondSharpness));
         BaseHeight = TerrainValue.Finite(baseHeight, nameof(baseHeight));
         Depth = TerrainValue.Positive(depth, nameof(depth));
         Amplitude = TerrainValue.NonNegative(amplitude, nameof(amplitude));
@@ -187,6 +208,12 @@ public sealed class BiomeSwampTerrainShapeDefinition :
     public float Scale { get; }
     public float DetailAmplitude { get; }
     public float DetailScale { get; }
+    public float PondBroadScaleMultiplier { get; }
+    public float PondDetailScaleMultiplier { get; }
+    public float PondBroadWeight { get; }
+    public float PondBias { get; }
+    public float PondTransitionWidth { get; }
+    public float PondSharpness { get; }
 
     public override float MaximumHeightOffset =>
         BaseHeight + Amplitude + DetailAmplitude;
@@ -226,8 +253,12 @@ public sealed class BiomeGorgeTerrainShapeDefinition :
         float topAmplitude,
         float topScale,
         float floorAmplitude,
-        float floorScale)
+        float floorScale,
+        float rimFalloff = 0.8f,
+        float floorFalloff = 1.35f)
     {
+        RimFalloff = TerrainValue.Positive(rimFalloff, nameof(rimFalloff));
+        FloorFalloff = TerrainValue.Positive(floorFalloff, nameof(floorFalloff));
         BaseHeight = TerrainValue.Finite(baseHeight, nameof(baseHeight));
         Depth = TerrainValue.NonNegative(depth, nameof(depth));
         WallHeight = TerrainValue.NonNegative(wallHeight, nameof(wallHeight));
@@ -244,6 +275,8 @@ public sealed class BiomeGorgeTerrainShapeDefinition :
     public float TopScale { get; }
     public float FloorAmplitude { get; }
     public float FloorScale { get; }
+    public float RimFalloff { get; }
+    public float FloorFalloff { get; }
 
     public override float MaximumHeightOffset =>
         BaseHeight + WallHeight + TopAmplitude + FloorAmplitude;
@@ -258,8 +291,10 @@ public sealed class BiomeAlpsTerrainShapeDefinition :
         float scale,
         float sharpness,
         float detailAmplitude,
-        float detailScale)
+        float detailScale,
+        float detailSharpness = 1.35f)
     {
+        DetailSharpness = TerrainValue.Positive(detailSharpness, nameof(detailSharpness));
         BaseHeight = TerrainValue.Finite(baseHeight, nameof(baseHeight));
         Amplitude = TerrainValue.NonNegative(amplitude, nameof(amplitude));
         Scale = TerrainValue.Positive(scale, nameof(scale));
@@ -273,6 +308,7 @@ public sealed class BiomeAlpsTerrainShapeDefinition :
     public float Scale { get; }
     public float Sharpness { get; }
     public float DetailAmplitude { get; }
+    public float DetailSharpness { get; }
     public float DetailScale { get; }
 
     public override float MaximumHeightOffset =>

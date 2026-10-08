@@ -22,7 +22,9 @@
     "topAmplitude": 10,
     "topScale": 0.008,
     "floorAmplitude": 6,
-    "floorScale": 0.032
+    "floorScale": 0.032,
+    "rimFalloff": 0.8,
+    "floorFalloff": 1.35
   },
   "surfaceLayers": [
     {

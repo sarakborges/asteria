@@ -24,7 +24,13 @@
     "detailAmplitude": 0.4,
     "detailScale": 0.045,
     "influenceMode": "lowerOnly",
-    "fillToSeaLevel": true
+    "fillToSeaLevel": true,
+    "pondBroadScaleMultiplier": 3.2,
+    "pondDetailScaleMultiplier": 0.85,
+    "pondBroadWeight": 0.66,
+    "pondBias": 0.05,
+    "pondTransitionWidth": 0.42,
+    "pondSharpness": 0.82
   },
   "surfaceLayers": [
     {
