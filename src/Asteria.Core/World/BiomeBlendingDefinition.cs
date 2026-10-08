@@ -15,7 +15,11 @@ public sealed class BiomeBlendingDefinition
         double fineWarpPeriod = 1.35d,
         double coarseWarpStrength = 0.42d,
         double fineWarpStrength = 0.16d,
-        BiomeInfluenceCurve influenceCurve = BiomeInfluenceCurve.SmoothStep)
+        BiomeInfluenceCurve influenceCurve = BiomeInfluenceCurve.SmoothStep,
+        IEnumerable<BiomeContourHarmonicDefinition>? contourHarmonics = null,
+        double sizeExponent = 0.12d,
+        double seedBiasAmplitude = 0.045d,
+        double continuationBonus = 0.055d)
     {
         if (!double.IsFinite(scoreBand) ||
             scoreBand is < 0.05d or > 2d ||
@@ -30,13 +34,37 @@ public sealed class BiomeBlendingDefinition
             !double.IsFinite(fineWarpStrength) ||
             fineWarpStrength is < 0d or > 0.3d ||
             coarseWarpStrength + fineWarpStrength > 0.75d ||
-            !Enum.IsDefined(influenceCurve))
+            !Enum.IsDefined(influenceCurve) ||
+            !double.IsFinite(sizeExponent) ||
+            sizeExponent is < 0d or > 0.5d ||
+            !double.IsFinite(seedBiasAmplitude) ||
+            seedBiasAmplitude is < 0d or > 0.25d ||
+            !double.IsFinite(continuationBonus) ||
+            continuationBonus is < 0d or > 0.25d)
         {
             throw new ArgumentOutOfRangeException(
                 nameof(scoreBand),
                 "Biome blending requires bounded finite band, jitter, warp periods, strengths and influence curve.");
         }
 
+        var harmonics = contourHarmonics?.ToArray() ??
+        [
+            new BiomeContourHarmonicDefinition(3, 0.13d),
+            new BiomeContourHarmonicDefinition(5, 0.07d),
+        ];
+        if (harmonics.Length > 4 ||
+            harmonics.Any(harmonic => harmonic is null) ||
+            harmonics.Sum(harmonic => harmonic.Amplitude) > 0.75d)
+        {
+            throw new ArgumentException(
+                "Contours allow at most four harmonics with total amplitude <= 0.75.",
+                nameof(contourHarmonics));
+        }
+
+        ContourHarmonics = Array.AsReadOnly(harmonics);
+        SizeExponent = sizeExponent;
+        SeedBiasAmplitude = seedBiasAmplitude;
+        ContinuationBonus = continuationBonus;
         ScoreBand = scoreBand;
         JitterFraction = jitterFraction;
         CoarseWarpPeriod = coarseWarpPeriod;
@@ -53,6 +81,11 @@ public sealed class BiomeBlendingDefinition
     public double CoarseWarpStrength { get; }
     public double FineWarpStrength { get; }
     public BiomeInfluenceCurve InfluenceCurve { get; }
+
+    public IReadOnlyList<BiomeContourHarmonicDefinition> ContourHarmonics { get; }
+    public double SizeExponent { get; }
+    public double SeedBiasAmplitude { get; }
+    public double ContinuationBonus { get; }
 
     public double WeightAt(double proximity) =>
         InfluenceCurve switch
@@ -73,4 +106,25 @@ public enum BiomeInfluenceCurve
     Linear,
     SmoothStep,
     SmootherStep,
+}
+
+public sealed class BiomeContourHarmonicDefinition
+{
+    public BiomeContourHarmonicDefinition(int lobes, double amplitude)
+    {
+        if (lobes is < 1 or > 12 ||
+            !double.IsFinite(amplitude) ||
+            amplitude is < 0d or > 0.4d)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(lobes),
+                "Contour lobes must be 1..12 and amplitude finite within 0..0.4.");
+        }
+
+        Lobes = lobes;
+        Amplitude = amplitude;
+    }
+
+    public int Lobes { get; }
+    public double Amplitude { get; }
 }
