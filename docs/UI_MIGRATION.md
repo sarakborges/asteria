@@ -25,6 +25,7 @@ MineClone reference: `sarakborges/mineclone`, branch `world-systems-rebuild`.
 - `src/ui/screen.rs` -> `ScreenShell` 1120 px content/header/body/footer layout.
 - `src/ui/settings.rs` -> shared settings gaps/tokens.
 - `src/ui/numeric_input.rs` -> digit-only `NumericInput` editor (Escape cancels, Enter/blur validates); `NumericStepper` reuses it rather than browser number controls.
+- `src/ui/dropdown.rs` -> `Dropdown` with 44 px control, 40 px options, anchored floating panel and selected/hover states; game settings and language selectors use it.
 
 ## First migrated screen
 
@@ -64,7 +65,6 @@ Major MineClone screens, modals, inventory/crafting and HUD surfaces have been m
 
 ## Remaining presentation differences
 
-- `src/ui/dropdown.rs`: Asteria's `Select` uses a native browser menu, not MineClone's 44 px anchored option panel, selected/hovered states or 40 px option rows.
 - `src/ui/scrollbar.rs`: scroll containers currently use CSS scrollbar styling; MineClone's auto-overflow visibility and 8 px track / minimum 28 px thumb are not yet consistently applied.
 - `src/ui/transition.rs`: MineClone's 160 ms fade-out + fade-in transition is not yet represented by a shared WebUI screen transition. Keep this presentation-only; navigation ownership stays in controllers.
 - Runtime-backed screens marked presentation-only above still need their authoritative gameplay owners before activation. Never invent save, inventory, pause or command behavior merely to make a screen clickable.
