@@ -15,7 +15,7 @@ export function TargetHud({
   state,
   miningProgress = null,
 }: TargetHudProps) {
-  const { contentName } = useLocalization();
+  const { contentName, t } = useLocalization();
   if (!state) return null;
 
   return (
@@ -42,7 +42,7 @@ export function TargetHud({
               className="target-hud__mining-progress"
               value={miningProgress}
               max={1}
-              aria-label="Block mining progress"
+              aria-label={t("hud.miningProgress")}
             />
           )}
       </div>
