@@ -11,8 +11,20 @@ public partial class FpsPlayer : CharacterBody3D
     private const float FlySpeedMultiplier = 5.0f;
     private const float MouseSensitivity = 0.0022f;
     private const float MaxPitch = 1.52f;
+    private const float ThirdPersonCameraDistance = 4f;
+
+    private enum CameraView : byte
+    {
+        FirstPerson,
+        ThirdPersonBack,
+        ThirdPersonFront,
+    }
 
     private Camera3D _camera = null!;
+    private Node3D _cameraPivot = null!;
+    private SpringArm3D _cameraArm = null!;
+    private float _cameraPitch;
+    private CameraView _cameraView;
     private CollisionShape3D _collider = null!;
     private bool _mouseCaptured;
     private bool _moveForward;
@@ -92,16 +104,29 @@ public partial class FpsPlayer : CharacterBody3D
             },
         };
 
+        _cameraPivot = new Node3D
+        {
+            Name = "CameraPivot",
+            Position = new Vector3(0f, 1.6f, 0f),
+        };
+        _cameraArm = new SpringArm3D
+        {
+            Name = "CameraCollisionArm",
+            SpringLength = 0f,
+            Margin = 0.12f,
+            CollisionMask = _solidCollisionMask,
+        };
         _camera = new Camera3D
         {
             Name = "Camera",
-            Position = new Vector3(0f, 1.6f, 0f),
             Current = true,
             Fov = 75f,
         };
 
         AddChild(_collider);
-        AddChild(_camera);
+        AddChild(_cameraPivot);
+        _cameraPivot.AddChild(_cameraArm);
+        _cameraArm.AddChild(_camera);
         ApplyGameMode();
         CaptureMouse();
     }
@@ -127,10 +152,10 @@ public partial class FpsPlayer : CharacterBody3D
         if (inputEvent is InputEventMouseMotion mouseMotion)
         {
             RotateY(-mouseMotion.Relative.X * MouseSensitivity);
-            _camera.Rotation = new Vector3(
-                Mathf.Clamp(_camera.Rotation.X - mouseMotion.Relative.Y * MouseSensitivity, -MaxPitch, MaxPitch),
-                0f,
-                0f);
+            _cameraPitch = Mathf.Clamp(
+                _cameraPitch - mouseMotion.Relative.Y * MouseSensitivity,
+                -MaxPitch, MaxPitch);
+            ApplyCameraView();
             return;
         }
 
@@ -200,7 +225,7 @@ public partial class FpsPlayer : CharacterBody3D
         var fluidContact =
             FluidContactProvider?.Invoke(
                 CollisionBounds,
-                _camera.GlobalPosition.Y) ??
+                _cameraPivot.GlobalPosition.Y) ??
             default;
 
         PublishFluidContact(
@@ -475,6 +500,32 @@ public partial class FpsPlayer : CharacterBody3D
         {
             ToolActionRequested?.Invoke();
         }
+    }
+
+    /// <summary>
+    /// Implements MineClone's configured F5 camera cycle with Godot's
+    /// collision-aware SpringArm. The player movement/body remains authoritative.
+    /// </summary>
+    public void CycleCameraPerspective()
+    {
+        if (_inputSuspended) return;
+        _cameraView = _cameraView switch
+        {
+            CameraView.FirstPerson => CameraView.ThirdPersonBack,
+            CameraView.ThirdPersonBack => CameraView.ThirdPersonFront,
+            _ => CameraView.FirstPerson,
+        };
+        ApplyCameraView();
+    }
+
+    private void ApplyCameraView()
+    {
+        _cameraPivot.Rotation = new Vector3(
+            _cameraPitch,
+            _cameraView == CameraView.ThirdPersonFront ? Mathf.Pi : 0f,
+            0f);
+        _cameraArm.SpringLength = _cameraView == CameraView.FirstPerson
+            ? 0f : ThirdPersonCameraDistance;
     }
 
     public void ResumeGameplay()

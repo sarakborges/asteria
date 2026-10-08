@@ -16,7 +16,7 @@ const meta = {
           hints: { rotateBlock: true, breakOrPlaceBlock: true },
         },
         keybinds: { jump: "Space", descend: "ShiftLeft", toolAction: "KeyR",
-          inventory: "KeyE", dropItem: "KeyQ" },
+          inventory: "KeyE", chat: "KeyT", dropItem: "KeyQ", changePerspective: "F5" },
       },
       world: { name: "New World", mode: "Survival", ticksPerSecond: 40, spawnCreatures: true },
       captureAction: null,

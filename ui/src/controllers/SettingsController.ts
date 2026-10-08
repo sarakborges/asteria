@@ -34,7 +34,7 @@ export function createSettingsController(
     setGameMode(value: GameMode) {
       post("ui.player.set_game_mode", { mode: value });
     },
-    beginKeyCapture(action: "Jump" | "Descend" | "ToolAction" | "Inventory" | "Chat" | "DropItem") {
+    beginKeyCapture(action: "Jump" | "Descend" | "ToolAction" | "Inventory" | "Chat" | "DropItem" | "ChangePerspective") {
       post("ui.client_preferences.capture_keybind", { action });
     },
     cancelKeyCapture() {
@@ -56,7 +56,8 @@ export function createSettingsController(
               typeof keys.jump !== "string" || typeof keys.descend !== "string" ||
               typeof keys.toolAction !== "string" ||
               typeof keys.inventory !== "string" || typeof keys.chat !== "string" ||
-              typeof keys.dropItem !== "string") break;
+              typeof keys.dropItem !== "string" ||
+              typeof keys.changePerspective !== "string") break;
           const client: ClientSettingsState = {
             renderDistanceChunks: payload.renderDistanceChunks,
             hud: {
@@ -69,7 +70,8 @@ export function createSettingsController(
             },
             keybinds: { jump: keys.jump, descend: keys.descend,
               toolAction: keys.toolAction,
-              inventory: keys.inventory, chat: keys.chat, dropItem: keys.dropItem },
+              inventory: keys.inventory, chat: keys.chat,
+              dropItem: keys.dropItem, changePerspective: keys.changePerspective },
           };
           store.update(state => ({
             ...state,
@@ -98,7 +100,7 @@ export function createSettingsController(
           const captureAction = isActive &&
             (action === "Jump" || action === "Descend" ||
              action === "ToolAction" || action === "Inventory" || action === "Chat" ||
-             action === "DropItem")
+             action === "DropItem" || action === "ChangePerspective")
             ? action : null;
           const errors: Record<string, string> = {
             ReservedKey: "settings.error.reservedKey",

@@ -381,6 +381,30 @@ public partial class Main : Node3D
             }
         }
 
+        if (_worldReadySent && !_inventoryOpen && !_brushPaletteOpen &&
+            !_chat.IsOpen && !_sessions.IsTransitioning &&
+            _player is { } activePlayer)
+        {
+            // Retain the old creature-spawn QA action only under a deliberate
+            // debug modifier; plain F5 belongs to Change Perspective.
+            if (_debugHudVisible && keyEvent.Keycode == Key.F5 &&
+                keyEvent.ShiftPressed)
+            {
+                if (TrySpawnCreatureForQa())
+                    GetViewport().SetInputAsHandled();
+                return;
+            }
+
+            if (GameplayKeyMap.Matches(
+                    keyEvent, _clientPreferences,
+                    KeybindAction.ChangePerspective))
+            {
+                activePlayer.CycleCameraPerspective();
+                GetViewport().SetInputAsHandled();
+                return;
+            }
+        }
+
         switch (keyEvent.Keycode)
         {
             case Key.F3:
@@ -398,13 +422,6 @@ public partial class Main : Node3D
 
                 break;
 
-            case Key.F5:
-                if (_debugHudVisible && TrySpawnCreatureForQa())
-                {
-                    GetViewport().SetInputAsHandled();
-                }
-
-                break;
         }
     }
 
