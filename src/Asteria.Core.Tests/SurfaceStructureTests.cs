@@ -38,10 +38,11 @@ public sealed class SurfaceStructureTests
             structures, structureSets);
 
         Assert.Equal(
-            57,
+            59,
             structures.Count);
         Assert.Equal(3, structures.ResolveReference("asteria:bush_oak").Count);
         Assert.Equal(5, structureSets.Count);
+        Assert.Equal(2, structures.ResolveReference("asteria:fallen_log_wraith").Count);
         Assert.Equal(3, structures.ResolveReference("asteria:tree_wraith").Count);
         Assert.Equal(2, structures.ResolveReference("asteria:wraith_snag").Count);
         Assert.Equal("asteria:tree_wraith",
