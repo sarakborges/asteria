@@ -291,6 +291,9 @@ public sealed class BiomeWorldGenerator :
             maxRadius,
             acceptsColumn);
 
+    public bool HasGeneratedSurfaceStructure(string reference) =>
+        _surfaceStructures.HasReference(reference);
+
     public IReadOnlyList<SurfaceStructureQueryResult>
         SurfaceStructuresIntersecting(
             int originX,
