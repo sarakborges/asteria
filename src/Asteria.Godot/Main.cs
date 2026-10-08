@@ -1990,6 +1990,7 @@ public partial class Main : Node3D
         if (!_brushPaletteOpen) return;
         _brushPaletteOpen = false;
         SendBrushPalette();
+        _player?.ResumeAfterKeyCapture();
         CallDeferred(nameof(ResumeGameplayAfterInventory));
     }
 
