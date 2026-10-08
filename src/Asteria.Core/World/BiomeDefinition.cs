@@ -33,10 +33,10 @@ public sealed class BiomeDefinition
         }
 
         if (volumeLayout is not null &&
-            terrain3d?.FloatingFormation is null)
+            terrain3d?.Additive.Count is not > 0)
         {
             throw new ArgumentException(
-                "Volume biome currently requires terrain3d.floatingFormation.");
+                "Volume biome currently requires terrain3d.additive.");
         }
 
         SurfaceLayout = surfaceLayout;
