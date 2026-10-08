@@ -14,6 +14,7 @@ export type WorldSelectionPageProps = {
   error?: string;
   onBack(): void;
   onCreateWorld(): void;
+  onOpenSavesFolder?(): void;
   onLoad?(id: string): void;
   onDelete?(id: string): void;
 };
@@ -24,26 +25,32 @@ export function WorldSelectionPage({
   error,
   onBack,
   onCreateWorld,
+  onOpenSavesFolder,
   onLoad,
   onDelete,
 }: WorldSelectionPageProps) {
   const { t } = useLocalization();
   return (
     <ScreenShell
-      title={t("ui.worlds")}
+      title={t("starting.loadWorlds")}
+      className="world-selection-screen"
       background={<CosmicBackground />}
       footer={
         <>
           <Button
-            label={t("ui.back")}
-            size="menu"
+            label={t("newWorld.return")}
             className="world-selection__footer-button"
             onClick={onBack}
           />
           <Button
-            label={t("ui.newWorld")}
+            label={t("worldSelection.openSavesFolder")}
+            className="world-selection__footer-button"
+            disabled={!onOpenSavesFolder}
+            onClick={onOpenSavesFolder}
+          />
+          <Button
+            label={t("starting.newWorld")}
             variant="primary"
-            size="menu"
             className="world-selection__footer-button"
             onClick={onCreateWorld}
           />
@@ -52,7 +59,7 @@ export function WorldSelectionPage({
     >
       <section className="world-selection">
         {status && worlds.length === 0 && (
-          <div className="world-selection__empty">
+          <div className="world-selection__empty" role="status">
             {status}
           </div>
         )}
