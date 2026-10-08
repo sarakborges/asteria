@@ -88,6 +88,7 @@ public partial class Main : Node3D
     private DyeRegistry _dyes = null!;
     private PackContentRegistry<ItemDefinition> _items = null!;
     private PackContentRegistry<ToolDefinition> _tools = null!;
+    private InventoryCraftingRuntime _crafting = null!;
     private InventoryContentCatalog _inventoryCatalog = null!;
     private InventoryDropIconCatalog _inventoryDropIcons = null!;
     private readonly Dictionary<string, string> _inventoryIconCache =
@@ -185,6 +186,9 @@ public partial class Main : Node3D
                 _packSelection);
         _inventoryCatalog = new InventoryContentCatalog(
             _blocks, _items, _tools, _layers);
+        _crafting = new InventoryCraftingRuntime(
+            CraftingContentLoader.LoadProjectRecipes(_packSelection),
+            _inventoryCatalog);
         _inventoryDropIcons = new InventoryDropIconCatalog(
             _packSelection, _inventoryCatalog);
         _creatures =
@@ -1132,6 +1136,9 @@ public partial class Main : Node3D
                 case "ui.inventory.creative_pick":
                     HandleCreativePick(document.RootElement);
                     break;
+                case "ui.inventory.craft":
+                    HandleInventoryCraft(document.RootElement);
+                    break;
             }
         }
         catch (JsonException exception)
@@ -1900,6 +1907,19 @@ public partial class Main : Node3D
                     inventory.SlotAt(PlayerInventory.BackpackSlots + i)))
                 .ToArray(),
             cursor = InventorySlotView(inventory.Cursor),
+            recipes = _crafting.Recipes.Select(recipe => new
+            {
+                id = recipe.Id,
+                resultId = recipe.Result.Item,
+                outputQuantity = recipe.Result.Quantity,
+                ingredients = recipe.Ingredients.Select(ingredient => new
+                {
+                    id = ingredient.Item,
+                    required = ingredient.Quantity,
+                    available = inventory.ItemQuantity(ingredient.Item),
+                }).ToArray(),
+                craftable = _crafting.CanCraft(inventory, recipe.Id),
+            }).ToArray(),
         });
     }
 
@@ -2719,6 +2739,33 @@ public partial class Main : Node3D
         SyncHeldBlock();
         SendHotbarState();
         SendInventoryState();
+    }
+
+    private void HandleInventoryCraft(JsonElement message)
+    {
+        if (!_inventoryOpen || !_worldReadySent || _sessions.IsTransitioning ||
+            !message.TryGetProperty("payload", out var payload) ||
+            payload.ValueKind != JsonValueKind.Object ||
+            !payload.TryGetProperty("recipeId", out var recipeValue) ||
+            recipeValue.ValueKind != JsonValueKind.String ||
+            string.IsNullOrWhiteSpace(recipeValue.GetString()))
+            return;
+
+        var recipeId = recipeValue.GetString()!;
+        var inventory = _sessionStates.Player.Inventory;
+        var result = _crafting.Craft(inventory, recipeId);
+        if (result == InventoryCraftingResult.Crafted)
+        {
+            SyncHeldBlock();
+            SendHotbarState();
+            SendInventoryState();
+        }
+
+        SendWebUi("game.inventory.crafting_result", new
+        {
+            code = result.ToString(),
+            recipeId,
+        });
     }
 
     private void HandleCreativePick(JsonElement message)

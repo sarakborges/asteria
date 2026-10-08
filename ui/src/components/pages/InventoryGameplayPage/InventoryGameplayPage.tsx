@@ -23,6 +23,7 @@ export type InventoryGameplayPageProps = {
   onSort(): void;
   onDiscardCursor(): void;
   onCreativePick(choice: InventoryCatalogEntry): void;
+  onCraft(recipeId: string): void;
 };
 
 /**
@@ -31,11 +32,12 @@ export type InventoryGameplayPageProps = {
  */
 export function InventoryGameplayPage({
   state, health, onClose, onSlotClick, onSort,
-  onDiscardCursor, onCreativePick,
+  onDiscardCursor, onCreativePick, onCraft,
 }: InventoryGameplayPageProps) {
-  const { t } = useLocalization();
+  const { t, contentName } = useLocalization();
   const cursorRef = useRef<HTMLDivElement>(null);
   const [creativeTab, setCreativeTab] = useState(false);
+  const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [creativeSearch, setCreativeSearch] = useState("");
   const [category, setCategory] = useState<string | null>(null);
@@ -65,6 +67,46 @@ export function InventoryGameplayPage({
     cursor: inventoryItemView(state.cursor, state.catalog),
   }), [state.backpack, state.hotbar, state.cursor, state.catalog]);
 
+  const recipes = useMemo(() => state.recipes.map(recipe => {
+    const result = state.catalog.find(item =>
+      item.id === recipe.resultId && Object.keys(item.metadata).length === 0);
+    return {
+      id: recipe.id,
+      result: {
+        id: recipe.resultId,
+        kind: result?.kind,
+        iconUrl: result?.iconUrl,
+      },
+      outputQuantity: recipe.outputQuantity,
+      ingredients: recipe.ingredients.map(ingredient => {
+        const item = state.catalog.find(choice =>
+          choice.id === ingredient.id && choice.kind === "item" &&
+          Object.keys(choice.metadata).length === 0);
+        return {
+          item: { id: ingredient.id, kind: "item" as const, iconUrl: item?.iconUrl },
+          required: ingredient.required,
+          available: ingredient.available,
+        };
+      }),
+      craftable: recipe.craftable,
+    };
+  }), [state.recipes, state.catalog]);
+  const selectedRecipe = recipes.some(recipe => recipe.id === selectedRecipeId)
+    ? selectedRecipeId : recipes[0]?.id ?? null;
+  const status = state.craftingStatus
+    ? state.craftingStatus.code === "Crafted"
+      ? t("crafting.crafted", {
+        item: contentName(state.recipes.find(
+          recipe => recipe.id === state.craftingStatus?.recipeId,
+        )?.resultId ?? state.craftingStatus.recipeId),
+      })
+      : t({
+        UnknownRecipe: "crafting.recipeUnavailable",
+        MissingIngredients: "crafting.missingIngredients",
+        InventoryFull: "crafting.inventoryFull",
+      }[state.craftingStatus.code])
+    : undefined;
+
   const followPointer = (event: PointerEvent<HTMLElement>) => {
     const overlay = cursorRef.current;
     if (!overlay) return;
@@ -93,8 +135,10 @@ export function InventoryGameplayPage({
             healthMaximum: health.maximum,
             equipment: [],
           } : null} />}
-          crafting={<CraftingPanel recipes={[]} selectedRecipeId={null}
-            status={t("inventory.craftingUnavailable")} />}
+          crafting={<CraftingPanel
+            recipes={recipes} selectedRecipeId={selectedRecipe}
+            status={status} onSelectRecipe={setSelectedRecipeId}
+            onCraft={onCraft} />}
           inventory={<PlayerInventoryPanel
             state={{ searchQuery: search, backpack, hotbar }}
             onSearchChange={setSearch}

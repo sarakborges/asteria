@@ -107,6 +107,7 @@ createRoot(rootElement).render(
       sortInventory: inventory.sort,
       discardInventoryCursor: inventory.discardCursor,
       pickCreativeBlock: inventory.pickCreative,
+      craftInventoryRecipe: inventory.craft,
     }}
   />
   </LocalizationProvider>,

@@ -13,3 +13,11 @@ Reference: MineClone main, `data/crafting_recipes/rustic_hatchet.json` and `src/
 ## Next stage
 
 Wire the recipe registry into Godot startup and its authoritative crafting actions/snapshots, then bind React's CraftingPanel and CurrentStationPanel through controllers and the store. Only mark it fully ported after playable crafting, inventory synchronization and WRY smoke tests; this Core stage alone does not make the panel interactive.
+
+## Stage 2 — Godot ↔ WebUI integration
+
+- Godot startup reads optional `crafting_recipes` from the selected pack and resolves it through the validated Core runtime.
+- `game.inventory.state` includes Core-authored recipes with live ingredient counts and authoritative craftability, published only when inventory state is sent.
+- `ui.inventory.craft` is a semantic UI action accepted only while the inventory is open and the world is ready. Core owns the operation; a successful craft republishes hotbar and inventory state.
+- `game.inventory.crafting_result` supplies structured result codes and localized UI feedback. The UI selects recipes locally but cannot mutate quantities.
+- Storybook covers the populated crafting panel inside the inventory and successful-result feedback. WRY input/click smoke testing on a local Godot build is still required.

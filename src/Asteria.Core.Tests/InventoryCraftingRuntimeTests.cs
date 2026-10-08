@@ -151,6 +151,22 @@ public sealed class InventoryCraftingRuntimeTests
     }
 
     [Fact]
+    public void CraftOutcomesDistinguishMissingIngredientsAndUnknownRecipes()
+    {
+        var crafting = CreateRuntime();
+        var inventory = new PlayerInventory();
+        Assert.Equal(InventoryCraftingResult.UnknownRecipe,
+            crafting.Craft(inventory, "asteria:unrecognized"));
+        Assert.Equal(InventoryCraftingResult.MissingIngredients,
+            crafting.Craft(inventory, "asteria:rustic_hatchet"));
+        Assert.Equal(0UL, inventory.Revision);
+
+        AddMaterials(inventory);
+        Assert.Equal(InventoryCraftingResult.Crafted,
+            crafting.Craft(inventory, "asteria:rustic_hatchet"));
+    }
+
+    [Fact]
     public void UnknownRecipesDoNotMutateInventory()
     {
         var crafting = CreateRuntime();

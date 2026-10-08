@@ -1,10 +1,63 @@
 import type { BridgeMessage } from "../bridge/godotBridge";
 import type {
   GameplayInventoryState, InventoryCatalogEntry,
+  InventoryCraftingRecipe, InventoryCraftingStatus,
 } from "../state/uiState";
 import type { UiStore } from "../state/uiStore";
 import { asRecord } from "./messagePayload";
 import { readKind, readMetadata, readSlot, readSlots } from "./inventoryMessageSlots";
+
+function readRecipes(value: unknown): InventoryCraftingRecipe[] | null {
+  if (!Array.isArray(value) || value.length > 256) return null;
+  const recipes: InventoryCraftingRecipe[] = [];
+  const ids = new Set<string>();
+  for (const raw of value) {
+    const recipe = asRecord(raw);
+    if (!recipe || typeof recipe.id !== "string" || !recipe.id ||
+        ids.has(recipe.id) || typeof recipe.resultId !== "string" ||
+        !recipe.resultId || !Number.isSafeInteger(recipe.outputQuantity) ||
+        (recipe.outputQuantity as number) <= 0 ||
+        typeof recipe.craftable !== "boolean" ||
+        !Array.isArray(recipe.ingredients) ||
+        recipe.ingredients.length === 0 || recipe.ingredients.length > 64)
+      return null;
+    ids.add(recipe.id);
+    const ingredients: InventoryCraftingRecipe["ingredients"] = [];
+    const ingredientIds = new Set<string>();
+    for (const rawIngredient of recipe.ingredients) {
+      const ingredient = asRecord(rawIngredient);
+      if (!ingredient || typeof ingredient.id !== "string" || !ingredient.id ||
+          ingredientIds.has(ingredient.id) ||
+          !Number.isSafeInteger(ingredient.required) ||
+          !Number.isSafeInteger(ingredient.available) ||
+          (ingredient.required as number) <= 0 ||
+          (ingredient.available as number) < 0)
+        return null;
+      ingredientIds.add(ingredient.id);
+      ingredients.push({
+        id: ingredient.id,
+        required: ingredient.required as number,
+        available: ingredient.available as number,
+      });
+    }
+    recipes.push({
+      id: recipe.id, resultId: recipe.resultId,
+      outputQuantity: recipe.outputQuantity as number,
+      ingredients, craftable: recipe.craftable,
+    });
+  }
+  return recipes;
+}
+
+function readCraftingStatus(value: unknown): InventoryCraftingStatus | null {
+  const payload = asRecord(value);
+  if (!payload || typeof payload.recipeId !== "string") return null;
+  if (payload.code !== "Crafted" &&
+      payload.code !== "UnknownRecipe" &&
+      payload.code !== "MissingIngredients" &&
+      payload.code !== "InventoryFull") return null;
+  return { code: payload.code, recipeId: payload.recipeId };
+}
 
 export function createInventoryController(
   store: UiStore,
@@ -18,6 +71,10 @@ export function createInventoryController(
     },
     sort() { post("ui.inventory.sort"); },
     discardCursor() { post("ui.inventory.discard_cursor"); },
+    craft(recipeId: string) {
+      if (!recipeId || !store.getSnapshot().inventory.open) return;
+      post("ui.inventory.craft", { recipeId });
+    },
     pickCreative(choice: InventoryCatalogEntry) {
       if (!choice.id) return;
       post("ui.inventory.creative_pick", {
@@ -37,7 +94,8 @@ export function createInventoryController(
           return;
         const backpack = readSlots(payload.backpack, 27);
         const hotbar = readSlots(payload.hotbar, 9);
-        if (!backpack || !hotbar) return;
+        const recipes = readRecipes(payload.recipes);
+        if (!backpack || !hotbar || !recipes) return;
         const open = payload.open;
         store.update(state => {
           const inventory: GameplayInventoryState = {
@@ -46,6 +104,7 @@ export function createInventoryController(
             creativeAvailable: payload.creativeAvailable as boolean,
             selectedIndex: payload.selectedIndex as number,
             backpack, hotbar, cursor: readSlot(payload.cursor),
+            recipes, craftingStatus: open ? state.inventory.craftingStatus : null,
             errorKey: null,
           };
           return {
@@ -81,6 +140,13 @@ export function createInventoryController(
         store.update(state => ({
           ...state,
           inventory: { ...state.inventory, catalog },
+        }));
+      } else if (message.type === "game.inventory.crafting_result") {
+        const craftingStatus = readCraftingStatus(message.payload);
+        if (!craftingStatus) return;
+        store.update(state => ({
+          ...state,
+          inventory: { ...state.inventory, craftingStatus },
         }));
       } else if (message.type === "game.inventory.error") {
         const errorKey = payload?.code === "InventoryFull"

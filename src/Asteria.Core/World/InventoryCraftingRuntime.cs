@@ -2,6 +2,14 @@ using Asteria.Core.Content;
 
 namespace Asteria.Core.World;
 
+public enum InventoryCraftingResult : byte
+{
+    Crafted,
+    UnknownRecipe,
+    MissingIngredients,
+    InventoryFull,
+}
+
 /// <summary>
 /// Immutable inventory-recipe bindings. The player's PlayerInventory remains
 /// the sole mutable owner of ingredients, output and transaction revisions.
@@ -64,10 +72,23 @@ public sealed class InventoryCraftingRuntime
             inventory.CanCraft(binding.Recipe, binding.Result);
     }
 
-    public bool TryCraft(PlayerInventory inventory, string recipeId)
+    public bool TryCraft(PlayerInventory inventory, string recipeId) =>
+        Craft(inventory, recipeId) == InventoryCraftingResult.Crafted;
+
+    public InventoryCraftingResult Craft(PlayerInventory inventory, string recipeId)
     {
         ArgumentNullException.ThrowIfNull(inventory);
-        return _recipes.TryGetValue(recipeId, out var binding) &&
-            inventory.TryCraft(binding.Recipe, binding.Result);
+        if (!_recipes.TryGetValue(recipeId, out var binding))
+            return InventoryCraftingResult.UnknownRecipe;
+
+        foreach (var ingredient in binding.Recipe.Ingredients)
+        {
+            if (inventory.ItemQuantity(ingredient.Item) < ingredient.Quantity)
+                return InventoryCraftingResult.MissingIngredients;
+        }
+
+        return inventory.TryCraft(binding.Recipe, binding.Result)
+            ? InventoryCraftingResult.Crafted
+            : InventoryCraftingResult.InventoryFull;
     }
 }

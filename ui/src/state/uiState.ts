@@ -226,6 +226,18 @@ export type StorageBoxState = {
   errorKey: string | null;
 };
 
+export type InventoryCraftingRecipe = {
+  id: string;
+  resultId: string;
+  outputQuantity: number;
+  ingredients: { id: string; required: number; available: number }[];
+  craftable: boolean;
+};
+
+export type InventoryCraftingStatus =
+  | { code: "Crafted"; recipeId: string }
+  | { code: "UnknownRecipe" | "MissingIngredients" | "InventoryFull"; recipeId: string };
+
 export type GameplayInventoryState = {
   open: boolean;
   creativeAvailable: boolean;
@@ -234,6 +246,8 @@ export type GameplayInventoryState = {
   hotbar: InventorySlotState[];
   cursor: InventorySlotState;
   catalog: InventoryCatalogEntry[];
+  recipes: InventoryCraftingRecipe[];
+  craftingStatus: InventoryCraftingStatus | null;
   errorKey: string | null;
 };
 
@@ -362,6 +376,8 @@ export function createInitialUiState(
       hotbar: Array(9).fill(null),
       cursor: null,
       catalog: [],
+      recipes: [],
+      craftingStatus: null,
       errorKey: null,
     },
   };

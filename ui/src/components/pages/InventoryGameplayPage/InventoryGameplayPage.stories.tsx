@@ -40,6 +40,18 @@ const meta = {
           name: "Rustic Pickaxe", category: "tool/tools", metadata: {},
         },
       ],
+      recipes: [{
+        id: "asteria:rustic_hatchet",
+        resultId: "asteria:hatchet_rustic",
+        outputQuantity: 1,
+        ingredients: [
+          { id: "asteria:pebble", required: 2, available: 2 },
+          { id: "asteria:stick", required: 3, available: 3 },
+          { id: "asteria:plant_fiber", required: 2, available: 2 },
+        ],
+        craftable: true,
+      }],
+      craftingStatus: null,
       errorKey: null,
     },
     onClose: () => {},
@@ -47,6 +59,7 @@ const meta = {
     onSort: () => {},
     onDiscardCursor: () => {},
     onCreativePick: () => {},
+    onCraft: () => {},
   },
 } satisfies Meta<typeof InventoryGameplayPage>;
 
@@ -74,6 +87,18 @@ export const CharacterVitals: Story = {
   args: {
     state: { ...meta.args.state, creativeAvailable: false, cursor: null },
     health: { current: 18, maximum: 20 },
+  },
+};
+
+export const CraftedItem: Story = {
+  args: {
+    state: {
+      ...meta.args.state,
+      creativeAvailable: false,
+      craftingStatus: {
+        code: "Crafted", recipeId: "asteria:rustic_hatchet",
+      },
+    },
   },
 };
 

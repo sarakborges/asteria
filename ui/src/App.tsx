@@ -61,6 +61,7 @@ export type AppActions = {
   sortInventory(): void;
   discardInventoryCursor(): void;
   pickCreativeBlock(choice: InventoryCatalogEntry): void;
+  craftInventoryRecipe(recipeId: string): void;
 };
 
 export type AppProps = {
@@ -262,6 +263,7 @@ export function App({
           onSort={actions.sortInventory}
           onDiscardCursor={actions.discardInventoryCursor}
           onCreativePick={actions.pickCreativeBlock}
+          onCraft={actions.craftInventoryRecipe}
         />
       )}
 
