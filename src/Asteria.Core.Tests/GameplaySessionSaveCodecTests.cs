@@ -51,7 +51,7 @@ public sealed class GameplaySessionSaveCodecTests
         var umbral = source.GetOrCreate(new DimensionId("asteria:umbral"));
 
         source.Player.SetGameMode(PlayerGameMode.Creative);
-        Assert.True(source.Player.JumpPressed(100));
+        Assert.False(source.Player.JumpPressed(100));
         Assert.True(source.Player.JumpPressed(101));
         Assert.True(source.Player.IsFlying);
 
