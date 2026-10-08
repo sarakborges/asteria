@@ -603,19 +603,72 @@ public sealed class DimensionDefinition
 
 
 /// <summary>
-/// Optional Sphere-wide subtractive cave contribution. A null definition
-/// leaves the 3D terrain field without caves.
+/// Sphere-wide subtractive density: independent depth-bounded cave layers,
+/// each composed from one or more noise channels.
 /// </summary>
 public sealed class DimensionCaveDefinition
 {
     public DimensionCaveDefinition(
+        IEnumerable<DimensionCaveLayerDefinition> layers)
+    {
+        var authored = layers?.ToArray() ??
+            throw new ArgumentNullException(nameof(layers));
+        if (authored.Length is < 1 or > 8 ||
+            authored.Any(layer => layer is null))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(layers),
+                "Caves require one to eight authored layers.");
+        }
+
+        Layers = Array.AsReadOnly(authored);
+        MinimumDepth = authored.Min(layer => layer.MinDepth);
+        MaximumDepth = authored.Max(layer => layer.MaxDepth);
+    }
+
+    public IReadOnlyList<DimensionCaveLayerDefinition> Layers { get; }
+    public uint MinimumDepth { get; }
+    public uint MaximumDepth { get; }
+}
+
+public enum CaveNoiseCombination
+{
+    Intersection,
+    Union,
+}
+
+public sealed class DimensionCaveNoiseChannelDefinition
+{
+    public DimensionCaveNoiseChannelDefinition(
+        uint horizontalScale,
+        uint verticalScale)
+    {
+        if (horizontalScale is < 2 or > 16_384 ||
+            verticalScale is < 2 or > 16_384)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(horizontalScale),
+                "Cave channel noise scales must be within 2..16384.");
+        }
+
+        HorizontalScale = horizontalScale;
+        VerticalScale = verticalScale;
+    }
+
+    public uint HorizontalScale { get; }
+    public uint VerticalScale { get; }
+}
+
+public sealed class DimensionCaveLayerDefinition
+{
+    public DimensionCaveLayerDefinition(
         uint minDepth,
         uint maxDepth,
-        uint horizontalScale,
-        uint verticalScale,
+        IEnumerable<DimensionCaveNoiseChannelDefinition> channels,
         float noiseHalfWidth,
         float densityScale,
-        uint boundaryFade)
+        uint boundaryFade,
+        CaveNoiseCombination combination = CaveNoiseCombination.Intersection)
     {
         if (minDepth < 2 || maxDepth <= minDepth ||
             maxDepth > 2048 || boundaryFade == 0 ||
@@ -626,11 +679,19 @@ public sealed class DimensionCaveDefinition
                 "Cave depth and boundary fade must fit a positive bounded underground band.");
         }
 
-        if (horizontalScale is < 2 or > 16_384 ||
-            verticalScale is < 2 or > 16_384)
+        var authored = channels?.ToArray() ??
+            throw new ArgumentNullException(nameof(channels));
+        if (authored.Length is < 1 or > 6 ||
+            authored.Any(channel => channel is null))
         {
-            throw new ArgumentOutOfRangeException(
-                nameof(horizontalScale));
+            throw new ArgumentException(
+                "Cave layers require one to six noise channels.",
+                nameof(channels));
+        }
+
+        if (!Enum.IsDefined(combination))
+        {
+            throw new ArgumentOutOfRangeException(nameof(combination));
         }
 
         if (!float.IsFinite(noiseHalfWidth) ||
@@ -644,18 +705,18 @@ public sealed class DimensionCaveDefinition
 
         MinDepth = minDepth;
         MaxDepth = maxDepth;
-        HorizontalScale = horizontalScale;
-        VerticalScale = verticalScale;
+        Channels = Array.AsReadOnly(authored);
         NoiseHalfWidth = noiseHalfWidth;
         DensityScale = densityScale;
         BoundaryFade = boundaryFade;
+        Combination = combination;
     }
 
     public uint MinDepth { get; }
     public uint MaxDepth { get; }
-    public uint HorizontalScale { get; }
-    public uint VerticalScale { get; }
+    public IReadOnlyList<DimensionCaveNoiseChannelDefinition> Channels { get; }
     public float NoiseHalfWidth { get; }
     public float DensityScale { get; }
     public uint BoundaryFade { get; }
+    public CaveNoiseCombination Combination { get; }
 }

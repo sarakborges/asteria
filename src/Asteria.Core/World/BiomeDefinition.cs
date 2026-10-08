@@ -33,10 +33,10 @@ public sealed class BiomeDefinition
         }
 
         if (volumeLayout is not null &&
-            terrain3d?.FloatingFormation is null)
+            terrain3d?.Additive.Count is not > 0)
         {
             throw new ArgumentException(
-                "Volume biome currently requires terrain3d.floatingFormation.");
+                "Volume biome currently requires terrain3d.additive.");
         }
 
         SurfaceLayout = surfaceLayout;
@@ -684,26 +684,51 @@ public sealed class BiomeTintPaletteDefinition
 /// Biome-owned optional additive contributions to the single terrain
 /// density field. Absence leaves the base surface unchanged.
 /// </summary>
-public sealed record BiomeTerrain3dDefinition(
-    BiomeFloatingFormationDefinition? FloatingFormation = null);
-
-public sealed class BiomeFloatingFormationDefinition
+public sealed class BiomeTerrain3dDefinition
 {
-    public BiomeFloatingFormationDefinition(
+    public BiomeTerrain3dDefinition(
+        IEnumerable<BiomeAdditiveDensityDefinition>? additive = null)
+    {
+        var authored = additive?.ToArray() ??
+            Array.Empty<BiomeAdditiveDensityDefinition>();
+        if (authored.Length > 8 ||
+            authored.Any(formation => formation is null))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(additive),
+                "A volume biome supports at most eight additive density formations.");
+        }
+
+        Additive = Array.AsReadOnly(authored);
+    }
+
+    public IReadOnlyList<BiomeAdditiveDensityDefinition> Additive { get; }
+}
+
+/// <summary>
+/// A bounded, additive 3D density contribution. Multiple formations can
+/// coexist inside one volume biome without creating another terrain owner.
+/// </summary>
+public sealed class BiomeAdditiveDensityDefinition
+{
+    public BiomeAdditiveDensityDefinition(
         int minY,
         int maxY,
         uint horizontalScale,
         uint detailScale,
         float coverage,
         float roughness,
-        float densityScale)
+        float densityScale,
+        float verticalFalloff = 1f,
+        float horizontalFalloff = 1f,
+        float densityBias = 0f)
     {
         if (minY < 0 || maxY <= minY ||
             (long)maxY - minY > 512)
         {
             throw new ArgumentOutOfRangeException(
                 nameof(maxY),
-                "Floating formation needs non-negative minY, maxY > minY, and span <= 512.");
+                "An additive formation needs non-negative minY, maxY > minY, and span <= 512.");
         }
 
         if (horizontalScale is < 2 or > 16_384 ||
@@ -712,7 +737,7 @@ public sealed class BiomeFloatingFormationDefinition
         {
             throw new ArgumentOutOfRangeException(
                 nameof(detailScale),
-                "Floating noise scales must satisfy 2 <= detail <= horizontal <= 16384.");
+                "Density noise scales must satisfy 2 <= detail <= horizontal <= 16384.");
         }
 
         if (!float.IsFinite(coverage) ||
@@ -720,11 +745,17 @@ public sealed class BiomeFloatingFormationDefinition
             !float.IsFinite(roughness) ||
             roughness is < 0f or > 0.5f ||
             !float.IsFinite(densityScale) ||
-            densityScale is <= 0f or > 512f)
+            densityScale is <= 0f or > 512f ||
+            !float.IsFinite(verticalFalloff) ||
+            verticalFalloff is < 0.25f or > 8f ||
+            !float.IsFinite(horizontalFalloff) ||
+            horizontalFalloff is < 0.25f or > 8f ||
+            !float.IsFinite(densityBias) ||
+            densityBias is < -0.5f or > 0.5f)
         {
             throw new ArgumentOutOfRangeException(
                 nameof(coverage),
-                "Floating coverage, roughness, and density scale must be finite and within their authored bounds.");
+                "Additive density weights, falloffs and bias must be finite and within their bounds.");
         }
 
         MinY = minY;
@@ -734,6 +765,9 @@ public sealed class BiomeFloatingFormationDefinition
         Coverage = coverage;
         Roughness = roughness;
         DensityScale = densityScale;
+        VerticalFalloff = verticalFalloff;
+        HorizontalFalloff = horizontalFalloff;
+        DensityBias = densityBias;
     }
 
     public int MinY { get; }
@@ -743,4 +777,7 @@ public sealed class BiomeFloatingFormationDefinition
     public float Coverage { get; }
     public float Roughness { get; }
     public float DensityScale { get; }
+    public float VerticalFalloff { get; }
+    public float HorizontalFalloff { get; }
+    public float DensityBias { get; }
 }

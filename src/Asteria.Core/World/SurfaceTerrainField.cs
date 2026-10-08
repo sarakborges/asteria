@@ -2,7 +2,7 @@ namespace Asteria.Core.World;
 
 /// <summary>
 /// Single authoritative terrain field: a surface crossing plus optional
-/// subtractive caves and additive biome-authored floating formations.
+/// subtractive cave layers and additive biome-authored density formations.
 /// Biomes and height are sampled once per X/Z column, never per Y voxel.
 /// </summary>
 public sealed class SurfaceTerrainField
@@ -15,7 +15,7 @@ public sealed class SurfaceTerrainField
     private readonly VolumeBiomeField _volumeBiomes;
     private readonly GeneratedFluidField _generatedFluids;
     private readonly IReadOnlyDictionary<string, SurfaceTerrainRule> _surfaceRules;
-    private readonly IReadOnlyDictionary<string, FloatingRule> _floatingRules;
+    private readonly IReadOnlyDictionary<string, AdditiveRuleSet> _additiveRules;
     private readonly OceanShoreRule? _oceanShore;
     private readonly CaveRule? _caves;
 
@@ -64,11 +64,11 @@ public sealed class SurfaceTerrainField
                         new SurfaceTerrainRule(
                             definition),
                     StringComparer.Ordinal);
-        _floatingRules =
+        _additiveRules =
             volumeDefinitions
                 .Where(
                     definition =>
-                        definition.Terrain3d?.FloatingFormation is not null)
+                        definition.Terrain3d?.Additive.Count > 0)
                 .OrderBy(
                     definition =>
                         definition.Id,
@@ -77,9 +77,9 @@ public sealed class SurfaceTerrainField
                     definition =>
                         definition.Id,
                     definition =>
-                        new FloatingRule(
+                        new AdditiveRuleSet(
                             definition.Id,
-                            definition.Terrain3d!.FloatingFormation!),
+                            definition.Terrain3d!.Additive),
                     StringComparer.Ordinal);
         _oceanShore =
             dimension.GeneratedOcean is
@@ -254,7 +254,7 @@ public sealed class SurfaceTerrainField
             (double)worldY;
 
         if (volumeBiome is not null &&
-            _floatingRules.TryGetValue(
+            _additiveRules.TryGetValue(
                 volumeBiome.Primary,
                 out var floating) &&
             worldY >= floating.MinimumY &&
@@ -776,7 +776,7 @@ public sealed class SurfaceTerrainField
         BiomeSample? volumeBiome)
     {
         if (volumeBiome is null ||
-            !_floatingRules.TryGetValue(
+            !_additiveRules.TryGetValue(
                 volumeBiome.Primary,
                 out var rule) ||
             rule.MaximumY <= baseY ||
@@ -1008,21 +1008,80 @@ public sealed class SurfaceTerrainField
             amount;
     }
 
-    private sealed class FloatingRule
+    private sealed class AdditiveRuleSet
     {
-        private readonly BiomeFloatingFormationDefinition _authored;
+        private readonly AdditiveRule[] _rules;
+
+        public AdditiveRuleSet(
+            string biomeId,
+            IReadOnlyList<BiomeAdditiveDensityDefinition> definitions)
+        {
+            _rules = definitions
+                .Select((definition, index) =>
+                    new AdditiveRule(biomeId, index, definition))
+                .ToArray();
+            MinimumY = _rules.Min(rule => rule.MinimumY);
+            MaximumY = _rules.Max(rule => rule.MaximumY);
+        }
+
+        public int MinimumY { get; }
+        public int MaximumY { get; }
+
+        public bool MayExistAt(
+            ulong seed,
+            int x,
+            int z,
+            float influenceWeight)
+        {
+            foreach (var rule in _rules)
+            {
+                if (rule.MayExistAt(seed, x, z, influenceWeight))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        public double DensityAt(
+            ulong seed,
+            int x,
+            int y,
+            int z,
+            float influenceWeight)
+        {
+            var density = double.NegativeInfinity;
+            foreach (var rule in _rules)
+            {
+                if (y >= rule.MinimumY && y <= rule.MaximumY)
+                {
+                    density = Math.Max(
+                        density,
+                        rule.DensityAt(seed, x, y, z, influenceWeight));
+                }
+            }
+
+            return density;
+        }
+    }
+
+    private sealed class AdditiveRule
+    {
+        private readonly BiomeAdditiveDensityDefinition _authored;
         private readonly GenerationDomain _maskDomain;
         private readonly GenerationDomain _detailDomain;
 
-        public FloatingRule(
+        public AdditiveRule(
             string biomeId,
-            BiomeFloatingFormationDefinition authored)
+            int index,
+            BiomeAdditiveDensityDefinition authored)
         {
             _authored = authored;
             _maskDomain = GenerationDomain.Named(
-                $"terrain/density/floating/mask/v1/{biomeId}");
+                $"terrain/density/additive/mask/v1/{biomeId}/{index}");
             _detailDomain = GenerationDomain.Named(
-                $"terrain/density/floating/detail/v1/{biomeId}");
+                $"terrain/density/additive/detail/v1/{biomeId}/{index}");
         }
 
         public int MinimumY => _authored.MinY;
@@ -1033,8 +1092,11 @@ public sealed class SurfaceTerrainField
             int x,
             int z,
             float influenceWeight) =>
-            HorizontalSupport(seed, x, z) +
-            _authored.Roughness >
+            Math.Pow(
+                HorizontalSupport(seed, x, z),
+                _authored.HorizontalFalloff) +
+            _authored.Roughness -
+            _authored.DensityBias >
             1d - influenceWeight;
 
         public double DensityAt(
@@ -1047,7 +1109,10 @@ public sealed class SurfaceTerrainField
             var center = (_authored.MinY + (double)_authored.MaxY) * 0.5d;
             var halfSpan = (_authored.MaxY - (double)_authored.MinY) * 0.5d;
             var verticalDistance = Math.Abs((y - center) / halfSpan);
-            var shape = HorizontalSupport(seed, x, z) - verticalDistance;
+            var shape = Math.Pow(
+                HorizontalSupport(seed, x, z),
+                _authored.HorizontalFalloff) -
+                Math.Pow(verticalDistance, _authored.VerticalFalloff);
             var detail = WorldGenerationEntropy.ValueNoise3D(
                 seed,
                 _detailDomain,
@@ -1058,7 +1123,8 @@ public sealed class SurfaceTerrainField
                 _authored.DetailScale);
             return (shape +
                     detail * _authored.Roughness -
-                    (1d - influenceWeight)) *
+                    (1d - influenceWeight) -
+                    _authored.DensityBias) *
                    _authored.DensityScale;
         }
 
@@ -1084,15 +1150,63 @@ public sealed class SurfaceTerrainField
 
     private sealed class CaveRule
     {
-        private readonly DimensionCaveDefinition _authored;
-        private readonly GenerationDomain _primary =
-            GenerationDomain.Named("terrain/density/caves/primary/v1");
-        private readonly GenerationDomain _secondary =
-            GenerationDomain.Named("terrain/density/caves/secondary/v1");
+        private readonly CaveLayerRule[] _layers;
 
         public CaveRule(DimensionCaveDefinition authored)
         {
+            _layers = authored.Layers
+                .Select((layer, index) => new CaveLayerRule(index, layer))
+                .ToArray();
+            MinimumDepth = authored.MinimumDepth;
+            MaximumDepth = authored.MaximumDepth;
+        }
+
+        public uint MinimumDepth { get; }
+        public uint MaximumDepth { get; }
+
+        public double VoidDensityAt(
+            ulong seed,
+            int x,
+            int y,
+            int z,
+            long depth)
+        {
+            var result = 0d;
+            foreach (var layer in _layers)
+            {
+                if (depth < layer.MinimumDepth ||
+                    depth > layer.MaximumDepth)
+                {
+                    continue;
+                }
+
+                result = Math.Max(
+                    result,
+                    layer.VoidDensityAt(seed, x, y, z, depth));
+            }
+
+            return result;
+        }
+    }
+
+    private sealed class CaveLayerRule
+    {
+        private readonly DimensionCaveLayerDefinition _authored;
+        private readonly CaveNoiseChannel[] _channels;
+
+        public CaveLayerRule(
+            int layerIndex,
+            DimensionCaveLayerDefinition authored)
+        {
             _authored = authored;
+            _channels = authored.Channels
+                .Select((channel, index) =>
+                    new CaveNoiseChannel(
+                        GenerationDomain.Named(
+                            $"terrain/density/caves/layer/v1/{layerIndex}/{index}"),
+                        channel.HorizontalScale,
+                        channel.VerticalScale))
+                .ToArray();
         }
 
         public uint MinimumDepth => _authored.MinDepth;
@@ -1105,29 +1219,25 @@ public sealed class SurfaceTerrainField
             int z,
             long depth)
         {
-            var primary = Math.Abs(WorldGenerationEntropy.ValueNoise3D(
-                seed,
-                _primary,
-                x,
-                y,
-                z,
-                _authored.HorizontalScale,
-                _authored.VerticalScale));
-            if (primary >= _authored.NoiseHalfWidth)
+            var intersection =
+                _authored.Combination == CaveNoiseCombination.Intersection;
+            var score = intersection ? 0d : double.PositiveInfinity;
+            foreach (var channel in _channels)
             {
-                return 0d;
+                var noise = Math.Abs(WorldGenerationEntropy.ValueNoise3D(
+                    seed,
+                    channel.Domain,
+                    x,
+                    y,
+                    z,
+                    channel.HorizontalScale,
+                    channel.VerticalScale));
+                score = intersection
+                    ? Math.Max(score, noise)
+                    : Math.Min(score, noise);
             }
 
-            var secondary = Math.Abs(WorldGenerationEntropy.ValueNoise3D(
-                seed,
-                _secondary,
-                x,
-                y,
-                z,
-                _authored.HorizontalScale,
-                _authored.VerticalScale));
-            var clearance =
-                _authored.NoiseHalfWidth - Math.Max(primary, secondary);
+            var clearance = _authored.NoiseHalfWidth - score;
             if (clearance <= 0d)
             {
                 return 0d;
@@ -1146,6 +1256,11 @@ public sealed class SurfaceTerrainField
                    _authored.DensityScale;
         }
     }
+
+    private readonly record struct CaveNoiseChannel(
+        GenerationDomain Domain,
+        uint HorizontalScale,
+        uint VerticalScale);
 }
 
 /// <summary>

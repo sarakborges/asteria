@@ -181,6 +181,54 @@ CI publishes equivalent fixed-seed SVG artifacts for both `asteria:overworld` an
 - Runtime mutable-world questions may inspect `VoxelWorld`; untouched generated-world facts come from generator capabilities.
 - Do not mark the migration complete while any required rebuild phase remains Partial, Missing or Divergent.
 
+## Composable 3D terrain density (data-driven)
+
+The single `SurfaceTerrainField` combines authored density contributions; neither
+volume biomes nor cave layers write chunks or own a second voxel field.
+
+- Volume biomes declare `terrain3d.additive: [ ... ]` instead of the old
+  `terrain3d.floatingFormation` singleton. Every entry has its own bounded
+  `minY`/`maxY`, `horizontalScale`, `detailScale`, `coverage`,
+  `roughness` and `densityScale`. Optional `verticalFalloff`,
+  `horizontalFalloff` (both default `1`) and `densityBias` (default
+  `0`) control the density envelope without new biome-specific algorithms.
+  Entries are combined with maximum density. Vertical gaps do not inherit the
+  volume biome identity simply because another additive entry exists above.
+- Spheres declare `caves.layers: [ ... ]`. Each layer has independent depth
+  bounds (`minDepth`, `maxDepth`, `boundaryFade`), `noiseHalfWidth`,
+  `densityScale` and `channels: [{ horizontalScale, verticalScale }, ...]`.
+  `combination: "intersection"` takes the largest absolute channel noise,
+  producing narrower overlapping voids; `"union"` takes the smallest,
+  connecting the channels' carve regions. Different cave layers combine using
+  the strongest subtractive density.
+- Both contracts are bounded and validated. New entropy domains distinguish
+  each additive entry and cave layer/channel; therefore fixed-seed shape
+  details may change compared with the removed singleton algorithms. No
+  compatibility parser for the old contracts is retained.
+- Negative Y is forbidden; shell floor/roof remains authoritative and caves
+  cannot pierce the local base surface. Scalar/volume queries and materialized
+  chunks still use the same density field.
+
+Example authored volume-biome layers:
+
+```json
+"terrain3d": {
+  "additive": [
+    {
+      "minY": 200, "maxY": 280, "horizontalScale": 112,
+      "detailScale": 40, "coverage": 0.55,
+      "roughness": 0.18, "densityScale": 28,
+      "verticalFalloff": 1.5, "horizontalFalloff": 1,
+      "densityBias": 0
+    }
+  ]
+}
+```
+
+The default Overworld and Umbral preserve their single cave layer and two
+intersection channels as authored data; more layers can be added without
+changing `SurfaceTerrainField`.
+
 ## Authored special terrain features (data-driven)
 
 Special surface appearances are authored as **geometry + optional features**, rather than branching by biome ID:

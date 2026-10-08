@@ -118,13 +118,13 @@ public sealed class BiomeWorldGenerationTests
         Assert.NotNull(
             floating.VolumeLayout);
         Assert.NotNull(
-            floating.Terrain3d?.FloatingFormation);
+            floating.Terrain3d?.Additive);
         Assert.Equal(
             200,
-            floating.Terrain3d!.FloatingFormation!.MinY);
+            Assert.Single(floating.Terrain3d!.Additive).MinY);
         Assert.Equal(
             280,
-            floating.Terrain3d.FloatingFormation.MaxY);
+            floating.Terrain3d.Additive[0].MaxY);
 
         Assert.Equal(
             new[]
