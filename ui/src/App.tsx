@@ -41,7 +41,7 @@ export type AppActions = {
   setGameplayHint(kind: "RotateBlock" | "BreakOrPlaceBlock", value: boolean): void;
   setWorldTicks(value: number): void;
   setGameMode(value: import("./state/uiState").GameMode): void;
-  beginKeyCapture(action: "Jump" | "Descend" | "ToolAction" | "Inventory" | "DropItem"): void;
+  beginKeyCapture(action: "Jump" | "Descend" | "ToolAction" | "Inventory" | "Chat" | "DropItem"): void;
   cancelKeyCapture(): void;
   closeBrushPalette(): void;
   selectBrushDye(id: string | null): void;
