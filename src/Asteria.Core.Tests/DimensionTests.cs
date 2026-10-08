@@ -89,6 +89,14 @@ public sealed class DimensionTests
             overworld.BiomeBlending.InfluenceCurve);
         Assert.Null(
             umbral.GeneratedOcean);
+        var umbralRoots = umbral.GeneratedSurfaceStructures;
+        Assert.Equal(3, umbralRoots.Count);
+        Assert.All(umbralRoots, root =>
+        {
+            Assert.Equal("asteria:umbral/wraith_grove", root.Biome);
+            Assert.NotNull(root.HabitatWeights);
+        });
+        Assert.Equal(3, umbralRoots.Select(root => root.Structure).Distinct().Count());
         Assert.Equal(
             3,
             umbral.SurfaceBiomes.Count);

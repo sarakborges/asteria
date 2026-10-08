@@ -1,0 +1,32 @@
+{
+  "id": "asteria:wraith_grove",
+  "locatable": true,
+  "priority": 0,
+  "conflictGroups": [
+    "tree"
+  ],
+  "reserveSpace": false,
+  "elements": [
+    {
+      "id": "root",
+      "structure": "asteria:tree_wraith",
+      "required": true
+    },
+    {
+      "id": "companions",
+      "structure": "asteria:tree_wraith",
+      "count": {
+        "min": 2,
+        "max": 4
+      },
+      "placement": {
+        "relativeTo": "root",
+        "minDistance": 15,
+        "maxDistance": 29,
+        "minSeparation": 14,
+        "attempts": 42,
+        "allowOverlap": false
+      }
+    }
+  ]
+}

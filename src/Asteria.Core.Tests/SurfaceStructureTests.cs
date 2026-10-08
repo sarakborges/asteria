@@ -38,10 +38,14 @@ public sealed class SurfaceStructureTests
             structures, structureSets);
 
         Assert.Equal(
-            52,
+            57,
             structures.Count);
         Assert.Equal(3, structures.ResolveReference("asteria:bush_oak").Count);
-        Assert.Equal(4, structureSets.Count);
+        Assert.Equal(5, structureSets.Count);
+        Assert.Equal(3, structures.ResolveReference("asteria:tree_wraith").Count);
+        Assert.Equal(2, structures.ResolveReference("asteria:wraith_snag").Count);
+        Assert.Equal("asteria:tree_wraith",
+            structureSets.Get("asteria:wraith_grove").Elements[0].Structure);
         Assert.Equal(4, structures.ResolveReference("asteria:tree_enchanted").Count);
         Assert.Equal("asteria:tree_enchanted",
             structureSets.Get("asteria:enchanted_grove").Elements[0].Structure);
@@ -222,6 +226,67 @@ public sealed class SurfaceStructureTests
         Assert.Equal(0f, Assert.Single(rules,
             rule => rule.Structure == "asteria:enchanted_grove")
             .HabitatWeights!.For("luminous_clearing"));
+    }
+
+    [Fact]
+    public void WraithGroveTemplatesUseExistingPaleWoodAndTintedFoliage()
+    {
+        var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
+        var structures = StructureRegistry.FromJson(ReadJsonDirectory("structures"));
+        var living = structures.ResolveReference("asteria:tree_wraith");
+        var dead = structures.ResolveReference("asteria:wraith_snag");
+
+        Assert.Equal(3, living.Count);
+        Assert.Equal(2, dead.Count);
+        Assert.All(living.Concat(dead), tree =>
+        {
+            Assert.False(tree.Locatable);
+            Assert.True(tree.Rotation);
+            Assert.Equal(0, tree.GroundAnchorYOffset);
+            Assert.Equal(1, tree.Restrictions.MaxSlope);
+            Assert.Equal(1f, tree.Restrictions.RequiredBiomeCoverage);
+            Assert.True(tree.Restrictions.RequiresDryGround);
+            Assert.Equal(StructureReplacePolicy.Terrain, tree.Generation.ReplacePolicy);
+            Assert.Equal(StructureFluidPolicy.Forbid, tree.Generation.FluidPolicy);
+            Assert.False(tree.Generation.ReserveSpace);
+            Assert.Empty(tree.Restrictions.Proximity);
+            Assert.Contains("tree", tree.ConflictGroups);
+            Assert.Contains("asteria:grass_block", tree.Restrictions.GroundBlocks);
+            Assert.Contains("asteria:mud", tree.Restrictions.GroundBlocks);
+            Assert.Contains(tree.Voxels, voxel =>
+                voxel.Block == "asteria:log_enchanted_stripped_hollow");
+            Assert.Contains(tree.Voxels, voxel =>
+                voxel.Block == "asteria:leaf_willow");
+            Assert.Contains(tree.Voxels, voxel =>
+                voxel.Block == "asteria:log_enchanted_stripped"
+                && voxel.Orientation != BlockOrientation.Y);
+        });
+        Assert.True(living.Min(tree => tree.Voxels.Count(voxel =>
+            voxel.Block == "asteria:leaf_willow")) >
+            dead.Max(tree => tree.Voxels.Count(voxel =>
+                voxel.Block == "asteria:leaf_willow")));
+
+        structures.ValidateBlocks(blocks);
+    }
+
+    [Fact]
+    public void WraithGroveSetHasBoundedCompanionsAndConflicts()
+    {
+        var structures = StructureRegistry.FromJson(ReadJsonDirectory("structures"));
+        var sets = StructureSetRegistry.FromJson(ReadJsonDirectory("structure_sets"));
+        sets.ValidateStructures(structures);
+
+        var grove = sets.Get("asteria:wraith_grove");
+        Assert.True(grove.Locatable);
+        Assert.Contains("tree", grove.ConflictGroups);
+        Assert.False(grove.ReserveSpace);
+        Assert.Equal("asteria:tree_wraith", grove.Elements[0].Structure);
+        Assert.Equal("asteria:tree_wraith", grove.Elements[1].Structure);
+        Assert.Equal(2, grove.Elements[1].Count.Min);
+        Assert.Equal(4, grove.Elements[1].Count.Max);
+        Assert.Equal(14, grove.Elements[1].Placement.MinSeparation);
+        Assert.InRange(grove.Elements[1].Placement.MaxDistance, 15, 32);
+        Assert.InRange(grove.Elements[1].Placement.Attempts, 1, 64);
     }
 
     [Fact]
