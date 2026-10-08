@@ -2,35 +2,26 @@
   user-select: text;
 }
 
-.new-world__content {
-  width: min(720px, 100%);
-  height: 100%;
-  margin-inline: auto;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-}
-
-.new-world__panel {
-  width: 100%;
-  padding: var(--ui-surface-padding);
-}
-
-.new-world__form,
-.new-world__setting,
-.new-world__generating-copy {
-  width: 100%;
+.new-world__form-rows,
+.new-world__setting {
   display: flex;
   flex-direction: column;
-}
-
-.new-world__form,
-.new-world__generating-copy {
+  width: 100%;
   gap: var(--ui-settings-group-gap);
 }
 
 .new-world__setting {
   gap: var(--ui-settings-setting-gap);
+}
+
+.new-world__form-rows .setting-row {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.new-world__form-rows .setting-row__control {
+  width: 100%;
+  flex: 0 0 auto;
 }
 
 .new-world__seed-row {
@@ -41,6 +32,7 @@
 
 .new-world__seed-row .ui-text-input {
   flex: 1 1 auto;
+  min-width: 0;
 }
 
 .new-world__randomize {
@@ -49,7 +41,7 @@
 }
 
 .new-world__create {
-  width: 300px;
+  width: min(300px, 29vw);
 }
 
 .new-world__help {
@@ -62,15 +54,20 @@
   font-size: var(--ui-font-size-caption);
 }
 
-.new-world__generating-copy {
-  min-height: 120px;
+.new-world__generating-content {
+  display: flex;
   align-items: center;
   justify-content: center;
-  text-align: center;
+  height: 100%;
 }
 
-.new-world--generating .screen-shell__footer {
-  display: none;
+.new-world__generating-panel {
+  width: min(560px, 100%);
+  min-height: 120px;
+  padding: 28px;
+  display: grid;
+  place-items: center;
+  text-align: center;
 }
 
 @media (max-width: 640px) {
@@ -81,13 +78,19 @@
 
   .new-world__randomize {
     width: 100%;
-    flex-basis: auto;
+    flex: 0 0 auto;
   }
 
   .new-world__create {
-    width: min(300px, calc(100vw - 36px));
+    width: auto;
+    flex: 1 1 0;
+    min-width: 0;
+    padding-inline: 4px;
+    font-size: var(--ui-font-size-caption);
+  }
+
+  .new-world .screen-shell__footer {
+    gap: 8px;
+    padding-inline: 12px;
   }
 }
-
-.new-world__settings-extra { display: flex; flex-direction: column; gap: var(--ui-settings-setting-gap); }
-.new-world__settings-extra .setting-row__control { min-width: 180px; }
