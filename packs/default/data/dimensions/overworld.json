@@ -114,6 +114,30 @@
   ],
   "generatedSurfaceStructures": [
     {
+      "biome": "asteria:overworld/enchanted_forest",
+      "structure": "asteria:tree_enchanted",
+      "spacing": 34,
+      "chance": 0.72,
+      "jitter": 10,
+      "habitatWeights": {
+        "luminous_clearing": 0.09,
+        "violet_undergrowth": 2,
+        "pink_glade": 0.65
+      }
+    },
+    {
+      "biome": "asteria:overworld/enchanted_forest",
+      "structure": "asteria:enchanted_grove",
+      "spacing": 152,
+      "chance": 0.7,
+      "jitter": 46,
+      "habitatWeights": {
+        "luminous_clearing": 0,
+        "violet_undergrowth": 2.2,
+        "pink_glade": 0.35
+      }
+    },
+    {
       "biome": "asteria:overworld/plains",
       "structure": "asteria:boulder_small",
       "spacing": 36,
