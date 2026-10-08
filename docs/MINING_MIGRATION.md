@@ -48,3 +48,16 @@ The native input, mutation, content and Sphere boundaries remain unchanged: no U
 - Layer order, duplicate face/layer rejection, no-op semantics, world/chunk revision updates, worker snapshot cloning and portable `BlockStateSnapshot` transfer are defined in Core. Replacing/removing the host block clears its attached surface state. Artisan's Kit preserves surface state when editing that host.
 - `VoxelMutationRuntime.SetBlockSurfaceStateAt` owns presentation invalidation and dirtiness; color/layer-only changes enqueue priority terrain remesh without waking fluid topology, lighting or block physics.
 - Shears' existing authored right-click behavior now uses this mutation contract, but the default pack has not yet been given authored placed layers. Surface-layer definitions, pack loading, mesh rendering and gameplay layer placement remain next tasks. Brush palette, validation of `dyed` color IDs and dyable rendering are also pending; the new dye field is state storage, not a claim that Brush is fully working.
+
+## Authored attached layer content (2026-10-08)
+
+- `AttachedLayerRegistry` and `AttachedLayerDefinition` validate optional pack-authored `data/layers/*.json` definitions (safe relative texture, supported faces, tint, bounded offset, alpha mode and shadows).
+- `TerrainTextureCatalog` deterministically includes these texture paths in the shared array, without a new Godot texture manager or layer nodes.
+- Default `asteria:foliage_layer` reuses an existing grass overlay texture. The original MineClone moss/portal bitmaps have not been copied yet. Geometry emission and end-to-end tools are handled in the next slice.
+
+
+## Surface layer mesh projection (2026-10-08)
+
+- A Sphere's terrain mesh worker now receives the immutable `AttachedLayerRegistry` and resolves attached layers from chunk snapshots. `ChunkMeshDataBuilder` projects offset non-colliding quads onto exposed cube faces and onto exposed fine-geometry surfaces of sculpted hosts.
+- Existing greedy terrain and fine geometry paths retain their collision contract. Per-layer rotation, face selection, layered offset and authored tint/render/shadow policy are applied by the existing texture-array mesh data pipeline.
+- Shears can remove layers attached through Core mutations, but no layer placement UI/tool has yet been wired. Brush color rendering and palette are still pending, as are the original MineClone moss and portal textures.

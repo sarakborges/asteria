@@ -33,9 +33,11 @@ public sealed class TerrainTextureCatalog
 
     public static TerrainTextureCatalog Create(
         BlockRegistry blocks,
+        AttachedLayerRegistry layers,
         PackSelection selection)
     {
         ArgumentNullException.ThrowIfNull(blocks);
+        ArgumentNullException.ThrowIfNull(layers);
 
         var paths = blocks
             .AuthoredDefinitions()
@@ -43,6 +45,7 @@ public sealed class TerrainTextureCatalog
                 TextureLayers(
                     entry.Definition))
             .Select(layer => layer.Texture)
+            .Concat(layers.Definitions.Select(layer => layer.Texture))
             .Distinct(StringComparer.Ordinal)
             .OrderBy(path => path, StringComparer.Ordinal)
             .ToArray();

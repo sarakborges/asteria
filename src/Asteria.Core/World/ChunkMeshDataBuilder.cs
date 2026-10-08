@@ -37,7 +37,8 @@ public static class ChunkMeshDataBuilder
         BlockRegistry blocks,
         TerrainTextureLookup textures,
         int meshletIndex,
-        BiomeTintSampleGrid? tintSamples = null)
+        BiomeTintSampleGrid? tintSamples = null,
+        AttachedLayerRegistry? attachedLayers = null)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(blocks);
@@ -133,6 +134,11 @@ public static class ChunkMeshDataBuilder
             textures,
             bounds,
             tintSamples);
+
+        EmitAttachedLayers(
+            surfaces, collision, world, blocks, textures,
+            chunk, bounds, originX, originY, originZ,
+            attachedLayers, tintSamples);
 
         var batches = surfaces
             .Where(entry => entry.Value.Count > 0)
@@ -787,101 +793,148 @@ public static class ChunkMeshDataBuilder
         BlockDefinition definition,
         BiomeTintSampleGrid? tintSamples)
     {
-        var origin = new Vector3(
-            blockX,
-            blockY,
-            blockZ);
-        var sourceMask =
-            world.GetMicroblockMaskOrEmpty(worldPosition);
+        var origin = new Vector3(blockX, blockY, blockZ);
         var visible = new bool[FinePlaneArea];
-        var batch = new TerrainRenderBatch(
-            definition.RenderMode,
-            definition.CastsShadow);
-        var surface = GetSurface(surfaces, batch);
+        var surface = GetSurface(surfaces, new TerrainRenderBatch(
+            definition.RenderMode, definition.CastsShadow));
 
         foreach (var face in Faces)
         {
-            var faceMaterial =
-                ResolveFaceMaterial(
-                    textures,
-                    definition,
-                    cell,
-                    face);
-            var faceLighting =
-                VoxelMeshLighting.SampleFace(
-                    world,
-                    blocks,
-                    worldPosition,
-                    face);
+            EmitFineFace(
+                surface, collision, world, blocks, worldPosition,
+                cell, definition, origin, face,
+                ResolveFaceMaterial(textures, definition, cell, face),
+                definition.IsCollidable, 0f, visible, tintSamples);
+        }
+    }
 
-            for (var depth = 0;
-                 depth < FineResolution;
-                 depth++)
+    private static void EmitFineFace(
+        List<ChunkMeshVertex> surface,
+        List<Vector3> collision,
+        VoxelWorld world,
+        BlockRegistry blocks,
+        WorldVoxelCoord worldPosition,
+        VoxelCell cell,
+        BlockDefinition definition,
+        Vector3 origin,
+        BlockFace face,
+        TerrainFaceMaterial material,
+        bool collidable,
+        float normalOffset,
+        bool[] visible,
+        BiomeTintSampleGrid? tintSamples,
+        TextureRotation? rotationOverride = null)
+    {
+        var sourceMask = world.GetMicroblockMaskOrEmpty(worldPosition);
+        var lighting = VoxelMeshLighting.SampleFace(world, blocks, worldPosition, face);
+        for (var depth = 0; depth < FineResolution; depth++)
+        {
+            Array.Clear(visible);
+            for (var v = 0; v < FineResolution; v++)
             {
-                Array.Clear(visible);
-
-                for (var v = 0;
-                     v < FineResolution;
-                     v++)
+                for (var u = 0; u < FineResolution; u++)
                 {
-                    for (var u = 0;
-                         u < FineResolution;
-                         u++)
-                    {
-                        var (localX, localY, localZ) =
-                            FinePosition(
-                                face,
-                                depth,
-                                u,
-                                v);
+                    var (lx, ly, lz) = FinePosition(face, depth, u, v);
+                    if (!BlockGeometry.IsOccupied(
+                            definition, cell, sourceMask, lx, ly, lz) ||
+                        FineNeighborOccludes(
+                            world, blocks, worldPosition, lx, ly, lz,
+                            face, cell, definition))
+                        continue;
+                    visible[u + v * FineResolution] = true;
+                }
+            }
 
-                        if (!BlockGeometry.IsOccupied(
-                                definition,
-                                cell,
-                                sourceMask,
-                                localX,
-                                localY,
-                                localZ))
-                        {
-                            continue;
-                        }
+            EmitGreedyFineRectangles(
+                surface, collision, origin, face, depth, visible,
+                cell, material, lighting, collidable,
+                worldPosition.X - (int)origin.X,
+                worldPosition.Z - (int)origin.Z,
+                tintSamples, normalOffset, rotationOverride);
+        }
+    }
 
-                        if (FineNeighborOccludes(
-                                world,
-                                blocks,
-                                worldPosition,
-                                localX,
-                                localY,
-                                localZ,
-                                face,
-                                cell,
-                                definition))
-                        {
-                            continue;
-                        }
+    private static void EmitAttachedLayers(
+        Dictionary<TerrainRenderBatch, List<ChunkMeshVertex>> surfaces,
+        List<Vector3> collision,
+        VoxelWorld world,
+        BlockRegistry blocks,
+        TerrainTextureLookup textures,
+        Chunk chunk,
+        (int MinX, int MinY, int MinZ,
+            int MaxXExclusive, int MaxYExclusive, int MaxZExclusive) bounds,
+        int originX,
+        int originY,
+        int originZ,
+        AttachedLayerRegistry? registry,
+        BiomeTintSampleGrid? tintSamples)
+    {
+        for (var y = bounds.MinY; y < bounds.MaxYExclusive; y++)
+        for (var z = bounds.MinZ; z < bounds.MaxZExclusive; z++)
+        for (var x = bounds.MinX; x < bounds.MaxXExclusive; x++)
+        {
+            var state = chunk.GetSurfaceState(x, y, z);
+            if (state.Layers.Count == 0)
+                continue;
+            if (registry is null)
+                throw new InvalidOperationException(
+                    "Attached voxel layers require an authored layer registry.");
 
-                        visible[
-                            u +
-                            v * FineResolution] = true;
-                    }
+            var cell = chunk.GetCell(x, y, z);
+            if (cell.IsEmpty)
+                throw new InvalidOperationException("An empty voxel cannot retain attached layers.");
+            var host = blocks.GetDefinition(cell.Block);
+            if (host.Visual.Kind != BlockVisualKind.Geometry)
+                throw new InvalidOperationException("Attached layers require a geometry host.");
+
+            var origin = new Vector3(x, y, z);
+            var worldPosition = new WorldVoxelCoord(originX + x, originY + y, originZ + z);
+            var fine = BlockGeometry.RequiresFineMeshing(host, cell);
+            bool[]? fineVisible = fine ? new bool[FinePlaneArea] : null;
+            Span<int> faceStack = stackalloc int[6];
+            faceStack.Clear();
+
+            foreach (var attachment in state.Layers)
+            {
+                var layer = registry.Get(attachment.LayerId);
+                if (!layer.Supports(attachment.Face))
+                    throw new InvalidOperationException(
+                        $"Layer {layer.Id} does not support {attachment.Face}.");
+
+                var face = attachment.Face;
+                var offset = layer.Offset + faceStack[(int)face]++ * (1f / 8192f);
+                var material = new TerrainFaceMaterial(
+                    new Vector2(textures.GetIndex(layer.Texture) +
+                        (layer.Tint == BlockTint.None ? 0f : DyableLayerFlag), -1f),
+                    layer.Tint, new BlockPreviewColor(255, 255, 255), false);
+                var surface = GetSurface(surfaces, new TerrainRenderBatch(
+                    layer.RenderMode, layer.CastsShadow));
+
+                if (fine)
+                {
+                    EmitFineFace(
+                        surface, collision, world, blocks, worldPosition,
+                        cell, host, origin, face, material, false, offset,
+                        fineVisible!, tintSamples, attachment.Rotation);
+                    continue;
                 }
 
-                EmitGreedyFineRectangles(
-                    surface,
-                    collision,
-                    origin,
-                    face,
-                    depth,
-                    visible,
-                    cell,
-                    faceMaterial,
-                    faceLighting,
-                    definition.IsCollidable,
-                    worldPosition.X -
-                        blockX,
-                    worldPosition.Z -
-                        blockZ,
-                    tintSamples);
+                if (!FaceIsExposed(
+                        world, blocks, cell, host, worldPosition + FaceOffset(face)))
+                    continue;
+
+                var corners = FaceCorners(face);
+                Span<Vector3> quad = stackalloc Vector3[4];
+                for (var corner = 0; corner < 4; corner++)
+                    quad[corner] = origin + corners[corner];
+
+                EmitQuadVertices(
+                    surface, collision, quad, FaceNormal(face), face,
+                    material, attachment.Rotation,
+                    VoxelMeshLighting.SampleFace(world, blocks, worldPosition, face),
+                    false, false, uvOrigin: origin,
+                    worldOriginX: originX, worldOriginZ: originZ,
+                    tintSamples: tintSamples, normalOffset: offset);
             }
         }
     }
@@ -992,7 +1045,9 @@ public static class ChunkMeshDataBuilder
         bool isCollidable,
         int worldOriginX,
         int worldOriginZ,
-        BiomeTintSampleGrid? tintSamples)
+        BiomeTintSampleGrid? tintSamples,
+        float normalOffset = 0f,
+        TextureRotation? rotationOverride = null)
     {
         for (var v = 0;
              v < FineResolution;
@@ -1077,7 +1132,9 @@ public static class ChunkMeshDataBuilder
                     isCollidable,
                     worldOriginX,
                     worldOriginZ,
-                    tintSamples);
+                    tintSamples,
+                    normalOffset,
+                    rotationOverride);
             }
         }
     }
@@ -1098,7 +1155,9 @@ public static class ChunkMeshDataBuilder
         bool isCollidable,
         int worldOriginX,
         int worldOriginZ,
-        BiomeTintSampleGrid? tintSamples)
+        BiomeTintSampleGrid? tintSamples,
+        float normalOffset = 0f,
+        TextureRotation? rotationOverride = null)
     {
         var (minX, minY, minZ) =
             FinePosition(
@@ -1194,6 +1253,7 @@ public static class ChunkMeshDataBuilder
         }
 
         var uvRotation =
+            rotationOverride ??
             BlockUvRotation.ForWorldFace(
                 face,
                 cell.Orientation,
@@ -1214,7 +1274,8 @@ public static class ChunkMeshDataBuilder
             uvOrigin: origin,
             worldOriginX: worldOriginX,
             worldOriginZ: worldOriginZ,
-            tintSamples: tintSamples);
+            tintSamples: tintSamples,
+            normalOffset: normalOffset);
     }
 
     private static void EmitQuadVertices(
@@ -1231,7 +1292,8 @@ public static class ChunkMeshDataBuilder
         Vector3 uvOrigin = default,
         int worldOriginX = 0,
         int worldOriginZ = 0,
-        BiomeTintSampleGrid? tintSamples = null)
+        BiomeTintSampleGrid? tintSamples = null,
+        float normalOffset = 0f)
     {
         var triangleOrder =
             lighting.ShouldFlipDiagonal
@@ -1240,10 +1302,10 @@ public static class ChunkMeshDataBuilder
 
         foreach (var index in triangleOrder)
         {
-            var position = positions[index];
+            var position = positions[index] + normal * normalOffset;
             var uvPoint = useAbsoluteUv
-                ? position
-                : position - uvOrigin;
+                ? positions[index]
+                : positions[index] - uvOrigin;
             var uv = RotateUv(
                 MacroUv(face, uvPoint),
                 uvRotation);
