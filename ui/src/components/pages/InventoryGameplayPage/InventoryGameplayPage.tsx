@@ -50,7 +50,10 @@ export function InventoryGameplayPage({
   const [creativeSearch, setCreativeSearch] = useState("");
   const [category, setCategory] = useState<string | null>(null);
   const categories = useMemo(
-    () => state.categories.map(definition => ({
+    () => [...state.categories]
+      .sort((left, right) => left.order - right.order ||
+        left.id.localeCompare(right.id))
+      .map(definition => ({
       id: definition.id,
       label: categoryName(definition.id),
       iconUrl: definition.iconUrl,
