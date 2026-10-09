@@ -37,7 +37,10 @@ export function HotbarSlot({
       <span className="hotbar-slot__glyph">
         {id === ""
           ? ""
-          : <ItemGlyph item={{ id, iconUrl: state?.iconUrl }} />}
+          : <ItemGlyph item={{
+              id, iconUrl: state?.iconUrl,
+              blockPreview: state?.blockPreview,
+            }} />}
       </span>
       <span className="hotbar-slot__quantity">
         {quantity > 1
