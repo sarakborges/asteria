@@ -47,6 +47,8 @@ test("malformed creative catalog is rejected as a whole without changing current
     { ...payload, everythingIconUrl: "javascript:alert(1)" },
     { ...payload, items: [{ ...payload.items[0], category: "unknown" }] },
     { ...payload, categories: [{ ...payload.categories[0], iconUrl: "https://untrusted.test/a.png" }] },
+    { ...payload, items: [{ ...payload.items[1],
+      metadata: { contained_fluid: "x".repeat(1000) } }] },
   ];
   for (const candidate of invalid) {
     inventory.handleGodotMessage({ type: "game.inventory.catalog", payload: candidate });
