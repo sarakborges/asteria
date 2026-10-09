@@ -207,6 +207,7 @@ export type InventoryEntryKind = "block" | "item" | "tool" | "layer";
 export type InventoryMetadata = Record<string, string>;
 
 export type InventorySlotState = {
+  durability?: VitalValue | null;
   id: string;
   kind: InventoryEntryKind;
   quantity: number;
