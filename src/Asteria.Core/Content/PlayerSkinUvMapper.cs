@@ -12,17 +12,35 @@ public static class PlayerSkinUvMapper
     private readonly record struct Box(int X, int Y, int Width, int Height, int Depth);
 
     public static bool TryMap(
-        string part, Vector3 position, Vector3 normal, out Vector2 uv)
+        string part, Vector3 position, Vector3 normal, out Vector2 uv) =>
+        TryMapBox(part, position, normal, outer: false, out uv);
+
+    /// <summary>
+    /// Additional jacket/sleeve/trouser cuboids use the skin atlas's
+    /// independent transparent outer-layer regions.
+    /// </summary>
+    public static bool TryMapOuter(
+        string part, Vector3 position, Vector3 normal, out Vector2 uv) =>
+        TryMapBox(part, position, normal, outer: true, out uv);
+
+    private static bool TryMapBox(
+        string part, Vector3 position, Vector3 normal, bool outer, out Vector2 uv)
     {
-        var layout = part switch
+        var layout = (part, outer) switch
         {
-            "HeadMesh" => new Box(0, 0, 8, 8, 8),
-            "HairLayer" => new Box(32, 0, 8, 8, 8),
-            "BodyMesh" => new Box(16, 16, 8, 12, 4),
-            "RightArmMesh" => new Box(40, 16, 4, 12, 4),
-            "LeftArmMesh" => new Box(32, 48, 4, 12, 4),
-            "RightLegMesh" => new Box(0, 16, 4, 12, 4),
-            "LeftLegMesh" => new Box(16, 48, 4, 12, 4),
+            ("HeadMesh", false) => new Box(0, 0, 8, 8, 8),
+            ("HairLayer", false) => new Box(32, 0, 8, 8, 8),
+            ("BodyMesh", false) => new Box(16, 16, 8, 12, 4),
+            ("RightArmMesh", false) => new Box(40, 16, 4, 12, 4),
+            ("LeftArmMesh", false) => new Box(32, 48, 4, 12, 4),
+            ("RightLegMesh", false) => new Box(0, 16, 4, 12, 4),
+            ("LeftLegMesh", false) => new Box(16, 48, 4, 12, 4),
+            ("HeadMesh", true) => new Box(32, 0, 8, 8, 8),
+            ("BodyMesh", true) => new Box(16, 32, 8, 12, 4),
+            ("RightArmMesh", true) => new Box(40, 32, 4, 12, 4),
+            ("LeftArmMesh", true) => new Box(48, 48, 4, 12, 4),
+            ("RightLegMesh", true) => new Box(0, 32, 4, 12, 4),
+            ("LeftLegMesh", true) => new Box(0, 48, 4, 12, 4),
             _ => default
         };
         if (layout.Width == 0)
