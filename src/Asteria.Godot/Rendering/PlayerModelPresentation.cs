@@ -6,11 +6,6 @@ using Godot;
 
 namespace Asteria.Client.Rendering;
 
-/// <summary>
-/// The local player's visual-only model. The published FpsPlayer remains the
-/// sole owner of physical movement/posture. Assets are decoded from the pack
-/// directly: no Godot imports, sidecars or ResourceLoader dependencies.
-/// </summary>
 public enum PlayerVisualAction : byte
 {
     Hit,
@@ -20,6 +15,11 @@ public enum PlayerVisualAction : byte
     Death,
 }
 
+/// <summary>
+/// The local player's visual-only model. The published FpsPlayer remains the
+/// sole owner of physical movement/posture. Assets are decoded from the pack
+/// directly: no Godot imports, sidecars or ResourceLoader dependencies.
+/// </summary>
 public sealed partial class PlayerModelPresentation : Node3D
 {
     private const float CrouchBlendSpeed = 8f;
