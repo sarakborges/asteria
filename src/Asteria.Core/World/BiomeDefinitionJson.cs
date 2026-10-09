@@ -889,6 +889,15 @@ public static class BiomeDefinitionJson
         return value;
     }
 
+    private static string? OptionalString(JsonElement root, string key)
+    {
+        if (!root.TryGetProperty(key, out var value) ||
+            value.ValueKind == JsonValueKind.Null) return null;
+        if (value.ValueKind != JsonValueKind.String)
+            throw new FormatException($"{key} must be a string.");
+        return value.GetString();
+    }
+
     private static string RequiredString(
         JsonElement value,
         string name)
