@@ -21,12 +21,13 @@ export type SettingsWorkspacePageProps = {
   onGameplayHint(kind: "RotateBlock" | "BreakOrPlaceBlock", value: boolean): void;
   onWorldTicks(value: number): void;
   onSpawnCreatures(value: boolean): void;
+  onKeepInventory(value: boolean): void;
   onGameMode(value: GameMode): void;
 };
 
 export function SettingsWorkspacePage({
   scope, settings, onBack, onRenderDistance, onTargetPosition,
-  onWorldTicks, onSpawnCreatures, onGameMode, onHideHints, onGameplayHint,
+  onWorldTicks, onSpawnCreatures, onKeepInventory, onGameMode, onHideHints, onGameplayHint,
 }: SettingsWorkspacePageProps) {
   const { t, language, setLanguage, languages } = useLocalization();
   const [selectedId, setSelectedId] = useState(scope === "game" ? "graphics" : "mode");
@@ -129,6 +130,12 @@ export function SettingsWorkspacePage({
               disabled={!settings.world}
               checked={settings.world?.spawnCreatures ?? true}
               onChange={onSpawnCreatures} />} />
+          <SettingRow title={t("settings.keepInventory")}
+            description={t("settings.keepInventory.description")}
+            control={<Toggle ariaLabel={t("settings.keepInventory")}
+              disabled={!settings.world}
+              checked={settings.world?.keepInventory ?? true}
+              onChange={onKeepInventory} />} />
         </div>,
       },
     ];
