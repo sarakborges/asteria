@@ -32,3 +32,32 @@
   height: 112px;
   font-size: 28px;
 }
+
+.item-glyph--cube {
+  position: relative;
+  flex: 0 0 auto;
+  overflow: hidden;
+}
+
+.item-glyph__cube-face {
+  position: absolute;
+  inset: 2%;
+  background-position: center;
+  background-size: cover;
+  image-rendering: pixelated;
+}
+
+.item-glyph__cube-top {
+  clip-path: polygon(50% 0, 98% 24%, 50% 49%, 2% 24%);
+  filter: brightness(1.13);
+}
+
+.item-glyph__cube-left {
+  clip-path: polygon(2% 24%, 50% 49%, 50% 99%, 2% 74%);
+  filter: brightness(0.83);
+}
+
+.item-glyph__cube-right {
+  clip-path: polygon(98% 24%, 50% 49%, 50% 99%, 98% 74%);
+  filter: brightness(0.65);
+}
