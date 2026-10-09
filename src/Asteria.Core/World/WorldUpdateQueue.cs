@@ -160,17 +160,30 @@ public sealed class WorldUpdateQueue
     }
 
     public WorldLightingBatch DrainLighting(
-        int maximumPositions = int.MaxValue)
+        int maximumPositions = int.MaxValue,
+        int maximumColumns = int.MaxValue)
     {
         if (maximumPositions <= 0)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(maximumPositions));
-        }
+            throw new ArgumentOutOfRangeException(nameof(maximumPositions));
+        if (maximumColumns <= 0)
+            throw new ArgumentOutOfRangeException(nameof(maximumColumns));
 
+        if (maximumColumns == int.MaxValue)
+            return new WorldLightingBatch(
+                _lightingEdits.Drain(maximumPositions));
+
+        var columns = new HashSet<ChunkColumnCoord>();
         return new WorldLightingBatch(
-            _lightingEdits.Drain(
-                maximumPositions));
+            _lightingEdits.DrainPrefix(
+                maximumPositions,
+                position =>
+                {
+                    var column = ChunkColumnCoord.FromChunk(
+                        VoxelCoordinates.FromWorld(
+                            position.X, position.Y, position.Z).Chunk);
+                    return columns.Contains(column) ||
+                        columns.Count < maximumColumns && columns.Add(column);
+                }));
     }
 
     public WorldMeshBatch DrainMeshlets(

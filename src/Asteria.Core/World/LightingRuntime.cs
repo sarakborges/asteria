@@ -20,7 +20,8 @@ public sealed class LightingRuntime
     // live-world state before the worker starts. Keep each capture bounded so
     // streaming cannot turn a large reconciliation backlog into a main-thread
     // clone spike.
-    private const int MaximumSeedsPerWorker = 512;
+    private const int MaximumSeedsPerWorker = 256;
+    private const int MaximumSeedColumnsPerWorker = 4;
 
     private readonly VoxelWorld _world;
     private readonly BlockRegistry _blocks;
@@ -79,7 +80,8 @@ public sealed class LightingRuntime
 
         var batch =
             _updates.DrainLighting(
-                MaximumSeedsPerWorker);
+                MaximumSeedsPerWorker,
+                MaximumSeedColumnsPerWorker);
 
         if (batch.IsEmpty)
         {

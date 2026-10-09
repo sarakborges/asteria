@@ -38,6 +38,22 @@ public sealed class DeduplicatedQueueTests
     }
 
     [Fact]
+    public void ConditionalPrefixDrainLeavesRejectedAndFollowingItemsInOrder()
+    {
+        var queue = new DeduplicatedQueue<int>();
+        foreach (var item in new[] { 1, 3, 6, 8, 10 })
+            queue.Enqueue(item);
+
+        var revision = queue.Revision;
+        Assert.Empty(queue.DrainPrefix(4, value => value < 0));
+        Assert.Equal(revision, queue.Revision);
+        Assert.Equal(new[] { 1, 3 }, queue.DrainPrefix(4, value => value < 6));
+        Assert.Equal(new[] { 6, 8 }, queue.DrainPrefix(2, _ => true));
+        Assert.Equal(new[] { 10 }, queue.Drain());
+        Assert.Equal(0, queue.Count);
+    }
+
+    [Fact]
     public void RemovalAndDrainKeepMembershipBounded()
     {
         var queue =

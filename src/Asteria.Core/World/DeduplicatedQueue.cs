@@ -122,6 +122,35 @@ public sealed class DeduplicatedQueue<T>
         return result;
     }
 
+    /// <summary>
+    /// Removes the longest FIFO prefix accepted by the predicate, stopping
+    /// before the first rejected item. The remaining queue keeps its order.
+    /// </summary>
+    public IReadOnlyList<T> DrainPrefix(
+        int maximumItems,
+        Func<T, bool> accept)
+    {
+        if (maximumItems <= 0)
+            throw new ArgumentOutOfRangeException(nameof(maximumItems));
+        ArgumentNullException.ThrowIfNull(accept);
+
+        var result = new List<T>(Math.Min(maximumItems, _nodes.Count));
+        while (result.Count < maximumItems &&
+               _order.First is { } first &&
+               accept(first.Value))
+        {
+            var value = first.Value;
+            _order.RemoveFirst();
+            _nodes.Remove(value);
+            result.Add(value);
+        }
+
+        if (result.Count > 0)
+            BumpRevision();
+
+        return result;
+    }
+
     public IReadOnlyList<T> ValuesInOrder() =>
         _order.ToArray();
 

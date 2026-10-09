@@ -81,6 +81,35 @@ public sealed class WorldUpdateQueueTests
     }
 
     [Fact]
+    public void LightingDrainBoundsDistinctColumnsWithoutReorderingOrLosingSeeds()
+    {
+        var queue = new WorldUpdateQueue();
+        var input = new[]
+        {
+            new WorldVoxelCoord(0, 1, 0),
+            new WorldVoxelCoord(15, 32, 15),
+            new WorldVoxelCoord(16, 2, 0),
+            new WorldVoxelCoord(0, 3, 16),
+            new WorldVoxelCoord(48, 4, 0),
+            new WorldVoxelCoord(17, 5, 1),
+        };
+        foreach (var position in input)
+            queue.EnqueueLighting(position);
+
+        Assert.Equal(input.Take(3),
+            queue.DrainLighting(maximumPositions: 5, maximumColumns: 2)
+                .EditedPositions);
+        Assert.Equal(input.Skip(3).Take(2),
+            queue.DrainLighting(maximumPositions: 2, maximumColumns: 2)
+                .EditedPositions);
+        Assert.Equal([input[^1]], queue.DrainLighting(
+            maximumPositions: 256, maximumColumns: 1).EditedPositions);
+        Assert.False(queue.HasLightingWork);
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            queue.DrainLighting(maximumColumns: 0));
+    }
+
+    [Fact]
     public void LightingOnlyRemeshDoesNotCreateAnotherLightingEdit()
     {
         var world = new VoxelWorld();
