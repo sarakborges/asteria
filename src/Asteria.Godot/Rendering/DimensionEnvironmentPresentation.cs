@@ -64,6 +64,24 @@ public sealed class DimensionEnvironmentPresentation
         Update(cycle, clock);
     }
 
+    /// <summary>Discard session presentation on return to the main menu.</summary>
+    public void Clear()
+    {
+        _node?.QueueFree();
+        _sunLight?.QueueFree();
+        _sunOrb?.QueueFree();
+        _moonOrb?.QueueFree();
+        _node = null;
+        _environment = null;
+        _sunLight = null;
+        _sunOrb = null;
+        _moonOrb = null;
+        _definition = null;
+        _cameraReady = false;
+        _sunActive = false;
+        _moonActive = false;
+    }
+
     public void Update(
         DayNightCycleDefinition cycle,
         DayNightClock clock)
