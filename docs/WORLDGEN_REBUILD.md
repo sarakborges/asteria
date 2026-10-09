@@ -506,16 +506,31 @@ The `generatedOcean.shore.samples` profile replaces fixed coast phases
 Samples are sorted by strictly increasing `dominance`, from `0` to `1`,
 and author `minimumHeight` relative to the Sphere's sea level plus an
 effect `strength` between `0` and `1`. Samples interpolate with
-smoothstep. At each sample, the coast can raise blended terrain to a
-minimum height while retaining the underlying raw height wherever higher.
+smoothstep. At each sample, the coast can raise the ocean-owned terrain to an
+authored minimum height. It does not borrow the neighboring land's peak
+height; the taller terrain rises entirely inside the taller biome.
 The first and last strengths must be zero, so pure land and pure ocean
 are unaffected. This profile creates beaches/shelves **inside the existing
 terrain owner**, never by generating water or carving separate geometry.
 
 The default Overworld profile keeps the shallow shelf (`-4`), raised
-beach (`+2`) and two-sided shore transitions; any future Sphere can
+beach (`+2`) inside Ocean and an uphill transition within the adjoining land biome; any future Sphere can
 author a distinct coast contour without adding C# terrain special cases.
 Only `GeneratedFluidField` decides actual generated water occupancy.
+
+### Biome palette corrections (default pack)
+
+- Desert uses Sand for exposed ground, Sandstone as an underlying
+  layer, no surface Gravel patches and no Pebble decorators.
+- Caverns limits common material patches to Stone, Stone Cobble,
+  Gravel, Dirt and Clay. Basalt remains in Volcano-owned geology,
+  with its authored Volcano-only cave-spike variant.
+- Mountains and Mountain Belt no longer gate shallow material patches
+  at a fixed Y level; Mountains soften the abrupt cliff modifier and
+  ridged profiles use localized modulated detail.
+- Swamp combines broad and fine authored `depressions`, allowing
+  shallow Water-filled gaps among Mud, Dirt and Grass Block. The
+  pre-existing sea-level fill owns water generation.
 
 ### Generic terrain consolidation
 
