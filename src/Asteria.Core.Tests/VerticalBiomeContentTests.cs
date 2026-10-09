@@ -235,6 +235,90 @@ public sealed class VerticalBiomeContentTests
                 """));
     }
 
+    [Fact]
+    public void DirectionalPaletteFallsBackAndUsesNormalRelativeDepth()
+    {
+        var blocks = BlockRegistry.FromJson(ReadFiles("blocks"));
+        var stone = new BiomeSurfaceLayerDefinition("asteria:stone");
+        var cave = new BiomeDefinition(
+            "asteria:test/caverns", null, null,
+            volumeLayout: new BiomeVolumeLayoutDefinition(
+                placement: VolumeBiomePlacement.CarvedVoid),
+            palette: new BiomePaletteDefinition(
+                [stone],
+                floor: [
+                    new BiomeSurfaceLayerDefinition("asteria:gravel", 2),
+                    stone,
+                ],
+                walls: [
+                    new BiomeSurfaceLayerDefinition("asteria:basalt", 3),
+                    stone,
+                ],
+                ceiling: [
+                    new BiomeSurfaceLayerDefinition("asteria:ice", 1),
+                    stone,
+                ]));
+        var palette = new BiomeSurfaceMaterialField(1234UL, [cave], blocks);
+        var biome = new BiomeSample(cave.Id,
+            [new BiomeInfluence(cave.Id, 1f)]);
+        Assert.Equal(blocks.GetId("asteria:gravel"),
+            palette.VolumeBlockAt(biome, 2, 40, 6, BiomePaletteFace.Floor, 0));
+        Assert.Equal(blocks.GetId("asteria:gravel"),
+            palette.VolumeBlockAt(biome, 2, 39, 6, BiomePaletteFace.Floor, 1));
+        Assert.Equal(blocks.GetId("asteria:stone"),
+            palette.VolumeBlockAt(biome, 2, 38, 6, BiomePaletteFace.Floor, 2));
+        for (uint depth = 0; depth < 3; depth++)
+            Assert.Equal(blocks.GetId("asteria:basalt"),
+                palette.VolumeBlockAt(biome, 2 + (int)depth, 40, 6,
+                    BiomePaletteFace.Walls, depth));
+        Assert.Equal(blocks.GetId("asteria:stone"),
+            palette.VolumeBlockAt(biome, 5, 40, 6, BiomePaletteFace.Walls, 3));
+        Assert.Equal(blocks.GetId("asteria:ice"),
+            palette.VolumeBlockAt(biome, 2, 40, 6, BiomePaletteFace.Ceiling, 0));
+        Assert.Equal(blocks.GetId("asteria:stone"),
+            palette.VolumeBlockAt(biome, 2, 41, 6, BiomePaletteFace.Ceiling, 1));
+        Assert.Equal(3u, palette.MaxVolumePaintDepth(biome));
+        Assert.True(palette.HasDirectionalOverride(biome, BiomePaletteFace.Walls));
+        Assert.Equal("asteria:gravel", cave.SurfaceLayers[0].Block);
+    }
+
+    [Fact]
+    public void PaletteJsonSupportsDirectionalProfilesAndRejectsObsoleteLayers()
+    {
+        var biome = BiomeDefinitionJson.Parse(
+            """
+            {
+              "id":"asteria:test/caverns",
+              "volumeLayout":{"placement":"carvedVoid"},
+              "palette":{
+                "default":[{"block":"asteria:stone"}],
+                "walls":[
+                  {"block":"asteria:basalt","depth":3},
+                  {"block":"asteria:stone"}
+                ]
+              }
+            }
+            """);
+        Assert.Equal("asteria:stone", biome.Palette.For(BiomePaletteFace.Floor)[0].Block);
+        Assert.Equal("asteria:stone", biome.Palette.For(BiomePaletteFace.Ceiling)[0].Block);
+        Assert.Equal("asteria:basalt", biome.Palette.For(BiomePaletteFace.Walls)[0].Block);
+        Assert.False(biome.Palette.HasOverride(BiomePaletteFace.Floor));
+        Assert.True(biome.Palette.HasOverride(BiomePaletteFace.Walls));
+
+        Assert.Throws<FormatException>(() => BiomeDefinitionJson.Parse(
+            """
+            {
+              "id":"asteria:test/legacy",
+              "volumeLayout":{"placement":"carvedVoid"},
+              "surfaceLayers":[{"block":"asteria:stone"}]
+            }
+            """));
+        Assert.ThrowsAny<ArgumentException>(() =>
+            new BiomePaletteDefinition(
+                [new BiomeSurfaceLayerDefinition("asteria:stone")],
+                walls: [new BiomeSurfaceLayerDefinition("asteria:basalt", 3)]));
+    }
+
     private static IEnumerable<string> ReadFiles(string folder) =>
         Directory.EnumerateFiles(
             Path.Combine(PackData, folder), "*.json")
