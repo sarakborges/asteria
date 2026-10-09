@@ -32,8 +32,8 @@ public sealed class HeldVisualResolverTests
                 front: [new BlockTextureLayer("textures/front.png")]));
         var registry = new BlockRegistry([block]);
         var resolver = new HeldVisualResolver(registry,
-            new PackContentRegistry<ItemDefinition>([]),
-            new PackContentRegistry<ToolDefinition>([]),
+            PackContentRegistry<ItemDefinition>.FromJson([], ItemDefinition.Parse, definition => definition.Id),
+            PackContentRegistry<ToolDefinition>.FromJson([], ToolDefinition.Parse, definition => definition.Id),
             new AttachedLayerRegistry([]));
         var selected = new InventoryStack(InventoryEntry.FromBlock(
             block.Id, BlockStateSnapshot.FromCell(
@@ -48,7 +48,7 @@ public sealed class HeldVisualResolverTests
     private static HeldVisualResolver Create(
         ItemDefinition[]? items = null) =>
         new(new BlockRegistry([]),
-            new PackContentRegistry<ItemDefinition>(items ?? []),
+            PackContentRegistry<ItemDefinition>.FromJson((items ?? []).Select(item => System.Text.Json.JsonSerializer.Serialize(new { id = item.Id, category = item.Category, icon = item.Icon, iconVariants = item.IconVariants.Select(variant => new { metadataKey = variant.MetadataKey, metadataValue = variant.MetadataValue, icon = variant.Icon }).ToArray() })), ItemDefinition.Parse, definition => definition.Id),
             new PackContentRegistry<ToolDefinition>([]),
             new AttachedLayerRegistry([]));
 }
