@@ -14,7 +14,7 @@ const meta = {
 } satisfies Meta<typeof InventorySlot>;
 
 export default meta;
-type Story = StoryObj<typeof meta>;
+type Story = StoryObj<typeof InventorySlot>;
 
 export const Filled: Story = {};
 export const Selected: Story = {
