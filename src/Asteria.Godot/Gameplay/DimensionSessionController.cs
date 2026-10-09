@@ -253,10 +253,13 @@ public sealed class DimensionSessionController
                     _states, checkpoint.Blocks, checkpoint.Fluids,
                     checkpoint.Dyes, checkpoint.Layers,
                     activeSphere: previous);
-                return SessionSaveStorage.Publish(
+                var generation = SessionSaveStorage.Publish(
                     checkpoint.Directory, snapshot,
                     checkpoint.Blocks, checkpoint.Fluids,
                     checkpoint.Dyes, checkpoint.Layers);
+                WorldSaveManifestPublisher.Publish(
+                    checkpoint.Directory, snapshot, generation);
+                return generation;
             });
             return null;
         }

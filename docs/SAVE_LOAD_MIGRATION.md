@@ -215,3 +215,14 @@ compatible. Do not present the spatial-only files as playable saves.
   the player to the current Sphere. Save I/O never runs on the Godot frame.
 - This is **checkpoint writing only**. Loading from the world catalog, save
   metadata manifest publication and in-game save/leave are not yet enabled.
+
+## Stage 13: derived world-catalog manifest
+
+- A successful native checkpoint now atomically publishes a bounded
+  `world.json` metadata manifest **after** its session generation has
+  been committed. It derives its name, seed, active Sphere, position and
+  day from the detached session snapshot and includes the generation number.
+- The manifest is not authoritative. `WorldSaveCatalog` still reports
+  `Compatible=false` until actual registry-aware restoration checks run.
+- Mismatched directory names and incomplete sessions cannot publish a
+  misleading catalog entry. Tests verify discovery and rejection behavior.
