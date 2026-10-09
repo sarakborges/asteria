@@ -1232,12 +1232,11 @@ public partial class Main : Node3D
                     break;
                 case "ui.world.catalog.load":
                     if (_worldSeed is null && !_worldDelete.IsBusy &&
-                        document.RootElement.TryGetProperty("id", out var savedId) &&
-                        savedId.ValueKind == JsonValueKind.String)
+                        TryReadWorldCatalogId(document.RootElement, out var savedId))
                     {
                         try
                         {
-                            if (_worldLoad.Begin(savedId.GetString() ?? ""))
+                            if (_worldLoad.Begin(savedId))
                                 SendWebUi("game.world_catalog", new { status = "verifying" });
                         }
                         catch (ArgumentException error)
@@ -1249,8 +1248,7 @@ public partial class Main : Node3D
                 case "ui.world.catalog.delete":
                     if (_worldSeed is not null || _worldDelete.IsBusy ||
                         _worldLoad.IsBusy || _worldCatalog.IsBusy ||
-                        !document.RootElement.TryGetProperty("id", out var deleteId) ||
-                        deleteId.ValueKind != JsonValueKind.String)
+                        !TryReadWorldCatalogId(document.RootElement, out var deleteId))
                     {
                         SendWebUi("game.world_catalog.delete_result",
                             new { status = "error" });
@@ -1259,7 +1257,7 @@ public partial class Main : Node3D
 
                     try
                     {
-                        var id = deleteId.GetString() ?? "";
+                        var id = deleteId;
                         if (_worldDelete.Begin(id))
                             SendWebUi("game.world_catalog.delete_result",
                                 new { status = "deleting", id });
@@ -1605,6 +1603,19 @@ public partial class Main : Node3D
         SendWebUi(
             "game.client_preferences",
             document.RootElement);
+    }
+
+    private static bool TryReadWorldCatalogId(JsonElement message, out string id)
+    {
+        id = "";
+        if (!message.TryGetProperty("payload", out var payload) ||
+            payload.ValueKind != JsonValueKind.Object ||
+            !payload.TryGetProperty("id", out var idValue) ||
+            idValue.ValueKind != JsonValueKind.String)
+            return false;
+
+        id = idValue.GetString() ?? "";
+        return !string.IsNullOrWhiteSpace(id);
     }
 
     private void BeginWorldCatalogScan()
