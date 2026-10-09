@@ -547,7 +547,7 @@ public sealed class DimensionRuntimeSession
     public BlockEntityFrameController BlockEntities { get; }
 
     public PlayerDeathOutcome ResolvePlayerDeath(
-        PlayerSessionState player, WorldGameRules rules, Vector3 position) =>
+        PlayerSessionState player, WorldGameRules rules, System.Numerics.Vector3 position) =>
         PlayerDeathConsequences.Resolve(player, rules, _droppedBlocks, position);
 
 
