@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { inventoryDisplayName, inventorySearchMatches } from "../../src/presentation/inventoryLabels";
-import { findInventoryCatalogEntry } from "../../src/presentation/inventoryModels";
+import { findInventoryCatalogEntry, inventoryItemView } from "../../src/presentation/inventoryModels";
 
 const contentName = (id: string) => ({
   "asteria:bucket": "Bucket",
@@ -53,4 +53,30 @@ test("catalog icon and block-preview lookup requires exact kind and metadata", (
     { contained_fluid: "asteria:water" }, catalog)?.iconUrl).toBe("water-icon");
   expect(findInventoryCatalogEntry("asteria:bucket", "tool", {}, catalog))
     .toBeUndefined();
+});
+
+test("portable armor wear preserves authored icon, display name and remaining uses", () => {
+  const id = "asteria:wayfarer_chestplate";
+  const entry = {
+    id,
+    kind: "item" as const,
+    quantity: 1,
+    metadata: { "asteria:durability": "239" },
+    durability: { current: 239, maximum: 240 },
+  };
+  const catalog = [{
+    id,
+    kind: "item" as const,
+    name: "Wayfarer Chestplate",
+    category: "tools",
+    metadata: {},
+    iconUrl: "chestplate.png",
+  }];
+  const item = inventoryItemView(entry, catalog);
+  expect(item?.iconUrl).toBe("chestplate.png");
+  expect(item?.durability).toEqual({ current: 239, maximum: 240 });
+  expect(inventoryDisplayName(id, entry.metadata, () => "Wayfarer Chestplate"))
+    .toBe("Wayfarer Chestplate");
+  expect(inventorySearchMatches(entry, "239", contentName)).toBe(false);
+  expect(entry.metadata["asteria:durability"]).toBe("239");
 });
