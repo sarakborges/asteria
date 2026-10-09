@@ -16,6 +16,8 @@
   "worldSelection.stillLoading": "A saved world is still loading. Please wait until it finishes.",
   "worldSelection.inventoryError": "Cannot load inventory",
   "worldSelection.delete": "Delete World",
+  "worldSelection.confirmDelete": "Delete \"{name}\" permanently? This cannot be undone.",
+  "worldSelection.deleting": "Deleting saved world...",
   "worldSelection.deleteError": "Cannot delete world",
   "worldSelection.selected": "Selected",
   "common.settings": "Settings",
