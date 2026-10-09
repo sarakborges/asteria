@@ -33,12 +33,16 @@ internal static class PlayerVisualSceneFactory
             .Where(mesh => PlayerSkinUvMapper.TryMap(
                 mesh.Name.ToString(), NVector3.Zero, NVector3.UnitZ, out _))
             .ToArray();
+        var hasAuthoredHairLayer = cuboids.Any(mesh =>
+            mesh.Name.ToString() == "HairLayer");
         foreach (var mesh in cuboids)
         {
-            ApplySkin(mesh, skin, outer: false);
+            ApplySkin(mesh, skin, outer: false,
+                transparent: mesh.Name.ToString() == "HairLayer");
             // The original GLB already includes its hair layer. Generate only
             // the remaining jacket/sleeves/trousers from the same authored skin.
             if (mesh.Name.ToString() != "HairLayer" &&
+                !(hasAuthoredHairLayer && mesh.Name.ToString() == "HeadMesh") &&
                 PlayerSkinUvMapper.TryMapOuter(
                     mesh.Name.ToString(), NVector3.Zero, NVector3.UnitZ, out _))
             {
@@ -64,10 +68,11 @@ internal static class PlayerVisualSceneFactory
                 yield return descendant;
     }
 
-    private static void ApplySkin(MeshInstance3D mesh, Texture2D skin, bool outer)
+    private static void ApplySkin(
+        MeshInstance3D mesh, Texture2D skin, bool outer, bool transparent)
     {
         mesh.Mesh = BuildSkinnedMesh(mesh, outer);
-        mesh.MaterialOverride = MakeSkinMaterial(skin, transparent: false);
+        mesh.MaterialOverride = MakeSkinMaterial(skin, transparent);
         mesh.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
     }
 
