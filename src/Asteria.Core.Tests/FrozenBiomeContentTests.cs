@@ -112,9 +112,9 @@ public sealed class FrozenBiomeContentTests
                 Assert.False(block.IsCollidable);
                 Assert.False(block.CastsShadow);
                 Assert.Equal(BlockRenderMode.Cutout, block.RenderMode);
-                textures.Add(block.Visual.Texture!.Texture);
+                textures.Add(block.Visual.Texture!.Value.Texture);
                 Assert.Equal($"textures/objects/{name}.png",
-                    block.Visual.Texture!.Texture);
+                    block.Visual.Texture!.Value.Texture);
             }
         }
         Assert.Equal(ids.Length, textures.Count);

@@ -37,7 +37,7 @@ public sealed class OceanDecorationContentTests
             Assert.Equal(name is "seashell" or "starfish"
                 ? BlockVisualKind.GroundSprite : BlockVisualKind.CrossedSprite,
                 block.Visual.Kind);
-            Assert.Equal($"textures/objects/{name}.png", block.Visual.Texture!.Texture);
+            Assert.Equal($"textures/objects/{name}.png", block.Visual.Texture!.Value.Texture);
         }
         var grass = Assert.Single(ocean.Decorations, d => d.Block == "asteria:seagrass");
         var anemone = Assert.Single(ocean.Decorations, d => d.Block == "asteria:sea_anemone");
