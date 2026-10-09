@@ -6,6 +6,7 @@ export type ItemStackView = {
   kind?: "block" | "item" | "tool" | "layer";
   metadata?: Record<string, string>;
   quantity?: number;
+  durability?: { current: number; maximum: number } | null;
   iconUrl?: string;
   blockPreview?: BlockPreviewState;
 };
@@ -97,7 +98,8 @@ export function inventoryItemView(
     slot.id, slot.kind, slot.metadata, catalog);
   return {
     id: slot.id, kind: slot.kind, quantity: slot.quantity,
-    metadata: slot.metadata, iconUrl: authored?.iconUrl,
+    metadata: slot.metadata, durability: slot.durability,
+    iconUrl: authored?.iconUrl,
     blockPreview: authored?.blockPreview,
   };
 }
