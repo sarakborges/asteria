@@ -15,7 +15,8 @@ public sealed class WorldCreationOptions
         PlayerGameMode gameMode = PlayerGameMode.Survival,
         uint ticksPerSecond = WorldGameRules.DefaultTicksPerSecond,
         bool spawnCreatures = true,
-        WorldGenerationOptions? generation = null)
+        WorldGenerationOptions? generation = null,
+        bool keepInventory = true)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -64,6 +65,7 @@ public sealed class WorldCreationOptions
         GameMode = gameMode;
         TicksPerSecond = ticksPerSecond;
         SpawnCreatures = spawnCreatures;
+        KeepInventory = keepInventory;
         Generation = generation ?? new WorldGenerationOptions();
     }
 
@@ -72,5 +74,6 @@ public sealed class WorldCreationOptions
     public PlayerGameMode GameMode { get; }
     public uint TicksPerSecond { get; }
     public bool SpawnCreatures { get; }
+    public bool KeepInventory { get; }
     public WorldGenerationOptions Generation { get; }
 }
