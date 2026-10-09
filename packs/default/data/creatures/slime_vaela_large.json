@@ -133,5 +133,6 @@
       "item": "asteria:essence_vaela",
       "quantity": 2
     }
-  ]
+  ],
+  "contactDamage": 4
 }
