@@ -125,7 +125,8 @@ public sealed class VerticalBiomeContentTests
         Assert.Null(cave.SurfaceHabitats);
         Assert.Null(floating.SurfaceHabitats);
         Assert.Equal(6, cave.Decorations.Count);
-        Assert.Equal(3, floating.Decorations.Count);
+        Assert.Equal(7, floating.Decorations.Count);
+        Assert.Contains(floating.Decorations, d => d.Block == "asteria:sky_vines");
 
         var field = new SurfaceDecorationField(119UL, [cave, floating], blocks);
         Assert.True(field.HasVerticalDecorations);
