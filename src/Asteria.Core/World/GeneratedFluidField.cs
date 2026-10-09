@@ -11,6 +11,7 @@ public sealed class GeneratedFluidField
     private readonly OceanRule? _ocean;
     private readonly IReadOnlyDictionary<string, SurfaceRule> _surface;
     private readonly HashSet<string> _staticSeaBiomes;
+    private readonly SurfaceMosaicField? _mosaic;
     private readonly IReadOnlyDictionary<string, CraterFillRule> _craterFills;
     private readonly int _minimumInteriorY;
     private readonly int _maximumInteriorY;
@@ -33,7 +34,8 @@ public sealed class GeneratedFluidField
         FluidRegistry fluids,
         IEnumerable<BiomeDefinition> surfaceDefinitions,
         bool spawnOceans = true,
-        bool generatedFluidsEnabled = true)
+        bool generatedFluidsEnabled = true,
+        SurfaceMosaicField? mosaic = null)
     {
         ArgumentNullException.ThrowIfNull(
             dimension);
@@ -43,6 +45,7 @@ public sealed class GeneratedFluidField
             surfaceDefinitions);
 
         _seed = seed;
+        _mosaic = generatedFluidsEnabled ? mosaic : null;
         _minimumInteriorY =
             dimension.Shell?.FloorY is { } floorY
                 ? checked(
@@ -135,7 +138,8 @@ public sealed class GeneratedFluidField
     public bool HasRules =>
         _ocean is not null ||
         _surface.Count > 0 ||
-        _craterFills.Count > 0;
+        _craterFills.Count > 0 ||
+        _mosaic?.HasRules == true;
 
     public int SurfaceCutDepthAt(
         BiomeSample sample,
@@ -145,15 +149,13 @@ public sealed class GeneratedFluidField
         ArgumentNullException.ThrowIfNull(
             sample);
 
-        return _surface.TryGetValue(
-                   sample.Primary,
-                   out var rule) &&
-               rule.Contains(
-                   _seed,
-                   worldX,
-                   worldZ)
-            ? rule.Depth
-            : 0;
+        var cut = _surface.TryGetValue(
+                      sample.Primary,
+                      out var rule) &&
+                  rule.Contains(_seed, worldX, worldZ)
+            ? rule.Depth : 0;
+        return _mosaic?.Sample(sample, worldX, worldZ).IsFluid == true
+            ? Math.Max(1, cut) : cut;
     }
 
     public bool TryGetColumnBounds(
@@ -201,6 +203,15 @@ public sealed class GeneratedFluidField
                     surfaceCutDepth),
                 ref minimumY,
                 ref maximumY);
+        }
+
+        if (surfaceCutDepth > 0 &&
+            _mosaic?.Sample(sample, worldX, worldZ).IsFluid == true)
+        {
+            AddBounds(
+                checked(baseSurfaceY + 1),
+                checked(baseSurfaceY + 1),
+                ref minimumY, ref maximumY);
         }
 
         if (_ocean is
@@ -293,6 +304,12 @@ public sealed class GeneratedFluidField
             return FluidCell.Source(
                 local.Fluid);
         }
+
+        if (surfaceCutDepth > 0 &&
+            worldY == (long)baseSurfaceY + 1 &&
+            _mosaic?.Sample(sample, worldX, worldZ) is
+                { IsFluid: true } selected)
+            return FluidCell.Source(selected.Fluid);
 
         if (_craterFills.TryGetValue(
                 sample.Primary,

@@ -141,6 +141,11 @@ public sealed class BiomeWorldGenerator :
                 seed,
                 dimension,
                 biomes);
+        // One immutable sample owner feeds block, fluid and surface-cut
+        // decisions. Flat/Void modes deliberately bypass the mosaic.
+        var mosaic = generation.Mode == WorldGenerationMode.Normal
+            ? new SurfaceMosaicField(seed, surfaceDefinitions, blocks, fluids)
+            : null;
         _generatedFluids =
             new GeneratedFluidField(
                 seed,
@@ -148,7 +153,8 @@ public sealed class BiomeWorldGenerator :
                 fluids,
                 surfaceDefinitions,
                 spawnOceans: generation.SpawnOceans,
-                generatedFluidsEnabled: generation.Mode != WorldGenerationMode.Void);
+                generatedFluidsEnabled: generation.Mode != WorldGenerationMode.Void,
+                mosaic: mosaic);
         _terrain =
             new SurfaceTerrainField(
                 seed,
@@ -169,7 +175,8 @@ public sealed class BiomeWorldGenerator :
                 seed,
                 materialDefinitions,
                 blocks,
-                _terrain);
+                _terrain,
+                mosaic);
         var habitats = new SurfaceHabitatField(seed, surfaceDefinitions);
         _surfaceStructures =
             new SurfaceStructureField(

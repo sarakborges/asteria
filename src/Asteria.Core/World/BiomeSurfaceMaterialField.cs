@@ -9,6 +9,7 @@ public sealed class BiomeSurfaceMaterialField
 {
     private readonly ulong _seed;
     private readonly SurfaceTerrainField? _terrain;
+    private readonly SurfaceMosaicField? _mosaic;
     private readonly Dictionary<string, MaterialRule> _rules;
     private readonly Dictionary<string, FaceRules> _faceRules;
 
@@ -16,13 +17,15 @@ public sealed class BiomeSurfaceMaterialField
         ulong seed,
         IEnumerable<BiomeDefinition> biomes,
         BlockRegistry blocks,
-        SurfaceTerrainField? terrain = null)
+        SurfaceTerrainField? terrain = null,
+        SurfaceMosaicField? mosaic = null)
     {
         ArgumentNullException.ThrowIfNull(biomes);
         ArgumentNullException.ThrowIfNull(blocks);
 
         _seed = seed;
         _terrain = terrain;
+        _mosaic = mosaic;
         _faceRules = biomes
             .OrderBy(biome => biome.Id, StringComparer.Ordinal)
             .ToDictionary(
@@ -77,6 +80,11 @@ public sealed class BiomeSurfaceMaterialField
             throw new KeyNotFoundException(
                 $"Surface biome {sample.Primary} has no material rule.");
         }
+
+        if (depth == 0 &&
+            _mosaic?.Sample(sample, worldX, worldZ) is
+                { Block.IsAir: false } choice)
+            return choice.Block;
 
         if (depth >= rule.CoreStartDepth)
         {
@@ -136,11 +144,13 @@ public sealed class BiomeSurfaceMaterialField
                 $"Surface biome {sample.Primary} has no material rule.");
         }
 
+        var mosaic = _mosaic?.Sample(sample, worldX, worldZ) ?? default;
         return rule.SampleColumn(
             _seed,
             worldX,
             worldZ,
-            PlacementFor(rule, worldX, worldZ, placement));
+            PlacementFor(rule, worldX, worldZ, placement),
+            mosaic.Block);
     }
 
     /// <summary>
@@ -307,7 +317,8 @@ public sealed class BiomeSurfaceMaterialField
             ulong seed,
             int worldX,
             int worldZ,
-            SurfacePlacementContext? placement)
+            SurfacePlacementContext? placement,
+            BlockRuntimeId surfaceOverride)
         {
             var depths = new uint[Layers.Length];
             var blocks = new BlockRuntimeId[Layers.Length];
@@ -321,7 +332,8 @@ public sealed class BiomeSurfaceMaterialField
                     seed, worldX, worldZ, placement);
             }
 
-            return new BiomeSurfaceMaterialColumn(depths, blocks);
+            return new BiomeSurfaceMaterialColumn(
+                depths, blocks, surfaceOverride);
         }
 
         public static MaterialRule Create(
@@ -597,13 +609,16 @@ public sealed class BiomeSurfaceMaterialColumn
 {
     private readonly uint[] _endDepths;
     private readonly BlockRuntimeId[] _blocks;
+    private readonly BlockRuntimeId _surfaceOverride;
 
     internal BiomeSurfaceMaterialColumn(
         uint[] endDepths,
-        BlockRuntimeId[] blocks)
+        BlockRuntimeId[] blocks,
+        BlockRuntimeId surfaceOverride = default)
     {
         _endDepths = endDepths;
         _blocks = blocks;
+        _surfaceOverride = surfaceOverride;
     }
 
     public uint FiniteDepth =>
@@ -613,6 +628,9 @@ public sealed class BiomeSurfaceMaterialColumn
 
     public BlockRuntimeId BlockAt(uint depth)
     {
+        if (depth == 0 && !_surfaceOverride.IsAir)
+            return _surfaceOverride;
+
         for (var i = 0; i < _endDepths.Length; i++)
         {
             if (depth < _endDepths[i])
