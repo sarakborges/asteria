@@ -11,6 +11,15 @@ namespace Asteria.Client.Rendering;
 /// sole owner of physical movement/posture. Assets are decoded from the pack
 /// directly: no Godot imports, sidecars or ResourceLoader dependencies.
 /// </summary>
+public enum PlayerVisualAction : byte
+{
+    Hit,
+    Break,
+    Place,
+    Hurt,
+    Death,
+}
+
 public sealed partial class PlayerModelPresentation : Node3D
 {
     private const float CrouchBlendSpeed = 8f;
@@ -27,6 +36,9 @@ public sealed partial class PlayerModelPresentation : Node3D
     private AnimationPlayer? _animations;
     private string? _currentClip;
     private float _crouchBlend;
+    private float _actionRemaining;
+    private bool _deathPlaying;
+    private string? _actionClip;
 
     public PlayerModelPresentation(
         FpsPlayer player, PackSelection selection,
@@ -83,6 +95,45 @@ public sealed partial class PlayerModelPresentation : Node3D
         }
     }
 
+    /// <summary>
+    /// Reacts to a native gameplay action; no input or combat state is owned
+    /// here. One-shot actions interrupt locomotion without a rest-pose frame.
+    /// </summary>
+    public bool TryPlayAction(PlayerVisualAction action)
+    {
+        if (_animations is null || _deathPlaying)
+            return false;
+
+        var key = action switch
+        {
+            PlayerVisualAction.Hit => "hit",
+            PlayerVisualAction.Break => "break",
+            PlayerVisualAction.Place => "place",
+            PlayerVisualAction.Hurt => "hurt",
+            PlayerVisualAction.Death => "death",
+            _ => throw new ArgumentOutOfRangeException(nameof(action)),
+        };
+
+        if (!_definition.Animations.TryGetValue(key, out var authored) ||
+            FindClip(authored) is not { } clip)
+            return false;
+
+        if (action is not PlayerVisualAction.Death &&
+            action is not PlayerVisualAction.Hurt && _actionClip is not null &&
+            _actionRemaining > 0f && _actionClip == "hurt")
+            return false;
+
+        _animations.GetAnimation(clip).LoopMode = Animation.LoopModeEnum.None;
+        _animations.Play(clip, customBlend: action is PlayerVisualAction.Hurt
+            ? 0.08f : 0f);
+        _currentClip = clip;
+        _actionClip = key;
+        _actionRemaining = Mathf.Clamp(
+            (float)_animations.GetAnimation(clip).Length, 0.12f, 2f);
+        _deathPlaying = action == PlayerVisualAction.Death;
+        return true;
+    }
+
     public override void _Process(double delta)
     {
         if (_animations is null) return;
@@ -93,6 +144,11 @@ public sealed partial class PlayerModelPresentation : Node3D
         }
         Visible = _player.IsThirdPerson &&
             !_player.PlayerState.GameMode.IsSpectator();
+        if (_actionRemaining > 0f)
+            _actionRemaining = Mathf.Max(0f, _actionRemaining - (float)delta);
+        if (_actionRemaining <= 0f && !_deathPlaying)
+            _actionClip = null;
+
         if (!Visible) return;
 
         var velocity = _player.Velocity;
@@ -105,7 +161,7 @@ public sealed partial class PlayerModelPresentation : Node3D
                 : "idle";
 
         var clip = FindClip(_definition.Animations[state]);
-        if (clip is not null &&
+        if (!_deathPlaying && _actionClip is null && clip is not null &&
             (clip != _currentClip || !_animations.IsPlaying()))
         {
             _animations.Play(clip, customBlend: 0.08f);
