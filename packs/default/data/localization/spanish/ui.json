@@ -398,5 +398,6 @@
   "inventory.equipment.helmet": "Sin casco",
   "inventory.equipment.chest": "Sin peto",
   "inventory.equipment.legs": "Sin pantalones",
-  "inventory.equipment.boots": "Sin botas"
+  "inventory.equipment.boots": "Sin botas",
+  "ui.oxygen": "Oxígeno"
 }
