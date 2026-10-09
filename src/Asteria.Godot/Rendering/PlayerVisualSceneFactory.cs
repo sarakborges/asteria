@@ -48,7 +48,7 @@ internal static class PlayerVisualSceneFactory
             {
                 var overlay = new MeshInstance3D
                 {
-                    Name = mesh.Name + "Overlay",
+                    Name = mesh.Name.ToString() + "Overlay",
                     Mesh = BuildSkinnedMesh(mesh, outer: true),
                     Scale = Vector3.One * 1.045f,
                     CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
