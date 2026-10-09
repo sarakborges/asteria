@@ -268,6 +268,8 @@ public sealed class SurfaceChunkMaterializer
 
         MaterializeVolumeCavePalette(
             chunk, column, densityVolume, originX, originY, originZ);
+        MaterializeExteriorFacePalette(
+            chunk, column, densityVolume, originX, originY, originZ);
 
         MaterializeVerticalDecorations(
             chunk, column, densityVolume,
@@ -642,8 +644,10 @@ public sealed class SurfaceChunkMaterializer
         z << 16;
 
     /// <summary>
-    /// Apply volume-biome surfaceLayers to exposed cave solids; the terrain
-    /// density owner determines actual carved-void occupancy.
+    /// Paints the nearest carved-void face with its authored palette profile.
+    /// The nearest void is resolved in terrain-density space (including across
+    /// chunk boundaries), so thickness always extends inward from the face.
+    /// Equal-distance corners prefer floor, then walls, then ceiling.
     /// </summary>
     private void MaterializeVolumeCavePalette(
         Chunk chunk,
@@ -659,53 +663,146 @@ public sealed class SurfaceChunkMaterializer
         {
             var worldX = originX + x;
             var worldZ = originZ + z;
-            var caveBiome = volumes.SampleCave(worldX, worldZ);
-            if (caveBiome is null)
+            var biome = volumes.SampleCave(worldX, worldZ);
+            if (biome is null)
                 continue;
 
             var baseY = column.BaseHeightAt(x, z);
+            var reach = (int)_materials.MaxVolumePaintDepth(biome);
             for (var y = 0; y < Chunk.Size; y++)
             {
                 var worldY = originY + y;
                 if (worldY <= 0 || worldY > baseY - 4 ||
                     (_floorY is { } floorY && worldY <= floorY) ||
-                    (_roofY is { } roofY && worldY >= roofY))
-                    continue;
-
-                var block = chunk.GetBlock(x, y, z);
-                if (block.IsAir ||
+                    (_roofY is { } roofY && worldY >= roofY) ||
+                    chunk.GetBlock(x, y, z).IsAir ||
                     densityVolume.DensityAt(x, y, z) < 0d)
                     continue;
 
-                bool CaveAir(int dx, int dy, int dz)
+                bool CarvedVoid(int dx, int dy, int dz)
                 {
                     var nx = x + dx;
                     var ny = y + dy;
                     var nz = z + dz;
+                    var neighborY = worldY + dy;
+                    if (neighborY <= 0 || neighborY > baseY - 3)
+                        return false;
                     if ((uint)nx < Chunk.Size &&
                         (uint)ny < Chunk.Size &&
                         (uint)nz < Chunk.Size)
-                        return originY + ny <= column.BaseHeightAt(nx, nz) - 4 &&
-                               densityVolume.DensityAt(nx, ny, nz) < 0d;
+                        return densityVolume.DensityAt(nx, ny, nz) < 0d &&
+                            neighborY <= column.BaseHeightAt(nx, nz) - 4;
 
-                    var neighborY = worldY + dy;
-                    return neighborY >= 0 &&
-                        _terrain.IsCaveVoidAt(
-                            worldX + dx, neighborY, worldZ + dz);
+                    return _terrain.IsCaveVoidAt(
+                        worldX + dx, neighborY, worldZ + dz);
                 }
 
-                var hasFloor = CaveAir(0, 1, 0);
-                var hasCeiling = CaveAir(0, -1, 0);
-                var hasWall = !hasFloor && !hasCeiling &&
-                    (CaveAir(-1, 0, 0) || CaveAir(1, 0, 0) ||
-                     CaveAir(0, 0, -1) || CaveAir(0, 0, 1));
-                if (!hasFloor && !hasCeiling && !hasWall)
+                for (var depth = 0; depth < reach; depth++)
+                {
+                    var distance = depth + 1;
+                    BiomePaletteFace? face = null;
+                    if (CarvedVoid(0, distance, 0))
+                        face = BiomePaletteFace.Floor;
+                    else if (CarvedVoid(-distance, 0, 0) ||
+                             CarvedVoid(distance, 0, 0) ||
+                             CarvedVoid(0, 0, -distance) ||
+                             CarvedVoid(0, 0, distance))
+                        face = BiomePaletteFace.Walls;
+                    else if (CarvedVoid(0, -distance, 0))
+                        face = BiomePaletteFace.Ceiling;
+
+                    if (face is not { } exposed)
+                        continue;
+
+                    chunk.SetBlock(x, y, z,
+                        _materials.VolumeBlockAt(
+                            biome, worldX, worldY, worldZ,
+                            exposed, (uint)depth));
+                    break;
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Directional face overrides apply to exposed exterior terrain and
+    /// additive volume solids too. Without an authored override this is a
+    /// no-op; the existing top-facing layer materialization is preserved.
+    /// </summary>
+    private void MaterializeExteriorFacePalette(
+        Chunk chunk,
+        SurfaceTerrainColumn column,
+        TerrainDensityVolume densityVolume,
+        int originX, int originY, int originZ)
+    {
+        for (var z = 0; z < Chunk.Size; z++)
+        for (var x = 0; x < Chunk.Size; x++)
+        {
+            var worldX = originX + x;
+            var worldZ = originZ + z;
+            var surfaceBiome = column.BiomeAt(x, z);
+            var baseY = column.BaseHeightAt(x, z);
+            for (var y = 0; y < Chunk.Size; y++)
+            {
+                var worldY = originY + y;
+                if (worldY <= 0 ||
+                    (_floorY is { } floorY && worldY <= floorY) ||
+                    (_roofY is { } roofY && worldY >= roofY) ||
+                    chunk.GetBlock(x, y, z).IsAir ||
+                    densityVolume.DensityAt(x, y, z) < 0d)
                     continue;
 
-                var replacement = _materials.VolumeBlockAt(
-                    caveBiome, worldX, worldY, worldZ);
-                if (replacement != block)
-                    chunk.SetBlock(x, y, z, replacement);
+                var biome = worldY > baseY
+                    ? densityVolume.VolumeBiomeAt(x, worldY, z)
+                    : surfaceBiome;
+                if (biome is null)
+                    continue;
+                var wall = _materials.HasDirectionalOverride(
+                    biome, BiomePaletteFace.Walls);
+                var ceiling = _materials.HasDirectionalOverride(
+                    biome, BiomePaletteFace.Ceiling);
+                if (!wall && !ceiling)
+                    continue;
+
+                bool ExteriorAir(int dx, int dy, int dz)
+                {
+                    var neighborY = worldY + dy;
+                    if (neighborY < 0)
+                        return false;
+                    var nx = x + dx;
+                    var ny = y + dy;
+                    var nz = z + dz;
+                    var voidDensity = (uint)nx < Chunk.Size &&
+                        (uint)ny < Chunk.Size &&
+                        (uint)nz < Chunk.Size
+                        ? densityVolume.DensityAt(nx, ny, nz) < 0d
+                        : _terrain.DensityAt(
+                            worldX + dx, neighborY, worldZ + dz) < 0d;
+                    return voidDensity && !_terrain.IsCaveVoidAt(
+                        worldX + dx, neighborY, worldZ + dz);
+                }
+
+                var reach = (int)_materials.MaxVolumePaintDepth(biome);
+                for (var depth = 0; depth < reach; depth++)
+                {
+                    var distance = depth + 1;
+                    BiomePaletteFace? face = null;
+                    if (wall &&
+                        (ExteriorAir(-distance, 0, 0) ||
+                         ExteriorAir(distance, 0, 0) ||
+                         ExteriorAir(0, 0, -distance) ||
+                         ExteriorAir(0, 0, distance)))
+                        face = BiomePaletteFace.Walls;
+                    else if (ceiling && ExteriorAir(0, -distance, 0))
+                        face = BiomePaletteFace.Ceiling;
+
+                    if (face is not { } exposed)
+                        continue;
+
+                    chunk.SetBlock(x, y, z, _materials.VolumeBlockAt(
+                        biome, worldX, worldY, worldZ, exposed, (uint)depth));
+                    break;
+                }
             }
         }
     }
