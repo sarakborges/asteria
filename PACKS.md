@@ -79,7 +79,7 @@ Each pack has one manifest at `packs/{name}/pack.json`:
 
 Definitions may add or override namespaced blocks, fluids, biomes, structures, recipes, loot, dimensions and future definition-driven systems.
 
-Dimensions live under `data/dimensions/*.json`. A dimension is one authored world-runtime configuration; in-game, dimensions are called **Spheres**. It declares its stable ID, explicit `surfaceBiomes`, optional `volumeBiomes` and optional `undergroundBiomes` pools, sea level, gravity strength, spawn coordinates, optional Sphere Shell bounds and engine-agnostic environment presentation values. Surface-terrain heights are authored as offsets relative to that dimension sea level rather than baking an absolute world height into each biome. A root world seed is not duplicated into the pack; runtime derives a stable per-dimension seed from the world seed + dimension ID.
+Dimensions live under `data/dimensions/*.json`. A dimension is one authored world-runtime configuration; in-game, dimensions are called **Spheres**. It declares its stable ID, explicit `surfaceBiomes` and optional `volumeBiomes` pools, sea level, gravity strength, spawn coordinates, optional Sphere Shell bounds and engine-agnostic environment presentation values. Surface-terrain heights are authored as offsets relative to that dimension sea level rather than baking an absolute world height into each biome. A root world seed is not duplicated into the pack; runtime derives a stable per-dimension seed from the world seed + dimension ID.
 
 Example placement pools:
 
@@ -89,14 +89,12 @@ Example placement pools:
   "asteria:overworld/ocean"
 ],
 "volumeBiomes": [
-  "asteria:overworld/floating_islands"
-],
-"undergroundBiomes": [
+  "asteria:overworld/floating_islands",
   "asteria:overworld/caverns"
 ]
 ```
 
-A biome ID may not be repeated across placement pools. Surface entries must author `surfaceLayout` + `surfaceTerrain`; volume entries must author `volumeLayout` and the bounded volume capability required by that biome; underground entries must author `undergroundLayout`. A Sphere may only declare underground biomes when it also authors a cave field.
+A biome ID may not be repeated across placement pools. Surface entries must author `surfaceLayout` + `surfaceTerrain`; volume entries author `volumeLayout.placement` (`additive` or `carvedVoid`) and the necessary terrain/cave capability. All biomes author a shared `palette.default` and optional face overrides.
 
 `surfaceLayout.weight` controls normal surface-biome distribution. `surfaceLayout.spawnWeight` is separate: it is a non-negative weight used only to choose the preferred initial-spawn biome deterministically from the dimension seed; the generated ocean biome is excluded from that choice. A zero spawn weight keeps a biome in normal world generation while preventing it from being selected as the preferred random spawn biome. `cannotBorder` is symmetric at runtime: if either biome denies the other, the pair is incompatible. MineClone legacy exclusive-neighbor groups are represented explicitly through these authored pairwise `cannotBorder` IDs rather than a second adjacency mechanism.
 
@@ -192,7 +190,7 @@ Structures may also author `priority`, `conflictGroups`, and a `generation` obje
 
 StructureSets live under `data/structure_sets/*.json`. A set is one logical generated root composed from multiple existing Structure or Structure-group references:
 
-Plains ground details extend the same pack-authored generation system: a sparse, irregular `surfaceLayers[0].patch` alternates grass with dirt/gravel without painting circles, while Pebbles and Sticks accept the exposed alternative surfaces. Four `fallen_log_oak` rotated horizontal log variants (including hollow/stripped pieces) and three `oak_stump` templates use `groundAnchorY: 0` to preserve the actual surface voxels below them. Their dry-ground, flat-footprint and 100% biome-coverage restrictions prevent floating logs or edge bleed. The `rock_cluster` StructureSet composes small boulders with bounded distance and separation. All densities reside on the dimension's generated-surface rules; no Plains-specific engine branch was added.
+Plains ground details extend the same pack-authored generation system: a sparse, irregular `palette.default[0].patch` alternates grass with dirt/gravel without painting circles, while Pebbles and Sticks accept the exposed alternative surfaces. Four `fallen_log_oak` rotated horizontal log variants (including hollow/stripped pieces) and three `oak_stump` templates use `groundAnchorY: 0` to preserve the actual surface voxels below them. Their dry-ground, flat-footprint and 100% biome-coverage restrictions prevent floating logs or edge bleed. The `rock_cluster` StructureSet composes small boulders with bounded distance and separation. All densities reside on the dimension's generated-surface rules; no Plains-specific engine branch was added.
 
 Default Plains vegetation uses reusable authored content: `asteria:bush_oak` groups three irregular Structure templates made of existing oak leaves/logs, `asteria:thicket_oak` groups multiple shrubs into one bounded natural cluster, and `asteria:oak_grove` groups oak variants into small groves. Ground/slope/biome/fluid checks apply to every member. A Sphere chooses frequency in `generatedSurfaceStructures`; individual templates and StructureSets are dimension-agnostic. Willow keeps the authored fluid-proximity restriction and is less frequent than Oak in Plains.
 
@@ -260,13 +258,13 @@ Ground-level decorative blocks support the `visual.type: "groundSprite"` visual 
 
 ### Arctic, Desert and Wasteland natural habitats
 
-The default Overworld pack now uses the same world-space `surfaceHabitats` / `habitatWeights` system for three sparse biomes, retaining their MineClone-derived terrain and layers. **Arctic** is divided into Frozen Plain (mostly open snow), Ice Fields (ice/blue outcrops), and Rocky Ridges (Pebbles and clustered boulders). **Desert** has Open Dunes (mostly bare sand), Gravel Flats (Pebbles and exposed gravel), and Sandstone Outcrops (low sandstone boulders and narrow spires). **Wasteland** has Barren Flats (bare soil), Deadwood Pockets (leafless oak snags and fallen logs), and Rocky Scrub (boulders, small rock clusters and Pebbles). Organic `surfaceLayers[].patch` variations use warped world-space noise with bounded coverage, retaining the core materials; neither patches nor habitats modify height or create standalone biomes. Every new structure uses existing Block palette data, a bounded shape, dry-ground and 100% biome coverage restrictions. Wasteland deadwood sits above the authored surface and cannot turn dirt into grass. Existing four Wasteland boulder roots were made habitat-weighted instead of duplicated. All density parameters live in the biome and dimension JSON files; no engine-specific generation path was introduced.
+The default Overworld pack now uses the same world-space `surfaceHabitats` / `habitatWeights` system for three sparse biomes, retaining their MineClone-derived terrain and layers. **Arctic** is divided into Frozen Plain (mostly open snow), Ice Fields (ice/blue outcrops), and Rocky Ridges (Pebbles and clustered boulders). **Desert** has Open Dunes (mostly bare sand), Gravel Flats (Pebbles and exposed gravel), and Sandstone Outcrops (low sandstone boulders and narrow spires). **Wasteland** has Barren Flats (bare soil), Deadwood Pockets (leafless oak snags and fallen logs), and Rocky Scrub (boulders, small rock clusters and Pebbles). Organic `palette.default[].patch` variations use warped world-space noise with bounded coverage, retaining the core materials; neither patches nor habitats modify height or create standalone biomes. Every new structure uses existing Block palette data, a bounded shape, dry-ground and 100% biome coverage restrictions. Wasteland deadwood sits above the authored surface and cannot turn dirt into grass. Existing four Wasteland boulder roots were made habitat-weighted instead of duplicated. All density parameters live in the biome and dimension JSON files; no engine-specific generation path was introduced.
 
-Mountain biome enrichment uses the same generic content pipeline and **does not** modify ridge, valley or waterfall geometry. Mountains authors Foothill Shelves, Talus Fields and Exposed Ridges; Mountain Belt authors Sheltered Passes, Boulder Runs and Bare Crests; Alps authors Snowfields, Glacial Ice and Wind-scoured Rock; Gorge authors Valley Floor, Rubble Slopes and High Rims. The first four profiles combine smooth deterministic habitat bands with limited, warped `surfaceLayers[0].patch` regions on the *existing* terrain surface. The original Stone/Snow core remains below a shallow affected layer. Generic `conditions` use authored absolute altitude and slope thresholds: low, sheltered gentle slopes can contain Gravel/Dirt and sparse Grass/Sticks while Alpine upper shelves expose Ice/Gravel/Stone; steep and incompatible positions retain the original material. Pebble placement also has per-biome slope/altitude filters. Existing boulder roots are habitat-weighted, existing waterfall roots keep their old unweighted placement, and eight new habitat-weighted Structure roots use the generic `talus_outcrop`, `rock_cluster` and existing `ice_outcrop` templates. All Structure ground-fit, fluid and full-biome-coverage restrictions still apply. Each value can be tuned in the JSON pack without new biome-specific code. Note that material patches use 2D noise inside altitude/slope eligibility; habitats influence decoration/structure *probability*, not material patch ownership.
+Mountain biome enrichment uses the same generic content pipeline and **does not** modify ridge, valley or waterfall geometry. Mountains authors Foothill Shelves, Talus Fields and Exposed Ridges; Mountain Belt authors Sheltered Passes, Boulder Runs and Bare Crests; Alps authors Snowfields, Glacial Ice and Wind-scoured Rock; Gorge authors Valley Floor, Rubble Slopes and High Rims. The first four profiles combine smooth deterministic habitat bands with limited, warped `palette.default[0].patch` regions on the *existing* terrain surface. The original Stone/Snow core remains below a shallow affected layer. Generic `conditions` use authored absolute altitude and slope thresholds: low, sheltered gentle slopes can contain Gravel/Dirt and sparse Grass/Sticks while Alpine upper shelves expose Ice/Gravel/Stone; steep and incompatible positions retain the original material. Pebble placement also has per-biome slope/altitude filters. Existing boulder roots are habitat-weighted, existing waterfall roots keep their old unweighted placement, and eight new habitat-weighted Structure roots use the generic `talus_outcrop`, `rock_cluster` and existing `ice_outcrop` templates. All Structure ground-fit, fluid and full-biome-coverage restrictions still apply. Each value can be tuned in the JSON pack without new biome-specific code. Note that material patches use 2D noise inside altitude/slope eligibility; habitats influence decoration/structure *probability*, not material patch ownership.
 
 ### Volcano: authored geology and preserved lava
 
-The Volcano terrain definition retains its existing `cone`, `crater` and `crater.fluidFill` contract (including lava source level and spill noise); this enrichment does **not** add another lava producer, touch geometry, or invoke a Hydrology system. Its original Basalt remains the unlimited stone core. A bounded two-block Basalt cap has warped `surfaceLayers[].patch` alternatives (Basalt Cobble and limited Gravel), eligible only on suitable lower/sloped ground, while all exposed upper and steep regions keep Basalt. Biome-owned `surfaceHabitats` organize **Ash Aprons**, **Fractured Flanks**, and **Hardened Highlands** as natural deterministic distribution regions: they influence Pebble and Structure placement probabilities, not the crater position. Four generated Structure rules place Basalt Cobble outcrops, larger Basalt boulders, narrow Basalt spires, and small `basalt_cluster` StructureSets, using six reusable JSON templates. Ground fit, fluid-forbidden policy, shared rock conflict group, required full biome coverage and biome-edge behavior all use the pre-existing generic Structure owner; lava-filled positions are excluded by the generated-fluid owner. No new Blocks or rendering effects are necessary. The names of the habitat bands are distribution regions, **not** guaranteed geographic rings around the crater; only existing altitude/slope conditions constrain material eligibility.
+The Volcano terrain definition retains its existing `cone`, `crater` and `crater.fluidFill` contract (including lava source level and spill noise); this enrichment does **not** add another lava producer, touch geometry, or invoke a Hydrology system. Its original Basalt remains the unlimited stone core. A bounded two-block Basalt cap has warped `palette.default[].patch` alternatives (Basalt Cobble and limited Gravel), eligible only on suitable lower/sloped ground, while all exposed upper and steep regions keep Basalt. Biome-owned `surfaceHabitats` organize **Ash Aprons**, **Fractured Flanks**, and **Hardened Highlands** as natural deterministic distribution regions: they influence Pebble and Structure placement probabilities, not the crater position. Four generated Structure rules place Basalt Cobble outcrops, larger Basalt boulders, narrow Basalt spires, and small `basalt_cluster` StructureSets, using six reusable JSON templates. Ground fit, fluid-forbidden policy, shared rock conflict group, required full biome coverage and biome-edge behavior all use the pre-existing generic Structure owner; lava-filled positions are excluded by the generated-fluid owner. No new Blocks or rendering effects are necessary. The names of the habitat bands are distribution regions, **not** guaranteed geographic rings around the crater; only existing altitude/slope conditions constrain material eligibility.
 
 ### Ocean seabeds, cave floors, and additive floating island tops
 
@@ -369,67 +367,55 @@ Caves are optional, occur below the exposed base surface, and cannot
 puncture the top terrain crossing. Both scales are bounded. Depth and
 boundary fade must fit within a finite positive underground band.
 
-Underground biomes are a separate identity domain layered on top of the authoritative cave carve:
+Surface and volume biomes share one authored `palette` and one
+`decorations` system. The volume placement mode controls spatial
+ownership, never a second biome class. A `carvedVoid` volume is
+effective only where the authoritative Sphere cave density carved
+space; `additive` volumes author bounded `terrain3d.additive`.
+
+For a cave biome, floor, walls and ceiling can have independent
+inward material depths and patches:
 
 ```json
 {
   "id": "asteria:overworld/caverns",
-  "undergroundLayout": {}
-}
-```
-
-An underground-only biome may omit `surfaceLayout`, `surfaceTerrain`, `volumeLayout` and `surfaceLayers`. `undergroundLayout` controls deterministic underground identity placement, but it never decides where air exists. The biome becomes effective only at voxels that the Sphere's existing cave field actually carved. Solid rock, the exposed surface and Sphere Shell boundaries never become underground biomes merely because their X/Z lies inside an underground region.
-
-Volume biomes author their own horizontal placement and bounded additive 3D formation:
-
-```json
-{
-  "id": "asteria:overworld/floating_islands",
-  "volumeLayout": {
-    "weight": 1,
-    "regionSize": { "min": 192, "max": 384 }
-  },
-  "surfaceLayers": [
-    { "block": "asteria:grass_block", "depth": 1 },
-    { "block": "asteria:dirt", "depth": 4 },
-    { "block": "asteria:stone" }
-  ],
-  "terrain3d": {
-    "floatingFormation": {
-      "minY": 200,
-      "maxY": 280,
-      "horizontalScale": 112,
-      "detailScale": 40,
-      "coverage": 0.55,
-      "roughness": 0.18,
-      "densityScale": 28
-    }
+  "volumeLayout": { "placement": "carvedVoid" },
+  "palette": {
+    "default": [{ "block": "asteria:stone" }],
+    "floor": [
+      { "block": "asteria:gravel", "depth": 2 },
+      { "block": "asteria:stone" }
+    ],
+    "walls": [
+      { "block": "asteria:basalt", "depth": 3,
+        "patch": {
+          "scale": 32, "coverage": 0.35,
+          "blocks": ["asteria:stone", "asteria:terracotta"]
+        }
+      },
+      { "block": "asteria:stone" }
+    ],
+    "ceiling": [{ "block": "asteria:stone" }]
   }
 }
 ```
 
-A volume-only biome omits `surfaceLayout` and `surfaceTerrain`; it cannot become the ground/surface owner. `volumeLayout` uses the same deterministic region-shaping inputs as surface placement, while surface biomes act only as internal no-volume competitors that bound volume regions. Floating bounds use non-negative absolute world Y with positive span at most 512 blocks. Additive density is emitted only for the authoritative volume owner. The exposed tops of disconnected masses restart their own material layering from that volume biome's `surfaceLayers`.
+Only `palette.default` is required. `floor`, `walls` and
+`ceiling` inherit from it when omitted. Each profile is an ordered
+layer stack: all but the final core layer must have a positive
+`depth`, and the final layer omits it. Depth on volume faces is
+measured **into the solid from the exposed face** (not world-downward
+for a wall). At equal-distance corners, floor takes precedence,
+followed by walls, then ceiling. Patch masks are deterministic in
+3D for volume faces and remain 2D for normal exposed surface columns.
+Interior rock outside the profile's authored depth is unaffected.
 
-Exposed solid material for surface and volume biomes is authored with ordered `surfaceLayers`:
-
-```json
-"surfaceLayers": [
-  {
-    "block": "asteria:grass_block",
-    "depth": 1,
-    "patch": {
-      "scale": 28,
-      "coverage": 0.52,
-      "roughness": 0.3,
-      "blocks": ["asteria:dirt", "asteria:mud"]
-    }
-  },
-  { "block": "asteria:dirt", "depth": 4 },
-  { "block": "asteria:stone" }
-]
-```
-
-Every entry before the last requires a positive `depth`; those depths accumulate downward from the exposed surface. The final entry omits `depth` and is the unlimited core material. A patch may exist only on a finite layer and replaces that layer's base block through a deterministic continuous world-space noise field. `scale` controls the broad material-region size, `coverage` controls how much of the layer is replaced, and `roughness` adds bounded smaller-scale irregularity. Patch boundaries are organic and continuous across chunk borders; radial/circular footprints are not part of the contract. Patch alternatives cannot repeat the base block. Material ownership follows the sampled primary biome; nearby biome influence weights blend terrain shape, not material identity.
+Top-facing profiles on surface biomes and additive volume biomes
+use the same layer and patch resolution that already governs their
+terrain. Exterior wall/ceiling overrides are applied only when
+authored, and never replace the cave volume's own palette.
+`decorations` remains a sibling of `palette`: material choices
+never implicitly spawn decorators.
 
 Tintable blocks declare a semantic block tint category such as `grass`, `leaf` or `foliage`. Surface biomes may author matching RGB colors:
 

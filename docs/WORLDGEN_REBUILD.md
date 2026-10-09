@@ -385,27 +385,32 @@ changing `SurfaceTerrainField`.
 
 ## Shared surface and volume biome palettes
 
-Every biome uses the same `surfaceLayers` and `decorations` content
-definitions, whether it owns the visible surface or a 3D volume. There is
-no separate `undergroundBiomes` pool, `undergroundLayout` capability, or
-`caveMaterials` palette. Spheres select `surfaceBiomes` and
-`volumeBiomes` explicitly.
+Surface and volume biomes author the same `palette` and
+`decorations` definitions. `palette.default` is required;
+`palette.floor`, `palette.walls` and `palette.ceiling` are optional
+profiles that fall back to `default`. All profiles contain ordered
+`{ block, depth?, patch? }` layers with a depthless core layer.
+`surfaceLayers`, `caveMaterials`, `undergroundLayout` and
+`undergroundBiomes` are no longer authored inputs.
 
-`volumeLayout.placement` selects occupancy: `additive` for authored
-`terrain3d.additive` formations, and `carvedVoid` for volume identity
-within subtractive cave geometry. These occupancy modes are capabilities
-of **one** volume biome model, not separate kinds of biome. Cave volume
-identity is only observable after the terrain field confirms a carved
-void; additive volume identities only appear in authored Y ranges.
-Floating Islands cannot overwrite the ground-level cave palette.
+A `volumeLayout.placement` value of `additive` owns bounded
+`terrain3d.additive` formations; `carvedVoid` owns regions only
+within the authoritative Sphere cave carve. Caverns and Floating
+Islands are both volume biomes. Neither can overwrite terrain merely
+by sharing a horizontal column.
 
-`surfaceLayers` on a cave volume biome define its exposed solid palette.
-The first exposed layer's patch is sampled in **3D world coordinates**
-across cave floors, walls, and ceilings, allowing coherent material
-regions without flat 2D stripes; the core layer remains unchanged.
-Vertical decorators already use the same `decorations` schema for both
-surface and volume placement, and only appear on supported exposed tops.
-No Godot material, texture or hard-coded biome checks own these rules.
+For exposed volume faces the palette is evaluated in 3D world
+coordinates. Depth is measured inward from the chosen floor,
+wall or ceiling face, across chunk seams, with floor > walls >
+ceiling tie priority. The rock core beyond the authored paint
+depth is unchanged. For base surfaces and additive tops,
+`palette.floor` (or its inherited default) retains established
+depth and 2D patch behavior.
+
+The materializer remains the sole writer; `decorations` is
+independent and supports both surface and volume biome identities.
+No extra material sub-biome or parallel decoration pipeline is
+required.
 
 ## Cave chambers and clustered spike formations
 
