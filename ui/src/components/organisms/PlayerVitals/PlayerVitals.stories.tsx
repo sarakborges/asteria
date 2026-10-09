@@ -13,7 +13,7 @@ const meta = {
 } satisfies Meta<typeof PlayerVitals>;
 
 export default meta;
-type Story = StoryObj<typeof meta>;
+type Story = StoryObj<typeof PlayerVitals>;
 
 export const Default: Story = {};
 
