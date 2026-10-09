@@ -88,6 +88,7 @@ public sealed class SubmergedDecorationTests
         var generator = new BiomeWorldGenerator(
             17, dimension, blocks, fluids,
             new BiomeRegistry([biome]),
+            StructureRegistry.Empty,
             generation: new WorldGenerationOptions(spawnCaves: false));
 
         var y = generator.SurfaceHeight(8, 8) + 1;
