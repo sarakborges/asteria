@@ -1290,7 +1290,7 @@ public partial class Main : Node3D
                     break;
                 case "ui.world.create":
                     if (_worldSeed is null && !_worldDelete.IsBusy &&
-                        !_worldLoad.IsBusy && !_worldCatalog.IsBusy)
+                        !_worldLoad.IsBusy)
                     {
                         StartRequestedWorld(
                             document.RootElement);
