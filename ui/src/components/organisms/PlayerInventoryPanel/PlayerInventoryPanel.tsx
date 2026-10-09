@@ -1,3 +1,4 @@
+import { inventorySearchMatches } from "../../../presentation/inventoryLabels";
 import { useLocalization } from "../../../localization/LocalizationProvider";
 import type {
   ItemStackView,
@@ -31,7 +32,7 @@ export function PlayerInventoryPanel({
   onTrash,
   onSlotClick,
 }: PlayerInventoryPanelProps) {
-  const { t } = useLocalization();
+  const { t, contentName } = useLocalization();
   const backpack = normalizedSlots(
     state.backpack,
     BACKPACK_COLUMNS *
@@ -63,7 +64,7 @@ export function PlayerInventoryPanel({
               key={index}
               item={item}
               disabled={Boolean(state.searchQuery.trim()) &&
-                !item?.id.toLowerCase().includes(state.searchQuery.trim().toLowerCase())}
+                !inventorySearchMatches(item, state.searchQuery, contentName)}
               onClick={() =>
                 onSlotClick?.(
                   index,
