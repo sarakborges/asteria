@@ -5,7 +5,8 @@ import type {
 } from "../state/uiState";
 import type { UiStore } from "../state/uiStore";
 import { asRecord } from "./messagePayload";
-import { readKind, readMetadata, readSlot, readSlots } from "./inventoryMessageSlots";
+import { readSlot, readSlots } from "./inventoryMessageSlots";
+import { readCreativeCatalog } from "./creativeCatalogPayload";
 
 function readRecipes(value: unknown): InventoryCraftingRecipe[] | null {
   if (!Array.isArray(value) || value.length > 256) return null;
@@ -145,27 +146,16 @@ export function createInventoryController(
           ...state, inventory: { ...state.inventory, portraitUrl: imageUrl },
         }));
       } else if (message.type === "game.inventory.catalog") {
-        if (!payload || !Array.isArray(payload.items)) return;
-        const catalog = payload.items.flatMap((raw): InventoryCatalogEntry[] => {
-          const item = asRecord(raw);
-          const kind = readKind(item?.kind);
-          const metadata = readMetadata(item?.metadata);
-          return item && kind && metadata &&
-            typeof item.id === "string" &&
-            typeof item.name === "string" &&
-            typeof item.category === "string"
-              ? [{
-                id: item.id, kind, name: item.name,
-                category: item.category, metadata,
-                iconUrl: typeof item.iconUrl === "string" &&
-                  item.iconUrl.startsWith("data:image/png;base64,")
-                    ? item.iconUrl : undefined,
-              }]
-              : [];
-        });
+        const catalog = readCreativeCatalog(message.payload);
+        if (!catalog) return;
         store.update(state => ({
           ...state,
-          inventory: { ...state.inventory, catalog },
+          inventory: {
+            ...state.inventory,
+            catalog: catalog.items,
+            categories: catalog.categories,
+            everythingIconUrl: catalog.everythingIconUrl,
+          },
         }));
       } else if (message.type === "game.inventory.crafting_result") {
         const craftingStatus = readCraftingStatus(message.payload);
