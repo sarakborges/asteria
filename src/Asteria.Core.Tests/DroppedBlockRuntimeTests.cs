@@ -69,8 +69,10 @@ public sealed class DroppedBlockRuntimeTests
         Assert.Empty(restored.ActiveBlocks);
         Assert.Equal("asteria:dimensional_slicer",
             inventory.SlotAt(PlayerInventory.BackpackSlots + 1)!.Id);
-        Assert.Throws<ArgumentOutOfRangeException>(() =>
-            runtime.Spawn(new InventoryStack(item, 2), new Vector3(3, 4, 5)));
+        var stacked = runtime.Spawn(new InventoryStack(item, 2),
+            new Vector3(3, 4, 5));
+        Assert.Equal(2, runtime.ActiveBlocks.Single(
+            state => state.Id == stacked).Stack.Quantity);
     }
 
     [Fact]
