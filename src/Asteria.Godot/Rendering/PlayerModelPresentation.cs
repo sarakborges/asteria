@@ -30,6 +30,8 @@ public sealed partial class PlayerModelPresentation : Node3D
     private readonly PlayerVisualDefinition _definition;
     private readonly PlayerInventory _inventory;
     private readonly HeldVisualResolver _heldResolver;
+    private readonly PackContentRegistry<ItemDefinition> _items;
+    private PlayerEquipmentPresentation? _equipment;
     private HeldItemPresentation? _held;
     private ulong _lastInventoryRevision = ulong.MaxValue;
     private readonly Dictionary<string, (Node3D Pivot, Vector3 Position)> _pivots = [];
@@ -43,13 +45,14 @@ public sealed partial class PlayerModelPresentation : Node3D
     public PlayerModelPresentation(
         FpsPlayer player, PackSelection selection,
         PlayerVisualDefinition definition, PlayerInventory inventory,
-        HeldVisualResolver heldResolver)
+        HeldVisualResolver heldResolver, PackContentRegistry<ItemDefinition> items)
     {
         _player = player ?? throw new ArgumentNullException(nameof(player));
         _selection = selection;
         _definition = definition ?? throw new ArgumentNullException(nameof(definition));
         _inventory = inventory ?? throw new ArgumentNullException(nameof(inventory));
         _heldResolver = heldResolver ?? throw new ArgumentNullException(nameof(heldResolver));
+        _items = items ?? throw new ArgumentNullException(nameof(items));
         Name = "PlayerVisual";
         Visible = false;
     }
@@ -64,6 +67,8 @@ public sealed partial class PlayerModelPresentation : Node3D
         };
         AddChild(facing);
         facing.AddChild(imported);
+        _equipment = new PlayerEquipmentPresentation(imported, _inventory, _items);
+        _equipment.Sync();
 
         foreach (var child in PlayerVisualSceneFactory.Descendants(imported))
         {
@@ -137,6 +142,7 @@ public sealed partial class PlayerModelPresentation : Node3D
     public override void _Process(double delta)
     {
         if (_animations is null) return;
+        _equipment?.Sync();
         if (_held is not null && _lastInventoryRevision != _inventory.Revision)
         {
             _held.SetVisual(_heldResolver.Resolve(_inventory.SelectedStack));
