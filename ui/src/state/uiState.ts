@@ -261,9 +261,10 @@ export type UiNavigationState = {
 };
 
 export type WorldCatalogState = {
-  status: "unavailable" | "verifying" | "ready" | "error";
+  status: "unavailable" | "verifying" | "deleting" | "ready" | "error";
   worlds: readonly WorldSummaryView[];
   folderError: boolean;
+  deleteError: boolean;
 };
 
 export type ChatCompletionCatalog = {
@@ -336,7 +337,7 @@ export function createInitialUiState(
       },
     },
     loading: null,
-    worldCatalog: { status: "unavailable", worlds: [], folderError: false },
+    worldCatalog: { status: "unavailable", worlds: [], folderError: false, deleteError: false },
     chat: {
       open: false, visible: false, history: [], commands: [],
       catalog: {
