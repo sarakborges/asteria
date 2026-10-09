@@ -4,8 +4,8 @@ public static class ChunkStreamingSelection
 {
     private const int SurfacePaddingBelowChunks = 2;
     private const int SurfacePaddingAboveChunks = 1;
-    private const int PlayerLocalHorizontalRadiusChunks = 2;
-    private const int PlayerLocalVerticalRadiusChunks = 2;
+    internal const int PlayerLocalHorizontalRadiusChunks = 2;
+    internal const int PlayerLocalVerticalRadiusChunks = 2;
 
     public static HashSet<ChunkCoord> DesiredSurfaceChunks(
         ChunkCoord center,
@@ -206,9 +206,12 @@ public sealed class ChunkPresentationSelection
     // Render/retention radii are intentionally independent of physics.
     public bool ShouldEnablePhysics(ChunkCoord coord) =>
         Center is { } center &&
-        Math.Abs((long)coord.X - center.X) <= 2 &&
-        Math.Abs((long)coord.Y - center.Y) <= 2 &&
-        Math.Abs((long)coord.Z - center.Z) <= 2;
+        Math.Abs((long)coord.X - center.X) <=
+            ChunkStreamingSelection.PlayerLocalHorizontalRadiusChunks &&
+        Math.Abs((long)coord.Y - center.Y) <=
+            ChunkStreamingSelection.PlayerLocalVerticalRadiusChunks &&
+        Math.Abs((long)coord.Z - center.Z) <=
+            ChunkStreamingSelection.PlayerLocalHorizontalRadiusChunks;
 
     public bool RetainsRenderMesh(ChunkCoord coord) =>
         Center is { } center &&

@@ -601,6 +601,7 @@ public partial class Main : Node3D
             return;
         }
 
+        stageStart = Stopwatch.GetTimestamp();
         AdvanceSurvivalMining();
         _sessions.Active.MiningCracks.Sync(_world, _sessions.Active.Mining);
 
@@ -630,6 +631,8 @@ public partial class Main : Node3D
         SendWorldClockState();
         SendTargetHudState();
         SyncArchitectsCompassPreview();
+        _worldDiagnostics?.ObserveStage(
+            WorldFrameStage.Gameplay, stageStart);
     }
 
     public bool TransitionToDimension(

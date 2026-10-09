@@ -20,6 +20,7 @@ internal enum WorldFrameStage : byte
     LightingPoll,
     WorkerDispatch,
     StreamingEnd,
+    Gameplay,
 }
 
 internal sealed class WorldDiagnosticsLog : IDisposable
