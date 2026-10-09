@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState, type PointerEvent } from "react";
+import { inventoryDisplayName } from "../../../presentation/inventoryLabels";
 import { useLocalization } from "../../../localization/LocalizationProvider";
 import type { ItemStackView } from "../../../presentation/inventoryModels";
 import { ItemGlyph } from "../../atoms/ItemGlyph/ItemGlyph";
@@ -46,7 +47,9 @@ export function InventorySlot({
   const onMove = (event: PointerEvent<HTMLButtonElement>) => {
     moveTooltip(event.clientX, event.clientY);
   };
-  const name = item ? item.name || contentName(item.id) : t("ui.emptySlot");
+  const name = item
+    ? inventoryDisplayName(item.id, item.metadata, contentName, item.name)
+    : t("ui.emptySlot");
 
   return (
     <>
