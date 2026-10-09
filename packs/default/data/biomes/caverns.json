@@ -8,10 +8,7 @@
         "asteria:stone",
         "asteria:gravel",
         "asteria:dirt",
-        "asteria:basalt",
-        "asteria:sandstone",
-        "asteria:clay",
-        "asteria:terracotta"
+        "asteria:stone_cobble"
       ],
       "cluster": {
         "scale": 26,
@@ -30,10 +27,7 @@
         "asteria:stone",
         "asteria:gravel",
         "asteria:dirt",
-        "asteria:basalt",
-        "asteria:sandstone",
-        "asteria:clay",
-        "asteria:terracotta"
+        "asteria:stone_cobble"
       ],
       "cluster": {
         "scale": 36,
@@ -52,10 +46,8 @@
         "asteria:stone",
         "asteria:gravel",
         "asteria:dirt",
-        "asteria:basalt",
-        "asteria:sandstone",
-        "asteria:clay",
-        "asteria:terracotta"
+        "asteria:stone_cobble",
+        "asteria:clay"
       ],
       "cluster": {
         "scale": 19,
@@ -184,25 +176,21 @@
         "depth": 1,
         "patch": {
           "scale": 32,
-          "coverage": 0.79,
+          "coverage": 0.42,
           "roughness": 0.25,
           "blocks": [
             "asteria:gravel",
-            "asteria:basalt",
-            "asteria:sandstone",
-            "asteria:clay",
-            "asteria:terracotta",
-            "asteria:stone_cobble"
+            "asteria:stone_cobble",
+            "asteria:dirt",
+            "asteria:clay"
           ],
           "detailScale": 16,
           "selectionScale": 58,
           "weights": {
-            "asteria:gravel": 3,
-            "asteria:basalt": 3,
-            "asteria:sandstone": 2,
-            "asteria:clay": 2,
-            "asteria:terracotta": 2,
-            "asteria:stone_cobble": 2
+            "asteria:gravel": 2,
+            "asteria:stone_cobble": 2,
+            "asteria:dirt": 1,
+            "asteria:clay": 1
           }
         }
       },
@@ -212,24 +200,43 @@
     ],
     "walls": [
       {
-        "block": "asteria:basalt",
+        "block": "asteria:stone",
         "depth": 3,
         "patch": {
-          "scale": 36,
-          "coverage": 0.4,
-          "roughness": 0.26,
-          "detailScale": 15,
-          "selectionScale": 70,
+          "scale": 38,
+          "coverage": 0.31,
+          "roughness": 0.34,
+          "detailScale": 14,
+          "selectionScale": 74,
+          "warpScale": 81,
+          "warpStrength": 8,
           "blocks": [
-            "asteria:terracotta",
-            "asteria:stone",
-            "asteria:sandstone"
+            "asteria:stone_cobble",
+            "asteria:gravel"
           ],
           "weights": {
-            "asteria:terracotta": 3,
-            "asteria:stone": 2,
-            "asteria:sandstone": 1
+            "asteria:stone_cobble": 3,
+            "asteria:gravel": 1
           }
+        }
+      },
+      {
+        "block": "asteria:stone"
+      }
+    ],
+    "ceiling": [
+      {
+        "block": "asteria:stone",
+        "depth": 2,
+        "patch": {
+          "scale": 36,
+          "coverage": 0.23,
+          "roughness": 0.22,
+          "blocks": [
+            "asteria:stone_cobble"
+          ],
+          "detailScale": 12,
+          "selectionScale": 60
         }
       },
       {

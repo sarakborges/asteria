@@ -137,7 +137,6 @@
             "asteria:stone_cobble": 2
           },
           "conditions": {
-            "maxY": 132,
             "maxSlope": 3
           }
         }

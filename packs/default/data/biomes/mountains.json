@@ -25,12 +25,15 @@
         "type": "cliffs",
         "scale": 0.025,
         "threshold": 0.62,
-        "height": 11,
-        "edgeWidth": 0.035,
+        "height": 7,
+        "edgeWidth": 0.18,
         "warpScale": 0.012,
         "warpStrength": 22
       }
-    ]
+    ],
+    "detailAmplitude": 10,
+    "detailScale": 0.031,
+    "detailMode": "modulated"
   },
   "decorations": [
     {
@@ -145,7 +148,6 @@
             "asteria:stone_cobble": 1
           },
           "conditions": {
-            "maxY": 126,
             "maxSlope": 3
           }
         }
