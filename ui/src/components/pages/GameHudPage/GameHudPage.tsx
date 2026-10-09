@@ -1,4 +1,5 @@
 import type { HudState, InventoryCatalogEntry } from "../../../state/uiState";
+import { findInventoryCatalogEntry } from "../../../presentation/inventoryModels";
 import { Crosshair } from "../../atoms/Crosshair/Crosshair";
 import { FpsCounter } from "../../atoms/FpsCounter/FpsCounter";
 import { InteractionPrompt } from "../../molecules/InteractionPrompt/InteractionPrompt";
@@ -70,22 +71,15 @@ export function GameHudPage({
       hotbar={spectator ? null : (
         <Hotbar state={{
           ...state.hotbar,
-          slots: state.hotbar.slots.map(slot => ({
-            ...slot,
-            ...(() => {
-              const authored = catalog.find(choice =>
-                choice.id === slot.id &&
-                choice.kind === slot.kind &&
-                Object.keys(choice.metadata).length ===
-                  Object.keys(slot.metadata ?? {}).length &&
-                Object.entries(choice.metadata).every(([key, value]) =>
-                  slot.metadata?.[key] === value));
-              return {
-                iconUrl: authored?.iconUrl,
-                blockPreview: authored?.blockPreview,
-              };
-            })(),
-          })),
+          slots: state.hotbar.slots.map(slot => {
+            const entry = findInventoryCatalogEntry(
+              slot.id ?? "", slot.kind, slot.metadata, catalog);
+            return {
+              ...slot,
+              iconUrl: entry?.iconUrl,
+              blockPreview: entry?.blockPreview,
+            };
+          }),
         }} />
       )}
       playerHud={spectator ? null : (
