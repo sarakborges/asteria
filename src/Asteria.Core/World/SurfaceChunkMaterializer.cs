@@ -779,6 +779,18 @@ public sealed class SurfaceChunkMaterializer
             var worldZ = originZ + z;
             var surfaceBiome = column.BiomeAt(x, z);
             var baseY = column.BaseHeightAt(x, z);
+            var volumePlacement = densityVolume.VolumePlacementAt(x, z);
+            // The exterior-face pass is unnecessary when neither the
+            // surface nor the possible additive owner overrides walls or
+            // ceilings. Avoid scanning all solid voxels in these columns.
+            bool HasExteriorOverride(BiomeSample sample) =>
+                _materials.HasDirectionalOverride(sample, BiomePaletteFace.Walls) ||
+                _materials.HasDirectionalOverride(sample, BiomePaletteFace.Ceiling);
+            if (!HasExteriorOverride(surfaceBiome) &&
+                (volumePlacement is null ||
+                 !HasExteriorOverride(volumePlacement)))
+                continue;
+
             for (var y = 0; y < Chunk.Size; y++)
             {
                 var worldY = originY + y;
@@ -815,8 +827,22 @@ public sealed class SurfaceChunkMaterializer
                         ? densityVolume.DensityAt(nx, ny, nz) < 0d
                         : _terrain.DensityAt(
                             worldX + dx, neighborY, worldZ + dz) < 0d;
-                    return voidDensity && !_terrain.IsCaveVoidAt(
+                    if (!voidDensity)
+                        return false;
+
+                    var neighborPosition = new WorldVoxelCoord(
                         worldX + dx, neighborY, worldZ + dz);
+                    // The X/Z column already contains the base heights
+                    // needed to classify carved voids inside this tile,
+                    // including probes across its vertical chunk faces.
+                    var carvedVoid = (uint)nx < Chunk.Size &&
+                                     (uint)nz < Chunk.Size
+                        ? _terrain.IsCaveVoidAt(
+                            column.BaseHeightAt(nx, nz), neighborPosition)
+                        : _terrain.IsCaveVoidAt(
+                            neighborPosition.X, neighborPosition.Y,
+                            neighborPosition.Z);
+                    return !carvedVoid;
                 }
 
                 var reach = (int)_materials.MaxVolumePaintDepth(biome);
@@ -915,7 +941,8 @@ public sealed class SurfaceChunkMaterializer
                 else
                 {
                     if (_volumeBiomes is not { HasBiomes: true } ||
-                        !_terrain.IsCaveVoidAt(worldX, worldY, worldZ))
+                        !_terrain.IsCaveVoidAt(
+                            baseY, new WorldVoxelCoord(worldX, worldY, worldZ)))
                         continue;
                     underground ??= _volumeBiomes.SampleCave(worldX, worldZ);
                     decoratorBiome = underground;
