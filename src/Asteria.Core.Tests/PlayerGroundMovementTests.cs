@@ -73,6 +73,20 @@ public sealed class PlayerGroundMovementTests
     }
 
     [Fact]
+    public void ReleasingGameplayInputPreservesSafeCrouchingPose()
+    {
+        var state = new PlayerGroundMovement();
+        state.UpdateCrouch(true, true);
+        state.ForwardChanged(true, 10);
+        state.ReleaseInput();
+        Assert.True(state.IsCrouching);
+        Assert.False(state.IsRunning);
+        Assert.False(state.UpdateCrouch(false, false));
+        Assert.True(state.UpdateCrouch(false, true));
+        Assert.False(state.IsCrouching);
+    }
+
+    [Fact]
     public void SaturatedClockDoesNotOverflowDoubleTap()
     {
         var state = new PlayerGroundMovement();

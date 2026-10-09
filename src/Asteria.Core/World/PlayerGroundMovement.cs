@@ -87,10 +87,19 @@ public sealed class PlayerGroundMovement
         _runDeadlineTick = null;
     }
 
-    public void Reset()
+    /// <summary>
+    /// Releasing capture/buttons cancels a run, but must not artificially
+    /// stand up under a low ceiling. Posture changes require physics clearance.
+    /// </summary>
+    public void ReleaseInput()
     {
         _forwardHeld = false;
-        IsCrouching = false;
         CancelRunning();
+    }
+
+    public void Reset()
+    {
+        ReleaseInput();
+        IsCrouching = false;
     }
 }

@@ -210,6 +210,7 @@ public partial class FpsPlayer : CharacterBody3D
         direction.Y = 0f;
         direction = direction.Normalized();
 
+        var fluidContact = default(FluidBodyContact);
         if (PlayerState.IsFlying)
         {
             UpdateGroundPosture(immersed: false, (float)delta);
@@ -217,11 +218,11 @@ public partial class FpsPlayer : CharacterBody3D
         }
         else
         {
-            // Use the published world contact, never a browser-side
-            // swimming/crouching approximation.
-            var contact = FluidContactProvider?.Invoke(
+            // Sample Core-owned fluid contact once per physics step,
+            // before changing posture, and reuse it for swim response.
+            fluidContact = FluidContactProvider?.Invoke(
                 CollisionBounds, _cameraPivot.GlobalPosition.Y) ?? default;
-            UpdateGroundPosture(contact.IsImmersed, (float)delta);
+            UpdateGroundPosture(fluidContact.IsImmersed, (float)delta);
         }
 
         if (PlayerState.IsFlying)
@@ -254,12 +255,6 @@ public partial class FpsPlayer : CharacterBody3D
             }
             return;
         }
-
-        var fluidContact =
-            FluidContactProvider?.Invoke(
-                CollisionBounds,
-                _cameraPivot.GlobalPosition.Y) ??
-            default;
 
         PublishFluidContact(
             fluidContact);
@@ -450,19 +445,10 @@ public partial class FpsPlayer : CharacterBody3D
         _moveRight = false;
         _jumpHeld = false;
         _descendHeld = false;
-        // Reset ground input so a paused/released key cannot leave
-        // phantom running/crouching when the mouse is captured again.
-        _groundMovement.Reset();
-        if (_collider is not null && _standingCapsule is not null)
-        {
-            // Modal changes stop movement but must not expand a body
-            // underneath a ceiling. Posture is resolved by physics on resume.
-            if (CanStandAtCurrentPosition())
-            {
-                _collider.Shape = _standingCapsule;
-                _collider.Position = new Vector3(0f, StandingHeight * 0.5f, 0f);
-            }
-        }
+        // Never force a standing capsule through a low ceiling when
+        // pausing, releasing mouse capture or opening inventory.
+        // The next physics tick checks clearance before standing.
+        _groundMovement.ReleaseInput();
         PlayerState.CancelDoubleTap();
     }
 
