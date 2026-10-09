@@ -95,7 +95,9 @@ export function inventoryItemView(
 ): ItemStackView | null {
   if (!slot) return null;
   const authored = findInventoryCatalogEntry(
-    slot.id, slot.kind, slot.metadata, catalog);
+    slot.id, slot.kind,
+    Object.fromEntries(Object.entries(slot.metadata).filter(
+      ([key]) => key !== "asteria:durability")), catalog);
   return {
     id: slot.id, kind: slot.kind, quantity: slot.quantity,
     metadata: slot.metadata, durability: slot.durability,
