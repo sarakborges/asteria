@@ -67,8 +67,8 @@ public sealed class BiomeWorldGenerationTests
             decoration =>
                 decoration.Block ==
                 "asteria:mushroom_brown");
-        Assert.NotNull(
-            swamp.SurfaceLayers[0].Patch);
+        Assert.NotNull(swamp.Palette.SurfaceMosaic);
+        Assert.Null(swamp.SurfaceLayers[0].Patch);
 
         foreach (var biomeId in new[]
                  {

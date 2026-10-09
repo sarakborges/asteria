@@ -236,14 +236,17 @@ public sealed class GeneratedSurfaceFluidTests
             Assert.IsType<
                 BiomeRollingTerrainShapeDefinition>(
                 swamp.SurfaceTerrain!.Shape);
-        var depressions = swamp.SurfaceTerrain.Modifiers
-            .Cast<BiomeDepressionsTerrainModifierDefinition>().ToArray();
-        Assert.Equal(2, depressions.Length);
-        Assert.Equal(4.8f, depressions[0].Depth);
-        Assert.Equal(1.8f, depressions[1].Depth);
-        Assert.True(depressions[1].BroadScale > depressions[0].BroadScale);
-        Assert.True(
-            swamp.SurfaceTerrain.FillToSeaLevel);
+        Assert.Empty(swamp.SurfaceTerrain.Modifiers);
+        Assert.False(swamp.SurfaceTerrain.FillToSeaLevel);
+        Assert.Equal(0f,
+            Assert.IsType<BiomeRollingTerrainShapeDefinition>(
+                swamp.SurfaceTerrain.Shape).Amplitude);
+        var mosaic = Assert.IsType<BiomeSurfaceMosaicDefinition>(
+            swamp.Palette.SurfaceMosaic);
+        Assert.Equal(4, mosaic.Entries.Count);
+        Assert.Contains(mosaic.Entries, entry => entry.Fluid == "asteria:water");
+        Assert.All(swamp.Palette.Default, layer =>
+            Assert.Null(layer.Patch));
 
         var volcano =
             biomes.Get(
@@ -488,52 +491,84 @@ public sealed class GeneratedSurfaceFluidTests
     }
 
     [Fact]
-    public void DefaultSwampInterleavesDryMudAndDirtWithShallowSeaFilledPools()
+    public void DefaultSwampMosaicPlacesFourMaterialsAtTheSameSurfaceLevel()
     {
         var biomes = BiomeRegistry.FromJson(ReadJsonDirectory("biomes"));
         var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
         var fluids = FluidRegistry.FromJson(ReadJsonDirectory("fluids"));
-        var dimensions = DimensionRegistry.FromJson(ReadJsonDirectory("dimensions"));
+        var overworld = DimensionRegistry.FromJson(
+            ReadJsonDirectory("dimensions")).Get(DimensionId.Overworld);
         var swamp = biomes.Get("asteria:overworld/swamp");
-        var overworld = dimensions.Get(DimensionId.Overworld);
         var dimension = new DimensionDefinition(
             overworld.Id, [swamp.Id], overworld.SeaLevel,
-            overworld.GravityStrength, overworld.Spawn,
-            overworld.Environment,
-            generatedOcean: new DimensionGeneratedOceanDefinition(
-                swamp.Id, "asteria:water"));
-        var terrain = new BiomeWorldGenerator(
-            91UL, dimension, blocks, fluids, biomes);
-        var water = new GeneratedFluidField(91UL, dimension, fluids, [swamp]);
-        var material = new BiomeSurfaceMaterialField(91UL, [swamp], blocks);
+            overworld.GravityStrength, overworld.Spawn, overworld.Environment);
+        const ulong seed = 91UL;
+        var mosaic = new SurfaceMosaicField(seed, [swamp], blocks, fluids);
+        var generator = new BiomeWorldGenerator(
+            seed, dimension, blocks, fluids, biomes);
         var sample = new BiomeSample(swamp.Id,
             [new BiomeInfluence(swamp.Id, 1f, 1f)]);
-
-        var wet = 0;
-        var dryMud = 0;
-        var dryDirt = 0;
-        var waterId = fluids.GetId("asteria:water");
-        for (var z = -224; z <= 224; z += 8)
-        for (var x = -224; x <= 224; x += 8)
+        var positions = new Dictionary<string, (int X, int Z)>(
+            StringComparer.Ordinal);
+        for (var z = -192; z <= 192; z += 4)
+        for (var x = -192; x <= 192; x += 4)
         {
-            var top = terrain.SurfaceHeight(x, z);
-            if (top < dimension.SeaLevel)
+            var choice = mosaic.Sample(sample, x, z);
+            var key = choice.IsFluid ? "asteria:water" :
+                blocks.GetDefinition(choice.Block).Id;
+            positions.TryAdd(key, (x, z));
+        }
+
+        var expected = new[]
+        {
+            "asteria:grass_block", "asteria:dirt",
+            "asteria:mud", "asteria:water",
+        };
+        foreach (var id in expected)
+        {
+            Assert.True(positions.TryGetValue(id, out var pos),
+                $"Shared noise must produce {id}.");
+            var (chunkCoord, local) = VoxelCoordinates.FromWorld(
+                pos.X, dimension.SeaLevel, pos.Z);
+            var chunk = generator.Materialize(chunkCoord);
+            var cell = chunk.GetCell(local.X, local.Y, local.Z);
+            var fluid = chunk.GetFluid(local.X, local.Y, local.Z);
+            if (id == "asteria:water")
             {
-                Assert.Equal(waterId, water.FluidAtEmptyVoxel(
-                    sample, top, 0, x, dimension.SeaLevel, z).Fluid);
-                wet++;
+                Assert.True(cell.IsEmpty);
+                Assert.Equal(fluids.GetId(id), fluid.Fluid);
+                Assert.Equal(dimension.SeaLevel - 1,
+                    generator.SurfaceHeight(pos.X, pos.Z));
+                var (groundChunk, groundLocal) = VoxelCoordinates.FromWorld(
+                    pos.X, dimension.SeaLevel - 1, pos.Z);
+                Assert.Equal(blocks.GetId("asteria:mud"),
+                    generator.Materialize(groundChunk).GetCell(
+                        groundLocal.X, groundLocal.Y, groundLocal.Z).Block);
             }
             else
             {
-                var block = material.BlockAt(
-                    sample, x, z, 0, new SurfacePlacementContext(top, 0));
-                dryMud += block == blocks.GetId("asteria:mud") ? 1 : 0;
-                dryDirt += block == blocks.GetId("asteria:dirt") ? 1 : 0;
+                Assert.Equal(blocks.GetId(id), cell.Block);
+                Assert.True(fluid.IsEmpty);
+                Assert.Equal(dimension.SeaLevel,
+                    generator.SurfaceHeight(pos.X, pos.Z));
             }
         }
-        Assert.True(wet > 0, "Swamp needs fluid-filled depressions.");
-        Assert.True(dryMud > 0, "Swamp needs exposed patches of mud.");
-        Assert.True(dryDirt > 0, "Swamp needs exposed patches of dirt.");
+    }
+
+    [Fact]
+    public void SurfaceMosaicValidatesChoiceTypesAndWeights()
+    {
+        Assert.ThrowsAny<ArgumentException>(() =>
+            new BiomeSurfaceMosaicEntryDefinition("asteria:dirt",
+                "asteria:water", 1f));
+        Assert.ThrowsAny<ArgumentException>(() =>
+            new BiomeSurfaceMosaicEntryDefinition(null,
+                "asteria:water", 0f));
+        Assert.ThrowsAny<ArgumentException>(() =>
+            new BiomeSurfaceMosaicDefinition(1, 8, 0.2f, [
+                new("asteria:mud", null, 1),
+                new(null, "asteria:water", 1),
+            ]));
     }
 
     [Fact]
