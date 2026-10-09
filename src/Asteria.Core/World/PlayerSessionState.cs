@@ -60,6 +60,7 @@ public sealed class PlayerSessionState
         if (GameMode == mode) return false;
         GameMode = mode;
         IsFlying = mode.IsSpectator();
+        Hazards.Reset();
         CancelDoubleTap();
         return true;
     }
