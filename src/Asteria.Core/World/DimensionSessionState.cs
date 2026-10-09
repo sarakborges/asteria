@@ -141,7 +141,7 @@ public sealed class DimensionSessionStateStore
             creation.SpawnCreatures);
     }
 
-    internal ulong WorldSeed => _worldSeed;
+    public ulong WorldSeed => _worldSeed;
 
     internal IReadOnlyList<DimensionSessionState> CreatedDimensions() =>
         _states.Values.OrderBy(
