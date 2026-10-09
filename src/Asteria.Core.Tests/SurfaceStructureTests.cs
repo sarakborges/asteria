@@ -5,6 +5,69 @@ namespace Asteria.Core.Tests;
 public sealed class SurfaceStructureTests
 {
     [Fact]
+    public void CoralReefVariantsUseOnlyNewCoralsAndRequireOceanWater()
+    {
+        var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
+        var structures = StructureRegistry.FromJson(ReadJsonDirectory("structures"));
+        structures.ValidateBlocks(blocks);
+
+        var coralIds = new[]
+        {
+            "asteria:coral_blue",
+            "asteria:coral_pink",
+            "asteria:coral_yellow"
+        };
+        foreach (var id in coralIds)
+        {
+            var block = blocks.GetDefinition(blocks.GetId(id));
+            Assert.Equal("foliage", block.Category);
+            Assert.True(block.IsCollidable);
+            Assert.Equal(15, block.LightDampening);
+            Assert.All(block.Textures.AllLayers(), layer =>
+                Assert.Equal($"textures/blocks/{id["asteria:".Length..]}.png",
+                    layer.Texture));
+        }
+
+        var variants = structures.ResolveReference("asteria:coral_reef");
+        Assert.Equal(2, variants.Count);
+        Assert.Equal(new[] { "asteria:coral_reef_01", "asteria:coral_reef_02" },
+            variants.Select(variant => variant.Id));
+        Assert.Equal(coralIds,
+            variants.SelectMany(variant => variant.Voxels)
+                .Select(voxel => voxel.Block)
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(id => id, StringComparer.Ordinal));
+
+        foreach (var reef in variants)
+        {
+            Assert.False(reef.Restrictions.RequiresDryGround);
+            Assert.Equal(1f, reef.Restrictions.RequiredBiomeCoverage);
+            Assert.Equal(1, reef.Restrictions.MaxSlope);
+            Assert.Equal(StructureFluidPolicy.Displace,
+                reef.Generation.FluidPolicy);
+            Assert.Equal(StructureReplacePolicy.Terrain,
+                reef.Generation.ReplacePolicy);
+            Assert.Contains(reef.Restrictions.Proximity, rule =>
+                rule.Mode == StructureProximityMode.Required &&
+                rule.Target.Fluid == "asteria:water" &&
+                rule.MinDistance == 0 && rule.MaxDistance == 0);
+            Assert.All(reef.Voxels, voxel =>
+                Assert.Contains(voxel.Block, coralIds));
+        }
+
+        var overworld = DimensionRegistry.FromJson(
+            ReadJsonDirectory("dimensions")).Get(DimensionId.Overworld);
+        var root = Assert.Single(overworld.GeneratedSurfaceStructures,
+            rule => rule.Biome == "asteria:overworld/ocean" &&
+                    rule.Structure == "asteria:coral_reef");
+        var weights = Assert.IsType<SurfaceHabitatWeights>(root.HabitatWeights);
+        Assert.True(weights.For("rocky_reefs") >
+                    weights.For("gravel_banks"));
+        Assert.True(weights.For("gravel_banks") >
+                    weights.For("sand_flats"));
+    }
+
+    [Fact]
     public void OceanReefVariantsRemainSubmergedGroundBoundAndHabitatWeighted()
     {
         var structures = StructureRegistry.FromJson(ReadJsonDirectory("structures"));
@@ -83,7 +146,7 @@ public sealed class SurfaceStructureTests
             structures, structureSets);
 
         Assert.Equal(
-            83,
+            85,
             structures.Count);
         Assert.Equal(4, structures.ResolveReference("asteria:ocean_rock").Count);
         Assert.Equal(2, structures.ResolveReference("asteria:basalt_outcrop").Count);
@@ -141,7 +204,7 @@ public sealed class SurfaceStructureTests
             structures.ResolvesReference(
                 "asteria:river_ocean_mouth"));
         Assert.Equal(
-            61,
+            62,
             overworld
                 .GeneratedSurfaceStructures
                 .Count);

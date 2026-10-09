@@ -547,6 +547,25 @@ Banks and almost none on Sand Flats. All variants use existing blocks,
 coverage and `fluidPolicy: "displace"` to replace only occupied water
 cells with solid rock. No separate underwater placement owner exists.
 
+### Solid coral reefs (first Ocean biodiversity slice)
+
+The default pack adds three distinct solid coral blocks (Pink, Blue and Yellow),
+with dedicated 16x16 pack-owned textures and two rotated `coral_reef`
+Structure variants. They use the existing generated-Structure owner:
+`requiredBiomeCoverage: 1`, sandy/rocky seabed support, low slope,
+`fluidPolicy: "displace"` and an exact-distance required Water proximity
+rule at the root. Biome-authored `habitatWeights` concentrate them in
+Rocky Reefs, with fewer examples on Gravel Banks and sparse Sand Flats.
+No new terrain or fluid generator exists; ocean shoreline and rock
+formations retain their independent rules.
+
+These are **solid coral formations**, not soft aquatic vegetation.
+They replace the fluid voxels occupied by their solid bodies, just like
+the existing underwater rock structures. Thin algae, seagrass, anemones
+and shells that visually coexist with water require an explicit
+fluid-compatible decoration/presentation contract; never generate
+ordinary air holes by placing crossed sprites in water.
+
 ### Biome palette corrections (default pack)
 
 - Desert uses Sand for exposed ground, Sandstone as an underlying

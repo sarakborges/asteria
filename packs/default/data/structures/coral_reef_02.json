@@ -1,0 +1,90 @@
+{
+  "id": "asteria:coral_reef_02",
+  "rotation": true,
+  "restrictions": {
+    "groundBlocks": [
+      "asteria:sand",
+      "asteria:gravel",
+      "asteria:clay",
+      "asteria:stone_cobble"
+    ],
+    "maxSlope": 1,
+    "requiresDryGround": false,
+    "requiredBiomeCoverage": 1,
+    "proximity": [
+      {
+        "target": {
+          "fluid": "asteria:water"
+        },
+        "mode": "required",
+        "minDistance": 0,
+        "maxDistance": 0
+      }
+    ]
+  },
+  "groupId": "coral_reef",
+  "locatable": false,
+  "priority": 0,
+  "conflictGroups": [
+    "rock"
+  ],
+  "generation": {
+    "replacePolicy": "terrain",
+    "fluidPolicy": "displace",
+    "reserveSpace": false
+  },
+  "anchor": {
+    "x": 3,
+    "y": 0,
+    "z": 3
+  },
+  "palette": {
+    "P": {
+      "block": "asteria:coral_pink"
+    },
+    "B": {
+      "block": "asteria:coral_blue"
+    },
+    "Y": {
+      "block": "asteria:coral_yellow"
+    }
+  },
+  "layers": [
+    {
+      "y": 0,
+      "rows": [
+        ".......",
+        ".YY....",
+        ".YBY...",
+        "..BYBP.",
+        ".PBYY..",
+        "...PP..",
+        "......."
+      ]
+    },
+    {
+      "y": 1,
+      "rows": [
+        ".......",
+        "..Y....",
+        "..B....",
+        "...YB..",
+        "..B.Y..",
+        "...P...",
+        "......."
+      ]
+    },
+    {
+      "y": 2,
+      "rows": [
+        ".......",
+        ".......",
+        "..B....",
+        "....B..",
+        ".......",
+        ".......",
+        "......."
+      ]
+    }
+  ]
+}

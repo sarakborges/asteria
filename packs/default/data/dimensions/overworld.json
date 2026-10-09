@@ -844,6 +844,18 @@
         "gravel_banks": 0.28,
         "rocky_reefs": 2.2
       }
+    },
+    {
+      "biome": "asteria:overworld/ocean",
+      "structure": "asteria:coral_reef",
+      "spacing": 40,
+      "chance": 0.68,
+      "jitter": 12,
+      "habitatWeights": {
+        "sand_flats": 0.08,
+        "gravel_banks": 0.62,
+        "rocky_reefs": 2.1
+      }
     }
   ],
   "dayNightCycle": "asteria:overworld/day_night_cycle",
