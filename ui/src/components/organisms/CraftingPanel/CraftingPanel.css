@@ -45,13 +45,6 @@
   background: var(--ui-color-accent-soft);
 }
 
-.crafting-panel__recipe--selected::before {
-  content: "";
-  width: 3px;
-  align-self: stretch;
-  background: var(--ui-color-border-focus);
-}
-
 .crafting-panel__icon-frame,
 .crafting-panel__result-frame {
   flex: 0 0 auto;

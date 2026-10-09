@@ -3,7 +3,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  width: calc(9 * var(--ui-inventory-slot-size) + 8 * var(--ui-inventory-slot-gap));
+  width: repeat(9, var(--ui-inventory-slot-size));
   max-width: 100%;
   min-width: 0;
 }
@@ -24,6 +24,7 @@
   width: var(--ui-inventory-search-height);
   min-width: var(--ui-inventory-search-height);
   height: var(--ui-inventory-search-height);
+  min-height: var(--ui-inventory-search-height);
   padding-inline: 0;
 }
 

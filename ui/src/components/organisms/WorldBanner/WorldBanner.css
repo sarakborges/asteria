@@ -5,17 +5,16 @@
   flex-direction: column;
   align-items: center;
   gap: 1px;
-  background:
-    linear-gradient(
-      135deg,
-      rgb(56 41 76 / 0%) 0%,
-      rgb(41 43 51 / 10%) 16%,
-      rgb(51 36 71 / 22%) 36%,
-      rgb(46 33 64 / 30%) 50%,
-      rgb(38 41 48 / 22%) 64%,
-      rgb(41 43 51 / 10%) 84%,
-      rgb(41 43 51 / 0%) 100%
-    );
+  background: linear-gradient(
+    90deg,
+    rgb(56 41 76 / 0%) 0%,
+    rgb(41 43 51 / 10%) 16%,
+    rgb(51 36 71 / 22%) 36%,
+    rgb(46 33 64 / 30%) 50%,
+    rgb(38 41 48 / 22%) 64%,
+    rgb(41 43 51 / 10%) 84%,
+    rgb(41 43 51 / 0%) 100%
+  );
   pointer-events: none;
 }
 
@@ -38,7 +37,7 @@
 }
 
 .world-banner__biome {
-  color: var(--ui-color-muted);
+  color: var(--ui-color-text);
   font-size: var(--ui-font-size-detail);
   line-height: 1.1;
   text-shadow: 0 1px 5px var(--ui-color-shadow);
