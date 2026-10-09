@@ -12,8 +12,9 @@ export type ItemTooltipProps = {
 };
 
 export function ItemTooltip({ item, tooltipRef, previewPosition }: ItemTooltipProps) {
-  const { contentName } = useLocalization();
+  const { contentName, t } = useLocalization();
   const metadata = Object.entries(item.metadata ?? {})
+    .filter(([key]) => key !== "asteria:durability")
     .sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0);
   return createPortal(
     <div ref={tooltipRef} className="item-tooltip" role="tooltip"
@@ -22,6 +23,7 @@ export function ItemTooltip({ item, tooltipRef, previewPosition }: ItemTooltipPr
         inventoryDisplayName(item.id, item.metadata, contentName, item.name)
       }</strong>
       <span className="item-tooltip__id">{item.id}</span>
+      {item.durability && <span className="item-tooltip__id">{t("ui.durability")}: {item.durability.current} / {item.durability.maximum}</span>}
       {metadata.length > 0 && (
         <dl className="item-tooltip__metadata">
           {metadata.map(([key, value]) => (
