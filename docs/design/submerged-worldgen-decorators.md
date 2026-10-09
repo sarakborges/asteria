@@ -31,3 +31,19 @@ for solid underwater decorations; water-through foliage would require a
 separate visual/object-occupancy capability rather than violating voxel
 storage. Surface structures already use `requiresDryGround: false` and
 `generation.fluidPolicy` independently.
+
+## Default Ocean flora and objects
+
+Five lightweight objects are authored entirely in the default pack:
+`seagrass` (common Sand Flats), `kelp` (Rocky Reefs/Gravel Banks),
+`sea_anemone` (Rocky Reefs), `seashell` (Sand Flats) and `starfish`
+(sparse on mixed seabeds). All have independent transparent 16x16
+textures, supporting-ground material lists, deterministic noise clusters,
+`surfaceHabitats` weights, `conditions.maxY: 86` and
+`fluidPlacement: "submerged"`. Kelp, seagrass and anemone are
+non-collidable crossed sprites; shell and starfish use horizontal ground
+sprites. Normal block mining/support semantics apply.
+
+This is authored content only. The existing fluid-placement contract
+displaces the water in the occupied decorative voxel while retaining
+surrounding water; it does not add a new water-through object layer.

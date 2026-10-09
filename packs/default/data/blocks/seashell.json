@@ -1,0 +1,27 @@
+{
+  "id": "asteria:seashell",
+  "category": "foliage",
+  "tags": [
+    "support_below"
+  ],
+  "visual": {
+    "type": "groundSprite",
+    "texture": "textures/objects/seashell.png",
+    "width": 0.59,
+    "height": 0.012,
+    "baseOffset": 0.0125,
+    "targetHeight": 0.14
+  },
+  "placementFaces": [
+    "top"
+  ],
+  "mining": {
+    "hardness": 0.05
+  },
+  "isCollidable": false,
+  "castsShadow": false,
+  "lightDampening": 0,
+  "alphaCutoff": 0.5,
+  "previewColor": "d4a67b",
+  "dropsSelf": true
+}

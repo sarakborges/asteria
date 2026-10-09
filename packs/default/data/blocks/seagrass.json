@@ -1,0 +1,26 @@
+{
+  "id": "asteria:seagrass",
+  "category": "foliage",
+  "tags": [
+    "support_below"
+  ],
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/seagrass.png",
+    "width": 0.8,
+    "height": 0.78,
+    "planes": 4
+  },
+  "placementFaces": [
+    "top"
+  ],
+  "mining": {
+    "hardness": 0.05
+  },
+  "isCollidable": false,
+  "castsShadow": false,
+  "lightDampening": 0,
+  "alphaCutoff": 0.5,
+  "previewColor": "51ba8b",
+  "dropsSelf": false
+}

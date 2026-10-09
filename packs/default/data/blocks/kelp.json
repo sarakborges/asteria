@@ -1,0 +1,26 @@
+{
+  "id": "asteria:kelp",
+  "category": "foliage",
+  "tags": [
+    "support_below"
+  ],
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/kelp.png",
+    "width": 0.86,
+    "height": 0.96,
+    "planes": 2
+  },
+  "placementFaces": [
+    "top"
+  ],
+  "mining": {
+    "hardness": 0.05
+  },
+  "isCollidable": false,
+  "castsShadow": false,
+  "lightDampening": 0,
+  "alphaCutoff": 0.5,
+  "previewColor": "778f49",
+  "dropsSelf": false
+}

@@ -75,5 +75,130 @@
         "block": "asteria:stone"
       }
     ]
-  }
+  },
+  "decorations": [
+    {
+      "block": "asteria:seagrass",
+      "chance": 0.27,
+      "surfaceBlocks": [
+        "asteria:sand",
+        "asteria:gravel",
+        "asteria:clay"
+      ],
+      "fluidPlacement": "submerged",
+      "cluster": {
+        "scale": 30,
+        "threshold": -0.19,
+        "octaves": 4,
+        "transitionWidth": 0.14
+      },
+      "conditions": {
+        "maxY": 86
+      },
+      "habitatWeights": {
+        "sand_flats": 2.3,
+        "gravel_banks": 1.3,
+        "rocky_reefs": 0.35
+      }
+    },
+    {
+      "block": "asteria:kelp",
+      "chance": 0.14,
+      "surfaceBlocks": [
+        "asteria:sand",
+        "asteria:gravel",
+        "asteria:clay",
+        "asteria:stone_cobble"
+      ],
+      "fluidPlacement": "submerged",
+      "cluster": {
+        "scale": 45,
+        "threshold": -0.06,
+        "octaves": 4,
+        "transitionWidth": 0.14
+      },
+      "conditions": {
+        "maxY": 86
+      },
+      "habitatWeights": {
+        "sand_flats": 0.35,
+        "gravel_banks": 1.2,
+        "rocky_reefs": 1.9
+      }
+    },
+    {
+      "block": "asteria:sea_anemone",
+      "chance": 0.1,
+      "surfaceBlocks": [
+        "asteria:sand",
+        "asteria:gravel",
+        "asteria:clay",
+        "asteria:stone_cobble"
+      ],
+      "fluidPlacement": "submerged",
+      "cluster": {
+        "scale": 28,
+        "threshold": -0.1,
+        "octaves": 4,
+        "transitionWidth": 0.14
+      },
+      "conditions": {
+        "maxY": 86
+      },
+      "habitatWeights": {
+        "sand_flats": 0.12,
+        "gravel_banks": 0.8,
+        "rocky_reefs": 2.45
+      }
+    },
+    {
+      "block": "asteria:seashell",
+      "chance": 0.12,
+      "surfaceBlocks": [
+        "asteria:sand",
+        "asteria:gravel",
+        "asteria:clay"
+      ],
+      "fluidPlacement": "submerged",
+      "cluster": {
+        "scale": 36,
+        "threshold": -0.16,
+        "octaves": 4,
+        "transitionWidth": 0.12
+      },
+      "conditions": {
+        "maxY": 86
+      },
+      "habitatWeights": {
+        "sand_flats": 2.3,
+        "gravel_banks": 0.9,
+        "rocky_reefs": 0.12
+      }
+    },
+    {
+      "block": "asteria:starfish",
+      "chance": 0.075,
+      "surfaceBlocks": [
+        "asteria:sand",
+        "asteria:gravel",
+        "asteria:clay",
+        "asteria:stone_cobble"
+      ],
+      "fluidPlacement": "submerged",
+      "cluster": {
+        "scale": 40,
+        "threshold": -0.08,
+        "octaves": 4,
+        "transitionWidth": 0.12
+      },
+      "conditions": {
+        "maxY": 86
+      },
+      "habitatWeights": {
+        "sand_flats": 1.3,
+        "gravel_banks": 0.85,
+        "rocky_reefs": 0.48
+      }
+    }
+  ]
 }

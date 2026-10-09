@@ -1,0 +1,27 @@
+{
+  "id": "asteria:starfish",
+  "category": "foliage",
+  "tags": [
+    "support_below"
+  ],
+  "visual": {
+    "type": "groundSprite",
+    "texture": "textures/objects/starfish.png",
+    "width": 0.72,
+    "height": 0.012,
+    "baseOffset": 0.0125,
+    "targetHeight": 0.14
+  },
+  "placementFaces": [
+    "top"
+  ],
+  "mining": {
+    "hardness": 0.05
+  },
+  "isCollidable": false,
+  "castsShadow": false,
+  "lightDampening": 0,
+  "alphaCutoff": 0.5,
+  "previewColor": "da854f",
+  "dropsSelf": true
+}
