@@ -70,6 +70,18 @@ public sealed class SurfaceDecorationField
     public bool HasVerticalDecorationsFor(string biomeId) =>
         _verticalBiomes.Contains(biomeId);
 
+    /// <summary>Avoid surface material/fluid work where no influenced biome decorates.</summary>
+    public bool HasDecorations(BiomeSample sample)
+    {
+        foreach (var influence in sample.Influences)
+        {
+            if (_rules[influence.BiomeId].Length != 0)
+                return true;
+        }
+
+        return false;
+    }
+
     public BlockRuntimeId BlockAt(
         BiomeSample sample,
         BlockRuntimeId surfaceBlock,

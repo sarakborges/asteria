@@ -220,18 +220,20 @@ public sealed class SurfaceChunkMaterializer
                           throw new InvalidOperationException(
                               "Additive surface has no volume biome owner.")
                         : sample;
+                // Disconnected additive surfaces are owned by the vertical
+                // decoration pass, including when they cross chunk boundaries.
+                if ((surfaceY > baseY &&
+                     _decorations.HasVerticalDecorationsFor(topSample.Primary)) ||
+                    !_decorations.HasDecorations(topSample))
+                {
+                    continue;
+                }
+
                 var topMaterials = surfaceY > baseY
                     ? volumeMaterials ??= _materials.SampleColumn(
                         topSample, worldX, worldZ)
                     : surfaceMaterials ??= _materials.SampleColumn(
                         sample, worldX, worldZ);
-                // Disconnected additive surfaces are owned by the vertical
-                // decoration pass, including when they cross chunk boundaries.
-                if (surfaceY > baseY &&
-                    _decorations.HasVerticalDecorationsFor(topSample.Primary))
-                {
-                    continue;
-                }
                 // Check actual generated fluid, not only its column envelope:
                 // cavities and terrain density can leave dry cells inside it.
                 var submerged =
