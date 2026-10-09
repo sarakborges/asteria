@@ -1,6 +1,5 @@
 import { useLocalization } from "../../../localization/LocalizationProvider";
 import { Button } from "../../atoms/Button/Button";
-import { Text } from "../../atoms/Text/Text";
 import "./DeathScreenPage.css";
 
 export type DeathScreenPageProps = {
@@ -17,7 +16,7 @@ export function DeathScreenPage({
   return (
     <main className="death-screen" role="main">
       <section className="death-screen__card" aria-labelledby="death-title">
-        <Text text={t("death.title")} variant="heading" />
+        <h1 id="death-title" className="death-screen__title">{t("death.title")}</h1>
         <p className="death-screen__explanation">
           {dropCapacityExceeded
             ? t("death.dropsUnavailable")
