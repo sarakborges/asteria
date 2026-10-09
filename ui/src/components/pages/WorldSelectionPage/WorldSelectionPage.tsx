@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useLocalization } from "../../../localization/LocalizationProvider";
 import { Button } from "../../atoms/Button/Button";
 import { CosmicBackground } from "../../organisms/CosmicBackground/CosmicBackground";
@@ -70,34 +70,34 @@ export function WorldSelectionPage({
         )}
 
         {worlds.map((world) => (
-          <WorldCard
-            key={world.id}
-            world={world}
-            onLoad={busy ? undefined : onLoad}
-            onDelete={busy ? undefined : setConfirmId}
-          />
+          <Fragment key={world.id}>
+            <WorldCard
+              world={world}
+              onLoad={busy ? undefined : onLoad}
+              onDelete={busy ? undefined : setConfirmId}
+            />
+            {confirmedWorld?.id === world.id && onDelete && !busy && (
+              <div className="world-selection__confirmation"
+                role="alertdialog" aria-label={t("worldSelection.delete")}
+                onKeyDown={event => {
+                  if (event.key === "Escape") {
+                    setConfirmId(null);
+                    event.preventDefault();
+                    event.stopPropagation();
+                  }
+                }}>
+                <p>{t("worldSelection.confirmDelete", { name: world.id })}</p>
+                <div className="world-selection__confirmation-actions">
+                  <Button label={t("ui.back")} onClick={() => setConfirmId(null)} />
+                  <Button label={t("ui.delete")} variant="danger" onClick={() => {
+                    onDelete(world.id);
+                    setConfirmId(null);
+                  }} />
+                </div>
+              </div>
+            )}
+          </Fragment>
         ))}
-
-        {confirmedWorld && onDelete && !busy && (
-          <div className="world-selection__confirmation"
-            role="alertdialog" aria-label={t("worldSelection.delete")}
-            onKeyDown={event => {
-              if (event.key === "Escape") {
-                setConfirmId(null);
-                event.preventDefault();
-                event.stopPropagation();
-              }
-            }}>
-            <p>{t("worldSelection.confirmDelete", { name: confirmedWorld.id })}</p>
-            <div className="world-selection__confirmation-actions">
-              <Button label={t("ui.back")} onClick={() => setConfirmId(null)} />
-              <Button label={t("ui.delete")} variant="danger" onClick={() => {
-                onDelete(confirmedWorld.id);
-                setConfirmId(null);
-              }} />
-            </div>
-          </div>
-        )}
 
         {error && (
           <div
