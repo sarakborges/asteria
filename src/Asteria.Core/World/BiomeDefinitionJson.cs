@@ -30,13 +30,14 @@ public static class BiomeDefinitionJson
             RequiredString(root, "id"),
             ParseSurfaceLayout(root),
             ParseTerrain(root),
-            ParseLayers(root),
+            null,
             ParseDecorations(root),
             ParseTints(root),
             ParseTerrain3d(root),
             ParseVolumeLayout(root),
             SurfaceHabitatDefinitionJson.Parse(root),
-            ParseCaveSpikes(root));
+            ParseCaveSpikes(root),
+            ParsePalette(root));
     }
 
     private static PlacementLayoutValues?
@@ -438,23 +439,38 @@ public static class BiomeDefinitionJson
         return new BiomeTerrain3dDefinition(formations);
     }
 
-    private static IReadOnlyList<BiomeSurfaceLayerDefinition>
-        ParseLayers(
-            JsonElement root)
+    private static BiomePaletteDefinition ParsePalette(JsonElement root)
     {
-        if (!root.TryGetProperty(
-                "surfaceLayers",
-                out var array) ||
-            array.ValueKind ==
-                JsonValueKind.Null)
-        {
-            return Array.Empty<BiomeSurfaceLayerDefinition>();
-        }
+        if (root.TryGetProperty("surfaceLayers", out _))
+            throw new FormatException(
+                "surfaceLayers is obsolete; author palette.default.");
 
-        array =
-            EnsureArray(
-                array,
-                "surfaceLayers");
+        var palette = EnsureObject(
+            root.TryGetProperty("palette", out var value)
+                ? value : default,
+            "palette");
+        if (!palette.TryGetProperty("default", out var defaults))
+            throw new FormatException("palette.default is required.");
+
+        return new BiomePaletteDefinition(
+            ParseLayers(defaults, "palette.default"),
+            OptionalPaletteLayers(palette, "floor"),
+            OptionalPaletteLayers(palette, "walls"),
+            OptionalPaletteLayers(palette, "ceiling"));
+    }
+
+    private static IReadOnlyList<BiomeSurfaceLayerDefinition>? OptionalPaletteLayers(
+        JsonElement palette, string face)
+    {
+        if (!palette.TryGetProperty(face, out var layers))
+            return null;
+        return ParseLayers(layers, $"palette.{face}");
+    }
+
+    private static IReadOnlyList<BiomeSurfaceLayerDefinition> ParseLayers(
+        JsonElement array, string path)
+    {
+        array = EnsureArray(array, path);
         var layers =
             new List<BiomeSurfaceLayerDefinition>();
 

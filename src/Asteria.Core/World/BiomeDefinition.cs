@@ -14,7 +14,8 @@ public sealed class BiomeDefinition
         BiomeTerrain3dDefinition? terrain3d = null,
         BiomeVolumeLayoutDefinition? volumeLayout = null,
         SurfaceHabitatDefinition? surfaceHabitats = null,
-        IEnumerable<BiomeCaveSpikeDefinition>? caveSpikes = null)
+        IEnumerable<BiomeCaveSpikeDefinition>? caveSpikes = null,
+        BiomePaletteDefinition? palette = null)
     {
         ValidateId(id);
         Id = id;
@@ -51,25 +52,13 @@ public sealed class BiomeDefinition
         if (spikes.Length > 0 && volumeLayout?.Placement != VolumeBiomePlacement.CarvedVoid)
             throw new ArgumentException("Cave spikes require carved-void volume placement.", nameof(caveSpikes));
         CaveSpikes = Array.AsReadOnly(spikes);
-        var layers =
-            surfaceLayers?.ToArray() ??
-            Array.Empty<BiomeSurfaceLayerDefinition>();
-
-        if ((surfaceLayout is not null ||
-             volumeLayout is not null) &&
-            layers.Length == 0)
-        {
+        if (palette is not null && surfaceLayers is not null)
             throw new ArgumentException(
-                "Surface and volume biomes require an exposed solid material profile.",
-                nameof(surfaceLayers));
-        }
-
-        if (layers.Length > 0)
-        {
-            ValidateSurfaceLayers(layers);
-        }
-        SurfaceLayers =
-            Array.AsReadOnly(layers);
+                "Pass palette or legacy constructor layers, not both.",
+                nameof(palette));
+        Palette = palette ?? new BiomePaletteDefinition(
+            surfaceLayers ?? throw new ArgumentException(
+                "Every biome requires an authored palette.", nameof(palette)));
 
         var authoredDecorations =
             decorations?.ToArray() ??
@@ -101,7 +90,11 @@ public sealed class BiomeDefinition
 
     public IReadOnlyList<BiomeCaveSpikeDefinition> CaveSpikes { get; }
 
-    public IReadOnlyList<BiomeSurfaceLayerDefinition> SurfaceLayers { get; }
+    public BiomePaletteDefinition Palette { get; }
+
+    // Surface generation uses the exposed top-face profile.
+    public IReadOnlyList<BiomeSurfaceLayerDefinition> SurfaceLayers =>
+        Palette.For(BiomePaletteFace.Floor);
 
     public IReadOnlyList<BiomeDecorationDefinition> Decorations { get; }
 
@@ -164,7 +157,7 @@ public sealed class BiomeDefinition
         }
     }
 
-    private static void ValidateSurfaceLayers(
+    internal static void ValidateSurfaceLayers(
         IReadOnlyList<BiomeSurfaceLayerDefinition> layers)
     {
         if (layers.Count == 0)

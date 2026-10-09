@@ -87,8 +87,8 @@ public sealed class BiomeRegistry
         foreach (var definition in
                  _definitions)
         {
-            foreach (var layer in
-                     definition.SurfaceLayers)
+            foreach (var profile in definition.Palette.AuthoredProfiles())
+            foreach (var layer in profile)
             {
                 RequireBlock(
                     blocks,
