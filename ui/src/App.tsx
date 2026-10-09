@@ -8,6 +8,7 @@ import { StorageBoxPage } from "./components/pages/StorageBoxPage/StorageBoxPage
 import { SettingsWorkspacePage } from "./components/pages/SettingsWorkspacePage/SettingsWorkspacePage";
 import { ControlsPage } from "./components/pages/ControlsPage/ControlsPage";
 import { PauseMenuPage } from "./components/pages/PauseMenuPage/PauseMenuPage";
+import { DeathScreenPage } from "./components/pages/DeathScreenPage/DeathScreenPage";
 import { useLocalization } from "./localization/LocalizationProvider";
 import { BrushPalettePage } from "./components/pages/BrushPalettePage/BrushPalettePage";
 import { NewWorldPage } from "./components/pages/NewWorldPage/NewWorldPage";
@@ -37,6 +38,7 @@ export type AppActions = {
   exitGame(): void;
   dismissToast(id: number): void;
   resumeGame(): void;
+  respawn(): void;
   saveWorld(): void;
   leaveWorld(): void;
   openGameSettings(): void;
@@ -50,6 +52,7 @@ export type AppActions = {
   setGameplayHint(kind: "RotateBlock" | "BreakOrPlaceBlock", value: boolean): void;
   setWorldTicks(value: number): void;
   setSpawnCreatures(value: boolean): void;
+  setKeepInventory(value: boolean): void;
   setGameMode(value: import("./state/uiState").GameMode): void;
   beginKeyCapture(action: "Jump" | "Descend" | "ToolAction" | "Inventory" | "Chat" | "DropItem" | "ChangePerspective"): void;
   cancelKeyCapture(): void;
@@ -95,7 +98,7 @@ export function App({
   const preWorldVisible =
     state.worldCreation.visible;
   const uiVisible = preWorldVisible || state.navigation.overlay !== "none" ||
-    state.chat.open;
+    state.chat.open || state.navigation.death !== null;
 
   // On an explicit UI screen change, the previous screen's focused button
   // can linger during ScreenTransition's exit animation. Move keyboard focus
@@ -108,7 +111,7 @@ export function App({
       state.chat.open]);
 
   const handleUiKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key !== "Escape" || event.defaultPrevented ||
+    if (state.navigation.death || event.key !== "Escape" || event.defaultPrevented ||
         event.repeat || event.nativeEvent.isComposing || !uiVisible) return;
     if (state.settings.captureAction) actions.cancelKeyCapture();
     else if (state.chat.open) actions.closeChat();
@@ -213,7 +216,16 @@ export function App({
         </ScreenTransition>
       )}
 
-      {!preWorldVisible &&
+      {!preWorldVisible && state.navigation.death && (
+        <DeathScreenPage
+          keepInventory={state.navigation.death.keepInventory}
+          droppedStacks={state.navigation.death.droppedStacks}
+          dropCapacityExceeded={state.navigation.death.dropCapacityExceeded}
+          onRespawn={actions.respawn}
+        />
+      )}
+
+      {!preWorldVisible && !state.navigation.death &&
         state.navigation.overlay === "pause" && (
           <PauseMenuPage
             worldSettingsAvailable={Boolean(state.settings.world)}
@@ -236,7 +248,7 @@ export function App({
           />
         )}
 
-      {(state.navigation.overlay === "game" ||
+      {!state.navigation.death && (state.navigation.overlay === "game" ||
         state.navigation.overlay === "world") && (
         <SettingsWorkspacePage
           scope={state.navigation.overlay}
@@ -248,6 +260,7 @@ export function App({
           onGameplayHint={actions.setGameplayHint}
           onWorldTicks={actions.setWorldTicks}
           onSpawnCreatures={actions.setSpawnCreatures}
+          onKeepInventory={actions.setKeepInventory}
           onGameMode={actions.setGameMode}
         />
       )}
