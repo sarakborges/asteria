@@ -82,6 +82,8 @@ public sealed class GameplaySessionFileCodecTests
         Assert.True(states.Player.Inventory.ClickEquipment(
             EquipmentSlot.Helmet, (entry, slot) =>
                 entry.Equals(helm) && slot == EquipmentSlot.Helmet));
+        Assert.True(states.Player.Inventory.WearEquipment(
+            EquipmentSlot.Helmet, "asteria:test_helm", 5));
         Assert.True(states.Player.Inventory.TryCreativePick(
             InventoryEntry.FromItem("asteria:stick",
                 new Dictionary<string, string> { ["source"] = "tree" }), 7));
@@ -142,6 +144,8 @@ public sealed class GameplaySessionFileCodecTests
         Assert.Equal(7, restored.Player.Inventory.Cursor!.Quantity);
         Assert.Equal("asteria:test_helm",
             restored.Player.Inventory.EquipmentAt(EquipmentSlot.Helmet)!.Id);
+        Assert.Equal(4, EquipmentDurability.Remaining(
+            restored.Player.Inventory.EquipmentAt(EquipmentSlot.Helmet)!.Entry, 5));
         Assert.Null(restored.Player.Inventory.EquipmentAt(EquipmentSlot.Chest));
         Assert.Equal(reordered.Blocks.GetId("asteria:granite"),
             restored.Player.Inventory.SelectedStack!.Block!.Cell.Block);
