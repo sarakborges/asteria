@@ -1,0 +1,27 @@
+{
+  "id": "asteria:gorge_sagebrush",
+  "category": "foliage",
+  "tags": [
+    "support_below"
+  ],
+  "windSway": true,
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/gorge_sagebrush.png",
+    "width": 0.84,
+    "height": 0.82,
+    "planes": 4
+  },
+  "placementFaces": [
+    "top"
+  ],
+  "mining": {
+    "hardness": 0.09
+  },
+  "isCollidable": false,
+  "castsShadow": false,
+  "lightDampening": 0,
+  "alphaCutoff": 0.5,
+  "previewColor": "92945a",
+  "dropsSelf": false
+}

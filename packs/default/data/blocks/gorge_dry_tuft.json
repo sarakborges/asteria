@@ -1,0 +1,27 @@
+{
+  "id": "asteria:gorge_dry_tuft",
+  "category": "foliage",
+  "tags": [
+    "support_below"
+  ],
+  "windSway": true,
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/gorge_dry_tuft.png",
+    "width": 0.74,
+    "height": 0.8,
+    "planes": 4
+  },
+  "placementFaces": [
+    "top"
+  ],
+  "mining": {
+    "hardness": 0.05
+  },
+  "isCollidable": false,
+  "castsShadow": false,
+  "lightDampening": 0,
+  "alphaCutoff": 0.5,
+  "previewColor": "b99b61",
+  "dropsSelf": false
+}

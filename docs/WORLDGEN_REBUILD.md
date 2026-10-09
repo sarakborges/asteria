@@ -687,3 +687,27 @@ existing habitat weights. No biome terrain/palette/noise changes,
 additional tile height, additive structures, or generated fluids
 are introduced. The block definitions retain ordinary lower-face
 support physics, so destroying the support breaks the plants.
+
+## Gorge dry scrub, roots and small rocky outcrops
+
+Gorge retains its `valley` terrain, dimension height, Stone/Gravel/Dirt/
+Stone Cobble palette, habitat bands and biome borders unchanged.
+Four deterministic, biome-owned decorators enrich the exposed
+surfaces without any new terrain or runtime subsystem:
+
+- `gorge_sagebrush`: dry sage scrub, concentrated on stable valley
+  floors and rims rather than unstable rubble;
+- `gorge_dry_tuft`: wind-responsive dry grass on sheltered Dirt/
+  Gravel pockets, low slope and moderate elevation;
+- `gorge_exposed_roots`: horizontal dry roots on Dirt, Gravel and
+  Stone Cobble supports using a ground sprite (not unsupported
+  cliff-wall attachment);
+- `gorge_rock_spur`: sparse, single-voxel, square-section rocky
+  formations on Stone, Gravel and Stone Cobble, concentrated
+  toward rubble slopes and high rims.
+
+Each object owns a 64×64 pack texture and uses the generic
+`surfaceBlocks`, `habitatWeights`, `cluster` and altitude/slope
+conditions. The existing block support lifecycle handles removal
+of underlying solids. No material, hydrology or terrain-generation
+behavior was modified.

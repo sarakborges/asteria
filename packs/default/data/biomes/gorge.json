@@ -94,6 +94,104 @@
         "maxY": 110,
         "maxSlope": 2
       }
+    },
+    {
+      "block": "asteria:gorge_sagebrush",
+      "chance": 0.21,
+      "surfaceBlocks": [
+        "asteria:dirt",
+        "asteria:gravel"
+      ],
+      "habitatWeights": {
+        "valley_floor": 2.2,
+        "rubble_slopes": 0.18,
+        "high_rims": 1.45
+      },
+      "cluster": {
+        "scale": 34,
+        "threshold": -0.23,
+        "octaves": 4,
+        "transitionWidth": 0.17
+      },
+      "conditions": {
+        "minY": 60,
+        "maxY": 151,
+        "maxSlope": 3
+      }
+    },
+    {
+      "block": "asteria:gorge_dry_tuft",
+      "chance": 0.25,
+      "surfaceBlocks": [
+        "asteria:dirt",
+        "asteria:gravel"
+      ],
+      "habitatWeights": {
+        "valley_floor": 2.35,
+        "rubble_slopes": 0.32,
+        "high_rims": 0.35
+      },
+      "cluster": {
+        "scale": 29,
+        "threshold": -0.28,
+        "octaves": 4,
+        "transitionWidth": 0.15
+      },
+      "conditions": {
+        "minY": 58,
+        "maxY": 125,
+        "maxSlope": 2
+      }
+    },
+    {
+      "block": "asteria:gorge_exposed_roots",
+      "chance": 0.125,
+      "surfaceBlocks": [
+        "asteria:dirt",
+        "asteria:gravel",
+        "asteria:stone_cobble"
+      ],
+      "habitatWeights": {
+        "valley_floor": 1.5,
+        "rubble_slopes": 0.65,
+        "high_rims": 0.9
+      },
+      "cluster": {
+        "scale": 27,
+        "threshold": -0.17,
+        "octaves": 3,
+        "transitionWidth": 0.15
+      },
+      "conditions": {
+        "minY": 60,
+        "maxY": 148,
+        "maxSlope": 4
+      }
+    },
+    {
+      "block": "asteria:gorge_rock_spur",
+      "chance": 0.075,
+      "surfaceBlocks": [
+        "asteria:stone",
+        "asteria:gravel",
+        "asteria:stone_cobble"
+      ],
+      "habitatWeights": {
+        "valley_floor": 0.12,
+        "rubble_slopes": 2.45,
+        "high_rims": 1.5
+      },
+      "cluster": {
+        "scale": 40,
+        "threshold": -0.13,
+        "octaves": 3,
+        "transitionWidth": 0.19
+      },
+      "conditions": {
+        "minY": 68,
+        "maxY": 180,
+        "maxSlope": 5
+      }
     }
   ],
   "surfaceHabitats": {

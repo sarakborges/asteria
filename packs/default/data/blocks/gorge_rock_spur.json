@@ -1,0 +1,35 @@
+{
+  "id": "asteria:gorge_rock_spur",
+  "category": "natural_blocks",
+  "tags": [
+    "support_below"
+  ],
+  "shape": {
+    "type": "spike",
+    "baseRadius": 0.43,
+    "tipRadius": 0.07,
+    "taperPower": 1.15
+  },
+  "textures": {
+    "top": "textures/blocks/gorge_rock_spur.png",
+    "bottom": "textures/blocks/gorge_rock_spur.png",
+    "left": "textures/blocks/gorge_rock_spur.png",
+    "right": "textures/blocks/gorge_rock_spur.png",
+    "front": "textures/blocks/gorge_rock_spur.png",
+    "back": "textures/blocks/gorge_rock_spur.png"
+  },
+  "placementFaces": [
+    "top"
+  ],
+  "mining": {
+    "hardness": 1.4,
+    "requiredTools": [
+      "pickaxe"
+    ]
+  },
+  "isCollidable": true,
+  "castsShadow": true,
+  "lightDampening": 15,
+  "previewColor": "9c8876",
+  "dropsSelf": true
+}
