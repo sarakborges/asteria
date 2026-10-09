@@ -399,5 +399,6 @@
   "inventory.equipment.chest": "Sem peitoral",
   "inventory.equipment.legs": "Sem calças",
   "inventory.equipment.boots": "Sem botas",
-  "ui.oxygen": "Oxigênio"
+  "ui.oxygen": "Oxigênio",
+  "ui.durability": "Durabilidade"
 }
