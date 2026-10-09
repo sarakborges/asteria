@@ -10,7 +10,7 @@ namespace Asteria.Core.World;
 public static class GameplaySessionFileCodec
 {
     private const uint Magic = 0x53534741; // AGSS
-    private const ushort Version = 3;
+    private const ushort Version = 4;
     public const long MaximumBytes = 640L * 1024 * 1024;
 
     public static void Write(
@@ -30,6 +30,7 @@ public static class GameplaySessionFileCodec
         PortableStackSaveCodec.WriteString(writer, session.Name, 512);
         writer.Write(session.TicksPerSecond);
         writer.Write(session.SpawnCreatures);
+        writer.Write(session.KeepInventory);
         writer.Write(session.ActiveSphere.HasValue);
         if (session.ActiveSphere is { } activeSphere)
             PortableStackSaveCodec.WriteString(writer, activeSphere.Value, 512);
@@ -91,11 +92,13 @@ public static class GameplaySessionFileCodec
             if (reader.ReadUInt32() != Magic)
                 throw new InvalidDataException("Unknown gameplay session magic.");
             var version = reader.ReadUInt16();
-            if (version is not (1 or 2 or Version))
+            if (version is not (1 or 2 or 3 or Version))
                 throw new InvalidDataException("Unknown gameplay session format.");
             var name = PortableStackSaveCodec.ReadString(reader, 512);
             var tickRate = reader.ReadUInt32();
             var spawnCreatures = PortableStackSaveCodec.ReadBool(reader);
+            var keepInventory = version >= 4
+                ? PortableStackSaveCodec.ReadBool(reader) : true;
             var activeSphere = PortableStackSaveCodec.ReadBool(reader)
                 ? new DimensionId(PortableStackSaveCodec.ReadString(reader, 512))
                 : (DimensionId?)null;
@@ -134,7 +137,8 @@ public static class GameplaySessionFileCodec
             if (source.Position != end)
                 throw new InvalidDataException("Unexpected gameplay session trailing bytes.");
             return new GameplaySessionSnapshot(
-                spatial, name, tickRate, spawnCreatures, player, spheres, activeSphere);
+                spatial, name, tickRate, spawnCreatures, player, spheres, activeSphere,
+                keepInventory);
         }
         catch (Exception error) when (error is ArgumentException or EndOfStreamException or
             OverflowException or DecoderFallbackException or FormatException)
