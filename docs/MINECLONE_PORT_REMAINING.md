@@ -109,3 +109,18 @@ These are **code-level findings**, not a declaration that visual worldgen, gamep
 - The detached player inventory snapshot and complete on-disk session format v2 include equipment. The reader accepts v1 sessions as empty equipment and restores all slots atomically. Core tests cover equip, invalid slot/stack, no item loss and save/load roundtrip.
 - Godot `ui.inventory.equipment` is the authoritative action, `game.inventory.state` publishes four slot snapshots; the React character panel renders real slots (including when empty) and forwards clicks only through the inventory controller. UI labels are localized.
 - No default-pack equipment items have been authored yet. Equippable content, protection effects and equipment meshes must be designed explicitly before declaring the entire system feature-complete.
+
+## Third-person held inventory selection — 2026-10-09
+
+- Added a pure `HeldVisualResolver` in Core mapping the **real selected stack**
+  to either a six-face textured cube for full authored cube blocks, or a
+  transparent icon plane for items, tools, layers and non-cubic shapes.
+  Metadata-specific item `iconVariants` are resolved from authored data,
+  not from hard-coded item IDs; neither visual changes inventory authority.
+- `HeldItemPresentation` attaches to the original GLB right-arm pivot and
+  updates the selected appearance only when `PlayerInventory.Revision`
+  changes, using selected-pack raw PNGs. No gameplay per-block nodes or WebUI
+  mouse listeners are introduced.
+- Third-person arm position follows GLB animation and crouch. First-person
+  viewmodel, multi-layer block microgeometry, tool dye overlays, precise
+  biome tint and object GLB displays remain for a separate visual parity pass.

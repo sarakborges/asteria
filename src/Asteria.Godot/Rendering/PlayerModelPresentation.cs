@@ -19,6 +19,10 @@ public sealed partial class PlayerModelPresentation : Node3D
     private readonly FpsPlayer _player;
     private readonly PackSelection _selection;
     private readonly PlayerVisualDefinition _definition;
+    private readonly PlayerInventory _inventory;
+    private readonly HeldVisualResolver _heldResolver;
+    private HeldItemPresentation? _held;
+    private ulong _lastInventoryRevision = ulong.MaxValue;
     private readonly Dictionary<string, (Node3D Pivot, Vector3 Position)> _pivots = [];
     private AnimationPlayer? _animations;
     private string? _currentClip;
@@ -26,11 +30,14 @@ public sealed partial class PlayerModelPresentation : Node3D
 
     public PlayerModelPresentation(
         FpsPlayer player, PackSelection selection,
-        PlayerVisualDefinition definition)
+        PlayerVisualDefinition definition, PlayerInventory inventory,
+        HeldVisualResolver heldResolver)
     {
         _player = player ?? throw new ArgumentNullException(nameof(player));
         _selection = selection;
         _definition = definition ?? throw new ArgumentNullException(nameof(definition));
+        _inventory = inventory ?? throw new ArgumentNullException(nameof(inventory));
+        _heldResolver = heldResolver ?? throw new ArgumentNullException(nameof(heldResolver));
         Name = "PlayerVisual";
         Visible = false;
     }
@@ -53,6 +60,12 @@ public sealed partial class PlayerModelPresentation : Node3D
             if (child is Node3D pivot && IsAnimatedPivot(pivot.Name.ToString()))
                 _pivots.Add(pivot.Name.ToString(), (pivot, pivot.Position));
         }
+        if (_pivots.TryGetValue("RightArmPivot", out var hand))
+        {
+            _held = new HeldItemPresentation(_selection);
+            hand.Pivot.AddChild(_held);
+        }
+
         if (_animations is null)
             throw new InvalidDataException(
                 "Authored player GLB is missing an AnimationPlayer.");
@@ -73,6 +86,11 @@ public sealed partial class PlayerModelPresentation : Node3D
     public override void _Process(double delta)
     {
         if (_animations is null) return;
+        if (_held is not null && _lastInventoryRevision != _inventory.Revision)
+        {
+            _held.SetVisual(_heldResolver.Resolve(_inventory.SelectedStack));
+            _lastInventoryRevision = _inventory.Revision;
+        }
         Visible = _player.IsThirdPerson &&
             !_player.PlayerState.GameMode.IsSpectator();
         if (!Visible) return;
