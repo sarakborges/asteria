@@ -16,6 +16,8 @@
   "worldSelection.stillLoading": "Todavía se está cargando un mundo guardado. Espera a que termine.",
   "worldSelection.inventoryError": "No se pudo cargar el inventario",
   "worldSelection.delete": "Eliminar mundo",
+  "worldSelection.confirmDelete": "¿Eliminar \"{name}\" permanentemente? Esta acción no se puede deshacer.",
+  "worldSelection.deleting": "Eliminando mundo guardado...",
   "worldSelection.deleteError": "No se pudo eliminar el mundo",
   "worldSelection.selected": "Seleccionado",
   "common.settings": "Configuración",
