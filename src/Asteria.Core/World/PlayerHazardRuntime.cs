@@ -15,6 +15,7 @@ public sealed class PlayerHazardRuntime
     private float _creatureCooldownSeconds;
 
     public float BreathSeconds => _breathSeconds;
+    public bool BreathDepleting { get; private set; }
 
     public void AdvanceTime(float elapsed)
     {
@@ -57,6 +58,7 @@ public sealed class PlayerHazardRuntime
             return PlayerDamageResult.Ignored;
         }
 
+        BreathDepleting = eyeSubmerged && depletesBreath;
         var oldBreath = _breathSeconds;
         var drowningElapsed = 0f;
         if (eyeSubmerged && depletesBreath)
@@ -104,6 +106,7 @@ public sealed class PlayerHazardRuntime
     private void ResetFluid()
     {
         _breathSeconds = BreathCapacitySeconds;
+        BreathDepleting = false;
         _drownPulseSeconds = 0f;
         _fluidPulseSeconds = 0f;
     }
