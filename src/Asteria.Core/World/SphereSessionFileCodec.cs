@@ -174,8 +174,8 @@ internal static class SphereSessionFileCodec
         {
             var id = new DroppedBlockId(reader.ReadUInt64());
             var stack = PortableStackSaveCodec.Read(reader, blocks, dyes, layers);
-            if (stack is null || stack.Quantity != 1)
-                throw new InvalidDataException("A dropped item must have one portable stack.");
+            if (stack is null)
+                throw new InvalidDataException("A dropped item must have a portable stack.");
             var state = new DroppedBlockState(
                 id, stack, ReadVector(reader), ReadVector(reader),
                 reader.ReadDouble(), PortableStackSaveCodec.ReadBool(reader));
