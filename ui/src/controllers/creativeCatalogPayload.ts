@@ -55,6 +55,9 @@ export function readCreativeCatalog(value: unknown): AuthoredCreativeCatalog | n
     const kind = readKind(item?.kind);
     const metadata = readMetadata(item?.metadata);
     if (!item || !kind || !metadata ||
+        Object.keys(metadata).length > 16 ||
+        Object.entries(metadata).some(([key, entry]) =>
+          key.length === 0 || key.length > 128 || entry.length > 256) ||
         typeof item.id !== "string" || !item.id || item.id.length > 256 ||
         typeof item.name !== "string" || !item.name || item.name.length > 256 ||
         typeof item.category !== "string" || !categoryIds.has(item.category) ||
