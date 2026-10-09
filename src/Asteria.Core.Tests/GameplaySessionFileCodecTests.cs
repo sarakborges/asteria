@@ -188,7 +188,7 @@ public sealed class GameplaySessionFileCodecTests
         var saved = GameplaySessionSaveCodec.Capture(states,
             content.Blocks, content.Fluids, content.Dyes, content.Layers);
         var data = Encode(saved, content);
-        Assert.Equal((byte)3, data[4]);
+        Assert.Equal((byte)4, data[4]);
         var restored = GameplaySessionSaveCodec.Restore(
             creation, Dimensions(), Decode(data, content),
             content.Blocks, content.Fluids, content.Dyes, content.Layers);
@@ -213,6 +213,7 @@ public sealed class GameplaySessionFileCodecTests
         PortableStackSaveCodec.ReadString(reader, 512);
         reader.ReadUInt32();
         reader.ReadBoolean();
+        reader.ReadBoolean(); // v4 keepInventory
         if (reader.ReadBoolean())
             PortableStackSaveCodec.ReadString(reader, 512);
         reader.ReadByte();
@@ -223,7 +224,12 @@ public sealed class GameplaySessionFileCodecTests
             PortableStackSaveCodec.Read(reader,
                 content.Blocks, content.Dyes, content.Layers);
         var healthOffset = checked((int)stream.Position);
-        var legacy = encoded.AsSpan(0, healthOffset).ToArray()
+        // v2 has neither the v4 gamerule byte nor the v3 health float.
+        var rulesOffset = checked((int)(sizeof(uint) + sizeof(ushort) +
+            sizeof(ushort) + System.Text.Encoding.UTF8.GetByteCount(creation.Name) +
+            sizeof(uint) + sizeof(byte)));
+        var legacy = encoded.AsSpan(0, rulesOffset).ToArray()
+            .Concat(encoded.AsSpan(rulesOffset + 1, healthOffset - rulesOffset - 1).ToArray())
             .Concat(encoded.AsSpan(healthOffset + sizeof(float)).ToArray())
             .ToArray();
         legacy[4] = 2;
@@ -246,12 +252,12 @@ public sealed class GameplaySessionFileCodecTests
         var saved = GameplaySessionSaveCodec.Capture(
             states, content.Blocks, content.Fluids,
             content.Dyes, content.Layers);
-        var version3 = Encode(saved, content);
+        var version4 = Encode(saved, content);
 
         // A v1 payload did not contain equipment or health fields.
-        // Synthesize the exact v1 shape from a v3 payload with empty gear,
+        // Synthesize the exact v1 shape from a v4 payload with empty gear,
         // without modifying any spatial or sphere snapshot bytes.
-        using var source = new MemoryStream(version3, writable: false);
+        using var source = new MemoryStream(version4, writable: false);
         using var reader = new BinaryReader(source, System.Text.Encoding.UTF8,
             leaveOpen: true);
         reader.ReadUInt32();
@@ -269,9 +275,14 @@ public sealed class GameplaySessionFileCodecTests
                 reader, content.Blocks, content.Dyes, content.Layers);
         var equipmentStart = checked((int)source.Position);
         Assert.Equal(new byte[PlayerInventory.EquipmentSlots],
-            version3.AsSpan(equipmentStart, PlayerInventory.EquipmentSlots).ToArray());
-        var version1 = version3.AsSpan(0, equipmentStart).ToArray()
-            .Concat(version3.AsSpan(
+            version4.AsSpan(equipmentStart, PlayerInventory.EquipmentSlots).ToArray());
+        var keepInventoryOffset = checked((int)(sizeof(uint) + sizeof(ushort) +
+            sizeof(ushort) + System.Text.Encoding.UTF8.GetByteCount(creation.Name) +
+            sizeof(uint) + sizeof(byte)));
+        var version1 = version4.AsSpan(0, keepInventoryOffset).ToArray()
+            .Concat(version4.AsSpan(keepInventoryOffset + 1,
+                equipmentStart - keepInventoryOffset - 1).ToArray())
+            .Concat(version4.AsSpan(
                 equipmentStart + PlayerInventory.EquipmentSlots + sizeof(float)).ToArray())
             .ToArray();
         version1[4] = 1;
