@@ -951,6 +951,21 @@ public sealed class SurfaceChunkMaterializer
             if (last < first)
                 continue;
 
+            // A generated spike must occupy empty density inside this
+            // chunk. A fully solid column has no contributing formation
+            // even if an anchor in a neighboring vertical chunk qualifies.
+            var containsVoid = false;
+            for (var localY = 0; localY < Chunk.Size; localY++)
+            {
+                if (densityVolume.DensityAt(x, localY, z) < 0d)
+                {
+                    containsVoid = true;
+                    break;
+                }
+            }
+            if (!containsVoid)
+                continue;
+
             var worldX = originX + x;
             var worldZ = originZ + z;
             var biome = volumeBiomes.SampleCave(worldX, worldZ);
