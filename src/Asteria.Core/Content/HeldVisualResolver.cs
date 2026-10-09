@@ -49,9 +49,13 @@ public sealed class HeldVisualResolver
                 return new HeldVisual(HeldVisualKind.Sprite, variant?.Icon ?? item.Icon);
             }
             case InventoryEntryKind.Tool:
-                return _tools.TryGet(selected.Id, out var tool)
-                    ? new HeldVisual(HeldVisualKind.Sprite, tool!.Icon)
-                    : null;
+            {
+                if (!_tools.TryGet(selected.Id, out var tool)) return null;
+                var variant = (tool!.IconVariants ?? []).FirstOrDefault(x =>
+                    selected.Entry.Metadata.TryGetValue(
+                        x.MetadataKey, out var value) && value == x.MetadataValue);
+                return new HeldVisual(HeldVisualKind.Sprite, variant?.Icon ?? tool.Icon);
+            }
             case InventoryEntryKind.Layer:
             {
                 var layer = _layers.Definitions.FirstOrDefault(x => x.Id == selected.Id);

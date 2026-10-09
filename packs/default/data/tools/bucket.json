@@ -3,5 +3,17 @@
   "category": "tools",
   "icon": "textures/tools/iron_bucket_empty.png",
   "leftBehavior": "asteria:none",
-  "rightBehavior": "asteria:bucket/use"
+  "rightBehavior": "asteria:bucket/use",
+  "iconVariants": [
+    {
+      "metadataKey": "contained_fluid",
+      "metadataValue": "asteria:water",
+      "icon": "textures/tools/iron_bucket_water.png"
+    },
+    {
+      "metadataKey": "contained_fluid",
+      "metadataValue": "asteria:lava",
+      "icon": "textures/tools/iron_bucket_lava.png"
+    }
+  ]
 }

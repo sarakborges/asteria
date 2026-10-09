@@ -124,3 +124,8 @@ These are **code-level findings**, not a declaration that visual worldgen, gamep
 - Third-person arm position follows GLB animation and crouch. First-person
   viewmodel, multi-layer block microgeometry, tool dye overlays, precise
   biome tint and object GLB displays remain for a separate visual parity pass.
+
+## Bucket held-item visual variants — 2026-10-09
+
+- `ToolDefinition.iconVariants` now supports bounded, validated metadata selectors. The selected bucket uses `contained_fluid=asteria:water` or `asteria:lava` to choose the two original MineClone bucket icons, while empty buckets retain their original image. The same authored variants participate in creative catalog icons and third-person held sprites.
+- Original bucket PNGs are in the default pack. No hard-coded bucket IDs or metadata behavior are added to the renderer; the existing `BucketGameplayRuntime` remains the mutation owner.

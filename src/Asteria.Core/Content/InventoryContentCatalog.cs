@@ -68,6 +68,16 @@ public sealed class InventoryContentCatalog
                 InventoryEntry.FromTool(
                     definition.Id, maxStackSize: definition.MaxStackSize),
                 definition.Category, definition.Icon));
+            foreach (var variant in definition.IconVariants ?? [])
+            {
+                choices.Add(new InventoryCatalogChoice(
+                    InventoryEntry.FromTool(definition.Id,
+                        new Dictionary<string, string>(StringComparer.Ordinal)
+                        {
+                            [variant.MetadataKey] = variant.MetadataValue,
+                        }, definition.MaxStackSize),
+                    definition.Category, variant.Icon));
+            }
         }
 
         if (layers is not null)

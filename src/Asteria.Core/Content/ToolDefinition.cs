@@ -6,6 +6,9 @@ public sealed record ToolMiningDefinition(
     string Category,
     float Speed);
 
+public sealed record ToolIconVariant(
+    string MetadataKey, string MetadataValue, string Icon);
+
 public sealed record ToolDefinition(
     string Id,
     string Category,
@@ -14,7 +17,8 @@ public sealed record ToolDefinition(
     string LeftBehavior,
     string RightBehavior,
     ToolMiningDefinition? Mining,
-    int MaxStackSize = 1)
+    int MaxStackSize = 1,
+    IReadOnlyList<ToolIconVariant>? IconVariants = null)
 {
     public static ToolDefinition Parse(string json)
     {
@@ -41,6 +45,27 @@ public sealed record ToolDefinition(
         if (maxStackSize > 64)
             throw new FormatException("maxStackSize must not exceed 64");
 
+        var iconVariants = new List<ToolIconVariant>();
+        if (root.TryGetProperty("iconVariants", out var variants))
+        {
+            if (variants.ValueKind != JsonValueKind.Array || variants.GetArrayLength() > 64)
+                throw new FormatException("Tool iconVariants must be a bounded array.");
+            var keys = new HashSet<(string, string)>();
+            foreach (var variant in variants.EnumerateArray())
+            {
+                if (variant.ValueKind != JsonValueKind.Object)
+                    throw new FormatException("Invalid tool icon variant.");
+                var key = PackContentFields.RequiredString(variant, "metadataKey");
+                var value = PackContentFields.RequiredString(variant, "metadataValue");
+                var icon = PackContentFields.ResourcePath(
+                    PackContentFields.RequiredString(variant, "icon"),
+                    "iconVariants.icon");
+                if (!keys.Add((key, value)))
+                    throw new FormatException("Duplicate tool icon variant.");
+                iconVariants.Add(new ToolIconVariant(key, value, icon));
+            }
+        }
+
         var tint = PackContentFields.OptionalString(root, "tintIcon");
         return new ToolDefinition(
             PackContentFields.Id(root),
@@ -50,6 +75,7 @@ public sealed record ToolDefinition(
             PackContentFields.Namespaced(PackContentFields.RequiredString(root, "leftBehavior"), "leftBehavior"),
             PackContentFields.Namespaced(PackContentFields.RequiredString(root, "rightBehavior"), "rightBehavior"),
             mining,
-            maxStackSize);
+            maxStackSize,
+            iconVariants.AsReadOnly());
     }
 }
