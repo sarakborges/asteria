@@ -68,11 +68,17 @@ public static class VoxelWorldLightingSolver
 
         while (queue.TryDequeue(out var position))
         {
-
-            if (!world.TryGetCell(position, out var cell))
+            var address = VoxelCoordinates.FromWorld(
+                position.X, position.Y, position.Z);
+            if (!world.TryGetChunk(address.Chunk, out var chunk))
             {
                 continue;
             }
+
+            var local = address.Local;
+            var cell = chunk.GetCell(local.X, local.Y, local.Z);
+            var fluid = chunk.GetFluid(local.X, local.Y, local.Z);
+            var current = chunk.GetLight(local.X, local.Y, local.Z);
 
             processed++;
             var desired = DesiredLight(
@@ -81,15 +87,17 @@ public static class VoxelWorldLightingSolver
                 fluids,
                 directSky,
                 position,
-                cell);
-            var current = world.GetLightOrDark(position);
+                chunk,
+                local,
+                cell,
+                fluid);
 
             if (desired == current)
             {
                 continue;
             }
 
-            world.TrySetLight(position, desired);
+            chunk.SetLight(local.X, local.Y, local.Z, desired);
             changed.Add(position);
 
             EnqueueWithNeighbors(
@@ -113,27 +121,19 @@ public static class VoxelWorldLightingSolver
         FluidRegistry fluids,
         DirectSkyContext directSky,
         WorldVoxelCoord position,
-        VoxelCell cell)
+        Chunk chunk,
+        LocalVoxelCoord local,
+        VoxelCell cell,
+        FluidCell fluid)
     {
-        var address = VoxelCoordinates.FromWorld(
-            position.X,
-            position.Y,
-            position.Z);
-        var chunk =
-            world.GetChunk(address.Chunk);
-        var fluid =
-            chunk.GetFluid(
-                address.Local.X,
-                address.Local.Y,
-                address.Local.Z);
         var dampening =
             VoxelLightingMedium.Dampening(
                 chunk,
                 blocks,
                 fluids,
-                address.Local.X,
-                address.Local.Y,
-                address.Local.Z,
+                local.X,
+                local.Y,
+                local.Z,
                 cell,
                 fluid);
 
@@ -159,15 +159,20 @@ public static class VoxelWorldLightingSolver
         var green = emission.Green;
         var blue = emission.Blue;
 
-        foreach (var offset in Neighbors)
+        foreach (var (dx, dy, dz) in Neighbors)
         {
-            var neighbor = position + offset;
-            if (!world.IsLoadedAt(neighbor))
-            {
-                continue;
-            }
-
-            var neighborLight = world.GetLightOrDark(neighbor);
+            var x = local.X + dx;
+            var y = local.Y + dy;
+            var z = local.Z + dz;
+            // Most propagation steps remain inside the current chunk.
+            // Absent neighboring chunks contribute darkness, exactly as
+            // the previous loaded-neighbor check did.
+            var neighborLight =
+                (uint)x < Chunk.Size &&
+                (uint)y < Chunk.Size &&
+                (uint)z < Chunk.Size
+                    ? chunk.GetLight(x, y, z)
+                    : world.GetLightOrDark(position + (dx, dy, dz));
             sky = Math.Max(
                 sky,
                 SaturatingSubtract(

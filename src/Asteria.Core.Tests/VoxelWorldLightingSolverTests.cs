@@ -206,6 +206,39 @@ public sealed class VoxelWorldLightingSolverTests
     }
 
     [Fact]
+    public void IncrementalEmitterRemovalClearsLightAcrossChunkSeam()
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition(
+                "asteria:lamp",
+                lightDampening: 15,
+                lightEmission: new BlockLightEmission(15, 0, 0)),
+        ]);
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, new Chunk());
+        world.InsertChunk(new ChunkCoord(1, 0, 0), new Chunk());
+        var source = new WorldVoxelCoord(Chunk.Size - 1, 8, 0);
+        var acrossSeam = new WorldVoxelCoord(Chunk.Size, 8, 0);
+        var inChunk = new WorldVoxelCoord(Chunk.Size - 2, 8, 0);
+        Assert.True(world.SetBlockAt(
+            source, blocks.GetId("asteria:lamp"), out _));
+        VoxelWorldLightingSolver.Initialize(
+            world, blocks, new FluidRegistry([]));
+        Assert.Equal((byte)14, world.GetLightOrDark(acrossSeam).Red);
+        Assert.Equal((byte)14, world.GetLightOrDark(inChunk).Red);
+
+        Assert.True(world.SetBlockAt(
+            source, BlockRuntimeId.Air, out _));
+        VoxelWorldLightingSolver.RelightAfterEdits(
+            world, blocks, new FluidRegistry([]), [source]);
+
+        Assert.Equal((byte)0, world.GetLightOrDark(acrossSeam).Red);
+        Assert.Equal((byte)0, world.GetLightOrDark(inChunk).Red);
+        Assert.Equal((byte)15, world.GetLightOrDark(acrossSeam).Sky);
+    }
+
+    [Fact]
     public void IncrementalDirectSkyTreatsUnloadedVerticalGapAsOpenSky()
     {
         var blocks =
