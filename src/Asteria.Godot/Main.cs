@@ -1260,6 +1260,9 @@ public partial class Main : Node3D
                 case "ui.brush.close":
                     CloseBrushPalette();
                     break;
+                case "ui.inventory.equipment":
+                    HandleEquipmentSlot(document.RootElement);
+                    break;
                 case "ui.inventory.slot":
                     HandleInventorySlot(document.RootElement);
                     break;
@@ -2091,6 +2094,9 @@ public partial class Main : Node3D
                     inventory.SlotAt(PlayerInventory.BackpackSlots + i)))
                 .ToArray(),
             cursor = InventorySlotView(inventory.Cursor),
+            equipment = Enum.GetValues<EquipmentSlot>()
+                .Select(slot => InventorySlotView(inventory.EquipmentAt(slot)))
+                .ToArray(),
             recipes = _crafting.Recipes.Select(recipe => new
             {
                 id = recipe.Id,
@@ -2934,6 +2940,24 @@ public partial class Main : Node3D
         SendHotbarState();
         SendInventoryState();
         SendStorageBoxState();
+    }
+
+    private void HandleEquipmentSlot(JsonElement message)
+    {
+        if (!_inventoryOpen || !_worldReadySent ||
+            _sessions.IsTransitioning ||
+            !message.TryGetProperty("payload", out var payload) ||
+            payload.ValueKind != JsonValueKind.Object ||
+            !payload.TryGetProperty("index", out var index) ||
+            !index.TryGetInt32(out var number) ||
+            number is < 0 or >= PlayerInventory.EquipmentSlots)
+            return;
+
+        var inventory = _sessionStates.Player.Inventory;
+        if (!inventory.ClickEquipment(
+                (EquipmentSlot)number, _inventoryCatalog.CanEquip))
+            return;
+        SendInventoryState();
     }
 
     private void HandleInventorySlot(JsonElement message)

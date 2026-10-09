@@ -14,6 +14,8 @@ const meta = {
         i === 0 ? {
           id: "asteria:dirt", kind: "block" as const, quantity: 4, metadata: {},
         } : null),
+      equipment: Array(4).fill(null),
+      portraitUrl: null,
       hotbar: Array.from({ length: 9 }, (_, i) =>
         i === 0 ? {
           id: "asteria:stone", kind: "block" as const, quantity: 32, metadata: {},
@@ -56,6 +58,7 @@ const meta = {
     },
     onClose: () => {},
     onSlotClick: () => {},
+    onEquipmentClick: () => {},
     onSort: () => {},
     onDiscardCursor: () => {},
     onCreativePick: () => {},

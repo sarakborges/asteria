@@ -20,6 +20,7 @@ export type InventoryGameplayPageProps = {
   health?: VitalValue | null;
   onClose(): void;
   onSlotClick(index: number): void;
+  onEquipmentClick(index: number): void;
   onSort(): void;
   onDiscardCursor(): void;
   onCreativePick(choice: InventoryCatalogEntry): void;
@@ -32,7 +33,7 @@ export type InventoryGameplayPageProps = {
  * Only Godot-sourced slots and vitals are displayed as gameplay facts.
  */
 export function InventoryGameplayPage({
-  state, health, onClose, onSlotClick, onSort,
+  state, health, onClose, onSlotClick, onEquipmentClick, onSort,
   onDiscardCursor, onCreativePick, onCraft, onRotatePortrait,
 }: InventoryGameplayPageProps) {
   const { t, contentName } = useLocalization();
@@ -131,13 +132,18 @@ export function InventoryGameplayPage({
           creativeVisible={creative}
           onViewChange={setCreativeTab}
           character={<CharacterInfoPanel
+            onEquipmentClick={onEquipmentClick}
             portraitUrl={state.portraitUrl}
             onRotatePortrait={onRotatePortrait}
             state={health ? {
             name: t("ui.player"),
             healthCurrent: health.current,
             healthMaximum: health.maximum,
-            equipment: [],
+            equipment: ["helmet", "chest", "legs", "boots"].map((slot, index) => ({
+              slot,
+              item: inventoryItemView(state.equipment[index], state.catalog),
+              emptyLabel: t(`inventory.equipment.${slot}`),
+            })),
           } : null} />}
           crafting={<CraftingPanel
             recipes={recipes} selectedRecipeId={selectedRecipe}

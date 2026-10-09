@@ -60,6 +60,7 @@ export type AppActions = {
   closeChat(): void;
   submitChat(text: string): void;
   clickInventorySlot(index: number): void;
+  clickEquipmentSlot(index: number): void;
   sortInventory(): void;
   discardInventoryCursor(): void;
   pickCreativeBlock(choice: InventoryCatalogEntry): void;
@@ -272,6 +273,7 @@ export function App({
           health={state.hud.vitals?.health}
           onClose={actions.closeInventory}
           onSlotClick={actions.clickInventorySlot}
+          onEquipmentClick={actions.clickEquipmentSlot}
           onSort={actions.sortInventory}
           onDiscardCursor={actions.discardInventoryCursor}
           onCreativePick={actions.pickCreativeBlock}

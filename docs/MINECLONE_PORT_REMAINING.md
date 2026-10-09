@@ -102,3 +102,10 @@ These are **code-level findings**, not a declaration that visual worldgen, gamep
 - `PlayerPortraitPresentation` uses a bounded 256×256 isolated `SubViewport` and captures PNG only when inventory opens or the user drags the character preview; not once per frame. The native bridge publishes a validated PNG data URI.
 - React `CharacterInfoPanel` renders this actual 3D preview and forwards only focused pointer drag deltas via the inventory controller and semantic `ui.player.portrait.rotate` action. UI components own neither camera nor gameplay movement.
 - No fake equipment state was added. Equippable slots, held-item visuals and gameplay animations beyond locomotion/crouch remain follow-up work.
+
+## Equipment inventory integration — 2026-10-09
+
+- Asteria extends the MineClone reference (which only renders four static empty armor rows): Core now owns four typed player equipment slots and transactions against the existing cursor, checked against optional `ItemDefinition.equipmentSlot` and `maxStackSize=1` instead of allowing arbitrary items. No defensive bonus is claimed without authored gameplay rules.
+- The detached player inventory snapshot and complete on-disk session format v2 include equipment. The reader accepts v1 sessions as empty equipment and restores all slots atomically. Core tests cover equip, invalid slot/stack, no item loss and save/load roundtrip.
+- Godot `ui.inventory.equipment` is the authoritative action, `game.inventory.state` publishes four slot snapshots; the React character panel renders real slots (including when empty) and forwards clicks only through the inventory controller. UI labels are localized.
+- No default-pack equipment items have been authored yet. Equippable content, protection effects and equipment meshes must be designed explicitly before declaring the entire system feature-complete.

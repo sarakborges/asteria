@@ -245,6 +245,7 @@ export type GameplayInventoryState = {
   selectedIndex: number;
   backpack: InventorySlotState[];
   hotbar: InventorySlotState[];
+  equipment: InventorySlotState[];
   cursor: InventorySlotState;
   catalog: InventoryCatalogEntry[];
   portraitUrl: string | null;
@@ -379,6 +380,7 @@ export function createInitialUiState(
       selectedIndex: 0,
       backpack: Array(27).fill(null),
       hotbar: Array(9).fill(null),
+      equipment: Array(4).fill(null),
       cursor: null,
       catalog: [],
       portraitUrl: null,

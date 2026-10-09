@@ -76,6 +76,11 @@ export function createInventoryController(
       if (!Number.isInteger(index) || index < 0 || index >= 36) return;
       post("ui.inventory.slot", { index });
     },
+    clickEquipment(index: number) {
+      if (!Number.isInteger(index) || index < 0 || index >= 4 ||
+          !store.getSnapshot().inventory.open) return;
+      post("ui.inventory.equipment", { index });
+    },
     sort() { post("ui.inventory.sort"); },
     discardCursor() { post("ui.inventory.discard_cursor"); },
     craft(recipeId: string) {
@@ -105,8 +110,9 @@ export function createInventoryController(
           return;
         const backpack = readSlots(payload.backpack, 27);
         const hotbar = readSlots(payload.hotbar, 9);
+        const equipment = readSlots(payload.equipment, 4);
         const recipes = readRecipes(payload.recipes);
-        if (!backpack || !hotbar || !recipes) return;
+        if (!backpack || !hotbar || !equipment || !recipes) return;
         const open = payload.open;
         store.update(state => {
           const inventory: GameplayInventoryState = {
@@ -114,7 +120,7 @@ export function createInventoryController(
             open,
             creativeAvailable: payload.creativeAvailable as boolean,
             selectedIndex: payload.selectedIndex as number,
-            backpack, hotbar, cursor: readSlot(payload.cursor),
+            backpack, hotbar, equipment, cursor: readSlot(payload.cursor),
             portraitUrl: open ? state.inventory.portraitUrl : null,
             recipes, craftingStatus: open ? state.inventory.craftingStatus : null,
             errorKey: null,

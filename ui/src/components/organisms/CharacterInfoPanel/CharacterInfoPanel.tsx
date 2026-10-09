@@ -10,10 +10,11 @@ export type CharacterInfoPanelProps = {
   state: CharacterInfoView | null;
   portraitUrl?: string | null;
   onRotatePortrait?(deltaX: number): void;
+  onEquipmentClick?(index: number): void;
 };
 
 export function CharacterInfoPanel({
-  state, portraitUrl, onRotatePortrait,
+  state, portraitUrl, onRotatePortrait, onEquipmentClick,
 }: CharacterInfoPanelProps) {
   const { t, contentName } = useLocalization();
   const previousX = useRef<number | null>(null);
@@ -68,13 +69,16 @@ export function CharacterInfoPanel({
           <section className="character-info-panel__section">
             <Text text={t("ui.armor")} variant="setting-title" />
             <div className="character-info-panel__equipment">
-              {state.equipment.map(entry => (
+              {state.equipment.map((entry, index) => (
                 <div key={entry.slot} className="character-info-panel__equipment-row">
-                  <InventorySlot item={entry.item} disabled />
+                  <InventorySlot item={entry.item}
+                    disabled={!onEquipmentClick}
+                    onClick={() => onEquipmentClick?.(index)} />
                   <div className="character-info-panel__equipment-copy">
                     <Text text={entry.item?.id
                       ? contentName(entry.item.id) : entry.emptyLabel} variant="caption" />
-                    <Text text={entry.effectLabel ?? t("ui.noEffect")} variant="caption" />
+                    {entry.effectLabel &&
+                      <Text text={entry.effectLabel} variant="caption" />}
                   </div>
                 </div>
               ))}

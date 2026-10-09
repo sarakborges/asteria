@@ -106,6 +106,7 @@ createRoot(rootElement).render(
       closeChat: chat.close,
       submitChat: chat.submit,
       clickInventorySlot: inventory.clickSlot,
+      clickEquipmentSlot: inventory.clickEquipment,
       sortInventory: inventory.sort,
       discardInventoryCursor: inventory.discardCursor,
       pickCreativeBlock: inventory.pickCreative,
