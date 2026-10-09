@@ -49,6 +49,6 @@ public sealed class HeldVisualResolverTests
         ItemDefinition[]? items = null) =>
         new(new BlockRegistry([]),
             PackContentRegistry<ItemDefinition>.FromJson((items ?? []).Select(item => System.Text.Json.JsonSerializer.Serialize(new { id = item.Id, category = item.Category, icon = item.Icon, iconVariants = item.IconVariants.Select(variant => new { metadataKey = variant.MetadataKey, metadataValue = variant.MetadataValue, icon = variant.Icon }).ToArray() })), ItemDefinition.Parse, definition => definition.Id),
-            new PackContentRegistry<ToolDefinition>([]),
+            PackContentRegistry<ToolDefinition>.FromJson([], ToolDefinition.Parse, definition => definition.Id),
             new AttachedLayerRegistry([]));
 }
