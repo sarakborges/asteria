@@ -5,7 +5,7 @@ namespace Asteria.Core.Tests;
 public sealed class BlockPhysicsRuntimeTests
 {
     [Fact]
-    public void VoxelEditWakesChangedVoxelAndBlockAboveOnce()
+    public void VoxelEditWakesChangedVoxelAndBothSupportNeighborsOnce()
     {
         var queue =
             new BlockPhysicsUpdateQueue();
@@ -20,6 +20,7 @@ public sealed class BlockPhysicsRuntimeTests
             {
                 position,
                 position + (0, 1, 0),
+                position + (0, -1, 0),
             },
             queue.DrainBatch());
         Assert.Equal(0, queue.Count);
