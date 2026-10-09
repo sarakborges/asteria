@@ -957,7 +957,11 @@ public sealed class SurfaceChunkMaterializer
             var containsVoid = false;
             for (var localY = 0; localY < Chunk.Size; localY++)
             {
-                if (densityVolume.DensityAt(x, localY, z) < 0d)
+                // Sky above the surface and gaps in additive masses are
+                // not cave space. Only a carved void below the base surface
+                // could contain a generated cave spike.
+                if (originY + localY < baseY &&
+                    densityVolume.DensityAt(x, localY, z) < 0d)
                 {
                     containsVoid = true;
                     break;
