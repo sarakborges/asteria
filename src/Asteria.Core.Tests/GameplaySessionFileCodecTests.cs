@@ -66,6 +66,7 @@ public sealed class GameplaySessionFileCodecTests
         var reordered = Content(true);
         var creation = new WorldCreationOptions("Example", 9842UL);
         var states = new DimensionSessionStateStore(creation, Dimensions());
+        Assert.True(states.GameRules.SetKeepInventory(false));
         var surface = states.GetOrCreate(DimensionId.Overworld);
         var umbral = states.GetOrCreate(new DimensionId("asteria:umbral"));
         var granite = original.Blocks.GetId("asteria:granite");
@@ -141,6 +142,8 @@ public sealed class GameplaySessionFileCodecTests
 
         Assert.Equal(encoded, Encode(decoded, reordered));
         Assert.Equal(9842UL, decoded.Spatial.WorldSeed);
+        Assert.False(decoded.KeepInventory);
+        Assert.False(restored.GameRules.KeepInventory);
         Assert.Equal(7, restored.Player.Inventory.Cursor!.Quantity);
         Assert.Equal("asteria:test_helm",
             restored.Player.Inventory.EquipmentAt(EquipmentSlot.Helmet)!.Id);
@@ -238,6 +241,7 @@ public sealed class GameplaySessionFileCodecTests
             creation, Dimensions(), Decode(legacy, content),
             content.Blocks, content.Fluids, content.Dyes, content.Layers);
         Assert.Equal(PlayerHealth.DefaultMaximum, restored.Player.Health.Current);
+        Assert.True(restored.GameRules.KeepInventory);
     }
 
     [Fact]
@@ -265,6 +269,7 @@ public sealed class GameplaySessionFileCodecTests
         PortableStackSaveCodec.ReadString(reader, 512);
         reader.ReadUInt32();
         reader.ReadBoolean();
+        reader.ReadBoolean(); // v4 keepInventory
         if (reader.ReadBoolean())
             PortableStackSaveCodec.ReadString(reader, 512);
         reader.ReadByte();
