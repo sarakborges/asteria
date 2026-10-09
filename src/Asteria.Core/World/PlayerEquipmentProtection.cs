@@ -23,7 +23,9 @@ public static class PlayerEquipmentProtection
                 !items.TryGet(entry.Id, out var definition) ||
                 definition is null || definition.EquipmentSlot != slot)
                 continue;
-            reduction += definition.DamageReduction;
+            if (definition.MaxDurability is { } capacity &&
+                EquipmentDurability.Remaining(entry, capacity) > 0)
+                reduction += definition.DamageReduction;
         }
         return MathF.Min(MaximumReduction, reduction);
     }
