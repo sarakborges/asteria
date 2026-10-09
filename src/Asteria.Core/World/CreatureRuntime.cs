@@ -169,6 +169,44 @@ public sealed class CreatureRuntime
             maximumDistance);
 
     /// <summary>
+    /// Picks one live hostile creature overlapping the player's physical
+    /// capsule AABB. Stable creature-id order is the deterministic tie break.
+    /// This query never mutates combat state or sends damage by itself.
+    /// </summary>
+    public float ContactDamageAt(WorldAabb playerBounds)
+    {
+        foreach (var creature in _active.Values)
+        {
+            if (creature.IsDying || creature.NoAi)
+                continue;
+            var definition = _definitions.Get(creature.DefinitionId);
+            if (definition.ContactDamage <= 0f)
+                continue;
+
+            var center = creature.Position + new Vector3(
+                definition.Collider.CenterOffset.X,
+                definition.Collider.CenterOffset.Y,
+                definition.Collider.CenterOffset.Z);
+            var half = new Vector3(
+                definition.Collider.Size.X,
+                definition.Collider.Size.Y,
+                definition.Collider.Size.Z) * 0.5f;
+            var min = center - half;
+            var max = center + half;
+
+            if (min.X < playerBounds.Maximum.X &&
+                max.X > playerBounds.Minimum.X &&
+                min.Y < playerBounds.Maximum.Y &&
+                max.Y > playerBounds.Minimum.Y &&
+                min.Z < playerBounds.Maximum.Z &&
+                max.Z > playerBounds.Minimum.Z)
+                return definition.ContactDamage;
+        }
+
+        return 0f;
+    }
+
+    /// <summary>
     /// Authoritative attack application. Every accepted hit increments an
     /// instance-local serial to make probabilistic effects deterministic
     /// even across dimension retirement and restoration.
