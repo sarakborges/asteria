@@ -1,0 +1,126 @@
+{
+  "id": "asteria:alpine_krummholz_03",
+  "groupId": "alpine_krummholz",
+  "rotation": true,
+  "locatable": false,
+  "priority": 0,
+  "conflictGroups": [
+    "tree",
+    "shrub"
+  ],
+  "restrictions": {
+    "groundBlocks": [
+      "asteria:stone"
+    ],
+    "maxSlope": 3,
+    "requiredBiomeCoverage": 1,
+    "requiresDryGround": true
+  },
+  "generation": {
+    "replacePolicy": "terrain",
+    "fluidPolicy": "forbid",
+    "reserveSpace": false
+  },
+  "anchor": {
+    "x": 4,
+    "y": 0,
+    "z": 4
+  },
+  "palette": {
+    "S": {
+      "block": "asteria:stone"
+    },
+    "W": {
+      "block": "asteria:frost_wood"
+    },
+    "F": {
+      "block": "asteria:alpine_snow_needles"
+    }
+  },
+  "layers": [
+    {
+      "y": 0,
+      "rows": [
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        "....S....",
+        ".........",
+        ".........",
+        ".........",
+        "........."
+      ]
+    },
+    {
+      "y": 1,
+      "rows": [
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        "....W....",
+        ".........",
+        ".........",
+        ".........",
+        "........."
+      ]
+    },
+    {
+      "y": 2,
+      "rows": [
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        "....W....",
+        ".........",
+        ".........",
+        ".........",
+        "........."
+      ]
+    },
+    {
+      "y": 3,
+      "rows": [
+        ".........",
+        ".........",
+        "....FF...",
+        "...FFFF..",
+        "..FFWFF..",
+        "..FFFFF..",
+        "...FFF...",
+        ".........",
+        "........."
+      ]
+    },
+    {
+      "y": 4,
+      "rows": [
+        ".........",
+        ".........",
+        "...FFF...",
+        "..FFFFF..",
+        "..FFWFF..",
+        "..FFFF...",
+        "...FF....",
+        ".........",
+        "........."
+      ]
+    },
+    {
+      "y": 5,
+      "rows": [
+        ".........",
+        ".........",
+        ".........",
+        "...FFF...",
+        "...FFF...",
+        "...FF....",
+        ".........",
+        ".........",
+        "........."
+      ]
+    }
+  ]
+}

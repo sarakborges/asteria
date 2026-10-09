@@ -1,0 +1,21 @@
+{
+  "id": "asteria:frost_wood",
+  "category": "wooden_blocks",
+  "textures": {
+    "top": "textures/blocks/frost_wood_top.png",
+    "bottom": "textures/blocks/frost_wood_top.png",
+    "left": "textures/blocks/frost_wood_side.png",
+    "right": "textures/blocks/frost_wood_side.png",
+    "front": "textures/blocks/frost_wood_side.png",
+    "back": "textures/blocks/frost_wood_side.png"
+  },
+  "mining": {
+    "hardness": 1.15,
+    "preferredTools": [
+      "hatchet"
+    ]
+  },
+  "lightDampening": 15,
+  "castsShadow": true,
+  "previewColor": "768e90"
+}

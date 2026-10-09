@@ -1,0 +1,20 @@
+{
+  "id": "asteria:arctic_snow_needles",
+  "category": "foliage",
+  "windSway": true,
+  "textures": {
+    "top": "textures/blocks/arctic_snow_needles.png",
+    "bottom": "textures/blocks/arctic_snow_needles.png",
+    "left": "textures/blocks/arctic_snow_needles.png",
+    "right": "textures/blocks/arctic_snow_needles.png",
+    "front": "textures/blocks/arctic_snow_needles.png",
+    "back": "textures/blocks/arctic_snow_needles.png"
+  },
+  "alphaCutoff": 0.5,
+  "mining": {
+    "hardness": 0.14
+  },
+  "lightDampening": 2,
+  "castsShadow": false,
+  "previewColor": "7aa9ab"
+}

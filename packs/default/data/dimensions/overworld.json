@@ -916,6 +916,90 @@
         "open_mire": 0.05,
         "fungal_ground": 2.6
       }
+    },
+    {
+      "biome": "asteria:overworld/arctic",
+      "structure": "asteria:arctic_stunted_pine",
+      "spacing": 61,
+      "chance": 0.69,
+      "jitter": 18,
+      "habitatWeights": {
+        "frozen_plain": 1.7,
+        "ice_fields": 0.04,
+        "rocky_ridges": 0.55
+      }
+    },
+    {
+      "biome": "asteria:overworld/arctic",
+      "structure": "asteria:arctic_frost_brush",
+      "spacing": 28,
+      "chance": 0.84,
+      "jitter": 8,
+      "habitatWeights": {
+        "frozen_plain": 2.35,
+        "ice_fields": 0.13,
+        "rocky_ridges": 0.42
+      }
+    },
+    {
+      "biome": "asteria:overworld/arctic",
+      "structure": "asteria:arctic_rime_spires",
+      "spacing": 43,
+      "chance": 0.68,
+      "jitter": 13,
+      "habitatWeights": {
+        "frozen_plain": 0.06,
+        "ice_fields": 2.6,
+        "rocky_ridges": 0.28
+      }
+    },
+    {
+      "biome": "asteria:overworld/alps",
+      "structure": "asteria:alpine_snow_fir",
+      "spacing": 43,
+      "chance": 0.76,
+      "jitter": 13,
+      "habitatWeights": {
+        "snowfields": 2.1,
+        "glacial_ice": 0.03,
+        "wind_scoured_rock": 0.25
+      }
+    },
+    {
+      "biome": "asteria:overworld/alps",
+      "structure": "asteria:alpine_krummholz",
+      "spacing": 39,
+      "chance": 0.71,
+      "jitter": 12,
+      "habitatWeights": {
+        "snowfields": 0.08,
+        "glacial_ice": 0.01,
+        "wind_scoured_rock": 2.35
+      }
+    },
+    {
+      "biome": "asteria:overworld/alps",
+      "structure": "asteria:alpine_serac",
+      "spacing": 56,
+      "chance": 0.65,
+      "jitter": 17,
+      "habitatWeights": {
+        "snowfields": 0.04,
+        "glacial_ice": 2.6,
+        "wind_scoured_rock": 0.04
+      }
+    },
+    {
+      "biome": "asteria:overworld/alps",
+      "structure": "asteria:alpine_ice_arch",
+      "spacing": 107,
+      "chance": 0.57,
+      "jitter": 31,
+      "habitatWeights": {
+        "snowfields": 0.01,
+        "glacial_ice": 2.9,
+        "wind_scoured_rock": 0.01
+      }
     }
   ],
   "dayNightCycle": "asteria:overworld/day_night_cycle",

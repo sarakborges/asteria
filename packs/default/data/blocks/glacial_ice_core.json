@@ -1,0 +1,21 @@
+{
+  "id": "asteria:glacial_ice_core",
+  "category": "natural_blocks",
+  "textures": {
+    "top": "textures/blocks/glacial_ice_core.png",
+    "bottom": "textures/blocks/glacial_ice_core.png",
+    "left": "textures/blocks/glacial_ice_core.png",
+    "right": "textures/blocks/glacial_ice_core.png",
+    "front": "textures/blocks/glacial_ice_core.png",
+    "back": "textures/blocks/glacial_ice_core.png"
+  },
+  "mining": {
+    "hardness": 0.9,
+    "preferredTools": [
+      "pickaxe"
+    ]
+  },
+  "lightDampening": 10,
+  "castsShadow": true,
+  "previewColor": "88cbe4"
+}
