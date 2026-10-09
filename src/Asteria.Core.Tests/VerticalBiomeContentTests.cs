@@ -23,6 +23,7 @@ public sealed class VerticalBiomeContentTests
             patch.Blocks);
         Assert.True(patch.WarpStrength > 0d);
 
+        Assert.Equal(86, patch.Conditions!.MaxY);
         var a = new BiomeSurfaceMaterialField(217UL, [ocean], blocks);
         var b = new BiomeSurfaceMaterialField(217UL, [ocean], blocks);
         var sample = new BiomeSample(ocean.Id,
@@ -31,12 +32,16 @@ public sealed class VerticalBiomeContentTests
         for (var z = -192; z <= 192; z += 5)
         for (var x = -192; x <= 192; x += 5)
         {
-            var material = a.BlockAt(sample, x, z, 0);
-            Assert.Equal(material, b.BlockAt(sample, x, z, 0));
+            var deep = new SurfacePlacementContext(70, 0);
+            var shore = new SurfacePlacementContext(90, 0);
+            var material = a.BlockAt(sample, x, z, 0, deep);
+            Assert.Equal(material, b.BlockAt(sample, x, z, 0, deep));
+            Assert.Equal(blocks.GetId("asteria:sand"),
+                a.BlockAt(sample, x, z, 0, shore));
             Assert.Equal(blocks.GetId("asteria:gravel"),
-                a.BlockAt(sample, x, z, 4));
+                a.BlockAt(sample, x, z, 4, deep));
             Assert.Equal(blocks.GetId("asteria:stone"),
-                a.BlockAt(sample, x, z, 6));
+                a.BlockAt(sample, x, z, 6, deep));
             seen.Add(material);
         }
         Assert.Contains(blocks.GetId("asteria:sand"), seen);
@@ -54,7 +59,7 @@ public sealed class VerticalBiomeContentTests
         structures.ValidateBlocks(blocks);
         sets.ValidateStructures(structures);
         var variants = structures.ResolveReference("asteria:ocean_rock");
-        Assert.Equal(2, variants.Count);
+        Assert.Equal(4, variants.Count);
         Assert.All(variants, structure =>
         {
             Assert.False(structure.Locatable);
@@ -64,8 +69,13 @@ public sealed class VerticalBiomeContentTests
             Assert.Equal(StructureReplacePolicy.Terrain, structure.Generation.ReplacePolicy);
             Assert.Contains("asteria:sand", structure.Restrictions.GroundBlocks);
             Assert.Contains("asteria:clay", structure.Restrictions.GroundBlocks);
+            Assert.Contains(structure.Voxels, voxel =>
+                voxel.Block == "asteria:stone_cobble");
             Assert.All(structure.Voxels, voxel =>
-                Assert.Equal("asteria:stone_cobble", voxel.Block));
+                Assert.Contains(voxel.Block, new[] {
+                    "asteria:stone", "asteria:stone_cobble",
+                    "asteria:clay", "asteria:gravel",
+                }));
         });
 
         var cluster = sets.Get("asteria:ocean_rock_cluster");
