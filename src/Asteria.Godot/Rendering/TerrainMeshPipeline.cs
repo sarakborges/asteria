@@ -19,6 +19,7 @@ public sealed class TerrainMeshPipeline
     private readonly TerrainMeshWorker _backgroundWorker = new();
 
     private bool _acceptingWork = true;
+    private bool _preferInteractive = true;
 
     private WorldMeshBatch? _interactiveInFlightBatch;
     private WorldMeshBatch? _backgroundInFlightBatch;
@@ -94,20 +95,24 @@ public sealed class TerrainMeshPipeline
             return false;
         }
 
-        var started =
-            TryStartLane(
-                _interactiveWorker,
-                ref _interactiveInFlightBatch,
-                priority: true,
-                _maximumInteractiveMeshletsPerWorker);
+        // Worker startup captures neighboring chunks synchronously.
+        // Limit each call to one lane and alternate to avoid starvation.
+        var started = _preferInteractive
+            ? TryStartLane(
+                  _interactiveWorker, ref _interactiveInFlightBatch,
+                  priority: true, _maximumInteractiveMeshletsPerWorker) ||
+              TryStartLane(
+                  _backgroundWorker, ref _backgroundInFlightBatch,
+                  priority: false, _maximumBackgroundMeshletsPerWorker)
+            : TryStartLane(
+                  _backgroundWorker, ref _backgroundInFlightBatch,
+                  priority: false, _maximumBackgroundMeshletsPerWorker) ||
+              TryStartLane(
+                  _interactiveWorker, ref _interactiveInFlightBatch,
+                  priority: true, _maximumInteractiveMeshletsPerWorker);
 
-        started |=
-            TryStartLane(
-                _backgroundWorker,
-                ref _backgroundInFlightBatch,
-                priority: false,
-                _maximumBackgroundMeshletsPerWorker);
-
+        if (started)
+            _preferInteractive = !_preferInteractive;
         return started;
     }
 
@@ -224,8 +229,6 @@ public sealed class TerrainMeshPipeline
                     sourceBatch,
                     priority);
             }
-
-            TryStartReadyWork();
             return true;
         }
 
@@ -237,8 +240,6 @@ public sealed class TerrainMeshPipeline
                     sourceBatch,
                     priority);
             }
-
-            TryStartReadyWork();
             return true;
         }
 
@@ -255,7 +256,6 @@ public sealed class TerrainMeshPipeline
                     0,
                     MeshPipelineWorkSelection.CountMeshlets(
                         result.SourceBatch));
-            TryStartReadyWork();
             return true;
         }
 
@@ -331,8 +331,6 @@ public sealed class TerrainMeshPipeline
                 result.WorkerMilliseconds,
                 accepted,
                 stale);
-
-        TryStartReadyWork();
         return true;
     }
 

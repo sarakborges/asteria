@@ -133,6 +133,7 @@ public partial class Main : Node3D
     private WorldLoadingProgress? _lastLoadingProgress;
     private (ulong Day, int Hour, int Minute)? _lastClockHud;
     private WorldFrameWorkBudget _worldFrameBudget;
+    private int _nextWorldWorker;
     private bool _worldReadySent;
     private bool _inventoryOpen;
     private ulong? _publishedStorageRevision;
@@ -550,10 +551,7 @@ public partial class Main : Node3D
 
         PollLightingWorker();
 
-        TryStartFluidWorker();
-        TryStartFluidMeshWorker();
-        TryStartTerrainMeshWorker();
-        TryStartLightingWorker();
+        DispatchOneWorldWorker();
 
         var streamingEnd =
             _chunkStreaming.EndFrame(
@@ -2607,7 +2605,6 @@ public partial class Main : Node3D
             return;
         }
 
-        KickWorldMutationWorkers();
         ChatFeedback("chat.command.place.success", error: false,
             ("name", isSet ? id : _structures.ResolveReference(id)[variation - 1].Id),
             ("id", id));
@@ -3399,13 +3396,13 @@ public partial class Main : Node3D
         if (_sessions.Active.ArtisansKit.IsEquipped(held))
         {
             if (TryUseArtisansKit(held, ToolUseHand.Left, hit))
-                KickWorldMutationWorkers();
+
             return;
         }
         if (_sessions.Active.Tools.IsSpecialLeftAction(held))
         {
             if (_sessions.Active.Tools.TryUse(held, ToolUseHand.Left, hit))
-                KickWorldMutationWorkers();
+
             return;
         }
         // Only Creative breaks on a click; Survival uses held-input work.
@@ -3430,7 +3427,7 @@ public partial class Main : Node3D
 
         // Destruction creates a physical block drop; collection is handled
         // by DroppedBlockRuntime and the authoritative inventory.
-        KickWorldMutationWorkers();
+
     }
 
     private void AdvanceSurvivalMining()
@@ -3466,11 +3463,11 @@ public partial class Main : Node3D
         }
 
         var inventory = _sessionStates.Player.Inventory;
-        var completed = _sessions.Active.Mining.Advance(
+        _sessions.Active.Mining.Advance(
             CurrentTarget(), held, inventory.SelectedSlot,
             _worldTicks.TicksThisFrame, _sessionStates.Player.GameMode);
         PublishMiningProgress();
-        if (completed) KickWorldMutationWorkers();
+
     }
 
     private void PublishMiningProgress()
@@ -3574,7 +3571,7 @@ public partial class Main : Node3D
                     SendHotbarState();
                     SendInventoryState();
                 }
-                KickWorldMutationWorkers();
+
             }
             return;
         }
@@ -3601,7 +3598,7 @@ public partial class Main : Node3D
                     SendHotbarState();
                     SendInventoryState();
                     SendTargetHudState(force: true);
-                    KickWorldMutationWorkers();
+
                 }
                 return;
             }
@@ -3619,7 +3616,7 @@ public partial class Main : Node3D
             {
                 SendHotbarState();
                 SendInventoryState();
-                KickWorldMutationWorkers();
+
             }
             return;
         }
@@ -3630,14 +3627,14 @@ public partial class Main : Node3D
         if (_sessions.Active.ArtisansKit.IsEquipped(selected))
         {
             if (TryUseArtisansKit(selected, ToolUseHand.Right, hit))
-                KickWorldMutationWorkers();
+
             return;
         }
 
         if (_sessions.Active.Tools.TryUse(
                 selected, ToolUseHand.Right, hit))
         {
-            KickWorldMutationWorkers();
+
             return;
         }
         if (selected?.Block is not { } block ||
@@ -3664,15 +3661,6 @@ public partial class Main : Node3D
             SendInventoryState();
         }
 
-        KickWorldMutationWorkers();
-    }
-
-    private void KickWorldMutationWorkers()
-    {
-        TryStartFluidWorker();
-        TryStartFluidMeshWorker();
-        TryStartTerrainMeshWorker();
-        TryStartLightingWorker();
     }
 
     private void ReportBlockEntityFrame(
@@ -3799,11 +3787,6 @@ public partial class Main : Node3D
         return true;
     }
 
-    private void TryStartFluidWorker()
-    {
-        _fluidSimulationRuntime.TryStartReadyWork();
-    }
-
     private void PollFluidWorker()
     {
         if (!_fluidSimulationRuntime.TryPollCompleted(
@@ -3848,12 +3831,6 @@ public partial class Main : Node3D
                 $"backlog={report.BacklogCount}");
         }
 
-        TryStartFluidMeshWorker();
-    }
-
-    private void TryStartFluidMeshWorker()
-    {
-        _fluidMeshPipeline.TryStartReadyWork();
     }
 
     private void PollFluidMeshWorker()
@@ -3908,11 +3885,6 @@ public partial class Main : Node3D
         }
     }
 
-    private void TryStartTerrainMeshWorker()
-    {
-        _terrainMeshPipeline.TryStartReadyWork();
-    }
-
     private void PollTerrainMeshWorker()
     {
         if (!_terrainMeshPipeline.TryPollCompleted(
@@ -3946,11 +3918,6 @@ public partial class Main : Node3D
                 $"accepted={completed.Accepted} " +
                 $"stale={completed.Stale}");
         }
-    }
-
-    private void TryStartLightingWorker()
-    {
-        _lightingRuntime.TryStartReadyWork();
     }
 
     private void PollLightingWorker()
@@ -3996,7 +3963,6 @@ public partial class Main : Node3D
                 $"apply_ms={report.ApplyMilliseconds:F2}");
         }
 
-        TryStartTerrainMeshWorker();
     }
 
     private void IntegrateMeshletPublications()
@@ -4014,6 +3980,28 @@ public partial class Main : Node3D
                 $"stale={stats.Stale} " +
                 $"remaining={stats.Remaining} " +
                 $"publish_ms={stats.ElapsedMilliseconds:F2}");
+        }
+    }
+
+    private void DispatchOneWorldWorker()
+    {
+        // A worker captures its immutable neighborhood synchronously.
+        // Start at most one snapshot per frame and rotate across owners.
+        for (var offset = 0; offset < 4; offset++)
+        {
+            var lane = (_nextWorldWorker + offset) % 4;
+            var started = lane switch
+            {
+                0 => _fluidSimulationRuntime.TryStartReadyWork(),
+                1 => _terrainMeshPipeline.TryStartReadyWork(),
+                2 => _lightingRuntime.TryStartReadyWork(),
+                _ => _fluidMeshPipeline.TryStartReadyWork(),
+            };
+            if (!started)
+                continue;
+
+            _nextWorldWorker = (lane + 1) % 4;
+            return;
         }
     }
 

@@ -136,8 +136,6 @@ public sealed class LightingRuntime
                 _updates.RequeueLighting(
                     sourceBatch);
             }
-
-            TryStartReadyWork();
             return true;
         }
 
@@ -148,8 +146,6 @@ public sealed class LightingRuntime
                 _updates.RequeueLighting(
                     sourceBatch);
             }
-
-            TryStartReadyWork();
             return true;
         }
 
@@ -168,7 +164,6 @@ public sealed class LightingRuntime
                     result.Lighting.ProcessedVoxelCount,
                     captureMilliseconds,
                     0d);
-            TryStartReadyWork();
             return true;
         }
 
@@ -190,8 +185,6 @@ public sealed class LightingRuntime
                 result.Lighting.ProcessedVoxelCount,
                 captureMilliseconds,
                 applyMilliseconds);
-
-        TryStartReadyWork();
         return true;
     }
 }

@@ -140,8 +140,6 @@ public sealed class FluidSimulationRuntime
             {
                 Requeue(sourceBatch);
             }
-
-            TryStartReadyWork();
             return true;
         }
 
@@ -151,8 +149,6 @@ public sealed class FluidSimulationRuntime
             {
                 Requeue(sourceBatch);
             }
-
-            TryStartReadyWork();
             return true;
         }
 
@@ -166,7 +162,6 @@ public sealed class FluidSimulationRuntime
                     FluidSimulationCompletionKind.RequeuedStale,
                     appliedChangeCount: 0,
                     uniquePositionCount: 0);
-            TryStartReadyWork();
             return true;
         }
 
@@ -183,7 +178,6 @@ public sealed class FluidSimulationRuntime
                     FluidSimulationCompletionKind.RequeuedMutationConflict,
                     appliedChangeCount: 0,
                     uniquePositionCount: 0);
-            TryStartReadyWork();
             return true;
         }
 
@@ -205,8 +199,6 @@ public sealed class FluidSimulationRuntime
                 FluidSimulationCompletionKind.Applied,
                 applied.AppliedChangeCount,
                 applied.UniquePositionCount);
-
-        TryStartReadyWork();
         return true;
     }
 

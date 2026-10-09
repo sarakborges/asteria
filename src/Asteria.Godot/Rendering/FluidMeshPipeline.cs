@@ -135,8 +135,6 @@ public sealed class FluidMeshPipeline
                 _updates.Requeue(
                     sourceBatch);
             }
-
-            TryStartReadyWork();
             return true;
         }
 
@@ -147,8 +145,6 @@ public sealed class FluidMeshPipeline
                 _updates.Requeue(
                     sourceBatch);
             }
-
-            TryStartReadyWork();
             return true;
         }
 
@@ -164,7 +160,6 @@ public sealed class FluidMeshPipeline
                     0,
                     MeshPipelineWorkSelection.CountMeshlets(
                         result.SourceBatch));
-            TryStartReadyWork();
             return true;
         }
 
@@ -214,8 +209,6 @@ public sealed class FluidMeshPipeline
                 result.WorkerMilliseconds,
                 accepted,
                 stale);
-
-        TryStartReadyWork();
         return true;
     }
 
