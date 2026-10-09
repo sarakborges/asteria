@@ -39,8 +39,9 @@ public sealed class LightingResultIntegrator
             return default;
         }
 
-        _world.CopyLightFrom(
-            lightingSnapshot);
+        _world.CopyChangedLightFrom(
+            lightingSnapshot,
+            changedPositions);
 
         var dirty =
             MeshletInvalidation.ForPositions(

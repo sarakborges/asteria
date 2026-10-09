@@ -860,16 +860,31 @@ public sealed class VoxelWorld
             dependencies);
     }
 
-    public void CopyLightFrom(VoxelWorld source)
+    /// <summary>
+    /// Publishes worker lighting only for chunks that reported a light change.
+    /// Unmodified snapshot chunks must not cause full light-array copies on
+    /// the main thread. Input positions are taken in their supplied order.
+    /// </summary>
+    public void CopyChangedLightFrom(
+        VoxelWorld source,
+        IReadOnlyList<WorldVoxelCoord> changedPositions)
     {
         ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(changedPositions);
 
-        foreach (var (coord, chunk) in _chunks)
+        var copied = new HashSet<ChunkCoord>();
+        foreach (var position in changedPositions)
         {
-            if (source._chunks.TryGetValue(coord, out var sourceChunk))
+            var coord = VoxelCoordinates.FromWorld(
+                position.X, position.Y, position.Z).Chunk;
+            if (!copied.Add(coord) ||
+                !_chunks.TryGetValue(coord, out var target) ||
+                !source._chunks.TryGetValue(coord, out var sourceChunk))
             {
-                chunk.CopyLightFrom(sourceChunk);
+                continue;
             }
+
+            target.CopyLightFrom(sourceChunk);
         }
     }
 

@@ -312,6 +312,41 @@ public sealed class VoxelWorldLightingSolverTests
 public sealed class LightingResultIntegratorTests
 {
     [Fact]
+    public void SnapshotIntegrationCopiesOnlyChunksWithActualLightChanges()
+    {
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, new Chunk());
+        world.InsertChunk(new ChunkCoord(1, 0, 0), new Chunk());
+        var changed = new WorldVoxelCoord(3, 4, 5);
+        var untouched = new WorldVoxelCoord(Chunk.Size + 3, 4, 5);
+
+        Assert.True(world.TrySetLight(
+            untouched, new VoxelLight(12, 1, 0, 0)));
+        var snapshot = world.CloneForWorker();
+        Assert.True(snapshot.TrySetLight(
+            changed, new VoxelLight(13, 9, 0, 0)));
+        // The untouched chunk exists in the worker snapshot but must never
+        // overwrite resident lighting unless the solver reports a change.
+        Assert.True(snapshot.TrySetLight(
+            untouched, new VoxelLight(1, 15, 0, 0)));
+
+        var updates = new WorldUpdateQueue();
+        var fluids = new FluidMeshUpdateQueue();
+        var integrator = new LightingResultIntegrator(
+            world, updates, fluids);
+
+        integrator.Apply(snapshot, [changed]);
+
+        Assert.Equal((byte)9, world.GetLightOrDark(changed).Red);
+        Assert.Equal((byte)1, world.GetLightOrDark(untouched).Red);
+        Assert.Equal((byte)12, world.GetLightOrDark(untouched).Sky);
+
+        var noChange = integrator.Apply(snapshot, []);
+        Assert.Equal(0, noChange.ChangedVoxelCount);
+        Assert.Equal((byte)1, world.GetLightOrDark(untouched).Red);
+    }
+
+    [Fact]
     public void MultipleLightChangesInOneMeshletBumpRevisionOnce()
     {
         var world = new VoxelWorld();
