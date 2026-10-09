@@ -69,7 +69,7 @@ public sealed class HeldVisualResolver
                 if (front is null) return null;
                 if (definition.Shape.Kind != BlockShapeKind.Cube ||
                     definition.Visual.Kind != BlockVisualKind.Geometry ||
-                    selected.Block.Mask is not null)
+                    selected.Block.HasMicroblockGeometry)
                     return new HeldVisual(HeldVisualKind.Sprite, front);
 
                 var top = definition.Textures.ResolveForFace(BlockFace.Top)
