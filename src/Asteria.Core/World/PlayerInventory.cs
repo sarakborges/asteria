@@ -238,12 +238,7 @@ public sealed class PlayerInventory
             return false;
 
         var previous = equipped.Entry.Metadata;
-        var current = maximum;
-        if (previous.TryGetValue(EquipmentDurability.MetadataKey, out var raw) &&
-            (!int.TryParse(raw, System.Globalization.NumberStyles.None,
-                System.Globalization.CultureInfo.InvariantCulture, out current) ||
-             current <= 0 || current > maximum))
-            throw new InvalidDataException("Invalid saved equipment durability.");
+        var current = EquipmentDurability.Remaining(equipped.Entry, maximum);
 
         if (current == 1)
         {
@@ -251,7 +246,7 @@ public sealed class PlayerInventory
         }
         else
         {
-            var metadata = new Dictionary<string, string>(previous, StringComparer.Ordinal)
+            var metadata = previous.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal)
             {
                 [EquipmentDurability.MetadataKey] =
                     (current - 1).ToString(System.Globalization.CultureInfo.InvariantCulture),
