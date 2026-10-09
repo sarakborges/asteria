@@ -1,19 +1,18 @@
 import { useLocalization } from "../../../localization/LocalizationProvider";
-import type { TargetHudState } from "../../../state/uiState";
-import {
-  abbreviateContentId,
-  displayContentName,
-} from "../../../presentation/formatters";
+import type { BlockPreviewState, TargetHudState } from "../../../state/uiState";
+import { ItemGlyph } from "../../atoms/ItemGlyph/ItemGlyph";
 import "./TargetHud.css";
 
 export type TargetHudProps = {
   state: TargetHudState | null;
+  preview?: BlockPreviewState;
   miningProgress?: number | null;
   artisansKitResolution?: 1 | 2 | 4 | null;
 };
 
 export function TargetHud({
   state,
+  preview,
   miningProgress = null,
   artisansKitResolution = null,
 }: TargetHudProps) {
@@ -23,11 +22,9 @@ export function TargetHud({
   return (
     <section className="target-hud">
       <div className="target-hud__slot">
-        <span aria-hidden="true">
-          {abbreviateContentId(
-            state.id,
-          )}
-        </span>
+        <ItemGlyph item={{
+          id: state.id, blockPreview: preview,
+        }} size="recipe" />
       </div>
       <div className="target-hud__copy">
         <strong>{state.kind === "block" || state.kind === "fluid" ? contentName(state.id) : state.name}</strong>
