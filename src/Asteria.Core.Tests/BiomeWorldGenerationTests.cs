@@ -1765,7 +1765,7 @@ public sealed class BiomeWorldGenerationTests
                         return content;
                     var node = System.Text.Json.Nodes.JsonNode.Parse(content)!;
                     node["decorations"] = System.Text.Json.Nodes.JsonNode.Parse(
-                        """[{"block":"asteria:pebble","chance":1,"surfaceBlocks":["asteria:stone"]}]""");
+                        """[{"block":"asteria:pebble","chance":1,"surfaceBlocks":["asteria:stone","asteria:gravel","asteria:basalt","asteria:sandstone","asteria:clay","asteria:terracotta","asteria:stone_cobble"]}]""");
                     return node.ToJsonString();
                 }));
         const ulong seed = 0xA57E_2026UL;
