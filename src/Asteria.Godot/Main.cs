@@ -1665,8 +1665,17 @@ public partial class Main : Node3D
             return;
         }
 
+        var name = WorldSaveNameAllocator.Allocate(
+            Path.Combine(OS.GetUserDataDir(), "worlds"), creation.Name);
+        var safeCreation = name == creation.Name
+            ? creation
+            : new WorldCreationOptions(
+                name, creation.Seed, creation.GameMode,
+                creation.TicksPerSecond, creation.SpawnCreatures,
+                creation.Generation);
+
         InitializeWorldSession(
-            new DimensionSessionStateStore(creation, _dimensions),
+            new DimensionSessionStateStore(safeCreation, _dimensions),
             new DimensionId(StartupDimensionId));
     }
 

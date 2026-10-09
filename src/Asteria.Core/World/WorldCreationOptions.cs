@@ -7,6 +7,7 @@ namespace Asteria.Core.World;
 public sealed class WorldCreationOptions
 {
     public const string DefaultName = "New World";
+    public const int MaximumNameLength = 200;
 
     public WorldCreationOptions(
         string name,
@@ -24,7 +25,7 @@ public sealed class WorldCreationOptions
         }
 
         var normalized = name.Trim();
-        if (normalized.Length > 200 ||
+        if (normalized.Length > MaximumNameLength ||
             normalized is "." or ".." ||
             normalized.EndsWith(".", StringComparison.Ordinal) ||
             normalized.IndexOfAny(
