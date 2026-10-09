@@ -31,6 +31,9 @@ export function createSettingsController(
     setSpawnCreatures(value: boolean) {
       post("ui.world.set_spawn_creatures", { value });
     },
+    setKeepInventory(value: boolean) {
+      post("ui.world.set_keep_inventory", { value });
+    },
     setGameMode(value: GameMode) {
       post("ui.player.set_game_mode", { mode: value });
     },
@@ -88,6 +91,7 @@ export function createSettingsController(
             name: payload.name,
             ticksPerSecond: payload.ticksPerSecond,
             spawnCreatures: payload.spawnCreatures === true,
+            keepInventory: payload.keepInventory !== false,
             mode: payload.mode as GameMode,
           };
           change({ world, errorKey: null });
