@@ -659,6 +659,26 @@ public sealed class SurfaceChunkMaterializer
             _materials.MaximumCavePaintDepth == 0)
             return;
 
+        // A cave face can cross a chunk edge. Neighbor base heights are
+        // immutable per X/Z column but used by many vertical face probes.
+        // Resolve each halo column once, with query-local bounded storage.
+        BiomeField.Sampler? haloSampler = null;
+        var haloBaseHeights = new Dictionary<(int X, int Z), int>();
+
+        bool OutsideCarvedVoid(int x, int y, int z)
+        {
+            var key = (X: x, Z: z);
+            if (!haloBaseHeights.TryGetValue(key, out var baseHeight))
+            {
+                haloSampler ??= _terrain.CreateBiomeSampler();
+                baseHeight = _terrain.SampleBaseHeight(haloSampler, x, z);
+                haloBaseHeights.Add(key, baseHeight);
+            }
+
+            return _terrain.IsCaveVoidAt(
+                baseHeight, new WorldVoxelCoord(x, y, z));
+        }
+
         for (var z = 0; z < Chunk.Size; z++)
         for (var x = 0; x < Chunk.Size; x++)
         {
@@ -697,7 +717,7 @@ public sealed class SurfaceChunkMaterializer
                         return densityVolume.DensityAt(nx, ny, nz) < 0d &&
                             neighborY <= column.BaseHeightAt(nx, nz) - 4;
 
-                    return _terrain.IsCaveVoidAt(
+                    return OutsideCarvedVoid(
                         worldX + dx, neighborY, worldZ + dz);
                 }
 

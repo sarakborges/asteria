@@ -120,6 +120,14 @@ public sealed class SurfaceTerrainField
         }
     }
 
+    // Reuse the calling materialization's biome assignments for adjacent
+    // columns. Each caller owns and discards its sampler with the chunk.
+    internal int SampleBaseHeight(
+        BiomeField.Sampler sampler,
+        int worldX,
+        int worldZ) =>
+        BaseHeightAt(sampler.Sample(worldX, worldZ), worldX, worldZ);
+
     internal (BiomeSample Biome, int BaseY) SampleBaseSurface(
         int worldX,
         int worldZ)
@@ -249,14 +257,26 @@ public sealed class SurfaceTerrainField
                 worldX,
                 worldZ);
 
-        return worldY <= baseY &&
-               CaveVoidDensityAt(
-                   baseY,
-                   worldX,
-                   worldY,
-                   worldZ) >
-               0d;
+        return IsCaveVoidAt(
+            baseY,
+            new WorldVoxelCoord(worldX, worldY, worldZ));
     }
+
+    // Caller-sampled base height avoids resampling the 2D biome field at
+    // every boundary voxel of a vertical chunk.
+    internal bool IsCaveVoidAt(
+        int baseY,
+        WorldVoxelCoord position) =>
+        _caves is not null &&
+        position.Y > 0 &&
+        position.Y != _floorY &&
+        position.Y != _roofY &&
+        position.Y <= baseY &&
+        CaveVoidDensityAt(
+            baseY,
+            position.X,
+            position.Y,
+            position.Z) > 0d;
 
     /// <summary>
     /// Pure density query with already-sampled X/Z biome and base height.
