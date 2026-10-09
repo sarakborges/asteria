@@ -141,6 +141,31 @@
         "open_mire": 2.25,
         "fungal_ground": 0.38
       }
+    },
+    {
+      "block": "asteria:exposed_roots",
+      "chance": 0.14,
+      "surfaceBlocks": [
+        "asteria:grass_block",
+        "asteria:dirt",
+        "asteria:mud"
+      ],
+      "fluidRequirement": {
+        "fluid": "asteria:water",
+        "relation": "nearby",
+        "maxDistance": 3
+      },
+      "cluster": {
+        "scale": 30,
+        "threshold": -0.15,
+        "octaves": 3,
+        "transitionWidth": 0.14
+      },
+      "habitatWeights": {
+        "willow_grove": 2.3,
+        "open_mire": 0.65,
+        "fungal_ground": 0.5
+      }
     }
   ],
   "tints": {

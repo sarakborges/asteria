@@ -4,6 +4,7 @@ public static class BlockPhysicsCapabilities
 {
     public const string Gravity = "gravity";
     public const string SupportBelow = "support_below";
+    public const string SupportAbove = "support_above";
 }
 
 public enum BlockSupportState : byte
@@ -27,19 +28,21 @@ public static class BlockSupportRules
         ArgumentNullException.ThrowIfNull(blocks);
         ArgumentNullException.ThrowIfNull(definition);
 
-        if (!definition.HasTag(
-                BlockPhysicsCapabilities.SupportBelow))
-        {
+        var needsBelow = definition.HasTag(
+            BlockPhysicsCapabilities.SupportBelow);
+        var needsAbove = definition.HasTag(
+            BlockPhysicsCapabilities.SupportAbove);
+        if (!needsBelow && !needsAbove)
             return BlockSupportState.Supported;
-        }
-
-        if (position.Y <= 0)
-        {
+        if (needsBelow && needsAbove)
+            throw new InvalidOperationException(
+                "A dependent block cannot require both upper and lower support.");
+        if ((needsBelow && position.Y <= 0) ||
+            (needsAbove && position.Y == int.MaxValue))
             return BlockSupportState.Unsupported;
-        }
 
         var supportPosition =
-            position + (0, -1, 0);
+            position + (0, needsAbove ? 1 : -1);
 
         if (!world.IsLoadedAt(
                 supportPosition))
@@ -67,11 +70,11 @@ public static class BlockSupportRules
                 supportDefinition,
                 supportCell,
                 supportMask,
-                BlockFace.Top,
+                needsAbove ? BlockFace.Bottom : BlockFace.Top,
                 definition,
                 cell,
                 microblockMask,
-                BlockFace.Bottom)
+                needsAbove ? BlockFace.Top : BlockFace.Bottom)
             ? BlockSupportState.Supported
             : BlockSupportState.Unsupported;
     }

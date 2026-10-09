@@ -21,6 +21,7 @@ public sealed class BlockPhysicsUpdateQueue
     {
         Enqueue(position);
         Enqueue(position + (0, 1, 0));
+        Enqueue(position + (0, -1, 0));
     }
 
     public void Enqueue(WorldVoxelCoord position)

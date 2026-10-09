@@ -1,0 +1,27 @@
+{
+  "id": "asteria:exposed_roots",
+  "category": "foliage",
+  "tags": [
+    "support_below"
+  ],
+  "visual": {
+    "type": "groundSprite",
+    "texture": "textures/objects/exposed_roots.png",
+    "width": 0.87,
+    "height": 0.012,
+    "baseOffset": 0.0125,
+    "targetHeight": 0.16
+  },
+  "placementFaces": [
+    "top"
+  ],
+  "mining": {
+    "hardness": 0.07
+  },
+  "isCollidable": false,
+  "castsShadow": false,
+  "lightDampening": 0,
+  "alphaCutoff": 0.5,
+  "previewColor": "946e4a",
+  "dropsSelf": false
+}

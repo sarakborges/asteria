@@ -68,3 +68,27 @@ The generated source Water is never removed for a Lily Pad and the rules
 are deterministic across chunk boundaries. The fluid requirement
 affects authored generation; runtime behavior after editing/removing the
 supporting fluid is a separate support-physics concern.
+
+## Swamp roots and Willow hanging moss
+
+The default Swamp adds `asteria:exposed_roots` as a lightweight
+`groundSprite` decorator on Mud/Dirt/Grass Block. The generic nearby
+Water restriction (three horizontal voxels), clustered noise and
+habitat-weighted density strongly prefer Willow Groves without changing
+the terrain or its same-level mosaic.
+
+`asteria:hanging_moss` is a noncollidable, wind-swaying crossed sprite.
+Seven sparse hanging segments per authored Willow variant are integrated
+directly into each `tree_willow_01..03` Structure template: every Moss
+voxel is empty in the original tree and has a Willow leaf immediately
+above it. Tree placement, rotation, conflicts, water avoidance and biome
+constraints still belong to the existing Structure system; no new
+generator or canopy scan is added.
+
+The generic `support_above` block capability keeps canopy hangers
+dependent on the block directly above. Support is evaluated using the
+same full voxel/microblock face coverage as `support_below` in the
+opposite direction. Block mutation wakes the neighboring cells
+**both above and below**, and loaded-chunk support reconciliation
+includes `support_above` blocks. Thus removing a supporting leaf
+detaches Hanging Moss, even when the two voxels lie in adjacent chunks.

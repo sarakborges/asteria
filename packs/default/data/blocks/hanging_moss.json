@@ -1,0 +1,28 @@
+{
+  "id": "asteria:hanging_moss",
+  "category": "foliage",
+  "tags": [
+    "support_above"
+  ],
+  "windSway": true,
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/hanging_moss.png",
+    "width": 0.62,
+    "height": 0.94,
+    "baseOffset": 0.055,
+    "planes": 2
+  },
+  "placementFaces": [
+    "bottom"
+  ],
+  "mining": {
+    "hardness": 0.04
+  },
+  "isCollidable": false,
+  "castsShadow": false,
+  "lightDampening": 0,
+  "alphaCutoff": 0.5,
+  "previewColor": "788e72",
+  "dropsSelf": false
+}
