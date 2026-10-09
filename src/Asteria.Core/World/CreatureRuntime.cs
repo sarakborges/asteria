@@ -194,12 +194,7 @@ public sealed class CreatureRuntime
             var min = center - half;
             var max = center + half;
 
-            if (min.X < playerBounds.Maximum.X &&
-                max.X > playerBounds.Minimum.X &&
-                min.Y < playerBounds.Maximum.Y &&
-                max.Y > playerBounds.Minimum.Y &&
-                min.Z < playerBounds.Maximum.Z &&
-                max.Z > playerBounds.Minimum.Z)
+            if (new WorldAabb(min, max).Intersects(playerBounds))
                 return definition.ContactDamage;
         }
 
