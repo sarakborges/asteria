@@ -38,6 +38,7 @@ export type VitalValue = {
 export type PlayerVitalsState = {
   health?: VitalValue | null;
   stamina?: VitalValue | null;
+  oxygen?: VitalValue | null;
 };
 
 export type HudEntityState = {
