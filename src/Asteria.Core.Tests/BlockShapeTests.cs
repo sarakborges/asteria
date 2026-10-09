@@ -45,15 +45,15 @@ public sealed class BlockShapeTests
     public void SpikeJsonRejectsLegacyPolygonAttributes(string field)
     {
         var json =
-            $"""
+            """
             {
               "id": "asteria:test_spike",
               "shape": {
                 "type": "spike",
-                "{{field}}": 7
+                "{field}": 7
               }
             }
-            """;
+            """.Replace("{field}", field, StringComparison.Ordinal);
         Assert.Throws<FormatException>(() => BlockDefinitionJson.Parse(json));
     }
 
