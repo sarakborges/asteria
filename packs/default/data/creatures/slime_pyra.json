@@ -133,5 +133,6 @@
       "item": "asteria:essence_pyra",
       "quantity": 1
     }
-  ]
+  ],
+  "contactDamage": 2
 }

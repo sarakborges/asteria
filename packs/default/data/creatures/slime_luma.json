@@ -133,5 +133,6 @@
       "item": "asteria:essence_luma",
       "quantity": 1
     }
-  ]
+  ],
+  "contactDamage": 2
 }

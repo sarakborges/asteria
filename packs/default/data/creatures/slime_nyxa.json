@@ -133,5 +133,6 @@
       "item": "asteria:essence_nyxa",
       "quantity": 1
     }
-  ]
+  ],
+  "contactDamage": 2
 }
