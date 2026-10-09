@@ -3,7 +3,9 @@ import { useLocalization } from "../../../localization/LocalizationProvider";
 import type {
   GameplayInventoryState, InventoryCatalogEntry, VitalValue,
 } from "../../../state/uiState";
-import { inventoryItemView, sameInventoryMetadata } from "../../../presentation/inventoryModels";
+import {
+  inventoryItemView, sameInventoryMetadata, type CreativeScrollMemory,
+} from "../../../presentation/inventoryModels";
 import { Button } from "../../atoms/Button/Button";
 import { Text } from "../../atoms/Text/Text";
 import { InventoryCursorOverlay } from "../../molecules/InventoryCursorOverlay/InventoryCursorOverlay";
@@ -28,6 +30,9 @@ export type InventoryGameplayPageProps = {
   onRotatePortrait(deltaX: number): void;
 };
 
+const searchText = (value: string): string =>
+  value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase();
+
 /**
  * In-game inventory and Storybook use the same panel composition.
  * Only Godot-sourced slots and vitals are displayed as gameplay facts.
@@ -36,33 +41,49 @@ export function InventoryGameplayPage({
   state, health, onClose, onSlotClick, onEquipmentClick, onSort,
   onDiscardCursor, onCreativePick, onCraft, onRotatePortrait,
 }: InventoryGameplayPageProps) {
-  const { t, contentName } = useLocalization();
+  const { t, contentName, categoryName } = useLocalization();
   const cursorRef = useRef<HTMLDivElement>(null);
+  const creativeScroll = useRef<CreativeScrollMemory>({
+    categoryOffset: 0, catalogOffsets: new Map(),
+  });
   const [creativeTab, setCreativeTab] = useState(false);
   const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [creativeSearch, setCreativeSearch] = useState("");
   const [category, setCategory] = useState<string | null>(null);
   const categories = useMemo(
-    () => [...new Set(state.catalog.map(item => item.category))]
-      .sort((a, b) => a < b ? -1 : a > b ? 1 : 0)
-      .map(id => ({ id, label: id })),
-    [state.catalog],
+    () => state.categories.map(definition => ({
+      id: definition.id,
+      label: categoryName(definition.id),
+      iconUrl: definition.iconUrl,
+    })),
+    [state.categories, categoryName],
   );
+  const selectedCategory = category !== null &&
+    state.categories.some(definition => definition.id === category) ? category : null;
   const creative = state.creativeAvailable && creativeTab;
   const creativeItems = useMemo(() => {
-    const query = creativeSearch.trim().toLowerCase();
-    return state.catalog.filter(item =>
-      (category === null || item.category === category) &&
-      (item.name.toLowerCase().includes(query) || item.id.toLowerCase().includes(query)),
-    ).map(item => ({
-      ...item,
-      quantity: 1,
-      name: Object.keys(item.metadata).length > 0
-        ? item.name + " (" + Object.values(item.metadata).join(", ") + ")"
-        : item.name,
-    }));
-  }, [state.catalog, category, creativeSearch]);
+    const query = searchText(creativeSearch.trim());
+    return state.catalog.flatMap(item => {
+      if (selectedCategory !== null && item.category !== selectedCategory) return [];
+      const localizedName = contentName(item.id);
+      const displayName = item.name === item.id ? localizedName : item.name;
+      const metadataValues = Object.values(item.metadata);
+      const translatedValues = metadataValues.map(contentName);
+      const searchable = [
+        item.id, item.name, localizedName,
+        ...Object.keys(item.metadata), ...metadataValues, ...translatedValues,
+      ];
+      if (query && !searchable.some(value => searchText(value).includes(query)))
+        return [];
+      return [{
+        ...item,
+        quantity: 1,
+        name: translatedValues.length > 0
+          ? `${displayName} (${translatedValues.join(", ")})` : displayName,
+      }];
+    });
+  }, [state.catalog, selectedCategory, creativeSearch, contentName]);
   const { backpack, hotbar, cursor } = useMemo(() => ({
     backpack: state.backpack.map(slot => inventoryItemView(slot, state.catalog)),
     hotbar: state.hotbar.map(slot => inventoryItemView(slot, state.catalog)),
@@ -164,11 +185,13 @@ export function InventoryGameplayPage({
           creative={<CreativeInventoryPanel
             state={{
               searchQuery: creativeSearch,
-              selectedCategoryId: category,
+              selectedCategoryId: selectedCategory,
               categories,
+              everythingIconUrl: state.everythingIconUrl,
               items: creativeItems,
             }}
             hotbar={hotbar}
+            scrollMemory={creativeScroll.current}
             onHotbarSlotClick={index => onSlotClick(index)}
             onTrash={cursor ? onDiscardCursor : undefined}
             onSearchChange={setCreativeSearch}
