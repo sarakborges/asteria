@@ -217,7 +217,7 @@ export function App({
         </ScreenTransition>
       )}
 
-      {!preWorldVisible && state.navigation.death && (
+      {!preWorldVisible && !state.loading && state.navigation.death && (
         <DeathScreenPage
           keepInventory={state.navigation.death.keepInventory}
           droppedStacks={state.navigation.death.droppedStacks}
