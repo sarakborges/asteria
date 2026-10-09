@@ -514,6 +514,8 @@ public partial class Main : Node3D
 
         BeginWorldFrameBudget(delta);
         AdvanceFpsHudState(delta);
+        if (!_sessions.IsTransitioning && _worldReadySent)
+            _sessionStates.Player.Hazards.AdvanceTime((float)Math.Clamp(delta, 0d, 1d));
 
         if (!_sessions.IsTransitioning && _worldReadySent)
             AdvancePlayerDeath(delta);
@@ -628,6 +630,7 @@ public partial class Main : Node3D
             _sessions.Active.AdvanceCreatures(
                 delta,
                 new NVector3(position.X, position.Y, position.Z));
+            ApplyCreatureContact();
         }
 
         if (_worldReadySent && _player is { } particleObserver)
@@ -1054,6 +1057,7 @@ public partial class Main : Node3D
         _player.BreakRequested -=
             BreakTargetBlock;
         _player.Landed -= OnPlayerLanded;
+        _player.FluidExposureSampled -= OnPlayerFluidExposure;
         _player.PlaceRequested -=
             PlaceTargetBlock;
         _player.ToolActionRequested -=
@@ -2153,6 +2157,41 @@ public partial class Main : Node3D
             return;
         var result = _sessionStates.Player.Health.Land(
             distance, _sessionStates.Player.GameMode);
+        ApplyPlayerDamageResult(result);
+    }
+
+    private void ApplyCreatureContact()
+    {
+        if (_player is not { } player ||
+            !_sessionStates.Player.CanInteract)
+            return;
+
+        var amount = _sessions.Active.Creatures.ContactDamageAt(player.CollisionBounds);
+        if (amount <= 0f) return;
+        var protection = PlayerEquipmentProtection.Calculate(
+            _sessionStates.Player.Inventory, _items);
+        var result = _sessionStates.Player.Hazards.TouchCreature(
+            amount, protection, _sessionStates.Player.Health,
+            _sessionStates.Player.GameMode);
+        ApplyPlayerDamageResult(result);
+    }
+
+    private void OnPlayerFluidExposure(float delta, FluidBodyContact contact)
+    {
+        if (!_worldReadySent || _sessions.IsTransitioning) return;
+        var definition = contact.Fluid == FluidRuntimeId.None
+            ? null : _fluids.GetDefinition(contact.Fluid);
+        var result = _sessionStates.Player.Hazards.AdvanceFluid(
+            delta, contact.EyeSubmerged, contact.IsImmersed,
+            definition?.DepletesBreath ?? false,
+            definition?.ContactDamagePerSecond ?? 0f,
+            _sessionStates.Player.Health,
+            _sessionStates.Player.GameMode);
+        ApplyPlayerDamageResult(result);
+    }
+
+    private void ApplyPlayerDamageResult(PlayerDamageResult result)
+    {
         if (result == PlayerDamageResult.Ignored) return;
 
         _playerModel?.TryPlayAction(result == PlayerDamageResult.Killed
@@ -3495,6 +3534,7 @@ public partial class Main : Node3D
         {
             if (!_sessionStates.Player.Health.Respawn())
                 throw new InvalidOperationException("Respawn arrival had no dead player.");
+            _sessionStates.Player.Hazards.Reset();
             _respawnArrival = false;
             _deathSecondsRemaining = 0;
         }
@@ -3535,6 +3575,7 @@ public partial class Main : Node3D
                     .Motion;
         _player.BreakRequested += BreakTargetBlock;
         _player.Landed += OnPlayerLanded;
+        _player.FluidExposureSampled += OnPlayerFluidExposure;
         _player.PlaceRequested += PlaceTargetBlock;
         _player.ToolActionRequested += RotateHeldBlock;
         _player.DropItemRequested += DropSelectedItem;
