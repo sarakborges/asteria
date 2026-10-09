@@ -11,6 +11,12 @@
   "asteria:alpine_sedge": {
     "/name": "Juncia Alpina"
   },
+  "asteria:alpine_snow_needles": {
+    "/name": "Agujas de Nieve Alpinas"
+  },
+  "asteria:arctic_snow_needles": {
+    "/name": "Agujas de Nieve Árticas"
+  },
   "asteria:basalt": {
     "/name": "Basalto"
   },
@@ -106,6 +112,15 @@
   },
   "asteria:frost_shrub": {
     "/name": "Arbusto Helado"
+  },
+  "asteria:frost_wood": {
+    "/name": "Madera Helada"
+  },
+  "asteria:glacial_ice_core": {
+    "/name": "Núcleo de Hielo Glacial"
+  },
+  "asteria:glacial_rime_core": {
+    "/name": "Núcleo de Escarcha Glacial"
   },
   "asteria:glacial_shard": {
     "/name": "Fragmento Glacial"
@@ -280,6 +295,9 @@
   },
   "asteria:prairie_wildflower_yellow": {
     "/name": "Flor Silvestre Amarilla de Pradera"
+  },
+  "asteria:rime_deadwood": {
+    "/name": "Madera Muerta Escarchada"
   },
   "asteria:sand": {
     "/name": "Arena"

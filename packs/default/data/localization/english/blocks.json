@@ -11,6 +11,12 @@
   "asteria:alpine_sedge": {
     "/name": "Alpine Sedge"
   },
+  "asteria:alpine_snow_needles": {
+    "/name": "Alpine Snow Needles"
+  },
+  "asteria:arctic_snow_needles": {
+    "/name": "Arctic Snow Needles"
+  },
   "asteria:basalt": {
     "/name": "Basalt"
   },
@@ -106,6 +112,15 @@
   },
   "asteria:frost_shrub": {
     "/name": "Frost Shrub"
+  },
+  "asteria:frost_wood": {
+    "/name": "Frost Wood"
+  },
+  "asteria:glacial_ice_core": {
+    "/name": "Glacial Ice Core"
+  },
+  "asteria:glacial_rime_core": {
+    "/name": "Glacial Rime Core"
   },
   "asteria:glacial_shard": {
     "/name": "Glacial Shard"
@@ -280,6 +295,9 @@
   },
   "asteria:prairie_wildflower_yellow": {
     "/name": "Yellow Prairie Wildflower"
+  },
+  "asteria:rime_deadwood": {
+    "/name": "Rime Deadwood"
   },
   "asteria:sand": {
     "/name": "Sand"
