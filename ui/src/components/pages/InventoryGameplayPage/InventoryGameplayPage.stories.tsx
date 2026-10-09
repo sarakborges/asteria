@@ -1,5 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { InventoryGameplayPage } from "./InventoryGameplayPage";
+import everythingIcon from "../../../../../packs/default/resources/textures/creative_categories/everything.png?url";
+import stoneIcon from "../../../../../packs/default/resources/textures/creative_categories/stone_blocks.png?url";
+import toolsIcon from "../../../../../packs/default/resources/textures/creative_categories/tools.png?url";
 
 const meta = {
   title: "Pages/InventoryGameplayPage",
@@ -23,10 +26,15 @@ const meta = {
       cursor: {
         id: "asteria:stone", kind: "block", quantity: 3, metadata: {},
       },
+      categories: [
+        { id: "tools", order: 70, iconUrl: toolsIcon },
+        { id: "stone_blocks", order: 20, iconUrl: stoneIcon },
+      ],
+      everythingIconUrl: everythingIcon,
       catalog: [
         {
           id: "asteria:stone", kind: "block", name: "Stone",
-          category: "block/terrain", metadata: {},
+          category: "stone_blocks", metadata: {},
         },
         {
           id: "asteria:dirt", kind: "block", name: "Dirt",
@@ -34,12 +42,12 @@ const meta = {
         },
         {
           id: "asteria:dimensional_slicer", kind: "item",
-          name: "Dimensional Slicer (Umbral)", category: "item/tools",
+          name: "Dimensional Slicer (Umbral)", category: "tools",
           metadata: { target_dimension: "asteria:umbral" },
         },
         {
           id: "asteria:pickaxe_rustic", kind: "tool",
-          name: "Rustic Pickaxe", category: "tool/tools", metadata: {},
+          name: "Rustic Pickaxe", category: "tools", metadata: {},
         },
       ],
       recipes: [{
@@ -63,6 +71,7 @@ const meta = {
     onDiscardCursor: () => {},
     onCreativePick: () => {},
     onCraft: () => {},
+    onRotatePortrait: () => {},
   },
 } satisfies Meta<typeof InventoryGameplayPage>;
 
@@ -113,6 +122,25 @@ export const EmptySurvival: Story = {
       backpack: Array(27).fill(null),
       hotbar: Array(9).fill(null),
       cursor: null,
+    },
+  },
+};
+
+export const AuthoredCreativeCategories: Story = {
+  args: {
+    state: {
+      ...meta.args.state,
+      cursor: null,
+      catalog: [
+        ...meta.args.state.catalog,
+        ...Array.from({ length: 100 }, (_, index) => ({
+          id: "asteria:stone_" + index,
+          kind: "block" as const,
+          name: "asteria:stone_" + index,
+          category: "stone_blocks",
+          metadata: {},
+        })),
+      ],
     },
   },
 };
