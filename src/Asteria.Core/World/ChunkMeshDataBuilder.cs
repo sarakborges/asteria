@@ -563,6 +563,12 @@ public static class ChunkMeshDataBuilder
             neighborDefinition);
     }
 
+    /// <summary>
+    /// Renders an axis-aligned square spike as stacked voxel-width bands.
+    /// All normals are cardinal: no rotational entropy, radial polygon
+    /// triangles or sloping planes. Adjacent segments share the same tier
+    /// profile, including across chunk boundaries.
+    /// </summary>
     private static void EmitSpike(
         Dictionary<TerrainRenderBatch, List<ChunkMeshVertex>> surfaces,
         List<Vector3> collision,
@@ -578,155 +584,245 @@ public static class ChunkMeshDataBuilder
         BiomeTintSampleGrid? tintSamples)
     {
         var shape = definition.Shape;
-        var material = ResolveFaceMaterial(
-            textures, definition, cell, BlockFace.Front);
         var surface = GetSurface(
             surfaces,
             new TerrainRenderBatch(
                 definition.RenderMode, definition.CastsShadow));
-        var light = VoxelMeshLighting.SampleFace(
-            world, blocks, worldPosition, BlockFace.Front).Corner0;
-        var lighting = new VoxelFaceLighting(light, light, light, light);
-        var position = new Vector3(x + 0.5f, y, z + 0.5f);
-        var baseY = SpikeSegmentState.IsDown(cell.State)
-            ? worldPosition.Y + SpikeSegmentState.Index(cell.State)
-            : worldPosition.Y - SpikeSegmentState.Index(cell.State);
-        var angleEntropy = WorldGenerationEntropy.Sample3D(
-            0UL,
-            SpikeRotationDomain,
-            worldPosition.X,
-            baseY,
-            worldPosition.Z);
-        var angleOffset = (float)(
-            WorldGenerationEntropy.Unit(angleEntropy) * Math.PI * 2d);
-        var bottomRadius = SpikeSegmentState.RadiusAt(
-            shape, cell.State, 0f);
-        var topRadius = SpikeSegmentState.RadiusAt(
-            shape, cell.State, 1f);
+        var center = new Vector3(x + 0.5f, y, z + 0.5f);
+        var uvOrigin = new Vector3(x, y, z);
+        var worldOriginX = worldPosition.X - x;
+        var worldOriginZ = worldPosition.Z - z;
 
-        var topCap = SpikeSegmentState.IsDown(cell.State)
-            ? SpikeSegmentState.Index(cell.State) == 0
-            : SpikeSegmentState.Index(cell.State) == SpikeSegmentState.Height(cell.State) - 1;
-        var bottomCap =
-            SpikeSegmentState.IsDown(cell.State)
-                ? SpikeSegmentState.Index(cell.State) == SpikeSegmentState.Height(cell.State) - 1
-                : SpikeSegmentState.Index(cell.State) == 0;
-        var topMaterial = topCap
-            ? ResolveFaceMaterial(textures, definition, cell, BlockFace.Top)
-            : default;
-        var bottomMaterial = bottomCap
-            ? ResolveFaceMaterial(textures, definition, cell, BlockFace.Bottom)
-            : default;
-        var capTint = ResolveTint(
-            definition.Tint, definition.PreviewColor, tintSamples,
-            worldPosition.X, worldPosition.Z);
-        var upperLight = topCap
-            ? VoxelMeshLighting.SampleFace(world, blocks, worldPosition, BlockFace.Top).Corner0
-            : default;
-        var lowerLight = bottomCap
-            ? VoxelMeshLighting.SampleFace(world, blocks, worldPosition, BlockFace.Bottom).Corner0
-            : default;
-
-        Span<Vector3> quad = stackalloc Vector3[4];
-        Span<Vector3> cap = stackalloc Vector3[3];
-        for (var side = 0; side < shape.SpikeSides; side++)
+        ReadOnlySpan<BlockFace> sides = [
+            BlockFace.Front, BlockFace.Back,
+            BlockFace.Right, BlockFace.Left,
+        ];
+        foreach (var face in sides)
         {
-            var nextSide = (side + 1) % shape.SpikeSides;
-            var angle0 = angleOffset + side * MathF.Tau / shape.SpikeSides;
-            var angle1 = angleOffset + (side + 1) * MathF.Tau / shape.SpikeSides;
-            var c0 = MathF.Cos(angle0);
-            var s0 = MathF.Sin(angle0);
-            var c1 = MathF.Cos(angle1);
-            var s1 = MathF.Sin(angle1);
-            var radius0 = SpikeCornerRadius(
-                shape, worldPosition.X, baseY, worldPosition.Z, side);
-            var radius1 = SpikeCornerRadius(
-                shape, worldPosition.X, baseY, worldPosition.Z, nextSide);
+            var material = ResolveFaceMaterial(
+                textures, definition, cell, face);
+            var light = VoxelMeshLighting.SampleFace(
+                world, blocks, worldPosition, face).Corner0;
+            var lighting = new VoxelFaceLighting(light, light, light, light);
 
-            quad[0] = position + new Vector3(c1 * bottomRadius * radius1, 0f, s1 * bottomRadius * radius1);
-            quad[1] = position + new Vector3(c1 * topRadius * radius1, 1f, s1 * topRadius * radius1);
-            quad[2] = position + new Vector3(c0 * topRadius * radius0, 1f, s0 * topRadius * radius0);
-            quad[3] = position + new Vector3(c0 * bottomRadius * radius0, 0f, s0 * bottomRadius * radius0);
-            var normal = Vector3.Cross(quad[2] - quad[0], quad[1] - quad[0]);
-            if (normal.LengthSquared() < 1e-7f)
+            for (var tier = 0; tier < SpikeSegmentState.TiersPerVoxel;)
+            {
+                var width = SpikeTierWidth(shape, cell.State, tier);
+                var next = tier + 1;
+                // Merge contiguous equal-width square prisms: no redundant
+                // vertical edges when a long formation changes slowly.
+                while (next < SpikeSegmentState.TiersPerVoxel &&
+                       SpikeTierWidth(shape, cell.State, next) == width)
+                    next++;
+
+                EmitSpikeSide(
+                    surface, collision, center, uvOrigin,
+                    face, material, cell.TextureRotation, lighting,
+                    width,
+                    tier / (float)SpikeSegmentState.TiersPerVoxel,
+                    next / (float)SpikeSegmentState.TiersPerVoxel,
+                    definition.IsCollidable,
+                    worldOriginX, worldOriginZ, tintSamples);
+                tier = next;
+            }
+        }
+
+        var index = SpikeSegmentState.Index(cell.State);
+        var height = SpikeSegmentState.Height(cell.State);
+        var down = SpikeSegmentState.IsDown(cell.State);
+        var below = down ? index + 1 : index - 1;
+        var above = down ? index - 1 : index + 1;
+        var belowWidth = below >= 0 && below < height
+            ? SpikeSegmentState.HalfWidthAt(
+                shape, SpikeSegmentState.Encode(below, height, down), 1f)
+            : 0f;
+        var aboveWidth = above >= 0 && above < height
+            ? SpikeSegmentState.HalfWidthAt(
+                shape, SpikeSegmentState.Encode(above, height, down), 0f)
+            : 0f;
+
+        for (var boundary = 0;
+             boundary <= SpikeSegmentState.TiersPerVoxel;
+             boundary++)
+        {
+            var lower = boundary == 0
+                ? belowWidth
+                : SpikeTierWidth(shape, cell.State, boundary - 1);
+            var upper = boundary == SpikeSegmentState.TiersPerVoxel
+                ? aboveWidth
+                : SpikeTierWidth(shape, cell.State, boundary);
+            if (lower == upper)
                 continue;
-            normal = Vector3.Normalize(normal);
-            EmitQuadVertices(
-                surface, collision, quad, normal, BlockFace.Front,
-                material, cell.TextureRotation, lighting,
-                definition.IsCollidable, false,
-                uvOrigin: new Vector3(x, y, z),
-                worldOriginX: worldPosition.X - x,
-                worldOriginZ: worldPosition.Z - z,
-                tintSamples: tintSamples);
 
-            if (topCap && topRadius > 0f)
-            {
-                cap[0] = position + Vector3.UnitY;
-                cap[1] = quad[1];
-                cap[2] = quad[2];
-                EmitSpikeCapTriangle(
-                    surface, collision, cap, Vector3.UnitY,
-                    topMaterial, capTint, upperLight, definition.IsCollidable,
-                    x, z);
-            }
-
-            if (bottomCap && bottomRadius > 0f)
-            {
-                cap[0] = position;
-                cap[1] = quad[3];
-                cap[2] = quad[0];
-                EmitSpikeCapTriangle(
-                    surface, collision, cap, -Vector3.UnitY,
-                    bottomMaterial, capTint, lowerLight, definition.IsCollidable,
-                    x, z);
-            }
+            var top = lower > upper;
+            var face = top ? BlockFace.Top : BlockFace.Bottom;
+            var material = ResolveFaceMaterial(
+                textures, definition, cell, face);
+            var light = VoxelMeshLighting.SampleFace(
+                world, blocks, worldPosition, face).Corner0;
+            var lighting = new VoxelFaceLighting(light, light, light, light);
+            EmitSpikeHorizontalRim(
+                surface, collision, center, uvOrigin,
+                boundary / (float)SpikeSegmentState.TiersPerVoxel,
+                MathF.Max(lower, upper), MathF.Min(lower, upper),
+                face, material, cell.TextureRotation, lighting,
+                definition.IsCollidable,
+                worldOriginX, worldOriginZ, tintSamples);
         }
     }
 
-    private static float SpikeCornerRadius(
-        BlockShapeDefinition shape, int x, int baseY, int z, int side)
-    {
-        if (shape.SpikeIrregularity == 0f)
-            return 1f;
+    private static float SpikeTierWidth(
+        BlockShapeDefinition shape, ushort state, int tier) =>
+        SpikeSegmentState.HalfWidthAt(
+            shape, state,
+            (tier + 0.5f) / SpikeSegmentState.TiersPerVoxel);
 
-        var entropy = WorldGenerationEntropy.Sample3D(
-            0UL, SpikeIrregularityDomain, x, baseY, z + side);
-        return 1f +
-            ((float)WorldGenerationEntropy.Unit(entropy) * 2f - 1f) *
-            shape.SpikeIrregularity;
-    }
-
-    private static void EmitSpikeCapTriangle(
+    private static void EmitSpikeSide(
         List<ChunkMeshVertex> surface,
         List<Vector3> collision,
-        ReadOnlySpan<Vector3> triangle,
-        Vector3 normal,
+        Vector3 center,
+        Vector3 uvOrigin,
+        BlockFace face,
         TerrainFaceMaterial material,
-        Vector3 tint,
-        VoxelVertexLighting lighting,
-        bool isCollidable,
-        int blockX,
-        int blockZ)
+        TextureRotation rotation,
+        VoxelFaceLighting lighting,
+        float width,
+        float y0,
+        float y1,
+        bool collidable,
+        int worldOriginX,
+        int worldOriginZ,
+        BiomeTintSampleGrid? tintSamples)
     {
-        foreach (var point in triangle)
+        var x0 = center.X - width;
+        var x1 = center.X + width;
+        var z0 = center.Z - width;
+        var z1 = center.Z + width;
+        var bottom = center.Y + y0;
+        var top = center.Y + y1;
+
+        Span<Vector3> quad = stackalloc Vector3[4];
+        Vector3 normal;
+        switch (face)
         {
-            surface.Add(new ChunkMeshVertex(
-                point, normal,
-                new Vector2(point.X - blockX, point.Z - blockZ),
-                material.EncodedLayers,
-                new Vector4(tint.X, tint.Y, tint.Z, lighting.AmbientOcclusion),
-                new Vector4(lighting.Sky, lighting.BlockRed,
-                    lighting.BlockGreen, lighting.BlockBlue)));
-            if (isCollidable)
-                collision.Add(point);
+            case BlockFace.Front:
+                quad[0] = new Vector3(x0, bottom, z1);
+                quad[1] = new Vector3(x0, top, z1);
+                quad[2] = new Vector3(x1, top, z1);
+                quad[3] = new Vector3(x1, bottom, z1);
+                normal = Vector3.UnitZ;
+                break;
+            case BlockFace.Back:
+                quad[0] = new Vector3(x1, bottom, z0);
+                quad[1] = new Vector3(x1, top, z0);
+                quad[2] = new Vector3(x0, top, z0);
+                quad[3] = new Vector3(x0, bottom, z0);
+                normal = -Vector3.UnitZ;
+                break;
+            case BlockFace.Right:
+                quad[0] = new Vector3(x1, bottom, z1);
+                quad[1] = new Vector3(x1, top, z1);
+                quad[2] = new Vector3(x1, top, z0);
+                quad[3] = new Vector3(x1, bottom, z0);
+                normal = Vector3.UnitX;
+                break;
+            case BlockFace.Left:
+                quad[0] = new Vector3(x0, bottom, z0);
+                quad[1] = new Vector3(x0, top, z0);
+                quad[2] = new Vector3(x0, top, z1);
+                quad[3] = new Vector3(x0, bottom, z1);
+                normal = -Vector3.UnitX;
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(face));
         }
+
+        EmitQuadVertices(
+            surface, collision, quad, normal, face,
+            material, rotation, lighting,
+            collidable, false, uvOrigin,
+            worldOriginX, worldOriginZ, tintSamples);
     }
 
-    private static readonly GenerationDomain SpikeRotationDomain =
-        GenerationDomain.Named("terrain/mesh/spike/rotation/v1");
-    private static readonly GenerationDomain SpikeIrregularityDomain =
-        GenerationDomain.Named("terrain/mesh/spike/irregularity/v1");
+    private static void EmitSpikeHorizontalRim(
+        List<ChunkMeshVertex> surface,
+        List<Vector3> collision,
+        Vector3 center,
+        Vector3 uvOrigin,
+        float localY,
+        float outer,
+        float inner,
+        BlockFace face,
+        TerrainFaceMaterial material,
+        TextureRotation rotation,
+        VoxelFaceLighting lighting,
+        bool collidable,
+        int worldOriginX,
+        int worldOriginZ,
+        BiomeTintSampleGrid? tintSamples)
+    {
+        var y = center.Y + localY;
+        var normal = face == BlockFace.Top
+            ? Vector3.UnitY : -Vector3.UnitY;
+
+        Span<Vector3> outerCorners = stackalloc Vector3[4]
+        {
+            new(center.X - outer, y, center.Z + outer),
+            new(center.X - outer, y, center.Z - outer),
+            new(center.X + outer, y, center.Z - outer),
+            new(center.X + outer, y, center.Z + outer),
+        };
+        Span<Vector3> quad = stackalloc Vector3[4];
+        if (inner <= 0f)
+        {
+            if (face == BlockFace.Top)
+            {
+                outerCorners.CopyTo(quad);
+            }
+            else
+            {
+                for (var i = 0; i < 4; i++)
+                    quad[i] = outerCorners[3 - i];
+            }
+            EmitQuadVertices(
+                surface, collision, quad, normal, face,
+                material, rotation, lighting,
+                collidable, false, uvOrigin,
+                worldOriginX, worldOriginZ, tintSamples);
+            return;
+        }
+
+        Span<Vector3> innerCorners = stackalloc Vector3[4]
+        {
+            new(center.X - inner, y, center.Z + inner),
+            new(center.X - inner, y, center.Z - inner),
+            new(center.X + inner, y, center.Z - inner),
+            new(center.X + inner, y, center.Z + inner),
+        };
+        for (var i = 0; i < 4; i++)
+        {
+            var next = (i + 1) & 3;
+            if (face == BlockFace.Top)
+            {
+                quad[0] = outerCorners[i];
+                quad[1] = outerCorners[next];
+                quad[2] = innerCorners[next];
+                quad[3] = innerCorners[i];
+            }
+            else
+            {
+                quad[0] = outerCorners[next];
+                quad[1] = outerCorners[i];
+                quad[2] = innerCorners[i];
+                quad[3] = innerCorners[next];
+            }
+            EmitQuadVertices(
+                surface, collision, quad, normal, face,
+                material, rotation, lighting,
+                collidable, false, uvOrigin,
+                worldOriginX, worldOriginZ, tintSamples);
+        }
+    }
 
     private static void EmitCrossedSprite(
         Dictionary<TerrainRenderBatch, List<ChunkMeshVertex>> surfaces,
