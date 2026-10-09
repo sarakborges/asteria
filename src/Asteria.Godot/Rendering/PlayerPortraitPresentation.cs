@@ -1,5 +1,6 @@
 using Asteria.Client.Content;
 using Asteria.Core.Content;
+using Asteria.Core.World;
 using Godot;
 
 namespace Asteria.Client.Rendering;
@@ -15,6 +16,9 @@ public sealed partial class PlayerPortraitPresentation : Node
     private const int MaxPngBytes = 320 * 1024;
     private readonly PackSelection _selection;
     private readonly PlayerVisualDefinition _definition;
+    private readonly PlayerInventory _inventory;
+    private readonly PackContentRegistry<ItemDefinition> _items;
+    private PlayerEquipmentPresentation? _equipment;
     private SubViewport _viewport = null!;
     private Node3D _facing = null!;
     private int _framesUntilCapture;
@@ -22,10 +26,13 @@ public sealed partial class PlayerPortraitPresentation : Node
     private float _yaw;
 
     public PlayerPortraitPresentation(
-        PackSelection selection, PlayerVisualDefinition definition)
+        PackSelection selection, PlayerVisualDefinition definition,
+        PlayerInventory inventory, PackContentRegistry<ItemDefinition> items)
     {
         _selection = selection;
         _definition = definition ?? throw new ArgumentNullException(nameof(definition));
+        _inventory = inventory ?? throw new ArgumentNullException(nameof(inventory));
+        _items = items ?? throw new ArgumentNullException(nameof(items));
         Name = "PlayerPortrait";
     }
 
@@ -47,7 +54,10 @@ public sealed partial class PlayerPortraitPresentation : Node
             Rotation = new Vector3(0f, Mathf.Pi, 0f)
         };
         _viewport.AddChild(_facing);
-        _facing.AddChild(PlayerVisualSceneFactory.Load(_selection, _definition));
+        var model = PlayerVisualSceneFactory.Load(_selection, _definition);
+        _facing.AddChild(model);
+        _equipment = new PlayerEquipmentPresentation(model, _inventory, _items);
+        _equipment.Sync();
 
         var camera = new Camera3D
         {
@@ -65,6 +75,7 @@ public sealed partial class PlayerPortraitPresentation : Node
     public void RequestCapture()
     {
         if (_viewport is null) return;
+        _equipment?.Sync();
         _available = null;
         _framesUntilCapture = 3;
         _viewport.RenderTargetUpdateMode = SubViewport.UpdateMode.Once;
