@@ -346,17 +346,23 @@ public sealed class BiomeField
 
     public BiomeSample Sample(
         int x,
-        int z)
-    {
-        var assignments =
-            new Dictionary<
-                SeedBucket,
-                SeedAssignment>();
+        int z) =>
+        CreateSampler().Sample(x, z);
 
-        return SampleCached(
-            x,
-            z,
-            assignments);
+    // A bounded query (such as nearby destination search) reuses its seed
+    // assignments across columns instead of allocating a cache per voxel.
+    // Never share a sampler across workers or retain it after the query.
+    internal Sampler CreateSampler() => new(this);
+
+    internal sealed class Sampler
+    {
+        private readonly BiomeField _field;
+        private readonly Dictionary<SeedBucket, SeedAssignment> _assignments = [];
+
+        internal Sampler(BiomeField field) => _field = field;
+
+        public BiomeSample Sample(int x, int z) =>
+            _field.SampleCached(x, z, _assignments);
     }
 
     public BiomeSampleGrid SampleGrid(

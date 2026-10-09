@@ -161,6 +161,31 @@ public sealed class SurfaceTerrainField
             resolved.SurfaceFluidCutDepth);
     }
 
+    internal BiomeField.Sampler CreateBiomeSampler() =>
+        _surfaceBiomes.CreateSampler();
+
+    internal (
+        BiomeSample Biome,
+        int BaseY,
+        int SurfaceFluidCutDepth,
+        int SurfaceY,
+        BiomeSample? Volume)
+        SampleDestinationColumn(
+            BiomeField.Sampler sampler,
+            int worldX,
+            int worldZ,
+            bool resolveSurfaceHeight)
+    {
+        var biome = sampler.Sample(worldX, worldZ);
+        var (baseY, cutDepth) =
+            BaseHeightAndSurfaceFluidCutAt(biome, worldX, worldZ);
+        var volume = _volumeBiomes.SamplePlacement(worldX, worldZ);
+        var surfaceY = resolveSurfaceHeight
+            ? FinalSurfaceHeight(biome, baseY, worldX, worldZ, volume)
+            : baseY;
+        return (biome, baseY, cutDepth, surfaceY, volume);
+    }
+
     public int SurfaceHeight(int worldX, int worldZ)
     {
         var biome = _surfaceBiomes.Sample(worldX, worldZ);

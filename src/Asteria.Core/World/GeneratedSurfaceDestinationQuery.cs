@@ -52,6 +52,7 @@ internal sealed class GeneratedSurfaceDestinationQuery
     {
         ValidateRadius(
             maxRadius);
+        var sampler = _terrain.CreateBiomeSampler();
 
         if ((acceptsColumn is null ||
              acceptsColumn(
@@ -63,6 +64,7 @@ internal sealed class GeneratedSurfaceDestinationQuery
         {
             var preferred =
                 GeneratedSurfaceFeetAt(
+                    sampler,
                     preferredX,
                     preferredZ);
             if (preferred is not null)
@@ -82,7 +84,8 @@ internal sealed class GeneratedSurfaceDestinationQuery
             preferredZ,
             maxRadius,
             structureBounds,
-            acceptsColumn);
+            acceptsColumn,
+            sampler);
     }
 
     public GeneratedSurfaceDestination?
@@ -95,6 +98,7 @@ internal sealed class GeneratedSurfaceDestinationQuery
     {
         ValidateRadius(
             maxRadius);
+        var sampler = _terrain.CreateBiomeSampler();
 
         if ((acceptsColumn is null ||
              acceptsColumn(
@@ -106,6 +110,7 @@ internal sealed class GeneratedSurfaceDestinationQuery
         {
             var exact =
                 GeneratedFeetAt(
+                    sampler,
                     preferredX,
                     preferredY,
                     preferredZ);
@@ -126,7 +131,8 @@ internal sealed class GeneratedSurfaceDestinationQuery
             preferredZ,
             maxRadius,
             structureBounds,
-            acceptsColumn);
+            acceptsColumn,
+            sampler);
     }
 
     private GeneratedSurfaceDestination?
@@ -139,7 +145,8 @@ internal sealed class GeneratedSurfaceDestinationQuery
                 int MaximumX,
                 int MinimumZ,
                 int MaximumZ)> structureBounds,
-            Func<int, int, bool>? acceptsColumn)
+            Func<int, int, bool>? acceptsColumn,
+            BiomeField.Sampler sampler)
     {
         foreach (var column in
                  SquareRings(
@@ -165,6 +172,7 @@ internal sealed class GeneratedSurfaceDestinationQuery
 
             var destination =
                 GeneratedSurfaceFeetAt(
+                    sampler,
                     column.X,
                     column.Z);
             if (destination is not null)
@@ -250,115 +258,93 @@ internal sealed class GeneratedSurfaceDestinationQuery
 
     private GeneratedSurfaceDestination?
         GeneratedSurfaceFeetAt(
+            BiomeField.Sampler sampler,
             int worldX,
             int worldZ)
     {
-        var surfaceY =
-            _terrain.SurfaceHeight(
-                worldX,
-                worldZ);
-        if (surfaceY < 0 ||
-            surfaceY ==
-                int.MaxValue)
+        var column = _terrain.SampleDestinationColumn(
+            sampler, worldX, worldZ, resolveSurfaceHeight: true);
+        if (column.SurfaceY < 0 ||
+            column.SurfaceY == int.MaxValue)
         {
             return null;
         }
 
         return GeneratedFeetAt(
             worldX,
-            surfaceY + 1,
-            worldZ);
+            column.SurfaceY + 1,
+            worldZ,
+            column);
+    }
+
+    private GeneratedSurfaceDestination?
+        GeneratedFeetAt(
+            BiomeField.Sampler sampler,
+            int worldX,
+            int feetY,
+            int worldZ)
+    {
+        if (feetY <= 0 || feetY == int.MaxValue)
+        {
+            return null;
+        }
+
+        var column = _terrain.SampleDestinationColumn(
+            sampler, worldX, worldZ, resolveSurfaceHeight: false);
+        return GeneratedFeetAt(worldX, feetY, worldZ, column);
     }
 
     private GeneratedSurfaceDestination?
         GeneratedFeetAt(
             int worldX,
             int feetY,
-            int worldZ)
+            int worldZ,
+            (
+                BiomeSample Biome,
+                int BaseY,
+                int SurfaceFluidCutDepth,
+                int SurfaceY,
+                BiomeSample? Volume) column)
     {
-        if (feetY <= 0 ||
-            feetY ==
-                int.MaxValue)
+        if (feetY <= 0 || feetY == int.MaxValue)
         {
             return null;
         }
 
-        var supportY =
-            feetY -
-            1;
-        var headY =
-            feetY +
-            1;
+        var supportY = feetY - 1;
+        var headY = feetY + 1;
 
-        if (_floorY is
-                { } floorY &&
-            supportY <=
-                floorY)
+        if ((_floorY is { } floorY && supportY <= floorY) ||
+            (_roofY is { } roofY &&
+                (feetY >= roofY || headY >= roofY)))
         {
             return null;
         }
 
-        if (_roofY is
-                { } roofY &&
-            (feetY >=
-                 roofY ||
-             headY >=
-                 roofY))
+        // A generated ocean column is normally rejected here without
+        // calculating density three more times. The fluid query is pure
+        // and remains authoritative for all authored fluid rules.
+        if (!_generatedFluids.FluidAtEmptyVoxel(
+                column.Biome, column.BaseY, column.SurfaceFluidCutDepth,
+                worldX, feetY, worldZ).IsEmpty ||
+            !_generatedFluids.FluidAtEmptyVoxel(
+                column.Biome, column.BaseY, column.SurfaceFluidCutDepth,
+                worldX, headY, worldZ).IsEmpty)
         {
             return null;
         }
 
-        if (_terrain.DensityAt(
-                worldX,
-                supportY,
-                worldZ) <
-            0d ||
-            _terrain.DensityAt(
-                worldX,
-                feetY,
-                worldZ) >=
-            0d ||
-            _terrain.DensityAt(
-                worldX,
-                headY,
-                worldZ) >=
-            0d)
-        {
-            return null;
-        }
-
-        var surface =
-            _terrain
-                .SampleBaseSurfaceWithGeneratedFluid(
-                    worldX,
-                    worldZ);
-
-        if (!_generatedFluids
-                .FluidAtEmptyVoxel(
-                    surface.Biome,
-                    surface.BaseY,
-                    surface.SurfaceFluidCutDepth,
-                    worldX,
-                    feetY,
-                    worldZ)
-                .IsEmpty ||
-            !_generatedFluids
-                .FluidAtEmptyVoxel(
-                    surface.Biome,
-                    surface.BaseY,
-                    surface.SurfaceFluidCutDepth,
-                    worldX,
-                    headY,
-                    worldZ)
-                .IsEmpty)
-        {
-            return null;
-        }
-
-        return new GeneratedSurfaceDestination(
-            worldX,
-            feetY,
-            worldZ);
+        return _terrain.DensityAt(
+                    column.Biome, column.BaseY,
+                    worldX, supportY, worldZ, column.Volume) < 0d ||
+               _terrain.DensityAt(
+                    column.Biome, column.BaseY,
+                    worldX, feetY, worldZ, column.Volume) >= 0d ||
+               _terrain.DensityAt(
+                    column.Biome, column.BaseY,
+                    worldX, headY, worldZ, column.Volume) >= 0d
+            ? null
+            : new GeneratedSurfaceDestination(worldX, feetY, worldZ);
     }
 
     private static (
