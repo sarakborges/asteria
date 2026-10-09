@@ -153,6 +153,7 @@ public sealed class BiomeWorldGenerationTests
             new[]
             {
                 ("asteria:sand", (uint?)8),
+                ("asteria:sandstone", (uint?)4),
                 ("asteria:stone", (uint?)null),
             },
             biomes.Get(

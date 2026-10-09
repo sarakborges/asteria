@@ -503,7 +503,7 @@ public sealed class GeneratedSurfaceFluidTests
             generatedOcean: new DimensionGeneratedOceanDefinition(
                 swamp.Id, "asteria:water"));
         var terrain = new BiomeWorldGenerator(
-            91UL, dimension, blocks, fluids, new BiomeRegistry([swamp]));
+            91UL, dimension, blocks, fluids, biomes);
         var water = new GeneratedFluidField(91UL, dimension, fluids, [swamp]);
         var material = new BiomeSurfaceMaterialField(91UL, [swamp], blocks);
         var sample = new BiomeSample(swamp.Id,
