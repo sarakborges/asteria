@@ -208,6 +208,11 @@ public sealed class BiomeWorldGenerator :
                 habitats,
                 generateDecorations: generation.Mode != WorldGenerationMode.Void,
                 fluids: fluids);
+        var volumeStructures = new VolumeStructureField(
+            seed, volumeDefinitions, structures, blocks,
+            _terrain, _volumeBiomes, materials,
+            enabled: generation.SpawnStructures &&
+                     generation.Mode == WorldGenerationMode.Normal);
         var caveSpikes = new CaveSpikeField(
             seed, volumeDefinitions.Where(biome =>
                 biome.VolumeLayout!.Placement == VolumeBiomePlacement.CarvedVoid),
@@ -224,7 +229,8 @@ public sealed class BiomeWorldGenerator :
                 blocks,
                 _volumeBiomes,
                 _voidSpawnPlatform,
-                caveSpikes);
+                caveSpikes,
+            volumeStructures);
         Tints =
             new BiomeTintField(
                 Biomes,

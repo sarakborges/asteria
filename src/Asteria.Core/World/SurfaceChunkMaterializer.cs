@@ -17,6 +17,7 @@ public sealed class SurfaceChunkMaterializer
     private readonly VolumeBiomeField? _volumeBiomes;
     private readonly VoidSpawnPlatform? _voidSpawnPlatform;
     private readonly CaveSpikeField? _caveSpikes;
+    private readonly VolumeStructureField? _volumeStructures;
     private readonly BlockRuntimeId _shellBlock;
     private readonly int? _floorY;
     private readonly int? _roofY;
@@ -47,7 +48,8 @@ public sealed class SurfaceChunkMaterializer
         BlockRegistry blocks,
         VolumeBiomeField? volumeBiomes,
         VoidSpawnPlatform? voidSpawnPlatform,
-        CaveSpikeField? caveSpikes = null)
+        CaveSpikeField? caveSpikes = null,
+        VolumeStructureField? volumeStructures = null)
     {
         _columns = columns ??
             throw new ArgumentNullException(nameof(columns));
@@ -64,6 +66,7 @@ public sealed class SurfaceChunkMaterializer
         _volumeBiomes = volumeBiomes;
         _voidSpawnPlatform = voidSpawnPlatform;
         _caveSpikes = caveSpikes;
+        _volumeStructures = volumeStructures;
         _nearbyFluidQuery = HasNearbyFluid;
         ArgumentNullException.ThrowIfNull(dimension);
         ArgumentNullException.ThrowIfNull(blocks);
@@ -291,6 +294,8 @@ public sealed class SurfaceChunkMaterializer
             chunk, column, densityVolume, originX, originY, originZ);
         MaterializeExteriorFacePalette(
             chunk, column, densityVolume, originX, originY, originZ);
+
+        MaterializeVolumeStructures(chunk, coord);
 
         MaterializeVerticalDecorations(
             chunk, column, densityVolume,
@@ -934,6 +939,34 @@ public sealed class SurfaceChunkMaterializer
     /// All candidate support checks use immutable terrain density, including
     /// faces crossing vertical chunk boundaries.
     /// </summary>
+    /// <summary>
+    /// Applies approved, density-safe authored volume templates. They are
+    /// queried by world-space anchor; this stage alone writes chunk cells.
+    /// Materialization before sprite decorators and spikes prevents those
+    /// smaller decorations from truncating larger formations.
+    /// </summary>
+    private void MaterializeVolumeStructures(Chunk chunk, ChunkCoord coord)
+    {
+        if (_volumeStructures is not { HasRules: true } formations)
+            return;
+
+        var origin = VoxelCoordinates.ChunkOrigin(coord);
+        foreach (var voxel in formations.VoxelsForChunk(coord))
+        {
+            var x = voxel.X - origin.X;
+            var y = voxel.Y - origin.Y;
+            var z = voxel.Z - origin.Z;
+            if ((uint)x >= Chunk.Size ||
+                (uint)y >= Chunk.Size ||
+                (uint)z >= Chunk.Size ||
+                !chunk.GetCell(x, y, z).IsEmpty ||
+                !chunk.GetFluid(x, y, z).IsEmpty)
+                continue;
+
+            chunk.SetBlock(x, y, z, voxel.Block);
+        }
+    }
+
     private void MaterializeVerticalDecorations(
         Chunk chunk,
         SurfaceTerrainColumn column,

@@ -15,7 +15,8 @@ public sealed class BiomeDefinition
         BiomeVolumeLayoutDefinition? volumeLayout = null,
         SurfaceHabitatDefinition? surfaceHabitats = null,
         IEnumerable<BiomeCaveSpikeDefinition>? caveSpikes = null,
-        BiomePaletteDefinition? palette = null)
+        BiomePaletteDefinition? palette = null,
+        IEnumerable<BiomeVolumeStructureDefinition>? volumeStructures = null)
     {
         ValidateId(id);
         Id = id;
@@ -52,6 +53,14 @@ public sealed class BiomeDefinition
         if (spikes.Length > 0 && volumeLayout?.Placement != VolumeBiomePlacement.CarvedVoid)
             throw new ArgumentException("Cave spikes require carved-void volume placement.", nameof(caveSpikes));
         CaveSpikes = Array.AsReadOnly(spikes);
+        var authoredVolumeStructures = volumeStructures?.ToArray() ??
+            Array.Empty<BiomeVolumeStructureDefinition>();
+        if (authoredVolumeStructures.Length > 8 ||
+            (authoredVolumeStructures.Length > 0 && volumeLayout is null))
+            throw new ArgumentException(
+                "Volume structures require volumeLayout and at most eight rules.",
+                nameof(volumeStructures));
+        VolumeStructures = Array.AsReadOnly(authoredVolumeStructures);
         if (palette is not null && surfaceLayers is not null)
             throw new ArgumentException(
                 "Pass palette or legacy constructor layers, not both.",
@@ -94,6 +103,7 @@ public sealed class BiomeDefinition
     public BiomeVolumeLayoutDefinition? VolumeLayout { get; }
 
     public IReadOnlyList<BiomeCaveSpikeDefinition> CaveSpikes { get; }
+    public IReadOnlyList<BiomeVolumeStructureDefinition> VolumeStructures { get; }
 
     public BiomePaletteDefinition Palette { get; }
 

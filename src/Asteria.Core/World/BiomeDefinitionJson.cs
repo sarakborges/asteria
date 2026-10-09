@@ -37,7 +37,8 @@ public static class BiomeDefinitionJson
             ParseVolumeLayout(root),
             SurfaceHabitatDefinitionJson.Parse(root),
             ParseCaveSpikes(root),
-            ParsePalette(root));
+            ParsePalette(root),
+            ParseVolumeStructures(root));
     }
 
     private static PlacementLayoutValues?
@@ -647,6 +648,32 @@ public static class BiomeDefinitionJson
 
         return BiomeTintColor.Parse(
             property.GetString()!);
+    }
+
+    private static IReadOnlyList<BiomeVolumeStructureDefinition>
+        ParseVolumeStructures(JsonElement root)
+    {
+        if (!root.TryGetProperty("volumeStructures", out var array))
+            return Array.Empty<BiomeVolumeStructureDefinition>();
+
+        array = EnsureArray(array, "volumeStructures");
+        return array.EnumerateArray().Select((raw, index) =>
+        {
+            var rule = EnsureObject(raw, $"volumeStructures[{index}]");
+            return new BiomeVolumeStructureDefinition(
+                RequiredString(rule, "structure"),
+                RequiredInt32(rule, "spacing"),
+                RequiredSingle(rule, "chance"),
+                RequiredInt32(rule, "minY"),
+                RequiredInt32(rule, "maxY"),
+                OptionalString(rule, "supportSurface") switch
+                {
+                    null or "floor" => DecorationSupportSurface.Floor,
+                    "ceiling" => DecorationSupportSurface.Ceiling,
+                    var value => throw new FormatException(
+                        $"Unknown volumeStructures.supportSurface: {value}"),
+                });
+        }).ToArray();
     }
 
     private static IReadOnlyList<BiomeCaveSpikeDefinition> ParseCaveSpikes(
