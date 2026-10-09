@@ -44,3 +44,23 @@
     gap: 8px;
   }
 }
+
+.world-selection__confirmation {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--ui-color-danger);
+  border-radius: 10px;
+  background: var(--ui-color-surface, rgb(30 26 42 / 95%));
+}
+
+.world-selection__confirmation p {
+  margin: 0;
+}
+
+.world-selection__confirmation-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
