@@ -31,6 +31,7 @@ export type AppActions = {
   openWorldSelection(): void;
   openSavesFolder(): void;
   loadWorld(id: string): void;
+  deleteWorld(id: string): void;
   openWorldCreation(): void;
   backToStart(): void;
   exitGame(): void;
@@ -167,7 +168,9 @@ export function App({
           <WorldSelectionPage
             worlds={state.worldCatalog.worlds}
             status={
-              state.worldCatalog.status === "verifying"
+              state.worldCatalog.status === "deleting"
+                ? t("worldSelection.deleting")
+                : state.worldCatalog.status === "verifying"
                 ? t("worldSelection.verifying")
                 : state.worldCatalog.status === "unavailable"
                   ? t("worldSelection.unavailable")
@@ -177,7 +180,9 @@ export function App({
                     : undefined
             }
             error={
-              state.worldCatalog.status === "error"
+              state.worldCatalog.deleteError
+                ? t("worldSelection.deleteError")
+                : state.worldCatalog.status === "error"
                 ? t("worldSelection.scanError")
                 : state.worldCatalog.folderError
                   ? t("worldSelection.openSavesFolderError")
@@ -187,6 +192,8 @@ export function App({
             onCreateWorld={actions.openWorldCreation}
             onOpenSavesFolder={actions.openSavesFolder}
             onLoad={actions.loadWorld}
+            onDelete={actions.deleteWorld}
+            busy={state.worldCatalog.status !== "ready"}
           />
         )}
 
