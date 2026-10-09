@@ -16,7 +16,8 @@ public sealed record ItemDefinition(
     int MaxStackSize = 64,
     EquipmentSlot? EquipmentSlot = null,
     EquipmentVisualDefinition? EquipmentVisual = null,
-    float DamageReduction = 0f)
+    float DamageReduction = 0f,
+    int? MaxDurability = null)
 {
     public static ItemDefinition Parse(string json)
     {
@@ -91,6 +92,21 @@ public sealed record ItemDefinition(
         if (damageReduction > 0f && equipmentSlot is null)
             throw new FormatException("damageReduction requires equipmentSlot.");
 
+        int? maxDurability = null;
+        if (root.TryGetProperty("maxDurability", out var durability))
+        {
+            if (equipmentSlot is null ||
+                durability.ValueKind != JsonValueKind.Number ||
+                !durability.TryGetInt32(out var parsedDurability) ||
+                parsedDurability is < 1 or > 65535)
+                throw new FormatException(
+                    "maxDurability requires an equipmentSlot and integer 1..65535.");
+            maxDurability = parsedDurability;
+        }
+        if (damageReduction > 0f && maxDurability is null)
+            throw new FormatException(
+                "Protective equipment requires an authored maxDurability.");
+
         return new ItemDefinition(
             PackContentFields.Id(root),
             PackContentFields.RequiredString(root, "category"),
@@ -99,6 +115,7 @@ public sealed record ItemDefinition(
             maxStackSize,
             equipmentSlot,
             appearance,
-            damageReduction);
+            damageReduction,
+            maxDurability);
     }
 }
