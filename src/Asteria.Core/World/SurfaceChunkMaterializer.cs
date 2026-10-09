@@ -661,13 +661,18 @@ public sealed class SurfaceChunkMaterializer
         for (var z = 0; z < Chunk.Size; z++)
         for (var x = 0; x < Chunk.Size; x++)
         {
+            var baseY = column.BaseHeightAt(x, z);
+            // Chunks entirely above the carved cavern band cannot contain
+            // its rock faces. Avoid the expensive 2D biome placement query.
+            if (originY > baseY - 4)
+                continue;
+
             var worldX = originX + x;
             var worldZ = originZ + z;
             var biome = volumes.SampleCave(worldX, worldZ);
             if (biome is null)
                 continue;
 
-            var baseY = column.BaseHeightAt(x, z);
             var reach = (int)_materials.MaxVolumePaintDepth(biome);
             for (var y = 0; y < Chunk.Size; y++)
             {
@@ -928,18 +933,23 @@ public sealed class SurfaceChunkMaterializer
         for (var z = 0; z < Chunk.Size; z++)
         for (var x = 0; x < Chunk.Size; x++)
         {
+            var baseY = column.BaseHeightAt(x, z);
+            var first = Math.Max(1, originY - maximumHeight + 1);
+            var last = Math.Min(baseY - 1,
+                originY + Chunk.Size + maximumHeight - 2);
+            // When no cavern anchor could possibly contribute a segment
+            // to this chunk, skip biome identity/terrain sampling entirely.
+            if (last < first)
+                continue;
+
             var worldX = originX + x;
             var worldZ = originZ + z;
             var biome = volumeBiomes.SampleCave(worldX, worldZ);
             if (biome is null || !spikes.HasRulesFor(biome.Primary))
                 continue;
 
-            var baseY = column.BaseHeightAt(x, z);
             var surfaceBiome = column.BiomeAt(x, z);
             var volumeBiome = densityVolume.VolumePlacementAt(x, z);
-            var first = Math.Max(1, originY - maximumHeight + 1);
-            var last = Math.Min(baseY - 1,
-                originY + Chunk.Size + maximumHeight - 2);
             for (var anchorY = first; anchorY <= last; anchorY++)
             {
                 for (var direction = 0; direction < 2; direction++)
