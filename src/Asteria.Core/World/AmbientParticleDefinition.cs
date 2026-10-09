@@ -225,8 +225,7 @@ public sealed class AmbientParticleRegistry
                 AmbientParticleSourceKind.Biome =>
                     dimensions.Definitions().Any(d =>
                         d.SurfaceBiomes.Contains(definition.SourceId) ||
-                        d.VolumeBiomes.Contains(definition.SourceId) ||
-                        d.UndergroundBiomes.Contains(definition.SourceId)),
+                        d.VolumeBiomes.Contains(definition.SourceId)),
                 AmbientParticleSourceKind.FluidSurface =>
                     fluids.TryGetId(definition.SourceId, out _),
                 _ => false,
