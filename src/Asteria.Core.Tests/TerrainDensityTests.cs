@@ -54,47 +54,35 @@ public sealed class TerrainDensityTests
     }
 
     [Fact]
-    public void CachedCaveHaloSamplesMatchScalarVoidAcrossChunkEdges()
+    public void CavePaletteMaterializationMatchesVoidDensityAcrossChunkSeams()
     {
-        var biome = new BiomeDefinition(
-            "asteria:test/flat",
-            new BiomeSurfaceLayoutDefinition(),
-            new BiomeTerrainDefinition(32f, 0f, 64, 0f, 32),
-            [new BiomeSurfaceLayerDefinition("asteria:stone")]);
-        var dimension = new DimensionDefinition(
-            new DimensionId("asteria:test"),
-            [biome.Id],
-            seaLevel: 64,
-            gravityStrength: 18f,
-            spawn: new DimensionSpawnDefinition(0, 0),
-            environment: new DimensionEnvironmentDefinition(
-                new DimensionColor(0, 0, 0),
-                new DimensionColor(255, 255, 255),
-                1f,
-                new DimensionColor(0, 0, 0),
-                0f),
-            caves: WideCaves());
-        var registry = new BiomeRegistry([biome]);
-        var biomes = new BiomeField(8192UL, dimension, registry);
-        var volumes = new VolumeBiomeField(8192UL, dimension, registry);
-        var fluids = new GeneratedFluidField(
-            8192UL, dimension, new FluidRegistry([]), [biome]);
-        var terrain = new SurfaceTerrainField(
-            8192UL, dimension, biomes, volumes, fluids,
-            [biome], []);
-        var sampler = terrain.CreateBiomeSampler();
+        // A carved-volume palette activates cross-chunk cave-face painting.
+        // Cave voids must still remain empty and solid faces must stay solid
+        // on both sides of the chunk seam.
+        var generator = Generator(
+            caves: WideCaves(),
+            caveSpike: new BiomeCaveSpikeDefinition(
+                "asteria:stone_spike", 0.00001f, 2, 3, 3,
+                [CaveSpikeDirection.Up, CaveSpikeDirection.Down]));
+        var materialized = new Dictionary<ChunkCoord, Chunk>();
+        var spike = Block("asteria:stone_spike");
 
-        foreach (var x in new[] { -17, -16, -15, -1, 0, 15, 16, 17 })
-        foreach (var z in new[] { -17, -16, -15, -1, 0, 15, 16, 17 })
+        foreach (var x in new[] { 15, 16 })
+        foreach (var z in new[] { 15, 16 })
+        foreach (var y in new[] { 32, 48, 64, 80 })
         {
-            var baseY = terrain.SampleBaseHeight(sampler, x, z);
-            for (var y = 0; y <= 100; y += 5)
+            var (coord, local) = VoxelCoordinates.FromWorld(x, y, z);
+            if (!materialized.TryGetValue(coord, out var chunk))
             {
-                Assert.Equal(
-                    terrain.IsCaveVoidAt(x, y, z),
-                    terrain.IsCaveVoidAt(
-                        baseY, new WorldVoxelCoord(x, y, z)));
+                chunk = generator.Materialize(coord);
+                materialized.Add(coord, chunk);
             }
+
+            var block = chunk.GetBlock(local.X, local.Y, local.Z);
+            if (generator.IsCaveVoidAt(x, y, z))
+                Assert.True(block.IsAir || block == spike);
+            else
+                Assert.False(block.IsAir);
         }
     }
 
