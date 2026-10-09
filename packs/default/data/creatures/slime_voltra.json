@@ -130,5 +130,6 @@
       "item": "asteria:essence_voltra",
       "quantity": 1
     }
-  ]
+  ],
+  "contactDamage": 2
 }

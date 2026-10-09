@@ -134,5 +134,6 @@
       "item": "asteria:essence_verdra",
       "quantity": 1
     }
-  ]
+  ],
+  "contactDamage": 2
 }
