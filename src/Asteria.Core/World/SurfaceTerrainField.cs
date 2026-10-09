@@ -665,6 +665,15 @@ public sealed class SurfaceTerrainField
                 continue;
             }
 
+            // Ocean depth is shaped on the ocean side of the boundary.
+            // Never drag the adjoining land down toward the seabed.
+            if (_coastProfile is not null &&
+                !_coastProfile.IsOcean(sample.Primary) &&
+                _coastProfile.IsOcean(influence.BiomeId))
+            {
+                continue;
+            }
+
             var neighborHeight =
                 _surfaceRules[influence.BiomeId].HeightOffsetAt(
                     _seed,
@@ -737,7 +746,11 @@ public sealed class SurfaceTerrainField
             offset =
                 _coastProfile.AdjustHeightOffset(
                     sample,
-                    offset);
+                    offset,
+                    _seed,
+                    worldX,
+                    worldZ,
+                    _surfaceRules);
         }
 
         var height =
@@ -863,37 +876,62 @@ public sealed class SurfaceTerrainField
             _samples = definition.Samples;
         }
 
+        public bool IsOcean(string biomeId) =>
+            string.Equals(biomeId, _biome, StringComparison.Ordinal);
+
         public double AdjustHeightOffset(
             BiomeSample sample,
-            double rawOffset)
+            double rawOffset,
+            ulong seed,
+            int worldX,
+            int worldZ,
+            IReadOnlyDictionary<string, SurfaceTerrainRule> terrainRules)
         {
-            var coastWeight = 0d;
-            var strongestOther = 0d;
-            foreach (var influence in sample.Influences)
+            // The coast belongs entirely to the ocean. A shared transition
+            // must never raise (or lower) terrain outside that biome.
+            if (!IsOcean(sample.Primary))
             {
-                if (string.Equals(
-                        influence.BiomeId,
-                        _biome,
-                        StringComparison.Ordinal))
-                {
-                    coastWeight = influence.Weight;
-                }
-                else
-                {
-                    strongestOther = Math.Max(
-                        strongestOther,
-                        influence.Weight);
-                }
+                return rawOffset;
             }
 
-            if (coastWeight <= 0d ||
-                strongestOther <= 0d)
+            var coastWeight = sample.PrimaryWeight;
+            var strongestOther = 0d;
+            var adjacentHeight = rawOffset;
+
+            foreach (var influence in sample.Influences)
+            {
+                if (IsOcean(influence.BiomeId) ||
+                    influence.Weight <= strongestOther)
+                {
+                    continue;
+                }
+
+                strongestOther = influence.Weight;
+                adjacentHeight =
+                    terrainRules[influence.BiomeId].HeightOffsetAt(
+                        seed,
+                        worldX,
+                        worldZ,
+                        influence.TerrainStrength);
+            }
+
+            if (strongestOther <= 0d)
             {
                 return rawOffset;
             }
 
             var dominance = coastWeight /
                 (coastWeight + strongestOther);
+            // At the ownership boundary, meet the adjoining terrain.
+            // Fade that contribution quickly into the authored seabed
+            // profile so the coastal strip cannot become a land wall.
+            var neighborBlend = Math.Clamp(
+                2d * (1d - dominance), 0d, 1d);
+            neighborBlend *= neighborBlend;
+            neighborBlend *= neighborBlend;
+            var adjacentFloor =
+                rawOffset +
+                (adjacentHeight - rawOffset) * neighborBlend;
             // The strictly increasing authored knots cover [0,1].
             // Interpolation is deterministic, allocation-free, and
             // continuous at all profile boundaries.
@@ -914,8 +952,8 @@ public sealed class SurfaceTerrainField
                 var strength = left.Strength +
                     (right.Strength - left.Strength) * t;
                 return rawOffset +
-                    (Math.Max(rawOffset, floor) - rawOffset) *
-                    strength;
+                    (Math.Max(rawOffset, Math.Max(floor, adjacentFloor)) -
+                     rawOffset) * strength;
             }
 
             return rawOffset;

@@ -1495,7 +1495,7 @@ public sealed class BiomeField
                 seed.Assignment.TargetSpan /
                 (spacing * 3d),
                 0.5d,
-                3d);
+                12d);
         var sizeScale =
             Math.Pow(
                 targetRatio,
