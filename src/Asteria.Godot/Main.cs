@@ -91,6 +91,7 @@ public partial class Main : Node3D
     private PackContentRegistry<ToolDefinition> _tools = null!;
     private InventoryCraftingRuntime _crafting = null!;
     private InventoryContentCatalog _inventoryCatalog = null!;
+    private InventoryCategoryRegistry _inventoryCategories = null!;
     private InventoryDropIconCatalog _inventoryDropIcons = null!;
     private readonly Dictionary<string, string> _inventoryIconCache =
         new(StringComparer.Ordinal);
@@ -187,8 +188,10 @@ public partial class Main : Node3D
         _tools =
             ToolContentLoader.LoadProjectTools(
                 _packSelection);
+        _inventoryCategories =
+            InventoryCategoryContentLoader.LoadProjectCategories(_packSelection);
         _inventoryCatalog = new InventoryContentCatalog(
-            _blocks, _items, _tools, _layers);
+            _blocks, _items, _tools, _layers, _inventoryCategories);
         _crafting = new InventoryCraftingRuntime(
             CraftingContentLoader.LoadProjectRecipes(_packSelection),
             _inventoryCatalog);
@@ -2133,14 +2136,21 @@ public partial class Main : Node3D
     {
         SendWebUi("game.inventory.catalog", new
         {
+            categories = _inventoryCatalog.Categories.Select(category => new
+            {
+                id = category.Id,
+                order = category.Order,
+                iconUrl = IconDataUri(category.Icon),
+            }).ToArray(),
+            everythingIconUrl = IconDataUri(
+                "textures/creative_categories/everything.png"),
             items = _inventoryCatalog.Choices
                 .Select(choice => new
                 {
                     id = choice.Entry.Id,
                     kind = choice.Entry.Kind.ToString().ToLowerInvariant(),
                     name = choice.Entry.Id,
-                    category = choice.Entry.Kind.ToString().ToLowerInvariant() +
-                        "/" + choice.Category,
+                    category = choice.Category,
                     metadata = choice.Entry.Metadata,
                     iconUrl = choice.IconResourcePath is { } path
                         ? IconDataUri(path) : null,

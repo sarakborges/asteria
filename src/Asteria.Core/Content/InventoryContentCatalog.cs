@@ -10,12 +10,14 @@ public sealed class InventoryContentCatalog
 {
     private readonly BlockRegistry _blocks;
     private readonly InventoryCatalogChoice[] _choices;
+    private readonly IReadOnlyList<InventoryCategoryDefinition> _categories;
 
     public InventoryContentCatalog(
         BlockRegistry blocks,
         PackContentRegistry<ItemDefinition> items,
         PackContentRegistry<ToolDefinition> tools,
-        AttachedLayerRegistry? layers = null)
+        AttachedLayerRegistry? layers = null,
+        InventoryCategoryRegistry? categories = null)
     {
         _blocks = blocks ?? throw new ArgumentNullException(nameof(blocks));
         ArgumentNullException.ThrowIfNull(items);
@@ -77,8 +79,15 @@ public sealed class InventoryContentCatalog
             }
         }
 
+        if (categories is not null)
+            foreach (var choice in choices)
+                _ = categories.Get(choice.Category);
+
+        _categories = categories?.Definitions ?? Array.Empty<InventoryCategoryDefinition>();
         _choices = choices
-            .OrderBy(choice => choice.Entry.Kind)
+            .OrderBy(choice => categories?.Get(choice.Category).Order ?? 0)
+            .ThenBy(choice => choice.Category, StringComparer.Ordinal)
+            .ThenBy(choice => choice.Entry.Kind)
             .ThenBy(choice => choice.Entry.Id, StringComparer.Ordinal)
             .ThenBy(choice => choice.Entry.Metadata.Count == 0
                 ? "" : string.Join("|", choice.Entry.Metadata.Select(
@@ -95,6 +104,7 @@ public sealed class InventoryContentCatalog
     }
 
     public IReadOnlyList<InventoryCatalogChoice> Choices => _choices;
+    public IReadOnlyList<InventoryCategoryDefinition> Categories => _categories;
 
     public InventoryEntry ForDroppedBlock(BlockStateSnapshot snapshot)
     {
