@@ -21,37 +21,6 @@
     "detailAmplitude": 1.5,
     "detailScale": 0.04
   },
-  "surfaceLayers": [
-    {
-      "block": "asteria:snow",
-      "depth": 4,
-      "patch": {
-        "scale": 34,
-        "coverage": 0.14,
-        "roughness": 0.32,
-        "blocks": [
-          "asteria:ice",
-          "asteria:gravel"
-        ],
-        "detailScale": 10,
-        "selectionScale": 80,
-        "warpScale": 76,
-        "warpStrength": 11,
-        "stretchZ": 1.45,
-        "weights": {
-          "asteria:ice": 4,
-          "asteria:gravel": 1
-        }
-      }
-    },
-    {
-      "block": "asteria:dirt",
-      "depth": 2
-    },
-    {
-      "block": "asteria:stone"
-    }
-  ],
   "tints": {
     "grass": "5A7077",
     "leaf": "53656B",
@@ -94,6 +63,39 @@
       {
         "id": "rocky_ridges",
         "maximum": 1
+      }
+    ]
+  },
+  "palette": {
+    "default": [
+      {
+        "block": "asteria:snow",
+        "depth": 4,
+        "patch": {
+          "scale": 34,
+          "coverage": 0.14,
+          "roughness": 0.32,
+          "blocks": [
+            "asteria:ice",
+            "asteria:gravel"
+          ],
+          "detailScale": 10,
+          "selectionScale": 80,
+          "warpScale": 76,
+          "warpStrength": 11,
+          "stretchZ": 1.45,
+          "weights": {
+            "asteria:ice": 4,
+            "asteria:gravel": 1
+          }
+        }
+      },
+      {
+        "block": "asteria:dirt",
+        "depth": 2
+      },
+      {
+        "block": "asteria:stone"
       }
     ]
   }

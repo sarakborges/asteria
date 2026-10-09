@@ -24,39 +24,6 @@
     "detailScale": 0.018,
     "detailMode": "modulated"
   },
-  "surfaceLayers": [
-    {
-      "block": "asteria:stone",
-      "depth": 1,
-      "patch": {
-        "scale": 40,
-        "coverage": 0.2,
-        "roughness": 0.33,
-        "blocks": [
-          "asteria:gravel",
-          "asteria:dirt",
-          "asteria:stone_cobble"
-        ],
-        "detailScale": 12,
-        "selectionScale": 90,
-        "warpScale": 88,
-        "warpStrength": 16,
-        "stretchZ": 1.4,
-        "weights": {
-          "asteria:gravel": 5,
-          "asteria:dirt": 1,
-          "asteria:stone_cobble": 2
-        },
-        "conditions": {
-          "maxY": 132,
-          "maxSlope": 3
-        }
-      }
-    },
-    {
-      "block": "asteria:stone"
-    }
-  ],
   "decorations": [
     {
       "block": "asteria:pebble",
@@ -142,6 +109,41 @@
       {
         "id": "bare_crests",
         "maximum": 1
+      }
+    ]
+  },
+  "palette": {
+    "default": [
+      {
+        "block": "asteria:stone",
+        "depth": 1,
+        "patch": {
+          "scale": 40,
+          "coverage": 0.2,
+          "roughness": 0.33,
+          "blocks": [
+            "asteria:gravel",
+            "asteria:dirt",
+            "asteria:stone_cobble"
+          ],
+          "detailScale": 12,
+          "selectionScale": 90,
+          "warpScale": 88,
+          "warpStrength": 16,
+          "stretchZ": 1.4,
+          "weights": {
+            "asteria:gravel": 5,
+            "asteria:dirt": 1,
+            "asteria:stone_cobble": 2
+          },
+          "conditions": {
+            "maxY": 132,
+            "maxSlope": 3
+          }
+        }
+      },
+      {
+        "block": "asteria:stone"
       }
     ]
   }

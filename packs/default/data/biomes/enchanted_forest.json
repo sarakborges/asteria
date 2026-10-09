@@ -21,19 +21,6 @@
     "detailAmplitude": 1,
     "detailScale": 0.045
   },
-  "surfaceLayers": [
-    {
-      "block": "asteria:grass_block",
-      "depth": 1
-    },
-    {
-      "block": "asteria:dirt",
-      "depth": 4
-    },
-    {
-      "block": "asteria:stone"
-    }
-  ],
   "decorations": [
     {
       "block": "asteria:grass",
@@ -111,6 +98,21 @@
       {
         "id": "pink_glade",
         "maximum": 1
+      }
+    ]
+  },
+  "palette": {
+    "default": [
+      {
+        "block": "asteria:grass_block",
+        "depth": 1
+      },
+      {
+        "block": "asteria:dirt",
+        "depth": 4
+      },
+      {
+        "block": "asteria:stone"
       }
     ]
   }

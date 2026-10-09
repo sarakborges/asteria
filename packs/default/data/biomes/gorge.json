@@ -26,39 +26,6 @@
     "rimFalloff": 0.8,
     "floorFalloff": 1.35
   },
-  "surfaceLayers": [
-    {
-      "block": "asteria:stone",
-      "depth": 1,
-      "patch": {
-        "scale": 30,
-        "coverage": 0.29,
-        "roughness": 0.36,
-        "blocks": [
-          "asteria:gravel",
-          "asteria:dirt",
-          "asteria:stone_cobble"
-        ],
-        "detailScale": 9,
-        "selectionScale": 75,
-        "warpScale": 69,
-        "warpStrength": 11,
-        "stretchZ": 1.65,
-        "weights": {
-          "asteria:gravel": 5,
-          "asteria:dirt": 2,
-          "asteria:stone_cobble": 1
-        },
-        "conditions": {
-          "maxY": 112,
-          "maxSlope": 3
-        }
-      }
-    },
-    {
-      "block": "asteria:stone"
-    }
-  ],
   "decorations": [
     {
       "block": "asteria:pebble",
@@ -144,6 +111,41 @@
       {
         "id": "high_rims",
         "maximum": 1
+      }
+    ]
+  },
+  "palette": {
+    "default": [
+      {
+        "block": "asteria:stone",
+        "depth": 1,
+        "patch": {
+          "scale": 30,
+          "coverage": 0.29,
+          "roughness": 0.36,
+          "blocks": [
+            "asteria:gravel",
+            "asteria:dirt",
+            "asteria:stone_cobble"
+          ],
+          "detailScale": 9,
+          "selectionScale": 75,
+          "warpScale": 69,
+          "warpStrength": 11,
+          "stretchZ": 1.65,
+          "weights": {
+            "asteria:gravel": 5,
+            "asteria:dirt": 2,
+            "asteria:stone_cobble": 1
+          },
+          "conditions": {
+            "maxY": 112,
+            "maxSlope": 3
+          }
+        }
+      },
+      {
+        "block": "asteria:stone"
       }
     ]
   }

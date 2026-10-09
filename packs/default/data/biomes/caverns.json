@@ -177,36 +177,64 @@
   "volumeLayout": {
     "placement": "carvedVoid"
   },
-  "surfaceLayers": [
-    {
-      "block": "asteria:stone",
-      "depth": 1,
-      "patch": {
-        "scale": 32,
-        "coverage": 0.79,
-        "roughness": 0.25,
-        "blocks": [
-          "asteria:gravel",
-          "asteria:basalt",
-          "asteria:sandstone",
-          "asteria:clay",
-          "asteria:terracotta",
-          "asteria:stone_cobble"
-        ],
-        "detailScale": 16,
-        "selectionScale": 58,
-        "weights": {
-          "asteria:gravel": 3,
-          "asteria:basalt": 3,
-          "asteria:sandstone": 2,
-          "asteria:clay": 2,
-          "asteria:terracotta": 2,
-          "asteria:stone_cobble": 2
+  "palette": {
+    "default": [
+      {
+        "block": "asteria:stone",
+        "depth": 1,
+        "patch": {
+          "scale": 32,
+          "coverage": 0.79,
+          "roughness": 0.25,
+          "blocks": [
+            "asteria:gravel",
+            "asteria:basalt",
+            "asteria:sandstone",
+            "asteria:clay",
+            "asteria:terracotta",
+            "asteria:stone_cobble"
+          ],
+          "detailScale": 16,
+          "selectionScale": 58,
+          "weights": {
+            "asteria:gravel": 3,
+            "asteria:basalt": 3,
+            "asteria:sandstone": 2,
+            "asteria:clay": 2,
+            "asteria:terracotta": 2,
+            "asteria:stone_cobble": 2
+          }
         }
+      },
+      {
+        "block": "asteria:stone"
       }
-    },
-    {
-      "block": "asteria:stone"
-    }
-  ]
+    ],
+    "walls": [
+      {
+        "block": "asteria:basalt",
+        "depth": 3,
+        "patch": {
+          "scale": 36,
+          "coverage": 0.4,
+          "roughness": 0.26,
+          "detailScale": 15,
+          "selectionScale": 70,
+          "blocks": [
+            "asteria:terracotta",
+            "asteria:stone",
+            "asteria:sandstone"
+          ],
+          "weights": {
+            "asteria:terracotta": 3,
+            "asteria:stone": 2,
+            "asteria:sandstone": 1
+          }
+        }
+      },
+      {
+        "block": "asteria:stone"
+      }
+    ]
+  }
 }

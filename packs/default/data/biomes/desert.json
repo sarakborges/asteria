@@ -22,33 +22,6 @@
     "broadScaleMultiplier": 0.55,
     "waveWeight": 0.72
   },
-  "surfaceLayers": [
-    {
-      "block": "asteria:sand",
-      "depth": 8,
-      "patch": {
-        "scale": 42,
-        "coverage": 0.18,
-        "roughness": 0.35,
-        "blocks": [
-          "asteria:gravel",
-          "asteria:sandstone"
-        ],
-        "detailScale": 13,
-        "selectionScale": 92,
-        "warpScale": 84,
-        "warpStrength": 16,
-        "stretchZ": 1.8,
-        "weights": {
-          "asteria:gravel": 2,
-          "asteria:sandstone": 3
-        }
-      }
-    },
-    {
-      "block": "asteria:stone"
-    }
-  ],
   "tints": {
     "grass": "71803A",
     "leaf": "5E7036",
@@ -91,6 +64,35 @@
       {
         "id": "sandstone_outcrops",
         "maximum": 1
+      }
+    ]
+  },
+  "palette": {
+    "default": [
+      {
+        "block": "asteria:sand",
+        "depth": 8,
+        "patch": {
+          "scale": 42,
+          "coverage": 0.18,
+          "roughness": 0.35,
+          "blocks": [
+            "asteria:gravel",
+            "asteria:sandstone"
+          ],
+          "detailScale": 13,
+          "selectionScale": 92,
+          "warpScale": 84,
+          "warpStrength": 16,
+          "stretchZ": 1.8,
+          "weights": {
+            "asteria:gravel": 2,
+            "asteria:sandstone": 3
+          }
+        }
+      },
+      {
+        "block": "asteria:stone"
       }
     ]
   }
