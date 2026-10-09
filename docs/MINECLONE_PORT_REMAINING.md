@@ -16,8 +16,8 @@
 | Feature | Current evidence / status | Required work and acceptance |
 | --- | --- | --- |
 | **Physical magic portals between Spheres** | **Missing.** The `/warp`/dimension-travel lifecycle is integrated, but does not place/activate a portal. | Use **Asteria's own design**, not Minecraft-like frames: materials create a spell/scroll, the scroll is placed on the ground and activated by a native interaction, a portal connects the *same exact coordinates* in another Sphere, and safe carving/access structures lead to the surface when necessary. Reuse dimension destination and world mutation/placement owners; validate collisions, rollback, saved state and repeat activations. |
-| **World Selection: delete** | **Partial.** `WorldLoadController`, `WorldCatalogScanController`, `ui.world.catalog.load` and `App.tsx` `onLoad` enable validated loading. `WorldSelectionPage.onDelete` has no mounted authoritative action. | Add safe directory-identity validation, explicit delete intent/confirmation, no deletion of an active or loading world, bounded filesystem operation, refreshed catalog and failure feedback; cover recovery/permissions and Godot/WRY interaction. |
-| **Pause: save and leave world** | **Partial.** `Ctrl+S` and `ui.world.save` checkpoint via `DimensionSessionController`, and `PauseMenuPage` shows localized result feedback. `onLeaveWorld` is still not provided by `App.tsx`. | Implement a distinct native save-and-leave/return-to-menu lifecycle; finish publication, retire workers/presentation, release gameplay input, clear session-owned resources, restore pre-world UI and handle save failure without silently losing progress. Validate repeated enter/leave cycles. |
+| **World Selection: delete** | **Integrated in code, native QA pending (2026-10-09).** A local confirmation on `WorldSelectionPage` submits only a canonical world ID. Godot `WorldDeleteController` rejects active/loading/scanning sessions and runs a single worker; Core `WorldSaveDeletion` checks directory identity, manifest, symlinks, recursion depth and entry budget before deletion. The catalog is refreshed and failures reported. | Verify actual Godot/WRY confirmation, deleting a compatible and corrupted save, permissions, partial filesystem failure, repeated deletes and load/delete races. No WebUI paths or active-world removal. |
+| **Pause: save and leave world** | **Integrated in code, native QA pending (2026-10-09).** `ui.world.leave` uses `DimensionSessionController.RequestSaveAndLeave`, reuses quiescent retirement and atomic session publication, skips Sphere reactivation **only on committed save**, clears Godot session presentation, restores WebUI pre-world state and refreshes the catalog. Save failure re-enters the archived Sphere and reports error. | Verify save → menu → reload, save failure recovery, repeated enter/leave, no orphan workers/cameras/sprites, focus restoration, and corrupted/locked save recovery in Godot/WRY. |
 
 ## P1 — player, inventory and visuals
 
@@ -54,15 +54,21 @@ These are **code-level findings**, not a declaration that gameplay polish or in-
 
 ## Recommended implementation sequence
 
-1. Complete World Delete and Save and Leave, with native lifecycle checks and fresh-process Save/Load regression.
+1. **Native QA for World Delete and Save and Leave** (both now integrated in code): selection confirmation, worker isolation, process restart, failure feedback, and repeated world entry/exit.
 2. Finish creative category rendering, inventory/HUD metadata, equipment presentation, portraits and general settings/UI details.
 3. Verify native run/crouch and third-person presentation; add remaining player/equipment action visuals.
 4. Port celestial assets, stars/clouds and held-item dynamic lighting.
-5. Implement magic scroll-based physical portals using the existing Sphere travel and destination capabilities.
-6. Audit creature-specific effects and behavior, then close verified parity gaps.
-7. Run side-by-side MineClone/Asteria Godot/WRY functional and visual QA, fixing only observed discrepancies.
+5. Implement magic scroll-based physical portals using existing Sphere travel and destination capabilities.
+6. Audit creature-specific effects/behaviors and close verified parity gaps.
+7. Run side-by-side MineClone/Asteria Godot/WRY functional and visual QA, scoped to observed discrepancies.
 
 **Do not count Storybook/CI green as in-game parity.** When closing a row, attach exact authored data paths, Core owner, Godot adapter, UI contract (if any), tests and a recorded Godot/WRY observation. No global WebUI gameplay input, engine resources inside packs, negative Y, or new duplicated world systems.
+
+## World management actions — 2026-10-09
+
+- World Delete: confirmation happens in React. Only a canonical save ID reaches the native controller, which refuses deletion while world, load or catalog work is active; the Core delete operation rejects missing manifests and filesystem links, checks bounded traversal and leaves other saves untouched. Its errors are surfaced and the catalog rescanned. See `WorldSaveDeletionTests` for filesystem and ID isolation cases.
+- Save and Leave: successful atomic checkpoint publication retires the runtime without resurrecting the Sphere, releases sky/celestial/player presentation, resets navigation/authoritative session references and scans the saves catalog. Failed checkpoints reenter the saved in-memory session and retain the user in the game.
+- Automated CI currently has unrelated blockers in biome worldgen (`VerticalBiomeContentTests.OceanRockTemplatesDisplaceOnlyOccupiedFluidVoxels`) and localization (`asteria:coral_blue`); this change is **not** claimed fully green or engine-playtested.
 
 ## Movement port progress — 2026-10-09
 
