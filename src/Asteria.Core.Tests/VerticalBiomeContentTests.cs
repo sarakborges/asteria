@@ -138,6 +138,8 @@ public sealed class VerticalBiomeContentTests
             [new BiomeInfluence(floating.Id, 1f)]);
         var stone = blocks.GetId("asteria:stone");
         var grassBlock = blocks.GetId("asteria:grass_block");
+        var aetherCrystal = blocks.GetId("asteria:aether_crystal");
+        var skyVines = blocks.GetId("asteria:sky_vines");
         var sightings = 0;
         var islandSightings = 0;
         var variationAcrossY = 0;
@@ -156,8 +158,12 @@ public sealed class VerticalBiomeContentTests
                 new SurfacePlacementContext(241, 0), verticalY:241);
             if (!islandAt.IsAir) islandSightings++;
             if (islandAt != higher) variationAcrossY++;
-            Assert.Equal(BlockRuntimeId.Air, field.BlockAt(islandSample, stone, x, z,
-                new SurfacePlacementContext(240, 0), verticalY:240));
+            // Stone is now intentionally valid for the authored crystal
+            // and ceiling-vine decorators, but not for vegetation.
+            var onStone = field.BlockAt(islandSample, stone, x, z,
+                new SurfacePlacementContext(240, 0), verticalY:240);
+            Assert.True(onStone.IsAir ||
+                onStone == aetherCrystal || onStone == skyVines);
         }
 
         Assert.True(sightings > 0);
