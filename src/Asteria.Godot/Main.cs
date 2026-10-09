@@ -59,6 +59,7 @@ public partial class Main : Node3D
     private ClientPreferencesController _clientSettings = null!;
     private WorldCatalogScanController _worldCatalog = null!;
     private WorldLoadController _worldLoad = null!;
+    private WorldDeleteController _worldDelete = null!;
     private KeybindCaptureController _keybindCapture = null!;
 
     private ClientPreferences _clientPreferences =>
@@ -239,6 +240,8 @@ public partial class Main : Node3D
         _worldLoad = new WorldLoadController(
             Path.Combine(OS.GetUserDataDir(), "worlds"),
             _dimensions, _blocks, _fluids, _dyes, _layers);
+        _worldDelete = new WorldDeleteController(
+            Path.Combine(OS.GetUserDataDir(), "worlds"));
         _structures.ValidateBlocks(
             _blocks, _dyes, _layers);
         _structures.ValidateFluids(
@@ -495,6 +498,7 @@ public partial class Main : Node3D
         _worldDiagnostics?.ObserveFrame(delta);
         PollWorldCatalog();
         PollWorldLoad();
+        PollWorldDelete();
         PollPlayerPortrait();
         PollChatLocate();
         AdvanceChatPresentation(delta);
@@ -1170,11 +1174,11 @@ public partial class Main : Node3D
                     GetTree().Quit();
                     break;
                 case "ui.world.catalog.refresh":
-                    if (_worldSeed is null)
+                    if (_worldSeed is null && !_worldDelete.IsBusy)
                         BeginWorldCatalogScan();
                     break;
                 case "ui.world.catalog.load":
-                    if (_worldSeed is null &&
+                    if (_worldSeed is null && !_worldDelete.IsBusy &&
                         document.RootElement.TryGetProperty("id", out var savedId) &&
                         savedId.ValueKind == JsonValueKind.String)
                     {
@@ -1187,6 +1191,31 @@ public partial class Main : Node3D
                         {
                             SendWebUi("game.world_catalog.load_error", new { error = error.Message });
                         }
+                    }
+                    break;
+                case "ui.world.catalog.delete":
+                    if (_worldSeed is not null || _worldDelete.IsBusy ||
+                        _worldLoad.IsBusy || _worldCatalog.IsBusy ||
+                        !document.RootElement.TryGetProperty("id", out var deleteId) ||
+                        deleteId.ValueKind != JsonValueKind.String)
+                    {
+                        SendWebUi("game.world_catalog.delete_result",
+                            new { status = "error" });
+                        break;
+                    }
+
+                    try
+                    {
+                        var id = deleteId.GetString() ?? "";
+                        if (_worldDelete.Begin(id))
+                            SendWebUi("game.world_catalog.delete_result",
+                                new { status = "deleting", id });
+                    }
+                    catch (ArgumentException error)
+                    {
+                        GD.PushWarning($"world.delete.rejected: {error.Message}");
+                        SendWebUi("game.world_catalog.delete_result",
+                            new { status = "error" });
                     }
                     break;
                 case "ui.world.catalog.open_folder":
@@ -1207,7 +1236,8 @@ public partial class Main : Node3D
 
                     break;
                 case "ui.world.create":
-                    if (_worldSeed is null)
+                    if (_worldSeed is null && !_worldDelete.IsBusy &&
+                        !_worldLoad.IsBusy && !_worldCatalog.IsBusy)
                     {
                         StartRequestedWorld(
                             document.RootElement);
@@ -1554,6 +1584,29 @@ public partial class Main : Node3D
                     compatible = world.Compatible,
                 }).ToArray(),
             });
+    }
+
+    private void PollWorldDelete()
+    {
+        if (!_worldDelete.TryPoll(out var error))
+            return;
+
+        if (error is not null)
+        {
+            GD.PushWarning($"world.delete.failed: {error}");
+            _worldDiagnostics?.Write($"world.delete.failed error={error}");
+            SendWebUi("game.world_catalog.delete_result",
+                new { status = "error" });
+        }
+        else
+        {
+            _worldDiagnostics?.Write("world.delete.succeeded");
+            SendWebUi("game.world_catalog.delete_result",
+                new { status = "deleted" });
+        }
+
+        if (_worldSeed is null)
+            BeginWorldCatalogScan();
     }
 
     private void PollWorldLoad()
