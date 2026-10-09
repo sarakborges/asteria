@@ -51,12 +51,14 @@ public partial class FpsPlayer : CharacterBody3D
     private bool _lastEyeSubmerged;
     private FluidRuntimeId _lastVisualFluid;
     private float _gravityStrength = 18f;
+    private float _descendingDistance;
 
     public event Action? BreakRequested;
     public event Action? PlaceRequested;
     public event Action? ToolActionRequested;
     public event Action? DropItemRequested;
     public event Action<int>? HotbarSlotRequested;
+    public event Action<float>? Landed;
     public event Action? FlightStateChanged;
     public event Action<bool>? MouseCaptureChanged;
     public event Action<FluidBodyContact>?
@@ -154,10 +156,8 @@ public partial class FpsPlayer : CharacterBody3D
 
     public override void _Input(InputEvent inputEvent)
     {
-        if (_inputSuspended)
-        {
+        if (_inputSuspended || PlayerState.Health.IsDead)
             return;
-        }
 
         if (inputEvent is InputEventKey key)
         {
@@ -205,6 +205,14 @@ public partial class FpsPlayer : CharacterBody3D
 
     public override void _PhysicsProcess(double delta)
     {
+        if (PlayerState.Health.IsDead)
+        {
+            _descendingDistance = 0f;
+            Velocity = Vector3.Zero;
+            return;
+        }
+        var startedOnFloor = IsOnFloor();
+        var startY = GlobalPosition.Y;
         var velocity = Velocity;
         var movement = GetMovementInput();
         var direction = GlobalTransform.Basis *
@@ -215,6 +223,7 @@ public partial class FpsPlayer : CharacterBody3D
         var fluidContact = default(FluidBodyContact);
         if (PlayerState.IsFlying)
         {
+            _descendingDistance = 0f;
             UpdateGroundPosture(immersed: false, (float)delta);
             _groundMovement.CancelRunning();
         }
@@ -270,6 +279,7 @@ public partial class FpsPlayer : CharacterBody3D
 
         if (fluidContact.IsImmersed)
         {
+            _descendingDistance = 0f;
             velocity.Y =
                 FluidMotionSolver.VerticalSpeed(
                     velocity.Y,
@@ -343,6 +353,17 @@ public partial class FpsPlayer : CharacterBody3D
 
         Velocity = velocity;
         MoveAndSlide();
+
+        if (!fluidContact.IsImmersed)
+        {
+            _descendingDistance += Mathf.Max(0f, startY - GlobalPosition.Y);
+            if (IsOnFloor())
+            {
+                if (!startedOnFloor && _descendingDistance > 0f)
+                    Landed?.Invoke(_descendingDistance);
+                _descendingDistance = 0f;
+            }
+        }
     }
 
     private void UpdateGroundPosture(bool immersed, float delta)
@@ -416,6 +437,7 @@ public partial class FpsPlayer : CharacterBody3D
 
     public void ApplyGameMode()
     {
+        _descendingDistance = 0f;
         var spectator = PlayerState.GameMode.IsSpectator();
         CollisionLayer = spectator ? 0u : _solidCollisionLayer;
         CollisionMask = spectator ? 0u : _solidCollisionMask;
