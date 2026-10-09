@@ -25,6 +25,26 @@ public static class SpikeSegmentState
     public static int Height(ushort state) => ((state >> 4) & 0xf) + 1;
     public static bool IsDown(ushort state) => (state & 0x100) != 0;
 
+    /// <summary>
+    /// Four square, axis-aligned tiers per voxel. Both mesh and fine
+    /// occupancy use this exact snapped half-width, including at seams.
+    /// </summary>
+    public const int TiersPerVoxel = 4;
+
+    public static float HalfWidthAt(
+        BlockShapeDefinition shape, ushort state, float localY)
+    {
+        var tier = Math.Clamp(
+            (int)MathF.Floor(localY * TiersPerVoxel),
+            0, TiersPerVoxel - 1);
+        var sampleY = (tier + 0.5f) / TiersPerVoxel;
+        var radius = RadiusAt(shape, state, sampleY);
+        return Math.Clamp(
+            MathF.Ceiling(radius * BlockGeometry.Resolution) /
+                BlockGeometry.Resolution,
+            1f / BlockGeometry.Resolution, 0.5f);
+    }
+
     public static float RadiusAt(
         BlockShapeDefinition shape,
         ushort state,

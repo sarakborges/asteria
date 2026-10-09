@@ -138,17 +138,25 @@ public static class BlockDefinitionJson
         return RequiredString(shape, "type") switch
         {
             "cube" => BlockShapeDefinition.Cube,
-            "spike" => BlockShapeDefinition.Spike(
-                OptionalSingle(shape, "baseRadius") ?? 0.46f,
-                OptionalSingle(shape, "tipRadius") ?? 0.025f,
-                OptionalInt32(shape, "sides") ?? 6,
-                OptionalSingle(shape, "irregularity") ?? 0f,
-                OptionalSingle(shape, "taperPower") ?? 1f),
+            "spike" => ParseSpikeShape(shape),
             "layer" => ParseLayerShape(shape),
             "hollow" => BlockShapeDefinition.Hollow(
                 OptionalSingle(shape, "wallThickness") ?? (1f / 16f)),
             var type => throw new FormatException($"Unknown block shape type: {type}"),
         };
+    }
+
+    private static BlockShapeDefinition ParseSpikeShape(JsonElement shape)
+    {
+        if (shape.TryGetProperty("sides", out _) ||
+            shape.TryGetProperty("irregularity", out _))
+            throw new FormatException(
+                "Square spikes do not support polygon sides or corner irregularity.");
+
+        return BlockShapeDefinition.Spike(
+            OptionalSingle(shape, "baseRadius") ?? 0.46f,
+            OptionalSingle(shape, "tipRadius") ?? 0.025f,
+            OptionalSingle(shape, "taperPower") ?? 1f);
     }
 
     private static BlockShapeDefinition ParseLayerShape(JsonElement shape)

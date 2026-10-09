@@ -5,8 +5,6 @@
     "type": "spike",
     "baseRadius": 0.42,
     "tipRadius": 0.025,
-    "sides": 7,
-    "irregularity": 0.14,
     "taperPower": 1.2
   },
   "placementFaces": [

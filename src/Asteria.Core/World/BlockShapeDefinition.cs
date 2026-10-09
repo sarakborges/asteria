@@ -24,8 +24,6 @@ public sealed class BlockShapeDefinition
         float wallThickness,
         float spikeBaseRadius = 0f,
         float spikeTipRadius = 0f,
-        int spikeSides = 0,
-        float spikeIrregularity = 0f,
         float spikeTaperPower = 1f)
     {
         Kind = kind;
@@ -35,8 +33,6 @@ public sealed class BlockShapeDefinition
         WallThickness = wallThickness;
         SpikeBaseRadius = spikeBaseRadius;
         SpikeTipRadius = spikeTipRadius;
-        SpikeSides = spikeSides;
-        SpikeIrregularity = spikeIrregularity;
         SpikeTaperPower = spikeTaperPower;
     }
 
@@ -51,8 +47,6 @@ public sealed class BlockShapeDefinition
     public float WallThickness { get; }
     public float SpikeBaseRadius { get; }
     public float SpikeTipRadius { get; }
-    public int SpikeSides { get; }
-    public float SpikeIrregularity { get; }
     public float SpikeTaperPower { get; }
 
     public bool IsStackableLayer =>
@@ -107,11 +101,13 @@ public sealed class BlockShapeDefinition
             wallThickness);
     }
 
+    /// <summary>
+    /// Square, grid-aligned stepped spike. Radius is the half-width of its
+    /// square cross-section, not the radius of a circular polygon.
+    /// </summary>
     public static BlockShapeDefinition Spike(
         float baseRadius = 0.46f,
         float tipRadius = 0.025f,
-        int sides = 6,
-        float irregularity = 0f,
         float taperPower = 1f)
     {
         if (!float.IsFinite(baseRadius) ||
@@ -119,23 +115,19 @@ public sealed class BlockShapeDefinition
             baseRadius is <= 0f or > 0.5f ||
             tipRadius < 0f ||
             tipRadius >= baseRadius ||
-            sides is < 4 or > 12 ||
-            !float.IsFinite(irregularity) ||
-            irregularity is < 0f or > 0.25f ||
             !float.IsFinite(taperPower) ||
             taperPower is < 0.5f or > 2.5f)
         {
             throw new ArgumentOutOfRangeException(
                 nameof(baseRadius),
-                "Spikes require 4..12 sides, 0 <= tip radius < base radius <= 0.5, " +
-                "irregularity in 0..0.25 and taper power in 0.5..2.5.");
+                "Square spikes require 0 <= tip half-width < base half-width <= 0.5 " +
+                "and taper power in 0.5..2.5.");
         }
 
         return new BlockShapeDefinition(
             BlockShapeKind.Spike, 1f,
             BlockLayerPlacement.Surface, null, 0f,
-            baseRadius, tipRadius, sides,
-            irregularity, taperPower);
+            baseRadius, tipRadius, taperPower);
     }
 
     private static void ValidateThickness(float thickness)
