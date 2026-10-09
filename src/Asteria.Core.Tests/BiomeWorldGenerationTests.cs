@@ -1899,13 +1899,15 @@ public sealed class BiomeWorldGenerationTests
         // Biome ownership does not imply solid additive density in that
         // column. Select a real island interior, not the first volume-biome
         // region; its X/Z location may change with the authored surface layout.
+        // SurfaceHeight includes additive islands, so use density below the
+        // island's minimum Y to prove this is not an elevated base surface.
         (int X, int Z)? islandColumn = null;
         for (var z = -4096; z <= 4096 && islandColumn is null; z += 32)
         for (var x = -4096; x <= 4096 && islandColumn is null; x += 32)
         {
             if (generator.VolumeBiomes.Sample(x, 240, z)?.Primary == volumeId &&
                 generator.DensityAt(x, 240, z) >= 0d &&
-                generator.SurfaceHeight(x, z) < 240)
+                generator.DensityAt(x, 192, z) < 0d)
             {
                 islandColumn = (x, z);
             }

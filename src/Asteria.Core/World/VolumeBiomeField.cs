@@ -137,11 +137,6 @@ public sealed class VolumeBiomeField
             return null;
         }
 
-        return sample;
-    }
-
-    private BiomeSample NormalizeVolumeInfluences(BiomeSample sample)
-    {
         var ownedInfluences =
             sample.Influences
                 .Where(influence =>
@@ -166,8 +161,7 @@ public sealed class VolumeBiomeField
                     new BiomeInfluence(
                         influence.BiomeId,
                         influence.Weight /
-                        total,
-                        influence.TerrainStrength))
+                        total))
                 .ToArray());
     }
 
@@ -217,7 +211,7 @@ public sealed class VolumeBiomeField
                 {
                     placements[
                         z * width +
-                        x] = NormalizeVolumeInfluences(sample);
+                        x] = sample;
                 }
             }
         }
@@ -244,7 +238,7 @@ public sealed class VolumeBiomeField
 
         return _formations.ContainsKey(
             sample.Primary)
-            ? NormalizeVolumeInfluences(sample)
+            ? sample
             : null;
     }
 }
