@@ -35,6 +35,11 @@ public sealed class BiomeSurfaceMaterialField
         HasExteriorOverrides = _faceRules.Values.Any(
             profile => profile.Exterior &&
                 (profile.OverrideWalls || profile.OverrideCeiling));
+        MaximumCavePaintDepth = _faceRules.Values
+            .Where(profile => !profile.Exterior)
+            .Select(profile => profile.MaxDepth)
+            .DefaultIfEmpty(0u)
+            .Max();
 
         if (_rules.Count == 0)
         {
@@ -49,6 +54,12 @@ public sealed class BiomeSurfaceMaterialField
     /// overrides. Cave-only wall rules do not trigger exterior scanning.
     /// </summary>
     public bool HasExteriorOverrides { get; }
+
+    /// <summary>
+    /// Immutable upper bound on cave-facing layer depth. Lets the chunk
+    /// materializer detect exposed faces before resolving biome ownership.
+    /// </summary>
+    public uint MaximumCavePaintDepth { get; }
 
     public BlockRuntimeId BlockAt(
         BiomeSample sample,

@@ -655,7 +655,8 @@ public sealed class SurfaceChunkMaterializer
         TerrainDensityVolume densityVolume,
         int originX, int originY, int originZ)
     {
-        if (_volumeBiomes is not { HasBiomes: true } volumes)
+        if (_volumeBiomes is not { HasBiomes: true } volumes ||
+            _materials.MaximumCavePaintDepth == 0)
             return;
 
         for (var z = 0; z < Chunk.Size; z++)
@@ -669,11 +670,9 @@ public sealed class SurfaceChunkMaterializer
 
             var worldX = originX + x;
             var worldZ = originZ + z;
-            var biome = volumes.SampleCave(worldX, worldZ);
-            if (biome is null)
-                continue;
-
-            var reach = (int)_materials.MaxVolumePaintDepth(biome);
+            BiomeSample? biome = null;
+            var ownerResolved = false;
+            var reach = (int)_materials.MaximumCavePaintDepth;
             for (var y = 0; y < Chunk.Size; y++)
             {
                 var worldY = originY + y;
@@ -719,10 +718,20 @@ public sealed class SurfaceChunkMaterializer
                     if (face is not { } exposed)
                         continue;
 
-                    chunk.SetBlock(x, y, z,
-                        _materials.VolumeBlockAt(
-                            biome, worldX, worldY, worldZ,
-                            exposed, (uint)depth));
+                    // Expensive 2D volume-identity sampling is necessary
+                    // only for a genuinely exposed carved face. Cache at
+                    // most one result per column, even for many Y voxels.
+                    if (!ownerResolved)
+                    {
+                        biome = volumes.SampleCave(worldX, worldZ);
+                        ownerResolved = true;
+                    }
+                    if (biome is not null &&
+                        depth < _materials.MaxVolumePaintDepth(biome))
+                        chunk.SetBlock(x, y, z,
+                            _materials.VolumeBlockAt(
+                                biome, worldX, worldY, worldZ,
+                                exposed, (uint)depth));
                     break;
                 }
             }
