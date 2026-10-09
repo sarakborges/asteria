@@ -69,3 +69,7 @@
   font-weight: 500;
   text-shadow: 0 1px 2px rgb(0 0 0 / 90%);
 }
+
+.hud-entity-card__health--oxygen .hud-entity-card__health-fill {
+  background: var(--ui-color-water, #4f9fd6);
+}
