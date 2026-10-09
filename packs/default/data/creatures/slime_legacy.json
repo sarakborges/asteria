@@ -33,5 +33,6 @@
   "landingSeconds": 0.34,
   "textures": {
     "SlimeFace": "textures/creatures/slime_legacy/face.png"
-  }
+  },
+  "contactDamage": 2
 }

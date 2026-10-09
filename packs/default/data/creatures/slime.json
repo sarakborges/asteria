@@ -152,5 +152,6 @@
       "asteria:overworld/swamp"
     ],
     "weight": 1
-  }
+  },
+  "contactDamage": 2
 }
