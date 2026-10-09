@@ -22,7 +22,8 @@ public sealed class EquipmentVisualDefinition
             [EquipmentSlot.Boots] = ["RightLegMesh", "LeftLegMesh"],
         };
     
-    private EquipmentVisualDefinition(EquipmentVisualPart[] parts) => Parts = parts;
+    private EquipmentVisualDefinition(EquipmentVisualPart[] parts) =>
+        Parts = Array.AsReadOnly(parts);
 
     public IReadOnlyList<EquipmentVisualPart> Parts { get; }
 
