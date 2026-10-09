@@ -162,7 +162,8 @@ public sealed class GameplaySessionSnapshot
         DimensionChunkSaveSnapshot spatial,
         string name, uint ticksPerSecond, bool spawnCreatures,
         PlayerSessionSnapshot player, IEnumerable<SphereClockSnapshot> spheres,
-        DimensionId? activeSphere = null)
+        DimensionId? activeSphere = null,
+        bool keepInventory = true)
     {
         Spatial = spatial ?? throw new ArgumentNullException(nameof(spatial));
         Player = player ?? throw new ArgumentNullException(nameof(player));
@@ -189,6 +190,7 @@ public sealed class GameplaySessionSnapshot
         Name = name;
         TicksPerSecond = ticksPerSecond;
         SpawnCreatures = spawnCreatures;
+        KeepInventory = keepInventory;
         _spheres = Array.AsReadOnly(entries);
     }
 
@@ -197,6 +199,7 @@ public sealed class GameplaySessionSnapshot
     public string Name { get; }
     public uint TicksPerSecond { get; }
     public bool SpawnCreatures { get; }
+    public bool KeepInventory { get; }
     public PlayerSessionSnapshot Player { get; }
     public IReadOnlyList<SphereClockSnapshot> Spheres => _spheres;
 }
@@ -229,7 +232,8 @@ public static class GameplaySessionSaveCodec
         return new GameplaySessionSnapshot(
             spatial, source.Name, source.GameRules.TicksPerSecond,
             source.GameRules.SpawnCreatures,
-            source.Player.CaptureState(), clocks, activeSphere);
+            source.Player.CaptureState(), clocks, activeSphere,
+            source.GameRules.KeepInventory);
     }
 
     public static DimensionSessionStateStore Restore(
@@ -250,6 +254,7 @@ public static class GameplaySessionSaveCodec
             blocks, fluids, dyes, layers);
         restored.GameRules.SetTicksPerSecond(snapshot.TicksPerSecond);
         restored.GameRules.SetSpawnCreatures(snapshot.SpawnCreatures);
+        restored.GameRules.SetKeepInventory(snapshot.KeepInventory);
         restored.Player.RestoreState(snapshot.Player);
         foreach (var clock in snapshot.Spheres)
         {
