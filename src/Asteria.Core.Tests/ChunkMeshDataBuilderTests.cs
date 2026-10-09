@@ -14,8 +14,7 @@ public sealed class ChunkMeshDataBuilderTests
             new BlockDefinition("asteria:stone_spike",
                 textures: new BlockTextureSet(top: [texture]),
                 shape: BlockShapeDefinition.Spike(
-                    baseRadius: 0.42f, sides: 7,
-                    irregularity: 0.12f, taperPower: 1.3f)),
+                    baseRadius: 0.42f, taperPower: 1.3f)),
         ]);
         var chunk = new Chunk();
         var spike = blocks.GetId("asteria:stone_spike");
@@ -30,26 +29,40 @@ public sealed class ChunkMeshDataBuilderTests
                 ["textures/test/spike.png"] = 0,
             }), 0);
 
-        // Each of seven sides contributes 2 side triangles, one top
-        // triangle, and one bottom triangle. The ends have no gaps.
-        Assert.Equal(28, mesh.TriangleCount);
-        Assert.Equal(28, mesh.CollisionTriangleCount);
+        // Cuboid tiers have only axis-aligned faces; render and
+        // collision are derived from the same closed geometry.
+        Assert.True(mesh.TriangleCount >= 12);
+        Assert.Equal(mesh.TriangleCount, mesh.CollisionTriangleCount);
         Assert.Contains(mesh.RenderBatches.SelectMany(batch => batch.Vertices),
             vertex => vertex.Normal == Vector3.UnitY);
         Assert.Contains(mesh.RenderBatches.SelectMany(batch => batch.Vertices),
             vertex => vertex.Normal == -Vector3.UnitY);
 
         var vertices = mesh.RenderBatches.SelectMany(batch => batch.Vertices).ToArray();
+        foreach (var vertex in vertices)
+        {
+            // The grid-aligned shape cannot rotate or introduce diagonals.
+            Assert.Equal(MathF.Round(vertex.Position.X * 32f),
+                vertex.Position.X * 32f, 4);
+            Assert.Equal(MathF.Round(vertex.Position.Y * 4f),
+                vertex.Position.Y * 4f, 4);
+            Assert.Equal(MathF.Round(vertex.Position.Z * 32f),
+                vertex.Position.Z * 32f, 4);
+        }
         for (var index = 0; index < vertices.Length; index += 3)
         {
             var normal = vertices[index].Normal;
-            if (normal != Vector3.UnitY && normal != -Vector3.UnitY)
-                continue;
+            Assert.Contains(normal, new[]
+            {
+                Vector3.UnitX, -Vector3.UnitX,
+                Vector3.UnitY, -Vector3.UnitY,
+                Vector3.UnitZ, -Vector3.UnitZ,
+            });
             var a = vertices[index].Position;
             var b = vertices[index + 1].Position;
             var c = vertices[index + 2].Position;
             Assert.True(Vector3.Dot(Vector3.Cross(b - a, c - a), normal) > 0f,
-                $"Spike end cap winding is reversed at triangle {index / 3}.");
+                $"Square spike face winding is reversed at triangle {index / 3}.");
         }
     }
 

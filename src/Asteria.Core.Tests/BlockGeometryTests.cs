@@ -5,17 +5,25 @@ namespace Asteria.Core.Tests;
 public sealed class BlockGeometryTests
 {
     [Fact]
-    public void SpikeTaperAndIrregularityAreValidatedAndAffectProfile()
+    public void SpikeSquareTaperMatchesItsVoxelOccupancy()
     {
-        var smooth = BlockShapeDefinition.Spike(
-            taperPower: 1f);
-        var curved = BlockShapeDefinition.Spike(
-            taperPower: 1.5f, irregularity: 0.12f);
+        var smooth = BlockShapeDefinition.Spike(taperPower: 1f);
+        var curved = BlockShapeDefinition.Spike(taperPower: 1.5f);
         var state = SpikeSegmentState.Encode(1, 5, false);
-        Assert.True(SpikeSegmentState.RadiusAt(curved, state, 0.5f) >
-                    SpikeSegmentState.RadiusAt(smooth, state, 0.5f));
-        Assert.ThrowsAny<ArgumentException>(() =>
-            BlockShapeDefinition.Spike(irregularity: 0.26f));
+        Assert.True(SpikeSegmentState.HalfWidthAt(curved, state, 0.5f) >=
+                    SpikeSegmentState.HalfWidthAt(smooth, state, 0.5f));
+        var width = SpikeSegmentState.HalfWidthAt(curved, state, 0.5f);
+        Assert.Equal(MathF.Round(width * BlockGeometry.Resolution),
+            width * BlockGeometry.Resolution, 4);
+
+        var block = new BlockDefinition("asteria:test_spike",
+            shape: BlockShapeDefinition.Spike());
+        var single = new VoxelCell(new BlockRuntimeId(1),
+            state: SpikeSegmentState.Encode(0, 1, false));
+        Assert.True(BlockGeometry.IsOccupied(
+            block, single, MicroblockMask.Empty, 4, 0, 4));
+        Assert.False(BlockGeometry.IsOccupied(
+            block, single, MicroblockMask.Empty, 1, 0, 1));
         Assert.ThrowsAny<ArgumentException>(() =>
             BlockShapeDefinition.Spike(taperPower: 0.4f));
     }

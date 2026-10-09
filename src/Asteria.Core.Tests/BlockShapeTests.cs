@@ -39,6 +39,24 @@ public sealed class BlockShapeTests
         Assert.False(definition.Shape.IsStackableLayer);
     }
 
+    [Theory]
+    [InlineData("sides")]
+    [InlineData("irregularity")]
+    public void SpikeJsonRejectsLegacyPolygonAttributes(string field)
+    {
+        var json =
+            $"""
+            {
+              "id": "asteria:test_spike",
+              "shape": {
+                "type": "spike",
+                "{{field}}": 7
+              }
+            }
+            """;
+        Assert.Throws<FormatException>(() => BlockDefinitionJson.Parse(json));
+    }
+
     [Fact]
     public void HollowShapeKeepsWallThicknessSeparateFromOrientation()
     {
