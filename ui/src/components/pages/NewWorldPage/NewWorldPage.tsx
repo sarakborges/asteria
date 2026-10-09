@@ -26,6 +26,7 @@ export type NewWorldPageProps = {
   onCreate(request: {
     seed: string; name: string; mode: GameMode; ticksPerSecond: string;
     spawnCreatures: boolean;
+    keepInventory: boolean;
     generation: WorldGenerationDraft;
   }): void;
   onRandomize(): void;
@@ -41,6 +42,7 @@ export function NewWorldPage({
   const [mode, setMode] = useState(state.mode);
   const [ticksPerSecond, setTicksPerSecond] = useState(state.ticksPerSecond);
   const [spawnCreatures, setSpawnCreatures] = useState(state.spawnCreatures);
+  const [keepInventory, setKeepInventory] = useState(state.keepInventory);
   const [generation, setGeneration] = useState(state.generation);
   const [missingBiome, setMissingBiome] = useState(false);
 
@@ -57,7 +59,7 @@ export function NewWorldPage({
       return;
     }
     onCreate({ seed: seed.trim(), name, mode, ticksPerSecond,
-      spawnCreatures, generation });
+      spawnCreatures, keepInventory, generation });
   };
   const setFlag = (
     key: "spawnStructures" | "singleBiome" | "spawnCaves" | "spawnOceans",
@@ -224,6 +226,11 @@ export function NewWorldPage({
             control={<Toggle ariaLabel={t("settings.spawnCreatures")}
               checked={spawnCreatures} disabled={state.pending}
               onChange={setSpawnCreatures} />} />
+          <SettingRow title={t("settings.keepInventory")}
+            description={t("settings.keepInventory.description")}
+            control={<Toggle ariaLabel={t("settings.keepInventory")}
+              checked={keepInventory} disabled={state.pending}
+              onChange={setKeepInventory} />} />
         </div>
       ),
     },
