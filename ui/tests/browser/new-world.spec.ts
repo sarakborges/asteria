@@ -49,7 +49,7 @@ async function expectActualWorldSettings(page: Page) {
   expect(seedRect!.y).toBeLessThan(modeRect!.y);
 
   await expect(gameRules.locator(".numeric-stepper")).toHaveCount(1);
-  await expect(gameRules.getByRole("switch")).toHaveCount(1);
+  await expect(gameRules.getByRole("switch")).toHaveCount(2);
 
   return { nav, content, worldSettings, worldGeneration, gameRules };
 }
@@ -109,7 +109,10 @@ test("640px game window retains MineClone left navigation", async ({ page }) => 
 test("Game Rules respects the existing Spawn Creatures flag", async ({ page }) => {
   await page.goto(STORY + "no-creature-spawning&viewMode=story");
   const { gameRules } = await expectActualWorldSettings(page);
-  await expect(gameRules.getByRole("switch")).toHaveAttribute("aria-checked", "false");
+  await expect(gameRules.getByRole("switch", { name: "Spawn Creatures" }))
+    .toHaveAttribute("aria-checked", "false");
+  await expect(gameRules.getByRole("switch", { name: "Keep Inventory" }))
+    .toHaveAttribute("aria-checked", "true");
 });
 
 test("initial menu contains no language selector", async ({ page }) => {
