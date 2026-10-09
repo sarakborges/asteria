@@ -18,8 +18,8 @@ internal sealed class PlayerEquipmentPresentation
         Enumerable.Range(0, PlayerInventory.EquipmentSlots)
             .Select(_ => new List<MeshInstance3D>()).ToArray();
     private ulong _lastRevision = ulong.MaxValue;
-    private readonly InventoryEntry?[] _displayed =
-        new InventoryEntry?[PlayerInventory.EquipmentSlots];
+    private readonly string?[] _displayed =
+        new string?[PlayerInventory.EquipmentSlots];
 
     public PlayerEquipmentPresentation(
         Node scene, PlayerInventory inventory,
@@ -42,7 +42,10 @@ internal sealed class PlayerEquipmentPresentation
         {
             var index = (int)slot;
             var current = _inventory.EquipmentAt(slot)?.Entry;
-            if (Equals(_displayed[index], current)) continue;
+            // Item metadata (such as durability) does not affect authored
+            // armor geometry. Rebuild only when the actual item changes.
+            if (string.Equals(_displayed[index], current?.Id,
+                    StringComparison.Ordinal)) continue;
 
             var appearance = Resolve(slot, current);
             // Resolve before releasing the current presentation; invalid
@@ -57,7 +60,7 @@ internal sealed class PlayerEquipmentPresentation
             if (appearance is not null)
                 foreach (var part in appearance.Parts)
                     _published[index].Add(Publish(part));
-            _displayed[index] = current;
+            _displayed[index] = current?.Id;
             changed = true;
         }
         _lastRevision = _inventory.Revision;
