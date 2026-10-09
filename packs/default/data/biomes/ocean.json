@@ -45,7 +45,7 @@
         "depth": 4,
         "patch": {
           "scale": 44,
-          "coverage": 0.3,
+          "coverage": 0.34,
           "roughness": 0.36,
           "blocks": [
             "asteria:gravel",
@@ -61,6 +61,9 @@
             "asteria:gravel": 2,
             "asteria:clay": 2,
             "asteria:stone_cobble": 2
+          },
+          "conditions": {
+            "maxY": 86
           }
         }
       },
