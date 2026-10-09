@@ -246,11 +246,10 @@ public sealed class PlayerInventory
         }
         else
         {
-            var metadata = previous.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal)
-            {
-                [EquipmentDurability.MetadataKey] =
-                    (current - 1).ToString(System.Globalization.CultureInfo.InvariantCulture),
-            };
+            var metadata = previous.ToDictionary(
+                pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+            metadata[EquipmentDurability.MetadataKey] =
+                (current - 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
             _equipment[index] = new InventoryStack(InventoryEntry.FromItem(
                 equipped.Id, metadata, maxStackSize: 1));
         }
