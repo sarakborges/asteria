@@ -711,3 +711,29 @@ Each object owns a 64×64 pack texture and uses the generic
 conditions. The existing block support lifecycle handles removal
 of underlying solids. No material, hydrology or terrain-generation
 behavior was modified.
+
+## Desert surface enrichment
+
+The default Desert keeps its existing `dunes` terrain, Sand (8) /
+Sandstone (4) / Stone palette, three habitat bands and 2D biome
+region rules. Four decorations enrich the *air voxels above* actual
+Sand support rather than changing the terrain or introducing
+random Gravel patches:
+
+- `desert_dune_grass`: wind-animated dry grass on Sand, mainly
+  in flat sandy habitats and rare on exposed dunes;
+- `desert_thornbush`: sparse woody scrub on low-slope sandy
+  pockets, weighted toward `sand_flats` and outcrop habitats;
+- `desert_yucca`: stiff-leaved desert vegetation mainly in the
+  `sandstone_outcrops` habitat and absent on `open_dunes`;
+- `desert_sandstone_spur`: rare, single-voxel, square-section
+  Sandstone-like formation favoring outcrop habitats and flat
+  Sand support. It uses the generic Spike block shape.
+
+Every new block has a pack-owned 64×64 pixel-art texture and
+the same ordinary `support_below` physics. Rules author
+`surfaceBlocks`, `habitatWeights`, `cluster`, height and
+slope restrictions; their world-space entropy remains stable
+across chunks. The Desert intentionally gets no Pebbles,
+Gravel patches, generated surface fluid, erosion or terrain
+alteration. No Core generator code was changed.

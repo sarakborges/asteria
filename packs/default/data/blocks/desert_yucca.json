@@ -1,0 +1,26 @@
+{
+  "id": "asteria:desert_yucca",
+  "category": "foliage",
+  "tags": [
+    "support_below"
+  ],
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/desert_yucca.png",
+    "width": 0.78,
+    "height": 0.91,
+    "planes": 4
+  },
+  "placementFaces": [
+    "top"
+  ],
+  "mining": {
+    "hardness": 0.12
+  },
+  "isCollidable": false,
+  "castsShadow": false,
+  "lightDampening": 0,
+  "alphaCutoff": 0.5,
+  "previewColor": "788f68",
+  "dropsSelf": false
+}

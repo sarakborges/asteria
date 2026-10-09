@@ -1,0 +1,35 @@
+{
+  "id": "asteria:desert_sandstone_spur",
+  "category": "natural_blocks",
+  "tags": [
+    "support_below"
+  ],
+  "shape": {
+    "type": "spike",
+    "baseRadius": 0.43,
+    "tipRadius": 0.055,
+    "taperPower": 1.2
+  },
+  "textures": {
+    "top": "textures/blocks/desert_sandstone_spur.png",
+    "bottom": "textures/blocks/desert_sandstone_spur.png",
+    "left": "textures/blocks/desert_sandstone_spur.png",
+    "right": "textures/blocks/desert_sandstone_spur.png",
+    "front": "textures/blocks/desert_sandstone_spur.png",
+    "back": "textures/blocks/desert_sandstone_spur.png"
+  },
+  "placementFaces": [
+    "top"
+  ],
+  "mining": {
+    "hardness": 1.1,
+    "requiredTools": [
+      "pickaxe"
+    ]
+  },
+  "isCollidable": true,
+  "castsShadow": true,
+  "lightDampening": 15,
+  "previewColor": "c99262",
+  "dropsSelf": true
+}

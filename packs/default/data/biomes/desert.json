@@ -59,5 +59,99 @@
         "block": "asteria:stone"
       }
     ]
-  }
+  },
+  "decorations": [
+    {
+      "block": "asteria:desert_dune_grass",
+      "chance": 0.23,
+      "surfaceBlocks": [
+        "asteria:sand"
+      ],
+      "habitatWeights": {
+        "open_dunes": 0.28,
+        "sand_flats": 2.25,
+        "sandstone_outcrops": 0.65
+      },
+      "cluster": {
+        "scale": 32,
+        "threshold": -0.21,
+        "octaves": 4,
+        "transitionWidth": 0.16
+      },
+      "conditions": {
+        "minY": 78,
+        "maxY": 125,
+        "maxSlope": 2.5
+      }
+    },
+    {
+      "block": "asteria:desert_thornbush",
+      "chance": 0.16,
+      "surfaceBlocks": [
+        "asteria:sand"
+      ],
+      "habitatWeights": {
+        "open_dunes": 0.09,
+        "sand_flats": 1.7,
+        "sandstone_outcrops": 1.15
+      },
+      "cluster": {
+        "scale": 37,
+        "threshold": -0.16,
+        "octaves": 4,
+        "transitionWidth": 0.16
+      },
+      "conditions": {
+        "minY": 80,
+        "maxY": 127,
+        "maxSlope": 3
+      }
+    },
+    {
+      "block": "asteria:desert_yucca",
+      "chance": 0.105,
+      "surfaceBlocks": [
+        "asteria:sand"
+      ],
+      "habitatWeights": {
+        "open_dunes": 0,
+        "sand_flats": 0.3,
+        "sandstone_outcrops": 2.3
+      },
+      "cluster": {
+        "scale": 46,
+        "threshold": -0.14,
+        "octaves": 3,
+        "transitionWidth": 0.18
+      },
+      "conditions": {
+        "minY": 82,
+        "maxY": 128,
+        "maxSlope": 3
+      }
+    },
+    {
+      "block": "asteria:desert_sandstone_spur",
+      "chance": 0.065,
+      "surfaceBlocks": [
+        "asteria:sand"
+      ],
+      "habitatWeights": {
+        "open_dunes": 0,
+        "sand_flats": 0.12,
+        "sandstone_outcrops": 2.7
+      },
+      "cluster": {
+        "scale": 51,
+        "threshold": -0.14,
+        "octaves": 3,
+        "transitionWidth": 0.18
+      },
+      "conditions": {
+        "minY": 82,
+        "maxY": 128,
+        "maxSlope": 3.5
+      }
+    }
+  ]
 }

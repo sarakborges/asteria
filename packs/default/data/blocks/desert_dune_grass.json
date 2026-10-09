@@ -1,0 +1,27 @@
+{
+  "id": "asteria:desert_dune_grass",
+  "category": "foliage",
+  "tags": [
+    "support_below"
+  ],
+  "windSway": true,
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/desert_dune_grass.png",
+    "width": 0.74,
+    "height": 0.75,
+    "planes": 4
+  },
+  "placementFaces": [
+    "top"
+  ],
+  "mining": {
+    "hardness": 0.05
+  },
+  "isCollidable": false,
+  "castsShadow": false,
+  "lightDampening": 0,
+  "alphaCutoff": 0.5,
+  "previewColor": "bda274",
+  "dropsSelf": false
+}
