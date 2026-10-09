@@ -13,10 +13,12 @@ const runtimeState = {
     slots: [
       {
         id: "asteria:stone",
+        kind: "block" as const,
         quantity: 64,
       },
       {
         id: "asteria:grass_block",
+        kind: "block" as const,
         quantity: 32,
       },
       {
@@ -92,6 +94,16 @@ const meta = {
   args: {
     embedded: true,
     state: runtimeState,
+    catalog: [{
+      id: "asteria:grass_block",
+      name: "Grass Block", kind: "block",
+      category: "natural_blocks", metadata: {},
+      blockPreview: {
+        kind: "cube", top: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9T9VJ9QAAAAASUVORK5CYII=",
+        front: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9T9VJ9QAAAAASUVORK5CYII=",
+        right: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9T9VJ9QAAAAASUVORK5CYII=",
+      },
+    }],
     onPing: () => undefined,
     onDismissToast: () => undefined,
   },
