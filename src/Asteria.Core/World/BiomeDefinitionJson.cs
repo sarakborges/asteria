@@ -744,14 +744,22 @@ public static class BiomeDefinitionJson
         return decorations;
     }
 
-    private static DecorationFluidPlacement ParseDecorationFluidPlacement(JsonElement decoration) =>
-        OptionalString(decoration, "fluidPlacement") switch
+    private static DecorationFluidPlacement ParseDecorationFluidPlacement(JsonElement decoration)
+    {
+        if (!decoration.TryGetProperty("fluidPlacement", out var value))
+            return DecorationFluidPlacement.Dry;
+        if (value.ValueKind != JsonValueKind.String)
+            throw new FormatException("decorations.fluidPlacement must be a string.");
+
+        return value.GetString() switch
         {
-            null or "dry" => DecorationFluidPlacement.Dry,
+            "dry" => DecorationFluidPlacement.Dry,
             "submerged" => DecorationFluidPlacement.Submerged,
             "any" => DecorationFluidPlacement.Any,
-            _ => throw new FormatException("Unknown decorations.fluidPlacement (expected dry, submerged or any)."),
+            _ => throw new FormatException(
+                "Unknown decorations.fluidPlacement (expected dry, submerged or any)."),
         };
+    }
 
     private static BiomeDecorationClusterDefinition? ParseDecorationCluster(
         JsonElement decoration)
