@@ -1900,19 +1900,25 @@ public sealed class BiomeWorldGenerationTests
             generator.VolumeBiomes, volumeId, 220);
 
         (int X, int Y, int Z)? target = null;
-        for (var dz = -32; dz <= 32 && target is null; dz += 2)
-        for (var dx = -32; dx <= 32 && target is null; dx += 2)
+        // Volume ownership does not imply that an additive formation exists
+        // at every X/Z. First find a solid island above the ground, then
+        // locate its exposed top. This is independent of surface biome height.
+        for (var dz = -128; dz <= 128 && target is null; dz += 8)
+        for (var dx = -128; dx <= 128 && target is null; dx += 8)
         {
             var x = floating.X + dx;
             var z = floating.Z + dz;
             var surface = generator.SurfaceHeight(x, z);
-            // Floating tops must be searched above the base surface.
-            // The previous upper bound depended on an unrelated surface
-            // biome's elevation and skipped islands above low/ocean terrain.
-            for (var y = 281; y >= 204; y--)
+            if (surface >= 240 ||
+                generator.VolumeBiomes.Sample(x, 240, z)?.Primary != volumeId ||
+                generator.DensityAt(x, 240, z) < 0d)
             {
-                if (y <= surface + 1 ||
-                    generator.VolumeBiomes.Sample(x, y - 1, z)?.Primary != volumeId ||
+                continue;
+            }
+
+            for (var y = 281; y > 240; y--)
+            {
+                if (generator.VolumeBiomes.Sample(x, y - 1, z)?.Primary != volumeId ||
                     generator.DensityAt(x, y - 1, z) < 0d ||
                     generator.DensityAt(x, y, z) >= 0d)
                     continue;
