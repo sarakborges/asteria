@@ -204,7 +204,7 @@ public sealed class SurfaceStructureTests
             structures.ResolvesReference(
                 "asteria:river_ocean_mouth"));
         Assert.Equal(
-            62,
+            74,
             overworld
                 .GeneratedSurfaceStructures
                 .Count);
