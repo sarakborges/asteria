@@ -1,0 +1,27 @@
+{
+  "id": "asteria:alpine_sedge",
+  "category": "foliage",
+  "tags": [
+    "support_below"
+  ],
+  "windSway": true,
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/alpine_sedge.png",
+    "width": 0.78,
+    "height": 0.76,
+    "planes": 4
+  },
+  "placementFaces": [
+    "top"
+  ],
+  "mining": {
+    "hardness": 0.05
+  },
+  "isCollidable": false,
+  "castsShadow": false,
+  "lightDampening": 0,
+  "alphaCutoff": 0.5,
+  "previewColor": "a9b88a",
+  "dropsSelf": false
+}

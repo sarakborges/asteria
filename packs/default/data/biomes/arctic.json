@@ -46,6 +46,79 @@
         "ice_fields": 0.75,
         "rocky_ridges": 2.35
       }
+    },
+    {
+      "block": "asteria:frost_shrub",
+      "chance": 0.18,
+      "surfaceBlocks": [
+        "asteria:snow",
+        "asteria:gravel"
+      ],
+      "habitatWeights": {
+        "frozen_plain": 2.05,
+        "ice_fields": 0.18,
+        "rocky_ridges": 0.67
+      },
+      "cluster": {
+        "scale": 33,
+        "threshold": -0.25,
+        "octaves": 4,
+        "transitionWidth": 0.16
+      },
+      "conditions": {
+        "minY": 84,
+        "maxY": 115,
+        "maxSlope": 3
+      }
+    },
+    {
+      "block": "asteria:frost_lichen",
+      "chance": 0.16,
+      "surfaceBlocks": [
+        "asteria:snow",
+        "asteria:ice",
+        "asteria:gravel"
+      ],
+      "habitatWeights": {
+        "frozen_plain": 0.85,
+        "ice_fields": 1.45,
+        "rocky_ridges": 0.68
+      },
+      "cluster": {
+        "scale": 25,
+        "threshold": -0.24,
+        "octaves": 3,
+        "transitionWidth": 0.18
+      },
+      "conditions": {
+        "minY": 83,
+        "maxY": 115,
+        "maxSlope": 4
+      }
+    },
+    {
+      "block": "asteria:glacial_shard",
+      "chance": 0.07,
+      "surfaceBlocks": [
+        "asteria:ice",
+        "asteria:snow"
+      ],
+      "habitatWeights": {
+        "frozen_plain": 0.18,
+        "ice_fields": 2.45,
+        "rocky_ridges": 0.27
+      },
+      "cluster": {
+        "scale": 40,
+        "threshold": -0.14,
+        "octaves": 3,
+        "transitionWidth": 0.19
+      },
+      "conditions": {
+        "minY": 87,
+        "maxY": 113,
+        "maxSlope": 2
+      }
     }
   ],
   "surfaceHabitats": {

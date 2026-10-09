@@ -662,3 +662,28 @@ chunk-boundary differences. Existing cave ceilings continue to use
 their CarvedVoid palette and original placement path. The terrain
 density, island footprint, vertical band and base voxel materials
 are unchanged.
+
+## Arctic and Alps authored microflora and ice formations
+
+Arctic and Alps keep their original terrain shapes, palettes, patch
+settings and habitat definitions. The default pack introduces five
+64x64-pixel objects using existing sprite/spike meshing and
+`decorations` rules, not new hardcoded generator systems:
+
+- `frost_shrub`: low, ice-rimmed vegetation native to Arctic frozen
+  plains, concentrated on Snow and rare exposed Gravel.
+- `frost_lichen`: compact pale lichen (groundSprite) shared by Arctic
+  and Alps, favoring ice fields and glacial habitats.
+- `glacial_shard`: short, square-profile ice crystals (spike shape)
+  on Snow/Ice, infrequent outside icy habitats and flat supports.
+- `alpine_edelweiss`: small pale flower, favoring sheltered snowy
+  Alps slopes and avoiding sheer rock faces.
+- `alpine_sedge`: wind-animated cold grass, focused on exposed
+  rocky Alpine habitats at moderate-to-high elevations.
+
+Authoring controls include allowed solid support blocks, continuous
+cluster noise, minimum/maximum height, maximum slope and the
+existing habitat weights. No biome terrain/palette/noise changes,
+additional tile height, additive structures, or generated fluids
+are introduced. The block definitions retain ordinary lower-face
+support physics, so destroying the support breaks the plants.

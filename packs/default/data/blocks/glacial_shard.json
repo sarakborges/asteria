@@ -1,0 +1,35 @@
+{
+  "id": "asteria:glacial_shard",
+  "category": "natural_blocks",
+  "tags": [
+    "support_below"
+  ],
+  "shape": {
+    "type": "spike",
+    "baseRadius": 0.43,
+    "tipRadius": 0.07,
+    "taperPower": 1
+  },
+  "textures": {
+    "top": "textures/blocks/glacial_shard.png",
+    "bottom": "textures/blocks/glacial_shard.png",
+    "left": "textures/blocks/glacial_shard.png",
+    "right": "textures/blocks/glacial_shard.png",
+    "front": "textures/blocks/glacial_shard.png",
+    "back": "textures/blocks/glacial_shard.png"
+  },
+  "placementFaces": [
+    "top"
+  ],
+  "mining": {
+    "hardness": 0.7,
+    "requiredTools": [
+      "pickaxe"
+    ]
+  },
+  "isCollidable": true,
+  "castsShadow": true,
+  "lightDampening": 1,
+  "previewColor": "a2d8ec",
+  "dropsSelf": true
+}

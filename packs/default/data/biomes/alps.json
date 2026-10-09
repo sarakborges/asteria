@@ -50,6 +50,103 @@
         "minY": 100,
         "maxSlope": 15
       }
+    },
+    {
+      "block": "asteria:alpine_edelweiss",
+      "chance": 0.11,
+      "surfaceBlocks": [
+        "asteria:snow",
+        "asteria:gravel",
+        "asteria:stone"
+      ],
+      "habitatWeights": {
+        "snowfields": 2.3,
+        "glacial_ice": 0.16,
+        "wind_scoured_rock": 0.62
+      },
+      "cluster": {
+        "scale": 35,
+        "threshold": -0.19,
+        "octaves": 4,
+        "transitionWidth": 0.15
+      },
+      "conditions": {
+        "minY": 108,
+        "maxSlope": 4
+      }
+    },
+    {
+      "block": "asteria:alpine_sedge",
+      "chance": 0.19,
+      "surfaceBlocks": [
+        "asteria:snow",
+        "asteria:stone",
+        "asteria:gravel"
+      ],
+      "habitatWeights": {
+        "snowfields": 0.62,
+        "glacial_ice": 0.08,
+        "wind_scoured_rock": 2.2
+      },
+      "cluster": {
+        "scale": 27,
+        "threshold": -0.24,
+        "octaves": 4,
+        "transitionWidth": 0.18
+      },
+      "conditions": {
+        "minY": 99,
+        "maxY": 177,
+        "maxSlope": 5
+      }
+    },
+    {
+      "block": "asteria:frost_lichen",
+      "chance": 0.12,
+      "surfaceBlocks": [
+        "asteria:snow",
+        "asteria:ice",
+        "asteria:gravel",
+        "asteria:stone"
+      ],
+      "habitatWeights": {
+        "snowfields": 0.8,
+        "glacial_ice": 1.85,
+        "wind_scoured_rock": 0.28
+      },
+      "cluster": {
+        "scale": 29,
+        "threshold": -0.2,
+        "octaves": 3,
+        "transitionWidth": 0.18
+      },
+      "conditions": {
+        "minY": 103,
+        "maxSlope": 4
+      }
+    },
+    {
+      "block": "asteria:glacial_shard",
+      "chance": 0.078,
+      "surfaceBlocks": [
+        "asteria:ice",
+        "asteria:snow"
+      ],
+      "habitatWeights": {
+        "snowfields": 0.3,
+        "glacial_ice": 2.6,
+        "wind_scoured_rock": 0.08
+      },
+      "cluster": {
+        "scale": 42,
+        "threshold": -0.12,
+        "octaves": 3,
+        "transitionWidth": 0.2
+      },
+      "conditions": {
+        "minY": 119,
+        "maxSlope": 3
+      }
     }
   ],
   "surfaceHabitats": {
