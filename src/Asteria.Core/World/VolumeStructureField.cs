@@ -147,7 +147,7 @@ public sealed class VolumeStructureField
                 var variant = rule.Variants[
                     (int)(WorldGenerationEntropy.Sample2D(
                         _seed, rule.Domain, x + 509, z + 1021) %
-                        (uint)rule.Variants.Length)];
+                        (uint)rule.Variants.Count)];
                 var anchor = _anchors.GetOrAdd(
                     new CandidateKey(ruleIndex, x, z),
                     () => TryAnchor(rule, variant, (int)wx, (int)wz,
