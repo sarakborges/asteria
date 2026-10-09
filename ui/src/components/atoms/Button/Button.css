@@ -89,3 +89,12 @@
   opacity: 0.45;
   cursor: default;
 }
+
+.ui-button__icon {
+  width: var(--ui-inventory-category-icon-size, 24px);
+  height: var(--ui-inventory-category-icon-size, 24px);
+  flex: 0 0 auto;
+  object-fit: contain;
+  image-rendering: pixelated;
+  margin-right: 8px;
+}
