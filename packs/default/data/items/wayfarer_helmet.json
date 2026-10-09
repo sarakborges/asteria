@@ -49,5 +49,6 @@
         "color": "#D4AD73"
       }
     ]
-  }
+  },
+  "damageReduction": 0.08
 }

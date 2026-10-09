@@ -63,5 +63,6 @@
         "color": "#B58E5A"
       }
     ]
-  }
+  },
+  "damageReduction": 0.12
 }
