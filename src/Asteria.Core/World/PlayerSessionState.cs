@@ -25,6 +25,8 @@ public sealed class PlayerSessionState
 
     public PlayerHealth Health { get; } = new();
 
+    public PlayerHazardRuntime Hazards { get; } = new();
+
     public HeldBlockPlacement HeldBlock { get; } = new();
 
     public PlayerInventory Inventory { get; } = new();
@@ -46,6 +48,7 @@ public sealed class PlayerSessionState
 
         Inventory.Restore(snapshot.Inventory);
         Health.Restore(snapshot.Health);
+        Hazards.Reset();
         GameMode = snapshot.GameMode;
         IsFlying = snapshot.Flying;
         CancelDoubleTap();
