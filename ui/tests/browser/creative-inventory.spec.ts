@@ -30,7 +30,7 @@ test("Creative search matches localized names and metadata variants", async ({ p
   await expect(grid.locator(".inventory-slot")).toHaveAttribute("aria-label", /Water/);
   await search.fill("stone_37");
   await expect(grid.locator(".inventory-slot")).toHaveCount(1);
-  await expect(grid.locator(".inventory-slot")).toHaveAttribute("aria-label", /stone_37/i);
+  await expect(grid.locator(".inventory-slot")).toHaveAttribute("aria-label", /Stone 37/i);
 });
 
 test("Creative retains scroll separately per category and across tab switching", async ({ page }) => {
@@ -38,7 +38,7 @@ test("Creative retains scroll separately per category and across tab switching",
   const categories = page.locator(".creative-inventory-panel__category-list");
   const grid = page.locator(".creative-inventory-panel__grid");
   await categories.getByRole("button", { name: "Stone Blocks" }).click();
-  await expect(grid.locator(".inventory-slot")).toHaveCount(101);
+  await expect(grid.locator(".inventory-slot")).toHaveCount(102);
 
   await grid.evaluate(element => { element.scrollTop = 320; element.dispatchEvent(new Event("scroll")); });
   await expect.poll(() => grid.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
