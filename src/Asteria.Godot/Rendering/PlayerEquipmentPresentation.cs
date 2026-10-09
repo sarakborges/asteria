@@ -17,6 +17,7 @@ internal sealed class PlayerEquipmentPresentation
     private readonly List<MeshInstance3D>[] _published =
         Enumerable.Range(0, PlayerInventory.EquipmentSlots)
             .Select(_ => new List<MeshInstance3D>()).ToArray();
+    private ulong _lastRevision = ulong.MaxValue;
     private readonly InventoryEntry?[] _displayed =
         new InventoryEntry?[PlayerInventory.EquipmentSlots];
 
@@ -35,6 +36,7 @@ internal sealed class PlayerEquipmentPresentation
 
     public bool Sync()
     {
+        if (_lastRevision == _inventory.Revision) return false;
         var changed = false;
         foreach (var slot in Enum.GetValues<EquipmentSlot>())
         {
@@ -58,6 +60,7 @@ internal sealed class PlayerEquipmentPresentation
             _displayed[index] = current;
             changed = true;
         }
+        _lastRevision = _inventory.Revision;
         return changed;
     }
 
