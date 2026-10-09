@@ -16,39 +16,6 @@
     "detailAmplitude": 1,
     "detailScale": 0.045
   },
-  "surfaceLayers": [
-    {
-      "block": "asteria:grass_block",
-      "depth": 1,
-      "patch": {
-        "scale": 30,
-        "coverage": 0.24,
-        "roughness": 0.34,
-        "blocks": [
-          "asteria:dirt",
-          "asteria:gravel",
-          "asteria:stone"
-        ],
-        "detailScale": 10,
-        "selectionScale": 78,
-        "warpScale": 73,
-        "warpStrength": 12,
-        "stretchZ": 1.43,
-        "weights": {
-          "asteria:dirt": 4,
-          "asteria:gravel": 2,
-          "asteria:stone": 1
-        }
-      }
-    },
-    {
-      "block": "asteria:dirt",
-      "depth": 4
-    },
-    {
-      "block": "asteria:stone"
-    }
-  ],
   "tints": {
     "grass": "44526E",
     "leaf": "373F6F",
@@ -124,6 +91,41 @@
       {
         "id": "stony_fields",
         "maximum": 1
+      }
+    ]
+  },
+  "palette": {
+    "default": [
+      {
+        "block": "asteria:grass_block",
+        "depth": 1,
+        "patch": {
+          "scale": 30,
+          "coverage": 0.24,
+          "roughness": 0.34,
+          "blocks": [
+            "asteria:dirt",
+            "asteria:gravel",
+            "asteria:stone"
+          ],
+          "detailScale": 10,
+          "selectionScale": 78,
+          "warpScale": 73,
+          "warpStrength": 12,
+          "stretchZ": 1.43,
+          "weights": {
+            "asteria:dirt": 4,
+            "asteria:gravel": 2,
+            "asteria:stone": 1
+          }
+        }
+      },
+      {
+        "block": "asteria:dirt",
+        "depth": 4
+      },
+      {
+        "block": "asteria:stone"
       }
     ]
   }

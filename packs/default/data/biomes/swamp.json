@@ -38,51 +38,6 @@
       }
     ]
   },
-  "surfaceLayers": [
-    {
-      "block": "asteria:grass_block",
-      "depth": 1,
-      "patch": {
-        "scale": 28,
-        "coverage": 0.52,
-        "roughness": 0.3,
-        "blocks": [
-          "asteria:dirt",
-          "asteria:mud"
-        ],
-        "conditions": {
-          "maxSlope": 2
-        },
-        "detailScale": 9,
-        "selectionScale": 70,
-        "warpScale": 62,
-        "warpStrength": 9,
-        "stretchZ": 0.75,
-        "weights": {
-          "asteria:dirt": 1,
-          "asteria:mud": 3
-        }
-      }
-    },
-    {
-      "block": "asteria:dirt",
-      "depth": 4,
-      "patch": {
-        "scale": 38,
-        "coverage": 0.44,
-        "roughness": 0.24,
-        "blocks": [
-          "asteria:mud"
-        ],
-        "conditions": {
-          "maxY": 94
-        }
-      }
-    },
-    {
-      "block": "asteria:stone"
-    }
-  ],
   "decorations": [
     {
       "block": "asteria:grass",
@@ -172,6 +127,53 @@
       {
         "id": "fungal_ground",
         "maximum": 1
+      }
+    ]
+  },
+  "palette": {
+    "default": [
+      {
+        "block": "asteria:grass_block",
+        "depth": 1,
+        "patch": {
+          "scale": 28,
+          "coverage": 0.52,
+          "roughness": 0.3,
+          "blocks": [
+            "asteria:dirt",
+            "asteria:mud"
+          ],
+          "conditions": {
+            "maxSlope": 2
+          },
+          "detailScale": 9,
+          "selectionScale": 70,
+          "warpScale": 62,
+          "warpStrength": 9,
+          "stretchZ": 0.75,
+          "weights": {
+            "asteria:dirt": 1,
+            "asteria:mud": 3
+          }
+        }
+      },
+      {
+        "block": "asteria:dirt",
+        "depth": 4,
+        "patch": {
+          "scale": 38,
+          "coverage": 0.44,
+          "roughness": 0.24,
+          "blocks": [
+            "asteria:mud"
+          ],
+          "conditions": {
+            "maxY": 94
+          }
+        }
+      },
+      {
+        "block": "asteria:stone"
       }
     ]
   }
