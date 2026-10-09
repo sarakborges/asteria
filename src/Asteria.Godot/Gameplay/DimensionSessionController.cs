@@ -9,13 +9,20 @@ public enum DimensionTransitionState : byte
     Retiring = 1,
 }
 
+public enum WorldCheckpointDisposition : byte
+{
+    ResumeWorld,
+    ReturnToMenu,
+}
+
 public sealed record DimensionTransitionCompletion(
     DimensionId From,
     DimensionId To,
     DimensionSessionArchiveReport Archive,
     bool IsCheckpoint = false,
     ulong? SavedGeneration = null,
-    string? SaveError = null);
+    string? SaveError = null,
+    bool LeftWorld = false);
 
 public sealed class DimensionSessionController
 {
@@ -36,7 +43,8 @@ public sealed class DimensionSessionController
         BlockRegistry Blocks,
         FluidRegistry Fluids,
         DyeRegistry Dyes,
-        AttachedLayerRegistry Layers);
+        AttachedLayerRegistry Layers,
+        WorldCheckpointDisposition Disposition);
 
     public DimensionSessionController(
         DimensionSessionStateStore states,
@@ -93,6 +101,27 @@ public sealed class DimensionSessionController
         FluidRegistry fluids,
         DyeRegistry dyes,
         AttachedLayerRegistry layers)
+        => BeginCheckpoint(directory, playerPosition,
+            blocks, fluids, dyes, layers, WorldCheckpointDisposition.ResumeWorld);
+
+    public bool RequestSaveAndLeave(
+        string directory,
+        NVector3 playerPosition,
+        BlockRegistry blocks,
+        FluidRegistry fluids,
+        DyeRegistry dyes,
+        AttachedLayerRegistry layers)
+        => BeginCheckpoint(directory, playerPosition,
+            blocks, fluids, dyes, layers, WorldCheckpointDisposition.ReturnToMenu);
+
+    private bool BeginCheckpoint(
+        string directory,
+        NVector3 playerPosition,
+        BlockRegistry blocks,
+        FluidRegistry fluids,
+        DyeRegistry dyes,
+        AttachedLayerRegistry layers,
+        WorldCheckpointDisposition disposition)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(directory);
         ArgumentNullException.ThrowIfNull(blocks);
@@ -107,7 +136,7 @@ public sealed class DimensionSessionController
             return false;
 
         _checkpoint = new CheckpointRequest(
-            directory, blocks, fluids, dyes, layers);
+            directory, blocks, fluids, dyes, layers, disposition);
         _sourcePosition = playerPosition;
         _target = Active.Dimension.Id;
         Active.BeginRetirement();
@@ -210,10 +239,14 @@ public sealed class DimensionSessionController
 
             var retiredArchive = _checkpointArchive ??
                 throw new InvalidOperationException("Checkpoint retirement archive is missing.");
+            var leaving = error is null &&
+                _checkpoint?.Disposition == WorldCheckpointDisposition.ReturnToMenu;
             _checkpointPublication = null;
             _checkpointArchive = null;
             _checkpoint = null;
-            Active = _factory(_states.GetOrCreate(target));
+            // A successful Save and Leave must not instantiate a replacement
+            // Sphere. Failure resumes the archived world and preserves play.
+            Active = leaving ? null! : _factory(_states.GetOrCreate(target));
             _target = null;
             _sourcePosition = null;
             _destinationPosition = null;
@@ -221,7 +254,8 @@ public sealed class DimensionSessionController
                 target, target, retiredArchive,
                 IsCheckpoint: true,
                 SavedGeneration: generation,
-                SaveError: error);
+                SaveError: error,
+                LeftWorld: leaving);
         }
 
         var drain =
