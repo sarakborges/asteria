@@ -2296,9 +2296,43 @@ public partial class Main : Node3D
                     metadata = choice.Entry.Metadata,
                     iconUrl = choice.IconResourcePath is { } path
                         ? IconDataUri(path) : null,
+                    blockPreview = BlockPreviewForInventory(choice.Entry),
                 })
                 .ToArray(),
         });
+    }
+
+    private object? BlockPreviewForInventory(InventoryEntry entry)
+    {
+        if (entry.Kind != InventoryEntryKind.Block)
+            return null;
+
+        var block = _blocks.GetDefinition(_blocks.GetId(entry.Id));
+        if (block.Visual.Texture is { } sprite)
+        {
+            return new
+            {
+                kind = "sprite",
+                front = IconDataUri(sprite.Texture),
+                top = (string?)null,
+                right = (string?)null,
+            };
+        }
+
+        var top = block.Textures.ResolveForFace(BlockFace.Top);
+        var front = block.Textures.ResolveForFace(BlockFace.Front);
+        var right = block.Textures.ResolveForFace(BlockFace.Right);
+        if (front.Count == 0)
+            return null;
+
+        var isCube = block.Shape.Kind == BlockShapeKind.Cube;
+        return new
+        {
+            kind = isCube ? "cube" : "sprite",
+            front = IconDataUri(front[0].Texture),
+            top = isCube && top.Count > 0 ? IconDataUri(top[0].Texture) : null,
+            right = isCube && right.Count > 0 ? IconDataUri(right[0].Texture) : null,
+        };
     }
 
     private string IconDataUri(string resourcePath)
