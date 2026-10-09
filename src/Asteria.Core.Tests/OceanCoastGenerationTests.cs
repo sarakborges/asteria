@@ -4,8 +4,10 @@ namespace Asteria.Core.Tests;
 
 public sealed class OceanCoastGenerationTests
 {
-    [Fact]
-    public void OceanShoreMeetsNeighborWithoutReshapingTheLand()
+    [Theory]
+    [InlineData(6f)]
+    [InlineData(120f)]
+    public void OceanShoreStaysLowAndUphillSlopeStartsInsideLand(float landOffset)
     {
         var blocks = new BlockRegistry(
         [
@@ -36,7 +38,7 @@ public sealed class OceanCoastGenerationTests
                 ]);
 
         var ocean = Biome("asteria:test/ocean", -18f);
-        var land = Biome("asteria:test/land", 6f);
+        var land = Biome("asteria:test/land", landOffset);
         var dimension = new DimensionDefinition(
             new DimensionId("asteria:test"),
             [ocean.Id, land.Id],
@@ -80,7 +82,10 @@ public sealed class OceanCoastGenerationTests
                 var landHeight = generator.SurfaceHeight(landX, z);
                 var oceanHeight = generator.SurfaceHeight(oceanX, z);
 
-                Assert.Equal(96, landHeight);
+                // The ocean must not climb to match even a 120-block
+                // neighboring mountain. Its authored shore is at +2.
+                Assert.InRange(oceanHeight, 91, 93);
+                Assert.InRange(landHeight, 91, (int)(90 + landOffset));
                 Assert.InRange(
                     Math.Abs(oceanHeight - landHeight),
                     0,

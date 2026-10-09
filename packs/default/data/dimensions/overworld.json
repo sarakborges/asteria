@@ -625,8 +625,8 @@
       "jitter": 20,
       "habitatWeights": {
         "open_dunes": 0.04,
-        "gravel_flats": 0.45,
-        "sandstone_outcrops": 2.15
+        "sandstone_outcrops": 2.15,
+        "sand_flats": 0.45
       }
     },
     {
@@ -637,8 +637,8 @@
       "jitter": 37,
       "habitatWeights": {
         "open_dunes": 0.015,
-        "gravel_flats": 0.3,
-        "sandstone_outcrops": 2
+        "sandstone_outcrops": 2,
+        "sand_flats": 0.3
       }
     },
     {

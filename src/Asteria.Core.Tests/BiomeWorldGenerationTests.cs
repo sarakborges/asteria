@@ -73,7 +73,7 @@ public sealed class BiomeWorldGenerationTests
         foreach (var biomeId in new[]
                  {
                      "plains", "wasteland", "mountains", "gorge", "alps",
-                     "desert", "arctic", "swamp", "mountain_belt",
+                     "arctic", "swamp", "mountain_belt",
                  })
         {
             var biome = biomes.Get($"asteria:overworld/{biomeId}");
@@ -82,6 +82,9 @@ public sealed class BiomeWorldGenerationTests
                 decoration => decoration.Block == "asteria:pebble");
             Assert.NotNull(pebble.Cluster);
         }
+
+        Assert.DoesNotContain(biomes.Get("asteria:overworld/desert").Decorations,
+            decoration => decoration.Block == "asteria:pebble");
 
         foreach (var biomeId in new[]
                  {

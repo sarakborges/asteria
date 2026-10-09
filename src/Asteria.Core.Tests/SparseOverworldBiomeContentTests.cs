@@ -6,7 +6,7 @@ public sealed class SparseOverworldBiomeContentTests
 {
     [Theory]
     [InlineData("arctic", "frozen_plain", "ice_fields", "rocky_ridges", 3)]
-    [InlineData("desert", "open_dunes", "gravel_flats", "sandstone_outcrops", 2)]
+    [InlineData("desert", "open_dunes", "sand_flats", "sandstone_outcrops", 2)]
     [InlineData("wasteland", "barren_flats", "deadwood_pockets", "rocky_scrub", 7)]
     public void AuthoredBiomesHaveDeterministicHabitatRegionsAndWeightedRoots(
         string file, string first, string second, string third, int rootCount)
@@ -45,7 +45,6 @@ public sealed class SparseOverworldBiomeContentTests
 
     [Theory]
     [InlineData("arctic", "asteria:snow", "asteria:ice", "asteria:gravel")]
-    [InlineData("desert", "asteria:sand", "asteria:gravel", "asteria:sandstone")]
     [InlineData("wasteland", "asteria:dirt", "asteria:gravel", "asteria:stone")]
     public void OrganicSurfacePatchesAreVariedAndChunkIndependent(
         string file, string baseBlock, string firstAlternative, string secondAlternative)
@@ -75,6 +74,28 @@ public sealed class SparseOverworldBiomeContentTests
         Assert.Contains(blocks.GetId(baseBlock), seen);
         Assert.Contains(blocks.GetId(firstAlternative), seen);
         Assert.Contains(blocks.GetId(secondAlternative), seen);
+    }
+
+    [Fact]
+    public void DesertKeepsSandAtTheSurfaceWithoutGravelPatchesOrPebbles()
+    {
+        var biome = LoadBiome("desert");
+        Assert.Empty(biome.Decorations);
+        Assert.Equal("asteria:sand", biome.Palette.Default[0].Block);
+        Assert.Null(biome.Palette.Default[0].Patch);
+        Assert.Equal("asteria:sandstone", biome.Palette.Default[1].Block);
+        var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
+        var materials = new BiomeSurfaceMaterialField(278UL, [biome], blocks);
+        var sample = new BiomeSample(biome.Id,
+            [new BiomeInfluence(biome.Id, 1f)]);
+        for (var z = -192; z <= 192; z += 16)
+        for (var x = -192; x <= 192; x += 16)
+        {
+            Assert.Equal(blocks.GetId("asteria:sand"),
+                materials.BlockAt(sample, x, z, 0));
+            Assert.Equal(blocks.GetId("asteria:sandstone"),
+                materials.BlockAt(sample, x, z, 8));
+        }
     }
 
     [Theory]

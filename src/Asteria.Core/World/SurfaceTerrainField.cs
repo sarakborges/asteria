@@ -784,13 +784,7 @@ public sealed class SurfaceTerrainField
         if (_coastProfile is not null)
         {
             offset =
-                _coastProfile.AdjustHeightOffset(
-                    sample,
-                    offset,
-                    _seed,
-                    worldX,
-                    worldZ,
-                    _surfaceRules);
+                _coastProfile.AdjustHeightOffset(sample, offset);
         }
 
         var height =
@@ -948,11 +942,7 @@ public sealed class SurfaceTerrainField
 
         public double AdjustHeightOffset(
             BiomeSample sample,
-            double rawOffset,
-            ulong seed,
-            int worldX,
-            int worldZ,
-            IReadOnlyDictionary<string, SurfaceTerrainRule> terrainRules)
+            double rawOffset)
         {
             // The coast belongs entirely to the ocean. A shared transition
             // must never raise (or lower) terrain outside that biome.

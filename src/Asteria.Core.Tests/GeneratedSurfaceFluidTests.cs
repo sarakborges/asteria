@@ -236,10 +236,12 @@ public sealed class GeneratedSurfaceFluidTests
             Assert.IsType<
                 BiomeRollingTerrainShapeDefinition>(
                 swamp.SurfaceTerrain!.Shape);
-        var depressions =
-            Assert.IsType<BiomeDepressionsTerrainModifierDefinition>(
-                Assert.Single(swamp.SurfaceTerrain.Modifiers));
-        Assert.Equal(4.8f, depressions.Depth);
+        var depressions = swamp.SurfaceTerrain.Modifiers
+            .Cast<BiomeDepressionsTerrainModifierDefinition>().ToArray();
+        Assert.Equal(2, depressions.Length);
+        Assert.Equal(4.8f, depressions[0].Depth);
+        Assert.Equal(1.8f, depressions[1].Depth);
+        Assert.True(depressions[1].BroadScale > depressions[0].BroadScale);
         Assert.True(
             swamp.SurfaceTerrain.FillToSeaLevel);
 
@@ -536,7 +538,7 @@ public sealed class GeneratedSurfaceFluidTests
         }
 
         Assert.Equal(
-            BiomeRidgeDetailMode.Ridged,
+            BiomeRidgeDetailMode.Modulated,
             Assert.IsType<BiomeRidgesTerrainShapeDefinition>(
                 biomes.Get("asteria:overworld/alps").SurfaceTerrain!.Shape).DetailMode);
         Assert.Equal(
