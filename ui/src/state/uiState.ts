@@ -149,10 +149,11 @@ export type BrushPaletteState = {
 };
 
 export type GameMode = "Survival" | "Creative" | "Spectator";
-export type OverlayScreen = "none" | "pause" | "game" | "world" | "controls" | "inventory" | "brush" | "storage";
+export type OverlayScreen = "none" | "death" | "pause" | "game" | "world" | "controls" | "inventory" | "brush" | "storage";
 
 export type WorldSettingsState = {
   name: string; mode: GameMode; ticksPerSecond: number; spawnCreatures: boolean;
+  keepInventory: boolean;
 };
 export type ClientSettingsState = {
   renderDistanceChunks: number;
@@ -277,6 +278,7 @@ export type UiNavigationState = {
   preWorldScreen: "starting" | "world-selection" | "new-world";
   overlay: OverlayScreen;
   saveFeedback: "saved" | "error" | null;
+  death: { keepInventory: boolean; droppedStacks: number; dropCapacityExceeded: boolean } | null;
 };
 
 export type WorldCatalogState = {
@@ -385,6 +387,7 @@ export function createInitialUiState(
       preWorldScreen: "starting",
       overlay: "none",
       saveFeedback: null,
+      death: null,
     },
     settings: {
       client: null, world: null,
