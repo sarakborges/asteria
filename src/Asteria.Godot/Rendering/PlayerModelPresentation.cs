@@ -1,6 +1,7 @@
 using Asteria.Client.Content;
 using Asteria.Client.Gameplay;
 using Asteria.Core.Content;
+using Asteria.Core.World;
 using Godot;
 using NVector3 = System.Numerics.Vector3;
 
@@ -40,8 +41,8 @@ public sealed partial class PlayerModelPresentation : Node3D
         var source = ProjectPackFiles.AbsoluteResourcePath(
             _selection, _definition.Model);
         var bytes = File.ReadAllBytes(source);
-        var state = new GLTFState();
-        var document = new GLTFDocument();
+        var state = new GltfState();
+        var document = new GltfDocument();
         var status = document.AppendFromBuffer(bytes, "", state);
         if (status != Error.Ok)
             throw new InvalidDataException(
@@ -187,7 +188,10 @@ public sealed partial class PlayerModelPresentation : Node3D
             }
             arrays[(int)Mesh.ArrayType.TexUV] = uv;
             mapped.AddSurfaceFromArrays(
-                imported.SurfaceGetPrimitiveType(surface), arrays);
+                imported is ArrayMesh sourceMesh
+                    ? sourceMesh.SurfaceGetPrimitiveType(surface)
+                    : Mesh.PrimitiveType.Triangles,
+                arrays);
         }
 
         mesh.Mesh = mapped;
