@@ -2186,6 +2186,12 @@ public partial class Main : Node3D
         var result = _sessionStates.Player.Hazards.TouchCreature(
             amount, protection, _sessionStates.Player.Health,
             _sessionStates.Player.GameMode);
+        if (result != PlayerDamageResult.Ignored &&
+            PlayerEquipmentWear.ApplyContactHit(_sessionStates.Player.Inventory, _items))
+        {
+            SendInventoryState();
+            _playerPortrait?.RequestCapture();
+        }
         ApplyPlayerDamageResult(result);
     }
 
