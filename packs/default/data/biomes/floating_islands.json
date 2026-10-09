@@ -3,19 +3,6 @@
   "volumeLayout": {
     "weight": 0.25
   },
-  "surfaceLayers": [
-    {
-      "block": "asteria:grass_block",
-      "depth": 1
-    },
-    {
-      "block": "asteria:dirt",
-      "depth": 4
-    },
-    {
-      "block": "asteria:stone"
-    }
-  ],
   "terrain3d": {
     "additive": [
       {
@@ -85,5 +72,20 @@
         "maxY": 282
       }
     }
-  ]
+  ],
+  "palette": {
+    "default": [
+      {
+        "block": "asteria:grass_block",
+        "depth": 1
+      },
+      {
+        "block": "asteria:dirt",
+        "depth": 4
+      },
+      {
+        "block": "asteria:stone"
+      }
+    ]
+  }
 }

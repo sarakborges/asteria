@@ -25,39 +25,6 @@
     "detailSharpness": 1.35,
     "detailMode": "ridged"
   },
-  "surfaceLayers": [
-    {
-      "block": "asteria:snow",
-      "depth": 2,
-      "patch": {
-        "scale": 36,
-        "coverage": 0.31,
-        "roughness": 0.36,
-        "blocks": [
-          "asteria:ice",
-          "asteria:gravel",
-          "asteria:stone"
-        ],
-        "detailScale": 11,
-        "selectionScale": 88,
-        "warpScale": 82,
-        "warpStrength": 14,
-        "stretchZ": 1.55,
-        "weights": {
-          "asteria:ice": 5,
-          "asteria:gravel": 1,
-          "asteria:stone": 2
-        },
-        "conditions": {
-          "minY": 110,
-          "maxSlope": 9
-        }
-      }
-    },
-    {
-      "block": "asteria:stone"
-    }
-  ],
   "decorations": [
     {
       "block": "asteria:pebble",
@@ -100,6 +67,41 @@
       {
         "id": "wind_scoured_rock",
         "maximum": 1
+      }
+    ]
+  },
+  "palette": {
+    "default": [
+      {
+        "block": "asteria:snow",
+        "depth": 2,
+        "patch": {
+          "scale": 36,
+          "coverage": 0.31,
+          "roughness": 0.36,
+          "blocks": [
+            "asteria:ice",
+            "asteria:gravel",
+            "asteria:stone"
+          ],
+          "detailScale": 11,
+          "selectionScale": 88,
+          "warpScale": 82,
+          "warpStrength": 14,
+          "stretchZ": 1.55,
+          "weights": {
+            "asteria:ice": 5,
+            "asteria:gravel": 1,
+            "asteria:stone": 2
+          },
+          "conditions": {
+            "minY": 110,
+            "maxSlope": 9
+          }
+        }
+      },
+      {
+        "block": "asteria:stone"
       }
     ]
   }

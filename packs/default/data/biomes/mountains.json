@@ -32,39 +32,6 @@
       }
     ]
   },
-  "surfaceLayers": [
-    {
-      "block": "asteria:stone",
-      "depth": 1,
-      "patch": {
-        "scale": 34,
-        "coverage": 0.23,
-        "roughness": 0.35,
-        "blocks": [
-          "asteria:gravel",
-          "asteria:dirt",
-          "asteria:stone_cobble"
-        ],
-        "detailScale": 10,
-        "selectionScale": 83,
-        "warpScale": 78,
-        "warpStrength": 12,
-        "stretchZ": 1.6,
-        "weights": {
-          "asteria:gravel": 4,
-          "asteria:dirt": 2,
-          "asteria:stone_cobble": 1
-        },
-        "conditions": {
-          "maxY": 126,
-          "maxSlope": 3
-        }
-      }
-    },
-    {
-      "block": "asteria:stone"
-    }
-  ],
   "decorations": [
     {
       "block": "asteria:pebble",
@@ -150,6 +117,41 @@
       {
         "id": "exposed_ridges",
         "maximum": 1
+      }
+    ]
+  },
+  "palette": {
+    "default": [
+      {
+        "block": "asteria:stone",
+        "depth": 1,
+        "patch": {
+          "scale": 34,
+          "coverage": 0.23,
+          "roughness": 0.35,
+          "blocks": [
+            "asteria:gravel",
+            "asteria:dirt",
+            "asteria:stone_cobble"
+          ],
+          "detailScale": 10,
+          "selectionScale": 83,
+          "warpScale": 78,
+          "warpStrength": 12,
+          "stretchZ": 1.6,
+          "weights": {
+            "asteria:gravel": 4,
+            "asteria:dirt": 2,
+            "asteria:stone_cobble": 1
+          },
+          "conditions": {
+            "maxY": 126,
+            "maxSlope": 3
+          }
+        }
+      },
+      {
+        "block": "asteria:stone"
       }
     ]
   }
