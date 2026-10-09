@@ -1,3 +1,4 @@
+import { inventoryDisplayName } from "../../../presentation/inventoryLabels";
 import { useLocalization } from "../../../localization/LocalizationProvider";
 import type { HotbarState } from "../../../state/uiState";
 import { HotbarSlot } from "../../molecules/HotbarSlot/HotbarSlot";
@@ -20,8 +21,10 @@ export function Hotbar({
       state.selectedIndex,
       slotCount,
     );
-  const selectedId = state.slots[selectedIndex ?? -1]?.id;
-  const selectedName = selectedId ? contentName(selectedId) : (state.selectedName?.trim() ?? "");
+  const selected = state.slots[selectedIndex ?? -1];
+  const selectedName = selected?.id
+    ? inventoryDisplayName(selected.id, selected.metadata, contentName)
+    : (state.selectedName?.trim() ?? "");
 
   return (
     <section className="hotbar">
