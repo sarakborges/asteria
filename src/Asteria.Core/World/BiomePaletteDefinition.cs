@@ -12,18 +12,21 @@ public sealed class BiomePaletteDefinition
         IEnumerable<BiomeSurfaceLayerDefinition> @default,
         IEnumerable<BiomeSurfaceLayerDefinition>? floor = null,
         IEnumerable<BiomeSurfaceLayerDefinition>? walls = null,
-        IEnumerable<BiomeSurfaceLayerDefinition>? ceiling = null)
+        IEnumerable<BiomeSurfaceLayerDefinition>? ceiling = null,
+        BiomeSurfaceMosaicDefinition? surfaceMosaic = null)
     {
         Default = Validate(@default, nameof(@default));
         Floor = floor is null ? null : Validate(floor, nameof(floor));
         Walls = walls is null ? null : Validate(walls, nameof(walls));
         Ceiling = ceiling is null ? null : Validate(ceiling, nameof(ceiling));
+        SurfaceMosaic = surfaceMosaic;
     }
 
     public IReadOnlyList<BiomeSurfaceLayerDefinition> Default { get; }
     public IReadOnlyList<BiomeSurfaceLayerDefinition>? Floor { get; }
     public IReadOnlyList<BiomeSurfaceLayerDefinition>? Walls { get; }
     public IReadOnlyList<BiomeSurfaceLayerDefinition>? Ceiling { get; }
+    public BiomeSurfaceMosaicDefinition? SurfaceMosaic { get; }
 
     public IReadOnlyList<BiomeSurfaceLayerDefinition> For(BiomePaletteFace face) =>
         face switch

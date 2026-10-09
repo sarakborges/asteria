@@ -456,7 +456,30 @@ public static class BiomeDefinitionJson
             ParseLayers(defaults, "palette.default"),
             OptionalPaletteLayers(palette, "floor"),
             OptionalPaletteLayers(palette, "walls"),
-            OptionalPaletteLayers(palette, "ceiling"));
+            OptionalPaletteLayers(palette, "ceiling"),
+            ParseSurfaceMosaic(palette));
+    }
+
+    private static BiomeSurfaceMosaicDefinition? ParseSurfaceMosaic(
+        JsonElement palette)
+    {
+        if (!palette.TryGetProperty("surfaceMosaic", out var mosaic))
+            return null;
+        mosaic = EnsureObject(mosaic, "palette.surfaceMosaic");
+        var entries = EnsureArray(
+            mosaic.GetProperty("entries"), "palette.surfaceMosaic.entries");
+        return new BiomeSurfaceMosaicDefinition(
+            RequiredUInt32(mosaic, "scale"),
+            OptionalUInt32(mosaic, "detailScale") ?? 12,
+            OptionalSingle(mosaic, "detailStrength") ?? 0.2f,
+            entries.EnumerateArray().Select(entry =>
+            {
+                entry = EnsureObject(entry, "palette.surfaceMosaic.entries[]");
+                return new BiomeSurfaceMosaicEntryDefinition(
+                    entry.TryGetProperty("block", out var block) ? block.GetString() : null,
+                    entry.TryGetProperty("fluid", out var fluid) ? fluid.GetString() : null,
+                    RequiredSingle(entry, "weight"));
+            }));
     }
 
     private static IReadOnlyList<BiomeSurfaceLayerDefinition>? OptionalPaletteLayers(

@@ -110,6 +110,13 @@ public sealed class BiomeRegistry
                 }
             }
 
+            if (definition.Palette.SurfaceMosaic is { } mosaic)
+            {
+                foreach (var entry in mosaic.Entries)
+                    if (entry.Block is { } block)
+                        RequireBlock(blocks, definition.Id, block);
+            }
+
             foreach (var spike in definition.CaveSpikes)
             {
                 RequireBlock(blocks, definition.Id, spike.Block);
@@ -149,6 +156,12 @@ public sealed class BiomeRegistry
         foreach (var definition in
                  _definitions)
         {
+            if (definition.Palette.SurfaceMosaic is { } mosaic)
+                foreach (var entry in mosaic.Entries)
+                    if (entry.Fluid is { } id && !fluids.TryGetId(id, out _))
+                        throw new ArgumentException(
+                            $"Biome {definition.Id} references missing mosaic fluid {id}.");
+
             var fill = definition.SurfaceTerrain?.Crater?.FluidFill;
             if (fill is null)
             {

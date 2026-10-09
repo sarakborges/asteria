@@ -59,6 +59,11 @@ public sealed class BiomeDefinition
         Palette = palette ?? new BiomePaletteDefinition(
             surfaceLayers ?? throw new ArgumentException(
                 "Every biome requires an authored palette.", nameof(palette)));
+        if (Palette.SurfaceMosaic is not null &&
+            (surfaceLayout is null || surfaceTerrain?.FillToSeaLevel == true))
+            throw new ArgumentException(
+                "Surface mosaics require surface terrain without sea-level filling.",
+                nameof(palette));
 
         var authoredDecorations =
             decorations?.ToArray() ??
