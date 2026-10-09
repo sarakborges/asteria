@@ -50,6 +50,11 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     private int _lightingVoxels;
     private int _lightingChanged;
     private int _lightingDirtyChunks;
+    private int _lightingStaleBatches;
+    private double _lightingCaptureMs;
+    private double _lightingCaptureMaxMs;
+    private double _lightingApplyMs;
+    private double _lightingApplyMaxMs;
 
     private WorldDiagnosticsLog(DiagnosticSessionLog session)
     {
@@ -179,15 +184,28 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         _fluidBacklogMax = Math.Max(_fluidBacklogMax, backlog);
     }
 
-    public void ObserveLighting(
-        double workerMilliseconds, int processedVoxels,
-        int changedVoxels, int dirtyChunks)
+    public void ObserveLighting(LightingRuntimeReport report)
     {
+        ArgumentNullException.ThrowIfNull(report);
+
+        _lightingCaptureMs += report.CaptureMilliseconds;
+        _lightingCaptureMaxMs = Math.Max(
+            _lightingCaptureMaxMs, report.CaptureMilliseconds);
+
+        if (report.Kind == LightingCompletionKind.RequeuedStale)
+        {
+            _lightingStaleBatches++;
+            return;
+        }
+
         _lightingBatches++;
-        _lightingMs += workerMilliseconds;
-        _lightingVoxels += processedVoxels;
-        _lightingChanged += changedVoxels;
-        _lightingDirtyChunks += dirtyChunks;
+        _lightingMs += report.WorkerMilliseconds;
+        _lightingVoxels += report.ProcessedVoxelCount;
+        _lightingChanged += report.ChangedVoxelCount;
+        _lightingDirtyChunks += report.DirtyChunkCount;
+        _lightingApplyMs += report.ApplyMilliseconds;
+        _lightingApplyMaxMs = Math.Max(
+            _lightingApplyMaxMs, report.ApplyMilliseconds);
     }
 
     public void FlushIfDue(
@@ -233,7 +251,12 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"fluid_changes={_fluidChanges} fluid_backlog_max={_fluidBacklogMax} " +
             $"lighting_batches={_lightingBatches} lighting_ms_total={Format1(_lightingMs)} " +
             $"lighting_voxels={_lightingVoxels} lighting_changed={_lightingChanged} " +
-            $"lighting_dirty_chunks={_lightingDirtyChunks}");
+            $"lighting_dirty_chunks={_lightingDirtyChunks} " +
+            $"lighting_stale={_lightingStaleBatches} " +
+            $"lighting_capture_ms_total={Format1(_lightingCaptureMs)} " +
+            $"lighting_capture_ms_max={Format1(_lightingCaptureMaxMs)} " +
+            $"lighting_apply_ms_total={Format1(_lightingApplyMs)} " +
+            $"lighting_apply_ms_max={Format1(_lightingApplyMaxMs)}");
 
         _frames = 0;
         _frameMsTotal = 0d;
@@ -263,6 +286,11 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         _lightingVoxels = 0;
         _lightingChanged = 0;
         _lightingDirtyChunks = 0;
+        _lightingStaleBatches = 0;
+        _lightingCaptureMs = 0d;
+        _lightingCaptureMaxMs = 0d;
+        _lightingApplyMs = 0d;
+        _lightingApplyMaxMs = 0d;
     }
 
     private static string Format1(double value) =>

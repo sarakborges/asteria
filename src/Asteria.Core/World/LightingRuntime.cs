@@ -1,3 +1,5 @@
+using System.Diagnostics;
+
 namespace Asteria.Core.World;
 
 public enum LightingCompletionKind : byte
@@ -12,7 +14,9 @@ public sealed record LightingRuntimeReport(
     int ChangedVoxelCount,
     int DirtyChunkCount,
     int DirtyMeshletCount,
-    int ProcessedVoxelCount);
+    int ProcessedVoxelCount,
+    double CaptureMilliseconds,
+    double ApplyMilliseconds);
 
 public sealed class LightingRuntime
 {
@@ -33,6 +37,7 @@ public sealed class LightingRuntime
     private bool _acceptingWork = true;
 
     private WorldLightingBatch? _inFlightBatch;
+    private double _inFlightCaptureMilliseconds;
 
     public LightingRuntime(
         VoxelWorld world,
@@ -88,6 +93,7 @@ public sealed class LightingRuntime
             return false;
         }
 
+        var captureStart = Stopwatch.GetTimestamp();
         if (!_worker.TryStart(
                 _world,
                 _blocks,
@@ -98,6 +104,8 @@ public sealed class LightingRuntime
             return false;
         }
 
+        _inFlightCaptureMilliseconds =
+            Stopwatch.GetElapsedTime(captureStart).TotalMilliseconds;
         _inFlightBatch = batch;
         return true;
     }
@@ -116,9 +124,10 @@ public sealed class LightingRuntime
             return false;
         }
 
-        var sourceBatch =
-            _inFlightBatch;
+        var sourceBatch = _inFlightBatch;
+        var captureMilliseconds = _inFlightCaptureMilliseconds;
         _inFlightBatch = null;
+        _inFlightCaptureMilliseconds = 0d;
 
         if (error is not null)
         {
@@ -156,15 +165,20 @@ public sealed class LightingRuntime
                     0,
                     0,
                     0,
-                    result.Lighting.ProcessedVoxelCount);
+                    result.Lighting.ProcessedVoxelCount,
+                    captureMilliseconds,
+                    0d);
             TryStartReadyWork();
             return true;
         }
 
+        var applyStart = Stopwatch.GetTimestamp();
         var integrated =
             _integration.Apply(
                 result.LightingSnapshot,
                 result.Lighting.ChangedPositions);
+        var applyMilliseconds =
+            Stopwatch.GetElapsedTime(applyStart).TotalMilliseconds;
 
         report =
             new LightingRuntimeReport(
@@ -173,7 +187,9 @@ public sealed class LightingRuntime
                 integrated.ChangedVoxelCount,
                 integrated.DirtyChunkCount,
                 integrated.DirtyMeshletCount,
-                result.Lighting.ProcessedVoxelCount);
+                result.Lighting.ProcessedVoxelCount,
+                captureMilliseconds,
+                applyMilliseconds);
 
         TryStartReadyWork();
         return true;

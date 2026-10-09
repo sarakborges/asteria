@@ -3853,16 +3853,16 @@ public partial class Main : Node3D
             return;
         }
 
-        if (report is null ||
-            report.Kind !=
-                LightingCompletionKind.Applied)
+        if (report is null)
         {
             return;
         }
 
-        _worldDiagnostics?.ObserveLighting(
-            report.WorkerMilliseconds, report.ProcessedVoxelCount,
-            report.ChangedVoxelCount, report.DirtyChunkCount);
+        _worldDiagnostics?.ObserveLighting(report);
+        if (report.Kind != LightingCompletionKind.Applied)
+        {
+            return;
+        }
         if (_debugHudVisible)
         {
             GD.Print(
@@ -3875,7 +3875,9 @@ public partial class Main : Node3D
                 $"dirty_meshlets=" +
                 $"{report.DirtyMeshletCount} " +
                 $"light_processed=" +
-                $"{report.ProcessedVoxelCount}");
+                $"{report.ProcessedVoxelCount} " +
+                $"capture_ms={report.CaptureMilliseconds:F2} " +
+                $"apply_ms={report.ApplyMilliseconds:F2}");
         }
 
         TryStartTerrainMeshWorker();
