@@ -104,6 +104,25 @@ public sealed class VolumeStructureContentTests
                 "asteria:test", 24, 2f, 20, 100));
     }
 
+    [Fact]
+    public void DisablingStructuresDoesNotResolveVolumeTemplateGroups()
+    {
+        var blocks = BlockRegistry.FromJson(ReadJson("blocks"));
+        var biomes = BiomeRegistry.FromJson(ReadJson("biomes"));
+        var fluids = FluidRegistry.FromJson(ReadJson("fluids"));
+        var dimension = DimensionRegistry.FromJson(ReadJson("dimensions"))
+            .Get(DimensionId.Overworld);
+
+        // Existing bare-world callers intentionally provide no structure
+        // registry. Disabling spawnStructures must remain supported.
+        var generator = new BiomeWorldGenerator(
+            782UL, dimension, blocks, fluids, biomes,
+            StructureRegistry.Empty, generation:
+                new WorldGenerationOptions(spawnStructures: false));
+        var chunk = generator.Materialize(new ChunkCoord(0, 0, 0));
+        Assert.NotNull(chunk);
+    }
+
     private static IEnumerable<string> ReadJson(string directory)
     {
         var path = Path.Combine(AppContext.BaseDirectory,

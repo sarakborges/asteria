@@ -31,6 +31,15 @@ public sealed class VolumeStructureField
         _volumes = volumes ?? throw new ArgumentNullException(nameof(volumes));
         _materials = materials ?? throw new ArgumentNullException(nameof(materials));
 
+        // Disabled generation must not resolve optional authored structure
+        // families. Flat/Void and spawnStructures=false also work with
+        // StructureRegistry.Empty, just like surface structure generation.
+        if (!enabled)
+        {
+            _rules = [];
+            return;
+        }
+
         var rules = new List<Rule>();
         foreach (var biome in volumeBiomes.OrderBy(b => b.Id, StringComparer.Ordinal))
         foreach (var authored in biome.VolumeStructures
@@ -67,7 +76,7 @@ public sealed class VolumeStructureField
                 GenerationDomain.Named(
                     $"worldgen/volume-structure/{biome.Id}/{authored.Structure}/v1")));
         }
-        _rules = enabled ? rules.ToArray() : [];
+        _rules = rules.ToArray();
     }
 
     public bool HasRules => _rules.Length > 0;
