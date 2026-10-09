@@ -1,0 +1,27 @@
+{
+  "id": "asteria:swamp_fern",
+  "category": "foliage",
+  "tags": [
+    "support_below"
+  ],
+  "windSway": true,
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/swamp_fern.png",
+    "width": 0.87,
+    "height": 0.9,
+    "planes": 4
+  },
+  "placementFaces": [
+    "top"
+  ],
+  "mining": {
+    "hardness": 0.04
+  },
+  "isCollidable": false,
+  "castsShadow": false,
+  "lightDampening": 0,
+  "alphaCutoff": 0.5,
+  "previewColor": "76a87f",
+  "dropsSelf": false
+}

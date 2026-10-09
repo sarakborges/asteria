@@ -1,0 +1,27 @@
+{
+  "id": "asteria:swamp_iris",
+  "category": "foliage",
+  "tags": [
+    "support_below"
+  ],
+  "windSway": true,
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/swamp_iris.png",
+    "width": 0.79,
+    "height": 0.91,
+    "planes": 4
+  },
+  "placementFaces": [
+    "top"
+  ],
+  "mining": {
+    "hardness": 0.04
+  },
+  "isCollidable": false,
+  "castsShadow": false,
+  "lightDampening": 0,
+  "alphaCutoff": 0.5,
+  "previewColor": "b389d0",
+  "dropsSelf": false
+}

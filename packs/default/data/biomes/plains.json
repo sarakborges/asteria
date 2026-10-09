@@ -69,6 +69,79 @@
         "thicket": 1,
         "rocky": 0.15
       }
+    },
+    {
+      "block": "asteria:prairie_wildflower_blue",
+      "chance": 0.19,
+      "surfaceBlocks": [
+        "asteria:grass_block"
+      ],
+      "habitatWeights": {
+        "grove": 0.8,
+        "open": 2.1,
+        "thicket": 0.65,
+        "rocky": 0.04
+      },
+      "cluster": {
+        "scale": 35,
+        "threshold": -0.21,
+        "octaves": 4,
+        "transitionWidth": 0.16
+      },
+      "conditions": {
+        "minY": 83,
+        "maxY": 118,
+        "maxSlope": 3
+      }
+    },
+    {
+      "block": "asteria:prairie_wildflower_yellow",
+      "chance": 0.2,
+      "surfaceBlocks": [
+        "asteria:grass_block"
+      ],
+      "habitatWeights": {
+        "grove": 0.55,
+        "open": 2.3,
+        "thicket": 1.05,
+        "rocky": 0.04
+      },
+      "cluster": {
+        "scale": 29,
+        "threshold": -0.24,
+        "octaves": 4,
+        "transitionWidth": 0.16
+      },
+      "conditions": {
+        "minY": 83,
+        "maxY": 118,
+        "maxSlope": 3
+      }
+    },
+    {
+      "block": "asteria:prairie_tall_grass",
+      "chance": 0.31,
+      "surfaceBlocks": [
+        "asteria:grass_block",
+        "asteria:dirt"
+      ],
+      "habitatWeights": {
+        "grove": 0.7,
+        "open": 1.65,
+        "thicket": 2.2,
+        "rocky": 0.09
+      },
+      "cluster": {
+        "scale": 42,
+        "threshold": -0.23,
+        "octaves": 4,
+        "transitionWidth": 0.16
+      },
+      "conditions": {
+        "minY": 83,
+        "maxY": 118,
+        "maxSlope": 4
+      }
     }
   ],
   "tints": {

@@ -737,3 +737,43 @@ slope restrictions; their world-space entropy remains stable
 across chunks. The Desert intentionally gets no Pebbles,
 Gravel patches, generated surface fluid, erosion or terrain
 alteration. No Core generator code was changed.
+
+## Biodiversity gap review — stronger biome landmarks (2026-10-09)
+
+The original small-decorator enrichments alone did not provide visual
+hierarchy or sufficiently distinctive tall silhouettes. Review of the
+default pack found Plains had many tree/boulder placements but only
+Grass/Pebble/Stick decorators; Swamp had Willow trees and moss but no
+large fungi; Desert had no cactus structures, despite its Sandstone
+outcrop/spire roots; Arctic/Alps, Gorge and Ocean already had existing
+ice/rock/coral structure groups, not just single block decorators.
+Caverns and additive Floating Islands still need a separate
+capability-review before adding multi-voxel, volume-anchored structure
+placements: the current generated surface structure field is scoped to
+surface biomes, not arbitrary 3D volume supports.
+
+Current enriched content:
+- Desert: 3 authored cactus families (Saguaro 3 variants, Barrel 2,
+  Prickly Pear 2), with multi-block voxel silhouettes, colored
+  flowers on supporting cactus tips and separate block textures.
+  Each family has its own habitat-weighted generated structure root.
+- Gorge: two additional flowering Prickly Pear variants adapted to
+  dry canyon ground; these do not introduce Sand into the biome.
+- Plains: added blue/yellow wildflowers and taller, wind-swaying
+  grasses with independent clustered habitat probabilities.
+- Swamp: added ferns favoring groves and fungal ground; irises
+  requiring Water proximity; plus 3 giant mushroom templates with
+  dry-ground restrictions and strong fungal-habitat weighting.
+
+These additions reuse StructureRegistry groups, SurfaceStructureField's
+authoritative conflict resolver, SurfaceDecorationField,
+BlockPhysics support tags and existing shape/texture decoding.
+No changes to biome terrain shapes, material mosaics, density fields,
+dimension sea level, hydrological features or negative Y are included.
+All new art is pack-owned 64×64 PNG.
+
+Follow-up candidates after visual validation: grouped ceiling
+formations in Caverns, larger canopies/landmarks on additive Floating
+Islands with 3D volume-safe placement, denser cold-hardy Arctic/Alps
+vegetation, and diverse Ocean reef silhouettes rather than simply
+increasing indiscriminate surface spawn probability.

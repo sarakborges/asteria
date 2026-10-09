@@ -1,0 +1,21 @@
+{
+  "id": "asteria:swamp_giant_mushroom_stem",
+  "category": "natural_blocks",
+  "textures": {
+    "top": "textures/blocks/swamp_giant_mushroom_stem.png",
+    "bottom": "textures/blocks/swamp_giant_mushroom_stem.png",
+    "left": "textures/blocks/swamp_giant_mushroom_stem.png",
+    "right": "textures/blocks/swamp_giant_mushroom_stem.png",
+    "front": "textures/blocks/swamp_giant_mushroom_stem.png",
+    "back": "textures/blocks/swamp_giant_mushroom_stem.png"
+  },
+  "mining": {
+    "hardness": 0.45,
+    "preferredTools": [
+      "hatchet"
+    ]
+  },
+  "lightDampening": 15,
+  "castsShadow": true,
+  "previewColor": "aa9887"
+}

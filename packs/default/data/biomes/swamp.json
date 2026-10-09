@@ -166,6 +166,61 @@
         "open_mire": 0.65,
         "fungal_ground": 0.5
       }
+    },
+    {
+      "block": "asteria:swamp_fern",
+      "chance": 0.28,
+      "surfaceBlocks": [
+        "asteria:grass_block",
+        "asteria:dirt",
+        "asteria:mud"
+      ],
+      "habitatWeights": {
+        "willow_grove": 1.45,
+        "open_mire": 0.38,
+        "fungal_ground": 2.25
+      },
+      "cluster": {
+        "scale": 32,
+        "threshold": -0.19,
+        "octaves": 3,
+        "transitionWidth": 0.17
+      },
+      "conditions": {
+        "minY": 85,
+        "maxY": 95,
+        "maxSlope": 3
+      }
+    },
+    {
+      "block": "asteria:swamp_iris",
+      "chance": 0.19,
+      "surfaceBlocks": [
+        "asteria:grass_block",
+        "asteria:dirt",
+        "asteria:mud"
+      ],
+      "fluidRequirement": {
+        "fluid": "asteria:water",
+        "relation": "nearby",
+        "maxDistance": 3
+      },
+      "habitatWeights": {
+        "willow_grove": 0.45,
+        "open_mire": 2.55,
+        "fungal_ground": 0.4
+      },
+      "cluster": {
+        "scale": 27,
+        "threshold": -0.23,
+        "octaves": 4,
+        "transitionWidth": 0.16
+      },
+      "conditions": {
+        "minY": 86,
+        "maxY": 95,
+        "maxSlope": 2
+      }
     }
   ],
   "tints": {

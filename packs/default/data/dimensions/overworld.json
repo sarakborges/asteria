@@ -904,6 +904,18 @@
         "rubble_slopes": 0.36,
         "high_rims": 1.45
       }
+    },
+    {
+      "biome": "asteria:overworld/swamp",
+      "structure": "asteria:swamp_giant_mushroom",
+      "spacing": 47,
+      "chance": 0.69,
+      "jitter": 14,
+      "habitatWeights": {
+        "willow_grove": 0.32,
+        "open_mire": 0.05,
+        "fungal_ground": 2.6
+      }
     }
   ],
   "dayNightCycle": "asteria:overworld/day_night_cycle",

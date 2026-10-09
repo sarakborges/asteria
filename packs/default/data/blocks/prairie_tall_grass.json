@@ -1,0 +1,27 @@
+{
+  "id": "asteria:prairie_tall_grass",
+  "category": "foliage",
+  "tags": [
+    "support_below"
+  ],
+  "windSway": true,
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/prairie_tall_grass.png",
+    "width": 0.88,
+    "height": 0.94,
+    "planes": 4
+  },
+  "placementFaces": [
+    "top"
+  ],
+  "mining": {
+    "hardness": 0.04
+  },
+  "isCollidable": false,
+  "castsShadow": false,
+  "lightDampening": 0,
+  "alphaCutoff": 0.5,
+  "previewColor": "88ac78",
+  "dropsSelf": false
+}

@@ -1,0 +1,140 @@
+{
+  "id": "asteria:swamp_giant_mushroom_02",
+  "groupId": "swamp_giant_mushroom",
+  "rotation": true,
+  "locatable": false,
+  "priority": 0,
+  "conflictGroups": [
+    "tree",
+    "giant_mushroom"
+  ],
+  "restrictions": {
+    "groundBlocks": [
+      "asteria:grass_block",
+      "asteria:dirt",
+      "asteria:mud"
+    ],
+    "maxSlope": 1,
+    "requiredBiomeCoverage": 1,
+    "requiresDryGround": true
+  },
+  "generation": {
+    "replacePolicy": "terrain",
+    "fluidPolicy": "forbid",
+    "reserveSpace": false
+  },
+  "anchor": {
+    "x": 3,
+    "y": 0,
+    "z": 3
+  },
+  "palette": {
+    "G": {
+      "block": "asteria:mud"
+    },
+    "S": {
+      "block": "asteria:swamp_giant_mushroom_stem"
+    },
+    "H": {
+      "block": "asteria:swamp_giant_mushroom_cap"
+    }
+  },
+  "layers": [
+    {
+      "y": 0,
+      "rows": [
+        ".......",
+        ".......",
+        ".......",
+        "...G...",
+        ".......",
+        ".......",
+        "......."
+      ]
+    },
+    {
+      "y": 1,
+      "rows": [
+        ".......",
+        ".......",
+        ".......",
+        "...S...",
+        ".......",
+        ".......",
+        "......."
+      ]
+    },
+    {
+      "y": 2,
+      "rows": [
+        ".......",
+        ".......",
+        ".......",
+        "...S...",
+        ".......",
+        ".......",
+        "......."
+      ]
+    },
+    {
+      "y": 3,
+      "rows": [
+        ".......",
+        ".......",
+        ".......",
+        "...S...",
+        ".......",
+        ".......",
+        "......."
+      ]
+    },
+    {
+      "y": 4,
+      "rows": [
+        ".......",
+        ".......",
+        ".......",
+        "...S...",
+        ".......",
+        ".......",
+        "......."
+      ]
+    },
+    {
+      "y": 5,
+      "rows": [
+        ".......",
+        ".......",
+        ".......",
+        "...S...",
+        ".......",
+        ".......",
+        "......."
+      ]
+    },
+    {
+      "y": 6,
+      "rows": [
+        ".......",
+        "..HHH..",
+        ".HHHHH.",
+        ".HHHHH.",
+        ".HHHHH.",
+        "..HHH..",
+        "......."
+      ]
+    },
+    {
+      "y": 7,
+      "rows": [
+        ".......",
+        ".......",
+        "..HHH..",
+        "..HHH..",
+        "..HHH..",
+        ".......",
+        "......."
+      ]
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "id": "asteria:prairie_wildflower_blue",
+  "category": "foliage",
+  "tags": [
+    "support_below"
+  ],
+  "windSway": true,
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/prairie_wildflower_blue.png",
+    "width": 0.7,
+    "height": 0.79,
+    "planes": 4
+  },
+  "placementFaces": [
+    "top"
+  ],
+  "mining": {
+    "hardness": 0.04
+  },
+  "isCollidable": false,
+  "castsShadow": false,
+  "lightDampening": 0,
+  "alphaCutoff": 0.5,
+  "previewColor": "76afdc",
+  "dropsSelf": false
+}
