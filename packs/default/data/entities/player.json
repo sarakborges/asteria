@@ -1,0 +1,17 @@
+{
+  "id": "asteria:player",
+  "model": "models/entities/player/player.glb",
+  "skin": "textures/player/256.png",
+  "animations": {
+    "idle": "Idle",
+    "walk": "Walk",
+    "run": "Run",
+    "jump": "Jump",
+    "fall": "Fall",
+    "hit": "Hit",
+    "place": "Place",
+    "break": "Break",
+    "hurt": "Hurt",
+    "death": "Death"
+  }
+}
