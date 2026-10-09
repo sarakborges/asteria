@@ -123,6 +123,8 @@ public partial class Main : Node3D
     private PlayerPortraitPresentation? _playerPortrait;
     private PlayerModelPresentation? _playerModel;
     private ulong _publishedPlayerHealthRevision = ulong.MaxValue;
+    private int _publishedOxygenSeconds = -1;
+    private bool _publishedOxygenVisible;
     private double _deathSecondsRemaining;
     private bool _respawnArrival;
     private Node _webUi = null!;
@@ -2141,12 +2143,23 @@ public partial class Main : Node3D
     private void SendPlayerVitals(bool force = false)
     {
         var health = _sessionStates.Player.Health;
-        if (!force && _publishedPlayerHealthRevision == health.Revision)
+        var breath = _sessionStates.Player.Hazards;
+        var visible = breath.BreathDepleting &&
+            _sessionStates.Player.GameMode == PlayerGameMode.Survival;
+        var seconds = visible ? (int)MathF.Ceiling(breath.BreathSeconds) : -1;
+        if (!force && _publishedPlayerHealthRevision == health.Revision &&
+            _publishedOxygenSeconds == seconds &&
+            _publishedOxygenVisible == visible)
             return;
         _publishedPlayerHealthRevision = health.Revision;
+        _publishedOxygenSeconds = seconds;
+        _publishedOxygenVisible = visible;
         SendWebUi("game.hud.vitals", new
         {
             health = new { current = health.Current, maximum = health.Maximum },
+            oxygen = visible
+                ? new { current = seconds, maximum = PlayerHazardRuntime.BreathCapacitySeconds }
+                : null,
             stamina = (object?)null,
         });
     }
@@ -2188,6 +2201,7 @@ public partial class Main : Node3D
             _sessionStates.Player.Health,
             _sessionStates.Player.GameMode);
         ApplyPlayerDamageResult(result);
+        SendPlayerVitals();
     }
 
     private void ApplyPlayerDamageResult(PlayerDamageResult result)
