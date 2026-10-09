@@ -76,6 +76,7 @@ createRoot(rootElement).render(
       randomizeWorld: worldCreation.randomizeWorld,
       openWorldSelection: navigation.openWorldSelection,
       openSavesFolder: worldCatalog.openSavesFolder,
+      loadWorld: worldCatalog.loadWorld,
       openWorldCreation: navigation.openWorldCreation,
       backToStart: navigation.backToStart,
       exitGame: navigation.exitGame,

@@ -30,6 +30,7 @@ export type AppActions = {
   randomizeWorld(): void;
   openWorldSelection(): void;
   openSavesFolder(): void;
+  loadWorld(id: string): void;
   openWorldCreation(): void;
   backToStart(): void;
   exitGame(): void;
@@ -182,6 +183,7 @@ export function App({
             onBack={actions.backToStart}
             onCreateWorld={actions.openWorldCreation}
             onOpenSavesFolder={actions.openSavesFolder}
+            onLoad={actions.loadWorld}
           />
         )}
 

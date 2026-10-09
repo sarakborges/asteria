@@ -13,11 +13,22 @@ export function createWorldCatalogController(
     openSavesFolder() {
       postMessage("ui.world.catalog.open_folder");
     },
+    loadWorld(id: string) {
+      if (id.trim()) postMessage("ui.world.catalog.load", { id });
+    },
     handleGodotMessage(message: BridgeMessage) {
       if (message.type === "game.world_catalog.folder_error") {
         store.update(state => ({
           ...state,
           worldCatalog: { ...state.worldCatalog, folderError: true },
+        }));
+        return;
+      }
+
+      if (message.type === "game.world_catalog.load_error") {
+        store.update(state => ({
+          ...state,
+          worldCatalog: { ...state.worldCatalog, status: "error" },
         }));
         return;
       }

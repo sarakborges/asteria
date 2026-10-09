@@ -226,3 +226,16 @@ compatible. Do not present the spatial-only files as playable saves.
   `Compatible=false` until actual registry-aware restoration checks run.
 - Mismatched directory names and incomplete sessions cannot publish a
   misleading catalog entry. Tests verify discovery and rejection behavior.
+
+## Stage 14: validated native world entry
+
+- The world catalog validates complete sessions on a bounded background
+  scan before setting `Compatible=true`; manifests alone never enable Load.
+- `WorldLoadController` validates the requested world ID as a single canonical
+  directory component, decodes and reconstructs all Core state in a worker,
+  and publishes the result only after complete validation.
+- New and restored worlds share `Main.InitializeWorldSession`, including the
+  existing loading/residency/presentation path and restored player position.
+- The world-selection Load button now emits a semantic WebUI request;
+  browser code neither owns the save path nor parses snapshot files.
+- Delete/save-and-leave actions and native end-to-end tests remain pending.

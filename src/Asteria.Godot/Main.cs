@@ -58,6 +58,7 @@ public partial class Main : Node3D
         PackSelection.Default;
     private ClientPreferencesController _clientSettings = null!;
     private WorldCatalogScanController _worldCatalog = null!;
+    private WorldLoadController _worldLoad = null!;
     private KeybindCaptureController _keybindCapture = null!;
 
     private ClientPreferences _clientPreferences =>
@@ -224,6 +225,11 @@ public partial class Main : Node3D
         _ambientParticleDefinitions =
             AmbientParticleContentLoader.LoadProjectParticles(_packSelection);
         _ambientParticleDefinitions.ValidateReferences(_dimensions, _biomes, _fluids);
+        _worldCatalog.ConfigureValidation(
+            _dimensions, _blocks, _fluids, _dyes, _layers);
+        _worldLoad = new WorldLoadController(
+            Path.Combine(OS.GetUserDataDir(), "worlds"),
+            _dimensions, _blocks, _fluids, _dyes, _layers);
         _structures.ValidateBlocks(
             _blocks, _dyes, _layers);
         _structures.ValidateFluids(
@@ -479,6 +485,7 @@ public partial class Main : Node3D
     {
         _worldDiagnostics?.ObserveFrame(delta);
         PollWorldCatalog();
+        PollWorldLoad();
         PollChatLocate();
         AdvanceChatPresentation(delta);
         if (_worldSeed is null)
@@ -1128,6 +1135,22 @@ public partial class Main : Node3D
                     if (_worldSeed is null)
                         BeginWorldCatalogScan();
                     break;
+                case "ui.world.catalog.load":
+                    if (_worldSeed is null &&
+                        document.RootElement.TryGetProperty("id", out var savedId) &&
+                        savedId.ValueKind == JsonValueKind.String)
+                    {
+                        try
+                        {
+                            if (_worldLoad.Begin(savedId.GetString() ?? ""))
+                                SendWebUi("game.world_catalog", new { status = "verifying" });
+                        }
+                        catch (ArgumentException error)
+                        {
+                            SendWebUi("game.world_catalog.load_error", new { error = error.Message });
+                        }
+                    }
+                    break;
                 case "ui.world.catalog.open_folder":
                     if (_worldSeed is null &&
                         !_worldCatalog.TryOpenFolder(out var openFolderError))
@@ -1489,6 +1512,28 @@ public partial class Main : Node3D
             });
     }
 
+    private void PollWorldLoad()
+    {
+        if (!_worldLoad.TryPoll(out var result, out var error) ||
+            _worldSeed is not null)
+            return;
+
+        if (result is not { } prepared)
+        {
+            GD.PushWarning($"world.load.failed: {error}");
+            SendWebUi("game.world_catalog.load_error",
+                new { error = error ?? "Unable to restore the selected world." });
+            BeginWorldCatalogScan();
+            return;
+        }
+
+        var active = prepared.Snapshot.ActiveSphere ??
+            throw new InvalidDataException("Restored world has no active Sphere.");
+        InitializeWorldSession(prepared.States, active);
+        _worldDiagnostics?.Write(
+            $"world.load.restored name={prepared.Snapshot.Name} dimension={active}");
+    }
+
     private void SendWorldCreationState()
     {
         var initialSphere = _dimensions.Get(
@@ -1620,24 +1665,27 @@ public partial class Main : Node3D
             return;
         }
 
-        _sessionStates =
-            new DimensionSessionStateStore(
-                creation,
-                _dimensions);
-        _sessions =
-            new DimensionSessionController(
-                _sessionStates,
-                CreateDimensionSession);
-        _sessions.Start(
-            new DimensionId(
-                StartupDimensionId));
+        InitializeWorldSession(
+            new DimensionSessionStateStore(creation, _dimensions),
+            new DimensionId(StartupDimensionId));
+    }
+
+    private void InitializeWorldSession(
+        DimensionSessionStateStore states,
+        DimensionId startDimension)
+    {
+        // This method is the one native publication point for newly
+        // created worlds and fully decoded/restored world sessions.
+        _sessionStates = states;
+        _sessions = new DimensionSessionController(
+            _sessionStates, CreateDimensionSession);
+        _sessions.Start(startDimension);
         ActivateCurrentDimensionPresentation();
 
-        // Every world starts with an empty, authoritative player inventory.
-        // Creative obtains blocks from the actual authored content catalog.
+        // Restoration retains the full authoritative inventory; starting a
+        // new world supplies an empty one from DimensionSessionStateStore.
         SyncHeldBlock();
-        _worldSeed =
-            creation.Seed;
+        _worldSeed = _sessionStates.WorldSeed;
 
         _webUi.Call(
             "set_creation_mode",
@@ -1650,7 +1698,7 @@ public partial class Main : Node3D
             {
                 seed =
                     WorldCreationSeed.Format(
-                        creation.Seed),
+                        _sessionStates.WorldSeed),
             });
         SendHotbarState();
         SendInventoryState();
@@ -1658,13 +1706,13 @@ public partial class Main : Node3D
         SendCreativeCatalog();
 
         _worldDiagnostics?.WorldStarted(
-            creation.Seed, _dimension.Id, _dimensionSeed);
+            _sessionStates.WorldSeed, _dimension.Id, _dimensionSeed);
         _worldDiagnostics?.Write(
             $"world.settings render_distance_chunks={_clientPreferences.RenderDistanceChunks} " +
             $"retention_margin_chunks={RetentionMarginChunks} " +
             $"max_materialization_workers={MaxMaterializationTasksInFlight}");
         GD.Print(
-            $"world.start seed={creation.Seed} " +
+            $"world.start seed={_sessionStates.WorldSeed} " +
             $"dimension={_dimension.Id} " +
             $"dimension_seed={_dimensionSeed}");
         GD.Print(
