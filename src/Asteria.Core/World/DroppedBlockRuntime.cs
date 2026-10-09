@@ -113,9 +113,9 @@ public sealed class DroppedBlockRuntime
                 var state =
                     entry.State;
 
-                if (state.Stack is null || state.Stack.Quantity != 1)
+                if (state.Stack is null)
                     throw new ArgumentException(
-                        "Restored drops require exactly one item.",
+                        "Restored drops require a valid item stack.",
                         nameof(restore));
                 if (state.Block is { } block)
                     _ = _blocks.GetDefinition(block.Cell.Block);
@@ -177,9 +177,6 @@ public sealed class DroppedBlockRuntime
         Vector3 velocity = default)
     {
         ArgumentNullException.ThrowIfNull(stack);
-        if (stack.Quantity != 1)
-            throw new ArgumentOutOfRangeException(
-                nameof(stack), "World drops contain exactly one item.");
         if (stack.Block is { } block)
             _ = _blocks.GetDefinition(block.Cell.Block);
 
@@ -211,6 +208,35 @@ public sealed class DroppedBlockRuntime
                 IsSettled: false));
 
         return id;
+    }
+
+    /// <summary>
+    /// Publishes all death stacks as one bounded batch. Never evicts existing
+    /// drops, and rejects the entire request before mutation if full.
+    /// Portable quantities/metadata are retained rather than split into
+    /// hundreds of per-item entities.
+    /// </summary>
+    public bool TrySpawnBatch(IReadOnlyList<InventoryStack> stacks, Vector3 position)
+    {
+        ArgumentNullException.ThrowIfNull(stacks);
+        if (!IsFinite(position) || position.Y < 0f ||
+            stacks.Count > 42 || stacks.Any(stack => stack is null) ||
+            _active.Count > _maximumActive - stacks.Count ||
+            (ulong)stacks.Count > ulong.MaxValue - _nextId)
+            return false;
+        foreach (var stack in stacks)
+            if (stack.Block is { } block)
+                _ = _blocks.GetDefinition(block.Cell.Block);
+
+        for (var index = 0; index < stacks.Count; index++)
+        {
+            var angle = index * (MathF.PI * 2f / 7f);
+            var radius = 0.2f + 0.07f * (index % 4);
+            var offset = new Vector3(MathF.Cos(angle) * radius,
+                0.25f + (index % 3) * 0.07f, MathF.Sin(angle) * radius);
+            Spawn(stacks[index], position + offset);
+        }
+        return true;
     }
 
     /// <summary>
