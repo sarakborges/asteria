@@ -24,7 +24,7 @@ WebUI observes `game.inventory.state` and `game.inventory.catalog` through `Inve
 - Cursor splitting/shift-click, equipped slots, held-tool swing animation, metadata-specific bucket visuals and non-block rewards/loot policy still require comparison/implementation.
 - The portable microblock snapshot exists; unsupported re-placement must be reviewed rather than silently changing geometry.
 - Complete world/session disk snapshots, catalog validation and world loading **exist**. Unfinished World Delete, Save and Leave, historical migration policy and live process-restart QA are tracked in [remaining port roadmap](MINECLONE_PORT_REMAINING.md).
-- Creative category definitions, original PNGs, authored order and localization are now in the pack and Godot message; **React still must consume them** instead of generating alphabetic text-only categories.
+- Creative category definitions, original PNGs, authored order and localization are integrated through Godot and React. Godot/WRY native clicks, image decoding, localized search and scroll restoration still need in-game verification.
 - End-to-end gameplay interactions in the Godot/WRY WebView remain unverified by Storybook and CI.
 
 ## Invariants
