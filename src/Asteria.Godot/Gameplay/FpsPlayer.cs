@@ -63,6 +63,7 @@ public partial class FpsPlayer : CharacterBody3D
     public event Action<bool>? MouseCaptureChanged;
     public event Action<FluidBodyContact>?
         FluidContactChanged;
+    public event Action<float, FluidBodyContact>? FluidExposureSampled;
 
     public PlayerSessionState PlayerState { get; set; } = null!;
 
@@ -267,8 +268,8 @@ public partial class FpsPlayer : CharacterBody3D
             return;
         }
 
-        PublishFluidContact(
-            fluidContact);
+        PublishFluidContact(fluidContact);
+        FluidExposureSampled?.Invoke((float)Math.Min(delta, 0.25), fluidContact);
 
         var fluidMotion =
             fluidContact.IsImmersed
