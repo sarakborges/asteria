@@ -36,6 +36,7 @@ export type AppActions = {
   exitGame(): void;
   dismissToast(id: number): void;
   resumeGame(): void;
+  saveWorld(): void;
   openGameSettings(): void;
   openWorldSettings(): void;
   openControls(): void;
@@ -209,6 +210,14 @@ export function App({
             gameSettingsAvailable={Boolean(state.settings.client)}
             controlsAvailable={Boolean(state.settings.client)}
             onResume={actions.resumeGame}
+            onSaveWorld={actions.saveWorld}
+            saveFeedback={
+              state.navigation.saveFeedback === "saved"
+                ? t("ui.worldSaved")
+                : state.navigation.saveFeedback === "error"
+                  ? t("ui.worldSaveFailed")
+                  : ""
+            }
             onWorldSettings={actions.openWorldSettings}
             onGameSettings={actions.openGameSettings}
             onControls={actions.openControls}

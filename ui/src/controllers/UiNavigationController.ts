@@ -8,6 +8,7 @@ export type UiNavigationController = {
   backToStart(): void;
   exitGame(): void;
   resumeGame(): void;
+  saveWorld(): void;
   openGameSettings(): void;
   openWorldSettings(): void;
   openControls(): void;
@@ -73,6 +74,13 @@ export function createUiNavigationController(
 
     exitGame() { postMessage("ui.app.exit"); },
     resumeGame() { postMessage("ui.game.resume"); },
+    saveWorld() {
+      store.update(state => ({
+        ...state,
+        navigation: { ...state.navigation, saveFeedback: null },
+      }));
+      postMessage("ui.world.save");
+    },
     openGameSettings() { show("game"); },
     openWorldSettings() { show("world"); },
     openControls() { show("controls"); },
@@ -81,6 +89,17 @@ export function createUiNavigationController(
     },
     escape,
     handleGodotMessage(message) {
+      if (message.type === "game.world.save_result") {
+        const payload = message.payload as { status?: unknown } | undefined;
+        const saveFeedback = payload?.status === "saved"
+          ? "saved"
+          : payload?.status === "error" ? "error" : null;
+        if (saveFeedback) store.update(state => ({
+          ...state,
+          navigation: { ...state.navigation, saveFeedback },
+        }));
+        return;
+      }
       if (message.type === "game.ui.escape") {
         escape();
         return;

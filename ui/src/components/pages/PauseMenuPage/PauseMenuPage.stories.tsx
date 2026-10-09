@@ -12,6 +12,7 @@ const meta = {
     gameSettingsAvailable: true,
     controlsAvailable: true,
     onResume: () => undefined,
+    onSaveWorld: () => undefined,
     onWorldSettings: () => undefined,
     onGameSettings: () => undefined,
     onControls: () => undefined,

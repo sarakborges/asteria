@@ -254,6 +254,7 @@ export type GameplayInventoryState = {
 export type UiNavigationState = {
   preWorldScreen: "starting" | "world-selection" | "new-world";
   overlay: OverlayScreen;
+  saveFeedback: "saved" | "error" | null;
 };
 
 export type WorldCatalogState = {
@@ -359,6 +360,7 @@ export function createInitialUiState(
     navigation: {
       preWorldScreen: "starting",
       overlay: "none",
+      saveFeedback: null,
     },
     settings: {
       client: null, world: null,
