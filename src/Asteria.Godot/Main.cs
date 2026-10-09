@@ -3544,6 +3544,9 @@ public partial class Main : Node3D
             _deathSecondsRemaining = 1.25;
         }
 
+        // A new physical environment starts a fresh exposure window while
+        // authoritative HP remains shared between Spheres.
+        _sessionStates.Player.Hazards.Reset();
         var initialPosition =
             _sessions.Active.InitialPlayerPosition;
 
