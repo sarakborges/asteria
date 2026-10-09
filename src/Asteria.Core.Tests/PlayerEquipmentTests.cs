@@ -85,4 +85,77 @@ public sealed class PlayerEquipmentTests
              "maxStackSize":1,"equipmentSlot":"helmet../"}
             """));
     }
+    private const string WearableJson = """
+        {
+          "id":"asteria:wayfarer_helmet",
+          "category":"tools",
+          "icon":"textures/items/wayfarer_helmet.png",
+          "maxStackSize":1,
+          "equipmentSlot":"helmet",
+          "equipmentVisual":{
+            "parts":[
+              {"mesh":"HeadMesh","size":[1.12,0.58,1.13],
+               "offset":[0,0.25,0],"color":"#5B6F7A"}
+            ]
+          }
+        }
+        """;
+
+    [Fact]
+    public void AuthoredWearableHasImmutableBodyAttachedAppearance()
+    {
+        var item = ItemDefinition.Parse(WearableJson);
+        Assert.Equal(EquipmentSlot.Helmet, item.EquipmentSlot);
+        var appearance = Assert.IsType<EquipmentVisualDefinition>(item.EquipmentVisual);
+        var part = Assert.Single(appearance.Parts);
+        Assert.Equal("HeadMesh", part.Mesh);
+        Assert.Equal(new System.Numerics.Vector3(1.12f, 0.58f, 1.13f), part.Size);
+        Assert.Equal(new System.Numerics.Vector3(0, 0.25f, 0), part.Offset);
+        Assert.Equal(0x5B6F7Au, part.Rgb);
+        Assert.False(appearance.Parts is EquipmentVisualPart[]);
+    }
+
+    [Theory]
+    [InlineData("\"equipmentSlot\":\"helmet\"", "\"equipmentSlot\":\"boots\"")]
+    [InlineData("\"size\":[1.12,0.58,1.13]", "\"size\":[0,0.58,1.13]")]
+    [InlineData("\"offset\":[0,0.25,0]", "\"offset\":[0,0.99,0]")]
+    [InlineData("\"color\":\"#5B6F7A\"", "\"color\":\"magenta\"")]
+    [InlineData("\"mesh\":\"HeadMesh\"", "\"mesh\":\"HandMesh\"")]
+    public void InvalidEquipmentAppearanceIsRejected(
+        string before, string after)
+    {
+        Assert.Throws<FormatException>(() => ItemDefinition.Parse(
+            WearableJson.Replace(before, after, StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public void AppearanceRequiresRealEquippableItem()
+    {
+        var notEquippable = WearableJson.Replace(
+            "\"equipmentSlot\":\"helmet\",", "", StringComparison.Ordinal);
+        Assert.Throws<FormatException>(() => ItemDefinition.Parse(notEquippable));
+        var stacked = WearableJson.Replace(
+            "\"maxStackSize\":1", "\"maxStackSize\":64",
+            StringComparison.Ordinal);
+        Assert.Throws<FormatException>(() => ItemDefinition.Parse(stacked));
+    }
+
+    [Fact]
+    public void OtherSlotsMayUseOnlyTheirAnimatedBodyMeshes()
+    {
+        const string legs = """
+            {"id":"asteria:greaves","category":"tools","icon":"textures/items/greaves.png",
+             "maxStackSize":1,"equipmentSlot":"legs",
+             "equipmentVisual":{"parts":[
+              {"mesh":"LeftLegMesh","size":[1.1,0.5,1.1],
+               "offset":[0,0.2,0],"color":"#8899AA"},
+              {"mesh":"RightLegMesh","size":[1.1,0.5,1.1],
+               "offset":[0,0.2,0],"color":"#8899AA"}
+             ]}}
+            """;
+        Assert.Equal(2, ItemDefinition.Parse(legs).EquipmentVisual!.Parts.Count);
+        Assert.Throws<FormatException>(() => ItemDefinition.Parse(
+            legs.Replace("RightLegMesh", "RightArmMesh", StringComparison.Ordinal)));
+    }
+
 }
