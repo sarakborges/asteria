@@ -1896,35 +1896,35 @@ public sealed class BiomeWorldGenerationTests
             DimensionSeed.Derive(0xA57E_2026UL, dimension.Id), dimension, blocks,
             LoadDefaultFluids(), biomes, LoadDefaultStructures(),
             LoadDefaultStructureSets());
-        var floating = FindVolumeBiomeInterior(
-            generator.VolumeBiomes, volumeId, 220);
-
-        (int X, int Y, int Z)? target = null;
-        // Volume ownership does not imply that an additive formation exists
-        // at every X/Z. First find a solid island above the ground, then
-        // locate its exposed top. This is independent of surface biome height.
-        for (var dz = -128; dz <= 128 && target is null; dz += 8)
-        for (var dx = -128; dx <= 128 && target is null; dx += 8)
+        // Biome ownership does not imply solid additive density in that
+        // column. Select a real island interior, not the first volume-biome
+        // region; its X/Z location may change with the authored surface layout.
+        (int X, int Z)? islandColumn = null;
+        for (var z = -4096; z <= 4096 && islandColumn is null; z += 32)
+        for (var x = -4096; x <= 4096 && islandColumn is null; x += 32)
         {
-            var x = floating.X + dx;
-            var z = floating.Z + dz;
-            var surface = generator.SurfaceHeight(x, z);
-            if (surface >= 240 ||
-                generator.VolumeBiomes.Sample(x, 240, z)?.Primary != volumeId ||
-                generator.DensityAt(x, 240, z) < 0d)
+            if (generator.VolumeBiomes.Sample(x, 240, z)?.Primary == volumeId &&
+                generator.DensityAt(x, 240, z) >= 0d &&
+                generator.SurfaceHeight(x, z) < 240)
+            {
+                islandColumn = (x, z);
+            }
+        }
+
+        Assert.NotNull(islandColumn);
+        var (islandX, islandZ) = islandColumn!.Value;
+        (int X, int Y, int Z)? target = null;
+        for (var y = 281; y > 240; y--)
+        {
+            if (generator.VolumeBiomes.Sample(islandX, y - 1, islandZ)?.Primary != volumeId ||
+                generator.DensityAt(islandX, y - 1, islandZ) < 0d ||
+                generator.DensityAt(islandX, y, islandZ) >= 0d)
             {
                 continue;
             }
 
-            for (var y = 281; y > 240; y--)
-            {
-                if (generator.VolumeBiomes.Sample(x, y - 1, z)?.Primary != volumeId ||
-                    generator.DensityAt(x, y - 1, z) < 0d ||
-                    generator.DensityAt(x, y, z) >= 0d)
-                    continue;
-                target = (x, y, z);
-                break;
-            }
+            target = (islandX, y, islandZ);
+            break;
         }
 
         Assert.NotNull(target);
