@@ -77,6 +77,7 @@ createRoot(rootElement).render(
       openWorldSelection: navigation.openWorldSelection,
       openSavesFolder: worldCatalog.openSavesFolder,
       loadWorld: worldCatalog.loadWorld,
+      deleteWorld: worldCatalog.deleteWorld,
       openWorldCreation: navigation.openWorldCreation,
       backToStart: navigation.backToStart,
       exitGame: navigation.exitGame,
