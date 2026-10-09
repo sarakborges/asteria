@@ -1,4 +1,16 @@
 {
+  "asteria:aether_bloom": {
+    "/name": "Flor Etérea"
+  },
+  "asteria:aether_crystal": {
+    "/name": "Cristal Etéreo"
+  },
+  "asteria:alpine_edelweiss": {
+    "/name": "Edelweiss Alpino"
+  },
+  "asteria:alpine_sedge": {
+    "/name": "Juncia Alpina"
+  },
   "asteria:basalt": {
     "/name": "Basalto"
   },
@@ -20,14 +32,62 @@
   "asteria:bricks": {
     "/name": "Ladrillos"
   },
+  "asteria:cattail": {
+    "/name": "Espadaña"
+  },
+  "asteria:cave_crystal_azure": {
+    "/name": "Cristal Azul de Cueva"
+  },
+  "asteria:cave_glow_fern": {
+    "/name": "Helecho Luminoso de Cueva"
+  },
+  "asteria:cave_glowcap": {
+    "/name": "Seta Luminosa de Cueva"
+  },
+  "asteria:cave_roots": {
+    "/name": "Raíces de Cueva"
+  },
   "asteria:clay": {
     "/name": "Arcilla"
+  },
+  "asteria:coral_blue": {
+    "/name": "Coral Azul"
+  },
+  "asteria:coral_pink": {
+    "/name": "Coral Rosa"
+  },
+  "asteria:coral_yellow": {
+    "/name": "Coral Amarillo"
   },
   "asteria:dirt": {
     "/name": "Tierra"
   },
+  "asteria:exposed_roots": {
+    "/name": "Raíces Expuestas"
+  },
+  "asteria:frost_lichen": {
+    "/name": "Liquen Helado"
+  },
+  "asteria:frost_shrub": {
+    "/name": "Arbusto Helado"
+  },
+  "asteria:glacial_shard": {
+    "/name": "Fragmento Glacial"
+  },
   "asteria:glass": {
     "/name": "Vidrio"
+  },
+  "asteria:gorge_dry_tuft": {
+    "/name": "Mata Seca del Desfiladero"
+  },
+  "asteria:gorge_exposed_roots": {
+    "/name": "Raíces Expuestas del Desfiladero"
+  },
+  "asteria:gorge_rock_spur": {
+    "/name": "Espolón Rocoso del Desfiladero"
+  },
+  "asteria:gorge_sagebrush": {
+    "/name": "Artemisa del Desfiladero"
   },
   "asteria:grass": {
     "/name": "Hierba"
@@ -37,6 +97,9 @@
   },
   "asteria:gravel": {
     "/name": "Grava"
+  },
+  "asteria:hanging_moss": {
+    "/name": "Musgo Colgante"
   },
   "asteria:ice": {
     "/name": "Hielo"
@@ -53,6 +116,9 @@
   "asteria:ice_tiles": {
     "/name": "Baldosas de Hielo"
   },
+  "asteria:kelp": {
+    "/name": "Alga Marina"
+  },
   "asteria:lamp": {
     "/name": "Lámpara"
   },
@@ -67,6 +133,9 @@
   },
   "asteria:leaf_world_tree": {
     "/name": "Hoja del Árbol del Mundo"
+  },
+  "asteria:lily_pad": {
+    "/name": "Nenúfar"
   },
   "asteria:log_enchanted": {
     "/name": "Tronco Encantado"
@@ -188,6 +257,21 @@
   "asteria:sandstone_tiles": {
     "/name": "Baldosas de Arenisca"
   },
+  "asteria:sea_anemone": {
+    "/name": "Anémona Marina"
+  },
+  "asteria:seagrass": {
+    "/name": "Hierba Marina"
+  },
+  "asteria:seashell": {
+    "/name": "Concha Marina"
+  },
+  "asteria:sky_reed": {
+    "/name": "Junco Celeste"
+  },
+  "asteria:sky_vines": {
+    "/name": "Enredaderas Celestes"
+  },
   "asteria:snow": {
     "/name": "Nieve"
   },
@@ -205,6 +289,9 @@
   },
   "asteria:sphere_shell": {
     "/name": "Corteza de Esfera"
+  },
+  "asteria:starfish": {
+    "/name": "Estrella de Mar"
   },
   "asteria:stick": {
     "/name": "Palo"

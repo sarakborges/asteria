@@ -1,4 +1,16 @@
 {
+  "asteria:aether_bloom": {
+    "/name": "Aether Bloom"
+  },
+  "asteria:aether_crystal": {
+    "/name": "Aether Crystal"
+  },
+  "asteria:alpine_edelweiss": {
+    "/name": "Alpine Edelweiss"
+  },
+  "asteria:alpine_sedge": {
+    "/name": "Alpine Sedge"
+  },
   "asteria:basalt": {
     "/name": "Basalt"
   },
@@ -20,14 +32,62 @@
   "asteria:bricks": {
     "/name": "Bricks"
   },
+  "asteria:cattail": {
+    "/name": "Cattail"
+  },
+  "asteria:cave_crystal_azure": {
+    "/name": "Azure Cave Crystal"
+  },
+  "asteria:cave_glow_fern": {
+    "/name": "Cave Glow Fern"
+  },
+  "asteria:cave_glowcap": {
+    "/name": "Cave Glowcap"
+  },
+  "asteria:cave_roots": {
+    "/name": "Cave Roots"
+  },
   "asteria:clay": {
     "/name": "Clay"
+  },
+  "asteria:coral_blue": {
+    "/name": "Blue Coral"
+  },
+  "asteria:coral_pink": {
+    "/name": "Pink Coral"
+  },
+  "asteria:coral_yellow": {
+    "/name": "Yellow Coral"
   },
   "asteria:dirt": {
     "/name": "Dirt"
   },
+  "asteria:exposed_roots": {
+    "/name": "Exposed Roots"
+  },
+  "asteria:frost_lichen": {
+    "/name": "Frost Lichen"
+  },
+  "asteria:frost_shrub": {
+    "/name": "Frost Shrub"
+  },
+  "asteria:glacial_shard": {
+    "/name": "Glacial Shard"
+  },
   "asteria:glass": {
     "/name": "Glass"
+  },
+  "asteria:gorge_dry_tuft": {
+    "/name": "Gorge Dry Tuft"
+  },
+  "asteria:gorge_exposed_roots": {
+    "/name": "Gorge Exposed Roots"
+  },
+  "asteria:gorge_rock_spur": {
+    "/name": "Gorge Rock Spur"
+  },
+  "asteria:gorge_sagebrush": {
+    "/name": "Gorge Sagebrush"
   },
   "asteria:grass": {
     "/name": "Grass"
@@ -37,6 +97,9 @@
   },
   "asteria:gravel": {
     "/name": "Gravel"
+  },
+  "asteria:hanging_moss": {
+    "/name": "Hanging Moss"
   },
   "asteria:ice": {
     "/name": "Ice"
@@ -53,6 +116,9 @@
   "asteria:ice_tiles": {
     "/name": "Ice Tiles"
   },
+  "asteria:kelp": {
+    "/name": "Kelp"
+  },
   "asteria:lamp": {
     "/name": "Lamp"
   },
@@ -67,6 +133,9 @@
   },
   "asteria:leaf_world_tree": {
     "/name": "World Tree Leaf"
+  },
+  "asteria:lily_pad": {
+    "/name": "Lily Pad"
   },
   "asteria:log_enchanted": {
     "/name": "Enchanted Log"
@@ -188,6 +257,21 @@
   "asteria:sandstone_tiles": {
     "/name": "Sandstone Tiles"
   },
+  "asteria:sea_anemone": {
+    "/name": "Sea Anemone"
+  },
+  "asteria:seagrass": {
+    "/name": "Seagrass"
+  },
+  "asteria:seashell": {
+    "/name": "Seashell"
+  },
+  "asteria:sky_reed": {
+    "/name": "Sky Reed"
+  },
+  "asteria:sky_vines": {
+    "/name": "Sky Vines"
+  },
   "asteria:snow": {
     "/name": "Snow"
   },
@@ -205,6 +289,9 @@
   },
   "asteria:sphere_shell": {
     "/name": "Sphere Shell"
+  },
+  "asteria:starfish": {
+    "/name": "Starfish"
   },
   "asteria:stick": {
     "/name": "Stick"
