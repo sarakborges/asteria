@@ -25,3 +25,9 @@
   font-size: var(--ui-font-size-body);
   color: var(--ui-color-text);
 }
+
+.death-screen__title {
+  margin: 0;
+  font-size: var(--ui-font-size-setting-title);
+  color: var(--ui-color-text);
+}
