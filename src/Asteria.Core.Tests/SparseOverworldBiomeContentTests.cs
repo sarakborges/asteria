@@ -109,7 +109,21 @@ public sealed class SparseOverworldBiomeContentTests
     public void DesertKeepsSandAtTheSurfaceWithoutGravelPatchesOrPebbles()
     {
         var biome = LoadBiome("desert");
-        Assert.Empty(biome.Decorations);
+        var expectedDecorators = new[]
+        {
+            "asteria:desert_dune_grass",
+            "asteria:desert_thornbush",
+            "asteria:desert_yucca",
+            "asteria:desert_sandstone_spur",
+        };
+        Assert.Equal(expectedDecorators,
+            biome.Decorations.Select(decoration => decoration.Block));
+        Assert.All(biome.Decorations, decoration =>
+        {
+            Assert.Equal(new[] { "asteria:sand" }, decoration.SurfaceBlocks);
+            Assert.DoesNotContain("asteria:gravel", decoration.SurfaceBlocks);
+            Assert.DoesNotContain("asteria:pebble", decoration.SurfaceBlocks);
+        });
         Assert.Equal("asteria:sand", biome.Palette.Default[0].Block);
         Assert.Null(biome.Palette.Default[0].Patch);
         Assert.Equal("asteria:sandstone", biome.Palette.Default[1].Block);

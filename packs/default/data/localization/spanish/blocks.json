@@ -59,6 +59,18 @@
   "asteria:coral_yellow": {
     "/name": "Coral Amarillo"
   },
+  "asteria:desert_dune_grass": {
+    "/name": "Hierba de Dunas"
+  },
+  "asteria:desert_sandstone_spur": {
+    "/name": "Espolón de Arenisca del Desierto"
+  },
+  "asteria:desert_thornbush": {
+    "/name": "Arbusto Espinoso del Desierto"
+  },
+  "asteria:desert_yucca": {
+    "/name": "Yuca del Desierto"
+  },
   "asteria:dirt": {
     "/name": "Tierra"
   },

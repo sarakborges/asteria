@@ -59,6 +59,18 @@
   "asteria:coral_yellow": {
     "/name": "Yellow Coral"
   },
+  "asteria:desert_dune_grass": {
+    "/name": "Dune Grass"
+  },
+  "asteria:desert_sandstone_spur": {
+    "/name": "Desert Sandstone Spur"
+  },
+  "asteria:desert_thornbush": {
+    "/name": "Desert Thornbush"
+  },
+  "asteria:desert_yucca": {
+    "/name": "Desert Yucca"
+  },
   "asteria:dirt": {
     "/name": "Dirt"
   },
