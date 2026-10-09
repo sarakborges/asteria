@@ -63,7 +63,7 @@ public sealed class ChunkPresentation
             if (collision is not null)
             {
                 collision.Disabled =
-                    !visible;
+                    !enabled;
             }
         }
     }

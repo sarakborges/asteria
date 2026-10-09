@@ -10,11 +10,27 @@ namespace Asteria.Client;
 /// One per-process diagnostics observer. Owns only measurements and the active
 /// session log, never gameplay or worker scheduling state.
 /// </summary>
+internal enum WorldFrameStage : byte
+{
+    StreamingBegin,
+    FluidPoll,
+    FluidPublication,
+    TerrainPoll,
+    TerrainPublication,
+    LightingPoll,
+    WorkerDispatch,
+    StreamingEnd,
+}
+
 internal sealed class WorldDiagnosticsLog : IDisposable
 {
     private static readonly long IntervalTicks = 2L * Stopwatch.Frequency;
     private readonly DiagnosticSessionLog _session;
     private readonly Stopwatch _uptime = Stopwatch.StartNew();
+    private readonly double[] _stageMsTotal =
+        new double[Enum.GetValues<WorldFrameStage>().Length];
+    private readonly double[] _stageMsMax =
+        new double[Enum.GetValues<WorldFrameStage>().Length];
     private long _nextFlush = Stopwatch.GetTimestamp() + IntervalTicks;
     private bool _disposed;
     private string _phase = "";
@@ -133,6 +149,15 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             _framesOver100Ms++;
     }
 
+    public void ObserveStage(WorldFrameStage stage, long startedTimestamp)
+    {
+        var milliseconds =
+            Stopwatch.GetElapsedTime(startedTimestamp).TotalMilliseconds;
+        var index = (int)stage;
+        _stageMsTotal[index] += milliseconds;
+        _stageMsMax[index] = Math.Max(_stageMsMax[index], milliseconds);
+    }
+
     public void Observe(ChunkResidencyUpdate update)
     {
         foreach (var activation in update.Activations)
@@ -232,6 +257,15 @@ internal sealed class WorldDiagnosticsLog : IDisposable
 
     private void FlushSnapshot()
     {
+        var stages = string.Join(" ",
+            Enum.GetValues<WorldFrameStage>().Select(stage =>
+            {
+                var index = (int)stage;
+                var name = stage.ToString().ToLowerInvariant();
+                return $"stage_{name}_ms_total={Format1(_stageMsTotal[index])} " +
+                    $"stage_{name}_ms_max={Format1(_stageMsMax[index])}";
+            }));
+
         Write(
             $"world.snapshot uptime_s={Format1(_uptime.Elapsed.TotalSeconds)} " +
             $"phase={_phase} resident={_resident} pending={_pending} " +
@@ -256,8 +290,11 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"lighting_capture_ms_total={Format1(_lightingCaptureMs)} " +
             $"lighting_capture_ms_max={Format1(_lightingCaptureMaxMs)} " +
             $"lighting_apply_ms_total={Format1(_lightingApplyMs)} " +
-            $"lighting_apply_ms_max={Format1(_lightingApplyMaxMs)}");
+            $"lighting_apply_ms_max={Format1(_lightingApplyMaxMs)} " +
+            stages);
 
+        Array.Clear(_stageMsTotal);
+        Array.Clear(_stageMsMax);
         _frames = 0;
         _frameMsTotal = 0d;
         _frameMsMax = 0d;

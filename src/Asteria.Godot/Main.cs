@@ -522,11 +522,14 @@ public partial class Main : Node3D
                 ? WorldLoadingState.InitialHorizontalRadiusChunks
                 : _clientPreferences.RenderDistanceChunks;
 
+        var stageStart = Stopwatch.GetTimestamp();
         var streamingBegin =
             _chunkStreaming.BeginFrame(
                 streamingCenter,
                 _worldFrameBudget,
                 streamingRadius);
+        _worldDiagnostics?.ObserveStage(
+            WorldFrameStage.StreamingBegin, stageStart);
         ReportStreamingSelection(
             streamingBegin.Selection);
         ReportResidencyUpdate(
@@ -542,20 +545,43 @@ public partial class Main : Node3D
                 _dimension.GravityStrength));
         AdvanceItemPickup(delta);
 
+        stageStart = Stopwatch.GetTimestamp();
         PollFluidWorker();
         PollFluidMeshWorker();
+        _worldDiagnostics?.ObserveStage(
+            WorldFrameStage.FluidPoll, stageStart);
+
+        stageStart = Stopwatch.GetTimestamp();
         IntegrateFluidMeshletPublications();
+        _worldDiagnostics?.ObserveStage(
+            WorldFrameStage.FluidPublication, stageStart);
 
+        stageStart = Stopwatch.GetTimestamp();
         PollTerrainMeshWorker();
+        _worldDiagnostics?.ObserveStage(
+            WorldFrameStage.TerrainPoll, stageStart);
+
+        stageStart = Stopwatch.GetTimestamp();
         IntegrateMeshletPublications();
+        _worldDiagnostics?.ObserveStage(
+            WorldFrameStage.TerrainPublication, stageStart);
 
+        stageStart = Stopwatch.GetTimestamp();
         PollLightingWorker();
+        _worldDiagnostics?.ObserveStage(
+            WorldFrameStage.LightingPoll, stageStart);
 
+        stageStart = Stopwatch.GetTimestamp();
         DispatchOneWorldWorker();
+        _worldDiagnostics?.ObserveStage(
+            WorldFrameStage.WorkerDispatch, stageStart);
 
+        stageStart = Stopwatch.GetTimestamp();
         var streamingEnd =
             _chunkStreaming.EndFrame(
                 _worldFrameBudget);
+        _worldDiagnostics?.ObserveStage(
+            WorldFrameStage.StreamingEnd, stageStart);
         ReportRetirements(
             streamingEnd.Retirements);
         PublishStorageBoxChanges();
