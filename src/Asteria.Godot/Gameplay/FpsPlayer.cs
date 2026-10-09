@@ -12,6 +12,14 @@ public partial class FpsPlayer : CharacterBody3D
     private const float MouseSensitivity = 0.0022f;
     private const float MaxPitch = 1.52f;
     private const float ThirdPersonCameraDistance = 4f;
+    private const float StandingHeight = 1.8f;
+    private const float CrouchHeight = 1.5f;
+    private const float StandingEyeHeight = 1.6f;
+    private const float CrouchEyeDrop = 0.35f;
+    private const float CrouchCameraBlendSpeed = 8f;
+    private const float WalkAcceleration = 28f;
+    private const float WalkDeceleration = 36f;
+    private const float CrouchEdgeProbe = 0.12f;
 
     private enum CameraView : byte
     {
@@ -26,6 +34,9 @@ public partial class FpsPlayer : CharacterBody3D
     private float _cameraPitch;
     private CameraView _cameraView;
     private CollisionShape3D _collider = null!;
+    private CapsuleShape3D _standingCapsule = null!;
+    private CapsuleShape3D _crouchedCapsule = null!;
+    private readonly PlayerGroundMovement _groundMovement = new();
     private bool _mouseCaptured;
     private bool _moveForward;
     private bool _moveBackward;
@@ -59,6 +70,8 @@ public partial class FpsPlayer : CharacterBody3D
 
     public bool IsMouseCaptured => _mouseCaptured;
     public bool IsBreakHeld => _breakHeld && _mouseCaptured && !_inputSuspended;
+    public bool IsRunning => _groundMovement.IsRunning;
+    public bool IsCrouching => _groundMovement.IsCrouching;
 
     public Camera3D Camera => _camera;
 
@@ -93,21 +106,27 @@ public partial class FpsPlayer : CharacterBody3D
 
         _solidCollisionLayer = CollisionLayer;
         _solidCollisionMask = CollisionMask;
+        _standingCapsule = new CapsuleShape3D
+        {
+            Radius = 0.35f,
+            Height = StandingHeight,
+        };
+        _crouchedCapsule = new CapsuleShape3D
+        {
+            Radius = 0.35f,
+            Height = CrouchHeight,
+        };
         _collider = new CollisionShape3D
         {
             Name = "Collider",
-            Position = new Vector3(0f, 0.9f, 0f),
-            Shape = new CapsuleShape3D
-            {
-                Radius = 0.35f,
-                Height = 1.8f,
-            },
+            Position = new Vector3(0f, StandingHeight * 0.5f, 0f),
+            Shape = _standingCapsule,
         };
 
         _cameraPivot = new Node3D
         {
             Name = "CameraPivot",
-            Position = new Vector3(0f, 1.6f, 0f),
+            Position = new Vector3(0f, StandingEyeHeight, 0f),
         };
         _cameraArm = new SpringArm3D
         {
@@ -190,6 +209,20 @@ public partial class FpsPlayer : CharacterBody3D
             new Vector3(movement.X, 0f, movement.Y);
         direction.Y = 0f;
         direction = direction.Normalized();
+
+        if (PlayerState.IsFlying)
+        {
+            UpdateGroundPosture(immersed: false, (float)delta);
+            _groundMovement.CancelRunning();
+        }
+        else
+        {
+            // Use the published world contact, never a browser-side
+            // swimming/crouching approximation.
+            var contact = FluidContactProvider?.Invoke(
+                CollisionBounds, _cameraPivot.GlobalPosition.Y) ?? default;
+            UpdateGroundPosture(contact.IsImmersed, (float)delta);
+        }
 
         if (PlayerState.IsFlying)
         {
@@ -286,17 +319,76 @@ public partial class FpsPlayer : CharacterBody3D
         }
         else
         {
-            velocity.X =
-                direction.X *
-                MoveSpeed;
-            velocity.Z =
-                direction.Z *
-                MoveSpeed;
+            var targetSpeed = MoveSpeed *
+                _groundMovement.SpeedMultiplier(
+                    flying: false, immersed: false);
+            var target = new Vector2(direction.X, direction.Z) * targetSpeed;
+            var horizontal = new Vector2(velocity.X, velocity.Z);
+            var acceleration = (target == Vector2.Zero
+                ? WalkDeceleration : WalkAcceleration) * (float)delta;
+            horizontal = horizontal.MoveToward(target, acceleration);
+            velocity.X = horizontal.X;
+            velocity.Z = horizontal.Y;
+
+            if (_groundMovement.IsCrouching && IsOnFloor())
+            {
+                // Sneaking must not move the full capsule past the
+                // supported ledge. Check each horizontal axis against
+                // Godot's real published terrain collision.
+                var xMotion = new Vector3(velocity.X * (float)delta, 0f, 0f);
+                if (xMotion.X != 0f && !HasGroundSupportAt(xMotion))
+                    velocity.X = 0f;
+                var zMotion = new Vector3(0f, 0f, velocity.Z * (float)delta);
+                if (zMotion.Z != 0f && !HasGroundSupportAt(zMotion))
+                    velocity.Z = 0f;
+            }
         }
 
         Velocity = velocity;
         MoveAndSlide();
     }
+
+    private void UpdateGroundPosture(bool immersed, float delta)
+    {
+        var requested = _descendHeld && !immersed && !PlayerState.IsFlying;
+        var canStand = !_groundMovement.IsCrouching || CanStandAtCurrentPosition();
+        if (_groundMovement.UpdateCrouch(requested, canStand))
+        {
+            var height = _groundMovement.IsCrouching
+                ? CrouchHeight : StandingHeight;
+            _collider.Shape = _groundMovement.IsCrouching
+                ? _crouchedCapsule : _standingCapsule;
+            _collider.Position = new Vector3(0f, height * 0.5f, 0f);
+        }
+
+        var targetEyeY = StandingEyeHeight -
+            (_groundMovement.IsCrouching ? CrouchEyeDrop : 0f);
+        _cameraPivot.Position = new Vector3(0f,
+            Mathf.MoveToward(_cameraPivot.Position.Y, targetEyeY,
+                CrouchEyeDrop * CrouchCameraBlendSpeed * delta), 0f);
+    }
+
+    private bool CanStandAtCurrentPosition()
+    {
+        if (PlayerState.GameMode.IsSpectator())
+            return true;
+        var query = new PhysicsShapeQueryParameters3D
+        {
+            Shape = _standingCapsule,
+            Transform = new Transform3D(
+                _collider.GlobalTransform.Basis,
+                GlobalPosition + Vector3.Up * (StandingHeight * 0.5f)),
+            CollisionMask = _solidCollisionMask,
+            CollideWithBodies = true,
+            CollideWithAreas = false,
+            Exclude = new Godot.Collections.Array<Rid> { GetRid() },
+        };
+        return GetWorld3D().DirectSpaceState.IntersectShape(query, 1).Count == 0;
+    }
+
+    private bool HasGroundSupportAt(Vector3 horizontalOffset) =>
+        TestMove(GlobalTransform.Translated(horizontalOffset),
+            Vector3.Down * CrouchEdgeProbe);
 
     private Vector2 GetMovementInput()
     {
@@ -358,6 +450,19 @@ public partial class FpsPlayer : CharacterBody3D
         _moveRight = false;
         _jumpHeld = false;
         _descendHeld = false;
+        // Reset ground input so a paused/released key cannot leave
+        // phantom running/crouching when the mouse is captured again.
+        _groundMovement.Reset();
+        if (_collider is not null && _standingCapsule is not null)
+        {
+            // Modal changes stop movement but must not expand a body
+            // underneath a ceiling. Posture is resolved by physics on resume.
+            if (CanStandAtCurrentPosition())
+            {
+                _collider.Shape = _standingCapsule;
+                _collider.Position = new Vector3(0f, StandingHeight * 0.5f, 0f);
+            }
+        }
         PlayerState.CancelDoubleTap();
     }
 
@@ -373,7 +478,8 @@ public partial class FpsPlayer : CharacterBody3D
         get
         {
             const float halfWidth = 0.35f;
-            const float height = 1.8f;
+            var height = _groundMovement.IsCrouching
+                ? CrouchHeight : StandingHeight;
 
             var minimum =
                 GlobalPosition +
@@ -454,6 +560,9 @@ public partial class FpsPlayer : CharacterBody3D
         {
             case Key.W:
                 _moveForward = key.Pressed;
+                if (!key.Echo)
+                    _groundMovement.ForwardChanged(
+                        key.Pressed, CurrentWorldTick());
                 break;
             case Key.S:
                 _moveBackward = key.Pressed;

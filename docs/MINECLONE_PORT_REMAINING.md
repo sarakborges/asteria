@@ -65,3 +65,10 @@ These are **code-level findings**, not a declaration that visual worldgen, gamep
 7. Side-by-side MineClone/Asteria Godot/WRY functional and visual QA. Keep fixes scoped to the observed discrepancy.
 
 **Do not count Storybook/CI green as in-game parity.** When closing a row, attach exact authored data paths, Core owner, Godot adapter, UI contract (if any), tests and a recorded Godot/WRY observation. No global WebUI gameplay input, engine resources inside packs, negative Y, or new duplicated world systems.
+
+## Movement port progress — 2026-10-09
+
+- The Core `PlayerGroundMovement` now owns transient W double-tap detection (12 world ticks), 1.5× run multiplier, 0.3× crouch multiplier and crouch-over-run behavior, tested independently of Godot.
+- Godot `FpsPlayer` applies native keyboard movement, accelerates/decelerates ground velocity, lowers the collision capsule from 1.8 to 1.5 blocks, blends the camera down by 0.35 blocks and checks full-height collision before allowing the player to stand. While crouching on ground, support probes prevent horizontal travel beyond ledges; immersed/flight movement retains its separate authored rules.
+- Existing Asteria base movement speed remains unchanged (7.5) to avoid an unrelated balance regression; MineClone's reference walking speed is 5.0. The control guide now includes W ×2 Run, and configurable Descend (Shift by default) also crouches on ground.
+- **Still to verify in native Godot/WRY:** low-roof standing probe, diagonal edge support, fluid-to-ground state transitions, collision and camera blending in first/third person, and third-person crouch animation once the visual player model is added. Core tests cannot prove engine collision behavior.

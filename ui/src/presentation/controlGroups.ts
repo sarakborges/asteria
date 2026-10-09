@@ -30,6 +30,7 @@ export function buildControlGroups(
       title: t("controls.category.movement"),
       entries: [
         { key: "WASD", action: t("controls.movement") },
+        { key: "W ×2", action: t("controls.run") },
         { key: jump, action: t("settings.keybind.jump"), bindAction: "Jump" },
         { key: jump + " ×2", action: t("controls.toggleFlight") },
         { key: descend, action: t("settings.keybind.descend"), bindAction: "Descend" },
