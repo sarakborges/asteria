@@ -398,5 +398,6 @@
   "inventory.equipment.helmet": "No helm equipped",
   "inventory.equipment.chest": "No breastplate equipped",
   "inventory.equipment.legs": "No leggings equipped",
-  "inventory.equipment.boots": "No boots equipped"
+  "inventory.equipment.boots": "No boots equipped",
+  "ui.oxygen": "Oxygen"
 }
