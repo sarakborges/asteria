@@ -135,7 +135,9 @@ public sealed class FluidDefinition
         ushort maxSpread = 7,
         BlockLightEmission lightEmission = default,
         FluidMotionDefinition? motion = null,
-        string? texture = null)
+        string? texture = null,
+        float contactDamagePerSecond = 0f,
+        bool depletesBreath = true)
     {
         ValidateId(id);
 
@@ -179,7 +181,13 @@ public sealed class FluidDefinition
                 nameof(texture));
         }
 
+        if (!float.IsFinite(contactDamagePerSecond) ||
+            contactDamagePerSecond < 0f || contactDamagePerSecond > 100f)
+            throw new ArgumentOutOfRangeException(nameof(contactDamagePerSecond));
+
         Id = id;
+        ContactDamagePerSecond = contactDamagePerSecond;
+        DepletesBreath = depletesBreath;
         Color = color;
         Opacity = opacity;
         Roughness = roughness;
@@ -194,6 +202,10 @@ public sealed class FluidDefinition
     }
 
     public string Id { get; }
+
+    public float ContactDamagePerSecond { get; }
+
+    public bool DepletesBreath { get; }
 
     public FluidColor Color { get; }
 
@@ -246,7 +258,20 @@ public static class FluidDefinitionJson
             OptionalUShort(root, "maxSpread") ?? 7,
             ParseLightEmission(root),
             ParseMotion(root),
-            OptionalString(root, "texture"));
+            OptionalString(root, "texture"),
+            OptionalSingle(root, "contactDamagePerSecond") ?? 0f,
+            OptionalBool(root, "depletesBreath") ?? true);
+    }
+
+    private static bool? OptionalBool(JsonElement root, string field)
+    {
+        if (!root.TryGetProperty(field, out var value)) return null;
+        return value.ValueKind switch
+        {
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            _ => throw new FormatException($"{field} must be a boolean.")
+        };
     }
 
     private static FluidMotionDefinition ParseMotion(
