@@ -197,6 +197,7 @@ export type WorldCreationState = {
   mode: GameMode;
   ticksPerSecond: string;
   spawnCreatures: boolean;
+  keepInventory: boolean;
   generation: WorldGenerationDraft;
   spawnBiomes: SpawnBiomeOption[];
   pending: boolean;
@@ -373,6 +374,7 @@ export function createInitialUiState(
       mode: "Survival",
       ticksPerSecond: "40",
       spawnCreatures: true,
+      keepInventory: true,
       generation: {
         mode: "Normal", spawnBiome: null, biomeSizeTenths: 10,
         spawnStructures: true, singleBiome: false,
