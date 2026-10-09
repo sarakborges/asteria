@@ -32,6 +32,8 @@ public sealed class WorldLoadController
         _layers = layers ?? throw new ArgumentNullException(nameof(layers));
     }
 
+    public bool IsBusy => _pending is not null;
+
     public bool Begin(string worldName)
     {
         if (_pending is not null)
