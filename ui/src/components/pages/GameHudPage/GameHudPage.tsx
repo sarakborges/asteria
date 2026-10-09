@@ -37,6 +37,10 @@ export function GameHudPage({
     ) : (
       <TargetHud
         state={state.target}
+        preview={state.target?.kind === "block"
+          ? catalog.find(choice =>
+              choice.kind === "block" && choice.id === state.target?.id)?.blockPreview
+          : undefined}
         miningProgress={state.miningProgress}
         artisansKitResolution={state.artisansKitResolution}
       />
