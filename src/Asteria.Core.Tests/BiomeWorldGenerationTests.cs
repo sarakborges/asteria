@@ -1749,6 +1749,82 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
+    public void CaveWallPaletteOverridesOnlySolidWallsOnActualCarvedVoid()
+    {
+        var blocks = LoadDefaultBlocks();
+        var dimension = LoadDefaultDimensions().Get(DimensionId.Overworld);
+        var biomes = BiomeRegistry.FromJson(
+            Directory.EnumerateFiles(
+                Path.Combine(AppContext.BaseDirectory, "packs", "default", "data", "biomes"),
+                "*.json").OrderBy(path => path, StringComparer.Ordinal)
+                .Select(path =>
+                {
+                    var content = File.ReadAllText(path);
+                    if (!path.EndsWith("caverns.json", StringComparison.Ordinal))
+                        return content;
+                    var root = System.Text.Json.Nodes.JsonNode.Parse(content)!;
+                    root["palette"] = System.Text.Json.Nodes.JsonNode.Parse(
+                        """
+                        {
+                          "default":[{"block":"asteria:stone"}],
+                          "walls":[
+                            {"block":"asteria:basalt","depth":2},
+                            {"block":"asteria:stone"}
+                          ]
+                        }
+                        """);
+                    root["decorations"] = System.Text.Json.Nodes.JsonNode.Parse("[]");
+                    root["caveSpikes"] = System.Text.Json.Nodes.JsonNode.Parse("[]");
+                    return root.ToJsonString();
+                }));
+        var generator = new BiomeWorldGenerator(
+            DimensionSeed.Derive(0xA57E_2026UL, dimension.Id), dimension,
+            blocks, LoadDefaultFluids(), biomes, LoadDefaultStructures(),
+            LoadDefaultStructureSets());
+        var cave = FindCaveVoid(generator);
+        (int X, int Y, int Z)? wall = null;
+        var directions = new (int X, int Z)[]
+        {
+            (1, 0), (-1, 0), (0, 1), (0, -1),
+        };
+
+        for (var dy = -8; dy <= 8 && wall is null; dy++)
+        {
+            var y = cave.Y + dy;
+            if (y <= 1 || !generator.IsCaveVoidAt(cave.X, y, cave.Z))
+                continue;
+            foreach (var (dx, dz) in directions)
+            {
+                for (var distance = 1; distance <= 64; distance++)
+                {
+                    var x = cave.X + dx * distance;
+                    var z = cave.Z + dz * distance;
+                    if (generator.IsCaveVoidAt(x, y, z))
+                        continue;
+                    if (y > generator.SurfaceHeight(x, z) - 5 ||
+                        generator.DensityAt(x, y, z) < 0d ||
+                        generator.IsCaveVoidAt(x, y + 1, z) ||
+                        generator.IsCaveVoidAt(x, y - 1, z))
+                        break;
+                    wall = (x, y, z);
+                    break;
+                }
+                if (wall is not null)
+                    break;
+            }
+        }
+
+        Assert.NotNull(wall);
+        var target = wall!.Value;
+        var (chunkCoord, local) = VoxelCoordinates.FromWorld(
+            target.X, target.Y, target.Z);
+        var actual = generator.Materialize(chunkCoord).GetBlock(
+            local.X, local.Y, local.Z);
+        Assert.Equal(blocks.GetId("asteria:basalt"), actual);
+        Assert.False(generator.IsCaveVoidAt(target.X, target.Y, target.Z));
+    }
+
+    [Fact]
     public void UndergroundDecoratorsOnlyMaterializeOnActuallyCarvedCaveFloors()
     {
         var blocks = LoadDefaultBlocks();
