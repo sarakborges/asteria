@@ -1,0 +1,27 @@
+{
+  "id": "asteria:cave_roots",
+  "category": "foliage",
+  "tags": [
+    "support_above"
+  ],
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/cave_roots.png",
+    "width": 0.68,
+    "height": 0.95,
+    "baseOffset": 0.045,
+    "planes": 2
+  },
+  "placementFaces": [
+    "bottom"
+  ],
+  "mining": {
+    "hardness": 0.09
+  },
+  "isCollidable": false,
+  "castsShadow": false,
+  "lightDampening": 0,
+  "alphaCutoff": 0.5,
+  "previewColor": "9aa48b",
+  "dropsSelf": false
+}

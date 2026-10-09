@@ -1,0 +1,31 @@
+{
+  "id": "asteria:cave_glowcap",
+  "category": "foliage",
+  "tags": [
+    "support_below"
+  ],
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/cave_glowcap.png",
+    "width": 0.82,
+    "height": 0.71,
+    "planes": 4
+  },
+  "placementFaces": [
+    "top"
+  ],
+  "mining": {
+    "hardness": 0.04
+  },
+  "isCollidable": false,
+  "castsShadow": false,
+  "lightDampening": 0,
+  "alphaCutoff": 0.5,
+  "lightEmission": {
+    "red": 3,
+    "green": 7,
+    "blue": 10
+  },
+  "previewColor": "76dce7",
+  "dropsSelf": false
+}

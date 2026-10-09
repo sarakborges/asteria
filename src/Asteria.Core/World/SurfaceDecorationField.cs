@@ -11,6 +11,7 @@ public sealed class SurfaceDecorationField
     private readonly SurfaceHabitatField _habitats;
     private readonly IReadOnlyDictionary<string, DecorationRule[]> _rules;
     private readonly HashSet<string> _verticalBiomes;
+    private readonly HashSet<string> _ceilingBiomes;
 
     public SurfaceDecorationField(
         ulong seed,
@@ -30,6 +31,12 @@ public sealed class SurfaceDecorationField
             .Where(biome => generateDecorations &&
                             biome.SurfaceLayout is null &&
                             biome.Decorations.Count > 0)
+            .Select(biome => biome.Id)
+            .ToHashSet(StringComparer.Ordinal);
+        _ceilingBiomes = definitions
+            .Where(biome => generateDecorations &&
+                            biome.Decorations.Any(d => d.SupportSurface ==
+                                DecorationSupportSurface.Ceiling))
             .Select(biome => biome.Id)
             .ToHashSet(StringComparer.Ordinal);
         _habitats = habitats ?? new SurfaceHabitatField(seed, definitions);
@@ -65,7 +72,8 @@ public sealed class SurfaceDecorationField
                                     nameof(fluids))).GetId(requirement.Fluid)
                                 : FluidRuntimeId.None,
                             decoration.FluidRequirement?.Relation ?? DecorationFluidRelation.Nearby,
-                            decoration.FluidRequirement?.MaxDistance ?? 0))
+                            decoration.FluidRequirement?.MaxDistance ?? 0,
+                            decoration.SupportSurface))
                     .ToArray(),
                 StringComparer.Ordinal);
         foreach (var biome in definitions)
@@ -74,6 +82,10 @@ public sealed class SurfaceDecorationField
     }
 
     public bool HasVerticalDecorations => _verticalBiomes.Count > 0;
+    public bool HasCeilingDecorations => _ceilingBiomes.Count > 0;
+
+    public bool HasCeilingDecorationsFor(string biomeId) =>
+        _ceilingBiomes.Contains(biomeId);
 
     public bool HasVerticalDecorationsFor(string biomeId) =>
         _verticalBiomes.Contains(biomeId);
@@ -111,7 +123,8 @@ public sealed class SurfaceDecorationField
         int? supportY = null,
         bool onFluidSurface = false,
         FluidRuntimeId fluidBelow = default,
-        Func<FluidRuntimeId, int, int, int, int, bool>? nearbyFluid = null)
+        Func<FluidRuntimeId, int, int, int, int, bool>? nearbyFluid = null,
+        DecorationSupportSurface supportSurface = DecorationSupportSurface.Floor)
     {
         SurfacePlacementContext? placement = suppliedPlacement;
         var slopeSampled = suppliedPlacement.HasValue;
@@ -120,6 +133,9 @@ public sealed class SurfaceDecorationField
             double? sampledHabitat = null;
             foreach (var rule in _rules[influence.BiomeId])
             {
+                if (rule.SupportSurface != supportSurface)
+                    continue;
+
                 var fluidSupported = !rule.RequiredFluid.IsNone &&
                     rule.FluidRelation == DecorationFluidRelation.Below;
                 if (fluidSupported != onFluidSurface)
@@ -229,5 +245,6 @@ public sealed class SurfaceDecorationField
         DecorationFluidPlacement FluidPlacement,
         FluidRuntimeId RequiredFluid,
         DecorationFluidRelation FluidRelation,
-        int FluidDistance);
+        int FluidDistance,
+        DecorationSupportSurface SupportSurface);
 }

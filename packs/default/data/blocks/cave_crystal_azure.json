@@ -1,0 +1,36 @@
+{
+  "id": "asteria:cave_crystal_azure",
+  "category": "natural_blocks",
+  "shape": {
+    "type": "spike",
+    "baseRadius": 0.46,
+    "tipRadius": 0.08,
+    "taperPower": 1
+  },
+  "placementFaces": [
+    "top",
+    "bottom"
+  ],
+  "textures": {
+    "top": "textures/blocks/cave_crystal_azure.png",
+    "bottom": "textures/blocks/cave_crystal_azure.png",
+    "left": "textures/blocks/cave_crystal_azure.png",
+    "right": "textures/blocks/cave_crystal_azure.png",
+    "front": "textures/blocks/cave_crystal_azure.png",
+    "back": "textures/blocks/cave_crystal_azure.png"
+  },
+  "mining": {
+    "hardness": 1.4,
+    "requiredTools": [
+      "pickaxe"
+    ]
+  },
+  "lightDampening": 0,
+  "castsShadow": true,
+  "lightEmission": {
+    "red": 1,
+    "green": 5,
+    "blue": 7
+  },
+  "previewColor": "64b7d0"
+}

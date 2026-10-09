@@ -58,6 +58,62 @@
       "conditions": {
         "maxY": 115
       }
+    },
+    {
+      "block": "asteria:cave_roots",
+      "chance": 0.18,
+      "supportSurface": "ceiling",
+      "surfaceBlocks": [
+        "asteria:stone",
+        "asteria:stone_cobble"
+      ],
+      "cluster": {
+        "scale": 30,
+        "threshold": -0.23,
+        "octaves": 3,
+        "transitionWidth": 0.2
+      },
+      "conditions": {
+        "maxY": 105
+      }
+    },
+    {
+      "block": "asteria:cave_glowcap",
+      "chance": 0.072,
+      "surfaceBlocks": [
+        "asteria:stone",
+        "asteria:stone_cobble",
+        "asteria:gravel",
+        "asteria:clay"
+      ],
+      "cluster": {
+        "scale": 31,
+        "threshold": -0.13,
+        "octaves": 4,
+        "transitionWidth": 0.18
+      },
+      "conditions": {
+        "maxY": 96
+      }
+    },
+    {
+      "block": "asteria:cave_glow_fern",
+      "chance": 0.11,
+      "surfaceBlocks": [
+        "asteria:stone",
+        "asteria:stone_cobble",
+        "asteria:dirt",
+        "asteria:clay"
+      ],
+      "cluster": {
+        "scale": 36,
+        "threshold": -0.21,
+        "octaves": 3,
+        "transitionWidth": 0.19
+      },
+      "conditions": {
+        "maxY": 107
+      }
     }
   ],
   "caveSpikes": [
@@ -163,6 +219,24 @@
         "verticalScale": 16,
         "threshold": -0.23,
         "transitionWidth": 0.33
+      }
+    },
+    {
+      "block": "asteria:cave_crystal_azure",
+      "chance": 0.065,
+      "minHeight": 2,
+      "maxHeight": 5,
+      "minClearance": 9,
+      "directions": [
+        "up",
+        "down"
+      ],
+      "minSpacing": 2,
+      "cluster": {
+        "horizontalScale": 38,
+        "verticalScale": 29,
+        "threshold": -0.16,
+        "transitionWidth": 0.22
       }
     }
   ],

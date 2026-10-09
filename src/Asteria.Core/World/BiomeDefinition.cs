@@ -627,6 +627,13 @@ public sealed class BiomeDecorationFluidRequirement
     public int MaxDistance { get; }
 }
 
+/// <summary>The supporting face where a decorative block may grow.</summary>
+public enum DecorationSupportSurface
+{
+    Floor,
+    Ceiling,
+}
+
 public sealed class BiomeDecorationDefinition
 {
     public BiomeDecorationDefinition(
@@ -637,8 +644,11 @@ public sealed class BiomeDecorationDefinition
         SurfacePlacementConditions? conditions = null,
         SurfaceHabitatWeights? habitatWeights = null,
         DecorationFluidPlacement fluidPlacement = DecorationFluidPlacement.Dry,
-        BiomeDecorationFluidRequirement? fluidRequirement = null)
+        BiomeDecorationFluidRequirement? fluidRequirement = null,
+        DecorationSupportSurface supportSurface = DecorationSupportSurface.Floor)
     {
+        if (!Enum.IsDefined(supportSurface))
+            throw new ArgumentOutOfRangeException(nameof(supportSurface));
         BiomeSurfaceLayerDefinition.ValidateBlockId(
             block);
         if (!Enum.IsDefined(fluidPlacement))
@@ -686,6 +696,7 @@ public sealed class BiomeDecorationDefinition
         HabitatWeights = habitatWeights;
         FluidPlacement = fluidPlacement;
         FluidRequirement = fluidRequirement;
+        SupportSurface = supportSurface;
         SurfaceBlocks =
             Array.AsReadOnly(supports);
     }
@@ -702,6 +713,7 @@ public sealed class BiomeDecorationDefinition
     public SurfaceHabitatWeights? HabitatWeights { get; }
     public DecorationFluidPlacement FluidPlacement { get; }
     public BiomeDecorationFluidRequirement? FluidRequirement { get; }
+    public DecorationSupportSurface SupportSurface { get; }
 }
 
 /// <summary>

@@ -1,0 +1,31 @@
+{
+  "id": "asteria:cave_glow_fern",
+  "category": "foliage",
+  "tags": [
+    "support_below"
+  ],
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/cave_glow_fern.png",
+    "width": 0.78,
+    "height": 0.79,
+    "planes": 4
+  },
+  "placementFaces": [
+    "top"
+  ],
+  "mining": {
+    "hardness": 0.04
+  },
+  "isCollidable": false,
+  "castsShadow": false,
+  "lightDampening": 0,
+  "alphaCutoff": 0.5,
+  "lightEmission": {
+    "red": 1,
+    "green": 7,
+    "blue": 5
+  },
+  "previewColor": "69ccb2",
+  "dropsSelf": false
+}

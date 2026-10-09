@@ -739,11 +739,22 @@ public static class BiomeDefinitionJson
                     ParsePlacementConditions(value),
                     SurfaceHabitatDefinitionJson.ParseWeights(value),
                     ParseDecorationFluidPlacement(value),
-                    ParseDecorationFluidRequirement(value)));
+                    ParseDecorationFluidRequirement(value),
+                    ParseDecorationSupportSurface(value)));
         }
 
         return decorations;
     }
+
+    private static DecorationSupportSurface ParseDecorationSupportSurface(
+        JsonElement decoration) =>
+        OptionalString(decoration, "supportSurface") switch
+        {
+            null or "floor" => DecorationSupportSurface.Floor,
+            "ceiling" => DecorationSupportSurface.Ceiling,
+            var value => throw new FormatException(
+                $"Unknown decorations.supportSurface: {value}."),
+        };
 
     private static BiomeDecorationFluidRequirement? ParseDecorationFluidRequirement(
         JsonElement decoration)

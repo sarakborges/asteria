@@ -616,3 +616,23 @@ The content-specific surface shape types are eliminated. Biomes are compositions
 The `depressions` modifier can be added to **any** surface shape with `depth`, `broadScale`, `detailScale`, `broadWeight`, `bias`, `transitionWidth`, and `sharpness`. This replaces the special swamp height algorithm. Every modifier has a deterministic per-biome/index noise domain. Existing cliff and height-offset modifiers remain usable on any profile.
 
 The former `ocean`, `swamp`, `mountains`, `gorge`, `alps`, `mountain_belt`, and `volcano` surfaceTerrain types are deliberately not supported: migrate content into generic shapes rather than carrying aliases. The optional depressions modifier is still available to other authored terrains; the default Swamp now uses a surface mosaic instead.
+
+## Caverns biodiversity — emissive crystals and directional decorators
+
+Caverns now uses four new default-pack blocks: `cave_crystal_azure`,
+`cave_roots`, `cave_glowcap`, and `cave_glow_fern`, each with a 64×64
+texture. Azure crystals use the existing square CaveSpikeField, with bounded
+height, clearance, spacing and clustered probability. The glowing flora
+are transparent, non-collidable crossed sprites with authored RGB
+`lightEmission`; their placement uses the existing 3D decorator roll
+and terrain-material restrictions.
+
+Decorators support `supportSurface: "floor" | "ceiling"` (default `floor`).
+A ceiling rule is eligible only inside an actual carved cave void, directly
+below a density-solid ceiling of an allowed material. This works across
+vertical chunk borders and uses the cave's `palette.ceiling` profile when
+the supporting block is outside the current chunk. The resulting
+`cave_roots` block has `support_above`, so runtime edits to its host rock
+wake and detach the unsupported root through generic BlockPhysics.
+Additive floating islands keep their original top-only decoration policy.
+No new generated-fluid or lighting owner is introduced.
