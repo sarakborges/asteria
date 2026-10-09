@@ -28,12 +28,30 @@ internal static class PlayerVisualSceneFactory
         var scene = document.GenerateScene(state)
             ?? throw new InvalidDataException("Authored player GLB has no scene.");
         var skin = ProjectPackFiles.LoadTexture(selection, definition.Skin);
-        foreach (var child in Descendants(scene))
+        var cuboids = Descendants(scene)
+            .OfType<MeshInstance3D>()
+            .Where(mesh => PlayerSkinUvMapper.TryMap(
+                mesh.Name.ToString(), NVector3.Zero, NVector3.UnitZ, out _))
+            .ToArray();
+        foreach (var mesh in cuboids)
         {
-            if (child is MeshInstance3D mesh &&
-                PlayerSkinUvMapper.TryMap(mesh.Name.ToString(),
-                    NVector3.Zero, NVector3.UnitZ, out _))
-                ApplySkin(mesh, skin);
+            ApplySkin(mesh, skin, outer: false);
+            // The original GLB already includes its hair layer. Generate only
+            // the remaining jacket/sleeves/trousers from the same authored skin.
+            if (mesh.Name.ToString() != "HairLayer" &&
+                PlayerSkinUvMapper.TryMapOuter(
+                    mesh.Name.ToString(), NVector3.Zero, NVector3.UnitZ, out _))
+            {
+                var overlay = new MeshInstance3D
+                {
+                    Name = mesh.Name + "Overlay",
+                    Mesh = BuildSkinnedMesh(mesh, outer: true),
+                    Scale = Vector3.One * 1.045f,
+                    CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+                    MaterialOverride = MakeSkinMaterial(skin, transparent: true),
+                };
+                mesh.AddChild(overlay);
+            }
         }
         return scene;
     }
@@ -46,7 +64,26 @@ internal static class PlayerVisualSceneFactory
                 yield return descendant;
     }
 
-    private static void ApplySkin(MeshInstance3D mesh, Texture2D skin)
+    private static void ApplySkin(MeshInstance3D mesh, Texture2D skin, bool outer)
+    {
+        mesh.Mesh = BuildSkinnedMesh(mesh, outer);
+        mesh.MaterialOverride = MakeSkinMaterial(skin, transparent: false);
+        mesh.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
+    }
+
+    private static StandardMaterial3D MakeSkinMaterial(
+        Texture2D skin, bool transparent) => new()
+    {
+        AlbedoTexture = skin,
+        ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+        TextureFilter = BaseMaterial3D.TextureFilterEnum.Nearest,
+        Transparency = transparent
+            ? BaseMaterial3D.TransparencyEnum.AlphaScissor
+            : BaseMaterial3D.TransparencyEnum.Disabled,
+        CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+    };
+
+    private static ArrayMesh BuildSkinnedMesh(MeshInstance3D mesh, bool outer)
     {
         if (mesh.Mesh is not Mesh imported)
             throw new InvalidDataException(
@@ -65,11 +102,19 @@ internal static class PlayerVisualSceneFactory
             var uv = new Vector2[positions.Length];
             for (var i = 0; i < positions.Length; i++)
             {
-                if (!PlayerSkinUvMapper.TryMap(
+                var mapped = outer
+                    ? PlayerSkinUvMapper.TryMapOuter(
                         mesh.Name.ToString(),
                         new NVector3(positions[i].X, positions[i].Y, positions[i].Z),
                         new NVector3(normals[i].X, normals[i].Y, normals[i].Z),
-                        out var mappedUv))
+                        out var mappedUvOuter)
+                    : PlayerSkinUvMapper.TryMap(
+                        mesh.Name.ToString(),
+                        new NVector3(positions[i].X, positions[i].Y, positions[i].Z),
+                        new NVector3(normals[i].X, normals[i].Y, normals[i].Z),
+                        out mappedUvOuter);
+                var mappedUv = mappedUvOuter;
+                if (!mapped)
                     throw new InvalidDataException(
                         $"Cannot map player skin UV for '{mesh.Name}'.");
                 uv[i] = new Vector2(mappedUv.X, mappedUv.Y);
@@ -82,14 +127,6 @@ internal static class PlayerVisualSceneFactory
                 arrays);
         }
 
-        mesh.Mesh = mapped;
-        mesh.MaterialOverride = new StandardMaterial3D
-        {
-            AlbedoTexture = skin,
-            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
-            TextureFilter = BaseMaterial3D.TextureFilterEnum.Nearest,
-            CullMode = BaseMaterial3D.CullModeEnum.Disabled,
-        };
-        mesh.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
+        return mapped;
     }
 }
