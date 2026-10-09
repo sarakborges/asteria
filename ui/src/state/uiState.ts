@@ -12,6 +12,7 @@ export type HotbarSlotState = {
   kind?: "block" | "item" | "tool" | "layer";
   metadata?: Record<string, string>;
   iconUrl?: string;
+  blockPreview?: BlockPreviewState;
 };
 
 export type HotbarState = {
