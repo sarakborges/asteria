@@ -488,6 +488,49 @@ public sealed class GeneratedSurfaceFluidTests
     }
 
     [Fact]
+    public void DefaultSwampInterleavesDryMudAndDirtWithShallowSeaFilledPools()
+    {
+        var biomes = BiomeRegistry.FromJson(ReadJsonDirectory("biomes"));
+        var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
+        var fluids = FluidRegistry.FromJson(ReadJsonDirectory("fluids"));
+        var dimensions = DimensionRegistry.FromJson(ReadJsonDirectory("dimensions"));
+        var swamp = biomes.Get("asteria:overworld/swamp");
+        var dimension = dimensions.Get(DimensionId.Overworld);
+        var terrain = new SurfaceTerrainRule(swamp);
+        var water = new GeneratedFluidField(91UL, dimension, fluids, [swamp]);
+        var material = new BiomeSurfaceMaterialField(91UL, [swamp], blocks);
+        var sample = new BiomeSample(swamp.Id,
+            [new BiomeInfluence(swamp.Id, 1f, 1f)]);
+
+        var wet = 0;
+        var dryMud = 0;
+        var dryDirt = 0;
+        var waterId = fluids.GetId("asteria:water");
+        for (var z = -224; z <= 224; z += 8)
+        for (var x = -224; x <= 224; x += 8)
+        {
+            var top = (int)Math.Floor(
+                dimension.SeaLevel + terrain.HeightOffsetAt(91UL, x, z, 1f));
+            if (top < dimension.SeaLevel)
+            {
+                Assert.Equal(waterId, water.FluidAtEmptyVoxel(
+                    sample, top, 0, x, dimension.SeaLevel, z).Fluid);
+                wet++;
+            }
+            else
+            {
+                var block = material.BlockAt(
+                    sample, x, z, 0, new SurfacePlacementContext(top, 0));
+                dryMud += block == blocks.GetId("asteria:mud") ? 1 : 0;
+                dryDirt += block == blocks.GetId("asteria:dirt") ? 1 : 0;
+            }
+        }
+        Assert.True(wet > 0, "Swamp needs fluid-filled depressions.");
+        Assert.True(dryMud > 0, "Swamp needs exposed patches of mud.");
+        Assert.True(dryDirt > 0, "Swamp needs exposed patches of dirt.");
+    }
+
+    [Fact]
     public void DefaultBiomePackUsesReusableTerrainTypes()
     {
         var biomes =
