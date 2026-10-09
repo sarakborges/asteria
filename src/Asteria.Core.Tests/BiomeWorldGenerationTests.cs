@@ -1906,9 +1906,13 @@ public sealed class BiomeWorldGenerationTests
             var x = floating.X + dx;
             var z = floating.Z + dz;
             var surface = generator.SurfaceHeight(x, z);
-            for (var y = Math.Min(281, surface + 1); y >= 204; y--)
+            // Floating tops must be searched above the base surface.
+            // The previous upper bound depended on an unrelated surface
+            // biome's elevation and skipped islands above low/ocean terrain.
+            for (var y = 281; y >= 204; y--)
             {
-                if (generator.VolumeBiomes.Sample(x, y - 1, z)?.Primary != volumeId ||
+                if (y <= surface + 1 ||
+                    generator.VolumeBiomes.Sample(x, y - 1, z)?.Primary != volumeId ||
                     generator.DensityAt(x, y - 1, z) < 0d ||
                     generator.DensityAt(x, y, z) >= 0d)
                     continue;
