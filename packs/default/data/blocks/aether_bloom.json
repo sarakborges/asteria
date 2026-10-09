@@ -1,0 +1,32 @@
+{
+  "id": "asteria:aether_bloom",
+  "category": "foliage",
+  "tags": [
+    "support_below"
+  ],
+  "windSway": true,
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/aether_bloom.png",
+    "width": 0.82,
+    "height": 0.81,
+    "planes": 4
+  },
+  "placementFaces": [
+    "top"
+  ],
+  "mining": {
+    "hardness": 0.06
+  },
+  "isCollidable": false,
+  "castsShadow": false,
+  "lightDampening": 0,
+  "alphaCutoff": 0.5,
+  "lightEmission": {
+    "red": 5,
+    "green": 2,
+    "blue": 6
+  },
+  "previewColor": "c6a1e3",
+  "dropsSelf": false
+}

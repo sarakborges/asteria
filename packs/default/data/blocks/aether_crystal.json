@@ -1,0 +1,40 @@
+{
+  "id": "asteria:aether_crystal",
+  "category": "natural_blocks",
+  "tags": [
+    "support_below"
+  ],
+  "shape": {
+    "type": "spike",
+    "baseRadius": 0.46,
+    "tipRadius": 0.07,
+    "taperPower": 1.1
+  },
+  "textures": {
+    "top": "textures/blocks/aether_crystal.png",
+    "bottom": "textures/blocks/aether_crystal.png",
+    "left": "textures/blocks/aether_crystal.png",
+    "right": "textures/blocks/aether_crystal.png",
+    "front": "textures/blocks/aether_crystal.png",
+    "back": "textures/blocks/aether_crystal.png"
+  },
+  "placementFaces": [
+    "top"
+  ],
+  "mining": {
+    "hardness": 1.25,
+    "requiredTools": [
+      "pickaxe"
+    ]
+  },
+  "isCollidable": true,
+  "castsShadow": true,
+  "lightDampening": 0,
+  "lightEmission": {
+    "red": 2,
+    "green": 6,
+    "blue": 8
+  },
+  "previewColor": "75c9e2",
+  "dropsSelf": true
+}

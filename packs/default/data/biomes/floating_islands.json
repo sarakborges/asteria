@@ -71,6 +71,81 @@
         "minY": 200,
         "maxY": 282
       }
+    },
+    {
+      "block": "asteria:sky_reed",
+      "chance": 0.26,
+      "surfaceBlocks": [
+        "asteria:grass_block",
+        "asteria:dirt"
+      ],
+      "cluster": {
+        "scale": 28,
+        "threshold": -0.23,
+        "octaves": 4,
+        "transitionWidth": 0.18
+      },
+      "conditions": {
+        "minY": 200,
+        "maxY": 283
+      }
+    },
+    {
+      "block": "asteria:aether_bloom",
+      "chance": 0.13,
+      "surfaceBlocks": [
+        "asteria:grass_block",
+        "asteria:dirt"
+      ],
+      "cluster": {
+        "scale": 43,
+        "threshold": -0.12,
+        "octaves": 3,
+        "transitionWidth": 0.16
+      },
+      "conditions": {
+        "minY": 200,
+        "maxY": 283
+      }
+    },
+    {
+      "block": "asteria:aether_crystal",
+      "chance": 0.07,
+      "surfaceBlocks": [
+        "asteria:stone",
+        "asteria:dirt",
+        "asteria:grass_block"
+      ],
+      "cluster": {
+        "scale": 49,
+        "threshold": -0.16,
+        "octaves": 3,
+        "transitionWidth": 0.2
+      },
+      "conditions": {
+        "minY": 200,
+        "maxY": 283
+      }
+    },
+    {
+      "block": "asteria:sky_vines",
+      "chance": 0.22,
+      "supportSurface": "ceiling",
+      "surfaceBlocks": [
+        "asteria:stone",
+        "asteria:dirt",
+        "asteria:grass_block"
+      ],
+      "cluster": {
+        "scale": 33,
+        "threshold": -0.2,
+        "octaves": 3,
+        "transitionWidth": 0.16
+      },
+      "conditions": {
+        "minY": 200,
+        "maxY": 283
+      }
     }
   ],
   "palette": {

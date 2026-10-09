@@ -973,9 +973,23 @@ public sealed class SurfaceChunkMaterializer
                         surfaceBiome, baseY,
                         worldX, worldY - 1, worldZ, volumePlacement);
                 var isFloor = belowDensity >= 0d;
-                var isCeiling = false;
+                // Additive islands may expose their undersides above the
+                // base surface. Resolve the author at the solid voxel above.
+                // Do not sample unsupported sky or other volume ownership.
+                BiomeSample? additiveCeilingBiome = null;
+                if (_decorations.HasCeilingDecorations &&
+                    worldY > baseY && volumePlacement is not null)
+                {
+                    additiveCeilingBiome = densityVolume.VolumeBiomeAt(
+                        localX, worldY + 1, localZ);
+                }
 
-                if (_decorations.HasCeilingDecorations && worldY < baseY)
+                var isCeiling = false;
+                if (_decorations.HasCeilingDecorations &&
+                    (worldY < baseY ||
+                     (additiveCeilingBiome is not null &&
+                      _decorations.HasCeilingDecorationsFor(
+                          additiveCeilingBiome.Primary))))
                 {
                     var aboveDensity = localY + 1 < Chunk.Size
                         ? densityVolume.DensityAt(localX, localY + 1, localZ)
@@ -990,11 +1004,21 @@ public sealed class SurfaceChunkMaterializer
                 BiomeSample? decoratorBiome;
                 if (worldY > baseY)
                 {
-                    // Additive islands retain the original top-only policy.
-                    if (!isFloor || worldY - 1 <= baseY)
+                    // The supporting additive voxel, not the empty sky,
+                    // owns both top-facing and hanging decorators.
+                    if (isFloor && worldY - 1 > baseY)
+                    {
+                        decoratorBiome = densityVolume.VolumeBiomeAt(
+                            localX, worldY - 1, localZ);
+                    }
+                    else if (isCeiling)
+                    {
+                        decoratorBiome = additiveCeilingBiome;
+                    }
+                    else
+                    {
                         continue;
-                    decoratorBiome = densityVolume.VolumeBiomeAt(
-                        localX, worldY - 1, localZ);
+                    }
                 }
                 else
                 {
@@ -1049,11 +1073,31 @@ public sealed class SurfaceChunkMaterializer
                         decoratorBiome.Primary))
                     continue;
 
-                var ceilingSupport = localY + 1 < Chunk.Size
-                    ? chunk.GetBlock(localX, localY + 1, localZ)
-                    : _materials.VolumeBlockAt(
+                BlockRuntimeId ceilingSupport;
+                if (localY + 1 < Chunk.Size)
+                {
+                    ceilingSupport =
+                        chunk.GetBlock(localX, localY + 1, localZ);
+                }
+                else if (worldY > baseY)
+                {
+                    // Resolve the *same* additive palette/depth used by the
+                    // solid-material pass, even across a vertical chunk seam.
+                    volumeMaterials ??= _materials.SampleColumn(
+                        decoratorBiome, worldX, worldZ);
+                    var depth = AdditiveDepthAt(
+                        densityVolume, surfaceBiome, baseY,
+                        localX, localY + 1, localZ,
+                        worldX, worldY + 1, worldZ,
+                        volumeMaterials.FiniteDepth);
+                    ceilingSupport = volumeMaterials.BlockAt(depth);
+                }
+                else
+                {
+                    ceilingSupport = _materials.VolumeBlockAt(
                         decoratorBiome, worldX, worldY + 1, worldZ,
                         BiomePaletteFace.Ceiling);
+                }
                 if (ceilingSupport.IsAir)
                     continue;
 

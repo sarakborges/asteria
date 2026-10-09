@@ -636,3 +636,29 @@ the supporting block is outside the current chunk. The resulting
 wake and detach the unsupported root through generic BlockPhysics.
 Additive floating islands keep their original top-only decoration policy.
 No new generated-fluid or lighting owner is introduced.
+
+## Floating Islands: authored surface and underside objects
+
+The `asteria:overworld/floating_islands` additive volume retains the
+same `terrain3d.additive` configuration and its Grass/Dirt/Stone
+palette. Four default-pack block objects add a distinct sky-island
+character using only authored decorators:
+
+- `sky_reed`: wind-swaying tall cyan-green grasses on Grass Block/Dirt.
+- `aether_bloom`: sparse lavender flowers with subtle RGB emission.
+- `aether_crystal`: occasional single-voxel, square-section spikes on
+  Grass, Dirt or exposed Stone; existing shape renderer and emission.
+- `sky_vines`: pendulous sprites on the underside of real additive
+  solids, with `supportSurface: "ceiling"`, `support_above`, and wind sway.
+
+Each uses an independent 64x64 pixel texture, height bounds,
+deterministic noise clusters and authored support materials. The
+vertical decorator pass resolves additive ceiling ownership from
+the solid voxel **above** the empty position; it does not paint
+sky/ground outside an additive island or introduce another world
+writer. When support lies in the next vertical chunk, the sampled
+material follows the exact additive depth/palette policy, avoiding
+chunk-boundary differences. Existing cave ceilings continue to use
+their CarvedVoid palette and original placement path. The terrain
+density, island footprint, vertical band and base voxel materials
+are unchanged.

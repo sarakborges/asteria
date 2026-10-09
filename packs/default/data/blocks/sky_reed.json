@@ -1,0 +1,27 @@
+{
+  "id": "asteria:sky_reed",
+  "category": "foliage",
+  "tags": [
+    "support_below"
+  ],
+  "windSway": true,
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/sky_reed.png",
+    "width": 0.76,
+    "height": 0.9,
+    "planes": 4
+  },
+  "placementFaces": [
+    "top"
+  ],
+  "mining": {
+    "hardness": 0.05
+  },
+  "isCollidable": false,
+  "castsShadow": false,
+  "lightDampening": 0,
+  "alphaCutoff": 0.5,
+  "previewColor": "78c9ac",
+  "dropsSelf": false
+}

@@ -1,0 +1,28 @@
+{
+  "id": "asteria:sky_vines",
+  "category": "foliage",
+  "tags": [
+    "support_above"
+  ],
+  "windSway": true,
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/sky_vines.png",
+    "width": 0.72,
+    "height": 0.95,
+    "baseOffset": 0.045,
+    "planes": 2
+  },
+  "placementFaces": [
+    "bottom"
+  ],
+  "mining": {
+    "hardness": 0.05
+  },
+  "isCollidable": false,
+  "castsShadow": false,
+  "lightDampening": 0,
+  "alphaCutoff": 0.5,
+  "previewColor": "8ccdb2",
+  "dropsSelf": false
+}
