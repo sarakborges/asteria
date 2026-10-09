@@ -2,18 +2,34 @@
 .godot/
 .mono/
 addons/godot_wry/
+*.translation
+
+# Godot script/shader *.uid and import settings outside packs are source metadata:
+# commit them rather than ignoring them, to keep stable cross-machine references.
+# Pack-specific Godot sidecars are forbidden and should be removed, not hidden.
 
 # .NET
 **/bin/
 **/obj/
+**/TestResults/
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
 
 # WebUI
 ui/node_modules/
 ui/dist/
 ui/storybook-static/
+ui/test-results/
+ui/playwright-report/
+ui/coverage/
 
-# Runtime logs
+# Runtime logs and generated worldgen diagnostic fixtures
 logs/*.log
+/worldgen-benchmark.json
+/biome-map-*.svg
 
 # Editors / OS
 .vscode/
