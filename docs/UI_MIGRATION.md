@@ -38,13 +38,13 @@ MineClone references: `sarakborges/mineclone` **`main` for current UI/creation s
 ## Screen migration status
 
 - Starting screen: **ported and wired**. Play enters Asteria's existing world-creation flow; Exit crosses the bridge as `ui.app.exit`. Settings/Controls buttons stay disabled until authoritative runtime owners exist.
-- World selection: **presentation ported**. Cards, metadata, load/delete actions, empty/error states and screen layout are available in React/Storybook; runtime wiring intentionally waits for disk save/catalog ownership.
+- World selection: **partially wired**. Metadata/catalog and validated world loading are backed by native Core/IO. **Delete remains unwired**; WRY and thumbnail parity remain to verify.
 - Settings: **presentation ported**. Navigation, section cards, `Toggle`, `Select`, `Slider` and `SettingRow` are available; runtime wiring waits for authoritative settings ownership.
 - Controls: **presentation ported**. Group/card/keycap layout is available; editable keybind behavior waits for a real keybind owner.
-- Pause menu: **presentation ported**. The 360 px centered menu, paired settings actions, leave/exit hierarchy and save-feedback area match the MineClone contract. Runtime pause/resume/leave wiring intentionally waits for a real pause/save owner.
+- Pause menu: **partially wired**. Native `ui.world.save` and `Ctrl+S` publish full checkpoints; localized save result is shown. **Leave World/save-and-exit remains unwired**; WRY verification remains.
 - Inventory: **presentation ported**. Character Info, 3×9 backpack, hotbar footer, search/sort/trash controls and 40 px slot system are reusable React components.
-- Creative inventory: **presentation ported**. Category rail, search field, 9-column catalog and Inventory/Creative view tabs are available.
-- Crafting: **presentation ported**. Available Recipes, Selected Recipe, result/ingredient states, craftability, Current Station and the MineClone sizing contracts are available.
+- Creative inventory: **data + Core/Godot wired, React partial**. Original authored category IDs/order/icons and EN/PT-BR/ES names are in the default pack and Godot catalog message; React still infers alphabetical text-only categories. See [remaining port roadmap](MINECLONE_PORT_REMAINING.md).
+- Inventory crafting: **authoritatively wired**. Pack recipe registry, Core transaction, `ui.inventory.craft`, dynamic ingredient/craftability state, result feedback and React actions work in source. Godot/WRY click QA and broader station parity remain.
 
 ### Inventory layout adaptation
 
@@ -77,9 +77,9 @@ Major MineClone screens, modals, inventory/crafting and HUD surfaces have been m
 
 - FPS HUD: **wired**. Godot owns the 250 ms frame-sampling presentation tracker and publishes only changed values.
 - Block target HUD + action hint: **wired**. The existing authoritative voxel raycast is shared by block interaction and HUD projection; WebUI receives only a changed presentation snapshot and never performs targeting.
-- Target entity metadata: presentation remains ready, but no creature/entity-targeting owner exists in Asteria yet.
-- World clock: **wired** to the authoritative per-Sphere `DayNightClock`. `game.hud.clock` publishes changes of minute/day and an initial snapshot. The full day/night runtime is documented in `docs/DAY_NIGHT.md`; shader/voxel lighting changes are explicitly excluded.
-- Save catalog, settings/keybinds, pause/session save, inventory/crafting/storage/chat remain pending their authoritative runtime owners.
+- Target entity metadata: **wired**. Godot publishes `game.hud.target_entity` from gameplay targeting; real preview/portrait parity remains partial.
+- World clock: **wired** to the authoritative per-Sphere `DayNightClock`. `game.hud.clock` publishes changes of minute/day and an initial snapshot. The full day/night runtime is documented in `docs/DAY_NIGHT.md`.
+- **World save/catalog/load, inventory crafting, native inventory, storage box and chat are no longer presentation-only.** Their gameplay and bridge owners exist. Open work is safe Delete/Leave actions, React creative category rendering, player/target portraits and WRY parity; settings/keybinds need case-by-case auditing, not wholesale reimplementation.
 
 Remaining work includes scoped presentation parity for standalone scroll regions and authoritative runtime integration. Do not invent gameplay actions.
 

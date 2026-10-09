@@ -187,18 +187,13 @@ keeps Godot as an I/O/interaction adapter.
   runtime quiescence, native save/load lifecycle, content registry/cycle
   validation and UI catalog to this Core-only storage layer.
 
-## Remaining
+## Historical note
 
-Wire the spatial snapshot capture and disk publisher into a quiescent
-gameplay save lifecycle. Persist and restore the remaining authoritative
-world/session state: player inventory, cursor, game mode and movement, game
-rules and creation options, per-Sphere storage boxes and manual structures,
-detached creatures/drops and pending fluid/physics work, world ticks, day/night,
-current Sphere and all saved player positions. Publish one manifest only after
-*all* spatial and session components of a generation have been validated.
-Implement world load/delete and save/leave UI after full restore is supported.
-Test recovered worlds end-to-end in Godot/Wry before marking any catalog entry
-compatible. Do not present the spatial-only files as playable saves.
+Stages 1–11 describe incremental Core-only capabilities *at the time they
+were implemented*. Stages 12–14 below supersede the former Core-only
+blockers; session checkpointing, manifest publication and validated native
+world loading have since been connected. Do not interpret the historical
+stage descriptions as the current status.
 
 ## Stage 12: Godot checkpoint entry through existing retirement
 
@@ -239,3 +234,19 @@ compatible. Do not present the spatial-only files as playable saves.
 - The world-selection Load button now emits a semantic WebUI request;
   browser code neither owns the save path nor parses snapshot files.
 - Delete/save-and-leave actions and native end-to-end tests remain pending.
+
+## Remaining after stage 14 (reviewed 2026-10-09)
+
+- **World Delete** is not connected to a native verified filesystem operation;
+  do not wire the React button directly to paths or delete an active/loading world.
+- **Save and Leave / Leave World** is not connected to the complete retirement,
+  return-to-menu and cleanup lifecycle. Keep user feedback explicit if save fails.
+- **Live acceptance still required:** save → close process → reload, verify all
+  authoritative player/voxel/container/entity states and multiple Spheres,
+  simulate corrupted latest generation, mismatched selected pack, I/O failure,
+  interrupted checkpoint and repeated menu/world transitions in Godot/WRY.
+- Some historic format-version and compatibility statements above describe
+  individual milestones. Current source is `SessionSaveStorage`,
+  `WorldLoadController`, `WorldSaveCatalog`, `WorldSaveManifestPublisher`
+  and `DimensionSessionController`.
+- See the full [remaining port roadmap](MINECLONE_PORT_REMAINING.md).

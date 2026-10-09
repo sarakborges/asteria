@@ -8,7 +8,7 @@ Asteria has a Core-owned inventory with 27 backpack slots, nine selected-hotbar 
 
 Physical drops are accepted transactionally through `DroppedBlockRuntime`: a rejected pickup never removes an entity, and item/tool drops retain their metadata and authored stack limits. Native Godot input handles hotbar selection (1–9 and wheel), inventory (configurable, E default) and dropping (configurable, Q default). Survival consumes on placement; Creative has nonconsuming placement and authored block catalog, with loot suppressed on breaking. Spectator cannot interact or open inventory.
 
-WebUI observes `game.inventory.state` and `game.inventory.catalog` through `InventoryController`/UiStore, including typed item/tool identities, metadata and authored icon previews; it does not intercept global keys. `InventoryGameplayPage` uses existing inventory panels and slot components without simulated character stats, crafting recipes or station state.
+WebUI observes `game.inventory.state` and `game.inventory.catalog` through `InventoryController`/UiStore, including typed item/tool identities, metadata and authored icon previews; it does not intercept global keys. `InventoryGameplayPage` uses existing inventory panels and real runtime-backed crafting recipes; player equipment/portrait and specialized stations still need their own verified gameplay/presentation contracts.
 
 ## Item and tool stacks (2026-10-08)
 
@@ -18,14 +18,14 @@ WebUI observes `game.inventory.state` and `game.inventory.catalog` through `Inve
 - Item and tool textures are loaded from validated pack resource paths in Godot, encoded as bounded PNG data URLs and transmitted in the Creative catalog, not in repeated per-slot snapshots. The WebUI reuses those icons for the inventory and hotbar, including metadata variants such as the Umbral Dimensional Slicer.
 - Items and tools occupy real inventory slots, can be sorted, moved and obtained from the Creative catalog. All three inventory kinds now support physical drop rendering and pickup. Blocks use existing voxel mesh presentation; item/tool drops use authored pack sprites. Q drops exactly one entry and consumes it only after the world accepts the spawn.
 
-## Not yet parity
+## Still not full parity (updated 2026-10-09)
 
-- Additional authored behaviors for brush, bucket, artisans kit, shears and structure tool; item usage, equipment and crafting/recipe validation
-- World-space crack overlays and held-tool swing animation during mining
-- Cursor splitting/shift-click, equipped slots, authored rewards/loot tables for non-block drops
-- Re-placing microblock geometry (portable snapshot retains the mask; invalid placement is rejected instead of corrupting geometry)
-- Player/world disk saves, catalog, inventory snapshot versioning and migrations
-- Automated GUI interaction inside the Godot WebView beyond CI compilation and Storybook
+- Brush, Bucket, Artisan's Kit, Shears, Structure Tool and the world-space mining crack overlay have **already** been integrated. Do not treat them as unimplemented.
+- Cursor splitting/shift-click, equipped slots, held-tool swing animation, metadata-specific bucket visuals and non-block rewards/loot policy still require comparison/implementation.
+- The portable microblock snapshot exists; unsupported re-placement must be reviewed rather than silently changing geometry.
+- Complete world/session disk snapshots, catalog validation and world loading **exist**. Unfinished World Delete, Save and Leave, historical migration policy and live process-restart QA are tracked in [remaining port roadmap](MINECLONE_PORT_REMAINING.md).
+- Creative category definitions, original PNGs, authored order and localization are now in the pack and Godot message; **React still must consume them** instead of generating alphabetic text-only categories.
+- End-to-end gameplay interactions in the Godot/WRY WebView remain unverified by Storybook and CI.
 
 ## Invariants
 

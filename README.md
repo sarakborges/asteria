@@ -10,6 +10,15 @@ The WebUI uses React 19 + TypeScript + Vite + Storybook. Godot/WRY transport sta
 
 Repository changes must follow [AGENTS.md](AGENTS.md), [ARCHITECTURE.md](ARCHITECTURE.md), and [ENGINEERING_PRACTICES.md](ENGINEERING_PRACTICES.md). These documents are jointly normative for implementation and refactoring. External content packaging follows [PACKS.md](PACKS.md).
 
+## Port parity and remaining work
+
+Current outstanding MineClone → Asteria gameplay, world content, visual and
+Godot/WRY verification work is tracked in
+[docs/MINECLONE_PORT_REMAINING.md](docs/MINECLONE_PORT_REMAINING.md).
+The [UI parity audit](docs/UI_PARITY_AUDIT.md) distinguishes source integration
+from actual in-engine parity. The roadmap excludes World Recipes by decision;
+inventory Crafting remains part of Asteria.
+
 ## Current runtime foundation
 
 The current milestone includes the rebuilt deterministic world-generation/runtime foundation:
