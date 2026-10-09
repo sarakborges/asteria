@@ -15,7 +15,8 @@ public sealed class PlayerSessionSnapshot
     private readonly int _selectedSlot;
 
     public PlayerSessionSnapshot(
-        PlayerGameMode gameMode, bool flying, PlayerInventorySnapshot inventory)
+        PlayerGameMode gameMode, bool flying, PlayerInventorySnapshot inventory,
+        float health = PlayerHealth.DefaultMaximum)
     {
         ArgumentNullException.ThrowIfNull(inventory);
         if (!Enum.IsDefined(gameMode) ||
@@ -28,8 +29,13 @@ public sealed class PlayerSessionSnapshot
             inventory.Hotbar.Length != PlayerInventory.HotbarSlots)
             throw new InvalidDataException("Invalid player session snapshot.");
 
+        if (!float.IsFinite(health) ||
+            health < 0f || health > PlayerHealth.DefaultMaximum)
+            throw new InvalidDataException("Invalid player health snapshot.");
+
         GameMode = gameMode;
         Flying = flying;
+        Health = health;
         _selectedSlot = inventory.SelectedSlot;
         _backpack = inventory.Backpack.ToArray();
         _hotbar = inventory.Hotbar.ToArray();
@@ -44,6 +50,7 @@ public sealed class PlayerSessionSnapshot
 
     public PlayerGameMode GameMode { get; }
     public bool Flying { get; }
+    public float Health { get; }
     public PlayerInventorySnapshot Inventory =>
         new(_selectedSlot, _backpack.ToArray(), _hotbar.ToArray(),
             _cursor, _equipment.ToArray());
