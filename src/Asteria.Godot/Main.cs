@@ -698,7 +698,13 @@ public partial class Main : Node3D
         return true;
     }
 
-    private bool TrySaveCurrentWorld()
+    private bool TrySaveCurrentWorld() =>
+        TryStartWorldCheckpoint(WorldCheckpointDisposition.ResumeWorld);
+
+    private bool TrySaveAndLeaveCurrentWorld() =>
+        TryStartWorldCheckpoint(WorldCheckpointDisposition.ReturnToMenu);
+
+    private bool TryStartWorldCheckpoint(WorldCheckpointDisposition disposition)
     {
         if (!_worldReadySent || _player is null ||
             _worldSeed is null || _sessions.IsTransitioning ||
@@ -710,12 +716,16 @@ public partial class Main : Node3D
             position.X, position.Y, position.Z);
         var directory = Path.Combine(
             OS.GetUserDataDir(), "worlds", _sessionStates.Name);
-        if (!_sessions.RequestCheckpoint(
-                directory, source, _blocks, _fluids, _dyes, _layers))
+        var accepted = disposition == WorldCheckpointDisposition.ReturnToMenu
+            ? _sessions.RequestSaveAndLeave(
+                directory, source, _blocks, _fluids, _dyes, _layers)
+            : _sessions.RequestCheckpoint(
+                directory, source, _blocks, _fluids, _dyes, _layers);
+        if (!accepted)
             return false;
 
         _worldDiagnostics?.Write(
-            $"world.save.begin name={_sessionStates.Name} dimension={_dimension.Id}");
+            $"world.save.begin name={_sessionStates.Name} dimension={_dimension.Id} disposition={disposition}");
         StartDimensionRetirement(_dimension.Id);
         return true;
     }
@@ -755,6 +765,12 @@ public partial class Main : Node3D
 
         if (completion is null)
         {
+            return;
+        }
+
+        if (completion.LeftWorld)
+        {
+            FinishLeavingWorld(completion);
             return;
         }
 
@@ -807,6 +823,43 @@ public partial class Main : Node3D
             $"dimension.transition complete from={completion.From} " +
             $"to={completion.To} archived_dirty={completion.Archive.ArchivedDirty} " +
             $"archived_pristine={completion.Archive.ArchivedPristine}");
+    }
+
+    private void FinishLeavingWorld(DimensionTransitionCompletion completion)
+    {
+        if (!completion.IsCheckpoint || completion.SaveError is not null ||
+            !completion.SavedGeneration.HasValue)
+            throw new InvalidOperationException("Cannot leave without a committed session.");
+
+        _worldDiagnostics?.Write(
+            $"world.leave.complete generation={completion.SavedGeneration}");
+        _dimensionEnvironment.Clear();
+        _ambientParticleRuntime = null;
+        _ambientParticlePresentation = null;
+        _chat.Reset();
+        _chatFeedbackSeconds = 0;
+        _warpArrival = null;
+        _lastClockHud = null;
+        _lastCreatureHud = null;
+        _publishedStorageRevision = null;
+        _pickupAccumulator = 0;
+        _worldHud.Reset();
+        _targetHud.Reset();
+        _loading.Reset();
+        _lastLoadingProgress = null;
+        _worldReadySent = false;
+
+        // Every worker has drained and the retired Sphere's presentation
+        // is queued for removal. Drop session ownership before the next
+        // world can be created or loaded in this process.
+        _sessions = null!;
+        _sessionStates = null!;
+        _worldSeed = null;
+        _webUi.Call("set_creation_mode", true);
+        SendWebUi("game.world.left", new { });
+        _suggestedWorldSeed = WorldCreationSeed.GenerateRandom();
+        SendWorldCreationState();
+        BeginWorldCatalogScan();
     }
 
     private void ActivateCurrentDimensionPresentation()
@@ -1245,7 +1298,12 @@ public partial class Main : Node3D
 
                     break;
                 case "ui.world.save":
-                    TrySaveCurrentWorld();
+                    if (!TrySaveCurrentWorld())
+                        SendWebUi("game.world.save_result", new { status = "error" });
+                    break;
+                case "ui.world.leave":
+                    if (!TrySaveAndLeaveCurrentWorld())
+                        SendWebUi("game.world.save_result", new { status = "error" });
                     break;
                 case "ui.player.set_game_mode":
                     SetRequestedGameMode(document.RootElement);
