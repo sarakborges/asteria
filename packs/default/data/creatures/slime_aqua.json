@@ -2,6 +2,7 @@
   "id": "asteria:slime_aqua",
   "model": "models/creatures/slime_hydro/slime_hydro.glb",
   "health": 11,
+  "contactDamage": 2,
   "maxPerType": 4,
   "collider": {
     "size": [
