@@ -1837,6 +1837,11 @@ public partial class Main : Node3D
             spawnCreaturesElement.ValueKind is JsonValueKind.True or JsonValueKind.False
                 ? spawnCreaturesElement.GetBoolean()
                 : true;
+        var keepInventory = payload.TryGetProperty(
+            "keepInventory", out var keepInventoryElement) &&
+            keepInventoryElement.ValueKind is JsonValueKind.True or JsonValueKind.False
+                ? keepInventoryElement.GetBoolean()
+                : true;
 
         try
         {
@@ -1849,7 +1854,8 @@ public partial class Main : Node3D
                 mode,
                 ticks,
                 spawnCreatures,
-                generation);
+                generation,
+                keepInventory);
             StartWorld(creation);
         }
         catch (ArgumentException exception)
@@ -1878,7 +1884,7 @@ public partial class Main : Node3D
             : new WorldCreationOptions(
                 name, creation.Seed, creation.GameMode,
                 creation.TicksPerSecond, creation.SpawnCreatures,
-                creation.Generation);
+                creation.Generation, creation.KeepInventory);
 
         InitializeWorldSession(
             new DimensionSessionStateStore(safeCreation, _dimensions),
