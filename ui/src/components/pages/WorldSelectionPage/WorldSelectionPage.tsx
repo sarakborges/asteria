@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useLocalization } from "../../../localization/LocalizationProvider";
 import { Button } from "../../atoms/Button/Button";
 import { CosmicBackground } from "../../organisms/CosmicBackground/CosmicBackground";
@@ -17,6 +18,7 @@ export type WorldSelectionPageProps = {
   onOpenSavesFolder?(): void;
   onLoad?(id: string): void;
   onDelete?(id: string): void;
+  busy?: boolean;
 };
 
 export function WorldSelectionPage({
@@ -28,8 +30,11 @@ export function WorldSelectionPage({
   onOpenSavesFolder,
   onLoad,
   onDelete,
+  busy = false,
 }: WorldSelectionPageProps) {
   const { t } = useLocalization();
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+  const confirmedWorld = worlds.find(world => world.id === confirmId);
   return (
     <ScreenShell
       title={t("starting.loadWorlds")}
@@ -68,10 +73,31 @@ export function WorldSelectionPage({
           <WorldCard
             key={world.id}
             world={world}
-            onLoad={onLoad}
-            onDelete={onDelete}
+            onLoad={busy ? undefined : onLoad}
+            onDelete={busy ? undefined : setConfirmId}
           />
         ))}
+
+        {confirmedWorld && onDelete && !busy && (
+          <div className="world-selection__confirmation"
+            role="alertdialog" aria-label={t("worldSelection.delete")}
+            onKeyDown={event => {
+              if (event.key === "Escape") {
+                setConfirmId(null);
+                event.preventDefault();
+                event.stopPropagation();
+              }
+            }}>
+            <p>{t("worldSelection.confirmDelete", { name: confirmedWorld.id })}</p>
+            <div className="world-selection__confirmation-actions">
+              <Button label={t("ui.back")} onClick={() => setConfirmId(null)} />
+              <Button label={t("ui.delete")} variant="danger" onClick={() => {
+                onDelete(confirmedWorld.id);
+                setConfirmId(null);
+              }} />
+            </div>
+          </div>
+        )}
 
         {error && (
           <div
