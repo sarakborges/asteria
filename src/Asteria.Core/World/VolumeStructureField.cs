@@ -12,6 +12,11 @@ public sealed class VolumeStructureField
     private readonly VolumeBiomeField _volumes;
     private readonly BiomeSurfaceMaterialField _materials;
     private readonly Rule[] _rules;
+    // Repeated vertical chunks of one X/Z area ask about the same
+    // anchors. This is an immutable, thread-safe bounded derivation,
+    // never a second authority for terrain or volume occupancy.
+    private readonly BoundedMemoCache<CandidateKey, int?> _anchors =
+        new(4096);
 
     public VolumeStructureField(
         ulong seed,
@@ -97,8 +102,9 @@ public sealed class VolumeStructureField
         var back = (long)origin.Z + Chunk.Size - 1;
         var results = new List<VolumeStructureVoxel>();
 
-        foreach (var rule in _rules)
+        for (var ruleIndex = 0; ruleIndex < _rules.Length; ruleIndex++)
         {
+            var rule = _rules[ruleIndex];
             // Template offsets are relative to the supporting solid at Y.
             if (top < (long)rule.Definition.MinY + rule.MinOffsetY ||
                 origin.Y > (long)rule.Definition.MaxY + rule.MaxOffsetY)
@@ -142,8 +148,11 @@ public sealed class VolumeStructureField
                     (int)(WorldGenerationEntropy.Sample2D(
                         _seed, rule.Domain, x + 509, z + 1021) %
                         (uint)rule.Variants.Length)];
-                if (!TryAnchor(rule, variant, (int)wx, (int)wz,
-                              out var supportY))
+                var anchor = _anchors.GetOrAdd(
+                    new CandidateKey(ruleIndex, x, z),
+                    () => TryAnchor(rule, variant, (int)wx, (int)wz,
+                        out var located) ? located : null);
+                if (anchor is not { } supportY)
                     continue;
 
                 foreach (var voxel in variant.Voxels)
@@ -273,6 +282,9 @@ public sealed class VolumeStructureField
 
     private static int Cell(long coordinate, int spacing) =>
         checked((int)Math.Floor(coordinate / (double)spacing));
+
+    private readonly record struct CandidateKey(
+        int RuleIndex, int CellX, int CellZ);
 
     private sealed record RelativeVoxel(int X, int Y, int Z,
                                         BlockRuntimeId Block);
