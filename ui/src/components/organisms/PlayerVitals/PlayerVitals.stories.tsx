@@ -16,3 +16,30 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
+
+export const SurvivalHurt: Story = {
+  args: {
+    state: {
+      health: { current: 7, maximum: 20 },
+      stamina: null,
+    },
+  },
+};
+
+export const Dead: Story = {
+  args: {
+    state: {
+      health: { current: 0, maximum: 20 },
+      stamina: null,
+    },
+  },
+};
+
+export const Respawned: Story = {
+  args: {
+    state: {
+      health: { current: 20, maximum: 20 },
+      stamina: null,
+    },
+  },
+};
