@@ -710,21 +710,16 @@ public sealed class SurfaceTerrainField
                 continue;
             }
 
-            // Ocean depth is shaped on the ocean side of the boundary.
-            // Never drag the adjoining land down toward the seabed.
-            if (_coastProfile is not null &&
-                !_coastProfile.IsOcean(sample.Primary) &&
-                _coastProfile.IsOcean(influence.BiomeId))
-            {
-                continue;
-            }
-
+            // A higher landform starts rising inside its own biome.
+            // The ocean contributes its authored shore elevation (not
+            // the deep seabed) to the boundary; this does not raise any
+            // ocean-owned column to match a neighboring mountain.
             var neighborHeight =
-                _surfaceRules[influence.BiomeId].HeightOffsetAt(
-                    _seed,
-                    worldX,
-                    worldZ,
-                    influence.TerrainStrength);
+                _coastProfile is { } coast &&
+                coast.IsOcean(influence.BiomeId)
+                    ? coast.LandBoundaryHeightOffset
+                    : _surfaceRules[influence.BiomeId].HeightOffsetAt(
+                        _seed, worldX, worldZ, influence.TerrainStrength);
             if (neighborHeight >= primaryHeight)
             {
                 continue;
@@ -919,6 +914,33 @@ public sealed class SurfaceTerrainField
         {
             _biome = biome;
             _samples = definition.Samples;
+            // The two biomes share one authored boundary elevation; never
+            // borrow a mountain's potentially unbounded height on the ocean
+            // side. Dominance = 0.5 is the ownership boundary.
+            LandBoundaryHeightOffset = SampleBoundaryHeight(_samples);
+        }
+
+        public double LandBoundaryHeightOffset { get; }
+
+        private static double SampleBoundaryHeight(
+            IReadOnlyList<DimensionShoreSampleDefinition> samples)
+        {
+            for (var i = 1; i < samples.Count; i++)
+            {
+                if (samples[i].Dominance < 0.5d)
+                    continue;
+                var left = samples[i - 1];
+                var right = samples[i];
+                var delta = right.Dominance - left.Dominance;
+                var t = delta > 0d
+                    ? WorldGenerationEntropy.SmoothStep(
+                        (0.5d - left.Dominance) / delta)
+                    : 0d;
+                return left.MinimumHeight +
+                    (right.MinimumHeight - left.MinimumHeight) * t;
+            }
+
+            return samples[^1].MinimumHeight;
         }
 
         public bool IsOcean(string biomeId) =>
@@ -941,42 +963,22 @@ public sealed class SurfaceTerrainField
 
             var coastWeight = sample.PrimaryWeight;
             var strongestOther = 0d;
-            var adjacentHeight = rawOffset;
 
             foreach (var influence in sample.Influences)
             {
-                if (IsOcean(influence.BiomeId) ||
-                    influence.Weight <= strongestOther)
-                {
-                    continue;
-                }
-
-                strongestOther = influence.Weight;
-                adjacentHeight =
-                    terrainRules[influence.BiomeId].HeightOffsetAt(
-                        seed,
-                        worldX,
-                        worldZ,
-                        influence.TerrainStrength);
+                if (!IsOcean(influence.BiomeId))
+                    strongestOther = Math.Max(strongestOther, influence.Weight);
             }
 
             if (strongestOther <= 0d)
-            {
                 return rawOffset;
-            }
 
             var dominance = coastWeight /
                 (coastWeight + strongestOther);
-            // At the ownership boundary, meet the adjoining terrain.
-            // Fade that contribution quickly into the authored seabed
-            // profile so the coastal strip cannot become a land wall.
-            var neighborBlend = Math.Clamp(
-                2d * (1d - dominance), 0d, 1d);
-            neighborBlend *= neighborBlend;
-            neighborBlend *= neighborBlend;
-            var adjacentFloor =
-                rawOffset +
-                (adjacentHeight - rawOffset) * neighborBlend;
+            // Shore height is authored by the Sphere, independent of the
+            // elevation of adjoining Plains, Alps or Mountains. High
+            // terrain transitions upward only within the high biome.
+
             // The strictly increasing authored knots cover [0,1].
             // Interpolation is deterministic, allocation-free, and
             // continuous at all profile boundaries.
@@ -997,7 +999,7 @@ public sealed class SurfaceTerrainField
                 var strength = left.Strength +
                     (right.Strength - left.Strength) * t;
                 return rawOffset +
-                    (Math.Max(rawOffset, Math.Max(floor, adjacentFloor)) -
+                    (Math.Max(rawOffset, floor) -
                      rawOffset) * strength;
             }
 
