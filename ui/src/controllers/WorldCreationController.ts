@@ -7,6 +7,7 @@ export type WorldCreationController = {
   createWorld(request: {
     seed: string; name: string; mode: GameMode; ticksPerSecond: string;
     spawnCreatures: boolean;
+    keepInventory: boolean;
     generation: WorldGenerationDraft;
   }): void;
   randomizeWorld(): void;
@@ -42,6 +43,7 @@ export function createWorldCreationController(
         seed: request.seed.trim(), name: request.name, mode: request.mode,
         ticksPerSecond: Number(ticks),
         spawnCreatures: request.spawnCreatures,
+        keepInventory: request.keepInventory,
         generation,
       });
     },
