@@ -246,6 +246,7 @@ export type GameplayInventoryState = {
   hotbar: InventorySlotState[];
   cursor: InventorySlotState;
   catalog: InventoryCatalogEntry[];
+  portraitUrl: string | null;
   recipes: InventoryCraftingRecipe[];
   craftingStatus: InventoryCraftingStatus | null;
   errorKey: string | null;
@@ -378,6 +379,7 @@ export function createInitialUiState(
       hotbar: Array(9).fill(null),
       cursor: null,
       catalog: [],
+      portraitUrl: null,
       recipes: [],
       craftingStatus: null,
       errorKey: null,

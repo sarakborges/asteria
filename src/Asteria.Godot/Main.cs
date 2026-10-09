@@ -118,6 +118,7 @@ public partial class Main : Node3D
         _sessions.Active.InitialStreamingCenter;
     private DimensionEnvironmentPresentation _dimensionEnvironment = null!;
     private FpsPlayer? _player;
+    private PlayerPortraitPresentation? _playerPortrait;
     private Node _webUi = null!;
     private TerrainTextureCatalog _terrainTextures = null!;
     private TerrainTextureLookup _terrainTextureLookup = null!;
@@ -492,6 +493,7 @@ public partial class Main : Node3D
         _worldDiagnostics?.ObserveFrame(delta);
         PollWorldCatalog();
         PollWorldLoad();
+        PollPlayerPortrait();
         PollChatLocate();
         AdvanceChatPresentation(delta);
         if (_worldSeed is null)
@@ -1017,6 +1019,8 @@ public partial class Main : Node3D
         PublishMiningProgress();
         _player.QueueFree();
         _player = null;
+        _playerPortrait?.QueueFree();
+        _playerPortrait = null;
         _underwaterView = null;
         _worldHud.Reset();
         ClearTargetHudState();
@@ -1235,6 +1239,9 @@ public partial class Main : Node3D
                     break;
                 case "ui.inventory.close":
                     CloseInventory();
+                    break;
+                case "ui.player.portrait.rotate":
+                    RotatePlayerPortrait(document.RootElement);
                     break;
                 case "ui.storage_box.close":
                     CloseStorageBox();
@@ -2840,6 +2847,23 @@ public partial class Main : Node3D
         });
     }
 
+    private void PollPlayerPortrait()
+    {
+        if (_inventoryOpen && _playerPortrait?.TryTake(out var data) == true)
+            SendWebUi("game.inventory.portrait", new { imageUrl = data });
+    }
+
+    private void RotatePlayerPortrait(JsonElement message)
+    {
+        if (!_inventoryOpen || _playerPortrait is null ||
+            !message.TryGetProperty("payload", out var payload) ||
+            payload.ValueKind != JsonValueKind.Object ||
+            !payload.TryGetProperty("deltaX", out var dx) ||
+            !dx.TryGetSingle(out var delta) || !float.IsFinite(delta))
+            return;
+        _playerPortrait.Rotate(delta);
+    }
+
     private void OpenInventory()
     {
         if (!_worldReadySent || _inventoryOpen || _chat.IsOpen ||
@@ -2849,6 +2873,7 @@ public partial class Main : Node3D
         _inventoryOpen = true;
         _player.SuspendForModal();
         SendInventoryState();
+        _playerPortrait?.RequestCapture();
     }
 
     private void CloseInventory()
@@ -3268,6 +3293,9 @@ public partial class Main : Node3D
         AddChild(_player);
         _player.AddChild(new PlayerModelPresentation(
             _player, _packSelection, _playerVisual));
+        _playerPortrait = new PlayerPortraitPresentation(
+            _packSelection, _playerVisual);
+        AddChild(_playerPortrait);
 
         _underwaterView =
             new UnderwaterViewPresentation(

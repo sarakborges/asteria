@@ -24,6 +24,7 @@ export type InventoryGameplayPageProps = {
   onDiscardCursor(): void;
   onCreativePick(choice: InventoryCatalogEntry): void;
   onCraft(recipeId: string): void;
+  onRotatePortrait(deltaX: number): void;
 };
 
 /**
@@ -32,7 +33,7 @@ export type InventoryGameplayPageProps = {
  */
 export function InventoryGameplayPage({
   state, health, onClose, onSlotClick, onSort,
-  onDiscardCursor, onCreativePick, onCraft,
+  onDiscardCursor, onCreativePick, onCraft, onRotatePortrait,
 }: InventoryGameplayPageProps) {
   const { t, contentName } = useLocalization();
   const cursorRef = useRef<HTMLDivElement>(null);
@@ -129,7 +130,10 @@ export function InventoryGameplayPage({
           creativeAvailable={state.creativeAvailable}
           creativeVisible={creative}
           onViewChange={setCreativeTab}
-          character={<CharacterInfoPanel state={health ? {
+          character={<CharacterInfoPanel
+            portraitUrl={state.portraitUrl}
+            onRotatePortrait={onRotatePortrait}
+            state={health ? {
             name: t("ui.player"),
             healthCurrent: health.current,
             healthMaximum: health.maximum,

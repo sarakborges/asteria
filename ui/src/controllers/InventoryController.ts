@@ -65,6 +65,13 @@ export function createInventoryController(
 ) {
   return {
     close() { post("ui.inventory.close"); },
+    rotatePortrait(deltaX: number) {
+      if (!store.getSnapshot().inventory.open ||
+          !Number.isFinite(deltaX) || Math.abs(deltaX) < 1) return;
+      post("ui.player.portrait.rotate", {
+        deltaX: Math.max(-120, Math.min(120, deltaX)),
+      });
+    },
     clickSlot(index: number) {
       if (!Number.isInteger(index) || index < 0 || index >= 36) return;
       post("ui.inventory.slot", { index });
@@ -104,6 +111,7 @@ export function createInventoryController(
             creativeAvailable: payload.creativeAvailable as boolean,
             selectedIndex: payload.selectedIndex as number,
             backpack, hotbar, cursor: readSlot(payload.cursor),
+            portraitUrl: open ? state.inventory.portraitUrl : null,
             recipes, craftingStatus: open ? state.inventory.craftingStatus : null,
             errorKey: null,
           };
@@ -118,6 +126,14 @@ export function createInventoryController(
             },
           };
         });
+      } else if (message.type === "game.inventory.portrait") {
+        const imageUrl = payload?.imageUrl;
+        if (typeof imageUrl !== "string" ||
+            imageUrl.length > 500_000 ||
+            !/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(imageUrl)) return;
+        store.update(state => state.inventory.open
+          ? { ...state, inventory: { ...state.inventory, portraitUrl: imageUrl } }
+          : state);
       } else if (message.type === "game.inventory.catalog") {
         if (!payload || !Array.isArray(payload.items)) return;
         const catalog = payload.items.flatMap((raw): InventoryCatalogEntry[] => {

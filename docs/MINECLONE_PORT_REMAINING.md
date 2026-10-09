@@ -95,3 +95,10 @@ These are **code-level findings**, not a declaration that visual worldgen, gamep
 - Native Godot/WRY smoke tests remain necessary to verify GLB decoding,
   animation names, skin orientation, face UV seams and first/third-person
   visibility; build+Core tests alone do not verify GPU/render output.
+
+## Player portrait — real offscreen rendering (2026-10-09)
+
+- `PlayerVisualSceneFactory` is the shared pack GLB/skin importer for world and offscreen portrait; no duplicated UV rules or Godot import sidecars.
+- `PlayerPortraitPresentation` uses a bounded 256×256 isolated `SubViewport` and captures PNG only when inventory opens or the user drags the character preview; not once per frame. The native bridge publishes a validated PNG data URI.
+- React `CharacterInfoPanel` renders this actual 3D preview and forwards only focused pointer drag deltas via the inventory controller and semantic `ui.player.portrait.rotate` action. UI components own neither camera nor gameplay movement.
+- No fake equipment state was added. Equippable slots, held-item visuals and gameplay animations beyond locomotion/crouch remain follow-up work.

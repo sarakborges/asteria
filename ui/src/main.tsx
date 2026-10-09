@@ -110,6 +110,7 @@ createRoot(rootElement).render(
       discardInventoryCursor: inventory.discardCursor,
       pickCreativeBlock: inventory.pickCreative,
       craftInventoryRecipe: inventory.craft,
+      rotateCharacterPortrait: inventory.rotatePortrait,
     }}
   />
   </LocalizationProvider>,
