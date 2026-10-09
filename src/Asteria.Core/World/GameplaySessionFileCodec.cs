@@ -10,7 +10,7 @@ namespace Asteria.Core.World;
 public static class GameplaySessionFileCodec
 {
     private const uint Magic = 0x53534741; // AGSS
-    private const ushort Version = 2;
+    private const ushort Version = 3;
     public const long MaximumBytes = 640L * 1024 * 1024;
 
     public static void Write(
@@ -45,6 +45,7 @@ public static class GameplaySessionFileCodec
         foreach (var equipped in inventory.Equipment ??
             new InventoryStack?[PlayerInventory.EquipmentSlots])
             PortableStackSaveCodec.Write(writer, equipped, blocks, dyes, layers);
+        writer.Write(session.Player.Health);
 
         // Embed the spatial snapshot in the very same generation. No
         // manifest may point to only one of these two halves.
@@ -90,7 +91,7 @@ public static class GameplaySessionFileCodec
             if (reader.ReadUInt32() != Magic)
                 throw new InvalidDataException("Unknown gameplay session magic.");
             var version = reader.ReadUInt16();
-            if (version is not (1 or Version))
+            if (version is not (1 or 2 or Version))
                 throw new InvalidDataException("Unknown gameplay session format.");
             var name = PortableStackSaveCodec.ReadString(reader, 512);
             var tickRate = reader.ReadUInt32();
@@ -112,8 +113,11 @@ public static class GameplaySessionFileCodec
             if (version >= 2)
                 for (var i = 0; i < equipment.Length; i++)
                     equipment[i] = PortableStackSaveCodec.Read(reader, blocks, dyes, layers);
+            var health = version >= 3
+                ? reader.ReadSingle() : PlayerHealth.DefaultMaximum;
             var player = new PlayerSessionSnapshot(mode, flying,
-                new PlayerInventorySnapshot(selection, backpack, hotbar, cursor, equipment));
+                new PlayerInventorySnapshot(selection, backpack, hotbar, cursor, equipment),
+                health);
 
             var spatialLength = reader.ReadInt64();
             if (spatialLength < 16 ||
