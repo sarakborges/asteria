@@ -473,6 +473,17 @@ Data definitions may reference presentation resources by logical pack-relative k
 - Source references are validated when the pack is loaded. Biome particles consult the 3D effective-biome query rather than assuming the surface biome is always active; fluid-surface emitters inspect resident fluid cells without changing them.
 - The particle runtime is presentation-only and uses an explicit global cap of 512 particles, a 64-block maximum distance and bounded emission/sample attempts. Godot publishes at most one MultiMesh node per particle rule within the active Sphere subtree, and removes all particles on Sphere retirement. No pack-authored Godot metadata or per-particle gameplay nodes are needed.
 
+### Blocky spike geometry
+
+Blocks using `shape: { "type": "spike" }` render as vertically
+stacked **axis-aligned square prisms**, never rotated polygons.
+`baseRadius`, `tipRadius` and `taperPower` determine the
+tapering half-width. The mesh/physics profile uses four possible
+height tiers per voxel and 1/32-block width quantization; level
+transitions expose flat horizontal ledges. Across chunk boundaries,
+the stored `SpikeSegmentState` preserves the same tier profile.
+`sides` and `irregularity` are obsolete and fail validation.
+
 ## 5. Resource domain
 
 `resources/` owns non-UI presentation assets: textures, item/world images, audio, fonts, models and related declarative presentation descriptors.

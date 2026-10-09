@@ -454,6 +454,16 @@ Example (in `packs/default/data/biomes/caverns.json`):
 }
 ```
 
+All spike blocks share a **voxel-stepped square prism** presentation.
+`shape.type: "spike"` accepts `baseRadius` and `tipRadius` as
+square half-widths (0..0.5) plus `taperPower`. Each voxel contains up
+to four height tiers, with widths snapped to the 1/32 voxel grid.
+Every wall normal is aligned to X or Z, and the horizontal top,
+bottom, and tier transition faces are closed and collidable.
+Upward/downward formations use the same profile across chunk seams.
+Polygon `sides`, radial corner `irregularity` and random rotation
+are no longer part of the authored spike contract.
+
 The initial stochastic chance and spacing priority are tested before
 expensive cave-density probes. The 3D cluster envelope is then evaluated
 only for eligible wall-adjacent anchors; final height is bounded by cave
