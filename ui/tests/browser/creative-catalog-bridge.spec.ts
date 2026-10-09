@@ -15,6 +15,7 @@ const payload = {
     {
       id: "asteria:stone", kind: "block", name: "asteria:stone",
       category: "stone_blocks", metadata: {}, iconUrl: icon,
+      blockPreview: { kind: "cube", top: icon, front: icon, right: icon },
     },
     {
       id: "asteria:bucket", kind: "tool", name: "asteria:bucket",
@@ -34,6 +35,7 @@ test("creative catalog bridge preserves authentic categories, order, icons and m
   expect(state.categories.map(category => category.iconUrl))
     .toEqual([icon, icon]);
   expect(state.everythingIconUrl).toBe(icon);
+  expect(state.catalog[0].blockPreview?.front).toBe(icon);
   expect(state.catalog[1].metadata).toEqual({ contained_fluid: "asteria:water" });
 });
 
@@ -47,6 +49,8 @@ test("malformed creative catalog is rejected as a whole without changing current
     { ...payload, everythingIconUrl: "javascript:alert(1)" },
     { ...payload, items: [{ ...payload.items[0], category: "unknown" }] },
     { ...payload, categories: [{ ...payload.categories[0], iconUrl: "https://untrusted.test/a.png" }] },
+    { ...payload, items: [{ ...payload.items[0],
+      blockPreview: { kind: "cube", top: icon, front: "https://bad.invalid", right: icon } }] },
     { ...payload, items: [{ ...payload.items[1],
       metadata: { contained_fluid: "x".repeat(1000) } }] },
   ];
