@@ -32,14 +32,38 @@
   "asteria:bricks": {
     "/name": "Bricks"
   },
+  "asteria:cactus_barrel": {
+    "/name": "Barrel Cactus"
+  },
+  "asteria:cactus_column": {
+    "/name": "Column Cactus"
+  },
+  "asteria:cactus_flower_pink": {
+    "/name": "Pink Cactus Flower"
+  },
+  "asteria:cactus_flower_yellow": {
+    "/name": "Yellow Cactus Flower"
+  },
+  "asteria:cactus_pad": {
+    "/name": "Cactus Pad"
+  },
   "asteria:cattail": {
     "/name": "Cattail"
   },
   "asteria:cave_crystal_azure": {
     "/name": "Azure Cave Crystal"
   },
+  "asteria:cave_crystal_core": {
+    "/name": "Cave Crystal Core"
+  },
   "asteria:cave_glow_fern": {
     "/name": "Cave Glow Fern"
+  },
+  "asteria:cave_glow_mushroom_cap": {
+    "/name": "Glowing Cave Mushroom Cap"
+  },
+  "asteria:cave_glow_mushroom_stem": {
+    "/name": "Glowing Cave Mushroom Stem"
   },
   "asteria:cave_glowcap": {
     "/name": "Cave Glowcap"
@@ -248,6 +272,15 @@
   "asteria:planks_world_tree": {
     "/name": "World Tree Planks"
   },
+  "asteria:prairie_tall_grass": {
+    "/name": "Tall Prairie Grass"
+  },
+  "asteria:prairie_wildflower_blue": {
+    "/name": "Blue Prairie Wildflower"
+  },
+  "asteria:prairie_wildflower_yellow": {
+    "/name": "Yellow Prairie Wildflower"
+  },
   "asteria:sand": {
     "/name": "Sand"
   },
@@ -278,11 +311,20 @@
   "asteria:seashell": {
     "/name": "Seashell"
   },
+  "asteria:sky_canopy_leaf": {
+    "/name": "Sky Canopy Leaves"
+  },
+  "asteria:sky_crystal_core": {
+    "/name": "Sky Crystal Core"
+  },
   "asteria:sky_reed": {
     "/name": "Sky Reed"
   },
   "asteria:sky_vines": {
     "/name": "Sky Vines"
+  },
+  "asteria:skywood_log": {
+    "/name": "Skywood Log"
   },
   "asteria:snow": {
     "/name": "Snow"
@@ -328,6 +370,18 @@
   },
   "asteria:storage_box": {
     "/name": "Storage Box"
+  },
+  "asteria:swamp_fern": {
+    "/name": "Swamp Fern"
+  },
+  "asteria:swamp_giant_mushroom_cap": {
+    "/name": "Giant Swamp Mushroom Cap"
+  },
+  "asteria:swamp_giant_mushroom_stem": {
+    "/name": "Giant Swamp Mushroom Stem"
+  },
+  "asteria:swamp_iris": {
+    "/name": "Swamp Iris"
   },
   "asteria:terracotta": {
     "/name": "Terracotta"

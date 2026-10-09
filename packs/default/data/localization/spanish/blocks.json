@@ -32,14 +32,38 @@
   "asteria:bricks": {
     "/name": "Ladrillos"
   },
+  "asteria:cactus_barrel": {
+    "/name": "Cactus Barril"
+  },
+  "asteria:cactus_column": {
+    "/name": "Cactus Columnar"
+  },
+  "asteria:cactus_flower_pink": {
+    "/name": "Flor Rosa de Cactus"
+  },
+  "asteria:cactus_flower_yellow": {
+    "/name": "Flor Amarilla de Cactus"
+  },
+  "asteria:cactus_pad": {
+    "/name": "Pala de Cactus"
+  },
   "asteria:cattail": {
     "/name": "Espadaña"
   },
   "asteria:cave_crystal_azure": {
     "/name": "Cristal Azul de Cueva"
   },
+  "asteria:cave_crystal_core": {
+    "/name": "Núcleo de Cristal de Cueva"
+  },
   "asteria:cave_glow_fern": {
     "/name": "Helecho Luminoso de Cueva"
+  },
+  "asteria:cave_glow_mushroom_cap": {
+    "/name": "Sombrero de Seta Luminosa de Cueva"
+  },
+  "asteria:cave_glow_mushroom_stem": {
+    "/name": "Tallo de Seta Luminosa de Cueva"
   },
   "asteria:cave_glowcap": {
     "/name": "Seta Luminosa de Cueva"
@@ -248,6 +272,15 @@
   "asteria:planks_world_tree": {
     "/name": "Tablones del Árbol del Mundo"
   },
+  "asteria:prairie_tall_grass": {
+    "/name": "Hierba Alta de Pradera"
+  },
+  "asteria:prairie_wildflower_blue": {
+    "/name": "Flor Silvestre Azul de Pradera"
+  },
+  "asteria:prairie_wildflower_yellow": {
+    "/name": "Flor Silvestre Amarilla de Pradera"
+  },
   "asteria:sand": {
     "/name": "Arena"
   },
@@ -278,11 +311,20 @@
   "asteria:seashell": {
     "/name": "Concha Marina"
   },
+  "asteria:sky_canopy_leaf": {
+    "/name": "Hojas del Dosel Celeste"
+  },
+  "asteria:sky_crystal_core": {
+    "/name": "Núcleo de Cristal Celeste"
+  },
   "asteria:sky_reed": {
     "/name": "Junco Celeste"
   },
   "asteria:sky_vines": {
     "/name": "Enredaderas Celestes"
+  },
+  "asteria:skywood_log": {
+    "/name": "Tronco de Madera Celeste"
   },
   "asteria:snow": {
     "/name": "Nieve"
@@ -328,6 +370,18 @@
   },
   "asteria:storage_box": {
     "/name": "Caja de almacenamiento"
+  },
+  "asteria:swamp_fern": {
+    "/name": "Helecho de Pantano"
+  },
+  "asteria:swamp_giant_mushroom_cap": {
+    "/name": "Sombrero de Seta Gigante de Pantano"
+  },
+  "asteria:swamp_giant_mushroom_stem": {
+    "/name": "Tallo de Seta Gigante de Pantano"
+  },
+  "asteria:swamp_iris": {
+    "/name": "Iris de Pantano"
   },
   "asteria:terracotta": {
     "/name": "Terracota"
