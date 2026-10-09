@@ -63,3 +63,10 @@ export const Empty: Story = {
     status: "No restorable worlds.",
   },
 };
+
+export const Deleting: Story = {
+  args: {
+    busy: true,
+    status: "Deleting saved world...",
+  },
+};
