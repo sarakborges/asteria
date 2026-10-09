@@ -1,4 +1,4 @@
-import type { OverlayScreen } from "../state/uiState";
+import { createInitialUiState, type OverlayScreen } from "../state/uiState";
 import type { BridgeMessage } from "../bridge/godotBridge";
 import type { UiStore } from "../state/uiStore";
 
@@ -9,6 +9,7 @@ export type UiNavigationController = {
   exitGame(): void;
   resumeGame(): void;
   saveWorld(): void;
+  leaveWorld(): void;
   openGameSettings(): void;
   openWorldSettings(): void;
   openControls(): void;
@@ -81,6 +82,13 @@ export function createUiNavigationController(
       }));
       postMessage("ui.world.save");
     },
+    leaveWorld() {
+      store.update(state => ({
+        ...state,
+        navigation: { ...state.navigation, saveFeedback: null },
+      }));
+      postMessage("ui.world.leave");
+    },
     openGameSettings() { show("game"); },
     openWorldSettings() { show("world"); },
     openControls() { show("controls"); },
@@ -89,6 +97,22 @@ export function createUiNavigationController(
     },
     escape,
     handleGodotMessage(message) {
+      if (message.type === "game.world.left") {
+        store.update(previous => {
+          const initial = createInitialUiState(true);
+          return {
+            ...initial,
+            navigation: { ...initial.navigation, preWorldScreen: "world-selection" },
+            settings: { ...initial.settings, client: previous.settings.client },
+            worldCatalog: { ...previous.worldCatalog, status: "verifying", deleteError: false },
+            worldCreation: {
+              ...initial.worldCreation,
+              spawnBiomes: previous.worldCreation.spawnBiomes,
+            },
+          };
+        });
+        return;
+      }
       if (message.type === "game.world.save_result") {
         const payload = message.payload as { status?: unknown } | undefined;
         const saveFeedback = payload?.status === "saved"
