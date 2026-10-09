@@ -1,4 +1,4 @@
-import type { GameplayInventoryState, InventoryMetadata, InventoryCatalogEntry } from "../state/uiState";
+import type { GameplayInventoryState, InventoryMetadata, InventoryCatalogEntry, BlockPreviewState } from "../state/uiState";
 
 export type ItemStackView = {
   id: string;
@@ -7,6 +7,7 @@ export type ItemStackView = {
   metadata?: Record<string, string>;
   quantity?: number;
   iconUrl?: string;
+  blockPreview?: BlockPreviewState;
 };
 
 export type CharacterEquipmentView = {
@@ -86,5 +87,6 @@ export function inventoryItemView(
   return {
     id: slot.id, kind: slot.kind, quantity: slot.quantity,
     metadata: slot.metadata, iconUrl: authored?.iconUrl,
+    blockPreview: authored?.blockPreview,
   };
 }
