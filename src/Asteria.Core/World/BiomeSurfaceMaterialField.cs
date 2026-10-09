@@ -32,6 +32,9 @@ public sealed class BiomeSurfaceMaterialField
         _rules = _faceRules.ToDictionary(
             pair => pair.Key, pair => pair.Value.Floor,
             StringComparer.Ordinal);
+        HasExteriorOverrides = _faceRules.Values.Any(
+            profile => profile.Exterior &&
+                (profile.OverrideWalls || profile.OverrideCeiling));
 
         if (_rules.Count == 0)
         {
@@ -40,6 +43,12 @@ public sealed class BiomeSurfaceMaterialField
                 nameof(biomes));
         }
     }
+
+    /// <summary>
+    /// True only if a surface or additive volume biome authors wall/ceiling
+    /// overrides. Cave-only wall rules do not trigger exterior scanning.
+    /// </summary>
+    public bool HasExteriorOverrides { get; }
 
     public BlockRuntimeId BlockAt(
         BiomeSample sample,
@@ -173,7 +182,8 @@ public sealed class BiomeSurfaceMaterialField
         MaterialRule Ceiling,
         bool OverrideFloor,
         bool OverrideWalls,
-        bool OverrideCeiling)
+        bool OverrideCeiling,
+        bool Exterior)
     {
         public uint MaxDepth =>
             Math.Max(1u, Math.Max(Floor.CoreStartDepth,
@@ -207,7 +217,9 @@ public sealed class BiomeSurfaceMaterialField
                 ? defaults : MaterialRule.Create(biome, blocks, palette.Ceiling, "ceiling");
             return new FaceRules(floor, walls, ceiling,
                 palette.Floor is not null, palette.Walls is not null,
-                palette.Ceiling is not null);
+                palette.Ceiling is not null,
+                biome.SurfaceLayout is not null ||
+                biome.VolumeLayout?.Placement == VolumeBiomePlacement.Additive);
         }
     }
 
