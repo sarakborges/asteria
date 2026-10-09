@@ -12,6 +12,7 @@ export type ButtonSize =
 
 export type ButtonProps = {
   label: string;
+  iconUrl?: string;
   disabled?: boolean;
   dataUi?: string;
   type?: "button" | "submit";
@@ -27,6 +28,7 @@ export type ButtonProps = {
 
 export function Button({
   label,
+  iconUrl,
   disabled = false,
   dataUi,
   type = "button",
@@ -60,7 +62,8 @@ export function Button({
       data-ui={dataUi}
       onClick={onClick}
     >
-      {label}
+      {iconUrl && <img className="ui-button__icon" src={iconUrl} alt="" aria-hidden="true" />}
+      <span>{label}</span>
     </button>
   );
 }
