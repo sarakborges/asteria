@@ -122,6 +122,9 @@ public partial class Main : Node3D
     private FpsPlayer? _player;
     private PlayerPortraitPresentation? _playerPortrait;
     private PlayerModelPresentation? _playerModel;
+    private ulong _publishedPlayerHealthRevision = ulong.MaxValue;
+    private double _deathSecondsRemaining;
+    private bool _respawnArrival;
     private Node _webUi = null!;
     private TerrainTextureCatalog _terrainTextures = null!;
     private TerrainTextureLookup _terrainTextureLookup = null!;
@@ -511,6 +514,9 @@ public partial class Main : Node3D
 
         BeginWorldFrameBudget(delta);
         AdvanceFpsHudState(delta);
+
+        if (!_sessions.IsTransitioning && _worldReadySent)
+            AdvancePlayerDeath(delta);
 
         if (_sessions.IsTransitioning)
         {
@@ -1047,6 +1053,7 @@ public partial class Main : Node3D
 
         _player.BreakRequested -=
             BreakTargetBlock;
+        _player.Landed -= OnPlayerLanded;
         _player.PlaceRequested -=
             PlaceTargetBlock;
         _player.ToolActionRequested -=
@@ -1400,6 +1407,7 @@ public partial class Main : Node3D
         }
 
         SendPlayerModeState();
+        SendPlayerVitals(force: true);
         SendWorldSettings();
         SendHotbarState();
         SendInventoryState();
@@ -2124,6 +2132,54 @@ public partial class Main : Node3D
                 visible =
                     _debugHudVisible,
             });
+    }
+
+    private void SendPlayerVitals(bool force = false)
+    {
+        var health = _sessionStates.Player.Health;
+        if (!force && _publishedPlayerHealthRevision == health.Revision)
+            return;
+        _publishedPlayerHealthRevision = health.Revision;
+        SendWebUi("game.hud.vitals", new
+        {
+            health = new { current = health.Current, maximum = health.Maximum },
+            stamina = (object?)null,
+        });
+    }
+
+    private void OnPlayerLanded(float distance)
+    {
+        if (!_worldReadySent || _sessions.IsTransitioning)
+            return;
+        var result = _sessionStates.Player.Health.Land(
+            distance, _sessionStates.Player.GameMode);
+        if (result == PlayerDamageResult.Ignored) return;
+
+        _playerModel?.TryPlayAction(result == PlayerDamageResult.Killed
+            ? PlayerVisualAction.Death : PlayerVisualAction.Hurt);
+        SendPlayerVitals();
+        if (result == PlayerDamageResult.Killed)
+        {
+            _deathSecondsRemaining = 1.25;
+            _player?.SuspendForModal();
+            SendPlayerModeState();
+        }
+    }
+
+    private void AdvancePlayerDeath(double delta)
+    {
+        if (_player is null || !_sessionStates.Player.Health.IsDead)
+            return;
+        _deathSecondsRemaining = Math.Max(0.0, _deathSecondsRemaining - delta);
+        if (_deathSecondsRemaining > 0.0)
+            return;
+
+        // Re-enter through the normal same-Sphere retirement/loading path
+        // instead of teleporting into absent or obstructed collision.
+        _sessions.Active.PrepareGeneratedSpawn();
+        var destination = _sessions.Active.InitialPlayerPosition;
+        if (BeginDimensionTransition(_dimension.Id, destination))
+            _respawnArrival = true;
     }
 
     private void SendWorldHudState(
@@ -3435,6 +3491,19 @@ public partial class Main : Node3D
             return;
         }
 
+        if (_respawnArrival)
+        {
+            if (!_sessionStates.Player.Health.Respawn())
+                throw new InvalidOperationException("Respawn arrival had no dead player.");
+            _respawnArrival = false;
+            _deathSecondsRemaining = 0;
+        }
+        else if (_sessionStates.Player.Health.IsDead)
+        {
+            // Dead saves use the same safe spawn pipeline.
+            _deathSecondsRemaining = 1.25;
+        }
+
         var initialPosition =
             _sessions.Active.InitialPlayerPosition;
 
@@ -3465,6 +3534,7 @@ public partial class Main : Node3D
                     .GetDefinition(fluid)
                     .Motion;
         _player.BreakRequested += BreakTargetBlock;
+        _player.Landed += OnPlayerLanded;
         _player.PlaceRequested += PlaceTargetBlock;
         _player.ToolActionRequested += RotateHeldBlock;
         _player.DropItemRequested += DropSelectedItem;
@@ -3485,6 +3555,11 @@ public partial class Main : Node3D
             _items);
         AddChild(_playerPortrait);
         _playerPortrait.RequestCapture();
+        if (_sessionStates.Player.Health.IsDead)
+        {
+            _playerModel.TryPlayAction(PlayerVisualAction.Death);
+            _player.SuspendForModal();
+        }
 
         _underwaterView =
             new UnderwaterViewPresentation(
@@ -3495,6 +3570,7 @@ public partial class Main : Node3D
             "game.player_ready",
             new { controller = "fps" });
         SendPlayerModeState();
+        SendPlayerVitals(force: true);
         SendHotbarState();
         SendInventoryState();
         SendWorldHudState(
