@@ -72,13 +72,19 @@ export function GameHudPage({
           ...state.hotbar,
           slots: state.hotbar.slots.map(slot => ({
             ...slot,
-            iconUrl: catalog.find(choice =>
-              choice.id === slot.id &&
-              choice.kind === slot.kind &&
-              Object.keys(choice.metadata).length ===
-                Object.keys(slot.metadata ?? {}).length &&
-              Object.entries(choice.metadata).every(([key, value]) =>
-                slot.metadata?.[key] === value))?.iconUrl,
+            ...(() => {
+              const authored = catalog.find(choice =>
+                choice.id === slot.id &&
+                choice.kind === slot.kind &&
+                Object.keys(choice.metadata).length ===
+                  Object.keys(slot.metadata ?? {}).length &&
+                Object.entries(choice.metadata).every(([key, value]) =>
+                  slot.metadata?.[key] === value));
+              return {
+                iconUrl: authored?.iconUrl,
+                blockPreview: authored?.blockPreview,
+              };
+            })(),
           })),
         }} />
       )}
