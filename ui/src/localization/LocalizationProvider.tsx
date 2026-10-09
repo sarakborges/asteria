@@ -21,11 +21,18 @@ import toolsEs from "../../../packs/default/data/localization/spanish/tools.json
 import creaturesEn from "../../../packs/default/data/localization/english/creatures.json";
 import creaturesPt from "../../../packs/default/data/localization/portuguese_brazil/creatures.json";
 import creaturesEs from "../../../packs/default/data/localization/spanish/creatures.json";
+import categoriesEn from "../../../packs/default/data/localization/english/inventory_categories.json";
+import categoriesPt from "../../../packs/default/data/localization/portuguese_brazil/inventory_categories.json";
+import categoriesEs from "../../../packs/default/data/localization/spanish/inventory_categories.json";
 
 export const languages = ["english", "portuguese_brazil", "spanish"] as const;
 export type Language = (typeof languages)[number];
 type UiCatalog = Readonly<Record<string, string>>;
 type Names = Readonly<Record<string, { "/name": string }>>;
+type CategoryNames = Readonly<Record<string, { "/displayName": string }>>;
+const categoryCatalogs: Record<Language, CategoryNames> = {
+  english: categoriesEn, portuguese_brazil: categoriesPt, spanish: categoriesEs,
+};
 const uiCatalogs: Record<Language, UiCatalog> = {
   english, portuguese_brazil: portugueseBrazil, spanish,
 };
@@ -41,6 +48,7 @@ type Localization = {
   setLanguage(value: Language): void;
   t(key: string, replacements?: Record<string, string | number>): string;
   contentName(id: string): string;
+  categoryName(id: string): string;
 };
 const LocalizationContext = createContext<Localization | null>(null);
 const STORAGE_KEY = "asteria.language";
@@ -74,8 +82,13 @@ export function LocalizationProvider({ children }: { children: ReactNode }) {
     return displayContentName(id);
   };
 
+  const categoryName = (id: string): string =>
+    categoryCatalogs[language][id]?.["/displayName"] ?? displayContentName(id);
+
   return (
-    <LocalizationContext.Provider value={{ language, languages, setLanguage, t, contentName }}>
+    <LocalizationContext.Provider value={{
+      language, languages, setLanguage, t, contentName, categoryName,
+    }}>
       {children}
     </LocalizationContext.Provider>
   );
