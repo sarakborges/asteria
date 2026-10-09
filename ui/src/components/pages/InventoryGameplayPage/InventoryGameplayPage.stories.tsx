@@ -49,6 +49,11 @@ const meta = {
           id: "asteria:pickaxe_rustic", kind: "tool",
           name: "Rustic Pickaxe", category: "tools", metadata: {},
         },
+        {
+          id: "asteria:bucket", kind: "tool",
+          name: "asteria:bucket", category: "tools",
+          metadata: { contained_fluid: "asteria:water" },
+        },
       ],
       recipes: [{
         id: "asteria:rustic_hatchet",
