@@ -121,6 +121,7 @@ public partial class Main : Node3D
     private DimensionEnvironmentPresentation _dimensionEnvironment = null!;
     private FpsPlayer? _player;
     private PlayerPortraitPresentation? _playerPortrait;
+    private PlayerModelPresentation? _playerModel;
     private Node _webUi = null!;
     private TerrainTextureCatalog _terrainTextures = null!;
     private TerrainTextureLookup _terrainTextureLookup = null!;
@@ -1078,6 +1079,7 @@ public partial class Main : Node3D
         PublishMiningProgress();
         _player.QueueFree();
         _player = null;
+        _playerModel = null;
         _playerPortrait?.QueueFree();
         _playerPortrait = null;
         _underwaterView = null;
@@ -3473,9 +3475,10 @@ public partial class Main : Node3D
         _player.FluidContactChanged +=
             OnPlayerFluidContactChanged;
         AddChild(_player);
-        _player.AddChild(new PlayerModelPresentation(
+        _playerModel = new PlayerModelPresentation(
             _player, _packSelection, _playerVisual,
-            _sessionStates.Player.Inventory, _heldVisuals));
+            _sessionStates.Player.Inventory, _heldVisuals);
+        _player.AddChild(_playerModel);
         _playerPortrait = new PlayerPortraitPresentation(
             _packSelection, _playerVisual);
         AddChild(_playerPortrait);
@@ -3624,6 +3627,7 @@ public partial class Main : Node3D
                 origin, direction, InteractionDistance);
             if (creature is { } target)
             {
+                _playerModel?.TryPlayAction(PlayerVisualAction.Hit);
                 if (_sessions.Active.TryAttackCreature(
                         target.Creature.Id,
                         _attacks.Get("asteria:punch"),
@@ -3642,6 +3646,7 @@ public partial class Main : Node3D
         if (!TryGetTarget(out var hit))
             return;
 
+        _playerModel?.TryPlayAction(PlayerVisualAction.Break);
         if (_blocks.GetDefinition(
                 _world.GetCellOrEmpty(hit.Voxel).Block).Interaction ==
             BlockInteractionKind.Pickup)
@@ -3789,6 +3794,7 @@ public partial class Main : Node3D
         if (!_sessionStates.Player.CanInteract || _player is null)
             return;
 
+        _playerModel?.TryPlayAction(PlayerVisualAction.Place);
         var target = CurrentTarget();
         if (target is { } storageHit &&
             _sessions.Active.TryOpenStorageBox(storageHit.Voxel))
