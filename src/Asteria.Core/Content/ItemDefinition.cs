@@ -14,7 +14,8 @@ public sealed record ItemDefinition(
     string Icon,
     IReadOnlyList<ItemIconVariant> IconVariants,
     int MaxStackSize = 64,
-    EquipmentSlot? EquipmentSlot = null)
+    EquipmentSlot? EquipmentSlot = null,
+    EquipmentVisualDefinition? EquipmentVisual = null)
 {
     public static ItemDefinition Parse(string json)
     {
@@ -71,12 +72,22 @@ public sealed record ItemDefinition(
             equipmentSlot = parsed;
         }
 
+        EquipmentVisualDefinition? appearance = null;
+        if (root.TryGetProperty("equipmentVisual", out var visual))
+        {
+            if (equipmentSlot is not { } slot)
+                throw new FormatException(
+                    "equipmentVisual requires an authored equipmentSlot.");
+            appearance = EquipmentVisualDefinition.Parse(visual, slot);
+        }
+
         return new ItemDefinition(
             PackContentFields.Id(root),
             PackContentFields.RequiredString(root, "category"),
             PackContentFields.ResourcePath(PackContentFields.RequiredString(root, "icon"), "icon"),
             variants.AsReadOnly(),
             maxStackSize,
-            equipmentSlot);
+            equipmentSlot,
+            appearance);
     }
 }
