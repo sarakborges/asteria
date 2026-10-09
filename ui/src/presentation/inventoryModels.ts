@@ -77,13 +77,24 @@ export function sameInventoryMetadata(a: InventoryMetadata, b: InventoryMetadata
     keys.every(key => a[key] === b[key]);
 }
 
+export function findInventoryCatalogEntry(
+  id: string,
+  kind: InventoryCatalogEntry["kind"] | undefined,
+  metadata: InventoryMetadata | undefined,
+  catalog: readonly InventoryCatalogEntry[],
+): InventoryCatalogEntry | undefined {
+  if (!kind) return undefined;
+  return catalog.find(choice => choice.id === id &&
+    choice.kind === kind && sameInventoryMetadata(choice.metadata, metadata ?? {}));
+}
+
 export function inventoryItemView(
   slot: GameplayInventoryState["cursor"],
   catalog: readonly InventoryCatalogEntry[],
 ): ItemStackView | null {
   if (!slot) return null;
-  const authored = catalog.find(choice => choice.id === slot.id &&
-    choice.kind === slot.kind && sameInventoryMetadata(choice.metadata, slot.metadata));
+  const authored = findInventoryCatalogEntry(
+    slot.id, slot.kind, slot.metadata, catalog);
   return {
     id: slot.id, kind: slot.kind, quantity: slot.quantity,
     metadata: slot.metadata, iconUrl: authored?.iconUrl,
