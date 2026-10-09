@@ -41,8 +41,8 @@ public static class BlockSupportRules
             (needsAbove && position.Y == int.MaxValue))
             return BlockSupportState.Unsupported;
 
-        var supportPosition =
-            position + (0, needsAbove ? 1 : -1);
+        var supportPosition = new WorldVoxelCoord(
+            position.X, position.Y + (needsAbove ? 1 : -1), position.Z);
 
         if (!world.IsLoadedAt(
                 supportPosition))
