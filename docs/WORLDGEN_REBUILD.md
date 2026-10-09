@@ -383,6 +383,30 @@ The default Overworld and Umbral preserve their single cave layer and two
 intersection channels as authored data; more layers can be added without
 changing `SurfaceTerrainField`.
 
+## Shared surface and volume biome palettes
+
+Every biome uses the same `surfaceLayers` and `decorations` content
+definitions, whether it owns the visible surface or a 3D volume. There is
+no separate `undergroundBiomes` pool, `undergroundLayout` capability, or
+`caveMaterials` palette. Spheres select `surfaceBiomes` and
+`volumeBiomes` explicitly.
+
+`volumeLayout.placement` selects occupancy: `additive` for authored
+`terrain3d.additive` formations, and `carvedVoid` for volume identity
+within subtractive cave geometry. These occupancy modes are capabilities
+of **one** volume biome model, not separate kinds of biome. Cave volume
+identity is only observable after the terrain field confirms a carved
+void; additive volume identities only appear in authored Y ranges.
+Floating Islands cannot overwrite the ground-level cave palette.
+
+`surfaceLayers` on a cave volume biome define its exposed solid palette.
+The first exposed layer's patch is sampled in **3D world coordinates**
+across cave floors, walls, and ceilings, allowing coherent material
+regions without flat 2D stripes; the core layer remains unchanged.
+Vertical decorators already use the same `decorations` schema for both
+surface and volume placement, and only appear on supported exposed tops.
+No Godot material, texture or hard-coded biome checks own these rules.
+
 ## Cave chambers and clustered spike formations
 
 Cave chambers extend the existing dimension-authored subtractive density

@@ -165,6 +165,34 @@ public sealed class GameplaySessionFileCodecTests
     }
 
     [Fact]
+    public void CreatureTagWithExplicitEmptyValueSurvivesSessionSerialization()
+    {
+        var content = Content(false);
+        var creation = new WorldCreationOptions("World", 98765UL);
+        var source = new DimensionSessionStateStore(creation, Dimensions());
+        var sphere = source.GetOrCreate(DimensionId.Overworld);
+
+        var tags = default(CreatureMetaTags);
+        Assert.True(tags.TryChange(
+            CreatureMetaTagAction.Add, CreatureMetaTags.PersistentTag,
+            "", out var persistent, out _));
+        var creature = new CreatureInstanceState(
+            new CreatureInstanceId(1), "asteria:slime_aqua",
+            new Vector3(0, 10, 0), 5, 0,
+            CreatureHopMotion.Initial)
+        {
+            MetaTags = persistent
+        };
+        sphere.Creatures = new CreatureRuntimeSnapshot(1, [creature]);
+        var snapshot = GameplaySessionSaveCodec.Capture(
+            source, content.Blocks, content.Fluids, content.Dyes, content.Layers);
+        var result = Decode(Encode(snapshot, content), content);
+        var saved = Assert.Single(result.Spheres[0].Creatures!.Creatures);
+        Assert.True(saved.MetaTags.Persistent);
+        Assert.Equal("", saved.MetaTags.PersistentValue);
+    }
+
+    [Fact]
     public void SessionCodecRejectsCorruptionTrailingDataAndMissingBlockDefinition()
     {
         var content = Content(false);

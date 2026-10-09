@@ -31,9 +31,9 @@ public static class PortableStackSaveCodec
         WriteString(writer, entry.Id, MaxIdBytes);
         writer.Write((byte)entry.MaxStackSize);
         writer.Write((byte)stack.Quantity);
-        writer.Write(checked((byte)entry.Metadata.Count));
         if (entry.Metadata.Count > MaxMetadataPairs)
             throw new InvalidDataException("Too many portable item metadata entries.");
+        writer.Write(checked((byte)entry.Metadata.Count));
         foreach (var (key, value) in entry.Metadata.OrderBy(x => x.Key, StringComparer.Ordinal))
         {
             WriteString(writer, key, MaxMetadataBytes);
@@ -168,20 +168,23 @@ public static class PortableStackSaveCodec
         }
     }
 
-    internal static void WriteString(BinaryWriter writer, string value, int maxBytes)
+    internal static void WriteString(
+        BinaryWriter writer, string value, int maxBytes, bool allowEmpty = false)
     {
         ArgumentNullException.ThrowIfNull(value);
         var bytes = Utf8.GetBytes(value);
-        if (bytes.Length is 0 or > ushort.MaxValue || bytes.Length > maxBytes)
+        if ((!allowEmpty && bytes.Length == 0) ||
+            bytes.Length > ushort.MaxValue || bytes.Length > maxBytes)
             throw new InvalidDataException("Invalid saved text length.");
         writer.Write((ushort)bytes.Length);
         writer.Write(bytes);
     }
 
-    internal static string ReadString(BinaryReader reader, int maxBytes)
+    internal static string ReadString(
+        BinaryReader reader, int maxBytes, bool allowEmpty = false)
     {
         var length = reader.ReadUInt16();
-        if (length == 0 || length > maxBytes)
+        if ((!allowEmpty && length == 0) || length > maxBytes)
             throw new InvalidDataException("Invalid saved text length.");
         var bytes = reader.ReadBytes(length);
         if (bytes.Length != length)

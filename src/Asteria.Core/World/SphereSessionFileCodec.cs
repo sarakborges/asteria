@@ -357,12 +357,14 @@ internal static class SphereSessionFileCodec
     {
         writer.Write(value is not null);
         if (value is not null)
-            PortableStackSaveCodec.WriteString(writer, value, CreatureMetaTags.MaximumValueLength);
+            PortableStackSaveCodec.WriteString(
+                writer, value, CreatureMetaTags.MaximumValueLength, allowEmpty: true);
     }
 
     private static string? ReadNullable(BinaryReader reader) =>
         PortableStackSaveCodec.ReadBool(reader)
-            ? PortableStackSaveCodec.ReadString(reader, CreatureMetaTags.MaximumValueLength)
+            ? PortableStackSaveCodec.ReadString(
+                reader, CreatureMetaTags.MaximumValueLength, allowEmpty: true)
             : null;
 
     internal static void WritePosition(BinaryWriter writer, WorldVoxelCoord position)

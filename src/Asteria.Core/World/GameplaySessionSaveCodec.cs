@@ -146,7 +146,8 @@ public sealed class GameplaySessionSnapshot
     public GameplaySessionSnapshot(
         DimensionChunkSaveSnapshot spatial,
         string name, uint ticksPerSecond, bool spawnCreatures,
-        PlayerSessionSnapshot player, IEnumerable<SphereClockSnapshot> spheres)
+        PlayerSessionSnapshot player, IEnumerable<SphereClockSnapshot> spheres,
+        DimensionId? activeSphere = null)
     {
         Spatial = spatial ?? throw new ArgumentNullException(nameof(spatial));
         Player = player ?? throw new ArgumentNullException(nameof(player));
@@ -165,6 +166,11 @@ public sealed class GameplaySessionSnapshot
             if (entries[index].Dimension != spatial.Spheres[index].Dimension)
                 throw new InvalidDataException("Sphere clock identity mismatch.");
 
+        if (activeSphere is { } active &&
+            !spatial.Spheres.Any(sphere => sphere.Dimension == active))
+            throw new InvalidDataException("Active Sphere is missing from the snapshot.");
+
+        ActiveSphere = activeSphere;
         Name = name;
         TicksPerSecond = ticksPerSecond;
         SpawnCreatures = spawnCreatures;
@@ -172,6 +178,7 @@ public sealed class GameplaySessionSnapshot
     }
 
     public DimensionChunkSaveSnapshot Spatial { get; }
+    public DimensionId? ActiveSphere { get; }
     public string Name { get; }
     public uint TicksPerSecond { get; }
     public bool SpawnCreatures { get; }
@@ -189,7 +196,8 @@ public static class GameplaySessionSaveCodec
     public static GameplaySessionSnapshot Capture(
         DimensionSessionStateStore source,
         BlockRegistry blocks, FluidRegistry fluids,
-        DyeRegistry dyes, AttachedLayerRegistry layers)
+        DyeRegistry dyes, AttachedLayerRegistry layers,
+        DimensionId? activeSphere = null)
     {
         ArgumentNullException.ThrowIfNull(source);
         var spatial = DimensionChunkSaveCodec.Capture(
@@ -206,7 +214,7 @@ public static class GameplaySessionSaveCodec
         return new GameplaySessionSnapshot(
             spatial, source.Name, source.GameRules.TicksPerSecond,
             source.GameRules.SpawnCreatures,
-            source.Player.CaptureState(), clocks);
+            source.Player.CaptureState(), clocks, activeSphere);
     }
 
     public static DimensionSessionStateStore Restore(

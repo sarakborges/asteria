@@ -802,16 +802,18 @@ public sealed class TerrainDensityTests
                     volumeLayout:
                         new BiomeVolumeLayoutDefinition())
                 : null;
-        var undergroundBiome =
+        var caveBiome =
             caveSpike is null
                 ? null
                 : new BiomeDefinition(
                     "asteria:test/caverns",
                     null, null,
-                    undergroundLayout: new BiomeUndergroundLayoutDefinition(),
+                    surfaceLayers: [new BiomeSurfaceLayerDefinition("asteria:stone")],
+                    volumeLayout: new BiomeVolumeLayoutDefinition(
+                        placement: VolumeBiomePlacement.CarvedVoid),
                     caveSpikes: [caveSpike]);
         var definitions =
-            new[] { surfaceBiome, volumeBiome, undergroundBiome }
+            new[] { surfaceBiome, volumeBiome, caveBiome }
                 .Where(definition => definition is not null)
                 .Select(definition => definition!)
                 .ToArray();
@@ -850,17 +852,11 @@ public sealed class TerrainDensityTests
                         roofY)
                     : null,
                 caves,
-                volumeBiomes:
-                    volumeBiome is null
-                        ? null
-                        : new[]
-                        {
-                            volumeBiome.Id,
-                        },
-                undergroundBiomes:
-                    undergroundBiome is null
-                        ? null
-                        : [undergroundBiome.Id]);
+                volumeBiomes: new[]
+                {
+                    volumeBiome?.Id,
+                    caveBiome?.Id,
+                }.OfType<string>());
 
         return new BiomeWorldGenerator(
             8192UL,

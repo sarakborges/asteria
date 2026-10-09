@@ -105,11 +105,13 @@ public sealed class VerticalBiomeContentTests
         var floating = BiomeDefinitionJson.Parse(File.ReadAllText(
             Path.Combine(PackData, "biomes", "floating_islands.json")));
         Assert.Null(cave.SurfaceLayout);
-        Assert.Null(cave.VolumeLayout);
-        Assert.NotNull(cave.UndergroundLayout);
+        Assert.NotNull(cave.VolumeLayout);
+        Assert.Equal(VolumeBiomePlacement.CarvedVoid, cave.VolumeLayout.Placement);
+        Assert.NotEmpty(cave.SurfaceLayers);
+        Assert.NotNull(cave.SurfaceLayers[0].Patch);
         Assert.Null(floating.SurfaceLayout);
-        Assert.Null(floating.UndergroundLayout);
         Assert.NotNull(floating.VolumeLayout);
+        Assert.Equal(VolumeBiomePlacement.Additive, floating.VolumeLayout.Placement);
         Assert.Null(cave.SurfaceHabitats);
         Assert.Null(floating.SurfaceHabitats);
         Assert.Equal(3, cave.Decorations.Count);
@@ -150,6 +152,87 @@ public sealed class VerticalBiomeContentTests
         Assert.True(sightings > 0);
         Assert.True(islandSightings > 0);
         Assert.True(variationAcrossY > 0);
+    }
+
+    [Fact]
+    public void SharedPaletteSamplesVolumePatchesInThreeDimensions()
+    {
+        var blocks = BlockRegistry.FromJson(ReadFiles("blocks"));
+        var cave = BiomeDefinitionJson.Parse(File.ReadAllText(
+            Path.Combine(PackData, "biomes", "caverns.json")));
+        var field = new BiomeSurfaceMaterialField(418UL, [cave], blocks);
+        var again = new BiomeSurfaceMaterialField(418UL, [cave], blocks);
+        var biome = new BiomeSample(cave.Id,
+            [new BiomeInfluence(cave.Id, 1f)]);
+
+        var seen = new HashSet<BlockRuntimeId>();
+        var verticalVariation = 0;
+        for (var z = -72; z <= 72; z += 8)
+        for (var x = -72; x <= 72; x += 8)
+        {
+            BlockRuntimeId? previous = null;
+            for (var y = 16; y <= 112; y += 8)
+            {
+                var selected = field.VolumeBlockAt(biome, x, y, z);
+                Assert.Equal(selected, again.VolumeBlockAt(biome, x, y, z));
+                seen.Add(selected);
+                if (previous is { } old && old != selected)
+                    verticalVariation++;
+                previous = selected;
+            }
+        }
+
+        Assert.True(seen.Count >= 3,
+            "Volume palette should expose several authored materials.");
+        Assert.True(verticalVariation > 0,
+            "Cave wall materials must vary in Y, not repeat 2D surface stripes.");
+        Assert.Equal(blocks.GetId("asteria:stone"),
+            field.BlockAt(biome, 0, 0, 20));
+    }
+
+    [Fact]
+    public void CarvedVoidVolumeIdentityDoesNotOverwriteAdditiveVolumes()
+    {
+        var biomes = new BiomeRegistry(ReadFiles("biomes")
+            .Select(BiomeDefinitionJson.Parse));
+        var dimension = DimensionDefinitionJson.Parse(File.ReadAllText(
+            Path.Combine(PackData, "dimensions", "overworld.json")));
+        var volume = new VolumeBiomeField(514UL, dimension, biomes);
+        Assert.True(volume.HasBiomes);
+        Assert.NotNull(volume.SampleCave(0, 0));
+        Assert.Equal("asteria:overworld/caverns",
+            volume.SampleCave(0, 0)!.Primary);
+
+        // Cave ownership does not turn a surface or additive formation
+        // into a Caverns volume at arbitrary vertical coordinates.
+        var high = volume.Sample(0, 240, 0);
+        Assert.True(high is null ||
+                    high.Primary == "asteria:overworld/floating_islands");
+        Assert.Null(volume.Sample(0, 32, 0));
+    }
+
+    [Fact]
+    public void VolumePlacementContractRejectsInvalidGeometryCombination()
+    {
+        Assert.ThrowsAny<ArgumentException>(() =>
+            new BiomeDefinition(
+                "asteria:test/carved", null, null,
+                surfaceLayers: [new BiomeSurfaceLayerDefinition("asteria:stone")],
+                volumeLayout: new BiomeVolumeLayoutDefinition(
+                    placement: VolumeBiomePlacement.CarvedVoid),
+                terrain3d: new BiomeTerrain3dDefinition(
+                    [new BiomeAdditiveDensityDefinition(
+                        180, 220, 64, 20, 0.5f, 0.2f, 20f)])));
+
+        Assert.Throws<FormatException>(() =>
+            BiomeDefinitionJson.Parse(
+                """
+                {
+                  "id": "asteria:test/invalid",
+                  "volumeLayout": {"placement": "nonexistent"},
+                  "surfaceLayers": [{"block": "asteria:stone"}]
+                }
+                """));
     }
 
     private static IEnumerable<string> ReadFiles(string folder) =>

@@ -110,23 +110,6 @@ public sealed class BiomeRegistry
                 }
             }
 
-            foreach (var material in definition.CaveMaterials)
-            {
-                RequireBlock(blocks, definition.Id, material.Block);
-                if (blocks.GetDefinition(
-                    blocks.GetId(material.Block)).Shape.Kind != BlockShapeKind.Cube)
-                    throw new ArgumentException(
-                        $"Biome {definition.Id} cave material {material.Block} must use cube geometry.");
-                foreach (var source in material.ReplaceBlocks)
-                {
-                    RequireBlock(blocks, definition.Id, source);
-                    if (blocks.GetDefinition(
-                        blocks.GetId(source)).Shape.Kind != BlockShapeKind.Cube)
-                        throw new ArgumentException(
-                            $"Biome {definition.Id} cave source {source} must use cube geometry.");
-                }
-            }
-
             foreach (var spike in definition.CaveSpikes)
             {
                 RequireBlock(blocks, definition.Id, spike.Block);
@@ -197,12 +180,6 @@ public sealed class BiomeRegistry
                 target =>
                     target.VolumeLayout is not null,
                 "volumeLayout");
-            ValidateLayoutReferences(
-                definition,
-                definition.UndergroundLayout,
-                target =>
-                    target.UndergroundLayout is not null,
-                "undergroundLayout");
             ValidateCaveSpikeSurfaceReferences(definition);
         }
     }

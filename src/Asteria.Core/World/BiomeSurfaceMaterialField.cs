@@ -75,6 +75,17 @@ public sealed class BiomeSurfaceMaterialField
             PlacementFor(rule, worldX, worldZ, placement));
     }
 
+    /// <summary>One shared authored surfaceLayers palette in volume-space.</summary>
+    public BlockRuntimeId VolumeBlockAt(
+        BiomeSample sample, int worldX, int worldY, int worldZ)
+    {
+        ArgumentNullException.ThrowIfNull(sample);
+        if (!_rules.TryGetValue(sample.Primary, out var rule))
+            throw new KeyNotFoundException(
+                $"Biome {sample.Primary} has no material palette.");
+        return rule.VolumeBlockAt(_seed, worldX, worldY, worldZ);
+    }
+
     public BiomeSurfaceMaterialColumn SampleColumn(
         BiomeSample sample,
         int worldX,
@@ -193,6 +204,10 @@ public sealed class BiomeSurfaceMaterialField
                 "Validated surface material profile must end with a core layer.");
         }
 
+        public BlockRuntimeId VolumeBlockAt(
+            ulong seed, int x, int y, int z) =>
+            Layers[0].ResolveVolume(seed, x, y, z);
+
         public BiomeSurfaceMaterialColumn SampleColumn(
             ulong seed,
             int worldX,
@@ -286,6 +301,10 @@ public sealed class BiomeSurfaceMaterialField
 
         public bool RequiresSlope => Patch?.RequiresSlope == true;
 
+        public BlockRuntimeId ResolveVolume(
+            ulong seed, int x, int y, int z) =>
+            Patch?.ResolveVolume(seed, x, y, z) ?? Block;
+
         public BlockRuntimeId Resolve(
             ulong seed,
             int worldX,
@@ -310,6 +329,8 @@ public sealed class BiomeSurfaceMaterialField
         private readonly GenerationDomain _blockDomain;
         private readonly GenerationDomain _warpXDomain;
         private readonly GenerationDomain _warpZDomain;
+        private readonly GenerationDomain _volumeMaskDomain;
+        private readonly GenerationDomain _volumeSelectionDomain;
 
         private ResolvedPatch(
             BiomeSurfacePatchDefinition definition,
@@ -337,6 +358,37 @@ public sealed class BiomeSurfaceMaterialField
                 $"material/surface-patch/warp-x/v1/{suffix}");
             _warpZDomain = GenerationDomain.Named(
                 $"material/surface-patch/warp-z/v1/{suffix}");
+            _volumeMaskDomain = GenerationDomain.Named(
+                $"material/volume-patch/mask/v1/{suffix}");
+            _volumeSelectionDomain = GenerationDomain.Named(
+                $"material/volume-patch/selection/v1/{suffix}");
+        }
+
+        public BlockRuntimeId? ResolveVolume(
+            ulong seed, int x, int y, int z)
+        {
+            var verticalScale = Math.Max(2u, _definition.DetailScale);
+            var noise = WorldGenerationEntropy.ValueNoise3D(
+                seed, _volumeMaskDomain, x, y, z,
+                _definition.Scale, verticalScale);
+            if (noise < 1d - _definition.Coverage * 2d)
+                return null;
+
+            if (_blocks.Length == 1)
+                return _blocks[0];
+
+            var selection = WorldGenerationEntropy.ValueNoise3D(
+                seed, _volumeSelectionDomain, x, y, z,
+                _definition.SelectionScale, verticalScale);
+            var unit = Math.Clamp((selection + 1d) * 0.5d,
+                0d, 0.999999999999d);
+            var target = unit * _totalWeight;
+            for (var i = 0; i < _blocks.Length; i++)
+            {
+                if (target < _cumulativeWeights[i])
+                    return _blocks[i];
+            }
+            return _blocks[^1];
         }
 
         public bool HasConditions => _definition.Conditions is not null;

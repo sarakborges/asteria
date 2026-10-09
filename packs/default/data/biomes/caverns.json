@@ -1,6 +1,5 @@
 {
   "id": "asteria:overworld/caverns",
-  "undergroundLayout": {},
   "decorations": [
     {
       "block": "asteria:mushroom_brown",
@@ -175,94 +174,39 @@
       }
     }
   ],
-  "caveMaterials": [
+  "volumeLayout": {
+    "placement": "carvedVoid"
+  },
+  "surfaceLayers": [
     {
-      "block": "asteria:gravel",
-      "replaceBlocks": [
-        "asteria:stone"
-      ],
-      "faces": [
-        "floor",
-        "wall"
-      ],
-      "chance": 1,
-      "cluster": {
-        "horizontalScale": 22,
-        "verticalScale": 13,
-        "threshold": -0.14,
-        "transitionWidth": 0.16
+      "block": "asteria:stone",
+      "depth": 1,
+      "patch": {
+        "scale": 32,
+        "coverage": 0.79,
+        "roughness": 0.25,
+        "blocks": [
+          "asteria:gravel",
+          "asteria:basalt",
+          "asteria:sandstone",
+          "asteria:clay",
+          "asteria:terracotta",
+          "asteria:stone_cobble"
+        ],
+        "detailScale": 16,
+        "selectionScale": 58,
+        "weights": {
+          "asteria:gravel": 3,
+          "asteria:basalt": 3,
+          "asteria:sandstone": 2,
+          "asteria:clay": 2,
+          "asteria:terracotta": 2,
+          "asteria:stone_cobble": 2
+        }
       }
     },
     {
-      "block": "asteria:basalt",
-      "replaceBlocks": [
-        "asteria:stone"
-      ],
-      "faces": [
-        "floor",
-        "ceiling",
-        "wall"
-      ],
-      "chance": 1,
-      "cluster": {
-        "horizontalScale": 43,
-        "verticalScale": 24,
-        "threshold": 0.02,
-        "transitionWidth": 0.17
-      }
-    },
-    {
-      "block": "asteria:sandstone",
-      "replaceBlocks": [
-        "asteria:stone"
-      ],
-      "faces": [
-        "floor",
-        "ceiling",
-        "wall"
-      ],
-      "chance": 1,
-      "cluster": {
-        "horizontalScale": 34,
-        "verticalScale": 19,
-        "threshold": 0.07,
-        "transitionWidth": 0.16
-      }
-    },
-    {
-      "block": "asteria:clay",
-      "replaceBlocks": [
-        "asteria:stone"
-      ],
-      "faces": [
-        "floor",
-        "wall"
-      ],
-      "chance": 1,
-      "cluster": {
-        "horizontalScale": 27,
-        "verticalScale": 17,
-        "threshold": 0.08,
-        "transitionWidth": 0.14
-      }
-    },
-    {
-      "block": "asteria:terracotta",
-      "replaceBlocks": [
-        "asteria:stone"
-      ],
-      "faces": [
-        "floor",
-        "ceiling",
-        "wall"
-      ],
-      "chance": 1,
-      "cluster": {
-        "horizontalScale": 48,
-        "verticalScale": 27,
-        "threshold": 0.12,
-        "transitionWidth": 0.17
-      }
+      "block": "asteria:stone"
     }
   ]
 }

@@ -35,10 +35,8 @@ public static class BiomeDefinitionJson
             ParseTints(root),
             ParseTerrain3d(root),
             ParseVolumeLayout(root),
-            ParseUndergroundLayout(root),
             SurfaceHabitatDefinitionJson.Parse(root),
-            ParseCaveSpikes(root),
-            ParseCaveMaterials(root));
+            ParseCaveSpikes(root));
     }
 
     private static PlacementLayoutValues?
@@ -380,27 +378,26 @@ public static class BiomeDefinitionJson
                 values.Weight,
                 values.RegionMin,
                 values.RegionMax,
-                values.CannotBorder)
+                values.CannotBorder,
+                ParseVolumePlacement(root))
             : null;
     }
 
-    private static BiomeUndergroundLayoutDefinition?
-        ParseUndergroundLayout(
-            JsonElement root)
+    private static VolumeBiomePlacement ParseVolumePlacement(JsonElement root)
     {
-        var layout =
-            ParsePlacementLayout(
-                root,
-                "undergroundLayout");
+        if (!root.TryGetProperty("volumeLayout", out var layout) ||
+            !layout.TryGetProperty("placement", out var placement))
+            return VolumeBiomePlacement.Additive;
 
-        return layout is
-            { } values
-            ? new BiomeUndergroundLayoutDefinition(
-                values.Weight,
-                values.RegionMin,
-                values.RegionMax,
-                values.CannotBorder)
-            : null;
+        if (placement.ValueKind != JsonValueKind.String)
+            throw new FormatException("volumeLayout.placement must be a string.");
+
+        return placement.GetString() switch
+        {
+            "additive" => VolumeBiomePlacement.Additive,
+            "carvedVoid" => VolumeBiomePlacement.CarvedVoid,
+            _ => throw new FormatException("Unknown volumeLayout.placement."),
+        };
     }
 
     private static BiomeTerrain3dDefinition? ParseTerrain3d(
@@ -657,43 +654,6 @@ public static class BiomeDefinitionJson
             RequiredInt32(cluster, "verticalScale"),
             RequiredSingle(cluster, "threshold"),
             OptionalSingle(cluster, "transitionWidth") ?? 0f);
-    }
-
-    private static IReadOnlyList<BiomeCaveMaterialDefinition> ParseCaveMaterials(
-        JsonElement root)
-    {
-        if (!root.TryGetProperty("caveMaterials", out var values))
-            return Array.Empty<BiomeCaveMaterialDefinition>();
-
-        values = EnsureArray(values, "caveMaterials");
-        return values.EnumerateArray().Select((value, index) =>
-        {
-            var rule = EnsureObject(value, $"caveMaterials[{index}]");
-            var faces = RequiredStringArray(rule, "faces").Select(face => face switch
-            {
-                "floor" => CaveSurfaceFace.Floor,
-                "ceiling" => CaveSurfaceFace.Ceiling,
-                "wall" => CaveSurfaceFace.Wall,
-                _ => throw new FormatException($"Unknown cave material face: {face}"),
-            });
-            CaveSpikeClusterDefinition? cluster = null;
-            if (rule.TryGetProperty("cluster", out var clusterValue) &&
-                clusterValue.ValueKind != JsonValueKind.Null)
-            {
-                var authored = EnsureObject(clusterValue, "caveMaterials.cluster");
-                cluster = new CaveSpikeClusterDefinition(
-                    RequiredInt32(authored, "horizontalScale"),
-                    RequiredInt32(authored, "verticalScale"),
-                    RequiredSingle(authored, "threshold"),
-                    OptionalSingle(authored, "transitionWidth") ?? 0f);
-            }
-            return new BiomeCaveMaterialDefinition(
-                RequiredString(rule, "block"),
-                RequiredStringArray(rule, "replaceBlocks"),
-                faces,
-                RequiredSingle(rule, "chance"),
-                cluster);
-        }).ToArray();
     }
 
     private static IReadOnlyList<BiomeDecorationDefinition>

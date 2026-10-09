@@ -169,6 +169,24 @@ keeps Godot as an I/O/interaction adapter.
 - Publication, generation rotation and end-to-end native save wiring remain
   separate from the stream format until recovery behavior is verified.
 
+## Stage 11: atomic complete-session generations (Core only)
+
+- `SessionSaveStorage` publishes the entire detached `GameplaySessionSnapshot`
+  (world state, player, all initialized Spheres, entities and queues) as one
+  checksummed `session-*.bin` generation, separate from spatial-only files.
+- The active Sphere ID is now part of the session snapshot and a prerequisite
+  for durable publication. It must be supplied by the Godot session controller
+  at the quiescent capture boundary.
+- `AtomicSaveGenerationStore` now owns shared publication, locking, SHA-256
+  validation, retention of four generations and fallback to an earlier valid
+  generation. Existing spatial-only saves use this same narrow primitive.
+- `RestoreLatest` validates complete Core reconstruction of a candidate
+  before accepting its generation. Corrupted/mismatched newer saves do not
+  replace the active session, and callers can select the earlier valid file.
+- These are **not yet playable saves**. The game has not connected its active
+  runtime quiescence, native save/load lifecycle, content registry/cycle
+  validation and UI catalog to this Core-only storage layer.
+
 ## Remaining
 
 Wire the spatial snapshot capture and disk publisher into a quiescent
