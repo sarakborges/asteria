@@ -46,11 +46,11 @@ public sealed class CactusLandscapeTests
                 {
                     Assert.True(placements.TryGetValue(
                         (flower.X, flower.Y - 1, flower.Z), out var support));
-                    Assert.Contains(support,
-                    [
+                    Assert.Contains(support, new[]
+                    {
                         "asteria:cactus_column", "asteria:cactus_barrel",
                         "asteria:cactus_pad",
-                    ]);
+                    });
                 }
             }
         }
