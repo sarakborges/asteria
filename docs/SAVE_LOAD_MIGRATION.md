@@ -235,12 +235,30 @@ stage descriptions as the current status.
   browser code neither owns the save path nor parses snapshot files.
 - Delete/save-and-leave actions and native end-to-end tests remain pending.
 
+## Stage 15: safe deletion and save-and-leave (2026-10-09)
+
+- World Selection now requires explicit confirmation, sends only canonical IDs,
+  checks that no world/load/catalog task is active, and deletes on one bounded
+  native worker. `WorldSaveDeletion` requires a real manifest, rejects
+  filesystem links and excessive traversal, then refreshes the catalog.
+  Related Core filesystem tests cover isolation, unsafe names and symlinks.
+- Pause Menu now sends `ui.world.leave`. The existing quiescent Sphere
+  retirement and atomic checkpoint pipeline remains authoritative. On successful
+  save, it does **not** create a replacement Sphere; Godot frees the old
+  presentation/session and WebUI returns to World Selection. On failed save,
+  the archived session is reconstructed and the save error is shown.
+- **Still unverified in native Godot/WRY:** confirm/delete, permissions and
+  partial deletion error handling; save → menu → fresh-process load, corrupted
+  generation, repeated entry/exit and no leaked presentation or worker handles.
+
 ## Remaining after stage 14 (reviewed 2026-10-09)
 
-- **World Delete** is not connected to a native verified filesystem operation;
-  do not wire the React button directly to paths or delete an active/loading world.
-- **Save and Leave / Leave World** is not connected to the complete retirement,
-  return-to-menu and cleanup lifecycle. Keep user feedback explicit if save fails.
+- **World Delete is wired** through native validated filesystem deletion.
+  Verify confirmation, errors and races in the embedded client; do not
+  wire the React button directly to paths or delete an active/loading world.
+- **Save and Leave is wired** to retirement and menu cleanup on successful
+  checkpoint publication. Exercise success/failure and repeated gameplay cycles
+  in native Godot/WRY before claiming complete functional parity.
 - **Live acceptance still required:** save → close process → reload, verify all
   authoritative player/voxel/container/entity states and multiple Spheres,
   simulate corrupted latest generation, mismatched selected pack, I/O failure,
