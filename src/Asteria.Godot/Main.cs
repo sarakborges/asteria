@@ -3118,6 +3118,7 @@ public partial class Main : Node3D
                 (EquipmentSlot)number, _inventoryCatalog.CanEquip))
             return;
         SendInventoryState();
+        _playerPortrait?.RequestCapture();
     }
 
     private void HandleInventorySlot(JsonElement message)
@@ -3477,10 +3478,11 @@ public partial class Main : Node3D
         AddChild(_player);
         _playerModel = new PlayerModelPresentation(
             _player, _packSelection, _playerVisual,
-            _sessionStates.Player.Inventory, _heldVisuals);
+            _sessionStates.Player.Inventory, _heldVisuals, _items);
         _player.AddChild(_playerModel);
         _playerPortrait = new PlayerPortraitPresentation(
-            _packSelection, _playerVisual);
+            _packSelection, _playerVisual, _sessionStates.Player.Inventory,
+            _items);
         AddChild(_playerPortrait);
         _playerPortrait.RequestCapture();
 
