@@ -173,6 +173,64 @@ public sealed class GameplaySessionFileCodecTests
     }
 
     [Fact]
+    public void PlayerHealthRoundTripsAndDeadStatePersists()
+    {
+        var content = Content(false);
+        var creation = new WorldCreationOptions("Health World", 4321UL);
+        var states = new DimensionSessionStateStore(creation, Dimensions());
+        states.GetOrCreate(DimensionId.Overworld);
+        Assert.Equal(PlayerDamageResult.Killed,
+            states.Player.Health.Damage(20f, PlayerGameMode.Survival));
+        var saved = GameplaySessionSaveCodec.Capture(states,
+            content.Blocks, content.Fluids, content.Dyes, content.Layers);
+        var data = Encode(saved, content);
+        Assert.Equal((byte)3, data[4]);
+        var restored = GameplaySessionSaveCodec.Restore(
+            creation, Dimensions(), Decode(data, content),
+            content.Blocks, content.Fluids, content.Dyes, content.Layers);
+        Assert.True(restored.Player.Health.IsDead);
+        Assert.False(restored.Player.CanInteract);
+        Assert.Equal(0f, restored.Player.Health.Current);
+    }
+
+    [Fact]
+    public void LegacyV2LoadsWithMaximumHealth()
+    {
+        var content = Content(false);
+        var creation = new WorldCreationOptions("Legacy Health", 1234UL);
+        var states = new DimensionSessionStateStore(creation, Dimensions());
+        states.GetOrCreate(DimensionId.Overworld);
+        var encoded = Encode(GameplaySessionSaveCodec.Capture(states,
+            content.Blocks, content.Fluids, content.Dyes, content.Layers), content);
+        using var stream = new MemoryStream(encoded, writable: false);
+        using var reader = new BinaryReader(stream, System.Text.Encoding.UTF8, true);
+        reader.ReadUInt32();
+        reader.ReadUInt16();
+        PortableStackSaveCodec.ReadString(reader, 512);
+        reader.ReadUInt32();
+        reader.ReadBoolean();
+        if (reader.ReadBoolean())
+            PortableStackSaveCodec.ReadString(reader, 512);
+        reader.ReadByte();
+        reader.ReadBoolean();
+        reader.ReadByte();
+        for (var i = 0; i < PlayerInventory.TotalSlots + 1 +
+            PlayerInventory.EquipmentSlots; i++)
+            PortableStackSaveCodec.Read(reader,
+                content.Blocks, content.Dyes, content.Layers);
+        var healthOffset = checked((int)stream.Position);
+        var legacy = encoded.AsSpan(0, healthOffset).ToArray()
+            .Concat(encoded.AsSpan(healthOffset + sizeof(float)).ToArray())
+            .ToArray();
+        legacy[4] = 2;
+        legacy[5] = 0;
+        var restored = GameplaySessionSaveCodec.Restore(
+            creation, Dimensions(), Decode(legacy, content),
+            content.Blocks, content.Fluids, content.Dyes, content.Layers);
+        Assert.Equal(PlayerHealth.DefaultMaximum, restored.Player.Health.Current);
+    }
+
+    [Fact]
     public void LegacyV1PlayerInventoryLoadsWithFourEmptyEquipmentSlots()
     {
         var content = Content(false);
