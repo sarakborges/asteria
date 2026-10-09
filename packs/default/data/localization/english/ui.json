@@ -400,5 +400,12 @@
   "inventory.equipment.legs": "No leggings equipped",
   "inventory.equipment.boots": "No boots equipped",
   "ui.oxygen": "Oxygen",
-  "ui.durability": "Durability"
+  "ui.durability": "Durability",
+  "death.title": "You Died",
+  "death.respawn": "Respawn",
+  "death.inventoryKept": "Your inventory was kept.",
+  "death.itemsDropped": "Your items were dropped at the place of death.",
+  "death.dropsUnavailable": "The world is full of drops. Your inventory was kept to prevent item loss.",
+  "settings.keepInventory": "Keep Inventory",
+  "settings.keepInventory.description": "Preserve equipped items, backpack, hotbar and cursor when you die."
 }

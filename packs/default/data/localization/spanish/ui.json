@@ -400,5 +400,12 @@
   "inventory.equipment.legs": "Sin pantalones",
   "inventory.equipment.boots": "Sin botas",
   "ui.oxygen": "Oxígeno",
-  "ui.durability": "Durabilidad"
+  "ui.durability": "Durabilidad",
+  "death.title": "Has muerto",
+  "death.respawn": "Reaparecer",
+  "death.inventoryKept": "Tu inventario se ha conservado.",
+  "death.itemsDropped": "Tus objetos se han dejado en el lugar de la muerte.",
+  "death.dropsUnavailable": "El mundo ha alcanzado el límite de objetos caídos. Tu inventario se ha conservado para evitar pérdidas.",
+  "settings.keepInventory": "Conservar inventario",
+  "settings.keepInventory.description": "Conserva el equipo, la mochila, la barra rápida y el cursor al morir."
 }
