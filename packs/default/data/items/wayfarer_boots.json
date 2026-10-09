@@ -64,5 +64,6 @@
       }
     ]
   },
-  "damageReduction": 0.05
+  "damageReduction": 0.05,
+  "maxDurability": 180
 }
