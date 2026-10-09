@@ -1,0 +1,27 @@
+.death-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(17 8 12 / 78%);
+  pointer-events: auto;
+}
+
+.death-screen__card {
+  width: min(440px, 100%);
+  display: grid;
+  gap: 18px;
+  padding: 28px;
+  border: 2px solid var(--ui-color-border);
+  background: var(--ui-color-hud-surface);
+  box-shadow: 0 14px 48px var(--ui-color-shadow);
+  text-align: center;
+}
+
+.death-screen__explanation {
+  margin: 0;
+  font-size: var(--ui-font-size-body);
+  color: var(--ui-color-text);
+}
