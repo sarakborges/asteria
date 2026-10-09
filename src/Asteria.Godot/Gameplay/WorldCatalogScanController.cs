@@ -17,6 +17,8 @@ public sealed class WorldCatalogScanController
     private DyeRegistry? _dyes;
     private AttachedLayerRegistry? _layers;
 
+    public bool IsBusy => _pending is not null;
+
     public void ConfigureValidation(
         DimensionRegistry dimensions, BlockRegistry blocks,
         FluidRegistry fluids, DyeRegistry dyes, AttachedLayerRegistry layers)
