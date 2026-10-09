@@ -194,13 +194,13 @@ public sealed class SurfaceDecorationFieldTests
                 "baseHeightOffset":0,"macroAmplitude":0,
                 "macroScale":64,"detailAmplitude":0,"detailScale":32
               },
-              "surfaceLayers":[
+              "palette":{"default":[
                 {"block":"asteria:grass_block","depth":1,
                  "patch":{"scale":24,"coverage":1,"roughness":0,
                           "blocks":["asteria:mud"],
                           "conditions":{"minY":90,"maxSlope":2}}},
                 {"block":"asteria:stone"}
-              ],
+              ]},
               "decorations":[
                 {"block":"asteria:pebble","chance":0.4,
                  "surfaceBlocks":["asteria:grass_block"],

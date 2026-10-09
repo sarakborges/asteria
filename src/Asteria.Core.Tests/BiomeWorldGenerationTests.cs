@@ -1266,7 +1266,7 @@ public sealed class BiomeWorldGenerationTests
                 "baseHeightOffset":0,"macroAmplitude":0,
                 "macroScale":64,"detailAmplitude":0,"detailScale":32
               },
-              "surfaceLayers":[
+              "palette":{"default":[
                 {"block":"asteria:grass_block","depth":1,
                  "patch":{"scale":32,"coverage":0.5,"roughness":0.2,
                           "detailScale":9,"selectionScale":64,
@@ -1274,7 +1274,7 @@ public sealed class BiomeWorldGenerationTests
                           "blocks":["asteria:mud","asteria:gravel"],
                           "weights":{"asteria:mud":4,"asteria:gravel":1}}},
                 {"block":"asteria:stone"}
-              ]
+              ]}
             }
             """);
 

@@ -542,7 +542,7 @@ public sealed class TerrainDensityTests
             {
               "id":"asteria:test/floating",
               "volumeLayout":{},
-              "surfaceLayers":[{"block":"asteria:stone"}],
+              "palette":{"default":[{"block":"asteria:stone"}]},
               "terrain3d":{"additive":[{
                 "minY":80,"maxY":112,"horizontalScale":64,
                 "detailScale":24,"coverage":0.55,"roughness":0.18,

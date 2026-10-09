@@ -112,11 +112,11 @@ public sealed class BiomePlacementParityTests
                     "detailAmplitude": 0,
                     "detailScale": 32
                   },
-                  "surfaceLayers": [
+                  "palette":{"default":[
                     {
                       "block": "asteria:stone"
                     }
-                  ]
+                  ]}
                 }
                 """);
 

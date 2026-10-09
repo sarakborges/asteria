@@ -307,7 +307,7 @@ public sealed class GeneratedSurfaceFluidTests
                   }
                 }
               },
-              "surfaceLayers": [{ "block": "asteria:stone" }]
+              "palette":{"default":[{ "block": "asteria:stone" }]}
             }
             """);
 
