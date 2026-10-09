@@ -7,6 +7,7 @@ export function inventoryDisplayName(
 ): string {
   const base = authoredName && authoredName !== id ? authoredName : contentName(id);
   const values = Object.entries(metadata ?? {})
+    .filter(([key]) => key !== "asteria:durability")
     .sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)
     .map(([, value]) => contentName(value));
   return values.length ? `${base} (${values.join(", ")})` : base;
@@ -24,7 +25,8 @@ export function inventorySearchMatches(
   const term = normalizeSearch(query.trim());
   if (!term) return true;
   if (!item) return false;
-  const properties = Object.entries(item.metadata ?? {}).flatMap(
+  const properties = Object.entries(item.metadata ?? {})
+    .filter(([key]) => key !== "asteria:durability").flatMap(
     ([key, value]) => [key, value, contentName(value)]);
   return [item.id, contentName(item.id), item.name ?? "", ...properties]
     .some(value => normalizeSearch(value).includes(term));
