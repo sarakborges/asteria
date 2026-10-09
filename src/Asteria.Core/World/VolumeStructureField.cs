@@ -43,6 +43,15 @@ public sealed class VolumeStructureField
                 throw new ArgumentException(
                     $"Volume structure group {authored.Structure} has no variants.");
 
+            // An author may not attach a downward-facing blueprint to
+            // an upward-facing terrain support (or vice versa).
+            var direction = authored.SupportSurface ==
+                DecorationSupportSurface.Floor ? 1 : -1;
+            if (variants.Any(v => Math.Sign(v.MinY) != direction ||
+                                  Math.Sign(v.MaxY) != direction))
+                throw new ArgumentException(
+                    $"Volume structure {authored.Structure} blueprint direction does not match its supportSurface.");
+
             var maximumRadius = variants.Max(variant => variant.Radius);
             if (maximumRadius > 6 || maximumRadius * 2 >= authored.Spacing)
                 throw new ArgumentException(
@@ -189,10 +198,16 @@ public sealed class VolumeStructureField
                 var px = (long)x + voxel.X;
                 var py = (long)y + voxel.Y;
                 var pz = (long)z + voxel.Z;
+                // Every bottom-most stem or arch foot must have real
+                // terrain support, not just the central anchor column.
+                var touchesGround = voxel.Y == direction;
                 if (px is < int.MinValue or > int.MaxValue ||
                     pz is < int.MinValue or > int.MaxValue ||
                     py <= 0 || py > int.MaxValue ||
                     _terrain.DensityAt((int)px, (int)py, (int)pz) >= 0d ||
+                    (touchesGround &&
+                     _terrain.DensityAt((int)px, (int)py - direction,
+                         (int)pz) < 0d) ||
                     (rule.Placement == VolumeBiomePlacement.CarvedVoid &&
                      !_terrain.IsCaveVoidAt((int)px, (int)py, (int)pz)))
                 {

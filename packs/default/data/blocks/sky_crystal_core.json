@@ -1,0 +1,23 @@
+{
+  "id": "asteria:sky_crystal_core",
+  "category": "natural_blocks",
+  "textures": {
+    "top": "textures/blocks/sky_crystal_core.png",
+    "bottom": "textures/blocks/sky_crystal_core.png",
+    "left": "textures/blocks/sky_crystal_core.png",
+    "right": "textures/blocks/sky_crystal_core.png",
+    "front": "textures/blocks/sky_crystal_core.png",
+    "back": "textures/blocks/sky_crystal_core.png"
+  },
+  "lightDampening": 0,
+  "castsShadow": true,
+  "lightEmission": {
+    "red": 5,
+    "green": 4,
+    "blue": 9
+  },
+  "mining": {
+    "hardness": 1.35
+  },
+  "previewColor": "b49bd7"
+}

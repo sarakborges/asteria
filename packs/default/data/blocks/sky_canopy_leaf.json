@@ -1,0 +1,20 @@
+{
+  "id": "asteria:sky_canopy_leaf",
+  "category": "foliage",
+  "windSway": true,
+  "textures": {
+    "top": "textures/blocks/sky_canopy_leaf.png",
+    "bottom": "textures/blocks/sky_canopy_leaf.png",
+    "left": "textures/blocks/sky_canopy_leaf.png",
+    "right": "textures/blocks/sky_canopy_leaf.png",
+    "front": "textures/blocks/sky_canopy_leaf.png",
+    "back": "textures/blocks/sky_canopy_leaf.png"
+  },
+  "alphaCutoff": 0.5,
+  "lightDampening": 1,
+  "castsShadow": false,
+  "mining": {
+    "hardness": 0.17
+  },
+  "previewColor": "8eccab"
+}

@@ -162,5 +162,23 @@
         "block": "asteria:stone"
       }
     ]
-  }
+  },
+  "volumeStructures": [
+    {
+      "structure": "asteria:skywood_tree",
+      "spacing": 31,
+      "chance": 0.79,
+      "minY": 200,
+      "maxY": 280,
+      "supportSurface": "floor"
+    },
+    {
+      "structure": "asteria:sky_crystal_arch",
+      "spacing": 38,
+      "chance": 0.57,
+      "minY": 200,
+      "maxY": 280,
+      "supportSurface": "floor"
+    }
+  ]
 }

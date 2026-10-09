@@ -1,0 +1,18 @@
+{
+  "id": "asteria:cave_glow_mushroom_stem",
+  "category": "natural_blocks",
+  "textures": {
+    "top": "textures/blocks/cave_glow_mushroom_stem.png",
+    "bottom": "textures/blocks/cave_glow_mushroom_stem.png",
+    "left": "textures/blocks/cave_glow_mushroom_stem.png",
+    "right": "textures/blocks/cave_glow_mushroom_stem.png",
+    "front": "textures/blocks/cave_glow_mushroom_stem.png",
+    "back": "textures/blocks/cave_glow_mushroom_stem.png"
+  },
+  "lightDampening": 7,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 0.34
+  },
+  "previewColor": "82baa8"
+}

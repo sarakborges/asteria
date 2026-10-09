@@ -777,3 +777,37 @@ formations in Caverns, larger canopies/landmarks on additive Floating
 Islands with 3D volume-safe placement, denser cold-hardy Arctic/Alps
 vegetation, and diverse Ocean reef silhouettes rather than simply
 increasing indiscriminate surface spawn probability.
+
+## Volume-owned multiblock landmarks
+
+Author volume-biome `volumeStructures` entries with `structure` group
+references, horizontal `spacing` and `chance`, `minY`/`maxY` support
+bounds, and `supportSurface: "floor" | "ceiling"`. These are NOT
+generatedSurfaceStructures: the 3D volume identity and authoritative
+terrain density determine the support, not surface-biome coordinates.
+Templates use the existing `structures/` schema; explicit
+`groundAnchorY: 0` and positive/negative relative Y select which
+side of the support carries the formation. Ground terrain itself is
+never part of a template. Validated constraints include a compact
+<=6-block footprint radius, <=16-block vertical offsets, unrotated
+block-only payload, authored support materials, no fluids/clears,
+and consistent support direction.
+
+`VolumeStructureField` selects sparse seeded world-space X/Z anchors,
+verifies actual solid-to-void boundaries, matching volume ownership,
+support blocks and clearance of every template voxel, then returns
+immutable world-space placements. The sole chunk writer remains
+`SurfaceChunkMaterializer`. It emits formations before small vertical
+sprite decorators and cave spikes, which then respect occupied voxels.
+It consults anchors in a horizontal halo and full authored vertical
+support band, preserving placements across X/Z and Y chunk seams.
+Structure generation respects `spawnStructures`, normal world mode,
+and carved-void presence. No modifications to terrain density or
+surface/volume block palettes are required.
+
+Caverns now authors 3 families with 7 variants: glow mushrooms
+(4–8 blocks high), cyan crystal clusters, and hanging crystalline
+chandeliers from ceilings. Floating Islands authors 2 families with
+5 variants: branching skywood trees with 3D canopies and violet
+crystal arches anchored on actual additive island solids.
+Distinct 64×64 pack textures support the new blocks and RGB emission.

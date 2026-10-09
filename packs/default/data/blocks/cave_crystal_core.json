@@ -1,0 +1,23 @@
+{
+  "id": "asteria:cave_crystal_core",
+  "category": "natural_blocks",
+  "textures": {
+    "top": "textures/blocks/cave_crystal_core.png",
+    "bottom": "textures/blocks/cave_crystal_core.png",
+    "left": "textures/blocks/cave_crystal_core.png",
+    "right": "textures/blocks/cave_crystal_core.png",
+    "front": "textures/blocks/cave_crystal_core.png",
+    "back": "textures/blocks/cave_crystal_core.png"
+  },
+  "lightDampening": 0,
+  "castsShadow": true,
+  "lightEmission": {
+    "red": 2,
+    "green": 6,
+    "blue": 10
+  },
+  "mining": {
+    "hardness": 1.2
+  },
+  "previewColor": "85daec"
+}

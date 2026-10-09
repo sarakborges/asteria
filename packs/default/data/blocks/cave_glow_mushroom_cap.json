@@ -1,0 +1,23 @@
+{
+  "id": "asteria:cave_glow_mushroom_cap",
+  "category": "natural_blocks",
+  "textures": {
+    "top": "textures/blocks/cave_glow_mushroom_cap.png",
+    "bottom": "textures/blocks/cave_glow_mushroom_cap.png",
+    "left": "textures/blocks/cave_glow_mushroom_cap.png",
+    "right": "textures/blocks/cave_glow_mushroom_cap.png",
+    "front": "textures/blocks/cave_glow_mushroom_cap.png",
+    "back": "textures/blocks/cave_glow_mushroom_cap.png"
+  },
+  "lightDampening": 0,
+  "castsShadow": true,
+  "lightEmission": {
+    "red": 3,
+    "green": 8,
+    "blue": 10
+  },
+  "mining": {
+    "hardness": 0.3
+  },
+  "previewColor": "66c6d2"
+}
