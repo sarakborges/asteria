@@ -9,15 +9,26 @@ public sealed class WorldGameRules
 
     public WorldGameRules(
         uint ticksPerSecond = DefaultTicksPerSecond,
-        bool spawnCreatures = true)
+        bool spawnCreatures = true,
+        bool keepInventory = true)
     {
         SetTicksPerSecond(ticksPerSecond);
         SpawnCreatures = spawnCreatures;
+        KeepInventory = keepInventory;
     }
 
     public uint TicksPerSecond { get; private set; }
 
     public bool SpawnCreatures { get; private set; }
+
+    public bool KeepInventory { get; private set; }
+
+    public bool SetKeepInventory(bool value)
+    {
+        if (KeepInventory == value) return false;
+        KeepInventory = value;
+        return true;
+    }
 
     public bool SetTicksPerSecond(uint value)
     {
