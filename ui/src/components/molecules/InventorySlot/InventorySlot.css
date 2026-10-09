@@ -39,3 +39,6 @@
 .inventory-slot:disabled {
   cursor: default;
 }
+
+.inventory-slot__durability { position: absolute; left: 3px; right: 3px; bottom: 2px; height: 3px; background: var(--ui-color-slider-track); }
+.inventory-slot__durability-fill { display: block; height: 100%; background: var(--ui-color-health); }
