@@ -59,8 +59,16 @@ export function InventorySlot({
           .filter(Boolean).join(" ")}
         disabled={disabled}
         aria-label={item
-          ? [name, ...Object.entries(item.metadata ?? {}).map(([key, value]) =>
-            key + ": " + value)].join(" · ")
+          ? [
+              name,
+              ...(item.durability
+                ? [t("ui.durability") + ": " +
+                   item.durability.current + " / " + item.durability.maximum]
+                : []),
+              ...Object.entries(item.metadata ?? {})
+                .filter(([key]) => key !== "asteria:durability")
+                .map(([key, value]) => key + ": " + value),
+            ].join(" · ")
           : name}
         onClick={onClick}
         onPointerEnter={event => {
