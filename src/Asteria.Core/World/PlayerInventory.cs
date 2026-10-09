@@ -221,6 +221,48 @@ public sealed class PlayerInventory
     /// slot. The Core inventory remains the sole owner of cursor transfers;
     /// the supplied content predicate validates authored identity.
     /// </summary>
+    /// <summary>
+    /// Reduces one genuine equipped item's remaining uses. Missing wear
+    /// metadata denotes a pristine item; the portable stack metadata persists
+    /// through cursor transfer, save/load and Sphere travel.
+    /// </summary>
+    public bool WearEquipment(EquipmentSlot slot, string expectedItemId, int maximum)
+    {
+        if (!Enum.IsDefined(slot) || maximum <= 0)
+            throw new ArgumentOutOfRangeException(nameof(slot));
+        ArgumentException.ThrowIfNullOrWhiteSpace(expectedItemId);
+        var index = (int)slot;
+        var equipped = _equipment[index];
+        if (equipped is null || equipped.Kind != InventoryEntryKind.Item ||
+            equipped.Id != expectedItemId || equipped.Quantity != 1)
+            return false;
+
+        var previous = equipped.Entry.Metadata;
+        var current = maximum;
+        if (previous.TryGetValue(EquipmentDurability.MetadataKey, out var raw) &&
+            (!int.TryParse(raw, System.Globalization.NumberStyles.None,
+                System.Globalization.CultureInfo.InvariantCulture, out current) ||
+             current <= 0 || current > maximum))
+            throw new InvalidDataException("Invalid saved equipment durability.");
+
+        if (current == 1)
+        {
+            _equipment[index] = null;
+        }
+        else
+        {
+            var metadata = new Dictionary<string, string>(previous, StringComparer.Ordinal)
+            {
+                [EquipmentDurability.MetadataKey] =
+                    (current - 1).ToString(System.Globalization.CultureInfo.InvariantCulture),
+            };
+            _equipment[index] = new InventoryStack(InventoryEntry.FromItem(
+                equipped.Id, metadata, maxStackSize: 1));
+        }
+        Revision++;
+        return true;
+    }
+
     public bool ClickEquipment(
         EquipmentSlot slot, Func<InventoryEntry, EquipmentSlot, bool> canEquip)
     {
