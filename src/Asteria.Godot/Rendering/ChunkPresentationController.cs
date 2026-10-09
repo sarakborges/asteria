@@ -144,6 +144,9 @@ public sealed class ChunkPresentationController
                 residency.ShouldPresentationBeVisible(
                     coord.Value,
                     currentlyVisible: false));
+            presentation.SetPhysicsEnabled(
+                presentation.IsVisible &&
+                residency.ShouldPresentationHaveCollision(coord.Value));
 
             _presentations.Add(
                 coord.Value,
@@ -196,6 +199,9 @@ public sealed class ChunkPresentationController
                 residency.ShouldPresentationBeVisible(
                     coord,
                     presentation.IsVisible));
+            presentation.SetPhysicsEnabled(
+                presentation.IsVisible &&
+                residency.ShouldPresentationHaveCollision(coord));
         }
 
         _appliedSelectionRevision =

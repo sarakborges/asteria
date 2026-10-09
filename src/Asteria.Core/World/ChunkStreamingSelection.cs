@@ -202,6 +202,14 @@ public sealed class ChunkPresentationSelection
         Revision++;
     }
 
+    // Only the player-local chunk neighborhood needs active rigid collision.
+    // Render/retention radii are intentionally independent of physics.
+    public bool ShouldEnablePhysics(ChunkCoord coord) =>
+        Center is { } center &&
+        Math.Abs((long)coord.X - center.X) <= 2 &&
+        Math.Abs((long)coord.Y - center.Y) <= 2 &&
+        Math.Abs((long)coord.Z - center.Z) <= 2;
+
     public bool RetainsRenderMesh(ChunkCoord coord) =>
         Center is { } center &&
         Inside(coord, center, HideRadius);

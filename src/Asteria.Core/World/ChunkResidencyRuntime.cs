@@ -252,6 +252,9 @@ public sealed class ChunkResidencyRuntime
             coord,
             currentlyVisible);
 
+    public bool ShouldPresentationHaveCollision(ChunkCoord coord) =>
+        _presentationSelection.ShouldEnablePhysics(coord);
+
     public ChunkCoord? PopPresentationByPriority() =>
         _streaming.PopPresentationByPriority(
             _presentationSelection,

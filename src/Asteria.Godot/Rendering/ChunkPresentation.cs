@@ -18,7 +18,7 @@ public sealed class ChunkPresentation
 
     private StaticBody3D? _collisionBody;
     private int _publishedCount;
-    private bool _physicsEnabled = true;
+    private bool _physicsEnabled;
 
     public ChunkPresentation(ChunkCoord coord)
     {
@@ -45,18 +45,17 @@ public sealed class ChunkPresentation
     public bool IsFullyPublished =>
         _publishedCount == ChunkMeshletMask.Count;
 
-    public void SetVisible(bool visible)
-    {
+    public void SetVisible(bool visible) =>
         Root.Visible = visible;
 
-        if (_physicsEnabled ==
-            visible)
+    public void SetPhysicsEnabled(bool enabled)
+    {
+        if (_physicsEnabled == enabled)
         {
             return;
         }
 
-        _physicsEnabled =
-            visible;
+        _physicsEnabled = enabled;
 
         foreach (var collision in
                  _collisions)

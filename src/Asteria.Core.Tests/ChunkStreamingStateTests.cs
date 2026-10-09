@@ -433,6 +433,24 @@ public sealed class ChunkStreamingStateTests
                 currentlyVisible: true));
     }
 
+    [Fact]
+    public void CollisionSelectionIsPlayerLocalAndIndependentOfRenderHysteresis()
+    {
+        var selection = new ChunkPresentationSelection();
+        selection.Sync(new ChunkCoord(0, 5, 0), 4);
+
+        Assert.True(selection.ShouldEnablePhysics(new ChunkCoord(2, 3, 2)));
+        Assert.True(selection.ShouldEnablePhysics(new ChunkCoord(-2, 7, -2)));
+        Assert.False(selection.ShouldEnablePhysics(new ChunkCoord(3, 5, 0)));
+        Assert.False(selection.ShouldEnablePhysics(new ChunkCoord(0, 8, 0)));
+        Assert.True(selection.ShouldBeVisible(
+            new ChunkCoord(3, 5, 0), currentlyVisible: false));
+
+        selection.Sync(new ChunkCoord(1, 5, 0), 4);
+        Assert.True(selection.ShouldEnablePhysics(new ChunkCoord(3, 5, 0)));
+        Assert.False(selection.ShouldEnablePhysics(new ChunkCoord(-2, 5, 0)));
+    }
+
     private sealed class BlockingSurfaceRangeProvider :
         IChunkSurfaceRangeProvider
     {
