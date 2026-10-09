@@ -10,6 +10,7 @@ export type HudEntityCardProps = {
   secondaryVital?: {
     label: string;
     value: VitalValue;
+    tone?: "stamina" | "oxygen";
   } | null;
 };
 
@@ -46,7 +47,7 @@ export function HudEntityCard({
         {secondaryVital && (
           <VitalBar
             value={secondaryVital.value}
-            tone="stamina"
+            tone={secondaryVital.tone ?? "stamina"}
             label={secondaryVital.label}
           />
         )}
@@ -61,7 +62,7 @@ function VitalBar({
   label,
 }: {
   value: VitalValue;
-  tone: "health" | "stamina";
+  tone: "health" | "stamina" | "oxygen";
   label?: string;
 }) {
   const ratio =
