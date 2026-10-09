@@ -125,7 +125,6 @@ public partial class Main : Node3D
     private ulong _publishedPlayerHealthRevision = ulong.MaxValue;
     private int _publishedOxygenSeconds = -1;
     private bool _publishedOxygenVisible;
-    private double _deathSecondsRemaining;
     private bool _respawnArrival;
     private Node _webUi = null!;
     private TerrainTextureCatalog _terrainTextures = null!;
@@ -355,6 +354,9 @@ public partial class Main : Node3D
             return;
         }
 
+        if (_sessionStates.Player.Health.IsDead)
+            return;
+
         if (_chat.IsOpen)
         {
             if (@event is InputEventKey chatKey &&
@@ -518,9 +520,6 @@ public partial class Main : Node3D
         AdvanceFpsHudState(delta);
         if (!_sessions.IsTransitioning && _worldReadySent)
             _sessionStates.Player.Hazards.AdvanceTime((float)Math.Clamp(delta, 0d, 1d));
-
-        if (!_sessions.IsTransitioning && _worldReadySent)
-            AdvancePlayerDeath(delta);
 
         if (_sessions.IsTransitioning)
         {
@@ -1318,6 +1317,9 @@ public partial class Main : Node3D
                     if (!TrySaveAndLeaveCurrentWorld())
                         SendWebUi("game.world.save_result", new { status = "error" });
                     break;
+                case "ui.player.respawn":
+                    TryRespawnPlayer();
+                    break;
                 case "ui.player.set_game_mode":
                     SetRequestedGameMode(document.RootElement);
                     break;
@@ -1329,7 +1331,8 @@ public partial class Main : Node3D
                     break;
                 case "ui.game.resume":
                     if (_worldReadySent && !_keybindCapture.IsCapturing &&
-                        !_inventoryOpen && !_chat.IsOpen)
+                        !_inventoryOpen && !_chat.IsOpen &&
+                        !_sessionStates.Player.Health.IsDead)
                     {
                         _player?.ResumeGameplay();
                     }
@@ -1414,6 +1417,8 @@ public partial class Main : Node3D
 
         SendPlayerModeState();
         SendPlayerVitals(force: true);
+        if (_sessionStates.Player.Health.IsDead)
+            SendPlayerDeathState();
         SendWorldSettings();
         SendHotbarState();
         SendInventoryState();
@@ -2220,25 +2225,45 @@ public partial class Main : Node3D
         SendPlayerVitals();
         if (result == PlayerDamageResult.Killed)
         {
-            _deathSecondsRemaining = 1.25;
+            var position = _player?.GlobalPosition ?? Vector3.Zero;
+            var dropPosition = new NVector3(
+                position.X, MathF.Max(position.Y, 0.2f), position.Z);
+            var outcome = _sessions.Active.ResolvePlayerDeath(
+                _sessionStates.Player, _sessionStates.GameRules, dropPosition);
             _player?.SuspendForModal();
+            SyncHeldBlock();
+            SendHotbarState();
+            SendInventoryState();
+            SendPlayerDeathState(outcome);
             SendPlayerModeState();
         }
     }
 
-    private void AdvancePlayerDeath(double delta)
+    private void SendPlayerDeathState(
+        PlayerDeathOutcome? outcome = null)
     {
-        if (_player is null || !_sessionStates.Player.Health.IsDead)
-            return;
-        _deathSecondsRemaining = Math.Max(0.0, _deathSecondsRemaining - delta);
-        if (_deathSecondsRemaining > 0.0)
+        if (_worldSeed is null) return;
+        SendWebUi("game.player.death", new
+        {
+            keepInventory = outcome?.InventoryKept ??
+                _sessionStates.GameRules.KeepInventory,
+            droppedStacks = outcome?.DroppedStacks ?? 0,
+            dropCapacityExceeded = outcome?.DropCapacityExceeded ?? false,
+        });
+    }
+
+    private void TryRespawnPlayer()
+    {
+        if (_worldSeed is null || !_worldReadySent ||
+            _sessions.IsTransitioning || _player is null ||
+            !_sessionStates.Player.Health.IsDead)
             return;
 
-        // Re-enter through the normal same-Sphere retirement/loading path
-        // instead of teleporting into absent or obstructed collision.
+        // Request the generated safe spawn; re-enter the current Sphere
+        // through the same resident-chunk and loading lifecycle as travel.
         _sessions.Active.PrepareGeneratedSpawn();
-        var destination = _sessions.Active.InitialPlayerPosition;
-        if (BeginDimensionTransition(_dimension.Id, destination))
+        if (BeginDimensionTransition(
+            _dimension.Id, _sessions.Active.InitialPlayerPosition))
             _respawnArrival = true;
     }
 
@@ -3565,18 +3590,13 @@ public partial class Main : Node3D
             return;
         }
 
+        var respawned = _respawnArrival;
         if (_respawnArrival)
         {
             if (!_sessionStates.Player.Health.Respawn())
                 throw new InvalidOperationException("Respawn arrival had no dead player.");
             _sessionStates.Player.Hazards.Reset();
             _respawnArrival = false;
-            _deathSecondsRemaining = 0;
-        }
-        else if (_sessionStates.Player.Health.IsDead)
-        {
-            // Dead saves use the same safe spawn pipeline.
-            _deathSecondsRemaining = 1.25;
         }
 
         // A new physical environment starts a fresh exposure window while
@@ -3648,6 +3668,10 @@ public partial class Main : Node3D
         SendWebUi(
             "game.player_ready",
             new { controller = "fps" });
+        if (respawned)
+            SendWebUi("game.player.respawned", new { });
+        else if (_sessionStates.Player.Health.IsDead)
+            SendPlayerDeathState();
         SendPlayerModeState();
         SendPlayerVitals(force: true);
         SendHotbarState();
