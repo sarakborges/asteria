@@ -23,12 +23,19 @@ export function PlayerVitals({
           health, portraitUrl: portraitUrl ?? undefined,
         }}
         secondaryVital={
-          state?.stamina
+          state?.oxygen
             ? {
-                label: t("ui.stamina"),
-                value: state.stamina,
+                label: t("ui.oxygen"),
+                value: state.oxygen,
+                tone: "oxygen",
               }
-            : null
+            : state?.stamina
+              ? {
+                  label: t("ui.stamina"),
+                  value: state.stamina,
+                  tone: "stamina",
+                }
+              : null
         }
       />
     </section>
