@@ -32,12 +32,20 @@ export type PlayerInventoryView = {
 export type CreativeCategoryView = {
   id: string;
   label: string;
+  iconUrl?: string;
+};
+
+/** Per-inventory-instance scroll memory; retained across Creative tab remounts. */
+export type CreativeScrollMemory = {
+  categoryOffset: number;
+  catalogOffsets: Map<string, number>;
 };
 
 export type CreativeInventoryView = {
   searchQuery: string;
   selectedCategoryId: string | null;
   categories: readonly CreativeCategoryView[];
+  everythingIconUrl?: string | null;
   items: readonly ItemStackView[];
 };
 
