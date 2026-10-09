@@ -266,6 +266,38 @@ Mountain biome enrichment uses the same generic content pipeline. The authored M
 
 The Volcano terrain definition retains its existing `cone`, `crater` and `crater.fluidFill` contract (including lava source level and spill noise); this enrichment does **not** add another lava producer, touch geometry, or invoke a Hydrology system. Its original Basalt remains the unlimited stone core. A bounded two-block Basalt cap has warped `palette.default[].patch` alternatives (Basalt Cobble and limited Gravel), eligible only on suitable lower/sloped ground, while all exposed upper and steep regions keep Basalt. Biome-owned `surfaceHabitats` organize **Ash Aprons**, **Fractured Flanks**, and **Hardened Highlands** as natural deterministic distribution regions: they influence Pebble and Structure placement probabilities, not the crater position. Four generated Structure rules place Basalt Cobble outcrops, larger Basalt boulders, narrow Basalt spires, and small `basalt_cluster` StructureSets, using six reusable JSON templates. Ground fit, fluid-forbidden policy, shared rock conflict group, required full biome coverage and biome-edge behavior all use the pre-existing generic Structure owner; lava-filled positions are excluded by the generated-fluid owner. No new Blocks or rendering effects are necessary. The names of the habitat bands are distribution regions, **not** guaranteed geographic rings around the crater; only existing altitude/slope conditions constrain material eligibility.
 
+### Shared surface material/fluid mosaics
+
+A surface biome may optionally author `palette.surfaceMosaic` for one
+organic 2D noise-driven choice at each world X/Z coordinate:
+
+```json
+"surfaceMosaic": {
+  "scale": 24,
+  "detailScale": 9,
+  "detailStrength": 0.24,
+  "entries": [
+    { "block": "asteria:grass_block", "weight": 2 },
+    { "block": "asteria:dirt", "weight": 2 },
+    { "block": "asteria:mud", "weight": 2.5 },
+    { "fluid": "asteria:water", "weight": 3.5 }
+  ]
+}
+```
+
+The field selects **one** entry, not overlapping patches; block and fluid
+IDs use their corresponding registries. Noise parameters and positive
+relative weights are data-driven. Dry entries replace only the top
+solid material. A fluid entry removes exactly the top solid voxel and
+adds a source fluid in its place, at the same authored surface Y as the
+dry alternatives; the regular `palette.default` layers remain under
+the liquid. Carving and filling are resolved from the same immutable
+`SurfaceMosaicField` through `GeneratedFluidField` and the existing
+`SurfaceTerrainField` cut contract. Thus fluid queries, surface
+decorators, Structures and chunk materialization agree on occupancy.
+This requires normal-mode surface terrain with `fillToSeaLevel: false`;
+Flat/Void world modes do not apply the mosaic.
+
 ### Ocean seabeds, cave floors, and additive floating island tops
 
 Surface, volume, and underground biome identity remain distinct. **Ocean** has Sand Flats, Gravel Banks and Rocky Reefs with continuously blended, horizontal world-space placement weights. Its Sand top layer gets shallow warped Gravel/Clay/Stone Cobble patches, while two wet `ocean_rock` Structure templates and a bounded `ocean_rock_cluster` StructureSet add submerged rock formations. These are explicitly **fluid-displacing solid rock** payloads, not water sources. They can be anchored on the existing sand/gravel seabed because their `requiresDryGround: false` and `fluidPolicy: "displace"` use the already-authoritative generated-fluid checks and clear only cells occupied by rock. The existing ocean fill, beach margin and river mouth structure remain unchanged; no underwater ground sprites are overlaid into fluid voxels.
@@ -304,7 +336,7 @@ Any surface biome can author deterministic decorators through `decorations`; opt
 
 The `chance` roll is per world column and weighted by biome influence; `cluster.scale` is the horizontal noise wavelength and `cluster.threshold` (between -1 and 1) keeps columns above the fractal-noise cutoff. Missing `cluster` preserves existing independent decorator placement. Pebbles and Sticks use exposed compatible ground and are skipped for generated fluid-filled columns. These are microdecorations, not locatable surface Structures. Stick uses the same authored ground-sprite contract as Pebble (with a larger sprite), spawning in Plains, Swamp, Enchanted Forest and Wraith Grove. Both declare `interaction: "pickup"` and a `pickupItem` ID referencing a real pack Item. Right-click transfers one Item directly into inventory if capacity allows, then removes the voxel through `VoxelMutationRuntime` (no spawned dropped entity). Left-click mining/breaking is forbidden on pickup-only blocks. A tight ground-sprite targeting hitbox (`visual.targetHeight`, in voxels) prevents the whole air voxel from becoming an interaction target. Placement of normal blocks remains unchanged. The inventory catalog validates every referenced pickup item on initialization.
 
-The Structure contract still deliberately does **not** support MineClone object attachments or Structure-authored surface-layer decorators; those require their own explicit owners before import. StructureSets, connector chains, Structure-owned source-fluid payloads and explicit clear cells are supported. Unsupported palette/template fields fail validation instead of being silently ignored. The default pack currently ports the four MineClone boulder geometries, four oak-tree block variants, three willow-tree block variants, four enchanted-tree block variants, and the 27 connected-water Structure variants used by lakes, mountain ponds, mountain waterfalls, river lakes, river segments and the ocean-margin river mouth. Plains references `asteria:lake`, while Mountains/Alps/Mountain Belt reference `asteria:mountain_waterfall`; Ocean references `asteria:river_ocean_mouth` with `biomeMargin`. River/lake/waterfall/pond expansion stays entirely inside generic Structure groups/connectors—no hydrology subsystem exists. Stick object cells and willow moss surface layers remain omitted. Willow preserves MineClone's required water proximity of 1..12 blocks. Swamp water is produced when the typed swamp terrain falls below the Sphere's authored sea level, so proximity queries resolve against the same generated-fluid owner used by materialization. Enchanted Forest is active in the Overworld surface-biome pool.
+The Structure contract still deliberately does **not** support MineClone object attachments or Structure-authored surface-layer decorators; those require their own explicit owners before import. StructureSets, connector chains, Structure-owned source-fluid payloads and explicit clear cells are supported. Unsupported palette/template fields fail validation instead of being silently ignored. The default pack currently ports the four MineClone boulder geometries, four oak-tree block variants, three willow-tree block variants, four enchanted-tree block variants, and the 27 connected-water Structure variants used by lakes, mountain ponds, mountain waterfalls, river lakes, river segments and the ocean-margin river mouth. Plains references `asteria:lake`, while Mountains/Alps/Mountain Belt reference `asteria:mountain_waterfall`; Ocean references `asteria:river_ocean_mouth` with `biomeMargin`. River/lake/waterfall/pond expansion stays entirely inside generic Structure groups/connectors—no hydrology subsystem exists. Stick object cells and willow moss surface layers remain omitted. Willow preserves MineClone's required water proximity of 1..12 blocks. Swamp Water is selected from the same noise-driven `palette.surfaceMosaic` as Grass Block, Dirt and Mud. It occupies the same surface voxel rather than a terrain depression; proximity queries use the shared `GeneratedFluidField` owner. Enchanted Forest is active in the Overworld surface-biome pool.
 
 Enchanted Forest reuses the MineClone rebuild's four `tree_enchanted` voxel templates, translated to the Asteria `groupId` schema, with dry-ground and full-biome-coverage fit requirements. The Overworld authors both rotated `tree_enchanted` roots and an `enchanted_grove` StructureSet with 2–5 companion trees; both use the existing `surfaceHabitats` density weights (Violet Undergrowth preferred, Pink Glade sparse, Luminous Clearing largely open). No new blocks, palette textures or ID-specific worldgen behavior are required. Generic Structure ownership keeps decorations coherent across chunks and honors conflicts with other trees.
 
@@ -344,7 +376,7 @@ A Sphere may also define bounded `generatedSurfaceFluids` for shallow local pool
 
 Each surface biome may have at most one local rule. `spacing` is 2..512, `radius` is 1..256, `jitter` cannot exceed half the spacing, `radius + jitter` cannot exceed spacing, `chance` is within `(0, 1]`, and `depth` is 1..4. Presence is a deterministic world-space lattice patch derived only from the dimension seed, biome ID and coordinates. `GeneratedFluidField` owns patch presence/fluid identity and returns the shallow cut depth; `SurfaceTerrainField` applies that cut to its authoritative base surface and stores the resolved cut in the column snapshot. `SurfaceChunkMaterializer` then fills only the matching cut's density-empty cells with full source fluid cells. Ground decorators are suppressed inside a resolved cut so they cannot occupy the reserved pool volume. Runtime fluid simulation owns behavior after residency. No hydrology owner is introduced.
 
-The default Overworld does not use `generatedSurfaceFluids` for Swamp or Volcano. Swamp authors both broad and small depressions; the existing `fillToSeaLevel` rule fills their low pockets with Water, while the same palette exposes Mud, Dirt and Grass Block between them. Volcano uses `surfaceTerrain.crater.fluidFill`. The generic bounded-pool capability remains available to packs that explicitly want it.
+The default Overworld does not use `generatedSurfaceFluids` for Swamp or Volcano. Swamp instead authors `palette.surfaceMosaic`, selecting Grass Block, Dirt, Mud or Water from one continuous noise field; Water replaces exactly one exposed surface voxel and retains solid Mud below. It does not lower the terrain or use `fillToSeaLevel`. Volcano uses `surfaceTerrain.crater.fluidFill`. The generic bounded-pool capability remains available to packs that explicitly want it.
 
 `shore` is the terrain-side coastal profile for that generated ocean. `shelfDepth` is the shallow shelf depth below sea level and `beachHeight` is the dry beach floor above sea level. The three dominance values are normalized pairwise ocean-vs-strongest-neighbor blend thresholds and must satisfy `0.5 < beachStartDominance < shelfStartDominance < deepWaterStartDominance <= 1`. The ocean-owned shore profile is independent of neighboring peak elevation. Its beach finishes inside the Ocean; higher terrain starts rising only once the higher land biome becomes primary.
 
