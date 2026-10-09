@@ -206,7 +206,8 @@ public sealed class BiomeWorldGenerator :
                 blocks,
                 _terrain,
                 habitats,
-                generateDecorations: generation.Mode != WorldGenerationMode.Void);
+                generateDecorations: generation.Mode != WorldGenerationMode.Void,
+                fluids: fluids);
         var caveSpikes = new CaveSpikeField(
             seed, volumeDefinitions.Where(biome =>
                 biome.VolumeLayout!.Placement == VolumeBiomePlacement.CarvedVoid),

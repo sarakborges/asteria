@@ -1,0 +1,24 @@
+{
+  "id": "asteria:lily_pad",
+  "category": "foliage",
+  "visual": {
+    "type": "groundSprite",
+    "texture": "textures/objects/lily_pad.png",
+    "width": 0.89,
+    "height": 0.012,
+    "baseOffset": 0.0125,
+    "targetHeight": 0.14
+  },
+  "placementFaces": [
+    "top"
+  ],
+  "mining": {
+    "hardness": 0.05
+  },
+  "isCollidable": false,
+  "castsShadow": false,
+  "lightDampening": 0,
+  "alphaCutoff": 0.5,
+  "previewColor": "5b954e",
+  "dropsSelf": false
+}

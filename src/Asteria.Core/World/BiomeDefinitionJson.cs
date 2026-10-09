@@ -738,10 +738,31 @@ public static class BiomeDefinitionJson
                     ParseDecorationCluster(value),
                     ParsePlacementConditions(value),
                     SurfaceHabitatDefinitionJson.ParseWeights(value),
-                    ParseDecorationFluidPlacement(value)));
+                    ParseDecorationFluidPlacement(value),
+                    ParseDecorationFluidRequirement(value)));
         }
 
         return decorations;
+    }
+
+    private static BiomeDecorationFluidRequirement? ParseDecorationFluidRequirement(
+        JsonElement decoration)
+    {
+        if (!decoration.TryGetProperty("fluidRequirement", out var raw))
+            return null;
+        var value = EnsureObject(raw, "decorations.fluidRequirement");
+        var relation = RequiredString(value, "relation") switch
+        {
+            "nearby" => DecorationFluidRelation.Nearby,
+            "below" => DecorationFluidRelation.Below,
+            var text => throw new FormatException(
+                $"Unknown decorations.fluidRequirement.relation: {text}."),
+        };
+        return new BiomeDecorationFluidRequirement(
+            RequiredString(value, "fluid"),
+            relation,
+            OptionalInt32(value, "maxDistance") ??
+                (relation == DecorationFluidRelation.Nearby ? 2 : 0));
     }
 
     private static DecorationFluidPlacement ParseDecorationFluidPlacement(JsonElement decoration)

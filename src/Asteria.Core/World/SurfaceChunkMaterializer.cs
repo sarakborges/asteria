@@ -12,6 +12,8 @@ public sealed class SurfaceChunkMaterializer
     private readonly SurfaceDecorationField _decorations;
     private readonly GeneratedFluidField _generatedFluids;
     private readonly SurfaceStructureField _structures;
+    private readonly Func<FluidRuntimeId, int, int, int, int, bool>
+        _nearbyFluidQuery;
     private readonly VolumeBiomeField? _volumeBiomes;
     private readonly VoidSpawnPlatform? _voidSpawnPlatform;
     private readonly CaveSpikeField? _caveSpikes;
@@ -62,6 +64,7 @@ public sealed class SurfaceChunkMaterializer
         _volumeBiomes = volumeBiomes;
         _voidSpawnPlatform = voidSpawnPlatform;
         _caveSpikes = caveSpikes;
+        _nearbyFluidQuery = HasNearbyFluid;
         ArgumentNullException.ThrowIfNull(dimension);
         ArgumentNullException.ThrowIfNull(blocks);
 
@@ -200,15 +203,12 @@ public sealed class SurfaceChunkMaterializer
                 }
 
                 var decorationY = (long)surfaceY + 1;
-                if (decorationY < originY ||
-                    decorationY >= topExclusive ||
-                    (_floorY is { } floorY && decorationY < floorY) ||
-                    (_roofY is { } roofY && decorationY > roofY) ||
-                    (_floorY is { } shellFloor && decorationY == shellFloor) ||
-                    (_roofY is { } shellRoof && decorationY == shellRoof))
-                {
+                var normalInChunk = CanPlaceDecorationAt(
+                    decorationY, originY, topExclusive);
+                var fluidTopInChunk = CanPlaceDecorationAt(
+                    decorationY + 1, originY, topExclusive);
+                if (!normalInChunk && !fluidTopInChunk)
                     continue;
-                }
 
                 var topSample =
                     surfaceY > baseY
@@ -225,46 +225,64 @@ public sealed class SurfaceChunkMaterializer
                 if ((surfaceY > baseY &&
                      _decorations.HasVerticalDecorationsFor(topSample.Primary)) ||
                     !_decorations.HasDecorations(topSample))
-                {
                     continue;
-                }
 
                 var topMaterials = surfaceY > baseY
                     ? volumeMaterials ??= _materials.SampleColumn(
                         topSample, worldX, worldZ)
                     : surfaceMaterials ??= _materials.SampleColumn(
                         sample, worldX, worldZ);
-                // Check actual generated fluid, not only its column envelope:
-                // cavities and terrain density can leave dry cells inside it.
-                var submerged =
-                    _generatedFluids.TryGetColumnBounds(
-                        sample, baseY, surfaceFluidCutDepth,
-                        worldX, worldZ, out var fluidMinimumY,
-                        out var fluidMaximumY) &&
-                    decorationY >= fluidMinimumY &&
-                    decorationY <= fluidMaximumY &&
-                    !_generatedFluids.FluidAt(
-                        sample, baseY, surfaceFluidCutDepth,
-                        worldX, (int)decorationY, worldZ,
-                        densityVolume.DensityAt(
-                            localX, (int)decorationY - originY, localZ)).IsEmpty;
+                var topBlock = topMaterials.BlockAt(0);
 
-                var decoration =
-                    _decorations.BlockAt(
-                        topSample,
-                        topMaterials.BlockAt(
-                            0),
-                        worldX,
-                        worldZ,
-                        submerged: submerged);
-
-                if (!decoration.IsAir)
+                if (normalInChunk)
                 {
-                    chunk.SetBlock(
-                        localX,
-                        (int)decorationY - originY,
-                        localZ,
-                        decoration);
+                    // Generated-fluid occupancy, not only the column range,
+                    // decides whether this is a submerged decorator cell.
+                    var submerged =
+                        _generatedFluids.TryGetColumnBounds(
+                            sample, baseY, surfaceFluidCutDepth,
+                            worldX, worldZ, out var minimumY,
+                            out var maximumY) &&
+                        decorationY >= minimumY && decorationY <= maximumY &&
+                        !_generatedFluids.FluidAt(
+                            sample, baseY, surfaceFluidCutDepth,
+                            worldX, (int)decorationY, worldZ,
+                            densityVolume.DensityAt(
+                                localX, (int)decorationY - originY, localZ)).IsEmpty;
+
+                    var decoration = _decorations.BlockAt(
+                        topSample, topBlock, worldX, worldZ,
+                        submerged: submerged, supportY: surfaceY,
+                        nearbyFluid: _nearbyFluidQuery);
+                    if (!decoration.IsAir)
+                        chunk.SetBlock(localX, (int)decorationY - originY,
+                            localZ, decoration);
+                }
+
+                // Water-top decorations occupy the *air above* a source,
+                // not its water voxel. This also spans vertical chunk edges.
+                if (fluidTopInChunk &&
+                    _decorations.HasFluidSurfaceDecorations(topSample))
+                {
+                    var supportFluid = _generatedFluids.FluidAtEmptyVoxel(
+                        sample, baseY, surfaceFluidCutDepth,
+                        worldX, (int)decorationY, worldZ);
+                    var aboveFluid = _generatedFluids.FluidAtEmptyVoxel(
+                        sample, baseY, surfaceFluidCutDepth,
+                        worldX, (int)decorationY + 1, worldZ);
+                    if (!supportFluid.IsEmpty && aboveFluid.IsEmpty)
+                    {
+                        var decoration = _decorations.BlockAt(
+                            topSample, topBlock, worldX, worldZ,
+                            supportY: (int)decorationY,
+                            onFluidSurface: true,
+                            fluidBelow: supportFluid.Fluid,
+                            nearbyFluid: _nearbyFluidQuery);
+                        if (!decoration.IsAir)
+                            chunk.SetBlock(
+                                localX, (int)decorationY + 1 - originY,
+                                localZ, decoration);
+                    }
                 }
             }
         }
@@ -298,6 +316,44 @@ public sealed class SurfaceChunkMaterializer
         _voidSpawnPlatform?.Apply(chunk, coord);
 
         return chunk;
+    }
+
+    private bool CanPlaceDecorationAt(long y, int originY, int topExclusive) =>
+        y >= originY && y < topExclusive &&
+        (_floorY is not { } floor || y > floor) &&
+        (_roofY is not { } roof || y < roof);
+
+    private bool HasNearbyFluid(
+        FluidRuntimeId fluid, int radius, int worldX, int supportY, int worldZ)
+    {
+        var distanceSquared = radius * radius;
+        for (var dz = -radius; dz <= radius; dz++)
+        for (var dx = -radius; dx <= radius; dx++)
+        {
+            var square = dx * dx + dz * dz;
+            if (square == 0 || square > distanceSquared)
+                continue;
+            var px = (long)worldX + dx;
+            var pz = (long)worldZ + dz;
+            if (px < int.MinValue || px > int.MaxValue ||
+                pz < int.MinValue || pz > int.MaxValue)
+                continue;
+            var (coord, local) = VoxelCoordinates.FromWorld(
+                (int)px, 0, (int)pz);
+            var neighbor = _columns.Get(coord.X, coord.Z);
+            var biome = neighbor.BiomeAt(local.X, local.Z);
+            var baseY = neighbor.BaseHeightAt(local.X, local.Z);
+            if (supportY <= baseY)
+                continue;
+            var candidate = _generatedFluids.FluidAtEmptyVoxel(
+                biome, baseY,
+                neighbor.SurfaceFluidCutDepthAt(local.X, local.Z),
+                (int)px, supportY, (int)pz);
+            if (candidate.Fluid == fluid &&
+                _terrain.DensityAt((int)px, supportY, (int)pz) < 0d)
+                return true;
+        }
+        return false;
     }
 
     private uint AdditiveDepthAt(

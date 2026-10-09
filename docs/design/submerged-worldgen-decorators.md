@@ -47,3 +47,24 @@ sprites. Normal block mining/support semantics apply.
 This is authored content only. The existing fluid-placement contract
 displaces the water in the occupied decorative voxel while retaining
 surrounding water; it does not add a new water-through object layer.
+
+## Swamp shoreline / water-surface constraints
+
+Generic `decorations[].fluidRequirement` authoring supplies two reusable
+placement relations (validated against the selected pack's fluid registry):
+
+- `{"fluid":"asteria:water","relation":"nearby","maxDistance":2}`
+  requires matching generated fluid within the horizontal 2-block radius
+  at the supporting ground's elevation. It does not count water directly
+  underneath or replace the actual placement block.
+- `{"fluid":"asteria:water","relation":"below"}` requires that exact fluid
+  directly beneath the decoration, with its own voxel **above** the fluid
+  surface. No distance parameter is allowed.
+
+Cattail uses the former rule and regular `support_below` on Mud, Dirt
+or Grass Block. Lily Pad uses the latter and occupies a thin horizontal
+ground sprite one voxel above the Water selected by Swamp's level mosaic.
+The generated source Water is never removed for a Lily Pad and the rules
+are deterministic across chunk boundaries. The fluid requirement
+affects authored generation; runtime behavior after editing/removing the
+supporting fluid is a separate support-physics concern.

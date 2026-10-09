@@ -94,6 +94,53 @@
         "open_mire": 0.4,
         "fungal_ground": 0.85
       }
+    },
+    {
+      "block": "asteria:cattail",
+      "chance": 0.18,
+      "surfaceBlocks": [
+        "asteria:grass_block",
+        "asteria:dirt",
+        "asteria:mud"
+      ],
+      "fluidRequirement": {
+        "fluid": "asteria:water",
+        "relation": "nearby",
+        "maxDistance": 2
+      },
+      "cluster": {
+        "scale": 26,
+        "threshold": -0.18,
+        "octaves": 4,
+        "transitionWidth": 0.13
+      },
+      "habitatWeights": {
+        "willow_grove": 0.9,
+        "open_mire": 2.1,
+        "fungal_ground": 0.22
+      }
+    },
+    {
+      "block": "asteria:lily_pad",
+      "chance": 0.21,
+      "surfaceBlocks": [
+        "asteria:mud"
+      ],
+      "fluidRequirement": {
+        "fluid": "asteria:water",
+        "relation": "below"
+      },
+      "cluster": {
+        "scale": 28,
+        "threshold": -0.28,
+        "octaves": 3,
+        "transitionWidth": 0.12
+      },
+      "habitatWeights": {
+        "willow_grove": 0.55,
+        "open_mire": 2.25,
+        "fungal_ground": 0.38
+      }
     }
   ],
   "tints": {

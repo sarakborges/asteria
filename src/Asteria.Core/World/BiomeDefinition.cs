@@ -593,6 +593,40 @@ public enum DecorationFluidPlacement
     Any,
 }
 
+public enum DecorationFluidRelation
+{
+    Nearby,
+    Below,
+}
+
+/// <summary>Validated, biome-agnostic generated-fluid support restriction.</summary>
+public sealed class BiomeDecorationFluidRequirement
+{
+    public BiomeDecorationFluidRequirement(
+        string fluid,
+        DecorationFluidRelation relation,
+        int maxDistance = 0)
+    {
+        FluidDefinition.ValidateId(fluid);
+        if (!Enum.IsDefined(relation))
+            throw new ArgumentOutOfRangeException(nameof(relation));
+        if (relation == DecorationFluidRelation.Nearby &&
+            maxDistance is < 1 or > 4)
+            throw new ArgumentOutOfRangeException(nameof(maxDistance),
+                "Nearby fluid radius must be 1..4 horizontal blocks.");
+        if (relation == DecorationFluidRelation.Below && maxDistance != 0)
+            throw new ArgumentOutOfRangeException(nameof(maxDistance),
+                "Fluid-below support cannot specify a radius.");
+        Fluid = fluid;
+        Relation = relation;
+        MaxDistance = maxDistance;
+    }
+
+    public string Fluid { get; }
+    public DecorationFluidRelation Relation { get; }
+    public int MaxDistance { get; }
+}
+
 public sealed class BiomeDecorationDefinition
 {
     public BiomeDecorationDefinition(
@@ -602,7 +636,8 @@ public sealed class BiomeDecorationDefinition
         BiomeDecorationClusterDefinition? cluster = null,
         SurfacePlacementConditions? conditions = null,
         SurfaceHabitatWeights? habitatWeights = null,
-        DecorationFluidPlacement fluidPlacement = DecorationFluidPlacement.Dry)
+        DecorationFluidPlacement fluidPlacement = DecorationFluidPlacement.Dry,
+        BiomeDecorationFluidRequirement? fluidRequirement = null)
     {
         BiomeSurfaceLayerDefinition.ValidateBlockId(
             block);
@@ -650,6 +685,7 @@ public sealed class BiomeDecorationDefinition
         Conditions = conditions;
         HabitatWeights = habitatWeights;
         FluidPlacement = fluidPlacement;
+        FluidRequirement = fluidRequirement;
         SurfaceBlocks =
             Array.AsReadOnly(supports);
     }
@@ -665,6 +701,7 @@ public sealed class BiomeDecorationDefinition
     public SurfacePlacementConditions? Conditions { get; }
     public SurfaceHabitatWeights? HabitatWeights { get; }
     public DecorationFluidPlacement FluidPlacement { get; }
+    public BiomeDecorationFluidRequirement? FluidRequirement { get; }
 }
 
 /// <summary>

@@ -18,7 +18,8 @@ public sealed class SurfaceDecorationField
         BlockRegistry blocks,
         SurfaceTerrainField? terrain = null,
         SurfaceHabitatField? habitats = null,
-        bool generateDecorations = true)
+        bool generateDecorations = true,
+        FluidRegistry? fluids = null)
     {
         ArgumentNullException.ThrowIfNull(biomes);
         ArgumentNullException.ThrowIfNull(blocks);
@@ -57,7 +58,14 @@ public sealed class SurfaceDecorationField
                             GenerationDomain.Named(
                                 $"worldgen/decorator-cluster/{biome.Id}/{decoration.Block}/v1"),
                             decoration.HabitatWeights,
-                            decoration.FluidPlacement))
+                            decoration.FluidPlacement,
+                            decoration.FluidRequirement is { } requirement
+                                ? (fluids ?? throw new ArgumentException(
+                                    "Fluid-restricted decorators require a fluid registry.",
+                                    nameof(fluids))).GetId(requirement.Fluid)
+                                : FluidRuntimeId.None,
+                            decoration.FluidRequirement?.Relation ?? DecorationFluidRelation.Nearby,
+                            decoration.FluidRequirement?.MaxDistance ?? 0))
                     .ToArray(),
                 StringComparer.Ordinal);
         foreach (var biome in definitions)
@@ -82,6 +90,16 @@ public sealed class SurfaceDecorationField
         return false;
     }
 
+    public bool HasFluidSurfaceDecorations(BiomeSample sample)
+    {
+        foreach (var influence in sample.Influences)
+            if (_rules[influence.BiomeId].Any(rule =>
+                !rule.RequiredFluid.IsNone &&
+                rule.FluidRelation == DecorationFluidRelation.Below))
+                return true;
+        return false;
+    }
+
     public BlockRuntimeId BlockAt(
         BiomeSample sample,
         BlockRuntimeId surfaceBlock,
@@ -89,7 +107,11 @@ public sealed class SurfaceDecorationField
         int worldZ,
         SurfacePlacementContext? suppliedPlacement = null,
         int? verticalY = null,
-        bool submerged = false)
+        bool submerged = false,
+        int? supportY = null,
+        bool onFluidSurface = false,
+        FluidRuntimeId fluidBelow = default,
+        Func<FluidRuntimeId, int, int, int, int, bool>? nearbyFluid = null)
     {
         SurfacePlacementContext? placement = suppliedPlacement;
         var slopeSampled = suppliedPlacement.HasValue;
@@ -98,6 +120,13 @@ public sealed class SurfaceDecorationField
             double? sampledHabitat = null;
             foreach (var rule in _rules[influence.BiomeId])
             {
+                var fluidSupported = !rule.RequiredFluid.IsNone &&
+                    rule.FluidRelation == DecorationFluidRelation.Below;
+                if (fluidSupported != onFluidSurface)
+                    continue;
+                if (fluidSupported && fluidBelow != rule.RequiredFluid)
+                    continue;
+
                 if ((submerged && rule.FluidPlacement == DecorationFluidPlacement.Dry) ||
                     (!submerged && rule.FluidPlacement == DecorationFluidPlacement.Submerged))
                     continue;
@@ -169,6 +198,16 @@ public sealed class SurfaceDecorationField
                             _seed, rule.Domain, worldX, worldZ));
                 if (roll < effectiveChance)
                 {
+                    if (!rule.RequiredFluid.IsNone &&
+                        rule.FluidRelation == DecorationFluidRelation.Nearby)
+                    {
+                        if (nearbyFluid is null || supportY is null)
+                            throw new InvalidOperationException(
+                                "Nearby-fluid decorator needs a fluid query and support Y.");
+                        if (!nearbyFluid(rule.RequiredFluid, rule.FluidDistance,
+                                worldX, supportY.Value, worldZ))
+                            continue;
+                    }
                     return rule.Block;
                 }
             }
@@ -187,5 +226,8 @@ public sealed class SurfaceDecorationField
         bool UsesBaseSurface,
         GenerationDomain ClusterDomain,
         SurfaceHabitatWeights? HabitatWeights,
-        DecorationFluidPlacement FluidPlacement);
+        DecorationFluidPlacement FluidPlacement,
+        FluidRuntimeId RequiredFluid,
+        DecorationFluidRelation FluidRelation,
+        int FluidDistance);
 }

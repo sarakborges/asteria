@@ -162,6 +162,15 @@ public sealed class BiomeRegistry
                         throw new ArgumentException(
                             $"Biome {definition.Id} references missing mosaic fluid {id}.");
 
+            foreach (var decoration in definition.Decorations)
+            {
+                var requirement = decoration.FluidRequirement;
+                if (requirement is not null &&
+                    !fluids.TryGetId(requirement.Fluid, out _))
+                    throw new ArgumentException(
+                        $"Biome {definition.Id} references missing decorator fluid {requirement.Fluid}.");
+            }
+
             var fill = definition.SurfaceTerrain?.Crater?.FluidFill;
             if (fill is null)
             {
