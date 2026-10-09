@@ -38,6 +38,9 @@ public sealed record CreatureDefinition(
 
     public CreatureNaturalSpawnDefinition? NaturalSpawn { get; init; }
 
+    /// <summary>Optional unarmed contact damage; 0 means non-hostile.</summary>
+    public float ContactDamage { get; init; }
+
     public static CreatureDefinition Parse(string json)
     {
         ArgumentNullException.ThrowIfNull(json);
@@ -69,6 +72,8 @@ public sealed record CreatureDefinition(
         {
             LootTable = CreatureLootTable.Parse(root),
             NaturalSpawn = CreatureNaturalSpawnDefinition.Parse(root),
+            ContactDamage = root.TryGetProperty("contactDamage", out _)
+                ? PackContentFields.NonNegativeFloat(root, "contactDamage") : 0f,
         };
     }
 
