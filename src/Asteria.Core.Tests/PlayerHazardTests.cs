@@ -123,11 +123,26 @@ public sealed class PlayerHazardTests
     {
         var definitions = PackContentRegistry<CreatureDefinition>.FromJson(
         [
-            """{"id":"asteria:slime","model":"models/slime.glb","health":10,"maxPerType":5,
-            "collider":{"size":[1,1,1],"centerOffset":[0,0.5,0]},
-            "jumpSpeed":5,"moveSpeed":1,"jumpInterval":2,
-            "anticipationSeconds":0.2,"landingSeconds":0.2,
-            "animations":{"idle":"Idle"},"textures":{},"contactDamage":3}"""
+            """
+            {
+              "id": "asteria:slime",
+              "model": "models/slime.glb",
+              "health": 10,
+              "maxPerType": 5,
+              "collider": {
+                "size": [1, 1, 1],
+                "centerOffset": [0, 0.5, 0]
+              },
+              "jumpSpeed": 5,
+              "moveSpeed": 1,
+              "jumpInterval": 2,
+              "anticipationSeconds": 0.2,
+              "landingSeconds": 0.2,
+              "animations": {"idle": "Idle"},
+              "textures": {},
+              "contactDamage": 3
+            }
+            """
         ], CreatureDefinition.Parse, creature => creature.Id);
         var runtime = new CreatureRuntime(definitions);
         Assert.True(runtime.TrySpawn("asteria:slime", new Vector3(6, 1, 6),
