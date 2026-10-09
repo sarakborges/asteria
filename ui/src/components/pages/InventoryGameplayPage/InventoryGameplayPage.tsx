@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState, type PointerEvent } from "react";
+import { inventorySearchMatches } from "../../../presentation/inventoryLabels";
 import { useLocalization } from "../../../localization/LocalizationProvider";
 import type {
   GameplayInventoryState, InventoryCatalogEntry, VitalValue,
@@ -30,9 +31,6 @@ export type InventoryGameplayPageProps = {
   onRotatePortrait(deltaX: number): void;
 };
 
-const searchText = (value: string): string =>
-  value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase();
-
 /**
  * In-game inventory and Storybook use the same panel composition.
  * Only Godot-sourced slots and vitals are displayed as gameplay facts.
@@ -62,28 +60,17 @@ export function InventoryGameplayPage({
   const selectedCategory = category !== null &&
     state.categories.some(definition => definition.id === category) ? category : null;
   const creative = state.creativeAvailable && creativeTab;
-  const creativeItems = useMemo(() => {
-    const query = searchText(creativeSearch.trim());
-    return state.catalog.flatMap(item => {
-      if (selectedCategory !== null && item.category !== selectedCategory) return [];
-      const localizedName = contentName(item.id);
-      const displayName = item.name === item.id ? localizedName : item.name;
-      const metadataValues = Object.values(item.metadata);
-      const translatedValues = metadataValues.map(contentName);
-      const searchable = [
-        item.id, item.name, localizedName,
-        ...Object.keys(item.metadata), ...metadataValues, ...translatedValues,
-      ];
-      if (query && !searchable.some(value => searchText(value).includes(query)))
-        return [];
-      return [{
-        ...item,
-        quantity: 1,
-        name: translatedValues.length > 0
-          ? `${displayName} (${translatedValues.join(", ")})` : displayName,
-      }];
-    });
-  }, [state.catalog, selectedCategory, creativeSearch, contentName]);
+  const creativeItems = useMemo(
+    () => state.catalog.filter(item =>
+      (selectedCategory === null || item.category === selectedCategory) &&
+      inventorySearchMatches(item, creativeSearch, contentName),
+    ).map(item => ({
+      ...item,
+      quantity: 1,
+      name: item.name !== item.id ? item.name : contentName(item.id),
+    })),
+    [state.catalog, selectedCategory, creativeSearch, contentName],
+  );
   const { backpack, hotbar, cursor } = useMemo(() => ({
     backpack: state.backpack.map(slot => inventoryItemView(slot, state.catalog)),
     hotbar: state.hotbar.map(slot => inventoryItemView(slot, state.catalog)),
@@ -99,6 +86,7 @@ export function InventoryGameplayPage({
         id: recipe.resultId,
         kind: result?.kind,
         iconUrl: result?.iconUrl,
+        blockPreview: result?.blockPreview,
       },
       outputQuantity: recipe.outputQuantity,
       ingredients: recipe.ingredients.map(ingredient => {
@@ -106,7 +94,10 @@ export function InventoryGameplayPage({
           choice.id === ingredient.id && choice.kind === "item" &&
           Object.keys(choice.metadata).length === 0);
         return {
-          item: { id: ingredient.id, kind: "item" as const, iconUrl: item?.iconUrl },
+          item: {
+            id: ingredient.id, kind: "item" as const, iconUrl: item?.iconUrl,
+            blockPreview: item?.blockPreview,
+          },
           required: ingredient.required,
           available: ingredient.available,
         };
