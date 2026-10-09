@@ -737,11 +737,21 @@ public static class BiomeDefinitionJson
                         "surfaceBlocks"),
                     ParseDecorationCluster(value),
                     ParsePlacementConditions(value),
-                    SurfaceHabitatDefinitionJson.ParseWeights(value)));
+                    SurfaceHabitatDefinitionJson.ParseWeights(value),
+                    ParseDecorationFluidPlacement(value)));
         }
 
         return decorations;
     }
+
+    private static DecorationFluidPlacement ParseDecorationFluidPlacement(JsonElement decoration) =>
+        OptionalString(decoration, "fluidPlacement") switch
+        {
+            null or "dry" => DecorationFluidPlacement.Dry,
+            "submerged" => DecorationFluidPlacement.Submerged,
+            "any" => DecorationFluidPlacement.Any,
+            _ => throw new FormatException("Unknown decorations.fluidPlacement (expected dry, submerged or any)."),
+        };
 
     private static BiomeDecorationClusterDefinition? ParseDecorationCluster(
         JsonElement decoration)

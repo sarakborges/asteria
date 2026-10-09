@@ -56,7 +56,8 @@ public sealed class SurfaceDecorationField
                             biome.SurfaceLayout is not null,
                             GenerationDomain.Named(
                                 $"worldgen/decorator-cluster/{biome.Id}/{decoration.Block}/v1"),
-                            decoration.HabitatWeights))
+                            decoration.HabitatWeights,
+                            decoration.FluidPlacement))
                     .ToArray(),
                 StringComparer.Ordinal);
         foreach (var biome in definitions)
@@ -75,7 +76,8 @@ public sealed class SurfaceDecorationField
         int worldX,
         int worldZ,
         SurfacePlacementContext? suppliedPlacement = null,
-        int? verticalY = null)
+        int? verticalY = null,
+        bool submerged = false)
     {
         SurfacePlacementContext? placement = suppliedPlacement;
         var slopeSampled = suppliedPlacement.HasValue;
@@ -84,6 +86,10 @@ public sealed class SurfaceDecorationField
             double? sampledHabitat = null;
             foreach (var rule in _rules[influence.BiomeId])
             {
+                if ((submerged && rule.FluidPlacement == DecorationFluidPlacement.Dry) ||
+                    (!submerged && rule.FluidPlacement == DecorationFluidPlacement.Submerged))
+                    continue;
+
                 if (!rule.SurfaceBlocks.Contains(surfaceBlock))
                 {
                     continue;
@@ -168,5 +174,6 @@ public sealed class SurfaceDecorationField
         SurfacePlacementConditions? Conditions,
         bool UsesBaseSurface,
         GenerationDomain ClusterDomain,
-        SurfaceHabitatWeights? HabitatWeights);
+        SurfaceHabitatWeights? HabitatWeights,
+        DecorationFluidPlacement FluidPlacement);
 }

@@ -200,21 +200,6 @@ public sealed class SurfaceChunkMaterializer
                 }
 
                 var decorationY = (long)surfaceY + 1;
-                if (_generatedFluids.TryGetColumnBounds(
-                        sample,
-                        baseY,
-                        surfaceFluidCutDepth,
-                        worldX,
-                        worldZ,
-                        out var fluidMinimumY,
-                        out var fluidMaximumY) &&
-                    decorationY >=
-                        fluidMinimumY &&
-                    decorationY <=
-                        fluidMaximumY)
-                {
-                    continue;
-                }
                 if (decorationY < originY ||
                     decorationY >= topExclusive ||
                     (_floorY is { } floorY && decorationY < floorY) ||
@@ -247,13 +232,29 @@ public sealed class SurfaceChunkMaterializer
                 {
                     continue;
                 }
+                // Check actual generated fluid, not only its column envelope:
+                // cavities and terrain density can leave dry cells inside it.
+                var submerged =
+                    _generatedFluids.TryGetColumnBounds(
+                        sample, baseY, surfaceFluidCutDepth,
+                        worldX, worldZ, out var fluidMinimumY,
+                        out var fluidMaximumY) &&
+                    decorationY >= fluidMinimumY &&
+                    decorationY <= fluidMaximumY &&
+                    !_generatedFluids.FluidAt(
+                        sample, baseY, surfaceFluidCutDepth,
+                        worldX, (int)decorationY, worldZ,
+                        densityVolume.DensityAt(
+                            localX, (int)decorationY - originY, localZ)).IsEmpty;
+
                 var decoration =
                     _decorations.BlockAt(
                         topSample,
                         topMaterials.BlockAt(
                             0),
                         worldX,
-                        worldZ);
+                        worldZ,
+                        submerged: submerged);
 
                 if (!decoration.IsAir)
                 {
@@ -960,13 +961,20 @@ public sealed class SurfaceChunkMaterializer
                 if (support.IsAir)
                     continue;
 
+                var submerged = !_generatedFluids.FluidAt(
+                    surfaceBiome,
+                    baseY,
+                    column.SurfaceFluidCutDepthAt(localX, localZ),
+                    worldX, worldY, worldZ,
+                    densityVolume.DensityAt(localX, localY, localZ)).IsEmpty;
                 var decorator = _decorations.BlockAt(
                     decoratorBiome,
                     support,
                     worldX,
                     worldZ,
                     new SurfacePlacementContext(worldY, 0),
-                    verticalY: worldY);
+                    verticalY: worldY,
+                    submerged: submerged);
                 if (!decorator.IsAir)
                     chunk.SetBlock(localX, localY, localZ, decorator);
             }

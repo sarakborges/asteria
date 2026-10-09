@@ -585,6 +585,14 @@ public sealed class BiomeSurfacePatchDefinition
     public SurfacePlacementConditions? Conditions { get; }
 }
 
+/// <summary>Required fluid occupancy of a decorator's placement voxel.</summary>
+public enum DecorationFluidPlacement
+{
+    Dry,
+    Submerged,
+    Any,
+}
+
 public sealed class BiomeDecorationDefinition
 {
     public BiomeDecorationDefinition(
@@ -593,10 +601,13 @@ public sealed class BiomeDecorationDefinition
         IEnumerable<string> surfaceBlocks,
         BiomeDecorationClusterDefinition? cluster = null,
         SurfacePlacementConditions? conditions = null,
-        SurfaceHabitatWeights? habitatWeights = null)
+        SurfaceHabitatWeights? habitatWeights = null,
+        DecorationFluidPlacement fluidPlacement = DecorationFluidPlacement.Dry)
     {
         BiomeSurfaceLayerDefinition.ValidateBlockId(
             block);
+        if (!Enum.IsDefined(fluidPlacement))
+            throw new ArgumentOutOfRangeException(nameof(fluidPlacement));
 
         if (!float.IsFinite(chance) ||
             chance <= 0f ||
@@ -638,6 +649,7 @@ public sealed class BiomeDecorationDefinition
         Cluster = cluster;
         Conditions = conditions;
         HabitatWeights = habitatWeights;
+        FluidPlacement = fluidPlacement;
         SurfaceBlocks =
             Array.AsReadOnly(supports);
     }
@@ -652,6 +664,7 @@ public sealed class BiomeDecorationDefinition
 
     public SurfacePlacementConditions? Conditions { get; }
     public SurfaceHabitatWeights? HabitatWeights { get; }
+    public DecorationFluidPlacement FluidPlacement { get; }
 }
 
 /// <summary>
