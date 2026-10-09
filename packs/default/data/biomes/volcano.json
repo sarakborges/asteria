@@ -43,37 +43,6 @@
       }
     }
   },
-  "surfaceLayers": [
-    {
-      "block": "asteria:basalt",
-      "depth": 2,
-      "patch": {
-        "scale": 38,
-        "coverage": 0.26,
-        "roughness": 0.36,
-        "blocks": [
-          "asteria:basalt_cobble",
-          "asteria:gravel"
-        ],
-        "detailScale": 11,
-        "selectionScale": 91,
-        "warpScale": 82,
-        "warpStrength": 14,
-        "stretchZ": 1.58,
-        "weights": {
-          "asteria:basalt_cobble": 4,
-          "asteria:gravel": 1
-        },
-        "conditions": {
-          "maxY": 145,
-          "maxSlope": 3
-        }
-      }
-    },
-    {
-      "block": "asteria:basalt"
-    }
-  ],
   "surfaceHabitats": {
     "scale": 122,
     "transitionWidth": 0.12,
@@ -117,5 +86,38 @@
         "hardened_highlands": 1.14
       }
     }
-  ]
+  ],
+  "palette": {
+    "default": [
+      {
+        "block": "asteria:basalt",
+        "depth": 2,
+        "patch": {
+          "scale": 38,
+          "coverage": 0.26,
+          "roughness": 0.36,
+          "blocks": [
+            "asteria:basalt_cobble",
+            "asteria:gravel"
+          ],
+          "detailScale": 11,
+          "selectionScale": 91,
+          "warpScale": 82,
+          "warpStrength": 14,
+          "stretchZ": 1.58,
+          "weights": {
+            "asteria:basalt_cobble": 4,
+            "asteria:gravel": 1
+          },
+          "conditions": {
+            "maxY": 145,
+            "maxSlope": 3
+          }
+        }
+      },
+      {
+        "block": "asteria:basalt"
+      }
+    ]
+  }
 }

@@ -16,39 +16,6 @@
     "detailScale": 0.026,
     "baseHeight": -18
   },
-  "surfaceLayers": [
-    {
-      "block": "asteria:sand",
-      "depth": 4,
-      "patch": {
-        "scale": 44,
-        "coverage": 0.3,
-        "roughness": 0.36,
-        "blocks": [
-          "asteria:gravel",
-          "asteria:clay",
-          "asteria:stone_cobble"
-        ],
-        "detailScale": 13,
-        "selectionScale": 48,
-        "warpScale": 91,
-        "warpStrength": 16,
-        "stretchZ": 1.65,
-        "weights": {
-          "asteria:gravel": 2,
-          "asteria:clay": 2,
-          "asteria:stone_cobble": 2
-        }
-      }
-    },
-    {
-      "block": "asteria:gravel",
-      "depth": 2
-    },
-    {
-      "block": "asteria:stone"
-    }
-  ],
   "tints": {
     "grass": "38942E",
     "foliage": "38942E"
@@ -68,6 +35,41 @@
       {
         "id": "rocky_reefs",
         "maximum": 1
+      }
+    ]
+  },
+  "palette": {
+    "default": [
+      {
+        "block": "asteria:sand",
+        "depth": 4,
+        "patch": {
+          "scale": 44,
+          "coverage": 0.3,
+          "roughness": 0.36,
+          "blocks": [
+            "asteria:gravel",
+            "asteria:clay",
+            "asteria:stone_cobble"
+          ],
+          "detailScale": 13,
+          "selectionScale": 48,
+          "warpScale": 91,
+          "warpStrength": 16,
+          "stretchZ": 1.65,
+          "weights": {
+            "asteria:gravel": 2,
+            "asteria:clay": 2,
+            "asteria:stone_cobble": 2
+          }
+        }
+      },
+      {
+        "block": "asteria:gravel",
+        "depth": 2
+      },
+      {
+        "block": "asteria:stone"
       }
     ]
   }
