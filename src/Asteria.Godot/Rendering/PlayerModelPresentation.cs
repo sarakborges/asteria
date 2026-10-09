@@ -29,7 +29,7 @@ public sealed partial class PlayerModelPresentation : Node3D
         PlayerVisualDefinition definition)
     {
         _player = player ?? throw new ArgumentNullException(nameof(player));
-        _selection = selection ?? throw new ArgumentNullException(nameof(selection));
+        _selection = selection;
         _definition = definition ?? throw new ArgumentNullException(nameof(definition));
         Name = "PlayerVisual";
         Visible = false;
