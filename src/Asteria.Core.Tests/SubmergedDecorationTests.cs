@@ -99,8 +99,12 @@ public sealed class SubmergedDecorationTests
         Assert.Equal(blocks.GetId("asteria:reef"),
             chunk.GetBlock(8, localY, 8));
         Assert.True(chunk.GetFluid(8, localY, 8).IsEmpty);
+        // Even a fully decorated seabed has water directly above it.
+        var aboveY = y + 1;
+        var above = generator.Materialize(
+            new ChunkCoord(0, aboveY / Chunk.Size, 0));
         Assert.Equal(fluids.GetId("asteria:water"),
-            chunk.GetFluid(9, localY, 8).Fluid);
+            above.GetFluid(8, aboveY % Chunk.Size, 8).Fluid);
         Assert.Equal(blocks.GetId("asteria:reef"),
             generator.Materialize(coord).GetBlock(8, localY, 8));
     }
