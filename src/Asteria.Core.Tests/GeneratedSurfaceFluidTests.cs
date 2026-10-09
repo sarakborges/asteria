@@ -495,8 +495,15 @@ public sealed class GeneratedSurfaceFluidTests
         var fluids = FluidRegistry.FromJson(ReadJsonDirectory("fluids"));
         var dimensions = DimensionRegistry.FromJson(ReadJsonDirectory("dimensions"));
         var swamp = biomes.Get("asteria:overworld/swamp");
-        var dimension = dimensions.Get(DimensionId.Overworld);
-        var terrain = new SurfaceTerrainRule(swamp);
+        var overworld = dimensions.Get(DimensionId.Overworld);
+        var dimension = new DimensionDefinition(
+            overworld.Id, [swamp.Id], overworld.SeaLevel,
+            overworld.GravityStrength, overworld.Spawn,
+            overworld.Environment,
+            generatedOcean: new DimensionGeneratedOceanDefinition(
+                swamp.Id, "asteria:water"));
+        var terrain = new BiomeWorldGenerator(
+            91UL, dimension, blocks, fluids, new BiomeRegistry([swamp]));
         var water = new GeneratedFluidField(91UL, dimension, fluids, [swamp]);
         var material = new BiomeSurfaceMaterialField(91UL, [swamp], blocks);
         var sample = new BiomeSample(swamp.Id,
@@ -509,8 +516,7 @@ public sealed class GeneratedSurfaceFluidTests
         for (var z = -224; z <= 224; z += 8)
         for (var x = -224; x <= 224; x += 8)
         {
-            var top = (int)Math.Floor(
-                dimension.SeaLevel + terrain.HeightOffsetAt(91UL, x, z, 1f));
+            var top = terrain.SurfaceHeight(x, z);
             if (top < dimension.SeaLevel)
             {
                 Assert.Equal(waterId, water.FluidAtEmptyVoxel(
