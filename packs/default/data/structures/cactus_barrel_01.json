@@ -1,0 +1,77 @@
+{
+  "id": "asteria:cactus_barrel_01",
+  "groupId": "cactus_barrel",
+  "rotation": true,
+  "locatable": false,
+  "conflictGroups": [
+    "vegetation",
+    "cactus"
+  ],
+  "restrictions": {
+    "groundBlocks": [
+      "asteria:sand"
+    ],
+    "maxSlope": 1,
+    "requiresDryGround": true,
+    "requiredBiomeCoverage": 1
+  },
+  "generation": {
+    "replacePolicy": "terrain",
+    "fluidPolicy": "forbid",
+    "reserveSpace": false
+  },
+  "anchor": {
+    "x": 3,
+    "y": 0,
+    "z": 3
+  },
+  "palette": {
+    "G": {
+      "block": "asteria:sand"
+    },
+    "B": {
+      "block": "asteria:cactus_barrel"
+    },
+    "F": {
+      "block": "asteria:cactus_flower_pink"
+    }
+  },
+  "layers": [
+    {
+      "y": 0,
+      "rows": [
+        ".......",
+        ".......",
+        ".......",
+        "...G...",
+        ".......",
+        ".......",
+        "......."
+      ]
+    },
+    {
+      "y": 1,
+      "rows": [
+        ".......",
+        ".......",
+        ".......",
+        "...B...",
+        ".......",
+        ".......",
+        "......."
+      ]
+    },
+    {
+      "y": 2,
+      "rows": [
+        ".......",
+        ".......",
+        ".......",
+        "...F...",
+        ".......",
+        ".......",
+        "......."
+      ]
+    }
+  ]
+}

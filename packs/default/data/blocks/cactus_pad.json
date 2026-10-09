@@ -1,0 +1,21 @@
+{
+  "id": "asteria:cactus_pad",
+  "category": "natural_blocks",
+  "textures": {
+    "top": "textures/blocks/cactus_pad.png",
+    "bottom": "textures/blocks/cactus_pad.png",
+    "left": "textures/blocks/cactus_pad.png",
+    "right": "textures/blocks/cactus_pad.png",
+    "front": "textures/blocks/cactus_pad.png",
+    "back": "textures/blocks/cactus_pad.png"
+  },
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 0.65,
+    "preferredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "6daa70"
+}

@@ -1,0 +1,128 @@
+{
+  "id": "asteria:cactus_saguaro_03",
+  "groupId": "cactus_saguaro",
+  "rotation": true,
+  "locatable": false,
+  "conflictGroups": [
+    "vegetation",
+    "cactus"
+  ],
+  "restrictions": {
+    "groundBlocks": [
+      "asteria:sand"
+    ],
+    "maxSlope": 1,
+    "requiresDryGround": true,
+    "requiredBiomeCoverage": 1
+  },
+  "generation": {
+    "replacePolicy": "terrain",
+    "fluidPolicy": "forbid",
+    "reserveSpace": false
+  },
+  "anchor": {
+    "x": 3,
+    "y": 0,
+    "z": 3
+  },
+  "palette": {
+    "G": {
+      "block": "asteria:sand"
+    },
+    "C": {
+      "block": "asteria:cactus_column"
+    },
+    "F": {
+      "block": "asteria:cactus_flower_pink"
+    },
+    "Y": {
+      "block": "asteria:cactus_flower_yellow"
+    }
+  },
+  "layers": [
+    {
+      "y": 0,
+      "rows": [
+        ".......",
+        ".......",
+        ".......",
+        "...G...",
+        ".......",
+        ".......",
+        "......."
+      ]
+    },
+    {
+      "y": 1,
+      "rows": [
+        ".......",
+        ".......",
+        ".......",
+        "...C...",
+        ".......",
+        ".......",
+        "......."
+      ]
+    },
+    {
+      "y": 2,
+      "rows": [
+        ".......",
+        ".......",
+        ".......",
+        "...CCC.",
+        ".......",
+        ".......",
+        "......."
+      ]
+    },
+    {
+      "y": 3,
+      "rows": [
+        ".......",
+        ".......",
+        ".......",
+        "...C.C.",
+        ".......",
+        ".......",
+        "......."
+      ]
+    },
+    {
+      "y": 4,
+      "rows": [
+        ".......",
+        ".......",
+        ".......",
+        "...C.Y.",
+        ".......",
+        ".......",
+        "......."
+      ]
+    },
+    {
+      "y": 5,
+      "rows": [
+        ".......",
+        ".......",
+        ".......",
+        "...C...",
+        ".......",
+        ".......",
+        "......."
+      ]
+    },
+    {
+      "y": 6,
+      "rows": [
+        ".......",
+        ".......",
+        ".......",
+        "...F...",
+        ".......",
+        ".......",
+        "......."
+      ]
+    }
+  ]
+}

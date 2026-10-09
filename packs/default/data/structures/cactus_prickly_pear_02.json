@@ -1,0 +1,104 @@
+{
+  "id": "asteria:cactus_prickly_pear_02",
+  "groupId": "cactus_prickly_pear",
+  "rotation": true,
+  "locatable": false,
+  "conflictGroups": [
+    "vegetation",
+    "cactus"
+  ],
+  "restrictions": {
+    "groundBlocks": [
+      "asteria:sand"
+    ],
+    "maxSlope": 1,
+    "requiresDryGround": true,
+    "requiredBiomeCoverage": 1
+  },
+  "generation": {
+    "replacePolicy": "terrain",
+    "fluidPolicy": "forbid",
+    "reserveSpace": false
+  },
+  "anchor": {
+    "x": 3,
+    "y": 0,
+    "z": 3
+  },
+  "palette": {
+    "G": {
+      "block": "asteria:sand"
+    },
+    "P": {
+      "block": "asteria:cactus_pad"
+    },
+    "F": {
+      "block": "asteria:cactus_flower_pink"
+    },
+    "Y": {
+      "block": "asteria:cactus_flower_yellow"
+    }
+  },
+  "layers": [
+    {
+      "y": 0,
+      "rows": [
+        ".......",
+        ".......",
+        ".......",
+        "...G...",
+        ".......",
+        ".......",
+        "......."
+      ]
+    },
+    {
+      "y": 1,
+      "rows": [
+        ".......",
+        ".......",
+        ".......",
+        "...PPP.",
+        ".......",
+        ".......",
+        "......."
+      ]
+    },
+    {
+      "y": 2,
+      "rows": [
+        ".......",
+        ".......",
+        "...P...",
+        "...P.P.",
+        "...P...",
+        "...P...",
+        "......."
+      ]
+    },
+    {
+      "y": 3,
+      "rows": [
+        ".......",
+        ".......",
+        "...P...",
+        "...P.F.",
+        ".......",
+        "...Y...",
+        "......."
+      ]
+    },
+    {
+      "y": 4,
+      "rows": [
+        ".......",
+        ".......",
+        "...F...",
+        "...Y...",
+        ".......",
+        ".......",
+        "......."
+      ]
+    }
+  ]
+}

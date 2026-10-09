@@ -856,6 +856,54 @@
         "gravel_banks": 0.62,
         "rocky_reefs": 2.1
       }
+    },
+    {
+      "biome": "asteria:overworld/desert",
+      "structure": "asteria:cactus_saguaro",
+      "spacing": 35,
+      "jitter": 10,
+      "chance": 0.79,
+      "habitatWeights": {
+        "open_dunes": 0.12,
+        "sand_flats": 1.35,
+        "sandstone_outcrops": 2.1
+      }
+    },
+    {
+      "biome": "asteria:overworld/desert",
+      "structure": "asteria:cactus_barrel",
+      "spacing": 22,
+      "jitter": 6,
+      "chance": 0.72,
+      "habitatWeights": {
+        "open_dunes": 0.15,
+        "sand_flats": 2,
+        "sandstone_outcrops": 0.9
+      }
+    },
+    {
+      "biome": "asteria:overworld/desert",
+      "structure": "asteria:cactus_prickly_pear",
+      "spacing": 29,
+      "jitter": 9,
+      "chance": 0.74,
+      "habitatWeights": {
+        "open_dunes": 0.09,
+        "sand_flats": 1.45,
+        "sandstone_outcrops": 1.6
+      }
+    },
+    {
+      "biome": "asteria:overworld/gorge",
+      "structure": "asteria:gorge_prickly_pear",
+      "spacing": 62,
+      "jitter": 18,
+      "chance": 0.52,
+      "habitatWeights": {
+        "valley_floor": 1.65,
+        "rubble_slopes": 0.36,
+        "high_rims": 1.45
+      }
     }
   ],
   "dayNightCycle": "asteria:overworld/day_night_cycle",

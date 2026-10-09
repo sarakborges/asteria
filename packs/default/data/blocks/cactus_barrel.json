@@ -1,0 +1,21 @@
+{
+  "id": "asteria:cactus_barrel",
+  "category": "natural_blocks",
+  "textures": {
+    "top": "textures/blocks/cactus_barrel_top.png",
+    "bottom": "textures/blocks/cactus_barrel_top.png",
+    "left": "textures/blocks/cactus_barrel_side.png",
+    "right": "textures/blocks/cactus_barrel_side.png",
+    "front": "textures/blocks/cactus_barrel_side.png",
+    "back": "textures/blocks/cactus_barrel_side.png"
+  },
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 0.65,
+    "preferredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "758e42"
+}

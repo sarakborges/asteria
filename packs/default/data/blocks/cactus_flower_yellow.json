@@ -1,0 +1,26 @@
+{
+  "id": "asteria:cactus_flower_yellow",
+  "category": "foliage",
+  "tags": [
+    "support_below"
+  ],
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/cactus_flower_yellow.png",
+    "width": 0.74,
+    "height": 0.64,
+    "planes": 4
+  },
+  "placementFaces": [
+    "top"
+  ],
+  "mining": {
+    "hardness": 0.02
+  },
+  "isCollidable": false,
+  "castsShadow": false,
+  "lightDampening": 0,
+  "alphaCutoff": 0.5,
+  "previewColor": "f2d076",
+  "dropsSelf": false
+}
