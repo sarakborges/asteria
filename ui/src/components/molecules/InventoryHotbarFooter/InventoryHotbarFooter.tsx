@@ -1,3 +1,4 @@
+import { inventorySearchMatches } from "../../../presentation/inventoryLabels";
 import { useLocalization } from "../../../localization/LocalizationProvider";
 import type { ItemStackView } from "../../../presentation/inventoryModels";
 import { InventorySlot } from "../InventorySlot/InventorySlot";
@@ -17,15 +18,15 @@ const HOTBAR_OFFSET = 27;
 export function InventoryHotbarFooter({
   hotbar, onSlotClick, onTrash, showTrash = true, searchQuery = "",
 }: InventoryHotbarFooterProps) {
-  const { t } = useLocalization();
-  const query = searchQuery.trim().toLowerCase();
+  const { t, contentName } = useLocalization();
+  const query = searchQuery.trim();
   return (
     <div className="inventory-hotbar-footer">
       <div className="inventory-hotbar-footer__slots">
         {Array.from({ length: HOTBAR_SIZE }, (_, index) => {
           const item = hotbar[index] ?? null;
           const filteredOut = Boolean(query) &&
-            !item?.id.toLowerCase().includes(query);
+            !inventorySearchMatches(item, query, contentName);
           return (
             <InventorySlot key={index} item={item}
               disabled={!onSlotClick || filteredOut}
