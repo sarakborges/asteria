@@ -47,7 +47,8 @@ internal sealed class PlayerEquipmentPresentation
             // authored definitions do not leave a partially-applied outfit.
             foreach (var mesh in _published[index])
             {
-                mesh.GetParent().RemoveChild(mesh);
+                if (mesh.GetParent() is { } parent)
+                    parent.RemoveChild(mesh);
                 mesh.QueueFree();
             }
             _published[index].Clear();
@@ -92,7 +93,7 @@ internal sealed class PlayerEquipmentPresentation
             MaterialOverride = new StandardMaterial3D
             {
                 AlbedoColor = color,
-                ShadingMode = BaseMaterial3D.ShadingModeEnum.PerPixel,
+                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
                 Metallic = 0f,
                 Roughness = 0.86f,
                 CullMode = BaseMaterial3D.CullModeEnum.Disabled,
