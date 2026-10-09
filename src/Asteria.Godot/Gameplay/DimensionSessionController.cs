@@ -12,7 +12,10 @@ public enum DimensionTransitionState : byte
 public sealed record DimensionTransitionCompletion(
     DimensionId From,
     DimensionId To,
-    DimensionSessionArchiveReport Archive);
+    DimensionSessionArchiveReport Archive,
+    bool IsCheckpoint = false,
+    ulong? SavedGeneration = null,
+    string? SaveError = null);
 
 public sealed class DimensionSessionController
 {
@@ -24,6 +27,16 @@ public sealed class DimensionSessionController
     private DimensionId? _target;
     private NVector3? _sourcePosition;
     private NVector3? _destinationPosition;
+    private CheckpointRequest? _checkpoint;
+    private Task<ulong>? _checkpointPublication;
+    private DimensionSessionArchiveReport? _checkpointArchive;
+
+    private sealed record CheckpointRequest(
+        string Directory,
+        BlockRegistry Blocks,
+        FluidRegistry Fluids,
+        DyeRegistry Dyes,
+        AttachedLayerRegistry Layers);
 
     public DimensionSessionController(
         DimensionSessionStateStore states,
@@ -66,6 +79,39 @@ public sealed class DimensionSessionController
             _factory(
                 _states.GetOrCreate(
                     dimension));
+    }
+
+    /// <summary>
+    /// Native checkpoint reuses dimension retirement. No live worker or
+    /// Godot object may be accessed while Core captures/serializes the
+    /// quiescent world on its background publication task.
+    /// </summary>
+    public bool RequestCheckpoint(
+        string directory,
+        NVector3 playerPosition,
+        BlockRegistry blocks,
+        FluidRegistry fluids,
+        DyeRegistry dyes,
+        AttachedLayerRegistry layers)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(directory);
+        ArgumentNullException.ThrowIfNull(blocks);
+        ArgumentNullException.ThrowIfNull(fluids);
+        ArgumentNullException.ThrowIfNull(dyes);
+        ArgumentNullException.ThrowIfNull(layers);
+
+        if (Active is null || _target is not null ||
+            !float.IsFinite(playerPosition.X) ||
+            !float.IsFinite(playerPosition.Y) ||
+            !float.IsFinite(playerPosition.Z) || playerPosition.Y < 0)
+            return false;
+
+        _checkpoint = new CheckpointRequest(
+            directory, blocks, fluids, dyes, layers);
+        _sourcePosition = playerPosition;
+        _target = Active.Dimension.Id;
+        Active.BeginRetirement();
+        return true;
     }
 
     public bool RequestTransition(
@@ -143,6 +189,41 @@ public sealed class DimensionSessionController
             return null;
         }
 
+        // Publication owns only detached Core state. The active runtime
+        // is retired, and no new session/worker may touch its world before
+        // this task finishes (even on a failed save).
+        if (_checkpointPublication is { } publication)
+        {
+            if (!publication.IsCompleted)
+                return null;
+
+            ulong? generation = null;
+            string? error = null;
+            try
+            {
+                generation = publication.GetAwaiter().GetResult();
+            }
+            catch (Exception exception)
+            {
+                error = exception.Message;
+            }
+
+            var retiredArchive = _checkpointArchive ??
+                throw new InvalidOperationException("Checkpoint retirement archive is missing.");
+            _checkpointPublication = null;
+            _checkpointArchive = null;
+            _checkpoint = null;
+            Active = _factory(_states.GetOrCreate(target));
+            _target = null;
+            _sourcePosition = null;
+            _destinationPosition = null;
+            return new DimensionTransitionCompletion(
+                target, target, retiredArchive,
+                IsCheckpoint: true,
+                SavedGeneration: generation,
+                SaveError: error);
+        }
+
         var drain =
             Active.DrainRetirement(
                 budget);
@@ -159,6 +240,26 @@ public sealed class DimensionSessionController
         var archive =
             Active.Retire(
                 _sourcePosition);
+
+        if (_checkpoint is { } checkpoint)
+        {
+            _checkpointArchive = archive;
+            // Capture runs only after retirement has finished and before
+            // any new session is published. On completion the old Sphere
+            // is reconstructed regardless of save success or failure.
+            _checkpointPublication = Task.Run(() =>
+            {
+                var snapshot = GameplaySessionSaveCodec.Capture(
+                    _states, checkpoint.Blocks, checkpoint.Fluids,
+                    checkpoint.Dyes, checkpoint.Layers,
+                    activeSphere: previous);
+                return SessionSaveStorage.Publish(
+                    checkpoint.Directory, snapshot,
+                    checkpoint.Blocks, checkpoint.Fluids,
+                    checkpoint.Dyes, checkpoint.Layers);
+            });
+            return null;
+        }
 
         Active =
             _factory(

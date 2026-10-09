@@ -404,6 +404,16 @@ public partial class Main : Node3D
         if (_worldReadySent && !_inventoryOpen && !_brushPaletteOpen &&
             !_chat.IsOpen && !_sessions.IsTransitioning)
         {
+            // Native fallback; gameplay keystrokes must not be captured
+            // by the browser's focus-dependent input handlers.
+            if (keyEvent.Keycode == Key.S &&
+                (keyEvent.CtrlPressed || keyEvent.MetaPressed))
+            {
+                if (TrySaveCurrentWorld())
+                    GetViewport().SetInputAsHandled();
+                return;
+            }
+
             if (GameplayKeyMap.Matches(
                     keyEvent, _clientPreferences, KeybindAction.Inventory))
             {
@@ -641,6 +651,28 @@ public partial class Main : Node3D
         return true;
     }
 
+    private bool TrySaveCurrentWorld()
+    {
+        if (!_worldReadySent || _player is null ||
+            _worldSeed is null || _sessions.IsTransitioning ||
+            _keybindCapture.IsCapturing)
+            return false;
+
+        var position = _player.GlobalPosition;
+        var source = new NVector3(
+            position.X, position.Y, position.Z);
+        var directory = Path.Combine(
+            OS.GetUserDataDir(), "worlds", _sessionStates.Name);
+        if (!_sessions.RequestCheckpoint(
+                directory, source, _blocks, _fluids, _dyes, _layers))
+            return false;
+
+        _worldDiagnostics?.Write(
+            $"world.save.begin name={_sessionStates.Name} dimension={_dimension.Id}");
+        StartDimensionRetirement(_dimension.Id);
+        return true;
+    }
+
     private void StartDimensionRetirement(DimensionId target)
     {
         RetirePlayerForDimensionTransition();
@@ -681,6 +713,30 @@ public partial class Main : Node3D
 
         ActivateCurrentDimensionPresentation();
         BeginWorldLoading();
+
+        if (completion.IsCheckpoint)
+        {
+            if (completion.SaveError is { } error)
+            {
+                GD.PushWarning($"world.save.failed: {error}");
+                _worldDiagnostics?.Write($"world.save.failed error={error}");
+                SendWebUi("game.world.save_result", new
+                {
+                    status = "error",
+                    error,
+                });
+            }
+            else
+            {
+                _worldDiagnostics?.Write(
+                    $"world.save.committed generation={completion.SavedGeneration}");
+                SendWebUi("game.world.save_result", new
+                {
+                    status = "saved",
+                    generation = completion.SavedGeneration,
+                });
+            }
+        }
 
         SendWebUi(
             "game.dimension_changed",
@@ -1096,6 +1152,9 @@ public partial class Main : Node3D
                             document.RootElement);
                     }
 
+                    break;
+                case "ui.world.save":
+                    TrySaveCurrentWorld();
                     break;
                 case "ui.player.set_game_mode":
                     SetRequestedGameMode(document.RootElement);

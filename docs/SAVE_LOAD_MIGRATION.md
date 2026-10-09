@@ -199,3 +199,19 @@ current Sphere and all saved player positions. Publish one manifest only after
 Implement world load/delete and save/leave UI after full restore is supported.
 Test recovered worlds end-to-end in Godot/Wry before marking any catalog entry
 compatible. Do not present the spatial-only files as playable saves.
+
+## Stage 12: Godot checkpoint entry through existing retirement
+
+- Native `ui.world.save` action and Ctrl+S trigger a checkpoint only while
+  the active Sphere is ready and no transition is underway.
+- `DimensionSessionController.RequestCheckpoint` cooperatively drains the
+  exact workers already owned by dimension travel, captures the Core state
+  after retirement/archiving (including player position and active Sphere),
+  and publishes one session generation on a background task.
+- No active gameplay session is reconstructed until publication finishes;
+  save failure still reconstructs the same Sphere and reports an explicit
+  error rather than abandoning the player's world.
+- The existing loading/residency/presentation pipeline is reused to return
+  the player to the current Sphere. Save I/O never runs on the Godot frame.
+- This is **checkpoint writing only**. Loading from the world catalog, save
+  metadata manifest publication and in-game save/leave are not yet enabled.
