@@ -86,4 +86,27 @@ public sealed class PlayerVisualDefinitionTests
         }).ToArray();
         Assert.Equal(names.Length, positions.Distinct().Count());
     }
+    [Theory]
+    [InlineData("HeadMesh", 40, 8)]
+    [InlineData("BodyMesh", 20, 36)]
+    [InlineData("RightArmMesh", 44, 36)]
+    [InlineData("LeftArmMesh", 52, 52)]
+    [InlineData("RightLegMesh", 4, 36)]
+    [InlineData("LeftLegMesh", 4, 52)]
+    public void OuterLayerFrontUvUsesDedicatedAtlasRectangle(
+        string part, int expectedX, int expectedY)
+    {
+        Assert.True(PlayerSkinUvMapper.TryMapOuter(
+            part, new Vector3(-0.5f, 0.5f, 0.5f),
+            Vector3.UnitZ, out var uv));
+        Assert.Equal(new Vector2(expectedX / 64f, expectedY / 64f), uv);
+    }
+
+    [Fact]
+    public void HairLayerIsAlreadyAnAuthoredMeshNotAnotherOuterLayer()
+    {
+        Assert.False(PlayerSkinUvMapper.TryMapOuter(
+            "HairLayer", Vector3.Zero, Vector3.UnitZ, out _));
+    }
+
 }
