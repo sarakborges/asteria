@@ -6,5 +6,7 @@
   "lightDampening": 15,
   "lightEmission": 15,
   "spreadSpeed": 4,
-  "maxSpread": 3
+  "maxSpread": 3,
+  "contactDamagePerSecond": 8,
+  "depletesBreath": false
 }
