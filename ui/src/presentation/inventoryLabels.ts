@@ -30,5 +30,5 @@ export function inventorySearchMatches(
     .some(value => normalizeSearch(value).includes(term));
 }
 
-function normalizeSearch(value: string): string =>
+const normalizeSearch = (value: string): string =>
   value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase();
