@@ -211,6 +211,12 @@ export type InventorySlotState = {
   metadata: InventoryMetadata;
 } | null;
 
+export type InventoryCategoryState = {
+  id: string;
+  order: number;
+  iconUrl: string;
+};
+
 export type InventoryCatalogEntry = {
   id: string;
   kind: InventoryEntryKind;
@@ -248,6 +254,8 @@ export type GameplayInventoryState = {
   equipment: InventorySlotState[];
   cursor: InventorySlotState;
   catalog: InventoryCatalogEntry[];
+  categories: InventoryCategoryState[];
+  everythingIconUrl: string | null;
   portraitUrl: string | null;
   recipes: InventoryCraftingRecipe[];
   craftingStatus: InventoryCraftingStatus | null;
@@ -384,6 +392,8 @@ export function createInitialUiState(
       equipment: Array(4).fill(null),
       cursor: null,
       catalog: [],
+      categories: [],
+      everythingIconUrl: null,
       portraitUrl: null,
       recipes: [],
       craftingStatus: null,
