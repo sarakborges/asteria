@@ -40,3 +40,15 @@ export const Metadata: Story = {
 };
 
 export const ReadOnly: Story = { args: { disabled: true } };
+
+export const DamagedArmor: Story = {
+  args: {
+    item: {
+      id: "asteria:wayfarer_chestplate",
+      name: "Wayfarer Chestplate",
+      quantity: 1,
+      metadata: { "asteria:durability": "71" },
+      durability: { current: 71, maximum: 240 },
+    },
+  },
+};
