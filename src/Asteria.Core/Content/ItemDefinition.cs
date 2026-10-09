@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Asteria.Core.World;
 
 namespace Asteria.Core.Content;
 
@@ -12,7 +13,8 @@ public sealed record ItemDefinition(
     string Category,
     string Icon,
     IReadOnlyList<ItemIconVariant> IconVariants,
-    int MaxStackSize = 64)
+    int MaxStackSize = 64,
+    EquipmentSlot? EquipmentSlot = null)
 {
     public static ItemDefinition Parse(string json)
     {
@@ -57,11 +59,24 @@ public sealed record ItemDefinition(
         if (maxStackSize > 64)
             throw new FormatException("maxStackSize must not exceed 64");
 
+        EquipmentSlot? equipmentSlot = null;
+        if (root.TryGetProperty("equipmentSlot", out var equipmentValue))
+        {
+            if (equipmentValue.ValueKind != JsonValueKind.String ||
+                !Enum.TryParse<EquipmentSlot>(equipmentValue.GetString(),
+                    ignoreCase: true, out var parsed) || !Enum.IsDefined(parsed))
+                throw new FormatException("equipmentSlot must name a valid body slot.");
+            if (maxStackSize != 1)
+                throw new FormatException("Equippable items must have maxStackSize 1.");
+            equipmentSlot = parsed;
+        }
+
         return new ItemDefinition(
             PackContentFields.Id(root),
             PackContentFields.RequiredString(root, "category"),
             PackContentFields.ResourcePath(PackContentFields.RequiredString(root, "icon"), "icon"),
             variants.AsReadOnly(),
-            maxStackSize);
+            maxStackSize,
+            equipmentSlot);
     }
 }

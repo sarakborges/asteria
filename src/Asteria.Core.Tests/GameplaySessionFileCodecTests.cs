@@ -77,6 +77,11 @@ public sealed class GameplaySessionFileCodecTests
         var stack = new InventoryStack(InventoryEntry.FromBlock("asteria:granite", block), 3);
 
         Assert.True(states.Player.Inventory.TryInsert(stack));
+        var helm = InventoryEntry.FromItem("asteria:test_helm", maxStackSize: 1);
+        Assert.True(states.Player.Inventory.TryCreativePick(helm));
+        Assert.True(states.Player.Inventory.ClickEquipment(
+            EquipmentSlot.Helmet, (entry, slot) =>
+                entry.Equals(helm) && slot == EquipmentSlot.Helmet));
         Assert.True(states.Player.Inventory.TryCreativePick(
             InventoryEntry.FromItem("asteria:stick",
                 new Dictionary<string, string> { ["source"] = "tree" }), 7));
@@ -135,6 +140,9 @@ public sealed class GameplaySessionFileCodecTests
         Assert.Equal(encoded, Encode(decoded, reordered));
         Assert.Equal(9842UL, decoded.Spatial.WorldSeed);
         Assert.Equal(7, restored.Player.Inventory.Cursor!.Quantity);
+        Assert.Equal("asteria:test_helm",
+            restored.Player.Inventory.EquipmentAt(EquipmentSlot.Helmet)!.Id);
+        Assert.Null(restored.Player.Inventory.EquipmentAt(EquipmentSlot.Chest));
         Assert.Equal(reordered.Blocks.GetId("asteria:granite"),
             restored.Player.Inventory.SelectedStack!.Block!.Cell.Block);
         var resumedSurface = restored.GetOrCreate(DimensionId.Overworld);

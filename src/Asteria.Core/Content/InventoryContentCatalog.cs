@@ -9,6 +9,7 @@ namespace Asteria.Core.Content;
 public sealed class InventoryContentCatalog
 {
     private readonly BlockRegistry _blocks;
+    private readonly PackContentRegistry<ItemDefinition> _items;
     private readonly InventoryCatalogChoice[] _choices;
     private readonly IReadOnlyList<InventoryCategoryDefinition> _categories;
 
@@ -20,7 +21,7 @@ public sealed class InventoryContentCatalog
         InventoryCategoryRegistry? categories = null)
     {
         _blocks = blocks ?? throw new ArgumentNullException(nameof(blocks));
-        ArgumentNullException.ThrowIfNull(items);
+        _items = items ?? throw new ArgumentNullException(nameof(items));
         ArgumentNullException.ThrowIfNull(tools);
 
         foreach (var (_, block) in blocks.AuthoredDefinitions())
@@ -102,6 +103,13 @@ public sealed class InventoryContentCatalog
                     $"Duplicate creative inventory identity: {_choices[index].Entry.Id}");
         }
     }
+
+    public bool CanEquip(InventoryEntry entry, EquipmentSlot slot) =>
+        entry.Kind == InventoryEntryKind.Item &&
+        Enum.IsDefined(slot) &&
+        _items.TryGet(entry.Id, out var authored) &&
+        authored!.EquipmentSlot == slot &&
+        entry.MaxStackSize == 1;
 
     public IReadOnlyList<InventoryCatalogChoice> Choices => _choices;
     public IReadOnlyList<InventoryCategoryDefinition> Categories => _categories;

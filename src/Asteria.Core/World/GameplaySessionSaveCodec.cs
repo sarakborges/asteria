@@ -10,6 +10,7 @@ public sealed class PlayerSessionSnapshot
 {
     private readonly InventoryStack?[] _backpack;
     private readonly InventoryStack?[] _hotbar;
+    private readonly InventoryStack?[] _equipment;
     private readonly InventoryStack? _cursor;
     private readonly int _selectedSlot;
 
@@ -32,13 +33,20 @@ public sealed class PlayerSessionSnapshot
         _selectedSlot = inventory.SelectedSlot;
         _backpack = inventory.Backpack.ToArray();
         _hotbar = inventory.Hotbar.ToArray();
+        _equipment = (inventory.Equipment ??
+            new InventoryStack?[PlayerInventory.EquipmentSlots]).ToArray();
+        if (_equipment.Length != PlayerInventory.EquipmentSlots ||
+            _equipment.Any(stack => stack is not null &&
+                (stack.Kind != InventoryEntryKind.Item || stack.Quantity != 1)))
+            throw new InvalidDataException("Invalid player equipment snapshot.");
         _cursor = inventory.Cursor;
     }
 
     public PlayerGameMode GameMode { get; }
     public bool Flying { get; }
     public PlayerInventorySnapshot Inventory =>
-        new(_selectedSlot, _backpack.ToArray(), _hotbar.ToArray(), _cursor);
+        new(_selectedSlot, _backpack.ToArray(), _hotbar.ToArray(),
+            _cursor, _equipment.ToArray());
 }
 
 /// <summary>

@@ -10,7 +10,7 @@ namespace Asteria.Core.World;
 public static class GameplaySessionFileCodec
 {
     private const uint Magic = 0x53534741; // AGSS
-    private const ushort Version = 1;
+    private const ushort Version = 2;
     public const long MaximumBytes = 640L * 1024 * 1024;
 
     public static void Write(
@@ -42,6 +42,9 @@ public static class GameplaySessionFileCodec
         foreach (var slot in inventory.Hotbar)
             PortableStackSaveCodec.Write(writer, slot, blocks, dyes, layers);
         PortableStackSaveCodec.Write(writer, inventory.Cursor, blocks, dyes, layers);
+        foreach (var equipped in inventory.Equipment ??
+            new InventoryStack?[PlayerInventory.EquipmentSlots])
+            PortableStackSaveCodec.Write(writer, equipped, blocks, dyes, layers);
 
         // Embed the spatial snapshot in the very same generation. No
         // manifest may point to only one of these two halves.
@@ -84,7 +87,10 @@ public static class GameplaySessionFileCodec
         using var reader = new BinaryReader(source, Encoding.UTF8, leaveOpen: true);
         try
         {
-            if (reader.ReadUInt32() != Magic || reader.ReadUInt16() != Version)
+            if (reader.ReadUInt32() != Magic)
+                throw new InvalidDataException("Unknown gameplay session magic.");
+            var version = reader.ReadUInt16();
+            if (version is not (1 or Version))
                 throw new InvalidDataException("Unknown gameplay session format.");
             var name = PortableStackSaveCodec.ReadString(reader, 512);
             var tickRate = reader.ReadUInt32();
@@ -102,8 +108,12 @@ public static class GameplaySessionFileCodec
             for (var i = 0; i < hotbar.Length; i++)
                 hotbar[i] = PortableStackSaveCodec.Read(reader, blocks, dyes, layers);
             var cursor = PortableStackSaveCodec.Read(reader, blocks, dyes, layers);
+            var equipment = new InventoryStack?[PlayerInventory.EquipmentSlots];
+            if (version >= 2)
+                for (var i = 0; i < equipment.Length; i++)
+                    equipment[i] = PortableStackSaveCodec.Read(reader, blocks, dyes, layers);
             var player = new PlayerSessionSnapshot(mode, flying,
-                new PlayerInventorySnapshot(selection, backpack, hotbar, cursor));
+                new PlayerInventorySnapshot(selection, backpack, hotbar, cursor, equipment));
 
             var spatialLength = reader.ReadInt64();
             if (spatialLength < 16 ||

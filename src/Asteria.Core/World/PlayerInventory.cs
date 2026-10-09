@@ -6,7 +6,8 @@ public sealed record PlayerInventorySnapshot(
     int SelectedSlot,
     InventoryStack?[] Backpack,
     InventoryStack?[] Hotbar,
-    InventoryStack? Cursor);
+    InventoryStack? Cursor,
+    InventoryStack?[]? Equipment = null);
 
 /// <summary>
 /// The player owns one inventory across Spheres. Insertions and cursor
@@ -17,14 +18,22 @@ public sealed class PlayerInventory
     public const int BackpackSlots = 27;
     public const int HotbarSlots = 9;
     public const int TotalSlots = BackpackSlots + HotbarSlots;
+    public const int EquipmentSlots = 4;
 
     private readonly InventoryStack?[] _slots = new InventoryStack?[TotalSlots];
+    private readonly InventoryStack?[] _equipment = new InventoryStack?[EquipmentSlots];
 
     public int SelectedSlot { get; private set; }
     public InventoryStack? Cursor { get; private set; }
     public ulong Revision { get; private set; }
 
     public InventoryStack? SelectedStack => _slots[BackpackSlots + SelectedSlot];
+
+    public InventoryStack? EquipmentAt(EquipmentSlot slot)
+    {
+        if (!Enum.IsDefined(slot)) throw new ArgumentOutOfRangeException(nameof(slot));
+        return _equipment[(int)slot];
+    }
 
     public InventoryStack? SlotAt(int index)
     {
@@ -37,7 +46,7 @@ public sealed class PlayerInventory
             SelectedSlot,
             _slots.Take(BackpackSlots).ToArray(),
             _slots.Skip(BackpackSlots).ToArray(),
-            Cursor);
+            Cursor, _equipment.ToArray());
 
     /// <summary>
     /// Replaces all authoritative slots/cursor in a fresh restored session.
@@ -56,8 +65,15 @@ public sealed class PlayerInventory
         var restored = new InventoryStack?[TotalSlots];
         Array.Copy(snapshot.Backpack, 0, restored, 0, BackpackSlots);
         Array.Copy(snapshot.Hotbar, 0, restored, BackpackSlots, HotbarSlots);
-        // InventoryStack is validated and immutable; all arrays are detached.
+        var equipment = snapshot.Equipment ?? new InventoryStack?[EquipmentSlots];
+        if (equipment.Length != EquipmentSlots || equipment.Any(stack =>
+            stack is not null && (stack.Kind != InventoryEntryKind.Item ||
+                                   stack.Quantity != 1)))
+            throw new InvalidDataException("Invalid saved equipment slots.");
+
+        // No partial restore: all arrays are validated before publication.
         Array.Copy(restored, _slots, TotalSlots);
+        Array.Copy(equipment, _equipment, EquipmentSlots);
         SelectedSlot = snapshot.SelectedSlot;
         Cursor = snapshot.Cursor;
         Revision++;
@@ -198,6 +214,28 @@ public sealed class PlayerInventory
         }
         throw new InvalidOperationException(
             "Reserved inventory capacity could not accommodate a stack.");
+    }
+
+    /// <summary>
+    /// A body slot accepts only a unitary authored item compatible with its
+    /// slot. The Core inventory remains the sole owner of cursor transfers;
+    /// the supplied content predicate validates authored identity.
+    /// </summary>
+    public bool ClickEquipment(
+        EquipmentSlot slot, Func<InventoryEntry, EquipmentSlot, bool> canEquip)
+    {
+        if (!Enum.IsDefined(slot)) return false;
+        ArgumentNullException.ThrowIfNull(canEquip);
+        var index = (int)slot;
+        var old = _equipment[index];
+        if (Cursor is { } incoming &&
+            (incoming.Quantity != 1 || incoming.Kind != InventoryEntryKind.Item ||
+             !canEquip(incoming.Entry, slot))) return false;
+        if (old is null && Cursor is null) return false;
+        if (!ClickExternalSlot(old, out var next))
+            return false;
+        _equipment[index] = next;
+        return true;
     }
 
     public bool ClickSlot(int index)
