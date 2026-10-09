@@ -315,11 +315,13 @@ function readVitals(
 
   const health = readVital(value.health);
   const stamina = readVital(value.stamina);
+  const oxygen = readVital(value.oxygen);
 
-  return health || stamina
+  return health || stamina || oxygen
     ? {
         health,
         stamina,
+        oxygen,
       }
     : null;
 }
