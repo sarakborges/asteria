@@ -10,8 +10,8 @@ public sealed class MountainBiomeContentTests
     [Theory]
     [InlineData("mountains", "foothill_shelves", "talus_fields", "exposed_ridges", 7)]
     [InlineData("mountain_belt", "sheltered_passes", "boulder_runs", "bare_crests", 7)]
-    [InlineData("alps", "snowfields", "glacial_ice", "wind_scoured_rock", 6)]
-    [InlineData("gorge", "valley_floor", "rubble_slopes", "high_rims", 5)]
+    [InlineData("alps", "snowfields", "glacial_ice", "wind_scoured_rock", 10)]
+    [InlineData("gorge", "valley_floor", "rubble_slopes", "high_rims", 6)]
     public void MountainHabitatsAreFullyDataDrivenAndSharedAcrossDecorationsAndStructures(
         string file, string firstBand, string middleBand, string lastBand, int rootCount)
     {

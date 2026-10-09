@@ -146,7 +146,7 @@ public sealed class SurfaceStructureTests
             structures, structureSets);
 
         Assert.Equal(
-            85,
+            130,
             structures.Count);
         Assert.Equal(4, structures.ResolveReference("asteria:ocean_rock").Count);
         Assert.Equal(2, structures.ResolveReference("asteria:basalt_outcrop").Count);

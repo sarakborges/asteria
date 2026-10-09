@@ -121,7 +121,7 @@ public sealed class SurfaceHabitatTests
         var dimension = DimensionDefinitionJson.Parse(File.ReadAllText(rootPath));
         var roots = dimension.GeneratedSurfaceStructures
             .Where(rule => rule.Biome == biome.Id).ToArray();
-        Assert.Equal(2, roots.Length);
+        Assert.Equal(3, roots.Length);
         var willows = Assert.Single(roots,
             root => root.Structure == "asteria:tree_willow");
         Assert.True(willows.HabitatWeights!.For("willow_grove") >
