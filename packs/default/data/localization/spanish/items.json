@@ -40,5 +40,17 @@
   },
   "asteria:stick": {
     "/name": "Palo"
+  },
+  "asteria:wayfarer_boots": {
+    "/name": "Botas del Viajero"
+  },
+  "asteria:wayfarer_chestplate": {
+    "/name": "Peto del Viajero"
+  },
+  "asteria:wayfarer_helmet": {
+    "/name": "Yelmo del Viajero"
+  },
+  "asteria:wayfarer_leggings": {
+    "/name": "Grebas del Viajero"
   }
 }

@@ -1,0 +1,67 @@
+{
+  "id": "asteria:wayfarer_boots",
+  "category": "tools",
+  "icon": "textures/items/wayfarer_boots.png",
+  "maxStackSize": 1,
+  "equipmentSlot": "boots",
+  "equipmentVisual": {
+    "parts": [
+      {
+        "mesh": "RightLegMesh",
+        "size": [
+          1.15,
+          0.57,
+          1.19
+        ],
+        "offset": [
+          0,
+          -0.22,
+          0.03
+        ],
+        "color": "#485765"
+      },
+      {
+        "mesh": "LeftLegMesh",
+        "size": [
+          1.15,
+          0.57,
+          1.19
+        ],
+        "offset": [
+          0,
+          -0.22,
+          0.03
+        ],
+        "color": "#485765"
+      },
+      {
+        "mesh": "RightLegMesh",
+        "size": [
+          1.19,
+          0.12,
+          1.2
+        ],
+        "offset": [
+          0,
+          0.02,
+          0.03
+        ],
+        "color": "#B58E5A"
+      },
+      {
+        "mesh": "LeftLegMesh",
+        "size": [
+          1.19,
+          0.12,
+          1.2
+        ],
+        "offset": [
+          0,
+          0.02,
+          0.03
+        ],
+        "color": "#B58E5A"
+      }
+    ]
+  }
+}

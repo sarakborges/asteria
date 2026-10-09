@@ -1,0 +1,67 @@
+{
+  "id": "asteria:wayfarer_chestplate",
+  "category": "tools",
+  "icon": "textures/items/wayfarer_chestplate.png",
+  "maxStackSize": 1,
+  "equipmentSlot": "chest",
+  "equipmentVisual": {
+    "parts": [
+      {
+        "mesh": "BodyMesh",
+        "size": [
+          1.13,
+          1.04,
+          1.13
+        ],
+        "offset": [
+          0,
+          0,
+          0
+        ],
+        "color": "#5B6F7A"
+      },
+      {
+        "mesh": "BodyMesh",
+        "size": [
+          0.2,
+          1.07,
+          1.18
+        ],
+        "offset": [
+          0,
+          0,
+          0.04
+        ],
+        "color": "#B58E5A"
+      },
+      {
+        "mesh": "RightArmMesh",
+        "size": [
+          1.19,
+          0.31,
+          1.2
+        ],
+        "offset": [
+          0,
+          0.32,
+          0
+        ],
+        "color": "#8799A1"
+      },
+      {
+        "mesh": "LeftArmMesh",
+        "size": [
+          1.19,
+          0.31,
+          1.2
+        ],
+        "offset": [
+          0,
+          0.32,
+          0
+        ],
+        "color": "#8799A1"
+      }
+    ]
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "id": "asteria:wayfarer_leggings",
+  "category": "tools",
+  "icon": "textures/items/wayfarer_leggings.png",
+  "maxStackSize": 1,
+  "equipmentSlot": "legs",
+  "equipmentVisual": {
+    "parts": [
+      {
+        "mesh": "RightLegMesh",
+        "size": [
+          1.13,
+          0.68,
+          1.13
+        ],
+        "offset": [
+          0,
+          0.17,
+          0
+        ],
+        "color": "#5B6F7A"
+      },
+      {
+        "mesh": "LeftLegMesh",
+        "size": [
+          1.13,
+          0.68,
+          1.13
+        ],
+        "offset": [
+          0,
+          0.17,
+          0
+        ],
+        "color": "#5B6F7A"
+      },
+      {
+        "mesh": "RightLegMesh",
+        "size": [
+          1.16,
+          0.1,
+          1.16
+        ],
+        "offset": [
+          0,
+          0.07,
+          0
+        ],
+        "color": "#B58E5A"
+      },
+      {
+        "mesh": "LeftLegMesh",
+        "size": [
+          1.16,
+          0.1,
+          1.16
+        ],
+        "offset": [
+          0,
+          0.07,
+          0
+        ],
+        "color": "#B58E5A"
+      }
+    ]
+  }
+}

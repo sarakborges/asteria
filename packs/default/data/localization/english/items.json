@@ -40,5 +40,17 @@
   },
   "asteria:stick": {
     "/name": "Stick"
+  },
+  "asteria:wayfarer_boots": {
+    "/name": "Wayfarer Boots"
+  },
+  "asteria:wayfarer_chestplate": {
+    "/name": "Wayfarer Chestplate"
+  },
+  "asteria:wayfarer_helmet": {
+    "/name": "Wayfarer Helm"
+  },
+  "asteria:wayfarer_leggings": {
+    "/name": "Wayfarer Leggings"
   }
 }

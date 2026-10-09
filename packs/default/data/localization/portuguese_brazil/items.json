@@ -40,5 +40,17 @@
   },
   "asteria:stick": {
     "/name": "Graveto"
+  },
+  "asteria:wayfarer_boots": {
+    "/name": "Botas do Viajante"
+  },
+  "asteria:wayfarer_chestplate": {
+    "/name": "Peitoral do Viajante"
+  },
+  "asteria:wayfarer_helmet": {
+    "/name": "Elmo do Viajante"
+  },
+  "asteria:wayfarer_leggings": {
+    "/name": "Calças do Viajante"
   }
 }
