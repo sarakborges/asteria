@@ -26,6 +26,7 @@ export type AppActions = {
     mode: import("./state/uiState").GameMode;
     ticksPerSecond: string;
     spawnCreatures: boolean;
+    keepInventory: boolean;
     generation: import("./state/uiState").WorldGenerationDraft;
   }): void;
   randomizeWorld(): void;
