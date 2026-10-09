@@ -85,6 +85,17 @@ export function InventorySlot({
             {(item.quantity ?? 0) > 1 && (
               <span className="inventory-slot__quantity">{item.quantity}</span>
             )}
+            {item.durability && (
+              <span className="inventory-slot__durability" aria-hidden="true">
+                <span
+                  className="inventory-slot__durability-fill"
+                  style={{
+                    width: 100 * item.durability.current /
+                      item.durability.maximum + "%",
+                  }}
+                />
+              </span>
+            )}
           </>
         )}
       </button>
