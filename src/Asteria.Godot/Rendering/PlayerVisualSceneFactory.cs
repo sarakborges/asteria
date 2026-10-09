@@ -102,7 +102,7 @@ internal static class PlayerVisualSceneFactory
             var uv = new Vector2[positions.Length];
             for (var i = 0; i < positions.Length; i++)
             {
-                var mapped = outer
+                var hasUv = outer
                     ? PlayerSkinUvMapper.TryMapOuter(
                         mesh.Name.ToString(),
                         new NVector3(positions[i].X, positions[i].Y, positions[i].Z),
@@ -114,7 +114,7 @@ internal static class PlayerVisualSceneFactory
                         new NVector3(normals[i].X, normals[i].Y, normals[i].Z),
                         out mappedUvOuter);
                 var mappedUv = mappedUvOuter;
-                if (!mapped)
+                if (!hasUv)
                     throw new InvalidDataException(
                         $"Cannot map player skin UV for '{mesh.Name}'.");
                 uv[i] = new Vector2(mappedUv.X, mappedUv.Y);
