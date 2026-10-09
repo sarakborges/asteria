@@ -184,12 +184,12 @@ public sealed class GameplaySessionFileCodecTests
         var saved = GameplaySessionSaveCodec.Capture(
             states, content.Blocks, content.Fluids,
             content.Dyes, content.Layers);
-        var version2 = Encode(saved, content);
+        var version3 = Encode(saved, content);
 
-        // A v1 payload did not contain the four nullable equipment fields.
-        // Synthesize the exact v1 shape from a v2 payload with empty gear,
+        // A v1 payload did not contain equipment or health fields.
+        // Synthesize the exact v1 shape from a v3 payload with empty gear,
         // without modifying any spatial or sphere snapshot bytes.
-        using var source = new MemoryStream(version2, writable: false);
+        using var source = new MemoryStream(version3, writable: false);
         using var reader = new BinaryReader(source, System.Text.Encoding.UTF8,
             leaveOpen: true);
         reader.ReadUInt32();
@@ -207,10 +207,10 @@ public sealed class GameplaySessionFileCodecTests
                 reader, content.Blocks, content.Dyes, content.Layers);
         var equipmentStart = checked((int)source.Position);
         Assert.Equal(new byte[PlayerInventory.EquipmentSlots],
-            version2.AsSpan(equipmentStart, PlayerInventory.EquipmentSlots).ToArray());
-        var version1 = version2.AsSpan(0, equipmentStart).ToArray()
-            .Concat(version2.AsSpan(
-                equipmentStart + PlayerInventory.EquipmentSlots).ToArray())
+            version3.AsSpan(equipmentStart, PlayerInventory.EquipmentSlots).ToArray());
+        var version1 = version3.AsSpan(0, equipmentStart).ToArray()
+            .Concat(version3.AsSpan(
+                equipmentStart + PlayerInventory.EquipmentSlots + sizeof(float)).ToArray())
             .ToArray();
         version1[4] = 1;
         version1[5] = 0;
