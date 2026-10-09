@@ -24,7 +24,7 @@
 | Feature | Current evidence / status | Required work and acceptance |
 | --- | --- | --- |
 | **Run and crouch** | **Implemented in code; native QA pending.** `PlayerGroundMovement` detects W ×2 within 12 ticks, with 1.5× run and 0.3× crouch; `FpsPlayer` applies real 1.5-block crouched capsule, camera drop, stand-up collision probe and ledge-support check. | Verify these transitions in Godot/WRY (low roof, edges, swimming, flight, third-person cameras). Player-model crouch animation belongs to the separate presentation task. |
-| **Player model, equipment and portraits** | **Partially integrated; Godot/WRY QA pending.** Original GLB, skins, locomotion, crouch, real 3D portrait and four Core equipment slots exist. **2026-10-09:** Gameplay now triggers the authored one-shot `hit`, `break` and `place` animations; outer jacket/sleeve/trouser skins are reconstructed from alpha atlas regions for both model and portrait. `hurt`/`death` playback API exists but there is no authoritative player-health event wiring yet. | Add actual authored equippable items/effects, equipment meshes, authoritative hurt/death event delivery and native side-by-side visuals. Verify hair-layer alpha, UV seams and third-person action clip timing. No default-pack armor items are defined; do not claim full equipment parity. |
+| **Player model, equipment and portraits** | **Four-slot equipment visuals integrated in code; Godot/WRY QA pending (2026-10-09).** Authoritative Core equipment transfers/save-load, animated GLB, model/portrait, original player skin and action clips exist. The pack now has four Wayfarer armor items with unique 64×64 icons and JSON-authored helmet, chest, leggings and boot cuboids following the animated body. The portrait refreshes after equipment transfers. | Verify real native outfit geometry, movement/skin clipping, animations and restoration after loading. Add authoritative player health/damage/death system and only then connect the already-authored `hurt`/`death` clips. Visual armor grants no undocumented protection effects. |
 | **Sky and celestial textures** | **Partial.** `DimensionEnvironmentPresentation` creates sun/moon orbital meshes and time-based lighting, but the MineClone celestial PNG/material presentation is not verified. | Compare original sun/moon assets and day/night material transitions; load selected-pack textures without Godot sidecars; verify eclipse/orbit/tint/fog behavior only if genuinely authored. |
 | **Stars and clouds** | **Partial.** Day/night sky presentation, wind and ambient particles exist; visual parity for stars and clouds remains unverified. | Compare MineClone sky assets and day/night behavior, avoid unbounded frame work and verify the sky presentation in Godot/WRY. |
 | **Held-item dynamic light** | **Missing.** RGB voxel lighting and static authored emissions exist; no equipped-item moving-light contract confirmed. | Define equipment-origin light source with authoritative emission strength, bounded incremental propagation/retraction and stale-worker protection; no permanent voxel mutations when player moves. Validate crossing chunks and dimension changes. |
@@ -91,11 +91,19 @@ These are **code-level findings**, not a declaration that gameplay polish or in-
 - Existing Asteria base movement speed remains unchanged (7.5) to avoid an unrelated balance regression; MineClone's reference walking speed is 5.0. The control guide now includes W ×2 Run, and configurable Descend (Shift by default) also crouches on ground.
 - **Still to verify in native Godot/WRY:** low-roof standing probe, diagonal edge support, fluid-to-ground state transitions, collision and camera blending in first/third person, and third-person crouch animation once the visual player model is added. Core tests cannot prove engine collision behavior.
 
+## Authoritative equipment visuals and Wayfarer outfit — 2026-10-09
+
+- `ItemDefinition.equipmentVisual.parts` is a validated optional pack-authored array of colored cuboids (up to eight), each bound to an allowed animated player mesh for that item's four body slots. It cannot define equipment for a non-equippable or stackable item, reference an unrelated body part, or supply unbounded geometry/color data.
+- `PlayerEquipmentPresentation` reads only `PlayerInventory.EquipmentAt`, resolves appearance through `PackContentRegistry<ItemDefinition>`, and publishes/removes cuboids on the exact imported animated mesh parts. A revision gate avoids extra work. The same renderer is used by the third-person model and the offscreen inventory portrait, which refreshes on successful equipment transfer.
+- The **Wayfarer** outfit is authored in `packs/default/data/items/wayfarer_{helmet,chestplate,leggings,boots}.json`, with four validated 64×64 original icon PNGs under `resources/textures/items/` and English, Brazilian Portuguese and Spanish names. These are actual Creative item choices and can be equipped with existing native inventory actions.
+- These models are **visual-only**: no gameplay protection, durability, damage calculations or invented player-health state. `hurt` and `death` are present in the selected-pack player GLB but cannot be triggered authoritatively until the separate player-health/damage lifecycle exists.
+- Godot/WRY QA remains open. Core/pack tests cover schema and slot restrictions; CI may be blocked by unrelated concurrent worldgen/localization changes.
+
 ## Player action animations and outer skin layers — 2026-10-09
 
 - `PlayerModelPresentation.TryPlayAction` now uses the selected pack's authored `hit`, `break`, `place`, `hurt` and `death` clip mappings. Real Godot interaction events trigger hit for creature attacks, break for targeted mining, and place for right-click actions; the model renderer owns only one-shot blending/timing and returns to the existing locomotion state.
 - `PlayerSkinUvMapper.TryMapOuter` maps all six standard outer-skin UV regions. The shared `PlayerVisualSceneFactory` builds transparent alpha-scissored jacket/sleeve/trouser overlays for both the third-person model and inventory portrait. Existing GLB hair shell stays authoritative, avoiding a duplicated head overlay.
-- **Not yet implemented:** actual armor models/items/content and game-authoritative health/hurt/death events; only the corresponding optional visual clips are accepted for future gameplay integration. Native Godot/WRY render review is still needed; no artificial equipment appearance or invented gameplay health was added.
+- **Current status:** Wayfarer equipment models/items/icons are now authored and wired to live slots and portrait. Game-authoritative health/hurt/death events and native visual verification remain open; no invented player-health state was added.
 - CI may still be red for unrelated concurrent biome worldgen/localization changes; inspect the exact job logs before classifying a failure as a player regression.
 
 ## Player model port — 2026-10-09
@@ -112,11 +120,10 @@ These are **code-level findings**, not a declaration that gameplay polish or in-
   idle/walk/run/jump/fall from actual `FpsPlayer` state. The model is
   visible only in third-person mode and follows the same body transform.
   Crouch lowers original model pivots with a smooth transition.
-- Character equipment remains unimplemented; do not display simulated
-  equipped items. The character inventory panel still needs a real offscreen
-  model portrait/render capture and UI interaction. The third-person held
-  item model, player skin overlay layers and action/hurt/death animations
-  also require separate native hookup and verification.
+- Four authoritative equipment slots, a shared model/portrait renderer,
+  authored Wayfarer outfit and third-person held item visuals are now wired.
+  Native clipping/action checks, creature portrait parity, first-person
+  viewmodel, and authoritative player hurt/death events remain separate tasks.
 - Native Godot/WRY smoke tests remain necessary to verify GLB decoding,
   animation names, skin orientation, face UV seams and first/third-person
   visibility; build+Core tests alone do not verify GPU/render output.
@@ -133,7 +140,7 @@ These are **code-level findings**, not a declaration that gameplay polish or in-
 - Asteria extends the MineClone reference (which only renders four static empty armor rows): Core now owns four typed player equipment slots and transactions against the existing cursor, checked against optional `ItemDefinition.equipmentSlot` and `maxStackSize=1` instead of allowing arbitrary items. No defensive bonus is claimed without authored gameplay rules.
 - The detached player inventory snapshot and complete on-disk session format v2 include equipment. The reader accepts v1 sessions as empty equipment and restores all slots atomically. Core tests cover equip, invalid slot/stack, no item loss and save/load roundtrip.
 - Godot `ui.inventory.equipment` is the authoritative action, `game.inventory.state` publishes four slot snapshots; the React character panel renders real slots (including when empty) and forwards clicks only through the inventory controller. UI labels are localized.
-- No default-pack equipment items have been authored yet. Equippable content, protection effects and equipment meshes must be designed explicitly before declaring the entire system feature-complete.
+- Four Wayfarer armor items are now authored in the default pack, with unique 64×64 icons and animated-body cuboid visuals. Protection/durability effects do not exist and must not be inferred from the appearance.
 
 ## Third-person held inventory selection — 2026-10-09
 
