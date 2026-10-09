@@ -109,4 +109,20 @@ public sealed class PlayerVisualDefinitionTests
             "HairLayer", Vector3.Zero, Vector3.UnitZ, out _));
     }
 
+    [Fact]
+    public void ActionClipMappingsAreAuthoredNotInferredFromFileNames()
+    {
+        var json = PlayerJson.Replace(
+            "\"fall\":\"Fall\"",
+            "\"fall\":\"Fall\", \"hit\":\"Hit\", \"place\":\"Place\", " +
+            "\"break\":\"Break\", \"hurt\":\"Hurt\", \"death\":\"Death\"",
+            StringComparison.Ordinal);
+        var definition = PlayerVisualDefinition.Parse(json);
+        Assert.Equal("Hit", definition.Animations["hit"]);
+        Assert.Equal("Place", definition.Animations["place"]);
+        Assert.Equal("Break", definition.Animations["break"]);
+        Assert.Equal("Hurt", definition.Animations["hurt"]);
+        Assert.Equal("Death", definition.Animations["death"]);
+    }
+
 }
