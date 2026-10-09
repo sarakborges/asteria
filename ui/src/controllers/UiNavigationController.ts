@@ -10,6 +10,7 @@ export type UiNavigationController = {
   resumeGame(): void;
   saveWorld(): void;
   leaveWorld(): void;
+  respawn(): void;
   openGameSettings(): void;
   openWorldSettings(): void;
   openControls(): void;
@@ -43,6 +44,7 @@ export function createUiNavigationController(
   // mouse capture remain native; a paused menu never directly captures it.
   const escape = () => {
     const state = store.getSnapshot();
+    if (state.navigation.death) return;
     if (state.navigation.overlay === "storage") {
       postMessage("ui.storage_box.close");
     } else if (state.navigation.overlay === "game" ||
@@ -82,6 +84,10 @@ export function createUiNavigationController(
       }));
       postMessage("ui.world.save");
     },
+    respawn() {
+      if (store.getSnapshot().navigation.death)
+        postMessage("ui.player.respawn");
+    },
     leaveWorld() {
       store.update(state => ({
         ...state,
@@ -113,6 +119,35 @@ export function createUiNavigationController(
         });
         return;
       }
+      if (message.type === "game.player.death") {
+        const raw = message.payload as Record<string, unknown> | null;
+        if (!raw || typeof raw.keepInventory !== "boolean" ||
+            typeof raw.droppedStacks !== "number" ||
+            !Number.isSafeInteger(raw.droppedStacks) ||
+            raw.droppedStacks < 0 || raw.droppedStacks > 42 ||
+            typeof raw.dropCapacityExceeded !== "boolean")
+          return;
+        store.update(state => ({
+          ...state,
+          navigation: {
+            ...state.navigation,
+            overlay: "death",
+            death: {
+              keepInventory: raw.keepInventory as boolean,
+              droppedStacks: raw.droppedStacks as number,
+              dropCapacityExceeded: raw.dropCapacityExceeded as boolean,
+            },
+          },
+        }));
+        return;
+      }
+      if (message.type === "game.player.respawned") {
+        store.update(state => ({
+          ...state,
+          navigation: { ...state.navigation, overlay: "none", death: null },
+        }));
+        return;
+      }
       if (message.type === "game.world.save_result") {
         const payload = message.payload as { status?: unknown } | undefined;
         const saveFeedback = payload?.status === "saved"
@@ -130,6 +165,7 @@ export function createUiNavigationController(
       }
       if (message.type !== "game.mouse_capture") return;
       const payload = message.payload as { captured?: unknown } | undefined;
+      if (store.getSnapshot().navigation.death) return;
       if (payload?.captured === true) {
         show("none");
       } else {
