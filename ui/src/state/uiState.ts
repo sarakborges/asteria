@@ -105,6 +105,7 @@ export type HudState = {
   hotbar: HotbarState;
   world: WorldBannerState | null;
   vitals: PlayerVitalsState | null;
+  playerPortraitUrl: string | null;
   target: TargetHudState | null;
   miningProgress: number | null;
   artisansKitResolution: 1 | 2 | 4 | null;
@@ -311,6 +312,7 @@ export function createInitialUiState(
       },
       world: null,
       vitals: null,
+      playerPortraitUrl: null,
       target: null,
       miningProgress: null,
       artisansKitResolution: null,

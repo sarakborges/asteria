@@ -5,10 +5,11 @@ import "./PlayerVitals.css";
 
 export type PlayerVitalsProps = {
   state: PlayerVitalsState | null;
+  portraitUrl?: string | null;
 };
 
 export function PlayerVitals({
-  state,
+  state, portraitUrl,
 }: PlayerVitalsProps) {
   const { t } = useLocalization();
   const health = state?.health ?? null;
@@ -19,7 +20,7 @@ export function PlayerVitals({
       <HudEntityCard
         entity={{
           name: t("ui.player"),
-          health,
+          health, portraitUrl: portraitUrl ?? undefined,
         }}
         secondaryVital={
           state?.stamina

@@ -92,7 +92,11 @@ export function createInventoryController(
     },
     handleGodotMessage(message: BridgeMessage) {
       const payload = asRecord(message.payload);
-      if (message.type === "game.inventory.state") {
+      if (message.type === "game.player_ready") {
+        store.update(state => ({
+          ...state, inventory: { ...state.inventory, portraitUrl: null },
+        }));
+      } else if (message.type === "game.inventory.state") {
         if (!payload || typeof payload.open !== "boolean" ||
             typeof payload.creativeAvailable !== "boolean" ||
             !Number.isInteger(payload.selectedIndex) ||
@@ -126,14 +130,14 @@ export function createInventoryController(
             },
           };
         });
-      } else if (message.type === "game.inventory.portrait") {
+      } else if (message.type === "game.player.portrait") {
         const imageUrl = payload?.imageUrl;
         if (typeof imageUrl !== "string" ||
             imageUrl.length > 500_000 ||
             !/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(imageUrl)) return;
-        store.update(state => state.inventory.open
-          ? { ...state, inventory: { ...state.inventory, portraitUrl: imageUrl } }
-          : state);
+        store.update(state => ({
+          ...state, inventory: { ...state.inventory, portraitUrl: imageUrl },
+        }));
       } else if (message.type === "game.inventory.catalog") {
         if (!payload || !Array.isArray(payload.items)) return;
         const catalog = payload.items.flatMap((raw): InventoryCatalogEntry[] => {

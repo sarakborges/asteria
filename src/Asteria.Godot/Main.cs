@@ -2849,8 +2849,8 @@ public partial class Main : Node3D
 
     private void PollPlayerPortrait()
     {
-        if (_inventoryOpen && _playerPortrait?.TryTake(out var data) == true)
-            SendWebUi("game.inventory.portrait", new { imageUrl = data });
+        if (_playerPortrait?.TryTake(out var data) == true)
+            SendWebUi("game.player.portrait", new { imageUrl = data });
     }
 
     private void RotatePlayerPortrait(JsonElement message)
@@ -3296,6 +3296,7 @@ public partial class Main : Node3D
         _playerPortrait = new PlayerPortraitPresentation(
             _packSelection, _playerVisual);
         AddChild(_playerPortrait);
+        _playerPortrait.RequestCapture();
 
         _underwaterView =
             new UnderwaterViewPresentation(

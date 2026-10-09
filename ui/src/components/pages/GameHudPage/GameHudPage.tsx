@@ -79,7 +79,8 @@ export function GameHudPage({
         }} />
       )}
       playerHud={spectator ? null : (
-        <PlayerVitals state={state.vitals} />
+        <PlayerVitals state={state.vitals}
+          portraitUrl={state.playerPortraitUrl} />
       )}
       statusEffects={
         <StatusEffects

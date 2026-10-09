@@ -86,6 +86,14 @@ export function createHudController(
           });
           break;
 
+        case "game.player.portrait": {
+          const portrait = asRecord(message.payload)?.imageUrl;
+          if (typeof portrait === "string" && portrait.length <= 500_000 &&
+              /^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(portrait))
+            patchHud(store, { playerPortraitUrl: portrait });
+          break;
+        }
+
         case "game.hud.vitals":
           patchHud(store, {
             vitals: readVitals(message.payload),
@@ -171,6 +179,7 @@ export function createHudController(
           break;
 
         case "game.player_ready":
+          patchHud(store, { playerPortraitUrl: null });
           patchStatusCard(store, {
             playerStatus: "debug.player.ready",
           });
