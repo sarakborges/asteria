@@ -77,6 +77,35 @@ public sealed class SparseOverworldBiomeContentTests
     }
 
     [Fact]
+    public void OceanKeepsBeachSandWhileDeepSeabedPatchesRemainAuthored()
+    {
+        var biome = LoadBiome("ocean");
+        var patch = Assert.IsType<BiomeSurfacePatchDefinition>(
+            biome.Palette.Default[0].Patch);
+        Assert.Equal(86, Assert.IsType<SurfacePlacementConditions>(
+            patch.Conditions).MaxY);
+        var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
+        var field = new BiomeSurfaceMaterialField(377UL, [biome], blocks);
+        var sample = new BiomeSample(biome.Id,
+            [new BiomeInfluence(biome.Id, 1f)]);
+        var shallow = new SurfacePlacementContext(90, 0);
+        var deep = new SurfacePlacementContext(70, 0);
+        var seen = new HashSet<BlockRuntimeId>();
+        for (var z = -192; z <= 192; z += 6)
+        for (var x = -192; x <= 192; x += 6)
+        {
+            Assert.Equal(blocks.GetId("asteria:sand"),
+                field.BlockAt(sample, x, z, 0, shallow));
+            seen.Add(field.BlockAt(sample, x, z, 0, deep));
+        }
+
+        Assert.Contains(blocks.GetId("asteria:sand"), seen);
+        Assert.Contains(blocks.GetId("asteria:gravel"), seen);
+        Assert.True(seen.Count > 1,
+            "Deep ocean remains diversified below the sandy beach.");
+    }
+
+    [Fact]
     public void DesertKeepsSandAtTheSurfaceWithoutGravelPatchesOrPebbles()
     {
         var biome = LoadBiome("desert");

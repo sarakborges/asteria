@@ -5,6 +5,51 @@ namespace Asteria.Core.Tests;
 public sealed class SurfaceStructureTests
 {
     [Fact]
+    public void OceanReefVariantsRemainSubmergedGroundBoundAndHabitatWeighted()
+    {
+        var structures = StructureRegistry.FromJson(ReadJsonDirectory("structures"));
+        var members = structures.ResolveReference("asteria:ocean_rock");
+        Assert.Equal(4, members.Count);
+        Assert.Equal(
+            new[] {
+                "asteria:ocean_rock_01", "asteria:ocean_rock_02",
+                "asteria:ocean_rock_03", "asteria:ocean_rock_04",
+            }, members.Select(member => member.Id));
+        var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
+        structures.ValidateBlocks(blocks);
+
+        foreach (var reef in members)
+        {
+            Assert.False(reef.Restrictions.RequiresDryGround);
+            Assert.Equal(1f, reef.Restrictions.RequiredBiomeCoverage);
+            Assert.Equal(1, reef.Restrictions.MaxSlope);
+            Assert.Equal(StructureFluidPolicy.Displace,
+                reef.Generation.FluidPolicy);
+            Assert.Equal(StructureReplacePolicy.Terrain,
+                reef.Generation.ReplacePolicy);
+            Assert.InRange(reef.MaximumY - reef.MinimumY, 1, 2);
+            Assert.Contains(reef.Voxels, voxel =>
+                voxel.Block == "asteria:stone_cobble");
+            Assert.All(reef.Voxels, voxel =>
+                Assert.Contains(voxel.Block,
+                    new[] {
+                        "asteria:stone", "asteria:stone_cobble",
+                        "asteria:gravel", "asteria:clay",
+                    }));
+        }
+
+        var dimensions = DimensionRegistry.FromJson(
+            ReadJsonDirectory("dimensions"));
+        var overworld = dimensions.Get(DimensionId.Overworld);
+        var rocks = Assert.Single(overworld.GeneratedSurfaceStructures,
+            rule => rule.Biome == "asteria:overworld/ocean" &&
+                    rule.Structure == "asteria:ocean_rock");
+        var weight = Assert.IsType<SurfaceHabitatWeights>(rocks.HabitatWeights);
+        Assert.True(weight.For("rocky_reefs") > weight.For("gravel_banks"));
+        Assert.True(weight.For("gravel_banks") > weight.For("sand_flats"));
+    }
+
+    [Fact]
     public void DefaultStructurePackParsesAndMatchesActiveOverworldRoots()
     {
         var blocks =
@@ -38,9 +83,9 @@ public sealed class SurfaceStructureTests
             structures, structureSets);
 
         Assert.Equal(
-            81,
+            83,
             structures.Count);
-        Assert.Equal(2, structures.ResolveReference("asteria:ocean_rock").Count);
+        Assert.Equal(4, structures.ResolveReference("asteria:ocean_rock").Count);
         Assert.Equal(2, structures.ResolveReference("asteria:basalt_outcrop").Count);
         Assert.Equal(2, structures.ResolveReference("asteria:basalt_boulder").Count);
         Assert.Equal(2, structures.ResolveReference("asteria:basalt_spire").Count);
