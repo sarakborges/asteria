@@ -23,8 +23,23 @@ export function readSlot(value: unknown): InventorySlotState {
   const kind = readKind(record.kind);
   const metadata = readMetadata(record.metadata);
   if (!kind || !metadata) return null;
+  const rawDurability = record.durability == null
+    ? null : asRecord(record.durability);
+  if (record.durability != null && !rawDurability) return null;
+  const durability = rawDurability
+    ? Number.isInteger(rawDurability.current) &&
+      Number.isInteger(rawDurability.maximum) &&
+      (rawDurability.maximum as number) > 0 &&
+      (rawDurability.maximum as number) <= 65535 &&
+      (rawDurability.current as number) > 0 &&
+      (rawDurability.current as number) <= (rawDurability.maximum as number)
+        ? { current: rawDurability.current as number, maximum: rawDurability.maximum as number }
+        : null
+    : null;
+  if (rawDurability && !durability) return null;
   return {
     id: record.id, kind, quantity: record.quantity as number, metadata,
+    durability,
   };
 }
 
