@@ -72,3 +72,26 @@ These are **code-level findings**, not a declaration that visual worldgen, gamep
 - Godot `FpsPlayer` applies native keyboard movement, accelerates/decelerates ground velocity, lowers the collision capsule from 1.8 to 1.5 blocks, blends the camera down by 0.35 blocks and checks full-height collision before allowing the player to stand. While crouching on ground, support probes prevent horizontal travel beyond ledges; immersed/flight movement retains its separate authored rules.
 - Existing Asteria base movement speed remains unchanged (7.5) to avoid an unrelated balance regression; MineClone's reference walking speed is 5.0. The control guide now includes W ×2 Run, and configurable Descend (Shift by default) also crouches on ground.
 - **Still to verify in native Godot/WRY:** low-roof standing probe, diagonal edge support, fluid-to-ground state transitions, collision and camera blending in first/third person, and third-person crouch animation once the visual player model is added. Core tests cannot prove engine collision behavior.
+
+## Player model port — 2026-10-09
+
+- Imported the original MineClone GLB and 256/64 px skin atlases under
+  `packs/default/resources/models/entities/player/` and
+  `packs/default/resources/textures/player/`, alongside the pack-authored
+  `data/entities/player.json` declaring its animation names.
+- `PlayerVisualDefinition` validates asset paths and animation keys in Core;
+  `PlayerSkinUvMapper` maps canonical cuboid faces into 64×64 skin UV
+  coordinates independent of source texture resolution, with unit tests.
+- Godot `PlayerModelPresentation` imports the **raw GLB** using
+  `GLTFDocument`, maps the skin onto the imported cuboids and plays
+  idle/walk/run/jump/fall from actual `FpsPlayer` state. The model is
+  visible only in third-person mode and follows the same body transform.
+  Crouch lowers original model pivots with a smooth transition.
+- Character equipment remains unimplemented; do not display simulated
+  equipped items. The character inventory panel still needs a real offscreen
+  model portrait/render capture and UI interaction. The third-person held
+  item model, player skin overlay layers and action/hurt/death animations
+  also require separate native hookup and verification.
+- Native Godot/WRY smoke tests remain necessary to verify GLB decoding,
+  animation names, skin orientation, face UV seams and first/third-person
+  visibility; build+Core tests alone do not verify GPU/render output.

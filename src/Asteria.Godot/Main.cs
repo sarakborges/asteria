@@ -91,6 +91,7 @@ public partial class Main : Node3D
     private PackContentRegistry<ToolDefinition> _tools = null!;
     private InventoryCraftingRuntime _crafting = null!;
     private InventoryContentCatalog _inventoryCatalog = null!;
+    private PlayerVisualDefinition _playerVisual = null!;
     private InventoryCategoryRegistry _inventoryCategories = null!;
     private InventoryDropIconCatalog _inventoryDropIcons = null!;
     private readonly Dictionary<string, string> _inventoryIconCache =
@@ -190,6 +191,7 @@ public partial class Main : Node3D
                 _packSelection);
         _inventoryCategories =
             InventoryCategoryContentLoader.LoadProjectCategories(_packSelection);
+        _playerVisual = PlayerVisualContentLoader.Load(_packSelection);
         _inventoryCatalog = new InventoryContentCatalog(
             _blocks, _items, _tools, _layers, _inventoryCategories);
         _crafting = new InventoryCraftingRuntime(
@@ -3264,6 +3266,8 @@ public partial class Main : Node3D
         _player.FluidContactChanged +=
             OnPlayerFluidContactChanged;
         AddChild(_player);
+        _player.AddChild(new PlayerModelPresentation(
+            _player, _packSelection, _playerVisual));
 
         _underwaterView =
             new UnderwaterViewPresentation(

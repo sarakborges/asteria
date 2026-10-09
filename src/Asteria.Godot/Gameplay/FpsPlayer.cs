@@ -72,6 +72,8 @@ public partial class FpsPlayer : CharacterBody3D
     public bool IsBreakHeld => _breakHeld && _mouseCaptured && !_inputSuspended;
     public bool IsRunning => _groundMovement.IsRunning;
     public bool IsCrouching => _groundMovement.IsCrouching;
+    public bool IsThirdPerson => _cameraView != CameraView.FirstPerson;
+    public float CameraPitch => _cameraPitch;
 
     public Camera3D Camera => _camera;
 
