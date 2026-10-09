@@ -79,6 +79,19 @@ public sealed class PlayerInventory
         Revision++;
     }
 
+    /// <summary>Clears only portable player possessions after death drops
+    /// have been committed by the owning world drop runtime.</summary>
+    public void ClearForDeath()
+    {
+        if (_slots.All(stack => stack is null) &&
+            _equipment.All(stack => stack is null) && Cursor is null)
+            return;
+        Array.Clear(_slots);
+        Array.Clear(_equipment);
+        Cursor = null;
+        Revision++;
+    }
+
     public bool SelectHotbar(int index)
     {
         if (index is < 0 or >= HotbarSlots || index == SelectedSlot)
