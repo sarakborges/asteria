@@ -81,8 +81,8 @@ public sealed class PlayerHazardTests
     {
         var registry = PackContentRegistry<ItemDefinition>.FromJson(
         [
-            """{"id":"asteria:helm","category":"tools","icon":"textures/helm.png","maxStackSize":1,"equipmentSlot":"helmet","damageReduction":0.5}""",
-            """{"id":"asteria:chest","category":"tools","icon":"textures/chest.png","maxStackSize":1,"equipmentSlot":"chest","damageReduction":0.5}"""
+            """{"id":"asteria:helm","category":"tools","icon":"textures/helm.png","maxStackSize":1,"equipmentSlot":"helmet","damageReduction":0.5,"maxDurability":100}""",
+            """{"id":"asteria:chest","category":"tools","icon":"textures/chest.png","maxStackSize":1,"equipmentSlot":"chest","damageReduction":0.5,"maxDurability":100}"""
         ], ItemDefinition.Parse, item => item.Id);
         var inventory = new PlayerInventory();
         foreach (var (id, slot) in new[] {
