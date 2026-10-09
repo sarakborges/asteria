@@ -15,7 +15,8 @@ public sealed record ItemDefinition(
     IReadOnlyList<ItemIconVariant> IconVariants,
     int MaxStackSize = 64,
     EquipmentSlot? EquipmentSlot = null,
-    EquipmentVisualDefinition? EquipmentVisual = null)
+    EquipmentVisualDefinition? EquipmentVisual = null,
+    float DamageReduction = 0f)
 {
     public static ItemDefinition Parse(string json)
     {
@@ -81,6 +82,15 @@ public sealed record ItemDefinition(
             appearance = EquipmentVisualDefinition.Parse(visual, slot);
         }
 
+        var damageReduction = root.TryGetProperty("damageReduction", out var defense)
+            ? defense.ValueKind == JsonValueKind.Number && defense.TryGetSingle(out var amount)
+                && float.IsFinite(amount) && amount is >= 0f and <= 0.5f
+                    ? amount
+                    : throw new FormatException("damageReduction must be between 0 and 0.5.")
+            : 0f;
+        if (damageReduction > 0f && equipmentSlot is null)
+            throw new FormatException("damageReduction requires equipmentSlot.");
+
         return new ItemDefinition(
             PackContentFields.Id(root),
             PackContentFields.RequiredString(root, "category"),
@@ -88,6 +98,7 @@ public sealed record ItemDefinition(
             variants.AsReadOnly(),
             maxStackSize,
             equipmentSlot,
-            appearance);
+            appearance,
+            damageReduction);
     }
 }
