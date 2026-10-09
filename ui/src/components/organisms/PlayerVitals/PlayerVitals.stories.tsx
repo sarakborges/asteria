@@ -43,3 +43,23 @@ export const Respawned: Story = {
     },
   },
 };
+
+export const Underwater: Story = {
+  args: {
+    state: {
+      health: { current: 20, maximum: 20 },
+      stamina: null,
+      oxygen: { current: 6, maximum: 15 },
+    },
+  },
+};
+
+export const Drowning: Story = {
+  args: {
+    state: {
+      health: { current: 14, maximum: 20 },
+      stamina: null,
+      oxygen: { current: 0, maximum: 15 },
+    },
+  },
+};
