@@ -217,6 +217,13 @@ export type InventoryCategoryState = {
   iconUrl: string;
 };
 
+export type BlockPreviewState = {
+  kind: "cube" | "sprite";
+  front: string;
+  top: string | null;
+  right: string | null;
+};
+
 export type InventoryCatalogEntry = {
   id: string;
   kind: InventoryEntryKind;
@@ -224,6 +231,7 @@ export type InventoryCatalogEntry = {
   category: string;
   metadata: InventoryMetadata;
   iconUrl?: string;
+  blockPreview?: BlockPreviewState;
 };
 
 export type StorageBoxState = {
