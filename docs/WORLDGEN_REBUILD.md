@@ -528,6 +528,25 @@ beach (`+2`) inside Ocean and an uphill transition within the adjoining land bio
 author a distinct coast contour without adding C# terrain special cases.
 Only `GeneratedFluidField` decides actual generated water occupancy.
 
+### Ocean seabed enrichment
+
+The authored Ocean Sand surface remains continuous on the beach. Its
+`palette.default[0].patch.conditions.maxY` limits Gravel, Clay and
+Stone Cobble variants to ground below Y=86 (the default Overworld sea
+level is 90); the patch stays warped and seed-stable rather than
+painting randomly at the shore.
+
+The existing `ocean_rock` group now contains four rotated templates:
+two original Stone Cobble outcrops, one low Clay/Gravel shingle outcrop
+and one wider layered Stone/Stone Cobble reef. Existing Structure and
+StructureSet roots choose from that group without changing their
+spacing, ocean size, fluid generation or terrain shape. Authored
+`habitatWeights` favor Rocky Reefs, with fewer structures on Gravel
+Banks and almost none on Sand Flats. All variants use existing blocks,
+`requiresDryGround: false`, `maxSlope: 1`, complete Ocean biome
+coverage and `fluidPolicy: "displace"` to replace only occupied water
+cells with solid rock. No separate underwater placement owner exists.
+
 ### Biome palette corrections (default pack)
 
 - Desert uses Sand for exposed ground, Sandstone as an underlying
