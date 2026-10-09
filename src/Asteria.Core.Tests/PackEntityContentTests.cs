@@ -21,7 +21,8 @@ public sealed class PackEntityContentTests
         var registry = PackContentRegistry<ItemDefinition>.FromJson(
             documents, ItemDefinition.Parse, item => item.Id);
 
-        Assert.Equal(14, registry.Count);
+        Assert.Equal(18, registry.Count);
+        Assert.Equal(240, registry.Get("asteria:wayfarer_chestplate").MaxDurability);
         var pebble = registry.Get("asteria:pebble");
         Assert.Equal("textures/items/pebble.png", pebble.Icon);
         var stick = registry.Get("asteria:stick");
