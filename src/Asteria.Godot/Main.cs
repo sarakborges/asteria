@@ -2187,7 +2187,8 @@ public partial class Main : Node3D
             amount, protection, _sessionStates.Player.Health,
             _sessionStates.Player.GameMode);
         if (result != PlayerDamageResult.Ignored &&
-            PlayerEquipmentWear.ApplyContactHit(_sessionStates.Player.Inventory, _items))
+            PlayerEquipmentWear.ApplyContactHit(_sessionStates.Player.Inventory, _items) &&
+            _inventoryOpen)
         {
             SendInventoryState();
             _playerPortrait?.RequestCapture();
