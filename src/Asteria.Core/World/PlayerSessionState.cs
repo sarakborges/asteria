@@ -21,14 +21,16 @@ public sealed class PlayerSessionState
 
     public bool IsFlying { get; private set; }
 
-    public bool CanInteract => !GameMode.IsSpectator();
+    public bool CanInteract => !GameMode.IsSpectator() && !Health.IsDead;
+
+    public PlayerHealth Health { get; } = new();
 
     public HeldBlockPlacement HeldBlock { get; } = new();
 
     public PlayerInventory Inventory { get; } = new();
 
     internal PlayerSessionSnapshot CaptureState() =>
-        new(GameMode, IsFlying, Inventory.Capture());
+        new(GameMode, IsFlying, Inventory.Capture(), Health.Current);
 
     internal void RestoreState(PlayerSessionSnapshot snapshot)
     {
@@ -38,7 +40,12 @@ public sealed class PlayerSessionState
             snapshot.GameMode.IsSpectator() && !snapshot.Flying)
             throw new InvalidDataException("Invalid saved flight state.");
 
+        if (!float.IsFinite(snapshot.Health) ||
+            snapshot.Health < 0f || snapshot.Health > Health.Maximum)
+            throw new InvalidDataException("Invalid saved player health.");
+
         Inventory.Restore(snapshot.Inventory);
+        Health.Restore(snapshot.Health);
         GameMode = snapshot.GameMode;
         IsFlying = snapshot.Flying;
         CancelDoubleTap();
