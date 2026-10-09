@@ -173,6 +173,58 @@ public sealed class GameplaySessionFileCodecTests
     }
 
     [Fact]
+    public void LegacyV1PlayerInventoryLoadsWithFourEmptyEquipmentSlots()
+    {
+        var content = Content(false);
+        var creation = new WorldCreationOptions("Legacy World", 4321UL);
+        var states = new DimensionSessionStateStore(creation, Dimensions());
+        states.GetOrCreate(DimensionId.Overworld);
+        Assert.True(states.Player.Inventory.TryInsert(new InventoryStack(
+            InventoryEntry.FromItem("asteria:stick"), 2)));
+        var saved = GameplaySessionSaveCodec.Capture(
+            states, content.Blocks, content.Fluids,
+            content.Dyes, content.Layers);
+        var version2 = Encode(saved, content);
+
+        // A v1 payload did not contain the four nullable equipment fields.
+        // Synthesize the exact v1 shape from a v2 payload with empty gear,
+        // without modifying any spatial or sphere snapshot bytes.
+        using var source = new MemoryStream(version2, writable: false);
+        using var reader = new BinaryReader(source, System.Text.Encoding.UTF8,
+            leaveOpen: true);
+        reader.ReadUInt32();
+        reader.ReadUInt16();
+        PortableStackSaveCodec.ReadString(reader, 512);
+        reader.ReadUInt32();
+        reader.ReadBoolean();
+        if (reader.ReadBoolean())
+            PortableStackSaveCodec.ReadString(reader, 512);
+        reader.ReadByte();
+        reader.ReadBoolean();
+        reader.ReadByte();
+        for (var i = 0; i < PlayerInventory.TotalSlots + 1; i++)
+            PortableStackSaveCodec.Read(
+                reader, content.Blocks, content.Dyes, content.Layers);
+        var equipmentStart = checked((int)source.Position);
+        Assert.Equal(new byte[PlayerInventory.EquipmentSlots],
+            version2.AsSpan(equipmentStart, PlayerInventory.EquipmentSlots).ToArray());
+        var version1 = version2.AsSpan(0, equipmentStart).ToArray()
+            .Concat(version2.AsSpan(
+                equipmentStart + PlayerInventory.EquipmentSlots).ToArray())
+            .ToArray();
+        version1[4] = 1;
+        version1[5] = 0;
+
+        var restored = GameplaySessionSaveCodec.Restore(
+            creation, Dimensions(), Decode(version1, content),
+            content.Blocks, content.Fluids,
+            content.Dyes, content.Layers);
+        Assert.Equal(2, restored.Player.Inventory.SelectedStack!.Quantity);
+        foreach (var slot in Enum.GetValues<EquipmentSlot>())
+            Assert.Null(restored.Player.Inventory.EquipmentAt(slot));
+    }
+
+    [Fact]
     public void CreatureTagWithExplicitEmptyValueSurvivesSessionSerialization()
     {
         var content = Content(false);
