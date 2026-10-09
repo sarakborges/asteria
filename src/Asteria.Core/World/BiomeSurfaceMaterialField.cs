@@ -10,6 +10,7 @@ public sealed class BiomeSurfaceMaterialField
     private readonly ulong _seed;
     private readonly SurfaceTerrainField? _terrain;
     private readonly Dictionary<string, MaterialRule> _rules;
+    private readonly Dictionary<string, FaceRules> _faceRules;
 
     public BiomeSurfaceMaterialField(
         ulong seed,
@@ -22,20 +23,15 @@ public sealed class BiomeSurfaceMaterialField
 
         _seed = seed;
         _terrain = terrain;
-        _rules =
-            biomes
-                .OrderBy(
-                    biome =>
-                        biome.Id,
-                    StringComparer.Ordinal)
-                .ToDictionary(
-                    biome =>
-                        biome.Id,
-                    biome =>
-                        MaterialRule.Create(
-                            biome,
-                            blocks),
-                    StringComparer.Ordinal);
+        _faceRules = biomes
+            .OrderBy(biome => biome.Id, StringComparer.Ordinal)
+            .ToDictionary(
+                biome => biome.Id,
+                biome => FaceRules.Create(biome, blocks),
+                StringComparer.Ordinal);
+        _rules = _faceRules.ToDictionary(
+            pair => pair.Key, pair => pair.Value.Floor,
+            StringComparer.Ordinal);
 
         if (_rules.Count == 0)
         {
@@ -75,16 +71,36 @@ public sealed class BiomeSurfaceMaterialField
             PlacementFor(rule, worldX, worldZ, placement));
     }
 
-    /// <summary>One shared authored surfaceLayers palette in volume-space.</summary>
+    /// <summary>
+    /// Samples the same authored palette across 3D exposed faces, where
+    /// depth increases into the solid along the face normal.
+    /// </summary>
     public BlockRuntimeId VolumeBlockAt(
-        BiomeSample sample, int worldX, int worldY, int worldZ)
+        BiomeSample sample, int worldX, int worldY, int worldZ,
+        BiomePaletteFace face = BiomePaletteFace.Floor, uint depth = 0)
     {
         ArgumentNullException.ThrowIfNull(sample);
-        if (!_rules.TryGetValue(sample.Primary, out var rule))
+        if (!_faceRules.TryGetValue(sample.Primary, out var rules))
             throw new KeyNotFoundException(
                 $"Biome {sample.Primary} has no material palette.");
-        return rule.VolumeBlockAt(_seed, worldX, worldY, worldZ);
+        return rules.For(face).VolumeBlockAt(
+            _seed, worldX, worldY, worldZ, depth);
     }
+
+    /// <summary>Maximum relevant inward distance (at least one voxel).</summary>
+    public uint MaxVolumePaintDepth(BiomeSample sample)
+    {
+        ArgumentNullException.ThrowIfNull(sample);
+        if (!_faceRules.TryGetValue(sample.Primary, out var rules))
+            throw new KeyNotFoundException(
+                $"Biome {sample.Primary} has no material palette.");
+        return rules.MaxDepth;
+    }
+
+    public bool HasDirectionalOverride(
+        BiomeSample sample, BiomePaletteFace face) =>
+        _faceRules.TryGetValue(sample.Primary, out var rules) &&
+        rules.HasOverride(face);
 
     public BiomeSurfaceMaterialColumn SampleColumn(
         BiomeSample sample,
@@ -151,6 +167,50 @@ public sealed class BiomeSurfaceMaterialField
             rule.RequiresSlope, rule.UsesBaseSurface);
     }
 
+    private sealed record FaceRules(
+        MaterialRule Floor,
+        MaterialRule Walls,
+        MaterialRule Ceiling,
+        bool OverrideFloor,
+        bool OverrideWalls,
+        bool OverrideCeiling)
+    {
+        public uint MaxDepth =>
+            Math.Max(1u, Math.Max(Floor.CoreStartDepth,
+                Math.Max(Walls.CoreStartDepth, Ceiling.CoreStartDepth)));
+
+        public MaterialRule For(BiomePaletteFace face) => face switch
+        {
+            BiomePaletteFace.Floor => Floor,
+            BiomePaletteFace.Walls => Walls,
+            BiomePaletteFace.Ceiling => Ceiling,
+            _ => throw new ArgumentOutOfRangeException(nameof(face)),
+        };
+
+        public bool HasOverride(BiomePaletteFace face) => face switch
+        {
+            BiomePaletteFace.Floor => OverrideFloor,
+            BiomePaletteFace.Walls => OverrideWalls,
+            BiomePaletteFace.Ceiling => OverrideCeiling,
+            _ => throw new ArgumentOutOfRangeException(nameof(face)),
+        };
+
+        public static FaceRules Create(BiomeDefinition biome, BlockRegistry blocks)
+        {
+            var palette = biome.Palette;
+            var defaults = MaterialRule.Create(biome, blocks, palette.Default, null);
+            var floor = palette.Floor is null
+                ? defaults : MaterialRule.Create(biome, blocks, palette.Floor, "floor");
+            var walls = palette.Walls is null
+                ? defaults : MaterialRule.Create(biome, blocks, palette.Walls, "walls");
+            var ceiling = palette.Ceiling is null
+                ? defaults : MaterialRule.Create(biome, blocks, palette.Ceiling, "ceiling");
+            return new FaceRules(floor, walls, ceiling,
+                palette.Floor is not null, palette.Walls is not null,
+                palette.Ceiling is not null);
+        }
+    }
+
     private sealed class MaterialRule
     {
         private MaterialRule(
@@ -205,8 +265,20 @@ public sealed class BiomeSurfaceMaterialField
         }
 
         public BlockRuntimeId VolumeBlockAt(
-            ulong seed, int x, int y, int z) =>
-            Layers[0].ResolveVolume(seed, x, y, z);
+            ulong seed, int x, int y, int z, uint depth)
+        {
+            if (depth >= CoreStartDepth)
+                return CoreBlock;
+
+            foreach (var layer in Layers)
+            {
+                if (layer.EndDepthExclusive is { } end && depth >= end)
+                    continue;
+                return layer.ResolveVolume(seed, x, y, z);
+            }
+            throw new InvalidOperationException(
+                "Validated palette must end with a core layer.");
+        }
 
         public BiomeSurfaceMaterialColumn SampleColumn(
             ulong seed,
@@ -231,19 +303,21 @@ public sealed class BiomeSurfaceMaterialField
 
         public static MaterialRule Create(
             BiomeDefinition biome,
-            BlockRegistry blocks)
+            BlockRegistry blocks,
+            IReadOnlyList<BiomeSurfaceLayerDefinition> profile,
+            string? face)
         {
             var finiteDepth = 0u;
             var layers =
                 new ResolvedLayer[
-                    biome.SurfaceLayers.Count];
+                    profile.Count];
 
             for (var index = 0;
                  index < layers.Length;
                  index++)
             {
                 var definition =
-                    biome.SurfaceLayers[index];
+                    profile[index];
                 uint? endDepth = null;
 
                 if (definition.Depth is
@@ -265,7 +339,7 @@ public sealed class BiomeSurfaceMaterialField
                         definition.Patch is
                             { } patch
                             ? ResolvedPatch.Create(
-                                biome.Id,
+                                face is null ? biome.Id : $"{biome.Id}/{face}",
                                 index,
                                 patch,
                                 blocks)
@@ -367,6 +441,10 @@ public sealed class BiomeSurfaceMaterialField
         public BlockRuntimeId? ResolveVolume(
             ulong seed, int x, int y, int z)
         {
+            if (_definition.Conditions is { } conditions &&
+                !conditions.Allows(new SurfacePlacementContext(y, 0)))
+                return null;
+
             var verticalScale = Math.Max(2u, _definition.DetailScale);
             var noise = WorldGenerationEntropy.ValueNoise3D(
                 seed, _volumeMaskDomain, x, y, z,
