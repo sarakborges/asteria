@@ -90,7 +90,7 @@ public sealed class VerticalBiomeContentTests
             Path.Combine(PackData, "dimensions", "overworld.json")));
         var oceanRoots = dimension.GeneratedSurfaceStructures.Where(
             r => r.Biome == "asteria:overworld/ocean").ToArray();
-        Assert.Equal(3, oceanRoots.Length);
+        Assert.Equal(4, oceanRoots.Length);
         Assert.Single(oceanRoots, r =>
             r.Structure == "asteria:river_ocean_mouth" &&
             r.Placement == DimensionGeneratedSurfaceStructurePlacement.BiomeMargin);
@@ -124,7 +124,7 @@ public sealed class VerticalBiomeContentTests
         Assert.Equal(VolumeBiomePlacement.Additive, floating.VolumeLayout.Placement);
         Assert.Null(cave.SurfaceHabitats);
         Assert.Null(floating.SurfaceHabitats);
-        Assert.Equal(3, cave.Decorations.Count);
+        Assert.Equal(6, cave.Decorations.Count);
         Assert.Equal(3, floating.Decorations.Count);
 
         var field = new SurfaceDecorationField(119UL, [cave, floating], blocks);
