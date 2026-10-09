@@ -2282,14 +2282,28 @@ public partial class Main : Node3D
             });
     }
 
-    private static object? InventorySlotView(InventoryStack? stack) =>
+    private object? InventorySlotView(InventoryStack? stack) =>
         stack is null ? null : new
         {
             id = stack.Id,
             kind = stack.Kind.ToString().ToLowerInvariant(),
             quantity = stack.Quantity,
             metadata = stack.Entry.Metadata,
+            durability = EquipmentDurabilityView(stack),
         };
+
+    private object? EquipmentDurabilityView(InventoryStack stack)
+    {
+        if (stack.Kind != InventoryEntryKind.Item ||
+            !_items.TryGet(stack.Id, out var definition) ||
+            definition?.MaxDurability is not { } maximum)
+            return null;
+        return new
+        {
+            current = EquipmentDurability.Remaining(stack.Entry, maximum),
+            maximum,
+        };
+    }
 
     private void SendHotbarState()
     {
