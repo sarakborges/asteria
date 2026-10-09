@@ -811,3 +811,32 @@ chandeliers from ceilings. Floating Islands authors 2 families with
 5 variants: branching skywood trees with 3D canopies and violet
 crystal arches anchored on actual additive island solids.
 Distinct 64×64 pack textures support the new blocks and RGB emission.
+
+## Frozen biome landmark biodiversity — Arctic and Alps
+
+Large-scale authored landmark families now complement the existing
+ground decorations and boulder/ice-outcrop rules, without changing
+the default palettes, surfaceTerrain shapes or biome borders.
+
+**Arctic**: three variants of short wind-carved, snow-needled pines
+on Snow; three woody frost-brush thickets on Snow; and three variants
+of multi-height pale rime towers on *existing Ice surfaces only*.
+Habitat weighting favors `frozen_plain` vegetation and `ice_fields`
+crystal silhouettes, keeping the region recognizable as tundra rather
+than covering it with trees.
+
+**Alps**: four tiers of taller conical alpine snow fir (approximately
+9–14 blocks high) on snowy ground; three different windswept dwarf
+conifers rooted in natural exposed Stone; three split serac formations;
+and two tall bridged ice arches. Seracs/arches require *existing*
+surface Ice, and strongly prefer `glacial_ice`, while tall firs
+prefer `snowfields` and dwarf pines prefer `wind_scoured_rock`.
+No new Gravel, Basalt or random surface patches are introduced.
+
+All landmarks reuse the existing `generatedSurfaceStructures`
+configuration and StructureRegistry variant groups, normal
+support/biome fit, conflict groups, seed-stable placement, chunk-border
+rendering and fluid exclusions. Each template writes only one
+ground-cell matching its authored groundBlock restriction
+(Snow/Ice/Stone), preserving the actual surface material.
+Six new block definitions use seven pack-owned 64x64 textures.

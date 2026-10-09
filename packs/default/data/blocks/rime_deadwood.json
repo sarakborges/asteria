@@ -1,0 +1,21 @@
+{
+  "id": "asteria:rime_deadwood",
+  "category": "wooden_blocks",
+  "textures": {
+    "top": "textures/blocks/rime_deadwood.png",
+    "bottom": "textures/blocks/rime_deadwood.png",
+    "left": "textures/blocks/rime_deadwood.png",
+    "right": "textures/blocks/rime_deadwood.png",
+    "front": "textures/blocks/rime_deadwood.png",
+    "back": "textures/blocks/rime_deadwood.png"
+  },
+  "mining": {
+    "hardness": 0.8,
+    "preferredTools": [
+      "hatchet"
+    ]
+  },
+  "lightDampening": 15,
+  "castsShadow": true,
+  "previewColor": "8298a1"
+}

@@ -1,0 +1,125 @@
+{
+  "id": "asteria:arctic_frost_brush_02",
+  "groupId": "arctic_frost_brush",
+  "rotation": true,
+  "locatable": false,
+  "priority": 0,
+  "conflictGroups": [
+    "shrub"
+  ],
+  "restrictions": {
+    "groundBlocks": [
+      "asteria:snow"
+    ],
+    "maxSlope": 1,
+    "requiredBiomeCoverage": 1,
+    "requiresDryGround": true
+  },
+  "generation": {
+    "replacePolicy": "terrain",
+    "fluidPolicy": "forbid",
+    "reserveSpace": false
+  },
+  "anchor": {
+    "x": 4,
+    "y": 0,
+    "z": 4
+  },
+  "palette": {
+    "G": {
+      "block": "asteria:snow"
+    },
+    "B": {
+      "block": "asteria:rime_deadwood"
+    },
+    "T": {
+      "block": "asteria:arctic_snow_needles"
+    }
+  },
+  "layers": [
+    {
+      "y": 0,
+      "rows": [
+        ".........",
+        ".........",
+        "......G..",
+        ".........",
+        "....G....",
+        ".........",
+        "...G.G...",
+        ".........",
+        "........."
+      ]
+    },
+    {
+      "y": 1,
+      "rows": [
+        ".........",
+        ".........",
+        "......B..",
+        ".........",
+        "....B....",
+        ".........",
+        "...B.B...",
+        ".........",
+        "........."
+      ]
+    },
+    {
+      "y": 2,
+      "rows": [
+        ".........",
+        ".........",
+        "......B..",
+        "....T....",
+        "...TBT...",
+        "...TT....",
+        "..TBTB...",
+        "...T.....",
+        "........."
+      ]
+    },
+    {
+      "y": 3,
+      "rows": [
+        ".........",
+        "......T..",
+        ".....TBT.",
+        "....T.T..",
+        "...TBT...",
+        "...TTT...",
+        "..TBTBT..",
+        "...T.T...",
+        "........."
+      ]
+    },
+    {
+      "y": 4,
+      "rows": [
+        ".........",
+        "......T..",
+        ".....TBT.",
+        "......T..",
+        "....T....",
+        ".....T...",
+        "...TTBT..",
+        ".....T...",
+        "........."
+      ]
+    },
+    {
+      "y": 5,
+      "rows": [
+        ".........",
+        ".........",
+        "......T..",
+        ".........",
+        ".........",
+        ".........",
+        ".....T...",
+        ".........",
+        "........."
+      ]
+    }
+  ]
+}
