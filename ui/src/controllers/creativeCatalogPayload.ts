@@ -1,5 +1,5 @@
 import type {
-  InventoryCatalogEntry, InventoryCategoryState,
+  InventoryCatalogEntry, InventoryCategoryState, BlockPreviewState,
 } from "../state/uiState";
 import { readKind, readMetadata } from "./inventoryMessageSlots";
 import { asRecord } from "./messagePayload";
@@ -54,6 +54,10 @@ export function readCreativeCatalog(value: unknown): AuthoredCreativeCatalog | n
     const item = asRecord(raw);
     const kind = readKind(item?.kind);
     const metadata = readMetadata(item?.metadata);
+    const blockPreview = readBlockPreview(item?.blockPreview);
+    if (item?.blockPreview !== null && item?.blockPreview !== undefined &&
+        !blockPreview) return null;
+    if (blockPreview && kind !== "block") return null;
     if (!item || !kind || !metadata ||
         Object.keys(metadata).length > 16 ||
         Object.entries(metadata).some(([key, entry]) =>
@@ -68,7 +72,22 @@ export function readCreativeCatalog(value: unknown): AuthoredCreativeCatalog | n
       id: item.id, kind, name: item.name,
       category: item.category, metadata,
       iconUrl: typeof item.iconUrl === "string" ? item.iconUrl : undefined,
+      blockPreview: blockPreview ?? undefined,
     });
   }
   return { categories, everythingIconUrl: payload.everythingIconUrl, items };
+}
+
+function readBlockPreview(raw: unknown): BlockPreviewState | null {
+  const data = asRecord(raw);
+  if (!data ||
+      (data.kind !== "cube" && data.kind !== "sprite") ||
+      !pngUrl(data.front) ||
+      !(data.top === null || pngUrl(data.top)) ||
+      !(data.right === null || pngUrl(data.right)))
+    return null;
+  return {
+    kind: data.kind, front: data.front,
+    top: data.top, right: data.right,
+  };
 }
