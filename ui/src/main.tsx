@@ -84,6 +84,7 @@ createRoot(rootElement).render(
       dismissToast: store.dismissToast,
       resumeGame: navigation.resumeGame,
       saveWorld: navigation.saveWorld,
+      leaveWorld: navigation.leaveWorld,
       openGameSettings: navigation.openGameSettings,
       openWorldSettings: navigation.openWorldSettings,
       openControls: navigation.openControls,
