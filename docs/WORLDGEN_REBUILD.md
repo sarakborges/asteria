@@ -914,3 +914,32 @@ restrictions: they cannot knowingly replace crater lava or
 spill fluids. Nine new pack-owned 64x64 PNG textures are used
 by eight blocks; no Godot import files, surface patch rewrites
 or special-case Volcano generator logic were added.
+
+## Wasteland dead flora and skeletal landmarks (2026-10-10)
+
+The `wasteland` content gap from the 2026-10-10 audit was addressed.
+The existing rolling terrain, Dirt/Gravel/Stone palette and patch
+noise, habitat borders, tint and placement exclusions are unchanged.
+
+Five new clustered, strictly dry-ground decorators use authentic
+Wasteland supports: Dead Thistle, Brittle Tuft, Dry Lichen, Bleached
+Roots, and small Bone Scatters. The open `barren_flats` habitat
+receives only the sparse Brittle Tuft; `deadwood_pockets` prefers
+exposed roots and plants; `rocky_scrub` receives thistles and lichens.
+They do not create ground-material patches or extra Pebbles.
+
+Two new StructureRegistry families provide seven 3D variants:
+`wasteland_thorn_scrub` (four multi-branched, angular dead shrubs)
+and `wasteland_fossil_rib` (three rare, low, ribbed fossil remains).
+The structures start at Y=1 above the natural surface, author no
+replacement Y=0 ground blocks, require Dirt/Gravel (fossils may also
+use Stone), full Wasteland coverage and no generated fluids.
+Fossils have a strict flat-slope restriction; both families use
+seed-stable surface habitat weights and standard conflict resolution.
+
+Seven pack-owned 64x64 textures support five sprite objects and
+two voxel blocks. There are no gameplay assumptions about dynamic
+bone spawning, erosion, drops or new particle systems.
+
+Content intentionally complements, rather than replaces, existing
+`wasteland_snag` and `fallen_log_wasteland` structures.

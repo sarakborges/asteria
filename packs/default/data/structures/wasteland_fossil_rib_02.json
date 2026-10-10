@@ -1,0 +1,103 @@
+{
+  "id": "asteria:wasteland_fossil_rib_02",
+  "groupId": "wasteland_fossil_rib",
+  "locatable": false,
+  "rotation": true,
+  "priority": 0,
+  "conflictGroups": [
+    "fossil",
+    "rock"
+  ],
+  "groundAnchorY": 0,
+  "restrictions": {
+    "groundBlocks": [
+      "asteria:dirt",
+      "asteria:gravel",
+      "asteria:stone"
+    ],
+    "maxSlope": 0,
+    "requiresDryGround": true,
+    "requiredBiomeCoverage": 1
+  },
+  "generation": {
+    "replacePolicy": "terrain",
+    "fluidPolicy": "forbid",
+    "reserveSpace": false
+  },
+  "anchor": {
+    "x": 5,
+    "y": 0,
+    "z": 5
+  },
+  "palette": {
+    "F": {
+      "block": "asteria:wasteland_fossil_bone"
+    }
+  },
+  "layers": [
+    {
+      "y": 1,
+      "rows": [
+        "...........",
+        "...........",
+        "...........",
+        "...........",
+        "...........",
+        ".....F.....",
+        "...........",
+        "...........",
+        "...........",
+        "...........",
+        "..........."
+      ]
+    },
+    {
+      "y": 2,
+      "rows": [
+        "...........",
+        "...........",
+        ".....F.....",
+        "...FFFFF...",
+        "...FFFFF...",
+        ".....F.....",
+        "...FFFFF...",
+        "...FFFFF...",
+        ".....F.....",
+        "...........",
+        "..........."
+      ]
+    },
+    {
+      "y": 3,
+      "rows": [
+        "...........",
+        "...........",
+        "...........",
+        "...F...F...",
+        "...F...F...",
+        "...........",
+        "...F...F...",
+        "...F...F...",
+        "...........",
+        "...........",
+        "..........."
+      ]
+    },
+    {
+      "y": 4,
+      "rows": [
+        "...........",
+        "...........",
+        "...........",
+        "...F..FF...",
+        "...F...F...",
+        "...........",
+        "...F..FF...",
+        "...F...F...",
+        "...........",
+        "...........",
+        "..........."
+      ]
+    }
+  ]
+}

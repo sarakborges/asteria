@@ -1,0 +1,27 @@
+{
+  "id": "asteria:wasteland_brittle_tuft",
+  "category": "foliage",
+  "tags": [
+    "support_below"
+  ],
+  "windSway": true,
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/wasteland_brittle_tuft.png",
+    "width": 0.77,
+    "height": 0.83,
+    "planes": 4
+  },
+  "placementFaces": [
+    "top"
+  ],
+  "mining": {
+    "hardness": 0.07
+  },
+  "isCollidable": false,
+  "castsShadow": false,
+  "lightDampening": 0,
+  "alphaCutoff": 0.5,
+  "previewColor": "bea275",
+  "dropsSelf": false
+}

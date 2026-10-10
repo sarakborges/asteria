@@ -1,0 +1,26 @@
+{
+  "id": "asteria:wasteland_dead_thistle",
+  "category": "foliage",
+  "tags": [
+    "support_below"
+  ],
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/wasteland_dead_thistle.png",
+    "width": 0.84,
+    "height": 0.87,
+    "planes": 4
+  },
+  "placementFaces": [
+    "top"
+  ],
+  "mining": {
+    "hardness": 0.07
+  },
+  "isCollidable": false,
+  "castsShadow": false,
+  "lightDampening": 0,
+  "alphaCutoff": 0.5,
+  "previewColor": "9f8d77",
+  "dropsSelf": false
+}
