@@ -9,7 +9,9 @@ const meta = {
     keepInventory: true,
     droppedStacks: 0,
     dropCapacityExceeded: false,
+    outcomeKnown: true,
     onRespawn: () => {},
+    onSaveAndLeave: () => {},
   },
 } satisfies Meta<typeof DeathScreenPage>;
 
@@ -21,4 +23,11 @@ export const ItemsDropped: Story = {
 };
 export const CapacityProtected: Story = {
   args: { keepInventory: true, dropCapacityExceeded: true },
+};
+
+export const RestoredDeadSave: Story = {
+  args: { keepInventory: false, outcomeKnown: false },
+};
+export const ExitSaveFailed: Story = {
+  args: { saveError: true },
 };
