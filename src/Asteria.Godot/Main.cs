@@ -2277,6 +2277,7 @@ public partial class Main : Node3D
                 _sessionStates.GameRules.KeepInventory,
             droppedStacks = outcome?.DroppedStacks ?? 0,
             dropCapacityExceeded = outcome?.DropCapacityExceeded ?? false,
+            outcomeKnown = outcome.HasValue,
         });
     }
 
