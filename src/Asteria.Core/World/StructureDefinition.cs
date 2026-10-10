@@ -234,7 +234,8 @@ public sealed class StructureRestrictionsDefinition
         float requiredBiomeCoverage = 0f,
         IEnumerable<string>? groundBlocks = null,
         IEnumerable<StructureProximityRestrictionDefinition>? proximity = null,
-        int minSlope = 0)
+        int minSlope = 0,
+        string? requiredFluid = null)
     {
         if (maxSlope is < 0 or > 64)
         {
@@ -258,6 +259,15 @@ public sealed class StructureRestrictionsDefinition
             throw new ArgumentOutOfRangeException(
                 nameof(requiredBiomeCoverage),
                 "Structure requiredBiomeCoverage must be within 0..1.");
+        }
+
+        if (requiredFluid is not null)
+        {
+            FluidDefinition.ValidateId(requiredFluid);
+            if (requiresDryGround)
+                throw new ArgumentException(
+                    "Submerged structures cannot require dry ground.",
+                    nameof(requiredFluid));
         }
 
         var authoredGroundBlocks =
@@ -326,6 +336,7 @@ public sealed class StructureRestrictionsDefinition
         MaxSlope = maxSlope;
         RequiresDryGround = requiresDryGround;
         RequiredBiomeCoverage = requiredBiomeCoverage;
+        RequiredFluid = requiredFluid;
         GroundBlocks =
             Array.AsReadOnly(
                 authoredGroundBlocks);
@@ -341,6 +352,12 @@ public sealed class StructureRestrictionsDefinition
     public bool RequiresDryGround { get; }
 
     public float RequiredBiomeCoverage { get; }
+
+    /// <summary>
+    /// When authored, every structure block must occupy this generated
+    /// fluid prior to its replacement. Uses the generated-fluid owner.
+    /// </summary>
+    public string? RequiredFluid { get; }
 
     public IReadOnlyList<string> GroundBlocks { get; }
 
