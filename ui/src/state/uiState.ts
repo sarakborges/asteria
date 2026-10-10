@@ -279,7 +279,7 @@ export type UiNavigationState = {
   preWorldScreen: "starting" | "world-selection" | "new-world";
   overlay: OverlayScreen;
   saveFeedback: "saved" | "error" | null;
-  death: { keepInventory: boolean; droppedStacks: number; dropCapacityExceeded: boolean } | null;
+  death: { keepInventory: boolean; droppedStacks: number; dropCapacityExceeded: boolean; outcomeKnown: boolean } | null;
 };
 
 export type WorldCatalogState = {
