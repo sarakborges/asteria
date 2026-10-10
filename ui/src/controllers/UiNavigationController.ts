@@ -125,7 +125,8 @@ export function createUiNavigationController(
             typeof raw.droppedStacks !== "number" ||
             !Number.isSafeInteger(raw.droppedStacks) ||
             raw.droppedStacks < 0 || raw.droppedStacks > 42 ||
-            typeof raw.dropCapacityExceeded !== "boolean")
+            typeof raw.dropCapacityExceeded !== "boolean" ||
+            (raw.outcomeKnown !== undefined && typeof raw.outcomeKnown !== "boolean"))
           return;
         store.update(state => ({
           ...state,
@@ -136,6 +137,7 @@ export function createUiNavigationController(
               keepInventory: raw.keepInventory as boolean,
               droppedStacks: raw.droppedStacks as number,
               dropCapacityExceeded: raw.dropCapacityExceeded as boolean,
+              outcomeKnown: raw.outcomeKnown !== false,
             },
           },
         }));
