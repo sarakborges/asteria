@@ -222,7 +222,10 @@ export function App({
           keepInventory={state.navigation.death.keepInventory}
           droppedStacks={state.navigation.death.droppedStacks}
           dropCapacityExceeded={state.navigation.death.dropCapacityExceeded}
+          outcomeKnown={state.navigation.death.outcomeKnown}
+          saveError={state.navigation.saveFeedback === "error"}
           onRespawn={actions.respawn}
+          onSaveAndLeave={actions.leaveWorld}
         />
       )}
 
