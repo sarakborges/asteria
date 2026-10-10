@@ -201,6 +201,104 @@ public sealed class GameplaySessionFileCodecTests
     }
 
     [Fact]
+    public void PlayerDeathDropsAndInventoryRuleSurviveSaveLoad()
+    {
+        var content = Content(false);
+        var creation = new WorldCreationOptions(
+            "Death Drops", 5361UL, keepInventory: false);
+        var states = new DimensionSessionStateStore(creation, Dimensions());
+        var sphere = states.GetOrCreate(DimensionId.Overworld);
+        sphere.World.InsertChunk(ChunkCoord.Zero, new Chunk());
+
+        var item = InventoryEntry.FromItem("asteria:wayfarer_helmet",
+            new Dictionary<string, string>
+            {
+                [EquipmentDurability.MetadataKey] = "37",
+            }, maxStackSize: 1);
+        Assert.True(states.Player.Inventory.TryCreativePick(item));
+        Assert.True(states.Player.Inventory.ClickEquipment(
+            EquipmentSlot.Helmet, (_, slot) => slot == EquipmentSlot.Helmet));
+        Assert.True(states.Player.Inventory.TryInsert(new InventoryStack(
+            InventoryEntry.FromItem("asteria:berries",
+                new Dictionary<string, string> { ["origin"] = "forest" }), 27)));
+
+        Assert.Equal(PlayerDamageResult.Killed,
+            states.Player.Health.Damage(20, PlayerGameMode.Survival));
+        Assert.False(states.Player.CanInteract);
+        var drops = new DroppedBlockRuntime(sphere.World, content.Blocks);
+        var outcome = PlayerDeathConsequences.Resolve(
+            states.Player, states.GameRules, drops, new Vector3(4, 6, 4));
+        Assert.False(outcome.InventoryKept);
+        Assert.Equal(2, outcome.DroppedStacks);
+        sphere.DroppedBlocks = drops.CaptureState();
+
+        var captured = GameplaySessionSaveCodec.Capture(
+            states, content.Blocks, content.Fluids,
+            content.Dyes, content.Layers, DimensionId.Overworld);
+        var decoded = Decode(Encode(captured, content), content);
+        var loaded = GameplaySessionSaveCodec.Restore(
+            creation, Dimensions(), decoded,
+            content.Blocks, content.Fluids, content.Dyes, content.Layers);
+
+        Assert.False(loaded.GameRules.KeepInventory);
+        Assert.True(loaded.Player.Health.IsDead);
+        Assert.False(loaded.Player.CanInteract);
+        Assert.Null(loaded.Player.Inventory.EquipmentAt(EquipmentSlot.Helmet));
+        Assert.All(Enumerable.Range(0, PlayerInventory.TotalSlots),
+            index => Assert.Null(loaded.Player.Inventory.SlotAt(index)));
+
+        var restoredDrops = new DroppedBlockRuntime(
+            loaded.GetOrCreate(DimensionId.Overworld).World,
+            content.Blocks, restore: loaded.GetOrCreate(DimensionId.Overworld)
+                .DroppedBlocks);
+        Assert.Equal(2, restoredDrops.ActiveCount);
+        var worn = restoredDrops.ActiveBlocks.Single(drop =>
+            drop.Stack.Id == "asteria:wayfarer_helmet");
+        Assert.Equal("37", worn.Stack.Entry.Metadata[EquipmentDurability.MetadataKey]);
+        var berries = restoredDrops.ActiveBlocks.Single(drop =>
+            drop.Stack.Id == "asteria:berries");
+        Assert.Equal(27, berries.Stack.Quantity);
+        Assert.Equal("forest", berries.Stack.Entry.Metadata["origin"]);
+        Assert.True(loaded.Player.Health.Respawn());
+        Assert.True(loaded.Player.CanInteract);
+    }
+
+    [Fact]
+    public void LegacyV3RetainsHealthAndDefaultsInventoryRuleToKeep()
+    {
+        var content = Content(false);
+        var creation = new WorldCreationOptions(
+            "V3 health", 941UL, keepInventory: false);
+        var states = new DimensionSessionStateStore(creation, Dimensions());
+        states.GetOrCreate(DimensionId.Overworld);
+        states.Player.Health.Damage(7f, PlayerGameMode.Survival);
+        var encoded = Encode(GameplaySessionSaveCodec.Capture(
+            states, content.Blocks, content.Fluids,
+            content.Dyes, content.Layers), content);
+
+        using var stream = new MemoryStream(encoded, writable: false);
+        using var reader = new BinaryReader(
+            stream, System.Text.Encoding.UTF8, leaveOpen: true);
+        reader.ReadUInt32();
+        reader.ReadUInt16();
+        PortableStackSaveCodec.ReadString(reader, 512);
+        reader.ReadUInt32();
+        reader.ReadBoolean();
+        var keepInventoryOffset = checked((int)stream.Position);
+        var legacy = encoded.AsSpan(0, keepInventoryOffset).ToArray()
+            .Concat(encoded.AsSpan(keepInventoryOffset + 1).ToArray())
+            .ToArray();
+        legacy[4] = 3;
+        legacy[5] = 0;
+
+        var restored = GameplaySessionSaveCodec.Restore(
+            creation, Dimensions(), Decode(legacy, content),
+            content.Blocks, content.Fluids, content.Dyes, content.Layers);
+        Assert.True(restored.GameRules.KeepInventory);
+        Assert.Equal(13f, restored.Player.Health.Current);
+    }
+
+    [Fact]
     public void LegacyV2LoadsWithMaximumHealth()
     {
         var content = Content(false);
