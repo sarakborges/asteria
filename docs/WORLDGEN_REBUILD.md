@@ -1,5 +1,7 @@
 # Asteria Worldgen Rebuild — MineClone parity map
 
+See [BIOME_CONTENT_BACKLOG.md](BIOME_CONTENT_BACKLOG.md) for the prioritized post-enrichment audit of potential blocks, objects, and genuine system prerequisites.
+
 Reference implementation and behavioral contract:
 
 - repository: `sarakborges/mineclone`
