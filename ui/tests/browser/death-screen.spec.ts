@@ -77,6 +77,6 @@ test("restored-death screen never fabricates a prior item-drop outcome", async (
 
 test("death screen surfaces a failed save while retaining manual respawn", async ({ page }) => {
   await page.goto("/iframe.html?id=pages-deathscreenpage--exit-save-failed&viewMode=story");
-  await expect(page.getByRole("alert")).toContainText("Failed");
+  await expect(page.getByRole("alert")).toContainText("Could not save");
   await expect(page.getByRole("button", { name: "Respawn" })).toBeVisible();
 });
