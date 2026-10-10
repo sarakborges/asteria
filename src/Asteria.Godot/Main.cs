@@ -3404,7 +3404,7 @@ public partial class Main : Node3D
     private void AdvanceItemPickup(double delta)
     {
         if (_player is null || _blockEntities.DroppedCount == 0 ||
-            _sessionStates.Player.GameMode.IsSpectator())
+            !_sessionStates.Player.CanInteract)
         {
             _pickupAccumulator = 0;
             return;
