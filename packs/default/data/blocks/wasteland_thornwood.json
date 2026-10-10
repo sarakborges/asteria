@@ -1,0 +1,21 @@
+{
+  "id": "asteria:wasteland_thornwood",
+  "category": "wooden_blocks",
+  "textures": {
+    "top": "textures/blocks/wasteland_thornwood.png",
+    "bottom": "textures/blocks/wasteland_thornwood.png",
+    "left": "textures/blocks/wasteland_thornwood.png",
+    "right": "textures/blocks/wasteland_thornwood.png",
+    "front": "textures/blocks/wasteland_thornwood.png",
+    "back": "textures/blocks/wasteland_thornwood.png"
+  },
+  "mining": {
+    "hardness": 0.8,
+    "preferredTools": [
+      "hatchet"
+    ]
+  },
+  "lightDampening": 15,
+  "castsShadow": true,
+  "previewColor": "685044"
+}

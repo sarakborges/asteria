@@ -1,6 +1,6 @@
 # Asteria — Biome Content Audit and Implementation Backlog
 
-Status: **proposed, not implemented**. Audited on 2026-10-10 against the
+Status: **audit backlog; Wasteland P0 implemented on 2026-10-10**. Audited on 2026-10-10 against the
 active default-pack Overworld dimension. This is a content gap audit,
 not a claim that every world position or procedural density has been
 visually validated.
@@ -44,6 +44,8 @@ boulder/outcrop/waterfall rules. The gap is *ecological differentiation*,
 not a missing tree or boulder system. Swamp has especially dense authored
 Willow roots (`spacing:9`, `chance:0.9`), so structure-root count
 does not mean sparse observed foliage.
+
+**Wasteland P0 status (2026-10-10): implemented.** Five ground objects and two multi-block structure families (seven variants) are now authored; the older counts table below records the original audit snapshot, not the post-implementation totals.
 
 ## P0 — best new content work (existing systems)
 

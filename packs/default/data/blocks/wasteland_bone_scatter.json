@@ -1,0 +1,27 @@
+{
+  "id": "asteria:wasteland_bone_scatter",
+  "category": "foliage",
+  "tags": [
+    "support_below"
+  ],
+  "visual": {
+    "type": "groundSprite",
+    "texture": "textures/objects/wasteland_bone_scatter.png",
+    "width": 0.86,
+    "height": 0.012,
+    "baseOffset": 0.0125,
+    "targetHeight": 0.14
+  },
+  "placementFaces": [
+    "top"
+  ],
+  "mining": {
+    "hardness": 0.07
+  },
+  "isCollidable": false,
+  "castsShadow": false,
+  "lightDampening": 0,
+  "alphaCutoff": 0.5,
+  "previewColor": "d8cab1",
+  "dropsSelf": false
+}

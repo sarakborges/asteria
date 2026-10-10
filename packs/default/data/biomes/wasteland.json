@@ -64,6 +64,126 @@
         "deadwood_pockets": 2,
         "rocky_scrub": 0.15
       }
+    },
+    {
+      "block": "asteria:wasteland_dead_thistle",
+      "chance": 0.155,
+      "surfaceBlocks": [
+        "asteria:dirt",
+        "asteria:gravel"
+      ],
+      "cluster": {
+        "scale": 32,
+        "threshold": -0.18,
+        "octaves": 4,
+        "transitionWidth": 0.15
+      },
+      "conditions": {
+        "minY": 80,
+        "maxY": 116,
+        "maxSlope": 3
+      },
+      "habitatWeights": {
+        "barren_flats": 0.08,
+        "deadwood_pockets": 0.87,
+        "rocky_scrub": 2.05
+      }
+    },
+    {
+      "block": "asteria:wasteland_brittle_tuft",
+      "chance": 0.145,
+      "surfaceBlocks": [
+        "asteria:dirt"
+      ],
+      "cluster": {
+        "scale": 43,
+        "threshold": -0.24,
+        "octaves": 4,
+        "transitionWidth": 0.15
+      },
+      "conditions": {
+        "minY": 80,
+        "maxY": 116,
+        "maxSlope": 2
+      },
+      "habitatWeights": {
+        "barren_flats": 0.92,
+        "deadwood_pockets": 1.25,
+        "rocky_scrub": 0.22
+      }
+    },
+    {
+      "block": "asteria:wasteland_dry_lichen",
+      "chance": 0.135,
+      "surfaceBlocks": [
+        "asteria:gravel",
+        "asteria:stone"
+      ],
+      "cluster": {
+        "scale": 27,
+        "threshold": -0.17,
+        "octaves": 4,
+        "transitionWidth": 0.15
+      },
+      "conditions": {
+        "minY": 80,
+        "maxY": 116,
+        "maxSlope": 4
+      },
+      "habitatWeights": {
+        "barren_flats": 0.15,
+        "deadwood_pockets": 0.31,
+        "rocky_scrub": 1.9
+      }
+    },
+    {
+      "block": "asteria:wasteland_bleached_roots",
+      "chance": 0.092,
+      "surfaceBlocks": [
+        "asteria:dirt",
+        "asteria:gravel"
+      ],
+      "cluster": {
+        "scale": 34,
+        "threshold": -0.2,
+        "octaves": 4,
+        "transitionWidth": 0.15
+      },
+      "conditions": {
+        "minY": 80,
+        "maxY": 116,
+        "maxSlope": 3
+      },
+      "habitatWeights": {
+        "barren_flats": 0.025,
+        "deadwood_pockets": 2.3,
+        "rocky_scrub": 0.25
+      }
+    },
+    {
+      "block": "asteria:wasteland_bone_scatter",
+      "chance": 0.051,
+      "surfaceBlocks": [
+        "asteria:dirt",
+        "asteria:gravel",
+        "asteria:stone"
+      ],
+      "cluster": {
+        "scale": 51,
+        "threshold": -0.12,
+        "octaves": 4,
+        "transitionWidth": 0.15
+      },
+      "conditions": {
+        "minY": 80,
+        "maxY": 116,
+        "maxSlope": 2
+      },
+      "habitatWeights": {
+        "barren_flats": 0.09,
+        "deadwood_pockets": 0.3,
+        "rocky_scrub": 0.88
+      }
     }
   ],
   "surfaceHabitats": {

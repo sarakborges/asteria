@@ -1120,6 +1120,30 @@
         "fractured_flanks": 0.25,
         "hardened_highlands": 2.5
       }
+    },
+    {
+      "biome": "asteria:overworld/wasteland",
+      "structure": "asteria:wasteland_thorn_scrub",
+      "spacing": 42,
+      "jitter": 12,
+      "chance": 0.6,
+      "habitatWeights": {
+        "barren_flats": 0.025,
+        "deadwood_pockets": 0.85,
+        "rocky_scrub": 1.9
+      }
+    },
+    {
+      "biome": "asteria:overworld/wasteland",
+      "structure": "asteria:wasteland_fossil_rib",
+      "spacing": 124,
+      "jitter": 34,
+      "chance": 0.43,
+      "habitatWeights": {
+        "barren_flats": 0.015,
+        "deadwood_pockets": 0.36,
+        "rocky_scrub": 1.24
+      }
     }
   ],
   "dayNightCycle": "asteria:overworld/day_night_cycle",
