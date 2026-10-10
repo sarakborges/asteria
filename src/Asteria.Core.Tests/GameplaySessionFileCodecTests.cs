@@ -261,6 +261,21 @@ public sealed class GameplaySessionFileCodecTests
         Assert.Equal("forest", berries.Stack.Entry.Metadata["origin"]);
         Assert.True(loaded.Player.Health.Respawn());
         Assert.True(loaded.Player.CanInteract);
+
+        // The original full stacks may now be collected exactly once from
+        // the restored Sphere. Neither death nor save/load duplicates them.
+        for (var frame = 0; frame < 12; frame++)
+            restoredDrops.Advance(0.05, 0);
+        Assert.Equal(2, restoredDrops.CollectNearby(
+            new Vector3(4, 6, 4), 2f,
+            loaded.Player.Inventory.TryInsert));
+        Assert.Empty(restoredDrops.ActiveBlocks);
+        Assert.Equal(27, loaded.Player.Inventory.ItemQuantity("asteria:berries"));
+        Assert.Equal(1,
+            loaded.Player.Inventory.ItemQuantity("asteria:wayfarer_helmet"));
+        Assert.Equal(0, restoredDrops.CollectNearby(
+            new Vector3(4, 6, 4), 2f,
+            loaded.Player.Inventory.TryInsert));
     }
 
     [Fact]
