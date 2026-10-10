@@ -1000,6 +1000,66 @@
         "glacial_ice": 2.9,
         "wind_scoured_rock": 0.01
       }
+    },
+    {
+      "biome": "asteria:overworld/ocean",
+      "structure": "asteria:coral_fan_garden",
+      "spacing": 49,
+      "jitter": 14,
+      "chance": 0.74,
+      "habitatWeights": {
+        "sand_flats": 0.06,
+        "gravel_banks": 1.15,
+        "rocky_reefs": 2.65
+      }
+    },
+    {
+      "biome": "asteria:overworld/ocean",
+      "structure": "asteria:coral_table_garden",
+      "spacing": 56,
+      "jitter": 17,
+      "chance": 0.76,
+      "habitatWeights": {
+        "sand_flats": 0.3,
+        "gravel_banks": 1.7,
+        "rocky_reefs": 2.15
+      }
+    },
+    {
+      "biome": "asteria:overworld/ocean",
+      "structure": "asteria:coral_pillar_garden",
+      "spacing": 71,
+      "jitter": 21,
+      "chance": 0.69,
+      "habitatWeights": {
+        "sand_flats": 0.06,
+        "gravel_banks": 0.66,
+        "rocky_reefs": 2.8
+      }
+    },
+    {
+      "biome": "asteria:overworld/ocean",
+      "structure": "asteria:ocean_kelp_grove",
+      "spacing": 37,
+      "jitter": 11,
+      "chance": 0.8,
+      "habitatWeights": {
+        "sand_flats": 0.82,
+        "gravel_banks": 2.25,
+        "rocky_reefs": 1.25
+      }
+    },
+    {
+      "biome": "asteria:overworld/ocean",
+      "structure": "asteria:coral_arch",
+      "spacing": 125,
+      "jitter": 37,
+      "chance": 0.6,
+      "habitatWeights": {
+        "sand_flats": 0,
+        "gravel_banks": 0.52,
+        "rocky_reefs": 2.85
+      }
     }
   ],
   "dayNightCycle": "asteria:overworld/day_night_cycle",

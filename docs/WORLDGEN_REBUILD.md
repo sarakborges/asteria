@@ -840,3 +840,37 @@ rendering and fluid exclusions. Each template writes only one
 ground-cell matching its authored groundBlock restriction
 (Snow/Ice/Stone), preserving the actual surface material.
 Six new block definitions use seven pack-owned 64x64 textures.
+
+## Ocean expanded reefs and kelp canopy landmarks
+
+The Ocean now includes five additional habitat-weighted,
+multi-voxel structure groups with 15 variants: broad fan gardens,
+layered table coral, branched pillar gardens, kelp groves and
+rare tall reef arches. The groups complement the existing two
+small coral reefs and marine floor sprites.
+
+Four new coral block colors (Violet, Orange, Teal, Lime) and
+two block-geometry kelp parts (Stem, swaying cutout Frond)
+have distinct 64x64 pack-owned textures. Templates reserve
+no terrain or fluid; roots begin one voxel *above* the true
+seafloor and use explicit `groundAnchorY: 0` to preserve the
+Sand/Gravel/Clay/Stone Cobble surface. Roots require ordinary
+seafloor ground blocks, gently sloping support and full
+Ocean biome coverage. All five groups share conservative
+reef/rock conflict groups to avoid structure overlap.
+
+The generic `restrictions.requiredFluid: "asteria:water"`
+is enforced by SurfaceStructureField on **every generated
+block position**, not merely via a water proximity check
+at the root. If any part would protrude above the real water
+surface, the entire formation is rejected. This uses
+GeneratedFluidField, never a second fluid/height owner.
+Templates still use the existing displace policy to
+replace water cells with solid reef or kelp voxels.
+No ocean floor terrain profile, palettes, border blend,
+water fluid definition or generated ocean policy changed.
+
+Distribution: kelp groves prefer gravel banks, mixed
+fan/table/column corals prefer rocky reefs, and rare
+arches are exclusive to reef-like habitats. Seafloor
+decorators remain a separate, lower-height layer.

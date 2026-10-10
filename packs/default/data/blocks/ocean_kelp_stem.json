@@ -1,0 +1,19 @@
+{
+  "id": "asteria:ocean_kelp_stem",
+  "category": "natural_blocks",
+  "textures": {
+    "top": "textures/blocks/ocean_kelp_stem.png",
+    "bottom": "textures/blocks/ocean_kelp_stem.png",
+    "left": "textures/blocks/ocean_kelp_stem.png",
+    "right": "textures/blocks/ocean_kelp_stem.png",
+    "front": "textures/blocks/ocean_kelp_stem.png",
+    "back": "textures/blocks/ocean_kelp_stem.png"
+  },
+  "tags": [],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 0.3
+  },
+  "previewColor": "658b58"
+}

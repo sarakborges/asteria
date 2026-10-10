@@ -1,0 +1,21 @@
+{
+  "id": "asteria:ocean_kelp_frond",
+  "category": "foliage",
+  "windSway": true,
+  "alphaCutoff": 0.5,
+  "textures": {
+    "top": "textures/blocks/ocean_kelp_frond.png",
+    "bottom": "textures/blocks/ocean_kelp_frond.png",
+    "left": "textures/blocks/ocean_kelp_frond.png",
+    "right": "textures/blocks/ocean_kelp_frond.png",
+    "front": "textures/blocks/ocean_kelp_frond.png",
+    "back": "textures/blocks/ocean_kelp_frond.png"
+  },
+  "tags": [],
+  "lightDampening": 1,
+  "castsShadow": false,
+  "mining": {
+    "hardness": 0.14
+  },
+  "previewColor": "80aa6b"
+}

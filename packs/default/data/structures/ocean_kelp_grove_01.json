@@ -1,0 +1,138 @@
+{
+  "id": "asteria:ocean_kelp_grove_01",
+  "groupId": "ocean_kelp_grove",
+  "rotation": true,
+  "locatable": false,
+  "conflictGroups": [
+    "kelp",
+    "reef",
+    "rock"
+  ],
+  "groundAnchorY": 0,
+  "restrictions": {
+    "groundBlocks": [
+      "asteria:sand",
+      "asteria:gravel",
+      "asteria:clay",
+      "asteria:stone_cobble"
+    ],
+    "maxSlope": 1,
+    "requiresDryGround": false,
+    "requiredBiomeCoverage": 1,
+    "requiredFluid": "asteria:water",
+    "proximity": [
+      {
+        "target": {
+          "fluid": "asteria:water"
+        },
+        "mode": "required",
+        "minDistance": 0,
+        "maxDistance": 0
+      }
+    ]
+  },
+  "generation": {
+    "replacePolicy": "terrain",
+    "fluidPolicy": "displace",
+    "reserveSpace": false
+  },
+  "anchor": {
+    "x": 4,
+    "y": 0,
+    "z": 4
+  },
+  "palette": {
+    "F": {
+      "block": "asteria:ocean_kelp_frond"
+    },
+    "K": {
+      "block": "asteria:ocean_kelp_stem"
+    }
+  },
+  "layers": [
+    {
+      "y": 1,
+      "rows": [
+        ".........",
+        ".........",
+        ".........",
+        "......K..",
+        "....K....",
+        "..K......",
+        ".........",
+        ".........",
+        "........."
+      ]
+    },
+    {
+      "y": 2,
+      "rows": [
+        ".........",
+        ".........",
+        ".........",
+        "......K..",
+        "....K....",
+        "..K......",
+        ".........",
+        ".........",
+        "........."
+      ]
+    },
+    {
+      "y": 3,
+      "rows": [
+        ".........",
+        ".........",
+        ".........",
+        "......K..",
+        "....K....",
+        ".FK......",
+        ".........",
+        ".........",
+        "........."
+      ]
+    },
+    {
+      "y": 4,
+      "rows": [
+        ".........",
+        ".........",
+        ".........",
+        "......KF.",
+        "....KF...",
+        "..F......",
+        ".........",
+        ".........",
+        "........."
+      ]
+    },
+    {
+      "y": 5,
+      "rows": [
+        ".........",
+        ".........",
+        ".........",
+        "......F..",
+        "....KF...",
+        ".........",
+        ".........",
+        ".........",
+        "........."
+      ]
+    },
+    {
+      "y": 6,
+      "rows": [
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        "....F....",
+        ".........",
+        ".........",
+        ".........",
+        "........."
+      ]
+    }
+  ]
+}

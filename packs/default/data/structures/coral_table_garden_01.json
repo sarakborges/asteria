@@ -1,0 +1,112 @@
+{
+  "id": "asteria:coral_table_garden_01",
+  "groupId": "coral_table_garden",
+  "rotation": true,
+  "locatable": false,
+  "conflictGroups": [
+    "reef",
+    "rock"
+  ],
+  "groundAnchorY": 0,
+  "restrictions": {
+    "groundBlocks": [
+      "asteria:sand",
+      "asteria:gravel",
+      "asteria:clay",
+      "asteria:stone_cobble"
+    ],
+    "maxSlope": 1,
+    "requiresDryGround": false,
+    "requiredBiomeCoverage": 1,
+    "requiredFluid": "asteria:water",
+    "proximity": [
+      {
+        "target": {
+          "fluid": "asteria:water"
+        },
+        "mode": "required",
+        "minDistance": 0,
+        "maxDistance": 0
+      }
+    ]
+  },
+  "generation": {
+    "replacePolicy": "terrain",
+    "fluidPolicy": "displace",
+    "reserveSpace": false
+  },
+  "anchor": {
+    "x": 4,
+    "y": 0,
+    "z": 4
+  },
+  "palette": {
+    "B": {
+      "block": "asteria:coral_blue"
+    },
+    "L": {
+      "block": "asteria:coral_lime"
+    },
+    "Y": {
+      "block": "asteria:coral_yellow"
+    }
+  },
+  "layers": [
+    {
+      "y": 1,
+      "rows": [
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        "....L....",
+        ".........",
+        ".........",
+        ".........",
+        "........."
+      ]
+    },
+    {
+      "y": 2,
+      "rows": [
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        "....L....",
+        ".........",
+        ".........",
+        ".........",
+        "........."
+      ]
+    },
+    {
+      "y": 3,
+      "rows": [
+        ".........",
+        ".........",
+        "...Y.Y...",
+        "..YLLLY..",
+        "..YLLLY..",
+        "..YLLLY..",
+        "...Y.Y...",
+        ".........",
+        "........."
+      ]
+    },
+    {
+      "y": 4,
+      "rows": [
+        ".........",
+        ".........",
+        "....B....",
+        ".........",
+        "..B...B..",
+        ".........",
+        "....B....",
+        ".........",
+        "........."
+      ]
+    }
+  ]
+}

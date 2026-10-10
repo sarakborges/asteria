@@ -1,0 +1,24 @@
+{
+  "id": "asteria:coral_lime",
+  "category": "foliage",
+  "textures": {
+    "top": "textures/blocks/coral_lime.png",
+    "bottom": "textures/blocks/coral_lime.png",
+    "left": "textures/blocks/coral_lime.png",
+    "right": "textures/blocks/coral_lime.png",
+    "front": "textures/blocks/coral_lime.png",
+    "back": "textures/blocks/coral_lime.png"
+  },
+  "tags": [
+    "fragmentable"
+  ],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 0.65,
+    "requiredTools": [
+      "pickaxe"
+    ]
+  },
+  "previewColor": "9fb979"
+}

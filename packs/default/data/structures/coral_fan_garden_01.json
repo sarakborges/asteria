@@ -1,0 +1,140 @@
+{
+  "id": "asteria:coral_fan_garden_01",
+  "groupId": "coral_fan_garden",
+  "rotation": true,
+  "locatable": false,
+  "conflictGroups": [
+    "reef",
+    "rock"
+  ],
+  "groundAnchorY": 0,
+  "restrictions": {
+    "groundBlocks": [
+      "asteria:sand",
+      "asteria:gravel",
+      "asteria:clay",
+      "asteria:stone_cobble"
+    ],
+    "maxSlope": 1,
+    "requiresDryGround": false,
+    "requiredBiomeCoverage": 1,
+    "requiredFluid": "asteria:water",
+    "proximity": [
+      {
+        "target": {
+          "fluid": "asteria:water"
+        },
+        "mode": "required",
+        "minDistance": 0,
+        "maxDistance": 0
+      }
+    ]
+  },
+  "generation": {
+    "replacePolicy": "terrain",
+    "fluidPolicy": "displace",
+    "reserveSpace": false
+  },
+  "anchor": {
+    "x": 4,
+    "y": 0,
+    "z": 4
+  },
+  "palette": {
+    "L": {
+      "block": "asteria:coral_lime"
+    },
+    "T": {
+      "block": "asteria:coral_teal"
+    },
+    "V": {
+      "block": "asteria:coral_violet"
+    }
+  },
+  "layers": [
+    {
+      "y": 1,
+      "rows": [
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        "....T....",
+        ".........",
+        ".........",
+        ".........",
+        "........."
+      ]
+    },
+    {
+      "y": 2,
+      "rows": [
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        "....T....",
+        ".........",
+        ".........",
+        ".........",
+        "........."
+      ]
+    },
+    {
+      "y": 3,
+      "rows": [
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        "...LTL...",
+        ".........",
+        ".........",
+        ".........",
+        "........."
+      ]
+    },
+    {
+      "y": 4,
+      "rows": [
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        "..LVTV...",
+        ".........",
+        ".........",
+        ".........",
+        "........."
+      ]
+    },
+    {
+      "y": 5,
+      "rows": [
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        "...VTVL..",
+        ".........",
+        ".........",
+        ".........",
+        "........."
+      ]
+    },
+    {
+      "y": 6,
+      "rows": [
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        "..L...L..",
+        ".........",
+        ".........",
+        ".........",
+        "........."
+      ]
+    }
+  ]
+}
