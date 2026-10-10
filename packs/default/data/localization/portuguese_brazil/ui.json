@@ -407,5 +407,6 @@
   "death.itemsDropped": "Seus itens foram deixados no local da morte.",
   "death.dropsUnavailable": "O mundo atingiu o limite de itens no chão. Seu inventário foi preservado para evitar perdas.",
   "settings.keepInventory": "Manter inventário",
-  "settings.keepInventory.description": "Preserva equipamentos, mochila, barra rápida e cursor ao morrer."
+  "settings.keepInventory.description": "Preserva equipamentos, mochila, barra rápida e cursor ao morrer.",
+  "death.restored": "Este mundo foi restaurado após sua morte. O inventário e os itens no mundo permanecem como foram salvos."
 }
