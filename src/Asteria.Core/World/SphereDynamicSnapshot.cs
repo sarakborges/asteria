@@ -45,7 +45,7 @@ internal static class SphereDynamicSnapshot
         foreach (var entry in entries)
         {
             var drop = entry.State;
-            if (drop.Stack is null || drop.Stack.Quantity != 1 ||
+            if (drop.Stack is null ||
                 !IsFinite(drop.Position) || drop.Position.Y < 0 ||
                 !IsFinite(drop.Velocity) ||
                 !double.IsFinite(drop.AgeSeconds) || drop.AgeSeconds < 0 ||
