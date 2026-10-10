@@ -220,8 +220,8 @@ public sealed class DroppedBlockRuntime
     {
         ArgumentNullException.ThrowIfNull(stacks);
         if (!IsFinite(position) || position.Y < 0f ||
-            stacks.Count > 42 || stacks.Any(stack => stack is null) ||
-            _active.Count > _maximumActive - stacks.Count ||
+            stacks.Any(stack => stack is null) ||
+            stacks.Count > _maximumActive - _active.Count ||
             (ulong)stacks.Count > ulong.MaxValue - _nextId)
             return false;
         foreach (var stack in stacks)
