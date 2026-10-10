@@ -7,7 +7,7 @@ public sealed class SparseOverworldBiomeContentTests
     [Theory]
     [InlineData("arctic", "frozen_plain", "ice_fields", "rocky_ridges", 6)]
     [InlineData("desert", "open_dunes", "sand_flats", "sandstone_outcrops", 5)]
-    [InlineData("wasteland", "barren_flats", "deadwood_pockets", "rocky_scrub", 7)]
+    [InlineData("wasteland", "barren_flats", "deadwood_pockets", "rocky_scrub", 9)]
     public void AuthoredBiomesHaveDeterministicHabitatRegionsAndWeightedRoots(
         string file, string first, string second, string third, int rootCount)
     {
