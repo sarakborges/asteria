@@ -108,6 +108,12 @@ These are **code-level findings**, not a declaration that gameplay polish or in-
 - `ItemDefinition.damageReduction` is optional (0–0.5), valid only for a unitary equippable item. `PlayerEquipmentProtection` reads the four authoritative equipped slots, rejects mismatched content and caps cumulative protection at 75%. The four Wayfarer items now author 8% helmet, 20% chest, 12% leggings and 5% boots resistance to creature-contact damage (45% full-set). Fall, drowning and lava are not reduced by this melee-defense stat. No armor durability was invented.
 - Tests cover oxygen reset, drowning/lethal damage, lava exposure, contact cooldown, equipment mitigation, authored fluid and creature definitions, NO_AI/dead filtering, and mode immunity. End-to-end Godot/WRY playtesting and native timing remain pending; the unrelated worldgen/localization CI failures still block full validation.
 
+### Death-screen recovery and restored saves — 2026-10-10
+
+- The death modal now exposes both manual **Respawn** and the existing **Leave World** action (save-and-leave checkpoint), so a dead player can exit safely without bypassing the save/retirement lifecycle. The page keeps its modal and reports a localized save error if checkpointing fails; it resets only on authoritative `game.world.left` or `game.player.respawned`.
+- A death freshly observed by the native runtime includes `outcomeKnown: true` with its authoritative item-drop outcome. When a saved dead player re-enters or the UI reconnects, `outcomeKnown: false` uses an explicitly neutral restored-session explanation instead of guessing whether the inventory was kept, dropped or protected by capacity fallback.
+- Browser regression tests verify Escape/mouse-capture cannot dismiss death, save-and-leave message intent, save-error persistence, restored-death text, and explicit respawn completion. Core session save tests already exercise death-drop persistence and full-stack re-pickup.
+
 ## Manual death screen, inventory drops and respawn policy — 2026-10-09
 
 - World rules now explicitly own `keepInventory`, configured in both New World → Game Rules and World Settings → Game Rules. Defaults to `true` for compatibility with previously created worlds; session file v4 persists the mutable rule, and v1–v3 readers safely default to `true`.
