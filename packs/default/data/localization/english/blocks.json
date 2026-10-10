@@ -448,5 +448,26 @@
   },
   "asteria:volcanic_sulfur_crystal": {
     "/name": "Volcanic Sulfur Crystal"
+  },
+  "asteria:wasteland_bleached_roots": {
+    "/name": "Bleached Roots"
+  },
+  "asteria:wasteland_bone_scatter": {
+    "/name": "Scattered Bones"
+  },
+  "asteria:wasteland_brittle_tuft": {
+    "/name": "Brittle Tuft"
+  },
+  "asteria:wasteland_dead_thistle": {
+    "/name": "Dead Thistle"
+  },
+  "asteria:wasteland_dry_lichen": {
+    "/name": "Dry Lichen"
+  },
+  "asteria:wasteland_fossil_bone": {
+    "/name": "Fossil Bone"
+  },
+  "asteria:wasteland_thornwood": {
+    "/name": "Thornwood"
   }
 }

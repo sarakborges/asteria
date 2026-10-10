@@ -448,5 +448,26 @@
   },
   "asteria:volcanic_sulfur_crystal": {
     "/name": "Cristal de Azufre Volcánico"
+  },
+  "asteria:wasteland_bleached_roots": {
+    "/name": "Raíces Blanqueadas"
+  },
+  "asteria:wasteland_bone_scatter": {
+    "/name": "Huesos Dispersos"
+  },
+  "asteria:wasteland_brittle_tuft": {
+    "/name": "Mata Quebradiza"
+  },
+  "asteria:wasteland_dead_thistle": {
+    "/name": "Cardo Muerto"
+  },
+  "asteria:wasteland_dry_lichen": {
+    "/name": "Liquen Seco"
+  },
+  "asteria:wasteland_fossil_bone": {
+    "/name": "Hueso Fósil"
+  },
+  "asteria:wasteland_thornwood": {
+    "/name": "Madera Espinosa"
   }
 }
