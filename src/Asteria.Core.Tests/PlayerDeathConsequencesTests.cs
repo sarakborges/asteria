@@ -92,6 +92,35 @@ public sealed class PlayerDeathConsequencesTests
     }
 
     [Fact]
+    public void BatchCapacityShortageNeverEvictsExistingOrPartiallyDropsInventory()
+    {
+        var player = new PlayerSessionState();
+        Assert.True(player.Inventory.TryInsert(new InventoryStack(
+            InventoryEntry.FromItem("asteria:berries"), 25)));
+        Assert.True(player.Inventory.TryInsert(new InventoryStack(
+            InventoryEntry.FromItem("asteria:stick"), 10)));
+        var before = player.Inventory.Capture();
+        var drops = Drops(maximum: 1);
+        player.Health.Damage(20f, PlayerGameMode.Survival);
+
+        var result = PlayerDeathConsequences.Resolve(
+            player, new WorldGameRules(keepInventory: false),
+            drops, new Vector3(3, 5, 3));
+
+        Assert.True(result.InventoryKept);
+        Assert.True(result.DropCapacityExceeded);
+        Assert.Equal(0, result.DroppedStacks);
+        Assert.Empty(drops.ActiveBlocks);
+        for (var index = 0; index < PlayerInventory.TotalSlots; index++)
+        {
+            var expected = index < PlayerInventory.BackpackSlots
+                ? before.Backpack[index]
+                : before.Hotbar[index - PlayerInventory.BackpackSlots];
+            Assert.Equal(expected, player.Inventory.SlotAt(index));
+        }
+    }
+
+    [Fact]
     public void DeathPolicyRejectsAlivePlayers()
     {
         Assert.Throws<InvalidOperationException>(() =>
