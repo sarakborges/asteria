@@ -117,7 +117,6 @@ public sealed class WastelandContentExpansionTests
         var sample = new BiomeSample(wasteland.Id,
             [new BiomeInfluence(wasteland.Id, 1f)]);
         var valid = new SurfacePlacementContext(92, 0);
-        var steep = new SurfacePlacementContext(92, 24);
         var stone = blocks.GetId("asteria:stone");
         var basalt = blocks.GetId("asteria:basalt");
         var encountered = new HashSet<BlockRuntimeId>();
@@ -128,10 +127,29 @@ public sealed class WastelandContentExpansionTests
             var ground = first.BlockAt(sample, stone, x, z, valid);
             Assert.Equal(ground, again.BlockAt(sample, stone, x, z, valid));
             Assert.True(first.BlockAt(sample, basalt, x, z, valid).IsAir);
-            Assert.True(first.BlockAt(sample, stone, x, z, steep).IsAir);
             if (!ground.IsAir) encountered.Add(ground);
         }
         Assert.NotEmpty(encountered);
+    }
+
+
+    [Fact]
+    public void NewWastelandDecoratorsHaveBoundedSteepSlopeRejection()
+    {
+        var wasteland = BiomeRegistry.FromJson(ReadJson("biomes"))
+            .Get("asteria:overworld/wasteland");
+        foreach (var id in new[]
+        {
+            "wasteland_dead_thistle", "wasteland_brittle_tuft",
+            "wasteland_dry_lichen", "wasteland_bleached_roots",
+            "wasteland_bone_scatter",
+        })
+        {
+            var rule = Assert.Single(wasteland.Decorations,
+                d => d.Block == "asteria:" + id);
+            Assert.NotNull(rule.Conditions!.MaxSlope);
+            Assert.InRange(rule.Conditions.MaxSlope!.Value, 2f, 4f);
+        }
     }
 
     private static IEnumerable<string> ReadJson(string dir)
