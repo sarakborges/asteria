@@ -40,7 +40,16 @@ public sealed class VolcanoBiomeContentTests
             definition.Bands.Select(band => band.Id));
         Assert.InRange(definition.TransitionWidth, .05f, .2f);
 
-        var pebble = Assert.Single(biome.Decorations);
+        // Additive volcanic flora must not invalidate the pebble's
+        // dedicated placement and habitat invariants.
+        Assert.All(biome.Decorations, decoration =>
+        {
+            definition.ValidateWeights(
+                Assert.IsType<SurfaceHabitatWeights>(decoration.HabitatWeights));
+            Assert.NotNull(decoration.Conditions);
+        });
+        var pebble = Assert.Single(biome.Decorations,
+            decoration => decoration.Block == "asteria:pebble");
         Assert.Equal("asteria:pebble", pebble.Block);
         Assert.NotNull(pebble.Conditions);
         Assert.True(pebble.HabitatWeights!.For("fractured_flanks") >
@@ -51,7 +60,11 @@ public sealed class VolcanoBiomeContentTests
             Path.Combine(PackData, "dimensions", "overworld.json")));
         var roots = dimension.GeneratedSurfaceStructures
             .Where(rule => rule.Biome == biome.Id).ToArray();
-        Assert.Equal(4, roots.Length);
+        Assert.True(roots.Length >= 4);
+        Assert.Contains(roots, root =>
+            root.Structure == "asteria:volcanic_charred_trees");
+        Assert.Contains(roots, root =>
+            root.Structure == "asteria:volcanic_sulfur_cluster");
         Assert.All(roots, root =>
         {
             definition.ValidateWeights(

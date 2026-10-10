@@ -83,8 +83,20 @@
   "asteria:coral_blue": {
     "/name": "Coral Azul"
   },
+  "asteria:coral_lime": {
+    "/name": "Coral Verde Lima"
+  },
+  "asteria:coral_orange": {
+    "/name": "Coral Naranja"
+  },
   "asteria:coral_pink": {
     "/name": "Coral Rosa"
+  },
+  "asteria:coral_teal": {
+    "/name": "Coral Verde Azulado"
+  },
+  "asteria:coral_violet": {
+    "/name": "Coral Violeta"
   },
   "asteria:coral_yellow": {
     "/name": "Coral Amarillo"
@@ -272,6 +284,12 @@
   "asteria:mushroom_yellow": {
     "/name": "Hongo Amarillo"
   },
+  "asteria:ocean_kelp_frond": {
+    "/name": "Fronda de Alga Marina"
+  },
+  "asteria:ocean_kelp_stem": {
+    "/name": "Tallo de Alga Marina"
+  },
   "asteria:pebble": {
     "/name": "Guijarro"
   },
@@ -406,5 +424,29 @@
   },
   "asteria:terracotta_spike": {
     "/name": "Pico de Terracota"
+  },
+  "asteria:volcanic_ash_thorn": {
+    "/name": "Espina de Ceniza Volcánica"
+  },
+  "asteria:volcanic_basalt_column": {
+    "/name": "Columna de Basalto Volcánico"
+  },
+  "asteria:volcanic_charwood": {
+    "/name": "Madera Carbonizada"
+  },
+  "asteria:volcanic_cinder_bloom": {
+    "/name": "Flor de Cenizas Volcánicas"
+  },
+  "asteria:volcanic_ember_needles": {
+    "/name": "Agujas de Brasa"
+  },
+  "asteria:volcanic_glass": {
+    "/name": "Vidrio Volcánico"
+  },
+  "asteria:volcanic_soot_lichen": {
+    "/name": "Liquen de Hollín"
+  },
+  "asteria:volcanic_sulfur_crystal": {
+    "/name": "Cristal de Azufre Volcánico"
   }
 }

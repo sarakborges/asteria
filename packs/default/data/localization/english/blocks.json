@@ -83,8 +83,20 @@
   "asteria:coral_blue": {
     "/name": "Blue Coral"
   },
+  "asteria:coral_lime": {
+    "/name": "Lime Coral"
+  },
+  "asteria:coral_orange": {
+    "/name": "Orange Coral"
+  },
   "asteria:coral_pink": {
     "/name": "Pink Coral"
+  },
+  "asteria:coral_teal": {
+    "/name": "Teal Coral"
+  },
+  "asteria:coral_violet": {
+    "/name": "Violet Coral"
   },
   "asteria:coral_yellow": {
     "/name": "Yellow Coral"
@@ -272,6 +284,12 @@
   "asteria:mushroom_yellow": {
     "/name": "Yellow Mushroom"
   },
+  "asteria:ocean_kelp_frond": {
+    "/name": "Kelp Frond"
+  },
+  "asteria:ocean_kelp_stem": {
+    "/name": "Kelp Stem"
+  },
   "asteria:pebble": {
     "/name": "Pebble"
   },
@@ -406,5 +424,29 @@
   },
   "asteria:terracotta_spike": {
     "/name": "Terracotta Spike"
+  },
+  "asteria:volcanic_ash_thorn": {
+    "/name": "Volcanic Ash Thorn"
+  },
+  "asteria:volcanic_basalt_column": {
+    "/name": "Volcanic Basalt Column"
+  },
+  "asteria:volcanic_charwood": {
+    "/name": "Charred Wood"
+  },
+  "asteria:volcanic_cinder_bloom": {
+    "/name": "Volcanic Cinder Bloom"
+  },
+  "asteria:volcanic_ember_needles": {
+    "/name": "Ember Needles"
+  },
+  "asteria:volcanic_glass": {
+    "/name": "Volcanic Glass"
+  },
+  "asteria:volcanic_soot_lichen": {
+    "/name": "Soot Lichen"
+  },
+  "asteria:volcanic_sulfur_crystal": {
+    "/name": "Volcanic Sulfur Crystal"
   }
 }

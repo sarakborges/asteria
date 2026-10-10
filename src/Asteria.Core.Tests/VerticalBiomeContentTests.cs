@@ -90,7 +90,11 @@ public sealed class VerticalBiomeContentTests
             Path.Combine(PackData, "dimensions", "overworld.json")));
         var oceanRoots = dimension.GeneratedSurfaceStructures.Where(
             r => r.Biome == "asteria:overworld/ocean").ToArray();
-        Assert.Equal(4, oceanRoots.Length);
+        Assert.True(oceanRoots.Length >= 4);
+        Assert.Contains(oceanRoots, root =>
+            root.Structure == "asteria:coral_fan_garden");
+        Assert.Contains(oceanRoots, root =>
+            root.Structure == "asteria:ocean_kelp_grove");
         Assert.Single(oceanRoots, r =>
             r.Structure == "asteria:river_ocean_mouth" &&
             r.Placement == DimensionGeneratedSurfaceStructurePlacement.BiomeMargin);
