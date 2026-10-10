@@ -325,6 +325,11 @@ public sealed class StructureRegistry
         foreach (var definition in
                  _definitions)
         {
+            if (definition.Restrictions.RequiredFluid is { } required &&
+                !fluids.TryGetId(required, out _))
+                throw new ArgumentException(
+                    $"Structure {definition.Id} requires missing fluid {required}.");
+
             foreach (var proximity in
                      definition.Restrictions.Proximity)
             {

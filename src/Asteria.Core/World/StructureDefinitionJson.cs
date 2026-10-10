@@ -161,7 +161,8 @@ public static class StructureDefinitionJson
             "requiresDryGround",
             "requiredBiomeCoverage",
             "groundBlocks",
-            "proximity");
+            "proximity",
+            "requiredFluid");
         return new StructureRestrictionsDefinition(
             OptionalInt32(
                 value,
@@ -183,7 +184,8 @@ public static class StructureDefinitionJson
             OptionalInt32(
                 value,
                 "minSlope") ??
-            0);
+            0,
+            OptionalString(value, "requiredFluid"));
     }
 
     private static IReadOnlyList<StructureProximityRestrictionDefinition>

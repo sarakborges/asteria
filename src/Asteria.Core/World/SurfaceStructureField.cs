@@ -1576,6 +1576,24 @@ public sealed class SurfaceStructureField
             return false;
         }
 
+        // Requiring water at the root alone is insufficient: a tall
+        // reef near the shore could otherwise protrude above sea level.
+        // Resolve every emitted block against the authoritative generated
+        // fluid field before accepting the complete structure.
+        if (member.Definition.Restrictions.RequiredFluid is { } requiredFluid)
+        {
+            var required = _fluids.GetId(requiredFluid);
+            foreach (var voxel in placement.Voxels)
+            {
+                var surface = SurfaceAt(voxel.X, voxel.Z);
+                var fluid = _generatedFluids.FluidAtEmptyVoxel(
+                    surface.Biome, surface.BaseY, surface.SurfaceFluidCutDepth,
+                    voxel.X, voxel.Y, voxel.Z);
+                if (fluid.Fluid != required)
+                    return false;
+            }
+        }
+
         return true;
     }
 
