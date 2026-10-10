@@ -1359,7 +1359,8 @@ public partial class Main : Node3D
                     HandleStorageBoxSlot(document.RootElement);
                     break;
                 case "ui.storage_box.sort":
-                    if (_sessions.Active.ActiveStorageBox is not null &&
+                    if (_sessionStates.Player.CanInteract &&
+                        _sessions.Active.ActiveStorageBox is not null &&
                         _sessions.Active.TrySortStorageBox())
                         SendStorageBoxState();
                     break;
@@ -1376,12 +1377,14 @@ public partial class Main : Node3D
                     HandleInventorySlot(document.RootElement);
                     break;
                 case "ui.inventory.sort":
-                    if ((_inventoryOpen || _sessions.Active.ActiveStorageBox is not null) &&
+                    if (_sessionStates.Player.CanInteract &&
+                        (_inventoryOpen || _sessions.Active.ActiveStorageBox is not null) &&
                         _sessionStates.Player.Inventory.SortBackpack())
                         SendInventoryState();
                     break;
                 case "ui.inventory.discard_cursor":
-                    if (_inventoryOpen && _sessionStates.Player.Inventory.DiscardCursor())
+                    if (_sessionStates.Player.CanInteract &&
+                        _inventoryOpen && _sessionStates.Player.Inventory.DiscardCursor())
                         SendInventoryState();
                     break;
                 case "ui.inventory.creative_pick":
@@ -3214,7 +3217,7 @@ public partial class Main : Node3D
     {
         if (!_worldReadySent || _inventoryOpen || _chat.IsOpen ||
             _sessions.IsTransitioning ||
-            _sessionStates.Player.GameMode.IsSpectator() || _player is null)
+            !_sessionStates.Player.CanInteract || _player is null)
             return;
         _inventoryOpen = true;
         _player.SuspendForModal();
@@ -3224,7 +3227,7 @@ public partial class Main : Node3D
 
     private void CloseInventory()
     {
-        if (!_inventoryOpen) return;
+        if (!_inventoryOpen || !_sessionStates.Player.CanInteract) return;
         if (!_sessionStates.Player.Inventory.TryReturnCursor())
         {
             SendWebUi("game.inventory.error",
@@ -3242,14 +3245,15 @@ public partial class Main : Node3D
     private void ResumeGameplayAfterInventory()
     {
         if (!_inventoryOpen && _sessions.Active.ActiveStorageBox is null &&
-            !_brushPaletteOpen &&
-            !_keybindCapture.IsCapturing)
+            !_brushPaletteOpen && !_keybindCapture.IsCapturing &&
+            _sessionStates.Player.CanInteract)
             _player?.ResumeGameplay();
     }
 
     private void CloseStorageBox()
     {
-        if (_sessions.Active.ActiveStorageBox is null) return;
+        if (_sessions.Active.ActiveStorageBox is null ||
+            !_sessionStates.Player.CanInteract) return;
         if (!_sessionStates.Player.Inventory.TryReturnCursor())
         {
             SendWebUi("game.storage_box.error",
@@ -3269,6 +3273,7 @@ public partial class Main : Node3D
     private void HandleStorageBoxSlot(JsonElement message)
     {
         if (_sessions.Active.ActiveStorageBox is null ||
+            !_sessionStates.Player.CanInteract ||
             !message.TryGetProperty("payload", out var payload) ||
             payload.ValueKind != JsonValueKind.Object ||
             !payload.TryGetProperty("index", out var value) ||
@@ -3285,7 +3290,7 @@ public partial class Main : Node3D
     private void HandleEquipmentSlot(JsonElement message)
     {
         if (!_inventoryOpen || !_worldReadySent ||
-            _sessions.IsTransitioning ||
+            _sessions.IsTransitioning || !_sessionStates.Player.CanInteract ||
             !message.TryGetProperty("payload", out var payload) ||
             payload.ValueKind != JsonValueKind.Object ||
             !payload.TryGetProperty("index", out var index) ||
@@ -3304,6 +3309,7 @@ public partial class Main : Node3D
     private void HandleInventorySlot(JsonElement message)
     {
         if ((!_inventoryOpen && _sessions.Active.ActiveStorageBox is null) ||
+            !_sessionStates.Player.CanInteract ||
             !message.TryGetProperty("payload", out var payload) ||
             payload.ValueKind != JsonValueKind.Object ||
             !payload.TryGetProperty("index", out var indexValue) ||
@@ -3317,6 +3323,7 @@ public partial class Main : Node3D
     private void HandleInventoryCraft(JsonElement message)
     {
         if (!_inventoryOpen || !_worldReadySent || _sessions.IsTransitioning ||
+            !_sessionStates.Player.CanInteract ||
             !message.TryGetProperty("payload", out var payload) ||
             payload.ValueKind != JsonValueKind.Object ||
             !payload.TryGetProperty("recipeId", out var recipeValue) ||
@@ -3343,7 +3350,7 @@ public partial class Main : Node3D
 
     private void HandleCreativePick(JsonElement message)
     {
-        if (!_inventoryOpen ||
+        if (!_inventoryOpen || !_sessionStates.Player.CanInteract ||
             _sessionStates.Player.GameMode != PlayerGameMode.Creative ||
             !message.TryGetProperty("payload", out var payload) ||
             payload.ValueKind != JsonValueKind.Object ||
