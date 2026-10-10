@@ -874,3 +874,41 @@ Distribution: kelp groves prefer gravel banks, mixed
 fan/table/column corals prefer rocky reefs, and rare
 arches are exclusive to reef-like habitats. Seafloor
 decorators remain a separate, lower-height layer.
+
+## Volcano landscape enrichment: ash flora and mineral silhouettes
+
+Volcano retains its original `cone` terrain, authored crater,
+lava `fluidFill` and spill definitions, basalt-based material
+palette, exclusive neighbors and `surfaceHabitats`. No terrain,
+fluid, border or slope geometry code changed.
+
+In addition to the original pebble and basalt rock/outcrop/spire
+landmarks, Volcano now authors three ground decorators and five
+structure families with 16 multi-block variants:
+
+- `volcanic_ash_thorn`: dark thorny scrub on basalt/cobble/gravel
+  favoring `ash_aprons`, with clustered habitat noise.
+- `volcanic_cinder_bloom`: rare warm orange flower on basalt
+  and basalt cobble, favoring lower ash zones.
+- `volcanic_soot_lichen`: flat small lichen patches on intact
+  basalt/cobble, most prevalent along fractured flanks/highlands.
+- `volcanic_charred_trees`: four bare branching fire-scarred
+  trees of increasing height with sparse residual ember needles.
+- `volcanic_briar_thickets`: three groups of skeletal burned
+  woody bushes on patches of stable basalt.
+- `volcanic_column_garden`: four clusters of square basalt
+  columns, complementary to existing basalt rock structures.
+- `volcanic_sulfur_cluster`: three multi-prong mineral deposits,
+  chiefly on fractured high flanks and hardened highlands.
+- `volcanic_glass_arch`: two rare tall arches of dark, ember-
+  threaded glass and sulfur, strongly weighted to highlands.
+
+Every independent woody/mineral Y=1 base has a matching basalt
+ground footprint authored in its Structure template. Existing
+`SurfaceStructureField` checks ground materials, slopes, full
+biome coverage, deterministic conflicts, and generated fluid.
+All new groups use `fluidPolicy: "forbid"` and dry-ground
+restrictions: they cannot knowingly replace crater lava or
+spill fluids. Nine new pack-owned 64x64 PNG textures are used
+by eight blocks; no Godot import files, surface patch rewrites
+or special-case Volcano generator logic were added.

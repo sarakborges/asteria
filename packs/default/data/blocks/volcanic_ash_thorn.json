@@ -1,0 +1,26 @@
+{
+  "id": "asteria:volcanic_ash_thorn",
+  "category": "foliage",
+  "tags": [
+    "support_below"
+  ],
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/volcanic_ash_thorn.png",
+    "width": 0.85,
+    "height": 0.78,
+    "planes": 4
+  },
+  "placementFaces": [
+    "top"
+  ],
+  "mining": {
+    "hardness": 0.07
+  },
+  "isCollidable": false,
+  "castsShadow": false,
+  "lightDampening": 0,
+  "alphaCutoff": 0.5,
+  "previewColor": "8c8174",
+  "dropsSelf": false
+}

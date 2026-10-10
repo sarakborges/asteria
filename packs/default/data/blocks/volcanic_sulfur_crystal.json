@@ -1,0 +1,26 @@
+{
+  "id": "asteria:volcanic_sulfur_crystal",
+  "category": "natural_blocks",
+  "textures": {
+    "top": "textures/blocks/volcanic_sulfur_crystal.png",
+    "bottom": "textures/blocks/volcanic_sulfur_crystal.png",
+    "left": "textures/blocks/volcanic_sulfur_crystal.png",
+    "right": "textures/blocks/volcanic_sulfur_crystal.png",
+    "front": "textures/blocks/volcanic_sulfur_crystal.png",
+    "back": "textures/blocks/volcanic_sulfur_crystal.png"
+  },
+  "lightDampening": 11,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1.2,
+    "requiredTools": [
+      "pickaxe"
+    ]
+  },
+  "previewColor": "d8b65a",
+  "lightEmission": {
+    "red": 6,
+    "green": 4,
+    "blue": 0
+  }
+}

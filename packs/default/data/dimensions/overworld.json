@@ -1060,6 +1060,66 @@
         "gravel_banks": 0.52,
         "rocky_reefs": 2.85
       }
+    },
+    {
+      "biome": "asteria:overworld/volcano",
+      "structure": "asteria:volcanic_charred_trees",
+      "spacing": 65,
+      "jitter": 19,
+      "chance": 0.72,
+      "habitatWeights": {
+        "ash_aprons": 2.35,
+        "fractured_flanks": 0.62,
+        "hardened_highlands": 0.04
+      }
+    },
+    {
+      "biome": "asteria:overworld/volcano",
+      "structure": "asteria:volcanic_briar_thickets",
+      "spacing": 33,
+      "jitter": 9,
+      "chance": 0.76,
+      "habitatWeights": {
+        "ash_aprons": 2.1,
+        "fractured_flanks": 1.05,
+        "hardened_highlands": 0.06
+      }
+    },
+    {
+      "biome": "asteria:overworld/volcano",
+      "structure": "asteria:volcanic_column_garden",
+      "spacing": 59,
+      "jitter": 18,
+      "chance": 0.7,
+      "habitatWeights": {
+        "ash_aprons": 0.02,
+        "fractured_flanks": 2.4,
+        "hardened_highlands": 1.2
+      }
+    },
+    {
+      "biome": "asteria:overworld/volcano",
+      "structure": "asteria:volcanic_sulfur_cluster",
+      "spacing": 52,
+      "jitter": 16,
+      "chance": 0.69,
+      "habitatWeights": {
+        "ash_aprons": 0.07,
+        "fractured_flanks": 1.5,
+        "hardened_highlands": 1.9
+      }
+    },
+    {
+      "biome": "asteria:overworld/volcano",
+      "structure": "asteria:volcanic_glass_arch",
+      "spacing": 133,
+      "jitter": 40,
+      "chance": 0.55,
+      "habitatWeights": {
+        "ash_aprons": 0,
+        "fractured_flanks": 0.25,
+        "hardened_highlands": 2.5
+      }
     }
   ],
   "dayNightCycle": "asteria:overworld/day_night_cycle",

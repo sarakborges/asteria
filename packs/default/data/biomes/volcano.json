@@ -85,6 +85,79 @@
         "fractured_flanks": 1.75,
         "hardened_highlands": 1.14
       }
+    },
+    {
+      "block": "asteria:volcanic_ash_thorn",
+      "chance": 0.17,
+      "surfaceBlocks": [
+        "asteria:basalt",
+        "asteria:basalt_cobble",
+        "asteria:gravel"
+      ],
+      "cluster": {
+        "scale": 36,
+        "threshold": -0.19,
+        "octaves": 4,
+        "transitionWidth": 0.15
+      },
+      "conditions": {
+        "minY": 99,
+        "maxY": 184,
+        "maxSlope": 3
+      },
+      "habitatWeights": {
+        "ash_aprons": 2.4,
+        "fractured_flanks": 0.76,
+        "hardened_highlands": 0.08
+      }
+    },
+    {
+      "block": "asteria:volcanic_cinder_bloom",
+      "chance": 0.11,
+      "surfaceBlocks": [
+        "asteria:basalt",
+        "asteria:basalt_cobble"
+      ],
+      "cluster": {
+        "scale": 43,
+        "threshold": -0.17,
+        "octaves": 4,
+        "transitionWidth": 0.15
+      },
+      "conditions": {
+        "minY": 99,
+        "maxY": 173,
+        "maxSlope": 2
+      },
+      "habitatWeights": {
+        "ash_aprons": 1.7,
+        "fractured_flanks": 0.64,
+        "hardened_highlands": 0.04
+      }
+    },
+    {
+      "block": "asteria:volcanic_soot_lichen",
+      "chance": 0.18,
+      "surfaceBlocks": [
+        "asteria:basalt",
+        "asteria:basalt_cobble"
+      ],
+      "cluster": {
+        "scale": 31,
+        "threshold": -0.21,
+        "octaves": 4,
+        "transitionWidth": 0.15
+      },
+      "conditions": {
+        "minY": 102,
+        "maxY": 197,
+        "maxSlope": 5
+      },
+      "habitatWeights": {
+        "ash_aprons": 0.45,
+        "fractured_flanks": 1.75,
+        "hardened_highlands": 1.75
+      }
     }
   ],
   "palette": {

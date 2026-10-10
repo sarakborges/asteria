@@ -1,0 +1,20 @@
+{
+  "id": "asteria:volcanic_ember_needles",
+  "category": "foliage",
+  "windSway": true,
+  "textures": {
+    "top": "textures/blocks/volcanic_ember_needles.png",
+    "bottom": "textures/blocks/volcanic_ember_needles.png",
+    "left": "textures/blocks/volcanic_ember_needles.png",
+    "right": "textures/blocks/volcanic_ember_needles.png",
+    "front": "textures/blocks/volcanic_ember_needles.png",
+    "back": "textures/blocks/volcanic_ember_needles.png"
+  },
+  "alphaCutoff": 0.5,
+  "lightDampening": 2,
+  "castsShadow": false,
+  "mining": {
+    "hardness": 0.18
+  },
+  "previewColor": "9a5744"
+}

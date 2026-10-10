@@ -1,0 +1,27 @@
+{
+  "id": "asteria:volcanic_cinder_bloom",
+  "category": "foliage",
+  "tags": [
+    "support_below"
+  ],
+  "windSway": true,
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/volcanic_cinder_bloom.png",
+    "width": 0.73,
+    "height": 0.79,
+    "planes": 4
+  },
+  "placementFaces": [
+    "top"
+  ],
+  "mining": {
+    "hardness": 0.05
+  },
+  "isCollidable": false,
+  "castsShadow": false,
+  "lightDampening": 0,
+  "alphaCutoff": 0.5,
+  "previewColor": "d67a47",
+  "dropsSelf": false
+}

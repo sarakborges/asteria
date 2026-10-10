@@ -1,0 +1,27 @@
+{
+  "id": "asteria:volcanic_soot_lichen",
+  "category": "foliage",
+  "tags": [
+    "support_below"
+  ],
+  "visual": {
+    "type": "groundSprite",
+    "texture": "textures/objects/volcanic_soot_lichen.png",
+    "width": 0.9,
+    "height": 0.012,
+    "baseOffset": 0.0125,
+    "targetHeight": 0.14
+  },
+  "placementFaces": [
+    "top"
+  ],
+  "mining": {
+    "hardness": 0.05
+  },
+  "isCollidable": false,
+  "castsShadow": false,
+  "lightDampening": 0,
+  "alphaCutoff": 0.5,
+  "previewColor": "756b58",
+  "dropsSelf": false
+}

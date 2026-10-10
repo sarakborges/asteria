@@ -1,0 +1,26 @@
+{
+  "id": "asteria:volcanic_glass",
+  "category": "natural_blocks",
+  "textures": {
+    "top": "textures/blocks/volcanic_glass.png",
+    "bottom": "textures/blocks/volcanic_glass.png",
+    "left": "textures/blocks/volcanic_glass.png",
+    "right": "textures/blocks/volcanic_glass.png",
+    "front": "textures/blocks/volcanic_glass.png",
+    "back": "textures/blocks/volcanic_glass.png"
+  },
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 2.4,
+    "requiredTools": [
+      "pickaxe"
+    ]
+  },
+  "previewColor": "624b56",
+  "lightEmission": {
+    "red": 4,
+    "green": 1,
+    "blue": 0
+  }
+}

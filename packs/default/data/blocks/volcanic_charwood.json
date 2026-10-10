@@ -1,0 +1,21 @@
+{
+  "id": "asteria:volcanic_charwood",
+  "category": "wooden_blocks",
+  "textures": {
+    "top": "textures/blocks/volcanic_charwood_top.png",
+    "bottom": "textures/blocks/volcanic_charwood_top.png",
+    "left": "textures/blocks/volcanic_charwood_side.png",
+    "right": "textures/blocks/volcanic_charwood_side.png",
+    "front": "textures/blocks/volcanic_charwood_side.png",
+    "back": "textures/blocks/volcanic_charwood_side.png"
+  },
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1.1,
+    "preferredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "514843"
+}
