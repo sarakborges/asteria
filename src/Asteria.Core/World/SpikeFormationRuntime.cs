@@ -288,7 +288,15 @@ public sealed class SpikeFormationRuntime
         var previous = edit.Previous;
         var wasSpike = !previous.IsEmpty &&
             _blocks.GetDefinition(previous.Block).Shape.Kind == BlockShapeKind.Spike;
-        if (wasSpike && edit.Current.Block != previous.Block)
+        var changedProfile = wasSpike &&
+            edit.Current.Block == previous.Block &&
+            (SpikeSegmentState.Index(edit.Current.State) !=
+                SpikeSegmentState.Index(previous.State) ||
+             SpikeSegmentState.Height(edit.Current.State) !=
+                SpikeSegmentState.Height(previous.State) ||
+             SpikeSegmentState.IsDown(edit.Current.State) !=
+                SpikeSegmentState.IsDown(previous.State));
+        if (wasSpike && (edit.Current.Block != previous.Block || changedProfile))
         {
             var edits = new List<SpikeVoxelChange>();
             var detached = new List<WorldVoxelCoord>();
@@ -300,6 +308,11 @@ public sealed class SpikeFormationRuntime
                     SpawnDrop(previous.Block, position);
             }
         }
+
+        // The replacement spike itself can be a separate invalid root.
+        // A texture/rotation edit is not a formation change.
+        if (changedProfile)
+            ReconcileAt(edit.Position);
 
         DetachUnsupportedBase(
             Offset(edit.Position, 1), down: false,
