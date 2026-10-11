@@ -34,6 +34,7 @@ public sealed class DimensionSessionController
     private DimensionId? _target;
     private NVector3? _sourcePosition;
     private NVector3? _destinationPosition;
+    private bool _exactDestination;
     private CheckpointRequest? _checkpoint;
     private Task<ulong>? _checkpointPublication;
     private DimensionSessionArchiveReport? _checkpointArchive;
@@ -146,7 +147,8 @@ public sealed class DimensionSessionController
     public bool RequestTransition(
         DimensionId target,
         NVector3 sourcePosition,
-        NVector3? destinationPosition = null)
+        NVector3? destinationPosition = null,
+        bool exactDestination = false)
     {
         if (Active is null)
         {
@@ -172,6 +174,7 @@ public sealed class DimensionSessionController
             sourcePosition;
         _destinationPosition =
             destinationPosition;
+        _exactDestination = exactDestination;
         _target =
             target;
         Active.BeginRetirement();
@@ -305,13 +308,16 @@ public sealed class DimensionSessionController
         if (_destinationPosition is
             { } destination)
         {
-            Active.PrepareGeneratedDestination(
-                destination);
+            if (_exactDestination)
+                Active.PrepareExactPortalDestination(destination);
+            else
+                Active.PrepareGeneratedDestination(destination);
         }
 
         _target = null;
         _sourcePosition = null;
         _destinationPosition = null;
+        _exactDestination = false;
 
         return new DimensionTransitionCompletion(
             previous,

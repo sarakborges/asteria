@@ -12,6 +12,39 @@ public static class ResidentWarpDestinationQuery
     private const int HorizontalRadius = 6;
     private const int VerticalRadius = 4;
 
+    /// <summary>
+    /// Portal travel never substitutes a nearby location for an authored
+    /// exact-coordinate link. This is query-only and reads resident chunks.
+    /// </summary>
+    public static bool IsExactSafe(VoxelWorld world, Vector3 preferred)
+    {
+        ArgumentNullException.ThrowIfNull(world);
+        if (!float.IsFinite(preferred.X) ||
+            !float.IsFinite(preferred.Y) ||
+            !float.IsFinite(preferred.Z) ||
+            preferred.Y < 1f ||
+            preferred.X <= int.MinValue || preferred.X >= int.MaxValue ||
+            preferred.Z <= int.MinValue || preferred.Z >= int.MaxValue ||
+            preferred.Y >= int.MaxValue - 2)
+            return false;
+
+        var x = (int)MathF.Floor(preferred.X);
+        var y = (int)MathF.Floor(preferred.Y);
+        var z = (int)MathF.Floor(preferred.Z);
+        var feet = new WorldVoxelCoord(x, y, z);
+        var head = new WorldVoxelCoord(x, y + 1, z);
+        var below = new WorldVoxelCoord(x, y - 1, z);
+
+        return world.IsLoadedAt(feet) &&
+               world.IsLoadedAt(head) &&
+               world.IsLoadedAt(below) &&
+               world.GetCellOrEmpty(feet).IsEmpty &&
+               world.GetCellOrEmpty(head).IsEmpty &&
+               !world.GetCellOrEmpty(below).IsEmpty &&
+               world.GetFluidOrEmpty(feet).IsEmpty &&
+               world.GetFluidOrEmpty(head).IsEmpty;
+    }
+
     public static Vector3? Find(VoxelWorld world, Vector3 preferred)
     {
         ArgumentNullException.ThrowIfNull(world);

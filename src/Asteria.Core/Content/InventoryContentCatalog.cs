@@ -37,6 +37,7 @@ public sealed class InventoryContentCatalog
         var choices = new List<InventoryCatalogChoice>();
         foreach (var (runtimeId, definition) in blocks.AuthoredDefinitions())
         {
+            if (definition.HasTag("creative_hidden")) continue;
             choices.Add(new InventoryCatalogChoice(
                 InventoryEntry.FromBlock(
                     definition.Id,

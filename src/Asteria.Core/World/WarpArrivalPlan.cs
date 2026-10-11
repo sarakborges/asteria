@@ -25,7 +25,8 @@ public enum WarpArrivalDisposition : byte
 public readonly record struct WarpArrivalPlan(
     DimensionId Origin,
     Vector3 OriginPosition,
-    WarpArrivalPhase Phase = WarpArrivalPhase.Requested)
+    WarpArrivalPhase Phase = WarpArrivalPhase.Requested,
+    bool RequireExactDestination = false)
 {
     public bool IsReturning =>
         Phase is WarpArrivalPhase.Returning or
@@ -34,7 +35,9 @@ public readonly record struct WarpArrivalPlan(
     public WarpArrivalDisposition Evaluate(bool residentEntrySafe) =>
         residentEntrySafe
             ? WarpArrivalDisposition.Enter
-            : Phase switch
+            : RequireExactDestination && Phase == WarpArrivalPhase.Requested
+                ? WarpArrivalDisposition.ReturnToOrigin
+                : Phase switch
             {
                 WarpArrivalPhase.Requested or WarpArrivalPhase.Returning =>
                     WarpArrivalDisposition.RetryAtGeneratedSpawn,
@@ -58,7 +61,8 @@ public readonly record struct WarpArrivalPlan(
         };
 
     public WarpArrivalPlan BeginReturn() =>
-        Phase == WarpArrivalPhase.DestinationFallback
+        Phase == WarpArrivalPhase.DestinationFallback ||
+        RequireExactDestination && Phase == WarpArrivalPhase.Requested
             ? this with { Phase = WarpArrivalPhase.Returning }
             : throw new InvalidOperationException(
                 $"Cannot begin warp rollback from {Phase}.");

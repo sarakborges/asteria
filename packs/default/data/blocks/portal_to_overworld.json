@@ -1,0 +1,34 @@
+{
+  "id": "asteria:portal_to_overworld",
+  "category": "crafted_blocks",
+  "tags": [
+    "portal_destination:asteria:overworld",
+    "creative_hidden"
+  ],
+  "shape": {
+    "type": "layer",
+    "placement": "center",
+    "thickness": 0.1
+  },
+  "orientations": [
+    "x",
+    "y",
+    "z"
+  ],
+  "textures": {
+    "top": "textures/blocks/portals/umbral.png",
+    "bottom": "textures/blocks/portals/umbral.png",
+    "left": "textures/blocks/portals/umbral.png",
+    "right": "textures/blocks/portals/umbral.png",
+    "front": "textures/blocks/portals/umbral.png",
+    "back": "textures/blocks/portals/umbral.png"
+  },
+  "isCollidable": false,
+  "castsShadow": false,
+  "lightDampening": 0,
+  "alphaBlend": true,
+  "mining": {
+    "unbreakable": true
+  },
+  "dropsSelf": false
+}

@@ -150,11 +150,13 @@ public partial class Main : Node3D
     private ulong? _publishedStorageRevision;
     private readonly PlayerChatSession _chat = new();
     private WarpArrivalPlan? _warpArrival;
+    private bool _portalTravelLatched;
 
     private enum DimensionTravelPurpose : byte
     {
         Ordinary,
         ChatWarp,
+        Portal,
     }
     private readonly ChatLocateController _chatLocate = new();
     private double _chatFeedbackSeconds;
@@ -656,6 +658,7 @@ public partial class Main : Node3D
         SendWorldClockState();
         SendTargetHudState();
         SyncArchitectsCompassPreview();
+        TryTraversePhysicalPortal();
         _worldDiagnostics?.ObserveStage(
             WorldFrameStage.Gameplay, stageStart);
     }
@@ -701,14 +704,21 @@ public partial class Main : Node3D
         var sameSphere = target == _dimension.Id;
         if (!(sameSphere
                 ? _sessions.RequestRelocation(source, destination)
-                : _sessions.RequestTransition(target, source, destination)))
+                : _sessions.RequestTransition(
+                    target, source, destination,
+                    exactDestination: purpose == DimensionTravelPurpose.Portal)))
         {
             return false;
         }
 
-        _warpArrival = purpose == DimensionTravelPurpose.ChatWarp
-            ? new WarpArrivalPlan(_dimension.Id, source)
-            : null;
+        _warpArrival = purpose switch
+        {
+            DimensionTravelPurpose.ChatWarp =>
+                new WarpArrivalPlan(_dimension.Id, source),
+            DimensionTravelPurpose.Portal =>
+                new WarpArrivalPlan(_dimension.Id, source, RequireExactDestination: true),
+            _ => null,
+        };
         StartDimensionRetirement(target);
         return true;
     }
@@ -855,6 +865,7 @@ public partial class Main : Node3D
         _chat.Reset();
         _chatFeedbackSeconds = 0;
         _warpArrival = null;
+        _portalTravelLatched = false;
         _lastClockHud = null;
         _lastCreatureHud = null;
         _publishedStorageRevision = null;
@@ -1999,8 +2010,11 @@ public partial class Main : Node3D
 
         if (_warpArrival is { } warp)
         {
-            var disposition = warp.Evaluate(
-                _sessions.Active.TryPrepareResidentWarpEntry());
+            var residentEntrySafe = warp.RequireExactDestination &&
+                !warp.IsReturning
+                ? _sessions.Active.TryPrepareResidentPortalEntry()
+                : _sessions.Active.TryPrepareResidentWarpEntry();
+            var disposition = warp.Evaluate(residentEntrySafe);
             switch (disposition)
             {
                 case WarpArrivalDisposition.RetryAtGeneratedSpawn:
@@ -4014,6 +4028,41 @@ public partial class Main : Node3D
         }
     }
 
+    private void TryTraversePhysicalPortal()
+    {
+        if (!_worldReadySent || _sessions.IsTransitioning ||
+            _player is not { } player ||
+            !_sessionStates.Player.CanInteract)
+            return;
+
+        var position = player.GlobalPosition;
+        var at = new WorldVoxelCoord(
+            Mathf.FloorToInt(position.X),
+            Mathf.FloorToInt(position.Y),
+            Mathf.FloorToInt(position.Z));
+
+        if (!_sessions.Active.Portals.TryGetDestinationAt(at, out var target) &&
+            !_sessions.Active.Portals.TryGetDestinationAt(
+                at + (0, 1, 0), out target))
+        {
+            _portalTravelLatched = false;
+            return;
+        }
+
+        if (_portalTravelLatched || target == _dimension.Id.Value)
+            return;
+
+        var source = new NVector3(position.X, position.Y, position.Z);
+        if (BeginDimensionTransition(
+                new DimensionId(target), source,
+                purpose: DimensionTravelPurpose.Portal))
+        {
+            _portalTravelLatched = true;
+            _worldDiagnostics?.Write(
+                $"portal.travel.begin destination={target} position={at}");
+        }
+    }
+
     private void PlaceTargetBlock()
     {
         if (!_sessionStates.Player.CanInteract || _player is null)
@@ -4041,6 +4090,26 @@ public partial class Main : Node3D
         if (_sessions.Active.ArchitectsCompass.IsEquipped(selected))
         {
             UseArchitectsCompass(selected, inventory.SelectedSlot, CurrentTarget());
+            return;
+        }
+
+        if (PortalActivationRuntime.IsSlicer(selected))
+        {
+            if (target is { } frameHit &&
+                _sessions.Active.Portals.TryActivate(selected, frameHit,
+                    out var portalTarget))
+            {
+                if (_sessionStates.Player.GameMode == PlayerGameMode.Survival &&
+                    !inventory.TryConsumeSelected())
+                    throw new InvalidOperationException(
+                        "Successful portal activation lost selected Slicer.");
+
+                _worldDiagnostics?.Write(
+                    $"portal.activate destination={portalTarget} frame={frameHit.Voxel}");
+                SyncHeldBlock();
+                SendHotbarState();
+                SendInventoryState();
+            }
             return;
         }
 

@@ -229,6 +229,7 @@ public sealed class DimensionRuntimeSession
             World, blocks, Mutations, tools, dyes);
         LayerPlacement = new AttachedLayerPlacementRuntime(
             World, blocks, layers, Mutations);
+        Portals = new PortalActivationRuntime(World, blocks, Mutations);
         ArchitectsCompass = new ArchitectsCompassRuntime(
             World, blocks, tools, dyes, layers);
         StructureSelection = new StructureSelectionPresentation(Root);
@@ -510,6 +511,7 @@ public sealed class DimensionRuntimeSession
 
     public VoxelMutationRuntime Mutations { get; }
     public ManualStructurePlacementRuntime ManualStructures { get; }
+    public PortalActivationRuntime Portals { get; }
     public StorageBoxSnapshot? ActiveStorageBox =>
         _state.StorageBoxes.CaptureActive();
     public ulong StorageBoxRevision => _state.StorageBoxes.Revision;
@@ -595,6 +597,22 @@ public sealed class DimensionRuntimeSession
             destination.Y,
             destination.Z + 0.5f);
     }
+
+    /// <summary>For portals, keep exact source coordinates. A blocked
+    /// entry must fail safe and return; never silently move to world spawn.</summary>
+    public void PrepareExactPortalDestination(NVector3 preferred)
+    {
+        if (!float.IsFinite(preferred.X) ||
+            !float.IsFinite(preferred.Y) ||
+            !float.IsFinite(preferred.Z) ||
+            preferred.Y < 1f)
+            throw new ArgumentOutOfRangeException(nameof(preferred));
+        _initialPlayerPosition = preferred;
+    }
+
+    public bool TryPrepareResidentPortalEntry() =>
+        !_retiring && !_retired &&
+        ResidentWarpDestinationQuery.IsExactSafe(World, _initialPlayerPosition);
 
     public void PrepareGeneratedDestination(
         NVector3 preferred)
