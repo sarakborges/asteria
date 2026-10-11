@@ -112,6 +112,99 @@ public sealed class BlockPhysicsRuntimeTests
     }
 
     [Fact]
+    public void FallingBlocksParkOnUnloadedSupportAndResumeOnlyWhenItArrives()
+    {
+        var world = new VoxelWorld();
+        world.InsertChunk(new ChunkCoord(0, 1, 0), new Chunk());
+        world.InsertChunk(new ChunkCoord(1, 1, 0), new Chunk());
+        var blocks = new BlockRegistry([
+            new BlockDefinition("asteria:sand",
+                tags: [BlockPhysicsCapabilities.Gravity]),
+        ]);
+        var updates = new BlockPhysicsUpdateQueue();
+        var mutations = new VoxelMutationRuntime(world,
+            new WorldUpdateQueue(), new FluidUpdateQueue(),
+            new FluidMeshUpdateQueue(), updates,
+            new MeshletContentRevisions(), new MeshletContentRevisions());
+        var drops = new DroppedBlockRuntime(world, blocks);
+        var state = BlockStateSnapshot.FromCell(
+            new VoxelCell(blocks.GetId("asteria:sand")));
+        var original = new BlockPhysicsRuntimeSnapshot(2, [
+            new FallingBlockState(new FallingBlockId(1), state,
+                3, 3, 16.5, 0),
+            new FallingBlockState(new FallingBlockId(2), state,
+                Chunk.Size + 3, 3, 16.5, 0),
+        ]);
+        using var physics = new BlockPhysicsRuntime(
+            world, blocks, mutations, updates, drops, restore: original);
+
+        physics.Advance(1.0 / 60.0, 18.0);
+        Assert.Equal(2, physics.ActiveCount);
+        Assert.Equal(2, physics.WaitingFallingCount);
+        Assert.Equal(2, physics.CaptureState().ActiveBlocks.Count);
+
+        for (var frame = 0; frame < 100; frame++)
+            physics.Advance(1.0 / 60.0, 18.0);
+        Assert.Equal(2, physics.WaitingFallingCount);
+        Assert.All(physics.ActiveBlocks,
+            block => Assert.Equal(16.5, block.CenterY));
+
+        world.InsertChunk(ChunkCoord.Zero, new Chunk());
+        Assert.Equal(1, physics.WaitingFallingCount);
+        physics.Advance(1.0 / 60.0, 18.0);
+        var byId = physics.ActiveBlocks.ToDictionary(block => block.Id.Value);
+        Assert.True(byId[1].CenterY < 16.5);
+        Assert.Equal(16.5, byId[2].CenterY);
+
+        world.InsertChunk(new ChunkCoord(1, 0, 0), new Chunk());
+        Assert.Equal(0, physics.WaitingFallingCount);
+        physics.Advance(1.0 / 60.0, 18.0);
+        Assert.True(physics.ActiveBlocks.Single(block =>
+            block.Id.Value == 2).CenterY < 16.5);
+    }
+
+    [Fact]
+    public void RestoredFallingBlocksReevaluateMissingChunksOnFirstAdvance()
+    {
+        var world = new VoxelWorld();
+        world.InsertChunk(new ChunkCoord(0, 1, 0), new Chunk());
+        var blocks = new BlockRegistry([
+            new BlockDefinition("asteria:sand",
+                tags: [BlockPhysicsCapabilities.Gravity]),
+        ]);
+        var updates = new BlockPhysicsUpdateQueue();
+        var mutations = new VoxelMutationRuntime(world,
+            new WorldUpdateQueue(), new FluidUpdateQueue(),
+            new FluidMeshUpdateQueue(), updates,
+            new MeshletContentRevisions(), new MeshletContentRevisions());
+        var drops = new DroppedBlockRuntime(world, blocks);
+        var snapshot = new BlockPhysicsRuntimeSnapshot(1, [
+            new FallingBlockState(new FallingBlockId(1),
+                BlockStateSnapshot.FromCell(
+                    new VoxelCell(blocks.GetId("asteria:sand"))),
+                3, 3, 16.5, 0),
+        ]);
+
+        using (var initial = new BlockPhysicsRuntime(
+            world, blocks, mutations, updates, drops, restore: snapshot))
+        {
+            initial.Advance(1.0 / 60.0, 18.0);
+            Assert.Equal(1, initial.WaitingFallingCount);
+            snapshot = initial.CaptureState();
+        }
+
+        using var restored = new BlockPhysicsRuntime(
+            world, blocks, mutations, updates, drops, restore: snapshot);
+        restored.Advance(1.0 / 60.0, 18.0);
+        Assert.Equal(1, restored.WaitingFallingCount);
+
+        world.InsertChunk(ChunkCoord.Zero, new Chunk());
+        Assert.Equal(0, restored.WaitingFallingCount);
+        restored.Advance(1.0 / 60.0, 18.0);
+        Assert.True(Assert.Single(restored.ActiveBlocks).CenterY < 16.5);
+    }
+
+    [Fact]
     public void ResidentChunkSeedsExistingGravityBlocks()
     {
         var world = new VoxelWorld();
