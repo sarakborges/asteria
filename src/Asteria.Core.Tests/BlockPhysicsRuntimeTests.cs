@@ -31,6 +31,25 @@ public sealed class BlockPhysicsRuntimeTests
     }
 
     [Fact]
+    public void PhysicsWakeupsAreBoundedPerTickAndPreserveFifoRemainder()
+    {
+        var queue = new BlockPhysicsUpdateQueue();
+        var positions = Enumerable.Range(0, BlockPhysicsUpdateQueue.MaximumBatchSize + 7)
+            .Select(x => new WorldVoxelCoord(x, 5, 0))
+            .ToArray();
+
+        foreach (var position in positions)
+            queue.Enqueue(position);
+        var first = queue.DrainBatch();
+
+        Assert.Equal(positions.Take(BlockPhysicsUpdateQueue.MaximumBatchSize), first);
+        Assert.Equal(7, queue.Count);
+        Assert.Equal(positions.Skip(BlockPhysicsUpdateQueue.MaximumBatchSize),
+            queue.DrainBatch());
+        Assert.Equal(0, queue.Count);
+    }
+
+    [Fact]
     public void ResidentChunkSeedsExistingGravityBlocks()
     {
         var world = new VoxelWorld();
