@@ -54,6 +54,31 @@ public sealed class ManualStructurePlacementRuntime
             plan is null)
             return ManualStructurePlacementResult.InvalidPlacement;
 
+        return ApplyPlan(plan, playerBounds);
+    }
+
+    /// <summary>
+    /// Exact-coordinate authored arrival: reuse the Structure field's
+    /// connector/conflict resolution and the same canonical commit preflight
+    /// used by manual Structure placement.
+    /// </summary>
+    public ManualStructurePlacementResult TryPlaceExact(
+        string reference, int anchorX, int anchorY, int anchorZ)
+    {
+        if (!_structures.ResolvesReference(reference))
+            return ManualStructurePlacementResult.UnknownReference;
+        if (!_generator.TryPrepareExactStructure(
+                reference, anchorX, anchorY, anchorZ,
+                _committed, out var plan) || plan is null)
+            return ManualStructurePlacementResult.InvalidPlacement;
+        // No player exists during Sphere loading. Normal placement collision
+        // checks do not apply, but all resident/protected-voxel checks do.
+        return ApplyPlan(plan, default);
+    }
+
+    private ManualStructurePlacementResult ApplyPlan(
+        ManualStructurePlacementPlan plan, WorldAabb playerBounds)
+    {
         var placements = plan.Pieces;
 
         // Insertion order represents worldgen's authored piece precedence.

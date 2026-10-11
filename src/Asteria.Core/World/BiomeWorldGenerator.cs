@@ -357,6 +357,13 @@ public sealed class BiomeWorldGenerator :
         _surfaceStructures.TryPrepareManualPlacement(
             reference, variation, anchorX, anchorZ, committed, out plan);
 
+    internal bool TryPrepareExactStructure(
+        string reference, int anchorX, int anchorY, int anchorZ,
+        ManualStructurePlacementLedger committed,
+        out ManualStructurePlacementPlan? plan) =>
+        _surfaceStructures.TryPrepareExactPlacement(
+            reference, anchorX, anchorY, anchorZ, committed, out plan);
+
     public bool HasGeneratedSurfaceStructure(string reference) =>
         _surfaceStructures.HasReference(reference);
 

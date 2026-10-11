@@ -222,6 +222,56 @@ public sealed class SurfaceStructureField
                 rule, [root], MaximumManualPayloadCount);
         }
 
+        return TryFinalizeExplicitPlacement(reference, anchorX, anchorZ,
+            pieces, committed, out plan);
+    }
+
+    /// <summary>
+    /// Prepare an authored Structure at the exact X/Y/Z entry of a portal.
+    /// Unlike world-generated placement, the root is deliberately not
+    /// surface-fitted: its authored clear/floor payload owns safe arrival.
+    /// Connector expansion, conflicts and bounds use the existing field.
+    /// </summary>
+    internal bool TryPrepareExactPlacement(
+        string reference, int anchorX, int anchorY, int anchorZ,
+        ManualStructurePlacementLedger committed,
+        out ManualStructurePlacementPlan? plan)
+    {
+        plan = null;
+        ArgumentNullException.ThrowIfNull(committed);
+        if (anchorY < 1 || !_structures.ResolvesReference(reference))
+            return false;
+        var definitions = _structures.ResolveReference(reference);
+        // An exact arrival must resolve one unambiguous root; a Structure
+        // can still expand its normal authored connector graph.
+        if (definitions.Count != 1)
+            return false;
+        var biome = SurfaceAt(anchorX, anchorZ).Biome.Primary;
+        var member = new RuntimeStructure(definitions[0], _blocks, _fluids);
+        var root = member.Place(reference, anchorX, anchorY, anchorZ,
+            StructureRotation.Degrees0);
+        var rule = new RootRule(
+            biome, reference, spacing: 1, chance: 1f, jitter: 0,
+            placement: DimensionGeneratedSurfaceStructurePlacement.BiomeInterior,
+            habitatWeights: null, members: [member], set: null,
+            maximumHorizontalRadius:
+                _connectors.MaximumHorizontalRadiusForReference(reference));
+        var pieces = ExpandConnectors(rule, [root], MaximumManualPayloadCount);
+        if (pieces.Any(piece => piece.MinimumY < 0 ||
+            (_floorY is { } floorY && piece.MinimumY <= floorY) ||
+            (_roofY is { } roofY && piece.MaximumY >= roofY)))
+            return false;
+        return TryFinalizeExplicitPlacement(reference, anchorX, anchorZ,
+            pieces, committed, out plan);
+    }
+
+    private bool TryFinalizeExplicitPlacement(
+        string reference, int anchorX, int anchorZ,
+        IReadOnlyList<SurfaceStructurePlacement> pieces,
+        ManualStructurePlacementLedger committed,
+        out ManualStructurePlacementPlan? plan)
+    {
+        plan = null;
         if (pieces.Count == 0) return false;
         var minX = pieces.Min(piece => piece.MinimumX);
         var maxX = pieces.Max(piece => piece.MaximumX);
