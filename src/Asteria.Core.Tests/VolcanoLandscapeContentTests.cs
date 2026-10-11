@@ -141,7 +141,7 @@ public sealed class VolcanoLandscapeContentTests
             var block = blocks.GetDefinition(blocks.GetId("asteria:" + id));
             Assert.True(block.IsCollidable);
             Assert.All(block.Textures.AllLayers(), tex =>
-                Assert.StartsWith("textures/blocks/volcanic_", tex.Texture));
+                Assert.StartsWith("textures/blocks/" + id, tex.Texture));
         }
         var bloom = blocks.GetDefinition(
             blocks.GetId("asteria:cinder_bloom"));
