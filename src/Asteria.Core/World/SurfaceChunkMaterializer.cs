@@ -1182,9 +1182,17 @@ public sealed class SurfaceChunkMaterializer
             var surface = column.BiomeAt(x, z);
             var baseY = column.BaseHeightAt(x, z);
             var surfaceRule = _decorations.HasWallDecorationsFor(surface.Primary);
+            // Above the base terrain, non-wall surface biomes have no
+            // natural cliff faces to decorate. Do not scan empty sky
+            // columns looking for unrelated cave walls.
+            if (!surfaceRule && originY > baseY)
+                continue;
             BiomeSample? cave = null;
+            var scanHeight = surfaceRule
+                ? Chunk.Size
+                : Math.Min(Chunk.Size, baseY - originY + 1);
 
-            for (var y = 0; y < Chunk.Size; y++)
+            for (var y = 0; y < scanHeight; y++)
             {
                 var worldY = originY + y;
                 if (worldY <= 0 ||
