@@ -117,6 +117,8 @@ Mountain Belt (habitats `sheltered_passes`, `boulder_runs`,
 
 Keep peaks bare; these proposals require habitat/slope/height constraints.
 
+**Plains/Swamp P1 status (2026-10-11): implemented.** Four Plains meadow decorators, two Swamp waterside decorators, and two Swamp structure families (six variants), retaining Willow moss and the native Swamp surface mosaic. Original counts table is a pre-implementation snapshot.
+
 ## P1 — next biodiversity and object families
 
 | Biome | Proposals | Implementation conditions |

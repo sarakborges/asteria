@@ -997,3 +997,33 @@ maxSlope, fluid exclusion and the existing conflict resolver.
 No world height owner, shader, biome blending exception or
 extra block texture pack is introduced. Validate the effect
 visually across different seeds before raising density further.
+
+## Plains meadow and Swamp marsh/woodland biodiversity (2026-10-11)
+
+Plains now has four additional ground species: three upright meadow
+plants (Daisy, Purple Aster, Seedheads) and a low Clover groundSprite.
+Each uses seed-stable clusters, real Grass Block support and strong
+`open`/`thicket` habitat weights, avoiding rocky ground. This
+builds on, rather than replaces, the existing Blue/Yellow wildflowers,
+grass and shrubs. There is no new surface patch rule or terrain shape.
+
+Swamp now has two new waterside decorators, Marsh Orchid and
+Bulrush. Both need an authored Water-nearby condition and valid
+dry ground at the natural mud/dirt/grass/water mosaic. New `swamp_reed_bed`
+structure variants (3) create 3D-spatial arrangements of Bulrush
+and existing Cattail sprites on flat, real ground near water, without
+filling or replacing pools. New `swamp_moss_stump` variants (3) use
+real Willow logs, custom moss-stained Willow wood, existing hanging
+moss (support from woody branches), exposed roots, Brown Mushrooms and
+a new shelf fungus sprite perched on wood. None attaches sprites to
+unsupported cliff faces, rewrites hydrology or changes Willow spawn
+rate. Stump habitats strongly favor `fungal_ground` and `willow_grove`.
+
+Ten authored decoration rules before became 10 in Plains and 11 in
+Swamp respectively (four and two new rules). Two new structure groups
+provide six variants, supported by eight new 64×64 pack textures and
+eight block definitions. All authored blocks use the existing
+StructureRegistry and surface decorator/fluids owners. The
+`swamp` surfaceMosaic, wet/dry level, overall terrain, biome
+adjacency and existing three habitats remain unchanged.
+Validate density and support visually for representative seeds.

@@ -1,0 +1,103 @@
+{
+  "id": "asteria:swamp_moss_stump_01",
+  "groupId": "swamp_moss_stump",
+  "locatable": false,
+  "rotation": true,
+  "priority": 0,
+  "conflictGroups": [
+    "tree",
+    "stump",
+    "fungal"
+  ],
+  "groundAnchorY": 0,
+  "restrictions": {
+    "groundBlocks": [
+      "asteria:mud",
+      "asteria:dirt",
+      "asteria:grass_block"
+    ],
+    "maxSlope": 1,
+    "requiresDryGround": true,
+    "requiredBiomeCoverage": 1
+  },
+  "generation": {
+    "replacePolicy": "terrain",
+    "fluidPolicy": "forbid",
+    "reserveSpace": false
+  },
+  "anchor": {
+    "x": 5,
+    "y": 0,
+    "z": 5
+  },
+  "palette": {
+    "F": {
+      "block": "asteria:swamp_shelf_fungus"
+    },
+    "H": {
+      "block": "asteria:hanging_moss"
+    },
+    "L": {
+      "block": "asteria:log_willow"
+    },
+    "M": {
+      "block": "asteria:mushroom_brown"
+    },
+    "R": {
+      "block": "asteria:exposed_roots"
+    },
+    "W": {
+      "block": "asteria:swamp_mossy_willow_log"
+    }
+  },
+  "layers": [
+    {
+      "y": 1,
+      "rows": [
+        "...........",
+        "...........",
+        "...........",
+        ".....R.....",
+        "...........",
+        "....HLHM...",
+        "...R.......",
+        "...........",
+        "...........",
+        "...........",
+        "..........."
+      ]
+    },
+    {
+      "y": 2,
+      "rows": [
+        "...........",
+        "...........",
+        "...........",
+        "...........",
+        "...........",
+        "....LWW....",
+        "...........",
+        "...........",
+        "...........",
+        "...........",
+        "..........."
+      ]
+    },
+    {
+      "y": 3,
+      "rows": [
+        "...........",
+        "...........",
+        "...........",
+        "...........",
+        "...........",
+        ".....FF....",
+        "...........",
+        "...........",
+        "...........",
+        "...........",
+        "..........."
+      ]
+    }
+  ]
+}

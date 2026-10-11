@@ -1,0 +1,135 @@
+{
+  "id": "asteria:swamp_moss_stump_03",
+  "groupId": "swamp_moss_stump",
+  "locatable": false,
+  "rotation": true,
+  "priority": 0,
+  "conflictGroups": [
+    "tree",
+    "stump",
+    "fungal"
+  ],
+  "groundAnchorY": 0,
+  "restrictions": {
+    "groundBlocks": [
+      "asteria:mud",
+      "asteria:dirt",
+      "asteria:grass_block"
+    ],
+    "maxSlope": 1,
+    "requiresDryGround": true,
+    "requiredBiomeCoverage": 1
+  },
+  "generation": {
+    "replacePolicy": "terrain",
+    "fluidPolicy": "forbid",
+    "reserveSpace": false
+  },
+  "anchor": {
+    "x": 5,
+    "y": 0,
+    "z": 5
+  },
+  "palette": {
+    "F": {
+      "block": "asteria:swamp_shelf_fungus"
+    },
+    "H": {
+      "block": "asteria:hanging_moss"
+    },
+    "L": {
+      "block": "asteria:log_willow"
+    },
+    "M": {
+      "block": "asteria:mushroom_brown"
+    },
+    "R": {
+      "block": "asteria:exposed_roots"
+    },
+    "W": {
+      "block": "asteria:swamp_mossy_willow_log"
+    }
+  },
+  "layers": [
+    {
+      "y": 1,
+      "rows": [
+        "...........",
+        "...........",
+        "...........",
+        ".....R.....",
+        "...R.......",
+        ".....L.M...",
+        "...........",
+        "....R.M....",
+        "...........",
+        "...........",
+        "..........."
+      ]
+    },
+    {
+      "y": 2,
+      "rows": [
+        "...........",
+        "...........",
+        "...........",
+        "...........",
+        ".....H.....",
+        "....HLH....",
+        ".....H.....",
+        "...........",
+        "...........",
+        "...........",
+        "..........."
+      ]
+    },
+    {
+      "y": 3,
+      "rows": [
+        "...........",
+        "...........",
+        "...........",
+        "...........",
+        ".....L.....",
+        "....LLW....",
+        ".....W.....",
+        "...........",
+        "...........",
+        "...........",
+        "..........."
+      ]
+    },
+    {
+      "y": 4,
+      "rows": [
+        "...........",
+        "...........",
+        "...........",
+        "...........",
+        "...........",
+        ".....WF....",
+        ".....F.....",
+        "...........",
+        "...........",
+        "...........",
+        "..........."
+      ]
+    },
+    {
+      "y": 5,
+      "rows": [
+        "...........",
+        "...........",
+        "...........",
+        "...........",
+        "...........",
+        ".....F.....",
+        "...........",
+        "...........",
+        "...........",
+        "...........",
+        "..........."
+      ]
+    }
+  ]
+}

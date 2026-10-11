@@ -1,0 +1,68 @@
+{
+  "id": "asteria:swamp_reed_bed_03",
+  "groupId": "swamp_reed_bed",
+  "locatable": false,
+  "rotation": true,
+  "priority": 0,
+  "conflictGroups": [
+    "marsh_reeds",
+    "shrub"
+  ],
+  "groundAnchorY": 0,
+  "restrictions": {
+    "groundBlocks": [
+      "asteria:mud",
+      "asteria:dirt",
+      "asteria:grass_block"
+    ],
+    "maxSlope": 0,
+    "requiresDryGround": true,
+    "requiredBiomeCoverage": 1,
+    "proximity": [
+      {
+        "target": {
+          "fluid": "asteria:water"
+        },
+        "mode": "required",
+        "minDistance": 1,
+        "maxDistance": 4
+      }
+    ]
+  },
+  "generation": {
+    "replacePolicy": "terrain",
+    "fluidPolicy": "forbid",
+    "reserveSpace": false
+  },
+  "anchor": {
+    "x": 5,
+    "y": 0,
+    "z": 5
+  },
+  "palette": {
+    "B": {
+      "block": "asteria:swamp_bulrush"
+    },
+    "C": {
+      "block": "asteria:cattail"
+    }
+  },
+  "layers": [
+    {
+      "y": 1,
+      "rows": [
+        "...........",
+        "...........",
+        "...........",
+        "...B.......",
+        ".....B.B...",
+        "....BBB....",
+        "...C.C..B..",
+        "....B.BB...",
+        "...........",
+        "...........",
+        "..........."
+      ]
+    }
+  ]
+}

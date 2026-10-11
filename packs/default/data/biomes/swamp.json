@@ -221,6 +221,66 @@
         "maxY": 95,
         "maxSlope": 2
       }
+    },
+    {
+      "block": "asteria:swamp_marsh_orchid",
+      "chance": 0.145,
+      "surfaceBlocks": [
+        "asteria:mud",
+        "asteria:dirt",
+        "asteria:grass_block"
+      ],
+      "cluster": {
+        "scale": 39,
+        "threshold": -0.23,
+        "octaves": 4,
+        "transitionWidth": 0.15
+      },
+      "conditions": {
+        "minY": 85,
+        "maxY": 95,
+        "maxSlope": 2
+      },
+      "habitatWeights": {
+        "willow_grove": 0.7,
+        "open_mire": 2.1,
+        "fungal_ground": 1.1
+      },
+      "fluidRequirement": {
+        "fluid": "asteria:water",
+        "relation": "nearby",
+        "maxDistance": 3
+      }
+    },
+    {
+      "block": "asteria:swamp_bulrush",
+      "chance": 0.18,
+      "surfaceBlocks": [
+        "asteria:mud",
+        "asteria:dirt",
+        "asteria:grass_block"
+      ],
+      "cluster": {
+        "scale": 35,
+        "threshold": -0.22,
+        "octaves": 4,
+        "transitionWidth": 0.15
+      },
+      "conditions": {
+        "minY": 85,
+        "maxY": 95,
+        "maxSlope": 2
+      },
+      "habitatWeights": {
+        "willow_grove": 0.55,
+        "open_mire": 2.7,
+        "fungal_ground": 0.12
+      },
+      "fluidRequirement": {
+        "fluid": "asteria:water",
+        "relation": "nearby",
+        "maxDistance": 2
+      }
     }
   ],
   "tints": {
