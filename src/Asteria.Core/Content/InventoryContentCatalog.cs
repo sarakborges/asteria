@@ -113,6 +113,35 @@ public sealed class InventoryContentCatalog
                 throw new InvalidOperationException(
                     $"Duplicate creative inventory identity: {_choices[index].Entry.Id}");
         }
+
+        // Validate every authored drop at content load, not after a voxel
+        // has been irreversibly removed by mining.
+        foreach (var (_, block) in blocks.AuthoredDefinitions())
+            if (block.LootTable is { } table)
+                foreach (var drop in table.Entries)
+                    if (!TryResolveLoot(drop.Item, out _))
+                        throw new InvalidOperationException(
+                            $"Block {block.Id} loot references unknown content {drop.Item}.");
+        if (layers is not null)
+            foreach (var layer in layers.Definitions)
+                foreach (var drop in layer.Drops)
+                    if (!TryResolve(drop.Kind, drop.Id, null, null, out _))
+                        throw new InvalidOperationException(
+                            $"Layer {layer.Id} drop references unknown {drop.Kind}: {drop.Id}.");
+    }
+
+    /// <summary>Resolves MineClone-style untyped loot IDs using an explicit,
+    /// stable priority. Runtime drops reuse the canonical authored stack
+    /// limits and never infer identity from a string prefix.</summary>
+    public bool TryResolveLoot(string id, out InventoryEntry? entry)
+    {
+        foreach (var kind in new[] {
+                     InventoryEntryKind.Item, InventoryEntryKind.Block,
+                     InventoryEntryKind.Layer, InventoryEntryKind.Tool })
+            if (TryResolve(kind, id, null, null, out entry))
+                return true;
+        entry = null;
+        return false;
     }
 
     public bool CanEquip(InventoryEntry entry, EquipmentSlot slot) =>
