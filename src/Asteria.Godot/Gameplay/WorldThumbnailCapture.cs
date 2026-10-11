@@ -35,9 +35,13 @@ public sealed class WorldThumbnailCapture
                 ? (int)((long)width * WorldThumbnailStorage.Height /
                     WorldThumbnailStorage.Width)
                 : height;
-            using var crop = screenshot.GetRect(new Rect2I(
+            if (screenshot.GetFormat() != Image.Format.Rgba8)
+                screenshot.Convert(Image.Format.Rgba8);
+            using var crop = Image.CreateEmpty(cropWidth, cropHeight,
+                false, Image.Format.Rgba8);
+            crop.BlitRect(screenshot, new Rect2I(
                 (width - cropWidth) / 2, (height - cropHeight) / 2,
-                cropWidth, cropHeight));
+                cropWidth, cropHeight), Vector2I.Zero);
             crop.Resize(WorldThumbnailStorage.Width,
                 WorldThumbnailStorage.Height, Image.Interpolation.Lanczos);
             var bytes = crop.SavePngToBuffer();
