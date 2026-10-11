@@ -38,7 +38,8 @@ public sealed class ChunkStreamingSelectionRuntime
 
     public void Request(
         ChunkCoord center,
-        int horizontalRadius)
+        int horizontalRadius,
+        bool includeVerticalAccess = false)
     {
         if (!_acceptingWork)
         {
@@ -54,11 +55,13 @@ public sealed class ChunkStreamingSelectionRuntime
         if (Matches(
                 _pending,
                 center,
-                horizontalRadius) ||
+                horizontalRadius,
+                includeVerticalAccess) ||
             Matches(
                 _inFlight,
                 center,
-                horizontalRadius))
+                horizontalRadius,
+                includeVerticalAccess))
         {
             return;
         }
@@ -68,7 +71,8 @@ public sealed class ChunkStreamingSelectionRuntime
             new SelectionRequest(
                 _revision,
                 center,
-                horizontalRadius);
+                horizontalRadius,
+                includeVerticalAccess);
         TryStartPending();
     }
 
@@ -158,7 +162,8 @@ public sealed class ChunkStreamingSelectionRuntime
                 .DesiredSurfaceChunks(
                     request.Center,
                     request.HorizontalRadius,
-                    _surfaceRanges);
+                    _surfaceRanges,
+                    request.IncludeVerticalAccess);
 
         return new ChunkStreamingSelectionSnapshot(
             request.Revision,
@@ -170,16 +175,19 @@ public sealed class ChunkStreamingSelectionRuntime
     private static bool Matches(
         SelectionRequest? request,
         ChunkCoord center,
-        int horizontalRadius) =>
+        int horizontalRadius,
+        bool includeVerticalAccess) =>
         request is
             { } value &&
         value.Center ==
             center &&
         value.HorizontalRadius ==
-            horizontalRadius;
+            horizontalRadius &&
+        value.IncludeVerticalAccess == includeVerticalAccess;
 
     private readonly record struct SelectionRequest(
         ulong Revision,
         ChunkCoord Center,
-        int HorizontalRadius);
+        int HorizontalRadius,
+        bool IncludeVerticalAccess);
 }

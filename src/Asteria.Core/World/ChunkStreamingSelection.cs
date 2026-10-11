@@ -6,11 +6,15 @@ public static class ChunkStreamingSelection
     private const int SurfacePaddingAboveChunks = 1;
     internal const int PlayerLocalHorizontalRadiusChunks = 2;
     internal const int PlayerLocalVerticalRadiusChunks = 2;
+    // Portal entry can require a vertical authored Structure; the additional
+    // residency is temporary and strictly bounded independently of world height.
+    internal const int MaximumVerticalAccessChunks = 32;
 
     public static HashSet<ChunkCoord> DesiredSurfaceChunks(
         ChunkCoord center,
         int horizontalRadius,
-        IChunkSurfaceRangeProvider surfaceRanges)
+        IChunkSurfaceRangeProvider surfaceRanges,
+        bool includeVerticalAccess = false)
     {
         ArgumentNullException.ThrowIfNull(
             surfaceRanges);
@@ -85,7 +89,36 @@ public static class ChunkStreamingSelection
             }
         }
 
+        if (includeVerticalAccess)
+            IncludeVerticalAccessColumns(desired, center, surfaceRanges);
+
         return desired;
+    }
+
+    private static void IncludeVerticalAccessColumns(
+        ISet<ChunkCoord> desired,
+        ChunkCoord center,
+        IChunkSurfaceRangeProvider surfaceRanges)
+    {
+        // A 3x3 column footprint contains the portal landing and its authored
+        // spiral stair even when the entrance lies at a chunk corner.
+        for (var dz = -1; dz <= 1; dz++)
+        for (var dx = -1; dx <= 1; dx++)
+        {
+            var x = checked(center.X + dx);
+            var z = checked(center.Z + dz);
+            var surface = surfaceRanges.GetSurfaceRange(x, z);
+            if (surface.MaximumWorldY < 0)
+                continue;
+            var surfaceTop = (long)WorldYToChunkY(
+                surface.MaximumWorldY) + SurfacePaddingAboveChunks;
+            if (surfaceTop < center.Y)
+                continue;
+            var maximum = (int)Math.Min(surfaceTop,
+                (long)center.Y + MaximumVerticalAccessChunks - 1);
+            InsertVerticalRange(desired, x, z,
+                Math.Max(0, center.Y - 1), maximum);
+        }
     }
 
     public static HashSet<ChunkCoord> DesiredPlayerLocalChunks(
