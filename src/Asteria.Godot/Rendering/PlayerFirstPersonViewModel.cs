@@ -86,7 +86,7 @@ internal sealed partial class PlayerFirstPersonViewModel : Node3D
 
         // Normalizes the original shoulder pivot around the animated pose,
         // rather than copying a second handmade arm/UV layout.
-        var armRotation = new Basis(armReference.Rotation);
+        var armRotation = new Basis(Quaternion.FromEuler(armReference.Rotation));
         armReference.Position = -(armRotation * pivot.Position);
         _held = new HeldItemPresentation(_pack);
         pivot.AddChild(_held);
