@@ -66,11 +66,13 @@ export function ChatPanel({
             <span>{message.localizationKey
               ? t(message.localizationKey, message.parameters ?? {})
               : message.text}</span>
-            {(message.action === "warp" || message.actionLabel) && (
+            {(message.action || message.actionLabel) && (
               <button type="button" className="chat-panel__link"
                 disabled={!onMessageAction}
                 onClick={() => onMessageAction?.(message.id)}>
-                {message.action === "warp" ? t("chat.action.warp") : message.actionLabel}
+                {message.action === "warp" ? t("chat.action.warp") :
+                  message.action === "structure_file" ? t("chat.action.openStructureFile") :
+                    message.actionLabel}
               </button>
             )}
           </div>
