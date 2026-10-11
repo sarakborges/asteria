@@ -37,6 +37,8 @@ public sealed class DimensionRuntimeSession
     private readonly CreatureParticlePresentation _creatureParticlePresentation;
     private readonly MiningParticlePresentation _miningParticlePresentation;
     private readonly DyeRegistry _miningDyes;
+    private (int X, int Z)? _miningTintChunk;
+    private BiomeTintSampleGrid? _miningTintSamples;
     private readonly ProjectilePresentationController _projectilePresentation;
     private readonly InventoryContentCatalog _inventoryCatalog;
     private readonly CreatureNaturalSpawnRuntime _naturalSpawns;
@@ -643,10 +645,23 @@ public sealed class DimensionRuntimeSession
                     _miningDyes.TryGet(dyeId, out var dye) && dye is not null)
                     tint = dye.Rgb;
                 else if (appearance.Tint != BlockTint.None)
-                    tint = Generator.Tints.SampleGrid(
-                        cue.Hit.Voxel.X, cue.Hit.Voxel.Z, 1, 1)
-                        .Resolve(appearance.Tint, appearance.TintFallback,
-                            cue.Hit.Voxel.X, cue.Hit.Voxel.Z);
+                {
+                    // Exactly the terrain mesh's authored per-chunk tint grid.
+                    // Reuse the last sampled chunk across eight-tick swings.
+                    var chunk = VoxelCoordinates.FromWorld(
+                        cue.Hit.Voxel.X, cue.Hit.Voxel.Y,
+                        cue.Hit.Voxel.Z).Chunk;
+                    var key = (chunk.X, chunk.Z);
+                    if (_miningTintChunk != key || _miningTintSamples is null)
+                    {
+                        _miningTintSamples = Generator.Tints.SampleChunkGrid(
+                            chunk.X, chunk.Z);
+                        _miningTintChunk = key;
+                    }
+                    tint = _miningTintSamples.Resolve(appearance.Tint,
+                        appearance.TintFallback,
+                        cue.Hit.Voxel.X, cue.Hit.Voxel.Z);
+                }
             }
             MiningParticles.Emit(cue, tint);
         }
