@@ -123,7 +123,10 @@ internal static class PlayerVisualSceneFactory
                 outerUv[i] = authoredUv[i] + offset;
             arrays[(int)Mesh.ArrayType.TexUV] = outerUv;
             mapped.AddSurfaceFromArrays(
-                imported.SurfaceGetPrimitiveType(surface), arrays);
+                imported is ArrayMesh sourceMesh
+                    ? sourceMesh.SurfaceGetPrimitiveType(surface)
+                    : Mesh.PrimitiveType.Triangles,
+                arrays);
         }
 
         return mapped;
