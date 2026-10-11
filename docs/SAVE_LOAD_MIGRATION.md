@@ -261,7 +261,8 @@ stage descriptions as the current status.
   the intent waits for that lifecycle to finish. When the active world is
   ready, it calls the existing `RequestSaveAndLeave` pipeline, which drains
   workers, archives chunks and publishes the complete session generation and
-  manifest. Only its successful `LeftWorld` completion may quit the app.
+  manifest. A successful `LeftWorld` completion quits automatically; a
+  failed save instead requires explicit permission to close without saving.
 - A rejected checkpoint request or failed publication shows an explicit WebUI
   confirmation: **Keep Playing** or **Exit Without Saving**. Cancel retains
   the restored world; confirmation quits even though the checkpoint failed.
