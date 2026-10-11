@@ -54,11 +54,11 @@ internal sealed partial class HeldItemPresentation : Node3D
             var h = size * 0.5f;
             AddFace("front", visual.FrontTexture,
                 new Vector3(0, 0, h), Vector3.Zero, size);
-            AddFace("back", visual.FrontTexture,
+            AddFace("back", visual.BackTexture ?? visual.FrontTexture,
                 new Vector3(0, 0, -h), new Vector3(0, Mathf.Pi, 0), size);
-            AddFace("right", visual.FrontTexture,
+            AddFace("right", visual.RightTexture ?? visual.FrontTexture,
                 new Vector3(h, 0, 0), new Vector3(0, Mathf.Pi * 0.5f, 0), size);
-            AddFace("left", visual.FrontTexture,
+            AddFace("left", visual.LeftTexture ?? visual.FrontTexture,
                 new Vector3(-h, 0, 0), new Vector3(0, -Mathf.Pi * 0.5f, 0), size);
             AddFace("top", visual.TopTexture ?? visual.FrontTexture,
                 new Vector3(0, h, 0), new Vector3(-Mathf.Pi * 0.5f, 0, 0), size);

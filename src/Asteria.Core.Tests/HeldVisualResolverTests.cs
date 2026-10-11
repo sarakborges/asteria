@@ -29,7 +29,10 @@ public sealed class HeldVisualResolverTests
             textures: new BlockTextureSet(
                 top: [new BlockTextureLayer("textures/top.png")],
                 bottom: [new BlockTextureLayer("textures/bottom.png")],
-                front: [new BlockTextureLayer("textures/front.png")]));
+                front: [new BlockTextureLayer("textures/front.png")],
+                back: [new BlockTextureLayer("textures/back.png")],
+                left: [new BlockTextureLayer("textures/left.png")],
+                right: [new BlockTextureLayer("textures/right.png")]));
         var registry = new BlockRegistry([block]);
         var resolver = new HeldVisualResolver(registry,
             PackContentRegistry<ItemDefinition>.FromJson([], ItemDefinition.Parse, definition => definition.Id),
@@ -43,6 +46,9 @@ public sealed class HeldVisualResolverTests
         Assert.Equal("textures/front.png", visual.FrontTexture);
         Assert.Equal("textures/top.png", visual.TopTexture);
         Assert.Equal("textures/bottom.png", visual.BottomTexture);
+        Assert.Equal("textures/back.png", visual.BackTexture);
+        Assert.Equal("textures/left.png", visual.LeftTexture);
+        Assert.Equal("textures/right.png", visual.RightTexture);
     }
 
     private static HeldVisualResolver Create(

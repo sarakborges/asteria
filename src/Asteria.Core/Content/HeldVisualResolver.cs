@@ -10,7 +10,8 @@ public enum HeldVisualKind : byte { Sprite, Cube }
 /// </summary>
 public sealed record HeldVisual(
     HeldVisualKind Kind, string FrontTexture,
-    string? TopTexture = null, string? BottomTexture = null);
+    string? TopTexture = null, string? BottomTexture = null,
+    string? BackTexture = null, string? LeftTexture = null, string? RightTexture = null);
 
 /// <summary>
 /// Maps existing authored catalog identities to their portable display
@@ -80,7 +81,14 @@ public sealed class HeldVisualResolver
                     .FirstOrDefault().Texture ?? front;
                 var bottom = definition.Textures.ResolveForFace(BlockFace.Bottom)
                     .FirstOrDefault().Texture ?? front;
-                return new HeldVisual(HeldVisualKind.Cube, front, top, bottom);
+                var back = definition.Textures.ResolveForFace(BlockFace.Back)
+                    .FirstOrDefault().Texture ?? front;
+                var left = definition.Textures.ResolveForFace(BlockFace.Left)
+                    .FirstOrDefault().Texture ?? front;
+                var right = definition.Textures.ResolveForFace(BlockFace.Right)
+                    .FirstOrDefault().Texture ?? front;
+                return new HeldVisual(HeldVisualKind.Cube,
+                    front, top, bottom, back, left, right);
             }
             default:
                 return null;
