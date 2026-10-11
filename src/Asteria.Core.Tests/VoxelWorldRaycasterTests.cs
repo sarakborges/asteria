@@ -234,7 +234,8 @@ public sealed class VoxelWorldRaycasterTests
                 "asteria:stick",
                 visual: BlockVisualDefinition.GroundSprite(
                     new BlockTextureLayer("textures/items/stick.png"),
-                    width: 0.68f, targetHeight: 0.12f)),
+                    width: 0.68f, targetHeight: 0.12f,
+                    positionJitter: Vector2.Zero)),
             new BlockDefinition("asteria:stone"),
         ]);
         var world = LoadedWorld();

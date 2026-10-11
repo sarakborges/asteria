@@ -74,6 +74,9 @@ public sealed class BlockDefinition
         Visual =
             visual ??
             BlockVisualDefinition.Geometry;
+        SpriteJitterDomain = Visual.Kind == BlockVisualKind.Geometry
+            ? default
+            : GenerationDomain.Named($"sprite-position-jitter/{id}");
         RotateTexture = rotateTexture;
         Mining = mining ?? new BlockMiningDefinition();
         Shape = shape ?? BlockShapeDefinition.Cube;
@@ -104,6 +107,7 @@ public sealed class BlockDefinition
     public bool WindSway { get; }
     public BlockTextureSet Textures { get; }
     public BlockVisualDefinition Visual { get; }
+    internal GenerationDomain SpriteJitterDomain { get; }
     public BlockTextureRotations RotateTexture { get; }
     public BlockMiningDefinition Mining { get; }
     public BlockShapeDefinition Shape { get; }

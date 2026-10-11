@@ -406,7 +406,8 @@ public sealed class ChunkMeshDataBuilderTests
             new BlockDefinition(
                 "asteria:pebble",
                 visual: BlockVisualDefinition.GroundSprite(
-                    new BlockTextureLayer(path)),
+                    new BlockTextureLayer(path),
+                    positionJitter: Vector2.Zero),
                 isCollidable: false,
                 renderMode: BlockRenderMode.Cutout,
                 castsShadow: false,

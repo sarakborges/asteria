@@ -1,3 +1,5 @@
+using System.Numerics;
+
 namespace Asteria.Core.World;
 
 public enum BlockVisualKind : byte
@@ -16,7 +18,8 @@ public sealed class BlockVisualDefinition
         float height,
         int planes,
         float baseOffset,
-        float targetHeight = 0f)
+        float targetHeight = 0f,
+        Vector2 positionJitter = default)
     {
         Kind = kind;
         Texture = texture;
@@ -25,6 +28,7 @@ public sealed class BlockVisualDefinition
         Planes = planes;
         BaseOffset = baseOffset;
         TargetHeight = targetHeight;
+        PositionJitter = positionJitter;
     }
 
     public BlockVisualKind Kind { get; }
@@ -41,6 +45,9 @@ public sealed class BlockVisualDefinition
 
     /// <summary>Interaction hitbox height for a compact ground sprite.</summary>
     public float TargetHeight { get; }
+
+    /// <summary>Maximum world-space horizontal render offset, X and Z.</summary>
+    public Vector2 PositionJitter { get; }
 
     public static BlockVisualDefinition Geometry { get; } =
         new(
@@ -59,7 +66,8 @@ public sealed class BlockVisualDefinition
         float width = 0.42f,
         float height = 0.012f,
         float baseOffset = 0.0125f,
-        float targetHeight = 0.14f)
+        float targetHeight = 0.14f,
+        Vector2? positionJitter = null)
     {
         if (!float.IsFinite(width) || width <= 0f || width > 1f)
         {
@@ -81,9 +89,11 @@ public sealed class BlockVisualDefinition
                 "Ground-sprite hitbox must contain its visual inside the voxel.");
         }
 
+        var jitter = ValidatePositionJitter(
+            positionJitter ?? new Vector2(0.2f, 0.2f));
         return new BlockVisualDefinition(
             BlockVisualKind.GroundSprite, texture, width, height, 0,
-            baseOffset, targetHeight);
+            baseOffset, targetHeight, jitter);
     }
 
     public static BlockVisualDefinition CrossedSprite(
@@ -91,7 +101,8 @@ public sealed class BlockVisualDefinition
         float width = 0.72f,
         float height = 0.62f,
         int planes = 2,
-        float baseOffset = 0f)
+        float baseOffset = 0f,
+        Vector2? positionJitter = null)
     {
         if (!float.IsFinite(width) ||
             width <= 0f ||
@@ -127,12 +138,28 @@ public sealed class BlockVisualDefinition
                 "Crossed-sprite base offset must keep the sprite inside its voxel.");
         }
 
+        var jitter = ValidatePositionJitter(
+            positionJitter ?? new Vector2(0.28f, 0.28f));
         return new BlockVisualDefinition(
             BlockVisualKind.CrossedSprite,
             texture,
             width,
             height,
             planes,
-            baseOffset);
+            baseOffset,
+            positionJitter: jitter);
+    }
+
+    private static Vector2 ValidatePositionJitter(Vector2 jitter)
+    {
+        if (!float.IsFinite(jitter.X) || !float.IsFinite(jitter.Y) ||
+            jitter.X < 0f || jitter.X > 0.45f ||
+            jitter.Y < 0f || jitter.Y > 0.45f)
+        {
+            throw new ArgumentOutOfRangeException(nameof(jitter),
+                "Sprite position jitter must be finite and within 0..0.45 per axis.");
+        }
+
+        return jitter;
     }
 }

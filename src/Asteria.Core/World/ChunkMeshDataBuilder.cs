@@ -873,10 +873,11 @@ public static class ChunkMeshDataBuilder
                 blocks,
                 worldPosition,
                 BlockFace.Top);
+        var jitter = SpritePositionJitter.For(definition, worldPosition);
         var centerX =
-            blockX + 0.5f;
+            blockX + 0.5f + jitter.X;
         var centerZ =
-            blockZ + 0.5f;
+            blockZ + 0.5f + jitter.Y;
         var bottomY =
             blockY +
             visual.BaseOffset;
@@ -970,8 +971,9 @@ public static class ChunkMeshDataBuilder
             new TerrainRenderBatch(definition.RenderMode, definition.CastsShadow));
         var lighting = VoxelMeshLighting.SampleFace(
             world, blocks, worldPosition, BlockFace.Top);
-        var centerX = blockX + 0.5f;
-        var centerZ = blockZ + 0.5f;
+        var jitter = SpritePositionJitter.For(definition, worldPosition);
+        var centerX = blockX + 0.5f + jitter.X;
+        var centerZ = blockZ + 0.5f + jitter.Y;
         var halfWidth = visual.Width * 0.5f;
         var topY = blockY + visual.BaseOffset + visual.Height;
         Span<Vector3> positions = stackalloc Vector3[4];

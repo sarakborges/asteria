@@ -95,7 +95,7 @@ public static class VoxelWorldRaycaster
                 if (definition.Visual.Kind == BlockVisualKind.GroundSprite)
                 {
                     var groundHit = RaycastGroundSprite(
-                        position, definition.Visual, origin, direction,
+                        position, definition, origin, direction,
                         entryDistance, Math.Min(exitDistance, maxDistance));
                     if (groundHit is not null)
                         return groundHit;
@@ -172,17 +172,19 @@ public static class VoxelWorldRaycaster
 
     private static VoxelWorldHit? RaycastGroundSprite(
         WorldVoxelCoord position,
-        BlockVisualDefinition visual,
+        BlockDefinition definition,
         Vector3 origin,
         Vector3 direction,
         float entryDistance,
         float exitDistance)
     {
+        var visual = definition.Visual;
+        var jitter = SpritePositionJitter.For(definition, position);
         var halfWidth = visual.Width * 0.5f;
-        var minimumX = position.X + 0.5f - halfWidth;
-        var maximumX = position.X + 0.5f + halfWidth;
-        var minimumZ = position.Z + 0.5f - halfWidth;
-        var maximumZ = position.Z + 0.5f + halfWidth;
+        var minimumX = position.X + 0.5f + jitter.X - halfWidth;
+        var maximumX = position.X + 0.5f + jitter.X + halfWidth;
+        var minimumZ = position.Z + 0.5f + jitter.Y - halfWidth;
+        var maximumZ = position.Z + 0.5f + jitter.Y + halfWidth;
         var minimumY = position.Y + visual.BaseOffset;
         var maximumY = minimumY + visual.TargetHeight;
         var near = entryDistance;

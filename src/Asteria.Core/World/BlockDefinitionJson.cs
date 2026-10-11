@@ -1,3 +1,4 @@
+using System.Numerics;
 using System.Text.Json;
 
 namespace Asteria.Core.World;
@@ -293,7 +294,10 @@ public static class BlockDefinitionJson
                 "type") switch
         {
             "geometry" =>
-                BlockVisualDefinition.Geometry,
+                visual.TryGetProperty("positionJitter", out _)
+                    ? throw new FormatException(
+                        "Geometry visual cannot define positionJitter.")
+                    : BlockVisualDefinition.Geometry,
             "groundSprite" =>
                 BlockVisualDefinition.GroundSprite(
                     ParseTextureLayerValue(
@@ -301,7 +305,8 @@ public static class BlockDefinitionJson
                     OptionalSingle(visual, "width") ?? 0.42f,
                     OptionalSingle(visual, "height") ?? 0.012f,
                     OptionalSingle(visual, "baseOffset") ?? 0.0125f,
-                    OptionalSingle(visual, "targetHeight") ?? 0.14f),
+                    OptionalSingle(visual, "targetHeight") ?? 0.14f,
+                    OptionalPositionJitter(visual)),
             "crossedSprite" =>
                 BlockVisualDefinition.CrossedSprite(
                     ParseTextureLayerValue(
@@ -323,11 +328,31 @@ public static class BlockDefinitionJson
                     OptionalSingle(
                         visual,
                         "baseOffset") ??
-                    0f),
+                    0f,
+                    OptionalPositionJitter(visual)),
             var type =>
                 throw new FormatException(
                     $"Unknown block visual type: {type}"),
         };
+    }
+
+    private static Vector2? OptionalPositionJitter(JsonElement visual)
+    {
+        if (!visual.TryGetProperty("positionJitter", out var value))
+            return null;
+
+        if (value.ValueKind != JsonValueKind.Array ||
+            value.GetArrayLength() != 2 ||
+            value[0].ValueKind != JsonValueKind.Number ||
+            value[1].ValueKind != JsonValueKind.Number ||
+            !value[0].TryGetSingle(out var x) ||
+            !value[1].TryGetSingle(out var z))
+        {
+            throw new FormatException(
+                "visual.positionJitter must be an array of two numbers [x, z].");
+        }
+
+        return new Vector2(x, z);
     }
 
     private static IReadOnlyList<BlockFace>
