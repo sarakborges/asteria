@@ -30,5 +30,13 @@
     "requiredTools": [
       "hatchet"
     ]
+  },
+  "variant": {
+    "family": "asteria:log_willow",
+    "key": "hollow"
+  },
+  "shape": {
+    "type": "hollow",
+    "wallThickness": 0.0625
   }
 }

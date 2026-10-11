@@ -14,5 +14,14 @@
   "mining": {
     "hardness": 1
   },
-  "previewColor": "89aea0"
+  "previewColor": "89aea0",
+  "variant": {
+    "family": "asteria:skywood_log",
+    "key": "natural"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ]
 }

@@ -17,5 +17,14 @@
   },
   "lightDampening": 15,
   "castsShadow": true,
-  "previewColor": "8298a1"
+  "previewColor": "8298a1",
+  "variant": {
+    "family": "asteria:rime_deadwood",
+    "key": "natural"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ]
 }
