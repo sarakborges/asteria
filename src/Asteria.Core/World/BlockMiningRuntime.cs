@@ -43,6 +43,23 @@ public sealed class BlockMiningRuntime
     public float? Progress { get; private set; }
     public WorldVoxelCoord? Target => _target?.Position;
 
+    /// <summary>
+    /// Exact uppermost attached layer selected by the authoritative mining
+    /// target, including its world face and authored texture rotation.
+    /// Null means the miner is breaking the host block itself.
+    /// </summary>
+    public AttachedBlockLayer? TargetLayer
+    {
+        get
+        {
+            if (_target is not { Face: { } face, LayerId: not null } target)
+                return null;
+            return target.Surface.TryGetTop(face, out var top) &&
+                   StringComparer.Ordinal.Equals(top.LayerId, target.LayerId)
+                ? top : null;
+        }
+    }
+
     public void Cancel()
     {
         _target = null;
