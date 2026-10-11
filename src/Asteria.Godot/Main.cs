@@ -328,6 +328,9 @@ public partial class Main : Node3D
     {
         if (what == NotificationWMCloseRequest)
             RequestAppExit();
+        else if (what == NotificationWMWindowFocusOut &&
+                 _worldReadySent && _player is { IsMouseCaptured: true })
+            _player.PauseForWindowFocusLoss();
     }
 
     public override void _ExitTree()

@@ -48,6 +48,10 @@ func _ready() -> void:
 	add_child(_webview)
 	_webview.call("load_url", UI_URL)
 
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_WINDOW_FOCUS_IN:
+		call_deferred("_restore_keyboard_focus")
+
 func _input(event: InputEvent) -> void:
 	# WRY is a native child webview layered over the game window. A mouse
 	# interaction may give that child keyboard focus, so restore game focus
@@ -98,7 +102,8 @@ func webui_has_focus() -> bool:
 	return _webview != null and _webview.has_focus()
 
 func _restore_keyboard_focus() -> void:
-	if _webview == null or not _loaded:
+	# A deferred focus restore must not reactivate the game after Alt+Tab.
+	if _webview == null or not _loaded or not get_window().has_focus():
 		return
 	if _native_key_capture or (_mouse_captured and not _creation_mode):
 		_focus_game()
@@ -106,7 +111,7 @@ func _restore_keyboard_focus() -> void:
 		_webview.grab_focus()
 
 func _focus_game() -> void:
-	if _webview != null:
+	if _webview != null and get_window().has_focus():
 		_webview.call("focus_parent")
 
 

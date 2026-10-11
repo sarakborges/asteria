@@ -38,6 +38,18 @@ test("Escape closes game settings to pause and pause to gameplay", async ({ page
   await expect(page.locator(".pause-menu")).toHaveCount(0);
 });
 
+test("Escape still closes pause after keyboard focus moves outside the app root", async ({ page }) => {
+  await page.goto(story("modal-navigation"));
+  await expect(page.locator(".pause-menu")).toBeVisible();
+  await page.evaluate(() => {
+    document.body.tabIndex = -1;
+    document.body.focus();
+  });
+  await expect(page.locator(".app-interaction-root")).not.toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".pause-menu")).toHaveCount(0);
+});
+
 test("Escape closes inventory through the same injected semantic action as its Close button", async ({ page }) => {
   await page.goto(story("inventory-navigation"));
   await expect(page.locator(".inventory-gameplay")).toBeVisible();

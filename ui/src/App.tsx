@@ -114,18 +114,40 @@ export function App({
   }, [uiVisible, state.navigation.overlay, state.navigation.preWorldScreen,
       state.chat.open]);
 
-  const handleUiKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (state.navigation.death || event.key !== "Escape" || event.defaultPrevented ||
-        event.repeat || event.nativeEvent.isComposing || !uiVisible) return;
+  const navigateEscape = () => {
     if (state.settings.captureAction) actions.cancelKeyCapture();
     else if (state.chat.open) actions.closeChat();
     else if (state.navigation.overlay === "inventory") actions.closeInventory();
     else if (state.navigation.overlay === "storage") actions.closeStorageBox();
     else if (state.navigation.overlay === "brush") actions.closeBrushPalette();
     else actions.escapeNavigation();
+  };
+
+  const handleUiKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (state.navigation.death || event.key !== "Escape" || event.defaultPrevented ||
+        event.repeat || event.nativeEvent.isComposing || !uiVisible) return;
+    navigateEscape();
     event.preventDefault();
     event.stopPropagation();
   };
+
+  // WRY may focus the document body rather than the React interaction root
+  // after a native window focus change. Preserve child controls' own Escape
+  // behavior, and handle only keys that missed the React subtree entirely.
+  useEffect(() => {
+    const onWindowKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (interactionRoot.current?.contains(event.target as Node) ||
+          state.navigation.death || event.key !== "Escape" ||
+          event.defaultPrevented || event.repeat || event.isComposing ||
+          !uiVisible) return;
+      navigateEscape();
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    window.addEventListener("keydown", onWindowKeyDown);
+    return () => window.removeEventListener("keydown", onWindowKeyDown);
+  }, [actions, uiVisible, state.navigation.death, state.navigation.overlay,
+      state.settings.captureAction, state.chat.open]);
 
   return (
     <div ref={interactionRoot} className="app-interaction-root"

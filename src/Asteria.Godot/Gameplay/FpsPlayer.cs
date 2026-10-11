@@ -657,6 +657,14 @@ public partial class FpsPlayer : CharacterBody3D
         }
     }
 
+    // Losing OS focus must release held movement/buttons as well as the cursor.
+    // MouseCaptureChanged drives the existing pause-menu navigation.
+    public void PauseForWindowFocusLoss()
+    {
+        if (_mouseCaptured)
+            ReleaseMouse();
+    }
+
     private void CaptureMouse()
     {
         _mouseCaptured = true;
