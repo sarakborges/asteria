@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Asteria.Core.Content;
 
 namespace Asteria.Core.World;
 
@@ -29,7 +30,8 @@ public sealed record DayNightCelestialDefinition(
     float MaxAltitudeDegrees,
     float Size,
     float OrbitRadius,
-    DimensionColor Tint);
+    DimensionColor Tint,
+    string? Texture = null);
 
 public sealed class DayNightCycleDefinition
 {
@@ -198,6 +200,14 @@ public sealed class DayNightCycleDefinition
     private static void ValidateCelestial(DayNightCelestialDefinition? body)
     {
         if (body is null) return;
+        if (body.Texture is { } texture)
+        {
+            if (string.IsNullOrWhiteSpace(texture))
+            {
+                throw new FormatException("Celestial texture must not be empty.");
+            }
+            PackContentFields.ResourcePath(texture, "celestial.texture");
+        }
         if (!Enum.IsDefined(body.RisePhase) ||
             !Enum.IsDefined(body.SetPhase) ||
             body.RisePhase == body.SetPhase ||
@@ -335,6 +345,7 @@ public static class DayNightCycleDefinitionJson
             body.GetProperty("orbitRadius").GetSingle(),
             DimensionColor.ParseHex(
                 body.GetProperty("tint").GetString()!,
-                property + ".tint"));
+                property + ".tint"),
+            PackContentFields.OptionalString(body, "texture"));
     }
 }

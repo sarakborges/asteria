@@ -28,6 +28,7 @@
     }
   },
   "sun": {
+    "texture": "textures/sky/sun.png",
     "risePhase": "Dawn",
     "setPhase": "Day",
     "riseAzimuthDegrees": 90,
@@ -38,6 +39,7 @@
     "tint": "F1E6CD"
   },
   "moon": {
+    "texture": "textures/sky/moon.png",
     "risePhase": "Dusk",
     "setPhase": "Night",
     "riseAzimuthDegrees": 90,

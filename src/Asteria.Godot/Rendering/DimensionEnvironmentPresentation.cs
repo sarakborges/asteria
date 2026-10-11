@@ -1,3 +1,5 @@
+using Asteria.Client.Content;
+using Asteria.Core.Content;
 using Asteria.Core.World;
 using Godot;
 using GEnvironment = Godot.Environment;
@@ -34,7 +36,8 @@ public sealed class DimensionEnvironmentPresentation
     public void Apply(
         DimensionDefinition dimension,
         DayNightCycleDefinition cycle,
-        DayNightClock clock)
+        DayNightClock clock,
+        PackSelection selection)
     {
         ArgumentNullException.ThrowIfNull(dimension);
         ArgumentNullException.ThrowIfNull(cycle);
@@ -59,8 +62,10 @@ public sealed class DimensionEnvironmentPresentation
         }
 
         _sunLight ??= CreateSunLight();
-        _sunOrb ??= CreateOrb("DaySun", new Color(1, 1, 1));
-        _moonOrb ??= CreateOrb("NightMoon", new Color(1, 1, 1));
+        _sunOrb ??= CreateOrb("DaySun");
+        _moonOrb ??= CreateOrb("NightMoon");
+        ConfigureOrb(_sunOrb, cycle.Sun, selection);
+        ConfigureOrb(_moonOrb, cycle.Moon, selection);
         Update(cycle, clock);
     }
 
@@ -162,30 +167,41 @@ public sealed class DimensionEnvironmentPresentation
         return light;
     }
 
-    private MeshInstance3D CreateOrb(
-        string name,
-        Color initialColor)
+    private MeshInstance3D CreateOrb(string name)
     {
+        // MineClone's celestial PNGs are flat, camera-facing sky sprites.
+        // Use an unshaded quad rather than a sphere, which distorts the art.
         var mesh = new MeshInstance3D
         {
             Name = name,
-            Mesh = new SphereMesh
-            {
-                Radius = 1,
-                Height = 2,
-            },
+            Mesh = new QuadMesh(),
             MaterialOverride = new StandardMaterial3D
             {
-                ShadingMode =
-                    BaseMaterial3D.ShadingModeEnum.Unshaded,
-                AlbedoColor = initialColor,
+                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                BillboardMode = BaseMaterial3D.BillboardModeEnum.Enabled,
+                Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+                CullMode = BaseMaterial3D.CullModeEnum.Disabled,
                 DisableFog = true,
             },
-            CastShadow =
-                GeometryInstance3D.ShadowCastingSetting.Off,
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
         };
         _parent.AddChild(mesh);
         return mesh;
+    }
+
+    private static void ConfigureOrb(
+        MeshInstance3D orb,
+        DayNightCelestialDefinition? body,
+        PackSelection selection)
+    {
+        // Load once per Sphere activation, never on the world tick.
+        // Clearing the texture also handles a subsequent Sphere with no art.
+        if (orb.MaterialOverride is StandardMaterial3D material)
+        {
+            material.AlbedoTexture = body?.Texture is { } texture
+                ? ProjectPackFiles.LoadTexture(selection, texture)
+                : null;
+        }
     }
 
     private void ApplyCelestial(
@@ -232,7 +248,7 @@ public sealed class DimensionEnvironmentPresentation
         if (isSun) _sunActive = true;
         else _moonActive = true;
         orb.Visible = _cameraReady;
-        orb.Scale = Vector3.One * (body.Size / 2f);
+        orb.Scale = new Vector3(body.Size, body.Size, 1f);
         if (orb.MaterialOverride is StandardMaterial3D material)
         {
             material.AlbedoColor = ToColor(body.Tint);

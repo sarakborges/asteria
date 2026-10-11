@@ -883,7 +883,8 @@ public partial class Main : Node3D
         _dimensionEnvironment.Apply(
             _dimension,
             ActiveDayNightCycle(),
-            _sessions.Active.DayNight);
+            _sessions.Active.DayNight,
+            _packSelection);
         _lastClockHud = null;
         SendWorldClockState(force: true);
     }

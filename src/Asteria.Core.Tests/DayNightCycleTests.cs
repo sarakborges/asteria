@@ -62,6 +62,31 @@ public sealed class DayNightCycleTests
     }
 
     [Fact]
+    public void CelestialArtUsesValidatedSelectedPackPaths()
+    {
+        var cycle = Overworld();
+        Assert.Equal("textures/sky/sun.png", cycle.Sun?.Texture);
+        Assert.Equal("textures/sky/moon.png", cycle.Moon?.Texture);
+
+        var authored = File.ReadAllText(
+            Path.Combine(AppContext.BaseDirectory, "packs", "default",
+                "data", "day_night_cycles", "overworld.json"));
+
+        Assert.Throws<FormatException>(() =>
+            DayNightCycleDefinitionJson.Parse(
+                authored.Replace("textures/sky/sun.png",
+                    "../sun.png", StringComparison.Ordinal)));
+        Assert.Throws<FormatException>(() =>
+            DayNightCycleDefinitionJson.Parse(
+                authored.Replace("textures/sky/moon.png",
+                    "C:/moon.png", StringComparison.Ordinal)));
+        Assert.Throws<FormatException>(() =>
+            DayNightCycleDefinitionJson.Parse(
+                authored.Replace("textures/sky/moon.png",
+                    "", StringComparison.Ordinal)));
+    }
+
+    [Fact]
     public void ClockCrossesMidnightAndRestoresExactly()
     {
         var cycle = Overworld();
