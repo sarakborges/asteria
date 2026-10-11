@@ -109,6 +109,45 @@ public sealed class ChunkMeshDataBuilderTests
         Assert.Equal(mesh.TriangleCount, mesh.CollisionTriangleCount);
     }
 
+    [Fact]
+    public void SpikeSeamCapClosesWhenTipChunkIsAbsentAndBecomesRimWhenRestored()
+    {
+        const string path = "textures/test/spike.png";
+        var blocks = new BlockRegistry([
+            new BlockDefinition("asteria:stone_spike",
+                textures: new BlockTextureSet(top: [new BlockTextureLayer(path)]),
+                shape: BlockShapeDefinition.Spike(baseRadius: 0.42f,
+                    taperPower: 1.3f))
+        ]);
+        var id = blocks.GetId("asteria:stone_spike");
+        var world = new VoxelWorld();
+        var lower = new Chunk();
+        lower.SetCell(2, 15, 2, new VoxelCell(id,
+            state: SpikeSegmentState.Encode(0, 2, false)));
+        world.InsertChunk(ChunkCoord.Zero, lower);
+        var textures = new TerrainTextureLookup(new Dictionary<string, int>
+        {
+            [path] = 0
+        });
+        int TopVerticesAtSeam()
+        {
+            var mesh = ChunkMeshDataBuilder.BuildMeshlet(
+                world, ChunkCoord.Zero, blocks, textures, meshletIndex: 4);
+            Assert.Equal(mesh.TriangleCount, mesh.CollisionTriangleCount);
+            return mesh.RenderBatches.SelectMany(batch => batch.Vertices)
+                .Count(v => v.Normal == Vector3.UnitY &&
+                    MathF.Abs(v.Position.Y - 16f) < 0.0001f);
+        }
+
+        Assert.Equal(6, TopVerticesAtSeam()); // full solid cap
+
+        var upper = new Chunk();
+        upper.SetCell(2, 0, 2, new VoxelCell(id,
+            state: SpikeSegmentState.Encode(1, 2, false)));
+        world.InsertChunk(new ChunkCoord(0, 1, 0), upper);
+        Assert.Equal(24, TopVerticesAtSeam()); // exposed square tier rim
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
