@@ -37,7 +37,15 @@ public sealed class VoxelMutationRuntimeTests
         Assert.True(worldUpdates.HasMeshWork);
         Assert.Equal(7, fluidUpdates.TopologyCount);
         Assert.True(fluidMeshUpdates.HasWork);
-        Assert.Equal(3, blockPhysicsUpdates.Count);
+        var affectedPhysics = blockPhysicsUpdates.DrainBatch();
+        Assert.Equal(7, affectedPhysics.Count);
+        Assert.Contains(position, affectedPhysics);
+        Assert.Contains(position + (0, 1, 0), affectedPhysics);
+        Assert.Contains(position + (0, -1, 0), affectedPhysics);
+        Assert.Contains(position + (1, 0, 0), affectedPhysics);
+        Assert.Contains(position + (-1, 0, 0), affectedPhysics);
+        Assert.Contains(position + (0, 0, 1), affectedPhysics);
+        Assert.Contains(position + (0, 0, -1), affectedPhysics);
         Assert.True(terrainRevisions.Get(key) > 0);
         Assert.True(fluidRevisions.Get(key) > 0);
     }

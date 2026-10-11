@@ -10,6 +10,7 @@ public sealed class WallDecorationContentTests
         var biome = BiomeDefinitionJson.Parse("""
         {
           "id":"asteria:test/old_wall",
+          "volumeLayout":{"placement":"carvedVoid"},
           "palette":{"default":[{"block":"asteria:stone"}]},
           "decorations":[
             {"block":"asteria:wall_moss","chance":1,
@@ -112,8 +113,8 @@ public sealed class WallDecorationContentTests
     public void WallLayerRulesRejectMissingOrIncompatibleDefinitions()
     {
         var biomes = BiomeRegistry.FromJson(ReadJson("biomes"));
-        var cave = biomes.Get("asteria:overworld/caverns");
-        var registry = new BiomeRegistry([cave]);
+        // Keep surface-biome dependencies referenced by cave spike rules.
+        var registry = biomes;
         Assert.Throws<ArgumentException>(() =>
             registry.ValidateLayers(new AttachedLayerRegistry([])));
 
@@ -236,6 +237,7 @@ public sealed class WallDecorationContentTests
         var biome = BiomeDefinitionJson.Parse("""
         {
           "id":"asteria:test/old_wall",
+          "volumeLayout":{"placement":"carvedVoid"},
           "palette":{"default":[{"block":"asteria:stone"}]},
           "decorations":[{
             "block":"asteria:wall_moss","chance":1,
