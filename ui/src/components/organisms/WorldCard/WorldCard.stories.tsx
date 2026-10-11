@@ -22,6 +22,23 @@ type Story = StoryObj<typeof meta>;
 
 export const Compatible: Story = { args: { onLoad: () => undefined, onDelete: () => undefined } };
 
+export const WithThumbnail: Story = {
+  args: {
+    world: {
+      id: "Saved Landscape",
+      lastSaved: "2026-10-11 23:00 UTC",
+      seed: "12345",
+      daysPassed: "4",
+      sphere: "asteria:overworld",
+      coordinates: "X: 4 · Z: 12 · Y: 72",
+      compatible: true,
+      thumbnailUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/tf8AAAAASUVORK5CYII=",
+    },
+    onLoad: () => undefined,
+    onDelete: () => undefined,
+  },
+};
+
 export const MetadataOnlyCandidate: Story = {
   args: {
     world: {

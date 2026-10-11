@@ -56,6 +56,29 @@ export function createWorldCatalogController(
         return;
       }
 
+      if (message.type === "game.world_catalog.thumbnail") {
+        const payload = asRecord(message.payload);
+        const id = payload?.id;
+        const url = payload?.thumbnailUrl;
+        if (typeof id !== "string" || typeof url !== "string" ||
+            url.length > 350000 ||
+            !/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(url)) return;
+        const catalog = store.getSnapshot().worldCatalog;
+        if (catalog.status !== "ready" ||
+            !catalog.worlds.some(world => world.compatible && world.id === id)) return;
+        store.update(state => ({
+          ...state,
+          worldCatalog: {
+            ...state.worldCatalog,
+            worlds: state.worldCatalog.worlds.map(world =>
+              world.id === id && world.compatible
+                ? { ...world, thumbnailUrl: url }
+                : world),
+          },
+        }));
+        return;
+      }
+
       if (message.type !== "game.world_catalog") return;
       const payload = asRecord(message.payload);
       if (!payload) return;

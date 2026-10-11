@@ -11,6 +11,10 @@ public sealed class WorldCatalogScanController
 {
     private readonly string _directory;
     private Task<IReadOnlyList<WorldSaveSummary>>? _pending;
+    private readonly Queue<string> _thumbnailCandidates = new();
+    private Task<(string Id, string? Url)>? _thumbnailPending;
+    private int _catalogRevision;
+    private int _thumbnailRevision;
     private DimensionRegistry? _dimensions;
     private BlockRegistry? _blocks;
     private FluidRegistry? _fluids;
@@ -43,6 +47,8 @@ public sealed class WorldCatalogScanController
     {
         if (_pending is not null)
             return false;
+        _catalogRevision++;
+        _thumbnailCandidates.Clear();
         // Only decoded, fully restorable sessions are marked compatible.
         // Validation is serialized on one worker, never on the Godot frame.
         var dimensions = _dimensions;
@@ -93,12 +99,63 @@ public sealed class WorldCatalogScanController
         try
         {
             worlds = pending.GetAwaiter().GetResult();
+            foreach (var world in worlds)
+                if (world.Compatible)
+                    _thumbnailCandidates.Enqueue(world.Id);
         }
         catch (Exception exception)
         {
             error = exception.Message;
         }
         return true;
+    }
+
+    /// <summary>
+    /// Streams optional previews after the metadata catalog is published.
+    /// A single worker bounds memory and IPC payload size; scan revisions
+    /// reject thumbnail results from a superseded catalog or deletion.
+    /// </summary>
+    public bool TryPollThumbnail(out string id, out string? url, out string? error)
+    {
+        id = "";
+        url = null;
+        error = null;
+        if (_pending is not null) return false;
+
+        var available = false;
+        if (_thumbnailPending is { IsCompleted: true } completed)
+        {
+            _thumbnailPending = null;
+            try
+            {
+                var result = completed.GetAwaiter().GetResult();
+                if (_thumbnailRevision == _catalogRevision && result.Url is not null)
+                {
+                    id = result.Id;
+                    url = result.Url;
+                    available = true;
+                }
+            }
+            catch (Exception exception) when (exception is IOException or
+                    UnauthorizedAccessException or InvalidDataException)
+            {
+                if (_thumbnailRevision == _catalogRevision)
+                {
+                    error = exception.Message;
+                    available = true;
+                }
+            }
+        }
+
+        if (_thumbnailPending is null && _thumbnailCandidates.Count > 0)
+        {
+            var next = _thumbnailCandidates.Dequeue();
+            _thumbnailRevision = _catalogRevision;
+            var directory = Path.Combine(_directory, next);
+            _thumbnailPending = Task.Run(() =>
+                (next, WorldThumbnailStorage.ReadDataUri(directory)));
+        }
+        return available;
     }
 
     public bool TryOpenFolder(out string? error)

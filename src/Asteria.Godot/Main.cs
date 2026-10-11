@@ -58,6 +58,7 @@ public partial class Main : Node3D
         PackSelection.Default;
     private ClientPreferencesController _clientSettings = null!;
     private WorldCatalogScanController _worldCatalog = null!;
+    private readonly WorldThumbnailCapture _worldThumbnail = new();
     private WorldLoadController _worldLoad = null!;
     private WorldDeleteController _worldDelete = null!;
     private KeybindCaptureController _keybindCapture = null!;
@@ -533,6 +534,7 @@ public partial class Main : Node3D
     {
         _worldDiagnostics?.ObserveFrame(delta);
         PollWorldCatalog();
+        PollWorldThumbnail();
         PollWorldLoad();
         PollWorldDelete();
         PollPlayerPortrait();
@@ -913,6 +915,9 @@ public partial class Main : Node3D
         if (!accepted)
             return false;
 
+        // Capture while the gameplay camera still exists, before retirement.
+        // Thumbnail failure never changes checkpoint acceptance or save data.
+        _worldThumbnail.Capture(GetViewport());
         _worldDiagnostics?.Write(
             $"world.save.begin name={_sessionStates.Name} dimension={_dimension.Id} disposition={disposition}");
         StartDimensionRetirement(_dimension.Id);
@@ -955,6 +960,13 @@ public partial class Main : Node3D
         if (completion is null)
         {
             return;
+        }
+
+        if (completion.IsCheckpoint)
+        {
+            _worldThumbnail.Complete(
+                Path.Combine(OS.GetUserDataDir(), "worlds", _sessionStates.Name),
+                completion.SaveError is null && completion.SavedGeneration.HasValue);
         }
 
         if (completion.LeftWorld)
@@ -1930,6 +1942,19 @@ public partial class Main : Node3D
                     compatible = world.Compatible,
                 }).ToArray(),
             });
+    }
+
+    private void PollWorldThumbnail()
+    {
+        // One bounded asynchronous image read and one IPC message per frame.
+        // A thumbnail is optional metadata, never evidence of restorable data.
+        if (_worldSeed is not null ||
+            !_worldCatalog.TryPollThumbnail(out var id, out var url, out var error))
+            return;
+        if (error is not null)
+            GD.PushWarning($"world.thumbnail.read.failed id={id}: {error}");
+        if (url is not null)
+            SendWebUi("game.world_catalog.thumbnail", new { id, thumbnailUrl = url });
     }
 
     private void PollWorldDelete()
