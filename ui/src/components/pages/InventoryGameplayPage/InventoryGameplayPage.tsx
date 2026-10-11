@@ -172,11 +172,13 @@ export function InventoryGameplayPage({
             onTrash={cursor ? onDiscardCursor : undefined}
             onSlotClick={(index, _item, action) => onSlotClick(index, action)}
           />}
-          station={<CurrentStationPanel station={state.recipes.length > 0 ? {
+          station={<CurrentStationPanel station={{
             eyebrow: t("crafting.baseStation"),
             name: t("crafting.personalCrafting"),
             description: t("crafting.available"),
-          } : null} />}
+            iconUrl: state.categories.find(category =>
+              category.id === "crafting_materials")?.iconUrl,
+          }} />}
           creative={<CreativeInventoryPanel
             state={{
               searchQuery: creativeSearch,
