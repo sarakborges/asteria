@@ -30,10 +30,24 @@ export function SaveFailureExitDialog({
         className="save-failure-exit-dialog__panel"
         tabIndex={-1}
         onKeyDown={event => {
-          if (event.key !== "Escape") return;
-          event.preventDefault();
-          event.stopPropagation();
-          onCancel();
+          if (event.key === "Escape") {
+            event.preventDefault();
+            event.stopPropagation();
+            onCancel();
+            return;
+          }
+          if (event.key !== "Tab") return;
+          const buttons = event.currentTarget.querySelectorAll("button:not(:disabled)");
+          const first = buttons.item(0);
+          const last = buttons.item(buttons.length - 1);
+          if (event.shiftKey &&
+              (document.activeElement === first || document.activeElement === dialogRef.current)) {
+            event.preventDefault();
+            last?.focus();
+          } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first?.focus();
+          }
         }}
       >
         <h2 id="save-failure-exit-title">{t("exitSaveFailure.title")}</h2>

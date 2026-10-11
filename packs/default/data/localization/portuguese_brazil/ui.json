@@ -24,7 +24,7 @@
   "common.gameSettings": "Configurações do jogo",
   "common.exitGame": "Sair do Jogo",
   "exitSaveFailure.title": "Falha ao salvar",
-  "exitSaveFailure.message": "Não foi possível salvar o mundo. Se fechar o jogo agora, as alterações mais recentes não serão salvas. Deseja sair mesmo assim?",
+  "exitSaveFailure.message": "O salvamento falhou. Se fechar o jogo agora, esta sessão do mundo não será salva e as alterações recentes serão perdidas. Deseja sair mesmo assim?",
   "exitSaveFailure.keepPlaying": "Continuar jogando",
   "exitSaveFailure.exitWithoutSaving": "Sair sem salvar",
   "newWorld.title": "NOVO MUNDO",

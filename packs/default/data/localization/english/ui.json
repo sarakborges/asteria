@@ -24,7 +24,7 @@
   "common.gameSettings": "Game Settings",
   "common.exitGame": "Exit Game",
   "exitSaveFailure.title": "Save failed",
-  "exitSaveFailure.message": "The world could not be saved. If you close the game now, your latest changes will not be saved. Do you want to exit anyway?",
+  "exitSaveFailure.message": "The save failed. Closing the game now will leave this world session unsaved, and your latest changes will be lost. Exit anyway?",
   "exitSaveFailure.keepPlaying": "Keep Playing",
   "exitSaveFailure.exitWithoutSaving": "Exit Without Saving",
   "newWorld.title": "NEW WORLD",
