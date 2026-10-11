@@ -27,7 +27,8 @@ const LOCAL_KEYS = new Set([
   "chat.command.spectatorUnavailable", "chat.command.spawn.playerUnavailable",
   "chat.command.spawn.noSpace",
   "chat.command.meta.unknown", "chat.command.meta.exists",
-  "chat.command.meta.notSet", "chat.command.modify.addSuccess",
+  "chat.command.meta.notSet", "chat.action.structureFile",
+  "chat.command.modify.addSuccess",
   "chat.command.modify.removeSuccess", "chat.command.modify.editSuccess",
 ]);
 
@@ -46,7 +47,7 @@ export function createChatController(
     activateMessage(messageId: string) {
       const chat = store.getSnapshot().chat;
       if (!chat.visible || !/^\d{1,24}$/.test(messageId) ||
-          !chat.history.some(line => line.id === messageId && line.action === "warp"))
+          !chat.history.some(line => line.id === messageId && (line.action === "warp" || line.action === "structure_file")))
         return;
       post("ui.chat.action", { id: messageId });
     },
@@ -91,9 +92,11 @@ function readMessage(value: unknown): ChatMessageView | null {
         (typeof entry.localizationKey !== "string" ||
           !LOCAL_KEYS.has(entry.localizationKey))) ||
       (entry.action !== null && entry.action !== undefined &&
-        entry.action !== "warp") ||
+        entry.action !== "warp" && entry.action !== "structure_file") ||
       (entry.action === "warp" &&
-        (entry.tone !== "normal" || entry.localizationKey !== "chat.command.locate.found")))
+        (entry.tone !== "normal" || entry.localizationKey !== "chat.command.locate.found")) ||
+      (entry.action === "structure_file" &&
+        (entry.tone !== "normal" || entry.localizationKey !== "chat.action.structureFile")))
     return null;
 
   const parameters = entry.parameters == null ? {} : asRecord(entry.parameters);
@@ -107,7 +110,8 @@ function readMessage(value: unknown): ChatMessageView | null {
     id: entry.id,
     text: entry.text,
     tone: entry.tone,
-    action: entry.action === "warp" ? "warp" : undefined,
+    action: entry.action === "warp" || entry.action === "structure_file"
+      ? entry.action : undefined,
     localizationKey: (entry.localizationKey ?? undefined) as ChatMessageView["localizationKey"],
   };
 }
