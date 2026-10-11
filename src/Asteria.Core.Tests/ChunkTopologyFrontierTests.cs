@@ -17,8 +17,8 @@ public sealed class ChunkTopologyFrontierTests
         var frontier = ChunkTopologyFrontier.LightingSeeds(
             source,
             coord => coord == neighbor).ToArray();
-        Assert.Equal(Chunk.Area * 2, frontier.Length);
-        Assert.Contains(
+        Assert.Equal(Chunk.Area, frontier.Length);
+        Assert.DoesNotContain(
             new WorldVoxelCoord(Chunk.Size - 1, 32, 0),
             frontier);
         Assert.Contains(
@@ -28,13 +28,57 @@ public sealed class ChunkTopologyFrontierTests
             new WorldVoxelCoord(0, 32, 0),
             frontier);
 
-        // Both sides of the face remain available after the source
-        // chunk has been unloaded; residency filtering occurs at enqueue.
-        Assert.Equal(
-            Chunk.Area * 2,
-            ChunkTopologyFrontier.LightingSeeds(
-                source,
-                coord => coord == neighbor).Count());
+        // Once the source is resident, only its own face is seeded.
+        var loaded = ChunkTopologyFrontier.LightingSeeds(
+            source,
+            coord => coord == source || coord == neighbor).ToArray();
+        Assert.Equal(Chunk.Area, loaded.Length);
+        Assert.Contains(
+            new WorldVoxelCoord(Chunk.Size - 1, 32, 0), loaded);
+        Assert.DoesNotContain(
+            new WorldVoxelCoord(Chunk.Size, 32, 0), loaded);
+    }
+
+    [Fact]
+    public void LightingFrontierReconcilesEmissionOnArrivalAndRetirement()
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition(
+                "asteria:red_lamp",
+                lightDampening: 0,
+                lightEmission: new BlockLightEmission(15, 0, 0)),
+        ]);
+        var fluids = new FluidRegistry([]);
+        var world = new VoxelWorld();
+        var source = ChunkCoord.Zero;
+        var neighbor = new ChunkCoord(1, 0, 0);
+        var lampPosition = new WorldVoxelCoord(15, 5, 5);
+        var neighborPosition = new WorldVoxelCoord(16, 5, 5);
+        var first = new Chunk();
+        first.SetBlock(15, 5, 5, blocks.GetId("asteria:red_lamp"));
+        ChunkLightingSolver.Initialize(first, blocks, fluids);
+        world.InsertChunk(source, first);
+
+        var second = new Chunk();
+        ChunkLightingSolver.Initialize(second, blocks, fluids);
+        world.InsertChunk(neighbor, second);
+        var arrivalSeeds = ChunkTopologyFrontier.LightingSeeds(
+            neighbor, world.ContainsChunk).ToArray();
+        Assert.Equal(Chunk.Area, arrivalSeeds.Length);
+
+        VoxelWorldLightingSolver.RelightAfterEdits(
+            world, blocks, fluids, arrivalSeeds);
+        Assert.Equal((byte)14, world.GetLightOrDark(neighborPosition).Red);
+        Assert.Equal((byte)15, world.GetLightOrDark(lampPosition).Red);
+
+        world.ArchiveChunk(source);
+        var retirementSeeds = ChunkTopologyFrontier.LightingSeeds(
+            source, world.ContainsChunk).ToArray();
+        Assert.Equal(Chunk.Area, retirementSeeds.Length);
+        VoxelWorldLightingSolver.RelightAfterEdits(
+            world, blocks, fluids, retirementSeeds);
+        Assert.Equal((byte)0, world.GetLightOrDark(neighborPosition).Red);
     }
 
     [Fact]

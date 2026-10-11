@@ -39,6 +39,10 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     private int _pending;
     private int _inflight;
     private int _presented;
+    private int _lightingPending;
+    private int _terrainMeshPending;
+    private int _fluidMeshPending;
+    private bool _lightingActive;
     private long _frames;
     private double _frameMsTotal;
     private double _frameMsMax;
@@ -236,12 +240,18 @@ internal sealed class WorldDiagnosticsLog : IDisposable
 
     public void FlushIfDue(
         int resident, int pending, int materializing,
-        int presented, string loadingPhase)
+        int presented, string loadingPhase,
+        int lightingPending, int terrainMeshPending,
+        int fluidMeshPending, bool lightingActive)
     {
         _resident = resident;
         _pending = pending;
         _inflight = materializing;
         _presented = presented;
+        _lightingPending = lightingPending;
+        _terrainMeshPending = terrainMeshPending;
+        _fluidMeshPending = fluidMeshPending;
+        _lightingActive = lightingActive;
         if (_phase != loadingPhase)
         {
             _phase = loadingPhase;
@@ -271,6 +281,9 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"world.snapshot uptime_s={Format1(_uptime.Elapsed.TotalSeconds)} " +
             $"phase={_phase} resident={_resident} pending={_pending} " +
             $"inflight={_inflight} presented={_presented} " +
+            $"lighting_pending={_lightingPending} " +
+            $"terrain_mesh_pending={_terrainMeshPending} " +
+            $"fluid_mesh_pending={_fluidMeshPending} lighting_active={_lightingActive} " +
             $"frames={_frames} frame_ms_avg={Format2((_frames == 0 ? 0d : _frameMsTotal / _frames))} " +
             $"frame_ms_max={Format2(_frameMsMax)} frames_over_50ms={_framesOver50Ms} " +
             $"frames_over_100ms={_framesOver100Ms} " +

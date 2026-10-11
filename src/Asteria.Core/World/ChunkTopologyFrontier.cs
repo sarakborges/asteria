@@ -20,6 +20,10 @@ public static class ChunkTopologyFrontier
     {
         ArgumentNullException.ThrowIfNull(neighborIsResident);
 
+        // A seed also visits its six neighboring voxels during propagation.
+        // Seed only the resident side of each face: the newly inserted chunk
+        // when present, or the surviving neighbor after retirement.
+        var sourceIsResident = neighborIsResident(coord);
         var above =
             neighborIsResident(new ChunkCoord(coord.X, coord.Y + 1, coord.Z));
         var below =
@@ -46,17 +50,17 @@ public static class ChunkTopologyFrontier
                     if (above)
                     {
                         yield return new WorldVoxelCoord(
-                            originX + x, originY + Chunk.Size - 1, originZ + z);
-                        yield return new WorldVoxelCoord(
-                            originX + x, originY + Chunk.Size, originZ + z);
+                            originX + x,
+                            originY + (sourceIsResident ? Chunk.Size - 1 : Chunk.Size),
+                            originZ + z);
                     }
 
                     if (below)
                     {
                         yield return new WorldVoxelCoord(
-                            originX + x, originY, originZ + z);
-                        yield return new WorldVoxelCoord(
-                            originX + x, originY - 1, originZ + z);
+                            originX + x,
+                            originY + (sourceIsResident ? 0 : -1),
+                            originZ + z);
                     }
                 }
             }
@@ -71,17 +75,15 @@ public static class ChunkTopologyFrontier
                     if (negativeX)
                     {
                         yield return new WorldVoxelCoord(
-                            originX, originY + y, originZ + z);
-                        yield return new WorldVoxelCoord(
-                            originX - 1, originY + y, originZ + z);
+                            originX + (sourceIsResident ? 0 : -1),
+                            originY + y, originZ + z);
                     }
 
                     if (positiveX)
                     {
                         yield return new WorldVoxelCoord(
-                            originX + Chunk.Size - 1, originY + y, originZ + z);
-                        yield return new WorldVoxelCoord(
-                            originX + Chunk.Size, originY + y, originZ + z);
+                            originX + (sourceIsResident ? Chunk.Size - 1 : Chunk.Size),
+                            originY + y, originZ + z);
                     }
                 }
             }
@@ -96,17 +98,15 @@ public static class ChunkTopologyFrontier
                     if (negativeZ)
                     {
                         yield return new WorldVoxelCoord(
-                            originX + x, originY + y, originZ);
-                        yield return new WorldVoxelCoord(
-                            originX + x, originY + y, originZ - 1);
+                            originX + x, originY + y,
+                            originZ + (sourceIsResident ? 0 : -1));
                     }
 
                     if (positiveZ)
                     {
                         yield return new WorldVoxelCoord(
-                            originX + x, originY + y, originZ + Chunk.Size - 1);
-                        yield return new WorldVoxelCoord(
-                            originX + x, originY + y, originZ + Chunk.Size);
+                            originX + x, originY + y,
+                            originZ + (sourceIsResident ? Chunk.Size - 1 : Chunk.Size));
                     }
                 }
             }

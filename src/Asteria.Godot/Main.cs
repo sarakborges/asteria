@@ -517,7 +517,7 @@ public partial class Main : Node3D
         AdvanceChatPresentation(delta);
         if (_worldSeed is null)
         {
-            _worldDiagnostics?.FlushIfDue(0, 0, 0, 0, "MainMenu");
+            _worldDiagnostics?.FlushIfDue(0, 0, 0, 0, "MainMenu", 0, 0, 0, false);
             return;
         }
 
@@ -530,7 +530,7 @@ public partial class Main : Node3D
         {
             _heldDynamicLight.Clear();
             AdvanceDimensionTransition();
-            _worldDiagnostics?.FlushIfDue(0, 0, 0, 0, "Transitioning");
+            _worldDiagnostics?.FlushIfDue(0, 0, 0, 0, "Transitioning", 0, 0, 0, false);
             return;
         }
 
@@ -619,7 +619,11 @@ public partial class Main : Node3D
             _residency.PendingCount,
             _residency.MaterializingCount,
             _chunkPresentations.Count,
-            _loading.Progress.Phase.ToString());
+            _loading.Progress.Phase.ToString(),
+            _worldUpdates.LightingEditCount,
+            _worldUpdates.DirtyChunkCount,
+            _fluidMeshUpdates.DirtyChunkCount,
+            _lightingRuntime.IsRunning);
 
         if (loadingWorld)
         {
