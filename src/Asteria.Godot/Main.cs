@@ -2052,6 +2052,10 @@ public partial class Main : Node3D
 
         if (_warpArrival is { } warp)
         {
+            if (warp.Phase == WarpArrivalPhase.AwaitingStructurePublication &&
+                !_sessions.Active.IsPortalArrivalPresentationCurrent())
+                return;
+
             var exactPortalEntry = warp.RequireExactDestination && !warp.IsReturning
                 ? _sessions.Active.CheckResidentPortalEntry()
                 : (ExactArrivalStatus?)null;
@@ -2067,7 +2071,10 @@ public partial class Main : Node3D
                         $"portal.arrival.structure dimension={_dimension.Id} " +
                         $"result={result}");
                     if (result == ManualStructurePlacementResult.Placed)
-                        exactPortalEntry = _sessions.Active.CheckResidentPortalEntry();
+                    {
+                        _warpArrival = warp.AwaitStructurePublication();
+                        return;
+                    }
                 }
             }
             var residentEntrySafe = exactPortalEntry is { } status
