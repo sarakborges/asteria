@@ -594,11 +594,18 @@ public partial class Main : Node3D
         ReportPresentationReservations(
             streamingBegin.ReservedPresentations);
 
+        var gameplaySliceStart = Stopwatch.GetTimestamp();
         ReportBlockEntityFrame(
             _blockEntities.Advance(
                 delta,
                 _dimension.GravityStrength));
+        _worldDiagnostics?.ObserveStage(
+            WorldFrameStage.BlockEntities, gameplaySliceStart);
+
+        gameplaySliceStart = Stopwatch.GetTimestamp();
         AdvanceItemPickup(delta);
+        _worldDiagnostics?.ObserveStage(
+            WorldFrameStage.ItemPickup, gameplaySliceStart);
 
         stageStart = Stopwatch.GetTimestamp();
         PollFluidWorker();
@@ -658,9 +665,12 @@ public partial class Main : Node3D
         }
 
         stageStart = Stopwatch.GetTimestamp();
+        gameplaySliceStart = Stopwatch.GetTimestamp();
         var miningFeedback = AdvanceSurvivalMining();
         _sessions.Active.MiningCracks.Sync(_world, _sessions.Active.Mining);
         _sessions.Active.SyncMiningFeedback((float)delta, miningFeedback);
+        _worldDiagnostics?.ObserveStage(
+            WorldFrameStage.Mining, gameplaySliceStart);
 
         if (_worldReadySent && _player is { } creatureObserver)
         {
@@ -669,12 +679,21 @@ public partial class Main : Node3D
                 _sessionStates.Player.GameMode == PlayerGameMode.Survival &&
                 !_sessionStates.Player.Health.IsDead &&
                 _sessionStates.GameRules.AllowsCreatureAttacks;
+            gameplaySliceStart = Stopwatch.GetTimestamp();
             _sessions.Active.AdvanceCreatures(
                 delta,
                 new NVector3(position.X, position.Y, position.Z),
                 creatureObserver.CollisionBounds,
                 playerTargetable);
+            _worldDiagnostics?.ObserveStage(
+                WorldFrameStage.Creatures, gameplaySliceStart);
+
+            gameplaySliceStart = Stopwatch.GetTimestamp();
             ApplyCreatureMeleeAttacks();
+            _worldDiagnostics?.ObserveStage(
+                WorldFrameStage.CreatureAttacks, gameplaySliceStart);
+
+            gameplaySliceStart = Stopwatch.GetTimestamp();
             var impacts = _sessions.Active.AdvanceProjectiles(
                 delta, creatureObserver.CollisionBounds, playerTargetable);
             foreach (var impact in impacts)
@@ -689,11 +708,14 @@ public partial class Main : Node3D
                     _sessionStates.Player.GameMode);
                 ApplyPlayerDamageResult(damage);
             }
+            _worldDiagnostics?.ObserveStage(
+                WorldFrameStage.Projectiles, gameplaySliceStart);
         }
 
         if (_worldReadySent && _player is { } particleObserver)
         {
             var cameraPosition = particleObserver.Camera.GlobalPosition;
+            gameplaySliceStart = Stopwatch.GetTimestamp();
             _ambientParticleRuntime!.Advance(
                 (float)delta,
                 new NVector3(cameraPosition.X, cameraPosition.Y, cameraPosition.Z),
@@ -702,14 +724,33 @@ public partial class Main : Node3D
                 _world,
                 _sessions.Active.Generator,
                 _fluids);
+            _worldDiagnostics?.ObserveStage(
+                WorldFrameStage.AmbientSimulation, gameplaySliceStart);
+
+            gameplaySliceStart = Stopwatch.GetTimestamp();
             _ambientParticlePresentation!.Sync(_ambientParticleRuntime);
+            _worldDiagnostics?.ObserveStage(
+                WorldFrameStage.AmbientPresentation, gameplaySliceStart);
         }
 
+        _worldDiagnostics?.ObserveGameplayPopulation(
+            _sessions.Active.Creatures.Count,
+            _sessions.Active.Projectiles.ActiveProjectiles.Count,
+            _ambientParticleRuntime?.Particles.Count ?? 0,
+            _blockEntities.DroppedCount);
+
+        gameplaySliceStart = Stopwatch.GetTimestamp();
         SendWorldHudState();
         SendWorldClockState();
         SendTargetHudState();
         SyncArchitectsCompassPreview();
+        _worldDiagnostics?.ObserveStage(
+            WorldFrameStage.Hud, gameplaySliceStart);
+
+        gameplaySliceStart = Stopwatch.GetTimestamp();
         TryTraversePhysicalPortal();
+        _worldDiagnostics?.ObserveStage(
+            WorldFrameStage.Portals, gameplaySliceStart);
         _worldDiagnostics?.ObserveStage(
             WorldFrameStage.Gameplay, stageStart);
     }
