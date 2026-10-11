@@ -30,7 +30,7 @@ public readonly record struct BlockPhysicsWakeResult(
         UnsupportedRemoved > 0;
 }
 
-public sealed class BlockPhysicsRuntime
+public sealed class BlockPhysicsRuntime : IDisposable
 {
     private static readonly IComparer<FallingBlockId>
         FallingBlockIdComparer =
@@ -111,7 +111,12 @@ public sealed class BlockPhysicsRuntime
                 }
             }
         }
+
+        _world.ChunkBecameResident += _updates.WakeResidentChunk;
     }
+
+    public void Dispose() =>
+        _world.ChunkBecameResident -= _updates.WakeResidentChunk;
 
     public IReadOnlyCollection<FallingBlockState> ActiveBlocks =>
         _active.Values;
@@ -187,11 +192,15 @@ public sealed class BlockPhysicsRuntime
                     cell,
                     _world.GetMicroblockMaskOrEmpty(
                         position),
-                    position);
+                    position,
+                    out var missingSupport);
 
             if (support == BlockSupportState.Unloaded)
             {
-                _updates.Enqueue(position);
+                _updates.WaitForChunk(
+                    position,
+                    VoxelCoordinates.FromWorld(
+                        missingSupport.X, missingSupport.Y, missingSupport.Z).Chunk);
                 continue;
             }
 
@@ -250,7 +259,8 @@ public sealed class BlockPhysicsRuntime
             if (belowState ==
                 BlockMaterializationState.Unloaded)
             {
-                _updates.Enqueue(position);
+                _updates.WaitForChunk(position,
+                    VoxelCoordinates.FromWorld(below.X, below.Y, below.Z).Chunk);
                 continue;
             }
 
