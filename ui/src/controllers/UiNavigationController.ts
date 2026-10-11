@@ -7,6 +7,8 @@ export type UiNavigationController = {
   openWorldCreation(): void;
   backToStart(): void;
   exitGame(): void;
+  confirmExitWithoutSave(): void;
+  cancelExitWithoutSave(): void;
   resumeGame(): void;
   saveWorld(): void;
   leaveWorld(): void;
@@ -42,8 +44,21 @@ export function createUiNavigationController(
 
   // Only explicit WebUI navigation is handled here. Gameplay hotkeys and
   // mouse capture remain native; a paused menu never directly captures it.
+  const cancelExitWithoutSave = () => {
+    if (!store.getSnapshot().navigation.exitConfirmation) return;
+    store.update(state => ({
+      ...state,
+      navigation: { ...state.navigation, exitConfirmation: false },
+    }));
+    postMessage("ui.app.exit.cancel_without_save");
+  };
+
   const escape = () => {
     const state = store.getSnapshot();
+    if (state.navigation.exitConfirmation) {
+      cancelExitWithoutSave();
+      return;
+    }
     if (state.navigation.death) return;
     if (state.navigation.overlay === "storage") {
       postMessage("ui.storage_box.close");
@@ -76,6 +91,11 @@ export function createUiNavigationController(
     },
 
     exitGame() { postMessage("ui.app.exit"); },
+    confirmExitWithoutSave() {
+      if (store.getSnapshot().navigation.exitConfirmation)
+        postMessage("ui.app.exit.confirm_without_save");
+    },
+    cancelExitWithoutSave,
     resumeGame() { postMessage("ui.game.resume"); },
     saveWorld() {
       store.update(state => ({
@@ -147,6 +167,13 @@ export function createUiNavigationController(
         store.update(state => ({
           ...state,
           navigation: { ...state.navigation, overlay: "none", death: null },
+        }));
+        return;
+      }
+      if (message.type === "game.app.exit_confirmation") {
+        store.update(state => ({
+          ...state,
+          navigation: { ...state.navigation, exitConfirmation: true, saveFeedback: "error" },
         }));
         return;
       }

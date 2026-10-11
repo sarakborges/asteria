@@ -152,6 +152,7 @@ public partial class Main : Node3D
     private bool _inventoryOpen;
     private ulong? _publishedStorageRevision;
     private bool _quitRequested;
+    private bool _exitConfirmationPending;
     private readonly PlayerChatSession _chat = new();
     private WarpArrivalPlan? _warpArrival;
     private bool _portalTravelLatched;
@@ -548,9 +549,9 @@ public partial class Main : Node3D
         if (_quitRequested && _worldReadySent && !_sessions.IsTransitioning &&
             !TrySaveAndLeaveCurrentWorld())
         {
-            _quitRequested = false;
             GD.PushWarning("world.save.failed: Could not begin save before exit.");
             SendWebUi("game.world.save_result", new { status = "error" });
+            OfferExitWithoutSave();
         }
         AdvanceFpsHudState(delta);
         if (!_sessions.IsTransitioning && _worldReadySent)
@@ -829,11 +830,47 @@ public partial class Main : Node3D
         if (_quitRequested)
             return;
 
+        if (_exitConfirmationPending)
+        {
+            // A second window-close request must not silently discard the world.
+            _player?.PauseForWindowFocusLoss();
+            SendWebUi("game.app.exit_confirmation", new { });
+            return;
+        }
+
         _quitRequested = true;
         if (_worldSeed is null)
             GetTree().Quit();
-        // A running world exits only after its normal Save and Leave
-        // completes. Loading and dimension transitions finish first.
+        // A running world exits after Save and Leave completes, or after
+        // the player explicitly accepts exiting without a failed save.
+    }
+
+    private void OfferExitWithoutSave()
+    {
+        _quitRequested = false;
+        _exitConfirmationPending = true;
+        _player?.PauseForWindowFocusLoss();
+        _worldDiagnostics?.Write("client.exit_without_save.offered");
+        SendWebUi("game.app.exit_confirmation", new { });
+    }
+
+    private void ConfirmExitWithoutSave()
+    {
+        if (!_exitConfirmationPending)
+            return;
+
+        _exitConfirmationPending = false;
+        _worldDiagnostics?.Write("client.exit_without_save.confirmed");
+        GetTree().Quit();
+    }
+
+    private void CancelExitWithoutSave()
+    {
+        if (!_exitConfirmationPending)
+            return;
+
+        _exitConfirmationPending = false;
+        _worldDiagnostics?.Write("client.exit_without_save.cancelled");
     }
 
     private bool TrySaveCurrentWorld() =>
@@ -919,8 +956,8 @@ public partial class Main : Node3D
         {
             if (completion.SaveError is { } error)
             {
-                // A failed save never closes the window or retries forever.
-                _quitRequested = false;
+                // An exit-time failure requires explicit permission to close
+                // without saving. Ordinary save failures keep the world open.
                 GD.PushWarning($"world.save.failed: {error}");
                 _worldDiagnostics?.Write($"world.save.failed error={error}");
                 SendWebUi("game.world.save_result", new
@@ -928,6 +965,8 @@ public partial class Main : Node3D
                     status = "error",
                     error,
                 });
+                if (_quitRequested)
+                    OfferExitWithoutSave();
             }
             else
             {
@@ -1280,6 +1319,8 @@ public partial class Main : Node3D
     private void OnWebUiReady()
     {
         SendCurrentState();
+        if (_exitConfirmationPending)
+            SendWebUi("game.app.exit_confirmation", new { });
     }
 
     private void OnWebUiMessage(string message)
@@ -1386,6 +1427,12 @@ public partial class Main : Node3D
                     break;
                 case "ui.app.exit":
                     RequestAppExit();
+                    break;
+                case "ui.app.exit.confirm_without_save":
+                    ConfirmExitWithoutSave();
+                    break;
+                case "ui.app.exit.cancel_without_save":
+                    CancelExitWithoutSave();
                     break;
                 case "ui.world.catalog.refresh":
                     if (_worldSeed is null && !_worldDelete.IsBusy)

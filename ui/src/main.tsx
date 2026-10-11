@@ -81,6 +81,8 @@ createRoot(rootElement).render(
       openWorldCreation: navigation.openWorldCreation,
       backToStart: navigation.backToStart,
       exitGame: navigation.exitGame,
+      confirmExitWithoutSave: navigation.confirmExitWithoutSave,
+      cancelExitWithoutSave: navigation.cancelExitWithoutSave,
       dismissToast: store.dismissToast,
       resumeGame: navigation.resumeGame,
       respawn: navigation.respawn,

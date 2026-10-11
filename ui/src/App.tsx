@@ -8,6 +8,7 @@ import { StorageBoxPage } from "./components/pages/StorageBoxPage/StorageBoxPage
 import { SettingsWorkspacePage } from "./components/pages/SettingsWorkspacePage/SettingsWorkspacePage";
 import { ControlsPage } from "./components/pages/ControlsPage/ControlsPage";
 import { PauseMenuPage } from "./components/pages/PauseMenuPage/PauseMenuPage";
+import { SaveFailureExitDialog } from "./components/organisms/SaveFailureExitDialog/SaveFailureExitDialog";
 import { DeathScreenPage } from "./components/pages/DeathScreenPage/DeathScreenPage";
 import { useLocalization } from "./localization/LocalizationProvider";
 import { BrushPalettePage } from "./components/pages/BrushPalettePage/BrushPalettePage";
@@ -38,6 +39,8 @@ export type AppActions = {
   openWorldCreation(): void;
   backToStart(): void;
   exitGame(): void;
+  confirmExitWithoutSave(): void;
+  cancelExitWithoutSave(): void;
   dismissToast(id: number): void;
   resumeGame(): void;
   respawn(): void;
@@ -102,7 +105,8 @@ export function App({
   const preWorldVisible =
     state.worldCreation.visible;
   const uiVisible = preWorldVisible || state.navigation.overlay !== "none" ||
-    state.chat.open || state.navigation.death !== null;
+    state.chat.open || state.navigation.death !== null ||
+    state.navigation.exitConfirmation;
 
   // On an explicit UI screen change, the previous screen's focused button
   // can linger during ScreenTransition's exit animation. Move keyboard focus
@@ -115,7 +119,8 @@ export function App({
       state.chat.open]);
 
   const navigateEscape = () => {
-    if (state.settings.captureAction) actions.cancelKeyCapture();
+    if (state.navigation.exitConfirmation) actions.cancelExitWithoutSave();
+    else if (state.settings.captureAction) actions.cancelKeyCapture();
     else if (state.chat.open) actions.closeChat();
     else if (state.navigation.overlay === "inventory") actions.closeInventory();
     else if (state.navigation.overlay === "storage") actions.closeStorageBox();
@@ -124,7 +129,8 @@ export function App({
   };
 
   const handleUiKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (state.navigation.death || event.key !== "Escape" || event.defaultPrevented ||
+    if ((state.navigation.death && !state.navigation.exitConfirmation) ||
+        event.key !== "Escape" || event.defaultPrevented ||
         event.repeat || event.nativeEvent.isComposing || !uiVisible) return;
     navigateEscape();
     event.preventDefault();
@@ -137,7 +143,8 @@ export function App({
   useEffect(() => {
     const onWindowKeyDown = (event: globalThis.KeyboardEvent) => {
       if (interactionRoot.current?.contains(event.target as Node) ||
-          state.navigation.death || event.key !== "Escape" ||
+          (state.navigation.death && !state.navigation.exitConfirmation) ||
+          event.key !== "Escape" ||
           event.defaultPrevented || event.repeat || event.isComposing ||
           !uiVisible) return;
       navigateEscape();
@@ -146,8 +153,8 @@ export function App({
     };
     window.addEventListener("keydown", onWindowKeyDown);
     return () => window.removeEventListener("keydown", onWindowKeyDown);
-  }, [actions, uiVisible, state.navigation.death, state.navigation.overlay,
-      state.settings.captureAction, state.chat.open]);
+  }, [actions, uiVisible, state.navigation.death, state.navigation.exitConfirmation,
+      state.navigation.overlay, state.settings.captureAction, state.chat.open]);
 
   return (
     <div ref={interactionRoot} className="app-interaction-root"
@@ -349,6 +356,12 @@ export function App({
       )}
 
       <LoadingOverlay state={state.loading} />
+      {state.navigation.exitConfirmation && (
+        <SaveFailureExitDialog
+          onCancel={actions.cancelExitWithoutSave}
+          onConfirm={actions.confirmExitWithoutSave}
+        />
+      )}
     </div>
   );
 }

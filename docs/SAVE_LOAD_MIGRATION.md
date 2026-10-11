@@ -262,16 +262,19 @@ stage descriptions as the current status.
   ready, it calls the existing `RequestSaveAndLeave` pipeline, which drains
   workers, archives chunks and publishes the complete session generation and
   manifest. Only its successful `LeftWorld` completion may quit the app.
-- A rejected checkpoint request or failed publication cancels the exit intent;
-  the game stays open and surfaces the save error. Repeated close requests
-  during one exit cannot bypass the checkpoint.
+- A rejected checkpoint request or failed publication shows an explicit WebUI
+  confirmation: **Keep Playing** or **Exit Without Saving**. Cancel retains
+  the restored world; confirmation quits even though the checkpoint failed.
+  Repeated close requests while confirmation is open cannot bypass consent.
 - This covers normal OS/UI quit requests, **not** forced termination, process
   crashes, editor Stop commands or loss of power (which cannot reliably run
   graceful shutdown callbacks).
 - **Native regression checklist:** test window X, Alt+F4 and Pause Menu Exit
   Game; close during initial world loading and Sphere travel; close while
   another checkpoint is underway; force a save I/O failure and verify the
-  world resumes rather than quitting; restart and verify restored world,
+  confirmation appears above loading, Esc/Keep Playing resumes the world,
+  another window close does not bypass confirmation, and Exit Without Saving
+  actually closes; restart and verify restored world,
   inventory, entities, containers and Sphere state.
 
 ## Remaining after stage 14 (reviewed 2026-10-09)

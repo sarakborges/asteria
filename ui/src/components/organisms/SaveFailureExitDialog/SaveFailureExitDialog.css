@@ -1,0 +1,45 @@
+.save-failure-exit-dialog {
+  position: fixed;
+  z-index: 200;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(0 0 0 / 78%);
+  pointer-events: auto;
+}
+
+.save-failure-exit-dialog__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: min(500px, 100%);
+  padding: 28px;
+  border: 1px solid var(--ui-color-danger);
+  background: var(--ui-color-surface-elevated);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 45%);
+}
+
+.save-failure-exit-dialog__panel h2,
+.save-failure-exit-dialog__panel p {
+  margin: 0;
+}
+
+.save-failure-exit-dialog__panel h2 {
+  font-size: var(--ui-font-size-heading);
+}
+
+.save-failure-exit-dialog__actions {
+  display: flex;
+  gap: 12px;
+}
+
+.save-failure-exit-dialog__actions > * {
+  flex: 1 1 0;
+}
+
+@media (max-width: 480px) {
+  .save-failure-exit-dialog__actions {
+    flex-direction: column;
+  }
+}

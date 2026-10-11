@@ -289,6 +289,7 @@ export type UiNavigationState = {
   preWorldScreen: "starting" | "world-selection" | "new-world";
   overlay: OverlayScreen;
   saveFeedback: "saved" | "error" | null;
+  exitConfirmation: boolean;
   death: { keepInventory: boolean; droppedStacks: number; dropCapacityExceeded: boolean; outcomeKnown: boolean } | null;
 };
 
@@ -400,6 +401,7 @@ export function createInitialUiState(
       preWorldScreen: "starting",
       overlay: "none",
       saveFeedback: null,
+      exitConfirmation: false,
       death: null,
     },
     settings: {
