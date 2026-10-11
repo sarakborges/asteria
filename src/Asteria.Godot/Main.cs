@@ -2874,15 +2874,51 @@ public partial class Main : Node3D
             !ulong.TryParse(idElement.GetString(),
                 System.Globalization.NumberStyles.None,
                 System.Globalization.CultureInfo.InvariantCulture, out var id) ||
-            !_chat.TryGetWarpTarget(id, out var target) ||
-            target is null)
+            id == 0)
             return;
 
-        ExecuteChatCommand(new ParsedChatCommand(
-            ChatCommandKind.Warp, Option: target.Dimension,
-            X: target.X, Y: target.Y, Z: target.Z));
+        if (_chat.TryGetWarpTarget(id, out var target) && target is not null)
+        {
+            ExecuteChatCommand(new ParsedChatCommand(
+                ChatCommandKind.Warp, Option: target.Dimension,
+                X: target.X, Y: target.Y, Z: target.Z));
+        }
+        else if (_chat.TryGetStructureFileName(id, out var fileName) &&
+                 fileName is not null)
+        {
+            OpenChatStructureFile(fileName);
+        }
+        else return;
+
         _chatFeedbackSeconds = 10.0;
         SendChatState();
+    }
+
+    private void OpenChatStructureFile(string fileName)
+    {
+        // The target is an opaque, Core-authorized export filename, not a
+        // URI or path supplied by WebUI.
+        var directory = ProjectSettings.GlobalizePath("user://exports/structures");
+        var path = Path.Combine(directory, fileName);
+        if (!File.Exists(path))
+        {
+            ChatFeedback("chat.command.failed", error: true);
+            return;
+        }
+
+        try
+        {
+            var directoryUri = new Uri(
+                Path.GetFullPath(directory) + Path.DirectorySeparatorChar).AbsoluteUri;
+            if (OS.ShellOpen(directoryUri) != Error.Ok)
+                ChatFeedback("chat.command.failed", error: true);
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException or UriFormatException)
+        {
+            GD.PushWarning($"chat.structure_file.open: {exception.Message}");
+            ChatFeedback("chat.command.failed", error: true);
+        }
     }
 
     private void ExecuteChatCommand(ParsedChatCommand command)
@@ -3375,7 +3411,8 @@ public partial class Main : Node3D
                 tone = line.IsError ? "error" : "normal",
                 localizationKey = line.LocalizationKey,
                 parameters = line.Parameters,
-                action = line.WarpTarget is null ? null : "warp",
+                action = line.WarpTarget is not null ? "warp" :
+                    line.StructureFileName is not null ? "structure_file" : null,
             }).ToArray(),
             commands = PlayerChatCommandProcessor.SupportedCommands,
             catalog = new
@@ -4506,6 +4543,9 @@ public partial class Main : Node3D
                 var file = Path.Combine(dir, exportId.Split(':')[1] + ".json");
                 File.WriteAllText(file, exported.Json);
                 message += $" Saved to {file}";
+                _chat.AppendStructureFile(Path.GetFileName(file));
+                _chatFeedbackSeconds = 10.0;
+                SendChatState();
                 GD.Print("structure.export " + file);
             }
             catch (IOException error)
