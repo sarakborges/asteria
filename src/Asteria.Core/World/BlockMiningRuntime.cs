@@ -109,14 +109,14 @@ public sealed class BlockMiningRuntime
             _target = target;
             _work = 0;
             _swingTicks = 0;
-            PublishFeedback(position, completed: false);
+            PublishFeedback(hit.Value, completed: false);
         }
         else
         {
             var totalTicks = (ulong)_swingTicks + elapsedTicks;
             _swingTicks = (uint)(totalTicks % SwingIntervalTicks);
             if (totalTicks >= SwingIntervalTicks)
-                PublishFeedback(position, completed: false);
+                PublishFeedback(hit.Value, completed: false);
         }
 
         var requiredWork = DefaultBreakWorkTicks * mining.Hardness;
@@ -135,14 +135,14 @@ public sealed class BlockMiningRuntime
             hit.Value,
             BlockBreakLootPolicy.DropSelf).Accepted;
         if (completed)
-            PublishFeedback(position, completed: true);
+            PublishFeedback(hit.Value, completed: true);
         Cancel();
         return completed;
     }
 
-    private void PublishFeedback(WorldVoxelCoord position, bool completed)
+    private void PublishFeedback(VoxelWorldHit hit, bool completed)
     {
-        LastFeedback = new MiningFeedbackEvent(position, completed);
+        LastFeedback = new MiningFeedbackEvent(hit, completed);
         FeedbackRevision++;
     }
 
@@ -157,4 +157,4 @@ public sealed class BlockMiningRuntime
 }
 
 /// <summary>Transient, presentation-only cue; no physical or inventory effect.</summary>
-public readonly record struct MiningFeedbackEvent(WorldVoxelCoord Position, bool Completed);
+public readonly record struct MiningFeedbackEvent(VoxelWorldHit Hit, bool Completed);
