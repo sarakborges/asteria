@@ -735,7 +735,7 @@ public partial class Main : Node3D
 
         _worldDiagnostics?.ObserveGameplayPopulation(
             _sessions.Active.Creatures.Count,
-            _sessions.Active.Projectiles.ActiveProjectiles.Count,
+            _sessions.Active.Projectiles.Count,
             _ambientParticleRuntime?.Particles.Count ?? 0,
             _blockEntities.DroppedCount);
 
