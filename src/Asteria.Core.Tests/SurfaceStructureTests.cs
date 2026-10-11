@@ -4,13 +4,32 @@ namespace Asteria.Core.Tests;
 
 public sealed class SurfaceStructureTests
 {
+    private static BlockRegistry PortalArrivalBlocks(bool includeShell = false)
+    {
+        var definitions = new List<BlockDefinition>
+        {
+            new("asteria:stone"),
+            new("asteria:glass", tags: [
+                "is_portal_frame",
+                "accept_dimension:asteria:overworld",
+                "accept_dimension:asteria:umbral",
+            ]),
+            new("asteria:portal",
+                shape: BlockShapeDefinition.CenteredLayer(0.10f),
+                orientations: [BlockOrientation.X, BlockOrientation.Y, BlockOrientation.Z],
+                isCollidable: false, lightDampening: 0,
+                mining: new BlockMiningDefinition(unbreakable: true)),
+        };
+        if (includeShell)
+            definitions.Add(new BlockDefinition("asteria:sphere_shell",
+                mining: new BlockMiningDefinition(unbreakable: true)));
+        return new BlockRegistry(definitions);
+    }
+
     [Fact]
     public void AuthoredPortalArrivalUsesExactYAndCanonicalStructureMutations()
     {
-        var blocks = new BlockRegistry(
-        [
-            new BlockDefinition("asteria:stone"),
-        ]);
+        var blocks = PortalArrivalBlocks();
         var json = File.ReadAllText(Path.Combine(
             AppContext.BaseDirectory, "packs", "default", "data",
             "structures", "portal_arrival_platform.json"));
@@ -35,7 +54,19 @@ public sealed class SurfaceStructureTests
             StructureSetRegistry.Empty, ledger);
 
         Assert.Equal(ManualStructurePlacementResult.Placed,
-            runtime.TryPlaceExact(structure.Id, 8, 16, 8));
+            runtime.TryPlaceExact(structure.Id, 8, 16, 8,
+                DimensionId.Overworld));
+        var portal = new PortalActivationRuntime(world, blocks, mutations);
+        Assert.True(portal.TryGetDestinationAt(
+            new WorldVoxelCoord(9, 16, 8), out var returnTarget));
+        Assert.Equal(DimensionId.Overworld.Value, returnTarget);
+        Assert.True(portal.TryGetDestinationAt(
+            new WorldVoxelCoord(9, 17, 8), out returnTarget));
+        Assert.Equal(DimensionId.Overworld.Value, returnTarget);
+        Assert.Equal(BlockOrientation.X,
+            world.GetCellOrEmpty(new WorldVoxelCoord(9, 16, 8)).Orientation);
+        Assert.Equal(blocks.GetId("asteria:glass"),
+            world.GetCellOrEmpty(new WorldVoxelCoord(9, 15, 8)).Block);
         Assert.True(ResidentWarpDestinationQuery.IsExactSafe(
             world, new System.Numerics.Vector3(8.5f, 16, 8.5f)));
         Assert.Equal(1, ledger.Count);
@@ -48,12 +79,7 @@ public sealed class SurfaceStructureTests
     [Fact]
     public void ExactPortalArrivalCannotOverwriteSphereShell()
     {
-        var blocks = new BlockRegistry(
-        [
-            new BlockDefinition("asteria:stone"),
-            new BlockDefinition("asteria:sphere_shell",
-                mining: new BlockMiningDefinition(unbreakable: true)),
-        ]);
+        var blocks = PortalArrivalBlocks(includeShell: true);
         var structure = StructureDefinitionJson.Parse(File.ReadAllText(
             Path.Combine(AppContext.BaseDirectory, "packs", "default",
                 "data", "structures", "portal_arrival_platform.json")));
@@ -86,7 +112,7 @@ public sealed class SurfaceStructureTests
     [Fact]
     public void PortalArrivalRefusesUnloadedStructurePayload()
     {
-        var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);
+        var blocks = PortalArrivalBlocks();
         var structure = StructureDefinitionJson.Parse(File.ReadAllText(
             Path.Combine(AppContext.BaseDirectory, "packs", "default",
                 "data", "structures", "portal_arrival_platform.json")));
@@ -108,7 +134,7 @@ public sealed class SurfaceStructureTests
     [Fact]
     public void AuthoredSurfaceSpiralStairsRiseContinuouslyAndStopAtSurface()
     {
-        var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);
+        var blocks = PortalArrivalBlocks();
         var structures = PortalArrivalStructures();
         structures.ValidateBlocks(blocks);
         var generator = FlatStructureGenerator(blocks, structures, "asteria:stone");
@@ -139,9 +165,31 @@ public sealed class SurfaceStructureTests
     }
 
     [Fact]
+    public void DeepPortalArrivalExpandsMultipleStairSegmentsToSurface()
+    {
+        var blocks = PortalArrivalBlocks();
+        var structures = PortalArrivalStructures();
+        var generator = FlatStructureGenerator(blocks, structures, "asteria:stone");
+        var entryY = generator.SurfaceHeight(8, 8) - 45;
+        Assert.True(entryY > 1);
+        Assert.True(generator.TryPrepareExactStructure(
+            "asteria:portal_arrival_platform", 8, entryY, 8,
+            new ManualStructurePlacementLedger(), out var plan));
+        Assert.NotNull(plan);
+        var stairs = plan.Pieces.Skip(1).ToArray();
+        Assert.True(stairs.Length >= 3);
+        Assert.All(stairs, piece => Assert.Equal(
+            "asteria:surface_spiral_stair_segment", piece.StructureId));
+        for (var i = 1; i < stairs.Length; i++)
+            Assert.Equal(stairs[i - 1].AnchorY + 15, stairs[i].AnchorY);
+        Assert.True(stairs[^1].MaximumY - 2 >=
+            generator.SurfaceHeight(8, 8));
+    }
+
+    [Fact]
     public void SurfaceConnectionRejectsUnfinishedAuthoredStaircase()
     {
-        var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);
+        var blocks = PortalArrivalBlocks();
         var directory = Path.Combine(AppContext.BaseDirectory,
             "packs", "default", "data", "structures");
         var root = File.ReadAllText(Path.Combine(

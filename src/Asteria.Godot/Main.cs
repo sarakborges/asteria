@@ -2076,12 +2076,21 @@ public partial class Main : Node3D
             var exactPortalEntry = warp.RequireExactDestination && !warp.IsReturning
                 ? _sessions.Active.CheckResidentPortalEntry()
                 : (ExactArrivalStatus?)null;
-            if (exactPortalEntry is { } unsafeEntry &&
-                unsafeEntry != ExactArrivalStatus.Safe &&
-                unsafeEntry != ExactArrivalStatus.NonResident &&
-                unsafeEntry != ExactArrivalStatus.SessionRetiring)
+            var needsReturnPortal = exactPortalEntry is not null &&
+                _sessions.Active.Dimension.PortalArrivalStructure is not null;
+            var returnPortalReady = !needsReturnPortal ||
+                _sessions.Active.HasNearbyReturnPortal(warp.Origin);
+            // A safe foothold alone is insufficient: every new physical
+            // crossing must produce a working return link. Underground
+            // arrivals also need their authored surface connection.
+            if (exactPortalEntry is { } entry &&
+                warp.Phase == WarpArrivalPhase.Requested &&
+                entry != ExactArrivalStatus.NonResident &&
+                entry != ExactArrivalStatus.SessionRetiring &&
+                (entry != ExactArrivalStatus.Safe || !returnPortalReady))
             {
-                var placement = _sessions.Active.TryPreparePortalArrivalStructure();
+                var placement = _sessions.Active.TryPreparePortalArrivalStructure(
+                    warp.Origin);
                 if (placement is { } result)
                 {
                     _worldDiagnostics?.Write(
@@ -2096,15 +2105,17 @@ public partial class Main : Node3D
                     }
                 }
             }
+            returnPortalReady = !needsReturnPortal ||
+                _sessions.Active.HasNearbyReturnPortal(warp.Origin);
             var residentEntrySafe = exactPortalEntry is { } status
-                ? status == ExactArrivalStatus.Safe
+                ? status == ExactArrivalStatus.Safe && returnPortalReady
                 : _sessions.Active.TryPrepareResidentWarpEntry();
             if (exactPortalEntry is { } rejected && rejected != ExactArrivalStatus.Safe)
             {
                 var at = _sessions.Active.InitialPlayerPosition;
                 _worldDiagnostics?.Write(
                     $"portal.arrival.rejected dimension={_dimension.Id} " +
-                    $"position={at} reason={rejected}");
+                    $"position={at} reason={rejected} return_portal={returnPortalReady}");
             }
             var disposition = warp.Evaluate(residentEntrySafe);
             switch (disposition)

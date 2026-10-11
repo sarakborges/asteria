@@ -623,6 +623,37 @@ public sealed class DimensionRuntimeSession
             : ResidentWarpDestinationQuery.CheckExact(World, _initialPlayerPosition);
 
     /// <summary>
+    /// A previously authored return portal must be reusable on revisit.
+    /// The short search avoids coupling runtime travel to template offsets.
+    /// </summary>
+    public bool HasNearbyReturnPortal(DimensionId origin)
+    {
+        if (_retiring || _retired)
+            return false;
+        var at = _initialPlayerPosition;
+        if (!float.IsFinite(at.X) || !float.IsFinite(at.Y) ||
+            !float.IsFinite(at.Z) ||
+            at.X <= int.MinValue + 2 || at.X >= int.MaxValue - 2 ||
+            at.Y < 1f || at.Y >= int.MaxValue - 3 ||
+            at.Z <= int.MinValue + 2 || at.Z >= int.MaxValue - 2)
+            return false;
+        var x = (int)MathF.Floor(at.X);
+        var y = (int)MathF.Floor(at.Y);
+        var z = (int)MathF.Floor(at.Z);
+        for (var dx = -2; dx <= 2; dx++)
+        for (var dz = -2; dz <= 2; dz++)
+        for (var dy = 0; dy <= 2; dy++)
+        {
+            if (Portals.TryGetDestinationAt(
+                    new WorldVoxelCoord(x + dx, y + dy, z + dz),
+                    out var destination) &&
+                StringComparer.Ordinal.Equals(destination, origin.Value))
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>
     /// Use only authored Structure payloads to prepare exact portal entry.
     /// Protected voxels and absent residency reject the canonical mutation.
     /// </summary>
@@ -632,7 +663,8 @@ public sealed class DimensionRuntimeSession
         !TerrainMesh.IsRunning &&
         Presentations.PendingTerrainPublications == 0;
 
-    public ManualStructurePlacementResult? TryPreparePortalArrivalStructure()
+    public ManualStructurePlacementResult? TryPreparePortalArrivalStructure(
+        DimensionId origin)
     {
         if (_retiring || _retired ||
             Dimension.PortalArrivalStructure is not { } reference)
@@ -646,7 +678,8 @@ public sealed class DimensionRuntimeSession
             return ManualStructurePlacementResult.InvalidPlacement;
         return ManualStructures.TryPlaceExact(
             reference, (int)MathF.Floor(at.X),
-            (int)MathF.Floor(at.Y), (int)MathF.Floor(at.Z));
+            (int)MathF.Floor(at.Y), (int)MathF.Floor(at.Z),
+            returnDimension: origin);
     }
 
     public void PrepareGeneratedDestination(

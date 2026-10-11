@@ -63,7 +63,8 @@ public sealed class ManualStructurePlacementRuntime
     /// used by manual Structure placement.
     /// </summary>
     public ManualStructurePlacementResult TryPlaceExact(
-        string reference, int anchorX, int anchorY, int anchorZ)
+        string reference, int anchorX, int anchorY, int anchorZ,
+        DimensionId? returnDimension = null)
     {
         if (!_structures.ResolvesReference(reference))
             return ManualStructurePlacementResult.UnknownReference;
@@ -71,13 +72,26 @@ public sealed class ManualStructurePlacementRuntime
                 reference, anchorX, anchorY, anchorZ,
                 _committed, out var plan) || plan is null)
             return ManualStructurePlacementResult.InvalidPlacement;
+
+        // Physical arrival structures must actually contain a portal. Its
+        // per-voxel destination is resolved from the originating Sphere,
+        // never baked into the shared Structure JSON.
+        if (returnDimension is not null)
+        {
+            var portal = _blocks.GetId(PortalActivationRuntime.PortalBlockId);
+            if (!plan.Pieces.Any(piece =>
+                    piece.Voxels.Any(voxel => voxel.Cell.Block == portal)))
+                return ManualStructurePlacementResult.InvalidPlacement;
+        }
+
         // No player exists during Sphere loading. Normal placement collision
         // checks do not apply, but all resident/protected-voxel checks do.
-        return ApplyPlan(plan, default);
+        return ApplyPlan(plan, default, returnDimension);
     }
 
     private ManualStructurePlacementResult ApplyPlan(
-        ManualStructurePlacementPlan plan, WorldAabb playerBounds)
+        ManualStructurePlacementPlan plan, WorldAabb playerBounds,
+        DimensionId? returnDimension = null)
     {
         var placements = plan.Pieces;
 
@@ -136,9 +150,15 @@ public sealed class ManualStructurePlacementRuntime
                 if (Intersects(playerBounds, voxel.X, voxel.Y, voxel.Z))
                     return ManualStructurePlacementResult.PlayerCollision;
                 claimed.Add(at);
+                var surface = returnDimension is { } origin &&
+                    _blocks.GetDefinition(voxel.Cell.Block).Id ==
+                        PortalActivationRuntime.PortalBlockId
+                    ? voxel.Surface.WithMetaTag(
+                        PortalActivationRuntime.TargetMetadataKey, origin.Value)
+                    : voxel.Surface;
                 staged[at] = new VoxelStructureChange(
                     at, new BlockStateSnapshot(
-                        voxel.Cell, voxel.Mask, voxel.Surface), FluidCell.Empty);
+                        voxel.Cell, voxel.Mask, surface), FluidCell.Empty);
             }
 
             foreach (var voxel in placement.FluidVoxels)

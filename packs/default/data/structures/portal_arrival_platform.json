@@ -27,39 +27,46 @@
         "stopAtSurface": true,
         "surfaceClearance": 2
       }
+    },
+    "G": {
+      "block": "asteria:glass"
+    },
+    "P": {
+      "block": "asteria:portal",
+      "orientation": "x"
     }
   },
   "layers": [
     {
       "y": 0,
       "rows": [
-        "SSS",
-        "SSS",
-        "SSS"
+        "SSG",
+        "SSG",
+        "SSG"
       ]
     },
     {
       "y": 1,
       "rows": [
-        "CCC",
-        "ECC",
-        "CCC"
+        "CCG",
+        "ECP",
+        "CCG"
       ]
     },
     {
       "y": 2,
       "rows": [
-        "CCC",
-        "CCC",
-        "CCC"
+        "CCG",
+        "CCP",
+        "CCG"
       ]
     },
     {
       "y": 3,
       "rows": [
-        "CCC",
-        "CCC",
-        "CCC"
+        "CCG",
+        "CCG",
+        "CCG"
       ]
     }
   ]
