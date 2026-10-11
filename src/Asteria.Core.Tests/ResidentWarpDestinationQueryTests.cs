@@ -82,6 +82,29 @@ public sealed class ResidentWarpDestinationQueryTests
     }
 
     [Fact]
+    public void ExactPortalArrivalExplainsBlockedAndUnsupportedCoordinates()
+    {
+        var world = FlatWorld();
+        var at = new Vector3(7.5f, 1f, 8.5f);
+        Assert.Equal(ExactArrivalStatus.Safe,
+            ResidentWarpDestinationQuery.CheckExact(world, at));
+
+        world.SetBlockAt(new WorldVoxelCoord(7, 1, 8), new BlockRuntimeId(1), out _);
+        Assert.Equal(ExactArrivalStatus.OccupiedFeet,
+            ResidentWarpDestinationQuery.CheckExact(world, at));
+        world.SetBlockAt(new WorldVoxelCoord(7, 1, 8), BlockRuntimeId.Air, out _);
+        world.SetBlockAt(new WorldVoxelCoord(7, 2, 8), new BlockRuntimeId(1), out _);
+        Assert.Equal(ExactArrivalStatus.OccupiedHead,
+            ResidentWarpDestinationQuery.CheckExact(world, at));
+        world.SetBlockAt(new WorldVoxelCoord(7, 2, 8), BlockRuntimeId.Air, out _);
+        world.SetBlockAt(new WorldVoxelCoord(7, 0, 8), BlockRuntimeId.Air, out _);
+        Assert.Equal(ExactArrivalStatus.NoGroundSupport,
+            ResidentWarpDestinationQuery.CheckExact(world, at));
+        Assert.Equal(ExactArrivalStatus.NonResident,
+            ResidentWarpDestinationQuery.CheckExact(new VoxelWorld(), at));
+    }
+
+    [Fact]
     public void RejectsMissingResidencyAndNegativeHeight()
     {
         var world = new VoxelWorld();

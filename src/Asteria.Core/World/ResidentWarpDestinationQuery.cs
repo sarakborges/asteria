@@ -2,6 +2,19 @@ using System.Numerics;
 
 namespace Asteria.Core.World;
 
+public enum ExactArrivalStatus : byte
+{
+    Safe,
+    InvalidCoordinates,
+    NonResident,
+    OccupiedFeet,
+    OccupiedHead,
+    NoGroundSupport,
+    FluidAtFeet,
+    FluidAtHead,
+    SessionRetiring,
+}
+
 /// <summary>
 /// Validates a prepared generated warp destination against authoritative
 /// resident voxels, including edits made since initial world generation.
@@ -16,7 +29,14 @@ public static class ResidentWarpDestinationQuery
     /// Portal travel never substitutes a nearby location for an authored
     /// exact-coordinate link. This is query-only and reads resident chunks.
     /// </summary>
-    public static bool IsExactSafe(VoxelWorld world, Vector3 preferred)
+    public static bool IsExactSafe(VoxelWorld world, Vector3 preferred) =>
+        CheckExact(world, preferred) == ExactArrivalStatus.Safe;
+
+    /// <summary>
+    /// Explains rejection without moving the destination or modifying voxels.
+    /// Uses the same authoritative checks as IsExactSafe.
+    /// </summary>
+    public static ExactArrivalStatus CheckExact(VoxelWorld world, Vector3 preferred)
     {
         ArgumentNullException.ThrowIfNull(world);
         if (!float.IsFinite(preferred.X) ||
@@ -26,7 +46,7 @@ public static class ResidentWarpDestinationQuery
             preferred.X <= int.MinValue || preferred.X >= int.MaxValue ||
             preferred.Z <= int.MinValue || preferred.Z >= int.MaxValue ||
             preferred.Y >= int.MaxValue - 2)
-            return false;
+            return ExactArrivalStatus.InvalidCoordinates;
 
         var x = (int)MathF.Floor(preferred.X);
         var y = (int)MathF.Floor(preferred.Y);
@@ -35,14 +55,21 @@ public static class ResidentWarpDestinationQuery
         var head = new WorldVoxelCoord(x, y + 1, z);
         var below = new WorldVoxelCoord(x, y - 1, z);
 
-        return world.IsLoadedAt(feet) &&
-               world.IsLoadedAt(head) &&
-               world.IsLoadedAt(below) &&
-               world.GetCellOrEmpty(feet).IsEmpty &&
-               world.GetCellOrEmpty(head).IsEmpty &&
-               !world.GetCellOrEmpty(below).IsEmpty &&
-               world.GetFluidOrEmpty(feet).IsEmpty &&
-               world.GetFluidOrEmpty(head).IsEmpty;
+        if (!world.IsLoadedAt(feet) ||
+            !world.IsLoadedAt(head) ||
+            !world.IsLoadedAt(below))
+            return ExactArrivalStatus.NonResident;
+        if (!world.GetCellOrEmpty(feet).IsEmpty)
+            return ExactArrivalStatus.OccupiedFeet;
+        if (!world.GetCellOrEmpty(head).IsEmpty)
+            return ExactArrivalStatus.OccupiedHead;
+        if (world.GetCellOrEmpty(below).IsEmpty)
+            return ExactArrivalStatus.NoGroundSupport;
+        if (!world.GetFluidOrEmpty(feet).IsEmpty)
+            return ExactArrivalStatus.FluidAtFeet;
+        if (!world.GetFluidOrEmpty(head).IsEmpty)
+            return ExactArrivalStatus.FluidAtHead;
+        return ExactArrivalStatus.Safe;
     }
 
     public static Vector3? Find(VoxelWorld world, Vector3 preferred)

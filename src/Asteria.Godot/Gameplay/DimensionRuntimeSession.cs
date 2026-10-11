@@ -610,9 +610,10 @@ public sealed class DimensionRuntimeSession
         _initialPlayerPosition = preferred;
     }
 
-    public bool TryPrepareResidentPortalEntry() =>
-        !_retiring && !_retired &&
-        ResidentWarpDestinationQuery.IsExactSafe(World, _initialPlayerPosition);
+    public ExactArrivalStatus CheckResidentPortalEntry() =>
+        _retiring || _retired
+            ? ExactArrivalStatus.SessionRetiring
+            : ResidentWarpDestinationQuery.CheckExact(World, _initialPlayerPosition);
 
     public void PrepareGeneratedDestination(
         NVector3 preferred)

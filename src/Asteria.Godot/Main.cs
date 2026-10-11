@@ -2014,10 +2014,19 @@ public partial class Main : Node3D
 
         if (_warpArrival is { } warp)
         {
-            var residentEntrySafe = warp.RequireExactDestination &&
-                !warp.IsReturning
-                ? _sessions.Active.TryPrepareResidentPortalEntry()
+            var exactPortalEntry = warp.RequireExactDestination && !warp.IsReturning
+                ? _sessions.Active.CheckResidentPortalEntry()
+                : (ExactArrivalStatus?)null;
+            var residentEntrySafe = exactPortalEntry is { } status
+                ? status == ExactArrivalStatus.Safe
                 : _sessions.Active.TryPrepareResidentWarpEntry();
+            if (exactPortalEntry is { } rejected && rejected != ExactArrivalStatus.Safe)
+            {
+                var at = _sessions.Active.InitialPlayerPosition;
+                _worldDiagnostics?.Write(
+                    $"portal.arrival.rejected dimension={_dimension.Id} " +
+                    $"position={at} reason={rejected}");
+            }
             var disposition = warp.Evaluate(residentEntrySafe);
             switch (disposition)
             {
