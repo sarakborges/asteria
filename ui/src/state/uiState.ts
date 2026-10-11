@@ -144,6 +144,7 @@ export type WorldCreationErrorKey =
   | "newWorld.error.invalidMode"
   | "newWorld.error.invalidTickRate"
   | "newWorld.error.invalidGeneration"
+  | "newWorld.error.invalidCreatureAttackMode"
   | "newWorld.error.unexpected";
 
 export type BrushPaletteColor = { id: string; rgb: string };
