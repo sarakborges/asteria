@@ -319,6 +319,8 @@
   "ui.delete": "Delete",
   "ui.newWorld": "New World",
   "ui.chatMessage": "Chat message",
+  "chat.action.structureFile": "Structure exported.",
+  "chat.action.openStructureFile": "[Open exports folder]",
   "chat.action.warp": "[Warp to]",
   "ui.chatHint": "Use ↑ and ↓ to choose an option. Press Tab to complete it.",
   "ui.runtimeStatus": "RUNTIME STATUS",
