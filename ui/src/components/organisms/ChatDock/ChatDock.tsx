@@ -14,10 +14,11 @@ export type ChatDockProps = {
   catalog: ChatCompletionCatalog;
   onSubmit(text: string): void;
   onClose(): void;
+  onMessageAction(messageId: string): void;
 };
 
 export function ChatDock({
-  open, visible, history, commands, catalog, onSubmit, onClose,
+  open, visible, history, commands, catalog, onSubmit, onClose, onMessageAction,
 }: ChatDockProps) {
   const { t } = useLocalization();
   const [draft, setDraft] = useState("");
@@ -71,6 +72,7 @@ export function ChatDock({
         open={open}
         visible={visible}
         history={history}
+        onMessageAction={onMessageAction}
         draft={draft}
         suggestions={suggestions}
         selectedSuggestionIndex={index}
