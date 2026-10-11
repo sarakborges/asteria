@@ -671,6 +671,22 @@ public partial class Main : Node3D
                 !_sessionStates.Player.Health.IsDead &&
                 _sessionStates.GameRules.AllowsCreatureAttacks);
             ApplyCreatureContact();
+            var impacts = _sessions.Active.AdvanceProjectiles(
+                delta, creatureObserver.CollisionBounds,
+                _sessionStates.Player.GameMode == PlayerGameMode.Survival &&
+                !_sessionStates.Player.Health.IsDead);
+            foreach (var impact in impacts)
+            {
+                if (impact.Target != ProjectileHitTarget.Player ||
+                    impact.Damage <= 0f)
+                    continue;
+                var protection = PlayerEquipmentProtection.Calculate(
+                    _sessionStates.Player.Inventory, _items);
+                var damage = _sessionStates.Player.Health.Damage(
+                    impact.Damage * (1f - protection),
+                    _sessionStates.Player.GameMode);
+                ApplyPlayerDamageResult(damage);
+            }
         }
 
         if (_worldReadySent && _player is { } particleObserver)

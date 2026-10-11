@@ -33,6 +33,7 @@ public sealed class DimensionRuntimeSession
     private readonly BlockPhysicsRuntime _blockPhysics;
     private readonly DroppedBlockRuntime _droppedBlocks;
     private readonly CreaturePresentationController _creaturePresentation;
+    private readonly ProjectilePresentationController _projectilePresentation;
     private readonly InventoryContentCatalog _inventoryCatalog;
     private readonly CreatureNaturalSpawnRuntime _naturalSpawns;
     private bool _retiring;
@@ -132,6 +133,8 @@ public sealed class DimensionRuntimeSession
                 creatures);
         _creaturePresentation.Sync(
             Creatures.ActiveCreatures);
+        Projectiles = new ProjectileRuntime(creatures);
+        _projectilePresentation = new ProjectilePresentationController(Root);
 
         World =
             state.World;
@@ -340,6 +343,45 @@ public sealed class DimensionRuntimeSession
     public FluidRegistry Fluids { get; }
 
     public CreatureRuntime Creatures { get; }
+
+    public ProjectileRuntime Projectiles { get; }
+
+    public bool TryLaunchProjectile(ProjectileLaunch launch)
+    {
+        if (_retiring || _retired ||
+            !Projectiles.TryLaunch(launch, out _))
+            return false;
+        _projectilePresentation.Sync(Projectiles.ActiveProjectiles);
+        return true;
+    }
+
+    /// <summary>
+    /// Projectile impacts against creatures enter the existing combat/loot
+    /// boundary. Player impacts are returned to the shared player-life owner.
+    /// </summary>
+    public IReadOnlyList<ProjectileImpact> AdvanceProjectiles(
+        double elapsedSeconds, WorldAabb? playerBounds, bool playerTargetable)
+    {
+        if (_retiring || _retired)
+            return Array.Empty<ProjectileImpact>();
+
+        var impacts = Projectiles.Advance(
+            elapsedSeconds, World, Blocks, Creatures.ActiveCreatures,
+            playerBounds, playerTargetable, Dimension.GravityStrength);
+        foreach (var impact in impacts)
+        {
+            if (impact.Target != ProjectileHitTarget.Creature ||
+                impact.Creature is not { } creature || impact.Damage <= 0f)
+                continue;
+            var attack = new AttackDefinition(
+                "asteria:projectile", impact.Damage,
+                Array.Empty<AttackEffectDefinition>());
+            TryAttackCreature(creature, attack, impact.Position, out _);
+        }
+
+        _projectilePresentation.Sync(Projectiles.ActiveProjectiles);
+        return impacts;
+    }
 
     public CreatureTargetHit? FindCreatureTarget(
         NVector3 origin,
@@ -872,6 +914,7 @@ public sealed class DimensionRuntimeSession
         _state.NaturalSpawnNextAttemptTick =
             _naturalSpawns.NextAttemptTick;
         _creaturePresentation.Retire();
+        _projectilePresentation.Retire();
 
         var archive =
             _state.ArchiveResidentWorld();
