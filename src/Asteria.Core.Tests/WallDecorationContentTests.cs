@@ -22,7 +22,8 @@ public sealed class WallDecorationContentTests
 
         var blocks = new BlockRegistry([
             new BlockDefinition("asteria:stone"),
-            new BlockDefinition("asteria:wall_fern")
+            new BlockDefinition("asteria:wall_fern",
+                tags: [BlockPhysicsCapabilities.SupportWall, "horizontal_facing"])
         ]);
         var field = new SurfaceDecorationField(17, [biome], blocks);
         var sample = new BiomeSample(biome.Id,
@@ -85,6 +86,36 @@ public sealed class WallDecorationContentTests
                     block.Visual.Texture!.Value.Texture);
             }
         }
+    }
+
+    [Fact]
+    public void WallDecorationValidationRejectsBlocksWithoutDirectionalSupport()
+    {
+        var biome = BiomeDefinitionJson.Parse("""
+        {
+          "id":"asteria:test/wall_validate",
+          "volumeLayout":{"placement":"carvedVoid"},
+          "palette":{"default":[{"block":"asteria:stone"}]},
+          "decorations":[{
+            "block":"asteria:wall_fern","chance":1,
+            "surfaceBlocks":["asteria:stone"],"supportSurface":"wall"
+          }]
+        }
+        """);
+        var biomes = new BiomeRegistry([biome]);
+        var invalid = new BlockRegistry([
+            new BlockDefinition("asteria:stone"),
+            new BlockDefinition("asteria:wall_fern", isCollidable:false)
+        ]);
+        Assert.Throws<ArgumentException>(() => biomes.ValidateBlocks(invalid));
+
+        var valid = new BlockRegistry([
+            new BlockDefinition("asteria:stone"),
+            new BlockDefinition("asteria:wall_fern",
+                tags: [BlockPhysicsCapabilities.SupportWall,"horizontal_facing"],
+                isCollidable:false)
+        ]);
+        biomes.ValidateBlocks(valid);
     }
 
     [Fact]

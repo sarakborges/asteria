@@ -1062,3 +1062,7 @@ when a voxel changes and validates `support_wall` against the
 `VoxelCell.Facing` outward normal. Wall plants detach/drop when
 their supporting wall is mined, using the same mutation pipeline as
 ordinary floor/ceiling-supported plants.
+
+Wall biome content is validated when loading the block registry: an authored
+wall decorator must use `support_wall`, `horizontal_facing`, and all four
+lateral placement faces. Invalid pack definitions fail before generation.

@@ -136,6 +136,23 @@ public sealed class BiomeRegistry
                     definition.Id,
                     decoration.Block);
 
+                if (decoration.SupportSurface == DecorationSupportSurface.Wall)
+                {
+                    var decorativeBlock = blocks.GetDefinition(
+                        blocks.GetId(decoration.Block));
+                    if (!decorativeBlock.HasTag(BlockPhysicsCapabilities.SupportWall) ||
+                        !decorativeBlock.UsesHorizontalFacing ||
+                        !new[] { BlockFace.Left, BlockFace.Right,
+                                 BlockFace.Front, BlockFace.Back }
+                            .All(decorativeBlock.SupportsPlacementFace))
+                    {
+                        throw new ArgumentException(
+                            $"Biome {definition.Id} wall decoration " +
+                            $"{decoration.Block} requires wall support, " +
+                            "horizontal facing and all four lateral placement faces.");
+                    }
+                }
+
                 foreach (var block in
                          decoration.SurfaceBlocks)
                 {
