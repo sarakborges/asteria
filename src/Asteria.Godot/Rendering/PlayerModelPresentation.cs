@@ -33,6 +33,7 @@ public sealed partial class PlayerModelPresentation : Node3D
     private readonly PackContentRegistry<ItemDefinition> _items;
     private PlayerEquipmentPresentation? _equipment;
     private HeldItemPresentation? _held;
+    private PlayerFirstPersonViewModel? _firstPerson;
     private ulong _lastInventoryRevision = ulong.MaxValue;
     private readonly Dictionary<string, (Node3D Pivot, Vector3 Position)> _pivots = [];
     private AnimationPlayer? _animations;
@@ -87,6 +88,10 @@ public sealed partial class PlayerModelPresentation : Node3D
             throw new InvalidDataException(
                 "Authored player GLB is missing an AnimationPlayer.");
 
+        _firstPerson = new PlayerFirstPersonViewModel(
+            _player, _selection, _definition, _inventory, _heldResolver);
+        _player.Camera.AddChild(_firstPerson);
+
         foreach (var required in new[] { "idle", "walk", "run", "jump", "fall" })
             if (FindClip(_definition.Animations[required]) is null)
                 throw new InvalidDataException(
@@ -106,8 +111,9 @@ public sealed partial class PlayerModelPresentation : Node3D
     /// </summary>
     public bool TryPlayAction(PlayerVisualAction action)
     {
-        if (_animations is null || _deathPlaying)
-            return false;
+        if (_deathPlaying) return false;
+        var firstPersonPlayed = _firstPerson?.TryPlayAction(action) ?? false;
+        if (_animations is null) return firstPersonPlayed;
 
         var key = action switch
         {
