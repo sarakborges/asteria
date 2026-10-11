@@ -192,6 +192,43 @@ public sealed class AttachedLayerRenderingTests
             v => Assert.Equal(System.Numerics.Vector3.UnitY, v.Normal));
     }
 
+    [Theory]
+    [InlineData(15, 0)]
+    [InlineData(16, 1)]
+    public void SelectedMiningLayerMeshWorksOnBothSidesOfVerticalChunkSeam(
+        int worldY, int chunkY)
+    {
+        var blocks = new BlockRegistry([
+            new BlockDefinition("asteria:stone",
+                textures: new BlockTextureSet(top: [new BlockTextureLayer(StonePath)]))
+        ]);
+        var layer = new AttachedBlockLayer(BlockFace.Front, "asteria:foliage_layer");
+        var definitions = new AttachedLayerRegistry([
+            new AttachedLayerDefinition(layer.LayerId, LayerPath,
+                faces: [BlockFace.Front])
+        ]);
+        var world = new VoxelWorld();
+        world.InsertChunk(new ChunkCoord(0, 0, 0), new Chunk());
+        world.InsertChunk(new ChunkCoord(0, 1, 0), new Chunk());
+        var chunk = world.GetChunk(new ChunkCoord(0, chunkY, 0));
+        chunk.SetBlock(2, worldY % Chunk.Size, 2, blocks.GetId("asteria:stone"));
+        chunk.SetSurfaceState(2, worldY % Chunk.Size, 2,
+            new BlockSurfaceState(null, [layer]));
+
+        var mesh = ChunkMeshDataBuilder.BuildMeshlet(world,
+            new ChunkCoord(0, chunkY, 0), blocks,
+            new TerrainTextureLookup(new Dictionary<string, int>
+            {
+                [StonePath] = 1, [LayerPath] = 2
+            }), chunkY == 0 ? 4 : 0, attachedLayers: definitions,
+            selectedLayer: layer);
+        Assert.Equal(2, mesh.TriangleCount);
+        Assert.Equal(0, mesh.CollisionTriangleCount);
+        Assert.All(mesh.RenderBatches.SelectMany(b => b.Vertices),
+            vertex => Assert.Equal(System.Numerics.Vector3.UnitZ,
+                vertex.Normal));
+    }
+
     [Fact]
     public void MissingDefinitionFailsInsteadOfSilentlyDiscardingWorldData()
     {
