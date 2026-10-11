@@ -1,0 +1,542 @@
+[
+  {
+    "path": "blocks/trees/oak/leaf.png",
+    "use_case": "style-transfer",
+    "tool": "built-in image_gen.imagegen",
+    "transparent_background": true,
+    "prompt": "Use case: style-transfer. Edit target: Image 1 is the existing oak foliage tile. Image 2 is a supporting reference for the new pack's crisp pixel-art leaf shading, not its hue or leaf species. Redraw Image 1 as a polished oak foliage tile. Asteria authored voxel game texture. Crisp hand-crafted pixel art designed on a logical 64 by 64 pixel grid; large output must be exact nearest-neighbor enlarged pixel art that remains legible after reduction to 64x64. Match the pack's controlled per-pixel material detail. Orthographic flat albedo texture, uniform diffuse shading, no perspective, no bevels, no global lighting gradient, no border, no text, no scene, no watermark. Perfectly seamless periodic repeat in BOTH X and Y: shapes, transparency and grain must continue through opposite edges with matching density and rhythm. Do not create a dark seam on the outer border or a framed tile. Subject: Small rounded lobed oak leaves in irregular overlapping sprays; short fine twigs may be muted grayscale, about 60-75% leaf coverage, several irregular transparent gaps, readable leaf shapes rather than noise. Palette: Neutral grayscale only: pearl-gray highlights, mid-gray broad oak leaves and charcoal creases, for biome tint multiplication. No green or brown pigment. Transparent background: real alpha between individual leaves throughout the tile. Foliage extends through every boundary instead of being an isolated centered bunch. Keep transparent apertures irregular and balanced. No checkerboard baked into the art. No blurred antialiased details, no brush rendering, no identical oval stamps, no high-frequency speckle.",
+    "references": [
+      {
+        "path": "packs/default/resources/textures/blocks/trees/oak/leaf.png",
+        "version": "baseline original",
+        "sha256": "cbada0b4150b9685a1e1ed4dc650e2b749a27479c692f4712eb3c5fae41937ec"
+      },
+      {
+        "path": "packs/default/resources/textures/blocks/trees/skywood/leaf.png",
+        "version": "style reference at generation",
+        "sha256": "db7000a16ad5e85ec3746509752bd79e42688c2b157a2c51b13d8c9c44bc19cf"
+      }
+    ],
+    "after_sha256": "add37526cf5d6120ff6a7ed8ad9efbb9139859e4d362e5af7544c30c728ec4d0"
+  },
+  {
+    "path": "blocks/trees/oak/planks.png",
+    "use_case": "style-transfer",
+    "tool": "built-in image_gen.imagegen",
+    "transparent_background": false,
+    "prompt": "Use case: style-transfer. Edit target: Image 1 is the existing oak planks tile. Image 2 is a supporting reference for species-specific color and grain in stripped wood. Redraw Image 1 as polished horizontal oak timber boards. Asteria authored voxel game texture. Crisp hand-crafted pixel art designed on a logical 64 by 64 pixel grid; large output must be exact nearest-neighbor enlarged pixel art that remains legible after reduction to 64x64. Match the pack's controlled per-pixel material detail. Orthographic flat albedo texture, uniform diffuse shading, no perspective, no bevels, no global lighting gradient, no border, no text, no scene, no watermark. Perfectly seamless periodic repeat in BOTH X and Y: shapes, transparency and grain must continue through opposite edges with matching density and rhythm. Do not create a dark seam on the outer border or a framed tile. Subject: Mature oak grain with modest organic waviness, small subdued knots and fine broken fiber streaks. Palette: Warm amber-brown oak, ochre and honey midtones, muted umber grain, soft tan highlights. Match Images 1 and 2. Composition: four horizontally running boards spanning the entire width; subtle 1-pixel recessed joins at regular 16-pixel logical intervals, no planks end joints, no nail heads. Only the horizontal joins divide boards; keep outer left and right edges continuous and natural, and make the top/bottom board join periodic. Full opaque coverage. Use subtle grain different for each board; keep fiber texture fine and integrated. Avoid large oval eyes, concentric-ring medallions, diamonds, cracks, bark pattern, a striped grain grid, glow, glossy ridges or heavy dark outlines.",
+    "references": [
+      {
+        "path": "packs/default/resources/textures/blocks/trees/oak/planks.png",
+        "version": "baseline original",
+        "sha256": "966ab625d833612da69f72123760f60313bd707dc4d05859028c342bf5409df6"
+      },
+      {
+        "path": "packs/default/resources/textures/blocks/trees/oak/stripped.png",
+        "version": "style reference at generation",
+        "sha256": "ac18e9fcd67223a0ab4bbbe96e3c40015c2e4ef91762c0e46abc79d5b832e5bc"
+      }
+    ],
+    "after_sha256": "c1605a23fe2e0945c367185854d947eea876051a8c80c16fd2b4f7b3ce8c7a30"
+  },
+  {
+    "path": "blocks/trees/willow/leaf.png",
+    "use_case": "style-transfer",
+    "tool": "built-in image_gen.imagegen",
+    "transparent_background": true,
+    "prompt": "Use case: style-transfer. Edit target: Image 1 is the existing willow foliage tile. Image 2 is a supporting reference for the new pack's crisp pixel-art leaf shading, not its hue or leaf species. Redraw Image 1 as a polished willow foliage tile. Asteria authored voxel game texture. Crisp hand-crafted pixel art designed on a logical 64 by 64 pixel grid; large output must be exact nearest-neighbor enlarged pixel art that remains legible after reduction to 64x64. Match the pack's controlled per-pixel material detail. Orthographic flat albedo texture, uniform diffuse shading, no perspective, no bevels, no global lighting gradient, no border, no text, no scene, no watermark. Perfectly seamless periodic repeat in BOTH X and Y: shapes, transparency and grain must continue through opposite edges with matching density and rhythm. Do not create a dark seam on the outer border or a framed tile. Subject: Gracefully tapered lanceolate willow leaves in loose interlocking sprays, varying angles with a subtle drooping rhythm; thin grayscale branchlets, 60-75% coverage and natural transparent gaps. Avoid herringbone or rows of identical feathers. Palette: Neutral grayscale only: off-white highlights, mid-gray leaves and dark-gray shadows, for biome tint multiplication. No green or brown pigment. Transparent background: real alpha between individual leaves throughout the tile. Foliage extends through every boundary instead of being an isolated centered bunch. Keep transparent apertures irregular and balanced. No checkerboard baked into the art. No blurred antialiased details, no brush rendering, no identical oval stamps, no high-frequency speckle.",
+    "references": [
+      {
+        "path": "packs/default/resources/textures/blocks/trees/willow/leaf.png",
+        "version": "baseline original",
+        "sha256": "887f2681c490dcb398b6cc6e85ecfd8eb716e5ac0e6e62ac3f0914a326990c4a"
+      },
+      {
+        "path": "packs/default/resources/textures/blocks/trees/skywood/leaf.png",
+        "version": "style reference at generation",
+        "sha256": "db7000a16ad5e85ec3746509752bd79e42688c2b157a2c51b13d8c9c44bc19cf"
+      }
+    ],
+    "after_sha256": "ed008a1e3f77c3a4fa250372c2d853f1b879b2dac44539e240b70c244ee7e89b"
+  },
+  {
+    "path": "blocks/trees/willow/planks.png",
+    "use_case": "style-transfer",
+    "tool": "built-in image_gen.imagegen",
+    "transparent_background": false,
+    "prompt": "Use case: style-transfer. Edit target: Image 1 is the existing willow planks tile. Image 2 is a supporting reference for species-specific color and grain in stripped wood. Redraw Image 1 as polished horizontal willow timber boards. Asteria authored voxel game texture. Crisp hand-crafted pixel art designed on a logical 64 by 64 pixel grid; large output must be exact nearest-neighbor enlarged pixel art that remains legible after reduction to 64x64. Match the pack's controlled per-pixel material detail. Orthographic flat albedo texture, uniform diffuse shading, no perspective, no bevels, no global lighting gradient, no border, no text, no scene, no watermark. Perfectly seamless periodic repeat in BOTH X and Y: shapes, transparency and grain must continue through opposite edges with matching density and rhythm. Do not create a dark seam on the outer border or a framed tile. Subject: Fine flowing willow fibers with a few gentle bends and very small elongated knots, calm weathered wood. Palette: Muted grayish olive-brown and taupe wood with pale beige highlights and restrained earthy shadows. Match Images 1 and 2. Composition: four horizontally running boards spanning the entire width; subtle 1-pixel recessed joins at regular 16-pixel logical intervals, no planks end joints, no nail heads. Only the horizontal joins divide boards; keep outer left and right edges continuous and natural, and make the top/bottom board join periodic. Full opaque coverage. Use subtle grain different for each board; keep fiber texture fine and integrated. Avoid large oval eyes, concentric-ring medallions, diamonds, cracks, bark pattern, a striped grain grid, glow, glossy ridges or heavy dark outlines.",
+    "references": [
+      {
+        "path": "packs/default/resources/textures/blocks/trees/willow/planks.png",
+        "version": "baseline original",
+        "sha256": "12891a36a03077a5722d2bf2f39cc0c86502935a20f071557ac38920e2b89a02"
+      },
+      {
+        "path": "packs/default/resources/textures/blocks/trees/willow/stripped.png",
+        "version": "style reference at generation",
+        "sha256": "53fc3588a9d9eba1c0e160353c613682d8c5845d520b08ad015237bc3549c16e"
+      }
+    ],
+    "after_sha256": "67c4a25beb4bca27a9dace8b1fea65553fc4b9a85a48dc968052be9f42211ed5"
+  },
+  {
+    "path": "blocks/trees/enchanted_tree/leaf.png",
+    "use_case": "style-transfer",
+    "tool": "built-in image_gen.imagegen",
+    "transparent_background": true,
+    "prompt": "Use case: style-transfer. Edit target: Image 1 is the existing enchanted_tree foliage tile. Image 2 is a supporting reference for the new pack's crisp pixel-art leaf shading, not its hue or leaf species. Redraw Image 1 as a polished enchanted_tree foliage tile. Asteria authored voxel game texture. Crisp hand-crafted pixel art designed on a logical 64 by 64 pixel grid; large output must be exact nearest-neighbor enlarged pixel art that remains legible after reduction to 64x64. Match the pack's controlled per-pixel material detail. Orthographic flat albedo texture, uniform diffuse shading, no perspective, no bevels, no global lighting gradient, no border, no text, no scene, no watermark. Perfectly seamless periodic repeat in BOTH X and Y: shapes, transparency and grain must continue through opposite edges with matching density and rhythm. Do not create a dark seam on the outer border or a framed tile. Subject: Small elegant golden oval leaves in irregular overlapping branchlets, 65-80% coverage with genuine transparent holes. No sparkling dots, starbursts or bloom; magic is expressed by the unusual golden foliage. Palette: Rich golden leaves: ochre shadows, warm gold midtones, soft pale yellow highlights. Keep the golden identity from Image 1. Transparent background: real alpha between individual leaves throughout the tile. Foliage extends through every boundary instead of being an isolated centered bunch. Keep transparent apertures irregular and balanced. No checkerboard baked into the art. No blurred antialiased details, no brush rendering, no identical oval stamps, no high-frequency speckle.",
+    "references": [
+      {
+        "path": "packs/default/resources/textures/blocks/trees/enchanted_tree/leaf.png",
+        "version": "baseline original",
+        "sha256": "53161dccf041a0829248786bbbba3736e3a3a9df8a20901428ffcead00d86d11"
+      },
+      {
+        "path": "packs/default/resources/textures/blocks/trees/skywood/leaf.png",
+        "version": "style reference at generation",
+        "sha256": "db7000a16ad5e85ec3746509752bd79e42688c2b157a2c51b13d8c9c44bc19cf"
+      }
+    ],
+    "after_sha256": "391732f2c5a831f0e38799da32d71076b67b87f21572e18a747eade3dc87be80"
+  },
+  {
+    "path": "blocks/trees/enchanted_tree/planks.png",
+    "use_case": "style-transfer",
+    "tool": "built-in image_gen.imagegen",
+    "transparent_background": false,
+    "prompt": "Use case: style-transfer. Edit target: Image 1 is the existing enchanted_tree planks tile. Image 2 is a supporting reference for species-specific color and grain in stripped wood. Redraw Image 1 as polished horizontal enchanted_tree timber boards. Asteria authored voxel game texture. Crisp hand-crafted pixel art designed on a logical 64 by 64 pixel grid; large output must be exact nearest-neighbor enlarged pixel art that remains legible after reduction to 64x64. Match the pack's controlled per-pixel material detail. Orthographic flat albedo texture, uniform diffuse shading, no perspective, no bevels, no global lighting gradient, no border, no text, no scene, no watermark. Perfectly seamless periodic repeat in BOTH X and Y: shapes, transparency and grain must continue through opposite edges with matching density and rhythm. Do not create a dark seam on the outer border or a framed tile. Subject: Fine calm blue wood grain, elongated restrained fiber curves and a few very small knots; magical pigment without vein networks or light effects. Palette: Saturated royal blue wood, rich cobalt and navy grain, celeste/cyan ridges; match Image 2 especially and preserve the blue identity of Image 1. Composition: four horizontally running boards spanning the entire width; subtle 1-pixel recessed joins at regular 16-pixel logical intervals, no planks end joints, no nail heads. Only the horizontal joins divide boards; keep outer left and right edges continuous and natural, and make the top/bottom board join periodic. Full opaque coverage. Use subtle grain different for each board; keep fiber texture fine and integrated. Avoid large oval eyes, concentric-ring medallions, diamonds, cracks, bark pattern, a striped grain grid, glow, glossy ridges or heavy dark outlines.",
+    "references": [
+      {
+        "path": "packs/default/resources/textures/blocks/trees/enchanted_tree/planks.png",
+        "version": "baseline original",
+        "sha256": "855bbb44e3eee5495fcf5ea77cf96cc64c3def1e0a1153f93e2b529f18597fa8"
+      },
+      {
+        "path": "packs/default/resources/textures/blocks/trees/enchanted_tree/stripped.png",
+        "version": "style reference at generation",
+        "sha256": "9127d930999a68f966a17cf8e6cf6a2c9bcf392d0e48f3cbd6ac4768c4309619"
+      }
+    ],
+    "after_sha256": "152ad1ab09a01f5be80e22725c6bf91edbed91a30afcf9d34ab57ae34d5206c6"
+  },
+  {
+    "path": "blocks/trees/world_tree/leaf.png",
+    "use_case": "style-transfer",
+    "tool": "built-in image_gen.imagegen",
+    "transparent_background": true,
+    "prompt": "Use case: style-transfer. Edit target: Image 1 is the existing world_tree foliage tile. Image 2 is a supporting reference for the new pack's crisp pixel-art leaf shading, not its hue or leaf species. Redraw Image 1 as a polished world_tree foliage tile. Asteria authored voxel game texture. Crisp hand-crafted pixel art designed on a logical 64 by 64 pixel grid; large output must be exact nearest-neighbor enlarged pixel art that remains legible after reduction to 64x64. Match the pack's controlled per-pixel material detail. Orthographic flat albedo texture, uniform diffuse shading, no perspective, no bevels, no global lighting gradient, no border, no text, no scene, no watermark. Perfectly seamless periodic repeat in BOTH X and Y: shapes, transparency and grain must continue through opposite edges with matching density and rhythm. Do not create a dark seam on the outer border or a framed tile. Subject: Broad slender white-blue leaves in irregular layered sprays, 65-80% coverage with genuine transparent holes. Distinct broadleaf canopy, not snow-covered conifer needles; no stars, sparkle or emissive glow. Palette: Pale icy ivory and silvery blue leaves, deep desaturated teal shadows, soft light-cyan midtones. Keep the spectral blue-white identity of Image 1. Transparent background: real alpha between individual leaves throughout the tile. Foliage extends through every boundary instead of being an isolated centered bunch. Keep transparent apertures irregular and balanced. No checkerboard baked into the art. No blurred antialiased details, no brush rendering, no identical oval stamps, no high-frequency speckle.",
+    "references": [
+      {
+        "path": "packs/default/resources/textures/blocks/trees/world_tree/leaf.png",
+        "version": "baseline original",
+        "sha256": "584f521f6b97684a25a6af58c28dffec0a009cca304d5eb9c249da94a10530e1"
+      },
+      {
+        "path": "packs/default/resources/textures/blocks/trees/skywood/leaf.png",
+        "version": "style reference at generation",
+        "sha256": "db7000a16ad5e85ec3746509752bd79e42688c2b157a2c51b13d8c9c44bc19cf"
+      }
+    ],
+    "after_sha256": "288f58c2d4ddd96032c90c5c7d02e6cbde8e864fe62cc06f89e99ed3dde3ca6a"
+  },
+  {
+    "path": "blocks/trees/world_tree/planks.png",
+    "use_case": "style-transfer",
+    "tool": "built-in image_gen.imagegen",
+    "transparent_background": false,
+    "prompt": "Use case: style-transfer. Edit target: Image 1 is the existing world_tree planks tile. Image 2 is a supporting reference for species-specific color and grain in stripped wood. Redraw Image 1 as polished horizontal world_tree timber boards. Asteria authored voxel game texture. Crisp hand-crafted pixel art designed on a logical 64 by 64 pixel grid; large output must be exact nearest-neighbor enlarged pixel art that remains legible after reduction to 64x64. Match the pack's controlled per-pixel material detail. Orthographic flat albedo texture, uniform diffuse shading, no perspective, no bevels, no global lighting gradient, no border, no text, no scene, no watermark. Perfectly seamless periodic repeat in BOTH X and Y: shapes, transparency and grain must continue through opposite edges with matching density and rhythm. Do not create a dark seam on the outer border or a framed tile. Subject: Ancient fine golden wood grain with narrow meandering fiber strokes, quiet elongated knots and controlled value changes. Palette: Vibrant golden-amber wood, warm orange and ochre grain, rich honey middle values and gentle pale-gold fiber highlights; match Image 2. Composition: four horizontally running boards spanning the entire width; subtle 1-pixel recessed joins at regular 16-pixel logical intervals, no planks end joints, no nail heads. Only the horizontal joins divide boards; keep outer left and right edges continuous and natural, and make the top/bottom board join periodic. Full opaque coverage. Use subtle grain different for each board; keep fiber texture fine and integrated. Avoid large oval eyes, concentric-ring medallions, diamonds, cracks, bark pattern, a striped grain grid, glow, glossy ridges or heavy dark outlines.",
+    "references": [
+      {
+        "path": "packs/default/resources/textures/blocks/trees/world_tree/planks.png",
+        "version": "baseline original",
+        "sha256": "dd18cb62c7b1673bf592a16ca5a838ae0cdee6977b08b475836f5b633726a008"
+      },
+      {
+        "path": "packs/default/resources/textures/blocks/trees/world_tree/stripped.png",
+        "version": "style reference at generation",
+        "sha256": "1a1a99d9d6aacd9ce84957cac67cf6d14b9fb5c3e2ed97e62cde021335c9dea1"
+      }
+    ],
+    "after_sha256": "5b6cadbbf957777a16948766dae5a53d5bbed6ff35cbedf5afebed7f721771aa"
+  },
+  {
+    "path": "blocks/trees/charwood/planks.png",
+    "use_case": "style-transfer",
+    "tool": "built-in image_gen.imagegen",
+    "transparent_background": false,
+    "prompt": "Use case: style-transfer. Image 1 is the exact species color/grain reference. Image 2 is the pack horizontal-plank layout reference. Create a matching horizontal charwood planks texture. Asteria authored voxel texture. Crisp hand-crafted pixel art on a logical 64 by 64 pixel grid, designed to survive nearest-neighbor reduction to 64x64. Flat orthographic diffuse albedo; controlled per-pixel detail, no blur, no antialiasing, no perspective, no scene, no lettering or watermark. Seamless in BOTH X and Y: opposite edges continue the shapes, grain, shading density and any alpha holes. No outer dark border, no framed tile, no lighting gradient, no baked shadow. Palette: Charred gray-brown/black wood with muted warm brown undertones and occasional restrained rusty-orange pores, no flames or emissive glow. Grain: Fine charred timber fibers with subtle blackened pores, quiet and continuous. Composition: four horizontally running boards spanning the full width with a subtle recessed 1-pixel joint every 16 logical pixels. Full opaque coverage. No end joints, nails, cracks, large oval eyes, diamond patterns, circles, bark, glow, glossy bands or chunky stripes. Draw fine horizontal timber fibers distinct on each board, rather than rotating bark. Match this species distinctly, not a recolor of the other boards.",
+    "references": [
+      {
+        "path": "packs/default/resources/textures/blocks/trees/charwood/stripped.png",
+        "version": "style reference at generation",
+        "sha256": "cedaad549e8be0fac77a73fa69add5ca5bf7c9666386b0d6c420e29b30aa2f2a"
+      },
+      {
+        "path": "packs/default/resources/textures/blocks/trees/oak/planks.png",
+        "version": "baseline original",
+        "sha256": "966ab625d833612da69f72123760f60313bd707dc4d05859028c342bf5409df6"
+      }
+    ],
+    "after_sha256": "f084c2d7d0426ac61833d58625c9b752727d912a69bbce58b886aee7f26021d3"
+  },
+  {
+    "path": "blocks/trees/frost_wood/planks.png",
+    "use_case": "style-transfer",
+    "tool": "built-in image_gen.imagegen",
+    "transparent_background": false,
+    "prompt": "Use case: style-transfer. Image 1 is the exact species color/grain reference. Image 2 is the pack horizontal-plank layout reference. Create a matching horizontal frost_wood planks texture. Asteria authored voxel texture. Crisp hand-crafted pixel art on a logical 64 by 64 pixel grid, designed to survive nearest-neighbor reduction to 64x64. Flat orthographic diffuse albedo; controlled per-pixel detail, no blur, no antialiasing, no perspective, no scene, no lettering or watermark. Seamless in BOTH X and Y: opposite edges continue the shapes, grain, shading density and any alpha holes. No outer dark border, no framed tile, no lighting gradient, no baked shadow. Palette: Cold desaturated slate blue-gray wood, icy ash-blue middle values, pale silver fiber highlights. Grain: Calm fine frost-wood grain; silver fibers within the timber, no pasted-on snow or ice crust. Composition: four horizontally running boards spanning the full width with a subtle recessed 1-pixel joint every 16 logical pixels. Full opaque coverage. No end joints, nails, cracks, large oval eyes, diamond patterns, circles, bark, glow, glossy bands or chunky stripes. Draw fine horizontal timber fibers distinct on each board, rather than rotating bark. Match this species distinctly, not a recolor of the other boards.",
+    "references": [
+      {
+        "path": "packs/default/resources/textures/blocks/trees/frost_wood/stripped.png",
+        "version": "style reference at generation",
+        "sha256": "16593278929fc7a577b91723cec3282c6cb0dd7e51468a910f1bc93dc139302a"
+      },
+      {
+        "path": "packs/default/resources/textures/blocks/trees/oak/planks.png",
+        "version": "baseline original",
+        "sha256": "966ab625d833612da69f72123760f60313bd707dc4d05859028c342bf5409df6"
+      }
+    ],
+    "after_sha256": "7175508db85a48e5a0520ddb37664619f7ba4162846141465bb5eaafe5e1b0e0"
+  },
+  {
+    "path": "blocks/trees/juniper/planks.png",
+    "use_case": "style-transfer",
+    "tool": "built-in image_gen.imagegen",
+    "transparent_background": false,
+    "prompt": "Use case: style-transfer. Image 1 is the exact species color/grain reference. Image 2 is the pack horizontal-plank layout reference. Create a matching horizontal juniper planks texture. Asteria authored voxel texture. Crisp hand-crafted pixel art on a logical 64 by 64 pixel grid, designed to survive nearest-neighbor reduction to 64x64. Flat orthographic diffuse albedo; controlled per-pixel detail, no blur, no antialiasing, no perspective, no scene, no lettering or watermark. Seamless in BOTH X and Y: opposite edges continue the shapes, grain, shading density and any alpha holes. No outer dark border, no framed tile, no lighting gradient, no baked shadow. Palette: Muted warm beige-brown juniper timber, soft taupe grain and dusty pale tan highlights. Grain: Fine quiet cedar-like juniper fibers and occasional short small grain bends. Composition: four horizontally running boards spanning the full width with a subtle recessed 1-pixel joint every 16 logical pixels. Full opaque coverage. No end joints, nails, cracks, large oval eyes, diamond patterns, circles, bark, glow, glossy bands or chunky stripes. Draw fine horizontal timber fibers distinct on each board, rather than rotating bark. Match this species distinctly, not a recolor of the other boards.",
+    "references": [
+      {
+        "path": "packs/default/resources/textures/blocks/trees/juniper/stripped.png",
+        "version": "style reference at generation",
+        "sha256": "5de993cc8a3055a458de4d7e136615c7af5405ee849422ef1384af57ff1f7b44"
+      },
+      {
+        "path": "packs/default/resources/textures/blocks/trees/oak/planks.png",
+        "version": "baseline original",
+        "sha256": "966ab625d833612da69f72123760f60313bd707dc4d05859028c342bf5409df6"
+      }
+    ],
+    "after_sha256": "3bff9127b54bb929a17df24d5fa77a1e07b35b0bb3e618e35f60e5541681e485"
+  },
+  {
+    "path": "blocks/trees/rime_deadwood/planks.png",
+    "use_case": "style-transfer",
+    "tool": "built-in image_gen.imagegen",
+    "transparent_background": false,
+    "prompt": "Use case: style-transfer. Image 1 is the exact species color/grain reference. Image 2 is the pack horizontal-plank layout reference. Create a matching horizontal rime_deadwood planks texture. Asteria authored voxel texture. Crisp hand-crafted pixel art on a logical 64 by 64 pixel grid, designed to survive nearest-neighbor reduction to 64x64. Flat orthographic diffuse albedo; controlled per-pixel detail, no blur, no antialiasing, no perspective, no scene, no lettering or watermark. Seamless in BOTH X and Y: opposite edges continue the shapes, grain, shading density and any alpha holes. No outer dark border, no framed tile, no lighting gradient, no baked shadow. Palette: Pale weathered icy gray-blue deadwood, restrained cool-gray fibers and silver highlights. Grain: Aged dry fine fibers and a few small shallow weathered streaks, still usable solid boards. Composition: four horizontally running boards spanning the full width with a subtle recessed 1-pixel joint every 16 logical pixels. Full opaque coverage. No end joints, nails, cracks, large oval eyes, diamond patterns, circles, bark, glow, glossy bands or chunky stripes. Draw fine horizontal timber fibers distinct on each board, rather than rotating bark. Match this species distinctly, not a recolor of the other boards.",
+    "references": [
+      {
+        "path": "packs/default/resources/textures/blocks/trees/rime_deadwood/stripped.png",
+        "version": "style reference at generation",
+        "sha256": "4b07f8a392dab98cea3ef647b5a435cc7658018d4d8615900e4712a5465584f1"
+      },
+      {
+        "path": "packs/default/resources/textures/blocks/trees/oak/planks.png",
+        "version": "baseline original",
+        "sha256": "966ab625d833612da69f72123760f60313bd707dc4d05859028c342bf5409df6"
+      }
+    ],
+    "after_sha256": "f2f6bc1fba1b839049a73ae173c837e46ef7ddd06f54f98f9b39cdd90450cdd6"
+  },
+  {
+    "path": "blocks/trees/skywood/planks.png",
+    "use_case": "style-transfer",
+    "tool": "built-in image_gen.imagegen",
+    "transparent_background": false,
+    "prompt": "Use case: style-transfer. Image 1 is the exact species color/grain reference. Image 2 is the pack horizontal-plank layout reference. Create a matching horizontal skywood planks texture. Asteria authored voxel texture. Crisp hand-crafted pixel art on a logical 64 by 64 pixel grid, designed to survive nearest-neighbor reduction to 64x64. Flat orthographic diffuse albedo; controlled per-pixel detail, no blur, no antialiasing, no perspective, no scene, no lettering or watermark. Seamless in BOTH X and Y: opposite edges continue the shapes, grain, shading density and any alpha holes. No outer dark border, no framed tile, no lighting gradient, no baked shadow. Palette: Pale mint-aqua and soft seafoam timber, blue-teal grain, gentle pale celadon fiber highlights. Grain: Fine calm supernatural turquoise timber grain, continuous with no emissive veins or glow. Composition: four horizontally running boards spanning the full width with a subtle recessed 1-pixel joint every 16 logical pixels. Full opaque coverage. No end joints, nails, cracks, large oval eyes, diamond patterns, circles, bark, glow, glossy bands or chunky stripes. Draw fine horizontal timber fibers distinct on each board, rather than rotating bark. Match this species distinctly, not a recolor of the other boards.",
+    "references": [
+      {
+        "path": "packs/default/resources/textures/blocks/trees/skywood/stripped.png",
+        "version": "style reference at generation",
+        "sha256": "a0ded9c815b05d9439e77d917c32c5e076edaa587f059ba0ed10cf292d1922ab"
+      },
+      {
+        "path": "packs/default/resources/textures/blocks/trees/oak/planks.png",
+        "version": "baseline original",
+        "sha256": "966ab625d833612da69f72123760f60313bd707dc4d05859028c342bf5409df6"
+      }
+    ],
+    "after_sha256": "72af96b7b037a4b6b75f8238779976cb843c19efecfd3120ee8c14bee6a067d4"
+  },
+  {
+    "path": "blocks/trees/windwood/planks.png",
+    "use_case": "style-transfer",
+    "tool": "built-in image_gen.imagegen",
+    "transparent_background": false,
+    "prompt": "Use case: style-transfer. Image 1 is the exact species color/grain reference. Image 2 is the pack horizontal-plank layout reference. Create a matching horizontal windwood planks texture. Asteria authored voxel texture. Crisp hand-crafted pixel art on a logical 64 by 64 pixel grid, designed to survive nearest-neighbor reduction to 64x64. Flat orthographic diffuse albedo; controlled per-pixel detail, no blur, no antialiasing, no perspective, no scene, no lettering or watermark. Seamless in BOTH X and Y: opposite edges continue the shapes, grain, shading density and any alpha holes. No outer dark border, no framed tile, no lighting gradient, no baked shadow. Palette: Muted tan/taupe-brown windwood, dark desaturated brown grain and pale beige highlights. Grain: Close straight timber fibers with gentle elongated meanders and quiet small knots. Composition: four horizontally running boards spanning the full width with a subtle recessed 1-pixel joint every 16 logical pixels. Full opaque coverage. No end joints, nails, cracks, large oval eyes, diamond patterns, circles, bark, glow, glossy bands or chunky stripes. Draw fine horizontal timber fibers distinct on each board, rather than rotating bark. Match this species distinctly, not a recolor of the other boards.",
+    "references": [
+      {
+        "path": "packs/default/resources/textures/blocks/trees/windwood/stripped.png",
+        "version": "style reference at generation",
+        "sha256": "b0ce91204c3121f7b46cd3319d5159dfa08ab3e4ae73adbaa27cb9826546ae0c"
+      },
+      {
+        "path": "packs/default/resources/textures/blocks/trees/oak/planks.png",
+        "version": "baseline original",
+        "sha256": "966ab625d833612da69f72123760f60313bd707dc4d05859028c342bf5409df6"
+      }
+    ],
+    "after_sha256": "e0c490df72cea33d162fe1a89942e63a809d244aa84fa42896733824584d9e59"
+  },
+  {
+    "path": "blocks/trees/thornwood/planks.png",
+    "use_case": "style-transfer",
+    "tool": "built-in image_gen.imagegen",
+    "transparent_background": false,
+    "prompt": "Use case: style-transfer. Image 1 is the exact species color/grain reference. Image 2 is the pack horizontal-plank layout reference. Create a matching horizontal thornwood planks texture. Asteria authored voxel texture. Crisp hand-crafted pixel art on a logical 64 by 64 pixel grid, designed to survive nearest-neighbor reduction to 64x64. Flat orthographic diffuse albedo; controlled per-pixel detail, no blur, no antialiasing, no perspective, no scene, no lettering or watermark. Seamless in BOTH X and Y: opposite edges continue the shapes, grain, shading density and any alpha holes. No outer dark border, no framed tile, no lighting gradient, no baked shadow. Palette: Deep warm walnut/dark brown timber, muted umber middle tones and subtle caramel highlights. Grain: Dense dark hardwood grain, fine calm fibers and tiny elongated knot traces, no thorn shapes or bark on the boards. Composition: four horizontally running boards spanning the full width with a subtle recessed 1-pixel joint every 16 logical pixels. Full opaque coverage. No end joints, nails, cracks, large oval eyes, diamond patterns, circles, bark, glow, glossy bands or chunky stripes. Draw fine horizontal timber fibers distinct on each board, rather than rotating bark. Match this species distinctly, not a recolor of the other boards.",
+    "references": [
+      {
+        "path": "packs/default/resources/textures/blocks/trees/thornwood/stripped.png",
+        "version": "style reference at generation",
+        "sha256": "6fd6bcec77979ea441a72c13ab57abb4f2b52d978ab864ef411117bafb8d1d01"
+      },
+      {
+        "path": "packs/default/resources/textures/blocks/trees/oak/planks.png",
+        "version": "baseline original",
+        "sha256": "966ab625d833612da69f72123760f60313bd707dc4d05859028c342bf5409df6"
+      }
+    ],
+    "after_sha256": "a50ab22afcd2eb5ef33fa60c1e19372d87ad746f5bf64f4541b654cdfea79ddb"
+  },
+  {
+    "path": "blocks/trees/charwood/leaf.png",
+    "use_case": "style-transfer",
+    "tool": "built-in image_gen.imagegen",
+    "transparent_background": true,
+    "prompt": "Use case: style-transfer. Edit target: Image 1 is the existing charwood foliage texture. Image 2 is a supporting reference for the pack's crisp leaf shading and logical pixel scale. Redraw Image 1 with species-specific polished foliage. Asteria authored voxel texture. Crisp hand-crafted pixel art on a logical 64 by 64 pixel grid, designed to survive nearest-neighbor reduction to 64x64. Flat orthographic diffuse albedo; controlled per-pixel detail, no blur, no antialiasing, no perspective, no scene, no lettering or watermark. Seamless in BOTH X and Y: opposite edges continue the shapes, grain, shading density and any alpha holes. No outer dark border, no framed tile, no lighting gradient, no baked shadow. Palette: Ember-needle foliage in dark burnt brown, rusty copper and restrained orange, matching Image 1 without emissive glow. Subject: Irregular interwoven fine evergreen needles, thin dark twigs and small varied needle sprays, natural transparent apertures; no flames, no glowing dots. Real transparent background throughout gaps between leaves. Extend the pattern through all four edges rather than drawing an isolated bunch. No checkerboard baked into the image, no uniform grids, no identical stamps, no speckle, bloom, sparkle, soft photographic detail or icons.",
+    "references": [
+      {
+        "path": "packs/default/resources/textures/blocks/trees/charwood/leaf.png",
+        "version": "baseline original",
+        "sha256": "5e22ae5939fa630afa2b1a8d0fa3a0a72f2bc67c486370f79d8b3d1dcda93701"
+      },
+      {
+        "path": "packs/default/resources/textures/blocks/trees/skywood/leaf.png",
+        "version": "style reference at generation",
+        "sha256": "db7000a16ad5e85ec3746509752bd79e42688c2b157a2c51b13d8c9c44bc19cf"
+      }
+    ],
+    "after_sha256": "43d51c1bd65fb0989bf859bd26813022e6a0a045a97f1b2a5397b2f8b27cadf4"
+  },
+  {
+    "path": "blocks/trees/frost_wood/leaf.png",
+    "use_case": "style-transfer",
+    "tool": "built-in image_gen.imagegen",
+    "transparent_background": true,
+    "prompt": "Use case: style-transfer. Edit target: Image 1 is the existing frost_wood foliage texture. Image 2 is a supporting reference for the pack's crisp leaf shading and logical pixel scale. Redraw Image 1 with species-specific polished foliage. Asteria authored voxel texture. Crisp hand-crafted pixel art on a logical 64 by 64 pixel grid, designed to survive nearest-neighbor reduction to 64x64. Flat orthographic diffuse albedo; controlled per-pixel detail, no blur, no antialiasing, no perspective, no scene, no lettering or watermark. Seamless in BOTH X and Y: opposite edges continue the shapes, grain, shading density and any alpha holes. No outer dark border, no framed tile, no lighting gradient, no baked shadow. Palette: Muted teal-gray needles with silver-blue and pale ivory frost tips. Preserve the normal alpine identity of Image 1. Subject: Irregular layered slender evergreen needle sprays with light frosted tips, about 60-75% coverage, several small genuine transparent holes; cold foliage rather than broad leaves. Real transparent background throughout gaps between leaves. Extend the pattern through all four edges rather than drawing an isolated bunch. No checkerboard baked into the image, no uniform grids, no identical stamps, no speckle, bloom, sparkle, soft photographic detail or icons.",
+    "references": [
+      {
+        "path": "packs/default/resources/textures/blocks/trees/frost_wood/leaf.png",
+        "version": "baseline original",
+        "sha256": "09cf3dc3ea6fd7a610f84cbcbc02e8687aa28244268f31cbaf658ef876488ac1"
+      },
+      {
+        "path": "packs/default/resources/textures/blocks/trees/skywood/leaf.png",
+        "version": "style reference at generation",
+        "sha256": "db7000a16ad5e85ec3746509752bd79e42688c2b157a2c51b13d8c9c44bc19cf"
+      }
+    ],
+    "after_sha256": "710451ef27744d57c78d94931e785039d06293fabb925c268734f85ad7e26f86"
+  },
+  {
+    "path": "blocks/trees/frost_wood/leaf_arctic.png",
+    "use_case": "style-transfer",
+    "tool": "built-in image_gen.imagegen",
+    "transparent_background": true,
+    "prompt": "Use case: style-transfer. Edit target: Image 1 is the existing frost_wood_arctic foliage texture. Image 2 is a supporting reference for the pack's crisp leaf shading and logical pixel scale. Redraw Image 1 with species-specific polished foliage. Asteria authored voxel texture. Crisp hand-crafted pixel art on a logical 64 by 64 pixel grid, designed to survive nearest-neighbor reduction to 64x64. Flat orthographic diffuse albedo; controlled per-pixel detail, no blur, no antialiasing, no perspective, no scene, no lettering or watermark. Seamless in BOTH X and Y: opposite edges continue the shapes, grain, shading density and any alpha holes. No outer dark border, no framed tile, no lighting gradient, no baked shadow. Palette: Light icy cyan, pale blue and frosty white needle tips, blue-gray shadows. More heavily frosted than the standard leaf.png variant but with foliage visible underneath. Subject: Interwoven fine evergreen needles with thickened white frost tips, about 65-80% coverage and irregular transparent holes; no solid snow slab. Real transparent background throughout gaps between leaves. Extend the pattern through all four edges rather than drawing an isolated bunch. No checkerboard baked into the image, no uniform grids, no identical stamps, no speckle, bloom, sparkle, soft photographic detail or icons.",
+    "references": [
+      {
+        "path": "packs/default/resources/textures/blocks/trees/frost_wood/leaf_arctic.png",
+        "version": "baseline original",
+        "sha256": "8abcc609883fb720852f9686a52299f88f2e036f38fae81ab2114b238518e22d"
+      },
+      {
+        "path": "packs/default/resources/textures/blocks/trees/skywood/leaf.png",
+        "version": "style reference at generation",
+        "sha256": "db7000a16ad5e85ec3746509752bd79e42688c2b157a2c51b13d8c9c44bc19cf"
+      }
+    ],
+    "after_sha256": "f41d8ec0730b10c6d8b0b8a83cc1465c37d258826565df9a942c11f05f26b509"
+  },
+  {
+    "path": "blocks/trees/juniper/leaf.png",
+    "use_case": "style-transfer",
+    "tool": "built-in image_gen.imagegen",
+    "transparent_background": true,
+    "prompt": "Use case: style-transfer. Edit target: Image 1 is the existing juniper foliage texture. Image 2 is a supporting reference for the pack's crisp leaf shading and logical pixel scale. Redraw Image 1 with species-specific polished foliage. Asteria authored voxel texture. Crisp hand-crafted pixel art on a logical 64 by 64 pixel grid, designed to survive nearest-neighbor reduction to 64x64. Flat orthographic diffuse albedo; controlled per-pixel detail, no blur, no antialiasing, no perspective, no scene, no lettering or watermark. Seamless in BOTH X and Y: opposite edges continue the shapes, grain, shading density and any alpha holes. No outer dark border, no framed tile, no lighting gradient, no baked shadow. Palette: Deep natural pine/olive green needles, muted brown small twigs, restrained sage-green tips. Match Image 1. Subject: Dense but irregular short juniper needle branchlets with alternating cluster directions and transparent gaps, no berries. Real transparent background throughout gaps between leaves. Extend the pattern through all four edges rather than drawing an isolated bunch. No checkerboard baked into the image, no uniform grids, no identical stamps, no speckle, bloom, sparkle, soft photographic detail or icons.",
+    "references": [
+      {
+        "path": "packs/default/resources/textures/blocks/trees/juniper/leaf.png",
+        "version": "baseline original",
+        "sha256": "5d983bde2e2e5a30245c9fd818748af548d665365156ffc213b3909114b07221"
+      },
+      {
+        "path": "packs/default/resources/textures/blocks/trees/skywood/leaf.png",
+        "version": "style reference at generation",
+        "sha256": "db7000a16ad5e85ec3746509752bd79e42688c2b157a2c51b13d8c9c44bc19cf"
+      }
+    ],
+    "after_sha256": "2e5c19caa1e7d573aabda337d8eae30519bde960f5ad06b52a5ff595a17ab35d"
+  },
+  {
+    "path": "blocks/trees/skywood/leaf.png",
+    "use_case": "style-transfer",
+    "tool": "built-in image_gen.imagegen",
+    "transparent_background": true,
+    "prompt": "Use case: style-transfer. Edit target: Image 1 is the existing skywood foliage texture. Image 2 is a supporting reference for the pack's crisp leaf shading and logical pixel scale. Redraw Image 1 with species-specific polished foliage. Asteria authored voxel texture. Crisp hand-crafted pixel art on a logical 64 by 64 pixel grid, designed to survive nearest-neighbor reduction to 64x64. Flat orthographic diffuse albedo; controlled per-pixel detail, no blur, no antialiasing, no perspective, no scene, no lettering or watermark. Seamless in BOTH X and Y: opposite edges continue the shapes, grain, shading density and any alpha holes. No outer dark border, no framed tile, no lighting gradient, no baked shadow. Palette: Cool mint-teal foliage, jade middle values and soft pale aqua highlights. Preserve Image 1 hue. Subject: Irregular sprays of small pointed oval leaves; subtle leaf folds with visible volume, about 65-80% coverage with genuine varied alpha gaps. Real transparent background throughout gaps between leaves. Extend the pattern through all four edges rather than drawing an isolated bunch. No checkerboard baked into the image, no uniform grids, no identical stamps, no speckle, bloom, sparkle, soft photographic detail or icons.",
+    "references": [
+      {
+        "path": "packs/default/resources/textures/blocks/trees/skywood/leaf.png",
+        "version": "baseline original",
+        "sha256": "db7000a16ad5e85ec3746509752bd79e42688c2b157a2c51b13d8c9c44bc19cf"
+      },
+      {
+        "path": "packs/default/resources/textures/blocks/trees/skywood/leaf.png",
+        "version": "style reference at generation",
+        "sha256": "db7000a16ad5e85ec3746509752bd79e42688c2b157a2c51b13d8c9c44bc19cf"
+      }
+    ],
+    "after_sha256": "423a13e5de45ea375401bf97db4a121117f9b0fda6cbd6d1b7fbac2b9ef90a44"
+  },
+  {
+    "path": "blocks/trees/windwood/leaf.png",
+    "use_case": "style-transfer",
+    "tool": "built-in image_gen.imagegen",
+    "transparent_background": true,
+    "prompt": "Use case: style-transfer. Edit target: Image 1 is the existing windwood foliage texture. Image 2 is a supporting reference for the pack's crisp leaf shading and logical pixel scale. Redraw Image 1 with species-specific polished foliage. Asteria authored voxel texture. Crisp hand-crafted pixel art on a logical 64 by 64 pixel grid, designed to survive nearest-neighbor reduction to 64x64. Flat orthographic diffuse albedo; controlled per-pixel detail, no blur, no antialiasing, no perspective, no scene, no lettering or watermark. Seamless in BOTH X and Y: opposite edges continue the shapes, grain, shading density and any alpha holes. No outer dark border, no framed tile, no lighting gradient, no baked shadow. Palette: Olive/sage and muted chartreuse needles, dusty green leaf tips, subdued brown twigs. Match Image 1. Subject: Interwoven slender needle clusters with an airy directional rhythm, foliage at varying angles, about 60-75% coverage and natural transparent gaps. Real transparent background throughout gaps between leaves. Extend the pattern through all four edges rather than drawing an isolated bunch. No checkerboard baked into the image, no uniform grids, no identical stamps, no speckle, bloom, sparkle, soft photographic detail or icons.",
+    "references": [
+      {
+        "path": "packs/default/resources/textures/blocks/trees/windwood/leaf.png",
+        "version": "baseline original",
+        "sha256": "8e2f827af7b7223891fc3b4104018e9c29c361e1a7c09849d1c37d8cddb975e0"
+      },
+      {
+        "path": "packs/default/resources/textures/blocks/trees/skywood/leaf.png",
+        "version": "style reference at generation",
+        "sha256": "db7000a16ad5e85ec3746509752bd79e42688c2b157a2c51b13d8c9c44bc19cf"
+      }
+    ],
+    "after_sha256": "e90f94922e165a501c56e25934d399f483d55a21f36beb7ed613cbe8a8dd3ed7"
+  },
+  {
+    "path": "blocks/trees/enchanted_tree/top.png",
+    "use_case": "style-transfer",
+    "tool": "built-in image_gen.imagegen",
+    "transparent_background": false,
+    "prompt": "Use case: style-transfer. Edit target: Image 1 is the existing enchanted_tree top texture. Image 2 is the established hand-crafted pack pixel-art reference for this material role, not its hue. Redraw the entire Image 1 texture with a consistent new enchanted_tree wood style. Asteria authored voxel texture. Crisp hand-crafted pixel art on a logical 64 by 64 pixel grid, designed to survive nearest-neighbor reduction to 64x64. Flat orthographic diffuse albedo; controlled per-pixel detail, no blur, no antialiasing, no perspective, no scene, no lettering or watermark. Seamless in BOTH X and Y: opposite edges continue the shapes, grain, shading density and any alpha holes. No outer dark border, no framed tile, no lighting gradient, no baked shadow. Palette: Royal/cobalt blue magical wood with deep navy grain and restrained celeste/cyan highlights; preserve the blue identity of Image 1. Avoid white lightning or glow. Material role: Exposed end grain all the way to every corner. Several thin imperfect eccentric growth rings and tiny shallow radial grain marks, offset and subtly irregular. No dark circular bark rim and no border; the entire square is cut timber. Keep the center restrained, no spiral symbol, bullseye or circular medallion. Growth bands and fibers meet opposite borders smoothly. Full opaque coverage. The pixel grain must be crisp and readable at 64x64 with subdued highlights and a small coherent palette.",
+    "references": [
+      {
+        "path": "packs/default/resources/textures/blocks/trees/enchanted_tree/top.png",
+        "version": "baseline original",
+        "sha256": "363e6cc3e1c4c144a6636f5c696e458af6f914983944f9615a8d1025bafd63ad"
+      },
+      {
+        "path": "packs/default/resources/textures/blocks/trees/juniper/top.png",
+        "version": "style reference at generation",
+        "sha256": "0920f93ab91360699bc07609f79d4b14a9d546f7960365c7a72038f507570b2e"
+      }
+    ],
+    "after_sha256": "d2390e30b8f9a629a6101365f6a67fcad65340b7eae60297039a2d123dcb8df8"
+  },
+  {
+    "path": "blocks/trees/enchanted_tree/side.png",
+    "use_case": "style-transfer",
+    "tool": "built-in image_gen.imagegen",
+    "transparent_background": false,
+    "prompt": "Use case: style-transfer. Edit target: Image 1 is the existing enchanted_tree side texture. Image 2 is the established hand-crafted pack pixel-art reference for this material role, not its hue. Redraw the entire Image 1 texture with a consistent new enchanted_tree wood style. Asteria authored voxel texture. Crisp hand-crafted pixel art on a logical 64 by 64 pixel grid, designed to survive nearest-neighbor reduction to 64x64. Flat orthographic diffuse albedo; controlled per-pixel detail, no blur, no antialiasing, no perspective, no scene, no lettering or watermark. Seamless in BOTH X and Y: opposite edges continue the shapes, grain, shading density and any alpha holes. No outer dark border, no framed tile, no lighting gradient, no baked shadow. Palette: Royal/cobalt blue magical wood with deep navy grain and restrained celeste/cyan highlights; preserve the blue identity of Image 1. Avoid white lightning or glow. Material role: Vertical bark with irregular narrow overlapping strips and quiet shallow fissures. Subtle color variation within bark strips, without large oval/diamond eyes, braided cables, symmetric networks or sawtooth columns. Fine material surface detail; natural bark rather than glossy veins. Full opaque coverage. The pixel grain must be crisp and readable at 64x64 with subdued highlights and a small coherent palette.",
+    "references": [
+      {
+        "path": "packs/default/resources/textures/blocks/trees/enchanted_tree/side.png",
+        "version": "baseline original",
+        "sha256": "f48b4f8d60f4523a430f6e474f223c9f8f4bfd9df6bd5456dde0a562bfe87285"
+      },
+      {
+        "path": "packs/default/resources/textures/blocks/trees/juniper/side.png",
+        "version": "style reference at generation",
+        "sha256": "ed59a5fd407a97acd1a9f9fc23109b91b464f60099ef54a6379bb85d209ac10b"
+      }
+    ],
+    "after_sha256": "665b8a2e9f26e61a1f75e14156c28040ec2a571d3065d29f85fcff73d2dc9150"
+  },
+  {
+    "path": "blocks/trees/enchanted_tree/stripped.png",
+    "use_case": "style-transfer",
+    "tool": "built-in image_gen.imagegen",
+    "transparent_background": false,
+    "prompt": "Use case: style-transfer. Edit target: Image 1 is the existing enchanted_tree stripped texture. Image 2 is the established hand-crafted pack pixel-art reference for this material role, not its hue. Redraw the entire Image 1 texture with a consistent new enchanted_tree wood style. Asteria authored voxel texture. Crisp hand-crafted pixel art on a logical 64 by 64 pixel grid, designed to survive nearest-neighbor reduction to 64x64. Flat orthographic diffuse albedo; controlled per-pixel detail, no blur, no antialiasing, no perspective, no scene, no lettering or watermark. Seamless in BOTH X and Y: opposite edges continue the shapes, grain, shading density and any alpha holes. No outer dark border, no framed tile, no lighting gradient, no baked shadow. Palette: Royal/cobalt blue magical wood with deep navy grain and restrained celeste/cyan highlights; preserve the blue identity of Image 1. Avoid white lightning or glow. Material role: Calm exposed debarked timber with fine vertically flowing fibers and soft modest value variation. Subtle short fiber bends, very small unobtrusive knots. No bark chunks, thick carved grooves, oversized oval eyes, veins, vein networks, diamonds or electric lines. Full opaque coverage. The pixel grain must be crisp and readable at 64x64 with subdued highlights and a small coherent palette.",
+    "references": [
+      {
+        "path": "packs/default/resources/textures/blocks/trees/enchanted_tree/stripped.png",
+        "version": "baseline original",
+        "sha256": "9127d930999a68f966a17cf8e6cf6a2c9bcf392d0e48f3cbd6ac4768c4309619"
+      },
+      {
+        "path": "packs/default/resources/textures/blocks/trees/juniper/stripped.png",
+        "version": "style reference at generation",
+        "sha256": "5de993cc8a3055a458de4d7e136615c7af5405ee849422ef1384af57ff1f7b44"
+      }
+    ],
+    "after_sha256": "7fa665834a2b9f09bf355169f3aab687c297eb2da2d46317d4b6bae68c2b7aca"
+  },
+  {
+    "path": "blocks/trees/world_tree/top.png",
+    "use_case": "style-transfer",
+    "tool": "built-in image_gen.imagegen",
+    "transparent_background": false,
+    "prompt": "Use case: style-transfer. Edit target: Image 1 is the existing world_tree top texture. Image 2 is the established hand-crafted pack pixel-art reference for this material role, not its hue. Redraw the entire Image 1 texture with a consistent new world_tree wood style. Asteria authored voxel texture. Crisp hand-crafted pixel art on a logical 64 by 64 pixel grid, designed to survive nearest-neighbor reduction to 64x64. Flat orthographic diffuse albedo; controlled per-pixel detail, no blur, no antialiasing, no perspective, no scene, no lettering or watermark. Seamless in BOTH X and Y: opposite edges continue the shapes, grain, shading density and any alpha holes. No outer dark border, no framed tile, no lighting gradient, no baked shadow. Palette: Rich golden/honey-amber wood with muted ochre/orange shadows and soft light-gold fiber highlights. Preserve Image 1 golden identity, avoid emissive bloom. Material role: Exposed end grain all the way to every corner. Several thin imperfect eccentric growth rings and tiny shallow radial grain marks, offset and subtly irregular. No dark circular bark rim and no border; the entire square is cut timber. Keep the center restrained, no spiral symbol, bullseye or circular medallion. Growth bands and fibers meet opposite borders smoothly. Full opaque coverage. The pixel grain must be crisp and readable at 64x64 with subdued highlights and a small coherent palette.",
+    "references": [
+      {
+        "path": "packs/default/resources/textures/blocks/trees/world_tree/top.png",
+        "version": "baseline original",
+        "sha256": "fc37e64449e78a9bede4831244134e81bdf16cb8cf82da9aa740f20a6088f6c2"
+      },
+      {
+        "path": "packs/default/resources/textures/blocks/trees/juniper/top.png",
+        "version": "style reference at generation",
+        "sha256": "0920f93ab91360699bc07609f79d4b14a9d546f7960365c7a72038f507570b2e"
+      }
+    ],
+    "after_sha256": "9751910175bc68afe807884e0c04b849a2aa8358b337879a02162d2255fb9074"
+  },
+  {
+    "path": "blocks/trees/world_tree/side.png",
+    "use_case": "style-transfer",
+    "tool": "built-in image_gen.imagegen",
+    "transparent_background": false,
+    "prompt": "Use case: style-transfer. Edit target: Image 1 is the existing world_tree side texture. Image 2 is the established hand-crafted pack pixel-art reference for this material role, not its hue. Redraw the entire Image 1 texture with a consistent new world_tree wood style. Asteria authored voxel texture. Crisp hand-crafted pixel art on a logical 64 by 64 pixel grid, designed to survive nearest-neighbor reduction to 64x64. Flat orthographic diffuse albedo; controlled per-pixel detail, no blur, no antialiasing, no perspective, no scene, no lettering or watermark. Seamless in BOTH X and Y: opposite edges continue the shapes, grain, shading density and any alpha holes. No outer dark border, no framed tile, no lighting gradient, no baked shadow. Palette: Rich golden/honey-amber wood with muted ochre/orange shadows and soft light-gold fiber highlights. Preserve Image 1 golden identity, avoid emissive bloom. Material role: Vertical bark with irregular narrow overlapping strips and quiet shallow fissures. Subtle color variation within bark strips, without large oval/diamond eyes, braided cables, symmetric networks or sawtooth columns. Fine material surface detail; natural bark rather than glossy veins. Full opaque coverage. The pixel grain must be crisp and readable at 64x64 with subdued highlights and a small coherent palette.",
+    "references": [
+      {
+        "path": "packs/default/resources/textures/blocks/trees/world_tree/side.png",
+        "version": "baseline original",
+        "sha256": "c415989ae1c840926c915cac7587398d1280789e84e65a4df32b6b0a837e2c73"
+      },
+      {
+        "path": "packs/default/resources/textures/blocks/trees/juniper/side.png",
+        "version": "style reference at generation",
+        "sha256": "ed59a5fd407a97acd1a9f9fc23109b91b464f60099ef54a6379bb85d209ac10b"
+      }
+    ],
+    "after_sha256": "ea72fb31e8b9f91b732885ad7478f66d6374457468241ac814709042505d3da0"
+  },
+  {
+    "path": "blocks/trees/world_tree/stripped.png",
+    "use_case": "style-transfer",
+    "tool": "built-in image_gen.imagegen",
+    "transparent_background": false,
+    "prompt": "Use case: style-transfer. Edit target: Image 1 is the existing world_tree stripped texture. Image 2 is the established hand-crafted pack pixel-art reference for this material role, not its hue. Redraw the entire Image 1 texture with a consistent new world_tree wood style. Asteria authored voxel texture. Crisp hand-crafted pixel art on a logical 64 by 64 pixel grid, designed to survive nearest-neighbor reduction to 64x64. Flat orthographic diffuse albedo; controlled per-pixel detail, no blur, no antialiasing, no perspective, no scene, no lettering or watermark. Seamless in BOTH X and Y: opposite edges continue the shapes, grain, shading density and any alpha holes. No outer dark border, no framed tile, no lighting gradient, no baked shadow. Palette: Rich golden/honey-amber wood with muted ochre/orange shadows and soft light-gold fiber highlights. Preserve Image 1 golden identity, avoid emissive bloom. Material role: Calm exposed debarked timber with fine vertically flowing fibers and soft modest value variation. Subtle short fiber bends, very small unobtrusive knots. No bark chunks, thick carved grooves, oversized oval eyes, veins, vein networks, diamonds or electric lines. Full opaque coverage. The pixel grain must be crisp and readable at 64x64 with subdued highlights and a small coherent palette.",
+    "references": [
+      {
+        "path": "packs/default/resources/textures/blocks/trees/world_tree/stripped.png",
+        "version": "baseline original",
+        "sha256": "1a1a99d9d6aacd9ce84957cac67cf6d14b9fb5c3e2ed97e62cde021335c9dea1"
+      },
+      {
+        "path": "packs/default/resources/textures/blocks/trees/juniper/stripped.png",
+        "version": "style reference at generation",
+        "sha256": "5de993cc8a3055a458de4d7e136615c7af5405ee849422ef1384af57ff1f7b44"
+      }
+    ],
+    "after_sha256": "81fa656c21d468dfe52e11f40652e593d3ed838c15491ab9e26552001fee8b21"
+  }
+]
