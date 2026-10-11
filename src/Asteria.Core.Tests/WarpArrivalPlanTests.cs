@@ -10,6 +10,22 @@ public sealed class WarpArrivalPlanTests
             new Vector3(12.5f, 70f, -20.5f));
 
     [Fact]
+    public void PortalArrivalMustNotFallbackToAnotherCoordinate()
+    {
+        var requested = Requested() with { RequireExactDestination = true };
+        Assert.Equal(WarpArrivalDisposition.Enter, requested.Evaluate(true));
+        Assert.Equal(WarpArrivalDisposition.ReturnToOrigin,
+            requested.Evaluate(false));
+
+        var returning = requested.BeginReturn();
+        Assert.True(returning.IsReturning);
+        Assert.Equal(requested.OriginPosition, returning.OriginPosition);
+        Assert.Equal(WarpArrivalDisposition.RetryAtGeneratedSpawn,
+            returning.Evaluate(false));
+        Assert.Equal(WarpArrivalDisposition.Enter, returning.Evaluate(true));
+    }
+
+    [Fact]
     public void SafeCrossSphereArrivalCanEnterImmediately()
     {
         var plan = Requested();
