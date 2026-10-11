@@ -18,6 +18,15 @@
     },
     "C": {
       "clear": true
+    },
+    "E": {
+      "clear": true,
+      "connector": {
+        "target": "asteria:surface_spiral_stair_segment",
+        "face": "left",
+        "stopAtSurface": true,
+        "surfaceClearance": 2
+      }
     }
   },
   "layers": [
@@ -33,7 +42,7 @@
       "y": 1,
       "rows": [
         "CCC",
-        "CCC",
+        "ECC",
         "CCC"
       ]
     },
