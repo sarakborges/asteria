@@ -574,7 +574,8 @@ public partial class Main : Node3D
             _chunkStreaming.BeginFrame(
                 streamingCenter,
                 _worldFrameBudget,
-                streamingRadius);
+                streamingRadius,
+                RequiresPortalSurfaceAccess);
         _worldDiagnostics?.ObserveStage(
             WorldFrameStage.StreamingBegin, stageStart);
         ReportStreamingSelection(
@@ -2012,6 +2013,10 @@ public partial class Main : Node3D
         BeginWorldLoading();
     }
 
+    private bool RequiresPortalSurfaceAccess =>
+        _warpArrival is { RequireExactDestination: true, IsReturning: false } &&
+        _sessions.Active.Dimension.PortalArrivalStructure is not null;
+
     private void BeginWorldLoading()
     {
         _worldDiagnostics?.Write(
@@ -2024,7 +2029,8 @@ public partial class Main : Node3D
         ReportStreamingSelection(
             _chunkStreaming.SyncSelection(
                 _loading.Center,
-                WorldLoadingState.InitialHorizontalRadiusChunks));
+                WorldLoadingState.InitialHorizontalRadiusChunks,
+                RequiresPortalSurfaceAccess));
         SendLoadingState();
     }
 

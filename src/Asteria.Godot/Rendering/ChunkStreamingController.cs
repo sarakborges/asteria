@@ -54,6 +54,7 @@ public sealed class ChunkStreamingController
     private readonly ChunkPresentationController _presentations;
     private readonly ChunkStreamingSelectionRuntime _selection;
     private readonly ChunkStreamingControllerSettings _settings;
+    private bool _includeVerticalAccess;
 
     public ChunkStreamingController(
         ChunkResidencyRuntime residency,
@@ -91,7 +92,8 @@ public sealed class ChunkStreamingController
 
     public ChunkStreamingSelectionReport SyncSelection(
         ChunkCoord center,
-        int horizontalRadius)
+        int horizontalRadius,
+        bool includeVerticalAccess = false)
     {
         if (horizontalRadius <= 0)
         {
@@ -108,8 +110,10 @@ public sealed class ChunkStreamingController
 
         if (_residency.SelectionNeedsRebuild(
                 center,
-                radius))
+                radius) ||
+            _includeVerticalAccess != includeVerticalAccess)
         {
+            _includeVerticalAccess = includeVerticalAccess;
             var bootstrap =
                 ChunkStreamingSelection
                     .DesiredPlayerLocalChunks(
@@ -124,7 +128,8 @@ public sealed class ChunkStreamingController
                     _presentations.Coordinates);
             _selection.Request(
                 center,
-                radius);
+                radius,
+                includeVerticalAccess);
         }
 
         if (_selection.TryPollCompleted(
@@ -164,12 +169,14 @@ public sealed class ChunkStreamingController
     public ChunkStreamingBeginFrameReport BeginFrame(
         ChunkCoord center,
         WorldFrameWorkBudget budget,
-        int horizontalRadius)
+        int horizontalRadius,
+        bool includeVerticalAccess = false)
     {
         var selection =
             SyncSelection(
                 center,
-                horizontalRadius);
+                horizontalRadius,
+                includeVerticalAccess);
         var collected =
             _residency.CollectMaterializationResults(
                 budget,
