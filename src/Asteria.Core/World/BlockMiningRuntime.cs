@@ -131,18 +131,26 @@ public sealed class BlockMiningRuntime
             return false;
         }
 
+        // Capture appearance before the accepted mutation removes the
+        // source voxel or its top interactive layer.
+        var lastAppearance = MiningFragmentAppearance.Resolve(
+            _world, _blocks, _layers, hit.Value);
         var completed = _interactions.Break(
             hit.Value,
             BlockBreakLootPolicy.DropSelf, worldTick).Accepted;
         if (completed)
-            PublishFeedback(hit.Value, completed: true);
+            PublishFeedback(hit.Value, completed: true, lastAppearance);
         Cancel();
         return completed;
     }
 
-    private void PublishFeedback(VoxelWorldHit hit, bool completed)
+    private void PublishFeedback(
+        VoxelWorldHit hit, bool completed,
+        MiningFragmentAppearance? capturedAppearance = null)
     {
-        LastFeedback = new MiningFeedbackEvent(hit, completed);
+        LastFeedback = new MiningFeedbackEvent(hit, completed,
+            capturedAppearance ?? MiningFragmentAppearance.Resolve(
+                _world, _blocks, _layers, hit));
         FeedbackRevision++;
     }
 
@@ -157,4 +165,6 @@ public sealed class BlockMiningRuntime
 }
 
 /// <summary>Transient, presentation-only cue; no physical or inventory effect.</summary>
-public readonly record struct MiningFeedbackEvent(VoxelWorldHit Hit, bool Completed);
+public readonly record struct MiningFeedbackEvent(
+    VoxelWorldHit Hit, bool Completed,
+    MiningFragmentAppearance? Appearance = null);
