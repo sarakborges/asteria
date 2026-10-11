@@ -16,7 +16,7 @@ Reference: MineClone `world-systems-rebuild`, `src/targeting/mining.rs` and `src
 
 - Mining visual feedback now includes an 8-tick fast-swing cadence, existing world-space crack stages and short-lived voxel chips. **Audio is explicitly out of scope**. Native visual QA is pending.
 - Architect's Compass, structure-tool behaviors and further consumable item use. Brush, Shears, Artisan's Kit and Bucket are integrated through their scoped runtimes.
-- Loot-table policy parity beyond existing `dropsSelf` and creature-specific drops.
+- Normal block loot tables are now data-driven, with deterministic rolls, validation and authored MineClone recipes. Spike formation drops and object-specific loot remain specialized; visual Godot QA is still pending.
 
 The native input, mutation, content and Sphere boundaries remain unchanged: no UI-side key capture, no negative Y, and no pack-owned Godot resource imports.
 
@@ -108,3 +108,15 @@ References checked: MineClone `main` and `world-systems-rebuild` `src/targeting/
 - `MiningParticleRuntime` is an additional Asteria-only visual enhancement (not an original MineClone mining feature): emits 3 small cubes along the hit face for ordinary swings and 11 at completion; gravity/fade is deterministic and capped to 96 active particles per Sphere. `MiningParticlePresentation` publishes them in one `MultiMesh`, never one node per fragment. The neutral chip color is a presentation fallback, not per-block sampled material tint. Particle effects never damage, collide, create items or mutate blocks. Retiring a Sphere clears them.
 - Core tests cover interval threshold, coalesced large tick batches, finish/reset/invalid-tool behavior, hit-face emission, bounded allocation, TTL cleanup and invalid-time rejection. The native Godot/WRY visual pass is still required for crack/arm/particle appearance at varying tick rates.
 - **No audio work** was performed or planned.
+
+## Loot-table and layer-drop parity — 2026-10-11
+
+Compared MineClone `main` `src/content/loot.rs`, `src/targeting/mining.rs` and every original `data/blocks/*.json` with Asteria's authored content.
+
+- `BlockLootTable` is an optional array of `{ "item": "asteria:...", "chance": 0..1, "quantity": 1..64 }`. Missing chance/quantity default to 1. A present empty array means intentionally no drops. An **absent** table keeps legacy `dropsSelf` (full portable voxel snapshot), so existing unported blocks remain usable. The 16-entry/64-unit per-entry ceilings bound emitted physical entities.
+- `InventoryContentCatalog` validates every loot table and attached-layer drop at content load and resolves untyped original entries in item, block, layer, tool order. This reuses authored stack limits and prevents unknown item identities from reaching dropped entities.
+- `BlockInteractionRuntime` rolls each table entry independently in stable JSON order, with a position/world-tick xorshift seed adapted from MineClone. `BlockMiningRuntime` forwards authoritative current tick; React never draws random numbers or mutates inventory. Successful normal-voxel mutations alone publish physical rewards, and a self-reference preserves complete portable voxel state. Quantities are split according to the resolved item/tool stack limit.
+- Creative's suppression policy still produces no drops. An authored table overrides `dropsSelf` rather than duplicating it. For a full physical-drop pool, normal block and layer mining with authored rewards reject **before** mutating the voxel/layer. Existing spike cascade drops retain their specialized handling; other systems still use the preexisting bounded drop-eviction policy.
+- Nine MineClone JSON recipes were ported exactly: stone → 4 pebble, grass_block → 1 dirt, oak/willow/enchanted/world-tree leaves → stick at 60%, and dirt/gravel/mud → themselves. Existing iron/copper/lead/silver/tin/zinc/nickel/gold ore **layers** already author one raw item each and continue to remove only the top interactive layer according to its face/voxel scope; no new ore blocks or gem ores were created.
+- Focused regression tests cover content parsing, authored-pack tables, randomized repeatability, zero-chance/empty tables, quantities/stack limits, multi-drop once-only semantics, no loot in Creative, state preservation, invalid content, and capacity rejection without a destructive mutation.
+- No audio work.
