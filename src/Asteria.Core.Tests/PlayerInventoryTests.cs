@@ -176,8 +176,11 @@ public sealed class PlayerInventoryTests
         Assert.Equal(1, inventory.Cursor!.Quantity);
         Assert.True(inventory.ClickSlot(29, rightButton: true));
         Assert.Null(inventory.Cursor);
-        Assert.False(inventory.ClickSlot(29, rightButton: true) &&
-                     inventory.SlotAt(29) is null);
+        Assert.True(inventory.ClickSlot(29, rightButton: true));
+        Assert.Null(inventory.SlotAt(29));
+        Assert.Equal(1, inventory.Cursor!.Quantity);
+        Assert.True(inventory.ClickSlot(29, rightButton: true));
+        Assert.Null(inventory.Cursor);
         Assert.Equal(5, inventory.Capture().Backpack.Concat(inventory.Capture().Hotbar)
             .Sum(stack => stack?.Quantity ?? 0));
     }
