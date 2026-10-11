@@ -110,7 +110,7 @@ public sealed class BlockInteractionRuntime
 
                 if (lootPolicy == BlockBreakLootPolicy.DropSelf)
                     foreach (var drop in layer.Drops)
-                        _droppedBlocks.Spawn(drop.ToStack(), CenterOf(decision.Position));
+                        _droppedBlocks.Spawn(drop.ToStack(), LayerDropPosition(hit));
 
                 return decision;
             }
@@ -232,6 +232,18 @@ public sealed class BlockInteractionRuntime
         }
 
         return decision;
+    }
+
+    // The supporting block stays solid; put loot beyond the mined face
+    // so the entity doesn't spawn embedded in its collision geometry.
+    private static Vector3 LayerDropPosition(VoxelWorldHit hit)
+    {
+        const float clearance = 0.04f;
+        var distance = 0.5f + DroppedBlockRuntime.HalfExtent + clearance;
+        return CenterOf(hit.Voxel) + new Vector3(
+            hit.NormalX * distance,
+            hit.NormalY * distance,
+            hit.NormalZ * distance);
     }
 
     private static Vector3 CenterOf(
