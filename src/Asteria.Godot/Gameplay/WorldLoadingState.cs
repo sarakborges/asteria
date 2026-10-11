@@ -9,6 +9,7 @@ public enum WorldLoadingPhase : byte
     MaterializingInitialArea = 2,
     PreparingPresentation = 3,
     Ready = 4,
+    PreparingArrivalStructure = 5,
 }
 
 public readonly record struct WorldLoadingProgress(
@@ -42,7 +43,8 @@ public sealed class WorldLoadingState
         _progress.Phase is
             WorldLoadingPhase.RetiringCurrentDimension or
             WorldLoadingPhase.MaterializingInitialArea or
-            WorldLoadingPhase.PreparingPresentation;
+            WorldLoadingPhase.PreparingPresentation or
+            WorldLoadingPhase.PreparingArrivalStructure;
 
     public ChunkCoord Center { get; private set; }
 
@@ -146,6 +148,28 @@ public sealed class WorldLoadingState
                 1,
                 1);
         return true;
+    }
+
+    /// <summary>Additional authored voxel work has been committed after
+    /// the initial area became renderable; its collision must be republished.
+    /// </summary>
+    public void BeginArrivalStructurePresentation()
+    {
+        if (_progress.Phase != WorldLoadingPhase.Ready)
+            throw new InvalidOperationException(
+                "Arrival Structure preparation requires a ready initial area.");
+        _progress = new WorldLoadingProgress(
+            WorldLoadingPhase.PreparingArrivalStructure, 0, 1);
+    }
+
+    public void UpdateArrivalStructurePresentation(bool presentationCurrent)
+    {
+        if (_progress.Phase != WorldLoadingPhase.PreparingArrivalStructure)
+            return;
+        _progress = presentationCurrent
+            ? new WorldLoadingProgress(WorldLoadingPhase.Ready, 1, 1)
+            : new WorldLoadingProgress(
+                WorldLoadingPhase.PreparingArrivalStructure, 0, 1);
     }
 
     public void Reset()

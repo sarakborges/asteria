@@ -559,6 +559,7 @@ public partial class Main : Node3D
             _loading.Progress.Phase is
                 WorldLoadingPhase.MaterializingInitialArea or
                 WorldLoadingPhase.PreparingPresentation or
+                WorldLoadingPhase.PreparingArrivalStructure or
                 WorldLoadingPhase.Ready;
         var streamingCenter =
             loadingWorld
@@ -2050,10 +2051,13 @@ public partial class Main : Node3D
                     _spawnChunk));
         }
 
-        SendLoadingState();
+        if (_loading.Progress.Phase == WorldLoadingPhase.PreparingArrivalStructure)
+            _loading.UpdateArrivalStructurePresentation(
+                _sessions.Active.IsPortalArrivalPresentationCurrent());
 
         if (!_loading.Progress.IsReady)
         {
+            SendLoadingState();
             return;
         }
 
@@ -2080,6 +2084,8 @@ public partial class Main : Node3D
                     if (result == ManualStructurePlacementResult.Placed)
                     {
                         _warpArrival = warp.AwaitStructurePublication();
+                        _loading.BeginArrivalStructurePresentation();
+                        SendLoadingState();
                         return;
                     }
                 }
@@ -2199,7 +2205,8 @@ public partial class Main : Node3D
                     "retiring_current_dimension",
                 WorldLoadingPhase.MaterializingInitialArea =>
                     "materializing_initial_area",
-                WorldLoadingPhase.PreparingPresentation =>
+                WorldLoadingPhase.PreparingPresentation or
+                    WorldLoadingPhase.PreparingArrivalStructure =>
                     "preparing_presentation",
                 WorldLoadingPhase.Ready =>
                     "ready",
