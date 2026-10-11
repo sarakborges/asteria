@@ -32,8 +32,8 @@ public readonly record struct AttachedBlockLayer
 /// <summary>
 /// Immutable portable per-voxel extra state: dye, face attachments and
 /// bounded arbitrary metadata tags. Absence is represented by Empty and
-/// per-chunk storage remains sparse. Order is attachment order, so Shears
-/// remove the final layer on the hit face, not an intrinsic block texture.
+/// per-chunk storage remains sparse. Order is attachment order; mining
+/// resolves the final layer on the hit face before reaching the host block.
 /// </summary>
 public sealed class BlockSurfaceState : IEquatable<BlockSurfaceState>
 {
@@ -134,6 +134,32 @@ public sealed class BlockSurfaceState : IEquatable<BlockSurfaceState>
         }
 
         updated = new BlockSurfaceState(DyeId, _layers.Append(layer), _metaTags);
+        return true;
+    }
+
+    public bool TryGetTop(BlockFace face, out AttachedBlockLayer top)
+    {
+        for (var index = _layers.Length - 1; index >= 0; index--)
+        {
+            if (_layers[index].Face != face) continue;
+            top = _layers[index];
+            return true;
+        }
+        top = default;
+        return false;
+    }
+
+    public bool TryRemoveEverywhere(string id, out BlockSurfaceState updated)
+    {
+        BlockDefinition.ValidateId(id);
+        var kept = _layers.Where(layer =>
+            !StringComparer.Ordinal.Equals(layer.LayerId, id)).ToArray();
+        if (kept.Length == _layers.Length)
+        {
+            updated = this;
+            return false;
+        }
+        updated = new BlockSurfaceState(DyeId, kept, _metaTags);
         return true;
     }
 
