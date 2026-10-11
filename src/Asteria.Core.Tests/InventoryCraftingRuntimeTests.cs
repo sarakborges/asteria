@@ -167,6 +167,48 @@ public sealed class InventoryCraftingRuntimeTests
     }
 
     [Fact]
+    public void AvailabilityDistinguishesIngredientAndOutputCapacityWithoutMutation()
+    {
+        var crafting = CreateRuntime();
+        var inventory = new PlayerInventory();
+        Assert.Equal(InventoryCraftingResult.UnknownRecipe,
+            crafting.Availability(inventory, "asteria:missing"));
+        Assert.Equal(InventoryCraftingResult.MissingIngredients,
+            crafting.Availability(inventory, "asteria:rustic_hatchet"));
+        AddMaterials(inventory);
+        Assert.Equal(InventoryCraftingResult.Crafted,
+            crafting.Availability(inventory, "asteria:rustic_hatchet"));
+
+        // Fill the remaining slots with unit-stack fillers. Consuming the
+        // recipe's ingredient stacks frees room for its single output.
+        for (var i = 0; i < 33; i++)
+            Assert.True(inventory.TryInsert(new InventoryStack(
+                InventoryEntry.FromTool($"asteria:tool_{i}"))));
+        // The tool output now fits into a slot vacated by consumed input.
+        Assert.Equal(InventoryCraftingResult.Crafted,
+            crafting.Availability(inventory, "asteria:rustic_hatchet"));
+
+        // A recipe that only partially consumes one stack has no free slot
+        // for a new unique tool when all 36 slots are occupied.
+        var large = CraftingRecipeDefinition.Parse("""
+            {
+              "id": "asteria:partial_inputs",
+              "environment": "inventory",
+              "ingredients": [{"item":"asteria:pebble","quantity":1}],
+              "result": {"item":"asteria:hatchet_rustic","quantity":1}
+            }
+            """);
+        var result = InventoryEntry.FromTool("asteria:hatchet_rustic");
+        var revision = inventory.Revision;
+        Assert.False(inventory.CanCraft(large, result));
+        Assert.Equal(revision, inventory.Revision);
+
+        // Live crafting APIs must not mutate inputs on failed preflight.
+        Assert.Equal(2, inventory.ItemQuantity("asteria:pebble"));
+        Assert.Null(inventory.Cursor);
+    }
+
+    [Fact]
     public void UnknownRecipesDoNotMutateInventory()
     {
         var crafting = CreateRuntime();
