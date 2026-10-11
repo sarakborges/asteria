@@ -2,12 +2,12 @@
   "id": "asteria:coral_orange",
   "category": "foliage",
   "textures": {
-    "top": "textures/blocks/coral_orange.png",
-    "bottom": "textures/blocks/coral_orange.png",
-    "left": "textures/blocks/coral_orange.png",
-    "right": "textures/blocks/coral_orange.png",
-    "front": "textures/blocks/coral_orange.png",
-    "back": "textures/blocks/coral_orange.png"
+    "top": "textures/blocks/coral/orange.png",
+    "bottom": "textures/blocks/coral/orange.png",
+    "left": "textures/blocks/coral/orange.png",
+    "right": "textures/blocks/coral/orange.png",
+    "front": "textures/blocks/coral/orange.png",
+    "back": "textures/blocks/coral/orange.png"
   },
   "tags": [
     "fragmentable"

@@ -2,12 +2,12 @@
   "id": "asteria:windwood",
   "category": "wooden_blocks",
   "textures": {
-    "top": "textures/blocks/windwood.png",
-    "bottom": "textures/blocks/windwood.png",
-    "left": "textures/blocks/windwood.png",
-    "right": "textures/blocks/windwood.png",
-    "front": "textures/blocks/windwood.png",
-    "back": "textures/blocks/windwood.png"
+    "top": "textures/blocks/trees/windwood/wood.png",
+    "bottom": "textures/blocks/trees/windwood/wood.png",
+    "left": "textures/blocks/trees/windwood/wood.png",
+    "right": "textures/blocks/trees/windwood/wood.png",
+    "front": "textures/blocks/trees/windwood/wood.png",
+    "back": "textures/blocks/trees/windwood/wood.png"
   },
   "mining": {
     "hardness": 1.1,

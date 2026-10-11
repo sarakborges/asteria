@@ -4,12 +4,12 @@
   "tint": "none",
   "windSway": true,
   "textures": {
-    "top": "textures/blocks/windwood_needles.png",
-    "bottom": "textures/blocks/windwood_needles.png",
-    "left": "textures/blocks/windwood_needles.png",
-    "right": "textures/blocks/windwood_needles.png",
-    "front": "textures/blocks/windwood_needles.png",
-    "back": "textures/blocks/windwood_needles.png"
+    "top": "textures/blocks/trees/windwood/needles.png",
+    "bottom": "textures/blocks/trees/windwood/needles.png",
+    "left": "textures/blocks/trees/windwood/needles.png",
+    "right": "textures/blocks/trees/windwood/needles.png",
+    "front": "textures/blocks/trees/windwood/needles.png",
+    "back": "textures/blocks/trees/windwood/needles.png"
   },
   "alphaCutoff": 0.5,
   "mining": {

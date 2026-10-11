@@ -6,7 +6,7 @@
   ],
   "visual": {
     "type": "crossedSprite",
-    "texture": "textures/objects/mushroom_yellow.png",
+    "texture": "textures/objects/mushrooms/yellow.png",
     "width": 0.72,
     "height": 0.62,
     "planes": 2

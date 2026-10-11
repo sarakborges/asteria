@@ -3,12 +3,12 @@
   "category": "foliage",
   "windSway": true,
   "textures": {
-    "top": "textures/blocks/skywood_leaves.png",
-    "bottom": "textures/blocks/skywood_leaves.png",
-    "left": "textures/blocks/skywood_leaves.png",
-    "right": "textures/blocks/skywood_leaves.png",
-    "front": "textures/blocks/skywood_leaves.png",
-    "back": "textures/blocks/skywood_leaves.png"
+    "top": "textures/blocks/trees/skywood/leaf.png",
+    "bottom": "textures/blocks/trees/skywood/leaf.png",
+    "left": "textures/blocks/trees/skywood/leaf.png",
+    "right": "textures/blocks/trees/skywood/leaf.png",
+    "front": "textures/blocks/trees/skywood/leaf.png",
+    "back": "textures/blocks/trees/skywood/leaf.png"
   },
   "alphaCutoff": 0.5,
   "lightDampening": 1,

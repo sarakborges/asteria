@@ -2,12 +2,12 @@
   "id": "asteria:rime_deadwood",
   "category": "wooden_blocks",
   "textures": {
-    "top": "textures/blocks/rime_deadwood.png",
-    "bottom": "textures/blocks/rime_deadwood.png",
-    "left": "textures/blocks/rime_deadwood.png",
-    "right": "textures/blocks/rime_deadwood.png",
-    "front": "textures/blocks/rime_deadwood.png",
-    "back": "textures/blocks/rime_deadwood.png"
+    "top": "textures/blocks/trees/rime_deadwood/wood.png",
+    "bottom": "textures/blocks/trees/rime_deadwood/wood.png",
+    "left": "textures/blocks/trees/rime_deadwood/wood.png",
+    "right": "textures/blocks/trees/rime_deadwood/wood.png",
+    "front": "textures/blocks/trees/rime_deadwood/wood.png",
+    "back": "textures/blocks/trees/rime_deadwood/wood.png"
   },
   "mining": {
     "hardness": 0.8,

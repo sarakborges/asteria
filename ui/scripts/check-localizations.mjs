@@ -57,6 +57,25 @@ const resource = (path, context) => {
   }
 };
 
+// Validate every pack-relative texture referenced by authored blocks, including
+// multi-face arrays, visual sprites and optional nested texture layers.
+const validateBlockTexturePaths = (node, context) => {
+  if (typeof node === "string") {
+    if (node.startsWith("textures/")) resource(node, context);
+    return;
+  }
+  if (Array.isArray(node)) {
+    node.forEach((entry, index) =>
+      validateBlockTexturePaths(entry, context + "[" + index + "]"));
+    return;
+  }
+  if (node && typeof node === "object") {
+    for (const [key, value] of Object.entries(node)) {
+      validateBlockTexturePaths(value, context + "." + key);
+    }
+  }
+};
+
 for (const [domain, directories] of [
   ["blocks", ["blocks"]],
   ["dimensions", ["biomes", "dimensions"]],
@@ -83,6 +102,7 @@ for (const [domain, directories] of [
           " in " + directory + "/" + file);
       }
       seen.add(definition.id);
+      if (domain === "blocks") validateBlockTexturePaths(definition, definition.id);
       if (domain === "items" || domain === "tools") {
         resource(definition.icon, definition.id + ".icon");
         if (definition.tintIcon) resource(definition.tintIcon, definition.id + ".tintIcon");

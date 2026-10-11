@@ -3,12 +3,12 @@
   "category": "foliage",
   "windSway": true,
   "textures": {
-    "top": "textures/blocks/ember_needles.png",
-    "bottom": "textures/blocks/ember_needles.png",
-    "left": "textures/blocks/ember_needles.png",
-    "right": "textures/blocks/ember_needles.png",
-    "front": "textures/blocks/ember_needles.png",
-    "back": "textures/blocks/ember_needles.png"
+    "top": "textures/blocks/trees/charwood/ember_needles.png",
+    "bottom": "textures/blocks/trees/charwood/ember_needles.png",
+    "left": "textures/blocks/trees/charwood/ember_needles.png",
+    "right": "textures/blocks/trees/charwood/ember_needles.png",
+    "front": "textures/blocks/trees/charwood/ember_needles.png",
+    "back": "textures/blocks/trees/charwood/ember_needles.png"
   },
   "alphaCutoff": 0.5,
   "lightDampening": 2,

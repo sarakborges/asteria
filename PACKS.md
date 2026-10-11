@@ -35,6 +35,17 @@ The built-in startup pack is `packs/default/`.
 
 Runtime selection is represented by one `PackSelection` value. The initial value is `default`; future import/selection UI may change it without changing individual content loaders.
 
+### Texture asset layout
+
+Asteria resolves authored textures by their **pack-relative paths** in block, sprite, fluid and model definitions. Directory names organize files only; they do not determine game behavior or block IDs.
+
+- One-texture generic materials may remain directly under `textures/blocks/` (for example `dirt.png`, `stone.png` and `sand.png`).
+- Multiple authored faces of one block belong in its own directory: `textures/blocks/grass/{top,side,side_overlay}.png`, `textures/blocks/cactus/barrel/{top,side}.png` and `textures/blocks/storage_box/{top,side,front,bottom}.png`.
+- All tree and wood-specific assets belong to `textures/blocks/trees/<species-or-wood>/`. Related trunks, planks, stripped faces, leaves and needles stay colocated. Existing oak, willow, enchanted and world-tree groups define the original convention.
+- Related multi-part organisms may share a group directory: `textures/blocks/mushrooms/<species>/{cap,stem}.png`, `textures/blocks/kelp/{stem,frond}.png` and `textures/blocks/coral/<color>.png`.
+- Ground and crossed sprites stay under `textures/objects/`; collections may use subdirectories such as `objects/mushrooms/` and `objects/cactus/`.
+- Moving a texture requires updating every authored path and any path-sensitive regression tests; texture bytes, content IDs, and gameplay behavior remain unchanged. The WebUI build checks that referenced block textures exist.
+
 ## 2. Non-negotiable engine boundary
 
 The authored format belongs to Asteria, not Godot.

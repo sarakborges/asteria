@@ -68,7 +68,7 @@ public sealed class CactusLandscapeTests
             var block = blocks.GetDefinition(blocks.GetId(id));
             Assert.True(block.IsCollidable);
             Assert.All(block.Textures.AllLayers(),
-                layer => Assert.StartsWith("textures/blocks/cactus_", layer.Texture));
+                layer => Assert.StartsWith("textures/blocks/cactus/", layer.Texture));
         }
         foreach (var id in new[] {
             "asteria:cactus_flower_pink", "asteria:cactus_flower_yellow" })

@@ -2,12 +2,12 @@
   "id": "asteria:charwood",
   "category": "wooden_blocks",
   "textures": {
-    "top": "textures/blocks/charwood_top.png",
-    "bottom": "textures/blocks/charwood_top.png",
-    "left": "textures/blocks/charwood_side.png",
-    "right": "textures/blocks/charwood_side.png",
-    "front": "textures/blocks/charwood_side.png",
-    "back": "textures/blocks/charwood_side.png"
+    "top": "textures/blocks/trees/charwood/top.png",
+    "bottom": "textures/blocks/trees/charwood/top.png",
+    "left": "textures/blocks/trees/charwood/side.png",
+    "right": "textures/blocks/trees/charwood/side.png",
+    "front": "textures/blocks/trees/charwood/side.png",
+    "back": "textures/blocks/trees/charwood/side.png"
   },
   "lightDampening": 15,
   "castsShadow": true,

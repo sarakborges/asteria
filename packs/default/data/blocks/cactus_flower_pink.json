@@ -6,7 +6,7 @@
   ],
   "visual": {
     "type": "crossedSprite",
-    "texture": "textures/objects/cactus_flower_pink.png",
+    "texture": "textures/objects/cactus/flower_pink.png",
     "width": 0.74,
     "height": 0.64,
     "planes": 4
