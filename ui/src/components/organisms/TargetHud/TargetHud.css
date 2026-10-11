@@ -36,6 +36,12 @@
   color: var(--ui-color-text);
 }
 
+.target-hud__layers {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
 .target-hud__mining-progress {
   width: 100%;
   min-width: 120px;
