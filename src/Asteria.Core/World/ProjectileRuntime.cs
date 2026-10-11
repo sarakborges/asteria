@@ -162,7 +162,7 @@ public sealed class ProjectileRuntime
                 continue;
             }
 
-            if (dt >= remaining)
+            if (remaining - dt <= 0.000001f)
             {
                 expired.Add(id);
             }
