@@ -190,6 +190,64 @@ public sealed class InteractiveLayerMiningTests
     }
 
     [Fact]
+    public void CrackTargetFollowsTopLayerFaceAndRotationWithoutTargetLeaks()
+    {
+        var f = Setup();
+        PutStone(f, new BlockSurfaceState(null, [
+            new AttachedBlockLayer(BlockFace.Top, "asteria:iron_ore"),
+            new AttachedBlockLayer(BlockFace.Top, "asteria:moss",
+                TextureRotation.Degrees90),
+            new AttachedBlockLayer(BlockFace.Front, "asteria:lichen",
+                TextureRotation.Degrees180)
+        ]));
+
+        Assert.Null(f.Mining.TargetLayer);
+        Assert.False(f.Mining.Advance(TopHit, Shears(), 0, 5,
+            PlayerGameMode.Survival));
+        var moss = Assert.IsType<AttachedBlockLayer>(f.Mining.TargetLayer);
+        Assert.Equal("asteria:moss", moss.LayerId);
+        Assert.Equal(BlockFace.Top, moss.Face);
+        Assert.Equal(TextureRotation.Degrees90, moss.Rotation);
+
+        // Switching face changes the semantic target, resets progress,
+        // and must never leave top-face moss cracks on the front wall.
+        Assert.False(f.Mining.Advance(FrontHit, null, 0, 5,
+            PlayerGameMode.Survival));
+        var lichen = Assert.IsType<AttachedBlockLayer>(f.Mining.TargetLayer);
+        Assert.Equal("asteria:lichen", lichen.LayerId);
+        Assert.Equal(BlockFace.Front, lichen.Face);
+        Assert.Equal(TextureRotation.Degrees180, lichen.Rotation);
+
+        f.Mining.Cancel();
+        Assert.Null(f.Mining.Target);
+        Assert.Null(f.Mining.Progress);
+        Assert.Null(f.Mining.TargetLayer);
+    }
+
+    [Fact]
+    public void RemovingFirstStackedLayerClearsCrackTargetUntilNextSwing()
+    {
+        var f = Setup();
+        PutStone(f, new BlockSurfaceState(null, [
+            new AttachedBlockLayer(BlockFace.Top, "asteria:iron_ore"),
+            new AttachedBlockLayer(BlockFace.Top, "asteria:moss")
+        ]));
+
+        Assert.False(f.Mining.Advance(TopHit, Shears(), 0, 10,
+            PlayerGameMode.Survival));
+        Assert.Equal("asteria:moss", f.Mining.TargetLayer!.Value.LayerId);
+        Assert.True(f.Mining.Advance(TopHit, Shears(), 0, 10,
+            PlayerGameMode.Survival));
+        Assert.Null(f.Mining.TargetLayer);
+        Assert.Null(f.Mining.Target);
+
+        Assert.False(f.Mining.Advance(TopHit, Pickaxe(), 0, 10,
+            PlayerGameMode.Survival));
+        Assert.Equal("asteria:iron_ore",
+            f.Mining.TargetLayer!.Value.LayerId);
+    }
+
+    [Fact]
     public void CreativeRemovesLayerWithoutDropsAndPreservesHost()
     {
         var f = Setup();
