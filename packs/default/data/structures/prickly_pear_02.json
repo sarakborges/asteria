@@ -1,6 +1,6 @@
 {
-  "id": "asteria:gorge_prickly_pear_02",
-  "groupId": "gorge_prickly_pear",
+  "id": "asteria:prickly_pear_02",
+  "groupId": "prickly_pear",
   "rotation": true,
   "locatable": false,
   "conflictGroups": [
@@ -9,6 +9,7 @@
   ],
   "restrictions": {
     "groundBlocks": [
+      "asteria:sand",
       "asteria:stone",
       "asteria:dirt",
       "asteria:gravel",
@@ -29,9 +30,6 @@
     "z": 3
   },
   "palette": {
-    "G": {
-      "block": "asteria:stone"
-    },
     "P": {
       "block": "asteria:cactus_pad"
     },
@@ -43,18 +41,6 @@
     }
   },
   "layers": [
-    {
-      "y": 0,
-      "rows": [
-        ".......",
-        ".......",
-        ".......",
-        "...G...",
-        ".......",
-        ".......",
-        "......."
-      ]
-    },
     {
       "y": 1,
       "rows": [
@@ -103,5 +89,6 @@
         "......."
       ]
     }
-  ]
+  ],
+  "groundAnchorY": 0
 }

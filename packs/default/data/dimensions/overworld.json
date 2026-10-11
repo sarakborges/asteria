@@ -893,7 +893,7 @@
     },
     {
       "biome": "asteria:overworld/desert",
-      "structure": "asteria:cactus_prickly_pear",
+      "structure": "asteria:prickly_pear",
       "spacing": 29,
       "jitter": 9,
       "chance": 0.74,
@@ -905,7 +905,7 @@
     },
     {
       "biome": "asteria:overworld/gorge",
-      "structure": "asteria:gorge_prickly_pear",
+      "structure": "asteria:prickly_pear",
       "spacing": 62,
       "jitter": 18,
       "chance": 0.52,

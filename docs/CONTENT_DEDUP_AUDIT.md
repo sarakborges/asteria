@@ -20,3 +20,7 @@ Distinct colors/species, growth forms, emitted light, texture families, large au
 Biome placement, clustering and habitat weights remain authored in the existing JSON rules. Using generic `stone_spike`, `sandstone_spike`, and `ice_spike` intentionally inherits their current placement/support behavior and material appearance rather than preserving bespoke spur/shard behavior.
 
 Existing old-world saves referring to deleted IDs are not automatically migrated: compatibility requires a separately authorized save migration.
+
+## Shared prickly pear structure variants
+
+The four `cactus_prickly_pear_01/02` and `gorge_prickly_pear_01/02` structure files had byte-identical above-ground shapes, with only a generated Sand versus Stone ground voxel changed. They were replaced with **two** `prickly_pear_01/02` variants and a single `prickly_pear` group. Their `groundAnchorY: 0` avoids writing an artificial ground block, while the same two independent dimension rules retain desert versus gorge biome/habitat density. Allowed support is the union of the original pack-authored ground types, and the existing terrain is not overwritten at Y=0.
