@@ -3463,8 +3463,17 @@ public partial class Main : Node3D
             !payload.TryGetProperty("index", out var value) ||
             !value.TryGetInt32(out var index)) return;
 
-        if (!_sessions.Active.TryClickStorageBox(
-                index, _sessionStates.Player.Inventory)) return;
+        var action = ReadInventorySlotAction(payload);
+        if (action is null) return;
+        var inventory = _sessionStates.Player.Inventory;
+        var changed = action switch
+        {
+            "right" => _sessions.Active.TryClickStorageBox(
+                index, inventory, rightButton: true),
+            "quick" => _sessions.Active.TryQuickTransferStorageBox(index, inventory),
+            _ => _sessions.Active.TryClickStorageBox(index, inventory),
+        };
+        if (!changed) return;
         SyncHeldBlock();
         SendHotbarState();
         SendInventoryState();
@@ -3498,10 +3507,35 @@ public partial class Main : Node3D
             payload.ValueKind != JsonValueKind.Object ||
             !payload.TryGetProperty("index", out var indexValue) ||
             !indexValue.TryGetInt32(out var index)) return;
-        if (!_sessionStates.Player.Inventory.ClickSlot(index)) return;
+        var action = ReadInventorySlotAction(payload);
+        if (action is null) return;
+        var inventory = _sessionStates.Player.Inventory;
+        var inStorage = _sessions.Active.ActiveStorageBox is not null;
+        var changed = action switch
+        {
+            "right" => inventory.ClickSlot(index, rightButton: true),
+            "quick" when inStorage =>
+                _sessions.Active.TryQuickTransferPlayerToStorage(index, inventory),
+            "quick" => inventory.QuickMoveSlot(index),
+            _ => inventory.ClickSlot(index),
+        };
+        if (!changed) return;
         SyncHeldBlock();
         SendHotbarState();
         SendInventoryState();
+        if (inStorage) SendStorageBoxState();
+    }
+
+    // The browser communicates semantic slot intent, never raw gameplay
+    // pointer input. Reject unsupported actions before mutating any state.
+    private static string? ReadInventorySlotAction(JsonElement payload)
+    {
+        if (!payload.TryGetProperty("action", out var value))
+            return "left";
+        if (value.ValueKind != JsonValueKind.String)
+            return null;
+        var action = value.GetString();
+        return action is "left" or "right" or "quick" ? action : null;
     }
 
     private void HandleInventoryCraft(JsonElement message)
