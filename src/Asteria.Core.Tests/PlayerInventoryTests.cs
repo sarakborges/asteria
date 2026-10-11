@@ -158,4 +158,99 @@ public sealed class PlayerInventoryTests
         Assert.NotEqual(item, tool);
         Assert.False(new InventoryStack(item).CanStackWith(new InventoryStack(tool)));
     }
+
+    [Fact]
+    public void RightClickSplitsOddStackAndDepositsExactlyOne()
+    {
+        var inventory = new PlayerInventory();
+        Assert.True(inventory.TryInsert(Block(1, 5)));
+        Assert.True(inventory.ClickSlot(27, rightButton: true));
+        Assert.Equal(3, inventory.Cursor!.Quantity);
+        Assert.Equal(2, inventory.SlotAt(27)!.Quantity);
+
+        Assert.True(inventory.ClickSlot(28, rightButton: true));
+        Assert.Equal(2, inventory.Cursor!.Quantity);
+        Assert.Equal(1, inventory.SlotAt(28)!.Quantity);
+        Assert.True(inventory.ClickSlot(27, rightButton: true));
+        Assert.Equal(3, inventory.SlotAt(27)!.Quantity);
+        Assert.Equal(1, inventory.Cursor!.Quantity);
+        Assert.True(inventory.ClickSlot(29, rightButton: true));
+        Assert.Null(inventory.Cursor);
+        Assert.False(inventory.ClickSlot(29, rightButton: true) &&
+                     inventory.SlotAt(29) is null);
+        Assert.Equal(5, inventory.Capture().Backpack.Concat(inventory.Capture().Hotbar)
+            .Sum(stack => stack?.Quantity ?? 0));
+    }
+
+    [Fact]
+    public void RightClickRejectsIncompatibleAndFullStacksWithoutRevision()
+    {
+        var inventory = new PlayerInventory();
+        Assert.True(inventory.TryInsert(Block(1, 64)));
+        Assert.True(inventory.TryInsert(Block(2, 5)));
+        Assert.True(inventory.ClickSlot(28, rightButton: true));
+        var cursor = inventory.Cursor;
+        var before = inventory.Revision;
+        Assert.False(inventory.ClickSlot(27, rightButton: true));
+        Assert.Equal(before, inventory.Revision);
+        Assert.Equal(cursor, inventory.Cursor);
+        Assert.Equal(64, inventory.SlotAt(27)!.Quantity);
+        Assert.True(inventory.ClickSlot(28, rightButton: true));
+        Assert.Equal(3, inventory.SlotAt(28)!.Quantity);
+    }
+
+    [Fact]
+    public void ShiftClickBetweenHotbarAndBackpackMergesBeforeCreatingSlots()
+    {
+        var inventory = new PlayerInventory();
+        Assert.True(inventory.TryInsert(Block(1, 40)));
+        Assert.True(inventory.QuickMoveSlot(27));
+        Assert.Null(inventory.SlotAt(27));
+        Assert.Equal(40, inventory.SlotAt(0)!.Quantity);
+        Assert.True(inventory.TryInsert(Block(1, 30)));
+        Assert.True(inventory.QuickMoveSlot(27));
+        Assert.Null(inventory.SlotAt(27));
+        Assert.Equal(64, inventory.SlotAt(0)!.Quantity);
+        Assert.Equal(6, inventory.SlotAt(1)!.Quantity);
+        Assert.True(inventory.QuickMoveSlot(1));
+        Assert.Null(inventory.SlotAt(1));
+        Assert.Equal(6, inventory.SlotAt(27)!.Quantity);
+        Assert.Equal(70, inventory.Capture().Backpack.Concat(inventory.Capture().Hotbar)
+            .Sum(stack => stack?.Quantity ?? 0));
+        Assert.Null(inventory.Cursor);
+    }
+
+    [Fact]
+    public void ShiftClickWhenDestinationIsFullDoesNotChangeAnything()
+    {
+        var inventory = new PlayerInventory();
+        for (var i = 0; i < PlayerInventory.HotbarSlots; i++)
+            Assert.True(inventory.TryInsert(Block(2, 64)));
+        Assert.True(inventory.TryInsert(Block(1, 9)));
+        var before = inventory.Capture();
+        var revision = inventory.Revision;
+        Assert.False(inventory.QuickMoveSlot(0));
+        Assert.False(inventory.QuickMoveSlot(-1));
+        Assert.Equal(revision, inventory.Revision);
+        Assert.Equal(before.Backpack, inventory.Capture().Backpack);
+        Assert.Equal(before.Hotbar, inventory.Capture().Hotbar);
+    }
+
+    [Fact]
+    public void RightClickExternalRespectsMetadataAndLeavesCursorIntactOnRejection()
+    {
+        var inventory = new PlayerInventory();
+        var water = InventoryEntry.FromItem("asteria:bucket",
+            new Dictionary<string, string> { ["contained_fluid"] = "asteria:water" });
+        var lava = InventoryEntry.FromItem("asteria:bucket",
+            new Dictionary<string, string> { ["contained_fluid"] = "asteria:lava" });
+        Assert.True(inventory.TryCreativePick(water, 7));
+        var before = inventory.Revision;
+        Assert.False(inventory.ClickExternalSlot(new InventoryStack(lava, 3),
+            out var untouched, rightButton: true));
+        Assert.Equal(3, untouched!.Quantity);
+        Assert.Equal(before, inventory.Revision);
+        Assert.Equal(7, inventory.Cursor!.Quantity);
+    }
+
 }
