@@ -145,6 +145,18 @@ public sealed class BlockLootTableTests
     }
 
     [Fact]
+    public void QuantitiesAboveOneStackSplitWithoutTruncatingRewards()
+    {
+        var f = Setup("""[{"item":"asteria:raw_iron","quantity":130}]""");
+        Place(f);
+        Assert.True(f.Interactions.Break(Hit, worldTick: 12).Accepted);
+        var counts = f.Drops.ActiveBlocks.Select(x => x.Stack.Quantity).ToArray();
+        Assert.Equal(9, counts.Length);
+        Assert.Equal(130, counts.Sum());
+        Assert.Equal(2, counts[^1]);
+    }
+
+    [Fact]
     public void CreativeRemovalDoesNotRollOrSpawnAuthoredLoot()
     {
         var f = Setup("""[{"item":"asteria:raw_iron","quantity":5}]""");
