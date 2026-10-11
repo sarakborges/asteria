@@ -36,6 +36,7 @@ public sealed class DimensionRuntimeSession
     private readonly CreatureParticleRuntime _creatureParticles;
     private readonly CreatureParticlePresentation _creatureParticlePresentation;
     private readonly MiningParticlePresentation _miningParticlePresentation;
+    private readonly DyeRegistry _miningDyes;
     private readonly ProjectilePresentationController _projectilePresentation;
     private readonly InventoryContentCatalog _inventoryCatalog;
     private readonly CreatureNaturalSpawnRuntime _naturalSpawns;
@@ -83,6 +84,7 @@ public sealed class DimensionRuntimeSession
             fluids ??
             throw new ArgumentNullException(
                 nameof(fluids));
+        _miningDyes = dyes ?? throw new ArgumentNullException(nameof(dyes));
         ArgumentNullException.ThrowIfNull(
             biomes);
         ArgumentNullException.ThrowIfNull(
@@ -258,7 +260,8 @@ public sealed class DimensionRuntimeSession
         MiningCracks = new MiningCrackPresentation(
             Root, packSelection, blocks, fluids, terrainTextures, terrainMaterials);
         MiningParticles = new MiningParticleRuntime();
-        _miningParticlePresentation = new MiningParticlePresentation(Root);
+        _miningParticlePresentation = new MiningParticlePresentation(
+            Root, terrainTextures, terrainMaterials);
 
         var blockEntityPresentations =
             new BlockEntityPresentationController(
@@ -632,7 +635,21 @@ public sealed class DimensionRuntimeSession
     public void SyncMiningFeedback(float deltaSeconds, MiningFeedbackEvent? feedback)
     {
         if (feedback is { } cue)
-            MiningParticles.Emit(cue);
+        {
+            var tint = NVector3.One;
+            if (cue.Appearance is { } appearance)
+            {
+                if (appearance.DyeId is { } dyeId &&
+                    _miningDyes.TryGet(dyeId, out var dye) && dye is not null)
+                    tint = dye.Rgb;
+                else if (appearance.Tint != BlockTint.None)
+                    tint = Generator.Tints.SampleGrid(
+                        cue.Hit.Voxel.X, cue.Hit.Voxel.Z, 1, 1)
+                        .Resolve(appearance.Tint, appearance.TintFallback,
+                            cue.Hit.Voxel.X, cue.Hit.Voxel.Z);
+            }
+            MiningParticles.Emit(cue, tint);
+        }
         MiningParticles.Advance(deltaSeconds);
         _miningParticlePresentation.Sync(MiningParticles);
     }
