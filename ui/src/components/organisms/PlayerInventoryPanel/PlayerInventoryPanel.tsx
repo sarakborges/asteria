@@ -5,7 +5,7 @@ import type {
   PlayerInventoryView,
 } from "../../../presentation/inventoryModels";
 import { Surface } from "../../atoms/Surface/Surface";
-import { InventorySlot } from "../../molecules/InventorySlot/InventorySlot";
+import { InventorySlot, type InventorySlotAction } from "../../molecules/InventorySlot/InventorySlot";
 import { InventoryHotbarFooter } from "../../molecules/InventoryHotbarFooter/InventoryHotbarFooter";
 import { InventoryPanelHeader } from "../../molecules/InventoryPanelHeader/InventoryPanelHeader";
 import "./PlayerInventoryPanel.css";
@@ -22,6 +22,7 @@ export type PlayerInventoryPanelProps = {
   onSlotClick?(
     index: number,
     item: ItemStackView | null,
+    action: InventorySlotAction,
   ): void;
 };
 
@@ -65,10 +66,11 @@ export function PlayerInventoryPanel({
               item={item}
               disabled={Boolean(state.searchQuery.trim()) &&
                 !inventorySearchMatches(item, state.searchQuery, contentName)}
-              onClick={() =>
+              onClick={action =>
                 onSlotClick?.(
                   index,
                   item,
+                  action,
                 )
               }
             />
