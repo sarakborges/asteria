@@ -67,6 +67,7 @@ export type AppActions = {
   sortStorageBox(): void;
   closeChat(): void;
   submitChat(text: string): void;
+  activateChatMessage(messageId: string): void;
   clickInventorySlot(index: number, action: import("./components/molecules/InventorySlot/InventorySlot").InventorySlotAction): void;
   clickEquipmentSlot(index: number): void;
   sortInventory(): void;
@@ -146,6 +147,7 @@ export function App({
           catalog={state.chat.catalog}
           onClose={actions.closeChat}
           onSubmit={actions.submitChat}
+          onMessageAction={actions.activateChatMessage}
         />
       )}
       <GameHudPage
