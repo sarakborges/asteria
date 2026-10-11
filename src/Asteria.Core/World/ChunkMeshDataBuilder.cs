@@ -793,7 +793,7 @@ public static class ChunkMeshDataBuilder
                     quad[i] = outerCorners[3 - i];
             }
             ReverseSpikeQuadWinding(quad);
-        EmitQuadVertices(
+            EmitQuadVertices(
                 surface, collision, quad, normal, face,
                 material, rotation, lighting,
                 collidable, false, uvOrigin,
@@ -826,7 +826,7 @@ public static class ChunkMeshDataBuilder
                 quad[3] = innerCorners[next];
             }
             ReverseSpikeQuadWinding(quad);
-        EmitQuadVertices(
+            EmitQuadVertices(
                 surface, collision, quad, normal, face,
                 material, rotation, lighting,
                 collidable, false, uvOrigin,
