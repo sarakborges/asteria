@@ -27,6 +27,7 @@ public readonly record struct FluidWorldEdit(
 public sealed class VoxelWorld
 {
     private readonly Dictionary<ChunkCoord, Chunk> _chunks = [];
+    private BlockRegistry? _fluidOccupancyBlocks;
     private readonly Dictionary<ChunkCoord, ulong>
         _residencyEpochs = [];
     private readonly Dictionary<ChunkColumnCoord, ulong>
@@ -48,6 +49,19 @@ public sealed class VoxelWorld
     public int DirtyChunkCount => _archive.DirtyCount;
 
     public IEnumerable<ChunkCoord> LoadedChunkCoords => _chunks.Keys;
+
+    /// <summary>Configures which decorative sprites may share a fluid voxel.</summary>
+    public void ConfigureFluidOccupancy(BlockRegistry blocks) =>
+        _fluidOccupancyBlocks = blocks ??
+            throw new ArgumentNullException(nameof(blocks));
+
+    public bool CanContainFluidAt(WorldVoxelCoord position) =>
+        CanContainFluid(GetCellOrEmpty(position));
+
+    private bool CanContainFluid(VoxelCell cell) =>
+        cell.IsEmpty ||
+        (_fluidOccupancyBlocks is { } blocks &&
+         FluidBlockOccupancy.AllowsFluid(blocks.GetDefinition(cell.Block)));
 
     /// <summary>
     /// Raised after a chunk becomes resident, whether materialized or restored.
@@ -562,7 +576,7 @@ public sealed class VoxelWorld
             return false;
         }
 
-        if (!cell.IsEmpty)
+        if (!CanContainFluid(cell))
         {
             chunk.SetFluid(
                 address.Local.X,
@@ -658,11 +672,14 @@ public sealed class VoxelWorld
             address.Local.Z,
             state.SurfaceState);
 
-        chunk.SetFluid(
-            address.Local.X,
-            address.Local.Y,
-            address.Local.Z,
-            FluidCell.Empty);
+        if (!CanContainFluid(state.Cell))
+        {
+            chunk.SetFluid(
+                address.Local.X,
+                address.Local.Y,
+                address.Local.Z,
+                FluidCell.Empty);
+        }
 
         _archive.MarkDirty(address.Chunk);
         Revision++;
@@ -706,10 +723,10 @@ public sealed class VoxelWorld
             address.Local.Z);
 
         if (!fluid.IsEmpty &&
-            !chunk.GetCell(
+            !CanContainFluid(chunk.GetCell(
                 address.Local.X,
                 address.Local.Y,
-                address.Local.Z).IsEmpty)
+                address.Local.Z)))
         {
             edit = default;
             return false;
@@ -749,6 +766,7 @@ public sealed class VoxelWorld
         ArgumentNullException.ThrowIfNull(coordinates);
 
         var clone = new VoxelWorld();
+        clone._fluidOccupancyBlocks = _fluidOccupancyBlocks;
 
         foreach (var coord in coordinates.Distinct())
         {
