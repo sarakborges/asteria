@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { InventoryGameplayPage } from "./InventoryGameplayPage";
 import everythingIcon from "../../../../../packs/default/resources/textures/creative_categories/everything.png?url";
+import craftingMaterialsIcon from "../../../../../packs/default/resources/textures/creative_categories/crafting_materials.png?url";
 import stoneIcon from "../../../../../packs/default/resources/textures/creative_categories/stone_blocks.png?url";
 import toolsIcon from "../../../../../packs/default/resources/textures/creative_categories/tools.png?url";
 
@@ -162,7 +163,7 @@ export const NoRecipes: Story = {
         {
           id: "crafting_materials",
           order: 25,
-          iconUrl: everythingIcon,
+          iconUrl: craftingMaterialsIcon,
         },
       ],
     },
