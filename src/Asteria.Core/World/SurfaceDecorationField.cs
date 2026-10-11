@@ -12,7 +12,6 @@ public sealed class SurfaceDecorationField
     private readonly IReadOnlyDictionary<string, DecorationRule[]> _rules;
     private readonly HashSet<string> _verticalBiomes;
     private readonly HashSet<string> _ceilingBiomes;
-    private readonly HashSet<string> _wallBiomes;
 
     public SurfaceDecorationField(
         ulong seed,
@@ -40,19 +39,14 @@ public sealed class SurfaceDecorationField
                                 DecorationSupportSurface.Ceiling))
             .Select(biome => biome.Id)
             .ToHashSet(StringComparer.Ordinal);
-        _wallBiomes = definitions
-            .Where(biome => generateDecorations &&
-                            biome.Decorations.Any(d => d.SupportSurface ==
-                                DecorationSupportSurface.Wall))
-            .Select(biome => biome.Id)
-            .ToHashSet(StringComparer.Ordinal);
         _habitats = habitats ?? new SurfaceHabitatField(seed, definitions);
         _rules = definitions
             .OrderBy(biome => biome.Id, StringComparer.Ordinal)
             .ToDictionary(
                 biome => biome.Id,
                 biome => (generateDecorations
-                    ? biome.Decorations
+                    ? biome.Decorations.Where(decoration =>
+                        decoration.SupportSurface != DecorationSupportSurface.Wall)
                     : Array.Empty<BiomeDecorationDefinition>())
                     .OrderBy(
                         decoration => decoration.Block,
@@ -90,11 +84,6 @@ public sealed class SurfaceDecorationField
 
     public bool HasVerticalDecorations => _verticalBiomes.Count > 0;
     public bool HasCeilingDecorations => _ceilingBiomes.Count > 0;
-    public bool HasWallDecorations => _wallBiomes.Count > 0;
-
-    public bool HasWallDecorationsFor(string biomeId) =>
-        _wallBiomes.Contains(biomeId);
-
     public bool HasCeilingDecorationsFor(string biomeId) =>
         _ceilingBiomes.Contains(biomeId);
 
@@ -137,6 +126,12 @@ public sealed class SurfaceDecorationField
         Func<FluidRuntimeId, int, int, int, int, bool>? nearbyFluid = null,
         DecorationSupportSurface supportSurface = DecorationSupportSurface.Floor)
     {
+        // Legacy biome JSONs may still contain wall block decorators until
+        // authored layer definitions replace them. They are intentionally
+        // inert: real face overlays belong to BlockSurfaceState.Layers.
+        if (supportSurface == DecorationSupportSurface.Wall)
+            return BlockRuntimeId.Air;
+
         SurfacePlacementContext? placement = suppliedPlacement;
         var slopeSampled = suppliedPlacement.HasValue;
         foreach (var influence in sample.Influences)

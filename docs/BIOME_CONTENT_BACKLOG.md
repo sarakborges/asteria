@@ -138,6 +138,8 @@ These are *candidates*, not all mandatory changes. Reject objects
 that do not add a distinct silhouette, size, color, habitat, or gameplay
 value over existing content.
 
+**Layer port/dedup status (2026-10-11):** existing independent per-face Layers are the authoritative mechanism for moss/lichen overlays. The separate wall block-generation pass was removed without editing pack JSON; legacy wall decorators stay loadable but inactive until they are explicitly migrated to Layer definitions. 3D wall-supported blocks remain separate.
+
 **Wall decorator status (2026-10-11):** generic wall placement with directional support was implemented for Caverns and Gorge; a dedicated flat wall-decal renderer remains a follow-up; runtime support-wall detachment is now handled by shared block physics.
 
 ## P2 — genuine system prerequisites

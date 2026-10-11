@@ -77,6 +77,45 @@ public sealed class AttachedLayerRenderingTests
             data.CollisionTriangleCount);
     }
 
+
+    [Fact]
+    public void IndependentLayersCanCoverWallFacesWithoutOccupyingAdjacentVoxels()
+    {
+        var stone = new BlockDefinition("asteria:stone",
+            textures: new BlockTextureSet(
+                front: [new BlockTextureLayer(StonePath)]));
+        var blocks = new BlockRegistry([stone]);
+        var chunk = new Chunk();
+        chunk.SetBlock(1, 1, 1, blocks.GetId("asteria:stone"));
+        chunk.SetSurfaceState(1, 1, 1, new BlockSurfaceState(null, [
+            new AttachedBlockLayer(BlockFace.Front, "asteria:wall_moss"),
+            new AttachedBlockLayer(BlockFace.Front, "asteria:wall_lichen")
+        ]));
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, chunk);
+        var layerDefs = new AttachedLayerRegistry([
+            new AttachedLayerDefinition("asteria:wall_moss", LayerPath,
+                faces: [BlockFace.Front]),
+            new AttachedLayerDefinition("asteria:wall_lichen", LayerPath,
+                faces: [BlockFace.Front])
+        ]);
+
+        var mesh = ChunkMeshDataBuilder.BuildMeshlet(
+            world, ChunkCoord.Zero, blocks,
+            new TerrainTextureLookup(new Dictionary<string, int>
+            {
+                [StonePath] = 1, [LayerPath] = 2
+            }), 0, attachedLayers: layerDefs);
+
+        Assert.Equal(1, chunk.NonEmptyVoxelCount);
+        Assert.True(chunk.GetCell(1, 1, 2).IsEmpty);
+        Assert.Equal(12, mesh.CollisionTriangleCount);
+        var overlay = Assert.Single(mesh.RenderBatches.Where(batch =>
+            batch.Batch.RenderMode == BlockRenderMode.Cutout));
+        Assert.Equal(4, overlay.TriangleCount);
+        Assert.Equal(2, chunk.GetSurfaceState(1, 1, 1).Layers.Count);
+    }
+
     [Fact]
     public void MissingDefinitionFailsInsteadOfSilentlyDiscardingWorldData()
     {

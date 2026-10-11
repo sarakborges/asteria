@@ -5,48 +5,45 @@ namespace Asteria.Core.Tests;
 public sealed class WallDecorationContentTests
 {
     [Fact]
-    public void WallSupportIsAnExplicitAuthoredFaceAndNotImplicitFloor()
+    public void LegacyWallJsonRemainsLoadableButCreatesNoSeparateBlock()
     {
         var biome = BiomeDefinitionJson.Parse("""
         {
-          "id":"asteria:test/wall",
+          "id":"asteria:test/old_wall",
           "palette":{"default":[{"block":"asteria:stone"}]},
           "decorations":[
-            {"block":"asteria:wall_fern","chance":1,
+            {"block":"asteria:wall_moss","chance":1,
              "surfaceBlocks":["asteria:stone"],"supportSurface":"wall"}
           ]
         }
         """);
-        var rule = Assert.Single(biome.Decorations);
-        Assert.Equal(DecorationSupportSurface.Wall, rule.SupportSurface);
+        Assert.Equal(DecorationSupportSurface.Wall,
+            Assert.Single(biome.Decorations).SupportSurface);
 
         var blocks = new BlockRegistry([
             new BlockDefinition("asteria:stone"),
-            new BlockDefinition("asteria:wall_fern",
-                tags: [BlockPhysicsCapabilities.SupportWall, "horizontal_facing"])
+            new BlockDefinition("asteria:wall_moss")
         ]);
         var field = new SurfaceDecorationField(17, [biome], blocks);
         var sample = new BiomeSample(biome.Id,
             [new BiomeInfluence(biome.Id, 1f)]);
         var stone = blocks.GetId("asteria:stone");
 
-        Assert.True(field.HasWallDecorations);
-        Assert.True(field.HasWallDecorationsFor(biome.Id));
-        Assert.Equal(blocks.GetId("asteria:wall_fern"),
-            field.BlockAt(sample, stone, 3, 5,
-                new SurfacePlacementContext(40, 0),
-                verticalY:40, supportSurface:DecorationSupportSurface.Wall));
+        Assert.False(field.HasDecorations(sample));
         Assert.True(field.BlockAt(sample, stone, 3, 5,
-            supportSurface:DecorationSupportSurface.Floor).IsAir);
-        Assert.True(field.BlockAt(sample, blocks.GetId("asteria:wall_fern"), 3, 5,
-            supportSurface:DecorationSupportSurface.Wall).IsAir);
+            new SurfacePlacementContext(40, 0),
+            verticalY: 40,
+            supportSurface: DecorationSupportSurface.Wall).IsAir);
+        Assert.True(field.BlockAt(sample, stone, 3, 5,
+            supportSurface: DecorationSupportSurface.Floor).IsAir);
+
         Assert.Throws<FormatException>(() =>
             BiomeDefinitionJson.Parse("""
             {
-              "id":"asteria:test/badwall",
+              "id":"asteria:test/invalid",
               "palette":{"default":[{"block":"asteria:stone"}]},
-              "decorations":[{"block":"asteria:wall_fern","chance":1,
-                "surfaceBlocks":["asteria:stone"],"supportSurface":"diagonal"}]
+              "decorations":[{"block":"asteria:wall_moss","chance":1,
+                 "surfaceBlocks":["asteria:stone"],"supportSurface":"diagonal"}]
             }
             """));
     }
@@ -89,33 +86,24 @@ public sealed class WallDecorationContentTests
     }
 
     [Fact]
-    public void WallDecorationValidationRejectsBlocksWithoutDirectionalSupport()
+    public void LegacyWallDefinitionsDoNotRequireWallBlockPhysicsTags()
     {
         var biome = BiomeDefinitionJson.Parse("""
         {
-          "id":"asteria:test/wall_validate",
-          "volumeLayout":{"placement":"carvedVoid"},
+          "id":"asteria:test/old_wall",
           "palette":{"default":[{"block":"asteria:stone"}]},
           "decorations":[{
-            "block":"asteria:wall_fern","chance":1,
+            "block":"asteria:wall_moss","chance":1,
             "surfaceBlocks":["asteria:stone"],"supportSurface":"wall"
           }]
         }
         """);
         var biomes = new BiomeRegistry([biome]);
-        var invalid = new BlockRegistry([
+        var blocks = new BlockRegistry([
             new BlockDefinition("asteria:stone"),
-            new BlockDefinition("asteria:wall_fern", isCollidable:false)
+            new BlockDefinition("asteria:wall_moss", isCollidable: false)
         ]);
-        Assert.Throws<ArgumentException>(() => biomes.ValidateBlocks(invalid));
-
-        var valid = new BlockRegistry([
-            new BlockDefinition("asteria:stone"),
-            new BlockDefinition("asteria:wall_fern",
-                tags: [BlockPhysicsCapabilities.SupportWall,"horizontal_facing"],
-                isCollidable:false)
-        ]);
-        biomes.ValidateBlocks(valid);
+        biomes.ValidateBlocks(blocks);
     }
 
     [Fact]
@@ -131,8 +119,6 @@ public sealed class WallDecorationContentTests
         var sample = new BiomeSample(gorge.Id,
             [new BiomeInfluence(gorge.Id, 1f)]);
 
-        Assert.True(field.HasWallDecorationsFor(gorge.Id));
-        Assert.True(field.HasWallDecorationsFor(cave.Id));
         for(var x=-16;x<=16;x++)
         for(var y=72;y<=86;y++)
         {
@@ -143,6 +129,7 @@ public sealed class WallDecorationContentTests
                 new SurfacePlacementContext(y,0),
                 verticalY:y,supportSurface:DecorationSupportSurface.Wall);
             Assert.Equal(a,b);
+            Assert.True(a.IsAir);
         }
     }
 

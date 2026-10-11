@@ -1066,3 +1066,23 @@ ordinary floor/ceiling-supported plants.
 Wall biome content is validated when loading the block registry: an authored
 wall decorator must use `support_wall`, `horizontal_facing`, and all four
 lateral placement faces. Invalid pack definitions fail before generation.
+
+## Face layer integration and wall decorator deduplication (2026-10-11)
+
+The MineClone-style `AttachedLayerDefinition`, `AttachedLayerRegistry`,
+`AttachedBlockLayer` and sparse `BlockSurfaceState.Layers` already exist
+in Asteria Core, alongside inventory placement, mesh emission, stacked
+per-face offsets, sculpted-block clipping, save/load, and pack loading.
+These are the authoritative representation of surface-bound moss, lichens,
+and other applied face textures. They do **not** occupy adjacent voxels.
+
+The redundant `SurfaceChunkMaterializer.MaterializeWallDecorations`
+pass has been removed, along with its special biome tracking and
+validation path. Legacy `supportSurface: "wall"` biome decorators are
+still parsed so existing pack JSON remains untouched and loadable, but
+are excluded from active ground/ceiling decoration rules and no longer
+create crossed-sprite blocks. This intentionally postpones spawning the
+four previous wall-block decorations until a separate, explicit content
+migration to authored Layer definitions. Normal 3D blocks and the general
+`support_wall` block-physics capability remain separate from layers.
+No JSON in `packs/` is changed by this cleanup.
