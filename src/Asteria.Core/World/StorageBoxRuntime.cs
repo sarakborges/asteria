@@ -69,7 +69,7 @@ public sealed class StorageBoxRuntime
     /// Invalid indices and unopened storage never consume the cursor.</summary>
     public bool TryClickActive(
         int index, PlayerInventory player, VoxelWorld world,
-        BlockRegistry blocks)
+        BlockRegistry blocks, bool rightButton = false)
     {
         ArgumentNullException.ThrowIfNull(player);
         ArgumentNullException.ThrowIfNull(world);
@@ -79,9 +79,49 @@ public sealed class StorageBoxRuntime
             !IsActualBox(position, world, blocks))
             return false;
 
-        if (!player.ClickExternalSlot(slots[index], out var replacement))
+        if (!player.ClickExternalSlot(slots[index], out var replacement, rightButton))
             return false;
         slots[index] = replacement;
+        _revision++;
+        return true;
+    }
+
+    /// <summary>Shift-click an open container slot into player inventory.
+    /// Both revisions advance only when at least one item moves.</summary>
+    public bool TryQuickTransferActive(
+        int index, PlayerInventory player, VoxelWorld world,
+        BlockRegistry blocks)
+    {
+        ArgumentNullException.ThrowIfNull(player);
+        ArgumentNullException.ThrowIfNull(world);
+        ArgumentNullException.ThrowIfNull(blocks);
+        if (index is < 0 or >= SlotCount || _active is not { } position ||
+            !_boxes.TryGetValue(position, out var slots) ||
+            !IsActualBox(position, world, blocks) ||
+            slots[index] is not { } source)
+            return false;
+
+        if (!player.QuickReceiveExternal(source, out var remainder))
+            return false;
+        slots[index] = remainder;
+        _revision++;
+        return true;
+    }
+
+    /// <summary>Shift-click a player slot into this validated open box.
+    /// Its content and the player's slot are both committed synchronously.</summary>
+    public bool TryQuickTransferPlayer(
+        int playerIndex, PlayerInventory player, VoxelWorld world,
+        BlockRegistry blocks)
+    {
+        ArgumentNullException.ThrowIfNull(player);
+        ArgumentNullException.ThrowIfNull(world);
+        ArgumentNullException.ThrowIfNull(blocks);
+        if (_active is not { } position ||
+            !_boxes.TryGetValue(position, out var slots) ||
+            !IsActualBox(position, world, blocks) ||
+            !player.QuickMoveSlotToExternal(playerIndex, slots))
+            return false;
         _revision++;
         return true;
     }
