@@ -1424,7 +1424,12 @@ public sealed class SurfaceStructureField
                         : null)
                     ? placement
                     : null;
-            }, maximumPayloadCount);
+            },
+            (parent, connector) =>
+                connector.StopAtSurface &&
+                (long)parent.MaximumY - connector.SurfaceClearance >=
+                    SurfaceAt(parent.AnchorX, parent.AnchorZ).BaseY,
+            maximumPayloadCount);
 
     private bool TryResolvePlacement(
         RuntimeStructure member,
@@ -3234,6 +3239,8 @@ public sealed class SurfaceStructureField
                     int,
                     int,
                     SurfaceStructurePlacement?> resolveChild,
+                Func<SurfaceStructurePlacement, StructureConnectorDefinition, bool>
+                    stopExpansion,
                 int maximumPayloadCount = int.MaxValue)
         {
             if (roots.Count == 0)
@@ -3292,7 +3299,8 @@ public sealed class SurfaceStructureField
                         parentRuntime.Definition
                             .Connectors[
                                 connectorIndex];
-                    if (output.Target is null)
+                    if (output.Target is null ||
+                        stopExpansion(parent, output))
                     {
                         continue;
                     }

@@ -515,7 +515,9 @@ public static class StructureDefinitionJson
             "strength",
             "strengthLossOnEachLoop",
             "minDistance",
-            "maxDistance");
+            "maxDistance",
+            "stopAtSurface",
+            "surfaceClearance");
 
         var face =
             RequiredString(
@@ -559,7 +561,9 @@ public static class StructureDefinitionJson
             OptionalInt32(
                 value,
                 "maxDistance") ??
-            0);
+            0,
+            OptionalBoolean(value, "stopAtSurface") ?? false,
+            OptionalInt32(value, "surfaceClearance") ?? 0);
     }
 
     private static StructureTemplateContent
@@ -725,7 +729,9 @@ public static class StructureDefinitionJson
                                 connector.Strength,
                                 connector.StrengthLossOnEachLoop,
                                 connector.MinDistance,
-                                connector.MaxDistance));
+                                connector.MaxDistance,
+                                connector.StopAtSurface,
+                                connector.SurfaceClearance));
                     }
 
                     if (entry.Block is
@@ -993,7 +999,9 @@ public static class StructureDefinitionJson
         float Strength,
         float StrengthLossOnEachLoop,
         int MinDistance,
-        int MaxDistance);
+        int MaxDistance,
+        bool StopAtSurface,
+        int SurfaceClearance);
 
     private sealed record PaletteEntry(
         string? Block,

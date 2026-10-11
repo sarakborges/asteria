@@ -35,7 +35,9 @@ public readonly record struct StructureConnectorDefinition
         float strength = 1f,
         float strengthLossOnEachLoop = 0f,
         int minDistance = 0,
-        int maxDistance = 0)
+        int maxDistance = 0,
+        bool stopAtSurface = false,
+        int surfaceClearance = 0)
     {
         if (target is not null)
         {
@@ -79,6 +81,12 @@ public readonly record struct StructureConnectorDefinition
                 "Connector strength loss must be within 0..1.");
         }
 
+        if ((stopAtSurface && target is null) ||
+            surfaceClearance < 0 || surfaceClearance > 8 ||
+            (!stopAtSurface && surfaceClearance != 0))
+            throw new ArgumentException(
+                "Surface stop requires an output connector and clearance 0..8.");
+
         X = x;
         Y = y;
         Z = z;
@@ -89,7 +97,13 @@ public readonly record struct StructureConnectorDefinition
             strengthLossOnEachLoop;
         MinDistance = minDistance;
         MaxDistance = maxDistance;
+        StopAtSurface = stopAtSurface;
+        SurfaceClearance = surfaceClearance;
     }
+
+    public bool StopAtSurface { get; }
+
+    public int SurfaceClearance { get; }
 
     public int X { get; }
 
