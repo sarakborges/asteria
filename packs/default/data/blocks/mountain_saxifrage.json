@@ -1,0 +1,27 @@
+{
+  "id": "asteria:mountain_saxifrage",
+  "category": "foliage",
+  "tags": [
+    "support_below"
+  ],
+  "windSway": true,
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/mountain_saxifrage.png",
+    "width": 0.79,
+    "height": 0.75,
+    "planes": 4
+  },
+  "placementFaces": [
+    "top"
+  ],
+  "mining": {
+    "hardness": 0.065
+  },
+  "isCollidable": false,
+  "castsShadow": false,
+  "lightDampening": 0,
+  "alphaCutoff": 0.5,
+  "previewColor": "ede6ce",
+  "dropsSelf": false
+}

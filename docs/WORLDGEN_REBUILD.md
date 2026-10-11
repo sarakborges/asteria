@@ -964,3 +964,36 @@ code is introduced. Structures require dry ground, full biome
 coverage and conflict groups protecting the enchanted groves.
 Seven unique 64x64 PNG textures support seven new blocks.
 Verify density and nighttime glow in a playable build.
+
+## Mountains vs Mountain Belt distinct ecology (2026-10-11)
+
+Both biomes keep their original ridges, cliff modifier, material
+patch configuration, slope rules, adjacency exclusions and habitats;
+no terrain generator behavior or biome tints were changed.
+
+Mountains: Stonecrop and Saxifrage on real exposed Stone/Stone Cobble,
+and Rock Lichen as a thin groundSprite in rocky talus; all use
+maxY/slope placement conditions and authored habitat clusters.
+Dwarf Juniper (3 short, broad evergreen variants) and Wind Pine
+(3 taller asymmetrical tree variants) favor `foothill_shelves`,
+largely excluding exposed ridges. They use a distinctive natural
+juniper wood and evergreen leaf palette rather than the snow fir
+palette found in the Alps.
+
+Mountain Belt: dry Pass Grass and a compact Thorn Rosette favor
+`sheltered_passes` and protected rubble; Scree Lichen favors
+`boulder_runs`. Wind-bent Pines (3 variants) have darker gnarled
+bark and leeward flag-like crowns and are almost exclusive to
+protected passes. Rare rock-needle clusters (3 variants) add
+vertical **square-section Stone columns** mainly in bare crests
+and boulder runs, using the existing Stone block (not a new
+pointy multi-faceted spike primitive or new ground material).
+
+The content is entirely pack-authored: three clustered decorators
+per biome, two generatedSurfaceStructures roots per biome,
+twelve 3D structure templates and ten 64×64 textures. Structures
+use dry-ground Stone supports, full biome coverage, conservative
+maxSlope, fluid exclusion and the existing conflict resolver.
+No world height owner, shader, biome blending exception or
+extra block texture pack is introduced. Validate the effect
+visually across different seeds before raising density further.

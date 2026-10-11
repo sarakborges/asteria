@@ -1,0 +1,21 @@
+{
+  "id": "asteria:mountain_juniper_needles",
+  "category": "foliage",
+  "tint": "none",
+  "windSway": true,
+  "textures": {
+    "top": "textures/blocks/mountain_juniper_needles.png",
+    "bottom": "textures/blocks/mountain_juniper_needles.png",
+    "left": "textures/blocks/mountain_juniper_needles.png",
+    "right": "textures/blocks/mountain_juniper_needles.png",
+    "front": "textures/blocks/mountain_juniper_needles.png",
+    "back": "textures/blocks/mountain_juniper_needles.png"
+  },
+  "alphaCutoff": 0.5,
+  "mining": {
+    "hardness": 0.14
+  },
+  "lightDampening": 2,
+  "castsShadow": false,
+  "previewColor": "567956"
+}

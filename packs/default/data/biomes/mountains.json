@@ -103,6 +103,79 @@
         "maxY": 124,
         "maxSlope": 2
       }
+    },
+    {
+      "block": "asteria:mountain_stonecrop",
+      "chance": 0.22,
+      "surfaceBlocks": [
+        "asteria:stone",
+        "asteria:stone_cobble",
+        "asteria:gravel"
+      ],
+      "cluster": {
+        "scale": 33,
+        "threshold": -0.19,
+        "octaves": 4,
+        "transitionWidth": 0.14
+      },
+      "conditions": {
+        "minY": 100,
+        "maxY": 192,
+        "maxSlope": 3
+      },
+      "habitatWeights": {
+        "foothill_shelves": 2.45,
+        "talus_fields": 0.82,
+        "exposed_ridges": 0.08
+      }
+    },
+    {
+      "block": "asteria:mountain_saxifrage",
+      "chance": 0.145,
+      "surfaceBlocks": [
+        "asteria:stone",
+        "asteria:stone_cobble"
+      ],
+      "cluster": {
+        "scale": 40,
+        "threshold": -0.18,
+        "octaves": 4,
+        "transitionWidth": 0.14
+      },
+      "conditions": {
+        "minY": 99,
+        "maxY": 167,
+        "maxSlope": 2
+      },
+      "habitatWeights": {
+        "foothill_shelves": 2.6,
+        "talus_fields": 0.43,
+        "exposed_ridges": 0.02
+      }
+    },
+    {
+      "block": "asteria:mountain_rock_lichen",
+      "chance": 0.165,
+      "surfaceBlocks": [
+        "asteria:stone",
+        "asteria:stone_cobble"
+      ],
+      "cluster": {
+        "scale": 28,
+        "threshold": -0.21,
+        "octaves": 4,
+        "transitionWidth": 0.14
+      },
+      "conditions": {
+        "minY": 99,
+        "maxY": 210,
+        "maxSlope": 5
+      },
+      "habitatWeights": {
+        "foothill_shelves": 0.22,
+        "talus_fields": 2.25,
+        "exposed_ridges": 0.54
+      }
     }
   ],
   "surfaceHabitats": {

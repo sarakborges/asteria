@@ -1,0 +1,27 @@
+{
+  "id": "asteria:mountain_stonecrop",
+  "category": "foliage",
+  "tags": [
+    "support_below"
+  ],
+  "windSway": true,
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/mountain_stonecrop.png",
+    "width": 0.8,
+    "height": 0.59,
+    "planes": 4
+  },
+  "placementFaces": [
+    "top"
+  ],
+  "mining": {
+    "hardness": 0.065
+  },
+  "isCollidable": false,
+  "castsShadow": false,
+  "lightDampening": 0,
+  "alphaCutoff": 0.5,
+  "previewColor": "91a37b",
+  "dropsSelf": false
+}

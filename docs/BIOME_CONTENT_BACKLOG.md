@@ -92,6 +92,8 @@ Check their authored textures; reuse selectively rather than creating
 redundant new mushroom blocks. Do not re-enable unwanted enchanted-leaf
 tint or change existing biome colors.
 
+**Mountains/Mountain Belt P0 status (2026-10-11): implemented.** Six new small decorations, four structure families with twelve variants, and separate wood/needle palettes distinguish sheltered mountain slopes from windswept belt passes. The initial counts table is the original audit snapshot.
+
 ### C. Mountains and Mountain Belt — distinct altitudinal ecology
 
 Mountains (habitats `foothill_shelves`, `talus_fields`,

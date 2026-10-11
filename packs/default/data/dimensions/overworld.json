@@ -70,8 +70,14 @@
     "fogColor": "B8CDD5",
     "fogDensity": 0.003,
     "skyLayers": {
-      "stars": { "density": 1, "color": "F0F7FF" },
-      "clouds": { "density": 0.8, "color": "F5F8FC" }
+      "stars": {
+        "density": 1,
+        "color": "F0F7FF"
+      },
+      "clouds": {
+        "density": 0.8,
+        "color": "F5F8FC"
+      }
     },
     "wind": {
       "direction": [
@@ -1183,6 +1189,54 @@
         "luminous_clearing": 0.19,
         "violet_undergrowth": 1.55,
         "pink_glade": 2.45
+      }
+    },
+    {
+      "biome": "asteria:overworld/mountains",
+      "structure": "asteria:mountain_dwarf_juniper",
+      "spacing": 48,
+      "chance": 0.72,
+      "jitter": 14,
+      "habitatWeights": {
+        "foothill_shelves": 2.55,
+        "talus_fields": 0.32,
+        "exposed_ridges": 0.015
+      }
+    },
+    {
+      "biome": "asteria:overworld/mountains",
+      "structure": "asteria:mountain_wind_pine",
+      "spacing": 96,
+      "chance": 0.62,
+      "jitter": 28,
+      "habitatWeights": {
+        "foothill_shelves": 2.5,
+        "talus_fields": 0.05,
+        "exposed_ridges": 0
+      }
+    },
+    {
+      "biome": "asteria:overworld/mountain_belt",
+      "structure": "asteria:belt_windswept_pine",
+      "spacing": 61,
+      "chance": 0.71,
+      "jitter": 18,
+      "habitatWeights": {
+        "sheltered_passes": 2.6,
+        "boulder_runs": 0.08,
+        "bare_crests": 0
+      }
+    },
+    {
+      "biome": "asteria:overworld/mountain_belt",
+      "structure": "asteria:belt_rock_needle_cluster",
+      "spacing": 114,
+      "chance": 0.45,
+      "jitter": 34,
+      "habitatWeights": {
+        "sheltered_passes": 0.02,
+        "boulder_runs": 1.6,
+        "bare_crests": 2.3
       }
     }
   ],
