@@ -28,15 +28,13 @@ export function InventoryWorkspace({
 
   return (
     <div className="inventory-workspace">
-      {showCreative ? (
-        <div className="inventory-workspace__creative">
-          {creative}
-          <InventoryViewTabs creative onViewChange={onViewChange} />
-        </div>
-      ) : creativeAvailable ? (
-        <div className="inventory-workspace__creative">
-          {inventory}
-          <InventoryViewTabs creative={false} onViewChange={onViewChange} />
+      {creativeAvailable ? (
+        <div className="inventory-workspace__creative-layout">
+          <div className="inventory-workspace__character">{character}</div>
+          <div className="inventory-workspace__creative">
+            {showCreative ? creative : inventory}
+            <InventoryViewTabs creative={showCreative} onViewChange={onViewChange} />
+          </div>
         </div>
       ) : (
         <div className="inventory-workspace__survival">

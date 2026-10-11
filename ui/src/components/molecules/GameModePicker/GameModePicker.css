@@ -1,2 +1,28 @@
-.game-mode-picker { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; width: 100%; }
-.game-mode-picker > .ui-button { flex: 0 0 auto; min-width: 0; }
+.game-mode-picker {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 8px;
+  width: 100%;
+}
+
+.game-mode-picker > .ui-button {
+  width: 100%;
+  min-width: 0;
+  text-align: center;
+}
+
+.game-mode-setting {
+  width: 100%;
+}
+
+.game-mode-setting .setting-row {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--ui-settings-setting-gap);
+}
+
+.game-mode-setting .setting-row__control {
+  width: 100%;
+  flex: 0 0 auto;
+}

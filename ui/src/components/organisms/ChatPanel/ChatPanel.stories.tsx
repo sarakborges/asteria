@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { ChatPanel } from "./ChatPanel";
 
@@ -71,3 +72,20 @@ export const SuggestionWindow: Story = {
 };
 
 export const Hidden: Story = { args: { visible: false } };
+
+function ChatFocusFlow() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div>
+      <button type="button" onClick={() => setOpen(value => !value)}>
+        {open ? "Close chat" : "Open chat"}
+      </button>
+      <ChatPanel open={open} visible history={[]} draft=""
+        onDraftChange={() => undefined} />
+    </div>
+  );
+}
+
+export const FocusFlow: Story = {
+  render: () => <ChatFocusFlow />,
+};

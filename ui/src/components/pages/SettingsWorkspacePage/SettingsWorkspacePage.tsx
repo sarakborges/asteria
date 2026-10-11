@@ -7,7 +7,7 @@ import { Toggle } from "../../atoms/Toggle/Toggle";
 import { Text } from "../../atoms/Text/Text";
 import { NumericStepper } from "../../molecules/NumericStepper/NumericStepper";
 import { SettingRow } from "../../molecules/SettingRow/SettingRow";
-import { GameModePicker } from "../../molecules/GameModePicker/GameModePicker";
+import { GameModeSetting } from "../../molecules/GameModePicker/GameModeSetting";
 import { SettingsPage, type SettingsSectionView } from "../SettingsPage/SettingsPage";
 import "./SettingsWorkspacePage.css";
 
@@ -103,13 +103,11 @@ export function SettingsWorkspacePage({
     ] : [
       {
         id: "mode", label: t("settings.section.worldSettings"),
-        content: <SettingRow title={t("settings.gameMode")}
-          description={t("settings.gameMode.description")}
-          control={<GameModePicker
-            value={settings.world?.mode ?? "Survival"}
-            disabled={!settings.world}
-            onChange={onGameMode}
-          />} />,
+        content: <GameModeSetting
+          value={settings.world?.mode ?? "Survival"}
+          disabled={!settings.world}
+          onChange={onGameMode}
+        />,
       },
       {
         id: "rules", label: t("settings.section.gameRules"),

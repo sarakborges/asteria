@@ -9,7 +9,7 @@ import { Slider } from "../../atoms/Slider/Slider";
 import { UInt64Input } from "../../atoms/UInt64Input/UInt64Input";
 import { Toggle } from "../../atoms/Toggle/Toggle";
 import { SettingRow } from "../../molecules/SettingRow/SettingRow";
-import { GameModePicker } from "../../molecules/GameModePicker/GameModePicker";
+import { GameModeSetting } from "../../molecules/GameModePicker/GameModeSetting";
 import { NumericStepper } from "../../molecules/NumericStepper/NumericStepper";
 import { SpawnBiomeSelect } from "../../molecules/SpawnBiomeSelect/SpawnBiomeSelect";
 import { CosmicBackground } from "../../organisms/CosmicBackground/CosmicBackground";
@@ -121,10 +121,8 @@ export function NewWorldPage({
               </span>
             )}
           </div>
-          <SettingRow title={t("settings.gameMode")}
-            description={t("settings.gameMode.description")}
-            control={<GameModePicker value={mode} disabled={state.pending}
-              onChange={setMode} />} />
+          <GameModeSetting value={mode} disabled={state.pending}
+            onChange={setMode} />
         </div>
       ),
     },

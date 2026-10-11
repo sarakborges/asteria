@@ -55,3 +55,13 @@ test("Creative retains scroll separately per category and across tab switching",
   await expect.poll(() => page.locator(".creative-inventory-panel__grid")
     .evaluate(element => element.scrollTop)).toBeGreaterThan(0);
 });
+
+test("Character Info stays visible in both Creative and Inventory tabs", async ({ page }) => {
+  await page.goto(url);
+  await expect(page.locator(".character-info-panel")).toBeVisible();
+  await openCreative(page);
+  await expect(page.locator(".character-info-panel")).toBeVisible();
+  await page.getByRole("navigation", { name: "Inventory" })
+    .getByRole("button", { name: "Inventory" }).click();
+  await expect(page.locator(".character-info-panel")).toBeVisible();
+});

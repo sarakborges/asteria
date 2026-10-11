@@ -28,6 +28,16 @@
   min-width: 0;
 }
 
+.inventory-workspace__creative-layout {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ui-inventory-panel-gap);
+}
+
+.inventory-workspace__creative-layout > .inventory-workspace__character {
+  flex: 0 0 var(--ui-inventory-character-width);
+}
+
 .inventory-workspace__creative {
   display: flex;
   align-items: flex-start;
@@ -77,8 +87,13 @@
     grid-row: auto;
   }
 
+  .inventory-workspace__creative-layout,
   .inventory-workspace__creative {
     flex-direction: column;
+  }
+
+  .inventory-workspace__creative-layout > .inventory-workspace__character {
+    flex-basis: auto;
   }
 
   .inventory-workspace__tabs {

@@ -31,6 +31,7 @@ export function ChatPanel({
 }: ChatPanelProps) {
   const { t } = useLocalization();
   const historyRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const messages = history.slice(-MAX_VISIBLE_HISTORY);
   const newestMessageId = messages.at(-1)?.id;
 
@@ -39,6 +40,12 @@ export function ChatPanel({
       historyRef.current.scrollTop = historyRef.current.scrollHeight;
     }
   }, [visible, newestMessageId]);
+
+  // The chat input can be mounted after gameplay hands focus to the WebView.
+  // Explicitly focus whenever the chat opens (including from history-only mode).
+  useLayoutEffect(() => {
+    if (open && visible) inputRef.current?.focus({ preventScroll: true });
+  }, [open, visible]);
 
   if (!visible) return null;
 
@@ -91,7 +98,7 @@ export function ChatPanel({
         }}>
           <span aria-hidden="true">&gt;</span>
           <TextInput
-            autoFocus
+            inputRef={inputRef}
             onKeyDown={onInputKeyDown}
             value={draft}
             maxLength={MAX_DRAFT_CHARS}
