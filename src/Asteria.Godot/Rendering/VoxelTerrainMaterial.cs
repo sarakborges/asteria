@@ -24,10 +24,16 @@ public sealed class VoxelTerrainMaterialSet
     private BlockLightEmission _lastHeldEmission;
 
     private VoxelTerrainMaterialSet(
-        Dictionary<TerrainRenderBatch, ShaderMaterial> materials)
+        Dictionary<TerrainRenderBatch, ShaderMaterial> materials,
+        Texture2DArray textureArray)
     {
         _materials = materials;
+        TextureArray = textureArray;
     }
+
+    // Shared, pack-authored atlas. Transient chips can sample it without
+    // importing duplicate textures or creating one material per block.
+    public Texture2DArray TextureArray { get; }
 
     public Material Get(TerrainRenderBatch batch) =>
         _materials.TryGetValue(batch, out var material)
@@ -95,7 +101,7 @@ public sealed class VoxelTerrainMaterialSet
             }
         }
 
-        return new VoxelTerrainMaterialSet(materials);
+        return new VoxelTerrainMaterialSet(materials, textures.TextureArray);
     }
 
     private static string ShaderPath(
