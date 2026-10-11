@@ -24,5 +24,6 @@
     "hardness": 1,
     "preferredTools": ["shovel"]
   },
-  "previewColor": "8a6547"
+  "previewColor": "8a6547",
+  "lootTable": [{"item":"asteria:dirt","chance":1,"quantity":1}]
 }
