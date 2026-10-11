@@ -38,6 +38,30 @@
   "asteria:plant_fiber": {
     "/name": "Fibra Vegetal"
   },
+  "asteria:raw_copper": {
+    "/name": "Cobre bruto"
+  },
+  "asteria:raw_gold": {
+    "/name": "Ouro bruto"
+  },
+  "asteria:raw_iron": {
+    "/name": "Ferro bruto"
+  },
+  "asteria:raw_lead": {
+    "/name": "Chumbo bruto"
+  },
+  "asteria:raw_nickel": {
+    "/name": "Níquel bruto"
+  },
+  "asteria:raw_silver": {
+    "/name": "Prata bruta"
+  },
+  "asteria:raw_tin": {
+    "/name": "Estanho bruto"
+  },
+  "asteria:raw_zinc": {
+    "/name": "Zinco bruto"
+  },
   "asteria:stick": {
     "/name": "Graveto"
   },

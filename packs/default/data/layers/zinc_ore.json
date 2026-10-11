@@ -1,0 +1,39 @@
+{
+  "id": "asteria:zinc_ore",
+  "category": "natural_blocks",
+  "texture": "textures/layers/ores/zinc.png",
+  "tint": "none",
+  "offset": 0.001,
+  "alphaCutoff": 0.5,
+  "alphaBlend": false,
+  "castsShadow": false,
+  "scope": "voxel",
+  "mining": {
+    "hardness": 1.5,
+    "requiredTools": [
+      "pickaxe"
+    ],
+    "preferredTools": [
+      "pickaxe"
+    ]
+  },
+  "drops": [
+    {
+      "kind": "item",
+      "id": "asteria:raw_zinc",
+      "quantity": 1
+    }
+  ],
+  "generation": {
+    "dimension": "asteria:overworld",
+    "hostBlocks": [
+      "asteria:stone",
+      "asteria:basalt"
+    ],
+    "minY": 12,
+    "maxY": 105,
+    "spacing": 21,
+    "radius": 2,
+    "chance": 0.28
+  }
+}

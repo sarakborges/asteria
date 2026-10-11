@@ -1,0 +1,38 @@
+{
+  "asteria:cliff_lichen": {
+    "/name": "Cliff Lichen"
+  },
+  "asteria:copper_ore": {
+    "/name": "Copper Ore"
+  },
+  "asteria:foliage_layer": {
+    "/name": "Foliage Layer"
+  },
+  "asteria:gold_ore": {
+    "/name": "Gold Ore"
+  },
+  "asteria:iron_ore": {
+    "/name": "Iron Ore"
+  },
+  "asteria:lead_ore": {
+    "/name": "Lead Ore"
+  },
+  "asteria:moss": {
+    "/name": "Moss"
+  },
+  "asteria:nickel_ore": {
+    "/name": "Nickel Ore"
+  },
+  "asteria:silver_ore": {
+    "/name": "Silver Ore"
+  },
+  "asteria:tin_ore": {
+    "/name": "Tin Ore"
+  },
+  "asteria:wall_moss": {
+    "/name": "Wall Moss"
+  },
+  "asteria:zinc_ore": {
+    "/name": "Zinc Ore"
+  }
+}

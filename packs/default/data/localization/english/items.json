@@ -38,6 +38,30 @@
   "asteria:plant_fiber": {
     "/name": "Plant Fiber"
   },
+  "asteria:raw_copper": {
+    "/name": "Raw Copper"
+  },
+  "asteria:raw_gold": {
+    "/name": "Raw Gold"
+  },
+  "asteria:raw_iron": {
+    "/name": "Raw Iron"
+  },
+  "asteria:raw_lead": {
+    "/name": "Raw Lead"
+  },
+  "asteria:raw_nickel": {
+    "/name": "Raw Nickel"
+  },
+  "asteria:raw_silver": {
+    "/name": "Raw Silver"
+  },
+  "asteria:raw_tin": {
+    "/name": "Raw Tin"
+  },
+  "asteria:raw_zinc": {
+    "/name": "Raw Zinc"
+  },
   "asteria:stick": {
     "/name": "Stick"
   },

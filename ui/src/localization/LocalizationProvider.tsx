@@ -6,6 +6,9 @@ import spanish from "../../../packs/default/data/localization/spanish/ui.json";
 import blocksEn from "../../../packs/default/data/localization/english/blocks.json";
 import blocksPt from "../../../packs/default/data/localization/portuguese_brazil/blocks.json";
 import blocksEs from "../../../packs/default/data/localization/spanish/blocks.json";
+import layersEn from "../../../packs/default/data/localization/english/layers.json";
+import layersPt from "../../../packs/default/data/localization/portuguese_brazil/layers.json";
+import layersEs from "../../../packs/default/data/localization/spanish/layers.json";
 import dimensionsEn from "../../../packs/default/data/localization/english/dimensions.json";
 import dimensionsPt from "../../../packs/default/data/localization/portuguese_brazil/dimensions.json";
 import dimensionsEs from "../../../packs/default/data/localization/spanish/dimensions.json";
@@ -37,9 +40,9 @@ const uiCatalogs: Record<Language, UiCatalog> = {
   english, portuguese_brazil: portugueseBrazil, spanish,
 };
 const nameCatalogs: Record<Language, readonly Names[]> = {
-  english: [blocksEn, dimensionsEn, fluidsEn, itemsEn, toolsEn, creaturesEn],
-  portuguese_brazil: [blocksPt, dimensionsPt, fluidsPt, itemsPt, toolsPt, creaturesPt],
-  spanish: [blocksEs, dimensionsEs, fluidsEs, itemsEs, toolsEs, creaturesEs],
+  english: [blocksEn, layersEn, dimensionsEn, fluidsEn, itemsEn, toolsEn, creaturesEn],
+  portuguese_brazil: [blocksPt, layersPt, dimensionsPt, fluidsPt, itemsPt, toolsPt, creaturesPt],
+  spanish: [blocksEs, layersEs, dimensionsEs, fluidsEs, itemsEs, toolsEs, creaturesEs],
 };
 
 type Localization = {
