@@ -61,8 +61,51 @@ public sealed class ChunkMeshDataBuilderTests
             var a = vertices[index].Position;
             var b = vertices[index + 1].Position;
             var c = vertices[index + 2].Position;
-            Assert.True(Vector3.Dot(Vector3.Cross(b - a, c - a), normal) > 0f,
-                $"Square spike face winding is reversed at triangle {index / 3}.");
+            // Terrain cube triangles have a clockwise front face, so their
+            // geometric cross product opposes the stored outward normal.
+            Assert.True(Vector3.Dot(Vector3.Cross(b - a, c - a), normal) < 0f,
+                $"Square spike face winding differs from cubes at triangle {index / 3}.");
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void StackedSpikeFacesKeepCubeWindingAtAllTiers(bool down)
+    {
+        const string texture = "textures/test/spike.png";
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition("asteria:stone_spike",
+                textures: new BlockTextureSet(top: [new BlockTextureLayer(texture)]),
+                shape: BlockShapeDefinition.Spike(
+                    baseRadius: 0.42f, taperPower: 1.3f)),
+        ]);
+        var chunk = new Chunk();
+        var spike = blocks.GetId("asteria:stone_spike");
+        chunk.SetCell(2, 2, 2, new VoxelCell(
+            spike, state: SpikeSegmentState.Encode(down ? 1 : 0, 2, down)));
+        chunk.SetCell(2, 3, 2, new VoxelCell(
+            spike, state: SpikeSegmentState.Encode(down ? 0 : 1, 2, down)));
+        ChunkLightingSolver.Initialize(chunk, blocks, new FluidRegistry([]));
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, chunk);
+        var textures = new TerrainTextureLookup(
+            new Dictionary<string, int> { [texture] = 0 });
+        var mesh = ChunkMeshDataBuilder.BuildMeshlet(
+            world, ChunkCoord.Zero, blocks, textures, 0);
+
+        Assert.Equal(mesh.TriangleCount, mesh.CollisionTriangleCount);
+        var vertices = mesh.RenderBatches.SelectMany(batch => batch.Vertices).ToArray();
+        Assert.Contains(vertices, vertex => vertex.Normal == Vector3.UnitY);
+        Assert.Contains(vertices, vertex => vertex.Normal == -Vector3.UnitY);
+        for (var i = 0; i < vertices.Length; i += 3)
+        {
+            var a = vertices[i].Position;
+            var b = vertices[i + 1].Position;
+            var c = vertices[i + 2].Position;
+            Assert.True(Vector3.Dot(Vector3.Cross(b - a, c - a), vertices[i].Normal) < 0f,
+                $"Spike { (down ? "ceiling" : "floor") } triangle {i / 3} is inside-out.");
         }
     }
 
