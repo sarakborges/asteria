@@ -318,7 +318,7 @@ public sealed class StorageBoxRuntimeTests
         Assert.True(storage.TryInsertActive(new InventoryStack(wood, 10), world, blocks));
 
         Assert.True(storage.TryQuickTransferActive(0, player, world, blocks));
-        Assert.Equal(64, player.SlotAt(35)!.Quantity);
+        Assert.Equal(64, player.SlotAt(26)!.Quantity);
         Assert.Equal(8, storage.CaptureActive()!.Slots[0]!.Quantity);
         var storageRevision = storage.Revision;
         var playerRevision = player.Revision;
