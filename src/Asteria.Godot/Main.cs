@@ -666,7 +666,9 @@ public partial class Main : Node3D
             var position = creatureObserver.GlobalPosition;
             _sessions.Active.AdvanceCreatures(
                 delta,
-                new NVector3(position.X, position.Y, position.Z));
+                new NVector3(position.X, position.Y, position.Z),
+                _sessionStates.Player.GameMode == PlayerGameMode.Survival &&
+                !_sessionStates.Player.Health.IsDead);
             ApplyCreatureContact();
         }
 
@@ -2341,13 +2343,15 @@ public partial class Main : Node3D
             !_sessionStates.Player.CanInteract)
             return;
 
-        var amount = _sessions.Active.Creatures.ContactDamageAt(player.CollisionBounds);
-        if (amount <= 0f) return;
+        var contact = _sessions.Active.Creatures.FindContactHit(player.CollisionBounds);
+        if (contact is not { } hit) return;
         var protection = PlayerEquipmentProtection.Calculate(
             _sessionStates.Player.Inventory, _items);
         var result = _sessionStates.Player.Hazards.TouchCreature(
-            amount, protection, _sessionStates.Player.Health,
-            _sessionStates.Player.GameMode);
+            hit.Damage, protection, _sessionStates.Player.Health,
+            _sessionStates.Player.GameMode, out var contactAccepted);
+        if (contactAccepted)
+            _sessions.Active.TryRegisterCreatureContactAttack(hit.Id);
         if (result != PlayerDamageResult.Ignored &&
             PlayerEquipmentWear.ApplyContactHit(_sessionStates.Player.Inventory, _items) &&
             _inventoryOpen)

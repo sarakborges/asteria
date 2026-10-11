@@ -59,6 +59,28 @@ public sealed class PlayerHazardTests
         Assert.Equal(16f, health.Current);
     }
 
+
+    [Fact]
+    public void ContactPulseTriggersAttackEvenWhenArmorAbsorbsTheDamage()
+    {
+        var hazards = new PlayerHazardRuntime();
+        var health = new PlayerHealth();
+        Assert.Equal(PlayerDamageResult.Ignored,
+            hazards.TouchCreature(2f, 1f, health, PlayerGameMode.Survival,
+                out var accepted));
+        Assert.True(accepted);
+        Assert.Equal(20f, health.Current);
+        hazards.TouchCreature(2f, 0f, health, PlayerGameMode.Survival,
+            out accepted);
+        Assert.False(accepted);
+        hazards.AdvanceTime(PlayerHazardRuntime.CreatureContactIntervalSeconds);
+        Assert.Equal(PlayerDamageResult.Hurt,
+            hazards.TouchCreature(2f, 0f, health, PlayerGameMode.Survival,
+                out accepted));
+        Assert.True(accepted);
+        Assert.Equal(18f, health.Current);
+    }
+
     [Fact]
     public void CreativeAndDeadPlayersDoNotAccumulateEnvironmentalDamage()
     {

@@ -41,12 +41,17 @@ public sealed record CreatureDefinition(
     /// <summary>Optional unarmed contact damage; 0 means non-hostile.</summary>
     public float ContactDamage { get; init; }
 
+    /// <summary>Horizontal pursuit radius; 0 disables aggression.</summary>
+    public float AggroRange { get; init; }
+
     public static CreatureDefinition Parse(string json)
     {
         ArgumentNullException.ThrowIfNull(json);
         using var document = JsonDocument.Parse(json);
         var root = document.RootElement;
 
+        var contactDamage = root.TryGetProperty("contactDamage", out _)
+            ? PackContentFields.NonNegativeFloat(root, "contactDamage") : 0f;
         var unlit = root.TryGetProperty("unlitMaterials", out var materials)
             ? ParseUnlitMaterials(materials)
             : Array.Empty<string>();
@@ -72,8 +77,10 @@ public sealed record CreatureDefinition(
         {
             LootTable = CreatureLootTable.Parse(root),
             NaturalSpawn = CreatureNaturalSpawnDefinition.Parse(root),
-            ContactDamage = root.TryGetProperty("contactDamage", out _)
-                ? PackContentFields.NonNegativeFloat(root, "contactDamage") : 0f,
+            ContactDamage = contactDamage,
+            AggroRange = root.TryGetProperty("aggroRange", out _)
+                ? PackContentFields.NonNegativeFloat(root, "aggroRange")
+                : contactDamage > 0f ? 12f : 0f,
         };
     }
 

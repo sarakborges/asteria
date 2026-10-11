@@ -460,7 +460,16 @@ public sealed class DimensionRuntimeSession
         return true;
     }
 
-    public void AdvanceCreatures(double deltaSeconds, NVector3 playerPosition)
+    public bool TryRegisterCreatureContactAttack(CreatureInstanceId id)
+    {
+        if (_retiring || _retired || !Creatures.TryRegisterContactAttack(id))
+            return false;
+        _creaturePresentation.Sync(Creatures.ActiveCreatures);
+        return true;
+    }
+
+    public void AdvanceCreatures(
+        double deltaSeconds, NVector3 playerPosition, bool playerTargetable)
     {
         if (_retiring || _retired)
             return;
@@ -482,7 +491,8 @@ public sealed class DimensionRuntimeSession
                 playerPosition,
                 World,
                 Blocks,
-                Dimension.GravityStrength);
+                Dimension.GravityStrength,
+                playerTargetable);
         if (spawned || changed)
             _creaturePresentation.Sync(Creatures.ActiveCreatures);
     }

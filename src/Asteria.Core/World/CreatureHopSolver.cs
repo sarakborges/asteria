@@ -50,7 +50,8 @@ public static class CreatureHopSolver
         VoxelWorld world,
         BlockRegistry blocks,
         float gravityStrength,
-        float deltaSeconds)
+        float deltaSeconds,
+        Vector3? targetPosition = null)
     {
         ArgumentNullException.ThrowIfNull(definition);
         ArgumentNullException.ThrowIfNull(world);
@@ -60,6 +61,11 @@ public static class CreatureHopSolver
         {
             throw new ArgumentOutOfRangeException(nameof(deltaSeconds));
         }
+
+        if (targetPosition is { } target &&
+            (!float.IsFinite(target.X) || !float.IsFinite(target.Y) ||
+             !float.IsFinite(target.Z)))
+            throw new ArgumentOutOfRangeException(nameof(targetPosition));
 
         var dt = Math.Min(deltaSeconds, MaximumDelta);
         if (dt == 0f) return instance;
@@ -110,10 +116,14 @@ public static class CreatureHopSolver
                 motion = motion with { SecondsRemaining = motion.SecondsRemaining - dt };
                 if (motion.SecondsRemaining <= 0f)
                 {
+                    var heading = ChooseHeading(instance, definition, targetPosition,
+                        motion.HopCount);
                     motion = motion with
                     {
                         Phase = CreatureHopPhase.Anticipate,
                         SecondsRemaining = definition.AnticipationSeconds,
+                        Direction = heading,
+                        FacingRadians = MathF.Atan2(-heading.X, -heading.Y),
                     };
                 }
                 break;
@@ -122,9 +132,8 @@ public static class CreatureHopSolver
                 motion = motion with { SecondsRemaining = motion.SecondsRemaining - dt };
                 if (motion.SecondsRemaining <= 0f)
                 {
-                    var heading = Directions[
-                        (int)(Mix(instance.Id.Value, motion.HopCount) % (uint)Directions.Length)]
-                        .Normalized();
+                    var heading = ChooseHeading(instance, definition, targetPosition,
+                        motion.HopCount);
                     motion = motion with
                     {
                         Phase = CreatureHopPhase.Airborne,
@@ -181,6 +190,28 @@ public static class CreatureHopSolver
         }
 
         return instance with { Position = feet, Motion = motion };
+    }
+
+    private static Vector2 ChooseHeading(
+        CreatureInstanceState creature,
+        CreatureDefinition definition,
+        Vector3? targetPosition,
+        uint hopCount)
+    {
+        if (targetPosition is { } target && definition.AggroRange > 0f &&
+            MathF.Abs(target.Y - creature.Position.Y) <= 3f)
+        {
+            var toward = new Vector2(
+                target.X - creature.Position.X, target.Z - creature.Position.Z);
+            var distanceSquared = toward.LengthSquared();
+            if (distanceSquared > 0.04f &&
+                distanceSquared <= definition.AggroRange * definition.AggroRange)
+                return Vector2.Normalize(toward);
+        }
+
+        return Directions[
+            (int)(Mix(creature.Id.Value, hopCount) % (uint)Directions.Length)]
+            .Normalized();
     }
 
     private static VoxelWorldCollisionState IsGrounded(

@@ -28,6 +28,100 @@ public sealed class CreatureCombatTests
             CreatureDefinition.Parse,
             definition => definition.Id);
 
+
+    private static PackContentRegistry<CreatureDefinition> HostileDefinitions() =>
+        PackContentRegistry<CreatureDefinition>.FromJson(
+            ["""
+            {
+              "id":"asteria:slime_aqua",
+              "model":"models/slime.glb",
+              "health":11,
+              "maxPerType":4,
+              "collider":{"size":[0.78,0.84,0.78],"centerOffset":[0,0.42,0]},
+              "jumpSpeed":5,
+              "moveSpeed":1.4,
+              "jumpInterval":2,
+              "anticipationSeconds":0.24,
+              "landingSeconds":0.34,
+              "contactDamage":2,
+              "animations":{"idle":"Idle","land":"Land"},
+              "textures":{}
+            }
+            """], CreatureDefinition.Parse, definition => definition.Id);
+
+    [Fact]
+    public void HostileSlimeChoosesPlayerDirectionRatherThanWandering()
+    {
+        var (world, blocks) = World();
+        var definitions = HostileDefinitions();
+        Assert.Equal(12f, definitions.Get("asteria:slime_aqua").AggroRange);
+        var runtime = new CreatureRuntime(definitions);
+        var start = new Vector3(3.5f, 1f, 7.5f);
+        var player = new Vector3(10.5f, 1f, 7.5f);
+        Assert.True(runtime.TrySpawn("asteria:slime_aqua", start, out _));
+
+        for (var i = 0; i < 60 &&
+            Assert.Single(runtime.ActiveCreatures).Motion.HopCount == 0; i++)
+            runtime.AdvanceWorld(0.025, player, world, blocks, 18f);
+
+        var hopping = Assert.Single(runtime.ActiveCreatures);
+        Assert.Equal(1u, hopping.Motion.HopCount);
+        Assert.True(hopping.Motion.Direction.X > 0.99f);
+        Assert.True(MathF.Abs(hopping.Motion.Direction.Y) < 0.01f);
+        for (var i = 0; i < 12; i++)
+            runtime.AdvanceWorld(0.025, player, world, blocks, 18f);
+        Assert.True(Assert.Single(runtime.ActiveCreatures).Position.X > start.X);
+
+        // Targeting can be disabled by the session (Creative/Spectator).
+        var disabled = new CreatureRuntime(definitions);
+        var wandering = new CreatureRuntime(definitions);
+        Assert.True(disabled.TrySpawn("asteria:slime_aqua", start, out _));
+        Assert.True(wandering.TrySpawn("asteria:slime_aqua", start, out _));
+        for (var i = 0; i < 60; i++)
+        {
+            disabled.AdvanceWorld(0.025, player, world, blocks, 18f, false);
+            wandering.AdvanceWorld(0.025, new Vector3(100, 1, 100), world, blocks, 18f);
+        }
+        Assert.Equal(Assert.Single(wandering.ActiveCreatures).Motion.Direction,
+            Assert.Single(disabled.ActiveCreatures).Motion.Direction);
+    }
+
+    [Fact]
+    public void ContactAttackReplaysAndPersistsUntilItsPresentationExpires()
+    {
+        var definitions = HostileDefinitions();
+        var runtime = new CreatureRuntime(definitions);
+        Assert.True(runtime.TrySpawn("asteria:slime_aqua",
+            new Vector3(6.5f, 1, 7.5f), out var creature));
+        var playerBounds = new WorldAabb(
+            new Vector3(6.2f, 1, 7.2f), new Vector3(6.8f, 2, 7.8f));
+        Assert.Null(runtime.FindContactHit(new WorldAabb(
+            new Vector3(1, 1, 1), new Vector3(2, 2, 2))));
+        var hit = runtime.FindContactHit(playerBounds);
+        Assert.NotNull(hit);
+        Assert.Equal(creature.Id, hit.Value.Id);
+        Assert.Equal(2f, hit.Value.Damage);
+        Assert.True(runtime.TryRegisterContactAttack(hit.Value.Id));
+        var attacking = Assert.Single(runtime.ActiveCreatures);
+        Assert.Equal(1u, attacking.AttacksDealt);
+        Assert.Equal(CreatureRuntime.AttackAnimationSeconds,
+            attacking.AttackSecondsRemaining);
+
+        runtime = new CreatureRuntime(definitions, runtime.CaptureState());
+        runtime.Advance(0.18, attacking.Position);
+        Assert.True(Assert.Single(runtime.ActiveCreatures).AttackSecondsRemaining > 0f);
+        Assert.True(runtime.TryRegisterContactAttack(creature.Id));
+        Assert.Equal(2u, Assert.Single(runtime.ActiveCreatures).AttacksDealt);
+        runtime.Advance(0.35, attacking.Position);
+        Assert.Equal(0f, Assert.Single(runtime.ActiveCreatures).AttackSecondsRemaining);
+
+        Assert.True(runtime.TrySetNoAi(creature.Id, true));
+        Assert.False(runtime.TryRegisterContactAttack(creature.Id));
+        Assert.True(runtime.TrySetNoAi(creature.Id, false));
+        Assert.True(runtime.TryKill(creature.Id, out _));
+        Assert.False(runtime.TryRegisterContactAttack(creature.Id));
+    }
+
     private static (VoxelWorld World, BlockRegistry Blocks) World()
     {
         var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);

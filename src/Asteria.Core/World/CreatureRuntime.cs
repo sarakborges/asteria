@@ -14,6 +14,8 @@ public readonly record struct CreatureInstanceState(
     CreatureHopMotion Motion = default)
 {
     public uint AttacksReceived { get; init; }
+    public uint AttacksDealt { get; init; }
+    public float AttackSecondsRemaining { get; init; }
 
     public CreatureMetaTags MetaTags { get; init; }
     public bool NoAi => MetaTags.NoAi;
@@ -36,6 +38,8 @@ public readonly record struct CreatureAttackResult(
     bool Killed,
     IReadOnlyList<CreatureLootEntry> Loot);
 
+public readonly record struct CreatureContactHit(CreatureInstanceId Id, float Damage);
+
 public sealed record CreatureRuntimeSnapshot(
     ulong NextId,
     IReadOnlyList<CreatureInstanceState> Creatures);
@@ -51,6 +55,7 @@ public sealed class CreatureRuntime
     public const double DespawnGraceSeconds = 5.0;
     public const float DeathAnimationSeconds = 0.75f;
     public const float HurtAnimationSeconds = 0.4f;
+    public const float AttackAnimationSeconds = 0.34f;
 
     private readonly PackContentRegistry<CreatureDefinition> _definitions;
     private readonly SortedDictionary<ulong, CreatureInstanceState> _active = [];
@@ -173,7 +178,10 @@ public sealed class CreatureRuntime
     /// capsule AABB. Stable creature-id order is the deterministic tie break.
     /// This query never mutates combat state or sends damage by itself.
     /// </summary>
-    public float ContactDamageAt(WorldAabb playerBounds)
+    public float ContactDamageAt(WorldAabb playerBounds) =>
+        FindContactHit(playerBounds)?.Damage ?? 0f;
+
+    public CreatureContactHit? FindContactHit(WorldAabb playerBounds)
     {
         foreach (var creature in _active.Values)
         {
@@ -195,10 +203,26 @@ public sealed class CreatureRuntime
             var max = center + half;
 
             if (new WorldAabb(min, max).Intersects(playerBounds))
-                return definition.ContactDamage;
+                return new CreatureContactHit(creature.Id, definition.ContactDamage);
         }
 
-        return 0f;
+        return null;
+    }
+
+    /// <summary>Records a contact pulse only after player hazard cooldown accepts it.</summary>
+    public bool TryRegisterContactAttack(CreatureInstanceId id)
+    {
+        if (!_active.TryGetValue(id.Value, out var creature) ||
+            creature.NoAi || creature.IsDying ||
+            _definitions.Get(creature.DefinitionId).ContactDamage <= 0f)
+            return false;
+
+        _active[id.Value] = creature with
+        {
+            AttacksDealt = checked(creature.AttacksDealt + 1),
+            AttackSecondsRemaining = AttackAnimationSeconds,
+        };
+        return true;
     }
 
     /// <summary>
@@ -304,6 +328,7 @@ public sealed class CreatureRuntime
             Health = 0f,
             DeathSecondsRemaining = DeathAnimationSeconds,
             HurtSecondsRemaining = 0f,
+            AttackSecondsRemaining = 0f,
             AttacksReceived = checked(current.AttacksReceived + 1),
             Motion = current.Motion with
             {
@@ -329,6 +354,7 @@ public sealed class CreatureRuntime
         _active[id.Value] = creature with
         {
             MetaTags = tags,
+            AttackSecondsRemaining = enabled ? 0f : creature.AttackSecondsRemaining,
             Motion = enabled ? CreatureHopMotion.Initial : creature.Motion,
         };
         return true;
@@ -350,6 +376,7 @@ public sealed class CreatureRuntime
         _active[id.Value] = creature with
         {
             MetaTags = updated,
+            AttackSecondsRemaining = updated.NoAi ? 0f : creature.AttackSecondsRemaining,
             Motion = updated.NoAi && !creature.NoAi
                 ? CreatureHopMotion.Initial : creature.Motion,
         };
@@ -394,6 +421,8 @@ public sealed class CreatureRuntime
                 ? 0f : HurtAnimationSeconds,
             DeathSecondsRemaining = health == 0f
                 ? DeathAnimationSeconds : 0f,
+            AttackSecondsRemaining = health == 0f
+                ? 0f : creature.AttackSecondsRemaining,
             AttacksReceived = checked(creature.AttacksReceived + 1),
         };
 
@@ -419,6 +448,8 @@ public sealed class CreatureRuntime
             var age = creature.AgeSeconds + deltaSeconds;
             var hurt = MathF.Max(0f,
                 creature.HurtSecondsRemaining - (float)deltaSeconds);
+            var attack = MathF.Max(0f,
+                creature.AttackSecondsRemaining - (float)deltaSeconds);
             var death = MathF.Max(0f,
                 creature.DeathSecondsRemaining - (float)deltaSeconds);
 
@@ -453,6 +484,7 @@ public sealed class CreatureRuntime
                 {
                     AgeSeconds = age,
                     HurtSecondsRemaining = hurt,
+                    AttackSecondsRemaining = attack,
                 };
             }
         }
@@ -470,7 +502,8 @@ public sealed class CreatureRuntime
         Vector3 observerPosition,
         VoxelWorld world,
         BlockRegistry blocks,
-        float gravityStrength)
+        float gravityStrength,
+        bool targetPlayer = true)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(blocks);
@@ -483,7 +516,10 @@ public sealed class CreatureRuntime
         var hadEndingReactions = _active.Values.Any(
             creature => !creature.IsDying &&
                 creature.HurtSecondsRemaining > 0f &&
-                creature.HurtSecondsRemaining <= deltaSeconds);
+                creature.HurtSecondsRemaining <= deltaSeconds ||
+                !creature.IsDying &&
+                creature.AttackSecondsRemaining > 0f &&
+                creature.AttackSecondsRemaining <= deltaSeconds);
         var changed = Advance(deltaSeconds, observerPosition) > 0 ||
             hadEndingReactions;
         foreach (var id in _active.Keys.ToArray())
@@ -493,7 +529,9 @@ public sealed class CreatureRuntime
             var definition = _definitions.Get(creature.DefinitionId);
             var next = CreatureHopSolver.Step(
                 creature, definition, world, blocks,
-                gravityStrength, (float)Math.Min(deltaSeconds, 0.05));
+                gravityStrength, (float)Math.Min(deltaSeconds, 0.05),
+                targetPlayer && definition.ContactDamage > 0f
+                    ? observerPosition : null);
 
             if (next.Position != creature.Position ||
                 next.Motion.Phase != creature.Motion.Phase ||

@@ -57,7 +57,9 @@ public sealed class CreaturePresentationController
                 ? "death"
                 : creature.HurtSecondsRemaining > 0f
                     ? "hurt"
-                    : creature.Motion.Phase switch
+                    : creature.AttackSecondsRemaining > 0f
+                        ? "attack"
+                        : creature.Motion.Phase switch
                     {
                         CreatureHopPhase.Idle => "idle",
                         CreatureHopPhase.Anticipate => "anticipate",
@@ -67,8 +69,10 @@ public sealed class CreaturePresentationController
                     };
             // Repeated attacks must replay the same one-shot clip even if
             // the last creature animation key was also "hurt".
-            var revision = animation is "hurt" or "death"
-                ? creature.AttacksReceived : 0u;
+            var revision = animation == "attack"
+                ? creature.AttacksDealt
+                : animation is "hurt" or "death"
+                    ? creature.AttacksReceived : 0u;
             if (!_animations.TryGetValue(id, out var shown) ||
                 shown != (animation, revision))
             {
@@ -171,8 +175,11 @@ public sealed class CreaturePresentationController
         CreatureDefinition definition,
         string phase)
     {
-        if (!definition.Animations.TryGetValue(phase, out var animation))
+        if (!definition.Animations.TryGetValue(phase, out var animation) &&
+            !(phase == "attack" && definition.Animations.TryGetValue("land", out animation)))
             return false;
+        // Older slime GLBs have no dedicated attack clip. Their authored Land
+        // squash plays on impact until a pack supplies animations.attack.
 
         if (node is AnimationPlayer player && player.HasAnimation(animation))
         {

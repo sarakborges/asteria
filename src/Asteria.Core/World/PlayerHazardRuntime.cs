@@ -24,8 +24,14 @@ public sealed class PlayerHazardRuntime
     }
 
     public PlayerDamageResult TouchCreature(
-        float damage, float protection, PlayerHealth health, PlayerGameMode mode)
+        float damage, float protection, PlayerHealth health, PlayerGameMode mode) =>
+        TouchCreature(damage, protection, health, mode, out _);
+
+    public PlayerDamageResult TouchCreature(
+        float damage, float protection, PlayerHealth health, PlayerGameMode mode,
+        out bool contactAccepted)
     {
+        contactAccepted = false;
         ArgumentNullException.ThrowIfNull(health);
         if (!float.IsFinite(damage) || damage < 0f ||
             !float.IsFinite(protection) || protection < 0f || protection > 1f)
@@ -38,6 +44,7 @@ public sealed class PlayerHazardRuntime
         // The cooldown belongs to the real contact event, even if protection
         // absorbs it completely, avoiding unbounded same-frame retriggers.
         _creatureCooldownSeconds = CreatureContactIntervalSeconds;
+        contactAccepted = true;
         return health.Damage(damage * (1f - protection), mode);
     }
 
