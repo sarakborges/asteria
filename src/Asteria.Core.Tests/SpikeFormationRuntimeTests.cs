@@ -187,6 +187,34 @@ public sealed class SpikeFormationRuntimeTests
         Assert.Empty(f.Drops.ActiveBlocks);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SpikeCollisionUsesTheSameSquareTierProfileAsRendering(bool down)
+    {
+        var f = Fixture();
+        var stone = f.Blocks.GetId("asteria:stone");
+        var spike = f.Blocks.GetId("asteria:stone_spike");
+        var anchorY = down ? 8 : 2;
+        var spikeY = down ? 7 : 3;
+        Assert.True(f.Mutations.SetBlockAt(
+            new WorldVoxelCoord(2, anchorY, 2), stone, out _));
+        Assert.True(f.Interactions.Place(
+            Hit(2, anchorY, 2, normalY: down ? -1 : 1),
+            new VoxelCell(spike), AwayFromPlayer).Accepted);
+
+        var center = new WorldAabb(
+            new Vector3(2.45f, spikeY + 0.60f, 2.45f),
+            new Vector3(2.55f, spikeY + 0.70f, 2.55f));
+        var corner = new WorldAabb(
+            new Vector3(2.02f, spikeY + 0.60f, 2.02f),
+            new Vector3(2.12f, spikeY + 0.70f, 2.12f));
+        Assert.Equal(VoxelWorldCollisionState.Blocked,
+            VoxelWorldCollision.Query(f.World, f.Blocks, center));
+        Assert.Equal(VoxelWorldCollisionState.Clear,
+            VoxelWorldCollision.Query(f.World, f.Blocks, corner));
+    }
+
     [Fact]
     public void CeilingPlacementAndDropsIgnorePickedSegmentProfile()
     {
