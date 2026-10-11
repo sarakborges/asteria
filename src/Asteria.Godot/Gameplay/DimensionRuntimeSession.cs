@@ -596,9 +596,23 @@ public sealed class DimensionRuntimeSession
         !_retiring && !_retired &&
         _state.StorageBoxes.TryOpen(position, World, Blocks);
 
-    public bool TryClickStorageBox(int index, PlayerInventory player) =>
+    public bool TryClickStorageBox(
+        int index, PlayerInventory player, bool rightButton = false) =>
         !_retiring && !_retired &&
-        _state.StorageBoxes.TryClickActive(index, player, World, Blocks);
+        _state.StorageBoxes.TryClickActive(
+            index, player, World, Blocks, rightButton);
+
+    public bool TryQuickTransferStorageBox(
+        int index, PlayerInventory player) =>
+        !_retiring && !_retired &&
+        _state.StorageBoxes.TryQuickTransferActive(
+            index, player, World, Blocks);
+
+    public bool TryQuickTransferPlayerToStorage(
+        int index, PlayerInventory player) =>
+        !_retiring && !_retired &&
+        _state.StorageBoxes.TryQuickTransferPlayer(
+            index, player, World, Blocks);
 
     public bool TrySortStorageBox() =>
         !_retiring && !_retired &&
