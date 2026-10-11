@@ -110,6 +110,7 @@ createRoot(rootElement).render(
       sortStorageBox: storageBox.sort,
       closeChat: chat.close,
       submitChat: chat.submit,
+      activateChatMessage: chat.activateMessage,
       clickInventorySlot: inventory.clickSlot,
       clickEquipmentSlot: inventory.clickEquipment,
       sortInventory: inventory.sort,
