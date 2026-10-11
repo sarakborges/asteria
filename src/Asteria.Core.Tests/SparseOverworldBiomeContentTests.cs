@@ -172,7 +172,7 @@ public sealed class SparseOverworldBiomeContentTests
     }
 
     [Fact]
-    public void WastelandDeadwoodNeverReplacesDrySoilWithGrassOrLeaves()
+    public void WastelandDeadwoodKeepsFantasyLeavesWithoutReplacingDrySoil()
     {
         var structures = LoadStructures();
         foreach (var group in new[] { "asteria:wasteland_snag", "asteria:fallen_log_wasteland" })
@@ -189,10 +189,15 @@ public sealed class SparseOverworldBiomeContentTests
                 Assert.Equal(StructureReplacePolicy.Terrain, structure.Generation.ReplacePolicy);
                 Assert.Contains("asteria:dirt", structure.Restrictions.GroundBlocks);
                 Assert.Contains("asteria:gravel", structure.Restrictions.GroundBlocks);
+                Assert.Contains(structure.Voxels,
+                    voxel => voxel.Block == "asteria:leaf_oak");
                 Assert.All(structure.Voxels, voxel =>
                 {
                     Assert.True(voxel.Y >= 1);
-                    Assert.StartsWith("asteria:log_oak", voxel.Block);
+                    if (voxel.Block == "asteria:leaf_oak")
+                        Assert.Equal(BlockOrientation.Y, voxel.Orientation);
+                    else
+                        Assert.StartsWith("asteria:log_oak", voxel.Block);
                 });
             });
         }
