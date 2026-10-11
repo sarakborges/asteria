@@ -1,4 +1,5 @@
 using Asteria.Client.Content;
+using Asteria.Core.Content;
 using Asteria.Core.World;
 using Godot;
 
