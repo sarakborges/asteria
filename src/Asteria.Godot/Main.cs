@@ -4256,7 +4256,8 @@ public partial class Main : Node3D
         var previousFeedback = mining.FeedbackRevision;
         mining.Advance(
             CurrentTarget(), held, inventory.SelectedSlot,
-            _worldTicks.TicksThisFrame, _sessionStates.Player.GameMode);
+            _worldTicks.TicksThisFrame, _sessionStates.Player.GameMode,
+            _worldTicks.CurrentTick);
         MiningFeedbackEvent? feedback = null;
         if (mining.FeedbackRevision != previousFeedback)
         {
