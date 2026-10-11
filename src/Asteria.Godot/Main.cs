@@ -2055,6 +2055,21 @@ public partial class Main : Node3D
             var exactPortalEntry = warp.RequireExactDestination && !warp.IsReturning
                 ? _sessions.Active.CheckResidentPortalEntry()
                 : (ExactArrivalStatus?)null;
+            if (exactPortalEntry is { } unsafeEntry &&
+                unsafeEntry != ExactArrivalStatus.Safe &&
+                unsafeEntry != ExactArrivalStatus.NonResident &&
+                unsafeEntry != ExactArrivalStatus.SessionRetiring)
+            {
+                var placement = _sessions.Active.TryPreparePortalArrivalStructure();
+                if (placement is { } result)
+                {
+                    _worldDiagnostics?.Write(
+                        $"portal.arrival.structure dimension={_dimension.Id} " +
+                        $"result={result}");
+                    if (result == ManualStructurePlacementResult.Placed)
+                        exactPortalEntry = _sessions.Active.CheckResidentPortalEntry();
+                }
+            }
             var residentEntrySafe = exactPortalEntry is { } status
                 ? status == ExactArrivalStatus.Safe
                 : _sessions.Active.TryPrepareResidentWarpEntry();

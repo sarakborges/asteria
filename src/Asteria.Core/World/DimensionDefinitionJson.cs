@@ -88,7 +88,8 @@ public static class DimensionDefinitionJson
             ParseGeneratedSurfaceFluids(
                 root),
             OptionalString(root, "dayNightCycle"),
-            ParseBiomeBlending(root));
+            ParseBiomeBlending(root),
+            OptionalString(root, "portalArrivalStructure"));
     }
 
     private static DimensionSkyLayersDefinition? ParseSkyLayers(JsonElement environment)

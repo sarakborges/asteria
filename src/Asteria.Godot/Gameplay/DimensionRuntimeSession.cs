@@ -65,6 +65,12 @@ public sealed class DimensionRuntimeSession
             state ??
             throw new ArgumentNullException(
                 nameof(state));
+        if (state.Dimension.PortalArrivalStructure is { } arrival &&
+            (!structures.ResolvesReference(arrival) ||
+             structures.ResolveReference(arrival).Count != 1))
+            throw new ArgumentException(
+                $"Sphere {state.Dimension.Id} arrival Structure {arrival} must resolve one root.",
+                nameof(structures));
         Blocks =
             blocks ??
             throw new ArgumentNullException(
@@ -614,6 +620,27 @@ public sealed class DimensionRuntimeSession
         _retiring || _retired
             ? ExactArrivalStatus.SessionRetiring
             : ResidentWarpDestinationQuery.CheckExact(World, _initialPlayerPosition);
+
+    /// <summary>
+    /// Use only authored Structure payloads to prepare exact portal entry.
+    /// Protected voxels and absent residency reject the canonical mutation.
+    /// </summary>
+    public ManualStructurePlacementResult? TryPreparePortalArrivalStructure()
+    {
+        if (_retiring || _retired ||
+            Dimension.PortalArrivalStructure is not { } reference)
+            return null;
+        var at = _initialPlayerPosition;
+        if (!float.IsFinite(at.X) || !float.IsFinite(at.Y) ||
+            !float.IsFinite(at.Z) || at.Y < 1f ||
+            at.X <= int.MinValue || at.X >= int.MaxValue ||
+            at.Y >= int.MaxValue - 2 ||
+            at.Z <= int.MinValue || at.Z >= int.MaxValue)
+            return ManualStructurePlacementResult.InvalidPlacement;
+        return ManualStructures.TryPlaceExact(
+            reference, (int)MathF.Floor(at.X),
+            (int)MathF.Floor(at.Y), (int)MathF.Floor(at.Z));
+    }
 
     public void PrepareGeneratedDestination(
         NVector3 preferred)

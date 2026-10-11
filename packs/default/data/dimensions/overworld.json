@@ -1286,5 +1286,6 @@
     "sizeExponent": 0.12,
     "seedBiasAmplitude": 0.045,
     "continuationBonus": 0.055
-  }
+  },
+  "portalArrivalStructure": "asteria:portal_arrival_platform"
 }

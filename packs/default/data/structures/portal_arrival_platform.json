@@ -1,0 +1,57 @@
+{
+  "id": "asteria:portal_arrival_platform",
+  "locatable": false,
+  "rotation": false,
+  "anchor": {
+    "x": 1,
+    "y": 1,
+    "z": 1
+  },
+  "generation": {
+    "replacePolicy": "terrain",
+    "fluidPolicy": "displace",
+    "reserveSpace": true
+  },
+  "palette": {
+    "S": {
+      "block": "asteria:stone"
+    },
+    "C": {
+      "clear": true
+    }
+  },
+  "layers": [
+    {
+      "y": 0,
+      "rows": [
+        "SSS",
+        "SSS",
+        "SSS"
+      ]
+    },
+    {
+      "y": 1,
+      "rows": [
+        "CCC",
+        "CCC",
+        "CCC"
+      ]
+    },
+    {
+      "y": 2,
+      "rows": [
+        "CCC",
+        "CCC",
+        "CCC"
+      ]
+    },
+    {
+      "y": 3,
+      "rows": [
+        "CCC",
+        "CCC",
+        "CCC"
+      ]
+    }
+  ]
+}

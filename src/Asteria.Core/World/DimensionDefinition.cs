@@ -444,7 +444,8 @@ public sealed class DimensionDefinition
         IEnumerable<DimensionGeneratedSurfaceStructureDefinition>? generatedSurfaceStructures = null,
         IEnumerable<DimensionGeneratedSurfaceFluidDefinition>? generatedSurfaceFluids = null,
         string? dayNightCycleId = null,
-        BiomeBlendingDefinition? biomeBlending = null)
+        BiomeBlendingDefinition? biomeBlending = null,
+        string? portalArrivalStructure = null)
     {
         if (!float.IsFinite(gravityStrength) ||
             gravityStrength < 0f ||
@@ -576,8 +577,12 @@ public sealed class DimensionDefinition
             BlockDefinition.ValidateId(dayNightCycleId);
         }
 
+        if (portalArrivalStructure is not null)
+            StructureDefinition.ValidateId(portalArrivalStructure);
+
         Id = id;
         DayNightCycleId = dayNightCycleId;
+        PortalArrivalStructure = portalArrivalStructure;
         SurfaceBiomes =
             Array.AsReadOnly(
                 authoredSurfaceBiomes);
@@ -611,6 +616,9 @@ public sealed class DimensionDefinition
     public DimensionId Id { get; }
 
     public string? DayNightCycleId { get; }
+
+    /// <summary>Authored Structure rooted at incoming portal X/Y/Z.</summary>
+    public string? PortalArrivalStructure { get; }
 
     public IReadOnlyList<string> SurfaceBiomes { get; }
 
