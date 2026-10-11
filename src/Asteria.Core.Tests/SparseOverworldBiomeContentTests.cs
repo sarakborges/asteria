@@ -114,7 +114,7 @@ public sealed class SparseOverworldBiomeContentTests
             "asteria:dune_grass",
             "asteria:thornbush",
             "asteria:yucca",
-            "asteria:sandstone_spur",
+            "asteria:sandstone_spike",
         };
         Assert.Equal(expectedDecorators,
             biome.Decorations.Select(decoration => decoration.Block));
