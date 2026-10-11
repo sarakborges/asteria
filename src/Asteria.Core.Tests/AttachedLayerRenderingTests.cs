@@ -116,6 +116,82 @@ public sealed class AttachedLayerRenderingTests
         Assert.Equal(2, chunk.GetSurfaceState(1, 1, 1).Layers.Count);
     }
 
+    [Theory]
+    [InlineData(BlockFace.Front)]
+    [InlineData(BlockFace.Top)]
+    public void SelectedMiningLayerEmitsOnlyUppermostTargetFace(
+        BlockFace selectedFace)
+    {
+        var blocks = new BlockRegistry([
+            new BlockDefinition("asteria:stone",
+                textures: new BlockTextureSet(top: [
+                    new BlockTextureLayer(StonePath)
+                ]))
+        ]);
+        var layers = new AttachedLayerRegistry([
+            new AttachedLayerDefinition("asteria:moss", LayerPath),
+            new AttachedLayerDefinition("asteria:ore", LayerPath)
+        ]);
+        var selected = new AttachedBlockLayer(
+            selectedFace, "asteria:ore", TextureRotation.Degrees90);
+        var chunk = new Chunk();
+        chunk.SetBlock(2, 2, 2, blocks.GetId("asteria:stone"));
+        chunk.SetSurfaceState(2, 2, 2, new BlockSurfaceState(null, [
+            new AttachedBlockLayer(selectedFace, "asteria:moss"),
+            selected,
+            new AttachedBlockLayer(
+                selectedFace == BlockFace.Top ? BlockFace.Front : BlockFace.Top,
+                "asteria:moss")
+        ]));
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, chunk);
+        var textures = new TerrainTextureLookup(
+            new Dictionary<string, int> {
+                [StonePath] = 1, [LayerPath] = 2
+            });
+        var normal = selectedFace == BlockFace.Top
+            ? System.Numerics.Vector3.UnitY
+            : System.Numerics.Vector3.UnitZ;
+
+        var entire = ChunkMeshDataBuilder.BuildMeshlet(
+            world, ChunkCoord.Zero, blocks, textures, 0,
+            attachedLayers: layers);
+        var target = ChunkMeshDataBuilder.BuildMeshlet(
+            world, ChunkCoord.Zero, blocks, textures, 0,
+            attachedLayers: layers, selectedLayer: selected);
+
+        Assert.Equal(2, target.TriangleCount);
+        Assert.Equal(0, target.CollisionTriangleCount);
+        Assert.True(entire.TriangleCount > target.TriangleCount);
+        var points = target.RenderBatches.SelectMany(x => x.Vertices).ToArray();
+        Assert.Equal(6, points.Length);
+        Assert.All(points, v => Assert.Equal(normal, v.Normal));
+
+        // The second layer on the same face sits above the first one.
+        var minOffset = 1f / 1024f + 1f / 8192f;
+        Assert.All(points, v => Assert.True(
+            (selectedFace == BlockFace.Top ? v.Position.Y : v.Position.Z)
+            > 3f + minOffset - 0.00001f));
+    }
+
+    [Fact]
+    public void SelectedMiningLayerPreservesMicroblockFaceMaskWithoutHostCollision()
+    {
+        var (world, blocks, layers) = Setup(sculpted: true);
+        var attachment = new AttachedBlockLayer(
+            BlockFace.Top, "asteria:foliage_layer");
+        var isolated = ChunkMeshDataBuilder.BuildMeshlet(
+            world, ChunkCoord.Zero, blocks,
+            new TerrainTextureLookup(new Dictionary<string, int>
+            {
+                [StonePath] = 1, [LayerPath] = 2
+            }), 0, attachedLayers: layers, selectedLayer: attachment);
+        Assert.True(isolated.TriangleCount > 0);
+        Assert.Equal(0, isolated.CollisionTriangleCount);
+        Assert.All(isolated.RenderBatches.SelectMany(x => x.Vertices),
+            v => Assert.Equal(System.Numerics.Vector3.UnitY, v.Normal));
+    }
+
     [Fact]
     public void MissingDefinitionFailsInsteadOfSilentlyDiscardingWorldData()
     {
