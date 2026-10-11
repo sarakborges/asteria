@@ -113,6 +113,30 @@ public static class ChunkTopologyFrontier
         }
     }
 
+    public static bool NeedsSeamLightSeed(
+        VoxelWorld world, BlockRegistry blocks, FluidRegistry fluids,
+        WorldVoxelCoord position)
+    {
+        var address = VoxelCoordinates.FromWorld(position.X, position.Y, position.Z);
+        if (address.Local.Y == 0 || address.Local.Y == Chunk.Size - 1 ||
+            !world.TryGetChunk(address.Chunk, out var chunk))
+            return true;
+
+        var x = address.Local.X;
+        var y = address.Local.Y;
+        var z = address.Local.Z;
+        if (!chunk.GetLight(x, y, z).IsDark)
+            return true;
+
+        var cell = chunk.GetCell(x, y, z);
+        var fluid = chunk.GetFluid(x, y, z);
+        var dampening = VoxelLightingMedium.Dampening(
+            chunk, blocks, fluids, x, y, z, cell, fluid);
+        var emission = VoxelLightingMedium.Emission(blocks, fluids, cell, fluid);
+        return dampening < VoxelLight.MaxLevel ||
+               !VoxelLight.FromEmission(emission).IsDark;
+    }
+
     public static IEnumerable<ChunkNeighborMeshInvalidation>
         PresentedNeighborMeshInvalidationsForAddition(
             ChunkCoord source,
