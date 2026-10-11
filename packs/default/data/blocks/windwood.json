@@ -17,5 +17,14 @@
   },
   "lightDampening": 15,
   "castsShadow": true,
-  "previewColor": "75625d"
+  "previewColor": "75625d",
+  "variant": {
+    "family": "asteria:windwood",
+    "key": "natural"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ]
 }

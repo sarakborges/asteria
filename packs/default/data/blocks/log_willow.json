@@ -32,5 +32,9 @@
     "requiredTools": [
       "hatchet"
     ]
+  },
+  "variant": {
+    "family": "asteria:log_willow",
+    "key": "natural"
   }
 }

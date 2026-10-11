@@ -17,5 +17,14 @@
   },
   "lightDampening": 15,
   "castsShadow": true,
-  "previewColor": "768e90"
+  "previewColor": "768e90",
+  "variant": {
+    "family": "asteria:frost_wood",
+    "key": "natural"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ]
 }

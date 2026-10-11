@@ -1,0 +1,30 @@
+{
+  "id": "asteria:rime_deadwood_stripped",
+  "category": "wooden_blocks",
+  "textures": {
+    "top": "textures/blocks/trees/rime_deadwood/top.png",
+    "bottom": "textures/blocks/trees/rime_deadwood/top.png",
+    "left": "textures/blocks/trees/rime_deadwood/stripped.png",
+    "right": "textures/blocks/trees/rime_deadwood/stripped.png",
+    "front": "textures/blocks/trees/rime_deadwood/stripped.png",
+    "back": "textures/blocks/trees/rime_deadwood/stripped.png"
+  },
+  "mining": {
+    "hardness": 0.8,
+    "preferredTools": [
+      "hatchet"
+    ]
+  },
+  "lightDampening": 15,
+  "castsShadow": true,
+  "previewColor": "a3b5c1",
+  "variant": {
+    "family": "asteria:rime_deadwood",
+    "key": "stripped"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ]
+}

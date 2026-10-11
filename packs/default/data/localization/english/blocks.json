@@ -541,5 +541,32 @@
   },
   "asteria:yucca": {
     "/name": "Yucca"
+  },
+  "asteria:charwood_stripped": {
+    "/name": "Stripped Charred Wood"
+  },
+  "asteria:frost_wood_stripped": {
+    "/name": "Stripped Frost Wood"
+  },
+  "asteria:juniper_wood_stripped": {
+    "/name": "Stripped Juniper Wood"
+  },
+  "asteria:rime_deadwood_stripped": {
+    "/name": "Stripped Rime Deadwood"
+  },
+  "asteria:skywood_log_stripped": {
+    "/name": "Stripped Skywood Log"
+  },
+  "asteria:thornwood_stripped": {
+    "/name": "Stripped Thornwood"
+  },
+  "asteria:windwood_stripped": {
+    "/name": "Stripped Windwood"
+  },
+  "asteria:rime_leaves": {
+    "/name": "Rime Leaves"
+  },
+  "asteria:thornwood_leaves": {
+    "/name": "Thornwood Leaves"
   }
 }

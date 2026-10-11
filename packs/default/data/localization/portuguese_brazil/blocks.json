@@ -541,5 +541,32 @@
   },
   "asteria:yucca": {
     "/name": "Iúca"
+  },
+  "asteria:charwood_stripped": {
+    "/name": "Madeira Carbonizada Descascada"
+  },
+  "asteria:frost_wood_stripped": {
+    "/name": "Madeira Gélida Descascada"
+  },
+  "asteria:juniper_wood_stripped": {
+    "/name": "Madeira de Zimbro Descascada"
+  },
+  "asteria:rime_deadwood_stripped": {
+    "/name": "Madeira Morta de Geada Descascada"
+  },
+  "asteria:skywood_log_stripped": {
+    "/name": "Tronco de Madeira Celeste Descascado"
+  },
+  "asteria:thornwood_stripped": {
+    "/name": "Madeira Espinhosa Descascada"
+  },
+  "asteria:windwood_stripped": {
+    "/name": "Madeira do Vento Descascada"
+  },
+  "asteria:rime_leaves": {
+    "/name": "Folhas de Geada"
+  },
+  "asteria:thornwood_leaves": {
+    "/name": "Folhas de Madeira Espinhosa"
   }
 }

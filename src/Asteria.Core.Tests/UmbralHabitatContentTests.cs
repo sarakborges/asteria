@@ -142,7 +142,7 @@ public sealed class UmbralHabitatContentTests
     }
 
     [Fact]
-    public void DeadfallTemplatesUsePaleDeadwoodAndStayGroundBound()
+    public void DeadfallTemplatesRetainPaleWoodAndFantasyLeafSprouts()
     {
         var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
         var structures = StructureRegistry.FromJson(ReadJsonDirectory("structures"));
@@ -163,9 +163,16 @@ public sealed class UmbralHabitatContentTests
             Assert.Contains("wood_debris", structure.ConflictGroups);
             Assert.Contains("asteria:dirt", structure.Restrictions.GroundBlocks);
             Assert.Contains("asteria:gravel", structure.Restrictions.GroundBlocks);
+            Assert.Contains(structure.Voxels,
+                cell => cell.Block == "asteria:leaf_enchanted");
             Assert.All(structure.Voxels, cell =>
             {
                 Assert.True(cell.Y >= 1);
+                if (cell.Block == "asteria:leaf_enchanted")
+                {
+                    Assert.Equal(BlockOrientation.Y, cell.Orientation);
+                    return;
+                }
                 Assert.Contains(cell.Block, new[]
                 {
                     "asteria:log_enchanted",

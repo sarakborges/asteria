@@ -17,5 +17,14 @@
       "hatchet"
     ]
   },
-  "previewColor": "514843"
+  "previewColor": "514843",
+  "variant": {
+    "family": "asteria:charwood",
+    "key": "natural"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ]
 }
