@@ -46,6 +46,66 @@ public sealed class BlockLootTableTests
         Assert.True(f.Mutations.SetBlockAt(Position,
             f.Blocks.GetId("asteria:stone"), out _));
 
+    private static Fixture SetupLayer(int capacity)
+    {
+        var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);
+        var layers = AttachedLayerRegistry.FromJson([
+            """
+            {"id":"asteria:iron_ore","texture":"textures/layers/iron.png",
+             "mining":{"hardness":0.5},
+             "drops":[{"kind":"item","id":"asteria:raw_iron","quantity":33}]}
+            """
+        ]);
+        var items = PackContentRegistry<ItemDefinition>.FromJson([
+            """
+            {"id":"asteria:raw_iron","category":"materials",
+             "icon":"textures/items/iron.png","maxStackSize":16}
+            """
+        ], ItemDefinition.Parse, x => x.Id);
+        var tools = PackContentRegistry<ToolDefinition>.FromJson(
+            [], ToolDefinition.Parse, x => x.Id);
+        var catalog = new InventoryContentCatalog(blocks, items, tools, layers);
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, new Chunk());
+        var mutations = new VoxelMutationRuntime(
+            world, new WorldUpdateQueue(), new FluidUpdateQueue(),
+            new FluidMeshUpdateQueue(), new BlockPhysicsUpdateQueue(),
+            new MeshletContentRevisions(), new MeshletContentRevisions());
+        var drops = new DroppedBlockRuntime(world, blocks, maximumActive: capacity);
+        return new Fixture(blocks, world, mutations,
+            new BlockInteractionRuntime(world, blocks, mutations, drops,
+                layers, catalog), drops);
+    }
+
+    private static void PlaceOre(Fixture fixture)
+    {
+        Place(fixture);
+        Assert.True(fixture.Mutations.SetBlockSurfaceStateAt(Position,
+            new BlockSurfaceState(null, [
+                new AttachedBlockLayer(BlockFace.Top, "asteria:iron_ore")
+            ]), out _));
+    }
+
+    [Fact]
+    public void LayerLootUsesItemStackLimitAndRejectsCapacityBeforeRemovingOre()
+    {
+        var f = SetupLayer(capacity: 3);
+        PlaceOre(f);
+        Assert.True(f.Interactions.Break(Hit).Accepted);
+        Assert.Equal([16, 16, 1], f.Drops.ActiveBlocks
+            .Select(x => x.Stack.Quantity).ToArray());
+        Assert.Empty(f.World.GetBlockSurfaceStateOrEmpty(Position).Layers);
+        Assert.Equal(f.Blocks.GetId("asteria:stone"),
+            f.World.GetCellOrEmpty(Position).Block);
+
+        var full = SetupLayer(capacity: 2);
+        PlaceOre(full);
+        Assert.False(full.Interactions.Break(Hit).Accepted);
+        Assert.Equal(0, full.Drops.ActiveCount);
+        Assert.True(full.World.GetBlockSurfaceStateOrEmpty(Position)
+            .TryGetTop(BlockFace.Top, out _));
+    }
+
     [Fact]
     public void AuthoredEntriesOverrideSelfDropAndSplitToActualStackLimits()
     {
