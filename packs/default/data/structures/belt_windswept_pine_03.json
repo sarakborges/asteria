@@ -28,10 +28,10 @@
   },
   "palette": {
     "L": {
-      "block": "asteria:belt_wind_needles"
+      "block": "asteria:windwood_needles"
     },
     "W": {
-      "block": "asteria:belt_windwood"
+      "block": "asteria:windwood"
     }
   },
   "layers": [

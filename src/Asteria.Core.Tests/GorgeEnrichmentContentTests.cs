@@ -6,8 +6,8 @@ public sealed class GorgeEnrichmentContentTests
 {
     private static readonly string[] Names =
     [
-        "gorge_sagebrush", "gorge_dry_tuft",
-        "gorge_exposed_roots", "gorge_rock_spur",
+        "sagebrush", "dry_tuft",
+        "dry_exposed_roots", "rock_spur",
     ];
 
     [Fact]
@@ -50,15 +50,15 @@ public sealed class GorgeEnrichmentContentTests
         }
 
         var shrubs = Assert.Single(gorge.Decorations,
-            item => item.Block == "asteria:gorge_sagebrush");
+            item => item.Block == "asteria:sagebrush");
         Assert.True(shrubs.HabitatWeights!.For("valley_floor") >
                     shrubs.HabitatWeights.For("rubble_slopes"));
         var tufts = Assert.Single(gorge.Decorations,
-            item => item.Block == "asteria:gorge_dry_tuft");
+            item => item.Block == "asteria:dry_tuft");
         Assert.True(tufts.HabitatWeights!.For("valley_floor") >
                     tufts.HabitatWeights.For("high_rims"));
         var spurs = Assert.Single(gorge.Decorations,
-            item => item.Block == "asteria:gorge_rock_spur");
+            item => item.Block == "asteria:rock_spur");
         Assert.True(spurs.HabitatWeights!.For("rubble_slopes") >
                     spurs.HabitatWeights.For("valley_floor"));
     }
@@ -72,7 +72,7 @@ public sealed class GorgeEnrichmentContentTests
         {
             var block = blocks.GetDefinition(
                 blocks.GetId("asteria:" + name));
-            if (name == "gorge_rock_spur")
+            if (name == "rock_spur")
             {
                 Assert.Equal(BlockShapeKind.Spike, block.Shape.Kind);
                 Assert.True(block.IsCollidable);
@@ -82,7 +82,7 @@ public sealed class GorgeEnrichmentContentTests
                 Assert.True(textures.Add(expectedTexture));
                 continue;
             }
-            var expectedKind = name == "gorge_exposed_roots"
+            var expectedKind = name == "dry_exposed_roots"
                 ? BlockVisualKind.GroundSprite
                 : BlockVisualKind.CrossedSprite;
             Assert.Equal(expectedKind, block.Visual.Kind);
@@ -129,9 +129,9 @@ public sealed class GorgeEnrichmentContentTests
                 generated.Add(rock);
         }
 
-        Assert.Contains(blocks.GetId("asteria:gorge_dry_tuft"), generated);
-        Assert.Contains(blocks.GetId("asteria:gorge_sagebrush"), generated);
-        Assert.Contains(blocks.GetId("asteria:gorge_rock_spur"), generated);
+        Assert.Contains(blocks.GetId("asteria:dry_tuft"), generated);
+        Assert.Contains(blocks.GetId("asteria:sagebrush"), generated);
+        Assert.Contains(blocks.GetId("asteria:rock_spur"), generated);
     }
 
     private static IEnumerable<string> ReadPackJson(string directory)

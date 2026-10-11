@@ -1,0 +1,21 @@
+{
+  "id": "asteria:fossil_bone",
+  "category": "natural_blocks",
+  "textures": {
+    "top": "textures/blocks/fossil_bone.png",
+    "bottom": "textures/blocks/fossil_bone.png",
+    "left": "textures/blocks/fossil_bone.png",
+    "right": "textures/blocks/fossil_bone.png",
+    "front": "textures/blocks/fossil_bone.png",
+    "back": "textures/blocks/fossil_bone.png"
+  },
+  "mining": {
+    "hardness": 1.2,
+    "requiredTools": [
+      "pickaxe"
+    ]
+  },
+  "lightDampening": 15,
+  "castsShadow": true,
+  "previewColor": "d5c7a9"
+}

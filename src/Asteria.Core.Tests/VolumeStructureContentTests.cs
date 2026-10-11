@@ -60,11 +60,11 @@ public sealed class VolumeStructureContentTests
         var structures = StructureRegistry.FromJson(ReadJson("structures"));
         foreach (var (group, count, block) in new[]
         {
-            ("cavern_glow_mushroom", 3, "cave_glow_mushroom_cap"),
-            ("cavern_crystal_cluster", 2, "cave_crystal_core"),
-            ("cavern_chandelier", 2, "cave_crystal_core"),
-            ("skywood_tree", 3, "sky_canopy_leaf"),
-            ("sky_crystal_arch", 2, "sky_crystal_core"),
+            ("cavern_glow_mushroom", 3, "glow_mushroom_cap"),
+            ("cavern_crystal_cluster", 2, "luminous_crystal_core"),
+            ("cavern_chandelier", 2, "luminous_crystal_core"),
+            ("skywood_tree", 3, "skywood_leaves"),
+            ("sky_crystal_arch", 2, "aether_crystal_core"),
         })
         {
             var variants = structures.ResolveReference("asteria:" + group);
@@ -74,8 +74,8 @@ public sealed class VolumeStructureContentTests
         }
         foreach (var name in new[]
         {
-            "cave_glow_mushroom_cap", "cave_crystal_core",
-            "sky_crystal_core",
+            "glow_mushroom_cap", "luminous_crystal_core",
+            "aether_crystal_core",
         })
         {
             var definition = blocks.GetDefinition(
@@ -85,7 +85,7 @@ public sealed class VolumeStructureContentTests
         }
 
         var canopy = blocks.GetDefinition(
-            blocks.GetId("asteria:sky_canopy_leaf"));
+            blocks.GetId("asteria:skywood_leaves"));
         Assert.True(canopy.WindSway);
         Assert.Equal(BlockRenderMode.Cutout, canopy.RenderMode);
     }

@@ -130,7 +130,7 @@ public sealed class VerticalBiomeContentTests
         Assert.Null(floating.SurfaceHabitats);
         Assert.Equal(6, cave.Decorations.Count);
         Assert.Equal(7, floating.Decorations.Count);
-        Assert.Contains(floating.Decorations, d => d.Block == "asteria:sky_vines");
+        Assert.Contains(floating.Decorations, d => d.Block == "asteria:aether_vines");
 
         var field = new SurfaceDecorationField(119UL, [cave, floating], blocks);
         Assert.True(field.HasVerticalDecorations);
@@ -143,7 +143,7 @@ public sealed class VerticalBiomeContentTests
         var stone = blocks.GetId("asteria:stone");
         var grassBlock = blocks.GetId("asteria:grass_block");
         var aetherCrystal = blocks.GetId("asteria:aether_crystal");
-        var skyVines = blocks.GetId("asteria:sky_vines");
+        var skyVines = blocks.GetId("asteria:aether_vines");
         var sightings = 0;
         var islandSightings = 0;
         var variationAcrossY = 0;

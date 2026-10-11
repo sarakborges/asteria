@@ -41,7 +41,7 @@
   },
   "palette": {
     "B": {
-      "block": "asteria:swamp_bulrush"
+      "block": "asteria:bulrush"
     },
     "C": {
       "block": "asteria:cattail"

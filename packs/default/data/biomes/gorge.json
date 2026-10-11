@@ -96,7 +96,7 @@
       }
     },
     {
-      "block": "asteria:gorge_sagebrush",
+      "block": "asteria:sagebrush",
       "chance": 0.21,
       "surfaceBlocks": [
         "asteria:dirt",
@@ -120,7 +120,7 @@
       }
     },
     {
-      "block": "asteria:gorge_dry_tuft",
+      "block": "asteria:dry_tuft",
       "chance": 0.25,
       "surfaceBlocks": [
         "asteria:dirt",
@@ -144,7 +144,7 @@
       }
     },
     {
-      "block": "asteria:gorge_exposed_roots",
+      "block": "asteria:dry_exposed_roots",
       "chance": 0.125,
       "surfaceBlocks": [
         "asteria:dirt",
@@ -169,7 +169,7 @@
       }
     },
     {
-      "block": "asteria:gorge_rock_spur",
+      "block": "asteria:rock_spur",
       "chance": 0.075,
       "surfaceBlocks": [
         "asteria:stone",
@@ -194,7 +194,7 @@
       }
     },
     {
-      "block": "asteria:gorge_cliff_rosette",
+      "block": "asteria:cliff_rosette",
       "supportSurface": "wall",
       "chance": 0.1,
       "surfaceBlocks": [
@@ -218,7 +218,7 @@
       }
     },
     {
-      "block": "asteria:gorge_cliff_lichen",
+      "block": "asteria:cliff_lichen",
       "supportSurface": "wall",
       "chance": 0.125,
       "surfaceBlocks": [

@@ -32,7 +32,7 @@
   },
   "palette": {
     "F": {
-      "block": "asteria:swamp_shelf_fungus"
+      "block": "asteria:shelf_fungus"
     },
     "H": {
       "block": "asteria:hanging_moss"
@@ -47,7 +47,7 @@
       "block": "asteria:exposed_roots"
     },
     "W": {
-      "block": "asteria:swamp_mossy_willow_log"
+      "block": "asteria:mossy_willow_log"
     }
   },
   "layers": [

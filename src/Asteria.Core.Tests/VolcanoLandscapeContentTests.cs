@@ -60,9 +60,9 @@ public sealed class VolcanoLandscapeContentTests
                     b => Assert.Equal("asteria:basalt", b));
 
                 var stemBlocks = new[] {
-                    "asteria:volcanic_charwood",
-                    "asteria:volcanic_basalt_column",
-                    "asteria:volcanic_sulfur_crystal",
+                    "asteria:charwood",
+                    "asteria:basalt_column",
+                    "asteria:sulfur_crystal",
                     "asteria:volcanic_glass"
                 };
                 foreach (var stem in variant.Voxels.Where(voxel =>
@@ -81,7 +81,7 @@ public sealed class VolcanoLandscapeContentTests
         Assert.True(trees.Max(t => t.MaximumY) >= 11);
         Assert.True(trees.Select(t => t.MaximumY).Distinct().Count() >= 3);
         Assert.All(trees, tree => Assert.Contains(tree.Voxels,
-            voxel => voxel.Block == "asteria:volcanic_charwood" &&
+            voxel => voxel.Block == "asteria:charwood" &&
                      voxel.X != 0));
         var arches = structures.ResolveReference("asteria:volcanic_glass_arch");
         Assert.All(arches, arch => Assert.Contains(arch.Voxels,
@@ -99,8 +99,8 @@ public sealed class VolcanoLandscapeContentTests
         biomes.ValidateBlocks(blocks);
         var volcano = biomes.Get("asteria:overworld/volcano");
         foreach (var name in new[] {
-            "volcanic_ash_thorn", "volcanic_cinder_bloom",
-            "volcanic_soot_lichen" })
+            "ash_thorn", "cinder_bloom",
+            "soot_lichen" })
         {
             var rule = Assert.Single(volcano.Decorations,
                 d => d.Block == "asteria:" + name);
@@ -120,11 +120,11 @@ public sealed class VolcanoLandscapeContentTests
             Assert.Equal(BlockRenderMode.Cutout, block.RenderMode);
         }
         var thorn = Assert.Single(volcano.Decorations,
-            d => d.Block == "asteria:volcanic_ash_thorn");
+            d => d.Block == "asteria:ash_thorn");
         Assert.True(thorn.HabitatWeights!.For("ash_aprons") >
                     thorn.HabitatWeights.For("hardened_highlands"));
         var soot = Assert.Single(volcano.Decorations,
-            d => d.Block == "asteria:volcanic_soot_lichen");
+            d => d.Block == "asteria:soot_lichen");
         Assert.True(soot.HabitatWeights!.For("fractured_flanks") >
                     soot.HabitatWeights.For("ash_aprons"));
     }
@@ -134,8 +134,8 @@ public sealed class VolcanoLandscapeContentTests
     {
         var blocks = BlockRegistry.FromJson(ReadPackJson("blocks"));
         foreach (var id in new[] {
-            "volcanic_charwood", "volcanic_ember_needles",
-            "volcanic_basalt_column", "volcanic_sulfur_crystal",
+            "charwood", "ember_needles",
+            "basalt_column", "sulfur_crystal",
             "volcanic_glass" })
         {
             var block = blocks.GetDefinition(blocks.GetId("asteria:" + id));
@@ -144,11 +144,11 @@ public sealed class VolcanoLandscapeContentTests
                 Assert.StartsWith("textures/blocks/volcanic_", tex.Texture));
         }
         var bloom = blocks.GetDefinition(
-            blocks.GetId("asteria:volcanic_cinder_bloom"));
+            blocks.GetId("asteria:cinder_bloom"));
         Assert.True(bloom.WindSway);
         Assert.Equal(BlockVisualKind.CrossedSprite, bloom.Visual.Kind);
         var lichen = blocks.GetDefinition(
-            blocks.GetId("asteria:volcanic_soot_lichen"));
+            blocks.GetId("asteria:soot_lichen"));
         Assert.Equal(BlockVisualKind.GroundSprite, lichen.Visual.Kind);
     }
 

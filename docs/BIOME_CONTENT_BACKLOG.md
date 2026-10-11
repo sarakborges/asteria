@@ -51,17 +51,17 @@ does not mean sparse observed foliage.
 
 ### A. Wasteland — dry, dead and layered, not overgrown
 
-1. `wasteland_dead_thistle`: sparse silhouette, crossedSprite, Dirt/Gravel,
+1. `dead_thistle`: sparse silhouette, crossedSprite, Dirt/Gravel,
    favor `rocky_scrub` and `deadwood_pockets`.
-2. `wasteland_brittle_tuft`: small straw-colored clump, crossedSprite,
+2. `brittle_tuft`: small straw-colored clump, crossedSprite,
    Dirt, `barren_flats` with sparse clustered distribution.
-3. `wasteland_dry_lichen`: groundSprite on Stone/Gravel;
+3. `dry_lichen`: groundSprite on Stone/Gravel;
    should not repaint the terrain or create circular patches.
-4. `wasteland_bleached_roots`: flat coarse roots on Dirt and Gravel,
+4. `bleached_roots`: flat coarse roots on Dirt and Gravel,
    favor deadwood pockets.
 5. `wasteland_thorn_scrub`: 2–4 variants of angular 3D thorn thickets;
    rare multi-block landmarks compatible with existing `wasteland_snag`.
-6. `wasteland_bone_scatter`: low grounded props, optional
+6. `bone_scatter`: low grounded props, optional
    `wasteland_fossil_rib` sparse multi-block structures. These are
    environmental objects, not mobs or fossil gameplay.
 
@@ -73,11 +73,11 @@ patches, extra Pebbles or invented terrain erosion system.**
 
 ### B. Enchanted Forest — magical undergrowth / lighting
 
-1. `enchanted_starflower`: glowing flower in `luminous_clearing`,
+1. `starflower`: glowing flower in `luminous_clearing`,
    crossedSprite with *authored* colored emission.
-2. `enchanted_violet_fern` and `enchanted_pink_bloom`: colorful
+2. `violet_fern` and `pink_bloom`: colorful
    wind-swaying distinct foliage in respective habitat bands.
-3. `enchanted_glow_pod`: small luminous upright plant, rare under trees.
+3. `glow_pod`: small luminous upright plant, rare under trees.
 4. `enchanted_mushroom_ring`: authored structure of mushrooms around
    an empty middle, not a terrain material circle.
 5. `enchanted_hollow_stump`: stump with mushrooms or flowers, a
@@ -98,20 +98,20 @@ tint or change existing biome colors.
 
 Mountains (habitats `foothill_shelves`, `talus_fields`,
 `exposed_ridges`):
-- `mountain_stonecrop`, `mountain_saxifrage`: small rock-rooted
+- `stonecrop`, `saxifrage`: small rock-rooted
   plants on Stone/Stone Cobble; avoid arbitrary Dirt patches.
 - `mountain_dwarf_juniper`: 2–3 low 3D woody shrub variants on stable
   foothill ledges; slope guard.
-- `mountain_rock_lichen`: subtle groundSprite, prefer `talus_fields`.
+- `rock_lichen`: subtle groundSprite, prefer `talus_fields`.
 - Rare `mountain_wind_pine` (2–3 variants) limited to protected
   shelves, not bare summits.
 
 Mountain Belt (habitats `sheltered_passes`, `boulder_runs`,
 `bare_crests`):
-- `belt_pass_grass`, `belt_thorn_rosette`: sparse small plants in passes.
+- `pass_grass`, `thorn_rosette`: sparse small plants in passes.
 - `belt_windswept_pine`: twisted conifer group (2–3 3D variants)
   mostly in `sheltered_passes`, visibly unlike alpine snow fir.
-- `belt_scree_lichen`: low rock cover in boulder runs, not terrain patches.
+- `scree_lichen`: low rock cover in boulder runs, not terrain patches.
 - `belt_rock_needle_cluster`: occasional dramatic square-section rock
   spurs for crests; must be different from existing boulder sizes.
 

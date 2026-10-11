@@ -1,0 +1,32 @@
+{
+  "id": "asteria:cliff_rosette",
+  "category": "foliage",
+  "tags": [
+    "horizontal_facing",
+    "support_wall"
+  ],
+  "tint": "none",
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/cliff_rosette.png",
+    "width": 0.96,
+    "height": 0.83,
+    "planes": 4,
+    "baseOffset": 0.08
+  },
+  "placementFaces": [
+    "left",
+    "right",
+    "front",
+    "back"
+  ],
+  "mining": {
+    "hardness": 0.05
+  },
+  "isCollidable": false,
+  "castsShadow": false,
+  "lightDampening": 0,
+  "alphaCutoff": 0.5,
+  "previewColor": "a0a575",
+  "dropsSelf": false
+}

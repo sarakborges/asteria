@@ -6,8 +6,8 @@ public sealed class PlainsSwampBiodiversityTests
 {
     private static readonly string[] PlainsFlowers =
     [
-        "prairie_daisy", "prairie_clover",
-        "prairie_purple_aster", "prairie_seedheads"
+        "daisy", "clover",
+        "purple_aster", "meadow_seedheads"
     ];
 
     [Fact]
@@ -34,7 +34,7 @@ public sealed class PlainsSwampBiodiversityTests
             Assert.True(block.HasTag(BlockPhysicsCapabilities.SupportBelow));
             Assert.False(block.IsCollidable);
             Assert.Equal(BlockRenderMode.Cutout, block.RenderMode);
-            Assert.Equal(name == "prairie_clover"
+            Assert.Equal(name == "clover"
                     ? BlockVisualKind.GroundSprite
                     : BlockVisualKind.CrossedSprite, block.Visual.Kind);
             Assert.Equal("textures/objects/" + name + ".png",
@@ -51,7 +51,7 @@ public sealed class PlainsSwampBiodiversityTests
         var swamp = biomes.Get("asteria:overworld/swamp");
         Assert.Equal(11, swamp.Decorations.Count);
         Assert.Equal("asteria:mud", swamp.SurfaceLayers[0].Block);
-        foreach (var name in new[] { "swamp_marsh_orchid", "swamp_bulrush" })
+        foreach (var name in new[] { "marsh_orchid", "bulrush" })
         {
             var rule = Assert.Single(swamp.Decorations,
                 x => x.Block == "asteria:" + name);
@@ -117,9 +117,9 @@ public sealed class PlainsSwampBiodiversityTests
         Assert.All(stumps, stump =>
         {
             Assert.Contains(stump.Voxels, v =>
-                v.Block == "asteria:swamp_mossy_willow_log");
+                v.Block == "asteria:mossy_willow_log");
             Assert.Contains(stump.Voxels, v =>
-                v.Block == "asteria:swamp_shelf_fungus");
+                v.Block == "asteria:shelf_fungus");
             Assert.Contains(stump.Voxels, v =>
                 v.Block == "asteria:hanging_moss");
         });
@@ -143,7 +143,7 @@ public sealed class PlainsSwampBiodiversityTests
                     support.Z == hanger.Z &&
                     support.Y == hanger.Y + 1 &&
                     (support.Block == "asteria:log_willow" ||
-                     support.Block == "asteria:swamp_mossy_willow_log"));
+                     support.Block == "asteria:mossy_willow_log"));
             }
         }
     }
@@ -154,7 +154,7 @@ public sealed class PlainsSwampBiodiversityTests
         var blocks = BlockRegistry.FromJson(ReadPackJson("blocks"));
         var names = PlainsFlowers.Concat(new[]
         {
-            "swamp_marsh_orchid", "swamp_bulrush", "swamp_shelf_fungus"
+            "marsh_orchid", "bulrush", "shelf_fungus"
         });
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var name in names)
@@ -165,7 +165,7 @@ public sealed class PlainsSwampBiodiversityTests
             Assert.True(seen.Add(path));
         }
         var log = blocks.GetDefinition(
-            blocks.GetId("asteria:swamp_mossy_willow_log"));
+            blocks.GetId("asteria:mossy_willow_log"));
         Assert.True(seen.Add(
             Assert.Single(log.Textures.ForFace(BlockFace.Left)).Texture));
         Assert.Equal(8, seen.Count);

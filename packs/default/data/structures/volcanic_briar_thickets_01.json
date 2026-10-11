@@ -30,10 +30,10 @@
       "block": "asteria:basalt"
     },
     "L": {
-      "block": "asteria:volcanic_ember_needles"
+      "block": "asteria:ember_needles"
     },
     "W": {
-      "block": "asteria:volcanic_charwood"
+      "block": "asteria:charwood"
     }
   },
   "layers": [

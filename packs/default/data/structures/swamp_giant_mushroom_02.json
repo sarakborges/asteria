@@ -33,10 +33,10 @@
       "block": "asteria:mud"
     },
     "S": {
-      "block": "asteria:swamp_giant_mushroom_stem"
+      "block": "asteria:marsh_giant_mushroom_stem"
     },
     "H": {
-      "block": "asteria:swamp_giant_mushroom_cap"
+      "block": "asteria:marsh_giant_mushroom_cap"
     }
   },
   "layers": [

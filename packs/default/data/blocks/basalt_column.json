@@ -1,0 +1,21 @@
+{
+  "id": "asteria:basalt_column",
+  "category": "stone_blocks",
+  "textures": {
+    "top": "textures/blocks/basalt_column.png",
+    "bottom": "textures/blocks/basalt_column.png",
+    "left": "textures/blocks/basalt_column.png",
+    "right": "textures/blocks/basalt_column.png",
+    "front": "textures/blocks/basalt_column.png",
+    "back": "textures/blocks/basalt_column.png"
+  },
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 2.3,
+    "requiredTools": [
+      "pickaxe"
+    ]
+  },
+  "previewColor": "5b565a"
+}

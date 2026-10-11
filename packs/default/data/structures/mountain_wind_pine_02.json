@@ -28,10 +28,10 @@
   },
   "palette": {
     "F": {
-      "block": "asteria:mountain_juniper_needles"
+      "block": "asteria:juniper_needles"
     },
     "J": {
-      "block": "asteria:mountain_juniper_wood"
+      "block": "asteria:juniper_wood"
     }
   },
   "layers": [

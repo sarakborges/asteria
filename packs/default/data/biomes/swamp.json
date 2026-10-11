@@ -168,7 +168,7 @@
       }
     },
     {
-      "block": "asteria:swamp_fern",
+      "block": "asteria:marsh_fern",
       "chance": 0.28,
       "surfaceBlocks": [
         "asteria:grass_block",
@@ -193,7 +193,7 @@
       }
     },
     {
-      "block": "asteria:swamp_iris",
+      "block": "asteria:iris",
       "chance": 0.19,
       "surfaceBlocks": [
         "asteria:grass_block",
@@ -223,7 +223,7 @@
       }
     },
     {
-      "block": "asteria:swamp_marsh_orchid",
+      "block": "asteria:marsh_orchid",
       "chance": 0.145,
       "surfaceBlocks": [
         "asteria:mud",
@@ -253,7 +253,7 @@
       }
     },
     {
-      "block": "asteria:swamp_bulrush",
+      "block": "asteria:bulrush",
       "chance": 0.18,
       "surfaceBlocks": [
         "asteria:mud",

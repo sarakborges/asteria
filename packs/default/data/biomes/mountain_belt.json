@@ -94,7 +94,7 @@
       }
     },
     {
-      "block": "asteria:belt_pass_grass",
+      "block": "asteria:pass_grass",
       "chance": 0.18,
       "surfaceBlocks": [
         "asteria:dirt",
@@ -119,7 +119,7 @@
       }
     },
     {
-      "block": "asteria:belt_thorn_rosette",
+      "block": "asteria:thorn_rosette",
       "chance": 0.135,
       "surfaceBlocks": [
         "asteria:stone",
@@ -144,7 +144,7 @@
       }
     },
     {
-      "block": "asteria:belt_scree_lichen",
+      "block": "asteria:scree_lichen",
       "chance": 0.145,
       "surfaceBlocks": [
         "asteria:stone",

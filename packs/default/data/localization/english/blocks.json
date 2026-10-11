@@ -5,6 +5,12 @@
   "asteria:aether_crystal": {
     "/name": "Aether Crystal"
   },
+  "asteria:aether_crystal_core": {
+    "/name": "Aether Crystal Core"
+  },
+  "asteria:aether_vines": {
+    "/name": "Aether Vines"
+  },
   "asteria:alpine_edelweiss": {
     "/name": "Alpine Edelweiss"
   },
@@ -17,6 +23,12 @@
   "asteria:arctic_snow_needles": {
     "/name": "Arctic Snow Needles"
   },
+  "asteria:ash_thorn": {
+    "/name": "Ash Thorn"
+  },
+  "asteria:azure_crystal": {
+    "/name": "Azure Crystal"
+  },
   "asteria:basalt": {
     "/name": "Basalt"
   },
@@ -25,6 +37,9 @@
   },
   "asteria:basalt_cobble": {
     "/name": "Basalt Cobble"
+  },
+  "asteria:basalt_column": {
+    "/name": "Basalt Column"
   },
   "asteria:basalt_polished": {
     "/name": "Polished Basalt"
@@ -35,23 +50,20 @@
   "asteria:basalt_tiles": {
     "/name": "Basalt Tiles"
   },
-  "asteria:belt_pass_grass": {
-    "/name": "Mountain Pass Grass"
+  "asteria:bleached_roots": {
+    "/name": "Bleached Roots"
   },
-  "asteria:belt_scree_lichen": {
-    "/name": "Scree Lichen"
-  },
-  "asteria:belt_thorn_rosette": {
-    "/name": "Thorn Rosette"
-  },
-  "asteria:belt_wind_needles": {
-    "/name": "Wind Needles"
-  },
-  "asteria:belt_windwood": {
-    "/name": "Windwood"
+  "asteria:bone_scatter": {
+    "/name": "Scattered Bones"
   },
   "asteria:bricks": {
     "/name": "Bricks"
+  },
+  "asteria:brittle_tuft": {
+    "/name": "Brittle Tuft"
+  },
+  "asteria:bulrush": {
+    "/name": "Bulrush"
   },
   "asteria:cactus_barrel": {
     "/name": "Barrel Cactus"
@@ -71,35 +83,26 @@
   "asteria:cattail": {
     "/name": "Cattail"
   },
-  "asteria:cave_crystal_azure": {
-    "/name": "Azure Cave Crystal"
+  "asteria:charwood": {
+    "/name": "Charred Wood"
   },
-  "asteria:cave_crystal_core": {
-    "/name": "Cave Crystal Core"
-  },
-  "asteria:cave_glow_fern": {
-    "/name": "Cave Glow Fern"
-  },
-  "asteria:cave_glow_mushroom_cap": {
-    "/name": "Glowing Cave Mushroom Cap"
-  },
-  "asteria:cave_glow_mushroom_stem": {
-    "/name": "Glowing Cave Mushroom Stem"
-  },
-  "asteria:cave_glowcap": {
-    "/name": "Cave Glowcap"
-  },
-  "asteria:cave_roots": {
-    "/name": "Cave Roots"
-  },
-  "asteria:cave_wall_moss": {
-    "/name": "Cave Wall Moss"
-  },
-  "asteria:cave_wall_shelf_fungus": {
-    "/name": "Cave Wall Shelf Fungus"
+  "asteria:cinder_bloom": {
+    "/name": "Cinder Bloom"
   },
   "asteria:clay": {
     "/name": "Clay"
+  },
+  "asteria:cliff_lichen": {
+    "/name": "Cliff Lichen"
+  },
+  "asteria:cliff_rosette": {
+    "/name": "Cliff Rosette"
+  },
+  "asteria:cloud_reed": {
+    "/name": "Cloud Reed"
+  },
+  "asteria:clover": {
+    "/name": "Clover"
   },
   "asteria:coral_blue": {
     "/name": "Blue Coral"
@@ -122,44 +125,38 @@
   "asteria:coral_yellow": {
     "/name": "Yellow Coral"
   },
-  "asteria:desert_dune_grass": {
-    "/name": "Dune Grass"
+  "asteria:daisy": {
+    "/name": "Daisy"
   },
-  "asteria:desert_sandstone_spur": {
-    "/name": "Desert Sandstone Spur"
-  },
-  "asteria:desert_thornbush": {
-    "/name": "Desert Thornbush"
-  },
-  "asteria:desert_yucca": {
-    "/name": "Desert Yucca"
+  "asteria:dead_thistle": {
+    "/name": "Dead Thistle"
   },
   "asteria:dirt": {
     "/name": "Dirt"
   },
-  "asteria:enchanted_giant_fungus_cap": {
-    "/name": "Enchanted Giant Fungus Cap"
+  "asteria:dry_exposed_roots": {
+    "/name": "Dry Exposed Roots"
   },
-  "asteria:enchanted_giant_fungus_stem": {
-    "/name": "Enchanted Giant Fungus Stem"
+  "asteria:dry_lichen": {
+    "/name": "Dry Lichen"
   },
-  "asteria:enchanted_glow_pod": {
-    "/name": "Enchanted Glow Pod"
+  "asteria:dry_tuft": {
+    "/name": "Dry Tuft"
+  },
+  "asteria:dune_grass": {
+    "/name": "Dune Grass"
+  },
+  "asteria:ember_needles": {
+    "/name": "Ember Needles"
   },
   "asteria:enchanted_hollow_wood": {
     "/name": "Enchanted Hollow Wood"
   },
-  "asteria:enchanted_pink_bloom": {
-    "/name": "Enchanted Pink Bloom"
-  },
-  "asteria:enchanted_starflower": {
-    "/name": "Enchanted Starflower"
-  },
-  "asteria:enchanted_violet_fern": {
-    "/name": "Enchanted Violet Fern"
-  },
   "asteria:exposed_roots": {
     "/name": "Exposed Roots"
+  },
+  "asteria:fossil_bone": {
+    "/name": "Fossil Bone"
   },
   "asteria:frost_lichen": {
     "/name": "Frost Lichen"
@@ -182,23 +179,20 @@
   "asteria:glass": {
     "/name": "Glass"
   },
-  "asteria:gorge_cliff_lichen": {
-    "/name": "Gorge Cliff Lichen"
+  "asteria:glow_fern": {
+    "/name": "Glow Fern"
   },
-  "asteria:gorge_cliff_rosette": {
-    "/name": "Gorge Cliff Rosette"
+  "asteria:glow_mushroom_cap": {
+    "/name": "Glowing Mushroom Cap"
   },
-  "asteria:gorge_dry_tuft": {
-    "/name": "Gorge Dry Tuft"
+  "asteria:glow_mushroom_stem": {
+    "/name": "Glowing Mushroom Stem"
   },
-  "asteria:gorge_exposed_roots": {
-    "/name": "Gorge Exposed Roots"
+  "asteria:glow_pod": {
+    "/name": "Glow Pod"
   },
-  "asteria:gorge_rock_spur": {
-    "/name": "Gorge Rock Spur"
-  },
-  "asteria:gorge_sagebrush": {
-    "/name": "Gorge Sagebrush"
+  "asteria:glowcap": {
+    "/name": "Glowcap"
   },
   "asteria:grass": {
     "/name": "Grass"
@@ -211,6 +205,9 @@
   },
   "asteria:hanging_moss": {
     "/name": "Hanging Moss"
+  },
+  "asteria:hanging_roots": {
+    "/name": "Hanging Roots"
   },
   "asteria:ice": {
     "/name": "Ice"
@@ -227,8 +224,23 @@
   "asteria:ice_tiles": {
     "/name": "Ice Tiles"
   },
+  "asteria:iris": {
+    "/name": "Iris"
+  },
+  "asteria:juniper_needles": {
+    "/name": "Juniper Needles"
+  },
+  "asteria:juniper_wood": {
+    "/name": "Juniper Wood"
+  },
   "asteria:kelp": {
     "/name": "Kelp"
+  },
+  "asteria:kelp_frond": {
+    "/name": "Kelp Frond"
+  },
+  "asteria:kelp_stem": {
+    "/name": "Kelp Stem"
   },
   "asteria:lamp": {
     "/name": "Lamp"
@@ -296,20 +308,32 @@
   "asteria:log_world_tree_stripped_hollow": {
     "/name": "Stripped Hollow World Tree Log"
   },
-  "asteria:mountain_juniper_needles": {
-    "/name": "Mountain Juniper Needles"
+  "asteria:luminous_crystal_core": {
+    "/name": "Luminous Crystal Core"
   },
-  "asteria:mountain_juniper_wood": {
-    "/name": "Mountain Juniper Wood"
+  "asteria:luminous_giant_fungus_cap": {
+    "/name": "Luminous Giant Fungus Cap"
   },
-  "asteria:mountain_rock_lichen": {
-    "/name": "Mountain Rock Lichen"
+  "asteria:luminous_giant_fungus_stem": {
+    "/name": "Luminous Giant Fungus Stem"
   },
-  "asteria:mountain_saxifrage": {
-    "/name": "Mountain Saxifrage"
+  "asteria:marsh_fern": {
+    "/name": "Marsh Fern"
   },
-  "asteria:mountain_stonecrop": {
-    "/name": "Mountain Stonecrop"
+  "asteria:marsh_giant_mushroom_cap": {
+    "/name": "Marsh Giant Mushroom Cap"
+  },
+  "asteria:marsh_giant_mushroom_stem": {
+    "/name": "Marsh Giant Mushroom Stem"
+  },
+  "asteria:marsh_orchid": {
+    "/name": "Marsh Orchid"
+  },
+  "asteria:meadow_seedheads": {
+    "/name": "Meadow Seedheads"
+  },
+  "asteria:mossy_willow_log": {
+    "/name": "Mossy Willow Log"
   },
   "asteria:mud": {
     "/name": "Mud"
@@ -347,14 +371,14 @@
   "asteria:mushroom_yellow": {
     "/name": "Yellow Mushroom"
   },
-  "asteria:ocean_kelp_frond": {
-    "/name": "Kelp Frond"
-  },
-  "asteria:ocean_kelp_stem": {
-    "/name": "Kelp Stem"
+  "asteria:pass_grass": {
+    "/name": "Pass Grass"
   },
   "asteria:pebble": {
     "/name": "Pebble"
+  },
+  "asteria:pink_bloom": {
+    "/name": "Pink Bloom"
   },
   "asteria:planks_enchanted": {
     "/name": "Enchanted Planks"
@@ -371,29 +395,20 @@
   "asteria:portal": {
     "/name": "Portal"
   },
-  "asteria:prairie_clover": {
-    "/name": "Prairie Clover"
-  },
-  "asteria:prairie_daisy": {
-    "/name": "Prairie Daisy"
-  },
-  "asteria:prairie_purple_aster": {
-    "/name": "Prairie Purple Aster"
-  },
-  "asteria:prairie_seedheads": {
-    "/name": "Prairie Seedheads"
-  },
-  "asteria:prairie_tall_grass": {
-    "/name": "Tall Prairie Grass"
-  },
-  "asteria:prairie_wildflower_blue": {
-    "/name": "Blue Prairie Wildflower"
-  },
-  "asteria:prairie_wildflower_yellow": {
-    "/name": "Yellow Prairie Wildflower"
+  "asteria:purple_aster": {
+    "/name": "Purple Aster"
   },
   "asteria:rime_deadwood": {
     "/name": "Rime Deadwood"
+  },
+  "asteria:rock_lichen": {
+    "/name": "Rock Lichen"
+  },
+  "asteria:rock_spur": {
+    "/name": "Rock Spur"
+  },
+  "asteria:sagebrush": {
+    "/name": "Sagebrush"
   },
   "asteria:sand": {
     "/name": "Sand"
@@ -413,8 +428,17 @@
   "asteria:sandstone_spike": {
     "/name": "Sandstone Spike"
   },
+  "asteria:sandstone_spur": {
+    "/name": "Sandstone Spur"
+  },
   "asteria:sandstone_tiles": {
     "/name": "Sandstone Tiles"
+  },
+  "asteria:saxifrage": {
+    "/name": "Saxifrage"
+  },
+  "asteria:scree_lichen": {
+    "/name": "Scree Lichen"
   },
   "asteria:sea_anemone": {
     "/name": "Sea Anemone"
@@ -425,17 +449,11 @@
   "asteria:seashell": {
     "/name": "Seashell"
   },
-  "asteria:sky_canopy_leaf": {
-    "/name": "Sky Canopy Leaves"
+  "asteria:shelf_fungus": {
+    "/name": "Shelf Fungus"
   },
-  "asteria:sky_crystal_core": {
-    "/name": "Sky Crystal Core"
-  },
-  "asteria:sky_reed": {
-    "/name": "Sky Reed"
-  },
-  "asteria:sky_vines": {
-    "/name": "Sky Vines"
+  "asteria:skywood_leaves": {
+    "/name": "Skywood Leaves"
   },
   "asteria:skywood_log": {
     "/name": "Skywood Log"
@@ -455,11 +473,17 @@
   "asteria:snow_tiles": {
     "/name": "Snow Tiles"
   },
+  "asteria:soot_lichen": {
+    "/name": "Soot Lichen"
+  },
   "asteria:sphere_shell": {
     "/name": "Sphere Shell"
   },
   "asteria:starfish": {
     "/name": "Starfish"
+  },
+  "asteria:starflower": {
+    "/name": "Starflower"
   },
   "asteria:stick": {
     "/name": "Stick"
@@ -482,32 +506,17 @@
   "asteria:stone_tiles": {
     "/name": "Stone Tiles"
   },
+  "asteria:stonecrop": {
+    "/name": "Stonecrop"
+  },
   "asteria:storage_box": {
     "/name": "Storage Box"
   },
-  "asteria:swamp_bulrush": {
-    "/name": "Swamp Bulrush"
+  "asteria:sulfur_crystal": {
+    "/name": "Sulfur Crystal"
   },
-  "asteria:swamp_fern": {
-    "/name": "Swamp Fern"
-  },
-  "asteria:swamp_giant_mushroom_cap": {
-    "/name": "Giant Swamp Mushroom Cap"
-  },
-  "asteria:swamp_giant_mushroom_stem": {
-    "/name": "Giant Swamp Mushroom Stem"
-  },
-  "asteria:swamp_iris": {
-    "/name": "Swamp Iris"
-  },
-  "asteria:swamp_marsh_orchid": {
-    "/name": "Marsh Orchid"
-  },
-  "asteria:swamp_mossy_willow_log": {
-    "/name": "Mossy Willow Log"
-  },
-  "asteria:swamp_shelf_fungus": {
-    "/name": "Swamp Shelf Fungus"
+  "asteria:tall_grass": {
+    "/name": "Tall Grass"
   },
   "asteria:terracotta": {
     "/name": "Terracotta"
@@ -515,49 +524,40 @@
   "asteria:terracotta_spike": {
     "/name": "Terracotta Spike"
   },
-  "asteria:volcanic_ash_thorn": {
-    "/name": "Volcanic Ash Thorn"
+  "asteria:thorn_rosette": {
+    "/name": "Thorn Rosette"
   },
-  "asteria:volcanic_basalt_column": {
-    "/name": "Volcanic Basalt Column"
+  "asteria:thornbush": {
+    "/name": "Thornbush"
   },
-  "asteria:volcanic_charwood": {
-    "/name": "Charred Wood"
+  "asteria:thornwood": {
+    "/name": "Thornwood"
   },
-  "asteria:volcanic_cinder_bloom": {
-    "/name": "Volcanic Cinder Bloom"
-  },
-  "asteria:volcanic_ember_needles": {
-    "/name": "Ember Needles"
+  "asteria:violet_fern": {
+    "/name": "Violet Fern"
   },
   "asteria:volcanic_glass": {
     "/name": "Volcanic Glass"
   },
-  "asteria:volcanic_soot_lichen": {
-    "/name": "Soot Lichen"
+  "asteria:wall_moss": {
+    "/name": "Wall Moss"
   },
-  "asteria:volcanic_sulfur_crystal": {
-    "/name": "Volcanic Sulfur Crystal"
+  "asteria:wall_shelf_fungus": {
+    "/name": "Wall Shelf Fungus"
   },
-  "asteria:wasteland_bleached_roots": {
-    "/name": "Bleached Roots"
+  "asteria:wildflower_blue": {
+    "/name": "Blue Wildflower"
   },
-  "asteria:wasteland_bone_scatter": {
-    "/name": "Scattered Bones"
+  "asteria:wildflower_yellow": {
+    "/name": "Yellow Wildflower"
   },
-  "asteria:wasteland_brittle_tuft": {
-    "/name": "Brittle Tuft"
+  "asteria:windwood": {
+    "/name": "Windwood"
   },
-  "asteria:wasteland_dead_thistle": {
-    "/name": "Dead Thistle"
+  "asteria:windwood_needles": {
+    "/name": "Windwood Needles"
   },
-  "asteria:wasteland_dry_lichen": {
-    "/name": "Dry Lichen"
-  },
-  "asteria:wasteland_fossil_bone": {
-    "/name": "Fossil Bone"
-  },
-  "asteria:wasteland_thornwood": {
-    "/name": "Thornwood"
+  "asteria:yucca": {
+    "/name": "Yucca"
   }
 }

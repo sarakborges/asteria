@@ -17,8 +17,8 @@ public sealed class EnchantedForestEnrichmentTests
             biome.SurfaceHabitats!.Bands.Select(x => x.Id).ToArray());
 
         foreach (var name in new[] {
-            "enchanted_starflower","enchanted_violet_fern",
-            "enchanted_pink_bloom","enchanted_glow_pod"
+            "starflower","violet_fern",
+            "pink_bloom","glow_pod"
         })
         {
             var rule = Assert.Single(biome.Decorations,
@@ -40,7 +40,7 @@ public sealed class EnchantedForestEnrichmentTests
                 x => x.Block == "asteria:" + reused);
 
         foreach (var glow in new[] {
-            "enchanted_starflower","enchanted_glow_pod"
+            "starflower","glow_pod"
         })
             Assert.True(blocks.GetDefinition(
                 blocks.GetId("asteria:" + glow)).LightEmission.Blue > 0);
@@ -96,12 +96,12 @@ public sealed class EnchantedForestEnrichmentTests
         Assert.True(canopy.Max(s => s.MaximumY) >= 10);
         Assert.All(canopy, s => {
             Assert.Contains(s.Voxels, v =>
-                v.Block == "asteria:enchanted_giant_fungus_stem");
+                v.Block == "asteria:luminous_giant_fungus_stem");
             Assert.Contains(s.Voxels, v =>
-                v.Block == "asteria:enchanted_giant_fungus_cap");
+                v.Block == "asteria:luminous_giant_fungus_cap");
         });
         var cap = blocks.GetDefinition(
-            blocks.GetId("asteria:enchanted_giant_fungus_cap"));
+            blocks.GetId("asteria:luminous_giant_fungus_cap"));
         Assert.Equal(BlockTint.None, cap.Tint);
         Assert.True(cap.LightEmission.Red > 0);
         Assert.True(cap.LightEmission.Blue > 0);

@@ -5,7 +5,7 @@ namespace Asteria.Core.Tests;
 public sealed class FloatingIslandContentTests
 {
     private static readonly string[] NewObjects =
-        ["sky_reed", "aether_bloom", "aether_crystal", "sky_vines"];
+        ["cloud_reed", "aether_bloom", "aether_crystal", "aether_vines"];
 
     [Fact]
     public void DefaultIslandObjectsAreOnlyAuthoredOnAdditiveVolume()
@@ -31,7 +31,7 @@ public sealed class FloatingIslandContentTests
             var block = blocks.GetDefinition(blocks.GetId(rule.Block));
             Assert.True(block.LightDampening == 0);
             Assert.Contains("asteria:grass_block", rule.SurfaceBlocks);
-            if (name == "sky_vines")
+            if (name == "aether_vines")
             {
                 Assert.Equal(DecorationSupportSurface.Ceiling,
                     rule.SupportSurface);
@@ -60,12 +60,12 @@ public sealed class FloatingIslandContentTests
     {
         var blocks = new BlockRegistry([
             new BlockDefinition("asteria:stone"),
-            new BlockDefinition("asteria:sky_vines")
+            new BlockDefinition("asteria:aether_vines")
         ]);
         var islands = new BiomeDefinition(
             "asteria:test/islands", null, null,
             [new BiomeSurfaceLayerDefinition("asteria:stone")],
-            [new BiomeDecorationDefinition("asteria:sky_vines",
+            [new BiomeDecorationDefinition("asteria:aether_vines",
                 chance: 1f, surfaceBlocks: ["asteria:stone"],
                 supportSurface: DecorationSupportSurface.Ceiling)],
             volumeLayout: new BiomeVolumeLayoutDefinition(
@@ -84,7 +84,7 @@ public sealed class FloatingIslandContentTests
         var stone = blocks.GetId("asteria:stone");
         Assert.True(field.BlockAt(sample, stone, 3, 7,
             verticalY: 240).IsAir);
-        Assert.Equal(blocks.GetId("asteria:sky_vines"),
+        Assert.Equal(blocks.GetId("asteria:aether_vines"),
             field.BlockAt(sample, stone, 3, 7,
                 verticalY: 240,
                 supportSurface: DecorationSupportSurface.Ceiling));
@@ -110,7 +110,7 @@ public sealed class FloatingIslandContentTests
             // occupancy, not of probabilistic decorating frequency.
             node["decorations"] = System.Text.Json.Nodes.JsonNode.Parse("""
                 [
-                  {"block":"asteria:sky_vines","chance":1,
+                  {"block":"asteria:aether_vines","chance":1,
                    "surfaceBlocks":["asteria:grass_block","asteria:dirt","asteria:stone"],
                    "supportSurface":"ceiling"}
                 ]
@@ -160,7 +160,7 @@ public sealed class FloatingIslandContentTests
         var generated = generator.Materialize(decorationChunk);
         var supported = generator.Materialize(supportChunk);
 
-        Assert.Equal(blocks.GetId("asteria:sky_vines"),
+        Assert.Equal(blocks.GetId("asteria:aether_vines"),
             generated.GetBlock(local.X, local.Y, local.Z));
         Assert.False(supported.GetBlock(
             supportLocal.X, supportLocal.Y, supportLocal.Z).IsAir);

@@ -1,0 +1,21 @@
+{
+  "id": "asteria:windwood",
+  "category": "wooden_blocks",
+  "textures": {
+    "top": "textures/blocks/windwood.png",
+    "bottom": "textures/blocks/windwood.png",
+    "left": "textures/blocks/windwood.png",
+    "right": "textures/blocks/windwood.png",
+    "front": "textures/blocks/windwood.png",
+    "back": "textures/blocks/windwood.png"
+  },
+  "mining": {
+    "hardness": 1.1,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "lightDampening": 15,
+  "castsShadow": true,
+  "previewColor": "75625d"
+}

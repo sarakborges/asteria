@@ -1,0 +1,36 @@
+{
+  "id": "asteria:azure_crystal",
+  "category": "natural_blocks",
+  "shape": {
+    "type": "spike",
+    "baseRadius": 0.46,
+    "tipRadius": 0.08,
+    "taperPower": 1
+  },
+  "placementFaces": [
+    "top",
+    "bottom"
+  ],
+  "textures": {
+    "top": "textures/blocks/azure_crystal.png",
+    "bottom": "textures/blocks/azure_crystal.png",
+    "left": "textures/blocks/azure_crystal.png",
+    "right": "textures/blocks/azure_crystal.png",
+    "front": "textures/blocks/azure_crystal.png",
+    "back": "textures/blocks/azure_crystal.png"
+  },
+  "mining": {
+    "hardness": 1.4,
+    "requiredTools": [
+      "pickaxe"
+    ]
+  },
+  "lightDampening": 0,
+  "castsShadow": true,
+  "lightEmission": {
+    "red": 1,
+    "green": 5,
+    "blue": 7
+  },
+  "previewColor": "64b7d0"
+}

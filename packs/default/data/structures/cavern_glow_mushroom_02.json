@@ -31,10 +31,10 @@
   },
   "palette": {
     "M": {
-      "block": "asteria:cave_glow_mushroom_stem"
+      "block": "asteria:glow_mushroom_stem"
     },
     "H": {
-      "block": "asteria:cave_glow_mushroom_cap"
+      "block": "asteria:glow_mushroom_cap"
     }
   },
   "layers": [

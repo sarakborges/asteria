@@ -31,7 +31,7 @@
       "block": "asteria:skywood_log"
     },
     "L": {
-      "block": "asteria:sky_canopy_leaf"
+      "block": "asteria:skywood_leaves"
     }
   },
   "layers": [
