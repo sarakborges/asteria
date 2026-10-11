@@ -632,14 +632,15 @@ public static class ChunkMeshDataBuilder
         var down = SpikeSegmentState.IsDown(cell.State);
         var below = down ? index + 1 : index - 1;
         var above = down ? index - 1 : index + 1;
-        var belowWidth = below >= 0 && below < height
-            ? SpikeSegmentState.HalfWidthAt(
-                shape, SpikeSegmentState.Encode(below, height, down), 1f)
-            : 0f;
-        var aboveWidth = above >= 0 && above < height
-            ? SpikeSegmentState.HalfWidthAt(
-                shape, SpikeSegmentState.Encode(above, height, down), 0f)
-            : 0f;
+        // A persisted profile describes the intended formation, not proof
+        // that its neighbor still exists. A missing, unloaded or replaced
+        // segment must not erase this segment's visible end cap.
+        var belowWidth = AdjacentSpikeWidth(
+            world, worldPosition + (0, -1, 0), cell, shape,
+            below, height, down, 1f);
+        var aboveWidth = AdjacentSpikeWidth(
+            world, worldPosition + (0, 1, 0), cell, shape,
+            above, height, down, 0f);
 
         for (var boundary = 0;
              boundary <= SpikeSegmentState.TiersPerVoxel;
@@ -669,6 +670,23 @@ public static class ChunkMeshDataBuilder
                 definition.IsCollidable,
                 worldOriginX, worldOriginZ, tintSamples);
         }
+    }
+
+    private static float AdjacentSpikeWidth(
+        VoxelWorld world, WorldVoxelCoord neighborPosition,
+        VoxelCell source, BlockShapeDefinition shape,
+        int expectedIndex, int height, bool down, float localY)
+    {
+        if (expectedIndex < 0 || expectedIndex >= height ||
+            neighborPosition.Y < 0 ||
+            !world.TryGetCell(neighborPosition, out var neighbor) ||
+            neighbor.Block != source.Block ||
+            SpikeSegmentState.Index(neighbor.State) != expectedIndex ||
+            SpikeSegmentState.Height(neighbor.State) != height ||
+            SpikeSegmentState.IsDown(neighbor.State) != down)
+            return 0f;
+
+        return SpikeSegmentState.HalfWidthAt(shape, neighbor.State, localY);
     }
 
     private static float SpikeTierWidth(
