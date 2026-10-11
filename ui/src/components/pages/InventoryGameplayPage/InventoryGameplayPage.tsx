@@ -175,8 +175,8 @@ export function InventoryGameplayPage({
           />}
           station={<CurrentStationPanel station={{
             eyebrow: t("crafting.baseStation"),
-            name: t("crafting.personalCrafting"),
-            description: t("crafting.available"),
+            name: t("ui.inventory"),
+            description: t("crafting.personalCrafting"),
             iconUrl: state.categories.find(category =>
               category.id === "crafting_materials")?.iconUrl,
           }} />}
