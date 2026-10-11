@@ -40,7 +40,8 @@ public static class ChunkMeshDataBuilder
         int meshletIndex,
         BiomeTintSampleGrid? tintSamples = null,
         AttachedLayerRegistry? attachedLayers = null,
-        DyeRegistry? dyes = null)
+        DyeRegistry? dyes = null,
+        AttachedBlockLayer? selectedLayer = null)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(blocks);
@@ -69,6 +70,10 @@ public static class ChunkMeshDataBuilder
             {
                 for (var x = bounds.MinX; x < bounds.MaxXExclusive; x++)
                 {
+                    // A mining decal requests *only* one attached layer.
+                    // Host geometry must not receive those crack triangles.
+                    if (selectedLayer is not null)
+                        continue;
                     var cell = chunk.GetCell(x, y, z);
                     if (cell.IsEmpty)
                     {
@@ -143,22 +148,23 @@ public static class ChunkMeshDataBuilder
             }
         }
 
-        EmitGreedyCubeFaces(
-            surfaces,
-            collision,
-            world,
-            coord,
-            blocks,
-            textures,
-            bounds,
-            tintSamples,
-            dyes,
-            fineMeshing);
+        if (selectedLayer is null)
+            EmitGreedyCubeFaces(
+                surfaces,
+                collision,
+                world,
+                coord,
+                blocks,
+                textures,
+                bounds,
+                tintSamples,
+                dyes,
+                fineMeshing);
 
         EmitAttachedLayers(
             surfaces, collision, world, blocks, textures,
             chunk, bounds, originX, originY, originZ,
-            attachedLayers, tintSamples);
+            attachedLayers, tintSamples, selectedLayer);
 
         var batches = surfaces
             .Where(entry => entry.Value.Count > 0)
@@ -1201,7 +1207,8 @@ public static class ChunkMeshDataBuilder
         int originY,
         int originZ,
         AttachedLayerRegistry? registry,
-        BiomeTintSampleGrid? tintSamples)
+        BiomeTintSampleGrid? tintSamples,
+        AttachedBlockLayer? selectedLayer)
     {
         for (var y = bounds.MinY; y < bounds.MaxYExclusive; y++)
         for (var z = bounds.MinZ; z < bounds.MaxZExclusive; z++)
@@ -1237,6 +1244,10 @@ public static class ChunkMeshDataBuilder
 
                 var face = attachment.Face;
                 var offset = layer.Offset + faceStack[(int)face]++ * (1f / 8192f);
+                // Preserve the position of the real top layer in a stack:
+                // earlier layers count toward the offset, but do not render.
+                if (selectedLayer is { } target && attachment != target)
+                    continue;
                 var material = new TerrainFaceMaterial(
                     new Vector2(textures.GetIndex(layer.Texture) +
                         (layer.Tint == BlockTint.None ? 0f : DyableLayerFlag), -1f),
