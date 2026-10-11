@@ -103,10 +103,11 @@ Current dependency classes include, as applicable:
 
 No-op mutations must not publish revisions or wake derived work.
 
-Block/fluid occupancy is mutually exclusive at the voxel-content boundary.
+Block/fluid occupancy follows one shared voxel-content policy.
 
-- Placing or settling a non-empty block into a fluid cell replaces that cell's fluid as part of the same authoritative block mutation.
-- Fluid mutation must reject non-empty fluid in a solid block cell.
+- Solid/collidable blocks and other non-submersible blocks displace fluid as part of the same authoritative block mutation.
+- Only noncollidable crossed or ground sprites may coexist with fluid; these decorative blocks preserve source/flowing fluid beneath them.
+- Fluid mutation rejects fluid inside a non-submersible block, and chunk persistence uses the same occupancy policy rather than treating every non-empty block as solid.
 - Removing a block wakes fluid topology immediately; actual refill/spread still obeys the authored fluid timing instead of bypassing simulation.
 - One authoritative mutation publishes one consequence fan-out. A block mutation that also displaces fluid must not double-bump fluid revisions or duplicate remesh/lighting/topology invalidation.
 - Cross-chunk mesh halos, revisions and fluid topology must be invalidated from the edited world position, including loaded neighbors whose one-voxel dependency halo contains it.
