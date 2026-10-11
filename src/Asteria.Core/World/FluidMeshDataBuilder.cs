@@ -68,9 +68,8 @@ public static class FluidMeshDataBuilder
                             originY + y,
                             originZ + z);
 
-                    // A solid block displaces fluid presentation immediately;
-                    // the simulation then clears the stale fluid state.
-                    if (!world.GetCellOrEmpty(position).IsEmpty)
+                    // Permeable sprites and their source fluid can coexist.
+                    if (!world.CanContainFluidAt(position))
                     {
                         continue;
                     }
@@ -131,11 +130,8 @@ public static class FluidMeshDataBuilder
         var offset = FaceOffset(face);
         var neighborPosition =
             position + offset;
-        var neighborBlock =
-            world.GetCellOrEmpty(
-                neighborPosition);
-
-        if (!neighborBlock.IsEmpty)
+        // A decorative sprite must not occlude the adjacent water face.
+        if (!world.CanContainFluidAt(neighborPosition))
         {
             return;
         }
