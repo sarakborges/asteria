@@ -31,6 +31,10 @@ public sealed class VoxelWorld
         _residencyEpochs = [];
     private readonly Dictionary<ChunkColumnCoord, ulong>
         _columnResidencyRevisions = [];
+    // Derived residency index; updated atomically with _chunks on every
+    // insert, restore and archive. Avoid scanning all chunks per transition.
+    private readonly Dictionary<ChunkColumnCoord, int>
+        _residentColumnChunkCounts = [];
     private readonly SessionChunkArchiveStore _archive = new();
     private ulong _nextResidencyEpoch;
     private ulong _nextColumnResidencyRevision;
@@ -102,7 +106,7 @@ public sealed class VoxelWorld
             coord,
             chunk.Revision);
         AssignResidencyEpoch(coord);
-        MarkColumnResidencyChanged(coord);
+        MarkColumnChunkAdded(coord);
         Revision++;
         ChunkBecameResident?.Invoke(coord);
     }
@@ -120,7 +124,7 @@ public sealed class VoxelWorld
         }
 
         _residencyEpochs.Remove(coord);
-        MarkColumnResidencyChanged(coord);
+        MarkColumnChunkRemoved(coord);
         var result = _archive.Archive(coord, chunk);
         Revision++;
         return result;
@@ -179,7 +183,7 @@ public sealed class VoxelWorld
 
         _chunks.Add(coord, chunk);
         AssignResidencyEpoch(coord);
-        MarkColumnResidencyChanged(coord);
+        MarkColumnChunkAdded(coord);
         Revision++;
         ChunkBecameResident?.Invoke(coord);
         return ChunkRestoreResult.Restored;
@@ -767,9 +771,16 @@ public sealed class VoxelWorld
             }
         }
 
-        foreach (var column in clone._chunks.Keys
-                     .Select(ChunkColumnCoord.FromChunk)
-                     .Distinct())
+        foreach (var coord in clone._chunks.Keys)
+        {
+            var column = ChunkColumnCoord.FromChunk(coord);
+            clone._residentColumnChunkCounts[column] =
+                clone._residentColumnChunkCounts.TryGetValue(column, out var count)
+                    ? count + 1
+                    : 1;
+        }
+
+        foreach (var column in clone._residentColumnChunkCounts.Keys)
         {
             if (_columnResidencyRevisions.TryGetValue(column, out var revision))
             {
@@ -895,17 +906,33 @@ public sealed class VoxelWorld
         _residencyEpochs[coord] = _nextResidencyEpoch;
     }
 
-    private void MarkColumnResidencyChanged(ChunkCoord coord)
+    private void MarkColumnChunkAdded(ChunkCoord coord)
     {
         var column = ChunkColumnCoord.FromChunk(coord);
+        _residentColumnChunkCounts[column] =
+            _residentColumnChunkCounts.TryGetValue(column, out var count)
+                ? checked(count + 1)
+                : 1;
+        MarkColumnResidencyChanged(column);
+    }
 
-        if (!_chunks.Keys.Any(candidate =>
-                candidate.X == coord.X && candidate.Z == coord.Z))
+    private void MarkColumnChunkRemoved(ChunkCoord coord)
+    {
+        var column = ChunkColumnCoord.FromChunk(coord);
+        var count = _residentColumnChunkCounts[column];
+        if (count == 1)
         {
+            _residentColumnChunkCounts.Remove(column);
             _columnResidencyRevisions.Remove(column);
             return;
         }
 
+        _residentColumnChunkCounts[column] = count - 1;
+        MarkColumnResidencyChanged(column);
+    }
+
+    private void MarkColumnResidencyChanged(ChunkColumnCoord column)
+    {
         _nextColumnResidencyRevision =
             _nextColumnResidencyRevision == ulong.MaxValue
                 ? 1

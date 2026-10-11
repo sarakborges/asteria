@@ -475,6 +475,44 @@ public sealed class VoxelWorldTests
     }
 
     [Fact]
+    public void ColumnResidencyRevisionsFollowArchiveRestoreAndWorkerClones()
+    {
+        var world = new VoxelWorld();
+        var lower = ChunkCoord.Zero;
+        var upper = new ChunkCoord(0, 1, 0);
+        var other = new ChunkCoord(1, 0, 0);
+        var column = ChunkColumnCoord.FromChunk(lower);
+        var otherColumn = ChunkColumnCoord.FromChunk(other);
+
+        world.InsertChunk(lower, new Chunk());
+        var firstRevision = world.GetColumnResidencyRevision(column);
+        world.InsertChunk(upper, new Chunk());
+        var secondRevision = world.GetColumnResidencyRevision(column);
+        Assert.NotEqual(firstRevision, secondRevision);
+        world.InsertChunk(other, new Chunk());
+        var otherRevision = world.GetColumnResidencyRevision(otherColumn);
+        Assert.Equal(secondRevision, world.GetColumnResidencyRevision(column));
+
+        world.ArchiveChunk(lower);
+        Assert.NotEqual(secondRevision, world.GetColumnResidencyRevision(column));
+        Assert.Equal(otherRevision, world.GetColumnResidencyRevision(otherColumn));
+        world.ArchiveChunk(upper);
+        Assert.Equal(0UL, world.GetColumnResidencyRevision(column));
+        Assert.Equal(otherRevision, world.GetColumnResidencyRevision(otherColumn));
+
+        Assert.Equal(ChunkRestoreResult.Restored, world.RestoreChunk(lower));
+        var restoredRevision = world.GetColumnResidencyRevision(column);
+        Assert.NotEqual(0UL, restoredRevision);
+
+        var clone = world.CloneForWorker([lower]);
+        Assert.Equal(restoredRevision, clone.GetColumnResidencyRevision(column));
+        Assert.Equal(0UL, clone.GetColumnResidencyRevision(otherColumn));
+        clone.ArchiveChunk(lower);
+        Assert.Equal(0UL, clone.GetColumnResidencyRevision(column));
+        Assert.Equal(restoredRevision, world.GetColumnResidencyRevision(column));
+    }
+
+    [Fact]
     public void WorkerCloneKeepsIndependentChunkStateAndRevision()
     {
         var world = new VoxelWorld();
