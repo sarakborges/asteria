@@ -99,6 +99,13 @@ public sealed class CreaturePresentationController
         _textures.Clear();
     }
 
+    /// <summary>
+    /// Creates a detached, textured GLB model for an offscreen entity portrait.
+    /// Uses the same authored materials and idle animation as world creatures.
+    /// </summary>
+    public Node3D CreatePreviewModel(CreatureDefinition definition) =>
+        CreateModel(definition);
+
     private Node3D CreateModel(CreatureDefinition definition)
     {
         if (!_models.TryGetValue(definition.Model, out var template))
