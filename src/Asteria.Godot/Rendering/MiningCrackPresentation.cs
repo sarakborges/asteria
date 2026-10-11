@@ -41,13 +41,38 @@ public sealed class MiningCrackPresentation
         }
         """;
 
+    // Attached layers already have authored face geometry and UV rotations.
+    // Mask cracks by the original layer alpha, so cutout moss/ore outlines
+    // never paint the opaque stone underneath.
+    private const string LayerCrackShader = """
+        shader_type spatial;
+        render_mode unshaded, cull_disabled, depth_draw_never, blend_mix;
+        uniform sampler2D crack_texture : source_color, filter_nearest, repeat_enable;
+        uniform sampler2D layer_texture : source_color, filter_nearest, repeat_enable;
+        void vertex() {
+            VERTEX += NORMAL * 0.002;
+        }
+        void fragment() {
+            vec4 crack = texture(crack_texture, UV);
+            float coverage = texture(layer_texture, UV).a;
+            ALBEDO = crack.rgb;
+            ALPHA = crack.a * coverage;
+            ALPHA_SCISSOR_THRESHOLD = 0.1;
+        }
+        """;
+
     private readonly BlockRegistry _blocks;
+    private readonly AttachedLayerRegistry _layers;
     private readonly FluidRegistry _fluids;
     private readonly TerrainTextureLookup _textures;
     private readonly VoxelTerrainMaterialSet _materials;
     private readonly PackSelection _pack;
     private readonly MeshInstance3D _visual;
     private ShaderMaterial[]? _stages;
+    private ShaderMaterial[]? _layerStages;
+    private readonly Dictionary<string, Texture2D> _layerMaskTextures = new(StringComparer.Ordinal);
+    private string? _layerMaskPath;
+    private AttachedBlockLayer? _layer;
     private WorldVoxelCoord? _target;
     private BlockStateSnapshot? _block;
     private int _stage = -1;
@@ -56,6 +81,7 @@ public sealed class MiningCrackPresentation
         Node3D parent,
         PackSelection pack,
         BlockRegistry blocks,
+        AttachedLayerRegistry layers,
         FluidRegistry fluids,
         TerrainTextureLookup textures,
         VoxelTerrainMaterialSet materials)
@@ -63,6 +89,7 @@ public sealed class MiningCrackPresentation
         ArgumentNullException.ThrowIfNull(parent);
         _pack = pack;
         _blocks = blocks ?? throw new ArgumentNullException(nameof(blocks));
+        _layers = layers ?? throw new ArgumentNullException(nameof(layers));
         _fluids = fluids ?? throw new ArgumentNullException(nameof(fluids));
         _textures = textures ?? throw new ArgumentNullException(nameof(textures));
         _materials = materials ?? throw new ArgumentNullException(nameof(materials));
@@ -88,21 +115,52 @@ public sealed class MiningCrackPresentation
         }
 
         var block = BlockStateSnapshot.Capture(world, target, cell);
-        if (_target != target || _block != block)
+        var targetLayer = mining.TargetLayer;
+        // Even before the next mining tick, a changed layer stack must hide
+        // stale cracks instead of showing the removed/underlying material.
+        if (targetLayer is { } attachment &&
+            (!block.SurfaceState.TryGetTop(attachment.Face, out var current) ||
+             current != attachment))
         {
-            _visual.Mesh = BlockStateMeshBuilder.Build(
-                block, _blocks, _fluids, _textures, _materials);
+            Hide();
+            return;
+        }
+
+        if (_target != target || _block != block || _layer != targetLayer)
+        {
+            _visual.Mesh = targetLayer is { } selected
+                ? BlockStateMeshBuilder.BuildAttachedLayer(
+                    block, _blocks, _fluids, _textures, _materials,
+                    _layers, selected)
+                : BlockStateMeshBuilder.Build(
+                    block, _blocks, _fluids, _textures, _materials);
             _visual.Position = new Vector3(target.X, target.Y, target.Z);
             _target = target;
             _block = block;
+            _layer = targetLayer;
             _stage = -1;
+        }
+
+        if (_visual.Mesh is null || _visual.Mesh.GetSurfaceCount() == 0)
+        {
+            Hide();
+            return;
         }
 
         var stage = Math.Clamp((int)MathF.Floor(progress * Stages), 0, Stages - 1);
         if (_stage != stage)
         {
-            _stages ??= LoadStages();
-            _visual.MaterialOverride = _stages[stage];
+            if (_layer is { } active)
+            {
+                _layerStages ??= LoadStages(LayerCrackShader);
+                ApplyLayerMask(_layers.Get(active.LayerId));
+                _visual.MaterialOverride = _layerStages[stage];
+            }
+            else
+            {
+                _stages ??= LoadStages(CrackShader);
+                _visual.MaterialOverride = _stages[stage];
+            }
             _stage = stage;
         }
         _visual.Visible = true;
@@ -115,12 +173,27 @@ public sealed class MiningCrackPresentation
         _visual.Mesh = null;
         _target = null;
         _block = null;
+        _layer = null;
         _stage = -1;
     }
 
-    private ShaderMaterial[] LoadStages()
+    private void ApplyLayerMask(AttachedLayerDefinition layer)
     {
-        var shader = new Shader { Code = CrackShader };
+        if (StringComparer.Ordinal.Equals(_layerMaskPath, layer.Texture))
+            return;
+        if (!_layerMaskTextures.TryGetValue(layer.Texture, out var texture))
+        {
+            texture = ProjectPackFiles.LoadTexture(_pack, layer.Texture);
+            _layerMaskTextures.Add(layer.Texture, texture);
+        }
+        foreach (var material in _layerStages!)
+            material.SetShaderParameter("layer_texture", texture);
+        _layerMaskPath = layer.Texture;
+    }
+
+    private ShaderMaterial[] LoadStages(string source)
+    {
+        var shader = new Shader { Code = source };
         return Enumerable.Range(0, Stages).Select(i =>
         {
             var texture = ProjectPackFiles.LoadTexture(
