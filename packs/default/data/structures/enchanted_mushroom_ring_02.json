@@ -1,0 +1,63 @@
+{
+  "id": "asteria:enchanted_mushroom_ring_02",
+  "groupId": "enchanted_mushroom_ring",
+  "locatable": false,
+  "rotation": true,
+  "priority": 0,
+  "conflictGroups": [
+    "tree",
+    "fungal"
+  ],
+  "groundAnchorY": 0,
+  "restrictions": {
+    "groundBlocks": [
+      "asteria:grass_block",
+      "asteria:dirt"
+    ],
+    "maxSlope": 0,
+    "requiresDryGround": true,
+    "requiredBiomeCoverage": 1
+  },
+  "generation": {
+    "replacePolicy": "terrain",
+    "fluidPolicy": "forbid",
+    "reserveSpace": false
+  },
+  "anchor": {
+    "x": 5,
+    "y": 0,
+    "z": 5
+  },
+  "palette": {
+    "B": {
+      "block": "asteria:mushroom_blue"
+    },
+    "P": {
+      "block": "asteria:mushroom_pink"
+    },
+    "R": {
+      "block": "asteria:mushroom_red"
+    },
+    "V": {
+      "block": "asteria:mushroom_purple"
+    }
+  },
+  "layers": [
+    {
+      "y": 1,
+      "rows": [
+        "...........",
+        "...........",
+        "....VP.....",
+        "....R.BV...",
+        "..PR...BV..",
+        "........P..",
+        "..RB...VP..",
+        "...RB..V...",
+        "....PRB....",
+        "...........",
+        "..........."
+      ]
+    }
+  ]
+}

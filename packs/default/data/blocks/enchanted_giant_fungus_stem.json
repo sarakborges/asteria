@@ -1,0 +1,19 @@
+{
+  "id": "asteria:enchanted_giant_fungus_stem",
+  "category": "natural_blocks",
+  "tint": "none",
+  "textures": {
+    "top": "textures/blocks/enchanted_giant_fungus_stem.png",
+    "bottom": "textures/blocks/enchanted_giant_fungus_stem.png",
+    "left": "textures/blocks/enchanted_giant_fungus_stem.png",
+    "right": "textures/blocks/enchanted_giant_fungus_stem.png",
+    "front": "textures/blocks/enchanted_giant_fungus_stem.png",
+    "back": "textures/blocks/enchanted_giant_fungus_stem.png"
+  },
+  "mining": {
+    "hardness": 0.38
+  },
+  "lightDampening": 12,
+  "castsShadow": true,
+  "previewColor": "9b82b9"
+}

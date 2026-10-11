@@ -943,3 +943,24 @@ bone spawning, erosion, drops or new particle systems.
 
 Content intentionally complements, rather than replaces, existing
 `wasteland_snag` and `fallen_log_wasteland` structures.
+
+## Enchanted Forest undergrowth and landmarks (2026-10-11)
+
+The original enchanted forest tree/tint/terrain system stays intact.
+Six authored decorator rules now add four new plant sprites:
+luminous cyan Starflower (clearings), Violet Fern (undergrowth),
+Pink Bloom (pink glades) and rare Glow Pod (mixed undergrowth).
+Existing Red and Blue mushrooms are re-used without duplicates.
+All four new flora blocks explicitly have `tint: none` to retain
+their authored colors, like the existing enchanted tree leaves.
+
+Three new structure groups produce eight block-only variants:
+three surface-level rings of existing mushrooms with empty centers,
+two hollow enchanted stumps with small fungi and perched glow
+buds, and three 3D giant mushroom canopies emitting colored light.
+Each authored template starts above its natural grassy support;
+no replacement dirt/grass ground patch or special-case worldgen
+code is introduced. Structures require dry ground, full biome
+coverage and conflict groups protecting the enchanted groves.
+Seven unique 64x64 PNG textures support seven new blocks.
+Verify density and nighttime glow in a playable build.

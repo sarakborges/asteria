@@ -1144,6 +1144,42 @@
         "deadwood_pockets": 0.36,
         "rocky_scrub": 1.24
       }
+    },
+    {
+      "biome": "asteria:overworld/enchanted_forest",
+      "structure": "asteria:enchanted_mushroom_ring",
+      "spacing": 79,
+      "jitter": 23,
+      "chance": 0.78,
+      "habitatWeights": {
+        "luminous_clearing": 2.75,
+        "violet_undergrowth": 1.05,
+        "pink_glade": 0.35
+      }
+    },
+    {
+      "biome": "asteria:overworld/enchanted_forest",
+      "structure": "asteria:enchanted_hollow_stump",
+      "spacing": 54,
+      "jitter": 16,
+      "chance": 0.6,
+      "habitatWeights": {
+        "luminous_clearing": 0.12,
+        "violet_undergrowth": 2.3,
+        "pink_glade": 1.2
+      }
+    },
+    {
+      "biome": "asteria:overworld/enchanted_forest",
+      "structure": "asteria:enchanted_fungal_canopy",
+      "spacing": 87,
+      "jitter": 26,
+      "chance": 0.68,
+      "habitatWeights": {
+        "luminous_clearing": 0.19,
+        "violet_undergrowth": 1.55,
+        "pink_glade": 2.45
+      }
     }
   ],
   "dayNightCycle": "asteria:overworld/day_night_cycle",

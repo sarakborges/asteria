@@ -69,6 +69,8 @@ Keep `barren_flats` intentionally open. Use sparse clusters and
 independently authored habitat weights. **No random ground-material
 patches, extra Pebbles or invented terrain erosion system.**
 
+**Enchanted Forest P0 status (2026-10-11): implemented.** Four new flora blocks and re-used Blue/Red mushrooms in new decorators; three multi-block structure families with eight variants. Counts table represents pre-implementation snapshot.
+
 ### B. Enchanted Forest — magical undergrowth / lighting
 
 1. `enchanted_starflower`: glowing flower in `luminous_clearing`,

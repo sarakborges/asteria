@@ -1,0 +1,124 @@
+{
+  "id": "asteria:enchanted_hollow_stump_02",
+  "groupId": "enchanted_hollow_stump",
+  "locatable": false,
+  "rotation": true,
+  "priority": 0,
+  "conflictGroups": [
+    "tree",
+    "stump",
+    "fungal"
+  ],
+  "groundAnchorY": 0,
+  "restrictions": {
+    "groundBlocks": [
+      "asteria:grass_block",
+      "asteria:dirt"
+    ],
+    "maxSlope": 1,
+    "requiresDryGround": true,
+    "requiredBiomeCoverage": 1
+  },
+  "generation": {
+    "replacePolicy": "terrain",
+    "fluidPolicy": "forbid",
+    "reserveSpace": false
+  },
+  "anchor": {
+    "x": 5,
+    "y": 0,
+    "z": 5
+  },
+  "palette": {
+    "B": {
+      "block": "asteria:mushroom_blue"
+    },
+    "E": {
+      "block": "asteria:enchanted_starflower"
+    },
+    "H": {
+      "block": "asteria:enchanted_hollow_wood"
+    },
+    "P": {
+      "block": "asteria:mushroom_pink"
+    },
+    "Q": {
+      "block": "asteria:enchanted_glow_pod"
+    },
+    "R": {
+      "block": "asteria:mushroom_red"
+    },
+    "V": {
+      "block": "asteria:mushroom_purple"
+    },
+    "W": {
+      "block": "asteria:log_enchanted"
+    }
+  },
+  "layers": [
+    {
+      "y": 1,
+      "rows": [
+        "...........",
+        "...........",
+        "...........",
+        "...........",
+        "...B.......",
+        "....VW.P...",
+        "......Q....",
+        ".....R.....",
+        "...........",
+        "...........",
+        "..........."
+      ]
+    },
+    {
+      "y": 2,
+      "rows": [
+        "...........",
+        "...........",
+        "...........",
+        "...........",
+        "...........",
+        ".....W.....",
+        "...........",
+        "...........",
+        "...........",
+        "...........",
+        "..........."
+      ]
+    },
+    {
+      "y": 3,
+      "rows": [
+        "...........",
+        "...........",
+        "...........",
+        "...........",
+        "...........",
+        ".....H.....",
+        "...........",
+        "...........",
+        "...........",
+        "...........",
+        "..........."
+      ]
+    },
+    {
+      "y": 4,
+      "rows": [
+        "...........",
+        "...........",
+        "...........",
+        "...........",
+        "...........",
+        ".....E.....",
+        "...........",
+        "...........",
+        "...........",
+        "...........",
+        "..........."
+      ]
+    }
+  ]
+}

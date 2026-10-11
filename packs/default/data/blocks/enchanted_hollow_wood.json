@@ -1,0 +1,22 @@
+{
+  "id": "asteria:enchanted_hollow_wood",
+  "category": "wooden_blocks",
+  "tint": "none",
+  "textures": {
+    "top": "textures/blocks/enchanted_hollow_wood_top.png",
+    "bottom": "textures/blocks/trees/enchanted_tree/top.png",
+    "left": "textures/blocks/trees/enchanted_tree/side.png",
+    "right": "textures/blocks/trees/enchanted_tree/side.png",
+    "front": "textures/blocks/trees/enchanted_tree/side.png",
+    "back": "textures/blocks/trees/enchanted_tree/side.png"
+  },
+  "mining": {
+    "hardness": 0.92,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "lightDampening": 15,
+  "castsShadow": true,
+  "previewColor": "7465a3"
+}

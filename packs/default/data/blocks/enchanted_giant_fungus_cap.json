@@ -1,0 +1,24 @@
+{
+  "id": "asteria:enchanted_giant_fungus_cap",
+  "category": "natural_blocks",
+  "tint": "none",
+  "textures": {
+    "top": "textures/blocks/enchanted_giant_fungus_cap.png",
+    "bottom": "textures/blocks/enchanted_giant_fungus_cap.png",
+    "left": "textures/blocks/enchanted_giant_fungus_cap.png",
+    "right": "textures/blocks/enchanted_giant_fungus_cap.png",
+    "front": "textures/blocks/enchanted_giant_fungus_cap.png",
+    "back": "textures/blocks/enchanted_giant_fungus_cap.png"
+  },
+  "mining": {
+    "hardness": 0.34
+  },
+  "lightDampening": 10,
+  "lightEmission": {
+    "red": 7,
+    "green": 2,
+    "blue": 9
+  },
+  "castsShadow": true,
+  "previewColor": "cb88df"
+}

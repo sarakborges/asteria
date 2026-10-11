@@ -1,0 +1,28 @@
+{
+  "id": "asteria:enchanted_violet_fern",
+  "category": "foliage",
+  "tags": [
+    "support_below"
+  ],
+  "tint": "none",
+  "windSway": true,
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/enchanted_violet_fern.png",
+    "width": 0.92,
+    "height": 0.88,
+    "planes": 4
+  },
+  "placementFaces": [
+    "top"
+  ],
+  "mining": {
+    "hardness": 0.06
+  },
+  "isCollidable": false,
+  "castsShadow": false,
+  "lightDampening": 0,
+  "alphaCutoff": 0.5,
+  "previewColor": "aa78dc",
+  "dropsSelf": false
+}

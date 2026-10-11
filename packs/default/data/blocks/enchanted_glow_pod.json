@@ -1,0 +1,33 @@
+{
+  "id": "asteria:enchanted_glow_pod",
+  "category": "foliage",
+  "tags": [
+    "support_below"
+  ],
+  "tint": "none",
+  "windSway": true,
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/enchanted_glow_pod.png",
+    "width": 0.78,
+    "height": 0.92,
+    "planes": 4
+  },
+  "placementFaces": [
+    "top"
+  ],
+  "mining": {
+    "hardness": 0.06
+  },
+  "isCollidable": false,
+  "castsShadow": false,
+  "lightDampening": 0,
+  "alphaCutoff": 0.5,
+  "lightEmission": {
+    "red": 2,
+    "green": 6,
+    "blue": 9
+  },
+  "previewColor": "9bf1e2",
+  "dropsSelf": false
+}
