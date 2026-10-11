@@ -21,7 +21,7 @@ internal sealed class MiningParticlePresentation
         void vertex() {
             chip_layers = INSTANCE_CUSTOM.xy;
             chip_tint = INSTANCE_COLOR.rgb;
-            chip_seed = float(INSTANCE_ID);
+            chip_seed = INSTANCE_CUSTOM.z;
         }
 
         void fragment() {
@@ -118,7 +118,7 @@ internal sealed class MiningParticlePresentation
                 Basis.Identity.Scaled(new Vector3(size, size, size)), position));
             var (baseLayer, overlayLayer) = Encode(particle.Appearance);
             _batch.SetInstanceCustomData(i,
-                new Color(baseLayer, overlayLayer, 0f, 0f));
+                new Color(baseLayer, overlayLayer, particle.PatchSeed, 0f));
             _batch.SetInstanceColor(i, new Color(
                 particle.Tint.X, particle.Tint.Y, particle.Tint.Z, 1f));
             var extent = Vector3.One * size;
