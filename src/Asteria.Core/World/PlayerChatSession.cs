@@ -51,7 +51,7 @@ public sealed class PlayerChatSession
         string? localizationKey = null,
         IReadOnlyDictionary<string, string>? parameters = null)
     {
-        AddLine(message, isError, localizationKey, parameters, null);
+        AddLine(message, isError, localizationKey, parameters, null, null);
     }
 
     /// <summary>A validated locate result creates a link bound to its
@@ -67,7 +67,7 @@ public sealed class PlayerChatSession
         ArgumentNullException.ThrowIfNull(target);
         if (target.Y < 0 || string.IsNullOrWhiteSpace(target.Dimension))
             throw new ArgumentException("Invalid chat warp destination.", nameof(target));
-        AddLine(localizationKey, false, localizationKey, parameters, target);
+        AddLine(localizationKey, false, localizationKey, parameters, target, null);
     }
 
     public bool TryGetWarpTarget(ulong messageId, out PlayerChatWarpTarget? target)
@@ -76,12 +76,32 @@ public sealed class PlayerChatSession
         return target is not null;
     }
 
+    /// <summary>Only canonical generated structure exports can have a
+    /// browser-visible action. No path from the WebUI is ever trusted.</summary>
+    public void AppendStructureFile(string fileName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(fileName);
+        if (!System.Text.RegularExpressions.Regex.IsMatch(
+                fileName, @"\Astructure_[0-9a-f]{32}\.json\z",
+                System.Text.RegularExpressions.RegexOptions.CultureInvariant))
+            throw new ArgumentException("Invalid exported structure filename.", nameof(fileName));
+        AddLine("chat.action.structureFile", false,
+            "chat.action.structureFile", null, null, fileName);
+    }
+
+    public bool TryGetStructureFileName(ulong messageId, out string? fileName)
+    {
+        fileName = _history.FirstOrDefault(line => line.Id == messageId)?.StructureFileName;
+        return fileName is not null;
+    }
+
     private void AddLine(
         string message,
         bool isError,
         string? localizationKey,
         IReadOnlyDictionary<string, string>? parameters,
-        PlayerChatWarpTarget? warpTarget)
+        PlayerChatWarpTarget? warpTarget,
+        string? structureFileName)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
         if (_history.Count == HistoryCapacity)
@@ -89,7 +109,7 @@ public sealed class PlayerChatSession
 
         var id = ++_nextId;
         _history.Add(new PlayerChatLine(id, message, isError,
-            localizationKey, parameters, warpTarget));
+            localizationKey, parameters, warpTarget, structureFileName));
     }
 
     public void Reset()
@@ -104,6 +124,7 @@ public sealed record PlayerChatLine(
     ulong Id, string Text, bool IsError,
     string? LocalizationKey = null,
     IReadOnlyDictionary<string, string>? Parameters = null,
-    PlayerChatWarpTarget? WarpTarget = null);
+    PlayerChatWarpTarget? WarpTarget = null,
+    string? StructureFileName = null);
 
 public sealed record PlayerChatWarpTarget(int X, int Y, int Z, string Dimension);
