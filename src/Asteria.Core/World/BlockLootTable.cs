@@ -9,7 +9,7 @@ namespace Asteria.Core.World;
 public sealed class BlockLootTable
 {
     public const int MaximumEntries = 16;
-    public const int MaximumQuantityPerEntry = 64;
+    public const int MaximumQuantityPerEntry = 256;
     private readonly BlockLootEntry[] _entries;
 
     public BlockLootTable(IEnumerable<BlockLootEntry> entries)
