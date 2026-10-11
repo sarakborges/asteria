@@ -8,6 +8,11 @@ public sealed class BlockPhysicsUpdateQueue
 
     private readonly DeduplicatedQueue<WorldVoxelCoord>
         _queue = new();
+    // Missing support chunks are dormant until their residency changes.
+    private readonly Dictionary<ChunkCoord, HashSet<WorldVoxelCoord>>
+        _waitingByChunk = [];
+    private readonly Dictionary<WorldVoxelCoord, ChunkCoord>
+        _waitingForChunk = [];
 
     public BlockPhysicsUpdateQueue(BlockPhysicsUpdateQueueSnapshot? restore = null)
     {
@@ -16,10 +21,63 @@ public sealed class BlockPhysicsUpdateQueue
             _queue.Enqueue(position);
     }
 
+    // Pending and dormant work are both preserved across Sphere retirement.
     public BlockPhysicsUpdateQueueSnapshot CaptureState() =>
-        new(_queue.ValuesInOrder());
+        new(_queue.ValuesInOrder()
+            .Concat(_waitingForChunk.Keys
+                .OrderBy(position => position.Y)
+                .ThenBy(position => position.Z)
+                .ThenBy(position => position.X))
+            .ToArray());
 
     public int Count => _queue.Count;
+
+    public int WaitingCount => _waitingForChunk.Count;
+
+    public void WaitForChunk(WorldVoxelCoord position, ChunkCoord neededChunk)
+    {
+        _queue.Remove(position);
+        if (_waitingForChunk.TryGetValue(position, out var previousChunk))
+        {
+            if (previousChunk == neededChunk)
+                return;
+            RemoveWaiter(position, previousChunk);
+        }
+
+        if (!_waitingByChunk.TryGetValue(neededChunk, out var waiting))
+        {
+            waiting = [];
+            _waitingByChunk.Add(neededChunk, waiting);
+        }
+
+        waiting.Add(position);
+        _waitingForChunk.Add(position, neededChunk);
+    }
+
+    public void WakeResidentChunk(ChunkCoord chunk)
+    {
+        if (!_waitingByChunk.Remove(chunk, out var waiting))
+            return;
+
+        // Dependency activation must not depend on hash-set iteration.
+        foreach (var position in waiting
+            .OrderBy(position => position.Y)
+            .ThenBy(position => position.Z)
+            .ThenBy(position => position.X))
+        {
+            _waitingForChunk.Remove(position);
+            _queue.Enqueue(position);
+        }
+    }
+
+    private void RemoveWaiter(WorldVoxelCoord position, ChunkCoord chunk)
+    {
+        _waitingForChunk.Remove(position);
+        var waiting = _waitingByChunk[chunk];
+        waiting.Remove(position);
+        if (waiting.Count == 0)
+            _waitingByChunk.Remove(chunk);
+    }
 
     public void EnqueueVoxelEdit(WorldVoxelCoord position)
     {
@@ -37,6 +95,8 @@ public sealed class BlockPhysicsUpdateQueue
     {
         if (position.Y >= 0)
         {
+            if (_waitingForChunk.TryGetValue(position, out var neededChunk))
+                RemoveWaiter(position, neededChunk);
             _queue.Enqueue(position);
         }
     }

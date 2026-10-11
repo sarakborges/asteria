@@ -610,7 +610,9 @@ public sealed class ChunkResidencyRuntime
                      coord,
                      _world.ContainsChunk))
         {
-            if (_world.IsLoadedAt(position))
+            if (_world.IsLoadedAt(position) &&
+                ChunkTopologyFrontier.NeedsSeamLightSeed(
+                    _world, _blocks, _fluids, position))
             {
                 _worldUpdates.EnqueueLighting(position);
             }

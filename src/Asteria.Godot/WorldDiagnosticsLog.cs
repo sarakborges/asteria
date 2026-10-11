@@ -98,6 +98,7 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     private int _droppedBlocksActive;
     private int _fallingBlocksActive;
     private int _physicsUpdatesPending;
+    private int _physicsUpdatesWaiting;
     private int _physicsUpdatesPeak;
 
     private WorldDiagnosticsLog(DiagnosticSessionLog session)
@@ -194,7 +195,8 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     /// </summary>
     public void ObserveGameplayPopulation(
         int creatures, int projectiles, int ambientParticles,
-        int droppedBlocks, int fallingBlocks, int physicsPending)
+        int droppedBlocks, int fallingBlocks, int physicsPending,
+        int physicsWaiting)
     {
         _creaturesActive = creatures;
         _creaturesPeak = Math.Max(_creaturesPeak, creatures);
@@ -204,6 +206,7 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         _droppedBlocksActive = droppedBlocks;
         _fallingBlocksActive = fallingBlocks;
         _physicsUpdatesPending = physicsPending;
+        _physicsUpdatesWaiting = physicsWaiting;
         _physicsUpdatesPeak = Math.Max(_physicsUpdatesPeak, physicsPending);
     }
 
@@ -335,6 +338,7 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"dropped_blocks_active={_droppedBlocksActive} " +
             $"falling_blocks_active={_fallingBlocksActive} " +
             $"physics_pending={_physicsUpdatesPending} " +
+            $"physics_waiting={_physicsUpdatesWaiting} " +
             $"physics_pending_peak={_physicsUpdatesPeak} " +
             $"frames={_frames} frame_ms_avg={Format2((_frames == 0 ? 0d : _frameMsTotal / _frames))} " +
             $"frame_ms_max={Format2(_frameMsMax)} frames_over_50ms={_framesOver50Ms} " +

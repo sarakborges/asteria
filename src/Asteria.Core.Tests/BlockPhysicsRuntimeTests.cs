@@ -50,6 +50,68 @@ public sealed class BlockPhysicsRuntimeTests
     }
 
     [Fact]
+    public void UnloadedDependenciesSleepUntilThatChunkArrives()
+    {
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, new Chunk());
+        var blocks = new BlockRegistry([
+            new BlockDefinition("asteria:stone"),
+            new BlockDefinition("asteria:wall_plant",
+                tags: [BlockPhysicsCapabilities.SupportWall],
+                isCollidable: false),
+        ]);
+        var updates = new BlockPhysicsUpdateQueue();
+        var mutations = new VoxelMutationRuntime(world,
+            new WorldUpdateQueue(), new FluidUpdateQueue(),
+            new FluidMeshUpdateQueue(), updates,
+            new MeshletContentRevisions(), new MeshletContentRevisions());
+        var drops = new DroppedBlockRuntime(world, blocks);
+        using var runtime = new BlockPhysicsRuntime(
+            world, blocks, mutations, updates, drops);
+        var position = new WorldVoxelCoord(Chunk.Size - 1, 5, 5);
+        var waitingChunk = new ChunkCoord(1, 0, 0);
+
+        Assert.True(mutations.SetCellAt(position,
+            new VoxelCell(blocks.GetId("asteria:wall_plant"),
+                facing: HorizontalFacing.West), out _));
+        runtime.ProcessWakeups();
+
+        Assert.Equal(0, updates.Count);
+        Assert.Equal(1, updates.WaitingCount);
+        for (var tick = 0; tick < 10; tick++)
+            Assert.Equal(BlockPhysicsWakeResult.Empty, runtime.ProcessWakeups());
+
+        // A save made while dormant must retain the pending dependency.
+        Assert.Contains(position, updates.CaptureState().Positions);
+
+        var support = new Chunk();
+        support.SetBlock(0, 5, 5, blocks.GetId("asteria:stone"));
+        world.InsertChunk(waitingChunk, support);
+
+        Assert.Equal(0, updates.WaitingCount);
+        Assert.Contains(position, updates.DrainBatch());
+        // A new support remains authoritative after the dependency resolves.
+        updates.Enqueue(position);
+        Assert.Equal(0, runtime.ProcessWakeups().UnsupportedRemoved);
+        Assert.False(world.GetCellOrEmpty(position).IsEmpty);
+    }
+
+    [Fact]
+    public void PhysicsWaitersCanBeReactivatedByVoxelEdits()
+    {
+        var queue = new BlockPhysicsUpdateQueue();
+        var position = new WorldVoxelCoord(15, 3, 4);
+        var missing = new ChunkCoord(1, 0, 0);
+        queue.WaitForChunk(position, missing);
+
+        queue.EnqueueVoxelEdit(position);
+        Assert.Equal(0, queue.WaitingCount);
+        Assert.Contains(position, queue.DrainBatch());
+        queue.WakeResidentChunk(missing);
+        Assert.Equal(0, queue.Count);
+    }
+
+    [Fact]
     public void ResidentChunkSeedsExistingGravityBlocks()
     {
         var world = new VoxelWorld();

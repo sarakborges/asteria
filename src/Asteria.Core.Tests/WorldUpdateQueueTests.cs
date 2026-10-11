@@ -5,6 +5,24 @@ namespace Asteria.Core.Tests;
 public sealed class WorldUpdateQueueTests
 {
     [Fact]
+    public void DenseLightingInvalidationSaturatesTheChunkMeshletMask()
+    {
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, new Chunk());
+
+        var positions = Enumerable.Range(0, Chunk.Size)
+            .SelectMany(y => Enumerable.Range(0, Chunk.Size)
+                .SelectMany(z => Enumerable.Range(0, Chunk.Size)
+                    .Select(x => new WorldVoxelCoord(x, y, z))))
+            .ToArray();
+        var dirty = MeshletInvalidation.ForPositions(world, positions);
+
+        var entry = Assert.Single(dirty);
+        Assert.Equal(ChunkCoord.Zero, entry.Key);
+        Assert.Equal(ChunkMeshletMask.All, entry.Value);
+    }
+
+    [Fact]
     public void GeometryAndLightingCanDrainIndependently()
     {
         var world = new VoxelWorld();

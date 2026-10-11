@@ -80,6 +80,9 @@ public sealed class BlockEntityFrameController
     public int PendingPhysicsUpdates =>
         _updates.Count;
 
+    public int WaitingPhysicsUpdates =>
+        _updates.WaitingCount;
+
     public BlockEntityFrameReport Advance(
         double deltaSeconds,
         double gravityStrength)

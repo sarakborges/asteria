@@ -971,6 +971,8 @@ public sealed class DimensionRuntimeSession
             FluidUpdates.CaptureState();
         _state.PendingPhysicsWork =
             BlockPhysicsUpdates.CaptureState();
+        // Detach Core's residency listener before the old Sphere is archived.
+        _blockPhysics.Dispose();
         _state.DroppedBlocks =
             _droppedBlocks.CaptureState();
         _state.Creatures =
