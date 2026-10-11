@@ -558,7 +558,8 @@ public partial class Main : Node3D
         var loadingWorld =
             _loading.Progress.Phase is
                 WorldLoadingPhase.MaterializingInitialArea or
-                WorldLoadingPhase.PreparingPresentation;
+                WorldLoadingPhase.PreparingPresentation or
+                WorldLoadingPhase.Ready;
         var streamingCenter =
             loadingWorld
                 ? _loading.Center
