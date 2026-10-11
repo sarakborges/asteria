@@ -24,5 +24,6 @@
     "hardness": 1,
     "preferredTools": ["shovel"]
   },
-  "previewColor": "5b4738"
+  "previewColor": "5b4738",
+  "lootTable": [{"item":"asteria:mud","chance":1,"quantity":1}]
 }
