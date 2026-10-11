@@ -24,13 +24,14 @@ queried from `GeneratedFluidField`; a column's bounding range alone
 does not count as submerged. All generation is deterministic and independent
 of chunk materialization order.
 
-The voxel storage invariant is unchanged: blocks and fluids cannot occupy
-the same voxel. A submerged decorator occupies its own voxel, displacing
-the fluid there while leaving surrounding water intact. This is suitable
-for solid underwater decorations; water-through foliage would require a
-separate visual/object-occupancy capability rather than violating voxel
-storage. Surface structures already use `requiresDryGround: false` and
-`generation.fluidPolicy` independently.
+Non-collidable `crossedSprite` and `groundSprite` decorations are
+fluid-permeable: the generated fluid (including its source status) is
+preserved in the same voxel as the decorative block. The fluid mesh keeps
+visible faces beside and around these sprites. Solid or collidable
+decorations still displace generated fluid. Runtime placement, simulation
+and removal follow the same occupancy rule. Surface structures keep their
+independent `requiresDryGround: false` and `generation.fluidPolicy`
+semantics.
 
 ## Default Ocean flora and objects
 
@@ -42,7 +43,8 @@ textures, supporting-ground material lists, deterministic noise clusters,
 `surfaceHabitats` weights, `conditions.maxY: 86` and
 `fluidPlacement: "submerged"`. Kelp, seagrass and anemone are
 non-collidable crossed sprites; shell and starfish use horizontal ground
-sprites. Normal block mining/support semantics apply.
+sprites. Their source water remains present. Normal block mining/support
+semantics apply.
 
 This is authored content only. The existing fluid-placement contract
 displaces the water in the occupied decorative voxel while retaining
