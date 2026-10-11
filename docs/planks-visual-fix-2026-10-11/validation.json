@@ -1,0 +1,286 @@
+{
+  "base_sha": "64e78558029b021fe0fbff565cf212d4e9e92fb6",
+  "families": 11,
+  "planks_replaced": 11,
+  "other_textures_byte_preserved": 286,
+  "data_and_runtime_scope": "artwork-only: block definitions, recipes and runtime unchanged",
+  "assets": [
+    {
+      "family": "charwood",
+      "size": [
+        64,
+        64
+      ],
+      "alpha": "opaque",
+      "horizontal_join_centers": [
+        8.5,
+        23.0,
+        38.5,
+        54.0
+      ],
+      "staggered_end_joint_x": [
+        16,
+        48,
+        15,
+        48
+      ],
+      "seam_x_mean_rgb_delta": 7.312,
+      "seam_y_mean_rgb_delta": 12.417,
+      "seam_x_to_internal_ratio": 1.008,
+      "seam_y_to_internal_ratio": 0.743,
+      "visual_repeat_review": "passed: native 64x64 and exact 3x3 repeats inspected"
+    },
+    {
+      "family": "enchanted_tree",
+      "size": [
+        64,
+        64
+      ],
+      "alpha": "opaque",
+      "horizontal_join_centers": [
+        9.0,
+        23.0,
+        38.5,
+        54.0
+      ],
+      "staggered_end_joint_x": [
+        15,
+        48,
+        15,
+        48
+      ],
+      "seam_x_mean_rgb_delta": 7.078,
+      "seam_y_mean_rgb_delta": 18.87,
+      "seam_x_to_internal_ratio": 0.782,
+      "seam_y_to_internal_ratio": 0.735,
+      "visual_repeat_review": "passed: native 64x64 and exact 3x3 repeats inspected"
+    },
+    {
+      "family": "frost_wood",
+      "size": [
+        64,
+        64
+      ],
+      "alpha": "opaque",
+      "horizontal_join_centers": [
+        8.5,
+        23.0,
+        39.0,
+        54.0
+      ],
+      "staggered_end_joint_x": [
+        16,
+        48,
+        16,
+        48
+      ],
+      "seam_x_mean_rgb_delta": 18.948,
+      "seam_y_mean_rgb_delta": 19.792,
+      "seam_x_to_internal_ratio": 1.557,
+      "seam_y_to_internal_ratio": 0.579,
+      "visual_repeat_review": "passed: native 64x64 and exact 3x3 repeats inspected"
+    },
+    {
+      "family": "juniper",
+      "size": [
+        64,
+        64
+      ],
+      "alpha": "opaque",
+      "horizontal_join_centers": [
+        8.5,
+        23.0,
+        38.5,
+        54.0
+      ],
+      "staggered_end_joint_x": [
+        16,
+        48,
+        16,
+        48
+      ],
+      "seam_x_mean_rgb_delta": 7.693,
+      "seam_y_mean_rgb_delta": 11.562,
+      "seam_x_to_internal_ratio": 1.053,
+      "seam_y_to_internal_ratio": 0.562,
+      "visual_repeat_review": "passed: native 64x64 and exact 3x3 repeats inspected"
+    },
+    {
+      "family": "oak",
+      "size": [
+        64,
+        64
+      ],
+      "alpha": "opaque",
+      "horizontal_join_centers": [
+        9.0,
+        23.0,
+        39.0,
+        54.0
+      ],
+      "staggered_end_joint_x": [
+        16,
+        48,
+        16,
+        48
+      ],
+      "seam_x_mean_rgb_delta": 4.5,
+      "seam_y_mean_rgb_delta": 11.755,
+      "seam_x_to_internal_ratio": 0.719,
+      "seam_y_to_internal_ratio": 0.597,
+      "visual_repeat_review": "passed: native 64x64 and exact 3x3 repeats inspected"
+    },
+    {
+      "family": "rime_deadwood",
+      "size": [
+        64,
+        64
+      ],
+      "alpha": "opaque",
+      "horizontal_join_centers": [
+        9.0,
+        23.0,
+        39.0,
+        54.0
+      ],
+      "staggered_end_joint_x": [
+        16,
+        48,
+        16,
+        48
+      ],
+      "seam_x_mean_rgb_delta": 10.089,
+      "seam_y_mean_rgb_delta": 14.391,
+      "seam_x_to_internal_ratio": 1.064,
+      "seam_y_to_internal_ratio": 0.468,
+      "visual_repeat_review": "passed: native 64x64 and exact 3x3 repeats inspected"
+    },
+    {
+      "family": "skywood",
+      "size": [
+        64,
+        64
+      ],
+      "alpha": "opaque",
+      "horizontal_join_centers": [
+        9.0,
+        23.0,
+        38.5,
+        54.0
+      ],
+      "staggered_end_joint_x": [
+        16,
+        48,
+        16,
+        48
+      ],
+      "seam_x_mean_rgb_delta": 10.349,
+      "seam_y_mean_rgb_delta": 14.51,
+      "seam_x_to_internal_ratio": 1.233,
+      "seam_y_to_internal_ratio": 0.51,
+      "visual_repeat_review": "passed: native 64x64 and exact 3x3 repeats inspected"
+    },
+    {
+      "family": "thornwood",
+      "size": [
+        64,
+        64
+      ],
+      "alpha": "opaque",
+      "horizontal_join_centers": [
+        8.5,
+        23.0,
+        38.5,
+        54.0
+      ],
+      "staggered_end_joint_x": [
+        16,
+        48,
+        16,
+        48
+      ],
+      "seam_x_mean_rgb_delta": 8.891,
+      "seam_y_mean_rgb_delta": 9.078,
+      "seam_x_to_internal_ratio": 1.435,
+      "seam_y_to_internal_ratio": 0.629,
+      "visual_repeat_review": "passed: native 64x64 and exact 3x3 repeats inspected"
+    },
+    {
+      "family": "willow",
+      "size": [
+        64,
+        64
+      ],
+      "alpha": "opaque",
+      "horizontal_join_centers": [
+        8.0,
+        23.0,
+        38.0,
+        54.0
+      ],
+      "staggered_end_joint_x": [
+        16,
+        48,
+        16,
+        48
+      ],
+      "seam_x_mean_rgb_delta": 4.125,
+      "seam_y_mean_rgb_delta": 16.146,
+      "seam_x_to_internal_ratio": 0.472,
+      "seam_y_to_internal_ratio": 0.617,
+      "visual_repeat_review": "passed: native 64x64 and exact 3x3 repeats inspected"
+    },
+    {
+      "family": "windwood",
+      "size": [
+        64,
+        64
+      ],
+      "alpha": "opaque",
+      "horizontal_join_centers": [
+        9.0,
+        23.0,
+        39.0,
+        54.0
+      ],
+      "staggered_end_joint_x": [
+        16,
+        48,
+        16,
+        48
+      ],
+      "seam_x_mean_rgb_delta": 4.76,
+      "seam_y_mean_rgb_delta": 10.875,
+      "seam_x_to_internal_ratio": 0.644,
+      "seam_y_to_internal_ratio": 0.454,
+      "visual_repeat_review": "passed: native 64x64 and exact 3x3 repeats inspected"
+    },
+    {
+      "family": "world_tree",
+      "size": [
+        64,
+        64
+      ],
+      "alpha": "opaque",
+      "horizontal_join_centers": [
+        9.0,
+        23.0,
+        38.5,
+        54.0
+      ],
+      "staggered_end_joint_x": [
+        16,
+        47,
+        16,
+        48
+      ],
+      "seam_x_mean_rgb_delta": 5.427,
+      "seam_y_mean_rgb_delta": 10.969,
+      "seam_x_to_internal_ratio": 0.618,
+      "seam_y_to_internal_ratio": 0.419,
+      "visual_repeat_review": "passed: native 64x64 and exact 3x3 repeats inspected"
+    }
+  ],
+  "local_resource_validation": "passed",
+  "seam_review": "all 11 inspected in X and Y; no outer frame or missing board joints"
+}

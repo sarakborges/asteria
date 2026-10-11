@@ -1,0 +1,421 @@
+{
+  "mode": "built-in image_gen; one asset per call; targeted oak iterations",
+  "normalization": "nearest-neighbor to 64x64, RGB opaque; no procedural wood drawing",
+  "assets": [
+    {
+      "family": "charwood",
+      "path": "packs/default/resources/textures/blocks/trees/charwood/planks.png",
+      "mode": "built-in image_gen",
+      "prompt": "Use case: style-transfer.\nAsset type: Asteria seamless 64x64 pixel-art PLANKS block material.\nPrimary request: Completely redraw the unstructured wood in Image 1 as visibly assembled charwood sawn PLANK BOARDS, with the clear board construction and controlled pixel-art detail of Image 2, and the species wood palette from Image 3.\nInput images: Image 1 is the edit target; replace its full visual design. Image 2 is the finished oak plank reference for artistic quality, readable narrow joints and board layout only; do not copy oak colors or its grain. Image 3 is the species stripped-wood palette/material reference, not a layout. Image 4 is the exact periodic construction diagram; do not reproduce its flat gray palette.\nConstruction: four horizontal board rows, clearly distinct, with visible dark recessed horizontal joins and staggered vertical butt joints. On a logical 64x64 grid, horizontal joints are at y=8,24,40,56; the image boundary cuts through the SAME board at top and bottom. End joints alternate at x=16 in boards beginning at y=8 and y=40, and x=48 in boards beginning at y=24 and y=56. The x=48 joint continues through the lower edge into the top eight rows. Keep the diagram's periodic construction. Join width approximately two logical pixels, clearly visible after reduction to 64x64. Uniform board thickness. Do not erase or camouflage the board joins with grain.\nColor palette: Matte charcoal gray-brown timber, dark ash brown base, muted rust-brown fine pores. Visible warm charcoal-black joins darker than the boards. Charred cut wood, with solid board surfaces.\nSpecies wood grain: Short parallel charred fibers with occasional very small rusty pores. Clean sawn wood, never rough burned bark. Draw its own grain; do not just recolor the oak artwork. Keep grain secondary to the visible plank structure, inside each board. Subtle separate board tones and compact restrained highlights.\nStyle: matte hand-authored logical 64x64 pixel art, crisp nearest-neighbor enlargement, deliberate small pixel clusters and stepped fibers. Flat orthographic diffuse albedo, even overall shading. No perspective, no scene, no frame, no bark, no large knot eyes, no nails, no concentric rings, no dense scratch noise, no glossy chamfers, no text or watermark.\nPerfectly seamless in X and Y: same wood board continues through top and bottom, fiber colors continue through left and right, and end joints align across the vertical boundary. No dark horizontal line or frame at either top/bottom edge; only the vertical butt joint may cross those edges. No double-thick seam after every fourth board. One full opaque square material tile, no alpha holes.",
+      "references": [
+        {
+          "name": "planks.png",
+          "path_at_generation": "/workspace/scratch/52fe3437c98d/planks-fix/originals/charwood/planks.png",
+          "sha256": "f084c2d7d0426ac61833d58625c9b752727d912a69bbce58b886aee7f26021d3"
+        },
+        {
+          "name": "exec-9d47d728-df56-4559-ba8d-0efc1125e405.png",
+          "path_at_generation": "/workspace/scratch/52fe3437c98d/generated_images/exec-9d47d728-df56-4559-ba8d-0efc1125e405.png",
+          "sha256": "52938d4355a8ffc1e139a362fb58b785a21168e9139b9ce7a7392981f8ca1709"
+        },
+        {
+          "name": "stripped.png",
+          "path_at_generation": "/workspace/scratch/52fe3437c98d/planks-fix/originals/charwood/stripped.png",
+          "sha256": "cedaad549e8be0fac77a73fa69add5ca5bf7c9666386b0d6c420e29b30aa2f2a"
+        },
+        {
+          "name": "board-layout-guide-v2.png",
+          "path_at_generation": "/workspace/scratch/52fe3437c98d/planks-fix/board-layout-guide-v2.png",
+          "sha256": "eafcdab9d5de1155eea9044b07b019db8e0b3ce00e21fa15415de415db9a7054"
+        }
+      ],
+      "source_sha256": "3b58c4407674945966f91cec569923d94de5373064934f3ec650bd371f91e5b0",
+      "source_size": [
+        1254,
+        1254
+      ],
+      "before_sha256": "f084c2d7d0426ac61833d58625c9b752727d912a69bbce58b886aee7f26021d3",
+      "after_sha256": "e17959bc57e50a836eea7100bf6d5c79a1e392fd887b54e8648a6251c6d4c16e"
+    },
+    {
+      "family": "enchanted_tree",
+      "path": "packs/default/resources/textures/blocks/trees/enchanted_tree/planks.png",
+      "mode": "built-in image_gen",
+      "prompt": "Use case: style-transfer.\nAsset type: Asteria seamless 64x64 pixel-art PLANKS block material.\nPrimary request: Completely redraw the unstructured wood in Image 1 as visibly assembled enchanted_tree sawn PLANK BOARDS, with the clear board construction and controlled pixel-art detail of Image 2, and the species wood palette from Image 3.\nInput images: Image 1 is the edit target; replace its full visual design. Image 2 is the finished oak plank reference for artistic quality, readable narrow joints and board layout only; do not copy oak colors or its grain. Image 3 is the species stripped-wood palette/material reference, not a layout. Image 4 is the exact periodic construction diagram; do not reproduce its flat gray palette.\nConstruction: four horizontal board rows, clearly distinct, with visible dark recessed horizontal joins and staggered vertical butt joints. On a logical 64x64 grid, horizontal joints are at y=8,24,40,56; the image boundary cuts through the SAME board at top and bottom. End joints alternate at x=16 in boards beginning at y=8 and y=40, and x=48 in boards beginning at y=24 and y=56. The x=48 joint continues through the lower edge into the top eight rows. Keep the diagram's periodic construction. Join width approximately two logical pixels, clearly visible after reduction to 64x64. Uniform board thickness. Do not erase or camouflage the board joins with grain.\nColor palette: Saturated royal blue and rich cobalt timber, cool celeste-blue small fiber highlights, deep navy recessed joins. Retain the blue-wood identity; do not use the gold leaf palette.\nSpecies wood grain: Quiet thin long horizontal blue fibers, very few tiny curving fiber marks. No glowing veins, no watery ripples. Draw its own grain; do not just recolor the oak artwork. Keep grain secondary to the visible plank structure, inside each board. Subtle separate board tones and compact restrained highlights.\nStyle: matte hand-authored logical 64x64 pixel art, crisp nearest-neighbor enlargement, deliberate small pixel clusters and stepped fibers. Flat orthographic diffuse albedo, even overall shading. No perspective, no scene, no frame, no bark, no large knot eyes, no nails, no concentric rings, no dense scratch noise, no glossy chamfers, no text or watermark.\nPerfectly seamless in X and Y: same wood board continues through top and bottom, fiber colors continue through left and right, and end joints align across the vertical boundary. No dark horizontal line or frame at either top/bottom edge; only the vertical butt joint may cross those edges. No double-thick seam after every fourth board. One full opaque square material tile, no alpha holes.",
+      "references": [
+        {
+          "name": "planks.png",
+          "path_at_generation": "/workspace/scratch/52fe3437c98d/planks-fix/originals/enchanted_tree/planks.png",
+          "sha256": "152ad1ab09a01f5be80e22725c6bf91edbed91a30afcf9d34ab57ae34d5206c6"
+        },
+        {
+          "name": "exec-9d47d728-df56-4559-ba8d-0efc1125e405.png",
+          "path_at_generation": "/workspace/scratch/52fe3437c98d/generated_images/exec-9d47d728-df56-4559-ba8d-0efc1125e405.png",
+          "sha256": "52938d4355a8ffc1e139a362fb58b785a21168e9139b9ce7a7392981f8ca1709"
+        },
+        {
+          "name": "stripped.png",
+          "path_at_generation": "/workspace/scratch/52fe3437c98d/planks-fix/originals/enchanted_tree/stripped.png",
+          "sha256": "7fa665834a2b9f09bf355169f3aab687c297eb2da2d46317d4b6bae68c2b7aca"
+        },
+        {
+          "name": "board-layout-guide-v2.png",
+          "path_at_generation": "/workspace/scratch/52fe3437c98d/planks-fix/board-layout-guide-v2.png",
+          "sha256": "eafcdab9d5de1155eea9044b07b019db8e0b3ce00e21fa15415de415db9a7054"
+        }
+      ],
+      "source_sha256": "427ce1a61a2f461f6c0bbf324e11c8c266ffcacfbebbf23e59e02b26aa51d02c",
+      "source_size": [
+        1254,
+        1254
+      ],
+      "before_sha256": "152ad1ab09a01f5be80e22725c6bf91edbed91a30afcf9d34ab57ae34d5206c6",
+      "after_sha256": "17f70e1e772101ebc3b75690c8a5fb052b3ac104c676028121106c68dfb351fe"
+    },
+    {
+      "family": "frost_wood",
+      "path": "packs/default/resources/textures/blocks/trees/frost_wood/planks.png",
+      "mode": "built-in image_gen",
+      "prompt": "Use case: style-transfer.\nAsset type: Asteria seamless 64x64 pixel-art PLANKS block material.\nPrimary request: Completely redraw the unstructured wood in Image 1 as visibly assembled frost_wood sawn PLANK BOARDS, with the clear board construction and controlled pixel-art detail of Image 2, and the species wood palette from Image 3.\nInput images: Image 1 is the edit target; replace its full visual design. Image 2 is the finished oak plank reference for artistic quality, readable narrow joints and board layout only; do not copy oak colors or its grain. Image 3 is the species stripped-wood palette/material reference, not a layout. Image 4 is the exact periodic construction diagram; do not reproduce its flat gray palette.\nConstruction: four horizontal board rows, clearly distinct, with visible dark recessed horizontal joins and staggered vertical butt joints. On a logical 64x64 grid, horizontal joints are at y=8,24,40,56; the image boundary cuts through the SAME board at top and bottom. End joints alternate at x=16 in boards beginning at y=8 and y=40, and x=48 in boards beginning at y=24 and y=56. The x=48 joint continues through the lower edge into the top eight rows. Keep the diagram's periodic construction. Join width approximately two logical pixels, clearly visible after reduction to 64x64. Uniform board thickness. Do not erase or camouflage the board joins with grain.\nColor palette: Cool desaturated slate blue-gray pine timber, pale silver-gray fiber accents, dark blue-gray joins. Match species reference while clearly separating boards.\nSpecies wood grain: Fine mostly straight frostwood grain, controlled pale fibers. No snow piles or ice sheets on these cut boards. Draw its own grain; do not just recolor the oak artwork. Keep grain secondary to the visible plank structure, inside each board. Subtle separate board tones and compact restrained highlights.\nStyle: matte hand-authored logical 64x64 pixel art, crisp nearest-neighbor enlargement, deliberate small pixel clusters and stepped fibers. Flat orthographic diffuse albedo, even overall shading. No perspective, no scene, no frame, no bark, no large knot eyes, no nails, no concentric rings, no dense scratch noise, no glossy chamfers, no text or watermark.\nPerfectly seamless in X and Y: same wood board continues through top and bottom, fiber colors continue through left and right, and end joints align across the vertical boundary. No dark horizontal line or frame at either top/bottom edge; only the vertical butt joint may cross those edges. No double-thick seam after every fourth board. One full opaque square material tile, no alpha holes.",
+      "references": [
+        {
+          "name": "planks.png",
+          "path_at_generation": "/workspace/scratch/52fe3437c98d/planks-fix/originals/frost_wood/planks.png",
+          "sha256": "7175508db85a48e5a0520ddb37664619f7ba4162846141465bb5eaafe5e1b0e0"
+        },
+        {
+          "name": "exec-9d47d728-df56-4559-ba8d-0efc1125e405.png",
+          "path_at_generation": "/workspace/scratch/52fe3437c98d/generated_images/exec-9d47d728-df56-4559-ba8d-0efc1125e405.png",
+          "sha256": "52938d4355a8ffc1e139a362fb58b785a21168e9139b9ce7a7392981f8ca1709"
+        },
+        {
+          "name": "stripped.png",
+          "path_at_generation": "/workspace/scratch/52fe3437c98d/planks-fix/originals/frost_wood/stripped.png",
+          "sha256": "16593278929fc7a577b91723cec3282c6cb0dd7e51468a910f1bc93dc139302a"
+        },
+        {
+          "name": "board-layout-guide-v2.png",
+          "path_at_generation": "/workspace/scratch/52fe3437c98d/planks-fix/board-layout-guide-v2.png",
+          "sha256": "eafcdab9d5de1155eea9044b07b019db8e0b3ce00e21fa15415de415db9a7054"
+        }
+      ],
+      "source_sha256": "3c6d1c600bc16f1d1a17d5dbc6dcaf313dafc8101c5bcb855ac078828dd5c885",
+      "source_size": [
+        1254,
+        1254
+      ],
+      "before_sha256": "7175508db85a48e5a0520ddb37664619f7ba4162846141465bb5eaafe5e1b0e0",
+      "after_sha256": "6099a4c25cb799e95501290d044d0605bb64eb70ef1eff3918139e7e7dd24193"
+    },
+    {
+      "family": "juniper",
+      "path": "packs/default/resources/textures/blocks/trees/juniper/planks.png",
+      "mode": "built-in image_gen",
+      "prompt": "Use case: style-transfer.\nAsset type: Asteria seamless 64x64 pixel-art PLANKS block material.\nPrimary request: Completely redraw the unstructured wood in Image 1 as visibly assembled juniper sawn PLANK BOARDS, with the clear board construction and controlled pixel-art detail of Image 2, and the species wood palette from Image 3.\nInput images: Image 1 is the edit target; replace its full visual design. Image 2 is the finished oak plank reference for artistic quality, readable narrow joints and board layout only; do not copy oak colors or its grain. Image 3 is the species stripped-wood palette/material reference, not a layout. Image 4 is the exact periodic construction diagram; do not reproduce its flat gray palette.\nConstruction: four horizontal board rows, clearly distinct, with visible dark recessed horizontal joins and staggered vertical butt joints. On a logical 64x64 grid, horizontal joints are at y=8,24,40,56; the image boundary cuts through the SAME board at top and bottom. End joints alternate at x=16 in boards beginning at y=8 and y=40, and x=48 in boards beginning at y=24 and y=56. The x=48 joint continues through the lower edge into the top eight rows. Keep the diagram's periodic construction. Join width approximately two logical pixels, clearly visible after reduction to 64x64. Uniform board thickness. Do not erase or camouflage the board joins with grain.\nColor palette: Warm muted taupe beige/brown juniper timber, pale dusty tan fibers and dark earthy brown joins.\nSpecies wood grain: Fine narrow cedar-like horizontal fibers with sparse tiny irregular grain breaks. Calm sawn surface. Draw its own grain; do not just recolor the oak artwork. Keep grain secondary to the visible plank structure, inside each board. Subtle separate board tones and compact restrained highlights.\nStyle: matte hand-authored logical 64x64 pixel art, crisp nearest-neighbor enlargement, deliberate small pixel clusters and stepped fibers. Flat orthographic diffuse albedo, even overall shading. No perspective, no scene, no frame, no bark, no large knot eyes, no nails, no concentric rings, no dense scratch noise, no glossy chamfers, no text or watermark.\nPerfectly seamless in X and Y: same wood board continues through top and bottom, fiber colors continue through left and right, and end joints align across the vertical boundary. No dark horizontal line or frame at either top/bottom edge; only the vertical butt joint may cross those edges. No double-thick seam after every fourth board. One full opaque square material tile, no alpha holes.",
+      "references": [
+        {
+          "name": "planks.png",
+          "path_at_generation": "/workspace/scratch/52fe3437c98d/planks-fix/originals/juniper/planks.png",
+          "sha256": "3bff9127b54bb929a17df24d5fa77a1e07b35b0bb3e618e35f60e5541681e485"
+        },
+        {
+          "name": "exec-9d47d728-df56-4559-ba8d-0efc1125e405.png",
+          "path_at_generation": "/workspace/scratch/52fe3437c98d/generated_images/exec-9d47d728-df56-4559-ba8d-0efc1125e405.png",
+          "sha256": "52938d4355a8ffc1e139a362fb58b785a21168e9139b9ce7a7392981f8ca1709"
+        },
+        {
+          "name": "stripped.png",
+          "path_at_generation": "/workspace/scratch/52fe3437c98d/planks-fix/originals/juniper/stripped.png",
+          "sha256": "5de993cc8a3055a458de4d7e136615c7af5405ee849422ef1384af57ff1f7b44"
+        },
+        {
+          "name": "board-layout-guide-v2.png",
+          "path_at_generation": "/workspace/scratch/52fe3437c98d/planks-fix/board-layout-guide-v2.png",
+          "sha256": "eafcdab9d5de1155eea9044b07b019db8e0b3ce00e21fa15415de415db9a7054"
+        }
+      ],
+      "source_sha256": "0dd573544d358175d981e59bfa449cca3639ff258b23c74da8fce4c3e10b0779",
+      "source_size": [
+        1254,
+        1254
+      ],
+      "before_sha256": "3bff9127b54bb929a17df24d5fa77a1e07b35b0bb3e618e35f60e5541681e485",
+      "after_sha256": "4590a9ecc0ca254dd510cce7ccf17621afb93c90bfeae213fa88a7ebb47882dc"
+    },
+    {
+      "family": "oak",
+      "path": "packs/default/resources/textures/blocks/trees/oak/planks.png",
+      "mode": "built-in image_gen",
+      "prompt": "Use case: precise-object-edit. Change ONLY ONE thing in this pixel-art oak plank tile: RESTORE the missing full-width dark horizontal board joint at approximately 85 percent of the image height. This joint connects the BOTTOM of the vertical butt joint near x=25 percent to the TOP of the next vertical butt joint near x=75 percent. Run the narrow dark recessed join straight across the ENTIRE image width at that exact level, matching the color and thickness of the other three horizontal joins. The four row pattern must have FOUR horizontal joins inside the tile. Keep every other board join, grain, wood color, flat pixel-art style and layout unchanged. Especially preserve the seamless wood color through the top and bottom edge, the vertical joint crossing that edge, and the absence of an outer border. One full opaque square texture. Crisp 64x64 logical pixel-art design; no new objects or effects.",
+      "references": [
+        {
+          "name": "exec-60f74900-00d8-4f4c-9678-d812bea74579.png",
+          "path_at_generation": "/workspace/scratch/52fe3437c98d/generated_images/exec-60f74900-00d8-4f4c-9678-d812bea74579.png",
+          "sha256": "66de8f07a31b704c9a8697725170b01ea5ef0a9990d65f101dffd53aeb549b6a"
+        }
+      ],
+      "source_sha256": "52938d4355a8ffc1e139a362fb58b785a21168e9139b9ce7a7392981f8ca1709",
+      "source_size": [
+        1254,
+        1254
+      ],
+      "before_sha256": "c1605a23fe2e0945c367185854d947eea876051a8c80c16fd2b4f7b3ce8c7a30",
+      "after_sha256": "829614e161c2099c19b231e81ebf8718b5a310f16ea3052ef1f1d19500f96aef"
+    },
+    {
+      "family": "rime_deadwood",
+      "path": "packs/default/resources/textures/blocks/trees/rime_deadwood/planks.png",
+      "mode": "built-in image_gen",
+      "prompt": "Use case: style-transfer.\nAsset type: Asteria seamless 64x64 pixel-art PLANKS block material.\nPrimary request: Completely redraw the unstructured wood in Image 1 as visibly assembled rime_deadwood sawn PLANK BOARDS, with the clear board construction and controlled pixel-art detail of Image 2, and the species wood palette from Image 3.\nInput images: Image 1 is the edit target; replace its full visual design. Image 2 is the finished oak plank reference for artistic quality, readable narrow joints and board layout only; do not copy oak colors or its grain. Image 3 is the species stripped-wood palette/material reference, not a layout. Image 4 is the exact periodic construction diagram; do not reproduce its flat gray palette.\nConstruction: four horizontal board rows, clearly distinct, with visible dark recessed horizontal joins and staggered vertical butt joints. On a logical 64x64 grid, horizontal joints are at y=8,24,40,56; the image boundary cuts through the SAME board at top and bottom. End joints alternate at x=16 in boards beginning at y=8 and y=40, and x=48 in boards beginning at y=24 and y=56. The x=48 joint continues through the lower edge into the top eight rows. Keep the diagram's periodic construction. Join width approximately two logical pixels, clearly visible after reduction to 64x64. Uniform board thickness. Do not erase or camouflage the board joins with grain.\nColor palette: Light icy blue-gray weathered timber with restrained steel blue fine fibers and dark cool blue-gray joins. Paler and bluer than Frostwood.\nSpecies wood grain: Long quiet weathered horizontal fibers, a few shallow short worn streaks, still solid usable boards. No frost crust. Draw its own grain; do not just recolor the oak artwork. Keep grain secondary to the visible plank structure, inside each board. Subtle separate board tones and compact restrained highlights.\nStyle: matte hand-authored logical 64x64 pixel art, crisp nearest-neighbor enlargement, deliberate small pixel clusters and stepped fibers. Flat orthographic diffuse albedo, even overall shading. No perspective, no scene, no frame, no bark, no large knot eyes, no nails, no concentric rings, no dense scratch noise, no glossy chamfers, no text or watermark.\nPerfectly seamless in X and Y: same wood board continues through top and bottom, fiber colors continue through left and right, and end joints align across the vertical boundary. No dark horizontal line or frame at either top/bottom edge; only the vertical butt joint may cross those edges. No double-thick seam after every fourth board. One full opaque square material tile, no alpha holes.",
+      "references": [
+        {
+          "name": "planks.png",
+          "path_at_generation": "/workspace/scratch/52fe3437c98d/planks-fix/originals/rime_deadwood/planks.png",
+          "sha256": "f2f6bc1fba1b839049a73ae173c837e46ef7ddd06f54f98f9b39cdd90450cdd6"
+        },
+        {
+          "name": "exec-9d47d728-df56-4559-ba8d-0efc1125e405.png",
+          "path_at_generation": "/workspace/scratch/52fe3437c98d/generated_images/exec-9d47d728-df56-4559-ba8d-0efc1125e405.png",
+          "sha256": "52938d4355a8ffc1e139a362fb58b785a21168e9139b9ce7a7392981f8ca1709"
+        },
+        {
+          "name": "stripped.png",
+          "path_at_generation": "/workspace/scratch/52fe3437c98d/planks-fix/originals/rime_deadwood/stripped.png",
+          "sha256": "4b07f8a392dab98cea3ef647b5a435cc7658018d4d8615900e4712a5465584f1"
+        },
+        {
+          "name": "board-layout-guide-v2.png",
+          "path_at_generation": "/workspace/scratch/52fe3437c98d/planks-fix/board-layout-guide-v2.png",
+          "sha256": "eafcdab9d5de1155eea9044b07b019db8e0b3ce00e21fa15415de415db9a7054"
+        }
+      ],
+      "source_sha256": "8c3796198e7d4bb3a5896aa90e8537b6a79e98da653ab56e4767999be6366df3",
+      "source_size": [
+        1254,
+        1254
+      ],
+      "before_sha256": "f2f6bc1fba1b839049a73ae173c837e46ef7ddd06f54f98f9b39cdd90450cdd6",
+      "after_sha256": "56ad78323cc6f68b760aa0791f49a6d0746541ef4fd520466609d3ec1d3c6f4e"
+    },
+    {
+      "family": "skywood",
+      "path": "packs/default/resources/textures/blocks/trees/skywood/planks.png",
+      "mode": "built-in image_gen",
+      "prompt": "Use case: style-transfer.\nAsset type: Asteria seamless 64x64 pixel-art PLANKS block material.\nPrimary request: Completely redraw the unstructured wood in Image 1 as visibly assembled skywood sawn PLANK BOARDS, with the clear board construction and controlled pixel-art detail of Image 2, and the species wood palette from Image 3.\nInput images: Image 1 is the edit target; replace its full visual design. Image 2 is the finished oak plank reference for artistic quality, readable narrow joints and board layout only; do not copy oak colors or its grain. Image 3 is the species stripped-wood palette/material reference, not a layout. Image 4 is the exact periodic construction diagram; do not reproduce its flat gray palette.\nConstruction: four horizontal board rows, clearly distinct, with visible dark recessed horizontal joins and staggered vertical butt joints. On a logical 64x64 grid, horizontal joints are at y=8,24,40,56; the image boundary cuts through the SAME board at top and bottom. End joints alternate at x=16 in boards beginning at y=8 and y=40, and x=48 in boards beginning at y=24 and y=56. The x=48 joint continues through the lower edge into the top eight rows. Keep the diagram's periodic construction. Join width approximately two logical pixels, clearly visible after reduction to 64x64. Uniform board thickness. Do not erase or camouflage the board joins with grain.\nColor palette: Pale mint and seafoam aqua timber, restrained celadon fibers, dark desaturated teal joins. Match the supernatural wood pigment without glow.\nSpecies wood grain: Clean close horizontal wood fibers with a few slender gentle bends. No crystal patterns or emissive veins. Draw its own grain; do not just recolor the oak artwork. Keep grain secondary to the visible plank structure, inside each board. Subtle separate board tones and compact restrained highlights.\nStyle: matte hand-authored logical 64x64 pixel art, crisp nearest-neighbor enlargement, deliberate small pixel clusters and stepped fibers. Flat orthographic diffuse albedo, even overall shading. No perspective, no scene, no frame, no bark, no large knot eyes, no nails, no concentric rings, no dense scratch noise, no glossy chamfers, no text or watermark.\nPerfectly seamless in X and Y: same wood board continues through top and bottom, fiber colors continue through left and right, and end joints align across the vertical boundary. No dark horizontal line or frame at either top/bottom edge; only the vertical butt joint may cross those edges. No double-thick seam after every fourth board. One full opaque square material tile, no alpha holes.",
+      "references": [
+        {
+          "name": "planks.png",
+          "path_at_generation": "/workspace/scratch/52fe3437c98d/planks-fix/originals/skywood/planks.png",
+          "sha256": "72af96b7b037a4b6b75f8238779976cb843c19efecfd3120ee8c14bee6a067d4"
+        },
+        {
+          "name": "exec-9d47d728-df56-4559-ba8d-0efc1125e405.png",
+          "path_at_generation": "/workspace/scratch/52fe3437c98d/generated_images/exec-9d47d728-df56-4559-ba8d-0efc1125e405.png",
+          "sha256": "52938d4355a8ffc1e139a362fb58b785a21168e9139b9ce7a7392981f8ca1709"
+        },
+        {
+          "name": "stripped.png",
+          "path_at_generation": "/workspace/scratch/52fe3437c98d/planks-fix/originals/skywood/stripped.png",
+          "sha256": "a0ded9c815b05d9439e77d917c32c5e076edaa587f059ba0ed10cf292d1922ab"
+        },
+        {
+          "name": "board-layout-guide-v2.png",
+          "path_at_generation": "/workspace/scratch/52fe3437c98d/planks-fix/board-layout-guide-v2.png",
+          "sha256": "eafcdab9d5de1155eea9044b07b019db8e0b3ce00e21fa15415de415db9a7054"
+        }
+      ],
+      "source_sha256": "508ba8078ec4ac7e311810ef4509c0da13d6ad9f6f3272570643fa7fe48d6b66",
+      "source_size": [
+        1254,
+        1254
+      ],
+      "before_sha256": "72af96b7b037a4b6b75f8238779976cb843c19efecfd3120ee8c14bee6a067d4",
+      "after_sha256": "27875ecbc34b2b5d881edd94a4a2754c03f3985ba59bfbd1ff08e07b964f4469"
+    },
+    {
+      "family": "thornwood",
+      "path": "packs/default/resources/textures/blocks/trees/thornwood/planks.png",
+      "mode": "built-in image_gen",
+      "prompt": "Use case: style-transfer.\nAsset type: Asteria seamless 64x64 pixel-art PLANKS block material.\nPrimary request: Completely redraw the unstructured wood in Image 1 as visibly assembled thornwood sawn PLANK BOARDS, with the clear board construction and controlled pixel-art detail of Image 2, and the species wood palette from Image 3.\nInput images: Image 1 is the edit target; replace its full visual design. Image 2 is the finished oak plank reference for artistic quality, readable narrow joints and board layout only; do not copy oak colors or its grain. Image 3 is the species stripped-wood palette/material reference, not a layout. Image 4 is the exact periodic construction diagram; do not reproduce its flat gray palette.\nConstruction: four horizontal board rows, clearly distinct, with visible dark recessed horizontal joins and staggered vertical butt joints. On a logical 64x64 grid, horizontal joints are at y=8,24,40,56; the image boundary cuts through the SAME board at top and bottom. End joints alternate at x=16 in boards beginning at y=8 and y=40, and x=48 in boards beginning at y=24 and y=56. The x=48 joint continues through the lower edge into the top eight rows. Keep the diagram's periodic construction. Join width approximately two logical pixels, clearly visible after reduction to 64x64. Uniform board thickness. Do not erase or camouflage the board joins with grain.\nColor palette: Rich warm dark walnut and umber hardwood, muted caramel fine fibers, deep brown joins darker than the boards.\nSpecies wood grain: Dense but low-contrast fine hardwood fibers, few short bends. No thorn shapes, no spikes, no bark on sawn boards. Draw its own grain; do not just recolor the oak artwork. Keep grain secondary to the visible plank structure, inside each board. Subtle separate board tones and compact restrained highlights.\nStyle: matte hand-authored logical 64x64 pixel art, crisp nearest-neighbor enlargement, deliberate small pixel clusters and stepped fibers. Flat orthographic diffuse albedo, even overall shading. No perspective, no scene, no frame, no bark, no large knot eyes, no nails, no concentric rings, no dense scratch noise, no glossy chamfers, no text or watermark.\nPerfectly seamless in X and Y: same wood board continues through top and bottom, fiber colors continue through left and right, and end joints align across the vertical boundary. No dark horizontal line or frame at either top/bottom edge; only the vertical butt joint may cross those edges. No double-thick seam after every fourth board. One full opaque square material tile, no alpha holes.",
+      "references": [
+        {
+          "name": "planks.png",
+          "path_at_generation": "/workspace/scratch/52fe3437c98d/planks-fix/originals/thornwood/planks.png",
+          "sha256": "a50ab22afcd2eb5ef33fa60c1e19372d87ad746f5bf64f4541b654cdfea79ddb"
+        },
+        {
+          "name": "exec-9d47d728-df56-4559-ba8d-0efc1125e405.png",
+          "path_at_generation": "/workspace/scratch/52fe3437c98d/generated_images/exec-9d47d728-df56-4559-ba8d-0efc1125e405.png",
+          "sha256": "52938d4355a8ffc1e139a362fb58b785a21168e9139b9ce7a7392981f8ca1709"
+        },
+        {
+          "name": "stripped.png",
+          "path_at_generation": "/workspace/scratch/52fe3437c98d/planks-fix/originals/thornwood/stripped.png",
+          "sha256": "6fd6bcec77979ea441a72c13ab57abb4f2b52d978ab864ef411117bafb8d1d01"
+        },
+        {
+          "name": "board-layout-guide-v2.png",
+          "path_at_generation": "/workspace/scratch/52fe3437c98d/planks-fix/board-layout-guide-v2.png",
+          "sha256": "eafcdab9d5de1155eea9044b07b019db8e0b3ce00e21fa15415de415db9a7054"
+        }
+      ],
+      "source_sha256": "117554d106707f15ca80ac815da405397cd8bcd947078a32fa3697da4e4b7f9f",
+      "source_size": [
+        1254,
+        1254
+      ],
+      "before_sha256": "a50ab22afcd2eb5ef33fa60c1e19372d87ad746f5bf64f4541b654cdfea79ddb",
+      "after_sha256": "b3157ce33895c664b1ea2f73020022cd209006322ed95153d959529fd8243d94"
+    },
+    {
+      "family": "willow",
+      "path": "packs/default/resources/textures/blocks/trees/willow/planks.png",
+      "mode": "built-in image_gen",
+      "prompt": "Use case: style-transfer.\nAsset type: Asteria seamless 64x64 pixel-art PLANKS block material.\nPrimary request: Completely redraw the unstructured wood in Image 1 as visibly assembled willow sawn PLANK BOARDS, with the clear board construction and controlled pixel-art detail of Image 2, and the species wood palette from Image 3.\nInput images: Image 1 is the edit target; replace its full visual design. Image 2 is the finished oak plank reference for artistic quality, readable narrow joints and board layout only; do not copy oak colors or its grain. Image 3 is the species stripped-wood palette/material reference, not a layout. Image 4 is the exact periodic construction diagram; do not reproduce its flat gray palette.\nConstruction: four horizontal board rows, clearly distinct, with visible dark recessed horizontal joins and staggered vertical butt joints. On a logical 64x64 grid, horizontal joints are at y=8,24,40,56; the image boundary cuts through the SAME board at top and bottom. End joints alternate at x=16 in boards beginning at y=8 and y=40, and x=48 in boards beginning at y=24 and y=56. The x=48 joint continues through the lower edge into the top eight rows. Keep the diagram's periodic construction. Join width approximately two logical pixels, clearly visible after reduction to 64x64. Uniform board thickness. Do not erase or camouflage the board joins with grain.\nColor palette: Weathered soft olive-taupe tan timber, muted beige fibers, deep earthy olive-brown joins.\nSpecies wood grain: Gently meandering long thin horizontal willow fibers, small sparse grain variations without eye knots. Draw its own grain; do not just recolor the oak artwork. Keep grain secondary to the visible plank structure, inside each board. Subtle separate board tones and compact restrained highlights.\nStyle: matte hand-authored logical 64x64 pixel art, crisp nearest-neighbor enlargement, deliberate small pixel clusters and stepped fibers. Flat orthographic diffuse albedo, even overall shading. No perspective, no scene, no frame, no bark, no large knot eyes, no nails, no concentric rings, no dense scratch noise, no glossy chamfers, no text or watermark.\nPerfectly seamless in X and Y: same wood board continues through top and bottom, fiber colors continue through left and right, and end joints align across the vertical boundary. No dark horizontal line or frame at either top/bottom edge; only the vertical butt joint may cross those edges. No double-thick seam after every fourth board. One full opaque square material tile, no alpha holes.",
+      "references": [
+        {
+          "name": "planks.png",
+          "path_at_generation": "/workspace/scratch/52fe3437c98d/planks-fix/originals/willow/planks.png",
+          "sha256": "67c4a25beb4bca27a9dace8b1fea65553fc4b9a85a48dc968052be9f42211ed5"
+        },
+        {
+          "name": "exec-9d47d728-df56-4559-ba8d-0efc1125e405.png",
+          "path_at_generation": "/workspace/scratch/52fe3437c98d/generated_images/exec-9d47d728-df56-4559-ba8d-0efc1125e405.png",
+          "sha256": "52938d4355a8ffc1e139a362fb58b785a21168e9139b9ce7a7392981f8ca1709"
+        },
+        {
+          "name": "stripped.png",
+          "path_at_generation": "/workspace/scratch/52fe3437c98d/planks-fix/originals/willow/stripped.png",
+          "sha256": "53fc3588a9d9eba1c0e160353c613682d8c5845d520b08ad015237bc3549c16e"
+        },
+        {
+          "name": "board-layout-guide-v2.png",
+          "path_at_generation": "/workspace/scratch/52fe3437c98d/planks-fix/board-layout-guide-v2.png",
+          "sha256": "eafcdab9d5de1155eea9044b07b019db8e0b3ce00e21fa15415de415db9a7054"
+        }
+      ],
+      "source_sha256": "fbaa098dff69c8f7f547789cf16a2535aa731a129a44fff9974ea917d0f0248d",
+      "source_size": [
+        1254,
+        1254
+      ],
+      "before_sha256": "67c4a25beb4bca27a9dace8b1fea65553fc4b9a85a48dc968052be9f42211ed5",
+      "after_sha256": "9f149b0c4e64ade2829c2fa63538e8fa2b73f49e0120d86daccd5f924ea0533a"
+    },
+    {
+      "family": "windwood",
+      "path": "packs/default/resources/textures/blocks/trees/windwood/planks.png",
+      "mode": "built-in image_gen",
+      "prompt": "Use case: style-transfer.\nAsset type: Asteria seamless 64x64 pixel-art PLANKS block material.\nPrimary request: Completely redraw the unstructured wood in Image 1 as visibly assembled windwood sawn PLANK BOARDS, with the clear board construction and controlled pixel-art detail of Image 2, and the species wood palette from Image 3.\nInput images: Image 1 is the edit target; replace its full visual design. Image 2 is the finished oak plank reference for artistic quality, readable narrow joints and board layout only; do not copy oak colors or its grain. Image 3 is the species stripped-wood palette/material reference, not a layout. Image 4 is the exact periodic construction diagram; do not reproduce its flat gray palette.\nConstruction: four horizontal board rows, clearly distinct, with visible dark recessed horizontal joins and staggered vertical butt joints. On a logical 64x64 grid, horizontal joints are at y=8,24,40,56; the image boundary cuts through the SAME board at top and bottom. End joints alternate at x=16 in boards beginning at y=8 and y=40, and x=48 in boards beginning at y=24 and y=56. The x=48 joint continues through the lower edge into the top eight rows. Keep the diagram's periodic construction. Join width approximately two logical pixels, clearly visible after reduction to 64x64. Uniform board thickness. Do not erase or camouflage the board joins with grain.\nColor palette: Desaturated warm tan/taupe-brown timber, pale beige fine fibers and dark gray-brown joins.\nSpecies wood grain: Long mostly straight thin windwood fibers, slight elongated meanders and occasional short irregular streaks. Draw its own grain; do not just recolor the oak artwork. Keep grain secondary to the visible plank structure, inside each board. Subtle separate board tones and compact restrained highlights.\nStyle: matte hand-authored logical 64x64 pixel art, crisp nearest-neighbor enlargement, deliberate small pixel clusters and stepped fibers. Flat orthographic diffuse albedo, even overall shading. No perspective, no scene, no frame, no bark, no large knot eyes, no nails, no concentric rings, no dense scratch noise, no glossy chamfers, no text or watermark.\nPerfectly seamless in X and Y: same wood board continues through top and bottom, fiber colors continue through left and right, and end joints align across the vertical boundary. No dark horizontal line or frame at either top/bottom edge; only the vertical butt joint may cross those edges. No double-thick seam after every fourth board. One full opaque square material tile, no alpha holes.",
+      "references": [
+        {
+          "name": "planks.png",
+          "path_at_generation": "/workspace/scratch/52fe3437c98d/planks-fix/originals/windwood/planks.png",
+          "sha256": "e0c490df72cea33d162fe1a89942e63a809d244aa84fa42896733824584d9e59"
+        },
+        {
+          "name": "exec-9d47d728-df56-4559-ba8d-0efc1125e405.png",
+          "path_at_generation": "/workspace/scratch/52fe3437c98d/generated_images/exec-9d47d728-df56-4559-ba8d-0efc1125e405.png",
+          "sha256": "52938d4355a8ffc1e139a362fb58b785a21168e9139b9ce7a7392981f8ca1709"
+        },
+        {
+          "name": "stripped.png",
+          "path_at_generation": "/workspace/scratch/52fe3437c98d/planks-fix/originals/windwood/stripped.png",
+          "sha256": "b0ce91204c3121f7b46cd3319d5159dfa08ab3e4ae73adbaa27cb9826546ae0c"
+        },
+        {
+          "name": "board-layout-guide-v2.png",
+          "path_at_generation": "/workspace/scratch/52fe3437c98d/planks-fix/board-layout-guide-v2.png",
+          "sha256": "eafcdab9d5de1155eea9044b07b019db8e0b3ce00e21fa15415de415db9a7054"
+        }
+      ],
+      "source_sha256": "1abf47e286f6f8e45b97da8e209b740ba9e5eaa8af94ae459725392918327c6a",
+      "source_size": [
+        1254,
+        1254
+      ],
+      "before_sha256": "e0c490df72cea33d162fe1a89942e63a809d244aa84fa42896733824584d9e59",
+      "after_sha256": "1d61e07686f6b7ea2965d7f13f4e26663babcd9fa4df2ba49139aa9448d22615"
+    },
+    {
+      "family": "world_tree",
+      "path": "packs/default/resources/textures/blocks/trees/world_tree/planks.png",
+      "mode": "built-in image_gen",
+      "prompt": "Use case: style-transfer.\nAsset type: Asteria seamless 64x64 pixel-art PLANKS block material.\nPrimary request: Completely redraw the unstructured wood in Image 1 as visibly assembled world_tree sawn PLANK BOARDS, with the clear board construction and controlled pixel-art detail of Image 2, and the species wood palette from Image 3.\nInput images: Image 1 is the edit target; replace its full visual design. Image 2 is the finished oak plank reference for artistic quality, readable narrow joints and board layout only; do not copy oak colors or its grain. Image 3 is the species stripped-wood palette/material reference, not a layout. Image 4 is the exact periodic construction diagram; do not reproduce its flat gray palette.\nConstruction: four horizontal board rows, clearly distinct, with visible dark recessed horizontal joins and staggered vertical butt joints. On a logical 64x64 grid, horizontal joints are at y=8,24,40,56; the image boundary cuts through the SAME board at top and bottom. End joints alternate at x=16 in boards beginning at y=8 and y=40, and x=48 in boards beginning at y=24 and y=56. The x=48 joint continues through the lower edge into the top eight rows. Keep the diagram's periodic construction. Join width approximately two logical pixels, clearly visible after reduction to 64x64. Uniform board thickness. Do not erase or camouflage the board joins with grain.\nColor palette: Golden amber and warm honey-yellow WOOD, restrained pale gold fine fibers, muted ochre grain and deep warm brown recessed joins. Golden wood, not metallic gold or emissive light.\nSpecies wood grain: Long quiet thin timber fibers with a few narrow grain bends. No gilded ornaments, no rings, no glowing veins. Draw its own grain; do not just recolor the oak artwork. Keep grain secondary to the visible plank structure, inside each board. Subtle separate board tones and compact restrained highlights.\nStyle: matte hand-authored logical 64x64 pixel art, crisp nearest-neighbor enlargement, deliberate small pixel clusters and stepped fibers. Flat orthographic diffuse albedo, even overall shading. No perspective, no scene, no frame, no bark, no large knot eyes, no nails, no concentric rings, no dense scratch noise, no glossy chamfers, no text or watermark.\nPerfectly seamless in X and Y: same wood board continues through top and bottom, fiber colors continue through left and right, and end joints align across the vertical boundary. No dark horizontal line or frame at either top/bottom edge; only the vertical butt joint may cross those edges. No double-thick seam after every fourth board. One full opaque square material tile, no alpha holes.",
+      "references": [
+        {
+          "name": "planks.png",
+          "path_at_generation": "/workspace/scratch/52fe3437c98d/planks-fix/originals/world_tree/planks.png",
+          "sha256": "5b6cadbbf957777a16948766dae5a53d5bbed6ff35cbedf5afebed7f721771aa"
+        },
+        {
+          "name": "exec-9d47d728-df56-4559-ba8d-0efc1125e405.png",
+          "path_at_generation": "/workspace/scratch/52fe3437c98d/generated_images/exec-9d47d728-df56-4559-ba8d-0efc1125e405.png",
+          "sha256": "52938d4355a8ffc1e139a362fb58b785a21168e9139b9ce7a7392981f8ca1709"
+        },
+        {
+          "name": "stripped.png",
+          "path_at_generation": "/workspace/scratch/52fe3437c98d/planks-fix/originals/world_tree/stripped.png",
+          "sha256": "81fa656c21d468dfe52e11f40652e593d3ed838c15491ab9e26552001fee8b21"
+        },
+        {
+          "name": "board-layout-guide-v2.png",
+          "path_at_generation": "/workspace/scratch/52fe3437c98d/planks-fix/board-layout-guide-v2.png",
+          "sha256": "eafcdab9d5de1155eea9044b07b019db8e0b3ce00e21fa15415de415db9a7054"
+        }
+      ],
+      "source_sha256": "e0981fcd0f92d9ae539df1170b270dc63050b968de15643408ee6fafe9a2b22e",
+      "source_size": [
+        1254,
+        1254
+      ],
+      "before_sha256": "5b6cadbbf957777a16948766dae5a53d5bbed6ff35cbedf5afebed7f721771aa",
+      "after_sha256": "1814a6b1c80fc9e63c57f84ae315ce79e5395e2e041a2952984cf24f4f89fe97"
+    }
+  ],
+  "oak_iterations": [
+    {
+      "family": "oak",
+      "prompt": "Use case: precise-object-edit.\nAsset type: Asteria pixel-art seamless wooden PLANKS block texture.\nPrimary request: Completely redraw the flat continuous-grain texture in Image 1 so it reads clearly as assembled sawn OAK BOARDS, using the exact board construction in Image 3. The previous version failed because the joins were not visible.\nInput images: Image 1 is the edit target and should have its entire visual design replaced. Image 2 is only the oak wood color/material reference, not a layout reference. Image 3 is a precise geometric layout diagram: retain its four horizontal board rows and staggered vertical butt joints; replace its flat grayscale regions with painted pixel-art wood. Do not reproduce the diagram's grayscale palette.\nComposition: a square, edge-to-edge, flat orthographic albedo tile on a logical 64 by 64 pixel grid. FOUR horizontal boards, 16 logical pixels high each. Dark recessed joins are two logical pixels thick, visible even at 64x64. Horizontal joins at y=0,16,32,48. Vertical end joints alternate at x=16 in board rows 1 and 3 and x=48 in board rows 2 and 4. The staggered butt joints must be clearly visible and terminate at the horizontal joins. Preserve this exact construction; do not blend the boards into continuous timber.\nMaterials and palette: matte warm tan oak wood, natural ochre/honey midtones, restrained light beige highlights, dark warm brown joins. Four slightly varied board tones. Use a few broad quiet horizontal fiber strokes and small broken grain details inside each board. Fine grain is secondary to board structure. Restrained value contrast in the grain, strong clear narrow joins. No bark, no swirling eye knots, no concentric rings, no dense scratch noise.\nStyle: hand-authored 64x64 pixel art, crisply enlarged by nearest neighbor. Readable small clusters, clean cuts and deliberately stepped wood fibers. Flat even lighting; no 3D perspective, no chamfered glossy edges, no beveled shadows, no scene, no icons, no text, no frame, no nailheads.\nSeamless requirement: the entire image repeats exactly in both X and Y. Fiber details and colors continue across opposite edges; the top and bottom meeting makes the same two-pixel board joint as the internal horizontal joins, never a double-thick border. Left and right edges meet into normal continuous boards with no vertical border. Horizontal and staggered end joints are real plank construction, not accidental tile borders.\nFull opaque coverage; no transparent pixels. Deliver only one complete square material tile.",
+      "source_path": "/workspace/scratch/52fe3437c98d/generated_images/exec-249ec61d-88a9-426b-8ecb-d7944b9a4f6c.png",
+      "reference_paths": [
+        "/workspace/scratch/52fe3437c98d/planks-fix/originals/oak/planks.png",
+        "/workspace/scratch/52fe3437c98d/planks-fix/originals/oak/stripped.png",
+        "/workspace/scratch/52fe3437c98d/planks-fix/board-layout-guide.png"
+      ],
+      "mode": "built-in image_gen",
+      "final_path": "packs/default/resources/textures/blocks/trees/oak/planks.png"
+    },
+    {
+      "family": "oak",
+      "prompt": "Use case: precise-object-edit.\nAsset type: seamless 64x64 pixel-art oak PLANKS block material for Asteria.\nPrimary request: Keep the warm matte oak wood and clear sawn-board appearance of Image 1, but correct the periodic plank layout to match Image 2 EXACTLY so it repeats without a thicker seam every fourth row.\nInput images: Image 1 is the wooden artwork to edit. Image 2 is a precise geometric layout diagram ONLY, not a wood palette. Retain its construction, replace flat gray with the oak wood from Image 1.\nExact logical 64x64 layout: horizontal 2-pixel recessed joints at rows y=8,24,40,56, NOT at the top or bottom edge. The top and bottom edge CUT THROUGH THE SAME BOARD, so its wood color and horizontal fibers connect when tiled vertically. End joints at x=16 in the boards beginning at y=8 and y=40; end joints at x=48 in the boards beginning at y=24 and y=56. The x=48 end joint in the last board continues through the bottom edge and into the first 8 pixels at the top. No left/right border. This is a four-board periodic pattern, including the split board through the top/bottom boundary.\nStyle: crisp logical 64x64 pixel art, deliberately stepped small clusters, nearest-neighbor enlargement, quiet horizontal fibers and short broken grain details. Each plank has subtle color variation. Clearly dark narrow recessed joins, matte honey/tan oak, restrained grain contrast. No dense noise, no eyes or knots, no bark, no nails, no text, no bevels, no lighting gradients or deep baked shadows.\nPerfectly tileable on X and Y: matching continuity of grain, joins and colors on opposite edges. Absolutely no dark horizontal line at either top or bottom edge except where the narrow vertical end joint crosses it. No outer frame. One square full opaque flat orthographic albedo tile.",
+      "source_path": "/workspace/scratch/52fe3437c98d/generated_images/exec-92265711-d82e-4a90-ba2b-6f1f98dd1531.png",
+      "reference_paths": [
+        "/workspace/scratch/52fe3437c98d/generated_images/exec-249ec61d-88a9-426b-8ecb-d7944b9a4f6c.png",
+        "/workspace/scratch/52fe3437c98d/planks-fix/board-layout-guide-v2.png"
+      ],
+      "mode": "built-in image_gen",
+      "final_path": "packs/default/resources/textures/blocks/trees/oak/planks.png"
+    },
+    {
+      "family": "oak",
+      "prompt": "Use case: precise-object-edit. Edit only the outer-edge continuity of this oak plank texture. Keep the existing four-row staggered sawn-board construction, the horizontal direction of the fibers, the narrow dark recessed joins, and the pixel-art appearance. This must be a truly seamless 64x64 logical game tile repeated in BOTH X and Y. The last eight rows at the bottom and the first eight rows at the top are TWO HALVES OF THE SAME BOARD: make them exactly the same oak base tone, same grain scale, and matching fiber continuity across the boundary. The thin vertical joint near x=48 must join up through top and bottom with identical width and color. Remove the lighter/darker board-color break at the top/bottom boundary. Keep left and right wood grain similarly continuous. Keep all horizontal board joins INSIDE the tile, with NO horizontal line at either top or bottom edge and no outer frame. Make the wood fibers quieter and less noisy, subordinate to the clearly visible planks. Full opaque flat albedo, uniform diffuse lighting, matte warm tan/honey oak, no shine, no eyes, no bevel shadows, no text, no additional objects. One square tile only. Crisp low-resolution 64x64 pixel-art design, nearest-neighbor enlarged. Do not flatten or erase the board joints.",
+      "source_path": "/workspace/scratch/52fe3437c98d/generated_images/exec-60f74900-00d8-4f4c-9678-d812bea74579.png",
+      "reference_paths": [
+        "/workspace/scratch/52fe3437c98d/generated_images/exec-92265711-d82e-4a90-ba2b-6f1f98dd1531.png"
+      ],
+      "mode": "built-in image_gen",
+      "final_path": "packs/default/resources/textures/blocks/trees/oak/planks.png"
+    },
+    {
+      "family": "oak",
+      "prompt": "Use case: precise-object-edit. Change ONLY ONE thing in this pixel-art oak plank tile: RESTORE the missing full-width dark horizontal board joint at approximately 85 percent of the image height. This joint connects the BOTTOM of the vertical butt joint near x=25 percent to the TOP of the next vertical butt joint near x=75 percent. Run the narrow dark recessed join straight across the ENTIRE image width at that exact level, matching the color and thickness of the other three horizontal joins. The four row pattern must have FOUR horizontal joins inside the tile. Keep every other board join, grain, wood color, flat pixel-art style and layout unchanged. Especially preserve the seamless wood color through the top and bottom edge, the vertical joint crossing that edge, and the absence of an outer border. One full opaque square texture. Crisp 64x64 logical pixel-art design; no new objects or effects.",
+      "source_path": "/workspace/scratch/52fe3437c98d/generated_images/exec-9d47d728-df56-4559-ba8d-0efc1125e405.png",
+      "reference_paths": [
+        "/workspace/scratch/52fe3437c98d/generated_images/exec-60f74900-00d8-4f4c-9678-d812bea74579.png"
+      ],
+      "mode": "built-in image_gen",
+      "final_path": "packs/default/resources/textures/blocks/trees/oak/planks.png"
+    }
+  ]
+}
