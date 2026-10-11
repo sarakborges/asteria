@@ -58,12 +58,27 @@ public sealed partial class PlayerPortraitPresentation : Node
         _facing.AddChild(model);
         _equipment = new PlayerEquipmentPresentation(model, _inventory, _items);
         _equipment.Sync();
+        var animation = PlayerVisualSceneFactory.Descendants(model)
+            .OfType<AnimationPlayer>().FirstOrDefault();
+        if (animation is not null)
+        {
+            var wanted = _definition.Animations["idle"];
+            var idle = animation.GetAnimationList().Select(a => a.ToString())
+                .FirstOrDefault(a => a == wanted ||
+                    a.EndsWith("/" + wanted, StringComparison.Ordinal));
+            if (idle is not null)
+            {
+                animation.GetAnimation(idle).LoopMode = Animation.LoopModeEnum.Linear;
+                animation.Play(idle);
+            }
+        }
 
         var camera = new Camera3D
         {
             Name = "PortraitCamera",
             Current = true,
-            Position = new Vector3(0f, 1.08f, 3.15f),
+            // The model faces -Z after its 180-degree authored facing turn.
+            Position = new Vector3(0f, 1.08f, -3.15f),
             Fov = 38f,
             Near = 0.1f,
             Far = 10f,

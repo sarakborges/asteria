@@ -23,7 +23,9 @@ public enum PlayerVisualAction : byte
 public sealed partial class PlayerModelPresentation : Node3D
 {
     private const float CrouchBlendSpeed = 8f;
-    private const float MovingThresholdSquared = 0.01f;
+    private const float MovingStartThresholdSquared = 0.01f;
+    private const float MovingStopThresholdSquared = 0.0025f;
+    private const float CrouchHeightRatio = 1.5f / 1.8f;
 
     private readonly FpsPlayer _player;
     private readonly PackSelection _selection;
@@ -34,6 +36,10 @@ public sealed partial class PlayerModelPresentation : Node3D
     private PlayerEquipmentPresentation? _equipment;
     private HeldItemPresentation? _held;
     private PlayerFirstPersonViewModel? _firstPerson;
+    private SubViewportContainer? _viewModelFrame;
+    private Camera3D? _viewModelCamera;
+    private Node3D? _facing;
+    private bool _wasMoving;
     private ulong _lastInventoryRevision = ulong.MaxValue;
     private readonly Dictionary<string, (Node3D Pivot, Vector3 Position)> _pivots = [];
     private AnimationPlayer? _animations;
@@ -61,13 +67,13 @@ public sealed partial class PlayerModelPresentation : Node3D
     public override void _Ready()
     {
         var imported = PlayerVisualSceneFactory.Load(_selection, _definition);
-        var facing = new Node3D
+        _facing = new Node3D
         {
             Name = "PlayerModelFacing",
             Rotation = new Vector3(0f, Mathf.Pi, 0f),
         };
-        AddChild(facing);
-        facing.AddChild(imported);
+        AddChild(_facing);
+        _facing.AddChild(imported);
         _equipment = new PlayerEquipmentPresentation(imported, _inventory, _items);
         _equipment.Sync();
 
@@ -88,9 +94,45 @@ public sealed partial class PlayerModelPresentation : Node3D
             throw new InvalidDataException(
                 "Authored player GLB is missing an AnimationPlayer.");
 
+        // An isolated transparent 3D viewport gives the arm and held item
+        // their own depth buffer, matching MineClone's overlay camera.
+        // It avoids both terrain clipping and turning off depth testing on
+        // the cuboids (which would expose their rear faces).
+        var overlay = new CanvasLayer
+        {
+            Name = "PlayerViewModelOverlay",
+            Layer = 1,
+        };
+        _player.AddChild(overlay);
+        _viewModelFrame = new SubViewportContainer
+        {
+            Name = "ViewModelFrame",
+            Stretch = true,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        overlay.AddChild(_viewModelFrame);
+        _viewModelFrame.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+        var viewPort = new SubViewport
+        {
+            Name = "ViewModelViewport",
+            OwnWorld3D = true,
+            TransparentBg = true,
+            RenderTargetUpdateMode = SubViewport.UpdateMode.Always,
+            Size = new Vector2I(64, 64),
+        };
+        _viewModelFrame.AddChild(viewPort);
+        _viewModelCamera = new Camera3D
+        {
+            Name = "ViewModelCamera",
+            Current = true,
+            Fov = _player.Camera.Fov,
+            Near = 0.02f,
+            Far = 10f,
+        };
+        viewPort.AddChild(_viewModelCamera);
         _firstPerson = new PlayerFirstPersonViewModel(
             _player, _selection, _definition, _inventory, _heldResolver);
-        _player.Camera.AddChild(_firstPerson);
+        _viewModelCamera.AddChild(_firstPerson);
 
         foreach (var required in new[] { "idle", "walk", "run", "jump", "fall" })
             if (FindClip(_definition.Animations[required]) is null)
@@ -102,6 +144,13 @@ public sealed partial class PlayerModelPresentation : Node3D
             var name = FindClip(_definition.Animations[key]);
             if (name is not null)
                 _animations.GetAnimation(name).LoopMode = Animation.LoopModeEnum.Linear;
+        }
+
+        var idle = FindClip(_definition.Animations["idle"]);
+        if (idle is not null)
+        {
+            _animations.Play(idle);
+            _currentClip = idle;
         }
     }
 
@@ -158,6 +207,13 @@ public sealed partial class PlayerModelPresentation : Node3D
         }
         Visible = _player.IsThirdPerson &&
             !_player.PlayerState.GameMode.IsSpectator();
+        if (_viewModelFrame is not null)
+            _viewModelFrame.Visible = !_player.IsThirdPerson &&
+                !_player.PlayerState.GameMode.IsSpectator() &&
+                !_player.PlayerState.Health.IsDead &&
+                _player.IsMouseCaptured;
+        if (_viewModelCamera is not null)
+            _viewModelCamera.Fov = _player.Camera.Fov;
         if (_actionRemaining > 0f)
             _actionRemaining = Mathf.Max(0f, _actionRemaining - (float)delta);
         if (_actionRemaining <= 0f && !_deathPlaying)
@@ -168,11 +224,12 @@ public sealed partial class PlayerModelPresentation : Node3D
         var velocity = _player.Velocity;
         var grounded = _player.IsOnFloor();
         var speedSquared = velocity.X * velocity.X + velocity.Z * velocity.Z;
+        var moving = speedSquared > (_wasMoving
+            ? MovingStopThresholdSquared : MovingStartThresholdSquared);
+        _wasMoving = moving;
         var state = !_player.PlayerState.IsFlying && !grounded
             ? velocity.Y > 0.05f ? "jump" : "fall"
-            : speedSquared > MovingThresholdSquared
-                ? _player.IsRunning ? "run" : "walk"
-                : "idle";
+            : moving ? _player.IsRunning ? "run" : "walk" : "idle";
 
         var clip = FindClip(_definition.Animations[state]);
         if (!_deathPlaying && _actionClip is null && clip is not null &&
@@ -185,19 +242,13 @@ public sealed partial class PlayerModelPresentation : Node3D
         _crouchBlend = Mathf.MoveToward(_crouchBlend,
             _player.IsCrouching ? 1f : 0f,
             CrouchBlendSpeed * (float)delta);
-        foreach (var (part, entry) in _pivots)
-        {
-            var drop = part switch
-            {
-                "BodyPivot" => 0.18f,
-                "HeadPivot" => 0.28f,
-                "RightArmPivot" or "LeftArmPivot" => 0.24f,
-                "RightLegPivot" or "LeftLegPivot" => 0.02f,
-                _ => 0f
-            };
-            entry.Pivot.Position = entry.Position -
-                Vector3.Up * (drop * _crouchBlend);
-        }
+        // Crouch the assembled figure as one unit. Translating individual
+        // pivots at different speeds detached the head, torso and limbs.
+        if (_facing is not null)
+            _facing.Scale = new Vector3(
+                1f, Mathf.Lerp(1f, CrouchHeightRatio, _crouchBlend), 1f);
+        if (_pivots.TryGetValue("HeadPivot", out var head))
+            head.Pivot.Rotation = new Vector3(-_player.CameraPitch, 0f, 0f);
     }
 
     private string? FindClip(string wanted)

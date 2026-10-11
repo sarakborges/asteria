@@ -13,20 +13,33 @@ internal sealed partial class HeldItemPresentation : Node3D
     private const float CubeSize = 0.22f;
     private const float SpriteSize = 0.52f;
     private readonly PackSelection _selection;
+    private readonly bool _firstPerson;
     private HeldVisual? _selected;
 
-    public HeldItemPresentation(PackSelection selection)
+    public HeldItemPresentation(PackSelection selection, bool firstPerson = false)
     {
         _selection = selection;
+        _firstPerson = firstPerson;
         Name = "HeldItem";
-        Position = new Vector3(0f, -0.72f, -0.06f);
-        Rotation = new Vector3(-0.35f, 0.65f, 0.18f);
+        if (!firstPerson)
+        {
+            Position = new Vector3(0f, -0.72f, -0.06f);
+            Rotation = new Vector3(-0.35f, 0.65f, 0.18f);
+        }
     }
 
     public void SetVisual(HeldVisual? visual)
     {
         if (Equals(_selected, visual)) return;
         _selected = visual;
+        if (_firstPerson)
+        {
+            // Align with MineClone's distinct camera-space block/sprite grips.
+            Position = visual?.Kind == HeldVisualKind.Cube
+                ? new Vector3(-0.02f, 0.715f, 0.20f)
+                : new Vector3(0.04f, 0.76f, 0.21f);
+            Quaternion = PlayerFirstPersonViewModel.RestPoseRotation.Inverse();
+        }
 
         foreach (var child in GetChildren())
         {
@@ -37,19 +50,20 @@ internal sealed partial class HeldItemPresentation : Node3D
 
         if (visual.Kind == HeldVisualKind.Cube)
         {
-            var h = CubeSize * 0.5f;
+            var size = _firstPerson ? 0.18f : CubeSize;
+            var h = size * 0.5f;
             AddFace("front", visual.FrontTexture,
-                new Vector3(0, 0, h), Vector3.Zero, CubeSize);
+                new Vector3(0, 0, h), Vector3.Zero, size);
             AddFace("back", visual.FrontTexture,
-                new Vector3(0, 0, -h), new Vector3(0, Mathf.Pi, 0), CubeSize);
+                new Vector3(0, 0, -h), new Vector3(0, Mathf.Pi, 0), size);
             AddFace("right", visual.FrontTexture,
-                new Vector3(h, 0, 0), new Vector3(0, Mathf.Pi * 0.5f, 0), CubeSize);
+                new Vector3(h, 0, 0), new Vector3(0, Mathf.Pi * 0.5f, 0), size);
             AddFace("left", visual.FrontTexture,
-                new Vector3(-h, 0, 0), new Vector3(0, -Mathf.Pi * 0.5f, 0), CubeSize);
+                new Vector3(-h, 0, 0), new Vector3(0, -Mathf.Pi * 0.5f, 0), size);
             AddFace("top", visual.TopTexture ?? visual.FrontTexture,
-                new Vector3(0, h, 0), new Vector3(-Mathf.Pi * 0.5f, 0, 0), CubeSize);
+                new Vector3(0, h, 0), new Vector3(-Mathf.Pi * 0.5f, 0, 0), size);
             AddFace("bottom", visual.BottomTexture ?? visual.FrontTexture,
-                new Vector3(0, -h, 0), new Vector3(Mathf.Pi * 0.5f, 0, 0), CubeSize);
+                new Vector3(0, -h, 0), new Vector3(Mathf.Pi * 0.5f, 0, 0), size);
         }
         else
         {

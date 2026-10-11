@@ -50,7 +50,7 @@ internal static class PlayerVisualSceneFactory
                 {
                     Name = mesh.Name.ToString() + "Overlay",
                     Mesh = BuildSkinnedMesh(mesh, outer: true),
-                    Scale = Vector3.One * 1.045f,
+                    Scale = OuterLayerScale(mesh.Name.ToString()),
                     CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
                     MaterialOverride = MakeSkinMaterial(skin, transparent: true),
                 };
@@ -66,6 +66,17 @@ internal static class PlayerVisualSceneFactory
         foreach (var child in root.GetChildren())
             foreach (var descendant in Descendants(child))
                 yield return descendant;
+    }
+
+    // Match MineClone's 0.25-pixel outward shell on each side of
+    // the canonical 64x64 skin. A single uniform multiplier makes sleeves
+    // and jacket thickness inconsistent.
+    private static Vector3 OuterLayerScale(string part)
+    {
+        var size = part == "BodyMesh"
+            ? new Vector3(8f, 12f, 4f)
+            : new Vector3(4f, 12f, 4f);
+        return (size + Vector3.One * 0.5f) / size;
     }
 
     private static void ApplySkin(
@@ -85,6 +96,7 @@ internal static class PlayerVisualSceneFactory
         Transparency = transparent
             ? BaseMaterial3D.TransparencyEnum.AlphaScissor
             : BaseMaterial3D.TransparencyEnum.Disabled,
+        AlphaScissorThreshold = 0.1f,
         CullMode = BaseMaterial3D.CullModeEnum.Disabled,
     };
 
