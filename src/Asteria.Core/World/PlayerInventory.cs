@@ -287,27 +287,46 @@ public sealed class PlayerInventory
         return true;
     }
 
-    public bool ClickSlot(int index)
+    public bool ClickSlot(int index, bool rightButton = false)
     {
         if (index is < 0 or >= TotalSlots) return false;
-        if (!ClickExternalSlot(_slots[index], out var replacement))
+        if (!ClickExternalSlot(_slots[index], out var replacement, rightButton))
             return false;
         _slots[index] = replacement;
         return true;
     }
 
     /// <summary>
-    /// Transfers the player's cursor against one externally owned slot.
-    /// The caller must validate that slot and synchronously publish the
-    /// returned replacement. No UI or container can change Cursor directly.
+    /// Cursor exchange with an externally owned slot. Right-click takes the
+    /// rounded-up half when empty-handed, otherwise deposits exactly one into
+    /// an empty/compatible slot. Failed actions leave revisions unchanged.
     /// </summary>
     public bool ClickExternalSlot(
-        InventoryStack? slot, out InventoryStack? replacement)
+        InventoryStack? slot, out InventoryStack? replacement,
+        bool rightButton = false)
     {
         replacement = slot;
         if (slot is null && Cursor is null) return false;
-        if (slot is not null && Cursor is not null &&
-            slot.CanStackWith(Cursor))
+        if (rightButton)
+        {
+            if (Cursor is null)
+            {
+                var taken = (slot!.Quantity + 1) / 2;
+                Cursor = slot.WithQuantity(taken);
+                replacement = taken == slot.Quantity
+                    ? null : slot.WithQuantity(slot.Quantity - taken);
+            }
+            else if (slot is null || (slot.CanStackWith(Cursor) &&
+                         slot.Quantity < slot.MaxStackSize))
+            {
+                replacement = Cursor.WithQuantity((slot?.Quantity ?? 0) + 1);
+                Cursor = Cursor.Quantity == 1
+                    ? null : Cursor.WithQuantity(Cursor.Quantity - 1);
+            }
+            else return false;
+        }
+        else if (slot is not null && Cursor is not null &&
+                 slot.CanStackWith(Cursor))
         {
             var move = Math.Min(
                 slot.MaxStackSize - slot.Quantity, Cursor.Quantity);
@@ -324,6 +343,76 @@ public sealed class PlayerInventory
 
         Revision++;
         return true;
+    }
+
+    /// <summary>Shift-click between backpack and hotbar. Keeps the cursor
+    /// untouched; merges compatible metadata-identical stacks before using
+    /// empty destinations, with partial capacity accepted.</summary>
+    public bool QuickMoveSlot(int index)
+    {
+        if (index is < 0 or >= TotalSlots || _slots[index] is not { } source)
+            return false;
+        var next = (InventoryStack?[])_slots.Clone();
+        var start = index < BackpackSlots ? BackpackSlots : 0;
+        var end = index < BackpackSlots ? TotalSlots : BackpackSlots;
+        var remainder = MoveInto(source, next, Enumerable.Range(start, end - start));
+        if (ReferenceEquals(remainder, source)) return false;
+        next[index] = remainder;
+        Array.Copy(next, _slots, TotalSlots);
+        Revision++;
+        return true;
+    }
+
+    /// <summary>Called only by an already validated open Storage Box.
+    /// Transfers player-owned slot contents into that container's slots.</summary>
+    public bool QuickMoveSlotToExternal(int index, InventoryStack?[] destination)
+    {
+        ArgumentNullException.ThrowIfNull(destination);
+        if (index is < 0 or >= TotalSlots || _slots[index] is not { } source)
+            return false;
+        var remainder = MoveInto(source, destination,
+            Enumerable.Range(0, destination.Length));
+        if (ReferenceEquals(remainder, source)) return false;
+        _slots[index] = remainder;
+        Revision++;
+        return true;
+    }
+
+    /// <summary>Accepts as much as possible of one external storage stack.
+    /// Only the external owner can commit the returned remainder.</summary>
+    public bool QuickReceiveExternal(
+        InventoryStack source, out InventoryStack? remainder)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        var next = (InventoryStack?[])_slots.Clone();
+        remainder = MoveInto(source, next, InsertionOrder());
+        if (ReferenceEquals(remainder, source)) return false;
+        Array.Copy(next, _slots, TotalSlots);
+        Revision++;
+        return true;
+    }
+
+    private static InventoryStack? MoveInto(
+        InventoryStack source, InventoryStack?[] slots,
+        IEnumerable<int> destinations)
+    {
+        var remaining = source.Quantity;
+        for (var phase = 0; phase < 2 && remaining > 0; phase++)
+        foreach (var index in destinations)
+        {
+            var slot = slots[index];
+            if (phase == 0 && (slot is null || !slot.CanStackWith(source)))
+                continue;
+            if (phase == 1 && slot is not null) continue;
+            var capacity = source.MaxStackSize - (slot?.Quantity ?? 0);
+            var moved = Math.Min(remaining, capacity);
+            if (moved <= 0) continue;
+            slots[index] = source.WithQuantity((slot?.Quantity ?? 0) + moved);
+            remaining -= moved;
+            if (remaining == 0) break;
+        }
+        return remaining == source.Quantity ? source
+            : remaining == 0 ? null : source.WithQuantity(remaining);
     }
 
     public bool TryCreativePick(InventoryEntry entry, int quantity = 1)
