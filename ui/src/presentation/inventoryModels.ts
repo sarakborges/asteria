@@ -63,6 +63,7 @@ export type CraftingRecipeView = {
   outputQuantity: number;
   ingredients: readonly CraftingIngredientView[];
   craftable: boolean;
+  unavailableReason?: "MissingIngredients" | "InventoryFull" | null;
 };
 
 export type CurrentStationView = {
