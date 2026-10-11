@@ -9,10 +9,10 @@
   "textures": {
     "top": "textures/blocks/trees/oak/top.png",
     "bottom": "textures/blocks/trees/oak/top.png",
-    "left": "textures/blocks/trees/oak/side-stripped.png",
-    "right": "textures/blocks/trees/oak/side-stripped.png",
-    "front": "textures/blocks/trees/oak/side-stripped.png",
-    "back": "textures/blocks/trees/oak/side-stripped.png"
+    "left": "textures/blocks/trees/oak/stripped.png",
+    "right": "textures/blocks/trees/oak/stripped.png",
+    "front": "textures/blocks/trees/oak/stripped.png",
+    "back": "textures/blocks/trees/oak/stripped.png"
   },
   "orientations": ["y", "z", "x"],
   "lightDampening": 15,

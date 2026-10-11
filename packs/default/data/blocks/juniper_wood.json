@@ -2,12 +2,12 @@
   "id": "asteria:juniper_wood",
   "category": "wooden_blocks",
   "textures": {
-    "top": "textures/blocks/trees/juniper/wood.png",
-    "bottom": "textures/blocks/trees/juniper/wood.png",
-    "left": "textures/blocks/trees/juniper/wood.png",
-    "right": "textures/blocks/trees/juniper/wood.png",
-    "front": "textures/blocks/trees/juniper/wood.png",
-    "back": "textures/blocks/trees/juniper/wood.png"
+    "top": "textures/blocks/trees/juniper/top.png",
+    "bottom": "textures/blocks/trees/juniper/top.png",
+    "left": "textures/blocks/trees/juniper/side.png",
+    "right": "textures/blocks/trees/juniper/side.png",
+    "front": "textures/blocks/trees/juniper/side.png",
+    "back": "textures/blocks/trees/juniper/side.png"
   },
   "mining": {
     "hardness": 0.9,
