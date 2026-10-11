@@ -12,6 +12,7 @@ public sealed class MiningParticleRuntime
     private const float MaximumDelta = 0.05f;
     private readonly List<MiningParticle> _particles = new(MaximumActive);
     private uint _random = 0x9E3779B9;
+    private uint _nextVisualId;
 
     public IReadOnlyList<MiningParticle> Particles => _particles;
 
@@ -40,7 +41,8 @@ public sealed class MiningParticleRuntime
                 Unit() * 0.18f;
             _particles.Add(new MiningParticle(position + jitter,
                 velocity, size, lifetime, feedback.Appearance,
-                authoredTint ?? Vector3.One));
+                authoredTint ?? Vector3.One,
+                _nextVisualId++ % 1024));
         }
     }
 
@@ -82,7 +84,8 @@ public sealed class MiningParticle
 {
     internal MiningParticle(Vector3 position, Vector3 velocity,
         float size, float lifetime,
-        MiningFragmentAppearance? appearance, Vector3 tint)
+        MiningFragmentAppearance? appearance, Vector3 tint,
+        uint patchSeed)
     {
         Position = position;
         Velocity = velocity;
@@ -90,8 +93,11 @@ public sealed class MiningParticle
         Lifetime = lifetime;
         Appearance = appearance;
         Tint = tint;
+        PatchSeed = patchSeed;
     }
 
+    // Stable across particle compaction while other fragments expire.
+    public uint PatchSeed { get; }
     public MiningFragmentAppearance? Appearance { get; }
     public Vector3 Tint { get; }
     public Vector3 Position { get; internal set; }
