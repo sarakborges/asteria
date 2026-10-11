@@ -53,6 +53,7 @@ export function buildControlGroups(
       entries: [
         { key: "LMB", action: t("controls.primaryAction") },
         { key: "RMB", action: t("controls.secondaryAction") },
+        { key: "MMB", action: t("controls.pickBlock") },
         { key: tool, action: t("settings.keybind.toolAction"), bindAction: "ToolAction" },
         { key: drop, action: t("settings.keybind.dropItem"), bindAction: "DropItem" },
       ],
