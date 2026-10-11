@@ -48,7 +48,7 @@
 - **Save/Load + World Load:** `GameplaySessionFileCodec`, `SessionSaveStorage`, `WorldLoadController`, active-Sphere persistence, atomic generation recovery and catalog validation. The remaining work is lifecycle polish and live QA.
 - **Storage Boxes:** 27-slot authoritative Core containers, native actions, `StorageBoxPage` mounted in `App.tsx`, drops and persistence; still verify play interactions.
 - **Runtime foundation:** fluids, RGB lighting, streaming/meshing, day/night, wind and particles.
-- **Gameplay basics:** mining progress and crack overlay, Artisan's Kit, Brush, Bucket, Shears, combat, creature spawning/loot and native chat commands.
+- **Gameplay basics:** mining progress and crack overlay, Artisan's Kit, Brush, Bucket, Shears, combat, creature spawning/loot, block loot tables and native chat commands.
 
 These are **code-level findings**, not a declaration that gameplay polish or in-engine presentation is already correct.
 
@@ -226,3 +226,11 @@ These are **code-level findings**, not a declaration that gameplay polish or in-
 - Added WebUI-only bounded last-32-submission input recall (↑ previous, ↓ next/draft restoration when suggestions are not active). When autocomplete is active, arrows still select suggestions and Tab completes the token. Escape first dismisses suggestions and then closes chat. These are focused-field interactions, not new global keyboard owners; the MineClone source does not itself persist a separate input recall list.
 - Core and Playwright coverage checks action identity, stale invalidation, filename safety, submitted command recall, autocomplete/Escape, and both transcript link types.
 - **Native Godot/WRY verification still required**: focus/keyboard repeat, clickable links while chat is open/temporarily visible, successful in-world teleport and OS folder launch (Windows/Linux/macOS), and post-transition history lifecycle. Existing tests do not prove those platform behaviors.
+
+## Block and layer loot parity — 2026-10-11
+
+- Core supports independently rolled, bounded `lootTable` entries on ordinary authored blocks; block/item/layer/tool rewards resolve through `InventoryContentCatalog` before world edits. The existing `dropsSelf` and layer drop contracts remain valid when no block loot table exists.
+- All nine explicit MineClone `main` default `data/blocks` loot recipes were ported (stone→4 pebbles; grass block→dirt; four original leaf families→60% stick; dirt/gravel/mud→self). The eight authored metal ore layers already remove only their own layer and drop raw material; no additional ore block identity was created.
+- Creative suppresses loot, Survival's current authoritative world tick seeds reproducible rolls, stack quantities obey authored limits, and capacity failures are rejected before a normal voxel/interactive layer is removed. Focused Core and pack tests cover these boundaries. Spike formations still use their bespoke segment-detachment loot handling.
+- Native Godot/WRY pickup/mesh presentation, creative/survival switch and full drop-pool behavior remain to be observed manually. This is **code-level parity**, not in-engine QA.
+- Sound effects are outside scope.
