@@ -148,6 +148,7 @@ public partial class Main : Node3D
     private bool _worldReadySent;
     private bool _inventoryOpen;
     private ulong? _publishedStorageRevision;
+    private bool _quitRequested;
     private readonly PlayerChatSession _chat = new();
     private WarpArrivalPlan? _warpArrival;
     private bool _portalTravelLatched;
@@ -174,6 +175,9 @@ public partial class Main : Node3D
 
     public override void _Ready()
     {
+        // Window close and Alt+F4 must go through Save and Leave, not an
+        // immediate engine shutdown that bypasses the session checkpoint.
+        GetTree().AutoAcceptQuit = false;
         _worldDiagnostics = WorldDiagnosticsLog.Open();
         _worldDiagnostics.Write("client.initializing");
         _clientSettings = new ClientPreferencesController(
@@ -312,6 +316,12 @@ public partial class Main : Node3D
             $"items={_items.Count} tools={_tools.Count} " +
             $"biomes={_biomes.Count} structures={_structures.Count} " +
             $"dimensions={_dimensions.Count}");
+    }
+
+    public override void _Notification(int what)
+    {
+        if (what == NotificationWMCloseRequest)
+            RequestAppExit();
     }
 
     public override void _ExitTree()
@@ -522,6 +532,13 @@ public partial class Main : Node3D
         }
 
         BeginWorldFrameBudget(delta);
+        if (_quitRequested && _worldReadySent && !_sessions.IsTransitioning &&
+            !TrySaveAndLeaveCurrentWorld())
+        {
+            _quitRequested = false;
+            GD.PushWarning("world.save.failed: Could not begin save before exit.");
+            SendWebUi("game.world.save_result", new { status = "error" });
+        }
         AdvanceFpsHudState(delta);
         if (!_sessions.IsTransitioning && _worldReadySent)
             _sessionStates.Player.Hazards.AdvanceTime((float)Math.Clamp(delta, 0d, 1d));
@@ -727,6 +744,18 @@ public partial class Main : Node3D
         return true;
     }
 
+    private void RequestAppExit()
+    {
+        if (_quitRequested)
+            return;
+
+        _quitRequested = true;
+        if (_worldSeed is null)
+            GetTree().Quit();
+        // A running world exits only after its normal Save and Leave
+        // completes. Loading and dimension transitions finish first.
+    }
+
     private bool TrySaveCurrentWorld() =>
         TryStartWorldCheckpoint(WorldCheckpointDisposition.ResumeWorld);
 
@@ -737,7 +766,7 @@ public partial class Main : Node3D
     {
         if (!_worldReadySent || _player is null ||
             _worldSeed is null || _sessions.IsTransitioning ||
-            _keybindCapture.IsCapturing)
+            (_keybindCapture.IsCapturing && !_quitRequested))
             return false;
 
         var position = _player.GlobalPosition;
@@ -810,6 +839,8 @@ public partial class Main : Node3D
         {
             if (completion.SaveError is { } error)
             {
+                // A failed save never closes the window or retries forever.
+                _quitRequested = false;
                 GD.PushWarning($"world.save.failed: {error}");
                 _worldDiagnostics?.Write($"world.save.failed error={error}");
                 SendWebUi("game.world.save_result", new
@@ -886,6 +917,13 @@ public partial class Main : Node3D
         _sessions = null!;
         _sessionStates = null!;
         _worldSeed = null;
+        if (_quitRequested)
+        {
+            _worldDiagnostics?.Write("client.exit.after_world_save");
+            GetTree().Quit();
+            return;
+        }
+
         _webUi.Call("set_creation_mode", true);
         SendWebUi("game.world.left", new { });
         _suggestedWorldSeed = WorldCreationSeed.GenerateRandom();
@@ -1264,7 +1302,7 @@ public partial class Main : Node3D
                         new { timestamp = Time.GetTicksMsec() });
                     break;
                 case "ui.app.exit":
-                    GetTree().Quit();
+                    RequestAppExit();
                     break;
                 case "ui.world.catalog.refresh":
                     if (_worldSeed is null && !_worldDelete.IsBusy)
