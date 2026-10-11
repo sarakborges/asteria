@@ -44,6 +44,8 @@ public sealed record CreatureDefinition(
     /// <summary>Horizontal pursuit radius; 0 disables aggression.</summary>
     public float AggroRange { get; init; }
 
+    public CreatureRangedAttackDefinition? RangedAttack { get; init; }
+
     public static CreatureDefinition Parse(string json)
     {
         ArgumentNullException.ThrowIfNull(json);
@@ -76,6 +78,7 @@ public sealed record CreatureDefinition(
             ParseParticleEffects(root))
         {
             LootTable = CreatureLootTable.Parse(root),
+            RangedAttack = CreatureRangedAttackDefinition.Parse(root),
             NaturalSpawn = CreatureNaturalSpawnDefinition.Parse(root),
             ContactDamage = contactDamage,
             AggroRange = root.TryGetProperty("aggroRange", out _)

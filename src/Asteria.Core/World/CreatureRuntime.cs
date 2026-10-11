@@ -17,6 +17,9 @@ public readonly record struct CreatureInstanceState(
     public uint AttacksDealt { get; init; }
     public float AttackSecondsRemaining { get; init; }
 
+    /// <summary>Next allowed ranged shot in this creature's logical age.</summary>
+    public double NextRangedAttackAtSeconds { get; init; }
+
     public CreatureMetaTags MetaTags { get; init; }
     public bool NoAi => MetaTags.NoAi;
     public bool Persistent => MetaTags.Persistent;
@@ -91,6 +94,8 @@ public sealed class CreatureRuntime
                 !float.IsFinite(creature.Motion.KnockbackVelocity.Y) ||
                 !float.IsFinite(creature.Motion.KnockbackSeconds) ||
                 creature.Motion.KnockbackSeconds < 0f ||
+                !double.IsFinite(creature.NextRangedAttackAtSeconds) ||
+                creature.NextRangedAttackAtSeconds < 0d ||
                 !float.IsFinite(creature.HurtSecondsRemaining) ||
                 creature.HurtSecondsRemaining < 0f ||
                 !float.IsFinite(creature.DeathSecondsRemaining) ||
@@ -151,7 +156,11 @@ public sealed class CreatureRuntime
         var id = new CreatureInstanceId(checked(_nextId + 1));
         creature = new CreatureInstanceState(
             id, definition.Id, feet, definition.Health, 0.0,
-            CreatureHopMotion.Initial) { MetaTags = tags };
+            CreatureHopMotion.Initial)
+        {
+            MetaTags = tags,
+            NextRangedAttackAtSeconds = definition.RangedAttack?.CooldownSeconds ?? 0d,
+        };
         _active.Add(id.Value, creature);
         _counts[definition.Id] = CountFor(definition.Id) + 1;
         _nextId = id.Value;
@@ -223,6 +232,93 @@ public sealed class CreatureRuntime
             AttackSecondsRemaining = AttackAnimationSeconds,
         };
         return true;
+    }
+
+    /// <summary>
+    /// Attempts authored ranged attacks for living, aggressive creatures.
+    /// Cooldowns follow the creature's logical age and survive snapshots;
+    /// successful projectile launches alone commit the attack animation.
+    /// </summary>
+    public int FireRangedAttacks(
+        ProjectileRuntime projectiles,
+        VoxelWorld world,
+        BlockRegistry blocks,
+        WorldAabb playerBounds,
+        bool targetPlayer)
+    {
+        ArgumentNullException.ThrowIfNull(projectiles);
+        ArgumentNullException.ThrowIfNull(world);
+        ArgumentNullException.ThrowIfNull(blocks);
+        if (!targetPlayer || _active.Count == 0)
+            return 0;
+
+        var playerCenter = (playerBounds.Minimum + playerBounds.Maximum) * 0.5f;
+        var fired = 0;
+        foreach (var id in _active.Keys.ToArray())
+        {
+            var creature = _active[id];
+            if (creature.IsDying || creature.NoAi ||
+                creature.AgeSeconds < creature.NextRangedAttackAtSeconds)
+                continue;
+
+            var definition = _definitions.Get(creature.DefinitionId);
+            var attack = definition.RangedAttack;
+            if (attack is null || definition.AggroRange <= attack.MinimumDistance)
+                continue;
+
+            var difference = new Vector2(
+                playerCenter.X - creature.Position.X,
+                playerCenter.Z - creature.Position.Z);
+            var horizontalDistanceSquared = difference.LengthSquared();
+            if (horizontalDistanceSquared <= attack.MinimumDistance * attack.MinimumDistance ||
+                horizontalDistanceSquared > definition.AggroRange * definition.AggroRange)
+                continue;
+
+            var center = creature.Position + new Vector3(
+                definition.Collider.CenterOffset.X,
+                definition.Collider.CenterOffset.Y,
+                definition.Collider.CenterOffset.Z);
+            if (MathF.Abs(playerCenter.Y - center.Y) > 3f)
+                continue;
+
+            var toPlayer = playerCenter - center;
+            if (toPlayer.LengthSquared() <= float.Epsilon)
+                continue;
+            var direction = Vector3.Normalize(toPlayer);
+            // Launch outside the slime's physical hitbox (including large variants).
+            var size = definition.Collider.Size;
+            var shell = MathF.Max(size.X, MathF.Max(size.Y, size.Z)) * 0.5f;
+            var origin = center + direction * (shell + attack.Radius + 0.05f);
+            var radius = new Vector3(attack.Radius);
+            if (origin.Y < attack.Radius ||
+                !VoxelWorldCollision.IsClear(world, blocks,
+                    new WorldAabb(origin - radius, origin + radius)))
+                continue;
+
+            var flight = playerCenter - origin;
+            var distance = flight.Length();
+            if (distance <= 0f ||
+                VoxelWorldRaycaster.Raycast(world, blocks,
+                    origin, direction, distance) is not null)
+                continue;
+
+            var launch = new ProjectileLaunch(
+                attack.Projectile, origin, direction * attack.Speed,
+                attack.Radius, attack.Damage, attack.GravityScale,
+                attack.LifetimeSeconds, ProjectileOwner.Creature, creature.Id);
+            if (!projectiles.TryLaunch(launch, out _))
+                continue;
+
+            _active[id] = creature with
+            {
+                NextRangedAttackAtSeconds = creature.AgeSeconds + attack.CooldownSeconds,
+                AttacksDealt = checked(creature.AttacksDealt + 1),
+                AttackSecondsRemaining = AttackAnimationSeconds,
+            };
+            fired++;
+        }
+
+        return fired;
     }
 
     /// <summary>

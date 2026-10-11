@@ -10,7 +10,7 @@ namespace Asteria.Core.World;
 public static class GameplaySessionFileCodec
 {
     private const uint Magic = 0x53534741; // AGSS
-    private const ushort Version = 6;
+    private const ushort Version = 7;
     public const long MaximumBytes = 640L * 1024 * 1024;
 
     public static void Write(
@@ -93,7 +93,7 @@ public static class GameplaySessionFileCodec
             if (reader.ReadUInt32() != Magic)
                 throw new InvalidDataException("Unknown gameplay session magic.");
             var version = reader.ReadUInt16();
-            if (version is not (1 or 2 or 3 or 4 or 5 or Version))
+            if (version is not (1 or 2 or 3 or 4 or 5 or 6 or Version))
                 throw new InvalidDataException("Unknown gameplay session format.");
             var name = PortableStackSaveCodec.ReadString(reader, 512);
             var tickRate = reader.ReadUInt32();
@@ -143,7 +143,8 @@ public static class GameplaySessionFileCodec
             for (var i = 0; i < count; i++)
                 spheres[i] = SphereSessionFileCodec.Read(reader,
                     blocks, fluids, dyes, layers,
-                    legacySurfaceFormat: version < 5);
+                    legacySurfaceFormat: version < 5,
+                    hasRangedCooldown: version >= 7);
             if (source.Position != end)
                 throw new InvalidDataException("Unexpected gameplay session trailing bytes.");
             return new GameplaySessionSnapshot(

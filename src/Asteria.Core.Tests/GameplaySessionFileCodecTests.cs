@@ -217,7 +217,7 @@ public sealed class GameplaySessionFileCodecTests
         var saved = GameplaySessionSaveCodec.Capture(states,
             content.Blocks, content.Fluids, content.Dyes, content.Layers);
         var data = Encode(saved, content);
-        Assert.Equal((byte)6, data[4]);
+        Assert.Equal((byte)7, data[4]);
         var restored = GameplaySessionSaveCodec.Restore(
             creation, Dimensions(), Decode(data, content),
             content.Blocks, content.Fluids, content.Dyes, content.Layers);
@@ -472,7 +472,8 @@ public sealed class GameplaySessionFileCodecTests
             new Vector3(0, 10, 0), 5, 0,
             CreatureHopMotion.Initial)
         {
-            MetaTags = persistent
+            MetaTags = persistent,
+            NextRangedAttackAtSeconds = 8.75,
         };
         sphere.Creatures = new CreatureRuntimeSnapshot(1, [creature]);
         var snapshot = GameplaySessionSaveCodec.Capture(
@@ -481,6 +482,7 @@ public sealed class GameplaySessionFileCodecTests
         var saved = Assert.Single(result.Spheres[0].Creatures!.Creatures);
         Assert.True(saved.MetaTags.Persistent);
         Assert.Equal("", saved.MetaTags.PersistentValue);
+        Assert.Equal(8.75, saved.NextRangedAttackAtSeconds);
     }
 
     [Fact]

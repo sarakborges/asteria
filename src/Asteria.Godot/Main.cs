@@ -664,17 +664,18 @@ public partial class Main : Node3D
         if (_worldReadySent && _player is { } creatureObserver)
         {
             var position = creatureObserver.GlobalPosition;
+            var playerTargetable =
+                _sessionStates.Player.GameMode == PlayerGameMode.Survival &&
+                !_sessionStates.Player.Health.IsDead &&
+                _sessionStates.GameRules.AllowsCreatureAttacks;
             _sessions.Active.AdvanceCreatures(
                 delta,
                 new NVector3(position.X, position.Y, position.Z),
-                _sessionStates.Player.GameMode == PlayerGameMode.Survival &&
-                !_sessionStates.Player.Health.IsDead &&
-                _sessionStates.GameRules.AllowsCreatureAttacks);
+                creatureObserver.CollisionBounds,
+                playerTargetable);
             ApplyCreatureContact();
             var impacts = _sessions.Active.AdvanceProjectiles(
-                delta, creatureObserver.CollisionBounds,
-                _sessionStates.Player.GameMode == PlayerGameMode.Survival &&
-                !_sessionStates.Player.Health.IsDead);
+                delta, creatureObserver.CollisionBounds, playerTargetable);
             foreach (var impact in impacts)
             {
                 if (impact.Target != ProjectileHitTarget.Player ||

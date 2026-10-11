@@ -516,7 +516,8 @@ public sealed class DimensionRuntimeSession
     }
 
     public void AdvanceCreatures(
-        double deltaSeconds, NVector3 playerPosition, bool playerTargetable)
+        double deltaSeconds, NVector3 playerPosition,
+        WorldAabb playerBounds, bool playerTargetable)
     {
         if (_retiring || _retired)
             return;
@@ -540,8 +541,12 @@ public sealed class DimensionRuntimeSession
                 Blocks,
                 Dimension.GravityStrength,
                 playerTargetable);
-        if (spawned || changed)
+        var fired = Creatures.FireRangedAttacks(
+            Projectiles, World, Blocks, playerBounds, playerTargetable) > 0;
+        if (spawned || changed || fired)
             _creaturePresentation.Sync(Creatures.ActiveCreatures);
+        if (fired)
+            _projectilePresentation.Sync(Projectiles.ActiveProjectiles);
         _creatureParticles.Advance((float)deltaSeconds, Creatures.ActiveCreatures);
         _creatureParticlePresentation.Sync(_creatureParticles);
     }

@@ -72,6 +72,8 @@ internal static class SphereDynamicSnapshot
                 !IsFinite(creature.Position) || creature.Position.Y < 0 ||
                 !float.IsFinite(creature.Health) || creature.Health < 0 ||
                 !double.IsFinite(creature.AgeSeconds) || creature.AgeSeconds < 0 ||
+                !double.IsFinite(creature.NextRangedAttackAtSeconds) ||
+                creature.NextRangedAttackAtSeconds < 0 ||
                 !creature.MetaTags.IsValid ||
                 !Enum.IsDefined(creature.Motion.Phase) ||
                 !float.IsFinite(creature.Motion.SecondsRemaining) ||

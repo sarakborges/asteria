@@ -131,5 +131,15 @@
       "quantity": 2
     }
   ],
-  "contactDamage": 4
+  "contactDamage": 4,
+  "rangedAttack": {
+    "projectile": "asteria:slime_orb",
+    "minDistance": 3,
+    "speed": 11,
+    "damage": 4,
+    "radius": 0.26,
+    "gravityScale": 0,
+    "lifetimeSeconds": 2.5,
+    "cooldownSeconds": 3.2
+  }
 }

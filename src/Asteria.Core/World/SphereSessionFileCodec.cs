@@ -59,7 +59,8 @@ internal static class SphereSessionFileCodec
 
     internal static SphereClockSnapshot Read(BinaryReader reader,
         BlockRegistry blocks, FluidRegistry fluids, DyeRegistry dyes,
-        AttachedLayerRegistry layers, bool legacySurfaceFormat = false)
+        AttachedLayerRegistry layers, bool legacySurfaceFormat = false,
+        bool hasRangedCooldown = false)
     {
         var id = new DimensionId(PortableStackSaveCodec.ReadString(reader, 512));
         var tick = reader.ReadUInt64();
@@ -94,7 +95,7 @@ internal static class SphereSessionFileCodec
             id, tick, dayNight, position, nextSpawn, boxes, structures,
             ReadPhysics(reader, blocks, dyes, layers, legacySurfaceFormat),
             ReadDrops(reader, blocks, dyes, layers, legacySurfaceFormat),
-            ReadCreatures(reader),
+            ReadCreatures(reader, hasRangedCooldown),
             ReadFluidQueue(reader, fluids),
             ReadPhysicsQueue(reader));
     }
@@ -218,10 +219,12 @@ internal static class SphereSessionFileCodec
             if (c.MetaTags.NoAi) WriteNullable(writer, c.MetaTags.NoAiValue);
             writer.Write(c.MetaTags.Persistent);
             if (c.MetaTags.Persistent) WriteNullable(writer, c.MetaTags.PersistentValue);
+            writer.Write(c.NextRangedAttackAtSeconds);
         }
     }
 
-    private static CreatureRuntimeSnapshot? ReadCreatures(BinaryReader reader)
+    private static CreatureRuntimeSnapshot? ReadCreatures(
+        BinaryReader reader, bool hasRangedCooldown)
     {
         if (!PortableStackSaveCodec.ReadBool(reader)) return null;
         var nextId = reader.ReadUInt64();
@@ -263,6 +266,7 @@ internal static class SphereSessionFileCodec
                 tags = changed;
             }
 
+            var nextRanged = hasRangedCooldown ? reader.ReadDouble() : 0d;
             entries[i] = new CreatureInstanceState(id, definition, position,
                 health, age, new CreatureHopMotion(phase, seconds, vertical, direction, facing, hops)
                 {
@@ -273,7 +277,8 @@ internal static class SphereSessionFileCodec
                 AttacksReceived = attacks,
                 HurtSecondsRemaining = hurt,
                 DeathSecondsRemaining = dying,
-                MetaTags = tags
+                MetaTags = tags,
+                NextRangedAttackAtSeconds = nextRanged,
             };
         }
         return new CreatureRuntimeSnapshot(nextId, entries);
