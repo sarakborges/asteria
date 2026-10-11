@@ -96,11 +96,13 @@ public partial class Main : Node3D
     private HeldVisualResolver _heldVisuals = null!;
     private InventoryCategoryRegistry _inventoryCategories = null!;
     private InventoryDropIconCatalog _inventoryDropIcons = null!;
+    private InventoryBlockPreviewRenderer _blockPreviewRenderer = null!;
+    private CreaturePortraitPresentation? _creaturePortrait;
     private readonly Dictionary<string, string> _inventoryIconCache =
         new(StringComparer.Ordinal);
     private PackContentRegistry<CreatureDefinition> _creatures = null!;
     private PackContentRegistry<AttackDefinition> _attacks = null!;
-    private (ulong Id, float Health, float Maximum)? _lastCreatureHud;
+    private (ulong Id, float Health, float Maximum, bool HasPortrait)? _lastCreatureHud;
     private FluidRegistry _fluids = null!;
     private BiomeRegistry _biomes = null!;
     private StructureRegistry _structures = null!;
@@ -215,9 +217,13 @@ public partial class Main : Node3D
             _inventoryCatalog);
         _inventoryDropIcons = new InventoryDropIconCatalog(
             _packSelection, _inventoryCatalog);
+        _blockPreviewRenderer = new InventoryBlockPreviewRenderer(_packSelection);
         _creatures =
             CreatureContentLoader.LoadProjectCreatures(
                 _packSelection);
+        _creaturePortrait = new CreaturePortraitPresentation(
+            _packSelection, _creatures);
+        AddChild(_creaturePortrait);
         _attacks =
             AttackContentLoader.LoadProjectAttacks(
                 _packSelection);
@@ -2606,30 +2612,21 @@ public partial class Main : Node3D
             return null;
 
         var block = _blocks.GetDefinition(_blocks.GetId(entry.Id));
-        if (block.Visual.Texture is { } sprite)
-        {
-            return new
-            {
-                kind = "sprite",
-                front = IconDataUri(sprite.Texture),
-                top = (string?)null,
-                right = (string?)null,
-            };
-        }
+        var front = _blockPreviewRenderer.FaceDataUri(block, BlockFace.Front);
+        if (front is null) return null;
 
-        var top = block.Textures.ResolveForFace(BlockFace.Top);
-        var front = block.Textures.ResolveForFace(BlockFace.Front);
-        var right = block.Textures.ResolveForFace(BlockFace.Right);
-        if (front.Count == 0)
-            return null;
-
-        var isCube = block.Shape.Kind == BlockShapeKind.Cube;
+        var isCube = block.Visual.Texture is null &&
+            block.Shape.Kind == BlockShapeKind.Cube;
         return new
         {
             kind = isCube ? "cube" : "sprite",
-            front = IconDataUri(front[0].Texture),
-            top = isCube && top.Count > 0 ? IconDataUri(top[0].Texture) : null,
-            right = isCube && right.Count > 0 ? IconDataUri(right[0].Texture) : null,
+            front,
+            top = isCube
+                ? _blockPreviewRenderer.FaceDataUri(block, BlockFace.Top)
+                : null,
+            right = isCube
+                ? _blockPreviewRenderer.FaceDataUri(block, BlockFace.Right)
+                : null,
         };
     }
 
@@ -3598,12 +3595,15 @@ public partial class Main : Node3D
         {
             var creature = target.Creature;
             var maximum = _creatures.Get(creature.DefinitionId).Health;
-            var creatureSnapshot = (creature.Id.Value, creature.Health, (float)maximum);
+            var portraitUrl = _creaturePortrait?.GetOrRequest(creature.DefinitionId);
+            var creatureSnapshot = (creature.Id.Value, creature.Health,
+                (float)maximum, portraitUrl is not null);
             if (force || _lastCreatureHud != creatureSnapshot)
             {
                 SendWebUi("game.hud.target_entity", new
                 {
                     name = creature.DefinitionId,
+                    portraitUrl,
                     health = new
                     {
                         current = creature.Health,
