@@ -5,6 +5,12 @@
   "asteria:aether_crystal": {
     "/name": "Cristal Etéreo"
   },
+  "asteria:aether_crystal_core": {
+    "/name": "Núcleo de Cristal Etéreo"
+  },
+  "asteria:aether_vines": {
+    "/name": "Enredaderas Etéreas"
+  },
   "asteria:alpine_edelweiss": {
     "/name": "Edelweiss Alpino"
   },
@@ -17,6 +23,12 @@
   "asteria:arctic_snow_needles": {
     "/name": "Agujas de Nieve Árticas"
   },
+  "asteria:ash_thorn": {
+    "/name": "Espina de Ceniza"
+  },
+  "asteria:azure_crystal": {
+    "/name": "Cristal Azul"
+  },
   "asteria:basalt": {
     "/name": "Basalto"
   },
@@ -25,6 +37,9 @@
   },
   "asteria:basalt_cobble": {
     "/name": "Basalto Rústico"
+  },
+  "asteria:basalt_column": {
+    "/name": "Columna de Basalto"
   },
   "asteria:basalt_polished": {
     "/name": "Basalto Pulido"
@@ -35,23 +50,20 @@
   "asteria:basalt_tiles": {
     "/name": "Baldosas de Basalto"
   },
-  "asteria:belt_pass_grass": {
-    "/name": "Hierba de Paso Montañoso"
+  "asteria:bleached_roots": {
+    "/name": "Raíces Blanqueadas"
   },
-  "asteria:belt_scree_lichen": {
-    "/name": "Liquen de Pedregal"
-  },
-  "asteria:belt_thorn_rosette": {
-    "/name": "Roseta Espinosa"
-  },
-  "asteria:belt_wind_needles": {
-    "/name": "Agujas del Viento"
-  },
-  "asteria:belt_windwood": {
-    "/name": "Madera del Viento"
+  "asteria:bone_scatter": {
+    "/name": "Huesos Dispersos"
   },
   "asteria:bricks": {
     "/name": "Ladrillos"
+  },
+  "asteria:brittle_tuft": {
+    "/name": "Mata Quebradiza"
+  },
+  "asteria:bulrush": {
+    "/name": "Junco"
   },
   "asteria:cactus_barrel": {
     "/name": "Cactus Barril"
@@ -71,35 +83,26 @@
   "asteria:cattail": {
     "/name": "Espadaña"
   },
-  "asteria:cave_crystal_azure": {
-    "/name": "Cristal Azul de Cueva"
+  "asteria:charwood": {
+    "/name": "Madera Carbonizada"
   },
-  "asteria:cave_crystal_core": {
-    "/name": "Núcleo de Cristal de Cueva"
-  },
-  "asteria:cave_glow_fern": {
-    "/name": "Helecho Luminoso de Cueva"
-  },
-  "asteria:cave_glow_mushroom_cap": {
-    "/name": "Sombrero de Seta Luminosa de Cueva"
-  },
-  "asteria:cave_glow_mushroom_stem": {
-    "/name": "Tallo de Seta Luminosa de Cueva"
-  },
-  "asteria:cave_glowcap": {
-    "/name": "Seta Luminosa de Cueva"
-  },
-  "asteria:cave_roots": {
-    "/name": "Raíces de Cueva"
-  },
-  "asteria:cave_wall_moss": {
-    "/name": "Musgo de Pared de Cueva"
-  },
-  "asteria:cave_wall_shelf_fungus": {
-    "/name": "Hongo de Repisa de Pared de Cueva"
+  "asteria:cinder_bloom": {
+    "/name": "Flor de Cenizas"
   },
   "asteria:clay": {
     "/name": "Arcilla"
+  },
+  "asteria:cliff_lichen": {
+    "/name": "Liquen de Acantilado"
+  },
+  "asteria:cliff_rosette": {
+    "/name": "Roseta de Acantilado"
+  },
+  "asteria:cloud_reed": {
+    "/name": "Junco de las Nubes"
+  },
+  "asteria:clover": {
+    "/name": "Trébol"
   },
   "asteria:coral_blue": {
     "/name": "Coral Azul"
@@ -122,44 +125,38 @@
   "asteria:coral_yellow": {
     "/name": "Coral Amarillo"
   },
-  "asteria:desert_dune_grass": {
-    "/name": "Hierba de Dunas"
+  "asteria:daisy": {
+    "/name": "Margarita"
   },
-  "asteria:desert_sandstone_spur": {
-    "/name": "Espolón de Arenisca del Desierto"
-  },
-  "asteria:desert_thornbush": {
-    "/name": "Arbusto Espinoso del Desierto"
-  },
-  "asteria:desert_yucca": {
-    "/name": "Yuca del Desierto"
+  "asteria:dead_thistle": {
+    "/name": "Cardo Muerto"
   },
   "asteria:dirt": {
     "/name": "Tierra"
   },
-  "asteria:enchanted_giant_fungus_cap": {
-    "/name": "Sombrero de Hongo Gigante Encantado"
+  "asteria:dry_exposed_roots": {
+    "/name": "Raíces Expuestas Secas"
   },
-  "asteria:enchanted_giant_fungus_stem": {
-    "/name": "Tallo de Hongo Gigante Encantado"
+  "asteria:dry_lichen": {
+    "/name": "Liquen Seco"
   },
-  "asteria:enchanted_glow_pod": {
-    "/name": "Vaina Luminosa Encantada"
+  "asteria:dry_tuft": {
+    "/name": "Mata Seca"
+  },
+  "asteria:dune_grass": {
+    "/name": "Hierba de Dunas"
+  },
+  "asteria:ember_needles": {
+    "/name": "Agujas de Brasa"
   },
   "asteria:enchanted_hollow_wood": {
     "/name": "Madera Hueca Encantada"
   },
-  "asteria:enchanted_pink_bloom": {
-    "/name": "Flor Rosa Encantada"
-  },
-  "asteria:enchanted_starflower": {
-    "/name": "Flor Estelar Encantada"
-  },
-  "asteria:enchanted_violet_fern": {
-    "/name": "Helecho Violeta Encantado"
-  },
   "asteria:exposed_roots": {
     "/name": "Raíces Expuestas"
+  },
+  "asteria:fossil_bone": {
+    "/name": "Hueso Fósil"
   },
   "asteria:frost_lichen": {
     "/name": "Liquen Helado"
@@ -182,23 +179,20 @@
   "asteria:glass": {
     "/name": "Vidrio"
   },
-  "asteria:gorge_cliff_lichen": {
-    "/name": "Liquen de Acantilado de Desfiladero"
+  "asteria:glow_fern": {
+    "/name": "Helecho Luminoso"
   },
-  "asteria:gorge_cliff_rosette": {
-    "/name": "Roseta de Acantilado de Desfiladero"
+  "asteria:glow_mushroom_cap": {
+    "/name": "Sombrero de Seta Luminosa"
   },
-  "asteria:gorge_dry_tuft": {
-    "/name": "Mata Seca del Desfiladero"
+  "asteria:glow_mushroom_stem": {
+    "/name": "Tallo de Seta Luminosa"
   },
-  "asteria:gorge_exposed_roots": {
-    "/name": "Raíces Expuestas del Desfiladero"
+  "asteria:glow_pod": {
+    "/name": "Vaina Luminosa"
   },
-  "asteria:gorge_rock_spur": {
-    "/name": "Espolón Rocoso del Desfiladero"
-  },
-  "asteria:gorge_sagebrush": {
-    "/name": "Artemisa del Desfiladero"
+  "asteria:glowcap": {
+    "/name": "Seta Luminosa"
   },
   "asteria:grass": {
     "/name": "Hierba"
@@ -211,6 +205,9 @@
   },
   "asteria:hanging_moss": {
     "/name": "Musgo Colgante"
+  },
+  "asteria:hanging_roots": {
+    "/name": "Raíces Colgantes"
   },
   "asteria:ice": {
     "/name": "Hielo"
@@ -227,8 +224,23 @@
   "asteria:ice_tiles": {
     "/name": "Baldosas de Hielo"
   },
+  "asteria:iris": {
+    "/name": "Iris"
+  },
+  "asteria:juniper_needles": {
+    "/name": "Agujas de Enebro"
+  },
+  "asteria:juniper_wood": {
+    "/name": "Madera de Enebro"
+  },
   "asteria:kelp": {
     "/name": "Alga Marina"
+  },
+  "asteria:kelp_frond": {
+    "/name": "Fronda de Alga Marina"
+  },
+  "asteria:kelp_stem": {
+    "/name": "Tallo de Alga Marina"
   },
   "asteria:lamp": {
     "/name": "Lámpara"
@@ -296,20 +308,32 @@
   "asteria:log_world_tree_stripped_hollow": {
     "/name": "Tronco Hueco Descortezado del Árbol del Mundo"
   },
-  "asteria:mountain_juniper_needles": {
-    "/name": "Agujas de Enebro de Montaña"
+  "asteria:luminous_crystal_core": {
+    "/name": "Núcleo de Cristal Luminoso"
   },
-  "asteria:mountain_juniper_wood": {
-    "/name": "Madera de Enebro de Montaña"
+  "asteria:luminous_giant_fungus_cap": {
+    "/name": "Sombrero de Hongo Gigante Luminoso"
   },
-  "asteria:mountain_rock_lichen": {
-    "/name": "Liquen de Roca de Montaña"
+  "asteria:luminous_giant_fungus_stem": {
+    "/name": "Tallo de Hongo Gigante Luminoso"
   },
-  "asteria:mountain_saxifrage": {
-    "/name": "Saxífraga de Montaña"
+  "asteria:marsh_fern": {
+    "/name": "Helecho de Marisma"
   },
-  "asteria:mountain_stonecrop": {
-    "/name": "Sedum de Montaña"
+  "asteria:marsh_giant_mushroom_cap": {
+    "/name": "Sombrero de Seta Gigante de Marisma"
+  },
+  "asteria:marsh_giant_mushroom_stem": {
+    "/name": "Tallo de Seta Gigante de Marisma"
+  },
+  "asteria:marsh_orchid": {
+    "/name": "Orquídea de Marisma"
+  },
+  "asteria:meadow_seedheads": {
+    "/name": "Espigas de Pradera"
+  },
+  "asteria:mossy_willow_log": {
+    "/name": "Tronco de Sauce Musgoso"
   },
   "asteria:mud": {
     "/name": "Barro"
@@ -347,14 +371,14 @@
   "asteria:mushroom_yellow": {
     "/name": "Hongo Amarillo"
   },
-  "asteria:ocean_kelp_frond": {
-    "/name": "Fronda de Alga Marina"
-  },
-  "asteria:ocean_kelp_stem": {
-    "/name": "Tallo de Alga Marina"
+  "asteria:pass_grass": {
+    "/name": "Hierba de Paso"
   },
   "asteria:pebble": {
     "/name": "Guijarro"
+  },
+  "asteria:pink_bloom": {
+    "/name": "Flor Rosa"
   },
   "asteria:planks_enchanted": {
     "/name": "Tablones Encantados"
@@ -371,29 +395,20 @@
   "asteria:portal": {
     "/name": "Portal"
   },
-  "asteria:prairie_clover": {
-    "/name": "Trébol de Pradera"
-  },
-  "asteria:prairie_daisy": {
-    "/name": "Margarita de Pradera"
-  },
-  "asteria:prairie_purple_aster": {
-    "/name": "Áster Púrpura de Pradera"
-  },
-  "asteria:prairie_seedheads": {
-    "/name": "Espigas de Pradera"
-  },
-  "asteria:prairie_tall_grass": {
-    "/name": "Hierba Alta de Pradera"
-  },
-  "asteria:prairie_wildflower_blue": {
-    "/name": "Flor Silvestre Azul de Pradera"
-  },
-  "asteria:prairie_wildflower_yellow": {
-    "/name": "Flor Silvestre Amarilla de Pradera"
+  "asteria:purple_aster": {
+    "/name": "Áster Púrpura"
   },
   "asteria:rime_deadwood": {
     "/name": "Madera Muerta Escarchada"
+  },
+  "asteria:rock_lichen": {
+    "/name": "Liquen de Roca"
+  },
+  "asteria:rock_spur": {
+    "/name": "Espolón Rocoso"
+  },
+  "asteria:sagebrush": {
+    "/name": "Artemisa"
   },
   "asteria:sand": {
     "/name": "Arena"
@@ -413,8 +428,17 @@
   "asteria:sandstone_spike": {
     "/name": "Pico de Arenisca"
   },
+  "asteria:sandstone_spur": {
+    "/name": "Espolón de Arenisca"
+  },
   "asteria:sandstone_tiles": {
     "/name": "Baldosas de Arenisca"
+  },
+  "asteria:saxifrage": {
+    "/name": "Saxífraga"
+  },
+  "asteria:scree_lichen": {
+    "/name": "Liquen de Pedregal"
   },
   "asteria:sea_anemone": {
     "/name": "Anémona Marina"
@@ -425,17 +449,11 @@
   "asteria:seashell": {
     "/name": "Concha Marina"
   },
-  "asteria:sky_canopy_leaf": {
-    "/name": "Hojas del Dosel Celeste"
+  "asteria:shelf_fungus": {
+    "/name": "Hongo de Tronco"
   },
-  "asteria:sky_crystal_core": {
-    "/name": "Núcleo de Cristal Celeste"
-  },
-  "asteria:sky_reed": {
-    "/name": "Junco Celeste"
-  },
-  "asteria:sky_vines": {
-    "/name": "Enredaderas Celestes"
+  "asteria:skywood_leaves": {
+    "/name": "Hojas de Madera Celeste"
   },
   "asteria:skywood_log": {
     "/name": "Tronco de Madera Celeste"
@@ -455,11 +473,17 @@
   "asteria:snow_tiles": {
     "/name": "Baldosas de Nieve"
   },
+  "asteria:soot_lichen": {
+    "/name": "Liquen de Hollín"
+  },
   "asteria:sphere_shell": {
     "/name": "Corteza de Esfera"
   },
   "asteria:starfish": {
     "/name": "Estrella de Mar"
+  },
+  "asteria:starflower": {
+    "/name": "Flor Estelar"
   },
   "asteria:stick": {
     "/name": "Palo"
@@ -482,32 +506,17 @@
   "asteria:stone_tiles": {
     "/name": "Baldosas de Piedra"
   },
+  "asteria:stonecrop": {
+    "/name": "Sedum"
+  },
   "asteria:storage_box": {
     "/name": "Caja de almacenamiento"
   },
-  "asteria:swamp_bulrush": {
-    "/name": "Junco de Pantano"
+  "asteria:sulfur_crystal": {
+    "/name": "Cristal de Azufre"
   },
-  "asteria:swamp_fern": {
-    "/name": "Helecho de Pantano"
-  },
-  "asteria:swamp_giant_mushroom_cap": {
-    "/name": "Sombrero de Seta Gigante de Pantano"
-  },
-  "asteria:swamp_giant_mushroom_stem": {
-    "/name": "Tallo de Seta Gigante de Pantano"
-  },
-  "asteria:swamp_iris": {
-    "/name": "Iris de Pantano"
-  },
-  "asteria:swamp_marsh_orchid": {
-    "/name": "Orquídea de Marisma"
-  },
-  "asteria:swamp_mossy_willow_log": {
-    "/name": "Tronco de Sauce Musgoso"
-  },
-  "asteria:swamp_shelf_fungus": {
-    "/name": "Hongo de Tronco del Pantano"
+  "asteria:tall_grass": {
+    "/name": "Hierba Alta"
   },
   "asteria:terracotta": {
     "/name": "Terracota"
@@ -515,49 +524,40 @@
   "asteria:terracotta_spike": {
     "/name": "Pico de Terracota"
   },
-  "asteria:volcanic_ash_thorn": {
-    "/name": "Espina de Ceniza Volcánica"
+  "asteria:thorn_rosette": {
+    "/name": "Roseta Espinosa"
   },
-  "asteria:volcanic_basalt_column": {
-    "/name": "Columna de Basalto Volcánico"
+  "asteria:thornbush": {
+    "/name": "Arbusto Espinoso"
   },
-  "asteria:volcanic_charwood": {
-    "/name": "Madera Carbonizada"
+  "asteria:thornwood": {
+    "/name": "Madera Espinosa"
   },
-  "asteria:volcanic_cinder_bloom": {
-    "/name": "Flor de Cenizas Volcánicas"
-  },
-  "asteria:volcanic_ember_needles": {
-    "/name": "Agujas de Brasa"
+  "asteria:violet_fern": {
+    "/name": "Helecho Violeta"
   },
   "asteria:volcanic_glass": {
     "/name": "Vidrio Volcánico"
   },
-  "asteria:volcanic_soot_lichen": {
-    "/name": "Liquen de Hollín"
+  "asteria:wall_moss": {
+    "/name": "Musgo de Pared"
   },
-  "asteria:volcanic_sulfur_crystal": {
-    "/name": "Cristal de Azufre Volcánico"
+  "asteria:wall_shelf_fungus": {
+    "/name": "Hongo de Repisa de Pared"
   },
-  "asteria:wasteland_bleached_roots": {
-    "/name": "Raíces Blanqueadas"
+  "asteria:wildflower_blue": {
+    "/name": "Flor Silvestre Azul"
   },
-  "asteria:wasteland_bone_scatter": {
-    "/name": "Huesos Dispersos"
+  "asteria:wildflower_yellow": {
+    "/name": "Flor Silvestre Amarilla"
   },
-  "asteria:wasteland_brittle_tuft": {
-    "/name": "Mata Quebradiza"
+  "asteria:windwood": {
+    "/name": "Madera del Viento"
   },
-  "asteria:wasteland_dead_thistle": {
-    "/name": "Cardo Muerto"
+  "asteria:windwood_needles": {
+    "/name": "Agujas de Madera del Viento"
   },
-  "asteria:wasteland_dry_lichen": {
-    "/name": "Liquen Seco"
-  },
-  "asteria:wasteland_fossil_bone": {
-    "/name": "Hueso Fósil"
-  },
-  "asteria:wasteland_thornwood": {
-    "/name": "Madera Espinosa"
+  "asteria:yucca": {
+    "/name": "Yuca"
   }
 }

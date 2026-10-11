@@ -66,7 +66,7 @@
       }
     },
     {
-      "block": "asteria:wasteland_dead_thistle",
+      "block": "asteria:dead_thistle",
       "chance": 0.155,
       "surfaceBlocks": [
         "asteria:dirt",
@@ -90,7 +90,7 @@
       }
     },
     {
-      "block": "asteria:wasteland_brittle_tuft",
+      "block": "asteria:brittle_tuft",
       "chance": 0.145,
       "surfaceBlocks": [
         "asteria:dirt"
@@ -113,7 +113,7 @@
       }
     },
     {
-      "block": "asteria:wasteland_dry_lichen",
+      "block": "asteria:dry_lichen",
       "chance": 0.135,
       "surfaceBlocks": [
         "asteria:gravel",
@@ -137,7 +137,7 @@
       }
     },
     {
-      "block": "asteria:wasteland_bleached_roots",
+      "block": "asteria:bleached_roots",
       "chance": 0.092,
       "surfaceBlocks": [
         "asteria:dirt",
@@ -161,7 +161,7 @@
       }
     },
     {
-      "block": "asteria:wasteland_bone_scatter",
+      "block": "asteria:bone_scatter",
       "chance": 0.051,
       "surfaceBlocks": [
         "asteria:dirt",

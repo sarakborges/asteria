@@ -78,7 +78,7 @@
       }
     },
     {
-      "block": "asteria:enchanted_starflower",
+      "block": "asteria:starflower",
       "chance": 0.16,
       "surfaceBlocks": [
         "asteria:grass_block"
@@ -101,7 +101,7 @@
       }
     },
     {
-      "block": "asteria:enchanted_violet_fern",
+      "block": "asteria:violet_fern",
       "chance": 0.27,
       "surfaceBlocks": [
         "asteria:grass_block",
@@ -125,7 +125,7 @@
       }
     },
     {
-      "block": "asteria:enchanted_pink_bloom",
+      "block": "asteria:pink_bloom",
       "chance": 0.21,
       "surfaceBlocks": [
         "asteria:grass_block"
@@ -148,7 +148,7 @@
       }
     },
     {
-      "block": "asteria:enchanted_glow_pod",
+      "block": "asteria:glow_pod",
       "chance": 0.09,
       "surfaceBlocks": [
         "asteria:grass_block",

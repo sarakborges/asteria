@@ -1,0 +1,27 @@
+{
+  "id": "asteria:meadow_seedheads",
+  "category": "foliage",
+  "tags": [
+    "support_below"
+  ],
+  "windSway": true,
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/meadow_seedheads.png",
+    "width": 0.75,
+    "height": 0.86,
+    "planes": 4
+  },
+  "placementFaces": [
+    "top"
+  ],
+  "mining": {
+    "hardness": 0.05
+  },
+  "isCollidable": false,
+  "castsShadow": false,
+  "lightDampening": 0,
+  "alphaCutoff": 0.5,
+  "previewColor": "b5a35c",
+  "dropsSelf": false
+}

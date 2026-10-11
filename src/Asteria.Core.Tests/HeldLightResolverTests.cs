@@ -44,7 +44,7 @@ public sealed class HeldLightResolverTests
     {
         var data = File.ReadAllText(
             Path.Combine(AppContext.BaseDirectory, "packs", "default",
-                "data", "blocks", "cave_glowcap.json"));
+                "data", "blocks", "glowcap.json"));
         var definition = BlockDefinitionJson.Parse(data);
         var blocks = new BlockRegistry([definition]);
         Assert.Equal(new BlockLightEmission(3, 7, 10),

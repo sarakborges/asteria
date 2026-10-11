@@ -105,7 +105,7 @@
       }
     },
     {
-      "block": "asteria:mountain_stonecrop",
+      "block": "asteria:stonecrop",
       "chance": 0.22,
       "surfaceBlocks": [
         "asteria:stone",
@@ -130,7 +130,7 @@
       }
     },
     {
-      "block": "asteria:mountain_saxifrage",
+      "block": "asteria:saxifrage",
       "chance": 0.145,
       "surfaceBlocks": [
         "asteria:stone",
@@ -154,7 +154,7 @@
       }
     },
     {
-      "block": "asteria:mountain_rock_lichen",
+      "block": "asteria:rock_lichen",
       "chance": 0.165,
       "surfaceBlocks": [
         "asteria:stone",

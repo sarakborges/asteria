@@ -95,7 +95,7 @@ public sealed class OceanLandmarkContentTests
         foreach (var name in new[]
         {
             "coral_violet","coral_orange","coral_teal","coral_lime",
-            "ocean_kelp_stem","ocean_kelp_frond"
+            "kelp_stem","kelp_frond"
         })
         {
             var block = blocks.GetDefinition(blocks.GetId("asteria:" + name));
@@ -104,7 +104,7 @@ public sealed class OceanLandmarkContentTests
             Assert.Equal("textures/blocks/" + name + ".png", texture.Texture);
         }
         Assert.Equal(6, texturePaths.Count);
-        var frond = blocks.GetDefinition(blocks.GetId("asteria:ocean_kelp_frond"));
+        var frond = blocks.GetDefinition(blocks.GetId("asteria:kelp_frond"));
         Assert.True(frond.WindSway);
         Assert.Equal(BlockRenderMode.Cutout, frond.RenderMode);
     }

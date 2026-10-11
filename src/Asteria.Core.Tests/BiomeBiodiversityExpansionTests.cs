@@ -12,8 +12,8 @@ public sealed class BiomeBiodiversityExpansionTests
         biomes.ValidateBlocks(blocks);
         var plains = biomes.Get("asteria:overworld/plains");
         var names = new[] {
-            "prairie_wildflower_blue", "prairie_wildflower_yellow",
-            "prairie_tall_grass"
+            "wildflower_blue", "wildflower_yellow",
+            "tall_grass"
         };
         Assert.Equal(4, plains.SurfaceHabitats!.Bands.Count);
         Assert.Equal("asteria:grass_block", plains.SurfaceLayers[0].Block);
@@ -33,7 +33,7 @@ public sealed class BiomeBiodiversityExpansionTests
             Assert.Equal(BlockVisualKind.CrossedSprite, block.Visual.Kind);
         }
         var grass = Assert.Single(plains.Decorations,
-            d => d.Block == "asteria:prairie_tall_grass");
+            d => d.Block == "asteria:tall_grass");
         Assert.True(grass.HabitatWeights!.For("thicket") >
                     grass.HabitatWeights.For("grove"));
     }
@@ -49,7 +49,7 @@ public sealed class BiomeBiodiversityExpansionTests
         biomes.ValidateBlocks(blocks);
         var swamp = biomes.Get("asteria:overworld/swamp");
 
-        foreach (var name in new[] { "swamp_iris", "swamp_fern" })
+        foreach (var name in new[] { "iris", "marsh_fern" })
         {
             var rule = Assert.Single(swamp.Decorations,
                 d => d.Block == $"asteria:{name}");
@@ -61,7 +61,7 @@ public sealed class BiomeBiodiversityExpansionTests
             Assert.False(block.IsCollidable);
         }
         var iris = Assert.Single(swamp.Decorations,
-            d => d.Block == "asteria:swamp_iris");
+            d => d.Block == "asteria:iris");
         Assert.Equal(DecorationFluidRelation.Nearby,
             iris.FluidRequirement!.Relation);
         Assert.Equal("asteria:water", iris.FluidRequirement.Fluid);
@@ -78,11 +78,11 @@ public sealed class BiomeBiodiversityExpansionTests
             Assert.True(variant.Voxels.Count >= 16);
             Assert.True(variant.Restrictions.RequiresDryGround);
             Assert.Contains(variant.Voxels,
-                v => v.Block == "asteria:swamp_giant_mushroom_stem");
+                v => v.Block == "asteria:marsh_giant_mushroom_stem");
             Assert.Contains(variant.Voxels,
-                v => v.Block == "asteria:swamp_giant_mushroom_cap");
+                v => v.Block == "asteria:marsh_giant_mushroom_cap");
             Assert.True(variant.Voxels.Count(v =>
-                v.Block == "asteria:swamp_giant_mushroom_cap") >= 9);
+                v.Block == "asteria:marsh_giant_mushroom_cap") >= 9);
         });
         var ruleRoot = Assert.Single(
             DimensionRegistry.FromJson(ReadJson("dimensions"))
@@ -107,7 +107,7 @@ public sealed class BiomeBiodiversityExpansionTests
         var b = new SurfaceDecorationField(542, [swamp], blocks,
             fluids: fluids);
         var mud = blocks.GetId("asteria:mud");
-        var iris = blocks.GetId("asteria:swamp_iris");
+        var iris = blocks.GetId("asteria:iris");
         var sample = new BiomeSample(swamp.Id,
             [new BiomeInfluence(swamp.Id, 1f)]);
         var context = new SurfacePlacementContext(90, 0);

@@ -1,0 +1,32 @@
+{
+  "id": "asteria:wall_moss",
+  "category": "foliage",
+  "tags": [
+    "horizontal_facing",
+    "support_wall"
+  ],
+  "tint": "none",
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/wall_moss.png",
+    "width": 0.98,
+    "height": 0.92,
+    "planes": 2,
+    "baseOffset": 0.03
+  },
+  "placementFaces": [
+    "left",
+    "right",
+    "front",
+    "back"
+  ],
+  "mining": {
+    "hardness": 0.05
+  },
+  "isCollidable": false,
+  "castsShadow": false,
+  "lightDampening": 0,
+  "alphaCutoff": 0.5,
+  "previewColor": "65bec8",
+  "dropsSelf": false
+}

@@ -111,10 +111,10 @@ public sealed class SparseOverworldBiomeContentTests
         var biome = LoadBiome("desert");
         var expectedDecorators = new[]
         {
-            "asteria:desert_dune_grass",
-            "asteria:desert_thornbush",
-            "asteria:desert_yucca",
-            "asteria:desert_sandstone_spur",
+            "asteria:dune_grass",
+            "asteria:thornbush",
+            "asteria:yucca",
+            "asteria:sandstone_spur",
         };
         Assert.Equal(expectedDecorators,
             biome.Decorations.Select(decoration => decoration.Block));

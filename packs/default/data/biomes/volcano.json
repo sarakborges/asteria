@@ -87,7 +87,7 @@
       }
     },
     {
-      "block": "asteria:volcanic_ash_thorn",
+      "block": "asteria:ash_thorn",
       "chance": 0.17,
       "surfaceBlocks": [
         "asteria:basalt",
@@ -112,7 +112,7 @@
       }
     },
     {
-      "block": "asteria:volcanic_cinder_bloom",
+      "block": "asteria:cinder_bloom",
       "chance": 0.11,
       "surfaceBlocks": [
         "asteria:basalt",
@@ -136,7 +136,7 @@
       }
     },
     {
-      "block": "asteria:volcanic_soot_lichen",
+      "block": "asteria:soot_lichen",
       "chance": 0.18,
       "surfaceBlocks": [
         "asteria:basalt",

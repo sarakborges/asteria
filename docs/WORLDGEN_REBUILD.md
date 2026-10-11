@@ -621,8 +621,8 @@ The former `ocean`, `swamp`, `mountains`, `gorge`, `alps`, `mountain_belt`, and 
 
 ## Caverns biodiversity — emissive crystals and directional decorators
 
-Caverns now uses four new default-pack blocks: `cave_crystal_azure`,
-`cave_roots`, `cave_glowcap`, and `cave_glow_fern`, each with a 64×64
+Caverns now uses four new default-pack blocks: `azure_crystal`,
+`hanging_roots`, `glowcap`, and `glow_fern`, each with a 64×64
 texture. Azure crystals use the existing square CaveSpikeField, with bounded
 height, clearance, spacing and clustered probability. The glowing flora
 are transparent, non-collidable crossed sprites with authored RGB
@@ -634,7 +634,7 @@ A ceiling rule is eligible only inside an actual carved cave void, directly
 below a density-solid ceiling of an allowed material. This works across
 vertical chunk borders and uses the cave's `palette.ceiling` profile when
 the supporting block is outside the current chunk. The resulting
-`cave_roots` block has `support_above`, so runtime edits to its host rock
+`hanging_roots` block has `support_above`, so runtime edits to its host rock
 wake and detach the unsupported root through generic BlockPhysics.
 Additive floating islands keep their original top-only decoration policy.
 No new generated-fluid or lighting owner is introduced.
@@ -646,11 +646,11 @@ same `terrain3d.additive` configuration and its Grass/Dirt/Stone
 palette. Four default-pack block objects add a distinct sky-island
 character using only authored decorators:
 
-- `sky_reed`: wind-swaying tall cyan-green grasses on Grass Block/Dirt.
+- `cloud_reed`: wind-swaying tall cyan-green grasses on Grass Block/Dirt.
 - `aether_bloom`: sparse lavender flowers with subtle RGB emission.
 - `aether_crystal`: occasional single-voxel, square-section spikes on
   Grass, Dirt or exposed Stone; existing shape renderer and emission.
-- `sky_vines`: pendulous sprites on the underside of real additive
+- `aether_vines`: pendulous sprites on the underside of real additive
   solids, with `supportSurface: "ceiling"`, `support_above`, and wind sway.
 
 Each uses an independent 64x64 pixel texture, height bounds,
@@ -697,14 +697,14 @@ Stone Cobble palette, habitat bands and biome borders unchanged.
 Four deterministic, biome-owned decorators enrich the exposed
 surfaces without any new terrain or runtime subsystem:
 
-- `gorge_sagebrush`: dry sage scrub, concentrated on stable valley
+- `sagebrush`: dry sage scrub, concentrated on stable valley
   floors and rims rather than unstable rubble;
-- `gorge_dry_tuft`: wind-responsive dry grass on sheltered Dirt/
+- `dry_tuft`: wind-responsive dry grass on sheltered Dirt/
   Gravel pockets, low slope and moderate elevation;
-- `gorge_exposed_roots`: horizontal dry roots on Dirt, Gravel and
+- `dry_exposed_roots`: horizontal dry roots on Dirt, Gravel and
   Stone Cobble supports using a ground sprite (not unsupported
   cliff-wall attachment);
-- `gorge_rock_spur`: sparse, single-voxel, square-section rocky
+- `rock_spur`: sparse, single-voxel, square-section rocky
   formations on Stone, Gravel and Stone Cobble, concentrated
   toward rubble slopes and high rims.
 
@@ -722,13 +722,13 @@ region rules. Four decorations enrich the *air voxels above* actual
 Sand support rather than changing the terrain or introducing
 random Gravel patches:
 
-- `desert_dune_grass`: wind-animated dry grass on Sand, mainly
+- `dune_grass`: wind-animated dry grass on Sand, mainly
   in flat sandy habitats and rare on exposed dunes;
-- `desert_thornbush`: sparse woody scrub on low-slope sandy
+- `thornbush`: sparse woody scrub on low-slope sandy
   pockets, weighted toward `sand_flats` and outcrop habitats;
-- `desert_yucca`: stiff-leaved desert vegetation mainly in the
+- `yucca`: stiff-leaved desert vegetation mainly in the
   `sandstone_outcrops` habitat and absent on `open_dunes`;
-- `desert_sandstone_spur`: rare, single-voxel, square-section
+- `sandstone_spur`: rare, single-voxel, square-section
   Sandstone-like formation favoring outcrop habitats and flat
   Sand support. It uses the generic Spike block shape.
 
@@ -888,11 +888,11 @@ In addition to the original pebble and basalt rock/outcrop/spire
 landmarks, Volcano now authors three ground decorators and five
 structure families with 16 multi-block variants:
 
-- `volcanic_ash_thorn`: dark thorny scrub on basalt/cobble/gravel
+- `ash_thorn`: dark thorny scrub on basalt/cobble/gravel
   favoring `ash_aprons`, with clustered habitat noise.
-- `volcanic_cinder_bloom`: rare warm orange flower on basalt
+- `cinder_bloom`: rare warm orange flower on basalt
   and basalt cobble, favoring lower ash zones.
-- `volcanic_soot_lichen`: flat small lichen patches on intact
+- `soot_lichen`: flat small lichen patches on intact
   basalt/cobble, most prevalent along fractured flanks/highlands.
 - `volcanic_charred_trees`: four bare branching fire-scarred
   trees of increasing height with sparse residual ember needles.
@@ -1045,8 +1045,8 @@ The blocks use existing CrossedSprite rendering rather than
 inventing a new render pipeline.
 
 Four new 64×64 pack-owned wall objects are authored:
-`cave_wall_moss`, `cave_wall_shelf_fungus`,
-`gorge_cliff_rosette`, and `gorge_cliff_lichen`.
+`wall_moss`, `wall_shelf_fungus`,
+`cliff_rosette`, and `cliff_lichen`.
 They require Stone or Stone Cobble and explicitly forbid
 placement on floor/ceiling faces. Cavern decorations use
 the carved-void biome owner; Gorge face objects are allowed

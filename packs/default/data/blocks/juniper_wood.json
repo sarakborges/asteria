@@ -1,0 +1,21 @@
+{
+  "id": "asteria:juniper_wood",
+  "category": "wooden_blocks",
+  "textures": {
+    "top": "textures/blocks/juniper_wood.png",
+    "bottom": "textures/blocks/juniper_wood.png",
+    "left": "textures/blocks/juniper_wood.png",
+    "right": "textures/blocks/juniper_wood.png",
+    "front": "textures/blocks/juniper_wood.png",
+    "back": "textures/blocks/juniper_wood.png"
+  },
+  "mining": {
+    "hardness": 0.9,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "lightDampening": 15,
+  "castsShadow": true,
+  "previewColor": "807e74"
+}

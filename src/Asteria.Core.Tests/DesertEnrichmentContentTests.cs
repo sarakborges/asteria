@@ -6,10 +6,10 @@ public sealed class DesertEnrichmentContentTests
 {
     private static readonly string[] Objects =
     [
-        "desert_dune_grass",
-        "desert_thornbush",
-        "desert_yucca",
-        "desert_sandstone_spur",
+        "dune_grass",
+        "thornbush",
+        "yucca",
+        "sandstone_spur",
     ];
 
     [Fact]
@@ -54,16 +54,16 @@ public sealed class DesertEnrichmentContentTests
         }
 
         var grass = Assert.Single(desert.Decorations,
-            d => d.Block == "asteria:desert_dune_grass");
+            d => d.Block == "asteria:dune_grass");
         Assert.True(grass.HabitatWeights!.For("sand_flats") >
                     grass.HabitatWeights.For("open_dunes"));
         var yucca = Assert.Single(desert.Decorations,
-            d => d.Block == "asteria:desert_yucca");
+            d => d.Block == "asteria:yucca");
         Assert.Equal(0f, yucca.HabitatWeights!.For("open_dunes"));
         Assert.True(yucca.HabitatWeights.For("sandstone_outcrops") >
                     yucca.HabitatWeights.For("sand_flats"));
         var spur = Assert.Single(desert.Decorations,
-            d => d.Block == "asteria:desert_sandstone_spur");
+            d => d.Block == "asteria:sandstone_spur");
         Assert.True(spur.HabitatWeights!.For("sandstone_outcrops") >
                     spur.HabitatWeights.For("sand_flats"));
     }
@@ -76,7 +76,7 @@ public sealed class DesertEnrichmentContentTests
         foreach (var name in Objects)
         {
             var block = blocks.GetDefinition(blocks.GetId($"asteria:{name}"));
-            if (name == "desert_sandstone_spur")
+            if (name == "sandstone_spur")
             {
                 Assert.Equal(BlockShapeKind.Spike, block.Shape.Kind);
                 Assert.True(block.IsCollidable);
@@ -95,7 +95,7 @@ public sealed class DesertEnrichmentContentTests
                 var path = $"textures/objects/{name}.png";
                 Assert.Equal(path, block.Visual.Texture!.Value.Texture);
                 Assert.True(textures.Add(path));
-                Assert.Equal(name is "desert_dune_grass" or "desert_thornbush",
+                Assert.Equal(name is "dune_grass" or "thornbush",
                     block.WindSway);
             }
         }

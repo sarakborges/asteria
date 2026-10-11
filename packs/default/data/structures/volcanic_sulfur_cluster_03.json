@@ -27,13 +27,13 @@
   },
   "palette": {
     "B": {
-      "block": "asteria:volcanic_basalt_column"
+      "block": "asteria:basalt_column"
     },
     "G": {
       "block": "asteria:basalt"
     },
     "S": {
-      "block": "asteria:volcanic_sulfur_crystal"
+      "block": "asteria:sulfur_crystal"
     }
   },
   "layers": [

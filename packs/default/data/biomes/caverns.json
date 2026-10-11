@@ -60,7 +60,7 @@
       }
     },
     {
-      "block": "asteria:cave_roots",
+      "block": "asteria:hanging_roots",
       "chance": 0.18,
       "supportSurface": "ceiling",
       "surfaceBlocks": [
@@ -78,7 +78,7 @@
       }
     },
     {
-      "block": "asteria:cave_glowcap",
+      "block": "asteria:glowcap",
       "chance": 0.072,
       "surfaceBlocks": [
         "asteria:stone",
@@ -97,7 +97,7 @@
       }
     },
     {
-      "block": "asteria:cave_glow_fern",
+      "block": "asteria:glow_fern",
       "chance": 0.11,
       "surfaceBlocks": [
         "asteria:stone",
@@ -116,7 +116,7 @@
       }
     },
     {
-      "block": "asteria:cave_wall_moss",
+      "block": "asteria:wall_moss",
       "supportSurface": "wall",
       "chance": 0.095,
       "surfaceBlocks": [
@@ -135,7 +135,7 @@
       }
     },
     {
-      "block": "asteria:cave_wall_shelf_fungus",
+      "block": "asteria:wall_shelf_fungus",
       "supportSurface": "wall",
       "chance": 0.052,
       "surfaceBlocks": [
@@ -260,7 +260,7 @@
       }
     },
     {
-      "block": "asteria:cave_crystal_azure",
+      "block": "asteria:azure_crystal",
       "chance": 0.065,
       "minHeight": 2,
       "maxHeight": 5,

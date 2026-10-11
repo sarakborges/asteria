@@ -31,19 +31,19 @@
   },
   "palette": {
     "C": {
-      "block": "asteria:enchanted_giant_fungus_cap"
+      "block": "asteria:luminous_giant_fungus_cap"
     },
     "P": {
       "block": "asteria:mushroom_pink"
     },
     "Q": {
-      "block": "asteria:enchanted_glow_pod"
+      "block": "asteria:glow_pod"
     },
     "R": {
       "block": "asteria:mushroom_red"
     },
     "S": {
-      "block": "asteria:enchanted_giant_fungus_stem"
+      "block": "asteria:luminous_giant_fungus_stem"
     },
     "V": {
       "block": "asteria:mushroom_purple"

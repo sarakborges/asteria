@@ -1,0 +1,21 @@
+{
+  "id": "asteria:charwood",
+  "category": "wooden_blocks",
+  "textures": {
+    "top": "textures/blocks/charwood_top.png",
+    "bottom": "textures/blocks/charwood_top.png",
+    "left": "textures/blocks/charwood_side.png",
+    "right": "textures/blocks/charwood_side.png",
+    "front": "textures/blocks/charwood_side.png",
+    "back": "textures/blocks/charwood_side.png"
+  },
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1.1,
+    "preferredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "514843"
+}

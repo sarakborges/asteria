@@ -57,8 +57,8 @@ public sealed class WallDecorationContentTests
 
         foreach (var (biome, ids) in new[]
         {
-            ("caverns", new[] {"cave_wall_moss","cave_wall_shelf_fungus"}),
-            ("gorge", new[] {"gorge_cliff_rosette","gorge_cliff_lichen"})
+            ("caverns", new[] {"wall_moss","wall_shelf_fungus"}),
+            ("gorge", new[] {"cliff_rosette","cliff_lichen"})
         })
         {
             var ruleBiome = biomes.Get("asteria:overworld/" + biome);

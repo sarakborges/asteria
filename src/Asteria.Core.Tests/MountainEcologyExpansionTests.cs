@@ -7,10 +7,10 @@ public sealed class MountainEcologyExpansionTests
     private static readonly (string Biome, string[] Names)[] SmallFlora =
     [
         ("mountains", [
-            "mountain_stonecrop", "mountain_saxifrage", "mountain_rock_lichen"
+            "stonecrop", "saxifrage", "rock_lichen"
         ]),
         ("mountain_belt", [
-            "belt_pass_grass", "belt_thorn_rosette", "belt_scree_lichen"
+            "pass_grass", "thorn_rosette", "scree_lichen"
         ]),
     ];
 
@@ -112,9 +112,9 @@ public sealed class MountainEcologyExpansionTests
         var mountain = structures.ResolveReference("asteria:mountain_wind_pine");
         var belt = structures.ResolveReference("asteria:belt_windswept_pine");
         Assert.All(mountain, s => Assert.Contains(s.Voxels,
-            v => v.Block == "asteria:mountain_juniper_needles"));
+            v => v.Block == "asteria:juniper_needles"));
         Assert.All(belt, s => Assert.Contains(s.Voxels,
-            v => v.Block == "asteria:belt_wind_needles"));
+            v => v.Block == "asteria:windwood_needles"));
         Assert.True(mountain.Max(s => s.MaximumY) >= 11);
         Assert.True(belt.Max(s => s.MaximumY) >= 9);
 
@@ -139,8 +139,8 @@ public sealed class MountainEcologyExpansionTests
             }
         foreach (var id in new[]
         {
-            "mountain_juniper_wood", "mountain_juniper_needles",
-            "belt_windwood", "belt_wind_needles"
+            "juniper_wood", "juniper_needles",
+            "windwood", "windwood_needles"
         })
         {
             var d = blocks.GetDefinition(blocks.GetId("asteria:" + id));

@@ -43,10 +43,10 @@
   },
   "palette": {
     "F": {
-      "block": "asteria:ocean_kelp_frond"
+      "block": "asteria:kelp_frond"
     },
     "K": {
-      "block": "asteria:ocean_kelp_stem"
+      "block": "asteria:kelp_stem"
     }
   },
   "layers": [

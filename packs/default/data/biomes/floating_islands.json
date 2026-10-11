@@ -73,7 +73,7 @@
       }
     },
     {
-      "block": "asteria:sky_reed",
+      "block": "asteria:cloud_reed",
       "chance": 0.26,
       "surfaceBlocks": [
         "asteria:grass_block",
@@ -128,7 +128,7 @@
       }
     },
     {
-      "block": "asteria:sky_vines",
+      "block": "asteria:aether_vines",
       "chance": 0.22,
       "supportSurface": "ceiling",
       "surfaceBlocks": [

@@ -1,0 +1,26 @@
+{
+  "id": "asteria:thorn_rosette",
+  "category": "foliage",
+  "tags": [
+    "support_below"
+  ],
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/thorn_rosette.png",
+    "width": 0.78,
+    "height": 0.61,
+    "planes": 4
+  },
+  "placementFaces": [
+    "top"
+  ],
+  "mining": {
+    "hardness": 0.065
+  },
+  "isCollidable": false,
+  "castsShadow": false,
+  "lightDampening": 0,
+  "alphaCutoff": 0.5,
+  "previewColor": "aa795b",
+  "dropsSelf": false
+}
