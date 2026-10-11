@@ -1,4 +1,5 @@
 import type { BridgeMessage } from "../bridge/godotBridge";
+import type { InventorySlotAction } from "../components/molecules/InventorySlot/InventorySlot";
 import type {
   GameplayInventoryState, InventoryCatalogEntry,
   InventoryCraftingRecipe, InventoryCraftingStatus,
@@ -73,9 +74,10 @@ export function createInventoryController(
         deltaX: Math.max(-120, Math.min(120, deltaX)),
       });
     },
-    clickSlot(index: number) {
+    clickSlot(index: number, action: InventorySlotAction = "left") {
       if (!Number.isInteger(index) || index < 0 || index >= 36) return;
-      post("ui.inventory.slot", { index });
+      if (action !== "left" && action !== "right" && action !== "quick") return;
+      post("ui.inventory.slot", { index, action });
     },
     clickEquipment(index: number) {
       if (!Number.isInteger(index) || index < 0 || index >= 4 ||
