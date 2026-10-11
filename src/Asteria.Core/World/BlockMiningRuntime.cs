@@ -56,7 +56,7 @@ public sealed class BlockMiningRuntime
         InventoryStack? held,
         int hotbarSlot,
         uint elapsedTicks,
-        PlayerGameMode mode)
+        PlayerGameMode mode, ulong worldTick = 0)
     {
         if (mode != PlayerGameMode.Survival || hit is null ||
             hotbarSlot is < 0 or >= PlayerInventory.HotbarSlots)
@@ -133,7 +133,7 @@ public sealed class BlockMiningRuntime
 
         var completed = _interactions.Break(
             hit.Value,
-            BlockBreakLootPolicy.DropSelf).Accepted;
+            BlockBreakLootPolicy.DropSelf, worldTick).Accepted;
         if (completed)
             PublishFeedback(hit.Value, completed: true);
         Cancel();
