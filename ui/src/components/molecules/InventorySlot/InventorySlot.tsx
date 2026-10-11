@@ -6,11 +6,13 @@ import { ItemGlyph } from "../../atoms/ItemGlyph/ItemGlyph";
 import { ItemTooltip } from "../ItemTooltip/ItemTooltip";
 import "./InventorySlot.css";
 
+export type InventorySlotAction = "left" | "right" | "quick";
+
 export type InventorySlotProps = {
   item?: ItemStackView | null;
   selected?: boolean;
   disabled?: boolean;
-  onClick?(): void;
+  onClick?(action: InventorySlotAction): void;
 };
 
 const TOOLTIP_OFFSET = 16;
@@ -70,7 +72,11 @@ export function InventorySlot({
                 .map(([key, value]) => key + ": " + value),
             ].join(" · ")
           : name}
-        onClick={onClick}
+        onClick={event => onClick?.(event.shiftKey ? "quick" : "left")}
+        onContextMenu={event => {
+          event.preventDefault();
+          if (!disabled) onClick?.("right");
+        }}
         onPointerEnter={event => {
           if (item && event.pointerType !== "touch") {
             lastPointer.current = { x: event.clientX, y: event.clientY };
