@@ -26,6 +26,19 @@ public sealed class ManualStructurePlacementLedgerTests
     }
 
     [Fact]
+    public void SpherePortalArrivalStructureMustResolveToExactlyOneDefinition()
+    {
+        var dimension = Dimension("asteria:alpha");
+        var withArrival = new DimensionDefinition(
+            dimension.Id, dimension.SurfaceBiomes, dimension.SeaLevel,
+            dimension.GravityStrength, dimension.Spawn, dimension.Environment,
+            portalArrivalStructure: "asteria:missing");
+        var registry = new DimensionRegistry([withArrival]);
+        Assert.Throws<ArgumentException>(() =>
+            registry.ValidateStructures(StructureRegistry.Empty));
+    }
+
+    [Fact]
     public void SpatialIndexSupportsNegativeWorldCoordinatesAndChunkEdges()
     {
         var ledger = new ManualStructurePlacementLedger();

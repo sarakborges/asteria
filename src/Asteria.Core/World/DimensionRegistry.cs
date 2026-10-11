@@ -236,6 +236,12 @@ public sealed class DimensionRegistry
         foreach (var dimension in
                  _definitions)
         {
+            if (dimension.PortalArrivalStructure is { } arrival &&
+                (!structures.ResolvesReference(arrival) ||
+                 structures.ResolveReference(arrival).Count != 1))
+                throw new ArgumentException(
+                    $"Dimension {dimension.Id} portal arrival Structure {arrival} must resolve exactly one root.");
+
             foreach (var generated in
                      dimension.GeneratedSurfaceStructures)
             {

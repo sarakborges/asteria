@@ -5,6 +5,68 @@ namespace Asteria.Core.Tests;
 public sealed class SurfaceStructureTests
 {
     [Fact]
+    public void AuthoredPortalArrivalUsesExactYAndCanonicalStructureMutations()
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition("asteria:stone"),
+        ]);
+        var json = File.ReadAllText(Path.Combine(
+            AppContext.BaseDirectory, "packs", "default", "data",
+            "structures", "portal_arrival_platform.json"));
+        var structure = StructureDefinitionJson.Parse(json);
+        var registry = new StructureRegistry([structure]);
+        registry.ValidateBlocks(blocks);
+        var generator = FlatStructureGenerator(blocks, registry, "asteria:stone");
+        var world = new VoxelWorld();
+        world.InsertChunk(new ChunkCoord(0, 0, 0), new Chunk());
+        world.InsertChunk(new ChunkCoord(0, 1, 0), new Chunk());
+        // The authored Structure, not the generated surface, determines Y.
+        var feet = new WorldVoxelCoord(8, 16, 8);
+        Assert.True(world.SetBlockAt(feet, blocks.GetId("asteria:stone"), out _));
+        var mutations = new VoxelMutationRuntime(
+            world, new WorldUpdateQueue(), new FluidUpdateQueue(),
+            new FluidMeshUpdateQueue(), new BlockPhysicsUpdateQueue(),
+            new MeshletContentRevisions(), new MeshletContentRevisions());
+        var ledger = new ManualStructurePlacementLedger();
+        var runtime = new ManualStructurePlacementRuntime(
+            generator, world, mutations, blocks, registry,
+            StructureSetRegistry.Empty, ledger);
+
+        Assert.Equal(ManualStructurePlacementResult.Placed,
+            runtime.TryPlaceExact(structure.Id, 8, 16, 8));
+        Assert.True(ResidentWarpDestinationQuery.IsExactSafe(
+            world, new System.Numerics.Vector3(8.5f, 16, 8.5f)));
+        Assert.Equal(1, ledger.Count);
+        Assert.Equal(ManualStructurePlacementResult.InvalidPlacement,
+            runtime.TryPlaceExact(structure.Id, 8, 16, 8));
+        Assert.Equal(blocks.GetId("asteria:stone"),
+            world.GetCellOrEmpty(new WorldVoxelCoord(8, 15, 8)).Block);
+    }
+
+    [Fact]
+    public void PortalArrivalRefusesUnloadedStructurePayload()
+    {
+        var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);
+        var structure = StructureDefinitionJson.Parse(File.ReadAllText(
+            Path.Combine(AppContext.BaseDirectory, "packs", "default",
+                "data", "structures", "portal_arrival_platform.json")));
+        var registry = new StructureRegistry([structure]);
+        var generator = FlatStructureGenerator(blocks, registry, "asteria:stone");
+        var world = new VoxelWorld();
+        var mutations = new VoxelMutationRuntime(
+            world, new WorldUpdateQueue(), new FluidUpdateQueue(),
+            new FluidMeshUpdateQueue(), new BlockPhysicsUpdateQueue(),
+            new MeshletContentRevisions(), new MeshletContentRevisions());
+        var runtime = new ManualStructurePlacementRuntime(
+            generator, world, mutations, blocks, registry,
+            StructureSetRegistry.Empty, new ManualStructurePlacementLedger());
+        Assert.Equal(ManualStructurePlacementResult.NonResident,
+            runtime.TryPlaceExact(structure.Id, 8, 16, 8));
+        Assert.Equal(0, world.ChunkCount);
+    }
+
+    [Fact]
     public void CoralReefVariantsUseOnlyNewCoralsAndRequireOceanWater()
     {
         var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
