@@ -12,6 +12,7 @@ public enum WarpArrivalPhase : byte
     DestinationFallback,
     Returning,
     ReturnFallback,
+    AwaitingStructurePublication,
 }
 
 public enum WarpArrivalDisposition : byte
@@ -35,7 +36,8 @@ public readonly record struct WarpArrivalPlan(
     public WarpArrivalDisposition Evaluate(bool residentEntrySafe) =>
         residentEntrySafe
             ? WarpArrivalDisposition.Enter
-            : RequireExactDestination && Phase == WarpArrivalPhase.Requested
+            : RequireExactDestination &&
+              Phase is (WarpArrivalPhase.Requested or WarpArrivalPhase.AwaitingStructurePublication)
                 ? WarpArrivalDisposition.ReturnToOrigin
                 : Phase switch
             {
@@ -48,6 +50,12 @@ public readonly record struct WarpArrivalPlan(
                 _ => throw new InvalidOperationException(
                     $"Unsupported warp phase {Phase}."),
             };
+
+    public WarpArrivalPlan AwaitStructurePublication() =>
+        RequireExactDestination && Phase == WarpArrivalPhase.Requested
+            ? this with { Phase = WarpArrivalPhase.AwaitingStructurePublication }
+            : throw new InvalidOperationException(
+                "Only exact arrivals can await Structure publication.");
 
     public WarpArrivalPlan RetryAtGeneratedSpawn() =>
         Phase switch
@@ -62,7 +70,8 @@ public readonly record struct WarpArrivalPlan(
 
     public WarpArrivalPlan BeginReturn() =>
         Phase == WarpArrivalPhase.DestinationFallback ||
-        RequireExactDestination && Phase == WarpArrivalPhase.Requested
+        RequireExactDestination &&
+        Phase is (WarpArrivalPhase.Requested or WarpArrivalPhase.AwaitingStructurePublication)
             ? this with { Phase = WarpArrivalPhase.Returning }
             : throw new InvalidOperationException(
                 $"Cannot begin warp rollback from {Phase}.");
