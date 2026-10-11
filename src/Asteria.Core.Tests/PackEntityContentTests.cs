@@ -29,10 +29,19 @@ public sealed class PackEntityContentTests
         Assert.Equal("textures/items/stick.png", stick.Icon);
         var slicer = registry.Get("asteria:dimensional_slicer");
         Assert.Equal("tools", slicer.Category);
-        var variant = Assert.Single(slicer.IconVariants);
-        Assert.Equal("target_dimension", variant.MetadataKey);
-        Assert.Equal("asteria:umbral", variant.MetadataValue);
-        Assert.Equal("textures/items/dimensional_slicer_umbral.png", variant.Icon);
+        Assert.Collection(slicer.IconVariants,
+            umbral =>
+            {
+                Assert.Equal("target_dimension", umbral.MetadataKey);
+                Assert.Equal("asteria:umbral", umbral.MetadataValue);
+                Assert.Equal("textures/items/dimensional_slicer_umbral.png", umbral.Icon);
+            },
+            overworld =>
+            {
+                Assert.Equal("target_dimension", overworld.MetadataKey);
+                Assert.Equal("asteria:overworld", overworld.MetadataValue);
+                Assert.Equal("textures/items/dimensional_slicer.png", overworld.Icon);
+            });
 
         var reversed = PackContentRegistry<ItemDefinition>.FromJson(
             documents.Reverse(), ItemDefinition.Parse, item => item.Id);
