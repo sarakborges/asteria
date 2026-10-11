@@ -356,6 +356,18 @@
   "asteria:planks_world_tree": {
     "/name": "Tablones del Árbol del Mundo"
   },
+  "asteria:prairie_clover": {
+    "/name": "Trébol de Pradera"
+  },
+  "asteria:prairie_daisy": {
+    "/name": "Margarita de Pradera"
+  },
+  "asteria:prairie_purple_aster": {
+    "/name": "Áster Púrpura de Pradera"
+  },
+  "asteria:prairie_seedheads": {
+    "/name": "Espigas de Pradera"
+  },
   "asteria:prairie_tall_grass": {
     "/name": "Hierba Alta de Pradera"
   },
@@ -458,6 +470,9 @@
   "asteria:storage_box": {
     "/name": "Caja de almacenamiento"
   },
+  "asteria:swamp_bulrush": {
+    "/name": "Junco de Pantano"
+  },
   "asteria:swamp_fern": {
     "/name": "Helecho de Pantano"
   },
@@ -469,6 +484,15 @@
   },
   "asteria:swamp_iris": {
     "/name": "Iris de Pantano"
+  },
+  "asteria:swamp_marsh_orchid": {
+    "/name": "Orquídea de Marisma"
+  },
+  "asteria:swamp_mossy_willow_log": {
+    "/name": "Tronco de Sauce Musgoso"
+  },
+  "asteria:swamp_shelf_fungus": {
+    "/name": "Hongo de Tronco del Pantano"
   },
   "asteria:terracotta": {
     "/name": "Terracota"

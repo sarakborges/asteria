@@ -356,6 +356,18 @@
   "asteria:planks_world_tree": {
     "/name": "Tábuas da Árvore do Mundo"
   },
+  "asteria:prairie_clover": {
+    "/name": "Trevo da Pradaria"
+  },
+  "asteria:prairie_daisy": {
+    "/name": "Margarida da Pradaria"
+  },
+  "asteria:prairie_purple_aster": {
+    "/name": "Áster Roxo da Pradaria"
+  },
+  "asteria:prairie_seedheads": {
+    "/name": "Espigas da Pradaria"
+  },
   "asteria:prairie_tall_grass": {
     "/name": "Capim Alto da Pradaria"
   },
@@ -458,6 +470,9 @@
   "asteria:storage_box": {
     "/name": "Caixa de armazenamento"
   },
+  "asteria:swamp_bulrush": {
+    "/name": "Junco do Pântano"
+  },
   "asteria:swamp_fern": {
     "/name": "Samambaia do Pântano"
   },
@@ -469,6 +484,15 @@
   },
   "asteria:swamp_iris": {
     "/name": "Íris do Pântano"
+  },
+  "asteria:swamp_marsh_orchid": {
+    "/name": "Orquídea do Brejo"
+  },
+  "asteria:swamp_mossy_willow_log": {
+    "/name": "Tronco de Salgueiro Musgoso"
+  },
+  "asteria:swamp_shelf_fungus": {
+    "/name": "Fungo de Tronco do Pântano"
   },
   "asteria:terracotta": {
     "/name": "Terracota"

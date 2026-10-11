@@ -356,6 +356,18 @@
   "asteria:planks_world_tree": {
     "/name": "World Tree Planks"
   },
+  "asteria:prairie_clover": {
+    "/name": "Prairie Clover"
+  },
+  "asteria:prairie_daisy": {
+    "/name": "Prairie Daisy"
+  },
+  "asteria:prairie_purple_aster": {
+    "/name": "Prairie Purple Aster"
+  },
+  "asteria:prairie_seedheads": {
+    "/name": "Prairie Seedheads"
+  },
   "asteria:prairie_tall_grass": {
     "/name": "Tall Prairie Grass"
   },
@@ -458,6 +470,9 @@
   "asteria:storage_box": {
     "/name": "Storage Box"
   },
+  "asteria:swamp_bulrush": {
+    "/name": "Swamp Bulrush"
+  },
   "asteria:swamp_fern": {
     "/name": "Swamp Fern"
   },
@@ -469,6 +484,15 @@
   },
   "asteria:swamp_iris": {
     "/name": "Swamp Iris"
+  },
+  "asteria:swamp_marsh_orchid": {
+    "/name": "Marsh Orchid"
+  },
+  "asteria:swamp_mossy_willow_log": {
+    "/name": "Mossy Willow Log"
+  },
+  "asteria:swamp_shelf_fungus": {
+    "/name": "Swamp Shelf Fungus"
   },
   "asteria:terracotta": {
     "/name": "Terracotta"
