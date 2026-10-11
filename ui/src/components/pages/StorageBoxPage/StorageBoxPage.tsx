@@ -8,7 +8,7 @@ import { Text } from "../../atoms/Text/Text";
 import { InventoryPanelHeader } from "../../molecules/InventoryPanelHeader/InventoryPanelHeader";
 import { InventoryHotbarFooter } from "../../molecules/InventoryHotbarFooter/InventoryHotbarFooter";
 import { InventoryCursorOverlay } from "../../molecules/InventoryCursorOverlay/InventoryCursorOverlay";
-import { InventorySlot } from "../../molecules/InventorySlot/InventorySlot";
+import { InventorySlot, type InventorySlotAction } from "../../molecules/InventorySlot/InventorySlot";
 import "./StorageBoxPage.css";
 
 const STORAGE_SLOTS = 27;
@@ -21,8 +21,8 @@ export type StorageBoxPageProps = {
   onClose(): void;
   onSortStorage(): void;
   onSortInventory(): void;
-  onStorageSlotClick(index: number): void;
-  onInventorySlotClick(index: number): void;
+  onStorageSlotClick(index: number, action: InventorySlotAction): void;
+  onInventorySlotClick(index: number, action: InventorySlotAction): void;
 };
 
 export function StorageBoxPage({
@@ -76,7 +76,8 @@ export function StorageBoxPage({
         <SlotGrid items={backpackSlots} searchQuery={inventorySearch}
           onClick={onInventorySlotClick} />
         <InventoryHotbarFooter hotbar={hotbarSlots} showTrash={false}
-          searchQuery={inventorySearch} onSlotClick={onInventorySlotClick} />
+          searchQuery={inventorySearch}
+          onSlotClick={(index, _item, action) => onInventorySlotClick(index, action)} />
       </Surface>
       {cursor && <InventoryCursorOverlay ref={cursorRef} item={cursor} />}
       {storage.errorKey && (
@@ -93,7 +94,7 @@ function SlotGrid({
 }: {
   items: readonly (ItemStackView | null)[];
   searchQuery: string;
-  onClick(index: number): void;
+  onClick(index: number, action: InventorySlotAction): void;
 }) {
   const query = searchQuery.trim().toLowerCase();
   return (
@@ -101,7 +102,7 @@ function SlotGrid({
       {items.map((item, index) => (
         <InventorySlot key={index} item={item}
           disabled={Boolean(query && !item?.id.toLowerCase().includes(query))}
-          onClick={() => onClick(index)} />
+          onClick={action => onClick(index, action)} />
       ))}
     </div>
   );
