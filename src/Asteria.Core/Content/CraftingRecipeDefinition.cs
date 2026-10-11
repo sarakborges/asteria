@@ -65,7 +65,8 @@ public sealed class CraftingRecipeDefinition
         var result = new CraftingResultDefinition(
             PackContentFields.Namespaced(
                 PackContentFields.RequiredString(output, "item"), "result.item"),
-            PackContentFields.PositiveInt(output, "quantity"));
+            output.TryGetProperty("quantity", out _)
+                ? PackContentFields.PositiveInt(output, "quantity") : 1);
 
         return new CraftingRecipeDefinition(
             id, environment, ingredients.AsReadOnly(), result);
