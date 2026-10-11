@@ -20,6 +20,9 @@ function readRecipes(value: unknown): InventoryCraftingRecipe[] | null {
         !recipe.resultId || !Number.isSafeInteger(recipe.outputQuantity) ||
         (recipe.outputQuantity as number) <= 0 ||
         typeof recipe.craftable !== "boolean" ||
+        (recipe.craftable && recipe.unavailableReason !== null) ||
+        (!recipe.craftable && recipe.unavailableReason !== "MissingIngredients" &&
+         recipe.unavailableReason !== "InventoryFull") ||
         !Array.isArray(recipe.ingredients) ||
         recipe.ingredients.length === 0 || recipe.ingredients.length > 64)
       return null;
@@ -46,6 +49,7 @@ function readRecipes(value: unknown): InventoryCraftingRecipe[] | null {
       id: recipe.id, resultId: recipe.resultId,
       outputQuantity: recipe.outputQuantity as number,
       ingredients, craftable: recipe.craftable,
+      unavailableReason: recipe.unavailableReason as InventoryCraftingRecipe["unavailableReason"],
     });
   }
   return recipes;
