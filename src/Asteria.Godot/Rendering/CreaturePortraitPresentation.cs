@@ -60,6 +60,13 @@ public sealed partial class CreaturePortraitPresentation : Node
             Far = 50f,
         };
         _viewport.AddChild(_camera);
+        // Independent lighting: OwnWorld3D viewports do not inherit scene lights.
+        _viewport.AddChild(new DirectionalLight3D
+        {
+            Rotation = new Vector3(-0.55f, -0.7f, 0f),
+            LightEnergy = 1.25f,
+            ShadowEnabled = false,
+        });
         _modelFactory = new CreaturePresentationController(
             _modelRoot, _pack, _definitions);
     }
