@@ -184,6 +184,67 @@ public sealed class BlockMiningRuntimeTests
     }
 
     [Fact]
+    public void MiningSwingSignalsStartEightTickCadenceAndCompletion()
+    {
+        var f = CreateFixture();
+        var dirt = f.Blocks.GetId("asteria:dirt");
+        Assert.True(f.Mutations.SetBlockAt(First, dirt, out _));
+        var mining = f.Mining;
+
+        Assert.False(mining.Advance(Hit(First), null, 0, 1,
+            PlayerGameMode.Survival));
+        Assert.Equal(1UL, mining.FeedbackRevision);
+        Assert.False(mining.LastFeedback!.Value.Completed);
+        Assert.Equal(First, mining.LastFeedback.Value.Hit.Voxel);
+
+        Assert.False(mining.Advance(Hit(First), null, 0, 7,
+            PlayerGameMode.Survival));
+        Assert.Equal(1UL, mining.FeedbackRevision);
+        Assert.False(mining.Advance(Hit(First), null, 0, 8,
+            PlayerGameMode.Survival));
+        Assert.Equal(2UL, mining.FeedbackRevision);
+
+        // Tick groups crossing multiple intervals coalesce to one rendered
+        // pulse per native frame, keeping the visual event bounded.
+        Assert.False(mining.Advance(Hit(First), null, 0, 16,
+            PlayerGameMode.Survival));
+        Assert.Equal(3UL, mining.FeedbackRevision);
+
+        Assert.True(mining.Advance(Hit(First), null, 0, 168,
+            PlayerGameMode.Survival));
+        Assert.True(mining.LastFeedback!.Value.Completed);
+        Assert.Equal(4UL, mining.FeedbackRevision);
+        Assert.Null(mining.Progress);
+    }
+
+    [Fact]
+    public void InvalidTargetsNeverEmitVisualMiningFeedbackAndCancellationResetsCadence()
+    {
+        var f = CreateFixture();
+        var stone = f.Blocks.GetId("asteria:stone");
+        var dirt = f.Blocks.GetId("asteria:dirt");
+        Assert.True(f.Mutations.SetBlockAt(First, stone, out _));
+        Assert.True(f.Mutations.SetBlockAt(Second, dirt, out _));
+
+        Assert.False(f.Mining.Advance(Hit(First), null, 0, 20,
+            PlayerGameMode.Survival));
+        Assert.Equal(0UL, f.Mining.FeedbackRevision);
+        Assert.False(f.Mining.Advance(Hit(Second), null, 0, 3,
+            PlayerGameMode.Survival));
+        Assert.Equal(1UL, f.Mining.FeedbackRevision);
+        f.Mining.Cancel();
+        Assert.False(f.Mining.Advance(Hit(Second), null, 0, 3,
+            PlayerGameMode.Survival));
+        Assert.Equal(2UL, f.Mining.FeedbackRevision);
+        Assert.False(f.Mining.Advance(Hit(Second), null, 0, 5,
+            PlayerGameMode.Survival));
+        Assert.Equal(2UL, f.Mining.FeedbackRevision);
+        Assert.False(f.Mining.Advance(Hit(Second), null, 0, 8,
+            PlayerGameMode.Survival));
+        Assert.Equal(3UL, f.Mining.FeedbackRevision);
+    }
+
+    [Fact]
     public void ZeroHardnessBreaksWithoutElapsedTicks()
     {
         var f = CreateFixture();
