@@ -1426,9 +1426,17 @@ public sealed class SurfaceStructureField
                     : null;
             },
             (parent, connector) =>
-                connector.StopAtSurface &&
-                (long)parent.MaximumY - connector.SurfaceClearance >=
-                    SurfaceAt(parent.AnchorX, parent.AnchorZ).BaseY,
+            {
+                if (!connector.StopAtSurface)
+                    return false;
+                var offset = StructureDefinition.RotateOffset(
+                    parent.Rotation, connector.X, connector.Y, connector.Z);
+                var surface = SurfaceAt(
+                    checked(parent.AnchorX + offset.X),
+                    checked(parent.AnchorZ + offset.Z));
+                return (long)parent.MaximumY - connector.SurfaceClearance >=
+                    surface.BaseY;
+            },
             maximumPayloadCount);
 
     private bool TryResolvePlacement(
