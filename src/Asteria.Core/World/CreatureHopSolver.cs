@@ -51,7 +51,8 @@ public static class CreatureHopSolver
         BlockRegistry blocks,
         float gravityStrength,
         float deltaSeconds,
-        Vector3? targetPosition = null)
+        Vector3? targetPosition = null,
+        Func<WorldAabb, bool>? intersectsEntity = null)
     {
         ArgumentNullException.ThrowIfNull(definition);
         ArgumentNullException.ThrowIfNull(world);
@@ -87,7 +88,7 @@ public static class CreatureHopSolver
                 motion.KnockbackVelocity.X * dt,
                 0f,
                 motion.KnockbackVelocity.Y * dt);
-            var collided = Move(world, blocks, definition.Collider, ref feet, impulse);
+            var collided = Move(world, blocks, definition.Collider, ref feet, impulse, intersectsEntity);
             var seconds = MathF.Max(0f, motion.KnockbackSeconds - dt);
             var velocity = collided || seconds == 0f
                 ? Vector2.Zero
@@ -150,7 +151,7 @@ public static class CreatureHopSolver
                 if (displacement.LengthSquared() > 0f)
                 {
                     var horizontal = new Vector3(displacement.X, 0f, displacement.Y);
-                    if (Move(world, blocks, definition.Collider, ref feet, horizontal))
+                    if (Move(world, blocks, definition.Collider, ref feet, horizontal, intersectsEntity))
                         motion = motion with { Direction = Vector2.Zero };
                 }
 
@@ -158,7 +159,7 @@ public static class CreatureHopSolver
                     ? definition.FallGravityScale : 1f;
                 var verticalSpeed = motion.VerticalSpeed - gravityStrength * fallScale * dt;
                 var vertical = new Vector3(0f, verticalSpeed * dt, 0f);
-                if (Move(world, blocks, definition.Collider, ref feet, vertical))
+                if (Move(world, blocks, definition.Collider, ref feet, vertical, intersectsEntity))
                 {
                     motion = verticalSpeed <= 0f
                         ? motion with
@@ -227,7 +228,8 @@ public static class CreatureHopSolver
         BlockRegistry blocks,
         CreatureCollider collider,
         ref Vector3 feet,
-        Vector3 displacement)
+        Vector3 displacement,
+        Func<WorldAabb, bool>? intersectsEntity)
     {
         if (displacement.LengthSquared() == 0f) return false;
         var steps = Math.Max(1, (int)MathF.Ceiling(displacement.Length() / MaximumStep));
@@ -235,7 +237,9 @@ public static class CreatureHopSolver
         for (var i = 0; i < steps; i++)
         {
             var candidate = feet + step;
-            if (!VoxelWorldCollision.IsClear(world, blocks, Bounds(collider, candidate)))
+            var bounds = Bounds(collider, candidate);
+            if (!VoxelWorldCollision.IsClear(world, blocks, bounds) ||
+                (intersectsEntity?.Invoke(bounds) ?? false))
                 return true;
             feet = candidate;
         }
@@ -243,7 +247,7 @@ public static class CreatureHopSolver
         return false;
     }
 
-    private static WorldAabb Bounds(CreatureCollider collider, Vector3 feet)
+    public static WorldAabb Bounds(CreatureCollider collider, Vector3 feet)
     {
         var size = collider.Size;
         var offset = collider.CenterOffset;

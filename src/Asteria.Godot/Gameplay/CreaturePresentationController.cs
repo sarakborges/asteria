@@ -17,7 +17,7 @@ public sealed class CreaturePresentationController
     private readonly PackContentRegistry<CreatureDefinition> _definitions;
     private readonly Dictionary<string, Node3D> _models = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Texture2D> _textures = new(StringComparer.Ordinal);
-    private readonly SortedDictionary<ulong, Node3D> _instances = [];
+    private readonly SortedDictionary<ulong, AnimatableBody3D> _instances = [];
     private readonly Dictionary<ulong, (string Animation, uint Revision)> _animations = [];
 
     public CreaturePresentationController(
@@ -38,20 +38,23 @@ public sealed class CreaturePresentationController
         {
             var id = creature.Id.Value;
             current.Add(id);
-            if (!_instances.TryGetValue(id, out var model))
+            if (!_instances.TryGetValue(id, out var body))
             {
                 var definition = _definitions.Get(creature.DefinitionId);
-                model = CreateModel(definition);
-                model.Name = $"Creature_{id}";
-                _root.AddChild(model);
-                _instances.Add(id, model);
+                body = CreateBody(definition, id);
+                _root.AddChild(body);
+                _instances.Add(id, body);
             }
 
-            model.Position = new Vector3(
+            body.Position = new Vector3(
                 creature.Position.X,
                 creature.Position.Y,
                 creature.Position.Z);
-            model.Rotation = new Vector3(0f, creature.Motion.FacingRadians, 0f);
+            // Keep physics AABBs axis-aligned while the model rotates.
+            var model = body.GetNode<Node3D>("Visual");
+            model.Rotation = new Vector3(
+                0f, creature.Motion.FacingRadians, 0f);
+            body.GetNode<CollisionShape3D>("Collider").Disabled = creature.IsDying;
 
             var visual = CreatureVisualState.From(creature);
             var animation = visual.Phase;
@@ -92,6 +95,34 @@ public sealed class CreaturePresentationController
     /// </summary>
     public Node3D CreatePreviewModel(CreatureDefinition definition) =>
         CreateModel(definition);
+
+    private AnimatableBody3D CreateBody(CreatureDefinition definition, ulong id)
+    {
+        // Core owns movement; this Godot body makes creatures solid to the
+        // player's CharacterBody3D without a second movement simulation.
+        var collider = definition.Collider;
+        var body = new AnimatableBody3D
+        {
+            Name = $"Creature_{id}",
+            CollisionLayer = 1u,
+            CollisionMask = 0u,
+        };
+        body.AddChild(new CollisionShape3D
+        {
+            Name = "Collider",
+            Position = new Vector3(collider.CenterOffset.X,
+                collider.CenterOffset.Y, collider.CenterOffset.Z),
+            Shape = new BoxShape3D
+            {
+                Size = new Vector3(collider.Size.X,
+                    collider.Size.Y, collider.Size.Z),
+            },
+        });
+        var model = CreateModel(definition);
+        model.Name = "Visual";
+        body.AddChild(model);
+        return body;
+    }
 
     private Node3D CreateModel(CreatureDefinition definition)
     {

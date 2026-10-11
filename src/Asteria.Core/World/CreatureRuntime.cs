@@ -59,6 +59,8 @@ public sealed class CreatureRuntime
     public const float DeathAnimationSeconds = 0.75f;
     public const float HurtAnimationSeconds = 0.4f;
     public const float AttackAnimationSeconds = 0.34f;
+    private const float ContactSkin = 0.06f;
+    private const float SeparationEpsilon = 0.001f;
 
     private readonly PackContentRegistry<CreatureDefinition> _definitions;
     private readonly SortedDictionary<ulong, CreatureInstanceState> _active = [];
@@ -208,8 +210,10 @@ public sealed class CreatureRuntime
                 definition.Collider.Size.X,
                 definition.Collider.Size.Y,
                 definition.Collider.Size.Z) * 0.5f;
-            var min = center - half;
-            var max = center + half;
+            // Physical bodies meet at their surfaces. Include a small
+            // contact skin so touch attacks still register.
+            var min = center - half - new Vector3(ContactSkin);
+            var max = center + half + new Vector3(ContactSkin);
 
             if (new WorldAabb(min, max).Intersects(playerBounds))
                 return new CreatureContactHit(creature.Id, definition.ContactDamage);
@@ -618,6 +622,7 @@ public sealed class CreatureRuntime
                 creature.AttackSecondsRemaining <= deltaSeconds);
         var changed = Advance(deltaSeconds, observerPosition) > 0 ||
             hadEndingReactions;
+        changed |= ResolveOverlaps(world, blocks);
         foreach (var id in _active.Keys.ToArray())
         {
             var creature = _active[id];
@@ -627,7 +632,8 @@ public sealed class CreatureRuntime
                 creature, definition, world, blocks,
                 gravityStrength, (float)Math.Min(deltaSeconds, 0.05),
                 targetPlayer && definition.ContactDamage > 0f
-                    ? observerPosition : null);
+                    ? observerPosition : null,
+                candidate => OverlapsCreature(id, candidate));
 
             if (next.Position != creature.Position ||
                 next.Motion.Phase != creature.Motion.Phase ||
@@ -641,7 +647,110 @@ public sealed class CreatureRuntime
             _active[id] = next;
         }
 
+        changed |= ResolveOverlaps(world, blocks);
         return changed;
+    }
+
+    private WorldAabb CreatureBounds(CreatureInstanceState creature) =>
+        CreatureHopSolver.Bounds(
+            _definitions.Get(creature.DefinitionId).Collider, creature.Position);
+
+    /// <summary>Solid creature bodies are separate from combat target boxes.</summary>
+    private bool OverlapsCreature(ulong id, WorldAabb bounds, ulong except = 0)
+    {
+        foreach (var creature in _active.Values)
+        {
+            if (creature.IsDying || creature.Id.Value == id ||
+                creature.Id.Value == except)
+                continue;
+            if (CreatureBounds(creature).Intersects(bounds)) return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Separate overlapping summons/restores deterministically. All attempted
+    /// displacement is swept against loaded terrain; no-AI creatures stay put.
+    /// </summary>
+    private bool ResolveOverlaps(VoxelWorld world, BlockRegistry blocks)
+    {
+        var changed = false;
+        var ids = _active.Keys.ToArray();
+        for (var pass = 0; pass < 4; pass++)
+        {
+            var movedThisPass = false;
+            for (var i = 0; i < ids.Length; i++)
+            for (var j = i + 1; j < ids.Length; j++)
+            {
+                var first = _active[ids[i]];
+                var second = _active[ids[j]];
+                if (first.IsDying || second.IsDying ||
+                    (first.NoAi && second.NoAi))
+                    continue;
+                if (!CreatureBounds(first).Intersects(CreatureBounds(second)))
+                    continue;
+
+                if (!second.NoAi && TrySeparate(second, first, world, blocks,
+                        out var newSecond))
+                {
+                    _active[second.Id.Value] = newSecond;
+                    changed = movedThisPass = true;
+                }
+                else if (!first.NoAi && TrySeparate(first, second, world, blocks,
+                             out var newFirst))
+                {
+                    _active[first.Id.Value] = newFirst;
+                    changed = movedThisPass = true;
+                }
+            }
+            if (!movedThisPass) break;
+        }
+        return changed;
+    }
+
+    private bool TrySeparate(CreatureInstanceState moving,
+        CreatureInstanceState obstacle, VoxelWorld world, BlockRegistry blocks,
+        out CreatureInstanceState result)
+    {
+        var own = CreatureBounds(moving);
+        var other = CreatureBounds(obstacle);
+        var xOverlap = MathF.Min(own.Maximum.X, other.Maximum.X) -
+            MathF.Max(own.Minimum.X, other.Minimum.X);
+        var zOverlap = MathF.Min(own.Maximum.Z, other.Maximum.Z) -
+            MathF.Max(own.Minimum.Z, other.Minimum.Z);
+        var xFirst = xOverlap <= zOverlap;
+        var collider = _definitions.Get(moving.DefinitionId).Collider;
+
+        for (var pass = 0; pass < 2; pass++)
+        {
+            var axis = (pass == 0) == xFirst ? 0 : 2;
+            var overlap = axis == 0 ? xOverlap : zOverlap;
+            var direction = moving.Position[axis] >= obstacle.Position[axis]
+                ? 1f : -1f;
+            var total = overlap + SeparationEpsilon;
+            var steps = Math.Max(1, (int)MathF.Ceiling(total / 0.08f));
+            var position = moving.Position;
+            var isClear = true;
+            for (var i = 0; i < steps; i++)
+            {
+                position[axis] += direction * total / steps;
+                var bounds = CreatureHopSolver.Bounds(collider, position);
+                if (!VoxelWorldCollision.IsClear(world, blocks, bounds) ||
+                    OverlapsCreature(moving.Id.Value, bounds, obstacle.Id.Value))
+                {
+                    isClear = false;
+                    break;
+                }
+            }
+            if (!isClear ||
+                CreatureHopSolver.Bounds(collider, position).Intersects(other))
+                continue;
+            result = moving with { Position = position };
+            return true;
+        }
+
+        result = default;
+        return false;
     }
 
     private bool CanAdd(CreatureDefinition definition) =>

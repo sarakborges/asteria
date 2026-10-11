@@ -249,6 +249,81 @@ public sealed class CreatureRuntimeTests
         Assert.True(next.Position.Y >= 1f);
     }
 
+    [Fact]
+    public void OverlappingSummonsSeparateUsingAuthoredBodyColliders()
+    {
+        var (world, blocks) = FlatTestGround();
+        var definitions = Definitions();
+        var runtime = new CreatureRuntime(definitions);
+        var feet = new Vector3(7.5f, 1f, 7.5f);
+        Assert.True(runtime.TrySpawn("asteria:slime_aqua", feet, out var first));
+        Assert.True(runtime.TrySpawn("asteria:slime_aqua", feet, out var second));
+
+        runtime.AdvanceWorld(0.025, feet, world, blocks, 18f);
+        var states = runtime.ActiveCreatures.ToArray();
+        var collider = definitions.Get("asteria:slime_aqua").Collider;
+        var a = CreatureHopSolver.Bounds(collider, states[0].Position);
+        var b = CreatureHopSolver.Bounds(collider, states[1].Position);
+        Assert.False(a.Intersects(b));
+        Assert.Equal(first.Id, states[0].Id);
+        Assert.Equal(second.Id, states[1].Id);
+        Assert.Equal(feet, states[0].Position);
+        Assert.True(states[1].Position.X > feet.X);
+        Assert.True(VoxelWorldCollision.IsClear(world, blocks, b));
+    }
+
+    [Fact]
+    public void FrozenCreatureStopsMovingCreatureWithoutBeingDisplaced()
+    {
+        var (world, blocks) = FlatTestGround();
+        var definitions = Definitions();
+        var runtime = new CreatureRuntime(definitions);
+        var frozenFeet = new Vector3(8.5f, 1f, 7.5f);
+        var start = new Vector3(7.5f, 1f, 7.5f);
+        Assert.True(runtime.TrySpawn("asteria:slime_aqua",
+            frozenFeet, out var frozen, noAi: true));
+        Assert.True(runtime.TrySpawn("asteria:slime_aqua",
+            start, out var moving));
+        var snapshot = runtime.CaptureState();
+        var adjusted = snapshot with
+        {
+            Creatures = snapshot.Creatures.Select(creature =>
+                creature.Id == moving.Id
+                    ? creature with
+                    {
+                        Motion = new CreatureHopMotion(CreatureHopPhase.Airborne,
+                            0f, 2f, Vector2.UnitX, 0f, 1),
+                    }
+                    : creature).ToArray(),
+        };
+        runtime = new CreatureRuntime(definitions, adjusted);
+
+        for (var i = 0; i < 12; i++)
+            runtime.AdvanceWorld(0.025, frozenFeet, world, blocks, 18f);
+
+        var nowFrozen = runtime.ActiveCreatures.Single(c => c.Id == frozen.Id);
+        var nowMoving = runtime.ActiveCreatures.Single(c => c.Id == moving.Id);
+        Assert.Equal(frozenFeet, nowFrozen.Position);
+        var collider = definitions.Get("asteria:slime_aqua").Collider;
+        Assert.False(CreatureHopSolver.Bounds(collider, nowFrozen.Position)
+            .Intersects(CreatureHopSolver.Bounds(collider, nowMoving.Position)));
+        Assert.True(nowMoving.Position.X < frozenFeet.X);
+    }
+
+    [Fact]
+    public void DyingBodiesAreIntangible()
+    {
+        var (world, blocks) = FlatTestGround();
+        var runtime = new CreatureRuntime(Definitions());
+        var feet = new Vector3(7.5f, 1f, 7.5f);
+        Assert.True(runtime.TrySpawn("asteria:slime_aqua", feet, out var first));
+        Assert.True(runtime.TrySpawn("asteria:slime_aqua", feet, out var second));
+        Assert.True(runtime.TryKill(first.Id, out _));
+        runtime.AdvanceWorld(0.025, feet, world, blocks, 18f);
+        Assert.Equal(feet,
+            runtime.ActiveCreatures.Single(c => c.Id == second.Id).Position);
+    }
+
     private static (VoxelWorld World, BlockRegistry Blocks) FlatTestGround()
     {
         var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);
