@@ -35,6 +35,21 @@
   "asteria:basalt_tiles": {
     "/name": "Basalt Tiles"
   },
+  "asteria:belt_pass_grass": {
+    "/name": "Mountain Pass Grass"
+  },
+  "asteria:belt_scree_lichen": {
+    "/name": "Scree Lichen"
+  },
+  "asteria:belt_thorn_rosette": {
+    "/name": "Thorn Rosette"
+  },
+  "asteria:belt_wind_needles": {
+    "/name": "Wind Needles"
+  },
+  "asteria:belt_windwood": {
+    "/name": "Windwood"
+  },
   "asteria:bricks": {
     "/name": "Bricks"
   },
@@ -115,6 +130,27 @@
   },
   "asteria:dirt": {
     "/name": "Dirt"
+  },
+  "asteria:enchanted_giant_fungus_cap": {
+    "/name": "Enchanted Giant Fungus Cap"
+  },
+  "asteria:enchanted_giant_fungus_stem": {
+    "/name": "Enchanted Giant Fungus Stem"
+  },
+  "asteria:enchanted_glow_pod": {
+    "/name": "Enchanted Glow Pod"
+  },
+  "asteria:enchanted_hollow_wood": {
+    "/name": "Enchanted Hollow Wood"
+  },
+  "asteria:enchanted_pink_bloom": {
+    "/name": "Enchanted Pink Bloom"
+  },
+  "asteria:enchanted_starflower": {
+    "/name": "Enchanted Starflower"
+  },
+  "asteria:enchanted_violet_fern": {
+    "/name": "Enchanted Violet Fern"
   },
   "asteria:exposed_roots": {
     "/name": "Exposed Roots"
@@ -247,6 +283,21 @@
   },
   "asteria:log_world_tree_stripped_hollow": {
     "/name": "Stripped Hollow World Tree Log"
+  },
+  "asteria:mountain_juniper_needles": {
+    "/name": "Mountain Juniper Needles"
+  },
+  "asteria:mountain_juniper_wood": {
+    "/name": "Mountain Juniper Wood"
+  },
+  "asteria:mountain_rock_lichen": {
+    "/name": "Mountain Rock Lichen"
+  },
+  "asteria:mountain_saxifrage": {
+    "/name": "Mountain Saxifrage"
+  },
+  "asteria:mountain_stonecrop": {
+    "/name": "Mountain Stonecrop"
   },
   "asteria:mud": {
     "/name": "Mud"

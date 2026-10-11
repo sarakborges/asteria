@@ -35,6 +35,21 @@
   "asteria:basalt_tiles": {
     "/name": "Ladrilhos de Basalto"
   },
+  "asteria:belt_pass_grass": {
+    "/name": "Grama de Passagem Montanhosa"
+  },
+  "asteria:belt_scree_lichen": {
+    "/name": "Líquen de Pedregal"
+  },
+  "asteria:belt_thorn_rosette": {
+    "/name": "Roseta Espinhosa"
+  },
+  "asteria:belt_wind_needles": {
+    "/name": "Agulhas dos Ventos"
+  },
+  "asteria:belt_windwood": {
+    "/name": "Madeira do Vento"
+  },
   "asteria:bricks": {
     "/name": "Tijolos"
   },
@@ -115,6 +130,27 @@
   },
   "asteria:dirt": {
     "/name": "Terra"
+  },
+  "asteria:enchanted_giant_fungus_cap": {
+    "/name": "Chapéu de Fungo Gigante Encantado"
+  },
+  "asteria:enchanted_giant_fungus_stem": {
+    "/name": "Haste de Fungo Gigante Encantado"
+  },
+  "asteria:enchanted_glow_pod": {
+    "/name": "Vagem Brilhante Encantada"
+  },
+  "asteria:enchanted_hollow_wood": {
+    "/name": "Madeira Oca Encantada"
+  },
+  "asteria:enchanted_pink_bloom": {
+    "/name": "Flor Rosa Encantada"
+  },
+  "asteria:enchanted_starflower": {
+    "/name": "Flor-estrela Encantada"
+  },
+  "asteria:enchanted_violet_fern": {
+    "/name": "Samambaia Violeta Encantada"
   },
   "asteria:exposed_roots": {
     "/name": "Raízes Expostas"
@@ -247,6 +283,21 @@
   },
   "asteria:log_world_tree_stripped_hollow": {
     "/name": "Tronco Oco Descascado da Árvore do Mundo"
+  },
+  "asteria:mountain_juniper_needles": {
+    "/name": "Agulhas de Zimbro da Montanha"
+  },
+  "asteria:mountain_juniper_wood": {
+    "/name": "Madeira de Zimbro da Montanha"
+  },
+  "asteria:mountain_rock_lichen": {
+    "/name": "Líquen de Rocha da Montanha"
+  },
+  "asteria:mountain_saxifrage": {
+    "/name": "Saxífraga da Montanha"
+  },
+  "asteria:mountain_stonecrop": {
+    "/name": "Sedum da Montanha"
   },
   "asteria:mud": {
     "/name": "Lama"

@@ -35,6 +35,21 @@
   "asteria:basalt_tiles": {
     "/name": "Baldosas de Basalto"
   },
+  "asteria:belt_pass_grass": {
+    "/name": "Hierba de Paso Montañoso"
+  },
+  "asteria:belt_scree_lichen": {
+    "/name": "Liquen de Pedregal"
+  },
+  "asteria:belt_thorn_rosette": {
+    "/name": "Roseta Espinosa"
+  },
+  "asteria:belt_wind_needles": {
+    "/name": "Agujas del Viento"
+  },
+  "asteria:belt_windwood": {
+    "/name": "Madera del Viento"
+  },
   "asteria:bricks": {
     "/name": "Ladrillos"
   },
@@ -115,6 +130,27 @@
   },
   "asteria:dirt": {
     "/name": "Tierra"
+  },
+  "asteria:enchanted_giant_fungus_cap": {
+    "/name": "Sombrero de Hongo Gigante Encantado"
+  },
+  "asteria:enchanted_giant_fungus_stem": {
+    "/name": "Tallo de Hongo Gigante Encantado"
+  },
+  "asteria:enchanted_glow_pod": {
+    "/name": "Vaina Luminosa Encantada"
+  },
+  "asteria:enchanted_hollow_wood": {
+    "/name": "Madera Hueca Encantada"
+  },
+  "asteria:enchanted_pink_bloom": {
+    "/name": "Flor Rosa Encantada"
+  },
+  "asteria:enchanted_starflower": {
+    "/name": "Flor Estelar Encantada"
+  },
+  "asteria:enchanted_violet_fern": {
+    "/name": "Helecho Violeta Encantado"
   },
   "asteria:exposed_roots": {
     "/name": "Raíces Expuestas"
@@ -247,6 +283,21 @@
   },
   "asteria:log_world_tree_stripped_hollow": {
     "/name": "Tronco Hueco Descortezado del Árbol del Mundo"
+  },
+  "asteria:mountain_juniper_needles": {
+    "/name": "Agujas de Enebro de Montaña"
+  },
+  "asteria:mountain_juniper_wood": {
+    "/name": "Madera de Enebro de Montaña"
+  },
+  "asteria:mountain_rock_lichen": {
+    "/name": "Liquen de Roca de Montaña"
+  },
+  "asteria:mountain_saxifrage": {
+    "/name": "Saxífraga de Montaña"
+  },
+  "asteria:mountain_stonecrop": {
+    "/name": "Sedum de Montaña"
   },
   "asteria:mud": {
     "/name": "Barro"

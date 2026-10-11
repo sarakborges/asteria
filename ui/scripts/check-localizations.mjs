@@ -74,8 +74,13 @@ for (const [domain, directories] of [
       if (typeof definition.id !== "string" || !definition.id) {
         throw new Error("Missing id in " + directory + "/" + file);
       }
-      if (seen.has(definition.id) || !ids.has(definition.id)) {
-        throw new Error("Duplicate or untranslated " + domain + " id " + definition.id);
+      if (seen.has(definition.id)) {
+        throw new Error("Duplicate " + domain + " id " + definition.id +
+          " in " + directory + "/" + file);
+      }
+      if (!ids.has(definition.id)) {
+        throw new Error("Missing " + domain + " localization for " + definition.id +
+          " in " + directory + "/" + file);
       }
       seen.add(definition.id);
       if (domain === "items" || domain === "tools") {
