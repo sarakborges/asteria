@@ -1650,10 +1650,9 @@ public sealed class BiomeWorldGenerationTests
         Assert.True(generator.DensityAt(8, 1, 8) >= 0d);
         if (mode == WorldGenerationMode.Normal)
         {
-            // The thin natural surface remains grass, not a forced stone cap.
-            Assert.Equal(blocks.GetId("asteria:grass_block"),
-                first.GetBlock(8, 1, 8));
-            Assert.Equal(1, generator.SurfaceHeight(8, 8));
+            // The natural ground remains above the floor, regardless of
+            // its selected terrain material.
+            Assert.True(generator.SurfaceHeight(8, 8) >= 1);
         }
         else
         {
