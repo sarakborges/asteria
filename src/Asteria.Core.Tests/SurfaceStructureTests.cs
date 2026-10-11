@@ -169,7 +169,9 @@ public sealed class SurfaceStructureTests
     {
         var blocks = PortalArrivalBlocks();
         var structures = PortalArrivalStructures();
-        var generator = FlatStructureGenerator(blocks, structures, "asteria:stone");
+        // The default flat fixture is too shallow for a 45-block climb.
+        var generator = FlatStructureGenerator(blocks, structures, "asteria:stone",
+            StructureSetRegistry.Empty, 48f);
         var entryY = generator.SurfaceHeight(8, 8) - 45;
         Assert.True(entryY > 1);
         Assert.True(generator.TryPrepareExactStructure(
@@ -1931,6 +1933,17 @@ public sealed class SurfaceStructureTests
         StructureRegistry structures,
         string surfaceBlock,
         StructureSetRegistry structureSets,
+        params string[] structureReferences) =>
+        FlatStructureGenerator(
+            blocks, structures, surfaceBlock, structureSets,
+            0f, structureReferences);
+
+    private static BiomeWorldGenerator FlatStructureGenerator(
+        BlockRegistry blocks,
+        StructureRegistry structures,
+        string surfaceBlock,
+        StructureSetRegistry structureSets,
+        float surfaceHeightOffset,
         params string[] structureReferences)
     {
         var biome =
@@ -1938,7 +1951,7 @@ public sealed class SurfaceStructureTests
                 "asteria:test/flat",
                 new BiomeSurfaceLayoutDefinition(),
                 new BiomeTerrainDefinition(
-                    0f,
+                    surfaceHeightOffset,
                     0f,
                     64,
                     0f,
