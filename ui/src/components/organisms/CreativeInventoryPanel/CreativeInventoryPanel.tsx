@@ -18,7 +18,7 @@ export type CreativeInventoryPanelProps = {
   onTrash?(): void;
   onSearchChange?(value: string): void;
   onCategoryChange?(id: string | null): void;
-  onItemClick?(item: ItemStackView): void;
+  onItemClick?(item: ItemStackView, fillStack: boolean): void;
   scrollMemory?: CreativeScrollMemory;
 };
 
@@ -104,7 +104,9 @@ export function CreativeInventoryPanel({
                 ].join(":")}
                 item={item}
                 disabled={!onItemClick}
-                onClick={() => onItemClick?.(item)}
+                onClick={action => {
+                  if (action !== "right") onItemClick?.(item, action === "quick");
+                }}
               />
             ))}
           </div>
