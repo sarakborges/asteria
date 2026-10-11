@@ -90,6 +90,50 @@ public sealed class VoxelWorldSaveCodecTests
     }
 
     [Fact]
+    public void SavedArchivedChunkRestoresSubmergedDecorationAndFluidSource()
+    {
+        var blocks = new BlockRegistry([
+            new BlockDefinition("asteria:seagrass",
+                visual: BlockVisualDefinition.CrossedSprite(
+                    new BlockTextureLayer("textures/seagrass.png")),
+                isCollidable: false),
+        ]);
+        var fluids = new FluidRegistry([
+            new FluidDefinition("asteria:water", new FluidColor(5, 100, 240), 0.7f),
+        ]);
+        var dyes = new DyeRegistry([]);
+        var layers = new AttachedLayerRegistry([]);
+        var world = new VoxelWorld();
+        world.ConfigureFluidOccupancy(blocks);
+        var coord = ChunkCoord.Zero;
+        var position = new WorldVoxelCoord(1, 2, 3);
+        world.InsertChunk(coord, new Chunk());
+
+        Assert.True(world.SetFluidAt(position,
+            FluidCell.Source(fluids.GetId("asteria:water")), out _));
+        Assert.True(world.SetBlockAt(position,
+            blocks.GetId("asteria:seagrass"), out _));
+        Assert.False(world.GetFluidOrEmpty(position).IsEmpty);
+        Assert.Equal(ChunkArchiveResult.ArchivedDirty, world.ArchiveChunk(coord));
+
+        var snapshot = VoxelWorldSaveCodec.Capture(
+            world, blocks, fluids, dyes, layers);
+        var restored = VoxelWorldSaveCodec.Restore(
+            snapshot, blocks, fluids, dyes, layers);
+        Assert.True(restored.HasArchivedChunk(coord));
+        Assert.Equal(ChunkRestoreResult.Restored, restored.RestoreChunk(coord));
+        Assert.Equal(blocks.GetId("asteria:seagrass"),
+            restored.GetCellOrEmpty(position).Block);
+        Assert.Equal(FluidCell.Source(fluids.GetId("asteria:water")),
+            restored.GetFluidOrEmpty(position));
+
+        // Restored worlds retain the same occupancy policy for subsequent edits.
+        Assert.True(restored.SetFluidAt(position, FluidCell.Empty, out _));
+        Assert.True(restored.SetFluidAt(position,
+            FluidCell.Source(fluids.GetId("asteria:water")), out _));
+    }
+
+    [Fact]
     public void CaptureDoesNotMaterializeMissingChunkOrForgetArchivedEmpty()
     {
         var content = Content();
