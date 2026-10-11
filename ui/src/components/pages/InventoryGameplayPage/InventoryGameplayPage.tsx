@@ -27,7 +27,7 @@ export type InventoryGameplayPageProps = {
   onEquipmentClick(index: number): void;
   onSort(): void;
   onDiscardCursor(): void;
-  onCreativePick(choice: InventoryCatalogEntry): void;
+  onCreativePick(choice: InventoryCatalogEntry, fillStack: boolean): void;
   onCraft(recipeId: string): void;
   onRotatePortrait(deltaX: number): void;
 };
@@ -191,11 +191,11 @@ export function InventoryGameplayPage({
             onTrash={cursor ? onDiscardCursor : undefined}
             onSearchChange={setCreativeSearch}
             onCategoryChange={setCategory}
-            onItemClick={item => {
+            onItemClick={(item, fillStack) => {
               const choice = state.catalog.find(entry =>
                 entry.id === item.id && entry.kind === item.kind &&
                 sameInventoryMetadata(entry.metadata, item.metadata ?? {}));
-              if (choice) onCreativePick(choice);
+              if (choice) onCreativePick(choice, fillStack);
             }}
           />}
         />
