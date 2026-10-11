@@ -147,10 +147,10 @@ public sealed class MountainEcologyExpansionTests
             var face = Assert.Single(d.Textures.ForFace(BlockFace.Top));
             Assert.Equal(id switch
             {
-                "juniper_wood" => "textures/blocks/trees/juniper/wood.png",
-                "juniper_needles" => "textures/blocks/trees/juniper/needles.png",
-                "windwood" => "textures/blocks/trees/windwood/wood.png",
-                "windwood_needles" => "textures/blocks/trees/windwood/needles.png",
+                "juniper_wood" => "textures/blocks/trees/juniper/top.png",
+                "juniper_needles" => "textures/blocks/trees/juniper/leaf.png",
+                "windwood" => "textures/blocks/trees/windwood/top.png",
+                "windwood_needles" => "textures/blocks/trees/windwood/leaf.png",
                 _ => throw new InvalidOperationException("Unexpected tree material")
             }, face.Texture);
             Assert.True(seen.Add(face.Texture));

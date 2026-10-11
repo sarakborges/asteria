@@ -76,6 +76,28 @@ const validateBlockTexturePaths = (node, context) => {
   }
 };
 
+// A tree's texture folder is a stable four-role material contract.
+// Additional variants (for example foliage variants and planks) remain valid.
+const treeTexturesRoot = join(resourcesRoot, "textures", "blocks", "trees");
+for (const entry of readdirSync(treeTexturesRoot, { withFileTypes: true })
+    .filter(entry => entry.isDirectory())
+    .sort((a, b) => a.name.localeCompare(b.name))) {
+  for (const role of ["top", "side", "leaf", "stripped"]) {
+    const asset = "textures/blocks/trees/" + entry.name + "/" + role + ".png";
+    resource(asset, "tree material " + entry.name + "." + role);
+    const png = readFileSync(join(resourcesRoot, asset));
+    if (png.length < 24 || png.subarray(0, 8).toString("hex") !==
+        "89504e470d0a1a0a" || png.readUInt32BE(16) !== 64 ||
+        png.readUInt32BE(20) !== 64) {
+      throw new Error("tree material " + entry.name +
+        ": invalid 64×64 PNG " + asset);
+    }
+  }
+}
+console.log("Validated tree textures: " +
+  readdirSync(treeTexturesRoot, { withFileTypes: true })
+    .filter(entry => entry.isDirectory()).length + " material families");
+
 for (const [domain, directories] of [
   ["blocks", ["blocks"]],
   ["dimensions", ["biomes", "dimensions"]],

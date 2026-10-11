@@ -3,12 +3,12 @@
   "category": "foliage",
   "windSway": true,
   "textures": {
-    "top": "textures/blocks/trees/frost_wood/alpine_snow_needles.png",
-    "bottom": "textures/blocks/trees/frost_wood/alpine_snow_needles.png",
-    "left": "textures/blocks/trees/frost_wood/alpine_snow_needles.png",
-    "right": "textures/blocks/trees/frost_wood/alpine_snow_needles.png",
-    "front": "textures/blocks/trees/frost_wood/alpine_snow_needles.png",
-    "back": "textures/blocks/trees/frost_wood/alpine_snow_needles.png"
+    "top": "textures/blocks/trees/frost_wood/leaf.png",
+    "bottom": "textures/blocks/trees/frost_wood/leaf.png",
+    "left": "textures/blocks/trees/frost_wood/leaf.png",
+    "right": "textures/blocks/trees/frost_wood/leaf.png",
+    "front": "textures/blocks/trees/frost_wood/leaf.png",
+    "back": "textures/blocks/trees/frost_wood/leaf.png"
   },
   "alphaCutoff": 0.5,
   "mining": {
