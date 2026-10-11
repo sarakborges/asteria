@@ -20,6 +20,8 @@ public sealed class VoxelTerrainMaterialSet
 
     private readonly Dictionary<TerrainRenderBatch, ShaderMaterial>
         _materials;
+    private Vector3 _lastHeldPosition;
+    private BlockLightEmission _lastHeldEmission;
 
     private VoxelTerrainMaterialSet(
         Dictionary<TerrainRenderBatch, ShaderMaterial> materials)
@@ -40,6 +42,32 @@ public sealed class VoxelTerrainMaterialSet
         foreach (var material in _materials.Values)
             material.SetShaderParameter("wind_velocity", authored);
     }
+
+    /// <summary>
+    /// Dynamic held lighting is render-only: no changed voxel light, chunk
+    /// remeshing, save revisions or worker snapshots on player movement.
+    /// </summary>
+    public void SetHeldLight(Vector3 position, BlockLightEmission emission)
+    {
+        if (_lastHeldPosition == position && _lastHeldEmission == emission)
+            return;
+
+        _lastHeldPosition = position;
+        _lastHeldEmission = emission;
+        var rgb = new Vector3(
+            emission.Red / (float)VoxelLight.MaxLevel,
+            emission.Green / (float)VoxelLight.MaxLevel,
+            emission.Blue / (float)VoxelLight.MaxLevel);
+
+        foreach (var material in _materials.Values)
+        {
+            material.SetShaderParameter("held_light_position", position);
+            material.SetShaderParameter("held_light_rgb", rgb);
+        }
+    }
+
+    public void ClearHeldLight() =>
+        SetHeldLight(Vector3.Zero, default);
 
     public static VoxelTerrainMaterialSet Create(
         TerrainTextureCatalog textures)

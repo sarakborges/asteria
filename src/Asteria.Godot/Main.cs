@@ -130,6 +130,7 @@ public partial class Main : Node3D
     private TerrainTextureCatalog _terrainTextures = null!;
     private TerrainTextureLookup _terrainTextureLookup = null!;
     private VoxelTerrainMaterialSet _terrainMaterials = null!;
+    private HeldDynamicLightPresentation _heldDynamicLight = null!;
     private FluidMaterialCatalog _fluidMaterials = null!;
     private readonly WorldHudStateTracker _worldHud =
         new();
@@ -265,6 +266,8 @@ public partial class Main : Node3D
         _terrainMaterials =
             VoxelTerrainMaterialSet.Create(
                 _terrainTextures);
+        _heldDynamicLight = new HeldDynamicLightPresentation(
+            this, _terrainMaterials, _blocks);
         _fluidMaterials =
             FluidMaterialCatalog.Create(
                 _fluids,
@@ -523,6 +526,7 @@ public partial class Main : Node3D
 
         if (_sessions.IsTransitioning)
         {
+            _heldDynamicLight.Clear();
             AdvanceDimensionTransition();
             _worldDiagnostics?.FlushIfDue(0, 0, 0, 0, "Transitioning");
             return;
@@ -845,6 +849,7 @@ public partial class Main : Node3D
         _worldDiagnostics?.Write(
             $"world.leave.complete generation={completion.SavedGeneration}");
         _dimensionEnvironment.Clear();
+        _heldDynamicLight.Clear();
         _ambientParticleRuntime = null;
         _ambientParticlePresentation = null;
         _chat.Reset();
@@ -909,6 +914,11 @@ public partial class Main : Node3D
             _dimensionEnvironment.FollowCamera(
                 player.Camera.GlobalPosition, deltaSeconds);
         }
+        _heldDynamicLight.Sync(
+            _worldReadySent && _sessionStates.Player.CanInteract
+                ? _sessionStates.Player.Inventory
+                : null,
+            _player?.Camera);
     }
 
     private void SendWorldClockState(
