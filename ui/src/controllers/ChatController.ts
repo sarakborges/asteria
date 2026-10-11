@@ -43,6 +43,13 @@ export function createChatController(
     close() {
       if (store.getSnapshot().chat.open) post("ui.chat.close");
     },
+    activateMessage(messageId: string) {
+      const chat = store.getSnapshot().chat;
+      if (!chat.visible || !/^\d{1,24}$/.test(messageId) ||
+          !chat.history.some(line => line.id === messageId && line.action === "warp"))
+        return;
+      post("ui.chat.action", { id: messageId });
+    },
     handleGodotMessage(message: BridgeMessage) {
       if (message.type !== "game.chat.state") return;
       const payload = asRecord(message.payload);
@@ -82,7 +89,12 @@ function readMessage(value: unknown): ChatMessageView | null {
       (entry.tone !== "normal" && entry.tone !== "error") ||
       (entry.localizationKey !== null && entry.localizationKey !== undefined &&
         (typeof entry.localizationKey !== "string" ||
-          !LOCAL_KEYS.has(entry.localizationKey)))) return null;
+          !LOCAL_KEYS.has(entry.localizationKey))) ||
+      (entry.action !== null && entry.action !== undefined &&
+        entry.action !== "warp") ||
+      (entry.action === "warp" &&
+        (entry.tone !== "normal" || entry.localizationKey !== "chat.command.locate.found")))
+    return null;
 
   const parameters = entry.parameters == null ? {} : asRecord(entry.parameters);
   if (!parameters || Object.keys(parameters).length > 8 ||
@@ -95,6 +107,7 @@ function readMessage(value: unknown): ChatMessageView | null {
     id: entry.id,
     text: entry.text,
     tone: entry.tone,
+    action: entry.action === "warp" ? "warp" : undefined,
     localizationKey: (entry.localizationKey ?? undefined) as ChatMessageView["localizationKey"],
   };
 }
