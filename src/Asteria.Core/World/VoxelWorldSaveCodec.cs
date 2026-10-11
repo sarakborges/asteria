@@ -103,6 +103,7 @@ public static class VoxelWorldSaveCodec
     {
         ArgumentNullException.ThrowIfNull(snapshot);
         var restored = new VoxelWorld();
+        restored.ConfigureFluidOccupancy(blocks);
 
         // The caller never receives this world unless every chunk passed the
         // namespaced-ID, checksum, occupancy and geometry validations.

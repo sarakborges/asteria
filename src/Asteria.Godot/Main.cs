@@ -604,12 +604,23 @@ public partial class Main : Node3D
             streamingBegin.ReservedPresentations);
 
         var gameplaySliceStart = Stopwatch.GetTimestamp();
-        ReportBlockEntityFrame(
-            _blockEntities.Advance(
-                delta,
-                _dimension.GravityStrength));
+        var blockFrame = _blockEntities.Advance(
+            delta, _dimension.GravityStrength);
+        ReportBlockEntityFrame(blockFrame);
         _worldDiagnostics?.ObserveStage(
             WorldFrameStage.BlockEntities, gameplaySliceStart);
+        if (_worldDiagnostics is { } diagnostics)
+        {
+            var timings = blockFrame.Timings;
+            diagnostics.ObserveStageMilliseconds(
+                WorldFrameStage.BlockPhysicsWake, timings.WakeMilliseconds);
+            diagnostics.ObserveStageMilliseconds(
+                WorldFrameStage.FallingSimulation, timings.FallingMilliseconds);
+            diagnostics.ObserveStageMilliseconds(
+                WorldFrameStage.DroppedSimulation, timings.DroppedMilliseconds);
+            diagnostics.ObserveStageMilliseconds(
+                WorldFrameStage.BlockEntityPresentation, timings.PresentationMilliseconds);
+        }
 
         gameplaySliceStart = Stopwatch.GetTimestamp();
         AdvanceItemPickup(delta);
@@ -746,7 +757,9 @@ public partial class Main : Node3D
             _sessions.Active.Creatures.Count,
             _sessions.Active.Projectiles.Count,
             _ambientParticleRuntime?.Particles.Count ?? 0,
-            _blockEntities.DroppedCount);
+            _blockEntities.DroppedCount,
+            _blockEntities.FallingCount,
+            _blockEntities.PendingPhysicsUpdates);
 
         gameplaySliceStart = Stopwatch.GetTimestamp();
         SendWorldHudState();

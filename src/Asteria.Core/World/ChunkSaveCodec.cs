@@ -91,8 +91,12 @@ public static class ChunkSaveCodec
             foreach (var (index, fluid) in fluidEntries)
             {
                 var (x, y, z) = Position(index);
-                if (!chunk.GetCell(x, y, z).IsEmpty)
-                    throw new InvalidOperationException("Chunk contains both block and fluid in one voxel.");
+                var occupying = chunk.GetCell(x, y, z);
+                if (!occupying.IsEmpty &&
+                    !FluidBlockOccupancy.AllowsFluid(
+                        blocks.GetDefinition(occupying.Block)))
+                    throw new InvalidOperationException(
+                        "Chunk contains fluid in a non-submersible block voxel.");
                 writer.Write((ushort)index);
                 writer.Write(fluids.GetDefinition(fluid.Fluid).Id);
                 writer.Write(fluid.Level);
@@ -212,7 +216,10 @@ public static class ChunkSaveCodec
             {
                 var index = ReadIndex(reader, ref previous);
                 var (x, y, z) = Position(index);
-                if (!chunk.GetCell(x, y, z).IsEmpty ||
+                var occupying = chunk.GetCell(x, y, z);
+                if ((!occupying.IsEmpty &&
+                     !FluidBlockOccupancy.AllowsFluid(
+                         blocks.GetDefinition(occupying.Block))) ||
                     !fluids.TryGetId(reader.ReadString(), out var fluidId))
                     throw new InvalidDataException("Invalid saved fluid location or type.");
 

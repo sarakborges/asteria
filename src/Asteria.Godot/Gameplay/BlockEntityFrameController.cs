@@ -1,8 +1,15 @@
+using System.Diagnostics;
 using System.Numerics;
 using Asteria.Client.Rendering;
 using Asteria.Core.World;
 
 namespace Asteria.Client.Gameplay;
+
+public readonly record struct BlockEntityFrameTimings(
+    double WakeMilliseconds,
+    double FallingMilliseconds,
+    double DroppedMilliseconds,
+    double PresentationMilliseconds);
 
 public readonly record struct BlockEntityFrameReport(
     BlockPhysicsWakeResult Wake,
@@ -10,7 +17,8 @@ public readonly record struct BlockEntityFrameReport(
     DroppedBlockAdvanceResult Dropped,
     int FallingCount,
     int DroppedCount,
-    int PendingPhysicsUpdates)
+    int PendingPhysicsUpdates,
+    BlockEntityFrameTimings Timings)
 {
     public bool HasChanges =>
         Wake.HasChanges ||
@@ -76,23 +84,32 @@ public sealed class BlockEntityFrameController
         double deltaSeconds,
         double gravityStrength)
     {
+        var started = Stopwatch.GetTimestamp();
         var wake =
             _worldTicks.TicksThisFrame > 0
                 ? _blockPhysics.ProcessWakeups()
                 : BlockPhysicsWakeResult.Empty;
+        var wakeMs = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
 
+        started = Stopwatch.GetTimestamp();
         var landed =
             _blockPhysics.Advance(
                 deltaSeconds,
                 gravityStrength);
+        var fallingMs = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+
+        started = Stopwatch.GetTimestamp();
         var dropped =
             _droppedBlocks.Advance(
                 deltaSeconds,
                 gravityStrength);
+        var droppedMs = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
 
+        started = Stopwatch.GetTimestamp();
         _presentations.SyncByIdOrder(
             _blockPhysics.ActiveBlocks,
             _droppedBlocks.ActiveBlocks);
+        var presentationMs = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
 
         return new BlockEntityFrameReport(
             wake,
@@ -100,6 +117,8 @@ public sealed class BlockEntityFrameController
             dropped,
             _blockPhysics.ActiveCount,
             _droppedBlocks.ActiveCount,
-            _updates.Count);
+            _updates.Count,
+            new BlockEntityFrameTimings(
+                wakeMs, fallingMs, droppedMs, presentationMs));
     }
 }
