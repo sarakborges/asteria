@@ -50,6 +50,10 @@ function InteractiveChat() {
           tone: "normal", localizationKey: "chat.command.locate.found",
           parameters: { name: "Village", position: "(12, 35, 68)" },
           action: "warp",
+        }, {
+          id: "43", text: "Structure exported.",
+          tone: "normal", localizationKey: "chat.action.structureFile",
+          action: "structure_file",
         }]}
         commands={meta.args.commands}
         catalog={meta.args.catalog}
