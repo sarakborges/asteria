@@ -90,10 +90,10 @@ export function createInventoryController(
       if (!recipeId || !store.getSnapshot().inventory.open) return;
       post("ui.inventory.craft", { recipeId });
     },
-    pickCreative(choice: InventoryCatalogEntry) {
+    pickCreative(choice: InventoryCatalogEntry, fillStack = false) {
       if (!choice.id) return;
       post("ui.inventory.creative_pick", {
-        id: choice.id, kind: choice.kind,
+        id: choice.id, kind: choice.kind, fillStack,
         ...(Object.keys(choice.metadata).length > 0
           ? { metadata: choice.metadata } : {}),
       });
