@@ -65,17 +65,13 @@ public sealed class InventoryCraftingRuntime
 
     public IReadOnlyList<CraftingRecipeDefinition> Recipes => _inventoryRecipes;
 
-    public bool CanCraft(PlayerInventory inventory, string recipeId)
-    {
-        ArgumentNullException.ThrowIfNull(inventory);
-        return _recipes.TryGetValue(recipeId, out var binding) &&
-            inventory.CanCraft(binding.Recipe, binding.Result);
-    }
+    public bool CanCraft(PlayerInventory inventory, string recipeId) =>
+        Availability(inventory, recipeId) == InventoryCraftingResult.Crafted;
 
-    public bool TryCraft(PlayerInventory inventory, string recipeId) =>
-        Craft(inventory, recipeId) == InventoryCraftingResult.Crafted;
-
-    public InventoryCraftingResult Craft(PlayerInventory inventory, string recipeId)
+    /// <summary>Read-only craftability with the same failure precedence as a
+    /// real craft. No slot, cursor or inventory revision is modified.</summary>
+    public InventoryCraftingResult Availability(
+        PlayerInventory inventory, string recipeId)
     {
         ArgumentNullException.ThrowIfNull(inventory);
         if (!_recipes.TryGetValue(recipeId, out var binding))
@@ -87,6 +83,21 @@ public sealed class InventoryCraftingRuntime
                 return InventoryCraftingResult.MissingIngredients;
         }
 
+        return inventory.CanCraft(binding.Recipe, binding.Result)
+            ? InventoryCraftingResult.Crafted
+            : InventoryCraftingResult.InventoryFull;
+    }
+
+    public bool TryCraft(PlayerInventory inventory, string recipeId) =>
+        Craft(inventory, recipeId) == InventoryCraftingResult.Crafted;
+
+    public InventoryCraftingResult Craft(PlayerInventory inventory, string recipeId)
+    {
+        var availability = Availability(inventory, recipeId);
+        if (availability != InventoryCraftingResult.Crafted)
+            return availability;
+
+        var binding = _recipes[recipeId];
         return inventory.TryCraft(binding.Recipe, binding.Result)
             ? InventoryCraftingResult.Crafted
             : InventoryCraftingResult.InventoryFull;
