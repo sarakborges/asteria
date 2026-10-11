@@ -143,6 +143,7 @@ public sealed class DimensionRuntimeSession
 
         World =
             state.World;
+        World.ConfigureFluidOccupancy(blocks);
         WorldUpdates =
             new WorldUpdateQueue();
         WorldTicks =

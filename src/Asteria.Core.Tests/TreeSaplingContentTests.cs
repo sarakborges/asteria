@@ -37,6 +37,7 @@ public sealed class TreeSaplingContentTests
             blocks.GetDefinition(cell.Block).Visual.Texture!.Value.Texture);
 
         var world = new VoxelWorld();
+        world.ConfigureFluidOccupancy(blocks);
         world.InsertChunk(ChunkCoord.Zero, new Chunk());
         var physicsUpdates = new BlockPhysicsUpdateQueue();
         var mutations = new VoxelMutationRuntime(

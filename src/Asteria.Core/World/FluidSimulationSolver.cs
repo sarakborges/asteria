@@ -216,7 +216,7 @@ public static class FluidSimulationSolver
         ArgumentNullException.ThrowIfNull(scratch);
 
         if (!world.IsLoadedAt(position) ||
-            !world.GetCellOrEmpty(position).IsEmpty)
+            !world.CanContainFluidAt(position))
         {
             return FluidCell.Empty;
         }
@@ -360,8 +360,7 @@ public static class FluidSimulationSolver
         FluidCell fluid)
     {
         if (position.Y == 0 ||
-            !world.GetCellOrEmpty(
-                position + (0, -1, 0)).IsEmpty)
+            !world.CanContainFluidAt(position + (0, -1, 0)))
         {
             return true;
         }
@@ -622,7 +621,7 @@ public static class FluidSimulationSolver
         FluidRuntimeId fluid)
     {
         if (!world.IsLoadedAt(position) ||
-            !world.GetCellOrEmpty(position).IsEmpty)
+            !world.CanContainFluidAt(position))
         {
             return false;
         }
@@ -648,7 +647,7 @@ public static class FluidSimulationSolver
             position + (0, -1, 0);
 
         if (!world.IsLoadedAt(below) ||
-            !world.GetCellOrEmpty(below).IsEmpty)
+            !world.CanContainFluidAt(below))
         {
             return false;
         }
