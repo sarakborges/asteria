@@ -13,6 +13,7 @@ namespace Asteria.Client.Rendering;
 public sealed class DimensionEnvironmentPresentation
 {
     private readonly Node _parent;
+    private readonly SkyLayerPresentation _skyLayers;
     private WorldEnvironment? _node;
     private GEnvironment? _environment;
     private DirectionalLight3D? _sunLight;
@@ -31,6 +32,7 @@ public sealed class DimensionEnvironmentPresentation
     {
         _parent = parent ??
             throw new ArgumentNullException(nameof(parent));
+        _skyLayers = new SkyLayerPresentation(parent);
     }
 
     public void Apply(
@@ -66,6 +68,7 @@ public sealed class DimensionEnvironmentPresentation
         _moonOrb ??= CreateOrb("NightMoon");
         ConfigureOrb(_sunOrb, cycle.Sun, selection);
         ConfigureOrb(_moonOrb, cycle.Moon, selection);
+        _skyLayers.Apply(dimension);
         Update(cycle, clock);
     }
 
@@ -85,6 +88,7 @@ public sealed class DimensionEnvironmentPresentation
         _cameraReady = false;
         _sunActive = false;
         _moonActive = false;
+        _skyLayers.Clear();
     }
 
     public void Update(
@@ -130,11 +134,13 @@ public sealed class DimensionEnvironmentPresentation
             cycle,
             clock,
             isSun: false);
+        _skyLayers.Update(clock);
     }
 
-    public void FollowCamera(Vector3 position)
+    public void FollowCamera(Vector3 position, double deltaSeconds)
     {
         _cameraReady = true;
+        _skyLayers.FollowCamera(position, deltaSeconds);
         if (_sunOrb is not null)
         {
             _sunOrb.Visible = _sunActive;

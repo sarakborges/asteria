@@ -69,6 +69,10 @@
     "ambientEnergy": 0.85,
     "fogColor": "B8CDD5",
     "fogDensity": 0.003,
+    "skyLayers": {
+      "stars": { "density": 1, "color": "F0F7FF" },
+      "clouds": { "density": 0.8, "color": "F5F8FC" }
+    },
     "wind": {
       "direction": [
         0.93,

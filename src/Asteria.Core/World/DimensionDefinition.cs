@@ -347,6 +347,36 @@ public sealed class DimensionGeneratedSurfaceStructureDefinition
     public SurfaceHabitatWeights? HabitatWeights { get; }
 }
 
+public sealed class DimensionSkyLayersDefinition
+{
+    public static DimensionSkyLayersDefinition Disabled { get; } =
+        new(0f, new DimensionColor(255, 255, 255),
+            0f, new DimensionColor(255, 255, 255));
+
+    public DimensionSkyLayersDefinition(
+        float starDensity,
+        DimensionColor starColor,
+        float cloudDensity,
+        DimensionColor cloudColor)
+    {
+        if (!float.IsFinite(starDensity) || starDensity is < 0 or > 1 ||
+            !float.IsFinite(cloudDensity) || cloudDensity is < 0 or > 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(starDensity),
+                "Sky-layer densities must be finite fractions between 0 and 1.");
+        }
+        StarDensity = starDensity;
+        StarColor = starColor;
+        CloudDensity = cloudDensity;
+        CloudColor = cloudColor;
+    }
+
+    public float StarDensity { get; }
+    public DimensionColor StarColor { get; }
+    public float CloudDensity { get; }
+    public DimensionColor CloudColor { get; }
+}
+
 public sealed class DimensionEnvironmentDefinition
 {
     public DimensionEnvironmentDefinition(
@@ -355,7 +385,8 @@ public sealed class DimensionEnvironmentDefinition
         float ambientEnergy,
         DimensionColor fogColor,
         float fogDensity,
-        DimensionWindDefinition? wind = null)
+        DimensionWindDefinition? wind = null,
+        DimensionSkyLayersDefinition? skyLayers = null)
     {
         if (!float.IsFinite(ambientEnergy) ||
             ambientEnergy < 0f ||
@@ -381,6 +412,7 @@ public sealed class DimensionEnvironmentDefinition
         FogColor = fogColor;
         FogDensity = fogDensity;
         Wind = wind ?? DimensionWindDefinition.Default;
+        SkyLayers = skyLayers ?? DimensionSkyLayersDefinition.Disabled;
     }
 
     public DimensionColor BackgroundColor { get; }
@@ -393,6 +425,7 @@ public sealed class DimensionEnvironmentDefinition
 
     public float FogDensity { get; }
     public DimensionWindDefinition Wind { get; }
+    public DimensionSkyLayersDefinition SkyLayers { get; }
 }
 
 public sealed class DimensionDefinition

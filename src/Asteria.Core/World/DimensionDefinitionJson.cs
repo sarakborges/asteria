@@ -75,7 +75,8 @@ public static class DimensionDefinitionJson
                 RequiredSingle(
                     environment,
                     "fogDensity"),
-                ParseWind(environment)),
+                ParseWind(environment),
+                ParseSkyLayers(environment)),
             ParseShell(root),
             ParseCaves(root),
             ParseGeneratedOcean(root),
@@ -88,6 +89,24 @@ public static class DimensionDefinitionJson
                 root),
             OptionalString(root, "dayNightCycle"),
             ParseBiomeBlending(root));
+    }
+
+    private static DimensionSkyLayersDefinition? ParseSkyLayers(JsonElement environment)
+    {
+        if (!environment.TryGetProperty("skyLayers", out var value) ||
+            value.ValueKind == JsonValueKind.Null)
+            return null;
+
+        var sky = RequiredObject(environment, "skyLayers");
+        var stars = RequiredObject(sky, "stars");
+        var clouds = RequiredObject(sky, "clouds");
+        return new DimensionSkyLayersDefinition(
+            RequiredSingle(stars, "density"),
+            DimensionColor.ParseHex(RequiredString(stars, "color"),
+                "environment.skyLayers.stars.color"),
+            RequiredSingle(clouds, "density"),
+            DimensionColor.ParseHex(RequiredString(clouds, "color"),
+                "environment.skyLayers.clouds.color"));
     }
 
     private static DimensionWindDefinition? ParseWind(JsonElement environment)

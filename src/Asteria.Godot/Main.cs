@@ -530,7 +530,7 @@ public partial class Main : Node3D
 
         _sessions.Active.AdvanceWorldTime(
             delta);
-        UpdateDayNightPresentation();
+        UpdateDayNightPresentation(delta);
 
         var loadingWorld =
             _loading.Progress.Phase is
@@ -895,7 +895,7 @@ public partial class Main : Node3D
             throw new InvalidOperationException(
                 $"Dimension {_dimension.Id} has no day-night cycle."));
 
-    private void UpdateDayNightPresentation()
+    private void UpdateDayNightPresentation(double deltaSeconds)
     {
         if (_worldTicks.TicksThisFrame != 0)
         {
@@ -907,7 +907,7 @@ public partial class Main : Node3D
         if (_player is { } player)
         {
             _dimensionEnvironment.FollowCamera(
-                player.Camera.GlobalPosition);
+                player.Camera.GlobalPosition, deltaSeconds);
         }
     }
 
