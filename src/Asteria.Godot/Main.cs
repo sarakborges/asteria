@@ -2598,18 +2598,24 @@ public partial class Main : Node3D
             equipment = Enum.GetValues<EquipmentSlot>()
                 .Select(slot => InventorySlotView(inventory.EquipmentAt(slot)))
                 .ToArray(),
-            recipes = _crafting.Recipes.Select(recipe => new
+            recipes = _crafting.Recipes.Select(recipe =>
             {
-                id = recipe.Id,
-                resultId = recipe.Result.Item,
-                outputQuantity = recipe.Result.Quantity,
-                ingredients = recipe.Ingredients.Select(ingredient => new
+                var availability = _crafting.Availability(inventory, recipe.Id);
+                return new
                 {
-                    id = ingredient.Item,
-                    required = ingredient.Quantity,
-                    available = inventory.ItemQuantity(ingredient.Item),
-                }).ToArray(),
-                craftable = _crafting.CanCraft(inventory, recipe.Id),
+                    id = recipe.Id,
+                    resultId = recipe.Result.Item,
+                    outputQuantity = recipe.Result.Quantity,
+                    ingredients = recipe.Ingredients.Select(ingredient => new
+                    {
+                        id = ingredient.Item,
+                        required = ingredient.Quantity,
+                        available = inventory.ItemQuantity(ingredient.Item),
+                    }).ToArray(),
+                    craftable = availability == InventoryCraftingResult.Crafted,
+                    unavailableReason = availability == InventoryCraftingResult.Crafted
+                        ? null : availability.ToString(),
+                };
             }).ToArray(),
         });
     }
