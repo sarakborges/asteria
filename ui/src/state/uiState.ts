@@ -261,6 +261,7 @@ export type InventoryCraftingRecipe = {
   outputQuantity: number;
   ingredients: { id: string; required: number; available: number }[];
   craftable: boolean;
+  unavailableReason: "MissingIngredients" | "InventoryFull" | null;
 };
 
 export type InventoryCraftingStatus =
