@@ -259,4 +259,96 @@ public sealed class StorageBoxRuntimeTests
         Assert.Equal(12, slots[1]!.Quantity);
     }
 
+
+    [Fact]
+    public void StorageRightClickSplitsAndPlacesSingleItems()
+    {
+        var (storage, world, blocks) = OpenStorage();
+        var player = new PlayerInventory();
+        var wood = InventoryEntry.FromItem("asteria:wood");
+        Assert.True(storage.TryInsertActive(new InventoryStack(wood, 5), world, blocks));
+        Assert.True(storage.TryClickActive(0, player, world, blocks, rightButton: true));
+        Assert.Equal(3, player.Cursor!.Quantity);
+        Assert.Equal(2, storage.CaptureActive()!.Slots[0]!.Quantity);
+        Assert.True(storage.TryClickActive(1, player, world, blocks, rightButton: true));
+        Assert.Equal(2, player.Cursor!.Quantity);
+        Assert.Equal(1, storage.CaptureActive()!.Slots[1]!.Quantity);
+        Assert.True(storage.TryClickActive(0, player, world, blocks, rightButton: true));
+        Assert.Equal(3, storage.CaptureActive()!.Slots[0]!.Quantity);
+        Assert.Equal(1, player.Cursor!.Quantity);
+        Assert.True(storage.TryClickActive(1, player, world, blocks, rightButton: true));
+        Assert.Null(player.Cursor);
+        Assert.Equal(2, storage.CaptureActive()!.Slots[1]!.Quantity);
+    }
+
+    [Fact]
+    public void QuickTransferBothDirectionsPreservesMetadataAndCursor()
+    {
+        var (storage, world, blocks) = OpenStorage();
+        var player = new PlayerInventory();
+        var wood = InventoryEntry.FromItem("asteria:wood",
+            new Dictionary<string, string> { ["quality"] = "fine" });
+        Assert.True(player.TryCreativePick(
+            InventoryEntry.FromItem("asteria:stone"), 3));
+        var initialCursor = player.Cursor;
+
+        Assert.True(storage.TryInsertActive(new InventoryStack(wood, 38), world, blocks));
+        Assert.True(storage.TryQuickTransferActive(0, player, world, blocks));
+        Assert.Null(storage.CaptureActive()!.Slots[0]);
+        Assert.Equal(38, player.SlotAt(27)!.Quantity);
+        Assert.Equal("fine", player.SlotAt(27)!.Entry.Metadata["quality"]);
+        Assert.Equal(initialCursor, player.Cursor);
+
+        Assert.True(storage.TryQuickTransferPlayer(27, player, world, blocks));
+        Assert.Null(player.SlotAt(27));
+        Assert.Equal(38, storage.CaptureActive()!.Slots[0]!.Quantity);
+        Assert.Equal(initialCursor, player.Cursor);
+    }
+
+    [Fact]
+    public void QuickTransferAcceptsPartialCapacityButRejectsFullOrClosedBoxes()
+    {
+        var (storage, world, blocks) = OpenStorage();
+        var player = new PlayerInventory();
+        var stone = InventoryEntry.FromItem("asteria:stone");
+        var wood = InventoryEntry.FromItem("asteria:wood");
+        for (var i = 0; i < PlayerInventory.TotalSlots - 1; i++)
+            Assert.True(player.TryInsert(new InventoryStack(stone, 64)));
+        Assert.True(player.TryInsert(new InventoryStack(wood, 62)));
+        Assert.True(storage.TryInsertActive(new InventoryStack(wood, 10), world, blocks));
+
+        Assert.True(storage.TryQuickTransferActive(0, player, world, blocks));
+        Assert.Equal(64, player.SlotAt(35)!.Quantity);
+        Assert.Equal(8, storage.CaptureActive()!.Slots[0]!.Quantity);
+        var storageRevision = storage.Revision;
+        var playerRevision = player.Revision;
+        Assert.False(storage.TryQuickTransferActive(0, player, world, blocks));
+        Assert.Equal(storageRevision, storage.Revision);
+        Assert.Equal(playerRevision, player.Revision);
+
+        world.ArchiveChunk(ChunkCoord.Zero);
+        Assert.False(storage.TryQuickTransferPlayer(27, player, world, blocks));
+        Assert.False(storage.TryQuickTransferActive(0, player, world, blocks));
+        Assert.Equal(storageRevision, storage.Revision);
+        Assert.Equal(playerRevision, player.Revision);
+    }
+
+    [Fact]
+    public void QuickTransferToFullStorageDoesNotConsumePlayerSlots()
+    {
+        var (storage, world, blocks) = OpenStorage();
+        var player = new PlayerInventory();
+        var stone = InventoryEntry.FromTool("asteria:stone_tool");
+        for (var i = 0; i < StorageBoxRuntime.SlotCount; i++)
+            Assert.True(storage.TryInsertActive(new InventoryStack(stone), world, blocks));
+        var wood = InventoryEntry.FromItem("asteria:wood");
+        Assert.True(player.TryInsert(new InventoryStack(wood, 9)));
+        var playerRevision = player.Revision;
+        var storageRevision = storage.Revision;
+        Assert.False(storage.TryQuickTransferPlayer(27, player, world, blocks));
+        Assert.Equal(playerRevision, player.Revision);
+        Assert.Equal(storageRevision, storage.Revision);
+        Assert.Equal(9, player.SlotAt(27)!.Quantity);
+    }
+
 }
