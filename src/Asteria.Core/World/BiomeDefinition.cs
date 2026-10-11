@@ -656,8 +656,12 @@ public sealed class BiomeDecorationDefinition
         SurfaceHabitatWeights? habitatWeights = null,
         DecorationFluidPlacement fluidPlacement = DecorationFluidPlacement.Dry,
         BiomeDecorationFluidRequirement? fluidRequirement = null,
-        DecorationSupportSurface supportSurface = DecorationSupportSurface.Floor)
+        DecorationSupportSurface supportSurface = DecorationSupportSurface.Floor,
+        bool isLayer = false)
     {
+        if (isLayer && supportSurface != DecorationSupportSurface.Wall)
+            throw new ArgumentException(
+                "Decorative attached layers require wall support.", nameof(isLayer));
         if (!Enum.IsDefined(supportSurface))
             throw new ArgumentOutOfRangeException(nameof(supportSurface));
         BiomeSurfaceLayerDefinition.ValidateBlockId(
@@ -701,6 +705,7 @@ public sealed class BiomeDecorationDefinition
         }
 
         Block = block;
+        IsLayer = isLayer;
         Chance = chance;
         Cluster = cluster;
         Conditions = conditions;
@@ -713,6 +718,8 @@ public sealed class BiomeDecorationDefinition
     }
 
     public string Block { get; }
+    /// <summary>The authored identifier is a layer rather than a voxel block.</summary>
+    public bool IsLayer { get; }
 
     public float Chance { get; }
 

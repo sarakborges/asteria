@@ -61,7 +61,8 @@ public sealed class BiomeWorldGenerator :
         BiomeRegistry biomes,
         StructureRegistry structures,
         StructureSetRegistry? structureSets = null,
-        WorldGenerationOptions? generation = null)
+        WorldGenerationOptions? generation = null,
+        AttachedLayerRegistry? layers = null)
     {
         ArgumentNullException.ThrowIfNull(dimension);
         ArgumentNullException.ThrowIfNull(blocks);
@@ -73,6 +74,8 @@ public sealed class BiomeWorldGenerator :
         generation ??= new WorldGenerationOptions();
         biomes.ValidateBlocks(blocks);
         biomes.ValidateFluids(fluids);
+        if (layers is not null)
+            biomes.ValidateLayers(layers);
         structures.ValidateBlocks(blocks);
         structures.ValidateFluids(fluids);
         structureSets.ValidateStructures(
@@ -207,7 +210,8 @@ public sealed class BiomeWorldGenerator :
                 _terrain,
                 habitats,
                 generateDecorations: generation.Mode != WorldGenerationMode.Void,
-                fluids: fluids);
+                fluids: fluids,
+                layers: layers);
         var volumeStructures = new VolumeStructureField(
             seed, volumeDefinitions, structures, blocks,
             _terrain, _volumeBiomes, materials,

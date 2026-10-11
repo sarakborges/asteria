@@ -131,10 +131,8 @@ public sealed class BiomeRegistry
             foreach (var decoration in
                      definition.Decorations)
             {
-                RequireBlock(
-                    blocks,
-                    definition.Id,
-                    decoration.Block);
+                if (!decoration.IsLayer)
+                    RequireBlock(blocks, definition.Id, decoration.Block);
 
                 foreach (var block in
                          decoration.SurfaceBlocks)
@@ -145,6 +143,22 @@ public sealed class BiomeRegistry
                         block);
                 }
             }
+        }
+    }
+
+    public void ValidateLayers(AttachedLayerRegistry layers)
+    {
+        ArgumentNullException.ThrowIfNull(layers);
+        foreach (var biome in _definitions)
+        foreach (var rule in biome.Decorations.Where(rule => rule.IsLayer))
+        {
+            if (!layers.TryGet(rule.Block, out var layer) || layer is null)
+                throw new ArgumentException(
+                    $"Biome {biome.Id} references unknown layer {rule.Block}.");
+            if (new[] { BlockFace.Left, BlockFace.Right, BlockFace.Front,
+                        BlockFace.Back }.Any(face => !layer.Supports(face)))
+                throw new ArgumentException(
+                    $"Biome {biome.Id} layer {rule.Block} requires all four wall faces.");
         }
     }
 
