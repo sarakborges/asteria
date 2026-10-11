@@ -5,7 +5,7 @@ namespace Asteria.Core.Tests;
 public sealed class BlockPhysicsRuntimeTests
 {
     [Fact]
-    public void VoxelEditWakesChangedVoxelAndBothSupportNeighborsOnce()
+    public void VoxelEditWakesChangedVoxelAndAllSupportNeighborsOnce()
     {
         var queue =
             new BlockPhysicsUpdateQueue();
@@ -21,6 +21,10 @@ public sealed class BlockPhysicsRuntimeTests
                 position,
                 position + (0, 1, 0),
                 position + (0, -1, 0),
+                position + (1, 0, 0),
+                position + (-1, 0, 0),
+                position + (0, 0, 1),
+                position + (0, 0, -1),
             },
             queue.DrainBatch());
         Assert.Equal(0, queue.Count);
@@ -700,6 +704,46 @@ public sealed class BlockPhysicsRuntimeTests
                 .IsEmpty);
         Assert.Single(
             dropped.ActiveBlocks);
+    }
+
+    [Fact]
+    public void WallFloraIsRemovedWhenTheRecordedSupportFaceIsMined()
+    {
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, new Chunk());
+        var blocks = new BlockRegistry([
+            new BlockDefinition("asteria:stone"),
+            new BlockDefinition("asteria:wall_moss",
+                tags: [BlockPhysicsCapabilities.SupportWall],
+                isCollidable:false)
+        ]);
+        var updates = new WorldUpdateQueue();
+        var fluids = new FluidUpdateQueue();
+        var meshes = new FluidMeshUpdateQueue();
+        var physicsQueue = new BlockPhysicsUpdateQueue();
+        var mutations = new VoxelMutationRuntime(
+            world, updates, fluids, meshes, physicsQueue,
+            new MeshletContentRevisions(),
+            new MeshletContentRevisions());
+        var drops = new DroppedBlockRuntime(world, blocks);
+        var runtime = new BlockPhysicsRuntime(
+            world, blocks, mutations, physicsQueue, drops);
+        var support = new WorldVoxelCoord(4, 8, 3);
+        var plant = new WorldVoxelCoord(4, 8, 4);
+        Assert.True(mutations.SetBlockAt(support,
+            blocks.GetId("asteria:stone"), out _));
+        Assert.True(mutations.SetCellAt(plant,
+            new VoxelCell(blocks.GetId("asteria:wall_moss"),
+                facing:HorizontalFacing.South), out _));
+
+        runtime.ProcessWakeups();
+        Assert.False(world.GetCellOrEmpty(plant).IsEmpty);
+
+        Assert.True(mutations.SetCellAt(support, VoxelCell.Empty, out _));
+        var result = runtime.ProcessWakeups();
+        Assert.Equal(1, result.UnsupportedRemoved);
+        Assert.True(world.GetCellOrEmpty(plant).IsEmpty);
+        Assert.Single(drops.ActiveBlocks);
     }
 
     private static Fixture CreateFixture(

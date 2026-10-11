@@ -1057,7 +1057,8 @@ Gorge terrain and habitat rules remain unchanged.
 The current crossed-sprite geometry renders the decoration as
 wall-emerging foliage and the logical face is stored in the
 voxel; a future dedicated flush wall-decal visual kind would
-improve purely flat wall graphics. The support check here
-guarantees generated placement, not yet gameplay detachment
-when a supporting wall is mined away; verify live mutation
-support semantics separately before claiming runtime detachment.
+improve purely flat wall graphics. The block physics update queue now wakes all horizontal neighbors
+when a voxel changes and validates `support_wall` against the
+`VoxelCell.Facing` outward normal. Wall plants detach/drop when
+their supporting wall is mined, using the same mutation pipeline as
+ordinary floor/ceiling-supported plants.

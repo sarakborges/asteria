@@ -138,7 +138,7 @@ These are *candidates*, not all mandatory changes. Reject objects
 that do not add a distinct silhouette, size, color, habitat, or gameplay
 value over existing content.
 
-**Wall decorator status (2026-10-11):** generic wall placement with directional support was implemented for Caverns and Gorge; a dedicated flat wall-decal renderer and runtime detachment when a supporting block is mined remain separate follow-ups.
+**Wall decorator status (2026-10-11):** generic wall placement with directional support was implemented for Caverns and Gorge; a dedicated flat wall-decal renderer remains a follow-up; runtime support-wall detachment is now handled by shared block physics.
 
 ## P2 — genuine system prerequisites
 

@@ -5,6 +5,7 @@ public static class BlockPhysicsCapabilities
     public const string Gravity = "gravity";
     public const string SupportBelow = "support_below";
     public const string SupportAbove = "support_above";
+    public const string SupportWall = "support_wall";
 }
 
 public enum BlockSupportState : byte
@@ -32,17 +33,34 @@ public static class BlockSupportRules
             BlockPhysicsCapabilities.SupportBelow);
         var needsAbove = definition.HasTag(
             BlockPhysicsCapabilities.SupportAbove);
-        if (!needsBelow && !needsAbove)
+        var needsWall = definition.HasTag(
+            BlockPhysicsCapabilities.SupportWall);
+        if (!needsBelow && !needsAbove && !needsWall)
             return BlockSupportState.Supported;
-        if (needsBelow && needsAbove)
+        if ((needsBelow ? 1 : 0) +
+            (needsAbove ? 1 : 0) +
+            (needsWall ? 1 : 0) > 1)
             throw new InvalidOperationException(
-                "A dependent block cannot require both upper and lower support.");
+                "A dependent block must require only one support direction.");
         if ((needsBelow && position.Y <= 0) ||
             (needsAbove && position.Y == int.MaxValue))
             return BlockSupportState.Unsupported;
 
-        var supportPosition = new WorldVoxelCoord(
-            position.X, position.Y + (needsAbove ? 1 : -1), position.Z);
+        var (dx, dy, dz, supportFace, dependentFace) = needsWall
+            ? cell.Facing switch
+            {
+                // Facing is the wall's outward normal. The solid
+                // support is always behind the dependent sprite.
+                HorizontalFacing.North => (0, 0, 1, BlockFace.Back, BlockFace.Front),
+                HorizontalFacing.South => (0, 0, -1, BlockFace.Front, BlockFace.Back),
+                HorizontalFacing.East => (-1, 0, 0, BlockFace.Right, BlockFace.Left),
+                HorizontalFacing.West => (1, 0, 0, BlockFace.Left, BlockFace.Right),
+                _ => throw new ArgumentOutOfRangeException(nameof(cell)),
+            }
+            : needsAbove
+                ? (0, 1, 0, BlockFace.Bottom, BlockFace.Top)
+                : (0, -1, 0, BlockFace.Top, BlockFace.Bottom);
+        var supportPosition = position + (dx, dy, dz);
 
         if (!world.IsLoadedAt(
                 supportPosition))
@@ -70,11 +88,11 @@ public static class BlockSupportRules
                 supportDefinition,
                 supportCell,
                 supportMask,
-                needsAbove ? BlockFace.Bottom : BlockFace.Top,
+                supportFace,
                 definition,
                 cell,
                 microblockMask,
-                needsAbove ? BlockFace.Top : BlockFace.Bottom)
+                dependentFace)
             ? BlockSupportState.Supported
             : BlockSupportState.Unsupported;
     }

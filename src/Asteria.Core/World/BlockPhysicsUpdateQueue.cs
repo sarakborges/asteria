@@ -22,6 +22,11 @@ public sealed class BlockPhysicsUpdateQueue
         Enqueue(position);
         Enqueue(position + (0, 1, 0));
         Enqueue(position + (0, -1, 0));
+        // Any edited voxel may be the supporting side of wall flora.
+        Enqueue(position + (1, 0, 0));
+        Enqueue(position + (-1, 0, 0));
+        Enqueue(position + (0, 0, 1));
+        Enqueue(position + (0, 0, -1));
     }
 
     public void Enqueue(WorldVoxelCoord position)

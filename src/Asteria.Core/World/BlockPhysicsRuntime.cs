@@ -145,7 +145,9 @@ public sealed class BlockPhysicsRuntime
                     !definition.HasTag(
                         BlockPhysicsCapabilities.SupportBelow) &&
                     !definition.HasTag(
-                        BlockPhysicsCapabilities.SupportAbove))
+                        BlockPhysicsCapabilities.SupportAbove) &&
+                    !definition.HasTag(
+                        BlockPhysicsCapabilities.SupportWall))
                 {
                     return;
                 }
