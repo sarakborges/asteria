@@ -14,7 +14,7 @@ public sealed class InteractiveLayerMiningTests
     private static readonly VoxelWorldHit TopHit = new(Position, 0, 1, 0);
     private static readonly VoxelWorldHit FrontHit = new(Position, 0, 0, 1);
 
-    private static Fixture Setup()
+    private static Fixture Setup(int dropCapacity = 2048)
     {
         var blocks = new BlockRegistry([
             new BlockDefinition("asteria:stone", mining: new BlockMiningDefinition(
@@ -43,7 +43,8 @@ public sealed class InteractiveLayerMiningTests
             world, new WorldUpdateQueue(), new FluidUpdateQueue(),
             new FluidMeshUpdateQueue(), new BlockPhysicsUpdateQueue(),
             new MeshletContentRevisions(), new MeshletContentRevisions());
-        var drops = new DroppedBlockRuntime(world, blocks);
+        var drops = new DroppedBlockRuntime(world, blocks,
+            maximumActive: dropCapacity);
         var tools = PackContentRegistry<ToolDefinition>.FromJson([
             """
             {"id":"asteria:pickaxe","category":"tools","icon":"textures/pickaxe.png",
@@ -200,6 +201,26 @@ public sealed class InteractiveLayerMiningTests
         Assert.Equal(0, f.Drops.ActiveCount);
         Assert.Equal(f.Blocks.GetId("asteria:stone"),
             f.World.GetCellOrEmpty(Position).Block);
+    }
+
+    [Fact]
+    public void FullDropPoolPreservesOreAndPreviouslyDroppedItems()
+    {
+        var f = Setup(dropCapacity: 1);
+        PutStone(f, new BlockSurfaceState(null, [
+            new AttachedBlockLayer(BlockFace.Top, "asteria:iron_ore")
+        ]));
+        var existing = f.Drops.Spawn(
+            new InventoryStack(InventoryEntry.FromItem("asteria:existing")),
+            new System.Numerics.Vector3(1, 4, 1));
+
+        Assert.False(f.Interactions.Break(TopHit).Accepted);
+        Assert.Equal(existing, Assert.Single(f.Drops.ActiveBlocks).Id);
+        Assert.Equal(f.Blocks.GetId("asteria:stone"),
+            f.World.GetCellOrEmpty(Position).Block);
+        Assert.True(f.World.GetBlockSurfaceStateOrEmpty(Position)
+            .TryGetTop(BlockFace.Top, out var top));
+        Assert.Equal("asteria:iron_ore", top.LayerId);
     }
 
     [Fact]
