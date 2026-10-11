@@ -34,7 +34,7 @@ test("save failure confirmation is accessible and remains visible above other UI
   await page.goto("/iframe.html?id=organisms-savefailureexitdialog--save-failed&viewMode=story");
   const dialog = page.getByRole("alertdialog", { name: "Save failed" });
   await expect(dialog).toBeVisible();
-  await expect(dialog).toContainText("your latest changes will not be saved");
+  await expect(dialog).toContainText("your latest changes will be lost");
   await expect(dialog).toBeFocused();
   await expect(dialog.getByRole("button", { name: "Keep Playing" })).toBeVisible();
   await expect(dialog.getByRole("button", { name: "Exit Without Saving" })).toBeVisible();

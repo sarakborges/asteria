@@ -37,7 +37,7 @@ export function SaveFailureExitDialog({
             return;
           }
           if (event.key !== "Tab") return;
-          const buttons = event.currentTarget.querySelectorAll("button:not(:disabled)");
+          const buttons = event.currentTarget.querySelectorAll<HTMLButtonElement>("button:not(:disabled)");
           const first = buttons.item(0);
           const last = buttons.item(buttons.length - 1);
           if (event.shiftKey &&
