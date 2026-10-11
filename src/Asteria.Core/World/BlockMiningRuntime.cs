@@ -105,7 +105,9 @@ public sealed class BlockMiningRuntime
         _work = Math.Min(
             requiredWork,
             _work + (double)elapsedTicks * speed);
-        if (requiredWork > 0 && _work < requiredWork)
+        // Authored decimal hardness is stored as float; tolerate its sub-tick
+        // representation error so exact required work still completes.
+        if (requiredWork > 0 && _work + 0.00001 < requiredWork)
         {
             Progress = (float)(_work / requiredWork);
             return false;
