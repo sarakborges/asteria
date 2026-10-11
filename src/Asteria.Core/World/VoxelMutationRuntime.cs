@@ -214,9 +214,7 @@ public sealed class VoxelMutationRuntime
             }
 
             if (!change.Current.IsEmpty &&
-                !_world.GetCellOrEmpty(
-                        change.Position)
-                    .IsEmpty)
+                !_world.CanContainFluidAt(change.Position))
             {
                 return FluidMutationBatchResult.Rejected;
             }
