@@ -107,11 +107,12 @@ export function InventoryGameplayPage({
         };
       }),
       craftable: recipe.craftable,
+      unavailableReason: recipe.unavailableReason,
     };
   }), [state.recipes, state.catalog]);
   const selectedRecipe = recipes.some(recipe => recipe.id === selectedRecipeId)
     ? selectedRecipeId : recipes[0]?.id ?? null;
-  const status = state.craftingStatus
+  const status = state.craftingStatus?.recipeId === selectedRecipe
     ? state.craftingStatus.code === "Crafted"
       ? t("crafting.crafted", {
         item: contentName(state.recipes.find(
