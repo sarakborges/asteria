@@ -2,6 +2,10 @@ namespace Asteria.Core.World;
 
 public sealed class BlockPhysicsUpdateQueue
 {
+    // Support checks can enqueue many voxels when chunks enter residency.
+    // Keep the FIFO workload bounded on each tick; pending work remains queued.
+    public const int MaximumBatchSize = 256;
+
     private readonly DeduplicatedQueue<WorldVoxelCoord>
         _queue = new();
 
@@ -38,5 +42,5 @@ public sealed class BlockPhysicsUpdateQueue
     }
 
     public IReadOnlyList<WorldVoxelCoord> DrainBatch() =>
-        _queue.Drain();
+        _queue.Drain(MaximumBatchSize);
 }
