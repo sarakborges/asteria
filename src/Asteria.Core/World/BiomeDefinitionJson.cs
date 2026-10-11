@@ -779,6 +779,7 @@ public static class BiomeDefinitionJson
         {
             null or "floor" => DecorationSupportSurface.Floor,
             "ceiling" => DecorationSupportSurface.Ceiling,
+            "wall" => DecorationSupportSurface.Wall,
             var value => throw new FormatException(
                 $"Unknown decorations.supportSurface: {value}."),
         };

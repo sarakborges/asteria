@@ -12,6 +12,7 @@ public sealed class SurfaceDecorationField
     private readonly IReadOnlyDictionary<string, DecorationRule[]> _rules;
     private readonly HashSet<string> _verticalBiomes;
     private readonly HashSet<string> _ceilingBiomes;
+    private readonly HashSet<string> _wallBiomes;
 
     public SurfaceDecorationField(
         ulong seed,
@@ -37,6 +38,12 @@ public sealed class SurfaceDecorationField
             .Where(biome => generateDecorations &&
                             biome.Decorations.Any(d => d.SupportSurface ==
                                 DecorationSupportSurface.Ceiling))
+            .Select(biome => biome.Id)
+            .ToHashSet(StringComparer.Ordinal);
+        _wallBiomes = definitions
+            .Where(biome => generateDecorations &&
+                            biome.Decorations.Any(d => d.SupportSurface ==
+                                DecorationSupportSurface.Wall))
             .Select(biome => biome.Id)
             .ToHashSet(StringComparer.Ordinal);
         _habitats = habitats ?? new SurfaceHabitatField(seed, definitions);
@@ -83,6 +90,10 @@ public sealed class SurfaceDecorationField
 
     public bool HasVerticalDecorations => _verticalBiomes.Count > 0;
     public bool HasCeilingDecorations => _ceilingBiomes.Count > 0;
+    public bool HasWallDecorations => _wallBiomes.Count > 0;
+
+    public bool HasWallDecorationsFor(string biomeId) =>
+        _wallBiomes.Contains(biomeId);
 
     public bool HasCeilingDecorationsFor(string biomeId) =>
         _ceilingBiomes.Contains(biomeId);

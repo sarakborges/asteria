@@ -642,6 +642,7 @@ public enum DecorationSupportSurface
 {
     Floor,
     Ceiling,
+    Wall,
 }
 
 public sealed class BiomeDecorationDefinition
