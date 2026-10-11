@@ -150,3 +150,35 @@ export const AuthoredCreativeCategories: Story = {
     },
   },
 };
+
+export const NoRecipes: Story = {
+  args: {
+    state: {
+      ...meta.args.state,
+      creativeAvailable: false,
+      recipes: [],
+      categories: [
+        ...meta.args.state.categories,
+        {
+          id: "crafting_materials",
+          order: 25,
+          iconUrl: everythingIcon,
+        },
+      ],
+    },
+  },
+};
+
+export const RecipeOutputFull: Story = {
+  args: {
+    state: {
+      ...meta.args.state,
+      creativeAvailable: false,
+      recipes: meta.args.state.recipes.map(recipe => ({
+        ...recipe,
+        craftable: false,
+        unavailableReason: "InventoryFull" as const,
+      })),
+    },
+  },
+};
