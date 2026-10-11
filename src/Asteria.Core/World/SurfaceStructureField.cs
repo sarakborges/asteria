@@ -257,6 +257,13 @@ public sealed class SurfaceStructureField
             maximumHorizontalRadius:
                 _connectors.MaximumHorizontalRadiusForReference(reference));
         var pieces = ExpandConnectors(rule, [root], MaximumManualPayloadCount);
+        // A surface-bound connector is a required completed route, not a
+        // best-effort dead end when strength, budget or child fit runs out.
+        if (definitions[0].Connectors.Any(connector => connector.StopAtSurface) &&
+            !pieces.Any(piece =>
+                _structures.Get(piece.StructureId).Connectors.Any(connector =>
+                    HasReachedSurface(piece, connector))))
+            return false;
         if (pieces.Any(piece => piece.MinimumY < 0 ||
             (_floorY is { } floorY && piece.MinimumY <= floorY) ||
             (_roofY is { } roofY && piece.MaximumY >= roofY)))
@@ -1425,19 +1432,25 @@ public sealed class SurfaceStructureField
                     ? placement
                     : null;
             },
-            (parent, connector) =>
-            {
-                if (!connector.StopAtSurface)
-                    return false;
-                var offset = StructureDefinition.RotateOffset(
-                    parent.Rotation, connector.X, connector.Y, connector.Z);
-                var surface = SurfaceAt(
-                    checked(parent.AnchorX + offset.X),
-                    checked(parent.AnchorZ + offset.Z));
-                return (long)parent.MaximumY - connector.SurfaceClearance >=
-                    surface.BaseY;
-            },
+            HasReachedSurface,
             maximumPayloadCount);
+
+    private bool HasReachedSurface(
+        SurfaceStructurePlacement piece,
+        StructureConnectorDefinition connector)
+    {
+        if (!connector.StopAtSurface)
+            return false;
+        var offset = StructureDefinition.RotateOffset(
+            piece.Rotation, connector.X, connector.Y, connector.Z);
+        var worldX = (long)piece.AnchorX + offset.X;
+        var worldZ = (long)piece.AnchorZ + offset.Z;
+        if (worldX is < int.MinValue or > int.MaxValue ||
+            worldZ is < int.MinValue or > int.MaxValue)
+            return false;
+        return (long)piece.MaximumY - connector.SurfaceClearance >=
+            SurfaceAt((int)worldX, (int)worldZ).BaseY;
+    }
 
     private bool TryResolvePlacement(
         RuntimeStructure member,
