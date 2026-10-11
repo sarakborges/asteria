@@ -113,12 +113,10 @@ public sealed class BlockMiningRuntime
         }
         else
         {
-            _swingTicks += elapsedTicks % SwingIntervalTicks;
-            if (_swingTicks >= SwingIntervalTicks)
-            {
-                _swingTicks %= SwingIntervalTicks;
+            var totalTicks = (ulong)_swingTicks + elapsedTicks;
+            _swingTicks = (uint)(totalTicks % SwingIntervalTicks);
+            if (totalTicks >= SwingIntervalTicks)
                 PublishFeedback(position, completed: false);
-            }
         }
 
         var requiredWork = DefaultBreakWorkTicks * mining.Hardness;
