@@ -9,6 +9,12 @@ public sealed record ToolMiningDefinition(
 public sealed record ToolIconVariant(
     string MetadataKey, string MetadataValue, string Icon);
 
+public enum ToolHeldPresentation : byte
+{
+    Standard = 0,
+    GrippedSprite = 1,
+}
+
 public sealed record ToolDefinition(
     string Id,
     string Category,
@@ -18,7 +24,8 @@ public sealed record ToolDefinition(
     string RightBehavior,
     ToolMiningDefinition? Mining,
     int MaxStackSize = 1,
-    IReadOnlyList<ToolIconVariant>? IconVariants = null)
+    IReadOnlyList<ToolIconVariant>? IconVariants = null,
+    ToolHeldPresentation HeldPresentation = ToolHeldPresentation.Standard)
 {
     public static ToolDefinition Parse(string json)
     {
@@ -66,6 +73,12 @@ public sealed record ToolDefinition(
             }
         }
 
+        var heldPresentation = PackContentFields.OptionalString(root, "heldPresentation") switch
+        {
+            null or "standard" => ToolHeldPresentation.Standard,
+            "grippedSprite" => ToolHeldPresentation.GrippedSprite,
+            _ => throw new FormatException("Unsupported heldPresentation for tool."),
+        };
         var tint = PackContentFields.OptionalString(root, "tintIcon");
         return new ToolDefinition(
             PackContentFields.Id(root),
@@ -76,6 +89,6 @@ public sealed record ToolDefinition(
             PackContentFields.Namespaced(PackContentFields.RequiredString(root, "rightBehavior"), "rightBehavior"),
             mining,
             maxStackSize,
-            iconVariants.AsReadOnly());
+            iconVariants.AsReadOnly(), heldPresentation);
     }
 }

@@ -33,6 +33,8 @@ public sealed partial class PlayerModelPresentation : Node3D
     private readonly PlayerInventory _inventory;
     private readonly HeldVisualResolver _heldResolver;
     private readonly PackContentRegistry<ItemDefinition> _items;
+    private readonly Func<Color?> _selectedToolTint;
+    private Color? _lastToolTint;
     private PlayerEquipmentPresentation? _equipment;
     private HeldItemPresentation? _held;
     private PlayerFirstPersonViewModel? _firstPerson;
@@ -52,7 +54,8 @@ public sealed partial class PlayerModelPresentation : Node3D
     public PlayerModelPresentation(
         FpsPlayer player, PackSelection selection,
         PlayerVisualDefinition definition, PlayerInventory inventory,
-        HeldVisualResolver heldResolver, PackContentRegistry<ItemDefinition> items)
+        HeldVisualResolver heldResolver, PackContentRegistry<ItemDefinition> items,
+        Func<Color?> selectedToolTint)
     {
         _player = player ?? throw new ArgumentNullException(nameof(player));
         _selection = selection;
@@ -60,6 +63,8 @@ public sealed partial class PlayerModelPresentation : Node3D
         _inventory = inventory ?? throw new ArgumentNullException(nameof(inventory));
         _heldResolver = heldResolver ?? throw new ArgumentNullException(nameof(heldResolver));
         _items = items ?? throw new ArgumentNullException(nameof(items));
+        _selectedToolTint = selectedToolTint ??
+            throw new ArgumentNullException(nameof(selectedToolTint));
         Name = "PlayerVisual";
         Visible = false;
     }
@@ -200,6 +205,13 @@ public sealed partial class PlayerModelPresentation : Node3D
     {
         if (_animations is null) return;
         _equipment?.Sync();
+        var toolTint = _selectedToolTint();
+        if (_lastToolTint != toolTint)
+        {
+            _lastToolTint = toolTint;
+            _held?.SetTint(toolTint);
+            _firstPerson?.SetToolTint(toolTint);
+        }
         if (_held is not null && _lastInventoryRevision != _inventory.Revision)
         {
             _held.SetVisual(_heldResolver.Resolve(_inventory.SelectedStack));

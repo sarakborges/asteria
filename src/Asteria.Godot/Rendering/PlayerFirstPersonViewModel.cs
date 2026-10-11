@@ -100,6 +100,11 @@ internal sealed partial class PlayerFirstPersonViewModel : Node3D
         UpdatePose(_player.CurrentWorldTick());
     }
 
+    public void SetToolTint(Color? tint)
+    {
+        _held?.SetTint(tint);
+    }
+
     public bool TryPlayAction(PlayerVisualAction action, bool fastBreak = false)
     {
         if (action is not (PlayerVisualAction.Hit or PlayerVisualAction.Break or

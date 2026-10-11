@@ -23,6 +23,53 @@ public sealed class HeldVisualResolverTests
     }
 
     [Fact]
+    public void AuthoredHandToolsSelectGrippedSpriteAndBrushMask()
+    {
+        var brushJson = """
+          {"id":"asteria:brush_rustic","category":"tools",
+           "icon":"textures/tools/brush.png",
+           "tintIcon":"textures/tools/brush-tint.png",
+           "heldPresentation":"grippedSprite",
+           "leftBehavior":"asteria:brush/paint",
+           "rightBehavior":"asteria:brush/open_palette"}
+          """;
+        var kitJson = """
+          {"id":"asteria:artisans_kit_rustic","category":"tools",
+           "icon":"textures/tools/artisans-kit.png",
+           "heldPresentation":"grippedSprite",
+           "leftBehavior":"asteria:artisans_kit/remove",
+           "rightBehavior":"asteria:artisans_kit/restore"}
+          """;
+        var ordinaryJson = """
+          {"id":"asteria:hatchet","category":"tools",
+           "icon":"textures/tools/hatchet.png",
+           "leftBehavior":"asteria:mine",
+           "rightBehavior":"asteria:log/strip"}
+          """;
+        var tools = PackContentRegistry<ToolDefinition>.FromJson(
+            [brushJson, kitJson, ordinaryJson],
+            ToolDefinition.Parse, definition => definition.Id);
+        var resolver = new HeldVisualResolver(new BlockRegistry([]),
+            PackContentRegistry<ItemDefinition>.FromJson([], ItemDefinition.Parse, definition => definition.Id),
+            tools, new AttachedLayerRegistry([]));
+        var heldBrush = resolver.Resolve(new InventoryStack(
+            InventoryEntry.FromTool("asteria:brush_rustic")))!;
+        Assert.Equal(HeldVisualKind.GrippedSprite, heldBrush.Kind);
+        Assert.Equal("textures/tools/brush-tint.png", heldBrush.TintTexture);
+        var heldKit = resolver.Resolve(new InventoryStack(
+            InventoryEntry.FromTool("asteria:artisans_kit_rustic")))!;
+        Assert.Equal(HeldVisualKind.GrippedSprite, heldKit.Kind);
+        Assert.Null(heldKit.TintTexture);
+        Assert.Equal(HeldVisualKind.Sprite, resolver.Resolve(new InventoryStack(
+            InventoryEntry.FromTool("asteria:hatchet")))!.Kind);
+        Assert.Throws<FormatException>(() => ToolDefinition.Parse("""
+          {"id":"asteria:invalid","category":"tools","icon":"textures/tools/invalid.png",
+           "heldPresentation":"unknown","leftBehavior":"asteria:mine",
+           "rightBehavior":"asteria:mine"}
+          """));
+    }
+
+    [Fact]
     public void CubeUsesDifferentAuthoredFaceTextures()
     {
         var block = new BlockDefinition("asteria:soil",

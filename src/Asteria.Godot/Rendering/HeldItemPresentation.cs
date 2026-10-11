@@ -12,9 +12,15 @@ internal sealed partial class HeldItemPresentation : Node3D
 {
     private const float CubeSize = 0.22f;
     private const float SpriteSize = 0.52f;
+    private const float ToolAngleRadians = 0.30f;
+    private const float ToolGripFraction = -0.36f;
+    private const float TintDepth = 0.004f;
     private readonly PackSelection _selection;
     private readonly bool _firstPerson;
     private HeldVisual? _selected;
+    private Color? _tint;
+    private MeshInstance3D? _tintLayer;
+    private StandardMaterial3D? _tintMaterial;
 
     public HeldItemPresentation(PackSelection selection, bool firstPerson = false)
     {
@@ -35,9 +41,12 @@ internal sealed partial class HeldItemPresentation : Node3D
         if (_firstPerson)
         {
             // Align with MineClone's distinct camera-space block/sprite grips.
-            Position = visual?.Kind == HeldVisualKind.Cube
-                ? new Vector3(-0.02f, 0.715f, 0.20f)
-                : new Vector3(0.04f, 0.76f, 0.21f);
+            Position = visual?.Kind switch
+            {
+                HeldVisualKind.Cube => new Vector3(-0.02f, 0.715f, 0.20f),
+                HeldVisualKind.GrippedSprite => new Vector3(-0.08f, 0.52f, 0.21f),
+                _ => new Vector3(0.04f, 0.76f, 0.21f),
+            };
             Quaternion = PlayerFirstPersonViewModel.RestPoseRotation.Inverse();
         }
 
@@ -46,6 +55,8 @@ internal sealed partial class HeldItemPresentation : Node3D
             RemoveChild(child);
             child.QueueFree();
         }
+        _tintLayer = null;
+        _tintMaterial = null;
         if (visual is null) return;
 
         if (visual.Kind == HeldVisualKind.Cube)
@@ -65,6 +76,25 @@ internal sealed partial class HeldItemPresentation : Node3D
             AddFace("bottom", visual.BottomTexture ?? visual.FrontTexture,
                 new Vector3(0, -h, 0), new Vector3(Mathf.Pi * 0.5f, 0, 0), size);
         }
+        else if (_firstPerson && visual.Kind == HeldVisualKind.GrippedSprite)
+        {
+            // Match MineClone's handle anchor instead of centering the icon.
+            // Both sprite layers share rotation/position; depth offsets the
+            // translucent tint just enough to avoid z-fighting the mask.
+            var grip = new Vector2(ToolGripFraction, ToolGripFraction)
+                .Rotated(ToolAngleRadians) * SpriteSize;
+            var position = new Vector3(-grip.X, -grip.Y, 0f);
+            var rotation = new Vector3(0f, 0f, ToolAngleRadians);
+            AddFace("tool_base", visual.FrontTexture, position, rotation, SpriteSize);
+            if (visual.TintTexture is { } tintTexture)
+            {
+                _tintLayer = AddFace("tool_tint", tintTexture,
+                    position + new Vector3(0f, 0f, TintDepth), rotation,
+                    SpriteSize, blended: true);
+                _tintMaterial = (StandardMaterial3D)_tintLayer.MaterialOverride;
+                ApplyTint();
+            }
+        }
         else
         {
             AddFace("sprite", visual.FrontTexture, Vector3.Zero,
@@ -72,11 +102,29 @@ internal sealed partial class HeldItemPresentation : Node3D
         }
     }
 
-    private void AddFace(
-        string name, string texturePath,
-        Vector3 position, Vector3 rotation, float size)
+    /// <summary>Presentation-only palette color. Brush selection remains
+    /// authoritative in ToolGameplayRuntime, not in this node.</summary>
+    public void SetTint(Color? tint)
     {
-        AddChild(new MeshInstance3D
+        if (_tint == tint) return;
+        _tint = tint;
+        ApplyTint();
+    }
+
+    private void ApplyTint()
+    {
+        if (_tintLayer is null || _tintMaterial is null) return;
+        _tintLayer.Visible = _tint.HasValue;
+        if (_tint is { } color)
+            _tintMaterial.AlbedoColor = color;
+    }
+
+    private MeshInstance3D AddFace(
+        string name, string texturePath,
+        Vector3 position, Vector3 rotation, float size,
+        bool blended = false)
+    {
+        var instance = new MeshInstance3D
         {
             Name = name,
             Mesh = new QuadMesh { Size = new Vector2(size, size) },
@@ -89,9 +137,13 @@ internal sealed partial class HeldItemPresentation : Node3D
                     _selection, texturePath),
                 ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
                 TextureFilter = BaseMaterial3D.TextureFilterEnum.Nearest,
-                Transparency = BaseMaterial3D.TransparencyEnum.AlphaScissor,
+                Transparency = blended
+                    ? BaseMaterial3D.TransparencyEnum.Alpha
+                    : BaseMaterial3D.TransparencyEnum.AlphaScissor,
                 CullMode = BaseMaterial3D.CullModeEnum.Disabled,
             }
-        });
+        };
+        AddChild(instance);
+        return instance;
     }
 }

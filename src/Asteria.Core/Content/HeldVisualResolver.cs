@@ -2,7 +2,7 @@ using Asteria.Core.World;
 
 namespace Asteria.Core.Content;
 
-public enum HeldVisualKind : byte { Sprite, Cube }
+public enum HeldVisualKind : byte { Sprite, Cube, GrippedSprite }
 
 /// <summary>
 /// Immutable selected-stack appearance. No input, movement or inventory
@@ -11,7 +11,8 @@ public enum HeldVisualKind : byte { Sprite, Cube }
 public sealed record HeldVisual(
     HeldVisualKind Kind, string FrontTexture,
     string? TopTexture = null, string? BottomTexture = null,
-    string? BackTexture = null, string? LeftTexture = null, string? RightTexture = null);
+    string? BackTexture = null, string? LeftTexture = null, string? RightTexture = null,
+    string? TintTexture = null);
 
 /// <summary>
 /// Maps existing authored catalog identities to their portable display
@@ -55,7 +56,12 @@ public sealed class HeldVisualResolver
                 var variant = (tool!.IconVariants ?? []).FirstOrDefault(x =>
                     selected.Entry.Metadata.TryGetValue(
                         x.MetadataKey, out var value) && value == x.MetadataValue);
-                return new HeldVisual(HeldVisualKind.Sprite, variant?.Icon ?? tool.Icon);
+                return new HeldVisual(
+                    tool.HeldPresentation == ToolHeldPresentation.GrippedSprite
+                        ? HeldVisualKind.GrippedSprite : HeldVisualKind.Sprite,
+                    variant?.Icon ?? tool.Icon,
+                    TintTexture: tool.HeldPresentation == ToolHeldPresentation.GrippedSprite
+                        ? tool.TintIcon : null);
             }
             case InventoryEntryKind.Layer:
             {

@@ -249,3 +249,10 @@ These are **code-level findings**, not a declaration that gameplay polish or in-
 - **Catalog:** after completed restore validation, compatible world cards receive optional previews from a bounded single-flight background PNG reader; one image travels per WebUI IPC message. Empty/invalid/oversized thumbnails are omitted. Catalog generations reject stale results.
 - **Presentation:** WorldCatalogController validates incoming image data URIs and patches only the corresponding compatible world, while WorldCard already renders the optional thumbnail.
 - **Tests:** Core storage verifies bounded 320×180 PNG headers, optional/missing previews, atomic replacement, malformed and oversized rejection. Live Godot/WRY QA is still needed to confirm actual viewport capture, screenshot framing, and visual output across platforms.
+
+## Special Held Tool Viewmodels — 2026-10-11
+
+- Brush and Artisan's Kit opt into the authored `heldPresentation: "grippedSprite"` visual mode. Core resolves gripped sprites with optional tint masks, while unrelated tools retain their standard presentation.
+- First-person Godot anchors the tool handle using MineClone's (-0.36, -0.36) normalized grip, 0.52 sprite size and 0.30-radian rotation. Brush tint uses a depth-offset blended mask over the alpha-tested base and remains invisible without a selected dye.
+- The current Sphere's authoritative Brush palette resolves to a read-only color; the held presentation changes material only when the tint changes, keeping existing player hand/arm and item-switch animations.
+- Regression tests verify authored gripped sprites, the Brush mask, non-gripped fallback and invalid display settings. Live Godot/WRY QA of grip alignment, tint blend, hand animations and both perspectives remains pending.

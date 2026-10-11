@@ -2945,6 +2945,15 @@ public partial class Main : Node3D
         SendTargetHudState(force: true);
     }
 
+    private Color? ResolveSelectedToolTint()
+    {
+        var id = _sessions.Active.Tools.SelectedBrushDyeId;
+        if (id is null || !_dyes.TryGet(id, out var dye) || dye is null)
+            return null;
+        var rgb = dye.Rgb;
+        return new Color(rgb.X, rgb.Y, rgb.Z, 1f);
+    }
+
     private void OpenBrushPalette()
     {
         if (!_worldReadySent || _inventoryOpen || _brushPaletteOpen ||
@@ -4174,7 +4183,8 @@ public partial class Main : Node3D
         AddChild(_player);
         _playerModel = new PlayerModelPresentation(
             _player, _packSelection, _playerVisual,
-            _sessionStates.Player.Inventory, _heldVisuals, _items);
+            _sessionStates.Player.Inventory, _heldVisuals, _items,
+            ResolveSelectedToolTint);
         _player.AddChild(_playerModel);
         _playerPortrait = new PlayerPortraitPresentation(
             _packSelection, _playerVisual, _sessionStates.Player.Inventory,
