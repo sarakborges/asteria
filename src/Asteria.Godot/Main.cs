@@ -1442,6 +1442,9 @@ public partial class Main : Node3D
                 case "ui.chat.submit":
                     SubmitChat(document.RootElement);
                     break;
+                case "ui.chat.action":
+                    ExecuteChatMessageAction(document.RootElement);
+                    break;
                 case "ui.inventory.close":
                     CloseInventory();
                     break;
@@ -2860,6 +2863,28 @@ public partial class Main : Node3D
         CallDeferred(nameof(ResumeGameplayAfterChat));
     }
 
+    private void ExecuteChatMessageAction(JsonElement message)
+    {
+        if (!_worldReadySent || _sessions.IsTransitioning ||
+            !_sessionStates.Player.CanInteract || !_chat.IsOpen && _chatFeedbackSeconds <= 0.0 ||
+            !message.TryGetProperty("payload", out var payload) ||
+            payload.ValueKind != JsonValueKind.Object ||
+            !payload.TryGetProperty("id", out var idElement) ||
+            idElement.ValueKind != JsonValueKind.String ||
+            !ulong.TryParse(idElement.GetString(),
+                System.Globalization.NumberStyles.None,
+                System.Globalization.CultureInfo.InvariantCulture, out var id) ||
+            !_chat.TryGetWarpTarget(id, out var target) ||
+            target is null)
+            return;
+
+        ExecuteChatCommand(new ParsedChatCommand(
+            ChatCommandKind.Warp, Option: target.Dimension,
+            X: target.X, Y: target.Y, Z: target.Z));
+        _chatFeedbackSeconds = 10.0;
+        SendChatState();
+    }
+
     private void ExecuteChatCommand(ParsedChatCommand command)
     {
         if (_sessionStates.Player.GameMode.IsSpectator() &&
@@ -3310,9 +3335,15 @@ public partial class Main : Node3D
         }
         else if (found is { } result)
         {
-            ChatFeedback("chat.command.locate.found", error: false,
-                ("name", result.Id),
-                ("position", $"({result.X}, {result.Z}, {result.Y})"));
+            _chat.AppendLocated(
+                "chat.command.locate.found",
+                new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["name"] = result.Id,
+                    ["position"] = $"({result.X}, {result.Z}, {result.Y})",
+                },
+                new PlayerChatWarpTarget(
+                    result.X, result.Y, result.Z, _dimension.Id.Value));
         }
         else
         {
@@ -3344,6 +3375,7 @@ public partial class Main : Node3D
                 tone = line.IsError ? "error" : "normal",
                 localizationKey = line.LocalizationKey,
                 parameters = line.Parameters,
+                action = line.WarpTarget is null ? null : "warp",
             }).ToArray(),
             commands = PlayerChatCommandProcessor.SupportedCommands,
             catalog = new
