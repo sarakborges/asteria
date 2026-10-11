@@ -12,6 +12,17 @@ public sealed class ChunkSaveCodecTests
         {
             new BlockDefinition("asteria:stone"),
             new BlockDefinition("asteria:basalt"),
+            new BlockDefinition("asteria:seagrass",
+                visual: BlockVisualDefinition.CrossedSprite(
+                    new BlockTextureLayer("textures/seagrass.png")),
+                isCollidable: false),
+            new BlockDefinition("asteria:lily_pad",
+                visual: BlockVisualDefinition.GroundSprite(
+                    new BlockTextureLayer("textures/lily_pad.png")),
+                isCollidable: false),
+            new BlockDefinition("asteria:solid_sprite",
+                visual: BlockVisualDefinition.CrossedSprite(
+                    new BlockTextureLayer("textures/solid_sprite.png"))),
         };
         var fluidDefinitions = new[]
         {
@@ -125,6 +136,45 @@ public sealed class ChunkSaveCodecTests
         ]);
         Assert.Throws<InvalidDataException>(() => ChunkSaveCodec.Decode(
             encoded, unknownBlocks, source.Fluids, source.Dyes, source.Layers));
+    }
+
+    [Fact]
+    public void SubmersibleSpritesAndSourceFluidsRoundTripWithoutLosingEither()
+    {
+        var source = Content();
+        var chunk = new Chunk();
+        Assert.True(chunk.SetBlock(3, 2, 1,
+            source.Blocks.GetId("asteria:seagrass")));
+        Assert.True(chunk.SetFluid(3, 2, 1,
+            FluidCell.Source(source.Fluids.GetId("asteria:water"))));
+        Assert.True(chunk.SetBlock(5, 4, 6,
+            source.Blocks.GetId("asteria:lily_pad")));
+        Assert.True(chunk.SetFluid(5, 4, 6,
+            FluidCell.Spreading(source.Fluids.GetId("asteria:water"), 5, 2)));
+
+        var encoded = Encode(chunk, source);
+        var target = Content(reverse: true);
+        var restored = Decode(encoded, target);
+        Assert.Equal(target.Blocks.GetId("asteria:seagrass"),
+            restored.GetBlock(3, 2, 1));
+        Assert.Equal(FluidCell.Source(target.Fluids.GetId("asteria:water")),
+            restored.GetFluid(3, 2, 1));
+        Assert.Equal(target.Blocks.GetId("asteria:lily_pad"),
+            restored.GetBlock(5, 4, 6));
+        Assert.Equal(FluidCell.Spreading(target.Fluids.GetId("asteria:water"), 5, 2),
+            restored.GetFluid(5, 4, 6));
+        Assert.Equal(encoded, Encode(restored, target));
+    }
+
+    [Fact]
+    public void RejectsFluidInsideCollidableSpriteDuringSerialization()
+    {
+        var content = Content();
+        var chunk = new Chunk();
+        chunk.SetBlock(3, 2, 1, content.Blocks.GetId("asteria:solid_sprite"));
+        chunk.SetFluid(3, 2, 1,
+            FluidCell.Source(content.Fluids.GetId("asteria:water")));
+        Assert.Throws<InvalidOperationException>(() => Encode(chunk, content));
     }
 
     [Fact]
