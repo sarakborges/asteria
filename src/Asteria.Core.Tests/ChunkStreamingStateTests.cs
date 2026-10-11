@@ -61,6 +61,39 @@ public sealed class ChunkStreamingStateTests
     }
 
     [Fact]
+    public void PortalAccessSelectionBridgesUndergroundAndSurfaceChunks()
+    {
+        var terrain = new ConstantSurfaceRangeProvider(new ChunkSurfaceRange(160, 175));
+        var center = new ChunkCoord(0, 1, 0);
+        var standard = ChunkStreamingSelection.DesiredSurfaceChunks(
+            center, 1, terrain);
+        var access = ChunkStreamingSelection.DesiredSurfaceChunks(
+            center, 1, terrain, includeVerticalAccess: true);
+
+        Assert.DoesNotContain(new ChunkCoord(0, 5, 0), standard);
+        Assert.Contains(new ChunkCoord(0, 5, 0), access);
+        // The authored corridor may cross both chunk axes near an edge.
+        Assert.Contains(new ChunkCoord(-1, 5, -1), access);
+        Assert.Contains(new ChunkCoord(1, 5, 1), access);
+        Assert.Contains(new ChunkCoord(1, 11, 1), access);
+        Assert.Contains(new ChunkCoord(-1, 0, -1), access);
+        Assert.DoesNotContain(new ChunkCoord(2, 5, 2), access);
+    }
+
+    [Fact]
+    public void PortalAccessVerticalSelectionIsBounded()
+    {
+        var access = ChunkStreamingSelection.DesiredSurfaceChunks(
+            ChunkCoord.Zero, 1,
+            new ConstantSurfaceRangeProvider(new ChunkSurfaceRange(4096, 4111)),
+            includeVerticalAccess: true);
+
+        Assert.Contains(new ChunkCoord(1, 31, 1), access);
+        Assert.DoesNotContain(new ChunkCoord(1, 32, 1), access);
+        Assert.InRange(access.Count, 9 * 32, 400);
+    }
+
+    [Fact]
     public void PlayerLocalSelectionNeedsNoSurfaceRangeQueries()
     {
         var desired =
