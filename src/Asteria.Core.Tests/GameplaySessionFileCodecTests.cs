@@ -217,7 +217,7 @@ public sealed class GameplaySessionFileCodecTests
         var saved = GameplaySessionSaveCodec.Capture(states,
             content.Blocks, content.Fluids, content.Dyes, content.Layers);
         var data = Encode(saved, content);
-        Assert.Equal((byte)5, data[4]);
+        Assert.Equal((byte)6, data[4]);
         var restored = GameplaySessionSaveCodec.Restore(
             creation, Dimensions(), Decode(data, content),
             content.Blocks, content.Fluids, content.Dyes, content.Layers);
