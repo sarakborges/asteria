@@ -1700,7 +1700,9 @@ public sealed class BiomeWorldGenerationTests
         var blocks = LoadDefaultBlocks();
         var dimension = LoadDefaultDimensions().Get(DimensionId.Overworld);
         var generator = new BiomeWorldGenerator(
-            2947UL, dimension, blocks, LoadDefaultBiomes());
+            2947UL, dimension, blocks, LoadDefaultFluids(),
+            LoadDefaultBiomes(), LoadDefaultStructures(),
+            LoadDefaultStructureSets());
         var chunk = generator.Materialize(ChunkCoord.Zero);
         var shell = blocks.GetId("asteria:sphere_shell");
 
