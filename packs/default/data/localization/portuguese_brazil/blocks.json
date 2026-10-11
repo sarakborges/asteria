@@ -92,6 +92,12 @@
   "asteria:cave_roots": {
     "/name": "Raízes da Caverna"
   },
+  "asteria:cave_wall_moss": {
+    "/name": "Musgo de Parede de Caverna"
+  },
+  "asteria:cave_wall_shelf_fungus": {
+    "/name": "Fungo de Prateleira de Parede de Caverna"
+  },
   "asteria:clay": {
     "/name": "Argila"
   },
@@ -175,6 +181,12 @@
   },
   "asteria:glass": {
     "/name": "Vidro"
+  },
+  "asteria:gorge_cliff_lichen": {
+    "/name": "Líquen de Penhasco de Desfiladeiro"
+  },
+  "asteria:gorge_cliff_rosette": {
+    "/name": "Roseta de Penhasco de Desfiladeiro"
   },
   "asteria:gorge_dry_tuft": {
     "/name": "Tufo Seco do Desfiladeiro"

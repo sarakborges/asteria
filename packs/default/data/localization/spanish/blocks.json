@@ -92,6 +92,12 @@
   "asteria:cave_roots": {
     "/name": "Raíces de Cueva"
   },
+  "asteria:cave_wall_moss": {
+    "/name": "Musgo de Pared de Cueva"
+  },
+  "asteria:cave_wall_shelf_fungus": {
+    "/name": "Hongo de Repisa de Pared de Cueva"
+  },
   "asteria:clay": {
     "/name": "Arcilla"
   },
@@ -175,6 +181,12 @@
   },
   "asteria:glass": {
     "/name": "Vidrio"
+  },
+  "asteria:gorge_cliff_lichen": {
+    "/name": "Liquen de Acantilado de Desfiladero"
+  },
+  "asteria:gorge_cliff_rosette": {
+    "/name": "Roseta de Acantilado de Desfiladero"
   },
   "asteria:gorge_dry_tuft": {
     "/name": "Mata Seca del Desfiladero"

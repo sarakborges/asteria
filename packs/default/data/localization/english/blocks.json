@@ -92,6 +92,12 @@
   "asteria:cave_roots": {
     "/name": "Cave Roots"
   },
+  "asteria:cave_wall_moss": {
+    "/name": "Cave Wall Moss"
+  },
+  "asteria:cave_wall_shelf_fungus": {
+    "/name": "Cave Wall Shelf Fungus"
+  },
   "asteria:clay": {
     "/name": "Clay"
   },
@@ -175,6 +181,12 @@
   },
   "asteria:glass": {
     "/name": "Glass"
+  },
+  "asteria:gorge_cliff_lichen": {
+    "/name": "Gorge Cliff Lichen"
+  },
+  "asteria:gorge_cliff_rosette": {
+    "/name": "Gorge Cliff Rosette"
   },
   "asteria:gorge_dry_tuft": {
     "/name": "Gorge Dry Tuft"
