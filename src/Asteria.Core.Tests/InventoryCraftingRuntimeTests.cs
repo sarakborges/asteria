@@ -51,6 +51,29 @@ public sealed class InventoryCraftingRuntimeTests
     }
 
     [Fact]
+    public void MineCloneRecipeDefaultsUnspecifiedResultQuantityToOne()
+    {
+        var recipe = CraftingRecipeDefinition.Parse("""
+            {
+              "id": "asteria:default_result_count",
+              "environment": "inventory",
+              "ingredients": [{"item": "asteria:pebble", "quantity": 1}],
+              "result": {"item": "asteria:hatchet_rustic"}
+            }
+            """);
+        Assert.Equal(1, recipe.Result.Quantity);
+        Assert.Throws<FormatException>(() =>
+            CraftingRecipeDefinition.Parse("""
+                {
+                  "id": "asteria:invalid_result_count",
+                  "environment": "inventory",
+                  "ingredients": [{"item": "asteria:pebble", "quantity": 1}],
+                  "result": {"item": "asteria:hatchet_rustic", "quantity": 0}
+                }
+                """));
+    }
+
+    [Fact]
     public void CraftConsumesOnceAndInsertsRealTool()
     {
         var crafting = CreateRuntime();
