@@ -2,6 +2,10 @@
   "id": "asteria:shears",
   "category": "tools",
   "icon": "textures/tools/shears.png",
-  "leftBehavior": "asteria:none",
-  "rightBehavior": "asteria:layer/remove"
+  "leftBehavior": "asteria:mine",
+  "rightBehavior": "asteria:none",
+  "mining": {
+    "category": "shears",
+    "speed": 1.6
+  }
 }

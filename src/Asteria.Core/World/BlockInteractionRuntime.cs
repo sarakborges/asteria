@@ -24,13 +24,15 @@ public sealed class BlockInteractionRuntime
     private readonly BlockRegistry _blocks;
     private readonly VoxelMutationRuntime _mutations;
     private readonly DroppedBlockRuntime _droppedBlocks;
+    private readonly AttachedLayerRegistry? _layers;
     private readonly SpikeFormationRuntime _spikes;
 
     public BlockInteractionRuntime(
         VoxelWorld world,
         BlockRegistry blocks,
         VoxelMutationRuntime mutations,
-        DroppedBlockRuntime droppedBlocks)
+        DroppedBlockRuntime droppedBlocks,
+        AttachedLayerRegistry? layers = null)
     {
         _world =
             world ??
@@ -44,6 +46,7 @@ public sealed class BlockInteractionRuntime
         _droppedBlocks =
             droppedBlocks ??
             throw new ArgumentNullException(nameof(droppedBlocks));
+        _layers = layers;
         _spikes = new SpikeFormationRuntime(
             _world, _blocks, _mutations, _droppedBlocks);
     }
@@ -80,6 +83,37 @@ public sealed class BlockInteractionRuntime
             return BlockBreakDecision.Reject(
                 decision.Position,
                 BlockBreakRejection.Unbreakable);
+        }
+
+        // A face attachment is mined before the backing voxel. The same
+        // authored definition determines its hardness, drops and removal scope.
+        if (_layers is not null && VoxelHitFace.TryResolve(hit, out var face))
+        {
+            var surface = _world.GetBlockSurfaceStateOrEmpty(decision.Position);
+            if (surface.TryGetTop(face, out var attached))
+            {
+                if (!_layers.TryGet(attached.LayerId, out var layer) || layer is null)
+                    return BlockBreakDecision.Reject(
+                        decision.Position, BlockBreakRejection.MutationRejected);
+                if (layer.Mining.Unbreakable)
+                    return BlockBreakDecision.Reject(
+                        decision.Position, BlockBreakRejection.Unbreakable);
+
+                BlockSurfaceState updated;
+                var removed = layer.Scope == LayerRemovalScope.Voxel
+                    ? surface.TryRemoveEverywhere(attached.LayerId, out updated)
+                    : surface.TryRemoveTop(face, out updated, out _);
+                if (!removed || !_mutations.SetBlockSurfaceStateAt(
+                        decision.Position, updated, out _))
+                    return BlockBreakDecision.Reject(
+                        decision.Position, BlockBreakRejection.MutationRejected);
+
+                if (lootPolicy == BlockBreakLootPolicy.DropSelf)
+                    foreach (var drop in layer.Drops)
+                        _droppedBlocks.Spawn(drop.ToStack(), CenterOf(decision.Position));
+
+                return decision;
+            }
         }
 
         if (definition.Shape.Kind == BlockShapeKind.Spike)

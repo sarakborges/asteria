@@ -6,5 +6,12 @@
   "offset": 0.001,
   "alphaCutoff": 0.5,
   "alphaBlend": false,
-  "castsShadow": false
+  "castsShadow": false,
+  "mining": {
+    "hardness": 0.2,
+    "preferredTools": [
+      "shears"
+    ]
+  },
+  "scope": "face"
 }

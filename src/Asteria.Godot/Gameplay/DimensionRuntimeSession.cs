@@ -238,7 +238,8 @@ public sealed class DimensionRuntimeSession
                 World,
                 blocks,
                 Mutations,
-                _droppedBlocks);
+                _droppedBlocks,
+                layers);
         Tools = new ToolGameplayRuntime(
             World, blocks, Mutations, tools, dyes);
         LayerPlacement = new AttachedLayerPlacementRuntime(
@@ -251,7 +252,7 @@ public sealed class DimensionRuntimeSession
             World, blocks, Mutations, tools);
         Bucket = new BucketGameplayRuntime(World, fluids, Mutations, tools);
         Mining = new BlockMiningRuntime(
-            World, blocks, Tools, BlockInteractions);
+            World, blocks, Tools, BlockInteractions, layers);
         MiningCracks = new MiningCrackPresentation(
             Root, packSelection, blocks, fluids, terrainTextures, terrainMaterials);
 

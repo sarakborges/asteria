@@ -71,6 +71,14 @@ public sealed class ToolGameplayRuntime
         BlockDefinition target)
     {
         ArgumentNullException.ThrowIfNull(target);
+        return EffectiveMiningSpeed(held, target.Mining);
+    }
+
+    public float? EffectiveMiningSpeed(
+        InventoryStack? held,
+        BlockMiningDefinition target)
+    {
+        ArgumentNullException.ThrowIfNull(target);
         ToolDefinition? tool = null;
         if (held?.Kind == InventoryEntryKind.Tool)
         {
@@ -80,16 +88,16 @@ public sealed class ToolGameplayRuntime
         }
 
         var mining = tool?.Mining;
-        if (target.Mining.RequiredTools.Count > 0)
+        if (target.RequiredTools.Count > 0)
         {
             return mining is not null &&
-                target.Mining.RequiredTools.Contains(
+                target.RequiredTools.Contains(
                     mining.Category, StringComparer.Ordinal)
                 ? mining.Speed : null;
         }
 
         return mining is not null &&
-            target.Mining.PreferredTools.Contains(
+            target.PreferredTools.Contains(
                 mining.Category, StringComparer.Ordinal)
             ? mining.Speed : 1f;
     }
@@ -118,18 +126,6 @@ public sealed class ToolGameplayRuntime
             var previous = _world.GetBlockSurfaceStateOrEmpty(hit.Voxel);
             return _mutations.SetBlockSurfaceStateAt(
                 hit.Voxel, previous.WithDye(SelectedBrushDyeId), out _);
-        }
-
-        if (behavior == "asteria:layer/remove")
-        {
-            if (!VoxelHitFace.TryResolve(hit, out var face) ||
-                !_world.TryGetCell(hit.Voxel, out var host) ||
-                host.IsEmpty)
-                return false;
-
-            var layers = _world.GetBlockSurfaceStateOrEmpty(hit.Voxel);
-            return layers.TryRemoveTop(face, out var updated, out _) &&
-                _mutations.SetBlockSurfaceStateAt(hit.Voxel, updated, out _);
         }
 
         var targetKey = behavior switch

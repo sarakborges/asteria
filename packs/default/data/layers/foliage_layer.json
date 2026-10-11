@@ -5,5 +5,12 @@
   "offset": 0.001,
   "alphaCutoff": 0.5,
   "castsShadow": false,
-  "category": "natural_blocks"
+  "category": "natural_blocks",
+  "mining": {
+    "hardness": 0.2,
+    "preferredTools": [
+      "shears"
+    ]
+  },
+  "scope": "face"
 }

@@ -14,6 +14,7 @@ public sealed class BlockMiningRuntime
     private readonly BlockRegistry _blocks;
     private readonly ToolGameplayRuntime _tools;
     private readonly BlockInteractionRuntime _interactions;
+    private readonly AttachedLayerRegistry? _layers;
     private MiningTarget? _target;
     private double _work;
 
@@ -21,13 +22,15 @@ public sealed class BlockMiningRuntime
         VoxelWorld world,
         BlockRegistry blocks,
         ToolGameplayRuntime tools,
-        BlockInteractionRuntime interactions)
+        BlockInteractionRuntime interactions,
+        AttachedLayerRegistry? layers = null)
     {
         _world = world ?? throw new ArgumentNullException(nameof(world));
         _blocks = blocks ?? throw new ArgumentNullException(nameof(blocks));
         _tools = tools ?? throw new ArgumentNullException(nameof(tools));
         _interactions = interactions ??
             throw new ArgumentNullException(nameof(interactions));
+        _layers = layers;
     }
 
     public float? Progress { get; private set; }
@@ -62,23 +65,43 @@ public sealed class BlockMiningRuntime
         }
 
         var block = _blocks.GetDefinition(cell.Block);
-        if (block.Mining.Unbreakable ||
+        var surface = _world.GetBlockSurfaceStateOrEmpty(position);
+        var mining = block.Mining;
+        BlockFace? hitFace = null;
+        string? layerId = null;
+        if (_layers is not null && VoxelHitFace.TryResolve(hit.Value, out var face))
+        {
+            hitFace = face;
+            if (surface.TryGetTop(face, out var top))
+            {
+                // Never mine through an unrecognized or protected layer.
+                if (!_layers.TryGet(top.LayerId, out var definition) ||
+                    definition is null)
+                {
+                    Cancel();
+                    return false;
+                }
+                layerId = top.LayerId;
+                mining = definition.Mining;
+            }
+        }
+        if (block.Mining.Unbreakable || mining.Unbreakable ||
             block.Interaction == BlockInteractionKind.Pickup ||
-            _tools.EffectiveMiningSpeed(held, block) is not { } speed)
+            _tools.EffectiveMiningSpeed(held, mining) is not { } speed)
         {
             Cancel();
             return false;
         }
 
         var target = new MiningTarget(
-            position, cell, held?.Entry, hotbarSlot);
+            position, cell, surface, hitFace, layerId, held?.Entry, hotbarSlot);
         if (_target != target)
         {
             _target = target;
             _work = 0;
         }
 
-        var requiredWork = DefaultBreakWorkTicks * block.Mining.Hardness;
+        var requiredWork = DefaultBreakWorkTicks * mining.Hardness;
         _work = Math.Min(
             requiredWork,
             _work + (double)elapsedTicks * speed);
@@ -98,6 +121,9 @@ public sealed class BlockMiningRuntime
     private readonly record struct MiningTarget(
         WorldVoxelCoord Position,
         VoxelCell Cell,
+        BlockSurfaceState Surface,
+        BlockFace? Face,
+        string? LayerId,
         InventoryEntry? Held,
         int HotbarSlot);
 }
