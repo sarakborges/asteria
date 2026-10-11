@@ -9,6 +9,7 @@ public sealed class BlockMiningRuntime
 {
     // MineClone world-systems-rebuild's authored baseline.
     public const double DefaultBreakWorkTicks = 200.0;
+    public const uint SwingIntervalTicks = 8;
 
     private readonly VoxelWorld _world;
     private readonly BlockRegistry _blocks;
@@ -17,6 +18,12 @@ public sealed class BlockMiningRuntime
     private readonly AttachedLayerRegistry? _layers;
     private MiningTarget? _target;
     private double _work;
+    private uint _swingTicks;
+
+    /// <summary>Monotonic visual signal emitted only for valid mining work.
+    /// Consumers observe changes; they never drive the mining state.</summary>
+    public ulong FeedbackRevision { get; private set; }
+    public MiningFeedbackEvent? LastFeedback { get; private set; }
 
     public BlockMiningRuntime(
         VoxelWorld world,
@@ -40,6 +47,7 @@ public sealed class BlockMiningRuntime
     {
         _target = null;
         _work = 0;
+        _swingTicks = 0;
         Progress = null;
     }
 
@@ -95,10 +103,22 @@ public sealed class BlockMiningRuntime
 
         var target = new MiningTarget(
             position, cell, surface, hitFace, layerId, held?.Entry, hotbarSlot);
-        if (_target != target)
+        var started = _target != target;
+        if (started)
         {
             _target = target;
             _work = 0;
+            _swingTicks = 0;
+            PublishFeedback(position, completed: false);
+        }
+        else
+        {
+            _swingTicks += elapsedTicks % SwingIntervalTicks;
+            if (_swingTicks >= SwingIntervalTicks)
+            {
+                _swingTicks %= SwingIntervalTicks;
+                PublishFeedback(position, completed: false);
+            }
         }
 
         var requiredWork = DefaultBreakWorkTicks * mining.Hardness;
@@ -116,8 +136,16 @@ public sealed class BlockMiningRuntime
         var completed = _interactions.Break(
             hit.Value,
             BlockBreakLootPolicy.DropSelf).Accepted;
+        if (completed)
+            PublishFeedback(position, completed: true);
         Cancel();
         return completed;
+    }
+
+    private void PublishFeedback(WorldVoxelCoord position, bool completed)
+    {
+        LastFeedback = new MiningFeedbackEvent(position, completed);
+        FeedbackRevision++;
     }
 
     private readonly record struct MiningTarget(
@@ -129,3 +157,6 @@ public sealed class BlockMiningRuntime
         InventoryEntry? Held,
         int HotbarSlot);
 }
+
+/// <summary>Transient, presentation-only cue; no physical or inventory effect.</summary>
+public readonly record struct MiningFeedbackEvent(WorldVoxelCoord Position, bool Completed);
