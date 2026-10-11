@@ -92,13 +92,15 @@ public static class VoxelWorldRaycaster
                 var exitDistance =
                     Math.Min(maxX, Math.Min(maxY, maxZ));
 
-                if (definition.Visual.Kind == BlockVisualKind.GroundSprite)
+                if (definition.Visual.Kind is
+                    BlockVisualKind.GroundSprite or BlockVisualKind.CrossedSprite)
                 {
-                    var groundHit = RaycastGroundSprite(
+                    var spriteHit = RaycastSprite(
                         position, definition, origin, direction,
-                        entryDistance, Math.Min(exitDistance, maxDistance));
-                    if (groundHit is not null)
-                        return groundHit;
+                        entryDistance, Math.Min(exitDistance, maxDistance),
+                        normalX, normalY, normalZ);
+                    if (spriteHit is not null)
+                        return spriteHit;
                 }
                 else if (!BlockGeometry.RequiresFineMeshing(definition, cell))
                 {
@@ -170,13 +172,16 @@ public static class VoxelWorldRaycaster
         return null;
     }
 
-    private static VoxelWorldHit? RaycastGroundSprite(
+    private static VoxelWorldHit? RaycastSprite(
         WorldVoxelCoord position,
         BlockDefinition definition,
         Vector3 origin,
         Vector3 direction,
         float entryDistance,
-        float exitDistance)
+        float exitDistance,
+        int normalX,
+        int normalY,
+        int normalZ)
     {
         var visual = definition.Visual;
         var jitter = SpritePositionJitter.For(definition, position);
@@ -186,7 +191,10 @@ public static class VoxelWorldRaycaster
         var minimumZ = position.Z + 0.5f + jitter.Y - halfWidth;
         var maximumZ = position.Z + 0.5f + jitter.Y + halfWidth;
         var minimumY = position.Y + visual.BaseOffset;
-        var maximumY = minimumY + visual.TargetHeight;
+        var maximumY = minimumY +
+            (visual.Kind == BlockVisualKind.GroundSprite
+                ? visual.TargetHeight
+                : visual.Height);
         var near = entryDistance;
         var far = exitDistance;
         if (!ClipRayAxis(origin.X, direction.X, minimumX, maximumX, ref near, ref far) ||
@@ -196,8 +204,11 @@ public static class VoxelWorldRaycaster
             return null;
         }
 
-        // Ground objects are pickup-only; no placement normal is consumed.
-        return new VoxelWorldHit(position, 0, 0, 0);
+        // Ground objects retain their pickup targeting contract. Crossed
+        // sprites retain the voxel entry normal used by block interactions.
+        return visual.Kind == BlockVisualKind.GroundSprite
+            ? new VoxelWorldHit(position, 0, 0, 0)
+            : new VoxelWorldHit(position, normalX, normalY, normalZ);
     }
 
     private static bool ClipRayAxis(

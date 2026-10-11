@@ -74,6 +74,55 @@ public sealed class SpritePositionJitterTests
     }
 
     [Fact]
+    public void CrossedSpriteMeshAndRaycastFollowTheSameJitter()
+    {
+        const string path = "textures/objects/flower.png";
+        var block = new BlockDefinition("asteria:flower",
+            visual: BlockVisualDefinition.CrossedSprite(
+                new BlockTextureLayer(path), width: 0.4f,
+                height: 0.55f, planes: 4, baseOffset: 0.2f,
+                positionJitter: new Vector2(0.25f, 0.25f)),
+            isCollidable: false,
+            renderMode: BlockRenderMode.Cutout,
+            castsShadow: false);
+        var blocks = new BlockRegistry([block]);
+        var coord = new WorldVoxelCoord(2, 2, 2);
+        var chunk = new Chunk();
+        chunk.SetBlock(2, 2, 2, blocks.GetId(block.Id));
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, chunk);
+
+        var mesh = ChunkMeshDataBuilder.BuildMeshlet(
+            world, ChunkCoord.Zero, blocks,
+            new TerrainTextureLookup(new Dictionary<string, int>
+            {
+                [path] = 1,
+            }), meshletIndex: 0);
+        var vertices = Assert.Single(mesh.RenderBatches).Vertices;
+        var jitter = SpritePositionJitter.For(block, coord);
+        var centerX = coord.X + 0.5f + jitter.X;
+        var centerZ = coord.Z + 0.5f + jitter.Y;
+        Assert.InRange(vertices.Min(vertex => vertex.Position.X),
+            centerX - 0.20001f, centerX - 0.19999f);
+        Assert.InRange(vertices.Max(vertex => vertex.Position.X),
+            centerX + 0.19999f, centerX + 0.20001f);
+        Assert.InRange(vertices.Min(vertex => vertex.Position.Z),
+            centerZ - 0.20001f, centerZ - 0.19999f);
+        Assert.InRange(vertices.Max(vertex => vertex.Position.Z),
+            centerZ + 0.19999f, centerZ + 0.20001f);
+
+        var bodyHit = VoxelWorldRaycaster.Raycast(world, blocks,
+            new Vector3(centerX, 3.5f, centerZ), -Vector3.UnitY, 3f);
+        Assert.Equal(coord, bodyHit!.Value.Voxel);
+
+        var outsideHit = VoxelWorldRaycaster.Raycast(world, blocks,
+            new Vector3(centerX + 0.23f, 3.5f, centerZ),
+            -Vector3.UnitY, 3f);
+        Assert.Null(outsideHit);
+        Assert.Equal(0, mesh.CollisionTriangleCount);
+    }
+
+    [Fact]
     public void GroundSpriteMeshAndRaycastFollowTheSameJitter()
     {
         const string path = "textures/items/pebble.png";

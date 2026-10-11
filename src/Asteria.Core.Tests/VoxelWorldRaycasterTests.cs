@@ -262,6 +262,53 @@ public sealed class VoxelWorldRaycasterTests
         Assert.Null(outsideFootprint);
     }
 
+
+    [Fact]
+    public void CrossedSpriteRaycastUsesVisualWidthHeightAndBaseOffset()
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition("asteria:flower",
+                visual: BlockVisualDefinition.CrossedSprite(
+                    new BlockTextureLayer("textures/objects/flower.png"),
+                    width: 0.4f, height: 0.48f,
+                    baseOffset: 0.15f, positionJitter: Vector2.Zero),
+                isCollidable: false),
+            new BlockDefinition("asteria:stone"),
+        ]);
+        var world = LoadedWorld();
+        var flowerPosition = new WorldVoxelCoord(2, 2, 2);
+        var stonePosition = new WorldVoxelCoord(3, 2, 2);
+        Assert.True(world.SetBlockAt(
+            flowerPosition, blocks.GetId("asteria:flower"), out _));
+        Assert.True(world.SetBlockAt(
+            stonePosition, blocks.GetId("asteria:stone"), out _));
+
+        foreach (var origin in new[]
+        {
+            new Vector3(1.5f, 2.9f, 2.5f), // Above the sprite.
+            new Vector3(1.5f, 2.04f, 2.5f), // Below its base offset.
+            new Vector3(1.5f, 2.4f, 2.95f), // Outside its width.
+        })
+        {
+            var hit = VoxelWorldRaycaster.Raycast(
+                world, blocks, origin, Vector3.UnitX, 4f);
+            Assert.Equal(stonePosition, hit!.Value.Voxel);
+        }
+
+        var bodyHit = VoxelWorldRaycaster.Raycast(
+            world, blocks, new Vector3(1.5f, 2.4f, 2.5f),
+            Vector3.UnitX, 4f);
+        Assert.Equal(flowerPosition, bodyHit!.Value.Voxel);
+        Assert.Equal(-1, bodyHit.Value.NormalX);
+
+        var topHit = VoxelWorldRaycaster.Raycast(
+            world, blocks, new Vector3(2.5f, 3.5f, 2.5f),
+            -Vector3.UnitY, 3f);
+        Assert.Equal(flowerPosition, topHit!.Value.Voxel);
+        Assert.Equal(1, topHit.Value.NormalY);
+    }
+
     private static VoxelWorld LoadedWorld()
     {
         var world = new VoxelWorld();
