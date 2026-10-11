@@ -31,7 +31,6 @@ internal sealed partial class PlayerFirstPersonViewModel : Node3D
     private HeldItemPresentation _held = null!;
     private ulong _observedInventoryRevision = ulong.MaxValue;
     private HeldVisual? _selectedVisual;
-    private bool _initialized;
     private bool _switching;
     private ulong _switchStartTick;
     private PlayerVisualAction? _action;
@@ -90,10 +89,9 @@ internal sealed partial class PlayerFirstPersonViewModel : Node3D
         armReference.Position = -(armRotation * pivot.Position);
         _held = new HeldItemPresentation(_pack);
         pivot.AddChild(_held);
-        _held.SetVisual(_heldResolver.Resolve(_inventory.SelectedStack));
         _selectedVisual = _heldResolver.Resolve(_inventory.SelectedStack);
+        _held.SetVisual(_selectedVisual);
         _observedInventoryRevision = _inventory.Revision;
-        _initialized = true;
         UpdatePose(_player.CurrentWorldTick());
     }
 
@@ -118,7 +116,7 @@ internal sealed partial class PlayerFirstPersonViewModel : Node3D
         if (_observedInventoryRevision != _inventory.Revision)
         {
             var selected = _heldResolver.Resolve(_inventory.SelectedStack);
-            if (_initialized && !Equals(selected, _selectedVisual))
+            if (!Equals(selected, _selectedVisual))
             {
                 _switching = true;
                 _switchStartTick = tick;
@@ -126,7 +124,6 @@ internal sealed partial class PlayerFirstPersonViewModel : Node3D
             _held.SetVisual(selected);
             _selectedVisual = selected;
             _observedInventoryRevision = _inventory.Revision;
-            _initialized = true;
         }
 
         if (Visible || _action is not null || _switching)
