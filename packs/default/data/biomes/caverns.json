@@ -116,7 +116,6 @@
       }
     },
     {
-      "block": "asteria:wall_moss",
       "supportSurface": "wall",
       "chance": 0.095,
       "surfaceBlocks": [
@@ -132,7 +131,8 @@
       "conditions": {
         "minY": 18,
         "maxY": 105
-      }
+      },
+      "layer": "asteria:wall_moss"
     },
     {
       "block": "asteria:wall_shelf_fungus",

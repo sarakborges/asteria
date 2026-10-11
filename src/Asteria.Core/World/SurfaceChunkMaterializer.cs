@@ -317,6 +317,8 @@ public sealed class SurfaceChunkMaterializer
             topExclusive);
         MaterializeCaveSpikes(
             chunk, column, densityVolume, originX, originY, originZ);
+        MaterializeWallLayers(
+            chunk, column, densityVolume, originX, originY, originZ);
         // SurfaceChunkMaterializer remains the sole procedural voxel writer.
         _voidSpawnPlatform?.Apply(chunk, coord);
 
@@ -1150,6 +1152,129 @@ public sealed class SurfaceChunkMaterializer
     /// are sampled from the same immutable terrain/material owners.
     /// This never constructs a second world or fluid representation.
     /// </summary>
+
+    /// <summary>
+    /// Procedural wall overlays belong to their solid host face. Neighbor
+    /// density is immutable even across chunk borders; never write into a
+    /// neighbor chunk or create a second wall decoration block.
+    /// </summary>
+    private void MaterializeWallLayers(
+        Chunk chunk,
+        SurfaceTerrainColumn column,
+        TerrainDensityVolume densityVolume,
+        int originX,
+        int originY,
+        int originZ)
+    {
+        if (!_decorations.HasWallLayers)
+            return;
+
+        ReadOnlySpan<(int Dx, int Dz, BlockFace Face)> faces =
+        [
+            (1, 0, BlockFace.Right),
+            (-1, 0, BlockFace.Left),
+            (0, 1, BlockFace.Front),
+            (0, -1, BlockFace.Back),
+        ];
+
+        for (var z = 0; z < Chunk.Size; z++)
+        for (var x = 0; x < Chunk.Size; x++)
+        {
+            var worldX = originX + x;
+            var worldZ = originZ + z;
+            var surface = column.BiomeAt(x, z);
+            var baseY = column.BaseHeightAt(x, z);
+            var surfaceSupportsLayers =
+                _decorations.HasWallLayersFor(surface.Primary);
+            if (!surfaceSupportsLayers &&
+                _volumeBiomes is not { HasBiomes: true })
+                continue;
+
+            // No exterior or cave face below this column can occur in
+            // sky-only vertical chunks.
+            if (originY > baseY)
+                continue;
+
+            var upper = Math.Min(Chunk.Size, baseY - originY + 1);
+            for (var y = 0; y < upper; y++)
+            {
+                var worldY = originY + y;
+                if (worldY <= 0 ||
+                    (_floorY is { } floor && worldY <= floor) ||
+                    (_roofY is { } roof && worldY >= roof))
+                    continue;
+
+                var host = chunk.GetCell(x, y, z);
+                if (host.IsEmpty ||
+                    densityVolume.DensityAt(x, y, z) < 0d)
+                    continue;
+
+                foreach (var side in faces)
+                {
+                    var nx = x + side.Dx;
+                    var nz = z + side.Dz;
+                    var px = worldX + side.Dx;
+                    var pz = worldZ + side.Dz;
+                    var local = Chunk.Contains(nx, y, nz);
+
+                    if (local)
+                    {
+                        if (!chunk.GetCell(nx, y, nz).IsEmpty ||
+                            densityVolume.DensityAt(nx, y, nz) >= 0d)
+                            continue;
+                    }
+                    else if (_terrain.DensityAt(px, worldY, pz) >= 0d)
+                        continue;
+
+                    // Resolve the actual empty-side biome without changing
+                    // its chunk. For cave walls, the carved void owns the
+                    // attached layer; for exterior cliffs, the surface does.
+                    var neighborColumn = local ? column :
+                        _columns.Get(
+                            (int)Math.Floor((double)px / Chunk.Size),
+                            (int)Math.Floor((double)pz / Chunk.Size));
+                    var sx = ((nx % Chunk.Size) + Chunk.Size) % Chunk.Size;
+                    var sz = ((nz % Chunk.Size) + Chunk.Size) % Chunk.Size;
+                    var neighborBaseY =
+                        neighborColumn.BaseHeightAt(sx, sz);
+                    BiomeSample? owner;
+                    if (worldY <= neighborBaseY &&
+                        _terrain.IsCaveVoidAt(neighborBaseY,
+                            new WorldVoxelCoord(px, worldY, pz)))
+                    {
+                        owner = _volumeBiomes?.SampleCave(px, pz);
+                    }
+                    else if (surfaceSupportsLayers &&
+                             worldY > neighborBaseY &&
+                             neighborColumn.BiomeAt(sx, sz).Primary ==
+                                 surface.Primary)
+                    {
+                        owner = surface;
+                    }
+                    else
+                    {
+                        continue;
+                    }
+
+                    if (owner is null ||
+                        !_decorations.HasWallLayersFor(owner.Primary))
+                        continue;
+
+                    var layerId = _decorations.WallLayerAt(
+                        owner, host.Block, worldX, worldY, worldZ);
+                    if (layerId is null)
+                        continue;
+
+                    var previous = chunk.GetSurfaceState(x, y, z);
+                    if (previous.TryAttach(
+                        new AttachedBlockLayer(side.Face, layerId),
+                        out var updated))
+                        chunk.SetSurfaceState(x, y, z, updated);
+                }
+            }
+        }
+    }
+
     private void MaterializeCaveSpikes(
         Chunk chunk,
         SurfaceTerrainColumn column,
