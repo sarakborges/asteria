@@ -72,7 +72,7 @@ export function ChatPanel({
                 onClick={() => onMessageAction?.(message.id)}>
                 {message.action === "warp" ? t("chat.action.warp") : message.actionLabel}
               </button>
-            )
+            )}
           </div>
         ))}
       </div>
