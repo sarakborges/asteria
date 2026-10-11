@@ -39,7 +39,8 @@
         "target": "asteria:surface_spiral_stair_segment",
         "face": "top",
         "stopAtSurface": true,
-        "surfaceClearance": 2
+        "surfaceClearance": 2,
+        "strengthLossOnEachLoop": 0.05
       }
     }
   },
