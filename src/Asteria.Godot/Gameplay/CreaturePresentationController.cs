@@ -53,26 +53,9 @@ public sealed class CreaturePresentationController
                 creature.Position.Z);
             model.Rotation = new Vector3(0f, creature.Motion.FacingRadians, 0f);
 
-            var animation = creature.IsDying
-                ? "death"
-                : creature.HurtSecondsRemaining > 0f
-                    ? "hurt"
-                    : creature.AttackSecondsRemaining > 0f
-                        ? "attack"
-                        : creature.Motion.Phase switch
-                    {
-                        CreatureHopPhase.Idle => "idle",
-                        CreatureHopPhase.Anticipate => "anticipate",
-                        CreatureHopPhase.Airborne => "airborne",
-                        CreatureHopPhase.Land => "land",
-                        _ => "idle",
-                    };
-            // Repeated attacks must replay the same one-shot clip even if
-            // the last creature animation key was also "hurt".
-            var revision = animation == "attack"
-                ? creature.AttacksDealt
-                : animation is "hurt" or "death"
-                    ? creature.AttacksReceived : 0u;
+            var visual = CreatureVisualState.From(creature);
+            var animation = visual.Phase;
+            var revision = visual.Revision;
             if (!_animations.TryGetValue(id, out var shown) ||
                 shown != (animation, revision))
             {
