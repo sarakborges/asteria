@@ -1,6 +1,7 @@
 using Asteria.Client.Content;
 using Asteria.Core.Content;
 using Godot;
+using NVector2 = System.Numerics.Vector2;
 using NVector3 = System.Numerics.Vector3;
 
 namespace Asteria.Client.Rendering;
@@ -37,22 +38,21 @@ internal static class PlayerVisualSceneFactory
             mesh.Name.ToString() == "HairLayer");
         foreach (var mesh in cuboids)
         {
-            ApplySkin(mesh, skin, outer: false,
-                transparent: mesh.Name.ToString() == "HairLayer");
+            ApplySkin(mesh, skin);
             // The original GLB already includes its hair layer. Generate only
             // the remaining jacket/sleeves/trousers from the same authored skin.
             if (mesh.Name.ToString() != "HairLayer" &&
                 !(hasAuthoredHairLayer && mesh.Name.ToString() == "HeadMesh") &&
-                PlayerSkinUvMapper.TryMapOuter(
-                    mesh.Name.ToString(), NVector3.Zero, NVector3.UnitZ, out _))
+                PlayerSkinUvMapper.TryOuterUvOffset(
+                    mesh.Name.ToString(), out var offset))
             {
                 var overlay = new MeshInstance3D
                 {
                     Name = mesh.Name.ToString() + "Overlay",
-                    Mesh = BuildSkinnedMesh(mesh, outer: true),
+                    Mesh = BuildOuterMesh(mesh, offset),
                     Scale = OuterLayerScale(mesh.Name.ToString()),
                     CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
-                    MaterialOverride = MakeSkinMaterial(skin, transparent: true),
+                    MaterialOverride = MakeSkinMaterial(skin),
                 };
                 mesh.AddChild(overlay);
             }
@@ -79,28 +79,26 @@ internal static class PlayerVisualSceneFactory
         return (size + Vector3.One * 0.5f) / size;
     }
 
-    private static void ApplySkin(
-        MeshInstance3D mesh, Texture2D skin, bool outer, bool transparent)
+    private static void ApplySkin(MeshInstance3D mesh, Texture2D skin)
     {
-        mesh.Mesh = BuildSkinnedMesh(mesh, outer);
-        mesh.MaterialOverride = MakeSkinMaterial(skin, transparent);
+        // Keep the canonical face UVs embedded in the GLB. Regenerating them
+        // from Godot-imported normals/positions may flip or swap skin faces.
+        // The GLB authored alphaMode=MASK for every body part, not just hair.
+        mesh.MaterialOverride = MakeSkinMaterial(skin);
         mesh.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
     }
 
-    private static StandardMaterial3D MakeSkinMaterial(
-        Texture2D skin, bool transparent) => new()
+    private static StandardMaterial3D MakeSkinMaterial(Texture2D skin) => new()
     {
         AlbedoTexture = skin,
         ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
         TextureFilter = BaseMaterial3D.TextureFilterEnum.Nearest,
-        Transparency = transparent
-            ? BaseMaterial3D.TransparencyEnum.AlphaScissor
-            : BaseMaterial3D.TransparencyEnum.Disabled,
+        Transparency = BaseMaterial3D.TransparencyEnum.AlphaScissor,
         AlphaScissorThreshold = 0.1f,
         CullMode = BaseMaterial3D.CullModeEnum.Disabled,
     };
 
-    private static ArrayMesh BuildSkinnedMesh(MeshInstance3D mesh, bool outer)
+    private static ArrayMesh BuildOuterMesh(MeshInstance3D mesh, NVector2 uvOffset)
     {
         if (mesh.Mesh is not Mesh imported)
             throw new InvalidDataException(
@@ -110,38 +108,22 @@ internal static class PlayerVisualSceneFactory
         for (var surface = 0; surface < imported.GetSurfaceCount(); surface++)
         {
             var arrays = imported.SurfaceGetArrays(surface);
-            var positions = arrays[(int)Mesh.ArrayType.Vertex].AsVector3Array();
-            var normals = arrays[(int)Mesh.ArrayType.Normal].AsVector3Array();
-            if (positions.Length == 0 || positions.Length != normals.Length)
+            var vertices = arrays[(int)Mesh.ArrayType.Vertex].AsVector3Array();
+            var authoredUv = arrays[(int)Mesh.ArrayType.TexUV].AsVector2Array();
+            if (vertices.Length == 0 || vertices.Length != authoredUv.Length)
                 throw new InvalidDataException(
-                    $"Player skin geometry '{mesh.Name}' has invalid normals.");
+                    $"Player mesh '{mesh.Name}' has no canonical GLB UVs.");
 
-            var uv = new Vector2[positions.Length];
-            for (var i = 0; i < positions.Length; i++)
-            {
-                var hasUv = outer
-                    ? PlayerSkinUvMapper.TryMapOuter(
-                        mesh.Name.ToString(),
-                        new NVector3(positions[i].X, positions[i].Y, positions[i].Z),
-                        new NVector3(normals[i].X, normals[i].Y, normals[i].Z),
-                        out var mappedUvOuter)
-                    : PlayerSkinUvMapper.TryMap(
-                        mesh.Name.ToString(),
-                        new NVector3(positions[i].X, positions[i].Y, positions[i].Z),
-                        new NVector3(normals[i].X, normals[i].Y, normals[i].Z),
-                        out mappedUvOuter);
-                var mappedUv = mappedUvOuter;
-                if (!hasUv)
-                    throw new InvalidDataException(
-                        $"Cannot map player skin UV for '{mesh.Name}'.");
-                uv[i] = new Vector2(mappedUv.X, mappedUv.Y);
-            }
-            arrays[(int)Mesh.ArrayType.TexUV] = uv;
+            // The outer atlas region has the same box layout as the inner
+            // region, only translated. This preserves the original imported
+            // face orientation and texture-coordinate conventions.
+            var offset = new Vector2(uvOffset.X, uvOffset.Y);
+            var outerUv = new Vector2[authoredUv.Length];
+            for (var i = 0; i < authoredUv.Length; i++)
+                outerUv[i] = authoredUv[i] + offset;
+            arrays[(int)Mesh.ArrayType.TexUV] = outerUv;
             mapped.AddSurfaceFromArrays(
-                imported is ArrayMesh sourceMesh
-                    ? sourceMesh.SurfaceGetPrimitiveType(surface)
-                    : Mesh.PrimitiveType.Triangles,
-                arrays);
+                imported.SurfaceGetPrimitiveType(surface), arrays);
         }
 
         return mapped;

@@ -102,11 +102,39 @@ public sealed class PlayerVisualDefinitionTests
         Assert.Equal(new Vector2(expectedX / 64f, expectedY / 64f), uv);
     }
 
+    [Theory]
+    [InlineData("HeadMesh")]
+    [InlineData("BodyMesh")]
+    [InlineData("RightArmMesh")]
+    [InlineData("LeftArmMesh")]
+    [InlineData("RightLegMesh")]
+    [InlineData("LeftLegMesh")]
+    public void OuterSkinUvIsAnOffsetFromAuthoredGlbUvForEveryFace(string part)
+    {
+        Assert.True(PlayerSkinUvMapper.TryOuterUvOffset(part, out var offset));
+        var samples = new (Vector3 Position, Vector3 Normal)[]
+        {
+            (new(-0.5f, 0.5f, 0.5f), Vector3.UnitZ),
+            (new(0.5f, -0.5f, -0.5f), -Vector3.UnitZ),
+            (new(-0.5f, 0.5f, -0.5f), -Vector3.UnitX),
+            (new(0.5f, -0.5f, 0.5f), Vector3.UnitX),
+            (new(-0.5f, 0.5f, -0.5f), Vector3.UnitY),
+            (new(0.5f, -0.5f, 0.5f), -Vector3.UnitY),
+        };
+        foreach (var (position, normal) in samples)
+        {
+            Assert.True(PlayerSkinUvMapper.TryMap(part, position, normal, out var inner));
+            Assert.True(PlayerSkinUvMapper.TryMapOuter(part, position, normal, out var outer));
+            Assert.Equal(outer, inner + offset);
+        }
+    }
+
     [Fact]
     public void HairLayerIsAlreadyAnAuthoredMeshNotAnotherOuterLayer()
     {
         Assert.False(PlayerSkinUvMapper.TryMapOuter(
             "HairLayer", Vector3.Zero, Vector3.UnitZ, out _));
+        Assert.False(PlayerSkinUvMapper.TryOuterUvOffset("HairLayer", out _));
     }
 
     [Fact]

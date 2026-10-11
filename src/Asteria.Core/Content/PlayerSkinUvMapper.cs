@@ -23,6 +23,26 @@ public static class PlayerSkinUvMapper
         string part, Vector3 position, Vector3 normal, out Vector2 uv) =>
         TryMapBox(part, position, normal, outer: true, out uv);
 
+    /// <summary>
+    /// The authored GLB already includes canonical base UVs. All outer-layer
+    /// rectangles are translations of those UVs, so their orientation can
+    /// be preserved without recomputing face normals after import.
+    /// </summary>
+    public static bool TryOuterUvOffset(string part, out Vector2 offset)
+    {
+        offset = part switch
+        {
+            "HeadMesh" => new Vector2(32f / 64f, 0f),
+            "BodyMesh" or "RightArmMesh" or "RightLegMesh" =>
+                new Vector2(0f, 16f / 64f),
+            "LeftArmMesh" => new Vector2(16f / 64f, 0f),
+            "LeftLegMesh" => new Vector2(-16f / 64f, 0f),
+            _ => default,
+        };
+        return part is "HeadMesh" or "BodyMesh" or "RightArmMesh"
+            or "RightLegMesh" or "LeftArmMesh" or "LeftLegMesh";
+    }
+
     private static bool TryMapBox(
         string part, Vector3 position, Vector3 normal, bool outer, out Vector2 uv)
     {
