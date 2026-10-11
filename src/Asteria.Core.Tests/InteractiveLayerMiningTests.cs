@@ -114,6 +114,54 @@ public sealed class InteractiveLayerMiningTests
         Assert.True(f.World.GetCellOrEmpty(Position).IsEmpty);
     }
 
+
+    [Theory]
+    [InlineData(0, 1, 0)]
+    [InlineData(0, 0, 1)]
+    [InlineData(-1, 0, 0)]
+    public void OreDropSpawnsBeyondFaceAndCanBeCollectedOnlyOnce(
+        int nx, int ny, int nz)
+    {
+        var f = Setup();
+        var face = (nx, ny, nz) switch
+        {
+            (0, 1, 0) => BlockFace.Top,
+            (0, 0, 1) => BlockFace.Front,
+            (-1, 0, 0) => BlockFace.Left,
+            _ => throw new ArgumentOutOfRangeException()
+        };
+        var hit = new VoxelWorldHit(Position, nx, ny, nz);
+        PutStone(f, new BlockSurfaceState(null, [
+            new AttachedBlockLayer(face, "asteria:iron_ore"),
+            new AttachedBlockLayer(BlockFace.Bottom, "asteria:iron_ore")
+        ]));
+        Assert.True(f.Interactions.Break(hit).Accepted);
+        Assert.Equal(f.Blocks.GetId("asteria:stone"),
+            f.World.GetCellOrEmpty(Position).Block);
+        Assert.Empty(f.World.GetBlockSurfaceStateOrEmpty(Position).Layers);
+
+        var drop = Assert.Single(f.Drops.ActiveBlocks);
+        Assert.Equal("asteria:raw_iron", drop.Stack.Id);
+        Assert.Equal(InventoryEntryKind.Item, drop.Stack.Entry.Kind);
+        Assert.Equal(2, drop.Stack.Quantity);
+        var center = new System.Numerics.Vector3(
+            Position.X + 0.5f, Position.Y + 0.5f, Position.Z + 0.5f);
+        var normal = new System.Numerics.Vector3(nx, ny, nz);
+        Assert.True(System.Numerics.Vector3.Dot(drop.Position - center, normal) >=
+            0.5f + DroppedBlockRuntime.HalfExtent);
+
+        // The normal pickup delay prevents immediate re-collection.
+        var inventory = new PlayerInventory();
+        Assert.Equal(0, f.Drops.CollectNearby(drop.Position, 1f, inventory.TryInsert));
+        f.Drops.Advance(0.5, 0);
+        Assert.Equal(1, f.Drops.CollectNearby(drop.Position, 1f, inventory.TryInsert));
+        Assert.Equal(0, f.Drops.ActiveCount);
+        Assert.Equal(0, f.Drops.CollectNearby(drop.Position, 1f, inventory.TryInsert));
+        Assert.Contains(Enumerable.Range(0, PlayerInventory.TotalSlots)
+                .Select(inventory.SlotAt),
+            stack => stack?.Id == "asteria:raw_iron" && stack.Quantity == 2);
+    }
+
     [Fact]
     public void OtherFacesAreIndependentAndTargetChangeResetsProgress()
     {
