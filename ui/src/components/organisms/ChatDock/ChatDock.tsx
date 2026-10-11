@@ -81,7 +81,9 @@ export function ChatDock({
     setDraft(updated);
     setCaret(updated.length);
     setSelectedIndex(0);
-    setDismissedSuggestions(null);
+    // Recalled commands should stay editable; autocomplete must not steal
+    // the next ArrowDown used to restore the original unsent draft.
+    setDismissedSuggestions(updated + ":" + updated.length);
     input.setSelectionRange(updated.length, updated.length);
   };
 
