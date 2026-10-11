@@ -26,6 +26,19 @@ public sealed class WarpArrivalPlanTests
     }
 
     [Fact]
+    public void ExactPortalArrivalWaitsForStructurePresentation()
+    {
+        var requested = Requested() with { RequireExactDestination = true };
+        var waiting = requested.AwaitStructurePublication();
+        Assert.Equal(WarpArrivalPhase.AwaitingStructurePublication, waiting.Phase);
+        Assert.Equal(WarpArrivalDisposition.Enter, waiting.Evaluate(true));
+        Assert.Equal(WarpArrivalDisposition.ReturnToOrigin, waiting.Evaluate(false));
+        Assert.Equal(WarpArrivalPhase.Returning, waiting.BeginReturn().Phase);
+        Assert.Throws<InvalidOperationException>(() =>
+            waiting.AwaitStructurePublication());
+    }
+
+    [Fact]
     public void SafeCrossSphereArrivalCanEnterImmediately()
     {
         var plan = Requested();
