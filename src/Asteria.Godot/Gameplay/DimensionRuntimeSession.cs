@@ -33,6 +33,8 @@ public sealed class DimensionRuntimeSession
     private readonly BlockPhysicsRuntime _blockPhysics;
     private readonly DroppedBlockRuntime _droppedBlocks;
     private readonly CreaturePresentationController _creaturePresentation;
+    private readonly CreatureParticleRuntime _creatureParticles;
+    private readonly CreatureParticlePresentation _creatureParticlePresentation;
     private readonly ProjectilePresentationController _projectilePresentation;
     private readonly InventoryContentCatalog _inventoryCatalog;
     private readonly CreatureNaturalSpawnRuntime _naturalSpawns;
@@ -133,6 +135,8 @@ public sealed class DimensionRuntimeSession
                 creatures);
         _creaturePresentation.Sync(
             Creatures.ActiveCreatures);
+        _creatureParticles = new CreatureParticleRuntime(creatures);
+        _creatureParticlePresentation = new CreatureParticlePresentation(Root);
         Projectiles = new ProjectileRuntime(creatures);
         _projectilePresentation = new ProjectilePresentationController(Root);
 
@@ -537,6 +541,8 @@ public sealed class DimensionRuntimeSession
                 playerTargetable);
         if (spawned || changed)
             _creaturePresentation.Sync(Creatures.ActiveCreatures);
+        _creatureParticles.Advance((float)deltaSeconds, Creatures.ActiveCreatures);
+        _creatureParticlePresentation.Sync(_creatureParticles);
     }
 
     public VoxelWorld World { get; }
@@ -914,6 +920,8 @@ public sealed class DimensionRuntimeSession
         _state.NaturalSpawnNextAttemptTick =
             _naturalSpawns.NextAttemptTick;
         _creaturePresentation.Retire();
+        _creatureParticles.Clear();
+        _creatureParticlePresentation.Clear();
         _projectilePresentation.Retire();
 
         var archive =
