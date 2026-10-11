@@ -256,4 +256,28 @@ public sealed class PlayerInventoryTests
         Assert.Equal(7, inventory.Cursor!.Quantity);
     }
 
+
+    [Fact]
+    public void CreativeShiftClickFillsAnEmptyOrMatchingCursorOnly()
+    {
+        var inventory = new PlayerInventory();
+        var wood = InventoryEntry.FromItem("asteria:wood");
+        var different = InventoryEntry.FromItem("asteria:stone");
+        Assert.True(inventory.TryCreativePick(wood, 2));
+        Assert.True(inventory.TryCreativePick(wood, fillStack: true));
+        Assert.Equal(64, inventory.Cursor!.Quantity);
+        var revision = inventory.Revision;
+        Assert.False(inventory.TryCreativePick(wood, fillStack: true));
+        Assert.False(inventory.TryCreativePick(different, fillStack: true));
+        Assert.Equal(revision, inventory.Revision);
+        Assert.True(inventory.DiscardCursor());
+        Assert.True(inventory.TryCreativePick(
+            InventoryEntry.FromTool("asteria:pickaxe_rustic"),
+            fillStack: true));
+        Assert.Equal(1, inventory.Cursor!.Quantity);
+        Assert.True(inventory.DiscardCursor());
+        Assert.True(inventory.TryCreativePick(wood, fillStack: true));
+        Assert.Equal(64, inventory.Cursor!.Quantity);
+    }
+
 }
