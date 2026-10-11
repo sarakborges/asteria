@@ -1627,9 +1627,9 @@ public sealed class SurfaceChunkMaterializer
             var coreBlock = _materials.CoreLayer(column.BiomeAt(x, z)).Block;
 
             // Seal the playable face with its biome's deep terrain material.
-            SetBoundaryBlock(chunk, x, z, originY, topExclusive,
+            SealShellLining(chunk, x, z, originY, topExclusive,
                 floorLiningY, coreBlock);
-            SetBoundaryBlock(chunk, x, z, originY, topExclusive,
+            SealShellLining(chunk, x, z, originY, topExclusive,
                 roofLiningY, coreBlock);
 
             // Apply the unbreakable boundary last, after every worldgen pass.
@@ -1640,6 +1640,38 @@ public sealed class SurfaceChunkMaterializer
                 SetBoundaryBlock(chunk, x, z, originY, topExclusive,
                     roofY, _shellBlock);
         }
+    }
+
+    private void SealShellLining(
+        Chunk chunk,
+        int x,
+        int z,
+        int originY,
+        int topExclusive,
+        long worldY,
+        BlockRuntimeId coreBlock)
+    {
+        if (worldY < originY || worldY >= topExclusive)
+            return;
+
+        var localY = (int)(worldY - originY);
+        var current = chunk.GetBlock(x, localY, z);
+        if (!current.IsAir)
+        {
+            var definition = _blocks.GetDefinition(current);
+            if (definition.IsOpaque &&
+                definition.Shape.Kind == BlockShapeKind.Cube &&
+                chunk.GetMicroblockMask(x, localY, z).IsEmpty)
+            {
+                // Preserve the biome's legitimate surface if it already
+                // conceals the shell; only repair cleared/partial cells.
+                chunk.SetFluid(x, localY, z, FluidCell.Empty);
+                return;
+            }
+        }
+
+        SetBoundaryBlock(chunk, x, z, originY, topExclusive,
+            worldY, coreBlock);
     }
 
     private static void SetBoundaryBlock(
