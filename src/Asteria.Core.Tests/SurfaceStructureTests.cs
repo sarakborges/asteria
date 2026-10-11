@@ -169,7 +169,9 @@ public sealed class SurfaceStructureTests
     {
         var blocks = PortalArrivalBlocks();
         var structures = PortalArrivalStructures();
-        var generator = FlatStructureGenerator(blocks, structures, "asteria:stone");
+        // The default flat fixture is too shallow for a 45-block climb.
+        var generator = FlatStructureGenerator(blocks, structures, "asteria:stone",
+            StructureSetRegistry.Empty, 48f);
         var entryY = generator.SurfaceHeight(8, 8) - 45;
         Assert.True(entryY > 1);
         Assert.True(generator.TryPrepareExactStructure(
@@ -545,10 +547,11 @@ public sealed class SurfaceStructureTests
         var overworld = dimensions.Get(DimensionId.Overworld);
         var rules = overworld.GeneratedSurfaceStructures.Where(
             rule => rule.Biome == "asteria:overworld/enchanted_forest").ToArray();
-        Assert.Equal(2, rules.Length);
+        Assert.Equal(5, rules.Length);
         Assert.Equal(34, Assert.Single(rules,
             rule => rule.Structure == "asteria:tree_enchanted").Spacing);
-        foreach (var rule in rules)
+        foreach (var rule in rules.Where(rule =>
+                     rule.Structure is "asteria:tree_enchanted" or "asteria:enchanted_grove"))
         {
             Assert.NotNull(rule.HabitatWeights);
             Assert.True(rule.HabitatWeights.For("violet_undergrowth") >
@@ -559,6 +562,19 @@ public sealed class SurfaceStructureTests
         Assert.Equal(0f, Assert.Single(rules,
             rule => rule.Structure == "asteria:enchanted_grove")
             .HabitatWeights!.For("luminous_clearing"));
+
+        var ring = Assert.Single(rules,
+            rule => rule.Structure == "asteria:enchanted_mushroom_ring");
+        Assert.True(ring.HabitatWeights!.For("luminous_clearing") >
+                    ring.HabitatWeights.For("pink_glade"));
+        var stump = Assert.Single(rules,
+            rule => rule.Structure == "asteria:enchanted_hollow_stump");
+        Assert.True(stump.HabitatWeights!.For("violet_undergrowth") >
+                    stump.HabitatWeights.For("luminous_clearing"));
+        var canopy = Assert.Single(rules,
+            rule => rule.Structure == "asteria:enchanted_fungal_canopy");
+        Assert.True(canopy.HabitatWeights!.For("pink_glade") >
+                    canopy.HabitatWeights.For("violet_undergrowth"));
     }
 
     [Fact]
@@ -1917,6 +1933,17 @@ public sealed class SurfaceStructureTests
         StructureRegistry structures,
         string surfaceBlock,
         StructureSetRegistry structureSets,
+        params string[] structureReferences) =>
+        FlatStructureGenerator(
+            blocks, structures, surfaceBlock, structureSets,
+            0f, structureReferences);
+
+    private static BiomeWorldGenerator FlatStructureGenerator(
+        BlockRegistry blocks,
+        StructureRegistry structures,
+        string surfaceBlock,
+        StructureSetRegistry structureSets,
+        float surfaceHeightOffset,
         params string[] structureReferences)
     {
         var biome =
@@ -1924,7 +1951,7 @@ public sealed class SurfaceStructureTests
                 "asteria:test/flat",
                 new BiomeSurfaceLayoutDefinition(),
                 new BiomeTerrainDefinition(
-                    0f,
+                    surfaceHeightOffset,
                     0f,
                     64,
                     0f,

@@ -128,7 +128,11 @@ public sealed class VerticalBiomeContentTests
         Assert.Equal(VolumeBiomePlacement.Additive, floating.VolumeLayout.Placement);
         Assert.Null(cave.SurfaceHabitats);
         Assert.Null(floating.SurfaceHabitats);
-        Assert.Equal(6, cave.Decorations.Count);
+        Assert.Equal(8, cave.Decorations.Count);
+        Assert.Contains(cave.Decorations, d => d.IsLayer &&
+            d.Block == "asteria:wall_moss");
+        Assert.Contains(cave.Decorations, d =>
+            d.Block == "asteria:wall_shelf_fungus");
         Assert.Equal(7, floating.Decorations.Count);
         Assert.Contains(floating.Decorations, d => d.Block == "asteria:aether_vines");
 
