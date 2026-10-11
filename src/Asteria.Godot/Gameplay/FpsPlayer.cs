@@ -55,6 +55,7 @@ public partial class FpsPlayer : CharacterBody3D
 
     public event Action? BreakRequested;
     public event Action? PlaceRequested;
+    public event Action? PickBlockRequested;
     public event Action? ToolActionRequested;
     public event Action? DropItemRequested;
     public event Action<int>? HotbarSlotRequested;
@@ -199,6 +200,9 @@ public partial class FpsPlayer : CharacterBody3D
                     break;
                 case MouseButton.Right:
                     PlaceRequested?.Invoke();
+                    break;
+                case MouseButton.Middle:
+                    PickBlockRequested?.Invoke();
                     break;
             }
         }

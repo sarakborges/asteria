@@ -101,6 +101,23 @@ public sealed class PlayerInventory
         return true;
     }
 
+    /// <summary>
+    /// Creative middle-click replaces only the selected hotbar stack with one
+    /// pack-authorized identity. It does not move the cursor or other slots.
+    /// The native caller enforces Creative mode and resolves the target through
+    /// InventoryContentCatalog before invoking this capability.
+    /// </summary>
+    public bool ReplaceSelectedCreative(InventoryEntry entry)
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+        var index = BackpackSlots + SelectedSlot;
+        var replacement = new InventoryStack(entry);
+        if (_slots[index] == replacement) return false;
+        _slots[index] = replacement;
+        Revision++;
+        return true;
+    }
+
     public bool CanInsert(InventoryStack incoming)
     {
         ArgumentNullException.ThrowIfNull(incoming);

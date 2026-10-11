@@ -3,6 +3,7 @@ render_mode unshaded, cull_back, blend_mix, depth_draw_never;
 
 uniform sampler2DArray terrain_textures : source_color, filter_nearest, repeat_enable;
 uniform vec2 wind_velocity = vec2(0.0, 0.0);
+uniform float preview_opacity : hint_range(0.0, 1.0) = 1.0;
 #include "res://shaders/held_dynamic_light.gdshaderinc"
 
 const float AMBIENT_FLOOR = 0.055;
@@ -121,5 +122,5 @@ void fragment() {
 
     ALBEDO = rgb * local_light;
     ROUGHNESS = 1.0;
-    ALPHA = alpha;
+    ALPHA = alpha * preview_opacity;
 }

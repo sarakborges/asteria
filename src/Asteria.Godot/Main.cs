@@ -97,6 +97,7 @@ public partial class Main : Node3D
     private InventoryCategoryRegistry _inventoryCategories = null!;
     private InventoryDropIconCatalog _inventoryDropIcons = null!;
     private InventoryBlockPreviewRenderer _blockPreviewRenderer = null!;
+    private BlockPlacementPreviewPresentation _placementPreview = null!;
     private CreaturePortraitPresentation? _creaturePortrait;
     private readonly Dictionary<string, string> _inventoryIconCache =
         new(StringComparer.Ordinal);
@@ -280,6 +281,8 @@ public partial class Main : Node3D
                 _terrainTextures);
         _heldDynamicLight = new HeldDynamicLightPresentation(
             this, _terrainMaterials, _blocks);
+        _placementPreview = new BlockPlacementPreviewPresentation(
+            this, _blocks, _fluids, _terrainTextureLookup, _terrainMaterials);
         _fluidMaterials =
             FluidMaterialCatalog.Create(
                 _fluids,
@@ -536,6 +539,7 @@ public partial class Main : Node3D
         AdvanceChatPresentation(delta);
         if (_worldSeed is null)
         {
+            _placementPreview.Hide();
             _worldDiagnostics?.FlushIfDue(0, 0, 0, 0, "MainMenu", 0, 0, 0, false);
             return;
         }
@@ -554,6 +558,7 @@ public partial class Main : Node3D
 
         if (_sessions.IsTransitioning)
         {
+            _placementPreview.Hide();
             _heldDynamicLight.Clear();
             AdvanceDimensionTransition();
             _worldDiagnostics?.FlushIfDue(0, 0, 0, 0, "Transitioning", 0, 0, 0, false);
@@ -747,6 +752,7 @@ public partial class Main : Node3D
         SendWorldClockState();
         SendTargetHudState();
         SyncArchitectsCompassPreview();
+        SyncPlacementPreview();
         _worldDiagnostics?.ObserveStage(
             WorldFrameStage.Hud, gameplaySliceStart);
 
@@ -969,6 +975,7 @@ public partial class Main : Node3D
             $"world.leave.complete generation={completion.SavedGeneration}");
         _dimensionEnvironment.Clear();
         _heldDynamicLight.Clear();
+        _placementPreview.Hide();
         _ambientParticleRuntime = null;
         _ambientParticlePresentation = null;
         _chat.Reset();
@@ -1188,6 +1195,7 @@ public partial class Main : Node3D
 
     private void RetirePlayerForDimensionTransition()
     {
+        _placementPreview.Hide();
         if (_player is null)
         {
             return;
@@ -1199,6 +1207,7 @@ public partial class Main : Node3D
         _player.FluidExposureSampled -= OnPlayerFluidExposure;
         _player.PlaceRequested -=
             PlaceTargetBlock;
+        _player.PickBlockRequested -= PickTargetBlock;
         _player.ToolActionRequested -=
             RotateHeldBlock;
         _player.DropItemRequested -= DropSelectedItem;
@@ -2795,6 +2804,34 @@ public partial class Main : Node3D
             selectedBlock, _blocks.GetDefinition(block));
     }
 
+    private void PickTargetBlock()
+    {
+        if (!_worldReadySent || _sessions.IsTransitioning || _inventoryOpen ||
+            _brushPaletteOpen || _chat.IsOpen ||
+            _player is not { IsMouseCaptured: true } ||
+            _sessionStates.Player.GameMode != PlayerGameMode.Creative ||
+            !_sessionStates.Player.CanInteract || !TryGetTarget(out var hit))
+            return;
+
+        var target = BlockInteractionResolver.ResolveBreak(_world, hit);
+        if (!target.Accepted) return;
+        var definition = _blocks.GetDefinition(target.Cell.Block);
+        // Pickup sprites are represented by real collectible items in Asteria.
+        var kind = definition.Interaction == BlockInteractionKind.Pickup
+            ? InventoryEntryKind.Item : InventoryEntryKind.Block;
+        var id = definition.Interaction == BlockInteractionKind.Pickup
+            ? definition.PickupItemId! : definition.Id;
+        if (!_inventoryCatalog.TryResolve(kind, id, null, null, out var entry) ||
+            entry is null ||
+            !_sessionStates.Player.Inventory.ReplaceSelectedCreative(entry))
+            return;
+
+        SyncHeldBlock();
+        SendHotbarState();
+        SendInventoryState();
+        SendTargetHudState(force: true);
+    }
+
     private void SelectHotbar(int index)
     {
         var inventory = _sessionStates.Player.Inventory;
@@ -4026,6 +4063,7 @@ public partial class Main : Node3D
         _player.Landed += OnPlayerLanded;
         _player.FluidExposureSampled += OnPlayerFluidExposure;
         _player.PlaceRequested += PlaceTargetBlock;
+        _player.PickBlockRequested += PickTargetBlock;
         _player.ToolActionRequested += RotateHeldBlock;
         _player.DropItemRequested += DropSelectedItem;
         _player.HotbarSlotRequested += SelectHotbar;
@@ -4630,6 +4668,31 @@ public partial class Main : Node3D
             durationMs = 6500
         });
         SyncArchitectsCompassPreview();
+    }
+
+    private void SyncPlacementPreview()
+    {
+        if (!_worldReadySent || _sessions.IsTransitioning || _inventoryOpen ||
+            _brushPaletteOpen || _chat.IsOpen ||
+            _player is not { IsMouseCaptured: true } player ||
+            !_sessionStates.Player.CanInteract ||
+            _sessionStates.Player.Inventory.SelectedStack is not { Block: { } selected } ||
+            selected.HasMicroblockGeometry ||
+            CurrentTarget() is not { } hit)
+        {
+            _placementPreview.Hide();
+            return;
+        }
+
+        var cell = _sessionStates.Player.HeldBlock.CurrentCell();
+        if (cell.IsEmpty)
+        {
+            _placementPreview.Hide();
+            return;
+        }
+        var decision = BlockInteractionResolver.ResolvePlacement(
+            _world, _blocks, hit, cell, player.CollisionBounds);
+        _placementPreview.Sync(decision);
     }
 
     private void SyncArchitectsCompassPreview()

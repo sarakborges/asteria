@@ -75,6 +75,27 @@ public sealed class PlayerInventoryTests
     }
 
     [Fact]
+    public void CreativePickBlockReplacesOnlySelectedHotbarStack()
+    {
+        var inventory = new PlayerInventory();
+        Assert.True(inventory.TryInsert(Block(1, 24)));
+        Assert.True(inventory.TryInsert(Block(2, 7)));
+        Assert.True(inventory.TryCreativePick(Block(3).Entry, 5));
+        var cursor = inventory.Cursor;
+        Assert.True(inventory.SelectHotbar(1));
+        var previousRevision = inventory.Revision;
+        Assert.True(inventory.ReplaceSelectedCreative(Block(4).Entry));
+        Assert.Equal(previousRevision + 1, inventory.Revision);
+        Assert.Equal(Block(4), inventory.SelectedStack);
+        Assert.Equal(Block(1, 24), inventory.SlotAt(27));
+        Assert.Equal(cursor, inventory.Cursor);
+        Assert.False(inventory.ReplaceSelectedCreative(Block(4).Entry));
+        Assert.Equal(previousRevision + 1, inventory.Revision);
+        Assert.Throws<ArgumentNullException>(() =>
+            inventory.ReplaceSelectedCreative(null!));
+    }
+
+    [Fact]
     public void PortableBlockSnapshotRetainsOrientation()
     {
         var inventory = new PlayerInventory();
