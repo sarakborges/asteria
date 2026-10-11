@@ -104,6 +104,13 @@ public sealed class BlockInteractionRuntime
                     return BlockBreakDecision.Reject(
                         decision.Position, BlockBreakRejection.Unbreakable);
 
+                // A full drop pool must not destroy an ore/moss layer while
+                // evicting unrelated physical items.
+                if (lootPolicy == BlockBreakLootPolicy.DropSelf &&
+                    layer.Drops.Count > _droppedBlocks.AvailableCapacity)
+                    return BlockBreakDecision.Reject(
+                        decision.Position, BlockBreakRejection.MutationRejected);
+
                 BlockSurfaceState updated;
                 var removed = layer.Scope == LayerRemovalScope.Voxel
                     ? surface.TryRemoveEverywhere(attached.LayerId, out updated)
