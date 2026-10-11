@@ -85,6 +85,31 @@ public sealed class PlayerChatSessionTests
     }
 
     [Fact]
+    public void ExportActionAcceptsOnlyGeneratedNamesAndExpiresWithHistory()
+    {
+        var chat = new PlayerChatSession();
+        var name = "structure_" + new string('a', 32) + ".json";
+        chat.AppendStructureFile(name);
+        var id = Assert.Single(chat.History).Id;
+        Assert.True(chat.TryGetStructureFileName(id, out var file));
+        Assert.Equal(name, file);
+        Assert.False(chat.TryGetWarpTarget(id, out _));
+
+        foreach (var invalid in new[]
+        {
+            "../outside.json",
+            "/tmp/test.json",
+            "structure_" + new string('a', 31) + ".json",
+            "structure_" + new string('A', 32) + ".json",
+            "structure_" + new string('a', 32) + ".txt",
+        })
+            Assert.Throws<ArgumentException>(() => chat.AppendStructureFile(invalid));
+        Assert.Single(chat.History);
+        chat.Reset();
+        Assert.False(chat.TryGetStructureFileName(id, out _));
+    }
+
+    [Fact]
     public void ResetClosesChatAndDropsPreviousHistory()
     {
         var chat = new PlayerChatSession();
