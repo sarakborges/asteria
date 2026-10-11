@@ -44,38 +44,38 @@ public sealed class PlayerHazardTests
     }
 
     [Fact]
-    public void CreatureContactCooldownAndArmorProtectionAreNotPerFrame()
+    public void CreatureAttackInvulnerabilityAndArmorProtectionAreNotPerFrame()
     {
         var health = new PlayerHealth();
         var hazards = new PlayerHazardRuntime();
         Assert.Equal(PlayerDamageResult.Hurt,
-            hazards.TouchCreature(4f, 0.5f, health, PlayerGameMode.Survival));
+            hazards.ReceiveCreatureAttack(4f, 0.5f, health, PlayerGameMode.Survival));
         Assert.Equal(18f, health.Current);
         Assert.Equal(PlayerDamageResult.Ignored,
-            hazards.TouchCreature(4f, 0f, health, PlayerGameMode.Survival));
+            hazards.ReceiveCreatureAttack(4f, 0f, health, PlayerGameMode.Survival));
         hazards.AdvanceTime(0.8f);
         Assert.Equal(PlayerDamageResult.Hurt,
-            hazards.TouchCreature(4f, 0.5f, health, PlayerGameMode.Survival));
+            hazards.ReceiveCreatureAttack(4f, 0.5f, health, PlayerGameMode.Survival));
         Assert.Equal(16f, health.Current);
     }
 
 
     [Fact]
-    public void ContactPulseTriggersAttackEvenWhenArmorAbsorbsTheDamage()
+    public void MeleeStrikeUsesInvulnerabilityEvenWhenArmorAbsorbsDamage()
     {
         var hazards = new PlayerHazardRuntime();
         var health = new PlayerHealth();
         Assert.Equal(PlayerDamageResult.Ignored,
-            hazards.TouchCreature(2f, 1f, health, PlayerGameMode.Survival,
+            hazards.ReceiveCreatureAttack(2f, 1f, health, PlayerGameMode.Survival,
                 out var accepted));
         Assert.True(accepted);
         Assert.Equal(20f, health.Current);
-        hazards.TouchCreature(2f, 0f, health, PlayerGameMode.Survival,
+        hazards.ReceiveCreatureAttack(2f, 0f, health, PlayerGameMode.Survival,
             out accepted);
         Assert.False(accepted);
-        hazards.AdvanceTime(PlayerHazardRuntime.CreatureContactIntervalSeconds);
+        hazards.AdvanceTime(PlayerHazardRuntime.CreatureAttackInvulnerabilitySeconds);
         Assert.Equal(PlayerDamageResult.Hurt,
-            hazards.TouchCreature(2f, 0f, health, PlayerGameMode.Survival,
+            hazards.ReceiveCreatureAttack(2f, 0f, health, PlayerGameMode.Survival,
                 out accepted));
         Assert.True(accepted);
         Assert.Equal(18f, health.Current);
@@ -92,7 +92,7 @@ public sealed class PlayerHazardTests
         Assert.Equal(20f, health.Current);
         Assert.Equal(PlayerHazardRuntime.BreathCapacitySeconds, hazards.BreathSeconds);
         Assert.Equal(PlayerDamageResult.Ignored,
-            hazards.TouchCreature(5f, 0f, health, PlayerGameMode.Spectator));
+            hazards.ReceiveCreatureAttack(5f, 0f, health, PlayerGameMode.Spectator));
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             hazards.AdvanceFluid(float.NaN, true, true, true, 0f, health,
                 PlayerGameMode.Survival));
@@ -140,45 +140,5 @@ public sealed class PlayerHazardTests
                 """{"id":"asteria:lava","color":"851701","opacity":1,"contactDamagePerSecond":-1}"""));
     }
 
-    [Fact]
-    public void ContactDamageUsesColliderAndIgnoresDeadOrNoAiCreatures()
-    {
-        var definitions = PackContentRegistry<CreatureDefinition>.FromJson(
-        [
-            """
-            {
-              "id": "asteria:slime",
-              "model": "models/slime.glb",
-              "health": 10,
-              "maxPerType": 5,
-              "collider": {
-                "size": [1, 1, 1],
-                "centerOffset": [0, 0.5, 0]
-              },
-              "jumpSpeed": 5,
-              "moveSpeed": 1,
-              "jumpInterval": 2,
-              "anticipationSeconds": 0.2,
-              "landingSeconds": 0.2,
-              "animations": {"idle": "Idle"},
-              "textures": {},
-              "contactDamage": 3
-            }
-            """
-        ], CreatureDefinition.Parse, creature => creature.Id);
-        var runtime = new CreatureRuntime(definitions);
-        Assert.True(runtime.TrySpawn("asteria:slime", new Vector3(6, 1, 6),
-            out var creature));
-        var player = new WorldAabb(
-            new Vector3(5.75f, 1, 5.75f),
-            new Vector3(6.25f, 2.8f, 6.25f));
-        Assert.Equal(3f, runtime.ContactDamageAt(player));
-        Assert.Equal(0f, runtime.ContactDamageAt(new WorldAabb(
-            new Vector3(3, 1, 3), new Vector3(4, 3, 4))));
-        Assert.True(runtime.TrySetNoAi(creature.Id, true));
-        Assert.Equal(0f, runtime.ContactDamageAt(player));
-        Assert.True(runtime.TrySetNoAi(creature.Id, false));
-        Assert.True(runtime.TryKill(creature.Id, out _));
-        Assert.Equal(0f, runtime.ContactDamageAt(player));
-    }
+
 }

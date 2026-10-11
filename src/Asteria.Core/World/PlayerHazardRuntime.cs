@@ -1,18 +1,18 @@
 namespace Asteria.Core.World;
 
 /// <summary>
-/// Time-based hazards consume existing native collision/contact samples.
+/// Time-based hazards consume explicit attack and environmental damage events.
 /// Health remains the sole HP owner; this runtime only schedules exposure
-/// and contact pulses. No biome IDs, physics or rendering dependencies.
+/// without dealing passive contact damage. No rendering dependencies.
 /// </summary>
 public sealed class PlayerHazardRuntime
 {
     public const float BreathCapacitySeconds = 15f;
-    public const float CreatureContactIntervalSeconds = 0.8f;
+    public const float CreatureAttackInvulnerabilitySeconds = 0.8f;
     private float _breathSeconds = BreathCapacitySeconds;
     private float _drownPulseSeconds;
     private float _fluidPulseSeconds;
-    private float _creatureCooldownSeconds;
+    private float _creatureAttackCooldownSeconds;
 
     public float BreathSeconds => _breathSeconds;
     public bool BreathDepleting { get; private set; }
@@ -20,14 +20,14 @@ public sealed class PlayerHazardRuntime
     public void AdvanceTime(float elapsed)
     {
         ValidateSeconds(elapsed);
-        _creatureCooldownSeconds = MathF.Max(0f, _creatureCooldownSeconds - elapsed);
+        _creatureAttackCooldownSeconds = MathF.Max(0f, _creatureAttackCooldownSeconds - elapsed);
     }
 
-    public PlayerDamageResult TouchCreature(
+    public PlayerDamageResult ReceiveCreatureAttack(
         float damage, float protection, PlayerHealth health, PlayerGameMode mode) =>
-        TouchCreature(damage, protection, health, mode, out _);
+        ReceiveCreatureAttack(damage, protection, health, mode, out _);
 
-    public PlayerDamageResult TouchCreature(
+    public PlayerDamageResult ReceiveCreatureAttack(
         float damage, float protection, PlayerHealth health, PlayerGameMode mode,
         out bool contactAccepted)
     {
@@ -38,12 +38,12 @@ public sealed class PlayerHazardRuntime
             throw new ArgumentOutOfRangeException(nameof(damage));
 
         if (mode != PlayerGameMode.Survival || health.IsDead ||
-            damage == 0f || _creatureCooldownSeconds > 0f)
+            damage == 0f || _creatureAttackCooldownSeconds > 0f)
             return PlayerDamageResult.Ignored;
 
-        // The cooldown belongs to the real contact event, even if protection
+        // The cooldown belongs to the real attack event, even if protection
         // absorbs it completely, avoiding unbounded same-frame retriggers.
-        _creatureCooldownSeconds = CreatureContactIntervalSeconds;
+        _creatureAttackCooldownSeconds = CreatureAttackInvulnerabilitySeconds;
         contactAccepted = true;
         return health.Damage(damage * (1f - protection), mode);
     }
@@ -107,7 +107,7 @@ public sealed class PlayerHazardRuntime
     public void Reset()
     {
         ResetFluid();
-        _creatureCooldownSeconds = 0f;
+        _creatureAttackCooldownSeconds = 0f;
     }
 
     private void ResetFluid()

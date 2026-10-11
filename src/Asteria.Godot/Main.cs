@@ -673,7 +673,7 @@ public partial class Main : Node3D
                 new NVector3(position.X, position.Y, position.Z),
                 creatureObserver.CollisionBounds,
                 playerTargetable);
-            ApplyCreatureContact();
+            ApplyCreatureMeleeAttacks();
             var impacts = _sessions.Active.AdvanceProjectiles(
                 delta, creatureObserver.CollisionBounds, playerTargetable);
             foreach (var impact in impacts)
@@ -2397,30 +2397,32 @@ public partial class Main : Node3D
         ApplyPlayerDamageResult(result);
     }
 
-    private void ApplyCreatureContact()
+    private void ApplyCreatureMeleeAttacks()
     {
-        if (_player is not { } player ||
+        // Only explicit, one-shot slime attack impacts can damage a player.
+        // Reading these hits drains them even if the player is not targetable.
+        var attacks = _sessions.Active.Creatures.DrainMeleeHits();
+        if (_player is null ||
             !_sessionStates.Player.CanInteract ||
             !_sessionStates.GameRules.AllowsCreatureAttacks)
             return;
 
-        var contact = _sessions.Active.Creatures.FindContactHit(player.CollisionBounds);
-        if (contact is not { } hit) return;
-        var protection = PlayerEquipmentProtection.Calculate(
-            _sessionStates.Player.Inventory, _items);
-        var result = _sessionStates.Player.Hazards.TouchCreature(
-            hit.Damage, protection, _sessionStates.Player.Health,
-            _sessionStates.Player.GameMode, out var contactAccepted);
-        if (contactAccepted)
-            _sessions.Active.TryRegisterCreatureContactAttack(hit.Id);
-        if (result != PlayerDamageResult.Ignored &&
-            PlayerEquipmentWear.ApplyContactHit(_sessionStates.Player.Inventory, _items) &&
-            _inventoryOpen)
+        foreach (var hit in attacks)
         {
-            SendInventoryState();
-            _playerPortrait?.RequestCapture();
+            var protection = PlayerEquipmentProtection.Calculate(
+                _sessionStates.Player.Inventory, _items);
+            var result = _sessionStates.Player.Hazards.ReceiveCreatureAttack(
+                hit.Damage, protection, _sessionStates.Player.Health,
+                _sessionStates.Player.GameMode, out var attackAccepted);
+            if (attackAccepted &&
+                PlayerEquipmentWear.ApplyContactHit(_sessionStates.Player.Inventory, _items) &&
+                _inventoryOpen)
+            {
+                SendInventoryState();
+                _playerPortrait?.RequestCapture();
+            }
+            ApplyPlayerDamageResult(result);
         }
-        ApplyPlayerDamageResult(result);
     }
 
     private void OnPlayerFluidExposure(float delta, FluidBodyContact contact)

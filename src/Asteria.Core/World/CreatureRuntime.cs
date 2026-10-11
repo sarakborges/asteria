@@ -41,7 +41,7 @@ public readonly record struct CreatureAttackResult(
     bool Killed,
     IReadOnlyList<CreatureLootEntry> Loot);
 
-public readonly record struct CreatureContactHit(CreatureInstanceId Id, float Damage);
+public readonly record struct CreatureMeleeHit(CreatureInstanceId Id, float Damage);
 
 public sealed record CreatureRuntimeSnapshot(
     ulong NextId,
@@ -59,12 +59,15 @@ public sealed class CreatureRuntime
     public const float DeathAnimationSeconds = 0.75f;
     public const float HurtAnimationSeconds = 0.4f;
     public const float AttackAnimationSeconds = 0.34f;
-    private const float ContactSkin = 0.06f;
+    // Reach beyond the solid body; physical colliders should not need
+    // to overlap for a deliberate melee strike to connect.
+    private const float MeleeReach = 0.3f;
     private const float SeparationEpsilon = 0.001f;
 
     private readonly PackContentRegistry<CreatureDefinition> _definitions;
     private readonly SortedDictionary<ulong, CreatureInstanceState> _active = [];
     private readonly Dictionary<string, int> _counts = new(StringComparer.Ordinal);
+    private readonly List<CreatureMeleeHit> _meleeHits = [];
     private ulong _nextId;
 
     public CreatureRuntime(
@@ -185,57 +188,37 @@ public sealed class CreatureRuntime
             maximumDistance);
 
     /// <summary>
-    /// Picks one live hostile creature overlapping the player's physical
-    /// capsule AABB. Stable creature-id order is the deterministic tie break.
-    /// This query never mutates combat state or sends damage by itself.
+    /// Consume actual melee impacts produced by a slime's landing attack.
+    /// Merely touching a creature never generates damage.
     /// </summary>
-    public float ContactDamageAt(WorldAabb playerBounds) =>
-        FindContactHit(playerBounds)?.Damage ?? 0f;
-
-    public CreatureContactHit? FindContactHit(WorldAabb playerBounds)
+    public IReadOnlyList<CreatureMeleeHit> DrainMeleeHits()
     {
-        foreach (var creature in _active.Values)
-        {
-            if (creature.IsDying || creature.NoAi)
-                continue;
-            var definition = _definitions.Get(creature.DefinitionId);
-            if (definition.ContactDamage <= 0f)
-                continue;
-
-            var center = creature.Position + new Vector3(
-                definition.Collider.CenterOffset.X,
-                definition.Collider.CenterOffset.Y,
-                definition.Collider.CenterOffset.Z);
-            var half = new Vector3(
-                definition.Collider.Size.X,
-                definition.Collider.Size.Y,
-                definition.Collider.Size.Z) * 0.5f;
-            // Physical bodies meet at their surfaces. Include a small
-            // contact skin so touch attacks still register.
-            var min = center - half - new Vector3(ContactSkin);
-            var max = center + half + new Vector3(ContactSkin);
-
-            if (new WorldAabb(min, max).Intersects(playerBounds))
-                return new CreatureContactHit(creature.Id, definition.ContactDamage);
-        }
-
-        return null;
+        var hits = _meleeHits.ToArray();
+        _meleeHits.Clear();
+        return hits;
     }
 
-    /// <summary>Records a contact pulse only after player hazard cooldown accepts it.</summary>
-    public bool TryRegisterContactAttack(CreatureInstanceId id)
+    private static bool MeleeStrikeHitsPlayer(
+        CreatureInstanceState creature,
+        CreatureDefinition definition,
+        WorldAabb playerBounds,
+        VoxelWorld world,
+        BlockRegistry blocks)
     {
-        if (!_active.TryGetValue(id.Value, out var creature) ||
-            creature.NoAi || creature.IsDying ||
-            _definitions.Get(creature.DefinitionId).ContactDamage <= 0f)
+        var body = CreatureHopSolver.Bounds(definition.Collider, creature.Position);
+        var reach = new Vector3(MeleeReach, 0.1f, MeleeReach);
+        if (!new WorldAabb(body.Minimum - reach,
+                body.Maximum + reach).Intersects(playerBounds))
             return false;
 
-        _active[id.Value] = creature with
-        {
-            AttacksDealt = checked(creature.AttacksDealt + 1),
-            AttackSecondsRemaining = AttackAnimationSeconds,
-        };
-        return true;
+        // A thin solid wall between the player and slime must block the hit.
+        var origin = (body.Minimum + body.Maximum) * 0.5f;
+        var target = (playerBounds.Minimum + playerBounds.Maximum) * 0.5f;
+        var delta = target - origin;
+        var distance = delta.Length();
+        return distance <= 0.0001f ||
+            VoxelWorldRaycaster.Raycast(world, blocks, origin,
+                delta / distance, distance) is null;
     }
 
     /// <summary>
@@ -603,7 +586,8 @@ public sealed class CreatureRuntime
         VoxelWorld world,
         BlockRegistry blocks,
         float gravityStrength,
-        bool targetPlayer = true)
+        bool targetPlayer = true,
+        WorldAabb? playerBounds = null)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(blocks);
@@ -613,6 +597,9 @@ public sealed class CreatureRuntime
             throw new ArgumentOutOfRangeException(nameof(deltaSeconds));
         }
 
+        // Events are frame-local. Never replay old hits or accumulate a queue
+        // when no player is present.
+        _meleeHits.Clear();
         var hadEndingReactions = _active.Values.Any(
             creature => !creature.IsDying &&
                 creature.HurtSecondsRemaining > 0f &&
@@ -641,6 +628,25 @@ public sealed class CreatureRuntime
                 (creature.HurtSecondsRemaining > 0f &&
                  next.HurtSecondsRemaining == 0f))
             {
+                changed = true;
+            }
+
+            // A melee hit is emitted only at the landing impact of a hop,
+            // never from touching or remaining adjacent to the slime.
+            if (targetPlayer &&
+                playerBounds is { } bounds &&
+                creature.Motion.Phase == CreatureHopPhase.Airborne &&
+                next.Motion.Phase == CreatureHopPhase.Land &&
+                definition.ContactDamage > 0f &&
+                MeleeStrikeHitsPlayer(next, definition, bounds, world, blocks))
+            {
+                _meleeHits.Add(new CreatureMeleeHit(
+                    next.Id, definition.ContactDamage));
+                next = next with
+                {
+                    AttacksDealt = checked(next.AttacksDealt + 1),
+                    AttackSecondsRemaining = AttackAnimationSeconds,
+                };
                 changed = true;
             }
 

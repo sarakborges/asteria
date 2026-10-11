@@ -507,14 +507,6 @@ public sealed class DimensionRuntimeSession
         return true;
     }
 
-    public bool TryRegisterCreatureContactAttack(CreatureInstanceId id)
-    {
-        if (_retiring || _retired || !Creatures.TryRegisterContactAttack(id))
-            return false;
-        _creaturePresentation.Sync(Creatures.ActiveCreatures);
-        return true;
-    }
-
     public void AdvanceCreatures(
         double deltaSeconds, NVector3 playerPosition,
         WorldAabb playerBounds, bool playerTargetable)
@@ -540,7 +532,8 @@ public sealed class DimensionRuntimeSession
                 World,
                 Blocks,
                 Dimension.GravityStrength,
-                playerTargetable);
+                playerTargetable,
+                playerBounds);
         var fired = Creatures.FireRangedAttacks(
             Projectiles, World, Blocks, playerBounds, playerTargetable) > 0;
         if (spawned || changed || fired)

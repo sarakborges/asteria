@@ -87,39 +87,111 @@ public sealed class CreatureCombatTests
     }
 
     [Fact]
-    public void ContactAttackReplaysAndPersistsUntilItsPresentationExpires()
+    public void PassiveOverlapDoesNotProduceCreatureDamage()
     {
         var definitions = HostileDefinitions();
         var runtime = new CreatureRuntime(definitions);
-        Assert.True(runtime.TrySpawn("asteria:slime_aqua",
-            new Vector3(6.5f, 1, 7.5f), out var creature));
+        var feet = new Vector3(6.5f, 1f, 7.5f);
+        Assert.True(runtime.TrySpawn("asteria:slime_aqua", feet, out _));
+        // Even a fully overlapping collider is not an attack.
         var playerBounds = new WorldAabb(
-            new Vector3(6.2f, 1, 7.2f), new Vector3(6.8f, 2, 7.8f));
-        Assert.Null(runtime.FindContactHit(new WorldAabb(
-            new Vector3(1, 1, 1), new Vector3(2, 2, 2))));
-        var hit = runtime.FindContactHit(playerBounds);
-        Assert.NotNull(hit);
-        Assert.Equal(creature.Id, hit.Value.Id);
-        Assert.Equal(2f, hit.Value.Damage);
-        Assert.True(runtime.TryRegisterContactAttack(hit.Value.Id));
+            new Vector3(6.2f, 1f, 7.2f), new Vector3(6.8f, 2f, 7.8f));
+        Assert.Empty(runtime.DrainMeleeHits());
+        runtime.Advance(1.5, feet);
+        Assert.Empty(runtime.DrainMeleeHits());
+
+        var (world, blocks) = World();
+        runtime.AdvanceWorld(0.025, feet, world, blocks, 18f,
+            targetPlayer: false, playerBounds: playerBounds);
+        Assert.Empty(runtime.DrainMeleeHits());
+    }
+
+    [Fact]
+    public void MeleeDamageRequiresActualLandingImpactAndCanOnlyHitOnce()
+    {
+        var (world, blocks) = World();
+        var definitions = HostileDefinitions();
+        var slime = definitions.Get("asteria:slime_aqua");
+        var slimeFeet = new Vector3(6.5f, 1f, 7.5f);
+        var playerBounds = new WorldAabb(
+            new Vector3(7f, 1f, 7.2f), new Vector3(7.6f, 2.8f, 7.8f));
+        var runtime = new CreatureRuntime(definitions);
+        Assert.True(runtime.TrySpawn("asteria:slime_aqua",
+            slimeFeet, out var creature));
+
+        // Rehydrate a slime already descending from a deliberate jump,
+        // immediately above the floor and next to (but not on) the player.
+        var snapshot = runtime.CaptureState();
+        var descending = snapshot with
+        {
+            Creatures = snapshot.Creatures.Select(state =>
+                state.Id == creature.Id
+                    ? state with
+                    {
+                        Position = slimeFeet + new Vector3(0f, 0.01f, 0f),
+                        Motion = new CreatureHopMotion(
+                            CreatureHopPhase.Airborne, 0f, -2f,
+                            Vector2.Zero, 0f, 1),
+                    }
+                    : state).ToArray(),
+        };
+        runtime = new CreatureRuntime(definitions, descending);
+
+        runtime.AdvanceWorld(0.05, slimeFeet, world, blocks, 18f,
+            targetPlayer: true, playerBounds: playerBounds);
+        var hit = Assert.Single(runtime.DrainMeleeHits());
+        Assert.Equal(creature.Id, hit.Id);
+        Assert.Equal(slime.ContactDamage, hit.Damage);
         var attacking = Assert.Single(runtime.ActiveCreatures);
+        Assert.Equal(CreatureHopPhase.Land, attacking.Motion.Phase);
         Assert.Equal(1u, attacking.AttacksDealt);
         Assert.Equal(CreatureRuntime.AttackAnimationSeconds,
             attacking.AttackSecondsRemaining);
 
-        runtime = new CreatureRuntime(definitions, runtime.CaptureState());
-        runtime.Advance(0.18, attacking.Position);
-        Assert.True(Assert.Single(runtime.ActiveCreatures).AttackSecondsRemaining > 0f);
-        Assert.True(runtime.TryRegisterContactAttack(creature.Id));
-        Assert.Equal(2u, Assert.Single(runtime.ActiveCreatures).AttacksDealt);
-        runtime.Advance(0.35, attacking.Position);
-        Assert.Equal(0f, Assert.Single(runtime.ActiveCreatures).AttackSecondsRemaining);
+        for (var frame = 0; frame < 12; frame++)
+        {
+            runtime.AdvanceWorld(0.025, slimeFeet, world, blocks, 18f,
+                targetPlayer: true, playerBounds: playerBounds);
+            Assert.Empty(runtime.DrainMeleeHits());
+        }
+        Assert.Equal(1u, Assert.Single(runtime.ActiveCreatures).AttacksDealt);
+    }
 
-        Assert.True(runtime.TrySetNoAi(creature.Id, true));
-        Assert.False(runtime.TryRegisterContactAttack(creature.Id));
-        Assert.True(runtime.TrySetNoAi(creature.Id, false));
-        Assert.True(runtime.TryKill(creature.Id, out _));
-        Assert.False(runtime.TryRegisterContactAttack(creature.Id));
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public void MeleeDoesNotTriggerForPeacefulNoAiOrMissedPlayer(
+        bool noAi, bool missed)
+    {
+        var (world, blocks) = World();
+        var definitions = HostileDefinitions();
+        var runtime = new CreatureRuntime(definitions);
+        var feet = new Vector3(6.5f, 1f, 7.5f);
+        Assert.True(runtime.TrySpawn("asteria:slime_aqua",
+            feet, out var creature, noAi: noAi));
+        var snapshot = runtime.CaptureState();
+        runtime = new CreatureRuntime(definitions, snapshot with
+        {
+            Creatures = snapshot.Creatures.Select(state =>
+                state.Id == creature.Id
+                    ? state with
+                    {
+                        Position = feet + new Vector3(0f, 0.01f, 0f),
+                        Motion = new CreatureHopMotion(
+                            CreatureHopPhase.Airborne, 0f, -2f,
+                            Vector2.Zero, 0f, 1),
+                    }
+                    : state).ToArray(),
+        });
+
+        var target = missed ? new WorldAabb(
+            new Vector3(11f, 1f, 11f), new Vector3(11.6f, 2.8f, 11.6f)) :
+            new WorldAabb(
+                new Vector3(7f, 1f, 7.2f), new Vector3(7.6f, 2.8f, 7.8f));
+        runtime.AdvanceWorld(0.05, feet, world, blocks, 18f,
+            targetPlayer: noAi || missed, playerBounds: target);
+        Assert.Empty(runtime.DrainMeleeHits());
     }
 
     private static (VoxelWorld World, BlockRegistry Blocks) World()
