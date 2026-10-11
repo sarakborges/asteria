@@ -13,10 +13,12 @@ public sealed class InventoryCraftingRuntimeTests
             .Select(File.ReadAllText)
             .ToArray();
 
-    private static InventoryCraftingRuntime CreateRuntime()
+    private static InventoryCraftingRuntime CreateRuntime(
+        IReadOnlyList<string>? recipeDocuments = null)
     {
         var recipes = PackContentRegistry<CraftingRecipeDefinition>.FromJson(
-            Documents("crafting_recipes"), CraftingRecipeDefinition.Parse,
+            recipeDocuments ?? Documents("crafting_recipes"),
+            CraftingRecipeDefinition.Parse,
             recipe => recipe.Id);
         var items = PackContentRegistry<ItemDefinition>.FromJson(
             Documents("items"), ItemDefinition.Parse, item => item.Id);
@@ -190,17 +192,21 @@ public sealed class InventoryCraftingRuntimeTests
 
         // A recipe that only partially consumes one stack has no free slot
         // for a new unique tool when all 36 slots are occupied.
-        var large = CraftingRecipeDefinition.Parse("""
+        const string partialRecipe = """
             {
               "id": "asteria:partial_inputs",
               "environment": "inventory",
               "ingredients": [{"item":"asteria:pebble","quantity":1}],
               "result": {"item":"asteria:hatchet_rustic","quantity":1}
             }
-            """);
-        var result = InventoryEntry.FromTool("asteria:hatchet_rustic");
+            """;
+        var blockedCraft = CreateRuntime([partialRecipe]);
         var revision = inventory.Revision;
-        Assert.False(inventory.CanCraft(large, result));
+        Assert.Equal(InventoryCraftingResult.InventoryFull,
+            blockedCraft.Availability(inventory, "asteria:partial_inputs"));
+        Assert.False(blockedCraft.CanCraft(inventory, "asteria:partial_inputs"));
+        Assert.Equal(InventoryCraftingResult.InventoryFull,
+            blockedCraft.Craft(inventory, "asteria:partial_inputs"));
         Assert.Equal(revision, inventory.Revision);
 
         // Live crafting APIs must not mutate inputs on failed preflight.
