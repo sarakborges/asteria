@@ -71,6 +71,47 @@ public sealed class ChunkMeshDataBuilderTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public void SpikeProfileStillDrawsClosedEndWhenNeighborIsMissingOrMismatched(
+        bool hasInvalidNeighbor)
+    {
+        const string path = "textures/test/spike.png";
+        var blocks = new BlockRegistry([
+            new BlockDefinition("asteria:stone_spike",
+                textures: new BlockTextureSet(top: [new BlockTextureLayer(path)]),
+                shape: BlockShapeDefinition.Spike(baseRadius: 0.42f,
+                    taperPower: 1.3f)),
+        ]);
+        var spike = blocks.GetId("asteria:stone_spike");
+        var chunk = new Chunk();
+        // This profile still expects a segment above, although that
+        // segment was removed independently or replaced with a stale profile.
+        chunk.SetCell(2, 2, 2,
+            new VoxelCell(spike, state: SpikeSegmentState.Encode(0, 2, false)));
+        if (hasInvalidNeighbor)
+            chunk.SetCell(2, 3, 2,
+                new VoxelCell(spike,
+                    state: SpikeSegmentState.Encode(0, 1, false)));
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, chunk);
+        ChunkLightingSolver.Initialize(chunk, blocks, new FluidRegistry([]));
+        var mesh = ChunkMeshDataBuilder.BuildMeshlet(world, ChunkCoord.Zero,
+            blocks, new TerrainTextureLookup(new Dictionary<string, int> {
+                [path] = 0,
+            }), 0);
+        var top = mesh.RenderBatches.SelectMany(batch => batch.Vertices)
+            .Where(vertex => vertex.Normal == Vector3.UnitY &&
+                MathF.Abs(vertex.Position.Y - 3f) < 0.0001f).ToArray();
+
+        // A real full cap has two triangles; the old profile-only seam
+        // logic drew only a small rim (or no cap) into an empty voxel.
+        Assert.True(top.Length >= 6);
+        Assert.Contains(top, vertex => vertex.Position.X < 2.5f);
+        Assert.Equal(mesh.TriangleCount, mesh.CollisionTriangleCount);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public void StackedSpikeFacesKeepCubeWindingAtAllTiers(bool down)
     {
         const string texture = "textures/test/spike.png";
