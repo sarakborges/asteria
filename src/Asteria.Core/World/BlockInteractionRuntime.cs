@@ -104,10 +104,12 @@ public sealed class BlockInteractionRuntime
                     return BlockBreakDecision.Reject(
                         decision.Position, BlockBreakRejection.Unbreakable);
 
-                // A full drop pool must not destroy an ore/moss layer while
-                // evicting unrelated physical items.
-                if (lootPolicy == BlockBreakLootPolicy.DropSelf &&
-                    layer.Drops.Count > _droppedBlocks.AvailableCapacity)
+                // Resolve the authored stack limits before removal. A full
+                // drop pool must not destroy an ore/moss layer or evict items.
+                var layerLoot = lootPolicy == BlockBreakLootPolicy.DropSelf
+                    ? ResolveLayerLoot(layer) : null;
+                if (layerLoot is not null &&
+                    layerLoot.Count > _droppedBlocks.AvailableCapacity)
                     return BlockBreakDecision.Reject(
                         decision.Position, BlockBreakRejection.MutationRejected);
 
@@ -120,9 +122,9 @@ public sealed class BlockInteractionRuntime
                     return BlockBreakDecision.Reject(
                         decision.Position, BlockBreakRejection.MutationRejected);
 
-                if (lootPolicy == BlockBreakLootPolicy.DropSelf)
-                    foreach (var drop in layer.Drops)
-                        _droppedBlocks.Spawn(drop.ToStack(), LayerDropPosition(hit));
+                if (layerLoot is not null)
+                    foreach (var stack in layerLoot)
+                        _droppedBlocks.Spawn(stack, LayerDropPosition(hit));
 
                 return decision;
             }
@@ -167,6 +169,33 @@ public sealed class BlockInteractionRuntime
             _droppedBlocks.Spawn(snapshot, CenterOf(decision.Position));
 
         return decision;
+    }
+
+    private List<InventoryStack> ResolveLayerLoot(AttachedLayerDefinition layer)
+    {
+        var stacks = new List<InventoryStack>();
+        foreach (var drop in layer.Drops)
+        {
+            if (_inventoryCatalog is null)
+            {
+                // Legacy independent Core fixtures can still exercise layers
+                // without loading a complete pack; authored default 64 applies.
+                stacks.Add(drop.ToStack());
+                continue;
+            }
+            if (!_inventoryCatalog.TryResolve(drop.Kind, drop.Id,
+                    null, null, out var entry) || entry is null)
+                throw new InvalidOperationException(
+                    $"Unknown drop {drop.Id} on layer {layer.Id}.");
+            var remaining = drop.Quantity;
+            while (remaining > 0)
+            {
+                var quantity = Math.Min(remaining, entry.MaxStackSize);
+                stacks.Add(new InventoryStack(entry, quantity));
+                remaining -= quantity;
+            }
+        }
+        return stacks;
     }
 
     private List<InventoryStack> RollLoot(
