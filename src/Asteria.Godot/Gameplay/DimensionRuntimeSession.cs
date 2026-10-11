@@ -35,6 +35,7 @@ public sealed class DimensionRuntimeSession
     private readonly CreaturePresentationController _creaturePresentation;
     private readonly CreatureParticleRuntime _creatureParticles;
     private readonly CreatureParticlePresentation _creatureParticlePresentation;
+    private readonly MiningParticlePresentation _miningParticlePresentation;
     private readonly ProjectilePresentationController _projectilePresentation;
     private readonly InventoryContentCatalog _inventoryCatalog;
     private readonly CreatureNaturalSpawnRuntime _naturalSpawns;
@@ -255,6 +256,8 @@ public sealed class DimensionRuntimeSession
             World, blocks, Tools, BlockInteractions, layers);
         MiningCracks = new MiningCrackPresentation(
             Root, packSelection, blocks, fluids, terrainTextures, terrainMaterials);
+        MiningParticles = new MiningParticleRuntime();
+        _miningParticlePresentation = new MiningParticlePresentation(Root);
 
         var blockEntityPresentations =
             new BlockEntityPresentationController(
@@ -623,6 +626,15 @@ public sealed class DimensionRuntimeSession
     public BucketGameplayRuntime Bucket { get; }
     public BlockMiningRuntime Mining { get; }
     public MiningCrackPresentation MiningCracks { get; }
+    public MiningParticleRuntime MiningParticles { get; }
+
+    public void SyncMiningFeedback(float deltaSeconds, MiningFeedbackEvent? feedback)
+    {
+        if (feedback is { } cue)
+            MiningParticles.Emit(cue);
+        MiningParticles.Advance(deltaSeconds);
+        _miningParticlePresentation.Sync(MiningParticles);
+    }
 
     public BlockEntityFrameController BlockEntities { get; }
 
@@ -935,6 +947,8 @@ public sealed class DimensionRuntimeSession
         _creaturePresentation.Retire();
         _creatureParticles.Clear();
         _creatureParticlePresentation.Clear();
+        MiningParticles.Clear();
+        _miningParticlePresentation.Clear();
         _projectilePresentation.Retire();
 
         var archive =
