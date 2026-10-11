@@ -15,12 +15,13 @@ public sealed class SurfaceStructureTests
             AppContext.BaseDirectory, "packs", "default", "data",
             "structures", "portal_arrival_platform.json"));
         var structure = StructureDefinitionJson.Parse(json);
-        var registry = new StructureRegistry([structure]);
+        var registry = PortalArrivalStructures();
         registry.ValidateBlocks(blocks);
         var generator = FlatStructureGenerator(blocks, registry, "asteria:stone");
         var world = new VoxelWorld();
-        world.InsertChunk(new ChunkCoord(0, 0, 0), new Chunk());
-        world.InsertChunk(new ChunkCoord(0, 1, 0), new Chunk());
+        // Include the upper chunks needed by an underground access stair.
+        for (var y = 0; y <= 8; y++)
+            world.InsertChunk(new ChunkCoord(0, y, 0), new Chunk());
         // The authored Structure, not the generated surface, determines Y.
         var feet = new WorldVoxelCoord(8, 16, 8);
         Assert.True(world.SetBlockAt(feet, blocks.GetId("asteria:stone"), out _));
@@ -56,7 +57,7 @@ public sealed class SurfaceStructureTests
         var structure = StructureDefinitionJson.Parse(File.ReadAllText(
             Path.Combine(AppContext.BaseDirectory, "packs", "default",
                 "data", "structures", "portal_arrival_platform.json")));
-        var registry = new StructureRegistry([structure]);
+        var registry = PortalArrivalStructures();
         var generator = FlatStructureGenerator(blocks, registry, "asteria:stone");
         var world = new VoxelWorld();
         world.InsertChunk(new ChunkCoord(0, 0, 0), new Chunk());
@@ -89,7 +90,7 @@ public sealed class SurfaceStructureTests
         var structure = StructureDefinitionJson.Parse(File.ReadAllText(
             Path.Combine(AppContext.BaseDirectory, "packs", "default",
                 "data", "structures", "portal_arrival_platform.json")));
-        var registry = new StructureRegistry([structure]);
+        var registry = PortalArrivalStructures();
         var generator = FlatStructureGenerator(blocks, registry, "asteria:stone");
         var world = new VoxelWorld();
         var mutations = new VoxelMutationRuntime(
@@ -103,6 +104,48 @@ public sealed class SurfaceStructureTests
             runtime.TryPlaceExact(structure.Id, 8, 16, 8));
         Assert.Equal(0, world.ChunkCount);
     }
+
+    [Fact]
+    public void AuthoredSurfaceSpiralStairsRiseContinuouslyAndStopAtSurface()
+    {
+        var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);
+        var structures = PortalArrivalStructures();
+        structures.ValidateBlocks(blocks);
+        var generator = FlatStructureGenerator(blocks, structures, "asteria:stone");
+        var ground = generator.SurfaceHeight(8, 8);
+        var entryY = ground - 10;
+        Assert.True(entryY >= 2);
+        Assert.True(generator.TryPrepareExactStructure(
+            "asteria:portal_arrival_platform", 8, entryY, 8,
+            new ManualStructurePlacementLedger(), out var plan));
+        Assert.NotNull(plan);
+        var pieces = plan.Pieces;
+        Assert.Equal(2, pieces.Count);
+        Assert.Equal("asteria:portal_arrival_platform", pieces[0].StructureId);
+        Assert.Equal("asteria:surface_spiral_stair_segment", pieces[1].StructureId);
+        var steps = pieces[1].Voxels.OrderBy(voxel => voxel.Y).ToArray();
+        Assert.Equal(16, steps.Length);
+        Assert.Equal(entryY - 1, steps[0].Y);
+        for (var index = 1; index < steps.Length; index++)
+        {
+            Assert.Equal(steps[index - 1].Y + 1, steps[index].Y);
+            Assert.Equal(1,
+                Math.Abs(steps[index].X - steps[index - 1].X) +
+                Math.Abs(steps[index].Z - steps[index - 1].Z));
+        }
+        Assert.True(steps[^1].Y >= generator.SurfaceHeight(steps[^1].X, steps[^1].Z));
+        Assert.True(pieces[^1].MaximumY - 2 >=
+            generator.SurfaceHeight(steps[^1].X, steps[^1].Z));
+    }
+
+    private static StructureRegistry PortalArrivalStructures() =>
+        StructureRegistry.FromJson(new[]
+        {
+            "portal_arrival_platform.json",
+            "surface_spiral_stair_segment.json",
+        }.Select(name => File.ReadAllText(Path.Combine(
+            AppContext.BaseDirectory, "packs", "default", "data",
+            "structures", name))));
 
     [Fact]
     public void CoralReefVariantsUseOnlyNewCoralsAndRequireOceanWater()
