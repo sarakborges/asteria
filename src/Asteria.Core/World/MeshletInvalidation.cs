@@ -25,22 +25,23 @@ public static class MeshletInvalidation
                             return;
                         }
 
+                        // Dense lighting updates can touch every meshlet
+                        // thousands of times. A saturated mask needs no
+                        // further per-voxel meshlet geometry checks.
+                        var alreadyDirty =
+                            dirty.TryGetValue(coord, out var existing);
+                        if (alreadyDirty && existing.IsAll)
+                            return;
+
                         var mask =
                             ChunkMeshletMask.ForWorldPosition(
                                 coord,
                                 position);
-
                         if (mask.IsEmpty)
-                        {
                             return;
-                        }
 
                         dirty[coord] =
-                            dirty.TryGetValue(
-                                coord,
-                                out var existing)
-                                ? existing.Union(mask)
-                                : mask;
+                            alreadyDirty ? existing.Union(mask) : mask;
                     });
         }
 
