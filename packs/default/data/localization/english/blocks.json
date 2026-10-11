@@ -368,11 +368,8 @@
   "asteria:planks_world_tree": {
     "/name": "World Tree Planks"
   },
-  "asteria:portal_to_overworld": {
-    "/name": "Portal to the Overworld"
-  },
-  "asteria:portal_to_umbral": {
-    "/name": "Portal to the Umbral"
+  "asteria:portal": {
+    "/name": "Portal"
   },
   "asteria:prairie_clover": {
     "/name": "Prairie Clover"
