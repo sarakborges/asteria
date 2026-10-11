@@ -3594,10 +3594,14 @@ public partial class Main : Node3D
             metadataValue = properties[0].Value.GetString();
         }
 
+        var fillStack = payload.TryGetProperty("fillStack", out var fill);
+        if (fillStack && fill.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+            return;
         if (!_inventoryCatalog.TryResolve(
                 kind, id, metadataKey, metadataValue, out var entry) ||
             entry is null ||
-            !_sessionStates.Player.Inventory.TryCreativePick(entry)) return;
+            !_sessionStates.Player.Inventory.TryCreativePick(
+                entry, fillStack: fillStack && fill.GetBoolean())) return;
         SendInventoryState();
     }
 
