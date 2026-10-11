@@ -319,6 +319,7 @@
   "ui.delete": "Delete",
   "ui.newWorld": "New World",
   "ui.chatMessage": "Chat message",
+  "chat.action.warp": "[Warp to]",
   "ui.chatHint": "Use ↑ and ↓ to choose an option. Press Tab to complete it.",
   "ui.runtimeStatus": "RUNTIME STATUS",
   "ui.debugControls": "F3 debug · WASD move · LMB break · RMB place · Esc cursor",
