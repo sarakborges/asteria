@@ -6,6 +6,8 @@ test("located coordinates are a clickable chat action", async ({ page }) => {
   await page.goto(url);
   await page.getByRole("button", { name: /Warp to/ }).click();
   await expect(page.getByTestId("activated-chat-action")).toHaveText("42");
+  await page.getByRole("button", { name: /Open exports folder/ }).click();
+  await expect(page.getByTestId("activated-chat-action")).toHaveText("43");
 });
 
 test("submitted commands can be recalled and draft restored with arrow keys", async ({ page }) => {
