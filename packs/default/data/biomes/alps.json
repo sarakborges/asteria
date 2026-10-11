@@ -126,7 +126,7 @@
       }
     },
     {
-      "block": "asteria:glacial_shard",
+      "block": "asteria:ice_spike",
       "chance": 0.078,
       "surfaceBlocks": [
         "asteria:ice",

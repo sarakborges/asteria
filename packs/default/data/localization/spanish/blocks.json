@@ -134,9 +134,6 @@
   "asteria:dirt": {
     "/name": "Tierra"
   },
-  "asteria:dry_exposed_roots": {
-    "/name": "Raíces Expuestas Secas"
-  },
   "asteria:dry_lichen": {
     "/name": "Liquen Seco"
   },
@@ -148,9 +145,6 @@
   },
   "asteria:ember_needles": {
     "/name": "Agujas de Brasa"
-  },
-  "asteria:enchanted_hollow_wood": {
-    "/name": "Madera Hueca Encantada"
   },
   "asteria:exposed_roots": {
     "/name": "Raíces Expuestas"
@@ -172,9 +166,6 @@
   },
   "asteria:glacial_rime_core": {
     "/name": "Núcleo de Escarcha Glacial"
-  },
-  "asteria:glacial_shard": {
-    "/name": "Fragmento Glacial"
   },
   "asteria:glass": {
     "/name": "Vidrio"
@@ -332,9 +323,6 @@
   "asteria:meadow_seedheads": {
     "/name": "Espigas de Pradera"
   },
-  "asteria:mossy_willow_log": {
-    "/name": "Tronco de Sauce Musgoso"
-  },
   "asteria:mud": {
     "/name": "Barro"
   },
@@ -404,9 +392,6 @@
   "asteria:rock_lichen": {
     "/name": "Liquen de Roca"
   },
-  "asteria:rock_spur": {
-    "/name": "Espolón Rocoso"
-  },
   "asteria:sagebrush": {
     "/name": "Artemisa"
   },
@@ -427,9 +412,6 @@
   },
   "asteria:sandstone_spike": {
     "/name": "Pico de Arenisca"
-  },
-  "asteria:sandstone_spur": {
-    "/name": "Espolón de Arenisca"
   },
   "asteria:sandstone_tiles": {
     "/name": "Baldosas de Arenisca"

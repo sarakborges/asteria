@@ -144,7 +144,7 @@
       }
     },
     {
-      "block": "asteria:dry_exposed_roots",
+      "block": "asteria:exposed_roots",
       "chance": 0.125,
       "surfaceBlocks": [
         "asteria:dirt",
@@ -169,7 +169,7 @@
       }
     },
     {
-      "block": "asteria:rock_spur",
+      "block": "asteria:stone_spike",
       "chance": 0.075,
       "surfaceBlocks": [
         "asteria:stone",

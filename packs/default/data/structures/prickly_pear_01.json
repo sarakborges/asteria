@@ -1,6 +1,6 @@
 {
-  "id": "asteria:cactus_prickly_pear_01",
-  "groupId": "cactus_prickly_pear",
+  "id": "asteria:prickly_pear_01",
+  "groupId": "prickly_pear",
   "rotation": true,
   "locatable": false,
   "conflictGroups": [
@@ -9,7 +9,11 @@
   ],
   "restrictions": {
     "groundBlocks": [
-      "asteria:sand"
+      "asteria:sand",
+      "asteria:stone",
+      "asteria:dirt",
+      "asteria:gravel",
+      "asteria:stone_cobble"
     ],
     "maxSlope": 1,
     "requiresDryGround": true,
@@ -26,9 +30,6 @@
     "z": 3
   },
   "palette": {
-    "G": {
-      "block": "asteria:sand"
-    },
     "P": {
       "block": "asteria:cactus_pad"
     },
@@ -40,18 +41,6 @@
     }
   },
   "layers": [
-    {
-      "y": 0,
-      "rows": [
-        ".......",
-        ".......",
-        ".......",
-        "...G...",
-        ".......",
-        ".......",
-        "......."
-      ]
-    },
     {
       "y": 1,
       "rows": [
@@ -100,5 +89,6 @@
         "......."
       ]
     }
-  ]
+  ],
+  "groundAnchorY": 0
 }
