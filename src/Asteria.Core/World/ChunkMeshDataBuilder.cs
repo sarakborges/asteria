@@ -844,7 +844,7 @@ public static class ChunkMeshDataBuilder
         var baseCode =
             textures.GetIndex(
                 texture.Texture) +
-            (texture.Dyable
+            (ShouldTintLayer(definition, texture)
                 ? DyableLayerFlag
                 : 0f) +
             (definition.WindSway ? WindSwayLayerFlag : 0f);
@@ -959,7 +959,7 @@ public static class ChunkMeshDataBuilder
                 $"Ground-sprite block {definition.Id} has no visual texture.");
         var encodedLayers = new Vector2(
             textures.GetIndex(texture.Texture) +
-                (texture.Dyable ? DyableLayerFlag : 0f) +
+                (ShouldTintLayer(definition, texture) ? DyableLayerFlag : 0f) +
                 (definition.WindSway ? WindSwayLayerFlag : 0f),
             -1f);
         var tint = ResolveTint(
@@ -1679,6 +1679,15 @@ public static class ChunkMeshDataBuilder
         return surface;
     }
 
+    // A dyable layer can receive authored biome tint or an explicit dye.
+    // Tint.None alone must never recolor its source texture.
+    private static bool ShouldTintLayer(
+        BlockDefinition definition,
+        BlockTextureLayer layer,
+        Vector3? dyeTint = null) =>
+        layer.Dyable &&
+        (definition.Tint != BlockTint.None || dyeTint.HasValue);
+
     private static TerrainFaceMaterial ResolveFaceMaterial(
         TerrainTextureLookup textures,
         BlockDefinition definition,
@@ -1710,7 +1719,7 @@ public static class ChunkMeshDataBuilder
             baseCode =
                 textures.GetIndex(
                     layers[0].Texture) +
-                (layers[0].Dyable
+                (ShouldTintLayer(definition, layers[0], dyeTint)
                     ? DyableLayerFlag
                     : 0f) +
                 (definition.WindSway ? WindSwayLayerFlag : 0f);
@@ -1721,7 +1730,7 @@ public static class ChunkMeshDataBuilder
             overlayCode =
                 textures.GetIndex(
                     layers[1].Texture) +
-                (layers[1].Dyable
+                (ShouldTintLayer(definition, layers[1], dyeTint)
                     ? DyableLayerFlag
                     : 0f);
         }
