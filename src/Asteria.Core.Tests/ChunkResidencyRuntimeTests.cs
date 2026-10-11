@@ -125,6 +125,45 @@ public sealed class ChunkResidencyRuntimeTests
     }
 
     [Fact]
+    public void UnloadedSourceFluidFrontierWakesOnlyWhenTargetChunkArrives()
+    {
+        var fixture = CreateFixture();
+        var source = ChunkCoord.Zero;
+        var east = new ChunkCoord(1, 0, 0);
+        var chunk = new Chunk();
+        var stone = fixture.Blocks.GetId("asteria:stone");
+        chunk.SetFluid(15, 5, 5,
+            FluidCell.Source(fixture.Fluids.GetId("asteria:water")));
+        chunk.SetBlock(14, 5, 5, stone);
+        chunk.SetBlock(15, 4, 5, stone);
+        chunk.SetBlock(15, 5, 4, stone);
+        chunk.SetBlock(15, 5, 6, stone);
+        fixture.World.InsertChunk(source, chunk);
+        fixture.World.ArchiveChunk(source);
+        fixture.World.InsertChunk(east, new Chunk());
+        fixture.World.ArchiveChunk(east);
+
+        fixture.Runtime.SyncSelection(
+            source, horizontalRadius: 1, retentionRadius: 2,
+            desired: new HashSet<ChunkCoord> { source },
+            presented: Array.Empty<ChunkCoord>());
+        fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(), Array.Empty<ChunkCoord>());
+        Assert.True(fixture.World.ContainsChunk(source));
+        Assert.False(fixture.World.ContainsChunk(east));
+        Assert.Equal(0, fixture.FluidUpdates.Count);
+
+        fixture.Runtime.SyncSelection(
+            source, horizontalRadius: 1, retentionRadius: 2,
+            desired: new HashSet<ChunkCoord> { source, east },
+            presented: Array.Empty<ChunkCoord>());
+        fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(), Array.Empty<ChunkCoord>());
+        Assert.True(fixture.World.ContainsChunk(east));
+        Assert.True(fixture.FluidUpdates.ScheduledCount > 0);
+    }
+
+    [Fact]
     public void PresentationWaitsForDesiredDependencyHalo()
     {
         var fixture =
@@ -297,7 +336,9 @@ public sealed class ChunkResidencyRuntimeTests
         return new RuntimeFixture(
             world,
             blocks,
+            fluids,
             worldUpdates,
+            fluidUpdates,
             runtime);
     }
 
@@ -311,6 +352,8 @@ public sealed class ChunkResidencyRuntimeTests
     private sealed record RuntimeFixture(
         VoxelWorld World,
         BlockRegistry Blocks,
+        FluidRegistry Fluids,
         WorldUpdateQueue WorldUpdates,
+        FluidUpdateQueue FluidUpdates,
         ChunkResidencyRuntime Runtime);
 }

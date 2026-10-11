@@ -98,6 +98,16 @@ public sealed class ChunkResidencyRuntime
         (0, 0, 1),
         (0, 0, -1),
     ];
+    // Relative directions of existing fluid that can enter an arriving chunk.
+    // Fluids can fall from above, but do not rise from the chunk below.
+    private static readonly (int X, int Y, int Z)[] IncomingFluidNeighbors =
+    [
+        (0, 1, 0),
+        (1, 0, 0),
+        (-1, 0, 0),
+        (0, 0, 1),
+        (0, 0, -1),
+    ];
     private readonly VoxelWorld _world;
     private readonly BlockRegistry _blocks;
     private readonly FluidRegistry _fluids;
@@ -642,6 +652,40 @@ public sealed class ChunkResidencyRuntime
                         position);
                 }
             });
+
+        ReconcileIncomingFluidFrontiers(coord);
+    }
+
+    private void ReconcileIncomingFluidFrontiers(ChunkCoord arrived)
+    {
+        var (originX, originY, originZ) = VoxelCoordinates.ChunkOrigin(arrived);
+        foreach (var (dx, dy, dz) in IncomingFluidNeighbors)
+        {
+            var neighbor = new ChunkCoord(
+                arrived.X + dx, arrived.Y + dy, arrived.Z + dz);
+            if (!_world.ContainsChunk(neighbor))
+                continue;
+
+            // Scan only the adjacent resident face. Source fluids on this
+            // face were previously blocked by the missing chunk boundary.
+            for (var u = 0; u < Chunk.Size; u++)
+            for (var v = 0; v < Chunk.Size; v++)
+            {
+                var position = dx != 0
+                    ? new WorldVoxelCoord(
+                        originX + (dx > 0 ? Chunk.Size : -1),
+                        originY + u, originZ + v)
+                    : dy != 0
+                        ? new WorldVoxelCoord(
+                            originX + u, originY + Chunk.Size, originZ + v)
+                        : new WorldVoxelCoord(
+                            originX + u, originY + v,
+                            originZ + (dz > 0 ? Chunk.Size : -1));
+                var fluid = _world.GetFluidOrEmpty(position);
+                if (!fluid.IsEmpty && ShouldWakeResidentFluid(position, fluid))
+                    ScheduleFluidNeighborhood(fluid.Fluid, position);
+            }
+        }
     }
 
     private bool ShouldWakeResidentFluid(
@@ -662,9 +706,11 @@ public sealed class ChunkResidencyRuntime
                 continue;
             }
 
+            // Missing chunks cannot accept flow. Recheck this source
+            // when the neighboring chunk becomes resident instead.
             if (!_world.IsLoadedAt(target))
             {
-                return true;
+                continue;
             }
 
             if (!_world.GetCellOrEmpty(target).IsEmpty)
