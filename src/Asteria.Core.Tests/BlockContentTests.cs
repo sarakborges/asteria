@@ -165,6 +165,29 @@ public sealed class BlockContentTests
             sphereShell.DropsSelf);
     }
 
+    [Theory]
+    [InlineData("stone", "asteria:pebble", 1f, 4)]
+    [InlineData("grass_block", "asteria:dirt", 1f, 1)]
+    [InlineData("dirt", "asteria:dirt", 1f, 1)]
+    [InlineData("gravel", "asteria:gravel", 1f, 1)]
+    [InlineData("mud", "asteria:mud", 1f, 1)]
+    [InlineData("leaf_oak", "asteria:stick", 0.6f, 1)]
+    [InlineData("leaf_willow", "asteria:stick", 0.6f, 1)]
+    [InlineData("leaf_enchanted", "asteria:stick", 0.6f, 1)]
+    [InlineData("leaf_world_tree", "asteria:stick", 0.6f, 1)]
+    public void MineCloneAuthoredBlockDropsAreRetained(
+        string blockId, string itemId, float chance, int quantity)
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "packs", "default",
+            "data", "blocks", blockId + ".json");
+        var block = BlockDefinitionJson.Parse(File.ReadAllText(path));
+        var drop = Assert.Single(Assert.IsType<BlockLootTable>(
+            block.LootTable).Entries);
+        Assert.Equal(itemId, drop.Item);
+        Assert.Equal(chance, drop.Chance);
+        Assert.Equal(quantity, drop.Quantity);
+    }
+
     [Fact]
     public void UnbreakableCanBeEnabledByAuthoredContent()
     {
