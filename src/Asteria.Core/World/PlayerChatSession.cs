@@ -51,13 +51,45 @@ public sealed class PlayerChatSession
         string? localizationKey = null,
         IReadOnlyDictionary<string, string>? parameters = null)
     {
+        AddLine(message, isError, localizationKey, parameters, null);
+    }
+
+    /// <summary>A validated locate result creates a link bound to its
+    /// transcript identity. The WebUI may submit only that identity, never
+    /// arbitrary coordinates as a privileged action.</summary>
+    public void AppendLocated(
+        string localizationKey,
+        IReadOnlyDictionary<string, string> parameters,
+        PlayerChatWarpTarget target)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(localizationKey);
+        ArgumentNullException.ThrowIfNull(parameters);
+        ArgumentNullException.ThrowIfNull(target);
+        if (target.Y < 0 || string.IsNullOrWhiteSpace(target.Dimension))
+            throw new ArgumentException("Invalid chat warp destination.", nameof(target));
+        AddLine(localizationKey, false, localizationKey, parameters, target);
+    }
+
+    public bool TryGetWarpTarget(ulong messageId, out PlayerChatWarpTarget? target)
+    {
+        target = _history.FirstOrDefault(line => line.Id == messageId)?.WarpTarget;
+        return target is not null;
+    }
+
+    private void AddLine(
+        string message,
+        bool isError,
+        string? localizationKey,
+        IReadOnlyDictionary<string, string>? parameters,
+        PlayerChatWarpTarget? warpTarget)
+    {
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
         if (_history.Count == HistoryCapacity)
             _history.RemoveAt(0);
 
         var id = ++_nextId;
         _history.Add(new PlayerChatLine(id, message, isError,
-            localizationKey, parameters));
+            localizationKey, parameters, warpTarget));
     }
 
     public void Reset()
@@ -71,4 +103,7 @@ public sealed class PlayerChatSession
 public sealed record PlayerChatLine(
     ulong Id, string Text, bool IsError,
     string? LocalizationKey = null,
-    IReadOnlyDictionary<string, string>? Parameters = null);
+    IReadOnlyDictionary<string, string>? Parameters = null,
+    PlayerChatWarpTarget? WarpTarget = null);
+
+public sealed record PlayerChatWarpTarget(int X, int Y, int Z, string Dimension);
