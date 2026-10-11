@@ -1661,7 +1661,7 @@ public sealed class SurfaceChunkMaterializer
             var definition = _blocks.GetDefinition(current);
             if (definition.IsOpaque &&
                 definition.Shape.Kind == BlockShapeKind.Cube &&
-                chunk.GetMicroblockMask(x, localY, z).IsEmpty)
+                !chunk.GetCell(x, localY, z).HasMicroblockGeometry)
             {
                 // Preserve the biome's legitimate surface if it already
                 // conceals the shell; only repair cleared/partial cells.
