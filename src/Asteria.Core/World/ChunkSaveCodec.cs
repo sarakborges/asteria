@@ -12,7 +12,7 @@ namespace Asteria.Core.World;
 public static class ChunkSaveCodec
 {
     private const uint Magic = 0x48435341; // "ASCH" (little-endian)
-    private const ushort FormatVersion = 1;
+    private const ushort FormatVersion = 2;
     private const int MaximumBytes = 8 * 1024 * 1024;
     private const int DigestBytes = 32;
 
@@ -72,6 +72,15 @@ public static class ChunkSaveCodec
                     writer.Write(layer.LayerId);
                     writer.Write((byte)layer.Rotation);
                 }
+                writer.Write(checked((byte)surface.MetaTags.Count));
+                foreach (var (key, value) in surface.MetaTags
+                    .OrderBy(pair => pair.Key, StringComparer.Ordinal))
+                {
+                    PortableStackSaveCodec.WriteString(writer, key,
+                        BlockSurfaceState.MaximumMetaTagKeyLength);
+                    PortableStackSaveCodec.WriteString(writer, value,
+                        BlockSurfaceState.MaximumMetaTagValueLength);
+                }
             }
 
             var fluidEntries = new List<(int Index, FluidCell Fluid)>();
@@ -123,8 +132,10 @@ public static class ChunkSaveCodec
         using var reader = new BinaryReader(stream, Encoding.UTF8, leaveOpen: true);
         try
         {
-            if (reader.ReadUInt32() != Magic ||
-                reader.ReadUInt16() != FormatVersion)
+            if (reader.ReadUInt32() != Magic)
+                throw new InvalidDataException("Unknown chunk snapshot magic.");
+            var version = reader.ReadUInt16();
+            if (version is not (1 or FormatVersion))
                 throw new InvalidDataException("Unknown chunk snapshot format.");
 
             var chunk = new Chunk();
@@ -173,9 +184,26 @@ public static class ChunkSaveCodec
                     attached[j] = new AttachedBlockLayer(face, id, layerRotation);
                 }
 
-                if (dye.Length != 0 || attached.Length != 0)
+                var metaTags = new Dictionary<string, string>(StringComparer.Ordinal);
+                if (version >= 2)
+                {
+                    var countTags = reader.ReadByte();
+                    if (countTags > BlockSurfaceState.MaximumMetaTags)
+                        throw new InvalidDataException("Too many saved voxel metadata tags.");
+                    for (var j = 0; j < countTags; j++)
+                    {
+                        var key = PortableStackSaveCodec.ReadString(reader,
+                            BlockSurfaceState.MaximumMetaTagKeyLength);
+                        var value = PortableStackSaveCodec.ReadString(reader,
+                            BlockSurfaceState.MaximumMetaTagValueLength);
+                        if (!metaTags.TryAdd(key, value))
+                            throw new InvalidDataException("Duplicate saved voxel metadata tag.");
+                    }
+                }
+                if (dye.Length != 0 || attached.Length != 0 || metaTags.Count != 0)
                     chunk.SetSurfaceState(x, y, z,
-                        new BlockSurfaceState(dye.Length == 0 ? null : dye, attached));
+                        new BlockSurfaceState(dye.Length == 0 ? null : dye,
+                            attached, metaTags));
             }
 
             count = ReadCount(reader);

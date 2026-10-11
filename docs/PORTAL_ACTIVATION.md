@@ -1,12 +1,19 @@
 # Dimensional Slicer portal activation
 
-**Design corrected 2026-10-11:** There is **no scroll**. This ports MineClone `world-systems-rebuild/src/targeting/portal_activation.rs` and `docs/design/portal-travel.md`: click a portal-capable Glass frame with the attuned `asteria:dimensional_slicer` in hand. The *enclosed empty region* between glass pieces becomes the portal; placing a portal directly on the ground is unsupported.
+## One portal identity, per-voxel metadata
 
-- Glass already authors `is_portal_frame` and `accept_dimension:asteria:umbral/overworld` tags, so other frame materials can opt in through data with no code changes.
-- The Slicer already authors `target_dimension` metadata. Core validates the selected stack identity and target against registered `portal_destination:<dimension-id>` blocks (two in `packs/default/data/blocks`).
-- `PortalActivationRuntime` checks all three planar orientations, bounded frame flood and enclosed non-fluid interior (max 1024 frame / 512 interior / 64 blocks span). It rejects missing/unloaded segments, openings, fluids, protected/occupied interiors, repeated activation and ambiguous orientations *before* a canonical `VoxelMutationRuntime.ApplyStructureChanges` batch. Caller consumes the Slicer only in Survival, after successful placement. A successful portal has no separate inventory, entity or save store.
-- Asteria's current `AttachedBlockLayer` requires a non-air host, so the portal surface is represented by a noncolliding, centered `BlockShapeKind.Layer` **voxel**, not an attached layer in empty space. Its X/Y/Z orientations and MineClone's original portal texture are authored in selected-pack resources. Both portal voxels are marked `creative_hidden` to avoid offering internal geometry as regular creative content. They persist through ordinary chunk save/archive/restore. A frame-breaking canonical voxel mutation invalidates and retracts the contiguous portal interior, avoiding orphan portal triggers.
-- Touching the portal interior enters the corresponding Sphere by the existing `DimensionSessionController`. A source-position reentry latch prevents immediate ping-pong until the player exits the portal. `RequireExactDestination` preserves X/Y/Z; after normal loading, `ResidentWarpDestinationQuery.IsExactSafe` validates that precise position. If unsafe, the normal cooperative rollback returns to the origin instead of teleporting the player elsewhere. No negative Y.
-- **Remaining:** author arrival Structures and generic connector graph capable of safely carving an occupied destination underground and leading to the surface. At present such destinations are rejected/rolled back rather than secretly shifting coordinates. Native Godot/WRY tests remain necessary for hit-targeting, shader transparency, zero-collision trigger, frame seams, exact travel and persistence.
+The world has **one** authored internal `asteria:portal` block (a noncolliding centered Layer-shape voxel). Every portal cell stores its link as immutable, bounded `BlockSurfaceState.MetaTags["target_dimension"]`, for example `asteria:umbral` or `asteria:overworld`. All links use the same block and texture. Destination is **never** inferred from a special `portal_to_*` block ID.
 
-Authoritative mutation, per-Sphere retirement, and player inventory remain with their existing owners. No new hydrology, per-block Godot nodes, independent world state or UI keyboard capture.
+The Dimensional Slicer stores `target_dimension` on the held item's metadata. Native right-click on a closed Glass frame with `is_portal_frame` and matching `accept_dimension:<id>` accepts exactly one bounded planar enclosed region (three orientations), verifies resident empty/no-fluid cells, and atomically writes the portal cells and per-cell metadata via `VoxelMutationRuntime.ApplyStructureChanges`. The item is consumed only on success in Survival.
+
+`PortalActivationRuntime.TryGetDestinationAt` reads the portal block's voxel metadata. Glass removal retracts only its connected, same-target, same-orientation portal region. All mutation/lighting/meshing and chunk-state revisions remain with the canonical voxel owner.
+
+## Persistence
+
+Voxel `MetaTags` are in existing sparse `BlockSurfaceState` and included in `BlockStateSnapshot`, chunk snapshots (format 2; format 1 still readable), and portable block state (gameplay session format 5; formats 1–4 still readable). Tags are limited to eight pairs with bounded keys/values and sorted for deterministic encoding. Existing blocks without tags remain untouched.
+
+The portal image resides in the selected pack at `resources/textures/blocks/portals/umbral.png`. No new scroll, per-block Godot nodes, independent world state or browser-level gameplay input.
+
+## Remaining
+
+Destination carving and authored connected arrival structures are not yet implemented. If exact X/Y/Z arrival is obstructed, travel safely rolls back rather than substituting another coordinate. In-engine rendering, triggering, frame-boundary and save/reload verification remain pending.

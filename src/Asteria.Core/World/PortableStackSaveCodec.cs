@@ -69,11 +69,19 @@ public static class PortableStackSaveCodec
             WriteString(writer, layer.LayerId, MaxIdBytes);
             writer.Write((byte)layer.Rotation);
         }
+        writer.Write(checked((byte)surface.MetaTags.Count));
+        foreach (var (key, value) in surface.MetaTags
+            .OrderBy(pair => pair.Key, StringComparer.Ordinal))
+        {
+            WriteString(writer, key, BlockSurfaceState.MaximumMetaTagKeyLength);
+            WriteString(writer, value, BlockSurfaceState.MaximumMetaTagValueLength);
+        }
     }
 
     public static InventoryStack? Read(
         BinaryReader reader, BlockRegistry blocks,
-        DyeRegistry dyes, AttachedLayerRegistry layers)
+        DyeRegistry dyes, AttachedLayerRegistry layers,
+        bool legacySurfaceFormat = false)
     {
         ArgumentNullException.ThrowIfNull(reader);
         ArgumentNullException.ThrowIfNull(blocks);
@@ -137,10 +145,24 @@ public static class PortableStackSaveCodec
                             throw new InvalidDataException("Invalid portable layer.");
                         attached[i] = new AttachedBlockLayer(face, layerId, layerRotation);
                     }
+                    var meta = new Dictionary<string, string>(StringComparer.Ordinal);
+                    if (!legacySurfaceFormat)
+                    {
+                        var metaCount = reader.ReadByte();
+                        if (metaCount > BlockSurfaceState.MaximumMetaTags)
+                            throw new InvalidDataException("Too many portable voxel tags.");
+                        for (var i = 0; i < metaCount; i++)
+                        {
+                            var key = ReadString(reader, BlockSurfaceState.MaximumMetaTagKeyLength);
+                            var value = ReadString(reader, BlockSurfaceState.MaximumMetaTagValueLength);
+                            if (!meta.TryAdd(key, value))
+                                throw new InvalidDataException("Duplicate portable voxel tag.");
+                        }
+                    }
                     entry = InventoryEntry.FromBlock(id,
                         new BlockStateSnapshot(
                             new VoxelCell(blockId, rotation, orientation, facing, state),
-                            mask, new BlockSurfaceState(dye, attached)));
+                            mask, new BlockSurfaceState(dye, attached, meta)));
                     break;
                 }
                 case InventoryEntryKind.Item:

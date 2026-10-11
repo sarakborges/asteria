@@ -12,7 +12,6 @@ public sealed class PortalActivationRuntimeTests
                 "accept_dimension:asteria:umbral",
                 "accept_dimension:asteria:overworld"]);
         var portal = new BlockDefinition("asteria:portal",
-            tags: ["portal_destination:asteria:umbral"],
             shape: BlockShapeDefinition.CenteredLayer(0.10f),
             orientations: [BlockOrientation.X, BlockOrientation.Y, BlockOrientation.Z],
             isCollidable: false, lightDampening: 0);
@@ -65,10 +64,35 @@ public sealed class PortalActivationRuntimeTests
             var at = new WorldVoxelCoord(x, y, 5);
             Assert.True(portal.TryGetDestinationAt(at, out var destination));
             Assert.Equal("asteria:umbral", destination);
+            Assert.Equal("asteria:portal", blocks.GetDefinition(
+                world.GetCellOrEmpty(at).Block).Id);
+            Assert.Equal("asteria:umbral",
+                world.GetBlockSurfaceStateOrEmpty(at).MetaTags["target_dimension"]);
             Assert.Equal(BlockOrientation.Z, world.GetCellOrEmpty(at).Orientation);
         }
         Assert.False(portal.TryActivate(Slicer(),
             new VoxelWorldHit(frame, 0, 0, 1), out _));
+    }
+
+    [Fact]
+    public void SamePortalBlockSupportsDifferentInstanceDestinations()
+    {
+        var (portal, world, mutations, blocks) = Fixture();
+        var frame = Frame(mutations, blocks);
+        Assert.True(portal.TryActivate(Slicer("asteria:overworld"),
+            new VoxelWorldHit(frame, 0, 0, 1), out var target));
+        Assert.Equal("asteria:overworld", target);
+        var at = new WorldVoxelCoord(3, 4, 5);
+        Assert.Equal(blocks.GetId("asteria:portal"),
+            world.GetCellOrEmpty(at).Block);
+        Assert.True(portal.TryGetDestinationAt(at, out target));
+        Assert.Equal("asteria:overworld", target);
+        Assert.Equal("asteria:overworld",
+            world.GetBlockSurfaceStateOrEmpty(at).MetaTags["target_dimension"]);
+
+        Assert.True(mutations.SetCellAt(
+            new WorldVoxelCoord(2, 4, 5), VoxelCell.Empty, out _));
+        Assert.False(portal.TryGetDestinationAt(at, out _));
     }
 
     [Fact]
@@ -149,13 +173,10 @@ public sealed class PortalActivationRuntimeTests
             File.ReadAllText(Path.Combine(root, "glass.json")));
         Assert.True(glass.HasTag("is_portal_frame"));
         Assert.True(glass.HasTag("accept_dimension:asteria:umbral"));
-        foreach (var target in new[] { "umbral", "overworld" })
-        {
-            var definition = BlockDefinitionJson.Parse(File.ReadAllText(
-                Path.Combine(root, $"portal_to_{target}.json")));
-            Assert.True(definition.HasTag(
-                $"portal_destination:asteria:{target}"));
-            Assert.True(definition.Shape.IsCenteredLayer);
-        }
+        var definition = BlockDefinitionJson.Parse(File.ReadAllText(
+            Path.Combine(root, "portal.json")));
+        Assert.Equal("asteria:portal", definition.Id);
+        Assert.True(definition.Shape.IsCenteredLayer);
+        Assert.True(definition.HasTag("creative_hidden"));
     }
 }

@@ -10,7 +10,7 @@ namespace Asteria.Core.World;
 public static class GameplaySessionFileCodec
 {
     private const uint Magic = 0x53534741; // AGSS
-    private const ushort Version = 4;
+    private const ushort Version = 5;
     public const long MaximumBytes = 640L * 1024 * 1024;
 
     public static void Write(
@@ -92,7 +92,7 @@ public static class GameplaySessionFileCodec
             if (reader.ReadUInt32() != Magic)
                 throw new InvalidDataException("Unknown gameplay session magic.");
             var version = reader.ReadUInt16();
-            if (version is not (1 or 2 or 3 or Version))
+            if (version is not (1 or 2 or 3 or 4 or Version))
                 throw new InvalidDataException("Unknown gameplay session format.");
             var name = PortableStackSaveCodec.ReadString(reader, 512);
             var tickRate = reader.ReadUInt32();
@@ -108,14 +108,18 @@ public static class GameplaySessionFileCodec
             var backpack = new InventoryStack?[PlayerInventory.BackpackSlots];
             var hotbar = new InventoryStack?[PlayerInventory.HotbarSlots];
             for (var i = 0; i < backpack.Length; i++)
-                backpack[i] = PortableStackSaveCodec.Read(reader, blocks, dyes, layers);
+                backpack[i] = PortableStackSaveCodec.Read(reader, blocks, dyes, layers,
+                    legacySurfaceFormat: version < 5);
             for (var i = 0; i < hotbar.Length; i++)
-                hotbar[i] = PortableStackSaveCodec.Read(reader, blocks, dyes, layers);
-            var cursor = PortableStackSaveCodec.Read(reader, blocks, dyes, layers);
+                hotbar[i] = PortableStackSaveCodec.Read(reader, blocks, dyes, layers,
+                    legacySurfaceFormat: version < 5);
+            var cursor = PortableStackSaveCodec.Read(reader, blocks, dyes, layers,
+                    legacySurfaceFormat: version < 5);
             var equipment = new InventoryStack?[PlayerInventory.EquipmentSlots];
             if (version >= 2)
                 for (var i = 0; i < equipment.Length; i++)
-                    equipment[i] = PortableStackSaveCodec.Read(reader, blocks, dyes, layers);
+                    equipment[i] = PortableStackSaveCodec.Read(reader, blocks, dyes, layers,
+                    legacySurfaceFormat: version < 5);
             var health = version >= 3
                 ? reader.ReadSingle() : PlayerHealth.DefaultMaximum;
             var player = new PlayerSessionSnapshot(mode, flying,
@@ -133,7 +137,8 @@ public static class GameplaySessionFileCodec
             var spheres = new SphereClockSnapshot[count];
             for (var i = 0; i < count; i++)
                 spheres[i] = SphereSessionFileCodec.Read(reader,
-                    blocks, fluids, dyes, layers);
+                    blocks, fluids, dyes, layers,
+                    legacySurfaceFormat: version < 5);
             if (source.Position != end)
                 throw new InvalidDataException("Unexpected gameplay session trailing bytes.");
             return new GameplaySessionSnapshot(

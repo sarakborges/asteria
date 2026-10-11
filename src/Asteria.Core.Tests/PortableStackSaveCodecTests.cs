@@ -54,6 +54,24 @@ public sealed class PortableStackSaveCodecTests
     }
 
     [Fact]
+    public void PortableBlockMetaTagsRoundTrip()
+    {
+        var blocks = new BlockRegistry([new BlockDefinition("asteria:portal")]);
+        var state = new BlockStateSnapshot(
+            new VoxelCell(blocks.GetId("asteria:portal")),
+            MicroblockMask.Empty,
+            new BlockSurfaceState(null, metaTags:
+                new Dictionary<string, string> { ["target_dimension"] = "asteria:umbral" }));
+        var entry = InventoryEntry.FromBlock("asteria:portal", state);
+        var dyes = new DyeRegistry([]);
+        var layers = new AttachedLayerRegistry([]);
+        var restored = Decode(Encode(new InventoryStack(entry), blocks, dyes, layers),
+            blocks, dyes, layers);
+        Assert.Equal("asteria:umbral",
+            restored!.Block!.SurfaceState.MetaTags["target_dimension"]);
+    }
+
+    [Fact]
     public void ItemToolAndNullStacksPreserveMetadataAndKind()
     {
         var blocks = new BlockRegistry([]);

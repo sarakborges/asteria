@@ -1,3 +1,5 @@
+using System.Collections.ObjectModel;
+
 namespace Asteria.Core.World;
 
 /// <summary>
@@ -35,15 +37,20 @@ public readonly record struct AttachedBlockLayer
 public sealed class BlockSurfaceState : IEquatable<BlockSurfaceState>
 {
     public const int MaximumAttachedLayers = 16;
+    public const int MaximumMetaTags = 8;
+    public const int MaximumMetaTagKeyLength = 64;
+    public const int MaximumMetaTagValueLength = 256;
 
     private readonly AttachedBlockLayer[] _layers;
     private readonly IReadOnlyList<AttachedBlockLayer> _view;
+    private readonly IReadOnlyDictionary<string, string> _metaTags;
 
     public static BlockSurfaceState Empty { get; } = new(null, []);
 
     public BlockSurfaceState(
         string? dyeId,
-        IEnumerable<AttachedBlockLayer>? layers = null)
+        IEnumerable<AttachedBlockLayer>? layers = null,
+        IReadOnlyDictionary<string, string>? metaTags = null)
     {
         if (dyeId is not null)
             BlockDefinition.ValidateId(dyeId);
@@ -65,16 +72,54 @@ public sealed class BlockSurfaceState : IEquatable<BlockSurfaceState>
         }
 
         _view = Array.AsReadOnly(_layers);
+        if (metaTags is { Count: > MaximumMetaTags })
+            throw new ArgumentOutOfRangeException(
+                nameof(metaTags), "A block supports at most eight metadata tags.");
+
+        var copy = new Dictionary<string, string>(StringComparer.Ordinal);
+        if (metaTags is not null)
+        foreach (var (key, value) in metaTags)
+        {
+            if (string.IsNullOrWhiteSpace(key) ||
+                key.Length > MaximumMetaTagKeyLength ||
+                key.Any(char.IsWhiteSpace) ||
+                string.IsNullOrWhiteSpace(value) ||
+                value.Length > MaximumMetaTagValueLength ||
+                !copy.TryAdd(key, value))
+                throw new ArgumentException(
+                    "Block metadata keys and values must be bounded and unique.",
+                    nameof(metaTags));
+        }
+        _metaTags = new ReadOnlyDictionary<string, string>(copy);
     }
 
     public string? DyeId { get; }
     public IReadOnlyList<AttachedBlockLayer> Layers => _view;
-    public bool IsEmpty => DyeId is null && _layers.Length == 0;
+    public IReadOnlyDictionary<string, string> MetaTags => _metaTags;
+    public bool IsEmpty => DyeId is null && _layers.Length == 0 &&
+                           _metaTags.Count == 0;
 
     public BlockSurfaceState WithDye(string? dyeId) =>
         StringComparer.Ordinal.Equals(DyeId, dyeId)
             ? this
-            : new BlockSurfaceState(dyeId, _layers);
+            : new BlockSurfaceState(dyeId, _layers, _metaTags);
+
+    public BlockSurfaceState WithMetaTag(string key, string? value)
+    {
+        var copy = new Dictionary<string, string>(_metaTags, StringComparer.Ordinal);
+        if (value is null)
+        {
+            if (!copy.Remove(key)) return this;
+        }
+        else
+        {
+            if (copy.TryGetValue(key, out var old) &&
+                StringComparer.Ordinal.Equals(old, value))
+                return this;
+            copy[key] = value;
+        }
+        return new BlockSurfaceState(DyeId, _layers, copy);
+    }
 
     public bool TryAttach(AttachedBlockLayer layer, out BlockSurfaceState updated)
     {
@@ -87,7 +132,7 @@ public sealed class BlockSurfaceState : IEquatable<BlockSurfaceState>
             return false;
         }
 
-        updated = new BlockSurfaceState(DyeId, _layers.Append(layer));
+        updated = new BlockSurfaceState(DyeId, _layers.Append(layer), _metaTags);
         return true;
     }
 
@@ -108,7 +153,7 @@ public sealed class BlockSurfaceState : IEquatable<BlockSurfaceState>
             var copy = new AttachedBlockLayer[_layers.Length - 1];
             Array.Copy(_layers, 0, copy, 0, index);
             Array.Copy(_layers, index + 1, copy, index, _layers.Length - index - 1);
-            updated = new BlockSurfaceState(DyeId, copy);
+            updated = new BlockSurfaceState(DyeId, copy, _metaTags);
             return true;
         }
 
@@ -121,7 +166,10 @@ public sealed class BlockSurfaceState : IEquatable<BlockSurfaceState>
         ReferenceEquals(this, other) ||
         (other is not null &&
          StringComparer.Ordinal.Equals(DyeId, other.DyeId) &&
-         _layers.AsSpan().SequenceEqual(other._layers));
+         _layers.AsSpan().SequenceEqual(other._layers) &&
+         _metaTags.Count == other._metaTags.Count &&
+         _metaTags.All(pair => other._metaTags.TryGetValue(pair.Key, out var value) &&
+                               StringComparer.Ordinal.Equals(pair.Value, value)));
 
     public override bool Equals(object? obj) => obj is BlockSurfaceState other && Equals(other);
 
@@ -131,6 +179,11 @@ public sealed class BlockSurfaceState : IEquatable<BlockSurfaceState>
         hash.Add(DyeId, StringComparer.Ordinal);
         foreach (var layer in _layers)
             hash.Add(layer);
+        foreach (var (key, value) in _metaTags.OrderBy(x => x.Key, StringComparer.Ordinal))
+        {
+            hash.Add(key, StringComparer.Ordinal);
+            hash.Add(value, StringComparer.Ordinal);
+        }
         return hash.ToHashCode();
     }
 }

@@ -12,7 +12,7 @@ public sealed class PortalActivationRuntime
     public const string TargetMetadataKey = "target_dimension";
     private const string FrameTag = "is_portal_frame";
     private const string FrameTargetPrefix = "accept_dimension:";
-    private const string PortalTargetPrefix = "portal_destination:";
+    public const string PortalBlockId = "asteria:portal";
     private const int MaximumFrameVoxels = 1024;
     private const int MaximumInteriorVoxels = 512;
     private const int MaximumSpan = 64;
@@ -20,9 +20,8 @@ public sealed class PortalActivationRuntime
     private readonly VoxelWorld _world;
     private readonly BlockRegistry _blocks;
     private readonly VoxelMutationRuntime _mutations;
-    private readonly Dictionary<string, BlockRuntimeId> _portalsByTarget =
-        new(StringComparer.Ordinal);
-    private readonly Dictionary<BlockRuntimeId, string> _targetsByPortal = [];
+    private readonly BlockRuntimeId _portalBlock;
+    private readonly HashSet<string> _validTargets = new(StringComparer.Ordinal);
 
     private enum CellKind : byte { Frame, Empty, Blocked }
 
@@ -45,26 +44,27 @@ public sealed class PortalActivationRuntime
         _blocks = blocks ?? throw new ArgumentNullException(nameof(blocks));
         _mutations = mutations ?? throw new ArgumentNullException(nameof(mutations));
 
-        foreach (var (id, block) in blocks.AuthoredDefinitions())
-        foreach (var tag in block.Tags)
+        _portalBlock = blocks.GetId(PortalBlockId);
+        var portal = blocks.GetDefinition(_portalBlock);
+        if (!portal.Shape.IsCenteredLayer || portal.IsCollidable ||
+            portal.LightDampening != 0 ||
+            !portal.Orientations.Contains(BlockOrientation.X) ||
+            !portal.Orientations.Contains(BlockOrientation.Y) ||
+            !portal.Orientations.Contains(BlockOrientation.Z))
+            throw new InvalidOperationException(
+                $"Portal {PortalBlockId} must be a noncolliding oriented centered layer.");
+
+        foreach (var (_, block) in blocks.AuthoredDefinitions())
         {
-            if (!tag.StartsWith(PortalTargetPrefix, StringComparison.Ordinal))
-                continue;
-
-            var target = tag[PortalTargetPrefix.Length..];
-            BlockDefinition.ValidateId(target);
-            if (!block.Shape.IsCenteredLayer || block.IsCollidable ||
-                block.LightDampening != 0 ||
-                !block.Orientations.Contains(BlockOrientation.X) ||
-                !block.Orientations.Contains(BlockOrientation.Y) ||
-                !block.Orientations.Contains(BlockOrientation.Z))
-                throw new InvalidOperationException(
-                    $"Portal interior {block.Id} must be a noncolliding, oriented centered layer.");
-
-            if (!_portalsByTarget.TryAdd(target, id) ||
-                !_targetsByPortal.TryAdd(id, target))
-                throw new InvalidOperationException(
-                    $"Duplicate or ambiguous portal destination: {target}");
+            if (!block.HasTag(FrameTag)) continue;
+            foreach (var tag in block.Tags)
+            {
+                if (!tag.StartsWith(FrameTargetPrefix, StringComparison.Ordinal))
+                    continue;
+                var target = tag[FrameTargetPrefix.Length..];
+                BlockDefinition.ValidateId(target);
+                _validTargets.Add(target);
+            }
         }
 
         // Frame destruction invalidates its bounded portal region using the
@@ -83,7 +83,9 @@ public sealed class PortalActivationRuntime
         foreach (var neighbor in Neighbors(edit.Position, plane))
         {
             if (!_world.TryGetCell(neighbor, out var cell) || cell.IsEmpty ||
-                !_targetsByPortal.TryGetValue(cell.Block, out var destination) ||
+                cell.Block != _portalBlock ||
+                !_world.GetBlockSurfaceStateOrEmpty(neighbor).MetaTags
+                    .TryGetValue(TargetMetadataKey, out var destination) ||
                 !previous.HasTag(FrameTargetPrefix + destination) ||
                 (next.HasTag(FrameTag) &&
                  next.HasTag(FrameTargetPrefix + destination)) ||
@@ -94,7 +96,7 @@ public sealed class PortalActivationRuntime
             // Revoke the complete contiguous interior, never leave an
             // unframed, unbreakable or invisible travel trigger behind.
             var region = CollectPortalRegion(
-                neighbor, cell.Block, plane);
+                neighbor, destination, plane);
             foreach (var at in region)
             {
                 if (!_mutations.SetCellAt(at, VoxelCell.Empty, out _))
@@ -105,7 +107,7 @@ public sealed class PortalActivationRuntime
     }
 
     private IReadOnlyList<WorldVoxelCoord> CollectPortalRegion(
-        WorldVoxelCoord start, BlockRuntimeId portal, PortalPlane plane)
+        WorldVoxelCoord start, string destination, PortalPlane plane)
     {
         var visited = new HashSet<WorldVoxelCoord> { start };
         var queue = new Queue<WorldVoxelCoord>();
@@ -117,8 +119,11 @@ public sealed class PortalActivationRuntime
             {
                 if (visited.Contains(neighbor) ||
                     !_world.TryGetCell(neighbor, out var cell) ||
-                    cell.Block != portal ||
-                    cell.Orientation != plane.Orientation)
+                    cell.Block != _portalBlock ||
+                    cell.Orientation != plane.Orientation ||
+                    !_world.GetBlockSurfaceStateOrEmpty(neighbor).MetaTags
+                        .TryGetValue(TargetMetadataKey, out var neighborDestination) ||
+                    !StringComparer.Ordinal.Equals(neighborDestination, destination))
                     continue;
 
                 if (visited.Count >= MaximumInteriorVoxels)
@@ -139,7 +144,10 @@ public sealed class PortalActivationRuntime
     {
         destination = string.Empty;
         if (!_world.TryGetCell(position, out var cell) || cell.IsEmpty ||
-            !_targetsByPortal.TryGetValue(cell.Block, out var target))
+            cell.Block != _portalBlock ||
+            !_world.GetBlockSurfaceStateOrEmpty(position).MetaTags
+                .TryGetValue(TargetMetadataKey, out var target) ||
+            !_validTargets.Contains(target))
             return false;
         destination = target;
         return true;
@@ -157,7 +165,7 @@ public sealed class PortalActivationRuntime
         destination = string.Empty;
         if (!IsSlicer(selected) ||
             !selected!.Entry.Metadata.TryGetValue(TargetMetadataKey, out var target) ||
-            !_portalsByTarget.TryGetValue(target, out var portal))
+            !_validTargets.Contains(target))
             return false;
 
         if (Classify(hit.Voxel, target) != CellKind.Frame)
@@ -180,8 +188,14 @@ public sealed class PortalActivationRuntime
         if (interior is null || interior.Count == 0)
             return false;
 
-        var blockState = BlockStateSnapshot.FromCell(
-            new VoxelCell(portal, orientation: orientation));
+        var blockState = new BlockStateSnapshot(
+            new VoxelCell(_portalBlock, orientation: orientation),
+            MicroblockMask.Empty,
+            new BlockSurfaceState(null,
+                metaTags: new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    [TargetMetadataKey] = target,
+                }));
         var changes = interior.Select(at =>
             new VoxelStructureChange(at, blockState, FluidCell.Empty)).ToArray();
 

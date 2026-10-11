@@ -1,8 +1,7 @@
 {
-  "id": "asteria:portal_to_umbral",
+  "id": "asteria:portal",
   "category": "crafted_blocks",
   "tags": [
-    "portal_destination:asteria:umbral",
     "creative_hidden"
   ],
   "shape": {

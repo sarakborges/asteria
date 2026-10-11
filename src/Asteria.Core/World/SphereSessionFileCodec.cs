@@ -59,7 +59,7 @@ internal static class SphereSessionFileCodec
 
     internal static SphereClockSnapshot Read(BinaryReader reader,
         BlockRegistry blocks, FluidRegistry fluids, DyeRegistry dyes,
-        AttachedLayerRegistry layers)
+        AttachedLayerRegistry layers, bool legacySurfaceFormat = false)
     {
         var id = new DimensionId(PortableStackSaveCodec.ReadString(reader, 512));
         var tick = reader.ReadUInt64();
@@ -76,7 +76,7 @@ internal static class SphereSessionFileCodec
             var where = ReadPosition(reader);
             var slots = new InventoryStack?[StorageBoxRuntime.SlotCount];
             for (var j = 0; j < slots.Length; j++)
-                slots[j] = PortableStackSaveCodec.Read(reader, blocks, dyes, layers);
+                slots[j] = PortableStackSaveCodec.Read(reader, blocks, dyes, layers, legacySurfaceFormat);
             boxes[i] = new SavedStorageBoxContents(where, slots);
         }
 
@@ -92,8 +92,8 @@ internal static class SphereSessionFileCodec
 
         return new SphereClockSnapshot(
             id, tick, dayNight, position, nextSpawn, boxes, structures,
-            ReadPhysics(reader, blocks, dyes, layers),
-            ReadDrops(reader, blocks, dyes, layers),
+            ReadPhysics(reader, blocks, dyes, layers, legacySurfaceFormat),
+            ReadDrops(reader, blocks, dyes, layers, legacySurfaceFormat),
             ReadCreatures(reader),
             ReadFluidQueue(reader, fluids),
             ReadPhysicsQueue(reader));
@@ -121,7 +121,8 @@ internal static class SphereSessionFileCodec
     }
 
     private static BlockPhysicsRuntimeSnapshot? ReadPhysics(BinaryReader reader,
-        BlockRegistry blocks, DyeRegistry dyes, AttachedLayerRegistry layers)
+        BlockRegistry blocks, DyeRegistry dyes, AttachedLayerRegistry layers,
+        bool legacySurfaceFormat)
     {
         if (!PortableStackSaveCodec.ReadBool(reader)) return null;
         var nextId = reader.ReadUInt64();
@@ -130,7 +131,7 @@ internal static class SphereSessionFileCodec
         for (var i = 0; i < count; i++)
         {
             var id = new FallingBlockId(reader.ReadUInt64());
-            var stack = PortableStackSaveCodec.Read(reader, blocks, dyes, layers);
+            var stack = PortableStackSaveCodec.Read(reader, blocks, dyes, layers, legacySurfaceFormat);
             if (stack is not { Kind: InventoryEntryKind.Block, Quantity: 1 } ||
                 stack.Block is null)
                 throw new InvalidDataException("Falling block is not a portable block.");
@@ -164,7 +165,8 @@ internal static class SphereSessionFileCodec
     }
 
     private static DroppedBlockRuntimeSnapshot? ReadDrops(BinaryReader reader,
-        BlockRegistry blocks, DyeRegistry dyes, AttachedLayerRegistry layers)
+        BlockRegistry blocks, DyeRegistry dyes, AttachedLayerRegistry layers,
+        bool legacySurfaceFormat)
     {
         if (!PortableStackSaveCodec.ReadBool(reader)) return null;
         var nextId = reader.ReadUInt64();
@@ -173,7 +175,7 @@ internal static class SphereSessionFileCodec
         for (var i = 0; i < count; i++)
         {
             var id = new DroppedBlockId(reader.ReadUInt64());
-            var stack = PortableStackSaveCodec.Read(reader, blocks, dyes, layers);
+            var stack = PortableStackSaveCodec.Read(reader, blocks, dyes, layers, legacySurfaceFormat);
             if (stack is null)
                 throw new InvalidDataException("A dropped item must have a portable stack.");
             var state = new DroppedBlockState(

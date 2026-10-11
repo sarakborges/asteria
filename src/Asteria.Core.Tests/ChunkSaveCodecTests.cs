@@ -72,7 +72,10 @@ public sealed class ChunkSaveCodecTests
         [
             new AttachedBlockLayer(BlockFace.Top, "asteria:moss",
                 TextureRotation.Degrees180),
-        ]);
+        ], new Dictionary<string, string>
+        {
+            ["target_dimension"] = "asteria:umbral",
+        });
         Assert.True(chunk.SetSurfaceState(2, 3, 4, surface));
 
         Assert.True(chunk.SetBlock(15, 15, 15,
