@@ -356,6 +356,12 @@
   "asteria:planks_world_tree": {
     "/name": "Tábuas da Árvore do Mundo"
   },
+  "asteria:portal_to_overworld": {
+    "/name": "Portal para o Mundo da Superfície"
+  },
+  "asteria:portal_to_umbral": {
+    "/name": "Portal para o Umbral"
+  },
   "asteria:prairie_clover": {
     "/name": "Trevo da Pradaria"
   },
