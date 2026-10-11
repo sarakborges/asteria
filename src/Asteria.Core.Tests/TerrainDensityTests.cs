@@ -144,6 +144,59 @@ public sealed class TerrainDensityTests
     }
 
     [Fact]
+    public void CaveSpikesTakePrecedenceOverCaveFloorVegetation()
+    {
+        var spikeRule = new BiomeCaveSpikeDefinition(
+            "asteria:stone_spike", 1f, 3, 5, 6,
+            [CaveSpikeDirection.Up, CaveSpikeDirection.Down],
+            minSpacing: 1);
+        var bare = Generator(caves: WideCaves(), caveSpike: spikeRule);
+        var planted = Generator(
+            caves: WideCaves(),
+            caveSpike: spikeRule,
+            caveDecoration: new BiomeDecorationDefinition(
+                "asteria:test_fern", 1f, ["asteria:stone"]));
+        var spike = Block("asteria:stone_spike");
+        var fern = Block("asteria:test_fern");
+        var spikeCount = 0;
+        var fernCount = 0;
+
+        // Generate floor and ceiling chunks out of order. A plant must
+        // never replace a spike base and leave its higher tiers floating.
+        foreach (var coord in new[]
+                 {
+                     new ChunkCoord(0, 5, 0),
+                     new ChunkCoord(0, 1, 0),
+                     new ChunkCoord(0, 2, 0),
+                 })
+        {
+            var reference = bare.Materialize(coord);
+            var actual = planted.Materialize(coord);
+            for (var z = 0; z < Chunk.Size; z++)
+            for (var x = 0; x < Chunk.Size; x++)
+            for (var y = 0; y < Chunk.Size; y++)
+            {
+                var expected = reference.GetCell(x, y, z);
+                var observed = actual.GetCell(x, y, z);
+                if (expected.Block == spike)
+                {
+                    Assert.Equal(spike, observed.Block);
+                    Assert.Equal(expected.State, observed.State);
+                    spikeCount++;
+                }
+                if (observed.Block == fern)
+                {
+                    Assert.NotEqual(spike, expected.Block);
+                    fernCount++;
+                }
+            }
+        }
+
+        Assert.True(spikeCount > 0);
+        Assert.True(fernCount > 0);
+    }
+
+    [Fact]
     public void CaveSpikeClusterCanSuppressGrowthWithoutChangingCaveDensity()
     {
         var allowed = Generator(
@@ -743,6 +796,7 @@ public sealed class TerrainDensityTests
         new BlockDefinition("asteria:sphere_shell"),
         new BlockDefinition("asteria:stone_spike",
             shape: BlockShapeDefinition.Spike(), lightDampening: 0),
+        new BlockDefinition("asteria:test_fern", lightDampening: 0),
     ]);
 
     private static DimensionCaveDefinition ChamberCaves(bool withChambers) =>
@@ -787,7 +841,8 @@ public sealed class TerrainDensityTests
         int? floorY = null,
         int? roofY = null,
         IEnumerable<BiomeAdditiveDensityDefinition>? additive = null,
-        BiomeCaveSpikeDefinition? caveSpike = null)
+        BiomeCaveSpikeDefinition? caveSpike = null,
+        BiomeDecorationDefinition? caveDecoration = null)
     {
         var surfaceBiome =
             new BiomeDefinition(
@@ -844,7 +899,10 @@ public sealed class TerrainDensityTests
                     surfaceLayers: [new BiomeSurfaceLayerDefinition("asteria:stone")],
                     volumeLayout: new BiomeVolumeLayoutDefinition(
                         placement: VolumeBiomePlacement.CarvedVoid),
-                    caveSpikes: [caveSpike]);
+                    caveSpikes: [caveSpike],
+                    decorations: caveDecoration is null
+                        ? null
+                        : [caveDecoration]);
         var definitions =
             new[] { surfaceBiome, volumeBiome, caveBiome }
                 .Where(definition => definition is not null)

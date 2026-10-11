@@ -301,10 +301,6 @@ public sealed class SurfaceChunkMaterializer
 
         MaterializeVolumeStructures(chunk, coord);
 
-        MaterializeVerticalDecorations(
-            chunk, column, densityVolume,
-            originX, originY, originZ);
-
         MaterializeGeneratedFluids(
             chunk,
             column,
@@ -319,8 +315,14 @@ public sealed class SurfaceChunkMaterializer
             coord,
             originY,
             topExclusive);
+        // Give whole cave formations priority over soft vegetation.
+        // Plants fill only the void cells left by spikes, including when
+        // a formation starts in the adjacent vertical chunk.
         MaterializeCaveSpikes(
             chunk, column, densityVolume, originX, originY, originZ);
+        MaterializeVerticalDecorations(
+            chunk, column, densityVolume,
+            originX, originY, originZ);
         // Veins are placed before natural face coatings, so moss stays on top.
         _veins?.Apply(chunk, coord);
         MaterializeWallLayers(
@@ -1468,13 +1470,31 @@ public sealed class SurfaceChunkMaterializer
                             worldX, anchorY, worldZ, down, out var placement))
                         continue;
 
+                    // A blocked root or intermediate tier invalidates
+                    // this formation in the current chunk. Never emit the
+                    // remaining tiers as a floating, disconnected spike.
+                    var blocked = false;
                     for (var segment = 0; segment < placement.Height; segment++)
                     {
-                        var y = anchorY + (down ? -segment : segment);
-                        var localY = y - originY;
-                        if ((uint)localY >= Chunk.Size ||
-                            !chunk.GetCell(x, localY, z).IsEmpty ||
+                        var worldY = anchorY + (down ? -segment : segment);
+                        var localY = worldY - originY;
+                        if ((uint)localY >= Chunk.Size)
+                            continue;
+                        if (!chunk.GetCell(x, localY, z).IsEmpty ||
                             !chunk.GetFluid(x, localY, z).IsEmpty)
+                        {
+                            blocked = true;
+                            break;
+                        }
+                    }
+                    if (blocked)
+                        continue;
+
+                    for (var segment = 0; segment < placement.Height; segment++)
+                    {
+                        var worldY = anchorY + (down ? -segment : segment);
+                        var localY = worldY - originY;
+                        if ((uint)localY >= Chunk.Size)
                             continue;
 
                         chunk.SetCell(x, localY, z,
