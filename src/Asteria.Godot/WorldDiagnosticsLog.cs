@@ -22,6 +22,10 @@ internal enum WorldFrameStage : byte
     StreamingEnd,
     Gameplay,
     BlockEntities,
+    BlockPhysicsWake,
+    FallingSimulation,
+    DroppedSimulation,
+    BlockEntityPresentation,
     ItemPickup,
     Mining,
     Creatures,
@@ -92,6 +96,9 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     private int _ambientParticlesActive;
     private int _ambientParticlesPeak;
     private int _droppedBlocksActive;
+    private int _fallingBlocksActive;
+    private int _physicsUpdatesPending;
+    private int _physicsUpdatesPeak;
 
     private WorldDiagnosticsLog(DiagnosticSessionLog session)
     {
@@ -170,10 +177,12 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             _framesOver100Ms++;
     }
 
-    public void ObserveStage(WorldFrameStage stage, long startedTimestamp)
+    public void ObserveStage(WorldFrameStage stage, long startedTimestamp) =>
+        ObserveStageMilliseconds(
+            stage, Stopwatch.GetElapsedTime(startedTimestamp).TotalMilliseconds);
+
+    public void ObserveStageMilliseconds(WorldFrameStage stage, double milliseconds)
     {
-        var milliseconds =
-            Stopwatch.GetElapsedTime(startedTimestamp).TotalMilliseconds;
         var index = (int)stage;
         _stageMsTotal[index] += milliseconds;
         _stageMsMax[index] = Math.Max(_stageMsMax[index], milliseconds);
@@ -184,7 +193,8 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     /// diagnostic window so short-lived population spikes are visible.
     /// </summary>
     public void ObserveGameplayPopulation(
-        int creatures, int projectiles, int ambientParticles, int droppedBlocks)
+        int creatures, int projectiles, int ambientParticles,
+        int droppedBlocks, int fallingBlocks, int physicsPending)
     {
         _creaturesActive = creatures;
         _creaturesPeak = Math.Max(_creaturesPeak, creatures);
@@ -192,6 +202,9 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         _ambientParticlesActive = ambientParticles;
         _ambientParticlesPeak = Math.Max(_ambientParticlesPeak, ambientParticles);
         _droppedBlocksActive = droppedBlocks;
+        _fallingBlocksActive = fallingBlocks;
+        _physicsUpdatesPending = physicsPending;
+        _physicsUpdatesPeak = Math.Max(_physicsUpdatesPeak, physicsPending);
     }
 
     public void Observe(ChunkResidencyUpdate update)
@@ -320,6 +333,9 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"ambient_particles_active={_ambientParticlesActive} " +
             $"ambient_particles_peak={_ambientParticlesPeak} " +
             $"dropped_blocks_active={_droppedBlocksActive} " +
+            $"falling_blocks_active={_fallingBlocksActive} " +
+            $"physics_pending={_physicsUpdatesPending} " +
+            $"physics_pending_peak={_physicsUpdatesPeak} " +
             $"frames={_frames} frame_ms_avg={Format2((_frames == 0 ? 0d : _frameMsTotal / _frames))} " +
             $"frame_ms_max={Format2(_frameMsMax)} frames_over_50ms={_framesOver50Ms} " +
             $"frames_over_100ms={_framesOver100Ms} " +
@@ -347,6 +363,7 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         Array.Clear(_stageMsMax);
         _creaturesPeak = _creaturesActive;
         _ambientParticlesPeak = _ambientParticlesActive;
+        _physicsUpdatesPeak = _physicsUpdatesPending;
         _frames = 0;
         _frameMsTotal = 0d;
         _frameMsMax = 0d;
