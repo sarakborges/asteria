@@ -138,6 +138,32 @@ public sealed class SurfaceStructureTests
             generator.SurfaceHeight(steps[^1].X, steps[^1].Z));
     }
 
+    [Fact]
+    public void SurfaceConnectionRejectsUnfinishedAuthoredStaircase()
+    {
+        var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);
+        var directory = Path.Combine(AppContext.BaseDirectory,
+            "packs", "default", "data", "structures");
+        var root = File.ReadAllText(Path.Combine(
+            directory, "portal_arrival_platform.json"));
+        var stair = File.ReadAllText(Path.Combine(
+            directory, "surface_spiral_stair_segment.json"));
+        var exhausted = stair.Replace(
+            "\"strengthLossOnEachLoop\": 0.05",
+            "\"strengthLossOnEachLoop\": 1",
+            StringComparison.Ordinal);
+        Assert.NotEqual(stair, exhausted);
+        var registry = StructureRegistry.FromJson([root, exhausted]);
+        registry.ValidateBlocks(blocks);
+        var generator = FlatStructureGenerator(blocks, registry, "asteria:stone");
+        Assert.True(generator.SurfaceHeight(8, 8) > 20);
+
+        Assert.False(generator.TryPrepareExactStructure(
+            "asteria:portal_arrival_platform", 8, 2, 8,
+            new ManualStructurePlacementLedger(), out var plan));
+        Assert.Null(plan);
+    }
+
     private static StructureRegistry PortalArrivalStructures() =>
         StructureRegistry.FromJson(new[]
         {
