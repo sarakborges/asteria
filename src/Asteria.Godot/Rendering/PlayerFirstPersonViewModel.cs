@@ -19,6 +19,7 @@ internal sealed partial class PlayerFirstPersonViewModel : Node3D
     private static readonly Vector3 RestRotation = new(-0.22f, -0.10f, 0.28f);
     private const ulong SwitchDurationTicks = 12;
     private const ulong BreakDurationTicks = 22;
+    private const ulong FastBreakDurationTicks = 8;
     private const ulong HitDurationTicks = 17;
     private const ulong PlaceDurationTicks = 19;
 
@@ -35,6 +36,7 @@ internal sealed partial class PlayerFirstPersonViewModel : Node3D
     private ulong _switchStartTick;
     private PlayerVisualAction? _action;
     private ulong _actionStartTick;
+    private bool _fastBreak;
 
     public PlayerFirstPersonViewModel(
         FpsPlayer player, PackSelection pack,
@@ -95,12 +97,13 @@ internal sealed partial class PlayerFirstPersonViewModel : Node3D
         UpdatePose(_player.CurrentWorldTick());
     }
 
-    public bool TryPlayAction(PlayerVisualAction action)
+    public bool TryPlayAction(PlayerVisualAction action, bool fastBreak = false)
     {
         if (action is not (PlayerVisualAction.Hit or PlayerVisualAction.Break or
             PlayerVisualAction.Place))
             return false;
         _action = action;
+        _fastBreak = action == PlayerVisualAction.Break && fastBreak;
         _actionStartTick = _player.CurrentWorldTick();
         return true;
     }
@@ -138,7 +141,8 @@ internal sealed partial class PlayerFirstPersonViewModel : Node3D
         {
             var duration = action switch
             {
-                PlayerVisualAction.Break => BreakDurationTicks,
+                PlayerVisualAction.Break => _fastBreak
+                    ? FastBreakDurationTicks : BreakDurationTicks,
                 PlayerVisualAction.Hit => HitDurationTicks,
                 _ => PlaceDurationTicks,
             };
