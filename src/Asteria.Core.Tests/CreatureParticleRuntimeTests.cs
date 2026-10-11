@@ -98,9 +98,12 @@ public sealed class CreatureParticleRuntimeTests
     public void ParticleLifetimeAndEmitterRetirementAreBounded()
     {
         var particles = new CreatureParticleRuntime(Definitions());
-        for (var i = 1UL; i <= 200UL; i++)
-            particles.Advance(0f, Enumerable.Range(1, (int)i)
-                .Select(id => Creature((ulong)id)).ToArray());
+        var population = Enumerable.Range(1, 128)
+            .Select(id => Creature((ulong)id)).ToArray();
+        particles.Advance(0.05f, population);
+        Assert.Equal(256, particles.Particles.Count);
+        particles.Advance(0.05f, population);
+        particles.Advance(0.05f, population);
         Assert.Equal(CreatureParticleRuntime.MaximumActive, particles.Particles.Count);
 
         for (var i = 0; i < 30; i++)
@@ -121,25 +124,30 @@ public sealed class CreatureParticleRuntimeTests
         first.Advance(0.05f, [Creature(2), Creature(1)]);
         second.Advance(0.05f, [Creature(1), Creature(2)]);
         Assert.Equal(
-            first.Particles.Select(p => (p.Position, p.Velocity, p.Color)),
-            second.Particles.Select(p => (p.Position, p.Velocity, p.Color)));
+            first.Particles.Select(p => (p.Position, p.Color, p.Scale)),
+            second.Particles.Select(p => (p.Position, p.Color, p.Scale)));
     }
 
     [Theory]
-    [InlineData("\"count\": 65")]
-    [InlineData("\"size\": 0")]
-    [InlineData("\"lifetime\": -1")]
-    [InlineData("\"interval\": -0.5")]
-    [InlineData("\"gravity\": 200")]
-    [InlineData("\"unsupported\": 1")]
-    public void RejectsUnboundedOrUnsupportedParticleFields(string invalid)
+    [InlineData("\"count\": 2", "\"count\": 65")]
+    [InlineData("\"size\":0.04", "\"size\":0")]
+    [InlineData("\"lifetime\":1", "\"lifetime\":-1")]
+    [InlineData("\"interval\":0.1", "\"interval\":-0.5")]
+    [InlineData("\"horizontalSpeed\":0.1", "\"horizontalSpeed\":100")]
+    public void RejectsOutOfRangeParticleFields(string valid, string invalid)
+    {
+        var json = CreatureJson.Replace(valid, invalid, StringComparison.Ordinal);
+        Assert.NotEqual(json, CreatureJson);
+        Assert.Throws<FormatException>(() => CreatureDefinition.Parse(json));
+    }
+
+    [Fact]
+    public void RejectsUnsupportedParticleFields()
     {
         var json = CreatureJson.Replace(
-            "\"count\": 2, \"color\":[0.25,0.5,1,0.8]",
-            invalid + ", \"color\":[0.25,0.5,1,0.8]",
+            "\"endScale\":0.1", "\"unsupported\":1",
             StringComparison.Ordinal);
-        // The second occurrence of size/lifetime/etc. is still valid; the
-        // first invalid override is either a duplicate or out of range.
+        Assert.NotEqual(json, CreatureJson);
         Assert.Throws<FormatException>(() => CreatureDefinition.Parse(json));
     }
 
