@@ -29,6 +29,8 @@ public static class BlockDefinitionJson
         var castsShadow = OptionalBoolean(root, "castsShadow") ?? true;
         var isCollidable = OptionalBoolean(root, "isCollidable") ?? true;
         var dropsSelf = OptionalBoolean(root, "dropsSelf") ?? true;
+        var lootTable = root.TryGetProperty("lootTable", out var lootEntries)
+            ? BlockLootTable.Parse(lootEntries) : null;
         var interaction = OptionalString(root, "interaction") switch
         {
             null or "break" => BlockInteractionKind.Break,
@@ -74,7 +76,8 @@ public static class BlockDefinitionJson
             interaction: interaction,
             pickupItemId: pickupItemId,
             secondaryProperties: secondaryProperties,
-            windSway: OptionalBoolean(root, "windSway") ?? false);
+            windSway: OptionalBoolean(root, "windSway") ?? false,
+            lootTable: lootTable);
     }
 
     private static BlockLightEmission ParseLightEmission(JsonElement root, string blockId)
