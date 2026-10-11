@@ -568,5 +568,38 @@
   },
   "asteria:thornwood_leaves": {
     "/name": "Folhas de Madeira Espinhosa"
+  },
+  "asteria:sapling_charwood": {
+    "/name": "Muda de Madeira Carbonizada"
+  },
+  "asteria:sapling_enchanted_tree": {
+    "/name": "Muda de Árvore Encantada"
+  },
+  "asteria:sapling_frost_wood": {
+    "/name": "Muda de Madeira Gélida"
+  },
+  "asteria:sapling_juniper": {
+    "/name": "Muda de Zimbro"
+  },
+  "asteria:sapling_oak": {
+    "/name": "Muda de Carvalho"
+  },
+  "asteria:sapling_rime_deadwood": {
+    "/name": "Muda de Geada"
+  },
+  "asteria:sapling_skywood": {
+    "/name": "Muda de Madeira Celeste"
+  },
+  "asteria:sapling_thornwood": {
+    "/name": "Muda de Madeira Espinhosa"
+  },
+  "asteria:sapling_willow": {
+    "/name": "Muda de Salgueiro"
+  },
+  "asteria:sapling_windwood": {
+    "/name": "Muda de Madeira do Vento"
+  },
+  "asteria:sapling_world_tree": {
+    "/name": "Muda da Árvore do Mundo"
   }
 }

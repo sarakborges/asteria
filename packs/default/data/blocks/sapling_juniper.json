@@ -1,0 +1,27 @@
+{
+  "id": "asteria:sapling_juniper",
+  "category": "foliage",
+  "tags": [
+    "support_below"
+  ],
+  "windSway": true,
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/blocks/trees/juniper/sapling.png",
+    "width": 0.7,
+    "height": 0.8,
+    "planes": 4
+  },
+  "placementFaces": [
+    "top"
+  ],
+  "mining": {
+    "hardness": 0.1
+  },
+  "isCollidable": false,
+  "castsShadow": false,
+  "lightDampening": 0,
+  "alphaCutoff": 0.5,
+  "previewColor": "5f804c",
+  "dropsSelf": true
+}

@@ -1,0 +1,27 @@
+{
+  "id": "asteria:sapling_charwood",
+  "category": "foliage",
+  "tags": [
+    "support_below"
+  ],
+  "windSway": true,
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/blocks/trees/charwood/sapling.png",
+    "width": 0.72,
+    "height": 0.77,
+    "planes": 4
+  },
+  "placementFaces": [
+    "top"
+  ],
+  "mining": {
+    "hardness": 0.1
+  },
+  "isCollidable": false,
+  "castsShadow": false,
+  "lightDampening": 0,
+  "alphaCutoff": 0.5,
+  "previewColor": "be7a38",
+  "dropsSelf": true
+}
