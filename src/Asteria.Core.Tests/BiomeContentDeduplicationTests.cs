@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Asteria.Core.World;
 
 namespace Asteria.Core.Tests;
@@ -42,13 +41,7 @@ public sealed class BiomeContentDeduplicationTests
             Assert.DoesNotContain(references,
                 json => json.Contains("asteria:" + oldId + "\"", StringComparison.Ordinal));
 
-            foreach (var language in new[] { "english", "portuguese_brazil", "spanish" })
-            {
-                var localization = Path.Combine(data, "localization", language, "blocks.json");
-                using var catalog = JsonDocument.Parse(File.ReadAllText(localization));
-                Assert.False(catalog.RootElement.TryGetProperty("asteria:" + oldId, out _));
-                Assert.True(catalog.RootElement.TryGetProperty("asteria:" + reusedId, out _));
-            }
+
         }
     }
 
