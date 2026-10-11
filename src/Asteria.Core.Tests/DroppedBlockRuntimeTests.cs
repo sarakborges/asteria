@@ -400,6 +400,124 @@ public sealed class DroppedBlockRuntimeTests
             runtime.ActiveCount);
     }
 
+    [Fact]
+    public void ItemEmbeddedInMultipleSolidBlocksEscapesToFirstAirWithoutGravity()
+    {
+        var blocks = new BlockRegistry([
+            new BlockDefinition("asteria:stone"),
+        ]);
+        var world = LoadedWorld();
+        var stone = blocks.GetId("asteria:stone");
+        for (var y = 2; y <= 5; y++)
+            Assert.True(world.SetBlockAt(
+                new WorldVoxelCoord(4, y, 4), stone, out _));
+
+        var runtime = new DroppedBlockRuntime(world, blocks);
+        var dropId = runtime.Spawn(
+            new InventoryStack(InventoryEntry.FromItem("asteria:pebble")),
+            new Vector3(4.5f, 2.5f, 4.5f));
+
+        var advance = runtime.Advance(1.0 / 60.0, gravityStrength: 0);
+        var drop = Assert.Single(runtime.ActiveBlocks);
+
+        Assert.Equal(dropId, drop.Id);
+        Assert.Equal(1, advance.Moved);
+        Assert.Equal(4.5f, drop.Position.X);
+        Assert.Equal(4.5f, drop.Position.Z);
+        Assert.InRange(drop.Position.Y, 6.18f, 6.19f);
+        Assert.False(drop.IsSettled);
+        Assert.True(VoxelWorldCollision.QueryDetailed(
+            world, blocks, DroppedBlockRuntime.BoundsAt(drop.Position)).IsClear);
+    }
+
+    [Fact]
+    public void PlacingBlockAroundSettledDropPushesItAboveNewBlock()
+    {
+        var blocks = new BlockRegistry([
+            new BlockDefinition("asteria:stone"),
+        ]);
+        var world = LoadedWorld();
+        var stone = blocks.GetId("asteria:stone");
+        Assert.True(world.SetBlockAt(
+            new WorldVoxelCoord(3, 0, 3), stone, out _));
+        var runtime = new DroppedBlockRuntime(world, blocks);
+        runtime.Spawn(
+            BlockStateSnapshot.FromCell(new VoxelCell(stone)),
+            new Vector3(3.5f, 3.5f, 3.5f));
+
+        for (var frame = 0; frame < 240; frame++)
+        {
+            runtime.Advance(1.0 / 60.0, 18.0);
+            if (Assert.Single(runtime.ActiveBlocks).IsSettled)
+                break;
+        }
+        Assert.True(Assert.Single(runtime.ActiveBlocks).IsSettled);
+
+        var addedBlock = new WorldVoxelCoord(3, 1, 3);
+        Assert.True(world.SetBlockAt(addedBlock, stone, out _));
+        runtime.NotifyVoxelEdit(addedBlock);
+        var result = runtime.Advance(1.0 / 60.0, 18.0);
+        var escaped = Assert.Single(runtime.ActiveBlocks);
+
+        Assert.Equal(1, result.Moved);
+        Assert.InRange(escaped.Position.Y, 2.18f, 2.19f);
+        Assert.True(VoxelWorldCollision.QueryDetailed(
+            world, blocks, DroppedBlockRuntime.BoundsAt(escaped.Position)).IsClear);
+    }
+
+    [Fact]
+    public void EmbeddedDropWaitsUntilAboveChunkIsLoaded()
+    {
+        var blocks = new BlockRegistry([
+            new BlockDefinition("asteria:stone"),
+        ]);
+        var world = LoadedWorld();
+        var stone = blocks.GetId("asteria:stone");
+        Assert.True(world.SetBlockAt(
+            new WorldVoxelCoord(5, 15, 5), stone, out _));
+
+        var runtime = new DroppedBlockRuntime(world, blocks);
+        runtime.Spawn(
+            BlockStateSnapshot.FromCell(new VoxelCell(stone)),
+            new Vector3(5.5f, 15.5f, 5.5f));
+
+        runtime.Advance(1.0 / 60.0, 18.0);
+        var pending = Assert.Single(runtime.ActiveBlocks);
+        Assert.Equal(15.5f, pending.Position.Y);
+        Assert.False(pending.IsSettled);
+
+        world.InsertChunk(new ChunkCoord(0, 1, 0), new Chunk());
+        runtime.Advance(1.0 / 60.0, 18.0);
+        var escaped = Assert.Single(runtime.ActiveBlocks);
+
+        Assert.InRange(escaped.Position.Y, 16.18f, 16.19f);
+        Assert.True(VoxelWorldCollision.QueryDetailed(
+            world, blocks, DroppedBlockRuntime.BoundsAt(escaped.Position)).IsClear);
+    }
+
+    [Fact]
+    public void NonCollidableBlocksDoNotEjectDrops()
+    {
+        var blocks = new BlockRegistry([
+            new BlockDefinition("asteria:plant", isCollidable: false),
+        ]);
+        var world = LoadedWorld();
+        Assert.True(world.SetBlockAt(
+            new WorldVoxelCoord(4, 4, 4),
+            blocks.GetId("asteria:plant"), out _));
+
+        var runtime = new DroppedBlockRuntime(world, blocks);
+        var start = new Vector3(4.5f, 4.5f, 4.5f);
+        runtime.Spawn(
+            new InventoryStack(InventoryEntry.FromItem("asteria:pebble")),
+            start);
+
+        var result = runtime.Advance(1.0 / 60.0, gravityStrength: 0);
+
+        Assert.Equal(0, result.Moved);
+        Assert.Equal(start, Assert.Single(runtime.ActiveBlocks).Position);
+    }
+
     private static VoxelWorld LoadedWorld()
     {
         var world = new VoxelWorld();

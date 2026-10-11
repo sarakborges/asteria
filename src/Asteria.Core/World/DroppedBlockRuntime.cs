@@ -360,36 +360,64 @@ public sealed class DroppedBlockRuntime
                 continue;
             }
 
-            if (state.IsSettled ||
-                gravityStrength == 0)
+            // A block placed around an item can embed even a settled drop.
+            // Resolve penetration before gravity or the settled fast path.
+            if (!_world.IsLoadedAt(FloorToVoxel(state.Position)))
             {
-                _active[id] =
-                    state with
-                    {
-                        AgeSeconds = age,
-                    };
-                continue;
-            }
-
-            var voxel =
-                FloorToVoxel(state.Position);
-
-            if (!_world.IsLoadedAt(voxel))
-            {
-                _active[id] =
-                    state with
-                    {
-                        AgeSeconds = age,
-                    };
+                _active[id] = state with { AgeSeconds = age };
                 continue;
             }
 
             var position = state.Position;
             var velocity = state.Velocity;
-            velocity.Y -=
-                (float)(gravityStrength * delta);
+            var collision = VoxelWorldCollision.QueryDetailed(
+                _world, _blocks, BoundsAt(position));
+
+            if (collision.State == VoxelWorldCollisionState.Unloaded)
+            {
+                _active[id] = state with { AgeSeconds = age };
+                continue;
+            }
 
             var changed = false;
+            if (collision.State == VoxelWorldCollisionState.Blocked)
+            {
+                RemoveSupportIndex(id);
+
+                if (collision.Voxel is not { } obstructingVoxel ||
+                    !TryLiftOutOfBlocks(ref position, obstructingVoxel))
+                {
+                    // An unloaded ceiling must not become a teleport target.
+                    // Retry next tick, without settling inside solid geometry.
+                    _active[id] = state with
+                    {
+                        AgeSeconds = age,
+                        IsSettled = false,
+                    };
+                    continue;
+                }
+
+                velocity.Y = MathF.Max(velocity.Y, 0f);
+                changed = true;
+            }
+
+            if ((state.IsSettled && !changed) ||
+                gravityStrength == 0)
+            {
+                _active[id] = state with
+                {
+                    Position = position,
+                    Velocity = velocity,
+                    AgeSeconds = age,
+                    IsSettled = state.IsSettled && !changed,
+                };
+                if (changed)
+                    moved++;
+                continue;
+            }
+
+            velocity.Y -=
+                (float)(gravityStrength * delta);
 
             changed |=
                 MoveAxis(
@@ -858,6 +886,41 @@ public sealed class DroppedBlockRuntime
                 HalfExtent,
                 HalfExtent,
                 HalfExtent));
+
+    /// <summary>
+    /// Find the first free space above an embedded drop. A vertical search
+    /// skips solid voxels but never traverses unloaded chunks.
+    /// </summary>
+    private bool TryLiftOutOfBlocks(
+        ref Vector3 position,
+        WorldVoxelCoord obstructingVoxel)
+    {
+        var candidate = position;
+
+        while (true)
+        {
+            var nextY =
+                obstructingVoxel.Y + 1f + HalfExtent + ContactEpsilon;
+            if (!float.IsFinite(nextY) || nextY <= candidate.Y)
+                return false;
+
+            candidate.Y = nextY;
+            var collision = VoxelWorldCollision.QueryDetailed(
+                _world, _blocks, BoundsAt(candidate));
+
+            if (collision.IsClear)
+            {
+                position = candidate;
+                return true;
+            }
+
+            if (collision.State != VoxelWorldCollisionState.Blocked ||
+                collision.Voxel is not { } nextVoxel)
+                return false;
+
+            obstructingVoxel = nextVoxel;
+        }
+    }
 
     private bool MoveAxis(
         ref Vector3 position,
