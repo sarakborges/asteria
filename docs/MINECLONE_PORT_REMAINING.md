@@ -200,3 +200,12 @@ These are **code-level findings**, not a declaration that gameplay polish or in-
 
 - `ToolDefinition.iconVariants` now supports bounded, validated metadata selectors. The selected bucket uses `contained_fluid=asteria:water` or `asteria:lava` to choose the two original MineClone bucket icons, while empty buckets retain their original image. The same authored variants participate in creative catalog icons and third-person held sprites.
 - Original bucket PNGs are in the default pack. No hard-coded bucket IDs or metadata behavior are added to the renderer; the existing `BucketGameplayRuntime` remains the mutation owner.
+
+
+## First-person arm/viewmodel progress — 2026-10-11
+
+- `PlayerFirstPersonViewModel` now mounts under the existing authoritative `FpsPlayer.Camera`, separately from third-person world presentation. It reuses the selected-pack player GLB, real `RightArmPivot`, shared skin UV remapping and generated sleeve overlay; other imported player meshes are hidden in the first-person scene.
+- Selected blocks, items, tools, layers and metadata-dependent sprites reuse the same `HeldVisualResolver` and `HeldItemPresentation` as the third-person arm. Inventory revision changes rebuild only when the resolved appearance changes; there is no independent hotbar state or browser gameplay input.
+- The viewmodel animates Hit, Break and Place using the MineClone reference's 17/22/19 world-tick windows and the 12-tick item switch wave. Actions are forwarded through the existing `PlayerModelPresentation.TryPlayAction` path; first-person visibility follows perspective, death, Spectator and mouse capture. Camera/session retirement owns cleanup.
+- **Remaining:** inspect actual Godot perspective, orientation/skin and hand grip, near-camera/world collision occlusion, and exact layering of authored block textures/biome tint and Brush dye overlay. These are not established by a compilation or Core test. Keep first-person parity **Partial / native QA pending** until the visual pass and held-content variants are complete.
+
