@@ -759,7 +759,8 @@ public partial class Main : Node3D
             _ambientParticleRuntime?.Particles.Count ?? 0,
             _blockEntities.DroppedCount,
             _blockEntities.FallingCount,
-            _blockEntities.PendingPhysicsUpdates);
+            _blockEntities.PendingPhysicsUpdates,
+            _blockEntities.WaitingPhysicsUpdates);
 
         gameplaySliceStart = Stopwatch.GetTimestamp();
         SendWorldHudState();
