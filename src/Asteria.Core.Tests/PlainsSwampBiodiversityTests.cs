@@ -126,6 +126,29 @@ public sealed class PlainsSwampBiodiversityTests
     }
 
     [Fact]
+    public void HangingMossOnStumpsIsActuallySupportedByWillowWood()
+    {
+        var structures = StructureRegistry.FromJson(ReadPackJson("structures"));
+        var moss = structures.ResolveReference("asteria:swamp_moss_stump");
+        Assert.Equal(3, moss.Count);
+        foreach (var stump in moss)
+        {
+            var hangers = stump.Voxels.Where(v =>
+                v.Block == "asteria:hanging_moss").ToArray();
+            Assert.NotEmpty(hangers);
+            foreach (var hanger in hangers)
+            {
+                Assert.Contains(stump.Voxels, support =>
+                    support.X == hanger.X &&
+                    support.Z == hanger.Z &&
+                    support.Y == hanger.Y + 1 &&
+                    (support.Block == "asteria:log_willow" ||
+                     support.Block == "asteria:swamp_mossy_willow_log"));
+            }
+        }
+    }
+
+    [Fact]
     public void AllNewArtAssetsHaveUniquePackPaths()
     {
         var blocks = BlockRegistry.FromJson(ReadPackJson("blocks"));

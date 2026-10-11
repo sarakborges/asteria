@@ -1019,8 +1019,8 @@ a new shelf fungus sprite perched on wood. None attaches sprites to
 unsupported cliff faces, rewrites hydrology or changes Willow spawn
 rate. Stump habitats strongly favor `fungal_ground` and `willow_grove`.
 
-Ten authored decoration rules before became 10 in Plains and 11 in
-Swamp respectively (four and two new rules). Two new structure groups
+The original six Plains and nine Swamp decoration rules became
+10 and 11 respectively (four and two new rules). Two new structure groups
 provide six variants, supported by eight new 64×64 pack textures and
 eight block definitions. All authored blocks use the existing
 StructureRegistry and surface decorator/fluids owners. The
