@@ -1,12 +1,12 @@
 import { inventorySearchMatches } from "../../../presentation/inventoryLabels";
 import { useLocalization } from "../../../localization/LocalizationProvider";
 import type { ItemStackView } from "../../../presentation/inventoryModels";
-import { InventorySlot } from "../InventorySlot/InventorySlot";
+import { InventorySlot, type InventorySlotAction } from "../InventorySlot/InventorySlot";
 import "./InventoryHotbarFooter.css";
 
 export type InventoryHotbarFooterProps = {
   hotbar: readonly (ItemStackView | null)[];
-  onSlotClick?(index: number, item: ItemStackView | null): void;
+  onSlotClick?(index: number, item: ItemStackView | null, action: InventorySlotAction): void;
   onTrash?(): void;
   showTrash?: boolean;
   searchQuery?: string;
@@ -30,7 +30,7 @@ export function InventoryHotbarFooter({
           return (
             <InventorySlot key={index} item={item}
               disabled={!onSlotClick || filteredOut}
-              onClick={() => onSlotClick?.(HOTBAR_OFFSET + index, item)} />
+              onClick={action => onSlotClick?.(HOTBAR_OFFSET + index, item, action)} />
           );
         })}
       </div>
