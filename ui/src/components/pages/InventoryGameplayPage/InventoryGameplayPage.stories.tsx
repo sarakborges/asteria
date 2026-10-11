@@ -65,6 +65,7 @@ const meta = {
           { id: "asteria:plant_fiber", required: 2, available: 2 },
         ],
         craftable: true,
+        unavailableReason: null,
       }],
       craftingStatus: null,
       errorKey: null,
