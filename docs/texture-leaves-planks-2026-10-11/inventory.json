@@ -1,0 +1,591 @@
+{
+  "summary": {
+    "baseline_commit": "eb77a0e0d23e0dc5b95becc9cec74d293de05e51",
+    "tool": "built-in image_gen.imagegen",
+    "families": 11,
+    "textures_created_or_redrawn": 27,
+    "existing_replaced": 20,
+    "new_planks": 7,
+    "leaves_redrawn": 10,
+    "planks": 11,
+    "enchanted_world_trunk_faces": 6,
+    "total_pack_textures": 286,
+    "preserved_textures": 259,
+    "leafless_transparent_slots_preserved": 2,
+    "size": [
+      64,
+      64
+    ],
+    "seam_review": "all 27 inspected in horizontal and vertical 3x3 repeats",
+    "method": "Nearest-neighbor resize; binary leaf alpha; neutral grayscale for oak/willow leaf biome tint; no procedural art drawing."
+  },
+  "textures": [
+    {
+      "path": "blocks/trees/oak/leaf.png",
+      "species": "oak",
+      "role": "leaf",
+      "action": "redrawn",
+      "before_sha256": "cbada0b4150b9685a1e1ed4dc650e2b749a27479c692f4712eb3c5fae41937ec",
+      "after_sha256": "add37526cf5d6120ff6a7ed8ad9efbb9139859e4d362e5af7544c30c728ec4d0",
+      "size": [
+        64,
+        64
+      ],
+      "transparent": true,
+      "grayscale_tint_map": true,
+      "seam": {
+        "ratio_x": 0.933,
+        "ratio_y": 0.8,
+        "review_required": false
+      },
+      "opaque_fraction": 0.7351,
+      "visible_colors": 161
+    },
+    {
+      "path": "blocks/trees/oak/planks.png",
+      "species": "oak",
+      "role": "planks",
+      "action": "redrawn",
+      "before_sha256": "966ab625d833612da69f72123760f60313bd707dc4d05859028c342bf5409df6",
+      "after_sha256": "c1605a23fe2e0945c367185854d947eea876051a8c80c16fd2b4f7b3ce8c7a30",
+      "size": [
+        64,
+        64
+      ],
+      "transparent": false,
+      "grayscale_tint_map": false,
+      "seam": {
+        "ratio_x": 0.708,
+        "ratio_y": 1.011,
+        "review_required": false
+      },
+      "opaque_fraction": 1.0,
+      "visible_colors": 1655
+    },
+    {
+      "path": "blocks/trees/willow/leaf.png",
+      "species": "willow",
+      "role": "leaf",
+      "action": "redrawn",
+      "before_sha256": "887f2681c490dcb398b6cc6e85ecfd8eb716e5ac0e6e62ac3f0914a326990c4a",
+      "after_sha256": "ed008a1e3f77c3a4fa250372c2d853f1b879b2dac44539e240b70c244ee7e89b",
+      "size": [
+        64,
+        64
+      ],
+      "transparent": true,
+      "grayscale_tint_map": true,
+      "seam": {
+        "ratio_x": 0.807,
+        "ratio_y": 0.538,
+        "review_required": false
+      },
+      "opaque_fraction": 0.6553,
+      "visible_colors": 171
+    },
+    {
+      "path": "blocks/trees/willow/planks.png",
+      "species": "willow",
+      "role": "planks",
+      "action": "redrawn",
+      "before_sha256": "12891a36a03077a5722d2bf2f39cc0c86502935a20f071557ac38920e2b89a02",
+      "after_sha256": "67c4a25beb4bca27a9dace8b1fea65553fc4b9a85a48dc968052be9f42211ed5",
+      "size": [
+        64,
+        64
+      ],
+      "transparent": false,
+      "grayscale_tint_map": false,
+      "seam": {
+        "ratio_x": 0.647,
+        "ratio_y": 0.503,
+        "review_required": false
+      },
+      "opaque_fraction": 1.0,
+      "visible_colors": 1046
+    },
+    {
+      "path": "blocks/trees/enchanted_tree/leaf.png",
+      "species": "enchanted_tree",
+      "role": "leaf",
+      "action": "redrawn",
+      "before_sha256": "53161dccf041a0829248786bbbba3736e3a3a9df8a20901428ffcead00d86d11",
+      "after_sha256": "391732f2c5a831f0e38799da32d71076b67b87f21572e18a747eade3dc87be80",
+      "size": [
+        64,
+        64
+      ],
+      "transparent": true,
+      "grayscale_tint_map": false,
+      "seam": {
+        "ratio_x": 0.837,
+        "ratio_y": 1.125,
+        "review_required": false
+      },
+      "opaque_fraction": 0.6875,
+      "visible_colors": 2289
+    },
+    {
+      "path": "blocks/trees/enchanted_tree/planks.png",
+      "species": "enchanted_tree",
+      "role": "planks",
+      "action": "redrawn",
+      "before_sha256": "855bbb44e3eee5495fcf5ea77cf96cc64c3def1e0a1153f93e2b529f18597fa8",
+      "after_sha256": "152ad1ab09a01f5be80e22725c6bf91edbed91a30afcf9d34ab57ae34d5206c6",
+      "size": [
+        64,
+        64
+      ],
+      "transparent": false,
+      "grayscale_tint_map": false,
+      "seam": {
+        "ratio_x": 1.079,
+        "ratio_y": 0.964,
+        "review_required": false
+      },
+      "opaque_fraction": 1.0,
+      "visible_colors": 2289
+    },
+    {
+      "path": "blocks/trees/world_tree/leaf.png",
+      "species": "world_tree",
+      "role": "leaf",
+      "action": "redrawn",
+      "before_sha256": "584f521f6b97684a25a6af58c28dffec0a009cca304d5eb9c249da94a10530e1",
+      "after_sha256": "288f58c2d4ddd96032c90c5c7d02e6cbde8e864fe62cc06f89e99ed3dde3ca6a",
+      "size": [
+        64,
+        64
+      ],
+      "transparent": true,
+      "grayscale_tint_map": false,
+      "seam": {
+        "ratio_x": 0.647,
+        "ratio_y": 1.201,
+        "review_required": false
+      },
+      "opaque_fraction": 0.8401,
+      "visible_colors": 2360
+    },
+    {
+      "path": "blocks/trees/world_tree/planks.png",
+      "species": "world_tree",
+      "role": "planks",
+      "action": "redrawn",
+      "before_sha256": "dd18cb62c7b1673bf592a16ca5a838ae0cdee6977b08b475836f5b633726a008",
+      "after_sha256": "5b6cadbbf957777a16948766dae5a53d5bbed6ff35cbedf5afebed7f721771aa",
+      "size": [
+        64,
+        64
+      ],
+      "transparent": false,
+      "grayscale_tint_map": false,
+      "seam": {
+        "ratio_x": 0.796,
+        "ratio_y": 0.89,
+        "review_required": false
+      },
+      "opaque_fraction": 1.0,
+      "visible_colors": 2386
+    },
+    {
+      "path": "blocks/trees/charwood/planks.png",
+      "species": "charwood",
+      "role": "planks",
+      "action": "created",
+      "before_sha256": null,
+      "after_sha256": "f084c2d7d0426ac61833d58625c9b752727d912a69bbce58b886aee7f26021d3",
+      "size": [
+        64,
+        64
+      ],
+      "transparent": false,
+      "grayscale_tint_map": false,
+      "seam": {
+        "ratio_x": 0.829,
+        "ratio_y": 0.905,
+        "review_required": false
+      },
+      "opaque_fraction": 1.0,
+      "visible_colors": 2078
+    },
+    {
+      "path": "blocks/trees/frost_wood/planks.png",
+      "species": "frost_wood",
+      "role": "planks",
+      "action": "created",
+      "before_sha256": null,
+      "after_sha256": "7175508db85a48e5a0520ddb37664619f7ba4162846141465bb5eaafe5e1b0e0",
+      "size": [
+        64,
+        64
+      ],
+      "transparent": false,
+      "grayscale_tint_map": false,
+      "seam": {
+        "ratio_x": 0.816,
+        "ratio_y": 0.95,
+        "review_required": false
+      },
+      "opaque_fraction": 1.0,
+      "visible_colors": 1463
+    },
+    {
+      "path": "blocks/trees/juniper/planks.png",
+      "species": "juniper",
+      "role": "planks",
+      "action": "created",
+      "before_sha256": null,
+      "after_sha256": "3bff9127b54bb929a17df24d5fa77a1e07b35b0bb3e618e35f60e5541681e485",
+      "size": [
+        64,
+        64
+      ],
+      "transparent": false,
+      "grayscale_tint_map": false,
+      "seam": {
+        "ratio_x": 0.648,
+        "ratio_y": 0.605,
+        "review_required": false
+      },
+      "opaque_fraction": 1.0,
+      "visible_colors": 1181
+    },
+    {
+      "path": "blocks/trees/rime_deadwood/planks.png",
+      "species": "rime_deadwood",
+      "role": "planks",
+      "action": "created",
+      "before_sha256": null,
+      "after_sha256": "f2f6bc1fba1b839049a73ae173c837e46ef7ddd06f54f98f9b39cdd90450cdd6",
+      "size": [
+        64,
+        64
+      ],
+      "transparent": false,
+      "grayscale_tint_map": false,
+      "seam": {
+        "ratio_x": 0.606,
+        "ratio_y": 0.712,
+        "review_required": false
+      },
+      "opaque_fraction": 1.0,
+      "visible_colors": 1141
+    },
+    {
+      "path": "blocks/trees/skywood/planks.png",
+      "species": "skywood",
+      "role": "planks",
+      "action": "created",
+      "before_sha256": null,
+      "after_sha256": "72af96b7b037a4b6b75f8238779976cb843c19efecfd3120ee8c14bee6a067d4",
+      "size": [
+        64,
+        64
+      ],
+      "transparent": false,
+      "grayscale_tint_map": false,
+      "seam": {
+        "ratio_x": 0.724,
+        "ratio_y": 1.558,
+        "review_required": false
+      },
+      "opaque_fraction": 1.0,
+      "visible_colors": 1838
+    },
+    {
+      "path": "blocks/trees/windwood/planks.png",
+      "species": "windwood",
+      "role": "planks",
+      "action": "created",
+      "before_sha256": null,
+      "after_sha256": "e0c490df72cea33d162fe1a89942e63a809d244aa84fa42896733824584d9e59",
+      "size": [
+        64,
+        64
+      ],
+      "transparent": false,
+      "grayscale_tint_map": false,
+      "seam": {
+        "ratio_x": 0.327,
+        "ratio_y": 1.042,
+        "review_required": false
+      },
+      "opaque_fraction": 1.0,
+      "visible_colors": 886
+    },
+    {
+      "path": "blocks/trees/thornwood/planks.png",
+      "species": "thornwood",
+      "role": "planks",
+      "action": "created",
+      "before_sha256": null,
+      "after_sha256": "a50ab22afcd2eb5ef33fa60c1e19372d87ad746f5bf64f4541b654cdfea79ddb",
+      "size": [
+        64,
+        64
+      ],
+      "transparent": false,
+      "grayscale_tint_map": false,
+      "seam": {
+        "ratio_x": 0.607,
+        "ratio_y": 1.076,
+        "review_required": false
+      },
+      "opaque_fraction": 1.0,
+      "visible_colors": 1365
+    },
+    {
+      "path": "blocks/trees/charwood/leaf.png",
+      "species": "charwood",
+      "role": "leaf",
+      "action": "redrawn",
+      "before_sha256": "5e22ae5939fa630afa2b1a8d0fa3a0a72f2bc67c486370f79d8b3d1dcda93701",
+      "after_sha256": "43d51c1bd65fb0989bf859bd26813022e6a0a045a97f1b2a5397b2f8b27cadf4",
+      "size": [
+        64,
+        64
+      ],
+      "transparent": true,
+      "grayscale_tint_map": false,
+      "seam": {
+        "ratio_x": 0.752,
+        "ratio_y": 0.846,
+        "review_required": false
+      },
+      "opaque_fraction": 0.6895,
+      "visible_colors": 2642
+    },
+    {
+      "path": "blocks/trees/frost_wood/leaf.png",
+      "species": "frost_wood",
+      "role": "leaf",
+      "action": "redrawn",
+      "before_sha256": "09cf3dc3ea6fd7a610f84cbcbc02e8687aa28244268f31cbaf658ef876488ac1",
+      "after_sha256": "710451ef27744d57c78d94931e785039d06293fabb925c268734f85ad7e26f86",
+      "size": [
+        64,
+        64
+      ],
+      "transparent": true,
+      "grayscale_tint_map": false,
+      "seam": {
+        "ratio_x": 0.772,
+        "ratio_y": 1.09,
+        "review_required": false
+      },
+      "opaque_fraction": 0.8013,
+      "visible_colors": 2729
+    },
+    {
+      "path": "blocks/trees/frost_wood/leaf_arctic.png",
+      "species": "frost_wood",
+      "role": "leaf_arctic",
+      "action": "redrawn",
+      "before_sha256": "8abcc609883fb720852f9686a52299f88f2e036f38fae81ab2114b238518e22d",
+      "after_sha256": "f41d8ec0730b10c6d8b0b8a83cc1465c37d258826565df9a942c11f05f26b509",
+      "size": [
+        64,
+        64
+      ],
+      "transparent": true,
+      "grayscale_tint_map": false,
+      "seam": {
+        "ratio_x": 0.777,
+        "ratio_y": 0.925,
+        "review_required": false
+      },
+      "opaque_fraction": 0.9353,
+      "visible_colors": 3504
+    },
+    {
+      "path": "blocks/trees/juniper/leaf.png",
+      "species": "juniper",
+      "role": "leaf",
+      "action": "redrawn",
+      "before_sha256": "5d983bde2e2e5a30245c9fd818748af548d665365156ffc213b3909114b07221",
+      "after_sha256": "2e5c19caa1e7d573aabda337d8eae30519bde960f5ad06b52a5ff595a17ab35d",
+      "size": [
+        64,
+        64
+      ],
+      "transparent": true,
+      "grayscale_tint_map": false,
+      "seam": {
+        "ratio_x": 0.93,
+        "ratio_y": 0.784,
+        "review_required": false
+      },
+      "opaque_fraction": 0.731,
+      "visible_colors": 2609
+    },
+    {
+      "path": "blocks/trees/skywood/leaf.png",
+      "species": "skywood",
+      "role": "leaf",
+      "action": "redrawn",
+      "before_sha256": "db7000a16ad5e85ec3746509752bd79e42688c2b157a2c51b13d8c9c44bc19cf",
+      "after_sha256": "423a13e5de45ea375401bf97db4a121117f9b0fda6cbd6d1b7fbac2b9ef90a44",
+      "size": [
+        64,
+        64
+      ],
+      "transparent": true,
+      "grayscale_tint_map": false,
+      "seam": {
+        "ratio_x": 1.21,
+        "ratio_y": 1.003,
+        "review_required": false
+      },
+      "opaque_fraction": 0.6392,
+      "visible_colors": 2274
+    },
+    {
+      "path": "blocks/trees/windwood/leaf.png",
+      "species": "windwood",
+      "role": "leaf",
+      "action": "redrawn",
+      "before_sha256": "8e2f827af7b7223891fc3b4104018e9c29c361e1a7c09849d1c37d8cddb975e0",
+      "after_sha256": "e90f94922e165a501c56e25934d399f483d55a21f36beb7ed613cbe8a8dd3ed7",
+      "size": [
+        64,
+        64
+      ],
+      "transparent": true,
+      "grayscale_tint_map": false,
+      "seam": {
+        "ratio_x": 0.743,
+        "ratio_y": 1.072,
+        "review_required": false
+      },
+      "opaque_fraction": 0.7134,
+      "visible_colors": 2492
+    },
+    {
+      "path": "blocks/trees/enchanted_tree/top.png",
+      "species": "enchanted_tree",
+      "role": "top",
+      "action": "redrawn",
+      "before_sha256": "363e6cc3e1c4c144a6636f5c696e458af6f914983944f9615a8d1025bafd63ad",
+      "after_sha256": "d2390e30b8f9a629a6101365f6a67fcad65340b7eae60297039a2d123dcb8df8",
+      "size": [
+        64,
+        64
+      ],
+      "transparent": false,
+      "grayscale_tint_map": false,
+      "seam": {
+        "ratio_x": 1.34,
+        "ratio_y": 0.908,
+        "review_required": false
+      },
+      "opaque_fraction": 1.0,
+      "visible_colors": 2534
+    },
+    {
+      "path": "blocks/trees/enchanted_tree/side.png",
+      "species": "enchanted_tree",
+      "role": "side",
+      "action": "redrawn",
+      "before_sha256": "f48b4f8d60f4523a430f6e474f223c9f8f4bfd9df6bd5456dde0a562bfe87285",
+      "after_sha256": "665b8a2e9f26e61a1f75e14156c28040ec2a571d3065d29f85fcff73d2dc9150",
+      "size": [
+        64,
+        64
+      ],
+      "transparent": false,
+      "grayscale_tint_map": false,
+      "seam": {
+        "ratio_x": 0.822,
+        "ratio_y": 0.934,
+        "review_required": false
+      },
+      "opaque_fraction": 1.0,
+      "visible_colors": 3162
+    },
+    {
+      "path": "blocks/trees/enchanted_tree/stripped.png",
+      "species": "enchanted_tree",
+      "role": "stripped",
+      "action": "redrawn",
+      "before_sha256": "9127d930999a68f966a17cf8e6cf6a2c9bcf392d0e48f3cbd6ac4768c4309619",
+      "after_sha256": "7fa665834a2b9f09bf355169f3aab687c297eb2da2d46317d4b6bae68c2b7aca",
+      "size": [
+        64,
+        64
+      ],
+      "transparent": false,
+      "grayscale_tint_map": false,
+      "seam": {
+        "ratio_x": 0.602,
+        "ratio_y": 0.715,
+        "review_required": false
+      },
+      "opaque_fraction": 1.0,
+      "visible_colors": 2282
+    },
+    {
+      "path": "blocks/trees/world_tree/top.png",
+      "species": "world_tree",
+      "role": "top",
+      "action": "redrawn",
+      "before_sha256": "fc37e64449e78a9bede4831244134e81bdf16cb8cf82da9aa740f20a6088f6c2",
+      "after_sha256": "9751910175bc68afe807884e0c04b849a2aa8358b337879a02162d2255fb9074",
+      "size": [
+        64,
+        64
+      ],
+      "transparent": false,
+      "grayscale_tint_map": false,
+      "seam": {
+        "ratio_x": 1.155,
+        "ratio_y": 1.111,
+        "review_required": false
+      },
+      "opaque_fraction": 1.0,
+      "visible_colors": 2772
+    },
+    {
+      "path": "blocks/trees/world_tree/side.png",
+      "species": "world_tree",
+      "role": "side",
+      "action": "redrawn",
+      "before_sha256": "c415989ae1c840926c915cac7587398d1280789e84e65a4df32b6b0a837e2c73",
+      "after_sha256": "ea72fb31e8b9f91b732885ad7478f66d6374457468241ac814709042505d3da0",
+      "size": [
+        64,
+        64
+      ],
+      "transparent": false,
+      "grayscale_tint_map": false,
+      "seam": {
+        "ratio_x": 0.698,
+        "ratio_y": 0.739,
+        "review_required": false
+      },
+      "opaque_fraction": 1.0,
+      "visible_colors": 3089
+    },
+    {
+      "path": "blocks/trees/world_tree/stripped.png",
+      "species": "world_tree",
+      "role": "stripped",
+      "action": "redrawn",
+      "before_sha256": "1a1a99d9d6aacd9ce84957cac67cf6d14b9fb5c3e2ed97e62cde021335c9dea1",
+      "after_sha256": "81fa656c21d468dfe52e11f40652e593d3ed838c15491ab9e26552001fee8b21",
+      "size": [
+        64,
+        64
+      ],
+      "transparent": false,
+      "grayscale_tint_map": false,
+      "seam": {
+        "ratio_x": 0.849,
+        "ratio_y": 0.398,
+        "review_required": false
+      },
+      "opaque_fraction": 1.0,
+      "visible_colors": 2180
+    }
+  ]
+}
