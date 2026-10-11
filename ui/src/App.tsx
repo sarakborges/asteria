@@ -71,7 +71,7 @@ export type AppActions = {
   clickEquipmentSlot(index: number): void;
   sortInventory(): void;
   discardInventoryCursor(): void;
-  pickCreativeBlock(choice: InventoryCatalogEntry): void;
+  pickCreativeBlock(choice: InventoryCatalogEntry, fillStack: boolean): void;
   craftInventoryRecipe(recipeId: string): void;
   rotateCharacterPortrait(deltaX: number): void;
 };
