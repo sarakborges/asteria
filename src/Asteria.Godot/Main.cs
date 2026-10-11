@@ -2908,8 +2908,11 @@ public partial class Main : Node3D
 
         try
         {
-            var directoryUri = new Uri(
-                Path.GetFullPath(directory) + Path.DirectorySeparatorChar).AbsoluteUri;
+            var directoryUri = new UriBuilder
+            {
+                Scheme = Uri.UriSchemeFile,
+                Path = Path.GetFullPath(directory) + Path.DirectorySeparatorChar,
+            }.Uri.AbsoluteUri;
             if (OS.ShellOpen(directoryUri) != Error.Ok)
                 ChatFeedback("chat.command.failed", error: true);
         }
