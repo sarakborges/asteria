@@ -114,6 +114,44 @@
       "conditions": {
         "maxY": 107
       }
+    },
+    {
+      "block": "asteria:cave_wall_moss",
+      "supportSurface": "wall",
+      "chance": 0.095,
+      "surfaceBlocks": [
+        "asteria:stone",
+        "asteria:stone_cobble"
+      ],
+      "cluster": {
+        "scale": 33,
+        "threshold": -0.21,
+        "octaves": 4,
+        "transitionWidth": 0.15
+      },
+      "conditions": {
+        "minY": 18,
+        "maxY": 105
+      }
+    },
+    {
+      "block": "asteria:cave_wall_shelf_fungus",
+      "supportSurface": "wall",
+      "chance": 0.052,
+      "surfaceBlocks": [
+        "asteria:stone",
+        "asteria:stone_cobble"
+      ],
+      "cluster": {
+        "scale": 41,
+        "threshold": -0.15,
+        "octaves": 4,
+        "transitionWidth": 0.15
+      },
+      "conditions": {
+        "minY": 18,
+        "maxY": 97
+      }
     }
   ],
   "caveSpikes": [

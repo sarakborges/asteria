@@ -1,0 +1,32 @@
+{
+  "id": "asteria:cave_wall_shelf_fungus",
+  "category": "foliage",
+  "tags": [
+    "horizontal_facing",
+    "support_wall"
+  ],
+  "tint": "none",
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/cave_wall_shelf_fungus.png",
+    "width": 0.99,
+    "height": 0.61,
+    "planes": 2,
+    "baseOffset": 0.2
+  },
+  "placementFaces": [
+    "left",
+    "right",
+    "front",
+    "back"
+  ],
+  "mining": {
+    "hardness": 0.05
+  },
+  "isCollidable": false,
+  "castsShadow": false,
+  "lightDampening": 0,
+  "alphaCutoff": 0.5,
+  "previewColor": "a67eae",
+  "dropsSelf": false
+}

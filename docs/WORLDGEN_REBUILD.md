@@ -1027,3 +1027,37 @@ StructureRegistry and surface decorator/fluids owners. The
 `swamp` surfaceMosaic, wet/dry level, overall terrain, biome
 adjacency and existing three habitats remain unchanged.
 Validate density and support visually for representative seeds.
+
+## Wall-anchored biome decorators (2026-10-11)
+
+The shared data-driven decoration contract accepts
+`supportSurface: "wall"` alongside `floor` and `ceiling`.
+The authoritative `SurfaceChunkMaterializer` enumerates four
+horizontal support faces in a fixed order; a candidate must be
+empty terrain density and its adjacent face must be real solid
+density with a suitable material. This applies to carved Caverns
+and exposed Gorge cliff faces. The generator resolves supports
+across neighboring horizontal chunks using the same immutable
+surface-column and material owners, without loading or mutating
+other chunks. The generated cell records an outward
+`HorizontalFacing`, preserving direction metadata deterministically.
+The blocks use existing CrossedSprite rendering rather than
+inventing a new render pipeline.
+
+Four new 64×64 pack-owned wall objects are authored:
+`cave_wall_moss`, `cave_wall_shelf_fungus`,
+`gorge_cliff_rosette`, and `gorge_cliff_lichen`.
+They require Stone or Stone Cobble and explicitly forbid
+placement on floor/ceiling faces. Cavern decorations use
+the carved-void biome owner; Gorge face objects are allowed
+only when both adjacent columns belong to Gorge, not other
+mountain or valley biomes. Existing cave palette, cave spikes,
+Gorge terrain and habitat rules remain unchanged.
+
+The current crossed-sprite geometry renders the decoration as
+wall-emerging foliage and the logical face is stored in the
+voxel; a future dedicated flush wall-decal visual kind would
+improve purely flat wall graphics. The support check here
+guarantees generated placement, not yet gameplay detachment
+when a supporting wall is mined away; verify live mutation
+support semantics separately before claiming runtime detachment.

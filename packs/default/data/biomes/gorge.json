@@ -192,6 +192,54 @@
         "maxY": 180,
         "maxSlope": 5
       }
+    },
+    {
+      "block": "asteria:gorge_cliff_rosette",
+      "supportSurface": "wall",
+      "chance": 0.1,
+      "surfaceBlocks": [
+        "asteria:stone",
+        "asteria:stone_cobble"
+      ],
+      "cluster": {
+        "scale": 39,
+        "threshold": -0.17,
+        "octaves": 4,
+        "transitionWidth": 0.15
+      },
+      "conditions": {
+        "minY": 65,
+        "maxY": 167
+      },
+      "habitatWeights": {
+        "valley_floor": 0.2,
+        "rubble_slopes": 2.4,
+        "high_rims": 0.65
+      }
+    },
+    {
+      "block": "asteria:gorge_cliff_lichen",
+      "supportSurface": "wall",
+      "chance": 0.125,
+      "surfaceBlocks": [
+        "asteria:stone",
+        "asteria:stone_cobble"
+      ],
+      "cluster": {
+        "scale": 29,
+        "threshold": -0.19,
+        "octaves": 4,
+        "transitionWidth": 0.15
+      },
+      "conditions": {
+        "minY": 62,
+        "maxY": 178
+      },
+      "habitatWeights": {
+        "valley_floor": 0.24,
+        "rubble_slopes": 1.9,
+        "high_rims": 1.3
+      }
     }
   ],
   "surfaceHabitats": {
