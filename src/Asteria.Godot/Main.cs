@@ -658,8 +658,9 @@ public partial class Main : Node3D
         }
 
         stageStart = Stopwatch.GetTimestamp();
-        AdvanceSurvivalMining();
+        var miningFeedback = AdvanceSurvivalMining();
         _sessions.Active.MiningCracks.Sync(_world, _sessions.Active.Mining);
+        _sessions.Active.SyncMiningFeedback((float)delta, miningFeedback);
 
         if (_worldReadySent && _player is { } creatureObserver)
         {
@@ -4218,7 +4219,7 @@ public partial class Main : Node3D
 
     }
 
-    private void AdvanceSurvivalMining()
+    private MiningFeedbackEvent? AdvanceSurvivalMining()
     {
         if (!_worldReadySent || _player is not { IsBreakHeld: true } player ||
             !_sessionStates.Player.CanInteract ||
@@ -4226,7 +4227,7 @@ public partial class Main : Node3D
         {
             _sessions.Active.Mining.Cancel();
             PublishMiningProgress();
-            return;
+            return null;
         }
 
         var held = _sessionStates.Player.Inventory.SelectedStack;
@@ -4235,7 +4236,7 @@ public partial class Main : Node3D
         {
             _sessions.Active.Mining.Cancel();
             PublishMiningProgress();
-            return;
+            return null;
         }
 
         var (from, to) = player.GetInteractionRay(InteractionDistance);
@@ -4247,7 +4248,7 @@ public partial class Main : Node3D
         {
             _sessions.Active.Mining.Cancel();
             PublishMiningProgress();
-            return;
+            return null;
         }
 
         var inventory = _sessionStates.Player.Inventory;
@@ -4256,12 +4257,14 @@ public partial class Main : Node3D
         mining.Advance(
             CurrentTarget(), held, inventory.SelectedSlot,
             _worldTicks.TicksThisFrame, _sessionStates.Player.GameMode);
+        MiningFeedbackEvent? feedback = null;
         if (mining.FeedbackRevision != previousFeedback)
         {
             _playerModel?.TryPlayAction(PlayerVisualAction.Break, fastBreak: true);
+            feedback = mining.LastFeedback;
         }
         PublishMiningProgress();
-
+        return feedback;
     }
 
     private void PublishMiningProgress()
