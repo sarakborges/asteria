@@ -10,6 +10,7 @@ import {
 import { Button } from "../../atoms/Button/Button";
 import { Text } from "../../atoms/Text/Text";
 import { InventoryCursorOverlay } from "../../molecules/InventoryCursorOverlay/InventoryCursorOverlay";
+import type { InventorySlotAction } from "../../molecules/InventorySlot/InventorySlot";
 import { CharacterInfoPanel } from "../../organisms/CharacterInfoPanel/CharacterInfoPanel";
 import { CraftingPanel } from "../../organisms/CraftingPanel/CraftingPanel";
 import { CreativeInventoryPanel } from "../../organisms/CreativeInventoryPanel/CreativeInventoryPanel";
@@ -22,7 +23,7 @@ export type InventoryGameplayPageProps = {
   state: GameplayInventoryState;
   health?: VitalValue | null;
   onClose(): void;
-  onSlotClick(index: number): void;
+  onSlotClick(index: number, action: InventorySlotAction): void;
   onEquipmentClick(index: number): void;
   onSort(): void;
   onDiscardCursor(): void;
@@ -169,7 +170,7 @@ export function InventoryGameplayPage({
             onSearchChange={setSearch}
             onSort={onSort}
             onTrash={cursor ? onDiscardCursor : undefined}
-            onSlotClick={index => onSlotClick(index)}
+            onSlotClick={(index, _item, action) => onSlotClick(index, action)}
           />}
           station={<CurrentStationPanel station={state.recipes.length > 0 ? {
             eyebrow: t("crafting.baseStation"),
@@ -186,7 +187,7 @@ export function InventoryGameplayPage({
             }}
             hotbar={hotbar}
             scrollMemory={creativeScroll.current}
-            onHotbarSlotClick={index => onSlotClick(index)}
+            onHotbarSlotClick={(index, _item, action) => onSlotClick(index, action)}
             onTrash={cursor ? onDiscardCursor : undefined}
             onSearchChange={setCreativeSearch}
             onCategoryChange={setCategory}
