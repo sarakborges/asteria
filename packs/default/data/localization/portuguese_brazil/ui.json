@@ -319,6 +319,7 @@
   "ui.delete": "Excluir",
   "ui.newWorld": "Novo Mundo",
   "ui.chatMessage": "Mensagem do chat",
+  "chat.action.warp": "[Teleportar para]",
   "ui.chatHint": "Use ↑ e ↓ para escolher uma opção. Pressione Tab para completar.",
   "ui.runtimeStatus": "ESTADO DO JOGO",
   "ui.debugControls": "F3 depuração · WASD mover · Esquerdo quebrar · Direito colocar · Esc cursor",
