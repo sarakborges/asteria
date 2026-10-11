@@ -10,9 +10,13 @@ Reference: MineClone main, `data/crafting_recipes/rustic_hatchet.json` and `src/
 - The first authored recipe matches MineClone's Rustic Hatchet: 2 pebbles + 3 sticks + 2 plant fibers => one hatchet.
 - Regression tests cover definition validation, missing references, consumption, successful output, insufficient resources, capacity failure and no-op revisions.
 
-## Verification still required
+## Reference comparison and verification (2026-10-11)
 
-Stage 2 below **already implements** the Godot bridge, live recipe snapshots and React crafting actions. Do not repeat its former "Next stage" instructions. The remaining work is to test a real inventory click/craft operation and feedback inside Godot/WRY, compare recipe/station presentation with MineClone, and add authored recipes as needed.
+- Inspected MineClone `main` and `world-systems-rebuild`: both contain one authored inventory recipe (Rustic Hatchet) and the *Inventory / Personal crafting* station panel. Neither branch currently authors additional crafting station recipes or station runtime owners. **Do not invent dedicated workbenches, furnaces, or forges and call them a port.** World Recipes remain expressly outside this migration.
+- The Asteria survival inventory now keeps the personal *Current Station* panel visible even when there are no recipes. Its image uses the authored `crafting_materials` category icon from the selected-pack catalog whenever available rather than an artificial content ID preview.
+- `InventoryCraftingRuntime.Availability` returns read-only `UnknownRecipe`, `MissingIngredients`, `InventoryFull`, or `Crafted` outcomes using the same Core preflight as the real transaction. Godot publishes the evaluated unavailable reason in the immutable recipe view and React presents appropriate localized feedback. A craft blocked by output capacity no longer claims that ingredients are missing. Last-craft feedback is shown only for the currently selected recipe.
+- Core regression tests cover output-capacity preflight, no-op revisions, ingredient requirements, and successful crafting; Playwright stories cover no-recipe personal station and inventory-full feedback.
+- **Still requires native Godot/WRY QA:** perform Rustic Hatchet craft end-to-end, verify close/reopen, response/focus, icons, and rendering under selected packs with absent `crafting_materials` category imagery.
 
 ## Stage 2 — Godot ↔ WebUI integration
 
