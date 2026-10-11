@@ -746,6 +746,74 @@ public sealed class BlockPhysicsRuntimeTests
         Assert.Single(drops.ActiveBlocks);
     }
 
+    [Theory]
+    [InlineData(HorizontalFacing.North, 0, 1)]
+    [InlineData(HorizontalFacing.South, 0, -1)]
+    [InlineData(HorizontalFacing.East, -1, 0)]
+    [InlineData(HorizontalFacing.West, 1, 0)]
+    public void WallSupportUsesTheStoredOutwardNormal(
+        HorizontalFacing facing, int supportDx, int supportDz)
+    {
+        var world = new VoxelWorld();
+        var chunk = new Chunk();
+        world.InsertChunk(ChunkCoord.Zero, chunk);
+        var blocks = new BlockRegistry([
+            new BlockDefinition("asteria:stone"),
+            new BlockDefinition("asteria:wall_plant",
+                tags: [BlockPhysicsCapabilities.SupportWall],
+                isCollidable:false)
+        ]);
+        var plant = new WorldVoxelCoord(5, 8, 5);
+        var support = plant + (supportDx, 0, supportDz);
+        var plantCell = new VoxelCell(
+            blocks.GetId("asteria:wall_plant"), facing: facing);
+        chunk.SetCell(plant.X, plant.Y, plant.Z, plantCell);
+        chunk.SetBlock(support.X, support.Y, support.Z,
+            blocks.GetId("asteria:stone"));
+        var definition = blocks.GetDefinition(plantCell.Block);
+        Assert.Equal(BlockSupportState.Supported,
+            BlockSupportRules.Evaluate(world, blocks, definition, plantCell,
+                world.GetMicroblockMaskOrEmpty(plant), plant));
+        chunk.SetBlock(support.X, support.Y, support.Z, BlockRuntimeId.Air);
+        Assert.Equal(BlockSupportState.Unsupported,
+            BlockSupportRules.Evaluate(world, blocks, definition, plantCell,
+                world.GetMicroblockMaskOrEmpty(plant), plant));
+    }
+
+    [Fact]
+    public void WallSupportWorksAcrossHorizontalChunkBoundary()
+    {
+        var world = new VoxelWorld();
+        var supportChunk = new Chunk();
+        var plantChunk = new Chunk();
+        world.InsertChunk(ChunkCoord.Zero, supportChunk);
+        world.InsertChunk(new ChunkCoord(1, 0, 0), plantChunk);
+        var blocks = new BlockRegistry([
+            new BlockDefinition("asteria:stone"),
+            new BlockDefinition("asteria:wall_plant",
+                tags: [BlockPhysicsCapabilities.SupportWall],
+                isCollidable:false)
+        ]);
+        var plantPosition = new WorldVoxelCoord(Chunk.Size, 8, 4);
+        var plant = new VoxelCell(
+            blocks.GetId("asteria:wall_plant"),
+            facing: HorizontalFacing.East);
+        plantChunk.SetCell(0, 8, 4, plant);
+        supportChunk.SetBlock(Chunk.Size - 1, 8, 4,
+            blocks.GetId("asteria:stone"));
+
+        var definition = blocks.GetDefinition(plant.Block);
+        Assert.Equal(BlockSupportState.Supported,
+            BlockSupportRules.Evaluate(world, blocks, definition, plant,
+                world.GetMicroblockMaskOrEmpty(plantPosition),
+                plantPosition));
+        supportChunk.SetBlock(Chunk.Size - 1, 8, 4, BlockRuntimeId.Air);
+        Assert.Equal(BlockSupportState.Unsupported,
+            BlockSupportRules.Evaluate(world, blocks, definition, plant,
+                world.GetMicroblockMaskOrEmpty(plantPosition),
+                plantPosition));
+    }
+
     private static Fixture CreateFixture(
         int maximumActive = 2048)
     {
