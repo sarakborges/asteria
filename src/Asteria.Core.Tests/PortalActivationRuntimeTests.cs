@@ -72,6 +72,24 @@ public sealed class PortalActivationRuntimeTests
     }
 
     [Fact]
+    public void BreakingGlassBoundaryRemovesItsWholePortalInterior()
+    {
+        var (portal, world, mutations, blocks) = Fixture();
+        var frame = Frame(mutations, blocks);
+        Assert.True(portal.TryActivate(Slicer(),
+            new VoxelWorldHit(frame, 0, 0, 1), out _));
+        Assert.True(mutations.SetCellAt(
+            new WorldVoxelCoord(2, 4, 5), VoxelCell.Empty, out _));
+        for (var x = 3; x <= 4; x++)
+        for (var y = 4; y <= 5; y++)
+        {
+            var at = new WorldVoxelCoord(x, y, 5);
+            Assert.False(portal.TryGetDestinationAt(at, out _));
+            Assert.True(world.GetCellOrEmpty(at).IsEmpty);
+        }
+    }
+
+    [Fact]
     public void OpenFrameAndOccupiedInteriorRejectAtomically()
     {
         var (portal, world, mutations, blocks) = Fixture();

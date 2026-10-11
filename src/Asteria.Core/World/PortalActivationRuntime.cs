@@ -66,6 +66,70 @@ public sealed class PortalActivationRuntime
                 throw new InvalidOperationException(
                     $"Duplicate or ambiguous portal destination: {target}");
         }
+
+        // Frame destruction invalidates its bounded portal region using the
+        // existing mutation owner, so invisible portals never remain live.
+        _mutations.BlockCellChanged += OnBlockCellChanged;
+    }
+
+    private void OnBlockCellChanged(VoxelWorldEdit edit)
+    {
+        var previous = _blocks.GetDefinition(edit.Previous.Block);
+        if (!previous.HasTag(FrameTag))
+            return;
+
+        var next = _blocks.GetDefinition(edit.Current.Block);
+        foreach (var plane in Planes)
+        foreach (var neighbor in Neighbors(edit.Position, plane))
+        {
+            if (!_world.TryGetCell(neighbor, out var cell) || cell.IsEmpty ||
+                !_targetsByPortal.TryGetValue(cell.Block, out var destination) ||
+                !previous.HasTag(FrameTargetPrefix + destination) ||
+                (next.HasTag(FrameTag) &&
+                 next.HasTag(FrameTargetPrefix + destination)) ||
+                cell.Orientation != plane.Orientation)
+                continue;
+
+            // The removed boundary segment touched this portal plane.
+            // Revoke the complete contiguous interior, never leave an
+            // unframed, unbreakable or invisible travel trigger behind.
+            var region = CollectPortalRegion(
+                neighbor, cell.Block, plane);
+            foreach (var at in region)
+            {
+                if (!_mutations.SetCellAt(at, VoxelCell.Empty, out _))
+                    throw new InvalidOperationException(
+                        $"Resident portal cleanup failed at {at}.");
+            }
+        }
+    }
+
+    private IReadOnlyList<WorldVoxelCoord> CollectPortalRegion(
+        WorldVoxelCoord start, BlockRuntimeId portal, PortalPlane plane)
+    {
+        var visited = new HashSet<WorldVoxelCoord> { start };
+        var queue = new Queue<WorldVoxelCoord>();
+        queue.Enqueue(start);
+        while (queue.Count > 0)
+        {
+            var current = queue.Dequeue();
+            foreach (var neighbor in Neighbors(current, plane))
+            {
+                if (visited.Contains(neighbor) ||
+                    !_world.TryGetCell(neighbor, out var cell) ||
+                    cell.Block != portal ||
+                    cell.Orientation != plane.Orientation)
+                    continue;
+
+                if (visited.Count >= MaximumInteriorVoxels)
+                    throw new InvalidOperationException(
+                        "Resident portal exceeds bounded activation area.");
+                visited.Add(neighbor);
+                queue.Enqueue(neighbor);
+            }
+        }
+        return visited.OrderBy(v => v.X)
+            .ThenBy(v => v.Z).ThenBy(v => v.Y).ToArray();
     }
 
     public static bool IsSlicer(InventoryStack? selected) =>
