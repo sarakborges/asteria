@@ -241,8 +241,7 @@ public sealed class SurfaceTerrainField
         }
 
         if (_caves is null ||
-            worldY == _floorY ||
-            worldY == _roofY)
+            BordersSphereShell(worldY))
         {
             return false;
         }
@@ -269,8 +268,7 @@ public sealed class SurfaceTerrainField
         WorldVoxelCoord position) =>
         _caves is not null &&
         position.Y > 0 &&
-        position.Y != _floorY &&
-        position.Y != _roofY &&
+        !BordersSphereShell(position.Y) &&
         position.Y <= baseY &&
         CaveVoidDensityAt(
             baseY,
@@ -309,6 +307,13 @@ public sealed class SurfaceTerrainField
         if (worldY < 0)
         {
             throw new ArgumentOutOfRangeException(nameof(worldY));
+        }
+
+        // The playable side of a Sphere Shell must have a solid lining.
+        // This is part of terrain density, not a post-generation cave patch.
+        if (IsShellLining(worldY))
+        {
+            return Math.Max(0d, baseY - (double)worldY);
         }
 
         double density =
@@ -355,6 +360,15 @@ public sealed class SurfaceTerrainField
         return density;
     }
 
+    private bool IsShellLining(int worldY) =>
+        (_floorY is { } floor && (long)worldY == (long)floor + 1L) ||
+        (_roofY is { } roof && (long)worldY == (long)roof - 1L);
+
+    private bool BordersSphereShell(int worldY) =>
+        IsShellLining(worldY) ||
+        worldY == _floorY ||
+        worldY == _roofY;
+
     private double CaveVoidDensityAt(
         int baseY,
         int worldX,
@@ -362,8 +376,7 @@ public sealed class SurfaceTerrainField
         int worldZ)
     {
         if (_caves is null ||
-            worldY == _floorY ||
-            worldY == _roofY)
+            BordersSphereShell(worldY))
         {
             return 0d;
         }
@@ -810,6 +823,16 @@ public sealed class SurfaceTerrainField
                     sample,
                     worldX,
                     worldZ);
+        // Natural terrain always covers the innermost face of the floor.
+        // Void worlds deliberately have no natural terrain, so their lining
+        // is supplied by the boundary materialization instead.
+        if (_floorY is { } floorY)
+        {
+            authoredSurfaceY = Math.Max(
+                authoredSurfaceY,
+                checked(floorY + 1));
+        }
+
         if (requestedCutDepth <= 0)
         {
             return (
