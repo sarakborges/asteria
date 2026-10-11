@@ -18,6 +18,7 @@ public sealed class SurfaceChunkMaterializer
     private readonly VoidSpawnPlatform? _voidSpawnPlatform;
     private readonly CaveSpikeField? _caveSpikes;
     private readonly VolumeStructureField? _volumeStructures;
+    private readonly LayerVeinField? _veins;
     private readonly BlockRuntimeId _shellBlock;
     private readonly int? _floorY;
     private readonly int? _roofY;
@@ -49,7 +50,8 @@ public sealed class SurfaceChunkMaterializer
         VolumeBiomeField? volumeBiomes,
         VoidSpawnPlatform? voidSpawnPlatform,
         CaveSpikeField? caveSpikes = null,
-        VolumeStructureField? volumeStructures = null)
+        VolumeStructureField? volumeStructures = null,
+        LayerVeinField? veins = null)
     {
         _columns = columns ??
             throw new ArgumentNullException(nameof(columns));
@@ -67,6 +69,7 @@ public sealed class SurfaceChunkMaterializer
         _voidSpawnPlatform = voidSpawnPlatform;
         _caveSpikes = caveSpikes;
         _volumeStructures = volumeStructures;
+        _veins = veins;
         _nearbyFluidQuery = HasNearbyFluid;
         ArgumentNullException.ThrowIfNull(dimension);
         ArgumentNullException.ThrowIfNull(blocks);
@@ -317,6 +320,8 @@ public sealed class SurfaceChunkMaterializer
             topExclusive);
         MaterializeCaveSpikes(
             chunk, column, densityVolume, originX, originY, originZ);
+        // Veins are placed before natural face coatings, so moss stays on top.
+        _veins?.Apply(chunk, coord);
         MaterializeWallLayers(
             chunk, column, densityVolume, originX, originY, originZ);
         MaterializeWallObjects(

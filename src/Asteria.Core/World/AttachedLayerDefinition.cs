@@ -35,6 +35,38 @@ public sealed record LayerDropDefinition
         Quantity);
 }
 
+/// <summary>Optional deterministic 3D vein generation for an interactive layer.</summary>
+public sealed class LayerVeinDefinition
+{
+    public LayerVeinDefinition(
+        string dimension, IEnumerable<string> hostBlocks,
+        int minY, int maxY, int spacing, int radius, double chance)
+    {
+        BlockDefinition.ValidateId(dimension);
+        var hosts = hostBlocks?.ToArray() ?? throw new ArgumentNullException(nameof(hostBlocks));
+        if (hosts.Length == 0 || hosts.Length > 32 || hosts.Distinct(StringComparer.Ordinal).Count() != hosts.Length)
+            throw new ArgumentException("Vein generation requires distinct host blocks.", nameof(hostBlocks));
+        foreach (var host in hosts) BlockDefinition.ValidateId(host);
+        if (minY < 0 || maxY < minY || maxY > 4095)
+            throw new ArgumentOutOfRangeException(nameof(minY));
+        if (spacing is < 8 or > 64 || radius is < 1 or > 5 || radius * 2 >= spacing)
+            throw new ArgumentOutOfRangeException(nameof(spacing), "Radius must fit a generation grid.");
+        if (!double.IsFinite(chance) || chance is <= 0 or > 1)
+            throw new ArgumentOutOfRangeException(nameof(chance));
+        Dimension = dimension;
+        HostBlocks = Array.AsReadOnly(hosts);
+        MinY = minY; MaxY = maxY; Spacing = spacing; Radius = radius; Chance = chance;
+    }
+
+    public string Dimension { get; }
+    public IReadOnlyList<string> HostBlocks { get; }
+    public int MinY { get; }
+    public int MaxY { get; }
+    public int Spacing { get; }
+    public int Radius { get; }
+    public double Chance { get; }
+}
+
 /// <summary>Authored per-face removable overlay with its own mining and drops.</summary>
 public sealed class AttachedLayerDefinition
 {
@@ -46,7 +78,8 @@ public sealed class AttachedLayerDefinition
         BlockTint tint = BlockTint.None, float offset = 1f / 1024f,
         float? alphaCutoff = 0.5f, bool alphaBlend = false, bool castsShadow = false,
         BlockMiningDefinition? mining = null, LayerRemovalScope scope = LayerRemovalScope.Face,
-        IEnumerable<LayerDropDefinition>? drops = null)
+        IEnumerable<LayerDropDefinition>? drops = null,
+        LayerVeinDefinition? generation = null)
     {
         BlockDefinition.ValidateId(id);
         PackContentFields.ResourcePath(texture, nameof(texture));
@@ -70,11 +103,16 @@ public sealed class AttachedLayerDefinition
             allowed.Distinct().Count() != allowed.Length)
             throw new ArgumentException("Attached layer faces must be nonempty and distinct.", nameof(faces));
 
+        if (generation is not null && (scope != LayerRemovalScope.Voxel ||
+            allowed.Length != 6))
+            throw new ArgumentException("Generated veins must cover the whole voxel.", nameof(generation));
+
         Id = id; Texture = texture; Category = category; Tint = tint; Offset = offset;
         AlphaCutoff = alphaCutoff; AlphaBlend = alphaBlend; CastsShadow = castsShadow;
         Mining = mining ?? new BlockMiningDefinition();
         Scope = scope;
         Drops = Array.AsReadOnly(authoredDrops);
+        Generation = generation;
         _faces = allowed.ToHashSet();
     }
 
@@ -89,6 +127,7 @@ public sealed class AttachedLayerDefinition
     public BlockMiningDefinition Mining { get; }
     public LayerRemovalScope Scope { get; }
     public IReadOnlyList<LayerDropDefinition> Drops { get; }
+    public LayerVeinDefinition? Generation { get; }
     public BlockRenderMode RenderMode => AlphaBlend ? BlockRenderMode.Translucent :
         AlphaCutoff is null ? BlockRenderMode.Opaque : BlockRenderMode.Cutout;
     public bool Supports(BlockFace face) => _faces.Contains(face);
@@ -128,7 +167,27 @@ public sealed class AttachedLayerDefinition
             PackContentFields.ResourcePath(PackContentFields.RequiredString(root, "texture"), "texture"),
             faces, PackContentFields.OptionalString(root, "category") ?? "natural_blocks",
             tint, offset, cutoff, blend, shadows,
-            ParseMining(root), scope, ParseDrops(root));
+            ParseMining(root), scope, ParseDrops(root), ParseGeneration(root));
+    }
+
+    private static LayerVeinDefinition? ParseGeneration(JsonElement root)
+    {
+        if (!root.TryGetProperty("generation", out var value)) return null;
+        if (value.ValueKind != JsonValueKind.Object)
+            throw new FormatException("layer generation must be an object.");
+        string[] hosts = ParseToolTags(value, "hostBlocks");
+        static int RequiredInt(JsonElement parent, string name) =>
+            parent.TryGetProperty(name, out var child) && child.ValueKind == JsonValueKind.Number
+                ? child.GetInt32()
+                : throw new FormatException($"generation.{name} must be an integer.");
+        var chance = value.TryGetProperty("chance", out var frequency) &&
+            frequency.ValueKind == JsonValueKind.Number
+            ? frequency.GetDouble()
+            : throw new FormatException("generation.chance must be a number.");
+        return new LayerVeinDefinition(
+            PackContentFields.RequiredString(value, "dimension"), hosts,
+            RequiredInt(value, "minY"), RequiredInt(value, "maxY"),
+            RequiredInt(value, "spacing"), RequiredInt(value, "radius"), chance);
     }
 
     private static BlockMiningDefinition ParseMining(JsonElement root)

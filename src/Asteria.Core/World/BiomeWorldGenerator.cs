@@ -221,6 +221,9 @@ public sealed class BiomeWorldGenerator :
             seed, volumeDefinitions.Where(biome =>
                 biome.VolumeLayout!.Placement == VolumeBiomePlacement.CarvedVoid),
             blocks, _terrain);
+        var veins = layers is not null && generation.Mode == WorldGenerationMode.Normal
+            ? new LayerVeinField(seed, dimension.Id.Value, blocks, layers)
+            : null;
         _materializer =
             new SurfaceChunkMaterializer(
                 _surfaceColumns,
@@ -234,7 +237,8 @@ public sealed class BiomeWorldGenerator :
                 _volumeBiomes,
                 _voidSpawnPlatform,
                 caveSpikes,
-            volumeStructures);
+                volumeStructures,
+                veins);
         Tints =
             new BiomeTintField(
                 Biomes,
