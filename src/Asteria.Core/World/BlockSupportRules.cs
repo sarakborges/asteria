@@ -23,8 +23,22 @@ public static class BlockSupportRules
         BlockDefinition definition,
         VoxelCell cell,
         MicroblockMask microblockMask,
-        WorldVoxelCoord position)
+        WorldVoxelCoord position) =>
+        Evaluate(world, blocks, definition, cell, microblockMask, position,
+            out _);
+
+    // The missing dependency is returned by the same support calculation,
+    // so physics wakeups can suspend until that chunk becomes resident.
+    public static BlockSupportState Evaluate(
+        VoxelWorld world,
+        BlockRegistry blocks,
+        BlockDefinition definition,
+        VoxelCell cell,
+        MicroblockMask microblockMask,
+        WorldVoxelCoord position,
+        out WorldVoxelCoord missingSupport)
     {
+        missingSupport = default;
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(blocks);
         ArgumentNullException.ThrowIfNull(definition);
@@ -65,6 +79,7 @@ public static class BlockSupportRules
         if (!world.IsLoadedAt(
                 supportPosition))
         {
+            missingSupport = supportPosition;
             return BlockSupportState.Unloaded;
         }
 
