@@ -1,4 +1,5 @@
 import type { BridgeMessage } from "../bridge/godotBridge";
+import type { InventorySlotAction } from "../components/molecules/InventorySlot/InventorySlot";
 import type { InventorySlotState, StorageBoxState } from "../state/uiState";
 import type { UiStore } from "../state/uiStore";
 import { asRecord } from "./messagePayload";
@@ -18,9 +19,10 @@ export function createStorageBoxController(
 ) {
   return {
     close() { post("ui.storage_box.close"); },
-    clickSlot(index: number) {
+    clickSlot(index: number, action: InventorySlotAction = "left") {
       if (!Number.isInteger(index) || index < 0 || index >= 27) return;
-      post("ui.storage_box.slot", { index });
+      if (action !== "left" && action !== "right" && action !== "quick") return;
+      post("ui.storage_box.slot", { index, action });
     },
     sort() { post("ui.storage_box.sort"); },
     handleGodotMessage(message: BridgeMessage) {
