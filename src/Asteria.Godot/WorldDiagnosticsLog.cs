@@ -21,6 +21,16 @@ internal enum WorldFrameStage : byte
     WorkerDispatch,
     StreamingEnd,
     Gameplay,
+    BlockEntities,
+    ItemPickup,
+    Mining,
+    Creatures,
+    CreatureAttacks,
+    Projectiles,
+    AmbientSimulation,
+    AmbientPresentation,
+    Hud,
+    Portals,
 }
 
 internal sealed class WorldDiagnosticsLog : IDisposable
@@ -76,6 +86,12 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     private double _lightingCaptureMaxMs;
     private double _lightingApplyMs;
     private double _lightingApplyMaxMs;
+    private int _creaturesActive;
+    private int _creaturesPeak;
+    private int _projectilesActive;
+    private int _ambientParticlesActive;
+    private int _ambientParticlesPeak;
+    private int _droppedBlocksActive;
 
     private WorldDiagnosticsLog(DiagnosticSessionLog session)
     {
@@ -161,6 +177,21 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         var index = (int)stage;
         _stageMsTotal[index] += milliseconds;
         _stageMsMax[index] = Math.Max(_stageMsMax[index], milliseconds);
+    }
+
+    /// <summary>
+    /// Counts remain cheap to read per frame, with peaks retained for each
+    /// diagnostic window so short-lived population spikes are visible.
+    /// </summary>
+    public void ObserveGameplayPopulation(
+        int creatures, int projectiles, int ambientParticles, int droppedBlocks)
+    {
+        _creaturesActive = creatures;
+        _creaturesPeak = Math.Max(_creaturesPeak, creatures);
+        _projectilesActive = projectiles;
+        _ambientParticlesActive = ambientParticles;
+        _ambientParticlesPeak = Math.Max(_ambientParticlesPeak, ambientParticles);
+        _droppedBlocksActive = droppedBlocks;
     }
 
     public void Observe(ChunkResidencyUpdate update)
@@ -284,6 +315,11 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"lighting_pending={_lightingPending} " +
             $"terrain_mesh_pending={_terrainMeshPending} " +
             $"fluid_mesh_pending={_fluidMeshPending} lighting_active={_lightingActive} " +
+            $"creatures_active={_creaturesActive} creatures_peak={_creaturesPeak} " +
+            $"projectiles_active={_projectilesActive} " +
+            $"ambient_particles_active={_ambientParticlesActive} " +
+            $"ambient_particles_peak={_ambientParticlesPeak} " +
+            $"dropped_blocks_active={_droppedBlocksActive} " +
             $"frames={_frames} frame_ms_avg={Format2((_frames == 0 ? 0d : _frameMsTotal / _frames))} " +
             $"frame_ms_max={Format2(_frameMsMax)} frames_over_50ms={_framesOver50Ms} " +
             $"frames_over_100ms={_framesOver100Ms} " +
@@ -309,6 +345,8 @@ internal sealed class WorldDiagnosticsLog : IDisposable
 
         Array.Clear(_stageMsTotal);
         Array.Clear(_stageMsMax);
+        _creaturesPeak = _creaturesActive;
+        _ambientParticlesPeak = _ambientParticlesActive;
         _frames = 0;
         _frameMsTotal = 0d;
         _frameMsMax = 0d;
