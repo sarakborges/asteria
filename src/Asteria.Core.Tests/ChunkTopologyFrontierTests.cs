@@ -40,6 +40,35 @@ public sealed class ChunkTopologyFrontierTests
     }
 
     [Fact]
+    public void DarkOpaqueSeedsAreSkippedWithoutSkippingEmittingOrVerticalSeeds()
+    {
+        var blocks = new BlockRegistry([
+            new BlockDefinition("asteria:stone"),
+            new BlockDefinition("asteria:lamp",
+                lightEmission: new BlockLightEmission(15, 0, 0)),
+        ]);
+        var fluids = new FluidRegistry([]);
+        var world = new VoxelWorld();
+        var chunk = new Chunk();
+        chunk.SetBlock(15, 5, 6, blocks.GetId("asteria:stone"));
+        chunk.SetBlock(15, 6, 6, blocks.GetId("asteria:lamp"));
+        chunk.SetBlock(15, 15, 6, blocks.GetId("asteria:stone"));
+        world.InsertChunk(ChunkCoord.Zero, chunk);
+
+        Assert.False(ChunkTopologyFrontier.NeedsSeamLightSeed(
+            world, blocks, fluids, new WorldVoxelCoord(15, 5, 6)));
+        Assert.True(ChunkTopologyFrontier.NeedsSeamLightSeed(
+            world, blocks, fluids, new WorldVoxelCoord(15, 6, 6)));
+        Assert.True(ChunkTopologyFrontier.NeedsSeamLightSeed(
+            world, blocks, fluids, new WorldVoxelCoord(15, 15, 6)));
+        Assert.True(ChunkTopologyFrontier.NeedsSeamLightSeed(
+            world, blocks, fluids, new WorldVoxelCoord(16, 5, 6)));
+        chunk.SetBlock(15, 5, 6, BlockRuntimeId.Air);
+        Assert.True(ChunkTopologyFrontier.NeedsSeamLightSeed(
+            world, blocks, fluids, new WorldVoxelCoord(15, 5, 6)));
+    }
+
+    [Fact]
     public void LightingFrontierReconcilesEmissionOnArrivalAndRetirement()
     {
         var blocks = new BlockRegistry(
