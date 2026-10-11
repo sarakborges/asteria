@@ -104,6 +104,15 @@ public sealed class SpikeFormationRuntime
                 decision.Position, BlockBreakRejection.MutationRejected);
         }
 
+        // A deliberate Survival break must not silently evict earlier drops.
+        // Count the targeted segment and every unsupported tip first.
+        var dropCount = lootPolicy == BlockBreakLootPolicy.DropSelf &&
+            _blocks.GetDefinition(decision.Cell.Block).DropsSelf
+                ? detached.Count + 1 : 0;
+        if (dropCount > _drops.AvailableCapacity)
+            return BlockBreakDecision.Reject(
+                decision.Position, BlockBreakRejection.MutationRejected);
+
         Apply(edits);
         if (lootPolicy == BlockBreakLootPolicy.DropSelf)
         {
@@ -113,6 +122,49 @@ public sealed class SpikeFormationRuntime
         }
 
         return decision;
+    }
+
+    /// <summary>
+    /// Preflights drops from spikes depending on a host voxel. Called by the
+    /// authoritative block-break owner before it mutates the supporting cell.
+    /// Nonresident formation segments defer reconciliation to chunk restore.
+    /// </summary>
+    public bool CanRemoveSupport(
+        WorldVoxelCoord position, BlockBreakLootPolicy lootPolicy,
+        int hostDrops)
+    {
+        if (hostDrops < 0)
+            throw new ArgumentOutOfRangeException(nameof(hostDrops));
+        if (lootPolicy == BlockBreakLootPolicy.Suppress)
+            return true;
+        if (lootPolicy != BlockBreakLootPolicy.DropSelf)
+            throw new ArgumentOutOfRangeException(nameof(lootPolicy));
+
+        var required = (long)hostDrops +
+            DependentDropCount(Offset(position, 1), down: false);
+        if (position.Y > 0)
+            required += DependentDropCount(Offset(position, -1), down: true);
+        return required <= _drops.AvailableCapacity;
+    }
+
+    private int DependentDropCount(WorldVoxelCoord root, bool down)
+    {
+        if (root.Y < 0 || !_world.TryGetCell(root, out var cell) ||
+            cell.IsEmpty || SpikeSegmentState.Index(cell.State) != 0 ||
+            SpikeSegmentState.IsDown(cell.State) != down)
+            return 0;
+
+        var definition = _blocks.GetDefinition(cell.Block);
+        if (definition.Shape.Kind != BlockShapeKind.Spike ||
+            !definition.DropsSelf)
+            return 0;
+
+        var edits = new List<SpikeVoxelChange>();
+        var detached = new List<WorldVoxelCoord>();
+        // If a neighbor chunk is unloaded, support removal is permitted,
+        // but physical drops are reconciled only after residency returns.
+        return PlanRemoval(root, cell, alreadyRemoved: false, edits, detached)
+            ? detached.Count + 1 : 0;
     }
 
     /// <summary>
