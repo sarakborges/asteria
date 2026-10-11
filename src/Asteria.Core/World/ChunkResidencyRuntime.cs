@@ -364,13 +364,18 @@ public sealed class ChunkResidencyRuntime
         var activations =
             new List<ChunkResidencyActivation>();
         var dispatched = 0;
+        var restored = 0;
 
+        // Archived restores also mutate residency and wake lighting, fluids
+        // and physics. Bound them independently of provider dispatches.
         while (_materializationTasks.Count <
                    _settings.MaxMaterializationsInFlight &&
                dispatched <
-                   _settings.MaxDispatchesPerFrame)
+                   _settings.MaxDispatchesPerFrame &&
+               restored <
+                   _settings.MaxResultsPerFrame)
         {
-            if (dispatched > 0 &&
+            if ((dispatched > 0 || restored > 0) &&
                 budget.Exhausted(
                     Stopwatch.GetTimestamp()))
             {
@@ -404,7 +409,7 @@ public sealed class ChunkResidencyRuntime
                         selected,
                         ChunkActivationSource.Archive,
                         workerMilliseconds: 0.0));
-                SyncResidentState(presented);
+                restored++;
                 continue;
             }
 
@@ -420,6 +425,14 @@ public sealed class ChunkResidencyRuntime
                 Task.Run(() =>
                     Materialize(selected)));
             dispatched++;
+        }
+
+        // Sync derived streaming state once per batch, not once per restore.
+        // Each sync scans desired/resident sets, so syncing in the loop was
+        // quadratic in the number of archived chunks restored in a frame.
+        if (restored > 0)
+        {
+            SyncResidentState(presented);
         }
 
         return activations.Count == 0

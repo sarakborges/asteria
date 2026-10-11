@@ -53,6 +53,52 @@ public sealed class ChunkResidencyRuntimeTests
     }
 
     [Fact]
+    public void ArchivedRestoresAreBoundedPerFrameAndRemainPendingForNextFrame()
+    {
+        var fixture = CreateFixture();
+        var coords = new[]
+        {
+            new ChunkCoord(0, 0, 0),
+            new ChunkCoord(1, 0, 0),
+            new ChunkCoord(0, 0, 1),
+            new ChunkCoord(1, 0, 1),
+            new ChunkCoord(0, 1, 0),
+        };
+
+        foreach (var coord in coords)
+        {
+            fixture.World.InsertChunk(coord, new Chunk());
+            fixture.World.ArchiveChunk(coord);
+        }
+
+        fixture.Runtime.SyncSelection(
+            ChunkCoord.Zero,
+            horizontalRadius: 1,
+            retentionRadius: 2,
+            desired: coords.ToHashSet(),
+            presented: Array.Empty<ChunkCoord>());
+
+        var first = fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(), Array.Empty<ChunkCoord>());
+        Assert.Equal(2, first.Activations.Count);
+        Assert.Equal(3, fixture.Runtime.PendingCount);
+
+        var second = fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(), Array.Empty<ChunkCoord>());
+        Assert.Equal(2, second.Activations.Count);
+        Assert.Equal(1, fixture.Runtime.PendingCount);
+
+        var third = fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(), Array.Empty<ChunkCoord>());
+        Assert.Single(third.Activations);
+        Assert.Equal(0, fixture.Runtime.PendingCount);
+        Assert.Equal(5, fixture.World.ChunkCount);
+        Assert.All(
+            first.Activations.Concat(second.Activations).Concat(third.Activations),
+            activation => Assert.Equal(ChunkActivationSource.Archive, activation.Source));
+    }
+
+    [Fact]
     public void RestoringChunkWithResidentNeighborQueuesLightingFrontier()
     {
         var fixture = CreateFixture();
