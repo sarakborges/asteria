@@ -131,7 +131,7 @@
       }
     },
     {
-      "block": "asteria:sandstone_spur",
+      "block": "asteria:sandstone_spike",
       "chance": 0.065,
       "surfaceBlocks": [
         "asteria:sand"

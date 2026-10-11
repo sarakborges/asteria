@@ -134,9 +134,6 @@
   "asteria:dirt": {
     "/name": "Dirt"
   },
-  "asteria:dry_exposed_roots": {
-    "/name": "Dry Exposed Roots"
-  },
   "asteria:dry_lichen": {
     "/name": "Dry Lichen"
   },
@@ -148,9 +145,6 @@
   },
   "asteria:ember_needles": {
     "/name": "Ember Needles"
-  },
-  "asteria:enchanted_hollow_wood": {
-    "/name": "Enchanted Hollow Wood"
   },
   "asteria:exposed_roots": {
     "/name": "Exposed Roots"
@@ -172,9 +166,6 @@
   },
   "asteria:glacial_rime_core": {
     "/name": "Glacial Rime Core"
-  },
-  "asteria:glacial_shard": {
-    "/name": "Glacial Shard"
   },
   "asteria:glass": {
     "/name": "Glass"
@@ -332,9 +323,6 @@
   "asteria:meadow_seedheads": {
     "/name": "Meadow Seedheads"
   },
-  "asteria:mossy_willow_log": {
-    "/name": "Mossy Willow Log"
-  },
   "asteria:mud": {
     "/name": "Mud"
   },
@@ -404,9 +392,6 @@
   "asteria:rock_lichen": {
     "/name": "Rock Lichen"
   },
-  "asteria:rock_spur": {
-    "/name": "Rock Spur"
-  },
   "asteria:sagebrush": {
     "/name": "Sagebrush"
   },
@@ -427,9 +412,6 @@
   },
   "asteria:sandstone_spike": {
     "/name": "Sandstone Spike"
-  },
-  "asteria:sandstone_spur": {
-    "/name": "Sandstone Spur"
   },
   "asteria:sandstone_tiles": {
     "/name": "Sandstone Tiles"

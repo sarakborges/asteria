@@ -109,7 +109,7 @@ public sealed class EnchantedForestEnrichmentTests
         Assert.All(structures.ResolveReference("asteria:enchanted_hollow_stump"),
             s => {
                 Assert.Contains(s.Voxels, v => v.Block == "asteria:log_enchanted");
-                Assert.Contains(s.Voxels, v => v.Block == "asteria:enchanted_hollow_wood");
+                Assert.Contains(s.Voxels, v => v.Block == "asteria:log_enchanted_hollow");
             });
     }
 

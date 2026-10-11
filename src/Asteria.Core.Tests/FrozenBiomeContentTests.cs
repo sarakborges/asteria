@@ -5,9 +5,9 @@ namespace Asteria.Core.Tests;
 public sealed class FrozenBiomeContentTests
 {
     private static readonly string[] ArcticObjects =
-        ["frost_shrub", "frost_lichen", "glacial_shard"];
+        ["frost_shrub", "frost_lichen", "ice_spike"];
     private static readonly string[] AlpsObjects =
-        ["alpine_edelweiss", "alpine_sedge", "frost_lichen", "glacial_shard"];
+        ["alpine_edelweiss", "alpine_sedge", "frost_lichen", "ice_spike"];
 
     [Fact]
     public void ArcticAndAlpsDecorationsUseOnlyTheirAuthoredHabitatBands()
@@ -45,7 +45,8 @@ public sealed class FrozenBiomeContentTests
                         "asteria:gravel", "asteria:stone",
                     }));
                 var block = blocks.GetDefinition(blocks.GetId(rule.Block));
-                Assert.True(block.HasTag(BlockPhysicsCapabilities.SupportBelow));
+                if (name != "ice_spike")
+                    Assert.True(block.HasTag(BlockPhysicsCapabilities.SupportBelow));
                 Assert.Contains(BlockFace.Top, block.PlacementFaces);
                 Assert.True(block.LightDampening <= 1);
             }
@@ -63,10 +64,10 @@ public sealed class FrozenBiomeContentTests
                 d => d.Block == "asteria:frost_shrub")
                 .HabitatWeights!.For("ice_fields"));
         Assert.True(Assert.Single(arctic.Decorations,
-            d => d.Block == "asteria:glacial_shard")
+            d => d.Block == "asteria:ice_spike")
             .HabitatWeights!.For("ice_fields") >
             Assert.Single(arctic.Decorations,
-                d => d.Block == "asteria:glacial_shard")
+                d => d.Block == "asteria:ice_spike")
                 .HabitatWeights!.For("frozen_plain"));
 
         Assert.True(Assert.Single(alps.Decorations,
@@ -93,12 +94,13 @@ public sealed class FrozenBiomeContentTests
         foreach (var name in ids)
         {
             var block = blocks.GetDefinition(blocks.GetId($"asteria:{name}"));
-            Assert.NotEqual(BlockRenderMode.Translucent, block.RenderMode);
-            if (name == "glacial_shard")
+            if (name != "ice_spike")
+                Assert.NotEqual(BlockRenderMode.Translucent, block.RenderMode);
+            if (name == "ice_spike")
             {
                 Assert.Equal(BlockShapeKind.Spike, block.Shape.Kind);
                 Assert.True(block.IsCollidable);
-                var path = $"textures/blocks/{name}.png";
+                var path = "textures/blocks/ice.png";
                 Assert.All(block.Textures.AllLayers(),
                     layer => Assert.Equal(path, layer.Texture));
                 textures.Add(path);

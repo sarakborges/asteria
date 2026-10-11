@@ -117,7 +117,7 @@ public sealed class PlainsSwampBiodiversityTests
         Assert.All(stumps, stump =>
         {
             Assert.Contains(stump.Voxels, v =>
-                v.Block == "asteria:mossy_willow_log");
+                v.Block == "asteria:log_willow");
             Assert.Contains(stump.Voxels, v =>
                 v.Block == "asteria:shelf_fungus");
             Assert.Contains(stump.Voxels, v =>
@@ -142,8 +142,7 @@ public sealed class PlainsSwampBiodiversityTests
                     support.X == hanger.X &&
                     support.Z == hanger.Z &&
                     support.Y == hanger.Y + 1 &&
-                    (support.Block == "asteria:log_willow" ||
-                     support.Block == "asteria:mossy_willow_log"));
+                    (support.Block == "asteria:log_willow"));
             }
         }
     }
@@ -165,7 +164,9 @@ public sealed class PlainsSwampBiodiversityTests
             Assert.True(seen.Add(path));
         }
         var log = blocks.GetDefinition(
-            blocks.GetId("asteria:mossy_willow_log"));
+            blocks.GetId("asteria:log_willow"));
+        Assert.Equal("textures/blocks/trees/willow/side.png",
+            Assert.Single(log.Textures.ForFace(BlockFace.Left)).Texture);
         Assert.True(seen.Add(
             Assert.Single(log.Textures.ForFace(BlockFace.Left)).Texture));
         Assert.Equal(8, seen.Count);

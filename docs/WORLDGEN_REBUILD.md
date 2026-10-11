@@ -676,7 +676,7 @@ settings and habitat definitions. The default pack introduces five
   plains, concentrated on Snow and rare exposed Gravel.
 - `frost_lichen`: compact pale lichen (groundSprite) shared by Arctic
   and Alps, favoring ice fields and glacial habitats.
-- `glacial_shard`: short, square-profile ice crystals (spike shape)
+- `ice_spike`: short, square-profile ice crystals (spike shape)
   on Snow/Ice, infrequent outside icy habitats and flat supports.
 - `alpine_edelweiss`: small pale flower, favoring sheltered snowy
   Alps slopes and avoiding sheer rock faces.
@@ -701,14 +701,14 @@ surfaces without any new terrain or runtime subsystem:
   floors and rims rather than unstable rubble;
 - `dry_tuft`: wind-responsive dry grass on sheltered Dirt/
   Gravel pockets, low slope and moderate elevation;
-- `dry_exposed_roots`: horizontal dry roots on Dirt, Gravel and
+- `exposed_roots`: horizontal dry roots on Dirt, Gravel and
   Stone Cobble supports using a ground sprite (not unsupported
   cliff-wall attachment);
-- `rock_spur`: sparse, single-voxel, square-section rocky
+- `stone_spike`: sparse, single-voxel, square-section rocky
   formations on Stone, Gravel and Stone Cobble, concentrated
   toward rubble slopes and high rims.
 
-Each object owns a 64×64 pack texture and uses the generic
+Each decorative species has an authored pack texture; reused block shapes refer to their existing texture. All decorations use the generic
 `surfaceBlocks`, `habitatWeights`, `cluster` and altitude/slope
 conditions. The existing block support lifecycle handles removal
 of underlying solids. No material, hydrology or terrain-generation
@@ -728,7 +728,7 @@ random Gravel patches:
   pockets, weighted toward `sand_flats` and outcrop habitats;
 - `yucca`: stiff-leaved desert vegetation mainly in the
   `sandstone_outcrops` habitat and absent on `open_dunes`;
-- `sandstone_spur`: rare, single-voxel, square-section
+- `sandstone_spike`: rare, single-voxel, square-section
   Sandstone-like formation favoring outcrop habitats and flat
   Sand support. It uses the generic Spike block shape.
 
