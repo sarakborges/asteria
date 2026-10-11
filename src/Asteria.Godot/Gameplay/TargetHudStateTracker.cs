@@ -8,7 +8,8 @@ public readonly record struct TargetHudSnapshot(
     int Y,
     int Z,
     byte SkyLight,
-    byte BlockLight);
+    byte BlockLight,
+    BlockSurfaceState Surface);
 
 public sealed class TargetHudStateTracker
 {
@@ -83,6 +84,7 @@ public sealed class TargetHudStateTracker
             resolved.Voxel.Y,
             resolved.Voxel.Z,
             light.Sky,
-            light.BlockPeak);
+            light.BlockPeak,
+            world.GetBlockSurfaceStateOrEmpty(resolved.Voxel));
     }
 }
