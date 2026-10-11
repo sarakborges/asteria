@@ -625,6 +625,12 @@ public sealed class DimensionRuntimeSession
     /// Use only authored Structure payloads to prepare exact portal entry.
     /// Protected voxels and absent residency reject the canonical mutation.
     /// </summary>
+    public bool IsPortalArrivalPresentationCurrent() =>
+        !_retiring && !_retired &&
+        WorldUpdates.DirtyChunkCount == 0 &&
+        !TerrainMesh.IsRunning &&
+        Presentations.PendingTerrainPublications == 0;
+
     public ManualStructurePlacementResult? TryPreparePortalArrivalStructure()
     {
         if (_retiring || _retired ||
