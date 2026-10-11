@@ -329,8 +329,11 @@ public sealed class SurfaceChunkMaterializer
             chunk, column, densityVolume, originX, originY, originZ);
         MaterializeWallObjects(
             chunk, column, densityVolume, originX, originY, originZ);
-        // SurfaceChunkMaterializer remains the sole procedural voxel writer.
+        // The Sphere Shell and its opaque terrain lining are the final
+        // worldgen boundary. Structures, fluids, spikes and layers must not
+        // uncover or replace them.
         _voidSpawnPlatform?.Apply(chunk, coord);
+        ConcealSphereShell(chunk, column, originY, topExclusive);
 
         return chunk;
     }
@@ -1596,6 +1599,65 @@ public sealed class SurfaceChunkMaterializer
                 }
             }
         }
+    }
+
+    private void ConcealSphereShell(
+        Chunk chunk,
+        SurfaceTerrainColumn column,
+        int originY,
+        int topExclusive)
+    {
+        if (_shellBlock.IsAir)
+            return;
+
+        var floorLiningY = _floorY is { } floor
+            ? (long)floor + 1L : -1L;
+        var roofLiningY = _roofY is { } roof
+            ? (long)roof - 1L : -1L;
+        bool IsInChunk(long y) => y >= originY && y < topExclusive;
+        if (!IsInChunk(_floorY ?? -1) &&
+            !IsInChunk(_roofY ?? -1) &&
+            !IsInChunk(floorLiningY) &&
+            !IsInChunk(roofLiningY))
+            return;
+
+        for (var z = 0; z < Chunk.Size; z++)
+        for (var x = 0; x < Chunk.Size; x++)
+        {
+            var coreBlock = _materials.CoreLayer(column.BiomeAt(x, z)).Block;
+
+            // Seal the playable face with its biome's deep terrain material.
+            SetBoundaryBlock(chunk, x, z, originY, topExclusive,
+                floorLiningY, coreBlock);
+            SetBoundaryBlock(chunk, x, z, originY, topExclusive,
+                roofLiningY, coreBlock);
+
+            // Apply the unbreakable boundary last, after every worldgen pass.
+            if (_floorY is { } floorY)
+                SetBoundaryBlock(chunk, x, z, originY, topExclusive,
+                    floorY, _shellBlock);
+            if (_roofY is { } roofY)
+                SetBoundaryBlock(chunk, x, z, originY, topExclusive,
+                    roofY, _shellBlock);
+        }
+    }
+
+    private static void SetBoundaryBlock(
+        Chunk chunk,
+        int x,
+        int z,
+        int originY,
+        int topExclusive,
+        long worldY,
+        BlockRuntimeId block)
+    {
+        if (worldY < originY || worldY >= topExclusive)
+            return;
+
+        var localY = (int)(worldY - originY);
+        chunk.SetBlock(x, localY, z, block);
+        chunk.SetFluid(x, localY, z, FluidCell.Empty);
+        chunk.SetSurfaceState(x, localY, z, BlockSurfaceState.Empty);
     }
 
     private void SetShellIfInChunk(
