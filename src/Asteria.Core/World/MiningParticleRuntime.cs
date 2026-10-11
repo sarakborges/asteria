@@ -15,7 +15,8 @@ public sealed class MiningParticleRuntime
 
     public IReadOnlyList<MiningParticle> Particles => _particles;
 
-    public void Emit(MiningFeedbackEvent feedback)
+    public void Emit(MiningFeedbackEvent feedback,
+        Vector3? authoredTint = null)
     {
         var hit = feedback.Hit;
         var normal = new Vector3(hit.NormalX, hit.NormalY, hit.NormalZ);
@@ -38,7 +39,8 @@ public sealed class MiningParticleRuntime
             var lifetime = (feedback.Completed ? 0.36f : 0.23f) +
                 Unit() * 0.18f;
             _particles.Add(new MiningParticle(position + jitter,
-                velocity, size, lifetime));
+                velocity, size, lifetime, feedback.Appearance,
+                authoredTint ?? Vector3.One));
         }
     }
 
@@ -79,14 +81,19 @@ public sealed class MiningParticleRuntime
 public sealed class MiningParticle
 {
     internal MiningParticle(Vector3 position, Vector3 velocity,
-        float size, float lifetime)
+        float size, float lifetime,
+        MiningFragmentAppearance? appearance, Vector3 tint)
     {
         Position = position;
         Velocity = velocity;
         Size = size;
         Lifetime = lifetime;
+        Appearance = appearance;
+        Tint = tint;
     }
 
+    public MiningFragmentAppearance? Appearance { get; }
+    public Vector3 Tint { get; }
     public Vector3 Position { get; internal set; }
     internal Vector3 Velocity { get; set; }
     internal float Age { get; set; }
