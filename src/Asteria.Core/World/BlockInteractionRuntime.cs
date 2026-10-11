@@ -1,4 +1,5 @@
 using System.Numerics;
+using Asteria.Core.Content;
 
 namespace Asteria.Core.World;
 
@@ -25,6 +26,7 @@ public sealed class BlockInteractionRuntime
     private readonly VoxelMutationRuntime _mutations;
     private readonly DroppedBlockRuntime _droppedBlocks;
     private readonly AttachedLayerRegistry? _layers;
+    private readonly InventoryContentCatalog? _inventoryCatalog;
     private readonly SpikeFormationRuntime _spikes;
 
     public BlockInteractionRuntime(
@@ -32,7 +34,8 @@ public sealed class BlockInteractionRuntime
         BlockRegistry blocks,
         VoxelMutationRuntime mutations,
         DroppedBlockRuntime droppedBlocks,
-        AttachedLayerRegistry? layers = null)
+        AttachedLayerRegistry? layers = null,
+        InventoryContentCatalog? inventoryCatalog = null)
     {
         _world =
             world ??
@@ -47,13 +50,15 @@ public sealed class BlockInteractionRuntime
             droppedBlocks ??
             throw new ArgumentNullException(nameof(droppedBlocks));
         _layers = layers;
+        _inventoryCatalog = inventoryCatalog;
         _spikes = new SpikeFormationRuntime(
             _world, _blocks, _mutations, _droppedBlocks);
     }
 
     public BlockBreakDecision Break(
         VoxelWorldHit hit,
-        BlockBreakLootPolicy lootPolicy = BlockBreakLootPolicy.DropSelf)
+        BlockBreakLootPolicy lootPolicy = BlockBreakLootPolicy.DropSelf,
+        ulong worldTick = 0)
     {
         if (!Enum.IsDefined(lootPolicy))
             throw new ArgumentOutOfRangeException(nameof(lootPolicy));
@@ -119,30 +124,96 @@ public sealed class BlockInteractionRuntime
         if (definition.Shape.Kind == BlockShapeKind.Spike)
             return _spikes.Break(decision, lootPolicy);
 
+        // Resolve and validate every authored reward before touching the voxel.
+        // An explicitly empty table means no drops. Definitions without one
+        // preserve their full portable dropsSelf snapshot.
+        var authoredLoot = lootPolicy == BlockBreakLootPolicy.DropSelf &&
+            definition.LootTable is not null
+                ? RollLoot(definition, decision, worldTick)
+                : null;
+        if (authoredLoot is not null &&
+            authoredLoot.Count > _droppedBlocks.AvailableCapacity)
+            return BlockBreakDecision.Reject(
+                decision.Position, BlockBreakRejection.MutationRejected);
+
         var snapshot =
             lootPolicy == BlockBreakLootPolicy.DropSelf &&
-            definition.DropsSelf
+            definition.LootTable is null && definition.DropsSelf
                 ? BlockStateSnapshot.Capture(
-                    _world,
-                    decision.Position,
-                    decision.Cell)
+                    _world, decision.Position, decision.Cell)
                 : null;
 
         if (!_spikes.RemoveSupport(decision.Position, lootPolicy))
-        {
             return BlockBreakDecision.Reject(
-                decision.Position,
-                BlockBreakRejection.MutationRejected);
-        }
+                decision.Position, BlockBreakRejection.MutationRejected);
 
-        if (snapshot is not null)
+        if (authoredLoot is not null && authoredLoot.Count > 0)
         {
-            _droppedBlocks.Spawn(
-                snapshot,
-                CenterOf(decision.Position));
+            // Detaching neighboring spikes can consume drop capacity as part
+            // of removal. Preserve the rolled rewards through the existing
+            // bounded Spawn fallback rather than discarding them.
+            if (!_droppedBlocks.TrySpawnBatch(authoredLoot, CenterOf(decision.Position)))
+                foreach (var stack in authoredLoot)
+                    _droppedBlocks.Spawn(stack, CenterOf(decision.Position));
         }
+        else if (snapshot is not null)
+            _droppedBlocks.Spawn(snapshot, CenterOf(decision.Position));
 
         return decision;
+    }
+
+    private List<InventoryStack> RollLoot(
+        BlockDefinition block, BlockBreakDecision decision, ulong worldTick)
+    {
+        if (_inventoryCatalog is null)
+            throw new InvalidOperationException(
+                $"Block {block.Id} has a lootTable but no content catalog is configured.");
+
+        var seed = LootSeed(decision.Position, worldTick);
+        var stacks = new List<InventoryStack>();
+        var source = BlockStateSnapshot.Capture(
+            _world, decision.Position, decision.Cell);
+        foreach (var loot in block.LootTable!.Entries)
+        {
+            if (loot.Chance < 1f && NextUnit(ref seed) >= loot.Chance)
+                continue;
+            if (!_inventoryCatalog.TryResolveLoot(loot.Item, out var resolved) ||
+                resolved is null)
+                throw new InvalidOperationException(
+                    $"Unknown loot entry {loot.Item} on block {block.Id}.");
+
+            // Self-drops retain rotation, tint, attachments, microblocks and dye.
+            var entry = resolved.Kind == InventoryEntryKind.Block &&
+                resolved.Id == block.Id
+                    ? InventoryEntry.FromBlock(block.Id, source)
+                    : resolved;
+            var remaining = loot.Quantity;
+            while (remaining > 0)
+            {
+                var quantity = Math.Min(remaining, entry.MaxStackSize);
+                stacks.Add(new InventoryStack(entry, quantity));
+                remaining -= quantity;
+            }
+        }
+        return stacks;
+    }
+
+    private static uint LootSeed(WorldVoxelCoord position, ulong tick)
+    {
+        var seed = unchecked((uint)tick) ^
+            BitOperations.RotateLeft(unchecked((uint)(tick >> 32)), 11);
+        seed ^= unchecked((uint)position.X * 0x9E3779B9u);
+        seed ^= unchecked((uint)position.Y * 0x85EBCA6Bu);
+        seed ^= unchecked((uint)position.Z * 0xC2B2AE35u);
+        return seed == 0 ? 0xA341316Cu : seed;
+    }
+
+    private static float NextUnit(ref uint random)
+    {
+        random ^= random << 13;
+        random ^= random >> 17;
+        random ^= random << 5;
+        return (random >> 8) * (1f / 16777216f);
     }
 
     /// <summary>
