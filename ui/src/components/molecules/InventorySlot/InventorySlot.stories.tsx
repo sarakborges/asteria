@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { useState } from "react";
 import { InventorySlot } from "./InventorySlot";
 
 const meta = {
@@ -51,4 +52,19 @@ export const DamagedArmor: Story = {
       durability: { current: 71, maximum: 240 },
     },
   },
+};
+
+function InteractiveSlot() {
+  const [action, setAction] = useState("none");
+  return (
+    <div>
+      <InventorySlot item={{ id: "asteria:stone", name: "Stone", quantity: 8 }}
+        onClick={setAction} />
+      <output data-testid="inventory-slot-action">{action}</output>
+    </div>
+  );
+}
+
+export const Interactions: Story = {
+  render: () => <InteractiveSlot />,
 };
