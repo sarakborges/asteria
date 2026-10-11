@@ -54,5 +54,6 @@
   "castsShadow": false,
   "mining": {
     "hardness": 0.25
-  }
+  },
+  "lootTable": [{"item":"asteria:stick","chance":0.6,"quantity":1}]
 }
