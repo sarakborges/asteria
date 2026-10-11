@@ -14,7 +14,7 @@ Reference: MineClone `world-systems-rebuild`, `src/targeting/mining.rs` and `src
 
 ## Still pending
 
-- Authored swing cadence/animation and mining audiovisual feedback; the world-space crack stage overlay is active.
+- Mining visual feedback now includes an 8-tick fast-swing cadence, existing world-space crack stages and short-lived voxel chips. **Audio is explicitly out of scope**. Native visual QA is pending.
 - Architect's Compass, structure-tool behaviors and further consumable item use. Brush, Shears, Artisan's Kit and Bucket are integrated through their scoped runtimes.
 - Loot-table policy parity beyond existing `dropsSelf` and creature-specific drops.
 
@@ -98,3 +98,13 @@ The native input, mutation, content and Sphere boundaries remain unchanged: no U
 - `StructureRegistry.ValidateBlocks` rejects masks on non-fragmentable hosts, unsupported dyes, and invalid layer definitions/face permissions when registries are supplied. `SurfaceStructureField` carries the immutable state in placements; `SurfaceChunkMaterializer` restores microblock palette IDs and sparse surface state when writing generated structures. There is no second procedural writer.
 - Rotation-aware structure placement now transforms the 8×8×8 sculpted mask about Y, horizontal facing, attached face direction and per-face UV rotation, preserving dye and ordered layers. Top and bottom attached UVs counterrotate differently; lateral UV orientations remain stable. Rotated layer face permissions are validated for all four angles. Authored `rotation: true` is permitted with detailed blocks, and new Compass exports enable it. Fluids are still excluded from Compass export. Base block texture-rotation metadata is preserved unchanged as an authored per-cell value (the current voxel model does not store separate rotation for six intrinsic faces).
 
+
+## Visual mining feedback — 2026-10-11
+
+References checked: MineClone `main` and `world-systems-rebuild` `src/targeting/mining.rs`, `mining_visual.rs` and `src/player/viewmodel/animation.rs`.
+
+- The original crack-overlay system and first/third-person arm models were already ported. MineClone emits the fast break pose on valid targeting, repeats it every **8 world ticks**, and plays a finishing swing. The Asteria `BlockMiningRuntime` now emits a monotonic transient feedback revision and last-hit event only after authoritative tool, block and face/layer checks. Cancel/re-target resets swing phase. Tick batches coalesce intermediate pulses to bound presentation work.
+- Godot consumes the Core pulse in `AdvanceSurvivalMining`: both visual player models play the **8-tick** fast break action rather than replaying a 22-tick normal one on each click. Invalid Survival mining does not animate; Creative retains existing single-click action.
+- `MiningParticleRuntime` is an additional Asteria-only visual enhancement (not an original MineClone mining feature): emits 3 small cubes along the hit face for ordinary swings and 11 at completion; gravity/fade is deterministic and capped to 96 active particles per Sphere. `MiningParticlePresentation` publishes them in one `MultiMesh`, never one node per fragment. The neutral chip color is a presentation fallback, not per-block sampled material tint. Particle effects never damage, collide, create items or mutate blocks. Retiring a Sphere clears them.
+- Core tests cover interval threshold, coalesced large tick batches, finish/reset/invalid-tool behavior, hit-face emission, bounded allocation, TTL cleanup and invalid-time rejection. The native Godot/WRY visual pass is still required for crack/arm/particle appearance at varying tick rates.
+- **No audio work** was performed or planned.
