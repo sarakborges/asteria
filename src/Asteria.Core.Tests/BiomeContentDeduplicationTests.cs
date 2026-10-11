@@ -40,8 +40,6 @@ public sealed class BiomeContentDeduplicationTests
                 texture.Replace('/', Path.DirectorySeparatorChar))));
             Assert.DoesNotContain(references,
                 json => json.Contains("asteria:" + oldId + "\"", StringComparison.Ordinal));
-
-
         }
     }
 
