@@ -176,6 +176,8 @@ public sealed record CreatureDefinition(
             }
 
             var count = PackContentFields.PositiveInt(source, "count");
+            if (count > 64)
+                throw new FormatException($"Particle {property.Name} exceeds 64 particles per burst");
             if (!source.TryGetProperty("color", out var color) ||
                 color.ValueKind != JsonValueKind.Array ||
                 color.GetArrayLength() != 4)
@@ -188,7 +190,7 @@ public sealed record CreatureDefinition(
             {
                 if (element.ValueKind != JsonValueKind.Number ||
                     !element.TryGetSingle(out var channel) ||
-                    !float.IsFinite(channel))
+                    !float.IsFinite(channel) || channel < 0f || channel > 1f)
                 {
                     throw new FormatException($"Particle {property.Name} has invalid color");
                 }
@@ -207,9 +209,30 @@ public sealed record CreatureDefinition(
                     throw new FormatException($"Particle {property.Name}.{parameter.Name} must be finite");
                 }
 
+                var (minimum, maximum) = parameter.Name switch
+                {
+                    "size" => (0.001f, 2f),
+                    "lifetime" => (0.01f, 30f),
+                    "interval" => (0f, 30f),
+                    "spawnRadius" => (0f, 16f),
+                    "yOffset" => (-16f, 16f),
+                    "horizontalSpeed" => (0f, 32f),
+                    "verticalSpeed" => (-32f, 32f),
+                    "verticalJitter" => (0f, 32f),
+                    "gravity" => (-100f, 100f),
+                    "endScale" => (0f, 8f),
+                    _ => throw new FormatException(
+                        $"Particle {property.Name} has unsupported property {parameter.Name}"),
+                };
+                if (value < minimum || value > maximum)
+                    throw new FormatException(
+                        $"Particle {property.Name}.{parameter.Name} is out of range");
                 scalar.Add(parameter.Name, value);
             }
 
+            if (!scalar.ContainsKey("size") || !scalar.ContainsKey("lifetime"))
+                throw new FormatException(
+                    $"Particle {property.Name} needs size and lifetime");
             result.Add(property.Name, new CreatureParticleEffect(
                 count,
                 channels.AsReadOnly(),
