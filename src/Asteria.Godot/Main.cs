@@ -4173,7 +4173,8 @@ public partial class Main : Node3D
         if (!TryGetTarget(out var hit))
             return;
 
-        _playerModel?.TryPlayAction(PlayerVisualAction.Break);
+        if (_sessionStates.Player.GameMode != PlayerGameMode.Survival)
+            _playerModel?.TryPlayAction(PlayerVisualAction.Break);
         if (_blocks.GetDefinition(
                 _world.GetCellOrEmpty(hit.Voxel).Block).Interaction ==
             BlockInteractionKind.Pickup)
@@ -4250,9 +4251,15 @@ public partial class Main : Node3D
         }
 
         var inventory = _sessionStates.Player.Inventory;
-        _sessions.Active.Mining.Advance(
+        var mining = _sessions.Active.Mining;
+        var previousFeedback = mining.FeedbackRevision;
+        mining.Advance(
             CurrentTarget(), held, inventory.SelectedSlot,
             _worldTicks.TicksThisFrame, _sessionStates.Player.GameMode);
+        if (mining.FeedbackRevision != previousFeedback)
+        {
+            _playerModel?.TryPlayAction(PlayerVisualAction.Break, fastBreak: true);
+        }
         PublishMiningProgress();
 
     }
