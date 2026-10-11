@@ -677,6 +677,13 @@ public static class ChunkMeshDataBuilder
             shape, state,
             (tier + 0.5f) / SpikeSegmentState.TiersPerVoxel);
 
+    // Keep spike faces consistent with the clockwise terrain/cube winding.
+    // Normals remain outward-facing while the triangles use Godot's front face.
+    private static void ReverseSpikeQuadWinding(Span<Vector3> quad)
+    {
+        (quad[1], quad[3]) = (quad[3], quad[1]);
+    }
+
     private static void EmitSpikeSide(
         List<ChunkMeshVertex> surface,
         List<Vector3> collision,
@@ -737,6 +744,7 @@ public static class ChunkMeshDataBuilder
                 throw new ArgumentOutOfRangeException(nameof(face));
         }
 
+        ReverseSpikeQuadWinding(quad);
         EmitQuadVertices(
             surface, collision, quad, normal, face,
             material, rotation, lighting,
@@ -784,7 +792,8 @@ public static class ChunkMeshDataBuilder
                 for (var i = 0; i < 4; i++)
                     quad[i] = outerCorners[3 - i];
             }
-            EmitQuadVertices(
+            ReverseSpikeQuadWinding(quad);
+        EmitQuadVertices(
                 surface, collision, quad, normal, face,
                 material, rotation, lighting,
                 collidable, false, uvOrigin,
@@ -816,7 +825,8 @@ public static class ChunkMeshDataBuilder
                 quad[2] = innerCorners[i];
                 quad[3] = innerCorners[next];
             }
-            EmitQuadVertices(
+            ReverseSpikeQuadWinding(quad);
+        EmitQuadVertices(
                 surface, collision, quad, normal, face,
                 material, rotation, lighting,
                 collidable, false, uvOrigin,
