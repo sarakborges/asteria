@@ -16,5 +16,6 @@
     "hardness": 2,
     "requiredTools": ["pickaxe"]
   },
-  "previewColor": "8b9199"
+  "previewColor": "8b9199",
+  "lootTable": [{"item":"asteria:pebble","chance":1,"quantity":4}]
 }
