@@ -213,7 +213,8 @@ public sealed class BlockMiningRuntimeTests
         Assert.True(mining.Advance(Hit(First), null, 0, 168,
             PlayerGameMode.Survival));
         Assert.True(mining.LastFeedback!.Value.Completed);
-        Assert.Equal(4UL, mining.FeedbackRevision);
+        // A long last tick batch crosses the cadence and finishes the block.
+        Assert.Equal(5UL, mining.FeedbackRevision);
         Assert.Null(mining.Progress);
     }
 
