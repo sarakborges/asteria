@@ -109,10 +109,10 @@ public sealed partial class PlayerModelPresentation : Node3D
     /// Reacts to a native gameplay action; no input or combat state is owned
     /// here. One-shot actions interrupt locomotion without a rest-pose frame.
     /// </summary>
-    public bool TryPlayAction(PlayerVisualAction action)
+    public bool TryPlayAction(PlayerVisualAction action, bool fastBreak = false)
     {
         if (_deathPlaying) return false;
-        var firstPersonPlayed = _firstPerson?.TryPlayAction(action) ?? false;
+        var firstPersonPlayed = _firstPerson?.TryPlayAction(action, fastBreak) ?? false;
         if (_animations is null) return firstPersonPlayed;
 
         var key = action switch
@@ -135,12 +135,14 @@ public sealed partial class PlayerModelPresentation : Node3D
             return false;
 
         _animations.GetAnimation(clip).LoopMode = Animation.LoopModeEnum.None;
+        var speed = action == PlayerVisualAction.Break && fastBreak
+            ? 22f / 8f : 1f;
         _animations.Play(clip, customBlend: action is PlayerVisualAction.Hurt
-            ? 0.08f : 0f);
+            ? 0.08f : 0f, customSpeed: speed);
         _currentClip = clip;
         _actionClip = key;
         _actionRemaining = Mathf.Clamp(
-            (float)_animations.GetAnimation(clip).Length, 0.12f, 2f);
+            (float)_animations.GetAnimation(clip).Length / speed, 0.12f, 2f);
         _deathPlaying = action == PlayerVisualAction.Death;
         return true;
     }
