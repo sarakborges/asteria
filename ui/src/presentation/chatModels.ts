@@ -8,7 +8,7 @@ export type ChatMessageView = {
   text: string;
   tone?: ChatMessageTone;
   actionLabel?: string;
-  action?: "warp";
+  action?: "warp" | "structure_file";
   localizationKey?: string;
   parameters?: Record<string, string>;
 };
