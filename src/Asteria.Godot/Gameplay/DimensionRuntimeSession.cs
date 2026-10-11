@@ -260,7 +260,7 @@ public sealed class DimensionRuntimeSession
         Mining = new BlockMiningRuntime(
             World, blocks, Tools, BlockInteractions, layers);
         MiningCracks = new MiningCrackPresentation(
-            Root, packSelection, blocks, fluids, terrainTextures, terrainMaterials);
+            Root, packSelection, blocks, layers, fluids, terrainTextures, terrainMaterials);
         MiningParticles = new MiningParticleRuntime();
         _miningParticlePresentation = new MiningParticlePresentation(
             Root, terrainTextures, terrainMaterials);
