@@ -415,8 +415,22 @@ public sealed class PlayerInventory
             : remaining == 0 ? null : source.WithQuantity(remaining);
     }
 
-    public bool TryCreativePick(InventoryEntry entry, int quantity = 1)
+    public bool TryCreativePick(
+        InventoryEntry entry, int quantity = 1, bool fillStack = false)
     {
+        ArgumentNullException.ThrowIfNull(entry);
+        if (fillStack)
+        {
+            if (Cursor is { } current)
+            {
+                if (!current.CanStackWith(new InventoryStack(entry)) ||
+                    current.Quantity == current.MaxStackSize)
+                    return false;
+                quantity = current.MaxStackSize - current.Quantity;
+            }
+            else quantity = entry.MaxStackSize;
+        }
+
         var picked = new InventoryStack(entry, quantity);
         if (Cursor is null)
             Cursor = picked;
