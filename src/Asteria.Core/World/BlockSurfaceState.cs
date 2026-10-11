@@ -30,9 +30,10 @@ public readonly record struct AttachedBlockLayer
 }
 
 /// <summary>
-/// Immutable portable surface state. Absence is represented by Empty; per
-/// chunk storage remains sparse. Order is attachment order, so Shears remove
-/// the final layer on the hit face, not an intrinsic block texture.
+/// Immutable portable per-voxel extra state: dye, face attachments and
+/// bounded arbitrary metadata tags. Absence is represented by Empty and
+/// per-chunk storage remains sparse. Order is attachment order, so Shears
+/// remove the final layer on the hit face, not an intrinsic block texture.
 /// </summary>
 public sealed class BlockSurfaceState : IEquatable<BlockSurfaceState>
 {

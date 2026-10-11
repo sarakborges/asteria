@@ -96,6 +96,38 @@ public sealed class PortalActivationRuntimeTests
     }
 
     [Fact]
+    public void PortalInstanceMetadataPersistsThroughChunkRoundTrip()
+    {
+        var (portal, world, mutations, blocks) = Fixture();
+        var frame = Frame(mutations, blocks);
+        Assert.True(portal.TryActivate(Slicer("asteria:overworld"),
+            new VoxelWorldHit(frame, 0, 0, 1), out _));
+
+        var dyes = new DyeRegistry([]);
+        var layers = new AttachedLayerRegistry([]);
+        var fluids = new FluidRegistry([]);
+        var bytes = ChunkSaveCodec.Encode(world.GetChunk(ChunkCoord.Zero),
+            blocks, fluids, dyes, layers);
+        var loaded = ChunkSaveCodec.Decode(bytes, blocks, fluids, dyes, layers);
+        var restored = new VoxelWorld();
+        restored.InsertChunk(ChunkCoord.Zero, loaded);
+        var restoredMutations = new VoxelMutationRuntime(
+            restored, new WorldUpdateQueue(), new FluidUpdateQueue(),
+            new FluidMeshUpdateQueue(), new BlockPhysicsUpdateQueue(),
+            new MeshletContentRevisions(), new MeshletContentRevisions());
+        var restoredPortal = new PortalActivationRuntime(
+            restored, blocks, restoredMutations);
+
+        Assert.True(restoredPortal.TryGetDestinationAt(
+            new WorldVoxelCoord(3, 4, 5), out var destination));
+        Assert.Equal("asteria:overworld", destination);
+        Assert.True(restoredMutations.SetCellAt(
+            new WorldVoxelCoord(2, 4, 5), VoxelCell.Empty, out _));
+        Assert.False(restoredPortal.TryGetDestinationAt(
+            new WorldVoxelCoord(3, 4, 5), out _));
+    }
+
+    [Fact]
     public void BreakingGlassBoundaryRemovesItsWholePortalInterior()
     {
         var (portal, world, mutations, blocks) = Fixture();
