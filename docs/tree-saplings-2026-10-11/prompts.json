@@ -1,0 +1,304 @@
+{
+  "base_sha": "8dfc12455dfe68936f93cc31def793f78c737ace",
+  "mode": "built-in image_gen; one style-transfer call per sapling",
+  "normalization": "nearest-neighbor to 64x64; alpha cutoff 0.5; transparent RGB cleared; empty bottom padding moved above the art to anchor its root; no visible pixels redrawn",
+  "assets": [
+    {
+      "family": "charwood",
+      "block_id": "asteria:sapling_charwood",
+      "final_path": "packs/default/resources/textures/blocks/trees/charwood/sapling.png",
+      "prompt": "Use case: style-transfer\nAsset type: Asteria voxel-game sapling crossed-sprite texture.\nPrimary request: Transform the isolated plant sprite from Image 1 into ONE a resilient charred pine seedling: straight charcoal black stem with warm rust bark fissures, three short upward branches, compact triangular orange/rust needle clusters. Living fantasy foliage even though the wood is burned.\nInput images: Image 1 is the source plant sprite for the game's low-resolution pixel-art style and front-facing cutout composition; replace its species and silhouette. Image 2 is the species foliage material reference, used only for leaf palette and shape language. Image 3 is the species bark material reference, used only for stem palette. Do not output the material tiles.\nStyle/medium: crisp hand-authored 64 by 64 pixel art logical grid, nearest-neighbor upscale only. Deliberate small pixel clusters, restrained palette, irregular organic edges; no antialiasing, no photographic detail, no painterly blur, no 3D voxel cubes, no thick cartoon outline.\nComposition: one small seedling viewed straight on from the side; a visible thin trunk rooted at bottom center with a leafy young crown above. Entire silhouette inside the square with 6 percent side and top margins; stem ends near bottom edge at 94 percent of canvas height. No clipped leaves. All parts visually connected to stem. Approximately 75 percent canvas width and 86 percent height. This is a single plant billboard sprite, no sheet or multiple views.\nBackdrop: actual transparent alpha outside the plant; no colored background, no checkerboard drawn into image, no soil, no pot, no ground line, no cast shadow.\nLighting: subtle upper-left pixel highlights, compact dark pixel shadows. Match the established fantasy species colors described above. Keep the wood visibly its own color.\nConstraints: one sapling only, fully leafy even for charred/dead/frozen species, no label, no text, no watermark, no border. Keep a genuinely transparent background.",
+      "mode": "built-in image_gen",
+      "references": [
+        {
+          "path": "packs/default/resources/textures/objects/thornbush.png",
+          "sha256": "abc3903fd84e81dd3051e38d36324f1262d935b769c1c774b66cb0116b87906d"
+        },
+        {
+          "path": "packs/default/resources/textures/blocks/trees/charwood/leaf.png",
+          "sha256": "43d51c1bd65fb0989bf859bd26813022e6a0a045a97f1b2a5397b2f8b27cadf4"
+        },
+        {
+          "path": "packs/default/resources/textures/blocks/trees/charwood/side.png",
+          "sha256": "ebe6949d5512a57e352044cfeede7417be765250b7952f54c397f36c7d96e7c8"
+        }
+      ],
+      "source_size": [
+        1254,
+        1254
+      ],
+      "source_sha256": "2f8837ac7d56a00c84f62baba3a886f18786847bcb74e198dcdf561961c292a6",
+      "final_sha256": "4ef6d4cddfd0b7afb6adac6ad4faa961cf10200eb676a9cb877cf4702e4c8f5d"
+    },
+    {
+      "family": "enchanted_tree",
+      "block_id": "asteria:sapling_enchanted_tree",
+      "final_path": "packs/default/resources/textures/blocks/trees/enchanted_tree/sapling.png",
+      "prompt": "Use case: style-transfer\nAsset type: Asteria voxel-game sapling crossed-sprite texture.\nPrimary request: Transform the isolated plant sprite from Image 1 into ONE an enchanted sapling: branching saturated cobalt blue trunk with cyan bark accents, a delicate rounded crown made of distinct small golden yellow leaves. Blue wood and gold foliage must both remain clearly visible.\nInput images: Image 1 is the source plant sprite for the game's low-resolution pixel-art style and front-facing cutout composition; replace its species and silhouette. Image 2 is the species foliage material reference, used only for leaf palette and shape language. Image 3 is the species bark material reference, used only for stem palette. Do not output the material tiles.\nStyle/medium: crisp hand-authored 64 by 64 pixel art logical grid, nearest-neighbor upscale only. Deliberate small pixel clusters, restrained palette, irregular organic edges; no antialiasing, no photographic detail, no painterly blur, no 3D voxel cubes, no thick cartoon outline.\nComposition: one small seedling viewed straight on from the side; a visible thin trunk rooted at bottom center with a leafy young crown above. Entire silhouette inside the square with 6 percent side and top margins; stem ends near bottom edge at 94 percent of canvas height. No clipped leaves. All parts visually connected to stem. Approximately 75 percent canvas width and 86 percent height. This is a single plant billboard sprite, no sheet or multiple views.\nBackdrop: actual transparent alpha outside the plant; no colored background, no checkerboard drawn into image, no soil, no pot, no ground line, no cast shadow.\nLighting: subtle upper-left pixel highlights, compact dark pixel shadows. Match the established fantasy species colors described above. Keep the wood visibly its own color.\nConstraints: one sapling only, fully leafy even for charred/dead/frozen species, no label, no text, no watermark, no border. Keep a genuinely transparent background.",
+      "mode": "built-in image_gen",
+      "references": [
+        {
+          "path": "packs/default/resources/textures/objects/thornbush.png",
+          "sha256": "abc3903fd84e81dd3051e38d36324f1262d935b769c1c774b66cb0116b87906d"
+        },
+        {
+          "path": "packs/default/resources/textures/blocks/trees/enchanted_tree/leaf.png",
+          "sha256": "391732f2c5a831f0e38799da32d71076b67b87f21572e18a747eade3dc87be80"
+        },
+        {
+          "path": "packs/default/resources/textures/blocks/trees/enchanted_tree/side.png",
+          "sha256": "665b8a2e9f26e61a1f75e14156c28040ec2a571d3065d29f85fcff73d2dc9150"
+        }
+      ],
+      "source_size": [
+        1254,
+        1254
+      ],
+      "source_sha256": "4f780c49d18fba356395587cc898356953bce3668ca7dc55962e65bf0e042800",
+      "final_sha256": "477b9c33ef45c1f4aa7260517c0fb35140200451331432f92af06371e5b5bb84"
+    },
+    {
+      "family": "frost_wood",
+      "block_id": "asteria:sapling_frost_wood",
+      "final_path": "packs/default/resources/textures/blocks/trees/frost_wood/sapling.png",
+      "prompt": "Use case: style-transfer\nAsset type: Asteria voxel-game sapling crossed-sprite texture.\nPrimary request: Transform the isolated plant sprite from Image 1 into ONE an alpine conifer sapling: silvery slate stem, stepped evergreen silhouette with three whorls of blue teal needle sprays and small white snow caps. Sparse snow, living blue needles still visible.\nInput images: Image 1 is the source plant sprite for the game's low-resolution pixel-art style and front-facing cutout composition; replace its species and silhouette. Image 2 is the species foliage material reference, used only for leaf palette and shape language. Image 3 is the species bark material reference, used only for stem palette. Do not output the material tiles.\nStyle/medium: crisp hand-authored 64 by 64 pixel art logical grid, nearest-neighbor upscale only. Deliberate small pixel clusters, restrained palette, irregular organic edges; no antialiasing, no photographic detail, no painterly blur, no 3D voxel cubes, no thick cartoon outline.\nComposition: one small seedling viewed straight on from the side; a visible thin trunk rooted at bottom center with a leafy young crown above. Entire silhouette inside the square with 6 percent side and top margins; stem ends near bottom edge at 94 percent of canvas height. No clipped leaves. All parts visually connected to stem. Approximately 75 percent canvas width and 86 percent height. This is a single plant billboard sprite, no sheet or multiple views.\nBackdrop: actual transparent alpha outside the plant; no colored background, no checkerboard drawn into image, no soil, no pot, no ground line, no cast shadow.\nLighting: subtle upper-left pixel highlights, compact dark pixel shadows. Match the established fantasy species colors described above. Keep the wood visibly its own color.\nConstraints: one sapling only, fully leafy even for charred/dead/frozen species, no label, no text, no watermark, no border. Keep a genuinely transparent background.",
+      "mode": "built-in image_gen",
+      "references": [
+        {
+          "path": "packs/default/resources/textures/objects/thornbush.png",
+          "sha256": "abc3903fd84e81dd3051e38d36324f1262d935b769c1c774b66cb0116b87906d"
+        },
+        {
+          "path": "packs/default/resources/textures/blocks/trees/frost_wood/leaf.png",
+          "sha256": "710451ef27744d57c78d94931e785039d06293fabb925c268734f85ad7e26f86"
+        },
+        {
+          "path": "packs/default/resources/textures/blocks/trees/frost_wood/side.png",
+          "sha256": "e1627156184ddbb1280a8e4dfb1b2a8bdb36dbb72fcd106300df5f8c6f303772"
+        }
+      ],
+      "source_size": [
+        1254,
+        1254
+      ],
+      "source_sha256": "27a3587f852c7eda7026a6e231564861ac75f6b0b3e945336d8b17660d4a6412",
+      "final_sha256": "02636626606bf78e5952e09d950c15d08b0d51823cf7979cebd2190c66b733b9"
+    },
+    {
+      "family": "juniper",
+      "block_id": "asteria:sapling_juniper",
+      "final_path": "packs/default/resources/textures/blocks/trees/juniper/sapling.png",
+      "prompt": "Use case: style-transfer\nAsset type: Asteria voxel-game sapling crossed-sprite texture.\nPrimary request: Transform the isolated plant sprite from Image 1 into ONE a juniper sapling: slender warm taupe gray stem splitting into several upright sprays of small dark forest green scale needles, tapered irregular silhouette with one small side branch.\nInput images: Image 1 is the source plant sprite for the game's low-resolution pixel-art style and front-facing cutout composition; replace its species and silhouette. Image 2 is the species foliage material reference, used only for leaf palette and shape language. Image 3 is the species bark material reference, used only for stem palette. Do not output the material tiles.\nStyle/medium: crisp hand-authored 64 by 64 pixel art logical grid, nearest-neighbor upscale only. Deliberate small pixel clusters, restrained palette, irregular organic edges; no antialiasing, no photographic detail, no painterly blur, no 3D voxel cubes, no thick cartoon outline.\nComposition: one small seedling viewed straight on from the side; a visible thin trunk rooted at bottom center with a leafy young crown above. Entire silhouette inside the square with 6 percent side and top margins; stem ends near bottom edge at 94 percent of canvas height. No clipped leaves. All parts visually connected to stem. Approximately 75 percent canvas width and 86 percent height. This is a single plant billboard sprite, no sheet or multiple views.\nBackdrop: actual transparent alpha outside the plant; no colored background, no checkerboard drawn into image, no soil, no pot, no ground line, no cast shadow.\nLighting: subtle upper-left pixel highlights, compact dark pixel shadows. Match the established fantasy species colors described above. Keep the wood visibly its own color.\nConstraints: one sapling only, fully leafy even for charred/dead/frozen species, no label, no text, no watermark, no border. Keep a genuinely transparent background.",
+      "mode": "built-in image_gen",
+      "references": [
+        {
+          "path": "packs/default/resources/textures/objects/thornbush.png",
+          "sha256": "abc3903fd84e81dd3051e38d36324f1262d935b769c1c774b66cb0116b87906d"
+        },
+        {
+          "path": "packs/default/resources/textures/blocks/trees/juniper/leaf.png",
+          "sha256": "2e5c19caa1e7d573aabda337d8eae30519bde960f5ad06b52a5ff595a17ab35d"
+        },
+        {
+          "path": "packs/default/resources/textures/blocks/trees/juniper/side.png",
+          "sha256": "ed59a5fd407a97acd1a9f9fc23109b91b464f60099ef54a6379bb85d209ac10b"
+        }
+      ],
+      "source_size": [
+        1254,
+        1254
+      ],
+      "source_sha256": "8266b845ed2ccc7819b69db37d6113a81d743c8db9deeac113e3a879eb40ab3a",
+      "final_sha256": "11b9e52ae86645472c130377193d7ac3488cb0d62f4b317b4752f6df1f619b01"
+    },
+    {
+      "family": "oak",
+      "block_id": "asteria:sapling_oak",
+      "final_path": "packs/default/resources/textures/blocks/trees/oak/sapling.png",
+      "prompt": "Use case: style-transfer\nAsset type: Asteria voxel-game sapling crossed-sprite texture.\nPrimary request: Transform the isolated plant sprite from Image 1 into ONE a young oak sapling: warm brown stem splitting into two short branches with three compact rounded clusters of recognizable lobed oak leaves, forest green shadows and fresh moss green highlights.\nInput images: Image 1 is the source plant sprite for the game's low-resolution pixel-art style and front-facing cutout composition; replace its species and silhouette. Image 2 is the species foliage material reference, used only for leaf palette and shape language. Image 3 is the species bark material reference, used only for stem palette. Do not output the material tiles.\nStyle/medium: crisp hand-authored 64 by 64 pixel art logical grid, nearest-neighbor upscale only. Deliberate small pixel clusters, restrained palette, irregular organic edges; no antialiasing, no photographic detail, no painterly blur, no 3D voxel cubes, no thick cartoon outline.\nComposition: one small seedling viewed straight on from the side; a visible thin trunk rooted at bottom center with a leafy young crown above. Entire silhouette inside the square with 6 percent side and top margins; stem ends near bottom edge at 94 percent of canvas height. No clipped leaves. All parts visually connected to stem. Approximately 75 percent canvas width and 86 percent height. This is a single plant billboard sprite, no sheet or multiple views.\nBackdrop: actual transparent alpha outside the plant; no colored background, no checkerboard drawn into image, no soil, no pot, no ground line, no cast shadow.\nLighting: subtle upper-left pixel highlights, compact dark pixel shadows. Match the established fantasy species colors described above. Keep the wood visibly its own color.\nConstraints: one sapling only, fully leafy even for charred/dead/frozen species, no label, no text, no watermark, no border. Keep a genuinely transparent background.",
+      "mode": "built-in image_gen",
+      "references": [
+        {
+          "path": "packs/default/resources/textures/objects/thornbush.png",
+          "sha256": "abc3903fd84e81dd3051e38d36324f1262d935b769c1c774b66cb0116b87906d"
+        },
+        {
+          "path": "packs/default/resources/textures/blocks/trees/oak/leaf.png",
+          "sha256": "add37526cf5d6120ff6a7ed8ad9efbb9139859e4d362e5af7544c30c728ec4d0"
+        },
+        {
+          "path": "packs/default/resources/textures/blocks/trees/oak/side.png",
+          "sha256": "d695de7f1a91c2996e6013477485244c5677457c4b252cc192a8f1df137386f0"
+        }
+      ],
+      "source_size": [
+        1254,
+        1254
+      ],
+      "source_sha256": "7889eb253d0ca96ef61b2397d39ff46f36b8cfa001625fdb16ef0902cd1e0aa4",
+      "final_sha256": "ca605bd63847d722f03b3b34e6d8cfa9965c544138cf65d0bd882fc7861c6b90"
+    },
+    {
+      "family": "rime_deadwood",
+      "block_id": "asteria:sapling_rime_deadwood",
+      "final_path": "packs/default/resources/textures/blocks/trees/rime_deadwood/sapling.png",
+      "prompt": "Use case: style-transfer\nAsset type: Asteria voxel-game sapling crossed-sprite texture.\nPrimary request: Transform the isolated plant sprite from Image 1 into ONE a living fantasy rime sapling: thin icy silver blue stem with angular branches, airy clusters of pointed frosted silver and pale blue leaves, some dark steel blue shadows. Visible leaves on the once-dead frozen wood.\nInput images: Image 1 is the source plant sprite for the game's low-resolution pixel-art style and front-facing cutout composition; replace its species and silhouette. Image 2 is the species foliage material reference, used only for leaf palette and shape language. Image 3 is the species bark material reference, used only for stem palette. Do not output the material tiles.\nStyle/medium: crisp hand-authored 64 by 64 pixel art logical grid, nearest-neighbor upscale only. Deliberate small pixel clusters, restrained palette, irregular organic edges; no antialiasing, no photographic detail, no painterly blur, no 3D voxel cubes, no thick cartoon outline.\nComposition: one small seedling viewed straight on from the side; a visible thin trunk rooted at bottom center with a leafy young crown above. Entire silhouette inside the square with 6 percent side and top margins; stem ends near bottom edge at 94 percent of canvas height. No clipped leaves. All parts visually connected to stem. Approximately 75 percent canvas width and 86 percent height. This is a single plant billboard sprite, no sheet or multiple views.\nBackdrop: actual transparent alpha outside the plant; no colored background, no checkerboard drawn into image, no soil, no pot, no ground line, no cast shadow.\nLighting: subtle upper-left pixel highlights, compact dark pixel shadows. Match the established fantasy species colors described above. Keep the wood visibly its own color.\nConstraints: one sapling only, fully leafy even for charred/dead/frozen species, no label, no text, no watermark, no border. Keep a genuinely transparent background.",
+      "mode": "built-in image_gen",
+      "references": [
+        {
+          "path": "packs/default/resources/textures/objects/thornbush.png",
+          "sha256": "abc3903fd84e81dd3051e38d36324f1262d935b769c1c774b66cb0116b87906d"
+        },
+        {
+          "path": "packs/default/resources/textures/blocks/trees/rime_deadwood/leaf.png",
+          "sha256": "1455533869729df7cb007875e602bb7d5104b8993108ac2d49968a59e1f9af6d"
+        },
+        {
+          "path": "packs/default/resources/textures/blocks/trees/rime_deadwood/side.png",
+          "sha256": "32cd4d5c7d992bd39b218991dda34af1b7133bfb8b9b3f4fa0a901fa4457ae91"
+        }
+      ],
+      "source_size": [
+        1254,
+        1254
+      ],
+      "source_sha256": "d6544924b5588928c379b9339f45ef64fa2d0ff670cdb8293eddcfff7730ae1c",
+      "final_sha256": "002a3d8b769244bf8d8400f0c2a386add8a44a6968094aac053aa96b742ced99"
+    },
+    {
+      "family": "skywood",
+      "block_id": "asteria:sapling_skywood",
+      "final_path": "packs/default/resources/textures/blocks/trees/skywood/sapling.png",
+      "prompt": "Use case: style-transfer\nAsset type: Asteria voxel-game sapling crossed-sprite texture.\nPrimary request: Transform the isolated plant sprite from Image 1 into ONE a skywood sapling: a slender pale jade teal trunk with curved ascending branches and light airy mint turquoise pointed leaf clusters, springlike floating silhouette. No glow halo.\nInput images: Image 1 is the source plant sprite for the game's low-resolution pixel-art style and front-facing cutout composition; replace its species and silhouette. Image 2 is the species foliage material reference, used only for leaf palette and shape language. Image 3 is the species bark material reference, used only for stem palette. Do not output the material tiles.\nStyle/medium: crisp hand-authored 64 by 64 pixel art logical grid, nearest-neighbor upscale only. Deliberate small pixel clusters, restrained palette, irregular organic edges; no antialiasing, no photographic detail, no painterly blur, no 3D voxel cubes, no thick cartoon outline.\nComposition: one small seedling viewed straight on from the side; a visible thin trunk rooted at bottom center with a leafy young crown above. Entire silhouette inside the square with 6 percent side and top margins; stem ends near bottom edge at 94 percent of canvas height. No clipped leaves. All parts visually connected to stem. Approximately 75 percent canvas width and 86 percent height. This is a single plant billboard sprite, no sheet or multiple views.\nBackdrop: actual transparent alpha outside the plant; no colored background, no checkerboard drawn into image, no soil, no pot, no ground line, no cast shadow.\nLighting: subtle upper-left pixel highlights, compact dark pixel shadows. Match the established fantasy species colors described above. Keep the wood visibly its own color.\nConstraints: one sapling only, fully leafy even for charred/dead/frozen species, no label, no text, no watermark, no border. Keep a genuinely transparent background.",
+      "mode": "built-in image_gen",
+      "references": [
+        {
+          "path": "packs/default/resources/textures/objects/thornbush.png",
+          "sha256": "abc3903fd84e81dd3051e38d36324f1262d935b769c1c774b66cb0116b87906d"
+        },
+        {
+          "path": "packs/default/resources/textures/blocks/trees/skywood/leaf.png",
+          "sha256": "423a13e5de45ea375401bf97db4a121117f9b0fda6cbd6d1b7fbac2b9ef90a44"
+        },
+        {
+          "path": "packs/default/resources/textures/blocks/trees/skywood/side.png",
+          "sha256": "e16c8f5181bce74ce8f0ce22b129fc3782c0059ea016b0e159610ac62614fa52"
+        }
+      ],
+      "source_size": [
+        1254,
+        1254
+      ],
+      "source_sha256": "54f2fa59b321870ad12650493f7d4c0858d1a4e8edeba51bf2a22804eb0e2d0f",
+      "final_sha256": "07db909dd087b4e0afa2c6b9cecd4daa5985c497ea4037533a5d8219aac8be89"
+    },
+    {
+      "family": "thornwood",
+      "block_id": "asteria:sapling_thornwood",
+      "final_path": "packs/default/resources/textures/blocks/trees/thornwood/sapling.png",
+      "prompt": "Use case: style-transfer\nAsset type: Asteria voxel-game sapling crossed-sprite texture.\nPrimary request: Transform the isolated plant sprite from Image 1 into ONE a thornwood sapling: warm dark copper brown branching stem with two small thorns and a compact pointed copper burgundy and rust red leaf crown. Living fantasy foliage, not a bare thornbush.\nInput images: Image 1 is the source plant sprite for the game's low-resolution pixel-art style and front-facing cutout composition; replace its species and silhouette. Image 2 is the species foliage material reference, used only for leaf palette and shape language. Image 3 is the species bark material reference, used only for stem palette. Do not output the material tiles.\nStyle/medium: crisp hand-authored 64 by 64 pixel art logical grid, nearest-neighbor upscale only. Deliberate small pixel clusters, restrained palette, irregular organic edges; no antialiasing, no photographic detail, no painterly blur, no 3D voxel cubes, no thick cartoon outline.\nComposition: one small seedling viewed straight on from the side; a visible thin trunk rooted at bottom center with a leafy young crown above. Entire silhouette inside the square with 6 percent side and top margins; stem ends near bottom edge at 94 percent of canvas height. No clipped leaves. All parts visually connected to stem. Approximately 75 percent canvas width and 86 percent height. This is a single plant billboard sprite, no sheet or multiple views.\nBackdrop: actual transparent alpha outside the plant; no colored background, no checkerboard drawn into image, no soil, no pot, no ground line, no cast shadow.\nLighting: subtle upper-left pixel highlights, compact dark pixel shadows. Match the established fantasy species colors described above. Keep the wood visibly its own color.\nConstraints: one sapling only, fully leafy even for charred/dead/frozen species, no label, no text, no watermark, no border. Keep a genuinely transparent background.",
+      "mode": "built-in image_gen",
+      "references": [
+        {
+          "path": "packs/default/resources/textures/objects/thornbush.png",
+          "sha256": "abc3903fd84e81dd3051e38d36324f1262d935b769c1c774b66cb0116b87906d"
+        },
+        {
+          "path": "packs/default/resources/textures/blocks/trees/thornwood/leaf.png",
+          "sha256": "9e3746fac00319c16b0c56f222106c6475021840bfdafb2e3beedf343261266f"
+        },
+        {
+          "path": "packs/default/resources/textures/blocks/trees/thornwood/side.png",
+          "sha256": "51e87c2b53efd1a485328a91c1d98be42d0ba280278764f31333210cfc5ff3ca"
+        }
+      ],
+      "source_size": [
+        1254,
+        1254
+      ],
+      "source_sha256": "392552f7b69fadfe8ecb43069b6cd7b363beeaaa0e4d78c0d33b705f2b923c0c",
+      "final_sha256": "1250dcbf87ddb995b3cc2739b29e8695dbf48f68f1c6a6949dc2ba67ae81944d"
+    },
+    {
+      "family": "willow",
+      "block_id": "asteria:sapling_willow",
+      "final_path": "packs/default/resources/textures/blocks/trees/willow/sapling.png",
+      "prompt": "Use case: style-transfer\nAsset type: Asteria voxel-game sapling crossed-sprite texture.\nPrimary request: Transform the isolated plant sprite from Image 1 into ONE a young willow sapling: slender olive brown upright stem with two arching side shoots and several hanging strands of narrow sage and muted forest green leaves, recognizable drooping willow silhouette.\nInput images: Image 1 is the source plant sprite for the game's low-resolution pixel-art style and front-facing cutout composition; replace its species and silhouette. Image 2 is the species foliage material reference, used only for leaf palette and shape language. Image 3 is the species bark material reference, used only for stem palette. Do not output the material tiles.\nStyle/medium: crisp hand-authored 64 by 64 pixel art logical grid, nearest-neighbor upscale only. Deliberate small pixel clusters, restrained palette, irregular organic edges; no antialiasing, no photographic detail, no painterly blur, no 3D voxel cubes, no thick cartoon outline.\nComposition: one small seedling viewed straight on from the side; a visible thin trunk rooted at bottom center with a leafy young crown above. Entire silhouette inside the square with 6 percent side and top margins; stem ends near bottom edge at 94 percent of canvas height. No clipped leaves. All parts visually connected to stem. Approximately 75 percent canvas width and 86 percent height. This is a single plant billboard sprite, no sheet or multiple views.\nBackdrop: actual transparent alpha outside the plant; no colored background, no checkerboard drawn into image, no soil, no pot, no ground line, no cast shadow.\nLighting: subtle upper-left pixel highlights, compact dark pixel shadows. Match the established fantasy species colors described above. Keep the wood visibly its own color.\nConstraints: one sapling only, fully leafy even for charred/dead/frozen species, no label, no text, no watermark, no border. Keep a genuinely transparent background.",
+      "mode": "built-in image_gen",
+      "references": [
+        {
+          "path": "packs/default/resources/textures/objects/thornbush.png",
+          "sha256": "abc3903fd84e81dd3051e38d36324f1262d935b769c1c774b66cb0116b87906d"
+        },
+        {
+          "path": "packs/default/resources/textures/blocks/trees/willow/leaf.png",
+          "sha256": "ed008a1e3f77c3a4fa250372c2d853f1b879b2dac44539e240b70c244ee7e89b"
+        },
+        {
+          "path": "packs/default/resources/textures/blocks/trees/willow/side.png",
+          "sha256": "488edde0c9851a12316bebbcb65d12de9d9923e09b0d3a6c40df01c8bcd42666"
+        }
+      ],
+      "source_size": [
+        1254,
+        1254
+      ],
+      "source_sha256": "320d965c7db634130fe0924f4a7d47007fbc75e5288ef91a8e3cc43faa8c28a0",
+      "final_sha256": "64e31cf8728149f92ed1b255ed345defe568677ba82bc76bab7f995fad424bff"
+    },
+    {
+      "family": "windwood",
+      "block_id": "asteria:sapling_windwood",
+      "final_path": "packs/default/resources/textures/blocks/trees/windwood/sapling.png",
+      "prompt": "Use case: style-transfer\nAsset type: Asteria voxel-game sapling crossed-sprite texture.\nPrimary request: Transform the isolated plant sprite from Image 1 into ONE a windwood sapling: a dark taupe brown gently bent trunk and asymmetric sprays of olive and yellow green fine needles swept slightly to one side. Root stem remains centered and upright at the base.\nInput images: Image 1 is the source plant sprite for the game's low-resolution pixel-art style and front-facing cutout composition; replace its species and silhouette. Image 2 is the species foliage material reference, used only for leaf palette and shape language. Image 3 is the species bark material reference, used only for stem palette. Do not output the material tiles.\nStyle/medium: crisp hand-authored 64 by 64 pixel art logical grid, nearest-neighbor upscale only. Deliberate small pixel clusters, restrained palette, irregular organic edges; no antialiasing, no photographic detail, no painterly blur, no 3D voxel cubes, no thick cartoon outline.\nComposition: one small seedling viewed straight on from the side; a visible thin trunk rooted at bottom center with a leafy young crown above. Entire silhouette inside the square with 6 percent side and top margins; stem ends near bottom edge at 94 percent of canvas height. No clipped leaves. All parts visually connected to stem. Approximately 75 percent canvas width and 86 percent height. This is a single plant billboard sprite, no sheet or multiple views.\nBackdrop: actual transparent alpha outside the plant; no colored background, no checkerboard drawn into image, no soil, no pot, no ground line, no cast shadow.\nLighting: subtle upper-left pixel highlights, compact dark pixel shadows. Match the established fantasy species colors described above. Keep the wood visibly its own color.\nConstraints: one sapling only, fully leafy even for charred/dead/frozen species, no label, no text, no watermark, no border. Keep a genuinely transparent background.",
+      "mode": "built-in image_gen",
+      "references": [
+        {
+          "path": "packs/default/resources/textures/objects/thornbush.png",
+          "sha256": "abc3903fd84e81dd3051e38d36324f1262d935b769c1c774b66cb0116b87906d"
+        },
+        {
+          "path": "packs/default/resources/textures/blocks/trees/windwood/leaf.png",
+          "sha256": "e90f94922e165a501c56e25934d399f483d55a21f36beb7ed613cbe8a8dd3ed7"
+        },
+        {
+          "path": "packs/default/resources/textures/blocks/trees/windwood/side.png",
+          "sha256": "77d197efae13887860498f3d2157218f228b45dd368c084588a26430095b414b"
+        }
+      ],
+      "source_size": [
+        1254,
+        1254
+      ],
+      "source_sha256": "a01e5a2296a8e07cdbb0329685f77fdfcf7a8f99e3869d1225e09be3e5783331",
+      "final_sha256": "06b8f97a2bef4d43add7e8100d878dd4e510b728ff0605dd1449d5e8033f9bd7"
+    },
+    {
+      "family": "world_tree",
+      "block_id": "asteria:sapling_world_tree",
+      "final_path": "packs/default/resources/textures/blocks/trees/world_tree/sapling.png",
+      "prompt": "Use case: style-transfer\nAsset type: Asteria voxel-game sapling crossed-sprite texture.\nPrimary request: Transform the isolated plant sprite from Image 1 into ONE a World Tree sapling: upright rich golden amber trunk splitting into a balanced fork, airy crown of icy azure blue and pale cyan broad pointed leaf clusters. Gold wood and BLUE foliage clearly visible. Distinct majestic tiny tree silhouette, NOT golden leaves.\nInput images: Image 1 is the source plant sprite for the game's low-resolution pixel-art style and front-facing cutout composition; replace its species and silhouette. Image 2 is the species foliage material reference, used only for leaf palette and shape language. Image 3 is the species bark material reference, used only for stem palette. Do not output the material tiles.\nStyle/medium: crisp hand-authored 64 by 64 pixel art logical grid, nearest-neighbor upscale only. Deliberate small pixel clusters, restrained palette, irregular organic edges; no antialiasing, no photographic detail, no painterly blur, no 3D voxel cubes, no thick cartoon outline.\nComposition: one small seedling viewed straight on from the side; a visible thin trunk rooted at bottom center with a leafy young crown above. Entire silhouette inside the square with 6 percent side and top margins; stem ends near bottom edge at 94 percent of canvas height. No clipped leaves. All parts visually connected to stem. Approximately 75 percent canvas width and 86 percent height. This is a single plant billboard sprite, no sheet or multiple views.\nBackdrop: actual transparent alpha outside the plant; no colored background, no checkerboard drawn into image, no soil, no pot, no ground line, no cast shadow.\nLighting: subtle upper-left pixel highlights, compact dark pixel shadows. Match the established fantasy species colors described above. Keep the wood visibly its own color.\nConstraints: one sapling only, fully leafy even for charred/dead/frozen species, no label, no text, no watermark, no border. Keep a genuinely transparent background.",
+      "mode": "built-in image_gen",
+      "references": [
+        {
+          "path": "packs/default/resources/textures/objects/thornbush.png",
+          "sha256": "abc3903fd84e81dd3051e38d36324f1262d935b769c1c774b66cb0116b87906d"
+        },
+        {
+          "path": "packs/default/resources/textures/blocks/trees/world_tree/leaf.png",
+          "sha256": "288f58c2d4ddd96032c90c5c7d02e6cbde8e864fe62cc06f89e99ed3dde3ca6a"
+        },
+        {
+          "path": "packs/default/resources/textures/blocks/trees/world_tree/side.png",
+          "sha256": "ea72fb31e8b9f91b732885ad7478f66d6374457468241ac814709042505d3da0"
+        }
+      ],
+      "source_size": [
+        1254,
+        1254
+      ],
+      "source_sha256": "531664cff897a2936032d2996ffc5f34c5ec0f85484bbc06c2399dab7ce71c1c",
+      "final_sha256": "07b1d7ebf0dca3dfac3dfbea9de82f2ba17a0c8debca796e97789a75eedb34cc"
+    }
+  ]
+}

@@ -76,13 +76,13 @@ const validateBlockTexturePaths = (node, context) => {
   }
 };
 
-// A tree's texture folder is a stable four-role material contract.
+// Tree families provide the four material roles plus their sapling sprite.
 // Additional variants (for example foliage variants and planks) remain valid.
 const treeTexturesRoot = join(resourcesRoot, "textures", "blocks", "trees");
 for (const entry of readdirSync(treeTexturesRoot, { withFileTypes: true })
     .filter(entry => entry.isDirectory())
     .sort((a, b) => a.name.localeCompare(b.name))) {
-  for (const role of ["top", "side", "leaf", "stripped"]) {
+  for (const role of ["top", "side", "leaf", "stripped", "sapling"]) {
     const asset = "textures/blocks/trees/" + entry.name + "/" + role + ".png";
     resource(asset, "tree material " + entry.name + "." + role);
     const png = readFileSync(join(resourcesRoot, asset));

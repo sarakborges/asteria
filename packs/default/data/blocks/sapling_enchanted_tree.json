@@ -1,0 +1,27 @@
+{
+  "id": "asteria:sapling_enchanted_tree",
+  "category": "foliage",
+  "tags": [
+    "support_below"
+  ],
+  "windSway": true,
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/blocks/trees/enchanted_tree/sapling.png",
+    "width": 0.76,
+    "height": 0.8,
+    "planes": 4
+  },
+  "placementFaces": [
+    "top"
+  ],
+  "mining": {
+    "hardness": 0.1
+  },
+  "isCollidable": false,
+  "castsShadow": false,
+  "lightDampening": 0,
+  "alphaCutoff": 0.5,
+  "previewColor": "eac541",
+  "dropsSelf": true
+}

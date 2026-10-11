@@ -1,0 +1,276 @@
+{
+  "base_sha": "8dfc12455dfe68936f93cc31def793f78c737ace",
+  "family_count": 11,
+  "all_families_covered": true,
+  "all_sprites_unique": true,
+  "sprites": [
+    {
+      "family": "charwood",
+      "block_id": "asteria:sapling_charwood",
+      "size": [
+        64,
+        64
+      ],
+      "mode": "RGBA",
+      "alpha": [
+        0,
+        255
+      ],
+      "opaque_fraction": 0.2322,
+      "visible_bounds": [
+        8,
+        5,
+        57,
+        64
+      ],
+      "clear_top_and_sides": true,
+      "centered_base": true,
+      "bottom_anchored": true,
+      "bottom_padding_shift_pixels": 3
+    },
+    {
+      "family": "enchanted_tree",
+      "block_id": "asteria:sapling_enchanted_tree",
+      "size": [
+        64,
+        64
+      ],
+      "mode": "RGBA",
+      "alpha": [
+        0,
+        255
+      ],
+      "opaque_fraction": 0.3535,
+      "visible_bounds": [
+        2,
+        8,
+        63,
+        64
+      ],
+      "clear_top_and_sides": true,
+      "centered_base": true,
+      "bottom_anchored": true,
+      "bottom_padding_shift_pixels": 3
+    },
+    {
+      "family": "frost_wood",
+      "block_id": "asteria:sapling_frost_wood",
+      "size": [
+        64,
+        64
+      ],
+      "mode": "RGBA",
+      "alpha": [
+        0,
+        255
+      ],
+      "opaque_fraction": 0.2605,
+      "visible_bounds": [
+        8,
+        8,
+        58,
+        64
+      ],
+      "clear_top_and_sides": true,
+      "centered_base": true,
+      "bottom_anchored": true,
+      "bottom_padding_shift_pixels": 4
+    },
+    {
+      "family": "juniper",
+      "block_id": "asteria:sapling_juniper",
+      "size": [
+        64,
+        64
+      ],
+      "mode": "RGBA",
+      "alpha": [
+        0,
+        255
+      ],
+      "opaque_fraction": 0.217,
+      "visible_bounds": [
+        14,
+        7,
+        52,
+        64
+      ],
+      "clear_top_and_sides": true,
+      "centered_base": true,
+      "bottom_anchored": true,
+      "bottom_padding_shift_pixels": 3
+    },
+    {
+      "family": "oak",
+      "block_id": "asteria:sapling_oak",
+      "size": [
+        64,
+        64
+      ],
+      "mode": "RGBA",
+      "alpha": [
+        0,
+        255
+      ],
+      "opaque_fraction": 0.2927,
+      "visible_bounds": [
+        5,
+        11,
+        59,
+        64
+      ],
+      "clear_top_and_sides": true,
+      "centered_base": true,
+      "bottom_anchored": true,
+      "bottom_padding_shift_pixels": 4
+    },
+    {
+      "family": "rime_deadwood",
+      "block_id": "asteria:sapling_rime_deadwood",
+      "size": [
+        64,
+        64
+      ],
+      "mode": "RGBA",
+      "alpha": [
+        0,
+        255
+      ],
+      "opaque_fraction": 0.2861,
+      "visible_bounds": [
+        4,
+        6,
+        61,
+        64
+      ],
+      "clear_top_and_sides": true,
+      "centered_base": true,
+      "bottom_anchored": true,
+      "bottom_padding_shift_pixels": 2
+    },
+    {
+      "family": "skywood",
+      "block_id": "asteria:sapling_skywood",
+      "size": [
+        64,
+        64
+      ],
+      "mode": "RGBA",
+      "alpha": [
+        0,
+        255
+      ],
+      "opaque_fraction": 0.2507,
+      "visible_bounds": [
+        5,
+        7,
+        60,
+        64
+      ],
+      "clear_top_and_sides": true,
+      "centered_base": true,
+      "bottom_anchored": true,
+      "bottom_padding_shift_pixels": 2
+    },
+    {
+      "family": "thornwood",
+      "block_id": "asteria:sapling_thornwood",
+      "size": [
+        64,
+        64
+      ],
+      "mode": "RGBA",
+      "alpha": [
+        0,
+        255
+      ],
+      "opaque_fraction": 0.2947,
+      "visible_bounds": [
+        5,
+        8,
+        60,
+        64
+      ],
+      "clear_top_and_sides": true,
+      "centered_base": true,
+      "bottom_anchored": true,
+      "bottom_padding_shift_pixels": 2
+    },
+    {
+      "family": "willow",
+      "block_id": "asteria:sapling_willow",
+      "size": [
+        64,
+        64
+      ],
+      "mode": "RGBA",
+      "alpha": [
+        0,
+        255
+      ],
+      "opaque_fraction": 0.2483,
+      "visible_bounds": [
+        7,
+        6,
+        57,
+        64
+      ],
+      "clear_top_and_sides": true,
+      "centered_base": true,
+      "bottom_anchored": true,
+      "bottom_padding_shift_pixels": 2
+    },
+    {
+      "family": "windwood",
+      "block_id": "asteria:sapling_windwood",
+      "size": [
+        64,
+        64
+      ],
+      "mode": "RGBA",
+      "alpha": [
+        0,
+        255
+      ],
+      "opaque_fraction": 0.2627,
+      "visible_bounds": [
+        9,
+        5,
+        60,
+        64
+      ],
+      "clear_top_and_sides": true,
+      "centered_base": true,
+      "bottom_anchored": true,
+      "bottom_padding_shift_pixels": 2
+    },
+    {
+      "family": "world_tree",
+      "block_id": "asteria:sapling_world_tree",
+      "size": [
+        64,
+        64
+      ],
+      "mode": "RGBA",
+      "alpha": [
+        0,
+        255
+      ],
+      "opaque_fraction": 0.3025,
+      "visible_bounds": [
+        4,
+        8,
+        60,
+        64
+      ],
+      "clear_top_and_sides": true,
+      "centered_base": true,
+      "bottom_anchored": true,
+      "bottom_padding_shift_pixels": 3
+    }
+  ],
+  "runtime_validation": "TreeSaplingContentTests exercises creative selection, supported top placement, walk-through, breaking, replanting and support removal in CI.",
+  "automatic_growth": false,
+  "other_textures_byte_preserved": 286,
+  "local_resource_and_localization_check": "passed"
+}
