@@ -251,6 +251,29 @@ stage descriptions as the current status.
   partial deletion error handling; save → menu → fresh-process load, corrupted
   generation, repeated entry/exit and no leaked presentation or worker handles.
 
+## Stage 16: save-and-exit on native application close (2026-10-11)
+
+- `Main` disables Godot's automatic window-close acceptance and handles
+  `NotificationWMCloseRequest` (window close / Alt+F4) together with the
+  WebUI `ui.app.exit` action. From the main menu, quitting is immediate.
+- With a world active, app exit is an **intent**, not `SceneTree.Quit()`.
+  If the world is still loading or a Sphere transition/checkpoint is running,
+  the intent waits for that lifecycle to finish. When the active world is
+  ready, it calls the existing `RequestSaveAndLeave` pipeline, which drains
+  workers, archives chunks and publishes the complete session generation and
+  manifest. Only its successful `LeftWorld` completion may quit the app.
+- A rejected checkpoint request or failed publication cancels the exit intent;
+  the game stays open and surfaces the save error. Repeated close requests
+  during one exit cannot bypass the checkpoint.
+- This covers normal OS/UI quit requests, **not** forced termination, process
+  crashes, editor Stop commands or loss of power (which cannot reliably run
+  graceful shutdown callbacks).
+- **Native regression checklist:** test window X, Alt+F4 and Pause Menu Exit
+  Game; close during initial world loading and Sphere travel; close while
+  another checkpoint is underway; force a save I/O failure and verify the
+  world resumes rather than quitting; restart and verify restored world,
+  inventory, entities, containers and Sphere state.
+
 ## Remaining after stage 14 (reviewed 2026-10-09)
 
 - **World Delete is wired** through native validated filesystem deletion.
