@@ -240,7 +240,7 @@ public sealed class DimensionRuntimeSession
                 blocks,
                 Mutations,
                 _droppedBlocks,
-                layers);
+                layers, _inventoryCatalog);
         Tools = new ToolGameplayRuntime(
             World, blocks, Mutations, tools, dyes);
         LayerPlacement = new AttachedLayerPlacementRuntime(
