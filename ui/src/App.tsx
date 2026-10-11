@@ -27,6 +27,7 @@ export type AppActions = {
     ticksPerSecond: string;
     spawnCreatures: boolean;
     keepInventory: boolean;
+    creatureAttackMode: import("./state/uiState").CreatureAttackMode;
     generation: import("./state/uiState").WorldGenerationDraft;
   }): void;
   randomizeWorld(): void;
@@ -53,6 +54,7 @@ export type AppActions = {
   setGameplayHint(kind: "RotateBlock" | "BreakOrPlaceBlock", value: boolean): void;
   setWorldTicks(value: number): void;
   setSpawnCreatures(value: boolean): void;
+  setCreatureAttackMode(value: import("./state/uiState").CreatureAttackMode): void;
   setKeepInventory(value: boolean): void;
   setGameMode(value: import("./state/uiState").GameMode): void;
   beginKeyCapture(action: "Jump" | "Descend" | "ToolAction" | "Inventory" | "Chat" | "DropItem" | "ChangePerspective"): void;
@@ -264,6 +266,7 @@ export function App({
           onGameplayHint={actions.setGameplayHint}
           onWorldTicks={actions.setWorldTicks}
           onSpawnCreatures={actions.setSpawnCreatures}
+          onCreatureAttackMode={actions.setCreatureAttackMode}
           onKeepInventory={actions.setKeepInventory}
           onGameMode={actions.setGameMode}
         />

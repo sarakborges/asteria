@@ -1,5 +1,5 @@
 import type { BridgeMessage } from "../bridge/godotBridge";
-import type { ClientSettingsState, GameMode, WorldSettingsState, SettingsState } from "../state/uiState";
+import type { ClientSettingsState, GameMode, CreatureAttackMode, WorldSettingsState, SettingsState } from "../state/uiState";
 import type { UiStore } from "../state/uiStore";
 import { asRecord } from "./messagePayload";
 
@@ -30,6 +30,9 @@ export function createSettingsController(
     },
     setSpawnCreatures(value: boolean) {
       post("ui.world.set_spawn_creatures", { value });
+    },
+    setCreatureAttackMode(value: CreatureAttackMode) {
+      post("ui.world.set_creature_attack_mode", { value });
     },
     setKeepInventory(value: boolean) {
       post("ui.world.set_keep_inventory", { value });
@@ -91,6 +94,7 @@ export function createSettingsController(
             name: payload.name,
             ticksPerSecond: payload.ticksPerSecond,
             spawnCreatures: payload.spawnCreatures === true,
+            creatureAttackMode: payload.creatureAttackMode === "Peaceful" ? "Peaceful" : "Default",
             keepInventory: payload.keepInventory !== false,
             mode: payload.mode as GameMode,
           };

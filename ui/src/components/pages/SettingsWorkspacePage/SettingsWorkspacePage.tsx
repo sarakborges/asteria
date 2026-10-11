@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocalization } from "../../../localization/LocalizationProvider";
-import type { GameMode, SettingsState } from "../../../state/uiState";
+import type { GameMode, CreatureAttackMode, SettingsState } from "../../../state/uiState";
 import { Dropdown } from "../../atoms/Dropdown/Dropdown";
 import { Slider } from "../../atoms/Slider/Slider";
 import { Toggle } from "../../atoms/Toggle/Toggle";
@@ -21,13 +21,14 @@ export type SettingsWorkspacePageProps = {
   onGameplayHint(kind: "RotateBlock" | "BreakOrPlaceBlock", value: boolean): void;
   onWorldTicks(value: number): void;
   onSpawnCreatures(value: boolean): void;
+  onCreatureAttackMode(value: CreatureAttackMode): void;
   onKeepInventory(value: boolean): void;
   onGameMode(value: GameMode): void;
 };
 
 export function SettingsWorkspacePage({
   scope, settings, onBack, onRenderDistance, onTargetPosition,
-  onWorldTicks, onSpawnCreatures, onKeepInventory, onGameMode, onHideHints, onGameplayHint,
+  onWorldTicks, onSpawnCreatures, onCreatureAttackMode, onKeepInventory, onGameMode, onHideHints, onGameplayHint,
 }: SettingsWorkspacePageProps) {
   const { t, language, setLanguage, languages } = useLocalization();
   const [selectedId, setSelectedId] = useState(scope === "game" ? "graphics" : "mode");
@@ -128,6 +129,15 @@ export function SettingsWorkspacePage({
               disabled={!settings.world}
               checked={settings.world?.spawnCreatures ?? true}
               onChange={onSpawnCreatures} />} />
+          <SettingRow title={t("settings.creatureAttackMode")}
+            description={t("settings.creatureAttackMode.description")}
+            control={<Dropdown ariaLabel={t("settings.creatureAttackMode")}
+              disabled={!settings.world}
+              value={settings.world?.creatureAttackMode ?? "Default"}
+              options={(["Default", "Peaceful"] as const).map(value => ({
+                value, label: t("settings.creatureAttackMode." + value.toLowerCase()),
+              }))}
+              onChange={value => onCreatureAttackMode(value as CreatureAttackMode)} />} />
           <SettingRow title={t("settings.keepInventory")}
             description={t("settings.keepInventory.description")}
             control={<Toggle ariaLabel={t("settings.keepInventory")}

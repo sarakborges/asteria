@@ -406,6 +406,11 @@
   "death.inventoryKept": "Your inventory was kept.",
   "death.itemsDropped": "Your items were dropped at the place of death.",
   "death.dropsUnavailable": "The world is full of drops. Your inventory was kept to prevent item loss.",
+  "settings.creatureAttackMode": "Creature Attacks",
+  "settings.creatureAttackMode.description": "Default: creatures can pursue and attack you. Peaceful: creatures still spawn and move, but never attack.",
+  "settings.creatureAttackMode.default": "Default",
+  "settings.creatureAttackMode.peaceful": "Peaceful",
+  "newWorld.error.invalidCreatureAttackMode": "Invalid creature attack mode.",
   "settings.keepInventory": "Keep Inventory",
   "settings.keepInventory.description": "Preserve equipped items, backpack, hotbar and cursor when you die.",
   "death.restored": "This world was restored after your death. Inventory and world drops remain as saved."

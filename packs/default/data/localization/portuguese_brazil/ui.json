@@ -406,6 +406,11 @@
   "death.inventoryKept": "Seu inventário foi preservado.",
   "death.itemsDropped": "Seus itens foram deixados no local da morte.",
   "death.dropsUnavailable": "O mundo atingiu o limite de itens no chão. Seu inventário foi preservado para evitar perdas.",
+  "settings.creatureAttackMode": "Ataques das Criaturas",
+  "settings.creatureAttackMode.description": "Padrão: criaturas podem perseguir e atacar você. Pacífico: criaturas continuam surgindo e se movendo, mas não atacam.",
+  "settings.creatureAttackMode.default": "Padrão",
+  "settings.creatureAttackMode.peaceful": "Pacífico",
+  "newWorld.error.invalidCreatureAttackMode": "Modo de ataque das criaturas inválido.",
   "settings.keepInventory": "Manter inventário",
   "settings.keepInventory.description": "Preserva equipamentos, mochila, barra rápida e cursor ao morrer.",
   "death.restored": "Este mundo foi restaurado após sua morte. O inventário e os itens no mundo permanecem como foram salvos."

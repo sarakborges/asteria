@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEventHandler } from "react";
 import { useLocalization } from "../../../localization/LocalizationProvider";
-import type { WorldCreationState, GameMode, WorldGenerationDraft, WorldGenerationMode } from "../../../state/uiState";
+import type { WorldCreationState, GameMode, CreatureAttackMode, WorldGenerationDraft, WorldGenerationMode } from "../../../state/uiState";
 import { Button } from "../../atoms/Button/Button";
 import { Surface } from "../../atoms/Surface/Surface";
 import { Text } from "../../atoms/Text/Text";
@@ -8,6 +8,7 @@ import { TextInput } from "../../atoms/TextInput/TextInput";
 import { Slider } from "../../atoms/Slider/Slider";
 import { UInt64Input } from "../../atoms/UInt64Input/UInt64Input";
 import { Toggle } from "../../atoms/Toggle/Toggle";
+import { Dropdown } from "../../atoms/Dropdown/Dropdown";
 import { SettingRow } from "../../molecules/SettingRow/SettingRow";
 import { GameModeSetting } from "../../molecules/GameModePicker/GameModeSetting";
 import { NumericStepper } from "../../molecules/NumericStepper/NumericStepper";
@@ -27,6 +28,7 @@ export type NewWorldPageProps = {
     seed: string; name: string; mode: GameMode; ticksPerSecond: string;
     spawnCreatures: boolean;
     keepInventory: boolean;
+    creatureAttackMode: CreatureAttackMode;
     generation: WorldGenerationDraft;
   }): void;
   onRandomize(): void;
@@ -43,6 +45,7 @@ export function NewWorldPage({
   const [ticksPerSecond, setTicksPerSecond] = useState(state.ticksPerSecond);
   const [spawnCreatures, setSpawnCreatures] = useState(state.spawnCreatures);
   const [keepInventory, setKeepInventory] = useState(state.keepInventory);
+  const [creatureAttackMode, setCreatureAttackMode] = useState(state.creatureAttackMode);
   const [generation, setGeneration] = useState(state.generation);
   const [missingBiome, setMissingBiome] = useState(false);
 
@@ -59,7 +62,7 @@ export function NewWorldPage({
       return;
     }
     onCreate({ seed: seed.trim(), name, mode, ticksPerSecond,
-      spawnCreatures, keepInventory, generation });
+      spawnCreatures, keepInventory, creatureAttackMode, generation });
   };
   const setFlag = (
     key: "spawnStructures" | "singleBiome" | "spawnCaves" | "spawnOceans",
@@ -224,6 +227,14 @@ export function NewWorldPage({
             control={<Toggle ariaLabel={t("settings.spawnCreatures")}
               checked={spawnCreatures} disabled={state.pending}
               onChange={setSpawnCreatures} />} />
+          <SettingRow title={t("settings.creatureAttackMode")}
+            description={t("settings.creatureAttackMode.description")}
+            control={<Dropdown ariaLabel={t("settings.creatureAttackMode")}
+              disabled={state.pending} value={creatureAttackMode}
+              options={(["Default", "Peaceful"] as const).map(value => ({
+                value, label: t("settings.creatureAttackMode." + value.toLowerCase()),
+              }))}
+              onChange={value => setCreatureAttackMode(value as CreatureAttackMode)} />} />
           <SettingRow title={t("settings.keepInventory")}
             description={t("settings.keepInventory.description")}
             control={<Toggle ariaLabel={t("settings.keepInventory")}

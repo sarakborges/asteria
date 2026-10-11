@@ -97,6 +97,7 @@ createRoot(rootElement).render(
       setGameplayHint: settings.setGameplayHint,
       setWorldTicks: settings.setWorldTicks,
       setSpawnCreatures: settings.setSpawnCreatures,
+      setCreatureAttackMode: settings.setCreatureAttackMode,
       setKeepInventory: settings.setKeepInventory,
       setGameMode: settings.setGameMode,
       beginKeyCapture: settings.beginKeyCapture,

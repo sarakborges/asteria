@@ -153,11 +153,13 @@ export type BrushPaletteState = {
 };
 
 export type GameMode = "Survival" | "Creative" | "Spectator";
+export type CreatureAttackMode = "Default" | "Peaceful";
 export type OverlayScreen = "none" | "death" | "pause" | "game" | "world" | "controls" | "inventory" | "brush" | "storage";
 
 export type WorldSettingsState = {
   name: string; mode: GameMode; ticksPerSecond: number; spawnCreatures: boolean;
   keepInventory: boolean;
+  creatureAttackMode: CreatureAttackMode;
 };
 export type ClientSettingsState = {
   renderDistanceChunks: number;
@@ -202,6 +204,7 @@ export type WorldCreationState = {
   ticksPerSecond: string;
   spawnCreatures: boolean;
   keepInventory: boolean;
+  creatureAttackMode: CreatureAttackMode;
   generation: WorldGenerationDraft;
   spawnBiomes: SpawnBiomeOption[];
   pending: boolean;
@@ -379,6 +382,7 @@ export function createInitialUiState(
       ticksPerSecond: "40",
       spawnCreatures: true,
       keepInventory: true,
+      creatureAttackMode: "Default",
       generation: {
         mode: "Normal", spawnBiome: null, biomeSizeTenths: 10,
         spawnStructures: true, singleBiome: false,

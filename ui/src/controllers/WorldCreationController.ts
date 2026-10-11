@@ -1,5 +1,5 @@
 import type { BridgeMessage } from "../bridge/godotBridge";
-import type { WorldCreationErrorKey, WorldCreationState, GameMode, WorldGenerationDraft, SpawnBiomeOption } from "../state/uiState";
+import type { WorldCreationErrorKey, WorldCreationState, GameMode, CreatureAttackMode, WorldGenerationDraft, SpawnBiomeOption } from "../state/uiState";
 import type { UiStore } from "../state/uiStore";
 import { asRecord } from "./messagePayload";
 
@@ -8,6 +8,7 @@ export type WorldCreationController = {
     seed: string; name: string; mode: GameMode; ticksPerSecond: string;
     spawnCreatures: boolean;
     keepInventory: boolean;
+    creatureAttackMode: CreatureAttackMode;
     generation: WorldGenerationDraft;
   }): void;
   randomizeWorld(): void;
@@ -27,6 +28,10 @@ export function createWorldCreationController(
         updateWorldCreation(store, { errorKey: "newWorld.error.invalidTickRate" });
         return;
       }
+      if (request.creatureAttackMode !== "Default" && request.creatureAttackMode !== "Peaceful") {
+        updateWorldCreation(store, { errorKey: "newWorld.error.invalidCreatureAttackMode" });
+        return;
+      }
       const generation = request.generation;
       const eligible = store.getSnapshot().worldCreation.spawnBiomes;
       const biomeValid = generation.spawnBiome === null ||
@@ -44,6 +49,7 @@ export function createWorldCreationController(
         ticksPerSecond: Number(ticks),
         spawnCreatures: request.spawnCreatures,
         keepInventory: request.keepInventory,
+        creatureAttackMode: request.creatureAttackMode,
         generation,
       });
     },
@@ -129,6 +135,7 @@ function readErrorKey(value: unknown): WorldCreationErrorKey {
     case "newWorld.error.invalidMode":
     case "newWorld.error.invalidTickRate":
     case "newWorld.error.invalidGeneration":
+    case "newWorld.error.invalidCreatureAttackMode":
       return value;
     default:
       return "newWorld.error.unexpected";

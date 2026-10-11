@@ -115,6 +115,18 @@ test("Game Rules respects the existing Spawn Creatures flag", async ({ page }) =
     .toHaveAttribute("aria-checked", "true");
 });
 
+test("Peaceful mode is independent from creature spawning", async ({ page }) => {
+  await page.goto(STORY + "peaceful&viewMode=story");
+  const { gameRules } = await expectActualWorldSettings(page);
+  const mode = gameRules.getByRole("button", { name: "Creature Attacks" });
+  await expect(mode).toContainText("Peaceful");
+  await expect(gameRules.getByRole("switch", { name: "Spawn Creatures" }))
+    .toHaveAttribute("aria-checked", "true");
+  await mode.click();
+  await gameRules.getByRole("option", { name: "Default" }).click();
+  await expect(mode).toContainText("Default");
+});
+
 test("initial menu contains no language selector", async ({ page }) => {
   await page.goto(STORY + "real-navigation&viewMode=story");
   await expect(page.locator(".starting-screen")).toBeVisible();

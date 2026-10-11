@@ -64,6 +64,7 @@ function PreWorldFlow() {
       setGameplayHint: noop,
       setWorldTicks: noop,
       setSpawnCreatures: noop,
+      setCreatureAttackMode: noop,
       setKeepInventory: noop,
       setGameMode: noop,
       beginKeyCapture: noop,
@@ -96,7 +97,8 @@ function InGameFlow({ initialOverlay }: { initialOverlay: "pause" | "inventory" 
       settings: {
         ...initial.settings,
         world: { name: "New World", mode: "Survival",
-          ticksPerSecond: 40, spawnCreatures: true, keepInventory: true },
+          ticksPerSecond: 40, spawnCreatures: true, keepInventory: true,
+          creatureAttackMode: "Default" },
         client: {
           renderDistanceChunks: 8,
           hud: { hideHints: false, targetBlockPosition: "Center",
@@ -147,6 +149,7 @@ function InGameFlow({ initialOverlay }: { initialOverlay: "pause" | "inventory" 
       setGameplayHint: noop,
       setWorldTicks: noop,
       setSpawnCreatures: noop,
+      setCreatureAttackMode: noop,
       setKeepInventory: noop,
       setGameMode: noop,
       beginKeyCapture: noop,
@@ -184,6 +187,7 @@ const meta = {
       ticksPerSecond: "40",
       spawnCreatures: true,
       keepInventory: true,
+      creatureAttackMode: "Default",
       generation: defaultGeneration,
       spawnBiomes: biomes,
       pending: false,
@@ -217,7 +221,11 @@ export const Creative: Story = {
 };
 export const NoCreatureSpawning: Story = {
   args: { state: { ...meta.args.state, seed: "419",
-    name: "Peaceful World", spawnCreatures: false } },
+    name: "No Spawns World", spawnCreatures: false } },
+};
+export const Peaceful: Story = {
+  args: { state: { ...meta.args.state, name: "Peaceful World",
+    creatureAttackMode: "Peaceful" } },
 };
 export const RealNavigation: Story = {
   render: () => <PreWorldFlow />,
