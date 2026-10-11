@@ -602,7 +602,8 @@ public sealed class SurfaceTerrainField
                     values[
                         (localZ * Chunk.Size + localY) *
                         Chunk.Size + localX] =
-                        mayContainCaves || mayContainAdditive
+                        mayContainCaves || mayContainAdditive ||
+                        IsShellLining(worldY)
                             ? DensityAt(
                                 biome,
                                 baseY,
