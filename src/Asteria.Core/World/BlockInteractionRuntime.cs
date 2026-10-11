@@ -152,18 +152,22 @@ public sealed class BlockInteractionRuntime
                     _world, decision.Position, decision.Cell)
                 : null;
 
+        // The host and every dependent spike formation share one physical
+        // drop pool. Count *all* immediate drops before destroying anything.
+        var hostDropCount = authoredLoot?.Count ?? (snapshot is null ? 0 : 1);
+        if (!_spikes.CanRemoveSupport(decision.Position, lootPolicy, hostDropCount))
+            return BlockBreakDecision.Reject(
+                decision.Position, BlockBreakRejection.MutationRejected);
+
         if (!_spikes.RemoveSupport(decision.Position, lootPolicy))
             return BlockBreakDecision.Reject(
                 decision.Position, BlockBreakRejection.MutationRejected);
 
         if (authoredLoot is not null && authoredLoot.Count > 0)
         {
-            // Detaching neighboring spikes can consume drop capacity as part
-            // of removal. Preserve the rolled rewards through the existing
-            // bounded Spawn fallback rather than discarding them.
             if (!_droppedBlocks.TrySpawnBatch(authoredLoot, CenterOf(decision.Position)))
-                foreach (var stack in authoredLoot)
-                    _droppedBlocks.Spawn(stack, CenterOf(decision.Position));
+                throw new InvalidOperationException(
+                    "Drop capacity changed during an accepted block removal.");
         }
         else if (snapshot is not null)
             _droppedBlocks.Spawn(snapshot, CenterOf(decision.Position));
