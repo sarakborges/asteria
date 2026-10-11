@@ -702,13 +702,24 @@ public partial class Main : Node3D
                 !_sessionStates.Player.Health.IsDead &&
                 _sessionStates.GameRules.AllowsCreatureAttacks;
             gameplaySliceStart = Stopwatch.GetTimestamp();
-            _sessions.Active.AdvanceCreatures(
+            var creatureTimings = _sessions.Active.AdvanceCreatures(
                 delta,
                 new NVector3(position.X, position.Y, position.Z),
                 creatureObserver.CollisionBounds,
                 playerTargetable);
             _worldDiagnostics?.ObserveStage(
                 WorldFrameStage.Creatures, gameplaySliceStart);
+            if (_worldDiagnostics is { } creatureDiagnostics)
+            {
+                creatureDiagnostics.ObserveStageMilliseconds(
+                    WorldFrameStage.CreatureSpawn, creatureTimings.SpawnMilliseconds);
+                creatureDiagnostics.ObserveStageMilliseconds(
+                    WorldFrameStage.CreatureSimulation, creatureTimings.SimulationMilliseconds);
+                creatureDiagnostics.ObserveStageMilliseconds(
+                    WorldFrameStage.CreaturePresentation, creatureTimings.PresentationMilliseconds);
+                creatureDiagnostics.ObserveStageMilliseconds(
+                    WorldFrameStage.CreatureParticles, creatureTimings.ParticlesMilliseconds);
+            }
 
             gameplaySliceStart = Stopwatch.GetTimestamp();
             ApplyCreatureMeleeAttacks();
@@ -762,7 +773,8 @@ public partial class Main : Node3D
             _blockEntities.DroppedCount,
             _blockEntities.FallingCount,
             _blockEntities.PendingPhysicsUpdates,
-            _blockEntities.WaitingPhysicsUpdates);
+            _blockEntities.WaitingPhysicsUpdates,
+            _blockEntities.WaitingFallingCount);
 
         gameplaySliceStart = Stopwatch.GetTimestamp();
         SendWorldHudState();

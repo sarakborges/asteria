@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Numerics;
 using Asteria.Client.Rendering;
 using Asteria.Core.Content;
@@ -22,6 +23,12 @@ public sealed record DimensionRuntimeSessionSettings(
 public sealed record DimensionRetirementDrainReport(
     ChunkResidencyUpdate Materialization,
     IReadOnlyList<Exception> WorkerErrors);
+
+public readonly record struct CreatureFrameTimings(
+    double SpawnMilliseconds,
+    double SimulationMilliseconds,
+    double PresentationMilliseconds,
+    double ParticlesMilliseconds);
 
 public sealed class DimensionRuntimeSession
 {
@@ -516,13 +523,14 @@ public sealed class DimensionRuntimeSession
         return true;
     }
 
-    public void AdvanceCreatures(
+    public CreatureFrameTimings AdvanceCreatures(
         double deltaSeconds, NVector3 playerPosition,
         WorldAabb playerBounds, bool playerTargetable)
     {
         if (_retiring || _retired)
-            return;
+            return default;
 
+        var started = Stopwatch.GetTimestamp();
         var spawned = _naturalSpawns.TryAdvance(
             WorldTicks.CurrentTick,
             _state.GameRules.TicksPerSecond,
@@ -533,7 +541,9 @@ public sealed class DimensionRuntimeSession
             World,
             Blocks,
             Creatures);
+        var spawnMilliseconds = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
 
+        started = Stopwatch.GetTimestamp();
         var changed = Creatures.Count > 0 &&
             Creatures.AdvanceWorld(
                 deltaSeconds,
@@ -545,12 +555,23 @@ public sealed class DimensionRuntimeSession
                 playerBounds);
         var fired = Creatures.FireRangedAttacks(
             Projectiles, World, Blocks, playerBounds, playerTargetable) > 0;
+        var simulationMilliseconds = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+
+        started = Stopwatch.GetTimestamp();
         if (spawned || changed || fired)
             _creaturePresentation.Sync(Creatures.ActiveCreatures);
         if (fired)
             _projectilePresentation.Sync(Projectiles.ActiveProjectiles);
+        var presentationMilliseconds = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+
+        started = Stopwatch.GetTimestamp();
         _creatureParticles.Advance((float)deltaSeconds, Creatures.ActiveCreatures);
         _creatureParticlePresentation.Sync(_creatureParticles);
+        var particlesMilliseconds = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+
+        return new CreatureFrameTimings(
+            spawnMilliseconds, simulationMilliseconds,
+            presentationMilliseconds, particlesMilliseconds);
     }
 
     public VoxelWorld World { get; }

@@ -52,6 +52,13 @@ public sealed class BlockPhysicsRuntime : IDisposable
         _active =
             new(FallingBlockIdComparer);
     private readonly FallingBlockId[] _advanceIds;
+    // A falling block whose next support lies in an unloaded chunk is
+    // dormant until that chunk becomes resident. It remains authoritative
+    // in _active and is included in snapshots.
+    private readonly Dictionary<ChunkCoord, HashSet<FallingBlockId>>
+        _waitingFallingByChunk = [];
+    private readonly Dictionary<FallingBlockId, ChunkCoord>
+        _fallingWaitingForChunk = [];
 
     private ulong _nextId;
 
@@ -112,16 +119,53 @@ public sealed class BlockPhysicsRuntime : IDisposable
             }
         }
 
-        _world.ChunkBecameResident += _updates.WakeResidentChunk;
+        _world.ChunkBecameResident += OnChunkBecameResident;
     }
 
     public void Dispose() =>
-        _world.ChunkBecameResident -= _updates.WakeResidentChunk;
+        _world.ChunkBecameResident -= OnChunkBecameResident;
+
+    private void OnChunkBecameResident(ChunkCoord coord)
+    {
+        _updates.WakeResidentChunk(coord);
+        if (!_waitingFallingByChunk.Remove(coord, out var waiting))
+            return;
+
+        foreach (var id in waiting)
+            _fallingWaitingForChunk.Remove(id);
+    }
+
+    private void WaitForFallingChunk(FallingBlockId id, WorldVoxelCoord support)
+    {
+        var coord = VoxelCoordinates.FromWorld(
+            support.X, support.Y, support.Z).Chunk;
+        if (_fallingWaitingForChunk.TryGetValue(id, out var previous))
+        {
+            if (previous == coord)
+                return;
+
+            var previousWaiters = _waitingFallingByChunk[previous];
+            previousWaiters.Remove(id);
+            if (previousWaiters.Count == 0)
+                _waitingFallingByChunk.Remove(previous);
+        }
+
+        if (!_waitingFallingByChunk.TryGetValue(coord, out var waiters))
+        {
+            waiters = [];
+            _waitingFallingByChunk.Add(coord, waiters);
+        }
+
+        waiters.Add(id);
+        _fallingWaitingForChunk[id] = coord;
+    }
 
     public IReadOnlyCollection<FallingBlockState> ActiveBlocks =>
         _active.Values;
 
     public int ActiveCount => _active.Count;
+
+    public int WaitingFallingCount => _fallingWaitingForChunk.Count;
 
     public BlockPhysicsRuntimeSnapshot CaptureState() =>
         new(
@@ -346,7 +390,8 @@ public sealed class BlockPhysicsRuntime : IDisposable
 
         foreach (var id in _active.Keys)
         {
-            _advanceIds[activeCount++] = id;
+            if (!_fallingWaitingForChunk.ContainsKey(id))
+                _advanceIds[activeCount++] = id;
         }
 
         for (var index = 0;
@@ -375,6 +420,7 @@ public sealed class BlockPhysicsRuntime : IDisposable
                     SupportEpsilon);
             int? landingY = null;
             var blockedByUnloaded = false;
+            var missingSupport = default(WorldVoxelCoord);
 
             for (var supportY = highestSupport;
                  supportY >= lowestSupport;
@@ -400,6 +446,7 @@ public sealed class BlockPhysicsRuntime : IDisposable
                     BlockMaterializationState.Unloaded)
                 {
                     blockedByUnloaded = true;
+                    missingSupport = support;
                     break;
                 }
 
@@ -416,6 +463,7 @@ public sealed class BlockPhysicsRuntime : IDisposable
             {
                 _active[id] =
                     state with { VelocityY = 0.0 };
+                WaitForFallingChunk(id, missingSupport);
                 continue;
             }
 
@@ -446,6 +494,7 @@ public sealed class BlockPhysicsRuntime : IDisposable
             {
                 _active[id] =
                     state with { VelocityY = 0.0 };
+                WaitForFallingChunk(id, landing);
                 continue;
             }
 
