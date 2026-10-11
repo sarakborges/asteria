@@ -34,7 +34,14 @@ export function TargetHud({
         }} size="recipe" />
       </div>
       <div className="target-hud__copy">
-        <strong>{state.kind === "block" || state.kind === "fluid" ? contentName(state.id) : state.name}</strong>
+        <strong>{state.kind === "block" && state.activeLayerId
+          ? contentName(state.activeLayerId)
+          : state.kind === "block" || state.kind === "fluid"
+            ? contentName(state.id)
+            : state.name}</strong>
+        {state.kind === "block" && state.activeLayerId && (
+          <span>{contentName(state.id)}</span>
+        )}
         {state.details.map(
           (detail, index) => (
             <span key={index}>

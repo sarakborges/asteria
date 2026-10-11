@@ -3706,6 +3706,7 @@ public partial class Main : Node3D
         if (!_targetHud.TryCapture(
                 _world,
                 _blocks,
+                _layers,
                 hit,
                 force,
                 out var snapshot))
@@ -3734,9 +3735,8 @@ public partial class Main : Node3D
                 kind = "block",
                 id = value.BlockId,
                 name = value.BlockId,
+                activeLayerId = value.ActiveLayerId,
                 layers = value.Surface.Layers
-                    .OrderBy(layer => layer.LayerId, StringComparer.Ordinal)
-                    .ThenBy(layer => layer.Face)
                     .Select(layer => new
                     {
                         id = layer.LayerId,

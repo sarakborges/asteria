@@ -9,7 +9,8 @@ public readonly record struct TargetHudSnapshot(
     int Z,
     byte SkyLight,
     byte BlockLight,
-    BlockSurfaceState Surface);
+    BlockSurfaceState Surface,
+    string? ActiveLayerId = null);
 
 public sealed class TargetHudStateTracker
 {
@@ -25,6 +26,15 @@ public sealed class TargetHudStateTracker
         BlockRegistry blocks,
         VoxelWorldHit? hit,
         bool force,
+        out TargetHudSnapshot? snapshot) =>
+        TryCapture(world, blocks, null, hit, force, out snapshot);
+
+    public bool TryCapture(
+        VoxelWorld world,
+        BlockRegistry blocks,
+        AttachedLayerRegistry? layers,
+        VoxelWorldHit? hit,
+        bool force,
         out TargetHudSnapshot? snapshot)
     {
         ArgumentNullException.ThrowIfNull(
@@ -36,6 +46,7 @@ public sealed class TargetHudStateTracker
             BuildSnapshot(
                 world,
                 blocks,
+                layers,
                 hit);
 
         if (!force &&
@@ -51,6 +62,7 @@ public sealed class TargetHudStateTracker
     private static TargetHudSnapshot? BuildSnapshot(
         VoxelWorld world,
         BlockRegistry blocks,
+        AttachedLayerRegistry? layers,
         VoxelWorldHit? hit)
     {
         if (hit is not
@@ -78,6 +90,14 @@ public sealed class TargetHudStateTracker
                 resolved.Voxel +
                 lightOffset);
 
+        var surface = world.GetBlockSurfaceStateOrEmpty(resolved.Voxel);
+        string? activeLayerId = null;
+        if (layers is not null &&
+            VoxelHitFace.TryResolve(resolved, out var face) &&
+            surface.TryGetTop(face, out var attached) &&
+            layers.TryGet(attached.LayerId, out _))
+            activeLayerId = attached.LayerId;
+
         return new TargetHudSnapshot(
             definition.Id,
             resolved.Voxel.X,
@@ -85,6 +105,7 @@ public sealed class TargetHudStateTracker
             resolved.Voxel.Z,
             light.Sky,
             light.BlockPeak,
-            world.GetBlockSurfaceStateOrEmpty(resolved.Voxel));
+            surface,
+            activeLayerId);
     }
 }

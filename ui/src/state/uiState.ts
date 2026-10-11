@@ -56,6 +56,7 @@ export type TargetHudState = {
   name: string;
   details: string[];
   layers?: { id: string; face: TargetHudLayerFace }[];
+  activeLayerId?: string | null;
 };
 
 export type WorldClockState = {
