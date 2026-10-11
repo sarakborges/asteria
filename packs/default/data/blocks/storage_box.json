@@ -6,12 +6,12 @@
     "horizontal_facing"
   ],
   "textures": {
-    "top": "textures/objects/storage_box/top.png",
-    "bottom": "textures/objects/storage_box/bottom.png",
-    "left": "textures/objects/storage_box/side.png",
-    "right": "textures/objects/storage_box/side.png",
-    "front": "textures/objects/storage_box/front.png",
-    "back": "textures/objects/storage_box/side.png"
+    "top": "textures/blocks/storage_box/top.png",
+    "bottom": "textures/blocks/storage_box/bottom.png",
+    "left": "textures/blocks/storage_box/side.png",
+    "right": "textures/blocks/storage_box/side.png",
+    "front": "textures/blocks/storage_box/front.png",
+    "back": "textures/blocks/storage_box/side.png"
   },
   "rotateTexture": {
     "top": false,

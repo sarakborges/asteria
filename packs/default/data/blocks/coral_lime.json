@@ -2,12 +2,12 @@
   "id": "asteria:coral_lime",
   "category": "foliage",
   "textures": {
-    "top": "textures/blocks/coral_lime.png",
-    "bottom": "textures/blocks/coral_lime.png",
-    "left": "textures/blocks/coral_lime.png",
-    "right": "textures/blocks/coral_lime.png",
-    "front": "textures/blocks/coral_lime.png",
-    "back": "textures/blocks/coral_lime.png"
+    "top": "textures/blocks/coral/lime.png",
+    "bottom": "textures/blocks/coral/lime.png",
+    "left": "textures/blocks/coral/lime.png",
+    "right": "textures/blocks/coral/lime.png",
+    "front": "textures/blocks/coral/lime.png",
+    "back": "textures/blocks/coral/lime.png"
   },
   "tags": [
     "fragmentable"

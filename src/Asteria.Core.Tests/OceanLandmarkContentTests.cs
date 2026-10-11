@@ -101,7 +101,10 @@ public sealed class OceanLandmarkContentTests
             var block = blocks.GetDefinition(blocks.GetId("asteria:" + name));
             var texture = Assert.Single(block.Textures.ForFace(BlockFace.Top));
             Assert.True(texturePaths.Add(texture.Texture));
-            Assert.Equal("textures/blocks/" + name + ".png", texture.Texture);
+            Assert.Equal(name.StartsWith("coral_", StringComparison.Ordinal)
+                ? "textures/blocks/coral/" + name["coral_".Length..] + ".png"
+                : "textures/blocks/kelp/" + name["kelp_".Length..] + ".png",
+                texture.Texture);
         }
         Assert.Equal(6, texturePaths.Count);
         var frond = blocks.GetDefinition(blocks.GetId("asteria:kelp_frond"));

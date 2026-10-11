@@ -2,12 +2,12 @@
   "id": "asteria:cactus_barrel",
   "category": "natural_blocks",
   "textures": {
-    "top": "textures/blocks/cactus_barrel_top.png",
-    "bottom": "textures/blocks/cactus_barrel_top.png",
-    "left": "textures/blocks/cactus_barrel_side.png",
-    "right": "textures/blocks/cactus_barrel_side.png",
-    "front": "textures/blocks/cactus_barrel_side.png",
-    "back": "textures/blocks/cactus_barrel_side.png"
+    "top": "textures/blocks/cactus/barrel/top.png",
+    "bottom": "textures/blocks/cactus/barrel/top.png",
+    "left": "textures/blocks/cactus/barrel/side.png",
+    "right": "textures/blocks/cactus/barrel/side.png",
+    "front": "textures/blocks/cactus/barrel/side.png",
+    "back": "textures/blocks/cactus/barrel/side.png"
   },
   "lightDampening": 15,
   "castsShadow": true,

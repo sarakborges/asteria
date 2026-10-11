@@ -2,12 +2,12 @@
   "id": "asteria:thornwood",
   "category": "wooden_blocks",
   "textures": {
-    "top": "textures/blocks/thornwood.png",
-    "bottom": "textures/blocks/thornwood.png",
-    "left": "textures/blocks/thornwood.png",
-    "right": "textures/blocks/thornwood.png",
-    "front": "textures/blocks/thornwood.png",
-    "back": "textures/blocks/thornwood.png"
+    "top": "textures/blocks/trees/thornwood/wood.png",
+    "bottom": "textures/blocks/trees/thornwood/wood.png",
+    "left": "textures/blocks/trees/thornwood/wood.png",
+    "right": "textures/blocks/trees/thornwood/wood.png",
+    "front": "textures/blocks/trees/thornwood/wood.png",
+    "back": "textures/blocks/trees/thornwood/wood.png"
   },
   "mining": {
     "hardness": 0.8,

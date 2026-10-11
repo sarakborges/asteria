@@ -4,12 +4,12 @@
   "tint": "none",
   "windSway": true,
   "textures": {
-    "top": "textures/blocks/juniper_needles.png",
-    "bottom": "textures/blocks/juniper_needles.png",
-    "left": "textures/blocks/juniper_needles.png",
-    "right": "textures/blocks/juniper_needles.png",
-    "front": "textures/blocks/juniper_needles.png",
-    "back": "textures/blocks/juniper_needles.png"
+    "top": "textures/blocks/trees/juniper/needles.png",
+    "bottom": "textures/blocks/trees/juniper/needles.png",
+    "left": "textures/blocks/trees/juniper/needles.png",
+    "right": "textures/blocks/trees/juniper/needles.png",
+    "front": "textures/blocks/trees/juniper/needles.png",
+    "back": "textures/blocks/trees/juniper/needles.png"
   },
   "alphaCutoff": 0.5,
   "mining": {

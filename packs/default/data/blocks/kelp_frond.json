@@ -4,12 +4,12 @@
   "windSway": true,
   "alphaCutoff": 0.5,
   "textures": {
-    "top": "textures/blocks/kelp_frond.png",
-    "bottom": "textures/blocks/kelp_frond.png",
-    "left": "textures/blocks/kelp_frond.png",
-    "right": "textures/blocks/kelp_frond.png",
-    "front": "textures/blocks/kelp_frond.png",
-    "back": "textures/blocks/kelp_frond.png"
+    "top": "textures/blocks/kelp/frond.png",
+    "bottom": "textures/blocks/kelp/frond.png",
+    "left": "textures/blocks/kelp/frond.png",
+    "right": "textures/blocks/kelp/frond.png",
+    "front": "textures/blocks/kelp/frond.png",
+    "back": "textures/blocks/kelp/frond.png"
   },
   "tags": [],
   "lightDampening": 1,

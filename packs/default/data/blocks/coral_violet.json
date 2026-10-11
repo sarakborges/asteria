@@ -2,12 +2,12 @@
   "id": "asteria:coral_violet",
   "category": "foliage",
   "textures": {
-    "top": "textures/blocks/coral_violet.png",
-    "bottom": "textures/blocks/coral_violet.png",
-    "left": "textures/blocks/coral_violet.png",
-    "right": "textures/blocks/coral_violet.png",
-    "front": "textures/blocks/coral_violet.png",
-    "back": "textures/blocks/coral_violet.png"
+    "top": "textures/blocks/coral/violet.png",
+    "bottom": "textures/blocks/coral/violet.png",
+    "left": "textures/blocks/coral/violet.png",
+    "right": "textures/blocks/coral/violet.png",
+    "front": "textures/blocks/coral/violet.png",
+    "back": "textures/blocks/coral/violet.png"
   },
   "tags": [
     "fragmentable"

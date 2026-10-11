@@ -6,7 +6,7 @@
   ],
   "visual": {
     "type": "crossedSprite",
-    "texture": "textures/objects/glowcap.png",
+    "texture": "textures/objects/mushrooms/glowcap.png",
     "width": 0.82,
     "height": 0.71,
     "planes": 4
