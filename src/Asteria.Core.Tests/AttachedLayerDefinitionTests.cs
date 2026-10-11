@@ -23,6 +23,35 @@ public sealed class AttachedLayerDefinitionTests
     }
 
     [Fact]
+    public void InteractivePropertiesAreAuthoredAndLegacyLayersKeepSelfDrops()
+    {
+        var ore = AttachedLayerDefinition.Parse(
+            """
+            {"id":"asteria:iron_ore","texture":"textures/layers/ore.png",
+             "scope":"voxel",
+             "mining":{"hardness":3,"requiredTools":["pickaxe"],"preferredTools":["pickaxe"]},
+             "drops":[{"kind":"item","id":"asteria:raw_iron","quantity":2}]}
+            """);
+        Assert.Equal(LayerRemovalScope.Voxel, ore.Scope);
+        Assert.Equal(3f, ore.Mining.Hardness);
+        Assert.Equal("pickaxe", Assert.Single(ore.Mining.RequiredTools));
+        var drop = Assert.Single(ore.Drops).ToStack();
+        Assert.Equal(InventoryEntryKind.Item, drop.Entry.Kind);
+        Assert.Equal("asteria:raw_iron", drop.Id);
+        Assert.Equal(2, drop.Quantity);
+
+        var legacy = AttachedLayerDefinition.Parse(
+            """{"id":"asteria:moss","texture":"textures/layers/moss.png"}""");
+        Assert.Equal(LayerRemovalScope.Face, legacy.Scope);
+        Assert.Equal("asteria:moss", Assert.Single(legacy.Drops).Id);
+        Assert.Equal(InventoryEntryKind.Layer, legacy.Drops[0].Kind);
+        Assert.Throws<FormatException>(() => AttachedLayerDefinition.Parse(
+            """{"id":"asteria:bad","texture":"textures/x.png","scope":"both"}"""));
+        Assert.Throws<FormatException>(() => AttachedLayerDefinition.Parse(
+            """{"id":"asteria:bad","texture":"textures/x.png","drops":[{"kind":"block","id":"asteria:stone"}]}"""));
+    }
+
+    [Fact]
     public void RegistryRejectsDuplicateIdsAndSortsDeterministically()
     {
         var a = new AttachedLayerDefinition("asteria:a", "textures/a.png");
