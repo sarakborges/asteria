@@ -141,6 +141,7 @@ public sealed class DroppedBlockRuntime
     }
 
     public int ActiveCount => _active.Count;
+    public int AvailableCapacity => _maximumActive - _active.Count;
 
     public IEnumerable<DroppedBlockState> ActiveBlocks =>
         _active.Values;
