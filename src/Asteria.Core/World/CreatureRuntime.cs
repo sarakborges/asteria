@@ -680,8 +680,18 @@ public sealed class CreatureRuntime
     /// </summary>
     private bool ResolveOverlaps(VoxelWorld world, BlockRegistry blocks)
     {
+        if (_active.Count < 2)
+            return false;
+
         var changed = false;
         var ids = _active.Keys.ToArray();
+        // Build each collider once instead of repeatedly resolving its
+        // definition for every O(n²) pair. Update the cache immediately after
+        // separation so subsequent pairs still see authoritative positions.
+        var bounds = new WorldAabb[ids.Length];
+        for (var i = 0; i < ids.Length; i++)
+            bounds[i] = CreatureBounds(_active[ids[i]]);
+
         for (var pass = 0; pass < 4; pass++)
         {
             var movedThisPass = false;
@@ -693,19 +703,21 @@ public sealed class CreatureRuntime
                 if (first.IsDying || second.IsDying ||
                     (first.NoAi && second.NoAi))
                     continue;
-                if (!CreatureBounds(first).Intersects(CreatureBounds(second)))
+                if (!bounds[i].Intersects(bounds[j]))
                     continue;
 
                 if (!second.NoAi && TrySeparate(second, first, world, blocks,
                         out var newSecond))
                 {
                     _active[second.Id.Value] = newSecond;
+                    bounds[j] = CreatureBounds(newSecond);
                     changed = movedThisPass = true;
                 }
                 else if (!first.NoAi && TrySeparate(first, second, world, blocks,
                              out var newFirst))
                 {
                     _active[first.Id.Value] = newFirst;
+                    bounds[i] = CreatureBounds(newFirst);
                     changed = movedThisPass = true;
                 }
             }
