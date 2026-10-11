@@ -57,6 +57,84 @@ public sealed class SpikeFormationRuntimeTests
     }
 
     [Fact]
+    public void BreakingSpikeRootRejectsIfDetachedTipsWouldEvictPreviousDrops()
+    {
+        var f = Fixture(dropCapacity: 2);
+        var stone = f.Blocks.GetId("asteria:stone");
+        var spike = f.Blocks.GetId("asteria:stone_spike");
+        Assert.True(f.Mutations.SetBlockAt(
+            new WorldVoxelCoord(2, 2, 2), stone, out _));
+        for (var i = 0; i < 3; i++)
+            Assert.True(f.Interactions.Place(
+                Hit(2, 2 + i, 2, normalY: 1),
+                new VoxelCell(spike), AwayFromPlayer).Accepted);
+
+        var existing = f.Drops.Spawn(
+            new InventoryStack(InventoryEntry.FromItem("asteria:existing")),
+            new Vector3(1, 8, 1));
+        Assert.False(f.Interactions.Break(Hit(2, 3, 2)).Accepted);
+        for (var i = 0; i < 3; i++)
+            Assert.Equal(spike, f.World.GetCellOrEmpty(
+                new WorldVoxelCoord(2, 3 + i, 2)).Block);
+        Assert.Equal(existing, Assert.Single(f.Drops.ActiveBlocks).Id);
+    }
+
+    [Fact]
+    public void SupportingBlockAndDependentSpikeDropsShareOneCapacityBudget()
+    {
+        var f = Fixture(dropCapacity: 3);
+        var stone = f.Blocks.GetId("asteria:stone");
+        var spike = f.Blocks.GetId("asteria:ice_spike");
+        var support = new WorldVoxelCoord(2, 8, 2);
+        Assert.True(f.Mutations.SetBlockAt(support, stone, out _));
+        for (var i = 0; i < 3; i++)
+            Assert.True(f.Interactions.Place(
+                Hit(2, 8 + i, 2, normalY: 1),
+                new VoxelCell(spike), AwayFromPlayer).Accepted);
+
+        // 3 spike drops + 1 host drop exceed the physical drop pool.
+        Assert.False(f.Interactions.Break(Hit(2, 8, 2)).Accepted);
+        Assert.Equal(stone, f.World.GetCellOrEmpty(support).Block);
+        Assert.All(Enumerable.Range(9, 3), y =>
+            Assert.Equal(spike,
+                f.World.GetCellOrEmpty(new WorldVoxelCoord(2, y, 2)).Block));
+        Assert.Equal(0, f.Drops.ActiveCount);
+
+        // Creative bypasses all rewards, including detached segments.
+        Assert.True(f.Interactions.Break(
+            Hit(2, 8, 2), BlockBreakLootPolicy.Suppress).Accepted);
+        Assert.True(f.World.GetCellOrEmpty(support).IsEmpty);
+        Assert.All(Enumerable.Range(9, 3), y =>
+            Assert.True(f.World.GetCellOrEmpty(
+                new WorldVoxelCoord(2, y, 2)).IsEmpty));
+        Assert.Equal(0, f.Drops.ActiveCount);
+    }
+
+    [Fact]
+    public void CompleteSpikedSupportBreakPreservesEveryRewardExactlyOnce()
+    {
+        var f = Fixture(dropCapacity: 4);
+        var stone = f.Blocks.GetId("asteria:stone");
+        var spike = f.Blocks.GetId("asteria:stone_spike");
+        var support = new WorldVoxelCoord(2, 10, 2);
+        Assert.True(f.Mutations.SetBlockAt(support, stone, out _));
+        for (var i = 0; i < 3; i++)
+            Assert.True(f.Interactions.Place(
+                Hit(2, 10 + i, 2, normalY: 1),
+                new VoxelCell(spike), AwayFromPlayer).Accepted);
+
+        Assert.True(f.Interactions.Break(Hit(2, 10, 2)).Accepted);
+        Assert.True(f.World.GetCellOrEmpty(support).IsEmpty);
+        Assert.Equal(4, f.Drops.ActiveCount);
+        Assert.Equal(3, f.Drops.ActiveBlocks.Count(x =>
+            x.Stack.Id == "asteria:stone_spike"));
+        Assert.Single(f.Drops.ActiveBlocks.Where(x =>
+            x.Stack.Id == "asteria:stone"));
+        Assert.False(f.Interactions.Break(Hit(2, 10, 2)).Accepted);
+        Assert.Equal(4, f.Drops.ActiveCount);
+    }
+
+    [Fact]
     public void CeilingPlacementAndDropsIgnorePickedSegmentProfile()
     {
         var f = Fixture();
@@ -327,7 +405,7 @@ public sealed class SpikeFormationRuntimeTests
         new(new WorldVoxelCoord(x, y, z),
             0, normalY, 0);
 
-    private static TestFixture Fixture(int verticalChunks = 1)
+    private static TestFixture Fixture(int verticalChunks = 1, int dropCapacity = 2048)
     {
         var world = new VoxelWorld();
         for (var y = 0; y < verticalChunks; y++)
@@ -349,7 +427,8 @@ public sealed class SpikeFormationRuntimeTests
             world, new WorldUpdateQueue(), new FluidUpdateQueue(),
             new FluidMeshUpdateQueue(), new BlockPhysicsUpdateQueue(),
             new MeshletContentRevisions(), new MeshletContentRevisions());
-        var drops = new DroppedBlockRuntime(world, blocks);
+        var drops = new DroppedBlockRuntime(world, blocks,
+            maximumActive: dropCapacity);
         var interactions = new BlockInteractionRuntime(
             world, blocks, mutations, drops);
         return new TestFixture(world, blocks, mutations, drops, interactions);
