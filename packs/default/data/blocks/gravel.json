@@ -24,5 +24,6 @@
     "hardness": 1,
     "preferredTools": ["shovel"]
   },
-  "previewColor": "85827d"
+  "previewColor": "85827d",
+  "lootTable": [{"item":"asteria:gravel","chance":1,"quantity":1}]
 }
