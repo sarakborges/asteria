@@ -443,11 +443,25 @@ function readTarget(
       )
     : [];
 
+  const faces = new Set(["top", "bottom", "left", "right", "front", "back"]);
+  const layers = Array.isArray(value.layers) && value.layers.length <= 16
+    ? value.layers.flatMap(raw => {
+        const layer = asRecord(raw);
+        return layer && typeof layer.id === "string" &&
+          layer.id.length > 0 && layer.id.length <= 256 &&
+          faces.has(layer.face as string)
+          ? [{ id: layer.id, face: layer.face as "top" | "bottom" |
+              "left" | "right" | "front" | "back" }]
+          : [];
+      })
+    : [];
+
   return {
     kind: value.kind,
     id: value.id,
     name: value.name,
     details,
+    layers,
   };
 }
 
