@@ -826,11 +826,11 @@ public sealed class SurfaceTerrainField
         // Natural terrain always covers the innermost face of the floor.
         // Void worlds deliberately have no natural terrain, so their lining
         // is supplied by the boundary materialization instead.
-        if (_floorY is { } floorY)
+        if (_floorY is { } shellFloorY)
         {
             authoredSurfaceY = Math.Max(
                 authoredSurfaceY,
-                checked(floorY + 1));
+                checked(shellFloorY + 1));
         }
 
         if (requestedCutDepth <= 0)
