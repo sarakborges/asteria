@@ -1110,3 +1110,7 @@ the worldgen no longer creates those blocks. `wall_shelf_fungus` and
 generation is still inactive pending a distinct geometry placement
 capability. The port does not reinstate the redundant wall-block pass
 or change terrain, cave palettes, biome boundaries, or water.
+
+## Physical wall objects after the layer migration (2026-10-11)
+
+Wall moss and cliff lichen remain per-face AttachedLayers on the host voxel. Projecting shelf fungi and cliff rosettes are separately authored wall-supported blocks in the neighboring empty voxel. The same biome/habitat rule evaluation is shared, filtered by layer-versus-block representation. No second wall-overlay mechanism or new render model was introduced; the existing `support_wall` physics remains responsible for wall-mounted blocks.

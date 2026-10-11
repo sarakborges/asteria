@@ -162,6 +162,52 @@ public sealed class WallDecorationContentTests
     }
 
     [Fact]
+    public void ProjectedWallObjectsAreSelectedSeparatelyFromFaceOverlays()
+    {
+        var biomes = BiomeRegistry.FromJson(ReadJson("biomes"));
+        var blocks = BlockRegistry.FromJson(ReadJson("blocks"));
+        var layers = AttachedLayerRegistry.FromJson(ReadJson("layers"));
+        foreach (var (biomeName, objectName, layerName) in new[]
+        {
+            ("caverns", "wall_shelf_fungus", "wall_moss"),
+            ("gorge", "cliff_rosette", "cliff_lichen"),
+        })
+        {
+            var biome = biomes.Get("asteria:overworld/" + biomeName);
+            var decorators = new SurfaceDecorationField(
+                1739, [biome], blocks, layers: layers);
+            var sample = new BiomeSample(biome.Id,
+                [new BiomeInfluence(biome.Id, 1f)]);
+            var stone = blocks.GetId("asteria:stone");
+            Assert.True(decorators.HasWallBlocksFor(biome.Id));
+            Assert.True(decorators.HasWallLayersFor(biome.Id));
+            var foundObject = false;
+            var foundLayer = false;
+            for (var x = -52; x <= 52; x++)
+            for (var z = -52; z <= 52; z++)
+            {
+                var height = biomeName == "caverns" ? 75 : 110;
+                var objectAt = decorators.WallBlockAt(
+                    sample, stone, x, height, z);
+                var overlayAt = decorators.WallLayerAt(
+                    sample, stone, x, height, z);
+                Assert.True(objectAt.IsAir ||
+                    objectAt == blocks.GetId("asteria:" + objectName));
+                Assert.True(overlayAt is null ||
+                    overlayAt == "asteria:" + layerName);
+                if (!objectAt.IsAir) foundObject = true;
+                if (overlayAt is not null) foundLayer = true;
+                if (foundObject && foundLayer)
+                    break;
+            }
+            Assert.True(foundObject);
+            Assert.True(foundLayer);
+            Assert.True(decorators.WallBlockAt(
+                sample, blocks.GetId("asteria:basalt"), 0, 90, 0).IsAir);
+        }
+    }
+
+    [Fact]
     public void ParserRejectsAmbiguousAndNonWallLayerDecorations()
     {
         Assert.Throws<FormatException>(() => BiomeDefinitionJson.Parse("""

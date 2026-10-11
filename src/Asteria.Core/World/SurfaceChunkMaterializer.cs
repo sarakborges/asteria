@@ -319,6 +319,8 @@ public sealed class SurfaceChunkMaterializer
             chunk, column, densityVolume, originX, originY, originZ);
         MaterializeWallLayers(
             chunk, column, densityVolume, originX, originY, originZ);
+        MaterializeWallObjects(
+            chunk, column, densityVolume, originX, originY, originZ);
         // SurfaceChunkMaterializer remains the sole procedural voxel writer.
         _voidSpawnPlatform?.Apply(chunk, coord);
 
@@ -1270,6 +1272,129 @@ public sealed class SurfaceChunkMaterializer
                         new AttachedBlockLayer(side.Face, layerId),
                         out var updated))
                         chunk.SetSurfaceState(x, y, z, updated);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Renders physical wall plants as actual objects in the adjacent air
+    /// voxel. Flat coatings are owned separately by MaterializeWallLayers on
+    /// the solid host's BlockSurfaceState, never as projected block objects.
+    /// Neighboring chunks are queried without mutating their cells.
+    /// </summary>
+    private void MaterializeWallObjects(
+        Chunk chunk,
+        SurfaceTerrainColumn column,
+        TerrainDensityVolume densityVolume,
+        int originX,
+        int originY,
+        int originZ)
+    {
+        if (!_decorations.HasWallBlocks)
+            return;
+
+        // Outward normals point away from solid backing support.
+        ReadOnlySpan<(int Dx, int Dz, HorizontalFacing Facing)> supports =
+        [
+            (0, -1, HorizontalFacing.South),
+            (1, 0, HorizontalFacing.West),
+            (0, 1, HorizontalFacing.North),
+            (-1, 0, HorizontalFacing.East),
+        ];
+
+        for (var z = 0; z < Chunk.Size; z++)
+        for (var x = 0; x < Chunk.Size; x++)
+        {
+            var worldX = originX + x;
+            var worldZ = originZ + z;
+            var surface = column.BiomeAt(x, z);
+            var baseY = column.BaseHeightAt(x, z);
+            var surfaceSupportsObjects = _decorations.HasWallBlocksFor(surface.Primary);
+            if (!surfaceSupportsObjects &&
+                _volumeBiomes is not { HasBiomes: true })
+                continue;
+            if (originY > baseY && !surfaceSupportsObjects)
+                continue;
+
+            for (var y = 0; y < Chunk.Size; y++)
+            {
+                var worldY = originY + y;
+                if (worldY <= 0 ||
+                    (_floorY is { } floor && worldY <= floor) ||
+                    (_roofY is { } roof && worldY >= roof) ||
+                    !chunk.GetCell(x, y, z).IsEmpty ||
+                    !chunk.GetFluid(x, y, z).IsEmpty ||
+                    densityVolume.DensityAt(x, y, z) >= 0d)
+                    continue;
+
+                var exterior = worldY > baseY && surfaceSupportsObjects;
+                var cave = worldY <= baseY &&
+                    _volumeBiomes is { HasBiomes: true } &&
+                    _terrain.IsCaveVoidAt(baseY,
+                        new WorldVoxelCoord(worldX, worldY, worldZ));
+                if (!exterior && !cave)
+                    continue;
+                var owner = exterior
+                    ? surface
+                    : _volumeBiomes!.SampleCave(worldX, worldZ);
+                if (owner is null ||
+                    !_decorations.HasWallBlocksFor(owner.Primary))
+                    continue;
+
+                foreach (var side in supports)
+                {
+                    var nx = x + side.Dx;
+                    var nz = z + side.Dz;
+                    var neighborX = worldX + side.Dx;
+                    var neighborZ = worldZ + side.Dz;
+                    var local = Chunk.Contains(nx, y, nz);
+                    var solid = local
+                        ? densityVolume.DensityAt(nx, y, nz) >= 0d
+                        : _terrain.DensityAt(neighborX, worldY, neighborZ) >= 0d;
+                    if (!solid)
+                        continue;
+
+                    BlockRuntimeId backingBlock;
+                    if (exterior)
+                    {
+                        var (neighborCoord, neighborLocal) =
+                            VoxelCoordinates.FromWorld(neighborX, 0, neighborZ);
+                        var supportingColumn = local
+                            ? column
+                            : _columns.Get(neighborCoord.X, neighborCoord.Z);
+                        var neighborBiome = supportingColumn.BiomeAt(
+                            neighborLocal.X, neighborLocal.Z);
+                        var neighborBaseY = supportingColumn.BaseHeightAt(
+                            neighborLocal.X, neighborLocal.Z);
+                        if (neighborBiome.Primary != owner.Primary ||
+                            worldY > neighborBaseY)
+                            continue;
+                        backingBlock = local
+                            ? chunk.GetBlock(nx, y, nz)
+                            : _materials.BlockAt(
+                                neighborBiome, neighborX, neighborZ,
+                                (uint)(neighborBaseY - worldY));
+                    }
+                    else
+                    {
+                        backingBlock = local
+                            ? chunk.GetBlock(nx, y, nz)
+                            : _materials.VolumeBlockAt(
+                                owner, neighborX, worldY, neighborZ,
+                                BiomePaletteFace.Walls);
+                    }
+                    if (backingBlock.IsAir)
+                        continue;
+
+                    var block = _decorations.WallBlockAt(
+                        owner, backingBlock, worldX, worldY, worldZ);
+                    if (block.IsAir)
+                        continue;
+
+                    chunk.SetCell(x, y, z,
+                        new VoxelCell(block, facing: side.Facing));
+                    break;
                 }
             }
         }

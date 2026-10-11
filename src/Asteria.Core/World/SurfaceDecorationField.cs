@@ -13,6 +13,7 @@ public sealed class SurfaceDecorationField
     private readonly HashSet<string> _verticalBiomes;
     private readonly HashSet<string> _ceilingBiomes;
     private readonly HashSet<string> _wallLayerBiomes;
+    private readonly HashSet<string> _wallBlockBiomes;
 
     public SurfaceDecorationField(
         ulong seed,
@@ -47,6 +48,15 @@ public sealed class SurfaceDecorationField
                     rule.IsLayer && rule.SupportSurface == DecorationSupportSurface.Wall))
             .Select(biome => biome.Id)
             .ToHashSet(StringComparer.Ordinal);
+        _wallBlockBiomes = definitions
+            .Where(biome => generateDecorations &&
+                biome.Decorations.Any(rule =>
+                    rule.SupportSurface == DecorationSupportSurface.Wall &&
+                    !rule.IsLayer &&
+                    blocks.GetDefinition(blocks.GetId(rule.Block))
+                        .HasTag(BlockPhysicsCapabilities.SupportWall)))
+            .Select(biome => biome.Id)
+            .ToHashSet(StringComparer.Ordinal);
         _habitats = habitats ?? new SurfaceHabitatField(seed, definitions);
         _rules = definitions
             .OrderBy(biome => biome.Id, StringComparer.Ordinal)
@@ -55,7 +65,10 @@ public sealed class SurfaceDecorationField
                 biome => (generateDecorations
                     ? biome.Decorations.Where(decoration =>
                         decoration.SupportSurface != DecorationSupportSurface.Wall ||
-                        (decoration.IsLayer && layers is not null))
+                        (decoration.IsLayer && layers is not null) ||
+                        (!decoration.IsLayer &&
+                         blocks.GetDefinition(blocks.GetId(decoration.Block))
+                            .HasTag(BlockPhysicsCapabilities.SupportWall)))
                     : Array.Empty<BiomeDecorationDefinition>())
                     .OrderBy(
                         decoration => decoration.Block,
@@ -97,6 +110,9 @@ public sealed class SurfaceDecorationField
     public bool HasVerticalDecorations => _verticalBiomes.Count > 0;
     public bool HasCeilingDecorations => _ceilingBiomes.Count > 0;
     public bool HasWallLayers => _wallLayerBiomes.Count > 0;
+    public bool HasWallBlocks => _wallBlockBiomes.Count > 0;
+    public bool HasWallBlocksFor(string biomeId) =>
+        _wallBlockBiomes.Contains(biomeId);
     public bool HasWallLayersFor(string biomeId) =>
         _wallLayerBiomes.Contains(biomeId);
     public bool HasCeilingDecorationsFor(string biomeId) =>
@@ -157,7 +173,24 @@ public sealed class SurfaceDecorationField
             return null;
         return SelectRule(sample, supportBlock, worldX, worldZ,
             new SurfacePlacementContext(worldY, 0), worldY, false,
-            worldY, false, default, null, DecorationSupportSurface.Wall)?.LayerId;
+            worldY, false, default, null, DecorationSupportSurface.Wall,
+            requireLayer: true)?.LayerId;
+    }
+
+    /// <summary>
+    /// A projected object occupies the adjacent air voxel, unlike a face
+    /// layer, which is owned by the solid support voxel.
+    /// </summary>
+    public BlockRuntimeId WallBlockAt(
+        BiomeSample sample, BlockRuntimeId supportBlock,
+        int worldX, int worldY, int worldZ)
+    {
+        if (!_wallBlockBiomes.Contains(sample.Primary))
+            return BlockRuntimeId.Air;
+        return SelectRule(sample, supportBlock, worldX, worldZ,
+            new SurfacePlacementContext(worldY, 0), worldY, false,
+            worldY, false, default, null, DecorationSupportSurface.Wall,
+            requireLayer: false)?.Block ?? BlockRuntimeId.Air;
     }
 
     // Common authored placement policy for block decorators and face layers.
@@ -168,7 +201,8 @@ public sealed class SurfaceDecorationField
         bool submerged, int? supportY, bool onFluidSurface,
         FluidRuntimeId fluidBelow,
         Func<FluidRuntimeId, int, int, int, int, bool>? nearbyFluid,
-        DecorationSupportSurface supportSurface)
+        DecorationSupportSurface supportSurface,
+        bool? requireLayer = null)
     {
         SurfacePlacementContext? placement = suppliedPlacement;
         var slopeSampled = suppliedPlacement.HasValue;
@@ -177,7 +211,9 @@ public sealed class SurfaceDecorationField
             double? sampledHabitat = null;
             foreach (var rule in _rules[influence.BiomeId])
             {
-                if (rule.SupportSurface != supportSurface)
+                if (rule.SupportSurface != supportSurface ||
+                    (requireLayer is { } wanted &&
+                     (rule.LayerId is not null) != wanted))
                     continue;
 
                 var fluidSupported = !rule.RequiredFluid.IsNone &&
