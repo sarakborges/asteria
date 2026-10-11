@@ -47,11 +47,15 @@ export type HudEntityState = {
   portraitUrl?: string;
 };
 
+export type TargetHudLayerFace =
+  | "top" | "bottom" | "left" | "right" | "front" | "back";
+
 export type TargetHudState = {
   kind: "block" | "object" | "fluid";
   id: string;
   name: string;
   details: string[];
+  layers?: { id: string; face: TargetHudLayerFace }[];
 };
 
 export type WorldClockState = {
