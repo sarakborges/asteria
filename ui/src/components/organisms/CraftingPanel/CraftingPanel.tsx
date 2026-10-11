@@ -228,7 +228,9 @@ export function CraftingPanel({
                 status ??
                 (selected.craftable
                   ? t("ui.allMaterials")
-                  : t("ui.missingMaterials"))
+                  : selected.unavailableReason === "InventoryFull"
+                    ? t("crafting.inventoryFull")
+                    : t("ui.missingMaterials"))
               }
               variant="caption"
             />
