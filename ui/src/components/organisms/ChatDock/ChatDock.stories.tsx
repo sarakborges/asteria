@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { ChatDock } from "./ChatDock";
 
@@ -20,6 +21,7 @@ const meta = {
     },
     onClose: () => undefined,
     onSubmit: () => undefined,
+    onMessageAction: () => undefined,
   },
 } satisfies Meta<typeof ChatDock>;
 
@@ -31,4 +33,34 @@ export const ClosedWithHistory: Story = {
 };
 export const Hidden: Story = {
   args: { open: false, visible: false },
+};
+
+function InteractiveChat() {
+  const [open, setOpen] = useState(true);
+  const [submitted, setSubmitted] = useState("");
+  const [activated, setActivated] = useState("");
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)}>Open chat</button>
+      <output data-testid="submitted-chat">{submitted}</output>
+      <output data-testid="activated-chat-action">{activated}</output>
+      <ChatDock
+        open={open} visible history={[{
+          id: "42", text: "Found a structure at (12, 35, 68)",
+          tone: "normal", localizationKey: "chat.command.locate.found",
+          parameters: { name: "Village", position: "(12, 35, 68)" },
+          action: "warp",
+        }]}
+        commands={meta.args.commands}
+        catalog={meta.args.catalog}
+        onSubmit={text => { setSubmitted(text); setOpen(false); }}
+        onClose={() => setOpen(false)}
+        onMessageAction={setActivated}
+      />
+    </>
+  );
+}
+
+export const Interactions: Story = {
+  render: () => <InteractiveChat />,
 };
