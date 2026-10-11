@@ -45,6 +45,44 @@ public sealed class SurfaceStructureTests
     }
 
     [Fact]
+    public void ExactPortalArrivalCannotOverwriteSphereShell()
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition("asteria:stone"),
+            new BlockDefinition("asteria:sphere_shell",
+                mining: new BlockMiningDefinition(unbreakable: true)),
+        ]);
+        var structure = StructureDefinitionJson.Parse(File.ReadAllText(
+            Path.Combine(AppContext.BaseDirectory, "packs", "default",
+                "data", "structures", "portal_arrival_platform.json")));
+        var registry = new StructureRegistry([structure]);
+        var generator = FlatStructureGenerator(blocks, registry, "asteria:stone");
+        var world = new VoxelWorld();
+        world.InsertChunk(new ChunkCoord(0, 0, 0), new Chunk());
+        world.InsertChunk(new ChunkCoord(0, 1, 0), new Chunk());
+        var feet = new WorldVoxelCoord(8, 16, 8);
+        Assert.True(world.SetBlockAt(feet,
+            blocks.GetId("asteria:sphere_shell"), out _));
+        var before = world.Revision;
+        var mutations = new VoxelMutationRuntime(
+            world, new WorldUpdateQueue(), new FluidUpdateQueue(),
+            new FluidMeshUpdateQueue(), new BlockPhysicsUpdateQueue(),
+            new MeshletContentRevisions(), new MeshletContentRevisions());
+        var ledger = new ManualStructurePlacementLedger();
+        var runtime = new ManualStructurePlacementRuntime(
+            generator, world, mutations, blocks, registry,
+            StructureSetRegistry.Empty, ledger);
+
+        Assert.Equal(ManualStructurePlacementResult.ProtectedVoxel,
+            runtime.TryPlaceExact(structure.Id, 8, 16, 8));
+        Assert.Equal(before, world.Revision);
+        Assert.Equal(0, ledger.Count);
+        Assert.Equal(blocks.GetId("asteria:sphere_shell"),
+            world.GetCellOrEmpty(feet).Block);
+    }
+
+    [Fact]
     public void PortalArrivalRefusesUnloadedStructurePayload()
     {
         var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);
