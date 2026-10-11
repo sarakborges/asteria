@@ -10,11 +10,14 @@ public sealed class WorldGameRulesTests
         var rules = new WorldGameRules();
         Assert.Equal(40u, rules.TicksPerSecond);
         Assert.True(rules.SpawnCreatures);
+        Assert.Equal(CreatureAttackMode.Default, rules.AttackMode);
+        Assert.True(rules.AllowsCreatureAttacks);
 
         var options = new WorldCreationOptions("New World", 42);
         Assert.Equal(PlayerGameMode.Survival, options.GameMode);
         Assert.Equal(40u, options.TicksPerSecond);
         Assert.True(options.SpawnCreatures);
+        Assert.Equal(CreatureAttackMode.Default, options.AttackMode);
     }
 
     [Fact]
@@ -28,6 +31,14 @@ public sealed class WorldGameRulesTests
         Assert.Throws<ArgumentOutOfRangeException>(
             () => rules.SetTicksPerSecond(0));
         Assert.Equal(80u, rules.TicksPerSecond);
+        Assert.True(rules.SetCreatureAttackMode(CreatureAttackMode.Peaceful));
+        Assert.False(rules.SetCreatureAttackMode(CreatureAttackMode.Peaceful));
+        Assert.False(rules.AllowsCreatureAttacks);
+        Assert.True(rules.SpawnCreatures);
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            rules.SetCreatureAttackMode((CreatureAttackMode)255));
+        Assert.True(rules.SetCreatureAttackMode(CreatureAttackMode.Default));
+        Assert.True(rules.AllowsCreatureAttacks);
     }
 
     [Fact]
@@ -47,6 +58,9 @@ public sealed class WorldGameRulesTests
             () => new WorldCreationOptions("World", 42, ticksPerSecond: 0));
         Assert.Throws<ArgumentOutOfRangeException>(
             () => new WorldCreationOptions("World", 42, (PlayerGameMode)255));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new WorldCreationOptions("World", 42,
+                creatureAttackMode: (CreatureAttackMode)255));
     }
 
     [Fact]
@@ -98,6 +112,8 @@ public sealed class WorldGameRulesTests
         Assert.Same(world.GameRules, sphere.GameRules);
         Assert.Equal(20u, sphere.GameRules.TicksPerSecond);
         world.GameRules.SetTicksPerSecond(80);
+        world.GameRules.SetCreatureAttackMode(CreatureAttackMode.Peaceful);
         Assert.Equal(80u, sphere.GameRules.TicksPerSecond);
+        Assert.Equal(CreatureAttackMode.Peaceful, sphere.GameRules.AttackMode);
     }
 }

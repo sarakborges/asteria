@@ -49,6 +49,29 @@ public sealed class GameplaySessionFileCodecTests
         return output.ToArray();
     }
 
+    // The v6 attack-mode byte follows KeepInventory. Strip it to synthesize v5.
+    private static byte[] EncodeLegacyV5(
+        GameplaySessionSnapshot snapshot,
+        (BlockRegistry Blocks, FluidRegistry Fluids,
+            DyeRegistry Dyes, AttachedLayerRegistry Layers) content)
+    {
+        var encoded = Encode(snapshot, content);
+        using var stream = new MemoryStream(encoded, writable: false);
+        using var reader = new BinaryReader(stream, System.Text.Encoding.UTF8, true);
+        reader.ReadUInt32();
+        reader.ReadUInt16();
+        PortableStackSaveCodec.ReadString(reader, 512);
+        reader.ReadUInt32();
+        reader.ReadBoolean();
+        reader.ReadBoolean();
+        var offset = checked((int)stream.Position);
+        var v5 = encoded.AsSpan(0, offset).ToArray()
+            .Concat(encoded.AsSpan(offset + 1).ToArray()).ToArray();
+        v5[4] = 5;
+        v5[5] = 0;
+        return v5;
+    }
+
     private static GameplaySessionSnapshot Decode(
         byte[] data,
         (BlockRegistry Blocks, FluidRegistry Fluids,
@@ -67,6 +90,7 @@ public sealed class GameplaySessionFileCodecTests
         var creation = new WorldCreationOptions("Example", 9842UL);
         var states = new DimensionSessionStateStore(creation, Dimensions());
         Assert.True(states.GameRules.SetKeepInventory(false));
+        Assert.True(states.GameRules.SetCreatureAttackMode(CreatureAttackMode.Peaceful));
         var surface = states.GetOrCreate(DimensionId.Overworld);
         var umbral = states.GetOrCreate(new DimensionId("asteria:umbral"));
         var granite = original.Blocks.GetId("asteria:granite");
@@ -143,6 +167,8 @@ public sealed class GameplaySessionFileCodecTests
         Assert.Equal(encoded, Encode(decoded, reordered));
         Assert.Equal(9842UL, decoded.Spatial.WorldSeed);
         Assert.False(decoded.KeepInventory);
+        Assert.Equal(CreatureAttackMode.Peaceful, decoded.AttackMode);
+        Assert.Equal(CreatureAttackMode.Peaceful, restored.GameRules.AttackMode);
         Assert.False(restored.GameRules.KeepInventory);
         Assert.Equal(7, restored.Player.Inventory.Cursor!.Quantity);
         Assert.Equal("asteria:test_helm",
@@ -279,6 +305,20 @@ public sealed class GameplaySessionFileCodecTests
     }
 
     [Fact]
+    public void LegacyV5DefaultsCreatureAttackModeToDefault()
+    {
+        var content = Content(false);
+        var creation = new WorldCreationOptions("Legacy Peace", 777UL);
+        var states = new DimensionSessionStateStore(creation, Dimensions());
+        states.GetOrCreate(DimensionId.Overworld);
+        states.GameRules.SetCreatureAttackMode(CreatureAttackMode.Peaceful);
+        var v5 = EncodeLegacyV5(GameplaySessionSaveCodec.Capture(states,
+            content.Blocks, content.Fluids, content.Dyes, content.Layers), content);
+        var decoded = Decode(v5, content);
+        Assert.Equal(CreatureAttackMode.Default, decoded.AttackMode);
+    }
+
+    [Fact]
     public void LegacyV3RetainsHealthAndDefaultsInventoryRuleToKeep()
     {
         var content = Content(false);
@@ -287,7 +327,7 @@ public sealed class GameplaySessionFileCodecTests
         var states = new DimensionSessionStateStore(creation, Dimensions());
         states.GetOrCreate(DimensionId.Overworld);
         states.Player.Health.Damage(7f, PlayerGameMode.Survival);
-        var encoded = Encode(GameplaySessionSaveCodec.Capture(
+        var encoded = EncodeLegacyV5(GameplaySessionSaveCodec.Capture(
             states, content.Blocks, content.Fluids,
             content.Dyes, content.Layers), content);
 
@@ -320,7 +360,7 @@ public sealed class GameplaySessionFileCodecTests
         var creation = new WorldCreationOptions("Legacy Health", 1234UL);
         var states = new DimensionSessionStateStore(creation, Dimensions());
         states.GetOrCreate(DimensionId.Overworld);
-        var encoded = Encode(GameplaySessionSaveCodec.Capture(states,
+        var encoded = EncodeLegacyV5(GameplaySessionSaveCodec.Capture(states,
             content.Blocks, content.Fluids, content.Dyes, content.Layers), content);
         using var stream = new MemoryStream(encoded, writable: false);
         using var reader = new BinaryReader(stream, System.Text.Encoding.UTF8, true);
@@ -369,7 +409,7 @@ public sealed class GameplaySessionFileCodecTests
         var saved = GameplaySessionSaveCodec.Capture(
             states, content.Blocks, content.Fluids,
             content.Dyes, content.Layers);
-        var version5 = Encode(saved, content);
+        var version5 = EncodeLegacyV5(saved, content);
 
         // A v1 payload did not contain equipment or health fields.
         // Synthesize the exact v1 shape from a v5 payload with empty gear,

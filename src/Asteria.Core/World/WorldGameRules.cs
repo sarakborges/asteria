@@ -1,5 +1,12 @@
 namespace Asteria.Core.World;
 
+/// <summary>Whether creatures can pursue and attack the player.</summary>
+public enum CreatureAttackMode : byte
+{
+    Default = 0,
+    Peaceful = 1,
+}
+
 /// <summary>
 /// World-scoped mutable rules, shared across all Sphere sessions.
 /// </summary>
@@ -10,11 +17,13 @@ public sealed class WorldGameRules
     public WorldGameRules(
         uint ticksPerSecond = DefaultTicksPerSecond,
         bool spawnCreatures = true,
-        bool keepInventory = true)
+        bool keepInventory = true,
+        CreatureAttackMode creatureAttackMode = CreatureAttackMode.Default)
     {
         SetTicksPerSecond(ticksPerSecond);
         SpawnCreatures = spawnCreatures;
         KeepInventory = keepInventory;
+        SetCreatureAttackMode(creatureAttackMode);
     }
 
     public uint TicksPerSecond { get; private set; }
@@ -22,6 +31,19 @@ public sealed class WorldGameRules
     public bool SpawnCreatures { get; private set; }
 
     public bool KeepInventory { get; private set; }
+
+    public CreatureAttackMode AttackMode { get; private set; }
+
+    public bool AllowsCreatureAttacks => AttackMode == CreatureAttackMode.Default;
+
+    public bool SetCreatureAttackMode(CreatureAttackMode mode)
+    {
+        if (!Enum.IsDefined(mode))
+            throw new ArgumentOutOfRangeException(nameof(mode));
+        if (AttackMode == mode) return false;
+        AttackMode = mode;
+        return true;
+    }
 
     public bool SetKeepInventory(bool value)
     {

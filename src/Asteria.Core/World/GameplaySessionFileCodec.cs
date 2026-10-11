@@ -10,7 +10,7 @@ namespace Asteria.Core.World;
 public static class GameplaySessionFileCodec
 {
     private const uint Magic = 0x53534741; // AGSS
-    private const ushort Version = 5;
+    private const ushort Version = 6;
     public const long MaximumBytes = 640L * 1024 * 1024;
 
     public static void Write(
@@ -31,6 +31,7 @@ public static class GameplaySessionFileCodec
         writer.Write(session.TicksPerSecond);
         writer.Write(session.SpawnCreatures);
         writer.Write(session.KeepInventory);
+        writer.Write((byte)session.AttackMode);
         writer.Write(session.ActiveSphere.HasValue);
         if (session.ActiveSphere is { } activeSphere)
             PortableStackSaveCodec.WriteString(writer, activeSphere.Value, 512);
@@ -92,13 +93,17 @@ public static class GameplaySessionFileCodec
             if (reader.ReadUInt32() != Magic)
                 throw new InvalidDataException("Unknown gameplay session magic.");
             var version = reader.ReadUInt16();
-            if (version is not (1 or 2 or 3 or 4 or Version))
+            if (version is not (1 or 2 or 3 or 4 or 5 or Version))
                 throw new InvalidDataException("Unknown gameplay session format.");
             var name = PortableStackSaveCodec.ReadString(reader, 512);
             var tickRate = reader.ReadUInt32();
             var spawnCreatures = PortableStackSaveCodec.ReadBool(reader);
             var keepInventory = version >= 4
                 ? PortableStackSaveCodec.ReadBool(reader) : true;
+            var attackMode = version >= 6
+                ? (CreatureAttackMode)reader.ReadByte() : CreatureAttackMode.Default;
+            if (!Enum.IsDefined(attackMode))
+                throw new InvalidDataException("Unknown saved creature attack mode.");
             var activeSphere = PortableStackSaveCodec.ReadBool(reader)
                 ? new DimensionId(PortableStackSaveCodec.ReadString(reader, 512))
                 : (DimensionId?)null;
@@ -143,7 +148,7 @@ public static class GameplaySessionFileCodec
                 throw new InvalidDataException("Unexpected gameplay session trailing bytes.");
             return new GameplaySessionSnapshot(
                 spatial, name, tickRate, spawnCreatures, player, spheres, activeSphere,
-                keepInventory);
+                keepInventory, attackMode);
         }
         catch (Exception error) when (error is ArgumentException or EndOfStreamException or
             OverflowException or DecoderFallbackException or FormatException)

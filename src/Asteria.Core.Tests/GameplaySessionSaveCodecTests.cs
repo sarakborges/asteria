@@ -67,6 +67,7 @@ public sealed class GameplaySessionSaveCodecTests
 
         source.GameRules.SetTicksPerSecond(60);
         source.GameRules.SetSpawnCreatures(false);
+        source.GameRules.SetCreatureAttackMode(CreatureAttackMode.Peaceful);
         surface.WorldTick = 400;
         surface.DayNight = new DayNightClockState(8, 43);
         surface.PlayerPosition = new Vector3(4.5f, 71f, -12.25f);
@@ -80,6 +81,7 @@ public sealed class GameplaySessionSaveCodecTests
         Assert.NotSame(source, restored);
         Assert.Equal(60U, restored.GameRules.TicksPerSecond);
         Assert.False(restored.GameRules.SpawnCreatures);
+        Assert.Equal(CreatureAttackMode.Peaceful, restored.GameRules.AttackMode);
         Assert.Equal(PlayerGameMode.Creative, restored.Player.GameMode);
         Assert.True(restored.Player.IsFlying);
 

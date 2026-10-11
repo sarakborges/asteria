@@ -139,7 +139,8 @@ public sealed class DimensionSessionStateStore
         GameRules = new WorldGameRules(
             creation.TicksPerSecond,
             creation.SpawnCreatures,
-            creation.KeepInventory);
+            creation.KeepInventory,
+            creation.AttackMode);
     }
 
     public ulong WorldSeed => _worldSeed;

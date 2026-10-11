@@ -163,11 +163,14 @@ public sealed class GameplaySessionSnapshot
         string name, uint ticksPerSecond, bool spawnCreatures,
         PlayerSessionSnapshot player, IEnumerable<SphereClockSnapshot> spheres,
         DimensionId? activeSphere = null,
-        bool keepInventory = true)
+        bool keepInventory = true,
+        CreatureAttackMode creatureAttackMode = CreatureAttackMode.Default)
     {
         Spatial = spatial ?? throw new ArgumentNullException(nameof(spatial));
         Player = player ?? throw new ArgumentNullException(nameof(player));
         ArgumentNullException.ThrowIfNull(spheres);
+        if (!Enum.IsDefined(creatureAttackMode))
+            throw new InvalidDataException("Unknown creature attack mode.");
         if (string.IsNullOrWhiteSpace(name) || ticksPerSecond == 0)
             throw new InvalidDataException("Invalid saved world metadata.");
 
@@ -191,6 +194,7 @@ public sealed class GameplaySessionSnapshot
         TicksPerSecond = ticksPerSecond;
         SpawnCreatures = spawnCreatures;
         KeepInventory = keepInventory;
+        AttackMode = creatureAttackMode;
         _spheres = Array.AsReadOnly(entries);
     }
 
@@ -200,6 +204,7 @@ public sealed class GameplaySessionSnapshot
     public uint TicksPerSecond { get; }
     public bool SpawnCreatures { get; }
     public bool KeepInventory { get; }
+    public CreatureAttackMode AttackMode { get; }
     public PlayerSessionSnapshot Player { get; }
     public IReadOnlyList<SphereClockSnapshot> Spheres => _spheres;
 }
@@ -233,7 +238,8 @@ public static class GameplaySessionSaveCodec
             spatial, source.Name, source.GameRules.TicksPerSecond,
             source.GameRules.SpawnCreatures,
             source.Player.CaptureState(), clocks, activeSphere,
-            source.GameRules.KeepInventory);
+            source.GameRules.KeepInventory,
+            source.GameRules.AttackMode);
     }
 
     public static DimensionSessionStateStore Restore(
@@ -255,6 +261,7 @@ public static class GameplaySessionSaveCodec
         restored.GameRules.SetTicksPerSecond(snapshot.TicksPerSecond);
         restored.GameRules.SetSpawnCreatures(snapshot.SpawnCreatures);
         restored.GameRules.SetKeepInventory(snapshot.KeepInventory);
+        restored.GameRules.SetCreatureAttackMode(snapshot.AttackMode);
         restored.Player.RestoreState(snapshot.Player);
         foreach (var clock in snapshot.Spheres)
         {

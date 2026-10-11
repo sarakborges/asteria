@@ -16,7 +16,8 @@ public sealed class WorldCreationOptions
         uint ticksPerSecond = WorldGameRules.DefaultTicksPerSecond,
         bool spawnCreatures = true,
         WorldGenerationOptions? generation = null,
-        bool keepInventory = true)
+        bool keepInventory = true,
+        CreatureAttackMode creatureAttackMode = CreatureAttackMode.Default)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -55,6 +56,9 @@ public sealed class WorldCreationOptions
             throw new ArgumentOutOfRangeException(nameof(gameMode));
         }
 
+        if (!Enum.IsDefined(creatureAttackMode))
+            throw new ArgumentOutOfRangeException(nameof(creatureAttackMode));
+
         if (ticksPerSecond == 0)
         {
             throw new ArgumentOutOfRangeException(nameof(ticksPerSecond));
@@ -66,6 +70,7 @@ public sealed class WorldCreationOptions
         TicksPerSecond = ticksPerSecond;
         SpawnCreatures = spawnCreatures;
         KeepInventory = keepInventory;
+        AttackMode = creatureAttackMode;
         Generation = generation ?? new WorldGenerationOptions();
     }
 
@@ -75,5 +80,6 @@ public sealed class WorldCreationOptions
     public uint TicksPerSecond { get; }
     public bool SpawnCreatures { get; }
     public bool KeepInventory { get; }
+    public CreatureAttackMode AttackMode { get; }
     public WorldGenerationOptions Generation { get; }
 }

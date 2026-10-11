@@ -668,7 +668,8 @@ public partial class Main : Node3D
                 delta,
                 new NVector3(position.X, position.Y, position.Z),
                 _sessionStates.Player.GameMode == PlayerGameMode.Survival &&
-                !_sessionStates.Player.Health.IsDead);
+                !_sessionStates.Player.Health.IsDead &&
+                _sessionStates.GameRules.AllowsCreatureAttacks);
             ApplyCreatureContact();
         }
 
@@ -1404,6 +1405,9 @@ public partial class Main : Node3D
                 case "ui.world.set_spawn_creatures":
                     SetRequestedSpawnCreatures(document.RootElement);
                     break;
+                case "ui.world.set_creature_attack_mode":
+                    SetRequestedCreatureAttackMode(document.RootElement);
+                    break;
                 case "ui.world.set_keep_inventory":
                     SetRequestedKeepInventory(document.RootElement);
                     break;
@@ -1668,6 +1672,25 @@ public partial class Main : Node3D
         }
     }
 
+    private void SetRequestedCreatureAttackMode(JsonElement message)
+    {
+        if (_worldSeed is null ||
+            !message.TryGetProperty("payload", out var payload) ||
+            payload.ValueKind != JsonValueKind.Object ||
+            !payload.TryGetProperty("value", out var raw) ||
+            raw.ValueKind != JsonValueKind.String ||
+            !Enum.TryParse<CreatureAttackMode>(raw.GetString(),
+                ignoreCase: false, out var mode) ||
+            !Enum.IsDefined(mode))
+        {
+            SendWebUi("game.world_settings.error", new { code = "InvalidValue" });
+            return;
+        }
+
+        if (_sessionStates.GameRules.SetCreatureAttackMode(mode))
+            SendWorldSettings();
+    }
+
     private void SetRequestedKeepInventory(JsonElement message)
     {
         if (_worldSeed is null ||
@@ -1694,6 +1717,7 @@ public partial class Main : Node3D
                 mode = _sessionStates.Player.GameMode.ToString(),
                 ticksPerSecond = _sessionStates.GameRules.TicksPerSecond,
                 spawnCreatures = _sessionStates.GameRules.SpawnCreatures,
+                creatureAttackMode = _sessionStates.GameRules.AttackMode.ToString(),
                 keepInventory = _sessionStates.GameRules.KeepInventory,
             });
     }
@@ -1915,6 +1939,20 @@ public partial class Main : Node3D
             spawnCreaturesElement.ValueKind is JsonValueKind.True or JsonValueKind.False
                 ? spawnCreaturesElement.GetBoolean()
                 : true;
+        var rawCreatureAttackMode = payload.TryGetProperty(
+            "creatureAttackMode", out var attackModeElement)
+            ? attackModeElement.ValueKind == JsonValueKind.String
+                ? attackModeElement.GetString()
+                : null
+            : nameof(CreatureAttackMode.Default);
+        if (!Enum.TryParse<CreatureAttackMode>(rawCreatureAttackMode,
+                ignoreCase: false, out var creatureAttackMode) ||
+            !Enum.IsDefined(creatureAttackMode))
+        {
+            SendWorldCreationError("newWorld.error.invalidCreatureAttackMode");
+            return;
+        }
+
         var keepInventory = payload.TryGetProperty(
             "keepInventory", out var keepInventoryElement) &&
             keepInventoryElement.ValueKind is JsonValueKind.True or JsonValueKind.False
@@ -1933,7 +1971,8 @@ public partial class Main : Node3D
                 ticks,
                 spawnCreatures,
                 generation,
-                keepInventory);
+                keepInventory,
+                creatureAttackMode);
             StartWorld(creation);
         }
         catch (ArgumentException exception)
@@ -1962,7 +2001,8 @@ public partial class Main : Node3D
             : new WorldCreationOptions(
                 name, creation.Seed, creation.GameMode,
                 creation.TicksPerSecond, creation.SpawnCreatures,
-                creation.Generation, creation.KeepInventory);
+                creation.Generation, creation.KeepInventory,
+                creation.AttackMode);
 
         InitializeWorldSession(
             new DimensionSessionStateStore(safeCreation, _dimensions),
@@ -2340,7 +2380,8 @@ public partial class Main : Node3D
     private void ApplyCreatureContact()
     {
         if (_player is not { } player ||
-            !_sessionStates.Player.CanInteract)
+            !_sessionStates.Player.CanInteract ||
+            !_sessionStates.GameRules.AllowsCreatureAttacks)
             return;
 
         var contact = _sessions.Active.Creatures.FindContactHit(player.CollisionBounds);
