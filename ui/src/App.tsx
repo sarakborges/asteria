@@ -63,11 +63,11 @@ export type AppActions = {
   selectBrushDye(id: string | null): void;
   closeInventory(): void;
   closeStorageBox(): void;
-  clickStorageBoxSlot(index: number): void;
+  clickStorageBoxSlot(index: number, action: import("./components/molecules/InventorySlot/InventorySlot").InventorySlotAction): void;
   sortStorageBox(): void;
   closeChat(): void;
   submitChat(text: string): void;
-  clickInventorySlot(index: number): void;
+  clickInventorySlot(index: number, action: import("./components/molecules/InventorySlot/InventorySlot").InventorySlotAction): void;
   clickEquipmentSlot(index: number): void;
   sortInventory(): void;
   discardInventoryCursor(): void;
