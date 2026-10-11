@@ -8,13 +8,13 @@ import { Surface } from "../../atoms/Surface/Surface";
 import { Text } from "../../atoms/Text/Text";
 import { TextInput } from "../../atoms/TextInput/TextInput";
 import { InventoryHotbarFooter } from "../../molecules/InventoryHotbarFooter/InventoryHotbarFooter";
-import { InventorySlot } from "../../molecules/InventorySlot/InventorySlot";
+import { InventorySlot, type InventorySlotAction } from "../../molecules/InventorySlot/InventorySlot";
 import "./CreativeInventoryPanel.css";
 
 export type CreativeInventoryPanelProps = {
   state: CreativeInventoryView;
   hotbar?: readonly (ItemStackView | null)[];
-  onHotbarSlotClick?(index: number, item: ItemStackView | null): void;
+  onHotbarSlotClick?(index: number, item: ItemStackView | null, action: InventorySlotAction): void;
   onTrash?(): void;
   onSearchChange?(value: string): void;
   onCategoryChange?(id: string | null): void;
