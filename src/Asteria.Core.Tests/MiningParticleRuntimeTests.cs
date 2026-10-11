@@ -40,6 +40,20 @@ public sealed class MiningParticleRuntimeTests
     }
 
     [Fact]
+    public void TexturePatchesKeepStableIdentityAsOlderParticlesExpire()
+    {
+        var runtime = new MiningParticleRuntime();
+        runtime.Emit(Cue());
+        var seed = runtime.Particles[2].PatchSeed;
+        Assert.Equal(3, runtime.Particles.Select(x => x.PatchSeed).Distinct().Count());
+        runtime.Advance(0.1f);
+        Assert.Equal(seed, runtime.Particles[2].PatchSeed);
+        runtime.Emit(Cue());
+        Assert.Equal(6, runtime.Particles.Select(x => x.PatchSeed).Distinct().Count());
+        Assert.Equal(seed, runtime.Particles[2].PatchSeed);
+    }
+
+    [Fact]
     public void InvalidTimeNeverMutatesExistingParticles()
     {
         var runtime = new MiningParticleRuntime();
