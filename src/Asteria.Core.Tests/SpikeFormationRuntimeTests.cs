@@ -135,6 +135,59 @@ public sealed class SpikeFormationRuntimeTests
     }
 
     [Fact]
+    public void ExternalProfileEditRetapersRootAndRemovesOrphanedTip()
+    {
+        var f = Fixture();
+        var stone = f.Blocks.GetId("asteria:stone");
+        var spike = f.Blocks.GetId("asteria:stone_spike");
+        Assert.True(f.Mutations.SetBlockAt(
+            new WorldVoxelCoord(2, 2, 2), stone, out _));
+        for (var i = 0; i < 3; i++)
+            Assert.True(f.Interactions.Place(
+                Hit(2, 2 + i, 2, normalY: 1),
+                new VoxelCell(spike), AwayFromPlayer).Accepted);
+
+        var middle = new WorldVoxelCoord(2, 4, 2);
+        // The block ID remains identical: only the formation profile differs.
+        Assert.True(f.Mutations.SetCellAt(middle,
+            new VoxelCell(spike, state: SpikeSegmentState.Encode(0, 1, false)),
+            out _));
+
+        var remaining = f.World.GetCellOrEmpty(new WorldVoxelCoord(2, 3, 2));
+        Assert.Equal(spike, remaining.Block);
+        Assert.Equal(1, SpikeSegmentState.Height(remaining.State));
+        Assert.True(f.World.GetCellOrEmpty(middle).IsEmpty);
+        Assert.True(f.World.GetCellOrEmpty(
+            new WorldVoxelCoord(2, 5, 2)).IsEmpty);
+        Assert.Equal(2, f.Drops.ActiveCount);
+        Assert.All(f.Drops.ActiveBlocks, item =>
+            Assert.Equal((ushort)0, item.Block!.Cell.State));
+    }
+
+    [Fact]
+    public void ChangingOnlySpikeTextureRotationDoesNotDetachFormation()
+    {
+        var f = Fixture();
+        var stone = f.Blocks.GetId("asteria:stone");
+        var spike = f.Blocks.GetId("asteria:stone_spike");
+        Assert.True(f.Mutations.SetBlockAt(
+            new WorldVoxelCoord(2, 2, 2), stone, out _));
+        for (var i = 0; i < 2; i++)
+            Assert.True(f.Interactions.Place(
+                Hit(2, 2 + i, 2, normalY: 1),
+                new VoxelCell(spike), AwayFromPlayer).Accepted);
+
+        var tip = new WorldVoxelCoord(2, 4, 2);
+        var original = f.World.GetCellOrEmpty(tip);
+        var edited = original.WithTextureRotation(TextureRotation.Degrees90);
+        Assert.True(f.Mutations.SetCellAt(tip, edited, out _));
+        Assert.Equal(edited, f.World.GetCellOrEmpty(tip));
+        Assert.Equal(2, SpikeSegmentState.Height(
+            f.World.GetCellOrEmpty(new WorldVoxelCoord(2, 3, 2)).State));
+        Assert.Empty(f.Drops.ActiveBlocks);
+    }
+
+    [Fact]
     public void CeilingPlacementAndDropsIgnorePickedSegmentProfile()
     {
         var f = Fixture();
