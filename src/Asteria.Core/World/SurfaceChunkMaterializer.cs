@@ -11,6 +11,7 @@ public sealed class SurfaceChunkMaterializer
     private readonly BiomeSurfaceMaterialField _materials;
     private readonly SurfaceDecorationField _decorations;
     private readonly GeneratedFluidField _generatedFluids;
+    private readonly BlockRegistry _blocks;
     private readonly SurfaceStructureField _structures;
     private readonly Func<FluidRuntimeId, int, int, int, int, bool>
         _nearbyFluidQuery;
@@ -72,7 +73,7 @@ public sealed class SurfaceChunkMaterializer
         _veins = veins;
         _nearbyFluidQuery = HasNearbyFluid;
         ArgumentNullException.ThrowIfNull(dimension);
-        ArgumentNullException.ThrowIfNull(blocks);
+        _blocks = blocks ?? throw new ArgumentNullException(nameof(blocks));
 
         _shellBlock = dimension.Shell is { } shell
             ? blocks.GetId(shell.Block)
@@ -1543,7 +1544,10 @@ public sealed class SurfaceChunkMaterializer
                 {
                     var localY = worldY - originY;
 
-                    if (!chunk.GetCell(localX, localY, localZ).IsEmpty ||
+                    var block = chunk.GetBlock(localX, localY, localZ);
+                    if ((!block.IsAir &&
+                         !FluidBlockOccupancy.AllowsFluid(
+                             _blocks.GetDefinition(block))) ||
                         !chunk.GetFluid(localX, localY, localZ).IsEmpty)
                     {
                         continue;
