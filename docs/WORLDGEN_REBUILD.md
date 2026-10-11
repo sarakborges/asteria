@@ -1086,3 +1086,27 @@ four previous wall-block decorations until a separate, explicit content
 migration to authored Layer definitions. Normal 3D blocks and the general
 `support_wall` block-physics capability remain separate from layers.
 No JSON in `packs/` is changed by this cleanup.
+
+## Biome wall overlays migrated to authoritative Layers (2026-10-11)
+
+The default-pack `caverns` and `gorge` JSON now use explicit
+`layer` decorator rules for `wall_moss` and `cliff_lichen`.
+These are **not** neighboring voxel blocks: generation attaches
+`AttachedBlockLayer` to the actual Stone/Stone Cobble host face,
+including host faces exposed across chunk boundaries. Each face is
+stored inside the host's existing `BlockSurfaceState`, so ordinary
+mesh, save/load, and worker snapshot semantics remain authoritative.
+The rule selector reuses the same chance, habitat, cluster and vertical
+restriction policy as existing block decorations. Layer rules must
+resolve in `AttachedLayerRegistry` and support all lateral faces;
+invalid pack definitions fail during normal runtime creation.
+
+The 64×64 art from the original wall objects was reused as texture
+assets under `textures/layers` with explicit `tint:none`. Original
+`wall_moss` and `cliff_lichen` block definitions and object texture
+assets are retained for compatibility with existing saved worlds, but
+the worldgen no longer creates those blocks. `wall_shelf_fungus` and
+`cliff_rosette` remain 3D objects (not Layers); their legacy wall-block
+generation is still inactive pending a distinct geometry placement
+capability. The port does not reinstate the redundant wall-block pass
+or change terrain, cave palettes, biome boundaries, or water.

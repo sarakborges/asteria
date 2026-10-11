@@ -207,3 +207,9 @@ value over existing content.
 All proposals above are optional authored content or explicit
 extensions. They do not modify current terrain, topology, palettes,
 crater, sea level, world Y range, or Sphere boundaries.
+
+**2026-10-11 content migration:** `wall_moss` and `cliff_lichen`
+are authored and generated as attached face Layers. Preserve their old
+block definitions for saves. `wall_shelf_fungus` and `cliff_rosette`
+remain object candidates; unlike texture overlays, they need physical
+projection outside the host voxel.
