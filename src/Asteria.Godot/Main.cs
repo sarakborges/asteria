@@ -3673,6 +3673,15 @@ public partial class Main : Node3D
                 kind = "block",
                 id = value.BlockId,
                 name = value.BlockId,
+                layers = value.Surface.Layers
+                    .OrderBy(layer => layer.LayerId, StringComparer.Ordinal)
+                    .ThenBy(layer => layer.Face)
+                    .Select(layer => new
+                    {
+                        id = layer.LayerId,
+                        face = layer.Face.ToString().ToLowerInvariant(),
+                    })
+                    .ToArray(),
                 details = new[]
                 {
                     $"Sky Light: {value.SkyLight} | Block Light: {value.BlockLight}",
