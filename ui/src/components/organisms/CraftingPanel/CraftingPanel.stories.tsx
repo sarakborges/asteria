@@ -1,8 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { CraftingPanel } from "./CraftingPanel";
+import type { CraftingRecipeView } from "../../../presentation/inventoryModels";
 
 // The only inventory-crafting recipe authored in the MineClone reference.
-const hatchet = {
+const hatchet: CraftingRecipeView = {
   id: "asteria:rustic_hatchet",
   result: { id: "asteria:hatchet_rustic", name: "Rustic Hatchet", kind: "tool" as const },
   outputQuantity: 1,
