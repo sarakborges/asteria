@@ -319,6 +319,8 @@
   "ui.delete": "Eliminar",
   "ui.newWorld": "Mundo Nuevo",
   "ui.chatMessage": "Mensaje de chat",
+  "chat.action.structureFile": "Estructura exportada.",
+  "chat.action.openStructureFile": "[Abrir carpeta de exportaciones]",
   "chat.action.warp": "[Viajar a]",
   "ui.chatHint": "Usa ↑ y ↓ para elegir una opción. Pulsa Tab para completar.",
   "ui.runtimeStatus": "ESTADO DEL JUEGO",
