@@ -41,7 +41,7 @@ void fragment() {
 
     float base_code = UV2.x;
     int base_index = int(floor(base_code + 0.001));
-    bool base_tint_enabled = fract(base_code) > 0.1;
+    bool base_tint_enabled = mod(floor(fract(base_code) * 4.0 + 0.01), 2.0) > 0.5;
 
     vec4 base = texture(
         terrain_textures,
@@ -56,7 +56,7 @@ void fragment() {
     if (UV2.y >= 0.0) {
         float overlay_code = UV2.y;
         int overlay_index = int(floor(overlay_code + 0.001));
-        bool overlay_tint_enabled = fract(overlay_code) > 0.1;
+        bool overlay_tint_enabled = mod(floor(fract(overlay_code) * 4.0 + 0.01), 2.0) > 0.5;
 
         vec4 overlay = texture(
             terrain_textures,
