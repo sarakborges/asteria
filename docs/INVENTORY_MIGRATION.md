@@ -21,7 +21,7 @@ WebUI observes `game.inventory.state` and `game.inventory.catalog` through `Inve
 ## Still not full parity (updated 2026-10-09)
 
 - Brush, Bucket, Artisan's Kit, Shears, Structure Tool and the world-space mining crack overlay have **already** been integrated. Do not treat them as unimplemented.
-- Cursor splitting/shift-click, equipped slots, held-tool swing animation, metadata-specific bucket visuals and non-block rewards/loot policy still require comparison/implementation.
+- Right-click splitting and Shift-click transfers are now implemented in Core and wired to inventory and storage WebUI (2026-10-11); in-engine mouse/WRY QA remains open. Equipment slots, viewmodel swing, metadata-specific bucket visuals and drop/loot policies must be verified against the reference rather than assumed missing.
 - The portable microblock snapshot exists; unsupported re-placement must be reviewed rather than silently changing geometry.
 - Complete world/session disk snapshots, catalog validation and world loading **exist**. Unfinished World Delete, Save and Leave, historical migration policy and live process-restart QA are tracked in [remaining port roadmap](MINECLONE_PORT_REMAINING.md).
 - Creative category definitions, original PNGs, authored order and localization are integrated through Godot and React. Godot/WRY native clicks, image decoding, localized search and scroll restoration still need in-game verification.
@@ -46,3 +46,12 @@ WebUI observes `game.inventory.state` and `game.inventory.catalog` through `Inve
 ## Bucket inventory metadata (2026-10-08)
 
 - The authored bucket's right-click behavior is now operational through `BucketGameplayRuntime`. Only one selected bucket may transition from empty to `contained_fluid` metadata (and back); stale selections or stacked bucket quantities are rejected without duplicating fluids/items. Source collection and adjacent placement are validated in the Core and passed to `VoxelMutationRuntime`; Godot forwards the native input ray only.
+
+## Advanced cursor and quick-transfer interactions (2026-10-11)
+
+- **Primary click:** retains existing full-stack pickup, swap and merge semantics.
+- **Right-click:** empty cursor takes the rounded-up half of a stack; occupied cursor places one into an empty or compatible not-full slot. Invalid/incompatible slots preserve cursor, slot and revision.
+- **Shift-click:** moves as much as fits from backpack to hotbar or vice versa. When a Storage Box is open, it moves between the clicked side and the other inventory, merging equal identity/metadata stacks before empty slots. It accepts partial capacity but cannot duplicate items; full destinations are no-ops.
+- **Creative Shift-click:** picks an authored full stack or tops up the matching cursor to the definition's maximum stack size; it never manufactures unsupported item metadata or exceeds the cap.
+- `PlayerInventory` remains the authoritative slot/cursor owner. Storage operations are validated by the Sphere-owned `StorageBoxRuntime` against the resident storage block before it invokes Core transfer capabilities; both revisions change only after actual transfer. `InventorySlot` sends semantic `left` / `right` / `quick` actions through React controllers and the Godot bridge, not raw global input.
+- Core tests cover odd split, single-item placement, incompatible variants, exact capacity, partial/full transfers, cursor preservation and invalidated containers. A Chromium browser regression covers all three mouse actions. Manual Godot/WRY, touch and input focus remain to be verified.
