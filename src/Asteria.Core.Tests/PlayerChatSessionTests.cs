@@ -45,6 +45,46 @@ public sealed class PlayerChatSessionTests
     }
 
     [Fact]
+    public void LocatedActionResolvesOnlyLiveAuthoritativeTranscriptIds()
+    {
+        var chat = new PlayerChatSession();
+        var target = new PlayerChatWarpTarget(12, 70, -24, "asteria:overworld");
+        chat.AppendLocated("chat.command.locate.found",
+            new Dictionary<string, string>
+            {
+                ["name"] = "asteria:village",
+                ["position"] = "(12, -24, 70)",
+            }, target);
+        var messageId = Assert.Single(chat.History).Id;
+        Assert.True(chat.TryGetWarpTarget(messageId, out var resolved));
+        Assert.Equal(target, resolved);
+
+        chat.Append("ordinary text");
+        Assert.False(chat.TryGetWarpTarget(chat.History[^1].Id, out _));
+        Assert.False(chat.TryGetWarpTarget(messageId + 1000, out _));
+
+        for (var i = 0; i < PlayerChatSession.HistoryCapacity; i++)
+            chat.Append($"filler {i}");
+        Assert.False(chat.TryGetWarpTarget(messageId, out _));
+        chat.Reset();
+        Assert.False(chat.TryGetWarpTarget(messageId, out _));
+    }
+
+    [Fact]
+    public void LocatedActionRejectsInvalidDestinationAndPreservesHistory()
+    {
+        var chat = new PlayerChatSession();
+        var args = new Dictionary<string, string> { ["name"] = "asteria:plains" };
+        Assert.Throws<ArgumentException>(() => chat.AppendLocated(
+            "chat.command.locate.found", args,
+            new PlayerChatWarpTarget(0, -1, 0, "asteria:overworld")));
+        Assert.Throws<ArgumentException>(() => chat.AppendLocated(
+            "chat.command.locate.found", args,
+            new PlayerChatWarpTarget(0, 64, 0, " ")));
+        Assert.Empty(chat.History);
+    }
+
+    [Fact]
     public void ResetClosesChatAndDropsPreviousHistory()
     {
         var chat = new PlayerChatSession();
