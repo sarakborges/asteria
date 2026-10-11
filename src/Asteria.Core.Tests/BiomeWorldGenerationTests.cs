@@ -1599,6 +1599,124 @@ public sealed class BiomeWorldGenerationTests
                         0)));
     }
 
+    [Theory]
+    [InlineData(WorldGenerationMode.Normal)]
+    [InlineData(WorldGenerationMode.Flat)]
+    [InlineData(WorldGenerationMode.Void)]
+    public void SphereShellFloorHasOpaqueTerrainCoverInEveryWorldMode(
+        WorldGenerationMode mode)
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition("asteria:sphere_shell",
+                mining: new BlockMiningDefinition(unbreakable: true)),
+            new BlockDefinition("asteria:grass_block"),
+            new BlockDefinition("asteria:stone"),
+        ]);
+        var biome = FlatBiome(
+            "asteria:test/plain", "asteria:grass_block", "asteria:stone");
+        var dimension = new DimensionDefinition(
+            new DimensionId("asteria:test"), [biome.Id],
+            seaLevel: 0, gravityStrength: 18f,
+            new DimensionSpawnDefinition(0, 0),
+            new DimensionEnvironmentDefinition(
+                new DimensionColor(0, 0, 0),
+                new DimensionColor(255, 255, 255), 1f,
+                new DimensionColor(0, 0, 0), 0f),
+            new DimensionShellDefinition("asteria:sphere_shell", floorY: 0));
+        var generator = new BiomeWorldGenerator(
+            77UL, dimension, blocks,
+            new FluidRegistry(Array.Empty<FluidDefinition>()),
+            new BiomeRegistry([biome]),
+            StructureRegistry.Empty,
+            generation: new WorldGenerationOptions(
+                mode, spawnOceans: false, spawnCaves: false));
+
+        var first = generator.Materialize(ChunkCoord.Zero);
+        var neighbor = generator.Materialize(new ChunkCoord(1, 0, 1));
+        var shell = blocks.GetId("asteria:sphere_shell");
+        var core = blocks.GetId("asteria:stone");
+
+        foreach (var chunk in new[] { first, neighbor })
+        {
+            Assert.Equal(shell, chunk.GetBlock(8, 0, 8));
+            var cover = chunk.GetBlock(8, 1, 8);
+            Assert.NotEqual(shell, cover);
+            Assert.True(blocks.GetDefinition(cover).IsOpaque);
+            Assert.Equal(BlockShapeKind.Cube, blocks.GetDefinition(cover).Shape.Kind);
+            Assert.True(chunk.GetFluid(8, 1, 8).IsEmpty);
+        }
+
+        Assert.True(generator.DensityAt(8, 1, 8) >= 0d);
+        if (mode == WorldGenerationMode.Normal)
+        {
+            // The thin natural surface remains grass, not a forced stone cap.
+            Assert.Equal(blocks.GetId("asteria:grass_block"),
+                first.GetBlock(8, 1, 8));
+            Assert.Equal(1, generator.SurfaceHeight(8, 8));
+        }
+        else
+        {
+            Assert.Equal(core, first.GetBlock(8, 1, 8));
+        }
+    }
+
+    [Fact]
+    public void SphereShellRoofIsHiddenEvenAboveNaturalTerrain()
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition("asteria:sphere_shell",
+                mining: new BlockMiningDefinition(unbreakable: true)),
+            new BlockDefinition("asteria:stone"),
+        ]);
+        var biome = TestBiome("asteria:test/plain", baseHeightOffset: 4f);
+        var dimension = new DimensionDefinition(
+            new DimensionId("asteria:test"), [biome.Id],
+            seaLevel: 0, gravityStrength: 18f,
+            new DimensionSpawnDefinition(0, 0),
+            new DimensionEnvironmentDefinition(
+                new DimensionColor(0, 0, 0),
+                new DimensionColor(255, 255, 255), 1f,
+                new DimensionColor(0, 0, 0), 0f),
+            new DimensionShellDefinition(
+                "asteria:sphere_shell", floorY: 0, roofY: 12));
+        var generator = new BiomeWorldGenerator(
+            78UL, dimension, blocks, new BiomeRegistry([biome]));
+        var chunk = generator.Materialize(ChunkCoord.Zero);
+
+        Assert.Equal(4, generator.SurfaceHeight(8, 8));
+        Assert.True(chunk.GetBlock(8, 10, 8).IsAir);
+        Assert.Equal(blocks.GetId("asteria:stone"),
+            chunk.GetBlock(8, 11, 8));
+        Assert.Equal(blocks.GetId("asteria:sphere_shell"),
+            chunk.GetBlock(8, 12, 8));
+        Assert.True(generator.DensityAt(8, 11, 8) >= 0d);
+    }
+
+    [Fact]
+    public void OverworldCavesCannotExposeTheSphereShellFloor()
+    {
+        var blocks = LoadDefaultBlocks();
+        var dimension = LoadDefaultDimensions().Get(DimensionId.Overworld);
+        var generator = new BiomeWorldGenerator(
+            2947UL, dimension, blocks, LoadDefaultBiomes());
+        var chunk = generator.Materialize(ChunkCoord.Zero);
+        var shell = blocks.GetId("asteria:sphere_shell");
+
+        for (var z = 0; z < Chunk.Size; z += 3)
+        for (var x = 0; x < Chunk.Size; x += 3)
+        {
+            Assert.Equal(shell, chunk.GetBlock(x, 0, z));
+            Assert.False(generator.IsCaveVoidAt(x, 1, z));
+            Assert.True(generator.DensityAt(x, 1, z) >= 0d);
+            var cover = chunk.GetBlock(x, 1, z);
+            Assert.NotEqual(shell, cover);
+            Assert.True(blocks.GetDefinition(cover).IsOpaque);
+            Assert.True(chunk.GetFluid(x, 1, z).IsEmpty);
+        }
+    }
+
     [Fact]
     public void DimensionSeaLevelOffsetsAuthoredBiomeHeight()
     {
