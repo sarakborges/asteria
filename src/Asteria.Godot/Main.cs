@@ -4929,13 +4929,8 @@ public partial class Main : Node3D
         var (from, to) = player.GetInteractionRay(InteractionDistance);
         var origin = new NVector3(from.X, from.Y, from.Z);
         var direction = new NVector3(to.X - from.X, to.Y - from.Y, to.Z - from.Z);
-        var hit = WorldObjectRaycaster.Raycast(
-            _world, _objects, origin, direction, InteractionDistance);
-        if (hit is not { } resolved) return null;
-        var blockingHit = VoxelWorldRaycaster.Raycast(
-            _world, _blocks, origin, direction,
-            MathF.Max(0f, resolved.Distance - .001f));
-        return blockingHit is null ? resolved : null;
+        return WorldObjectTargetResolver.RaycastVisible(
+            _world, _blocks, _objects, origin, direction, InteractionDistance);
     }
 
     private VoxelWorldHit? CurrentTarget()

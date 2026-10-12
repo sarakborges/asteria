@@ -150,6 +150,27 @@ public sealed class WorldObjectInteractionRuntimeTests
     }
 
     [Fact]
+    public void FullInventoryRejectsPickupWithoutRemovingObject()
+    {
+        var (runtime, world, mutations, _, _) = Setup();
+        var support = new WorldVoxelCoord(2, 2, 2);
+        mutations.SetBlockAt(support, new BlockRuntimeId(1), out _);
+        var obj = new ObjectCell("asteria:pebble_object", BlockFace.Top);
+        Assert.True(mutations.AddObjectAt(support, obj));
+        var inventory = new PlayerInventory();
+        var filler = new InventoryStack(
+            InventoryEntry.FromItem("asteria:filler"), 64);
+        for (var index = 0; index < PlayerInventory.TotalSlots; index++)
+            Assert.True(inventory.TryInsert(filler));
+        var before = inventory.Revision;
+        Assert.False(runtime.TryPickup(
+            new WorldObjectHit(support, obj, 1f), inventory));
+        Assert.Equal(before, inventory.Revision);
+        Assert.True(world.TryGetObjects(support, out var existing));
+        Assert.Contains(obj, existing);
+    }
+
+    [Fact]
     public void PortableObjectStacksRoundTripAndRetainKind()
     {
         var blocks = new BlockRegistry([]);
