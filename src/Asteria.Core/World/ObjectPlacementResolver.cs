@@ -11,7 +11,8 @@ public static class ObjectPlacementResolver
     public static ObjectPlacementDecision Resolve(
         VoxelWorld world, BlockRegistry blocks,
         PackContentRegistry<ObjectDefinition> definitions,
-        InventoryStack? held, VoxelWorldHit? hit)
+        InventoryStack? held, VoxelWorldHit? hit,
+        FluidRegistry? fluids = null)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(blocks);
@@ -22,8 +23,20 @@ public static class ObjectPlacementResolver
             definition is null ||
             !VoxelHitFace.TryResolve(supportHit, out var face) ||
             !definition.Supports(face) ||
-            !world.TryGetCell(supportHit.Voxel, out var support) ||
-            support.IsEmpty || !blocks.GetDefinition(support.Block).IsCollidable)
+            !world.TryGetCell(supportHit.Voxel, out var support))
+            return default;
+
+        if (definition.SupportFluid is { } fluidId)
+        {
+            if (face != BlockFace.Top || !support.IsEmpty ||
+                fluids is null ||
+                !fluids.TryGetId(fluidId, out var required) ||
+                !world.TryGetFluid(supportHit.Voxel, out var fluid) ||
+                fluid.Fluid != required || fluid.Level != FluidCell.MaxLevel ||
+                !fluid.IsSource)
+                return default;
+        }
+        else if (support.IsEmpty || !blocks.GetDefinition(support.Block).IsCollidable)
             return default;
 
         var target = supportHit.Voxel +

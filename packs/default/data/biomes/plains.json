@@ -31,7 +31,7 @@
       }
     },
     {
-      "block": "asteria:pebble",
+      "object": "asteria:pebble",
       "chance": 0.0072,
       "surfaceBlocks": [
         "asteria:grass_block",

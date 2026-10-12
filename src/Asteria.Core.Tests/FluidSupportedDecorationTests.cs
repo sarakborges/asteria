@@ -1,3 +1,4 @@
+using Asteria.Core.Content;
 using Asteria.Core.World;
 
 namespace Asteria.Core.Tests;
@@ -25,8 +26,11 @@ public sealed class FluidSupportedDecorationTests
         Assert.NotNull(lily.HabitatWeights);
         Assert.Equal(BlockVisualKind.CrossedSprite,
             blocks.GetDefinition(blocks.GetId(cattail.Block)).Visual.Kind);
-        Assert.Equal(BlockVisualKind.GroundSprite,
-            blocks.GetDefinition(blocks.GetId(lily.Block)).Visual.Kind);
+        var objects = PackContentRegistry<ObjectDefinition>.FromJson(
+            ReadJson("objects"), ObjectDefinition.Parse, d => d.Id);
+        Assert.True(lily.IsObject);
+        Assert.Equal(ObjectVisualKind.ExtrudedSprite,
+            objects.Get(lily.Block).Visual.Kind);
     }
 
     [Fact]
@@ -48,8 +52,7 @@ public sealed class FluidSupportedDecorationTests
     {
         var blocks = new BlockRegistry([
             new BlockDefinition("asteria:mud"),
-            new BlockDefinition("asteria:cattail"),
-            new BlockDefinition("asteria:lily_pad")
+            new BlockDefinition("asteria:cattail")
         ]);
         var fluids = new FluidRegistry([
             new FluidDefinition("asteria:water", new FluidColor(0, 96, 255), 0.7f)
@@ -67,9 +70,13 @@ public sealed class FluidSupportedDecorationTests
                 new BiomeDecorationDefinition("asteria:lily_pad", 1f,
                     ["asteria:mud"], fluidRequirement:
                     new BiomeDecorationFluidRequirement(
-                        "asteria:water", DecorationFluidRelation.Below)),
+                        "asteria:water", DecorationFluidRelation.Below),
+                    isObject: true),
             ]);
-        var field = new SurfaceDecorationField(42, [biome], blocks, fluids: fluids);
+        var objects = PackContentRegistry<ObjectDefinition>.FromJson(
+            ReadJson("objects"), ObjectDefinition.Parse, d => d.Id);
+        var field = new SurfaceDecorationField(42, [biome], blocks,
+            fluids: fluids, objects: objects);
         var sample = new BiomeSample(biome.Id,
             [new BiomeInfluence(biome.Id, 1f)]);
         var mud = blocks.GetId("asteria:mud");
@@ -82,9 +89,12 @@ public sealed class FluidSupportedDecorationTests
                     f == water && radius == 2 && x == 3 && y == 90 && z == 4));
         Assert.True(field.BlockAt(sample, mud, 3, 4,
             onFluidSurface: true).IsAir);
-        Assert.Equal(blocks.GetId("asteria:lily_pad"),
-            field.BlockAt(sample, mud, 3, 4,
+        Assert.Equal("asteria:lily_pad",
+            field.ObjectAt(sample, mud, 3, 4,
                 onFluidSurface: true, fluidBelow: water));
+        Assert.Null(field.ObjectAt(sample, mud, 3, 4));
+        Assert.Null(field.ObjectAt(sample, mud, 3, 4,
+            onFluidSurface: true, fluidBelow: default));
     }
 
     [Fact]
@@ -92,8 +102,7 @@ public sealed class FluidSupportedDecorationTests
     {
         var blocks = new BlockRegistry([
             new BlockDefinition("asteria:mud"),
-            new BlockDefinition("asteria:stone"),
-            new BlockDefinition("asteria:lily_pad")
+            new BlockDefinition("asteria:stone")
         ]);
         var fluids = new FluidRegistry([
             new FluidDefinition("asteria:water", new FluidColor(0, 96, 255), 0.7f)
@@ -106,7 +115,8 @@ public sealed class FluidSupportedDecorationTests
                 new BiomeDecorationDefinition("asteria:lily_pad", 1f,
                     ["asteria:mud"], fluidRequirement:
                     new BiomeDecorationFluidRequirement(
-                        "asteria:water", DecorationFluidRelation.Below))
+                        "asteria:water", DecorationFluidRelation.Below),
+                    isObject: true)
             ],
             palette: new BiomePaletteDefinition(
                 [new BiomeSurfaceLayerDefinition("asteria:mud", 2),
@@ -123,21 +133,27 @@ public sealed class FluidSupportedDecorationTests
                 new DimensionColor(0, 0, 0),
                 new DimensionColor(255, 255, 255), 1f,
                 new DimensionColor(0, 0, 0), 0f));
+        var objects = PackContentRegistry<ObjectDefinition>.FromJson(
+            ReadJson("objects"), ObjectDefinition.Parse, d => d.Id);
         var generator = new BiomeWorldGenerator(
             42, dimension, blocks, fluids, new BiomeRegistry([biome]),
             StructureRegistry.Empty,
-            generation: new WorldGenerationOptions(spawnCaves: false));
+            generation: new WorldGenerationOptions(spawnCaves: false),
+            objects: objects);
         var chunk = generator.Materialize(new ChunkCoord(0, 5, 0));
         var water = fluids.GetId("asteria:water");
-        var lily = blocks.GetId("asteria:lily_pad");
+
         var observed = 0;
         for (var z = 0; z < Chunk.Size; z++)
         for (var x = 0; x < Chunk.Size; x++)
         {
             if (chunk.GetFluid(x, 10, z).Fluid != water)
                 continue;
-            Assert.Equal(lily, chunk.GetBlock(x, 11, z));
+            Assert.True(chunk.GetBlock(x, 11, z).IsAir);
             Assert.True(chunk.GetBlock(x, 10, z).IsAir);
+            var pad = Assert.Single(chunk.ObjectsAt(x, 10, z));
+            Assert.Equal("asteria:lily_pad", pad.Id);
+            Assert.Equal(BlockFace.Top, pad.Face);
             observed++;
         }
         Assert.True(observed > 0);

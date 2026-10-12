@@ -1,0 +1,38 @@
+{
+  "id": "asteria:pebble",
+  "category": "crafting_materials",
+  "icon": "textures/items/pebble.png",
+  "placementFaces": [
+    "top"
+  ],
+  "visual": {
+    "type": "extrudedSprite",
+    "texture": "textures/items/pebble.png",
+    "size": [
+      0.42,
+      0.42
+    ],
+    "height": 0.012,
+    "baseOffset": 0.0125,
+    "alphaCutoff": 0.5
+  },
+  "target": {
+    "size": [
+      0.42,
+      0.14,
+      0.42
+    ],
+    "centerOffset": [
+      0,
+      0.07,
+      0
+    ]
+  },
+  "positionJitter": [
+    0,
+    0
+  ],
+  "dropSelf": true,
+  "interaction": "pickup",
+  "pickupItem": "asteria:pebble"
+}

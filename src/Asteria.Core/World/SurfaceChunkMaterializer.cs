@@ -7,7 +7,8 @@ namespace Asteria.Core.World;
 public sealed class SurfaceChunkMaterializer
 {
     private readonly record struct PendingGeneratedObject(
-        int X, int Y, int Z, string Id, BlockFace Face, bool Submerged = false)
+        int X, int Y, int Z, string Id, BlockFace Face,
+        bool Submerged = false, FluidRuntimeId SupportFluid = default)
     {
         public (int X, int Y, int Z) Target => Face switch
         {
@@ -230,9 +231,12 @@ public sealed class SurfaceChunkMaterializer
                     decorationY, originY, topExclusive);
                 var fluidTopInChunk = CanPlaceDecorationAt(
                     decorationY + 1, originY, topExclusive);
+                var fluidObjectSupportInChunk = CanPlaceDecorationAt(
+                    decorationY, originY, topExclusive);
                 var objectSupportInChunk = CanPlaceDecorationAt(
                     surfaceY, originY, topExclusive);
-                if (!normalInChunk && !fluidTopInChunk && !objectSupportInChunk)
+                if (!normalInChunk && !fluidTopInChunk && !objectSupportInChunk &&
+                    !fluidObjectSupportInChunk)
                     continue;
 
                 var topSample =
@@ -310,7 +314,7 @@ public sealed class SurfaceChunkMaterializer
 
                 // Water-top decorations occupy the *air above* a source,
                 // not its water voxel. This also spans vertical chunk edges.
-                if (fluidTopInChunk &&
+                if ((fluidTopInChunk || fluidObjectSupportInChunk) &&
                     _decorations.HasFluidSurfaceDecorations(topSample))
                 {
                     var supportFluid = _generatedFluids.FluidAtEmptyVoxel(
@@ -327,10 +331,28 @@ public sealed class SurfaceChunkMaterializer
                             onFluidSurface: true,
                             fluidBelow: supportFluid.Fluid,
                             nearbyFluid: _nearbyFluidQuery);
-                        if (!decoration.IsAir)
+                        if (fluidTopInChunk && !decoration.IsAir)
                             chunk.SetBlock(
                                 localX, (int)decorationY + 1 - originY,
                                 localZ, decoration);
+                        if (fluidObjectSupportInChunk &&
+                            _decorations.HasObjectDecorations(topSample))
+                        {
+                            var objectId = _decorations.ObjectAt(
+                                topSample, topBlock, worldX, worldZ,
+                                supportY: (int)decorationY,
+                                onFluidSurface: true,
+                                fluidBelow: supportFluid.Fluid,
+                                nearbyFluid: _nearbyFluidQuery);
+                            if (objectId is not null)
+                            {
+                                pendingObjects ??= [];
+                                pendingObjects.Add(new PendingGeneratedObject(
+                                    localX, (int)decorationY - originY, localZ,
+                                    objectId, BlockFace.Top,
+                                    SupportFluid: supportFluid.Fluid));
+                            }
+                        }
                     }
                 }
             }
@@ -389,8 +411,15 @@ public sealed class SurfaceChunkMaterializer
                     (_roofY is { } roof && originY + obj.Y >= roof))
                     continue;
                 var support = chunk.GetCell(obj.X, obj.Y, obj.Z);
-                if (support.IsEmpty ||
-                    !_blocks.GetDefinition(support.Block).IsCollidable)
+                if (!obj.SupportFluid.IsNone)
+                {
+                    var fluid = chunk.GetFluid(obj.X, obj.Y, obj.Z);
+                    if (!support.IsEmpty || fluid.Fluid != obj.SupportFluid ||
+                        fluid.Level != FluidCell.MaxLevel || !fluid.IsSource)
+                        continue;
+                }
+                else if (support.IsEmpty ||
+                         !_blocks.GetDefinition(support.Block).IsCollidable)
                     continue;
                 var target = obj.Target;
                 if (Chunk.Contains(target.X, target.Y, target.Z))

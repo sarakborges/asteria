@@ -801,6 +801,7 @@ public sealed class VoxelWorld
             return false;
         }
 
+        var previousObjectRevision = chunk.ObjectRevision;
         if (previous == fluid ||
             !chunk.SetFluid(
                 address.Local.X,
@@ -814,6 +815,11 @@ public sealed class VoxelWorld
 
         _archive.MarkDirty(address.Chunk);
         Revision++;
+        if (chunk.ObjectRevision != previousObjectRevision)
+        {
+            if (chunk.ObjectCount == 0) _residentObjectChunks.Remove(address.Chunk);
+            ObjectChunkChanged?.Invoke(address.Chunk);
+        }
 
         edit = new FluidWorldEdit(
             position,

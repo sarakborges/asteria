@@ -82,18 +82,21 @@ public sealed class BlockContentTests
         Assert.False(
             grassPlant.DropsSelf);
 
-        var pebble =
-            registry.GetDefinition(registry.GetId("asteria:pebble"));
-        Assert.Equal(BlockVisualKind.GroundSprite, pebble.Visual.Kind);
+        Assert.False(registry.TryGetId("asteria:pebble", out _));
+        var pebble = Asteria.Core.Content.ObjectDefinition.Parse(
+            File.ReadAllText(Path.Combine(AppContext.BaseDirectory,
+                "packs", "default", "data", "objects", "pebble.json")));
+        Assert.Equal(Asteria.Core.Content.ObjectVisualKind.ExtrudedSprite,
+            pebble.Visual.Kind);
         Assert.Equal(0.42f, pebble.Visual.Width);
-        Assert.Equal("textures/items/pebble.png",
-            pebble.Visual.Texture!.Value.Texture);
-        Assert.True(pebble.HasTag(BlockPhysicsCapabilities.SupportBelow));
-        Assert.True(pebble.DropsSelf);
-        Assert.False(pebble.IsCollidable);
-        Assert.Equal(BlockInteractionKind.Pickup, pebble.Interaction);
-        Assert.Equal("asteria:pebble", pebble.PickupItemId);
-        Assert.Equal(0.14f, pebble.Visual.TargetHeight);
+        Assert.Equal("textures/items/pebble.png", pebble.Visual.Texture);
+        Assert.True(pebble.Supports(BlockFace.Top));
+        Assert.True(pebble.DropSelf);
+        Assert.Equal(Asteria.Core.Content.ObjectInteraction.Pickup,
+            pebble.Interaction);
+        Assert.Equal("asteria:pebble", pebble.PickupItem);
+        Assert.Equal(InventoryEntryKind.Item, pebble.RewardEntry.Kind);
+        Assert.Equal(0.14f, pebble.Target.Size.Y);
 
         var stick =
             registry.GetDefinition(registry.GetId("asteria:stick"));

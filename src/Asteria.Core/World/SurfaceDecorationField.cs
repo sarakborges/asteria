@@ -193,12 +193,13 @@ public sealed class SurfaceDecorationField
         int? verticalY = null, bool submerged = false,
         int? supportY = null,
         Func<FluidRuntimeId, int, int, int, int, bool>? nearbyFluid = null,
-        DecorationSupportSurface supportSurface = DecorationSupportSurface.Floor)
+        DecorationSupportSurface supportSurface = DecorationSupportSurface.Floor,
+        bool onFluidSurface = false, FluidRuntimeId fluidBelow = default)
     {
         if (!HasObjectDecorations(sample)) return null;
         return SelectRule(sample, supportBlock, worldX, worldZ,
             placement, verticalY, submerged, supportY,
-            false, default, nearbyFluid, supportSurface,
+            onFluidSurface, fluidBelow, nearbyFluid, supportSurface,
             requireLayer: false, requireObject: true)?.ObjectId;
     }
 

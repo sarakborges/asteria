@@ -12,6 +12,7 @@ public sealed class WorldObjectInteractionRuntime
 {
     private readonly VoxelWorld _world;
     private readonly BlockRegistry _blocks;
+    private readonly FluidRegistry? _fluids;
     private readonly PackContentRegistry<ObjectDefinition> _definitions;
     private readonly VoxelMutationRuntime _mutations;
     private readonly DroppedBlockRuntime _drops;
@@ -19,10 +20,12 @@ public sealed class WorldObjectInteractionRuntime
     public WorldObjectInteractionRuntime(
         VoxelWorld world, BlockRegistry blocks,
         PackContentRegistry<ObjectDefinition> definitions,
-        VoxelMutationRuntime mutations, DroppedBlockRuntime drops)
+        VoxelMutationRuntime mutations, DroppedBlockRuntime drops,
+        FluidRegistry? fluids = null)
     {
         _world = world ?? throw new ArgumentNullException(nameof(world));
         _blocks = blocks ?? throw new ArgumentNullException(nameof(blocks));
+        _fluids = fluids;
         _definitions = definitions ?? throw new ArgumentNullException(nameof(definitions));
         _mutations = mutations ?? throw new ArgumentNullException(nameof(mutations));
         _drops = drops ?? throw new ArgumentNullException(nameof(drops));
@@ -31,7 +34,7 @@ public sealed class WorldObjectInteractionRuntime
     public bool TryPlace(InventoryStack? held, VoxelWorldHit supportHit)
     {
         var decision = ObjectPlacementResolver.Resolve(
-            _world, _blocks, _definitions, held, supportHit);
+            _world, _blocks, _definitions, held, supportHit, _fluids);
         return decision.Accepted &&
             _mutations.AddObjectAt(decision.Support, decision.Object);
     }
@@ -56,7 +59,7 @@ public sealed class WorldObjectInteractionRuntime
             var position = WorldObjectGeometry.Pose(
                 hit.Support, hit.Object, definition).Position;
             _drops.Spawn(
-                new InventoryStack(InventoryEntry.FromObject(definition.Id)),
+                new InventoryStack(definition.RewardEntry),
                 position + Vector3.UnitY * .25f);
         }
         return true;
@@ -72,7 +75,7 @@ public sealed class WorldObjectInteractionRuntime
             !resident.Contains(hit.Object))
             return false;
 
-        var stack = new InventoryStack(InventoryEntry.FromObject(definition.Id));
+        var stack = new InventoryStack(definition.RewardEntry);
         if (!inventory.CanInsert(stack) ||
             !_mutations.RemoveObjectAt(hit.Support, hit.Object))
             return false;

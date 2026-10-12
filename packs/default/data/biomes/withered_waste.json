@@ -23,7 +23,7 @@
   },
   "decorations": [
     {
-      "block": "asteria:pebble",
+      "object": "asteria:pebble",
       "chance": 0.0216,
       "surfaceBlocks": [
         "asteria:dirt",

@@ -183,7 +183,12 @@ public sealed class Chunk
         if (obj.Id is null)
             throw new ArgumentException("Object must have a valid identity.", nameof(obj));
         var index = ToIndex(x, y, z);
-        if (_cells.Get(index).IsEmpty)
+        // A support voxel may contain a solid block or a full fluid source.
+        // The Object's definition determines which substrate is legal.
+        if (_cells.Get(index).IsEmpty &&
+            (_fluids.Get(index).IsEmpty ||
+             _fluids.Get(index).Level != FluidCell.MaxLevel ||
+             !_fluids.Get(index).IsSource))
             return false;
         if (_objects.TryGetValue(index, out var current))
         {
@@ -272,11 +277,22 @@ public sealed class Chunk
     {
         ValidateCoordinates(x, y, z);
 
-        if (!_fluids.Set(
-                ToIndex(x, y, z),
-                fluid))
-        {
+        var index = ToIndex(x, y, z);
+        var previous = _fluids.Get(index);
+        if (!_fluids.Set(index, fluid))
             return false;
+
+        // Fluid-supported Objects are removed when their supporting surface
+        // disappears, changes identity, or drops below the voxel's top face.
+        // No solid-block attachments are affected by fluid changes.
+        if (_cells.Get(index).IsEmpty &&
+            (fluid.IsEmpty || fluid.Level != FluidCell.MaxLevel ||
+             !fluid.IsSource ||
+             previous.Fluid != fluid.Fluid) &&
+            _objects.Remove(index, out var detached))
+        {
+            ObjectCount -= detached.Count;
+            ObjectRevision++;
         }
 
         Revision++;

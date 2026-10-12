@@ -40,7 +40,7 @@
       }
     },
     {
-      "block": "asteria:pebble",
+      "object": "asteria:pebble",
       "chance": 0.038,
       "surfaceBlocks": [
         "asteria:stone",

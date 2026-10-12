@@ -170,6 +170,13 @@ public sealed class BiomeRegistry
                 if (!definition.Supports(face))
                     throw new ArgumentException(
                         $"Biome {biome.Id} Object {rule.Block} needs {face} placement.");
+            var below = rule.FluidRequirement is
+                { Relation: DecorationFluidRelation.Below } requirement
+                    ? requirement.Fluid : null;
+            if (!string.Equals(definition.SupportFluid, below,
+                    StringComparison.Ordinal))
+                throw new ArgumentException(
+                    $"Biome {biome.Id} Object {rule.Block} fluid support does not match its decoration rule.");
         }
     }
 

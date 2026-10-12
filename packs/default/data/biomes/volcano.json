@@ -56,7 +56,7 @@
   },
   "decorations": [
     {
-      "block": "asteria:pebble",
+      "object": "asteria:pebble",
       "chance": 0.015,
       "surfaceBlocks": [
         "asteria:basalt",
