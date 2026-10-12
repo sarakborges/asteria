@@ -86,6 +86,9 @@
   "asteria:charwood": {
     "/name": "Madeira Carbonizada"
   },
+  "asteria:charwood_stripped": {
+    "/name": "Madeira Carbonizada Descascada"
+  },
   "asteria:cinder_bloom": {
     "/name": "Flor de Cinzas"
   },
@@ -161,6 +164,9 @@
   "asteria:frost_wood": {
     "/name": "Madeira Gélida"
   },
+  "asteria:frost_wood_stripped": {
+    "/name": "Madeira Gélida Descascada"
+  },
   "asteria:glacial_ice_core": {
     "/name": "Núcleo de Gelo Glacial"
   },
@@ -223,6 +229,9 @@
   },
   "asteria:juniper_wood": {
     "/name": "Madeira de Zimbro"
+  },
+  "asteria:juniper_wood_stripped": {
+    "/name": "Madeira de Zimbro Descascada"
   },
   "asteria:kelp_frond": {
     "/name": "Folhagem de Alga Marinha"
@@ -335,23 +344,14 @@
   "asteria:mud_tiles": {
     "/name": "Ladrilhos de Lama"
   },
-  "asteria:mushroom_blue": {
-    "/name": "Cogumelo Azul"
-  },
   "asteria:mushroom_brown": {
     "/name": "Cogumelo Marrom"
   },
   "asteria:mushroom_green": {
     "/name": "Cogumelo Verde"
   },
-  "asteria:mushroom_pink": {
-    "/name": "Cogumelo Rosa"
-  },
   "asteria:mushroom_purple": {
     "/name": "Cogumelo Roxo"
-  },
-  "asteria:mushroom_red": {
-    "/name": "Cogumelo Vermelho"
   },
   "asteria:mushroom_yellow": {
     "/name": "Cogumelo Amarelo"
@@ -386,6 +386,12 @@
   "asteria:rime_deadwood": {
     "/name": "Madeira Morta Coberta de Geada"
   },
+  "asteria:rime_deadwood_stripped": {
+    "/name": "Madeira Morta de Geada Descascada"
+  },
+  "asteria:rime_leaves": {
+    "/name": "Folhas de Geada"
+  },
   "asteria:rock_lichen": {
     "/name": "Líquen de Rocha"
   },
@@ -413,6 +419,39 @@
   "asteria:sandstone_tiles": {
     "/name": "Ladrilhos de Arenito"
   },
+  "asteria:sapling_charwood": {
+    "/name": "Muda de Madeira Carbonizada"
+  },
+  "asteria:sapling_enchanted_tree": {
+    "/name": "Muda de Árvore Encantada"
+  },
+  "asteria:sapling_frost_wood": {
+    "/name": "Muda de Madeira Gélida"
+  },
+  "asteria:sapling_juniper": {
+    "/name": "Muda de Zimbro"
+  },
+  "asteria:sapling_oak": {
+    "/name": "Muda de Carvalho"
+  },
+  "asteria:sapling_rime_deadwood": {
+    "/name": "Muda de Geada"
+  },
+  "asteria:sapling_skywood": {
+    "/name": "Muda de Madeira Celeste"
+  },
+  "asteria:sapling_thornwood": {
+    "/name": "Muda de Madeira Espinhosa"
+  },
+  "asteria:sapling_willow": {
+    "/name": "Muda de Salgueiro"
+  },
+  "asteria:sapling_windwood": {
+    "/name": "Muda de Madeira do Vento"
+  },
+  "asteria:sapling_world_tree": {
+    "/name": "Muda da Árvore do Mundo"
+  },
   "asteria:saxifrage": {
     "/name": "Saxífraga"
   },
@@ -433,6 +472,9 @@
   },
   "asteria:skywood_log": {
     "/name": "Tronco de Madeira Celeste"
+  },
+  "asteria:skywood_log_stripped": {
+    "/name": "Tronco de Madeira Celeste Descascado"
   },
   "asteria:snow": {
     "/name": "Neve"
@@ -509,6 +551,12 @@
   "asteria:thornwood": {
     "/name": "Madeira Espinhosa"
   },
+  "asteria:thornwood_leaves": {
+    "/name": "Folhas de Madeira Espinhosa"
+  },
+  "asteria:thornwood_stripped": {
+    "/name": "Madeira Espinhosa Descascada"
+  },
   "asteria:violet_fern": {
     "/name": "Samambaia Violeta"
   },
@@ -533,67 +581,10 @@
   "asteria:windwood_needles": {
     "/name": "Agulhas de Madeira do Vento"
   },
-  "asteria:yucca": {
-    "/name": "Iúca"
-  },
-  "asteria:charwood_stripped": {
-    "/name": "Madeira Carbonizada Descascada"
-  },
-  "asteria:frost_wood_stripped": {
-    "/name": "Madeira Gélida Descascada"
-  },
-  "asteria:juniper_wood_stripped": {
-    "/name": "Madeira de Zimbro Descascada"
-  },
-  "asteria:rime_deadwood_stripped": {
-    "/name": "Madeira Morta de Geada Descascada"
-  },
-  "asteria:skywood_log_stripped": {
-    "/name": "Tronco de Madeira Celeste Descascado"
-  },
-  "asteria:thornwood_stripped": {
-    "/name": "Madeira Espinhosa Descascada"
-  },
   "asteria:windwood_stripped": {
     "/name": "Madeira do Vento Descascada"
   },
-  "asteria:rime_leaves": {
-    "/name": "Folhas de Geada"
-  },
-  "asteria:thornwood_leaves": {
-    "/name": "Folhas de Madeira Espinhosa"
-  },
-  "asteria:sapling_charwood": {
-    "/name": "Muda de Madeira Carbonizada"
-  },
-  "asteria:sapling_enchanted_tree": {
-    "/name": "Muda de Árvore Encantada"
-  },
-  "asteria:sapling_frost_wood": {
-    "/name": "Muda de Madeira Gélida"
-  },
-  "asteria:sapling_juniper": {
-    "/name": "Muda de Zimbro"
-  },
-  "asteria:sapling_oak": {
-    "/name": "Muda de Carvalho"
-  },
-  "asteria:sapling_rime_deadwood": {
-    "/name": "Muda de Geada"
-  },
-  "asteria:sapling_skywood": {
-    "/name": "Muda de Madeira Celeste"
-  },
-  "asteria:sapling_thornwood": {
-    "/name": "Muda de Madeira Espinhosa"
-  },
-  "asteria:sapling_willow": {
-    "/name": "Muda de Salgueiro"
-  },
-  "asteria:sapling_windwood": {
-    "/name": "Muda de Madeira do Vento"
-  },
-  "asteria:sapling_world_tree": {
-    "/name": "Muda da Árvore do Mundo"
+  "asteria:yucca": {
+    "/name": "Iúca"
   }
 }
