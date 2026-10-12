@@ -36,7 +36,8 @@ public sealed class ObjectDefinition
         ObjectTargetDefinition target, Vector2 positionJitter,
         bool dropSelf, bool windSway, bool unlit,
         ObjectInteraction interaction = ObjectInteraction.Break,
-        BlockLightEmission lightEmission = default)
+        BlockLightEmission lightEmission = default,
+        string? pickupItem = null, string? supportFluid = null)
     {
         BlockDefinition.ValidateId(id);
         if (!Enum.IsDefined(interaction))
@@ -82,6 +83,10 @@ public sealed class ObjectDefinition
         Unlit = unlit;
         Interaction = interaction;
         LightEmission = lightEmission;
+        if (pickupItem is not null) BlockDefinition.ValidateId(pickupItem);
+        if (supportFluid is not null) BlockDefinition.ValidateId(supportFluid);
+        PickupItem = pickupItem;
+        SupportFluid = supportFluid;
     }
 
     public string Id { get; }
@@ -96,6 +101,10 @@ public sealed class ObjectDefinition
     public bool Unlit { get; }
     public ObjectInteraction Interaction { get; }
     public BlockLightEmission LightEmission { get; }
+    public string? PickupItem { get; }
+    public string? SupportFluid { get; }
+    public InventoryEntry RewardEntry => PickupItem is { } item
+        ? InventoryEntry.FromItem(item) : InventoryEntry.FromObject(Id);
 
     public bool Supports(BlockFace face) => PlacementFaces.Contains(face);
 
@@ -151,7 +160,9 @@ public sealed class ObjectDefinition
                 "pickup" => ObjectInteraction.Pickup,
                 _ => throw new FormatException("Unknown Object interaction."),
             },
-            BlockLightEmissionJson.Parse(root, PackContentFields.Id(root)));
+            BlockLightEmissionJson.Parse(root, PackContentFields.Id(root)),
+            PackContentFields.OptionalString(root, "pickupItem"),
+            PackContentFields.OptionalString(root, "supportFluid"));
     }
 
     private static bool PositiveTarget(Vector3 value) =>
