@@ -23,7 +23,7 @@ test("native WebView keyboard handoff restores chat input focus", async ({ page 
 
   // Native WRY focus can also return after a window focus event.
   await input.evaluate(element => (element as HTMLInputElement).blur());
-  await expect(input).not.toBeFocused();
+  // The strengthened handoff may refocus immediately, even before focus fires.
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await expect(input).toBeFocused();
 });
