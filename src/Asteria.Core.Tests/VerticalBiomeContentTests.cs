@@ -139,7 +139,11 @@ public sealed class VerticalBiomeContentTests
             d.SupportSurface == DecorationSupportSurface.Ceiling &&
             d.Block == "asteria:aether_vines");
 
-        var field = new SurfaceDecorationField(119UL, [cave, floating], blocks);
+        var objects = Asteria.Core.Content.PackContentRegistry<Asteria.Core.Content.ObjectDefinition>
+            .FromJson(ReadFiles("objects"),
+                Asteria.Core.Content.ObjectDefinition.Parse, d => d.Id);
+        var field = new SurfaceDecorationField(119UL, [cave, floating],
+            blocks, objects: objects);
         Assert.True(field.HasVerticalDecorations);
         Assert.True(field.HasVerticalDecorationsFor(cave.Id));
         Assert.True(field.HasVerticalDecorationsFor(floating.Id));
@@ -160,7 +164,11 @@ public sealed class VerticalBiomeContentTests
                 new SurfacePlacementContext(70, 0), verticalY:70);
             Assert.Equal(caveAt, field.BlockAt(caveSample, stone, x, z,
                 new SurfacePlacementContext(70, 0), verticalY:70));
-            if (!caveAt.IsAir) sightings++;
+            var caveObject = field.ObjectAt(caveSample, stone, x, z,
+                new SurfacePlacementContext(70, 0), verticalY: 70);
+            Assert.Equal(caveObject, field.ObjectAt(caveSample, stone, x, z,
+                new SurfacePlacementContext(70, 0), verticalY: 70));
+            if (!caveAt.IsAir || caveObject is not null) sightings++;
 
             var islandAt = field.BlockAt(islandSample, grassBlock, x, z,
                 new SurfacePlacementContext(240, 0), verticalY:240);
