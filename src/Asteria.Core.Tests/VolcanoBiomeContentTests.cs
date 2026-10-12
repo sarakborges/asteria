@@ -33,8 +33,8 @@ public sealed class VolcanoBiomeContentTests
     }
 
     [Theory]
-    [InlineData(1.0f, 128)]
-    [InlineData(0.5f, 72)]
+    [InlineData(1.0f, 224)]
+    [InlineData(0.5f, 112)]
     public void ScorchedWastesHasAContinuousInteriorWideEnoughForTheVolcano(
         float biomeSize, int minimumInteriorWidth)
     {
