@@ -78,7 +78,7 @@
       }
     },
     {
-      "block": "asteria:glowcap",
+      "object": "asteria:glowcap",
       "chance": 0.0144,
       "surfaceBlocks": [
         "asteria:stone",
@@ -97,7 +97,7 @@
       }
     },
     {
-      "block": "asteria:glow_fern",
+      "object": "asteria:glow_fern",
       "chance": 0.022,
       "surfaceBlocks": [
         "asteria:stone",
