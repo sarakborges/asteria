@@ -134,7 +134,11 @@ public sealed class BlockContentTests
         }
 
         var objectCatalog = Asteria.Core.Content.PackContentRegistry<Asteria.Core.Content.ObjectDefinition>
-            .FromJson(ReadPackJson("objects"),
+            .FromJson(Directory.EnumerateFiles(
+                    Path.Combine(AppContext.BaseDirectory, "packs", "default", "data", "objects"),
+                    "*.json")
+                .OrderBy(file => file, StringComparer.Ordinal)
+                .Select(File.ReadAllText),
                 Asteria.Core.Content.ObjectDefinition.Parse, obj => obj.Id);
         foreach (var name in new[] { "mushroom_blue", "mushroom_pink", "mushroom_red" })
         {
