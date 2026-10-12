@@ -75,12 +75,16 @@ export const Hidden: Story = { args: { visible: false } };
 
 function ChatFocusFlow() {
   const [open, setOpen] = useState(false);
+  const [focusRequest, setFocusRequest] = useState(0);
   return (
     <div>
       <button type="button" onClick={() => setOpen(value => !value)}>
         {open ? "Close chat" : "Open chat"}
       </button>
-      <ChatPanel open={open} visible history={[]} draft=""
+      <button type="button" onClick={() => setFocusRequest(value => value + 1)}>
+        Native WebView focus granted
+      </button>
+      <ChatPanel open={open} visible focusRequest={focusRequest} history={[]} draft=""
         onDraftChange={() => undefined} />
     </div>
   );
