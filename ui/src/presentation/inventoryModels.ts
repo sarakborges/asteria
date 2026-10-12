@@ -102,7 +102,7 @@ export function inventoryItemView(
   return {
     id: slot.id, kind: slot.kind, quantity: slot.quantity,
     metadata: slot.metadata, durability: slot.durability,
-    iconUrl: authored?.iconUrl,
-    blockPreview: authored?.blockPreview,
+    iconUrl: slot.iconUrl ?? authored?.iconUrl,
+    blockPreview: slot.blockPreview ?? authored?.blockPreview,
   };
 }

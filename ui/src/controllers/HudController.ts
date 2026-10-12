@@ -16,7 +16,7 @@ import type {
 } from "../state/uiState";
 import type { UiStore } from "../state/uiStore";
 import { applyUiTheme } from "../theme/uiTheme";
-import { readBlockPreview } from "./creativeCatalogPayload";
+import { readBlockPreview, readPngIconUrl } from "./blockPreviewPayload";
 import {
   asRecord,
   isFiniteNumber,
@@ -258,13 +258,18 @@ function readHotbar(payload: unknown): HotbarState {
               : undefined,
           kind:
             slot?.kind === "block" || slot?.kind === "item" ||
-            slot?.kind === "tool" || slot?.kind === "layer"
+            slot?.kind === "tool" || slot?.kind === "layer" ||
+            slot?.kind === "object"
               ? slot.kind as HotbarSlotState["kind"] : undefined,
           metadata:
             slot && typeof slot.metadata === "object" &&
             slot.metadata !== null && !Array.isArray(slot.metadata)
               ? slot.metadata as Record<string, string>
               : undefined,
+          iconUrl: slot && readPngIconUrl(slot.iconUrl)
+            ? slot.iconUrl : undefined,
+          blockPreview: slot?.kind === "block" && slot.blockPreview != null
+            ? readBlockPreview(slot.blockPreview) ?? undefined : undefined,
         };
       })
     : [];

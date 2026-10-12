@@ -99,6 +99,7 @@ public partial class Main : Node3D
     private InventoryCategoryRegistry _inventoryCategories = null!;
     private InventoryDropIconCatalog _inventoryDropIcons = null!;
     private InventoryBlockPreviewRenderer _blockPreviewRenderer = null!;
+    private InventoryVoxelIconRasterizer _voxelIcons = null!;
     private BlockPlacementPreviewPresentation _placementPreview = null!;
     private ObjectPlacementPreviewPresentation _objectPlacementPreview = null!;
     private CreaturePortraitPresentation? _creaturePortrait;
@@ -282,6 +283,9 @@ public partial class Main : Node3D
                 _packSelection);
         _terrainTextureLookup =
             _terrainTextures.CreateLookup();
+        _voxelIcons = new InventoryVoxelIconRasterizer(
+            _blocks, _fluids, _layers, _terrainTextureLookup,
+            _terrainTextures);
         _terrainMaterials =
             VoxelTerrainMaterialSet.Create(
                 _terrainTextures);
@@ -2664,7 +2668,25 @@ public partial class Main : Node3D
             quantity = stack.Quantity,
             metadata = stack.Entry.Metadata,
             durability = EquipmentDurabilityView(stack),
+            // Dynamic stacks carry their own full block state, not the
+            // creative catalog's canonical empty-mask block snapshot.
+            blockPreview = BlockPreviewForInventory(stack.Entry),
+            iconUrl = InventoryIconForEntry(stack.Entry),
         };
+
+    private string? InventoryIconForEntry(InventoryEntry entry)
+    {
+        if (entry.Kind == InventoryEntryKind.Block)
+            return null;
+        if (entry.Kind == InventoryEntryKind.Object &&
+            _objects.TryGet(entry.Id, out var obj) &&
+            obj is { Tint: not BlockTint.None })
+            return _blockPreviewRenderer.ObjectDataUri(obj);
+        var choice = _inventoryCatalog.Choices.FirstOrDefault(
+            item => item.Entry.Equals(entry));
+        return choice?.IconResourcePath is { } path
+            ? IconDataUri(path) : null;
+    }
 
     private object? EquipmentDurabilityView(InventoryStack stack)
     {
@@ -2825,13 +2847,14 @@ public partial class Main : Node3D
         var blockId = _blocks.GetId(entry.Id);
         var block = _blocks.GetDefinition(blockId);
         var cell = entry.Block?.Cell ?? new VoxelCell(blockId);
-        return BlockPreviewForCell(block, cell);
+        return BlockPreviewForCell(block, cell,
+            entry.Block?.SurfaceState, mask: entry.Block?.MicroblockMask);
     }
 
     private object? BlockPreviewForCell(
         BlockDefinition block, VoxelCell cell,
         BlockSurfaceState? surface = null, WorldVoxelCoord? target = null,
-        BlockFace? targetFace = null)
+        BlockFace? targetFace = null, MicroblockMask? mask = null)
     {
         // World targets sample real biome tint for both host block and
         // attached faces; catalog/inventory icons keep authored fallback.
@@ -2881,6 +2904,38 @@ public partial class Main : Node3D
             }
             return _blockPreviewRenderer.FaceDataUri(
                 block, sourceFace, uvRotation, baseTint);
+        }
+
+        // Keep the existing face-specific target layer visual when it would
+        // be occluded from the isometric top/front/right camera. All other
+        // solid Block shapes and microblock masks use the terrain's actual
+        // mesh, rather than projecting a solid cube or flat sprite.
+        var obscuredLayer = targetFace is { } touchedFace &&
+            surface is not null && surface.TryGetTop(touchedFace, out _) &&
+            touchedFace is not (BlockFace.Top or BlockFace.Front or BlockFace.Right);
+        if (!obscuredLayer && block.Visual.Texture is null &&
+            (target is null || cell.HasMicroblockGeometry ||
+             block.Shape.Kind != BlockShapeKind.Cube ||
+             surface is { Layers.Count: > 0 }))
+        {
+            var occupied = cell.HasMicroblockGeometry
+                ? mask ?? (target is { } position
+                    ? _world.GetMicroblockMaskOrEmpty(position)
+                    : MicroblockMask.Empty)
+                : MicroblockMask.Empty;
+            if (!cell.HasMicroblockGeometry || !occupied.IsEmpty)
+            {
+                var snapshot = new BlockStateSnapshot(cell, occupied, surface);
+                var geometry = _voxelIcons.Render(block, snapshot, baseTint);
+                if (geometry is not null)
+                    return new
+                    {
+                        kind = "sprite",
+                        front = geometry,
+                        top = (string?)null,
+                        right = (string?)null,
+                    };
+            }
         }
 
         // If the interacted layer lies on a back/left/bottom face, show

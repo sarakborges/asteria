@@ -12,7 +12,8 @@ public static class BlockStateMeshBuilder
         TerrainTextureLookup textures,
         VoxelTerrainMaterialSet materials)
     {
-        return BuildInternal(block, blocks, fluids, textures, materials, null, null);
+        return ChunkMeshBuilder.CreateMesh(
+            BuildData(block, blocks, fluids, textures), materials);
     }
 
     /// <summary>
@@ -34,16 +35,23 @@ public static class BlockStateMeshBuilder
             throw new ArgumentException(
                 "Crack layer must match the top authored attachment.",
                 nameof(selectedLayer));
-        return BuildInternal(block, blocks, fluids, textures, materials,
-            layers, selectedLayer);
+        return ChunkMeshBuilder.CreateMesh(
+            BuildDataInternal(block, blocks, fluids, textures,
+                layers, selectedLayer), materials);
     }
 
-    private static ArrayMesh BuildInternal(
+    /// <summary>Actual terrain geometry reused for preview icon pixels.</summary>
+    public static ChunkMeshData BuildData(
+        BlockStateSnapshot block, BlockRegistry blocks,
+        FluidRegistry fluids, TerrainTextureLookup textures,
+        AttachedLayerRegistry? layers = null) =>
+        BuildDataInternal(block, blocks, fluids, textures, layers, null);
+
+    private static ChunkMeshData BuildDataInternal(
         BlockStateSnapshot block,
         BlockRegistry blocks,
         FluidRegistry fluids,
         TerrainTextureLookup textures,
-        VoxelTerrainMaterialSet materials,
         AttachedLayerRegistry? layers,
         AttachedBlockLayer? selectedLayer)
     {
@@ -51,8 +59,6 @@ public static class BlockStateMeshBuilder
         ArgumentNullException.ThrowIfNull(blocks);
         ArgumentNullException.ThrowIfNull(fluids);
         ArgumentNullException.ThrowIfNull(textures);
-        ArgumentNullException.ThrowIfNull(materials);
-
         var chunk = new Chunk();
         chunk.SetCell(
             0,
@@ -69,7 +75,7 @@ public static class BlockStateMeshBuilder
                 block.MicroblockMask);
         }
 
-        if (selectedLayer is not null)
+        if (layers is not null)
             chunk.SetSurfaceState(0, 0, 0, block.SurfaceState);
 
         ChunkLightingSolver.Initialize(
@@ -92,8 +98,6 @@ public static class BlockStateMeshBuilder
                 attachedLayers: layers,
                 selectedLayer: selectedLayer);
 
-        return ChunkMeshBuilder.CreateMesh(
-            data,
-            materials);
+        return data;
     }
 }

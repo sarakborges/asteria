@@ -1,5 +1,6 @@
 import type { InventoryEntryKind, InventoryMetadata, InventorySlotState } from "../state/uiState";
 import { asRecord } from "./messagePayload";
+import { readBlockPreview, readPngIconUrl } from "./blockPreviewPayload";
 
 export function readKind(value: unknown): InventoryEntryKind | null {
   return value === "block" || value === "item" || value === "tool" || value === "layer" || value === "object"
@@ -37,9 +38,17 @@ export function readSlot(value: unknown): InventorySlotState {
         : null
     : null;
   if (rawDurability && !durability) return null;
+  const blockPreview = record.blockPreview == null
+    ? null : readBlockPreview(record.blockPreview);
+  if (record.blockPreview != null &&
+      (!blockPreview || kind !== "block")) return null;
+  if (record.iconUrl != null && !readPngIconUrl(record.iconUrl))
+    return null;
   return {
     id: record.id, kind, quantity: record.quantity as number, metadata,
     durability,
+    blockPreview: blockPreview ?? undefined,
+    iconUrl: typeof record.iconUrl === "string" ? record.iconUrl : undefined,
   };
 }
 

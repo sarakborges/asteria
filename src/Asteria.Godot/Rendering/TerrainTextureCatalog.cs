@@ -10,13 +10,22 @@ public sealed class TerrainTextureCatalog
     private const int FallbackSize = 16;
 
     private readonly System.Collections.Generic.Dictionary<string, int> _indices;
+    // The same normalized pack pixels used to create the terrain texture
+    // array. A bounded CPU icon renderer samples them without GPU readbacks.
+    private readonly byte[][] _previewPixels;
+    private readonly int _previewWidth;
+    private readonly int _previewHeight;
 
     private TerrainTextureCatalog(
         Texture2DArray textureArray,
-        System.Collections.Generic.Dictionary<string, int> indices)
+        System.Collections.Generic.Dictionary<string, int> indices,
+        byte[][] previewPixels, int previewWidth, int previewHeight)
     {
         TextureArray = textureArray;
         _indices = indices;
+        _previewPixels = previewPixels;
+        _previewWidth = previewWidth;
+        _previewHeight = previewHeight;
     }
 
     public Texture2DArray TextureArray { get; }
@@ -30,6 +39,24 @@ public sealed class TerrainTextureCatalog
 
     public TerrainTextureLookup CreateLookup() =>
         new(_indices);
+
+    /// <summary>Sample the exact packed terrain layer, including UV repeat
+    /// and nearest filtering, when drawing a small CPU icon.</summary>
+    public Color SamplePreviewPixel(int layer, float u, float v)
+    {
+        if ((uint)layer >= _previewPixels.Length)
+            throw new ArgumentOutOfRangeException(nameof(layer));
+        var x = Math.Clamp(
+            (int)MathF.Floor((u - MathF.Floor(u)) * _previewWidth),
+            0, _previewWidth - 1);
+        var y = Math.Clamp(
+            (int)MathF.Floor((v - MathF.Floor(v)) * _previewHeight),
+            0, _previewHeight - 1);
+        var data = _previewPixels[layer];
+        var offset = checked((y * _previewWidth + x) * 4);
+        return new Color(data[offset] / 255f, data[offset + 1] / 255f,
+            data[offset + 2] / 255f, data[offset + 3] / 255f);
+    }
 
     public static TerrainTextureCatalog Create(
         BlockRegistry blocks,
@@ -82,7 +109,9 @@ public sealed class TerrainTextureCatalog
         }
 
         GD.Print($"terrain textures: {indices.Count} authored layers + fallback, {width}x{height}");
-        return new TerrainTextureCatalog(textureArray, indices);
+        return new TerrainTextureCatalog(
+            textureArray, indices,
+            images.Select(image => image.GetData()).ToArray(), width, height);
     }
 
     private static IEnumerable<BlockTextureLayer>

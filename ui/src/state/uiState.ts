@@ -226,6 +226,8 @@ export type InventorySlotState = {
   kind: InventoryEntryKind;
   quantity: number;
   metadata: InventoryMetadata;
+  iconUrl?: string;
+  blockPreview?: BlockPreviewState;
 } | null;
 
 export type InventoryCategoryState = {
