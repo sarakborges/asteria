@@ -14,6 +14,8 @@ internal static class WorldObjectModelMesh
 {
     private const int MaximumModelBytes = 16 * 1024 * 1024;
     private const int MaximumSurfaces = 128;
+    private const int MaximumSceneNodes = 512;
+    private const int MaximumTriangleIndices = 786_432;
     private const int MaximumVertices = 262_144;
     private static Texture2D? _whiteTexture;
 
@@ -45,8 +47,13 @@ internal static class WorldObjectModelMesh
             var mesh = new ArrayMesh();
             var surfaces = 0;
             var vertices = 0;
+            var indices = 0;
+            var nodes = 0;
             void Visit(Node node, Transform3D parent)
             {
+                if (++nodes > MaximumSceneNodes)
+                    throw new InvalidDataException(
+                        $"Object {definition.Id} GLB exceeds the scene-node limit.");
                 var transform = node is Node3D spatial
                     ? parent * spatial.Transform : parent;
                 if (node is MeshInstance3D instance && instance.Mesh is { } source)
@@ -60,9 +67,14 @@ internal static class WorldObjectModelMesh
                         var arrays = source.SurfaceGetArrays(i);
                         var points = arrays[(int)Mesh.ArrayType.Vertex].AsVector3Array();
                         var normals = arrays[(int)Mesh.ArrayType.Normal].AsVector3Array();
+                        var surfaceIndices = arrays[(int)Mesh.ArrayType.Index].AsInt32Array();
+                        var indexCount = surfaceIndices.Length == 0
+                            ? points.Length : surfaceIndices.Length;
                         if (points.Length == 0 || points.Length != normals.Length ||
+                            indexCount % 3 != 0 ||
                             ++surfaces > MaximumSurfaces ||
-                            (vertices += points.Length) > MaximumVertices)
+                            (vertices += points.Length) > MaximumVertices ||
+                            (indices += indexCount) > MaximumTriangleIndices)
                             throw new InvalidDataException(
                                 $"Object {definition.Id} GLB exceeds bounded mesh surfaces/vertices.");
 
@@ -79,7 +91,12 @@ internal static class WorldObjectModelMesh
                                 throw new InvalidDataException(
                                     $"Object {definition.Id} GLB geometry exceeds its authored target bounds.");
                             points[v] = point;
-                            normals[v] = (normalBasis * normals[v]).Normalized();
+                            var transformedNormal = normalBasis * normals[v];
+                            if (!Finite(transformedNormal) ||
+                                transformedNormal.LengthSquared() < .000001f)
+                                throw new InvalidDataException(
+                                    $"Object {definition.Id} GLB has invalid normals.");
+                            normals[v] = transformedNormal.Normalized();
                         }
                         arrays[(int)Mesh.ArrayType.Vertex] = points;
                         arrays[(int)Mesh.ArrayType.Normal] = normals;
