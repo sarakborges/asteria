@@ -85,7 +85,7 @@ MineClone currently uses `BLEND_SCORE_BAND = 0.18`. Asteria's default Sphere pac
 
 ### Terrain-profile extension
 
-Asteria keeps the rebuild branch's single `SurfaceTerrainField` owner but restores the richer MineClone terrain profiles from `main` as authored variants of that owner. Formation strength is derived from Asteria's existing organic biome formation field and is consumed by strength-shaped terrain such as swamp, gorge, and volcano. Volcano geometry owns its cone/crater shape; `GeneratedFluidField` only fills the authored crater/spill result and never invents terrain.
+Asteria keeps the rebuild branch's single `SurfaceTerrainField` owner but restores the richer MineClone terrain profiles from `main` as authored variants of that owner. Formation strength is derived from Asteria's existing organic biome formation field and is consumed by strength-shaped terrain such as swamp, gorge, and volcano. Cone geometry already tapers with formation strength and must not be blended downward again at biome borders. `GeneratedFluidField` fills the authored crater; the default Volcano deliberately omits optional flank spills until they can be connected to the crater instead of producing isolated lava sources.
 
 ## Current generation ownership
 
@@ -491,7 +491,7 @@ Special surface appearances are authored as **geometry + optional features**, ra
 - `surfaceTerrain.fillToSeaLevel: true` opts the biome into the dimension's authored `generatedOcean` fill. There is no swamp-type special case; a dimension must still author `generatedOcean` for this to do anything.
 - Primitive profiles remain useful geometry algorithms, but their shaping constants are now authored: dunes (`waveDirectionZ`, `broadScaleMultiplier`, `waveWeight`); swamp depressions (`pondBroadScaleMultiplier`, `pondDetailScaleMultiplier`, `pondBroadWeight`, `pondBias`, `pondTransitionWidth`, `pondSharpness`); gorge (`rimFalloff`, `floorFalloff`); alps (`detailSharpness`); cone (`slopeNoiseGain`).
 
-The obsolete `surfaceFluid: { type: "volcano_crater" }` and `surfaceTerrain.type: "volcano"` contracts are deliberately removed, not kept as aliases. The default volcano's crater-fluid top stays 54 blocks above dimension sea level. Spill noise uses a new generic generation domain and may produce a different deterministic pattern.
+The obsolete `surfaceFluid: { type: "volcano_crater" }` and `surfaceTerrain.type: "volcano"` contracts are deliberately removed, not kept as aliases. The default volcano's crater-fluid top stays 54 blocks above dimension sea level. The optional spill schema remains available for authored experiments, but the default pack does not use it because independent noise bands can produce disconnected sources on flanks.
 
 ### Authored coast profiles and biome blending
 
