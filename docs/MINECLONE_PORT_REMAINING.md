@@ -393,3 +393,10 @@ MineClone `world-systems-rebuild` reference: `world_objects.rs::detached_object_
 - Removed their obsolete block definitions and moved localized names to the Object catalog in EN/PT-BR/ES. No old-save compatibility aliases.
 - Updated biome-specific Core tests and added four-way object-identity/geometry/habitat validation. Native Godot/WRY texture, target, generation and save/restore QA remains pending.
 
+## Sea anemone Object migration — 2026-10-12
+
+- Converted `asteria:sea_anemone` from a crossed-sprite voxel block to the canonical top-attached Object. Kept the texture, 0.8×0.88 dimensions, four planes, fixed positioning, no wind sway, unlit=false, and `dropSelf=false`, with original localized names transferred in EN/PT-BR/ES and no duplicate block identity.
+- Ocean `decorations` now selects `object` for the existing 0.05-chance, rocky-reef-weighted submerged rule without changing its material whitelist, cluster, height, or habitat data. Generation attaches the Object to the solid seafloor while the target voxel remains air with its source water; water is never displaced by a decorative block.
+- Extended submerged/dry generation regressions for both seagrass and sea anemone, plus default-pack validation of Object-only identity, geometry and no self-drop. No migration compatibility aliases.
+- Limitations: water-loss reconciliation for solid-supported submerged Objects (including kelp and seagrass) and water-only *manual* placement restrictions are not currently part of the generic Object lifecycle; follow up separately rather than introducing an anemone-specific second fluid owner. Actual Godot/WRY alpha, shadowing, hitbox and water rendering require native QA.
+

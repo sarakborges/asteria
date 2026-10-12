@@ -25,7 +25,7 @@ public sealed class OceanDecorationContentTests
         foreach (var name in Names)
         {
             var rule = Assert.Single(ocean.Decorations, d => d.Block == $"asteria:{name}");
-            Assert.Equal(name is not "sea_anemone", rule.IsObject);
+            Assert.True(rule.IsObject);
             Assert.Equal(name switch
             {
                 "seagrass" => 0.135f,
@@ -41,31 +41,24 @@ public sealed class OceanDecorationContentTests
             Assert.Equal(4, rule.Cluster!.Octaves);
             Assert.Contains("asteria:sand", rule.SurfaceBlocks);
             Assert.NotNull(rule.HabitatWeights);
-            if (rule.IsObject)
+            Assert.False(blocks.TryGetId(rule.Block, out _));
+            var definition = objects.Get(rule.Block);
+            Assert.Equal("foliage", definition.Category);
+            Assert.Equal(name is "seashell" or "starfish"
+                ? ObjectVisualKind.ExtrudedSprite
+                : ObjectVisualKind.CrossedSprite, definition.Visual.Kind);
+            Assert.True(definition.Supports(BlockFace.Top));
+            Assert.Equal(name is not "sea_anemone", definition.DropSelf);
+            Assert.Equal($"textures/objects/{name}.png", definition.Visual.Texture);
+            if (name == "sea_anemone")
             {
-                Assert.False(blocks.TryGetId(rule.Block, out _));
-                var definition = objects.Get(rule.Block);
-                Assert.Equal("foliage", definition.Category);
-                Assert.Equal(name is "seashell" or "starfish"
-                    ? ObjectVisualKind.ExtrudedSprite
-                    : ObjectVisualKind.CrossedSprite, definition.Visual.Kind);
-                Assert.True(definition.Supports(BlockFace.Top));
-                Assert.True(definition.DropSelf);
-                Assert.Equal($"textures/objects/{name}.png", definition.Visual.Texture);
-            }
-            else
-            {
-                var block = blocks.GetDefinition(blocks.GetId(rule.Block));
-                Assert.Equal("foliage", block.Category);
-                Assert.True(block.HasTag("support_below"));
-                Assert.False(block.IsCollidable);
-                Assert.False(block.CastsShadow);
-                Assert.Equal((byte)0, block.LightDampening);
-                Assert.Equal(BlockRenderMode.Cutout, block.RenderMode);
-                Assert.Equal(name is "seashell" or "starfish"
-                    ? BlockVisualKind.GroundSprite : BlockVisualKind.CrossedSprite,
-                    block.Visual.Kind);
-                Assert.Equal($"textures/objects/{name}.png", block.Visual.Texture!.Value.Texture);
+                Assert.Equal(.8f, definition.Visual.Width);
+                Assert.Equal(.88f, definition.Visual.Height);
+                Assert.Equal(4, definition.Visual.Planes);
+                Assert.Equal(.5f, definition.Visual.AlphaCutoff);
+                Assert.False(definition.WindSway);
+                Assert.False(definition.Unlit);
+                Assert.Equal(System.Numerics.Vector2.Zero, definition.PositionJitter);
             }
         }
         var grass = Assert.Single(ocean.Decorations, d => d.Block == "asteria:seagrass");
@@ -89,16 +82,17 @@ public sealed class OceanDecorationContentTests
         var sand = blocks.GetId("asteria:sand");
         var stone = blocks.GetId("asteria:stone");
         var context = new SurfacePlacementContext(75, 0);
-        var found = new HashSet<BlockRuntimeId>();
         var foundObjects = new HashSet<string>();
 
         for (var z = -48; z <= 48; z++)
         for (var x = -48; x <= 48; x++)
         {
-            var wet = a.BlockAt(sample, sand, x, z,
-                suppliedPlacement: context, submerged: true);
-            Assert.Equal(wet, b.BlockAt(sample, sand, x, z,
-                suppliedPlacement: context, submerged: true));
+            // Every ocean floor decoration is an Object, so water stays
+            // independent from a voxel block even at generated sites.
+            Assert.True(a.BlockAt(sample, sand, x, z,
+                suppliedPlacement: context, submerged: true).IsAir);
+            Assert.True(b.BlockAt(sample, sand, x, z,
+                suppliedPlacement: context, submerged: true).IsAir);
             Assert.True(a.BlockAt(sample, sand, x, z,
                 suppliedPlacement: context).IsAir);
             Assert.True(a.BlockAt(sample, stone, x, z,
@@ -111,7 +105,6 @@ public sealed class OceanDecorationContentTests
             Assert.Equal(objectId, b.ObjectAt(sample, sand, x, z,
                 placement: context, submerged: true));
             if (objectId is not null) foundObjects.Add(objectId);
-            if (!wet.IsAir) found.Add(wet);
         }
         Assert.Contains("asteria:seagrass", foundObjects);
         Assert.Contains("asteria:seashell", foundObjects);
