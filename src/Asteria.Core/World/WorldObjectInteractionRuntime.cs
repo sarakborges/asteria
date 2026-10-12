@@ -56,7 +56,7 @@ public sealed class WorldObjectInteractionRuntime
             var position = WorldObjectGeometry.Pose(
                 hit.Support, hit.Object, definition).Position;
             _drops.Spawn(
-                new InventoryStack(InventoryEntry.FromObject(definition.Id)),
+                new InventoryStack(definition.RewardEntry),
                 position + Vector3.UnitY * .25f);
         }
         return true;
@@ -72,7 +72,7 @@ public sealed class WorldObjectInteractionRuntime
             !resident.Contains(hit.Object))
             return false;
 
-        var stack = new InventoryStack(InventoryEntry.FromObject(definition.Id));
+        var stack = new InventoryStack(definition.RewardEntry);
         if (!inventory.CanInsert(stack) ||
             !_mutations.RemoveObjectAt(hit.Support, hit.Object))
             return false;
