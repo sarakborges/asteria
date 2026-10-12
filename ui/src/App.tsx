@@ -163,7 +163,7 @@ export function App({
         // A child editor can blur itself on Escape. Return keyboard focus to
         // this explicit UI surface, not document/window; avoid stealing focus
         // when the user switches away from the application.
-        if (uiVisible && !event.relatedTarget && document.hasFocus())
+        if (uiVisible && !state.chat.open && !event.relatedTarget && document.hasFocus())
           interactionRoot.current?.focus({ preventScroll: true });
       }}>
       {!preWorldVisible && !state.loading &&
@@ -171,6 +171,7 @@ export function App({
         <ChatDock
           open={state.chat.open}
           visible={state.chat.visible}
+          focusRequest={state.chat.focusRequest}
           history={state.chat.history}
           commands={state.chat.commands}
           catalog={state.chat.catalog}
