@@ -25,6 +25,13 @@ public sealed class CavernBiodiversityTests
         Assert.Equal(BlockShapeKind.Spike, crystal.Shape.Kind);
         Assert.True(crystal.LightEmission.Blue > crystal.LightEmission.Green);
         Assert.Equal(6, cavern.CaveSpikes.Count);
+        Assert.DoesNotContain(cavern.CaveSpikes,
+            rule => rule.Block == "asteria:terracotta_spike");
+        var wastelandSpikes = Assert.Single(cavern.CaveSpikes,
+            rule => rule.Block == "asteria:stone_spike" &&
+                rule.SurfaceBiomes.Contains("asteria:overworld/wasteland"));
+        Assert.Equal(0.32f, wastelandSpikes.Chance);
+        Assert.False(blocks.TryGetId("asteria:terracotta_spike", out _));
 
         var roots = Assert.Single(cavern.Decorations,
             x => x.Block == "asteria:hanging_roots");
