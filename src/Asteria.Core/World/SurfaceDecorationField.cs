@@ -173,7 +173,7 @@ public sealed class SurfaceDecorationField
             return BlockRuntimeId.Air;
         return SelectRule(sample, surfaceBlock, worldX, worldZ,
             suppliedPlacement, verticalY, submerged, supportY, onFluidSurface,
-            fluidBelow, nearbyFluid, supportSurface)?.Block ?? BlockRuntimeId.Air;
+            fluidBelow, nearbyFluid, supportSurface, requireObject: false)?.Block ?? BlockRuntimeId.Air;
     }
 
     public string? ObjectAt(BiomeSample sample, BlockRuntimeId supportBlock,
@@ -186,7 +186,8 @@ public sealed class SurfaceDecorationField
         if (!HasObjectDecorations(sample)) return null;
         return SelectRule(sample, supportBlock, worldX, worldZ,
             placement, verticalY, submerged, supportY,
-            false, default, nearbyFluid, DecorationSupportSurface.Floor)?.ObjectId;
+            false, default, nearbyFluid, DecorationSupportSurface.Floor,
+            requireObject: true)?.ObjectId;
     }
 
     public string? WallLayerAt(
@@ -198,7 +199,7 @@ public sealed class SurfaceDecorationField
         return SelectRule(sample, supportBlock, worldX, worldZ,
             new SurfacePlacementContext(worldY, 0), worldY, false,
             worldY, false, default, null, DecorationSupportSurface.Wall,
-            requireLayer: true)?.LayerId;
+            requireLayer: true, requireObject: false)?.LayerId;
     }
 
     /// <summary>
@@ -214,7 +215,7 @@ public sealed class SurfaceDecorationField
         return SelectRule(sample, supportBlock, worldX, worldZ,
             new SurfacePlacementContext(worldY, 0), worldY, false,
             worldY, false, default, null, DecorationSupportSurface.Wall,
-            requireLayer: false)?.Block ?? BlockRuntimeId.Air;
+            requireLayer: false, requireObject: false)?.Block ?? BlockRuntimeId.Air;
     }
 
     // Common authored placement policy for block decorators and face layers.
@@ -226,7 +227,7 @@ public sealed class SurfaceDecorationField
         FluidRuntimeId fluidBelow,
         Func<FluidRuntimeId, int, int, int, int, bool>? nearbyFluid,
         DecorationSupportSurface supportSurface,
-        bool? requireLayer = null)
+        bool? requireLayer = null, bool? requireObject = null)
     {
         SurfacePlacementContext? placement = suppliedPlacement;
         var slopeSampled = suppliedPlacement.HasValue;
@@ -237,7 +238,9 @@ public sealed class SurfaceDecorationField
             {
                 if (rule.SupportSurface != supportSurface ||
                     (requireLayer is { } wanted &&
-                     (rule.LayerId is not null) != wanted))
+                     (rule.LayerId is not null) != wanted) ||
+                    (requireObject is { } objectWanted &&
+                     (rule.ObjectId is not null) != objectWanted))
                     continue;
 
                 var fluidSupported = !rule.RequiredFluid.IsNone &&
