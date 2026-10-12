@@ -152,7 +152,7 @@
       }
     },
     {
-      "block": "asteria:seashell",
+      "object": "asteria:seashell",
       "chance": 0.06,
       "surfaceBlocks": [
         "asteria:sand",
@@ -176,7 +176,7 @@
       }
     },
     {
-      "block": "asteria:starfish",
+      "object": "asteria:starfish",
       "chance": 0.0375,
       "surfaceBlocks": [
         "asteria:sand",
