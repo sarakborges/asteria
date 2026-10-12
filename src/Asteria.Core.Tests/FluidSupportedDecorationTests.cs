@@ -94,7 +94,8 @@ public sealed class FluidSupportedDecorationTests
         Assert.Equal("asteria:lily_pad",
             field.ObjectAt(sample, mud, 3, 4,
                 onFluidSurface: true, fluidBelow: water));
-        Assert.Null(field.ObjectAt(sample, mud, 3, 4));
+        Assert.Null(field.ObjectAt(sample, mud, 3, 4, supportY: 90,
+            nearbyFluid: (f, radius, x, y, z) => false));
         Assert.Null(field.ObjectAt(sample, mud, 3, 4,
             onFluidSurface: true, fluidBelow: default));
     }
