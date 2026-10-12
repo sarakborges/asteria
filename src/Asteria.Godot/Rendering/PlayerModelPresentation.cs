@@ -52,7 +52,7 @@ public sealed partial class PlayerModelPresentation : Node3D
     private bool _deathPlaying;
     private string? _actionClip;
 
-    public PlayerModelPresentation(
+    internal PlayerModelPresentation(
         FpsPlayer player, PackSelection selection,
         PlayerVisualDefinition definition, PlayerInventory inventory,
         HeldVisualResolver heldResolver, PackContentRegistry<ItemDefinition> items,

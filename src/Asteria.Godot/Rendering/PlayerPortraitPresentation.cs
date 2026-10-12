@@ -29,7 +29,7 @@ public sealed partial class PlayerPortraitPresentation : Node
     private string? _available;
     private float _yaw;
 
-    public PlayerPortraitPresentation(
+    internal PlayerPortraitPresentation(
         PackSelection selection, PlayerVisualDefinition definition,
         PlayerInventory inventory, PackContentRegistry<ItemDefinition> items,
         HeldVisualResolver heldResolver, Func<Color?> selectedToolTint,
