@@ -74,6 +74,11 @@ internal sealed class SurfaceTerrainRule
                 $"terrain/shape/crater/v2/{definition.Id}");
     }
 
+    // Cone height already tapers toward its formation boundary; a second
+    // height blend against lower neighbors would flatten its flanks.
+    public bool TapersFromFormationStrength =>
+        _shape is BiomeConeTerrainShapeDefinition;
+
     public double HeightOffsetAt(
         ulong seed,
         int x,
