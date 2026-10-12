@@ -6,6 +6,51 @@ namespace Asteria.Core.Tests;
 public sealed class DimensionSessionStateTests
 {
     [Fact]
+    public void RecreateKeepsSeedSettingsAndCurrentRulesWithoutWorldData()
+    {
+        var dimensions = new DimensionRegistry(
+            [Dimension("asteria:overworld")]);
+        var generation = new WorldGenerationOptions(
+            WorldGenerationMode.Flat, biomeSizeTenths: 16,
+            spawnStructures: false, spawnCaves: false, spawnOceans: false);
+        var old = new DimensionSessionStateStore(
+            new WorldCreationOptions("Test World", ulong.MaxValue,
+                PlayerGameMode.Creative, 25, false, generation,
+                false, CreatureAttackMode.Peaceful),
+            dimensions);
+        old.GameRules.SetTicksPerSecond(42);
+        old.GameRules.SetSpawnCreatures(true);
+        old.GameRules.SetCreatureAttackMode(CreatureAttackMode.Default);
+        var copy = old.CreateRecreationOptions();
+
+        Assert.Equal("Copy of Test World", copy.Name);
+        Assert.Equal(ulong.MaxValue, copy.Seed);
+        Assert.Equal(PlayerGameMode.Creative, copy.GameMode);
+        Assert.Equal(42u, copy.TicksPerSecond);
+        Assert.True(copy.SpawnCreatures);
+        Assert.False(copy.KeepInventory);
+        Assert.Equal(CreatureAttackMode.Default, copy.AttackMode);
+        Assert.Same(generation, copy.Generation);
+        var fresh = new DimensionSessionStateStore(copy, dimensions);
+        var id = new DimensionId("asteria:overworld");
+        Assert.NotSame(old.GetOrCreate(id).World, fresh.GetOrCreate(id).World);
+    }
+
+    [Fact]
+    public void RecreateKeepsCopyNameWithinFilesystemLimit()
+    {
+        var dimensions = new DimensionRegistry(
+            [Dimension("asteria:overworld")]);
+        var name = new string('A', WorldCreationOptions.MaximumNameLength);
+        var world = new DimensionSessionStateStore(
+            new WorldCreationOptions(name, 77UL), dimensions);
+        var copy = world.CreateRecreationOptions();
+        Assert.Equal(WorldCreationOptions.MaximumNameLength, copy.Name.Length);
+        Assert.StartsWith("Copy of ", copy.Name);
+        Assert.Equal(77UL, copy.Seed);
+    }
+
+    [Fact]
     public void DimensionStatesKeepWorldsAndPositionsIsolated()
     {
         var dimensions =

@@ -16,7 +16,8 @@ public sealed record DimensionTransitionCompletion(
     bool IsCheckpoint = false,
     ulong? SavedGeneration = null,
     string? SaveError = null,
-    bool LeftWorld = false);
+    bool LeftWorld = false,
+    bool DiscardedWorld = false);
 
 public sealed class DimensionSessionController
 {
@@ -30,6 +31,7 @@ public sealed class DimensionSessionController
     private NVector3? _destinationPosition;
     private bool _exactDestination;
     private CheckpointRequest? _checkpoint;
+    private bool _discardRequested;
     private Task<ulong>? _checkpointPublication;
     private DimensionSessionArchiveReport? _checkpointArchive;
 
@@ -110,6 +112,17 @@ public sealed class DimensionSessionController
         _checkpoint = new CheckpointRequest(
             directory, blocks, fluids, dyes, layers);
         _sourcePosition = playerPosition;
+        _target = Active.Dimension.Id;
+        Active.BeginRetirement();
+        return true;
+    }
+
+    /// <summary>Retire and discard an in-memory world without a disk save.</summary>
+    public bool RequestDiscard()
+    {
+        if (Active is null || _target is not null)
+            return false;
+        _discardRequested = true;
         _target = Active.Dimension.Id;
         Active.BeginRetirement();
         return true;
@@ -247,6 +260,18 @@ public sealed class DimensionSessionController
         var archive =
             Active.Retire(
                 _sourcePosition);
+
+        if (_discardRequested)
+        {
+            _discardRequested = false;
+            Active = null!;
+            _target = null;
+            _sourcePosition = null;
+            _destinationPosition = null;
+            _exactDestination = false;
+            return new DimensionTransitionCompletion(
+                previous, previous, archive, DiscardedWorld: true);
+        }
 
         if (_checkpoint is { } checkpoint)
         {

@@ -167,6 +167,20 @@ public sealed class DimensionSessionStateStore
 
     public string Name { get; }
 
+    /// <summary>Fresh creation with the current seed and mutable gameplay
+    /// rules, but no terrain, inventory or runtime progression.</summary>
+    public WorldCreationOptions CreateRecreationOptions()
+    {
+        const string prefix = "Copy of ";
+        var original = Name[..Math.Min(Name.Length,
+            WorldCreationOptions.MaximumNameLength - prefix.Length)]
+            .TrimEnd(' ', '.');
+        return new WorldCreationOptions(
+            prefix + original, WorldSeed, Player.GameMode,
+            GameRules.TicksPerSecond, GameRules.SpawnCreatures,
+            Generation, GameRules.KeepInventory, GameRules.AttackMode);
+    }
+
     public WorldGenerationOptions Generation { get; }
 
     public PlayerSessionState Player { get; }

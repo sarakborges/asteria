@@ -157,6 +157,7 @@ public partial class Main : Node3D
     private ulong? _publishedStorageRevision;
     private bool _quitRequested;
     private bool _exitConfirmationPending;
+    private WorldCreationOptions? _pendingRecreation;
     private readonly PlayerChatSession _chat = new();
     private WarpArrivalPlan? _warpArrival;
     private bool _portalTravelLatched;
@@ -905,6 +906,22 @@ public partial class Main : Node3D
         return true;
     }
 
+    private void RequestWorldRecreation()
+    {
+        // Drain existing workers and retire the old Sphere before starting
+        // its replacement. This path never takes a save checkpoint.
+        if (_worldSeed is null || _quitRequested || _sessions.IsTransitioning ||
+            _pendingRecreation is not null || _keybindCapture.IsCapturing)
+            return;
+        var creation = _sessionStates.CreateRecreationOptions();
+        if (!_sessions.RequestDiscard())
+            return;
+        _pendingRecreation = creation;
+        StartDimensionRetirement(_dimension.Id);
+        _worldDiagnostics?.Write(
+            $"world.recreate.requested name={creation.Name} seed={creation.Seed}");
+    }
+
     private void StartDimensionRetirement(DimensionId target)
     {
         RetirePlayerForDimensionTransition();
@@ -953,6 +970,11 @@ public partial class Main : Node3D
         if (completion.LeftWorld)
         {
             FinishLeavingWorld(completion);
+            return;
+        }
+        if (completion.DiscardedWorld)
+        {
+            FinishRecreatingWorld();
             return;
         }
 
@@ -1019,6 +1041,32 @@ public partial class Main : Node3D
 
         _worldDiagnostics?.Write(
             $"world.leave.complete generation={completion.SavedGeneration}");
+        ReleaseRetiredWorldSession();
+        if (_quitRequested)
+        {
+            _worldDiagnostics?.Write("client.exit.after_world_save");
+            GetTree().Quit();
+            return;
+        }
+
+        _webUi.Call("set_creation_mode", true);
+        SendWebUi("game.world.left", new { });
+        _suggestedWorldSeed = WorldCreationSeed.GenerateRandom();
+        SendWorldCreationState();
+        BeginWorldCatalogScan();
+    }
+
+    private void FinishRecreatingWorld()
+    {
+        var creation = _pendingRecreation ??
+            throw new InvalidOperationException("Missing pending recreation.");
+        _pendingRecreation = null;
+        ReleaseRetiredWorldSession();
+        StartWorld(creation);
+    }
+
+    private void ReleaseRetiredWorldSession()
+    {
         _dimensionEnvironment.Clear();
         _heldDynamicLight.Clear();
         _placementPreview.Hide();
@@ -1045,18 +1093,6 @@ public partial class Main : Node3D
         _sessions = null!;
         _sessionStates = null!;
         _worldSeed = null;
-        if (_quitRequested)
-        {
-            _worldDiagnostics?.Write("client.exit.after_world_save");
-            GetTree().Quit();
-            return;
-        }
-
-        _webUi.Call("set_creation_mode", true);
-        SendWebUi("game.world.left", new { });
-        _suggestedWorldSeed = WorldCreationSeed.GenerateRandom();
-        SendWorldCreationState();
-        BeginWorldCatalogScan();
     }
 
     private void ActivateCurrentDimensionPresentation()
@@ -1457,6 +1493,9 @@ public partial class Main : Node3D
                             document.RootElement);
                     }
 
+                    break;
+                case "ui.world.recreate":
+                    RequestWorldRecreation();
                     break;
                 case "ui.world.leave":
                     if (!TrySaveAndLeaveCurrentWorld())
