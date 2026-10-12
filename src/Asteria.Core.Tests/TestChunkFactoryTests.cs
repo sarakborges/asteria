@@ -15,27 +15,21 @@ public sealed class TestChunkFactoryTests
         var second =
             TestChunkFactory.Create(
                 blocks).Chunk;
-        var grass =
-            blocks.GetId(
-                TestChunkFactory.GrassPlantId);
         var grassBlock =
             blocks.GetId(
                 TestChunkFactory.GrassId);
         var mud =
             blocks.GetId(
                 TestChunkFactory.MudId);
-        var firstPlants = CollectPlants(first, grass);
-        var secondPlants = CollectPlants(second, grass);
+        var firstPlants = CollectPlants(first);
+        var secondPlants = CollectPlants(second);
         var firstMushrooms = CollectMushrooms(first);
         var secondMushrooms = CollectMushrooms(second);
 
         Assert.Equal(
             firstPlants,
             secondPlants);
-        Assert.Contains(
-            firstPlants,
-            entry =>
-                entry.Block == grass);
+        Assert.NotEmpty(firstPlants);
         Assert.Equal(firstMushrooms, secondMushrooms);
         Assert.NotEmpty(firstMushrooms);
 
@@ -47,7 +41,7 @@ public sealed class TestChunkFactoryTests
             var support =
                 first.GetCell(
                     plant.X,
-                    plant.Y - 1,
+                    plant.Y,
                     plant.Z).Block;
 
             Assert.Equal(grassBlock, support);
@@ -80,36 +74,17 @@ public sealed class TestChunkFactoryTests
             documents);
     }
 
-    private static (
-        int X,
-        int Y,
-        int Z,
-        BlockRuntimeId Block)[]
-        CollectPlants(
-            Chunk chunk,
-            BlockRuntimeId grass)
+    private static (int X, int Y, int Z)[] CollectPlants(Chunk chunk)
     {
-        var result =
-            new List<(
-                int X,
-                int Y,
-                int Z,
-                BlockRuntimeId Block)>();
-
-        chunk.VisitBlockCells(
-            (x, y, z, cell) =>
+        var result = new List<(int X, int Y, int Z)>();
+        chunk.VisitObjectCells((x, y, z, obj) =>
+        {
+            if (obj.Id == TestChunkFactory.GrassPlantId)
             {
-                if (cell.Block == grass)
-                {
-                    result.Add(
-                        (
-                            x,
-                            y,
-                            z,
-                            cell.Block));
-                }
-            });
-
+                Assert.Equal(BlockFace.Top, obj.Face);
+                result.Add((x, y, z));
+            }
+        });
         return result.ToArray();
     }
 
