@@ -84,7 +84,12 @@ public sealed class ObjectDefinition
         Interaction = interaction;
         LightEmission = lightEmission;
         if (pickupItem is not null) BlockDefinition.ValidateId(pickupItem);
-        if (supportFluid is not null) BlockDefinition.ValidateId(supportFluid);
+        if (supportFluid is not null)
+        {
+            BlockDefinition.ValidateId(supportFluid);
+            if (placementFaces.Count != 1 || placementFaces[0] != BlockFace.Top)
+                throw new FormatException("Fluid-supported Objects require top placement only.");
+        }
         PickupItem = pickupItem;
         SupportFluid = supportFluid;
     }
