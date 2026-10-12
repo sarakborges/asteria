@@ -79,7 +79,7 @@
   "decorations": [
     {
       "object": "asteria:seagrass",
-      "chance": 0.135,
+      "chance": 0.0675,
       "surfaceBlocks": [
         "asteria:sand",
         "asteria:gravel",
@@ -103,7 +103,7 @@
     },
     {
       "object": "asteria:kelp",
-      "chance": 0.07,
+      "chance": 0.035,
       "surfaceBlocks": [
         "asteria:sand",
         "asteria:gravel",
@@ -128,7 +128,7 @@
     },
     {
       "object": "asteria:sea_anemone",
-      "chance": 0.05,
+      "chance": 0.025,
       "surfaceBlocks": [
         "asteria:sand",
         "asteria:gravel",
@@ -153,7 +153,7 @@
     },
     {
       "object": "asteria:seashell",
-      "chance": 0.06,
+      "chance": 0.03,
       "surfaceBlocks": [
         "asteria:sand",
         "asteria:gravel",
@@ -177,7 +177,7 @@
     },
     {
       "object": "asteria:starfish",
-      "chance": 0.0375,
+      "chance": 0.01875,
       "surfaceBlocks": [
         "asteria:sand",
         "asteria:gravel",

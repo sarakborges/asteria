@@ -28,11 +28,11 @@ public sealed class OceanDecorationContentTests
             Assert.True(rule.IsObject);
             Assert.Equal(name switch
             {
-                "seagrass" => 0.135f,
-                "kelp" => 0.07f,
-                "sea_anemone" => 0.05f,
-                "seashell" => 0.06f,
-                "starfish" => 0.0375f,
+                "seagrass" => 0.0675f,
+                "kelp" => 0.035f,
+                "sea_anemone" => 0.025f,
+                "seashell" => 0.03f,
+                "starfish" => 0.01875f,
                 _ => throw new InvalidOperationException(),
             }, rule.Chance);
             Assert.Equal(DecorationFluidPlacement.Submerged, rule.FluidPlacement);
