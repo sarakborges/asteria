@@ -263,6 +263,61 @@ public sealed class WorldUpdateQueueTests
     }
 
     [Fact]
+    public void BecomingVisiblePromotesOnlyPendingBackgroundMeshlets()
+    {
+        var queue = new WorldUpdateQueue();
+        queue.EnqueueMeshlets(ChunkCoord.Zero, ChunkMeshletMask.All);
+        queue.EnqueuePriorityMeshlets(
+            ChunkCoord.Zero, ChunkMeshletMask.Single(0));
+
+        var visibleMissing = new ChunkMeshletMask(0b00000111);
+        Assert.Equal(
+            new ChunkMeshletMask(0b00000110),
+            queue.PromoteBackgroundMeshlets(
+                ChunkCoord.Zero, visibleMissing));
+        Assert.Equal(
+            ChunkMeshletMask.None,
+            queue.PromoteBackgroundMeshlets(
+                ChunkCoord.Zero, visibleMissing));
+
+        var urgent = queue.DrainPriorityMeshlets();
+        Assert.Equal(visibleMissing,
+            urgent.DirtyMeshlets[ChunkCoord.Zero]);
+
+        var background = queue.DrainBackgroundMeshlets();
+        Assert.Equal(
+            ChunkMeshletMask.All.Except(visibleMissing),
+            background.DirtyMeshlets[ChunkCoord.Zero]);
+        Assert.False(queue.HasMeshWork);
+    }
+
+    [Fact]
+    public void VisibilityPromotionDoesNotDuplicateWorkAlreadyInFlight()
+    {
+        var queue = new WorldUpdateQueue();
+        queue.EnqueueMeshlets(
+            ChunkCoord.Zero, ChunkMeshletMask.Single(2));
+        var inFlight = queue.DrainBackgroundMeshlets();
+        Assert.False(inFlight.IsEmpty);
+
+        Assert.Equal(
+            ChunkMeshletMask.None,
+            queue.PromoteBackgroundMeshlets(
+                ChunkCoord.Zero, ChunkMeshletMask.All));
+        Assert.False(queue.HasMeshWork);
+
+        queue.RequeueBackgroundMeshlets(inFlight);
+        Assert.Equal(
+            ChunkMeshletMask.Single(2),
+            queue.PromoteBackgroundMeshlets(
+                ChunkCoord.Zero, ChunkMeshletMask.All));
+        Assert.Equal(
+            ChunkMeshletMask.Single(2),
+            queue.DrainPriorityMeshlets().DirtyMeshlets[ChunkCoord.Zero]);
+        Assert.False(queue.HasMeshWork);
+    }
+
+    [Fact]
     public void MeshDrainContinuesInDeterministicChunkOrderAcrossBatches()
     {
         var queue =

@@ -1,6 +1,6 @@
 namespace Asteria.Core.World;
 
-internal static class ChunkCoordOrdering
+public static class ChunkCoordOrdering
 {
     public static readonly IComparer<ChunkCoord> YThenZThenX =
         Comparer<ChunkCoord>.Create(

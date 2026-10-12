@@ -279,11 +279,15 @@ public sealed class TerrainMeshPipeline
             var revision =
                 result.ContentRevisions[key];
 
+            var needsPriority = priority ||
+                _presentations.NeedsPriorityInitialTerrainPublication(
+                    meshlet.Coord, meshlet.MeshletIndex);
+
             if (_revisions.IsCurrent(
                     key,
                     revision))
             {
-                if (priority)
+                if (needsPriority)
                 {
                     _presentations
                         .EnqueuePriorityTerrainPublication(
@@ -308,7 +312,7 @@ public sealed class TerrainMeshPipeline
                     ChunkMeshletMask.Single(
                         meshlet.MeshletIndex);
 
-                if (priority)
+                if (needsPriority)
                 {
                     _updates.EnqueuePriorityMeshlets(
                         meshlet.Coord,

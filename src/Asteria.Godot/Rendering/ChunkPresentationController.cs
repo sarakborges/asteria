@@ -139,6 +139,13 @@ public sealed class ChunkPresentationController
             out var presentation) &&
         presentation.IsFullyPublished;
 
+    public bool NeedsPriorityInitialTerrainPublication(
+        ChunkCoord coord,
+        int meshletIndex) =>
+        _presentations.TryGetValue(coord, out var presentation) &&
+        presentation.IsVisible &&
+        !presentation.IsTerrainMeshletPublished(meshletIndex);
+
     public int ReservePending(
         ChunkResidencyRuntime residency,
         int maximumPerFrame,
@@ -245,16 +252,34 @@ public sealed class ChunkPresentationController
             return;
         }
 
+        List<(ChunkCoord Coord, ChunkMeshletMask Missing)>? promoted = null;
         foreach (var (coord, presentation) in
                  _presentations)
         {
+            var wasVisible = presentation.IsVisible;
             presentation.SetVisible(
                 residency.ShouldPresentationBeVisible(
                     coord,
-                    presentation.IsVisible));
+                    wasVisible));
+            if (!wasVisible && presentation.IsVisible)
+            {
+                promoted ??= [];
+                promoted.Add((coord, presentation.UnpublishedTerrainMeshlets));
+            }
             presentation.SetPhysicsEnabled(
                 presentation.IsVisible &&
                 residency.ShouldPresentationHaveCollision(coord));
+        }
+
+        if (promoted is not null)
+        {
+            // Queue order must not depend on Dictionary iteration order.
+            foreach (var (coord, missing) in promoted.OrderBy(
+                         entry => entry.Coord, ChunkCoordOrdering.YThenZThenX))
+            {
+                _worldUpdates.PromoteBackgroundMeshlets(coord, missing);
+                PromoteQueuedInitialTerrainPublications(coord, missing);
+            }
         }
 
         _appliedSelectionRevision =
@@ -478,6 +503,22 @@ public sealed class ChunkPresentationController
             stale,
             _fluidPublications.Count,
             stopwatch.Elapsed.TotalMilliseconds);
+    }
+
+    private void PromoteQueuedInitialTerrainPublications(
+        ChunkCoord coord,
+        ChunkMeshletMask missing)
+    {
+        // Publication DTOs can already be waiting in the background lane,
+        // after their worker finished. Move their queue entries without
+        // rebuilding the mesh or copying the result.
+        foreach (var meshletIndex in missing.Indices())
+        {
+            var key = new ChunkMeshletKey(coord, meshletIndex);
+            if (_terrainPublications.ContainsKey(key) &&
+                _backgroundTerrainPublicationOrder.Remove(key))
+                _priorityTerrainPublicationOrder.Enqueue(key);
+        }
     }
 
     private void EnqueueTerrainPublication(
