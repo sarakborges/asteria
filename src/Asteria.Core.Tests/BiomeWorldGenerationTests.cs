@@ -1430,6 +1430,102 @@ public sealed class BiomeWorldGenerationTests
     }
 
 
+    [Fact]
+    public void ConeTerrainJoinsAdjacentPlainsWithoutFlatteningItsInterior()
+    {
+        const string coneId = "asteria:test/volcano";
+        var plains = TestBiome("asteria:test/plains", baseHeightOffset: 2f);
+        var volcano = new BiomeDefinition(
+            coneId,
+            new BiomeSurfaceLayoutDefinition(
+                regionMin: 192, regionMax: 384),
+            new BiomeTerrainDefinition(
+                new BiomeConeTerrainShapeDefinition(
+                    baseHeight: 12f,
+                    height: 72f,
+                    irregularity: 0f,
+                    irregularityScale: 0.009f,
+                    detailIrregularity: 0f,
+                    detailScale: 0.031f)),
+            [new BiomeSurfaceLayerDefinition("asteria:stone")]);
+        var generator = new BiomeWorldGenerator(
+            44UL,
+            TestDimension([plains.Id, volcano.Id]),
+            new BlockRegistry([new BlockDefinition("asteria:stone")]),
+            new BiomeRegistry([plains, volcano]));
+
+        var mixedFlanks = 0;
+        var intactInterior = 0;
+        var ownershipEdges = 0;
+
+        for (var z = -512; z <= 512; z += 16)
+        for (var x = -512; x <= 512; x += 16)
+        {
+            var sample = generator.Biomes.Sample(x, z);
+            if (sample.Primary == coneId)
+            {
+                // This cone deliberately has no shape noise or crater:
+                // its unclipped elevation is completely determined by
+                // the authoritative formation strength.
+                var authored = 12d + 72d * sample.PrimaryTerrainStrength;
+                var neighbor = sample.Influences.FirstOrDefault(
+                    influence => influence.BiomeId == plains.Id);
+                var actual = generator.SurfaceHeight(x, z);
+                if (neighbor.Weight > 0f)
+                {
+                    var dominance = Math.Clamp(
+                        (double)sample.PrimaryWeight - neighbor.Weight,
+                        0d, 1d);
+                    var boundaryT = Math.Clamp(dominance / 0.35d, 0d, 1d);
+                    var smooth = boundaryT * boundaryT *
+                        (3d - 2d * boundaryT);
+                    var expected = (int)Math.Floor(
+                        2d + (authored - 2d) * smooth);
+                    Assert.InRange(actual, expected - 1, expected + 1);
+                    mixedFlanks++;
+                }
+                else
+                {
+                    Assert.Equal((int)Math.Floor(authored), actual);
+                    intactInterior++;
+                }
+            }
+            else
+            {
+                // A neighboring flat biome never inherits the cone.
+                Assert.Equal(2, generator.SurfaceHeight(x, z));
+            }
+
+            var next = generator.Biomes.Sample(x + 16, z);
+            if (sample.Primary == next.Primary)
+                continue;
+
+            // Inspect individual block columns at actual ownership seams,
+            // not just sparse map probes. Large step changes are the
+            // detached basalt walls seen in the generated world.
+            for (var edgeX = x; edgeX < x + 16; edgeX++)
+            {
+                var left = generator.Biomes.Sample(edgeX, z);
+                var right = generator.Biomes.Sample(edgeX + 1, z);
+                if (left.Primary == right.Primary)
+                    continue;
+
+                var difference = Math.Abs(
+                    generator.SurfaceHeight(edgeX, z) -
+                    generator.SurfaceHeight(edgeX + 1, z));
+                Assert.InRange(difference, 0, 12);
+                ownershipEdges++;
+            }
+        }
+
+        Assert.True(mixedFlanks > 0,
+            "Expected cone/flats overlap samples.");
+        Assert.True(intactInterior > 0,
+            "Expected unmodified volcanic interior columns.");
+        Assert.True(ownershipEdges > 0,
+            "Expected a concrete cone/plains boundary.");
+    }
+
     [Theory]
     [InlineData(3f)]
     [InlineData(18f)]
