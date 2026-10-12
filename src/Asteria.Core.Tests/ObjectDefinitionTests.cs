@@ -73,15 +73,36 @@ public sealed class ObjectDefinitionTests
                 [Grass, Grass], ObjectDefinition.Parse, value => value.Id));
     }
 
+    private const string Extruded = """
+    {"id":"asteria:seashell","category":"foliage",
+     "icon":"textures/objects/seashell.png",
+     "visual":{"type":"extrudedSprite","texture":"textures/objects/seashell.png",
+       "height":0.012,"size":[0.59,0.42],"baseOffset":0.0125}}
+    """;
+
     [Fact]
-    public void UnsupportedExtrudedSpriteIsRejectedInsteadOfRenderedIncorrectly()
+    public void ExtrudedSpriteReadsIndependentWidthDepthThicknessAndTarget()
     {
-        Assert.Throws<FormatException>(() => ObjectDefinition.Parse("""
-        {"id":"asteria:pebble","category":"foliage",
-         "icon":"textures/objects/pebble.png",
-         "visual":{"type":"extrudedSprite","texture":"textures/objects/pebble.png",
-           "height":0.012,"size":[0.42,0.42],"baseOffset":0.0125},
-         "target":{"size":[0.42,0.14,0.42],"centerOffset":[0,0.07,0]}}
-        """));
+        var obj = ObjectDefinition.Parse(Extruded);
+        Assert.Equal(ObjectVisualKind.ExtrudedSprite, obj.Visual.Kind);
+        Assert.Equal(.59f, obj.Visual.Width);
+        Assert.Equal(.42f, obj.Visual.Depth);
+        Assert.Equal(.012f, obj.Visual.Height);
+        Assert.Equal(.0125f, obj.Visual.BaseOffset);
+        Assert.Equal(new Vector3(.59f, .14f, .42f), obj.Target.Size);
+        Assert.Equal(new Vector3(0f, .07f, 0f), obj.Target.CenterOffset);
+    }
+
+    [Fact]
+    public void ExtrudedSpriteRejectsInvalidSizeAndThickness()
+    {
+        Assert.Throws<FormatException>(() =>
+            ObjectDefinition.Parse(Extruded.Replace("[0.59,0.42]", "[0.59,-0.42]")));
+        Assert.Throws<FormatException>(() =>
+            ObjectDefinition.Parse(Extruded.Replace("[0.59,0.42]", "[0,0.42]")));
+        Assert.Throws<FormatException>(() =>
+            ObjectDefinition.Parse(Extruded.Replace("\"height\":0.012", "\"height\":0")));
+        Assert.Throws<FormatException>(() =>
+            ObjectDefinition.Parse(Extruded.Replace("\"baseOffset\":0.0125", "\"baseOffset\":3")));
     }
 }

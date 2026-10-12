@@ -168,7 +168,7 @@
       }
     },
     {
-      "block": "asteria:clover",
+      "object": "asteria:clover",
       "chance": 0.0096,
       "surfaceBlocks": [
         "asteria:grass_block"

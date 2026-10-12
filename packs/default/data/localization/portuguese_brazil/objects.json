@@ -8,6 +8,9 @@
   "asteria:cloud_reed": {
     "/name": "Junco das Nuvens"
   },
+  "asteria:clover": {
+    "/name": "Trevo"
+  },
   "asteria:glow_fern": {
     "/name": "Samambaia Luminescente"
   },
@@ -40,6 +43,12 @@
   },
   "asteria:seagrass": {
     "/name": "Erva-marinha"
+  },
+  "asteria:seashell": {
+    "/name": "Concha Marinha"
+  },
+  "asteria:starfish": {
+    "/name": "Estrela-do-mar"
   },
   "asteria:wall_shelf_fungus": {
     "/name": "Fungo de Prateleira de Parede"

@@ -25,7 +25,7 @@ public sealed class OceanDecorationContentTests
         foreach (var name in Names)
         {
             var rule = Assert.Single(ocean.Decorations, d => d.Block == $"asteria:{name}");
-            Assert.Equal(name is "seagrass" or "kelp", rule.IsObject);
+            Assert.Equal(name is not "sea_anemone", rule.IsObject);
             Assert.Equal(name switch
             {
                 "seagrass" => 0.135f,
@@ -46,7 +46,9 @@ public sealed class OceanDecorationContentTests
                 Assert.False(blocks.TryGetId(rule.Block, out _));
                 var definition = objects.Get(rule.Block);
                 Assert.Equal("foliage", definition.Category);
-                Assert.Equal(ObjectVisualKind.CrossedSprite, definition.Visual.Kind);
+                Assert.Equal(name is "seashell" or "starfish"
+                    ? ObjectVisualKind.ExtrudedSprite
+                    : ObjectVisualKind.CrossedSprite, definition.Visual.Kind);
                 Assert.True(definition.Supports(BlockFace.Top));
                 Assert.True(definition.DropSelf);
                 Assert.Equal($"textures/objects/{name}.png", definition.Visual.Texture);
@@ -101,6 +103,9 @@ public sealed class OceanDecorationContentTests
                 suppliedPlacement: context).IsAir);
             Assert.True(a.BlockAt(sample, stone, x, z,
                 suppliedPlacement: context, submerged: true).IsAir);
+            Assert.Null(a.ObjectAt(sample, sand, x, z, placement: context));
+            Assert.Null(a.ObjectAt(sample, stone, x, z,
+                placement: context, submerged: true));
             var objectId = a.ObjectAt(sample, sand, x, z,
                 placement: context, submerged: true);
             Assert.Equal(objectId, b.ObjectAt(sample, sand, x, z,
@@ -109,7 +114,7 @@ public sealed class OceanDecorationContentTests
             if (!wet.IsAir) found.Add(wet);
         }
         Assert.Contains("asteria:seagrass", foundObjects);
-        Assert.Contains(blocks.GetId("asteria:seashell"), found);
+        Assert.Contains("asteria:seashell", foundObjects);
         Assert.Contains("asteria:kelp", foundObjects);
     }
 

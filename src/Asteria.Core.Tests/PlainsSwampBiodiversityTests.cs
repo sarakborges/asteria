@@ -1,3 +1,4 @@
+using Asteria.Core.Content;
 using Asteria.Core.World;
 
 namespace Asteria.Core.Tests;
@@ -30,15 +31,26 @@ public sealed class PlainsSwampBiodiversityTests
             Assert.True(rule.HabitatWeights!.For("open") >
                         rule.HabitatWeights.For("rocky"));
             Assert.Equal(DecorationFluidPlacement.Dry, rule.FluidPlacement);
-            var block = blocks.GetDefinition(blocks.GetId(rule.Block));
-            Assert.True(block.HasTag(BlockPhysicsCapabilities.SupportBelow));
-            Assert.False(block.IsCollidable);
-            Assert.Equal(BlockRenderMode.Cutout, block.RenderMode);
-            Assert.Equal(name == "clover"
-                    ? BlockVisualKind.GroundSprite
-                    : BlockVisualKind.CrossedSprite, block.Visual.Kind);
-            Assert.Equal("textures/objects/" + name + ".png",
-                block.Visual.Texture!.Value.Texture);
+            if (name == "clover")
+            {
+                Assert.True(rule.IsObject);
+                Assert.False(blocks.TryGetId(rule.Block, out _));
+                var objects = PackContentRegistry<ObjectDefinition>.FromJson(
+                    ReadPackJson("objects"), ObjectDefinition.Parse, d => d.Id);
+                var visual = objects.Get(rule.Block).Visual;
+                Assert.Equal(ObjectVisualKind.ExtrudedSprite, visual.Kind);
+                Assert.Equal("textures/objects/clover.png", visual.Texture);
+            }
+            else
+            {
+                var block = blocks.GetDefinition(blocks.GetId(rule.Block));
+                Assert.True(block.HasTag(BlockPhysicsCapabilities.SupportBelow));
+                Assert.False(block.IsCollidable);
+                Assert.Equal(BlockRenderMode.Cutout, block.RenderMode);
+                Assert.Equal(BlockVisualKind.CrossedSprite, block.Visual.Kind);
+                Assert.Equal("textures/objects/" + name + ".png",
+                    block.Visual.Texture!.Value.Texture);
+            }
         }
     }
 
@@ -155,11 +167,15 @@ public sealed class PlainsSwampBiodiversityTests
         {
             "marsh_orchid", "bulrush", "shelf_fungus"
         });
+        var objects = PackContentRegistry<ObjectDefinition>.FromJson(
+            ReadPackJson("objects"), ObjectDefinition.Parse, d => d.Id);
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var name in names)
         {
-            var def = blocks.GetDefinition(blocks.GetId("asteria:" + name));
-            var path = def.Visual.Texture!.Value.Texture;
+            var path = name == "clover"
+                ? objects.Get("asteria:clover").Visual.Texture
+                : blocks.GetDefinition(blocks.GetId("asteria:" + name))
+                    .Visual.Texture!.Value.Texture;
             Assert.Equal("textures/objects/" + name + ".png", path);
             Assert.True(seen.Add(path));
         }

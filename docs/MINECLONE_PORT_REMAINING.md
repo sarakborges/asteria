@@ -346,3 +346,11 @@ MineClone `world-systems-rebuild` reference: `world_objects.rs::detached_object_
 - Object placement/removal through canonical mutations enqueue a lighting update for the affected target voxel. Worker snapshots include Object chunk revisions and reject stale publication through existing content stamps.
 - Converted glowcap, glow_fern and aether_bloom from blocks to Objects, preserving authored RGB emission and biomes; moved EN/PT-BR/ES localization and removed duplicate block identities.
 - QA: automated emission/validation/removal tests. Real Godot visual verification and performance profiling remain outstanding.
+
+## ExtrudedSprite Objects — 2026-10-12
+
+- Added portable `extrudedSprite` authoring with independent X/Z size, bounded vertical extrusion thickness, base offset, alpha cutoff, and a target AABB that includes the actual sprite geometry by default.
+- Core `ExtrudedSpriteMesh` generates the textured top and bottom and deterministic alpha-contour side faces from a bounded RGBA alpha plane; internal opaque-neighbor edges do not create hidden walls. The Godot adapter decodes selected-pack textures and publishes one cached mesh per Object definition, reused by existing MultiMesh instance batches.
+- Canonical `WorldObjectGeometry` pose (attachment face, yaw, scale, stable offset) remains shared by rendering, raycast hitbox, and an Object placement ghost. Object placement preview and interaction share the same Core placement validation.
+- Migrated seashell and starfish from Ocean and clover from Plains, preserving their chances, submerged source requirements and original image textures. Removed redundant block identities and transferred EN/PT-BR/ES localization. Pebble's item-pickup semantics and Lily Pad's fluid-top support are separate migrations, not silently changed here.
+- Native Godot visual inspection remains required for contour normals and preview opacity; code and headless tests validate geometry and authored-content contracts.

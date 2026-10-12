@@ -8,6 +8,9 @@
   "asteria:cloud_reed": {
     "/name": "Junco de las Nubes"
   },
+  "asteria:clover": {
+    "/name": "Trébol"
+  },
   "asteria:glow_fern": {
     "/name": "Helecho Luminoso"
   },
@@ -40,6 +43,12 @@
   },
   "asteria:seagrass": {
     "/name": "Hierba marina"
+  },
+  "asteria:seashell": {
+    "/name": "Concha Marina"
+  },
+  "asteria:starfish": {
+    "/name": "Estrella de Mar"
   },
   "asteria:wall_shelf_fungus": {
     "/name": "Hongo de Repisa de Pared"

@@ -30,25 +30,10 @@ public sealed class WorldObjectInteractionRuntime
 
     public bool TryPlace(InventoryStack? held, VoxelWorldHit supportHit)
     {
-        if (held is not { Kind: InventoryEntryKind.Object } ||
-            !_definitions.TryGet(held.Id, out var definition) || definition is null ||
-            !VoxelHitFace.TryResolve(supportHit, out var face) ||
-            !definition.Supports(face) ||
-            !_world.TryGetCell(supportHit.Voxel, out var support) ||
-            support.IsEmpty || !_blocks.GetDefinition(support.Block).IsCollidable)
-            return false;
-
-        var placement = supportHit.Voxel +
-            (supportHit.NormalX, supportHit.NormalY, supportHit.NormalZ);
-        if (placement.Y < 0 || !_world.TryGetCell(placement, out var occupying) ||
-            !occupying.IsEmpty)
-            return false;
-
-        // The face belongs to the supporting block, not the destination air
-        // voxel. Occupied water is permitted in the destination: Objects never
-        // replace the water source, including for future submerged plants.
-        return _mutations.AddObjectAt(
-            supportHit.Voxel, new ObjectCell(definition.Id, face));
+        var decision = ObjectPlacementResolver.Resolve(
+            _world, _blocks, _definitions, held, supportHit);
+        return decision.Accepted &&
+            _mutations.AddObjectAt(decision.Support, decision.Object);
     }
 
     public bool TryBreak(WorldObjectHit hit, PlayerGameMode mode)

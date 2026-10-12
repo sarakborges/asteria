@@ -20,7 +20,8 @@ public sealed record ObjectVisualDefinition(
     float Height,
     int Planes,
     float BaseOffset,
-    float AlphaCutoff);
+    float AlphaCutoff,
+    float Depth = 0f);
 
 public sealed record ObjectTargetDefinition(Vector3 Size, Vector3 CenterOffset);
 
@@ -50,14 +51,15 @@ public sealed class ObjectDefinition
             placementFaces.Any(face => !Enum.IsDefined(face)) ||
             placementFaces.Distinct().Count() != placementFaces.Count)
             throw new FormatException("Object placement faces must be unique and valid.");
-        if (visual.Kind != ObjectVisualKind.CrossedSprite)
-            throw new FormatException("Only crossedSprite Objects are supported by the current renderer.");
         if (!WithinRange(visual.Width, 0f, 4f, exclusiveMinimum: true) ||
             !WithinRange(visual.Height, 0f, 4f, exclusiveMinimum: true) ||
             !WithinRange(visual.BaseOffset, 0f, 2f) ||
             !WithinRange(visual.AlphaCutoff, 0f, 1f) ||
             (visual.Kind == ObjectVisualKind.CrossedSprite &&
-             (visual.Planes is < 2 or > 8)))
+             (visual.Planes is < 2 or > 8)) ||
+            (visual.Kind == ObjectVisualKind.ExtrudedSprite &&
+             (!WithinRange(visual.Depth, 0f, 4f, exclusiveMinimum: true) ||
+              visual.Planes != 1)))
             throw new FormatException("Invalid object visual dimensions or alpha cutoff.");
         if (!PositiveTarget(target.Size) ||
             !Finite(target.CenterOffset) ||
@@ -118,6 +120,8 @@ public sealed class ObjectDefinition
             : ReadFloat(visual, "height", .012f);
         var planes = kind == ObjectVisualKind.CrossedSprite
             ? ReadInt(visual, "planes", 2) : 1;
+        var depth = kind == ObjectVisualKind.ExtrudedSprite
+            ? ReadVector(visual, "size", new Vector2(.75f, .75f)).Y : 0f;
         var baseOffset = ReadFloat(visual, "baseOffset", 0f);
         var alpha = ReadFloat(visual, "alphaCutoff", .5f);
         var placementFaces = ReadFaces(root);
@@ -125,14 +129,18 @@ public sealed class ObjectDefinition
             ? new ObjectTargetDefinition(
                 ReadVector3(targetValue, "size", new Vector3(.75f)),
                 ReadVector3(targetValue, "centerOffset", new Vector3(0f, .375f, 0f)))
-            : new ObjectTargetDefinition(new Vector3(.75f), new Vector3(0f, .375f, 0f));
+            : kind == ObjectVisualKind.ExtrudedSprite
+                ? new ObjectTargetDefinition(
+                    new Vector3(width, MathF.Max(.14f, height), depth),
+                    new Vector3(0f, MathF.Max(.14f, height) * .5f, 0f))
+                : new ObjectTargetDefinition(new Vector3(.75f), new Vector3(0f, .375f, 0f));
         var jitter = ReadVector(root, "positionJitter", Vector2.Zero);
         return new ObjectDefinition(
             PackContentFields.Id(root),
             PackContentFields.RequiredString(root, "category"),
             PackContentFields.ResourcePath(
                 PackContentFields.RequiredString(root, "icon"), "icon"),
-            new ObjectVisualDefinition(kind, texture, width, height, planes, baseOffset, alpha),
+            new ObjectVisualDefinition(kind, texture, width, height, planes, baseOffset, alpha, depth),
             placementFaces, target, jitter,
             ReadBool(root, "dropSelf", true),
             ReadBool(root, "windSway", false),

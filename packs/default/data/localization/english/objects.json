@@ -8,6 +8,9 @@
   "asteria:cloud_reed": {
     "/name": "Cloud Reed"
   },
+  "asteria:clover": {
+    "/name": "Clover"
+  },
   "asteria:glow_fern": {
     "/name": "Glow Fern"
   },
@@ -40,6 +43,12 @@
   },
   "asteria:seagrass": {
     "/name": "Seagrass"
+  },
+  "asteria:seashell": {
+    "/name": "Seashell"
+  },
+  "asteria:starfish": {
+    "/name": "Starfish"
   },
   "asteria:wall_shelf_fungus": {
     "/name": "Wall Shelf Fungus"
