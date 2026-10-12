@@ -7,6 +7,11 @@ namespace Asteria.Core.World;
 /// </summary>
 public sealed class SurfaceTerrainField
 {
+    // A self-tapering formation can still meet another biome before its
+    // radial strength reaches zero. Restrict the boundary correction to the
+    // ownership seam instead of flattening the whole cone.
+    private const double FormationBoundaryDominanceWidth = 0.35d;
+
     private readonly ulong _seed;
     private readonly int _seaLevel;
     private readonly int? _floorY;
@@ -710,17 +715,13 @@ public sealed class SurfaceTerrainField
             worldZ,
             sample.PrimaryTerrainStrength);
 
-        // Self-tapering landforms already meet the surrounding ground through
-        // formation strength. Do not blend them down a second time based on
-        // competing biome weights: that erases their actual slopes.
-        if (primaryRule.TapersFromFormationStrength)
-        {
-            return primaryHeight;
-        }
-
-        var lowerHeightSum = 0d;
-        var lowerWeightSum = 0d;
-        var strongestLowerWeight = 0d;
+        // The cone owns its full interior shape. Formation strength alone does
+        // not guarantee zero elevation exactly at biome ownership boundaries,
+        // so a narrow seam must join the neighboring terrain there.
+        var tapersFromFormation = primaryRule.TapersFromFormationStrength;
+        var neighboringHeightSum = 0d;
+        var neighboringWeightSum = 0d;
+        var strongestNeighborWeight = 0d;
 
         foreach (var influence in sample.Influences)
         {
@@ -743,33 +744,42 @@ public sealed class SurfaceTerrainField
                     ? coast.LandBoundaryHeightOffset
                     : _surfaceRules[influence.BiomeId].HeightOffsetAt(
                         _seed, worldX, worldZ, influence.TerrainStrength);
-            if (neighborHeight >= primaryHeight)
+            // Ordinary elevated terrain rises only within its primary
+            // biome. Self-tapered cones must join their actual neighbor
+            // even when their low outer flank is below that neighbor.
+            if (!tapersFromFormation && neighborHeight >= primaryHeight)
             {
                 continue;
             }
 
-            lowerHeightSum += neighborHeight * influence.Weight;
-            lowerWeightSum += influence.Weight;
-            strongestLowerWeight = Math.Max(
-                strongestLowerWeight,
+            neighboringHeightSum += neighborHeight * influence.Weight;
+            neighboringWeightSum += influence.Weight;
+            strongestNeighborWeight = Math.Max(
+                strongestNeighborWeight,
                 influence.Weight);
         }
 
-        if (lowerWeightSum <= 0d)
+        if (neighboringWeightSum <= 0d)
         {
             return primaryHeight;
         }
 
-        // Equal dominance is the biome boundary: start at the lower
-        // terrain there and build the entire uphill grade inside the
-        // elevated primary biome, regardless of the height difference.
+        // At equal dominance the boundary follows the neighbor. The cone
+        // recovers its authored height soon after entering its own biome;
+        // other elevated shapes keep the existing full dominance ramp.
         var dominance = Math.Clamp(
-            sample.PrimaryWeight - strongestLowerWeight,
+            sample.PrimaryWeight - strongestNeighborWeight,
             0d,
             1d);
-        var slope = WorldGenerationEntropy.SmoothStep(dominance);
-        var lowerHeight = lowerHeightSum / lowerWeightSum;
-        return lowerHeight + (primaryHeight - lowerHeight) * slope;
+        var transition = tapersFromFormation
+            ? Math.Clamp(
+                dominance / FormationBoundaryDominanceWidth,
+                0d,
+                1d)
+            : dominance;
+        var slope = WorldGenerationEntropy.SmoothStep(transition);
+        var neighborHeight = neighboringHeightSum / neighboringWeightSum;
+        return neighborHeight + (primaryHeight - neighborHeight) * slope;
     }
 
     private (
