@@ -754,14 +754,19 @@ public partial class Main : Node3D
             _blockEntities.WaitingPhysicsUpdates,
             _blockEntities.WaitingFallingCount);
 
-        gameplaySliceStart = Stopwatch.GetTimestamp();
-        SendWorldHudState();
-        SendWorldClockState();
-        SendTargetHudState();
-        SyncArchitectsCompassPreview();
-        SyncPlacementPreview();
-        _worldDiagnostics?.ObserveStage(
-            WorldFrameStage.Hud, gameplaySliceStart);
+        // When the HUD is hidden, skip its world queries, raycasts and
+        // preview work entirely. This permits a genuine A/B streaming test.
+        if (!_clientPreferences.HideHud)
+        {
+            gameplaySliceStart = Stopwatch.GetTimestamp();
+            SendWorldHudState();
+            SendWorldClockState();
+            SendTargetHudState();
+            SyncArchitectsCompassPreview();
+            SyncPlacementPreview();
+            _worldDiagnostics?.ObserveStage(
+                WorldFrameStage.Hud, gameplaySliceStart);
+        }
 
         gameplaySliceStart = Stopwatch.GetTimestamp();
         TryTraversePhysicalPortal();
@@ -1113,6 +1118,7 @@ public partial class Main : Node3D
     private void SendWorldClockState(
         bool force = false)
     {
+        if (_clientPreferences.HideHud) return;
         var clock =
             _sessions.Active.DayNight;
         var (hour, minute) =
@@ -1330,6 +1336,25 @@ public partial class Main : Node3D
                     ClientPreferenceUpdate.SaveFailed)
                 {
                     SendClientPreferences();
+                    if (type == "ui.client_preferences.hide_hud")
+                    {
+                        if (_clientPreferences.HideHud)
+                        {
+                            // Clear existing 3D previews immediately; they must
+                            // not remain visible while their updates are paused.
+                            _placementPreview.Hide();
+                            if (_worldSeed is not null)
+                                _sessions.Active.StructureSelection.Hide();
+                        }
+                        else if (_worldSeed is not null && _player is not null)
+                        {
+                            SendWorldHudState(force: true);
+                            SendWorldClockState(force: true);
+                            SendTargetHudState(force: true);
+                            SendPlayerVitals(force: true);
+                            SendFpsHudState();
+                        }
+                    }
                     if (type is "ui.client_preferences.hide_hints" or
                         "ui.client_preferences.hint")
                     {
@@ -2550,7 +2575,7 @@ public partial class Main : Node3D
     private void SendWorldHudState(
         bool force = false)
     {
-        if (_player is null)
+        if (_clientPreferences.HideHud || _player is null)
         {
             return;
         }
@@ -3869,6 +3894,7 @@ public partial class Main : Node3D
 
     private void SendFpsHudState()
     {
+        if (_clientPreferences.HideHud) return;
         if (_fpsHud.Current is
             { } fps)
         {
@@ -3888,7 +3914,8 @@ public partial class Main : Node3D
     private void SendTargetHudState(
         bool force = false)
     {
-        if (_sessionStates.Player.GameMode.IsSpectator())
+        if (_clientPreferences.HideHud ||
+            _sessionStates.Player.GameMode.IsSpectator())
             return;
 
         CreatureTargetHit? creatureHit = null;
@@ -4790,7 +4817,7 @@ public partial class Main : Node3D
 
     private void SyncPlacementPreview()
     {
-        if (!_worldReadySent || _sessions.IsTransitioning || _inventoryOpen ||
+        if (_clientPreferences.HideHud || !_worldReadySent || _sessions.IsTransitioning || _inventoryOpen ||
             _brushPaletteOpen || _chat.IsOpen ||
             _player is not { IsMouseCaptured: true } player ||
             !_sessionStates.Player.CanInteract ||
@@ -4815,6 +4842,11 @@ public partial class Main : Node3D
 
     private void SyncArchitectsCompassPreview()
     {
+        if (_clientPreferences.HideHud)
+        {
+            _sessions.Active.StructureSelection.Hide();
+            return;
+        }
         var compass = _sessions.Active.ArchitectsCompass;
         if (compass.SelectionStart is null || !_sessionStates.Player.CanInteract ||
             _player is null || _inventoryOpen || _brushPaletteOpen)
