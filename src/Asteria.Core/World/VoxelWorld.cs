@@ -986,6 +986,39 @@ public sealed class VoxelWorld
         }
     }
 
+    /// <summary>
+    /// Copies a bounded slice of the lighting worker result. Unlike
+    /// CopyChangedLightFrom, this updates individual voxels rather than
+    /// cloning each chunk's light array, so large results can be published
+    /// incrementally without repeating whole-chunk copies.
+    /// </summary>
+    public void CopyLightPositionsFrom(
+        VoxelWorld source,
+        IReadOnlyList<WorldVoxelCoord> positions,
+        int offset,
+        int count)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(positions);
+        if (offset < 0 || count < 0 || offset > positions.Count - count)
+            throw new ArgumentOutOfRangeException(nameof(offset));
+
+        for (var i = offset; i < offset + count; i++)
+        {
+            var position = positions[i];
+            var address = VoxelCoordinates.FromWorld(
+                position.X, position.Y, position.Z);
+            if (!_chunks.TryGetValue(address.Chunk, out var target) ||
+                !source._chunks.TryGetValue(address.Chunk, out var from))
+                continue;
+
+            var local = address.Local;
+            target.SetLight(
+                local.X, local.Y, local.Z,
+                from.GetLight(local.X, local.Y, local.Z));
+        }
+    }
+
     private void AssignResidencyEpoch(ChunkCoord coord)
     {
         _nextResidencyEpoch =
