@@ -131,10 +131,13 @@ public sealed class VerticalBiomeContentTests
         Assert.Equal(8, cave.Decorations.Count);
         Assert.Contains(cave.Decorations, d => d.IsLayer &&
             d.Block == "asteria:wall_moss");
-        Assert.Contains(cave.Decorations, d =>
+        Assert.Contains(cave.Decorations, d => d.IsObject &&
+            d.SupportSurface == DecorationSupportSurface.Wall &&
             d.Block == "asteria:wall_shelf_fungus");
         Assert.Equal(7, floating.Decorations.Count);
-        Assert.Contains(floating.Decorations, d => d.Block == "asteria:aether_vines");
+        Assert.Contains(floating.Decorations, d => d.IsObject &&
+            d.SupportSurface == DecorationSupportSurface.Ceiling &&
+            d.Block == "asteria:aether_vines");
 
         var field = new SurfaceDecorationField(119UL, [cave, floating], blocks);
         Assert.True(field.HasVerticalDecorations);
@@ -147,7 +150,6 @@ public sealed class VerticalBiomeContentTests
         var stone = blocks.GetId("asteria:stone");
         var grassBlock = blocks.GetId("asteria:grass_block");
         var aetherCrystal = blocks.GetId("asteria:aether_crystal");
-        var skyVines = blocks.GetId("asteria:aether_vines");
         var sightings = 0;
         var islandSightings = 0;
         var variationAcrossY = 0;
@@ -171,7 +173,7 @@ public sealed class VerticalBiomeContentTests
             var onStone = field.BlockAt(islandSample, stone, x, z,
                 new SurfacePlacementContext(240, 0), verticalY:240);
             Assert.True(onStone.IsAir ||
-                onStone == aetherCrystal || onStone == skyVines);
+                onStone == aetherCrystal);
         }
 
         Assert.True(sightings > 0);
