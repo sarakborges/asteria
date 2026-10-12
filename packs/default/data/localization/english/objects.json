@@ -1,6 +1,15 @@
 {
+  "asteria:aether_vines": {
+    "/name": "Aether Vines"
+  },
+  "asteria:cloud_reed": {
+    "/name": "Cloud Reed"
+  },
   "asteria:grass": {
     "/name": "Grass"
+  },
+  "asteria:hanging_roots": {
+    "/name": "Hanging Roots"
   },
   "asteria:kelp": {
     "/name": "Kelp"
@@ -8,14 +17,23 @@
   "asteria:mushroom_blue": {
     "/name": "Blue Mushroom"
   },
+  "asteria:mushroom_brown": {
+    "/name": "Brown Mushroom"
+  },
   "asteria:mushroom_pink": {
     "/name": "Pink Mushroom"
+  },
+  "asteria:mushroom_purple": {
+    "/name": "Purple Mushroom"
   },
   "asteria:mushroom_red": {
     "/name": "Red Mushroom"
   },
   "asteria:seagrass": {
     "/name": "Seagrass"
+  },
+  "asteria:wall_shelf_fungus": {
+    "/name": "Wall Shelf Fungus"
   },
   "asteria:wildflower_blue": {
     "/name": "Blue Wildflower"
