@@ -86,6 +86,39 @@ public static class WorldObjectRaycaster
         return near <= far;
     }
 
+    // A tighter instance-specific bound avoids building poses and testing
+    // oriented hitboxes for distant objects inside a candidate chunk. An L1
+    // extent is deliberately conservative for any face/yaw rotation.
+    private static bool MayIntersectObject(
+        WorldVoxelCoord support, ObjectCell cell, ObjectDefinition definition,
+        Vector3 origin, Vector3 direction, float distance)
+    {
+        var offset = cell.Transform.Offset;
+        var scale = cell.Transform.Scale;
+        var center = definition.Target.CenterOffset;
+        var size = definition.Target.Size;
+        var maxScale = Math.Max(scale.X, Math.Max(scale.Y, scale.Z));
+        var reach = 1.5d +
+            Math.Abs((double)offset.X) +
+            Math.Abs((double)offset.Y) +
+            Math.Abs((double)offset.Z) +
+            definition.PositionJitter.X + definition.PositionJitter.Y +
+            maxScale * (Math.Abs((double)center.X) +
+                        Math.Abs((double)center.Y) +
+                        Math.Abs((double)center.Z) +
+                        .5d * (size.X + size.Y + size.Z));
+
+        var x = (double)support.X + .5d - origin.X;
+        var y = (double)support.Y + .5d - origin.Y;
+        var z = (double)support.Z + .5d - origin.Z;
+        var along = Math.Clamp(x * direction.X + y * direction.Y +
+                               z * direction.Z, 0d, distance);
+        x -= along * direction.X;
+        y -= along * direction.Y;
+        z -= along * direction.Z;
+        return x * x + y * y + z * z <= reach * reach;
+    }
+
 
     public static WorldObjectHit? Raycast(
         VoxelWorld world, PackContentRegistry<ObjectDefinition> objects,
@@ -121,6 +154,9 @@ public static class WorldObjectRaycaster
                 var (worldX, worldY, worldZ) = VoxelCoordinates.ToWorld(coord,
                     new LocalVoxelCoord(localX, localY, localZ));
                 var support = new WorldVoxelCoord(worldX, worldY, worldZ);
+                if (!MayIntersectObject(support, cell, definition,
+                        origin, normalized, maxDistance))
+                    return;
                 var pose = WorldObjectGeometry.Pose(support, cell, definition);
                 if (!WorldObjectGeometry.TryHitTarget(pose, definition.Target,
                     origin, normalized, maxDistance, out var distance))
