@@ -79,6 +79,7 @@ internal sealed class MiningParticlePresentation
         material.SetShaderParameter("terrain_textures", terrainMaterials.TextureArray);
         _batch = new MultiMesh
         {
+            TransformFormat = MultiMesh.TransformFormatEnum.Transform3D,
             UseColors = true,
             UseCustomData = true,
             Mesh = new BoxMesh { Size = Vector3.One, Material = material },
