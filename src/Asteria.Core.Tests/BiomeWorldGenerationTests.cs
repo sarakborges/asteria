@@ -2195,13 +2195,13 @@ public sealed class BiomeWorldGenerationTests
                         return content;
                     var node = System.Text.Json.Nodes.JsonNode.Parse(content)!;
                     node["decorations"] = System.Text.Json.Nodes.JsonNode.Parse(
-                        """[{"block":"asteria:grass","chance":1,"surfaceBlocks":["asteria:grass_block"]}]""");
+                        """[{"object":"asteria:grass","chance":1,"surfaceBlocks":["asteria:grass_block"]}]""");
                     return node.ToJsonString();
                 }));
         var generator = new BiomeWorldGenerator(
             DimensionSeed.Derive(0xA57E_2026UL, dimension.Id), dimension, blocks,
             LoadDefaultFluids(), biomes, LoadDefaultStructures(),
-            LoadDefaultStructureSets());
+            LoadDefaultStructureSets(), objects: LoadDefaultObjects());
         // Biome ownership does not imply solid additive density in that
         // column. Select a real island interior, not the first volume-biome
         // region; its X/Z location may change with the authored surface layout.
@@ -2240,11 +2240,16 @@ public sealed class BiomeWorldGenerationTests
         var (chunkCoord, local) = VoxelCoordinates.FromWorld(
             found.X, found.Y, found.Z);
         var chunk = generator.Materialize(chunkCoord);
-        Assert.Equal(blocks.GetId("asteria:grass"),
-            chunk.GetBlock(local.X, local.Y, local.Z));
+        Assert.True(chunk.GetCell(local.X, local.Y, local.Z).IsEmpty);
+        var (hostCoord, hostLocal) = VoxelCoordinates.FromWorld(
+            found.X, found.Y - 1, found.Z);
+        var host = generator.Materialize(hostCoord);
+        Assert.Contains(host.ObjectsAt(hostLocal.X, hostLocal.Y, hostLocal.Z),
+            obj => obj.Id == "asteria:grass" && obj.Face == BlockFace.Top);
         Assert.Equal(
-            chunk.GetCell(local.X, local.Y, local.Z),
-            generator.Materialize(chunkCoord).GetCell(local.X, local.Y, local.Z));
+            host.ObjectsAt(hostLocal.X, hostLocal.Y, hostLocal.Z),
+            generator.Materialize(hostCoord)
+                .ObjectsAt(hostLocal.X, hostLocal.Y, hostLocal.Z));
     }
 
     [Fact]
@@ -2428,9 +2433,7 @@ public sealed class BiomeWorldGenerationTests
                         .OrderBy(path => path, StringComparer.Ordinal)
                         .Select(File.ReadAllText),
                     Asteria.Core.Content.ObjectDefinition.Parse, obj => obj.Id));
-        var grass =
-            blocks.GetId(
-                "asteria:grass");
+
         var plains =
             FindBiomeInterior(
                 generator.Biomes,
@@ -2440,11 +2443,7 @@ public sealed class BiomeWorldGenerationTests
                 generator.Biomes,
                 "asteria:overworld/swamp");
 
-        Assert.True(
-            HasBlockNear(
-                generator,
-                plains,
-                grass));
+        Assert.True(HasObjectNear(generator, plains, "asteria:grass"));
         Assert.True(
             HasObjectNear(generator, swamp, "asteria:mushroom_brown"));
     }
@@ -2560,6 +2559,14 @@ public sealed class BiomeWorldGenerationTests
         throw new Xunit.Sdk.XunitException(
             $"Could not find an interior sample for {biomeId}.");
     }
+
+    private static Asteria.Core.Content.PackContentRegistry<Asteria.Core.Content.ObjectDefinition> LoadDefaultObjects() =>
+        Asteria.Core.Content.PackContentRegistry<Asteria.Core.Content.ObjectDefinition>.FromJson(
+            Directory.EnumerateFiles(Path.Combine(AppContext.BaseDirectory,
+                "packs", "default", "data", "objects"), "*.json")
+                .OrderBy(path => path, StringComparer.Ordinal)
+                .Select(File.ReadAllText),
+            Asteria.Core.Content.ObjectDefinition.Parse, obj => obj.Id);
 
     private static bool HasObjectNear(
         BiomeWorldGenerator generator, (int X, int Z) center, string id) =>
