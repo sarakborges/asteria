@@ -192,4 +192,57 @@ public sealed class LightingRuntime
         _publicationDirtyMeshlets = 0;
         return TryPublishNextSlice(out report);
     }
+    private bool TryPublishNextSlice(out LightingRuntimeReport? report)
+    {
+        report = null;
+        var result = _publication ??
+            throw new InvalidOperationException("No lighting publication pending.");
+
+        // Chunk content or residency can change between frames. Do not
+        // publish obsolete light; requeue its original seeds for reconciliation.
+        if (!result.Dependencies.IsCurrent(_world))
+        {
+            _updates.RequeueLighting(result.SourceBatch);
+            report = new LightingRuntimeReport(
+                LightingCompletionKind.RequeuedStale,
+                result.WorkerMilliseconds, 0, 0, 0,
+                result.Lighting.ProcessedVoxelCount,
+                _publicationCaptureMilliseconds,
+                _publicationApplyMilliseconds);
+            _publication = null;
+            return true;
+        }
+
+        var positions = result.Lighting.ChangedPositions;
+        var count = Math.Min(
+            MaximumPublishedVoxelsPerPoll,
+            positions.Count - _publicationOffset);
+        if (count > 0)
+        {
+            var started = Stopwatch.GetTimestamp();
+            var applied = _integration.ApplyRange(
+                result.LightingSnapshot, positions, _publicationOffset, count);
+            _publicationApplyMilliseconds +=
+                Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+            _publicationDirtyChunks += applied.DirtyChunkCount;
+            _publicationDirtyMeshlets += applied.DirtyMeshletCount;
+            _publicationOffset += count;
+        }
+
+        if (_publicationOffset < positions.Count)
+            return false;
+
+        report = new LightingRuntimeReport(
+            LightingCompletionKind.Applied,
+            result.WorkerMilliseconds,
+            positions.Count,
+            _publicationDirtyChunks,
+            _publicationDirtyMeshlets,
+            result.Lighting.ProcessedVoxelCount,
+            _publicationCaptureMilliseconds,
+            _publicationApplyMilliseconds);
+        _publication = null;
+        return true;
+    }
+
 }
