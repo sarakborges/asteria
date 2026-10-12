@@ -241,7 +241,8 @@ public sealed class DimensionRuntimeSession
                 blocks,
                 fluids,
                 WorldUpdates,
-                lightingIntegration);
+                lightingIntegration,
+                objects);
         _blockPhysics =
             new BlockPhysicsRuntime(
                 World,
