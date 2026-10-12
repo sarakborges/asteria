@@ -316,3 +316,11 @@ MineClone `world-systems-rebuild` reference: `world_objects.rs::detached_object_
 - The pre-release project does not preserve old content implementations or old save identities. Deleted `data/blocks/kelp.json` and `seagrass.json` after the worldgen/interaction path switched to `data/objects`; no compatibility loader, remapping or duplicate Creative identities are maintained for these plants.
 - Removed their `blocks` localization entries (Object entries remain). The existing `kelp_stem`/`kelp_frond` blocks are distinct solid geometry used by the authored kelp grove Structures, **not** deprecated aliases of the Kelp Object.
 - Converted ocean pack-content tests to assert Object-only identity, and updated fluid coexistence regression coverage to use actual Object occupancy rather than a seagrass voxel-block fixture.
+
+## Plains wildflowers as Objects — 2026-10-12
+
+- Converted Blue and Yellow Wildflower from voxel blocks to floor-attached Objects in the Plains biome using the existing data-driven `decorations[].object` path. Both retain their authored crossed-sprite texture, dimensions, wind sway, no self-drop, and EN/PT-BR/ES localization.
+- Deleted the two superseded `data/blocks` definitions and block-name entries. No compatibility aliases or old-save migration.
+- Mixed block/Object decoration selection now filters by requested kind, so a successful unrelated block rule cannot suppress an Object decision, nor an Object rule suppress a block decision. The materializer continues to require empty target space after generation.
+- Added default-pack assertions for object-only identities and focused regressions for mixed selectors in both deterministic rule orders.
+- **Next:** migrate other decorations after checking structure and vertical-biome references. Pink/Blue/Red Enchanted Forest mushrooms are still used as voxel payloads inside authored Structures; removing their block definitions breaks StructureRegistry validation. Generic Structure-owned Object payloads must be designed before migrating these mushroom identities. Native Godot/WRY visual QA also remains pending.

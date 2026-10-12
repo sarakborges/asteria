@@ -10,5 +10,11 @@
   },
   "asteria:seagrass": {
     "/name": "Erva-marinha"
+  },
+  "asteria:wildflower_blue": {
+    "/name": "Flor Silvestre Azul"
+  },
+  "asteria:wildflower_yellow": {
+    "/name": "Flor Silvestre Amarela"
   }
 }
