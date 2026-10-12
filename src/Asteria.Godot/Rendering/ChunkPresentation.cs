@@ -51,6 +51,28 @@ public sealed class ChunkPresentation
     public bool IsFullyPublished =>
         _publishedCount == ChunkMeshletMask.Count;
 
+    // Empty meshlets are marked published when a chunk is reserved, so this
+    // only includes real geometry that still lacks its initial publication.
+    public ChunkMeshletMask UnpublishedTerrainMeshlets
+    {
+        get
+        {
+            byte bits = 0;
+            for (var index = 0; index < _published.Length; index++)
+            {
+                if (!_published[index])
+                    bits |= (byte)(1 << index);
+            }
+            return new ChunkMeshletMask(bits);
+        }
+    }
+
+    public bool IsTerrainMeshletPublished(int index)
+    {
+        ValidateMeshletIndex(index);
+        return _published[index];
+    }
+
     public void SetVisible(bool visible) =>
         Root.Visible = visible;
 
