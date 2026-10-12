@@ -2070,14 +2070,21 @@ public sealed class BiomeWorldGenerationTests
                         return content;
                     var node = System.Text.Json.Nodes.JsonNode.Parse(content)!;
                     node["decorations"] = System.Text.Json.Nodes.JsonNode.Parse(
-                        """[{"block":"asteria:pebble","chance":1,"surfaceBlocks":["asteria:stone","asteria:gravel","asteria:basalt","asteria:sandstone","asteria:clay","asteria:terracotta","asteria:stone_cobble"]}]""");
+                        """[{"object":"asteria:pebble","chance":1,"surfaceBlocks":["asteria:stone","asteria:gravel","asteria:basalt","asteria:sandstone","asteria:clay","asteria:terracotta","asteria:stone_cobble"]}]""");
                     return node.ToJsonString();
                 }));
         const ulong seed = 0xA57E_2026UL;
+        var objects = Asteria.Core.Content.PackContentRegistry<Asteria.Core.Content.ObjectDefinition>
+            .FromJson(Directory.EnumerateFiles(
+                Path.Combine(AppContext.BaseDirectory, "packs", "default",
+                    "data", "objects"), "*.json")
+                .OrderBy(path => path, StringComparer.Ordinal)
+                .Select(File.ReadAllText),
+                Asteria.Core.Content.ObjectDefinition.Parse, d => d.Id);
         var generator = new BiomeWorldGenerator(
             DimensionSeed.Derive(seed, dimension.Id), dimension, blocks,
             LoadDefaultFluids(), biomes, LoadDefaultStructures(),
-            LoadDefaultStructureSets());
+            LoadDefaultStructureSets(), objects: objects);
 
         var cave = FindCaveVoid(generator);
         var floorY = cave.Y;
@@ -2092,7 +2099,12 @@ public sealed class BiomeWorldGenerationTests
             cave.X, floorY, cave.Z);
         var actual = generator.Materialize(targetChunk).GetBlock(
             targetLocal.X, targetLocal.Y, targetLocal.Z);
-        Assert.Equal(blocks.GetId("asteria:pebble"), actual);
+        Assert.True(actual.IsAir);
+        var (hostChunk, hostLocal) = VoxelCoordinates.FromWorld(
+            cave.X, floorY - 1, cave.Z);
+        var support = generator.Materialize(hostChunk);
+        Assert.Contains(support.ObjectsAt(hostLocal.X, hostLocal.Y, hostLocal.Z),
+            obj => obj.Id == "asteria:pebble" && obj.Face == BlockFace.Top);
 
         // The same XY position above normal solid rock must never be
         // decorated as Caverns merely because of the X/Z underground owner.
