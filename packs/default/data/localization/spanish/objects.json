@@ -11,6 +11,9 @@
   "asteria:clover": {
     "/name": "Trébol"
   },
+  "asteria:daisy": {
+    "/name": "Margarita"
+  },
   "asteria:glow_fern": {
     "/name": "Helecho Luminoso"
   },
@@ -22,6 +25,9 @@
   },
   "asteria:hanging_roots": {
     "/name": "Raíces Colgantes"
+  },
+  "asteria:iris": {
+    "/name": "Iris"
   },
   "asteria:kelp": {
     "/name": "Alga kelp"
@@ -35,6 +41,9 @@
   "asteria:mushroom_brown": {
     "/name": "Hongo Marrón"
   },
+  "asteria:mushroom_green": {
+    "/name": "Hongo Verde"
+  },
   "asteria:mushroom_pink": {
     "/name": "Hongo Rosa"
   },
@@ -44,8 +53,14 @@
   "asteria:mushroom_red": {
     "/name": "Hongo Rojo"
   },
+  "asteria:mushroom_yellow": {
+    "/name": "Hongo Amarillo"
+  },
   "asteria:pebble": {
     "/name": "Guijarro"
+  },
+  "asteria:purple_aster": {
+    "/name": "Áster Púrpura"
   },
   "asteria:seagrass": {
     "/name": "Hierba marina"
@@ -55,6 +70,9 @@
   },
   "asteria:starfish": {
     "/name": "Estrella de Mar"
+  },
+  "asteria:stick": {
+    "/name": "Palo"
   },
   "asteria:wall_shelf_fungus": {
     "/name": "Hongo de Repisa de Pared"
