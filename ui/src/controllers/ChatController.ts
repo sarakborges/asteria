@@ -52,6 +52,15 @@ export function createChatController(
       post("ui.chat.action", { id: messageId });
     },
     handleGodotMessage(message: BridgeMessage) {
+      if (message.type === "game.chat.focus_input") {
+        if (store.getSnapshot().chat.open) {
+          store.update(state => ({
+            ...state,
+            chat: { ...state.chat, focusRequest: state.chat.focusRequest + 1 },
+          }));
+        }
+        return;
+      }
       if (message.type !== "game.chat.state") return;
       const payload = asRecord(message.payload);
       if (!payload || typeof payload.open !== "boolean" ||
@@ -73,6 +82,7 @@ export function createChatController(
         chat: {
           open: payload.open as boolean,
           visible: payload.visible as boolean,
+          focusRequest: state.chat.focusRequest,
           history: entries as ChatMessageView[],
           commands: commands as string[],
           catalog,
