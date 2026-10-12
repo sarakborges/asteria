@@ -38,6 +38,7 @@ public sealed class ObjectDefinition
         ObjectInteraction interaction = ObjectInteraction.Break,
         BlockLightEmission lightEmission = default,
         string? pickupItem = null, string? supportFluid = null,
+        string? requiredFluidAbove = null,
         BlockTint tint = BlockTint.None,
         BlockPreviewColor? tintFallback = null)
     {
@@ -96,8 +97,18 @@ public sealed class ObjectDefinition
             if (placementFaces.Count != 1 || placementFaces[0] != BlockFace.Top)
                 throw new FormatException("Fluid-supported Objects require top placement only.");
         }
+        if (requiredFluidAbove is not null)
+        {
+            BlockDefinition.ValidateId(requiredFluidAbove);
+            if (supportFluid is not null ||
+                placementFaces.Count != 1 ||
+                placementFaces[0] != BlockFace.Top)
+                throw new FormatException(
+                    "Submerged Objects require solid top support.");
+        }
         PickupItem = pickupItem;
         SupportFluid = supportFluid;
+        RequiredFluidAbove = requiredFluidAbove;
     }
 
     public string Id { get; }
@@ -116,6 +127,8 @@ public sealed class ObjectDefinition
     public BlockPreviewColor TintFallback { get; }
     public string? PickupItem { get; }
     public string? SupportFluid { get; }
+    /// <summary>Fluid required in the empty target cell above solid support.</summary>
+    public string? RequiredFluidAbove { get; }
     public InventoryEntry RewardEntry => PickupItem is { } item
         ? InventoryEntry.FromItem(item) : InventoryEntry.FromObject(Id);
 
@@ -176,6 +189,7 @@ public sealed class ObjectDefinition
             BlockLightEmissionJson.Parse(root, PackContentFields.Id(root)),
             PackContentFields.OptionalString(root, "pickupItem"),
             PackContentFields.OptionalString(root, "supportFluid"),
+            PackContentFields.OptionalString(root, "requiredFluidAbove"),
             BlockTintParser.Parse(PackContentFields.OptionalString(root, "tint")),
             root.TryGetProperty("previewColor", out var preview)
                 ? BlockPreviewColor.Parse(preview.GetString() ??

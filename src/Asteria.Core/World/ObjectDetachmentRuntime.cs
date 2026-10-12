@@ -13,13 +13,16 @@ public sealed class ObjectDetachmentRuntime
     private readonly VoxelWorld _world;
     private readonly PackContentRegistry<ObjectDefinition> _objects;
     private readonly DroppedBlockRuntime _drops;
+    private readonly FluidRegistry? _fluids;
 
     public ObjectDetachmentRuntime(VoxelWorld world,
-        PackContentRegistry<ObjectDefinition> objects, DroppedBlockRuntime drops)
+        PackContentRegistry<ObjectDefinition> objects, DroppedBlockRuntime drops,
+        FluidRegistry? fluids = null)
     {
         _world = world ?? throw new ArgumentNullException(nameof(world));
         _objects = objects ?? throw new ArgumentNullException(nameof(objects));
         _drops = drops ?? throw new ArgumentNullException(nameof(drops));
+        _fluids = fluids;
     }
 
     internal int AvailableDropCapacity => _drops.AvailableCapacity;
@@ -76,6 +79,48 @@ public sealed class ObjectDetachmentRuntime
         return true;
     }
 
+    /// <summary>Preflights solid-supported Objects that need water above.
+    /// The target can lie in a different chunk from its supporting block.</summary>
+    internal bool TryPrepareFluidAbove(
+        WorldVoxelCoord target, FluidCell next,
+        out ObjectFluidDetachmentPlan plan)
+    {
+        plan = ObjectFluidDetachmentPlan.Empty;
+        if (target.Y <= 0) return true;
+        var support = target + (0, -1, 0);
+        if (!_world.TryGetObjects(support, out var attached) || attached.Count == 0)
+            return true;
+
+        var removed = new List<ObjectCell>();
+        var rewards = new List<ObjectDetachedDrop>();
+        foreach (var obj in attached)
+        {
+            if (obj.Face != BlockFace.Top ||
+                !_objects.TryGet(obj.Id, out var definition) ||
+                definition is not { RequiredFluidAbove: { } fluidId })
+                continue;
+            if (_fluids is null || !_fluids.TryGetId(fluidId, out var required))
+                throw new InvalidOperationException(
+                    $"Submerged Object {obj.Id} requires a registered fluid {fluidId}.");
+            if (next.Fluid == required)
+                continue;
+            removed.Add(obj);
+            if (!definition.DropSelf)
+                continue;
+            rewards.Add(new ObjectDetachedDrop(
+                new InventoryStack(definition.RewardEntry),
+                WorldObjectGeometry.Pose(support, obj, definition).Position +
+                Vector3.UnitY * .25f));
+        }
+
+        if (rewards.Count > _drops.AvailableCapacity)
+            return false;
+        if (removed.Count != 0)
+            plan = new ObjectFluidDetachmentPlan(
+                support, removed, new ObjectDetachmentPlan(rewards));
+        return true;
+    }
+
     internal void Commit(ObjectDetachmentPlan plan)
     {
         if (plan.Rewards.Count > _drops.AvailableCapacity)
@@ -94,3 +139,13 @@ internal sealed record ObjectDetachmentPlan(
 {
     public static ObjectDetachmentPlan Empty { get; } = new([]);
 }
+
+internal sealed record ObjectFluidDetachmentPlan(
+    WorldVoxelCoord Support,
+    IReadOnlyList<ObjectCell> Objects,
+    ObjectDetachmentPlan Drops)
+{
+    public static ObjectFluidDetachmentPlan Empty { get; } =
+        new(default, [], ObjectDetachmentPlan.Empty);
+}
+

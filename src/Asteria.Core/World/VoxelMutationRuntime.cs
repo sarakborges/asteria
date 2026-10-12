@@ -116,9 +116,18 @@ public sealed class VoxelMutationRuntime
                 return false;
             }
         }
+        if (!TryPrepareDisplacedFluid(position, cell, out var fluidDetach) ||
+            (_objectDetachment is not null &&
+             detach.Rewards.Count + fluidDetach.Drops.Rewards.Count >
+                _objectDetachment.AvailableDropCapacity))
+        {
+            edit = default;
+            return false;
+        }
         if (!_world.SetCellAt(position, cell, out edit))
             return false;
 
+        CommitFluidDetachment(fluidDetach);
         // Commit object drops before notifying dependent spike/physics systems.
         // A changed supporting block never silently discards attached Objects.
         _objectDetachment?.Commit(detach);
@@ -145,9 +154,18 @@ public sealed class VoxelMutationRuntime
                 return false;
             }
         }
+        if (!TryPrepareDisplacedFluid(position, state.Cell, out var fluidDetach) ||
+            (_objectDetachment is not null &&
+             detach.Rewards.Count + fluidDetach.Drops.Rewards.Count >
+                _objectDetachment.AvailableDropCapacity))
+        {
+            edit = default;
+            return false;
+        }
         if (!_world.SetBlockStateAt(position, state, out edit))
             return false;
 
+        CommitFluidDetachment(fluidDetach);
         _objectDetachment?.Commit(detach);
         EnqueueBlockEdit(position);
         BlockCellChanged?.Invoke(edit);
@@ -195,19 +213,43 @@ public sealed class VoxelMutationRuntime
             _worldUpdates.EnqueueLighting(target);
     }
 
+    private bool TryPrepareDisplacedFluid(
+        WorldVoxelCoord position, VoxelCell next,
+        out ObjectFluidDetachmentPlan plan)
+    {
+        plan = ObjectFluidDetachmentPlan.Empty;
+        return _objectDetachment is null ||
+               _world.GetFluidOrEmpty(position).IsEmpty ||
+               _world.CanContainFluid(next) ||
+               _objectDetachment.TryPrepareFluidAbove(
+                   position, FluidCell.Empty, out plan);
+    }
+
+    private void CommitFluidDetachment(ObjectFluidDetachmentPlan plan)
+    {
+        foreach (var obj in plan.Objects)
+            if (!RemoveObjectAt(plan.Support, obj))
+                throw new InvalidOperationException(
+                    $"Prepared submerged Object {obj.Id} could not detach.");
+        _objectDetachment?.Commit(plan.Drops);
+    }
+
     public bool SetFluidAt(
         WorldVoxelCoord position,
         FluidCell fluid,
         out FluidWorldEdit edit)
     {
-        if (!_world.SetFluidAt(
-                position,
-                fluid,
-                out edit))
+        var plan = ObjectFluidDetachmentPlan.Empty;
+        if (_objectDetachment is not null &&
+            !_objectDetachment.TryPrepareFluidAbove(position, fluid, out plan))
         {
+            edit = default;
             return false;
         }
+        if (!_world.SetFluidAt(position, fluid, out edit))
+            return false;
 
+        CommitFluidDetachment(plan);
         EnqueueFluidEdit(position);
         return true;
     }
@@ -287,6 +329,19 @@ public sealed class VoxelMutationRuntime
                         BlockBreakLootPolicy.DropSelf, out var plan))
                     return false;
                 detachedDropCount += plan.Rewards.Count;
+
+                var previousFluid = _world.GetFluidOrEmpty(change.Position);
+                var nextFluid = change.Block is null
+                    ? change.Fluid : FluidCell.Empty;
+                if (previousFluid == nextFluid)
+                    continue;
+                if (!_objectDetachment.TryPrepareFluidAbove(
+                        change.Position, nextFluid, out var fluidPlan))
+                    return false;
+                // A support replaced in this structure is already accounted
+                // for by the primary support-detachment preflight.
+                if (!positions.Contains(fluidPlan.Support))
+                    detachedDropCount += fluidPlan.Drops.Rewards.Count;
             }
             if (detachedDropCount > _objectDetachment.AvailableDropCapacity)
                 return false;
@@ -379,6 +434,26 @@ public sealed class VoxelMutationRuntime
                 change.Current;
         }
 
+        var detachments = new List<ObjectFluidDetachmentPlan>();
+        if (_objectDetachment is not null)
+        {
+            var dropCount = 0;
+            foreach (var (position, nextFluid) in virtualState)
+            {
+                if (_world.GetFluidOrEmpty(position) == nextFluid)
+                    continue;
+                if (!_objectDetachment.TryPrepareFluidAbove(
+                        position, nextFluid, out var plan))
+                    return FluidMutationBatchResult.Rejected;
+                if (plan.Objects.Count == 0)
+                    continue;
+                detachments.Add(plan);
+                dropCount += plan.Drops.Rewards.Count;
+            }
+            if (dropCount > _objectDetachment.AvailableDropCapacity)
+                return FluidMutationBatchResult.Rejected;
+        }
+
         var changedPositions =
             new HashSet<WorldVoxelCoord>();
         var applied = 0;
@@ -398,6 +473,9 @@ public sealed class VoxelMutationRuntime
                 change.Position);
             applied++;
         }
+
+        foreach (var plan in detachments)
+            CommitFluidDetachment(plan);
 
         PublishFluidBatchConsequences(
             changedPositions);

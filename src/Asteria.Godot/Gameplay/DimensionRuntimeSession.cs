@@ -213,7 +213,7 @@ public sealed class DimensionRuntimeSession
                 ContentRevisions,
                 FluidContentRevisions);
         Mutations.ConfigureObjectDetachment(
-            new ObjectDetachmentRuntime(World, objects, _droppedBlocks));
+            new ObjectDetachmentRuntime(World, objects, _droppedBlocks, fluids));
         Mutations.ConfigureObjectLighting(objects);
         var storageBoxLifecycle = new StorageBoxBlockLifecycle(
             state.StorageBoxes, blocks, _droppedBlocks);

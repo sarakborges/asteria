@@ -69,7 +69,7 @@ public sealed class VoxelWorld
     public bool CanContainFluidAt(WorldVoxelCoord position) =>
         CanContainFluid(GetCellOrEmpty(position));
 
-    private bool CanContainFluid(VoxelCell cell) =>
+    internal bool CanContainFluid(VoxelCell cell) =>
         cell.IsEmpty ||
         (_fluidOccupancyBlocks is { } blocks &&
          FluidBlockOccupancy.AllowsFluid(blocks.GetDefinition(cell.Block)));

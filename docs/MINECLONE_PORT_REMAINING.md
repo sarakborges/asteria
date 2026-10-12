@@ -400,3 +400,10 @@ MineClone `world-systems-rebuild` reference: `world_objects.rs::detached_object_
 - Extended submerged/dry generation regressions for both seagrass and sea anemone, plus default-pack validation of Object-only identity, geometry and no self-drop. No migration compatibility aliases.
 - Limitations: water-loss reconciliation for solid-supported submerged Objects (including kelp and seagrass) and water-only *manual* placement restrictions are not currently part of the generic Object lifecycle; follow up separately rather than introducing an anemone-specific second fluid owner. Actual Godot/WRY alpha, shadowing, hitbox and water rendering require native QA.
 
+## Submerged Object lifecycle batch — 2026-10-12
+
+- Added `requiredFluidAbove` to the canonical Object schema for kelp, seagrass, sea anemone, seashell and starfish. Unlike floating `supportFluid` Objects, these attach to solid terrain and require water in the target cell directly above their support.
+- Placement and preview share authoritative target-water validation and preserve water source cells. Fluid identity changes, water removal and solid replacement preflight Object detachment/drops through the existing mutation owner, including across chunk seams and aggregate fluid-simulation batches. Receding water of the same identity retains submerged Objects.
+- No new fluid owner, save aliases, or redundant biome data. Regression tests cover manual placement, dry/mismatched fluids, water-source preservation, valid/invalid lifecycle changes, cross-chunk detachment, and atomic rejection when the drop pool cannot hold detached rewards.
+- Headless CI and native Godot acceptance remain pending.
+

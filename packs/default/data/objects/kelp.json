@@ -30,5 +30,6 @@
     0.08
   ],
   "dropSelf": true,
-  "windSway": true
+  "windSway": true,
+  "requiredFluidAbove": "asteria:water"
 }

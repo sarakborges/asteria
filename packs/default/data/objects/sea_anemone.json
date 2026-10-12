@@ -33,5 +33,6 @@
   "windSway": false,
   "unlit": false,
   "tint": "none",
-  "previewColor": "d46fa8"
+  "previewColor": "d46fa8",
+  "requiredFluidAbove": "asteria:water"
 }

@@ -45,8 +45,15 @@ public static class ObjectPlacementResolver
             !occupying.IsEmpty)
             return default;
 
-        // Fluid-filled target space remains valid; attaching the Object does
-        // not alter the source, only the occupied support's Object list.
+        // Submerged attachments require their authored fluid in the target.
+        // All other Objects may occupy an air or fluid-filled target cell.
+        if (definition.RequiredFluidAbove is { } requiredFluid &&
+            (fluids is null ||
+             !fluids.TryGetId(requiredFluid, out var fluidId) ||
+             !world.TryGetFluid(target, out var present) ||
+             present.Fluid != fluidId))
+            return default;
+
         return new ObjectPlacementDecision(
             true, supportHit.Voxel, new ObjectCell(definition.Id, face));
     }

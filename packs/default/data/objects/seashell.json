@@ -33,5 +33,6 @@
     0
   ],
   "dropSelf": true,
-  "unlit": false
+  "unlit": false,
+  "requiredFluidAbove": "asteria:water"
 }
