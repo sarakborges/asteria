@@ -109,6 +109,8 @@
   "settings.renderDistance.value": "{chunks} chunks ({blocks} blocks)",
   "settings.language": "Language",
   "settings.language.description": "Controls the language used by menus and interface text.",
+  "settings.hideHud": "Hide HUD",
+  "settings.hideHud.description": "Hides the gameplay HUD and suspends its per-frame targeting and preview updates for performance testing. Menus and chat remain available.",
   "settings.hideHints": "Hide Hints",
   "settings.hideHints.description": "Hides every gameplay hint, overriding the individual hint toggles below.",
   "settings.hint.description": "Controls whether this specific gameplay hint can appear.",

@@ -17,6 +17,7 @@ public sealed class SurfaceDecorationField
     private readonly HashSet<string> _ceilingBiomes;
     private readonly HashSet<string> _wallLayerBiomes;
     private readonly HashSet<string> _wallBlockBiomes;
+    private readonly HashSet<string> _wallObjectBiomes;
 
     public SurfaceDecorationField(
         ulong seed,
@@ -55,11 +56,17 @@ public sealed class SurfaceDecorationField
                     rule.IsLayer && rule.SupportSurface == DecorationSupportSurface.Wall))
             .Select(biome => biome.Id)
             .ToHashSet(StringComparer.Ordinal);
+        _wallObjectBiomes = definitions
+            .Where(biome => generateDecorations && objects is not null &&
+                biome.Decorations.Any(rule =>
+                    rule.IsObject &&
+                    rule.SupportSurface == DecorationSupportSurface.Wall))
+            .Select(biome => biome.Id).ToHashSet(StringComparer.Ordinal);
         _wallBlockBiomes = definitions
             .Where(biome => generateDecorations &&
                 biome.Decorations.Any(rule =>
                     rule.SupportSurface == DecorationSupportSurface.Wall &&
-                    !rule.IsLayer &&
+                    !rule.IsLayer && !rule.IsObject &&
                     blocks.GetDefinition(blocks.GetId(rule.Block))
                         .HasTag(BlockPhysicsCapabilities.SupportWall)))
             .Select(biome => biome.Id)
@@ -73,9 +80,10 @@ public sealed class SurfaceDecorationField
                     ? biome.Decorations.Where(decoration =>
                         decoration.SupportSurface != DecorationSupportSurface.Wall ||
                         (decoration.IsLayer && layers is not null) ||
-                        (!decoration.IsLayer &&
+                        (!decoration.IsLayer && !decoration.IsObject &&
                          blocks.GetDefinition(blocks.GetId(decoration.Block))
-                            .HasTag(BlockPhysicsCapabilities.SupportWall)))
+                            .HasTag(BlockPhysicsCapabilities.SupportWall)) ||
+                        (decoration.IsObject && objects is not null))
                     : Array.Empty<BiomeDecorationDefinition>())
                     .OrderBy(
                         decoration => decoration.Block,
@@ -122,6 +130,9 @@ public sealed class SurfaceDecorationField
     public bool HasCeilingDecorations => _ceilingBiomes.Count > 0;
     public bool HasWallLayers => _wallLayerBiomes.Count > 0;
     public bool HasWallBlocks => _wallBlockBiomes.Count > 0;
+    public bool HasWallObjects => _wallObjectBiomes.Count > 0;
+    public bool HasWallObjectsFor(string biomeId) =>
+        _wallObjectBiomes.Contains(biomeId);
     public bool HasWallBlocksFor(string biomeId) =>
         _wallBlockBiomes.Contains(biomeId);
     public bool HasWallLayersFor(string biomeId) =>
@@ -181,13 +192,25 @@ public sealed class SurfaceDecorationField
         SurfacePlacementContext? placement = null,
         int? verticalY = null, bool submerged = false,
         int? supportY = null,
-        Func<FluidRuntimeId, int, int, int, int, bool>? nearbyFluid = null)
+        Func<FluidRuntimeId, int, int, int, int, bool>? nearbyFluid = null,
+        DecorationSupportSurface supportSurface = DecorationSupportSurface.Floor)
     {
         if (!HasObjectDecorations(sample)) return null;
         return SelectRule(sample, supportBlock, worldX, worldZ,
             placement, verticalY, submerged, supportY,
-            false, default, nearbyFluid, DecorationSupportSurface.Floor,
-            requireObject: true)?.ObjectId;
+            false, default, nearbyFluid, supportSurface,
+            requireLayer: false, requireObject: true)?.ObjectId;
+    }
+
+    public string? WallObjectAt(
+        BiomeSample sample, BlockRuntimeId supportBlock,
+        int worldX, int worldY, int worldZ)
+    {
+        if (!_wallObjectBiomes.Contains(sample.Primary)) return null;
+        return ObjectAt(sample, supportBlock, worldX, worldZ,
+            new SurfacePlacementContext(worldY, 0),
+            verticalY: worldY, supportY: worldY,
+            supportSurface: DecorationSupportSurface.Wall);
     }
 
     public string? WallLayerAt(

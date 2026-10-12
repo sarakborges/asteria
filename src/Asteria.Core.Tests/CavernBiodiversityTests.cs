@@ -1,3 +1,4 @@
+using Asteria.Core.Content;
 using Asteria.Core.World;
 
 namespace Asteria.Core.Tests;
@@ -37,10 +38,13 @@ public sealed class CavernBiodiversityTests
             x => x.Block == "asteria:hanging_roots");
         Assert.Equal(DecorationSupportSurface.Ceiling, roots.SupportSurface);
         Assert.Contains("asteria:stone", roots.SurfaceBlocks);
-        var rootsBlock = blocks.GetDefinition(blocks.GetId(roots.Block));
-        Assert.True(rootsBlock.HasTag(BlockPhysicsCapabilities.SupportAbove));
-        Assert.Equal(BlockVisualKind.CrossedSprite, rootsBlock.Visual.Kind);
-        Assert.False(rootsBlock.IsCollidable);
+        Assert.True(roots.IsObject);
+        Assert.False(blocks.TryGetId(roots.Block, out _));
+        var objects = PackContentRegistry<ObjectDefinition>.FromJson(
+            ReadJson("objects"), ObjectDefinition.Parse, obj => obj.Id);
+        var rootsObject = objects.Get(roots.Block);
+        Assert.True(rootsObject.Supports(BlockFace.Bottom));
+        Assert.Equal(ObjectVisualKind.CrossedSprite, rootsObject.Visual.Kind);
 
         foreach (var id in new[] { "asteria:glowcap", "asteria:glow_fern" })
         {

@@ -167,6 +167,7 @@ export type WorldSettingsState = {
 export type ClientSettingsState = {
   renderDistanceChunks: number;
   hud: {
+    hideHud: boolean;
     hideHints: boolean;
     targetBlockPosition: "Center" | "TopRight" | "Hidden";
     hints: {

@@ -111,9 +111,7 @@ public sealed class BlockContentTests
         foreach (var mushroomId in
                  new[]
                  {
-                     "asteria:mushroom_brown",
                      "asteria:mushroom_green",
-                     "asteria:mushroom_purple",
                      "asteria:mushroom_yellow",
                  })
         {
@@ -140,7 +138,7 @@ public sealed class BlockContentTests
                 .OrderBy(file => file, StringComparer.Ordinal)
                 .Select(File.ReadAllText),
                 Asteria.Core.Content.ObjectDefinition.Parse, obj => obj.Id);
-        foreach (var name in new[] { "mushroom_blue", "mushroom_pink", "mushroom_red" })
+        foreach (var name in new[] { "mushroom_blue", "mushroom_pink", "mushroom_red", "mushroom_brown", "mushroom_purple" })
         {
             var id = "asteria:" + name;
             Assert.False(registry.TryGetId(id, out _));
@@ -150,18 +148,9 @@ public sealed class BlockContentTests
             Assert.True(obj.DropSelf);
         }
 
-        var brownMushroom =
-            registry.GetDefinition(
-                registry.GetId(
-                    "asteria:mushroom_brown"));
-        Assert.Equal(
-            BlockVisualKind.CrossedSprite,
-            brownMushroom.Visual.Kind);
-        Assert.Equal(
-            2,
-            brownMushroom.Visual.Planes);
-        Assert.True(
-            brownMushroom.DropsSelf);
+        var brownMushroom = objectCatalog.Get("asteria:mushroom_brown");
+        Assert.Equal(2, brownMushroom.Visual.Planes);
+        Assert.True(brownMushroom.DropSelf);
 
         var sand = registry.GetDefinition(registry.GetId("asteria:sand"));
         var gravel = registry.GetDefinition(registry.GetId("asteria:gravel"));

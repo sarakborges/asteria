@@ -56,7 +56,7 @@
       }
     },
     {
-      "block": "asteria:mushroom_purple",
+      "object": "asteria:mushroom_purple",
       "chance": 0.0043,
       "surfaceBlocks": [
         "asteria:grass_block"
@@ -73,7 +73,7 @@
       }
     },
     {
-      "block": "asteria:cloud_reed",
+      "object": "asteria:cloud_reed",
       "chance": 0.0234,
       "surfaceBlocks": [
         "asteria:grass_block",
@@ -128,7 +128,7 @@
       }
     },
     {
-      "block": "asteria:aether_vines",
+      "object": "asteria:aether_vines",
       "chance": 0.22,
       "supportSurface": "ceiling",
       "surfaceBlocks": [

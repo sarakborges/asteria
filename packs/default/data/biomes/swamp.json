@@ -43,7 +43,7 @@
       }
     },
     {
-      "block": "asteria:mushroom_brown",
+      "object": "asteria:mushroom_brown",
       "chance": 0.0072,
       "surfaceBlocks": [
         "asteria:dirt",

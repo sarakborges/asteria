@@ -109,6 +109,8 @@
   "settings.renderDistance.value": "{chunks} chunks ({blocks} blocos)",
   "settings.language": "Idioma",
   "settings.language.description": "Controla o idioma usado nos menus e nos textos da interface.",
+  "settings.hideHud": "Ocultar HUD",
+  "settings.hideHud.description": "Oculta a interface durante o jogo e suspende as consultas de alvo e os previews executados a cada frame, para testar o desempenho. Menus e chat continuam disponíveis.",
   "settings.hideHints": "Ocultar Hints",
   "settings.hideHints.description": "Oculta todos os hints de gameplay e sobrescreve os toggles individuais abaixo.",
   "settings.hint.description": "Controla se este hint específico de gameplay pode aparecer.",

@@ -8,9 +8,6 @@
   "asteria:aether_crystal_core": {
     "/name": "Núcleo de Cristal Etéreo"
   },
-  "asteria:aether_vines": {
-    "/name": "Enredaderas Etéreas"
-  },
   "asteria:alpine_edelweiss": {
     "/name": "Edelweiss Alpino"
   },
@@ -97,9 +94,6 @@
   },
   "asteria:cliff_rosette": {
     "/name": "Roseta de Acantilado"
-  },
-  "asteria:cloud_reed": {
-    "/name": "Junco de las Nubes"
   },
   "asteria:clover": {
     "/name": "Trébol"
@@ -196,9 +190,6 @@
   },
   "asteria:hanging_moss": {
     "/name": "Musgo Colgante"
-  },
-  "asteria:hanging_roots": {
-    "/name": "Raíces Colgantes"
   },
   "asteria:ice": {
     "/name": "Hielo"
@@ -335,14 +326,8 @@
   "asteria:mud_tiles": {
     "/name": "Baldosas de Barro"
   },
-  "asteria:mushroom_brown": {
-    "/name": "Hongo Marrón"
-  },
   "asteria:mushroom_green": {
     "/name": "Hongo Verde"
-  },
-  "asteria:mushroom_purple": {
-    "/name": "Hongo Morado"
   },
   "asteria:mushroom_yellow": {
     "/name": "Hongo Amarillo"
@@ -505,9 +490,6 @@
   },
   "asteria:wall_moss": {
     "/name": "Musgo de Pared"
-  },
-  "asteria:wall_shelf_fungus": {
-    "/name": "Hongo de Repisa de Pared"
   },
   "asteria:windwood": {
     "/name": "Madera del Viento"

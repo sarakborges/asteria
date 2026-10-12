@@ -41,7 +41,7 @@
       "block": "asteria:log_willow"
     },
     "M": {
-      "block": "asteria:mushroom_brown"
+      "object": "asteria:mushroom_brown"
     },
     "R": {
       "block": "asteria:exposed_roots"

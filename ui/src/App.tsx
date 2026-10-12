@@ -53,6 +53,7 @@ export type AppActions = {
   escapeNavigation(): void;
   setRenderDistance(value: number): void;
   setTargetPosition(value: "Center" | "TopRight" | "Hidden"): void;
+  setHideHud(value: boolean): void;
   setHideHints(value: boolean): void;
   setGameplayHint(kind: "RotateBlock" | "BreakOrPlaceBlock", value: boolean): void;
   setWorldTicks(value: number): void;
@@ -180,13 +181,15 @@ export function App({
           onMessageAction={actions.activateChatMessage}
         />
       )}
-      <GameHudPage
-        embedded={embedded}
-        state={state.hud}
-        catalog={state.inventory.catalog}
-        onPing={actions.ping}
-        onDismissToast={actions.dismissToast}
-      />
+      {!state.settings.client?.hud.hideHud && (
+        <GameHudPage
+          embedded={embedded}
+          state={state.hud}
+          catalog={state.inventory.catalog}
+          onPing={actions.ping}
+          onDismissToast={actions.dismissToast}
+        />
+      )}
 
       {preWorldVisible && (
         <ScreenTransition screenKey={state.navigation.preWorldScreen}>
@@ -294,6 +297,7 @@ export function App({
           onBack={actions.backFromOverlay}
           onRenderDistance={actions.setRenderDistance}
           onTargetPosition={actions.setTargetPosition}
+          onHideHud={actions.setHideHud}
           onHideHints={actions.setHideHints}
           onGameplayHint={actions.setGameplayHint}
           onWorldTicks={actions.setWorldTicks}

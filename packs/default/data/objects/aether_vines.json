@@ -1,0 +1,36 @@
+{
+  "id": "asteria:aether_vines",
+  "category": "foliage",
+  "icon": "textures/objects/aether_vines.png",
+  "placementFaces": [
+    "bottom"
+  ],
+  "target": {
+    "size": [
+      0.72,
+      0.95,
+      0.72
+    ],
+    "centerOffset": [
+      0,
+      0.475,
+      0
+    ]
+  },
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/aether_vines.png",
+    "width": 0.72,
+    "height": 0.95,
+    "planes": 2,
+    "baseOffset": 0.045,
+    "alphaCutoff": 0.5
+  },
+  "positionJitter": [
+    0.12,
+    0.12
+  ],
+  "dropSelf": false,
+  "windSway": true,
+  "unlit": false
+}
