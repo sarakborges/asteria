@@ -158,4 +158,62 @@ public sealed class ObjectDefinitionTests
             Model.Replace("\"type\":\"model\"",
                 "\"type\":\"model\",\"parts\":[]")));
     }
+
+    [Fact]
+    public void ShadowPolicyDefaultsToIndependentEnabledFlags()
+    {
+        foreach (var json in new[] { Grass, Extruded, Model })
+        {
+            var obj = ObjectDefinition.Parse(json);
+            Assert.True(obj.CastsShadow);
+            Assert.True(obj.ReceivesShadow);
+        }
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void AuthoredShadowFlagsRemainIndependentOfEachOtherAndUnlit(
+        bool casts, bool receives)
+    {
+        foreach (var unlit in new[] { false, true })
+        {
+            var json = Grass.Replace(
+                "\"dropSelf\":false",
+                $"\"dropSelf\":false,\"unlit\":{unlit.ToString().ToLowerInvariant()}," +
+                $"\"castsShadow\":{casts.ToString().ToLowerInvariant()}," +
+                $"\"receivesShadow\":{receives.ToString().ToLowerInvariant()}");
+            var obj = ObjectDefinition.Parse(json);
+            Assert.Equal(casts, obj.CastsShadow);
+            Assert.Equal(receives, obj.ReceivesShadow);
+            Assert.Equal(unlit, obj.Unlit);
+        }
+    }
+
+    [Theory]
+    [InlineData("\"castsShadow\":0")]
+    [InlineData("\"castsShadow\":null")]
+    [InlineData("\"castsShadow\":\"false\"")]
+    [InlineData("\"receivesShadow\":[]")]
+    [InlineData("\"receivesShadow\":1")]
+    [InlineData("\"receivesShadow\":\"true\"")]
+    public void InvalidShadowFlagsAreRejected(string property)
+    {
+        var json = Grass.Replace("\"dropSelf\":false",
+            "\"dropSelf\":false," + property);
+        Assert.Throws<FormatException>(() => ObjectDefinition.Parse(json));
+    }
+
+    [Fact]
+    public void BuiltInDenseGrassExplicitlyOptsOutOfShadowCasting()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "packs", "default",
+            "data", "objects", "grass.json");
+        var grass = ObjectDefinition.Parse(File.ReadAllText(path));
+        Assert.False(grass.CastsShadow);
+        Assert.True(grass.ReceivesShadow);
+    }
+
 }

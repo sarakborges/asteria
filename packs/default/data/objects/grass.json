@@ -32,6 +32,7 @@
   "dropSelf": false,
   "windSway": true,
   "unlit": false,
+  "castsShadow": false,
   "tint": "foliage",
   "previewColor": "6f9f50"
 }

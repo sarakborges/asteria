@@ -49,7 +49,8 @@ public sealed class ObjectDefinition
         BlockTint tint = BlockTint.None,
         BlockPreviewColor? tintFallback = null,
         string? growthStructure = null,
-        LootTable? lootTable = null)
+        LootTable? lootTable = null,
+        bool castsShadow = true, bool receivesShadow = true)
     {
         BlockDefinition.ValidateId(id);
         if (!Enum.IsDefined(interaction))
@@ -118,6 +119,8 @@ public sealed class ObjectDefinition
         DropSelf = dropSelf;
         WindSway = windSway;
         Unlit = unlit;
+        CastsShadow = castsShadow;
+        ReceivesShadow = receivesShadow;
         Interaction = interaction;
         LightEmission = lightEmission;
         if (!Enum.IsDefined(tint))
@@ -166,6 +169,10 @@ public sealed class ObjectDefinition
     public LootTable? LootTable { get; }
     public bool WindSway { get; }
     public bool Unlit { get; }
+    /// <summary>Authoritative GPU shadow casting policy for this Object identity.</summary>
+    public bool CastsShadow { get; }
+    /// <summary>Authoritative material shadow receiving policy for this Object identity.</summary>
+    public bool ReceivesShadow { get; }
     public ObjectInteraction Interaction { get; }
     public BlockLightEmission LightEmission { get; }
     public BlockTint Tint { get; }
@@ -261,7 +268,9 @@ public sealed class ObjectDefinition
                 : BlockPreviewColor.Missing,
             PackContentFields.OptionalString(root, "growthStructure"),
             root.TryGetProperty("lootTable", out var lootTable)
-                ? Asteria.Core.World.LootTable.Parse(lootTable) : null);
+                ? Asteria.Core.World.LootTable.Parse(lootTable) : null,
+            ReadBool(root, "castsShadow", true),
+            ReadBool(root, "receivesShadow", true));
     }
 
     private static string ValidateModelPath(string? path)

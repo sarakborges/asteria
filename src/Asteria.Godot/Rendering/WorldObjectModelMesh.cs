@@ -136,29 +136,15 @@ internal static class WorldObjectModelMesh
 
         var texture = source?.AlbedoTexture ?? WhiteTexture();
         var albedo = source?.AlbedoColor ?? Colors.White;
-        if (obj.Unlit)
-            return new StandardMaterial3D
-            {
-                AlbedoTexture = texture,
-                AlbedoColor = albedo,
-                VertexColorUseAsAlbedo = true,
-                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
-                Transparency = BaseMaterial3D.TransparencyEnum.AlphaScissor,
-                AlphaScissorThreshold = source?.AlphaScissorThreshold ?? .5f,
-                TextureFilter = BaseMaterial3D.TextureFilterEnum.Nearest,
-                CullMode = BaseMaterial3D.CullModeEnum.Disabled,
-            };
-
-        var shader = ResourceLoader.Load<Shader>(
-            "res://shaders/voxel_object.gdshader")
-            ?? throw new FileNotFoundException("Missing voxel object shader.");
-        var material = new ShaderMaterial { Shader = shader };
-        material.SetShaderParameter("object_texture", texture);
-        material.SetShaderParameter("alpha_cutoff",
-            source?.AlphaScissorThreshold ?? .5f);
-        material.SetShaderParameter("model_albedo_color",
-            new Vector3(albedo.R, albedo.G, albedo.B));
-        return material;
+        // One shared material policy for imported GLB surfaces and Objects
+        // authored as sprites/cuboids. Keep imported base color/alpha.
+        return obj.Unlit
+            ? WorldObjectMaterials.CreateUnlit(
+                obj, texture, source?.AlphaScissorThreshold ?? .5f,
+                albedo, preserveVertexColors: true)
+            : WorldObjectMaterials.CreateLit(
+                obj, texture, source?.AlphaScissorThreshold ?? .5f,
+                albedo);
     }
 
     private static Texture2D WhiteTexture()

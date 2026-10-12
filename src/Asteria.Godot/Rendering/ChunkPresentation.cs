@@ -178,7 +178,11 @@ public sealed class ChunkPresentation
             {
                 Name = $"WorldObjects_{id.Replace(':', '_')}",
                 Multimesh = multimesh,
-                CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+                // Caster policy belongs to the batch node, receiver policy to
+                // its shared per-Object surface materials.
+                CastShadow = definition.CastsShadow
+                    ? GeometryInstance3D.ShadowCastingSetting.On
+                    : GeometryInstance3D.ShadowCastingSetting.Off,
             });
         }
         foreach (var current in _objectBatches.Values)
