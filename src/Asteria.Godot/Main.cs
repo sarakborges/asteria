@@ -2931,9 +2931,10 @@ public partial class Main : Node3D
             _player is null || !_player.IsMouseCaptured || !_chat.Open())
             return;
 
-        // Release gameplay mouse/keyboard capture before mounting the focused chat field.
-        _player.SuspendForModal();
+        // Publish the open chat before releasing capture: otherwise WebUI
+        // mistakes the capture-loss event for a request to open pause.
         SendChatState();
+        _player.SuspendForModal();
     }
 
     private void CloseChat()
