@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Asteria.Core.Content;
 
 namespace Asteria.Core.World;
 
@@ -33,6 +34,7 @@ public sealed class LightingRuntime
     private readonly VoxelWorld _world;
     private readonly BlockRegistry _blocks;
     private readonly FluidRegistry _fluids;
+    private readonly PackContentRegistry<ObjectDefinition>? _objects;
     private readonly WorldUpdateQueue _updates;
     private readonly LightingResultIntegrator _integration;
     private readonly LightingWorker _worker = new();
@@ -57,7 +59,8 @@ public sealed class LightingRuntime
         BlockRegistry blocks,
         FluidRegistry fluids,
         WorldUpdateQueue updates,
-        LightingResultIntegrator integration)
+        LightingResultIntegrator integration,
+        PackContentRegistry<ObjectDefinition>? objects = null)
     {
         _world =
             world ??
@@ -74,6 +77,7 @@ public sealed class LightingRuntime
         _integration =
             integration ??
             throw new ArgumentNullException(nameof(integration));
+        _objects = objects;
     }
 
     public bool IsRunning => _worker.IsRunning || _publication is not null;
@@ -112,7 +116,7 @@ public sealed class LightingRuntime
                 _world,
                 _blocks,
                 _fluids,
-                batch))
+                batch, _objects))
         {
             _updates.RequeueLighting(batch);
             return false;
