@@ -67,7 +67,7 @@ public sealed class ObjectDetachmentRuntime
             var point = WorldObjectGeometry.Pose(support, obj, definition).Position +
                 Vector3.UnitY * .25f;
             rewards.Add(new ObjectDetachedDrop(
-                new InventoryStack(InventoryEntry.FromObject(obj.Id)), point));
+                new InventoryStack(definition.RewardEntry), point));
         }
 
         if (rewards.Count > _drops.AvailableCapacity)
