@@ -1,3 +1,5 @@
+using Asteria.Core.Content;
+
 namespace Asteria.Core.World;
 
 public static class ChunkLightingSolver
@@ -15,17 +17,19 @@ public static class ChunkLightingSolver
     public static void Initialize(
         Chunk chunk,
         BlockRegistry blocks,
-        FluidRegistry fluids)
+        FluidRegistry fluids,
+        PackContentRegistry<ObjectDefinition>? objects = null)
     {
         ArgumentNullException.ThrowIfNull(chunk);
         ArgumentNullException.ThrowIfNull(blocks);
         ArgumentNullException.ThrowIfNull(fluids);
 
+        var objectEmissions = ObjectLightEmissionField.Capture(chunk, objects);
         chunk.ClearLight();
         var needsRelaxation = SeedDirectLight(
             chunk,
             blocks,
-            fluids);
+            fluids, objectEmissions);
 
         if (chunk.IsEmpty || !needsRelaxation)
         {
@@ -35,13 +39,14 @@ public static class ChunkLightingSolver
         Relax(
             chunk,
             blocks,
-            fluids);
+            fluids, objectEmissions);
     }
 
     private static bool SeedDirectLight(
         Chunk chunk,
         BlockRegistry blocks,
-        FluidRegistry fluids)
+        FluidRegistry fluids,
+        ObjectLightEmissionField objectEmissions)
     {
         var hasTransmittingMedium = false;
         for (var z = 0; z < Chunk.Size; z++)
@@ -87,7 +92,7 @@ public static class ChunkLightingSolver
                             blocks,
                             fluids,
                             cell,
-                            fluid);
+                            fluid, objectEmissions.At(new WorldVoxelCoord(x, y, z)));
 
                     chunk.SetLight(
                         x,
@@ -110,7 +115,8 @@ public static class ChunkLightingSolver
     private static void Relax(
         Chunk chunk,
         BlockRegistry blocks,
-        FluidRegistry fluids)
+        FluidRegistry fluids,
+        ObjectLightEmissionField objectEmissions)
     {
         var queue =
             new Queue<int>(Chunk.Volume);
@@ -179,7 +185,7 @@ public static class ChunkLightingSolver
                         blocks,
                         fluids,
                         cell,
-                        fluid));
+                        fluid, objectEmissions.At(new WorldVoxelCoord(x, y, z))));
 
             foreach (var (dx, dy, dz) in Neighbors)
             {

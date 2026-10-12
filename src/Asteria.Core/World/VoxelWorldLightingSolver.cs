@@ -1,3 +1,5 @@
+using Asteria.Core.Content;
+
 namespace Asteria.Core.World;
 
 public static class VoxelWorldLightingSolver
@@ -15,13 +17,15 @@ public static class VoxelWorldLightingSolver
     public static IReadOnlyList<WorldVoxelCoord> Initialize(
         VoxelWorld world,
         BlockRegistry blocks,
-        FluidRegistry fluids)
+        FluidRegistry fluids,
+        PackContentRegistry<ObjectDefinition>? objects = null)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(blocks);
         ArgumentNullException.ThrowIfNull(fluids);
 
         var previous = CaptureLight(world);
+        var objectEmissions = ObjectLightEmissionField.Capture(world, objects);
 
         foreach (var coord in world.LoadedChunkCoords)
         {
@@ -31,7 +35,7 @@ public static class VoxelWorldLightingSolver
         SeedDirectLight(
             world,
             blocks,
-            fluids);
+            fluids, objectEmissions);
         Relax(
             world,
             blocks,
@@ -44,7 +48,8 @@ public static class VoxelWorldLightingSolver
         VoxelWorld world,
         BlockRegistry blocks,
         FluidRegistry fluids,
-        IEnumerable<WorldVoxelCoord> editedPositions)
+        IEnumerable<WorldVoxelCoord> editedPositions,
+        PackContentRegistry<ObjectDefinition>? objects = null)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(blocks);
@@ -58,6 +63,7 @@ public static class VoxelWorldLightingSolver
         var brightening = new DeduplicatedQueue<WorldVoxelCoord>();
         var originals = new Dictionary<WorldVoxelCoord, VoxelLight>();
         var directSky = new DirectSkyContext(world, blocks, fluids);
+        var objectEmissions = ObjectLightEmissionField.Capture(world, objects);
         foreach (var position in editedPositions)
         {
             EnqueueWithNeighbors(world, darkening, position);
@@ -65,10 +71,11 @@ public static class VoxelWorldLightingSolver
         }
 
         var processed = RemoveStaleLight(
-            world, blocks, fluids, directSky,
+            world, blocks, fluids, directSky, objectEmissions,
             darkening, brightening, originals);
         processed += RestoreLight(
-            world, blocks, fluids, directSky, brightening, originals);
+            world, blocks, fluids, directSky, objectEmissions,
+            brightening, originals);
         return new VoxelLightingUpdateResult(
             originals
                 .Where(entry => world.GetLightOrDark(entry.Key) != entry.Value)
@@ -83,6 +90,7 @@ public static class VoxelWorldLightingSolver
     private static int RemoveStaleLight(
         VoxelWorld world, BlockRegistry blocks, FluidRegistry fluids,
         DirectSkyContext directSky,
+        ObjectLightEmissionField objectEmissions,
         DeduplicatedQueue<WorldVoxelCoord> darkening,
         DeduplicatedQueue<WorldVoxelCoord> brightening,
         Dictionary<WorldVoxelCoord, VoxelLight> originals)
@@ -100,7 +108,7 @@ public static class VoxelWorldLightingSolver
             var fluid = chunk.GetFluid(local.X, local.Y, local.Z);
             var current = chunk.GetLight(local.X, local.Y, local.Z);
             var desired = DesiredLight(
-                world, blocks, fluids, directSky,
+                world, blocks, fluids, directSky, objectEmissions,
                 position, chunk, local, cell, fluid);
             processed++;
 
@@ -111,7 +119,8 @@ public static class VoxelWorldLightingSolver
                 continue;
 
             var baseline = BaseLight(
-                blocks, fluids, directSky, position, chunk, local, cell, fluid);
+                blocks, fluids, directSky, objectEmissions,
+                position, chunk, local, cell, fluid);
             var reduced = new VoxelLight(
                 desired.Sky < current.Sky ? baseline.Sky : current.Sky,
                 desired.Red < current.Red ? baseline.Red : current.Red,
@@ -128,6 +137,7 @@ public static class VoxelWorldLightingSolver
     private static int RestoreLight(
         VoxelWorld world, BlockRegistry blocks, FluidRegistry fluids,
         DirectSkyContext directSky,
+        ObjectLightEmissionField objectEmissions,
         DeduplicatedQueue<WorldVoxelCoord> brightening,
         Dictionary<WorldVoxelCoord, VoxelLight> originals)
     {
@@ -144,7 +154,7 @@ public static class VoxelWorldLightingSolver
             var fluid = chunk.GetFluid(local.X, local.Y, local.Z);
             var current = chunk.GetLight(local.X, local.Y, local.Z);
             var desired = DesiredLight(
-                world, blocks, fluids, directSky,
+                world, blocks, fluids, directSky, objectEmissions,
                 position, chunk, local, cell, fluid);
             processed++;
             var increased = VoxelLight.Max(current, desired);
@@ -160,13 +170,14 @@ public static class VoxelWorldLightingSolver
 
     private static VoxelLight BaseLight(
         BlockRegistry blocks, FluidRegistry fluids, DirectSkyContext directSky,
+        ObjectLightEmissionField objectEmissions,
         WorldVoxelCoord position, Chunk chunk, LocalVoxelCoord local,
         VoxelCell cell, FluidCell fluid)
     {
         var dampening = VoxelLightingMedium.Dampening(
             chunk, blocks, fluids, local.X, local.Y, local.Z, cell, fluid);
         var emission = VoxelLightingMedium.Emission(
-            blocks, fluids, cell, fluid);
+            blocks, fluids, cell, fluid, objectEmissions.At(position));
         return new VoxelLight(
             dampening >= VoxelLight.MaxLevel
                 ? (byte)0
@@ -179,6 +190,7 @@ public static class VoxelWorldLightingSolver
         BlockRegistry blocks,
         FluidRegistry fluids,
         DirectSkyContext directSky,
+        ObjectLightEmissionField objectEmissions,
         WorldVoxelCoord position,
         Chunk chunk,
         LocalVoxelCoord local,
@@ -201,7 +213,8 @@ public static class VoxelWorldLightingSolver
                 blocks,
                 fluids,
                 cell,
-                fluid);
+                fluid,
+                objectEmissions.At(position));
 
         if (dampening >= VoxelLight.MaxLevel)
         {
@@ -348,7 +361,8 @@ public static class VoxelWorldLightingSolver
     private static void SeedDirectLight(
         VoxelWorld world,
         BlockRegistry blocks,
-        FluidRegistry fluids)
+        FluidRegistry fluids,
+        ObjectLightEmissionField objectEmissions)
     {
         var columns = world.LoadedChunkCoords
             .GroupBy(coord => (coord.X, coord.Z));
@@ -410,7 +424,11 @@ public static class VoxelWorldLightingSolver
                                     blocks,
                                     fluids,
                                     cell,
-                                    fluid);
+                                    fluid,
+                                    objectEmissions.At(new WorldVoxelCoord(
+                                        coord.X * Chunk.Size + x,
+                                        coord.Y * Chunk.Size + y,
+                                        coord.Z * Chunk.Size + z)));
 
                             chunk.SetLight(
                                 x,

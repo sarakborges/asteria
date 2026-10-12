@@ -45,12 +45,12 @@ public sealed class VolumeObjectDecorationTests
             Assert.Equal(faces, definition.PlacementFaces);
         }
 
-        // Existing luminous decorations still have block-based lighting.
+        // Luminescent vegetation is now attached Objects with its authored RGB light.
         foreach (var id in new[] {"glowcap", "glow_fern", "aether_bloom"})
         {
-            var block = blocks.GetDefinition(blocks.GetId("asteria:" + id));
-            Assert.True(block.LightEmission.Red > 0 ||
-                block.LightEmission.Green > 0 || block.LightEmission.Blue > 0);
+            var key = "asteria:" + id;
+            Assert.False(blocks.TryGetId(key, out _));
+            Assert.False(objects.Get(key).LightEmission.IsDark);
         }
     }
 

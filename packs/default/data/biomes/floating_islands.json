@@ -91,7 +91,7 @@
       }
     },
     {
-      "block": "asteria:aether_bloom",
+      "object": "asteria:aether_bloom",
       "chance": 0.0117,
       "surfaceBlocks": [
         "asteria:grass_block",

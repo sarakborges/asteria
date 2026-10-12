@@ -34,7 +34,8 @@ public sealed class ObjectDefinition
         ObjectVisualDefinition visual, IReadOnlyList<BlockFace> placementFaces,
         ObjectTargetDefinition target, Vector2 positionJitter,
         bool dropSelf, bool windSway, bool unlit,
-        ObjectInteraction interaction = ObjectInteraction.Break)
+        ObjectInteraction interaction = ObjectInteraction.Break,
+        BlockLightEmission lightEmission = default)
     {
         BlockDefinition.ValidateId(id);
         if (!Enum.IsDefined(interaction))
@@ -78,6 +79,7 @@ public sealed class ObjectDefinition
         WindSway = windSway;
         Unlit = unlit;
         Interaction = interaction;
+        LightEmission = lightEmission;
     }
 
     public string Id { get; }
@@ -91,6 +93,7 @@ public sealed class ObjectDefinition
     public bool WindSway { get; }
     public bool Unlit { get; }
     public ObjectInteraction Interaction { get; }
+    public BlockLightEmission LightEmission { get; }
 
     public bool Supports(BlockFace face) => PlacementFaces.Contains(face);
 
@@ -139,7 +142,8 @@ public sealed class ObjectDefinition
                 null or "break" => ObjectInteraction.Break,
                 "pickup" => ObjectInteraction.Pickup,
                 _ => throw new FormatException("Unknown Object interaction."),
-            });
+            },
+            BlockLightEmissionJson.Parse(root, PackContentFields.Id(root)));
     }
 
     private static bool PositiveTarget(Vector3 value) =>

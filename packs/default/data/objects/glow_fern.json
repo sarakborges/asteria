@@ -1,0 +1,40 @@
+{
+  "id": "asteria:glow_fern",
+  "category": "foliage",
+  "icon": "textures/objects/glow_fern.png",
+  "placementFaces": [
+    "top"
+  ],
+  "target": {
+    "size": [
+      0.78,
+      0.79,
+      0.78
+    ],
+    "centerOffset": [
+      0,
+      0.395,
+      0
+    ]
+  },
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/glow_fern.png",
+    "width": 0.78,
+    "height": 0.79,
+    "planes": 4,
+    "alphaCutoff": 0.5
+  },
+  "positionJitter": [
+    0.2,
+    0.2
+  ],
+  "dropSelf": false,
+  "windSway": false,
+  "unlit": false,
+  "lightEmission": {
+    "red": 1,
+    "green": 7,
+    "blue": 5
+  }
+}

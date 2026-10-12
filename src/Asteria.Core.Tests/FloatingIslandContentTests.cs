@@ -30,7 +30,7 @@ public sealed class FloatingIslandContentTests
             Assert.Equal((int?)283, rule.Conditions.MaxY);
             Assert.Equal(DecorationFluidPlacement.Dry, rule.FluidPlacement);
             Assert.Contains("asteria:grass_block", rule.SurfaceBlocks);
-            if (name is "aether_vines" or "cloud_reed")
+            if (name is "aether_vines" or "cloud_reed" or "aether_bloom")
             {
                 Assert.True(rule.IsObject);
                 Assert.False(blocks.TryGetId(rule.Block, out _));
@@ -57,8 +57,9 @@ public sealed class FloatingIslandContentTests
         var crystal = blocks.GetDefinition(blocks.GetId("asteria:aether_crystal"));
         Assert.Equal(BlockShapeKind.Spike, crystal.Shape.Kind);
         Assert.True(crystal.LightEmission.Blue > 0);
-        var bloom = blocks.GetDefinition(blocks.GetId("asteria:aether_bloom"));
-        Assert.False(bloom.LightEmission.IsDark);
+        var bloomObjects = PackContentRegistry<ObjectDefinition>.FromJson(
+            ReadJson("objects"), ObjectDefinition.Parse, obj => obj.Id);
+        Assert.False(bloomObjects.Get("asteria:aether_bloom").LightEmission.IsDark);
     }
 
     [Fact]

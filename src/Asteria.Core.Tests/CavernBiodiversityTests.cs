@@ -52,12 +52,12 @@ public sealed class CavernBiodiversityTests
             Assert.Equal(DecorationSupportSurface.Floor, rule.SupportSurface);
             Assert.NotNull(rule.Cluster);
             Assert.NotNull(rule.Conditions);
-            var block = blocks.GetDefinition(blocks.GetId(id));
-            Assert.Equal(BlockVisualKind.CrossedSprite, block.Visual.Kind);
-            Assert.True(block.HasTag(BlockPhysicsCapabilities.SupportBelow));
-            Assert.False(block.LightEmission.IsDark);
-            Assert.False(block.IsCollidable);
-            Assert.Equal(BlockRenderMode.Cutout, block.RenderMode);
+            Assert.True(rule.IsObject);
+            Assert.False(blocks.TryGetId(id, out _));
+            var decoration = objects.Get(id);
+            Assert.Equal(ObjectVisualKind.CrossedSprite, decoration.Visual.Kind);
+            Assert.True(decoration.Supports(BlockFace.Top));
+            Assert.False(decoration.LightEmission.IsDark);
         }
     }
 

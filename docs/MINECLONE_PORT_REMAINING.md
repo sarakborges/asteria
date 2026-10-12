@@ -338,3 +338,11 @@ MineClone `world-systems-rebuild` reference: `world_objects.rs::detached_object_
 - Ported `mushroom_brown`, `mushroom_purple`, `hanging_roots`, `aether_vines`, `wall_shelf_fungus`, and `cloud_reed` to attached Objects. Migrated Caverns, Floating Islands, Enchanted Forest, Swamp and Wraith Grove, plus seven Enchanted Forest and ten oak/stump/swamp Structure palettes, including EN/PT-BR/ES object localization. No duplicate voxel identities or save aliases.
 - The authored luminescent `glowcap`, `glow_fern`, and `aether_bloom` deliberately remain blocks until the Object definition/render-light contract supports equivalent light emission; their current lighting may not regress.
 - Native Godot rendering/targeting across chunk seams, wall-face orientation and world-save round trips still need in-game validation.
+ 
+## Emissive attached Objects — 2026-10-12
+
+- Object definitions accept the same validated RGB `lightEmission` values (0..15/channel) as blocks.
+- A sparse, immutable lighting view derives source voxels from support-owned Objects and their attachment face. Initial chunk lighting uses the same view; loaded-world reconciliation seeds sources crossing chunk boundaries. RGB propagates in the adjacent target medium, including loaded chunk seams, through the authoritative lighting solver; it does not illuminate from inside the opaque support.
+- Object placement/removal through canonical mutations enqueue a lighting update for the affected target voxel. Worker snapshots include Object chunk revisions and reject stale publication through existing content stamps.
+- Converted glowcap, glow_fern and aether_bloom from blocks to Objects, preserving authored RGB emission and biomes; moved EN/PT-BR/ES localization and removed duplicate block identities.
+- QA: automated emission/validation/removal tests. Real Godot visual verification and performance profiling remain outstanding.

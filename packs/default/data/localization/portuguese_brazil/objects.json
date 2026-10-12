@@ -1,9 +1,18 @@
 {
+  "asteria:aether_bloom": {
+    "/name": "Flor Etérea"
+  },
   "asteria:aether_vines": {
     "/name": "Trepadeiras Etéreas"
   },
   "asteria:cloud_reed": {
     "/name": "Junco das Nuvens"
+  },
+  "asteria:glow_fern": {
+    "/name": "Samambaia Luminescente"
+  },
+  "asteria:glowcap": {
+    "/name": "Cogumelo Luminescente"
   },
   "asteria:grass": {
     "/name": "Grama"

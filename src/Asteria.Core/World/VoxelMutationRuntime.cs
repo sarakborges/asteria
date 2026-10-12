@@ -1,3 +1,5 @@
+using Asteria.Core.Content;
+
 namespace Asteria.Core.World;
 
 public readonly record struct FluidMutationBatchResult(
@@ -34,6 +36,7 @@ public sealed class VoxelMutationRuntime
     private readonly MeshletContentRevisions _terrainContentRevisions;
     private readonly MeshletContentRevisions _fluidContentRevisions;
     private ObjectDetachmentRuntime? _objectDetachment;
+    private PackContentRegistry<ObjectDefinition>? _objectDefinitions;
 
     /// <summary>Installs detached-Object drop consequences once per active
     /// Sphere, before any player or simulated voxel mutation occurs.</summary>
@@ -43,6 +46,16 @@ public sealed class VoxelMutationRuntime
         if (_objectDetachment is not null)
             throw new InvalidOperationException("Object detachment already configured.");
         _objectDetachment = runtime;
+    }
+
+    /// <summary>Registers the immutable content required for change-driven
+    /// Object lighting. This per-session policy does not own Object storage.</summary>
+    public void ConfigureObjectLighting(PackContentRegistry<ObjectDefinition> objects)
+    {
+        ArgumentNullException.ThrowIfNull(objects);
+        if (_objectDefinitions is not null)
+            throw new InvalidOperationException("Object lighting already configured.");
+        _objectDefinitions = objects;
     }
 
     /// <summary>Counts support drops so compound block/spike removals can
@@ -157,6 +170,7 @@ public sealed class VoxelMutationRuntime
     public bool AddObjectAt(WorldVoxelCoord support, ObjectCell obj)
     {
         if (!_world.AddObjectAt(support, obj)) return false;
+        EnqueueObjectLighting(support, obj);
         ObjectCellChanged?.Invoke(new ObjectWorldEdit(
             support, obj, Placed: true, _world.Revision));
         return true;
@@ -165,9 +179,20 @@ public sealed class VoxelMutationRuntime
     public bool RemoveObjectAt(WorldVoxelCoord support, ObjectCell obj)
     {
         if (!_world.RemoveObjectAt(support, obj)) return false;
+        EnqueueObjectLighting(support, obj);
         ObjectCellChanged?.Invoke(new ObjectWorldEdit(
             support, obj, Placed: false, _world.Revision));
         return true;
+    }
+
+    private void EnqueueObjectLighting(WorldVoxelCoord support, ObjectCell obj)
+    {
+        if (_objectDefinitions?.TryGet(obj.Id, out var definition) != true ||
+            definition is null || definition.LightEmission.IsDark)
+            return;
+        var target = ObjectLightEmissionField.Target(support, obj.Face);
+        if (target.Y >= 0)
+            _worldUpdates.EnqueueLighting(target);
     }
 
     public bool SetFluidAt(

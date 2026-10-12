@@ -1,5 +1,7 @@
 using System.Diagnostics;
 
+using Asteria.Core.Content;
+
 namespace Asteria.Core.World;
 
 public sealed record LightingWorkerResult(
@@ -20,7 +22,8 @@ public sealed class LightingWorker
         VoxelWorld world,
         BlockRegistry blocks,
         FluidRegistry fluids,
-        WorldLightingBatch batch)
+        WorldLightingBatch batch,
+        PackContentRegistry<ObjectDefinition>? objects = null)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(blocks);
@@ -46,7 +49,8 @@ public sealed class LightingWorker
                     snapshot.World,
                     blocks,
                     fluids,
-                    batch.EditedPositions);
+                    batch.EditedPositions,
+                    objects);
             stopwatch.Stop();
 
             return new LightingWorkerResult(

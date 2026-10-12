@@ -63,7 +63,8 @@ public static class VoxelLightingMedium
         BlockRegistry blocks,
         FluidRegistry fluids,
         VoxelCell cell,
-        FluidCell fluid)
+        FluidCell fluid,
+        BlockLightEmission objectEmission = default)
     {
         ArgumentNullException.ThrowIfNull(blocks);
         ArgumentNullException.ThrowIfNull(fluids);
@@ -81,14 +82,14 @@ public static class VoxelLightingMedium
 
         return new BlockLightEmission(
             Math.Max(
-                block.Red,
-                liquid.Red),
+                Math.Max(block.Red, liquid.Red),
+                objectEmission.Red),
             Math.Max(
-                block.Green,
-                liquid.Green),
+                Math.Max(block.Green, liquid.Green),
+                objectEmission.Green),
             Math.Max(
-                block.Blue,
-                liquid.Blue));
+                Math.Max(block.Blue, liquid.Blue),
+                objectEmission.Blue));
     }
 
     public static BlockLightEmission FluidEmission(

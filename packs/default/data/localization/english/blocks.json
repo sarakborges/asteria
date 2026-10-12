@@ -1,7 +1,4 @@
 {
-  "asteria:aether_bloom": {
-    "/name": "Aether Bloom"
-  },
   "asteria:aether_crystal": {
     "/name": "Aether Crystal"
   },
@@ -164,9 +161,6 @@
   "asteria:glass": {
     "/name": "Glass"
   },
-  "asteria:glow_fern": {
-    "/name": "Glow Fern"
-  },
   "asteria:glow_mushroom_cap": {
     "/name": "Glowing Mushroom Cap"
   },
@@ -175,9 +169,6 @@
   },
   "asteria:glow_pod": {
     "/name": "Glow Pod"
-  },
-  "asteria:glowcap": {
-    "/name": "Glowcap"
   },
   "asteria:grass": {
     "/name": "Grass"

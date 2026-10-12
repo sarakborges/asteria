@@ -285,7 +285,7 @@ public partial class Main : Node3D
             VoxelTerrainMaterialSet.Create(
                 _terrainTextures);
         _heldDynamicLight = new HeldDynamicLightPresentation(
-            this, _terrainMaterials, _blocks);
+            this, _terrainMaterials, _blocks, _objects);
         _placementPreview = new BlockPlacementPreviewPresentation(
             this, _blocks, _fluids, _terrainTextureLookup, _terrainMaterials);
         _fluidMaterials =

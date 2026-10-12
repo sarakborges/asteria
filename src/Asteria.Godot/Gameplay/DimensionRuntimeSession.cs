@@ -214,6 +214,7 @@ public sealed class DimensionRuntimeSession
                 FluidContentRevisions);
         Mutations.ConfigureObjectDetachment(
             new ObjectDetachmentRuntime(World, objects, _droppedBlocks));
+        Mutations.ConfigureObjectLighting(objects);
         var storageBoxLifecycle = new StorageBoxBlockLifecycle(
             state.StorageBoxes, blocks, _droppedBlocks);
         Mutations.BlockCellChanged += storageBoxLifecycle.OnBlockCellChanged;
@@ -241,7 +242,8 @@ public sealed class DimensionRuntimeSession
                 blocks,
                 fluids,
                 WorldUpdates,
-                lightingIntegration);
+                lightingIntegration,
+                objects);
         _blockPhysics =
             new BlockPhysicsRuntime(
                 World,
@@ -313,7 +315,8 @@ public sealed class DimensionRuntimeSession
                     settings.MaxMaterializationDispatchesPerFrame,
                     settings.MaxMaterializationResultsPerFrame,
                     settings.MaxChunkEvictionsPerFrame,
-                    state.GameRules));
+                    state.GameRules),
+                objects);
         Presentations =
             new ChunkPresentationController(
                 Root,
