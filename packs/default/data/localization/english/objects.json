@@ -5,6 +5,12 @@
   "asteria:kelp": {
     "/name": "Kelp"
   },
+  "asteria:mushroom_blue": {
+    "/name": "Blue Mushroom"
+  },
+  "asteria:mushroom_pink": {
+    "/name": "Pink Mushroom"
+  },
   "asteria:mushroom_red": {
     "/name": "Red Mushroom"
   },
