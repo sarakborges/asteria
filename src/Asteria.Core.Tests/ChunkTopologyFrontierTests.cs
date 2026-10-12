@@ -139,6 +139,76 @@ public sealed class ChunkTopologyFrontierTests
     }
 
     [Fact]
+    public void VerticalArrivalSkipsUnchangedFullSkylight()
+    {
+        var blocks = new BlockRegistry([]);
+        var fluids = new FluidRegistry([]);
+        var world = new VoxelWorld();
+        var bottom = new Chunk();
+        var top = new Chunk();
+        ChunkLightingSolver.Initialize(bottom, blocks, fluids);
+        ChunkLightingSolver.Initialize(top, blocks, fluids);
+        world.InsertChunk(ChunkCoord.Zero, bottom);
+        var arriving = new ChunkCoord(0, 1, 0);
+        world.InsertChunk(arriving, top);
+
+        Assert.Empty(ChunkTopologyFrontier.LightingSeeds(
+                arriving, world.ContainsChunk)
+            .Where(position => ChunkTopologyFrontier.NeedsArrivalSeamLightSeed(
+                world, blocks, fluids, arriving, position)));
+    }
+
+    [Fact]
+    public void VerticalArrivalSkipsTwoDarkOpaqueFaces()
+    {
+        var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);
+        var fluids = new FluidRegistry([]);
+        var stone = blocks.GetId("asteria:stone");
+        var bottom = new Chunk();
+        var top = new Chunk();
+        for (var x = 0; x < Chunk.Size; x++)
+        for (var z = 0; z < Chunk.Size; z++)
+        {
+            bottom.SetBlock(x, Chunk.Size - 1, z, stone);
+            top.SetBlock(x, 0, z, stone);
+        }
+        ChunkLightingSolver.Initialize(bottom, blocks, fluids);
+        ChunkLightingSolver.Initialize(top, blocks, fluids);
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, bottom);
+        var arriving = new ChunkCoord(0, 1, 0);
+        world.InsertChunk(arriving, top);
+
+        Assert.Empty(ChunkTopologyFrontier.LightingSeeds(
+                arriving, world.ContainsChunk)
+            .Where(position => ChunkTopologyFrontier.NeedsArrivalSeamLightSeed(
+                world, blocks, fluids, arriving, position)));
+    }
+
+    [Fact]
+    public void VerticalArrivalKeepsShadowCastingRoofSeeds()
+    {
+        var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);
+        var fluids = new FluidRegistry([]);
+        var bottom = new Chunk();
+        var top = new Chunk();
+        for (var x = 0; x < Chunk.Size; x++)
+        for (var z = 0; z < Chunk.Size; z++)
+            top.SetBlock(x, 0, z, blocks.GetId("asteria:stone"));
+        ChunkLightingSolver.Initialize(bottom, blocks, fluids);
+        ChunkLightingSolver.Initialize(top, blocks, fluids);
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, bottom);
+        var arriving = new ChunkCoord(0, 1, 0);
+        world.InsertChunk(arriving, top);
+
+        Assert.Equal(Chunk.Area, ChunkTopologyFrontier.LightingSeeds(
+                arriving, world.ContainsChunk)
+            .Count(position => ChunkTopologyFrontier.NeedsArrivalSeamLightSeed(
+                world, blocks, fluids, arriving, position)));
+    }
+
+    [Fact]
     public void LightingFrontierReconcilesEmissionOnArrivalAndRetirement()
     {
         var blocks = new BlockRegistry(
