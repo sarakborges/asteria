@@ -3561,6 +3561,7 @@ public sealed class SurfaceStructureField
     {
         private readonly RuntimeVoxel[] _voxels;
         private readonly RuntimeFluidVoxel[] _fluidVoxels;
+        private readonly RuntimeObjectVoxel[] _objectVoxels;
         private readonly RuntimeClearVoxel[] _clearVoxels;
         private readonly (int X, int Z)[] _footprint;
         private readonly (int X, int Z)[] _supports;
@@ -3606,6 +3607,10 @@ public sealed class SurfaceStructureField
                                 fluids.GetId(
                                     voxel.Fluid))))
                     .ToArray();
+            _objectVoxels = definition.Objects
+                .Select(obj => new RuntimeObjectVoxel(
+                    obj.X, obj.Y, obj.Z, obj.Object, obj.Face))
+                .ToArray();
             _clearVoxels =
                 definition.ClearVoxels
                     .Select(voxel =>
@@ -3630,10 +3635,9 @@ public sealed class SurfaceStructureField
                                 value.Z)))
                     .Concat(
                         _clearVoxels.Select(value =>
-                            (
-                                value.X,
-                                value.Y,
-                                value.Z)))
+                            (value.X, value.Y, value.Z)))
+                    .Concat(_objectVoxels.Select(value =>
+                        (value.X, value.Y, value.Z)))
                     .ToArray();
 
             _footprint =
@@ -3790,6 +3794,7 @@ public sealed class SurfaceStructureField
             var fluids =
                 new PlacedStructureFluidVoxel[
                     _fluidVoxels.Length];
+            var objects = new PlacedStructureObject[_objectVoxels.Length];
             var clears =
                 new HashSet<(
                     int X,
@@ -3850,6 +3855,19 @@ public sealed class SurfaceStructureField
                             anchorZ +
                             rotated.Z),
                         voxel.Fluid);
+            }
+
+            for (var i = 0; i < _objectVoxels.Length; i++)
+            {
+                var obj = _objectVoxels[i];
+                var rotated = StructureDefinition.RotateOffset(
+                    rotation, obj.X, obj.Y, obj.Z);
+                var face = StructureVoxelRotation.RotateFace(obj.Face, rotation);
+                objects[i] = new PlacedStructureObject(
+                    checked(anchorX + rotated.X),
+                    checked(anchorY + rotated.Y),
+                    checked(anchorZ + rotated.Z),
+                    new ObjectCell(obj.Id, face));
             }
 
             foreach (var voxel in
@@ -3937,10 +3955,12 @@ public sealed class SurfaceStructureField
                                 value.Z)))
                     .Concat(
                         clearVoxels.Select(value =>
-                            (
-                                value.X,
-                                value.Y,
-                                value.Z)))
+                            (value.X, value.Y, value.Z)))
+                    .Concat(objects.Select(obj => (obj.X, obj.Y, obj.Z)))
+                    .Concat(objects.Select(obj => {
+                        var support = obj.SupportPosition;
+                        return (support.X, support.Y, support.Z);
+                    }))
                     .ToArray();
 
             var minimumX =
@@ -3985,6 +4005,7 @@ public sealed class SurfaceStructureField
                 voxels,
                 fluids,
                 clearVoxels,
+                objects,
                 minimumX,
                 maximumX,
                 minimumY,
@@ -4000,6 +4021,9 @@ public sealed class SurfaceStructureField
             VoxelCell Cell,
             MicroblockMask Mask,
             BlockSurfaceState Surface);
+
+        private readonly record struct RuntimeObjectVoxel(
+            int X, int Y, int Z, string Id, BlockFace Face);
 
         private readonly record struct RuntimeFluidVoxel(
             int X,
@@ -4032,6 +4056,7 @@ internal sealed class SurfaceStructurePlacement
         IReadOnlyList<PlacedStructureVoxel> voxels,
         IReadOnlyList<PlacedStructureFluidVoxel> fluidVoxels,
         IReadOnlyList<PlacedStructureClearVoxel> clearVoxels,
+        IReadOnlyList<PlacedStructureObject> objects,
         int minimumX,
         int maximumX,
         int minimumY,
@@ -4049,6 +4074,7 @@ internal sealed class SurfaceStructurePlacement
         Voxels = voxels;
         FluidVoxels = fluidVoxels;
         ClearVoxels = clearVoxels;
+        Objects = objects;
         MinimumX = minimumX;
         MaximumX = maximumX;
         MinimumY = minimumY;
@@ -4076,6 +4102,8 @@ internal sealed class SurfaceStructurePlacement
     public IReadOnlyList<PlacedStructureFluidVoxel> FluidVoxels { get; }
 
     public IReadOnlyList<PlacedStructureClearVoxel> ClearVoxels { get; }
+
+    public IReadOnlyList<PlacedStructureObject> Objects { get; }
 
     public int MinimumX { get; }
 
@@ -4113,11 +4141,11 @@ internal sealed class SurfaceStructurePlacement
         foreach (var voxel in
                  ClearVoxels)
         {
-            yield return (
-                voxel.X,
-                voxel.Y,
-                voxel.Z);
+            yield return (voxel.X, voxel.Y, voxel.Z);
         }
+
+        foreach (var obj in Objects)
+            yield return (obj.X, obj.Y, obj.Z);
     }
 
     public bool IntersectsHorizontal(
@@ -4168,6 +4196,21 @@ internal sealed class SurfaceStructurePlacement
             : left.AnchorY.CompareTo(
                 right.AnchorY);
     }
+}
+
+internal readonly record struct PlacedStructureObject(
+    int X, int Y, int Z, ObjectCell Cell)
+{
+    public WorldVoxelCoord SupportPosition => Cell.Face switch
+    {
+        BlockFace.Top => new(X, Y - 1, Z),
+        BlockFace.Bottom => new(X, Y + 1, Z),
+        BlockFace.Right => new(X - 1, Y, Z),
+        BlockFace.Left => new(X + 1, Y, Z),
+        BlockFace.Front => new(X, Y, Z - 1),
+        BlockFace.Back => new(X, Y, Z + 1),
+        _ => throw new ArgumentOutOfRangeException(nameof(Cell)),
+    };
 }
 
 internal readonly record struct PlacedStructureVoxel(
