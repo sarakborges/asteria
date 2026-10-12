@@ -51,3 +51,16 @@ export const HudHidden: Story = {
     },
   },
 };
+
+export const WorldPeaceful: Story = {
+  args: {
+    scope: "world",
+    settings: {
+      ...meta.args.settings,
+      world: {
+        ...meta.args.settings.world,
+        creatureAttackMode: "Peaceful",
+      },
+    },
+  },
+};

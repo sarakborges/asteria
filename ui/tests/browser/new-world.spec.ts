@@ -49,7 +49,7 @@ async function expectActualWorldSettings(page: Page) {
   expect(seedRect!.y).toBeLessThan(modeRect!.y);
 
   await expect(gameRules.locator(".numeric-stepper")).toHaveCount(1);
-  await expect(gameRules.getByRole("switch")).toHaveCount(2);
+  await expect(gameRules.getByRole("switch")).toHaveCount(3);
 
   return { nav, content, worldSettings, worldGeneration, gameRules };
 }
@@ -118,13 +118,14 @@ test("Game Rules respects the existing Spawn Creatures flag", async ({ page }) =
 test("Peaceful mode is independent from creature spawning", async ({ page }) => {
   await page.goto(STORY + "peaceful&viewMode=story");
   const { gameRules } = await expectActualWorldSettings(page);
-  const mode = gameRules.getByRole("button", { name: "Creature Attacks" });
-  await expect(mode).toContainText("Peaceful");
+  const peaceful = gameRules.getByRole("switch", { name: "Peaceful Mode" });
+  await expect(peaceful).toHaveAttribute("aria-checked", "true");
   await expect(gameRules.getByRole("switch", { name: "Spawn Creatures" }))
     .toHaveAttribute("aria-checked", "true");
-  await mode.click();
-  await gameRules.getByRole("option", { name: "Default" }).click();
-  await expect(mode).toContainText("Default");
+  await peaceful.click();
+  await expect(peaceful).toHaveAttribute("aria-checked", "false");
+  await peaceful.click();
+  await expect(peaceful).toHaveAttribute("aria-checked", "true");
 });
 
 test("initial menu contains no language selector", async ({ page }) => {

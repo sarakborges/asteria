@@ -114,7 +114,8 @@ public sealed class BiomeWorldGenerationTests
         Assert.NotNull(caverns.SurfaceLayers[0].Patch);
         Assert.Equal(6, caverns.CaveSpikes.Count);
         var stoneSpike = Assert.Single(caverns.CaveSpikes,
-            spike => spike.Block == "asteria:stone_spike");
+            spike => spike.Block == "asteria:stone_spike" &&
+                spike.SurfaceBiomes.Count == 0);
         Assert.Empty(stoneSpike.SurfaceBiomes);
         Assert.Contains(CaveSpikeDirection.Up, stoneSpike.Directions);
         Assert.Contains(CaveSpikeDirection.Down, stoneSpike.Directions);
