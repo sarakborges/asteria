@@ -1,0 +1,37 @@
+{
+  "id": "asteria:starfish",
+  "category": "foliage",
+  "icon": "textures/objects/starfish.png",
+  "placementFaces": [
+    "top"
+  ],
+  "target": {
+    "size": [
+      0.72,
+      0.14,
+      0.72
+    ],
+    "centerOffset": [
+      0,
+      0.07,
+      0
+    ]
+  },
+  "visual": {
+    "type": "extrudedSprite",
+    "texture": "textures/objects/starfish.png",
+    "size": [
+      0.72,
+      0.72
+    ],
+    "height": 0.012,
+    "baseOffset": 0.0125,
+    "alphaCutoff": 0.5
+  },
+  "positionJitter": [
+    0,
+    0
+  ],
+  "dropSelf": true,
+  "unlit": false
+}
