@@ -117,6 +117,9 @@ internal sealed class WorldObjectVisualCatalog
     {
         surface.SetNormal(normal);
         surface.SetUV(uv);
+        // Always author white base vertex color so instance/preview tint
+        // multiplies the same alpha-cutout texture without changing its hue.
+        surface.SetColor(Colors.White);
         surface.AddVertex(position);
     }
 }
