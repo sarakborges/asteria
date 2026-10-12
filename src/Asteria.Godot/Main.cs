@@ -1041,7 +1041,7 @@ public partial class Main : Node3D
         _dimensionEnvironment.Clear();
         _heldDynamicLight.Clear();
         _placementPreview.Hide();
-            _objectPlacementPreview.Hide();
+        _objectPlacementPreview.Hide();
         _ambientParticleRuntime = null;
         _ambientParticlePresentation = null;
         _chat.Reset();
@@ -1188,7 +1188,7 @@ public partial class Main : Node3D
     private void RetirePlayerForDimensionTransition()
     {
         _placementPreview.Hide();
-            _objectPlacementPreview.Hide();
+        _objectPlacementPreview.Hide();
         if (_player is null)
         {
             return;
@@ -1350,7 +1350,7 @@ public partial class Main : Node3D
                             // Clear existing 3D previews immediately; they must
                             // not remain visible while their updates are paused.
                             _placementPreview.Hide();
-            _objectPlacementPreview.Hide();
+                            _objectPlacementPreview.Hide();
                             if (_worldSeed is not null)
                                 _sessions.Active.StructureSelection.Hide();
                         }
