@@ -262,8 +262,9 @@ public sealed class ChunkPresentationController
                     wasVisible));
             if (!wasVisible && presentation.IsVisible)
             {
-                _worldUpdates.PromoteBackgroundMeshlets(
-                    coord, presentation.UnpublishedTerrainMeshlets);
+                var missing = presentation.UnpublishedTerrainMeshlets;
+                _worldUpdates.PromoteBackgroundMeshlets(coord, missing);
+                PromoteQueuedInitialTerrainPublications(coord, missing);
             }
             presentation.SetPhysicsEnabled(
                 presentation.IsVisible &&
@@ -491,6 +492,22 @@ public sealed class ChunkPresentationController
             stale,
             _fluidPublications.Count,
             stopwatch.Elapsed.TotalMilliseconds);
+    }
+
+    private void PromoteQueuedInitialTerrainPublications(
+        ChunkCoord coord,
+        ChunkMeshletMask missing)
+    {
+        // Publication DTOs can already be waiting in the background lane,
+        // after their worker finished. Move their queue entries without
+        // rebuilding the mesh or copying the result.
+        foreach (var meshletIndex in missing.Indices())
+        {
+            var key = new ChunkMeshletKey(coord, meshletIndex);
+            if (_terrainPublications.ContainsKey(key) &&
+                _backgroundTerrainPublicationOrder.Remove(key))
+                _priorityTerrainPublicationOrder.Enqueue(key);
+        }
     }
 
     private void EnqueueTerrainPublication(
