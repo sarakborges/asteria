@@ -239,7 +239,7 @@
       }
     },
     {
-      "block": "asteria:terracotta_spike",
+      "block": "asteria:stone_spike",
       "surfaceBiomes": [
         "asteria:overworld/wasteland"
       ],
