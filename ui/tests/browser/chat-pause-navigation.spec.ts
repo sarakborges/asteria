@@ -74,3 +74,15 @@ test("releasing capture without chat still opens pause", () => {
 
   expect(store.getSnapshot().navigation.overlay).toBe("pause");
 });
+
+test("native focus acknowledgment requests the chat input again", () => {
+  const { store, receive } = createGameplayBridge();
+
+  receive(openChat);
+  receive({ type: "game.chat.focus_input", payload: {} });
+  expect(store.getSnapshot().chat.focusRequest).toBe(1);
+
+  // A subsequent chat presentation update must not discard focus intent.
+  receive(openChat);
+  expect(store.getSnapshot().chat.focusRequest).toBe(1);
+});
