@@ -190,6 +190,18 @@ public sealed class ManualStructurePlacementRuntime
             }
         }
 
+        // Like direct Object placement, authored attachments require a solid
+        // supporting voxel in the post-Structure state, not merely any block.
+        foreach (var obj in objects)
+        {
+            var finalSupport = staged.TryGetValue(obj.Support, out var change)
+                ? change.Block?.Cell ?? VoxelCell.Empty
+                : _world.GetCellOrEmpty(obj.Support);
+            if (finalSupport.IsEmpty ||
+                !_blocks.GetDefinition(finalSupport.Block).IsCollidable)
+                return ManualStructurePlacementResult.InvalidPlacement;
+        }
+
         // All checks are complete before publishing any mutation/side effect.
         // Canonical mutation owner does the final resident-state validation.
         if (!_mutations.ApplyStructureChanges(staged.Values
