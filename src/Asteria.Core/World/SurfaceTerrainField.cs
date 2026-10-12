@@ -776,6 +776,19 @@ public sealed class SurfaceTerrainField
                 0d,
                 1d)
             : dominance;
+        // The rim must never be lowered independently of the fluid field.
+        // Smoothly phase out the neighbor blend on the outer mountain flank.
+        if (primaryRule.Caldera is { } caldera)
+        {
+            var shoulder = caldera.RimStrength * 0.55d;
+            var protectedInterior = WorldGenerationEntropy.SmoothStep(
+                Math.Clamp(
+                    (sample.PrimaryTerrainStrength - shoulder) /
+                    (caldera.RimStrength - shoulder),
+                    0d, 1d));
+            transition = transition + (1d - transition) * protectedInterior;
+        }
+
         var slope = WorldGenerationEntropy.SmoothStep(transition);
         var neighborHeight = neighboringHeightSum / neighboringWeightSum;
         return neighborHeight + (primaryHeight - neighborHeight) * slope;

@@ -72,6 +72,9 @@ internal sealed class SurfaceTerrainRule
     public bool TapersFromFormationStrength =>
         _shape is BiomeCalderaTerrainShapeDefinition;
 
+    public BiomeCalderaTerrainShapeDefinition? Caldera =>
+        _shape as BiomeCalderaTerrainShapeDefinition;
+
     public double HeightOffsetAt(
         ulong seed,
         int x,

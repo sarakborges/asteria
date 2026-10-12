@@ -707,6 +707,69 @@ public sealed class GeneratedSurfaceFluidTests
             address.Local.X, address.Local.Y, address.Local.Z);
         Assert.Equal(fluids.GetId("asteria:lava"), fluid.Fluid);
         Assert.True(fluid.IsSource);
+
+        // Validate the ACTUAL generated terrain, not an isolated math
+        // profile. Every radial direction must pass from a submerged
+        // crater floor over a continuous dry rock rim to a lower flank.
+        var caldera = Assert.IsType<BiomeCalderaTerrainShapeDefinition>(
+            biomes.Get("asteria:overworld/volcano").SurfaceTerrain!.Shape);
+        var center = core;
+        var peakStrength = generator.Biomes.Sample(center.X, center.Z)
+            .PrimaryTerrainStrength;
+        for (var dz = -24; dz <= 24; dz += 3)
+        for (var dx = -24; dx <= 24; dx += 3)
+        {
+            var probe = generator.Biomes.Sample(core.X + dx, core.Z + dz);
+            if (probe.Primary != "asteria:overworld/volcano" ||
+                probe.PrimaryTerrainStrength <= peakStrength)
+                continue;
+
+            peakStrength = probe.PrimaryTerrainStrength;
+            center = (core.X + dx, core.Z + dz);
+        }
+
+        Assert.True(peakStrength > 0.98f,
+            "The caldera must have one discoverable formation center.");
+        Assert.True(generator.SurfaceHeight(center.X, center.Z) < lavaTopY - 8,
+            "The center must contain a deep crater, not a basalt pillar.");
+
+        for (var spoke = 0; spoke < 24; spoke++)
+        {
+            var angle = spoke * Math.Tau / 24d;
+            var dx = Math.Cos(angle);
+            var dz = Math.Sin(angle);
+            var rimFound = false;
+            var rimX = 0;
+            var rimZ = 0;
+            for (var distance = 3; distance <= 180; distance += 3)
+            {
+                var x = center.X + (int)Math.Round(dx * distance);
+                var z = center.Z + (int)Math.Round(dz * distance);
+                var sample = generator.Biomes.Sample(x, z);
+                if (sample.Primary == "asteria:overworld/volcano" &&
+                    sample.PrimaryTerrainStrength >= caldera.RimStrength)
+                {
+                    rimX = x;
+                    rimZ = z;
+                    continue;
+                }
+
+                if (rimX != 0 || rimZ != 0)
+                {
+                    rimFound = true;
+                    break;
+                }
+            }
+
+            Assert.True(rimFound, $"Missing enclosing rim on spoke {spoke}.");
+            var rimY = generator.SurfaceHeight(rimX, rimZ);
+            Assert.True(rimY > lavaTopY + 10,
+                $"Lava escape or missing rock wall on spoke {spoke}: rim {rimY}, fluid {lavaTopY}");
+            var outerX = rimX + (int)Math.Round(dx * 30d);
+            var outerZ = rimZ + (int)Math.Round(dz * 30d);
+            Assert.True(generator.SurfaceHeight(outerX, outerZ) < rimY,
+                $"No descending mountain flank on spoke {spoke}.");
+        }
     }
 
     private static (int X, int Z) FindFloodedVolcanoCore(
