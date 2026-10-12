@@ -10,9 +10,9 @@ namespace Asteria.Client.Rendering;
 /// </summary>
 internal sealed partial class HeldItemPresentation : Node3D
 {
-    private const float CubeSize = 0.22f;
-    private const float SpriteSize = 0.52f;
-    private const float ToolAngleRadians = 0.30f;
+    private const float CubeSize = PlayerHeldVisualLayout.ThirdPersonBlockSize;
+    private const float SpriteSize = PlayerHeldVisualLayout.SpriteSize;
+    private const float ToolAngleRadians = PlayerHeldVisualLayout.ToolDisplayAngle;
     private const float ToolGripFraction = -0.36f;
     private const float TintDepth = 0.004f;
     private readonly PackSelection _selection;
@@ -29,8 +29,11 @@ internal sealed partial class HeldItemPresentation : Node3D
         Name = "HeldItem";
         if (!firstPerson)
         {
-            Position = new Vector3(0f, -0.72f, -0.06f);
-            Rotation = new Vector3(-0.35f, 0.65f, 0.18f);
+            var position = PlayerHeldVisualLayout.ThirdPersonHandPosition;
+            var angles = PlayerHeldVisualLayout.ThirdPersonHandEulerXyz;
+            Position = new Vector3(position.X, position.Y, position.Z);
+            Quaternion = PlayerVisualRotation.EulerXyz(
+                new Vector3(angles.X, angles.Y, angles.Z));
         }
     }
 
@@ -41,12 +44,8 @@ internal sealed partial class HeldItemPresentation : Node3D
         if (_firstPerson)
         {
             // Align with MineClone's distinct camera-space block/sprite grips.
-            Position = visual?.Kind switch
-            {
-                HeldVisualKind.Cube => new Vector3(-0.02f, 0.715f, 0.20f),
-                HeldVisualKind.GrippedSprite => new Vector3(-0.08f, 0.52f, 0.21f),
-                _ => new Vector3(0.04f, 0.76f, 0.21f),
-            };
+            var anchor = PlayerHeldVisualLayout.FirstPersonHandPosition(visual?.Kind);
+            Position = new Vector3(anchor.X, anchor.Y, anchor.Z);
             Quaternion = PlayerFirstPersonViewModel.RestPoseRotation.Inverse();
         }
 
@@ -61,7 +60,7 @@ internal sealed partial class HeldItemPresentation : Node3D
 
         if (visual.Kind == HeldVisualKind.Cube)
         {
-            var size = _firstPerson ? 0.18f : CubeSize;
+            var size = _firstPerson ? PlayerHeldVisualLayout.FirstPersonBlockSize : CubeSize;
             var h = size * 0.5f;
             AddFace("front", visual.FrontTexture,
                 new Vector3(0, 0, h), Vector3.Zero, size);
@@ -98,7 +97,9 @@ internal sealed partial class HeldItemPresentation : Node3D
         else
         {
             AddFace("sprite", visual.FrontTexture, Vector3.Zero,
-                new Vector3(0, 0, Mathf.Pi * 0.30f), SpriteSize);
+                new Vector3(0f, 0f,
+                    PlayerHeldVisualLayout.SpriteFaceAngle(visual.Kind)),
+                SpriteSize);
         }
     }
 

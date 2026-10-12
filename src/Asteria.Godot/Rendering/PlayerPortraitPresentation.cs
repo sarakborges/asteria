@@ -18,7 +18,10 @@ public sealed partial class PlayerPortraitPresentation : Node
     private readonly PlayerVisualDefinition _definition;
     private readonly PlayerInventory _inventory;
     private readonly PackContentRegistry<ItemDefinition> _items;
+    private readonly HeldVisualResolver _heldResolver;
+    private readonly Func<Color?> _selectedToolTint;
     private PlayerEquipmentPresentation? _equipment;
+    private HeldItemPresentation? _held;
     private SubViewport _viewport = null!;
     private Node3D _facing = null!;
     private int _framesUntilCapture;
@@ -27,12 +30,16 @@ public sealed partial class PlayerPortraitPresentation : Node
 
     public PlayerPortraitPresentation(
         PackSelection selection, PlayerVisualDefinition definition,
-        PlayerInventory inventory, PackContentRegistry<ItemDefinition> items)
+        PlayerInventory inventory, PackContentRegistry<ItemDefinition> items,
+        HeldVisualResolver heldResolver, Func<Color?> selectedToolTint)
     {
         _selection = selection;
         _definition = definition ?? throw new ArgumentNullException(nameof(definition));
         _inventory = inventory ?? throw new ArgumentNullException(nameof(inventory));
         _items = items ?? throw new ArgumentNullException(nameof(items));
+        _heldResolver = heldResolver ?? throw new ArgumentNullException(nameof(heldResolver));
+        _selectedToolTint = selectedToolTint ??
+            throw new ArgumentNullException(nameof(selectedToolTint));
         Name = "PlayerPortrait";
     }
 
@@ -58,6 +65,15 @@ public sealed partial class PlayerPortraitPresentation : Node
         _facing.AddChild(model);
         _equipment = new PlayerEquipmentPresentation(model, _inventory, _items);
         _equipment.Sync();
+        var hand = PlayerVisualSceneFactory.Descendants(model)
+            .OfType<Node3D>()
+            .FirstOrDefault(node => node.Name.ToString() == "RightArmPivot")
+            ?? throw new InvalidDataException(
+                "Authored player GLB is missing the portrait's right arm pivot.");
+        _held = new HeldItemPresentation(_selection);
+        hand.AddChild(_held);
+        _held.SetVisual(_heldResolver.Resolve(_inventory.SelectedStack));
+        _held.SetTint(_selectedToolTint());
         var animation = PlayerVisualSceneFactory.Descendants(model)
             .OfType<AnimationPlayer>().FirstOrDefault();
         if (animation is not null)
@@ -91,6 +107,8 @@ public sealed partial class PlayerPortraitPresentation : Node
     {
         if (_viewport is null) return;
         _equipment?.Sync();
+        _held?.SetVisual(_heldResolver.Resolve(_inventory.SelectedStack));
+        _held?.SetTint(_selectedToolTint());
         _available = null;
         _framesUntilCapture = 3;
         _viewport.RenderTargetUpdateMode = SubViewport.UpdateMode.Once;

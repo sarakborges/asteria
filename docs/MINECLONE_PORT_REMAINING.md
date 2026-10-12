@@ -427,3 +427,10 @@ MineClone `world-systems-rebuild` reference: `world_objects.rs::detached_object_
 - Added atlas aspect/resolution validation, back-face culling to prevent alpha-scissored body interiors from rendering, and Core tests for six faces of every base and outer atlas region.
 - Native Godot visual acceptance is still required on third-person, inventory portrait, first-person hand, animation poses and alpha rendering. Source atlas geometry is tested, but cannot prove all runtime import/platform rendering paths.
 
+## Player hand and preview presentation parity batch — 2026-10-12
+
+- Compared third-person held block/sprite positioning and first-person action framing to MineClone. Moved immutable camera/arm layout constants to engine-agnostic `PlayerHeldVisualLayout` and reused a single Godot adapter for Bevy-style XYZ Euler rotations.
+- Fixed third-person hand rotation using explicit XYZ quaternions (previously Godot YXZ), and corrected generic sprites to stay upright while gripped tools use the authored 0.30 **radian** rotation, not 0.30π for every sprite. First-person positions and cube sizes still match MineClone.
+- The inventory character portrait now attaches the **same HeldItemPresentation and HeldVisualResolver** to the authored right-arm pivot as third-person gameplay. Portrait snapshots update the held item and optional tint when inventory/hotbar selection changes; no polling or parallel inventory state.
+- Third-person locomotion, head pitch, and crouch advance even while the physical mesh is hidden for first-person mode; switching camera perspective no longer resurrects an obsolete visual state. Hurt action preflight now runs before the first-person swing is triggered.
+- Added Core regression coverage for first/third-person pose dimensions and sprite/tool rotation conventions. Native Godot camera, clipping and animated-hand acceptance remains necessary.

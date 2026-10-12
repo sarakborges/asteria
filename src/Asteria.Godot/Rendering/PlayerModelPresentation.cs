@@ -166,7 +166,15 @@ public sealed partial class PlayerModelPresentation : Node3D
     public bool TryPlayAction(PlayerVisualAction action, bool fastBreak = false)
     {
         if (_deathPlaying) return false;
-        var firstPersonPlayed = _firstPerson?.TryPlayAction(action, fastBreak) ?? false;
+        // Reject disallowed actions before triggering either perspective.
+        // Previously the camera hand swung while third-person was still
+        // in its hurt animation.
+        if (action is not (PlayerVisualAction.Death or PlayerVisualAction.Hurt) &&
+            _actionRemaining > 0f && _actionClip == "hurt")
+            return false;
+
+        var firstPersonPlayed =
+            _firstPerson?.TryPlayAction(action, fastBreak) ?? false;
         if (_animations is null) return firstPersonPlayed;
 
         var key = action switch
@@ -181,11 +189,6 @@ public sealed partial class PlayerModelPresentation : Node3D
 
         if (!_definition.Animations.TryGetValue(key, out var authored) ||
             FindClip(authored) is not { } clip)
-            return false;
-
-        if (action is not PlayerVisualAction.Death &&
-            action is not PlayerVisualAction.Hurt && _actionClip is not null &&
-            _actionRemaining > 0f && _actionClip == "hurt")
             return false;
 
         _animations.GetAnimation(clip).LoopMode = Animation.LoopModeEnum.None;
@@ -231,8 +234,9 @@ public sealed partial class PlayerModelPresentation : Node3D
         if (_actionRemaining <= 0f && !_deathPlaying)
             _actionClip = null;
 
-        if (!Visible) return;
-
+        // Advance locomotion, crouch and head pitch even when the body is
+        // hidden by first-person mode, so a perspective switch never
+        // resurrects a stale clip or head pose.
         var velocity = _player.Velocity;
         var grounded = _player.IsOnFloor();
         var speedSquared = velocity.X * velocity.X + velocity.Z * velocity.Z;

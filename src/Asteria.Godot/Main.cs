@@ -2893,6 +2893,7 @@ public partial class Main : Node3D
         SyncHeldBlock();
         SendHotbarState();
         SendInventoryState();
+        if (_inventoryOpen) _playerPortrait?.RequestCapture();
         SendTargetHudState(force: true);
     }
 
@@ -3754,6 +3755,7 @@ public partial class Main : Node3D
         SyncHeldBlock();
         SendHotbarState();
         SendInventoryState();
+        if (_inventoryOpen) _playerPortrait?.RequestCapture();
         if (inStorage) SendStorageBoxState();
     }
 
@@ -4187,7 +4189,7 @@ public partial class Main : Node3D
         _player.AddChild(_playerModel);
         _playerPortrait = new PlayerPortraitPresentation(
             _packSelection, _playerVisual, _sessionStates.Player.Inventory,
-            _items);
+            _items, _heldVisuals, ResolveSelectedToolTint);
         AddChild(_playerPortrait);
         _playerPortrait.RequestCapture();
         if (_sessionStates.Player.Health.IsDead)

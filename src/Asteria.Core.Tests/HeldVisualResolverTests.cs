@@ -104,4 +104,26 @@ public sealed class HeldVisualResolverTests
             PackContentRegistry<ItemDefinition>.FromJson((items ?? []).Select(item => System.Text.Json.JsonSerializer.Serialize(new { id = item.Id, category = item.Category, icon = item.Icon, iconVariants = item.IconVariants.Select(variant => new { metadataKey = variant.MetadataKey, metadataValue = variant.MetadataValue, icon = variant.Icon }).ToArray() })), ItemDefinition.Parse, definition => definition.Id),
             PackContentRegistry<ToolDefinition>.FromJson([], ToolDefinition.Parse, definition => definition.Id),
             new AttachedLayerRegistry([]));
+    [Fact]
+    public void HeldVisualLayoutMatchesMineCloneAcrossCameraAndPortrait()
+    {
+        Assert.Equal(new System.Numerics.Vector3(0f, -.72f, -.06f),
+            PlayerHeldVisualLayout.ThirdPersonHandPosition);
+        Assert.Equal(new System.Numerics.Vector3(-.35f, .65f, .18f),
+            PlayerHeldVisualLayout.ThirdPersonHandEulerXyz);
+        Assert.Equal(.22f, PlayerHeldVisualLayout.ThirdPersonBlockSize);
+        Assert.Equal(.18f, PlayerHeldVisualLayout.FirstPersonBlockSize);
+        Assert.Equal(.52f, PlayerHeldVisualLayout.SpriteSize);
+        Assert.Equal(.30f, PlayerHeldVisualLayout.ToolDisplayAngle);
+        Assert.Equal(new System.Numerics.Vector3(-.02f, .715f, .20f),
+            PlayerHeldVisualLayout.FirstPersonHandPosition(HeldVisualKind.Cube));
+        Assert.Equal(new System.Numerics.Vector3(-.08f, .52f, .21f),
+            PlayerHeldVisualLayout.FirstPersonHandPosition(HeldVisualKind.GrippedSprite));
+        Assert.Equal(new System.Numerics.Vector3(.04f, .76f, .21f),
+            PlayerHeldVisualLayout.FirstPersonHandPosition(HeldVisualKind.Sprite));
+        Assert.Equal(0f, PlayerHeldVisualLayout.SpriteFaceAngle(HeldVisualKind.Sprite));
+        Assert.Equal(.30f,
+            PlayerHeldVisualLayout.SpriteFaceAngle(HeldVisualKind.GrippedSprite));
+    }
+
 }

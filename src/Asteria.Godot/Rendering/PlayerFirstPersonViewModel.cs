@@ -17,7 +17,8 @@ internal sealed partial class PlayerFirstPersonViewModel : Node3D
     // Godot camera-local coordinates (forward is -Z).
     private static readonly Vector3 RestPosition = new(0.62f, -0.80f, -1.05f);
     private static readonly Vector3 RestRotation = new(-0.22f, -0.10f, 0.28f);
-    internal static readonly Quaternion RestPoseRotation = EulerXyz(RestRotation);
+    internal static readonly Quaternion RestPoseRotation =
+        PlayerVisualRotation.EulerXyz(RestRotation);
     private const ulong SwitchDurationTicks = 12;
     private const ulong BreakDurationTicks = 22;
     private const ulong FastBreakDurationTicks = 8;
@@ -170,7 +171,7 @@ internal sealed partial class PlayerFirstPersonViewModel : Node3D
                 _ => new Vector3(-0.68f, 0.12f, -0.34f),
             };
             position += displacement * wave;
-            rotation *= EulerXyz(turn * wave);
+            rotation *= PlayerVisualRotation.EulerXyz(turn * wave);
         }
 
         if (_switching)
@@ -179,20 +180,13 @@ internal sealed partial class PlayerFirstPersonViewModel : Node3D
             if (tick >= _switchStartTick + SwitchDurationTicks)
                 _switching = false;
             position += new Vector3(0.10f, -0.54f, 0.14f) * wave;
-            rotation *= EulerXyz(
+            rotation *= PlayerVisualRotation.EulerXyz(
                 new Vector3(0.34f, 0f, 0.16f) * wave);
         }
 
         _pose.Position = position;
         _pose.Quaternion = rotation;
     }
-
-    // Bevy's authored viewmodel poses use XYZ Euler order; Godot's
-    // Quaternion.FromEuler defaults to YXZ and visibly changes the hand angle.
-    private static Quaternion EulerXyz(Vector3 angles) =>
-        new Quaternion(Vector3.Right, angles.X) *
-        new Quaternion(Vector3.Up, angles.Y) *
-        new Quaternion(Vector3.Back, angles.Z);
 
     private static float Wave(ulong tick, ulong start, ulong duration)
     {
