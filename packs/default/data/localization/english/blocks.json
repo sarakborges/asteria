@@ -56,9 +56,6 @@
   "asteria:brittle_tuft": {
     "/name": "Brittle Tuft"
   },
-  "asteria:bulrush": {
-    "/name": "Bulrush"
-  },
   "asteria:cactus_barrel": {
     "/name": "Barrel Cactus"
   },
@@ -73,9 +70,6 @@
   },
   "asteria:cactus_pad": {
     "/name": "Cactus Pad"
-  },
-  "asteria:cattail": {
-    "/name": "Cattail"
   },
   "asteria:charwood": {
     "/name": "Charred Wood"
@@ -284,9 +278,6 @@
   "asteria:marsh_giant_mushroom_stem": {
     "/name": "Marsh Giant Mushroom Stem"
   },
-  "asteria:marsh_orchid": {
-    "/name": "Marsh Orchid"
-  },
   "asteria:meadow_seedheads": {
     "/name": "Meadow Seedheads"
   },
@@ -424,9 +415,6 @@
   },
   "asteria:sulfur_crystal": {
     "/name": "Sulfur Crystal"
-  },
-  "asteria:tall_grass": {
-    "/name": "Tall Grass"
   },
   "asteria:terracotta": {
     "/name": "Terracotta"
