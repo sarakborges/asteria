@@ -71,7 +71,7 @@
       }
     },
     {
-      "block": "asteria:wildflower_blue",
+      "object": "asteria:wildflower_blue",
       "chance": 0.0114,
       "surfaceBlocks": [
         "asteria:grass_block"
@@ -95,7 +95,7 @@
       }
     },
     {
-      "block": "asteria:wildflower_yellow",
+      "object": "asteria:wildflower_yellow",
       "chance": 0.012,
       "surfaceBlocks": [
         "asteria:grass_block"
