@@ -72,9 +72,21 @@ public sealed class BiomeBiodiversityExpansionTests
             Assert.NotNull(rule.Cluster);
             Assert.NotNull(rule.HabitatWeights);
             Assert.NotNull(rule.Conditions);
-            var block = blocks.GetDefinition(blocks.GetId(rule.Block));
-            Assert.True(block.HasTag(BlockPhysicsCapabilities.SupportBelow));
-            Assert.False(block.IsCollidable);
+            if (name == "iris")
+            {
+                Assert.True(rule.IsObject);
+                var objects = PackContentRegistry<ObjectDefinition>.FromJson(
+                    ReadJson("objects"), ObjectDefinition.Parse, d => d.Id);
+                var irisObject = objects.Get(rule.Block);
+                Assert.True(irisObject.Supports(BlockFace.Top));
+                Assert.Equal(ObjectVisualKind.CrossedSprite, irisObject.Visual.Kind);
+            }
+            else
+            {
+                var block = blocks.GetDefinition(blocks.GetId(rule.Block));
+                Assert.True(block.HasTag(BlockPhysicsCapabilities.SupportBelow));
+                Assert.False(block.IsCollidable);
+            }
         }
         var iris = Assert.Single(swamp.Decorations,
             d => d.Block == "asteria:iris");
@@ -118,12 +130,14 @@ public sealed class BiomeBiodiversityExpansionTests
         var fluids = FluidRegistry.FromJson(ReadJson("fluids"));
         var swamp = BiomeRegistry.FromJson(ReadJson("biomes"))
             .Get("asteria:overworld/swamp");
+        var objects = PackContentRegistry<ObjectDefinition>.FromJson(
+            ReadJson("objects"), ObjectDefinition.Parse, d => d.Id);
         var a = new SurfaceDecorationField(542, [swamp], blocks,
-            fluids: fluids);
+            fluids: fluids, objects: objects);
         var b = new SurfaceDecorationField(542, [swamp], blocks,
-            fluids: fluids);
+            fluids: fluids, objects: objects);
         var mud = blocks.GetId("asteria:mud");
-        var iris = blocks.GetId("asteria:iris");
+        const string iris = "asteria:iris";
         var sample = new BiomeSample(swamp.Id,
             [new BiomeInfluence(swamp.Id, 1f)]);
         var context = new SurfacePlacementContext(90, 0);
@@ -131,13 +145,13 @@ public sealed class BiomeBiodiversityExpansionTests
         for (var z = -48; z <= 48; z++)
         for (var x = -48; x <= 48; x++)
         {
-            var dry = a.BlockAt(sample, mud, x, z, context,
+            var dry = a.ObjectAt(sample, mud, x, z, context,
                 supportY: 89, nearbyFluid: (_, _, _, _, _) => false);
-            var wet = a.BlockAt(sample, mud, x, z, context,
+            var wet = a.ObjectAt(sample, mud, x, z, context,
                 supportY: 89, nearbyFluid: (_, _, _, _, _) => true);
-            Assert.Equal(wet, b.BlockAt(sample, mud, x, z, context,
+            Assert.Equal(wet, b.ObjectAt(sample, mud, x, z, context,
                 supportY: 89, nearbyFluid: (_, _, _, _, _) => true));
-            Assert.NotEqual(iris, dry);
+            Assert.Null(dry);
             found |= wet == iris;
         }
         Assert.True(found, "Expected nearby-water iris patches.");
