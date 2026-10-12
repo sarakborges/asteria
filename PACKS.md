@@ -114,7 +114,7 @@ A biome ID may not be repeated across placement pools. Surface entries must auth
 
 `surfaceLayout.weight` controls normal surface-biome distribution. `surfaceLayout.spawnWeight` is separate: it is a non-negative weight used only to choose the preferred initial-spawn biome deterministically from the dimension seed; the generated ocean biome is excluded from that choice. A zero spawn weight keeps a biome in normal world generation while preventing it from being selected as the preferred random spawn biome. `cannotBorder` is symmetric at runtime: if either biome denies the other, the pair is incompatible. MineClone legacy exclusive-neighbor groups are represented explicitly through these authored pairwise `cannotBorder` IDs rather than a second adjacency mechanism.
 
-Surface terrain uses reusable, authored shapes: `noise`, `rolling`, `dunes`, `ridges`, `valley`, and `cone`. A cone tapers from the `BiomeField` formation strength and must not have its height blended down again against neighboring biomes. A crater is an optional, independent terrain feature:
+Surface terrain uses reusable, authored shapes: `noise`, `rolling`, `dunes`, `ridges`, `valley`, and `cone`. A cone tapers from `BiomeField` formation strength. Where biome ownership changes before that strength reaches zero, a short boundary ramp joins the neighboring surface; the interior still uses the full cone shape. A crater is an optional, independent terrain feature:
 
 ```json
 "surfaceTerrain": {
