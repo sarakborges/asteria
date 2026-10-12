@@ -285,6 +285,7 @@
   "newWorld.seedPlaceholder": "64-bit seed",
   "newWorld.randomize": "Generate another",
   "newWorld.seedRange": "A number between 0 and 18446744073709551615.",
+  "loading.recreateWorld": "Recreate World",
   "loading.asteria": "ASTERIA / LOADING",
   "loading.preparingSphere": "Preparing Sphere",
   "starting.language": "Language",

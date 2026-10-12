@@ -8,6 +8,7 @@ const meta = {
     layout: "fullscreen",
   },
   args: {
+    onRecreate: () => undefined,
     state: {
       phase: "materializing_initial_area",
       completed: 23,

@@ -32,6 +32,7 @@ export type AppActions = {
     generation: import("./state/uiState").WorldGenerationDraft;
   }): void;
   randomizeWorld(): void;
+  recreateWorld(): void;
   openWorldSelection(): void;
   openSavesFolder(): void;
   loadWorld(id: string): void;
@@ -360,7 +361,7 @@ export function App({
         />
       )}
 
-      <LoadingOverlay state={state.loading} />
+      <LoadingOverlay state={state.loading} onRecreate={actions.recreateWorld} />
       {state.navigation.exitConfirmation && (
         <SaveFailureExitDialog
           onCancel={actions.cancelExitWithoutSave}
