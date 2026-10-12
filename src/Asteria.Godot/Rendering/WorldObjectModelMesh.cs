@@ -53,7 +53,8 @@ internal static class WorldObjectModelMesh
                 {
                     for (var i = 0; i < source.GetSurfaceCount(); i++)
                     {
-                        if (source.SurfaceGetPrimitiveType(i) != Mesh.PrimitiveType.Triangles)
+                        if (source is not ArrayMesh arraySource ||
+                            arraySource.SurfaceGetPrimitiveType(i) != Mesh.PrimitiveType.Triangles)
                             throw new InvalidDataException(
                                 $"Object {definition.Id} GLB requires triangle primitives.");
                         var arrays = source.SurfaceGetArrays(i);
