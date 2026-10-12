@@ -128,6 +128,60 @@ public sealed class WorldUpdateQueueTests
     }
 
     [Fact]
+    public void ResidentLightingDrainDiscardsUnloadedSeedsWithoutBlockingValidWork()
+    {
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, new Chunk());
+        var queue = new WorldUpdateQueue();
+        var stale = new WorldVoxelCoord(Chunk.Size, 2, 0);
+        var valid = new WorldVoxelCoord(2, 2, 2);
+        queue.EnqueueLighting(stale);
+        queue.EnqueueLighting(valid);
+
+        var batch = queue.DrainLighting(
+            maximumPositions: 1, maximumColumns: 1, world: world);
+
+        Assert.Equal([valid], batch.EditedPositions);
+        Assert.False(queue.HasLightingWork);
+    }
+
+    [Fact]
+    public void StaleLightingCleanupIsBoundedAndProgressesAcrossDrains()
+    {
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, new Chunk());
+        var queue = new WorldUpdateQueue();
+        for (var index = 0; index < 5000; index++)
+            queue.EnqueueLighting(new WorldVoxelCoord(
+                (index + 1) * Chunk.Size, 2, 0));
+        var valid = new WorldVoxelCoord(2, 2, 2);
+        queue.EnqueueLighting(valid);
+
+        Assert.Empty(queue.DrainLighting(
+            maximumPositions: 512, maximumColumns: 2, world: world)
+            .EditedPositions);
+        Assert.True(queue.HasLightingWork);
+        Assert.Equal([valid], queue.DrainLighting(
+            maximumPositions: 512, maximumColumns: 2, world: world)
+            .EditedPositions);
+        Assert.False(queue.HasLightingWork);
+    }
+
+    [Fact]
+    public void StaleLightingResultRequeueDoesNotResurrectRetiredPositions()
+    {
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, new Chunk());
+        var valid = new WorldVoxelCoord(2, 2, 2);
+        var retired = new WorldVoxelCoord(Chunk.Size, 2, 2);
+        var queue = new WorldUpdateQueue();
+
+        queue.RequeueLighting(new WorldLightingBatch([retired, valid]), world);
+
+        Assert.Equal([valid], queue.DrainLighting().EditedPositions);
+    }
+
+    [Fact]
     public void LightingOnlyRemeshDoesNotCreateAnotherLightingEdit()
     {
         var world = new VoxelWorld();
