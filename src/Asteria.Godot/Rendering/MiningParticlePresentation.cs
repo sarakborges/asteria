@@ -20,7 +20,7 @@ internal sealed class MiningParticlePresentation
 
         void vertex() {
             chip_layers = INSTANCE_CUSTOM.xy;
-            chip_tint = INSTANCE_COLOR.rgb;
+            chip_tint = COLOR.rgb;
             chip_seed = INSTANCE_CUSTOM.z;
         }
 
