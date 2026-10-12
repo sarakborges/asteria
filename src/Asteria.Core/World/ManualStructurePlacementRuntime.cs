@@ -99,6 +99,7 @@ public sealed class ManualStructurePlacementRuntime
         // A later overlapping piece deterministically wins at that voxel.
         var staged = new Dictionary<WorldVoxelCoord, VoxelStructureChange>();
         var claimed = new HashSet<WorldVoxelCoord>();
+        var objects = new List<VoxelStructureObjectChange>();
         foreach (var placement in placements)
         {
             foreach (var tuple in placement.PayloadPositions())
@@ -161,6 +162,21 @@ public sealed class ManualStructurePlacementRuntime
                         voxel.Cell, voxel.Mask, surface), FluidCell.Empty);
             }
 
+            foreach (var obj in placement.Objects)
+            {
+                var position = new WorldVoxelCoord(obj.X, obj.Y, obj.Z);
+                var support = obj.SupportPosition;
+                if (support.Y < 0)
+                    return ManualStructurePlacementResult.InvalidPlacement;
+                if (!_world.IsLoadedAt(support))
+                    return ManualStructurePlacementResult.NonResident;
+                if (Intersects(playerBounds, obj.X, obj.Y, obj.Z))
+                    return ManualStructurePlacementResult.PlayerCollision;
+                // Object payloads are not a block/fluid overwrite: a shared
+                // canonical preflight validates final support and target.
+                objects.Add(new VoxelStructureObjectChange(position, support, obj.Cell));
+            }
+
             foreach (var voxel in placement.FluidVoxels)
             {
                 var at = new WorldVoxelCoord(voxel.X, voxel.Y, voxel.Z);
@@ -180,8 +196,8 @@ public sealed class ManualStructurePlacementRuntime
                 .OrderBy(value => value.Position.X)
                 .ThenBy(value => value.Position.Z)
                 .ThenBy(value => value.Position.Y)
-                .ToArray()))
-            return ManualStructurePlacementResult.NonResident;
+                .ToArray(), objects))
+            return ManualStructurePlacementResult.InvalidPlacement;
 
         _committed.RecordCommitted(plan.Footprint);
         return ManualStructurePlacementResult.Placed;
