@@ -1241,10 +1241,10 @@
     },
     {
       "biome": "asteria:overworld/scorched_wastes",
-      "structure": "asteria:volcanic_caldera",
-      "spacing": 208,
-      "chance": 0.93,
-      "jitter": 48
+      "structure": "asteria:volcano",
+      "spacing": 128,
+      "chance": 1,
+      "jitter": 8
     }
   ],
   "dayNightCycle": "asteria:overworld/day_night_cycle",

@@ -7,7 +7,7 @@ export type ChatCompletion = {
   suggestions: readonly ChatSuggestionView[];
 };
 
-const SUGGESTION_LIMIT = 64;
+const SUGGESTION_LIMIT = 256;
 const META_TAGS = ["NO_AI", "PERSISTENT"] as const;
 const ACTIONS = ["add", "remove", "edit"] as const;
 const LOCATE_KINDS = ["biome", "structure"] as const;

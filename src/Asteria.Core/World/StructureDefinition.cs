@@ -146,7 +146,8 @@ public enum StructureFluidPolicy
 public sealed record StructureGenerationDefinition(
     StructureReplacePolicy ReplacePolicy,
     StructureFluidPolicy FluidPolicy,
-    bool ReserveSpace)
+    bool ReserveSpace,
+    int MinimumPieces = 1)
 {
     public static StructureGenerationDefinition Default { get; } =
         new(

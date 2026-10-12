@@ -21,7 +21,8 @@
   "generation": {
     "replacePolicy": "any",
     "fluidPolicy": "displace",
-    "reserveSpace": true
+    "reserveSpace": true,
+    "minimumPieces": 5
   },
   "groundAnchorY": 0,
   "anchor": {
@@ -327,5 +328,6 @@
         "S"
       ]
     }
-  ]
+  ],
+  "groupId": "volcano"
 }

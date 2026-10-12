@@ -296,7 +296,8 @@ public static class StructureDefinitionJson
             "generation",
             "replacePolicy",
             "fluidPolicy",
-            "reserveSpace");
+            "reserveSpace",
+            "minimumPieces");
 
         var replacePolicy =
             OptionalString(
@@ -329,13 +330,15 @@ public static class StructureDefinitionJson
                         $"Unsupported structure fluidPolicy: {authored}."),
             };
 
+        var minimumPieces = OptionalInt32(value, "minimumPieces") ?? 1;
+        if (minimumPieces is < 1 or > 32)
+            throw new FormatException(
+                "Structure generation.minimumPieces must be between 1 and 32.");
         return new StructureGenerationDefinition(
             replacePolicy,
             fluidPolicy,
-            OptionalBoolean(
-                value,
-                "reserveSpace") ??
-            false);
+            OptionalBoolean(value, "reserveSpace") ?? false,
+            minimumPieces);
     }
 
     private static IReadOnlyDictionary<

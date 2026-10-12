@@ -1174,6 +1174,8 @@ public sealed class SurfaceStructureField
                 [
                     placement,
                 ]);
+        if (pieces.Count < member.Definition.Generation.MinimumPieces)
+            return null;
 
         return CreateCandidate(
             ruleIndex,

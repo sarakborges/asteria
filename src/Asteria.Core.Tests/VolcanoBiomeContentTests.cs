@@ -84,7 +84,8 @@ public sealed class VolcanoBiomeContentTests
         Assert.Equal(4, root.Connectors.Count);
         Assert.All(root.Connectors,
             connector => Assert.NotNull(connector.Target));
-        Assert.Null(root.GroupId);
+        Assert.Equal("asteria:volcano", root.GroupReference);
+        Assert.Equal(5, root.Generation.MinimumPieces);
         Assert.True(root.Locatable);
         Assert.True(root.Generation.ReserveSpace);
         Assert.Equal(StructureReplacePolicy.Any, root.Generation.ReplacePolicy);
@@ -110,7 +111,7 @@ public sealed class VolcanoBiomeContentTests
             dimension.SurfaceBiomes);
         Assert.Contains(dimension.GeneratedSurfaceStructures,
             rule => rule.Biome == "asteria:overworld/scorched_wastes" &&
-                rule.Structure == root.Id);
+                rule.Structure == root.GroupReference);
     }
 
     [Fact]
@@ -185,7 +186,7 @@ public sealed class VolcanoBiomeContentTests
               "surfaceBiomes":["asteria:test/scorched"],
               "generatedSurfaceStructures":[{
                 "biome":"asteria:test/scorched",
-                "structure":"asteria:volcanic_caldera",
+                "structure":"asteria:volcano",
                 "spacing":256,"jitter":0,"chance":1
               }]
             }
