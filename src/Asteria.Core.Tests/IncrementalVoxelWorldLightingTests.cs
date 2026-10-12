@@ -160,6 +160,26 @@ public sealed class IncrementalVoxelWorldLightingTests
     }
 
     [Fact]
+    public void OcclusionAcrossVerticalChunksMatchesFullRecomputation()
+    {
+        var blocks = new BlockRegistry([
+            new BlockDefinition("asteria:stone", lightDampening: 15),
+        ]);
+        var fluids = new FluidRegistry([]);
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, new Chunk());
+        world.InsertChunk(new ChunkCoord(0, 1, 0), new Chunk());
+        VoxelWorldLightingSolver.Initialize(world, blocks, fluids);
+        var roof = new WorldVoxelCoord(8, 18, 8);
+        world.SetBlockAt(roof, blocks.GetId("asteria:stone"), out _);
+
+        var update = VoxelWorldLightingSolver.RelightAfterEdits(
+            world, blocks, fluids, [roof]);
+        Assert.NotEmpty(update.ChangedPositions);
+        AssertMatchesFullLighting(world, blocks, fluids);
+    }
+
+    [Fact]
     public void UnrelatedDistantChunkKeepsItsLightFieldUntouched()
     {
         var blocks = new BlockRegistry(
