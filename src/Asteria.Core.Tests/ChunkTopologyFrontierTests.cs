@@ -130,7 +130,7 @@ public sealed class ChunkTopologyFrontierTests
                     world, blocks, fluids, arrivingCoord, position))
             .ToArray();
         Assert.Contains(new WorldVoxelCoord(16, 5, 5), filtered);
-        Assert.DoesNotContain(new WorldVoxelCoord(16, 5, 10), filtered);
+        Assert.DoesNotContain(new WorldVoxelCoord(16, 14, 15), filtered);
 
         VoxelWorldLightingSolver.RelightAfterEdits(
             world, blocks, fluids, filtered);
