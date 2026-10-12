@@ -131,6 +131,9 @@ public sealed class LightingRuntime
         report = null;
         error = null;
 
+        if (_publication is not null)
+            return TryPublishNextSlice(out report);
+
         if (!_worker.TryTakeCompleted(
                 out var result,
                 out error))
@@ -181,24 +184,12 @@ public sealed class LightingRuntime
             return true;
         }
 
-        var applyStart = Stopwatch.GetTimestamp();
-        var integrated =
-            _integration.Apply(
-                result.LightingSnapshot,
-                result.Lighting.ChangedPositions);
-        var applyMilliseconds =
-            Stopwatch.GetElapsedTime(applyStart).TotalMilliseconds;
-
-        report =
-            new LightingRuntimeReport(
-                LightingCompletionKind.Applied,
-                result.WorkerMilliseconds,
-                integrated.ChangedVoxelCount,
-                integrated.DirtyChunkCount,
-                integrated.DirtyMeshletCount,
-                result.Lighting.ProcessedVoxelCount,
-                captureMilliseconds,
-                applyMilliseconds);
-        return true;
+        _publication = result;
+        _publicationCaptureMilliseconds = captureMilliseconds;
+        _publicationApplyMilliseconds = 0d;
+        _publicationOffset = 0;
+        _publicationDirtyChunks = 0;
+        _publicationDirtyMeshlets = 0;
+        return TryPublishNextSlice(out report);
     }
 }
