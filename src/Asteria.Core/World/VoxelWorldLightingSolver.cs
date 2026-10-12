@@ -80,6 +80,51 @@ public static class VoxelWorldLightingSolver
             processed);
     }
 
+    private static int RemoveStaleLight(
+        VoxelWorld world, BlockRegistry blocks, FluidRegistry fluids,
+        DirectSkyContext directSky,
+        DeduplicatedQueue<WorldVoxelCoord> darkening,
+        DeduplicatedQueue<WorldVoxelCoord> brightening,
+        Dictionary<WorldVoxelCoord, VoxelLight> originals)
+    {
+        var processed = 0;
+        while (darkening.TryDequeue(out var position))
+        {
+            var address = VoxelCoordinates.FromWorld(
+                position.X, position.Y, position.Z);
+            if (!world.TryGetChunk(address.Chunk, out var chunk))
+                continue;
+
+            var local = address.Local;
+            var cell = chunk.GetCell(local.X, local.Y, local.Z);
+            var fluid = chunk.GetFluid(local.X, local.Y, local.Z);
+            var current = chunk.GetLight(local.X, local.Y, local.Z);
+            var desired = DesiredLight(
+                world, blocks, fluids, directSky,
+                position, chunk, local, cell, fluid);
+            processed++;
+
+            if (desired.Sky >= current.Sky &&
+                desired.Red >= current.Red &&
+                desired.Green >= current.Green &&
+                desired.Blue >= current.Blue)
+                continue;
+
+            var baseline = BaseLight(
+                blocks, fluids, directSky, position, chunk, local, cell, fluid);
+            var reduced = new VoxelLight(
+                desired.Sky < current.Sky ? baseline.Sky : current.Sky,
+                desired.Red < current.Red ? baseline.Red : current.Red,
+                desired.Green < current.Green ? baseline.Green : current.Green,
+                desired.Blue < current.Blue ? baseline.Blue : current.Blue);
+            originals.TryAdd(position, current);
+            chunk.SetLight(local.X, local.Y, local.Z, reduced);
+            EnqueueWithNeighbors(world, darkening, position);
+            EnqueueWithNeighbors(world, brightening, position);
+        }
+        return processed;
+    }
+
     private static VoxelLight DesiredLight(
         VoxelWorld world,
         BlockRegistry blocks,
