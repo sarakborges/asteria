@@ -57,18 +57,16 @@ public sealed class BlockContentTests
         Assert.Contains("pickaxe", stone.Mining.RequiredTools);
         Assert.Equal("textures/blocks/stone.png", stone.Textures.Top.Single().Texture);
 
-        var grassPlant =
-            registry.GetDefinition(
-                registry.GetId(
-                    "asteria:grass"));
-        Assert.Equal(
-            BlockVisualKind.CrossedSprite,
+        Assert.False(registry.TryGetId("asteria:grass", out _));
+        var grassPlant = Asteria.Core.Content.ObjectDefinition.Parse(
+            File.ReadAllText(Path.Combine(AppContext.BaseDirectory,
+                "packs", "default", "data", "objects", "grass.json")));
+        Assert.Equal(Asteria.Core.Content.ObjectVisualKind.CrossedSprite,
             grassPlant.Visual.Kind);
-        Assert.Equal(
-            4,
-            grassPlant.Visual.Planes);
-        Assert.True(
-            grassPlant.Visual.Texture!.Value.Dyable);
+        Assert.Equal(4, grassPlant.Visual.Planes);
+        Assert.Equal(BlockTint.Foliage, grassPlant.Tint);
+        Assert.Equal(BlockPreviewColor.Parse("6f9f50"), grassPlant.TintFallback);
+        Assert.False(grassPlant.Unlit);
         Assert.Contains(
             BlockFace.Top,
             grassPlant.PlacementFaces);
