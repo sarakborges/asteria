@@ -27,3 +27,17 @@ test("native WebView keyboard handoff restores chat input focus", async ({ page 
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await expect(input).toBeFocused();
 });
+
+test("chat remains focused after delayed native keyboard handoff", async ({ page }) => {
+  await page.goto("/iframe.html?id=organisms-chatpanel--focus-flow&viewMode=story");
+  await page.getByRole("button", { name: "Open chat" }).click();
+  const input = page.locator(".chat-panel__input input");
+  await expect(input).toBeFocused();
+
+  // A delayed native focus transfer can blur the input after it initially
+  // passed the DOM focus check; WebUI must restore it without a mouse click.
+  await input.evaluate(element => (element as HTMLInputElement).blur());
+  await expect(input).toBeFocused();
+  await page.getByRole("button", { name: "Native WebView focus granted" }).click();
+  await expect(input).toBeFocused();
+});

@@ -99,13 +99,15 @@ func set_native_key_capture(active: bool) -> void:
 	call_deferred("_restore_keyboard_focus")
 
 func focus_chat_input() -> void:
-	# Complete the native keyboard handoff before asking React to focus
-	# the newly mounted input. The WebUI owns DOM element focus.
+	# The capture-loss handler also queues a focus handoff. Complete that
+	# handoff first so the chat field is not focused while Godot still owns
+	# keyboard input. DOM element focus remains React's responsibility.
+	call_deferred("_focus_chat_input_after_handoff")
+
+func _focus_chat_input_after_handoff() -> void:
 	if _webview == null or not _loaded or _mouse_captured or _creation_mode or not get_window().has_focus():
 		return
 	_webview.grab_focus()
-	# Give WRY its native keyboard handoff before React receives the focus
-	# request. Chat state and focus acknowledgements are independent messages.
 	call_deferred("_acknowledge_chat_focus")
 
 func _acknowledge_chat_focus() -> void:

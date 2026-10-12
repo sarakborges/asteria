@@ -576,13 +576,10 @@ public partial class FpsPlayer : CharacterBody3D
 
     private void HandleKey(InputEventKey key)
     {
-        if (key.Keycode == Key.Escape && key.Pressed && !key.Echo)
-        {
-            // Escape in a released-pointer UI must navigate the active
-            // overlay; never capture the mouse behind settings/inventory.
-            if (_mouseCaptured) ReleaseMouse();
+        // The composition root routes Escape, including mouse release
+        // and UI navigation, so a single keypress cannot do both.
+        if (key.Keycode == Key.Escape)
             return;
-        }
 
         if (!_mouseCaptured)
         {
@@ -684,7 +681,7 @@ public partial class FpsPlayer : CharacterBody3D
 
     // Losing OS focus must release held movement/buttons as well as the cursor.
     // MouseCaptureChanged drives the existing pause-menu navigation.
-    public void PauseForWindowFocusLoss()
+    public void PauseGameplay()
     {
         if (_mouseCaptured)
             ReleaseMouse();

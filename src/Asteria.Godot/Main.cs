@@ -342,7 +342,7 @@ public partial class Main : Node3D
             RequestAppExit();
         else if (what == NotificationWMWindowFocusOut &&
                  _worldReadySent && _player is { IsMouseCaptured: true })
-            _player.PauseForWindowFocusLoss();
+            _player.PauseGameplay();
     }
 
     public override void _ExitTree()
@@ -447,14 +447,16 @@ public partial class Main : Node3D
             return;
         }
 
-        // Gameplay Escape releases capture in FpsPlayer. Once released,
-        // always forward native Escape to the UI: WRY's has_focus flag can
-        // remain true even when keyboard events still reach Godot instead
-        // of the browser. The UI escape action is idempotent for pause.
-        if (keyEvent.Keycode == Key.Escape &&
-            (_worldSeed is null || _player is { IsMouseCaptured: false }))
+        // Route Escape exactly once. Releasing mouse capture already emits
+        // game.mouse_capture(false), which opens pause in WebUI. Forwarding
+        // that SAME keypress as game.ui.escape would close pause immediately.
+        // The player does not handle Escape independently.
+        if (keyEvent.Keycode == Key.Escape)
         {
-            SendWebUi("game.ui.escape", new { });
+            if (_player is { IsMouseCaptured: true } capturedPlayer)
+                capturedPlayer.PauseGameplay();
+            else
+                SendWebUi("game.ui.escape", new { });
             GetViewport().SetInputAsHandled();
             return;
         }

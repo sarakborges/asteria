@@ -46,15 +46,22 @@ export function ChatPanel({
   // different frames. Keep the focused UI field authoritative for chat input.
   useLayoutEffect(() => {
     if (!open || !visible) return;
-    // Native WRY keyboard handoff may finish after React mounts the field.
-    // Retry for a bounded number of animation frames, then stop once focused.
-    const focusInput = () => inputRef.current?.focus({ preventScroll: true });
+    // Native WRY focus may temporarily leave the browser even after the
+    // input was first focused. Require several stable frames after the handoff
+    // (not just one early DOM focus) and retry with a finite budget.
+    const focusInput = () => {
+      if (document.hasFocus() && inputRef.current !== document.activeElement)
+        inputRef.current?.focus({ preventScroll: true });
+    };
     let frame = 0;
     let attempts = 0;
+    let stableFrames = 0;
     const focusDuringHandoff = () => {
       focusInput();
-      if (inputRef.current === document.activeElement && document.hasFocus()) return;
-      if (++attempts < 24) frame = window.requestAnimationFrame(focusDuringHandoff);
+      stableFrames = document.hasFocus() && inputRef.current === document.activeElement
+        ? stableFrames + 1 : 0;
+      if (stableFrames < 8 && ++attempts < 120)
+        frame = window.requestAnimationFrame(focusDuringHandoff);
     };
     focusDuringHandoff();
     window.addEventListener("focus", focusInput);
@@ -118,6 +125,7 @@ export function ChatPanel({
           <span aria-hidden="true">&gt;</span>
           <TextInput
             inputRef={inputRef}
+            autoFocus={open}
             onKeyDown={onInputKeyDown}
             value={draft}
             maxLength={MAX_DRAFT_CHARS}
