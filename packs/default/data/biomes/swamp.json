@@ -60,7 +60,7 @@
       }
     },
     {
-      "block": "asteria:pebble",
+      "object": "asteria:pebble",
       "chance": 0.0028,
       "surfaceBlocks": [
         "asteria:grass_block",
@@ -121,7 +121,7 @@
       }
     },
     {
-      "block": "asteria:lily_pad",
+      "object": "asteria:lily_pad",
       "chance": 0.21,
       "surfaceBlocks": [
         "asteria:mud"
