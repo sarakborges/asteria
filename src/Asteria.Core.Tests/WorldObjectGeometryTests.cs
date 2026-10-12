@@ -140,6 +140,33 @@ public sealed class WorldObjectGeometryTests
     }
 
     [Fact]
+    public void RaycastTieBreakRemainsDeterministicWithoutSortingSupportCells()
+    {
+        var definitions = PackContentRegistry<ObjectDefinition>.FromJson(["""
+        {"id":"asteria:wide_target","category":"foliage",
+         "icon":"textures/objects/grass.png",
+         "visual":{"type":"crossedSprite","texture":"textures/objects/grass.png"},
+         "target":{"size":[2,0.65,0.7],"centerOffset":[0,0.325,0]}}
+        """], ObjectDefinition.Parse, definition => definition.Id);
+        var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, new Chunk());
+        var left = new WorldVoxelCoord(0, 0, 0);
+        var right = new WorldVoxelCoord(1, 0, 0);
+        Assert.True(world.SetBlockAt(left, blocks.GetId("asteria:stone"), out _));
+        Assert.True(world.SetBlockAt(right, blocks.GetId("asteria:stone"), out _));
+        var obj = new ObjectCell("asteria:wide_target", BlockFace.Top);
+        // Insert the higher-X support first to exercise dictionary iteration.
+        Assert.True(world.AddObjectAt(right, obj));
+        Assert.True(world.AddObjectAt(left, obj));
+
+        var hit = WorldObjectRaycaster.Raycast(world, definitions,
+            new Vector3(1f, 1.325f, -3f), Vector3.UnitZ, 6f);
+        Assert.NotNull(hit);
+        Assert.Equal(left, hit.Value.Support);
+    }
+
+    [Fact]
     public void ObjectsChangedEventIncludesSupportRemovalAndNoOpMutationsDoNotEmit()
     {
         var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);
