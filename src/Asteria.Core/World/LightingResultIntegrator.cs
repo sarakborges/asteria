@@ -42,7 +42,37 @@ public sealed class LightingResultIntegrator
         _world.CopyChangedLightFrom(
             lightingSnapshot,
             changedPositions);
+        return EnqueuePresentationRefreshes(changedPositions);
+    }
 
+    /// <summary>
+    /// Publishes one bounded part of a completed lighting update. Calls can
+    /// be spread across frames without copying entire chunk light arrays.
+    /// </summary>
+    public LightingIntegrationResult ApplyRange(
+        VoxelWorld lightingSnapshot,
+        IReadOnlyList<WorldVoxelCoord> positions,
+        int offset,
+        int count)
+    {
+        ArgumentNullException.ThrowIfNull(lightingSnapshot);
+        ArgumentNullException.ThrowIfNull(positions);
+        if (offset < 0 || count < 0 || offset > positions.Count - count)
+            throw new ArgumentOutOfRangeException(nameof(offset));
+        if (count == 0)
+            return default;
+
+        _world.CopyLightPositionsFrom(
+            lightingSnapshot, positions, offset, count);
+        var slice = new WorldVoxelCoord[count];
+        for (var i = 0; i < count; i++)
+            slice[i] = positions[offset + i];
+        return EnqueuePresentationRefreshes(slice);
+    }
+
+    private LightingIntegrationResult EnqueuePresentationRefreshes(
+        IReadOnlyList<WorldVoxelCoord> changedPositions)
+    {
         var dirty =
             MeshletInvalidation.ForPositions(
                 _world,

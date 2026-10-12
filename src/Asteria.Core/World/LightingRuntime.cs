@@ -42,6 +42,16 @@ public sealed class LightingRuntime
     private WorldLightingBatch? _inFlightBatch;
     private double _inFlightCaptureMilliseconds;
 
+    // Keep large lighting updates from publishing tens of thousands of
+    // voxels and meshlet invalidations in one main-thread frame.
+    private const int MaximumPublishedVoxelsPerPoll = 1024;
+    private LightingWorkerResult? _publication;
+    private double _publicationCaptureMilliseconds;
+    private double _publicationApplyMilliseconds;
+    private int _publicationOffset;
+    private int _publicationDirtyChunks;
+    private int _publicationDirtyMeshlets;
+
     public LightingRuntime(
         VoxelWorld world,
         BlockRegistry blocks,
@@ -66,7 +76,7 @@ public sealed class LightingRuntime
             throw new ArgumentNullException(nameof(integration));
     }
 
-    public bool IsRunning => _worker.IsRunning;
+    public bool IsRunning => _worker.IsRunning || _publication is not null;
 
     public void BeginRetirement()
     {
@@ -81,6 +91,7 @@ public sealed class LightingRuntime
         }
 
         if (_worker.IsRunning ||
+            _publication is not null ||
             !_updates.HasLightingWork)
         {
             return false;
@@ -119,6 +130,9 @@ public sealed class LightingRuntime
     {
         report = null;
         error = null;
+
+        if (_publication is not null)
+            return TryPublishNextSlice(out report);
 
         if (!_worker.TryTakeCompleted(
                 out var result,
@@ -170,24 +184,65 @@ public sealed class LightingRuntime
             return true;
         }
 
-        var applyStart = Stopwatch.GetTimestamp();
-        var integrated =
-            _integration.Apply(
-                result.LightingSnapshot,
-                result.Lighting.ChangedPositions);
-        var applyMilliseconds =
-            Stopwatch.GetElapsedTime(applyStart).TotalMilliseconds;
+        _publication = result;
+        _publicationCaptureMilliseconds = captureMilliseconds;
+        _publicationApplyMilliseconds = 0d;
+        _publicationOffset = 0;
+        _publicationDirtyChunks = 0;
+        _publicationDirtyMeshlets = 0;
+        return TryPublishNextSlice(out report);
+    }
+    private bool TryPublishNextSlice(out LightingRuntimeReport? report)
+    {
+        report = null;
+        var result = _publication ??
+            throw new InvalidOperationException("No lighting publication pending.");
 
-        report =
-            new LightingRuntimeReport(
-                LightingCompletionKind.Applied,
-                result.WorkerMilliseconds,
-                integrated.ChangedVoxelCount,
-                integrated.DirtyChunkCount,
-                integrated.DirtyMeshletCount,
+        // Chunk content or residency can change between frames. Do not
+        // publish obsolete light; requeue its original seeds for reconciliation.
+        if (!result.Dependencies.IsCurrent(_world))
+        {
+            _updates.RequeueLighting(result.SourceBatch);
+            report = new LightingRuntimeReport(
+                LightingCompletionKind.RequeuedStale,
+                result.WorkerMilliseconds, 0, 0, 0,
                 result.Lighting.ProcessedVoxelCount,
-                captureMilliseconds,
-                applyMilliseconds);
+                _publicationCaptureMilliseconds,
+                _publicationApplyMilliseconds);
+            _publication = null;
+            return true;
+        }
+
+        var positions = result.Lighting.ChangedPositions;
+        var count = Math.Min(
+            MaximumPublishedVoxelsPerPoll,
+            positions.Count - _publicationOffset);
+        if (count > 0)
+        {
+            var started = Stopwatch.GetTimestamp();
+            var applied = _integration.ApplyRange(
+                result.LightingSnapshot, positions, _publicationOffset, count);
+            _publicationApplyMilliseconds +=
+                Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+            _publicationDirtyChunks += applied.DirtyChunkCount;
+            _publicationDirtyMeshlets += applied.DirtyMeshletCount;
+            _publicationOffset += count;
+        }
+
+        if (_publicationOffset < positions.Count)
+            return false;
+
+        report = new LightingRuntimeReport(
+            LightingCompletionKind.Applied,
+            result.WorkerMilliseconds,
+            positions.Count,
+            _publicationDirtyChunks,
+            _publicationDirtyMeshlets,
+            result.Lighting.ProcessedVoxelCount,
+            _publicationCaptureMilliseconds,
+            _publicationApplyMilliseconds);
+        _publication = null;
         return true;
     }
+
 }

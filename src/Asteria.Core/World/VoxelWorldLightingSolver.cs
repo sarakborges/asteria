@@ -51,68 +51,127 @@ public static class VoxelWorldLightingSolver
         ArgumentNullException.ThrowIfNull(fluids);
         ArgumentNullException.ThrowIfNull(editedPositions);
 
-        var queue = new DeduplicatedQueue<WorldVoxelCoord>();
-        var changed = new HashSet<WorldVoxelCoord>();
-        var directSky =
-            new DirectSkyContext(
-                world,
-                blocks,
-                fluids);
-
+        // First remove stale illumination, then restore light monotonically.
+        // The previous single queue reduced light one level at a time and
+        // revisited the same voxel repeatedly across large neighborhoods.
+        var darkening = new DeduplicatedQueue<WorldVoxelCoord>();
+        var brightening = new DeduplicatedQueue<WorldVoxelCoord>();
+        var originals = new Dictionary<WorldVoxelCoord, VoxelLight>();
+        var directSky = new DirectSkyContext(world, blocks, fluids);
         foreach (var position in editedPositions)
         {
-            EnqueueWithNeighbors(world, queue, position);
+            EnqueueWithNeighbors(world, darkening, position);
+            EnqueueWithNeighbors(world, brightening, position);
         }
 
-        var processed = 0;
-
-        while (queue.TryDequeue(out var position))
-        {
-            var address = VoxelCoordinates.FromWorld(
-                position.X, position.Y, position.Z);
-            if (!world.TryGetChunk(address.Chunk, out var chunk))
-            {
-                continue;
-            }
-
-            var local = address.Local;
-            var cell = chunk.GetCell(local.X, local.Y, local.Z);
-            var fluid = chunk.GetFluid(local.X, local.Y, local.Z);
-            var current = chunk.GetLight(local.X, local.Y, local.Z);
-
-            processed++;
-            var desired = DesiredLight(
-                world,
-                blocks,
-                fluids,
-                directSky,
-                position,
-                chunk,
-                local,
-                cell,
-                fluid);
-
-            if (desired == current)
-            {
-                continue;
-            }
-
-            chunk.SetLight(local.X, local.Y, local.Z, desired);
-            changed.Add(position);
-
-            EnqueueWithNeighbors(
-                world,
-                queue,
-                position);
-        }
-
+        var processed = RemoveStaleLight(
+            world, blocks, fluids, directSky,
+            darkening, brightening, originals);
+        processed += RestoreLight(
+            world, blocks, fluids, directSky, brightening, originals);
         return new VoxelLightingUpdateResult(
-            changed
+            originals
+                .Where(entry => world.GetLightOrDark(entry.Key) != entry.Value)
+                .Select(entry => entry.Key)
                 .OrderBy(position => position.Y)
                 .ThenBy(position => position.Z)
                 .ThenBy(position => position.X)
                 .ToArray(),
             processed);
+    }
+
+    private static int RemoveStaleLight(
+        VoxelWorld world, BlockRegistry blocks, FluidRegistry fluids,
+        DirectSkyContext directSky,
+        DeduplicatedQueue<WorldVoxelCoord> darkening,
+        DeduplicatedQueue<WorldVoxelCoord> brightening,
+        Dictionary<WorldVoxelCoord, VoxelLight> originals)
+    {
+        var processed = 0;
+        while (darkening.TryDequeue(out var position))
+        {
+            var address = VoxelCoordinates.FromWorld(
+                position.X, position.Y, position.Z);
+            if (!world.TryGetChunk(address.Chunk, out var chunk))
+                continue;
+
+            var local = address.Local;
+            var cell = chunk.GetCell(local.X, local.Y, local.Z);
+            var fluid = chunk.GetFluid(local.X, local.Y, local.Z);
+            var current = chunk.GetLight(local.X, local.Y, local.Z);
+            var desired = DesiredLight(
+                world, blocks, fluids, directSky,
+                position, chunk, local, cell, fluid);
+            processed++;
+
+            if (desired.Sky >= current.Sky &&
+                desired.Red >= current.Red &&
+                desired.Green >= current.Green &&
+                desired.Blue >= current.Blue)
+                continue;
+
+            var baseline = BaseLight(
+                blocks, fluids, directSky, position, chunk, local, cell, fluid);
+            var reduced = new VoxelLight(
+                desired.Sky < current.Sky ? baseline.Sky : current.Sky,
+                desired.Red < current.Red ? baseline.Red : current.Red,
+                desired.Green < current.Green ? baseline.Green : current.Green,
+                desired.Blue < current.Blue ? baseline.Blue : current.Blue);
+            originals.TryAdd(position, current);
+            chunk.SetLight(local.X, local.Y, local.Z, reduced);
+            EnqueueWithNeighbors(world, darkening, position);
+            EnqueueWithNeighbors(world, brightening, position);
+        }
+        return processed;
+    }
+
+    private static int RestoreLight(
+        VoxelWorld world, BlockRegistry blocks, FluidRegistry fluids,
+        DirectSkyContext directSky,
+        DeduplicatedQueue<WorldVoxelCoord> brightening,
+        Dictionary<WorldVoxelCoord, VoxelLight> originals)
+    {
+        var processed = 0;
+        while (brightening.TryDequeue(out var position))
+        {
+            var address = VoxelCoordinates.FromWorld(
+                position.X, position.Y, position.Z);
+            if (!world.TryGetChunk(address.Chunk, out var chunk))
+                continue;
+
+            var local = address.Local;
+            var cell = chunk.GetCell(local.X, local.Y, local.Z);
+            var fluid = chunk.GetFluid(local.X, local.Y, local.Z);
+            var current = chunk.GetLight(local.X, local.Y, local.Z);
+            var desired = DesiredLight(
+                world, blocks, fluids, directSky,
+                position, chunk, local, cell, fluid);
+            processed++;
+            var increased = VoxelLight.Max(current, desired);
+            if (increased == current)
+                continue;
+
+            originals.TryAdd(position, current);
+            chunk.SetLight(local.X, local.Y, local.Z, increased);
+            EnqueueWithNeighbors(world, brightening, position);
+        }
+        return processed;
+    }
+
+    private static VoxelLight BaseLight(
+        BlockRegistry blocks, FluidRegistry fluids, DirectSkyContext directSky,
+        WorldVoxelCoord position, Chunk chunk, LocalVoxelCoord local,
+        VoxelCell cell, FluidCell fluid)
+    {
+        var dampening = VoxelLightingMedium.Dampening(
+            chunk, blocks, fluids, local.X, local.Y, local.Z, cell, fluid);
+        var emission = VoxelLightingMedium.Emission(
+            blocks, fluids, cell, fluid);
+        return new VoxelLight(
+            dampening >= VoxelLight.MaxLevel
+                ? (byte)0
+                : directSky.LevelAt(position),
+            emission.Red, emission.Green, emission.Blue);
     }
 
     private static VoxelLight DesiredLight(

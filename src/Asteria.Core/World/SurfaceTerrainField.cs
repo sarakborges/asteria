@@ -738,7 +738,7 @@ public sealed class SurfaceTerrainField
             // The ocean contributes its authored shore elevation (not
             // the deep seabed) to the boundary; this does not raise any
             // ocean-owned column to match a neighboring mountain.
-            var neighborHeight =
+            var influenceHeight =
                 _coastProfile is { } coast &&
                 coast.IsOcean(influence.BiomeId)
                     ? coast.LandBoundaryHeightOffset
@@ -747,12 +747,12 @@ public sealed class SurfaceTerrainField
             // Ordinary elevated terrain rises only within its primary
             // biome. Self-tapered cones must join their actual neighbor
             // even when their low outer flank is below that neighbor.
-            if (!tapersFromFormation && neighborHeight >= primaryHeight)
+            if (!tapersFromFormation && influenceHeight >= primaryHeight)
             {
                 continue;
             }
 
-            neighboringHeightSum += neighborHeight * influence.Weight;
+            neighboringHeightSum += influenceHeight * influence.Weight;
             neighboringWeightSum += influence.Weight;
             strongestNeighborWeight = Math.Max(
                 strongestNeighborWeight,
