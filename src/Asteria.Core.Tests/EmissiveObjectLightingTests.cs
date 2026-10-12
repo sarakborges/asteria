@@ -25,7 +25,7 @@ public sealed class EmissiveObjectLightingTests
         Assert.Equal(new BlockLightEmission(12, 3, 1),
             ObjectDefinition.Parse(RedObject).LightEmission);
         var dark = ObjectDefinition.Parse(RedObject.Replace(
-            """"lightEmission":{"red":12,"green":3,"blue":1}""", ""));
+            "\"lightEmission\":{\"red\":12,\"green\":3,\"blue\":1}", "\"lightEmission\":null"));
         Assert.True(dark.LightEmission.IsDark);
         Assert.Throws<FormatException>(() => ObjectDefinition.Parse(
             RedObject.Replace("\"red\":12", "\"red\":16")));
