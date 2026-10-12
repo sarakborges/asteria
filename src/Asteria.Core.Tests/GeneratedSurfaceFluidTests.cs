@@ -693,7 +693,6 @@ public sealed class GeneratedSurfaceFluidTests
             address.Local.X, address.Local.Y, address.Local.Z);
         Assert.Equal(fluids.GetId("asteria:lava"), fluid.Fluid);
         Assert.True(fluid.IsSource);
-
     }
 
     private static (int X, int Z) FindFloodedVolcanoCore(
