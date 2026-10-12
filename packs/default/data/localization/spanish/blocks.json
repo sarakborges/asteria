@@ -86,6 +86,9 @@
   "asteria:charwood": {
     "/name": "Madera Carbonizada"
   },
+  "asteria:charwood_stripped": {
+    "/name": "Madera Carbonizada Descortezada"
+  },
   "asteria:cinder_bloom": {
     "/name": "Flor de Cenizas"
   },
@@ -161,6 +164,9 @@
   "asteria:frost_wood": {
     "/name": "Madera Helada"
   },
+  "asteria:frost_wood_stripped": {
+    "/name": "Madera Helada Descortezada"
+  },
   "asteria:glacial_ice_core": {
     "/name": "Núcleo de Hielo Glacial"
   },
@@ -223,6 +229,9 @@
   },
   "asteria:juniper_wood": {
     "/name": "Madera de Enebro"
+  },
+  "asteria:juniper_wood_stripped": {
+    "/name": "Madera de Enebro Descortezada"
   },
   "asteria:kelp_frond": {
     "/name": "Fronda de Alga Marina"
@@ -335,23 +344,14 @@
   "asteria:mud_tiles": {
     "/name": "Baldosas de Barro"
   },
-  "asteria:mushroom_blue": {
-    "/name": "Hongo Azul"
-  },
   "asteria:mushroom_brown": {
     "/name": "Hongo Marrón"
   },
   "asteria:mushroom_green": {
     "/name": "Hongo Verde"
   },
-  "asteria:mushroom_pink": {
-    "/name": "Hongo Rosa"
-  },
   "asteria:mushroom_purple": {
     "/name": "Hongo Morado"
-  },
-  "asteria:mushroom_red": {
-    "/name": "Hongo Rojo"
   },
   "asteria:mushroom_yellow": {
     "/name": "Hongo Amarillo"
@@ -386,6 +386,12 @@
   "asteria:rime_deadwood": {
     "/name": "Madera Muerta Escarchada"
   },
+  "asteria:rime_deadwood_stripped": {
+    "/name": "Madera Muerta Escarchada Descortezada"
+  },
+  "asteria:rime_leaves": {
+    "/name": "Hojas Escarchadas"
+  },
   "asteria:rock_lichen": {
     "/name": "Liquen de Roca"
   },
@@ -413,6 +419,39 @@
   "asteria:sandstone_tiles": {
     "/name": "Baldosas de Arenisca"
   },
+  "asteria:sapling_charwood": {
+    "/name": "Brote de Madera Carbonizada"
+  },
+  "asteria:sapling_enchanted_tree": {
+    "/name": "Brote de Árbol Encantado"
+  },
+  "asteria:sapling_frost_wood": {
+    "/name": "Brote de Madera Gélida"
+  },
+  "asteria:sapling_juniper": {
+    "/name": "Brote de Enebro"
+  },
+  "asteria:sapling_oak": {
+    "/name": "Brote de Roble"
+  },
+  "asteria:sapling_rime_deadwood": {
+    "/name": "Brote de Escarcha"
+  },
+  "asteria:sapling_skywood": {
+    "/name": "Brote de Madera Celeste"
+  },
+  "asteria:sapling_thornwood": {
+    "/name": "Brote de Madera Espinosa"
+  },
+  "asteria:sapling_willow": {
+    "/name": "Brote de Sauce"
+  },
+  "asteria:sapling_windwood": {
+    "/name": "Brote de Madera del Viento"
+  },
+  "asteria:sapling_world_tree": {
+    "/name": "Brote del Árbol del Mundo"
+  },
   "asteria:saxifrage": {
     "/name": "Saxífraga"
   },
@@ -433,6 +472,9 @@
   },
   "asteria:skywood_log": {
     "/name": "Tronco de Madera Celeste"
+  },
+  "asteria:skywood_log_stripped": {
+    "/name": "Tronco de Madera Celeste Descortezado"
   },
   "asteria:snow": {
     "/name": "Nieve"
@@ -509,6 +551,12 @@
   "asteria:thornwood": {
     "/name": "Madera Espinosa"
   },
+  "asteria:thornwood_leaves": {
+    "/name": "Hojas de Madera Espinosa"
+  },
+  "asteria:thornwood_stripped": {
+    "/name": "Madera Espinosa Descortezada"
+  },
   "asteria:violet_fern": {
     "/name": "Helecho Violeta"
   },
@@ -533,67 +581,10 @@
   "asteria:windwood_needles": {
     "/name": "Agujas de Madera del Viento"
   },
-  "asteria:yucca": {
-    "/name": "Yuca"
-  },
-  "asteria:charwood_stripped": {
-    "/name": "Madera Carbonizada Descortezada"
-  },
-  "asteria:frost_wood_stripped": {
-    "/name": "Madera Helada Descortezada"
-  },
-  "asteria:juniper_wood_stripped": {
-    "/name": "Madera de Enebro Descortezada"
-  },
-  "asteria:rime_deadwood_stripped": {
-    "/name": "Madera Muerta Escarchada Descortezada"
-  },
-  "asteria:skywood_log_stripped": {
-    "/name": "Tronco de Madera Celeste Descortezado"
-  },
-  "asteria:thornwood_stripped": {
-    "/name": "Madera Espinosa Descortezada"
-  },
   "asteria:windwood_stripped": {
     "/name": "Madera del Viento Descortezada"
   },
-  "asteria:rime_leaves": {
-    "/name": "Hojas Escarchadas"
-  },
-  "asteria:thornwood_leaves": {
-    "/name": "Hojas de Madera Espinosa"
-  },
-  "asteria:sapling_charwood": {
-    "/name": "Brote de Madera Carbonizada"
-  },
-  "asteria:sapling_enchanted_tree": {
-    "/name": "Brote de Árbol Encantado"
-  },
-  "asteria:sapling_frost_wood": {
-    "/name": "Brote de Madera Gélida"
-  },
-  "asteria:sapling_juniper": {
-    "/name": "Brote de Enebro"
-  },
-  "asteria:sapling_oak": {
-    "/name": "Brote de Roble"
-  },
-  "asteria:sapling_rime_deadwood": {
-    "/name": "Brote de Escarcha"
-  },
-  "asteria:sapling_skywood": {
-    "/name": "Brote de Madera Celeste"
-  },
-  "asteria:sapling_thornwood": {
-    "/name": "Brote de Madera Espinosa"
-  },
-  "asteria:sapling_willow": {
-    "/name": "Brote de Sauce"
-  },
-  "asteria:sapling_windwood": {
-    "/name": "Brote de Madera del Viento"
-  },
-  "asteria:sapling_world_tree": {
-    "/name": "Brote del Árbol del Mundo"
+  "asteria:yucca": {
+    "/name": "Yuca"
   }
 }
