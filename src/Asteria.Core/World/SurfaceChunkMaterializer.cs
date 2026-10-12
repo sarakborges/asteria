@@ -6,6 +6,21 @@ namespace Asteria.Core.World;
 /// </summary>
 public sealed class SurfaceChunkMaterializer
 {
+    private readonly record struct PendingGeneratedObject(
+        int X, int Y, int Z, string Id, BlockFace Face, bool Submerged = false)
+    {
+        public (int X, int Y, int Z) Target => Face switch
+        {
+            BlockFace.Top => (X, Y + 1, Z),
+            BlockFace.Bottom => (X, Y - 1, Z),
+            BlockFace.Right => (X + 1, Y, Z),
+            BlockFace.Left => (X - 1, Y, Z),
+            BlockFace.Front => (X, Y, Z + 1),
+            BlockFace.Back => (X, Y, Z - 1),
+            _ => throw new ArgumentOutOfRangeException(nameof(Face))
+        };
+    }
+
     private readonly SurfaceTerrainColumnCache _columns;
     private readonly SurfaceTerrainField _terrain;
     private readonly BiomeSurfaceMaterialField _materials;
@@ -102,7 +117,7 @@ public sealed class SurfaceChunkMaterializer
                 originY,
                 originZ);
         var topExclusive = checked(originY + Chunk.Size);
-        List<(int X, int Y, int Z, string Id, bool Submerged)>? pendingObjects = null;
+        List<PendingGeneratedObject>? pendingObjects = null;
 
         for (var localZ = 0; localZ < Chunk.Size; localZ++)
         {
@@ -286,8 +301,9 @@ public sealed class SurfaceChunkMaterializer
                         if (objectId is not null)
                         {
                             pendingObjects ??= [];
-                            pendingObjects.Add((localX, surfaceY - originY,
-                                localZ, objectId, submerged));
+                            pendingObjects.Add(new PendingGeneratedObject(
+                                localX, surfaceY - originY, localZ,
+                                objectId, BlockFace.Top, submerged));
                         }
                     }
                 }
@@ -348,11 +364,12 @@ public sealed class SurfaceChunkMaterializer
             chunk, column, densityVolume, originX, originY, originZ);
         MaterializeVerticalDecorations(
             chunk, column, densityVolume,
-            originX, originY, originZ);
+            originX, originY, originZ, ref pendingObjects);
         // Veins are placed before natural face coatings, so moss stays on top.
         _veins?.Apply(chunk, coord);
         MaterializeWallLayers(
-            chunk, column, densityVolume, originX, originY, originZ);
+            chunk, column, densityVolume, originX, originY, originZ,
+            ref pendingObjects);
         MaterializeWallObjects(
             chunk, column, densityVolume, originX, originY, originZ);
         // The Sphere Shell and its opaque terrain lining are the final
@@ -366,16 +383,25 @@ public sealed class SurfaceChunkMaterializer
         // Publish only after structures, caves, and the shell are final.
         if (pendingObjects is not null)
         {
-            foreach (var (x, y, z, id, submerged) in pendingObjects)
+            foreach (var obj in pendingObjects)
             {
-                if (chunk.GetCell(x, y, z).IsEmpty)
+                if ((_floorY is { } floor && originY + obj.Y <= floor) ||
+                    (_roofY is { } roof && originY + obj.Y >= roof))
                     continue;
-                var plantY = y + 1;
-                if (plantY < Chunk.Size &&
-                    (!chunk.GetCell(x, plantY, z).IsEmpty ||
-                     (submerged && chunk.GetFluid(x, plantY, z).IsEmpty)))
+                var support = chunk.GetCell(obj.X, obj.Y, obj.Z);
+                if (support.IsEmpty ||
+                    !_blocks.GetDefinition(support.Block).IsCollidable)
                     continue;
-                chunk.AddObject(x, y, z, new ObjectCell(id, BlockFace.Top));
+                var target = obj.Target;
+                if (Chunk.Contains(target.X, target.Y, target.Z))
+                {
+                    if (!chunk.GetCell(target.X, target.Y, target.Z).IsEmpty ||
+                        (obj.Submerged &&
+                         chunk.GetFluid(target.X, target.Y, target.Z).IsEmpty))
+                        continue;
+                }
+                chunk.AddObject(obj.X, obj.Y, obj.Z,
+                    new ObjectCell(obj.Id, obj.Face));
             }
         }
 
