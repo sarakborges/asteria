@@ -37,14 +37,40 @@ public sealed class ObjectLightEmissionField
                 if (target.Y < 0 || !world.IsLoadedAt(target) ||
                     !world.GetCellOrEmpty(target).IsEmpty)
                     return;
-                var emission = definition.LightEmission;
-                if (field._sources.TryGetValue(target, out var existing))
-                    emission = Combine(existing, emission);
-                field._sources[target] = emission;
+                field.Add(target, definition.LightEmission);
             });
         }
 
         return field;
+    }
+
+    /// <summary>Initial lighting of one independent materialized chunk.
+    /// Cross-seam emitters are reconciled by loaded-world lighting updates.</summary>
+    public static ObjectLightEmissionField Capture(
+        Chunk chunk, PackContentRegistry<ObjectDefinition>? definitions)
+    {
+        ArgumentNullException.ThrowIfNull(chunk);
+        var field = new ObjectLightEmissionField();
+        if (definitions is null || chunk.ObjectCount == 0) return field;
+        chunk.VisitObjectCells((x, y, z, obj) =>
+        {
+            if (!definitions.TryGet(obj.Id, out var definition) ||
+                definition is null || definition.LightEmission.IsDark)
+                return;
+            var target = Target(new WorldVoxelCoord(x, y, z), obj.Face);
+            if (!Chunk.Contains(target.X, target.Y, target.Z) ||
+                !chunk.GetCell(target.X, target.Y, target.Z).IsEmpty)
+                return;
+            field.Add(target, definition.LightEmission);
+        });
+        return field;
+    }
+
+    private void Add(WorldVoxelCoord target, BlockLightEmission emission)
+    {
+        if (_sources.TryGetValue(target, out var previous))
+            emission = Combine(previous, emission);
+        _sources[target] = emission;
     }
 
     public BlockLightEmission At(WorldVoxelCoord position) =>
