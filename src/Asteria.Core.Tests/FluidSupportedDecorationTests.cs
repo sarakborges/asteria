@@ -24,10 +24,12 @@ public sealed class FluidSupportedDecorationTests
         Assert.Equal("asteria:water", lily.FluidRequirement.Fluid);
         Assert.NotNull(cattail.HabitatWeights);
         Assert.NotNull(lily.HabitatWeights);
-        Assert.Equal(BlockVisualKind.CrossedSprite,
-            blocks.GetDefinition(blocks.GetId(cattail.Block)).Visual.Kind);
         var objects = PackContentRegistry<ObjectDefinition>.FromJson(
             ReadJson("objects"), ObjectDefinition.Parse, d => d.Id);
+        Assert.True(cattail.IsObject);
+        Assert.False(blocks.TryGetId(cattail.Block, out _));
+        Assert.Equal(ObjectVisualKind.CrossedSprite,
+            objects.Get(cattail.Block).Visual.Kind);
         Assert.True(lily.IsObject);
         Assert.Equal(ObjectVisualKind.ExtrudedSprite,
             objects.Get(lily.Block).Visual.Kind);
@@ -50,10 +52,7 @@ public sealed class FluidSupportedDecorationTests
     [Fact]
     public void NearbyRuleRequiresMatchingFluidAndNeverSpawnsOnWater()
     {
-        var blocks = new BlockRegistry([
-            new BlockDefinition("asteria:mud"),
-            new BlockDefinition("asteria:cattail")
-        ]);
+        var blocks = new BlockRegistry([new BlockDefinition("asteria:mud")]);
         var fluids = new FluidRegistry([
             new FluidDefinition("asteria:water", new FluidColor(0, 96, 255), 0.7f)
         ]);
@@ -66,7 +65,8 @@ public sealed class FluidSupportedDecorationTests
                 new BiomeDecorationDefinition("asteria:cattail", 1f,
                     ["asteria:mud"], fluidRequirement:
                     new BiomeDecorationFluidRequirement(
-                        "asteria:water", DecorationFluidRelation.Nearby, 2)),
+                        "asteria:water", DecorationFluidRelation.Nearby, 2),
+                    isObject: true),
                 new BiomeDecorationDefinition("asteria:lily_pad", 1f,
                     ["asteria:mud"], fluidRequirement:
                     new BiomeDecorationFluidRequirement(
@@ -83,10 +83,12 @@ public sealed class FluidSupportedDecorationTests
         var water = fluids.GetId("asteria:water");
         Assert.True(field.BlockAt(sample, mud, 3, 4, supportY: 90,
             nearbyFluid: (f, radius, x, y, z) => false).IsAir);
-        Assert.Equal(blocks.GetId("asteria:cattail"),
-            field.BlockAt(sample, mud, 3, 4, supportY: 90,
+        Assert.Equal("asteria:cattail",
+            field.ObjectAt(sample, mud, 3, 4, supportY: 90,
                 nearbyFluid: (f, radius, x, y, z) =>
                     f == water && radius == 2 && x == 3 && y == 90 && z == 4));
+        Assert.Null(field.ObjectAt(sample, mud, 3, 4, supportY: 90,
+            nearbyFluid: (f, radius, x, y, z) => false));
         Assert.True(field.BlockAt(sample, mud, 3, 4,
             onFluidSurface: true).IsAir);
         Assert.Equal("asteria:lily_pad",
