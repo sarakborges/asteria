@@ -4586,7 +4586,11 @@ public partial class Main : Node3D
             // Objects intercept interaction: do not place blocks behind them.
             return;
         }
-        var target = CurrentTarget();
+        var selectedForPlacement = _sessionStates.Player.Inventory.SelectedStack;
+        var fluidSurface = selectedForPlacement is { Kind: InventoryEntryKind.Object } &&
+            _objects.TryGet(selectedForPlacement.Id, out var placingObject) &&
+            placingObject?.SupportFluid is not null;
+        var target = CurrentTarget(fluidSurface);
         if (target is { } storageHit &&
             _sessions.Active.TryOpenStorageBox(storageHit.Voxel))
         {
@@ -4830,7 +4834,9 @@ public partial class Main : Node3D
             _player is not { IsMouseCaptured: true } player ||
             !_sessionStates.Player.CanInteract ||
             _sessionStates.Player.Inventory.SelectedStack is not { } selected ||
-            CurrentTarget() is not { } hit)
+            CurrentTarget(selected.Kind == InventoryEntryKind.Object &&
+                _objects.TryGet(selected.Id, out var previewDefinition) &&
+                previewDefinition?.SupportFluid is not null) is not { } hit)
         {
             _placementPreview.Hide();
             _objectPlacementPreview.Hide();
@@ -4844,7 +4850,7 @@ public partial class Main : Node3D
             var decision = CurrentObjectTarget() is not null
                 ? default
                 : ObjectPlacementResolver.Resolve(
-                    _world, _blocks, _objects, selected, hit);
+                    _world, _blocks, _objects, selected, hit, _fluids);
             _objectPlacementPreview.Sync(decision, _objects);
             return;
         }
@@ -4900,7 +4906,7 @@ public partial class Main : Node3D
             _world, _blocks, _objects, origin, direction, InteractionDistance);
     }
 
-    private VoxelWorldHit? CurrentTarget()
+    private VoxelWorldHit? CurrentTarget(bool fluidSurface = false)
     {
         if (_player is null)
         {
@@ -4923,7 +4929,7 @@ public partial class Main : Node3D
                 direction.X,
                 direction.Y,
                 direction.Z),
-            InteractionDistance);
+            InteractionDistance, fluidSurface);
     }
 
     private bool TryGetTarget(
