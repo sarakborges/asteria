@@ -67,6 +67,7 @@ public sealed record HintPreferencesSnapshot(
     bool StructureTool);
 
 public sealed record HudPreferencesSnapshot(
+    bool HideHud,
     bool HideHints,
     TargetBlockPosition TargetBlockPosition,
     HintPreferencesSnapshot Hints);
@@ -117,6 +118,8 @@ public sealed class ClientPreferences
     public int RenderDistanceChunks { get; private set; } =
         DefaultRenderDistanceChunks;
 
+    public bool HideHud { get; private set; }
+
     public bool HideHints { get; private set; }
 
     public TargetBlockPosition TargetBlockPosition { get; private set; } =
@@ -151,6 +154,14 @@ public sealed class ClientPreferences
         }
 
         RenderDistanceChunks = next;
+        Revision++;
+        return true;
+    }
+
+    public bool SetHideHud(bool value)
+    {
+        if (HideHud == value) return false;
+        HideHud = value;
         Revision++;
         return true;
     }
@@ -217,6 +228,7 @@ public sealed class ClientPreferences
         new(
             RenderDistanceChunks,
             new HudPreferencesSnapshot(
+                HideHud,
                 HideHints,
                 TargetBlockPosition,
                 new HintPreferencesSnapshot(
@@ -268,6 +280,7 @@ public sealed class ClientPreferences
         var result = new ClientPreferences
         {
             RenderDistanceChunks = snapshot.RenderDistanceChunks,
+            HideHud = snapshot.Hud.HideHud,
             HideHints = snapshot.Hud.HideHints,
             TargetBlockPosition = snapshot.Hud.TargetBlockPosition,
         };
