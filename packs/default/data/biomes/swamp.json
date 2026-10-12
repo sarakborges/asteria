@@ -96,7 +96,7 @@
       }
     },
     {
-      "block": "asteria:cattail",
+      "object": "asteria:cattail",
       "chance": 0.0144,
       "surfaceBlocks": [
         "asteria:grass_block",
@@ -223,7 +223,7 @@
       }
     },
     {
-      "block": "asteria:marsh_orchid",
+      "object": "asteria:marsh_orchid",
       "chance": 0.0116,
       "surfaceBlocks": [
         "asteria:mud",
@@ -253,7 +253,7 @@
       }
     },
     {
-      "block": "asteria:bulrush",
+      "object": "asteria:bulrush",
       "chance": 0.0144,
       "surfaceBlocks": [
         "asteria:mud",
