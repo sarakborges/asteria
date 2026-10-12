@@ -1,6 +1,15 @@
 {
+  "asteria:aether_vines": {
+    "/name": "Enredaderas Etéreas"
+  },
+  "asteria:cloud_reed": {
+    "/name": "Junco de las Nubes"
+  },
   "asteria:grass": {
     "/name": "Hierba"
+  },
+  "asteria:hanging_roots": {
+    "/name": "Raíces Colgantes"
   },
   "asteria:kelp": {
     "/name": "Alga kelp"
@@ -8,14 +17,23 @@
   "asteria:mushroom_blue": {
     "/name": "Hongo Azul"
   },
+  "asteria:mushroom_brown": {
+    "/name": "Hongo Marrón"
+  },
   "asteria:mushroom_pink": {
     "/name": "Hongo Rosa"
+  },
+  "asteria:mushroom_purple": {
+    "/name": "Hongo Morado"
   },
   "asteria:mushroom_red": {
     "/name": "Hongo Rojo"
   },
   "asteria:seagrass": {
     "/name": "Hierba marina"
+  },
+  "asteria:wall_shelf_fungus": {
+    "/name": "Hongo de Repisa de Pared"
   },
   "asteria:wildflower_blue": {
     "/name": "Flor Silvestre Azul"
