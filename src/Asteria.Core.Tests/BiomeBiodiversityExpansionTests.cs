@@ -1,3 +1,4 @@
+using Asteria.Core.Content;
 using Asteria.Core.World;
 
 namespace Asteria.Core.Tests;
@@ -10,6 +11,9 @@ public sealed class BiomeBiodiversityExpansionTests
         var blocks = BlockRegistry.FromJson(ReadJson("blocks"));
         var biomes = BiomeRegistry.FromJson(ReadJson("biomes"));
         biomes.ValidateBlocks(blocks);
+        var objects = PackContentRegistry<ObjectDefinition>.FromJson(
+            ReadJson("objects"), ObjectDefinition.Parse, definition => definition.Id);
+        biomes.ValidateObjects(objects);
         var plains = biomes.Get("asteria:overworld/plains");
         var names = new[] {
             "wildflower_blue", "wildflower_yellow",
@@ -27,10 +31,22 @@ public sealed class BiomeBiodiversityExpansionTests
             Assert.Contains("asteria:grass_block", rule.SurfaceBlocks);
             Assert.True(rule.HabitatWeights!.For("open") >
                 rule.HabitatWeights.For("rocky"));
-            var block = blocks.GetDefinition(blocks.GetId(rule.Block));
-            Assert.True(block.HasTag(BlockPhysicsCapabilities.SupportBelow));
-            Assert.True(block.WindSway);
-            Assert.Equal(BlockVisualKind.CrossedSprite, block.Visual.Kind);
+            Assert.Equal(name is "wildflower_blue" or "wildflower_yellow", rule.IsObject);
+            if (rule.IsObject)
+            {
+                Assert.False(blocks.TryGetId(rule.Block, out _));
+                var flower = objects.Get(rule.Block);
+                Assert.True(flower.Supports(BlockFace.Top));
+                Assert.True(flower.WindSway);
+                Assert.Equal(ObjectVisualKind.CrossedSprite, flower.Visual.Kind);
+            }
+            else
+            {
+                var block = blocks.GetDefinition(blocks.GetId(rule.Block));
+                Assert.True(block.HasTag(BlockPhysicsCapabilities.SupportBelow));
+                Assert.True(block.WindSway);
+                Assert.Equal(BlockVisualKind.CrossedSprite, block.Visual.Kind);
+            }
         }
         var grass = Assert.Single(plains.Decorations,
             d => d.Block == "asteria:tall_grass");
