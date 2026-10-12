@@ -13,6 +13,7 @@ const MAX_DRAFT_CHARS = 256;
 export type ChatPanelProps = {
   open: boolean;
   visible: boolean;
+  focusRequest?: number;
   history: readonly ChatMessageView[];
   suggestions?: readonly ChatSuggestionView[];
   selectedSuggestionIndex?: number;
@@ -25,7 +26,7 @@ export type ChatPanelProps = {
 };
 
 export function ChatPanel({
-  open, visible, history, suggestions = [], selectedSuggestionIndex = 0,
+  open, visible, focusRequest = 0, history, suggestions = [], selectedSuggestionIndex = 0,
   draft, onDraftChange, onSubmit, onMessageAction, onInputKeyDown,
   onInputSelect,
 }: ChatPanelProps) {
@@ -41,11 +42,15 @@ export function ChatPanel({
     }
   }, [visible, newestMessageId]);
 
-  // The chat input can be mounted after gameplay hands focus to the WebView.
-  // Explicitly focus whenever the chat opens (including from history-only mode).
+  // Mount, native WebView handoff and OS focus restoration can happen in
+  // different frames. Keep the focused UI field authoritative for chat input.
   useLayoutEffect(() => {
-    if (open && visible) inputRef.current?.focus({ preventScroll: true });
-  }, [open, visible]);
+    if (!open || !visible) return;
+    const focusInput = () => inputRef.current?.focus({ preventScroll: true });
+    focusInput();
+    window.addEventListener("focus", focusInput);
+    return () => window.removeEventListener("focus", focusInput);
+  }, [open, visible, focusRequest]);
 
   if (!visible) return null;
 
