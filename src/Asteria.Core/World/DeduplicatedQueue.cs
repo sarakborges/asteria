@@ -59,6 +59,18 @@ public sealed class DeduplicatedQueue<T>
         return true;
     }
 
+    public bool TryPeek(out T value)
+    {
+        if (_order.First is { } first)
+        {
+            value = first.Value;
+            return true;
+        }
+
+        value = default!;
+        return false;
+    }
+
     public bool TryDequeue(out T value)
     {
         var first = _order.First;
