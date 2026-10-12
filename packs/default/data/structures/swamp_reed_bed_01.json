@@ -41,10 +41,10 @@
   },
   "palette": {
     "B": {
-      "block": "asteria:bulrush"
+      "object": "asteria:bulrush"
     },
     "C": {
-      "block": "asteria:cattail"
+      "object": "asteria:cattail"
     }
   },
   "layers": [
