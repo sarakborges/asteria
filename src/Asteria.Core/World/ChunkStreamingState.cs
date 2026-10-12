@@ -78,6 +78,32 @@ public sealed class ChunkStreamingState
         Center != center ||
         HorizontalRadius != horizontalRadius;
 
+    /// <summary>
+    /// Builds an immediate player-local selection while a full surface-range
+    /// selection is in flight. Keep previously desired chunks within the new
+    /// horizontal radius instead of repeatedly discarding and re-requesting
+    /// their already known surface columns on every player-chunk crossing.
+    /// </summary>
+    public HashSet<ChunkCoord> BootstrapSelection(
+        ChunkCoord center,
+        int horizontalRadius)
+    {
+        var desired = ChunkStreamingSelection.DesiredPlayerLocalChunks(
+            center, horizontalRadius);
+        var radius = Math.Max(1, horizontalRadius);
+        var radiusSquared = (long)radius * radius;
+
+        foreach (var coord in _desired)
+        {
+            var dx = (long)coord.X - center.X;
+            var dz = (long)coord.Z - center.Z;
+            if (dx * dx + dz * dz <= radiusSquared)
+                desired.Add(coord);
+        }
+
+        return desired;
+    }
+
     public bool RebuildSelection(
         ChunkCoord center,
         int horizontalRadius,
