@@ -164,48 +164,28 @@ public sealed class ChunkResidencyRuntimeTests
     }
 
     [Fact]
-    public void PresentationWaitsForDesiredDependencyHalo()
+    public void PresentationDoesNotWaitForUnmaterializedNeighbor()
     {
-        var fixture =
-            CreateFixture();
-        var center =
-            ChunkCoord.Zero;
-        var neighbor =
-            new ChunkCoord(
-                1,
-                0,
-                0);
+        var fixture = CreateFixture();
+        var center = ChunkCoord.Zero;
+        var neighbor = new ChunkCoord(1, 0, 0);
 
-        fixture.World.InsertChunk(
-            center,
-            new Chunk());
+        fixture.World.InsertChunk(center, new Chunk());
         fixture.Runtime.SyncSelection(
             center,
             horizontalRadius: 1,
             retentionRadius: 2,
-            desired:
-                new HashSet<ChunkCoord>
-                {
-                    center,
-                    neighbor,
-                },
-            presented:
-                Array.Empty<ChunkCoord>());
+            desired: new HashSet<ChunkCoord> { center, neighbor },
+            presented: Array.Empty<ChunkCoord>());
 
-        Assert.Null(
-            fixture.Runtime
-                .PopPresentationByPriority());
+        // The local chunk must be immediately presentable even when
+        // the desired dependency halo has not been materialized.
+        Assert.Equal(center, fixture.Runtime.PopPresentationByPriority());
+        Assert.Null(fixture.Runtime.PopPresentationByPriority());
 
-        fixture.World.InsertChunk(
-            neighbor,
-            new Chunk());
-        fixture.Runtime.SyncResidentState(
-            Array.Empty<ChunkCoord>());
-
-        Assert.Equal(
-            center,
-            fixture.Runtime
-                .PopPresentationByPriority());
+        fixture.World.InsertChunk(neighbor, new Chunk());
+        fixture.Runtime.SyncResidentState(new[] { center });
+        Assert.Equal(neighbor, fixture.Runtime.PopPresentationByPriority());
     }
 
     [Fact]
