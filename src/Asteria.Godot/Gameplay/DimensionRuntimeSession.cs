@@ -328,7 +328,8 @@ public sealed class DimensionRuntimeSession
                 terrainMaterials,
                 fluidMaterials,
                 objects,
-                packSelection);
+                packSelection,
+                Generator.Tints);
         TerrainMesh =
             new TerrainMeshPipeline(
                 World,
