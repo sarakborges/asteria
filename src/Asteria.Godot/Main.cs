@@ -447,15 +447,14 @@ public partial class Main : Node3D
             return;
         }
 
-        // Captured gameplay Escape is handled by FpsPlayer, which releases
-        // mouse capture. With a released pointer the focused WRY UI owns its
-        // own Escape; Godot only supplies a semantic fallback if focus stayed
-        // with the native window. Never re-capture behind an open UI screen.
+        // Gameplay Escape releases capture in FpsPlayer. Once released,
+        // always forward native Escape to the UI: WRY's has_focus flag can
+        // remain true even when keyboard events still reach Godot instead
+        // of the browser. The UI escape action is idempotent for pause.
         if (keyEvent.Keycode == Key.Escape &&
             (_worldSeed is null || _player is { IsMouseCaptured: false }))
         {
-            if (!_webUi.Call("webui_has_focus").AsBool())
-                SendWebUi("game.ui.escape", new { });
+            SendWebUi("game.ui.escape", new { });
             GetViewport().SetInputAsHandled();
             return;
         }

@@ -95,3 +95,12 @@ test("native focus acknowledgment requests the chat input again", () => {
   receive(openChat);
   expect(store.getSnapshot().chat.focusRequest).toBe(1);
 });
+
+test("ESC closes the pause overlay without clicking it", async ({ page }) => {
+  await page.goto("/iframe.html?id=pages-newworldpage--modal-navigation&viewMode=story");
+  await expect(page.locator(".pause-menu")).toBeVisible();
+  // WebView often leaves focus on document.body after capture is released.
+  await page.evaluate(() => (document.activeElement as HTMLElement)?.blur());
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".pause-menu")).toHaveCount(0);
+});

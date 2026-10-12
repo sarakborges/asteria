@@ -137,22 +137,24 @@ export function App({
     event.stopPropagation();
   };
 
-  // WRY may focus the document body rather than the React interaction root
-  // after a native window focus change. Preserve child controls' own Escape
-  // behavior, and handle only keys that missed the React subtree entirely.
+  // Capture Escape at the window while paused. WRY can focus its native
+  // window or the document body without focusing an App descendant; the
+  // pause shortcut must never depend on clicking the menu first. For other
+  // screens preserve child controls' Escape behavior.
   useEffect(() => {
     const onWindowKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (interactionRoot.current?.contains(event.target as Node) ||
-          (state.navigation.death && !state.navigation.exitConfirmation) ||
+      if ((state.navigation.death && !state.navigation.exitConfirmation) ||
           event.key !== "Escape" ||
           event.defaultPrevented || event.repeat || event.isComposing ||
           !uiVisible) return;
+      if (state.navigation.overlay !== "pause" &&
+          interactionRoot.current?.contains(event.target as Node)) return;
       navigateEscape();
       event.preventDefault();
       event.stopPropagation();
     };
-    window.addEventListener("keydown", onWindowKeyDown);
-    return () => window.removeEventListener("keydown", onWindowKeyDown);
+    window.addEventListener("keydown", onWindowKeyDown, true);
+    return () => window.removeEventListener("keydown", onWindowKeyDown, true);
   }, [actions, uiVisible, state.navigation.death, state.navigation.exitConfirmation,
       state.navigation.overlay, state.settings.captureAction, state.chat.open]);
 
