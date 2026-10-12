@@ -114,42 +114,34 @@ A biome ID may not be repeated across placement pools. Surface entries must auth
 
 `surfaceLayout.weight` controls normal surface-biome distribution. `surfaceLayout.spawnWeight` is separate: it is a non-negative weight used only to choose the preferred initial-spawn biome deterministically from the dimension seed; the generated ocean biome is excluded from that choice. A zero spawn weight keeps a biome in normal world generation while preventing it from being selected as the preferred random spawn biome. `cannotBorder` is symmetric at runtime: if either biome denies the other, the pair is incompatible. MineClone legacy exclusive-neighbor groups are represented explicitly through these authored pairwise `cannotBorder` IDs rather than a second adjacency mechanism.
 
-Surface terrain is a tagged authored profile. The supported profile types are `rolling`, `dunes`, `ocean`, `swamp`, `mountains`, `gorge`, `alps`, `mountain_belt`, and `volcano`; the untagged macro/detail form remains valid for simple/custom noise terrain. Example:
+Surface terrain uses reusable, authored shapes: `noise`, `rolling`, `dunes`, `ridges`, `valley`, and `cone`. A cone tapers from the `BiomeField` formation strength and must not have its height blended down again against neighboring biomes. A crater is an optional, independent terrain feature:
 
 ```json
 "surfaceTerrain": {
-  "type": "volcano",
+  "type": "cone",
   "baseHeight": 12,
   "height": 72,
-  "craterDepth": 38,
-  "craterRadius": 0.14,
   "irregularity": 0.13,
   "irregularityScale": 0.009,
   "detailIrregularity": 0.055,
   "detailScale": 0.031,
-  "craterIrregularity": 0.08
+  "slopeNoiseGain": 4,
+  "crater": {
+    "depth": 38,
+    "radius": 0.14,
+    "irregularity": 0.08,
+    "noiseScale": 0.0153,
+    "transitionWidth": 0.01,
+    "fluidFill": {
+      "fluid": "asteria:lava",
+      "minimumStrength": 0.91,
+      "topLevel": 54
+    }
+  }
 }
 ```
 
-Typed terrain is still evaluated only by `SurfaceTerrainField`. `swamp`, `gorge`, and `volcano` consume the deterministic formation strength supplied by `BiomeField`; they do not create a parallel placement/distribution owner. Optional `surfaceTerrain.modifiers` currently supports `height_offset` and `cliffs`.
-
-A volcano biome may author crater lava without putting random lava patches on the Sphere:
-
-```json
-"surfaceFluid": {
-  "type": "volcano_crater",
-  "fluid": "asteria:lava",
-  "minimumStrength": 0.91,
-  "levelOffset": 8,
-  "spillMinimumStrength": 0.56,
-  "spillMaximumStrength": 0.9,
-  "spillScale": 0.012,
-  "spillWidth": 0.055,
-  "spillLevel": 6
-}
-```
-
-`volcano_crater` is valid only with `surfaceTerrain.type = "volcano"`. `GeneratedFluidField` derives the crater fill level from that terrain definition and may add deterministic spill channels; it never modifies the volcano shape.
+`SurfaceTerrainField` alone evaluates terrain, and `GeneratedFluidField` alone fills empty cells in the crater below the authored sea-level-relative `topLevel`. The default Volcano omits optional `fluidFill.spill`: independently seeded flank sources create disconnected lava patches rather than a terrain-following flow. Optional modifiers are `height_offset`, `cliffs`, and `depressions`; these do not create another terrain owner.
 
 A Sphere may define a shell floor, roof, or both:
 
