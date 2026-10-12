@@ -72,7 +72,7 @@ public sealed class OceanLandmarkContentTests
                 x => x.Structure == "asteria:" + group);
             Assert.NotNull(rule.HabitatWeights);
             Assert.InRange(rule.Spacing, 30, 130);
-            Assert.InRange(rule.Chance, .5f, 1f);
+            Assert.InRange(rule.Chance, .2f, .5f);
         }
         var fans = Assert.Single(authored, rule =>
             rule.Structure == "asteria:coral_fan_garden");
