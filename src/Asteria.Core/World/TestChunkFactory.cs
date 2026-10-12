@@ -25,10 +25,6 @@ public static class TestChunkFactory
         var gravel = blocks.GetId(GravelId);
         var clay = blocks.GetId(ClayId);
         var mud = blocks.GetId(MudId);
-        blocks.TryGetId(
-            GrassPlantId,
-            out var grassPlant);
-
         var chunk = new Chunk();
 
         for (var x = 0; x < Chunk.Size; x++)
@@ -63,18 +59,14 @@ public static class TestChunkFactory
 
                 if (decorationY < Chunk.Size &&
                     surfaceBlock == grass &&
-                    !grassPlant.IsAir &&
                     GroundDecorationHash(
                         x,
                         z,
                         salt: 11) %
                         3 == 0)
                 {
-                    chunk.SetBlock(
-                        x,
-                        decorationY,
-                        z,
-                        grassPlant);
+                    chunk.AddObject(x, surfaceY, z,
+                        new ObjectCell(GrassPlantId, BlockFace.Top));
                 }
                 else if (
                     decorationY < Chunk.Size &&
