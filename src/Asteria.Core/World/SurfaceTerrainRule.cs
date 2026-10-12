@@ -332,7 +332,9 @@ internal sealed class SurfaceTerrainRule
         // to zero at the rim, so it cannot breach or fragment the enclosure.
         var flank = Math.Clamp(strength / caldera.RimStrength, 0d, 1d);
         var raised = WorldGenerationEntropy.SmoothStep(flank);
-        var height = caldera.BaseHeight + caldera.Height * raised;
+        // Both the skirt and the summit vanish before the protected biome
+        // margin. No elevated caldera terrain is allowed on an ownership seam.
+        var height = (caldera.BaseHeight + caldera.Height) * raised;
 
         if (strength < caldera.RimStrength)
         {

@@ -16,9 +16,96 @@ public sealed class VolcanoBiomeContentTests
         Assert.Equal((12f, 72f, .27f, .08f, 58f),
             (caldera.BaseHeight, caldera.Height, caldera.CraterRadius,
                 caldera.FloorRadius, caldera.CraterDepth));
+        Assert.Equal(112f, caldera.FootprintRadius);
+        Assert.Equal(40f, caldera.BiomeMargin);
+        Assert.True(biome.SurfaceLayout!.RegionMin >=
+            2 * (caldera.FootprintRadius + caldera.BiomeMargin));
         Assert.Equal("asteria:lava", caldera.FluidFill!.Fluid);
         Assert.Equal(54f, caldera.FluidFill.TopLevel);
         Assert.True(caldera.RimStrength < caldera.FloorStrength);
+    }
+
+    [Theory]
+    [InlineData(17UL)]
+    [InlineData(44UL)]
+    [InlineData(731UL)]
+    public void GeneratedCalderaAndItsFullSafetyMarginBelongToVolcanoBiome(ulong seed)
+    {
+        var volcano = LoadVolcano();
+        var plains = BiomeDefinitionJson.Parse(File.ReadAllText(
+            Path.Combine(PackData, "biomes", "plains.json")));
+        var biomes = new BiomeRegistry([volcano, plains]);
+        var field = new BiomeField(seed, [volcano.Id, plains.Id], biomes);
+        var shape = Assert.IsType<BiomeCalderaTerrainShapeDefinition>(
+            volcano.SurfaceTerrain!.Shape);
+        var protectedRadius = shape.FootprintRadius + shape.BiomeMargin;
+
+        // Discover a REAL root from the generated placement field, rather
+        // than testing a fabricated strength or a standalone height profile.
+        var bestStrength = -1f;
+        var centerX = 0;
+        var centerZ = 0;
+        var sampler = field.CreateSampler();
+        for (var z = -512; z <= 512; z += 16)
+        for (var x = -512; x <= 512; x += 16)
+        {
+            var sample = sampler.Sample(x, z);
+            if (sample.Primary != volcano.Id ||
+                sample.PrimaryTerrainStrength <= bestStrength)
+                continue;
+            centerX = x;
+            centerZ = z;
+            bestStrength = sample.PrimaryTerrainStrength;
+        }
+        Assert.True(bestStrength > .98f,
+            "Expected a complete caldera center within the generated biome map.");
+
+        // Refine to the exact local maximum, including jittered seed centers.
+        var roughX = centerX;
+        var roughZ = centerZ;
+        for (var z = roughZ - 16; z <= roughZ + 16; z++)
+        for (var x = roughX - 16; x <= roughX + 16; x++)
+        {
+            var sample = sampler.Sample(x, z);
+            if (sample.Primary != volcano.Id ||
+                sample.PrimaryTerrainStrength <= bestStrength)
+                continue;
+            centerX = x;
+            centerZ = z;
+            bestStrength = sample.PrimaryTerrainStrength;
+        }
+        Assert.True(bestStrength > .9995f);
+
+        // All spokes and all radial depths must remain FULLY owned by the
+        // volcano, up through the empty biome buffer beyond the mountain.
+        for (var spoke = 0; spoke < 24; spoke++)
+        {
+            var angle = spoke * Math.Tau / 24d;
+            for (var radius = 0; radius < protectedRadius - 6; radius += 5)
+            {
+                var x = centerX + (int)Math.Round(radius * Math.Cos(angle));
+                var z = centerZ + (int)Math.Round(radius * Math.Sin(angle));
+                var sample = sampler.Sample(x, z);
+                Assert.Equal(volcano.Id, sample.Primary);
+                Assert.Equal(1f, sample.PrimaryWeight);
+            }
+        }
+    }
+
+    [Fact]
+    public void RejectsCalderaWhoseMinimumBiomeSizeCannotContainItsMargin()
+    {
+        var original = File.ReadAllText(
+            Path.Combine(PackData, "biomes", "volcano.json"));
+        var tooSmall = original.Replace(
+            "\"min\": 384", "\"min\": 128", StringComparison.Ordinal);
+        Assert.NotEqual(original, tooSmall);
+        var volcano = BiomeDefinitionJson.Parse(tooSmall);
+        var plains = BiomeDefinitionJson.Parse(File.ReadAllText(
+            Path.Combine(PackData, "biomes", "plains.json")));
+        Assert.Throws<ArgumentException>(() =>
+            new BiomeField(44UL, [volcano.Id, plains.Id],
+                new BiomeRegistry([volcano, plains])));
     }
 
     [Fact]

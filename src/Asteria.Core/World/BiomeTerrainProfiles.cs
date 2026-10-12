@@ -251,8 +251,18 @@ public sealed class BiomeCalderaTerrainShapeDefinition :
         float flankNoiseScale,
         float detailRoughness,
         float detailScale,
-        BiomeCalderaFluidFillDefinition? fluidFill = null)
+        BiomeCalderaFluidFillDefinition? fluidFill = null,
+        float footprintRadius = 0f,
+        float biomeMargin = 0f)
     {
+        if (!float.IsFinite(footprintRadius) || footprintRadius < 0f ||
+            !float.IsFinite(biomeMargin) || biomeMargin < 0f ||
+            ((footprintRadius == 0f) != (biomeMargin == 0f)))
+            throw new ArgumentOutOfRangeException(nameof(footprintRadius),
+                "Caldera footprint and its protective biome margin must be positive together, or both inferred from the biome's minimum region size.");
+
+        FootprintRadius = footprintRadius;
+        BiomeMargin = biomeMargin;
         BaseHeight = TerrainValue.Finite(baseHeight, nameof(baseHeight));
         Height = TerrainValue.Positive(height, nameof(height));
         CraterRadius = TerrainValue.OpenUnit(craterRadius, nameof(craterRadius));
@@ -284,6 +294,10 @@ public sealed class BiomeCalderaTerrainShapeDefinition :
 
     public float BaseHeight { get; }
     public float Height { get; }
+    /// <summary>Whole mountain radius in blocks; 0 derives it from regionSize.min.</summary>
+    public float FootprintRadius { get; }
+    /// <summary>Clear biome interior beyond every mountain flank; 0 derives it from regionSize.min.</summary>
+    public float BiomeMargin { get; }
     public float CraterRadius { get; }
     public float FloorRadius { get; }
     public float CraterDepth { get; }

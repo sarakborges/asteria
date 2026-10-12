@@ -215,7 +215,9 @@ public static class BiomeDefinitionJson
                         OptionalSingle(value, "flankNoiseScale") ?? 0.009f,
                         OptionalSingle(value, "detailRoughness") ?? 0f,
                         OptionalSingle(value, "detailScale") ?? 0.031f,
-                        ParseCalderaFluidFill(value)),
+                        ParseCalderaFluidFill(value),
+                        OptionalSingle(value, "footprintRadius") ?? 0f,
+                        OptionalSingle(value, "biomeMargin") ?? 0f),
                 _ =>
                     throw new FormatException(
                         $"Unknown surfaceTerrain.type: {type}"),
