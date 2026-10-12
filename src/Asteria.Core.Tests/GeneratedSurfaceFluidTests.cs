@@ -693,6 +693,40 @@ public sealed class GeneratedSurfaceFluidTests
             address.Local.X, address.Local.Y, address.Local.Z);
         Assert.Equal(fluids.GetId("asteria:lava"), fluid.Fluid);
         Assert.True(fluid.IsSource);
+
+        // The cone already tapers to the biome formation perimeter.
+        // Mixed biome weights must not reduce its elevation again.
+        var cone = Assert.IsType<BiomeConeTerrainShapeDefinition>(
+            biomes.Get("asteria:overworld/volcano").SurfaceTerrain!.Shape);
+        var checkedFlanks = 0;
+        for (var z = core.Z - 512; z <= core.Z + 512; z += 16)
+        for (var x = core.X - 512; x <= core.X + 512; x += 16)
+        {
+            var sample = generator.Biomes.Sample(x, z);
+            if (sample.Primary != "asteria:overworld/volcano")
+                continue;
+            var strength = (double)sample.PrimaryTerrainStrength;
+            if (strength is < 0.2d or > 0.58d ||
+                !sample.Influences.Any(influence =>
+                    influence.BiomeId != sample.Primary &&
+                    influence.Weight > 0.1f))
+                continue;
+
+            // A bounded signed noise perturbation can only lower cone
+            // strength by this amount; crater carving cannot occur at
+            // these strengths even at maximum irregularity.
+            var noiseBound = (cone.Irregularity + cone.DetailIrregularity) *
+                cone.SlopeNoiseGain * strength * (1d - strength);
+            var minimumSurface = (int)Math.Floor(
+                dimension.SeaLevel + cone.BaseHeight +
+                cone.Height * Math.Max(0d, strength - noiseBound));
+            Assert.True(generator.SurfaceHeight(x, z) >= minimumSurface,
+                $"Volcano flank flattened by biome mixing at {x},{z}.");
+            checkedFlanks++;
+        }
+
+        Assert.True(checkedFlanks > 0,
+            "Expected to inspect a mixed-biome volcanic flank.");
     }
 
     private static (int X, int Z) FindFloodedVolcanoCore(
