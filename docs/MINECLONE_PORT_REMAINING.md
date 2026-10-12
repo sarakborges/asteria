@@ -450,3 +450,9 @@ MineClone `world-systems-rebuild` reference: `world_objects.rs::detached_object_
 - Third-person, first-person, and inventory portrait share one per-player bounded Object mesh catalog and identical portable centering/scaling. The normal sprite/cube/tool paths remain unchanged.
 - Core regression tests cover both authored Object visual kinds and non-uniform target bounds. Native Godot preview, camera framing, contour transparency and authored foliage coloring still need in-game acceptance.
 
+## Object icon tint parity — 2026-10-12
+
+- Asteria already composites authored Block texture layers and dyable tint in `InventoryBlockPreviewRenderer`. The remaining Object path bypassed this and published raw pack PNGs even when `ObjectDefinition.tint` was authored (notably grass).
+- Reuse the same renderer to create bounded, cached, alpha-preserving tinted Object icon PNGs. Inventory/Creative/hotbar use the authored fallback color because they have no world location. The in-world Object target HUD samples the existing `Generator.Tints` field at the object's support X/Z and publishes the corresponding tinted thumbnail.
+- Untinted Objects continue using the unmodified selected-pack icon; no extra identity, GameUI tint computation, global palette state, or per-Object node is introduced. Core RGB math has focused tests; actual Godot/WRY screenshots are still required for icon parity.
+

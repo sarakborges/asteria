@@ -14,6 +14,9 @@ public sealed class InventoryBlockPreviewRenderer
 {
     private readonly PackSelection _pack;
     private readonly Dictionary<(string BlockId, BlockFace Face), string> _cache = [];
+    // Bounded icon-color variants; keys contain authored IDs and 8-bit color.
+    private readonly Dictionary<(string ObjectId, BlockPreviewColor Tint), string> _objectIcons = [];
+    private const int MaximumObjectIconVariants = 256;
 
     public InventoryBlockPreviewRenderer(PackSelection pack)
     {
@@ -82,6 +85,43 @@ public sealed class InventoryBlockPreviewRenderer
             _cache.Add(key, data);
             return data;
         }
+    }
+
+    /// <summary>
+    /// Produces authored fallback-tinted Object artwork for inventory or
+    /// sampled-biome-tinted artwork for a world target. White/untinted Objects
+    /// keep their existing raw pack PNG path in the caller.
+    /// </summary>
+    public string ObjectDataUri(
+        ObjectDefinition definition, BlockPreviewColor? sampledTint = null)
+    {
+        ArgumentNullException.ThrowIfNull(definition);
+        if (definition.Tint == BlockTint.None)
+            throw new ArgumentException(
+                "Untinted Object icons must use the authored source PNG.",
+                nameof(definition));
+
+        var tint = sampledTint ?? definition.TintFallback;
+        var key = (definition.Id, tint);
+        if (_objectIcons.TryGetValue(key, out var cached))
+            return cached;
+
+        using var image = ProjectPackFiles.LoadImage(_pack, definition.Icon);
+        Normalize(image);
+        if (image.GetWidth() <= 0 || image.GetHeight() <= 0 ||
+            (long)image.GetWidth() * image.GetHeight() >
+            ObjectIconTint.MaximumPixels)
+            throw new InvalidDataException(
+                $"Object icon exceeds maximum decoded size: {definition.Id}");
+        var pixels = ObjectIconTint.Apply(image.GetData(), tint);
+        using var tinted = Image.CreateFromData(
+            image.GetWidth(), image.GetHeight(), false, Image.Format.Rgba8, pixels);
+        var uri = "data:image/png;base64," +
+            Convert.ToBase64String(tinted.SavePngToBuffer());
+        if (_objectIcons.Count >= MaximumObjectIconVariants)
+            _objectIcons.Clear();
+        _objectIcons.Add(key, uri);
+        return uri;
     }
 
     private static void Normalize(Image image)

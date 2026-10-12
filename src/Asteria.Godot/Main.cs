@@ -2794,8 +2794,12 @@ public partial class Main : Node3D
                     name = choice.Entry.Id,
                     category = choice.Category,
                     metadata = choice.Entry.Metadata,
-                    iconUrl = choice.IconResourcePath is { } path
-                        ? IconDataUri(path) : null,
+                    iconUrl = choice.Entry.Kind == InventoryEntryKind.Object &&
+                        _objects.TryGet(choice.Entry.Id, out var objectDefinition) &&
+                        objectDefinition is { Tint: not BlockTint.None }
+                        ? _blockPreviewRenderer.ObjectDataUri(objectDefinition)
+                        : choice.IconResourcePath is { } path
+                            ? IconDataUri(path) : null,
                     blockPreview = BlockPreviewForInventory(choice.Entry),
                 })
                 .ToArray(),
@@ -2824,6 +2828,26 @@ public partial class Main : Node3D
                 ? _blockPreviewRenderer.FaceDataUri(block, BlockFace.Right)
                 : null,
         };
+    }
+
+    /// <summary>
+    /// The target HUD represents the actual world Object rather than the
+    /// fallback inventory palette. Sampling uses the generator's canonical
+    /// biome tint field; no second color model is inferred in UI.
+    /// </summary>
+    private BlockPreviewColor ResolveObjectHudTint(
+        ObjectDefinition definition, WorldVoxelCoord support)
+    {
+        var coord = VoxelCoordinates.FromWorld(
+            support.X, support.Y, support.Z).Chunk;
+        var sample = _sessions.Active.Generator.Tints
+            .SampleChunkGrid(coord.X, coord.Z)
+            .Resolve(definition.Tint, definition.TintFallback,
+                support.X, support.Z);
+        static byte Channel(float value) =>
+            (byte)Math.Clamp((int)MathF.Round(value * 255f), 0, 255);
+        return new BlockPreviewColor(
+            Channel(sample.X), Channel(sample.Y), Channel(sample.Z));
     }
 
     private string IconDataUri(string resourcePath)
@@ -4007,7 +4031,11 @@ public partial class Main : Node3D
                     kind = "object",
                     id = definition.Id,
                     name = definition.Id,
-                    iconUrl = IconDataUri(definition.Icon),
+                    iconUrl = definition.Tint != BlockTint.None
+                        ? _blockPreviewRenderer.ObjectDataUri(
+                            definition, ResolveObjectHudTint(definition,
+                                objectHit.Support))
+                        : IconDataUri(definition.Icon),
                     details = new[]
                     {
                         $"Face: {objectHit.Object.Face}",
