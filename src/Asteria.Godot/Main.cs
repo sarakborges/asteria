@@ -100,6 +100,7 @@ public partial class Main : Node3D
     private InventoryDropIconCatalog _inventoryDropIcons = null!;
     private InventoryBlockPreviewRenderer _blockPreviewRenderer = null!;
     private BlockPlacementPreviewPresentation _placementPreview = null!;
+    private ObjectPlacementPreviewPresentation _objectPlacementPreview = null!;
     private CreaturePortraitPresentation? _creaturePortrait;
     private readonly Dictionary<string, string> _inventoryIconCache =
         new(StringComparer.Ordinal);
@@ -288,6 +289,8 @@ public partial class Main : Node3D
             this, _terrainMaterials, _blocks, _objects);
         _placementPreview = new BlockPlacementPreviewPresentation(
             this, _blocks, _fluids, _terrainTextureLookup, _terrainMaterials);
+        _objectPlacementPreview = new ObjectPlacementPreviewPresentation(
+            this, _packSelection);
         _fluidMaterials =
             FluidMaterialCatalog.Create(
                 _fluids,
@@ -519,6 +522,7 @@ public partial class Main : Node3D
         if (_worldSeed is null)
         {
             _placementPreview.Hide();
+            _objectPlacementPreview.Hide();
             _worldDiagnostics?.FlushIfDue(0, 0, 0, 0, "MainMenu", 0, 0, 0, false);
             return;
         }
@@ -538,6 +542,7 @@ public partial class Main : Node3D
         if (_sessions.IsTransitioning)
         {
             _placementPreview.Hide();
+            _objectPlacementPreview.Hide();
             _heldDynamicLight.Clear();
             AdvanceDimensionTransition();
             _worldDiagnostics?.FlushIfDue(0, 0, 0, 0, "Transitioning", 0, 0, 0, false);
@@ -1036,6 +1041,7 @@ public partial class Main : Node3D
         _dimensionEnvironment.Clear();
         _heldDynamicLight.Clear();
         _placementPreview.Hide();
+            _objectPlacementPreview.Hide();
         _ambientParticleRuntime = null;
         _ambientParticlePresentation = null;
         _chat.Reset();
@@ -1182,6 +1188,7 @@ public partial class Main : Node3D
     private void RetirePlayerForDimensionTransition()
     {
         _placementPreview.Hide();
+            _objectPlacementPreview.Hide();
         if (_player is null)
         {
             return;
@@ -1343,6 +1350,7 @@ public partial class Main : Node3D
                             // Clear existing 3D previews immediately; they must
                             // not remain visible while their updates are paused.
                             _placementPreview.Hide();
+            _objectPlacementPreview.Hide();
                             if (_worldSeed is not null)
                                 _sessions.Active.StructureSelection.Hide();
                         }
@@ -4817,13 +4825,33 @@ public partial class Main : Node3D
 
     private void SyncPlacementPreview()
     {
-        if (_clientPreferences.HideHud || !_worldReadySent || _sessions.IsTransitioning || _inventoryOpen ||
-            _brushPaletteOpen || _chat.IsOpen ||
+        if (_clientPreferences.HideHud || !_worldReadySent || _sessions.IsTransitioning ||
+            _inventoryOpen || _brushPaletteOpen || _chat.IsOpen ||
             _player is not { IsMouseCaptured: true } player ||
             !_sessionStates.Player.CanInteract ||
-            _sessionStates.Player.Inventory.SelectedStack is not { Block: { } selected } ||
-            selected.HasMicroblockGeometry ||
+            _sessionStates.Player.Inventory.SelectedStack is not { } selected ||
             CurrentTarget() is not { } hit)
+        {
+            _placementPreview.Hide();
+            _objectPlacementPreview.Hide();
+            return;
+        }
+
+        if (selected.Kind == InventoryEntryKind.Object)
+        {
+            _placementPreview.Hide();
+            // Match interaction interception: no ghost through closer Objects.
+            var decision = CurrentObjectTarget() is not null
+                ? default
+                : ObjectPlacementResolver.Resolve(
+                    _world, _blocks, _objects, selected, hit);
+            _objectPlacementPreview.Sync(decision, _objects);
+            return;
+        }
+
+        _objectPlacementPreview.Hide();
+        if (selected.Block is not { } block ||
+            block.HasMicroblockGeometry)
         {
             _placementPreview.Hide();
             return;
@@ -4835,9 +4863,9 @@ public partial class Main : Node3D
             _placementPreview.Hide();
             return;
         }
-        var decision = BlockInteractionResolver.ResolvePlacement(
-            _world, _blocks, hit, cell, player.CollisionBounds);
-        _placementPreview.Sync(decision);
+
+        _placementPreview.Sync(BlockInteractionResolver.ResolvePlacement(
+            _world, _blocks, hit, cell, player.CollisionBounds));
     }
 
     private void SyncArchitectsCompassPreview()
