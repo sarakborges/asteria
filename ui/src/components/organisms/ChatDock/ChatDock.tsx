@@ -9,6 +9,7 @@ import "./ChatDock.css";
 export type ChatDockProps = {
   open: boolean;
   visible: boolean;
+  focusRequest?: number;
   history: readonly ChatMessageView[];
   commands: readonly string[];
   catalog: ChatCompletionCatalog;
@@ -18,7 +19,7 @@ export type ChatDockProps = {
 };
 
 export function ChatDock({
-  open, visible, history, commands, catalog, onSubmit, onClose, onMessageAction,
+  open, visible, focusRequest = 0, history, commands, catalog, onSubmit, onClose, onMessageAction,
 }: ChatDockProps) {
   const { t } = useLocalization();
   const [draft, setDraft] = useState("");
@@ -125,6 +126,7 @@ export function ChatDock({
       <ChatPanel
         open={open}
         visible={visible}
+        focusRequest={focusRequest}
         history={history}
         onMessageAction={onMessageAction}
         draft={draft}
