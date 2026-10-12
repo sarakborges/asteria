@@ -157,8 +157,7 @@ public sealed class SaplingGrowthRuntimeTests
             Assert.All(variants, variant =>
             {
                 Assert.Contains(variant.Voxels, v =>
-                    v.X == variant.Anchor.X && v.Y == variant.Anchor.Y + 1 &&
-                    v.Z == variant.Anchor.Z);
+                    v.X == 0 && v.Y == 1 && v.Z == 0);
                 Assert.All(variant.Voxels, v =>
                     Assert.True(blocks.TryGetId(v.Block, out _)));
             });

@@ -74,6 +74,9 @@
   "asteria:charwood": {
     "/name": "Charred Wood"
   },
+  "asteria:charwood_leaves": {
+    "/name": "Charwood Leaves"
+  },
   "asteria:charwood_stripped": {
     "/name": "Stripped Charred Wood"
   },

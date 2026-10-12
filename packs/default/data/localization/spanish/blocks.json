@@ -74,6 +74,9 @@
   "asteria:charwood": {
     "/name": "Madera Carbonizada"
   },
+  "asteria:charwood_leaves": {
+    "/name": "Hojas de Madera Carbonizada"
+  },
   "asteria:charwood_stripped": {
     "/name": "Madera Carbonizada Descortezada"
   },

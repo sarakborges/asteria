@@ -52,9 +52,8 @@ public sealed class SaplingGrowthRuntime
                 if (tree.Voxels.Count == 0 ||
                     tree.FluidVoxels.Count != 0 || tree.ClearVoxels.Count != 0 ||
                     tree.Objects.Count != 0 || tree.Connectors.Count != 0 ||
-                    !tree.Voxels.Any(v => v.X == tree.Anchor.X &&
-                                          v.Y == tree.Anchor.Y + 1 &&
-                                          v.Z == tree.Anchor.Z))
+                    !tree.Voxels.Any(v => v.X == 0 &&
+                                          v.Y == 1 && v.Z == 0))
                     throw new ArgumentException(
                         $"Growable Object {obj.Id} requires a self-contained trunk-rooted Structure: {tree.Id}.");
             }
@@ -125,10 +124,12 @@ public sealed class SaplingGrowthRuntime
         {
             // Existing authored y=0 terrain markers do not replace the
             // player's actual soil; the sapling already identifies the root.
-            if (voxel.Y <= tree.Anchor.Y) continue;
-            var x = (long)support.X + voxel.X - tree.Anchor.X;
-            var y = (long)support.Y + voxel.Y - tree.Anchor.Y;
-            var z = (long)support.Z + voxel.Z - tree.Anchor.Z;
+            if (voxel.Y <= 0) continue;
+            // StructureDefinitionJson already subtracts the authored anchor;
+            // each voxel is a local offset relative to the root.
+            var x = (long)support.X + voxel.X;
+            var y = (long)support.Y + voxel.Y;
+            var z = (long)support.Z + voxel.Z;
             if (x < int.MinValue || x > int.MaxValue ||
                 y < 0 || y > int.MaxValue ||
                 z < int.MinValue || z > int.MaxValue)
