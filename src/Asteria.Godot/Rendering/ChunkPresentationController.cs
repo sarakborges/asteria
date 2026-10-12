@@ -39,6 +39,7 @@ public sealed class ChunkPresentationController
 
     private ulong _appliedSelectionRevision;
     private readonly PackContentRegistry<ObjectDefinition> _objects;
+    private readonly BiomeTintField _objectTints;
     private readonly WorldObjectVisualCatalog _objectVisuals;
     private readonly DeduplicatedQueue<ChunkCoord> _pendingObjects = new();
 
@@ -52,7 +53,8 @@ public sealed class ChunkPresentationController
         VoxelTerrainMaterialSet terrainMaterials,
         FluidMaterialCatalog fluidMaterials,
         PackContentRegistry<ObjectDefinition> objects,
-        PackSelection packSelection)
+        PackSelection packSelection,
+        BiomeTintField objectTints)
     {
         _parent =
             parent ??
@@ -79,6 +81,8 @@ public sealed class ChunkPresentationController
             fluidMaterials ??
             throw new ArgumentNullException(nameof(fluidMaterials));
         _objects = objects ?? throw new ArgumentNullException(nameof(objects));
+        _objectTints = objectTints ??
+            throw new ArgumentNullException(nameof(objectTints));
         _objectVisuals = new WorldObjectVisualCatalog(packSelection);
         _world.ObjectChunkChanged += OnObjectChunkChanged;
     }
@@ -102,7 +106,7 @@ public sealed class ChunkPresentationController
             }
             if (_presentations.TryGetValue(coord, out var presentation) &&
                 _world.TryGetChunk(coord, out var chunk))
-                presentation.ApplyObjects(chunk, _objects, _objectVisuals);
+                presentation.ApplyObjects(chunk, _objects, _objectVisuals, _objectTints);
             processed++;
         }
         return processed;

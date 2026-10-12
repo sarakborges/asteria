@@ -16,7 +16,7 @@ public static class BlockDefinitionJson
         var category = OptionalString(root, "category") ?? "uncategorized";
         var tags = StringArray(root, "tags");
         var secondaryProperties = StringArray(root, "secondaryProperties");
-        var tint = ParseTint(OptionalString(root, "tint"));
+        var tint = BlockTintParser.Parse(OptionalString(root, "tint"));
         var textures = ParseTextures(root);
         var visual = ParseVisual(root);
         var textureRotations = ParseTextureRotations(root);
@@ -434,15 +434,6 @@ public static class BlockDefinitionJson
             StringArray(mining, "preferredTools"),
             OptionalBoolean(mining, "unbreakable") ?? false);
     }
-
-    private static BlockTint ParseTint(string? value) => value switch
-    {
-        null or "none" => BlockTint.None,
-        "grass" => BlockTint.Grass,
-        "leaf" => BlockTint.Leaf,
-        "foliage" => BlockTint.Foliage,
-        _ => throw new FormatException($"Unknown block tint: {value}"),
-    };
 
     private static string RequiredString(JsonElement value, string propertyName)
     {

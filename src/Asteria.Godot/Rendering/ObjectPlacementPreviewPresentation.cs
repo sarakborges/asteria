@@ -14,6 +14,8 @@ public sealed class ObjectPlacementPreviewPresentation
     private readonly WorldObjectVisualCatalog _visuals;
     private readonly MeshInstance3D _instance;
     private string? _shownId;
+    private StandardMaterial3D? _tintMaterial;
+    private (int X, int Z)? _tintColumn;
 
     public ObjectPlacementPreviewPresentation(Node3D parent, PackSelection pack)
     {
@@ -30,7 +32,8 @@ public sealed class ObjectPlacementPreviewPresentation
     }
 
     public void Sync(ObjectPlacementDecision placement,
-        PackContentRegistry<ObjectDefinition> definitions)
+        PackContentRegistry<ObjectDefinition> definitions,
+        BiomeTintField tints)
     {
         if (!placement.Accepted ||
             !definitions.TryGet(placement.Object.Id, out var definition) ||
@@ -42,8 +45,30 @@ public sealed class ObjectPlacementPreviewPresentation
 
         if (_shownId != definition.Id)
         {
-            _instance.Mesh = _visuals.GetMesh(definition);
+            var mesh = _visuals.GetMesh(definition);
+            _instance.Mesh = mesh;
             _shownId = definition.Id;
+            _tintColumn = null;
+            _tintMaterial = definition.Tint != BlockTint.None
+                ? (StandardMaterial3D)mesh.SurfaceGetMaterial(0)!.Duplicate()
+                : null;
+            _instance.MaterialOverride = _tintMaterial;
+        }
+
+        if (_tintMaterial is not null)
+        {
+            var location = (placement.Support.X, placement.Support.Z);
+            if (_tintColumn != location)
+            {
+                var coord = VoxelCoordinates.FromWorld(
+                    placement.Support.X, placement.Support.Y,
+                    placement.Support.Z).Chunk;
+                var sample = tints.SampleChunkGrid(coord.X, coord.Z);
+                var tint = sample.Resolve(definition.Tint, definition.TintFallback,
+                    location.Item1, location.Item2);
+                _tintMaterial.AlbedoColor = new Color(tint.X, tint.Y, tint.Z);
+                _tintColumn = location;
+            }
         }
 
         var pose = WorldObjectGeometry.Pose(

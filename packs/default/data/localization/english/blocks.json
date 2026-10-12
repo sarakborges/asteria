@@ -158,9 +158,6 @@
   "asteria:glow_pod": {
     "/name": "Glow Pod"
   },
-  "asteria:grass": {
-    "/name": "Grass"
-  },
   "asteria:grass_block": {
     "/name": "Grass Block"
   },

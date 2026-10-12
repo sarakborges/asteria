@@ -4851,7 +4851,8 @@ public partial class Main : Node3D
                 ? default
                 : ObjectPlacementResolver.Resolve(
                     _world, _blocks, _objects, selected, hit, _fluids);
-            _objectPlacementPreview.Sync(decision, _objects);
+            _objectPlacementPreview.Sync(decision, _objects,
+                _sessions.Active.Generator.Tints);
             return;
         }
 

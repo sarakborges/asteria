@@ -57,30 +57,23 @@ public sealed class BlockContentTests
         Assert.Contains("pickaxe", stone.Mining.RequiredTools);
         Assert.Equal("textures/blocks/stone.png", stone.Textures.Top.Single().Texture);
 
-        var grassPlant =
-            registry.GetDefinition(
-                registry.GetId(
-                    "asteria:grass"));
-        Assert.Equal(
-            BlockVisualKind.CrossedSprite,
+        Assert.False(registry.TryGetId("asteria:grass", out _));
+        var grassPlant = Asteria.Core.Content.ObjectDefinition.Parse(
+            File.ReadAllText(Path.Combine(AppContext.BaseDirectory,
+                "packs", "default", "data", "objects", "grass.json")));
+        Assert.Equal(Asteria.Core.Content.ObjectVisualKind.CrossedSprite,
             grassPlant.Visual.Kind);
-        Assert.Equal(
-            4,
-            grassPlant.Visual.Planes);
-        Assert.True(
-            grassPlant.Visual.Texture!.Value.Dyable);
+        Assert.Equal(4, grassPlant.Visual.Planes);
+        Assert.Equal(BlockTint.Foliage, grassPlant.Tint);
+        Assert.Equal(BlockPreviewColor.Parse("6f9f50"), grassPlant.TintFallback);
+        Assert.False(grassPlant.Unlit);
         Assert.Contains(
             BlockFace.Top,
             grassPlant.PlacementFaces);
         Assert.Single(
             grassPlant.PlacementFaces);
-        Assert.True(
-            grassPlant.HasTag(
-                BlockPhysicsCapabilities.SupportBelow));
-        Assert.False(
-            grassPlant.IsCollidable);
-        Assert.False(
-            grassPlant.DropsSelf);
+        Assert.True(grassPlant.Supports(BlockFace.Top));
+        Assert.False(grassPlant.DropSelf);
 
         Assert.False(registry.TryGetId("asteria:pebble", out _));
         var pebble = Asteria.Core.Content.ObjectDefinition.Parse(

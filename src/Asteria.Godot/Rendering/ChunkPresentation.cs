@@ -76,10 +76,12 @@ public sealed class ChunkPresentation
     /// Godot node per ObjectCell. ObjectRevision gates the entire rebuild.</summary>
     internal void ApplyObjects(
         Chunk chunk, PackContentRegistry<ObjectDefinition> definitions,
-        WorldObjectVisualCatalog visuals)
+        WorldObjectVisualCatalog visuals, BiomeTintField tints)
     {
         if (_objectRevision == chunk.ObjectRevision) return;
-        var groups = new SortedDictionary<string, List<Transform3D>>(StringComparer.Ordinal);
+        var groups = new SortedDictionary<string, List<(Transform3D Transform,
+            System.Numerics.Vector3 Color)>>(StringComparer.Ordinal);
+        BiomeTintSampleGrid? tintSamples = null;
         var origin = new Vector3(Root.Position.X, Root.Position.Y, Root.Position.Z);
         chunk.VisitObjectCells((x, y, z, cell) =>
         {
@@ -98,23 +100,40 @@ public sealed class ChunkPresentation
             var transform = new Transform3D(new Basis(rotation).Scaled(scale), position - origin);
             if (!groups.TryGetValue(definition.Id, out var batch))
                 groups.Add(definition.Id, batch = []);
-            batch.Add(transform);
+            var tint = System.Numerics.Vector3.One;
+            if (definition.Tint != BlockTint.None)
+            {
+                tintSamples ??= tints.SampleChunkGrid(Coord.X, Coord.Z);
+                tint = tintSamples.Resolve(definition.Tint, definition.TintFallback,
+                    worldX, worldZ);
+            }
+            batch.Add((transform, tint));
         });
 
         // Resource acquisition happens before old nodes are retired; an
         // invalid authored texture cannot silently erase existing geometry.
         var replacements = new Dictionary<string, MultiMeshInstance3D>(StringComparer.Ordinal);
-        foreach (var (id, transforms) in groups)
+        foreach (var (id, instances) in groups)
         {
-            var mesh = visuals.GetMesh(definitions.Get(id));
+            var definition = definitions.Get(id);
+            var mesh = visuals.GetMesh(definition);
+            var tinted = definition.Tint != BlockTint.None;
             var multimesh = new MultiMesh
             {
                 TransformFormat = MultiMesh.TransformFormatEnum.Transform3D,
+                UseColors = tinted,
                 Mesh = mesh,
-                InstanceCount = transforms.Count,
+                InstanceCount = instances.Count,
             };
-            for (var i = 0; i < transforms.Count; i++)
-                multimesh.SetInstanceTransform(i, transforms[i]);
+            for (var i = 0; i < instances.Count; i++)
+            {
+                multimesh.SetInstanceTransform(i, instances[i].Transform);
+                if (tinted)
+                {
+                    var tint = instances[i].Color;
+                    multimesh.SetInstanceColor(i, new Color(tint.X, tint.Y, tint.Z));
+                }
+            }
             replacements.Add(id, new MultiMeshInstance3D
             {
                 Name = $"WorldObjects_{id.Replace(':', '_')}",

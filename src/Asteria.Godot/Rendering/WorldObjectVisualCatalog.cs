@@ -46,6 +46,7 @@ internal sealed class WorldObjectVisualCatalog
         var material = new StandardMaterial3D
         {
             AlbedoTexture = texture,
+            VertexColorUseAsAlbedo = definition.Tint != BlockTint.None,
             ShadingMode = definition.Unlit
                 ? BaseMaterial3D.ShadingModeEnum.Unshaded
                 : BaseMaterial3D.ShadingModeEnum.PerPixel,
@@ -116,6 +117,9 @@ internal sealed class WorldObjectVisualCatalog
     {
         surface.SetNormal(normal);
         surface.SetUV(uv);
+        // Always author white base vertex color so instance/preview tint
+        // multiplies the same alpha-cutout texture without changing its hue.
+        surface.SetColor(Colors.White);
         surface.AddVertex(position);
     }
 }

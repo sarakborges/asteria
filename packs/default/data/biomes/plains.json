@@ -18,7 +18,7 @@
   },
   "decorations": [
     {
-      "block": "asteria:grass",
+      "object": "asteria:grass",
       "chance": 0.0312,
       "surfaceBlocks": [
         "asteria:grass_block"
