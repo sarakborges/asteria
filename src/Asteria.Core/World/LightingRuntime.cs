@@ -42,6 +42,16 @@ public sealed class LightingRuntime
     private WorldLightingBatch? _inFlightBatch;
     private double _inFlightCaptureMilliseconds;
 
+    // Keep large lighting updates from publishing tens of thousands of
+    // voxels and meshlet invalidations in one main-thread frame.
+    private const int MaximumPublishedVoxelsPerPoll = 1024;
+    private LightingWorkerResult? _publication;
+    private double _publicationCaptureMilliseconds;
+    private double _publicationApplyMilliseconds;
+    private int _publicationOffset;
+    private int _publicationDirtyChunks;
+    private int _publicationDirtyMeshlets;
+
     public LightingRuntime(
         VoxelWorld world,
         BlockRegistry blocks,
@@ -81,6 +91,7 @@ public sealed class LightingRuntime
         }
 
         if (_worker.IsRunning ||
+            _publication is not null ||
             !_updates.HasLightingWork)
         {
             return false;
