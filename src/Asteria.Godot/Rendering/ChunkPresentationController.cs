@@ -201,9 +201,15 @@ public sealed class ChunkPresentationController
                 ChunkMeshletMask.All.Except(terrainMeshlets));
             if (!terrainMeshlets.IsEmpty)
             {
-                _worldUpdates.EnqueueMeshlets(
-                    coord.Value,
-                    terrainMeshlets);
+                // Visible first-time presentations are interactive work:
+                // a resident chunk with no mesh must not wait behind
+                // background remeshes of distant terrain.
+                if (presentation.IsVisible)
+                    _worldUpdates.EnqueuePriorityMeshlets(
+                        coord.Value, terrainMeshlets);
+                else
+                    _worldUpdates.EnqueueMeshlets(
+                        coord.Value, terrainMeshlets);
             }
 
             var fluidMeshlets =
