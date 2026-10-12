@@ -104,6 +104,7 @@ public sealed class WorldObjectGeometryTests
         Assert.True(world.SetCellAt(support, VoxelCell.Empty, out _));
         Assert.Equal(new[] { ChunkCoord.Zero, ChunkCoord.Zero }, changed);
         Assert.False(world.RemoveObjectAt(support, obj));
+        Assert.Empty(world.ResidentObjectChunkCoords);
     }
 
     private sealed class Vector3Comparer(float epsilon) : IEqualityComparer<Vector3>

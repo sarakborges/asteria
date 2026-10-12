@@ -7,9 +7,8 @@ public readonly record struct WorldObjectHit(
     WorldVoxelCoord Support, ObjectCell Object, float Distance);
 
 /// <summary>
-/// Queries sparse resident chunk Object groups rather than scanning voxels.
-/// The broadphase is bounded by the maximum targeting reach + the authored
-/// transform/target envelope, and uses exactly the render pose for hitboxes.
+/// Queries only the resident chunks that contain Objects, not all chunks
+/// or voxel positions. Uses the canonical render pose for precise hitboxes.
 /// </summary>
 public static class WorldObjectRaycaster
 {

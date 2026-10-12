@@ -44,6 +44,8 @@ public sealed class ObjectDefinition
             placementFaces.Any(face => !Enum.IsDefined(face)) ||
             placementFaces.Distinct().Count() != placementFaces.Count)
             throw new FormatException("Object placement faces must be unique and valid.");
+        if (visual.Kind != ObjectVisualKind.CrossedSprite)
+            throw new FormatException("Only crossedSprite Objects are supported by the current renderer.");
         if (!WithinRange(visual.Width, 0f, 4f, exclusiveMinimum: true) ||
             !WithinRange(visual.Height, 0f, 4f, exclusiveMinimum: true) ||
             !WithinRange(visual.BaseOffset, 0f, 2f) ||

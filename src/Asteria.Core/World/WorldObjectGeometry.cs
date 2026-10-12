@@ -65,7 +65,7 @@ public static class WorldObjectGeometry
         foreach (var character in id)
         {
             hash ^= character;
-            hash *= 16777619u;
+            hash = unchecked(hash * 16777619u);
         }
         hash = Step(hash, unchecked((uint)support.X));
         hash = Step(hash, unchecked((uint)support.Y));

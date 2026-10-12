@@ -74,17 +74,14 @@ public sealed class ObjectDefinitionTests
     }
 
     [Fact]
-    public void ExtrudedSpriteDefinitionHasSeparateTarget()
+    public void UnsupportedExtrudedSpriteIsRejectedInsteadOfRenderedIncorrectly()
     {
-        var obj = ObjectDefinition.Parse("""
+        Assert.Throws<FormatException>(() => ObjectDefinition.Parse("""
         {"id":"asteria:pebble","category":"foliage",
          "icon":"textures/objects/pebble.png",
          "visual":{"type":"extrudedSprite","texture":"textures/objects/pebble.png",
            "height":0.012,"size":[0.42,0.42],"baseOffset":0.0125},
          "target":{"size":[0.42,0.14,0.42],"centerOffset":[0,0.07,0]}}
-        """);
-        Assert.Equal(ObjectVisualKind.ExtrudedSprite, obj.Visual.Kind);
-        Assert.Equal(BlockFace.Top, Assert.Single(obj.PlacementFaces));
-        Assert.Equal(.14f, obj.Target.Size.Y);
+        """));
     }
 }

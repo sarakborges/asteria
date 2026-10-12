@@ -26,10 +26,10 @@ internal sealed class WorldObjectVisualCatalog
         var surface = new SurfaceTool();
         surface.Begin(Mesh.PrimitiveType.Triangles);
         var visual = definition.Visual;
-        if (visual.Kind == ObjectVisualKind.CrossedSprite)
+        if (visual.Kind != ObjectVisualKind.CrossedSprite)
+            throw new InvalidOperationException("Unimplemented Object mesh type.");
+        for (var plane = 0; plane < visual.Planes; plane++)
         {
-            for (var plane = 0; plane < visual.Planes; plane++)
-            {
                 var angle = MathF.PI * plane / visual.Planes;
                 var forward = new Vector3(MathF.Cos(angle), 0f, MathF.Sin(angle));
                 var half = forward * visual.Width * .5f;
@@ -38,19 +38,6 @@ internal sealed class WorldObjectVisualCatalog
                     half + Vector3.Up * visual.BaseOffset,
                     half + Vector3.Up * (visual.BaseOffset + visual.Height),
                     -half + Vector3.Up * (visual.BaseOffset + visual.Height));
-            }
-        }
-        else
-        {
-            // ExtrudedSprite's footprint is authored in Core. Its ultra-thin
-            // planar upper surface is the first supported rendering primitive.
-            var half = visual.Width * .5f;
-            var y = visual.BaseOffset + visual.Height;
-            EmitQuad(surface,
-                new Vector3(-half, y, -half),
-                new Vector3(-half, y, half),
-                new Vector3(half, y, half),
-                new Vector3(half, y, -half));
         }
 
         var mesh = surface.Commit() ??
