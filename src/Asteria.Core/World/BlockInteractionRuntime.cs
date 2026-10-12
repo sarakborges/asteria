@@ -212,51 +212,11 @@ public sealed class BlockInteractionRuntime
             throw new InvalidOperationException(
                 $"Block {block.Id} has a lootTable but no content catalog is configured.");
 
-        var seed = LootSeed(decision.Position, worldTick);
-        var stacks = new List<InventoryStack>();
         var source = BlockStateSnapshot.Capture(
             _world, decision.Position, decision.Cell);
-        foreach (var loot in block.LootTable!.Entries)
-        {
-            if (loot.Chance < 1f && NextUnit(ref seed) >= loot.Chance)
-                continue;
-            if (!_inventoryCatalog.TryResolveLoot(loot.Item, out var resolved) ||
-                resolved is null)
-                throw new InvalidOperationException(
-                    $"Unknown loot entry {loot.Item} on block {block.Id}.");
-
-            // Self-drops retain rotation, tint, attachments, microblocks and dye.
-            var entry = resolved.Kind == InventoryEntryKind.Block &&
-                resolved.Id == block.Id
-                    ? InventoryEntry.FromBlock(block.Id, source)
-                    : resolved;
-            var remaining = loot.Quantity;
-            while (remaining > 0)
-            {
-                var quantity = Math.Min(remaining, entry.MaxStackSize);
-                stacks.Add(new InventoryStack(entry, quantity));
-                remaining -= quantity;
-            }
-        }
-        return stacks;
-    }
-
-    private static uint LootSeed(WorldVoxelCoord position, ulong tick)
-    {
-        var seed = unchecked((uint)tick) ^
-            BitOperations.RotateLeft(unchecked((uint)(tick >> 32)), 11);
-        seed ^= unchecked((uint)position.X * 0x9E3779B9u);
-        seed ^= unchecked((uint)position.Y * 0x85EBCA6Bu);
-        seed ^= unchecked((uint)position.Z * 0xC2B2AE35u);
-        return seed == 0 ? 0xA341316Cu : seed;
-    }
-
-    private static float NextUnit(ref uint random)
-    {
-        random ^= random << 13;
-        random ^= random >> 17;
-        random ^= random << 5;
-        return (random >> 8) * (1f / 16777216f);
+        return LootTableRoller.Roll(
+            block.LootTable!, _inventoryCatalog, decision.Position, worldTick,
+            selfEntry: InventoryEntry.FromBlock(block.Id, source));
     }
 
     /// <summary>

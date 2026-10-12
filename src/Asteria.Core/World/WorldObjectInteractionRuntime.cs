@@ -16,12 +16,16 @@ public sealed class WorldObjectInteractionRuntime
     private readonly PackContentRegistry<ObjectDefinition> _definitions;
     private readonly VoxelMutationRuntime _mutations;
     private readonly DroppedBlockRuntime _drops;
+    private readonly InventoryContentCatalog? _catalog;
+    private readonly Func<ulong> _worldTick;
 
     public WorldObjectInteractionRuntime(
         VoxelWorld world, BlockRegistry blocks,
         PackContentRegistry<ObjectDefinition> definitions,
         VoxelMutationRuntime mutations, DroppedBlockRuntime drops,
-        FluidRegistry? fluids = null)
+        FluidRegistry? fluids = null,
+        InventoryContentCatalog? catalog = null,
+        Func<ulong>? worldTick = null)
     {
         _world = world ?? throw new ArgumentNullException(nameof(world));
         _blocks = blocks ?? throw new ArgumentNullException(nameof(blocks));
@@ -29,6 +33,8 @@ public sealed class WorldObjectInteractionRuntime
         _definitions = definitions ?? throw new ArgumentNullException(nameof(definitions));
         _mutations = mutations ?? throw new ArgumentNullException(nameof(mutations));
         _drops = drops ?? throw new ArgumentNullException(nameof(drops));
+        _catalog = catalog;
+        _worldTick = worldTick ?? (() => 0UL);
     }
 
     public bool TryPlace(InventoryStack? held, VoxelWorldHit supportHit)
@@ -48,19 +54,22 @@ public sealed class WorldObjectInteractionRuntime
             !resident.Contains(hit.Object))
             return false;
 
-        var spawn = mode == PlayerGameMode.Survival && definition.DropSelf;
-        if (spawn && _drops.AvailableCapacity == 0)
-            return false;
-        if (!_mutations.RemoveObjectAt(hit.Support, hit.Object))
+        // Preflight all authored physical stacks before removing the Object.
+        IReadOnlyList<InventoryStack> rewards = mode == PlayerGameMode.Survival
+            ? LootTableRoller.ResolveObject(
+                definition, hit.Object, hit.Support, _catalog, _worldTick())
+            : [];
+        if (rewards.Count > _drops.AvailableCapacity ||
+            !_mutations.RemoveObjectAt(hit.Support, hit.Object))
             return false;
 
-        if (spawn)
+        if (rewards.Count > 0)
         {
             var position = WorldObjectGeometry.Pose(
-                hit.Support, hit.Object, definition).Position;
-            _drops.Spawn(
-                new InventoryStack(definition.RewardEntry),
-                position + Vector3.UnitY * .25f);
+                hit.Support, hit.Object, definition).Position +
+                Vector3.UnitY * .25f;
+            foreach (var stack in rewards)
+                _drops.Spawn(stack, position);
         }
         return true;
     }

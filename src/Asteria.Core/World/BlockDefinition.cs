@@ -36,7 +36,7 @@ public sealed class BlockDefinition
         string? pickupItemId = null,
         IEnumerable<string>? secondaryProperties = null,
         bool windSway = false,
-        BlockLootTable? lootTable = null)
+        LootTable? lootTable = null)
     {
         ValidateId(id);
         if (!Enum.IsDefined(interaction))
@@ -124,7 +124,7 @@ public sealed class BlockDefinition
     public BlockLightEmission LightEmission { get; }
     public BlockPreviewColor PreviewColor { get; }
     public bool DropsSelf { get; }
-    public BlockLootTable? LootTable { get; }
+    public LootTable? LootTable { get; }
     public BlockInteractionKind Interaction { get; }
     public string? PickupItemId { get; }
     public bool IsRotatable => Orientations.Count > 1;

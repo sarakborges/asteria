@@ -193,10 +193,10 @@ public sealed class BlockLootTableTests
     public void AuthoredValidationRejectsInvalidChancesQuantitiesAndUnknownContent()
     {
         Assert.Throws<ArgumentOutOfRangeException>(() =>
-            BlockLootTable.Parse(System.Text.Json.JsonDocument.Parse(
+            LootTable.Parse(System.Text.Json.JsonDocument.Parse(
                 """[{"item":"asteria:raw_iron","chance":1.1}]""").RootElement));
         Assert.Throws<ArgumentOutOfRangeException>(() =>
-            BlockLootTable.Parse(System.Text.Json.JsonDocument.Parse(
+            LootTable.Parse(System.Text.Json.JsonDocument.Parse(
                 """[{"item":"asteria:raw_iron","quantity":0}]""").RootElement));
         Assert.Throws<FormatException>(() =>
             BlockDefinitionJson.Parse(

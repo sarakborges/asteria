@@ -14,15 +14,21 @@ public sealed class ObjectDetachmentRuntime
     private readonly PackContentRegistry<ObjectDefinition> _objects;
     private readonly DroppedBlockRuntime _drops;
     private readonly FluidRegistry? _fluids;
+    private readonly InventoryContentCatalog? _catalog;
+    private readonly Func<ulong> _worldTick;
 
     public ObjectDetachmentRuntime(VoxelWorld world,
         PackContentRegistry<ObjectDefinition> objects, DroppedBlockRuntime drops,
-        FluidRegistry? fluids = null)
+        FluidRegistry? fluids = null,
+        InventoryContentCatalog? catalog = null,
+        Func<ulong>? worldTick = null)
     {
         _world = world ?? throw new ArgumentNullException(nameof(world));
         _objects = objects ?? throw new ArgumentNullException(nameof(objects));
         _drops = drops ?? throw new ArgumentNullException(nameof(drops));
         _fluids = fluids;
+        _catalog = catalog;
+        _worldTick = worldTick ?? (() => 0UL);
     }
 
     internal int AvailableDropCapacity => _drops.AvailableCapacity;
@@ -36,9 +42,13 @@ public sealed class ObjectDetachmentRuntime
         if (lootPolicy == BlockBreakLootPolicy.Suppress ||
             !_world.TryGetObjects(support, out var attached))
             return 0;
-        return attached.Count(obj =>
+        var tick = _worldTick();
+        return attached.Sum(obj =>
             _objects.TryGet(obj.Id, out var definition) &&
-            definition is { DropSelf: true });
+            definition is not null
+                ? LootTableRoller.ResolveObject(
+                    definition, obj, support, _catalog, tick).Count
+                : 0);
     }
 
     internal bool TryPrepare(
@@ -65,12 +75,15 @@ public sealed class ObjectDetachmentRuntime
                      .ThenBy(o => o.Transform.OffsetZ))
         {
             if (!_objects.TryGet(obj.Id, out var definition) ||
-                definition is not { DropSelf: true })
+                definition is null)
                 continue;
+            var stacks = LootTableRoller.ResolveObject(
+                definition, obj, support, _catalog, _worldTick());
+            if (stacks.Count == 0) continue;
             var point = WorldObjectGeometry.Pose(support, obj, definition).Position +
                 Vector3.UnitY * .25f;
-            rewards.Add(new ObjectDetachedDrop(
-                new InventoryStack(definition.RewardEntry), point));
+            foreach (var stack in stacks)
+                rewards.Add(new ObjectDetachedDrop(stack, point));
         }
 
         if (rewards.Count > _drops.AvailableCapacity)
@@ -105,12 +118,13 @@ public sealed class ObjectDetachmentRuntime
             if (next.Fluid == required)
                 continue;
             removed.Add(obj);
-            if (!definition.DropSelf)
-                continue;
-            rewards.Add(new ObjectDetachedDrop(
-                new InventoryStack(definition.RewardEntry),
-                WorldObjectGeometry.Pose(support, obj, definition).Position +
-                Vector3.UnitY * .25f));
+            var stacks = LootTableRoller.ResolveObject(
+                definition, obj, support, _catalog, _worldTick());
+            if (stacks.Count == 0) continue;
+            var point = WorldObjectGeometry.Pose(support, obj, definition).Position +
+                Vector3.UnitY * .25f;
+            foreach (var stack in stacks)
+                rewards.Add(new ObjectDetachedDrop(stack, point));
         }
 
         if (rewards.Count > _drops.AvailableCapacity)

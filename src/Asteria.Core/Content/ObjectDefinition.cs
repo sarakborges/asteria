@@ -41,7 +41,8 @@ public sealed class ObjectDefinition
         string? requiredFluidAbove = null,
         BlockTint tint = BlockTint.None,
         BlockPreviewColor? tintFallback = null,
-        string? growthStructure = null)
+        string? growthStructure = null,
+        LootTable? lootTable = null)
     {
         BlockDefinition.ValidateId(id);
         if (!Enum.IsDefined(interaction))
@@ -118,6 +119,7 @@ public sealed class ObjectDefinition
         SupportFluid = supportFluid;
         GrowthStructure = growthStructure;
         RequiredFluidAbove = requiredFluidAbove;
+        LootTable = lootTable;
     }
 
     public string Id { get; }
@@ -128,6 +130,8 @@ public sealed class ObjectDefinition
     public ObjectTargetDefinition Target { get; }
     public Vector2 PositionJitter { get; }
     public bool DropSelf { get; }
+    /// <summary>Present loot tables (including empty) override dropSelf.</summary>
+    public LootTable? LootTable { get; }
     public bool WindSway { get; }
     public bool Unlit { get; }
     public ObjectInteraction Interaction { get; }
@@ -206,7 +210,9 @@ public sealed class ObjectDefinition
                 ? BlockPreviewColor.Parse(preview.GetString() ??
                     throw new FormatException("Object previewColor must be an RGB hex string."))
                 : BlockPreviewColor.Missing,
-            PackContentFields.OptionalString(root, "growthStructure"));
+            PackContentFields.OptionalString(root, "growthStructure"),
+            root.TryGetProperty("lootTable", out var lootTable)
+                ? Asteria.Core.World.LootTable.Parse(lootTable) : null);
     }
 
     private static bool PositiveTarget(Vector3 value) =>

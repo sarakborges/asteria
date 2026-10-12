@@ -133,6 +133,13 @@ public sealed class InventoryContentCatalog
                     if (!TryResolveLoot(drop.Item, out _))
                         throw new InvalidOperationException(
                             $"Block {block.Id} loot references unknown content {drop.Item}.");
+        if (objects is not null)
+            foreach (var obj in objects.Definitions)
+                if (obj.LootTable is { } table)
+                    foreach (var drop in table.Entries)
+                        if (!TryResolveLoot(drop.Item, out _))
+                            throw new InvalidOperationException(
+                                $"Object {obj.Id} loot references unknown content {drop.Item}.");
         if (layers is not null)
             foreach (var layer in layers.Definitions)
                 foreach (var drop in layer.Drops)

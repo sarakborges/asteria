@@ -214,7 +214,8 @@ public sealed class DimensionRuntimeSession
                 ContentRevisions,
                 FluidContentRevisions);
         Mutations.ConfigureObjectDetachment(
-            new ObjectDetachmentRuntime(World, objects, _droppedBlocks, fluids));
+            new ObjectDetachmentRuntime(World, objects, _droppedBlocks, fluids,
+                _inventoryCatalog, () => WorldTicks.CurrentTick));
         Mutations.ConfigureObjectLighting(objects);
         _saplings = new SaplingGrowthRuntime(
             World, Mutations, blocks, objects, structures,
@@ -258,7 +259,8 @@ public sealed class DimensionRuntimeSession
                 restore:
                     state.BlockPhysics);
         ObjectInteractions = new WorldObjectInteractionRuntime(
-            World, blocks, objects, Mutations, _droppedBlocks, fluids);
+            World, blocks, objects, Mutations, _droppedBlocks, fluids,
+            _inventoryCatalog, () => WorldTicks.CurrentTick);
         BlockInteractions =
             new BlockInteractionRuntime(
                 World,

@@ -30,7 +30,7 @@ public static class BlockDefinitionJson
         var isCollidable = OptionalBoolean(root, "isCollidable") ?? true;
         var dropsSelf = OptionalBoolean(root, "dropsSelf") ?? true;
         var lootTable = root.TryGetProperty("lootTable", out var lootEntries)
-            ? BlockLootTable.Parse(lootEntries) : null;
+            ? LootTable.Parse(lootEntries) : null;
         var interaction = OptionalString(root, "interaction") switch
         {
             null or "break" => BlockInteractionKind.Break,

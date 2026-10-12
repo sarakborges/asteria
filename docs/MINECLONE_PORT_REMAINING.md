@@ -483,3 +483,9 @@ MineClone `world-systems-rebuild` reference: `world_objects.rs::detached_object_
 - `InventoryBlockPreviewRenderer.FaceDataUri` accepts an optional spatial tint and reuses the normal ordered host texture layers/UV rotation. Authored inventory/Creative/hotbar previews still use cached fallback colors; world-dependent host variants never enter that cache. Attached-layer overlays retain their own tint channel and cutoff semantics.
 - `BlockPreviewColor.FromNormalized` centralizes finite normalized-to-byte conversion for both Object and Block world target previews, with regression tests for rounding, clamping and invalid values. Godot/WRY screenshot verification is still required.
 
+
+## Shared Object loot-table parity — 2026-10-12
+
+- Objects accept optional `lootTable` with shared bounded item/chance/quantity validation. Common `LootTable` and `LootTableRoller` serve Blocks and Objects; empty tables suppress `dropSelf`, and absent ones preserve existing Object behavior.
+- Survival break, support destruction/replacement and submerged Object detachment use seeded deterministic rolls with catalog-authored stack sizes. Every physical reward is capacity-preflighted before mutation; Creative breaks suppress loot.
+- Pack load rejects unknown Object loot IDs. Regression tests cover stack splitting, overrides, repeatability, empty tables, Creative and atomic capacity rejection. Native Godot/WRY acceptance is pending.
