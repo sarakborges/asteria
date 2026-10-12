@@ -354,3 +354,10 @@ MineClone `world-systems-rebuild` reference: `world_objects.rs::detached_object_
 - Canonical `WorldObjectGeometry` pose (attachment face, yaw, scale, stable offset) remains shared by rendering, raycast hitbox, and an Object placement ghost. Object placement preview and interaction share the same Core placement validation.
 - Migrated seashell and starfish from Ocean and clover from Plains, preserving their chances, submerged source requirements and original image textures. Removed redundant block identities and transferred EN/PT-BR/ES localization. Pebble's item-pickup semantics and Lily Pad's fluid-top support are separate migrations, not silently changed here.
 - Native Godot visual inspection remains required for contour normals and preview opacity; code and headless tests validate geometry and authored-content contracts.
+
+## Pebble item pickup and Lily Pad fluid-support Objects — 2026-10-12
+
+- Pebble is now an `extrudedSprite` Object for procedural ground placement, while pickup and support-removal rewards retain the existing `asteria:pebble` **item** inventory identity; it is not a second placeable Object stack.
+- Lily Pad is now an `extrudedSprite` Object attached to a **full source-fluid support voxel**, with no block or water-source replacement. Worldgen resolves the authored `fluidRequirement: below` Object at the water surface and publishes only after fluids are finalized. Runtime placement uses an opt-in occlusion-aware fluid-top ray and the existing preview/gameplay Object placement decision; unrelated raycasts are unchanged.
+- Fluid-support ownership remains in `Chunk`: when its source disappears or ceases to be a full source, attached Objects are detached and the authoritative world publishes Object revision/visibility invalidation. The pack validates that the Object's authored substrate matches the biome's fluid rule.
+- Removed redundant pebble/lily-pad blocks and transferred EN/PT-BR/ES localizations. Fluid simulation, world-save and renderer in-game acceptance still require native Godot QA.
