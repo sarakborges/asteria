@@ -10,5 +10,11 @@
   },
   "asteria:seagrass": {
     "/name": "Seagrass"
+  },
+  "asteria:wildflower_blue": {
+    "/name": "Blue Wildflower"
+  },
+  "asteria:wildflower_yellow": {
+    "/name": "Yellow Wildflower"
   }
 }
