@@ -61,7 +61,7 @@
     },
     "N": {
       "connector": {
-        "face": "back",
+        "face": "front",
         "target": "asteria:volcanic_caldera_north",
         "strength": 1,
         "strengthLossOnEachLoop": 1,
@@ -71,7 +71,7 @@
     },
     "S": {
       "connector": {
-        "face": "front",
+        "face": "back",
         "target": "asteria:volcanic_caldera_south",
         "strength": 1,
         "strengthLossOnEachLoop": 1,
