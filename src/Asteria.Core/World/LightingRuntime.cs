@@ -76,7 +76,7 @@ public sealed class LightingRuntime
             throw new ArgumentNullException(nameof(integration));
     }
 
-    public bool IsRunning => _worker.IsRunning;
+    public bool IsRunning => _worker.IsRunning || _publication is not null;
 
     public void BeginRetirement()
     {
