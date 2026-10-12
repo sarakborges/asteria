@@ -363,6 +363,8 @@ public sealed class DimensionRuntimeSession
 
     public FluidRegistry Fluids { get; }
 
+    public int CreatureParticleCount => _creatureParticles.Particles.Count;
+
     public CreatureRuntime Creatures { get; }
 
     public ProjectileRuntime Projectiles { get; }

@@ -770,6 +770,7 @@ public partial class Main : Node3D
             _sessions.Active.Creatures.Count,
             _sessions.Active.Projectiles.Count,
             _ambientParticleRuntime?.Particles.Count ?? 0,
+            _sessions.Active.CreatureParticleCount,
             _blockEntities.DroppedCount,
             _blockEntities.FallingCount,
             _blockEntities.PendingPhysicsUpdates,

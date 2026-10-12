@@ -97,6 +97,8 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     private int _creaturesActive;
     private int _creaturesPeak;
     private int _projectilesActive;
+    private int _creatureParticlesActive;
+    private int _creatureParticlesPeak;
     private int _ambientParticlesActive;
     private int _ambientParticlesPeak;
     private int _droppedBlocksActive;
@@ -200,12 +202,14 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     /// </summary>
     public void ObserveGameplayPopulation(
         int creatures, int projectiles, int ambientParticles,
-        int droppedBlocks, int fallingBlocks, int physicsPending,
+        int creatureParticles, int droppedBlocks, int fallingBlocks, int physicsPending,
         int physicsWaiting, int fallingWaiting)
     {
         _creaturesActive = creatures;
         _creaturesPeak = Math.Max(_creaturesPeak, creatures);
         _projectilesActive = projectiles;
+        _creatureParticlesActive = creatureParticles;
+        _creatureParticlesPeak = Math.Max(_creatureParticlesPeak, creatureParticles);
         _ambientParticlesActive = ambientParticles;
         _ambientParticlesPeak = Math.Max(_ambientParticlesPeak, ambientParticles);
         _droppedBlocksActive = droppedBlocks;
@@ -339,6 +343,8 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"fluid_mesh_pending={_fluidMeshPending} lighting_active={_lightingActive} " +
             $"creatures_active={_creaturesActive} creatures_peak={_creaturesPeak} " +
             $"projectiles_active={_projectilesActive} " +
+            $"creature_particles_active={_creatureParticlesActive} " +
+            $"creature_particles_peak={_creatureParticlesPeak} " +
             $"ambient_particles_active={_ambientParticlesActive} " +
             $"ambient_particles_peak={_ambientParticlesPeak} " +
             $"dropped_blocks_active={_droppedBlocksActive} " +
@@ -373,6 +379,7 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         Array.Clear(_stageMsTotal);
         Array.Clear(_stageMsMax);
         _creaturesPeak = _creaturesActive;
+        _creatureParticlesPeak = _creatureParticlesActive;
         _ambientParticlesPeak = _ambientParticlesActive;
         _physicsUpdatesPeak = _physicsUpdatesPending;
         _frames = 0;
