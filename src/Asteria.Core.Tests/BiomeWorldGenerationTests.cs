@@ -1432,7 +1432,7 @@ public sealed class BiomeWorldGenerationTests
 
 
     [Fact]
-    public void ConeTerrainJoinsAdjacentPlainsWithoutFlatteningItsInterior()
+    public void CalderaTerrainJoinsAdjacentPlainsWithoutFlatteningItsInterior()
     {
         const string coneId = "asteria:test/volcano";
         var plains = TestBiome("asteria:test/plains", baseHeightOffset: 2f);
@@ -1441,13 +1441,16 @@ public sealed class BiomeWorldGenerationTests
             new BiomeSurfaceLayoutDefinition(
                 regionMin: 192, regionMax: 384),
             new BiomeTerrainDefinition(
-                new BiomeConeTerrainShapeDefinition(
+                new BiomeCalderaTerrainShapeDefinition(
                     baseHeight: 12f,
                     height: 72f,
-                    irregularity: 0f,
-                    irregularityScale: 0.009f,
-                    detailIrregularity: 0f,
-                    detailScale: 0.031f)),
+                    craterRadius: .27f,
+                    floorRadius: .08f,
+                    craterDepth: 58f,
+                    flankRoughness: 0f,
+                    flankNoiseScale: .009f,
+                    detailRoughness: 0f,
+                    detailScale: .031f)),
             [new BiomeSurfaceLayerDefinition("asteria:stone")]);
         var generator = new BiomeWorldGenerator(
             44UL,
@@ -1455,6 +1458,7 @@ public sealed class BiomeWorldGenerationTests
             new BlockRegistry([new BlockDefinition("asteria:stone")]),
             new BiomeRegistry([plains, volcano]));
 
+        var profile = new SurfaceTerrainRule(volcano);
         var mixedFlanks = 0;
         var intactInterior = 0;
         var ownershipEdges = 0;
@@ -1465,10 +1469,10 @@ public sealed class BiomeWorldGenerationTests
             var sample = generator.Biomes.Sample(x, z);
             if (sample.Primary == coneId)
             {
-                // This cone deliberately has no shape noise or crater:
-                // its unclipped elevation is completely determined by
-                // the authoritative formation strength.
-                var authored = 12d + 72d * sample.PrimaryTerrainStrength;
+                // The same authored radial profile is blended only at
+                // ownership seams, never substituted with vertical walls.
+                var authored = profile.HeightOffsetAt(
+                    44UL, x, z, sample.PrimaryTerrainStrength);
                 var neighbor = sample.Influences.FirstOrDefault(
                     influence => influence.BiomeId == plains.Id);
                 var actual = generator.SurfaceHeight(x, z);
@@ -1501,7 +1505,7 @@ public sealed class BiomeWorldGenerationTests
             }
             else
             {
-                // A neighboring flat biome never inherits the cone.
+                // A neighboring flat biome never inherits the caldera.
                 Assert.Equal(2, generator.SurfaceHeight(x, z));
             }
 
@@ -1528,7 +1532,7 @@ public sealed class BiomeWorldGenerationTests
         }
 
         Assert.True(mixedFlanks > 0,
-            "Expected cone/flats overlap samples.");
+            "Expected caldera/flats overlap samples.");
         Assert.True(intactInterior > 0,
             "Expected unmodified volcanic interior columns.");
         Assert.True(ownershipEdges > 0,

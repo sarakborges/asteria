@@ -248,70 +248,42 @@ public sealed class GeneratedSurfaceFluidTests
         Assert.All(swamp.Palette.Default, layer =>
             Assert.Null(layer.Patch));
 
-        var volcano =
-            biomes.Get(
-                "asteria:overworld/volcano");
-        var terrain =
-            Assert.IsType<
-                BiomeConeTerrainShapeDefinition>(
-                volcano.SurfaceTerrain!.Shape);
-        var crater =
-            Assert.IsType<BiomeCraterDefinition>(
-                volcano.SurfaceTerrain.Crater);
-        var fill = Assert.IsType<BiomeCraterFluidFillDefinition>(
-            crater.FluidFill);
-        Assert.Null(fill.Spill);
-
-        Assert.Equal(
-            (12f, 72f, 38f, 0.14f),
-            (
-                terrain.BaseHeight,
-                terrain.Height,
-                crater.Depth,
-                crater.Radius));
-        Assert.Equal(
-            "asteria:lava",
-            fill.Fluid);
-        Assert.Equal((0.91f, 54f),
-            (fill.MinimumStrength, fill.TopLevel));
+        var volcano = biomes.Get("asteria:overworld/volcano");
+        var caldera = Assert.IsType<BiomeCalderaTerrainShapeDefinition>(
+            volcano.SurfaceTerrain!.Shape);
+        Assert.Equal((12f, 72f, 58f, .27f, .08f),
+            (caldera.BaseHeight, caldera.Height, caldera.CraterDepth,
+                caldera.CraterRadius, caldera.FloorRadius));
+        Assert.Equal("asteria:lava", caldera.FluidFill!.Fluid);
+        Assert.Equal(54f, caldera.FluidFill.TopLevel);
     }
 
     [Fact]
-    public void CraterFillSupportsNonConeTerrain()
+    public void CalderaFillUsesArbitraryAuthoredFluidAndRequiresClosedRim()
     {
         var biome = BiomeDefinitionJson.Parse(
             """
             {
-              "id": "asteria:test/hills",
+              "id": "asteria:test/caldera",
               "surfaceLayout": {},
               "surfaceTerrain": {
-                "type": "rolling",
+                "type": "caldera",
                 "baseHeight": 10,
-                "amplitude": 0,
-                "scale": 0.01,
-                "detailAmplitude": 0,
-                "detailScale": 0.02,
-                "crater": {
-                  "depth": 6,
-                  "radius": 0.3,
-                  "irregularity": 0,
-                  "noiseScale": 0.02,
-                  "transitionWidth": 0.01,
-                  "fluidFill": {
-                    "fluid": "asteria:water",
-                    "minimumStrength": 0.8,
-                    "topLevel": 11
-                  }
+                "height": 35,
+                "craterRadius": 0.3,
+                "floorRadius": 0.08,
+                "craterDepth": 24,
+                "fluidFill": {
+                  "fluid": "asteria:water",
+                  "topLevel": 28
                 }
               },
               "palette":{"default":[{ "block": "asteria:stone" }]}
             }
             """);
 
-        Assert.IsType<BiomeRollingTerrainShapeDefinition>(
+        var caldera = Assert.IsType<BiomeCalderaTerrainShapeDefinition>(
             biome.SurfaceTerrain!.Shape);
-        Assert.NotNull(biome.SurfaceTerrain.Crater);
-
         var fluids = new FluidRegistry(
         [
             new FluidDefinition(
@@ -337,20 +309,61 @@ public sealed class GeneratedSurfaceFluidTests
             biome.Id,
             [new BiomeInfluence(biome.Id, 1f, 1f)]);
         Assert.True(field.TryGetColumnBounds(
-            sample, 35, 0, 0, 0, out var minY, out var maxY));
-        Assert.Equal(36, minY);
-        Assert.Equal(42, maxY);
-        Assert.Equal(
-            fluids.GetId("asteria:water"),
-            field.FluidAtEmptyVoxel(sample, 35, 0, 0, 40, 0).Fluid);
+            sample, 53, 0, 0, 0, out var minY, out var maxY));
+        Assert.Equal(54, minY);
+        Assert.Equal(59, maxY);
+        Assert.Equal(fluids.GetId("asteria:water"),
+            field.FluidAtEmptyVoxel(sample, 53, 0, 0, 58, 0).Fluid);
+        var rim = new BiomeSample(
+            biome.Id,
+            [new BiomeInfluence(biome.Id, 1f,
+                (float)caldera.RimStrength - .01f)]);
+        Assert.False(field.TryGetColumnBounds(
+            rim, 75, 0, 0, 0, out _, out _));
 
         Assert.Throws<ArgumentException>(() =>
-            new BiomeCraterFluidFillDefinition(
-                "asteria:water",
-                0.5f,
-                11f,
-                new BiomeCraterSpillDefinition(
-                    0.4f, 0.8f, 0.02f, 0.03f, 6)));
+            new BiomeCalderaTerrainShapeDefinition(
+                10, 35, .3f, .08f, 24, 0, .009f, 0, .031f,
+                new BiomeCalderaFluidFillDefinition("asteria:water", 45)));
+        Assert.Throws<ArgumentException>(() =>
+            new BiomeCalderaTerrainShapeDefinition(
+                10, 35, .3f, .08f, 24, 0, .009f, 0, .031f,
+                new BiomeCalderaFluidFillDefinition("asteria:water", 20)));
+    }
+
+    [Fact]
+    public void LegacyConeAndDetachedCraterRecipesAreRejected()
+    {
+        Assert.Throws<FormatException>(() => BiomeDefinitionJson.Parse(
+            """
+            {
+              "id": "asteria:test/obsolete",
+              "surfaceLayout": {},
+              "surfaceTerrain": {
+                "type": "cone",
+                "baseHeight": 12,
+                "height": 72
+              },
+              "palette":{"default":[{"block":"asteria:stone"}]}
+            }
+            """));
+        Assert.Throws<FormatException>(() => BiomeDefinitionJson.Parse(
+            """
+            {
+              "id": "asteria:test/obsolete",
+              "surfaceLayout": {},
+              "surfaceTerrain": {
+                "type": "rolling",
+                "baseHeight": 12,
+                "amplitude": 0,
+                "scale": 0.01,
+                "detailAmplitude": 0,
+                "detailScale": 0.03,
+                "crater": {"depth": 38}
+              },
+              "palette":{"default":[{"block":"asteria:stone"}]}
+            }
+            """));
     }
 
     [Fact]
@@ -592,7 +605,7 @@ public sealed class GeneratedSurfaceFluidTests
                 ["asteria:overworld/mountain_belt"] =
                     typeof(BiomeRidgesTerrainShapeDefinition),
                 ["asteria:overworld/volcano"] =
-                    typeof(BiomeConeTerrainShapeDefinition),
+                    typeof(BiomeCalderaTerrainShapeDefinition),
                 ["asteria:umbral/umbral_reach"] =
                     typeof(BiomeRollingTerrainShapeDefinition),
                 ["asteria:umbral/withered_waste"] =
@@ -674,8 +687,9 @@ public sealed class GeneratedSurfaceFluidTests
         // TopLevel is relative to sea level, not to the sampled ground.
         // High-strength volcano terrain also includes dry crater rims;
         // the first strong sample is not necessarily under the lava plane.
-        var craterFill = biomes.Get("asteria:overworld/volcano")
-            .SurfaceTerrain!.Crater!.FluidFill!;
+        var craterFill = Assert.IsType<BiomeCalderaTerrainShapeDefinition>(
+            biomes.Get("asteria:overworld/volcano").SurfaceTerrain!.Shape)
+            .FluidFill!;
         var lavaTopY = checked((int)Math.Ceiling(
             dimension.SeaLevel + craterFill.TopLevel) - 1);
         var core = FindFloodedVolcanoCore(generator, lavaTopY);
@@ -704,7 +718,7 @@ public sealed class GeneratedSurfaceFluidTests
             {
                 var sample = generator.Biomes.Sample(x, z);
                 if (sample.Primary != "asteria:overworld/volcano" ||
-                    sample.PrimaryTerrainStrength < 0.94f)
+                    sample.PrimaryTerrainStrength < 0.97f)
                     continue;
 
                 // The crater contains both dry walls and a submerged

@@ -23,7 +23,7 @@ public static class BiomeDefinitionJson
         if (root.TryGetProperty("surfaceFluid", out _))
         {
             throw new FormatException(
-                "Biome surfaceFluid is obsolete. Author surfaceTerrain.crater.fluidFill.");
+                "Biome surfaceFluid is obsolete. Author surfaceTerrain.fluidFill on a caldera.");
         }
 
         return new BiomeDefinition(
@@ -139,6 +139,9 @@ public static class BiomeDefinitionJson
                 value,
                 "surfaceTerrain");
 
+        if (value.TryGetProperty("crater", out _))
+            throw new FormatException("surfaceTerrain.crater is obsolete; use type caldera with craterRadius and craterDepth.");
+
         var type = "noise";
         if (value.TryGetProperty("type", out var typeValue) &&
             typeValue.ValueKind != JsonValueKind.Null)
@@ -201,15 +204,18 @@ public static class BiomeDefinitionJson
                         RequiredSingle(value, "floorScale"),
                         OptionalSingle(value, "rimFalloff") ?? 0.8f,
                         OptionalSingle(value, "floorFalloff") ?? 1.35f),
-                "cone" =>
-                    new BiomeConeTerrainShapeDefinition(
+                "caldera" =>
+                    new BiomeCalderaTerrainShapeDefinition(
                         RequiredSingle(value, "baseHeight"),
                         RequiredSingle(value, "height"),
-                        RequiredSingle(value, "irregularity"),
-                        RequiredSingle(value, "irregularityScale"),
-                        RequiredSingle(value, "detailIrregularity"),
-                        RequiredSingle(value, "detailScale"),
-                        OptionalSingle(value, "slopeNoiseGain") ?? 4f),
+                        RequiredSingle(value, "craterRadius"),
+                        RequiredSingle(value, "floorRadius"),
+                        RequiredSingle(value, "craterDepth"),
+                        OptionalSingle(value, "flankRoughness") ?? 0f,
+                        OptionalSingle(value, "flankNoiseScale") ?? 0.009f,
+                        OptionalSingle(value, "detailRoughness") ?? 0f,
+                        OptionalSingle(value, "detailScale") ?? 0.031f,
+                        ParseCalderaFluidFill(value)),
                 _ =>
                     throw new FormatException(
                         $"Unknown surfaceTerrain.type: {type}"),
@@ -218,7 +224,6 @@ public static class BiomeDefinitionJson
         return new BiomeTerrainDefinition(
             shape,
             ParseTerrainModifiers(value),
-            ParseCrater(value),
             ParseFillToSeaLevel(value));
     }
 
@@ -258,47 +263,17 @@ public static class BiomeDefinitionJson
         };
     }
 
-    private static BiomeCraterDefinition? ParseCrater(JsonElement terrain)
+    private static BiomeCalderaFluidFillDefinition? ParseCalderaFluidFill(
+        JsonElement terrain)
     {
-        if (!terrain.TryGetProperty("crater", out var value) ||
+        if (!terrain.TryGetProperty("fluidFill", out var value) ||
             value.ValueKind == JsonValueKind.Null)
-        {
             return null;
-        }
 
-        value = EnsureObject(value, "surfaceTerrain.crater");
-        BiomeCraterFluidFillDefinition? fill = null;
-        if (value.TryGetProperty("fluidFill", out var fluidValue) &&
-            fluidValue.ValueKind != JsonValueKind.Null)
-        {
-            fluidValue = EnsureObject(fluidValue, "surfaceTerrain.crater.fluidFill");
-            BiomeCraterSpillDefinition? spill = null;
-            if (fluidValue.TryGetProperty("spill", out var spillValue) &&
-                spillValue.ValueKind != JsonValueKind.Null)
-            {
-                spillValue = EnsureObject(spillValue, "surfaceTerrain.crater.fluidFill.spill");
-                spill = new BiomeCraterSpillDefinition(
-                    RequiredSingle(spillValue, "minimumStrength"),
-                    RequiredSingle(spillValue, "maximumStrength"),
-                    RequiredSingle(spillValue, "scale"),
-                    RequiredSingle(spillValue, "width"),
-                    checked((byte)RequiredUInt32(spillValue, "level")));
-            }
-
-            fill = new BiomeCraterFluidFillDefinition(
-                RequiredString(fluidValue, "fluid"),
-                RequiredSingle(fluidValue, "minimumStrength"),
-                RequiredSingle(fluidValue, "topLevel"),
-                spill);
-        }
-
-        return new BiomeCraterDefinition(
-            RequiredSingle(value, "depth"),
-            RequiredSingle(value, "radius"),
-            RequiredSingle(value, "irregularity"),
-            RequiredSingle(value, "noiseScale"),
-            RequiredSingle(value, "transitionWidth"),
-            fill);
+        value = EnsureObject(value, "surfaceTerrain.fluidFill");
+        return new BiomeCalderaFluidFillDefinition(
+            RequiredString(value, "fluid"),
+            RequiredSingle(value, "topLevel"));
     }
 
     private static IReadOnlyList<BiomeTerrainModifierDefinition>

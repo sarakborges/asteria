@@ -3,7 +3,6 @@ namespace Asteria.Core.World;
 internal sealed class SurfaceTerrainRule
 {
     private readonly string _biomeId;
-    private readonly BiomeTerrainDefinition _terrain;
     private readonly BiomeTerrainShapeDefinition _shape;
     private readonly IReadOnlyList<BiomeTerrainModifierDefinition> _modifiers;
     private readonly ModifierNoiseDomains[] _modifierDomains;
@@ -12,7 +11,6 @@ internal sealed class SurfaceTerrainRule
     private readonly GenerationDomain _secondaryDomain;
     private readonly GenerationDomain _warpXDomain;
     private readonly GenerationDomain _warpZDomain;
-    private readonly GenerationDomain _craterDomain;
 
     public SurfaceTerrainRule(
         BiomeDefinition definition)
@@ -25,7 +23,6 @@ internal sealed class SurfaceTerrainRule
                 $"Surface biome {definition.Id} requires surfaceTerrain.");
 
         _biomeId = definition.Id;
-        _terrain = terrain;
         _shape = terrain.Shape;
         _modifiers = terrain.Modifiers;
         _modifierDomains = new ModifierNoiseDomains[_modifiers.Count];
@@ -69,15 +66,11 @@ internal sealed class SurfaceTerrainRule
         _warpZDomain =
             GenerationDomain.Named(
                 $"terrain/shape/warp-z/v2/{definition.Id}");
-        _craterDomain =
-            GenerationDomain.Named(
-                $"terrain/shape/crater/v2/{definition.Id}");
     }
 
-    // Cone height already tapers toward its formation boundary; a second
-    // height blend against lower neighbors would flatten its flanks.
+    // Caldera flanks already descend toward their formation edge.
     public bool TapersFromFormationStrength =>
-        _shape is BiomeConeTerrainShapeDefinition;
+        _shape is BiomeCalderaTerrainShapeDefinition;
 
     public double HeightOffsetAt(
         ulong seed,
@@ -92,10 +85,9 @@ internal sealed class SurfaceTerrainRule
                 1d);
 
         double height;
-        if (_shape is BiomeConeTerrainShapeDefinition cone)
+        if (_shape is BiomeCalderaTerrainShapeDefinition caldera)
         {
-            height = cone.BaseHeight +
-                cone.Height * ConeStrength(seed, x, z, strength, cone);
+            height = CalderaHeight(seed, x, z, strength, caldera);
         }
         else
         {
@@ -115,13 +107,6 @@ internal sealed class SurfaceTerrainRule
                     _ => throw new InvalidOperationException(
                         $"Unsupported terrain shape for {_biomeId}."),
                 };
-        }
-
-        if (_terrain.Crater is { } crater)
-        {
-            // The crater and generated lava share the same radial formation
-            // strength. Slope noise must not fragment the caldera rim.
-            height -= CraterDepthAt(seed, x, z, strength, crater);
         }
 
         for (var index = 0;
@@ -332,51 +317,40 @@ internal sealed class SurfaceTerrainRule
                depressionStrength;
     }
 
-    private double ConeStrength(
+    private double CalderaHeight(
         ulong seed,
         int x,
         int z,
         double strength,
-        BiomeConeTerrainShapeDefinition cone)
+        BiomeCalderaTerrainShapeDefinition caldera)
     {
-        var broad =
-            Fractal(seed, _macroDomain, x, z, cone.IrregularityScale);
-        var detail =
-            Fractal(seed, _detailDomain, x, z, cone.DetailScale);
-        var slopeBand =
-            cone.SlopeNoiseGain * strength * (1d - strength);
-        return Math.Clamp(
-            strength +
-            (broad * cone.Irregularity +
-             detail * cone.DetailIrregularity) * slopeBand,
-            0d,
-            1d);
-    }
+        // One radial profile gives continuous raised slopes, a closed rim,
+        // an inward crater wall and a lower basin floor. Flank noise fades
+        // to zero at the rim, so it cannot breach or fragment the enclosure.
+        var flank = Math.Clamp(strength / caldera.RimStrength, 0d, 1d);
+        var raised = WorldGenerationEntropy.SmoothStep(flank);
+        var height = caldera.BaseHeight + caldera.Height * raised;
 
-    private double CraterDepthAt(
-        ulong seed,
-        int x,
-        int z,
-        double strength,
-        BiomeCraterDefinition crater)
-    {
-        var noise =
-            Fractal(seed, _craterDomain, x, z, crater.NoiseScale);
-        // Irregularity is a fraction of crater radius, not an absolute
-        // formation-strength offset. The old absolute noise carved deep
-        // disconnected breaches that could leak lava through the flanks.
-        var start =
-            Math.Clamp(
-                1d - crater.Radius +
-                    noise * crater.Irregularity * crater.Radius,
-                0d,
-                0.99d);
-        var width =
-            Math.Max(crater.TransitionWidth, 1d - start);
-        var depthStrength =
-            WorldGenerationEntropy.SmoothStep(
-                Math.Clamp((strength - start) / width, 0d, 1d));
-        return crater.Depth * depthStrength;
+        if (strength < caldera.RimStrength)
+        {
+            var envelope = Math.Sin(Math.PI * flank);
+            height += envelope * (
+                Fractal(seed, _macroDomain, x, z, caldera.FlankNoiseScale) *
+                    caldera.FlankRoughness +
+                Fractal(seed, _detailDomain, x, z, caldera.DetailScale) *
+                    caldera.DetailRoughness);
+        }
+        else
+        {
+            var inner = Math.Clamp(
+                (strength - caldera.RimStrength) /
+                    (caldera.FloorStrength - caldera.RimStrength),
+                0d, 1d);
+            height -= caldera.CraterDepth *
+                WorldGenerationEntropy.SmoothStep(inner);
+        }
+
+        return height;
     }
 
     private double ModifierHeight(

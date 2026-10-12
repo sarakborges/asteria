@@ -374,7 +374,6 @@ public sealed class BiomeTerrainDefinition
     public BiomeTerrainDefinition(
         BiomeTerrainShapeDefinition shape,
         IEnumerable<BiomeTerrainModifierDefinition>? modifiers = null,
-        BiomeCraterDefinition? crater = null,
         bool fillToSeaLevel = false)
     {
         Shape =
@@ -384,15 +383,12 @@ public sealed class BiomeTerrainDefinition
             Array.AsReadOnly(
                 modifiers?.ToArray() ??
                 Array.Empty<BiomeTerrainModifierDefinition>());
-        Crater = crater;
         FillToSeaLevel = fillToSeaLevel;
     }
 
     public BiomeTerrainShapeDefinition Shape { get; }
 
     public IReadOnlyList<BiomeTerrainModifierDefinition> Modifiers { get; }
-
-    public BiomeCraterDefinition? Crater { get; }
 
     public bool FillToSeaLevel { get; }
 

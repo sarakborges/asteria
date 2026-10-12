@@ -234,37 +234,83 @@ public sealed class BiomeValleyTerrainShapeDefinition :
         BaseHeight + WallHeight + TopAmplitude + FloorAmplitude;
 }
 
-public sealed class BiomeConeTerrainShapeDefinition :
+/// <summary>
+/// A radial mountain and its enclosed caldera, sharing the authoritative
+/// biome formation center. Blocks and fluid are selected by authored data.
+/// </summary>
+public sealed class BiomeCalderaTerrainShapeDefinition :
     BiomeTerrainShapeDefinition
 {
-    public BiomeConeTerrainShapeDefinition(
+    public BiomeCalderaTerrainShapeDefinition(
         float baseHeight,
         float height,
-        float irregularity,
-        float irregularityScale,
-        float detailIrregularity,
+        float craterRadius,
+        float floorRadius,
+        float craterDepth,
+        float flankRoughness,
+        float flankNoiseScale,
+        float detailRoughness,
         float detailScale,
-        float slopeNoiseGain = 4f)
+        BiomeCalderaFluidFillDefinition? fluidFill = null)
     {
         BaseHeight = TerrainValue.Finite(baseHeight, nameof(baseHeight));
         Height = TerrainValue.Positive(height, nameof(height));
-        Irregularity = TerrainValue.NonNegative(irregularity, nameof(irregularity));
-        IrregularityScale = TerrainValue.Positive(irregularityScale, nameof(irregularityScale));
-        DetailIrregularity = TerrainValue.NonNegative(detailIrregularity, nameof(detailIrregularity));
+        CraterRadius = TerrainValue.OpenUnit(craterRadius, nameof(craterRadius));
+        FloorRadius = TerrainValue.OpenUnit(floorRadius, nameof(floorRadius));
+        CraterDepth = TerrainValue.Positive(craterDepth, nameof(craterDepth));
+        FlankRoughness = TerrainValue.NonNegative(flankRoughness, nameof(flankRoughness));
+        FlankNoiseScale = TerrainValue.Positive(flankNoiseScale, nameof(flankNoiseScale));
+        DetailRoughness = TerrainValue.NonNegative(detailRoughness, nameof(detailRoughness));
         DetailScale = TerrainValue.Positive(detailScale, nameof(detailScale));
-        SlopeNoiseGain = TerrainValue.NonNegative(slopeNoiseGain, nameof(slopeNoiseGain));
+
+        if (FloorRadius >= CraterRadius)
+            throw new ArgumentException("Caldera floor radius must be smaller than crater radius.");
+        if (FlankRoughness + DetailRoughness > Height * 0.18f)
+            throw new ArgumentException("Caldera flank noise must remain subordinate to mountain height.");
+
+        // BiomeField samples a smooth radial strength. Terrain and fluid
+        // use the same thresholds, independent of chunk or world position.
+        RimStrength = WorldGenerationEntropy.SmoothStep(1d - CraterRadius);
+        FloorStrength = WorldGenerationEntropy.SmoothStep(1d - FloorRadius);
+        if (fluidFill is { } fill &&
+            (fill.TopLevel <= BaseHeight + Height - CraterDepth + 1f ||
+             fill.TopLevel >= BaseHeight + Height - 2f))
+            throw new ArgumentException(
+                "Caldera fluid must be above the floor and below the entire rim.",
+                nameof(fluidFill));
+
+        FluidFill = fluidFill;
     }
 
     public float BaseHeight { get; }
     public float Height { get; }
-    public float Irregularity { get; }
-    public float IrregularityScale { get; }
-    public float DetailIrregularity { get; }
+    public float CraterRadius { get; }
+    public float FloorRadius { get; }
+    public float CraterDepth { get; }
+    public float FlankRoughness { get; }
+    public float FlankNoiseScale { get; }
+    public float DetailRoughness { get; }
     public float DetailScale { get; }
-    public float SlopeNoiseGain { get; }
+    public double RimStrength { get; }
+    public double FloorStrength { get; }
+    public BiomeCalderaFluidFillDefinition? FluidFill { get; }
 
     public override float MaximumHeightOffset =>
-        BaseHeight + Height;
+        BaseHeight + Height + FlankRoughness + DetailRoughness;
+}
+
+public sealed class BiomeCalderaFluidFillDefinition
+{
+    public BiomeCalderaFluidFillDefinition(string fluid, float topLevel)
+    {
+        FluidDefinition.ValidateId(fluid);
+        Fluid = fluid;
+        TopLevel = TerrainValue.Finite(topLevel, nameof(topLevel));
+    }
+
+    public string Fluid { get; }
+    /// <summary>Height relative to the dimension sea level.</summary>
+    public float TopLevel { get; }
 }
 
 public abstract class BiomeTerrainModifierDefinition

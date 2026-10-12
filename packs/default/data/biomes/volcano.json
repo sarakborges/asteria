@@ -15,25 +15,19 @@
     ]
   },
   "surfaceTerrain": {
-    "type": "cone",
+    "type": "caldera",
     "baseHeight": 12,
     "height": 72,
-    "irregularity": 0.13,
-    "irregularityScale": 0.009,
-    "detailIrregularity": 0.055,
+    "craterRadius": 0.27,
+    "floorRadius": 0.08,
+    "craterDepth": 58,
+    "flankRoughness": 3,
+    "flankNoiseScale": 0.009,
+    "detailRoughness": 1.3,
     "detailScale": 0.031,
-    "slopeNoiseGain": 1.25,
-    "crater": {
-      "depth": 38,
-      "radius": 0.14,
-      "irregularity": 0.08,
-      "noiseScale": 0.0153,
-      "transitionWidth": 0.01,
-      "fluidFill": {
-        "fluid": "asteria:lava",
-        "minimumStrength": 0.91,
-        "topLevel": 54
-      }
+    "fluidFill": {
+      "fluid": "asteria:lava",
+      "topLevel": 54
     }
   },
   "surfaceHabitats": {

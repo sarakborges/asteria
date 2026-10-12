@@ -9,7 +9,7 @@ public sealed class SurfaceTerrainField
 {
     // A self-tapering formation can still meet another biome before its
     // radial strength reaches zero. Blend over a gradual ownership shoulder
-    // rather than leaving a near-vertical basalt wall at its edge.
+    // rather than leaving a near-vertical wall at its edge.
     private const double FormationBoundaryDominanceWidth = 0.7d;
 
     private readonly ulong _seed;
@@ -715,9 +715,8 @@ public sealed class SurfaceTerrainField
             worldZ,
             sample.PrimaryTerrainStrength);
 
-        // The cone owns its full interior shape. Formation strength alone does
-        // not guarantee zero elevation exactly at biome ownership boundaries,
-        // so a narrow seam must join the neighboring terrain there.
+        // The caldera owns its full interior profile, joining neighbor terrain
+        // gradually at ownership boundaries instead of creating a cliff.
         var tapersFromFormation = primaryRule.TapersFromFormationStrength;
         var neighboringHeightSum = 0d;
         var neighboringWeightSum = 0d;
@@ -745,7 +744,7 @@ public sealed class SurfaceTerrainField
                     : _surfaceRules[influence.BiomeId].HeightOffsetAt(
                         _seed, worldX, worldZ, influence.TerrainStrength);
             // Ordinary elevated terrain rises only within its primary
-            // biome. Self-tapered cones must join their actual neighbor
+            // biome. Self-tapered formations must join their actual neighbor
             // even when their low outer flank is below that neighbor.
             if (!tapersFromFormation && influenceHeight >= primaryHeight)
             {
@@ -764,7 +763,7 @@ public sealed class SurfaceTerrainField
             return primaryHeight;
         }
 
-        // At equal dominance the boundary follows the neighbor. The cone
+        // At equal dominance the boundary follows the neighbor. A caldera
         // recovers its authored height soon after entering its own biome;
         // other elevated shapes keep the existing full dominance ramp.
         var dominance = Math.Clamp(
