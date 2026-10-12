@@ -26,6 +26,9 @@
   "asteria:kelp": {
     "/name": "Alga kelp"
   },
+  "asteria:lily_pad": {
+    "/name": "Nenúfar"
+  },
   "asteria:mushroom_blue": {
     "/name": "Cogumelo Azul"
   },
@@ -40,6 +43,9 @@
   },
   "asteria:mushroom_red": {
     "/name": "Cogumelo Vermelho"
+  },
+  "asteria:pebble": {
+    "/name": "Pedregulho"
   },
   "asteria:seagrass": {
     "/name": "Erva-marinha"
