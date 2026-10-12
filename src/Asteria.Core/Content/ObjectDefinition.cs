@@ -37,7 +37,9 @@ public sealed class ObjectDefinition
         bool dropSelf, bool windSway, bool unlit,
         ObjectInteraction interaction = ObjectInteraction.Break,
         BlockLightEmission lightEmission = default,
-        string? pickupItem = null, string? supportFluid = null)
+        string? pickupItem = null, string? supportFluid = null,
+        BlockTint tint = BlockTint.None,
+        BlockPreviewColor tintFallback = default)
     {
         BlockDefinition.ValidateId(id);
         if (!Enum.IsDefined(interaction))
@@ -83,6 +85,10 @@ public sealed class ObjectDefinition
         Unlit = unlit;
         Interaction = interaction;
         LightEmission = lightEmission;
+        if (!Enum.IsDefined(tint))
+            throw new FormatException("Invalid Object tint.");
+        Tint = tint;
+        TintFallback = tintFallback;
         if (pickupItem is not null) BlockDefinition.ValidateId(pickupItem);
         if (supportFluid is not null)
         {
@@ -106,6 +112,8 @@ public sealed class ObjectDefinition
     public bool Unlit { get; }
     public ObjectInteraction Interaction { get; }
     public BlockLightEmission LightEmission { get; }
+    public BlockTint Tint { get; }
+    public BlockPreviewColor TintFallback { get; }
     public string? PickupItem { get; }
     public string? SupportFluid { get; }
     public InventoryEntry RewardEntry => PickupItem is { } item
@@ -167,7 +175,12 @@ public sealed class ObjectDefinition
             },
             BlockLightEmissionJson.Parse(root, PackContentFields.Id(root)),
             PackContentFields.OptionalString(root, "pickupItem"),
-            PackContentFields.OptionalString(root, "supportFluid"));
+            PackContentFields.OptionalString(root, "supportFluid"),
+            BlockTintParser.Parse(PackContentFields.OptionalString(root, "tint")),
+            root.TryGetProperty("previewColor", out var preview)
+                ? BlockPreviewColor.Parse(preview.GetString() ??
+                    throw new FormatException("Object previewColor must be an RGB hex string."))
+                : BlockPreviewColor.Missing);
     }
 
     private static bool PositiveTarget(Vector3 value) =>
