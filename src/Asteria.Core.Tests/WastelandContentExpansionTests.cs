@@ -39,7 +39,7 @@ public sealed class WastelandContentExpansionTests
             Assert.NotNull(rule.Cluster);
             Assert.NotNull(rule.Conditions);
             Assert.NotNull(rule.HabitatWeights);
-            Assert.InRange(rule.Chance, 0.04f, 0.16f);
+            Assert.InRange(rule.Chance, 0.005f, 0.025f);
             Assert.Equal(ground, rule.SurfaceBlocks);
             Assert.Equal(DecorationFluidPlacement.Dry, rule.FluidPlacement);
             Assert.Equal(DecorationSupportSurface.Floor, rule.SupportSurface);
