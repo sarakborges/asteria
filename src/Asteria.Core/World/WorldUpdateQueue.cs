@@ -116,6 +116,26 @@ public sealed class WorldUpdateQueue
                 : mask;
     }
 
+    /// <summary>
+    /// Moves only existing background work into the priority lane. Becoming
+    /// visible must not manufacture a second mesh build for work that is
+    /// already in flight or has already been published.
+    /// </summary>
+    public ChunkMeshletMask PromoteBackgroundMeshlets(
+        ChunkCoord coord,
+        ChunkMeshletMask requested)
+    {
+        if (requested.IsEmpty ||
+            !_backgroundMeshlets.TryGetValue(coord, out var background))
+            return ChunkMeshletMask.None;
+
+        var promoted = new ChunkMeshletMask(
+            (byte)(background.Bits & requested.Bits));
+        if (!promoted.IsEmpty)
+            EnqueuePriorityMeshlets(coord, promoted);
+        return promoted;
+    }
+
     public void EnqueuePriorityMeshlets(
         ChunkCoord coord,
         ChunkMeshletMask mask)
