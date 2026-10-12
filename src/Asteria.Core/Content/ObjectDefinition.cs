@@ -39,7 +39,7 @@ public sealed class ObjectDefinition
         BlockLightEmission lightEmission = default,
         string? pickupItem = null, string? supportFluid = null,
         BlockTint tint = BlockTint.None,
-        BlockPreviewColor tintFallback = default)
+        BlockPreviewColor? tintFallback = null)
     {
         BlockDefinition.ValidateId(id);
         if (!Enum.IsDefined(interaction))
@@ -88,7 +88,7 @@ public sealed class ObjectDefinition
         if (!Enum.IsDefined(tint))
             throw new FormatException("Invalid Object tint.");
         Tint = tint;
-        TintFallback = tintFallback;
+        TintFallback = tintFallback ?? BlockPreviewColor.Missing;
         if (pickupItem is not null) BlockDefinition.ValidateId(pickupItem);
         if (supportFluid is not null)
         {
