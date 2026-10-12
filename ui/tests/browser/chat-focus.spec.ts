@@ -32,7 +32,8 @@ test("chat input autofocus survives a native focus acknowledgement", async ({ pa
   await page.goto("/iframe.html?id=organisms-chatpanel--focus-flow&viewMode=story");
   await page.getByRole("button", { name: "Open chat" }).click();
   const input = page.locator(".chat-panel__input input");
-  await expect(input).toHaveJSProperty("autofocus", true);
+  // React's autoFocus property focuses on mount; React does not
+  // necessarily reflect it as a persistent HTML attribute.
   await expect(input).toBeFocused();
 
   // The host can acknowledge its native keyboard handoff after mounting.
