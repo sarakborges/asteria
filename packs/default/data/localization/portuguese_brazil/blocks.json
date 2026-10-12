@@ -224,9 +224,6 @@
   "asteria:leaf_world_tree": {
     "/name": "Folha da Árvore do Mundo"
   },
-  "asteria:lily_pad": {
-    "/name": "Nenúfar"
-  },
   "asteria:log_enchanted": {
     "/name": "Tronco Encantado"
   },
@@ -322,9 +319,6 @@
   },
   "asteria:pass_grass": {
     "/name": "Capim de Passagem"
-  },
-  "asteria:pebble": {
-    "/name": "Pedregulho"
   },
   "asteria:pink_bloom": {
     "/name": "Flor Rosa"
