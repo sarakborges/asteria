@@ -11,6 +11,7 @@ public enum ObjectVisualKind : byte
     CrossedSprite,
     ExtrudedSprite,
     CuboidSet,
+    Model,
 }
 
 /// <summary>Portable geometric intent; Godot only creates meshes/materials.</summary>
@@ -23,7 +24,8 @@ public sealed record ObjectVisualDefinition(
     float BaseOffset,
     float AlphaCutoff,
     float Depth = 0f,
-    IReadOnlyList<ObjectCuboidPart>? Parts = null);
+    IReadOnlyList<ObjectCuboidPart>? Parts = null,
+    string? ModelPath = null);
 
 /// <summary>One bounded cuboid with independently authored atlas UV region.</summary>
 public sealed record ObjectCuboidPart(Vector3 From, Vector3 To, Vector4 Uv);
@@ -64,7 +66,12 @@ public sealed class ObjectDefinition
             throw new FormatException("Object placement faces must be unique and valid.");
         if (!Enum.IsDefined(visual.Kind) ||
             !WithinRange(visual.AlphaCutoff, 0f, 1f) ||
+            (visual.Kind == ObjectVisualKind.Model &&
+             (visual.ModelPath is null || visual.Parts is not null)) ||
+            (visual.Kind != ObjectVisualKind.Model &&
+             visual.ModelPath is not null) ||
             (visual.Kind != ObjectVisualKind.CuboidSet &&
+             visual.Kind != ObjectVisualKind.Model &&
              (!WithinRange(visual.Width, 0f, 4f, exclusiveMinimum: true) ||
               !WithinRange(visual.Height, 0f, 4f, exclusiveMinimum: true) ||
               !WithinRange(visual.BaseOffset, 0f, 2f))) ||
@@ -98,7 +105,10 @@ public sealed class ObjectDefinition
         Category = category;
         Icon = PackContentFields.ResourcePath(icon, "icon");
         Visual = visual with {
-            Texture = PackContentFields.ResourcePath(visual.Texture, "visual.texture"),
+            Texture = visual.Kind == ObjectVisualKind.Model ? "" :
+                PackContentFields.ResourcePath(visual.Texture, "visual.texture"),
+            ModelPath = visual.Kind != ObjectVisualKind.Model ? null :
+                ValidateModelPath(visual.ModelPath),
             Parts = visual.Parts is null ? null :
                 Array.AsReadOnly(visual.Parts.ToArray()),
         };
@@ -182,9 +192,18 @@ public sealed class ObjectDefinition
             "crossedSprite" => ObjectVisualKind.CrossedSprite,
             "extrudedSprite" => ObjectVisualKind.ExtrudedSprite,
             "cuboidSet" => ObjectVisualKind.CuboidSet,
+            "model" => ObjectVisualKind.Model,
             _ => throw new FormatException("Unsupported Object visual type."),
         };
-        var texture = PackContentFields.RequiredString(visual, "texture");
+        var texture = kind == ObjectVisualKind.Model ? "" :
+            PackContentFields.RequiredString(visual, "texture");
+        var modelPath = kind == ObjectVisualKind.Model
+            ? ValidateModelPath(PackContentFields.RequiredString(visual, "path"))
+            : null;
+        if (kind == ObjectVisualKind.Model &&
+            (visual.TryGetProperty("texture", out _) ||
+             visual.TryGetProperty("parts", out _)))
+            throw new FormatException("model Objects must author a GLB path, not sprite geometry.");
         var parts = kind == ObjectVisualKind.CuboidSet
             ? ReadCuboidParts(visual) : null;
         var width = kind == ObjectVisualKind.CrossedSprite
@@ -200,6 +219,9 @@ public sealed class ObjectDefinition
         var baseOffset = ReadFloat(visual, "baseOffset", 0f);
         var alpha = ReadFloat(visual, "alphaCutoff", .5f);
         var placementFaces = ReadFaces(root);
+        if (kind == ObjectVisualKind.Model &&
+            !root.TryGetProperty("target", out _))
+            throw new FormatException("model Objects require explicit target bounds.");
         var target = root.TryGetProperty("target", out var targetValue)
             ? new ObjectTargetDefinition(
                 ReadVector3(targetValue, "size", new Vector3(.75f)),
@@ -217,7 +239,7 @@ public sealed class ObjectDefinition
             PackContentFields.RequiredString(root, "category"),
             PackContentFields.ResourcePath(
                 PackContentFields.RequiredString(root, "icon"), "icon"),
-            new ObjectVisualDefinition(kind, texture, width, height, planes, baseOffset, alpha, depth, parts),
+            new ObjectVisualDefinition(kind, texture, width, height, planes, baseOffset, alpha, depth, parts, modelPath),
             placementFaces, target, jitter,
             ReadBool(root, "dropSelf", true),
             ReadBool(root, "windSway", false),
@@ -240,6 +262,16 @@ public sealed class ObjectDefinition
             PackContentFields.OptionalString(root, "growthStructure"),
             root.TryGetProperty("lootTable", out var lootTable)
                 ? Asteria.Core.World.LootTable.Parse(lootTable) : null);
+    }
+
+    private static string ValidateModelPath(string? path)
+    {
+        if (path is null)
+            throw new FormatException("model path is required.");
+        var safe = PackContentFields.ResourcePath(path, "visual.path");
+        if (!safe.EndsWith(".glb", StringComparison.OrdinalIgnoreCase))
+            throw new FormatException("model Objects require a .glb asset.");
+        return safe;
     }
 
     private static ObjectTargetDefinition CuboidTarget(

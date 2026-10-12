@@ -105,4 +105,54 @@ public sealed class ObjectDefinitionTests
         Assert.Throws<FormatException>(() =>
             ObjectDefinition.Parse(Extruded.Replace("\"baseOffset\":0.0125", "\"baseOffset\":3")));
     }
+
+    private const string Model = """
+    {"id":"asteria:small_sculpture","category":"foliage",
+     "icon":"textures/objects/sculpture.png",
+     "placementFaces":["top","front"],
+     "visual":{"type":"model","path":"models/objects/sculpture.glb"},
+     "target":{"size":[1.1,1.8,0.7],"centerOffset":[0.1,0.9,0]}}
+    """;
+
+    [Fact]
+    public void ModelParsesPortablePathAndRequiresAuthoredHitbox()
+    {
+        var obj = ObjectDefinition.Parse(Model);
+        Assert.Equal(ObjectVisualKind.Model, obj.Visual.Kind);
+        Assert.Equal("models/objects/sculpture.glb", obj.Visual.ModelPath);
+        Assert.Equal("", obj.Visual.Texture);
+        Assert.Null(obj.Visual.Parts);
+        Assert.Equal(new Vector3(1.1f, 1.8f, .7f), obj.Target.Size);
+        Assert.Equal(new Vector3(.1f, .9f, 0), obj.Target.CenterOffset);
+        Assert.True(obj.Supports(BlockFace.Front));
+        Assert.False(PlayerHeldVisualLayout.ObjectPose(obj).FaceCamera);
+    }
+
+    [Theory]
+    [InlineData("models/objects/../sculpture.glb")]
+    [InlineData("/models/objects/sculpture.glb")]
+    [InlineData("C:/sculpture.glb")]
+    [InlineData("models/objects/sculpture.gltf")]
+    [InlineData("models\\objects\\sculpture.glb")]
+    public void ModelRejectsUnsafeOrUnsupportedPaths(string path)
+    {
+        var json = Model.Replace("models/objects/sculpture.glb",
+            path.Replace("\\", "\\\\"));
+        Assert.Throws<FormatException>(() => ObjectDefinition.Parse(json));
+    }
+
+    [Fact]
+    public void ModelRejectsMissingTargetAndSpriteGeometry()
+    {
+        var withoutTarget = Model[..Model.IndexOf(",\n     \"target\"",
+            StringComparison.Ordinal)] + "}";
+        Assert.Throws<FormatException>(() => ObjectDefinition.Parse(withoutTarget));
+        Assert.Throws<FormatException>(() => ObjectDefinition.Parse(
+            Model.Replace(
+                "\"path\":\"models/objects/sculpture.glb\"",
+                "\"texture\":\"textures/objects/sculpture.png\"")));
+        Assert.Throws<FormatException>(() => ObjectDefinition.Parse(
+            Model.Replace("\"type\":\"model\"",
+                "\"type\":\"model\",\"parts\":[]")));
+    }
 }

@@ -497,3 +497,10 @@ MineClone `world-systems-rebuild` reference: `world_objects.rs::detached_object_
 - Corrected Object placement ghost material handling: lit `ShaderMaterial` and unlit `StandardMaterial3D` both accept location-dependent tint without mutating world material, and preview-only lighting no longer depends on unavailable MultiMesh instance custom data.
 - Added Core tests for authored UVs, all faces, rotated/scaled hitbox enclosure, deterministic geometry and malformed/unbounded content. Native Godot visual acceptance remains open.
 - Still missing separately: GLB-backed `visual.type: "model"` Objects, with native selected-pack loading and renderer integration. Do not report model visuals as ported from this cuboidSet work.
+
+## Object GLB models — 2026-10-12
+
+- Added the authored `visual.type: "model"` contract with safe selected-pack `visual.path` under `resources/` and required explicit `target` to keep target collision independent of engine meshes. Only bounded `.glb` files are permitted; sprite geometry must not be mixed into the Model variant.
+- `WorldObjectModelMesh` decodes pack-owned GLB bytes with Godot's in-memory GLTF decoder (no Godot importer metadata). It bakes static child-node transforms into one multi-surface mesh with per-surface embedded GLB textures/material colors, enforces finite target extents and resource/mesh caps, and publishes through the existing per-definition/Chunk `MultiMesh` batches.
+- Model surfaces share the same world voxel lighting, authored biome tint, object pose, hand/first-person/portrait rendering and placement ghost. `WorldObjectDisplayMaterial` gives preview/held meshes independent per-surface material clones so a GLB with distinct materials remains distinct without changing cached world materials.
+- Core validation covers safe paths, the Model variant, explicit target policy and invalid mixed geometry. The native runtime GLB import/render path still requires in-game acceptance testing, including authored models with multiple materials and unusual transforms. Animated/skeletal GLB Objects are **not** claimed supported; the world renderer intentionally handles static models.

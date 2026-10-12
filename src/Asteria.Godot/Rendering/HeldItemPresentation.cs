@@ -129,25 +129,16 @@ internal sealed partial class HeldItemPresentation : Node3D
                 definition.TintFallback.Red / 255f,
                 definition.TintFallback.Green / 255f,
                 definition.TintFallback.Blue / 255f);
-        rotationRoot.AddChild(new MeshInstance3D
+        var instance = new MeshInstance3D
         {
             Name = "ObjectMesh",
             Mesh = _objects.GetMesh(definition),
             Position = new Vector3(offset.X, offset.Y, offset.Z),
             Scale = Vector3.One * pose.Scale,
             CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
-            MaterialOverride = new StandardMaterial3D
-            {
-                AlbedoTexture = ProjectPackFiles.LoadTexture(
-                    _selection, definition.Visual.Texture),
-                AlbedoColor = color,
-                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
-                TextureFilter = BaseMaterial3D.TextureFilterEnum.Nearest,
-                Transparency = BaseMaterial3D.TransparencyEnum.AlphaScissor,
-                AlphaScissorThreshold = definition.Visual.AlphaCutoff,
-                CullMode = BaseMaterial3D.CullModeEnum.Disabled,
-            }
-        });
+        };
+        WorldObjectDisplayMaterial.SetTint(instance, color);
+        rotationRoot.AddChild(instance);
     }
 
     /// <summary>Presentation-only palette color. Brush selection remains

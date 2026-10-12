@@ -22,6 +22,14 @@ internal sealed class WorldObjectVisualCatalog
     {
         if (_meshes.TryGetValue(definition.Id, out var cached))
             return cached;
+        if (definition.Visual.Kind == ObjectVisualKind.Model)
+        {
+            // Import once per active Sphere, flatten to one authored mesh and
+            // publish instances through the same revision-gated chunk batches.
+            var model = WorldObjectModelMesh.Load(_selection, definition);
+            _meshes.Add(definition.Id, model);
+            return model;
+        }
 
         using var image = ProjectPackFiles.LoadImage(_selection, definition.Visual.Texture);
         var texture = ImageTexture.CreateFromImage(image) ??
