@@ -42,7 +42,12 @@ public sealed class LightingResultIntegrator
         _world.CopyChangedLightFrom(
             lightingSnapshot,
             changedPositions);
+        return EnqueuePresentationRefreshes(changedPositions);
+    }
 
+    private LightingIntegrationResult EnqueuePresentationRefreshes(
+        IEnumerable<WorldVoxelCoord> changedPositions)
+    {
         var dirty =
             MeshletInvalidation.ForPositions(
                 _world,
