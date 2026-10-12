@@ -1,3 +1,4 @@
+using Asteria.Core.Content;
 using Asteria.Core.World;
 
 namespace Asteria.Core.Tests;
@@ -102,10 +103,24 @@ public sealed class WallDecorationContentTests
                 r => r.Block == "asteria:" + id);
             Assert.False(rule.IsLayer);
             Assert.Equal(DecorationSupportSurface.Wall, rule.SupportSurface);
-            var block = blocks.GetDefinition(blocks.GetId(rule.Block));
-            Assert.True(block.UsesHorizontalFacing);
-            Assert.True(block.HasTag("support_wall"));
-            Assert.Equal(BlockVisualKind.CrossedSprite, block.Visual.Kind);
+            if (id == "wall_shelf_fungus")
+            {
+                Assert.True(rule.IsObject);
+                var objects = PackContentRegistry<ObjectDefinition>.FromJson(
+                    ReadJson("objects"), ObjectDefinition.Parse, obj => obj.Id);
+                var obj = objects.Get(rule.Block);
+                Assert.Equal(ObjectVisualKind.CrossedSprite, obj.Visual.Kind);
+                Assert.All(new[] { BlockFace.Left, BlockFace.Right,
+                    BlockFace.Front, BlockFace.Back },
+                    face => Assert.True(obj.Supports(face)));
+            }
+            else
+            {
+                var block = blocks.GetDefinition(blocks.GetId(rule.Block));
+                Assert.True(block.UsesHorizontalFacing);
+                Assert.True(block.HasTag("support_wall"));
+                Assert.Equal(BlockVisualKind.CrossedSprite, block.Visual.Kind);
+            }
         }
     }
 
@@ -168,6 +183,8 @@ public sealed class WallDecorationContentTests
         var biomes = BiomeRegistry.FromJson(ReadJson("biomes"));
         var blocks = BlockRegistry.FromJson(ReadJson("blocks"));
         var layers = AttachedLayerRegistry.FromJson(ReadJson("layers"));
+        var objects = PackContentRegistry<ObjectDefinition>.FromJson(
+            ReadJson("objects"), ObjectDefinition.Parse, obj => obj.Id);
         foreach (var (biomeName, objectName, layerName) in new[]
         {
             ("caverns", "wall_shelf_fungus", "wall_moss"),
@@ -176,11 +193,13 @@ public sealed class WallDecorationContentTests
         {
             var biome = biomes.Get("asteria:overworld/" + biomeName);
             var decorators = new SurfaceDecorationField(
-                1739, [biome], blocks, layers: layers);
+                1739, [biome], blocks, layers: layers, objects: objects);
             var sample = new BiomeSample(biome.Id,
                 [new BiomeInfluence(biome.Id, 1f)]);
             var stone = blocks.GetId("asteria:stone");
-            Assert.True(decorators.HasWallBlocksFor(biome.Id));
+            Assert.True(biomeName == "caverns"
+                ? decorators.HasWallObjectsFor(biome.Id)
+                : decorators.HasWallBlocksFor(biome.Id));
             Assert.True(decorators.HasWallLayersFor(biome.Id));
             var foundObject = false;
             var foundLayer = false;
@@ -188,15 +207,18 @@ public sealed class WallDecorationContentTests
             for (var z = -52; z <= 52; z++)
             {
                 var height = biomeName == "caverns" ? 75 : 110;
-                var objectAt = decorators.WallBlockAt(
+                var blockAt = decorators.WallBlockAt(
                     sample, stone, x, height, z);
+                var objectAt = biomeName == "caverns"
+                    ? decorators.WallObjectAt(sample, stone, x, height, z)
+                    : blockAt.IsAir ? null : "asteria:" + objectName;
                 var overlayAt = decorators.WallLayerAt(
                     sample, stone, x, height, z);
-                Assert.True(objectAt.IsAir ||
-                    objectAt == blocks.GetId("asteria:" + objectName));
+                Assert.True(objectAt is null ||
+                    objectAt == "asteria:" + objectName);
                 Assert.True(overlayAt is null ||
                     overlayAt == "asteria:" + layerName);
-                if (!objectAt.IsAir) foundObject = true;
+                if (objectAt is not null) foundObject = true;
                 if (overlayAt is not null) foundLayer = true;
                 if (foundObject && foundLayer)
                     break;

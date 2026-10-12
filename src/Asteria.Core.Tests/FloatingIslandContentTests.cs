@@ -1,3 +1,4 @@
+using Asteria.Core.Content;
 using Asteria.Core.World;
 
 namespace Asteria.Core.Tests;
@@ -28,24 +29,29 @@ public sealed class FloatingIslandContentTests
             Assert.Equal((int?)200, rule.Conditions!.MinY);
             Assert.Equal((int?)283, rule.Conditions.MaxY);
             Assert.Equal(DecorationFluidPlacement.Dry, rule.FluidPlacement);
-            var block = blocks.GetDefinition(blocks.GetId(rule.Block));
-            Assert.True(block.LightDampening == 0);
             Assert.Contains("asteria:grass_block", rule.SurfaceBlocks);
-            if (name == "aether_vines")
+            if (name is "aether_vines" or "cloud_reed")
             {
-                Assert.Equal(DecorationSupportSurface.Ceiling,
-                    rule.SupportSurface);
-                Assert.True(block.HasTag(BlockPhysicsCapabilities.SupportAbove));
-                Assert.Equal(BlockVisualKind.CrossedSprite,
-                    block.Visual.Kind);
-                Assert.True(block.WindSway);
+                Assert.True(rule.IsObject);
+                Assert.False(blocks.TryGetId(rule.Block, out _));
+                var objects = PackContentRegistry<ObjectDefinition>.FromJson(
+                    ReadJson("objects"), ObjectDefinition.Parse, obj => obj.Id);
+                var obj = objects.Get(rule.Block);
+                Assert.Equal(ObjectVisualKind.CrossedSprite, obj.Visual.Kind);
+                Assert.True(obj.WindSway);
+                Assert.True(obj.Supports(name == "aether_vines"
+                    ? BlockFace.Bottom : BlockFace.Top));
             }
             else
             {
-                Assert.Equal(DecorationSupportSurface.Floor,
-                    rule.SupportSurface);
+                Assert.False(rule.IsObject);
+                var block = blocks.GetDefinition(blocks.GetId(rule.Block));
+                Assert.Equal((byte)0, block.LightDampening);
                 Assert.True(block.HasTag(BlockPhysicsCapabilities.SupportBelow));
             }
+            Assert.Equal(name == "aether_vines"
+                    ? DecorationSupportSurface.Ceiling : DecorationSupportSurface.Floor,
+                rule.SupportSurface);
         }
 
         var crystal = blocks.GetDefinition(blocks.GetId("asteria:aether_crystal"));
@@ -59,15 +65,23 @@ public sealed class FloatingIslandContentTests
     public void CeilingOnlyVinesDoNotSpawnFromIslandFloor()
     {
         var blocks = new BlockRegistry([
-            new BlockDefinition("asteria:stone"),
-            new BlockDefinition("asteria:aether_vines")
+            new BlockDefinition("asteria:stone")
         ]);
+        var objects = PackContentRegistry<ObjectDefinition>.FromJson([
+            """
+            {"id":"asteria:aether_vines","category":"foliage",
+             "icon":"textures/objects/aether_vines.png","placementFaces":["bottom"],
+             "visual":{"type":"crossedSprite",
+                "texture":"textures/objects/aether_vines.png",
+                "width":0.72,"height":0.95,"planes":2}}
+            """
+        ], ObjectDefinition.Parse, obj => obj.Id);
         var islands = new BiomeDefinition(
             "asteria:test/islands", null, null,
             [new BiomeSurfaceLayerDefinition("asteria:stone")],
             [new BiomeDecorationDefinition("asteria:aether_vines",
                 chance: 1f, surfaceBlocks: ["asteria:stone"],
-                supportSurface: DecorationSupportSurface.Ceiling)],
+                supportSurface: DecorationSupportSurface.Ceiling, isObject: true)],
             volumeLayout: new BiomeVolumeLayoutDefinition(
                 placement: VolumeBiomePlacement.Additive),
             terrain3d: new BiomeTerrain3dDefinition([
@@ -78,14 +92,14 @@ public sealed class FloatingIslandContentTests
                     verticalFalloff: 1, horizontalFalloff: 1,
                     densityBias: 0)
             ]));
-        var field = new SurfaceDecorationField(17, [islands], blocks);
+        var field = new SurfaceDecorationField(17, [islands], blocks, objects: objects);
         var sample = new BiomeSample(islands.Id,
             [new BiomeInfluence(islands.Id, 1f)]);
         var stone = blocks.GetId("asteria:stone");
         Assert.True(field.BlockAt(sample, stone, 3, 7,
             verticalY: 240).IsAir);
-        Assert.Equal(blocks.GetId("asteria:aether_vines"),
-            field.BlockAt(sample, stone, 3, 7,
+        Assert.Equal("asteria:aether_vines",
+            field.ObjectAt(sample, stone, 3, 7,
                 verticalY: 240,
                 supportSurface: DecorationSupportSurface.Ceiling));
         Assert.True(field.HasCeilingDecorationsFor(islands.Id));
@@ -110,7 +124,7 @@ public sealed class FloatingIslandContentTests
             // occupancy, not of probabilistic decorating frequency.
             node["decorations"] = System.Text.Json.Nodes.JsonNode.Parse("""
                 [
-                  {"block":"asteria:aether_vines","chance":1,
+                  {"object":"asteria:aether_vines","chance":1,
                    "surfaceBlocks":["asteria:grass_block","asteria:dirt","asteria:stone"],
                    "supportSurface":"ceiling"}
                 ]
@@ -119,11 +133,14 @@ public sealed class FloatingIslandContentTests
         }));
         var structures = StructureRegistry.FromJson(ReadJson("structures"));
         var structureSets = StructureSetRegistry.FromJson(ReadJson("structure_sets"));
+        var objects = PackContentRegistry<ObjectDefinition>.FromJson(
+            ReadJson("objects"), ObjectDefinition.Parse, obj => obj.Id);
         var generator = new BiomeWorldGenerator(
             DimensionSeed.Derive(0xA57E_2026UL, dimension.Id),
             dimension, blocks, fluids, biomes,
             structures, structureSets,
-            generation: new WorldGenerationOptions(spawnStructures: false));
+            generation: new WorldGenerationOptions(spawnStructures: false),
+            objects: objects);
 
         const string volumeId = "asteria:overworld/floating_islands";
         (int X, int Z)? islandColumn = null;
@@ -160,10 +177,13 @@ public sealed class FloatingIslandContentTests
         var generated = generator.Materialize(decorationChunk);
         var supported = generator.Materialize(supportChunk);
 
-        Assert.Equal(blocks.GetId("asteria:aether_vines"),
-            generated.GetBlock(local.X, local.Y, local.Z));
+        Assert.True(generated.GetBlock(local.X, local.Y, local.Z).IsAir);
         Assert.False(supported.GetBlock(
             supportLocal.X, supportLocal.Y, supportLocal.Z).IsAir);
+        var vine = Assert.Single(supported.ObjectsAt(
+            supportLocal.X, supportLocal.Y, supportLocal.Z),
+            obj => obj.Id == "asteria:aether_vines");
+        Assert.Equal(BlockFace.Bottom, vine.Face);
         Assert.True(generator.DensityAt(x0, y0, z0) < 0d);
         Assert.True(generator.DensityAt(x0, y0 + 1, z0) >= 0d);
         Assert.Equal(generated.GetCell(local.X, local.Y, local.Z),

@@ -2101,6 +2101,71 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
+    public void CavernFloorObjectsAreStoredOnTheActualCarvedSupportBlock()
+    {
+        var blocks = LoadDefaultBlocks();
+        var dimensions = LoadDefaultDimensions();
+        var dimension = dimensions.Get(DimensionId.Overworld);
+        var objects = Asteria.Core.Content.PackContentRegistry<Asteria.Core.Content.ObjectDefinition>.FromJson(
+            Directory.EnumerateFiles(Path.Combine(AppContext.BaseDirectory,
+                "packs", "default", "data", "objects"), "*.json")
+                .OrderBy(path => path, StringComparer.Ordinal)
+                .Select(File.ReadAllText),
+            Asteria.Core.Content.ObjectDefinition.Parse, obj => obj.Id);
+        var biomes = BiomeRegistry.FromJson(
+            Directory.EnumerateFiles(Path.Combine(AppContext.BaseDirectory,
+                "packs", "default", "data", "biomes"), "*.json")
+                .OrderBy(path => path, StringComparer.Ordinal)
+                .Select(path =>
+                {
+                    var content = File.ReadAllText(path);
+                    if (!path.EndsWith("caverns.json", StringComparison.Ordinal))
+                        return content;
+                    var node = System.Text.Json.Nodes.JsonNode.Parse(content)!;
+                    node["decorations"] = System.Text.Json.Nodes.JsonNode.Parse(
+                        """
+                        [{"object":"asteria:mushroom_brown","chance":1,
+                          "surfaceBlocks":["asteria:stone","asteria:gravel",
+                            "asteria:dirt","asteria:stone_cobble","asteria:clay",
+                            "asteria:sandstone","asteria:basalt","asteria:terracotta"]}]
+                        """);
+                    return node.ToJsonString();
+                }));
+        var generator = new BiomeWorldGenerator(
+            DimensionSeed.Derive(0xA57E_2026UL, dimension.Id), dimension,
+            blocks, LoadDefaultFluids(), biomes, LoadDefaultStructures(),
+            LoadDefaultStructureSets(),
+            generation: new WorldGenerationOptions(spawnStructures: false),
+            objects: objects);
+
+        var cave = FindCaveVoid(generator);
+        var floorY = cave.Y;
+        while (floorY > 1 && generator.IsCaveVoidAt(cave.X, floorY - 1, cave.Z))
+            floorY--;
+        Assert.True(generator.IsCaveVoidAt(cave.X, floorY, cave.Z));
+        Assert.True(generator.DensityAt(cave.X, floorY - 1, cave.Z) >= 0d);
+
+        var (supportChunk, supportLocal) = VoxelCoordinates.FromWorld(
+            cave.X, floorY - 1, cave.Z);
+        var support = generator.Materialize(supportChunk);
+        Assert.False(support.GetCell(
+            supportLocal.X, supportLocal.Y, supportLocal.Z).IsEmpty);
+        var mushroom = Assert.Single(support.ObjectsAt(
+            supportLocal.X, supportLocal.Y, supportLocal.Z),
+            obj => obj.Id == "asteria:mushroom_brown");
+        Assert.Equal(BlockFace.Top, mushroom.Face);
+
+        var (airChunk, airLocal) = VoxelCoordinates.FromWorld(
+            cave.X, floorY, cave.Z);
+        Assert.True(generator.Materialize(airChunk)
+            .GetCell(airLocal.X, airLocal.Y, airLocal.Z).IsEmpty);
+        Assert.Equal(support.ObjectsAt(
+            supportLocal.X, supportLocal.Y, supportLocal.Z),
+            generator.Materialize(supportChunk).ObjectsAt(
+                supportLocal.X, supportLocal.Y, supportLocal.Z));
+    }
+
+    [Fact]
     public void FloatingVolumeDecoratorsUseEachExposedTopNotTheBaseSurface()
     {
         var blocks = LoadDefaultBlocks();
@@ -2343,13 +2408,16 @@ public sealed class BiomeWorldGenerationTests
                 fluids,
                 biomes,
                 structures,
-                LoadDefaultStructureSets());
+                LoadDefaultStructureSets(),
+                objects: Asteria.Core.Content.PackContentRegistry<Asteria.Core.Content.ObjectDefinition>.FromJson(
+                    Directory.EnumerateFiles(Path.Combine(AppContext.BaseDirectory,
+                        "packs", "default", "data", "objects"), "*.json")
+                        .OrderBy(path => path, StringComparer.Ordinal)
+                        .Select(File.ReadAllText),
+                    Asteria.Core.Content.ObjectDefinition.Parse, obj => obj.Id));
         var grass =
             blocks.GetId(
                 "asteria:grass");
-        var mushroom =
-            blocks.GetId(
-                "asteria:mushroom_brown");
         var plains =
             FindBiomeInterior(
                 generator.Biomes,
@@ -2365,10 +2433,7 @@ public sealed class BiomeWorldGenerationTests
                 plains,
                 grass));
         Assert.True(
-            HasBlockNear(
-                generator,
-                swamp,
-                mushroom));
+            HasObjectNear(generator, swamp, "asteria:mushroom_brown"));
     }
 
     private static (int X, int Y, int Z) FindCaveVoid(
@@ -2483,10 +2548,27 @@ public sealed class BiomeWorldGenerationTests
             $"Could not find an interior sample for {biomeId}.");
     }
 
+    private static bool HasObjectNear(
+        BiomeWorldGenerator generator, (int X, int Z) center, string id) =>
+        HasContentNear(generator, center, chunk =>
+        {
+            var found = false;
+            chunk.VisitObjectCells((_, _, _, obj) => found |= obj.Id == id);
+            return found;
+        });
+
     private static bool HasBlockNear(
-        BiomeWorldGenerator generator,
-        (int X, int Z) center,
-        BlockRuntimeId target)
+        BiomeWorldGenerator generator, (int X, int Z) center, BlockRuntimeId target) =>
+        HasContentNear(generator, center, chunk =>
+        {
+            var found = false;
+            chunk.VisitBlockCells((_, _, _, cell) => found |= cell.Block == target);
+            return found;
+        });
+
+    private static bool HasContentNear(
+        BiomeWorldGenerator generator, (int X, int Z) center,
+        Func<Chunk, bool> matches)
     {
         var centerChunk =
             VoxelCoordinates
@@ -2538,21 +2620,8 @@ public sealed class BiomeWorldGenerationTests
                                 chunkX,
                                 chunkY,
                                 chunkZ));
-                    var found =
-                        false;
-
-                    chunk.VisitBlockCells(
-                        (_, _, _, cell) =>
-                        {
-                            found |=
-                                cell.Block ==
-                                target;
-                        });
-
-                    if (found)
-                    {
+                    if (matches(chunk))
                         return true;
-                    }
                 }
             }
         }

@@ -2,7 +2,7 @@
   "id": "asteria:overworld/caverns",
   "decorations": [
     {
-      "block": "asteria:mushroom_brown",
+      "object": "asteria:mushroom_brown",
       "chance": 0.007,
       "surfaceBlocks": [
         "asteria:stone",
@@ -21,7 +21,7 @@
       }
     },
     {
-      "block": "asteria:mushroom_purple",
+      "object": "asteria:mushroom_purple",
       "chance": 0.0024,
       "surfaceBlocks": [
         "asteria:stone",
@@ -60,7 +60,7 @@
       }
     },
     {
-      "block": "asteria:hanging_roots",
+      "object": "asteria:hanging_roots",
       "chance": 0.18,
       "supportSurface": "ceiling",
       "surfaceBlocks": [
@@ -135,7 +135,7 @@
       "layer": "asteria:wall_moss"
     },
     {
-      "block": "asteria:wall_shelf_fungus",
+      "object": "asteria:wall_shelf_fungus",
       "supportSurface": "wall",
       "chance": 0.052,
       "surfaceBlocks": [

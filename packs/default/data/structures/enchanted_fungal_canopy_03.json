@@ -46,7 +46,7 @@
       "block": "asteria:luminous_giant_fungus_stem"
     },
     "V": {
-      "block": "asteria:mushroom_purple"
+      "object": "asteria:mushroom_purple"
     }
   },
   "layers": [
