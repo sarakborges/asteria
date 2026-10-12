@@ -49,9 +49,8 @@ public sealed class ObjectBiomeTintTests
         Vector3 ColorFor(string id)
         {
             var biome = all.Get(id);
-            var registry = new BiomeRegistry([biome]);
             var field = new BiomeTintField(
-                new BiomeField(123UL, [id], registry), [biome]);
+                new BiomeField(123UL, [id], all), [biome]);
             return field.SampleChunkGrid(0, 0).Resolve(
                 grass.Tint, grass.TintFallback, 8, 8);
         }
@@ -66,8 +65,7 @@ public sealed class ObjectBiomeTintTests
         Assert.InRange(swamp.Z, 58f / 255f, 60f / 255f);
         Assert.NotEqual(plains, swamp);
         Assert.Equal(Vector3.One, new BiomeTintField(
-            new BiomeField(123UL, ["asteria:overworld/plains"],
-                new BiomeRegistry([all.Get("asteria:overworld/plains")])),
+            new BiomeField(123UL, ["asteria:overworld/plains"], all),
             [all.Get("asteria:overworld/plains")]).SampleChunkGrid(0, 0)
             .Resolve(BlockTint.None, grass.TintFallback, 8, 8));
     }
