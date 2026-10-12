@@ -113,9 +113,6 @@
   "asteria:coral_yellow": {
     "/name": "Yellow Coral"
   },
-  "asteria:daisy": {
-    "/name": "Daisy"
-  },
   "asteria:dead_thistle": {
     "/name": "Dead Thistle"
   },
@@ -193,9 +190,6 @@
   },
   "asteria:ice_tiles": {
     "/name": "Ice Tiles"
-  },
-  "asteria:iris": {
-    "/name": "Iris"
   },
   "asteria:juniper_needles": {
     "/name": "Juniper Needles"
@@ -311,12 +305,6 @@
   "asteria:mud_tiles": {
     "/name": "Mud Tiles"
   },
-  "asteria:mushroom_green": {
-    "/name": "Green Mushroom"
-  },
-  "asteria:mushroom_yellow": {
-    "/name": "Yellow Mushroom"
-  },
   "asteria:pass_grass": {
     "/name": "Pass Grass"
   },
@@ -337,9 +325,6 @@
   },
   "asteria:portal": {
     "/name": "Portal"
-  },
-  "asteria:purple_aster": {
-    "/name": "Purple Aster"
   },
   "asteria:rime_deadwood": {
     "/name": "Rime Deadwood"
@@ -412,9 +397,6 @@
   },
   "asteria:starflower": {
     "/name": "Starflower"
-  },
-  "asteria:stick": {
-    "/name": "Stick"
   },
   "asteria:stone": {
     "/name": "Stone"
