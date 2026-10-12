@@ -377,3 +377,11 @@ MineClone `world-systems-rebuild` reference: `world_objects.rs::detached_object_
 - Preserved marsh near-water requirements (orchid max 3 voxels, bulrush/cattail max 2) without letting dry-ground plants replace or occupy water cells.
 - Migrated the three `swamp_reed_bed` Structure palettes to Objects, preserving their variants, Y offsets, restrictions, proximity to water, and density. No duplicate authored blocks or backward-compatibility aliases.
 - Transferred EN/PT-BR/ES labels and added regression tests for content shapes, biome fluid rules, and all Structure variants. In-game visual acceptance remains pending.
+
+## Biome-tinted Objects: Grass — 2026-10-12
+
+- Reused canonical `BlockTintParser` and `BiomeTintField.SampleChunkGrid` for the authored `ObjectDefinition.tint` channel and `previewColor` fallback. No parallel tint generator or biome color ownership.
+- World Object MultiMesh batches now carry per-instance RGB colors resolved at the attached support X/Z. Un-tinted Objects remain unmodified (no color stream); tinted sprites use the same single cached base mesh/material and a white vertex color, rather than per-instance materials or nodes.
+- The placement preview uses the same active Sphere tint palette and a privately duplicated material, refreshed only when the selected Object or target column changes. No shared material mutation or per-frame biome resampling.
+- Canonicalized `asteria:grass` to its already-authored crossed-sprite Object, preserving four planes, size, wind sway, no self-drop, foliage tint and `6f9f50` fallback, with lighting enabled to match the original block. Removed duplicate voxel definition and EN/PT-BR/ES block-localization entries; retained Object localized names.
+- Headless tests cover tint parsing and two divergent authored foliage palettes (Plains/Swamp), while CI covers core and Godot build. Native visual inspection still required for shader/device color and biome-boundary appearance.
