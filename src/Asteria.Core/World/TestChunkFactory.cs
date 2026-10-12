@@ -28,9 +28,7 @@ public static class TestChunkFactory
         blocks.TryGetId(
             GrassPlantId,
             out var grassPlant);
-        blocks.TryGetId(
-            BrownMushroomId,
-            out var brownMushroom);
+
         var chunk = new Chunk();
 
         for (var x = 0; x < Chunk.Size; x++)
@@ -81,18 +79,15 @@ public static class TestChunkFactory
                 else if (
                     decorationY < Chunk.Size &&
                     surfaceBlock == mud &&
-                    !brownMushroom.IsAir &&
                     GroundDecorationHash(
                         x,
                         z,
                         salt: 29) %
                         5 == 0)
                 {
-                    chunk.SetBlock(
-                        x,
-                        decorationY,
-                        z,
-                        brownMushroom);
+                    chunk.AddObject(
+                        x, surfaceY, z,
+                        new ObjectCell(BrownMushroomId, BlockFace.Top));
                 }
             }
         }
