@@ -56,9 +56,6 @@
   "asteria:brittle_tuft": {
     "/name": "Tufo Quebradiço"
   },
-  "asteria:bulrush": {
-    "/name": "Junco"
-  },
   "asteria:cactus_barrel": {
     "/name": "Cacto Barril"
   },
@@ -73,9 +70,6 @@
   },
   "asteria:cactus_pad": {
     "/name": "Palma de Cacto"
-  },
-  "asteria:cattail": {
-    "/name": "Taboa"
   },
   "asteria:charwood": {
     "/name": "Madeira Carbonizada"
@@ -284,9 +278,6 @@
   "asteria:marsh_giant_mushroom_stem": {
     "/name": "Caule de Cogumelo Gigante do Brejo"
   },
-  "asteria:marsh_orchid": {
-    "/name": "Orquídea do Brejo"
-  },
   "asteria:meadow_seedheads": {
     "/name": "Espigas de Pradaria"
   },
@@ -424,9 +415,6 @@
   },
   "asteria:sulfur_crystal": {
     "/name": "Cristal de Enxofre"
-  },
-  "asteria:tall_grass": {
-    "/name": "Capim Alto"
   },
   "asteria:terracotta": {
     "/name": "Terracota"

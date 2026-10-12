@@ -5,6 +5,12 @@
   "asteria:aether_vines": {
     "/name": "Aether Vines"
   },
+  "asteria:bulrush": {
+    "/name": "Bulrush"
+  },
+  "asteria:cattail": {
+    "/name": "Cattail"
+  },
   "asteria:cloud_reed": {
     "/name": "Cloud Reed"
   },
@@ -34,6 +40,9 @@
   },
   "asteria:lily_pad": {
     "/name": "Lily Pad"
+  },
+  "asteria:marsh_orchid": {
+    "/name": "Marsh Orchid"
   },
   "asteria:mushroom_blue": {
     "/name": "Blue Mushroom"
@@ -73,6 +82,9 @@
   },
   "asteria:stick": {
     "/name": "Stick"
+  },
+  "asteria:tall_grass": {
+    "/name": "Tall Grass"
   },
   "asteria:wall_shelf_fungus": {
     "/name": "Wall Shelf Fungus"

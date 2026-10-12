@@ -5,6 +5,12 @@
   "asteria:aether_vines": {
     "/name": "Trepadeiras Etéreas"
   },
+  "asteria:bulrush": {
+    "/name": "Junco"
+  },
+  "asteria:cattail": {
+    "/name": "Taboa"
+  },
   "asteria:cloud_reed": {
     "/name": "Junco das Nuvens"
   },
@@ -34,6 +40,9 @@
   },
   "asteria:lily_pad": {
     "/name": "Nenúfar"
+  },
+  "asteria:marsh_orchid": {
+    "/name": "Orquídea do Brejo"
   },
   "asteria:mushroom_blue": {
     "/name": "Cogumelo Azul"
@@ -73,6 +82,9 @@
   },
   "asteria:stick": {
     "/name": "Graveto"
+  },
+  "asteria:tall_grass": {
+    "/name": "Capim Alto"
   },
   "asteria:wall_shelf_fungus": {
     "/name": "Fungo de Prateleira de Parede"

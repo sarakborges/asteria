@@ -370,3 +370,10 @@ MineClone `world-systems-rebuild` reference: `world_objects.rs::detached_object_
 - **sea_anemone** is deliberately deferred pending a fluid-substrate/lifecycle audit; lily pads already exercise full source-water support while submerged ocean decorations have distinct fluid rules.
 - **Saplings** and vegetation with growth/interaction lifecycle require species-specific mutation/lifecycle parity, not just geometry. **Coral**, attached face textures, cliffs, and layered overlays require checking whether they should remain true voxel shapes/layers rather than be blindly migrated to Objects.
 - Generated and placed Object face attachment, manual targeting, item rewards, world-save round-trip and authored tint still require in-engine acceptance testing; passing headless tests does not prove visual parity. No old-save compatibility is intended.
+
+## Swamp reed and tall grass Object migration — 2026-10-12
+
+- Converted `tall_grass`, `marsh_orchid`, `bulrush`, and `cattail` to support-owned crossed-sprite Objects; original dimensions, alpha cutout, wind sway, no-self-drop, visual textures, and fixed authored biome probabilities/habitat constraints remain intact.
+- Preserved marsh near-water requirements (orchid max 3 voxels, bulrush/cattail max 2) without letting dry-ground plants replace or occupy water cells.
+- Migrated the three `swamp_reed_bed` Structure palettes to Objects, preserving their variants, Y offsets, restrictions, proximity to water, and density. No duplicate authored blocks or backward-compatibility aliases.
+- Transferred EN/PT-BR/ES labels and added regression tests for content shapes, biome fluid rules, and all Structure variants. In-game visual acceptance remains pending.

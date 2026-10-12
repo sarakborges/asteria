@@ -5,6 +5,12 @@
   "asteria:aether_vines": {
     "/name": "Enredaderas Etéreas"
   },
+  "asteria:bulrush": {
+    "/name": "Junco"
+  },
+  "asteria:cattail": {
+    "/name": "Espadaña"
+  },
   "asteria:cloud_reed": {
     "/name": "Junco de las Nubes"
   },
@@ -34,6 +40,9 @@
   },
   "asteria:lily_pad": {
     "/name": "Nenúfar"
+  },
+  "asteria:marsh_orchid": {
+    "/name": "Orquídea de Marisma"
   },
   "asteria:mushroom_blue": {
     "/name": "Hongo Azul"
@@ -73,6 +82,9 @@
   },
   "asteria:stick": {
     "/name": "Palo"
+  },
+  "asteria:tall_grass": {
+    "/name": "Hierba Alta"
   },
   "asteria:wall_shelf_fungus": {
     "/name": "Hongo de Repisa de Pared"

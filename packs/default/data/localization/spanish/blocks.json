@@ -56,9 +56,6 @@
   "asteria:brittle_tuft": {
     "/name": "Mata Quebradiza"
   },
-  "asteria:bulrush": {
-    "/name": "Junco"
-  },
   "asteria:cactus_barrel": {
     "/name": "Cactus Barril"
   },
@@ -73,9 +70,6 @@
   },
   "asteria:cactus_pad": {
     "/name": "Pala de Cactus"
-  },
-  "asteria:cattail": {
-    "/name": "Espadaña"
   },
   "asteria:charwood": {
     "/name": "Madera Carbonizada"
@@ -284,9 +278,6 @@
   "asteria:marsh_giant_mushroom_stem": {
     "/name": "Tallo de Seta Gigante de Marisma"
   },
-  "asteria:marsh_orchid": {
-    "/name": "Orquídea de Marisma"
-  },
   "asteria:meadow_seedheads": {
     "/name": "Espigas de Pradera"
   },
@@ -424,9 +415,6 @@
   },
   "asteria:sulfur_crystal": {
     "/name": "Cristal de Azufre"
-  },
-  "asteria:tall_grass": {
-    "/name": "Hierba Alta"
   },
   "asteria:terracotta": {
     "/name": "Terracota"
