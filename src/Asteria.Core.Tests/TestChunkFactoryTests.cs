@@ -18,25 +18,16 @@ public sealed class TestChunkFactoryTests
         var grass =
             blocks.GetId(
                 TestChunkFactory.GrassPlantId);
-        var mushroom =
-            blocks.GetId(
-                TestChunkFactory.BrownMushroomId);
         var grassBlock =
             blocks.GetId(
                 TestChunkFactory.GrassId);
         var mud =
             blocks.GetId(
                 TestChunkFactory.MudId);
-        var firstPlants =
-            CollectPlants(
-                first,
-                grass,
-                mushroom);
-        var secondPlants =
-            CollectPlants(
-                second,
-                grass,
-                mushroom);
+        var firstPlants = CollectPlants(first, grass);
+        var secondPlants = CollectPlants(second, grass);
+        var firstMushrooms = CollectMushrooms(first);
+        var secondMushrooms = CollectMushrooms(second);
 
         Assert.Equal(
             firstPlants,
@@ -45,10 +36,8 @@ public sealed class TestChunkFactoryTests
             firstPlants,
             entry =>
                 entry.Block == grass);
-        Assert.Contains(
-            firstPlants,
-            entry =>
-                entry.Block == mushroom);
+        Assert.Equal(firstMushrooms, secondMushrooms);
+        Assert.NotEmpty(firstMushrooms);
 
         foreach (var plant in firstPlants)
         {
@@ -61,12 +50,10 @@ public sealed class TestChunkFactoryTests
                     plant.Y - 1,
                     plant.Z).Block;
 
-            Assert.Equal(
-                plant.Block == grass
-                    ? grassBlock
-                    : mud,
-                support);
+            Assert.Equal(grassBlock, support);
         }
+        foreach (var mushroom in firstMushrooms)
+            Assert.Equal(mud, first.GetBlock(mushroom.X, mushroom.Y, mushroom.Z));
     }
 
     private static BlockRegistry LoadBaseBlocks()
@@ -100,8 +87,7 @@ public sealed class TestChunkFactoryTests
         BlockRuntimeId Block)[]
         CollectPlants(
             Chunk chunk,
-            BlockRuntimeId grass,
-            BlockRuntimeId mushroom)
+            BlockRuntimeId grass)
     {
         var result =
             new List<(
@@ -113,8 +99,7 @@ public sealed class TestChunkFactoryTests
         chunk.VisitBlockCells(
             (x, y, z, cell) =>
             {
-                if (cell.Block == grass ||
-                    cell.Block == mushroom)
+                if (cell.Block == grass)
                 {
                     result.Add(
                         (
@@ -125,6 +110,20 @@ public sealed class TestChunkFactoryTests
                 }
             });
 
+        return result.ToArray();
+    }
+
+    private static (int X, int Y, int Z)[] CollectMushrooms(Chunk chunk)
+    {
+        var result = new List<(int X, int Y, int Z)>();
+        chunk.VisitObjectCells((x, y, z, obj) =>
+        {
+            if (obj.Id == TestChunkFactory.BrownMushroomId)
+            {
+                Assert.Equal(BlockFace.Top, obj.Face);
+                result.Add((x, y, z));
+            }
+        });
         return result.ToArray();
     }
 }
