@@ -115,10 +115,9 @@ public sealed class ChunkStreamingController
         {
             _includeVerticalAccess = includeVerticalAccess;
             var bootstrap =
-                ChunkStreamingSelection
-                    .DesiredPlayerLocalChunks(
-                        center,
-                        radius);
+                _residency.BootstrapSelection(
+                    center,
+                    radius);
             changed =
                 _residency.SyncSelection(
                     center,
