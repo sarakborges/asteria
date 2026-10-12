@@ -52,6 +52,8 @@ public sealed class ClientPreferencesController
         {
             "ui.client_preferences.render_distance" =>
                 UpdateRenderDistance(payload),
+            "ui.client_preferences.hide_hud" =>
+                UpdateHideHud(payload),
             "ui.client_preferences.hide_hints" =>
                 UpdateHideHints(payload),
             "ui.client_preferences.target_block_position" =>
@@ -79,6 +81,16 @@ public sealed class ClientPreferencesController
         }
 
         return Changed(Preferences.SetRenderDistanceChunks(value));
+    }
+
+    private ClientPreferenceUpdate UpdateHideHud(JsonElement payload)
+    {
+        if (!TryReadBool(payload, "value", out var value))
+        {
+            return ClientPreferenceUpdate.InvalidValue;
+        }
+
+        return Changed(Preferences.SetHideHud(value));
     }
 
     private ClientPreferenceUpdate UpdateHideHints(JsonElement payload)
