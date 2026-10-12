@@ -23,7 +23,8 @@ public static class VoxelWorldRaycaster
         BlockRegistry blocks,
         Vector3 origin,
         Vector3 direction,
-        float maxDistance)
+        float maxDistance,
+        bool includeFluidSurface = false)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(blocks);
@@ -128,6 +129,26 @@ public static class VoxelWorldRaycaster
                     if (partialHit is not null)
                         return partialHit;
                 }
+            }
+
+            // An optional surface hit is used only when holding an Object
+            // whose substrate is a full fluid voxel (e.g. lily pads).
+            // Traversal order still respects opaque blocks before the water.
+            if (includeFluidSurface && direction.Y < -EntryEpsilon &&
+                world.TryGetFluid(position, out var fluid) &&
+                !fluid.IsEmpty && fluid.Level == FluidCell.MaxLevel &&
+                fluid.IsSource && world.GetCellOrEmpty(position).IsEmpty)
+            {
+                var surfaceT = (voxelY + fluid.Height - origin.Y) / direction.Y;
+                var exitT = Math.Min(maxX, Math.Min(maxY, maxZ));
+                var hitX = origin.X + surfaceT * direction.X;
+                var hitZ = origin.Z + surfaceT * direction.Z;
+                if (surfaceT >= entryDistance - EntryEpsilon &&
+                    surfaceT <= exitT + EntryEpsilon &&
+                    surfaceT <= maxDistance &&
+                    hitX >= voxelX - EntryEpsilon && hitX <= voxelX + 1 + EntryEpsilon &&
+                    hitZ >= voxelZ - EntryEpsilon && hitZ <= voxelZ + 1 + EntryEpsilon)
+                    return new VoxelWorldHit(position, 0, 1, 0);
             }
 
             float distance;
