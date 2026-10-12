@@ -342,7 +342,7 @@ MineClone `world-systems-rebuild` reference: `world_objects.rs::detached_object_
 ## Emissive attached Objects — 2026-10-12
 
 - Object definitions accept the same validated RGB `lightEmission` values (0..15/channel) as blocks.
-- A sparse, immutable lighting view derives source voxels from support-owned Objects and their attachment face. RGB propagates in the adjacent target medium, including loaded chunk seams, through the authoritative lighting solver; it does not illuminate from inside the opaque support.
+- A sparse, immutable lighting view derives source voxels from support-owned Objects and their attachment face. Initial chunk lighting uses the same view; loaded-world reconciliation seeds sources crossing chunk boundaries. RGB propagates in the adjacent target medium, including loaded chunk seams, through the authoritative lighting solver; it does not illuminate from inside the opaque support.
 - Object placement/removal through canonical mutations enqueue a lighting update for the affected target voxel. Worker snapshots include Object chunk revisions and reject stale publication through existing content stamps.
 - Converted glowcap, glow_fern and aether_bloom from blocks to Objects, preserving authored RGB emission and biomes; moved EN/PT-BR/ES localization and removed duplicate block identities.
 - QA: automated emission/validation/removal tests. Real Godot visual verification and performance profiling remain outstanding.
