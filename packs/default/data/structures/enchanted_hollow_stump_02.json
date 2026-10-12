@@ -49,7 +49,7 @@
       "object": "asteria:mushroom_red"
     },
     "V": {
-      "block": "asteria:mushroom_purple"
+      "object": "asteria:mushroom_purple"
     },
     "W": {
       "block": "asteria:log_enchanted"
