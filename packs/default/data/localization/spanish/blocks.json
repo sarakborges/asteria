@@ -488,9 +488,6 @@
   "asteria:terracotta": {
     "/name": "Terracota"
   },
-  "asteria:terracotta_spike": {
-    "/name": "Pico de Terracota"
-  },
   "asteria:thorn_rosette": {
     "/name": "Roseta Espinosa"
   },
