@@ -144,8 +144,11 @@ public sealed class ObjectDefinitionTests
     [Fact]
     public void ModelRejectsMissingTargetAndSpriteGeometry()
     {
-        var withoutTarget = Model[..Model.IndexOf(",\n     \"target\"",
-            StringComparison.Ordinal)] + "}";
+        var beforeTarget = Model.IndexOf("\"target\"", StringComparison.Ordinal);
+        Assert.True(beforeTarget > 0);
+        var prefixEnd = Model.LastIndexOf(',', beforeTarget);
+        Assert.True(prefixEnd > 0);
+        var withoutTarget = Model[..prefixEnd] + "}";
         Assert.Throws<FormatException>(() => ObjectDefinition.Parse(withoutTarget));
         Assert.Throws<FormatException>(() => ObjectDefinition.Parse(
             Model.Replace(
