@@ -5,6 +5,8 @@ namespace Asteria.Client.Rendering;
 
 public sealed class FallingBlockPresentation
 {
+    private Vector3 _lastPosition;
+    private bool _hasPosition;
     public FallingBlockPresentation(
         FallingBlockState state,
         ArrayMesh mesh)
@@ -34,11 +36,19 @@ public sealed class FallingBlockPresentation
     public void Apply(
         FallingBlockState state)
     {
-        Root.Position =
-            new Vector3(
-                state.ColumnX,
-                (float)(state.CenterY - 0.5),
-                state.ColumnZ);
+        var position = new Vector3(
+            state.ColumnX,
+            (float)(state.CenterY - 0.5),
+            state.ColumnZ);
+        // Sleeping blocks can remain unchanged for thousands of frames.
+        // A Node3D position setter crosses into the engine and invalidates
+        // transforms even when the coordinates have not moved.
+        if (_hasPosition && _lastPosition == position)
+            return;
+
+        Root.Position = position;
+        _lastPosition = position;
+        _hasPosition = true;
     }
 
     public void Retire()

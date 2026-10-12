@@ -69,6 +69,76 @@ public sealed class ChunkTopologyFrontierTests
     }
 
     [Fact]
+    public void ArrivalSkipsMatchingHorizontalLightButKeepsVerticalAndRetirementSeeds()
+    {
+        var blocks = new BlockRegistry([]);
+        var fluids = new FluidRegistry([]);
+        var world = new VoxelWorld();
+        var previous = new Chunk();
+        var arriving = new Chunk();
+        ChunkLightingSolver.Initialize(previous, blocks, fluids);
+        ChunkLightingSolver.Initialize(arriving, blocks, fluids);
+        world.InsertChunk(ChunkCoord.Zero, previous);
+        var neighborCoord = new ChunkCoord(1, 0, 0);
+        world.InsertChunk(neighborCoord, arriving);
+
+        var horizontal = new WorldVoxelCoord(16, 5, 5);
+        Assert.Equal(world.GetLightOrDark(horizontal),
+            world.GetLightOrDark(horizontal + (-1, 0, 0)));
+        Assert.True(ChunkTopologyFrontier.NeedsSeamLightSeed(
+            world, blocks, fluids, horizontal));
+        Assert.False(ChunkTopologyFrontier.NeedsArrivalSeamLightSeed(
+            world, blocks, fluids, neighborCoord, horizontal));
+
+        // Direct-sky reconciliation is not optimized out at vertical edges.
+        Assert.True(ChunkTopologyFrontier.NeedsArrivalSeamLightSeed(
+            world, blocks, fluids, neighborCoord,
+            new WorldVoxelCoord(16, 0, 5)));
+
+        world.ArchiveChunk(neighborCoord);
+        // On retirement the source is gone, so neighboring survivors
+        // must be checked without assuming matching light.
+        Assert.True(ChunkTopologyFrontier.NeedsArrivalSeamLightSeed(
+            world, blocks, fluids, neighborCoord,
+            new WorldVoxelCoord(15, 5, 5)));
+    }
+
+    [Fact]
+    public void ArrivalReconcilesEmissiveLightAcrossHorizontalSeam()
+    {
+        var blocks = new BlockRegistry([
+            new BlockDefinition("asteria:lamp",
+                lightDampening: 0,
+                lightEmission: new BlockLightEmission(15, 0, 0)),
+        ]);
+        var fluids = new FluidRegistry([]);
+        var world = new VoxelWorld();
+        var previous = new Chunk();
+        ChunkLightingSolver.Initialize(previous, blocks, fluids);
+        world.InsertChunk(ChunkCoord.Zero, previous);
+
+        var arrivingCoord = new ChunkCoord(1, 0, 0);
+        var arriving = new Chunk();
+        arriving.SetBlock(0, 5, 5, blocks.GetId("asteria:lamp"));
+        ChunkLightingSolver.Initialize(arriving, blocks, fluids);
+        world.InsertChunk(arrivingCoord, arriving);
+
+        var filtered = ChunkTopologyFrontier.LightingSeeds(
+                arrivingCoord, world.ContainsChunk)
+            .Where(position =>
+                ChunkTopologyFrontier.NeedsArrivalSeamLightSeed(
+                    world, blocks, fluids, arrivingCoord, position))
+            .ToArray();
+        Assert.Contains(new WorldVoxelCoord(16, 5, 5), filtered);
+        Assert.DoesNotContain(new WorldVoxelCoord(16, 14, 15), filtered);
+
+        VoxelWorldLightingSolver.RelightAfterEdits(
+            world, blocks, fluids, filtered);
+        Assert.Equal((byte)14,
+            world.GetLightOrDark(new WorldVoxelCoord(15, 5, 5)).Red);
+    }
+
+    [Fact]
     public void LightingFrontierReconcilesEmissionOnArrivalAndRetirement()
     {
         var blocks = new BlockRegistry(
