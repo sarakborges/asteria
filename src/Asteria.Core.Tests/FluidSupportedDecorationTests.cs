@@ -115,7 +115,8 @@ public sealed class FluidSupportedDecorationTests
                 new BiomeDecorationDefinition("asteria:lily_pad", 1f,
                     ["asteria:mud"], fluidRequirement:
                     new BiomeDecorationFluidRequirement(
-                        "asteria:water", DecorationFluidRelation.Below))
+                        "asteria:water", DecorationFluidRelation.Below),
+                    isObject: true)
             ],
             palette: new BiomePaletteDefinition(
                 [new BiomeSurfaceLayerDefinition("asteria:mud", 2),
