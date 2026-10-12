@@ -26,6 +26,9 @@
   "asteria:kelp": {
     "/name": "Kelp"
   },
+  "asteria:lily_pad": {
+    "/name": "Lily Pad"
+  },
   "asteria:mushroom_blue": {
     "/name": "Blue Mushroom"
   },
@@ -40,6 +43,9 @@
   },
   "asteria:mushroom_red": {
     "/name": "Red Mushroom"
+  },
+  "asteria:pebble": {
+    "/name": "Pebble"
   },
   "asteria:seagrass": {
     "/name": "Seagrass"
