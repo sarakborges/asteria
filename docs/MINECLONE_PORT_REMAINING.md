@@ -316,3 +316,11 @@ MineClone `world-systems-rebuild` reference: `world_objects.rs::detached_object_
 - The pre-release project does not preserve old content implementations or old save identities. Deleted `data/blocks/kelp.json` and `seagrass.json` after the worldgen/interaction path switched to `data/objects`; no compatibility loader, remapping or duplicate Creative identities are maintained for these plants.
 - Removed their `blocks` localization entries (Object entries remain). The existing `kelp_stem`/`kelp_frond` blocks are distinct solid geometry used by the authored kelp grove Structures, **not** deprecated aliases of the Kelp Object.
 - Converted ocean pack-content tests to assert Object-only identity, and updated fluid coexistence regression coverage to use actual Object occupancy rather than a seagrass voxel-block fixture.
+
+## Enchanted Forest surface mushrooms as Objects — 2026-10-12
+
+- Blue, pink and red mushrooms in `packs/default/data/biomes/enchanted_forest.json` now use the existing `decorations[].object` contract, preserving their authored chance, biome habitat weights, cluster rules, supporting blocks, and textures. Blue/pink have independent Object definitions; red reuses its already-authored Object definition.
+- Removed all three duplicate voxel-block definitions and moved names from block to Object localization in EN, PT-BR and ES. No old-content aliases or save migrations are introduced.
+- `SurfaceDecorationField` now selects blocks and Objects as separate authored kinds. Previously a matching block rule could prematurely suppress a valid Object roll (and vice versa); generation still rejects Objects when a solid/plant block occupies their target space after final materialization.
+- Core tests cover object-only content identity, authored sprite/drop properties, and both lexical orders of competing block/Object rules.
+- **Still pending:** volume/cave mushroom migration (brown and purple require vertical-decoration Object support), generic grass/flowers, other natural sprites, alternate Object geometry, and actual embedded Godot/WRY visual and interaction testing.
