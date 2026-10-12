@@ -1,7 +1,4 @@
 {
-  "asteria:aether_bloom": {
-    "/name": "Flor Etérea"
-  },
   "asteria:aether_crystal": {
     "/name": "Cristal Etéreo"
   },
@@ -164,9 +161,6 @@
   "asteria:glass": {
     "/name": "Vidro"
   },
-  "asteria:glow_fern": {
-    "/name": "Samambaia Luminescente"
-  },
   "asteria:glow_mushroom_cap": {
     "/name": "Chapéu de Cogumelo Luminoso"
   },
@@ -175,9 +169,6 @@
   },
   "asteria:glow_pod": {
     "/name": "Vagem Brilhante"
-  },
-  "asteria:glowcap": {
-    "/name": "Cogumelo Luminescente"
   },
   "asteria:grass": {
     "/name": "Grama"
