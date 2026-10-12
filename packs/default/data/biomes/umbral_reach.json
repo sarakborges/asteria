@@ -56,7 +56,7 @@
       }
     },
     {
-      "block": "asteria:stick",
+      "object": "asteria:stick",
       "chance": 0.012,
       "surfaceBlocks": [
         "asteria:grass_block",
