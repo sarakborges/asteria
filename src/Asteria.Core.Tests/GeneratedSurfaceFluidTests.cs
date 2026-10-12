@@ -600,8 +600,8 @@ public sealed class GeneratedSurfaceFluidTests
                     typeof(BiomeRidgesTerrainShapeDefinition),
                 ["asteria:overworld/mountain_belt"] =
                     typeof(BiomeRidgesTerrainShapeDefinition),
-                ["asteria:overworld/volcano"] =
-                    typeof(BiomeCalderaTerrainShapeDefinition),
+                ["asteria:overworld/scorched_wastes"] =
+                    typeof(BiomeRollingTerrainShapeDefinition),
                 ["asteria:umbral/umbral_reach"] =
                     typeof(BiomeRollingTerrainShapeDefinition),
                 ["asteria:umbral/withered_waste"] =

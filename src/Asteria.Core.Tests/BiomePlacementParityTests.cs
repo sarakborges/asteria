@@ -195,7 +195,7 @@ public sealed class BiomePlacementParityTests
             0.5f);
         AssertLayout(
             biomes,
-            "asteria:overworld/volcano",
+            "asteria:overworld/scorched_wastes",
             1f,
             0.5f);
         AssertLayout(
@@ -246,7 +246,7 @@ public sealed class BiomePlacementParityTests
                 "asteria:overworld/gorge",
                 "asteria:overworld/alps",
                 "asteria:overworld/mountain_belt",
-                "asteria:overworld/volcano",
+                "asteria:overworld/scorched_wastes",
             };
 
         foreach (var biomeId in mountainGroup)
@@ -294,7 +294,7 @@ public sealed class BiomePlacementParityTests
                     swamp.CannotBorder));
 
         Assert.Contains(
-            "asteria:overworld/volcano",
+            "asteria:overworld/scorched_wastes",
             biomes.Get(
                     "asteria:overworld/arctic")
                 .SurfaceLayout!

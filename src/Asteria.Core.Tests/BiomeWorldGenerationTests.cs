@@ -41,7 +41,7 @@ public sealed class BiomeWorldGenerationTests
                      "asteria:overworld/mountain_belt",
                      "asteria:overworld/mountains",
                      "asteria:overworld/ocean",
-                     "asteria:overworld/volcano",
+                     "asteria:overworld/scorched_wastes",
                  })
         {
             _ =

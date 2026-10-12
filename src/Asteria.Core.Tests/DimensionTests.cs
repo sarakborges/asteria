@@ -64,7 +64,7 @@ public sealed class DimensionTests
             "asteria:overworld/floating_islands",
             overworld.VolumeBiomes);
         Assert.Contains(
-            "asteria:overworld/volcano",
+            "asteria:overworld/scorched_wastes",
             overworld.SurfaceBiomes);
         Assert.Equal(
             "asteria:overworld/ocean",

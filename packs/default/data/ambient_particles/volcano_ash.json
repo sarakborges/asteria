@@ -2,7 +2,7 @@
   "id": "asteria:ambient/volcano_ash",
   "source": {
     "type": "biome",
-    "id": "asteria:overworld/volcano"
+    "id": "asteria:overworld/scorched_wastes"
   },
   "color": {
     "hue": 28,
