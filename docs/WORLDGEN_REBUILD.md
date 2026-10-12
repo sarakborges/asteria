@@ -85,7 +85,7 @@ MineClone currently uses `BLEND_SCORE_BAND = 0.18`. Asteria's default Sphere pac
 
 ### Terrain-profile extension
 
-Asteria keeps the rebuild branch's single `SurfaceTerrainField` owner but restores the richer MineClone terrain profiles from `main` as authored variants of that owner. Formation strength is derived from Asteria's existing organic biome formation field and is consumed by strength-shaped terrain such as swamp, gorge, and volcano. Cone geometry already tapers with formation strength and must not be blended downward again at biome borders. `GeneratedFluidField` fills the authored crater; the default Volcano deliberately omits optional flank spills until they can be connected to the crater instead of producing isolated lava sources.
+Asteria keeps the rebuild branch's single `SurfaceTerrainField` owner but restores the richer MineClone terrain profiles from `main` as authored variants of that owner. Formation strength is derived from Asteria's existing organic biome formation field and is consumed by strength-shaped terrain such as swamp, gorge, and volcano. Cone geometry tapers using formation strength, but ownership can switch before that strength reaches zero. Only a narrow dominance-based seam blends the cone to neighboring ground; the volcanic interior retains its authored height. `GeneratedFluidField` fills the authored crater; the default Volcano deliberately omits optional flank spills until they can be connected to the crater instead of producing isolated lava sources.
 
 ## Current generation ownership
 
