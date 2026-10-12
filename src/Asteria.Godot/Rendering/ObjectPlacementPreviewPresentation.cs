@@ -45,6 +45,11 @@ public sealed class ObjectPlacementPreviewPresentation
         if (_shownId != definition.Id)
         {
             var mesh = _visuals.GetMesh(definition);
+            // The preview instance is reused across Object IDs; clear all
+            // per-surface clones from its previous mesh before rebinding.
+            if (_instance.Mesh is { } previous)
+                for (var surface = 0; surface < previous.GetSurfaceCount(); surface++)
+                    _instance.SetSurfaceOverrideMaterial(surface, null);
             _instance.Mesh = mesh;
             _shownId = definition.Id;
             _tintColumn = null;
