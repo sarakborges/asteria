@@ -46,6 +46,7 @@ internal sealed class WorldObjectVisualCatalog
         var material = new StandardMaterial3D
         {
             AlbedoTexture = texture,
+            VertexColorUseAsAlbedo = definition.Tint != BlockTint.None,
             ShadingMode = definition.Unlit
                 ? BaseMaterial3D.ShadingModeEnum.Unshaded
                 : BaseMaterial3D.ShadingModeEnum.PerPixel,
