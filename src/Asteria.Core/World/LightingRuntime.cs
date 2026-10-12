@@ -109,7 +109,8 @@ public sealed class LightingRuntime
         var batch =
             _updates.DrainLighting(
                 MaximumSeedsPerWorker,
-                MaximumSeedColumnsPerWorker);
+                MaximumSeedColumnsPerWorker,
+                _world);
 
         if (batch.IsEmpty)
         {
@@ -123,7 +124,7 @@ public sealed class LightingRuntime
                 _fluids,
                 batch, _objects))
         {
-            _updates.RequeueLighting(batch);
+            _updates.RequeueLighting(batch, _world);
             return false;
         }
 
@@ -160,7 +161,7 @@ public sealed class LightingRuntime
             if (sourceBatch is not null)
             {
                 _updates.RequeueLighting(
-                    sourceBatch);
+                    sourceBatch, _world);
             }
             return true;
         }
@@ -170,7 +171,7 @@ public sealed class LightingRuntime
             if (sourceBatch is not null)
             {
                 _updates.RequeueLighting(
-                    sourceBatch);
+                    sourceBatch, _world);
             }
             return true;
         }
@@ -179,7 +180,7 @@ public sealed class LightingRuntime
                 _world))
         {
             _updates.RequeueLighting(
-                result.SourceBatch);
+                result.SourceBatch, _world);
             report =
                 new LightingRuntimeReport(
                     LightingCompletionKind.RequeuedStale,
@@ -215,7 +216,7 @@ public sealed class LightingRuntime
             // Earlier slices already mutated authoritative lighting. Flush
             // their mesh refreshes even when later dependencies turn stale.
             FlushLightingRefreshes();
-            _updates.RequeueLighting(result.SourceBatch);
+            _updates.RequeueLighting(result.SourceBatch, _world);
             report = new LightingRuntimeReport(
                 LightingCompletionKind.RequeuedStale,
                 result.WorkerMilliseconds, 0, 0, 0,
