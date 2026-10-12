@@ -25,7 +25,10 @@ public sealed class LightingRuntime
     // streaming cannot turn a large reconciliation backlog into a main-thread
     // clone spike.
     private const int MaximumSeedsPerWorker = 512;
-    private const int MaximumSeedColumnsPerWorker = 4;
+    // Snapshot capture clones three-by-three neighboring chunk columns
+    // synchronously. At most two seed columns keeps that managed-thread
+    // operation bounded while allowing the full seed limit when nearby.
+    private const int MaximumSeedColumnsPerWorker = 2;
 
     private readonly VoxelWorld _world;
     private readonly BlockRegistry _blocks;
