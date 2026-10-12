@@ -156,9 +156,8 @@ public sealed class ChunkStreamingStateTests
         var state = new ChunkStreamingState();
         var center = new ChunkCoord(20, 4, -10);
         var bootstrap = state.BootstrapSelection(center, 4);
-        Assert.Equal(
-            ChunkStreamingSelection.DesiredPlayerLocalChunks(center, 4),
-            bootstrap);
+        Assert.True(bootstrap.SetEquals(
+            ChunkStreamingSelection.DesiredPlayerLocalChunks(center, 4)));
     }
 
     [Fact]
