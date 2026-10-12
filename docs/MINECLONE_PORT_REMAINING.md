@@ -463,3 +463,9 @@ MineClone `world-systems-rebuild` reference: `world_objects.rs::detached_object_
 - The Core-owned target HUD snapshot carries the actual cell alongside the block and surface state, so changing orientation/facing invalidates the presentation revision. A target-specific `blockPreview` overrides the generic Creative catalog entry; WebUI validates it using the **same parser** as Creative instead of trusting arbitrary strings.
 - The preview still uses the existing CSS three-face approximation and does not yet implement per-face UV quarter-turn rotation or voxel geometry. In-game WRY visual acceptance remains pending.
 
+## Preview UV quarter-turn parity — 2026-10-12
+
+- Finishes the target/inventory preview orientation work by applying **the existing `BlockUvRotation.ForWorldFace` policy**, including orientation compensation and authored `rotateTexture` flags on each source face. The PNG-facing presentation now reflects the same 0°, 90°, 180° and 270° texture sampling used by `ChunkMeshDataBuilder`.
+- A pure Core RGBA image transform preserves alpha and swaps dimensions for nonsquare assets; Godot performs selected-pack image decoding/PNG encoding only. Rotated data URIs are cached by block ID, source face and quarter-turn. No new content format, terrain updates or browser shader state.
+- Tests cover pixel order, alpha preservation, invalid sizes/rotation and composition with existing world mesh UV rotation. True voxel-mesh icon geometry, microblock cutout, attached layers and native WRY screenshot acceptance remain separate work.
+

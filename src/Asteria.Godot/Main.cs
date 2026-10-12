@@ -2834,10 +2834,16 @@ public partial class Main : Node3D
         // SourceFaceForWorldFace is the same Core owner used by terrain
         // meshing and targeting. A laid-down log, for example, must show
         // its authored end grain on the face which actually points upward.
-        string? Texture(BlockFace face) =>
-            _blockPreviewRenderer.FaceDataUri(
-                block, BlockFaceTransform.SourceFaceForWorldFace(
-                    face, cell, block));
+        string? Texture(BlockFace face)
+        {
+            var sourceFace = BlockFaceTransform.SourceFaceForWorldFace(
+                face, cell, block);
+            var uvRotation = BlockUvRotation.ForWorldFace(
+                face, cell.Orientation, cell.TextureRotation,
+                block.RotateTexture.Rotates(sourceFace));
+            return _blockPreviewRenderer.FaceDataUri(
+                block, sourceFace, uvRotation);
+        }
 
         var front = Texture(BlockFace.Front);
         if (front is null) return null;

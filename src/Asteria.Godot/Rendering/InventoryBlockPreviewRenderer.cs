@@ -13,7 +13,8 @@ namespace Asteria.Client.Rendering;
 public sealed class InventoryBlockPreviewRenderer
 {
     private readonly PackSelection _pack;
-    private readonly Dictionary<(string BlockId, BlockFace Face), string> _cache = [];
+    private readonly Dictionary<
+        (string BlockId, BlockFace SourceFace, TextureRotation Rotation), string> _cache = [];
     // Bounded icon-color variants; keys contain authored IDs and 8-bit color.
     private readonly Dictionary<(string ObjectId, BlockPreviewColor Tint), string> _objectIcons = [];
     private const int MaximumObjectIconVariants = 256;
@@ -23,16 +24,20 @@ public sealed class InventoryBlockPreviewRenderer
         _pack = pack;
     }
 
-    public string? FaceDataUri(BlockDefinition block, BlockFace face)
+    public string? FaceDataUri(
+        BlockDefinition block, BlockFace sourceFace,
+        TextureRotation rotation = TextureRotation.Degrees0)
     {
         ArgumentNullException.ThrowIfNull(block);
+        if (!Enum.IsDefined(rotation))
+            throw new ArgumentOutOfRangeException(nameof(rotation));
         var layers = block.Visual.Texture is { } sprite
             ? new[] { sprite }
-            : block.Textures.ResolveForFace(face);
+            : block.Textures.ResolveForFace(sourceFace);
         if (layers.Count == 0)
             return null;
 
-        var key = (block.Id, face);
+        var key = (block.Id, sourceFace, rotation);
         if (_cache.TryGetValue(key, out var cached))
             return cached;
 
@@ -80,7 +85,25 @@ public sealed class InventoryBlockPreviewRenderer
                 }
             }
 
-            var png = composite.SavePngToBuffer();
+            // World meshes apply BlockUvRotation to the sampled coordinates.
+            // The browser preview has no shader UV input: rotate the pixels
+            // by precisely the inverse lookup instead, preserving alpha.
+            byte[] png;
+            if (rotation == TextureRotation.Degrees0)
+            {
+                png = composite.SavePngToBuffer();
+            }
+            else
+            {
+                var rotated = PreviewTextureRotation.Rotate(
+                    composite.GetData(), composite.GetWidth(),
+                    composite.GetHeight(), rotation);
+                using var image = Image.CreateFromData(
+                    rotated.Width, rotated.Height, false,
+                    Image.Format.Rgba8, rotated.Rgba);
+                png = image.SavePngToBuffer();
+            }
+
             var data = "data:image/png;base64," + Convert.ToBase64String(png);
             _cache.Add(key, data);
             return data;
