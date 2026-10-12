@@ -2935,6 +2935,15 @@ public partial class Main : Node3D
         // mistakes the capture-loss event for a request to open pause.
         SendChatState();
         _player.SuspendForModal();
+        // Native WebView focus happens after gameplay releases keyboard focus.
+        // Refocus the mounted chat field only after that handoff completes.
+        CallDeferred(nameof(FocusChatInput));
+    }
+
+    private void FocusChatInput()
+    {
+        if (_chat.IsOpen && _player is { IsMouseCaptured: false })
+            _webUi.Call("focus_chat_input");
     }
 
     private void CloseChat()
