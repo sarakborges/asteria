@@ -58,7 +58,8 @@ public sealed class PebbleLilyPadObjectTests
 
         var inventory = new PlayerInventory();
         Assert.True(runtime.TryPickup(new WorldObjectHit(support, cell, 1f), inventory));
-        Assert.Contains(inventory.Slots, stack =>
+        var snapshot = inventory.Capture();
+        Assert.Contains(snapshot.Backpack.Concat(snapshot.Hotbar), stack =>
             stack is { Kind: InventoryEntryKind.Item, Id: "asteria:pebble", Quantity: 1 });
         Assert.Empty(world.TryGetObjects(support, out var remaining) ? remaining : []);
     }
