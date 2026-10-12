@@ -262,12 +262,6 @@ public sealed class StructureRegistry
                 }
             }
 
-            if (definition.Caldera is { } caldera &&
-                (!blocks.TryGetId(caldera.WallBlock, out _) ||
-                 !blocks.TryGetId(caldera.FloorBlock, out _)))
-                throw new ArgumentException(
-                    $"Structure {definition.Id} references missing caldera wall or floor blocks.");
-
             foreach (var voxel in
                      definition.Voxels)
             {
@@ -368,11 +362,6 @@ public sealed class StructureRegistry
                         $"Structure {definition.Id} proximity references missing fluid {targetFluid}.");
                 }
             }
-
-            if (definition.Caldera is { } caldera &&
-                !fluids.TryGetId(caldera.Fluid, out _))
-                throw new ArgumentException(
-                    $"Structure {definition.Id} references missing caldera fluid {caldera.Fluid}.");
 
             foreach (var voxel in
                      definition.FluidVoxels)
