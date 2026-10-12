@@ -32,7 +32,8 @@ public static class ObjectPlacementResolver
                 fluids is null ||
                 !fluids.TryGetId(fluidId, out var required) ||
                 !world.TryGetFluid(supportHit.Voxel, out var fluid) ||
-                fluid.Fluid != required || fluid.Level != FluidCell.MaxLevel)
+                fluid.Fluid != required || fluid.Level != FluidCell.MaxLevel ||
+                !fluid.IsSource)
                 return default;
         }
         else if (support.IsEmpty || !blocks.GetDefinition(support.Block).IsCollidable)
