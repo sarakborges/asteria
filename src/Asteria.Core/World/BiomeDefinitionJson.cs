@@ -23,7 +23,7 @@ public static class BiomeDefinitionJson
         if (root.TryGetProperty("surfaceFluid", out _))
         {
             throw new FormatException(
-                "Biome surfaceFluid is obsolete. Author surfaceTerrain.fluidFill on a caldera.");
+                "Biome surfaceFluid is obsolete. Author fluids through supported structure or biome content.");
         }
 
         return new BiomeDefinition(
@@ -140,7 +140,7 @@ public static class BiomeDefinitionJson
                 "surfaceTerrain");
 
         if (value.TryGetProperty("crater", out _))
-            throw new FormatException("surfaceTerrain.crater is obsolete; use type caldera with craterRadius and craterDepth.");
+            throw new FormatException("surfaceTerrain.crater is obsolete. Author a connected Structure instead.");
 
         var type = "noise";
         if (value.TryGetProperty("type", out var typeValue) &&
@@ -204,20 +204,6 @@ public static class BiomeDefinitionJson
                         RequiredSingle(value, "floorScale"),
                         OptionalSingle(value, "rimFalloff") ?? 0.8f,
                         OptionalSingle(value, "floorFalloff") ?? 1.35f),
-                "caldera" =>
-                    new BiomeCalderaTerrainShapeDefinition(
-                        RequiredSingle(value, "baseHeight"),
-                        RequiredSingle(value, "height"),
-                        RequiredSingle(value, "craterRadius"),
-                        RequiredSingle(value, "floorRadius"),
-                        RequiredSingle(value, "craterDepth"),
-                        OptionalSingle(value, "flankRoughness") ?? 0f,
-                        OptionalSingle(value, "flankNoiseScale") ?? 0.009f,
-                        OptionalSingle(value, "detailRoughness") ?? 0f,
-                        OptionalSingle(value, "detailScale") ?? 0.031f,
-                        ParseCalderaFluidFill(value),
-                        OptionalSingle(value, "footprintRadius") ?? 0f,
-                        OptionalSingle(value, "biomeMargin") ?? 0f),
                 _ =>
                     throw new FormatException(
                         $"Unknown surfaceTerrain.type: {type}"),
@@ -263,19 +249,6 @@ public static class BiomeDefinitionJson
             JsonValueKind.False => false,
             _ => throw new FormatException("surfaceTerrain.fillToSeaLevel must be boolean."),
         };
-    }
-
-    private static BiomeCalderaFluidFillDefinition? ParseCalderaFluidFill(
-        JsonElement terrain)
-    {
-        if (!terrain.TryGetProperty("fluidFill", out var value) ||
-            value.ValueKind == JsonValueKind.Null)
-            return null;
-
-        value = EnsureObject(value, "surfaceTerrain.fluidFill");
-        return new BiomeCalderaFluidFillDefinition(
-            RequiredString(value, "fluid"),
-            RequiredSingle(value, "topLevel"));
     }
 
     private static IReadOnlyList<BiomeTerrainModifierDefinition>

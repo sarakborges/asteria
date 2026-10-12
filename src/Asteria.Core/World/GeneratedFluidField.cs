@@ -12,7 +12,6 @@ public sealed class GeneratedFluidField
     private readonly IReadOnlyDictionary<string, SurfaceRule> _surface;
     private readonly HashSet<string> _staticSeaBiomes;
     private readonly SurfaceMosaicField? _mosaic;
-    private readonly IReadOnlyDictionary<string, CalderaFillRule> _calderaFills;
     private readonly int _minimumInteriorY;
     private readonly int _maximumInteriorY;
 
@@ -97,25 +96,6 @@ public sealed class GeneratedFluidField
                 .ToHashSet(
                     StringComparer.Ordinal);
 
-        _calderaFills =
-            definitions
-                .Where(definition =>
-                    generatedFluidsEnabled &&
-                    definition.SurfaceTerrain?.Shape is
-                        BiomeCalderaTerrainShapeDefinition { FluidFill: not null })
-                .ToDictionary(
-                    definition => definition.Id,
-                    definition =>
-                    {
-                        var shape = (BiomeCalderaTerrainShapeDefinition)
-                            definition.SurfaceTerrain!.Shape;
-                        return new CalderaFillRule(
-                            shape,
-                            fluids.GetId(shape.FluidFill!.Fluid),
-                            dimension.SeaLevel);
-                    },
-                    StringComparer.Ordinal);
-
         if (!generatedFluidsEnabled || !spawnOceans || dimension.GeneratedOcean is not
             { } ocean)
         {
@@ -138,7 +118,6 @@ public sealed class GeneratedFluidField
     public bool HasRules =>
         _ocean is not null ||
         _surface.Count > 0 ||
-        _calderaFills.Count > 0 ||
         _mosaic?.HasRules == true;
 
     public int SurfaceCutDepthAt(
@@ -233,19 +212,6 @@ public sealed class GeneratedFluidField
                 ref maximumY);
         }
 
-        if (_calderaFills.TryGetValue(
-                sample.Primary,
-                out var caldera))
-        {
-            caldera.AddBounds(
-                sample.PrimaryTerrainStrength,
-                baseSurfaceY,
-                _minimumInteriorY,
-                _maximumInteriorY,
-                ref minimumY,
-                ref maximumY);
-        }
-
         if (minimumY <=
             maximumY)
         {
@@ -308,21 +274,6 @@ public sealed class GeneratedFluidField
             _mosaic?.Sample(sample, worldX, worldZ) is
                 { IsFluid: true } selected)
             return FluidCell.Source(selected.Fluid);
-
-        if (_calderaFills.TryGetValue(
-                sample.Primary,
-                out var caldera))
-        {
-            var fluid = caldera.FluidAt(
-                sample.PrimaryTerrainStrength,
-                baseSurfaceY,
-                worldY);
-
-            if (!fluid.IsEmpty)
-            {
-                return fluid;
-            }
-        }
 
         if (_ocean is not
                 { } ocean ||
@@ -672,64 +623,6 @@ public sealed class GeneratedFluidField
                     value %
                     span) -
                 jitter);
-        }
-    }
-
-    private sealed class CalderaFillRule
-    {
-        private readonly double _rimStrength;
-        private readonly double _fluidTop;
-
-        public CalderaFillRule(
-            BiomeCalderaTerrainShapeDefinition shape,
-            FluidRuntimeId fluid,
-            int seaLevel)
-        {
-            _rimStrength = shape.RimStrength;
-            _fluidTop = seaLevel + shape.FluidFill!.TopLevel;
-            Fluid = fluid;
-        }
-
-        public FluidRuntimeId Fluid { get; }
-
-        public void AddBounds(
-            float terrainStrength,
-            int baseSurfaceY,
-            int minimumInteriorY,
-            int maximumInteriorY,
-            ref int minimumY,
-            ref int maximumY)
-        {
-            if (terrainStrength < _rimStrength)
-                return;
-
-            var minimum = Math.Max(minimumInteriorY, checked(baseSurfaceY + 1));
-            var maximum = Math.Min(
-                maximumInteriorY,
-                checked((int)Math.Ceiling(_fluidTop) - 1));
-            GeneratedFluidField.AddBounds(
-                minimum, maximum, ref minimumY, ref maximumY);
-        }
-
-        public FluidCell FluidAt(
-            float terrainStrength,
-            int baseSurfaceY,
-            int worldY)
-        {
-            if (terrainStrength < _rimStrength ||
-                worldY <= baseSurfaceY)
-                return FluidCell.Empty;
-
-            var coverage = _fluidTop - worldY;
-            if (coverage <= 0d)
-                return FluidCell.Empty;
-
-            var level = checked((byte)Math.Clamp(
-                (int)Math.Ceiling(
-                    Math.Clamp(coverage, 0d, 1d) * FluidCell.MaxLevel),
-                FluidCell.MinLevel,
-                FluidCell.MaxLevel));
-            return FluidCell.Source(Fluid, level);
         }
     }
 

@@ -219,18 +219,6 @@ public sealed class BiomeRegistry
                         $"Biome {definition.Id} references missing decorator fluid {requirement.Fluid}.");
             }
 
-            var fill = (definition.SurfaceTerrain?.Shape as
-                BiomeCalderaTerrainShapeDefinition)?.FluidFill;
-            if (fill is null)
-            {
-                continue;
-            }
-
-            if (!fluids.TryGetId(fill.Fluid, out _))
-            {
-                throw new ArgumentException(
-                    $"Biome {definition.Id} references missing fluid {fill.Fluid}.");
-            }
         }
     }
 

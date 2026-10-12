@@ -10,7 +10,6 @@ public sealed class SurfaceTerrainField
     // A self-tapering formation can still meet another biome before its
     // radial strength reaches zero. Blend over a gradual ownership shoulder
     // rather than leaving a near-vertical wall at its edge.
-    private const double FormationBoundaryDominanceWidth = 0.7d;
 
     private readonly ulong _seed;
     private readonly int _seaLevel;
@@ -715,9 +714,6 @@ public sealed class SurfaceTerrainField
             worldZ,
             sample.PrimaryTerrainStrength);
 
-        // The caldera owns its full interior profile, joining neighbor terrain
-        // gradually at ownership boundaries instead of creating a cliff.
-        var tapersFromFormation = primaryRule.TapersFromFormationStrength;
         var neighboringHeightSum = 0d;
         var neighboringWeightSum = 0d;
         var strongestNeighborWeight = 0d;
@@ -743,16 +739,8 @@ public sealed class SurfaceTerrainField
                     ? coast.LandBoundaryHeightOffset
                     : _surfaceRules[influence.BiomeId].HeightOffsetAt(
                         _seed, worldX, worldZ, influence.TerrainStrength);
-            // A landform whose radial strength has already reached zero
-            // must not carve an artificial ditch in the adjacent biome.
-            if (_surfaceRules[influence.BiomeId].Caldera is not null &&
-                influence.TerrainStrength <= 0f)
-                continue;
-
-            // Ordinary elevated terrain rises only within its primary
-            // biome. Self-tapered formations must join their actual neighbor
-            // even when their low outer flank is below that neighbor.
-            if (!tapersFromFormation && influenceHeight >= primaryHeight)
+            // Elevated terrain starts only within its primary biome.
+            if (influenceHeight >= primaryHeight)
             {
                 continue;
             }
@@ -769,33 +757,10 @@ public sealed class SurfaceTerrainField
             return primaryHeight;
         }
 
-        // At equal dominance the boundary follows the neighbor. A caldera
-        // recovers its authored height soon after entering its own biome;
-        // other elevated shapes keep the existing full dominance ramp.
         var dominance = Math.Clamp(
             sample.PrimaryWeight - strongestNeighborWeight,
-            0d,
-            1d);
-        var transition = tapersFromFormation
-            ? Math.Clamp(
-                dominance / FormationBoundaryDominanceWidth,
-                0d,
-                1d)
-            : dominance;
-        // The rim must never be lowered independently of the fluid field.
-        // Smoothly phase out the neighbor blend on the outer mountain flank.
-        if (primaryRule.Caldera is { } caldera)
-        {
-            var shoulder = caldera.RimStrength * 0.55d;
-            var protectedInterior = WorldGenerationEntropy.SmoothStep(
-                Math.Clamp(
-                    (sample.PrimaryTerrainStrength - shoulder) /
-                    (caldera.RimStrength - shoulder),
-                    0d, 1d));
-            transition = transition + (1d - transition) * protectedInterior;
-        }
-
-        var slope = WorldGenerationEntropy.SmoothStep(transition);
+            0d, 1d);
+        var slope = WorldGenerationEntropy.SmoothStep(dominance);
         var neighborHeight = neighboringHeightSum / neighboringWeightSum;
         return neighborHeight + (primaryHeight - neighborHeight) * slope;
     }

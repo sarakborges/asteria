@@ -235,28 +235,11 @@ public sealed class BiomeField
                 nameof(ruleSources));
         }
 
-        // Protected landforms must always find their founding seed in the
-        // bounded 5x5 candidate window, even at the outer biome margin.
-        // Both biome warping and seed jitter are accounted for explicitly.
-        var availableBuckets = CandidateRadiusBuckets -
-            _blending.JitterFraction -
-            _blending.CoarseWarpStrength -
-            _blending.FineWarpStrength;
-        var requiredSpacing = _rules
-            .Where(rule => rule.IsCaldera)
-            .Select(rule => (int)Math.Ceiling(
-                rule.ProtectedRadius / availableBuckets))
-            .DefaultIfEmpty(0)
-            .Max();
-        var spacing = Math.Max(
-            checked((int)_rules.Min(rule => rule.RegionMin).DivCeiling(3)),
-            requiredSpacing);
-        if (spacing > MaximumSeedSpacing)
-            throw new ArgumentException(
-                "Protected caldera footprint exceeds the biome seed search reach.",
-                nameof(ruleSources));
         _seedSpacing = Math.Clamp(
-            spacing, MinimumSeedSpacing, MaximumSeedSpacing);
+            checked((int)_rules.Min(rule =>
+                rule.RegionMin).DivCeiling(3)),
+            MinimumSeedSpacing,
+            MaximumSeedSpacing);
     }
 
     private static IEnumerable<BiomeFieldRuleSource>
@@ -281,14 +264,9 @@ public sealed class BiomeField
                         throw new ArgumentException(
                             $"Biome {biomeId} does not author surfaceLayout.");
 
-                    var caldera = definition.SurfaceTerrain?.Shape as
-                        BiomeCalderaTerrainShapeDefinition;
                     return new BiomeFieldRuleSource(
                         definition.Id,
-                        layout,
-                        caldera is not null,
-                        caldera?.FootprintRadius ?? 0f,
-                        caldera?.BiomeMargin ?? 0f);
+                        layout);
                 })
             .ToArray();
     }
@@ -687,25 +665,6 @@ public sealed class BiomeField
                 ? stackalloc byte[_rules.Length]
                 : new byte[_rules.Length];
 
-        // A caldera must be anchored to one immutable formation root,
-        // not to whichever continuation bucket wins the biome score.
-        // Combining root-centered radial fields by max gives a continuous
-        // mountain envelope, even where candidate seed ownership changes.
-        Span<double> calderaStrengths =
-            _rules.Length <= 64
-                ? stackalloc double[_rules.Length]
-                : new double[_rules.Length];
-        calderaStrengths.Clear();
-        Span<double> calderaReservations =
-            _rules.Length <= 64
-                ? stackalloc double[_rules.Length]
-                : new double[_rules.Length];
-        calderaReservations.Clear();
-        Span<SeedBucket> calderaRoots = stackalloc SeedBucket[
-            (CandidateRadiusBuckets * 2 + 1) *
-            (CandidateRadiusBuckets * 2 + 1)];
-        var seenCalderaRoots = 0;
-
         for (var dz =
                  -CandidateRadiusBuckets;
              dz <=
@@ -737,35 +696,6 @@ public sealed class BiomeField
                         warpedX,
                         warpedZ);
 
-                if (_rules[seed.Assignment.Rule].IsCaldera)
-                {
-                    var alreadySeen = false;
-                    for (var i = 0; i < seenCalderaRoots; i++)
-                    {
-                        if (calderaRoots[i] == seed.Assignment.Root)
-                        {
-                            alreadySeen = true;
-                            break;
-                        }
-                    }
-
-                    if (!alreadySeen)
-                    {
-                        calderaRoots[seenCalderaRoots++] =
-                            seed.Assignment.Root;
-                        var rule = _rules[seed.Assignment.Rule];
-                        var distance = DistanceToFormationRoot(
-                            seed.Assignment, x, z);
-                        calderaStrengths[seed.Assignment.Rule] = Math.Max(
-                            calderaStrengths[seed.Assignment.Rule],
-                            WorldGenerationEntropy.SmoothStep(Math.Clamp(
-                                1d - distance / rule.CalderaRadius, 0d, 1d)));
-                        calderaReservations[seed.Assignment.Rule] = Math.Max(
-                            calderaReservations[seed.Assignment.Rule],
-                            1d - distance / rule.ProtectedRadius);
-                    }
-                }
-
                 if (score >
                     bestScores[
                         seed.Assignment.Rule])
@@ -781,29 +711,6 @@ public sealed class BiomeField
                         1;
                 }
             }
-        }
-
-        // Reserve the COMPLETE formation and a clear margin as biome-owned
-        // territory, independently of competing seed scores and blending.
-        // The mountain's radial field reaches zero BEFORE this boundary.
-        var reservedRule = -1;
-        var bestReservation = 0d;
-        for (var index = 0; index < _rules.Length; index++)
-        {
-            var reservation = calderaReservations[index];
-            if (reservation > bestReservation)
-            {
-                reservedRule = index;
-                bestReservation = reservation;
-            }
-        }
-
-        if (reservedRule >= 0)
-        {
-            var reservedBiome = _rules[reservedRule].Id;
-            return new BiomeSample(reservedBiome,
-                [new BiomeInfluence(reservedBiome, 1f,
-                    checked((float)calderaStrengths[reservedRule]))]);
         }
 
         var primaryRule =
@@ -889,12 +796,10 @@ public sealed class BiomeField
                 (
                     rule,
                     weight,
-                    _rules[rule].IsCaldera
-                        ? calderaStrengths[rule]
-                        : FormationStrength(
-                            bestSeeds[rule].Assignment,
-                            warpedX,
-                            warpedZ)));
+                    FormationStrength(
+                        bestSeeds[rule].Assignment,
+                        warpedX,
+                        warpedZ)));
             total += weight;
         }
 
@@ -1503,17 +1408,6 @@ public sealed class BiomeField
             baseZ + jitterZ);
     }
 
-    private double DistanceToFormationRoot(
-        SeedAssignment assignment,
-        int x,
-        int z)
-    {
-        var (centerX, centerZ) = SeedCenter(assignment.Root);
-        var dx = (double)x - centerX;
-        var dz = (double)z - centerZ;
-        return Math.Sqrt(dx * dx + dz * dz);
-    }
-
     private double FormationStrength(
         SeedAssignment assignment,
         double x,
@@ -1803,10 +1697,7 @@ public sealed class BiomeField
             uint regionMin,
             uint regionMax,
             HashSet<string> cannotBorder,
-            GenerationDomain targetDomain,
-            bool isCaldera,
-            float calderaRadius,
-            float calderaMargin)
+            GenerationDomain targetDomain)
         {
             Id = id;
             WeightUnits = weightUnits;
@@ -1815,9 +1706,6 @@ public sealed class BiomeField
             RegionMax = regionMax;
             CannotBorder = cannotBorder;
             TargetDomain = targetDomain;
-            IsCaldera = isCaldera;
-            CalderaRadius = calderaRadius;
-            ProtectedRadius = calderaRadius + calderaMargin;
         }
 
         public string Id { get; }
@@ -1834,35 +1722,12 @@ public sealed class BiomeField
 
         public GenerationDomain TargetDomain { get; }
 
-        public bool IsCaldera { get; }
-
-        public float CalderaRadius { get; }
-        public float ProtectedRadius { get; }
-
         public static BiomeRule Create(
             BiomeFieldRuleSource source,
             int _,
             float biomeSizeMultiplier = 1f)
         {
             var layout = source.Layout;
-            var scaledMin = Math.Max(1u, checked((uint)Math.Round(
-                layout.RegionMin * (double)biomeSizeMultiplier)));
-            // Authored world-space radii contract with smaller biome settings
-            // rather than allowing the mountain to spill across its boundary.
-            var radiusScale = Math.Min(1f, biomeSizeMultiplier);
-            var calderaRadius = !source.IsCaldera ? 0f :
-                source.CalderaFootprintRadius > 0f
-                    ? source.CalderaFootprintRadius * radiusScale
-                    : scaledMin * 0.25f;
-            var margin = !source.IsCaldera ? 0f :
-                source.CalderaBiomeMargin > 0f
-                    ? source.CalderaBiomeMargin * radiusScale
-                    : scaledMin * 0.125f;
-            if (source.IsCaldera && scaledMin < (calderaRadius + margin) * 2d)
-                throw new ArgumentException(
-                    "Caldera regionSize.min must enclose the mountain AND its protective biome margin.",
-                    nameof(source));
-
             return new BiomeRule(
                 source.Id,
                 Math.Max(
@@ -1881,7 +1746,8 @@ public sealed class BiomeField
                                     surface.SpawnWeight *
                                     4096d)))
                     : 0UL,
-                scaledMin,
+                Math.Max(1u, checked((uint)Math.Round(
+                    layout.RegionMin * (double)biomeSizeMultiplier))),
                 Math.Max(1u, checked((uint)Math.Round(
                     layout.RegionMax * (double)biomeSizeMultiplier))),
                 new HashSet<string>(
@@ -1889,10 +1755,7 @@ public sealed class BiomeField
                     StringComparer.Ordinal),
                 GenerationDomain.Named(
                     "biome-layout/formation-target/v2/" +
-                    source.Id),
-                source.IsCaldera,
-                calderaRadius,
-                margin);
+                    source.Id));
         }
     }
 
@@ -1944,10 +1807,7 @@ public sealed class BiomeField
 
 internal readonly record struct BiomeFieldRuleSource(
     string Id,
-    BiomePlacementLayoutDefinition Layout,
-    bool IsCaldera = false,
-    float CalderaFootprintRadius = 0f,
-    float CalderaBiomeMargin = 0f);
+    BiomePlacementLayoutDefinition Layout);
 
 internal static class UInt32MathExtensions
 {

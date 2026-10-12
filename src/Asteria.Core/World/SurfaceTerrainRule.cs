@@ -68,13 +68,6 @@ internal sealed class SurfaceTerrainRule
                 $"terrain/shape/warp-z/v2/{definition.Id}");
     }
 
-    // Caldera flanks already descend toward their formation edge.
-    public bool TapersFromFormationStrength =>
-        _shape is BiomeCalderaTerrainShapeDefinition;
-
-    public BiomeCalderaTerrainShapeDefinition? Caldera =>
-        _shape as BiomeCalderaTerrainShapeDefinition;
-
     public double HeightOffsetAt(
         ulong seed,
         int x,
@@ -87,30 +80,21 @@ internal sealed class SurfaceTerrainRule
                 0d,
                 1d);
 
-        double height;
-        if (_shape is BiomeCalderaTerrainShapeDefinition caldera)
+        var height = _shape switch
         {
-            height = CalderaHeight(seed, x, z, strength, caldera);
-        }
-        else
-        {
-            height =
-                _shape switch
-                {
-                    BiomeNoiseTerrainShapeDefinition noise =>
-                        NoiseHeight(seed, x, z, noise),
-                    BiomeRollingTerrainShapeDefinition rolling =>
-                        RollingHeight(seed, x, z, rolling),
-                    BiomeDunesTerrainShapeDefinition dunes =>
-                        DunesHeight(seed, x, z, dunes),
-                    BiomeRidgesTerrainShapeDefinition ridges =>
-                        RidgesHeight(seed, x, z, ridges),
-                    BiomeValleyTerrainShapeDefinition valley =>
-                        ValleyHeight(seed, x, z, strength, valley),
-                    _ => throw new InvalidOperationException(
-                        $"Unsupported terrain shape for {_biomeId}."),
-                };
-        }
+            BiomeNoiseTerrainShapeDefinition noise =>
+                NoiseHeight(seed, x, z, noise),
+            BiomeRollingTerrainShapeDefinition rolling =>
+                RollingHeight(seed, x, z, rolling),
+            BiomeDunesTerrainShapeDefinition dunes =>
+                DunesHeight(seed, x, z, dunes),
+            BiomeRidgesTerrainShapeDefinition ridges =>
+                RidgesHeight(seed, x, z, ridges),
+            BiomeValleyTerrainShapeDefinition valley =>
+                ValleyHeight(seed, x, z, strength, valley),
+            _ => throw new InvalidOperationException(
+                $"Unsupported terrain shape for {_biomeId}."),
+        };
 
         for (var index = 0;
              index < _modifiers.Count;
@@ -318,44 +302,6 @@ internal sealed class SurfaceTerrainRule
         return -definition.Depth *
                WorldGenerationEntropy.SmoothStep(terrainStrength) *
                depressionStrength;
-    }
-
-    private double CalderaHeight(
-        ulong seed,
-        int x,
-        int z,
-        double strength,
-        BiomeCalderaTerrainShapeDefinition caldera)
-    {
-        // One radial profile gives continuous raised slopes, a closed rim,
-        // an inward crater wall and a lower basin floor. Flank noise fades
-        // to zero at the rim, so it cannot breach or fragment the enclosure.
-        var flank = Math.Clamp(strength / caldera.RimStrength, 0d, 1d);
-        var raised = WorldGenerationEntropy.SmoothStep(flank);
-        // Both the skirt and the summit vanish before the protected biome
-        // margin. No elevated caldera terrain is allowed on an ownership seam.
-        var height = (caldera.BaseHeight + caldera.Height) * raised;
-
-        if (strength < caldera.RimStrength)
-        {
-            var envelope = Math.Sin(Math.PI * flank);
-            height += envelope * (
-                Fractal(seed, _macroDomain, x, z, caldera.FlankNoiseScale) *
-                    caldera.FlankRoughness +
-                Fractal(seed, _detailDomain, x, z, caldera.DetailScale) *
-                    caldera.DetailRoughness);
-        }
-        else
-        {
-            var inner = Math.Clamp(
-                (strength - caldera.RimStrength) /
-                    (caldera.FloorStrength - caldera.RimStrength),
-                0d, 1d);
-            height -= caldera.CraterDepth *
-                WorldGenerationEntropy.SmoothStep(inner);
-        }
-
-        return height;
     }
 
     private double ModifierHeight(
