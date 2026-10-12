@@ -24,9 +24,10 @@ public static class PlayerSkinUvMapper
         TryMapBox(part, position, normal, outer: true, out uv);
 
     /// <summary>
-    /// The authored GLB already includes canonical base UVs. All outer-layer
-    /// rectangles are translations of those UVs, so their orientation can
-    /// be preserved without recomputing face normals after import.
+    /// For standard 64×64 atlas geometry, all outer rectangles translate
+    /// their corresponding inner rectangles by a fixed offset. Importers may
+    /// rewrite mesh UVs, so runtime surfaces still recompute both UV sets
+    /// from local cuboid positions and normals.
     /// </summary>
     public static bool TryOuterUvOffset(string part, out Vector2 offset)
     {

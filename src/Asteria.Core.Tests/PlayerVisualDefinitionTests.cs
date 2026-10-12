@@ -153,4 +153,102 @@ public sealed class PlayerVisualDefinitionTests
         Assert.Equal("Death", definition.Animations["death"]);
     }
 
+    [Theory]
+    [InlineData("HeadMesh", 0, 0, 8, 8, 8)]
+    [InlineData("HairLayer", 32, 0, 8, 8, 8)]
+    [InlineData("BodyMesh", 16, 16, 8, 12, 4)]
+    [InlineData("RightArmMesh", 40, 16, 4, 12, 4)]
+    [InlineData("LeftArmMesh", 32, 48, 4, 12, 4)]
+    [InlineData("RightLegMesh", 0, 16, 4, 12, 4)]
+    [InlineData("LeftLegMesh", 16, 48, 4, 12, 4)]
+    public void AllSixFacesUseCanonicalMineCloneSkinRectangles(
+        string part, int x, int y, int width, int height, int depth)
+    {
+        var faces = new (Vector3 Corner, Vector3 Normal,
+            int ExpectedX, int ExpectedY)[]
+        {
+            (new(-.5f, .5f, -.5f), -Vector3.UnitX,
+                x, y + depth),
+            (new(-.5f, .5f, .5f), Vector3.UnitZ,
+                x + depth, y + depth),
+            (new(.5f, .5f, .5f), Vector3.UnitX,
+                x + depth + width, y + depth),
+            (new(.5f, .5f, -.5f), -Vector3.UnitZ,
+                x + depth * 2 + width, y + depth),
+            (new(-.5f, .5f, -.5f), Vector3.UnitY,
+                x + depth, y),
+            (new(-.5f, -.5f, .5f), -Vector3.UnitY,
+                x + depth + width, y)
+        };
+
+        foreach (var (corner, normal, px, py) in faces)
+        {
+            Assert.True(PlayerSkinUvMapper.TryMap(part, corner, normal, out var uv));
+            Assert.Equal(new Vector2(px / 64f, py / 64f), uv);
+        }
+
+        // Geometry is normalized before applying any texture resolution.
+        Assert.True(PlayerSkinUvMapper.TryMap(
+            part, new Vector3(.5f, -.5f, .5f), Vector3.UnitZ,
+            out var bottomRight));
+        Assert.Equal((x + depth + width) / 64f, bottomRight.X);
+        Assert.Equal((y + depth + height) / 64f, bottomRight.Y);
+    }
+
+    [Theory]
+    [InlineData("HeadMesh", 32, 0, 8, 8, 8)]
+    [InlineData("BodyMesh", 16, 32, 8, 12, 4)]
+    [InlineData("RightArmMesh", 40, 32, 4, 12, 4)]
+    [InlineData("LeftArmMesh", 48, 48, 4, 12, 4)]
+    [InlineData("RightLegMesh", 0, 32, 4, 12, 4)]
+    [InlineData("LeftLegMesh", 0, 48, 4, 12, 4)]
+    public void EveryOuterLayerMapsAllSixFacesIndependently(
+        string part, int x, int y, int width, int height, int depth)
+    {
+        var normals = new[]
+        {
+            -Vector3.UnitX, Vector3.UnitZ, Vector3.UnitX,
+            -Vector3.UnitZ, Vector3.UnitY, -Vector3.UnitY
+        };
+        var corners = new[]
+        {
+            new Vector3(-.5f, .5f, -.5f),
+            new Vector3(-.5f, .5f, .5f),
+            new Vector3(.5f, .5f, .5f),
+            new Vector3(.5f, .5f, -.5f),
+            new Vector3(-.5f, .5f, -.5f),
+            new Vector3(-.5f, -.5f, .5f)
+        };
+        var atlasCorners = new[]
+        {
+            (x, y + depth),
+            (x + depth, y + depth),
+            (x + depth + width, y + depth),
+            (x + depth * 2 + width, y + depth),
+            (x + depth, y),
+            (x + depth + width, y)
+        };
+        for (var face = 0; face < normals.Length; face++)
+        {
+            Assert.True(PlayerSkinUvMapper.TryMapOuter(
+                part, corners[face], normals[face], out var uv));
+            var expected = atlasCorners[face];
+            Assert.Equal(new Vector2(expected.Item1 / 64f,
+                expected.Item2 / 64f), uv);
+            Assert.True(PlayerSkinUvMapper.TryMap(
+                part, corners[face], normals[face], out var baseUv));
+            Assert.NotEqual(baseUv, uv);
+        }
+    }
+
+    [Fact]
+    public void SkinAtlasMappingRejectsUnknownFacesInsteadOfSilentlyWrapping()
+    {
+        Assert.False(PlayerSkinUvMapper.TryMap("HeadMesh",
+            Vector3.Zero, Vector3.Zero, out _));
+        Assert.False(PlayerSkinUvMapper.TryMapOuter("HairLayer",
+            Vector3.Zero, Vector3.UnitZ, out _));
+        Assert.False(PlayerSkinUvMapper.TryOuterUvOffset("Unsupported", out _));
+    }
+
 }

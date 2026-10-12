@@ -29,28 +29,56 @@ internal static class PlayerVisualSceneFactory
         var scene = document.GenerateScene(state)
             ?? throw new InvalidDataException("Authored player GLB has no scene.");
         var skin = ProjectPackFiles.LoadTexture(selection, definition.Skin);
+        var skinSize = skin.GetSize();
+        if (skinSize.X != skinSize.Y ||
+            skinSize.X is not (64 or 128 or 256 or 512))
+            throw new InvalidDataException(
+                $"Player skin '{definition.Skin}' must be a square 64/128/256/512 atlas.");
         var cuboids = Descendants(scene)
             .OfType<MeshInstance3D>()
             .Where(mesh => PlayerSkinUvMapper.TryMap(
                 mesh.Name.ToString(), NVector3.Zero, NVector3.UnitZ, out _))
             .ToArray();
+        // A missing limb or duplicate imported mesh must not silently
+        // present an incomplete/mismatched skin for selected packs.
+        var names = cuboids.Select(mesh => mesh.Name.ToString()).ToArray();
+        if (names.Distinct(StringComparer.Ordinal).Count() != names.Length)
+            throw new InvalidDataException("Player GLB repeats named body meshes.");
+        foreach (var required in new[] {
+                     "HeadMesh", "BodyMesh",
+                     "RightArmMesh", "LeftArmMesh",
+                     "RightLegMesh", "LeftLegMesh"
+                 })
+            if (!names.Contains(required, StringComparer.Ordinal))
+                throw new InvalidDataException(
+                    $"Player GLB is missing skin cuboid '{required}'.");
+
         var hasAuthoredHairLayer = cuboids.Any(mesh =>
             mesh.Name.ToString() == "HairLayer");
         foreach (var mesh in cuboids)
         {
+            var name = mesh.Name.ToString();
+            var sourceMesh = mesh.Mesh ?? throw new InvalidDataException(
+                $"Player cuboid {name} has no imported geometry.");
+
+            // MineClone owns UVs by named cuboid, local position, and
+            // normal. Never trust imported GLB UVs: importers and selected-pack
+            // GLBs may reorder or flip them without changing geometry.
+            mesh.Mesh = RemapSkinMesh(sourceMesh, name, outer: false);
             ApplySkin(mesh, skin);
-            // The original GLB already includes its hair layer. Generate only
-            // the remaining jacket/sleeves/trousers from the same authored skin.
-            if (mesh.Name.ToString() != "HairLayer" &&
-                !(hasAuthoredHairLayer && mesh.Name.ToString() == "HeadMesh") &&
-                PlayerSkinUvMapper.TryOuterUvOffset(
-                    mesh.Name.ToString(), out var offset))
+
+            // The GLB includes an independent hair geometry already.
+            // The jacket, sleeves, and trousers are expanded cuboids with
+            // their own distinct canonical skin regions.
+            if (name != "HairLayer" &&
+                !(hasAuthoredHairLayer && name == "HeadMesh") &&
+                PlayerSkinUvMapper.TryOuterUvOffset(name, out _))
             {
                 var overlay = new MeshInstance3D
                 {
-                    Name = mesh.Name.ToString() + "Overlay",
-                    Mesh = BuildOuterMesh(mesh, offset),
-                    Scale = OuterLayerScale(mesh.Name.ToString()),
+                    Name = name + "Overlay",
+                    Mesh = RemapSkinMesh(sourceMesh, name, outer: true),
+                    Scale = OuterLayerScale(name),
                     CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
                     MaterialOverride = MakeSkinMaterial(skin),
                 };
@@ -95,40 +123,53 @@ internal static class PlayerVisualSceneFactory
         TextureFilter = BaseMaterial3D.TextureFilterEnum.Nearest,
         Transparency = BaseMaterial3D.TransparencyEnum.AlphaScissor,
         AlphaScissorThreshold = 0.1f,
-        CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+        // Backfaces must not show inner cuboid walls through alpha-masked skin.
+        CullMode = BaseMaterial3D.CullModeEnum.Back,
     };
 
-    private static ArrayMesh BuildOuterMesh(MeshInstance3D mesh, NVector2 uvOffset)
+    /// <summary>Identical mapping to MineClone's SkinPartSpec and SkinBoxUv:
+    /// rebuilt per surface from canonical cube-space positions and normals.
+    /// The source atlas UVs are deliberately ignored for both layers.</summary>
+    private static ArrayMesh RemapSkinMesh(Mesh imported, string part, bool outer)
     {
-        if (mesh.Mesh is not Mesh imported)
-            throw new InvalidDataException(
-                $"Player mesh '{mesh.Name}' has no geometry.");
-
         var mapped = new ArrayMesh();
+        if (imported.GetSurfaceCount() == 0)
+            throw new InvalidDataException($"Player mesh '{part}' has no surfaces.");
+
         for (var surface = 0; surface < imported.GetSurfaceCount(); surface++)
         {
             var arrays = imported.SurfaceGetArrays(surface);
             var vertices = arrays[(int)Mesh.ArrayType.Vertex].AsVector3Array();
-            var authoredUv = arrays[(int)Mesh.ArrayType.TexUV].AsVector2Array();
-            if (vertices.Length == 0 || vertices.Length != authoredUv.Length)
+            var normals = arrays[(int)Mesh.ArrayType.Normal].AsVector3Array();
+            if (vertices.Length == 0 || vertices.Length != normals.Length)
                 throw new InvalidDataException(
-                    $"Player mesh '{mesh.Name}' has no canonical GLB UVs.");
+                    $"Player mesh '{part}' has mismatched positions/normals.");
 
-            // The outer atlas region has the same box layout as the inner
-            // region, only translated. This preserves the original imported
-            // face orientation and texture-coordinate conventions.
-            var offset = new Vector2(uvOffset.X, uvOffset.Y);
-            var outerUv = new Vector2[authoredUv.Length];
-            for (var i = 0; i < authoredUv.Length; i++)
-                outerUv[i] = authoredUv[i] + offset;
-            arrays[(int)Mesh.ArrayType.TexUV] = outerUv;
+            var skinUvs = new Vector2[vertices.Length];
+            for (var i = 0; i < vertices.Length; i++)
+            {
+                var vertex = vertices[i];
+                var normal = normals[i];
+                var point = new NVector3(vertex.X, vertex.Y, vertex.Z);
+                var direction = new NVector3(normal.X, normal.Y, normal.Z);
+                NVector2 uv;
+                var success = outer
+                    ? PlayerSkinUvMapper.TryMapOuter(part, point, direction, out uv)
+                    : PlayerSkinUvMapper.TryMap(part, point, direction, out uv);
+                if (!success)
+                    throw new InvalidDataException(
+                        $"Player cuboid '{part}' contains a noncanonical face at vertex {i}.");
+                skinUvs[i] = new Vector2(uv.X, uv.Y);
+            }
+
+            arrays[(int)Mesh.ArrayType.TexUV] = skinUvs;
             mapped.AddSurfaceFromArrays(
                 imported is ArrayMesh sourceMesh
                     ? sourceMesh.SurfaceGetPrimitiveType(surface)
                     : Mesh.PrimitiveType.Triangles,
                 arrays);
         }
-
         return mapped;
     }
+
 }

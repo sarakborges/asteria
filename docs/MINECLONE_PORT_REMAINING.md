@@ -420,3 +420,10 @@ MineClone `world-systems-rebuild` reference: `world_objects.rs::detached_object_
 - Success consumes the attached sapling and places the mature Structure through the existing `VoxelMutationRuntime.ApplyStructureChanges` single preflight/commit path; no Object drop or second Structure publisher. World tick already survives Sphere retirement/save, and grown blocks persist in normal chunks, without redundant growth timers or save aliases.
 - Added content and end-to-end Core regression tests; in-engine visual QA remains necessary.
 
+## Player skin atlas parity batch — 2026-10-12
+
+- Compared the MineClone \`world-systems-rebuild\` canonical \`src/player/skin_uv.rs\` layouts (all six faces of 7 named body cuboids and their 6 outer regions) to Asteria. The default MineClone and Asteria GLB files are identical and embed canonical base UV coordinates, but Godot previously trusted the imported mesh UV stream without validating or rebuilding it.
+- Asteria's player scene factory now remaps **both base and outer skins** from each cuboid's mesh-local vertex position and normal through the shared \`PlayerSkinUvMapper\`, matching MineClone's skin face rectangles regardless of GLB's preauthored UV stream. HairLayer remains the one modeled hair shell rather than a duplicate overlay.
+- Added atlas aspect/resolution validation, back-face culling to prevent alpha-scissored body interiors from rendering, and Core tests for six faces of every base and outer atlas region.
+- Native Godot visual acceptance is still required on third-person, inventory portrait, first-person hand, animation poses and alpha rendering. Source atlas geometry is tested, but cannot prove all runtime import/platform rendering paths.
+
