@@ -78,7 +78,7 @@
       }
     },
     {
-      "block": "asteria:stick",
+      "object": "asteria:stick",
       "chance": 0.0128,
       "surfaceBlocks": [
         "asteria:grass_block",
@@ -193,7 +193,7 @@
       }
     },
     {
-      "block": "asteria:iris",
+      "object": "asteria:iris",
       "chance": 0.0152,
       "surfaceBlocks": [
         "asteria:grass_block",
