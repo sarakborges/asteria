@@ -113,9 +113,6 @@
   "asteria:coral_yellow": {
     "/name": "Coral Amarelo"
   },
-  "asteria:daisy": {
-    "/name": "Margarida"
-  },
   "asteria:dead_thistle": {
     "/name": "Cardo Morto"
   },
@@ -193,9 +190,6 @@
   },
   "asteria:ice_tiles": {
     "/name": "Ladrilhos de Gelo"
-  },
-  "asteria:iris": {
-    "/name": "Íris"
   },
   "asteria:juniper_needles": {
     "/name": "Agulhas de Zimbro"
@@ -311,12 +305,6 @@
   "asteria:mud_tiles": {
     "/name": "Ladrilhos de Lama"
   },
-  "asteria:mushroom_green": {
-    "/name": "Cogumelo Verde"
-  },
-  "asteria:mushroom_yellow": {
-    "/name": "Cogumelo Amarelo"
-  },
   "asteria:pass_grass": {
     "/name": "Capim de Passagem"
   },
@@ -337,9 +325,6 @@
   },
   "asteria:portal": {
     "/name": "Portal"
-  },
-  "asteria:purple_aster": {
-    "/name": "Áster Roxo"
   },
   "asteria:rime_deadwood": {
     "/name": "Madeira Morta Coberta de Geada"
@@ -412,9 +397,6 @@
   },
   "asteria:starflower": {
     "/name": "Flor-estrela"
-  },
-  "asteria:stick": {
-    "/name": "Graveto"
   },
   "asteria:stone": {
     "/name": "Pedra"
