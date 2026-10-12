@@ -1,0 +1,39 @@
+{
+  "id": "asteria:stick",
+  "category": "crafting_materials",
+  "icon": "textures/items/stick.png",
+  "placementFaces": [
+    "top"
+  ],
+  "visual": {
+    "type": "extrudedSprite",
+    "texture": "textures/items/stick.png",
+    "size": [
+      0.68,
+      0.68
+    ],
+    "height": 0.012,
+    "baseOffset": 0.0125,
+    "alphaCutoff": 0.5
+  },
+  "target": {
+    "size": [
+      0.68,
+      0.12,
+      0.68
+    ],
+    "centerOffset": [
+      0,
+      0.06,
+      0
+    ]
+  },
+  "positionJitter": [
+    0,
+    0
+  ],
+  "dropSelf": true,
+  "windSway": false,
+  "interaction": "pickup",
+  "pickupItem": "asteria:stick"
+}
