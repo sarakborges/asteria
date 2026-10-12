@@ -254,7 +254,7 @@ public sealed class DimensionRuntimeSession
                 restore:
                     state.BlockPhysics);
         ObjectInteractions = new WorldObjectInteractionRuntime(
-            World, blocks, objects, Mutations, _droppedBlocks);
+            World, blocks, objects, Mutations, _droppedBlocks, fluids);
         BlockInteractions =
             new BlockInteractionRuntime(
                 World,
