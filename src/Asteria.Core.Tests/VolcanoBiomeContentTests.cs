@@ -246,6 +246,60 @@ public sealed class VolcanoBiomeContentTests
                 lavaPosition.Local.Z).Fluid);
     }
 
+    [Fact]
+    public void ActualOverworldGeneratesALocatableCompleteVolcano()
+    {
+        var biomeDocuments = ReadPackDirectory("biomes");
+        var biomes = BiomeRegistry.FromJson(biomeDocuments);
+        var blocks = BlockRegistry.FromJson(ReadPackDirectory("blocks"));
+        var fluids = FluidRegistry.FromJson(ReadPackDirectory("fluids"));
+        var structures = new StructureRegistry(
+            new[] { Load("volcanic_caldera") }
+                .Concat(Quadrants.Select(part =>
+                    Load("volcanic_caldera_" + part.Id))));
+
+        // Keep all actual Overworld biome placement rules, terrain and seed
+        // behavior, but query only the volcano structure rule. Otherwise the
+        // test would spend its budget placing unrelated forests and boulders.
+        var document = System.Text.Json.Nodes.JsonNode.Parse(
+            File.ReadAllText(Path.Combine(PackData, "dimensions",
+                "overworld.json")))!.AsObject();
+        var volcanoRule = document["generatedSurfaceStructures"]!.AsArray()
+            .Single(rule => rule!["structure"]!.GetValue<string>() ==
+                "asteria:volcano")!.DeepClone();
+        document["generatedSurfaceStructures"] =
+            new System.Text.Json.Nodes.JsonArray(volcanoRule);
+        var dimension = DimensionDefinitionJson.Parse(document.ToJsonString());
+
+        var generator = new BiomeWorldGenerator(
+            DimensionSeed.Derive(0xA57E2026UL, dimension.Id),
+            dimension, blocks, fluids, biomes, structures);
+        Assert.True(generator.HasGeneratedSurfaceStructure("asteria:volcano"));
+        var biome = generator.Biomes.FindNearestSurfaceBiome(
+            "asteria:overworld/scorched_wastes", 0, 0, 4096);
+        Assert.NotNull(biome);
+        var nearest = generator.FindNearestSurfaceStructure(
+            "asteria:volcano", biome.X, biome.Z, 1536);
+        Assert.True(nearest.HasValue,
+            "The actual Overworld biome field must produce a full volcano, " +
+            "not an ungenerated landmark or a lone lava pillar.");
+        var result = nearest!.Value;
+        Assert.Equal("asteria:volcanic_caldera", result.StructureId);
+        var pieces = generator.SurfaceStructuresIntersecting(
+            result.AnchorX - 52, result.AnchorZ - 52, 105, 105)
+            .Where(piece => piece.PlacementAnchorX == result.PlacementAnchorX &&
+                piece.PlacementAnchorZ == result.PlacementAnchorZ)
+            .ToArray();
+        Assert.Equal(5, pieces.Length);
+        Assert.All(pieces, piece =>
+            Assert.Equal("asteria:volcano", piece.Reference));
+    }
+
+    private static IEnumerable<string> ReadPackDirectory(string category) =>
+        Directory.EnumerateFiles(Path.Combine(PackData, category), "*.json")
+            .OrderBy(x => x, StringComparer.Ordinal)
+            .Select(File.ReadAllText);
+
     private static StructureDefinition Load(string id) =>
         StructureDefinitionJson.Parse(File.ReadAllText(
             Path.Combine(PackData, "structures", id + ".json")));
