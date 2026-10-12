@@ -33,6 +33,9 @@ public readonly record struct ObjectWorldEdit(
 public sealed class VoxelWorld
 {
     private readonly Dictionary<ChunkCoord, Chunk> _chunks = [];
+    // Derived resident-only index. Changed by the same owner that mutates
+    // chunk object occupancy; targeting never scans every loaded chunk.
+    private readonly HashSet<ChunkCoord> _residentObjectChunks = [];
     private BlockRegistry? _fluidOccupancyBlocks;
     private readonly Dictionary<ChunkCoord, ulong>
         _residencyEpochs = [];
@@ -56,6 +59,8 @@ public sealed class VoxelWorld
 
     public IEnumerable<ChunkCoord> LoadedChunkCoords => _chunks.Keys;
 
+    public IEnumerable<ChunkCoord> ResidentObjectChunkCoords => _residentObjectChunks;
+
     /// <summary>Configures which decorative sprites may share a fluid voxel.</summary>
     public void ConfigureFluidOccupancy(BlockRegistry blocks) =>
         _fluidOccupancyBlocks = blocks ??
@@ -74,6 +79,9 @@ public sealed class VoxelWorld
     /// Consumers may reconcile bounded dependencies across newly loaded seams.
     /// </summary>
     public event Action<ChunkCoord>? ChunkBecameResident;
+
+    /// <summary>Invalidates only Object presentation for a resident chunk.</summary>
+    public event Action<ChunkCoord>? ObjectChunkChanged;
 
     // Both resident and archived chunks are authoritative. A newly created
     // world is populated from saved chunks before any worker/session sees it.
@@ -125,6 +133,7 @@ public sealed class VoxelWorld
         _archive.TrackMaterialized(
             coord,
             chunk.Revision);
+        if (chunk.ObjectCount != 0) _residentObjectChunks.Add(coord);
         AssignResidencyEpoch(coord);
         MarkColumnChunkAdded(coord);
         Revision++;
@@ -144,6 +153,7 @@ public sealed class VoxelWorld
         }
 
         _residencyEpochs.Remove(coord);
+        _residentObjectChunks.Remove(coord);
         MarkColumnChunkRemoved(coord);
         var result = _archive.Archive(coord, chunk);
         Revision++;
@@ -202,6 +212,7 @@ public sealed class VoxelWorld
         }
 
         _chunks.Add(coord, chunk);
+        if (chunk.ObjectCount != 0) _residentObjectChunks.Add(coord);
         AssignResidencyEpoch(coord);
         MarkColumnChunkAdded(coord);
         Revision++;
@@ -452,6 +463,8 @@ public sealed class VoxelWorld
             return false;
         _archive.MarkDirty(address.Chunk);
         Revision++;
+        _residentObjectChunks.Add(address.Chunk);
+        ObjectChunkChanged?.Invoke(address.Chunk);
         return true;
     }
 
@@ -464,6 +477,8 @@ public sealed class VoxelWorld
             return false;
         _archive.MarkDirty(address.Chunk);
         Revision++;
+        if (chunk.ObjectCount == 0) _residentObjectChunks.Remove(address.Chunk);
+        ObjectChunkChanged?.Invoke(address.Chunk);
         return true;
     }
 
@@ -607,6 +622,7 @@ public sealed class VoxelWorld
             address.Local.Y,
             address.Local.Z);
 
+        var objectRevision = chunk.ObjectRevision;
         if (previous == cell ||
             !chunk.SetCell(
                 address.Local.X,
@@ -629,6 +645,11 @@ public sealed class VoxelWorld
 
         _archive.MarkDirty(address.Chunk);
         Revision++;
+        if (objectRevision != chunk.ObjectRevision)
+        {
+            if (chunk.ObjectCount == 0) _residentObjectChunks.Remove(address.Chunk);
+            ObjectChunkChanged?.Invoke(address.Chunk);
+        }
         edit = new VoxelWorldEdit(
             position,
             address.Chunk,
@@ -693,6 +714,7 @@ public sealed class VoxelWorld
             return false;
         }
 
+        var priorObjectRevision = chunk.ObjectRevision;
         chunk.SetCell(
             address.Local.X,
             address.Local.Y,
@@ -725,6 +747,11 @@ public sealed class VoxelWorld
 
         _archive.MarkDirty(address.Chunk);
         Revision++;
+        if (priorObjectRevision != chunk.ObjectRevision)
+        {
+            if (chunk.ObjectCount == 0) _residentObjectChunks.Remove(address.Chunk);
+            ObjectChunkChanged?.Invoke(address.Chunk);
+        }
 
         var current = chunk.GetCell(
             address.Local.X,

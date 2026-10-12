@@ -1,4 +1,5 @@
 using Asteria.Core.World;
+using Asteria.Core.Content;
 using Godot;
 
 namespace Asteria.Client.Rendering;
@@ -19,6 +20,9 @@ public sealed class ChunkPresentation
     private StaticBody3D? _collisionBody;
     private int _publishedCount;
     private bool _physicsEnabled;
+    private ulong _objectRevision = ulong.MaxValue;
+    private readonly Dictionary<string, MultiMeshInstance3D> _objectBatches =
+        new(StringComparer.Ordinal);
 
     public ChunkPresentation(ChunkCoord coord)
     {
@@ -66,6 +70,67 @@ public sealed class ChunkPresentation
                     !enabled;
             }
         }
+    }
+
+    /// <summary>One MultiMesh per object definition per chunk, never one
+    /// Godot node per ObjectCell. ObjectRevision gates the entire rebuild.</summary>
+    internal void ApplyObjects(
+        Chunk chunk, PackContentRegistry<ObjectDefinition> definitions,
+        WorldObjectVisualCatalog visuals)
+    {
+        if (_objectRevision == chunk.ObjectRevision) return;
+        var groups = new SortedDictionary<string, List<Transform3D>>(StringComparer.Ordinal);
+        var origin = new Vector3(Root.Position.X, Root.Position.Y, Root.Position.Z);
+        chunk.VisitObjectCells((x, y, z, cell) =>
+        {
+            if (!definitions.TryGet(cell.Id, out var definition) ||
+                definition is null || !definition.Supports(cell.Face))
+                return;
+            var worldX = Coord.X * Chunk.Size + x;
+            var worldY = Coord.Y * Chunk.Size + y;
+            var worldZ = Coord.Z * Chunk.Size + z;
+            var pose = WorldObjectGeometry.Pose(
+                new WorldVoxelCoord(worldX, worldY, worldZ), cell, definition);
+            var rotation = new Quaternion(
+                pose.Rotation.X, pose.Rotation.Y, pose.Rotation.Z, pose.Rotation.W);
+            var scale = new Vector3(pose.Scale.X, pose.Scale.Y, pose.Scale.Z);
+            var position = new Vector3(pose.Position.X, pose.Position.Y, pose.Position.Z);
+            var transform = new Transform3D(new Basis(rotation).Scaled(scale), position - origin);
+            if (!groups.TryGetValue(definition.Id, out var batch))
+                groups.Add(definition.Id, batch = []);
+            batch.Add(transform);
+        });
+
+        // Resource acquisition happens before old nodes are retired; an
+        // invalid authored texture cannot silently erase existing geometry.
+        var replacements = new Dictionary<string, MultiMeshInstance3D>(StringComparer.Ordinal);
+        foreach (var (id, transforms) in groups)
+        {
+            var mesh = visuals.GetMesh(definitions.Get(id));
+            var multimesh = new MultiMesh
+            {
+                TransformFormat = MultiMesh.TransformFormatEnum.Transform3D,
+                Mesh = mesh,
+                InstanceCount = transforms.Count,
+            };
+            for (var i = 0; i < transforms.Count; i++)
+                multimesh.SetInstanceTransform(i, transforms[i]);
+            replacements.Add(id, new MultiMeshInstance3D
+            {
+                Name = $"WorldObjects_{id.Replace(':', '_')}",
+                Multimesh = multimesh,
+                CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+            });
+        }
+        foreach (var current in _objectBatches.Values)
+            current.QueueFree();
+        _objectBatches.Clear();
+        foreach (var (id, instance) in replacements)
+        {
+            _objectBatches.Add(id, instance);
+            Root.AddChild(instance);
+        }
+        _objectRevision = chunk.ObjectRevision;
     }
 
     public void Retire()

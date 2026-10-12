@@ -1,0 +1,22 @@
+{
+  "id": "asteria:grass",
+  "category": "foliage",
+  "icon": "textures/objects/grass.png",
+  "placementFaces": ["top"],
+  "target": {
+    "size": [0.72, 0.62, 0.72],
+    "centerOffset": [0, 0.31, 0]
+  },
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/grass.png",
+    "width": 0.72,
+    "height": 0.62,
+    "planes": 4,
+    "alphaCutoff": 0.5
+  },
+  "positionJitter": [0.28, 0.28],
+  "dropSelf": false,
+  "windSway": true,
+  "unlit": true
+}

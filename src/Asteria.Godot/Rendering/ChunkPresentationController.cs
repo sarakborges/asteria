@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Asteria.Core.World;
+using Asteria.Core.Content;
 using Godot;
 
 namespace Asteria.Client.Rendering;
@@ -37,6 +38,9 @@ public sealed class ChunkPresentationController
         _fluidPublications = [];
 
     private ulong _appliedSelectionRevision;
+    private readonly PackContentRegistry<ObjectDefinition> _objects;
+    private readonly WorldObjectVisualCatalog _objectVisuals;
+    private readonly DeduplicatedQueue<ChunkCoord> _pendingObjects = new();
 
     public ChunkPresentationController(
         Node3D parent,
@@ -46,7 +50,9 @@ public sealed class ChunkPresentationController
         MeshletContentRevisions terrainRevisions,
         MeshletContentRevisions fluidRevisions,
         VoxelTerrainMaterialSet terrainMaterials,
-        FluidMaterialCatalog fluidMaterials)
+        FluidMaterialCatalog fluidMaterials,
+        PackContentRegistry<ObjectDefinition> objects,
+        PackSelection packSelection)
     {
         _parent =
             parent ??
@@ -72,6 +78,40 @@ public sealed class ChunkPresentationController
         _fluidMaterials =
             fluidMaterials ??
             throw new ArgumentNullException(nameof(fluidMaterials));
+        _objects = objects ?? throw new ArgumentNullException(nameof(objects));
+        _objectVisuals = new WorldObjectVisualCatalog(packSelection);
+        _world.ObjectChunkChanged += OnObjectChunkChanged;
+    }
+
+    private void OnObjectChunkChanged(ChunkCoord coord)
+    {
+        if (_presentations.ContainsKey(coord))
+            _pendingObjects.Enqueue(coord);
+    }
+
+    public int IntegrateObjectChanges(int maximumPerFrame,
+        WorldFrameWorkBudget budget)
+    {
+        var processed = 0;
+        while (processed < maximumPerFrame && _pendingObjects.TryDequeue(out var coord))
+        {
+            if (processed > 0 && budget.Exhausted(Stopwatch.GetTimestamp()))
+            {
+                _pendingObjects.EnqueueFront(coord);
+                break;
+            }
+            if (_presentations.TryGetValue(coord, out var presentation) &&
+                _world.TryGetChunk(coord, out var chunk))
+                presentation.ApplyObjects(chunk, _objects, _objectVisuals);
+            processed++;
+        }
+        return processed;
+    }
+
+    public void Dispose()
+    {
+        _world.ObjectChunkChanged -= OnObjectChunkChanged;
+        _pendingObjects.Clear();
     }
 
     public int Count => _presentations.Count;
@@ -152,6 +192,8 @@ public sealed class ChunkPresentationController
                 coord.Value,
                 presentation);
             _parent.AddChild(presentation.Root);
+            if (chunk.ObjectCount != 0)
+                _pendingObjects.Enqueue(coord.Value);
 
             var terrainMeshlets =
                 chunk.OccupiedTerrainMeshlets();
@@ -211,6 +253,7 @@ public sealed class ChunkPresentationController
     public bool Retire(ChunkCoord coord)
     {
         RemovePendingPublications(coord);
+        _pendingObjects.Remove(coord);
 
         if (!_presentations.Remove(
                 coord,

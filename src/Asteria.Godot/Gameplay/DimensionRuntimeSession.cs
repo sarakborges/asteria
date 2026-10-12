@@ -66,6 +66,7 @@ public sealed class DimensionRuntimeSession
         PackContentRegistry<CreatureDefinition> creatures,
         InventoryContentCatalog inventoryCatalog,
         PackContentRegistry<ToolDefinition> tools,
+        PackContentRegistry<ObjectDefinition> objects,
         PackSelection packSelection,
         Func<InventoryEntry, Texture2D?> itemIcon,
         TerrainTextureLookup terrainTextures,
@@ -116,6 +117,7 @@ public sealed class DimensionRuntimeSession
                     $"Creature {creature.Id} loot references unknown item {loot.ItemId}.");
         }
         ArgumentNullException.ThrowIfNull(tools);
+        ArgumentNullException.ThrowIfNull(objects);
         ArgumentNullException.ThrowIfNull(itemIcon);
         ArgumentNullException.ThrowIfNull(
             terrainTextures);
@@ -316,7 +318,9 @@ public sealed class DimensionRuntimeSession
                 ContentRevisions,
                 FluidContentRevisions,
                 terrainMaterials,
-                fluidMaterials);
+                fluidMaterials,
+                objects,
+                packSelection);
         TerrainMesh =
             new TerrainMeshPipeline(
                 World,
@@ -1009,6 +1013,7 @@ public sealed class DimensionRuntimeSession
         _miningParticlePresentation.Clear();
         _projectilePresentation.Retire();
 
+        Presentations.Dispose();
         var archive =
             _state.ArchiveResidentWorld();
 

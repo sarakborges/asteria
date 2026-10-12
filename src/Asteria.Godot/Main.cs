@@ -91,6 +91,7 @@ public partial class Main : Node3D
     private DyeRegistry _dyes = null!;
     private PackContentRegistry<ItemDefinition> _items = null!;
     private PackContentRegistry<ToolDefinition> _tools = null!;
+    private PackContentRegistry<ObjectDefinition> _objects = null!;
     private InventoryCraftingRuntime _crafting = null!;
     private InventoryContentCatalog _inventoryCatalog = null!;
     private PlayerVisualDefinition _playerVisual = null!;
@@ -209,6 +210,7 @@ public partial class Main : Node3D
         _tools =
             ToolContentLoader.LoadProjectTools(
                 _packSelection);
+        _objects = ObjectContentLoader.LoadProjectObjects(_packSelection);
         _inventoryCategories =
             InventoryCategoryContentLoader.LoadProjectCategories(_packSelection);
         _playerVisual = PlayerVisualContentLoader.Load(_packSelection);
@@ -310,6 +312,7 @@ public partial class Main : Node3D
             $"item content: loaded {_items.Count} definitions");
         GD.Print(
             $"tool content: loaded {_tools.Count} definitions");
+        GD.Print($"object content: loaded {_objects.Count} definitions");
         GD.Print(
             $"creature content: loaded {_creatures.Count} definitions");
         GD.Print(
@@ -647,6 +650,7 @@ public partial class Main : Node3D
 
         stageStart = Stopwatch.GetTimestamp();
         IntegrateMeshletPublications();
+        _chunkPresentations.IntegrateObjectChanges(4, _worldFrameBudget);
         _worldDiagnostics?.ObserveStage(
             WorldFrameStage.TerrainPublication, stageStart);
 
@@ -1178,6 +1182,7 @@ public partial class Main : Node3D
             _creatures,
             _inventoryCatalog,
             _tools,
+            _objects,
             _packSelection,
             _inventoryDropIcons.Resolve,
             _terrainTextureLookup,
