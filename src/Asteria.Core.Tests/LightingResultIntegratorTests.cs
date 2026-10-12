@@ -5,6 +5,29 @@ namespace Asteria.Core.Tests;
 public sealed class LightingMeshSchedulingTests
 {
     [Fact]
+    public void LightingSlicesPublishOnlyRequestedVoxelRange()
+    {
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, new Chunk());
+        var original = new WorldVoxelCoord(2, 2, 2);
+        var later = new WorldVoxelCoord(3, 3, 3);
+        var snapshot = world.CloneForWorker();
+        snapshot.TrySetLight(original, new VoxelLight(0, 15, 0, 0));
+        snapshot.TrySetLight(later, new VoxelLight(0, 0, 15, 0));
+        var integrator = new LightingResultIntegrator(
+            world, new WorldUpdateQueue(), new FluidMeshUpdateQueue());
+        var positions = new[] { original, later };
+
+        var first = integrator.ApplyRange(snapshot, positions, 0, 1);
+        Assert.Equal(1, first.ChangedVoxelCount);
+        Assert.Equal((byte)15, world.GetLightOrDark(original).Red);
+        Assert.Equal((byte)0, world.GetLightOrDark(later).Green);
+        var second = integrator.ApplyRange(snapshot, positions, 1, 1);
+        Assert.Equal(1, second.ChangedVoxelCount);
+        Assert.Equal((byte)15, world.GetLightOrDark(later).Green);
+    }
+
+    [Fact]
     public void LightingRefreshDoesNotScheduleFluidMeshForFluidEmptyChunk()
     {
         var blocks =
