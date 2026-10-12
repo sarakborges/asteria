@@ -28,6 +28,76 @@ public sealed class LightingMeshSchedulingTests
     }
 
     [Fact]
+    public void DeferredLightingRefreshCoalescesRepeatedMeshletInvalidations()
+    {
+        var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);
+        var world = new VoxelWorld();
+        var chunk = new Chunk();
+        chunk.SetBlock(2, 2, 2, blocks.GetId("asteria:stone"));
+        world.InsertChunk(ChunkCoord.Zero, chunk);
+        var terrain = new WorldUpdateQueue();
+        var fluid = new FluidMeshUpdateQueue();
+        var integrator = new LightingResultIntegrator(world, terrain, fluid);
+        var positions = new[]
+        {
+            new WorldVoxelCoord(2, 2, 2),
+            new WorldVoxelCoord(3, 2, 2),
+        };
+        var snapshot = world.CloneForWorker();
+        snapshot.TrySetLight(positions[0], new VoxelLight(0, 15, 0, 0));
+        snapshot.TrySetLight(positions[1], new VoxelLight(0, 0, 15, 0));
+
+        integrator.AccumulateRange(snapshot, positions, 0, 1);
+        integrator.AccumulateRange(snapshot, positions, 1, 1);
+        Assert.False(terrain.HasMeshWork);
+        Assert.False(fluid.HasWork);
+        Assert.Equal((byte)15, world.GetLightOrDark(positions[0]).Red);
+        Assert.Equal((byte)15, world.GetLightOrDark(positions[1]).Green);
+
+        var applied = integrator.FlushAccumulated();
+        Assert.Equal(1, applied.DirtyChunkCount);
+        Assert.Equal(1, applied.DirtyMeshletCount);
+        Assert.True(terrain.HasBackgroundMeshWork);
+        Assert.False(fluid.HasWork);
+        Assert.Equal(1, terrain.DrainBackgroundMeshlets().DirtyMeshlets.Count);
+
+        Assert.Equal(0, integrator.FlushAccumulated().DirtyChunkCount);
+        Assert.False(terrain.HasMeshWork);
+    }
+
+    [Fact]
+    public void DeferredLightingRefreshRetainsDistinctMeshletMasks()
+    {
+        var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);
+        var world = new VoxelWorld();
+        var chunk = new Chunk();
+        chunk.SetBlock(2, 2, 2, blocks.GetId("asteria:stone"));
+        world.InsertChunk(ChunkCoord.Zero, chunk);
+        var terrain = new WorldUpdateQueue();
+        var integrator = new LightingResultIntegrator(
+            world, terrain, new FluidMeshUpdateQueue());
+        var positions = new[]
+        {
+            new WorldVoxelCoord(2, 2, 2),
+            new WorldVoxelCoord(12, 2, 2),
+        };
+        var snapshot = world.CloneForWorker();
+        snapshot.TrySetLight(positions[0], new VoxelLight(15, 0, 0, 0));
+        snapshot.TrySetLight(positions[1], new VoxelLight(0, 0, 0, 15));
+
+        integrator.AccumulateRange(snapshot, positions, 0, 1);
+        integrator.AccumulateRange(snapshot, positions, 1, 1);
+        var expected = ChunkMeshletMask.ForWorldPosition(
+                ChunkCoord.Zero, positions[0])
+            .Union(ChunkMeshletMask.ForWorldPosition(
+                ChunkCoord.Zero, positions[1]));
+        var published = integrator.FlushAccumulated();
+        Assert.Equal(expected.SelectedCount, published.DirtyMeshletCount);
+        var batch = terrain.DrainBackgroundMeshlets();
+        Assert.Equal(expected, batch.DirtyMeshlets[ChunkCoord.Zero]);
+    }
+
+    [Fact]
     public void LightingRefreshDoesNotScheduleFluidMeshForFluidEmptyChunk()
     {
         var blocks =

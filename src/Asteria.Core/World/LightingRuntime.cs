@@ -47,12 +47,17 @@ public sealed class LightingRuntime
     // Keep large lighting updates from publishing tens of thousands of
     // voxels and meshlet invalidations in one main-thread frame.
     private const int MaximumPublishedVoxelsPerPoll = 1024;
+    // Coalesce up to eight polls of a lighting result before scheduling
+    // presentation rebuilds. This bounds visual lag to about eight frames
+    // while preventing repeated remesh of the same meshlet each slice.
+    private const int MaximumVoxelsPerMeshRefresh = 8192;
     private LightingWorkerResult? _publication;
     private double _publicationCaptureMilliseconds;
     private double _publicationApplyMilliseconds;
     private int _publicationOffset;
     private int _publicationDirtyChunks;
     private int _publicationDirtyMeshlets;
+    private int _publicationVoxelsSinceRefresh;
 
     public LightingRuntime(
         VoxelWorld world,
@@ -194,6 +199,7 @@ public sealed class LightingRuntime
         _publicationOffset = 0;
         _publicationDirtyChunks = 0;
         _publicationDirtyMeshlets = 0;
+        _publicationVoxelsSinceRefresh = 0;
         return TryPublishNextSlice(out report);
     }
     private bool TryPublishNextSlice(out LightingRuntimeReport? report)
@@ -206,6 +212,9 @@ public sealed class LightingRuntime
         // publish obsolete light; requeue its original seeds for reconciliation.
         if (!result.Dependencies.IsCurrent(_world))
         {
+            // Earlier slices already mutated authoritative lighting. Flush
+            // their mesh refreshes even when later dependencies turn stale.
+            FlushLightingRefreshes();
             _updates.RequeueLighting(result.SourceBatch);
             report = new LightingRuntimeReport(
                 LightingCompletionKind.RequeuedStale,
@@ -224,18 +233,20 @@ public sealed class LightingRuntime
         if (count > 0)
         {
             var started = Stopwatch.GetTimestamp();
-            var applied = _integration.ApplyRange(
+            _integration.AccumulateRange(
                 result.LightingSnapshot, positions, _publicationOffset, count);
             _publicationApplyMilliseconds +=
                 Stopwatch.GetElapsedTime(started).TotalMilliseconds;
-            _publicationDirtyChunks += applied.DirtyChunkCount;
-            _publicationDirtyMeshlets += applied.DirtyMeshletCount;
+            _publicationVoxelsSinceRefresh += count;
             _publicationOffset += count;
+            if (_publicationVoxelsSinceRefresh >= MaximumVoxelsPerMeshRefresh)
+                FlushLightingRefreshes();
         }
 
         if (_publicationOffset < positions.Count)
             return false;
 
+        FlushLightingRefreshes();
         report = new LightingRuntimeReport(
             LightingCompletionKind.Applied,
             result.WorkerMilliseconds,
@@ -249,4 +260,17 @@ public sealed class LightingRuntime
         return true;
     }
 
+    private void FlushLightingRefreshes()
+    {
+        if (_publicationVoxelsSinceRefresh == 0)
+            return;
+
+        var started = Stopwatch.GetTimestamp();
+        var refreshed = _integration.FlushAccumulated();
+        _publicationApplyMilliseconds +=
+            Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+        _publicationDirtyChunks += refreshed.DirtyChunkCount;
+        _publicationDirtyMeshlets += refreshed.DirtyMeshletCount;
+        _publicationVoxelsSinceRefresh = 0;
+    }
 }
