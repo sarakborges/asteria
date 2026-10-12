@@ -224,9 +224,6 @@
   "asteria:leaf_world_tree": {
     "/name": "World Tree Leaf"
   },
-  "asteria:lily_pad": {
-    "/name": "Lily Pad"
-  },
   "asteria:log_enchanted": {
     "/name": "Enchanted Log"
   },
@@ -322,9 +319,6 @@
   },
   "asteria:pass_grass": {
     "/name": "Pass Grass"
-  },
-  "asteria:pebble": {
-    "/name": "Pebble"
   },
   "asteria:pink_bloom": {
     "/name": "Pink Bloom"
