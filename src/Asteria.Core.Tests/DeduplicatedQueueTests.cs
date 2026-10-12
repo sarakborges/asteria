@@ -54,6 +54,22 @@ public sealed class DeduplicatedQueueTests
     }
 
     [Fact]
+    public void PeekDoesNotConsumeOrReorderQueuedWork()
+    {
+        var queue = new DeduplicatedQueue<int>();
+        Assert.False(queue.TryPeek(out _));
+        queue.Enqueue(3);
+        queue.Enqueue(7);
+        var revision = queue.Revision;
+
+        Assert.True(queue.TryPeek(out var next));
+        Assert.Equal(3, next);
+        Assert.Equal(revision, queue.Revision);
+        Assert.Equal(new[] { 3, 7 }, queue.Drain());
+        Assert.False(queue.TryPeek(out _));
+    }
+
+    [Fact]
     public void RemovalAndDrainKeepMembershipBounded()
     {
         var queue =
