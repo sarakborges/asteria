@@ -8,9 +8,6 @@
   "asteria:aether_crystal_core": {
     "/name": "Aether Crystal Core"
   },
-  "asteria:aether_vines": {
-    "/name": "Aether Vines"
-  },
   "asteria:alpine_edelweiss": {
     "/name": "Alpine Edelweiss"
   },
@@ -97,9 +94,6 @@
   },
   "asteria:cliff_rosette": {
     "/name": "Cliff Rosette"
-  },
-  "asteria:cloud_reed": {
-    "/name": "Cloud Reed"
   },
   "asteria:clover": {
     "/name": "Clover"
@@ -196,9 +190,6 @@
   },
   "asteria:hanging_moss": {
     "/name": "Hanging Moss"
-  },
-  "asteria:hanging_roots": {
-    "/name": "Hanging Roots"
   },
   "asteria:ice": {
     "/name": "Ice"
@@ -335,14 +326,8 @@
   "asteria:mud_tiles": {
     "/name": "Mud Tiles"
   },
-  "asteria:mushroom_brown": {
-    "/name": "Brown Mushroom"
-  },
   "asteria:mushroom_green": {
     "/name": "Green Mushroom"
-  },
-  "asteria:mushroom_purple": {
-    "/name": "Purple Mushroom"
   },
   "asteria:mushroom_yellow": {
     "/name": "Yellow Mushroom"
@@ -508,9 +493,6 @@
   },
   "asteria:wall_moss": {
     "/name": "Wall Moss"
-  },
-  "asteria:wall_shelf_fungus": {
-    "/name": "Wall Shelf Fungus"
   },
   "asteria:windwood": {
     "/name": "Windwood"
