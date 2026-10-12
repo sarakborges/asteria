@@ -706,7 +706,7 @@ public sealed class GeneratedSurfaceFluidTests
             if (sample.Primary != "asteria:overworld/volcano")
                 continue;
             var strength = (double)sample.PrimaryTerrainStrength;
-            if (strength is < 0.2d or > 0.58d ||
+            if (strength > 0.58d ||
                 !sample.Influences.Any(influence =>
                     influence.BiomeId != sample.Primary &&
                     influence.Weight > 0.1f))
