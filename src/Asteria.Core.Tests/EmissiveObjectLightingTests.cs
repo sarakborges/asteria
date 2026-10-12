@@ -36,6 +36,28 @@ public sealed class EmissiveObjectLightingTests
     }
 
     [Fact]
+    public void MaterializedChunkSeedsObjectLightBeforeResidencyActivation()
+    {
+        var blocks = new BlockRegistry([
+            new BlockDefinition("asteria:stone", lightDampening: 15)
+        ]);
+        var chunk = new Chunk();
+        chunk.SetBlock(8, 8, 8, blocks.GetId("asteria:stone"));
+        Assert.True(chunk.AddObject(8, 8, 8,
+            new ObjectCell("asteria:glowing_test", BlockFace.Top)));
+
+        ChunkLightingSolver.Initialize(chunk, blocks,
+            new FluidRegistry([]), Definitions());
+
+        var source = chunk.GetLight(8, 9, 8);
+        Assert.Equal((byte)12, source.Red);
+        Assert.Equal((byte)3, source.Green);
+        Assert.Equal((byte)1, source.Blue);
+        Assert.Equal((byte)11, chunk.GetLight(9, 9, 8).Red);
+        Assert.Equal((byte)0, chunk.GetLight(8, 8, 8).Red);
+    }
+
+    [Fact]
     public void AttachedObjectEmitsFromAdjacentAirAcrossChunkBorder()
     {
         var blocks = new BlockRegistry([
