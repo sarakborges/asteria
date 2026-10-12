@@ -31,15 +31,17 @@ public sealed class PlainsSwampBiodiversityTests
             Assert.True(rule.HabitatWeights!.For("open") >
                         rule.HabitatWeights.For("rocky"));
             Assert.Equal(DecorationFluidPlacement.Dry, rule.FluidPlacement);
-            if (name == "clover")
+            if (name is "clover" or "daisy" or "purple_aster")
             {
                 Assert.True(rule.IsObject);
                 Assert.False(blocks.TryGetId(rule.Block, out _));
                 var objects = PackContentRegistry<ObjectDefinition>.FromJson(
                     ReadPackJson("objects"), ObjectDefinition.Parse, d => d.Id);
                 var visual = objects.Get(rule.Block).Visual;
-                Assert.Equal(ObjectVisualKind.ExtrudedSprite, visual.Kind);
-                Assert.Equal("textures/objects/clover.png", visual.Texture);
+                Assert.Equal(name == "clover"
+                    ? ObjectVisualKind.ExtrudedSprite
+                    : ObjectVisualKind.CrossedSprite, visual.Kind);
+                Assert.Equal("textures/objects/" + name + ".png", visual.Texture);
             }
             else
             {
@@ -172,8 +174,8 @@ public sealed class PlainsSwampBiodiversityTests
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var name in names)
         {
-            var path = name == "clover"
-                ? objects.Get("asteria:clover").Visual.Texture
+            var path = name is "clover" or "daisy" or "purple_aster"
+                ? objects.Get("asteria:" + name).Visual.Texture
                 : blocks.GetDefinition(blocks.GetId("asteria:" + name))
                     .Visual.Texture!.Value.Texture;
             Assert.Equal("textures/objects/" + name + ".png", path);
@@ -196,8 +198,12 @@ public sealed class PlainsSwampBiodiversityTests
             .Get("asteria:overworld/plains");
         var sample = new BiomeSample(plains.Id,
             [new BiomeInfluence(plains.Id, 1f)]);
-        var first = new SurfaceDecorationField(29801, [plains], blocks);
-        var again = new SurfaceDecorationField(29801, [plains], blocks);
+        var objects = PackContentRegistry<ObjectDefinition>.FromJson(
+            ReadPackJson("objects"), ObjectDefinition.Parse, d => d.Id);
+        var first = new SurfaceDecorationField(29801, [plains], blocks,
+            objects: objects);
+        var again = new SurfaceDecorationField(29801, [plains], blocks,
+            objects: objects);
         var grass = blocks.GetId("asteria:grass_block");
         var basalt = blocks.GetId("asteria:basalt");
         var valid = new SurfacePlacementContext(94, 0);
@@ -206,7 +212,10 @@ public sealed class PlainsSwampBiodiversityTests
         {
             Assert.Equal(first.BlockAt(sample, grass, x, z, valid),
                          again.BlockAt(sample, grass, x, z, valid));
+            Assert.Equal(first.ObjectAt(sample, grass, x, z, valid),
+                         again.ObjectAt(sample, grass, x, z, valid));
             Assert.True(first.BlockAt(sample, basalt, x, z, valid).IsAir);
+            Assert.Null(first.ObjectAt(sample, basalt, x, z, valid));
         }
     }
 
