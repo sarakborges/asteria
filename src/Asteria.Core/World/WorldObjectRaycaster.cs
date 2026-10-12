@@ -166,7 +166,7 @@ public static class WorldObjectRaycaster
                     (MathF.Abs(distance - nearest.Value.Distance) <= 0.00001f &&
                      Order(result, nearest.Value) < 0))
                     nearest = result;
-            });
+            }, ordered: false);
         }
         return nearest;
     }
