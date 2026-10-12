@@ -98,6 +98,14 @@ func set_native_key_capture(active: bool) -> void:
 	_native_key_capture = active
 	call_deferred("_restore_keyboard_focus")
 
+func focus_chat_input() -> void:
+	# Complete the native keyboard handoff before asking React to focus
+	# the newly mounted input. The WebUI owns DOM element focus.
+	if _webview == null or not _loaded or _mouse_captured or _creation_mode or not get_window().has_focus():
+		return
+	_webview.grab_focus()
+	post_message('{"type":"game.chat.focus_input","payload":{}}')
+
 func webui_has_focus() -> bool:
 	return _webview != null and _webview.has_focus()
 
