@@ -88,6 +88,58 @@ public sealed class WorldObjectGeometryTests
     }
 
     [Fact]
+    public void RaycastFindsOffsetScaledObjectAcrossChunkBoundaries()
+    {
+        var definitions = PackContentRegistry<ObjectDefinition>.FromJson(["""
+        {"id":"asteria:offset_target","category":"foliage",
+         "icon":"textures/objects/grass.png",
+         "visual":{"type":"crossedSprite","texture":"textures/objects/grass.png"},
+         "target":{"size":[0.5,0.5,0.5],"centerOffset":[2,0.325,0]}}
+        """], ObjectDefinition.Parse, definition => definition.Id);
+        var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, new Chunk());
+        var support = new WorldVoxelCoord(0, 0, 0);
+        Assert.True(world.SetBlockAt(support, blocks.GetId("asteria:stone"), out _));
+        Assert.True(world.AddObjectAt(support,
+            new ObjectCell("asteria:offset_target", BlockFace.Top,
+                transform: ObjectTransform.FromParts(
+                    new Vector3(8f, 0f, 0f), new Vector3(8f, 1f, 1f)))));
+
+        // Target lies in chunk X=1 while its supporting chunk is X=0.
+        var hit = WorldObjectRaycaster.Raycast(world, definitions,
+            new Vector3(24.5f, 1.325f, -3f), Vector3.UnitZ, 6f);
+        Assert.NotNull(hit);
+        Assert.Equal(support, hit.Value.Support);
+        Assert.InRange(hit.Value.Distance, 2f, 4f);
+    }
+
+    [Fact]
+    public void RaycastFindsDefinitionTargetDisplacedBeyondSupportChunk()
+    {
+        var definitions = PackContentRegistry<ObjectDefinition>.FromJson(["""
+        {"id":"asteria:remote_target","category":"foliage",
+         "icon":"textures/objects/grass.png",
+         "visual":{"type":"crossedSprite","texture":"textures/objects/grass.png"},
+         "target":{"size":[0.5,0.5,0.5],"centerOffset":[40,0.325,0]}}
+        """], ObjectDefinition.Parse, definition => definition.Id);
+        var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);
+        var world = new VoxelWorld();
+        var support = new WorldVoxelCoord(-17, 0, 0);
+        var coord = VoxelCoordinates.FromWorld(support.X, support.Y, support.Z).Chunk;
+        world.InsertChunk(coord, new Chunk());
+        Assert.True(world.SetBlockAt(support, blocks.GetId("asteria:stone"), out _));
+        Assert.True(world.AddObjectAt(support,
+            new ObjectCell("asteria:remote_target", BlockFace.Top)));
+
+        // Negative support chunk X=-2, target lives in world chunk X=1.
+        var hit = WorldObjectRaycaster.Raycast(world, definitions,
+            new Vector3(23.5f, 1.325f, -3f), Vector3.UnitZ, 6f);
+        Assert.NotNull(hit);
+        Assert.Equal(support, hit.Value.Support);
+    }
+
+    [Fact]
     public void ObjectsChangedEventIncludesSupportRemovalAndNoOpMutationsDoNotEmit()
     {
         var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);
