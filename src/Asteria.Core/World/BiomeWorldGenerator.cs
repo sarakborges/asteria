@@ -82,6 +82,7 @@ public sealed class BiomeWorldGenerator :
         if (objects is not null)
             biomes.ValidateObjects(objects);
         structures.ValidateBlocks(blocks);
+        if (objects is not null) structures.ValidateObjects(objects);
         structures.ValidateFluids(fluids);
         structureSets.ValidateStructures(
             structures);
