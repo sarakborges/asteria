@@ -2829,8 +2829,31 @@ public partial class Main : Node3D
     }
 
     private object? BlockPreviewForCell(
-        BlockDefinition block, VoxelCell cell)
+        BlockDefinition block, VoxelCell cell,
+        BlockSurfaceState? surface = null, WorldVoxelCoord? target = null,
+        BlockFace? targetFace = null)
     {
+        // The world target uses the *actual* face layers (not the catalog
+        // entry's undyed/block-only preview). Keep the inventory route pure.
+        BiomeTintSampleGrid? tintGrid = null;
+        if (surface is { Layers.Count: > 0 } && target is { } position)
+        {
+            var coord = VoxelCoordinates.FromWorld(
+                position.X, position.Y, position.Z).Chunk;
+            tintGrid = _sessions.Active.Generator.Tints.SampleChunkGrid(
+                coord.X, coord.Z);
+        }
+        BlockPreviewColor Tint(BlockTint tint)
+        {
+            if (target is not { } position || tintGrid is null)
+                return new BlockPreviewColor(255, 255, 255);
+            var rgb = tintGrid.Resolve(tint,
+                new BlockPreviewColor(255, 255, 255), position.X, position.Z);
+            static byte ToByte(float value) =>
+                (byte)Math.Clamp((int)MathF.Round(value * 255f), 0, 255);
+            return new BlockPreviewColor(
+                ToByte(rgb.X), ToByte(rgb.Y), ToByte(rgb.Z));
+        }
         // SourceFaceForWorldFace is the same Core owner used by terrain
         // meshing and targeting. A laid-down log, for example, must show
         // its authored end grain on the face which actually points upward.
@@ -2841,8 +2864,33 @@ public partial class Main : Node3D
             var uvRotation = BlockUvRotation.ForWorldFace(
                 face, cell.Orientation, cell.TextureRotation,
                 block.RotateTexture.Rotates(sourceFace));
+            if (surface is { Layers.Count: > 0 })
+            {
+                var attachments = BlockPreviewLayerPlan.ForWorldFace(
+                    surface, _layers, face);
+                if (attachments.Count > 0)
+                    return _blockPreviewRenderer.LayeredFaceDataUri(
+                        block, sourceFace, uvRotation, attachments, Tint);
+            }
             return _blockPreviewRenderer.FaceDataUri(
                 block, sourceFace, uvRotation);
+        }
+
+        // If the interacted layer lies on a back/left/bottom face, show
+        // its actual 2D face rather than a cube that conceals that layer.
+        if (targetFace is { } touched && surface is not null &&
+            surface.TryGetTop(touched, out _) &&
+            touched is not (BlockFace.Top or BlockFace.Front or BlockFace.Right))
+        {
+            var faceTexture = Texture(touched);
+            if (faceTexture is not null)
+                return new
+                {
+                    kind = "sprite",
+                    front = faceTexture,
+                    top = (string?)null,
+                    right = (string?)null,
+                };
         }
 
         var front = Texture(BlockFace.Front);
@@ -4127,7 +4175,9 @@ public partial class Main : Node3D
                 id = value.BlockId,
                 name = value.BlockId,
                 blockPreview = BlockPreviewForCell(
-                    _blocks.GetDefinition(value.Cell.Block), value.Cell),
+                    _blocks.GetDefinition(value.Cell.Block), value.Cell,
+                    value.Surface, new WorldVoxelCoord(value.X, value.Y, value.Z),
+                    value.HitFace),
                 activeLayerId = value.ActiveLayerId,
                 layers = value.Surface.Layers
                     .Select(layer => new

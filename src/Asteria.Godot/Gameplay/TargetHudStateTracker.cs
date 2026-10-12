@@ -11,6 +11,7 @@ public readonly record struct TargetHudSnapshot(
     byte BlockLight,
     BlockSurfaceState Surface,
     VoxelCell Cell,
+    BlockFace? HitFace,
     string? ActiveLayerId = null);
 
 public sealed class TargetHudStateTracker
@@ -92,10 +93,11 @@ public sealed class TargetHudStateTracker
                 lightOffset);
 
         var surface = world.GetBlockSurfaceStateOrEmpty(resolved.Voxel);
+        var hitFace = VoxelHitFace.TryResolve(resolved, out var face)
+            ? face : (BlockFace?)null;
         string? activeLayerId = null;
-        if (layers is not null &&
-            VoxelHitFace.TryResolve(resolved, out var face) &&
-            surface.TryGetTop(face, out var attached) &&
+        if (layers is not null && hitFace is { } worldFace &&
+            surface.TryGetTop(worldFace, out var attached) &&
             layers.TryGet(attached.LayerId, out _))
             activeLayerId = attached.LayerId;
 
@@ -108,6 +110,7 @@ public sealed class TargetHudStateTracker
             light.BlockPeak,
             surface,
             cell,
+            hitFace,
             activeLayerId);
     }
 }

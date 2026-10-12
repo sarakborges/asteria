@@ -469,3 +469,11 @@ MineClone `world-systems-rebuild` reference: `world_objects.rs::detached_object_
 - A pure Core RGBA image transform preserves alpha and swaps dimensions for nonsquare assets; Godot performs selected-pack image decoding/PNG encoding only. Rotated data URIs are cached by block ID, source face and quarter-turn. No new content format, terrain updates or browser shader state.
 - Tests cover pixel order, alpha preservation, invalid sizes/rotation and composition with existing world mesh UV rotation. True voxel-mesh icon geometry, microblock cutout, attached layers and native WRY screenshot acceptance remain separate work.
 
+## Attached layer texture parity in the target HUD — 2026-10-12
+
+- The inventory, hotbar and oriented block previews were already present on current main and were not reimplemented. The missing path was the live target block's per-face `BlockSurfaceState.Layers`: labels identified them, but the preview used only host textures.
+- A portable `BlockPreviewLayerPlan` reads the authoritative face/rotation/stack order from `AttachedLayerRegistry` and `BlockSurfaceState`. `PreviewLayerBlend` implements tested bounded source-over RGBA composition with tint and alpha cutoff.
+- The existing Godot `InventoryBlockPreviewRenderer` now overlays each authored layer over its oriented host face using that planner. Biome tint comes from the active Sphere's existing generator tint samples. The overlay path is not cached so mutable world surfaces and biome context cannot become stale.
+- A hit on a layered back, left or bottom face shows that actual textured face as a flat preview rather than a 3-face cube that hides the selected interactive layer. Otherwise the 3-face cube is retained.
+- UI contracts are unchanged (`game.hud.target.blockPreview` already exists); ordinary inventory previews remain portable, untinted, unmodified host graphics. In-engine Godot/WRY acceptance is still required for alpha, color, rotation, and stacked-layer screenshots.
+

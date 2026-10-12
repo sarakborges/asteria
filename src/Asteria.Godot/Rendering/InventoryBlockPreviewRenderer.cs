@@ -111,6 +111,59 @@ public sealed class InventoryBlockPreviewRenderer
     }
 
     /// <summary>
+    /// The HUD's actual voxel may carry removable layers on any face.
+    /// Compose those layers in saved attachment order over the base face,
+    /// applying the same authored UV rotation, color channel and alpha
+    /// cutoff as terrain. Unlike inventory icons this path is not cached:
+    /// target surfaces and sampled biome tints are mutable world state.
+    /// </summary>
+    public string? LayeredFaceDataUri(
+        BlockDefinition block, BlockFace sourceFace, TextureRotation baseRotation,
+        IReadOnlyList<PreviewAttachedLayer> attachments,
+        Func<BlockTint, BlockPreviewColor> resolveTint)
+    {
+        ArgumentNullException.ThrowIfNull(attachments);
+        ArgumentNullException.ThrowIfNull(resolveTint);
+        var baseUri = FaceDataUri(block, sourceFace, baseRotation);
+        if (baseUri is null || attachments.Count == 0) return baseUri;
+
+        const string pngPrefix = "data:image/png;base64,";
+        using var composite = Image.CreateEmpty(1, 1, false, Image.Format.Rgba8);
+        var read = composite.LoadPngFromBuffer(
+            Convert.FromBase64String(baseUri[pngPrefix.Length..]));
+        if (read != Error.Ok)
+            throw new InvalidDataException(
+                $"Could not decode block preview for {block.Id}: {read}");
+        Normalize(composite);
+        var width = composite.GetWidth();
+        var height = composite.GetHeight();
+        var pixels = composite.GetData();
+
+        foreach (var attachment in attachments)
+        {
+            using var source = ProjectPackFiles.LoadImage(_pack, attachment.Texture);
+            Normalize(source);
+            var rotated = PreviewTextureRotation.Rotate(
+                source.GetData(), source.GetWidth(), source.GetHeight(),
+                attachment.Rotation);
+            using var layerImage = Image.CreateFromData(
+                rotated.Width, rotated.Height, false, Image.Format.Rgba8,
+                rotated.Rgba);
+            if (layerImage.GetWidth() != width || layerImage.GetHeight() != height)
+                layerImage.Resize(width, height, Image.Interpolation.Nearest);
+            var tint = attachment.Tint == BlockTint.None
+                ? new BlockPreviewColor(255, 255, 255)
+                : resolveTint(attachment.Tint);
+            pixels = PreviewLayerBlend.SourceOver(
+                pixels, layerImage.GetData(), tint, attachment.AlphaCutoff);
+        }
+
+        using var output = Image.CreateFromData(
+            width, height, false, Image.Format.Rgba8, pixels);
+        return pngPrefix + Convert.ToBase64String(output.SavePngToBuffer());
+    }
+
+    /// <summary>
     /// Produces authored fallback-tinted Object artwork for inventory or
     /// sampled-biome-tinted artwork for a world target. White/untinted Objects
     /// keep their existing raw pack PNG path in the caller.
