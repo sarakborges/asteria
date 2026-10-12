@@ -107,7 +107,7 @@ func focus_chat_input() -> void:
 func _focus_chat_input_after_handoff() -> void:
 	if _webview == null or not _loaded or _mouse_captured or _creation_mode or not get_window().has_focus():
 		return
-	_webview.grab_focus()
+	_focus_webview()
 	call_deferred("_acknowledge_chat_focus")
 
 func _acknowledge_chat_focus() -> void:
@@ -125,7 +125,13 @@ func _restore_keyboard_focus() -> void:
 	if _native_key_capture or (_mouse_captured and not _creation_mode):
 		_focus_game()
 	else:
-		_webview.grab_focus()
+		_focus_webview()
+
+func _focus_webview() -> void:
+	# grab_focus() only selects the Godot Control; focus() transfers OS
+	# keyboard focus into the native WRY WebView (and its HTML input).
+	_webview.grab_focus()
+	_webview.call("focus")
 
 func _focus_game() -> void:
 	if _webview != null and get_window().has_focus():

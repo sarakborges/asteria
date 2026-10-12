@@ -104,3 +104,39 @@ test("ESC closes the pause overlay without clicking it", async ({ page }) => {
   await page.keyboard.press("Escape");
   await expect(page.locator(".pause-menu")).toHaveCount(0);
 });
+
+test("window focus loss explicitly opens pause even if capture was already lost", () => {
+  const { store, receive } = createGameplayBridge();
+  store.update(state => ({ ...state, mouseCaptured: false }));
+  receive({ type: "game.ui.pause", payload: {} });
+  expect(store.getSnapshot().navigation.overlay).toBe("pause");
+
+  // A subsequent capture-loss event must not close the open pause.
+  receive({ type: "game.mouse_capture", payload: { captured: false } });
+  expect(store.getSnapshot().navigation.overlay).toBe("pause");
+});
+
+test("focus-loss pause does not override an existing modal or open chat", () => {
+  const { store, receive } = createGameplayBridge();
+  receive(openChat);
+  receive({ type: "game.ui.pause", payload: {} });
+  expect(store.getSnapshot().navigation.overlay).toBe("none");
+
+  store.update(state => ({
+    ...state,
+    chat: { ...state.chat, open: false },
+    navigation: { ...state.navigation, overlay: "world" },
+  }));
+  receive({ type: "game.ui.pause", payload: {} });
+  expect(store.getSnapshot().navigation.overlay).toBe("world");
+});
+
+test("focus-loss pause never opens on the pre-world screen", () => {
+  const { store, receive } = createGameplayBridge();
+  store.update(state => ({
+    ...state,
+    worldCreation: { ...state.worldCreation, visible: true },
+  }));
+  receive({ type: "game.ui.pause", payload: {} });
+  expect(store.getSnapshot().navigation.overlay).toBe("none");
+});

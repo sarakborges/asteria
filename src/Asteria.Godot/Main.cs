@@ -340,9 +340,20 @@ public partial class Main : Node3D
     {
         if (what == NotificationWMCloseRequest)
             RequestAppExit();
-        else if (what == NotificationWMWindowFocusOut &&
-                 _worldReadySent && _player is { IsMouseCaptured: true })
+        else if (what == NotificationWMWindowFocusOut && _worldReadySent &&
+                 _worldSeed is not null && _player is not null &&
+                 !_sessionStates.Player.Health.IsDead)
+        {
+            // Windows may release native pointer capture before Godot
+            // delivers focus-out. Always publish pause intent for gameplay,
+            // even if IsMouseCaptured is already false. WebUI preserves any
+            // existing modal; this never requests mouse recapture.
             _player.PauseGameplay();
+            if (!_chat.IsOpen && !_inventoryOpen && !_brushPaletteOpen &&
+                !_keybindCapture.IsCapturing &&
+                _sessions.Active.ActiveStorageBox is null)
+                SendWebUi("game.ui.pause", new { });
+        }
     }
 
     public override void _ExitTree()
