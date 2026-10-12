@@ -58,12 +58,11 @@ public sealed class EnchantedForestEnrichmentTests
             Assert.All(ring.Objects, x => Assert.Equal(1, x.Y));
             Assert.DoesNotContain(ring.Voxels, x => x.X == 0 && x.Z == 0);
             Assert.DoesNotContain(ring.Objects, x => x.X == 0 && x.Z == 0);
-            Assert.All(ring.Voxels, x => Assert.Equal(
-                "asteria:mushroom_purple", x.Block));
+            Assert.Empty(ring.Voxels);
             Assert.All(ring.Objects, obj => {
                 Assert.Contains(obj.Object, new[] {
                     "asteria:mushroom_red", "asteria:mushroom_blue",
-                    "asteria:mushroom_pink"
+                    "asteria:mushroom_pink", "asteria:mushroom_purple"
                 });
                 Assert.Equal(BlockFace.Top, obj.Face);
             });
