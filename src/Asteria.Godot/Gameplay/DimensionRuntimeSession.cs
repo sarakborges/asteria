@@ -315,7 +315,8 @@ public sealed class DimensionRuntimeSession
                     settings.MaxMaterializationDispatchesPerFrame,
                     settings.MaxMaterializationResultsPerFrame,
                     settings.MaxChunkEvictionsPerFrame,
-                    state.GameRules));
+                    state.GameRules),
+                objects);
         Presentations =
             new ChunkPresentationController(
                 Root,
