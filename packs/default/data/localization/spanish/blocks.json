@@ -1,7 +1,4 @@
 {
-  "asteria:aether_bloom": {
-    "/name": "Flor Etérea"
-  },
   "asteria:aether_crystal": {
     "/name": "Cristal Etéreo"
   },
@@ -164,9 +161,6 @@
   "asteria:glass": {
     "/name": "Vidrio"
   },
-  "asteria:glow_fern": {
-    "/name": "Helecho Luminoso"
-  },
   "asteria:glow_mushroom_cap": {
     "/name": "Sombrero de Seta Luminosa"
   },
@@ -175,9 +169,6 @@
   },
   "asteria:glow_pod": {
     "/name": "Vaina Luminosa"
-  },
-  "asteria:glowcap": {
-    "/name": "Seta Luminosa"
   },
   "asteria:grass": {
     "/name": "Hierba"
