@@ -137,6 +137,58 @@ public static class ChunkTopologyFrontier
                !VoxelLight.FromEmission(emission).IsDark;
     }
 
+    /// <summary>
+    /// A newly resident chunk already has its own initialized lighting.
+    /// On horizontal seams, matching light on both sides cannot improve
+    /// either voxel: all cross-voxel propagation attenuates by at least one.
+    /// Avoid queuing those redundant seeds. Keep all vertical frontiers,
+    /// whose direct-sky state can change when a column gains a chunk, and
+    /// preserve the original checks for chunk retirement.
+    /// </summary>
+    public static bool NeedsArrivalSeamLightSeed(
+        VoxelWorld world, BlockRegistry blocks, FluidRegistry fluids,
+        ChunkCoord arrivingChunk, WorldVoxelCoord position)
+    {
+        ArgumentNullException.ThrowIfNull(world);
+        if (!NeedsSeamLightSeed(world, blocks, fluids, position))
+            return false;
+
+        var address = VoxelCoordinates.FromWorld(
+            position.X, position.Y, position.Z);
+        if (address.Chunk != arrivingChunk ||
+            address.Local.Y == 0 ||
+            address.Local.Y == Chunk.Size - 1 ||
+            !world.TryGetChunk(arrivingChunk, out var chunk))
+            return true;
+
+        var x = address.Local.X;
+        var z = address.Local.Z;
+        var light = chunk.GetLight(x, address.Local.Y, z);
+        var hasResidentHorizontalNeighbor = false;
+
+        bool DiffersAcross(int dx, int dz)
+        {
+            var neighborChunk = new ChunkCoord(
+                arrivingChunk.X + dx, arrivingChunk.Y,
+                arrivingChunk.Z + dz);
+            if (!world.ContainsChunk(neighborChunk))
+                return false;
+
+            hasResidentHorizontalNeighbor = true;
+            return world.GetLightOrDark(position + (dx, 0, dz)) != light;
+        }
+
+        if (x == 0 && DiffersAcross(-1, 0) ||
+            x == Chunk.Size - 1 && DiffersAcross(1, 0) ||
+            z == 0 && DiffersAcross(0, -1) ||
+            z == Chunk.Size - 1 && DiffersAcross(0, 1))
+            return true;
+
+        // Conservatively keep anything that was not an actual horizontal
+        // interface between two loaded chunks.
+        return !hasResidentHorizontalNeighbor;
+    }
+
     public static IEnumerable<ChunkNeighborMeshInvalidation>
         PresentedNeighborMeshInvalidationsForAddition(
             ChunkCoord source,
