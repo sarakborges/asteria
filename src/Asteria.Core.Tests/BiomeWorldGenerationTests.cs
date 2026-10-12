@@ -1459,6 +1459,8 @@ public sealed class BiomeWorldGenerationTests
             new BiomeRegistry([plains, volcano]));
 
         var profile = new SurfaceTerrainRule(volcano);
+        var caldera = Assert.IsType<BiomeCalderaTerrainShapeDefinition>(
+            volcano.SurfaceTerrain!.Shape);
         var mixedFlanks = 0;
         var intactInterior = 0;
         var ownershipEdges = 0;
@@ -1482,8 +1484,17 @@ public sealed class BiomeWorldGenerationTests
                         (double)sample.PrimaryWeight - neighbor.Weight,
                         0d, 1d);
                     var boundaryT = Math.Clamp(dominance / 0.7d, 0d, 1d);
-                    var smooth = boundaryT * boundaryT *
-                        (3d - 2d * boundaryT);
+                    // The caldera's enclosed rim is authoritative; biome
+                    // neighbor blending must fade before reaching the rim.
+                    var shoulder = caldera.RimStrength * .55d;
+                    var inside = Math.Clamp(
+                        (sample.PrimaryTerrainStrength - shoulder) /
+                            (caldera.RimStrength - shoulder), 0d, 1d);
+                    var protectedInterior = inside * inside * (3d - 2d * inside);
+                    var transition = boundaryT +
+                        (1d - boundaryT) * protectedInterior;
+                    var smooth = transition * transition *
+                        (3d - 2d * transition);
                     var expected = (int)Math.Floor(
                         2d + (authored - 2d) * smooth);
                     Assert.InRange(actual, expected - 1, expected + 1);
