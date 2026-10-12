@@ -1,6 +1,15 @@
 {
+  "asteria:aether_vines": {
+    "/name": "Trepadeiras Etéreas"
+  },
+  "asteria:cloud_reed": {
+    "/name": "Junco das Nuvens"
+  },
   "asteria:grass": {
     "/name": "Grama"
+  },
+  "asteria:hanging_roots": {
+    "/name": "Raízes Pendentes"
   },
   "asteria:kelp": {
     "/name": "Alga kelp"
@@ -8,14 +17,23 @@
   "asteria:mushroom_blue": {
     "/name": "Cogumelo Azul"
   },
+  "asteria:mushroom_brown": {
+    "/name": "Cogumelo Marrom"
+  },
   "asteria:mushroom_pink": {
     "/name": "Cogumelo Rosa"
+  },
+  "asteria:mushroom_purple": {
+    "/name": "Cogumelo Roxo"
   },
   "asteria:mushroom_red": {
     "/name": "Cogumelo Vermelho"
   },
   "asteria:seagrass": {
     "/name": "Erva-marinha"
+  },
+  "asteria:wall_shelf_fungus": {
+    "/name": "Fungo de Prateleira de Parede"
   },
   "asteria:wildflower_blue": {
     "/name": "Flor Silvestre Azul"
