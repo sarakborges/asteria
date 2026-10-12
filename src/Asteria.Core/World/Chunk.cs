@@ -216,10 +216,17 @@ public sealed class Chunk
         return true;
     }
 
-    public void VisitObjectCells(Action<int, int, int, ObjectCell> visit)
+    public void VisitObjectCells(
+        Action<int, int, int, ObjectCell> visit, bool ordered = true)
     {
         ArgumentNullException.ThrowIfNull(visit);
-        foreach (var index in _objects.Keys.OrderBy(key => key))
+        // Rendering/persistence can retain deterministic support order.
+        // Spatial queries supply their own hit-distance and identity tie-breaks
+        // and should not sort the entire support dictionary each frame.
+        IEnumerable<int> supports = ordered
+            ? _objects.Keys.OrderBy(key => key)
+            : _objects.Keys;
+        foreach (var index in supports)
         {
             var (x, y, z) = FromIndex(index);
             foreach (var obj in _objects[index])
