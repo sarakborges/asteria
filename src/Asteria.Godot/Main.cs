@@ -2919,8 +2919,8 @@ public partial class Main : Node3D
              surface is { Layers.Count: > 0 }))
         {
             var occupied = cell.HasMicroblockGeometry
-                ? mask ?? (target is { } position
-                    ? _world.GetMicroblockMaskOrEmpty(position)
+                ? mask ?? (target is { } previewPosition
+                    ? _world.GetMicroblockMaskOrEmpty(previewPosition)
                     : MicroblockMask.Empty)
                 : MicroblockMask.Empty;
             if (!cell.HasMicroblockGeometry || !occupied.IsEmpty)
