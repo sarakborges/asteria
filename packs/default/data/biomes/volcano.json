@@ -32,14 +32,7 @@
       "fluidFill": {
         "fluid": "asteria:lava",
         "minimumStrength": 0.91,
-        "topLevel": 54,
-        "spill": {
-          "minimumStrength": 0.56,
-          "maximumStrength": 0.9,
-          "scale": 0.012,
-          "width": 0.055,
-          "level": 6
-        }
+        "topLevel": 54
       }
     }
   },
