@@ -35,9 +35,9 @@ public sealed class EnchantedForestEnrichmentTests
             Assert.Equal("textures/objects/" + name + ".png",
                 block.Visual.Texture!.Value.Texture);
         }
-        foreach (var reused in new[] {"mushroom_red","mushroom_blue"})
-            Assert.Single(biome.Decorations,
-                x => x.Block == "asteria:" + reused);
+        foreach (var reused in new[] {"mushroom_red","mushroom_blue","mushroom_pink"})
+            Assert.True(Assert.Single(biome.Decorations,
+                x => x.Block == "asteria:" + reused).IsObject);
 
         foreach (var glow in new[] {
             "starflower","glow_pod"
@@ -53,13 +53,20 @@ public sealed class EnchantedForestEnrichmentTests
         var variants = structures.ResolveReference("asteria:enchanted_mushroom_ring");
         Assert.Equal(3, variants.Count);
         Assert.All(variants, ring => {
-            Assert.InRange(ring.Voxels.Count, 8, 32);
+            Assert.InRange(ring.Voxels.Count + ring.Objects.Count, 8, 32);
             Assert.All(ring.Voxels, x => Assert.Equal(1, x.Y));
+            Assert.All(ring.Objects, x => Assert.Equal(1, x.Y));
             Assert.DoesNotContain(ring.Voxels, x => x.X == 0 && x.Z == 0);
-            Assert.All(ring.Voxels, x => Assert.Contains(x.Block, new[] {
-                "asteria:mushroom_red","asteria:mushroom_blue",
-                "asteria:mushroom_purple","asteria:mushroom_pink"
-            }));
+            Assert.DoesNotContain(ring.Objects, x => x.X == 0 && x.Z == 0);
+            Assert.All(ring.Voxels, x => Assert.Equal(
+                "asteria:mushroom_purple", x.Block));
+            Assert.All(ring.Objects, obj => {
+                Assert.Contains(obj.Object, new[] {
+                    "asteria:mushroom_red", "asteria:mushroom_blue",
+                    "asteria:mushroom_pink"
+                });
+                Assert.Equal(BlockFace.Top, obj.Face);
+            });
         });
     }
 
