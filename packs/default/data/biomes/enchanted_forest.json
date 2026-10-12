@@ -48,7 +48,7 @@
       }
     },
     {
-      "block": "asteria:mushroom_pink",
+      "object": "asteria:mushroom_pink",
       "chance": 0.01,
       "surfaceBlocks": [
         "asteria:grass_block",
@@ -172,7 +172,7 @@
       }
     },
     {
-      "block": "asteria:mushroom_blue",
+      "object": "asteria:mushroom_blue",
       "chance": 0.034,
       "surfaceBlocks": [
         "asteria:grass_block",
@@ -196,7 +196,7 @@
       }
     },
     {
-      "block": "asteria:mushroom_red",
+      "object": "asteria:mushroom_red",
       "chance": 0.026,
       "surfaceBlocks": [
         "asteria:grass_block",
