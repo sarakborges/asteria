@@ -156,8 +156,20 @@ public sealed class BiomeRegistry
         {
             if (!objects.TryGet(rule.Block, out var definition) || definition is null)
                 throw new ArgumentException($"Biome {biome.Id} refers to an unknown Object {rule.Block}.");
-            if (!definition.Supports(BlockFace.Top))
-                throw new ArgumentException($"Biome {biome.Id} Object {rule.Block} needs top placement.");
+            var requiredFaces = rule.SupportSurface switch
+            {
+                DecorationSupportSurface.Floor => new[] { BlockFace.Top },
+                DecorationSupportSurface.Ceiling => [BlockFace.Bottom],
+                DecorationSupportSurface.Wall =>
+                    new[] { BlockFace.Left, BlockFace.Right,
+                            BlockFace.Front, BlockFace.Back },
+                _ => throw new ArgumentOutOfRangeException(
+                    nameof(rule.SupportSurface)),
+            };
+            foreach (var face in requiredFaces)
+                if (!definition.Supports(face))
+                    throw new ArgumentException(
+                        $"Biome {biome.Id} Object {rule.Block} needs {face} placement.");
         }
     }
 
