@@ -79,9 +79,13 @@ public sealed class PlainsSwampBiodiversityTests
                         rule.HabitatWeights.For("fungal_ground"));
             Assert.All(rule.SurfaceBlocks, b => Assert.Contains(b,
                 new[] {"asteria:mud", "asteria:dirt", "asteria:grass_block"}));
-            var block = blocks.GetDefinition(blocks.GetId(rule.Block));
-            Assert.True(block.HasTag(BlockPhysicsCapabilities.SupportBelow));
-            Assert.False(block.IsCollidable);
+            Assert.True(rule.IsObject);
+            Assert.False(blocks.TryGetId(rule.Block, out _));
+            var objects = PackContentRegistry<ObjectDefinition>.FromJson(
+                ReadPackJson("objects"), ObjectDefinition.Parse, d => d.Id);
+            var definition = objects.Get(rule.Block);
+            Assert.True(definition.Supports(BlockFace.Top));
+            Assert.Equal(ObjectVisualKind.CrossedSprite, definition.Visual.Kind);
         }
     }
 
@@ -113,15 +117,30 @@ public sealed class PlainsSwampBiodiversityTests
                     {
                         "asteria:mud","asteria:dirt","asteria:grass_block"
                     }));
-                Assert.True(s.Voxels.Count >= 8);
-                Assert.All(s.Voxels, v => Assert.True(v.Y > 0));
+                if (name == "swamp_reed_bed")
+                {
+                    Assert.True(s.Objects.Count >= 8);
+                    Assert.Empty(s.Voxels);
+                    Assert.All(s.Objects, obj =>
+                    {
+                        Assert.Equal(1, obj.Y);
+                        Assert.Equal(BlockFace.Top, obj.Face);
+                        Assert.Contains(obj.Object,
+                            new[] { "asteria:bulrush", "asteria:cattail" });
+                    });
+                }
+                else
+                {
+                    Assert.True(s.Voxels.Count >= 8);
+                    Assert.All(s.Voxels, v => Assert.True(v.Y > 0));
+                }
             });
         }
 
         var reedBeds = structures.ResolveReference("asteria:swamp_reed_bed");
         Assert.All(reedBeds, bed =>
         {
-            Assert.All(bed.Voxels, v => Assert.Equal(1, v.Y));
+            Assert.All(bed.Objects, obj => Assert.Equal(1, obj.Y));
             Assert.Contains(bed.Restrictions.Proximity, p =>
                 p.Target.Fluid == "asteria:water" &&
                 p.Mode == StructureProximityMode.Required);
@@ -174,7 +193,7 @@ public sealed class PlainsSwampBiodiversityTests
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var name in names)
         {
-            var path = name is "clover" or "daisy" or "purple_aster"
+            var path = name is "clover" or "daisy" or "purple_aster" or "marsh_orchid" or "bulrush"
                 ? objects.Get("asteria:" + name).Visual.Texture
                 : blocks.GetDefinition(blocks.GetId("asteria:" + name))
                     .Visual.Texture!.Value.Texture;
