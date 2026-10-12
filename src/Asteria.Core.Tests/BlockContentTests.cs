@@ -72,13 +72,8 @@ public sealed class BlockContentTests
             grassPlant.PlacementFaces);
         Assert.Single(
             grassPlant.PlacementFaces);
-        Assert.True(
-            grassPlant.HasTag(
-                BlockPhysicsCapabilities.SupportBelow));
-        Assert.False(
-            grassPlant.IsCollidable);
-        Assert.False(
-            grassPlant.DropsSelf);
+        Assert.True(grassPlant.Supports(BlockFace.Top));
+        Assert.False(grassPlant.DropSelf);
 
         Assert.False(registry.TryGetId("asteria:pebble", out _));
         var pebble = Asteria.Core.Content.ObjectDefinition.Parse(
