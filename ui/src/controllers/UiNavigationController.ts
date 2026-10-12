@@ -192,6 +192,13 @@ export function createUiNavigationController(
         escape();
         return;
       }
+      if (message.type === "game.chat.state") {
+        // Chat takes precedence if a capture-loss message arrived first.
+        const payload = message.payload as { open?: unknown } | undefined;
+        if (payload?.open === true && !store.getSnapshot().navigation.death)
+          show("none");
+        return;
+      }
       if (message.type !== "game.mouse_capture") return;
       const payload = message.payload as { captured?: unknown } | undefined;
       if (store.getSnapshot().navigation.death) return;
