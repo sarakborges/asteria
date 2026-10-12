@@ -96,7 +96,8 @@ public static class StructureDefinitionJson
             OptionalBoolean(
                 root,
                 "locatable") ??
-            true);
+            true,
+            content.Objects);
     }
 
     private static StructureAnchor ParseAnchor(
@@ -380,6 +381,8 @@ public static class StructureDefinitionJson
                 $"structure palette {property.Name}",
                 "block",
                 "fluid",
+                "object",
+                "face",
                 "clear",
                 "orientation",
                 "connector",
@@ -395,9 +398,8 @@ public static class StructureDefinitionJson
                     property.Value,
                     "block");
             var fluid =
-                OptionalString(
-                    property.Value,
-                    "fluid");
+                OptionalString(property.Value, "fluid");
+            var objectId = OptionalString(property.Value, "object");
             var clear =
                 OptionalBoolean(
                     property.Value,
@@ -406,6 +408,7 @@ public static class StructureDefinitionJson
             var primaryPayloads =
                 (block is null ? 0 : 1) +
                 (fluid is null ? 0 : 1) +
+                (objectId is null ? 0 : 1) +
                 (clear ? 1 : 0);
             if (primaryPayloads > 1)
             {
@@ -457,6 +460,20 @@ public static class StructureDefinitionJson
                     $"Structure palette {property.Name} orientation requires a block.");
             }
 
+            var face = OptionalString(property.Value, "face") switch
+            {
+                null or "top" => BlockFace.Top,
+                "bottom" => BlockFace.Bottom,
+                "left" => BlockFace.Left,
+                "right" => BlockFace.Right,
+                "front" => BlockFace.Front,
+                "back" => BlockFace.Back,
+                var invalid => throw new FormatException(
+                    $"Unknown structure Object face: {invalid}."),
+            };
+            if (objectId is null && property.Value.TryGetProperty("face", out _))
+                throw new FormatException(
+                    $"Structure palette {property.Name} face requires an Object.");
             var detail = StructureVoxelStateJson.Parse(property.Value);
             if (block is null && (detail is not null ||
                 property.Value.TryGetProperty("textureRotation", out _) ||
@@ -472,6 +489,8 @@ public static class StructureDefinitionJson
                 new PaletteEntry(
                     block,
                     fluid,
+                    objectId,
+                    face,
                     clear,
                     orientation,
                     connector,
@@ -595,6 +614,7 @@ public static class StructureDefinitionJson
             new List<StructureVoxelDefinition>();
         var fluidVoxels =
             new List<StructureFluidVoxelDefinition>();
+        var objects = new List<StructureObjectDefinition>();
         var clearVoxels =
             new List<StructureClearVoxelDefinition>();
         var connectors =
@@ -746,6 +766,11 @@ public static class StructureDefinitionJson
                                 entry.Orientation,
                                 entry.Detail));
                     }
+                    else if (entry.Object is { } objectId)
+                    {
+                        objects.Add(new StructureObjectDefinition(
+                            offsetX, offsetY, offsetZ, objectId, entry.Face));
+                    }
                     else if (entry.Fluid is
                              { } fluid)
                     {
@@ -776,7 +801,8 @@ public static class StructureDefinitionJson
             Array.AsReadOnly(
                 clearVoxels.ToArray()),
             Array.AsReadOnly(
-                connectors.ToArray()));
+                connectors.ToArray()),
+            Array.AsReadOnly(objects.ToArray()));
     }
 
     private static void EnsureKnownProperties(
@@ -1006,6 +1032,8 @@ public static class StructureDefinitionJson
     private sealed record PaletteEntry(
         string? Block,
         string? Fluid,
+        string? Object,
+        BlockFace Face,
         bool Clear,
         BlockOrientation Orientation,
         PaletteConnector? Connector,
@@ -1015,5 +1043,6 @@ public static class StructureDefinitionJson
         IReadOnlyList<StructureVoxelDefinition> Voxels,
         IReadOnlyList<StructureFluidVoxelDefinition> FluidVoxels,
         IReadOnlyList<StructureClearVoxelDefinition> ClearVoxels,
-        IReadOnlyList<StructureConnectorDefinition> Connectors);
+        IReadOnlyList<StructureConnectorDefinition> Connectors,
+        IReadOnlyList<StructureObjectDefinition> Objects);
 }
