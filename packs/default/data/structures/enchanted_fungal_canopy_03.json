@@ -34,13 +34,13 @@
       "block": "asteria:luminous_giant_fungus_cap"
     },
     "P": {
-      "block": "asteria:mushroom_pink"
+      "object": "asteria:mushroom_pink"
     },
     "Q": {
       "block": "asteria:glow_pod"
     },
     "R": {
-      "block": "asteria:mushroom_red"
+      "object": "asteria:mushroom_red"
     },
     "S": {
       "block": "asteria:luminous_giant_fungus_stem"
