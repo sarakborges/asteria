@@ -187,7 +187,8 @@ public sealed class Chunk
         // The Object's definition determines which substrate is legal.
         if (_cells.Get(index).IsEmpty &&
             (_fluids.Get(index).IsEmpty ||
-             _fluids.Get(index).Level != FluidCell.MaxLevel))
+             _fluids.Get(index).Level != FluidCell.MaxLevel ||
+             !_fluids.Get(index).IsSource))
             return false;
         if (_objects.TryGetValue(index, out var current))
         {
@@ -286,6 +287,7 @@ public sealed class Chunk
         // No solid-block attachments are affected by fluid changes.
         if (_cells.Get(index).IsEmpty &&
             (fluid.IsEmpty || fluid.Level != FluidCell.MaxLevel ||
+             !fluid.IsSource ||
              previous.Fluid != fluid.Fluid) &&
             _objects.Remove(index, out var detached))
         {
