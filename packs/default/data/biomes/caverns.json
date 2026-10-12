@@ -3,7 +3,7 @@
   "decorations": [
     {
       "block": "asteria:mushroom_brown",
-      "chance": 0.035,
+      "chance": 0.007,
       "surfaceBlocks": [
         "asteria:stone",
         "asteria:gravel",
@@ -22,7 +22,7 @@
     },
     {
       "block": "asteria:mushroom_purple",
-      "chance": 0.012,
+      "chance": 0.0024,
       "surfaceBlocks": [
         "asteria:stone",
         "asteria:gravel",
@@ -41,7 +41,7 @@
     },
     {
       "block": "asteria:pebble",
-      "chance": 0.19,
+      "chance": 0.038,
       "surfaceBlocks": [
         "asteria:stone",
         "asteria:gravel",
@@ -79,7 +79,7 @@
     },
     {
       "block": "asteria:glowcap",
-      "chance": 0.072,
+      "chance": 0.0144,
       "surfaceBlocks": [
         "asteria:stone",
         "asteria:stone_cobble",
@@ -98,7 +98,7 @@
     },
     {
       "block": "asteria:glow_fern",
-      "chance": 0.11,
+      "chance": 0.022,
       "surfaceBlocks": [
         "asteria:stone",
         "asteria:stone_cobble",

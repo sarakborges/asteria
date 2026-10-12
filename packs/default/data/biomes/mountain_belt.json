@@ -27,7 +27,7 @@
   "decorations": [
     {
       "block": "asteria:pebble",
-      "chance": 0.102,
+      "chance": 0.0204,
       "surfaceBlocks": [
         "asteria:stone",
         "asteria:gravel",
@@ -50,7 +50,7 @@
     },
     {
       "block": "asteria:grass",
-      "chance": 0.036,
+      "chance": 0.0072,
       "surfaceBlocks": [
         "asteria:dirt"
       ],
@@ -72,7 +72,7 @@
     },
     {
       "block": "asteria:stick",
-      "chance": 0.027,
+      "chance": 0.0054,
       "surfaceBlocks": [
         "asteria:dirt",
         "asteria:gravel"
@@ -95,7 +95,7 @@
     },
     {
       "block": "asteria:pass_grass",
-      "chance": 0.108,
+      "chance": 0.0216,
       "surfaceBlocks": [
         "asteria:dirt",
         "asteria:gravel",
@@ -120,7 +120,7 @@
     },
     {
       "block": "asteria:thorn_rosette",
-      "chance": 0.081,
+      "chance": 0.0162,
       "surfaceBlocks": [
         "asteria:stone",
         "asteria:gravel",
@@ -145,7 +145,7 @@
     },
     {
       "block": "asteria:scree_lichen",
-      "chance": 0.087,
+      "chance": 0.0174,
       "surfaceBlocks": [
         "asteria:stone",
         "asteria:stone_cobble"

@@ -57,7 +57,7 @@
   "decorations": [
     {
       "block": "asteria:pebble",
-      "chance": 0.075,
+      "chance": 0.015,
       "surfaceBlocks": [
         "asteria:basalt",
         "asteria:basalt_cobble",
@@ -81,7 +81,7 @@
     },
     {
       "block": "asteria:ash_thorn",
-      "chance": 0.102,
+      "chance": 0.0204,
       "surfaceBlocks": [
         "asteria:basalt",
         "asteria:basalt_cobble",
@@ -106,7 +106,7 @@
     },
     {
       "block": "asteria:cinder_bloom",
-      "chance": 0.066,
+      "chance": 0.0132,
       "surfaceBlocks": [
         "asteria:basalt",
         "asteria:basalt_cobble"
@@ -130,7 +130,7 @@
     },
     {
       "block": "asteria:soot_lichen",
-      "chance": 0.108,
+      "chance": 0.0216,
       "surfaceBlocks": [
         "asteria:basalt",
         "asteria:basalt_cobble"

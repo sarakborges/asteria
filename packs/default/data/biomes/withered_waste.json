@@ -24,7 +24,7 @@
   "decorations": [
     {
       "block": "asteria:pebble",
-      "chance": 0.108,
+      "chance": 0.0216,
       "surfaceBlocks": [
         "asteria:dirt",
         "asteria:gravel",
@@ -44,7 +44,7 @@
     },
     {
       "block": "asteria:stick",
-      "chance": 0.051,
+      "chance": 0.0102,
       "surfaceBlocks": [
         "asteria:dirt",
         "asteria:gravel"

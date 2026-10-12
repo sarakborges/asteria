@@ -5,14 +5,13 @@ namespace Asteria.Core.Tests;
 public sealed class GroundDecorationDensityTests
 {
     [Fact]
-    public void AuthoredSurfaceBiomesLeaveUnoccupiedGroundBetweenDecorations()
+    public void AuthoredBiomesKeepGroundDecorationChanceSparse()
     {
         var data = Path.Combine(
             AppContext.BaseDirectory, "packs", "default", "data", "biomes");
         var biomes = Directory.EnumerateFiles(data, "*.json")
             .OrderBy(path => path, StringComparer.Ordinal)
             .Select(path => BiomeDefinitionJson.Parse(File.ReadAllText(path)))
-            .Where(biome => biome.SurfaceLayout is not null)
             .ToArray();
 
         Assert.NotEmpty(biomes);
@@ -27,7 +26,9 @@ public sealed class GroundDecorationDensityTests
                 .ToArray();
 
             var baseBudget = ground.Sum(rule => (double)rule.Chance);
-            Assert.True(baseBudget <= 0.75d,
+            // Union bound: the chance that any ground decoration succeeds
+            // cannot exceed the sum of independently authored chances.
+            Assert.True(baseBudget <= 0.16d,
                 $"High ground-decoration density in {biome.Id}: {baseBudget:F3}");
 
             if (biome.SurfaceHabitats is null)
@@ -38,7 +39,7 @@ public sealed class GroundDecorationDensityTests
                 var weightedBudget = ground.Sum(rule =>
                     (double)rule.Chance *
                     (rule.HabitatWeights?.For(habitat.Id) ?? 1d));
-                Assert.True(weightedBudget <= 1.1d,
+                Assert.True(weightedBudget <= 0.25d,
                     $"Crowded decoration habitat {biome.Id}/{habitat.Id}: {weightedBudget:F3}");
             }
         }
