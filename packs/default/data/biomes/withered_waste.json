@@ -43,7 +43,7 @@
       }
     },
     {
-      "block": "asteria:stick",
+      "object": "asteria:stick",
       "chance": 0.0102,
       "surfaceBlocks": [
         "asteria:dirt",
