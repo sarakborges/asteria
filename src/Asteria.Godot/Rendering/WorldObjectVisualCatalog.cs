@@ -23,28 +23,29 @@ internal sealed class WorldObjectVisualCatalog
         if (_meshes.TryGetValue(definition.Id, out var cached))
             return cached;
 
+        using var image = ProjectPackFiles.LoadImage(_selection, definition.Visual.Texture);
+        var texture = ImageTexture.CreateFromImage(image) ??
+            throw new InvalidDataException($"Object texture cannot be decoded: {definition.Visual.Texture}");
         var surface = new SurfaceTool();
         surface.Begin(Mesh.PrimitiveType.Triangles);
         var visual = definition.Visual;
-        if (visual.Kind != ObjectVisualKind.CrossedSprite)
-            throw new InvalidOperationException("Unimplemented Object mesh type.");
-        for (var plane = 0; plane < visual.Planes; plane++)
+        switch (visual.Kind)
         {
-                var angle = MathF.PI * plane / visual.Planes;
-                var forward = new Vector3(MathF.Cos(angle), 0f, MathF.Sin(angle));
-                var half = forward * visual.Width * .5f;
-                EmitQuad(surface,
-                    -half + Vector3.Up * visual.BaseOffset,
-                    half + Vector3.Up * visual.BaseOffset,
-                    half + Vector3.Up * (visual.BaseOffset + visual.Height),
-                    -half + Vector3.Up * (visual.BaseOffset + visual.Height));
+            case ObjectVisualKind.CrossedSprite:
+                EmitCrossedSprite(surface, visual);
+                break;
+            case ObjectVisualKind.ExtrudedSprite:
+                EmitExtrudedSprite(surface, image, visual);
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(visual.Kind));
         }
 
         var mesh = surface.Commit() ??
             throw new InvalidOperationException($"Object {definition.Id} generated no mesh.");
         var material = new StandardMaterial3D
         {
-            AlbedoTexture = ProjectPackFiles.LoadTexture(_selection, visual.Texture),
+            AlbedoTexture = texture,
             ShadingMode = definition.Unlit
                 ? BaseMaterial3D.ShadingModeEnum.Unshaded
                 : BaseMaterial3D.ShadingModeEnum.PerPixel,
@@ -56,6 +57,45 @@ internal sealed class WorldObjectVisualCatalog
         mesh.SurfaceSetMaterial(0, material);
         _meshes.Add(definition.Id, mesh);
         return mesh;
+    }
+
+    private static void EmitCrossedSprite(
+        SurfaceTool surface, ObjectVisualDefinition visual)
+    {
+        for (var plane = 0; plane < visual.Planes; plane++)
+        {
+            var angle = MathF.PI * plane / visual.Planes;
+            var forward = new Vector3(MathF.Cos(angle), 0f, MathF.Sin(angle));
+            var half = forward * visual.Width * .5f;
+            EmitQuad(surface,
+                -half + Vector3.Up * visual.BaseOffset,
+                half + Vector3.Up * visual.BaseOffset,
+                half + Vector3.Up * (visual.BaseOffset + visual.Height),
+                -half + Vector3.Up * (visual.BaseOffset + visual.Height));
+        }
+    }
+
+    private static void EmitExtrudedSprite(
+        SurfaceTool surface, Image image, ObjectVisualDefinition visual)
+    {
+        var width = image.GetWidth();
+        var height = image.GetHeight();
+        if (width <= 0 || height <= 0 ||
+            (long)width * height > ExtrudedSpriteMesh.MaximumTexturePixels)
+            throw new InvalidDataException("Object extrudedSprite texture exceeds bounded size.");
+
+        // Godot decodes the selected pack image; Core owns the contour mesh.
+        image.Convert(Image.Format.Rgba8);
+        var pixels = image.GetData();
+        var alpha = new byte[checked(width * height)];
+        for (var i = 0; i < alpha.Length; i++)
+            alpha[i] = pixels[i * 4 + 3];
+
+        foreach (var vertex in ExtrudedSpriteMesh.Build(visual, width, height, alpha))
+            EmitVertex(surface,
+                new Vector3(vertex.Position.X, vertex.Position.Y, vertex.Position.Z),
+                new Vector2(vertex.Uv.X, vertex.Uv.Y),
+                new Vector3(vertex.Normal.X, vertex.Normal.Y, vertex.Normal.Z));
     }
 
     private static void EmitQuad(SurfaceTool surface,
