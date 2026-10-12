@@ -10,7 +10,6 @@ export type UiNavigationController = {
   confirmExitWithoutSave(): void;
   cancelExitWithoutSave(): void;
   resumeGame(): void;
-  saveWorld(): void;
   leaveWorld(): void;
   respawn(): void;
   openGameSettings(): void;
@@ -97,13 +96,6 @@ export function createUiNavigationController(
     },
     cancelExitWithoutSave,
     resumeGame() { postMessage("ui.game.resume"); },
-    saveWorld() {
-      store.update(state => ({
-        ...state,
-        navigation: { ...state.navigation, saveFeedback: null },
-      }));
-      postMessage("ui.world.save");
-    },
     respawn() {
       if (store.getSnapshot().navigation.death)
         postMessage("ui.player.respawn");

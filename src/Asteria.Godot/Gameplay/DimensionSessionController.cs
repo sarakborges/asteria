@@ -9,12 +9,6 @@ public enum DimensionTransitionState : byte
     Retiring = 1,
 }
 
-public enum WorldCheckpointDisposition : byte
-{
-    ResumeWorld,
-    ReturnToMenu,
-}
-
 public sealed record DimensionTransitionCompletion(
     DimensionId From,
     DimensionId To,
@@ -44,8 +38,7 @@ public sealed class DimensionSessionController
         BlockRegistry Blocks,
         FluidRegistry Fluids,
         DyeRegistry Dyes,
-        AttachedLayerRegistry Layers,
-        WorldCheckpointDisposition Disposition);
+        AttachedLayerRegistry Layers);
 
     public DimensionSessionController(
         DimensionSessionStateStore states,
@@ -91,20 +84,9 @@ public sealed class DimensionSessionController
     }
 
     /// <summary>
-    /// Native checkpoint reuses dimension retirement. No live worker or
-    /// Godot object may be accessed while Core captures/serializes the
-    /// quiescent world on its background publication task.
+    /// Exit-only save reuses dimension retirement to commit a quiescent
+    /// snapshot. Ordinary travel and relocation archive in memory, not disk.
     /// </summary>
-    public bool RequestCheckpoint(
-        string directory,
-        NVector3 playerPosition,
-        BlockRegistry blocks,
-        FluidRegistry fluids,
-        DyeRegistry dyes,
-        AttachedLayerRegistry layers)
-        => BeginCheckpoint(directory, playerPosition,
-            blocks, fluids, dyes, layers, WorldCheckpointDisposition.ResumeWorld);
-
     public bool RequestSaveAndLeave(
         string directory,
         NVector3 playerPosition,
@@ -112,17 +94,6 @@ public sealed class DimensionSessionController
         FluidRegistry fluids,
         DyeRegistry dyes,
         AttachedLayerRegistry layers)
-        => BeginCheckpoint(directory, playerPosition,
-            blocks, fluids, dyes, layers, WorldCheckpointDisposition.ReturnToMenu);
-
-    private bool BeginCheckpoint(
-        string directory,
-        NVector3 playerPosition,
-        BlockRegistry blocks,
-        FluidRegistry fluids,
-        DyeRegistry dyes,
-        AttachedLayerRegistry layers,
-        WorldCheckpointDisposition disposition)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(directory);
         ArgumentNullException.ThrowIfNull(blocks);
@@ -137,7 +108,7 @@ public sealed class DimensionSessionController
             return false;
 
         _checkpoint = new CheckpointRequest(
-            directory, blocks, fluids, dyes, layers, disposition);
+            directory, blocks, fluids, dyes, layers);
         _sourcePosition = playerPosition;
         _target = Active.Dimension.Id;
         Active.BeginRetirement();
@@ -242,13 +213,12 @@ public sealed class DimensionSessionController
 
             var retiredArchive = _checkpointArchive ??
                 throw new InvalidOperationException("Checkpoint retirement archive is missing.");
-            var leaving = error is null &&
-                _checkpoint?.Disposition == WorldCheckpointDisposition.ReturnToMenu;
+            var leaving = error is null;
             _checkpointPublication = null;
             _checkpointArchive = null;
             _checkpoint = null;
-            // A successful Save and Leave must not instantiate a replacement
-            // Sphere. Failure resumes the archived world and preserves play.
+            // Success leaves the world. Failure restores the archived
+            // session so gameplay and explicit retry remain possible.
             Active = leaving ? null! : _factory(_states.GetOrCreate(target));
             _target = null;
             _sourcePosition = null;
@@ -282,8 +252,8 @@ public sealed class DimensionSessionController
         {
             _checkpointArchive = archive;
             // Capture runs only after retirement has finished and before
-            // any new session is published. On completion the old Sphere
-            // is reconstructed regardless of save success or failure.
+            // any new session is published. Only a failed save restores
+            // the old Sphere; success returns to the menu.
             _checkpointPublication = Task.Run(() =>
             {
                 var snapshot = GameplaySessionSaveCodec.Capture(

@@ -9,7 +9,6 @@ export type PauseMenuPageProps = {
   controlsAvailable?: boolean;
   saveFeedback?: string;
   onResume(): void;
-  onSaveWorld?(): void;
   onWorldSettings?(): void;
   onGameSettings?(): void;
   onControls?(): void;
@@ -23,7 +22,6 @@ export function PauseMenuPage({
   controlsAvailable = false,
   saveFeedback = "",
   onResume,
-  onSaveWorld,
   onWorldSettings,
   onGameSettings,
   onControls,
@@ -70,13 +68,6 @@ export function PauseMenuPage({
             !controlsAvailable
           }
           onClick={onControls}
-        />
-
-        <Button
-          label={t("ui.saveWorld")}
-          stretch
-          disabled={!onSaveWorld}
-          onClick={onSaveWorld}
         />
 
         <Button

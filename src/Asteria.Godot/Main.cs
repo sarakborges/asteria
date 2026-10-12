@@ -466,16 +466,6 @@ public partial class Main : Node3D
         if (_worldReadySent && !_inventoryOpen && !_brushPaletteOpen &&
             !_chat.IsOpen && !_sessions.IsTransitioning)
         {
-            // Native fallback; gameplay keystrokes must not be captured
-            // by the browser's focus-dependent input handlers.
-            if (keyEvent.Keycode == Key.S &&
-                (keyEvent.CtrlPressed || keyEvent.MetaPressed))
-            {
-                if (TrySaveCurrentWorld())
-                    GetViewport().SetInputAsHandled();
-                return;
-            }
-
             if (GameplayKeyMap.Matches(
                     keyEvent, _clientPreferences, KeybindAction.Inventory))
             {
@@ -889,13 +879,8 @@ public partial class Main : Node3D
         _worldDiagnostics?.Write("client.exit_without_save.cancelled");
     }
 
-    private bool TrySaveCurrentWorld() =>
-        TryStartWorldCheckpoint(WorldCheckpointDisposition.ResumeWorld);
-
-    private bool TrySaveAndLeaveCurrentWorld() =>
-        TryStartWorldCheckpoint(WorldCheckpointDisposition.ReturnToMenu);
-
-    private bool TryStartWorldCheckpoint(WorldCheckpointDisposition disposition)
+    // World data is committed only when leaving a world or exiting the game.
+    private bool TrySaveAndLeaveCurrentWorld()
     {
         if (!_worldReadySent || _player is null ||
             _worldSeed is null || _sessions.IsTransitioning ||
@@ -907,11 +892,8 @@ public partial class Main : Node3D
             position.X, position.Y, position.Z);
         var directory = Path.Combine(
             OS.GetUserDataDir(), "worlds", _sessionStates.Name);
-        var accepted = disposition == WorldCheckpointDisposition.ReturnToMenu
-            ? _sessions.RequestSaveAndLeave(
-                directory, source, _blocks, _fluids, _dyes, _layers)
-            : _sessions.RequestCheckpoint(
-                directory, source, _blocks, _fluids, _dyes, _layers);
+        var accepted = _sessions.RequestSaveAndLeave(
+            directory, source, _blocks, _fluids, _dyes, _layers);
         if (!accepted)
             return false;
 
@@ -919,7 +901,7 @@ public partial class Main : Node3D
         // Thumbnail failure never changes checkpoint acceptance or save data.
         _worldThumbnail.Capture(GetViewport());
         _worldDiagnostics?.Write(
-            $"world.save.begin name={_sessionStates.Name} dimension={_dimension.Id} disposition={disposition}");
+            $"world.save.begin name={_sessionStates.Name} dimension={_dimension.Id} disposition=leave");
         StartDimensionRetirement(_dimension.Id);
         return true;
     }
@@ -1476,10 +1458,6 @@ public partial class Main : Node3D
                             document.RootElement);
                     }
 
-                    break;
-                case "ui.world.save":
-                    if (!TrySaveCurrentWorld())
-                        SendWebUi("game.world.save_result", new { status = "error" });
                     break;
                 case "ui.world.leave":
                     if (!TrySaveAndLeaveCurrentWorld())
