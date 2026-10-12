@@ -1,3 +1,4 @@
+using Asteria.Core.Content;
 using Asteria.Core.World;
 using Godot;
 
@@ -15,6 +16,7 @@ internal sealed class HeldDynamicLightPresentation
     private readonly Node _parent;
     private readonly VoxelTerrainMaterialSet _terrain;
     private readonly BlockRegistry _blocks;
+    private readonly PackContentRegistry<ObjectDefinition> _objects;
 
     private OmniLight3D? _light;
     private ulong _lastInventoryRevision = ulong.MaxValue;
@@ -24,11 +26,13 @@ internal sealed class HeldDynamicLightPresentation
     public HeldDynamicLightPresentation(
         Node parent,
         VoxelTerrainMaterialSet terrain,
-        BlockRegistry blocks)
+        BlockRegistry blocks,
+        PackContentRegistry<ObjectDefinition> objects)
     {
         _parent = parent ?? throw new ArgumentNullException(nameof(parent));
         _terrain = terrain ?? throw new ArgumentNullException(nameof(terrain));
         _blocks = blocks ?? throw new ArgumentNullException(nameof(blocks));
+        _objects = objects ?? throw new ArgumentNullException(nameof(objects));
     }
 
     public void Sync(PlayerInventory? inventory, Camera3D? camera)
@@ -43,7 +47,7 @@ internal sealed class HeldDynamicLightPresentation
         {
             _lastInventoryRevision = inventory.Revision;
             var next = HeldLightResolver.Resolve(
-                inventory.SelectedStack, _blocks);
+                inventory.SelectedStack, _blocks, _objects);
             if (_emission != next)
             {
                 _emission = next;
