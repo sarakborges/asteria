@@ -253,10 +253,8 @@ public sealed class VolcanoBiomeContentTests
         var biomes = BiomeRegistry.FromJson(biomeDocuments);
         var blocks = BlockRegistry.FromJson(ReadPackDirectory("blocks"));
         var fluids = FluidRegistry.FromJson(ReadPackDirectory("fluids"));
-        var structures = new StructureRegistry(
-            new[] { Load("volcanic_caldera") }
-                .Concat(Quadrants.Select(part =>
-                    Load("volcanic_caldera_" + part.Id))));
+        var structures = StructureRegistry.FromJson(
+            ReadPackDirectory("structures"));
 
         // Keep all actual Overworld biome placement rules, terrain and seed
         // behavior, but query only the volcano structure rule. Otherwise the
