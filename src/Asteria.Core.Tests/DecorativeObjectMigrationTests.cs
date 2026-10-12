@@ -77,10 +77,11 @@ public sealed class DecorativeObjectMigrationTests
             ("plains", "purple_aster"), ("swamp", "stick"),
             ("swamp", "iris"), ("enchanted_forest", "stick"),
             ("mountains", "stick"), ("gorge", "stick"),
-            ("wasteland", "stick"), ("withered_waste", "stick")
+            ("wasteland", "stick"), ("umbral/withered_waste", "stick")
         })
         {
-            var rule = Assert.Single(biomes.Get("asteria:overworld/" + biomeId)
+            var rule = Assert.Single(biomes.Get("asteria:" + (biomeId.Contains("/")
+                ? biomeId : "overworld/" + biomeId))
                 .Decorations, decoration => decoration.Block == "asteria:" + id);
             Assert.True(rule.IsObject);
             Assert.True(rule.Chance > 0);
