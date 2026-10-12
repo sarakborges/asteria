@@ -104,6 +104,13 @@ func focus_chat_input() -> void:
 	if _webview == null or not _loaded or _mouse_captured or _creation_mode or not get_window().has_focus():
 		return
 	_webview.grab_focus()
+	# Give WRY its native keyboard handoff before React receives the focus
+	# request. Chat state and focus acknowledgements are independent messages.
+	call_deferred("_acknowledge_chat_focus")
+
+func _acknowledge_chat_focus() -> void:
+	if _webview == null or not _loaded or _mouse_captured or _creation_mode or not get_window().has_focus():
+		return
 	post_message('{"type":"game.chat.focus_input","payload":{}}')
 
 func webui_has_focus() -> bool:

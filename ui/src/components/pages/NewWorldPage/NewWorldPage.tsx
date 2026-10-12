@@ -10,6 +10,7 @@ import { UInt64Input } from "../../atoms/UInt64Input/UInt64Input";
 import { Toggle } from "../../atoms/Toggle/Toggle";
 import { SettingRow } from "../../molecules/SettingRow/SettingRow";
 import { GameModeSetting } from "../../molecules/GameModePicker/GameModeSetting";
+import { ModePicker } from "../../molecules/ModePicker/ModePicker";
 import { NumericStepper } from "../../molecules/NumericStepper/NumericStepper";
 import { SpawnBiomeSelect } from "../../molecules/SpawnBiomeSelect/SpawnBiomeSelect";
 import { CosmicBackground } from "../../organisms/CosmicBackground/CosmicBackground";
@@ -18,6 +19,7 @@ import { SettingsPage, type SettingsSectionView } from "../SettingsPage/Settings
 import "./NewWorldPage.css";
 
 const FORM_ID = "world-creation-form";
+const WORLD_GENERATION_MODES: readonly WorldGenerationMode[] = ["Normal", "Flat", "Void"];
 
 export type NewWorldPageProps = {
   state: WorldCreationState;
@@ -135,16 +137,13 @@ export function NewWorldPage({
         <div className="new-world__form-rows">
           <SettingRow title={t("newWorld.worldType")}
             description={t("newWorld.worldType.description")}
-            control={<div className="new-world__mode-picker">
-              {(["Normal", "Flat", "Void"] as const).map(next => (
-                <Button key={next}
-                  label={t("newWorld.worldType." + next.toLowerCase())}
-                  variant={generation.mode === next ? "primary" : "normal"}
-                  ariaPressed={generation.mode === next}
-                  disabled={state.pending}
-                  onClick={() => setWorldMode(next)} />
-              ))}
-            </div>} />
+            control={<ModePicker
+              value={generation.mode}
+              modes={WORLD_GENERATION_MODES}
+              label={t("newWorld.worldType")}
+              labelFor={next => t("newWorld.worldType." + next.toLowerCase())}
+              disabled={state.pending}
+              onChange={setWorldMode} />} />
           <SettingRow title={t("newWorld.spawnBiome")}
             description={t("newWorld.spawnBiome.description")}
             control={<SpawnBiomeSelect

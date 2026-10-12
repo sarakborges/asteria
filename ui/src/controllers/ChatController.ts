@@ -53,12 +53,12 @@ export function createChatController(
     },
     handleGodotMessage(message: BridgeMessage) {
       if (message.type === "game.chat.focus_input") {
-        if (store.getSnapshot().chat.open) {
-          store.update(state => ({
-            ...state,
-            chat: { ...state.chat, focusRequest: state.chat.focusRequest + 1 },
-          }));
-        }
+        // The native focus acknowledgement can overtake the async chat
+        // state message. Preserve it even before the input is mounted.
+        store.update(state => ({
+          ...state,
+          chat: { ...state.chat, focusRequest: state.chat.focusRequest + 1 },
+        }));
         return;
       }
       if (message.type !== "game.chat.state") return;
