@@ -477,3 +477,9 @@ MineClone `world-systems-rebuild` reference: `world_objects.rs::detached_object_
 - A hit on a layered back, left or bottom face shows that actual textured face as a flat preview rather than a 3-face cube that hides the selected interactive layer. Otherwise the 3-face cube is retained.
 - UI contracts are unchanged (`game.hud.target.blockPreview` already exists); ordinary inventory previews remain portable, untinted, unmodified host graphics. In-engine Godot/WRY acceptance is still required for alpha, color, rotation, and stacked-layer screenshots.
 
+## Biome-tinted host block previews — 2026-10-12
+
+- The live target preview already resolves actual oriented/UV-rotated host faces and composes the voxel's attached layers, but still tinted the **host** with its inventory fallback even when a biome palette authored a different color for that block. The world preview now samples the existing `Generator.Tints` at the target X/Z and applies the same resolved sRGB tint to every dyable host face, including faces without attached layers.
+- `InventoryBlockPreviewRenderer.FaceDataUri` accepts an optional spatial tint and reuses the normal ordered host texture layers/UV rotation. Authored inventory/Creative/hotbar previews still use cached fallback colors; world-dependent host variants never enter that cache. Attached-layer overlays retain their own tint channel and cutoff semantics.
+- `BlockPreviewColor.FromNormalized` centralizes finite normalized-to-byte conversion for both Object and Block world target previews, with regression tests for rounding, clamping and invalid values. Godot/WRY screenshot verification is still required.
+

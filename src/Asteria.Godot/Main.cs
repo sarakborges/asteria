@@ -2833,10 +2833,12 @@ public partial class Main : Node3D
         BlockSurfaceState? surface = null, WorldVoxelCoord? target = null,
         BlockFace? targetFace = null)
     {
-        // The world target uses the *actual* face layers (not the catalog
-        // entry's undyed/block-only preview). Keep the inventory route pure.
+        // World targets sample real biome tint for both host block and
+        // attached faces; catalog/inventory icons keep authored fallback.
         BiomeTintSampleGrid? tintGrid = null;
-        if (surface is { Layers.Count: > 0 } && target is { } position)
+        if (target is { } position &&
+            (block.Tint != BlockTint.None ||
+             surface is { Layers.Count: > 0 }))
         {
             var coord = VoxelCoordinates.FromWorld(
                 position.X, position.Y, position.Z).Chunk;
@@ -2847,13 +2849,17 @@ public partial class Main : Node3D
         {
             if (target is not { } position || tintGrid is null)
                 return new BlockPreviewColor(255, 255, 255);
-            var rgb = tintGrid.Resolve(tint,
-                new BlockPreviewColor(255, 255, 255), position.X, position.Z);
-            static byte ToByte(float value) =>
-                (byte)Math.Clamp((int)MathF.Round(value * 255f), 0, 255);
-            return new BlockPreviewColor(
-                ToByte(rgb.X), ToByte(rgb.Y), ToByte(rgb.Z));
+            // The host has an authored fallback for its own tint channel;
+            // attached layers without a palette continue to default white.
+            var fallback = tint == block.Tint
+                ? block.PreviewColor
+                : new BlockPreviewColor(255, 255, 255);
+            return BlockPreviewColor.FromNormalized(
+                tintGrid.Resolve(tint, fallback, position.X, position.Z));
         }
+        var baseTint = block.Tint != BlockTint.None && target is not null
+            ? Tint(block.Tint)
+            : (BlockPreviewColor?)null;
         // SourceFaceForWorldFace is the same Core owner used by terrain
         // meshing and targeting. A laid-down log, for example, must show
         // its authored end grain on the face which actually points upward.
@@ -2870,10 +2876,11 @@ public partial class Main : Node3D
                     surface, _layers, face);
                 if (attachments.Count > 0)
                     return _blockPreviewRenderer.LayeredFaceDataUri(
-                        block, sourceFace, uvRotation, attachments, Tint);
+                        block, sourceFace, uvRotation, attachments, Tint,
+                        baseTint);
             }
             return _blockPreviewRenderer.FaceDataUri(
-                block, sourceFace, uvRotation);
+                block, sourceFace, uvRotation, baseTint);
         }
 
         // If the interacted layer lies on a back/left/bottom face, show
@@ -2922,10 +2929,7 @@ public partial class Main : Node3D
             .SampleChunkGrid(coord.X, coord.Z)
             .Resolve(definition.Tint, definition.TintFallback,
                 support.X, support.Z);
-        static byte Channel(float value) =>
-            (byte)Math.Clamp((int)MathF.Round(value * 255f), 0, 255);
-        return new BlockPreviewColor(
-            Channel(sample.X), Channel(sample.Y), Channel(sample.Z));
+        return BlockPreviewColor.FromNormalized(sample);
     }
 
     private string IconDataUri(string resourcePath)

@@ -26,7 +26,8 @@ public sealed class InventoryBlockPreviewRenderer
 
     public string? FaceDataUri(
         BlockDefinition block, BlockFace sourceFace,
-        TextureRotation rotation = TextureRotation.Degrees0)
+        TextureRotation rotation = TextureRotation.Degrees0,
+        BlockPreviewColor? sampledTint = null)
     {
         ArgumentNullException.ThrowIfNull(block);
         if (!Enum.IsDefined(rotation))
@@ -38,7 +39,9 @@ public sealed class InventoryBlockPreviewRenderer
             return null;
 
         var key = (block.Id, sourceFace, rotation);
-        if (_cache.TryGetValue(key, out var cached))
+        // World biome colors are spatially derived and may change across
+        // Sphere transitions; only the timeless authored fallback is cached.
+        if (sampledTint is null && _cache.TryGetValue(key, out var cached))
             return cached;
 
         using var first = ProjectPackFiles.LoadImage(_pack, layers[0].Texture);
@@ -57,7 +60,7 @@ public sealed class InventoryBlockPreviewRenderer
                         Image.Interpolation.Nearest);
 
                 var tinted = block.Tint != BlockTint.None && layer.Dyable;
-                var tint = block.PreviewColor;
+                var tint = sampledTint ?? block.PreviewColor;
                 for (var y = 0; y < composite.GetHeight(); y++)
                 for (var x = 0; x < composite.GetWidth(); x++)
                 {
@@ -105,7 +108,7 @@ public sealed class InventoryBlockPreviewRenderer
             }
 
             var data = "data:image/png;base64," + Convert.ToBase64String(png);
-            _cache.Add(key, data);
+            if (sampledTint is null) _cache.Add(key, data);
             return data;
         }
     }
@@ -120,11 +123,13 @@ public sealed class InventoryBlockPreviewRenderer
     public string? LayeredFaceDataUri(
         BlockDefinition block, BlockFace sourceFace, TextureRotation baseRotation,
         IReadOnlyList<PreviewAttachedLayer> attachments,
-        Func<BlockTint, BlockPreviewColor> resolveTint)
+        Func<BlockTint, BlockPreviewColor> resolveTint,
+        BlockPreviewColor? sampledBaseTint = null)
     {
         ArgumentNullException.ThrowIfNull(attachments);
         ArgumentNullException.ThrowIfNull(resolveTint);
-        var baseUri = FaceDataUri(block, sourceFace, baseRotation);
+        var baseUri = FaceDataUri(
+            block, sourceFace, baseRotation, sampledBaseTint);
         if (baseUri is null || attachments.Count == 0) return baseUri;
 
         const string pngPrefix = "data:image/png;base64,";
