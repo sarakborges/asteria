@@ -1,3 +1,4 @@
+using Asteria.Core.Content;
 using Asteria.Core.World;
 
 namespace Asteria.Core.Tests;
@@ -31,8 +32,11 @@ public sealed class MountainEcologyExpansionTests
     public void SmallFloraIsBiomeSpecificAndRootedInExistingMountainMaterials()
     {
         var blocks = BlockRegistry.FromJson(ReadPackJson("blocks"));
+        var objects = PackContentRegistry<ObjectDefinition>.FromJson(
+            ReadPackJson("objects"), ObjectDefinition.Parse, obj => obj.Id);
         var biomes = BiomeRegistry.FromJson(ReadPackJson("biomes"));
         biomes.ValidateBlocks(blocks);
+        biomes.ValidateObjects(objects);
         foreach (var (biomeName, names) in SmallFlora)
         {
             var biome = biomes.Get("asteria:overworld/" + biomeName);
@@ -56,16 +60,32 @@ public sealed class MountainEcologyExpansionTests
                         "asteria:stone", "asteria:stone_cobble",
                         "asteria:gravel", "asteria:dirt"
                     }));
-                var block = blocks.GetDefinition(blocks.GetId(rule.Block));
-                Assert.True(block.HasTag(BlockPhysicsCapabilities.SupportBelow));
-                Assert.False(block.IsCollidable);
-                Assert.Equal(BlockRenderMode.Cutout, block.RenderMode);
-                Assert.Equal(
-                    name.EndsWith("_lichen", StringComparison.Ordinal)
-                        ? BlockVisualKind.GroundSprite : BlockVisualKind.CrossedSprite,
-                    block.Visual.Kind);
-                Assert.Equal("textures/objects/" + name + ".png",
-                    block.Visual.Texture!.Value.Texture);
+                if (name == "pass_grass")
+                {
+                    Assert.True(rule.IsObject);
+                    Assert.False(blocks.TryGetId(rule.Block, out _));
+                    var plant = objects.Get(rule.Block);
+                    Assert.True(plant.Supports(BlockFace.Top));
+                    Assert.Equal(ObjectVisualKind.CrossedSprite, plant.Visual.Kind);
+                    Assert.True(plant.WindSway);
+                    Assert.False(plant.DropSelf);
+                    Assert.Equal("textures/objects/" + name + ".png",
+                        plant.Visual.Texture);
+                }
+                else
+                {
+                    Assert.False(rule.IsObject);
+                    var block = blocks.GetDefinition(blocks.GetId(rule.Block));
+                    Assert.True(block.HasTag(BlockPhysicsCapabilities.SupportBelow));
+                    Assert.False(block.IsCollidable);
+                    Assert.Equal(BlockRenderMode.Cutout, block.RenderMode);
+                    Assert.Equal(
+                        name.EndsWith("_lichen", StringComparison.Ordinal)
+                            ? BlockVisualKind.GroundSprite : BlockVisualKind.CrossedSprite,
+                        block.Visual.Kind);
+                    Assert.Equal("textures/objects/" + name + ".png",
+                        block.Visual.Texture!.Value.Texture);
+                }
             }
         }
         Assert.DoesNotContain(biomes.Get("asteria:overworld/mountains")
@@ -127,15 +147,20 @@ public sealed class MountainEcologyExpansionTests
     }
 
     [Fact]
-    public void DecorativeBlocksUseTenIndependentPackTextures()
+    public void SmallDecoratorsUseTenIndependentPackTextures()
     {
         var blocks = BlockRegistry.FromJson(ReadPackJson("blocks"));
+        var objects = PackContentRegistry<ObjectDefinition>.FromJson(
+            ReadPackJson("objects"), ObjectDefinition.Parse, obj => obj.Id);
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var (biome, names) in SmallFlora)
             foreach (var name in names)
             {
-                var d = blocks.GetDefinition(blocks.GetId("asteria:" + name));
-                Assert.True(seen.Add(d.Visual.Texture!.Value.Texture));
+                var texture = name == "pass_grass"
+                    ? objects.Get("asteria:" + name).Visual.Texture
+                    : blocks.GetDefinition(blocks.GetId("asteria:" + name))
+                        .Visual.Texture!.Value.Texture;
+                Assert.True(seen.Add(texture));
             }
         foreach (var id in new[]
         {
@@ -164,6 +189,8 @@ public sealed class MountainEcologyExpansionTests
     public void MountainSmallDecoratorsAreSeedDeterministic()
     {
         var blocks = BlockRegistry.FromJson(ReadPackJson("blocks"));
+        var objects = PackContentRegistry<ObjectDefinition>.FromJson(
+            ReadPackJson("objects"), ObjectDefinition.Parse, obj => obj.Id);
         var biomes = BiomeRegistry.FromJson(ReadPackJson("biomes"));
         var rock = blocks.GetId("asteria:stone");
         var basalt = blocks.GetId("asteria:basalt");
@@ -171,8 +198,8 @@ public sealed class MountainEcologyExpansionTests
         {
             var b = biomes.Get("asteria:overworld/" + biomeName);
             var sample = new BiomeSample(b.Id, [new BiomeInfluence(b.Id, 1f)]);
-            var first = new SurfaceDecorationField(9127, [b], blocks);
-            var second = new SurfaceDecorationField(9127, [b], blocks);
+            var first = new SurfaceDecorationField(9127, [b], blocks, objects: objects);
+            var second = new SurfaceDecorationField(9127, [b], blocks, objects: objects);
             var surface = new SurfacePlacementContext(130, 0);
             for (var z = -18; z <= 18; z++)
             for (var x = -18; x <= 18; x++)
@@ -180,6 +207,9 @@ public sealed class MountainEcologyExpansionTests
                 Assert.Equal(first.BlockAt(sample, rock, x, z, surface),
                              second.BlockAt(sample, rock, x, z, surface));
                 Assert.True(first.BlockAt(sample, basalt, x, z, surface).IsAir);
+                Assert.Equal(first.ObjectAt(sample, rock, x, z, placement: surface),
+                             second.ObjectAt(sample, rock, x, z, placement: surface));
+                Assert.Null(first.ObjectAt(sample, basalt, x, z, placement: surface));
             }
         }
     }

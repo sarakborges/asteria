@@ -31,7 +31,7 @@ public sealed class PlainsSwampBiodiversityTests
             Assert.True(rule.HabitatWeights!.For("open") >
                         rule.HabitatWeights.For("rocky"));
             Assert.Equal(DecorationFluidPlacement.Dry, rule.FluidPlacement);
-            if (name is "clover" or "daisy" or "purple_aster")
+            if (name is "clover" or "daisy" or "purple_aster" or "meadow_seedheads")
             {
                 Assert.True(rule.IsObject);
                 Assert.False(blocks.TryGetId(rule.Block, out _));
@@ -193,7 +193,7 @@ public sealed class PlainsSwampBiodiversityTests
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var name in names)
         {
-            var path = name is "clover" or "daisy" or "purple_aster" or "marsh_orchid" or "bulrush"
+            var path = name is "clover" or "daisy" or "purple_aster" or "meadow_seedheads" or "marsh_orchid" or "bulrush"
                 ? objects.Get("asteria:" + name).Visual.Texture
                 : blocks.GetDefinition(blocks.GetId("asteria:" + name))
                     .Visual.Texture!.Value.Texture;

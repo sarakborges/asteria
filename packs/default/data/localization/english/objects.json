@@ -44,6 +44,9 @@
   "asteria:marsh_orchid": {
     "/name": "Marsh Orchid"
   },
+  "asteria:meadow_seedheads": {
+    "/name": "Meadow Seedheads"
+  },
   "asteria:mushroom_blue": {
     "/name": "Blue Mushroom"
   },
@@ -65,11 +68,17 @@
   "asteria:mushroom_yellow": {
     "/name": "Yellow Mushroom"
   },
+  "asteria:pass_grass": {
+    "/name": "Pass Grass"
+  },
   "asteria:pebble": {
     "/name": "Pebble"
   },
   "asteria:purple_aster": {
     "/name": "Purple Aster"
+  },
+  "asteria:sagebrush": {
+    "/name": "Sagebrush"
   },
   "asteria:seagrass": {
     "/name": "Seagrass"
@@ -85,6 +94,9 @@
   },
   "asteria:tall_grass": {
     "/name": "Tall Grass"
+  },
+  "asteria:violet_fern": {
+    "/name": "Violet Fern"
   },
   "asteria:wall_shelf_fungus": {
     "/name": "Wall Shelf Fungus"

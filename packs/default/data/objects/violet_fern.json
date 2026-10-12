@@ -1,0 +1,36 @@
+{
+  "id": "asteria:violet_fern",
+  "category": "foliage",
+  "icon": "textures/objects/violet_fern.png",
+  "placementFaces": [
+    "top"
+  ],
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/violet_fern.png",
+    "width": 0.92,
+    "height": 0.88,
+    "planes": 4,
+    "alphaCutoff": 0.5
+  },
+  "target": {
+    "size": [
+      0.92,
+      0.88,
+      0.92
+    ],
+    "centerOffset": [
+      0,
+      0.44,
+      0
+    ]
+  },
+  "positionJitter": [
+    0.18,
+    0.18
+  ],
+  "dropSelf": false,
+  "windSway": true,
+  "unlit": false,
+  "tint": "none"
+}

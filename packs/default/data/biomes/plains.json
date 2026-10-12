@@ -216,7 +216,7 @@
       }
     },
     {
-      "block": "asteria:meadow_seedheads",
+      "object": "asteria:meadow_seedheads",
       "chance": 0.0102,
       "surfaceBlocks": [
         "asteria:grass_block"

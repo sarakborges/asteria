@@ -1,3 +1,4 @@
+using Asteria.Core.Content;
 using Asteria.Core.World;
 
 namespace Asteria.Core.Tests;
@@ -14,8 +15,11 @@ public sealed class GorgeEnrichmentContentTests
     public void GorgeDecorationsUseActualGorgeMaterialsAndExistingHabitats()
     {
         var blocks = BlockRegistry.FromJson(ReadPackJson("blocks"));
+        var objects = PackContentRegistry<ObjectDefinition>.FromJson(
+            ReadPackJson("objects"), ObjectDefinition.Parse, obj => obj.Id);
         var biomes = BiomeRegistry.FromJson(ReadPackJson("biomes"));
         biomes.ValidateBlocks(blocks);
+        biomes.ValidateObjects(objects);
         var gorge = biomes.Get("asteria:overworld/gorge");
 
         Assert.NotNull(gorge.SurfaceLayout);
@@ -44,10 +48,20 @@ public sealed class GorgeEnrichmentContentTests
                 support => Assert.Contains(support, knownMaterials));
             Assert.Equal(DecorationSupportSurface.Floor, rule.SupportSurface);
             Assert.Equal(DecorationFluidPlacement.Dry, rule.FluidPlacement);
-            var block = blocks.GetDefinition(blocks.GetId(rule.Block));
-            if (name != "stone_spike")
-                Assert.True(block.HasTag(BlockPhysicsCapabilities.SupportBelow));
-            Assert.Contains(BlockFace.Top, block.PlacementFaces);
+            if (name == "sagebrush")
+            {
+                Assert.True(rule.IsObject);
+                Assert.False(blocks.TryGetId(rule.Block, out _));
+                Assert.True(objects.Get(rule.Block).Supports(BlockFace.Top));
+            }
+            else
+            {
+                Assert.False(rule.IsObject);
+                var block = blocks.GetDefinition(blocks.GetId(rule.Block));
+                if (name != "stone_spike")
+                    Assert.True(block.HasTag(BlockPhysicsCapabilities.SupportBelow));
+                Assert.Contains(BlockFace.Top, block.PlacementFaces);
+            }
         }
 
         var shrubs = Assert.Single(gorge.Decorations,
@@ -68,9 +82,22 @@ public sealed class GorgeEnrichmentContentTests
     public void EachNewObjectUsesSupportedShapeAndIndependentTexture()
     {
         var blocks = BlockRegistry.FromJson(ReadPackJson("blocks"));
+        var objects = PackContentRegistry<ObjectDefinition>.FromJson(
+            ReadPackJson("objects"), ObjectDefinition.Parse, obj => obj.Id);
         var textures = new HashSet<string>(StringComparer.Ordinal);
         foreach (var name in Names)
         {
+            if (name == "sagebrush")
+            {
+                var plant = objects.Get("asteria:" + name);
+                Assert.Equal(ObjectVisualKind.CrossedSprite, plant.Visual.Kind);
+                Assert.True(plant.WindSway);
+                Assert.False(plant.DropSelf);
+                var texture = "textures/objects/" + name + ".png";
+                Assert.Equal(texture, plant.Visual.Texture);
+                Assert.True(textures.Add(texture));
+                continue;
+            }
             var block = blocks.GetDefinition(
                 blocks.GetId("asteria:" + name));
             if (name == "stone_spike")
@@ -102,10 +129,12 @@ public sealed class GorgeEnrichmentContentTests
     public void DecoratorFieldIsDeterministicAndAvoidsUnstableGround()
     {
         var blocks = BlockRegistry.FromJson(ReadPackJson("blocks"));
+        var objects = PackContentRegistry<ObjectDefinition>.FromJson(
+            ReadPackJson("objects"), ObjectDefinition.Parse, obj => obj.Id);
         var gorge = BiomeRegistry.FromJson(ReadPackJson("biomes"))
             .Get("asteria:overworld/gorge");
-        var first = new SurfaceDecorationField(2288, [gorge], blocks);
-        var again = new SurfaceDecorationField(2288, [gorge], blocks);
+        var first = new SurfaceDecorationField(2288, [gorge], blocks, objects: objects);
+        var again = new SurfaceDecorationField(2288, [gorge], blocks, objects: objects);
         var sample = new BiomeSample(gorge.Id,
             [new BiomeInfluence(gorge.Id, 1f)]);
         var valid = new SurfacePlacementContext(94, 1);
@@ -114,6 +143,7 @@ public sealed class GorgeEnrichmentContentTests
         var dirt = blocks.GetId("asteria:dirt");
         var stone = blocks.GetId("asteria:stone");
         var generated = new HashSet<BlockRuntimeId>();
+        var generatedObjects = new HashSet<string>(StringComparer.Ordinal);
 
         for (var z = -48; z <= 48; z++)
         for (var x = -48; x <= 48; x++)
@@ -122,6 +152,12 @@ public sealed class GorgeEnrichmentContentTests
             Assert.Equal(a, again.BlockAt(sample, dirt, x, z, valid));
             Assert.True(first.BlockAt(sample, dirt, x, z, steep).IsAir);
             Assert.True(first.BlockAt(sample, basalt, x, z, valid).IsAir);
+            var obj = first.ObjectAt(sample, dirt, x, z, placement: valid);
+            Assert.Equal(obj, again.ObjectAt(sample, dirt, x, z, placement: valid));
+            Assert.Null(first.ObjectAt(sample, dirt, x, z, placement: steep));
+            Assert.Null(first.ObjectAt(sample, basalt, x, z, placement: valid));
+            if (obj is not null)
+                generatedObjects.Add(obj);
             if (!a.IsAir)
                 generated.Add(a);
             var rock = first.BlockAt(sample, stone, x, z, valid);
@@ -131,7 +167,7 @@ public sealed class GorgeEnrichmentContentTests
         }
 
         Assert.Contains(blocks.GetId("asteria:dry_tuft"), generated);
-        Assert.Contains(blocks.GetId("asteria:sagebrush"), generated);
+        Assert.Contains("asteria:sagebrush", generatedObjects);
         Assert.Contains(blocks.GetId("asteria:stone_spike"), generated);
     }
 

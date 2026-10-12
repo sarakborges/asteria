@@ -385,3 +385,11 @@ MineClone `world-systems-rebuild` reference: `world_objects.rs::detached_object_
 - The placement preview uses the same active Sphere tint palette and a privately duplicated material, refreshed only when the selected Object or target column changes. No shared material mutation or per-frame biome resampling.
 - Canonicalized `asteria:grass` to its already-authored crossed-sprite Object across all nine referenced surface/volume biomes, preserving four planes, size, wind sway, no self-drop, foliage tint and `6f9f50` fallback, with lighting enabled to match the original block. Removed duplicate voxel definition and EN/PT-BR/ES block-localization entries; retained Object localized names.
 - Headless tests cover tint parsing and two divergent authored foliage palettes (Plains/Swamp), while CI covers core and Godot build. Native visual inspection still required for shader/device color and biome-boundary appearance.
+
+## Remaining small-flora Objects — 2026-10-12
+
+- Converted `pass_grass` (Mountain Belt), `violet_fern` (Enchanted Forest), `meadow_seedheads` (Plains) and `sagebrush` (Gorge) from crossed-sprite voxel blocks to canonical support-owned Objects.
+- Kept one unchanged ID and source PNG per plant, original dimensions, four planes, no self-drop, wind sway, alpha cutoff, dry top support, biome ground whitelist, authored chances, clusters, elevation/slope limits and habitat weights. Generated decorations now use `object` rather than `block` in their original biome rules. Objects have matching hitboxes and deterministic position jitter.
+- Removed their obsolete block definitions and moved localized names to the Object catalog in EN/PT-BR/ES. No old-save compatibility aliases.
+- Updated biome-specific Core tests and added four-way object-identity/geometry/habitat validation. Native Godot/WRY texture, target, generation and save/restore QA remains pending.
+

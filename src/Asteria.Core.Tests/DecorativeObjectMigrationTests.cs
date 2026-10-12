@@ -41,6 +41,48 @@ public sealed class DecorativeObjectMigrationTests
         }
     }
 
+    [Theory]
+    [InlineData("pass_grass", "mountain_belt", .8f, .78f)]
+    [InlineData("violet_fern", "enchanted_forest", .92f, .88f)]
+    [InlineData("meadow_seedheads", "plains", .75f, .86f)]
+    [InlineData("sagebrush", "gorge", .84f, .82f)]
+    public void RemainingSmallFloraUsesSupportOwnedObjects(
+        string name, string biomeName, float width, float height)
+    {
+        var blocks = BlockRegistry.FromJson(Read("blocks"));
+        var objects = PackContentRegistry<ObjectDefinition>.FromJson(
+            Read("objects"), ObjectDefinition.Parse, definition => definition.Id);
+        var biomes = BiomeRegistry.FromJson(Read("biomes"));
+        biomes.ValidateBlocks(blocks);
+        biomes.ValidateObjects(objects);
+
+        var id = "asteria:" + name;
+        Assert.False(blocks.TryGetId(id, out _));
+        var definition = objects.Get(id);
+        Assert.True(definition.Supports(BlockFace.Top));
+        Assert.Equal(ObjectVisualKind.CrossedSprite, definition.Visual.Kind);
+        Assert.Equal(width, definition.Visual.Width);
+        Assert.Equal(height, definition.Visual.Height);
+        Assert.Equal(4, definition.Visual.Planes);
+        Assert.Equal("textures/objects/" + name + ".png",
+            definition.Visual.Texture);
+        Assert.False(definition.DropSelf);
+        Assert.True(definition.WindSway);
+        Assert.False(definition.Unlit);
+
+        var biome = biomes.Get("asteria:overworld/" + biomeName);
+        var rule = Assert.Single(biome.Decorations,
+            decoration => decoration.Block == id);
+        Assert.True(rule.IsObject);
+        Assert.Equal(DecorationSupportSurface.Floor, rule.SupportSurface);
+        Assert.Equal(DecorationFluidPlacement.Dry, rule.FluidPlacement);
+        Assert.NotEmpty(rule.SurfaceBlocks);
+        Assert.True(rule.Chance > 0);
+        Assert.NotNull(rule.Cluster);
+        Assert.NotNull(rule.Conditions);
+        Assert.NotNull(rule.HabitatWeights);
+    }
+
     [Fact]
     public void StickPickupRetainsItemIdentityAndThinExtrudedGeometry()
     {

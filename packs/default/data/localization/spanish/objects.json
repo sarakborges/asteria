@@ -44,6 +44,9 @@
   "asteria:marsh_orchid": {
     "/name": "Orquídea de Marisma"
   },
+  "asteria:meadow_seedheads": {
+    "/name": "Espigas de Pradera"
+  },
   "asteria:mushroom_blue": {
     "/name": "Hongo Azul"
   },
@@ -65,11 +68,17 @@
   "asteria:mushroom_yellow": {
     "/name": "Hongo Amarillo"
   },
+  "asteria:pass_grass": {
+    "/name": "Hierba de Paso"
+  },
   "asteria:pebble": {
     "/name": "Guijarro"
   },
   "asteria:purple_aster": {
     "/name": "Áster Púrpura"
+  },
+  "asteria:sagebrush": {
+    "/name": "Artemisa"
   },
   "asteria:seagrass": {
     "/name": "Hierba marina"
@@ -85,6 +94,9 @@
   },
   "asteria:tall_grass": {
     "/name": "Hierba Alta"
+  },
+  "asteria:violet_fern": {
+    "/name": "Helecho Violeta"
   },
   "asteria:wall_shelf_fungus": {
     "/name": "Hongo de Repisa de Pared"

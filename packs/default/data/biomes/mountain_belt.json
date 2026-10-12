@@ -94,7 +94,7 @@
       }
     },
     {
-      "block": "asteria:pass_grass",
+      "object": "asteria:pass_grass",
       "chance": 0.0216,
       "surfaceBlocks": [
         "asteria:dirt",

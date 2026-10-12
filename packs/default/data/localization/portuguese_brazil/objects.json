@@ -44,6 +44,9 @@
   "asteria:marsh_orchid": {
     "/name": "Orquídea do Brejo"
   },
+  "asteria:meadow_seedheads": {
+    "/name": "Espigas de Pradaria"
+  },
   "asteria:mushroom_blue": {
     "/name": "Cogumelo Azul"
   },
@@ -65,11 +68,17 @@
   "asteria:mushroom_yellow": {
     "/name": "Cogumelo Amarelo"
   },
+  "asteria:pass_grass": {
+    "/name": "Capim de Passagem"
+  },
   "asteria:pebble": {
     "/name": "Pedregulho"
   },
   "asteria:purple_aster": {
     "/name": "Áster Roxo"
+  },
+  "asteria:sagebrush": {
+    "/name": "Artemísia"
   },
   "asteria:seagrass": {
     "/name": "Erva-marinha"
@@ -85,6 +94,9 @@
   },
   "asteria:tall_grass": {
     "/name": "Capim Alto"
+  },
+  "asteria:violet_fern": {
+    "/name": "Samambaia Violeta"
   },
   "asteria:wall_shelf_fungus": {
     "/name": "Fungo de Prateleira de Parede"

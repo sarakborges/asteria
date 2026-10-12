@@ -1,0 +1,35 @@
+{
+  "id": "asteria:sagebrush",
+  "category": "foliage",
+  "icon": "textures/objects/sagebrush.png",
+  "placementFaces": [
+    "top"
+  ],
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/sagebrush.png",
+    "width": 0.84,
+    "height": 0.82,
+    "planes": 4,
+    "alphaCutoff": 0.5
+  },
+  "target": {
+    "size": [
+      0.84,
+      0.82,
+      0.84
+    ],
+    "centerOffset": [
+      0,
+      0.41,
+      0
+    ]
+  },
+  "positionJitter": [
+    0.18,
+    0.18
+  ],
+  "dropSelf": false,
+  "windSway": true,
+  "unlit": false
+}

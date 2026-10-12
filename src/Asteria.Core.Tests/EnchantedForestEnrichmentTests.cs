@@ -1,3 +1,4 @@
+using Asteria.Core.Content;
 using Asteria.Core.World;
 
 namespace Asteria.Core.Tests;
@@ -8,8 +9,11 @@ public sealed class EnchantedForestEnrichmentTests
     public void FlowersAreHabitatSpecificAndMushroomsAreReused()
     {
         var blocks = BlockRegistry.FromJson(ReadPackJson("blocks"));
+        var objects = PackContentRegistry<ObjectDefinition>.FromJson(
+            ReadPackJson("objects"), ObjectDefinition.Parse, obj => obj.Id);
         var biomes = BiomeRegistry.FromJson(ReadPackJson("biomes"));
         biomes.ValidateBlocks(blocks);
+        biomes.ValidateObjects(objects);
         var biome = biomes.Get("asteria:overworld/enchanted_forest");
         Assert.Equal(10, biome.Decorations.Count);
         Assert.Equal("asteria:grass_block", biome.SurfaceLayers[0].Block);
@@ -27,13 +31,28 @@ public sealed class EnchantedForestEnrichmentTests
             Assert.NotNull(rule.Cluster);
             Assert.All(rule.SurfaceBlocks, x =>
                 Assert.Contains(x, new[] {"asteria:grass_block","asteria:dirt"}));
-            var block = blocks.GetDefinition(blocks.GetId(rule.Block));
-            Assert.Equal(BlockTint.None, block.Tint);
-            Assert.Equal(BlockVisualKind.CrossedSprite, block.Visual.Kind);
-            Assert.True(block.WindSway);
-            Assert.False(block.IsCollidable);
-            Assert.Equal("textures/objects/" + name + ".png",
-                block.Visual.Texture!.Value.Texture);
+            if (name == "violet_fern")
+            {
+                Assert.True(rule.IsObject);
+                Assert.False(blocks.TryGetId(rule.Block, out _));
+                var fern = objects.Get(rule.Block);
+                Assert.Equal(BlockTint.None, fern.Tint);
+                Assert.Equal(ObjectVisualKind.CrossedSprite, fern.Visual.Kind);
+                Assert.True(fern.WindSway);
+                Assert.Equal("textures/objects/" + name + ".png",
+                    fern.Visual.Texture);
+            }
+            else
+            {
+                Assert.False(rule.IsObject);
+                var block = blocks.GetDefinition(blocks.GetId(rule.Block));
+                Assert.Equal(BlockTint.None, block.Tint);
+                Assert.Equal(BlockVisualKind.CrossedSprite, block.Visual.Kind);
+                Assert.True(block.WindSway);
+                Assert.False(block.IsCollidable);
+                Assert.Equal("textures/objects/" + name + ".png",
+                    block.Visual.Texture!.Value.Texture);
+            }
         }
         foreach (var reused in new[] {"mushroom_red","mushroom_blue","mushroom_pink"})
             Assert.True(Assert.Single(biome.Decorations,

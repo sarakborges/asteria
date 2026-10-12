@@ -96,7 +96,7 @@
       }
     },
     {
-      "block": "asteria:sagebrush",
+      "object": "asteria:sagebrush",
       "chance": 0.0231,
       "surfaceBlocks": [
         "asteria:dirt",

@@ -74,6 +74,9 @@
   "asteria:charwood": {
     "/name": "Charred Wood"
   },
+  "asteria:charwood_stripped": {
+    "/name": "Stripped Charred Wood"
+  },
   "asteria:cinder_bloom": {
     "/name": "Cinder Bloom"
   },
@@ -140,6 +143,9 @@
   "asteria:frost_wood": {
     "/name": "Frost Wood"
   },
+  "asteria:frost_wood_stripped": {
+    "/name": "Stripped Frost Wood"
+  },
   "asteria:glacial_ice_core": {
     "/name": "Glacial Ice Core"
   },
@@ -187,6 +193,9 @@
   },
   "asteria:juniper_wood": {
     "/name": "Juniper Wood"
+  },
+  "asteria:juniper_wood_stripped": {
+    "/name": "Stripped Juniper Wood"
   },
   "asteria:kelp_frond": {
     "/name": "Kelp Frond"
@@ -275,9 +284,6 @@
   "asteria:marsh_giant_mushroom_stem": {
     "/name": "Marsh Giant Mushroom Stem"
   },
-  "asteria:meadow_seedheads": {
-    "/name": "Meadow Seedheads"
-  },
   "asteria:mud": {
     "/name": "Mud"
   },
@@ -292,9 +298,6 @@
   },
   "asteria:mud_tiles": {
     "/name": "Mud Tiles"
-  },
-  "asteria:pass_grass": {
-    "/name": "Pass Grass"
   },
   "asteria:pink_bloom": {
     "/name": "Pink Bloom"
@@ -317,11 +320,14 @@
   "asteria:rime_deadwood": {
     "/name": "Rime Deadwood"
   },
+  "asteria:rime_deadwood_stripped": {
+    "/name": "Stripped Rime Deadwood"
+  },
+  "asteria:rime_leaves": {
+    "/name": "Rime Leaves"
+  },
   "asteria:rock_lichen": {
     "/name": "Rock Lichen"
-  },
-  "asteria:sagebrush": {
-    "/name": "Sagebrush"
   },
   "asteria:sand": {
     "/name": "Sand"
@@ -344,6 +350,39 @@
   "asteria:sandstone_tiles": {
     "/name": "Sandstone Tiles"
   },
+  "asteria:sapling_charwood": {
+    "/name": "Charwood Sapling"
+  },
+  "asteria:sapling_enchanted_tree": {
+    "/name": "Enchanted Tree Sapling"
+  },
+  "asteria:sapling_frost_wood": {
+    "/name": "Frostwood Sapling"
+  },
+  "asteria:sapling_juniper": {
+    "/name": "Juniper Sapling"
+  },
+  "asteria:sapling_oak": {
+    "/name": "Oak Sapling"
+  },
+  "asteria:sapling_rime_deadwood": {
+    "/name": "Rime Sapling"
+  },
+  "asteria:sapling_skywood": {
+    "/name": "Skywood Sapling"
+  },
+  "asteria:sapling_thornwood": {
+    "/name": "Thornwood Sapling"
+  },
+  "asteria:sapling_willow": {
+    "/name": "Willow Sapling"
+  },
+  "asteria:sapling_windwood": {
+    "/name": "Windwood Sapling"
+  },
+  "asteria:sapling_world_tree": {
+    "/name": "World Tree Sapling"
+  },
   "asteria:saxifrage": {
     "/name": "Saxifrage"
   },
@@ -361,6 +400,9 @@
   },
   "asteria:skywood_log": {
     "/name": "Skywood Log"
+  },
+  "asteria:skywood_log_stripped": {
+    "/name": "Stripped Skywood Log"
   },
   "asteria:snow": {
     "/name": "Snow"
@@ -425,8 +467,11 @@
   "asteria:thornwood": {
     "/name": "Thornwood"
   },
-  "asteria:violet_fern": {
-    "/name": "Violet Fern"
+  "asteria:thornwood_leaves": {
+    "/name": "Thornwood Leaves"
+  },
+  "asteria:thornwood_stripped": {
+    "/name": "Stripped Thornwood"
   },
   "asteria:volcanic_glass": {
     "/name": "Volcanic Glass"
@@ -440,67 +485,10 @@
   "asteria:windwood_needles": {
     "/name": "Windwood Needles"
   },
-  "asteria:yucca": {
-    "/name": "Yucca"
-  },
-  "asteria:charwood_stripped": {
-    "/name": "Stripped Charred Wood"
-  },
-  "asteria:frost_wood_stripped": {
-    "/name": "Stripped Frost Wood"
-  },
-  "asteria:juniper_wood_stripped": {
-    "/name": "Stripped Juniper Wood"
-  },
-  "asteria:rime_deadwood_stripped": {
-    "/name": "Stripped Rime Deadwood"
-  },
-  "asteria:skywood_log_stripped": {
-    "/name": "Stripped Skywood Log"
-  },
-  "asteria:thornwood_stripped": {
-    "/name": "Stripped Thornwood"
-  },
   "asteria:windwood_stripped": {
     "/name": "Stripped Windwood"
   },
-  "asteria:rime_leaves": {
-    "/name": "Rime Leaves"
-  },
-  "asteria:thornwood_leaves": {
-    "/name": "Thornwood Leaves"
-  },
-  "asteria:sapling_charwood": {
-    "/name": "Charwood Sapling"
-  },
-  "asteria:sapling_enchanted_tree": {
-    "/name": "Enchanted Tree Sapling"
-  },
-  "asteria:sapling_frost_wood": {
-    "/name": "Frostwood Sapling"
-  },
-  "asteria:sapling_juniper": {
-    "/name": "Juniper Sapling"
-  },
-  "asteria:sapling_oak": {
-    "/name": "Oak Sapling"
-  },
-  "asteria:sapling_rime_deadwood": {
-    "/name": "Rime Sapling"
-  },
-  "asteria:sapling_skywood": {
-    "/name": "Skywood Sapling"
-  },
-  "asteria:sapling_thornwood": {
-    "/name": "Thornwood Sapling"
-  },
-  "asteria:sapling_willow": {
-    "/name": "Willow Sapling"
-  },
-  "asteria:sapling_windwood": {
-    "/name": "Windwood Sapling"
-  },
-  "asteria:sapling_world_tree": {
-    "/name": "World Tree Sapling"
+  "asteria:yucca": {
+    "/name": "Yucca"
   }
 }
