@@ -250,6 +250,36 @@ public static class ChunkTopologyFrontier
         }
     }
 
+    /// <summary>
+    /// Retirement cannot create light on a horizontal seam. An already-dark
+    /// surviving voxel therefore needs no reconciliation there. Losing a
+    /// chunk below also cannot expose new direct sky above it. Losing an
+    /// upper chunk can expose sky below, so preserve those dark seeds.
+    /// Maximal skylight with no RGB light is already unaffected in all cases.
+    /// </summary>
+    public static bool NeedsRetirementSeamLightSeed(
+        VoxelWorld world, ChunkCoord retiredChunk, WorldVoxelCoord position)
+    {
+        ArgumentNullException.ThrowIfNull(world);
+        if (!world.IsLoadedAt(position))
+            return false;
+
+        var light = world.GetLightOrDark(position);
+        if (light.Sky == VoxelLight.MaxLevel && light.BlockPeak == 0)
+            return false;
+
+        var survivingChunk = VoxelCoordinates.FromWorld(
+            position.X, position.Y, position.Z).Chunk;
+
+        if (survivingChunk.Y == retiredChunk.Y && light.IsDark)
+            return false;
+
+        if (survivingChunk.Y > retiredChunk.Y && light.IsDark)
+            return false;
+
+        return true;
+    }
+
     public static IEnumerable<ChunkNeighborMeshInvalidation>
         PresentedNeighborMeshInvalidationsForAddition(
             ChunkCoord source,
