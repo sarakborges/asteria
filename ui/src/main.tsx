@@ -95,6 +95,7 @@ createRoot(rootElement).render(
       escapeNavigation: navigation.escape,
       setRenderDistance: settings.setRenderDistance,
       setTargetPosition: settings.setTargetPosition,
+      setHideHud: settings.setHideHud,
       setHideHints: settings.setHideHints,
       setGameplayHint: settings.setGameplayHint,
       setWorldTicks: settings.setWorldTicks,

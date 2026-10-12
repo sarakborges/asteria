@@ -11,6 +11,7 @@ public sealed class ClientPreferencesTests
         var settings = new ClientPreferences();
         Assert.Equal(4, settings.RenderDistanceChunks);
         Assert.Equal(0ul, settings.Revision);
+        Assert.False(settings.HideHud);
         Assert.False(settings.HideHints);
         Assert.Equal(TargetBlockPosition.Center, settings.TargetBlockPosition);
         foreach (var hint in Enum.GetValues<HintKind>())
@@ -51,6 +52,29 @@ public sealed class ClientPreferencesTests
         Assert.True(settings.SetTargetBlockPosition(TargetBlockPosition.Hidden));
         Assert.False(settings.SetTargetBlockPosition(TargetBlockPosition.Hidden));
         Assert.Equal(3ul, settings.Revision);
+    }
+
+    [Fact]
+    public void HideHudIsIndependentOfHintsAndPersistsAcrossReload()
+    {
+        var settings = new ClientPreferences();
+        Assert.False(settings.SetHideHud(false));
+        Assert.True(settings.SetHideHud(true));
+        Assert.True(settings.HideHud);
+        Assert.True(settings.HintVisible(HintKind.BreakBlock));
+        Assert.True(settings.SetHideHints(true));
+        Assert.False(settings.HintVisible(HintKind.BreakBlock));
+        Assert.False(settings.SetHideHud(true));
+        Assert.Equal(2ul, settings.Revision);
+
+        var json = ClientPreferencesJson.Serialize(settings);
+        Assert.Contains("\"hideHud\": true", json);
+        var restored = ClientPreferencesJson.Deserialize(json);
+        Assert.True(restored.HideHud);
+        Assert.True(restored.HideHints);
+        Assert.True(restored.SetHideHud(false));
+        Assert.False(restored.HideHud);
+        Assert.True(restored.HideHints);
     }
 
     [Fact]

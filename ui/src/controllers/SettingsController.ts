@@ -19,6 +19,9 @@ export function createSettingsController(
     setTargetPosition(value: "Center" | "TopRight" | "Hidden") {
       post("ui.client_preferences.target_block_position", { value });
     },
+    setHideHud(value: boolean) {
+      post("ui.client_preferences.hide_hud", { value });
+    },
     setHideHints(value: boolean) {
       post("ui.client_preferences.hide_hints", { value });
     },
@@ -67,6 +70,7 @@ export function createSettingsController(
           const client: ClientSettingsState = {
             renderDistanceChunks: payload.renderDistanceChunks,
             hud: {
+              hideHud: hud.hideHud === true,
               hideHints: hud.hideHints === true,
               targetBlockPosition: position as ClientSettingsState["hud"]["targetBlockPosition"],
               hints: {

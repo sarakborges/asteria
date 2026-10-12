@@ -17,6 +17,7 @@ export type SettingsWorkspacePageProps = {
   onBack(): void;
   onRenderDistance(value: number): void;
   onTargetPosition(value: "Center" | "TopRight" | "Hidden"): void;
+  onHideHud(value: boolean): void;
   onHideHints(value: boolean): void;
   onGameplayHint(kind: "RotateBlock" | "BreakOrPlaceBlock", value: boolean): void;
   onWorldTicks(value: number): void;
@@ -28,7 +29,8 @@ export type SettingsWorkspacePageProps = {
 
 export function SettingsWorkspacePage({
   scope, settings, onBack, onRenderDistance, onTargetPosition,
-  onWorldTicks, onSpawnCreatures, onCreatureAttackMode, onKeepInventory, onGameMode, onHideHints, onGameplayHint,
+  onWorldTicks, onSpawnCreatures, onCreatureAttackMode, onKeepInventory, onGameMode,
+  onHideHud, onHideHints, onGameplayHint,
 }: SettingsWorkspacePageProps) {
   const { t, language, setLanguage, languages } = useLocalization();
   const [selectedId, setSelectedId] = useState(scope === "game" ? "graphics" : "mode");
@@ -58,6 +60,12 @@ export function SettingsWorkspacePage({
       {
         id: "hud", label: t("settings.section.hud"),
         content: <div className="settings-workspace__rows">
+          <SettingRow title={t("settings.hideHud")}
+            description={t("settings.hideHud.description")}
+            control={<Toggle ariaLabel={t("settings.hideHud")}
+              disabled={!settings.client}
+              checked={settings.client?.hud.hideHud ?? false}
+              onChange={onHideHud} />} />
           <SettingRow title={t("settings.hideHints")}
             description={t("settings.hideHints.description")}
             control={<Toggle ariaLabel={t("settings.hideHints")}

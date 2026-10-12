@@ -11,6 +11,7 @@ const meta = {
       client: {
         renderDistanceChunks: 8,
         hud: {
+          hideHud: false,
           hideHints: false,
           targetBlockPosition: "Center",
           hints: { rotateBlock: true, breakOrPlaceBlock: true },
@@ -25,6 +26,7 @@ const meta = {
     onBack: () => {},
     onRenderDistance: () => {},
     onTargetPosition: () => {},
+    onHideHud: () => {},
     onHideHints: () => {},
     onGameplayHint: () => {},
     onWorldTicks: () => {},
@@ -38,3 +40,14 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 export const Game: Story = {};
 export const World: Story = { args: { scope: "world" } };
+export const HudHidden: Story = {
+  args: {
+    settings: {
+      ...meta.args.settings,
+      client: {
+        ...meta.args.settings.client!,
+        hud: { ...meta.args.settings.client!.hud, hideHud: true },
+      },
+    },
+  },
+};
