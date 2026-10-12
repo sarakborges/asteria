@@ -400,6 +400,9 @@ public readonly record struct StructureVoxelDefinition(
     BlockOrientation Orientation,
     StructureVoxelState? Detail = null);
 
+public readonly record struct StructureObjectDefinition(
+    int X, int Y, int Z, string Object, BlockFace Face = BlockFace.Top);
+
 public readonly record struct StructureFluidVoxelDefinition(
     int X,
     int Y,
@@ -431,7 +434,8 @@ public sealed class StructureDefinition
         IEnumerable<StructureClearVoxelDefinition>? clearVoxels = null,
         int? groundAnchorY = null,
         int clearAbove = 0,
-        bool locatable = true)
+        bool locatable = true,
+        IEnumerable<StructureObjectDefinition>? objects = null)
     {
         ValidateId(
             id);
@@ -453,11 +457,13 @@ public sealed class StructureDefinition
         var authoredClearVoxels =
             clearVoxels?.ToArray() ??
             Array.Empty<StructureClearVoxelDefinition>();
+        var authoredObjects =
+            objects?.ToArray() ?? Array.Empty<StructureObjectDefinition>();
 
         var payloadCount =
             authoredVoxels.Length +
             authoredFluidVoxels.Length +
-            authoredClearVoxels.Length;
+            authoredClearVoxels.Length + authoredObjects.Length;
         if (payloadCount == 0 &&
             !(connectors?.Any() ?? false))
         {
@@ -512,6 +518,18 @@ public sealed class StructureDefinition
                     $"Structure {id} repeats voxel offset ({voxel.X}, {voxel.Y}, {voxel.Z}).",
                     nameof(voxels));
             }
+        }
+
+        foreach (var obj in authoredObjects)
+        {
+            ValidatePayloadOffset(obj.X, obj.Y, obj.Z, nameof(objects));
+            BlockDefinition.ValidateId(obj.Object);
+            if (!Enum.IsDefined(obj.Face))
+                throw new ArgumentException("Invalid Structure Object attachment face.", nameof(objects));
+            if (!occupied.Add((obj.X, obj.Y, obj.Z)))
+                throw new ArgumentException(
+                    $"Structure {id} repeats Object payload offset ({obj.X}, {obj.Y}, {obj.Z}).",
+                    nameof(objects));
         }
 
         foreach (var fluidVoxel in
@@ -648,8 +666,8 @@ public sealed class StructureDefinition
             Array.AsReadOnly(
                 authoredFluidVoxels);
         ClearVoxels =
-            Array.AsReadOnly(
-                authoredClearVoxels);
+            Array.AsReadOnly(authoredClearVoxels);
+        Objects = Array.AsReadOnly(authoredObjects);
         GroundAnchorY =
             groundAnchorY;
         ClearAbove =
@@ -672,10 +690,9 @@ public sealed class StructureDefinition
                             voxel.Z)))
                 .Concat(
                     authoredClearVoxels.Select(voxel =>
-                        (
-                            voxel.X,
-                            voxel.Y,
-                            voxel.Z)))
+                        (voxel.X, voxel.Y, voxel.Z)))
+                .Concat(authoredObjects.Select(obj =>
+                    (obj.X, obj.Y, obj.Z)))
                 .ToArray();
 
         if (payloadOffsets.Length == 0)
@@ -737,6 +754,8 @@ public sealed class StructureDefinition
 
     public IReadOnlyList<StructureClearVoxelDefinition>
         ClearVoxels { get; }
+
+    public IReadOnlyList<StructureObjectDefinition> Objects { get; }
 
     public int? GroundAnchorY { get; }
 

@@ -30,13 +30,13 @@
   },
   "palette": {
     "B": {
-      "block": "asteria:mushroom_blue"
+      "object": "asteria:mushroom_blue"
     },
     "P": {
-      "block": "asteria:mushroom_pink"
+      "object": "asteria:mushroom_pink"
     },
     "R": {
-      "block": "asteria:mushroom_red"
+      "object": "asteria:mushroom_red"
     },
     "V": {
       "block": "asteria:mushroom_purple"

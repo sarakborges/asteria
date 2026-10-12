@@ -197,6 +197,25 @@ public sealed class StructureRegistry
         }
     }
 
+    public void ValidateObjects(Asteria.Core.Content.PackContentRegistry<Asteria.Core.Content.ObjectDefinition> objects)
+    {
+        ArgumentNullException.ThrowIfNull(objects);
+        foreach (var structure in _definitions)
+        foreach (var obj in structure.Objects)
+        {
+            if (!objects.TryGet(obj.Object, out var definition) || definition is null)
+                throw new ArgumentException(
+                    $"Structure {structure.Id} references missing Object {obj.Object}.");
+            foreach (var rotation in structure.SupportedRotations())
+            {
+                var face = StructureVoxelRotation.RotateFace(obj.Face, rotation);
+                if (!definition.Supports(face))
+                    throw new ArgumentException(
+                        $"Structure {structure.Id} Object {obj.Object} cannot attach on rotated face {face}.");
+            }
+        }
+    }
+
     public void ValidateBlocks(
         BlockRegistry blocks,
         DyeRegistry? dyes = null,

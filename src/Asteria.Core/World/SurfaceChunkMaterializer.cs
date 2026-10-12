@@ -360,6 +360,7 @@ public sealed class SurfaceChunkMaterializer
         // uncover or replace them.
         _voidSpawnPlatform?.Apply(chunk, coord);
         ConcealSphereShell(chunk, column, originY, topExclusive);
+        MaterializeStructureObjects(chunk, coord);
 
         // The supporting block owns an Object, never its adjacent fluid cell.
         // Publish only after structures, caves, and the shell are final.
@@ -379,6 +380,47 @@ public sealed class SurfaceChunkMaterializer
         }
 
         return chunk;
+    }
+
+    /// <summary>
+    /// Finalize authored Structure Objects on their actual supporting voxels.
+    /// This pass observes final structures/caves/shell, and never replaces blocks
+    /// or fluid occupying the adjacent Object cell.
+    /// </summary>
+    private void MaterializeStructureObjects(Chunk chunk, ChunkCoord coord)
+    {
+        if (!_structures.HasRules) return;
+        var origin = VoxelCoordinates.ChunkOrigin(coord);
+        foreach (var placement in _structures.PlacementsForChunk(coord.X, coord.Z))
+        foreach (var obj in placement.Objects)
+        {
+            var support = obj.SupportPosition;
+            var x = (long)support.X - origin.X;
+            var y = (long)support.Y - origin.Y;
+            var z = (long)support.Z - origin.Z;
+            if (x < 0 || x >= Chunk.Size ||
+                y < 0 || y >= Chunk.Size ||
+                z < 0 || z >= Chunk.Size)
+                continue;
+
+            var sx = (int)x;
+            var sy = (int)y;
+            var sz = (int)z;
+            var cell = chunk.GetCell(sx, sy, sz);
+            if (cell.IsEmpty || !_blocks.GetDefinition(cell.Block).IsCollidable)
+                continue;
+
+            var targetX = (long)obj.X - origin.X;
+            var targetY = (long)obj.Y - origin.Y;
+            var targetZ = (long)obj.Z - origin.Z;
+            if (targetX >= 0 && targetX < Chunk.Size &&
+                targetY >= 0 && targetY < Chunk.Size &&
+                targetZ >= 0 && targetZ < Chunk.Size &&
+                !chunk.GetCell((int)targetX, (int)targetY, (int)targetZ).IsEmpty)
+                continue;
+
+            chunk.AddObject(sx, sy, sz, obj.Cell);
+        }
     }
 
     private bool CanPlaceDecorationAt(long y, int originY, int topExclusive) =>

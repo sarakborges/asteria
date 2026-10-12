@@ -5,8 +5,14 @@
   "asteria:kelp": {
     "/name": "Alga kelp"
   },
+  "asteria:mushroom_blue": {
+    "/name": "Hongo Azul"
+  },
+  "asteria:mushroom_pink": {
+    "/name": "Hongo Rosa"
+  },
   "asteria:mushroom_red": {
-    "/name": "Hongo rojo"
+    "/name": "Hongo Rojo"
   },
   "asteria:seagrass": {
     "/name": "Hierba marina"

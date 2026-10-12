@@ -31,7 +31,7 @@
   },
   "palette": {
     "B": {
-      "block": "asteria:mushroom_blue"
+      "object": "asteria:mushroom_blue"
     },
     "E": {
       "block": "asteria:starflower"
@@ -40,13 +40,13 @@
       "block": "asteria:log_enchanted_hollow"
     },
     "P": {
-      "block": "asteria:mushroom_pink"
+      "object": "asteria:mushroom_pink"
     },
     "Q": {
       "block": "asteria:glow_pod"
     },
     "R": {
-      "block": "asteria:mushroom_red"
+      "object": "asteria:mushroom_red"
     },
     "V": {
       "block": "asteria:mushroom_purple"

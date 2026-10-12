@@ -111,12 +111,9 @@ public sealed class BlockContentTests
         foreach (var mushroomId in
                  new[]
                  {
-                     "asteria:mushroom_blue",
                      "asteria:mushroom_brown",
                      "asteria:mushroom_green",
-                     "asteria:mushroom_pink",
                      "asteria:mushroom_purple",
-                     "asteria:mushroom_red",
                      "asteria:mushroom_yellow",
                  })
         {
@@ -134,6 +131,23 @@ public sealed class BlockContentTests
             Assert.True(
                 mushroom.HasTag(
                     BlockPhysicsCapabilities.SupportBelow));
+        }
+
+        var objectCatalog = Asteria.Core.Content.PackContentRegistry<Asteria.Core.Content.ObjectDefinition>
+            .FromJson(Directory.EnumerateFiles(
+                    Path.Combine(AppContext.BaseDirectory, "packs", "default", "data", "objects"),
+                    "*.json")
+                .OrderBy(file => file, StringComparer.Ordinal)
+                .Select(File.ReadAllText),
+                Asteria.Core.Content.ObjectDefinition.Parse, obj => obj.Id);
+        foreach (var name in new[] { "mushroom_blue", "mushroom_pink", "mushroom_red" })
+        {
+            var id = "asteria:" + name;
+            Assert.False(registry.TryGetId(id, out _));
+            var obj = objectCatalog.Get(id);
+            Assert.Equal(Asteria.Core.Content.ObjectVisualKind.CrossedSprite, obj.Visual.Kind);
+            Assert.True(obj.Supports(BlockFace.Top));
+            Assert.True(obj.DropSelf);
         }
 
         var brownMushroom =

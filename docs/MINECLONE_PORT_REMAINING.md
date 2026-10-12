@@ -324,3 +324,10 @@ MineClone `world-systems-rebuild` reference: `world_objects.rs::detached_object_
 - Mixed block/Object decoration selection now filters by requested kind, so a successful unrelated block rule cannot suppress an Object decision, nor an Object rule suppress a block decision. The materializer continues to require empty target space after generation.
 - Added default-pack assertions for object-only identities and focused regressions for mixed selectors in both deterministic rule orders.
 - **Next:** migrate other decorations after checking structure and vertical-biome references. Pink/Blue/Red Enchanted Forest mushrooms are still used as voxel payloads inside authored Structures; removing their block definitions breaks StructureRegistry validation. Generic Structure-owned Object payloads must be designed before migrating these mushroom identities. Native Godot/WRY visual QA also remains pending.
+
+## Structure-authored Objects — 2026-10-12
+
+- Structures now accept `{"object": "asteria:id", "face": "top"}` as a palette payload at the Object's adjacent occupancy cell. The supporting block remains the sole authority for Object storage, including rotations, chunk boundaries and Structure expansion/conflicts.
+- Core validates bounded Object payloads and their registered identities/rotated faces. The world generator materializes after structures, caves and Sphere Shell; canonical manual Structure batches preflight all Objects together with voxel mutations, refusing unsupported, duplicate, occupied or over-capacity insertions atomically.
+- Enchanted Forest surface mushrooms (red/blue/pink) and their eight fungal canopy/ring/stump Structure templates now use Objects. Their old block definitions and block localization were removed, while Object localization and sprite models are authored.
+- Object visual validation in the actual Godot renderer and world load/save is still manual QA; cave-volume mushroom conversion, non-top supports and additional Object kinds remain separate audit items.
