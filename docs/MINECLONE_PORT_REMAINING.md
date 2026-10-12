@@ -335,6 +335,6 @@ MineClone `world-systems-rebuild` reference: `world_objects.rs::detached_object_
 ## Cave and additive-volume Objects — 2026-10-12
 
 - `SurfaceDecorationField` resolves authored Objects separately for floor, ceiling, and wall supports, with validation of required faces. The materializer stages Object placement against the supporting solid block and publishes it after cave/Structure/Sphere Shell finalization; ceiling/floor candidates include adjacent vertical chunk seams.
-- Ported `mushroom_brown`, `mushroom_purple`, `hanging_roots`, `aether_vines`, `wall_shelf_fungus`, and `cloud_reed` to attached Objects. Migrated Caverns, Floating Islands, Wraith Grove and seven affected Enchanted Forest Structure palettes, including EN/PT-BR/ES object localization. No duplicate voxel identities or save aliases.
+- Ported `mushroom_brown`, `mushroom_purple`, `hanging_roots`, `aether_vines`, `wall_shelf_fungus`, and `cloud_reed` to attached Objects. Migrated Caverns, Floating Islands, Enchanted Forest, Swamp and Wraith Grove, plus seven Enchanted Forest and ten oak/stump/swamp Structure palettes, including EN/PT-BR/ES object localization. No duplicate voxel identities or save aliases.
 - The authored luminescent `glowcap`, `glow_fern`, and `aether_bloom` deliberately remain blocks until the Object definition/render-light contract supports equivalent light emission; their current lighting may not regress.
 - Native Godot rendering/targeting across chunk seams, wall-face orientation and world-save round trips still need in-game validation.
