@@ -92,9 +92,6 @@
   "asteria:cliff_rosette": {
     "/name": "Roseta de Acantilado"
   },
-  "asteria:clover": {
-    "/name": "Trébol"
-  },
   "asteria:coral_blue": {
     "/name": "Coral Azul"
   },
@@ -389,9 +386,6 @@
   "asteria:sea_anemone": {
     "/name": "Anémona Marina"
   },
-  "asteria:seashell": {
-    "/name": "Concha Marina"
-  },
   "asteria:shelf_fungus": {
     "/name": "Hongo de Tronco"
   },
@@ -421,9 +415,6 @@
   },
   "asteria:sphere_shell": {
     "/name": "Corteza de Esfera"
-  },
-  "asteria:starfish": {
-    "/name": "Estrella de Mar"
   },
   "asteria:starflower": {
     "/name": "Flor Estelar"
