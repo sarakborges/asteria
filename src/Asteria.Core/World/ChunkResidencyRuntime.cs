@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Asteria.Core.Content;
 
 namespace Asteria.Core.World;
 
@@ -111,6 +112,7 @@ public sealed class ChunkResidencyRuntime
     private readonly VoxelWorld _world;
     private readonly BlockRegistry _blocks;
     private readonly FluidRegistry _fluids;
+    private readonly PackContentRegistry<ObjectDefinition>? _objects;
     private readonly IChunkProvider _chunkProvider;
     private readonly WorldUpdateQueue _worldUpdates;
     private readonly FluidUpdateQueue _fluidUpdates;
@@ -140,7 +142,8 @@ public sealed class ChunkResidencyRuntime
         MeshletContentRevisions terrainContentRevisions,
         MeshletContentRevisions fluidContentRevisions,
         WorldTickClock worldTicks,
-        ChunkResidencySettings settings)
+        ChunkResidencySettings settings,
+        PackContentRegistry<ObjectDefinition>? objects = null)
     {
         _world =
             world ??
@@ -180,6 +183,7 @@ public sealed class ChunkResidencyRuntime
         _settings =
             settings ??
             throw new ArgumentNullException(nameof(settings));
+        _objects = objects;
     }
 
     public ChunkCoord Center => _center;
@@ -553,7 +557,8 @@ public sealed class ChunkResidencyRuntime
         ChunkLightingSolver.Initialize(
             chunk,
             _blocks,
-            _fluids);
+            _fluids,
+            _objects);
 
         stopwatch.Stop();
         return new MaterializedChunk(
@@ -572,9 +577,43 @@ public sealed class ChunkResidencyRuntime
             if (_world.IsLoadedAt(position) &&
                 ChunkTopologyFrontier.NeedsArrivalSeamLightSeed(
                     _world, _blocks, _fluids, coord, position))
-            {
                 _worldUpdates.EnqueueLighting(position);
-            }
+        }
+
+        // When an emitter's support and target are in different chunks,
+        // initially lit individual chunks cannot see the other side.
+        // Reconcile the loaded adjacent support chunks at each arrival.
+        if (_objects is null) return;
+        ReadOnlySpan<(int X, int Y, int Z)> neighbors =
+        [
+            (0, 0, 0), (1, 0, 0), (-1, 0, 0),
+            (0, 1, 0), (0, -1, 0),
+            (0, 0, 1), (0, 0, -1)
+        ];
+        foreach (var offset in neighbors)
+        {
+            var neighborCoord = new ChunkCoord(
+                coord.X + offset.X, coord.Y + offset.Y, coord.Z + offset.Z);
+            if (neighborCoord.Y < 0 ||
+                !_world.TryGetChunk(neighborCoord, out var host) ||
+                host.ObjectCount == 0)
+                continue;
+            var origin = VoxelCoordinates.ChunkOrigin(neighborCoord);
+            host.VisitObjectCells((x, y, z, obj) =>
+            {
+                if (!_objects.TryGet(obj.Id, out var definition) ||
+                    definition is null || definition.LightEmission.IsDark)
+                    return;
+                var support = new WorldVoxelCoord(
+                    origin.X + x, origin.Y + y, origin.Z + z);
+                var target = ObjectLightEmissionField.Target(support, obj.Face);
+                if (target.Y < 0 || !_world.IsLoadedAt(target))
+                    return;
+                if (neighborCoord == coord ||
+                    VoxelCoordinates.FromWorld(
+                        target.X, target.Y, target.Z).Chunk == coord)
+                    _worldUpdates.EnqueueLighting(target);
+            });
         }
     }
 
