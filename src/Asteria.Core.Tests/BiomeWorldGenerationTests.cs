@@ -2557,8 +2557,6 @@ public sealed class BiomeWorldGenerationTests
                                 chunkZ));
                     if (matches(chunk))
                         return true;
-
-                }
                 }
             }
         }
