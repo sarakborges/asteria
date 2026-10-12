@@ -125,6 +125,55 @@ public static class VoxelWorldLightingSolver
         return processed;
     }
 
+    private static int RestoreLight(
+        VoxelWorld world, BlockRegistry blocks, FluidRegistry fluids,
+        DirectSkyContext directSky,
+        DeduplicatedQueue<WorldVoxelCoord> brightening,
+        Dictionary<WorldVoxelCoord, VoxelLight> originals)
+    {
+        var processed = 0;
+        while (brightening.TryDequeue(out var position))
+        {
+            var address = VoxelCoordinates.FromWorld(
+                position.X, position.Y, position.Z);
+            if (!world.TryGetChunk(address.Chunk, out var chunk))
+                continue;
+
+            var local = address.Local;
+            var cell = chunk.GetCell(local.X, local.Y, local.Z);
+            var fluid = chunk.GetFluid(local.X, local.Y, local.Z);
+            var current = chunk.GetLight(local.X, local.Y, local.Z);
+            var desired = DesiredLight(
+                world, blocks, fluids, directSky,
+                position, chunk, local, cell, fluid);
+            processed++;
+            var increased = VoxelLight.Max(current, desired);
+            if (increased == current)
+                continue;
+
+            originals.TryAdd(position, current);
+            chunk.SetLight(local.X, local.Y, local.Z, increased);
+            EnqueueWithNeighbors(world, brightening, position);
+        }
+        return processed;
+    }
+
+    private static VoxelLight BaseLight(
+        BlockRegistry blocks, FluidRegistry fluids, DirectSkyContext directSky,
+        WorldVoxelCoord position, Chunk chunk, LocalVoxelCoord local,
+        VoxelCell cell, FluidCell fluid)
+    {
+        var dampening = VoxelLightingMedium.Dampening(
+            chunk, blocks, fluids, local.X, local.Y, local.Z, cell, fluid);
+        var emission = VoxelLightingMedium.Emission(
+            blocks, fluids, cell, fluid);
+        return new VoxelLight(
+            dampening >= VoxelLight.MaxLevel
+                ? (byte)0
+                : directSky.LevelAt(position),
+            emission.Red, emission.Green, emission.Blue);
+    }
+
     private static VoxelLight DesiredLight(
         VoxelWorld world,
         BlockRegistry blocks,
