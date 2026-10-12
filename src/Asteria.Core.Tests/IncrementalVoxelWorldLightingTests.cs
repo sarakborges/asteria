@@ -133,6 +133,33 @@ public sealed class IncrementalVoxelWorldLightingTests
     }
 
     [Fact]
+    public void RemovingOneOfTwoEmittersMatchesFullRecomputation()
+    {
+        var blocks = new BlockRegistry([
+            new BlockDefinition("asteria:lamp",
+                lightDampening: 0,
+                lightEmission: new BlockLightEmission(15, 8, 0)),
+        ]);
+        var fluids = new FluidRegistry([]);
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, new Chunk());
+        world.InsertChunk(new ChunkCoord(1, 0, 0), new Chunk());
+        var lamp = blocks.GetId("asteria:lamp");
+        var first = new WorldVoxelCoord(14, 5, 5);
+        var second = new WorldVoxelCoord(19, 5, 5);
+        world.SetBlockAt(first, lamp, out _);
+        world.SetBlockAt(second, lamp, out _);
+        VoxelWorldLightingSolver.Initialize(world, blocks, fluids);
+        world.SetBlockAt(first, BlockRuntimeId.Air, out _);
+
+        var update = VoxelWorldLightingSolver.RelightAfterEdits(
+            world, blocks, fluids, [first]);
+        Assert.NotEmpty(update.ChangedPositions);
+        Assert.Equal((byte)15, world.GetLightOrDark(second).Red);
+        AssertMatchesFullLighting(world, blocks, fluids);
+    }
+
+    [Fact]
     public void UnrelatedDistantChunkKeepsItsLightFieldUntouched()
     {
         var blocks = new BlockRegistry(
