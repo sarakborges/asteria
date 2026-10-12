@@ -2343,13 +2343,16 @@ public sealed class BiomeWorldGenerationTests
                 fluids,
                 biomes,
                 structures,
-                LoadDefaultStructureSets());
+                LoadDefaultStructureSets(),
+                objects: Asteria.Core.Content.PackContentRegistry<Asteria.Core.Content.ObjectDefinition>.FromJson(
+                    Directory.EnumerateFiles(Path.Combine(AppContext.BaseDirectory,
+                        "packs", "default", "data", "objects"), "*.json")
+                        .OrderBy(path => path, StringComparer.Ordinal)
+                        .Select(File.ReadAllText),
+                    Asteria.Core.Content.ObjectDefinition.Parse, obj => obj.Id));
         var grass =
             blocks.GetId(
                 "asteria:grass");
-        var mushroom =
-            blocks.GetId(
-                "asteria:mushroom_brown");
         var plains =
             FindBiomeInterior(
                 generator.Biomes,
@@ -2365,10 +2368,7 @@ public sealed class BiomeWorldGenerationTests
                 plains,
                 grass));
         Assert.True(
-            HasBlockNear(
-                generator,
-                swamp,
-                mushroom));
+            HasObjectNear(generator, swamp, "asteria:mushroom_brown"));
     }
 
     private static (int X, int Y, int Z) FindCaveVoid(
@@ -2483,10 +2483,27 @@ public sealed class BiomeWorldGenerationTests
             $"Could not find an interior sample for {biomeId}.");
     }
 
+    private static bool HasObjectNear(
+        BiomeWorldGenerator generator, (int X, int Z) center, string id) =>
+        HasContentNear(generator, center, chunk =>
+        {
+            var found = false;
+            chunk.VisitObjectCells((_, _, _, obj) => found |= obj.Id == id);
+            return found;
+        });
+
     private static bool HasBlockNear(
-        BiomeWorldGenerator generator,
-        (int X, int Z) center,
-        BlockRuntimeId target)
+        BiomeWorldGenerator generator, (int X, int Z) center, BlockRuntimeId target) =>
+        HasContentNear(generator, center, chunk =>
+        {
+            var found = false;
+            chunk.VisitBlockCells((_, _, _, cell) => found |= cell.Block == target);
+            return found;
+        });
+
+    private static bool HasContentNear(
+        BiomeWorldGenerator generator, (int X, int Z) center,
+        Func<Chunk, bool> matches)
     {
         var centerChunk =
             VoxelCoordinates
@@ -2538,21 +2555,10 @@ public sealed class BiomeWorldGenerationTests
                                 chunkX,
                                 chunkY,
                                 chunkZ));
-                    var found =
-                        false;
-
-                    chunk.VisitBlockCells(
-                        (_, _, _, cell) =>
-                        {
-                            found |=
-                                cell.Block ==
-                                target;
-                        });
-
-                    if (found)
-                    {
+                    if (matches(chunk))
                         return true;
-                    }
+
+                }
                 }
             }
         }
