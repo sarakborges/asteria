@@ -1,9 +1,18 @@
 {
+  "asteria:aether_bloom": {
+    "/name": "Aether Bloom"
+  },
   "asteria:aether_vines": {
     "/name": "Aether Vines"
   },
   "asteria:cloud_reed": {
     "/name": "Cloud Reed"
+  },
+  "asteria:glow_fern": {
+    "/name": "Glow Fern"
+  },
+  "asteria:glowcap": {
+    "/name": "Glowcap"
   },
   "asteria:grass": {
     "/name": "Grass"
