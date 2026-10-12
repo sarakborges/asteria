@@ -260,7 +260,7 @@ public sealed class GeneratedSurfaceFluidTests
                 volcano.SurfaceTerrain.Crater);
         var fill = Assert.IsType<BiomeCraterFluidFillDefinition>(
             crater.FluidFill);
-        var spill = Assert.IsType<BiomeCraterSpillDefinition>(fill.Spill);
+        Assert.Null(fill.Spill);
 
         Assert.Equal(
             (12f, 72f, 38f, 0.14f),
@@ -272,16 +272,8 @@ public sealed class GeneratedSurfaceFluidTests
         Assert.Equal(
             "asteria:lava",
             fill.Fluid);
-        Assert.Equal(
-            (0.91f, 54f, 0.56f, 0.9f, 0.012f, 0.055f, (byte)6),
-            (
-                fill.MinimumStrength,
-                fill.TopLevel,
-                spill.MinimumStrength,
-                spill.MaximumStrength,
-                spill.Scale,
-                spill.Width,
-                spill.Level));
+        Assert.Equal((0.91f, 54f),
+            (fill.MinimumStrength, fill.TopLevel));
     }
 
     [Fact]
