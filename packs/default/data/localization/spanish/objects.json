@@ -1,9 +1,18 @@
 {
+  "asteria:aether_bloom": {
+    "/name": "Flor Etérea"
+  },
   "asteria:aether_vines": {
     "/name": "Enredaderas Etéreas"
   },
   "asteria:cloud_reed": {
     "/name": "Junco de las Nubes"
+  },
+  "asteria:glow_fern": {
+    "/name": "Helecho Luminoso"
+  },
+  "asteria:glowcap": {
+    "/name": "Seta Luminosa"
   },
   "asteria:grass": {
     "/name": "Hierba"
