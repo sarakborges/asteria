@@ -33,5 +33,6 @@
   "windSway": true,
   "unlit": false,
   "tint": "none",
-  "previewColor": "6d964e"
+  "previewColor": "6d964e",
+  "growthStructure": "asteria:tree_oak"
 }

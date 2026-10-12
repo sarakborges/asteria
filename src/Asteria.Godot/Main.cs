@@ -539,7 +539,7 @@ public partial class Main : Node3D
         }
 
         _sessions.Active.AdvanceWorldTime(
-            delta);
+            delta, _player?.GlobalPosition, _worldReadySent);
         UpdateDayNightPresentation(delta);
 
         var loadingWorld =

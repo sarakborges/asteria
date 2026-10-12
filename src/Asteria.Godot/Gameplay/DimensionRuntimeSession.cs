@@ -49,6 +49,7 @@ public sealed class DimensionRuntimeSession
     private readonly ProjectilePresentationController _projectilePresentation;
     private readonly InventoryContentCatalog _inventoryCatalog;
     private readonly CreatureNaturalSpawnRuntime _naturalSpawns;
+    private readonly SaplingGrowthRuntime _saplings;
     private bool _retiring;
     private bool _retired;
 
@@ -215,6 +216,9 @@ public sealed class DimensionRuntimeSession
         Mutations.ConfigureObjectDetachment(
             new ObjectDetachmentRuntime(World, objects, _droppedBlocks, fluids));
         Mutations.ConfigureObjectLighting(objects);
+        _saplings = new SaplingGrowthRuntime(
+            World, Mutations, blocks, objects, structures,
+            state.DimensionSeed, WorldTicks.CurrentTick);
         var storageBoxLifecycle = new StorageBoxBlockLifecycle(
             state.StorageBoxes, blocks, _droppedBlocks);
         Mutations.BlockCellChanged += storageBoxLifecycle.OnBlockCellChanged;
@@ -598,12 +602,19 @@ public sealed class DimensionRuntimeSession
     public DayNightClock DayNight { get; }
 
     public void AdvanceWorldTime(
-        double deltaSeconds)
+        double deltaSeconds, Godot.Vector3? playerPosition = null, bool gameplayReady = false)
     {
         var elapsed = WorldTicks.Advance(
             deltaSeconds,
             _state.GameRules.TicksPerSecond);
         DayNight.Advance(elapsed);
+        WorldAabb? playerBounds = playerPosition is { } p
+            ? new WorldAabb(
+                new NVector3(p.X - .4f, p.Y, p.Z - .4f),
+                new NVector3(p.X + .4f, p.Y + 2f, p.Z + .4f))
+            : null;
+        _saplings.Advance(WorldTicks.CurrentTick, playerBounds,
+            enabled: gameplayReady && playerBounds is not null);
     }
 
     public FluidUpdateQueue FluidUpdates { get; }

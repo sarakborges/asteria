@@ -413,3 +413,10 @@ MineClone `world-systems-rebuild` reference: `world_objects.rs::detached_object_
 - Removed duplicate block definitions, transferred EN/PT-BR/ES localization keys to Object catalogs, and changed the existing regression test to exercise actual Object placement, survival break, replanting, detached drop and portable chunk save/load for every species.
 - Automatic tree growth remains a separate missing capability; neither MineClone rebuild nor Asteria has a species-growth runtime, and not all species have authored mature tree Structures. Avoid generic fallback trees or unsaved transient timers.
 
+## Species-accurate sapling growth batch — 2026-10-12
+
+- All 11 sapling Objects now declare an authored `growthStructure` reference. Existing native tree-variant groups are reused for oak, willow, enchanted_tree, skywood and juniper. Six new purpose-built adult Structures cover charwood, frost_wood, rime_deadwood, thornwood, windwood and world_tree using their existing family log/leaf blocks and distinct silhouettes.
+- `SaplingGrowthRuntime` owns deterministic world-tick-based checks while gameplay is active, using only resident Object chunks. One Object-bearing chunk and at most 16 candidates are processed per check; the check runs every 200 world ticks, with a 1/8 deterministic chance per eligible sapling. Root position, authored Structure variant, resident target voxels, water, other top-attached Objects and current player collision are preflighted before any edit. Existing ground is not replaced.
+- Success consumes the attached sapling and places the mature Structure through the existing `VoxelMutationRuntime.ApplyStructureChanges` single preflight/commit path; no Object drop or second Structure publisher. World tick already survives Sphere retirement/save, and grown blocks persist in normal chunks, without redundant growth timers or save aliases.
+- Added content and end-to-end Core regression tests; in-engine visual QA remains necessary.
+

@@ -33,5 +33,6 @@
   "windSway": true,
   "unlit": false,
   "tint": "none",
-  "previewColor": "9dcbd2"
+  "previewColor": "9dcbd2",
+  "growthStructure": "asteria:sapling_grown_frost_wood"
 }

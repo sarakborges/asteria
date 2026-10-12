@@ -33,5 +33,6 @@
   "windSway": true,
   "unlit": false,
   "tint": "none",
-  "previewColor": "71d8ef"
+  "previewColor": "71d8ef",
+  "growthStructure": "asteria:sapling_grown_world_tree"
 }

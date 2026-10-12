@@ -33,5 +33,6 @@
   "windSway": true,
   "unlit": false,
   "tint": "none",
-  "previewColor": "eac541"
+  "previewColor": "eac541",
+  "growthStructure": "asteria:tree_enchanted"
 }

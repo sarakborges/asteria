@@ -261,7 +261,8 @@ public sealed class VoxelMutationRuntime
     /// </summary>
     public bool ApplyStructureChanges(
         IReadOnlyList<VoxelStructureChange> changes,
-        IReadOnlyList<VoxelStructureObjectChange>? objects = null)
+        IReadOnlyList<VoxelStructureObjectChange>? objects = null,
+        IReadOnlyList<(WorldVoxelCoord Support, ObjectCell Object)>? removeObjects = null)
     {
         ArgumentNullException.ThrowIfNull(changes);
         var positions = new HashSet<WorldVoxelCoord>();
@@ -272,6 +273,18 @@ public sealed class VoxelMutationRuntime
                 !_world.IsLoadedAt(change.Position) ||
                 (change.Block is not null && !change.Fluid.IsEmpty))
                 return false;
+        }
+
+        // Growth can consume a support-owned Object in the same transaction
+        // that constructs its replacement. Revalidate before the first edit.
+        if (removeObjects is { Count: > 0 })
+        {
+            var distinct = new HashSet<(WorldVoxelCoord Support, ObjectCell Object)>();
+            foreach (var removal in removeObjects)
+                if (!distinct.Add(removal) ||
+                    !_world.TryGetObjects(removal.Support, out var resident) ||
+                    !resident.Contains(removal.Object))
+                    return false;
         }
 
         // All Objects must be insertable after staged voxel changes. Capacity,
@@ -346,6 +359,12 @@ public sealed class VoxelMutationRuntime
             if (detachedDropCount > _objectDetachment.AvailableDropCapacity)
                 return false;
         }
+
+        if (removeObjects is not null)
+            foreach (var removal in removeObjects)
+                if (!RemoveObjectAt(removal.Support, removal.Object))
+                    throw new InvalidOperationException(
+                        $"Validated Structure Object removal failed at {removal.Support}.");
 
         foreach (var change in changes)
         {

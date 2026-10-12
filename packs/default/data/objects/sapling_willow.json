@@ -33,5 +33,6 @@
   "windSway": true,
   "unlit": false,
   "tint": "none",
-  "previewColor": "75956c"
+  "previewColor": "75956c",
+  "growthStructure": "asteria:tree_willow"
 }

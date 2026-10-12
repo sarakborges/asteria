@@ -1,0 +1,132 @@
+{
+  "id": "asteria:sapling_grown_frost_wood",
+  "groupId": "sapling_grown_frost_wood",
+  "rotation": true,
+  "locatable": false,
+  "restrictions": {
+    "groundBlocks": [
+      "asteria:dirt",
+      "asteria:grass_block",
+      "asteria:mud",
+      "asteria:stone"
+    ],
+    "requiresDryGround": true
+  },
+  "generation": {
+    "replacePolicy": "air_only",
+    "fluidPolicy": "forbid",
+    "reserveSpace": false
+  },
+  "anchor": {
+    "x": 3,
+    "y": 0,
+    "z": 3
+  },
+  "palette": {
+    "W": {
+      "block": "frost_wood",
+      "orientation": "y"
+    },
+    "F": {
+      "block": "rime_leaves"
+    }
+  },
+  "layers": [
+    {
+      "y": 1,
+      "rows": [
+        ".......",
+        ".......",
+        ".......",
+        "...W...",
+        ".......",
+        ".......",
+        "......."
+      ]
+    },
+    {
+      "y": 2,
+      "rows": [
+        ".......",
+        ".......",
+        ".......",
+        "...W...",
+        ".......",
+        ".......",
+        "......."
+      ]
+    },
+    {
+      "y": 3,
+      "rows": [
+        ".......",
+        ".......",
+        ".......",
+        "...W...",
+        ".......",
+        ".......",
+        "......."
+      ]
+    },
+    {
+      "y": 4,
+      "rows": [
+        "..FFF..",
+        "..FFFF.",
+        "FFFFFF.",
+        "FF.WFFF",
+        "FFFFFFF",
+        ".FF.FF.",
+        "..FFF.."
+      ]
+    },
+    {
+      "y": 5,
+      "rows": [
+        ".......",
+        ".......",
+        "...W...",
+        "..WWW..",
+        "...W...",
+        ".......",
+        "......."
+      ]
+    },
+    {
+      "y": 6,
+      "rows": [
+        ".......",
+        "..FFF..",
+        "..FFFF.",
+        ".FFWFF.",
+        ".F.FFF.",
+        "..FFF..",
+        "......."
+      ]
+    },
+    {
+      "y": 7,
+      "rows": [
+        ".......",
+        ".......",
+        ".......",
+        "...W...",
+        ".......",
+        ".......",
+        "......."
+      ]
+    },
+    {
+      "y": 8,
+      "rows": [
+        ".......",
+        ".......",
+        "..FFF..",
+        "..FWF..",
+        "..FFF..",
+        ".......",
+        "......."
+      ]
+    }
+  ]
+}

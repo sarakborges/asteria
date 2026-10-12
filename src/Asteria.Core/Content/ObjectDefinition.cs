@@ -40,7 +40,8 @@ public sealed class ObjectDefinition
         string? pickupItem = null, string? supportFluid = null,
         string? requiredFluidAbove = null,
         BlockTint tint = BlockTint.None,
-        BlockPreviewColor? tintFallback = null)
+        BlockPreviewColor? tintFallback = null,
+        string? growthStructure = null)
     {
         BlockDefinition.ValidateId(id);
         if (!Enum.IsDefined(interaction))
@@ -106,8 +107,16 @@ public sealed class ObjectDefinition
                 throw new FormatException(
                     "Submerged Objects require solid top support.");
         }
+        if (growthStructure is not null)
+        {
+            BlockDefinition.ValidateId(growthStructure);
+            if (supportFluid is not null || requiredFluidAbove is not null ||
+                placementFaces.Count != 1 || placementFaces[0] != BlockFace.Top)
+                throw new FormatException("Growable Objects require dry top support.");
+        }
         PickupItem = pickupItem;
         SupportFluid = supportFluid;
+        GrowthStructure = growthStructure;
         RequiredFluidAbove = requiredFluidAbove;
     }
 
@@ -127,6 +136,8 @@ public sealed class ObjectDefinition
     public BlockPreviewColor TintFallback { get; }
     public string? PickupItem { get; }
     public string? SupportFluid { get; }
+    /// <summary>Authored mature Structure or variant group for growth.</summary>
+    public string? GrowthStructure { get; }
     /// <summary>Fluid required in the empty target cell above solid support.</summary>
     public string? RequiredFluidAbove { get; }
     public InventoryEntry RewardEntry => PickupItem is { } item
@@ -194,7 +205,8 @@ public sealed class ObjectDefinition
             root.TryGetProperty("previewColor", out var preview)
                 ? BlockPreviewColor.Parse(preview.GetString() ??
                     throw new FormatException("Object previewColor must be an RGB hex string."))
-                : BlockPreviewColor.Missing);
+                : BlockPreviewColor.Missing,
+            PackContentFields.OptionalString(root, "growthStructure"));
     }
 
     private static bool PositiveTarget(Vector3 value) =>

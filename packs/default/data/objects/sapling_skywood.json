@@ -33,5 +33,6 @@
   "windSway": true,
   "unlit": false,
   "tint": "none",
-  "previewColor": "5fceb1"
+  "previewColor": "5fceb1",
+  "growthStructure": "asteria:skywood_tree"
 }
