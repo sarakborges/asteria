@@ -212,6 +212,10 @@ public sealed class ChunkResidencyRuntime
             center,
             horizontalRadius);
 
+    public HashSet<ChunkCoord> BootstrapSelection(
+        ChunkCoord center, int horizontalRadius) =>
+        _streaming.BootstrapSelection(center, horizontalRadius);
+
     public bool SyncSelection(
         ChunkCoord center,
         int horizontalRadius,
