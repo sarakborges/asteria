@@ -126,6 +126,42 @@ public sealed class ChunkStreamingStateTests
     }
 
     [Fact]
+    public void BootstrapKeepsKnownSurfaceChunksWithinNewRadius()
+    {
+        var state = new ChunkStreamingState();
+        var previousCenter = new ChunkCoord(0, 5, 0);
+        var surface = new ChunkCoord(0, 10, 0);
+        var leaving = new ChunkCoord(-2, 10, 0);
+        state.RebuildSelection(
+            previousCenter,
+            horizontalRadius: 2,
+            retentionRadius: 4,
+            desired: new HashSet<ChunkCoord> { surface, leaving });
+
+        var newCenter = new ChunkCoord(1, 5, 0);
+        var bootstrap = state.BootstrapSelection(newCenter, 2);
+
+        // Previously known vertical range remains presentable immediately.
+        Assert.Contains(surface, bootstrap);
+        // Chunks beyond the new radius do not remain selected forever.
+        Assert.DoesNotContain(leaving, bootstrap);
+        // New player-local chunks are always requested immediately.
+        Assert.Contains(newCenter, bootstrap);
+        Assert.Contains(new ChunkCoord(2, 5, 0), bootstrap);
+    }
+
+    [Fact]
+    public void BootstrapDoesNotRequireAnyPreviousSurfaceSelection()
+    {
+        var state = new ChunkStreamingState();
+        var center = new ChunkCoord(20, 4, -10);
+        var bootstrap = state.BootstrapSelection(center, 4);
+        Assert.Equal(
+            ChunkStreamingSelection.DesiredPlayerLocalChunks(center, 4),
+            bootstrap);
+    }
+
+    [Fact]
     public async Task SelectionRuntimeDiscardsStaleCenterResults()
     {
         var provider =
