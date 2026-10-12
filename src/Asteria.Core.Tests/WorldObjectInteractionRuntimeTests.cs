@@ -140,7 +140,8 @@ public sealed class WorldObjectInteractionRuntimeTests
         var player = new PlayerInventory();
         Assert.False(runtime.TryBreak(hit, PlayerGameMode.Survival));
         Assert.True(runtime.TryPickup(hit, player));
-        Assert.Contains(player.Capture().Backpack,
+        var snapshot = player.Capture();
+        Assert.Contains(snapshot.Backpack.Concat(snapshot.Hotbar),
             stack => stack is { Kind: InventoryEntryKind.Object,
                 Id: "asteria:pebble_object", Quantity: 1 });
         Assert.False(runtime.TryPickup(hit, player));
