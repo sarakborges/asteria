@@ -8,7 +8,7 @@ public sealed class VolcanoBiomeContentTests
         Path.Combine(AppContext.BaseDirectory, "packs", "default", "data");
 
     [Fact]
-    public void VolcanoCraterLavaSettingsRemainAuthoredAndUnchanged()
+    public void VolcanoCraterLavaStaysContainedWithoutIsolatedSpills()
     {
         var biome = LoadVolcano();
         using var document = System.Text.Json.JsonDocument.Parse(
@@ -24,11 +24,8 @@ public sealed class VolcanoBiomeContentTests
         Assert.Equal("asteria:lava", fill.GetProperty("fluid").GetString());
         Assert.Equal(.91, fill.GetProperty("minimumStrength").GetDouble(), 5);
         Assert.Equal(54, fill.GetProperty("topLevel").GetInt32());
-        var spill = fill.GetProperty("spill");
-        Assert.Equal(.56, spill.GetProperty("minimumStrength").GetDouble(), 5);
-        Assert.Equal(.9, spill.GetProperty("maximumStrength").GetDouble(), 5);
-        Assert.Equal(6, spill.GetProperty("level").GetInt32());
-        Assert.NotNull(biome.SurfaceTerrain!.Crater!.FluidFill);
+        Assert.False(fill.TryGetProperty("spill", out _));
+        Assert.Null(biome.SurfaceTerrain!.Crater!.FluidFill!.Spill);
     }
 
     [Fact]
