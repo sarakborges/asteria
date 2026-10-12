@@ -38,3 +38,15 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 export const Game: Story = {};
 export const World: Story = { args: { scope: "world" } };
+export const WorldPeaceful: Story = {
+  args: {
+    scope: "world",
+    settings: {
+      ...meta.args.settings,
+      world: {
+        ...meta.args.settings.world,
+        creatureAttackMode: "Peaceful",
+      },
+    },
+  },
+};
