@@ -707,9 +707,25 @@ public partial class Main : Node3D
                     continue;
                 var protection = PlayerEquipmentProtection.Calculate(
                     _sessionStates.Player.Inventory, _items);
-                var damage = _sessionStates.Player.Health.Damage(
-                    impact.Damage * (1f - protection),
-                    _sessionStates.Player.GameMode);
+                var damage = _sessionStates.Player.Hazards.ReceiveCreatureAttack(
+                    impact.Damage, protection, _sessionStates.Player.Health,
+                    _sessionStates.Player.GameMode, out var attackAccepted);
+                if (attackAccepted && damage != PlayerDamageResult.Killed)
+                {
+                    var player = creatureObserver.GlobalPosition;
+                    creatureObserver.ApplyCreatureImpact(
+                        PlayerImpactImpulse.FromProjectile(
+                            impact.Position,
+                            new NVector3(player.X, player.Y, player.Z)));
+                }
+                if (attackAccepted &&
+                    PlayerEquipmentWear.ApplyContactHit(
+                        _sessionStates.Player.Inventory, _items) &&
+                    _inventoryOpen)
+                {
+                    SendInventoryState();
+                    _playerPortrait?.RequestCapture();
+                }
                 ApplyPlayerDamageResult(damage);
             }
             _worldDiagnostics?.ObserveStage(
@@ -2501,6 +2517,13 @@ public partial class Main : Node3D
             var result = _sessionStates.Player.Hazards.ReceiveCreatureAttack(
                 hit.Damage, protection, _sessionStates.Player.Health,
                 _sessionStates.Player.GameMode, out var attackAccepted);
+            if (attackAccepted && result != PlayerDamageResult.Killed)
+            {
+                var player = _player.GlobalPosition;
+                _player.ApplyCreatureImpact(PlayerImpactImpulse.FromMelee(
+                    hit.AttackerPosition,
+                    new NVector3(player.X, player.Y, player.Z)));
+            }
             if (attackAccepted &&
                 PlayerEquipmentWear.ApplyContactHit(_sessionStates.Player.Inventory, _items) &&
                 _inventoryOpen)

@@ -434,3 +434,12 @@ MineClone `world-systems-rebuild` reference: `world_objects.rs::detached_object_
 - The inventory character portrait now attaches the **same HeldItemPresentation and HeldVisualResolver** to the authored right-arm pivot as third-person gameplay. Portrait snapshots update the held item and optional tint when inventory/hotbar selection changes; no polling or parallel inventory state.
 - Third-person locomotion, head pitch, and crouch advance even while the physical mesh is hidden for first-person mode; switching camera perspective no longer resurrects an obsolete visual state. Hurt action preflight now runs before the first-person swing is triggered.
 - Added Core regression coverage for first/third-person pose dimensions and sprite/tool rotation conventions. Native Godot camera, clipping and animated-hand acceptance remains necessary.
+
+## Creature attack knockback — 2026-10-12
+
+- The Core now supplies a finite, deterministic, horizontal impact direction and bounded vertical lift from a real creature landing or projectile impact, rather than relying on camera orientation or forcing the player position.
+- Landing-hit events carry their actual attacker position. Projectile impacts reuse the collision point already returned by the existing swept projectile simulation; no new hit queue or creature snapshot lookup.
+- The Godot character applies physical impulse velocity only for accepted Survival creature attacks, using the existing MoveAndSlide, ledge and terrain collision behavior. Invulnerable hits, Peaceful mode, and lethal hits never cause stray pushback.
+- Creature projectiles now pass through the same authoritative PlayerHazardRuntime invulnerability and equipment wear path as melee impacts, rather than bypassing it and damaging health directly; accepted zero-net-damage armor hits can still shove the player.
+- Added Core tests for world-space direction, projectile side, exact-overlap fallback, and non-finite validation. In-game knockback magnitude/collision/feel must still be verified in Godot.
+

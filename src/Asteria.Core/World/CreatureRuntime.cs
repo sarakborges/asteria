@@ -41,7 +41,11 @@ public readonly record struct CreatureAttackResult(
     bool Killed,
     IReadOnlyList<CreatureLootEntry> Loot);
 
-public readonly record struct CreatureMeleeHit(CreatureInstanceId Id, float Damage);
+/// <summary>One landing-impact hit with the attacker position at impact.
+ /// Consumers must validate the damage through the authoritative player
+ /// hazards before applying any physical reaction.</summary>
+public readonly record struct CreatureMeleeHit(
+    CreatureInstanceId Id, float Damage, Vector3 AttackerPosition);
 
 public sealed record CreatureRuntimeSnapshot(
     ulong NextId,
@@ -641,7 +645,7 @@ public sealed class CreatureRuntime
                 MeleeStrikeHitsPlayer(next, definition, bounds, world, blocks))
             {
                 _meleeHits.Add(new CreatureMeleeHit(
-                    next.Id, definition.ContactDamage));
+                    next.Id, definition.ContactDamage, next.Position));
                 next = next with
                 {
                     AttacksDealt = checked(next.AttacksDealt + 1),

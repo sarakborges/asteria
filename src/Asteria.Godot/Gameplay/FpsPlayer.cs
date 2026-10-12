@@ -20,6 +20,7 @@ public partial class FpsPlayer : CharacterBody3D
     private const float WalkAcceleration = 28f;
     private const float WalkDeceleration = 36f;
     private const float CrouchEdgeProbe = 0.12f;
+    private const float MaximumImpactHorizontalSpeed = 18f;
 
     private enum CameraView : byte
     {
@@ -103,6 +104,26 @@ public partial class FpsPlayer : CharacterBody3D
 
     public Func<FluidRuntimeId, FluidMotionDefinition>?
         FluidMotionProvider { get; set; }
+
+    /// <summary>Applies one accepted creature attack as physical velocity.
+    /// Godot MoveAndSlide and the normal movement acceleration own collision,
+    /// friction and return to normal movement. No teleport or extra timer.</summary>
+    public void ApplyCreatureImpact(System.Numerics.Vector3 impulse)
+    {
+        if (!float.IsFinite(impulse.X) ||
+            !float.IsFinite(impulse.Y) ||
+            !float.IsFinite(impulse.Z))
+            throw new ArgumentOutOfRangeException(nameof(impulse));
+        if (PlayerState.Health.IsDead || PlayerState.IsFlying ||
+            PlayerState.GameMode != PlayerGameMode.Survival)
+            return;
+
+        var velocity = Velocity;
+        var horizontal = new Vector2(velocity.X + impulse.X,
+            velocity.Z + impulse.Z).LimitLength(MaximumImpactHorizontalSpeed);
+        Velocity = new Vector3(horizontal.X,
+            Mathf.Max(velocity.Y, impulse.Y), horizontal.Y);
+    }
 
     public override void _Ready()
     {

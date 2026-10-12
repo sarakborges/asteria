@@ -143,6 +143,7 @@ public sealed class CreatureCombatTests
         Assert.Equal(creature.Id, hit.Id);
         Assert.Equal(slime.ContactDamage, hit.Damage);
         var attacking = Assert.Single(runtime.ActiveCreatures);
+        Assert.Equal(attacking.Position, hit.AttackerPosition);
         Assert.Equal(CreatureHopPhase.Land, attacking.Motion.Phase);
         Assert.Equal(1u, attacking.AttacksDealt);
         Assert.Equal(CreatureRuntime.AttackAnimationSeconds,
