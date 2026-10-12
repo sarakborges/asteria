@@ -34,7 +34,8 @@ public sealed class VolcanoBiomeContentTests
         var volcano = LoadVolcano();
         var plains = BiomeDefinitionJson.Parse(File.ReadAllText(
             Path.Combine(PackData, "biomes", "plains.json")));
-        var biomes = new BiomeRegistry([volcano, plains]);
+        var biomes = new BiomeRegistry(
+            ReadJsonDirectory("biomes").Select(BiomeDefinitionJson.Parse));
         var field = new BiomeField(seed, [volcano.Id, plains.Id], biomes);
         var shape = Assert.IsType<BiomeCalderaTerrainShapeDefinition>(
             volcano.SurfaceTerrain!.Shape);
@@ -103,9 +104,13 @@ public sealed class VolcanoBiomeContentTests
         var volcano = BiomeDefinitionJson.Parse(tooSmall);
         var plains = BiomeDefinitionJson.Parse(File.ReadAllText(
             Path.Combine(PackData, "biomes", "plains.json")));
+        var definitions = ReadJsonDirectory("biomes")
+            .Select(BiomeDefinitionJson.Parse)
+            .Select(definition => definition.Id == volcano.Id
+                ? volcano : definition);
+        var registry = new BiomeRegistry(definitions);
         Assert.Throws<ArgumentException>(() =>
-            new BiomeField(44UL, [volcano.Id, plains.Id],
-                new BiomeRegistry([volcano, plains])));
+            new BiomeField(44UL, [volcano.Id, plains.Id], registry));
     }
 
     [Fact]

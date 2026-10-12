@@ -743,6 +743,12 @@ public sealed class SurfaceTerrainField
                     ? coast.LandBoundaryHeightOffset
                     : _surfaceRules[influence.BiomeId].HeightOffsetAt(
                         _seed, worldX, worldZ, influence.TerrainStrength);
+            // A landform whose radial strength has already reached zero
+            // must not carve an artificial ditch in the adjacent biome.
+            if (_surfaceRules[influence.BiomeId].Caldera is not null &&
+                influence.TerrainStrength <= 0f)
+                continue;
+
             // Ordinary elevated terrain rises only within its primary
             // biome. Self-tapered formations must join their actual neighbor
             // even when their low outer flank is below that neighbor.
