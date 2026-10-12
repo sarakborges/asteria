@@ -313,6 +313,7 @@ export type ChatCompletionCatalog = {
 export type ChatState = {
   open: boolean;
   visible: boolean;
+  focusRequest: number;
   history: readonly ChatMessageView[];
   commands: readonly string[];
   catalog: ChatCompletionCatalog;
@@ -373,7 +374,7 @@ export function createInitialUiState(
     loading: null,
     worldCatalog: { status: "unavailable", worlds: [], folderError: false, deleteError: false },
     chat: {
-      open: false, visible: false, history: [], commands: [],
+      open: false, visible: false, focusRequest: 0, history: [], commands: [],
       catalog: {
         creatures: [], biomes: [], structures: [], variations: {},
         dimensions: [], position: null,
