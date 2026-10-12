@@ -26,6 +26,15 @@ public sealed class OceanDecorationContentTests
         {
             var rule = Assert.Single(ocean.Decorations, d => d.Block == $"asteria:{name}");
             Assert.Equal(name is "seagrass" or "kelp", rule.IsObject);
+            Assert.Equal(name switch
+            {
+                "seagrass" => 0.135f,
+                "kelp" => 0.07f,
+                "sea_anemone" => 0.05f,
+                "seashell" => 0.06f,
+                "starfish" => 0.0375f,
+                _ => throw new InvalidOperationException(),
+            }, rule.Chance);
             Assert.Equal(DecorationFluidPlacement.Submerged, rule.FluidPlacement);
             Assert.Equal((int?)86, rule.Conditions!.MaxY);
             Assert.NotNull(rule.Cluster);
