@@ -569,14 +569,21 @@ public sealed class ChunkResidencyRuntime
     private void EnqueueChunkLightingReconciliation(
         ChunkCoord coord)
     {
+        var arriving = _world.ContainsChunk(coord);
         foreach (var position in
                  ChunkTopologyFrontier.LightingSeeds(
                      coord,
                      _world.ContainsChunk))
         {
-            if (_world.IsLoadedAt(position) &&
-                ChunkTopologyFrontier.NeedsArrivalSeamLightSeed(
-                    _world, _blocks, _fluids, coord, position))
+            if (!_world.IsLoadedAt(position))
+                continue;
+
+            var needsRelight = arriving
+                ? ChunkTopologyFrontier.NeedsArrivalSeamLightSeed(
+                    _world, _blocks, _fluids, coord, position)
+                : ChunkTopologyFrontier.NeedsRetirementSeamLightSeed(
+                    _world, coord, position);
+            if (needsRelight)
                 _worldUpdates.EnqueueLighting(position);
         }
 
