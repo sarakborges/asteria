@@ -1333,9 +1333,10 @@ public sealed class SurfaceChunkMaterializer
         TerrainDensityVolume densityVolume,
         int originX,
         int originY,
-        int originZ)
+        int originZ,
+        ref List<PendingGeneratedObject>? pendingObjects)
     {
-        if (!_decorations.HasWallLayers)
+        if (!_decorations.HasWallLayers && !_decorations.HasWallObjects)
             return;
 
         ReadOnlySpan<(int Dx, int Dz, BlockFace Face)> faces =
@@ -1354,7 +1355,8 @@ public sealed class SurfaceChunkMaterializer
             var surface = column.BiomeAt(x, z);
             var baseY = column.BaseHeightAt(x, z);
             var surfaceSupportsLayers =
-                _decorations.HasWallLayersFor(surface.Primary);
+                _decorations.HasWallLayersFor(surface.Primary) ||
+                _decorations.HasWallObjectsFor(surface.Primary);
             if (!surfaceSupportsLayers &&
                 _volumeBiomes is not { HasBiomes: true })
                 continue;
@@ -1426,19 +1428,34 @@ public sealed class SurfaceChunkMaterializer
                     }
 
                     if (owner is null ||
-                        !_decorations.HasWallLayersFor(owner.Primary))
+                        (!_decorations.HasWallLayersFor(owner.Primary) &&
+                         !_decorations.HasWallObjectsFor(owner.Primary)))
                         continue;
 
-                    var layerId = _decorations.WallLayerAt(
-                        owner, host.Block, worldX, worldY, worldZ);
-                    if (layerId is null)
-                        continue;
-
-                    var previous = chunk.GetSurfaceState(x, y, z);
-                    if (previous.TryAttach(
-                        new AttachedBlockLayer(side.Face, layerId),
-                        out var updated))
-                        chunk.SetSurfaceState(x, y, z, updated);
+                    if (_decorations.HasWallLayersFor(owner.Primary))
+                    {
+                        var layerId = _decorations.WallLayerAt(
+                            owner, host.Block, worldX, worldY, worldZ);
+                        if (layerId is not null)
+                        {
+                            var previous = chunk.GetSurfaceState(x, y, z);
+                            if (previous.TryAttach(
+                                new AttachedBlockLayer(side.Face, layerId),
+                                out var updated))
+                                chunk.SetSurfaceState(x, y, z, updated);
+                        }
+                    }
+                    if (_decorations.HasWallObjectsFor(owner.Primary))
+                    {
+                        var objectId = _decorations.WallObjectAt(
+                            owner, host.Block, worldX, worldY, worldZ);
+                        if (objectId is not null)
+                        {
+                            pendingObjects ??= [];
+                            pendingObjects.Add(new PendingGeneratedObject(
+                                x, y, z, objectId, side.Face));
+                        }
+                    }
                 }
             }
         }
