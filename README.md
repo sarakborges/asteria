@@ -119,7 +119,7 @@ The default Overworld surface pool selects plains, swamp, wasteland, desert, alp
 
 `Main.StartupDimensionId` defaults to `asteria:overworld` and is an exported startup setting, so the runtime can be launched directly in `asteria:umbral` without changing generation code. Live dimension transition now retires the current `DimensionRuntimeSession` and creates/restores the destination session instead of clearing a shared world. Dirty chunk edits, world tick, player position, falling blocks and dropped blocks remain dimension-scoped across round trips. Pristine materialized chunks are archived and restored exactly on return; only never-materialized coordinates remain generator-owned.
 
-For QA, F4 cycles authored dimensions in canonical ID order and uses the current exact player coordinates as the destination. Gameplay/global input still belongs to Godot; WebUI does not capture this key. Future portals call the same transition boundary with their authored destination coordinates.
+Portal travel uses the same transition boundary with its authored destination coordinates. No dedicated debug keybind cycles dimensions.
 
 ### Block content
 
@@ -172,7 +172,7 @@ Expected result:
 - a centered gameplay crosshair and bottom-center nine-slot hotbar;
 - slot 1 mirrors the currently selected placement block until the future inventory/hotbar owner replaces that temporary source;
 - player vitals, status effects, contextual prompts and toast regions stay hidden until authoritative state is published;
-- the old runtime card is now a debug overlay, hidden by default and toggled with F3 through Godot's input layer; WebUI only renders the resulting state.
+- the old runtime card is now a debug overlay, hidden by default; WebUI only renders the engine-published state, without a debug keyboard shortcut.
 
 ### WebUI development
 

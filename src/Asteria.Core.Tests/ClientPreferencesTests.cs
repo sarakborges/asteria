@@ -60,10 +60,6 @@ public sealed class ClientPreferencesTests
         Assert.Equal(KeybindChangeResult.Reserved,
             settings.SetKeybind(KeybindAction.Jump, KeyboardKey.KeyW));
         Assert.Equal(KeybindChangeResult.Reserved,
-            settings.SetKeybind(KeybindAction.Jump, KeyboardKey.F3));
-        Assert.Equal(KeybindChangeResult.Reserved,
-            settings.SetKeybind(KeybindAction.Jump, KeyboardKey.F4));
-        Assert.Equal(KeybindChangeResult.Reserved,
             settings.SetKeybind(KeybindAction.Jump, KeyboardKey.Digit1));
         Assert.Equal(KeybindChangeResult.Conflict,
             settings.SetKeybind(KeybindAction.Jump, KeyboardKey.KeyE));
@@ -75,6 +71,21 @@ public sealed class ClientPreferencesTests
         Assert.Equal(1ul, settings.Revision);
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             settings.SetKeybind(KeybindAction.Chat, KeyboardKey.None));
+    }
+
+    [Fact]
+    public void FormerDebugFunctionKeysAreAssignableAndPersisted()
+    {
+        var settings = new ClientPreferences();
+        Assert.Equal(KeybindChangeResult.Changed,
+            settings.SetKeybind(KeybindAction.Jump, KeyboardKey.F3));
+        Assert.Equal(KeybindChangeResult.Changed,
+            settings.SetKeybind(KeybindAction.Chat, KeyboardKey.F4));
+
+        var restored = ClientPreferencesJson.Deserialize(
+            ClientPreferencesJson.Serialize(settings));
+        Assert.Equal(KeyboardKey.F3, restored.KeyFor(KeybindAction.Jump));
+        Assert.Equal(KeyboardKey.F4, restored.KeyFor(KeybindAction.Chat));
     }
 
     [Fact]

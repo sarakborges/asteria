@@ -94,7 +94,7 @@ Audit references: MineClone `src/world/game_rules.rs`, `src/world/new_world.rs`,
 - **Remaining before Phase C is fully complete**: Chat and Change Perspective await gameplay runtimes, and item/tool inventory beyond block-only stacks remains pending. Change Perspective requires a third-person camera/player rendering contract. Spectator exit is rejected with `NoSafeCollisionSpace` if the destination body overlaps collision or spans unloaded chunks; a future teleport/relocation UX can offer a safe destination without silently trapping the player. No placeholder key handlers are added to pretend these mechanics already exist.
 - Config/state mutation remains Core authoritative. Mode-specific movement is confined to `FpsPlayer`; web presentation remains bridge/controller/UiStore/React. Configurable keybind capture stays owned by native Godot, never a WebUI global event listener.
 
-Asteria reserves **F3/F4** in addition to MineClone's WASD/hotbar keys because those are engine-owned debug/Sphere-switch hotkeys; allowing their reassignment would create two authoritative handlers for one key.
+Asteria has no built-in debug keybinds. **F3/F4** are available for user-configured gameplay actions; WASD and hotbar digits 1–9 remain reserved.
 
 ## Phase D implementation notes (2026-10-08)
 

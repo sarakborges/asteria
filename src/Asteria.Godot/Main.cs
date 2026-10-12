@@ -494,16 +494,6 @@ public partial class Main : Node3D
             !_chat.IsOpen && !_sessions.IsTransitioning &&
             _player is { } activePlayer)
         {
-            // Retain the old creature-spawn QA action only under a deliberate
-            // debug modifier; plain F5 belongs to Change Perspective.
-            if (_debugHudVisible && keyEvent.Keycode == Key.F5 &&
-                keyEvent.ShiftPressed)
-            {
-                if (TrySpawnCreatureForQa())
-                    GetViewport().SetInputAsHandled();
-                return;
-            }
-
             if (GameplayKeyMap.Matches(
                     keyEvent, _clientPreferences,
                     KeybindAction.ChangePerspective))
@@ -514,24 +504,6 @@ public partial class Main : Node3D
             }
         }
 
-        switch (keyEvent.Keycode)
-        {
-            case Key.F3:
-                _debugHudVisible =
-                    !_debugHudVisible;
-                SendDebugHudState();
-                GetViewport().SetInputAsHandled();
-                break;
-
-            case Key.F4:
-                if (TryCycleDimensionForQa())
-                {
-                    GetViewport().SetInputAsHandled();
-                }
-
-                break;
-
-        }
     }
 
     public override void _Process(double delta)
@@ -1200,82 +1172,6 @@ public partial class Main : Node3D
                 MaxFluidMeshletsPerWorker,
                 MaxFluidUpdatesPerWorker,
                 MaxChunkEvictionsPerFrame));
-
-    private bool TrySpawnCreatureForQa()
-    {
-        if (!_worldReadySent || _inventoryOpen ||
-            _sessions.IsTransitioning ||
-            _player is not { IsMouseCaptured: true } player)
-        {
-            return false;
-        }
-
-        // QA-only explicit spawn; the generator owns safe destinations.
-        var (_, target) = player.GetInteractionRay(5f);
-        var safe = _sessions.Active.Generator.FindGeneratedDestination(
-            Mathf.FloorToInt(target.X),
-            Math.Max(0, Mathf.FloorToInt(target.Y)),
-            Mathf.FloorToInt(target.Z),
-            maxRadius: 12);
-
-        if (safe is null ||
-            !_world.IsLoadedAt(new WorldVoxelCoord(
-                safe.Value.X, safe.Value.Y, safe.Value.Z)))
-        {
-            return false;
-        }
-
-        var feet = new NVector3(
-            safe.Value.X + 0.5f,
-            safe.Value.Y,
-            safe.Value.Z + 0.5f);
-        if (!_sessions.Active.TrySpawnCreature("asteria:slime_aqua", feet))
-        {
-            return false;
-        }
-
-        GD.Print($"creature.qa_spawn id=asteria:slime_aqua position={feet}");
-        return true;
-    }
-
-    private bool TryCycleDimensionForQa()
-    {
-        if (_player is null ||
-            _sessions.IsTransitioning)
-        {
-            return false;
-        }
-
-        var definitions =
-            _dimensions
-                .Definitions()
-                .ToArray();
-
-        if (definitions.Length < 2)
-        {
-            return false;
-        }
-
-        var currentIndex =
-            Array.FindIndex(
-                definitions,
-                definition =>
-                    definition.Id ==
-                    _dimension.Id);
-        var next =
-            definitions[
-                (currentIndex + 1) %
-                definitions.Length];
-        var position =
-            _player.GlobalPosition;
-
-        return BeginDimensionTransition(
-            next.Id,
-            new NVector3(
-                position.X,
-                position.Y,
-                position.Z));
-    }
 
     private void RetirePlayerForDimensionTransition()
     {
