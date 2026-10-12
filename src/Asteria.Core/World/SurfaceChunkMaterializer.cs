@@ -1099,7 +1099,8 @@ public sealed class SurfaceChunkMaterializer
         TerrainDensityVolume densityVolume,
         int originX,
         int originY,
-        int originZ)
+        int originZ,
+        ref List<PendingGeneratedObject>? pendingObjects)
     {
         if (!_decorations.HasVerticalDecorations)
             return;
@@ -1114,19 +1115,28 @@ public sealed class SurfaceChunkMaterializer
             BiomeSample? underground = null;
             BiomeSurfaceMaterialColumn? volumeMaterials = null;
 
-            for (var localY = 0; localY < Chunk.Size; localY++)
+            // Include adjacent vertical seam targets: an Object is stored on
+            // its host chunk, even when the visible sprite crosses a seam.
+            for (var localY = -1; localY <= Chunk.Size; localY++)
             {
                 var worldY = originY + localY;
                 if (worldY <= 0 ||
                     (_floorY is { } floorY && worldY <= floorY) ||
-                    (_roofY is { } roofY && worldY >= roofY) ||
-                    !chunk.GetCell(localX, localY, localZ).IsEmpty ||
-                    densityVolume.DensityAt(localX, localY, localZ) >= 0d)
+                    (_roofY is { } roofY && worldY >= roofY))
                     continue;
 
                 var volumePlacement = densityVolume.VolumePlacementAt(
                     localX, localZ);
-                var belowDensity = localY > 0
+                var targetInChunk = (uint)localY < Chunk.Size;
+                var targetDensity = targetInChunk
+                    ? densityVolume.DensityAt(localX, localY, localZ)
+                    : _terrain.DensityAt(surfaceBiome, baseY,
+                        worldX, worldY, worldZ, volumePlacement);
+                if (targetDensity >= 0d ||
+                    (targetInChunk &&
+                     !chunk.GetCell(localX, localY, localZ).IsEmpty))
+                    continue;
+                var belowDensity = localY > 0 && localY <= Chunk.Size
                     ? densityVolume.DensityAt(localX, localY - 1, localZ)
                     : _terrain.DensityAt(
                         surfaceBiome, baseY,
@@ -1150,7 +1160,7 @@ public sealed class SurfaceChunkMaterializer
                       _decorations.HasCeilingDecorationsFor(
                           additiveCeilingBiome.Primary))))
                 {
-                    var aboveDensity = localY + 1 < Chunk.Size
+                    var aboveDensity = localY + 1 >= 0 && localY + 1 < Chunk.Size
                         ? densityVolume.DensityAt(localX, localY + 1, localZ)
                         : _terrain.DensityAt(
                             surfaceBiome, baseY,
@@ -1201,12 +1211,12 @@ public sealed class SurfaceChunkMaterializer
                     baseY,
                     column.SurfaceFluidCutDepthAt(localX, localZ),
                     worldX, worldY, worldZ,
-                    densityVolume.DensityAt(localX, localY, localZ)).IsEmpty;
+                    targetDensity).IsEmpty;
                 var placement = new SurfacePlacementContext(worldY, 0);
 
                 if (isFloor)
                 {
-                    var support = localY > 0
+                    var support = localY > 0 && localY <= Chunk.Size
                         ? chunk.GetBlock(localX, localY - 1, localZ)
                         : worldY > baseY
                             ? (volumeMaterials ??= _materials.SampleColumn(
@@ -1215,14 +1225,31 @@ public sealed class SurfaceChunkMaterializer
                                 decoratorBiome, worldX, worldY - 1, worldZ);
                     if (!support.IsAir)
                     {
-                        var decoration = _decorations.BlockAt(
-                            decoratorBiome, support, worldX, worldZ,
-                            placement, verticalY: worldY,
-                            submerged: submerged);
-                        if (!decoration.IsAir)
+                        if (targetInChunk)
                         {
-                            chunk.SetBlock(localX, localY, localZ, decoration);
-                            continue;
+                            var decoration = _decorations.BlockAt(
+                                decoratorBiome, support, worldX, worldZ,
+                                placement, verticalY: worldY,
+                                submerged: submerged);
+                            if (!decoration.IsAir)
+                            {
+                                chunk.SetBlock(localX, localY, localZ, decoration);
+                                continue;
+                            }
+                        }
+                        if ((uint)(localY - 1) < Chunk.Size)
+                        {
+                            var objectId = _decorations.ObjectAt(
+                                decoratorBiome, support, worldX, worldZ,
+                                placement, verticalY: worldY,
+                                submerged: submerged, supportY: worldY - 1);
+                            if (objectId is not null)
+                            {
+                                pendingObjects ??= [];
+                                pendingObjects.Add(new PendingGeneratedObject(
+                                    localX, localY - 1, localZ,
+                                    objectId, BlockFace.Top, submerged));
+                            }
                         }
                     }
                 }
@@ -1233,7 +1260,7 @@ public sealed class SurfaceChunkMaterializer
                     continue;
 
                 BlockRuntimeId ceilingSupport;
-                if (localY + 1 < Chunk.Size)
+                if (localY + 1 >= 0 && localY + 1 < Chunk.Size)
                 {
                     ceilingSupport =
                         chunk.GetBlock(localX, localY + 1, localZ);
@@ -1260,12 +1287,30 @@ public sealed class SurfaceChunkMaterializer
                 if (ceilingSupport.IsAir)
                     continue;
 
-                var hanger = _decorations.BlockAt(
-                    decoratorBiome, ceilingSupport, worldX, worldZ,
-                    placement, verticalY: worldY, submerged: submerged,
-                    supportSurface: DecorationSupportSurface.Ceiling);
-                if (!hanger.IsAir)
-                    chunk.SetBlock(localX, localY, localZ, hanger);
+                if (targetInChunk)
+                {
+                    var hanger = _decorations.BlockAt(
+                        decoratorBiome, ceilingSupport, worldX, worldZ,
+                        placement, verticalY: worldY, submerged: submerged,
+                        supportSurface: DecorationSupportSurface.Ceiling);
+                    if (!hanger.IsAir)
+                        chunk.SetBlock(localX, localY, localZ, hanger);
+                }
+                if ((uint)(localY + 1) < Chunk.Size)
+                {
+                    var objectId = _decorations.ObjectAt(
+                        decoratorBiome, ceilingSupport, worldX, worldZ,
+                        placement, verticalY: worldY,
+                        submerged: submerged, supportY: worldY + 1,
+                        supportSurface: DecorationSupportSurface.Ceiling);
+                    if (objectId is not null)
+                    {
+                        pendingObjects ??= [];
+                        pendingObjects.Add(new PendingGeneratedObject(
+                            localX, localY + 1, localZ,
+                            objectId, BlockFace.Bottom, submerged));
+                    }
+                }
             }
         }
     }
