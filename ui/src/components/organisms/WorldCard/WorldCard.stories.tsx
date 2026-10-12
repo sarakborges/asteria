@@ -20,7 +20,11 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Compatible: Story = { args: { onLoad: () => undefined, onDelete: () => undefined } };
+export const Compatible: Story = { args: {
+  onLoad: () => undefined,
+  onRecreate: () => undefined,
+  onDelete: () => undefined,
+} };
 
 export const WithThumbnail: Story = {
   args: {
@@ -35,6 +39,7 @@ export const WithThumbnail: Story = {
       thumbnailUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/tf8AAAAASUVORK5CYII=",
     },
     onLoad: () => undefined,
+    onRecreate: () => undefined,
     onDelete: () => undefined,
   },
 };

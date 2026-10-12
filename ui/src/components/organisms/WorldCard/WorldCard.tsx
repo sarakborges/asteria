@@ -10,12 +10,14 @@ export type WorldCardProps = {
   world: WorldSummaryView;
   onLoad?(id: string): void;
   onDelete?(id: string): void;
+  onRecreate?(id: string): void;
 };
 
 export function WorldCard({
   world,
   onLoad,
   onDelete,
+  onRecreate,
 }: WorldCardProps) {
   const { t, contentName } = useLocalization();
   return (
@@ -79,6 +81,14 @@ export function WorldCard({
             onClick={() =>
               onLoad?.(world.id)
             }
+          />
+        )}
+        {world.compatible && (
+          <Button
+            label={t("worldSelection.recreateWorld")}
+            stretch
+            disabled={!onRecreate}
+            onClick={() => onRecreate?.(world.id)}
           />
         )}
         <Button

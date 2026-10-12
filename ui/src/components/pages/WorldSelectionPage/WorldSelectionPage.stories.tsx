@@ -33,6 +33,7 @@ const meta = {
     onOpenSavesFolder: () => undefined,
     onLoad: () => undefined,
     onDelete: () => undefined,
+    onRecreate: () => undefined,
   },
 } satisfies Meta<typeof WorldSelectionPage>;
 

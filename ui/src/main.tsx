@@ -74,11 +74,12 @@ createRoot(rootElement).render(
       ping: hud.ping,
       createWorld: worldCreation.createWorld,
       randomizeWorld: worldCreation.randomizeWorld,
-      recreateWorld: () => postGodotMessage("ui.world.recreate"),
+
       openWorldSelection: navigation.openWorldSelection,
       openSavesFolder: worldCatalog.openSavesFolder,
       loadWorld: worldCatalog.loadWorld,
       deleteWorld: worldCatalog.deleteWorld,
+      recreateWorld: worldCatalog.recreateWorld,
       openWorldCreation: navigation.openWorldCreation,
       backToStart: navigation.backToStart,
       exitGame: navigation.exitGame,

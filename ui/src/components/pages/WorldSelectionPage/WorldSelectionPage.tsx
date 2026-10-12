@@ -18,6 +18,7 @@ export type WorldSelectionPageProps = {
   onOpenSavesFolder?(): void;
   onLoad?(id: string): void;
   onDelete?(id: string): void;
+  onRecreate?(id: string): void;
   busy?: boolean;
 };
 
@@ -30,6 +31,7 @@ export function WorldSelectionPage({
   onOpenSavesFolder,
   onLoad,
   onDelete,
+  onRecreate,
   busy = false,
 }: WorldSelectionPageProps) {
   const { t } = useLocalization();
@@ -75,6 +77,7 @@ export function WorldSelectionPage({
               world={world}
               onLoad={busy ? undefined : onLoad}
               onDelete={busy ? undefined : setConfirmId}
+              onRecreate={busy ? undefined : onRecreate}
             />
             {confirmedWorld?.id === world.id && onDelete && !busy && (
               <div className="world-selection__confirmation"

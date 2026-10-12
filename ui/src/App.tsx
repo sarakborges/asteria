@@ -32,11 +32,11 @@ export type AppActions = {
     generation: import("./state/uiState").WorldGenerationDraft;
   }): void;
   randomizeWorld(): void;
-  recreateWorld(): void;
   openWorldSelection(): void;
   openSavesFolder(): void;
   loadWorld(id: string): void;
   deleteWorld(id: string): void;
+  recreateWorld(id: string): void;
   openWorldCreation(): void;
   backToStart(): void;
   exitGame(): void;
@@ -237,6 +237,7 @@ export function App({
             onOpenSavesFolder={actions.openSavesFolder}
             onLoad={actions.loadWorld}
             onDelete={actions.deleteWorld}
+            onRecreate={actions.recreateWorld}
             busy={state.worldCatalog.status !== "ready"}
           />
         )}
@@ -361,7 +362,7 @@ export function App({
         />
       )}
 
-      <LoadingOverlay state={state.loading} onRecreate={actions.recreateWorld} />
+      <LoadingOverlay state={state.loading} />
       {state.navigation.exitConfirmation && (
         <SaveFailureExitDialog
           onCancel={actions.cancelExitWithoutSave}

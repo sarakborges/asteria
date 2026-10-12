@@ -1,17 +1,15 @@
 import { useLocalization } from "../../../localization/LocalizationProvider";
 import type { LoadingState } from "../../../state/uiState";
 import { Surface } from "../../atoms/Surface/Surface";
-import { Button } from "../../atoms/Button/Button";
 import { Text } from "../../atoms/Text/Text";
 import { CosmicBackground } from "../CosmicBackground/CosmicBackground";
 import "./LoadingOverlay.css";
 
 export type LoadingOverlayProps = {
   state: LoadingState | null;
-  onRecreate?(): void;
 };
 
-export function LoadingOverlay({ state, onRecreate }: LoadingOverlayProps) {
+export function LoadingOverlay({ state }: LoadingOverlayProps) {
   const { t, contentName } = useLocalization();
   if (!state) return null;
 
@@ -53,11 +51,6 @@ export function LoadingOverlay({ state, onRecreate }: LoadingOverlayProps) {
           variant="detail"
           className="loading-overlay__dimension"
         />
-        {onRecreate && (
-          <Button label={t("loading.recreateWorld")} stretch
-            disabled={state.phase === "retiring_current_dimension"}
-            onClick={onRecreate} />
-        )}
       </Surface>
     </section>
   );

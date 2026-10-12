@@ -6,7 +6,7 @@
   place-items: center;
   padding: 24px;
   overflow: hidden;
-  pointer-events: auto;
+  pointer-events: none;
   color: var(--ui-color-text);
   background: var(--ui-color-screen-background);
 }

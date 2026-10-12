@@ -17,6 +17,17 @@ export function createWorldCatalogController(
       if (id.trim() && store.getSnapshot().worldCatalog.status === "ready")
         postMessage("ui.world.catalog.load", { id });
     },
+    recreateWorld(id: string) {
+      const catalog = store.getSnapshot().worldCatalog;
+      if (!id.trim() || catalog.status !== "ready" ||
+          !catalog.worlds.some(world => world.id === id && world.compatible))
+        return;
+      store.update(state => ({
+        ...state,
+        worldCatalog: { ...state.worldCatalog, status: "verifying" },
+      }));
+      postMessage("ui.world.catalog.recreate", { id });
+    },
     deleteWorld(id: string) {
       const state = store.getSnapshot().worldCatalog;
       if (id.trim() && state.status === "ready" &&
