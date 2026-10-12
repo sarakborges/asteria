@@ -56,6 +56,7 @@ export type TargetHudState = {
   name: string;
   details: string[];
   iconUrl?: string;
+  blockPreview?: BlockPreviewState;
   layers?: { id: string; face: TargetHudLayerFace }[];
   activeLayerId?: string | null;
 };

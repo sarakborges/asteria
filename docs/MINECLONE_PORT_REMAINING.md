@@ -456,3 +456,10 @@ MineClone `world-systems-rebuild` reference: `world_objects.rs::detached_object_
 - Reuse the same renderer to create bounded, cached, alpha-preserving tinted Object icon PNGs. Inventory/Creative/hotbar use the authored fallback color because they have no world location. The in-world Object target HUD samples the existing `Generator.Tints` field at the object's support X/Z and publishes the corresponding tinted thumbnail.
 - Untinted Objects continue using the unmodified selected-pack icon; no extra identity, GameUI tint computation, global palette state, or per-Object node is introduced. Core RGB math has focused tests; actual Godot/WRY screenshots are still required for icon parity.
 
+## Target and inventory preview block orientation — 2026-10-12
+
+- The old `BlockPreviewForInventory` always published default **Top/Front/Right** textures regardless of an inventory block's saved orientation/facing. Target HUD also always consumed a catalog preview by Block ID, so a horizontally placed log or a rotated directional block displayed the wrong faces.
+- Both inventory and target previews now use `BlockFaceTransform.SourceFaceForWorldFace` (the authoritative Core face mapping) to choose the texture source for each displayed face, respecting existing per-stack `VoxelCell` state. Microblock stacks remain sprite previews.
+- The Core-owned target HUD snapshot carries the actual cell alongside the block and surface state, so changing orientation/facing invalidates the presentation revision. A target-specific `blockPreview` overrides the generic Creative catalog entry; WebUI validates it using the **same parser** as Creative instead of trusting arbitrary strings.
+- The preview still uses the existing CSS three-face approximation and does not yet implement per-face UV quarter-turn rotation or voxel geometry. In-game WRY visual acceptance remains pending.
+

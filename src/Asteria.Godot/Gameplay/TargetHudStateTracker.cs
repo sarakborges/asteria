@@ -10,6 +10,7 @@ public readonly record struct TargetHudSnapshot(
     byte SkyLight,
     byte BlockLight,
     BlockSurfaceState Surface,
+    VoxelCell Cell,
     string? ActiveLayerId = null);
 
 public sealed class TargetHudStateTracker
@@ -106,6 +107,7 @@ public sealed class TargetHudStateTracker
             light.Sky,
             light.BlockPeak,
             surface,
+            cell,
             activeLayerId);
     }
 }

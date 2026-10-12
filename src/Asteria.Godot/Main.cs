@@ -2822,22 +2822,35 @@ public partial class Main : Node3D
         if (entry.Kind != InventoryEntryKind.Block)
             return null;
 
-        var block = _blocks.GetDefinition(_blocks.GetId(entry.Id));
-        var front = _blockPreviewRenderer.FaceDataUri(block, BlockFace.Front);
+        var blockId = _blocks.GetId(entry.Id);
+        var block = _blocks.GetDefinition(blockId);
+        var cell = entry.Block?.Cell ?? new VoxelCell(blockId);
+        return BlockPreviewForCell(block, cell);
+    }
+
+    private object? BlockPreviewForCell(
+        BlockDefinition block, VoxelCell cell)
+    {
+        // SourceFaceForWorldFace is the same Core owner used by terrain
+        // meshing and targeting. A laid-down log, for example, must show
+        // its authored end grain on the face which actually points upward.
+        string? Texture(BlockFace face) =>
+            _blockPreviewRenderer.FaceDataUri(
+                block, BlockFaceTransform.SourceFaceForWorldFace(
+                    face, cell, block));
+
+        var front = Texture(BlockFace.Front);
         if (front is null) return null;
 
         var isCube = block.Visual.Texture is null &&
-            block.Shape.Kind == BlockShapeKind.Cube;
+            block.Shape.Kind == BlockShapeKind.Cube &&
+            !cell.HasMicroblockGeometry;
         return new
         {
             kind = isCube ? "cube" : "sprite",
             front,
-            top = isCube
-                ? _blockPreviewRenderer.FaceDataUri(block, BlockFace.Top)
-                : null,
-            right = isCube
-                ? _blockPreviewRenderer.FaceDataUri(block, BlockFace.Right)
-                : null,
+            top = isCube ? Texture(BlockFace.Top) : null,
+            right = isCube ? Texture(BlockFace.Right) : null,
         };
     }
 
@@ -4107,6 +4120,8 @@ public partial class Main : Node3D
                 kind = "block",
                 id = value.BlockId,
                 name = value.BlockId,
+                blockPreview = BlockPreviewForCell(
+                    _blocks.GetDefinition(value.Cell.Block), value.Cell),
                 activeLayerId = value.ActiveLayerId,
                 layers = value.Surface.Layers
                     .Select(layer => new

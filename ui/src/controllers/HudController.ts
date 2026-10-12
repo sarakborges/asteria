@@ -16,6 +16,7 @@ import type {
 } from "../state/uiState";
 import type { UiStore } from "../state/uiStore";
 import { applyUiTheme } from "../theme/uiTheme";
+import { readBlockPreview } from "./creativeCatalogPayload";
 import {
   asRecord,
   isFiniteNumber,
@@ -456,12 +457,20 @@ function readTarget(
       })
     : [];
 
+  const preview = value.blockPreview === null ||
+      value.blockPreview === undefined
+    ? null : readBlockPreview(value.blockPreview);
+  if (value.blockPreview !== null && value.blockPreview !== undefined &&
+      (value.kind !== "block" || preview === null))
+    return null;
+
   return {
     kind: value.kind,
     id: value.id,
     name: value.name,
     details,
     iconUrl: typeof value.iconUrl === "string" ? value.iconUrl : undefined,
+    blockPreview: preview ?? undefined,
     layers,
   };
 }

@@ -78,7 +78,7 @@ export function readCreativeCatalog(value: unknown): AuthoredCreativeCatalog | n
   return { categories, everythingIconUrl: payload.everythingIconUrl, items };
 }
 
-function readBlockPreview(raw: unknown): BlockPreviewState | null {
+export function readBlockPreview(raw: unknown): BlockPreviewState | null {
   const data = asRecord(raw);
   if (!data ||
       (data.kind !== "cube" && data.kind !== "sprite") ||
