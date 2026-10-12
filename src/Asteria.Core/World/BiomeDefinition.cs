@@ -657,8 +657,13 @@ public sealed class BiomeDecorationDefinition
         DecorationFluidPlacement fluidPlacement = DecorationFluidPlacement.Dry,
         BiomeDecorationFluidRequirement? fluidRequirement = null,
         DecorationSupportSurface supportSurface = DecorationSupportSurface.Floor,
-        bool isLayer = false)
+        bool isLayer = false,
+        bool isObject = false)
     {
+        if (isObject && isLayer)
+            throw new ArgumentException("A decoration cannot be both a layer and an Object.");
+        if (isObject && supportSurface != DecorationSupportSurface.Floor)
+            throw new ArgumentException("Object decorations currently require floor support.", nameof(isObject));
         if (isLayer && supportSurface != DecorationSupportSurface.Wall)
             throw new ArgumentException(
                 "Decorative attached layers require wall support.", nameof(isLayer));
@@ -706,6 +711,7 @@ public sealed class BiomeDecorationDefinition
 
         Block = block;
         IsLayer = isLayer;
+        IsObject = isObject;
         Chance = chance;
         Cluster = cluster;
         Conditions = conditions;
@@ -720,6 +726,7 @@ public sealed class BiomeDecorationDefinition
     public string Block { get; }
     /// <summary>The authored identifier is a layer rather than a voxel block.</summary>
     public bool IsLayer { get; }
+    public bool IsObject { get; }
 
     public float Chance { get; }
 

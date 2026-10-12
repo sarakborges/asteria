@@ -1,3 +1,4 @@
+using Asteria.Core.Content;
 using Asteria.Core.World;
 
 namespace Asteria.Core.Tests;
@@ -13,6 +14,9 @@ public sealed class OceanDecorationContentTests
         var blocks = BlockRegistry.FromJson(ReadPackJson("blocks"));
         var biomes = BiomeRegistry.FromJson(ReadPackJson("biomes"));
         biomes.ValidateBlocks(blocks);
+        var objects = PackContentRegistry<ObjectDefinition>.FromJson(
+            ReadPackJson("objects"), ObjectDefinition.Parse, d => d.Id);
+        biomes.ValidateObjects(objects);
         var ocean = biomes.Get("asteria:overworld/ocean");
         Assert.Equal(Names.OrderBy(x => x, StringComparer.Ordinal),
             ocean.Decorations.Select(d => d.Block["asteria:".Length..])
@@ -21,6 +25,7 @@ public sealed class OceanDecorationContentTests
         foreach (var name in Names)
         {
             var rule = Assert.Single(ocean.Decorations, d => d.Block == $"asteria:{name}");
+            Assert.Equal(name is "seagrass" or "kelp", rule.IsObject);
             var block = blocks.GetDefinition(blocks.GetId(rule.Block));
             Assert.Equal(DecorationFluidPlacement.Submerged, rule.FluidPlacement);
             Assert.Equal((int?)86, rule.Conditions!.MaxY);
@@ -51,14 +56,17 @@ public sealed class OceanDecorationContentTests
         var blocks = BlockRegistry.FromJson(ReadPackJson("blocks"));
         var ocean = BiomeRegistry.FromJson(ReadPackJson("biomes"))
             .Get("asteria:overworld/ocean");
+        var objectCatalog = PackContentRegistry<ObjectDefinition>.FromJson(
+            ReadPackJson("objects"), ObjectDefinition.Parse, d => d.Id);
         var sample = new BiomeSample(ocean.Id,
             [new BiomeInfluence(ocean.Id, 1f)]);
-        var a = new SurfaceDecorationField(2026, [ocean], blocks);
-        var b = new SurfaceDecorationField(2026, [ocean], blocks);
+        var a = new SurfaceDecorationField(2026, [ocean], blocks, objects: objectCatalog);
+        var b = new SurfaceDecorationField(2026, [ocean], blocks, objects: objectCatalog);
         var sand = blocks.GetId("asteria:sand");
         var stone = blocks.GetId("asteria:stone");
         var context = new SurfacePlacementContext(75, 0);
         var found = new HashSet<BlockRuntimeId>();
+        var foundObjects = new HashSet<string>();
 
         for (var z = -48; z <= 48; z++)
         for (var x = -48; x <= 48; x++)
@@ -71,12 +79,16 @@ public sealed class OceanDecorationContentTests
                 suppliedPlacement: context).IsAir);
             Assert.True(a.BlockAt(sample, stone, x, z,
                 suppliedPlacement: context, submerged: true).IsAir);
-            if (!wet.IsAir)
-                found.Add(wet);
+            var objectId = a.ObjectAt(sample, sand, x, z,
+                placement: context, submerged: true);
+            Assert.Equal(objectId, b.ObjectAt(sample, sand, x, z,
+                placement: context, submerged: true));
+            if (objectId is not null) foundObjects.Add(objectId);
+            if (!wet.IsAir) found.Add(wet);
         }
-        Assert.Contains(blocks.GetId("asteria:seagrass"), found);
+        Assert.Contains("asteria:seagrass", foundObjects);
         Assert.Contains(blocks.GetId("asteria:seashell"), found);
-        Assert.Contains(blocks.GetId("asteria:kelp"), found);
+        Assert.Contains("asteria:kelp", foundObjects);
     }
 
     private static IEnumerable<string> ReadPackJson(string directory)

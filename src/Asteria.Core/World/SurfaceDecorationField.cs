@@ -1,3 +1,5 @@
+using Asteria.Core.Content;
+
 namespace Asteria.Core.World;
 
 /// <summary>
@@ -10,6 +12,7 @@ public sealed class SurfaceDecorationField
     private readonly SurfaceTerrainField? _terrain;
     private readonly SurfaceHabitatField _habitats;
     private readonly IReadOnlyDictionary<string, DecorationRule[]> _rules;
+    private readonly HashSet<string> _objectBiomes;
     private readonly HashSet<string> _verticalBiomes;
     private readonly HashSet<string> _ceilingBiomes;
     private readonly HashSet<string> _wallLayerBiomes;
@@ -23,13 +26,17 @@ public sealed class SurfaceDecorationField
         SurfaceHabitatField? habitats = null,
         bool generateDecorations = true,
         FluidRegistry? fluids = null,
-        AttachedLayerRegistry? layers = null)
+        AttachedLayerRegistry? layers = null,
+        PackContentRegistry<ObjectDefinition>? objects = null)
     {
         ArgumentNullException.ThrowIfNull(biomes);
         ArgumentNullException.ThrowIfNull(blocks);
         _seed = seed;
         _terrain = terrain;
         var definitions = biomes.ToArray();
+        _objectBiomes = definitions
+            .Where(b => generateDecorations && objects is not null && b.Decorations.Any(d => d.IsObject))
+            .Select(b => b.Id).ToHashSet(StringComparer.Ordinal);
         _verticalBiomes = definitions
             .Where(biome => generateDecorations &&
                             biome.SurfaceLayout is null &&
@@ -75,10 +82,11 @@ public sealed class SurfaceDecorationField
                         StringComparer.Ordinal)
                     .Select(
                         decoration => new DecorationRule(
-                            decoration.IsLayer
+                            decoration.IsLayer || decoration.IsObject
                                 ? BlockRuntimeId.Air
                                 : blocks.GetId(decoration.Block),
                             decoration.IsLayer ? decoration.Block : null,
+                            decoration.IsObject ? decoration.Block : null,
                             decoration.Chance,
                             decoration.SurfaceBlocks
                                 .Select(blocks.GetId)
@@ -106,6 +114,9 @@ public sealed class SurfaceDecorationField
             foreach (var decoration in biome.Decorations)
                 _habitats.Validate(biome.Id, decoration.HabitatWeights);
     }
+
+    public bool HasObjectDecorations(BiomeSample sample) =>
+        sample.Influences.Any(influence => _objectBiomes.Contains(influence.BiomeId));
 
     public bool HasVerticalDecorations => _verticalBiomes.Count > 0;
     public bool HasCeilingDecorations => _ceilingBiomes.Count > 0;
@@ -163,6 +174,19 @@ public sealed class SurfaceDecorationField
         return SelectRule(sample, surfaceBlock, worldX, worldZ,
             suppliedPlacement, verticalY, submerged, supportY, onFluidSurface,
             fluidBelow, nearbyFluid, supportSurface)?.Block ?? BlockRuntimeId.Air;
+    }
+
+    public string? ObjectAt(BiomeSample sample, BlockRuntimeId supportBlock,
+        int worldX, int worldZ,
+        SurfacePlacementContext? placement = null,
+        int? verticalY = null, bool submerged = false,
+        int? supportY = null,
+        Func<FluidRuntimeId, int, int, int, int, bool>? nearbyFluid = null)
+    {
+        if (!HasObjectDecorations(sample)) return null;
+        return SelectRule(sample, supportBlock, worldX, worldZ,
+            placement, verticalY, submerged, supportY,
+            false, default, nearbyFluid, DecorationSupportSurface.Floor)?.ObjectId;
     }
 
     public string? WallLayerAt(
@@ -315,6 +339,7 @@ public sealed class SurfaceDecorationField
     private sealed record DecorationRule(
         BlockRuntimeId Block,
         string? LayerId,
+        string? ObjectId,
         float Chance,
         HashSet<BlockRuntimeId> SurfaceBlocks,
         GenerationDomain Domain,

@@ -1,4 +1,14 @@
 {
-  "asteria:grass": {"/name": "Grass"},
-  "asteria:mushroom_red": {"/name": "Red Mushroom"}
+  "asteria:grass": {
+    "/name": "Grass"
+  },
+  "asteria:kelp": {
+    "/name": "Kelp"
+  },
+  "asteria:mushroom_red": {
+    "/name": "Red Mushroom"
+  },
+  "asteria:seagrass": {
+    "/name": "Seagrass"
+  }
 }

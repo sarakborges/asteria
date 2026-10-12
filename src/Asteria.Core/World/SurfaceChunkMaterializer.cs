@@ -102,6 +102,7 @@ public sealed class SurfaceChunkMaterializer
                 originY,
                 originZ);
         var topExclusive = checked(originY + Chunk.Size);
+        List<(int X, int Y, int Z, string Id, bool Submerged)>? pendingObjects = null;
 
         for (var localZ = 0; localZ < Chunk.Size; localZ++)
         {
@@ -214,7 +215,9 @@ public sealed class SurfaceChunkMaterializer
                     decorationY, originY, topExclusive);
                 var fluidTopInChunk = CanPlaceDecorationAt(
                     decorationY + 1, originY, topExclusive);
-                if (!normalInChunk && !fluidTopInChunk)
+                var objectSupportInChunk = CanPlaceDecorationAt(
+                    surfaceY, originY, topExclusive);
+                if (!normalInChunk && !fluidTopInChunk && !objectSupportInChunk)
                     continue;
 
                 var topSample =
@@ -241,10 +244,18 @@ public sealed class SurfaceChunkMaterializer
                         sample, worldX, worldZ);
                 var topBlock = topMaterials.BlockAt(0);
 
-                if (normalInChunk)
+                var considerObjects = objectSupportInChunk &&
+                    _decorations.HasObjectDecorations(topSample);
+                if (normalInChunk || considerObjects)
                 {
                     // Generated-fluid occupancy, not only the column range,
                     // decides whether this is a submerged decorator cell.
+                    var decorationDensity = normalInChunk
+                        ? densityVolume.DensityAt(
+                            localX, (int)decorationY - originY, localZ)
+                        : _terrain.DensityAt(
+                            sample, baseY, worldX, (int)decorationY, worldZ,
+                            densityVolume.VolumePlacementAt(localX, localZ));
                     var submerged =
                         _generatedFluids.TryGetColumnBounds(
                             sample, baseY, surfaceFluidCutDepth,
@@ -254,16 +265,31 @@ public sealed class SurfaceChunkMaterializer
                         !_generatedFluids.FluidAt(
                             sample, baseY, surfaceFluidCutDepth,
                             worldX, (int)decorationY, worldZ,
-                            densityVolume.DensityAt(
-                                localX, (int)decorationY - originY, localZ)).IsEmpty;
+                            decorationDensity).IsEmpty;
 
-                    var decoration = _decorations.BlockAt(
-                        topSample, topBlock, worldX, worldZ,
-                        submerged: submerged, supportY: surfaceY,
-                        nearbyFluid: _nearbyFluidQuery);
-                    if (!decoration.IsAir)
-                        chunk.SetBlock(localX, (int)decorationY - originY,
-                            localZ, decoration);
+                    if (normalInChunk)
+                    {
+                        var decoration = _decorations.BlockAt(
+                            topSample, topBlock, worldX, worldZ,
+                            submerged: submerged, supportY: surfaceY,
+                            nearbyFluid: _nearbyFluidQuery);
+                        if (!decoration.IsAir)
+                            chunk.SetBlock(localX, (int)decorationY - originY,
+                                localZ, decoration);
+                    }
+                    if (considerObjects)
+                    {
+                        var objectId = _decorations.ObjectAt(
+                            topSample, topBlock, worldX, worldZ,
+                            submerged: submerged, supportY: surfaceY,
+                            nearbyFluid: _nearbyFluidQuery);
+                        if (objectId is not null)
+                        {
+                            pendingObjects ??= [];
+                            pendingObjects.Add((localX, surfaceY - originY,
+                                localZ, objectId, submerged));
+                        }
+                    }
                 }
 
                 // Water-top decorations occupy the *air above* a source,
@@ -334,6 +360,23 @@ public sealed class SurfaceChunkMaterializer
         // uncover or replace them.
         _voidSpawnPlatform?.Apply(chunk, coord);
         ConcealSphereShell(chunk, column, originY, topExclusive);
+
+        // The supporting block owns an Object, never its adjacent fluid cell.
+        // Publish only after structures, caves, and the shell are final.
+        if (pendingObjects is not null)
+        {
+            foreach (var (x, y, z, id, submerged) in pendingObjects)
+            {
+                if (chunk.GetCell(x, y, z).IsEmpty)
+                    continue;
+                var plantY = y + 1;
+                if (plantY < Chunk.Size &&
+                    (!chunk.GetCell(x, plantY, z).IsEmpty ||
+                     (submerged && chunk.GetFluid(x, plantY, z).IsEmpty)))
+                    continue;
+                chunk.AddObject(x, y, z, new ObjectCell(id, BlockFace.Top));
+            }
+        }
 
         return chunk;
     }

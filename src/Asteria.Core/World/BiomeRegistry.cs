@@ -1,3 +1,5 @@
+using Asteria.Core.Content;
+
 namespace Asteria.Core.World;
 
 public sealed class BiomeRegistry
@@ -131,7 +133,7 @@ public sealed class BiomeRegistry
             foreach (var decoration in
                      definition.Decorations)
             {
-                if (!decoration.IsLayer)
+                if (!decoration.IsLayer && !decoration.IsObject)
                     RequireBlock(blocks, definition.Id, decoration.Block);
 
                 foreach (var block in
@@ -143,6 +145,19 @@ public sealed class BiomeRegistry
                         block);
                 }
             }
+        }
+    }
+
+    public void ValidateObjects(PackContentRegistry<ObjectDefinition> objects)
+    {
+        ArgumentNullException.ThrowIfNull(objects);
+        foreach (var biome in _definitions)
+        foreach (var rule in biome.Decorations.Where(rule => rule.IsObject))
+        {
+            if (!objects.TryGet(rule.Block, out var definition) || definition is null)
+                throw new ArgumentException($"Biome {biome.Id} refers to an unknown Object {rule.Block}.");
+            if (!definition.Supports(BlockFace.Top))
+                throw new ArgumentException($"Biome {biome.Id} Object {rule.Block} needs top placement.");
         }
     }
 

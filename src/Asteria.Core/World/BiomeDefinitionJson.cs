@@ -751,15 +751,17 @@ public static class BiomeDefinitionJson
                     "decorations entries must be objects.");
             }
 
-            if (value.TryGetProperty("block", out _) &&
-                value.TryGetProperty("layer", out _))
-                throw new FormatException("A decoration cannot be both a block and layer.");
+            var authoredKinds = (value.TryGetProperty("block", out _) ? 1 : 0) +
+                (value.TryGetProperty("layer", out _) ? 1 : 0) +
+                (value.TryGetProperty("object", out _) ? 1 : 0);
+            if (authoredKinds != 1)
+                throw new FormatException("A decoration must have exactly one block, layer or object.");
 
             decorations.Add(
                 new BiomeDecorationDefinition(
                     RequiredString(
                         value,
-                        value.TryGetProperty("layer", out _) ? "layer" : "block"),
+                        value.TryGetProperty("object", out _) ? "object" : value.TryGetProperty("layer", out _) ? "layer" : "block"),
                     RequiredSingle(
                         value,
                         "chance"),
@@ -772,7 +774,8 @@ public static class BiomeDefinitionJson
                     ParseDecorationFluidPlacement(value),
                     ParseDecorationFluidRequirement(value),
                     ParseDecorationSupportSurface(value),
-                    value.TryGetProperty("layer", out _)));
+                    value.TryGetProperty("layer", out _),
+                    value.TryGetProperty("object", out _)));
         }
 
         return decorations;

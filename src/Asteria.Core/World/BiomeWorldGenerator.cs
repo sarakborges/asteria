@@ -1,3 +1,5 @@
+using Asteria.Core.Content;
+
 namespace Asteria.Core.World;
 
 /// <summary>
@@ -62,7 +64,8 @@ public sealed class BiomeWorldGenerator :
         StructureRegistry structures,
         StructureSetRegistry? structureSets = null,
         WorldGenerationOptions? generation = null,
-        AttachedLayerRegistry? layers = null)
+        AttachedLayerRegistry? layers = null,
+        PackContentRegistry<ObjectDefinition>? objects = null)
     {
         ArgumentNullException.ThrowIfNull(dimension);
         ArgumentNullException.ThrowIfNull(blocks);
@@ -76,6 +79,8 @@ public sealed class BiomeWorldGenerator :
         biomes.ValidateFluids(fluids);
         if (layers is not null)
             biomes.ValidateLayers(layers);
+        if (objects is not null)
+            biomes.ValidateObjects(objects);
         structures.ValidateBlocks(blocks);
         structures.ValidateFluids(fluids);
         structureSets.ValidateStructures(
@@ -211,7 +216,8 @@ public sealed class BiomeWorldGenerator :
                 habitats,
                 generateDecorations: generation.Mode != WorldGenerationMode.Void,
                 fluids: fluids,
-                layers: layers);
+                layers: layers,
+                objects: objects);
         var volumeStructures = new VolumeStructureField(
             seed, volumeDefinitions, structures, blocks,
             _terrain, _volumeBiomes, materials,

@@ -1,0 +1,34 @@
+{
+  "id": "asteria:kelp",
+  "category": "foliage",
+  "icon": "textures/objects/kelp.png",
+  "placementFaces": [
+    "top"
+  ],
+  "target": {
+    "size": [
+      0.86,
+      0.96,
+      0.86
+    ],
+    "centerOffset": [
+      0,
+      0.48,
+      0
+    ]
+  },
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/kelp.png",
+    "width": 0.86,
+    "height": 0.96,
+    "planes": 2,
+    "alphaCutoff": 0.5
+  },
+  "positionJitter": [
+    0.08,
+    0.08
+  ],
+  "dropSelf": true,
+  "windSway": true
+}

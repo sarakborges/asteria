@@ -189,7 +189,8 @@ public sealed class DimensionRuntimeSession
                 structures,
                 structureSets,
                 state.Generation,
-                layers);
+                layers,
+                objects);
         _naturalSpawns =
             new CreatureNaturalSpawnRuntime(
                 creatures, biomes, state.NaturalSpawnNextAttemptTick);
