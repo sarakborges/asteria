@@ -19,6 +19,11 @@ public sealed record VoxelStructureChange(
     BlockStateSnapshot? Block,
     FluidCell Fluid);
 
+public sealed record VoxelStructureObjectChange(
+    WorldVoxelCoord Position,
+    WorldVoxelCoord Support,
+    ObjectCell Object);
+
 public sealed class VoxelMutationRuntime
 {
     private readonly VoxelWorld _world;
@@ -187,7 +192,9 @@ public sealed class VoxelMutationRuntime
     /// mutation operation. All input/residency preconditions are checked
     /// before a single cell or dependent queue is changed.
     /// </summary>
-    public bool ApplyStructureChanges(IReadOnlyList<VoxelStructureChange> changes)
+    public bool ApplyStructureChanges(
+        IReadOnlyList<VoxelStructureChange> changes,
+        IReadOnlyList<VoxelStructureObjectChange>? objects = null)
     {
         ArgumentNullException.ThrowIfNull(changes);
         var positions = new HashSet<WorldVoxelCoord>();
@@ -198,6 +205,47 @@ public sealed class VoxelMutationRuntime
                 !_world.IsLoadedAt(change.Position) ||
                 (change.Block is not null && !change.Fluid.IsEmpty))
                 return false;
+        }
+
+        // All Objects must be insertable after staged voxel changes. Capacity,
+        // duplicate identities, support and free target are verified before
+        // either voxels or Objects can mutate the world.
+        if (objects is { Count: > 0 })
+        {
+            var finalCells = changes.ToDictionary(
+                change => change.Position, change => change.Block?.Cell ?? VoxelCell.Empty);
+            var counts = new Dictionary<WorldVoxelCoord, int>();
+            var planned = new HashSet<(WorldVoxelCoord Support, ObjectCell Object)>();
+            foreach (var obj in objects)
+            {
+                if (obj.Position.Y < 0 || obj.Support.Y < 0 ||
+                    !_world.IsLoadedAt(obj.Position) ||
+                    !_world.IsLoadedAt(obj.Support) ||
+                    !planned.Add((obj.Support, obj.Object)))
+                    return false;
+
+                var target = finalCells.TryGetValue(obj.Position, out var stagedTarget)
+                    ? stagedTarget : _world.GetCellOrEmpty(obj.Position);
+                var support = finalCells.TryGetValue(obj.Support, out var stagedSupport)
+                    ? stagedSupport : _world.GetCellOrEmpty(obj.Support);
+                if (!target.IsEmpty || support.IsEmpty)
+                    return false;
+
+                if (!counts.TryGetValue(obj.Support, out var count))
+                {
+                    if (!_world.TryGetObjects(obj.Support, out var existing))
+                        return false;
+                    var supportChanged = finalCells.TryGetValue(obj.Support, out var next) &&
+                        next.Block != _world.GetCellOrEmpty(obj.Support).Block;
+                    if (!supportChanged && existing.Contains(obj.Object))
+                        return false;
+                    count = supportChanged ? 0 : existing.Count;
+                }
+                count++;
+                if (count > Chunk.MaximumObjectsPerSupport)
+                    return false;
+                counts[obj.Support] = count;
+            }
         }
 
         // Structures are committed as a batch: preflight combined Object
@@ -249,6 +297,14 @@ public sealed class VoxelMutationRuntime
                     throw new InvalidOperationException(
                         $"Validated structure fluid mutation failed at {change.Position}.");
             }
+        }
+
+        if (objects is not null)
+        {
+            foreach (var obj in objects)
+                if (!AddObjectAt(obj.Support, obj.Object))
+                    throw new InvalidOperationException(
+                        $"Validated Structure Object could not attach at {obj.Support}.");
         }
 
         return true;
