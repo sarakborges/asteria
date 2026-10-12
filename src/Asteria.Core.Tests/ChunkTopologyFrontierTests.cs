@@ -260,6 +260,53 @@ public sealed class ChunkTopologyFrontierTests
     }
 
     [Fact]
+    public void RetirementSkipsDarkHorizontalSeamsButKeepsEmittedLight()
+    {
+        var world = new VoxelWorld();
+        var chunk = new Chunk();
+        world.InsertChunk(ChunkCoord.Zero, chunk);
+        var retired = new ChunkCoord(1, 0, 0);
+        var position = new WorldVoxelCoord(Chunk.Size - 1, 5, 5);
+
+        Assert.False(ChunkTopologyFrontier.NeedsRetirementSeamLightSeed(
+            world, retired, position));
+
+        chunk.SetLight(Chunk.Size - 1, 5, 5, new VoxelLight(0, 12, 0, 0));
+        Assert.True(ChunkTopologyFrontier.NeedsRetirementSeamLightSeed(
+            world, retired, position));
+    }
+
+    [Fact]
+    public void RetirementRetainsPotentialSkylightOpeningBelowMissingRoof()
+    {
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, new Chunk());
+        var top = new WorldVoxelCoord(5, Chunk.Size - 1, 5);
+
+        // A dark lower column may brighten after removing its upper chunk.
+        Assert.True(ChunkTopologyFrontier.NeedsRetirementSeamLightSeed(
+            world, new ChunkCoord(0, 1, 0), top));
+
+        // A fully sky-lit voxel without emissive RGB cannot change.
+        world.GetChunk(ChunkCoord.Zero).SetLight(
+            5, Chunk.Size - 1, 5, new VoxelLight(15, 0, 0, 0));
+        Assert.False(ChunkTopologyFrontier.NeedsRetirementSeamLightSeed(
+            world, new ChunkCoord(0, 1, 0), top));
+    }
+
+    [Fact]
+    public void RetirementOfLowerChunkSkipsAlreadyDarkUpperSeams()
+    {
+        var world = new VoxelWorld();
+        var upper = new ChunkCoord(0, 1, 0);
+        world.InsertChunk(upper, new Chunk());
+        var bottom = new WorldVoxelCoord(5, Chunk.Size, 5);
+
+        Assert.False(ChunkTopologyFrontier.NeedsRetirementSeamLightSeed(
+            world, ChunkCoord.Zero, bottom));
+    }
+
+    [Fact]
     public void AddedChunkInvalidatesOnlyContentRelevantNeighborMeshes()
     {
         var blocks =
