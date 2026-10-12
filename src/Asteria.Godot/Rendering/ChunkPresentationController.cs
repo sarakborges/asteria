@@ -139,6 +139,13 @@ public sealed class ChunkPresentationController
             out var presentation) &&
         presentation.IsFullyPublished;
 
+    public bool NeedsPriorityInitialTerrainPublication(
+        ChunkCoord coord,
+        int meshletIndex) =>
+        _presentations.TryGetValue(coord, out var presentation) &&
+        presentation.IsVisible &&
+        !presentation.IsTerrainMeshletPublished(meshletIndex);
+
     public int ReservePending(
         ChunkResidencyRuntime residency,
         int maximumPerFrame,
@@ -248,10 +255,16 @@ public sealed class ChunkPresentationController
         foreach (var (coord, presentation) in
                  _presentations)
         {
+            var wasVisible = presentation.IsVisible;
             presentation.SetVisible(
                 residency.ShouldPresentationBeVisible(
                     coord,
-                    presentation.IsVisible));
+                    wasVisible));
+            if (!wasVisible && presentation.IsVisible)
+            {
+                _worldUpdates.PromoteBackgroundMeshlets(
+                    coord, presentation.UnpublishedTerrainMeshlets);
+            }
             presentation.SetPhysicsEnabled(
                 presentation.IsVisible &&
                 residency.ShouldPresentationHaveCollision(coord));
