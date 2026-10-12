@@ -46,3 +46,10 @@ test("save failure confirmation is accessible and remains visible above other UI
   await page.keyboard.press("Tab");
   await expect(dialog.getByRole("button", { name: "Keep Playing" })).toBeFocused();
 });
+
+test("pause menu exposes exit-only saving without Save World", async ({ page }) => {
+  await page.goto("/iframe.html?id=pages-pausemenupage--default&viewMode=story");
+  await expect(page.locator(".pause-menu")).toBeVisible();
+  await expect(page.locator(".pause-menu__actions .ui-button")).toHaveCount(6);
+  await expect(page.getByRole("button", { name: "Save World" })).toHaveCount(0);
+});

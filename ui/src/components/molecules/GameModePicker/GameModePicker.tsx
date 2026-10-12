@@ -17,6 +17,7 @@ export function GameModePicker({ value, disabled = false, onChange }: GameModePi
     <ModePicker
       value={value}
       modes={GAME_MODES}
+      className="game-mode-picker"
       label={t("settings.gameMode")}
       labelFor={mode => t("settings.gameMode." + mode.toLowerCase())}
       disabled={disabled}
