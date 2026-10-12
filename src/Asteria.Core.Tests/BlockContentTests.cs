@@ -98,40 +98,35 @@ public sealed class BlockContentTests
         Assert.Equal(InventoryEntryKind.Item, pebble.RewardEntry.Kind);
         Assert.Equal(0.14f, pebble.Target.Size.Y);
 
-        var stick =
-            registry.GetDefinition(registry.GetId("asteria:stick"));
-        Assert.Equal(BlockVisualKind.GroundSprite, stick.Visual.Kind);
-        Assert.Equal(0.68f, stick.Visual.Width);
-        Assert.Equal("textures/items/stick.png",
-            stick.Visual.Texture!.Value.Texture);
-        Assert.True(stick.HasTag(BlockPhysicsCapabilities.SupportBelow));
-        Assert.True(stick.DropsSelf);
-        Assert.False(stick.IsCollidable);
-        Assert.Equal(BlockInteractionKind.Pickup, stick.Interaction);
-        Assert.Equal("asteria:stick", stick.PickupItemId);
-        Assert.Equal(0.12f, stick.Visual.TargetHeight);
+        Assert.False(registry.TryGetId("asteria:stick", out _));
+        var stick = Asteria.Core.Content.ObjectDefinition.Parse(
+            File.ReadAllText(Path.Combine(AppContext.BaseDirectory,
+                "packs", "default", "data", "objects", "stick.json")));
+        Assert.Equal(Asteria.Core.Content.ObjectVisualKind.ExtrudedSprite,
+            stick.Visual.Kind);
+        Assert.Equal(.68f, stick.Visual.Width);
+        Assert.Equal("textures/items/stick.png", stick.Visual.Texture);
+        Assert.True(stick.Supports(BlockFace.Top));
+        Assert.True(stick.DropSelf);
+        Assert.Equal(Asteria.Core.Content.ObjectInteraction.Pickup, stick.Interaction);
+        Assert.Equal("asteria:stick", stick.PickupItem);
+        Assert.Equal(InventoryEntryKind.Item, stick.RewardEntry.Kind);
+        Assert.Equal(.12f, stick.Target.Size.Y);
 
-        foreach (var mushroomId in
-                 new[]
-                 {
-                     "asteria:mushroom_green",
-                     "asteria:mushroom_yellow",
-                 })
+        foreach (var mushroomId in new[]
         {
-            var mushroom =
-                registry.GetDefinition(
-                    registry.GetId(
-                        mushroomId));
-            Assert.Equal(
-                BlockVisualKind.CrossedSprite,
+            "asteria:mushroom_green", "asteria:mushroom_yellow"
+        })
+        {
+            Assert.False(registry.TryGetId(mushroomId, out _));
+            var mushroom = Asteria.Core.Content.ObjectDefinition.Parse(
+                File.ReadAllText(Path.Combine(AppContext.BaseDirectory,
+                    "packs", "default", "data", "objects",
+                    mushroomId["asteria:".Length..] + ".json")));
+            Assert.Equal(Asteria.Core.Content.ObjectVisualKind.CrossedSprite,
                 mushroom.Visual.Kind);
-            Assert.False(
-                mushroom.IsCollidable);
-            Assert.True(
-                mushroom.DropsSelf);
-            Assert.True(
-                mushroom.HasTag(
-                    BlockPhysicsCapabilities.SupportBelow));
+            Assert.True(mushroom.DropSelf);
+            Assert.True(mushroom.Supports(BlockFace.Top));
         }
 
         var objectCatalog = Asteria.Core.Content.PackContentRegistry<Asteria.Core.Content.ObjectDefinition>
