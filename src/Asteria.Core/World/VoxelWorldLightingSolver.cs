@@ -51,63 +51,28 @@ public static class VoxelWorldLightingSolver
         ArgumentNullException.ThrowIfNull(fluids);
         ArgumentNullException.ThrowIfNull(editedPositions);
 
-        var queue = new DeduplicatedQueue<WorldVoxelCoord>();
-        var changed = new HashSet<WorldVoxelCoord>(); // Final voxel differences
-        var directSky =
-            new DirectSkyContext(
-                world,
-                blocks,
-                fluids);
-
+        // First remove stale illumination, then restore light monotonically.
+        // The previous single queue reduced light one level at a time and
+        // revisited the same voxel repeatedly across large neighborhoods.
+        var darkening = new DeduplicatedQueue<WorldVoxelCoord>();
+        var brightening = new DeduplicatedQueue<WorldVoxelCoord>();
+        var originals = new Dictionary<WorldVoxelCoord, VoxelLight>();
+        var directSky = new DirectSkyContext(world, blocks, fluids);
         foreach (var position in editedPositions)
         {
-            EnqueueWithNeighbors(world, queue, position);
+            EnqueueWithNeighbors(world, darkening, position);
+            EnqueueWithNeighbors(world, brightening, position);
         }
 
-        var processed = 0;
-
-        while (queue.TryDequeue(out var position))
-        {
-            var address = VoxelCoordinates.FromWorld(
-                position.X, position.Y, position.Z);
-            if (!world.TryGetChunk(address.Chunk, out var chunk))
-            {
-                continue;
-            }
-
-            var local = address.Local;
-            var cell = chunk.GetCell(local.X, local.Y, local.Z);
-            var fluid = chunk.GetFluid(local.X, local.Y, local.Z);
-            var current = chunk.GetLight(local.X, local.Y, local.Z);
-
-            processed++;
-            var desired = DesiredLight(
-                world,
-                blocks,
-                fluids,
-                directSky,
-                position,
-                chunk,
-                local,
-                cell,
-                fluid);
-
-            if (desired == current)
-            {
-                continue;
-            }
-
-            chunk.SetLight(local.X, local.Y, local.Z, desired);
-            changed.Add(position);
-
-            EnqueueWithNeighbors(
-                world,
-                queue,
-                position);
-        }
-
+        var processed = RemoveStaleLight(
+            world, blocks, fluids, directSky,
+            darkening, brightening, originals);
+        processed += RestoreLight(
+            world, blocks, fluids, directSky, brightening, originals);
         return new VoxelLightingUpdateResult(
-            changed
+            originals
+                .Where(entry => world.GetLightOrDark(entry.Key) != entry.Value)
+                .Select(entry => entry.Key)
                 .OrderBy(position => position.Y)
                 .ThenBy(position => position.Z)
                 .ThenBy(position => position.X)
