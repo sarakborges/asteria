@@ -32,6 +32,51 @@ public sealed class VolcanoBiomeContentTests
         Assert.NotNull(biome.SurfaceHabitats);
     }
 
+    [Theory]
+    [InlineData(1.0f, 128)]
+    [InlineData(0.5f, 72)]
+    public void ScorchedWastesHasAContinuousInteriorWideEnoughForTheVolcano(
+        float biomeSize, int minimumInteriorWidth)
+    {
+        var directory = Path.Combine(PackData, "biomes");
+        var biomes = BiomeRegistry.FromJson(
+            Directory.EnumerateFiles(directory, "*.json")
+                .OrderBy(x => x, StringComparer.Ordinal)
+                .Select(File.ReadAllText));
+        var dimension = DimensionDefinitionJson.Parse(
+            File.ReadAllText(Path.Combine(
+                PackData, "dimensions", "overworld.json")));
+        const string scorched = "asteria:overworld/scorched_wastes";
+        var field = new BiomeField(0xA57E2026UL, dimension, biomes,
+            biomeSizeMultiplier: biomeSize);
+        var target = field.FindNearestSurfaceBiome(
+            scorched, 0, 0, 6144);
+        Assert.NotNull(target);
+
+        var sampler = field.CreateSampler();
+        var longestRun = 0;
+        for (var z = target.Z - 192; z <= target.Z + 192; z += 8)
+        {
+            var run = 0;
+            for (var x = target.X - 192; x <= target.X + 192; x += 8)
+            {
+                if (sampler.Sample(x, z).Primary == scorched)
+                {
+                    run++;
+                    longestRun = Math.Max(longestRun, run);
+                }
+                else
+                {
+                    run = 0;
+                }
+            }
+        }
+
+        Assert.True(longestRun * 8 >= minimumInteriorWidth,
+            $"Scorched Wastes collapsed to a narrow strip: longest continuous " +
+            $"row was {longestRun * 8} blocks (biome size {biomeSize}).");
+    }
+
     [Fact]
     public void VolcanoUsesOnlyNativeStructuresAndFourExplicitConnectors()
     {

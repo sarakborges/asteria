@@ -156,7 +156,8 @@ internal static class WorldObjectModelMesh
         material.SetShaderParameter("object_texture", texture);
         material.SetShaderParameter("alpha_cutoff",
             source?.AlphaScissorThreshold ?? .5f);
-        material.SetShaderParameter("model_albedo_color", albedo);
+        material.SetShaderParameter("model_albedo_color",
+            new Vector3(albedo.R, albedo.G, albedo.B));
         return material;
     }
 

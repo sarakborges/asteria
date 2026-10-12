@@ -1115,6 +1115,57 @@ public sealed class BiomeField
             }
         }
 
+        // regionSize.min is a real landmass constraint, not merely a
+        // probabilistic continuation weight. For large authored regions,
+        // preserve an already established formation throughout its central
+        // area before permitting a different biome seed to fragment it.
+        // Respect cannotBorder through the eligible set; independent roots
+        // retain deterministic priority based on their relative proximity.
+        SeedAssignment? protectedCore = null;
+        var bestCoreStrength = 0d;
+        foreach (var neighbor in established)
+        {
+            var region = _rules[neighbor.Rule];
+            if (!region.HasMinimumCore)
+                continue;
+            var regionMin = region.RegionMin;
+
+            var eligibleNeighbor = false;
+            for (var index = 0; index < eligibleCount; index++)
+            {
+                if (eligible[index] == neighbor.Rule)
+                {
+                    eligibleNeighbor = true;
+                    break;
+                }
+            }
+
+            if (!eligibleNeighbor)
+                continue;
+
+            var radius = Math.Min(
+                regionMin * 0.48d,
+                _seedSpacing * (CompatibilityRadiusBuckets - 0.5d));
+            var dx = (double)bucket.X - neighbor.Root.X;
+            var dz = (double)bucket.Z - neighbor.Root.Z;
+            var distance = Math.Sqrt(dx * dx + dz * dz) * _seedSpacing;
+            var strength = 1d - distance / radius;
+            if (strength > bestCoreStrength ||
+                (strength > 0d &&
+                 strength == bestCoreStrength &&
+                 protectedCore is { } prior &&
+                 (neighbor.Root.X < prior.Root.X ||
+                  (neighbor.Root.X == prior.Root.X &&
+                   neighbor.Root.Z < prior.Root.Z))))
+            {
+                protectedCore = neighbor;
+                bestCoreStrength = strength;
+            }
+        }
+
+        if (protectedCore is { } owner)
+            return owner;
+
         SeedAssignment assignment;
 
         if (eligibleCount == 0)
@@ -1697,7 +1748,8 @@ public sealed class BiomeField
             uint regionMin,
             uint regionMax,
             HashSet<string> cannotBorder,
-            GenerationDomain targetDomain)
+            GenerationDomain targetDomain,
+            bool hasMinimumCore)
         {
             Id = id;
             WeightUnits = weightUnits;
@@ -1706,6 +1758,7 @@ public sealed class BiomeField
             RegionMax = regionMax;
             CannotBorder = cannotBorder;
             TargetDomain = targetDomain;
+            HasMinimumCore = hasMinimumCore;
         }
 
         public string Id { get; }
@@ -1721,6 +1774,10 @@ public sealed class BiomeField
         public HashSet<string> CannotBorder { get; }
 
         public GenerationDomain TargetDomain { get; }
+
+        // Large authored regions retain a coherent inner landmass, including
+        // when world settings scale the biome down.
+        public bool HasMinimumCore { get; }
 
         public static BiomeRule Create(
             BiomeFieldRuleSource source,
@@ -1755,7 +1812,8 @@ public sealed class BiomeField
                     StringComparer.Ordinal),
                 GenerationDomain.Named(
                     "biome-layout/formation-target/v2/" +
-                    source.Id));
+                    source.Id),
+                layout.RegionMin >= 384u);
         }
     }
 
