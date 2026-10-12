@@ -25,34 +25,35 @@ internal sealed class MiningParticlePresentation
         }
 
         void fragment() {
-            if (abs(chip_layers.x) < 0.5) {
-                // Only for valid textureless authored content.
-                ALBEDO = vec3(0.73, 0.70, 0.64);
-                return;
+            // Textureless content keeps the authored neutral chip color.
+            vec3 result_rgb = vec3(0.73, 0.70, 0.64);
+            float opacity = 1.0;
+
+            if (abs(chip_layers.x) >= 0.5) {
+                // Sample a different pixel patch for each fragment instead of
+                // squeezing an entire 64px face across a 3-8cm particle.
+                vec2 offset = vec2(
+                    fract(chip_seed * 0.61803398875),
+                    fract(chip_seed * 0.41421356237));
+                vec2 sample_uv = fract(UV * 0.25 + offset);
+                float base_layer = abs(chip_layers.x) - 1.0;
+                vec4 base = texture(terrain_textures,
+                    vec3(sample_uv, base_layer));
+                vec3 base_rgb = base.rgb *
+                    (chip_layers.x < 0.0 ? chip_tint : vec3(1.0));
+                result_rgb = base_rgb;
+                opacity = base.a;
+
+                if (abs(chip_layers.y) >= 0.5) {
+                    vec4 overlay = texture(terrain_textures,
+                        vec3(sample_uv, abs(chip_layers.y) - 1.0));
+                    vec3 upper_rgb = overlay.rgb *
+                        (chip_layers.y < 0.0 ? chip_tint : vec3(1.0));
+                    result_rgb = mix(base_rgb, upper_rgb, overlay.a);
+                    opacity = max(base.a, overlay.a);
+                }
             }
 
-            // Sample a different pixel patch for each fragment instead of
-            // squeezing an entire 64px face across a 3-8cm particle.
-            vec2 offset = vec2(
-                fract(chip_seed * 0.61803398875),
-                fract(chip_seed * 0.41421356237));
-            vec2 sample_uv = fract(UV * 0.25 + offset);
-            float base_layer = abs(chip_layers.x) - 1.0;
-            vec4 base = texture(terrain_textures,
-                vec3(sample_uv, base_layer));
-            vec3 base_rgb = base.rgb *
-                (chip_layers.x < 0.0 ? chip_tint : vec3(1.0));
-            vec3 result_rgb = base_rgb;
-            float opacity = base.a;
-
-            if (abs(chip_layers.y) >= 0.5) {
-                vec4 overlay = texture(terrain_textures,
-                    vec3(sample_uv, abs(chip_layers.y) - 1.0));
-                vec3 upper_rgb = overlay.rgb *
-                    (chip_layers.y < 0.0 ? chip_tint : vec3(1.0));
-                result_rgb = mix(base_rgb, upper_rgb, overlay.a);
-                opacity = max(base.a, overlay.a);
-            }
             ALBEDO = result_rgb;
             ALPHA = opacity;
             ALPHA_SCISSOR_THRESHOLD = 0.1;
