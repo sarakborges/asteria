@@ -43,18 +43,32 @@ internal sealed class WorldObjectVisualCatalog
 
         var mesh = surface.Commit() ??
             throw new InvalidOperationException($"Object {definition.Id} generated no mesh.");
-        var material = new StandardMaterial3D
+        // Match the voxel terrain's light model. StandardMaterial3D's
+        // physical lights cannot see our propagated skylight/block light.
+        Material material;
+        if (definition.Unlit)
         {
-            AlbedoTexture = texture,
-            VertexColorUseAsAlbedo = definition.Tint != BlockTint.None,
-            ShadingMode = definition.Unlit
-                ? BaseMaterial3D.ShadingModeEnum.Unshaded
-                : BaseMaterial3D.ShadingModeEnum.PerPixel,
-            Transparency = BaseMaterial3D.TransparencyEnum.AlphaScissor,
-            AlphaScissorThreshold = visual.AlphaCutoff,
-            TextureFilter = BaseMaterial3D.TextureFilterEnum.Nearest,
-            CullMode = BaseMaterial3D.CullModeEnum.Disabled,
-        };
+            material = new StandardMaterial3D
+            {
+                AlbedoTexture = texture,
+                VertexColorUseAsAlbedo = definition.Tint != BlockTint.None,
+                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                Transparency = BaseMaterial3D.TransparencyEnum.AlphaScissor,
+                AlphaScissorThreshold = visual.AlphaCutoff,
+                TextureFilter = BaseMaterial3D.TextureFilterEnum.Nearest,
+                CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+            };
+        }
+        else
+        {
+            var shader = ResourceLoader.Load<Shader>(
+                "res://shaders/voxel_object.gdshader")
+                ?? throw new FileNotFoundException("Missing voxel object shader.");
+            var voxelMaterial = new ShaderMaterial { Shader = shader };
+            voxelMaterial.SetShaderParameter("object_texture", texture);
+            voxelMaterial.SetShaderParameter("alpha_cutoff", visual.AlphaCutoff);
+            material = voxelMaterial;
+        }
         mesh.SurfaceSetMaterial(0, material);
         _meshes.Add(definition.Id, mesh);
         return mesh;

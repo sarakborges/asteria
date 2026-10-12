@@ -106,7 +106,8 @@ public sealed class ChunkPresentationController
             }
             if (_presentations.TryGetValue(coord, out var presentation) &&
                 _world.TryGetChunk(coord, out var chunk))
-                presentation.ApplyObjects(chunk, _objects, _objectVisuals, _objectTints);
+                presentation.ApplyObjects(chunk, _world,
+                    _objects, _objectVisuals, _objectTints);
             processed++;
         }
         return processed;
@@ -392,6 +393,11 @@ public sealed class ChunkPresentationController
                 pending.Meshlet.Data,
                 _terrainMaterials,
                 pending.Dependencies);
+            // Object mesh resources stay stable; refresh only per-instance
+            // voxel-light channels after a changed terrain-light publication.
+            if (_world.TryGetChunk(pending.Meshlet.Coord, out var updated) &&
+                updated.ObjectCount > 0)
+                _pendingObjects.Enqueue(pending.Meshlet.Coord);
             published++;
         }
 

@@ -23,6 +23,8 @@ public sealed class ChunkPresentation
     private ulong _objectRevision = ulong.MaxValue;
     private readonly Dictionary<string, MultiMeshInstance3D> _objectBatches =
         new(StringComparer.Ordinal);
+    private readonly Dictionary<string, WorldVoxelCoord[]> _objectLightPositions =
+        new(StringComparer.Ordinal);
 
     public ChunkPresentation(ChunkCoord coord)
     {
@@ -75,12 +77,17 @@ public sealed class ChunkPresentation
     /// <summary>One MultiMesh per object definition per chunk, never one
     /// Godot node per ObjectCell. ObjectRevision gates the entire rebuild.</summary>
     internal void ApplyObjects(
-        Chunk chunk, PackContentRegistry<ObjectDefinition> definitions,
+        Chunk chunk, VoxelWorld world,
+        PackContentRegistry<ObjectDefinition> definitions,
         WorldObjectVisualCatalog visuals, BiomeTintField tints)
     {
-        if (_objectRevision == chunk.ObjectRevision) return;
+        if (_objectRevision == chunk.ObjectRevision)
+        {
+            RefreshObjectLighting(world);
+            return;
+        }
         var groups = new SortedDictionary<string, List<(Transform3D Transform,
-            System.Numerics.Vector3 Color)>>(StringComparer.Ordinal);
+            System.Numerics.Vector3 Color, WorldVoxelCoord LightPosition)>>(StringComparer.Ordinal);
         BiomeTintSampleGrid? tintSamples = null;
         var origin = new Vector3(Root.Position.X, Root.Position.Y, Root.Position.Z);
         chunk.VisitObjectCells((x, y, z, cell) =>
@@ -107,12 +114,15 @@ public sealed class ChunkPresentation
                 tint = tintSamples.Resolve(definition.Tint, definition.TintFallback,
                     worldX, worldZ);
             }
-            batch.Add((transform, tint));
+            batch.Add((transform, tint,
+                WorldObjectLighting.SamplePosition(
+                    new WorldVoxelCoord(worldX, worldY, worldZ), cell.Face)));
         });
 
         // Resource acquisition happens before old nodes are retired; an
         // invalid authored texture cannot silently erase existing geometry.
         var replacements = new Dictionary<string, MultiMeshInstance3D>(StringComparer.Ordinal);
+        var samplePositions = new Dictionary<string, WorldVoxelCoord[]>(StringComparer.Ordinal);
         foreach (var (id, instances) in groups)
         {
             var definition = definitions.Get(id);
@@ -122,6 +132,7 @@ public sealed class ChunkPresentation
             {
                 TransformFormat = MultiMesh.TransformFormatEnum.Transform3D,
                 UseColors = tinted,
+                UseCustomData = !definition.Unlit,
                 Mesh = mesh,
                 InstanceCount = instances.Count,
             };
@@ -133,7 +144,14 @@ public sealed class ChunkPresentation
                     var tint = instances[i].Color;
                     multimesh.SetInstanceColor(i, new Color(tint.X, tint.Y, tint.Z));
                 }
+                if (!definition.Unlit)
+                    multimesh.SetInstanceCustomData(i,
+                        WorldObjectLighting.ToInstanceColor(
+                            world.GetLightOrDark(instances[i].LightPosition)));
             }
+            if (!definition.Unlit)
+                samplePositions.Add(id,
+                    instances.Select(instance => instance.LightPosition).ToArray());
             replacements.Add(id, new MultiMeshInstance3D
             {
                 Name = $"WorldObjects_{id.Replace(':', '_')}",
@@ -144,12 +162,27 @@ public sealed class ChunkPresentation
         foreach (var current in _objectBatches.Values)
             current.QueueFree();
         _objectBatches.Clear();
+        _objectLightPositions.Clear();
+        foreach (var (id, samples) in samplePositions)
+            _objectLightPositions.Add(id, samples);
         foreach (var (id, instance) in replacements)
         {
             _objectBatches.Add(id, instance);
             Root.AddChild(instance);
         }
         _objectRevision = chunk.ObjectRevision;
+    }
+
+    private void RefreshObjectLighting(VoxelWorld world)
+    {
+        foreach (var (id, samples) in _objectLightPositions)
+        {
+            var multiMesh = _objectBatches[id].Multimesh;
+            for (var i = 0; i < samples.Length; i++)
+                multiMesh.SetInstanceCustomData(i,
+                    WorldObjectLighting.ToInstanceColor(
+                        world.GetLightOrDark(samples[i])));
+        }
     }
 
     public void Retire()
