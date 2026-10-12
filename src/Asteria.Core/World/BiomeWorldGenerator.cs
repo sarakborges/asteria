@@ -322,12 +322,14 @@ public sealed class BiomeWorldGenerator :
             string biomeId,
             int originX,
             int originZ,
-            int maxDistance) =>
+            int maxDistance,
+            CancellationToken cancellationToken = default) =>
         Biomes.FindNearestSurfaceBiome(
             biomeId,
             originX,
             originZ,
-            maxDistance);
+            maxDistance,
+            cancellationToken);
 
     public GeneratedSurfaceDestination?
         FindGeneratedSurfaceDestination(
@@ -399,13 +401,15 @@ public sealed class BiomeWorldGenerator :
             int originX,
             int originZ,
             int maxDistance,
-            string? structureId = null) =>
+            string? structureId = null,
+            CancellationToken cancellationToken = default) =>
         _surfaceStructures.FindNearest(
             reference,
             originX,
             originZ,
             maxDistance,
-            structureId);
+            structureId,
+            cancellationToken);
 
     public Chunk Materialize(ChunkCoord coord) =>
         _materializer.Materialize(coord);

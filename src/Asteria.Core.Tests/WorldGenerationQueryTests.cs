@@ -5,6 +5,23 @@ namespace Asteria.Core.Tests;
 public sealed class WorldGenerationQueryTests
 {
     [Fact]
+    public void LocateScaleGeneratorQueriesRespectCancellation()
+    {
+        var generator = StructuredGenerator(987UL);
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        Assert.Throws<OperationCanceledException>(() =>
+            generator.FindNearestSurfaceBiome(
+                "asteria:test/flat", 0, 0, 32_768,
+                cancellation.Token));
+        Assert.Throws<OperationCanceledException>(() =>
+            generator.FindNearestSurfaceStructure(
+                "asteria:test_marker", 0, 0, 32_768,
+                cancellationToken: cancellation.Token));
+    }
+
+    [Fact]
     public void SurfaceBiomeSearchFindsTheOtherActiveBiomeWithinBound()
     {
         var first =

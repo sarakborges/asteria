@@ -3,12 +3,17 @@ using Asteria.Core.World;
 namespace Asteria.Client.Gameplay;
 
 /// <summary>
-/// Bounded generated-world search performed without blocking Godot. The
-/// owning generator identity rejects results after a Sphere transition.
+/// Generated-world locate queries run off the Godot thread. Obsolete searches
+/// are cancelled when their Sphere's generator is no longer active.
 /// </summary>
 public sealed class ChatLocateController
 {
+    // Locate is a generated-world query, independent of chunk residency and
+    // render distance. Keep its search limit aligned with MineClone.
+    public const int MaxSearchRadius = 32_768;
+
     private Task<ChatLocateResult?>? _pending;
+    private CancellationTokenSource? _cancellation;
     private BiomeWorldGenerator? _generator;
     private string _query = "";
 
@@ -26,26 +31,30 @@ public sealed class ChatLocateController
                 ChatCommandKind.LocateBiome or ChatCommandKind.LocateStructure))
             return false;
 
+        var cancellation = new CancellationTokenSource();
+        var token = cancellation.Token;
+        _cancellation = cancellation;
         _generator = generator;
         _query = id;
-        const int radius = 512;
         _pending = Task.Run(() =>
         {
+            token.ThrowIfCancellationRequested();
             if (kind == ChatCommandKind.LocateBiome)
             {
                 var found = generator.FindNearestSurfaceBiome(
-                    id, worldX, worldZ, radius);
+                    id, worldX, worldZ, MaxSearchRadius, token);
+                token.ThrowIfCancellationRequested();
                 return found is null ? null : new ChatLocateResult(
                     id, found.X, generator.SurfaceHeight(found.X, found.Z),
                     found.Z);
             }
 
             var structure = generator.FindNearestSurfaceStructure(
-                id, worldX, worldZ, radius);
+                id, worldX, worldZ, MaxSearchRadius, structureId, token);
             return structure is null ? null : new ChatLocateResult(
                 id, structure.Value.AnchorX,
                 structure.Value.AnchorY, structure.Value.AnchorZ);
-        });
+        }, token);
         return true;
     }
 
@@ -60,20 +69,27 @@ public sealed class ChatLocateController
         error = null;
         stale = false;
         searchedId = "";
-        if (_pending is not { IsCompleted: true } pending) return false;
-        searchedId = _query;
+        if (_pending is not { } pending) return false;
+
         stale = !ReferenceEquals(active, _generator);
+        if (!stale && !pending.IsCompleted) return false;
+
+        searchedId = _query;
+        if (stale) _cancellation?.Cancel();
+        _cancellation?.Dispose();
+        _cancellation = null;
         _pending = null;
         _generator = null;
         _query = "";
+
+        if (stale) return true;
         try
         {
-            var result = pending.GetAwaiter().GetResult();
-            if (!stale) found = result;
+            found = pending.GetAwaiter().GetResult();
         }
         catch (Exception exception)
         {
-            if (!stale) error = exception.Message;
+            error = exception.Message;
         }
         return true;
     }

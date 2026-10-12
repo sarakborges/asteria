@@ -3507,7 +3507,8 @@ public partial class Main : Node3D
         else
         {
             ChatFeedback("chat.command.locate.notFound", error: true,
-                ("name", searchedId), ("radius", "512"));
+                ("name", searchedId),
+                ("radius", ChatLocateController.MaxSearchRadius.ToString()));
         }
 
         _chatFeedbackSeconds = 10.0;

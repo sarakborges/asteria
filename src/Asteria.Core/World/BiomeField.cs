@@ -432,7 +432,8 @@ public sealed class BiomeField
             string biomeId,
             int originX,
             int originZ,
-            int maxDistance)
+            int maxDistance,
+            CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(
             biomeId);
@@ -443,6 +444,8 @@ public sealed class BiomeField
                 nameof(maxDistance),
                 "Biome search distance must be non-negative.");
         }
+
+        cancellationToken.ThrowIfCancellationRequested();
 
         var targetRule =
             Array.FindIndex(
@@ -507,6 +510,7 @@ public sealed class BiomeField
              ring <= bucketRadius;
              ring++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             foreach (var bucket in
                      RingBuckets(
                          originBucket,

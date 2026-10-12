@@ -411,7 +411,8 @@ public sealed class SurfaceStructureField
             int originX,
             int originZ,
             int maxDistance,
-            string? structureId = null)
+            string? structureId = null,
+            CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(
             reference);
@@ -421,6 +422,7 @@ public sealed class SurfaceStructureField
                 nameof(maxDistance));
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         StructureCandidate? best = null;
         long bestDistanceSquared = long.MaxValue;
         var maximumDistanceSquared =
@@ -430,6 +432,7 @@ public sealed class SurfaceStructureField
              ruleIndex < _rules.Length;
              ruleIndex++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var rule = _rules[ruleIndex];
             if (!string.Equals(
                     rule.Reference,
@@ -541,6 +544,7 @@ public sealed class SurfaceStructureField
                  cellZ <= maximumCellZ;
                  cellZ++)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 for (var cellX = minimumCellX;
                      cellX <= maximumCellX;
                      cellX++)
