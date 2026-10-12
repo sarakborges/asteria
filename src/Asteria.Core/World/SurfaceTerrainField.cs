@@ -703,12 +703,21 @@ public sealed class SurfaceTerrainField
     {
         // A higher neighboring biome must not raise terrain outside its
         // own boundary. Its slope grows only after it becomes primary.
-        var primaryHeight =
-            _surfaceRules[sample.Primary].HeightOffsetAt(
-                _seed,
-                worldX,
-                worldZ,
-                sample.PrimaryTerrainStrength);
+        var primaryRule = _surfaceRules[sample.Primary];
+        var primaryHeight = primaryRule.HeightOffsetAt(
+            _seed,
+            worldX,
+            worldZ,
+            sample.PrimaryTerrainStrength);
+
+        // Self-tapering landforms already meet the surrounding ground through
+        // formation strength. Do not blend them down a second time based on
+        // competing biome weights: that erases their actual slopes.
+        if (primaryRule.TapersFromFormationStrength)
+        {
+            return primaryHeight;
+        }
+
         var lowerHeightSum = 0d;
         var lowerWeightSum = 0d;
         var strongestLowerWeight = 0d;
