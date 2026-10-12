@@ -198,7 +198,7 @@
     {
       "block": "asteria:basalt_spike",
       "surfaceBiomes": [
-        "asteria:overworld/volcano"
+        "asteria:overworld/scorched_wastes"
       ],
       "chance": 0.32,
       "minHeight": 2,
