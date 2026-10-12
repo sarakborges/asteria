@@ -2661,18 +2661,34 @@ public partial class Main : Node3D
     }
 
     private object? InventorySlotView(InventoryStack? stack) =>
-        stack is null ? null : new
+        InventorySlotPresentation(stack, includeDefaultIcon: false);
+
+    private object? HotbarSlotView(InventoryStack? stack) =>
+        InventorySlotPresentation(stack, includeDefaultIcon: true);
+
+    private object? InventorySlotPresentation(
+        InventoryStack? stack, bool includeDefaultIcon)
+    {
+        if (stack is null) return null;
+        var customBlockState = stack.Block is { } state &&
+            (state.HasMicroblockGeometry ||
+             state.SurfaceState.Layers.Count > 0 ||
+             state.Cell != new VoxelCell(state.Cell.Block));
+        return new
         {
             id = stack.Id,
             kind = stack.Kind.ToString().ToLowerInvariant(),
             quantity = stack.Quantity,
             metadata = stack.Entry.Metadata,
             durability = EquipmentDurabilityView(stack),
-            // Dynamic stacks carry their own full block state, not the
-            // creative catalog's canonical empty-mask block snapshot.
-            blockPreview = BlockPreviewForInventory(stack.Entry),
-            iconUrl = InventoryIconForEntry(stack.Entry),
+            // Catalog icons are resolved client-side. Only authored state
+            // variants send additional PNGs; the HUD needs its own baseline.
+            blockPreview = includeDefaultIcon || customBlockState
+                ? BlockPreviewForInventory(stack.Entry) : null,
+            iconUrl = includeDefaultIcon
+                ? InventoryIconForEntry(stack.Entry) : null,
         };
+    }
 
     private string? InventoryIconForEntry(InventoryEntry entry)
     {
@@ -2710,7 +2726,7 @@ public partial class Main : Node3D
             {
                 selectedIndex = inventory.SelectedSlot,
                 slots = Enumerable.Range(0, PlayerInventory.HotbarSlots)
-                    .Select(index => InventorySlotView(
+                    .Select(index => HotbarSlotView(
                         inventory.SlotAt(PlayerInventory.BackpackSlots + index)))
                     .ToArray(),
             });
