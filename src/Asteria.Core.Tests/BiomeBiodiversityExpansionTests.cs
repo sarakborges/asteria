@@ -151,7 +151,8 @@ public sealed class BiomeBiodiversityExpansionTests
                 supportY: 89, nearbyFluid: (_, _, _, _, _) => true);
             Assert.Equal(wet, b.ObjectAt(sample, mud, x, z, context,
                 supportY: 89, nearbyFluid: (_, _, _, _, _) => true));
-            Assert.Null(dry);
+            // Other dry Objects (e.g. sticks) may still appear here.
+            Assert.NotEqual(iris, dry);
             found |= wet == iris;
         }
         Assert.True(found, "Expected nearby-water iris patches.");
