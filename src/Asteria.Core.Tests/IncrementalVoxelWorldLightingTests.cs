@@ -4,6 +4,25 @@ namespace Asteria.Core.Tests;
 
 public sealed class IncrementalVoxelWorldLightingTests
 {
+    private static void AssertMatchesFullLighting(
+        VoxelWorld world, BlockRegistry blocks, FluidRegistry fluids)
+    {
+        var expected = world.CloneForWorker();
+        VoxelWorldLightingSolver.Initialize(expected, blocks, fluids);
+        foreach (var coord in world.LoadedChunkCoords)
+        {
+            var (ox, oy, oz) = VoxelCoordinates.ChunkOrigin(coord);
+            for (var y = 0; y < Chunk.Size; y++)
+            for (var z = 0; z < Chunk.Size; z++)
+            for (var x = 0; x < Chunk.Size; x++)
+            {
+                var position = new WorldVoxelCoord(ox + x, oy + y, oz + z);
+                Assert.Equal(expected.GetLightOrDark(position),
+                    world.GetLightOrDark(position));
+            }
+        }
+    }
+
     [Fact]
     public void RemovingEmissionExtinguishesAcrossChunkBoundaryIncrementally()
     {
