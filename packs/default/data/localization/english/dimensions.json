@@ -38,8 +38,8 @@
   "asteria:overworld/swamp": {
     "/name": "Swamp"
   },
-  "asteria:overworld/volcano": {
-    "/name": "Volcano"
+  "asteria:overworld/scorched_wastes": {
+    "/name": "Scorched Wastes"
   },
   "asteria:overworld/wasteland": {
     "/name": "Wasteland"

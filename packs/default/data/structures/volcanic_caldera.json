@@ -1,0 +1,39 @@
+{
+  "id": "asteria:volcanic_caldera",
+  "locatable": true,
+  "rotation": false,
+  "priority": 90,
+  "conflictGroups": [
+    "rock",
+    "vegetation",
+    "landmark"
+  ],
+  "restrictions": {
+    "requiredBiomeCoverage": 1,
+    "maxSlope": 6,
+    "requiresDryGround": true,
+    "groundBlocks": [
+      "asteria:basalt",
+      "asteria:basalt_cobble"
+    ]
+  },
+  "generation": {
+    "replacePolicy": "any",
+    "fluidPolicy": "forbid",
+    "reserveSpace": true
+  },
+  "groundAnchorY": 0,
+  "caldera": {
+    "radius": 44,
+    "craterRadius": 25,
+    "floorRadius": 9,
+    "height": 30,
+    "floorHeight": 6,
+    "lavaLevel": 13,
+    "embedDepth": 6,
+    "biomeMargin": 14,
+    "wallBlock": "asteria:basalt",
+    "floorBlock": "asteria:basalt_cobble",
+    "fluid": "asteria:lava"
+  }
+}

@@ -9,7 +9,6 @@ public sealed class VolcanoLandscapeContentTests
     [
         ("volcanic_charred_trees", 4, "ash_aprons", "hardened_highlands"),
         ("volcanic_briar_thickets", 3, "ash_aprons", "hardened_highlands"),
-        ("volcanic_column_garden", 4, "fractured_flanks", "ash_aprons"),
         ("volcanic_sulfur_cluster", 3, "hardened_highlands", "ash_aprons"),
         ("volcanic_glass_arch", 2, "hardened_highlands", "ash_aprons"),
     ];
@@ -23,10 +22,10 @@ public sealed class VolcanoLandscapeContentTests
         var ocean = DimensionRegistry.FromJson(ReadPackJson("dimensions"))
             .Get(DimensionId.Overworld);
         var volcano = BiomeRegistry.FromJson(ReadPackJson("biomes"))
-            .Get("asteria:overworld/volcano");
+            .Get("asteria:overworld/scorched_wastes");
 
         Assert.Equal("asteria:basalt", volcano.SurfaceLayers[0].Block);
-        Assert.Equal(16, Families.Sum(f => f.Variants));
+        Assert.Equal(12, Families.Sum(f => f.Variants));
 
         foreach (var (group, count, favored, avoided) in Families)
         {
@@ -97,7 +96,7 @@ public sealed class VolcanoLandscapeContentTests
         var blocks = BlockRegistry.FromJson(ReadPackJson("blocks"));
         var biomes = BiomeRegistry.FromJson(ReadPackJson("biomes"));
         biomes.ValidateBlocks(blocks);
-        var volcano = biomes.Get("asteria:overworld/volcano");
+        var volcano = biomes.Get("asteria:overworld/scorched_wastes");
         foreach (var name in new[] {
             "ash_thorn", "cinder_bloom",
             "soot_lichen" })

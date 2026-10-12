@@ -38,8 +38,8 @@
   "asteria:overworld/swamp": {
     "/name": "Pântano"
   },
-  "asteria:overworld/volcano": {
-    "/name": "Vulcão"
+  "asteria:overworld/scorched_wastes": {
+    "/name": "Terras Chamuscadas"
   },
   "asteria:overworld/wasteland": {
     "/name": "Terras Devastadas"

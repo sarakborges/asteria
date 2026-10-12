@@ -128,7 +128,7 @@
     "asteria:overworld/gorge",
     "asteria:overworld/mountain_belt",
     "asteria:overworld/mountains",
-    "asteria:overworld/volcano"
+    "asteria:overworld/scorched_wastes"
   ],
   "volumeBiomes": [
     "asteria:overworld/floating_islands",
@@ -784,7 +784,7 @@
       }
     },
     {
-      "biome": "asteria:overworld/volcano",
+      "biome": "asteria:overworld/scorched_wastes",
       "structure": "asteria:basalt_outcrop",
       "spacing": 54,
       "chance": 0.47,
@@ -796,7 +796,7 @@
       }
     },
     {
-      "biome": "asteria:overworld/volcano",
+      "biome": "asteria:overworld/scorched_wastes",
       "structure": "asteria:basalt_boulder",
       "spacing": 112,
       "chance": 0.27,
@@ -808,19 +808,7 @@
       }
     },
     {
-      "biome": "asteria:overworld/volcano",
-      "structure": "asteria:basalt_spire",
-      "spacing": 152,
-      "chance": 0.28,
-      "jitter": 46,
-      "habitatWeights": {
-        "ash_aprons": 0,
-        "fractured_flanks": 0.32,
-        "hardened_highlands": 2.1
-      }
-    },
-    {
-      "biome": "asteria:overworld/volcano",
+      "biome": "asteria:overworld/scorched_wastes",
       "structure": "asteria:basalt_cluster",
       "spacing": 127,
       "chance": 0.42,
@@ -1072,7 +1060,7 @@
       }
     },
     {
-      "biome": "asteria:overworld/volcano",
+      "biome": "asteria:overworld/scorched_wastes",
       "structure": "asteria:volcanic_charred_trees",
       "spacing": 65,
       "jitter": 19,
@@ -1084,7 +1072,7 @@
       }
     },
     {
-      "biome": "asteria:overworld/volcano",
+      "biome": "asteria:overworld/scorched_wastes",
       "structure": "asteria:volcanic_briar_thickets",
       "spacing": 33,
       "jitter": 9,
@@ -1096,19 +1084,7 @@
       }
     },
     {
-      "biome": "asteria:overworld/volcano",
-      "structure": "asteria:volcanic_column_garden",
-      "spacing": 59,
-      "jitter": 18,
-      "chance": 0.7,
-      "habitatWeights": {
-        "ash_aprons": 0.02,
-        "fractured_flanks": 2.4,
-        "hardened_highlands": 1.2
-      }
-    },
-    {
-      "biome": "asteria:overworld/volcano",
+      "biome": "asteria:overworld/scorched_wastes",
       "structure": "asteria:volcanic_sulfur_cluster",
       "spacing": 52,
       "jitter": 16,
@@ -1120,7 +1096,7 @@
       }
     },
     {
-      "biome": "asteria:overworld/volcano",
+      "biome": "asteria:overworld/scorched_wastes",
       "structure": "asteria:volcanic_glass_arch",
       "spacing": 133,
       "jitter": 40,
@@ -1262,6 +1238,13 @@
         "open_mire": 0.04,
         "fungal_ground": 2.45
       }
+    },
+    {
+      "biome": "asteria:overworld/scorched_wastes",
+      "structure": "asteria:volcanic_caldera",
+      "spacing": 330,
+      "chance": 0.98,
+      "jitter": 82
     }
   ],
   "dayNightCycle": "asteria:overworld/day_night_cycle",

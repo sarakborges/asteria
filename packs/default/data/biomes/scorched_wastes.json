@@ -1,5 +1,5 @@
 {
-  "id": "asteria:overworld/volcano",
+  "id": "asteria:overworld/scorched_wastes",
   "surfaceLayout": {
     "weight": 1,
     "spawnWeight": 0.5,
@@ -15,22 +15,12 @@
     ]
   },
   "surfaceTerrain": {
-    "type": "caldera",
-    "footprintRadius": 112,
-    "biomeMargin": 40,
-    "baseHeight": 12,
-    "height": 72,
-    "craterRadius": 0.27,
-    "floorRadius": 0.08,
-    "craterDepth": 58,
-    "flankRoughness": 3,
-    "flankNoiseScale": 0.009,
-    "detailRoughness": 1.3,
-    "detailScale": 0.031,
-    "fluidFill": {
-      "fluid": "asteria:lava",
-      "topLevel": 54
-    }
+    "type": "rolling",
+    "baseHeight": 5,
+    "amplitude": 2.5,
+    "scale": 0.009,
+    "detailAmplitude": 1,
+    "detailScale": 0.027
   },
   "surfaceHabitats": {
     "scale": 122,
@@ -66,7 +56,7 @@
         "transitionWidth": 0.12
       },
       "conditions": {
-        "minY": 99,
+        "minY": 90,
         "maxSlope": 6
       },
       "habitatWeights": {
@@ -90,7 +80,7 @@
         "transitionWidth": 0.15
       },
       "conditions": {
-        "minY": 99,
+        "minY": 90,
         "maxY": 184,
         "maxSlope": 3
       },
@@ -114,7 +104,7 @@
         "transitionWidth": 0.15
       },
       "conditions": {
-        "minY": 99,
+        "minY": 90,
         "maxY": 173,
         "maxSlope": 2
       },
@@ -138,7 +128,7 @@
         "transitionWidth": 0.15
       },
       "conditions": {
-        "minY": 102,
+        "minY": 90,
         "maxY": 197,
         "maxSlope": 5
       },

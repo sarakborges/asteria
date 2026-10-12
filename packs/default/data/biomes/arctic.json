@@ -8,7 +8,7 @@
       "max": 448
     },
     "cannotBorder": [
-      "asteria:overworld/volcano",
+      "asteria:overworld/scorched_wastes",
       "asteria:overworld/desert",
       "asteria:overworld/swamp"
     ]

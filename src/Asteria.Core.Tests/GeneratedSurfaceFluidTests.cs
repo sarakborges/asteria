@@ -248,14 +248,10 @@ public sealed class GeneratedSurfaceFluidTests
         Assert.All(swamp.Palette.Default, layer =>
             Assert.Null(layer.Patch));
 
-        var volcano = biomes.Get("asteria:overworld/volcano");
-        var caldera = Assert.IsType<BiomeCalderaTerrainShapeDefinition>(
-            volcano.SurfaceTerrain!.Shape);
-        Assert.Equal((12f, 72f, 58f, .27f, .08f),
-            (caldera.BaseHeight, caldera.Height, caldera.CraterDepth,
-                caldera.CraterRadius, caldera.FloorRadius));
-        Assert.Equal("asteria:lava", caldera.FluidFill!.Fluid);
-        Assert.Equal(54f, caldera.FluidFill.TopLevel);
+        var scorched = biomes.Get("asteria:overworld/scorched_wastes");
+        Assert.IsType<BiomeRollingTerrainShapeDefinition>(
+            scorched.SurfaceTerrain!.Shape);
+        Assert.False(scorched.SurfaceTerrain.FillToSeaLevel);
     }
 
     [Fact]
@@ -644,156 +640,6 @@ public sealed class GeneratedSurfaceFluidTests
                 Assert.Single(
                     mountains.SurfaceTerrain!
                         .Modifiers));
-    }
-
-    [Fact]
-    public void VolcanoCoreMaterializesCraterLava()
-    {
-        var blocks =
-            BlockRegistry.FromJson(
-                ReadJsonDirectory(
-                    "blocks"));
-        var fluids =
-            FluidRegistry.FromJson(
-                ReadJsonDirectory(
-                    "fluids"));
-        var biomes =
-            BiomeRegistry.FromJson(
-                ReadJsonDirectory(
-                    "biomes"));
-        var structures =
-            StructureRegistry.FromJson(
-                ReadJsonDirectory(
-                    "structures"));
-        var dimensions =
-            DimensionRegistry.FromJson(
-                ReadJsonDirectory(
-                    "dimensions"));
-        var dimension =
-            dimensions.Get(
-                DimensionId.Overworld);
-        var generator =
-            new BiomeWorldGenerator(
-                DimensionSeed.Derive(
-                    0xA57E_2026UL,
-                    dimension.Id),
-                dimension,
-                blocks,
-                fluids,
-                biomes,
-                structures,
-                StructureSetRegistry.FromJson(
-                    ReadJsonDirectory("structure_sets")));
-        // TopLevel is relative to sea level, not to the sampled ground.
-        // High-strength volcano terrain also includes dry crater rims;
-        // the first strong sample is not necessarily under the lava plane.
-        var craterFill = Assert.IsType<BiomeCalderaTerrainShapeDefinition>(
-            biomes.Get("asteria:overworld/volcano").SurfaceTerrain!.Shape)
-            .FluidFill!;
-        var lavaTopY = checked((int)Math.Ceiling(
-            dimension.SeaLevel + craterFill.TopLevel) - 1);
-        var core = FindFloodedVolcanoCore(generator, lavaTopY);
-        var surfaceY = generator.SurfaceHeight(core.X, core.Z);
-        Assert.True(surfaceY < lavaTopY,
-            "Selected crater floor must be below the authored lava surface.");
-
-        // The first empty voxel above the floor must be a source of
-        // lava; checking only this voxel avoids rematerializing the
-        // same chunk repeatedly while testing the actual output.
-        var address = VoxelCoordinates.FromWorld(
-            core.X, surfaceY + 1, core.Z);
-        var chunk = generator.Materialize(address.Chunk);
-        var fluid = chunk.GetFluid(
-            address.Local.X, address.Local.Y, address.Local.Z);
-        Assert.Equal(fluids.GetId("asteria:lava"), fluid.Fluid);
-        Assert.True(fluid.IsSource);
-
-        // Validate the ACTUAL generated terrain, not an isolated math
-        // profile. Every radial direction must pass from a submerged
-        // crater floor over a continuous dry rock rim to a lower flank.
-        var caldera = Assert.IsType<BiomeCalderaTerrainShapeDefinition>(
-            biomes.Get("asteria:overworld/volcano").SurfaceTerrain!.Shape);
-        var center = core;
-        var peakStrength = generator.Biomes.Sample(center.X, center.Z)
-            .PrimaryTerrainStrength;
-        for (var dz = -24; dz <= 24; dz += 3)
-        for (var dx = -24; dx <= 24; dx += 3)
-        {
-            var probe = generator.Biomes.Sample(core.X + dx, core.Z + dz);
-            if (probe.Primary != "asteria:overworld/volcano" ||
-                probe.PrimaryTerrainStrength <= peakStrength)
-                continue;
-
-            peakStrength = probe.PrimaryTerrainStrength;
-            center = (core.X + dx, core.Z + dz);
-        }
-
-        Assert.True(peakStrength > 0.98f,
-            "The caldera must have one discoverable formation center.");
-        Assert.True(generator.SurfaceHeight(center.X, center.Z) < lavaTopY - 8,
-            "The center must contain a deep crater, not a basalt pillar.");
-
-        for (var spoke = 0; spoke < 24; spoke++)
-        {
-            var angle = spoke * Math.Tau / 24d;
-            var dx = Math.Cos(angle);
-            var dz = Math.Sin(angle);
-            var rimFound = false;
-            var rimX = 0;
-            var rimZ = 0;
-            for (var distance = 3; distance <= 180; distance += 3)
-            {
-                var x = center.X + (int)Math.Round(dx * distance);
-                var z = center.Z + (int)Math.Round(dz * distance);
-                var sample = generator.Biomes.Sample(x, z);
-                if (sample.Primary == "asteria:overworld/volcano" &&
-                    sample.PrimaryTerrainStrength >= caldera.RimStrength)
-                {
-                    rimX = x;
-                    rimZ = z;
-                    continue;
-                }
-
-                if (rimX != 0 || rimZ != 0)
-                {
-                    rimFound = true;
-                    break;
-                }
-            }
-
-            Assert.True(rimFound, $"Missing enclosing rim on spoke {spoke}.");
-            var rimY = generator.SurfaceHeight(rimX, rimZ);
-            Assert.True(rimY > lavaTopY + 10,
-                $"Lava escape or missing rock wall on spoke {spoke}: rim {rimY}, fluid {lavaTopY}");
-            var outerX = rimX + (int)Math.Round(dx * 30d);
-            var outerZ = rimZ + (int)Math.Round(dz * 30d);
-            Assert.True(generator.SurfaceHeight(outerX, outerZ) < rimY,
-                $"No descending mountain flank on spoke {spoke}.");
-        }
-    }
-
-    private static (int X, int Z) FindFloodedVolcanoCore(
-        BiomeWorldGenerator generator, int lavaTopY)
-    {
-        for (var z = -4096; z <= 4096; z += 32)
-        {
-            for (var x = -4096; x <= 4096; x += 32)
-            {
-                var sample = generator.Biomes.Sample(x, z);
-                if (sample.Primary != "asteria:overworld/volcano" ||
-                    sample.PrimaryTerrainStrength < 0.97f)
-                    continue;
-
-                // The crater contains both dry walls and a submerged
-                // floor. Require a strong volcanic column whose surface
-                // is genuinely below the configured absolute lava level.
-                if (generator.SurfaceHeight(x, z) < lavaTopY)
-                    return (x, z);
-            }
-        }
-
-        throw new Xunit.Sdk.XunitException(
-            "Could not find a strong volcanic crater floor below the lava plane.");
     }
 
     private static IEnumerable<string> ReadJsonDirectory(

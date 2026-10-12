@@ -1506,6 +1506,25 @@ public sealed class SurfaceStructureField
             }
         }
 
+        if (member.Definition.Caldera is { } caldera)
+        {
+            var radius = caldera.Radius + caldera.BiomeMargin;
+            var radiusSquared = (long)radius * radius;
+            var sampler = _biomes.CreateSampler();
+            for (var dz = -radius; dz <= radius; dz++)
+            for (var dx = -radius; dx <= radius; dx++)
+            {
+                if ((long)dx * dx + (long)dz * dz > radiusSquared)
+                    continue;
+                var x = (long)anchorX + dx;
+                var z = (long)anchorZ + dz;
+                if (x is < int.MinValue or > int.MaxValue ||
+                    z is < int.MinValue or > int.MaxValue ||
+                    sampler.Sample((int)x, (int)z).Primary != biome)
+                    return false;
+            }
+        }
+
         var minimumGroundY =
             int.MaxValue;
         var maximumGroundY =
@@ -3559,6 +3578,7 @@ public sealed class SurfaceStructureField
 
     private sealed class RuntimeStructure
     {
+        private readonly PlacedCalderaStructure? _caldera;
         private readonly RuntimeVoxel[] _voxels;
         private readonly RuntimeFluidVoxel[] _fluidVoxels;
         private readonly RuntimeObjectVoxel[] _objectVoxels;
@@ -3576,6 +3596,12 @@ public sealed class SurfaceStructureField
                 definition ??
                 throw new ArgumentNullException(
                     nameof(definition));
+            if (definition.Caldera is { } caldera)
+                _caldera = new PlacedCalderaStructure(
+                    caldera,
+                    new VoxelCell(blocks.GetId(caldera.WallBlock)),
+                    new VoxelCell(blocks.GetId(caldera.FloorBlock)),
+                    FluidCell.Source(fluids.GetId(caldera.Fluid)));
 
             _voxels =
                 definition.Voxels
@@ -3641,7 +3667,19 @@ public sealed class SurfaceStructureField
                     .ToArray();
 
             _footprint =
-                payloadOffsets.Length == 0
+                definition.Caldera is { } shape
+                    ? [
+                        (0, 0),
+                        (shape.Radius, 0),
+                        (-shape.Radius, 0),
+                        (0, shape.Radius),
+                        (0, -shape.Radius),
+                        (shape.Radius / 2, shape.Radius / 2),
+                        (-shape.Radius / 2, shape.Radius / 2),
+                        (shape.Radius / 2, -shape.Radius / 2),
+                        (-shape.Radius / 2, -shape.Radius / 2),
+                    ]
+                : payloadOffsets.Length == 0
                     ? [
                         (
                             0,
@@ -3732,11 +3770,11 @@ public sealed class SurfaceStructureField
                         0L)
                     .Max();
             MaximumHorizontalRadius =
-                maximumRadius >
-                int.MaxValue
-                    ? int.MaxValue
-                    : checked(
-                        (int)maximumRadius);
+                definition.Caldera is { } radial
+                    ? radial.Radius + radial.BiomeMargin
+                    : maximumRadius > int.MaxValue
+                        ? int.MaxValue
+                        : checked((int)maximumRadius);
         }
 
         public StructureDefinition Definition { get; }
@@ -3788,6 +3826,23 @@ public sealed class SurfaceStructureField
             int anchorZ,
             StructureRotation rotation)
         {
+            if (_caldera is { } shape)
+            {
+                var radial = shape.Shape;
+                return new SurfaceStructurePlacement(
+                    reference, Definition.Id,
+                    anchorX, anchorY, anchorZ, rotation,
+                    Definition.Generation,
+                    [], [], [], [],
+                    checked(anchorX - radial.Radius),
+                    checked(anchorX + radial.Radius),
+                    checked(anchorY - radial.EmbedDepth),
+                    checked(anchorY + radial.Height),
+                    checked(anchorZ - radial.Radius),
+                    checked(anchorZ + radial.Radius),
+                    shape);
+            }
+
             var voxels =
                 new PlacedStructureVoxel[
                     _voxels.Length];
@@ -4062,8 +4117,10 @@ internal sealed class SurfaceStructurePlacement
         int minimumY,
         int maximumY,
         int minimumZ,
-        int maximumZ)
+        int maximumZ,
+        PlacedCalderaStructure? caldera = null)
     {
+        Caldera = caldera;
         Reference = reference;
         StructureId = structureId;
         AnchorX = anchorX;
@@ -4082,6 +4139,8 @@ internal sealed class SurfaceStructurePlacement
         MinimumZ = minimumZ;
         MaximumZ = maximumZ;
     }
+
+    public PlacedCalderaStructure? Caldera { get; }
 
     public string Reference { get; }
 
@@ -4231,3 +4290,9 @@ internal readonly record struct PlacedStructureClearVoxel(
     int X,
     int Y,
     int Z);
+
+internal sealed record PlacedCalderaStructure(
+    StructureCalderaDefinition Shape,
+    VoxelCell Wall,
+    VoxelCell Floor,
+    FluidCell Fluid);

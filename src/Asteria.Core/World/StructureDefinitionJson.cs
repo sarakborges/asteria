@@ -43,7 +43,8 @@ public static class StructureDefinitionJson
             "groundAnchorY",
             "clearAbove",
             "palette",
-            "layers");
+            "layers",
+            "caldera");
 
         var id =
             RequiredString(
@@ -52,14 +53,15 @@ public static class StructureDefinitionJson
         var anchor =
             ParseAnchor(
                 root);
-        var palette =
-            ParsePalette(
-                root);
-        var content =
-            ParseLayers(
-                root,
-                anchor,
-                palette);
+        var caldera = ParseCaldera(root);
+        if (caldera is not null &&
+            (root.TryGetProperty("palette", out _) ||
+             root.TryGetProperty("layers", out _)))
+            throw new FormatException(
+                "A procedural caldera cannot also author palette/layers.");
+        var content = caldera is null
+            ? ParseLayers(root, anchor, ParsePalette(root))
+            : new StructureTemplateContent([], [], [], [], []);
 
         return new StructureDefinition(
             id,
@@ -97,7 +99,31 @@ public static class StructureDefinitionJson
                 root,
                 "locatable") ??
             true,
-            content.Objects);
+            content.Objects,
+            caldera);
+    }
+
+    private static StructureCalderaDefinition? ParseCaldera(JsonElement root)
+    {
+        if (!root.TryGetProperty("caldera", out var value))
+            return null;
+        value = RequiredObject(root, "caldera");
+        EnsureKnownProperties(
+            value, "structure caldera", "radius", "craterRadius",
+            "floorRadius", "height", "floorHeight", "lavaLevel",
+            "embedDepth", "biomeMargin", "wallBlock", "floorBlock", "fluid");
+        return new StructureCalderaDefinition(
+            RequiredInt32(value, "radius"),
+            RequiredInt32(value, "craterRadius"),
+            RequiredInt32(value, "floorRadius"),
+            RequiredInt32(value, "height"),
+            RequiredInt32(value, "floorHeight"),
+            RequiredInt32(value, "lavaLevel"),
+            OptionalInt32(value, "embedDepth") ?? 5,
+            OptionalInt32(value, "biomeMargin") ?? 12,
+            RequiredString(value, "wallBlock"),
+            RequiredString(value, "floorBlock"),
+            RequiredString(value, "fluid"));
     }
 
     private static StructureAnchor ParseAnchor(

@@ -10,7 +10,7 @@
     "cannotBorder": [
       "asteria:overworld/arctic",
       "asteria:overworld/desert",
-      "asteria:overworld/volcano"
+      "asteria:overworld/scorched_wastes"
     ]
   },
   "surfaceTerrain": {

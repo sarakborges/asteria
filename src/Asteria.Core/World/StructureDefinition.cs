@@ -435,7 +435,8 @@ public sealed class StructureDefinition
         int? groundAnchorY = null,
         int clearAbove = 0,
         bool locatable = true,
-        IEnumerable<StructureObjectDefinition>? objects = null)
+        IEnumerable<StructureObjectDefinition>? objects = null,
+        StructureCalderaDefinition? caldera = null)
     {
         ValidateId(
             id);
@@ -464,7 +465,11 @@ public sealed class StructureDefinition
             authoredVoxels.Length +
             authoredFluidVoxels.Length +
             authoredClearVoxels.Length + authoredObjects.Length;
-        if (payloadCount == 0 &&
+        if (caldera is not null && payloadCount != 0)
+            throw new ArgumentException(
+                "Procedural caldera Structures cannot also author explicit voxel payloads.",
+                nameof(caldera));
+        if (payloadCount == 0 && caldera is null &&
             !(connectors?.Any() ?? false))
         {
             throw new ArgumentException(
@@ -674,6 +679,7 @@ public sealed class StructureDefinition
             clearAbove;
         Locatable =
             locatable;
+        Caldera = caldera;
 
         var payloadOffsets =
             authoredVoxels
@@ -695,7 +701,14 @@ public sealed class StructureDefinition
                     (obj.X, obj.Y, obj.Z)))
                 .ToArray();
 
-        if (payloadOffsets.Length == 0)
+        if (caldera is not null)
+        {
+            MinimumX = MinimumZ = -caldera.Radius;
+            MaximumX = MaximumZ = caldera.Radius;
+            MinimumY = -caldera.EmbedDepth;
+            MaximumY = caldera.Height;
+        }
+        else if (payloadOffsets.Length == 0)
         {
             MinimumX =
                 MaximumX =
@@ -762,6 +775,8 @@ public sealed class StructureDefinition
     public int ClearAbove { get; }
 
     public bool Locatable { get; }
+
+    public StructureCalderaDefinition? Caldera { get; }
 
     public int GroundAnchorYOffset =>
         GroundAnchorY is { } groundY

@@ -644,6 +644,11 @@ public sealed class SurfaceChunkMaterializer
                 continue;
             }
 
+            if (placement.Caldera is { } radial)
+                MaterializeCaldera(
+                    chunk, placement, radial, origin,
+                    originY, topExclusive, claimed, baseOccupied);
+
             foreach (var voxel in
                      placement.ClearVoxels)
             {
@@ -781,6 +786,75 @@ public sealed class SurfaceChunkMaterializer
                     voxel.Fluid);
                 claimed.Add(
                     key);
+            }
+        }
+    }
+
+    private void MaterializeCaldera(
+        Chunk chunk,
+        SurfaceStructurePlacement placement,
+        PlacedCalderaStructure caldera,
+        (int X, int Y, int Z) origin,
+        int originY,
+        int topExclusive,
+        HashSet<int> claimed,
+        IReadOnlySet<int>? baseOccupied)
+    {
+        var shape = caldera.Shape;
+        var firstY = Math.Max(originY,
+            placement.AnchorY - shape.EmbedDepth);
+        var lastY = Math.Min(topExclusive - 1,
+            placement.AnchorY + shape.Height);
+        if (firstY > lastY)
+            return;
+
+        for (var localZ = 0; localZ < Chunk.Size; localZ++)
+        for (var localX = 0; localX < Chunk.Size; localX++)
+        {
+            var dx = origin.X + localX - placement.AnchorX;
+            var dz = origin.Z + localZ - placement.AnchorZ;
+            if (!shape.Contains(dx, dz))
+                continue;
+
+            var profileY = shape.SurfaceHeightAt(dx, dz);
+            for (var worldY = firstY; worldY <= lastY; worldY++)
+            {
+                if ((_floorY is { } floorY && worldY <= floorY) ||
+                    (_roofY is { } roofY && worldY >= roofY))
+                    continue;
+
+                var relativeY = worldY - placement.AnchorY;
+                var isSolid = relativeY <= profileY;
+                var isLava = shape.HasLavaAt(dx, dz, relativeY);
+                var clearCrater = !isSolid && !isLava &&
+                    (long)dx * dx + (long)dz * dz <
+                        (long)shape.CraterRadius * shape.CraterRadius;
+                if (!isSolid && !isLava && !clearCrater)
+                    continue;
+
+                var localY = worldY - originY;
+                var key = StructureCellKey(localX, localY, localZ);
+                if (!CanReplaceStructureCell(
+                        placement.Generation.ReplacePolicy,
+                        key, claimed, baseOccupied))
+                    continue;
+
+                if (isSolid)
+                {
+                    chunk.SetFluid(localX, localY, localZ, FluidCell.Empty);
+                    var floorTop = relativeY == profileY &&
+                        (long)dx * dx + (long)dz * dz <=
+                            (long)shape.FloorRadius * shape.FloorRadius;
+                    chunk.SetCell(localX, localY, localZ,
+                        floorTop ? caldera.Floor : caldera.Wall);
+                }
+                else
+                {
+                    chunk.SetCell(localX, localY, localZ, VoxelCell.Empty);
+                    chunk.SetFluid(localX, localY, localZ,
+                        isLava ? caldera.Fluid : FluidCell.Empty);
+                }
+                claimed.Add(key);
             }
         }
     }
