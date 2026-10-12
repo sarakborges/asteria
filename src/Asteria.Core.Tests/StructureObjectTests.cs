@@ -21,6 +21,56 @@ public sealed class StructureObjectTests
     }
     """;
 
+    [Fact]
+    public void GeneratedStructuresPublishObjectsOnSurvivingSupportBlocks()
+    {
+        var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);
+        var biome = new BiomeDefinition(
+            "asteria:test/flat",
+            new BiomeSurfaceLayoutDefinition(),
+            new BiomeTerrainDefinition(0f, 0f, 64, 0f, 32),
+            [new BiomeSurfaceLayerDefinition("asteria:stone")]);
+        var dimension = new DimensionDefinition(
+            new DimensionId("asteria:test"), [biome.Id], 32, 18f,
+            new DimensionSpawnDefinition(0, 0),
+            new DimensionEnvironmentDefinition(
+                new DimensionColor(0, 0, 0),
+                new DimensionColor(255, 255, 255), 1f,
+                new DimensionColor(0, 0, 0), 0f),
+            generatedSurfaceStructures: [
+                new DimensionGeneratedSurfaceStructureDefinition(
+                    biome.Id, "asteria:test_object_structure",
+                    spacing: 16, chance: 1f, jitter: 0)
+            ]);
+        var generator = new BiomeWorldGenerator(
+            77, dimension, blocks,
+            new FluidRegistry([
+                new FluidDefinition("asteria:water", new FluidColor(0, 96, 255), .7f)
+            ]),
+            new BiomeRegistry([biome]),
+            new StructureRegistry([StructureDefinitionJson.Parse(StructureJson)]),
+            objects: Objects());
+
+        var found = false;
+        for (var cx = -1; cx <= 1; cx++)
+        for (var cz = -1; cz <= 1; cz++)
+        {
+            var surfaceY = generator.SurfaceHeight(cx * Chunk.Size + 8,
+                cz * Chunk.Size + 8);
+            var chunk = generator.Materialize(new ChunkCoord(
+                cx, surfaceY / Chunk.Size, cz));
+            chunk.VisitObjectCells((x, y, z, obj) => {
+                if (obj.Id != "asteria:mushroom_red") return;
+                found = true;
+                Assert.False(chunk.GetCell(x, y, z).IsEmpty);
+                Assert.Equal(BlockFace.Top, obj.Face);
+                if (y + 1 < Chunk.Size)
+                    Assert.True(chunk.GetCell(x, y + 1, z).IsEmpty);
+            });
+        }
+        Assert.True(found, "Expected at least one generated Structure Object.");
+    }
+
     private static PackContentRegistry<ObjectDefinition> Objects() =>
         PackContentRegistry<ObjectDefinition>.FromJson([
             """
