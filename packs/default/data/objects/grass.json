@@ -2,10 +2,20 @@
   "id": "asteria:grass",
   "category": "foliage",
   "icon": "textures/objects/grass.png",
-  "placementFaces": ["top"],
+  "placementFaces": [
+    "top"
+  ],
   "target": {
-    "size": [0.72, 0.62, 0.72],
-    "centerOffset": [0, 0.31, 0]
+    "size": [
+      0.72,
+      0.62,
+      0.72
+    ],
+    "centerOffset": [
+      0,
+      0.31,
+      0
+    ]
   },
   "visual": {
     "type": "crossedSprite",
@@ -15,8 +25,13 @@
     "planes": 4,
     "alphaCutoff": 0.5
   },
-  "positionJitter": [0.28, 0.28],
+  "positionJitter": [
+    0.28,
+    0.28
+  ],
   "dropSelf": false,
   "windSway": true,
-  "unlit": true
+  "unlit": false,
+  "tint": "foliage",
+  "previewColor": "6f9f50"
 }
