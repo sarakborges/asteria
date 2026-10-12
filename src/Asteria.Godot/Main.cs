@@ -856,7 +856,7 @@ public partial class Main : Node3D
         if (_exitConfirmationPending)
         {
             // A second window-close request must not silently discard the world.
-            _player?.PauseForWindowFocusLoss();
+            _player?.PauseGameplay();
             SendWebUi("game.app.exit_confirmation", new { });
             return;
         }
@@ -872,7 +872,7 @@ public partial class Main : Node3D
     {
         _quitRequested = false;
         _exitConfirmationPending = true;
-        _player?.PauseForWindowFocusLoss();
+        _player?.PauseGameplay();
         _worldDiagnostics?.Write("client.exit_without_save.offered");
         SendWebUi("game.app.exit_confirmation", new { });
     }
