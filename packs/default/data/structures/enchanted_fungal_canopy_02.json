@@ -31,7 +31,7 @@
   },
   "palette": {
     "B": {
-      "block": "asteria:mushroom_blue"
+      "object": "asteria:mushroom_blue"
     },
     "C": {
       "block": "asteria:luminous_giant_fungus_cap"
@@ -40,7 +40,7 @@
       "block": "asteria:starflower"
     },
     "P": {
-      "block": "asteria:mushroom_pink"
+      "object": "asteria:mushroom_pink"
     },
     "S": {
       "block": "asteria:luminous_giant_fungus_stem"
