@@ -131,13 +131,11 @@ export function SettingsWorkspacePage({
               onChange={onSpawnCreatures} />} />
           <SettingRow title={t("settings.creatureAttackMode")}
             description={t("settings.creatureAttackMode.description")}
-            control={<Dropdown ariaLabel={t("settings.creatureAttackMode")}
+            control={<Toggle ariaLabel={t("settings.creatureAttackMode")}
               disabled={!settings.world}
-              value={settings.world?.creatureAttackMode ?? "Default"}
-              options={(["Default", "Peaceful"] as const).map(value => ({
-                value, label: t("settings.creatureAttackMode." + value.toLowerCase()),
-              }))}
-              onChange={value => onCreatureAttackMode(value as CreatureAttackMode)} />} />
+              checked={settings.world?.creatureAttackMode === "Peaceful"}
+              onChange={checked =>
+                onCreatureAttackMode(checked ? "Peaceful" : "Default")} />} />
           <SettingRow title={t("settings.keepInventory")}
             description={t("settings.keepInventory.description")}
             control={<Toggle ariaLabel={t("settings.keepInventory")}
