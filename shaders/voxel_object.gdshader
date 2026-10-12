@@ -3,6 +3,8 @@ render_mode unshaded, cull_disabled, depth_prepass_alpha;
 
 uniform sampler2D object_texture : source_color, filter_nearest, repeat_disable;
 uniform float alpha_cutoff = 0.5;
+uniform bool preview_mode = false;
+uniform vec3 preview_tint : source_color = vec3(1.0);
 
 const float AMBIENT_FLOOR = 0.055;
 const float SKY_LIGHT_GAMMA = 1.35;
@@ -14,7 +16,7 @@ varying vec3 instance_tint;
 varying float object_face_shade;
 
 void vertex() {
-    voxel_light = INSTANCE_CUSTOM;
+    voxel_light = preview_mode ? vec4(1.0) : INSTANCE_CUSTOM;
     instance_tint = COLOR.rgb;
     vec3 axis = abs(normalize(NORMAL));
     object_face_shade = axis.y >= axis.x && axis.y >= axis.z
@@ -35,7 +37,7 @@ void fragment() {
     vec3 light_hue = mix(vec3(1.0), block_hue,
         smoothstep(0.08, 0.55, block_intensity) * BLOCK_LIGHT_COLOR_STRENGTH);
 
-    ALBEDO = texel.rgb * instance_tint * light_hue *
+    ALBEDO = texel.rgb * instance_tint * preview_tint * light_hue *
         total_intensity * object_face_shade;
     ROUGHNESS = 1.0;
     ALPHA = texel.a;

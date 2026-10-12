@@ -489,3 +489,11 @@ MineClone `world-systems-rebuild` reference: `world_objects.rs::detached_object_
 - Objects accept optional `lootTable` with shared bounded item/chance/quantity validation. Common `LootTable` and `LootTableRoller` serve Blocks and Objects; empty tables suppress `dropSelf`, and absent ones preserve existing Object behavior.
 - Survival break, support destruction/replacement and submerged Object detachment use seeded deterministic rolls with catalog-authored stack sizes. Every physical reward is capacity-preflighted before mutation; Creative breaks suppress loot.
 - Pack load rejects unknown Object loot IDs. Regression tests cover stack splitting, overrides, repeatability, empty tables, Creative and atomic capacity rejection. Native Godot/WRY acceptance is pending.
+
+## CuboidSet Object geometry — 2026-10-12
+
+- Added bounded `visual.type: "cuboidSet"` definitions (1–64 parts, finite from/to extents and UV rectangles) with the MineClone rebuild six-face primitive convention. Validated part geometry and automatically derived hitbox bounds are owned by Core.
+- `ObjectCuboidMesh` provides deterministic triangle positions, UVs and normals; the existing selected-pack `WorldObjectVisualCatalog`, one-MultiMesh-per-ID world batches, placement preview, and shared first-/third-person/portrait held meshes use the same geometry without per-Object nodes or Godot pack import metadata.
+- Corrected Object placement ghost material handling: lit `ShaderMaterial` and unlit `StandardMaterial3D` both accept location-dependent tint without mutating world material, and preview-only lighting no longer depends on unavailable MultiMesh instance custom data.
+- Added Core tests for authored UVs, all faces, rotated/scaled hitbox enclosure, deterministic geometry and malformed/unbounded content. Native Godot visual acceptance remains open.
+- Still missing separately: GLB-backed `visual.type: "model"` Objects, with native selected-pack loading and renderer integration. Do not report model visuals as ported from this cuboidSet work.

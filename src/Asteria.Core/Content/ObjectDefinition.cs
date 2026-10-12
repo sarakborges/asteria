@@ -10,6 +10,7 @@ public enum ObjectVisualKind : byte
 {
     CrossedSprite,
     ExtrudedSprite,
+    CuboidSet,
 }
 
 /// <summary>Portable geometric intent; Godot only creates meshes/materials.</summary>
@@ -21,7 +22,11 @@ public sealed record ObjectVisualDefinition(
     int Planes,
     float BaseOffset,
     float AlphaCutoff,
-    float Depth = 0f);
+    float Depth = 0f,
+    IReadOnlyList<ObjectCuboidPart>? Parts = null);
+
+/// <summary>One bounded cuboid with independently authored atlas UV region.</summary>
+public sealed record ObjectCuboidPart(Vector3 From, Vector3 To, Vector4 Uv);
 
 public sealed record ObjectTargetDefinition(Vector3 Size, Vector3 CenterOffset);
 
@@ -57,15 +62,30 @@ public sealed class ObjectDefinition
             placementFaces.Any(face => !Enum.IsDefined(face)) ||
             placementFaces.Distinct().Count() != placementFaces.Count)
             throw new FormatException("Object placement faces must be unique and valid.");
-        if (!WithinRange(visual.Width, 0f, 4f, exclusiveMinimum: true) ||
-            !WithinRange(visual.Height, 0f, 4f, exclusiveMinimum: true) ||
-            !WithinRange(visual.BaseOffset, 0f, 2f) ||
+        if (!Enum.IsDefined(visual.Kind) ||
             !WithinRange(visual.AlphaCutoff, 0f, 1f) ||
+            (visual.Kind != ObjectVisualKind.CuboidSet &&
+             (!WithinRange(visual.Width, 0f, 4f, exclusiveMinimum: true) ||
+              !WithinRange(visual.Height, 0f, 4f, exclusiveMinimum: true) ||
+              !WithinRange(visual.BaseOffset, 0f, 2f))) ||
             (visual.Kind == ObjectVisualKind.CrossedSprite &&
-             (visual.Planes is < 2 or > 8)) ||
+             (visual.Planes is < 2 or > 8 || visual.Parts is not null)) ||
             (visual.Kind == ObjectVisualKind.ExtrudedSprite &&
              (!WithinRange(visual.Depth, 0f, 4f, exclusiveMinimum: true) ||
-              visual.Planes != 1)))
+              visual.Planes != 1 || visual.Parts is not null)) ||
+            (visual.Kind == ObjectVisualKind.CuboidSet &&
+             (visual.Parts is not { Count: > 0 and <= 64 } ||
+              visual.Parts.Any(part => part is null ||
+                !Finite(part.From) || !Finite(part.To) ||
+                Vector3.Abs(part.From).X > 4f || Vector3.Abs(part.From).Y > 4f ||
+                Vector3.Abs(part.From).Z > 4f ||
+                Vector3.Abs(part.To).X > 4f || Vector3.Abs(part.To).Y > 4f ||
+                Vector3.Abs(part.To).Z > 4f ||
+                part.From.X >= part.To.X || part.From.Y >= part.To.Y ||
+                part.From.Z >= part.To.Z ||
+                !Finite(part.Uv) || part.Uv.X < 0 || part.Uv.Y < 0 ||
+                part.Uv.Z > 1 || part.Uv.W > 1 ||
+                part.Uv.X >= part.Uv.Z || part.Uv.Y >= part.Uv.W))))
             throw new FormatException("Invalid object visual dimensions or alpha cutoff.");
         if (!PositiveTarget(target.Size) ||
             !Finite(target.CenterOffset) ||
@@ -78,7 +98,9 @@ public sealed class ObjectDefinition
         Category = category;
         Icon = PackContentFields.ResourcePath(icon, "icon");
         Visual = visual with {
-            Texture = PackContentFields.ResourcePath(visual.Texture, "visual.texture")
+            Texture = PackContentFields.ResourcePath(visual.Texture, "visual.texture"),
+            Parts = visual.Parts is null ? null :
+                Array.AsReadOnly(visual.Parts.ToArray()),
         };
         PlacementFaces = Array.AsReadOnly(placementFaces.ToArray());
         Target = target;
@@ -159,9 +181,12 @@ public sealed class ObjectDefinition
         {
             "crossedSprite" => ObjectVisualKind.CrossedSprite,
             "extrudedSprite" => ObjectVisualKind.ExtrudedSprite,
+            "cuboidSet" => ObjectVisualKind.CuboidSet,
             _ => throw new FormatException("Unsupported Object visual type."),
         };
         var texture = PackContentFields.RequiredString(visual, "texture");
+        var parts = kind == ObjectVisualKind.CuboidSet
+            ? ReadCuboidParts(visual) : null;
         var width = kind == ObjectVisualKind.CrossedSprite
             ? ReadFloat(visual, "width", .75f)
             : ReadVector(visual, "size", new Vector2(.75f, .75f)).X;
@@ -183,14 +208,16 @@ public sealed class ObjectDefinition
                 ? new ObjectTargetDefinition(
                     new Vector3(width, MathF.Max(.14f, height), depth),
                     new Vector3(0f, MathF.Max(.14f, height) * .5f, 0f))
-                : new ObjectTargetDefinition(new Vector3(.75f), new Vector3(0f, .375f, 0f));
+                : parts is not null
+                    ? CuboidTarget(parts)
+                    : new ObjectTargetDefinition(new Vector3(.75f), new Vector3(0f, .375f, 0f));
         var jitter = ReadVector(root, "positionJitter", Vector2.Zero);
         return new ObjectDefinition(
             PackContentFields.Id(root),
             PackContentFields.RequiredString(root, "category"),
             PackContentFields.ResourcePath(
                 PackContentFields.RequiredString(root, "icon"), "icon"),
-            new ObjectVisualDefinition(kind, texture, width, height, planes, baseOffset, alpha, depth),
+            new ObjectVisualDefinition(kind, texture, width, height, planes, baseOffset, alpha, depth, parts),
             placementFaces, target, jitter,
             ReadBool(root, "dropSelf", true),
             ReadBool(root, "windSway", false),
@@ -214,6 +241,52 @@ public sealed class ObjectDefinition
             root.TryGetProperty("lootTable", out var lootTable)
                 ? Asteria.Core.World.LootTable.Parse(lootTable) : null);
     }
+
+    private static ObjectTargetDefinition CuboidTarget(
+        IReadOnlyList<ObjectCuboidPart> parts)
+    {
+        var lower = parts[0].From;
+        var upper = parts[0].To;
+        foreach (var part in parts)
+        {
+            lower = Vector3.Min(lower, part.From);
+            upper = Vector3.Max(upper, part.To);
+        }
+        return new ObjectTargetDefinition(upper - lower, (lower + upper) * .5f);
+    }
+
+    private static IReadOnlyList<ObjectCuboidPart> ReadCuboidParts(JsonElement visual)
+    {
+        if (!visual.TryGetProperty("parts", out var parts) ||
+            parts.ValueKind != JsonValueKind.Array ||
+            parts.GetArrayLength() is < 1 or > 64)
+            throw new FormatException("cuboidSet requires 1..64 parts.");
+
+        var result = new List<ObjectCuboidPart>();
+        foreach (var part in parts.EnumerateArray())
+        {
+            if (part.ValueKind != JsonValueKind.Object ||
+                !part.TryGetProperty("from", out _) ||
+                !part.TryGetProperty("to", out _))
+                throw new FormatException("cuboidSet part requires from and to.");
+            var from = ReadVector3(part, "from", Vector3.Zero);
+            var to = ReadVector3(part, "to", Vector3.Zero);
+            var uv = new Vector4(0, 0, 1, 1);
+            if (part.TryGetProperty("uv", out var value))
+            {
+                if (value.ValueKind != JsonValueKind.Array || value.GetArrayLength() != 4)
+                    throw new FormatException("cuboidSet part uv must be a 4-number rect.");
+                uv = new Vector4(ReadAt(value, 0), ReadAt(value, 1),
+                    ReadAt(value, 2), ReadAt(value, 3));
+            }
+            result.Add(new ObjectCuboidPart(from, to, uv));
+        }
+        return result;
+    }
+
+    private static bool Finite(Vector4 value) =>
+        float.IsFinite(value.X) && float.IsFinite(value.Y) &&
+        float.IsFinite(value.Z) && float.IsFinite(value.W);
 
     private static bool PositiveTarget(Vector3 value) =>
         Finite(value) && value.X > 0f && value.Y > 0f && value.Z > 0f;

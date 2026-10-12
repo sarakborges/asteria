@@ -37,6 +37,13 @@ internal sealed class WorldObjectVisualCatalog
             case ObjectVisualKind.ExtrudedSprite:
                 EmitExtrudedSprite(surface, image, visual);
                 break;
+            case ObjectVisualKind.CuboidSet:
+                foreach (var vertex in ObjectCuboidMesh.Build(visual))
+                    EmitVertex(surface,
+                        new Vector3(vertex.Position.X, vertex.Position.Y, vertex.Position.Z),
+                        new Vector2(vertex.Uv.X, vertex.Uv.Y),
+                        new Vector3(vertex.Normal.X, vertex.Normal.Y, vertex.Normal.Z));
+                break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(visual.Kind));
         }

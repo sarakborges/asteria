@@ -14,7 +14,7 @@ public sealed class ObjectPlacementPreviewPresentation
     private readonly WorldObjectVisualCatalog _visuals;
     private readonly MeshInstance3D _instance;
     private string? _shownId;
-    private StandardMaterial3D? _tintMaterial;
+    private Material? _tintMaterial;
     private (int X, int Z)? _tintColumn;
 
     public ObjectPlacementPreviewPresentation(Node3D parent, PackSelection pack)
@@ -49,9 +49,14 @@ public sealed class ObjectPlacementPreviewPresentation
             _instance.Mesh = mesh;
             _shownId = definition.Id;
             _tintColumn = null;
-            _tintMaterial = definition.Tint != BlockTint.None
-                ? (StandardMaterial3D)mesh.SurfaceGetMaterial(0)!.Duplicate()
-                : null;
+            var sourceMaterial = mesh.SurfaceGetMaterial(0) ??
+                throw new InvalidOperationException("Object mesh has no material.");
+            _tintMaterial = sourceMaterial is ShaderMaterial ||
+                definition.Tint != BlockTint.None
+                    ? (Material)sourceMaterial.Duplicate()
+                    : null;
+            if (_tintMaterial is ShaderMaterial shader)
+                shader.SetShaderParameter("preview_mode", true);
             _instance.MaterialOverride = _tintMaterial;
         }
 
@@ -66,7 +71,12 @@ public sealed class ObjectPlacementPreviewPresentation
                 var sample = tints.SampleChunkGrid(coord.X, coord.Z);
                 var tint = sample.Resolve(definition.Tint, definition.TintFallback,
                     location.Item1, location.Item2);
-                _tintMaterial.AlbedoColor = new Color(tint.X, tint.Y, tint.Z);
+                var color = new Color(tint.X, tint.Y, tint.Z);
+                if (_tintMaterial is StandardMaterial3D standard)
+                    standard.AlbedoColor = color;
+                else if (_tintMaterial is ShaderMaterial shader)
+                    shader.SetShaderParameter("preview_tint",
+                        new Vector3(tint.X, tint.Y, tint.Z));
                 _tintColumn = location;
             }
         }
