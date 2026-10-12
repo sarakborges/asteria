@@ -443,3 +443,10 @@ MineClone `world-systems-rebuild` reference: `world_objects.rs::detached_object_
 - Creature projectiles now pass through the same authoritative PlayerHazardRuntime invulnerability and equipment wear path as melee impacts, rather than bypassing it and damaging health directly; accepted zero-net-damage armor hits can still shove the player.
 - Added Core tests for world-space direction, projectile side, exact-overlap fallback, and non-finite validation. In-game knockback magnitude/collision/feel must still be verified in Godot.
 
+## Attached Object held visual parity — 2026-10-12
+
+- The current Asteria Object schema and all 48 default-pack Objects use crossed/extruded sprite geometry, not glTF/GLB models. No unsupported, speculative model importer was added. MineClone rebuild's held model-object route was inspected; its stable maximum-target-extent framing is shared in portable Core layout.
+- Resolved Object inventory stacks to the authored Object visual, rather than only an icon sprite. Godot reuses `WorldObjectVisualCatalog.GetMesh` for the same crossed planes and alpha-contour extrusion seen in-world. Material and tint fallback remain selected-pack based; horizontal extrusions face the camera while held.
+- Third-person, first-person, and inventory portrait share one per-player bounded Object mesh catalog and identical portable centering/scaling. The normal sprite/cube/tool paths remain unchanged.
+- Core regression tests cover both authored Object visual kinds and non-uniform target bounds. Native Godot preview, camera framing, contour transparency and authored foliage coloring still need in-game acceptance.
+

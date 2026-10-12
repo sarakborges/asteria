@@ -126,4 +126,53 @@ public sealed class HeldVisualResolverTests
             PlayerHeldVisualLayout.SpriteFaceAngle(HeldVisualKind.GrippedSprite));
     }
 
+    [Theory]
+    [InlineData("crossedSprite", "crossed")]
+    [InlineData("extrudedSprite", "extruded")]
+    public void AuthoredObjectUsesRealGeometryInsteadOfFlatIcon(
+        string visualType, string suffix)
+    {
+        var visual = visualType == "crossedSprite"
+            ? """{"type":"crossedSprite","texture":"textures/objects/flower.png","width":0.5,"height":0.8,"planes":4}"""
+            : """{"type":"extrudedSprite","texture":"textures/objects/shell.png","size":[0.7,0.4],"height":0.035}""";
+        var authored = $"""
+            {"id":"asteria:{{suffix}}","category":"foliage",
+             "icon":"textures/icons/{{suffix}}.png",
+             "visual":{{visual}},
+             "target":{"size":[0.7,0.8,0.4],"centerOffset":[0,0.4,0]}}
+            """;
+        var definition = ObjectDefinition.Parse(authored);
+        var objects = PackContentRegistry<ObjectDefinition>.FromJson(
+            [authored], ObjectDefinition.Parse, obj => obj.Id);
+        var resolver = new HeldVisualResolver(new BlockRegistry([]),
+            PackContentRegistry<ItemDefinition>.FromJson([], ItemDefinition.Parse, obj => obj.Id),
+            PackContentRegistry<ToolDefinition>.FromJson([], ToolDefinition.Parse, obj => obj.Id),
+            new AttachedLayerRegistry([]), objects);
+        var held = resolver.Resolve(new InventoryStack(
+            InventoryEntry.FromObject(definition.Id)))!;
+        Assert.Equal(HeldVisualKind.Object, held.Kind);
+        Assert.Equal(definition.Visual.Kind, held.Object!.Visual.Kind);
+        Assert.Equal("textures/icons/" + suffix + ".png", held.FrontTexture);
+        var pose = PlayerHeldVisualLayout.ObjectPose(held.Object);
+        Assert.Equal(0.65f, pose.Scale, 4);
+        Assert.Equal(-0.26f, pose.CenterTranslation.Y, 5);
+        Assert.Equal(0f, pose.CenterTranslation.X);
+        Assert.Equal(0f, pose.CenterTranslation.Z);
+        Assert.Equal(visualType == "extrudedSprite", pose.FaceCamera);
+    }
+
+    [Fact]
+    public void ObjectFramingUsesLargestOfAllThreeAuthoredTargetExtents()
+    {
+        var definition = ObjectDefinition.Parse("""
+            {"id":"asteria:tall","category":"foliage",
+             "icon":"textures/objects/tall.png",
+             "visual":{"type":"crossedSprite","texture":"textures/objects/tall.png"},
+             "target":{"size":[0.5,3,0.6],"centerOffset":[0,1.5,0]}}
+            """);
+        var pose = PlayerHeldVisualLayout.ObjectPose(definition);
+        Assert.Equal(PlayerHeldVisualLayout.SpriteSize / 3f, pose.Scale, 5);
+        Assert.Equal(-1.5f * pose.Scale, pose.CenterTranslation.Y, 5);
+    }
+
 }

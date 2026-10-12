@@ -4207,14 +4207,18 @@ public partial class Main : Node3D
         _player.FluidContactChanged +=
             OnPlayerFluidContactChanged;
         AddChild(_player);
+        // Both gameplay perspectives and inventory portrait use one bounded
+        // per-player Object mesh catalog; no per-item geometry duplication.
+        var heldObjectVisuals = new WorldObjectVisualCatalog(_packSelection);
         _playerModel = new PlayerModelPresentation(
             _player, _packSelection, _playerVisual,
             _sessionStates.Player.Inventory, _heldVisuals, _items,
-            ResolveSelectedToolTint);
+            ResolveSelectedToolTint, heldObjectVisuals);
         _player.AddChild(_playerModel);
         _playerPortrait = new PlayerPortraitPresentation(
             _packSelection, _playerVisual, _sessionStates.Player.Inventory,
-            _items, _heldVisuals, ResolveSelectedToolTint);
+            _items, _heldVisuals, ResolveSelectedToolTint,
+            heldObjectVisuals);
         AddChild(_playerPortrait);
         _playerPortrait.RequestCapture();
         if (_sessionStates.Player.Health.IsDead)

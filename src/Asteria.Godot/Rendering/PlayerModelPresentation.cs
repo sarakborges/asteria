@@ -31,6 +31,7 @@ public sealed partial class PlayerModelPresentation : Node3D
     private readonly PackSelection _selection;
     private readonly PlayerVisualDefinition _definition;
     private readonly PlayerInventory _inventory;
+    private readonly WorldObjectVisualCatalog _objectVisuals;
     private readonly HeldVisualResolver _heldResolver;
     private readonly PackContentRegistry<ItemDefinition> _items;
     private readonly Func<Color?> _selectedToolTint;
@@ -55,7 +56,7 @@ public sealed partial class PlayerModelPresentation : Node3D
         FpsPlayer player, PackSelection selection,
         PlayerVisualDefinition definition, PlayerInventory inventory,
         HeldVisualResolver heldResolver, PackContentRegistry<ItemDefinition> items,
-        Func<Color?> selectedToolTint)
+        Func<Color?> selectedToolTint, WorldObjectVisualCatalog objectVisuals)
     {
         _player = player ?? throw new ArgumentNullException(nameof(player));
         _selection = selection;
@@ -65,6 +66,8 @@ public sealed partial class PlayerModelPresentation : Node3D
         _items = items ?? throw new ArgumentNullException(nameof(items));
         _selectedToolTint = selectedToolTint ??
             throw new ArgumentNullException(nameof(selectedToolTint));
+        _objectVisuals = objectVisuals ??
+            throw new ArgumentNullException(nameof(objectVisuals));
         Name = "PlayerVisual";
         Visible = false;
     }
@@ -91,7 +94,7 @@ public sealed partial class PlayerModelPresentation : Node3D
         }
         if (_pivots.TryGetValue("RightArmPivot", out var hand))
         {
-            _held = new HeldItemPresentation(_selection);
+            _held = new HeldItemPresentation(_selection, _objectVisuals);
             hand.Pivot.AddChild(_held);
         }
 
@@ -136,7 +139,8 @@ public sealed partial class PlayerModelPresentation : Node3D
         };
         viewPort.AddChild(_viewModelCamera);
         _firstPerson = new PlayerFirstPersonViewModel(
-            _player, _selection, _definition, _inventory, _heldResolver);
+            _player, _selection, _definition, _inventory, _heldResolver,
+            _objectVisuals);
         _viewModelCamera.AddChild(_firstPerson);
 
         foreach (var required in new[] { "idle", "walk", "run", "jump", "fall" })

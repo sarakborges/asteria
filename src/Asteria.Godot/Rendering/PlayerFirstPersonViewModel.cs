@@ -30,6 +30,7 @@ internal sealed partial class PlayerFirstPersonViewModel : Node3D
     private readonly PlayerVisualDefinition _definition;
     private readonly PlayerInventory _inventory;
     private readonly HeldVisualResolver _heldResolver;
+    private readonly WorldObjectVisualCatalog _objectVisuals;
     private Node3D _pose = null!;
     private HeldItemPresentation _held = null!;
     private ulong _observedInventoryRevision = ulong.MaxValue;
@@ -43,13 +44,15 @@ internal sealed partial class PlayerFirstPersonViewModel : Node3D
     public PlayerFirstPersonViewModel(
         FpsPlayer player, PackSelection pack,
         PlayerVisualDefinition definition, PlayerInventory inventory,
-        HeldVisualResolver heldResolver)
+        HeldVisualResolver heldResolver, WorldObjectVisualCatalog objectVisuals)
     {
         _player = player ?? throw new ArgumentNullException(nameof(player));
         _pack = pack;
         _definition = definition ?? throw new ArgumentNullException(nameof(definition));
         _inventory = inventory ?? throw new ArgumentNullException(nameof(inventory));
         _heldResolver = heldResolver ?? throw new ArgumentNullException(nameof(heldResolver));
+        _objectVisuals = objectVisuals ??
+            throw new ArgumentNullException(nameof(objectVisuals));
         Name = "FirstPersonViewModel";
         Visible = false;
     }
@@ -93,7 +96,8 @@ internal sealed partial class PlayerFirstPersonViewModel : Node3D
         armReference.Position = -(armRotation * pivot.Position);
         // MineClone keeps the held item alongside the arm under the camera-
         // local pose, not under the arm's shoulder pivot.
-        _held = new HeldItemPresentation(_pack, firstPerson: true);
+        _held = new HeldItemPresentation(
+            _pack, _objectVisuals, firstPerson: true);
         _pose.AddChild(_held);
         _selectedVisual = _heldResolver.Resolve(_inventory.SelectedStack);
         _held.SetVisual(_selectedVisual);

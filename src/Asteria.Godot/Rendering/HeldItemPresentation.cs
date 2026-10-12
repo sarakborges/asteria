@@ -16,15 +16,19 @@ internal sealed partial class HeldItemPresentation : Node3D
     private const float ToolGripFraction = -0.36f;
     private const float TintDepth = 0.004f;
     private readonly PackSelection _selection;
+    private readonly WorldObjectVisualCatalog _objects;
     private readonly bool _firstPerson;
     private HeldVisual? _selected;
     private Color? _tint;
     private MeshInstance3D? _tintLayer;
     private StandardMaterial3D? _tintMaterial;
 
-    public HeldItemPresentation(PackSelection selection, bool firstPerson = false)
+    public HeldItemPresentation(
+        PackSelection selection, WorldObjectVisualCatalog objects,
+        bool firstPerson = false)
     {
         _selection = selection;
+        _objects = objects ?? throw new ArgumentNullException(nameof(objects));
         _firstPerson = firstPerson;
         Name = "HeldItem";
         if (!firstPerson)
@@ -58,7 +62,14 @@ internal sealed partial class HeldItemPresentation : Node3D
         _tintMaterial = null;
         if (visual is null) return;
 
-        if (visual.Kind == HeldVisualKind.Cube)
+        if (visual.Kind == HeldVisualKind.Object)
+        {
+            if (visual.Object is null)
+                throw new InvalidDataException(
+                    "A held Object requires its authored visual definition.");
+            AddObjectMesh(visual.Object);
+        }
+        else if (visual.Kind == HeldVisualKind.Cube)
         {
             var size = _firstPerson ? PlayerHeldVisualLayout.FirstPersonBlockSize : CubeSize;
             var h = size * 0.5f;
@@ -101,6 +112,42 @@ internal sealed partial class HeldItemPresentation : Node3D
                     PlayerHeldVisualLayout.SpriteFaceAngle(visual.Kind)),
                 SpriteSize);
         }
+    }
+
+    private void AddObjectMesh(ObjectDefinition definition)
+    {
+        var pose = PlayerHeldVisualLayout.ObjectPose(definition);
+        var rotationRoot = new Node3D { Name = "ObjectDisplay" };
+        if (pose.FaceCamera)
+            rotationRoot.Rotation = new Vector3(Mathf.Pi * .5f, 0f, 0f);
+        AddChild(rotationRoot);
+
+        var offset = pose.CenterTranslation;
+        var color = definition.Tint == Asteria.Core.World.BlockTint.None
+            ? Colors.White
+            : new Color(
+                definition.TintFallback.Red / 255f,
+                definition.TintFallback.Green / 255f,
+                definition.TintFallback.Blue / 255f);
+        rotationRoot.AddChild(new MeshInstance3D
+        {
+            Name = "ObjectMesh",
+            Mesh = _objects.GetMesh(definition),
+            Position = new Vector3(offset.X, offset.Y, offset.Z),
+            Scale = Vector3.One * pose.Scale,
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+            MaterialOverride = new StandardMaterial3D
+            {
+                AlbedoTexture = ProjectPackFiles.LoadTexture(
+                    _selection, definition.Visual.Texture),
+                AlbedoColor = color,
+                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                TextureFilter = BaseMaterial3D.TextureFilterEnum.Nearest,
+                Transparency = BaseMaterial3D.TransparencyEnum.AlphaScissor,
+                AlphaScissorThreshold = definition.Visual.AlphaCutoff,
+                CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+            }
+        });
     }
 
     /// <summary>Presentation-only palette color. Brush selection remains

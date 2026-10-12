@@ -5,6 +5,9 @@ namespace Asteria.Core.Content;
 /// <summary>MineClone player hand art framing shared by in-world, portrait
 /// and camera-local renderers. Values are local to the GLB right-arm pivot;
 /// no world or inventory state is stored here.</summary>
+public readonly record struct HeldObjectLayout(
+    float Scale, Vector3 CenterTranslation, bool FaceCamera);
+
 public static class PlayerHeldVisualLayout
 {
     public const float ThirdPersonBlockSize = .22f;
@@ -20,6 +23,23 @@ public static class PlayerHeldVisualLayout
         HeldVisualKind.GrippedSprite => new(-.08f, .52f, .21f),
         _ => new(.04f, .76f, .21f),
     };
+
+    /// <summary>
+    /// Frame an authored Object from its actual 3D target bounds, not from its
+    /// icon or an arbitrary per-object heuristic. Matches MineClone's maximum
+    /// extent scaling and centralizes the pose for all three player views.
+    /// </summary>
+    public static HeldObjectLayout ObjectPose(ObjectDefinition definition)
+    {
+        ArgumentNullException.ThrowIfNull(definition);
+        var size = definition.Target.Size;
+        var extent = MathF.Max(size.X, MathF.Max(size.Y, size.Z));
+        var scale = SpriteSize / extent;
+        return new HeldObjectLayout(
+            scale,
+            -definition.Target.CenterOffset * scale,
+            definition.Visual.Kind == ObjectVisualKind.ExtrudedSprite);
+    }
 
     /// <summary>Sprite icons stay upright. Tools use MineClone's authored
     /// 0.30-radian rotation; applying a 0.30π rotation to every sprite is wrong.</summary>

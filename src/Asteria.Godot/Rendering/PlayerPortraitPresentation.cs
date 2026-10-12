@@ -19,6 +19,7 @@ public sealed partial class PlayerPortraitPresentation : Node
     private readonly PlayerInventory _inventory;
     private readonly PackContentRegistry<ItemDefinition> _items;
     private readonly HeldVisualResolver _heldResolver;
+    private readonly WorldObjectVisualCatalog _objectVisuals;
     private readonly Func<Color?> _selectedToolTint;
     private PlayerEquipmentPresentation? _equipment;
     private HeldItemPresentation? _held;
@@ -31,13 +32,16 @@ public sealed partial class PlayerPortraitPresentation : Node
     public PlayerPortraitPresentation(
         PackSelection selection, PlayerVisualDefinition definition,
         PlayerInventory inventory, PackContentRegistry<ItemDefinition> items,
-        HeldVisualResolver heldResolver, Func<Color?> selectedToolTint)
+        HeldVisualResolver heldResolver, Func<Color?> selectedToolTint,
+        WorldObjectVisualCatalog objectVisuals)
     {
         _selection = selection;
         _definition = definition ?? throw new ArgumentNullException(nameof(definition));
         _inventory = inventory ?? throw new ArgumentNullException(nameof(inventory));
         _items = items ?? throw new ArgumentNullException(nameof(items));
         _heldResolver = heldResolver ?? throw new ArgumentNullException(nameof(heldResolver));
+        _objectVisuals = objectVisuals ??
+            throw new ArgumentNullException(nameof(objectVisuals));
         _selectedToolTint = selectedToolTint ??
             throw new ArgumentNullException(nameof(selectedToolTint));
         Name = "PlayerPortrait";
@@ -70,7 +74,7 @@ public sealed partial class PlayerPortraitPresentation : Node
             .FirstOrDefault(node => node.Name.ToString() == "RightArmPivot")
             ?? throw new InvalidDataException(
                 "Authored player GLB is missing the portrait's right arm pivot.");
-        _held = new HeldItemPresentation(_selection);
+        _held = new HeldItemPresentation(_selection, _objectVisuals);
         hand.AddChild(_held);
         _held.SetVisual(_heldResolver.Resolve(_inventory.SelectedStack));
         _held.SetTint(_selectedToolTint());

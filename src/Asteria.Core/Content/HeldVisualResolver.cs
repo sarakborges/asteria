@@ -2,7 +2,7 @@ using Asteria.Core.World;
 
 namespace Asteria.Core.Content;
 
-public enum HeldVisualKind : byte { Sprite, Cube, GrippedSprite }
+public enum HeldVisualKind : byte { Sprite, Cube, GrippedSprite, Object }
 
 /// <summary>
 /// Immutable selected-stack appearance. No input, movement or inventory
@@ -12,7 +12,8 @@ public sealed record HeldVisual(
     HeldVisualKind Kind, string FrontTexture,
     string? TopTexture = null, string? BottomTexture = null,
     string? BackTexture = null, string? LeftTexture = null, string? RightTexture = null,
-    string? TintTexture = null);
+    string? TintTexture = null,
+    ObjectDefinition? Object = null);
 
 /// <summary>
 /// Maps existing authored catalog identities to their portable display
@@ -70,7 +71,8 @@ public sealed class HeldVisualResolver
             {
                 if (_objects is null || !_objects.TryGet(selected.Id, out var obj))
                     return null;
-                return new HeldVisual(HeldVisualKind.Sprite, obj!.Icon);
+                return new HeldVisual(
+                    HeldVisualKind.Object, obj!.Icon, Object: obj);
             }
             case InventoryEntryKind.Layer:
             {
