@@ -9,6 +9,7 @@ public sealed class ObjectCuboidMeshTests
     private const string Cuboid = """
         {"id":"asteria:branch","category":"foliage",
          "icon":"textures/objects/branch.png",
+         "placementFaces":["top","front"],
          "visual":{"type":"cuboidSet",
            "texture":"textures/objects/branch.png",
            "parts":[
