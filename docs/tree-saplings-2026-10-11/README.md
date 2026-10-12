@@ -4,7 +4,7 @@
 
 ![As 11 mudas em tamanho ampliado, sem suavização](saplings-preview.png)
 
-| Família | Bloco | Textura final no pack |
+| Família | Object | Textura final no pack |
 | --- | --- | --- |
 | Charwood | `asteria:sapling_charwood` | `textures/blocks/trees/charwood/sapling.png` |
 | Enchanted Tree | `asteria:sapling_enchanted_tree` | `textures/blocks/trees/enchanted_tree/sapling.png` |
@@ -37,3 +37,10 @@ Foi usado o **ImageGen embutido**, em uma chamada por muda, com o sprite de Thor
 `TreeSaplingContentTests` testa as onze mudas no catálogo e no runtime real: suporte obrigatório, rejeição de faces laterais/inferiores, colocação sem bloquear o jogador, quebra, replantio e recuperação após remoção do suporte. A validação de WebUI verifica as texturas e as três traduções. A CI executa os testes de Core, build, benchmark de worldgen, WebUI, Storybook e screen parity. O ambiente local não possui .NET/Godot; a execução do jogo não foi capturada aqui.
 
 Referência dos materiais: `8dfc12455dfe68936f93cc31def793f78c737ace`. A integração acompanha a main mais recente, incluindo o catálogo e o runtime de loot.
+
+## Migração de identidade — 12/10/2026
+
+Todas as onze mudas passaram do voxel `Block` para o `Object` preso ao bloco de suporte. Mantiveram nome, PNG, dimensões, quatro planos, vento, ausência de colisão e drop próprio; a muda agora não ocupa o voxel de ar. Os nomes de EN/PT-BR/ES estão no catálogo de Objects. O teste `TreeSaplingContentTests` cobre as onze famílias no inventário, posicionamento, quebra, replantio, drop por perda do suporte e persistência de chunks.
+
+**Crescimento automático ainda não está implementado.** Faltam árvores adultas autorais para algumas famílias e um ciclo de crescimento determinístico e persistido. Não se deve converter mudas de espécies distintas em árvores genéricas.
+

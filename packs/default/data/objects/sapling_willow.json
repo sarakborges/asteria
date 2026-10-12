@@ -1,0 +1,37 @@
+{
+  "id": "asteria:sapling_willow",
+  "category": "foliage",
+  "icon": "textures/blocks/trees/willow/sapling.png",
+  "placementFaces": [
+    "top"
+  ],
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/blocks/trees/willow/sapling.png",
+    "width": 0.77,
+    "height": 0.79,
+    "planes": 4,
+    "alphaCutoff": 0.5
+  },
+  "target": {
+    "size": [
+      0.77,
+      0.79,
+      0.77
+    ],
+    "centerOffset": [
+      0,
+      0.395,
+      0
+    ]
+  },
+  "positionJitter": [
+    0,
+    0
+  ],
+  "dropSelf": true,
+  "windSway": true,
+  "unlit": false,
+  "tint": "none",
+  "previewColor": "75956c"
+}

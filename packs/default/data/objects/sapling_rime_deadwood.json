@@ -1,0 +1,37 @@
+{
+  "id": "asteria:sapling_rime_deadwood",
+  "category": "foliage",
+  "icon": "textures/blocks/trees/rime_deadwood/sapling.png",
+  "placementFaces": [
+    "top"
+  ],
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/blocks/trees/rime_deadwood/sapling.png",
+    "width": 0.73,
+    "height": 0.78,
+    "planes": 4,
+    "alphaCutoff": 0.5
+  },
+  "target": {
+    "size": [
+      0.73,
+      0.78,
+      0.73
+    ],
+    "centerOffset": [
+      0,
+      0.39,
+      0
+    ]
+  },
+  "positionJitter": [
+    0,
+    0
+  ],
+  "dropSelf": true,
+  "windSway": true,
+  "unlit": false,
+  "tint": "none",
+  "previewColor": "b1d5e8"
+}

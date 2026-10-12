@@ -80,6 +80,39 @@
   "asteria:sagebrush": {
     "/name": "Sagebrush"
   },
+  "asteria:sapling_charwood": {
+    "/name": "Charwood Sapling"
+  },
+  "asteria:sapling_enchanted_tree": {
+    "/name": "Enchanted Tree Sapling"
+  },
+  "asteria:sapling_frost_wood": {
+    "/name": "Frostwood Sapling"
+  },
+  "asteria:sapling_juniper": {
+    "/name": "Juniper Sapling"
+  },
+  "asteria:sapling_oak": {
+    "/name": "Oak Sapling"
+  },
+  "asteria:sapling_rime_deadwood": {
+    "/name": "Rime Sapling"
+  },
+  "asteria:sapling_skywood": {
+    "/name": "Skywood Sapling"
+  },
+  "asteria:sapling_thornwood": {
+    "/name": "Thornwood Sapling"
+  },
+  "asteria:sapling_willow": {
+    "/name": "Willow Sapling"
+  },
+  "asteria:sapling_windwood": {
+    "/name": "Windwood Sapling"
+  },
+  "asteria:sapling_world_tree": {
+    "/name": "World Tree Sapling"
+  },
   "asteria:sea_anemone": {
     "/name": "Sea Anemone"
   },

@@ -350,39 +350,6 @@
   "asteria:sandstone_tiles": {
     "/name": "Baldosas de Arenisca"
   },
-  "asteria:sapling_charwood": {
-    "/name": "Brote de Madera Carbonizada"
-  },
-  "asteria:sapling_enchanted_tree": {
-    "/name": "Brote de Árbol Encantado"
-  },
-  "asteria:sapling_frost_wood": {
-    "/name": "Brote de Madera Gélida"
-  },
-  "asteria:sapling_juniper": {
-    "/name": "Brote de Enebro"
-  },
-  "asteria:sapling_oak": {
-    "/name": "Brote de Roble"
-  },
-  "asteria:sapling_rime_deadwood": {
-    "/name": "Brote de Escarcha"
-  },
-  "asteria:sapling_skywood": {
-    "/name": "Brote de Madera Celeste"
-  },
-  "asteria:sapling_thornwood": {
-    "/name": "Brote de Madera Espinosa"
-  },
-  "asteria:sapling_willow": {
-    "/name": "Brote de Sauce"
-  },
-  "asteria:sapling_windwood": {
-    "/name": "Brote de Madera del Viento"
-  },
-  "asteria:sapling_world_tree": {
-    "/name": "Brote del Árbol del Mundo"
-  },
   "asteria:saxifrage": {
     "/name": "Saxífraga"
   },

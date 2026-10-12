@@ -1,0 +1,37 @@
+{
+  "id": "asteria:sapling_frost_wood",
+  "category": "foliage",
+  "icon": "textures/blocks/trees/frost_wood/sapling.png",
+  "placementFaces": [
+    "top"
+  ],
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/blocks/trees/frost_wood/sapling.png",
+    "width": 0.72,
+    "height": 0.82,
+    "planes": 4,
+    "alphaCutoff": 0.5
+  },
+  "target": {
+    "size": [
+      0.72,
+      0.82,
+      0.72
+    ],
+    "centerOffset": [
+      0,
+      0.41,
+      0
+    ]
+  },
+  "positionJitter": [
+    0,
+    0
+  ],
+  "dropSelf": true,
+  "windSway": true,
+  "unlit": false,
+  "tint": "none",
+  "previewColor": "9dcbd2"
+}

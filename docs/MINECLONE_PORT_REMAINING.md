@@ -407,3 +407,9 @@ MineClone `world-systems-rebuild` reference: `world_objects.rs::detached_object_
 - No new fluid owner, save aliases, or redundant biome data. Regression tests cover manual placement, dry/mismatched fluids, water-source preservation, valid/invalid lifecycle changes, cross-chunk detachment, and atomic rejection when the drop pool cannot hold detached rewards.
 - Headless CI and native Godot acceptance remain pending.
 
+## Sapling Object migration — 2026-10-12
+
+- Migrated all 11 saplings — charwood, enchanted_tree, frost_wood, juniper, oak, rime_deadwood, skywood, thornwood, willow, windwood and world_tree — to support-attached Objects, preserving species assets, crossed-sprite geometry, top-face placement, wind, noncollision and drop-self semantics.
+- Removed duplicate block definitions, transferred EN/PT-BR/ES localization keys to Object catalogs, and changed the existing regression test to exercise actual Object placement, survival break, replanting, detached drop and portable chunk save/load for every species.
+- Automatic tree growth remains a separate missing capability; neither MineClone rebuild nor Asteria has a species-growth runtime, and not all species have authored mature tree Structures. Avoid generic fallback trees or unsaved transient timers.
+

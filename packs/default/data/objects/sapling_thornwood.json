@@ -1,0 +1,37 @@
+{
+  "id": "asteria:sapling_thornwood",
+  "category": "foliage",
+  "icon": "textures/blocks/trees/thornwood/sapling.png",
+  "placementFaces": [
+    "top"
+  ],
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/blocks/trees/thornwood/sapling.png",
+    "width": 0.76,
+    "height": 0.76,
+    "planes": 4,
+    "alphaCutoff": 0.5
+  },
+  "target": {
+    "size": [
+      0.76,
+      0.76,
+      0.76
+    ],
+    "centerOffset": [
+      0,
+      0.38,
+      0
+    ]
+  },
+  "positionJitter": [
+    0,
+    0
+  ],
+  "dropSelf": true,
+  "windSway": true,
+  "unlit": false,
+  "tint": "none",
+  "previewColor": "a85c40"
+}
