@@ -25,16 +25,19 @@ public sealed class HeldVisualResolver
     private readonly PackContentRegistry<ItemDefinition> _items;
     private readonly PackContentRegistry<ToolDefinition> _tools;
     private readonly AttachedLayerRegistry _layers;
+    private readonly PackContentRegistry<ObjectDefinition>? _objects;
 
     public HeldVisualResolver(BlockRegistry blocks,
         PackContentRegistry<ItemDefinition> items,
         PackContentRegistry<ToolDefinition> tools,
-        AttachedLayerRegistry layers)
+        AttachedLayerRegistry layers,
+        PackContentRegistry<ObjectDefinition>? objects = null)
     {
         _blocks = blocks ?? throw new ArgumentNullException(nameof(blocks));
         _items = items ?? throw new ArgumentNullException(nameof(items));
         _tools = tools ?? throw new ArgumentNullException(nameof(tools));
         _layers = layers ?? throw new ArgumentNullException(nameof(layers));
+        _objects = objects;
     }
 
     public HeldVisual? Resolve(InventoryStack? selected)
@@ -62,6 +65,12 @@ public sealed class HeldVisualResolver
                     variant?.Icon ?? tool.Icon,
                     TintTexture: tool.HeldPresentation == ToolHeldPresentation.GrippedSprite
                         ? tool.TintIcon : null);
+            }
+            case InventoryEntryKind.Object:
+            {
+                if (_objects is null || !_objects.TryGet(selected.Id, out var obj))
+                    return null;
+                return new HeldVisual(HeldVisualKind.Sprite, obj!.Icon);
             }
             case InventoryEntryKind.Layer:
             {

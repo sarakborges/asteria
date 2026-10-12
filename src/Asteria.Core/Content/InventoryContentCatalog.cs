@@ -18,7 +18,8 @@ public sealed class InventoryContentCatalog
         PackContentRegistry<ItemDefinition> items,
         PackContentRegistry<ToolDefinition> tools,
         AttachedLayerRegistry? layers = null,
-        InventoryCategoryRegistry? categories = null)
+        InventoryCategoryRegistry? categories = null,
+        PackContentRegistry<ObjectDefinition>? objects = null)
     {
         _blocks = blocks ?? throw new ArgumentNullException(nameof(blocks));
         _items = items ?? throw new ArgumentNullException(nameof(items));
@@ -81,6 +82,14 @@ public sealed class InventoryContentCatalog
             }
         }
 
+        if (objects is not null)
+        {
+            foreach (var definition in objects.Definitions)
+                choices.Add(new InventoryCatalogChoice(
+                    InventoryEntry.FromObject(definition.Id),
+                    definition.Category, definition.Icon));
+        }
+
         if (layers is not null)
         {
             foreach (var layer in layers.Definitions)
@@ -137,7 +146,7 @@ public sealed class InventoryContentCatalog
     {
         foreach (var kind in new[] {
                      InventoryEntryKind.Item, InventoryEntryKind.Block,
-                     InventoryEntryKind.Layer, InventoryEntryKind.Tool })
+                     InventoryEntryKind.Object, InventoryEntryKind.Layer, InventoryEntryKind.Tool })
             if (TryResolve(kind, id, null, null, out entry))
                 return true;
         entry = null;

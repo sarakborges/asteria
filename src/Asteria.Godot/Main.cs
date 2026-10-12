@@ -106,6 +106,7 @@ public partial class Main : Node3D
     private PackContentRegistry<CreatureDefinition> _creatures = null!;
     private PackContentRegistry<AttackDefinition> _attacks = null!;
     private (ulong Id, float Health, float Maximum, bool HasPortrait)? _lastCreatureHud;
+    private WorldObjectHit? _lastObjectHud;
     private FluidRegistry _fluids = null!;
     private BiomeRegistry _biomes = null!;
     private StructureRegistry _structures = null!;
@@ -214,9 +215,9 @@ public partial class Main : Node3D
         _inventoryCategories =
             InventoryCategoryContentLoader.LoadProjectCategories(_packSelection);
         _playerVisual = PlayerVisualContentLoader.Load(_packSelection);
-        _heldVisuals = new HeldVisualResolver(_blocks, _items, _tools, _layers);
+        _heldVisuals = new HeldVisualResolver(_blocks, _items, _tools, _layers, _objects);
         _inventoryCatalog = new InventoryContentCatalog(
-            _blocks, _items, _tools, _layers, _inventoryCategories);
+            _blocks, _items, _tools, _layers, _inventoryCategories, _objects);
         _crafting = new InventoryCraftingRuntime(
             CraftingContentLoader.LoadProjectRecipes(_packSelection),
             _inventoryCatalog);
@@ -2914,9 +2915,25 @@ public partial class Main : Node3D
             _brushPaletteOpen || _chat.IsOpen ||
             _player is not { IsMouseCaptured: true } ||
             _sessionStates.Player.GameMode != PlayerGameMode.Creative ||
-            !_sessionStates.Player.CanInteract || !TryGetTarget(out var hit))
+            !_sessionStates.Player.CanInteract)
             return;
 
+        if (CurrentObjectTarget() is { } objectHit)
+        {
+            if (_inventoryCatalog.TryResolve(InventoryEntryKind.Object,
+                    objectHit.Object.Id, null, null, out var objectEntry) &&
+                objectEntry is not null &&
+                _sessionStates.Player.Inventory.ReplaceSelectedCreative(objectEntry))
+            {
+                SyncHeldBlock();
+                SendHotbarState();
+                SendInventoryState();
+                SendTargetHudState(force: true);
+            }
+            return;
+        }
+
+        if (!TryGetTarget(out var hit)) return;
         var target = BlockInteractionResolver.ResolveBreak(_world, hit);
         if (!target.Accepted) return;
         var definition = _blocks.GetDefinition(target.Cell.Block);
@@ -4011,6 +4028,40 @@ public partial class Main : Node3D
             SendWebUi("game.hud.target_entity", new { });
         }
 
+        if (CurrentObjectTarget() is { } objectHit)
+        {
+            if (force || _lastObjectHud != objectHit)
+            {
+                _lastObjectHud = objectHit;
+                var definition = _objects.Get(objectHit.Object.Id);
+                SendWebUi("game.hud.target", new
+                {
+                    kind = "object",
+                    id = definition.Id,
+                    name = definition.Id,
+                    iconUrl = IconDataUri(definition.Icon),
+                    details = new[]
+                    {
+                        $"Face: {objectHit.Object.Face}",
+                        $"X: {objectHit.Support.X} | Z: {objectHit.Support.Z} | Y: {objectHit.Support.Y}",
+                    },
+                });
+                SendWebUi("game.hud.prompt", new
+                {
+                    key = definition.Interaction == ObjectInteraction.Pickup ? "RMB" : "LMB",
+                    text = definition.Interaction == ObjectInteraction.Pickup
+                        ? "hud.hint.pickupObject" : "hud.hint.breakObject",
+                });
+            }
+            _targetHud.Reset();
+            return;
+        }
+        if (_lastObjectHud is not null)
+        {
+            _lastObjectHud = null;
+            _targetHud.Reset();
+        }
+
         var hit =
             _player is
                 { IsMouseCaptured: true }
@@ -4095,6 +4146,7 @@ public partial class Main : Node3D
     {
         _targetHud.Reset();
         _lastCreatureHud = null;
+        _lastObjectHud = null;
         SendWebUi("game.hud.target_entity", new { });
         SendWebUi(
             "game.hud.target",
@@ -4367,6 +4419,20 @@ public partial class Main : Node3D
             }
         }
 
+        if (CurrentObjectTarget() is { } objectHit)
+        {
+            _sessions.Active.Mining.Cancel();
+            PublishMiningProgress();
+            var removed = _sessions.Active.ObjectInteractions.TryBreak(
+                objectHit, _sessionStates.Player.GameMode);
+            if (removed)
+            {
+                _playerModel?.TryPlayAction(PlayerVisualAction.Break);
+                SendTargetHudState(force: true);
+            }
+            return;
+        }
+
         if (!TryGetTarget(out var hit))
             return;
 
@@ -4440,7 +4506,8 @@ public partial class Main : Node3D
         var direction = new NVector3(
             to.X - from.X, to.Y - from.Y, to.Z - from.Z);
         if (_sessions.Active.FindCreatureTarget(
-                origin, direction, InteractionDistance) is not null)
+                origin, direction, InteractionDistance) is not null ||
+            CurrentObjectTarget() is not null)
         {
             _sessions.Active.Mining.Cancel();
             PublishMiningProgress();
@@ -4564,6 +4631,19 @@ public partial class Main : Node3D
             return;
 
         _playerModel?.TryPlayAction(PlayerVisualAction.Place);
+        if (CurrentObjectTarget() is { } objectHit)
+        {
+            if (_sessions.Active.ObjectInteractions.TryPickup(
+                    objectHit, _sessionStates.Player.Inventory))
+            {
+                SyncHeldBlock();
+                SendHotbarState();
+                SendInventoryState();
+                SendTargetHudState(force: true);
+            }
+            // Objects intercept interaction: do not place blocks behind them.
+            return;
+        }
         var target = CurrentTarget();
         if (target is { } storageHit &&
             _sessions.Active.TryOpenStorageBox(storageHit.Voxel))
@@ -4576,6 +4656,23 @@ public partial class Main : Node3D
 
         var inventory = _sessionStates.Player.Inventory;
         var selected = inventory.SelectedStack;
+        if (selected?.Kind == InventoryEntryKind.Object)
+        {
+            if (target is { } supportHit &&
+                _sessions.Active.ObjectInteractions.TryPlace(
+                    selected, supportHit))
+            {
+                if (_sessionStates.Player.GameMode == PlayerGameMode.Survival &&
+                    !inventory.TryConsumeSelected())
+                    throw new InvalidOperationException(
+                        "Accepted Object placement lost selected stack.");
+                SyncHeldBlock();
+                SendHotbarState();
+                SendInventoryState();
+                SendTargetHudState(force: true);
+            }
+            return;
+        }
         if (_sessions.Active.Tools.OpensBrushPalette(selected))
         {
             OpenBrushPalette();
@@ -4821,6 +4918,24 @@ public partial class Main : Node3D
         _sessions.Active.StructureSelection.Sync(
             compass.TryPreviewBounds(CurrentTarget(), out var bounds)
                 ? bounds : null);
+    }
+
+    /// <summary>Object target wins only if it precedes the opaque block hit
+    /// on the same ray. A closer block never allows picking through walls.</summary>
+    private WorldObjectHit? CurrentObjectTarget()
+    {
+        if (_player is not { IsMouseCaptured: true } player ||
+            _objects.Count == 0) return null;
+        var (from, to) = player.GetInteractionRay(InteractionDistance);
+        var origin = new NVector3(from.X, from.Y, from.Z);
+        var direction = new NVector3(to.X - from.X, to.Y - from.Y, to.Z - from.Z);
+        var hit = WorldObjectRaycaster.Raycast(
+            _world, _objects, origin, direction, InteractionDistance);
+        if (hit is not { } resolved) return null;
+        var blockingHit = VoxelWorldRaycaster.Raycast(
+            _world, _blocks, origin, direction,
+            MathF.Max(0f, resolved.Distance - .001f));
+        return blockingHit is null ? resolved : null;
     }
 
     private VoxelWorldHit? CurrentTarget()

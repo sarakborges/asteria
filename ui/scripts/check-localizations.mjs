@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 
 const languages = ["english", "portuguese_brazil", "spanish"];
-const domains = ["ui", "blocks", "layers", "dimensions", "fluids", "items", "tools", "creatures"];
+const domains = ["ui", "blocks", "layers", "dimensions", "fluids", "items", "tools", "creatures", "objects"];
 const packRoot = fileURLToPath(new URL("../../packs/default/", import.meta.url));
 const dataRoot = join(packRoot, "data");
 const resourcesRoot = join(packRoot, "resources");
@@ -101,6 +101,7 @@ console.log("Validated tree textures: " +
 for (const [domain, directories] of [
   ["blocks", ["blocks"]],
   ["layers", ["layers"]],
+  ["objects", ["objects"]],
   ["dimensions", ["biomes", "dimensions"]],
   ["fluids", ["fluids"]],
   ["items", ["items"]],
@@ -125,7 +126,8 @@ for (const [domain, directories] of [
           " in " + directory + "/" + file);
       }
       seen.add(definition.id);
-      if (domain === "blocks" || domain === "layers") validateBlockTexturePaths(definition, definition.id);
+      if (domain === "blocks" || domain === "layers" || domain === "objects") validateBlockTexturePaths(definition, definition.id);
+      if (domain === "objects") resource(definition.icon, definition.id + ".icon");
       if (domain === "items" || domain === "tools") {
         resource(definition.icon, definition.id + ".icon");
         if (definition.tintIcon) resource(definition.tintIcon, definition.id + ".tintIcon");

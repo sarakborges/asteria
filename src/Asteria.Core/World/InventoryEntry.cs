@@ -8,6 +8,7 @@ public enum InventoryEntryKind : byte
     Item,
     Tool,
     Layer,
+    Object,
 }
 
 /// <summary>
@@ -76,6 +77,9 @@ public sealed class InventoryEntry : IEquatable<InventoryEntry>
         IReadOnlyDictionary<string, string>? metadata = null,
         int maxStackSize = 64) =>
         new(InventoryEntryKind.Item, id, null, metadata, maxStackSize);
+
+    public static InventoryEntry FromObject(string id) =>
+        new(InventoryEntryKind.Object, id, null, null, 64);
 
     public static InventoryEntry FromLayer(string id) =>
         new(InventoryEntryKind.Layer, id, null, null, 64);

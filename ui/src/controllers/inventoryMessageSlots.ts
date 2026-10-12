@@ -2,7 +2,7 @@ import type { InventoryEntryKind, InventoryMetadata, InventorySlotState } from "
 import { asRecord } from "./messagePayload";
 
 export function readKind(value: unknown): InventoryEntryKind | null {
-  return value === "block" || value === "item" || value === "tool" || value === "layer"
+  return value === "block" || value === "item" || value === "tool" || value === "layer" || value === "object"
     ? value : null;
 }
 

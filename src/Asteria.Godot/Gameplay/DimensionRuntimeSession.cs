@@ -248,6 +248,8 @@ public sealed class DimensionRuntimeSession
                 _droppedBlocks,
                 restore:
                     state.BlockPhysics);
+        ObjectInteractions = new WorldObjectInteractionRuntime(
+            World, blocks, objects, Mutations, _droppedBlocks);
         BlockInteractions =
             new BlockInteractionRuntime(
                 World,
@@ -651,6 +653,7 @@ public sealed class DimensionRuntimeSession
 
 
     public BlockInteractionRuntime BlockInteractions { get; }
+    public WorldObjectInteractionRuntime ObjectInteractions { get; }
     public ToolGameplayRuntime Tools { get; }
     public AttachedLayerPlacementRuntime LayerPlacement { get; }
     public ArchitectsCompassRuntime ArchitectsCompass { get; }

@@ -361,6 +361,8 @@
   "newWorld.error.invalidName": "Choose a valid world name.",
   "newWorld.error.invalidMode": "Invalid game mode.",
   "newWorld.error.invalidTickRate": "Ticks per second must be a positive whole number.",
+  "hud.hint.pickupObject": "Pick up object",
+  "hud.hint.breakObject": "Break object",
   "hud.hint.breakPlace": "Break / place block",
   "hud.hint.rotate": "Rotate held block",
   "hud.hint.breakPlaceRotate": "Break / place · rotate",

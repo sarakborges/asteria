@@ -4,6 +4,8 @@ using Asteria.Core.World;
 
 namespace Asteria.Core.Content;
 
+public enum ObjectInteraction : byte { Break, Pickup }
+
 public enum ObjectVisualKind : byte
 {
     CrossedSprite,
@@ -31,9 +33,12 @@ public sealed class ObjectDefinition
     public ObjectDefinition(string id, string category, string icon,
         ObjectVisualDefinition visual, IReadOnlyList<BlockFace> placementFaces,
         ObjectTargetDefinition target, Vector2 positionJitter,
-        bool dropSelf, bool windSway, bool unlit)
+        bool dropSelf, bool windSway, bool unlit,
+        ObjectInteraction interaction = ObjectInteraction.Break)
     {
         BlockDefinition.ValidateId(id);
+        if (!Enum.IsDefined(interaction))
+            throw new FormatException("Invalid Object interaction.");
         if (id.Length > ObjectCell.MaximumIdLength)
             throw new FormatException("Object ID exceeds portable chunk limit.");
         if (string.IsNullOrWhiteSpace(category))
@@ -72,6 +77,7 @@ public sealed class ObjectDefinition
         DropSelf = dropSelf;
         WindSway = windSway;
         Unlit = unlit;
+        Interaction = interaction;
     }
 
     public string Id { get; }
@@ -84,6 +90,7 @@ public sealed class ObjectDefinition
     public bool DropSelf { get; }
     public bool WindSway { get; }
     public bool Unlit { get; }
+    public ObjectInteraction Interaction { get; }
 
     public bool Supports(BlockFace face) => PlacementFaces.Contains(face);
 
@@ -126,7 +133,13 @@ public sealed class ObjectDefinition
             placementFaces, target, jitter,
             ReadBool(root, "dropSelf", true),
             ReadBool(root, "windSway", false),
-            ReadBool(root, "unlit", false));
+            ReadBool(root, "unlit", false),
+            PackContentFields.OptionalString(root, "interaction") switch
+            {
+                null or "break" => ObjectInteraction.Break,
+                "pickup" => ObjectInteraction.Pickup,
+                _ => throw new FormatException("Unknown Object interaction."),
+            });
     }
 
     private static bool PositiveTarget(Vector3 value) =>

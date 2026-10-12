@@ -9,7 +9,7 @@ export type BridgeStatusTone =
 export type HotbarSlotState = {
   id?: string;
   quantity?: number;
-  kind?: "block" | "item" | "tool" | "layer";
+  kind?: "block" | "item" | "tool" | "layer" | "object";
   metadata?: Record<string, string>;
   iconUrl?: string;
   blockPreview?: BlockPreviewState;
@@ -55,6 +55,7 @@ export type TargetHudState = {
   id: string;
   name: string;
   details: string[];
+  iconUrl?: string;
   layers?: { id: string; face: TargetHudLayerFace }[];
   activeLayerId?: string | null;
 };
@@ -214,7 +215,7 @@ export type WorldCreationState = {
   errorKey: WorldCreationErrorKey | null;
 };
 
-export type InventoryEntryKind = "block" | "item" | "tool" | "layer";
+export type InventoryEntryKind = "block" | "item" | "tool" | "layer" | "object";
 export type InventoryMetadata = Record<string, string>;
 
 export type InventorySlotState = {

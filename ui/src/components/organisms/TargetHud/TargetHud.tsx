@@ -30,13 +30,14 @@ export function TargetHud({
     <section className="target-hud">
       <div className="target-hud__slot">
         <ItemGlyph item={{
-          id: state.id, blockPreview: preview,
+          id: state.id, blockPreview: state.kind === "object" ? undefined : preview,
+          iconUrl: state.kind === "object" ? state.iconUrl : undefined,
         }} size="recipe" />
       </div>
       <div className="target-hud__copy">
         <strong>{state.kind === "block" && state.activeLayerId
           ? contentName(state.activeLayerId)
-          : state.kind === "block" || state.kind === "fluid"
+          : state.kind === "block" || state.kind === "fluid" || state.kind === "object"
             ? contentName(state.id)
             : state.name}</strong>
         {state.kind === "block" && state.activeLayerId && (

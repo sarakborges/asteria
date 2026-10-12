@@ -461,6 +461,7 @@ function readTarget(
     id: value.id,
     name: value.name,
     details,
+    iconUrl: typeof value.iconUrl === "string" ? value.iconUrl : undefined,
     layers,
   };
 }

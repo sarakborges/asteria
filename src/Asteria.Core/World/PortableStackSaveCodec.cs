@@ -171,6 +171,11 @@ public static class PortableStackSaveCodec
                 case InventoryEntryKind.Tool:
                     entry = InventoryEntry.FromTool(id, metadata, maxStack);
                     break;
+                case InventoryEntryKind.Object:
+                    if (count != 0 || maxStack != 64)
+                        throw new InvalidDataException("Invalid portable Object stack.");
+                    entry = InventoryEntry.FromObject(id);
+                    break;
                 case InventoryEntryKind.Layer:
                     if (count != 0 || maxStack != 64 ||
                         !layers.TryGet(id, out _))

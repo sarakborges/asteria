@@ -3,7 +3,7 @@ import type { GameplayInventoryState, InventoryMetadata, InventoryCatalogEntry, 
 export type ItemStackView = {
   id: string;
   name?: string;
-  kind?: "block" | "item" | "tool" | "layer";
+  kind?: "block" | "item" | "tool" | "layer" | "object";
   metadata?: Record<string, string>;
   quantity?: number;
   durability?: { current: number; maximum: number } | null;

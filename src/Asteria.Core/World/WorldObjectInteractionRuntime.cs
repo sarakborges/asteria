@@ -1,0 +1,100 @@
+using System.Numerics;
+using Asteria.Core.Content;
+
+namespace Asteria.Core.World;
+
+/// <summary>
+/// Canonical world Object interaction owner. The Object's attached support
+/// voxel remains unchanged; placement, removal and drops flow through the
+/// existing mutation and dropped-item owners.
+/// </summary>
+public sealed class WorldObjectInteractionRuntime
+{
+    private readonly VoxelWorld _world;
+    private readonly BlockRegistry _blocks;
+    private readonly PackContentRegistry<ObjectDefinition> _definitions;
+    private readonly VoxelMutationRuntime _mutations;
+    private readonly DroppedBlockRuntime _drops;
+
+    public WorldObjectInteractionRuntime(
+        VoxelWorld world, BlockRegistry blocks,
+        PackContentRegistry<ObjectDefinition> definitions,
+        VoxelMutationRuntime mutations, DroppedBlockRuntime drops)
+    {
+        _world = world ?? throw new ArgumentNullException(nameof(world));
+        _blocks = blocks ?? throw new ArgumentNullException(nameof(blocks));
+        _definitions = definitions ?? throw new ArgumentNullException(nameof(definitions));
+        _mutations = mutations ?? throw new ArgumentNullException(nameof(mutations));
+        _drops = drops ?? throw new ArgumentNullException(nameof(drops));
+    }
+
+    public bool TryPlace(InventoryStack? held, VoxelWorldHit supportHit)
+    {
+        if (held is not { Kind: InventoryEntryKind.Object } ||
+            !_definitions.TryGet(held.Id, out var definition) || definition is null ||
+            !VoxelHitFace.TryResolve(supportHit, out var face) ||
+            !definition.Supports(face) ||
+            !_world.TryGetCell(supportHit.Voxel, out var support) ||
+            support.IsEmpty || !_blocks.GetDefinition(support.Block).IsCollidable)
+            return false;
+
+        var placement = supportHit.Voxel +
+            (supportHit.NormalX, supportHit.NormalY, supportHit.NormalZ);
+        if (placement.Y < 0 || !_world.TryGetCell(placement, out var occupying) ||
+            !occupying.IsEmpty)
+            return false;
+
+        // The face belongs to the supporting block, not the destination air
+        // voxel. Occupied water is permitted in the destination: Objects never
+        // replace the water source, including for future submerged plants.
+        return _mutations.AddObjectAt(
+            supportHit.Voxel, new ObjectCell(definition.Id, face));
+    }
+
+    public bool TryBreak(WorldObjectHit hit, PlayerGameMode mode)
+    {
+        if (!_definitions.TryGet(hit.Object.Id, out var definition) ||
+            definition is null ||
+            definition.Interaction != ObjectInteraction.Break ||
+            !_world.TryGetObjects(hit.Support, out var resident) ||
+            !resident.Contains(hit.Object))
+            return false;
+
+        var spawn = mode == PlayerGameMode.Survival && definition.DropSelf;
+        if (spawn && _drops.AvailableCapacity == 0)
+            return false;
+        if (!_mutations.RemoveObjectAt(hit.Support, hit.Object))
+            return false;
+
+        if (spawn)
+        {
+            var position = WorldObjectGeometry.Pose(
+                hit.Support, hit.Object, definition).Position;
+            _drops.Spawn(
+                new InventoryStack(InventoryEntry.FromObject(definition.Id)),
+                position + Vector3.UnitY * .25f);
+        }
+        return true;
+    }
+
+    public bool TryPickup(WorldObjectHit hit, PlayerInventory inventory)
+    {
+        ArgumentNullException.ThrowIfNull(inventory);
+        if (!_definitions.TryGet(hit.Object.Id, out var definition) ||
+            definition is null ||
+            definition.Interaction != ObjectInteraction.Pickup ||
+            !_world.TryGetObjects(hit.Support, out var resident) ||
+            !resident.Contains(hit.Object))
+            return false;
+
+        var stack = new InventoryStack(InventoryEntry.FromObject(definition.Id));
+        if (!inventory.CanInsert(stack) ||
+            !_mutations.RemoveObjectAt(hit.Support, hit.Object))
+            return false;
+
+        if (!inventory.TryInsert(stack))
+            throw new InvalidOperationException(
+                "Validated Object pickup failed to insert its item.");
+        return true;
+    }
+}
