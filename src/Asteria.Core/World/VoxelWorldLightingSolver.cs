@@ -52,7 +52,7 @@ public static class VoxelWorldLightingSolver
         ArgumentNullException.ThrowIfNull(editedPositions);
 
         var queue = new DeduplicatedQueue<WorldVoxelCoord>();
-        var changed = new HashSet<WorldVoxelCoord>();
+        var changed = new HashSet<WorldVoxelCoord>(); // Final voxel differences
         var directSky =
             new DirectSkyContext(
                 world,
