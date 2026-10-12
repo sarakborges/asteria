@@ -7,6 +7,17 @@ namespace Asteria.Client.Gameplay;
 /// Prepares and validates a restored session entirely off the Godot thread.
 /// Only Main publishes the prepared Core state and creates presentation.
 /// </summary>
+public enum WorldLoadIntent : byte
+{
+    Load,
+    Recreate,
+}
+
+public sealed record PreparedWorldLoad(
+    GameplaySessionSnapshot Snapshot,
+    DimensionSessionStateStore States,
+    WorldLoadIntent Intent);
+
 public sealed class WorldLoadController
 {
     private readonly string _root;
@@ -15,8 +26,7 @@ public sealed class WorldLoadController
     private readonly FluidRegistry _fluids;
     private readonly DyeRegistry _dyes;
     private readonly AttachedLayerRegistry _layers;
-    private Task<(GameplaySessionSnapshot Snapshot,
-        DimensionSessionStateStore States)>? _pending;
+    private Task<PreparedWorldLoad>? _pending;
 
     public WorldLoadController(
         string worldsDirectory, DimensionRegistry dimensions,
@@ -34,7 +44,13 @@ public sealed class WorldLoadController
 
     public bool IsBusy => _pending is not null;
 
-    public bool Begin(string worldName)
+    public bool Begin(string worldName) =>
+        Begin(worldName, WorldLoadIntent.Load);
+
+    public bool BeginRecreation(string worldName) =>
+        Begin(worldName, WorldLoadIntent.Recreate);
+
+    private bool Begin(string worldName, WorldLoadIntent intent)
     {
         if (_pending is not null)
             return false;
@@ -52,14 +68,14 @@ public sealed class WorldLoadController
                 directory, _dimensions, _blocks, _fluids, _dyes, _layers);
             if (restored.Snapshot.Name != validated.Name)
                 throw new InvalidDataException("Saved world does not match the selected folder.");
-            return restored;
+            return new PreparedWorldLoad(
+                restored.Snapshot, restored.States, intent);
         });
         return true;
     }
 
     public bool TryPoll(
-        out (GameplaySessionSnapshot Snapshot,
-            DimensionSessionStateStore States)? result,
+        out PreparedWorldLoad? result,
         out string? error)
     {
         result = null;
