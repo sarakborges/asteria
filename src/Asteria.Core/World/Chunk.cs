@@ -10,6 +10,7 @@ public sealed class Chunk
     private readonly PaletteStorage<FluidCell> _fluids;
     private readonly MicroblockMaskPalette _microblockMasks;
     private readonly Dictionary<int, BlockSurfaceState> _surfaceStates;
+    private readonly Dictionary<int, List<ObjectCell>> _objects;
     private readonly VoxelLight[] _light;
 
     public Chunk()
@@ -18,6 +19,7 @@ public sealed class Chunk
         _fluids = new PaletteStorage<FluidCell>();
         _microblockMasks = new MicroblockMaskPalette();
         _surfaceStates = [];
+        _objects = [];
         _light = new VoxelLight[Volume];
     }
 
@@ -26,18 +28,29 @@ public sealed class Chunk
         PaletteStorage<FluidCell> fluids,
         MicroblockMaskPalette microblockMasks,
         Dictionary<int, BlockSurfaceState> surfaceStates,
+        Dictionary<int, List<ObjectCell>> objects,
         VoxelLight[] light,
-        ulong revision)
+        ulong revision,
+        ulong objectRevision)
     {
         _cells = cells;
         _fluids = fluids;
         _microblockMasks = microblockMasks;
         _surfaceStates = surfaceStates;
+        _objects = objects;
         _light = light;
         Revision = revision;
+        ObjectRevision = objectRevision;
     }
 
     public ulong Revision { get; private set; }
+
+    /// <summary>Separate from block/fluid revisions for future batched Object presentation.</summary>
+    public ulong ObjectRevision { get; private set; }
+
+    public int ObjectCount { get; private set; }
+
+    public const int MaximumObjectsPerSupport = 8;
 
     public int NonEmptyVoxelCount => _cells.OccupiedCount;
 
@@ -140,13 +153,79 @@ public sealed class Chunk
         }
 
         if (cell.IsEmpty || previous.Block != cell.Block)
+        {
             _surfaceStates.Remove(index);
+            if (_objects.Remove(index, out var detached))
+            {
+                ObjectCount -= detached.Count;
+                ObjectRevision++;
+            }
+        }
         Revision++;
         return true;
     }
 
     public bool SetBlock(int x, int y, int z, BlockRuntimeId block) =>
         SetCell(x, y, z, new VoxelCell(block));
+
+    /// <summary>Returns a detached snapshot; callers cannot mutate storage.</summary>
+    public IReadOnlyList<ObjectCell> ObjectsAt(int x, int y, int z)
+    {
+        ValidateCoordinates(x, y, z);
+        return _objects.TryGetValue(ToIndex(x, y, z), out var objects)
+            ? objects.ToArray()
+            : Array.Empty<ObjectCell>();
+    }
+
+    public bool AddObject(int x, int y, int z, ObjectCell obj)
+    {
+        ValidateCoordinates(x, y, z);
+        if (obj.Id is null)
+            throw new ArgumentException("Object must have a valid identity.", nameof(obj));
+        var index = ToIndex(x, y, z);
+        if (_cells.Get(index).IsEmpty)
+            return false;
+        if (_objects.TryGetValue(index, out var current))
+        {
+            if (current.Count >= MaximumObjectsPerSupport || current.Contains(obj))
+                return false;
+        }
+        else
+        {
+            current = [];
+            _objects.Add(index, current);
+        }
+        current.Add(obj);
+        ObjectCount++;
+        ObjectRevision++;
+        Revision++;
+        return true;
+    }
+
+    public bool RemoveObject(int x, int y, int z, ObjectCell obj)
+    {
+        ValidateCoordinates(x, y, z);
+        var index = ToIndex(x, y, z);
+        if (!_objects.TryGetValue(index, out var objects) || !objects.Remove(obj))
+            return false;
+        if (objects.Count == 0)
+            _objects.Remove(index);
+        ObjectCount--;
+        ObjectRevision++;
+        Revision++;
+        return true;
+    }
+
+    public void VisitObjectCells(Action<int, int, int, ObjectCell> visit)
+    {
+        ArgumentNullException.ThrowIfNull(visit);
+        foreach (var index in _objects.Keys.OrderBy(key => key))
+        {
+            var (x, y, z) = FromIndex(index);
+            foreach (var obj in _objects[index])
+                visit(x, y, z, obj);
+        }
+    }
 
     public void VisitBlockCells(
         Action<int, int, int, VoxelCell> visit)
@@ -234,8 +313,12 @@ public sealed class Chunk
             _fluids.Clone(),
             _microblockMasks.Clone(),
             new Dictionary<int, BlockSurfaceState>(_surfaceStates),
+            _objects.ToDictionary(entry => entry.Key,
+                entry => new List<ObjectCell>(entry.Value)),
             (VoxelLight[])_light.Clone(),
-            Revision);
+            Revision,
+            ObjectRevision)
+        { ObjectCount = this.ObjectCount };
 
     public void CopyLightFrom(Chunk source)
     {

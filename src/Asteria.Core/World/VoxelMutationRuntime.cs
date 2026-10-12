@@ -33,6 +33,10 @@ public sealed class VoxelMutationRuntime
     /// Lifecycle consumers must not bypass this canonical mutation boundary.</summary>
     public event Action<VoxelWorldEdit>? BlockCellChanged;
 
+    /// <summary>Object-only mutations do not enqueue block or fluid remeshing.
+    /// Chunk ObjectRevision is the separate materialization invalidation key.</summary>
+    public event Action<ObjectWorldEdit>? ObjectCellChanged;
+
     public VoxelMutationRuntime(
         VoxelWorld world,
         WorldUpdateQueue worldUpdates,
@@ -106,6 +110,22 @@ public sealed class VoxelMutationRuntime
 
         _terrainContentRevisions.BumpVoxelEdit(_world, position);
         _worldUpdates.EnqueueSurfaceEdit(_world, position);
+        return true;
+    }
+
+    public bool AddObjectAt(WorldVoxelCoord support, ObjectCell obj)
+    {
+        if (!_world.AddObjectAt(support, obj)) return false;
+        ObjectCellChanged?.Invoke(new ObjectWorldEdit(
+            support, obj, Placed: true, _world.Revision));
+        return true;
+    }
+
+    public bool RemoveObjectAt(WorldVoxelCoord support, ObjectCell obj)
+    {
+        if (!_world.RemoveObjectAt(support, obj)) return false;
+        ObjectCellChanged?.Invoke(new ObjectWorldEdit(
+            support, obj, Placed: false, _world.Revision));
         return true;
     }
 

@@ -256,3 +256,18 @@ These are **code-level findings**, not a declaration that gameplay polish or in-
 - First-person Godot anchors the tool handle using MineClone's (-0.36, -0.36) normalized grip, 0.52 sprite size and 0.30-radian rotation. Brush tint uses a depth-offset blended mask over the alpha-tested base and remains invisible without a selected dye.
 - The current Sphere's authoritative Brush palette resolves to a read-only color; the held presentation changes material only when the tint changes, keeping existing player hand/arm and item-switch animations.
 - Regression tests verify authored gripped sprites, the Brush mask, non-gripped fallback and invalid display settings. Live Godot/WRY QA of grip alignment, tint blend, hand animations and both perspectives remains pending.
+
+## Objects architecture audit and Core occupancy foundation — 2026-10-11
+
+Reference: MineClone `world-systems-rebuild`, `src/content/object.rs`, `src/voxel/object.rs`, `src/voxel/chunk.rs`, `src/voxel/world.rs`, `src/world_objects.rs` and `src/world_objects/batch.rs`.
+
+**Verified divergence:** MineClone has `ObjectRegistry` authored independently from blocks/layers, sparse `ObjectCell` lists on supporting block coordinates (maximum eight per support), individual placement face, rotation, quantized offset/scale, separate object revisions, batched object materialization and object targeting/loot. Asteria has numerous separate *object textures* but their decorations are authored mostly as noncollidable/sprite blocks; their occupancy, targeting and save representation are block-based. Asteria's attached texture layers are a different, correctly separate feature and must not be repurposed as Objects.
+
+**Implemented in this incremental Core phase:**
+
+- `ObjectCell` and `ObjectTransform`: immutable namespaced identity, face, orientation and fixed 1/1024 offset/scale. Both reject invalid finite bounds; default transform is identity.
+- `Chunk`: sparse object groups keyed by supporting block voxel, cap eight, deterministic visits, independent `ObjectRevision`, detach on support destruction/replacement, deep-copy on worker clone; block/fluid palette occupancy remains unchanged.
+- `VoxelWorld` + `VoxelMutationRuntime`: support-validated add/remove and snapshot queries, authoritative dirty-chunk/world revision, dedicated object-change notifications. Object-only edits do not spuriously enqueue block/fluid mesh work.
+- `ChunkSaveCodec` format v3: deterministic, bounded, checksummed group serialization with strict support/duplicate/transform validation. v1/v2 chunks remain readable; restore goes through the same isolated decode contract. Regression tests cover occupancy, cap, clone, detachment, dirty tracking, serialization ordering, old v2 decode, invalid transforms and checksum recomputation.
+
+**Not yet ported:** authored `data/objects` definitions and loader; inventory/tool and placement face policy; rendering + instanced batched object meshing; mouse target/hitbox, selection & loot; worldgen decorators emitting ObjectCells; migration of existing decorative *blocks* (start with kelp/seagrass, cattail, lily pad, grass, flowers, mushrooms) to Objects. Do **not** migrate block JSONs until every path (generation, save, interaction, collision, tint and underwater cases) has a tested corresponding Object implementation. In-engine Godot/WRY QA remains required.

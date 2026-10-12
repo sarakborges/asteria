@@ -12,7 +12,7 @@ namespace Asteria.Core.World;
 public static class ChunkSaveCodec
 {
     private const uint Magic = 0x48435341; // "ASCH" (little-endian)
-    private const ushort FormatVersion = 2;
+    private const ushort FormatVersion = 3;
     private const int MaximumBytes = 8 * 1024 * 1024;
     private const int DigestBytes = 32;
 
@@ -103,6 +103,47 @@ public static class ChunkSaveCodec
                 writer.Write(fluid.IsSource);
                 writer.Write(fluid.SpreadDistance);
             }
+
+            // Objects are serialized separately from the block, fluid and
+            // texture-layer payloads. One support voxel owns up to 8 entries.
+            var groups = new SortedDictionary<int, List<ObjectCell>>();
+            chunk.VisitObjectCells((x, y, z, obj) =>
+            {
+                var index = Index(x, y, z);
+                if (!groups.TryGetValue(index, out var group))
+                    groups.Add(index, group = []);
+                group.Add(obj);
+            });
+            writer.Write(groups.Count);
+            foreach (var (index, group) in groups)
+            {
+                if (group.Count is < 1 or > Chunk.MaximumObjectsPerSupport)
+                    throw new InvalidOperationException("Invalid world Object occupancy.");
+                writer.Write((ushort)index);
+                writer.Write((byte)group.Count);
+                foreach (var obj in group
+                    .OrderBy(value => value.Id, StringComparer.Ordinal)
+                    .ThenBy(value => value.Face)
+                    .ThenBy(value => value.Rotation)
+                    .ThenBy(value => value.Transform.OffsetX)
+                    .ThenBy(value => value.Transform.OffsetY)
+                    .ThenBy(value => value.Transform.OffsetZ)
+                    .ThenBy(value => value.Transform.ScaleX)
+                    .ThenBy(value => value.Transform.ScaleY)
+                    .ThenBy(value => value.Transform.ScaleZ))
+                {
+                    PortableStackSaveCodec.WriteString(writer, obj.Id,
+                        ObjectCell.MaximumIdLength);
+                    writer.Write((byte)obj.Face);
+                    writer.Write((byte)obj.Rotation);
+                    writer.Write(obj.Transform.OffsetX);
+                    writer.Write(obj.Transform.OffsetY);
+                    writer.Write(obj.Transform.OffsetZ);
+                    writer.Write(obj.Transform.ScaleX);
+                    writer.Write(obj.Transform.ScaleY);
+                    writer.Write(obj.Transform.ScaleZ);
+                }
+            }
         }
 
         if (stream.Length + DigestBytes > MaximumBytes)
@@ -139,7 +180,7 @@ public static class ChunkSaveCodec
             if (reader.ReadUInt32() != Magic)
                 throw new InvalidDataException("Unknown chunk snapshot magic.");
             var version = reader.ReadUInt16();
-            if (version is not (1 or FormatVersion))
+            if (version is not (1 or 2 or FormatVersion))
                 throw new InvalidDataException("Unknown chunk snapshot format.");
 
             var chunk = new Chunk();
@@ -232,6 +273,34 @@ public static class ChunkSaveCodec
                 chunk.SetFluid(x, y, z, isSource
                     ? FluidCell.Source(fluidId, level)
                     : FluidCell.Spreading(fluidId, level, spread));
+            }
+
+            if (version >= 3)
+            {
+                count = ReadCount(reader);
+                previous = -1;
+                for (var i = 0; i < count; i++)
+                {
+                    var index = ReadIndex(reader, ref previous);
+                    var (x, y, z) = Position(index);
+                    var objectCount = reader.ReadByte();
+                    if (objectCount is < 1 or > Chunk.MaximumObjectsPerSupport)
+                        throw new InvalidDataException("Too many saved objects at one support.");
+                    for (var j = 0; j < objectCount; j++)
+                    {
+                        var id = PortableStackSaveCodec.ReadString(reader,
+                            ObjectCell.MaximumIdLength);
+                        var face = (BlockFace)reader.ReadByte();
+                        var rotation = (TextureRotation)reader.ReadByte();
+                        var transform = new ObjectTransform(
+                            reader.ReadInt16(), reader.ReadInt16(), reader.ReadInt16(),
+                            reader.ReadUInt16(), reader.ReadUInt16(), reader.ReadUInt16());
+                        if (!chunk.AddObject(x, y, z,
+                            new ObjectCell(id, face, rotation, transform)))
+                            throw new InvalidDataException(
+                                "Saved object has missing support or duplicate identity.");
+                    }
+                }
             }
 
             if (stream.Position != stream.Length)

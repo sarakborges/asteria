@@ -24,6 +24,12 @@ public readonly record struct FluidWorldEdit(
     FluidCell Current,
     ulong WorldRevision);
 
+public readonly record struct ObjectWorldEdit(
+    WorldVoxelCoord Support,
+    ObjectCell Object,
+    bool Placed,
+    ulong WorldRevision);
+
 public sealed class VoxelWorld
 {
     private readonly Dictionary<ChunkCoord, Chunk> _chunks = [];
@@ -424,6 +430,42 @@ public sealed class VoxelWorld
         TryGetCell(position, out var cell)
             ? cell
             : VoxelCell.Empty;
+
+    public bool TryGetObjects(WorldVoxelCoord support, out IReadOnlyList<ObjectCell> objects)
+    {
+        objects = Array.Empty<ObjectCell>();
+        if (support.Y < 0) return false;
+        var address = VoxelCoordinates.FromWorld(support.X, support.Y, support.Z);
+        if (!_chunks.TryGetValue(address.Chunk, out var chunk)) return false;
+        objects = chunk.ObjectsAt(address.Local.X, address.Local.Y, address.Local.Z);
+        return true;
+    }
+
+    /// <summary>Objects attach to a real supporting block, never replace
+    /// that block or the independent fluid in its voxel.</summary>
+    public bool AddObjectAt(WorldVoxelCoord support, ObjectCell obj)
+    {
+        if (support.Y < 0) return false;
+        var address = VoxelCoordinates.FromWorld(support.X, support.Y, support.Z);
+        if (!_chunks.TryGetValue(address.Chunk, out var chunk) ||
+            !chunk.AddObject(address.Local.X, address.Local.Y, address.Local.Z, obj))
+            return false;
+        _archive.MarkDirty(address.Chunk);
+        Revision++;
+        return true;
+    }
+
+    public bool RemoveObjectAt(WorldVoxelCoord support, ObjectCell obj)
+    {
+        if (support.Y < 0) return false;
+        var address = VoxelCoordinates.FromWorld(support.X, support.Y, support.Z);
+        if (!_chunks.TryGetValue(address.Chunk, out var chunk) ||
+            !chunk.RemoveObject(address.Local.X, address.Local.Y, address.Local.Z, obj))
+            return false;
+        _archive.MarkDirty(address.Chunk);
+        Revision++;
+        return true;
+    }
 
     public bool TryGetFluid(
         WorldVoxelCoord position,
