@@ -135,12 +135,18 @@ public sealed class HeldVisualResolverTests
         var visual = visualType == "crossedSprite"
             ? """{"type":"crossedSprite","texture":"textures/objects/flower.png","width":0.5,"height":0.8,"planes":4}"""
             : """{"type":"extrudedSprite","texture":"textures/objects/shell.png","size":[0.7,0.4],"height":0.035}""";
-        var authored = $"""
-            {"id":"asteria:{{suffix}}","category":"foliage",
-             "icon":"textures/icons/{{suffix}}.png",
-             "visual":{{visual}},
-             "target":{"size":[0.7,0.8,0.4],"centerOffset":[0,0.4,0]}}
-            """;
+        var authored = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            id = "asteria:" + suffix,
+            category = "foliage",
+            icon = "textures/icons/" + suffix + ".png",
+            visual = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(visual),
+            target = new
+            {
+                size = new[] { 0.7f, 0.8f, 0.4f },
+                centerOffset = new[] { 0f, 0.4f, 0f }
+            }
+        });
         var definition = ObjectDefinition.Parse(authored);
         var objects = PackContentRegistry<ObjectDefinition>.FromJson(
             [authored], ObjectDefinition.Parse, obj => obj.Id);
