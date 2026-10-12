@@ -49,9 +49,9 @@ public static class ObjectPlacementResolver
         // All other Objects may occupy an air or fluid-filled target cell.
         if (definition.RequiredFluidAbove is { } requiredFluid &&
             (fluids is null ||
-             !fluids.TryGetId(requiredFluid, out var fluidId) ||
+             !fluids.TryGetId(requiredFluid, out var requiredRuntimeFluid) ||
              !world.TryGetFluid(target, out var present) ||
-             present.Fluid != fluidId))
+             present.Fluid != requiredRuntimeFluid))
             return default;
 
         return new ObjectPlacementDecision(
