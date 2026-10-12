@@ -24,7 +24,7 @@
   "decorations": [
     {
       "block": "asteria:grass",
-      "chance": 0.28,
+      "chance": 0.112,
       "surfaceBlocks": [
         "asteria:grass_block"
       ],
@@ -36,7 +36,7 @@
     },
     {
       "block": "asteria:mushroom_purple",
-      "chance": 0.035,
+      "chance": 0.014,
       "surfaceBlocks": [
         "asteria:grass_block",
         "asteria:dirt"
@@ -49,7 +49,7 @@
     },
     {
       "block": "asteria:mushroom_pink",
-      "chance": 0.025,
+      "chance": 0.01,
       "surfaceBlocks": [
         "asteria:grass_block",
         "asteria:dirt"
@@ -62,7 +62,7 @@
     },
     {
       "block": "asteria:stick",
-      "chance": 0.15,
+      "chance": 0.06,
       "surfaceBlocks": [
         "asteria:grass_block",
         "asteria:dirt"
@@ -79,7 +79,7 @@
     },
     {
       "block": "asteria:starflower",
-      "chance": 0.16,
+      "chance": 0.064,
       "surfaceBlocks": [
         "asteria:grass_block"
       ],
@@ -102,7 +102,7 @@
     },
     {
       "block": "asteria:violet_fern",
-      "chance": 0.27,
+      "chance": 0.108,
       "surfaceBlocks": [
         "asteria:grass_block",
         "asteria:dirt"
@@ -126,7 +126,7 @@
     },
     {
       "block": "asteria:pink_bloom",
-      "chance": 0.21,
+      "chance": 0.084,
       "surfaceBlocks": [
         "asteria:grass_block"
       ],
@@ -149,7 +149,7 @@
     },
     {
       "block": "asteria:glow_pod",
-      "chance": 0.09,
+      "chance": 0.036,
       "surfaceBlocks": [
         "asteria:grass_block",
         "asteria:dirt"
@@ -173,7 +173,7 @@
     },
     {
       "block": "asteria:mushroom_blue",
-      "chance": 0.085,
+      "chance": 0.034,
       "surfaceBlocks": [
         "asteria:grass_block",
         "asteria:dirt"
@@ -197,7 +197,7 @@
     },
     {
       "block": "asteria:mushroom_red",
-      "chance": 0.065,
+      "chance": 0.026,
       "surfaceBlocks": [
         "asteria:grass_block",
         "asteria:dirt"

@@ -19,7 +19,7 @@
   "decorations": [
     {
       "block": "asteria:grass",
-      "chance": 0.52,
+      "chance": 0.156,
       "surfaceBlocks": [
         "asteria:grass_block"
       ],
@@ -32,7 +32,7 @@
     },
     {
       "block": "asteria:pebble",
-      "chance": 0.12,
+      "chance": 0.036,
       "surfaceBlocks": [
         "asteria:grass_block",
         "asteria:dirt",
@@ -51,7 +51,7 @@
     },
     {
       "block": "asteria:stick",
-      "chance": 0.13,
+      "chance": 0.039,
       "surfaceBlocks": [
         "asteria:grass_block",
         "asteria:dirt",
@@ -72,7 +72,7 @@
     },
     {
       "block": "asteria:wildflower_blue",
-      "chance": 0.19,
+      "chance": 0.057,
       "surfaceBlocks": [
         "asteria:grass_block"
       ],
@@ -96,7 +96,7 @@
     },
     {
       "block": "asteria:wildflower_yellow",
-      "chance": 0.2,
+      "chance": 0.06,
       "surfaceBlocks": [
         "asteria:grass_block"
       ],
@@ -120,7 +120,7 @@
     },
     {
       "block": "asteria:tall_grass",
-      "chance": 0.31,
+      "chance": 0.093,
       "surfaceBlocks": [
         "asteria:grass_block",
         "asteria:dirt"
@@ -145,7 +145,7 @@
     },
     {
       "block": "asteria:daisy",
-      "chance": 0.165,
+      "chance": 0.0495,
       "surfaceBlocks": [
         "asteria:grass_block"
       ],
@@ -169,7 +169,7 @@
     },
     {
       "block": "asteria:clover",
-      "chance": 0.16,
+      "chance": 0.048,
       "surfaceBlocks": [
         "asteria:grass_block"
       ],
@@ -193,7 +193,7 @@
     },
     {
       "block": "asteria:purple_aster",
-      "chance": 0.145,
+      "chance": 0.0435,
       "surfaceBlocks": [
         "asteria:grass_block"
       ],
@@ -217,7 +217,7 @@
     },
     {
       "block": "asteria:meadow_seedheads",
-      "chance": 0.17,
+      "chance": 0.051,
       "surfaceBlocks": [
         "asteria:grass_block"
       ],

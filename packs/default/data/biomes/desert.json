@@ -63,7 +63,7 @@
   "decorations": [
     {
       "block": "asteria:dune_grass",
-      "chance": 0.23,
+      "chance": 0.138,
       "surfaceBlocks": [
         "asteria:sand"
       ],
@@ -86,7 +86,7 @@
     },
     {
       "block": "asteria:thornbush",
-      "chance": 0.16,
+      "chance": 0.096,
       "surfaceBlocks": [
         "asteria:sand"
       ],
@@ -109,7 +109,7 @@
     },
     {
       "block": "asteria:yucca",
-      "chance": 0.105,
+      "chance": 0.063,
       "surfaceBlocks": [
         "asteria:sand"
       ],
@@ -132,7 +132,7 @@
     },
     {
       "block": "asteria:sandstone_spike",
-      "chance": 0.065,
+      "chance": 0.039,
       "surfaceBlocks": [
         "asteria:sand"
       ],

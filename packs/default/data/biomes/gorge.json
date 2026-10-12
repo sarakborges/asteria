@@ -29,7 +29,7 @@
   "decorations": [
     {
       "block": "asteria:pebble",
-      "chance": 0.17,
+      "chance": 0.0935,
       "surfaceBlocks": [
         "asteria:stone",
         "asteria:gravel",
@@ -52,7 +52,7 @@
     },
     {
       "block": "asteria:grass",
-      "chance": 0.065,
+      "chance": 0.0358,
       "surfaceBlocks": [
         "asteria:dirt"
       ],
@@ -74,7 +74,7 @@
     },
     {
       "block": "asteria:stick",
-      "chance": 0.05,
+      "chance": 0.0275,
       "surfaceBlocks": [
         "asteria:dirt",
         "asteria:gravel"
@@ -97,7 +97,7 @@
     },
     {
       "block": "asteria:sagebrush",
-      "chance": 0.21,
+      "chance": 0.1155,
       "surfaceBlocks": [
         "asteria:dirt",
         "asteria:gravel"
@@ -121,7 +121,7 @@
     },
     {
       "block": "asteria:dry_tuft",
-      "chance": 0.25,
+      "chance": 0.1375,
       "surfaceBlocks": [
         "asteria:dirt",
         "asteria:gravel"
@@ -145,7 +145,7 @@
     },
     {
       "block": "asteria:exposed_roots",
-      "chance": 0.125,
+      "chance": 0.0688,
       "surfaceBlocks": [
         "asteria:dirt",
         "asteria:gravel",
@@ -170,7 +170,7 @@
     },
     {
       "block": "asteria:stone_spike",
-      "chance": 0.075,
+      "chance": 0.0413,
       "surfaceBlocks": [
         "asteria:stone",
         "asteria:gravel",

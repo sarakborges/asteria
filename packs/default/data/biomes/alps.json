@@ -28,7 +28,7 @@
   "decorations": [
     {
       "block": "asteria:pebble",
-      "chance": 0.12,
+      "chance": 0.078,
       "surfaceBlocks": [
         "asteria:snow",
         "asteria:ice",
@@ -53,7 +53,7 @@
     },
     {
       "block": "asteria:alpine_edelweiss",
-      "chance": 0.11,
+      "chance": 0.0715,
       "surfaceBlocks": [
         "asteria:snow",
         "asteria:gravel",
@@ -77,7 +77,7 @@
     },
     {
       "block": "asteria:alpine_sedge",
-      "chance": 0.19,
+      "chance": 0.1235,
       "surfaceBlocks": [
         "asteria:snow",
         "asteria:stone",
@@ -102,7 +102,7 @@
     },
     {
       "block": "asteria:frost_lichen",
-      "chance": 0.12,
+      "chance": 0.078,
       "surfaceBlocks": [
         "asteria:snow",
         "asteria:ice",
@@ -127,7 +127,7 @@
     },
     {
       "block": "asteria:ice_spike",
-      "chance": 0.078,
+      "chance": 0.0507,
       "surfaceBlocks": [
         "asteria:ice",
         "asteria:snow"
