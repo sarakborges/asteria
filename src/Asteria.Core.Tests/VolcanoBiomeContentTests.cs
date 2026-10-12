@@ -17,6 +17,8 @@ public sealed class VolcanoBiomeContentTests
         Assert.Equal("cone", terrain.GetProperty("type").GetString());
         Assert.Equal(12, terrain.GetProperty("baseHeight").GetInt32());
         Assert.Equal(72, terrain.GetProperty("height").GetInt32());
+        Assert.InRange(terrain.GetProperty("slopeNoiseGain").GetDouble(),
+            0.5d, 2d);
         var crater = terrain.GetProperty("crater");
         Assert.Equal(38, crater.GetProperty("depth").GetInt32());
         Assert.Equal(.14, crater.GetProperty("radius").GetDouble(), 5);
@@ -26,6 +28,32 @@ public sealed class VolcanoBiomeContentTests
         Assert.Equal(54, fill.GetProperty("topLevel").GetInt32());
         Assert.False(fill.TryGetProperty("spill", out _));
         Assert.Null(biome.SurfaceTerrain!.Crater!.FluidFill!.Spill);
+    }
+
+    [Fact]
+    public void VolcanoRimContainsTheLavaAcrossSlopeAndCraterNoise()
+    {
+        var volcano = LoadVolcano();
+        var shape = new SurfaceTerrainRule(volcano);
+        const double lavaTopOffset = 54d;
+        var rimHeights = new List<double>();
+
+        // Hold radial formation strength constant while sampling independent
+        // world-space noise. Every position on the source-fluid boundary must
+        // remain above the lava surface, without isolated low columns.
+        for (var z = -200; z <= 200; z += 20)
+        for (var x = -200; x <= 200; x += 20)
+        {
+            var rim = shape.HeightOffsetAt(857UL, x, z, 0.91f);
+            var craterFloor = shape.HeightOffsetAt(857UL, x, z, 1f);
+            Assert.True(rim > lavaTopOffset,
+                $"Open lava rim at ({x}, {z}): {rim}");
+            Assert.True(craterFloor < lavaTopOffset,
+                $"Lava basin missing at ({x}, {z}): {craterFloor}");
+            rimHeights.Add(rim);
+        }
+
+        Assert.InRange(rimHeights.Max() - rimHeights.Min(), 0d, 8d);
     }
 
     [Fact]

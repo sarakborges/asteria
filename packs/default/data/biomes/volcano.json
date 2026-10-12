@@ -22,7 +22,7 @@
     "irregularityScale": 0.009,
     "detailIrregularity": 0.055,
     "detailScale": 0.031,
-    "slopeNoiseGain": 4,
+    "slopeNoiseGain": 1.25,
     "crater": {
       "depth": 38,
       "radius": 0.14,

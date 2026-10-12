@@ -91,12 +91,11 @@ internal sealed class SurfaceTerrainRule
                 0d,
                 1d);
 
-        var craterStrength = strength;
         double height;
         if (_shape is BiomeConeTerrainShapeDefinition cone)
         {
-            craterStrength = ConeStrength(seed, x, z, strength, cone);
-            height = cone.BaseHeight + cone.Height * craterStrength;
+            height = cone.BaseHeight +
+                cone.Height * ConeStrength(seed, x, z, strength, cone);
         }
         else
         {
@@ -120,7 +119,9 @@ internal sealed class SurfaceTerrainRule
 
         if (_terrain.Crater is { } crater)
         {
-            height -= CraterDepthAt(seed, x, z, craterStrength, crater);
+            // The crater and generated lava share the same radial formation
+            // strength. Slope noise must not fragment the caldera rim.
+            height -= CraterDepthAt(seed, x, z, strength, crater);
         }
 
         for (var index = 0;
@@ -361,9 +362,13 @@ internal sealed class SurfaceTerrainRule
     {
         var noise =
             Fractal(seed, _craterDomain, x, z, crater.NoiseScale);
+        // Irregularity is a fraction of crater radius, not an absolute
+        // formation-strength offset. The old absolute noise carved deep
+        // disconnected breaches that could leak lava through the flanks.
         var start =
             Math.Clamp(
-                1d - crater.Radius + noise * crater.Irregularity,
+                1d - crater.Radius +
+                    noise * crater.Irregularity * crater.Radius,
                 0d,
                 0.99d);
         var width =

@@ -8,9 +8,9 @@ namespace Asteria.Core.World;
 public sealed class SurfaceTerrainField
 {
     // A self-tapering formation can still meet another biome before its
-    // radial strength reaches zero. Restrict the boundary correction to the
-    // ownership seam instead of flattening the whole cone.
-    private const double FormationBoundaryDominanceWidth = 0.35d;
+    // radial strength reaches zero. Blend over a gradual ownership shoulder
+    // rather than leaving a near-vertical basalt wall at its edge.
+    private const double FormationBoundaryDominanceWidth = 0.7d;
 
     private readonly ulong _seed;
     private readonly int _seaLevel;

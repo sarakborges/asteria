@@ -1477,7 +1477,7 @@ public sealed class BiomeWorldGenerationTests
                     var dominance = Math.Clamp(
                         (double)sample.PrimaryWeight - neighbor.Weight,
                         0d, 1d);
-                    var boundaryT = Math.Clamp(dominance / 0.35d, 0d, 1d);
+                    var boundaryT = Math.Clamp(dominance / 0.7d, 0d, 1d);
                     var smooth = boundaryT * boundaryT *
                         (3d - 2d * boundaryT);
                     var expected = (int)Math.Floor(
