@@ -252,6 +252,7 @@ public sealed class ChunkPresentationController
             return;
         }
 
+        List<(ChunkCoord Coord, ChunkMeshletMask Missing)>? promoted = null;
         foreach (var (coord, presentation) in
                  _presentations)
         {
@@ -262,13 +263,23 @@ public sealed class ChunkPresentationController
                     wasVisible));
             if (!wasVisible && presentation.IsVisible)
             {
-                var missing = presentation.UnpublishedTerrainMeshlets;
-                _worldUpdates.PromoteBackgroundMeshlets(coord, missing);
-                PromoteQueuedInitialTerrainPublications(coord, missing);
+                promoted ??= [];
+                promoted.Add((coord, presentation.UnpublishedTerrainMeshlets));
             }
             presentation.SetPhysicsEnabled(
                 presentation.IsVisible &&
                 residency.ShouldPresentationHaveCollision(coord));
+        }
+
+        if (promoted is not null)
+        {
+            // Queue order must not depend on Dictionary iteration order.
+            foreach (var (coord, missing) in promoted.OrderBy(
+                         entry => entry.Coord, ChunkCoordOrdering.YThenZThenX))
+            {
+                _worldUpdates.PromoteBackgroundMeshlets(coord, missing);
+                PromoteQueuedInitialTerrainPublications(coord, missing);
+            }
         }
 
         _appliedSelectionRevision =
