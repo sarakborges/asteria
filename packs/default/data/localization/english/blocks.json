@@ -92,9 +92,6 @@
   "asteria:cliff_rosette": {
     "/name": "Cliff Rosette"
   },
-  "asteria:clover": {
-    "/name": "Clover"
-  },
   "asteria:coral_blue": {
     "/name": "Blue Coral"
   },
@@ -389,9 +386,6 @@
   "asteria:sea_anemone": {
     "/name": "Sea Anemone"
   },
-  "asteria:seashell": {
-    "/name": "Seashell"
-  },
   "asteria:shelf_fungus": {
     "/name": "Shelf Fungus"
   },
@@ -421,9 +415,6 @@
   },
   "asteria:sphere_shell": {
     "/name": "Sphere Shell"
-  },
-  "asteria:starfish": {
-    "/name": "Starfish"
   },
   "asteria:starflower": {
     "/name": "Starflower"
