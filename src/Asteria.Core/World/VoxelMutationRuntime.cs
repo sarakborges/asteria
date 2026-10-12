@@ -28,6 +28,23 @@ public sealed class VoxelMutationRuntime
     private readonly BlockPhysicsUpdateQueue _blockPhysicsUpdates;
     private readonly MeshletContentRevisions _terrainContentRevisions;
     private readonly MeshletContentRevisions _fluidContentRevisions;
+    private ObjectDetachmentRuntime? _objectDetachment;
+
+    /// <summary>Installs detached-Object drop consequences once per active
+    /// Sphere, before any player or simulated voxel mutation occurs.</summary>
+    public void ConfigureObjectDetachment(ObjectDetachmentRuntime runtime)
+    {
+        ArgumentNullException.ThrowIfNull(runtime);
+        if (_objectDetachment is not null)
+            throw new InvalidOperationException("Object detachment already configured.");
+        _objectDetachment = runtime;
+    }
+
+    /// <summary>Counts support drops so compound block/spike removals can
+    /// preflight the same bounded physical drop pool as the Object owner.</summary>
+    public int ObjectSupportDropCount(WorldVoxelCoord support,
+        BlockBreakLootPolicy policy = BlockBreakLootPolicy.DropSelf) =>
+        _objectDetachment?.DropCount(support, policy) ?? 0;
 
     /// <summary>Committed voxel changes; never raised for a rejected edit.
     /// Lifecycle consumers must not bypass this canonical mutation boundary.</summary>
@@ -67,16 +84,26 @@ public sealed class VoxelMutationRuntime
     public bool SetCellAt(
         WorldVoxelCoord position,
         VoxelCell cell,
-        out VoxelWorldEdit edit)
+        out VoxelWorldEdit edit,
+        BlockBreakLootPolicy objectLootPolicy = BlockBreakLootPolicy.DropSelf)
     {
-        if (!_world.SetCellAt(
-                position,
-                cell,
-                out edit))
+        var detach = ObjectDetachmentPlan.Empty;
+        if (_objectDetachment is not null)
         {
-            return false;
+            if (!_world.TryGetCell(position, out var current) ||
+                !_objectDetachment.TryPrepare(
+                    position, current, cell, objectLootPolicy, out detach))
+            {
+                edit = default;
+                return false;
+            }
         }
+        if (!_world.SetCellAt(position, cell, out edit))
+            return false;
 
+        // Commit object drops before notifying dependent spike/physics systems.
+        // A changed supporting block never silently discards attached Objects.
+        _objectDetachment?.Commit(detach);
         EnqueueBlockEdit(position);
         BlockCellChanged?.Invoke(edit);
         return true;
@@ -85,16 +112,25 @@ public sealed class VoxelMutationRuntime
     public bool SetBlockStateAt(
         WorldVoxelCoord position,
         BlockStateSnapshot state,
-        out VoxelWorldEdit edit)
+        out VoxelWorldEdit edit,
+        BlockBreakLootPolicy objectLootPolicy = BlockBreakLootPolicy.DropSelf)
     {
-        if (!_world.SetBlockStateAt(
-                position,
-                state,
-                out edit))
+        ArgumentNullException.ThrowIfNull(state);
+        var detach = ObjectDetachmentPlan.Empty;
+        if (_objectDetachment is not null)
         {
-            return false;
+            if (!_world.TryGetCell(position, out var current) ||
+                !_objectDetachment.TryPrepare(position, current, state.Cell,
+                    objectLootPolicy, out detach))
+            {
+                edit = default;
+                return false;
+            }
         }
+        if (!_world.SetBlockStateAt(position, state, out edit))
+            return false;
 
+        _objectDetachment?.Commit(detach);
         EnqueueBlockEdit(position);
         BlockCellChanged?.Invoke(edit);
         return true;
@@ -161,6 +197,25 @@ public sealed class VoxelMutationRuntime
                 change.Position.Y < 0 ||
                 !_world.IsLoadedAt(change.Position) ||
                 (change.Block is not null && !change.Fluid.IsEmpty))
+                return false;
+        }
+
+        // Structures are committed as a batch: preflight combined Object
+        // drops, not each voxel independently, or a late full drop pool would
+        // leave the preceding structure edits partially applied.
+        if (_objectDetachment is not null)
+        {
+            var detachedDropCount = 0;
+            foreach (var change in changes)
+            {
+                var previous = _world.GetCellOrEmpty(change.Position);
+                var next = change.Block?.Cell ?? VoxelCell.Empty;
+                if (!_objectDetachment.TryPrepare(change.Position, previous, next,
+                        BlockBreakLootPolicy.DropSelf, out var plan))
+                    return false;
+                detachedDropCount += plan.Rewards.Count;
+            }
+            if (detachedDropCount > _objectDetachment.AvailableDropCapacity)
                 return false;
         }
 

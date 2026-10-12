@@ -155,7 +155,10 @@ public sealed class BlockInteractionRuntime
         // The host and every dependent spike formation share one physical
         // drop pool. Count *all* immediate drops before destroying anything.
         var hostDropCount = authoredLoot?.Count ?? (snapshot is null ? 0 : 1);
-        if (!_spikes.CanRemoveSupport(decision.Position, lootPolicy, hostDropCount))
+        var objectDropCount = _mutations.ObjectSupportDropCount(
+            decision.Position, lootPolicy);
+        if (!_spikes.CanRemoveSupport(decision.Position, lootPolicy,
+                hostDropCount + objectDropCount))
             return BlockBreakDecision.Reject(
                 decision.Position, BlockBreakRejection.MutationRejected);
 

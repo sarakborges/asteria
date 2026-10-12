@@ -86,7 +86,9 @@ public sealed class SpikeFormationRuntime
 
         var placed = WithProfile(cell, height - 1, height, down);
         changes.Add(new SpikeVoxelChange(target, placed));
-        Apply(changes);
+        if (!Apply(changes))
+            return BlockPlacementDecision.Reject(
+                target, cell, BlockPlacementRejection.MutationRejected);
         return decision with { Cell = placed };
     }
 
@@ -109,11 +111,11 @@ public sealed class SpikeFormationRuntime
         var dropCount = lootPolicy == BlockBreakLootPolicy.DropSelf &&
             _blocks.GetDefinition(decision.Cell.Block).DropsSelf
                 ? detached.Count + 1 : 0;
-        if (dropCount > _drops.AvailableCapacity)
+        dropCount += ObjectDropCount(edits, lootPolicy);
+        if (dropCount > _drops.AvailableCapacity || !Apply(edits, lootPolicy))
             return BlockBreakDecision.Reject(
                 decision.Position, BlockBreakRejection.MutationRejected);
 
-        Apply(edits);
         if (lootPolicy == BlockBreakLootPolicy.DropSelf)
         {
             SpawnDrop(decision.Cell.Block, decision.Position);
@@ -155,8 +157,7 @@ public sealed class SpikeFormationRuntime
             return 0;
 
         var definition = _blocks.GetDefinition(cell.Block);
-        if (definition.Shape.Kind != BlockShapeKind.Spike ||
-            !definition.DropsSelf)
+        if (definition.Shape.Kind != BlockShapeKind.Spike)
             return 0;
 
         var edits = new List<SpikeVoxelChange>();
@@ -164,7 +165,9 @@ public sealed class SpikeFormationRuntime
         // If a neighbor chunk is unloaded, support removal is permitted,
         // but physical drops are reconciled only after residency returns.
         return PlanRemoval(root, cell, alreadyRemoved: false, edits, detached)
-            ? detached.Count + 1 : 0;
+            ? (definition.DropsSelf ? detached.Count + 1 : 0) +
+              ObjectDropCount(edits, BlockBreakLootPolicy.DropSelf)
+            : 0;
     }
 
     /// <summary>
@@ -178,7 +181,7 @@ public sealed class SpikeFormationRuntime
         _applying = true;
         try
         {
-            if (!_mutations.SetCellAt(position, VoxelCell.Empty, out _))
+            if (!_mutations.SetCellAt(position, VoxelCell.Empty, out _, lootPolicy))
                 return false;
         }
         finally
@@ -303,9 +306,9 @@ public sealed class SpikeFormationRuntime
             if (PlanRemoval(edit.Position, previous, alreadyRemoved: true,
                     edits, detached))
             {
-                Apply(edits);
-                foreach (var position in detached)
-                    SpawnDrop(previous.Block, position);
+                if (Apply(edits))
+                    foreach (var position in detached)
+                        SpawnDrop(previous.Block, position);
             }
         }
 
@@ -436,7 +439,7 @@ public sealed class SpikeFormationRuntime
             }
         }
 
-        Apply(edits);
+        if (!Apply(edits)) return;
         foreach (var position in detached)
             SpawnDrop(cell.Block, position);
     }
@@ -462,7 +465,7 @@ public sealed class SpikeFormationRuntime
         if (!PlanRemoval(root, cell, alreadyRemoved: false, edits, detached))
             return;
 
-        Apply(edits);
+        if (!Apply(edits, lootPolicy)) return;
         if (lootPolicy == BlockBreakLootPolicy.DropSelf)
         {
             foreach (var position in detached)
@@ -471,8 +474,18 @@ public sealed class SpikeFormationRuntime
         }
     }
 
-    private void Apply(IReadOnlyList<SpikeVoxelChange> changes)
+    private int ObjectDropCount(IReadOnlyList<SpikeVoxelChange> changes,
+        BlockBreakLootPolicy policy) =>
+        changes.Where(change => change.Cell.IsEmpty)
+            .Sum(change => _mutations.ObjectSupportDropCount(change.Position, policy));
+
+    private bool Apply(IReadOnlyList<SpikeVoxelChange> changes,
+        BlockBreakLootPolicy policy = BlockBreakLootPolicy.DropSelf)
     {
+        // One preflight covers all detached objects: an intermediate spike
+        // removal cannot partially mutate the world when drop capacity is full.
+        if (ObjectDropCount(changes, policy) > _drops.AvailableCapacity)
+            return false;
         _applying = true;
         try
         {
@@ -480,7 +493,7 @@ public sealed class SpikeFormationRuntime
             {
                 if (_world.GetCellOrEmpty(change.Position) == change.Cell)
                     continue;
-                if (!_mutations.SetCellAt(change.Position, change.Cell, out _))
+                if (!_mutations.SetCellAt(change.Position, change.Cell, out _, policy))
                     throw new InvalidOperationException(
                         $"Validated spike mutation failed at {change.Position}.");
             }
@@ -489,6 +502,7 @@ public sealed class SpikeFormationRuntime
         {
             _applying = false;
         }
+        return true;
     }
 
     private void SpawnDrop(BlockRuntimeId block, WorldVoxelCoord position)
