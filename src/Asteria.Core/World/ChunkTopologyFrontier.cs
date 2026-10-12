@@ -155,6 +155,12 @@ public static class ChunkTopologyFrontier
 
         var address = VoxelCoordinates.FromWorld(
             position.X, position.Y, position.Z);
+        if (address.Chunk == arrivingChunk &&
+            (address.Local.Y == 0 || address.Local.Y == Chunk.Size - 1) &&
+            CanSkipUnchangedVerticalArrivalSeam(
+                world, blocks, fluids, position, address.Local.Y))
+            return false;
+
         if (address.Chunk != arrivingChunk ||
             address.Local.Y == 0 ||
             address.Local.Y == Chunk.Size - 1 ||
@@ -187,6 +193,61 @@ public static class ChunkTopologyFrontier
         // Conservatively keep anything that was not an actual horizontal
         // interface between two loaded chunks.
         return !hasResidentHorizontalNeighbor;
+    }
+
+    // Vertically adjacent chunks initialize their own light before residency.
+    // A fully lit skylight seam with identical RGB cannot gain light across
+    // the seam, and no new blocker is introduced into the lower column.
+    // Likewise two dark opaque faces cannot exchange light. Avoid enqueuing
+    // entire 16x16 faces for these already-converged cases.
+    private static bool CanSkipUnchangedVerticalArrivalSeam(
+        VoxelWorld world, BlockRegistry blocks, FluidRegistry fluids,
+        WorldVoxelCoord position, int localY)
+    {
+        var opposite = position + (0, localY == 0 ? -1 : 1, 0);
+        if (opposite.Y < 0 || !world.IsLoadedAt(opposite))
+            return false;
+
+        var light = world.GetLightOrDark(position);
+        if (light != world.GetLightOrDark(opposite))
+            return false;
+
+        if (light.Sky == VoxelLight.MaxLevel)
+        {
+            // At intersections with horizontal seams, preserve a seed if
+            // another resident neighbor still has a light disagreement.
+            var local = VoxelCoordinates.FromWorld(
+                position.X, position.Y, position.Z).Local;
+            return !(local.X == 0 && HasDifferentNeighbor(-1, 0) ||
+                     local.X == Chunk.Size - 1 && HasDifferentNeighbor(1, 0) ||
+                     local.Z == 0 && HasDifferentNeighbor(0, -1) ||
+                     local.Z == Chunk.Size - 1 && HasDifferentNeighbor(0, 1));
+        }
+
+        return light.IsDark && IsOpaque(position) && IsOpaque(opposite);
+
+        bool HasDifferentNeighbor(int dx, int dz)
+        {
+            var neighbor = position + (dx, 0, dz);
+            return world.IsLoadedAt(neighbor) &&
+                   world.GetLightOrDark(neighbor) != light;
+        }
+
+        bool IsOpaque(WorldVoxelCoord voxel)
+        {
+            var address = VoxelCoordinates.FromWorld(
+                voxel.X, voxel.Y, voxel.Z);
+            if (!world.TryGetChunk(address.Chunk, out var chunk))
+                return false;
+            var cell = chunk.GetCell(
+                address.Local.X, address.Local.Y, address.Local.Z);
+            var fluid = chunk.GetFluid(
+                address.Local.X, address.Local.Y, address.Local.Z);
+            return VoxelLightingMedium.Dampening(
+                chunk, blocks, fluids,
+                address.Local.X, address.Local.Y, address.Local.Z,
+                cell, fluid) >= VoxelLight.MaxLevel;
+        }
     }
 
     public static IEnumerable<ChunkNeighborMeshInvalidation>
