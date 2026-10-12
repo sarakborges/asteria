@@ -24,11 +24,11 @@
   },
   "palette": {
     "W": {
-      "block": "frost_wood",
+      "block": "asteria:frost_wood",
       "orientation": "y"
     },
     "F": {
-      "block": "rime_leaves"
+      "block": "asteria:rime_leaves"
     }
   },
   "layers": [

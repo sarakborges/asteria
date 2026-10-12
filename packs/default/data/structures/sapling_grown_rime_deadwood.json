@@ -24,11 +24,11 @@
   },
   "palette": {
     "W": {
-      "block": "rime_deadwood",
+      "block": "asteria:rime_deadwood",
       "orientation": "y"
     },
     "F": {
-      "block": "rime_leaves"
+      "block": "asteria:rime_leaves"
     }
   },
   "layers": [

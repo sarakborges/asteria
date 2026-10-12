@@ -24,11 +24,11 @@
   },
   "palette": {
     "W": {
-      "block": "windwood",
+      "block": "asteria:windwood",
       "orientation": "y"
     },
     "F": {
-      "block": "windwood_needles"
+      "block": "asteria:windwood_needles"
     }
   },
   "layers": [

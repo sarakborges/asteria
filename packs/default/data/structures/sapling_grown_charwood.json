@@ -24,7 +24,7 @@
   },
   "palette": {
     "W": {
-      "block": "charwood",
+      "block": "asteria:charwood",
       "orientation": "y"
     }
   },

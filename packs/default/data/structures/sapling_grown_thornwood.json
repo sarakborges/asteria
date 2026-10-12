@@ -24,11 +24,11 @@
   },
   "palette": {
     "W": {
-      "block": "thornwood",
+      "block": "asteria:thornwood",
       "orientation": "y"
     },
     "F": {
-      "block": "thornwood_leaves"
+      "block": "asteria:thornwood_leaves"
     }
   },
   "layers": [

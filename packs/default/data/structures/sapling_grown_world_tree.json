@@ -24,11 +24,11 @@
   },
   "palette": {
     "W": {
-      "block": "log_world_tree",
+      "block": "asteria:log_world_tree",
       "orientation": "y"
     },
     "F": {
-      "block": "leaf_world_tree"
+      "block": "asteria:leaf_world_tree"
     }
   },
   "layers": [
