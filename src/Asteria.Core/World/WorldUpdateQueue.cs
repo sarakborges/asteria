@@ -179,31 +179,71 @@ public sealed class WorldUpdateQueue
         _backgroundMeshlets.Remove(coord);
     }
 
+    // Retired chunks can leave substantial stale lighting work after fast
+    // streaming movement. Discard those positions before snapshot capture,
+    // but bound the inspection count to protect the main-thread budget.
+    private const int MaximumLightingCandidatesPerDrain = 4096;
+
     public WorldLightingBatch DrainLighting(
         int maximumPositions = int.MaxValue,
-        int maximumColumns = int.MaxValue)
+        int maximumColumns = int.MaxValue,
+        VoxelWorld? world = null)
     {
         if (maximumPositions <= 0)
             throw new ArgumentOutOfRangeException(nameof(maximumPositions));
         if (maximumColumns <= 0)
             throw new ArgumentOutOfRangeException(nameof(maximumColumns));
 
-        if (maximumColumns == int.MaxValue)
-            return new WorldLightingBatch(
-                _lightingEdits.Drain(maximumPositions));
+        if (world is null)
+        {
+            if (maximumColumns == int.MaxValue)
+                return new WorldLightingBatch(
+                    _lightingEdits.Drain(maximumPositions));
 
+            var selectedColumns = new HashSet<ChunkColumnCoord>();
+            return new WorldLightingBatch(
+                _lightingEdits.DrainPrefix(
+                    maximumPositions,
+                    position =>
+                    {
+                        var column = ChunkColumnCoord.FromChunk(
+                            VoxelCoordinates.FromWorld(
+                                position.X, position.Y, position.Z).Chunk);
+                        return selectedColumns.Contains(column) ||
+                            selectedColumns.Count < maximumColumns &&
+                            selectedColumns.Add(column);
+                    }));
+        }
+
+        var selected = new List<WorldVoxelCoord>(
+            Math.Min(maximumPositions, MaximumLightingCandidatesPerDrain));
         var columns = new HashSet<ChunkColumnCoord>();
-        return new WorldLightingBatch(
-            _lightingEdits.DrainPrefix(
-                maximumPositions,
-                position =>
-                {
-                    var column = ChunkColumnCoord.FromChunk(
-                        VoxelCoordinates.FromWorld(
-                            position.X, position.Y, position.Z).Chunk);
-                    return columns.Contains(column) ||
-                        columns.Count < maximumColumns && columns.Add(column);
-                }));
+        var examined = 0;
+
+        while (selected.Count < maximumPositions &&
+               examined < MaximumLightingCandidatesPerDrain &&
+               _lightingEdits.TryPeek(out var position))
+        {
+            examined++;
+            if (!world.IsLoadedAt(position))
+            {
+                _lightingEdits.TryDequeue(out _);
+                continue;
+            }
+
+            var column = ChunkColumnCoord.FromChunk(
+                VoxelCoordinates.FromWorld(
+                    position.X, position.Y, position.Z).Chunk);
+            if (!columns.Contains(column) &&
+                columns.Count >= maximumColumns)
+                break;
+
+            columns.Add(column);
+            _lightingEdits.TryDequeue(out _);
+            selected.Add(position);
+        }
+
+        return new WorldLightingBatch(selected);
     }
 
     public WorldMeshBatch DrainMeshlets(
@@ -249,14 +289,15 @@ public sealed class WorldUpdateQueue
             maximumMeshlets);
 
     public void RequeueLighting(
-        WorldLightingBatch batch)
+        WorldLightingBatch batch, VoxelWorld world)
     {
         ArgumentNullException.ThrowIfNull(batch);
+        ArgumentNullException.ThrowIfNull(world);
 
-        foreach (var position in
-                 batch.EditedPositions)
+        foreach (var position in batch.EditedPositions)
         {
-            _lightingEdits.Enqueue(position);
+            if (world.IsLoadedAt(position))
+                _lightingEdits.Enqueue(position);
         }
     }
 
