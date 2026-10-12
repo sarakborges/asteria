@@ -1482,7 +1482,15 @@ public sealed class BiomeWorldGenerationTests
                     var expected = (int)Math.Floor(
                         2d + (authored - 2d) * smooth);
                     Assert.InRange(actual, expected - 1, expected + 1);
-                    mixedFlanks++;
+                    if (boundaryT >= 1d)
+                    {
+                        Assert.Equal((int)Math.Floor(authored), actual);
+                        intactInterior++;
+                    }
+                    else
+                    {
+                        mixedFlanks++;
+                    }
                 }
                 else
                 {
