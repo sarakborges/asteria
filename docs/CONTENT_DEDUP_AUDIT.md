@@ -15,11 +15,11 @@ The original six dedicated PNG assets were also deleted; no remaining block defi
 
 ## Preserved content
 
-Distinct colors/species, growth forms, emitted light, texture families, large authored formations and ecosystem-specific behavior are **not** treated as duplicates by name alone. Examples kept: `aether_crystal` (light-emitting spike), `aether_crystal_core` (solid crystal core), `kelp` (sprite) versus `kelp_stem`/`kelp_frond` (3D forest), `charwood` and `frost_wood` (distinct wood materials), and `luminous_giant_fungus_cap` versus `marsh_giant_mushroom_cap` (different mushrooms).
+Distinct colors/species, growth forms, emitted light, texture families, large authored formations and ecosystem-specific behavior are **not** treated as duplicates by name alone. Examples kept: `aether_crystal` (light-emitting spike), `aether_crystal_core` (solid crystal core), `kelp` (independent Object) versus `kelp_stem`/`kelp_frond` (multi-block forest structures), `charwood` and `frost_wood` (distinct wood materials), and `luminous_giant_fungus_cap` versus `marsh_giant_mushroom_cap` (different mushrooms).
 
 Biome placement, clustering and habitat weights remain authored in the existing JSON rules. Using generic `stone_spike`, `sandstone_spike`, and `ice_spike` intentionally inherits their current placement/support behavior and material appearance rather than preserving bespoke spur/shard behavior.
 
-Existing old-world saves referring to deleted IDs are not automatically migrated: compatibility requires a separately authorized save migration.
+Old save IDs are not preserved: Asteria is pre-release, and no content alias or migration is added without an explicit request.
 
 ## Shared prickly pear structure variants
 

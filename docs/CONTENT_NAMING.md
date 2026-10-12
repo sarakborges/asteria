@@ -14,7 +14,7 @@ Authored block and object IDs describe **what the content is**, not the biome wh
 
 The 70 old-to-new IDs are listed in [content-id-renames-2026-10-11.json](content-id-renames-2026-10-11.json). The file documents this content-breaking rename; it is not a runtime alias registry.
 
-**Compatibility:** worlds or saves produced before this renaming that persist the old block IDs may require a separate explicit migration. Do not infer that old serialized IDs will resolve through the new definitions without one.
+**Save policy:** old serialized content IDs are unsupported following a breaking content rename. Do not add aliases, duplicate definitions or automatic migration for older saves unless explicitly requested.
 
 ## Review checklist
 

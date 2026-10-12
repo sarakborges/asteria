@@ -26,23 +26,36 @@ public sealed class OceanDecorationContentTests
         {
             var rule = Assert.Single(ocean.Decorations, d => d.Block == $"asteria:{name}");
             Assert.Equal(name is "seagrass" or "kelp", rule.IsObject);
-            var block = blocks.GetDefinition(blocks.GetId(rule.Block));
             Assert.Equal(DecorationFluidPlacement.Submerged, rule.FluidPlacement);
             Assert.Equal((int?)86, rule.Conditions!.MaxY);
             Assert.NotNull(rule.Cluster);
             Assert.Equal(4, rule.Cluster!.Octaves);
             Assert.Contains("asteria:sand", rule.SurfaceBlocks);
             Assert.NotNull(rule.HabitatWeights);
-            Assert.Equal("foliage", block.Category);
-            Assert.True(block.HasTag("support_below"));
-            Assert.False(block.IsCollidable);
-            Assert.False(block.CastsShadow);
-            Assert.Equal((byte)0, block.LightDampening);
-            Assert.Equal(BlockRenderMode.Cutout, block.RenderMode);
-            Assert.Equal(name is "seashell" or "starfish"
-                ? BlockVisualKind.GroundSprite : BlockVisualKind.CrossedSprite,
-                block.Visual.Kind);
-            Assert.Equal($"textures/objects/{name}.png", block.Visual.Texture!.Value.Texture);
+            if (rule.IsObject)
+            {
+                Assert.False(blocks.TryGetId(rule.Block, out _));
+                var definition = objects.Get(rule.Block);
+                Assert.Equal("foliage", definition.Category);
+                Assert.Equal(ObjectVisualKind.CrossedSprite, definition.Visual.Kind);
+                Assert.True(definition.Supports(BlockFace.Top));
+                Assert.True(definition.DropSelf);
+                Assert.Equal($"textures/objects/{name}.png", definition.Visual.Texture);
+            }
+            else
+            {
+                var block = blocks.GetDefinition(blocks.GetId(rule.Block));
+                Assert.Equal("foliage", block.Category);
+                Assert.True(block.HasTag("support_below"));
+                Assert.False(block.IsCollidable);
+                Assert.False(block.CastsShadow);
+                Assert.Equal((byte)0, block.LightDampening);
+                Assert.Equal(BlockRenderMode.Cutout, block.RenderMode);
+                Assert.Equal(name is "seashell" or "starfish"
+                    ? BlockVisualKind.GroundSprite : BlockVisualKind.CrossedSprite,
+                    block.Visual.Kind);
+                Assert.Equal($"textures/objects/{name}.png", block.Visual.Texture!.Value.Texture);
+            }
         }
         var grass = Assert.Single(ocean.Decorations, d => d.Block == "asteria:seagrass");
         var anemone = Assert.Single(ocean.Decorations, d => d.Block == "asteria:sea_anemone");

@@ -224,9 +224,6 @@
   "asteria:juniper_wood": {
     "/name": "Juniper Wood"
   },
-  "asteria:kelp": {
-    "/name": "Kelp"
-  },
   "asteria:kelp_frond": {
     "/name": "Kelp Frond"
   },
@@ -424,9 +421,6 @@
   },
   "asteria:sea_anemone": {
     "/name": "Sea Anemone"
-  },
-  "asteria:seagrass": {
-    "/name": "Seagrass"
   },
   "asteria:seashell": {
     "/name": "Seashell"

@@ -224,9 +224,6 @@
   "asteria:juniper_wood": {
     "/name": "Madera de Enebro"
   },
-  "asteria:kelp": {
-    "/name": "Alga Marina"
-  },
   "asteria:kelp_frond": {
     "/name": "Fronda de Alga Marina"
   },
@@ -424,9 +421,6 @@
   },
   "asteria:sea_anemone": {
     "/name": "Anémona Marina"
-  },
-  "asteria:seagrass": {
-    "/name": "Hierba Marina"
   },
   "asteria:seashell": {
     "/name": "Concha Marina"

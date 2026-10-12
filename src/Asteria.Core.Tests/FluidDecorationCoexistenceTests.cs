@@ -1,4 +1,5 @@
 using System.Numerics;
+using Asteria.Core.Content;
 using Asteria.Core.World;
 
 namespace Asteria.Core.Tests;
@@ -16,7 +17,7 @@ public sealed class FluidDecorationCoexistenceTests
         var chunk = new Chunk();
         chunk.SetFluid(2, 2, 2,
             FluidCell.Source(fluids.GetId("asteria:water")));
-        chunk.SetBlock(3, 2, 2, blocks.GetId("asteria:seagrass"));
+        chunk.SetBlock(3, 2, 2, blocks.GetId("asteria:test_sprite"));
         var world = new VoxelWorld();
         world.ConfigureFluidOccupancy(blocks);
         world.InsertChunk(ChunkCoord.Zero, chunk);
@@ -50,7 +51,7 @@ public sealed class FluidDecorationCoexistenceTests
 
         Assert.True(world.SetFluidAt(WaterPosition, source, out _));
         Assert.True(world.SetBlockAt(WaterPosition,
-            blocks.GetId("asteria:seagrass"), out _));
+            blocks.GetId("asteria:test_sprite"), out _));
         Assert.Equal(source, world.GetFluidOrEmpty(WaterPosition));
         Assert.Equal(source, FluidSimulationSolver.DesiredFluid(
             world, fluids, WaterPosition, source));
@@ -72,10 +73,24 @@ public sealed class FluidDecorationCoexistenceTests
     }
 
     [Fact]
-    public void GeneratedSeagrassKeepsOceanSourceInItsOwnVoxel()
+    public void GeneratedSeagrassObjectDoesNotReplaceWaterWithABlock()
     {
         var blocks = Blocks();
         var fluids = Fluids();
+        var objects = PackContentRegistry<ObjectDefinition>.FromJson([
+            """
+            {
+              "id": "asteria:seagrass",
+              "category": "foliage",
+              "icon": "textures/objects/seagrass.png",
+              "placementFaces": ["top"],
+              "visual": {
+                "type": "crossedSprite",
+                "texture": "textures/objects/seagrass.png"
+              }
+            }
+            """
+        ], ObjectDefinition.Parse, definition => definition.Id);
         var biome = new BiomeDefinition(
             "asteria:test/ocean",
             new BiomeSurfaceLayoutDefinition(),
@@ -84,7 +99,8 @@ public sealed class FluidDecorationCoexistenceTests
             decorations: [
                 new BiomeDecorationDefinition("asteria:seagrass",
                     1f, ["asteria:stone"],
-                    fluidPlacement: DecorationFluidPlacement.Submerged)
+                    fluidPlacement: DecorationFluidPlacement.Submerged,
+                    isObject: true)
             ]);
         var dimension = new DimensionDefinition(
             new DimensionId("asteria:test"),
@@ -99,25 +115,28 @@ public sealed class FluidDecorationCoexistenceTests
         var generator = new BiomeWorldGenerator(
             17, dimension, blocks, fluids, new BiomeRegistry([biome]),
             StructureRegistry.Empty,
-            generation: new WorldGenerationOptions(spawnCaves: false));
+            generation: new WorldGenerationOptions(spawnCaves: false),
+            objects: objects);
 
-        var y = generator.SurfaceHeight(8, 8) + 1;
-        Assert.True(y < dimension.SeaLevel);
-        var coord = new ChunkCoord(0, y / Chunk.Size, 0);
-        var chunk = generator.Materialize(coord);
-        var localY = y % Chunk.Size;
+        var supportY = generator.SurfaceHeight(8, 8);
+        var support = generator.Materialize(
+            new ChunkCoord(0, supportY / Chunk.Size, 0));
+        Assert.Equal("asteria:seagrass",
+            Assert.Single(support.ObjectsAt(8, supportY % Chunk.Size, 8)).Id);
 
-        Assert.Equal(blocks.GetId("asteria:seagrass"),
-            chunk.GetBlock(8, localY, 8));
+        var fluidY = supportY + 1;
+        var water = generator.Materialize(
+            new ChunkCoord(0, fluidY / Chunk.Size, 0));
+        Assert.True(water.GetCell(8, fluidY % Chunk.Size, 8).IsEmpty);
         Assert.Equal(FluidCell.Source(fluids.GetId("asteria:water")),
-            chunk.GetFluid(8, localY, 8));
+            water.GetFluid(8, fluidY % Chunk.Size, 8));
     }
 
     private static BlockRegistry Blocks() => new([
         new BlockDefinition("asteria:stone"),
-        new BlockDefinition("asteria:seagrass",
+        new BlockDefinition("asteria:test_sprite",
             visual: BlockVisualDefinition.CrossedSprite(
-                new BlockTextureLayer("textures/objects/seagrass.png")),
+                new BlockTextureLayer("textures/objects/grass.png")),
             isCollidable: false, lightDampening: 0)
     ]);
 

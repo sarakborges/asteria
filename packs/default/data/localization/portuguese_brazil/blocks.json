@@ -224,9 +224,6 @@
   "asteria:juniper_wood": {
     "/name": "Madeira de Zimbro"
   },
-  "asteria:kelp": {
-    "/name": "Alga Marinha"
-  },
   "asteria:kelp_frond": {
     "/name": "Folhagem de Alga Marinha"
   },
@@ -424,9 +421,6 @@
   },
   "asteria:sea_anemone": {
     "/name": "Anêmona-do-mar"
-  },
-  "asteria:seagrass": {
-    "/name": "Erva-marinha"
   },
   "asteria:seashell": {
     "/name": "Concha Marinha"
