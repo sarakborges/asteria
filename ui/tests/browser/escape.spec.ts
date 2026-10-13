@@ -97,6 +97,14 @@ test("Inventory shortcut types in search without forwarding to Godot", async ({ 
   await expect(inventory).toBeVisible();
   await expect(page.locator("body")).not.toHaveAttribute("data-wry-forwarded", "true");
 
+  // WRY synthesizes forwarded keys without the native Echo/repeat flag.
+  // Browser key auto-repeat must not leak to that forwarding listener either.
+  await search.evaluate(input => input.dispatchEvent(new KeyboardEvent(
+    "keydown", { key: "e", code: "KeyE", bubbles: true, repeat: true },
+  )));
+  await expect(inventory).toBeVisible();
+  await expect(page.locator("body")).not.toHaveAttribute("data-wry-forwarded", "true");
+
   await inventory.locator(".inventory-panel-header__sort").click();
   await page.keyboard.press("e");
   await expect(inventory).toHaveCount(0);
