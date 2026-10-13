@@ -92,7 +92,7 @@ public sealed class VolcanoBiomeContentTests
 
         foreach (var (id, _, _) in Quadrants)
         {
-            var piece = Load("volcanic_caldera_" + id);
+            var piece = Load("caldera_volcanic_" + id);
             Assert.Contains(root.Connectors,
                 c => c.Target == piece.Id);
             Assert.Single(piece.Connectors);
@@ -122,7 +122,7 @@ public sealed class VolcanoBiomeContentTests
         foreach (var (definition, originX, originZ) in
             new[] { (Load("caldera_volcanic"), 0, 0) }
                 .Concat(Quadrants.Select(piece =>
-                    (Load("volcanic_caldera_" + piece.Id), piece.X, piece.Z))))
+                    (Load("caldera_volcanic_" + piece.Id), piece.X, piece.Z))))
         {
             foreach (var block in definition.Voxels)
             {
@@ -215,7 +215,7 @@ public sealed class VolcanoBiomeContentTests
         var structures = new StructureRegistry(
             new[] { Load("caldera_volcanic") }
                 .Concat(Quadrants.Select(piece =>
-                    Load("volcanic_caldera_" + piece.Id))));
+                    Load("caldera_volcanic_" + piece.Id))));
         var generator = new BiomeWorldGenerator(
             77UL, dimension, blocks, fluids,
             new BiomeRegistry([biome]), structures);

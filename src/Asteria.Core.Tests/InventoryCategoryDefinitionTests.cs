@@ -12,7 +12,7 @@ public sealed class InventoryCategoryDefinitionTests
             """{"id":"materials_crafting","order":60,"icon":"textures/creative_categories/materials_crafting.png"}""",
             """{"id":"light_sources","order":60,"icon":"textures/creative_categories/light_sources.png"}"""
         ]);
-        Assert.Equal(["materials_crafting", "light_sources", "tools"],
+        Assert.Equal(["light_sources", "materials_crafting", "tools"],
             categories.Definitions.Select(x => x.Id).ToArray());
         Assert.Equal((ushort)70, categories.Get("tools").Order);
         Assert.False(categories.TryGet("unknown", out _));

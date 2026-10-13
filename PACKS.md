@@ -536,6 +536,10 @@ Never use filesystem enumeration order, archive entry order, hash-map order or t
 
 ## 8. Names and paths
 
+Authored content IDs and definition filenames use `type_variation`, with oak as
+the tree-family reference. See [Content naming](docs/content-naming.md) for the
+type-first authoring contract and examples.
+
 Pack folder names use lowercase ASCII letters, digits, `.`, `_` or `-`.
 
 Pack paths are relative. Absolute paths, `..`, empty segments, backslashes and URI/scheme separators are invalid.

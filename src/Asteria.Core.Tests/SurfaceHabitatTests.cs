@@ -166,7 +166,7 @@ public sealed class SurfaceHabitatTests
     {
         var biome = BiomeDefinitionJson.Parse(File.ReadAllText(Path.Combine(
             AppContext.BaseDirectory, "packs", "default", "data",
-            "biomes", "grove_wraith.json")));
+            "biomes", "wraith_grove.json")));
         Assert.Equal("asteria:umbral/wraith_grove", biome.Id);
         var bands = Assert.IsType<SurfaceHabitatDefinition>(biome.SurfaceHabitats);
         Assert.Equal(new[] { "dusky_underbrush", "pale_clearing", "decay_pockets" },
@@ -188,7 +188,7 @@ public sealed class SurfaceHabitatTests
     public void WraithTreeAndSnagRootsFollowTheirAuthoredHabitats()
     {
         var biomePath = Path.Combine(AppContext.BaseDirectory, "packs",
-            "default", "data", "biomes", "grove_wraith.json");
+            "default", "data", "biomes", "wraith_grove.json");
         var biome = BiomeDefinitionJson.Parse(File.ReadAllText(biomePath));
         var dimensionPath = Path.Combine(AppContext.BaseDirectory, "packs",
             "default", "data", "dimensions", "umbral.json");

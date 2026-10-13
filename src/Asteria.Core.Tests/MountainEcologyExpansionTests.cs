@@ -80,7 +80,7 @@ public sealed class MountainEcologyExpansionTests
                     Assert.False(block.IsCollidable);
                     Assert.Equal(BlockRenderMode.Cutout, block.RenderMode);
                     Assert.Equal(
-                        name.EndsWith("_lichen", StringComparison.Ordinal)
+                        name.StartsWith("lichen_", StringComparison.Ordinal)
                             ? BlockVisualKind.GroundSprite : BlockVisualKind.CrossedSprite,
                         block.Visual.Kind);
                     Assert.Equal("textures/objects/" + name + ".png",
