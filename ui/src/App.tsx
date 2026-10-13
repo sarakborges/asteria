@@ -136,17 +136,18 @@ export function App({
         event.defaultPrevented || event.repeat ||
         event.nativeEvent.isComposing || !uiVisible) return;
 
-    // An open inventory owns an explicit WebUI interaction surface. When WRY
-    // holds keyboard focus, Godot does not receive the native inventory
-    // keypress; dispatch the same semantic close action from this surface.
-    // Text editors keep the key for typing (including rebound bindings).
+    // Godot WRY forwards DOM keydown to the native viewport via a document
+    // listener. Stop that forwarding for the inventory shortcut even while
+    // editing text: otherwise typing the bound key closes the inventory via
+    // Godot, or a close action gets processed twice.
     if (state.navigation.overlay === "inventory" &&
-        event.code === (state.settings.client?.keybinds.inventory ?? "KeyE") &&
-        !(event.target instanceof Element && event.target.closest(
-          "input, textarea, select, [contenteditable='true']"))) {
+        event.code === (state.settings.client?.keybinds.inventory ?? "KeyE")) {
+      event.stopPropagation();
+      if (event.target instanceof Element && event.target.closest(
+          "input, textarea, select, [contenteditable='true']"))
+        return;
       actions.closeInventory();
       event.preventDefault();
-      event.stopPropagation();
       return;
     }
 
