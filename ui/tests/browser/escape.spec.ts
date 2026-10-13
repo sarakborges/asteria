@@ -75,7 +75,7 @@ test("Inventory key types in search and closes after leaving the editor", async 
   await expect(search).toHaveValue("e");
   await expect(inventory).toBeVisible();
 
-  await inventory.locator(".player-inventory-panel .inventory-slot").first().click();
+  await inventory.locator(".inventory-panel-header__sort").click();
   await page.keyboard.press("e");
   await expect(inventory).toHaveCount(0);
 });
