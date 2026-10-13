@@ -125,10 +125,19 @@ public sealed class PortalActivationRuntimeTests
         Assert.True(restoredPortal.TryGetDestinationAt(
             new WorldVoxelCoord(3, 4, 5), out var destination));
         Assert.Equal("asteria:overworld", destination);
+        var returningPlayer = new WorldAabb(
+            new Vector3(2.45f, 4.05f, 4.85f),
+            new Vector3(3.15f, 5.75f, 5.55f));
+        Assert.True(restoredPortal.TryGetDestinationIntersecting(
+            returningPlayer, out var roundTripTarget));
+        Assert.Equal("asteria:overworld", roundTripTarget);
+
         Assert.True(restoredMutations.SetCellAt(
             new WorldVoxelCoord(2, 4, 5), VoxelCell.Empty, out _));
         Assert.False(restoredPortal.TryGetDestinationAt(
             new WorldVoxelCoord(3, 4, 5), out _));
+        Assert.False(restoredPortal.TryGetDestinationIntersecting(
+            returningPlayer, out _));
     }
 
     [Fact]
