@@ -60,12 +60,17 @@ internal static class PlayerVisualSceneFactory
             var name = mesh.Name.ToString();
             var sourceMesh = mesh.Mesh ?? throw new InvalidDataException(
                 $"Player cuboid {name} has no imported geometry.");
+            // UV remapping rebuilds the mesh and discards its imported surface
+            // material. Capture the glTF face/alpha policy before doing so.
+            var sourceMaterial = mesh.GetActiveMaterial(0) as BaseMaterial3D
+                ?? throw new InvalidDataException(
+                    $"Player cuboid {name} has no glTF skin material.");
 
             // MineClone owns UVs by named cuboid, local position, and
             // normal. Never trust imported GLB UVs: importers and selected-pack
             // GLBs may reorder or flip them without changing geometry.
             mesh.Mesh = RemapSkinMesh(sourceMesh, name, outer: false);
-            ApplySkin(mesh, skin);
+            ApplySkin(mesh, skin, sourceMaterial);
 
             // The GLB includes an independent hair geometry already.
             // The jacket, sleeves, and trousers are expanded cuboids with
@@ -80,7 +85,7 @@ internal static class PlayerVisualSceneFactory
                     Mesh = RemapSkinMesh(sourceMesh, name, outer: true),
                     Scale = OuterLayerScale(name),
                     CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
-                    MaterialOverride = MakeSkinMaterial(skin),
+                    MaterialOverride = MakeSkinMaterial(skin, sourceMaterial),
                 };
                 mesh.AddChild(overlay);
             }
@@ -107,24 +112,27 @@ internal static class PlayerVisualSceneFactory
         return (size + Vector3.One * 0.5f) / size;
     }
 
-    private static void ApplySkin(MeshInstance3D mesh, Texture2D skin)
+    private static void ApplySkin(
+        MeshInstance3D mesh, Texture2D skin, BaseMaterial3D authoredMaterial)
     {
-        // Keep the canonical face UVs embedded in the GLB. Regenerating them
-        // from Godot-imported normals/positions may flip or swap skin faces.
-        // The GLB authored alphaMode=MASK for every body part, not just hair.
-        mesh.MaterialOverride = MakeSkinMaterial(skin);
+        // UVs are already rebuilt from canonical cuboid geometry. Replace
+        // only the skin image and filtering, not the glTF's alpha/cull policy.
+        mesh.MaterialOverride = MakeSkinMaterial(skin, authoredMaterial);
         mesh.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
     }
 
-    private static StandardMaterial3D MakeSkinMaterial(Texture2D skin) => new()
+    private static StandardMaterial3D MakeSkinMaterial(
+        Texture2D skin, BaseMaterial3D authoredMaterial) => new()
     {
         AlbedoTexture = skin,
         ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
         TextureFilter = BaseMaterial3D.TextureFilterEnum.Nearest,
-        Transparency = BaseMaterial3D.TransparencyEnum.AlphaScissor,
-        AlphaScissorThreshold = 0.1f,
-        // Backfaces must not show inner cuboid walls through alpha-masked skin.
-        CullMode = BaseMaterial3D.CullModeEnum.Back,
+        // MineClone preserves glTF alphaMode=MASK, its default 0.5 cutoff,
+        // and doubleSided=true. Preserve selected-pack material semantics
+        // for the base skin AND its generated jacket/sleeve/trouser shells.
+        Transparency = authoredMaterial.Transparency,
+        AlphaScissorThreshold = authoredMaterial.AlphaScissorThreshold,
+        CullMode = authoredMaterial.CullMode,
     };
 
     /// <summary>Identical mapping to MineClone's SkinPartSpec and SkinBoxUv:
