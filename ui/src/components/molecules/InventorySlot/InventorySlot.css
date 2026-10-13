@@ -53,3 +53,21 @@
   height: 100%;
   background: var(--ui-color-health);
 }
+
+/* Selected slots retain the authored accent when hovered or pressed. */
+.inventory-slot--selected:hover:not(:disabled),
+.inventory-slot--selected:active:not(:disabled),
+.inventory-slot--selected:focus-visible {
+  border-color: var(--ui-color-border-focus);
+  background: var(--ui-color-accent-soft);
+}
+
+.inventory-slot:active:not(:disabled):not(.inventory-slot--selected) {
+  border-color: color-mix(in srgb, var(--ui-color-border-focus) 78%, transparent);
+  background: var(--ui-color-surface-inset);
+}
+
+.inventory-slot:focus-visible {
+  outline: 2px solid var(--ui-color-border-focus);
+  outline-offset: 2px;
+}
