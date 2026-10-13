@@ -72,6 +72,16 @@ test("saved world catalog rejects incompatible loads and locks duplicate native 
   expect(store.getSnapshot().worldCatalog.loadError).toBe(true);
   expect(store.getSnapshot().worldCatalog.worlds).toEqual(worlds);
 
+  // Godot always rescans after a failed restore; the localized error must
+  // survive the verifying -> ready catalog round-trip.
+  controller.handleGodotMessage({ type: "game.world_catalog",
+    payload: { status: "verifying" } });
+  expect(store.getSnapshot().worldCatalog.loadError).toBe(true);
+  controller.handleGodotMessage({ type: "game.world_catalog",
+    payload: { status: "ready", worlds } });
+  expect(store.getSnapshot().worldCatalog.status).toBe("ready");
+  expect(store.getSnapshot().worldCatalog.loadError).toBe(true);
+
   controller.loadWorld("Asteria");
   expect(sent).toHaveLength(2);
   expect(store.getSnapshot().worldCatalog.loadError).toBe(false);
