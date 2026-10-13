@@ -9,7 +9,7 @@ public sealed class PlayerVisualDefinitionTests
         {
           "id": "asteria:player",
           "model": "models/entities/player/player.glb",
-          "skin": "textures/player/256.png",
+          "skin": "textures/player/64.png",
           "animations": {
             "idle":"Idle", "walk":"Walk", "run":"Run",
             "jump":"Jump", "fall":"Fall"
@@ -23,7 +23,7 @@ public sealed class PlayerVisualDefinitionTests
         var definition = PlayerVisualDefinition.Parse(PlayerJson);
         Assert.Equal("asteria:player", definition.Id);
         Assert.Equal("models/entities/player/player.glb", definition.Model);
-        Assert.Equal("textures/player/256.png", definition.Skin);
+        Assert.Equal("textures/player/64.png", definition.Skin);
         Assert.Equal("Run", definition.Animations["run"]);
         Assert.Equal(5, definition.Animations.Count);
     }
@@ -37,7 +37,7 @@ public sealed class PlayerVisualDefinitionTests
     {
         var json = PlayerJson.Replace(
             "models/entities/player/player.glb", model, StringComparison.Ordinal)
-            .Replace("textures/player/256.png", skin, StringComparison.Ordinal);
+            .Replace("textures/player/64.png", skin, StringComparison.Ordinal);
         Assert.Throws<FormatException>(() => PlayerVisualDefinition.Parse(json));
     }
 

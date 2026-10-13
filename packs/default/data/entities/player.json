@@ -1,7 +1,7 @@
 {
   "id": "asteria:player",
   "model": "models/entities/player/player.glb",
-  "skin": "textures/player/256.png",
+  "skin": "textures/player/64.png",
   "animations": {
     "idle": "Idle",
     "walk": "Walk",

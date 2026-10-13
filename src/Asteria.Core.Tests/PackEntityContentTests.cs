@@ -15,6 +15,30 @@ public sealed class PackEntityContentTests
     }
 
     [Fact]
+    public void AuthoredPlayerSkinUsesPresent64PixelPng()
+    {
+        var definition = PlayerVisualDefinition.Parse(
+            Assert.Single(Documents("entities")));
+        Assert.Equal("textures/player/64.png", definition.Skin);
+
+        var path = Path.Combine(
+            AppContext.BaseDirectory, "packs", "default", "resources",
+            definition.Skin.Replace('/', Path.DirectorySeparatorChar));
+        var bytes = File.ReadAllBytes(path);
+        Assert.True(bytes.Length >= 24, "Skin is too short to be a PNG.");
+        Assert.Equal("89504E470D0A1A0A",
+            Convert.ToHexString(bytes.AsSpan(0, 8)));
+        Assert.Equal("IHDR",
+            System.Text.Encoding.ASCII.GetString(bytes, 12, 4));
+        Assert.Equal(64,
+            System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(
+                bytes.AsSpan(16, 4)));
+        Assert.Equal(64,
+            System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(
+                bytes.AsSpan(20, 4)));
+    }
+
+    [Fact]
     public void ImportedItemsAreDeterministicAndExposeIconVariants()
     {
         var documents = Documents("items");
