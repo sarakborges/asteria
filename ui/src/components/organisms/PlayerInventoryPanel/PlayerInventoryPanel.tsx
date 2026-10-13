@@ -59,23 +59,19 @@ export function PlayerInventoryPanel({
       />
 
       <div className="player-inventory-panel__backpack">
-        {backpack.map(
-          (item, index) => (
+        {backpack.map((item, index) => {
+          const filteredOut = Boolean(state.searchQuery.trim()) &&
+            !inventorySearchMatches(item, state.searchQuery, contentName);
+          return (
             <InventorySlot
               key={index}
               item={item}
-              disabled={Boolean(state.searchQuery.trim()) &&
-                !inventorySearchMatches(item, state.searchQuery, contentName)}
-              onClick={action =>
-                onSlotClick?.(
-                  index,
-                  item,
-                  action,
-                )
-              }
+              filteredOut={filteredOut}
+              disabled={!onSlotClick || filteredOut}
+              onClick={action => onSlotClick?.(index, item, action)}
             />
-          ),
-        )}
+          );
+        })}
       </div>
 
       <InventoryHotbarFooter
