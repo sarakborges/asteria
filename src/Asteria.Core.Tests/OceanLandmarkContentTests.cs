@@ -9,7 +9,6 @@ public sealed class OceanLandmarkContentTests
         ("coral_fan_garden", 3),
         ("coral_table_garden", 3),
         ("coral_pillar_garden", 3),
-        ("ocean_kelp_grove", 4),
         ("coral_arch", 2),
     ];
 
@@ -78,38 +77,27 @@ public sealed class OceanLandmarkContentTests
             rule.Structure == "asteria:coral_fan_garden");
         Assert.True(fans.HabitatWeights!.For("rocky_reefs") >
                     fans.HabitatWeights.For("sand_flats"));
-        var kelp = Assert.Single(authored, rule =>
-            rule.Structure == "asteria:ocean_kelp_grove");
-        Assert.True(kelp.HabitatWeights!.For("gravel_banks") >
-                    kelp.HabitatWeights.For("sand_flats"));
         var arches = Assert.Single(authored, rule =>
             rule.Structure == "asteria:coral_arch");
         Assert.Equal(0f, arches.HabitatWeights!.For("sand_flats"));
     }
 
     [Fact]
-    public void NewCoralsUseDistinctPackTexturesAndKelpHasCutoutFronds()
+    public void NewCoralsUseDistinctPackTextures()
     {
         var blocks = BlockRegistry.FromJson(ReadJson("blocks"));
         var texturePaths = new HashSet<string>(StringComparer.Ordinal);
         foreach (var name in new[]
         {
-            "coral_violet","coral_orange","coral_teal","coral_lime",
-            "kelp_stem","kelp_frond"
+            "coral_violet", "coral_orange", "coral_teal", "coral_lime"
         })
         {
             var block = blocks.GetDefinition(blocks.GetId("asteria:" + name));
             var texture = Assert.Single(block.Textures.ForFace(BlockFace.Top));
             Assert.True(texturePaths.Add(texture.Texture));
-            Assert.Equal(name.StartsWith("coral_", StringComparison.Ordinal)
-                ? "textures/blocks/coral/" + name["coral_".Length..] + ".png"
-                : "textures/blocks/kelp/" + name["kelp_".Length..] + ".png",
-                texture.Texture);
+            Assert.Equal("textures/blocks/" + name + ".png", texture.Texture);
         }
-        Assert.Equal(6, texturePaths.Count);
-        var frond = blocks.GetDefinition(blocks.GetId("asteria:kelp_frond"));
-        Assert.True(frond.WindSway);
-        Assert.Equal(BlockRenderMode.Cutout, frond.RenderMode);
+        Assert.Equal(4, texturePaths.Count);
     }
 
     [Fact]

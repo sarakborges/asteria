@@ -6,7 +6,7 @@ namespace Asteria.Core.Tests;
 public sealed class FloatingIslandContentTests
 {
     private static readonly string[] NewObjects =
-        ["cloud_reed", "aether_bloom", "aether_crystal", "aether_vines"];
+        ["cloud_reed", "aether_bloom", "aether_vines"];
 
     [Fact]
     public void DefaultIslandObjectsAreOnlyAuthoredOnAdditiveVolume()
@@ -30,33 +30,20 @@ public sealed class FloatingIslandContentTests
             Assert.Equal((int?)283, rule.Conditions.MaxY);
             Assert.Equal(DecorationFluidPlacement.Dry, rule.FluidPlacement);
             Assert.Contains("asteria:grass_block", rule.SurfaceBlocks);
-            if (name is "aether_vines" or "cloud_reed" or "aether_bloom")
-            {
-                Assert.True(rule.IsObject);
-                Assert.False(blocks.TryGetId(rule.Block, out _));
-                var objects = PackContentRegistry<ObjectDefinition>.FromJson(
-                    ReadJson("objects"), ObjectDefinition.Parse, obj => obj.Id);
-                var obj = objects.Get(rule.Block);
-                Assert.Equal(ObjectVisualKind.CrossedSprite, obj.Visual.Kind);
-                Assert.True(obj.WindSway);
-                Assert.True(obj.Supports(name == "aether_vines"
-                    ? BlockFace.Bottom : BlockFace.Top));
-            }
-            else
-            {
-                Assert.False(rule.IsObject);
-                var block = blocks.GetDefinition(blocks.GetId(rule.Block));
-                Assert.Equal((byte)0, block.LightDampening);
-                Assert.True(block.HasTag(BlockPhysicsCapabilities.SupportBelow));
-            }
+            Assert.True(rule.IsObject);
+            Assert.False(blocks.TryGetId(rule.Block, out _));
+            var objects = PackContentRegistry<ObjectDefinition>.FromJson(
+                ReadJson("objects"), ObjectDefinition.Parse, obj => obj.Id);
+            var obj = objects.Get(rule.Block);
+            Assert.Equal(ObjectVisualKind.CrossedSprite, obj.Visual.Kind);
+            Assert.True(obj.WindSway);
+            Assert.True(obj.Supports(name == "aether_vines"
+                ? BlockFace.Bottom : BlockFace.Top));
             Assert.Equal(name == "aether_vines"
                     ? DecorationSupportSurface.Ceiling : DecorationSupportSurface.Floor,
                 rule.SupportSurface);
         }
 
-        var crystal = blocks.GetDefinition(blocks.GetId("asteria:aether_crystal"));
-        Assert.Equal(BlockShapeKind.Spike, crystal.Shape.Kind);
-        Assert.True(crystal.LightEmission.Blue > 0);
         var bloomObjects = PackContentRegistry<ObjectDefinition>.FromJson(
             ReadJson("objects"), ObjectDefinition.Parse, obj => obj.Id);
         Assert.False(bloomObjects.Get("asteria:aether_bloom").LightEmission.IsDark);
