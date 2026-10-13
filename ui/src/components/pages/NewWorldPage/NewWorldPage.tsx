@@ -38,7 +38,7 @@ export type NewWorldPageProps = {
 export function NewWorldPage({
   state, onBack, onMainMenu, onCreate, onRandomize,
 }: NewWorldPageProps) {
-  const { t } = useLocalization();
+  const { t, contentName, language } = useLocalization();
   const [selectedSection, setSelectedSection] = useState("world-settings");
   const [seed, setSeed] = useState(state.seed);
   const [name, setName] = useState(state.name);
@@ -49,6 +49,15 @@ export function NewWorldPage({
   const [creatureAttackMode, setCreatureAttackMode] = useState(state.creatureAttackMode);
   const [generation, setGeneration] = useState(state.generation);
   const [missingBiome, setMissingBiome] = useState(false);
+  // All three pack languages already localize biome IDs in dimensions.json.
+  // Keep IDs authoritative; only display and sorting respond to UI language.
+  const spawnBiomeOptions = state.spawnBiomes.map(option => ({
+    ...option,
+    label: contentName(option.id),
+  })).sort((a, b) => a.label.localeCompare(b.label,
+    language === "portuguese_brazil" ? "pt-BR" :
+    language === "spanish" ? "es" : "en") || a.id.localeCompare(b.id));
+
 
   useEffect(() => {
     setSeed(state.seed);
@@ -148,7 +157,7 @@ export function NewWorldPage({
             description={t("newWorld.spawnBiome.description")}
             control={<SpawnBiomeSelect
               value={generation.spawnBiome}
-              options={state.spawnBiomes}
+              options={spawnBiomeOptions}
               label={t("newWorld.spawnBiome")}
               randomLabel={t("newWorld.spawnBiome.random")}
               searchPlaceholder={t("newWorld.spawnBiome.search")}

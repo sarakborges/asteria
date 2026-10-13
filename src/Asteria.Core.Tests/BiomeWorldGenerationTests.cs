@@ -2810,6 +2810,34 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
+    public void ChosenSpawnBiomeUsesSafeGeneratedDestinationInsideThatBiome()
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition("asteria:stone"),
+        ]);
+        var low = TestBiome("asteria:test/low");
+        var high = TestBiome("asteria:test/high");
+        var dimension = TestDimension([low.Id, high.Id]);
+        var generator = new BiomeWorldGenerator(
+            541UL, dimension, blocks,
+            new FluidRegistry(Array.Empty<FluidDefinition>()),
+            new BiomeRegistry([low, high]),
+            StructureRegistry.Empty,
+            generation: new WorldGenerationOptions(
+                spawnBiome: high.Id, spawnCaves: false, spawnOceans: false,
+                spawnStructures: false));
+
+        var spawn = generator.FindGeneratedSpawn(
+            maxBiomeDistance: 1024, maxLocalRadius: 64);
+        Assert.NotNull(spawn);
+        Assert.Equal(high.Id, generator.Biomes.Sample(
+            spawn.Value.X, spawn.Value.Z).Primary);
+        Assert.Equal(spawn, generator.FindGeneratedSpawn(
+            maxBiomeDistance: 1024, maxLocalRadius: 64));
+    }
+
+    [Fact]
     public void ExplicitSingleBiomeAndBiomeSizeAffectActualFieldRules()
     {
         var blocks = new BlockRegistry(

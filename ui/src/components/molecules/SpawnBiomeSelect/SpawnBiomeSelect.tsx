@@ -27,9 +27,12 @@ export function SpawnBiomeSelect({
   const [placement, setPlacement] = useState<CSSProperties>({});
   const current = options.find(option => option.id === value)?.label ??
     (value ?? (requireSelection ? label : randomLabel));
+  // Search works even when the language uses accents (e.g. Pântano).
+  const searchable = (text: string) => text.normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase();
+  const search = searchable(query.trim());
   const matches = options.filter(option =>
-    (option.label + " " + option.id).toLocaleLowerCase()
-      .includes(query.trim().toLocaleLowerCase()));
+    searchable(option.label + " " + option.id).includes(search));
 
   useEffect(() => {
     if (open) searchRef.current?.focus();

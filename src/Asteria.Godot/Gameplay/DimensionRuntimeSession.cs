@@ -34,6 +34,10 @@ public sealed class DimensionRuntimeSession
 {
     private const int SpawnSearchRadiusBlocks = 64;
     private const int SpawnBiomeSearchRadiusBlocks = 512;
+    // The optional explicit biome must be found even when it is rare within
+    // the initial Sphere. This remains a pure generated-world query: no
+    // chunk residency, rendering or persistence is triggered by searching.
+    private const int SelectedSpawnBiomeSearchRadiusBlocks = 4096;
 
     private readonly DimensionSessionState _state;
     private NVector3 _initialPlayerPosition;
@@ -760,7 +764,9 @@ public sealed class DimensionRuntimeSession
             Dimension.Spawn;
         var destination =
             Generator.FindGeneratedSpawn(
-                SpawnBiomeSearchRadiusBlocks,
+                _state.Generation.SpawnBiome is null
+                    ? SpawnBiomeSearchRadiusBlocks
+                    : SelectedSpawnBiomeSearchRadiusBlocks,
                 SpawnSearchRadiusBlocks) ??
             throw new InvalidOperationException(
                 $"Dimension {Dimension.Id} has no safe generated spawn near ({spawn.X}, {spawn.Z}).");
