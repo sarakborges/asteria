@@ -2,12 +2,12 @@
   "id": "asteria:coral_teal",
   "category": "foliage",
   "textures": {
-    "top": "textures/blocks/coral/teal.png",
-    "bottom": "textures/blocks/coral/teal.png",
-    "left": "textures/blocks/coral/teal.png",
-    "right": "textures/blocks/coral/teal.png",
-    "front": "textures/blocks/coral/teal.png",
-    "back": "textures/blocks/coral/teal.png"
+    "top": "textures/blocks/coral_teal.png",
+    "bottom": "textures/blocks/coral_teal.png",
+    "left": "textures/blocks/coral_teal.png",
+    "right": "textures/blocks/coral_teal.png",
+    "front": "textures/blocks/coral_teal.png",
+    "back": "textures/blocks/coral_teal.png"
   },
   "tags": [
     "fragmentable"

@@ -2,12 +2,12 @@
   "id": "asteria:cactus_column",
   "category": "natural_blocks",
   "textures": {
-    "top": "textures/blocks/cactus/column/top.png",
-    "bottom": "textures/blocks/cactus/column/top.png",
-    "left": "textures/blocks/cactus/column/side.png",
-    "right": "textures/blocks/cactus/column/side.png",
-    "front": "textures/blocks/cactus/column/side.png",
-    "back": "textures/blocks/cactus/column/side.png"
+    "top": "textures/blocks/cactus/top.png",
+    "bottom": "textures/blocks/cactus/top.png",
+    "left": "textures/blocks/cactus/side.png",
+    "right": "textures/blocks/cactus/side.png",
+    "front": "textures/blocks/cactus/side.png",
+    "back": "textures/blocks/cactus/side.png"
   },
   "lightDampening": 15,
   "castsShadow": true,

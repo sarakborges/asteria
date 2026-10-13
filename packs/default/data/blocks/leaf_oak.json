@@ -6,37 +6,37 @@
   "textures": {
     "top": [
       {
-        "texture": "textures/blocks/trees/oak/leaf.png",
+        "texture": "textures/blocks/trees/oak/leaves.png",
         "dyable": true
       }
     ],
     "bottom": [
       {
-        "texture": "textures/blocks/trees/oak/leaf.png",
+        "texture": "textures/blocks/trees/oak/leaves.png",
         "dyable": true
       }
     ],
     "left": [
       {
-        "texture": "textures/blocks/trees/oak/leaf.png",
+        "texture": "textures/blocks/trees/oak/leaves.png",
         "dyable": true
       }
     ],
     "right": [
       {
-        "texture": "textures/blocks/trees/oak/leaf.png",
+        "texture": "textures/blocks/trees/oak/leaves.png",
         "dyable": true
       }
     ],
     "front": [
       {
-        "texture": "textures/blocks/trees/oak/leaf.png",
+        "texture": "textures/blocks/trees/oak/leaves.png",
         "dyable": true
       }
     ],
     "back": [
       {
-        "texture": "textures/blocks/trees/oak/leaf.png",
+        "texture": "textures/blocks/trees/oak/leaves.png",
         "dyable": true
       }
     ]

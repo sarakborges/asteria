@@ -3,12 +3,12 @@
   "category": "foliage",
   "windSway": true,
   "textures": {
-    "top": "textures/blocks/trees/frost_wood/leaf_arctic.png",
-    "bottom": "textures/blocks/trees/frost_wood/leaf_arctic.png",
-    "left": "textures/blocks/trees/frost_wood/leaf_arctic.png",
-    "right": "textures/blocks/trees/frost_wood/leaf_arctic.png",
-    "front": "textures/blocks/trees/frost_wood/leaf_arctic.png",
-    "back": "textures/blocks/trees/frost_wood/leaf_arctic.png"
+    "top": "textures/blocks/trees/frost_wood/leaf.png",
+    "bottom": "textures/blocks/trees/frost_wood/leaf.png",
+    "left": "textures/blocks/trees/frost_wood/leaf.png",
+    "right": "textures/blocks/trees/frost_wood/leaf.png",
+    "front": "textures/blocks/trees/frost_wood/leaf.png",
+    "back": "textures/blocks/trees/frost_wood/leaf.png"
   },
   "alphaCutoff": 0.5,
   "mining": {
