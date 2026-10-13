@@ -7,6 +7,7 @@ import {
   type WorldSummaryView,
 } from "../../organisms/WorldCard/WorldCard";
 import { ScreenShell } from "../../templates/ScreenShell/ScreenShell";
+import { ScrollArea } from "../../molecules/ScrollArea/ScrollArea";
 import "./WorldSelectionPage.css";
 
 export type WorldSelectionPageProps = {
@@ -64,7 +65,10 @@ export function WorldSelectionPage({
         </>
       }
     >
-      <section className="world-selection">
+      <ScrollArea className="world-selection-scroll"
+        viewportClassName="world-selection"
+        contentClassName="world-selection__content"
+        ariaLabel={t("starting.loadWorlds")}>
         {status && worlds.length === 0 && (
           <div className="world-selection__empty" role="status">
             {status}
@@ -110,7 +114,7 @@ export function WorldSelectionPage({
             {error}
           </div>
         )}
-      </section>
+      </ScrollArea>
     </ScreenShell>
   );
 }

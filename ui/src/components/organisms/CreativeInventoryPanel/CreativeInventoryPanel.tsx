@@ -9,6 +9,7 @@ import { Text } from "../../atoms/Text/Text";
 import { TextInput } from "../../atoms/TextInput/TextInput";
 import { InventoryHotbarFooter } from "../../molecules/InventoryHotbarFooter/InventoryHotbarFooter";
 import { InventorySlot, type InventorySlotAction } from "../../molecules/InventorySlot/InventorySlot";
+import { ScrollArea } from "../../molecules/ScrollArea/ScrollArea";
 import "./CreativeInventoryPanel.css";
 
 export type CreativeInventoryPanelProps = {
@@ -54,9 +55,11 @@ export function CreativeInventoryPanel({
     <Surface variant="hud" className="creative-inventory-panel">
       <aside className="creative-inventory-panel__categories">
         <Text text={t("ui.creative")} variant="heading" />
-        <div className="creative-inventory-panel__category-list"
-          ref={categoryRef}
-          onScroll={event => {
+        <ScrollArea className="creative-inventory-panel__category-scroll"
+          viewportClassName="creative-inventory-panel__category-list"
+          contentClassName="creative-inventory-panel__category-content"
+          ariaLabel={t("ui.creative")} viewportRef={categoryRef}
+          onViewportScroll={event => {
             if (scrollMemory)
               scrollMemory.categoryOffset = event.currentTarget.scrollTop;
           }}>
@@ -79,7 +82,7 @@ export function CreativeInventoryPanel({
               onClick={() => onCategoryChange?.(category.id)}
             />
           ))}
-        </div>
+        </ScrollArea>
       </aside>
       <div className="creative-inventory-panel__content">
         <section className="creative-inventory-panel__catalog">
@@ -93,8 +96,11 @@ export function CreativeInventoryPanel({
               onChange={event => onSearchChange?.(event.target.value)}
             />
           </header>
-          <div className="creative-inventory-panel__grid" ref={gridRef}
-            onScroll={event => rememberCatalogScroll(event.currentTarget.scrollTop)}>
+          <ScrollArea className="creative-inventory-panel__grid-scroll"
+            viewportClassName="creative-inventory-panel__grid"
+            contentClassName="creative-inventory-panel__grid-content"
+            ariaLabel={t("ui.catalog")} viewportRef={gridRef}
+            onViewportScroll={event => rememberCatalogScroll(event.currentTarget.scrollTop)}>
             {state.items.map(item => (
               <InventorySlot
                 key={[
@@ -109,7 +115,7 @@ export function CreativeInventoryPanel({
                 }}
               />
             ))}
-          </div>
+          </ScrollArea>
         </section>
         {hotbar && (
           <InventoryHotbarFooter hotbar={hotbar}

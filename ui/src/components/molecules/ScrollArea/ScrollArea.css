@@ -42,7 +42,7 @@
   top: 0;
   bottom: 0;
   width: 8px;
-  background: var(--ui-color-surface-inset);
+  background: color-mix(in srgb, var(--ui-color-subtle) 24%, transparent);
 }
 
 .ui-scroll-area__thumb {
@@ -51,8 +51,8 @@
   right: 0;
   width: 8px;
   min-height: 28px;
-  border: 1px solid var(--ui-color-subtle);
-  background: var(--ui-color-subtle);
+  border: 1px solid color-mix(in srgb, var(--ui-color-subtle) 24%, transparent);
+  background: color-mix(in srgb, var(--ui-color-subtle) 38%, transparent);
   touch-action: none;
   cursor: grab;
 }
@@ -60,3 +60,9 @@
 .ui-scroll-area__thumb:active {
   cursor: grabbing;
 }
+
+.ui-scroll-area__thumb:hover,
+.ui-scroll-area__thumb:active {
+  background: color-mix(in srgb, var(--ui-color-subtle) 62%, transparent);
+}
+

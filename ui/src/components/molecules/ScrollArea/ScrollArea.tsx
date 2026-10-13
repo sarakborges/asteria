@@ -1,25 +1,44 @@
-import { useCallback, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback, useLayoutEffect, useRef, useState,
+  type ReactNode, type Ref, type UIEventHandler,
+} from "react";
 import "./ScrollArea.css";
 
 type Metrics = { height: number; scrollHeight: number; scrollTop: number };
+const MIN_THUMB_PX = 28;
+const OVERFLOW_TOLERANCE_PX = 0.5;
 
 export type ScrollAreaProps = {
   children: ReactNode;
   className?: string;
   contentClassName?: string;
+  viewportClassName?: string;
+  viewportRef?: Ref<HTMLDivElement>;
+  onViewportScroll?: UIEventHandler<HTMLDivElement>;
   ariaLabel: string;
 };
 
 /**
- * Thin presentation adapter over browser-native scrolling: the viewport owns
- * wheel, touch and keyboard semantics. Only the visual track is custom.
+ * Native viewport owns wheel, touch, keyboard navigation and scroll position.
+ * The measured visual scrollbar only mirrors that position. A ResizeObserver
+ * checks actual laid-out overflow, not element counts or estimated text lines.
  */
-export function ScrollArea({ children, className, contentClassName, ariaLabel }: ScrollAreaProps) {
-  const viewportId = useId();
+export function ScrollArea({
+  children, className, contentClassName, viewportClassName,
+  viewportRef: forwardedViewportRef, onViewportScroll, ariaLabel,
+}: ScrollAreaProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ pointer: number; y: number; top: number } | null>(null);
-  const [metrics, setMetrics] = useState<Metrics>({ height: 0, scrollHeight: 0, scrollTop: 0 });
+  const [metrics, setMetrics] = useState<Metrics>({
+    height: 0, scrollHeight: 0, scrollTop: 0,
+  });
+
+  const assignViewport = useCallback((element: HTMLDivElement | null) => {
+    viewportRef.current = element;
+    if (typeof forwardedViewportRef === "function") forwardedViewportRef(element);
+    else if (forwardedViewportRef) forwardedViewportRef.current = element;
+  }, [forwardedViewportRef]);
 
   const measure = useCallback(() => {
     const element = viewportRef.current;
@@ -46,32 +65,46 @@ export function ScrollArea({ children, className, contentClassName, ariaLabel }:
     return () => observer.disconnect();
   }, [measure]);
 
-  const overflow = metrics.scrollHeight - metrics.height;
-  const hasScrollbar = overflow > 0.5 && metrics.height > 0;
+  const overflow = Math.max(0, metrics.scrollHeight - metrics.height);
+  const hasScrollbar = overflow > OVERFLOW_TOLERANCE_PX && metrics.height > 0;
   const thumbHeight = hasScrollbar
-    ? Math.min(metrics.height, Math.max(28, metrics.height * metrics.height / metrics.scrollHeight))
+    ? Math.min(metrics.height, Math.max(MIN_THUMB_PX,
+      metrics.height * metrics.height / metrics.scrollHeight))
     : 0;
   const available = Math.max(0, metrics.height - thumbHeight);
-  const thumbTop = overflow > 0 ? metrics.scrollTop / overflow * available : 0;
+  const thumbTop = overflow > 0
+    ? Math.min(available, Math.max(0, metrics.scrollTop / overflow * available))
+    : 0;
+
+  const scrollToPointer = (pointerY: number, trackTop: number) => {
+    if (!viewportRef.current) return;
+    const fraction = Math.min(1, Math.max(0,
+      (pointerY - trackTop - thumbHeight / 2) / Math.max(1, available)));
+    viewportRef.current.scrollTop = fraction * overflow;
+    measure();
+  };
 
   return (
     <div className={["ui-scroll-area", hasScrollbar ? "ui-scroll-area--overflow" : "",
       className].filter(Boolean).join(" ")}>
-      <div id={viewportId} ref={viewportRef}
-        className="ui-scroll-area__viewport"
+      <div ref={assignViewport}
+        className={["ui-scroll-area__viewport", viewportClassName]
+          .filter(Boolean).join(" ")}
         role="region" aria-label={ariaLabel} tabIndex={0}
-        onScroll={measure}>
+        onScroll={event => {
+          measure();
+          onViewportScroll?.(event);
+        }}>
         <div ref={contentRef} className={["ui-scroll-area__content", contentClassName]
           .filter(Boolean).join(" ")}>{children}</div>
       </div>
       {hasScrollbar && (
         <div className="ui-scroll-area__track" aria-hidden="true"
           onPointerDown={event => {
-            if (event.target !== event.currentTarget || !viewportRef.current) return;
-            const bounds = event.currentTarget.getBoundingClientRect();
-            viewportRef.current.scrollTop = (event.clientY - bounds.top - thumbHeight / 2)
-              / Math.max(1, available) * overflow;
-            measure();
+            if (event.button !== 0 || event.target !== event.currentTarget)
+              return;
+            scrollToPointer(event.clientY,
+              event.currentTarget.getBoundingClientRect().top);
           }}>
           <div className="ui-scroll-area__thumb"
             style={{ height: thumbHeight, transform: `translateY(${thumbTop}px)` }}
@@ -88,13 +121,15 @@ export function ScrollArea({ children, className, contentClassName, ariaLabel }:
             onPointerMove={event => {
               const drag = dragRef.current;
               if (!drag || drag.pointer !== event.pointerId || !viewportRef.current) return;
-              viewportRef.current.scrollTop = drag.top +
-                (event.clientY - drag.y) * overflow / Math.max(1, available);
+              viewportRef.current.scrollTop = Math.min(overflow, Math.max(0,
+                drag.top + (event.clientY - drag.y) * overflow /
+                  Math.max(1, available)));
             }}
             onPointerUp={event => {
               if (dragRef.current?.pointer !== event.pointerId) return;
               dragRef.current = null;
-              event.currentTarget.releasePointerCapture(event.pointerId);
+              if (event.currentTarget.hasPointerCapture(event.pointerId))
+                event.currentTarget.releasePointerCapture(event.pointerId);
             }}
             onPointerCancel={() => { dragRef.current = null; }}
           />

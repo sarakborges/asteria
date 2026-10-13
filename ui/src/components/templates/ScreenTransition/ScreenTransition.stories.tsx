@@ -18,6 +18,28 @@ function Preview() {
   );
 }
 
+
+function RapidNavigationPreview() {
+  const [page, setPage] = useState("starting");
+  return (
+    <div>
+      <button type="button" onClick={() => {
+        setPage("worlds");
+        // The second navigation happens while the first fade-out is active.
+        window.setTimeout(() => setPage("settings"), 50);
+      }}>
+        Navigate rapidly
+      </button>
+      <ScreenTransition screenKey={page}>
+        <div data-testid="transition-page" style={{
+          padding: 24, minHeight: 200,
+          background: "var(--ui-color-screen-background)",
+        }}>{page}</div>
+      </ScreenTransition>
+    </div>
+  );
+}
+
 const meta = {
   title: "Templates/ScreenTransition",
   component: ScreenTransition,
@@ -29,3 +51,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const PreWorldNavigation: Story = {};
+
+export const RapidNavigation: Story = {
+  render: () => <RapidNavigationPreview />,
+};

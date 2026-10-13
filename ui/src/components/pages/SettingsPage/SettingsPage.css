@@ -68,6 +68,18 @@
   .settings-page__navigation-scroll .ui-scroll-area__viewport {
     overflow-x: auto;
   }
+  .settings-page__navigation-scroll .ui-scroll-area__viewport {
+    scrollbar-width: thin;
+  }
+
+  .settings-page__navigation-scroll .ui-scroll-area__viewport::-webkit-scrollbar {
+    display: block;
+    height: 8px;
+  }
+
+  .settings-page__navigation-scroll .ui-scroll-area__viewport::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--ui-color-subtle) 38%, transparent);
+  }
 
   .settings-page__navigation .ui-button {
     flex: 0 0 auto;
