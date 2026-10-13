@@ -12,8 +12,9 @@ namespace Asteria.Client.Rendering;
 /// </summary>
 internal static class WorldObjectMaterials
 {
-    private const string ReceivingShader = "res://shaders/voxel_object.gdshader";
-    private const string NoShadowShader = "res://shaders/voxel_object_noshadow.gdshader";
+    private const string ObjectShader = "res://shaders/voxel_object.gdshader";
+    private const string ShadowOverlayShader = "res://shaders/voxel_object_shadow_overlay.gdshader";
+    internal const string SunShadowGlobal = "object_sun_shadow_strength";
 
     public static ShaderMaterial CreateLit(
         ObjectDefinition definition, Texture2D texture,
@@ -21,15 +22,17 @@ internal static class WorldObjectMaterials
     {
         ArgumentNullException.ThrowIfNull(definition);
         ArgumentNullException.ThrowIfNull(texture);
-        var shaderPath = definition.ReceivesShadow ? ReceivingShader : NoShadowShader;
-        var shader = ResourceLoader.Load<Shader>(shaderPath) ??
-            throw new FileNotFoundException($"Missing Object shader: {shaderPath}");
+        // Voxel light remains authoritative for the base color; authored
+        // sunlight shadow reception is a separate, transparent overlay.
+        var shader = ResourceLoader.Load<Shader>(ObjectShader) ??
+            throw new FileNotFoundException($"Missing Object shader: {ObjectShader}");
         var material = new ShaderMaterial { Shader = shader };
         material.SetShaderParameter("object_texture", texture);
         material.SetShaderParameter("alpha_cutoff", alphaCutoff);
         if (albedo is { } color)
-            material.SetShaderParameter("model_albedo_color",
-                color);
+            material.SetShaderParameter("model_albedo_color", color);
+        if (definition.ReceivesShadow)
+            material.NextPass = CreateShadowOverlay(texture, alphaCutoff, albedo?.A ?? 1f);
         return material;
     }
 
@@ -40,7 +43,7 @@ internal static class WorldObjectMaterials
     {
         ArgumentNullException.ThrowIfNull(definition);
         ArgumentNullException.ThrowIfNull(texture);
-        return new StandardMaterial3D
+        var material = new StandardMaterial3D
         {
             AlbedoTexture = texture,
             AlbedoColor = albedo ?? Colors.White,
@@ -54,5 +57,20 @@ internal static class WorldObjectMaterials
             TextureFilter = BaseMaterial3D.TextureFilterEnum.Nearest,
             CullMode = BaseMaterial3D.CullModeEnum.Disabled,
         };
+        if (definition.ReceivesShadow)
+            material.NextPass = CreateShadowOverlay(texture, alphaCutoff, albedo?.A ?? 1f);
+        return material;
+    }
+
+    private static ShaderMaterial CreateShadowOverlay(Texture2D texture,
+        float alphaCutoff, float alphaMultiplier)
+    {
+        var shader = ResourceLoader.Load<Shader>(ShadowOverlayShader) ??
+            throw new FileNotFoundException($"Missing Object shadow shader: {ShadowOverlayShader}");
+        var pass = new ShaderMaterial { Shader = shader };
+        pass.SetShaderParameter("object_texture", texture);
+        pass.SetShaderParameter("alpha_cutoff", alphaCutoff);
+        pass.SetShaderParameter("alpha_multiplier", alphaMultiplier);
+        return pass;
     }
 }

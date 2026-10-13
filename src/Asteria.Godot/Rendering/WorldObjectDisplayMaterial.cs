@@ -21,6 +21,9 @@ internal static class WorldObjectDisplayMaterial
             if (material is null)
             {
                 material = (Material)original.Duplicate();
+                // Shadow reception belongs to placed world Objects only,
+                // never a held item, character portrait or placement ghost.
+                material.NextPass = null;
                 instance.SetSurfaceOverrideMaterial(i, material);
             }
 

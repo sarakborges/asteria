@@ -27,6 +27,7 @@ public sealed class DimensionEnvironmentPresentation
     private bool _cameraReady;
     private bool _sunActive;
     private bool _moonActive;
+    private float _lastObjectShadowStrength = float.NaN;
 
     public DimensionEnvironmentPresentation(Node parent)
     {
@@ -89,6 +90,7 @@ public sealed class DimensionEnvironmentPresentation
         _sunActive = false;
         _moonActive = false;
         _skyLayers.Clear();
+        SetObjectSunShadowStrength(0f);
     }
 
     public void Update(
@@ -134,6 +136,8 @@ public sealed class DimensionEnvironmentPresentation
             cycle,
             clock,
             isSun: false);
+        // Render-only shadow strength follows the same authored sun/clock.
+        SetObjectSunShadowStrength(_sunLight is { Visible: true } ? factor : 0f);
         _skyLayers.Update(clock);
     }
 
@@ -167,7 +171,7 @@ public sealed class DimensionEnvironmentPresentation
         var light = new DirectionalLight3D
         {
             Name = "DimensionSunLight",
-            ShadowEnabled = false,
+            ShadowEnabled = true,
         };
         _parent.AddChild(light);
         return light;
@@ -260,6 +264,15 @@ public sealed class DimensionEnvironmentPresentation
             _moonDirection = direction;
             _moonDistance = body.OrbitRadius;
         }
+    }
+
+    private void SetObjectSunShadowStrength(float strength)
+    {
+        if (_lastObjectShadowStrength == strength)
+            return;
+        RenderingServer.GlobalShaderParameterSet(
+            WorldObjectMaterials.SunShadowGlobal, strength);
+        _lastObjectShadowStrength = strength;
     }
 
     private static Color ToColor(DimensionColor color) =>
