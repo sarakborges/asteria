@@ -154,14 +154,14 @@ func _run() -> void:
 			push_error("Native smoke: player GLB JSON chunk is truncated")
 			failed = true
 		else:
-			var gltf_json := JSON.parse_string(
+			var gltf_json: Variant = JSON.parse_string(
 				player_bytes.slice(20, 20 + chunk_size).get_string_from_utf8())
 			if not gltf_json is Dictionary:
 				push_error("Native smoke: player GLB JSON is invalid")
 				failed = true
 			else:
-				var materials: Array = gltf_json.get("materials", [])
-				if materials.is_empty() or not materials[0] is Dictionary:
+				var materials: Array = (gltf_json as Dictionary).get("materials", [])
+				if materials.is_empty() or not (materials[0] is Dictionary):
 					push_error("Native smoke: player GLB material missing")
 					failed = true
 				else:
