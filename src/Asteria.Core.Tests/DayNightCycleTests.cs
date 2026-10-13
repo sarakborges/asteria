@@ -87,6 +87,62 @@ public sealed class DayNightCycleTests
     }
 
     [Fact]
+    public void SunAndMoonFollowAuthoredPhasesAndWorldAxes()
+    {
+        var cycle = Overworld();
+        Assert.NotNull(cycle.Sun);
+        Assert.NotNull(cycle.Moon);
+
+        // Rising at azimuth 90 begins on +X. Zenith at 180-degree arc
+        // faces -Z; this is the same path for both engine adapters.
+        var rise = CelestialPath.Direction(cycle.Sun!, cycle, 0);
+        Assert.NotNull(rise);
+        Assert.InRange(rise.Value.X, 0.9999f, 1.0001f);
+        Assert.InRange(MathF.Abs(rise.Value.Y), 0f, 0.0001f);
+        Assert.InRange(MathF.Abs(rise.Value.Z), 0f, 0.0001f);
+
+        var noon = CelestialPath.Direction(cycle.Sun!, cycle, 12_000);
+        Assert.NotNull(noon);
+        Assert.InRange(noon.Value.Y, 0.90f, 1f);
+        Assert.True(noon.Value.Z < 0f);
+        Assert.InRange(noon.Value.Length(), 0.9999f, 1.0001f);
+        Assert.Null(CelestialPath.Direction(cycle.Sun!, cycle, 24_000));
+        Assert.Null(CelestialPath.Direction(cycle.Moon!, cycle, 12_000));
+        Assert.NotNull(CelestialPath.Direction(cycle.Moon!, cycle, 36_000));
+        Assert.Null(CelestialPath.Direction(cycle.Moon!, cycle, 0));
+    }
+
+    [Fact]
+    public void CelestialAzimuthTakesShortestPathAcrossZeroDegrees()
+    {
+        var cycle = Overworld();
+        var crossZero = cycle.Sun! with
+        {
+            RiseAzimuthDegrees = 350f,
+            SetAzimuthDegrees = 10f,
+            MaxAltitudeDegrees = 60f,
+        };
+
+        var start = CelestialPath.Direction(crossZero, cycle, 0)!.Value;
+        var middle = CelestialPath.Direction(crossZero, cycle, 12_000)!.Value;
+        var finish = CelestialPath.Direction(crossZero, cycle, 23_999)!.Value;
+
+        Assert.True(start.X < 0f);
+        Assert.True(finish.X > 0f);
+        Assert.InRange(MathF.Abs(middle.X), 0f, 0.0001f);
+        Assert.True(middle.Z < -0.49f);
+        Assert.InRange(middle.Y, 0.865f, 0.867f);
+        Assert.InRange(finish.Length(), 0.9999f, 1.0001f);
+
+        // A cycle advanced across phase boundaries must use its restored
+        // authoritative TickInDay, not free-running render elapsed time.
+        var clock = new DayNightClock(cycle);
+        clock.Advance(12_000);
+        Assert.Equal(middle,
+            CelestialPath.Direction(crossZero, cycle, clock.TickInDay)!.Value);
+    }
+
+    [Fact]
     public void ClockCrossesMidnightAndRestoresExactly()
     {
         var cycle = Overworld();

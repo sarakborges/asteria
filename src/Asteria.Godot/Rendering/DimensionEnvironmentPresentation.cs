@@ -217,14 +217,11 @@ public sealed class DimensionEnvironmentPresentation
         DayNightClock clock,
         bool isSun)
     {
-        var progress = body is null
+        var offset = body is null
             ? null
-            : cycle.ProgressBetweenPhases(
-                clock.TickInDay,
-                body.RisePhase,
-                body.SetPhase);
+            : CelestialPath.Direction(body, cycle, clock.TickInDay);
 
-        if (body is null || progress is null)
+        if (body is null || offset is null)
         {
             if (isSun) _sunActive = false;
             else _moonActive = false;
@@ -236,20 +233,8 @@ public sealed class DimensionEnvironmentPresentation
             return;
         }
 
-        var t = (float)progress.Value;
-        var azimuth = Mathf.DegToRad(
-            Mathf.Lerp(
-                body.RiseAzimuthDegrees,
-                body.SetAzimuthDegrees,
-                t));
-        var altitude = Mathf.DegToRad(
-            Mathf.Sin(t * Mathf.Pi) *
-            body.MaxAltitudeDegrees);
-        var horizontal = Mathf.Cos(altitude);
         var direction = new Vector3(
-            horizontal * Mathf.Sin(azimuth),
-            Mathf.Sin(altitude),
-            horizontal * Mathf.Cos(azimuth));
+            offset.Value.X, offset.Value.Y, offset.Value.Z);
 
         if (isSun) _sunActive = true;
         else _moonActive = true;
