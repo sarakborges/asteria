@@ -14,7 +14,6 @@ public sealed class CactusLandscapeTests
         {
             ["asteria:cactus_saguaro"] = 3,
             ["asteria:cactus_barrel"] = 2,
-            ["asteria:prickly_pear"] = 2,
         };
 
         foreach (var (family, count) in families)
@@ -48,7 +47,6 @@ public sealed class CactusLandscapeTests
                     Assert.Contains(support, new[]
                     {
                         "asteria:cactus_column", "asteria:cactus_barrel",
-                        "asteria:cactus_pad",
                     });
                 }
             }
@@ -63,7 +61,7 @@ public sealed class CactusLandscapeTests
                 v.Block == "asteria:cactus_column" && v.X != 0));
 
         foreach (var id in new[] { "asteria:cactus_column",
-                 "asteria:cactus_barrel", "asteria:cactus_pad" })
+                 "asteria:cactus_barrel" })
         {
             var block = blocks.GetDefinition(blocks.GetId(id));
             Assert.True(block.IsCollidable);
@@ -78,44 +76,6 @@ public sealed class CactusLandscapeTests
             Assert.True(block.HasTag(BlockPhysicsCapabilities.SupportBelow));
             Assert.False(block.IsCollidable);
         }
-    }
-
-    [Fact]
-    public void DesertAndGorgeSharePricklyPearShapesButKeepDistinctHabitats()
-    {
-        var biomes = BiomeRegistry.FromJson(ReadJson("biomes"));
-        var dimension = DimensionRegistry.FromJson(ReadJson("dimensions"))
-            .Get(DimensionId.Overworld);
-        var desert = biomes.Get("asteria:overworld/desert");
-        var gorge = biomes.Get("asteria:overworld/gorge");
-        Assert.Equal("asteria:sand", desert.SurfaceLayers[0].Block);
-        Assert.Equal("asteria:stone", gorge.SurfaceLayers[0].Block);
-
-        foreach (var id in new[] {
-            "cactus_saguaro", "cactus_barrel", "prickly_pear" })
-        {
-            var rule = Assert.Single(dimension.GeneratedSurfaceStructures, r =>
-                r.Biome == desert.Id && r.Structure == $"asteria:{id}");
-            Assert.NotNull(rule.HabitatWeights);
-            Assert.Equal(0, rule.HabitatWeights!.For("missing"));
-            Assert.True(rule.HabitatWeights.For("sand_flats") > 0);
-            Assert.True(rule.HabitatWeights.For("sandstone_outcrops") > 0);
-        }
-        var pears = StructureRegistry.FromJson(ReadJson("structures"))
-            .ResolveReference("asteria:prickly_pear");
-        Assert.Equal(2, pears.Count);
-        Assert.All(pears, pear =>
-        {
-            Assert.Equal((int?)0, pear.GroundAnchorY);
-            Assert.DoesNotContain(pear.Voxels, voxel => voxel.Y == 0);
-            Assert.Contains("asteria:sand", pear.Restrictions.GroundBlocks);
-            Assert.Contains("asteria:stone", pear.Restrictions.GroundBlocks);
-        });
-
-        var canyon = Assert.Single(dimension.GeneratedSurfaceStructures, r =>
-            r.Biome == gorge.Id && r.Structure == "asteria:prickly_pear");
-        Assert.True(canyon.HabitatWeights!.For("high_rims") >
-                    canyon.HabitatWeights.For("rubble_slopes"));
     }
 
     private static IEnumerable<string> ReadJson(string dir)

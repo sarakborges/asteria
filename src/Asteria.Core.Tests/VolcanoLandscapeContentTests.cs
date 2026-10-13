@@ -9,8 +9,6 @@ public sealed class VolcanoLandscapeContentTests
     [
         ("volcanic_charred_trees", 4, "ash_aprons", "hardened_highlands"),
         ("volcanic_briar_thickets", 3, "ash_aprons", "hardened_highlands"),
-        ("volcanic_sulfur_cluster", 3, "hardened_highlands", "ash_aprons"),
-        ("volcanic_glass_arch", 2, "hardened_highlands", "ash_aprons"),
     ];
 
     [Fact]
@@ -25,7 +23,7 @@ public sealed class VolcanoLandscapeContentTests
             .Get("asteria:overworld/scorched_wastes");
 
         Assert.Equal("asteria:basalt", volcano.SurfaceLayers[0].Block);
-        Assert.Equal(12, Families.Sum(f => f.Variants));
+        Assert.Equal(7, Families.Sum(f => f.Variants));
 
         foreach (var (group, count, favored, avoided) in Families)
         {
@@ -58,12 +56,7 @@ public sealed class VolcanoLandscapeContentTests
                 Assert.All(ground.Values,
                     b => Assert.Equal("asteria:basalt", b));
 
-                var stemBlocks = new[] {
-                    "asteria:charwood",
-                    "asteria:basalt_column",
-                    "asteria:sulfur_crystal",
-                    "asteria:volcanic_glass"
-                };
+                var stemBlocks = new[] { "asteria:charwood", "asteria:basalt" };
                 foreach (var stem in variant.Voxels.Where(voxel =>
                     voxel.Y == 1 && stemBlocks.Contains(voxel.Block)))
                     Assert.True(ground.ContainsKey((stem.X, stem.Z)),
@@ -73,7 +66,7 @@ public sealed class VolcanoLandscapeContentTests
     }
 
     [Fact]
-    public void VolcanoTallLandmarksHaveDistinctSilhouettes()
+    public void VolcanoCharredTreesHaveDistinctSilhouettes()
     {
         var structures = StructureRegistry.FromJson(ReadPackJson("structures"));
         var trees = structures.ResolveReference("asteria:volcanic_charred_trees");
@@ -82,12 +75,7 @@ public sealed class VolcanoLandscapeContentTests
         Assert.All(trees, tree => Assert.Contains(tree.Voxels,
             voxel => voxel.Block == "asteria:charwood" &&
                      voxel.X != 0));
-        var arches = structures.ResolveReference("asteria:volcanic_glass_arch");
-        Assert.All(arches, arch => Assert.Contains(arch.Voxels,
-            voxel => voxel.Block == "asteria:volcanic_glass" &&
-                     voxel.Y > 4));
-        Assert.True(arches.Max(s => s.MaximumY) >
-                    arches.Min(s => s.MaximumY));
+
     }
 
     [Fact]
@@ -134,8 +122,7 @@ public sealed class VolcanoLandscapeContentTests
         var blocks = BlockRegistry.FromJson(ReadPackJson("blocks"));
         foreach (var id in new[] {
             "charwood", "ember_needles",
-            "basalt_column", "sulfur_crystal",
-            "volcanic_glass" })
+ })
         {
             var block = blocks.GetDefinition(blocks.GetId("asteria:" + id));
             Assert.True(block.IsCollidable);

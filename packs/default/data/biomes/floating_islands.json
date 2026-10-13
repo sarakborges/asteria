@@ -109,25 +109,6 @@
       }
     },
     {
-      "block": "asteria:aether_crystal",
-      "chance": 0.0063,
-      "surfaceBlocks": [
-        "asteria:stone",
-        "asteria:dirt",
-        "asteria:grass_block"
-      ],
-      "cluster": {
-        "scale": 49,
-        "threshold": -0.16,
-        "octaves": 3,
-        "transitionWidth": 0.2
-      },
-      "conditions": {
-        "minY": 200,
-        "maxY": 283
-      }
-    },
-    {
       "object": "asteria:aether_vines",
       "chance": 0.22,
       "supportSurface": "ceiling",

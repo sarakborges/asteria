@@ -72,7 +72,7 @@ public sealed class FrozenLandscapeStructureTests
                 var rigidRoots = new[]
                 {
                     "asteria:frost_wood", "asteria:rime_deadwood",
-                    "asteria:glacial_ice_core", "asteria:glacial_rime_core"
+                    "asteria:ice"
                 };
                 foreach (var voxel in member.Voxels.Where(v =>
                              v.Y == 1 && rigidRoots.Contains(v.Block)))
@@ -106,7 +106,7 @@ public sealed class FrozenLandscapeStructureTests
         }
         Assert.All(structures.ResolveReference("asteria:alpine_ice_arch"),
             arch => Assert.Contains(arch.Voxels, v =>
-                v.Block == "asteria:glacial_rime_core" && v.Y > 4));
+                v.Block == "asteria:ice" && v.Y > 4));
     }
 
     [Fact]

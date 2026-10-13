@@ -1,7 +1,4 @@
 {
-  "asteria:aether_crystal": {
-    "/name": "Cristal Etéreo"
-  },
   "asteria:aether_crystal_core": {
     "/name": "Núcleo de Cristal Etéreo"
   },
@@ -31,9 +28,6 @@
   },
   "asteria:basalt_cobble": {
     "/name": "Basalto Rústico"
-  },
-  "asteria:basalt_column": {
-    "/name": "Columna de Basalto"
   },
   "asteria:basalt_polished": {
     "/name": "Basalto Pulido"
@@ -67,9 +61,6 @@
   },
   "asteria:cactus_flower_yellow": {
     "/name": "Flor Amarilla de Cactus"
-  },
-  "asteria:cactus_pad": {
-    "/name": "Pala de Cactus"
   },
   "asteria:charwood": {
     "/name": "Madera Carbonizada"
@@ -149,12 +140,6 @@
   "asteria:frost_wood_stripped": {
     "/name": "Madera Helada Descortezada"
   },
-  "asteria:glacial_ice_core": {
-    "/name": "Núcleo de Hielo Glacial"
-  },
-  "asteria:glacial_rime_core": {
-    "/name": "Núcleo de Escarcha Glacial"
-  },
   "asteria:glass": {
     "/name": "Vidrio"
   },
@@ -199,12 +184,6 @@
   },
   "asteria:juniper_wood_stripped": {
     "/name": "Madera de Enebro Descortezada"
-  },
-  "asteria:kelp_frond": {
-    "/name": "Fronda de Alga Marina"
-  },
-  "asteria:kelp_stem": {
-    "/name": "Tallo de Alga Marina"
   },
   "asteria:lamp": {
     "/name": "Lámpara"
@@ -268,9 +247,6 @@
   },
   "asteria:log_world_tree_stripped_hollow": {
     "/name": "Tronco Hueco Descortezado del Árbol del Mundo"
-  },
-  "asteria:luminous_crystal_core": {
-    "/name": "Núcleo de Cristal Luminoso"
   },
   "asteria:luminous_giant_fungus_cap": {
     "/name": "Sombrero de Hongo Gigante Luminoso"
@@ -419,9 +395,6 @@
   "asteria:storage_box": {
     "/name": "Caja de almacenamiento"
   },
-  "asteria:sulfur_crystal": {
-    "/name": "Cristal de Azufre"
-  },
   "asteria:terracotta": {
     "/name": "Terracota"
   },
@@ -439,9 +412,6 @@
   },
   "asteria:thornwood_stripped": {
     "/name": "Madera Espinosa Descortezada"
-  },
-  "asteria:volcanic_glass": {
-    "/name": "Vidrio Volcánico"
   },
   "asteria:wall_moss": {
     "/name": "Musgo de Pared"

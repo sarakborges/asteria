@@ -61,8 +61,8 @@ public sealed class VolumeStructureContentTests
         foreach (var (group, count, block) in new[]
         {
             ("cavern_glow_mushroom", 3, "glow_mushroom_cap"),
-            ("cavern_crystal_cluster", 2, "luminous_crystal_core"),
-            ("cavern_chandelier", 2, "luminous_crystal_core"),
+            ("cavern_crystal_cluster", 2, "aether_crystal_core"),
+            ("cavern_chandelier", 2, "aether_crystal_core"),
             ("skywood_tree", 3, "skywood_leaves"),
             ("sky_crystal_arch", 2, "aether_crystal_core"),
         })
@@ -74,8 +74,7 @@ public sealed class VolumeStructureContentTests
         }
         foreach (var name in new[]
         {
-            "glow_mushroom_cap", "luminous_crystal_core",
-            "aether_crystal_core",
+            "glow_mushroom_cap", "aether_crystal_core",
         })
         {
             var definition = blocks.GetDefinition(
