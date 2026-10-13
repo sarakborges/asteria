@@ -74,6 +74,10 @@
       <Link>packs/default/data/ambient_particles/%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="../../packs/default/resources/**/*">
+      <Link>packs/default/resources/%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="../../packs/default/data/fluids/*.json">
       <Link>packs/default/data/fluids/%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

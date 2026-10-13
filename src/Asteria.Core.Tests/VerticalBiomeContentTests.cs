@@ -94,7 +94,7 @@ public sealed class VerticalBiomeContentTests
         Assert.Contains(oceanRoots, root =>
             root.Structure == "asteria:coral_fan_garden");
         Assert.Contains(oceanRoots, root =>
-            root.Structure == "asteria:ocean_kelp_grove");
+            root.Structure == "asteria:ocean_rock");
         Assert.Single(oceanRoots, r =>
             r.Structure == "asteria:river_ocean_mouth" &&
             r.Placement == DimensionGeneratedSurfaceStructurePlacement.BiomeMargin);
@@ -134,7 +134,7 @@ public sealed class VerticalBiomeContentTests
         Assert.Contains(cave.Decorations, d => d.IsObject &&
             d.SupportSurface == DecorationSupportSurface.Wall &&
             d.Block == "asteria:wall_shelf_fungus");
-        Assert.Equal(7, floating.Decorations.Count);
+        Assert.Equal(6, floating.Decorations.Count);
         Assert.Contains(floating.Decorations, d => d.IsObject &&
             d.SupportSurface == DecorationSupportSurface.Ceiling &&
             d.Block == "asteria:aether_vines");
@@ -153,7 +153,6 @@ public sealed class VerticalBiomeContentTests
             [new BiomeInfluence(floating.Id, 1f)]);
         var stone = blocks.GetId("asteria:stone");
         var grassBlock = blocks.GetId("asteria:grass_block");
-        var aetherCrystal = blocks.GetId("asteria:aether_crystal");
         var sightings = 0;
         var islandSightings = 0;
         var variationAcrossY = 0;
@@ -176,12 +175,11 @@ public sealed class VerticalBiomeContentTests
                 new SurfacePlacementContext(241, 0), verticalY:241);
             if (!islandAt.IsAir) islandSightings++;
             if (islandAt != higher) variationAcrossY++;
-            // Stone is now intentionally valid for the authored crystal
-            // and ceiling-vine decorators, but not for vegetation.
+            // Following removal of the redundant block crystal, island
+            // ground vegetation must not turn stone into another block.
             var onStone = field.BlockAt(islandSample, stone, x, z,
                 new SurfacePlacementContext(240, 0), verticalY:240);
-            Assert.True(onStone.IsAir ||
-                onStone == aetherCrystal);
+            Assert.True(onStone.IsAir);
         }
 
         Assert.True(sightings > 0);
