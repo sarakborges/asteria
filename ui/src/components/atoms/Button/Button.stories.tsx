@@ -50,3 +50,7 @@ export const Disabled: Story = {
     disabled: true,
   },
 };
+
+export const Selected: Story = {
+  args: { label: "Selected category", variant: "primary", ariaPressed: true },
+};
