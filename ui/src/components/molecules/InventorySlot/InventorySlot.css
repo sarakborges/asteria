@@ -71,3 +71,14 @@
   outline: 2px solid var(--ui-color-border-focus);
   outline-offset: 2px;
 }
+
+/* Search dims nonmatches in backpack and hotbar without changing their
+   authoritative slot indices or triggering another inventory layout. */
+.inventory-slot--filtered {
+  opacity: 0.32;
+}
+
+.inventory-slot--filtered:hover {
+  border-color: var(--ui-color-border);
+  background: var(--ui-color-hud-surface);
+}
