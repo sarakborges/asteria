@@ -27,3 +27,7 @@ During exact portal travel, the chunk streaming selector temporarily includes a 
 ## Remaining
 
 Validate player navigation and the visual appearance of surface exits in Godot, plus lighting, frame boundaries, save/reload and chunk restoration. Core tests establish deterministic connector geometry and bounded selection, not hands-on gameplay. Extreme vertical separation and conflicts may legitimately reject placement and trigger rollback.
+
+## Frame and interior capacity
+
+Both the Glass-frame search and its interior flood are bounded to **4,096 voxels**, matching MineClone `world-systems-rebuild` rather than the former Asteria-only 1,024/512 caps. The existing independent **64-voxel per-axis span**, resident-only/no-fluid constraints, single-plane requirement and atomic mutation preflight remain unchanged. Portals can span chunk boundaries; breaking a qualifying Glass boundary still retracts the complete same-target interior. Core tests exercise a 3,364-cell cross-chunk portal and rejection beyond 4,096 without mutation.

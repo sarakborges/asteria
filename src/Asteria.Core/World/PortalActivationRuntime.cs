@@ -13,8 +13,10 @@ public sealed class PortalActivationRuntime
     private const string FrameTag = "is_portal_frame";
     private const string FrameTargetPrefix = "accept_dimension:";
     public const string PortalBlockId = "asteria:portal";
-    private const int MaximumFrameVoxels = 1024;
-    private const int MaximumInteriorVoxels = 512;
+    // Match MineClone's bounded frame and interior capacity. The separate
+    // 64-voxel axis span keeps shape discovery spatially constrained.
+    private const int MaximumFrameVoxels = 4096;
+    private const int MaximumInteriorVoxels = 4096;
     private const int MaximumSpan = 64;
 
     private readonly VoxelWorld _world;

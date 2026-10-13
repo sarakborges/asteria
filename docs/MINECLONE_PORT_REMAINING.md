@@ -588,3 +588,9 @@ MineClone `world-systems-rebuild` reference: `world_objects.rs::detached_object_
 - Compared the previous transient camera-light presentation with MineClone rebuild and retained the single, selected-stack-owned emitter. The prior distance-only shader could brighten terrain across solid walls.
 - The existing camera-held `OmniLight3D` now casts bounded native shadows. Six terrain variants preserve the same voxel RGB/sky/AO base as emission and add held RGB through a common Godot `light()` callback with GPU `ATTENUATION`, excluding the sun's directional contribution. Removed unused moving-light uniforms and obsolete shader code.
 - No voxel light mutations, remeshing, workers, queues or save format changes. Godot/WRY GPU appearance, fine shadow-map bias, translucent boundaries and frame-time profiling remain to verify; GPU occlusion is not full transient voxel flood propagation.
+
+## Portal frame/interior size parity — 2026-10-13
+
+- Compared MineClone rebuild `src/targeting/portal_activation.rs`: Asteria previously rejected portal frames after 1,024 boundary voxels or 512 interior voxels; MineClone permits 4,096 of each. Asteria now matches both bounded limits while preserving its independent 64-block geometric span, selected-pack metadata target and atomic voxel mutation owner.
+- Core regressions cover activation and full cleanup of a 3,364-cell cross-chunk portal, and rejection of a region larger than 4,096 with no partial changes. This deliberately does not change portal representation to standalone AttachedLayers; Asteria's current portal is a noncollidable centered-layer voxel with per-cell destination metadata.
+- Godot/WRY visual navigation, return-trip, persistence and dense-portal frame-time QA are still necessary.

@@ -5,7 +5,8 @@ namespace Asteria.Core.Tests;
 public sealed class PortalActivationRuntimeTests
 {
     private static (PortalActivationRuntime Portal, VoxelWorld World,
-        VoxelMutationRuntime Mutations, BlockRegistry Blocks) Fixture()
+        VoxelMutationRuntime Mutations, BlockRegistry Blocks) Fixture(
+        int maxX = Chunk.Size - 1, int maxY = Chunk.Size - 1)
     {
         var frame = new BlockDefinition("asteria:glass",
             tags: ["is_portal_frame",
@@ -18,7 +19,9 @@ public sealed class PortalActivationRuntimeTests
         var blocks = new BlockRegistry([frame, portal,
             new BlockDefinition("asteria:stone")]);
         var world = new VoxelWorld();
-        world.InsertChunk(ChunkCoord.Zero, new Chunk());
+        for (var cx = 0; cx <= maxX / Chunk.Size; cx++)
+        for (var cy = 0; cy <= maxY / Chunk.Size; cy++)
+            world.InsertChunk(new ChunkCoord(cx, cy, 0), new Chunk());
         var mutations = new VoxelMutationRuntime(
             world, new WorldUpdateQueue(), new FluidUpdateQueue(),
             new FluidMeshUpdateQueue(), new BlockPhysicsUpdateQueue(),
@@ -163,6 +166,65 @@ public sealed class PortalActivationRuntimeTests
         Assert.False(portal.TryActivate(Slicer(),
             new VoxelWorldHit(frame, 0, 0, 1), out _));
         Assert.Equal(before, world.Revision);
+    }
+
+
+    [Fact]
+    public void LargePortalSpansChunksAndGlassBreakRetractsEveryInteriorCell()
+    {
+        // A 60x60 frame encloses 3,364 cells: previously rejected by the
+        // 512-voxel Asteria cap despite being valid in MineClone.
+        const int edge = 61;
+        var (portal, world, mutations, blocks) = Fixture(edge, edge);
+        var frame = Frame(mutations, blocks,
+            minX: 2, maxX: edge, minY: 2, maxY: edge);
+        Assert.True(portal.TryActivate(Slicer(),
+            new VoxelWorldHit(frame, 0, 0, 1), out var destination));
+        Assert.Equal("asteria:umbral", destination);
+
+        foreach (var at in new[]
+        {
+            new WorldVoxelCoord(3, 3, 5),
+            new WorldVoxelCoord(Chunk.Size, Chunk.Size, 5),
+            new WorldVoxelCoord(edge - 1, edge - 1, 5),
+        })
+        {
+            Assert.True(portal.TryGetDestinationAt(at, out var target));
+            Assert.Equal(destination, target);
+        }
+
+        // A boundary edit retracts even far-away cells in other chunks.
+        Assert.True(mutations.SetCellAt(
+            new WorldVoxelCoord(2, 30, 5), VoxelCell.Empty, out _));
+        foreach (var at in new[]
+        {
+            new WorldVoxelCoord(3, 3, 5),
+            new WorldVoxelCoord(Chunk.Size, Chunk.Size, 5),
+            new WorldVoxelCoord(edge - 1, edge - 1, 5),
+        })
+        {
+            Assert.False(portal.TryGetDestinationAt(at, out _));
+            Assert.True(world.GetCellOrEmpty(at).IsEmpty);
+        }
+    }
+
+    [Fact]
+    public void MoreThan4096PortalCellsRejectWithoutPartialWorldMutation()
+    {
+        // Center the selected glass segment on the upper frame edge so
+        // no valid candidate is discarded by the separate 64-block span.
+        const int maxX = 81;
+        const int maxY = 61;
+        var (portal, world, mutations, blocks) = Fixture(maxX, maxY);
+        Frame(mutations, blocks, minX: 2, maxX: maxX,
+            minY: 2, maxY: maxY);
+        var before = world.Revision;
+        Assert.False(portal.TryActivate(Slicer(),
+            new VoxelWorldHit(new WorldVoxelCoord(40, 2, 5), 0, 0, 1),
+            out _));
+        Assert.Equal(before, world.Revision);
+        Assert.True(world.GetCellOrEmpty(
+            new WorldVoxelCoord(40, 20, 5)).IsEmpty);
     }
 
     [Fact]
