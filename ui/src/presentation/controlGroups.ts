@@ -35,8 +35,6 @@ export function buildControlGroups(
         { key: jump + " ×2", action: t("controls.toggleFlight") },
         { key: descend, action: t("settings.keybind.descend"), bindAction: "Descend" },
         { key: "MOUSE", action: t("controls.look") },
-        { key: perspective, action: t("settings.keybind.changePerspective"),
-          bindAction: "ChangePerspective" },
       ],
     },
     {
@@ -44,8 +42,9 @@ export function buildControlGroups(
       entries: [
         { key: "1–9", action: t("controls.hotbar") },
         { key: inventory, action: t("settings.keybind.inventory"), bindAction: "Inventory" },
-        { key: chat, action: t("settings.keybind.chat"), bindAction: "Chat" },
         { key: "ESC", action: t("controls.pauseClose") },
+        { key: perspective, action: t("settings.keybind.changePerspective"),
+          bindAction: "ChangePerspective" },
       ],
     },
     {
@@ -56,6 +55,18 @@ export function buildControlGroups(
         { key: "MMB", action: t("controls.pickBlock") },
         { key: tool, action: t("settings.keybind.toolAction"), bindAction: "ToolAction" },
         { key: drop, action: t("settings.keybind.dropItem"), bindAction: "DropItem" },
+      ],
+    },
+    {
+      // MineClone's fourth control group documents the existing chat
+      // shortcuts. They are handled by the focused React input, not by
+      // global Godot gameplay key routing or new keybind preferences.
+      title: t("controls.category.chat"),
+      entries: [
+        { key: chat, action: t("settings.keybind.chat"), bindAction: "Chat" },
+        { key: "ENTER", action: t("controls.sendChat") },
+        { key: "↑ / ↓", action: t("controls.chatHistory") },
+        { key: "TAB", action: t("controls.autocomplete") },
       ],
     },
   ];
