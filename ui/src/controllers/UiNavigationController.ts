@@ -67,6 +67,13 @@ export function createUiNavigationController(
       show(state.worldCreation.visible ? "none" : "pause");
     } else if (state.navigation.overlay === "pause") {
       postMessage("ui.game.resume");
+    } else if (!state.worldCreation.visible &&
+        state.navigation.overlay === "none" && !state.chat.open &&
+        !state.storageBox.open && !state.loading) {
+      // Godot routes Escape while mouse-captured by releasing capture,
+      // which independently opens pause. It sends game.ui.escape only when
+      // already uncaptured; that state must still be able to open the menu.
+      show("pause");
     } else if (state.worldCreation.visible) {
       if (state.navigation.preWorldScreen === "new-world")
         setPreWorldScreen("world-selection");

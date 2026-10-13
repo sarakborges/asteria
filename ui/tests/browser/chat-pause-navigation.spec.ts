@@ -154,7 +154,7 @@ test("modal close after OS focus loss produces a visible pause, not an orphaned 
 
   receive({
     type: "game.chat.state",
-    payload: { ...openChat.payload as Record<string, unknown>, open: false, visible: false },
+    payload: { ...(openChat.payload as Record<string, unknown>), open: false, visible: false },
   });
   receive({ type: "game.ui.pause", payload: {} });
   expect(store.getSnapshot().chat.open).toBe(false);
@@ -191,11 +191,41 @@ test("late focus-loss pause never replaces an already restored gameplay capture"
   receive(openChat);
   receive({
     type: "game.chat.state",
-    payload: { ...openChat.payload as Record<string, unknown>, open: false, visible: false },
+    payload: { ...(openChat.payload as Record<string, unknown>), open: false, visible: false },
   });
   // If the player resumed while the window was focused, native capture
   // wins; the host must not send an extra pause event in that scenario.
   receive({ type: "game.mouse_capture", payload: { captured: true } });
   expect(store.getSnapshot().navigation.overlay).toBe("none");
   expect(store.getSnapshot().mouseCaptured).toBe(true);
+});
+
+test("native Escape opens pause if gameplay is uncaptured without a visible overlay", () => {
+  const { store, receive } = createGameplayBridge();
+  store.update(state => ({ ...state, mouseCaptured: false }));
+  expect(store.getSnapshot().navigation.overlay).toBe("none");
+
+  // When mouse capture was already lost, Godot emits game.ui.escape
+  // instead of another game.mouse_capture(false). This must not be a no-op.
+  receive({ type: "game.ui.escape", payload: {} });
+  expect(store.getSnapshot().navigation.overlay).toBe("pause");
+});
+
+test("native Escape does not open pause behind an active chat input", () => {
+  const { store, receive } = createGameplayBridge();
+  receive(openChat);
+  receive({ type: "game.ui.escape", payload: {} });
+  expect(store.getSnapshot().chat.open).toBe(true);
+  expect(store.getSnapshot().navigation.overlay).toBe("none");
+});
+
+test("native Escape in pre-world screens cannot open a gameplay pause", () => {
+  const { store, receive } = createGameplayBridge();
+  store.update(state => ({
+    ...state,
+    worldCreation: { ...state.worldCreation, visible: true },
+    navigation: { ...state.navigation, overlay: "none", preWorldScreen: "starting" },
+  }));
+  receive({ type: "game.ui.escape", payload: {} });
+  expect(store.getSnapshot().navigation.overlay).toBe("none");
 });
