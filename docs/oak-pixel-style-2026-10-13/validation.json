@@ -78,7 +78,7 @@
       "mode": "RGBA",
       "opaque_pixels": 1119,
       "transparent_pixels": 2977,
-      "visible_colors": 385,
+      "visible_colors": 300,
       "neutral_grayscale": false,
       "edge_rgb_mean_abs_x": 0.0,
       "edge_rgb_mean_abs_y": 0.0

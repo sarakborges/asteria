@@ -229,13 +229,12 @@
     },
     {
       "role": "sapling",
-      "transparent": true,
-      "prompt": "Use case: style-transfer.\nAsset type: native 64x64 pixel-art asset for Asteria, a Minecraft-inspired voxel game.\nPrimary request: completely redraw Image 1 into SIMPLE CLASSIC MINECRAFT VISUAL LANGUAGE, preserving its semantic role and oak identity. Higher resolution means cleaner intentional cluster shapes, not microscopic detail.\nInputs: Image 1 is the edit target and role/silhouette reference. Image 2 is ONLY the accepted oak planks reference for LARGE FLAT PIXEL CLUSTERS and restrained palette; do not copy its board joints or horizontal grain into another role.\nStyle: deliberately hand-placed large pixel groups on a logical 64x64 grid, hard stepped contours and mostly solid flat color fields. About 5 to 7 visibly distinct solid colors, 3 to 4 value levels. Quiet, simple, matte. Individual main details are generally 3 to 8 logical pixels across. No continuous gradients, anti-aliasing, dithering, stipple, tiny flecks, noise or photographic material. No perspective, 3D render, cast shadows, polished edges, specular highlights, glossy rims, microscopic fibers, text or watermark.\nRole: one OAK SAPLING sprite on a genuinely transparent background. It is a plantable small seedling, not a full grown tree miniature. Keep oak's forked/rounded crown identity from Image 1, with MUCH less botanical detail.\nComposition: upright simple brown stem and only two or three broad branches, centered and bottom anchored; roughly 40–46 logical pixels wide and 50–54 high with transparent margin. Crown formed by only THREE or FOUR distinct large, compact, stepped groups of green leaves. Two or three flat greens and two browns; no many little leaves, no veins, no tiny leaf sparkle, no dots, no realistic bark. Large clear pixel clusters and no soft lighting. Stem remains visible and thick enough to read.\nNo soil, pot, ground shadow, frame or scenery. No checkerboard painted into the image. Alpha outside the sprite is truly zero; keep the alpha hard and the outline crisply stepped. One sprite only. A sprite does not need a repetitive background.",
+      "prompt": "Use case: precise-object-edit.\nAsset type: 64x64 Minecraft-style oak sapling sprite on real transparency.\nEdit ONLY the stray neon-red and fluorescent-green pixels visible along the outline of Image 1. They are rendering artifacts and must be removed/replaced with the correct neighboring leaf-green or stem-brown colors. In particular remove the bright RED mark on the lower left of the trunk and all vivid electric GREEN edge dots near the crown.\nKeep exactly the same small forked sapling silhouette, three broad angular green foliage masses, brown trunk, scale, position, flat matte pixel clusters and transparent area. Do not add detail or change the branch/crown arrangement.\nThe sprite uses ONLY quiet natural olive greens and warm wood browns: roughly dark olive green, muted middle green, a restrained lighter olive patch, dark brown and tan. No neon, pure red, pure cyan, pure yellow, green screen outlines, white fringe or glow. Hard pixel-step edges and genuine clean transparency outside the sprite. No gradients or soft antialias halo. One square sprite, not a scene; no ground, pot, shadow or text.",
       "refs": [
-        "/workspace/scratch/52fe3437c98d/oak-style/before/sapling.png",
-        "/workspace/scratch/52fe3437c98d/generated_images/exec-5d64a032-7274-4969-9f49-b0918d50d2f8.png"
+        "/workspace/scratch/52fe3437c98d/tree-pixel-style/style/sapling.png"
       ],
-      "source": "/workspace/scratch/52fe3437c98d/generated_images/exec-1469feaa-b67b-4dbd-9ee1-fe4feb97351e.png",
+      "source": "/workspace/scratch/52fe3437c98d/generated_images/exec-f30b7588-52a9-4394-816e-0eac5cca4a11.png",
+      "transparent": true,
       "tool": "image_gen built-in",
       "normalization": {
         "resize": [
@@ -246,12 +245,11 @@
         "alpha": "authored cutout threshold 0.5, encoded as 0/255"
       },
       "final_path": "packs/default/resources/textures/blocks/trees/oak/sapling.png",
-      "final_sha256": "22ce176ec854ca33dae867fce37e1465dea2fa227ccd58aab8d5ca0e96e204a4",
-      "source_sha256": "4e17a5e3d24c94b9973f75cec4f341a68713ac62a144649fd1d822dc9b4ded4f",
+      "final_sha256": "18bed810ded8a8dc6e971445aa5e141d8aa819d85aa7ec5d31c1b36a6df13f11",
+      "source_sha256": "4a9a3d61f98cf4efab374456e011b362ddbd05c90ab1cf9aa83235ad2655eea2",
       "before_sha256": "ca605bd63847d722f03b3b34e6d8cfa9965c544138cf65d0bd882fc7861c6b90",
       "reference_hashes": {
-        "/workspace/scratch/52fe3437c98d/oak-style/before/sapling.png": "ca605bd63847d722f03b3b34e6d8cfa9965c544138cf65d0bd882fc7861c6b90",
-        "/workspace/scratch/52fe3437c98d/generated_images/exec-5d64a032-7274-4969-9f49-b0918d50d2f8.png": "79b65635881933883856f5a60669c5bd98881a243b9effe4147ca8bb57585726"
+        "/workspace/scratch/52fe3437c98d/tree-pixel-style/style/sapling.png": "1032e5e47dc336834557c245dcbd1c9f3f4b1e9bbddc5777d3c8ce3675cd8436"
       },
       "metrics": {
         "dimensions": [
@@ -261,7 +259,7 @@
         "mode": "RGBA",
         "opaque_pixels": 1119,
         "transparent_pixels": 2977,
-        "visible_colors": 385,
+        "visible_colors": 300,
         "neutral_grayscale": false,
         "edge_rgb_mean_abs_x": 0.0,
         "edge_rgb_mean_abs_y": 0.0
