@@ -1,0 +1,269 @@
+{
+  "tool": "ImageGen built-in",
+  "source_commit": "95ba0d5be11f0fda7b82398e2e44b84b308ef399",
+  "assets": [
+    {
+      "role": "planks",
+      "prompt": "Use case: precise-object-edit.\nAsset type: one seamless 64x64 OAK PLANK block tile.\nPrimary request: Keep the flat, simple, large-cluster pixel-art wood of Image 1, but correct its board layout to EXACTLY match Image 2. Image 1 currently fails vertical tiling because it has four complete rows. The boundary must cut through one shared board instead.\nImage 1: art to edit, preserve its matte tan/brown palette and sparse broad stepped horizontal marks.\nImage 2: precise layout diagram, preserve EVERY horizontal and vertical joint position, but replace its gray with the wooden artwork. Do not print the gray guide.\nExact visible structure: FIVE visible horizontal wood bands: a HALF BOARD at the top (0% to 12.5%), then three COMPLETE boards (12.5% to 37.5%, 37.5% to 62.5%, 62.5% to 87.5%), then the OTHER HALF of the first board at the bottom (87.5% to 100%). The TOP and BOTTOM HALF BOARDS have IDENTICAL base tone and matching pattern; together they make the same 16-pixel-high board as the other boards. There are FOUR full-width 2-pixel dark joins INSIDE the image, at 12.5%,37.5%,62.5%,87.5% height. Not at 0% or 100%.\nVertical butt joints: both top and bottom half-boards have the SAME joint at 75% image width. First full board has joint at 25% width, middle full board at 75%, third full board at 25%. Match Image 2 exactly.\nKeep the wood SIMPLE: roughly 4–6 broad short stepped grain marks per complete board, much of each board solid flat tan. Use about 5 visibly distinct solid colors. Remove soft airbrush variation from the flat board fields; crisp hard pixel-cluster boundaries, no microscopic marks.\nTile MUST repeat continuously through opposite edges. No outer frame. No edge darkness or left/right border. No anti-aliasing, no glossy rims, no fiber texture, no pores, no tiny scratches, no perspective, no text. One full opaque square tile only.",
+      "refs": [
+        "/workspace/scratch/52fe3437c98d/generated_images/exec-9766914e-5e91-4b6b-8fc6-18d9d12732ec.png",
+        "/workspace/scratch/52fe3437c98d/oak-style/plank-layout-768.png"
+      ],
+      "source": "/workspace/scratch/52fe3437c98d/generated_images/exec-5d64a032-7274-4969-9f49-b0918d50d2f8.png",
+      "transparent": false,
+      "normalization": {
+        "resize": [
+          64,
+          64
+        ],
+        "interpolation": "nearest"
+      },
+      "final_path": "packs/default/resources/textures/blocks/trees/oak/planks.png",
+      "final_sha256": "fa47da472da5015f38d1c52c803dfbcaf7a78dec7f62834a280dbcb883017816",
+      "source_sha256": "79b65635881933883856f5a60669c5bd98881a243b9effe4147ca8bb57585726",
+      "before_sha256": "829614e161c2099c19b231e81ebf8718b5a310f16ea3052ef1f1d19500f96aef",
+      "reference_hashes": {
+        "/workspace/scratch/52fe3437c98d/generated_images/exec-9766914e-5e91-4b6b-8fc6-18d9d12732ec.png": "35f938a8fae028308fe79f751c457d296b1e849a69d6feffabbe870756d3f401",
+        "/workspace/scratch/52fe3437c98d/oak-style/plank-layout-768.png": "179e2fea4910bd449463a0a441f808bc96432bed1fe48061ce7ff1909e4e30bf"
+      },
+      "metrics": {
+        "dimensions": [
+          64,
+          64
+        ],
+        "mode": "RGB",
+        "opaque_pixels": 4096,
+        "transparent_pixels": 0,
+        "visible_colors": 364,
+        "neutral_grayscale": false,
+        "edge_rgb_mean_abs_x": 8.547,
+        "edge_rgb_mean_abs_y": 2.656
+      }
+    },
+    {
+      "role": "side",
+      "transparent": false,
+      "refs": [
+        "/workspace/scratch/52fe3437c98d/generated_images/exec-920bf998-32f9-45de-b947-bfa49d41b4bd.png"
+      ],
+      "prompt": "Use case: precise-object-edit.\nAsset type: PERIODIC Minecraft-like oak bark material.\nUse Image 1 solely as the artwork/style to preserve: coarse VERTICAL stepped grain, flat matte dark browns, few large color regions, no tiny texture.\nDeliver the ONE SAME MATERIAL as a perfectly continuous THREE-BY-THREE REPEAT filling the whole square image, with NO grid lines or separations. This is one periodic material shown nine times, NOT nine variations. Every one of the nine 64x64 logical repeat cells is IDENTICAL in shapes and color. The whole image is a logical 192x192 pixel canvas, containing three repeats horizontally and three repeats vertically. Repeat boundaries are at exactly one-third and two-thirds of the full image width and height.\nMost important: every vertical grain strip passes through ALL THREE rows without stopping or changing horizontal position at a cell boundary. Connect its pattern periodically so the first and last row of EACH repeat-cell meet naturally. Also connect left and right edge patterns across all three columns. The center cell must be a standalone tile whose opposite edge colors and grain positions agree.\nMaintain the visual style of Image 1: broad irregular pixel bands, hard stepped boundaries, quiet flat brown regions. Do not add fibers, gradients, noise, gloss, highlights, knots, rings, horizontal seams or borders. No camera perspective, no cube, no framing, no margins, no captions, no watermark. This is only an edge-to-edge continuous opaque texture field, not a scene or collage.",
+      "source": "/workspace/scratch/52fe3437c98d/generated_images/exec-728bec67-33fa-4595-9443-412fc9566499.png",
+      "crop": "center cell of 192x192 logical repeat",
+      "tool": "image_gen built-in",
+      "normalization": {
+        "field_preview_size": [
+          256,
+          256
+        ],
+        "crop": [
+          4,
+          70,
+          160,
+          225
+        ],
+        "resize": [
+          64,
+          64
+        ],
+        "interpolation": "nearest",
+        "detected_period": [
+          153,
+          152
+        ],
+        "boundary_rgb_mean_abs_x": 0.854,
+        "boundary_rgb_mean_abs_y": 0.854
+      },
+      "final_path": "packs/default/resources/textures/blocks/trees/oak/side.png",
+      "final_sha256": "a37c7e343169ad7ea9bbced055f8f1c20bbca4cc4e9dcda4760c031983c75576",
+      "source_sha256": "b7e2d94a361fdef17e908ffffbd7597918684297c7cd5ecea4d1b100c59e03a8",
+      "before_sha256": "d695de7f1a91c2996e6013477485244c5677457c4b252cc192a8f1df137386f0",
+      "reference_hashes": {
+        "/workspace/scratch/52fe3437c98d/generated_images/exec-920bf998-32f9-45de-b947-bfa49d41b4bd.png": "b79319126463eaafe8ba5cf0572eb0bb4fc918963ae27f5dea94e50681e2da2c"
+      },
+      "metrics": {
+        "dimensions": [
+          64,
+          64
+        ],
+        "mode": "RGB",
+        "opaque_pixels": 4096,
+        "transparent_pixels": 0,
+        "visible_colors": 578,
+        "neutral_grayscale": false,
+        "edge_rgb_mean_abs_x": 0.854,
+        "edge_rgb_mean_abs_y": 0.854
+      }
+    },
+    {
+      "role": "stripped",
+      "transparent": false,
+      "refs": [
+        "/workspace/scratch/52fe3437c98d/generated_images/exec-80165559-94de-4a80-b32d-2bf332c1a275.png"
+      ],
+      "prompt": "Use case: precise-object-edit.\nAsset type: PERIODIC Minecraft-like oak stripped wood material.\nUse Image 1 solely as the artwork/style to preserve: coarse VERTICAL stepped grain, flat matte warm tan and ochre, few large color regions, no tiny texture.\nDeliver the ONE SAME MATERIAL as a perfectly continuous THREE-BY-THREE REPEAT filling the whole square image, with NO grid lines or separations. This is one periodic material shown nine times, NOT nine variations. Every one of the nine 64x64 logical repeat cells is IDENTICAL in shapes and color. The whole image is a logical 192x192 pixel canvas, containing three repeats horizontally and three repeats vertically. Repeat boundaries are at exactly one-third and two-thirds of the full image width and height.\nMost important: every vertical grain strip passes through ALL THREE rows without stopping or changing horizontal position at a cell boundary. Connect its pattern periodically so the first and last row of EACH repeat-cell meet naturally. Also connect left and right edge patterns across all three columns. The center cell must be a standalone tile whose opposite edge colors and grain positions agree.\nMaintain the visual style of Image 1: broad irregular pixel bands, hard stepped boundaries, quiet flat brown regions. Do not add fibers, gradients, noise, gloss, highlights, knots, rings, horizontal seams or borders. No camera perspective, no cube, no framing, no margins, no captions, no watermark. This is only an edge-to-edge continuous opaque texture field, not a scene or collage.",
+      "source": "/workspace/scratch/52fe3437c98d/generated_images/exec-8b1d0ff3-c3d4-48a5-88f5-26000c65e36f.png",
+      "crop": "center cell of 192x192 logical repeat",
+      "tool": "image_gen built-in",
+      "normalization": {
+        "field_preview_size": [
+          256,
+          256
+        ],
+        "crop": [
+          110,
+          102,
+          235,
+          245
+        ],
+        "resize": [
+          64,
+          64
+        ],
+        "interpolation": "nearest",
+        "detected_period": [
+          123,
+          141
+        ],
+        "boundary_rgb_mean_abs_x": 0.792,
+        "boundary_rgb_mean_abs_y": 6.5
+      },
+      "final_path": "packs/default/resources/textures/blocks/trees/oak/stripped.png",
+      "final_sha256": "b85ba35067a29f7c220a7e1aa37c29cfd02b4623a2a78866d3fe012045b79cb8",
+      "source_sha256": "4b854d192bd86bb93816f730a135f2a88ca741bc746c00eb722118c17f153e21",
+      "before_sha256": "ac18e9fcd67223a0ab4bbbe96e3c40015c2e4ef91762c0e46abc79d5b832e5bc",
+      "reference_hashes": {
+        "/workspace/scratch/52fe3437c98d/generated_images/exec-80165559-94de-4a80-b32d-2bf332c1a275.png": "984a8166cb629b5f0069652a9dabf0857e35ec9c66e13c6fae169f7aa3693158"
+      },
+      "metrics": {
+        "dimensions": [
+          64,
+          64
+        ],
+        "mode": "RGB",
+        "opaque_pixels": 4096,
+        "transparent_pixels": 0,
+        "visible_colors": 490,
+        "neutral_grayscale": false,
+        "edge_rgb_mean_abs_x": 0.792,
+        "edge_rgb_mean_abs_y": 6.5
+      }
+    },
+    {
+      "role": "top",
+      "transparent": false,
+      "prompt": "Use case: style-transfer.\nAsset type: native 64x64 pixel-art asset for Asteria, a Minecraft-inspired voxel game.\nPrimary request: completely redraw Image 1 into SIMPLE CLASSIC MINECRAFT VISUAL LANGUAGE, preserving its semantic role and oak identity. Higher resolution means cleaner intentional cluster shapes, not microscopic detail.\nInputs: Image 1 is the edit target and role/silhouette reference. Image 2 is ONLY the accepted oak planks reference for LARGE FLAT PIXEL CLUSTERS and restrained palette; do not copy its board joints or horizontal grain into another role.\nStyle: deliberately hand-placed large pixel groups on a logical 64x64 grid, hard stepped contours and mostly solid flat color fields. About 5 to 7 visibly distinct solid colors, 3 to 4 value levels. Quiet, simple, matte. Individual main details are generally 3 to 8 logical pixels across. No continuous gradients, anti-aliasing, dithering, stipple, tiny flecks, noise or photographic material. No perspective, 3D render, cast shadows, polished edges, specular highlights, glossy rims, microscopic fibers, text or watermark.\nRole: OAK LOG END-GRAIN TOP, full opaque square material tile viewed straight down. Warm muted tan oak, matching the plank and stripped-wood family.\nPattern: ONLY THREE or FOUR broad, concentric SQUARISH growth-ring bands with stepped/octagonal corners, centered on the tile, like simple Minecraft log end grain. Each dark ring is about 2 to 3 logical pixels thick; large quiet wood regions between rings. A simple small squarish center. At most two short radial fissures in steps. Flat tan/brown color fields and no light/shadow beveling on rings. No intricate circular linework, no thin numerous rings, no microscopic grain, no noise.\nContinuous normal wood tone at all four outer edges, no added outer border/frame or black edge shadow. Opposite edges meet seamlessly in X and Y. Fully opaque tile, no trunk scene or cylinder.",
+      "refs": [
+        "/workspace/scratch/52fe3437c98d/oak-style/before/top.png",
+        "/workspace/scratch/52fe3437c98d/generated_images/exec-5d64a032-7274-4969-9f49-b0918d50d2f8.png"
+      ],
+      "source": "/workspace/scratch/52fe3437c98d/generated_images/exec-c78a661e-a2be-47bb-8d99-879cedd1ed86.png",
+      "tool": "image_gen built-in",
+      "normalization": {
+        "resize": [
+          64,
+          64
+        ],
+        "interpolation": "nearest"
+      },
+      "final_path": "packs/default/resources/textures/blocks/trees/oak/top.png",
+      "final_sha256": "0a06e19bc9451e4ed6c82c63fa756c2787cf1b78515be8900549bdb06fb59afc",
+      "source_sha256": "6efc2f3007954f60f7b7068c1ddda20d0d093f5e41f842e79ef8af3e4d0af6f6",
+      "before_sha256": "2c31d4fc42503240154a6d1da9871de0dd9e38193281dadcd37ae06a5190f1f4",
+      "reference_hashes": {
+        "/workspace/scratch/52fe3437c98d/oak-style/before/top.png": "2c31d4fc42503240154a6d1da9871de0dd9e38193281dadcd37ae06a5190f1f4",
+        "/workspace/scratch/52fe3437c98d/generated_images/exec-5d64a032-7274-4969-9f49-b0918d50d2f8.png": "79b65635881933883856f5a60669c5bd98881a243b9effe4147ca8bb57585726"
+      },
+      "metrics": {
+        "dimensions": [
+          64,
+          64
+        ],
+        "mode": "RGB",
+        "opaque_pixels": 4096,
+        "transparent_pixels": 0,
+        "visible_colors": 463,
+        "neutral_grayscale": false,
+        "edge_rgb_mean_abs_x": 8.484,
+        "edge_rgb_mean_abs_y": 6.646
+      }
+    },
+    {
+      "role": "leaf",
+      "prompt": "Use case: precise-object-edit.\nAsset type: seamless grayscale oak-leaf CUTOUT texture, logical 64x64 Minecraft-inspired pixel art.\nPrimary request: redraw the foliage in Image 1 so it reads as a mass of OAK LEAVES, not small flowers or four-petaled clovers. Retain the simple flat large-pixel-cluster style and transparent voids.\nShape: overlapping angular oblong leaf masses with a few hard stepped notches. Groups are roughly 4–8 logical pixels long and 3–6 wide, often slanted. The foliage is compact and irregular, not a grid of separate icons. No central bright cross/star, no petals, no rosettes, no radial flower shapes. Do not give each leaf a shiny center or pale rim.\nSTRICT NEUTRAL GRAYSCALE: equal R,G,B values. ONLY four MAIN solid grays #454545, #656565, #858585, #a3a3a3. The brightest region is medium pale gray, NOT white. No color tinge. Hard flat areas, no lighting gradients, highlights, fine veins, stipple or noise.\nCutouts: genuine transparent holes in irregular clusters totaling about 25–30%; holes have hard stepped edges and are several pixels across. No painted checkerboard. No fuzzy alpha or opaque backdrop. Distribute foliage uniformly over the entire tile.\nPERIODIC BORDER CONTRACT: groups and alpha voids at the left and right edges have matching positions, width and gray so they continue without breaking. Likewise match the top and bottom. No full transparent edge or frame. First/last row and first/last column have the SAME silhouette and tones. One full square seamlessly tiling leaf material, not an isolated leaf sprite or a collage.",
+      "refs": [
+        "/workspace/scratch/52fe3437c98d/generated_images/exec-b5be42fd-b20b-4e33-8d58-ef9973804bfb.png"
+      ],
+      "transparent": true,
+      "source": "/workspace/scratch/52fe3437c98d/generated_images/exec-7f55252e-fa39-42ae-ad62-0083719c464e.png",
+      "tool": "image_gen built-in",
+      "iteration": 2,
+      "normalization": {
+        "resize": [
+          64,
+          64
+        ],
+        "interpolation": "nearest",
+        "alpha": "authored cutout threshold 0.5, encoded as 0/255",
+        "color": "neutral grayscale for authored biome tint"
+      },
+      "final_path": "packs/default/resources/textures/blocks/trees/oak/leaf.png",
+      "final_sha256": "acb2eacd40a21186cd19d058040ffed45f59c6fda232628ed29e233f3d463fc8",
+      "source_sha256": "f07b86041b61a7225905b1fa9b0f388abe3df767fde2fceb345691cb5de659e0",
+      "before_sha256": "add37526cf5d6120ff6a7ed8ad9efbb9139859e4d362e5af7544c30c728ec4d0",
+      "reference_hashes": {
+        "/workspace/scratch/52fe3437c98d/generated_images/exec-b5be42fd-b20b-4e33-8d58-ef9973804bfb.png": "a0a7094694b73f1f6aa86a1ba39965a9a56876f473f7ec542a9d9792a29c21cf"
+      },
+      "metrics": {
+        "dimensions": [
+          64,
+          64
+        ],
+        "mode": "RGBA",
+        "opaque_pixels": 3051,
+        "transparent_pixels": 1045,
+        "visible_colors": 64,
+        "neutral_grayscale": true,
+        "edge_rgb_mean_abs_x": 62.25,
+        "edge_rgb_mean_abs_y": 61.797
+      }
+    },
+    {
+      "role": "sapling",
+      "prompt": "Use case: precise-object-edit.\nAsset type: 64x64 Minecraft-style oak sapling sprite on real transparency.\nEdit ONLY the stray neon-red and fluorescent-green pixels visible along the outline of Image 1. They are rendering artifacts and must be removed/replaced with the correct neighboring leaf-green or stem-brown colors. In particular remove the bright RED mark on the lower left of the trunk and all vivid electric GREEN edge dots near the crown.\nKeep exactly the same small forked sapling silhouette, three broad angular green foliage masses, brown trunk, scale, position, flat matte pixel clusters and transparent area. Do not add detail or change the branch/crown arrangement.\nThe sprite uses ONLY quiet natural olive greens and warm wood browns: roughly dark olive green, muted middle green, a restrained lighter olive patch, dark brown and tan. No neon, pure red, pure cyan, pure yellow, green screen outlines, white fringe or glow. Hard pixel-step edges and genuine clean transparency outside the sprite. No gradients or soft antialias halo. One square sprite, not a scene; no ground, pot, shadow or text.",
+      "refs": [
+        "/workspace/scratch/52fe3437c98d/tree-pixel-style/style/sapling.png"
+      ],
+      "source": "/workspace/scratch/52fe3437c98d/generated_images/exec-f30b7588-52a9-4394-816e-0eac5cca4a11.png",
+      "transparent": true,
+      "tool": "image_gen built-in",
+      "normalization": {
+        "resize": [
+          64,
+          64
+        ],
+        "interpolation": "nearest",
+        "alpha": "authored cutout threshold 0.5, encoded as 0/255"
+      },
+      "final_path": "packs/default/resources/textures/blocks/trees/oak/sapling.png",
+      "final_sha256": "18bed810ded8a8dc6e971445aa5e141d8aa819d85aa7ec5d31c1b36a6df13f11",
+      "source_sha256": "4a9a3d61f98cf4efab374456e011b362ddbd05c90ab1cf9aa83235ad2655eea2",
+      "before_sha256": "ca605bd63847d722f03b3b34e6d8cfa9965c544138cf65d0bd882fc7861c6b90",
+      "reference_hashes": {
+        "/workspace/scratch/52fe3437c98d/tree-pixel-style/style/sapling.png": "1032e5e47dc336834557c245dcbd1c9f3f4b1e9bbddc5777d3c8ce3675cd8436"
+      },
+      "metrics": {
+        "dimensions": [
+          64,
+          64
+        ],
+        "mode": "RGBA",
+        "opaque_pixels": 1119,
+        "transparent_pixels": 2977,
+        "visible_colors": 300,
+        "neutral_grayscale": false,
+        "edge_rgb_mean_abs_x": 0.0,
+        "edge_rgb_mean_abs_y": 0.0
+      }
+    }
+  ]
+}
