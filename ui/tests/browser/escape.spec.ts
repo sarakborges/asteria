@@ -65,6 +65,19 @@ test("Inventory key closes the WebUI modal without waiting for Godot focus", asy
   await expect(page.locator(".inventory-gameplay")).toHaveCount(0);
 });
 
+test("Inventory key closes even if WRY leaves DOM focus on body", async ({ page }) => {
+  await page.goto(story("inventory-navigation"));
+  await expect(page.locator(".inventory-gameplay")).toBeVisible();
+
+  await page.evaluate(() => {
+    document.body.tabIndex = -1;
+    document.body.focus();
+  });
+  await expect(page.locator(".app-interaction-root")).not.toBeFocused();
+  await page.keyboard.press("e");
+  await expect(page.locator(".inventory-gameplay")).toHaveCount(0);
+});
+
 test("Inventory key types in search and closes after leaving the editor", async ({ page }) => {
   await page.goto(story("inventory-navigation"));
   const inventory = page.locator(".inventory-gameplay");
