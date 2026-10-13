@@ -117,6 +117,61 @@ func _run() -> void:
 				imported.free()
 	model_root.free()
 
+	# Godot's GLTFDocument material conversion can change the original
+	# mask/culling semantics. The player presentation explicitly applies the
+	# source glTF contract, which must stay stable across art updates.
+	var player_path := ProjectSettings.globalize_path(
+		"res://packs/default/resources/models/entities/player/player.glb")
+	var player_bytes := FileAccess.get_file_as_bytes(player_path)
+	var player_gltf := GLTFDocument.new()
+	var player_state := GLTFState.new()
+	if player_bytes.is_empty() or player_gltf.append_from_buffer(
+		player_bytes, "", player_state) != OK:
+		push_error("Native smoke: could not import authored player GLB")
+		failed = true
+	else:
+		var player_scene := player_gltf.generate_scene(player_state)
+		if player_scene == null:
+			push_error("Native smoke: player GLB generated no scene")
+			failed = true
+		else:
+			var pending: Array[Node] = [player_scene]
+			var skin_material: BaseMaterial3D = null
+			while not pending.is_empty():
+				var node: Node = pending.pop_back()
+				if node is MeshInstance3D and node.name == "HeadMesh":
+					skin_material = (node as MeshInstance3D).get_active_material(0) as BaseMaterial3D
+				for child in node.get_children():
+					pending.append(child)
+			if skin_material == null:
+				push_error("Native smoke: imported player skin material is missing")
+				failed = true
+			player_scene.free()
+		# The first glTF material is shared by every player body cuboid.
+		# The player GLB explicitly authors alphaCutoff=0.1.
+		var chunk_size: int = player_bytes.decode_u32(12)
+		if chunk_size > player_bytes.size() - 20:
+			push_error("Native smoke: player GLB JSON chunk is truncated")
+			failed = true
+		else:
+			var gltf_json: Variant = JSON.parse_string(
+				player_bytes.slice(20, 20 + chunk_size).get_string_from_utf8())
+			if not gltf_json is Dictionary:
+				push_error("Native smoke: player GLB JSON is invalid")
+				failed = true
+			else:
+				var materials: Array = (gltf_json as Dictionary).get("materials", [])
+				if materials.is_empty() or not (materials[0] is Dictionary):
+					push_error("Native smoke: player GLB material missing")
+					failed = true
+				else:
+					var material: Dictionary = materials[0]
+					if (material.get("alphaMode", "OPAQUE") != "MASK"
+						or material.get("doubleSided", false) != true
+						or not is_equal_approx(float(material.get("alphaCutoff", -1.0)), 0.1)):
+						push_error("Native smoke: player GLB alpha/double-sided policy drifted: " + JSON.stringify(material))
+						failed = true
+
 	# Closing chat/inventory after the OS loses focus must not recapture
 	# mouse input. A detached player represents a windowless lifecycle and
 	# checks that resume is focus-gated before touching the OS cursor.

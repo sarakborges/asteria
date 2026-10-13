@@ -109,9 +109,7 @@ internal static class PlayerVisualSceneFactory
 
     private static void ApplySkin(MeshInstance3D mesh, Texture2D skin)
     {
-        // Keep the canonical face UVs embedded in the GLB. Regenerating them
-        // from Godot-imported normals/positions may flip or swap skin faces.
-        // The GLB authored alphaMode=MASK for every body part, not just hair.
+        // UVs are already rebuilt from the canonical cuboid geometry.
         mesh.MaterialOverride = MakeSkinMaterial(skin);
         mesh.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
     }
@@ -121,10 +119,12 @@ internal static class PlayerVisualSceneFactory
         AlbedoTexture = skin,
         ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
         TextureFilter = BaseMaterial3D.TextureFilterEnum.Nearest,
+        // The original MineClone player GLB authors alphaMode=MASK,
+        // alphaCutoff=0.1 and doubleSided=true. Keep its actual skin cutout
+        // while rendering both sides of each cuboid, including outer layers.
         Transparency = BaseMaterial3D.TransparencyEnum.AlphaScissor,
         AlphaScissorThreshold = 0.1f,
-        // Backfaces must not show inner cuboid walls through alpha-masked skin.
-        CullMode = BaseMaterial3D.CullModeEnum.Back,
+        CullMode = BaseMaterial3D.CullModeEnum.Disabled,
     };
 
     /// <summary>Identical mapping to MineClone's SkinPartSpec and SkinBoxUv:
