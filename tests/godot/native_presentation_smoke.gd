@@ -148,7 +148,7 @@ func _run() -> void:
 				failed = true
 			player_scene.free()
 		# The first glTF material is shared by every player body cuboid.
-		# glTF defaults alphaCutoff to 0.5 when alphaMode is MASK.
+		# The player GLB explicitly authors alphaCutoff=0.1.
 		var chunk_size: int = player_bytes.decode_u32(12)
 		if chunk_size > player_bytes.size() - 20:
 			push_error("Native smoke: player GLB JSON chunk is truncated")
@@ -168,7 +168,7 @@ func _run() -> void:
 					var material: Dictionary = materials[0]
 					if (material.get("alphaMode", "OPAQUE") != "MASK"
 						or material.get("doubleSided", false) != true
-						or not is_equal_approx(float(material.get("alphaCutoff", 0.5)), 0.5)):
+						or not is_equal_approx(float(material.get("alphaCutoff", -1.0)), 0.1)):
 						push_error("Native smoke: player GLB alpha/double-sided policy drifted: " + JSON.stringify(material))
 						failed = true
 
