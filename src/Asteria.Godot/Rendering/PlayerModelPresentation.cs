@@ -25,7 +25,6 @@ public sealed partial class PlayerModelPresentation : Node3D
     private const float CrouchBlendSpeed = 8f;
     private const float MovingStartThresholdSquared = 0.01f;
     private const float MovingStopThresholdSquared = 0.0025f;
-    private const float CrouchHeightRatio = 1.5f / 1.8f;
 
     private readonly FpsPlayer _player;
     private readonly PackSelection _selection;
@@ -259,14 +258,20 @@ public sealed partial class PlayerModelPresentation : Node3D
             _currentClip = clip;
         }
 
-        _crouchBlend = Mathf.MoveToward(_crouchBlend,
+        var nextCrouchBlend = Mathf.MoveToward(_crouchBlend,
             _player.IsCrouching ? 1f : 0f,
             CrouchBlendSpeed * (float)delta);
-        // Crouch the assembled figure as one unit. Translating individual
-        // pivots at different speeds detached the head, torso and limbs.
-        if (_facing is not null)
-            _facing.Scale = new Vector3(
-                1f, Mathf.Lerp(1f, CrouchHeightRatio, _crouchBlend), 1f);
+        if (nextCrouchBlend != _crouchBlend)
+        {
+            _crouchBlend = nextCrouchBlend;
+            // Match MineClone's independent joint drops: scaling the whole
+            // model deforms the skin and shrinks limbs instead of crouching.
+            // Animation clips rotate the pivots but do not animate their
+            // translations, so their original positions remain authoritative.
+            foreach (var (name, part) in _pivots)
+                part.Pivot.Position = part.Position -
+                    Vector3.Up * PlayerCrouchPose.VerticalDrop(name, _crouchBlend);
+        }
         if (_pivots.TryGetValue("HeadPivot", out var head))
             head.Pivot.Rotation = new Vector3(-_player.CameraPitch, 0f, 0f);
     }
