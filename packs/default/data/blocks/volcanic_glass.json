@@ -2,12 +2,12 @@
   "id": "asteria:volcanic_glass",
   "category": "natural_blocks",
   "textures": {
-    "top": "textures/blocks/volcanic_glass.png",
-    "bottom": "textures/blocks/volcanic_glass.png",
-    "left": "textures/blocks/volcanic_glass.png",
-    "right": "textures/blocks/volcanic_glass.png",
-    "front": "textures/blocks/volcanic_glass.png",
-    "back": "textures/blocks/volcanic_glass.png"
+    "top": "textures/blocks/basalt_polished.png",
+    "bottom": "textures/blocks/basalt_polished.png",
+    "left": "textures/blocks/basalt_polished.png",
+    "right": "textures/blocks/basalt_polished.png",
+    "front": "textures/blocks/basalt_polished.png",
+    "back": "textures/blocks/basalt_polished.png"
   },
   "lightDampening": 15,
   "castsShadow": true,

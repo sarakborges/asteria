@@ -2,12 +2,12 @@
   "id": "asteria:kelp_stem",
   "category": "natural_blocks",
   "textures": {
-    "top": "textures/blocks/kelp/stem.png",
-    "bottom": "textures/blocks/kelp/stem.png",
-    "left": "textures/blocks/kelp/stem.png",
-    "right": "textures/blocks/kelp/stem.png",
-    "front": "textures/blocks/kelp/stem.png",
-    "back": "textures/blocks/kelp/stem.png"
+    "top": "textures/objects/kelp.png",
+    "bottom": "textures/objects/kelp.png",
+    "left": "textures/objects/kelp.png",
+    "right": "textures/objects/kelp.png",
+    "front": "textures/objects/kelp.png",
+    "back": "textures/objects/kelp.png"
   },
   "tags": [],
   "lightDampening": 15,

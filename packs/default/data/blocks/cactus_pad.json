@@ -2,12 +2,12 @@
   "id": "asteria:cactus_pad",
   "category": "natural_blocks",
   "textures": {
-    "top": "textures/blocks/cactus/pad.png",
-    "bottom": "textures/blocks/cactus/pad.png",
-    "left": "textures/blocks/cactus/pad.png",
-    "right": "textures/blocks/cactus/pad.png",
-    "front": "textures/blocks/cactus/pad.png",
-    "back": "textures/blocks/cactus/pad.png"
+    "top": "textures/blocks/cactus/side.png",
+    "bottom": "textures/blocks/cactus/side.png",
+    "left": "textures/blocks/cactus/side.png",
+    "right": "textures/blocks/cactus/side.png",
+    "front": "textures/blocks/cactus/side.png",
+    "back": "textures/blocks/cactus/side.png"
   },
   "lightDampening": 15,
   "castsShadow": true,

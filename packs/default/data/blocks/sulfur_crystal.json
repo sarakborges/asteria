@@ -2,12 +2,12 @@
   "id": "asteria:sulfur_crystal",
   "category": "natural_blocks",
   "textures": {
-    "top": "textures/blocks/sulfur_crystal.png",
-    "bottom": "textures/blocks/sulfur_crystal.png",
-    "left": "textures/blocks/sulfur_crystal.png",
-    "right": "textures/blocks/sulfur_crystal.png",
-    "front": "textures/blocks/sulfur_crystal.png",
-    "back": "textures/blocks/sulfur_crystal.png"
+    "top": "textures/blocks/crystal_azure.png",
+    "bottom": "textures/blocks/crystal_azure.png",
+    "left": "textures/blocks/crystal_azure.png",
+    "right": "textures/blocks/crystal_azure.png",
+    "front": "textures/blocks/crystal_azure.png",
+    "back": "textures/blocks/crystal_azure.png"
   },
   "lightDampening": 11,
   "castsShadow": true,

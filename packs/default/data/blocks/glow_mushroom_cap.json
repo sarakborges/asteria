@@ -2,12 +2,12 @@
   "id": "asteria:glow_mushroom_cap",
   "category": "natural_blocks",
   "textures": {
-    "top": "textures/blocks/mushrooms/glow/cap.png",
-    "bottom": "textures/blocks/mushrooms/glow/cap.png",
-    "left": "textures/blocks/mushrooms/glow/cap.png",
-    "right": "textures/blocks/mushrooms/glow/cap.png",
-    "front": "textures/blocks/mushrooms/glow/cap.png",
-    "back": "textures/blocks/mushrooms/glow/cap.png"
+    "top": "textures/blocks/mushroom_red.png",
+    "bottom": "textures/blocks/mushroom_red.png",
+    "left": "textures/blocks/mushroom_red.png",
+    "right": "textures/blocks/mushroom_red.png",
+    "front": "textures/blocks/mushroom_red.png",
+    "back": "textures/blocks/mushroom_red.png"
   },
   "lightDampening": 0,
   "castsShadow": true,

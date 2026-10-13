@@ -2,12 +2,12 @@
   "id": "asteria:glacial_rime_core",
   "category": "natural_blocks",
   "textures": {
-    "top": "textures/blocks/glacial_rime_core.png",
-    "bottom": "textures/blocks/glacial_rime_core.png",
-    "left": "textures/blocks/glacial_rime_core.png",
-    "right": "textures/blocks/glacial_rime_core.png",
-    "front": "textures/blocks/glacial_rime_core.png",
-    "back": "textures/blocks/glacial_rime_core.png"
+    "top": "textures/blocks/ice.png",
+    "bottom": "textures/blocks/ice.png",
+    "left": "textures/blocks/ice.png",
+    "right": "textures/blocks/ice.png",
+    "front": "textures/blocks/ice.png",
+    "back": "textures/blocks/ice.png"
   },
   "mining": {
     "hardness": 0.9,

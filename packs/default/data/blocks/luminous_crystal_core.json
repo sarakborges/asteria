@@ -2,12 +2,12 @@
   "id": "asteria:luminous_crystal_core",
   "category": "natural_blocks",
   "textures": {
-    "top": "textures/blocks/luminous_crystal_core.png",
-    "bottom": "textures/blocks/luminous_crystal_core.png",
-    "left": "textures/blocks/luminous_crystal_core.png",
-    "right": "textures/blocks/luminous_crystal_core.png",
-    "front": "textures/blocks/luminous_crystal_core.png",
-    "back": "textures/blocks/luminous_crystal_core.png"
+    "top": "textures/blocks/crystal_lavender.png",
+    "bottom": "textures/blocks/crystal_lavender.png",
+    "left": "textures/blocks/crystal_lavender.png",
+    "right": "textures/blocks/crystal_lavender.png",
+    "front": "textures/blocks/crystal_lavender.png",
+    "back": "textures/blocks/crystal_lavender.png"
   },
   "lightDampening": 0,
   "castsShadow": true,

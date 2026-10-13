@@ -12,12 +12,12 @@
     "bottom"
   ],
   "textures": {
-    "top": "textures/blocks/azure_crystal.png",
-    "bottom": "textures/blocks/azure_crystal.png",
-    "left": "textures/blocks/azure_crystal.png",
-    "right": "textures/blocks/azure_crystal.png",
-    "front": "textures/blocks/azure_crystal.png",
-    "back": "textures/blocks/azure_crystal.png"
+    "top": "textures/blocks/crystal_azure.png",
+    "bottom": "textures/blocks/crystal_azure.png",
+    "left": "textures/blocks/crystal_azure.png",
+    "right": "textures/blocks/crystal_azure.png",
+    "front": "textures/blocks/crystal_azure.png",
+    "back": "textures/blocks/crystal_azure.png"
   },
   "mining": {
     "hardness": 1.4,

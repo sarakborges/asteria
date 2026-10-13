@@ -2,12 +2,12 @@
   "id": "asteria:basalt_column",
   "category": "stone_blocks",
   "textures": {
-    "top": "textures/blocks/basalt_column.png",
-    "bottom": "textures/blocks/basalt_column.png",
-    "left": "textures/blocks/basalt_column.png",
-    "right": "textures/blocks/basalt_column.png",
-    "front": "textures/blocks/basalt_column.png",
-    "back": "textures/blocks/basalt_column.png"
+    "top": "textures/blocks/basalt.png",
+    "bottom": "textures/blocks/basalt.png",
+    "left": "textures/blocks/basalt.png",
+    "right": "textures/blocks/basalt.png",
+    "front": "textures/blocks/basalt.png",
+    "back": "textures/blocks/basalt.png"
   },
   "lightDampening": 15,
   "castsShadow": true,

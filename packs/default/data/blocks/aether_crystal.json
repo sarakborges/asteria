@@ -11,12 +11,12 @@
     "taperPower": 1.1
   },
   "textures": {
-    "top": "textures/blocks/aether_crystal.png",
-    "bottom": "textures/blocks/aether_crystal.png",
-    "left": "textures/blocks/aether_crystal.png",
-    "right": "textures/blocks/aether_crystal.png",
-    "front": "textures/blocks/aether_crystal.png",
-    "back": "textures/blocks/aether_crystal.png"
+    "top": "textures/blocks/crystal_lavender.png",
+    "bottom": "textures/blocks/crystal_lavender.png",
+    "left": "textures/blocks/crystal_lavender.png",
+    "right": "textures/blocks/crystal_lavender.png",
+    "front": "textures/blocks/crystal_lavender.png",
+    "back": "textures/blocks/crystal_lavender.png"
   },
   "placementFaces": [
     "top"

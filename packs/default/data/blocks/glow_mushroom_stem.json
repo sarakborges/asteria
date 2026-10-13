@@ -2,12 +2,12 @@
   "id": "asteria:glow_mushroom_stem",
   "category": "natural_blocks",
   "textures": {
-    "top": "textures/blocks/mushrooms/glow/stem.png",
-    "bottom": "textures/blocks/mushrooms/glow/stem.png",
-    "left": "textures/blocks/mushrooms/glow/stem.png",
-    "right": "textures/blocks/mushrooms/glow/stem.png",
-    "front": "textures/blocks/mushrooms/glow/stem.png",
-    "back": "textures/blocks/mushrooms/glow/stem.png"
+    "top": "textures/blocks/mushroom_stem.png",
+    "bottom": "textures/blocks/mushroom_stem.png",
+    "left": "textures/blocks/mushroom_stem.png",
+    "right": "textures/blocks/mushroom_stem.png",
+    "front": "textures/blocks/mushroom_stem.png",
+    "back": "textures/blocks/mushroom_stem.png"
   },
   "lightDampening": 7,
   "castsShadow": true,
