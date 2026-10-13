@@ -176,7 +176,7 @@ public sealed class SurfaceStructureTests
         // walkable exit at E. A height-only stop would wrongly omit stairs.
         var raised = root.Replace(
             "\"layers\": [",
-            "\"layers\": [{\"y\": 55, \"rows\": [\"S\"]},",
+            "\"layers\": [{\"y\": 55, \"rows\": [\"S..\", \"...\", \"...\"]},",
             StringComparison.Ordinal);
         Assert.NotEqual(root, raised);
         var stair = File.ReadAllText(Path.Combine(
