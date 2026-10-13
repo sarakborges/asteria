@@ -669,3 +669,10 @@ MineClone `world-systems-rebuild` reference: `world_objects.rs::detached_object_
 - Migrated `ControlsPage` from a one-off CSS scrollbar to the existing shared measured `ScrollArea` used by Settings and World Selection. The same native viewport owns keyboard, wheel and touch scrolling; the rendered track/thumb mirrors measured overflow. Controls cards, keybind capture and screen-level footer remain unchanged.
 - Added a short-controls Storybook state plus Playwright tests for overflow detection, absence of scrollbars when not needed, PageDown, wheel, track clicks and the fixed footer position on a constrained viewport.
 - Native Godot/WRY visual scroll, focus and input interaction still require in-game QA. Chat and Creative lists remain separate scroll parity follow-ups.
+
+## UI port batch: Chat + Creative Inventory scrolling — 2026-10-13
+
+- Audited both widgets against current Asteria `main` and the MineClone reference. Creative category and item catalog already used the shared measured `ScrollArea` with bounded per-category/search restoration; no duplicate scrolling implementation was added. The Chat transcript still had an independent browser-native scrollbar.
+- Migrated Chat history to the shared scroll component, retaining its 330 px maximum transcript height, 64-message presentation cap, localized action links, input autofocus and ARIA live log. New messages scroll to the end when the transcript was previously at the bottom or has just been shown, but do not interrupt users browsing earlier messages. The shared viewport handles wheel/keyboard/pointer scrollbar interaction.
+- Added Storybook dynamic transcript/Creative content and Playwright regressions for chat overflow, bounded history, bottom following/reading older messages; Creative category and catalog overflow, keyboard scrolling, per-category offsets, per-search offsets and tab/component remount restoration. These cover multiple related UI port gaps together.
+- Pending: actual Godot/WRY screenshot, focus and input checks. Avoid marking a visual parity pass complete solely from browser tests.
