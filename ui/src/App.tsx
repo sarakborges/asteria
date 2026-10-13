@@ -133,8 +133,24 @@ export function App({
 
   const handleUiKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if ((state.navigation.death && !state.navigation.exitConfirmation) ||
-        event.key !== "Escape" || event.defaultPrevented ||
-        event.repeat || event.nativeEvent.isComposing || !uiVisible) return;
+        event.defaultPrevented || event.repeat ||
+        event.nativeEvent.isComposing || !uiVisible) return;
+
+    // An open inventory owns an explicit WebUI interaction surface. When WRY
+    // holds keyboard focus, Godot does not receive the native inventory
+    // keypress; dispatch the same semantic close action from this surface.
+    // Text editors keep the key for typing (including rebound bindings).
+    if (state.navigation.overlay === "inventory" &&
+        event.code === (state.settings.client?.keybinds.inventory ?? "KeyE") &&
+        !(event.target instanceof Element && event.target.closest(
+          "input, textarea, select, [contenteditable='true']"))) {
+      actions.closeInventory();
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
+    if (event.key !== "Escape") return;
     navigateEscape();
     event.preventDefault();
     event.stopPropagation();
