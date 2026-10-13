@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, type FocusEvent } from "react";
 import { TextInput } from "../TextInput/TextInput";
 import "./NumericInput.css";
 
@@ -10,6 +10,8 @@ export type NumericInputProps = {
   disabled?: boolean;
   onChange(value: string): void;
   onCommit?(value: number): void;
+  /** Compound controls can own the commit when a pointer activates a sibling action. */
+  deferBlurCommit?(): boolean;
 };
 
 /** Validate the committed value without lossy parsing or exponent notation. */
@@ -26,15 +28,19 @@ export function readValidInteger(value: string, min: number, max: number): numbe
  */
 export function NumericInput({
   value, min, max, ariaLabel, disabled = false, onChange, onCommit,
+  deferBlurCommit,
 }: NumericInputProps) {
   const lastCommitted = useRef(value);
   const canceling = useRef(false);
 
-  const finish = () => {
+  const finish = (_event: FocusEvent<HTMLInputElement>) => {
     if (canceling.current) {
       canceling.current = false;
       return;
     }
+    // A sibling +/- button will commit the stepped number itself. Do not
+    // reset a draft before that click can inspect it or double-commit it.
+    if (deferBlurCommit?.()) return;
     const parsed = readValidInteger(value, min, max);
     if (parsed === null) {
       onChange(lastCommitted.current);
