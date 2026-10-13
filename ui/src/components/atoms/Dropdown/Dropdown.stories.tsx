@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Dropdown } from "./Dropdown";
 
@@ -30,3 +31,20 @@ export const LongList: Story = {
     value: "5",
   },
 };
+
+function EditableDropdown() {
+  const [value, setValue] = useState("medium");
+  return (
+    <div style={{ width: 240 }}>
+      <Dropdown value={value} options={[
+        { value: "low", label: "Low" },
+        { value: "medium", label: "Medium" },
+        { value: "high", label: "High" },
+      ]} ariaLabel="Live rendering quality" onChange={setValue} />
+      <output data-testid="dropdown-value">{value}</output>
+      <button type="button">Other focus target</button>
+    </div>
+  );
+}
+
+export const Interactive: Story = { render: () => <EditableDropdown /> };
