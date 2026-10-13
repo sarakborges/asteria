@@ -1,0 +1,89 @@
+{
+  "source_commit": "95ba0d5be11f0fda7b82398e2e44b84b308ef399",
+  "changed_texture_count": 6,
+  "unchanged_texture_count": 291,
+  "scope": "oak art only",
+  "visual_review": "all six at native 64x64 and nearest 2x; five material mosaics reviewed",
+  "asset_metrics": {
+    "planks": {
+      "dimensions": [
+        64,
+        64
+      ],
+      "mode": "RGB",
+      "opaque_pixels": 4096,
+      "transparent_pixels": 0,
+      "visible_colors": 364,
+      "neutral_grayscale": false,
+      "edge_rgb_mean_abs_x": 8.547,
+      "edge_rgb_mean_abs_y": 2.656
+    },
+    "side": {
+      "dimensions": [
+        64,
+        64
+      ],
+      "mode": "RGB",
+      "opaque_pixels": 4096,
+      "transparent_pixels": 0,
+      "visible_colors": 578,
+      "neutral_grayscale": false,
+      "edge_rgb_mean_abs_x": 0.854,
+      "edge_rgb_mean_abs_y": 0.854
+    },
+    "stripped": {
+      "dimensions": [
+        64,
+        64
+      ],
+      "mode": "RGB",
+      "opaque_pixels": 4096,
+      "transparent_pixels": 0,
+      "visible_colors": 490,
+      "neutral_grayscale": false,
+      "edge_rgb_mean_abs_x": 0.792,
+      "edge_rgb_mean_abs_y": 6.5
+    },
+    "top": {
+      "dimensions": [
+        64,
+        64
+      ],
+      "mode": "RGB",
+      "opaque_pixels": 4096,
+      "transparent_pixels": 0,
+      "visible_colors": 463,
+      "neutral_grayscale": false,
+      "edge_rgb_mean_abs_x": 8.484,
+      "edge_rgb_mean_abs_y": 6.646
+    },
+    "leaf": {
+      "dimensions": [
+        64,
+        64
+      ],
+      "mode": "RGBA",
+      "opaque_pixels": 3051,
+      "transparent_pixels": 1045,
+      "visible_colors": 64,
+      "neutral_grayscale": true,
+      "edge_rgb_mean_abs_x": 62.25,
+      "edge_rgb_mean_abs_y": 61.797
+    },
+    "sapling": {
+      "dimensions": [
+        64,
+        64
+      ],
+      "mode": "RGBA",
+      "opaque_pixels": 1119,
+      "transparent_pixels": 2977,
+      "visible_colors": 385,
+      "neutral_grayscale": false,
+      "edge_rgb_mean_abs_x": 0.0,
+      "edge_rgb_mean_abs_y": 0.0
+    }
+  },
+  "seams": "viewed in 3x3; numeric edge differences are diagnostics, not a claim of byte-identical boundaries",
+  "runtime_review": "authored alphaCutoff 0.5 preserved as binary alpha; oak leaf biome tint and colored untinted sapling preserved"
+}
