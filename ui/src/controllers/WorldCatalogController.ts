@@ -129,7 +129,9 @@ export function createWorldCatalogController(
           ...state,
           worldCatalog: {
             ...state.worldCatalog,
-            status: "verifying", folderError: false, loadError: false,
+            // A native failed load schedules a catalog rescan. Keep its
+            // operation-specific error visible while that rescan runs.
+            status: "verifying", folderError: false,
           },
         }));
         return;
@@ -163,7 +165,7 @@ export function createWorldCatalogController(
           worlds: worlds as WorldSummaryView[],
           folderError: false,
           deleteError: state.worldCatalog.deleteError,
-          loadError: false,
+          loadError: state.worldCatalog.loadError,
         },
       }));
     },
