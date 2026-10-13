@@ -73,7 +73,8 @@ export function NumericInput({
       onBlur={finish}
       onKeyDown={event => {
         if (event.key === "Escape") {
-            event.stopPropagation();
+          event.preventDefault();
+          event.stopPropagation();
           canceling.current = true;
           onChange(lastCommitted.current);
           event.currentTarget.blur();
