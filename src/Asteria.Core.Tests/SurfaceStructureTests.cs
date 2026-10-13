@@ -343,7 +343,7 @@ public sealed class SurfaceStructureTests
             Assert.True(block.IsCollidable);
             Assert.Equal(15, block.LightDampening);
             Assert.All(block.Textures.AllLayers(), layer =>
-                Assert.Equal($"textures/blocks/coral/{id["asteria:coral_".Length..]}.png",
+                Assert.Equal($"textures/blocks/coral_{id["asteria:coral_".Length..]}.png",
                     layer.Texture));
         }
 

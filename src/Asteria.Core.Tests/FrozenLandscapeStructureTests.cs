@@ -110,7 +110,7 @@ public sealed class FrozenLandscapeStructureTests
     }
 
     [Fact]
-    public void FrozenPlantsHaveIndependentSnowyTextures()
+    public void FrozenPlantsHaveCanonicalSnowyTextures()
     {
         var registry = BlockRegistry.FromJson(ReadJson("blocks"));
         foreach (var id in new[]
@@ -128,7 +128,7 @@ public sealed class FrozenLandscapeStructureTests
         }
         var wood = registry.GetDefinition(registry.GetId("asteria:frost_wood"));
         Assert.Equal("wooden_blocks", wood.Category);
-        Assert.NotEqual(
+        Assert.Equal(
             registry.GetDefinition(registry.GetId("asteria:arctic_snow_needles"))
                 .Textures.ForFace(BlockFace.Top).Single().Texture,
             registry.GetDefinition(registry.GetId("asteria:alpine_snow_needles"))
