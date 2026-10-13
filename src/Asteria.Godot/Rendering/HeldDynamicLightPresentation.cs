@@ -5,16 +5,14 @@ using Godot;
 namespace Asteria.Client.Rendering;
 
 /// <summary>
-/// One camera-held RGB emitter for non-voxel receivers plus a render-only
-/// uniform for unshaded terrain. Never participates in authoritative voxel
-/// light or dimension persistence.
+/// One shadow-casting camera-held RGB emitter. Terrain consumes its GPU
+/// shadow visibility above the authoritative voxel light without remeshing.
 /// </summary>
 internal sealed class HeldDynamicLightPresentation
 {
     private static readonly Vector3 HandOffset =
         new(0.32f, -0.24f, -0.52f);
     private readonly Node _parent;
-    private readonly VoxelTerrainMaterialSet _terrain;
     private readonly BlockRegistry _blocks;
     private readonly PackContentRegistry<ObjectDefinition> _objects;
 
@@ -25,12 +23,10 @@ internal sealed class HeldDynamicLightPresentation
 
     public HeldDynamicLightPresentation(
         Node parent,
-        VoxelTerrainMaterialSet terrain,
         BlockRegistry blocks,
         PackContentRegistry<ObjectDefinition> objects)
     {
         _parent = parent ?? throw new ArgumentNullException(nameof(parent));
-        _terrain = terrain ?? throw new ArgumentNullException(nameof(terrain));
         _blocks = blocks ?? throw new ArgumentNullException(nameof(blocks));
         _objects = objects ?? throw new ArgumentNullException(nameof(objects));
     }
@@ -64,7 +60,6 @@ internal sealed class HeldDynamicLightPresentation
             return;
 
         _lastPosition = worldPosition;
-        _terrain.SetHeldLight(worldPosition, _emission);
         if (_light is not null)
             _light.GlobalPosition = worldPosition;
     }
@@ -75,7 +70,6 @@ internal sealed class HeldDynamicLightPresentation
         // disappears during Sphere retirement or world unloading.
         if (_light is not null)
             _light.Visible = false;
-        _terrain.ClearHeldLight();
         _lastPosition = null;
         _lastInventoryRevision = ulong.MaxValue;
         _emission = default;
@@ -87,8 +81,7 @@ internal sealed class HeldDynamicLightPresentation
         {
             if (_light is not null)
                 _light.Visible = false;
-            _terrain.ClearHeldLight();
-            return;
+                return;
         }
 
         if (_light is null)
@@ -97,7 +90,7 @@ internal sealed class HeldDynamicLightPresentation
             {
                 Name = "HeldDynamicLight",
                 OmniRange = 8f,
-                ShadowEnabled = false,
+                ShadowEnabled = true,
             };
             _parent.AddChild(_light);
         }
@@ -108,7 +101,7 @@ internal sealed class HeldDynamicLightPresentation
             _emission.Red / (float)peak,
             _emission.Green / (float)peak,
             _emission.Blue / (float)peak);
-        _light.LightEnergy = 1.8f * peak / VoxelLight.MaxLevel;
+        _light.LightEnergy = 0.85f * peak / VoxelLight.MaxLevel;
         _light.Visible = true;
     }
 }

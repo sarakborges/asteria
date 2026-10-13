@@ -9,6 +9,9 @@ const SHADERS := [
 	"res://shaders/voxel_terrain_opaque.gdshader",
 	"res://shaders/voxel_terrain_cutout.gdshader",
 	"res://shaders/voxel_terrain_translucent.gdshader",
+	"res://shaders/voxel_terrain_opaque_noshadow.gdshader",
+	"res://shaders/voxel_terrain_cutout_noshadow.gdshader",
+	"res://shaders/voxel_terrain_translucent_noshadow.gdshader",
 ]
 
 func _initialize() -> void:
@@ -27,6 +30,15 @@ func _run() -> void:
 			failed = true
 		else:
 			print("Native shader loaded: ", path)
+
+	# Native import and shader-uniform resolution for every terrain mode.
+	# Graphical shadow pixels still require an actual Godot/WRY device run.
+	for path in SHADERS:
+		if path.contains("voxel_terrain"):
+			var terrain_shader := ResourceLoader.load(path) as Shader
+			if terrain_shader == null or terrain_shader.get_shader_uniform_list().is_empty():
+				push_error("Native smoke: terrain shader failed to resolve uniforms " + path)
+				failed = true
 
 	var object_shader := ResourceLoader.load(SHADERS[0]) as Shader
 	if object_shader != null:

@@ -1,9 +1,9 @@
 shader_type spatial;
-render_mode unshaded, cull_back, blend_mix, depth_draw_never, shadows_disabled;
+render_mode ambient_light_disabled, specular_disabled, cull_back, blend_mix, depth_draw_never, shadows_disabled;
 
 uniform sampler2DArray terrain_textures : source_color, filter_nearest, repeat_enable;
 uniform vec2 wind_velocity = vec2(0.0, 0.0);
-#include "res://shaders/held_dynamic_light.gdshaderinc"
+#include "res://shaders/held_shadow_light.gdshaderinc"
 
 const float AMBIENT_FLOOR = 0.055;
 const float SKY_LIGHT_GAMMA = 1.35;
@@ -39,7 +39,6 @@ void vertex() {
         }
     }
     voxel_light = CUSTOM0;
-    held_light_world_position = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 
     vec3 normal = normalize(NORMAL);
     vec3 axis = abs(normal);
@@ -92,9 +91,7 @@ void fragment() {
     }
 
     float sky_level = clamp(voxel_light.r, 0.0, 1.0);
-    vec3 block_levels = max(
-        clamp(voxel_light.gba, vec3(0.0), vec3(1.0)),
-        sample_held_dynamic_light(held_light_world_position));
+    vec3 block_levels = clamp(voxel_light.gba, vec3(0.0), vec3(1.0));
     float ambient_occlusion = clamp(COLOR.a, 0.0, 1.0);
 
     float sky_local_light = mix(
@@ -119,7 +116,11 @@ void fragment() {
         ambient_occlusion *
         voxel_face_shade;
 
-    ALBEDO = rgb * local_light;
+    // Preserve voxel lighting as light-independent emission. The Godot
+    // OmniLight contribution is evaluated only where its shadow map is visible.
+    EMISSION = rgb * local_light;
+    ALBEDO = rgb;
+    held_surface_shade = ambient_occlusion * voxel_face_shade;
     ROUGHNESS = 1.0;
     ALPHA = alpha;
 }
