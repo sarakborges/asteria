@@ -33,6 +33,54 @@ public sealed class PlayerInventoryTests
     }
 
     [Fact]
+    public void PartialPickupFillsExistingStackAndCannotOverwriteOtherMetadata()
+    {
+        var inventory = new PlayerInventory();
+        var variant = InventoryEntry.FromItem("asteria:dimensional_slicer",
+            new Dictionary<string, string>
+            {
+                ["target_dimension"] = "asteria:umbral",
+            });
+        var different = InventoryEntry.FromItem("asteria:dimensional_slicer",
+            new Dictionary<string, string>
+            {
+                ["target_dimension"] = "asteria:overworld",
+            });
+        Assert.True(inventory.TryInsert(new InventoryStack(variant, 63)));
+        for (var index = 0; index < TotalOtherSlots(); index++)
+            Assert.True(inventory.TryInsert(new InventoryStack(
+                InventoryEntry.FromTool($"asteria:filler_{index}"))));
+
+        var revision = inventory.Revision;
+        Assert.Equal(1, inventory.InsertUpTo(new InventoryStack(variant, 11)));
+        Assert.Equal(revision + 1, inventory.Revision);
+        Assert.Equal(64, inventory.SelectedStack!.Quantity);
+        Assert.Equal(variant, inventory.SelectedStack.Entry);
+        Assert.Equal(0, inventory.InsertUpTo(new InventoryStack(different, 3)));
+        Assert.Equal(0, inventory.InsertUpTo(new InventoryStack(variant, 3)));
+        Assert.Equal(revision + 1, inventory.Revision);
+        Assert.False(inventory.TryInsert(new InventoryStack(different)));
+    }
+
+    [Fact]
+    public void PartialPickupCanSplitAcrossExistingAndNewSlotsWithoutTouchingCursor()
+    {
+        var inventory = new PlayerInventory();
+        var item = InventoryEntry.FromItem("asteria:pebble");
+        Assert.True(inventory.TryInsert(new InventoryStack(item, 62)));
+        Assert.True(inventory.TryCreativePick(InventoryEntry.FromItem("asteria:stick")));
+        var cursor = inventory.Cursor;
+        var revision = inventory.Revision;
+        Assert.Equal(7, inventory.InsertUpTo(new InventoryStack(item, 7)));
+        Assert.Equal(64, inventory.SlotAt(PlayerInventory.BackpackSlots)!.Quantity);
+        Assert.Equal(5, inventory.SlotAt(PlayerInventory.BackpackSlots + 1)!.Quantity);
+        Assert.Equal(cursor, inventory.Cursor);
+        Assert.Equal(revision + 1, inventory.Revision);
+    }
+
+    private static int TotalOtherSlots() => PlayerInventory.TotalSlots - 1;
+
+    [Fact]
     public void CursorSwapMergeReturnPreserveQuantities()
     {
         var inventory = new PlayerInventory();
@@ -112,19 +160,19 @@ public sealed class PlayerInventoryTests
     public void MetadataVariantsNeverMergeOrMutateCallerDictionary()
     {
         var original = new Dictionary<string, string> { ["target_dimension"] = "asteria:umbral" };
-        var umbral = InventoryEntry.FromItem("asteria:slicer_dimensional", original);
+        var umbral = InventoryEntry.FromItem("asteria:dimensional_slicer", original);
         original["target_dimension"] = "asteria:overworld";
         Assert.Equal("asteria:umbral", umbral.Metadata["target_dimension"]);
-        var equivalent = InventoryEntry.FromItem("asteria:slicer_dimensional",
+        var equivalent = InventoryEntry.FromItem("asteria:dimensional_slicer",
             new Dictionary<string, string> { ["target_dimension"] = "asteria:umbral" });
         Assert.Equal(umbral, equivalent);
-        Assert.NotEqual(umbral, InventoryEntry.FromItem("asteria:slicer_dimensional"));
+        Assert.NotEqual(umbral, InventoryEntry.FromItem("asteria:dimensional_slicer"));
         var inventory = new PlayerInventory();
         Assert.True(inventory.TryInsert(new InventoryStack(umbral, 32)));
         Assert.True(inventory.TryInsert(new InventoryStack(equivalent, 32)));
         Assert.Equal(64, inventory.SelectedStack!.Quantity);
         Assert.True(inventory.TryInsert(new InventoryStack(
-            InventoryEntry.FromItem("asteria:slicer_dimensional"))));
+            InventoryEntry.FromItem("asteria:dimensional_slicer"))));
         Assert.Equal(1, inventory.SlotAt(28)!.Quantity);
     }
 

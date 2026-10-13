@@ -44,7 +44,7 @@ public sealed class DroppedBlockRuntimeTests
     {
         var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);
         var runtime = new DroppedBlockRuntime(LoadedWorld(), blocks);
-        var item = InventoryEntry.FromItem("asteria:slicer_dimensional",
+        var item = InventoryEntry.FromItem("asteria:dimensional_slicer",
             new Dictionary<string, string> {
                 ["target_dimension"] = "asteria:umbral",
             });
@@ -67,12 +67,141 @@ public sealed class DroppedBlockRuntimeTests
         Assert.Equal(1, restored.CollectNearby(
             new Vector3(3, 4, 5), 1f, inventory.TryInsert));
         Assert.Empty(restored.ActiveBlocks);
-        Assert.Equal("asteria:slicer_dimensional",
+        Assert.Equal("asteria:dimensional_slicer",
             inventory.SlotAt(PlayerInventory.BackpackSlots + 1)!.Id);
         var stacked = runtime.Spawn(new InventoryStack(item, 2),
             new Vector3(3, 4, 5));
         Assert.Equal(2, runtime.ActiveBlocks.Single(
             state => state.Id == stacked).Stack.Quantity);
+    }
+
+    [Fact]
+    public void PartialPickupPreservesDropIdentityMetadataAndRestorableRemainder()
+    {
+        var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);
+        var runtime = new DroppedBlockRuntime(LoadedWorld(), blocks);
+        var metadata = new Dictionary<string, string>
+        {
+            ["target_dimension"] = "asteria:umbral",
+        };
+        var entry = InventoryEntry.FromItem("asteria:dimensional_slicer", metadata);
+        var inventory = new PlayerInventory();
+        Assert.True(inventory.TryInsert(new InventoryStack(entry, 63)));
+        for (var i = 0; i < PlayerInventory.TotalSlots - 1; i++)
+            Assert.True(inventory.TryInsert(new InventoryStack(
+                InventoryEntry.FromTool($"asteria:filler_{i}"))));
+
+        var position = new Vector3(3f, 4f, 5f);
+        var id = runtime.Spawn(new InventoryStack(entry, 10), position);
+        runtime.Advance(0.5, 0);
+        var before = runtime.ActiveBlocks.Single();
+        var revision = inventory.Revision;
+        Assert.Equal(1, runtime.CollectNearbyPartial(
+            position, 1f, inventory.InsertUpTo));
+        Assert.Equal(revision + 1, inventory.Revision);
+        Assert.Equal(64, inventory.SelectedStack!.Quantity);
+
+        var remaining = Assert.Single(runtime.ActiveBlocks);
+        Assert.Equal(id, remaining.Id);
+        Assert.Equal(9, remaining.Stack.Quantity);
+        Assert.Equal(entry, remaining.Stack.Entry);
+        Assert.Equal(before.Position, remaining.Position);
+        Assert.Equal(before.AgeSeconds, remaining.AgeSeconds);
+        Assert.Equal(before.IsSettled, remaining.IsSettled);
+        Assert.Equal(0, runtime.CollectNearbyPartial(
+            position, 1f, inventory.InsertUpTo));
+        Assert.Equal(revision + 1, inventory.Revision);
+
+        // A restored drop has the same portable stack and remains collectible
+        // when the player opens a slot; the saved remainder isn't duplicated.
+        var restored = new DroppedBlockRuntime(
+            LoadedWorld(), blocks, restore: runtime.CaptureState());
+        Assert.Equal(9, Assert.Single(restored.ActiveBlocks).Stack.Quantity);
+        Assert.True(inventory.ClickSlot(PlayerInventory.BackpackSlots));
+        Assert.Equal(1, restored.CollectNearbyPartial(
+            position, 1f, inventory.InsertUpTo));
+        Assert.Empty(restored.ActiveBlocks);
+        Assert.Equal(9, inventory.SelectedStack!.Quantity);
+        Assert.Equal(entry, inventory.SelectedStack.Entry);
+        Assert.Equal(64, inventory.Cursor!.Quantity);
+    }
+
+    [Fact]
+    public void PartialPickupUsesStableDropIdOrderAndPreservesUnacceptedRemainders()
+    {
+        var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);
+        var runtime = new DroppedBlockRuntime(LoadedWorld(), blocks);
+        var entry = InventoryEntry.FromItem("asteria:pebble");
+        var position = new Vector3(3f, 4f, 5f);
+        var oldest = runtime.Spawn(new InventoryStack(entry, 5), position);
+        var newest = runtime.Spawn(new InventoryStack(entry, 7),
+            position + new Vector3(0.2f, 0, 0));
+        runtime.Advance(0.5, 0);
+        var capacity = 6;
+        var seen = new List<int>();
+        Assert.Equal(2, runtime.CollectNearbyPartial(position, 1f, stack =>
+        {
+            seen.Add(stack.Quantity);
+            var accepted = Math.Min(stack.Quantity, capacity);
+            capacity -= accepted;
+            return accepted;
+        }));
+        Assert.Equal(new[] { 5, 7 }, seen);
+        var remainder = Assert.Single(runtime.ActiveBlocks);
+        Assert.Equal(newest, remainder.Id);
+        Assert.NotEqual(oldest, remainder.Id);
+        Assert.Equal(6, remainder.Stack.Quantity);
+        Assert.Equal(0, runtime.CollectNearbyPartial(position, 1f, _ => 0));
+    }
+
+    [Fact]
+    public void AcceptedPickupIsCommittedBeforeLaterRecipientFailure()
+    {
+        var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);
+        var runtime = new DroppedBlockRuntime(LoadedWorld(), blocks);
+        var entry = InventoryEntry.FromItem("asteria:pebble");
+        var position = new Vector3(3f, 4f, 5f);
+        var first = runtime.Spawn(new InventoryStack(entry, 4), position);
+        var second = runtime.Spawn(new InventoryStack(entry, 5),
+            position + new Vector3(0.2f, 0, 0));
+        runtime.Advance(0.5, 0);
+
+        var accepted = 0;
+        Assert.Throws<InvalidOperationException>(() =>
+            runtime.CollectNearbyPartial(position, 1f, stack =>
+            {
+                if (stack.Quantity == 5)
+                    throw new InvalidOperationException("Recipient rejected pickup.");
+                accepted += stack.Quantity;
+                return stack.Quantity;
+            }));
+        Assert.Equal(4, accepted);
+        var remainder = Assert.Single(runtime.ActiveBlocks);
+        Assert.Equal(second, remainder.Id);
+        Assert.NotEqual(first, remainder.Id);
+        Assert.Equal(5, remainder.Stack.Quantity);
+    }
+
+    [Fact]
+    public void PartialPickupGracePeriodAndInvalidQuantityCannotConsumeDrops()
+    {
+        var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);
+        var runtime = new DroppedBlockRuntime(LoadedWorld(), blocks);
+        var entry = InventoryEntry.FromItem("asteria:pebble");
+        runtime.Spawn(new InventoryStack(entry, 4), new Vector3(3f, 4f, 5f));
+        var callbacks = 0;
+        Assert.Equal(0, runtime.CollectNearbyPartial(
+            new Vector3(3f, 4f, 5f), 1f, _ =>
+            {
+                callbacks++;
+                return 4;
+            }));
+        Assert.Equal(0, callbacks);
+        runtime.Advance(0.5, 0);
+        Assert.Throws<InvalidOperationException>(() =>
+            runtime.CollectNearbyPartial(new Vector3(3f, 4f, 5f),
+                1f, _ => 5));
+        Assert.Equal(4, Assert.Single(runtime.ActiveBlocks).Stack.Quantity);
     }
 
     [Fact]

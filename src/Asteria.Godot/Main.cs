@@ -2793,7 +2793,7 @@ public partial class Main : Node3D
     private void SendArtisansKitState()
     {
         var kit = _sessions.Active.ArtisansKit;
-        SendWebUi("game.tool.kit_artisans", new
+        SendWebUi("game.tool.artisans_kit", new
         {
             resolution = kit.IsEquipped(
                 _sessionStates.Player.Inventory.SelectedStack)
@@ -4177,7 +4177,7 @@ public partial class Main : Node3D
         var collected = _blockEntities.CollectNearby(
             new NVector3(player.X, player.Y, player.Z),
             1.2f,
-            _sessionStates.Player.Inventory.TryInsert);
+            _sessionStates.Player.Inventory.InsertUpTo);
         if (collected == 0) return;
         SyncHeldBlock();
         SendHotbarState();
