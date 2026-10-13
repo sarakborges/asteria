@@ -243,8 +243,9 @@ public sealed class DroppedBlockRuntime
     }
 
     /// <summary>
-    /// Collects bounded active drops in stable drop-ID order. A drop is only
-    /// removed after the recipient accepts its exact portable block state.
+    /// Legacy all-or-nothing recipient contract; retained for other
+    /// transactional collectors. Both paths have identical ordering,
+    /// pickup cooldown and removal semantics.
     /// </summary>
     public int CollectNearby(
         Vector3 position,
@@ -252,32 +253,56 @@ public sealed class DroppedBlockRuntime
         Func<InventoryStack, bool> tryAccept)
     {
         ArgumentNullException.ThrowIfNull(tryAccept);
+        return CollectNearbyPartial(position, radius,
+            stack => tryAccept(stack) ? stack.Quantity : 0);
+    }
+
+    /// <summary>
+    /// Collects full or partial stacks in stable drop-ID order. The recipient
+    /// commits its accepted quantity first; only then is the matching
+    /// quantity removed from the physical drop. Partial drops retain their
+    /// ID, position, lifetime, settled-support index and portable metadata.
+    /// Returns the number of changed drops (not the number of units).
+    /// </summary>
+    public int CollectNearbyPartial(
+        Vector3 position,
+        float radius,
+        Func<InventoryStack, int> acceptUpTo)
+    {
+        ArgumentNullException.ThrowIfNull(acceptUpTo);
         if (!IsFinite(position) || !float.IsFinite(radius) || radius <= 0f)
             throw new ArgumentOutOfRangeException(nameof(radius));
 
         var radiusSquared = radius * radius;
-        var collected = 0;
-        // Enumerating is safe because removals are applied after the scan.
-        var acceptedIds = new List<ulong>();
-        foreach (var pair in _active)
+        // IDs are sorted by the owner. Snapshotting the bounded ID set
+        // allows immediate world commitment after each recipient accepts:
+        // if a later recipient throws, previously accepted units are never
+        // left duplicated in both inventory and still-pending drops.
+        var ids = _active.Keys.ToArray();
+        var changed = 0;
+        foreach (var id in ids)
         {
-            // Dropped/just-thrown blocks need to leave the player's
-            // immediate pickup range before being eligible again.
-            if (pair.Value.AgeSeconds < 0.4 ||
-                Vector3.DistanceSquared(pair.Value.Position, position) >
+            var drop = _active[id];
+            if (drop.AgeSeconds < 0.4 ||
+                Vector3.DistanceSquared(drop.Position, position) >
                 radiusSquared)
                 continue;
-            if (!tryAccept(pair.Value.Stack))
-                continue;
-            acceptedIds.Add(pair.Key);
+            var quantity = drop.Stack.Quantity;
+            var accepted = acceptUpTo(drop.Stack);
+            if (accepted < 0 || accepted > quantity)
+                throw new InvalidOperationException(
+                    "Drop recipient accepted an invalid quantity.");
+            if (accepted == 0) continue;
+            if (accepted == quantity)
+                Remove(id);
+            else
+                _active[id] = drop with
+                {
+                    Stack = drop.Stack.WithQuantity(quantity - accepted),
+                };
+            changed++;
         }
-
-        foreach (var id in acceptedIds)
-        {
-            Remove(id);
-            collected++;
-        }
-        return collected;
+        return changed;
     }
 
     public void NotifyVoxelEdit(

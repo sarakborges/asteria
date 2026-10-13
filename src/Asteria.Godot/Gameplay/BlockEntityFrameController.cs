@@ -68,8 +68,8 @@ public sealed class BlockEntityFrameController
     public int CollectNearby(
         Vector3 position,
         float radius,
-        Func<InventoryStack, bool> accept) =>
-        _droppedBlocks.CollectNearby(position, radius, accept);
+        Func<InventoryStack, int> acceptUpTo) =>
+        _droppedBlocks.CollectNearbyPartial(position, radius, acceptUpTo);
 
     public DroppedBlockId SpawnPlayerDrop(
         InventoryStack stack,

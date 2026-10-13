@@ -143,6 +143,24 @@ public sealed class PlayerInventory
     }
 
     /// <summary>
+    /// Accepts as many units as will fit from a world drop, retaining the
+    /// exact authored entry (portable block state, kind and metadata).
+    /// A full inventory is a no-op, including its inventory revision.
+    /// Full-stack transactions such as crafting continue using TryInsert.
+    /// </summary>
+    public int InsertUpTo(InventoryStack incoming)
+    {
+        ArgumentNullException.ThrowIfNull(incoming);
+        var accepted = Math.Min(incoming.Quantity, AvailableCapacity(incoming));
+        if (accepted == 0) return 0;
+        if (!TryInsertInto(_slots, incoming.WithQuantity(accepted)))
+            throw new InvalidOperationException(
+                "Preflighted drop pickup lost reserved inventory capacity.");
+        Revision++;
+        return accepted;
+    }
+
+    /// <summary>
     /// Inventory crafting is an atomic player-inventory mutation. Preflight
     /// uses a private slot array; failed crafts leave slots, cursor and
     /// revision unchanged. Input quantities count portable item identities,
