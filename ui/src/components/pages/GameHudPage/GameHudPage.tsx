@@ -30,6 +30,12 @@ export function GameHudPage({
   onDismissToast,
 }: GameHudPageProps) {
   const spectator = state.gameMode === "spectator";
+  // Attached layers are interactive targets; their icons are already
+  // available from the authoritative Creative catalog snapshot.
+  const activeLayer = state.target?.kind === "block" && state.target.activeLayerId
+    ? catalog.find(entry =>
+        entry.kind === "layer" && entry.id === state.target?.activeLayerId)
+    : undefined;
   const targetOverlay =
     spectator ? null : state.targetEntity ? (
       <HudEntityCard
@@ -42,6 +48,7 @@ export function GameHudPage({
           ? state.target.blockPreview ?? catalog.find(choice =>
               choice.kind === "block" && choice.id === state.target?.id)?.blockPreview
           : undefined}
+        activeLayerIconUrl={activeLayer?.iconUrl}
         miningProgress={state.miningProgress}
         artisansKitResolution={state.artisansKitResolution}
       />
