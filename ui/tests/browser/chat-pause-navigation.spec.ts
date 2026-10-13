@@ -140,3 +140,62 @@ test("focus-loss pause never opens on the pre-world screen", () => {
   receive({ type: "game.ui.pause", payload: {} });
   expect(store.getSnapshot().navigation.overlay).toBe("none");
 });
+
+test("modal close after OS focus loss produces a visible pause, not an orphaned cursor", () => {
+  const { store, receive } = createGameplayBridge();
+  receive(openChat);
+  expect(store.getSnapshot().chat.open).toBe(true);
+
+  // Native focus loss while chat is open should not replace the chat with
+  // pause. After chat submits/closes, an unfocused player cannot recapture:
+  // Main publishes an explicit game.ui.pause after game.chat.state closes.
+  receive({ type: "game.ui.pause", payload: {} });
+  expect(store.getSnapshot().navigation.overlay).toBe("none");
+
+  receive({
+    type: "game.chat.state",
+    payload: { ...openChat.payload as Record<string, unknown>, open: false, visible: false },
+  });
+  receive({ type: "game.ui.pause", payload: {} });
+  expect(store.getSnapshot().chat.open).toBe(false);
+  expect(store.getSnapshot().navigation.overlay).toBe("pause");
+
+  // A repeated native capture-loss or focus event must not close pause.
+  receive({ type: "game.mouse_capture", payload: { captured: false } });
+  expect(store.getSnapshot().navigation.overlay).toBe("pause");
+});
+
+test("unfocused inventory close can hand off to pause without resuming gameplay", () => {
+  const { store, receive } = createGameplayBridge();
+  store.update(state => ({
+    ...state,
+    navigation: { ...state.navigation, overlay: "inventory" },
+    inventory: { ...state.inventory, open: true },
+  }));
+  receive({ type: "game.ui.pause", payload: {} });
+  expect(store.getSnapshot().navigation.overlay).toBe("inventory");
+
+  // The inventory controller closes its own overlay when the native
+  // inventory state arrives; Main only sends focus-loss pause afterward.
+  store.update(state => ({
+    ...state,
+    navigation: { ...state.navigation, overlay: "none" },
+    inventory: { ...state.inventory, open: false },
+  }));
+  receive({ type: "game.ui.pause", payload: {} });
+  expect(store.getSnapshot().navigation.overlay).toBe("pause");
+});
+
+test("late focus-loss pause never replaces an already restored gameplay capture", () => {
+  const { store, receive } = createGameplayBridge();
+  receive(openChat);
+  receive({
+    type: "game.chat.state",
+    payload: { ...openChat.payload as Record<string, unknown>, open: false, visible: false },
+  });
+  // If the player resumed while the window was focused, native capture
+  // wins; the host must not send an extra pause event in that scenario.
+  receive({ type: "game.mouse_capture", payload: { captured: true } });
+  expect(store.getSnapshot().navigation.overlay).toBe("none");
+  expect(store.getSnapshot().mouseCaptured).toBe(true);
+});

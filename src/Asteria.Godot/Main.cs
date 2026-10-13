@@ -344,6 +344,13 @@ public partial class Main : Node3D
     {
         if (what == NotificationWMCloseRequest)
             RequestAppExit();
+        else if (what == NotificationWMWindowFocusIn && _chat.IsOpen)
+        {
+            // A WRY child window can regain keyboard focus after the
+            // original mount-time focus budget has expired (Alt+Tab).
+            // Repeat the native handoff only while chat is still active.
+            CallDeferred(nameof(FocusChatInput));
+        }
         else if (what == NotificationWMWindowFocusOut && _worldReadySent &&
                  _worldSeed is not null && _player is not null &&
                  !_sessionStates.Player.Health.IsDead)
@@ -3195,7 +3202,21 @@ public partial class Main : Node3D
         if (!_chat.IsOpen && !_inventoryOpen && !_brushPaletteOpen &&
             !_keybindCapture.IsCapturing && _worldReadySent &&
             !_sessions.IsTransitioning)
-            _player?.ResumeGameplay();
+            ResumeGameplayOrPauseAfterFocusLoss();
+    }
+
+    /// <summary>
+    /// Closing a modal during Alt+Tab must not leave a live world with
+    /// neither mouse capture nor a visible pause menu. The native player
+    /// owns the focus guard; the UI gets an explicit pause only when that
+    /// guard declined to capture due to OS focus loss.
+    /// </summary>
+    private void ResumeGameplayOrPauseAfterFocusLoss()
+    {
+        if (_player is null) return;
+        _player.ResumeGameplay();
+        if (!_player.IsMouseCaptured && !GetWindow().HasFocus())
+            SendWebUi("game.ui.pause", new { });
     }
 
     private void SubmitChat(JsonElement message)
@@ -3865,7 +3886,7 @@ public partial class Main : Node3D
         if (!_inventoryOpen && _sessions.Active.ActiveStorageBox is null &&
             !_brushPaletteOpen && !_keybindCapture.IsCapturing &&
             _sessionStates.Player.CanInteract)
-            _player?.ResumeGameplay();
+            ResumeGameplayOrPauseAfterFocusLoss();
     }
 
     private void CloseStorageBox()
