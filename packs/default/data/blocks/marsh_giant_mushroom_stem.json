@@ -2,12 +2,12 @@
   "id": "asteria:marsh_giant_mushroom_stem",
   "category": "natural_blocks",
   "textures": {
-    "top": "textures/blocks/mushrooms/marsh_giant/stem.png",
-    "bottom": "textures/blocks/mushrooms/marsh_giant/stem.png",
-    "left": "textures/blocks/mushrooms/marsh_giant/stem.png",
-    "right": "textures/blocks/mushrooms/marsh_giant/stem.png",
-    "front": "textures/blocks/mushrooms/marsh_giant/stem.png",
-    "back": "textures/blocks/mushrooms/marsh_giant/stem.png"
+    "top": "textures/blocks/mushroom_stem.png",
+    "bottom": "textures/blocks/mushroom_stem.png",
+    "left": "textures/blocks/mushroom_stem.png",
+    "right": "textures/blocks/mushroom_stem.png",
+    "front": "textures/blocks/mushroom_stem.png",
+    "back": "textures/blocks/mushroom_stem.png"
   },
   "mining": {
     "hardness": 0.45,

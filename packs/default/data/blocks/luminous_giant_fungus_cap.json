@@ -3,12 +3,12 @@
   "category": "natural_blocks",
   "tint": "none",
   "textures": {
-    "top": "textures/blocks/mushrooms/luminous_giant/cap.png",
-    "bottom": "textures/blocks/mushrooms/luminous_giant/cap.png",
-    "left": "textures/blocks/mushrooms/luminous_giant/cap.png",
-    "right": "textures/blocks/mushrooms/luminous_giant/cap.png",
-    "front": "textures/blocks/mushrooms/luminous_giant/cap.png",
-    "back": "textures/blocks/mushrooms/luminous_giant/cap.png"
+    "top": "textures/blocks/mushroom_red.png",
+    "bottom": "textures/blocks/mushroom_red.png",
+    "left": "textures/blocks/mushroom_red.png",
+    "right": "textures/blocks/mushroom_red.png",
+    "front": "textures/blocks/mushroom_red.png",
+    "back": "textures/blocks/mushroom_red.png"
   },
   "mining": {
     "hardness": 0.34

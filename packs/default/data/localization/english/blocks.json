@@ -1,7 +1,4 @@
 {
-  "asteria:aether_crystal": {
-    "/name": "Aether Crystal"
-  },
   "asteria:aether_crystal_core": {
     "/name": "Aether Crystal Core"
   },
@@ -31,9 +28,6 @@
   },
   "asteria:basalt_cobble": {
     "/name": "Basalt Cobble"
-  },
-  "asteria:basalt_column": {
-    "/name": "Basalt Column"
   },
   "asteria:basalt_polished": {
     "/name": "Polished Basalt"
@@ -67,9 +61,6 @@
   },
   "asteria:cactus_flower_yellow": {
     "/name": "Yellow Cactus Flower"
-  },
-  "asteria:cactus_pad": {
-    "/name": "Cactus Pad"
   },
   "asteria:charwood": {
     "/name": "Charred Wood"
@@ -149,12 +140,6 @@
   "asteria:frost_wood_stripped": {
     "/name": "Stripped Frost Wood"
   },
-  "asteria:glacial_ice_core": {
-    "/name": "Glacial Ice Core"
-  },
-  "asteria:glacial_rime_core": {
-    "/name": "Glacial Rime Core"
-  },
   "asteria:glass": {
     "/name": "Glass"
   },
@@ -199,12 +184,6 @@
   },
   "asteria:juniper_wood_stripped": {
     "/name": "Stripped Juniper Wood"
-  },
-  "asteria:kelp_frond": {
-    "/name": "Kelp Frond"
-  },
-  "asteria:kelp_stem": {
-    "/name": "Kelp Stem"
   },
   "asteria:lamp": {
     "/name": "Lamp"
@@ -268,9 +247,6 @@
   },
   "asteria:log_world_tree_stripped_hollow": {
     "/name": "Stripped Hollow World Tree Log"
-  },
-  "asteria:luminous_crystal_core": {
-    "/name": "Luminous Crystal Core"
   },
   "asteria:luminous_giant_fungus_cap": {
     "/name": "Luminous Giant Fungus Cap"
@@ -419,9 +395,6 @@
   "asteria:storage_box": {
     "/name": "Storage Box"
   },
-  "asteria:sulfur_crystal": {
-    "/name": "Sulfur Crystal"
-  },
   "asteria:terracotta": {
     "/name": "Terracotta"
   },
@@ -439,9 +412,6 @@
   },
   "asteria:thornwood_stripped": {
     "/name": "Stripped Thornwood"
-  },
-  "asteria:volcanic_glass": {
-    "/name": "Volcanic Glass"
   },
   "asteria:wall_moss": {
     "/name": "Wall Moss"
