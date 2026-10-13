@@ -303,6 +303,7 @@ export type WorldCatalogState = {
   worlds: readonly WorldSummaryView[];
   folderError: boolean;
   deleteError: boolean;
+  loadError: boolean;
 };
 
 export type ChatCompletionCatalog = {
@@ -377,7 +378,7 @@ export function createInitialUiState(
       },
     },
     loading: null,
-    worldCatalog: { status: "unavailable", worlds: [], folderError: false, deleteError: false },
+    worldCatalog: { status: "unavailable", worlds: [], folderError: false, deleteError: false, loadError: false },
     chat: {
       open: false, visible: false, focusRequest: 0, history: [], commands: [],
       catalog: {
