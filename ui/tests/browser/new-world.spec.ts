@@ -162,7 +162,7 @@ test("Selecting Flat defaults to a clear plane, with structures optional", async
       .toHaveAttribute("aria-checked", "false");
   }
   await expect(worldGeneration.getByRole("switch", { name: "Spawn Oceans" }))
-    .toBeDisabled();
+    .toBeEnabled();
   await worldGeneration.getByRole("switch", { name: "Spawn Structures" }).click();
   await expect(worldGeneration.getByRole("switch", { name: "Spawn Structures" }))
     .toHaveAttribute("aria-checked", "true");
@@ -191,4 +191,36 @@ test("Spawn Biome options support focused search and exact selection", async ({ 
   await page.getByRole("textbox", { name: "Search biomes..." }).fill("swa");
   await page.getByRole("option", { name: "Swamp" }).click();
   await expect(worldGeneration.getByRole("button", { name: "Spawn Biome" })).toContainText("Swamp");
+});
+
+test("Flat can explicitly enable oceans while retaining planar generation", async ({ page }) => {
+  await page.goto(STORY + "creation-request&viewMode=story");
+  const { worldGeneration } = await expectActualWorldSettings(page);
+  await worldGeneration.getByRole("button", { name: "Flat", exact: true }).click();
+  const oceans = worldGeneration.getByRole("switch", { name: "Spawn Oceans" });
+  await expect(oceans).toBeEnabled();
+  await expect(oceans).toHaveAttribute("aria-checked", "false");
+  await oceans.click();
+  await expect(oceans).toHaveAttribute("aria-checked", "true");
+  await page.locator(".new-world__create[type=submit]").click();
+  const out = page.getByTestId("world-creation-request");
+  await expect(out).not.toBeEmpty();
+  const request = JSON.parse((await out.textContent())!);
+  expect(request.generation.mode).toBe("Flat");
+  expect(request.generation.spawnOceans).toBe(true);
+  expect(request.generation.spawnCaves).toBe(false);
+});
+
+test("Void still disables caves and oceans after toggling Flat oceans on", async ({ page }) => {
+  await page.goto(STORY + "ready&viewMode=story");
+  const { worldGeneration } = await expectActualWorldSettings(page);
+  await worldGeneration.getByRole("button", { name: "Flat", exact: true }).click();
+  await worldGeneration.getByRole("switch", { name: "Spawn Oceans" }).click();
+  await worldGeneration.getByRole("button", { name: "Void", exact: true }).click();
+  await expect(worldGeneration.getByRole("switch", { name: "Spawn Oceans" }))
+    .toHaveAttribute("aria-checked", "false");
+  await expect(worldGeneration.getByRole("switch", { name: "Spawn Oceans" }))
+    .toBeDisabled();
+  await expect(worldGeneration.getByRole("switch", { name: "Spawn Caves" }))
+    .toBeDisabled();
 });
