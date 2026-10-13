@@ -21,6 +21,9 @@ export function createWorldCreationController(
 ): WorldCreationController {
   return {
     createWorld(request) {
+      // The native Create intent is single-flight. Footer clicks, Enter and
+      // WebView event forwarding must not publish duplicate world requests.
+      if (store.getSnapshot().worldCreation.pending) return;
       const ticks = request.ticksPerSecond.trim();
       if (!/^[1-9][0-9]*$/.test(ticks) ||
           !Number.isSafeInteger(Number(ticks)) ||
@@ -55,6 +58,7 @@ export function createWorldCreationController(
     },
 
     randomizeWorld() {
+      if (store.getSnapshot().worldCreation.pending) return;
       updateWorldCreation(store, {
         pending: true,
         errorKey: null,
