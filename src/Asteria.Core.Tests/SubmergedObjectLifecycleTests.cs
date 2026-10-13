@@ -16,10 +16,10 @@ public sealed class SubmergedObjectLifecycleTests
                    "width":0.8,"height":0.78,"planes":4}}
         """,
         """
-        {"id":"asteria:sea_anemone","category":"foliage",
-         "icon":"textures/objects/sea_anemone.png","dropSelf":false,
+        {"id":"asteria:anemone_sea","category":"foliage",
+         "icon":"textures/objects/anemone_sea.png","dropSelf":false,
          "placementFaces":["top"],"requiredFluidAbove":"asteria:water",
-         "visual":{"type":"crossedSprite","texture":"textures/objects/sea_anemone.png",
+         "visual":{"type":"crossedSprite","texture":"textures/objects/anemone_sea.png",
                    "width":0.8,"height":0.88,"planes":4}}
         """
     ];
@@ -89,7 +89,7 @@ public sealed class SubmergedObjectLifecycleTests
         mutations.AddObjectAt(support,
             new ObjectCell("asteria:seagrass", BlockFace.Top));
         mutations.AddObjectAt(support,
-            new ObjectCell("asteria:sea_anemone", BlockFace.Top));
+            new ObjectCell("asteria:anemone_sea", BlockFace.Top));
 
         Assert.True(mutations.SetFluidAt(target,
             FluidCell.Spreading(water, 4, 2), out _));
@@ -193,13 +193,13 @@ public sealed class SubmergedObjectLifecycleTests
             Directory.EnumerateFiles(folder, "*.json").Select(File.ReadAllText),
             ObjectDefinition.Parse, obj => obj.Id);
         foreach (var name in new[] {
-            "kelp", "seagrass", "sea_anemone", "seashell", "starfish"
+            "kelp", "seagrass", "anemone_sea", "seashell", "starfish"
         })
         {
             var obj = all.Get("asteria:" + name);
             Assert.Equal("asteria:water", obj.RequiredFluidAbove);
             Assert.Null(obj.SupportFluid);
-            Assert.Equal(name != "sea_anemone", obj.DropSelf);
+            Assert.Equal(name != "anemone_sea", obj.DropSelf);
         }
     }
 

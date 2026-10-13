@@ -37,9 +37,9 @@ drawing placement conclusions without seed-reproducible worldgen tests.
 | Floating Islands | 7 | 0 | 2 | Multi-height canopy/underside ecology |
 | Caverns | 6 | 0 | 3 | Wall ecology and localized ceiling/floor variety |
 
-**Important nuance:** Wasteland already has `wasteland_snag` and
-`fallen_log_wasteland`; Enchanted Forest already has `tree_enchanted`
-and `enchanted_grove`. Mountains/Mountain Belt already have multiple
+**Important nuance:** Wasteland already has `snag_wasteland` and
+`log_wasteland_fallen`; Enchanted Forest already has `tree_enchanted_tree`
+and `grove_enchanted`. Mountains/Mountain Belt already have multiple
 boulder/outcrop/waterfall rules. The gap is *ecological differentiation*,
 not a missing tree or boulder system. Swamp has especially dense authored
 Willow roots (`spacing:9`, `chance:0.9`), so structure-root count
@@ -51,18 +51,18 @@ does not mean sparse observed foliage.
 
 ### A. Wasteland — dry, dead and layered, not overgrown
 
-1. `dead_thistle`: sparse silhouette, crossedSprite, Dirt/Gravel,
+1. `thistle_dead`: sparse silhouette, crossedSprite, Dirt/Gravel,
    favor `rocky_scrub` and `deadwood_pockets`.
-2. `brittle_tuft`: small straw-colored clump, crossedSprite,
+2. `tuft_brittle`: small straw-colored clump, crossedSprite,
    Dirt, `barren_flats` with sparse clustered distribution.
-3. `dry_lichen`: groundSprite on Stone/Gravel;
+3. `lichen_dry`: groundSprite on Stone/Gravel;
    should not repaint the terrain or create circular patches.
-4. `bleached_roots`: flat coarse roots on Dirt and Gravel,
+4. `roots_bleached`: flat coarse roots on Dirt and Gravel,
    favor deadwood pockets.
-5. `wasteland_thorn_scrub`: 2–4 variants of angular 3D thorn thickets;
-   rare multi-block landmarks compatible with existing `wasteland_snag`.
+5. `scrub_thorn_wasteland`: 2–4 variants of angular 3D thorn thickets;
+   rare multi-block landmarks compatible with existing `snag_wasteland`.
 6. `bone_scatter`: low grounded props, optional
-   `wasteland_fossil_rib` sparse multi-block structures. These are
+   `rib_fossil_wasteland` sparse multi-block structures. These are
    environmental objects, not mobs or fossil gameplay.
 
 Keep `barren_flats` intentionally open. Use sparse clusters and
@@ -75,14 +75,14 @@ patches, extra Pebbles or invented terrain erosion system.**
 
 1. `starflower`: glowing flower in `luminous_clearing`,
    crossedSprite with *authored* colored emission.
-2. `violet_fern` and `pink_bloom`: colorful
+2. `fern_violet` and `bloom_pink`: colorful
    wind-swaying distinct foliage in respective habitat bands.
-3. `glow_pod`: small luminous upright plant, rare under trees.
-4. `enchanted_mushroom_ring`: authored structure of mushrooms around
+3. `pod_glow`: small luminous upright plant, rare under trees.
+4. `ring_mushroom_enchanted`: authored structure of mushrooms around
    an empty middle, not a terrain material circle.
-5. `enchanted_hollow_stump`: stump with mushrooms or flowers, a
+5. `stump_enchanted_tree_hollow`: stump with mushrooms or flowers, a
    2–3-variant small authored landmark, grounded on Grass/Dirt.
-6. `enchanted_fungal_canopy`: uncommon luminous large cap/group
+6. `canopy_fungal_enchanted`: uncommon luminous large cap/group
    using 3D structure voxels, silhouette distinct from existing trees.
 
 **Immediate reuse:** `asteria:mushroom_red` and
@@ -100,19 +100,19 @@ Mountains (habitats `foothill_shelves`, `talus_fields`,
 `exposed_ridges`):
 - `stonecrop`, `saxifrage`: small rock-rooted
   plants on Stone/Stone Cobble; avoid arbitrary Dirt patches.
-- `mountain_dwarf_juniper`: 2–3 low 3D woody shrub variants on stable
+- `tree_juniper_mountain_dwarf`: 2–3 low 3D woody shrub variants on stable
   foothill ledges; slope guard.
-- `rock_lichen`: subtle groundSprite, prefer `talus_fields`.
-- Rare `mountain_wind_pine` (2–3 variants) limited to protected
+- `lichen_rock`: subtle groundSprite, prefer `talus_fields`.
+- Rare `tree_pine_mountain_wind` (2–3 variants) limited to protected
   shelves, not bare summits.
 
 Mountain Belt (habitats `sheltered_passes`, `boulder_runs`,
 `bare_crests`):
-- `pass_grass`, `thorn_rosette`: sparse small plants in passes.
-- `belt_windswept_pine`: twisted conifer group (2–3 3D variants)
+- `grass_pass`, `rosette_thorn`: sparse small plants in passes.
+- `tree_pine_belt_windswept`: twisted conifer group (2–3 3D variants)
   mostly in `sheltered_passes`, visibly unlike alpine snow fir.
-- `scree_lichen`: low rock cover in boulder runs, not terrain patches.
-- `belt_rock_needle_cluster`: occasional dramatic square-section rock
+- `lichen_scree`: low rock cover in boulder runs, not terrain patches.
+- `cluster_rock_needles_belt`: occasional dramatic square-section rock
   spurs for crests; must be different from existing boulder sizes.
 
 Keep peaks bare; these proposals require habitat/slope/height constraints.
@@ -170,7 +170,7 @@ value over existing content.
 - Prefer crossedSprite for herbs, groundSprite for carpets/lichens,
   authored 3D structures for arches, woody canopies and thickets.
 - Use accurate support blocks from the *current* biome palette:
-  `grass_block` on Enchanted/Plains, `dirt`/`gravel`/`stone`
+  `block_grass` on Enchanted/Plains, `dirt`/`gravel`/`stone`
   on Wasteland, `stone` on Mountains/Mountain Belt, `basalt`
   only in Volcano, etc.
 - No new terrain patches or unnecessary cross-biome exceptions.
@@ -208,8 +208,8 @@ All proposals above are optional authored content or explicit
 extensions. They do not modify current terrain, topology, palettes,
 crater, sea level, world Y range, or Sphere boundaries.
 
-**2026-10-11 content migration:** `wall_moss` and `cliff_lichen`
+**2026-10-11 content migration:** `moss_wall` and `lichen_cliff`
 are authored and generated as attached face Layers. Preserve their old
-block definitions for saves. `wall_shelf_fungus` and `cliff_rosette`
+block definitions for saves. `fungus_shelf_wall` and `rosette_cliff`
 remain object candidates; unlike texture overlays, they need physical
 projection outside the host voxel.

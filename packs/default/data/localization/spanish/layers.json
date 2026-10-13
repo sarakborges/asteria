@@ -1,38 +1,38 @@
 {
-  "asteria:cliff_lichen": {
+  "asteria:lichen_cliff": {
     "/name": "Liquen de acantilado"
   },
-  "asteria:copper_ore": {
+  "asteria:ore_copper": {
     "/name": "Mineral de cobre"
   },
-  "asteria:foliage_layer": {
+  "asteria:layer_foliage": {
     "/name": "Capa de follaje"
   },
-  "asteria:gold_ore": {
+  "asteria:ore_gold": {
     "/name": "Mineral de oro"
   },
-  "asteria:iron_ore": {
+  "asteria:ore_iron": {
     "/name": "Mineral de hierro"
   },
-  "asteria:lead_ore": {
+  "asteria:ore_lead": {
     "/name": "Mineral de plomo"
   },
   "asteria:moss": {
     "/name": "Musgo"
   },
-  "asteria:nickel_ore": {
+  "asteria:ore_nickel": {
     "/name": "Mineral de níquel"
   },
-  "asteria:silver_ore": {
+  "asteria:ore_silver": {
     "/name": "Mineral de plata"
   },
-  "asteria:tin_ore": {
+  "asteria:ore_tin": {
     "/name": "Mineral de estaño"
   },
-  "asteria:wall_moss": {
+  "asteria:moss_wall": {
     "/name": "Musgo de pared"
   },
-  "asteria:zinc_ore": {
+  "asteria:ore_zinc": {
     "/name": "Mineral de zinc"
   }
 }

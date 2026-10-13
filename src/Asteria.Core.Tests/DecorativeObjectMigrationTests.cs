@@ -25,7 +25,7 @@ public sealed class DecorativeObjectMigrationTests
             ("mushroom_green", .72f, .62f, 2, true),
             ("mushroom_yellow", .72f, .62f, 2, true),
             ("daisy", .79f, .79f, 4, false),
-            ("purple_aster", .8f, .84f, 4, false),
+            ("aster_purple", .8f, .84f, 4, false),
             ("iris", .79f, .91f, 4, false),
         })
         {
@@ -42,9 +42,9 @@ public sealed class DecorativeObjectMigrationTests
     }
 
     [Theory]
-    [InlineData("pass_grass", "mountain_belt", .8f, .78f)]
-    [InlineData("violet_fern", "enchanted_forest", .92f, .88f)]
-    [InlineData("meadow_seedheads", "plains", .75f, .86f)]
+    [InlineData("grass_pass", "mountain_belt", .8f, .78f)]
+    [InlineData("fern_violet", "enchanted_forest", .92f, .88f)]
+    [InlineData("seedheads_meadow", "plains", .75f, .86f)]
     [InlineData("sagebrush", "gorge", .84f, .82f)]
     public void RemainingSmallFloraUsesSupportOwnedObjects(
         string name, string biomeName, float width, float height)
@@ -116,7 +116,7 @@ public sealed class DecorativeObjectMigrationTests
         foreach (var (biomeId, id) in new[]
         {
             ("plains", "stick"), ("plains", "daisy"),
-            ("plains", "purple_aster"), ("swamp", "stick"),
+            ("plains", "aster_purple"), ("swamp", "stick"),
             ("swamp", "iris"), ("enchanted_forest", "stick"),
             ("mountains", "stick"), ("gorge", "stick"),
             ("wasteland", "stick"), ("umbral/withered_waste", "stick")

@@ -33,8 +33,8 @@ public sealed class ArtisansKitRuntime
         MicroblockResolution.Thick;
 
     public bool IsEquipped(InventoryStack? held) =>
-        Behavior(held, ToolUseHand.Left) == "asteria:artisans_kit/remove" &&
-        Behavior(held, ToolUseHand.Right) == "asteria:artisans_kit/restore";
+        Behavior(held, ToolUseHand.Left) == "asteria:kit_artisans/remove" &&
+        Behavior(held, ToolUseHand.Right) == "asteria:kit_artisans/restore";
 
     public MicroblockResolution CycleResolution()
     {

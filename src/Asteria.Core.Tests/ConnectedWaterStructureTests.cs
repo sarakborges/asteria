@@ -36,7 +36,7 @@ public sealed class ConnectedWaterStructureTests
         Assert.Equal(
             10,
             structures.ResolveReference(
-                "asteria:river_segment")
+                "asteria:segment_river")
                 .Count);
         Assert.Equal(
             4,
@@ -46,22 +46,22 @@ public sealed class ConnectedWaterStructureTests
         Assert.Equal(
             4,
             structures.ResolveReference(
-                "asteria:mountain_pond")
+                "asteria:pond_mountain")
                 .Count);
         Assert.Equal(
             4,
             structures.ResolveReference(
-                "asteria:mountain_waterfall")
+                "asteria:waterfall_mountain")
                 .Count);
         Assert.Equal(
             4,
             structures.ResolveReference(
-                "asteria:river_lake")
+                "asteria:lake_river")
                 .Count);
 
         var waterfall =
             structures.Get(
-                "asteria:mountain_waterfall_01");
+                "asteria:waterfall_mountain_01");
         Assert.Equal(
             3,
             waterfall.Restrictions.MinSlope);
@@ -76,7 +76,7 @@ public sealed class ConnectedWaterStructureTests
 
         var mouth =
             structures.Get(
-                "asteria:river_ocean_mouth");
+                "asteria:mouth_river_ocean");
         Assert.NotEmpty(
             mouth.FluidVoxels);
         Assert.NotEmpty(
@@ -86,7 +86,7 @@ public sealed class ConnectedWaterStructureTests
             connector =>
                 string.Equals(
                     connector.Target,
-                    "asteria:river_segment",
+                    "asteria:segment_river",
                     StringComparison.Ordinal));
 
         var overworld =
@@ -98,7 +98,7 @@ public sealed class ConnectedWaterStructureTests
                 root =>
                     string.Equals(
                         root.Structure,
-                        "asteria:river_ocean_mouth",
+                        "asteria:mouth_river_ocean",
                         StringComparison.Ordinal));
         Assert.Equal(
             DimensionGeneratedSurfaceStructurePlacement.BiomeMargin,

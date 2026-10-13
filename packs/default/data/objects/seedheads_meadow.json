@@ -1,0 +1,35 @@
+{
+  "id": "asteria:seedheads_meadow",
+  "category": "foliage",
+  "icon": "textures/objects/seedheads_meadow.png",
+  "placementFaces": [
+    "top"
+  ],
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/seedheads_meadow.png",
+    "width": 0.75,
+    "height": 0.86,
+    "planes": 4,
+    "alphaCutoff": 0.5
+  },
+  "target": {
+    "size": [
+      0.75,
+      0.86,
+      0.75
+    ],
+    "centerOffset": [
+      0,
+      0.43,
+      0
+    ]
+  },
+  "positionJitter": [
+    0.18,
+    0.18
+  ],
+  "dropSelf": false,
+  "windSway": true,
+  "unlit": false
+}

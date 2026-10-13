@@ -77,14 +77,14 @@ public sealed class BlockInteractionRuntimeTests
         var fixture =
             CreateFixture(
                 new BlockDefinition(
-                    "asteria:sphere_shell",
+                    "asteria:shell_sphere",
                     mining:
                         new BlockMiningDefinition(
                             unbreakable: true),
                     dropsSelf: false));
         var shell =
             fixture.Blocks.GetId(
-                "asteria:sphere_shell");
+                "asteria:shell_sphere");
         var position =
             new WorldVoxelCoord(2, 2, 2);
 

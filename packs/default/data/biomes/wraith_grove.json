@@ -21,7 +21,7 @@
       "object": "asteria:grass",
       "chance": 0.0216,
       "surfaceBlocks": [
-        "asteria:grass_block",
+        "asteria:block_grass",
         "asteria:dirt"
       ],
       "habitatWeights": {
@@ -34,7 +34,7 @@
       "object": "asteria:mushroom_brown",
       "chance": 0.006,
       "surfaceBlocks": [
-        "asteria:grass_block",
+        "asteria:block_grass",
         "asteria:dirt"
       ],
       "habitatWeights": {
@@ -47,7 +47,7 @@
       "object": "asteria:stick",
       "chance": 0.0144,
       "surfaceBlocks": [
-        "asteria:grass_block",
+        "asteria:block_grass",
         "asteria:dirt"
       ],
       "cluster": {
@@ -87,7 +87,7 @@
   "palette": {
     "default": [
       {
-        "block": "asteria:grass_block",
+        "block": "asteria:block_grass",
         "depth": 1
       },
       {

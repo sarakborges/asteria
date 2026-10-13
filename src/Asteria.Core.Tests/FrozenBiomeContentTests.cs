@@ -5,9 +5,9 @@ namespace Asteria.Core.Tests;
 public sealed class FrozenBiomeContentTests
 {
     private static readonly string[] ArcticObjects =
-        ["frost_shrub", "frost_lichen", "ice_spike"];
+        ["shrub_frost", "lichen_frost", "spike_ice"];
     private static readonly string[] AlpsObjects =
-        ["alpine_edelweiss", "alpine_sedge", "frost_lichen", "ice_spike"];
+        ["edelweiss_alpine", "sedge_alpine", "lichen_frost", "spike_ice"];
 
     [Fact]
     public void ArcticAndAlpsDecorationsUseOnlyTheirAuthoredHabitatBands()
@@ -45,7 +45,7 @@ public sealed class FrozenBiomeContentTests
                         "asteria:gravel", "asteria:stone",
                     }));
                 var block = blocks.GetDefinition(blocks.GetId(rule.Block));
-                if (name != "ice_spike")
+                if (name != "spike_ice")
                     Assert.True(block.HasTag(BlockPhysicsCapabilities.SupportBelow));
                 Assert.Contains(BlockFace.Top, block.PlacementFaces);
                 Assert.True(block.LightDampening <= 1);
@@ -53,34 +53,34 @@ public sealed class FrozenBiomeContentTests
         }
 
         Assert.DoesNotContain(alps.Decorations,
-            d => d.Block == "asteria:frost_shrub");
+            d => d.Block == "asteria:shrub_frost");
         Assert.DoesNotContain(arctic.Decorations,
-            d => d.Block is "asteria:alpine_edelweiss" or "asteria:alpine_sedge");
+            d => d.Block is "asteria:edelweiss_alpine" or "asteria:sedge_alpine");
 
         Assert.True(Assert.Single(arctic.Decorations,
-            d => d.Block == "asteria:frost_shrub")
+            d => d.Block == "asteria:shrub_frost")
             .HabitatWeights!.For("frozen_plain") >
             Assert.Single(arctic.Decorations,
-                d => d.Block == "asteria:frost_shrub")
+                d => d.Block == "asteria:shrub_frost")
                 .HabitatWeights!.For("ice_fields"));
         Assert.True(Assert.Single(arctic.Decorations,
-            d => d.Block == "asteria:ice_spike")
+            d => d.Block == "asteria:spike_ice")
             .HabitatWeights!.For("ice_fields") >
             Assert.Single(arctic.Decorations,
-                d => d.Block == "asteria:ice_spike")
+                d => d.Block == "asteria:spike_ice")
                 .HabitatWeights!.For("frozen_plain"));
 
         Assert.True(Assert.Single(alps.Decorations,
-            d => d.Block == "asteria:alpine_edelweiss")
+            d => d.Block == "asteria:edelweiss_alpine")
             .HabitatWeights!.For("snowfields") >
             Assert.Single(alps.Decorations,
-                d => d.Block == "asteria:alpine_edelweiss")
+                d => d.Block == "asteria:edelweiss_alpine")
                 .HabitatWeights!.For("wind_scoured_rock"));
         Assert.True(Assert.Single(alps.Decorations,
-            d => d.Block == "asteria:alpine_sedge")
+            d => d.Block == "asteria:sedge_alpine")
             .HabitatWeights!.For("wind_scoured_rock") >
             Assert.Single(alps.Decorations,
-                d => d.Block == "asteria:alpine_sedge")
+                d => d.Block == "asteria:sedge_alpine")
                 .HabitatWeights!.For("snowfields"));
     }
 
@@ -94,9 +94,9 @@ public sealed class FrozenBiomeContentTests
         foreach (var name in ids)
         {
             var block = blocks.GetDefinition(blocks.GetId($"asteria:{name}"));
-            if (name != "ice_spike")
+            if (name != "spike_ice")
                 Assert.NotEqual(BlockRenderMode.Translucent, block.RenderMode);
-            if (name == "ice_spike")
+            if (name == "spike_ice")
             {
                 Assert.Equal(BlockShapeKind.Spike, block.Shape.Kind);
                 Assert.True(block.IsCollidable);
@@ -107,7 +107,7 @@ public sealed class FrozenBiomeContentTests
             }
             else
             {
-                Assert.Equal(name == "frost_lichen"
+                Assert.Equal(name == "lichen_frost"
                     ? BlockVisualKind.GroundSprite
                     : BlockVisualKind.CrossedSprite,
                     block.Visual.Kind);

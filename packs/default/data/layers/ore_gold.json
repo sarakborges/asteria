@@ -1,0 +1,39 @@
+{
+  "id": "asteria:ore_gold",
+  "category": "blocks_natural",
+  "texture": "textures/layers/ores/ore_gold.png",
+  "tint": "none",
+  "offset": 0.001,
+  "alphaCutoff": 0.5,
+  "alphaBlend": false,
+  "castsShadow": false,
+  "scope": "voxel",
+  "mining": {
+    "hardness": 2.7,
+    "requiredTools": [
+      "pickaxe"
+    ],
+    "preferredTools": [
+      "pickaxe"
+    ]
+  },
+  "drops": [
+    {
+      "kind": "item",
+      "id": "asteria:ore_gold_raw",
+      "quantity": 1
+    }
+  ],
+  "generation": {
+    "dimension": "asteria:overworld",
+    "hostBlocks": [
+      "asteria:stone",
+      "asteria:basalt"
+    ],
+    "minY": 3,
+    "maxY": 54,
+    "spacing": 27,
+    "radius": 2,
+    "chance": 0.17
+  }
+}

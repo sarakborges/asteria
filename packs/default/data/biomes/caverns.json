@@ -8,7 +8,7 @@
         "asteria:stone",
         "asteria:gravel",
         "asteria:dirt",
-        "asteria:stone_cobble"
+        "asteria:cobble_stone"
       ],
       "cluster": {
         "scale": 26,
@@ -27,7 +27,7 @@
         "asteria:stone",
         "asteria:gravel",
         "asteria:dirt",
-        "asteria:stone_cobble"
+        "asteria:cobble_stone"
       ],
       "cluster": {
         "scale": 36,
@@ -46,7 +46,7 @@
         "asteria:stone",
         "asteria:gravel",
         "asteria:dirt",
-        "asteria:stone_cobble",
+        "asteria:cobble_stone",
         "asteria:clay"
       ],
       "cluster": {
@@ -60,12 +60,12 @@
       }
     },
     {
-      "object": "asteria:hanging_roots",
+      "object": "asteria:roots_hanging",
       "chance": 0.18,
       "supportSurface": "ceiling",
       "surfaceBlocks": [
         "asteria:stone",
-        "asteria:stone_cobble"
+        "asteria:cobble_stone"
       ],
       "cluster": {
         "scale": 30,
@@ -78,11 +78,11 @@
       }
     },
     {
-      "object": "asteria:glowcap",
+      "object": "asteria:mushroom_glowcap",
       "chance": 0.0144,
       "surfaceBlocks": [
         "asteria:stone",
-        "asteria:stone_cobble",
+        "asteria:cobble_stone",
         "asteria:gravel",
         "asteria:clay"
       ],
@@ -97,11 +97,11 @@
       }
     },
     {
-      "object": "asteria:glow_fern",
+      "object": "asteria:fern_glow",
       "chance": 0.022,
       "surfaceBlocks": [
         "asteria:stone",
-        "asteria:stone_cobble",
+        "asteria:cobble_stone",
         "asteria:dirt",
         "asteria:clay"
       ],
@@ -120,7 +120,7 @@
       "chance": 0.095,
       "surfaceBlocks": [
         "asteria:stone",
-        "asteria:stone_cobble"
+        "asteria:cobble_stone"
       ],
       "cluster": {
         "scale": 33,
@@ -132,15 +132,15 @@
         "minY": 18,
         "maxY": 105
       },
-      "layer": "asteria:wall_moss"
+      "layer": "asteria:moss_wall"
     },
     {
-      "object": "asteria:wall_shelf_fungus",
+      "object": "asteria:fungus_shelf_wall",
       "supportSurface": "wall",
       "chance": 0.052,
       "surfaceBlocks": [
         "asteria:stone",
-        "asteria:stone_cobble"
+        "asteria:cobble_stone"
       ],
       "cluster": {
         "scale": 41,
@@ -156,7 +156,7 @@
   ],
   "caveSpikes": [
     {
-      "block": "asteria:stone_spike",
+      "block": "asteria:spike_stone",
       "chance": 0.22,
       "minHeight": 2,
       "maxHeight": 9,
@@ -174,7 +174,7 @@
       }
     },
     {
-      "block": "asteria:ice_spike",
+      "block": "asteria:spike_ice",
       "surfaceBiomes": [
         "asteria:overworld/alps",
         "asteria:overworld/arctic"
@@ -196,7 +196,7 @@
       }
     },
     {
-      "block": "asteria:basalt_spike",
+      "block": "asteria:spike_basalt",
       "surfaceBiomes": [
         "asteria:overworld/scorched_wastes"
       ],
@@ -217,7 +217,7 @@
       }
     },
     {
-      "block": "asteria:sandstone_spike",
+      "block": "asteria:spike_sandstone",
       "surfaceBiomes": [
         "asteria:overworld/desert",
         "asteria:overworld/gorge"
@@ -239,7 +239,7 @@
       }
     },
     {
-      "block": "asteria:stone_spike",
+      "block": "asteria:spike_stone",
       "surfaceBiomes": [
         "asteria:overworld/wasteland"
       ],
@@ -260,7 +260,7 @@
       }
     },
     {
-      "block": "asteria:azure_crystal",
+      "block": "asteria:crystal_azure",
       "chance": 0.065,
       "minHeight": 2,
       "maxHeight": 5,
@@ -292,7 +292,7 @@
           "roughness": 0.25,
           "blocks": [
             "asteria:gravel",
-            "asteria:stone_cobble",
+            "asteria:cobble_stone",
             "asteria:dirt",
             "asteria:clay"
           ],
@@ -300,7 +300,7 @@
           "selectionScale": 58,
           "weights": {
             "asteria:gravel": 2,
-            "asteria:stone_cobble": 2,
+            "asteria:cobble_stone": 2,
             "asteria:dirt": 1,
             "asteria:clay": 1
           }
@@ -323,11 +323,11 @@
           "warpScale": 81,
           "warpStrength": 8,
           "blocks": [
-            "asteria:stone_cobble",
+            "asteria:cobble_stone",
             "asteria:gravel"
           ],
           "weights": {
-            "asteria:stone_cobble": 3,
+            "asteria:cobble_stone": 3,
             "asteria:gravel": 1
           }
         }
@@ -345,7 +345,7 @@
           "coverage": 0.23,
           "roughness": 0.22,
           "blocks": [
-            "asteria:stone_cobble"
+            "asteria:cobble_stone"
           ],
           "detailScale": 12,
           "selectionScale": 60
@@ -358,7 +358,7 @@
   },
   "volumeStructures": [
     {
-      "structure": "asteria:cavern_glow_mushroom",
+      "structure": "asteria:mushroom_glow_cavern",
       "spacing": 24,
       "chance": 0.81,
       "minY": 20,
@@ -366,7 +366,7 @@
       "supportSurface": "floor"
     },
     {
-      "structure": "asteria:cavern_crystal_cluster",
+      "structure": "asteria:cluster_crystal_cavern",
       "spacing": 29,
       "chance": 0.66,
       "minY": 18,
@@ -374,7 +374,7 @@
       "supportSurface": "floor"
     },
     {
-      "structure": "asteria:cavern_chandelier",
+      "structure": "asteria:chandelier_cavern",
       "spacing": 33,
       "chance": 0.54,
       "minY": 22,

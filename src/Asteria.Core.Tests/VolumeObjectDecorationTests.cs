@@ -10,12 +10,12 @@ public sealed class VolumeObjectDecorationTests
     [
         ("asteria:overworld/caverns", "mushroom_brown", DecorationSupportSurface.Floor, [BlockFace.Top]),
         ("asteria:overworld/caverns", "mushroom_purple", DecorationSupportSurface.Floor, [BlockFace.Top]),
-        ("asteria:overworld/caverns", "hanging_roots", DecorationSupportSurface.Ceiling, [BlockFace.Bottom]),
-        ("asteria:overworld/caverns", "wall_shelf_fungus", DecorationSupportSurface.Wall,
+        ("asteria:overworld/caverns", "roots_hanging", DecorationSupportSurface.Ceiling, [BlockFace.Bottom]),
+        ("asteria:overworld/caverns", "fungus_shelf_wall", DecorationSupportSurface.Wall,
             [BlockFace.Left, BlockFace.Right, BlockFace.Front, BlockFace.Back]),
         ("asteria:overworld/floating_islands", "mushroom_purple", DecorationSupportSurface.Floor, [BlockFace.Top]),
-        ("asteria:overworld/floating_islands", "aether_vines", DecorationSupportSurface.Ceiling, [BlockFace.Bottom]),
-        ("asteria:overworld/floating_islands", "cloud_reed", DecorationSupportSurface.Floor, [BlockFace.Top]),
+        ("asteria:overworld/floating_islands", "vines_aether", DecorationSupportSurface.Ceiling, [BlockFace.Bottom]),
+        ("asteria:overworld/floating_islands", "reed_cloud", DecorationSupportSurface.Floor, [BlockFace.Top]),
         ("asteria:umbral/wraith_grove", "mushroom_brown", DecorationSupportSurface.Floor, [BlockFace.Top]),
     ];
 
@@ -46,7 +46,7 @@ public sealed class VolumeObjectDecorationTests
         }
 
         // Luminescent vegetation is now attached Objects with its authored RGB light.
-        foreach (var id in new[] {"glowcap", "glow_fern", "aether_bloom"})
+        foreach (var id in new[] {"mushroom_glowcap", "fern_glow", "bloom_aether"})
         {
             var key = "asteria:" + id;
             Assert.False(blocks.TryGetId(key, out _));

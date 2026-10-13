@@ -44,7 +44,7 @@ public sealed class HeldLightResolverTests
     {
         var data = File.ReadAllText(
             Path.Combine(AppContext.BaseDirectory, "packs", "default",
-                "data", "objects", "glowcap.json"));
+                "data", "objects", "mushroom_glowcap.json"));
         var definition = Asteria.Core.Content.ObjectDefinition.Parse(data);
         var blocks = new BlockRegistry([]);
         var objects = Asteria.Core.Content.PackContentRegistry<Asteria.Core.Content.ObjectDefinition>

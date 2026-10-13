@@ -5,7 +5,7 @@
   "all_sprites_unique": true,
   "sprites": [
     {
-      "family": "charwood",
+      "family": "log_charwood",
       "block_id": "asteria:sapling_charwood",
       "size": [
         64,
@@ -53,7 +53,7 @@
       "bottom_padding_shift_pixels": 3
     },
     {
-      "family": "frost_wood",
+      "family": "log_frost_wood",
       "block_id": "asteria:sapling_frost_wood",
       "size": [
         64,
@@ -125,7 +125,7 @@
       "bottom_padding_shift_pixels": 4
     },
     {
-      "family": "rime_deadwood",
+      "family": "log_rime_deadwood",
       "block_id": "asteria:sapling_rime_deadwood",
       "size": [
         64,
@@ -173,7 +173,7 @@
       "bottom_padding_shift_pixels": 2
     },
     {
-      "family": "thornwood",
+      "family": "log_thornwood",
       "block_id": "asteria:sapling_thornwood",
       "size": [
         64,
@@ -221,7 +221,7 @@
       "bottom_padding_shift_pixels": 2
     },
     {
-      "family": "windwood",
+      "family": "log_windwood",
       "block_id": "asteria:sapling_windwood",
       "size": [
         64,

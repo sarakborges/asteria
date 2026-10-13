@@ -38,7 +38,7 @@ public sealed class PlayerDeathConsequencesTests
         var stone = InventoryEntry.FromItem("asteria:berries",
             new Dictionary<string, string> { ["origin"] = "wild" });
         Assert.True(player.Inventory.TryInsert(new InventoryStack(stone, 37)));
-        var helmet = InventoryEntry.FromItem("asteria:wayfarer_helmet",
+        var helmet = InventoryEntry.FromItem("asteria:helmet_wayfarer",
             new Dictionary<string, string> { [EquipmentDurability.MetadataKey] = "9" },
             maxStackSize: 1);
         Assert.True(player.Inventory.TryCreativePick(helmet));
@@ -62,7 +62,7 @@ public sealed class PlayerDeathConsequencesTests
         Assert.Equal(37, drops.ActiveBlocks.Single(
             d => d.Stack.Id == "asteria:berries").Stack.Quantity);
         Assert.Equal("9", drops.ActiveBlocks.Single(
-            d => d.Stack.Id == "asteria:wayfarer_helmet")
+            d => d.Stack.Id == "asteria:helmet_wayfarer")
             .Stack.Entry.Metadata[EquipmentDurability.MetadataKey]);
 
         var restoredDrops = new DroppedBlockRuntime(new VoxelWorld(),

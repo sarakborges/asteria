@@ -18,7 +18,7 @@ public sealed class MiningFragmentAppearanceTests
     private static Fixture Setup()
     {
         var blocks = new BlockRegistry([
-            new BlockDefinition("asteria:grass_block",
+            new BlockDefinition("asteria:block_grass",
                 tint: BlockTint.Grass, secondaryProperties: ["dyed"],
                 textures: new BlockTextureSet(
                     top: [new BlockTextureLayer("textures/grass_top.png", true)],
@@ -39,7 +39,7 @@ public sealed class MiningFragmentAppearanceTests
              "scope":"face","tint":"foliage","mining":{"hardness":0}}
             """,
             """
-            {"id":"asteria:iron_ore","texture":"textures/layers/iron.png",
+            {"id":"asteria:ore_iron","texture":"textures/layers/iron.png",
              "scope":"voxel","tint":"none","mining":{"hardness":0}}
             """
         ]);
@@ -65,9 +65,9 @@ public sealed class MiningFragmentAppearanceTests
     {
         var f = Setup();
         Assert.True(f.Mutations.SetBlockAt(
-            Position, f.Blocks.GetId("asteria:grass_block"), out _));
+            Position, f.Blocks.GetId("asteria:block_grass"), out _));
         Assert.True(f.Mutations.SetBlockSurfaceStateAt(Position,
-            new BlockSurfaceState("asteria:red"), out _));
+            new BlockSurfaceState("asteria:dye_red"), out _));
 
         var front = MiningFragmentAppearance.Resolve(
             f.World, f.Blocks, f.Layers, Front)!;
@@ -76,7 +76,7 @@ public sealed class MiningFragmentAppearanceTests
         Assert.False(front.Textures[0].Dyable);
         Assert.True(front.Textures[1].Dyable);
         Assert.Equal(BlockTint.Grass, front.Tint);
-        Assert.Equal("asteria:red", front.DyeId);
+        Assert.Equal("asteria:dye_red", front.DyeId);
 
         var top = MiningFragmentAppearance.Resolve(
             f.World, f.Blocks, f.Layers, Top)!;
@@ -89,10 +89,10 @@ public sealed class MiningFragmentAppearanceTests
     {
         var f = Setup();
         Assert.True(f.Mutations.SetBlockAt(Position,
-            f.Blocks.GetId("asteria:grass_block"), out _));
+            f.Blocks.GetId("asteria:block_grass"), out _));
         Assert.True(f.Mutations.SetBlockSurfaceStateAt(Position,
-            new BlockSurfaceState("asteria:red", [
-                new AttachedBlockLayer(BlockFace.Top, "asteria:iron_ore"),
+            new BlockSurfaceState("asteria:dye_red", [
+                new AttachedBlockLayer(BlockFace.Top, "asteria:ore_iron"),
                 new AttachedBlockLayer(BlockFace.Top, "asteria:moss")
             ]), out _));
         var moss = MiningFragmentAppearance.Resolve(
@@ -104,7 +104,7 @@ public sealed class MiningFragmentAppearanceTests
 
         Assert.True(f.Mutations.SetBlockSurfaceStateAt(Position,
             new BlockSurfaceState(null, [
-                new AttachedBlockLayer(BlockFace.Top, "asteria:iron_ore")
+                new AttachedBlockLayer(BlockFace.Top, "asteria:ore_iron")
             ]), out _));
         var ore = MiningFragmentAppearance.Resolve(
             f.World, f.Blocks, f.Layers, Top)!;
@@ -122,7 +122,7 @@ public sealed class MiningFragmentAppearanceTests
     {
         var f = Setup();
         Assert.True(f.Mutations.SetBlockAt(Position,
-            f.Blocks.GetId("asteria:grass_block"), out _));
+            f.Blocks.GetId("asteria:block_grass"), out _));
         Assert.True(f.Mutations.SetBlockSurfaceStateAt(Position,
             new BlockSurfaceState(null, [
                 new AttachedBlockLayer(BlockFace.Top, "asteria:moss")
@@ -131,7 +131,7 @@ public sealed class MiningFragmentAppearanceTests
         Assert.True(f.Mining.Advance(
             Top, null, 0, 0, PlayerGameMode.Survival));
         Assert.Equal(0, f.World.GetBlockSurfaceStateOrEmpty(Position).Layers.Count);
-        Assert.Equal(f.Blocks.GetId("asteria:grass_block"),
+        Assert.Equal(f.Blocks.GetId("asteria:block_grass"),
             f.World.GetCellOrEmpty(Position).Block);
         var completed = f.Mining.LastFeedback!.Value;
         Assert.True(completed.Completed);

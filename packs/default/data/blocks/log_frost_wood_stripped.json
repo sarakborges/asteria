@@ -1,0 +1,30 @@
+{
+  "id": "asteria:log_frost_wood_stripped",
+  "category": "blocks_wooden",
+  "textures": {
+    "top": "textures/blocks/trees/frost_wood/top.png",
+    "bottom": "textures/blocks/trees/frost_wood/top.png",
+    "left": "textures/blocks/trees/frost_wood/stripped.png",
+    "right": "textures/blocks/trees/frost_wood/stripped.png",
+    "front": "textures/blocks/trees/frost_wood/stripped.png",
+    "back": "textures/blocks/trees/frost_wood/stripped.png"
+  },
+  "mining": {
+    "hardness": 1.15,
+    "preferredTools": [
+      "hatchet"
+    ]
+  },
+  "lightDampening": 15,
+  "castsShadow": true,
+  "previewColor": "799192",
+  "variant": {
+    "family": "asteria:log_frost_wood",
+    "key": "stripped"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ]
+}

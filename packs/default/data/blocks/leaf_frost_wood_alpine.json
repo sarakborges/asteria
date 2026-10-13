@@ -1,0 +1,20 @@
+{
+  "id": "asteria:leaf_frost_wood_alpine",
+  "category": "foliage",
+  "windSway": true,
+  "textures": {
+    "top": "textures/blocks/trees/frost_wood/leaf.png",
+    "bottom": "textures/blocks/trees/frost_wood/leaf.png",
+    "left": "textures/blocks/trees/frost_wood/leaf.png",
+    "right": "textures/blocks/trees/frost_wood/leaf.png",
+    "front": "textures/blocks/trees/frost_wood/leaf.png",
+    "back": "textures/blocks/trees/frost_wood/leaf.png"
+  },
+  "alphaCutoff": 0.5,
+  "mining": {
+    "hardness": 0.14
+  },
+  "lightDampening": 2,
+  "castsShadow": false,
+  "previewColor": "6d9d84"
+}

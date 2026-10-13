@@ -28,9 +28,9 @@ public sealed class InteractiveLayerMiningTests
              "scope":"face","mining":{"hardness":0.2,"preferredTools":["shears"]}}
             """,
             """
-            {"id":"asteria:iron_ore","texture":"textures/layers/iron.png",
+            {"id":"asteria:ore_iron","texture":"textures/layers/iron.png",
              "scope":"voxel","mining":{"hardness":0.5,"requiredTools":["pickaxe"]},
-             "drops":[{"kind":"item","id":"asteria:raw_iron","quantity":2}]}
+             "drops":[{"kind":"item","id":"asteria:ore_iron_raw","quantity":2}]}
             """,
             """
             {"id":"asteria:lichen","texture":"textures/layers/lichen.png",
@@ -83,9 +83,9 @@ public sealed class InteractiveLayerMiningTests
     public void MiningRemovesOnlyTopFaceLayerAndThenMinesVoxelWideOre()
     {
         var f = Setup();
-        PutStone(f, new BlockSurfaceState("asteria:red", [
-            new AttachedBlockLayer(BlockFace.Top, "asteria:iron_ore"),
-            new AttachedBlockLayer(BlockFace.Front, "asteria:iron_ore"),
+        PutStone(f, new BlockSurfaceState("asteria:dye_red", [
+            new AttachedBlockLayer(BlockFace.Top, "asteria:ore_iron"),
+            new AttachedBlockLayer(BlockFace.Front, "asteria:ore_iron"),
             new AttachedBlockLayer(BlockFace.Top, "asteria:moss")
         ]));
 
@@ -93,7 +93,7 @@ public sealed class InteractiveLayerMiningTests
         Assert.Equal(0.5f, f.Mining.Progress!.Value);
         Assert.True(f.Mining.Advance(TopHit, Shears(), 0, 10, PlayerGameMode.Survival));
         Assert.Equal(f.Blocks.GetId("asteria:stone"), f.World.GetCellOrEmpty(Position).Block);
-        Assert.Equal("asteria:red", f.World.GetBlockSurfaceStateOrEmpty(Position).DyeId);
+        Assert.Equal("asteria:dye_red", f.World.GetBlockSurfaceStateOrEmpty(Position).DyeId);
         Assert.Equal(2, f.World.GetBlockSurfaceStateOrEmpty(Position).Layers.Count);
         Assert.Equal("asteria:moss", Assert.Single(f.Drops.ActiveBlocks).Stack.Id);
 
@@ -105,7 +105,7 @@ public sealed class InteractiveLayerMiningTests
         Assert.Empty(f.World.GetBlockSurfaceStateOrEmpty(Position).Layers);
         Assert.Equal(f.Blocks.GetId("asteria:stone"), f.World.GetCellOrEmpty(Position).Block);
         var oreDrop = Assert.Single(f.Drops.ActiveBlocks.Where(
-            state => state.Stack.Id == "asteria:raw_iron"));
+            state => state.Stack.Id == "asteria:ore_iron_raw"));
         Assert.Equal(2, oreDrop.Stack.Quantity);
         Assert.Equal(InventoryEntryKind.Item, oreDrop.Stack.Entry.Kind);
 
@@ -133,8 +133,8 @@ public sealed class InteractiveLayerMiningTests
         };
         var hit = new VoxelWorldHit(Position, nx, ny, nz);
         PutStone(f, new BlockSurfaceState(null, [
-            new AttachedBlockLayer(face, "asteria:iron_ore"),
-            new AttachedBlockLayer(BlockFace.Bottom, "asteria:iron_ore")
+            new AttachedBlockLayer(face, "asteria:ore_iron"),
+            new AttachedBlockLayer(BlockFace.Bottom, "asteria:ore_iron")
         ]));
         Assert.True(f.Interactions.Break(hit).Accepted);
         Assert.Equal(f.Blocks.GetId("asteria:stone"),
@@ -142,7 +142,7 @@ public sealed class InteractiveLayerMiningTests
         Assert.Empty(f.World.GetBlockSurfaceStateOrEmpty(Position).Layers);
 
         var drop = Assert.Single(f.Drops.ActiveBlocks);
-        Assert.Equal("asteria:raw_iron", drop.Stack.Id);
+        Assert.Equal("asteria:ore_iron_raw", drop.Stack.Id);
         Assert.Equal(InventoryEntryKind.Item, drop.Stack.Entry.Kind);
         Assert.Equal(2, drop.Stack.Quantity);
         var center = new System.Numerics.Vector3(
@@ -160,7 +160,7 @@ public sealed class InteractiveLayerMiningTests
         Assert.Equal(0, f.Drops.CollectNearby(drop.Position, 1f, inventory.TryInsert));
         Assert.Contains(Enumerable.Range(0, PlayerInventory.TotalSlots)
                 .Select(inventory.SlotAt),
-            stack => stack?.Id == "asteria:raw_iron" && stack.Quantity == 2);
+            stack => stack?.Id == "asteria:ore_iron_raw" && stack.Quantity == 2);
     }
 
     [Fact]
@@ -194,7 +194,7 @@ public sealed class InteractiveLayerMiningTests
     {
         var f = Setup();
         PutStone(f, new BlockSurfaceState(null, [
-            new AttachedBlockLayer(BlockFace.Top, "asteria:iron_ore"),
+            new AttachedBlockLayer(BlockFace.Top, "asteria:ore_iron"),
             new AttachedBlockLayer(BlockFace.Top, "asteria:moss",
                 TextureRotation.Degrees90),
             new AttachedBlockLayer(BlockFace.Front, "asteria:lichen",
@@ -229,7 +229,7 @@ public sealed class InteractiveLayerMiningTests
     {
         var f = Setup();
         PutStone(f, new BlockSurfaceState(null, [
-            new AttachedBlockLayer(BlockFace.Top, "asteria:iron_ore"),
+            new AttachedBlockLayer(BlockFace.Top, "asteria:ore_iron"),
             new AttachedBlockLayer(BlockFace.Top, "asteria:moss")
         ]));
 
@@ -243,7 +243,7 @@ public sealed class InteractiveLayerMiningTests
 
         Assert.False(f.Mining.Advance(TopHit, Pickaxe(), 0, 10,
             PlayerGameMode.Survival));
-        Assert.Equal("asteria:iron_ore",
+        Assert.Equal("asteria:ore_iron",
             f.Mining.TargetLayer!.Value.LayerId);
     }
 
@@ -266,7 +266,7 @@ public sealed class InteractiveLayerMiningTests
     {
         var f = Setup(dropCapacity: 1);
         PutStone(f, new BlockSurfaceState(null, [
-            new AttachedBlockLayer(BlockFace.Top, "asteria:iron_ore")
+            new AttachedBlockLayer(BlockFace.Top, "asteria:ore_iron")
         ]));
         var existing = f.Drops.Spawn(
             new InventoryStack(InventoryEntry.FromItem("asteria:existing")),
@@ -278,7 +278,7 @@ public sealed class InteractiveLayerMiningTests
             f.World.GetCellOrEmpty(Position).Block);
         Assert.True(f.World.GetBlockSurfaceStateOrEmpty(Position)
             .TryGetTop(BlockFace.Top, out var top));
-        Assert.Equal("asteria:iron_ore", top.LayerId);
+        Assert.Equal("asteria:ore_iron", top.LayerId);
     }
 
     [Fact]

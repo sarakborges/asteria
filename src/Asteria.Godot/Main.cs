@@ -2793,7 +2793,7 @@ public partial class Main : Node3D
     private void SendArtisansKitState()
     {
         var kit = _sessions.Active.ArtisansKit;
-        SendWebUi("game.tool.artisans_kit", new
+        SendWebUi("game.tool.kit_artisans", new
         {
             resolution = kit.IsEquipped(
                 _sessionStates.Player.Inventory.SelectedStack)

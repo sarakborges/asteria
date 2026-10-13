@@ -6,7 +6,7 @@
   "data_and_runtime_scope": "artwork-only: block definitions, recipes and runtime unchanged",
   "assets": [
     {
-      "family": "charwood",
+      "family": "log_charwood",
       "size": [
         64,
         64
@@ -56,7 +56,7 @@
       "visual_repeat_review": "passed: native 64x64 and exact 3x3 repeats inspected"
     },
     {
-      "family": "frost_wood",
+      "family": "log_frost_wood",
       "size": [
         64,
         64
@@ -131,7 +131,7 @@
       "visual_repeat_review": "passed: native 64x64 and exact 3x3 repeats inspected"
     },
     {
-      "family": "rime_deadwood",
+      "family": "log_rime_deadwood",
       "size": [
         64,
         64
@@ -181,7 +181,7 @@
       "visual_repeat_review": "passed: native 64x64 and exact 3x3 repeats inspected"
     },
     {
-      "family": "thornwood",
+      "family": "log_thornwood",
       "size": [
         64,
         64
@@ -231,7 +231,7 @@
       "visual_repeat_review": "passed: native 64x64 and exact 3x3 repeats inspected"
     },
     {
-      "family": "windwood",
+      "family": "log_windwood",
       "size": [
         64,
         64

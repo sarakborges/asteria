@@ -11,13 +11,13 @@ public sealed class ChunkMeshDataBuilderTests
         var texture = new BlockTextureLayer("textures/test/spike.png");
         var blocks = new BlockRegistry(
         [
-            new BlockDefinition("asteria:stone_spike",
+            new BlockDefinition("asteria:spike_stone",
                 textures: new BlockTextureSet(top: [texture]),
                 shape: BlockShapeDefinition.Spike(
                     baseRadius: 0.42f, taperPower: 1.3f)),
         ]);
         var chunk = new Chunk();
-        var spike = blocks.GetId("asteria:stone_spike");
+        var spike = blocks.GetId("asteria:spike_stone");
         chunk.SetCell(2, 2, 2, new VoxelCell(spike));
         ChunkLightingSolver.Initialize(chunk, blocks, new FluidRegistry([]));
         var world = new VoxelWorld();
@@ -76,12 +76,12 @@ public sealed class ChunkMeshDataBuilderTests
     {
         const string path = "textures/test/spike.png";
         var blocks = new BlockRegistry([
-            new BlockDefinition("asteria:stone_spike",
+            new BlockDefinition("asteria:spike_stone",
                 textures: new BlockTextureSet(top: [new BlockTextureLayer(path)]),
                 shape: BlockShapeDefinition.Spike(baseRadius: 0.42f,
                     taperPower: 1.3f)),
         ]);
-        var spike = blocks.GetId("asteria:stone_spike");
+        var spike = blocks.GetId("asteria:spike_stone");
         var chunk = new Chunk();
         // This profile still expects a segment above, although that
         // segment was removed independently or replaced with a stale profile.
@@ -114,12 +114,12 @@ public sealed class ChunkMeshDataBuilderTests
     {
         const string path = "textures/test/spike.png";
         var blocks = new BlockRegistry([
-            new BlockDefinition("asteria:stone_spike",
+            new BlockDefinition("asteria:spike_stone",
                 textures: new BlockTextureSet(top: [new BlockTextureLayer(path)]),
                 shape: BlockShapeDefinition.Spike(baseRadius: 0.42f,
                     taperPower: 1.3f))
         ]);
-        var id = blocks.GetId("asteria:stone_spike");
+        var id = blocks.GetId("asteria:spike_stone");
         var world = new VoxelWorld();
         var lower = new Chunk();
         lower.SetCell(2, 15, 2, new VoxelCell(id,
@@ -156,13 +156,13 @@ public sealed class ChunkMeshDataBuilderTests
         const string texture = "textures/test/spike.png";
         var blocks = new BlockRegistry(
         [
-            new BlockDefinition("asteria:stone_spike",
+            new BlockDefinition("asteria:spike_stone",
                 textures: new BlockTextureSet(top: [new BlockTextureLayer(texture)]),
                 shape: BlockShapeDefinition.Spike(
                     baseRadius: 0.42f, taperPower: 1.3f)),
         ]);
         var chunk = new Chunk();
-        var spike = blocks.GetId("asteria:stone_spike");
+        var spike = blocks.GetId("asteria:spike_stone");
         chunk.SetCell(2, 2, 2, new VoxelCell(
             spike, state: SpikeSegmentState.Encode(down ? 1 : 0, 2, down)));
         chunk.SetCell(2, 3, 2, new VoxelCell(
@@ -293,7 +293,7 @@ public sealed class ChunkMeshDataBuilderTests
             new BlockRegistry(
             [
                 new BlockDefinition(
-                    "asteria:grass_block",
+                    "asteria:block_grass",
                     tint: BlockTint.Grass,
                     textures:
                         new BlockTextureSet(
@@ -319,7 +319,7 @@ public sealed class ChunkMeshDataBuilderTests
                     32),
                 [
                     new BiomeSurfaceLayerDefinition(
-                        "asteria:grass_block"),
+                        "asteria:block_grass"),
                 ],
                 tints:
                     new BiomeTintPaletteDefinition(
@@ -384,7 +384,7 @@ public sealed class ChunkMeshDataBuilderTests
             1,
             1,
             blocks.GetId(
-                "asteria:grass_block"));
+                "asteria:block_grass"));
         ChunkLightingSolver.Initialize(
             chunk,
             blocks,
@@ -827,7 +827,7 @@ public sealed class ChunkMeshDataBuilderTests
     public void DyedGrassUsesAuthoredTintWhileAdjacentUndyedGrassUsesBiomeTint()
     {
         var blocks = new BlockRegistry([
-            new BlockDefinition("asteria:grass_block", tint: BlockTint.Grass,
+            new BlockDefinition("asteria:block_grass", tint: BlockTint.Grass,
                 secondaryProperties: ["dyed"],
                 textures: new BlockTextureSet(top: [
                     new BlockTextureLayer("textures/grass.png", dyable: true)
@@ -835,15 +835,15 @@ public sealed class ChunkMeshDataBuilderTests
                 previewColor: new BlockPreviewColor(20, 200, 20))
         ]);
         var chunk = new Chunk();
-        var id = blocks.GetId("asteria:grass_block");
+        var id = blocks.GetId("asteria:block_grass");
         chunk.SetBlock(1, 1, 1, id);
         chunk.SetBlock(2, 1, 1, id);
-        chunk.SetSurfaceState(1, 1, 1, new BlockSurfaceState("asteria:red"));
+        chunk.SetSurfaceState(1, 1, 1, new BlockSurfaceState("asteria:dye_red"));
         ChunkLightingSolver.Initialize(chunk, blocks, new FluidRegistry([]));
         var world = new VoxelWorld();
         world.InsertChunk(ChunkCoord.Zero, chunk);
         var dyes = new DyeRegistry([
-            new DyeDefinition("asteria:red", 0f, 1f, 1f / 3f)
+            new DyeDefinition("asteria:dye_red", 0f, 1f, 1f / 3f)
         ]);
         var data = ChunkMeshDataBuilder.BuildMeshlet(
             world, ChunkCoord.Zero, blocks,
@@ -862,10 +862,10 @@ public sealed class ChunkMeshDataBuilderTests
     public void DyedGeometryRejectsUnknownColorIds()
     {
         var blocks = new BlockRegistry([
-            new BlockDefinition("asteria:grass_block", secondaryProperties: ["dyed"])
+            new BlockDefinition("asteria:block_grass", secondaryProperties: ["dyed"])
         ]);
         var chunk = new Chunk();
-        chunk.SetBlock(1, 1, 1, blocks.GetId("asteria:grass_block"));
+        chunk.SetBlock(1, 1, 1, blocks.GetId("asteria:block_grass"));
         chunk.SetSurfaceState(1, 1, 1, new BlockSurfaceState("asteria:missing"));
         var world = new VoxelWorld();
         world.InsertChunk(ChunkCoord.Zero, chunk);

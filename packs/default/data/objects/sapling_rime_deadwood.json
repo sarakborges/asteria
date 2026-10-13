@@ -34,5 +34,5 @@
   "unlit": false,
   "tint": "none",
   "previewColor": "b1d5e8",
-  "growthStructure": "asteria:sapling_grown_rime_deadwood"
+  "growthStructure": "asteria:tree_rime_deadwood_sapling_grown"
 }

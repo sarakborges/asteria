@@ -9,7 +9,7 @@ public sealed class AttachedLayerDefinitionTests
     {
         var definition = AttachedLayerDefinition.Parse(
             """
-            {"id":"asteria:foliage_layer","texture":"textures/blocks/grass/side_overlay.png",
+            {"id":"asteria:layer_foliage","texture":"textures/blocks/grass/side_overlay.png",
              "faces":["top","front"],"tint":"foliage","offset":0.002,"alphaCutoff":0.5}
             """);
         Assert.True(definition.Supports(BlockFace.Top));
@@ -27,17 +27,17 @@ public sealed class AttachedLayerDefinitionTests
     {
         var ore = AttachedLayerDefinition.Parse(
             """
-            {"id":"asteria:iron_ore","texture":"textures/layers/ore.png",
+            {"id":"asteria:ore_iron","texture":"textures/layers/ore.png",
              "scope":"voxel",
              "mining":{"hardness":3,"requiredTools":["pickaxe"],"preferredTools":["pickaxe"]},
-             "drops":[{"kind":"item","id":"asteria:raw_iron","quantity":2}]}
+             "drops":[{"kind":"item","id":"asteria:ore_iron_raw","quantity":2}]}
             """);
         Assert.Equal(LayerRemovalScope.Voxel, ore.Scope);
         Assert.Equal(3f, ore.Mining.Hardness);
         Assert.Equal("pickaxe", Assert.Single(ore.Mining.RequiredTools));
         var drop = Assert.Single(ore.Drops).ToStack();
         Assert.Equal(InventoryEntryKind.Item, drop.Entry.Kind);
-        Assert.Equal("asteria:raw_iron", drop.Id);
+        Assert.Equal("asteria:ore_iron_raw", drop.Id);
         Assert.Equal(2, drop.Quantity);
 
         var legacy = AttachedLayerDefinition.Parse(

@@ -8,7 +8,7 @@
   ],
   "restrictions": {
     "groundBlocks": [
-      "asteria:grass_block",
+      "asteria:block_grass",
       "asteria:dirt",
       "asteria:mud"
     ],
@@ -37,7 +37,7 @@
   },
   "palette": {
     "G": {
-      "block": "asteria:grass_block"
+      "block": "asteria:block_grass"
     },
     "W": {
       "block": "asteria:log_willow",
@@ -55,7 +55,7 @@
       "block": "asteria:leaf_willow"
     },
     "M": {
-      "block": "asteria:hanging_moss"
+      "block": "asteria:moss_hanging"
     }
   },
   "layers": [

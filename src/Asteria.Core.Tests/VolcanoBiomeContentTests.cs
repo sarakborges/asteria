@@ -26,9 +26,9 @@ public sealed class VolcanoBiomeContentTests
         Assert.InRange(rolling.Amplitude, 0f, 4f);
         Assert.Equal("asteria:basalt", biome.SurfaceLayers[^1].Block);
         Assert.Contains(biome.Decorations,
-            item => item.Block == "asteria:ash_thorn");
+            item => item.Block == "asteria:thorn_ash");
         Assert.Contains(biome.Decorations,
-            item => item.Block == "asteria:cinder_bloom");
+            item => item.Block == "asteria:bloom_cinder");
         Assert.NotNull(biome.SurfaceHabitats);
     }
 
@@ -80,7 +80,7 @@ public sealed class VolcanoBiomeContentTests
     [Fact]
     public void VolcanoUsesOnlyNativeStructuresAndFourExplicitConnectors()
     {
-        var root = Load("volcanic_caldera");
+        var root = Load("caldera_volcanic");
         Assert.Equal(4, root.Connectors.Count);
         Assert.All(root.Connectors,
             connector => Assert.NotNull(connector.Target));
@@ -92,7 +92,7 @@ public sealed class VolcanoBiomeContentTests
 
         foreach (var (id, _, _) in Quadrants)
         {
-            var piece = Load("volcanic_caldera_" + id);
+            var piece = Load("caldera_volcanic_" + id);
             Assert.Contains(root.Connectors,
                 c => c.Target == piece.Id);
             Assert.Single(piece.Connectors);
@@ -120,9 +120,9 @@ public sealed class VolcanoBiomeContentTests
         var heights = new Dictionary<(int X, int Z), int>();
         var lava = new HashSet<(int X, int Y, int Z)>();
         foreach (var (definition, originX, originZ) in
-            new[] { (Load("volcanic_caldera"), 0, 0) }
+            new[] { (Load("caldera_volcanic"), 0, 0) }
                 .Concat(Quadrants.Select(piece =>
-                    (Load("volcanic_caldera_" + piece.Id), piece.X, piece.Z))))
+                    (Load("caldera_volcanic_" + piece.Id), piece.X, piece.Z))))
         {
             foreach (var block in definition.Voxels)
             {
@@ -206,16 +206,16 @@ public sealed class VolcanoBiomeContentTests
             """);
         var blocks = new BlockRegistry([
             new BlockDefinition("asteria:basalt"),
-            new BlockDefinition("asteria:basalt_cobble")
+            new BlockDefinition("asteria:cobble_basalt")
         ]);
         var fluids = new FluidRegistry([
             new FluidDefinition("asteria:lava",
                 new FluidColor(255, 90, 10), 0.8f)
         ]);
         var structures = new StructureRegistry(
-            new[] { Load("volcanic_caldera") }
+            new[] { Load("caldera_volcanic") }
                 .Concat(Quadrants.Select(piece =>
-                    Load("volcanic_caldera_" + piece.Id))));
+                    Load("caldera_volcanic_" + piece.Id))));
         var generator = new BiomeWorldGenerator(
             77UL, dimension, blocks, fluids,
             new BiomeRegistry([biome]), structures);
@@ -223,7 +223,7 @@ public sealed class VolcanoBiomeContentTests
             96, 96, 64, 64);
         Assert.Equal(5, placements.Count);
         var root = Assert.Single(placements,
-            p => p.StructureId == "asteria:volcanic_caldera");
+            p => p.StructureId == "asteria:caldera_volcanic");
 
         void AssertBlock(int x, int y, int z, string block)
         {
@@ -282,7 +282,7 @@ public sealed class VolcanoBiomeContentTests
             "The actual Overworld biome field must produce a full volcano, " +
             "not an ungenerated landmark or a lone lava pillar.");
         var result = nearest!.Value;
-        Assert.Equal("asteria:volcanic_caldera", result.StructureId);
+        Assert.Equal("asteria:caldera_volcanic", result.StructureId);
         var pieces = generator.SurfaceStructuresIntersecting(
             result.AnchorX - 52, result.AnchorZ - 52, 105, 105)
             .Where(piece => piece.PlacementAnchorX == result.PlacementAnchorX &&

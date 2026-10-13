@@ -28,7 +28,7 @@ public sealed class UmbralHabitatContentTests
     }
 
     [Theory]
-    [InlineData("umbral_reach", "asteria:grass_block", "asteria:dirt", "asteria:gravel", "asteria:stone")]
+    [InlineData("umbral_reach", "asteria:block_grass", "asteria:dirt", "asteria:gravel", "asteria:stone")]
     [InlineData("withered_waste", "asteria:dirt", "asteria:gravel", "asteria:stone", "asteria:stone")]
     public void OrganicSurfacePatchesPreserveWorldSpaceDeterminismAndMaterialVariety(
         string biomeName, string primary, string alternateA,
@@ -72,9 +72,9 @@ public sealed class UmbralHabitatContentTests
         var tree = Assert.Single(roots,
             root => root.Structure == "asteria:tree_wraith");
         var grove = Assert.Single(roots,
-            root => root.Structure == "asteria:wraith_grove");
+            root => root.Structure == "asteria:grove_wraith");
         var rocks = Assert.Single(roots,
-            root => root.Structure == "asteria:rock_cluster");
+            root => root.Structure == "asteria:cluster_rock");
 
         Assert.True(tree.HabitatWeights!.For("spectral_groves") >
                     tree.HabitatWeights.For("shadow_meadows"));
@@ -98,11 +98,11 @@ public sealed class UmbralHabitatContentTests
         var roots = LoadUmbralRoots(biome);
         Assert.Equal(6, roots.Length);
         var snag = Assert.Single(roots,
-            root => root.Structure == "asteria:withered_snag");
+            root => root.Structure == "asteria:snag_withered");
         var deadfall = Assert.Single(roots,
-            root => root.Structure == "asteria:fallen_log_wraith");
+            root => root.Structure == "asteria:log_wraith_fallen");
         var cluster = Assert.Single(roots,
-            root => root.Structure == "asteria:rock_cluster");
+            root => root.Structure == "asteria:cluster_rock");
 
         Assert.True(snag.HabitatWeights!.For("withered_thickets") >
                     snag.HabitatWeights.For("dead_expanse"));
@@ -121,7 +121,7 @@ public sealed class UmbralHabitatContentTests
     {
         var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
         var structures = StructureRegistry.FromJson(ReadJsonDirectory("structures"));
-        var deadTrees = structures.ResolveReference("asteria:withered_snag");
+        var deadTrees = structures.ResolveReference("asteria:snag_withered");
         Assert.Equal(2, deadTrees.Count);
         foreach (var tree in deadTrees)
         {
@@ -135,7 +135,7 @@ public sealed class UmbralHabitatContentTests
             Assert.All(tree.Voxels, voxel =>
             {
                 Assert.True(voxel.Y >= 1);
-                Assert.NotEqual("asteria:grass_block", voxel.Block);
+                Assert.NotEqual("asteria:block_grass", voxel.Block);
             });
         }
         structures.ValidateBlocks(blocks);
@@ -146,7 +146,7 @@ public sealed class UmbralHabitatContentTests
     {
         var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
         var structures = StructureRegistry.FromJson(ReadJsonDirectory("structures"));
-        var variants = structures.ResolveReference("asteria:fallen_log_wraith");
+        var variants = structures.ResolveReference("asteria:log_wraith_fallen");
         Assert.Equal(2, variants.Count);
 
         foreach (var structure in variants)
@@ -164,20 +164,20 @@ public sealed class UmbralHabitatContentTests
             Assert.Contains("asteria:dirt", structure.Restrictions.GroundBlocks);
             Assert.Contains("asteria:gravel", structure.Restrictions.GroundBlocks);
             Assert.Contains(structure.Voxels,
-                cell => cell.Block == "asteria:leaf_enchanted");
+                cell => cell.Block == "asteria:leaf_enchanted_tree");
             Assert.All(structure.Voxels, cell =>
             {
                 Assert.True(cell.Y >= 1);
-                if (cell.Block == "asteria:leaf_enchanted")
+                if (cell.Block == "asteria:leaf_enchanted_tree")
                 {
                     Assert.Equal(BlockOrientation.Y, cell.Orientation);
                     return;
                 }
                 Assert.Contains(cell.Block, new[]
                 {
-                    "asteria:log_enchanted",
-                    "asteria:log_enchanted_stripped",
-                    "asteria:log_enchanted_stripped_hollow",
+                    "asteria:log_enchanted_tree",
+                    "asteria:log_enchanted_tree_stripped",
+                    "asteria:log_enchanted_tree_stripped_hollow",
                 });
                 Assert.Equal(BlockOrientation.X, cell.Orientation);
             });

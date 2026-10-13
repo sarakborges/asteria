@@ -13,7 +13,7 @@ const meta = {
   component: BrushPalettePage,
   parameters: { layout: "fullscreen" },
   args: {
-    state: { selectedId: "asteria:red", colors },
+    state: { selectedId: "asteria:dye_red", colors },
     onSelect: () => {},
     onClose: () => {},
   },

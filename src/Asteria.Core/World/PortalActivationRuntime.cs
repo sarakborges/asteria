@@ -10,7 +10,7 @@ namespace Asteria.Core.World;
 /// </summary>
 public sealed class PortalActivationRuntime
 {
-    public const string SlicerItemId = "asteria:dimensional_slicer";
+    public const string SlicerItemId = "asteria:slicer_dimensional";
     public const string TargetMetadataKey = "target_dimension";
     private const string FrameTag = "is_portal_frame";
     private const string FrameTargetPrefix = "accept_dimension:";

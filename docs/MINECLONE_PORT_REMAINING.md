@@ -335,8 +335,8 @@ MineClone `world-systems-rebuild` reference: `world_objects.rs::detached_object_
 ## Cave and additive-volume Objects — 2026-10-12
 
 - `SurfaceDecorationField` resolves authored Objects separately for floor, ceiling, and wall supports, with validation of required faces. The materializer stages Object placement against the supporting solid block and publishes it after cave/Structure/Sphere Shell finalization; ceiling/floor candidates include adjacent vertical chunk seams.
-- Ported `mushroom_brown`, `mushroom_purple`, `hanging_roots`, `aether_vines`, `wall_shelf_fungus`, and `cloud_reed` to attached Objects. Migrated Caverns, Floating Islands, Enchanted Forest, Swamp and Wraith Grove, plus seven Enchanted Forest and ten oak/stump/swamp Structure palettes, including EN/PT-BR/ES object localization. No duplicate voxel identities or save aliases.
-- The authored luminescent `glowcap`, `glow_fern`, and `aether_bloom` deliberately remain blocks until the Object definition/render-light contract supports equivalent light emission; their current lighting may not regress.
+- Ported `mushroom_brown`, `mushroom_purple`, `roots_hanging`, `vines_aether`, `fungus_shelf_wall`, and `reed_cloud` to attached Objects. Migrated Caverns, Floating Islands, Enchanted Forest, Swamp and Wraith Grove, plus seven Enchanted Forest and ten oak/stump/swamp Structure palettes, including EN/PT-BR/ES object localization. No duplicate voxel identities or save aliases.
+- The authored luminescent `mushroom_glowcap`, `fern_glow`, and `bloom_aether` deliberately remain blocks until the Object definition/render-light contract supports equivalent light emission; their current lighting may not regress.
 - Native Godot rendering/targeting across chunk seams, wall-face orientation and world-save round trips still need in-game validation.
  
 ## Emissive attached Objects — 2026-10-12
@@ -373,9 +373,9 @@ MineClone `world-systems-rebuild` reference: `world_objects.rs::detached_object_
 
 ## Swamp reed and tall grass Object migration — 2026-10-12
 
-- Converted `tall_grass`, `marsh_orchid`, `bulrush`, and `cattail` to support-owned crossed-sprite Objects; original dimensions, alpha cutout, wind sway, no-self-drop, visual textures, and fixed authored biome probabilities/habitat constraints remain intact.
+- Converted `grass_tall`, `orchid_marsh`, `bulrush`, and `cattail` to support-owned crossed-sprite Objects; original dimensions, alpha cutout, wind sway, no-self-drop, visual textures, and fixed authored biome probabilities/habitat constraints remain intact.
 - Preserved marsh near-water requirements (orchid max 3 voxels, bulrush/cattail max 2) without letting dry-ground plants replace or occupy water cells.
-- Migrated the three `swamp_reed_bed` Structure palettes to Objects, preserving their variants, Y offsets, restrictions, proximity to water, and density. No duplicate authored blocks or backward-compatibility aliases.
+- Migrated the three `bed_reed_swamp` Structure palettes to Objects, preserving their variants, Y offsets, restrictions, proximity to water, and density. No duplicate authored blocks or backward-compatibility aliases.
 - Transferred EN/PT-BR/ES labels and added regression tests for content shapes, biome fluid rules, and all Structure variants. In-game visual acceptance remains pending.
 
 ## Biome-tinted Objects: Grass — 2026-10-12
@@ -388,14 +388,14 @@ MineClone `world-systems-rebuild` reference: `world_objects.rs::detached_object_
 
 ## Remaining small-flora Objects — 2026-10-12
 
-- Converted `pass_grass` (Mountain Belt), `violet_fern` (Enchanted Forest), `meadow_seedheads` (Plains) and `sagebrush` (Gorge) from crossed-sprite voxel blocks to canonical support-owned Objects.
+- Converted `grass_pass` (Mountain Belt), `fern_violet` (Enchanted Forest), `seedheads_meadow` (Plains) and `sagebrush` (Gorge) from crossed-sprite voxel blocks to canonical support-owned Objects.
 - Kept one unchanged ID and source PNG per plant, original dimensions, four planes, no self-drop, wind sway, alpha cutoff, dry top support, biome ground whitelist, authored chances, clusters, elevation/slope limits and habitat weights. Generated decorations now use `object` rather than `block` in their original biome rules. Objects have matching hitboxes and deterministic position jitter.
 - Removed their obsolete block definitions and moved localized names to the Object catalog in EN/PT-BR/ES. No old-save compatibility aliases.
 - Updated biome-specific Core tests and added four-way object-identity/geometry/habitat validation. Native Godot/WRY texture, target, generation and save/restore QA remains pending.
 
 ## Sea anemone Object migration — 2026-10-12
 
-- Converted `asteria:sea_anemone` from a crossed-sprite voxel block to the canonical top-attached Object. Kept the texture, 0.8×0.88 dimensions, four planes, fixed positioning, no wind sway, unlit=false, and `dropSelf=false`, with original localized names transferred in EN/PT-BR/ES and no duplicate block identity.
+- Converted `asteria:anemone_sea` from a crossed-sprite voxel block to the canonical top-attached Object. Kept the texture, 0.8×0.88 dimensions, four planes, fixed positioning, no wind sway, unlit=false, and `dropSelf=false`, with original localized names transferred in EN/PT-BR/ES and no duplicate block identity.
 - Ocean `decorations` now selects `object` for the existing 0.05-chance, rocky-reef-weighted submerged rule without changing its material whitelist, cluster, height, or habitat data. Generation attaches the Object to the solid seafloor while the target voxel remains air with its source water; water is never displaced by a decorative block.
 - Extended submerged/dry generation regressions for both seagrass and sea anemone, plus default-pack validation of Object-only identity, geometry and no self-drop. No migration compatibility aliases.
 - Limitations: water-loss reconciliation for solid-supported submerged Objects (including kelp and seagrass) and water-only *manual* placement restrictions are not currently part of the generic Object lifecycle; follow up separately rather than introducing an anemone-specific second fluid owner. Actual Godot/WRY alpha, shadowing, hitbox and water rendering require native QA.
@@ -564,7 +564,7 @@ MineClone `world-systems-rebuild` reference: `world_objects.rs::detached_object_
 
 ## Physical portal arrival surface-connector audit — 2026-10-13
 
-- The authored `portal_arrival_platform.json` (Glass frame and two return-portal voxels) and repeatable `surface_spiral_stair_segment.json` were already wired through `SurfaceStructureField.TryPrepareExactPlacement`, Core `ManualStructurePlacementRuntime.TryPlaceExact` and native `DimensionRuntimeSession`. The runtime must not silently shift the portal entry: it places at identical source X/Y/Z and rolls back a failed arrival.
+- The authored `platform_portal_arrival.json` (Glass frame and two return-portal voxels) and repeatable `stair_segment_surface_spiral.json` were already wired through `SurfaceStructureField.TryPrepareExactPlacement`, Core `ManualStructurePlacementRuntime.TryPlaceExact` and native `DimensionRuntimeSession`. The runtime must not silently shift the portal entry: it places at identical source X/Y/Z and rolls back a failed arrival.
 - Found a genuine correctness issue in `SurfaceStructureField.HasReachedSurface`: it considered a connector complete when **the maximum height of any voxel in the entire piece** passed the terrain surface. A taller decorative block could therefore prematurely stop the connector chain even though the actual passage mouth was still underground.
 - The surface stop criterion now checks the *connector's exact world X/Y/Z* and the authored `surfaceClearance` against the generated surface elevation at that connector. A staircase only terminates after its walkable exit reaches the required clearance; otherwise the existing bounded connector expansion continues. The resolution stays in Core and the normal authoritative Structure preflight/mutation transaction.
 - Added regressions for unrelated tall voxels, an above-ground entry that needs no staircase, and a deep entry with all affected chunks resident that commits the portal and every authored stair through the canonical atomic mutation runtime. Existing tests still cover aborted/unloaded/protected returns and incomplete connectors.

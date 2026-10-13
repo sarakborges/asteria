@@ -8,7 +8,7 @@
   "seaLevel": 90,
   "gravityStrength": 18,
   "shell": {
-    "block": "asteria:sphere_shell",
+    "block": "asteria:shell_sphere",
     "floorY": 0
   },
   "spawn": {
@@ -89,7 +89,7 @@
     },
     {
       "biome": "asteria:umbral/wraith_grove",
-      "structure": "asteria:wraith_grove",
+      "structure": "asteria:grove_wraith",
       "spacing": 156,
       "chance": 0.64,
       "jitter": 45,
@@ -101,7 +101,7 @@
     },
     {
       "biome": "asteria:umbral/wraith_grove",
-      "structure": "asteria:wraith_snag",
+      "structure": "asteria:snag_wraith",
       "spacing": 58,
       "chance": 0.49,
       "jitter": 18,
@@ -125,7 +125,7 @@
     },
     {
       "biome": "asteria:umbral/umbral_reach",
-      "structure": "asteria:wraith_grove",
+      "structure": "asteria:grove_wraith",
       "spacing": 183,
       "chance": 0.58,
       "jitter": 53,
@@ -161,7 +161,7 @@
     },
     {
       "biome": "asteria:umbral/umbral_reach",
-      "structure": "asteria:rock_cluster",
+      "structure": "asteria:cluster_rock",
       "spacing": 128,
       "chance": 0.42,
       "jitter": 38,
@@ -173,7 +173,7 @@
     },
     {
       "biome": "asteria:umbral/withered_waste",
-      "structure": "asteria:withered_snag",
+      "structure": "asteria:snag_withered",
       "spacing": 59,
       "chance": 0.51,
       "jitter": 18,
@@ -185,7 +185,7 @@
     },
     {
       "biome": "asteria:umbral/withered_waste",
-      "structure": "asteria:fallen_log_wraith",
+      "structure": "asteria:log_wraith_fallen",
       "spacing": 76,
       "chance": 0.4,
       "jitter": 23,
@@ -233,7 +233,7 @@
     },
     {
       "biome": "asteria:umbral/withered_waste",
-      "structure": "asteria:rock_cluster",
+      "structure": "asteria:cluster_rock",
       "spacing": 142,
       "chance": 0.44,
       "jitter": 43,
@@ -244,5 +244,5 @@
       }
     }
   ],
-  "portalArrivalStructure": "asteria:portal_arrival_platform"
+  "portalArrivalStructure": "asteria:platform_portal_arrival"
 }

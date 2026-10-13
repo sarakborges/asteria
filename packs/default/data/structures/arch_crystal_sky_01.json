@@ -1,0 +1,107 @@
+{
+  "id": "asteria:arch_crystal_sky_01",
+  "groupId": "arch_crystal_sky",
+  "rotation": false,
+  "locatable": false,
+  "conflictGroups": [
+    "volume_landmark"
+  ],
+  "groundAnchorY": 0,
+  "restrictions": {
+    "groundBlocks": [
+      "asteria:block_grass",
+      "asteria:dirt",
+      "asteria:stone"
+    ],
+    "maxSlope": 1,
+    "requiredBiomeCoverage": 1,
+    "requiresDryGround": true
+  },
+  "generation": {
+    "replacePolicy": "air_only",
+    "fluidPolicy": "forbid",
+    "reserveSpace": false
+  },
+  "anchor": {
+    "x": 4,
+    "y": 0,
+    "z": 4
+  },
+  "palette": {
+    "A": {
+      "block": "asteria:crystal_core_aether"
+    }
+  },
+  "layers": [
+    {
+      "y": 1,
+      "rows": [
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        "..A...A..",
+        ".........",
+        ".........",
+        ".........",
+        "........."
+      ]
+    },
+    {
+      "y": 2,
+      "rows": [
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        "..A...A..",
+        ".........",
+        ".........",
+        ".........",
+        "........."
+      ]
+    },
+    {
+      "y": 3,
+      "rows": [
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        "..A...A..",
+        ".........",
+        ".........",
+        ".........",
+        "........."
+      ]
+    },
+    {
+      "y": 4,
+      "rows": [
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        "..AAAAA..",
+        ".........",
+        ".........",
+        ".........",
+        "........."
+      ]
+    },
+    {
+      "y": 5,
+      "rows": [
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        "..A...A..",
+        ".........",
+        ".........",
+        ".........",
+        "........."
+      ]
+    }
+  ]
+}

@@ -1,9 +1,0 @@
-{
-  "id": "asteria:brush_rustic",
-  "category": "tools",
-  "icon": "textures/tools/brush.png",
-  "tintIcon": "textures/tools/brush-tint.png",
-  "heldPresentation": "grippedSprite",
-  "leftBehavior": "asteria:brush/paint",
-  "rightBehavior": "asteria:brush/open_palette"
-}

@@ -1,6 +1,6 @@
 {
   "id": "asteria:log_oak_hollow",
-  "category": "wooden_blocks",
+  "category": "blocks_wooden",
   "variant": {
     "family": "asteria:log_oak",
     "key": "hollow"

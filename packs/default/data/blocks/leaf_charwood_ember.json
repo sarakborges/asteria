@@ -1,0 +1,20 @@
+{
+  "id": "asteria:leaf_charwood_ember",
+  "category": "foliage",
+  "windSway": true,
+  "textures": {
+    "top": "textures/blocks/trees/charwood/leaf.png",
+    "bottom": "textures/blocks/trees/charwood/leaf.png",
+    "left": "textures/blocks/trees/charwood/leaf.png",
+    "right": "textures/blocks/trees/charwood/leaf.png",
+    "front": "textures/blocks/trees/charwood/leaf.png",
+    "back": "textures/blocks/trees/charwood/leaf.png"
+  },
+  "alphaCutoff": 0.5,
+  "lightDampening": 2,
+  "castsShadow": false,
+  "mining": {
+    "hardness": 0.18
+  },
+  "previewColor": "9a5744"
+}

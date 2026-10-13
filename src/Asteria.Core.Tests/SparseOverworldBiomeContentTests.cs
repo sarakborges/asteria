@@ -111,10 +111,10 @@ public sealed class SparseOverworldBiomeContentTests
         var biome = LoadBiome("desert");
         var expectedDecorators = new[]
         {
-            "asteria:dune_grass",
+            "asteria:grass_dune",
             "asteria:thornbush",
             "asteria:yucca",
-            "asteria:sandstone_spike",
+            "asteria:spike_sandstone",
         };
         Assert.Equal(expectedDecorators,
             biome.Decorations.Select(decoration => decoration.Block));
@@ -142,9 +142,9 @@ public sealed class SparseOverworldBiomeContentTests
     }
 
     [Theory]
-    [InlineData("asteria:ice_outcrop", "asteria:ice", "asteria:snow", false)]
-    [InlineData("asteria:sandstone_outcrop", "asteria:sandstone", "asteria:sand", false)]
-    [InlineData("asteria:sandstone_spire", "asteria:sandstone", "asteria:sand", true)]
+    [InlineData("asteria:outcrop_ice", "asteria:ice", "asteria:snow", false)]
+    [InlineData("asteria:outcrop_sandstone", "asteria:sandstone", "asteria:sand", false)]
+    [InlineData("asteria:spire_sandstone", "asteria:sandstone", "asteria:sand", true)]
     public void ColdAndDesertRockTemplatesPreserveAuthoredSurfaceConstraints(
         string groupId, string material, string ground, bool raised)
     {
@@ -175,7 +175,7 @@ public sealed class SparseOverworldBiomeContentTests
     public void WastelandDeadwoodKeepsFantasyLeavesWithoutReplacingDrySoil()
     {
         var structures = LoadStructures();
-        foreach (var group in new[] { "asteria:wasteland_snag", "asteria:fallen_log_wasteland" })
+        foreach (var group in new[] { "asteria:snag_wasteland", "asteria:log_wasteland_fallen" })
         {
             var variants = structures.ResolveReference(group);
             Assert.Equal(2, variants.Count);
@@ -211,19 +211,19 @@ public sealed class SparseOverworldBiomeContentTests
         var roots = dimension.GeneratedSurfaceStructures;
         var arcticIce = Assert.Single(roots, rule =>
             rule.Biome == "asteria:overworld/arctic" &&
-            rule.Structure == "asteria:ice_outcrop");
+            rule.Structure == "asteria:outcrop_ice");
         Assert.True(arcticIce.HabitatWeights!.For("ice_fields") >
                     arcticIce.HabitatWeights.For("frozen_plain"));
 
         var desertSpire = Assert.Single(roots, rule =>
             rule.Biome == "asteria:overworld/desert" &&
-            rule.Structure == "asteria:sandstone_spire");
+            rule.Structure == "asteria:spire_sandstone");
         Assert.True(desertSpire.HabitatWeights!.For("sandstone_outcrops") >
                     desertSpire.HabitatWeights.For("open_dunes"));
 
         var deadwood = Assert.Single(roots, rule =>
             rule.Biome == "asteria:overworld/wasteland" &&
-            rule.Structure == "asteria:wasteland_snag");
+            rule.Structure == "asteria:snag_wasteland");
         Assert.True(deadwood.HabitatWeights!.For("deadwood_pockets") >
                     deadwood.HabitatWeights.For("barren_flats"));
         var stones = roots.Where(rule =>

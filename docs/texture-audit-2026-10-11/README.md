@@ -24,7 +24,7 @@ Mosaicos: [Parte 1](seam-proof-1.png) · [Parte 2](seam-proof-2.png) · [Parte 3
 
 A checagem numérica compara a diferença entre bordas opostas com a diferença média entre pixels vizinhos internos, em RGB pré-multiplicado por alpha. Razões acima de 1,8 exigem revisão. Nenhum arquivo final ficou sinalizado; esse indicador auxilia a inspeção visual e não substitui um teste de renderização no jogo. Resultados por arquivo: [seam-checks.json](seam-checks.json).
 
-Todos os arquivos substituídos são PNG 64×64. Cutouts têm alpha binário; `blocks/ice.png` mantém alpha uniforme 159. `objects/grass.png` e `blocks/lamp.png` mantêm o mapa em tons de cinza para tint em runtime. As camadas `cliff_lichen` e `wall_moss` reutilizam exatamente as respectivas imagens de objeto. Os nomes e as quatro funções de material de árvore continuam válidos.
+Todos os arquivos substituídos são PNG 64×64. Cutouts têm alpha binário; `blocks/ice.png` mantém alpha uniforme 159. `objects/grass.png` e `blocks/lamp.png` mantêm o mapa em tons de cinza para tint em runtime. As camadas `lichen_cliff` e `moss_wall` reutilizam exatamente as respectivas imagens de objeto. Os nomes e as quatro funções de material de árvore continuam válidos.
 
 ## Validação
 

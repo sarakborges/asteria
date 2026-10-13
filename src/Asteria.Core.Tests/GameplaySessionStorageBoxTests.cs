@@ -19,7 +19,7 @@ public sealed class GameplaySessionStorageBoxTests
     private static (BlockRegistry Blocks, FluidRegistry Fluids,
         DyeRegistry Dyes, AttachedLayerRegistry Layers) Content() => (
         new BlockRegistry([
-            new BlockDefinition("asteria:storage_box"),
+            new BlockDefinition("asteria:box_storage"),
             new BlockDefinition("asteria:stone")
         ]),
         new FluidRegistry([]), new DyeRegistry([]),
@@ -113,7 +113,7 @@ public sealed class GameplaySessionStorageBoxTests
     {
         sphere.World.InsertChunk(ChunkCoord.Zero, new Chunk());
         Assert.True(sphere.World.SetBlockAt(
-            position, blocks.GetId("asteria:storage_box"), out _));
+            position, blocks.GetId("asteria:box_storage"), out _));
         Assert.True(sphere.StorageBoxes.TryOpen(position, sphere.World, blocks));
         Assert.True(sphere.StorageBoxes.TryInsertActive(
             new InventoryStack(InventoryEntry.FromItem(id), amount),

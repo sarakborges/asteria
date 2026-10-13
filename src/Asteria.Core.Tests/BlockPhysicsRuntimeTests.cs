@@ -722,7 +722,7 @@ public sealed class BlockPhysicsRuntimeTests
             new BlockRegistry(
             [
                 new BlockDefinition(
-                    "asteria:snow_layer",
+                    "asteria:layer_snow",
                     tags:
                     [
                         BlockPhysicsCapabilities.SupportBelow,
@@ -765,7 +765,7 @@ public sealed class BlockPhysicsRuntimeTests
         Assert.True(
             mutations.SetBlockAt(
                 position,
-                blocks.GetId("asteria:snow_layer"),
+                blocks.GetId("asteria:layer_snow"),
                 out _));
 
         var wake =
@@ -778,7 +778,7 @@ public sealed class BlockPhysicsRuntimeTests
             Assert.Single(
                 dropped.ActiveBlocks);
         Assert.Equal(
-            blocks.GetId("asteria:snow_layer"),
+            blocks.GetId("asteria:layer_snow"),
             drop.Block.Cell.Block);
         Assert.True(
             world.GetCellOrEmpty(position).IsEmpty);
@@ -887,7 +887,7 @@ public sealed class BlockPhysicsRuntimeTests
         world.InsertChunk(ChunkCoord.Zero, new Chunk());
         var blocks = new BlockRegistry([
             new BlockDefinition("asteria:stone"),
-            new BlockDefinition("asteria:wall_moss",
+            new BlockDefinition("asteria:moss_wall",
                 tags: [BlockPhysicsCapabilities.SupportWall],
                 isCollidable:false)
         ]);
@@ -907,7 +907,7 @@ public sealed class BlockPhysicsRuntimeTests
         Assert.True(mutations.SetBlockAt(support,
             blocks.GetId("asteria:stone"), out _));
         Assert.True(mutations.SetCellAt(plant,
-            new VoxelCell(blocks.GetId("asteria:wall_moss"),
+            new VoxelCell(blocks.GetId("asteria:moss_wall"),
                 facing:HorizontalFacing.South), out _));
 
         runtime.ProcessWakeups();

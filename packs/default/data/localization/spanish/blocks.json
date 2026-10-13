@@ -1,44 +1,44 @@
 {
-  "asteria:aether_crystal_core": {
+  "asteria:crystal_core_aether": {
     "/name": "Núcleo de Cristal Etéreo"
   },
-  "asteria:alpine_edelweiss": {
+  "asteria:edelweiss_alpine": {
     "/name": "Edelweiss Alpino"
   },
-  "asteria:alpine_sedge": {
+  "asteria:sedge_alpine": {
     "/name": "Juncia Alpina"
   },
-  "asteria:alpine_snow_needles": {
+  "asteria:leaf_frost_wood_alpine": {
     "/name": "Agujas de Nieve Alpinas"
   },
-  "asteria:arctic_snow_needles": {
+  "asteria:leaf_frost_wood_arctic": {
     "/name": "Agujas de Nieve Árticas"
   },
-  "asteria:ash_thorn": {
+  "asteria:thorn_ash": {
     "/name": "Espina de Ceniza"
   },
-  "asteria:azure_crystal": {
+  "asteria:crystal_azure": {
     "/name": "Cristal Azul"
   },
   "asteria:basalt": {
     "/name": "Basalto"
   },
-  "asteria:basalt_bricks": {
+  "asteria:bricks_basalt": {
     "/name": "Ladrillos de Basalto"
   },
-  "asteria:basalt_cobble": {
+  "asteria:cobble_basalt": {
     "/name": "Basalto Rústico"
   },
   "asteria:basalt_polished": {
     "/name": "Basalto Pulido"
   },
-  "asteria:basalt_spike": {
+  "asteria:spike_basalt": {
     "/name": "Pico de Basalto"
   },
-  "asteria:basalt_tiles": {
+  "asteria:tiles_basalt": {
     "/name": "Baldosas de Basalto"
   },
-  "asteria:bleached_roots": {
+  "asteria:roots_bleached": {
     "/name": "Raíces Blanqueadas"
   },
   "asteria:bone_scatter": {
@@ -47,7 +47,7 @@
   "asteria:bricks": {
     "/name": "Ladrillos"
   },
-  "asteria:brittle_tuft": {
+  "asteria:tuft_brittle": {
     "/name": "Mata Quebradiza"
   },
   "asteria:cactus_barrel": {
@@ -56,31 +56,31 @@
   "asteria:cactus_column": {
     "/name": "Cactus Columnar"
   },
-  "asteria:cactus_flower_pink": {
+  "asteria:flower_cactus_pink": {
     "/name": "Flor Rosa de Cactus"
   },
-  "asteria:cactus_flower_yellow": {
+  "asteria:flower_cactus_yellow": {
     "/name": "Flor Amarilla de Cactus"
   },
-  "asteria:charwood": {
+  "asteria:log_charwood": {
     "/name": "Madera Carbonizada"
   },
-  "asteria:charwood_leaves": {
+  "asteria:leaf_charwood": {
     "/name": "Hojas de Madera Carbonizada"
   },
-  "asteria:charwood_stripped": {
+  "asteria:log_charwood_stripped": {
     "/name": "Madera Carbonizada Descortezada"
   },
-  "asteria:cinder_bloom": {
+  "asteria:bloom_cinder": {
     "/name": "Flor de Cenizas"
   },
   "asteria:clay": {
     "/name": "Arcilla"
   },
-  "asteria:cliff_lichen": {
+  "asteria:lichen_cliff": {
     "/name": "Liquen de Acantilado"
   },
-  "asteria:cliff_rosette": {
+  "asteria:rosette_cliff": {
     "/name": "Roseta de Acantilado"
   },
   "asteria:coral_blue": {
@@ -104,91 +104,91 @@
   "asteria:coral_yellow": {
     "/name": "Coral Amarillo"
   },
-  "asteria:dead_thistle": {
+  "asteria:thistle_dead": {
     "/name": "Cardo Muerto"
   },
   "asteria:dirt": {
     "/name": "Tierra"
   },
-  "asteria:dry_lichen": {
+  "asteria:lichen_dry": {
     "/name": "Liquen Seco"
   },
-  "asteria:dry_tuft": {
+  "asteria:tuft_dry": {
     "/name": "Mata Seca"
   },
-  "asteria:dune_grass": {
+  "asteria:grass_dune": {
     "/name": "Hierba de Dunas"
   },
-  "asteria:ember_needles": {
+  "asteria:leaf_charwood_ember": {
     "/name": "Agujas de Brasa"
   },
-  "asteria:exposed_roots": {
+  "asteria:roots_exposed": {
     "/name": "Raíces Expuestas"
   },
-  "asteria:fossil_bone": {
+  "asteria:bone_fossil": {
     "/name": "Hueso Fósil"
   },
-  "asteria:frost_lichen": {
+  "asteria:lichen_frost": {
     "/name": "Liquen Helado"
   },
-  "asteria:frost_shrub": {
+  "asteria:shrub_frost": {
     "/name": "Arbusto Helado"
   },
-  "asteria:frost_wood": {
+  "asteria:log_frost_wood": {
     "/name": "Madera Helada"
   },
-  "asteria:frost_wood_stripped": {
+  "asteria:log_frost_wood_stripped": {
     "/name": "Madera Helada Descortezada"
   },
   "asteria:glass": {
     "/name": "Vidrio"
   },
-  "asteria:glow_mushroom_cap": {
+  "asteria:mushroom_cap_glow": {
     "/name": "Sombrero de Seta Luminosa"
   },
-  "asteria:glow_mushroom_stem": {
+  "asteria:mushroom_stem_glow": {
     "/name": "Tallo de Seta Luminosa"
   },
-  "asteria:glow_pod": {
+  "asteria:pod_glow": {
     "/name": "Vaina Luminosa"
   },
-  "asteria:grass_block": {
+  "asteria:block_grass": {
     "/name": "Bloque de Césped"
   },
   "asteria:gravel": {
     "/name": "Grava"
   },
-  "asteria:hanging_moss": {
+  "asteria:moss_hanging": {
     "/name": "Musgo Colgante"
   },
   "asteria:ice": {
     "/name": "Hielo"
   },
-  "asteria:ice_bricks": {
+  "asteria:bricks_ice": {
     "/name": "Ladrillos de Hielo"
   },
   "asteria:ice_polished": {
     "/name": "Hielo Pulido"
   },
-  "asteria:ice_spike": {
+  "asteria:spike_ice": {
     "/name": "Pico de Hielo"
   },
-  "asteria:ice_tiles": {
+  "asteria:tiles_ice": {
     "/name": "Baldosas de Hielo"
   },
-  "asteria:juniper_needles": {
+  "asteria:leaf_juniper": {
     "/name": "Agujas de Enebro"
   },
-  "asteria:juniper_wood": {
+  "asteria:log_juniper": {
     "/name": "Madera de Enebro"
   },
-  "asteria:juniper_wood_stripped": {
+  "asteria:log_juniper_stripped": {
     "/name": "Madera de Enebro Descortezada"
   },
   "asteria:lamp": {
     "/name": "Lámpara"
   },
-  "asteria:leaf_enchanted": {
+  "asteria:leaf_enchanted_tree": {
     "/name": "Hoja Encantada"
   },
   "asteria:leaf_oak": {
@@ -200,16 +200,16 @@
   "asteria:leaf_world_tree": {
     "/name": "Hoja del Árbol del Mundo"
   },
-  "asteria:log_enchanted": {
+  "asteria:log_enchanted_tree": {
     "/name": "Tronco Encantado"
   },
-  "asteria:log_enchanted_hollow": {
+  "asteria:log_enchanted_tree_hollow": {
     "/name": "Tronco Encantado Hueco"
   },
-  "asteria:log_enchanted_stripped": {
+  "asteria:log_enchanted_tree_stripped": {
     "/name": "Tronco Encantado Descortezado"
   },
-  "asteria:log_enchanted_stripped_hollow": {
+  "asteria:log_enchanted_tree_stripped_hollow": {
     "/name": "Tronco Encantado Hueco Descortezado"
   },
   "asteria:log_oak": {
@@ -248,25 +248,25 @@
   "asteria:log_world_tree_stripped_hollow": {
     "/name": "Tronco Hueco Descortezado del Árbol del Mundo"
   },
-  "asteria:luminous_giant_fungus_cap": {
+  "asteria:fungus_cap_luminous_giant": {
     "/name": "Sombrero de Hongo Gigante Luminoso"
   },
-  "asteria:luminous_giant_fungus_stem": {
+  "asteria:fungus_stem_luminous_giant": {
     "/name": "Tallo de Hongo Gigante Luminoso"
   },
-  "asteria:marsh_fern": {
+  "asteria:fern_marsh": {
     "/name": "Helecho de Marisma"
   },
-  "asteria:marsh_giant_mushroom_cap": {
+  "asteria:mushroom_cap_marsh_giant": {
     "/name": "Sombrero de Seta Gigante de Marisma"
   },
-  "asteria:marsh_giant_mushroom_stem": {
+  "asteria:mushroom_stem_marsh_giant": {
     "/name": "Tallo de Seta Gigante de Marisma"
   },
   "asteria:mud": {
     "/name": "Barro"
   },
-  "asteria:mud_bricks": {
+  "asteria:bricks_mud": {
     "/name": "Ladrillos de Barro"
   },
   "asteria:mud_dry": {
@@ -275,13 +275,13 @@
   "asteria:mud_polished": {
     "/name": "Barro Pulido"
   },
-  "asteria:mud_tiles": {
+  "asteria:tiles_mud": {
     "/name": "Baldosas de Barro"
   },
-  "asteria:pink_bloom": {
+  "asteria:bloom_pink": {
     "/name": "Flor Rosa"
   },
-  "asteria:planks_enchanted": {
+  "asteria:planks_enchanted_tree": {
     "/name": "Tablones Encantados"
   },
   "asteria:planks_oak": {
@@ -296,16 +296,16 @@
   "asteria:portal": {
     "/name": "Portal"
   },
-  "asteria:rime_deadwood": {
+  "asteria:log_rime_deadwood": {
     "/name": "Madera Muerta Escarchada"
   },
-  "asteria:rime_deadwood_stripped": {
+  "asteria:log_rime_deadwood_stripped": {
     "/name": "Madera Muerta Escarchada Descortezada"
   },
-  "asteria:rime_leaves": {
+  "asteria:leaf_rime_deadwood": {
     "/name": "Hojas Escarchadas"
   },
-  "asteria:rock_lichen": {
+  "asteria:lichen_rock": {
     "/name": "Liquen de Roca"
   },
   "asteria:sand": {
@@ -317,55 +317,55 @@
   "asteria:sandstone": {
     "/name": "Arenisca"
   },
-  "asteria:sandstone_bricks": {
+  "asteria:bricks_sandstone": {
     "/name": "Ladrillos de Arenisca"
   },
   "asteria:sandstone_polished": {
     "/name": "Arenisca Pulida"
   },
-  "asteria:sandstone_spike": {
+  "asteria:spike_sandstone": {
     "/name": "Pico de Arenisca"
   },
-  "asteria:sandstone_tiles": {
+  "asteria:tiles_sandstone": {
     "/name": "Baldosas de Arenisca"
   },
   "asteria:saxifrage": {
     "/name": "Saxífraga"
   },
-  "asteria:scree_lichen": {
+  "asteria:lichen_scree": {
     "/name": "Liquen de Pedregal"
   },
-  "asteria:shelf_fungus": {
+  "asteria:fungus_shelf": {
     "/name": "Hongo de Tronco"
   },
-  "asteria:skywood_leaves": {
+  "asteria:leaf_skywood": {
     "/name": "Hojas de Madera Celeste"
   },
-  "asteria:skywood_log": {
+  "asteria:log_skywood": {
     "/name": "Tronco de Madera Celeste"
   },
-  "asteria:skywood_log_stripped": {
+  "asteria:log_skywood_stripped": {
     "/name": "Tronco de Madera Celeste Descortezado"
   },
   "asteria:snow": {
     "/name": "Nieve"
   },
-  "asteria:snow_bricks": {
+  "asteria:bricks_snow": {
     "/name": "Ladrillos de Nieve"
   },
-  "asteria:snow_layer": {
+  "asteria:layer_snow": {
     "/name": "Capa de Nieve"
   },
   "asteria:snow_polished": {
     "/name": "Nieve Pulida"
   },
-  "asteria:snow_tiles": {
+  "asteria:tiles_snow": {
     "/name": "Baldosas de Nieve"
   },
-  "asteria:soot_lichen": {
+  "asteria:lichen_soot": {
     "/name": "Liquen de Hollín"
   },
-  "asteria:sphere_shell": {
+  "asteria:shell_sphere": {
     "/name": "Corteza de Esfera"
   },
   "asteria:starflower": {
@@ -374,55 +374,55 @@
   "asteria:stone": {
     "/name": "Piedra"
   },
-  "asteria:stone_bricks": {
+  "asteria:bricks_stone": {
     "/name": "Ladrillos de Piedra"
   },
-  "asteria:stone_cobble": {
+  "asteria:cobble_stone": {
     "/name": "Piedra Rústica"
   },
   "asteria:stone_polished": {
     "/name": "Piedra Pulida"
   },
-  "asteria:stone_spike": {
+  "asteria:spike_stone": {
     "/name": "Pico de Piedra"
   },
-  "asteria:stone_tiles": {
+  "asteria:tiles_stone": {
     "/name": "Baldosas de Piedra"
   },
   "asteria:stonecrop": {
     "/name": "Sedum"
   },
-  "asteria:storage_box": {
+  "asteria:box_storage": {
     "/name": "Caja de almacenamiento"
   },
   "asteria:terracotta": {
     "/name": "Terracota"
   },
-  "asteria:thorn_rosette": {
+  "asteria:rosette_thorn": {
     "/name": "Roseta Espinosa"
   },
   "asteria:thornbush": {
     "/name": "Arbusto Espinoso"
   },
-  "asteria:thornwood": {
+  "asteria:log_thornwood": {
     "/name": "Madera Espinosa"
   },
-  "asteria:thornwood_leaves": {
+  "asteria:leaf_thornwood": {
     "/name": "Hojas de Madera Espinosa"
   },
-  "asteria:thornwood_stripped": {
+  "asteria:log_thornwood_stripped": {
     "/name": "Madera Espinosa Descortezada"
   },
-  "asteria:wall_moss": {
+  "asteria:moss_wall": {
     "/name": "Musgo de Pared"
   },
-  "asteria:windwood": {
+  "asteria:log_windwood": {
     "/name": "Madera del Viento"
   },
-  "asteria:windwood_needles": {
+  "asteria:leaf_windwood": {
     "/name": "Agujas de Madera del Viento"
   },
-  "asteria:windwood_stripped": {
+  "asteria:log_windwood_stripped": {
     "/name": "Madera del Viento Descortezada"
   },
   "asteria:yucca": {

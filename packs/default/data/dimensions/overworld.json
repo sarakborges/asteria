@@ -56,7 +56,7 @@
   },
   "gravityStrength": 18,
   "shell": {
-    "block": "asteria:sphere_shell",
+    "block": "asteria:shell_sphere",
     "floorY": 0
   },
   "spawn": {
@@ -137,7 +137,7 @@
   "generatedSurfaceStructures": [
     {
       "biome": "asteria:overworld/enchanted_forest",
-      "structure": "asteria:tree_enchanted",
+      "structure": "asteria:tree_enchanted_tree",
       "spacing": 34,
       "chance": 0.72,
       "jitter": 10,
@@ -149,7 +149,7 @@
     },
     {
       "biome": "asteria:overworld/enchanted_forest",
-      "structure": "asteria:enchanted_grove",
+      "structure": "asteria:grove_enchanted",
       "spacing": 152,
       "chance": 0.7,
       "jitter": 46,
@@ -467,7 +467,7 @@
     },
     {
       "biome": "asteria:overworld/plains",
-      "structure": "asteria:oak_grove",
+      "structure": "asteria:grove_oak",
       "spacing": 188,
       "chance": 0.65,
       "jitter": 53,
@@ -480,7 +480,7 @@
     },
     {
       "biome": "asteria:overworld/plains",
-      "structure": "asteria:fallen_log_oak",
+      "structure": "asteria:log_oak_fallen",
       "spacing": 50,
       "chance": 0.44,
       "jitter": 15,
@@ -493,7 +493,7 @@
     },
     {
       "biome": "asteria:overworld/plains",
-      "structure": "asteria:oak_stump",
+      "structure": "asteria:stump_oak",
       "spacing": 64,
       "chance": 0.38,
       "jitter": 20,
@@ -506,7 +506,7 @@
     },
     {
       "biome": "asteria:overworld/plains",
-      "structure": "asteria:rock_cluster",
+      "structure": "asteria:cluster_rock",
       "spacing": 112,
       "chance": 0.42,
       "jitter": 35,
@@ -564,28 +564,28 @@
     },
     {
       "biome": "asteria:overworld/mountains",
-      "structure": "asteria:mountain_waterfall",
+      "structure": "asteria:waterfall_mountain",
       "spacing": 192,
       "chance": 0.45,
       "jitter": 48
     },
     {
       "biome": "asteria:overworld/alps",
-      "structure": "asteria:mountain_waterfall",
+      "structure": "asteria:waterfall_mountain",
       "spacing": 224,
       "chance": 0.4,
       "jitter": 56
     },
     {
       "biome": "asteria:overworld/mountain_belt",
-      "structure": "asteria:mountain_waterfall",
+      "structure": "asteria:waterfall_mountain",
       "spacing": 224,
       "chance": 0.32,
       "jitter": 56
     },
     {
       "biome": "asteria:overworld/ocean",
-      "structure": "asteria:river_ocean_mouth",
+      "structure": "asteria:mouth_river_ocean",
       "spacing": 192,
       "chance": 0.55,
       "jitter": 48,
@@ -593,7 +593,7 @@
     },
     {
       "biome": "asteria:overworld/arctic",
-      "structure": "asteria:ice_outcrop",
+      "structure": "asteria:outcrop_ice",
       "spacing": 61,
       "chance": 0.45,
       "jitter": 18,
@@ -617,7 +617,7 @@
     },
     {
       "biome": "asteria:overworld/arctic",
-      "structure": "asteria:rock_cluster",
+      "structure": "asteria:cluster_rock",
       "spacing": 151,
       "chance": 0.28,
       "jitter": 46,
@@ -629,7 +629,7 @@
     },
     {
       "biome": "asteria:overworld/desert",
-      "structure": "asteria:sandstone_outcrop",
+      "structure": "asteria:outcrop_sandstone",
       "spacing": 67,
       "chance": 0.48,
       "jitter": 20,
@@ -641,7 +641,7 @@
     },
     {
       "biome": "asteria:overworld/desert",
-      "structure": "asteria:sandstone_spire",
+      "structure": "asteria:spire_sandstone",
       "spacing": 124,
       "chance": 0.35,
       "jitter": 37,
@@ -653,7 +653,7 @@
     },
     {
       "biome": "asteria:overworld/wasteland",
-      "structure": "asteria:wasteland_snag",
+      "structure": "asteria:snag_wasteland",
       "spacing": 67,
       "chance": 0.4,
       "jitter": 20,
@@ -665,7 +665,7 @@
     },
     {
       "biome": "asteria:overworld/wasteland",
-      "structure": "asteria:fallen_log_wasteland",
+      "structure": "asteria:log_wasteland_fallen",
       "spacing": 88,
       "chance": 0.42,
       "jitter": 26,
@@ -677,7 +677,7 @@
     },
     {
       "biome": "asteria:overworld/wasteland",
-      "structure": "asteria:rock_cluster",
+      "structure": "asteria:cluster_rock",
       "spacing": 141,
       "chance": 0.39,
       "jitter": 42,
@@ -689,7 +689,7 @@
     },
     {
       "biome": "asteria:overworld/mountains",
-      "structure": "asteria:talus_outcrop",
+      "structure": "asteria:outcrop_talus",
       "spacing": 93,
       "chance": 0.41,
       "jitter": 28,
@@ -701,7 +701,7 @@
     },
     {
       "biome": "asteria:overworld/mountains",
-      "structure": "asteria:rock_cluster",
+      "structure": "asteria:cluster_rock",
       "spacing": 162,
       "chance": 0.36,
       "jitter": 48,
@@ -713,7 +713,7 @@
     },
     {
       "biome": "asteria:overworld/mountain_belt",
-      "structure": "asteria:talus_outcrop",
+      "structure": "asteria:outcrop_talus",
       "spacing": 91,
       "chance": 0.43,
       "jitter": 27,
@@ -725,7 +725,7 @@
     },
     {
       "biome": "asteria:overworld/mountain_belt",
-      "structure": "asteria:rock_cluster",
+      "structure": "asteria:cluster_rock",
       "spacing": 173,
       "chance": 0.4,
       "jitter": 52,
@@ -737,7 +737,7 @@
     },
     {
       "biome": "asteria:overworld/alps",
-      "structure": "asteria:ice_outcrop",
+      "structure": "asteria:outcrop_ice",
       "spacing": 103,
       "chance": 0.44,
       "jitter": 31,
@@ -749,7 +749,7 @@
     },
     {
       "biome": "asteria:overworld/alps",
-      "structure": "asteria:rock_cluster",
+      "structure": "asteria:cluster_rock",
       "spacing": 185,
       "chance": 0.32,
       "jitter": 55,
@@ -761,7 +761,7 @@
     },
     {
       "biome": "asteria:overworld/gorge",
-      "structure": "asteria:talus_outcrop",
+      "structure": "asteria:outcrop_talus",
       "spacing": 96,
       "chance": 0.42,
       "jitter": 29,
@@ -773,7 +773,7 @@
     },
     {
       "biome": "asteria:overworld/gorge",
-      "structure": "asteria:rock_cluster",
+      "structure": "asteria:cluster_rock",
       "spacing": 148,
       "chance": 0.32,
       "jitter": 44,
@@ -785,7 +785,7 @@
     },
     {
       "biome": "asteria:overworld/scorched_wastes",
-      "structure": "asteria:basalt_outcrop",
+      "structure": "asteria:outcrop_basalt",
       "spacing": 54,
       "chance": 0.47,
       "jitter": 16,
@@ -797,7 +797,7 @@
     },
     {
       "biome": "asteria:overworld/scorched_wastes",
-      "structure": "asteria:basalt_boulder",
+      "structure": "asteria:boulder_basalt",
       "spacing": 112,
       "chance": 0.27,
       "jitter": 33,
@@ -809,7 +809,7 @@
     },
     {
       "biome": "asteria:overworld/scorched_wastes",
-      "structure": "asteria:basalt_cluster",
+      "structure": "asteria:cluster_basalt",
       "spacing": 127,
       "chance": 0.42,
       "jitter": 38,
@@ -821,7 +821,7 @@
     },
     {
       "biome": "asteria:overworld/ocean",
-      "structure": "asteria:ocean_rock",
+      "structure": "asteria:rock_ocean",
       "spacing": 64,
       "chance": 0.235,
       "jitter": 19,
@@ -833,7 +833,7 @@
     },
     {
       "biome": "asteria:overworld/ocean",
-      "structure": "asteria:ocean_rock_cluster",
+      "structure": "asteria:cluster_rock_ocean",
       "spacing": 152,
       "chance": 0.21,
       "jitter": 46,
@@ -845,7 +845,7 @@
     },
     {
       "biome": "asteria:overworld/ocean",
-      "structure": "asteria:coral_reef",
+      "structure": "asteria:reef_coral",
       "spacing": 40,
       "chance": 0.34,
       "jitter": 12,
@@ -881,7 +881,7 @@
     },
     {
       "biome": "asteria:overworld/swamp",
-      "structure": "asteria:swamp_giant_mushroom",
+      "structure": "asteria:mushroom_swamp_giant",
       "spacing": 47,
       "chance": 0.69,
       "jitter": 14,
@@ -893,7 +893,7 @@
     },
     {
       "biome": "asteria:overworld/arctic",
-      "structure": "asteria:arctic_stunted_pine",
+      "structure": "asteria:tree_pine_arctic_stunted",
       "spacing": 61,
       "chance": 0.69,
       "jitter": 18,
@@ -905,7 +905,7 @@
     },
     {
       "biome": "asteria:overworld/arctic",
-      "structure": "asteria:arctic_frost_brush",
+      "structure": "asteria:brush_frost_arctic",
       "spacing": 28,
       "chance": 0.84,
       "jitter": 8,
@@ -917,7 +917,7 @@
     },
     {
       "biome": "asteria:overworld/arctic",
-      "structure": "asteria:arctic_rime_spires",
+      "structure": "asteria:spire_rime_arctic",
       "spacing": 43,
       "chance": 0.68,
       "jitter": 13,
@@ -929,7 +929,7 @@
     },
     {
       "biome": "asteria:overworld/alps",
-      "structure": "asteria:alpine_snow_fir",
+      "structure": "asteria:tree_fir_alpine_snow",
       "spacing": 43,
       "chance": 0.76,
       "jitter": 13,
@@ -941,7 +941,7 @@
     },
     {
       "biome": "asteria:overworld/alps",
-      "structure": "asteria:alpine_krummholz",
+      "structure": "asteria:tree_krummholz_alpine",
       "spacing": 39,
       "chance": 0.71,
       "jitter": 12,
@@ -953,7 +953,7 @@
     },
     {
       "biome": "asteria:overworld/alps",
-      "structure": "asteria:alpine_serac",
+      "structure": "asteria:serac_alpine",
       "spacing": 56,
       "chance": 0.65,
       "jitter": 17,
@@ -965,7 +965,7 @@
     },
     {
       "biome": "asteria:overworld/alps",
-      "structure": "asteria:alpine_ice_arch",
+      "structure": "asteria:arch_ice_alpine",
       "spacing": 107,
       "chance": 0.57,
       "jitter": 31,
@@ -977,7 +977,7 @@
     },
     {
       "biome": "asteria:overworld/ocean",
-      "structure": "asteria:coral_fan_garden",
+      "structure": "asteria:garden_coral_fan",
       "spacing": 49,
       "jitter": 14,
       "chance": 0.37,
@@ -989,7 +989,7 @@
     },
     {
       "biome": "asteria:overworld/ocean",
-      "structure": "asteria:coral_table_garden",
+      "structure": "asteria:garden_coral_table",
       "spacing": 56,
       "jitter": 17,
       "chance": 0.38,
@@ -1001,7 +1001,7 @@
     },
     {
       "biome": "asteria:overworld/ocean",
-      "structure": "asteria:coral_pillar_garden",
+      "structure": "asteria:garden_coral_pillar",
       "spacing": 71,
       "jitter": 21,
       "chance": 0.345,
@@ -1013,7 +1013,7 @@
     },
     {
       "biome": "asteria:overworld/ocean",
-      "structure": "asteria:coral_arch",
+      "structure": "asteria:arch_coral",
       "spacing": 125,
       "jitter": 37,
       "chance": 0.3,
@@ -1025,7 +1025,7 @@
     },
     {
       "biome": "asteria:overworld/scorched_wastes",
-      "structure": "asteria:volcanic_charred_trees",
+      "structure": "asteria:tree_charred_volcanic",
       "spacing": 65,
       "jitter": 19,
       "chance": 0.72,
@@ -1037,7 +1037,7 @@
     },
     {
       "biome": "asteria:overworld/scorched_wastes",
-      "structure": "asteria:volcanic_briar_thickets",
+      "structure": "asteria:thicket_briar_volcanic",
       "spacing": 33,
       "jitter": 9,
       "chance": 0.76,
@@ -1049,7 +1049,7 @@
     },
     {
       "biome": "asteria:overworld/wasteland",
-      "structure": "asteria:wasteland_thorn_scrub",
+      "structure": "asteria:scrub_thorn_wasteland",
       "spacing": 42,
       "jitter": 12,
       "chance": 0.6,
@@ -1061,7 +1061,7 @@
     },
     {
       "biome": "asteria:overworld/wasteland",
-      "structure": "asteria:wasteland_fossil_rib",
+      "structure": "asteria:rib_fossil_wasteland",
       "spacing": 124,
       "jitter": 34,
       "chance": 0.43,
@@ -1073,7 +1073,7 @@
     },
     {
       "biome": "asteria:overworld/enchanted_forest",
-      "structure": "asteria:enchanted_mushroom_ring",
+      "structure": "asteria:ring_mushroom_enchanted",
       "spacing": 79,
       "jitter": 23,
       "chance": 0.78,
@@ -1085,7 +1085,7 @@
     },
     {
       "biome": "asteria:overworld/enchanted_forest",
-      "structure": "asteria:enchanted_hollow_stump",
+      "structure": "asteria:stump_enchanted_tree_hollow",
       "spacing": 54,
       "jitter": 16,
       "chance": 0.6,
@@ -1097,7 +1097,7 @@
     },
     {
       "biome": "asteria:overworld/enchanted_forest",
-      "structure": "asteria:enchanted_fungal_canopy",
+      "structure": "asteria:canopy_fungal_enchanted",
       "spacing": 87,
       "jitter": 26,
       "chance": 0.68,
@@ -1109,7 +1109,7 @@
     },
     {
       "biome": "asteria:overworld/mountains",
-      "structure": "asteria:mountain_dwarf_juniper",
+      "structure": "asteria:tree_juniper_mountain_dwarf",
       "spacing": 48,
       "chance": 0.72,
       "jitter": 14,
@@ -1121,7 +1121,7 @@
     },
     {
       "biome": "asteria:overworld/mountains",
-      "structure": "asteria:mountain_wind_pine",
+      "structure": "asteria:tree_pine_mountain_wind",
       "spacing": 96,
       "chance": 0.62,
       "jitter": 28,
@@ -1133,7 +1133,7 @@
     },
     {
       "biome": "asteria:overworld/mountain_belt",
-      "structure": "asteria:belt_windswept_pine",
+      "structure": "asteria:tree_pine_belt_windswept",
       "spacing": 61,
       "chance": 0.71,
       "jitter": 18,
@@ -1145,7 +1145,7 @@
     },
     {
       "biome": "asteria:overworld/mountain_belt",
-      "structure": "asteria:belt_rock_needle_cluster",
+      "structure": "asteria:cluster_rock_needles_belt",
       "spacing": 114,
       "chance": 0.45,
       "jitter": 34,
@@ -1157,7 +1157,7 @@
     },
     {
       "biome": "asteria:overworld/swamp",
-      "structure": "asteria:swamp_reed_bed",
+      "structure": "asteria:bed_reed_swamp",
       "spacing": 37,
       "jitter": 11,
       "chance": 0.72,
@@ -1169,7 +1169,7 @@
     },
     {
       "biome": "asteria:overworld/swamp",
-      "structure": "asteria:swamp_moss_stump",
+      "structure": "asteria:stump_swamp_moss",
       "spacing": 84,
       "jitter": 25,
       "chance": 0.48,
@@ -1210,5 +1210,5 @@
     "seedBiasAmplitude": 0.045,
     "continuationBonus": 0.055
   },
-  "portalArrivalStructure": "asteria:portal_arrival_platform"
+  "portalArrivalStructure": "asteria:platform_portal_arrival"
 }

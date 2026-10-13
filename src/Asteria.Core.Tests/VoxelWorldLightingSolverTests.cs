@@ -104,7 +104,7 @@ public sealed class VoxelWorldLightingSolverTests
             new BlockRegistry(
             [
                 new BlockDefinition(
-                    "asteria:red",
+                    "asteria:dye_red",
                     lightDampening: 15,
                     lightEmission:
                         new BlockLightEmission(
@@ -112,7 +112,7 @@ public sealed class VoxelWorldLightingSolverTests
                             0,
                             0)),
                 new BlockDefinition(
-                    "asteria:blue",
+                    "asteria:dye_blue",
                     lightDampening: 15,
                     lightEmission:
                         new BlockLightEmission(
@@ -128,12 +128,12 @@ public sealed class VoxelWorldLightingSolverTests
         Assert.True(
             world.SetBlockAt(
                 new WorldVoxelCoord(6, 8, 8),
-                blocks.GetId("asteria:red"),
+                blocks.GetId("asteria:dye_red"),
                 out _));
         Assert.True(
             world.SetBlockAt(
                 new WorldVoxelCoord(10, 8, 8),
-                blocks.GetId("asteria:blue"),
+                blocks.GetId("asteria:dye_blue"),
                 out _));
 
         VoxelWorldLightingSolver.Initialize(
@@ -157,7 +157,7 @@ public sealed class VoxelWorldLightingSolverTests
             new BlockRegistry(
             [
                 new BlockDefinition(
-                    "asteria:green",
+                    "asteria:dye_green",
                     lightDampening: 15,
                     lightEmission:
                         new BlockLightEmission(
@@ -187,7 +187,7 @@ public sealed class VoxelWorldLightingSolverTests
         Assert.True(
             world.SetBlockAt(
                 source,
-                blocks.GetId("asteria:green"),
+                blocks.GetId("asteria:dye_green"),
                 out _));
 
         VoxelWorldLightingSolver.RelightAfterEdits(

@@ -127,12 +127,12 @@ public sealed class DimensionSessionStateTests
             new DimensionId("asteria:umbral"));
         var blocks = new BlockRegistry(
         [
-            new BlockDefinition("asteria:storage_box"),
+            new BlockDefinition("asteria:box_storage"),
         ]);
         var position = new WorldVoxelCoord(3, 6, 3);
         overworld.World.InsertChunk(ChunkCoord.Zero, new Chunk());
         Assert.True(overworld.World.SetBlockAt(position,
-            blocks.GetId("asteria:storage_box"), out _));
+            blocks.GetId("asteria:box_storage"), out _));
         Assert.True(overworld.StorageBoxes.TryOpen(
             position, overworld.World, blocks));
         Assert.True(overworld.StorageBoxes.TryInsertActive(

@@ -17,10 +17,10 @@ public sealed class BiomeBiodiversityExpansionTests
         var plains = biomes.Get("asteria:overworld/plains");
         var names = new[] {
             "wildflower_blue", "wildflower_yellow",
-            "tall_grass"
+            "grass_tall"
         };
         Assert.Equal(4, plains.SurfaceHabitats!.Bands.Count);
-        Assert.Equal("asteria:grass_block", plains.SurfaceLayers[0].Block);
+        Assert.Equal("asteria:block_grass", plains.SurfaceLayers[0].Block);
         foreach (var name in names)
         {
             var rule = Assert.Single(plains.Decorations,
@@ -28,7 +28,7 @@ public sealed class BiomeBiodiversityExpansionTests
             Assert.NotNull(rule.Cluster);
             Assert.NotNull(rule.Conditions);
             Assert.NotNull(rule.HabitatWeights);
-            Assert.Contains("asteria:grass_block", rule.SurfaceBlocks);
+            Assert.Contains("asteria:block_grass", rule.SurfaceBlocks);
             Assert.True(rule.HabitatWeights!.For("open") >
                 rule.HabitatWeights.For("rocky"));
             Assert.True(rule.IsObject);
@@ -39,7 +39,7 @@ public sealed class BiomeBiodiversityExpansionTests
             Assert.Equal(ObjectVisualKind.CrossedSprite, flower.Visual.Kind);
         }
         var grass = Assert.Single(plains.Decorations,
-            d => d.Block == "asteria:tall_grass");
+            d => d.Block == "asteria:grass_tall");
         Assert.True(grass.HabitatWeights!.For("thicket") >
                     grass.HabitatWeights.For("grove"));
     }
@@ -55,7 +55,7 @@ public sealed class BiomeBiodiversityExpansionTests
         biomes.ValidateBlocks(blocks);
         var swamp = biomes.Get("asteria:overworld/swamp");
 
-        foreach (var name in new[] { "iris", "marsh_fern" })
+        foreach (var name in new[] { "iris", "fern_marsh" })
         {
             var rule = Assert.Single(swamp.Decorations,
                 d => d.Block == $"asteria:{name}");
@@ -88,7 +88,7 @@ public sealed class BiomeBiodiversityExpansionTests
                     iris.HabitatWeights.For("fungal_ground"));
 
         var variants = structures.ResolveReference(
-            "asteria:swamp_giant_mushroom");
+            "asteria:mushroom_swamp_giant");
         Assert.Equal(3, variants.Count);
         Assert.All(variants, variant =>
         {
@@ -96,17 +96,17 @@ public sealed class BiomeBiodiversityExpansionTests
             Assert.True(variant.Voxels.Count >= 16);
             Assert.True(variant.Restrictions.RequiresDryGround);
             Assert.Contains(variant.Voxels,
-                v => v.Block == "asteria:marsh_giant_mushroom_stem");
+                v => v.Block == "asteria:mushroom_stem_marsh_giant");
             Assert.Contains(variant.Voxels,
-                v => v.Block == "asteria:marsh_giant_mushroom_cap");
+                v => v.Block == "asteria:mushroom_cap_marsh_giant");
             Assert.True(variant.Voxels.Count(v =>
-                v.Block == "asteria:marsh_giant_mushroom_cap") >= 9);
+                v.Block == "asteria:mushroom_cap_marsh_giant") >= 9);
         });
         var ruleRoot = Assert.Single(
             DimensionRegistry.FromJson(ReadJson("dimensions"))
                 .Get(DimensionId.Overworld).GeneratedSurfaceStructures,
             r => r.Biome == swamp.Id &&
-                 r.Structure == "asteria:swamp_giant_mushroom");
+                 r.Structure == "asteria:mushroom_swamp_giant");
         Assert.True(ruleRoot.HabitatWeights!.For("fungal_ground") >
                     ruleRoot.HabitatWeights.For("willow_grove"));
         Assert.True(ruleRoot.HabitatWeights.For("open_mire") <

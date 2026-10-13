@@ -1,0 +1,111 @@
+{
+  "id": "asteria:brush_frost_arctic_01",
+  "groupId": "brush_frost_arctic",
+  "rotation": true,
+  "locatable": false,
+  "priority": 0,
+  "conflictGroups": [
+    "shrub"
+  ],
+  "restrictions": {
+    "groundBlocks": [
+      "asteria:snow"
+    ],
+    "maxSlope": 1,
+    "requiredBiomeCoverage": 1,
+    "requiresDryGround": true
+  },
+  "generation": {
+    "replacePolicy": "terrain",
+    "fluidPolicy": "forbid",
+    "reserveSpace": false
+  },
+  "anchor": {
+    "x": 4,
+    "y": 0,
+    "z": 4
+  },
+  "palette": {
+    "G": {
+      "block": "asteria:snow"
+    },
+    "B": {
+      "block": "asteria:log_rime_deadwood"
+    },
+    "T": {
+      "block": "asteria:leaf_rime_deadwood"
+    }
+  },
+  "layers": [
+    {
+      "y": 0,
+      "rows": [
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        "....G.G..",
+        "..G......",
+        ".........",
+        ".........",
+        "........."
+      ]
+    },
+    {
+      "y": 1,
+      "rows": [
+        ".........",
+        ".........",
+        ".........",
+        "....T....",
+        "..TTBTB..",
+        ".TBTT....",
+        "..T......",
+        ".........",
+        "........."
+      ]
+    },
+    {
+      "y": 2,
+      "rows": [
+        ".........",
+        ".........",
+        ".........",
+        "....T.T..",
+        "..TTBTBT.",
+        ".TBTT.T..",
+        "..T......",
+        ".........",
+        "........."
+      ]
+    },
+    {
+      "y": 3,
+      "rows": [
+        ".........",
+        ".........",
+        ".........",
+        "......T..",
+        "....TTBT.",
+        "..T...T..",
+        ".........",
+        ".........",
+        "........."
+      ]
+    },
+    {
+      "y": 4,
+      "rows": [
+        ".........",
+        ".........",
+        ".........",
+        ".........",
+        "......T..",
+        ".........",
+        ".........",
+        ".........",
+        "........."
+      ]
+    }
+  ]
+}

@@ -27,18 +27,18 @@ public sealed class HeldVisualResolverTests
     {
         var brushJson = """
           {"id":"asteria:brush_rustic","category":"tools",
-           "icon":"textures/tools/brush.png",
-           "tintIcon":"textures/tools/brush-tint.png",
+           "icon":"textures/tools/brush_rustic.png",
+           "tintIcon":"textures/tools/brush_rustic_tint.png",
            "heldPresentation":"grippedSprite",
            "leftBehavior":"asteria:brush/paint",
            "rightBehavior":"asteria:brush/open_palette"}
           """;
         var kitJson = """
-          {"id":"asteria:artisans_kit_rustic","category":"tools",
-           "icon":"textures/tools/artisans-kit.png",
+          {"id":"asteria:kit_artisans_rustic","category":"tools",
+           "icon":"textures/tools/kit_artisans_rustic.png",
            "heldPresentation":"grippedSprite",
-           "leftBehavior":"asteria:artisans_kit/remove",
-           "rightBehavior":"asteria:artisans_kit/restore"}
+           "leftBehavior":"asteria:kit_artisans/remove",
+           "rightBehavior":"asteria:kit_artisans/restore"}
           """;
         var ordinaryJson = """
           {"id":"asteria:hatchet","category":"tools",
@@ -55,9 +55,9 @@ public sealed class HeldVisualResolverTests
         var heldBrush = resolver.Resolve(new InventoryStack(
             InventoryEntry.FromTool("asteria:brush_rustic")))!;
         Assert.Equal(HeldVisualKind.GrippedSprite, heldBrush.Kind);
-        Assert.Equal("textures/tools/brush-tint.png", heldBrush.TintTexture);
+        Assert.Equal("textures/tools/brush_rustic_tint.png", heldBrush.TintTexture);
         var heldKit = resolver.Resolve(new InventoryStack(
-            InventoryEntry.FromTool("asteria:artisans_kit_rustic")))!;
+            InventoryEntry.FromTool("asteria:kit_artisans_rustic")))!;
         Assert.Equal(HeldVisualKind.GrippedSprite, heldKit.Kind);
         Assert.Null(heldKit.TintTexture);
         Assert.Equal(HeldVisualKind.Sprite, resolver.Resolve(new InventoryStack(

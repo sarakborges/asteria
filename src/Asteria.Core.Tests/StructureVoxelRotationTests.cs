@@ -67,7 +67,7 @@ public sealed class StructureVoxelRotationTests
     [Fact]
     public void SurfaceRotationPreservesOrderedLayersAndCorrectsTopBottomUvs()
     {
-        var surface = new BlockSurfaceState("asteria:yellow", [
+        var surface = new BlockSurfaceState("asteria:dye_yellow", [
             new AttachedBlockLayer(BlockFace.Top, "asteria:moss",
                 TextureRotation.Degrees90),
             new AttachedBlockLayer(BlockFace.Front, "asteria:moss",

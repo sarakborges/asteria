@@ -6,7 +6,7 @@ const meta = {
   component: ItemGlyph,
   args: {
     item: {
-      id: "asteria:grass_block",
+      id: "asteria:block_grass",
       name: "Grass Block",
     },
     size: "slot",

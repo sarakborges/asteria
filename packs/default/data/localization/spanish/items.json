@@ -1,8 +1,8 @@
 {
-  "asteria:dimensional_slicer": {
+  "asteria:slicer_dimensional": {
     "/name": "Dimensional Slicer"
   },
-  "asteria:enchanted_forest_spores": {
+  "asteria:spores_enchanted_forest": {
     "/name": "Esporas del Bosque Encantado"
   },
   "asteria:essence_aqua": {
@@ -35,46 +35,46 @@
   "asteria:pebble": {
     "/name": "Guijarro"
   },
-  "asteria:plant_fiber": {
+  "asteria:fiber_plant": {
     "/name": "Fibra Vegetal"
   },
-  "asteria:raw_copper": {
+  "asteria:ore_copper_raw": {
     "/name": "Cobre en bruto"
   },
-  "asteria:raw_gold": {
+  "asteria:ore_gold_raw": {
     "/name": "Oro en bruto"
   },
-  "asteria:raw_iron": {
+  "asteria:ore_iron_raw": {
     "/name": "Hierro en bruto"
   },
-  "asteria:raw_lead": {
+  "asteria:ore_lead_raw": {
     "/name": "Plomo en bruto"
   },
-  "asteria:raw_nickel": {
+  "asteria:ore_nickel_raw": {
     "/name": "Níquel en bruto"
   },
-  "asteria:raw_silver": {
+  "asteria:ore_silver_raw": {
     "/name": "Plata en bruto"
   },
-  "asteria:raw_tin": {
+  "asteria:ore_tin_raw": {
     "/name": "Estaño en bruto"
   },
-  "asteria:raw_zinc": {
+  "asteria:ore_zinc_raw": {
     "/name": "Zinc en bruto"
   },
   "asteria:stick": {
     "/name": "Palo"
   },
-  "asteria:wayfarer_boots": {
+  "asteria:boots_wayfarer": {
     "/name": "Botas del Viajero"
   },
-  "asteria:wayfarer_chestplate": {
+  "asteria:chestplate_wayfarer": {
     "/name": "Peto del Viajero"
   },
-  "asteria:wayfarer_helmet": {
+  "asteria:helmet_wayfarer": {
     "/name": "Yelmo del Viajero"
   },
-  "asteria:wayfarer_leggings": {
+  "asteria:leggings_wayfarer": {
     "/name": "Grebas del Viajero"
   }
 }

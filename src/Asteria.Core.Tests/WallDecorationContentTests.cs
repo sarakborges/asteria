@@ -14,7 +14,7 @@ public sealed class WallDecorationContentTests
           "volumeLayout":{"placement":"carvedVoid"},
           "palette":{"default":[{"block":"asteria:stone"}]},
           "decorations":[
-            {"block":"asteria:wall_moss","chance":1,
+            {"block":"asteria:moss_wall","chance":1,
              "surfaceBlocks":["asteria:stone"],"supportSurface":"wall"}
           ]
         }
@@ -25,7 +25,7 @@ public sealed class WallDecorationContentTests
 
         var blocks = new BlockRegistry([
             new BlockDefinition("asteria:stone"),
-            new BlockDefinition("asteria:wall_moss")
+            new BlockDefinition("asteria:moss_wall")
         ]);
         var field = new SurfaceDecorationField(17, [biome], blocks);
         var sample = new BiomeSample(biome.Id,
@@ -45,7 +45,7 @@ public sealed class WallDecorationContentTests
             {
               "id":"asteria:test/invalid",
               "palette":{"default":[{"block":"asteria:stone"}]},
-              "decorations":[{"block":"asteria:wall_moss","chance":1,
+              "decorations":[{"block":"asteria:moss_wall","chance":1,
                  "surfaceBlocks":["asteria:stone"],"supportSurface":"diagonal"}]
             }
             """));
@@ -62,8 +62,8 @@ public sealed class WallDecorationContentTests
 
         foreach (var (biome, id) in new[]
         {
-            ("caverns", "wall_moss"),
-            ("gorge", "cliff_lichen"),
+            ("caverns", "moss_wall"),
+            ("gorge", "lichen_cliff"),
         })
         {
             var definition = biomes.Get("asteria:overworld/" + biome);
@@ -71,7 +71,7 @@ public sealed class WallDecorationContentTests
                 r => r.Block == "asteria:" + id);
             Assert.True(rule.IsLayer);
             Assert.Equal(DecorationSupportSurface.Wall, rule.SupportSurface);
-            Assert.Equal(["asteria:stone", "asteria:stone_cobble"],
+            Assert.Equal(["asteria:stone", "asteria:cobble_stone"],
                 rule.SurfaceBlocks);
             Assert.NotNull(rule.Cluster);
             Assert.NotNull(rule.Conditions);
@@ -94,8 +94,8 @@ public sealed class WallDecorationContentTests
         var blocks = BlockRegistry.FromJson(ReadJson("blocks"));
         foreach (var (biome, id) in new[]
         {
-            ("caverns", "wall_shelf_fungus"),
-            ("gorge", "cliff_rosette"),
+            ("caverns", "fungus_shelf_wall"),
+            ("gorge", "rosette_cliff"),
         })
         {
             var rule = Assert.Single(
@@ -103,7 +103,7 @@ public sealed class WallDecorationContentTests
                 r => r.Block == "asteria:" + id);
             Assert.False(rule.IsLayer);
             Assert.Equal(DecorationSupportSurface.Wall, rule.SupportSurface);
-            if (id == "wall_shelf_fungus")
+            if (id == "fungus_shelf_wall")
             {
                 Assert.True(rule.IsObject);
                 var objects = PackContentRegistry<ObjectDefinition>.FromJson(
@@ -135,7 +135,7 @@ public sealed class WallDecorationContentTests
 
         var missingFace = new AttachedLayerRegistry([
             new AttachedLayerDefinition(
-                "asteria:wall_moss", "textures/layers/wall_moss.png",
+                "asteria:moss_wall", "textures/layers/moss_wall.png",
                 faces: [BlockFace.Front])
         ]);
         Assert.Throws<ArgumentException>(() =>
@@ -170,7 +170,7 @@ public sealed class WallDecorationContentTests
                 supportSurface: DecorationSupportSurface.Wall).IsAir);
             if (selected is not null)
             {
-                Assert.Equal("asteria:cliff_lichen", selected);
+                Assert.Equal("asteria:lichen_cliff", selected);
                 seen++;
             }
         }
@@ -187,8 +187,8 @@ public sealed class WallDecorationContentTests
             ReadJson("objects"), ObjectDefinition.Parse, obj => obj.Id);
         foreach (var (biomeName, objectName, layerName) in new[]
         {
-            ("caverns", "wall_shelf_fungus", "wall_moss"),
-            ("gorge", "cliff_rosette", "cliff_lichen"),
+            ("caverns", "fungus_shelf_wall", "moss_wall"),
+            ("gorge", "rosette_cliff", "lichen_cliff"),
         })
         {
             var biome = biomes.Get("asteria:overworld/" + biomeName);
@@ -262,7 +262,7 @@ public sealed class WallDecorationContentTests
           "volumeLayout":{"placement":"carvedVoid"},
           "palette":{"default":[{"block":"asteria:stone"}]},
           "decorations":[{
-            "block":"asteria:wall_moss","chance":1,
+            "block":"asteria:moss_wall","chance":1,
             "surfaceBlocks":["asteria:stone"],"supportSurface":"wall"
           }]
         }
@@ -270,7 +270,7 @@ public sealed class WallDecorationContentTests
         var biomes = new BiomeRegistry([biome]);
         var blocks = new BlockRegistry([
             new BlockDefinition("asteria:stone"),
-            new BlockDefinition("asteria:wall_moss", isCollidable: false)
+            new BlockDefinition("asteria:moss_wall", isCollidable: false)
         ]);
         biomes.ValidateBlocks(blocks);
     }

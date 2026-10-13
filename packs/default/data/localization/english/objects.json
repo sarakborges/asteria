@@ -1,8 +1,8 @@
 {
-  "asteria:aether_bloom": {
+  "asteria:bloom_aether": {
     "/name": "Aether Bloom"
   },
-  "asteria:aether_vines": {
+  "asteria:vines_aether": {
     "/name": "Aether Vines"
   },
   "asteria:bulrush": {
@@ -11,7 +11,7 @@
   "asteria:cattail": {
     "/name": "Cattail"
   },
-  "asteria:cloud_reed": {
+  "asteria:reed_cloud": {
     "/name": "Cloud Reed"
   },
   "asteria:clover": {
@@ -20,16 +20,16 @@
   "asteria:daisy": {
     "/name": "Daisy"
   },
-  "asteria:glow_fern": {
+  "asteria:fern_glow": {
     "/name": "Glow Fern"
   },
-  "asteria:glowcap": {
+  "asteria:mushroom_glowcap": {
     "/name": "Glowcap"
   },
   "asteria:grass": {
     "/name": "Grass"
   },
-  "asteria:hanging_roots": {
+  "asteria:roots_hanging": {
     "/name": "Hanging Roots"
   },
   "asteria:iris": {
@@ -38,13 +38,13 @@
   "asteria:kelp": {
     "/name": "Kelp"
   },
-  "asteria:lily_pad": {
+  "asteria:pad_lily": {
     "/name": "Lily Pad"
   },
-  "asteria:marsh_orchid": {
+  "asteria:orchid_marsh": {
     "/name": "Marsh Orchid"
   },
-  "asteria:meadow_seedheads": {
+  "asteria:seedheads_meadow": {
     "/name": "Meadow Seedheads"
   },
   "asteria:mushroom_blue": {
@@ -68,13 +68,13 @@
   "asteria:mushroom_yellow": {
     "/name": "Yellow Mushroom"
   },
-  "asteria:pass_grass": {
+  "asteria:grass_pass": {
     "/name": "Pass Grass"
   },
   "asteria:pebble": {
     "/name": "Pebble"
   },
-  "asteria:purple_aster": {
+  "asteria:aster_purple": {
     "/name": "Purple Aster"
   },
   "asteria:sagebrush": {
@@ -113,7 +113,7 @@
   "asteria:sapling_world_tree": {
     "/name": "World Tree Sapling"
   },
-  "asteria:sea_anemone": {
+  "asteria:anemone_sea": {
     "/name": "Sea Anemone"
   },
   "asteria:seagrass": {
@@ -128,13 +128,13 @@
   "asteria:stick": {
     "/name": "Stick"
   },
-  "asteria:tall_grass": {
+  "asteria:grass_tall": {
     "/name": "Tall Grass"
   },
-  "asteria:violet_fern": {
+  "asteria:fern_violet": {
     "/name": "Violet Fern"
   },
-  "asteria:wall_shelf_fungus": {
+  "asteria:fungus_shelf_wall": {
     "/name": "Wall Shelf Fungus"
   },
   "asteria:wildflower_blue": {

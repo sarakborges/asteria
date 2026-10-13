@@ -55,7 +55,7 @@ O logo `packs/default/ui/branding/asteria_logo.svg` também foi examinado: cont�
 
 **Skin ativa:** `player/256.png`, referenciada por `data/entities/player.json`, usa gradientes no tecido/cabelo e pinceladas suaves. Deve manter a personagem e seu UV, com sombreado mais plano. `player/64.png` é uma boa referência de linguagem em pixels; aumentar essa imagem por nearest, sozinho, não produziria uma skin 256 desenhada com mais resolução.
 
-**Boas referências internas:** `bricks.png` e `stone_tiles.png` têm construção clara; `glass.png` usa poucos traços grandes; `player/64.png` tem regiões simples. Rostos de slime, cracks e máscaras neutras simples não precisam ser refeitos pela mesma regra dos materiais. Sol e lua já têm regiões quadradas grandes.
+**Boas referências internas:** `bricks.png` e `tiles_stone.png` têm construção clara; `glass.png` usa poucos traços grandes; `player/64.png` tem regiões simples. Rostos de slime, cracks e máscaras neutras simples não precisam ser refeitos pela mesma regra dos materiais. Sol e lua já têm regiões quadradas grandes.
 
 ## Todas as árvores e variações
 

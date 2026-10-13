@@ -2,8 +2,8 @@ import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { InventoryGameplayPage } from "./InventoryGameplayPage";
 import everythingIcon from "../../../../../packs/default/resources/textures/creative_categories/everything.png?url";
-import craftingMaterialsIcon from "../../../../../packs/default/resources/textures/creative_categories/crafting_materials.png?url";
-import stoneIcon from "../../../../../packs/default/resources/textures/creative_categories/stone_blocks.png?url";
+import craftingMaterialsIcon from "../../../../../packs/default/resources/textures/creative_categories/materials_crafting.png?url";
+import stoneIcon from "../../../../../packs/default/resources/textures/creative_categories/blocks_stone.png?url";
 import toolsIcon from "../../../../../packs/default/resources/textures/creative_categories/tools.png?url";
 
 const meta = {
@@ -30,20 +30,20 @@ const meta = {
       },
       categories: [
         { id: "tools", order: 70, iconUrl: toolsIcon },
-        { id: "stone_blocks", order: 20, iconUrl: stoneIcon },
+        { id: "blocks_stone", order: 20, iconUrl: stoneIcon },
       ],
       everythingIconUrl: everythingIcon,
       catalog: [
         {
           id: "asteria:stone", kind: "block", name: "Stone",
-          category: "stone_blocks", metadata: {},
+          category: "blocks_stone", metadata: {},
         },
         {
           id: "asteria:dirt", kind: "block", name: "Dirt",
           category: "block/terrain", metadata: {},
         },
         {
-          id: "asteria:dimensional_slicer", kind: "item",
+          id: "asteria:slicer_dimensional", kind: "item",
           name: "Dimensional Slicer (Umbral)", category: "tools",
           metadata: { target_dimension: "asteria:umbral" },
         },
@@ -58,13 +58,13 @@ const meta = {
         },
       ],
       recipes: [{
-        id: "asteria:rustic_hatchet",
+        id: "asteria:hatchet_rustic",
         resultId: "asteria:hatchet_rustic",
         outputQuantity: 1,
         ingredients: [
           { id: "asteria:pebble", required: 2, available: 2 },
           { id: "asteria:stick", required: 3, available: 3 },
-          { id: "asteria:plant_fiber", required: 2, available: 2 },
+          { id: "asteria:fiber_plant", required: 2, available: 2 },
         ],
         craftable: true,
         unavailableReason: null,
@@ -117,7 +117,7 @@ export const CraftedItem: Story = {
       ...meta.args.state,
       creativeAvailable: false,
       craftingStatus: {
-        code: "Crafted", recipeId: "asteria:rustic_hatchet",
+        code: "Crafted", recipeId: "asteria:hatchet_rustic",
       },
     },
   },
@@ -146,7 +146,7 @@ export const AuthoredCreativeCategories: Story = {
           id: "asteria:stone_" + index,
           kind: "block" as const,
           name: "asteria:stone_" + index,
-          category: "stone_blocks",
+          category: "blocks_stone",
           metadata: {},
         })),
       ],
@@ -163,7 +163,7 @@ export const NoRecipes: Story = {
       categories: [
         ...meta.args.state.categories,
         {
-          id: "crafting_materials",
+          id: "materials_crafting",
           order: 25,
           iconUrl: craftingMaterialsIcon,
         },

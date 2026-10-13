@@ -16,9 +16,9 @@ public sealed class OceanObjectGenerationTests
              "placementFaces":["top"],"dropSelf":true}
             """,
             """
-            {"id":"asteria:sea_anemone","category":"foliage",
-             "icon":"textures/objects/sea_anemone.png",
-             "visual":{"type":"crossedSprite","texture":"textures/objects/sea_anemone.png",
+            {"id":"asteria:anemone_sea","category":"foliage",
+             "icon":"textures/objects/anemone_sea.png",
+             "visual":{"type":"crossedSprite","texture":"textures/objects/anemone_sea.png",
                        "width":0.8,"height":0.88,"planes":4,"alphaCutoff":0.5},
              "target":{"size":[0.8,0.88,0.8],"centerOffset":[0,0.44,0]},
              "placementFaces":["top"],"dropSelf":false}
@@ -63,8 +63,8 @@ public sealed class OceanObjectGenerationTests
     [Theory]
     [InlineData(-18f, "asteria:seagrass")]
     [InlineData(-17f, "asteria:seagrass")]
-    [InlineData(-18f, "asteria:sea_anemone")]
-    [InlineData(-17f, "asteria:sea_anemone")]
+    [InlineData(-18f, "asteria:anemone_sea")]
+    [InlineData(-17f, "asteria:anemone_sea")]
     public void GeneratedObjectIsAnchoredToSeabedAndPreservesItsWaterSource(
         float baseHeight, string objectId)
     {
@@ -89,7 +89,7 @@ public sealed class OceanObjectGenerationTests
 
     [Theory]
     [InlineData("asteria:seagrass")]
-    [InlineData("asteria:sea_anemone")]
+    [InlineData("asteria:anemone_sea")]
     public void SubmergedRuleDoesNotCreateObjectsOnDryTerrain(string objectId)
     {
         var (generator, _) = Generator(-18f, ocean: false, objectId);

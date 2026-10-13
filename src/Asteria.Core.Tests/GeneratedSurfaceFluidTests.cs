@@ -449,7 +449,7 @@ public sealed class GeneratedSurfaceFluidTests
 
         var expected = new[]
         {
-            "asteria:grass_block", "asteria:dirt",
+            "asteria:block_grass", "asteria:dirt",
             "asteria:mud", "asteria:water",
         };
         foreach (var id in expected)

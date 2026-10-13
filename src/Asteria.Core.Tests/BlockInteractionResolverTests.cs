@@ -126,7 +126,7 @@ public sealed class BlockInteractionResolverTests
     {
         var blocks = CreateBlocks();
         var layer =
-            blocks.GetId("asteria:snow_layer");
+            blocks.GetId("asteria:layer_snow");
         var world = LoadedWorld();
         var hit =
             new VoxelWorldHit(
@@ -170,7 +170,7 @@ public sealed class BlockInteractionResolverTests
         var stone =
             blocks.GetId("asteria:stone");
         var layer =
-            blocks.GetId("asteria:snow_layer");
+            blocks.GetId("asteria:layer_snow");
         var world = LoadedWorld();
         var hit =
             new VoxelWorldHit(
@@ -224,7 +224,7 @@ public sealed class BlockInteractionResolverTests
                             0.125f,
                             "asteria:stone")),
                 new BlockDefinition(
-                    "asteria:snow_layer",
+                    "asteria:layer_snow",
                     tags:
                     [
                         BlockPhysicsCapabilities.SupportBelow,
@@ -262,7 +262,7 @@ public sealed class BlockInteractionResolverTests
                     0),
                 new VoxelCell(
                     blocks.GetId(
-                        "asteria:snow_layer")),
+                        "asteria:layer_snow")),
                 FarPlayerBounds());
 
         Assert.False(decision.Accepted);
@@ -280,7 +280,7 @@ public sealed class BlockInteractionResolverTests
                 new BlockDefinition(
                     "asteria:micro"),
                 new BlockDefinition(
-                    "asteria:snow_layer",
+                    "asteria:layer_snow",
                     tags:
                     [
                         BlockPhysicsCapabilities.SupportBelow,
@@ -335,7 +335,7 @@ public sealed class BlockInteractionResolverTests
         var candidate =
             new VoxelCell(
                 blocks.GetId(
-                    "asteria:snow_layer"));
+                    "asteria:layer_snow"));
 
         var partial =
             BlockInteractionResolver.ResolvePlacement(
@@ -494,7 +494,7 @@ public sealed class BlockInteractionResolverTests
         [
             new BlockDefinition("asteria:stone"),
             new BlockDefinition(
-                "asteria:snow_layer",
+                "asteria:layer_snow",
                 tags:
                 [
                     BlockPhysicsCapabilities.SupportBelow,

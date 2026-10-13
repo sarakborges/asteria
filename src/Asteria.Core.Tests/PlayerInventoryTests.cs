@@ -112,19 +112,19 @@ public sealed class PlayerInventoryTests
     public void MetadataVariantsNeverMergeOrMutateCallerDictionary()
     {
         var original = new Dictionary<string, string> { ["target_dimension"] = "asteria:umbral" };
-        var umbral = InventoryEntry.FromItem("asteria:dimensional_slicer", original);
+        var umbral = InventoryEntry.FromItem("asteria:slicer_dimensional", original);
         original["target_dimension"] = "asteria:overworld";
         Assert.Equal("asteria:umbral", umbral.Metadata["target_dimension"]);
-        var equivalent = InventoryEntry.FromItem("asteria:dimensional_slicer",
+        var equivalent = InventoryEntry.FromItem("asteria:slicer_dimensional",
             new Dictionary<string, string> { ["target_dimension"] = "asteria:umbral" });
         Assert.Equal(umbral, equivalent);
-        Assert.NotEqual(umbral, InventoryEntry.FromItem("asteria:dimensional_slicer"));
+        Assert.NotEqual(umbral, InventoryEntry.FromItem("asteria:slicer_dimensional"));
         var inventory = new PlayerInventory();
         Assert.True(inventory.TryInsert(new InventoryStack(umbral, 32)));
         Assert.True(inventory.TryInsert(new InventoryStack(equivalent, 32)));
         Assert.Equal(64, inventory.SelectedStack!.Quantity);
         Assert.True(inventory.TryInsert(new InventoryStack(
-            InventoryEntry.FromItem("asteria:dimensional_slicer"))));
+            InventoryEntry.FromItem("asteria:slicer_dimensional"))));
         Assert.Equal(1, inventory.SlotAt(28)!.Quantity);
     }
 

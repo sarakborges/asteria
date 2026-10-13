@@ -1,0 +1,30 @@
+{
+  "id": "asteria:log_juniper_stripped",
+  "category": "blocks_wooden",
+  "textures": {
+    "top": "textures/blocks/trees/juniper/top.png",
+    "bottom": "textures/blocks/trees/juniper/top.png",
+    "left": "textures/blocks/trees/juniper/stripped.png",
+    "right": "textures/blocks/trees/juniper/stripped.png",
+    "front": "textures/blocks/trees/juniper/stripped.png",
+    "back": "textures/blocks/trees/juniper/stripped.png"
+  },
+  "mining": {
+    "hardness": 0.9,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "lightDampening": 15,
+  "castsShadow": true,
+  "previewColor": "816d5d",
+  "variant": {
+    "family": "asteria:log_juniper",
+    "key": "stripped"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ]
+}

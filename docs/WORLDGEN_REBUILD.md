@@ -440,7 +440,7 @@ Example (in `packs/default/data/biomes/caverns.json`):
 
 ```json
 {
-  "block": "asteria:stone_spike",
+  "block": "asteria:spike_stone",
   "chance": 0.22,
   "minHeight": 2,
   "maxHeight": 9,
@@ -538,7 +538,7 @@ Stone Cobble variants to ground below Y=86 (the default Overworld sea
 level is 90); the patch stays warped and seed-stable rather than
 painting randomly at the shore.
 
-The existing `ocean_rock` group now contains four rotated templates:
+The existing `rock_ocean` group now contains four rotated templates:
 two original Stone Cobble outcrops, one low Clay/Gravel shingle outcrop
 and one wider layered Stone/Stone Cobble reef. Existing Structure and
 StructureSet roots choose from that group without changing their
@@ -621,8 +621,8 @@ The former `ocean`, `swamp`, `mountains`, `gorge`, `alps`, `mountain_belt`, and 
 
 ## Caverns biodiversity — emissive crystals and directional decorators
 
-Caverns now uses four new default-pack blocks: `azure_crystal`,
-`hanging_roots`, `glowcap`, and `glow_fern`, each with a 64×64
+Caverns now uses four new default-pack blocks: `crystal_azure`,
+`roots_hanging`, `mushroom_glowcap`, and `fern_glow`, each with a 64×64
 texture. Azure crystals use the existing square CaveSpikeField, with bounded
 height, clearance, spacing and clustered probability. The glowing flora
 are transparent, non-collidable crossed sprites with authored RGB
@@ -634,7 +634,7 @@ A ceiling rule is eligible only inside an actual carved cave void, directly
 below a density-solid ceiling of an allowed material. This works across
 vertical chunk borders and uses the cave's `palette.ceiling` profile when
 the supporting block is outside the current chunk. The resulting
-`hanging_roots` block has `support_above`, so runtime edits to its host rock
+`roots_hanging` block has `support_above`, so runtime edits to its host rock
 wake and detach the unsupported root through generic BlockPhysics.
 Additive floating islands keep their original top-only decoration policy.
 No new generated-fluid or lighting owner is introduced.
@@ -646,11 +646,11 @@ same `terrain3d.additive` configuration and its Grass/Dirt/Stone
 palette. Four default-pack block objects add a distinct sky-island
 character using only authored decorators:
 
-- `cloud_reed`: wind-swaying tall cyan-green grasses on Grass Block/Dirt.
-- `aether_bloom`: sparse lavender flowers with subtle RGB emission.
+- `reed_cloud`: wind-swaying tall cyan-green grasses on Grass Block/Dirt.
+- `bloom_aether`: sparse lavender flowers with subtle RGB emission.
 - `aether_crystal`: occasional single-voxel, square-section spikes on
   Grass, Dirt or exposed Stone; existing shape renderer and emission.
-- `aether_vines`: pendulous sprites on the underside of real additive
+- `vines_aether`: pendulous sprites on the underside of real additive
   solids, with `supportSurface: "ceiling"`, `support_above`, and wind sway.
 
 Each uses an independent 64x64 pixel texture, height bounds,
@@ -672,15 +672,15 @@ settings and habitat definitions. The default pack introduces five
 64x64-pixel objects using existing sprite/spike meshing and
 `decorations` rules, not new hardcoded generator systems:
 
-- `frost_shrub`: low, ice-rimmed vegetation native to Arctic frozen
+- `shrub_frost`: low, ice-rimmed vegetation native to Arctic frozen
   plains, concentrated on Snow and rare exposed Gravel.
-- `frost_lichen`: compact pale lichen (groundSprite) shared by Arctic
+- `lichen_frost`: compact pale lichen (groundSprite) shared by Arctic
   and Alps, favoring ice fields and glacial habitats.
-- `ice_spike`: short, square-profile ice crystals (spike shape)
+- `spike_ice`: short, square-profile ice crystals (spike shape)
   on Snow/Ice, infrequent outside icy habitats and flat supports.
-- `alpine_edelweiss`: small pale flower, favoring sheltered snowy
+- `edelweiss_alpine`: small pale flower, favoring sheltered snowy
   Alps slopes and avoiding sheer rock faces.
-- `alpine_sedge`: wind-animated cold grass, focused on exposed
+- `sedge_alpine`: wind-animated cold grass, focused on exposed
   rocky Alpine habitats at moderate-to-high elevations.
 
 Authoring controls include allowed solid support blocks, continuous
@@ -699,12 +699,12 @@ surfaces without any new terrain or runtime subsystem:
 
 - `sagebrush`: dry sage scrub, concentrated on stable valley
   floors and rims rather than unstable rubble;
-- `dry_tuft`: wind-responsive dry grass on sheltered Dirt/
+- `tuft_dry`: wind-responsive dry grass on sheltered Dirt/
   Gravel pockets, low slope and moderate elevation;
-- `exposed_roots`: horizontal dry roots on Dirt, Gravel and
+- `roots_exposed`: horizontal dry roots on Dirt, Gravel and
   Stone Cobble supports using a ground sprite (not unsupported
   cliff-wall attachment);
-- `stone_spike`: sparse, single-voxel, square-section rocky
+- `spike_stone`: sparse, single-voxel, square-section rocky
   formations on Stone, Gravel and Stone Cobble, concentrated
   toward rubble slopes and high rims.
 
@@ -722,13 +722,13 @@ region rules. Four decorations enrich the *air voxels above* actual
 Sand support rather than changing the terrain or introducing
 random Gravel patches:
 
-- `dune_grass`: wind-animated dry grass on Sand, mainly
+- `grass_dune`: wind-animated dry grass on Sand, mainly
   in flat sandy habitats and rare on exposed dunes;
 - `thornbush`: sparse woody scrub on low-slope sandy
   pockets, weighted toward `sand_flats` and outcrop habitats;
 - `yucca`: stiff-leaved desert vegetation mainly in the
   `sandstone_outcrops` habitat and absent on `open_dunes`;
-- `sandstone_spike`: rare, single-voxel, square-section
+- `spike_sandstone`: rare, single-voxel, square-section
   Sandstone-like formation favoring outcrop habitats and flat
   Sand support. It uses the generic Spike block shape.
 
@@ -888,17 +888,17 @@ In addition to the original pebble and basalt rock/outcrop/spire
 landmarks, Volcano now authors three ground decorators and five
 structure families with 16 multi-block variants:
 
-- `ash_thorn`: dark thorny scrub on basalt/cobble/gravel
+- `thorn_ash`: dark thorny scrub on basalt/cobble/gravel
   favoring `ash_aprons`, with clustered habitat noise.
-- `cinder_bloom`: rare warm orange flower on basalt
+- `bloom_cinder`: rare warm orange flower on basalt
   and basalt cobble, favoring lower ash zones.
-- `soot_lichen`: flat small lichen patches on intact
+- `lichen_soot`: flat small lichen patches on intact
   basalt/cobble, most prevalent along fractured flanks/highlands.
-- `volcanic_charred_trees`: four bare branching fire-scarred
+- `tree_charred_volcanic`: four bare branching fire-scarred
   trees of increasing height with sparse residual ember needles.
-- `volcanic_briar_thickets`: three groups of skeletal burned
+- `thicket_briar_volcanic`: three groups of skeletal burned
   woody bushes on patches of stable basalt.
-- `volcanic_column_garden`: four clusters of square basalt
+- `garden_column_volcanic`: four clusters of square basalt
   columns, complementary to existing basalt rock structures.
 - `volcanic_sulfur_cluster`: three multi-prong mineral deposits,
   chiefly on fractured high flanks and hardened highlands.
@@ -929,8 +929,8 @@ exposed roots and plants; `rocky_scrub` receives thistles and lichens.
 They do not create ground-material patches or extra Pebbles.
 
 Two new StructureRegistry families provide seven 3D variants:
-`wasteland_thorn_scrub` (four multi-branched, angular dead shrubs)
-and `wasteland_fossil_rib` (three rare, low, ribbed fossil remains).
+`scrub_thorn_wasteland` (four multi-branched, angular dead shrubs)
+and `rib_fossil_wasteland` (three rare, low, ribbed fossil remains).
 The structures start at Y=1 above the natural surface, author no
 replacement Y=0 ground blocks, require Dirt/Gravel (fossils may also
 use Stone), full Wasteland coverage and no generated fluids.
@@ -942,7 +942,7 @@ two voxel blocks. There are no gameplay assumptions about dynamic
 bone spawning, erosion, drops or new particle systems.
 
 Content intentionally complements, rather than replaces, existing
-`wasteland_snag` and `fallen_log_wasteland` structures.
+`snag_wasteland` and `log_wasteland_fallen` structures.
 
 ## Enchanted Forest undergrowth and landmarks (2026-10-11)
 
@@ -1009,10 +1009,10 @@ grass and shrubs. There is no new surface patch rule or terrain shape.
 
 Swamp now has two new waterside decorators, Marsh Orchid and
 Bulrush. Both need an authored Water-nearby condition and valid
-dry ground at the natural mud/dirt/grass/water mosaic. New `swamp_reed_bed`
+dry ground at the natural mud/dirt/grass/water mosaic. New `bed_reed_swamp`
 structure variants (3) create 3D-spatial arrangements of Bulrush
 and existing Cattail sprites on flat, real ground near water, without
-filling or replacing pools. New `swamp_moss_stump` variants (3) use
+filling or replacing pools. New `stump_swamp_moss` variants (3) use
 real Willow logs, custom moss-stained Willow wood, existing hanging
 moss (support from woody branches), exposed roots, Brown Mushrooms and
 a new shelf fungus sprite perched on wood. None attaches sprites to
@@ -1045,8 +1045,8 @@ The blocks use existing CrossedSprite rendering rather than
 inventing a new render pipeline.
 
 Four new 64×64 pack-owned wall objects are authored:
-`wall_moss`, `wall_shelf_fungus`,
-`cliff_rosette`, and `cliff_lichen`.
+`moss_wall`, `fungus_shelf_wall`,
+`rosette_cliff`, and `lichen_cliff`.
 They require Stone or Stone Cobble and explicitly forbid
 placement on floor/ceiling faces. Cavern decorations use
 the carved-void biome owner; Gorge face objects are allowed
@@ -1090,7 +1090,7 @@ No JSON in `packs/` is changed by this cleanup.
 ## Biome wall overlays migrated to authoritative Layers (2026-10-11)
 
 The default-pack `caverns` and `gorge` JSON now use explicit
-`layer` decorator rules for `wall_moss` and `cliff_lichen`.
+`layer` decorator rules for `moss_wall` and `lichen_cliff`.
 These are **not** neighboring voxel blocks: generation attaches
 `AttachedBlockLayer` to the actual Stone/Stone Cobble host face,
 including host faces exposed across chunk boundaries. Each face is
@@ -1103,10 +1103,10 @@ invalid pack definitions fail during normal runtime creation.
 
 The 64×64 art from the original wall objects was reused as texture
 assets under `textures/layers` with explicit `tint:none`. Original
-`wall_moss` and `cliff_lichen` block definitions and object texture
+`moss_wall` and `lichen_cliff` block definitions and object texture
 assets are retained for compatibility with existing saved worlds, but
-the worldgen no longer creates those blocks. `wall_shelf_fungus` and
-`cliff_rosette` remain 3D objects (not Layers); their legacy wall-block
+the worldgen no longer creates those blocks. `fungus_shelf_wall` and
+`rosette_cliff` remain 3D objects (not Layers); their legacy wall-block
 generation is still inactive pending a distinct geometry placement
 capability. The port does not reinstate the redundant wall-block pass
 or change terrain, cave palettes, biome boundaries, or water.

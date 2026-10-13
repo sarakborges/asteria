@@ -13,7 +13,7 @@ public sealed record StorageBoxSnapshot(
 public sealed class StorageBoxRuntime
 {
     public const int SlotCount = 27;
-    public const string BlockId = "asteria:storage_box";
+    public const string BlockId = "asteria:box_storage";
     private readonly Dictionary<WorldVoxelCoord, InventoryStack?[]> _boxes = [];
     private WorldVoxelCoord? _active;
     private ulong _revision;

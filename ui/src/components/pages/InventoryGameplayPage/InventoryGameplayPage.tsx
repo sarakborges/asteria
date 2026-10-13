@@ -201,7 +201,7 @@ export function InventoryGameplayPage({
             name: t("ui.inventory"),
             description: t("crafting.personalCrafting"),
             iconUrl: state.categories.find(category =>
-              category.id === "crafting_materials")?.iconUrl,
+              category.id === "materials_crafting")?.iconUrl,
           }} />}
           creative={<CreativeInventoryPanel
             state={{

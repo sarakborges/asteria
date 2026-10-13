@@ -6,16 +6,16 @@ namespace Asteria.Core.Tests;
 public sealed class TreeMaterialContentTests
 {
     [Theory]
-    [InlineData("charwood", "charwood")]
-    [InlineData("log_enchanted", "enchanted_tree")]
-    [InlineData("frost_wood", "frost_wood")]
-    [InlineData("juniper_wood", "juniper")]
+    [InlineData("log_charwood", "charwood")]
+    [InlineData("log_enchanted_tree", "enchanted_tree")]
+    [InlineData("log_frost_wood", "frost_wood")]
+    [InlineData("log_juniper", "juniper")]
     [InlineData("log_oak", "oak")]
-    [InlineData("rime_deadwood", "rime_deadwood")]
-    [InlineData("skywood_log", "skywood")]
-    [InlineData("thornwood", "thornwood")]
+    [InlineData("log_rime_deadwood", "rime_deadwood")]
+    [InlineData("log_skywood", "skywood")]
+    [InlineData("log_thornwood", "thornwood")]
     [InlineData("log_willow", "willow")]
-    [InlineData("windwood", "windwood")]
+    [InlineData("log_windwood", "windwood")]
     [InlineData("log_world_tree", "world_tree")]
     public void CarpenterStripsEveryAuthoredWoodFamilyInEveryOrientation(
         string stem, string material)
@@ -26,7 +26,7 @@ public sealed class TreeMaterialContentTests
         var mutations = CreateMutations(world);
         var tools = CreateTools(world, blocks, mutations);
         var held = new InventoryStack(
-            InventoryEntry.FromTool("asteria:carpenters_axe_rustic"));
+            InventoryEntry.FromTool("asteria:axe_carpenters_rustic"));
         var position = new WorldVoxelCoord(2, 3, 4);
         var hit = new VoxelWorldHit(position, 0, 1, 0);
         var natural = blocks.GetId("asteria:" + stem);
@@ -54,7 +54,7 @@ public sealed class TreeMaterialContentTests
     [Theory]
     [InlineData("log_oak")]
     [InlineData("log_willow")]
-    [InlineData("log_enchanted")]
+    [InlineData("log_enchanted_tree")]
     [InlineData("log_world_tree")]
     public void ExistingHollowFamiliesCanBeStrippedWithoutLosingTheirShape(
         string stem)
@@ -65,7 +65,7 @@ public sealed class TreeMaterialContentTests
         var mutations = CreateMutations(world);
         var tools = CreateTools(world, blocks, mutations);
         var held = new InventoryStack(
-            InventoryEntry.FromTool("asteria:carpenters_axe_rustic"));
+            InventoryEntry.FromTool("asteria:axe_carpenters_rustic"));
         var position = new WorldVoxelCoord(2, 3, 4);
         var hit = new VoxelWorldHit(position, 0, 1, 0);
         var natural = blocks.GetId("asteria:" + stem);
@@ -117,7 +117,7 @@ public sealed class TreeMaterialContentTests
                 $"{structure.Id} must retain visible fantasy foliage."));
 
         foreach (var group in new[]
-                 { "volcanic_charred_trees", "wasteland_thorn_scrub", "wasteland_snag" })
+                 { "tree_charred_volcanic", "scrub_thorn_wasteland", "snag_wasteland" })
         {
             Assert.All(structures.ResolveReference("asteria:" + group), tree =>
                 Assert.True(tree.Voxels.Count(voxel => leaves.Contains(voxel.Block)) >= 20,

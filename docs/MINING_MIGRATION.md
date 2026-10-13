@@ -30,7 +30,7 @@ The native input, mutation, content and Sphere boundaries remain unchanged: no U
 ## Artisan's Kit microblock editing (2026-10-08)
 
 - Reference: MineClone `world-systems-rebuild/src/tools/artisans_kit.rs`. `ArtisansKitRuntime` belongs to the active Sphere, alongside `BlockMiningRuntime` and `BucketGameplayRuntime`.
-- Authored `asteria:artisans_kit/remove` (native left click) and `asteria:artisans_kit/restore` (right click) change occupancy on existing `fragmentable` cube blocks only. It never creates a parent in an empty voxel, alters an unbreakable block or silently mutates unsupported hollow/layer shapes.
+- Authored `asteria:kit_artisans/remove` (native left click) and `asteria:kit_artisans/restore` (right click) change occupancy on existing `fragmentable` cube blocks only. It never creates a parent in an empty voxel, alters an unbreakable block or silently mutates unsupported hollow/layer shapes.
 - Core resolves the targeted occupied 1/8-cell with a bounded ray scan and snaps edits to resolutions 4/2/1 microcells per edge (in-world size 1/2, 1/4 and 1/8 block). Tool Action cycles resolution in Godot and WebUI displays the current scale next to the selected block with localization. Browser input is never used for the action.
 - Edits use `MicroblockMask.Edit`, `BlockStateSnapshot` and `VoxelMutationRuntime` to ensure mesh/lighting/physics/fluids stay invalidated through the canonical owner. Full occupancy reverts to a normal voxel, and removing all occupancy clears it. Restoration is rejected when the candidate sub-volume would intersect the player's authoritative collision AABB.
 - Focused tests validate partial removal/restore, block identity/state preservation, protected blocks, tool validation, cycling and collision rejection.
@@ -52,7 +52,7 @@ The native input, mutation, content and Sphere boundaries remain unchanged: no U
 
 - `AttachedLayerRegistry` and `AttachedLayerDefinition` validate optional pack-authored `data/layers/*.json` definitions (safe relative texture, supported faces, tint, bounded offset, alpha mode and shadows).
 - `TerrainTextureCatalog` deterministically includes these texture paths in the shared array, without a new Godot texture manager or layer nodes.
-- The default `asteria:foliage_layer` reuses the authored grass overlay texture. `asteria:moss` uses the original MineClone moss PNG, imported without modifications. The portal bitmap remains separate/pending.
+- The default `asteria:layer_foliage` reuses the authored grass overlay texture. `asteria:moss` uses the original MineClone moss PNG, imported without modifications. The portal bitmap remains separate/pending.
 
 
 ## Surface layer mesh projection (2026-10-08)
@@ -74,19 +74,19 @@ The native input, mutation, content and Sphere boundaries remain unchanged: no U
 - The authored `Layer` entry kind is a fourth inventory identity (blocks/items/tools/layers). Creative inventory is populated from selected-pack `AttachedLayerRegistry`, with resource-path-derived icons and category, not browser-fabricated items.
 - Native right-click with a selected layer places it onto the hit block face; `AttachedLayerPlacementRuntime` validates layer definition, face, loaded host, geometry kind, unbreakable guard, duplicate/16-layer limit and then asks `VoxelMutationRuntime` to update the sparse state. Survival consumes exactly one selected layer after acceptance; Creative is non-consuming.
 - The existing Shears right-click removes the most recently attached layer on the target face. Layers are rendered through the same Core worker mesh path, without collision or per-voxel nodes.
-- `asteria:foliage_layer` and `asteria:moss` appear as independent creative catalog choices. The former uses the existing grass overlay; the latter uses the exact original MineClone asset under `resources/textures/layers/moss.png`.
+- `asteria:layer_foliage` and `asteria:moss` appear as independent creative catalog choices. The former uses the existing grass overlay; the latter uses the exact original MineClone asset under `resources/textures/layers/moss.png`.
 
 ## Original moss PNG provenance (2026-10-08)
 
 - MineClone source: `sarakborges/mineclone`, branch `world-systems-rebuild`, `assets/textures/layers/moss.png`.
 - Default pack asset: `packs/default/resources/textures/layers/moss.png`; byte-for-byte original, Git blob SHA-1 `8662adb0a4c3a2be39aedda0f666a25d80e85e1d` (8,211 bytes). No image regeneration, palette changes, engine-specific import sidecars or resampling in the stored PNG.
-- `packs/default/data/layers/moss.json` ports the MineClone `asteria:moss` layer definition: `natural_blocks` category, foliage tint, 0.001 offset, 0.5 alpha cutoff, all six faces by default and no layer shadows. Runtime terrain array normalization is independent from the original pack file.
+- `packs/default/data/layers/moss.json` ports the MineClone `asteria:moss` layer definition: `blocks_natural` category, foliage tint, 0.001 offset, 0.5 alpha cutoff, all six faces by default and no layer shadows. Runtime terrain array normalization is independent from the original pack file.
 - The original PNG was transferred with a temporary checksum-verified CI operation; the temporary transfer step is removed from the final PR tree. This is a static pack addition, not a new runtime loader.
 
  
 ## Architect's Compass selection/export (2026-10-08)
 
-- MineClone reference: `data/tools/structure_tool.json`, `src/tools/structure_tool.rs`. Authored `asteria:architects_compass` is the Structure Tool: right-click one adjacent loaded empty voxel to set the first corner, then right-click a second to export an axis-aligned selection.
+- MineClone reference: `data/tools/compass_architects.json`, `src/tools/structure_tool.rs`. Authored `asteria:compass_architects` is the Structure Tool: right-click one adjacent loaded empty voxel to set the first corner, then right-click a second to export an axis-aligned selection.
 - `ArchitectsCompassRuntime` owns session-scoped selection and tool/slot identity; an equipment change clears it. `StructureSelectionBounds` limits height, width, depth and total scanned volume before any world scan; no negative Y, no hidden chunk loading, and no world mutations are introduced.
 - `StructureSelectionExporter` deterministically samples only loaded-world voxels (Y/Z/X), generates Asteria's existing `palette` + `layers` JSON, and validates it with `StructureDefinitionJson` and `StructureRegistry`. An all-air selection, unloaded cells, unsupported fluids and nonrepresentable per-block state/sculpting/dyes/layers are rejected rather than silently exported with data loss. A Sphere-scoped `StructureSelectionPresentation` draws only one change-driven outline.
 - The Godot adapter saves successful JSON outside authored packs under `user://exports/structures/`; export IDs are unique GUIDs chosen by the adapter, not nondeterministic Core gameplay. WebUI receives ordinary semantic toast notifications. Preview requires a real native target, never browser-captured world input. Export limit is 16,384 voxels per operation to bound synchronous latency.

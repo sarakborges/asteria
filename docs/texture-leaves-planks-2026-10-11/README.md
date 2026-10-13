@@ -8,16 +8,16 @@ Foram criadas/refeitas **27 texturas em 64×64**: **10 folhas**, **11 planks** e
 
 | Família | Folhas | Planks | Outras faces |
 | --- | --- | --- | --- |
-| `charwood` | refeitas | criadas | preservadas |
+| `log_charwood` | refeitas | criadas | preservadas |
 | `enchanted_tree` | refeitas | refeitas | top, side e stripped refeitas |
-| `frost_wood` | refeitas (normal + arctic) | criadas | preservadas |
+| `log_frost_wood` | refeitas (normal + arctic) | criadas | preservadas |
 | `juniper` | refeitas | criadas | preservadas |
 | `oak` | refeitas | refeitas | preservadas |
-| `rime_deadwood` | slot transparente de árvore sem folhas, preservado | criadas | preservadas |
+| `log_rime_deadwood` | slot transparente de árvore sem folhas, preservado | criadas | preservadas |
 | `skywood` | refeitas | criadas | preservadas |
-| `thornwood` | slot transparente de árvore sem folhas, preservado | criadas | preservadas |
+| `log_thornwood` | slot transparente de árvore sem folhas, preservado | criadas | preservadas |
 | `willow` | refeitas | refeitas | preservadas |
-| `windwood` | refeitas | criadas | preservadas |
+| `log_windwood` | refeitas | criadas | preservadas |
 | `world_tree` | refeitas | refeitas | top, side e stripped refeitas |
 
 ## Contratos e revisão
@@ -25,7 +25,7 @@ Foram criadas/refeitas **27 texturas em 64×64**: **10 folhas**, **11 planks** e
 - As 27 imagens são materiais repetíveis, conferidos em mosaicos 3×3 nos dois eixos. Juntas horizontais de tábuas são parte do material. Nenhuma moldura escura foi adicionada nas bordas externas.
 - Folhagens usam transparência real com alpha binário; as folhas de Oak e Willow são mapas neutros de cinza para o tint do bioma. As demais mantêm suas paletas próprias.
 - Enchanted Tree conserva madeira azul royal/celeste e folhas douradas. World Tree conserva madeira dourada/âmbar e folhas claras azuladas.
-- `rime_deadwood` e `thornwood` são famílias sem folhas no contrato atual; seus `leaf.png` transparentes foram preservados. Ambas receberam planks próprias.
+- `log_rime_deadwood` e `log_thornwood` são famílias sem folhas no contrato atual; seus `leaf.png` transparentes foram preservados. Ambas receberam planks próprias.
 - As sete novas planks são recursos autorizados para as famílias já existentes. Este trabalho não cria novos blocos, receitas ou referências de gameplay.
 - Todos os diretórios de árvore agora têm `top`, `side`, `stripped`, `leaf` e `planks`, em 64×64. `frost_wood/leaf_arctic.png` continua como variante própria.
 

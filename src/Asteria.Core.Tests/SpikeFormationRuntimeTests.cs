@@ -14,7 +14,7 @@ public sealed class SpikeFormationRuntimeTests
     {
         var f = Fixture();
         var stone = f.Blocks.GetId("asteria:stone");
-        var spike = f.Blocks.GetId("asteria:stone_spike");
+        var spike = f.Blocks.GetId("asteria:spike_stone");
         var support = new WorldVoxelCoord(2, 2, 2);
         Assert.True(f.Mutations.SetBlockAt(support, stone, out _));
 
@@ -61,7 +61,7 @@ public sealed class SpikeFormationRuntimeTests
     {
         var f = Fixture(dropCapacity: 2);
         var stone = f.Blocks.GetId("asteria:stone");
-        var spike = f.Blocks.GetId("asteria:stone_spike");
+        var spike = f.Blocks.GetId("asteria:spike_stone");
         Assert.True(f.Mutations.SetBlockAt(
             new WorldVoxelCoord(2, 2, 2), stone, out _));
         for (var i = 0; i < 3; i++)
@@ -84,7 +84,7 @@ public sealed class SpikeFormationRuntimeTests
     {
         var f = Fixture(dropCapacity: 3);
         var stone = f.Blocks.GetId("asteria:stone");
-        var spike = f.Blocks.GetId("asteria:ice_spike");
+        var spike = f.Blocks.GetId("asteria:spike_ice");
         var support = new WorldVoxelCoord(2, 8, 2);
         Assert.True(f.Mutations.SetBlockAt(support, stone, out _));
         for (var i = 0; i < 3; i++)
@@ -115,7 +115,7 @@ public sealed class SpikeFormationRuntimeTests
     {
         var f = Fixture(dropCapacity: 4);
         var stone = f.Blocks.GetId("asteria:stone");
-        var spike = f.Blocks.GetId("asteria:stone_spike");
+        var spike = f.Blocks.GetId("asteria:spike_stone");
         var support = new WorldVoxelCoord(2, 10, 2);
         Assert.True(f.Mutations.SetBlockAt(support, stone, out _));
         for (var i = 0; i < 3; i++)
@@ -127,7 +127,7 @@ public sealed class SpikeFormationRuntimeTests
         Assert.True(f.World.GetCellOrEmpty(support).IsEmpty);
         Assert.Equal(4, f.Drops.ActiveCount);
         Assert.Equal(3, f.Drops.ActiveBlocks.Count(x =>
-            x.Stack.Id == "asteria:stone_spike"));
+            x.Stack.Id == "asteria:spike_stone"));
         Assert.Single(f.Drops.ActiveBlocks.Where(x =>
             x.Stack.Id == "asteria:stone"));
         Assert.False(f.Interactions.Break(Hit(2, 10, 2)).Accepted);
@@ -139,7 +139,7 @@ public sealed class SpikeFormationRuntimeTests
     {
         var f = Fixture();
         var stone = f.Blocks.GetId("asteria:stone");
-        var spike = f.Blocks.GetId("asteria:stone_spike");
+        var spike = f.Blocks.GetId("asteria:spike_stone");
         Assert.True(f.Mutations.SetBlockAt(
             new WorldVoxelCoord(2, 2, 2), stone, out _));
         for (var i = 0; i < 3; i++)
@@ -169,7 +169,7 @@ public sealed class SpikeFormationRuntimeTests
     {
         var f = Fixture();
         var stone = f.Blocks.GetId("asteria:stone");
-        var spike = f.Blocks.GetId("asteria:stone_spike");
+        var spike = f.Blocks.GetId("asteria:spike_stone");
         Assert.True(f.Mutations.SetBlockAt(
             new WorldVoxelCoord(2, 2, 2), stone, out _));
         for (var i = 0; i < 2; i++)
@@ -194,7 +194,7 @@ public sealed class SpikeFormationRuntimeTests
     {
         var f = Fixture();
         var stone = f.Blocks.GetId("asteria:stone");
-        var spike = f.Blocks.GetId("asteria:stone_spike");
+        var spike = f.Blocks.GetId("asteria:spike_stone");
         var anchorY = down ? 8 : 2;
         var spikeY = down ? 7 : 3;
         Assert.True(f.Mutations.SetBlockAt(
@@ -220,7 +220,7 @@ public sealed class SpikeFormationRuntimeTests
     {
         var f = Fixture();
         var stone = f.Blocks.GetId("asteria:stone");
-        var spike = f.Blocks.GetId("asteria:ice_spike");
+        var spike = f.Blocks.GetId("asteria:spike_ice");
         Assert.True(f.Mutations.SetBlockAt(
             new WorldVoxelCoord(3, 10, 3), stone, out _));
 
@@ -256,7 +256,7 @@ public sealed class SpikeFormationRuntimeTests
     {
         var f = Fixture();
         var stone = f.Blocks.GetId("asteria:stone");
-        var spike = f.Blocks.GetId("asteria:basalt_spike");
+        var spike = f.Blocks.GetId("asteria:spike_basalt");
         var support = new WorldVoxelCoord(4, 2, 4);
         Assert.True(f.Mutations.SetBlockAt(support, stone, out _));
 
@@ -286,7 +286,7 @@ public sealed class SpikeFormationRuntimeTests
         var f = Fixture();
         var support = new WorldVoxelCoord(4, 9, 4);
         var stone = f.Blocks.GetId("asteria:stone");
-        var spike = f.Blocks.GetId("asteria:stone_spike");
+        var spike = f.Blocks.GetId("asteria:spike_stone");
         Assert.True(f.Mutations.SetBlockAt(support, stone, out _));
         Assert.True(f.Interactions.Place(
             Hit(4, 9, 4, normalY: -1),
@@ -308,7 +308,7 @@ public sealed class SpikeFormationRuntimeTests
     {
         var f = Fixture(verticalChunks: 2);
         var stone = f.Blocks.GetId("asteria:stone");
-        var spike = f.Blocks.GetId("asteria:sandstone_spike");
+        var spike = f.Blocks.GetId("asteria:spike_sandstone");
         Assert.True(f.Mutations.SetBlockAt(
             new WorldVoxelCoord(1, 14, 1), stone, out _));
 
@@ -336,7 +336,7 @@ public sealed class SpikeFormationRuntimeTests
     {
         var f = Fixture();
         var stone = f.Blocks.GetId("asteria:stone");
-        var spike = f.Blocks.GetId("asteria:stone_spike");
+        var spike = f.Blocks.GetId("asteria:spike_stone");
         Assert.True(f.Mutations.SetBlockAt(
             new WorldVoxelCoord(1, 14, 1), stone, out _));
         Assert.True(f.Interactions.Place(
@@ -358,7 +358,7 @@ public sealed class SpikeFormationRuntimeTests
         var f = Fixture(verticalChunks: 2);
         var support = new WorldVoxelCoord(2, 13, 2);
         var stone = f.Blocks.GetId("asteria:stone");
-        var spike = f.Blocks.GetId("asteria:stone_spike");
+        var spike = f.Blocks.GetId("asteria:spike_stone");
         Assert.True(f.Mutations.SetBlockAt(support, stone, out _));
 
         for (var i = 0; i < 3; i++)
@@ -393,7 +393,7 @@ public sealed class SpikeFormationRuntimeTests
     {
         var f = Fixture(verticalChunks: 2);
         var stone = f.Blocks.GetId("asteria:stone");
-        var spike = f.Blocks.GetId("asteria:ice_spike");
+        var spike = f.Blocks.GetId("asteria:spike_ice");
         var support = new WorldVoxelCoord(2, 15, 2);
         Assert.True(f.Mutations.SetBlockAt(support, stone, out _));
         Assert.True(f.Interactions.Place(
@@ -416,7 +416,7 @@ public sealed class SpikeFormationRuntimeTests
     {
         var f = Fixture(verticalChunks: 2);
         var stone = f.Blocks.GetId("asteria:stone");
-        var spike = f.Blocks.GetId("asteria:stone_spike");
+        var spike = f.Blocks.GetId("asteria:spike_stone");
         var support = new WorldVoxelCoord(2, 13, 2);
         Assert.True(f.Mutations.SetBlockAt(support, stone, out _));
         for (var i = 0; i < 3; i++)
@@ -442,7 +442,7 @@ public sealed class SpikeFormationRuntimeTests
     {
         var f = Fixture(verticalChunks: 2);
         var stone = f.Blocks.GetId("asteria:stone");
-        var spike = f.Blocks.GetId("asteria:sandstone_spike");
+        var spike = f.Blocks.GetId("asteria:spike_sandstone");
         Assert.True(f.Mutations.SetBlockAt(
             new WorldVoxelCoord(2, 14, 2), stone, out _));
         for (var i = 0; i < 2; i++)
@@ -465,8 +465,8 @@ public sealed class SpikeFormationRuntimeTests
     {
         var f = Fixture();
         var stone = f.Blocks.GetId("asteria:stone");
-        var stoneSpike = f.Blocks.GetId("asteria:stone_spike");
-        var iceSpike = f.Blocks.GetId("asteria:ice_spike");
+        var stoneSpike = f.Blocks.GetId("asteria:spike_stone");
+        var iceSpike = f.Blocks.GetId("asteria:spike_ice");
         Assert.True(f.Mutations.SetBlockAt(
             new WorldVoxelCoord(2, 2, 2), stone, out _));
         Assert.True(f.Interactions.Place(
@@ -495,13 +495,13 @@ public sealed class SpikeFormationRuntimeTests
         var blocks = new BlockRegistry(
         [
             new BlockDefinition("asteria:stone"),
-            new BlockDefinition("asteria:stone_spike",
+            new BlockDefinition("asteria:spike_stone",
                 shape: BlockShapeDefinition.Spike()),
-            new BlockDefinition("asteria:ice_spike",
+            new BlockDefinition("asteria:spike_ice",
                 shape: BlockShapeDefinition.Spike()),
-            new BlockDefinition("asteria:basalt_spike",
+            new BlockDefinition("asteria:spike_basalt",
                 shape: BlockShapeDefinition.Spike()),
-            new BlockDefinition("asteria:sandstone_spike",
+            new BlockDefinition("asteria:spike_sandstone",
                 shape: BlockShapeDefinition.Spike()),
         ]);
         var mutations = new VoxelMutationRuntime(

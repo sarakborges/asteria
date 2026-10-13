@@ -7,11 +7,11 @@ public sealed class ToolIconVariantTests
 {
     private const string Bucket = """
       {"id":"asteria:bucket","category":"tools",
-       "icon":"textures/tools/iron_bucket_empty.png",
+       "icon":"textures/tools/bucket_iron_empty.png",
        "leftBehavior":"asteria:none","rightBehavior":"asteria:bucket/use",
        "iconVariants":[
         {"metadataKey":"contained_fluid","metadataValue":"asteria:water",
-         "icon":"textures/tools/iron_bucket_water.png"}]}
+         "icon":"textures/tools/bucket_iron_water.png"}]}
       """;
 
     [Fact]
@@ -25,12 +25,12 @@ public sealed class ToolIconVariantTests
             PackContentRegistry<ItemDefinition>.FromJson(
                 [], ItemDefinition.Parse, x => x.Id),
             tools, new AttachedLayerRegistry([]));
-        Assert.Equal("textures/tools/iron_bucket_water.png",
+        Assert.Equal("textures/tools/bucket_iron_water.png",
             resolver.Resolve(new InventoryStack(InventoryEntry.FromTool(
                 tool.Id, new Dictionary<string,string> {
                     ["contained_fluid"] = "asteria:water"
                 })))!.FrontTexture);
-        Assert.Equal("textures/tools/iron_bucket_empty.png",
+        Assert.Equal("textures/tools/bucket_iron_empty.png",
             resolver.Resolve(new InventoryStack(InventoryEntry.FromTool(
                 tool.Id)))!.FrontTexture);
     }

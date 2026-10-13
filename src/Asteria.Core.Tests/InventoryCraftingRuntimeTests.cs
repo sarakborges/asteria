@@ -35,14 +35,14 @@ public sealed class InventoryCraftingRuntimeTests
         Assert.True(inventory.TryInsert(
             new InventoryStack(InventoryEntry.FromItem("asteria:stick"), 3)));
         Assert.True(inventory.TryInsert(
-            new InventoryStack(InventoryEntry.FromItem("asteria:plant_fiber"), 2)));
+            new InventoryStack(InventoryEntry.FromItem("asteria:fiber_plant"), 2)));
     }
 
     [Fact]
     public void ImportsMineCloneRusticHatchetRecipe()
     {
         var recipe = Assert.Single(CreateRuntime().Recipes);
-        Assert.Equal("asteria:rustic_hatchet", recipe.Id);
+        Assert.Equal("asteria:hatchet_rustic", recipe.Id);
         Assert.Equal("inventory", recipe.Environment);
         Assert.Equal("asteria:hatchet_rustic", recipe.Result.Item);
         Assert.Equal(1, recipe.Result.Quantity);
@@ -80,15 +80,15 @@ public sealed class InventoryCraftingRuntimeTests
         var inventory = new PlayerInventory();
         AddMaterials(inventory);
         var revision = inventory.Revision;
-        Assert.True(crafting.CanCraft(inventory, "asteria:rustic_hatchet"));
-        Assert.True(crafting.TryCraft(inventory, "asteria:rustic_hatchet"));
+        Assert.True(crafting.CanCraft(inventory, "asteria:hatchet_rustic"));
+        Assert.True(crafting.TryCraft(inventory, "asteria:hatchet_rustic"));
         Assert.Equal(revision + 1, inventory.Revision);
         Assert.Equal(0, inventory.ItemQuantity("asteria:pebble"));
         Assert.Equal(0, inventory.ItemQuantity("asteria:stick"));
-        Assert.Equal(0, inventory.ItemQuantity("asteria:plant_fiber"));
+        Assert.Equal(0, inventory.ItemQuantity("asteria:fiber_plant"));
         Assert.Contains(inventory.Capture().Hotbar,
             stack => stack is { Id: "asteria:hatchet_rustic", Kind: InventoryEntryKind.Tool });
-        Assert.False(crafting.TryCraft(inventory, "asteria:rustic_hatchet"));
+        Assert.False(crafting.TryCraft(inventory, "asteria:hatchet_rustic"));
     }
 
     [Fact]
@@ -103,8 +103,8 @@ public sealed class InventoryCraftingRuntimeTests
         var original = inventory.Capture();
         var revision = inventory.Revision;
 
-        Assert.False(crafting.CanCraft(inventory, "asteria:rustic_hatchet"));
-        Assert.False(crafting.TryCraft(inventory, "asteria:rustic_hatchet"));
+        Assert.False(crafting.CanCraft(inventory, "asteria:hatchet_rustic"));
+        Assert.False(crafting.TryCraft(inventory, "asteria:hatchet_rustic"));
         Assert.Equal(revision, inventory.Revision);
         var unchanged = inventory.Capture();
         Assert.Equal(original.Backpack, unchanged.Backpack);
@@ -183,12 +183,12 @@ public sealed class InventoryCraftingRuntimeTests
         Assert.Equal(InventoryCraftingResult.UnknownRecipe,
             crafting.Craft(inventory, "asteria:unrecognized"));
         Assert.Equal(InventoryCraftingResult.MissingIngredients,
-            crafting.Craft(inventory, "asteria:rustic_hatchet"));
+            crafting.Craft(inventory, "asteria:hatchet_rustic"));
         Assert.Equal(0UL, inventory.Revision);
 
         AddMaterials(inventory);
         Assert.Equal(InventoryCraftingResult.Crafted,
-            crafting.Craft(inventory, "asteria:rustic_hatchet"));
+            crafting.Craft(inventory, "asteria:hatchet_rustic"));
     }
 
     [Fact]
@@ -199,10 +199,10 @@ public sealed class InventoryCraftingRuntimeTests
         Assert.Equal(InventoryCraftingResult.UnknownRecipe,
             crafting.Availability(inventory, "asteria:missing"));
         Assert.Equal(InventoryCraftingResult.MissingIngredients,
-            crafting.Availability(inventory, "asteria:rustic_hatchet"));
+            crafting.Availability(inventory, "asteria:hatchet_rustic"));
         AddMaterials(inventory);
         Assert.Equal(InventoryCraftingResult.Crafted,
-            crafting.Availability(inventory, "asteria:rustic_hatchet"));
+            crafting.Availability(inventory, "asteria:hatchet_rustic"));
 
         // Fill the remaining slots with unit-stack fillers. Consuming the
         // recipe's ingredient stacks frees room for its single output.
@@ -211,7 +211,7 @@ public sealed class InventoryCraftingRuntimeTests
                 InventoryEntry.FromTool($"asteria:tool_{i}"))));
         // The tool output now fits into a slot vacated by consumed input.
         Assert.Equal(InventoryCraftingResult.Crafted,
-            crafting.Availability(inventory, "asteria:rustic_hatchet"));
+            crafting.Availability(inventory, "asteria:hatchet_rustic"));
 
         // A recipe that only partially consumes one stack has no free slot
         // for a new unique tool when all 36 slots are occupied.

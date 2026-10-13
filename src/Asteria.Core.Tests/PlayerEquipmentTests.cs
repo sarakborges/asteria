@@ -87,9 +87,9 @@ public sealed class PlayerEquipmentTests
     }
     private const string WearableJson = """
         {
-          "id":"asteria:wayfarer_helmet",
+          "id":"asteria:helmet_wayfarer",
           "category":"tools",
-          "icon":"textures/items/wayfarer_helmet.png",
+          "icon":"textures/items/helmet_wayfarer.png",
           "maxStackSize":1,
           "equipmentSlot":"helmet",
           "equipmentVisual":{

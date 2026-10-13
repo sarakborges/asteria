@@ -4,7 +4,7 @@ import type { CraftingRecipeView } from "../../../presentation/inventoryModels";
 
 // The only inventory-crafting recipe authored in the MineClone reference.
 const hatchet: CraftingRecipeView = {
-  id: "asteria:rustic_hatchet",
+  id: "asteria:hatchet_rustic",
   result: { id: "asteria:hatchet_rustic", name: "Rustic Hatchet", kind: "tool" as const },
   outputQuantity: 1,
   ingredients: [
@@ -12,7 +12,7 @@ const hatchet: CraftingRecipeView = {
       required: 2, available: 2 },
     { item: { id: "asteria:stick", name: "Stick", kind: "item" as const },
       required: 3, available: 3 },
-    { item: { id: "asteria:plant_fiber", name: "Plant Fiber", kind: "item" as const },
+    { item: { id: "asteria:fiber_plant", name: "Plant Fiber", kind: "item" as const },
       required: 2, available: 2 },
   ],
   craftable: true,
@@ -24,7 +24,7 @@ const meta = {
   component: CraftingPanel,
   args: {
     recipes: [hatchet],
-    selectedRecipeId: "asteria:rustic_hatchet",
+    selectedRecipeId: "asteria:hatchet_rustic",
   },
 } satisfies Meta<typeof CraftingPanel>;
 

@@ -6,7 +6,7 @@ namespace Asteria.Core.Tests;
 
 public sealed class ArtisansKitRuntimeTests
 {
-    private const string ToolId = "asteria:artisans_kit_rustic";
+    private const string ToolId = "asteria:kit_artisans_rustic";
     private static readonly WorldVoxelCoord Position = new(2, 3, 4);
     private static readonly VoxelWorldHit Hit = new(Position, -1, 0, 0);
     private static readonly Vector3 Eye = new(0.5f, 3.5f, 4.5f);
@@ -32,11 +32,11 @@ public sealed class ArtisansKitRuntimeTests
         var tools = PackContentRegistry<ToolDefinition>.FromJson([
             """
             {
-              "id":"asteria:artisans_kit_rustic",
+              "id":"asteria:kit_artisans_rustic",
               "category":"tools",
-              "icon":"textures/tools/artisans-kit.png",
-              "leftBehavior":"asteria:artisans_kit/remove",
-              "rightBehavior":"asteria:artisans_kit/restore"
+              "icon":"textures/tools/kit_artisans_rustic.png",
+              "leftBehavior":"asteria:kit_artisans/remove",
+              "rightBehavior":"asteria:kit_artisans/restore"
             }
             """,
         ], ToolDefinition.Parse, definition => definition.Id);

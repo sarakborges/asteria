@@ -7,7 +7,7 @@ const meta = {
   args: {
     state: {
       kind: "block",
-      id: "asteria:grass_block",
+      id: "asteria:block_grass",
       name: "Grass Block",
       details: [
         "Sky Light: 15 | Block Light: 0",
@@ -37,13 +37,13 @@ export const AttachedTextureLayers: Story = {
   args: {
     state: {
       kind: "block",
-      id: "asteria:grass_block",
+      id: "asteria:block_grass",
       name: "Grass Block",
       details: ["Sky Light: 15 | Block Light: 0", "148, 92, -72"],
       layers: [
         { id: "asteria:moss", face: "top" },
         { id: "asteria:moss", face: "left" },
-        { id: "asteria:wall_moss", face: "front" },
+        { id: "asteria:moss_wall", face: "front" },
       ],
     },
   },

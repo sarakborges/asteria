@@ -24,7 +24,7 @@
       "object": "asteria:grass",
       "chance": 0.0378,
       "surfaceBlocks": [
-        "asteria:grass_block"
+        "asteria:block_grass"
       ],
       "cluster": {
         "scale": 24,
@@ -41,7 +41,7 @@
       "object": "asteria:stick",
       "chance": 0.0086,
       "surfaceBlocks": [
-        "asteria:grass_block",
+        "asteria:block_grass",
         "asteria:dirt"
       ],
       "cluster": {
@@ -59,7 +59,7 @@
       "object": "asteria:mushroom_purple",
       "chance": 0.0043,
       "surfaceBlocks": [
-        "asteria:grass_block"
+        "asteria:block_grass"
       ],
       "cluster": {
         "scale": 29,
@@ -73,10 +73,10 @@
       }
     },
     {
-      "object": "asteria:cloud_reed",
+      "object": "asteria:reed_cloud",
       "chance": 0.0234,
       "surfaceBlocks": [
-        "asteria:grass_block",
+        "asteria:block_grass",
         "asteria:dirt"
       ],
       "cluster": {
@@ -91,10 +91,10 @@
       }
     },
     {
-      "object": "asteria:aether_bloom",
+      "object": "asteria:bloom_aether",
       "chance": 0.0117,
       "surfaceBlocks": [
-        "asteria:grass_block",
+        "asteria:block_grass",
         "asteria:dirt"
       ],
       "cluster": {
@@ -109,13 +109,13 @@
       }
     },
     {
-      "object": "asteria:aether_vines",
+      "object": "asteria:vines_aether",
       "chance": 0.22,
       "supportSurface": "ceiling",
       "surfaceBlocks": [
         "asteria:stone",
         "asteria:dirt",
-        "asteria:grass_block"
+        "asteria:block_grass"
       ],
       "cluster": {
         "scale": 33,
@@ -132,7 +132,7 @@
   "palette": {
     "default": [
       {
-        "block": "asteria:grass_block",
+        "block": "asteria:block_grass",
         "depth": 1
       },
       {
@@ -146,7 +146,7 @@
   },
   "volumeStructures": [
     {
-      "structure": "asteria:skywood_tree",
+      "structure": "asteria:tree_skywood",
       "spacing": 31,
       "chance": 0.79,
       "minY": 200,
@@ -154,7 +154,7 @@
       "supportSurface": "floor"
     },
     {
-      "structure": "asteria:sky_crystal_arch",
+      "structure": "asteria:arch_crystal_sky",
       "spacing": 38,
       "chance": 0.57,
       "minY": 200,

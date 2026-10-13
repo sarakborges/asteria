@@ -7,13 +7,13 @@ public sealed class WastelandContentExpansionTests
     private static readonly (string Name, BlockVisualKind Kind,
         string[] Ground)[] Objects =
     [
-        ("dead_thistle", BlockVisualKind.CrossedSprite,
+        ("thistle_dead", BlockVisualKind.CrossedSprite,
             ["asteria:dirt", "asteria:gravel"]),
-        ("brittle_tuft", BlockVisualKind.CrossedSprite,
+        ("tuft_brittle", BlockVisualKind.CrossedSprite,
             ["asteria:dirt"]),
-        ("dry_lichen", BlockVisualKind.GroundSprite,
+        ("lichen_dry", BlockVisualKind.GroundSprite,
             ["asteria:gravel", "asteria:stone"]),
-        ("bleached_roots", BlockVisualKind.GroundSprite,
+        ("roots_bleached", BlockVisualKind.GroundSprite,
             ["asteria:dirt", "asteria:gravel"]),
         ("bone_scatter", BlockVisualKind.GroundSprite,
             ["asteria:dirt", "asteria:gravel", "asteria:stone"]),
@@ -53,11 +53,11 @@ public sealed class WastelandContentExpansionTests
         }
 
         var thistle = Assert.Single(wasteland.Decorations,
-            rule => rule.Block == "asteria:dead_thistle");
+            rule => rule.Block == "asteria:thistle_dead");
         Assert.True(thistle.HabitatWeights!.For("rocky_scrub") >
             thistle.HabitatWeights.For("barren_flats"));
         var roots = Assert.Single(wasteland.Decorations,
-            rule => rule.Block == "asteria:bleached_roots");
+            rule => rule.Block == "asteria:roots_bleached");
         Assert.True(roots.HabitatWeights!.For("deadwood_pockets") >
             roots.HabitatWeights.For("barren_flats"));
     }
@@ -73,8 +73,8 @@ public sealed class WastelandContentExpansionTests
 
         foreach (var (name, variantsExpected, preferred) in new[]
         {
-            ("wasteland_thorn_scrub", 4, "rocky_scrub"),
-            ("wasteland_fossil_rib", 3, "rocky_scrub"),
+            ("scrub_thorn_wasteland", 4, "rocky_scrub"),
+            ("rib_fossil_wasteland", 3, "rocky_scrub"),
         })
         {
             var root = Assert.Single(dimension.GeneratedSurfaceStructures,
@@ -98,9 +98,9 @@ public sealed class WastelandContentExpansionTests
                     voxel => Assert.True(voxel.Y > 0,
                         "Structures must preserve the underlying material."));
                 Assert.Contains(structure.Voxels,
-                    voxel => voxel.Block == (name == "wasteland_thorn_scrub"
-                        ? "asteria:thornwood"
-                        : "asteria:fossil_bone") &&
+                    voxel => voxel.Block == (name == "scrub_thorn_wasteland"
+                        ? "asteria:log_thornwood"
+                        : "asteria:bone_fossil") &&
                         voxel.X == 0 && voxel.Z == 0 && voxel.Y == 1);
             });
         }
@@ -140,8 +140,8 @@ public sealed class WastelandContentExpansionTests
             .Get("asteria:overworld/wasteland");
         foreach (var id in new[]
         {
-            "dead_thistle", "brittle_tuft",
-            "dry_lichen", "bleached_roots",
+            "thistle_dead", "tuft_brittle",
+            "lichen_dry", "roots_bleached",
             "bone_scatter",
         })
         {

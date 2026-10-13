@@ -50,7 +50,7 @@
           "blocks": [
             "asteria:gravel",
             "asteria:clay",
-            "asteria:stone_cobble"
+            "asteria:cobble_stone"
           ],
           "detailScale": 13,
           "selectionScale": 48,
@@ -60,7 +60,7 @@
           "weights": {
             "asteria:gravel": 2,
             "asteria:clay": 2,
-            "asteria:stone_cobble": 2
+            "asteria:cobble_stone": 2
           },
           "conditions": {
             "maxY": 86
@@ -108,7 +108,7 @@
         "asteria:sand",
         "asteria:gravel",
         "asteria:clay",
-        "asteria:stone_cobble"
+        "asteria:cobble_stone"
       ],
       "fluidPlacement": "submerged",
       "cluster": {
@@ -127,13 +127,13 @@
       }
     },
     {
-      "object": "asteria:sea_anemone",
+      "object": "asteria:anemone_sea",
       "chance": 0.025,
       "surfaceBlocks": [
         "asteria:sand",
         "asteria:gravel",
         "asteria:clay",
-        "asteria:stone_cobble"
+        "asteria:cobble_stone"
       ],
       "fluidPlacement": "submerged",
       "cluster": {
@@ -182,7 +182,7 @@
         "asteria:sand",
         "asteria:gravel",
         "asteria:clay",
-        "asteria:stone_cobble"
+        "asteria:cobble_stone"
       ],
       "fluidPlacement": "submerged",
       "cluster": {

@@ -6,10 +6,10 @@ public sealed class DesertEnrichmentContentTests
 {
     private static readonly string[] Objects =
     [
-        "dune_grass",
+        "grass_dune",
         "thornbush",
         "yucca",
-        "sandstone_spike",
+        "spike_sandstone",
     ];
 
     [Fact]
@@ -49,13 +49,13 @@ public sealed class DesertEnrichmentContentTests
             Assert.Equal(DecorationFluidPlacement.Dry, rule.FluidPlacement);
             Assert.Equal(DecorationSupportSurface.Floor, rule.SupportSurface);
             var block = blocks.GetDefinition(blocks.GetId(rule.Block));
-            if (name != "sandstone_spike")
+            if (name != "spike_sandstone")
                 Assert.True(block.HasTag(BlockPhysicsCapabilities.SupportBelow));
             Assert.Contains(BlockFace.Top, block.PlacementFaces);
         }
 
         var grass = Assert.Single(desert.Decorations,
-            d => d.Block == "asteria:dune_grass");
+            d => d.Block == "asteria:grass_dune");
         Assert.True(grass.HabitatWeights!.For("sand_flats") >
                     grass.HabitatWeights.For("open_dunes"));
         var yucca = Assert.Single(desert.Decorations,
@@ -64,7 +64,7 @@ public sealed class DesertEnrichmentContentTests
         Assert.True(yucca.HabitatWeights.For("sandstone_outcrops") >
                     yucca.HabitatWeights.For("sand_flats"));
         var spur = Assert.Single(desert.Decorations,
-            d => d.Block == "asteria:sandstone_spike");
+            d => d.Block == "asteria:spike_sandstone");
         Assert.True(spur.HabitatWeights!.For("sandstone_outcrops") >
                     spur.HabitatWeights.For("sand_flats"));
     }
@@ -77,7 +77,7 @@ public sealed class DesertEnrichmentContentTests
         foreach (var name in Objects)
         {
             var block = blocks.GetDefinition(blocks.GetId($"asteria:{name}"));
-            if (name == "sandstone_spike")
+            if (name == "spike_sandstone")
             {
                 Assert.Equal(BlockShapeKind.Spike, block.Shape.Kind);
                 Assert.True(block.IsCollidable);
@@ -96,7 +96,7 @@ public sealed class DesertEnrichmentContentTests
                 var path = $"textures/objects/{name}.png";
                 Assert.Equal(path, block.Visual.Texture!.Value.Texture);
                 Assert.True(textures.Add(path));
-                Assert.Equal(name is "dune_grass" or "thornbush",
+                Assert.Equal(name is "grass_dune" or "thornbush",
                     block.WindSway);
             }
         }

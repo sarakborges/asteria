@@ -32,7 +32,7 @@ public sealed class PortalActivationRuntimeTests
     }
 
     private static InventoryStack Slicer(string dimension = "asteria:umbral") =>
-        new(InventoryEntry.FromItem("asteria:dimensional_slicer",
+        new(InventoryEntry.FromItem("asteria:slicer_dimensional",
             new Dictionary<string, string> { ["target_dimension"] = dimension }));
 
     private static WorldVoxelCoord Frame(

@@ -87,27 +87,27 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/aether_crystal_core.json",
+          "file": "packs/default/data/blocks/crystal_core_aether.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/aether_crystal_core.json",
+          "file": "packs/default/data/blocks/crystal_core_aether.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/aether_crystal_core.json",
+          "file": "packs/default/data/blocks/crystal_core_aether.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/aether_crystal_core.json",
+          "file": "packs/default/data/blocks/crystal_core_aether.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/aether_crystal_core.json",
+          "file": "packs/default/data/blocks/crystal_core_aether.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/aether_crystal_core.json",
+          "file": "packs/default/data/blocks/crystal_core_aether.json",
           "pointer": "/textures/back"
         }
       ],
@@ -137,27 +137,27 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/azure_crystal.json",
+          "file": "packs/default/data/blocks/crystal_azure.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/azure_crystal.json",
+          "file": "packs/default/data/blocks/crystal_azure.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/azure_crystal.json",
+          "file": "packs/default/data/blocks/crystal_azure.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/azure_crystal.json",
+          "file": "packs/default/data/blocks/crystal_azure.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/azure_crystal.json",
+          "file": "packs/default/data/blocks/crystal_azure.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/azure_crystal.json",
+          "file": "packs/default/data/blocks/crystal_azure.json",
           "pointer": "/textures/back"
         }
       ],
@@ -211,51 +211,51 @@
           "pointer": "/textures/back"
         },
         {
-          "file": "packs/default/data/blocks/basalt_spike.json",
+          "file": "packs/default/data/blocks/spike_basalt.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/basalt_spike.json",
+          "file": "packs/default/data/blocks/spike_basalt.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/basalt_spike.json",
+          "file": "packs/default/data/blocks/spike_basalt.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/basalt_spike.json",
+          "file": "packs/default/data/blocks/spike_basalt.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/basalt_spike.json",
+          "file": "packs/default/data/blocks/spike_basalt.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/basalt_spike.json",
+          "file": "packs/default/data/blocks/spike_basalt.json",
           "pointer": "/textures/back"
         },
         {
-          "file": "packs/default/data/blocks/sphere_shell.json",
+          "file": "packs/default/data/blocks/shell_sphere.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/sphere_shell.json",
+          "file": "packs/default/data/blocks/shell_sphere.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/sphere_shell.json",
+          "file": "packs/default/data/blocks/shell_sphere.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/sphere_shell.json",
+          "file": "packs/default/data/blocks/shell_sphere.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/sphere_shell.json",
+          "file": "packs/default/data/blocks/shell_sphere.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/sphere_shell.json",
+          "file": "packs/default/data/blocks/shell_sphere.json",
           "pointer": "/textures/back"
         }
       ],
@@ -271,8 +271,8 @@
     },
     {
       "id": "T005",
-      "path": "packs/default/resources/textures/blocks/basalt_bricks.png",
-      "logical_path": "textures/blocks/basalt_bricks.png",
+      "path": "packs/default/resources/textures/blocks/bricks_basalt.png",
+      "logical_path": "textures/blocks/bricks_basalt.png",
       "category": "blocks",
       "gallery_group": "blocks",
       "width": 64,
@@ -285,27 +285,27 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/basalt_bricks.json",
+          "file": "packs/default/data/blocks/bricks_basalt.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/basalt_bricks.json",
+          "file": "packs/default/data/blocks/bricks_basalt.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/basalt_bricks.json",
+          "file": "packs/default/data/blocks/bricks_basalt.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/basalt_bricks.json",
+          "file": "packs/default/data/blocks/bricks_basalt.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/basalt_bricks.json",
+          "file": "packs/default/data/blocks/bricks_basalt.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/basalt_bricks.json",
+          "file": "packs/default/data/blocks/bricks_basalt.json",
           "pointer": "/textures/back"
         }
       ],
@@ -321,8 +321,8 @@
     },
     {
       "id": "T006",
-      "path": "packs/default/resources/textures/blocks/basalt_cobble.png",
-      "logical_path": "textures/blocks/basalt_cobble.png",
+      "path": "packs/default/resources/textures/blocks/cobble_basalt.png",
+      "logical_path": "textures/blocks/cobble_basalt.png",
       "category": "blocks",
       "gallery_group": "blocks",
       "width": 64,
@@ -335,27 +335,27 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/basalt_cobble.json",
+          "file": "packs/default/data/blocks/cobble_basalt.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/basalt_cobble.json",
+          "file": "packs/default/data/blocks/cobble_basalt.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/basalt_cobble.json",
+          "file": "packs/default/data/blocks/cobble_basalt.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/basalt_cobble.json",
+          "file": "packs/default/data/blocks/cobble_basalt.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/basalt_cobble.json",
+          "file": "packs/default/data/blocks/cobble_basalt.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/basalt_cobble.json",
+          "file": "packs/default/data/blocks/cobble_basalt.json",
           "pointer": "/textures/back"
         }
       ],
@@ -471,8 +471,8 @@
     },
     {
       "id": "T009",
-      "path": "packs/default/resources/textures/blocks/basalt_tiles.png",
-      "logical_path": "textures/blocks/basalt_tiles.png",
+      "path": "packs/default/resources/textures/blocks/tiles_basalt.png",
+      "logical_path": "textures/blocks/tiles_basalt.png",
       "category": "blocks",
       "gallery_group": "blocks",
       "width": 64,
@@ -485,27 +485,27 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/basalt_tiles.json",
+          "file": "packs/default/data/blocks/tiles_basalt.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/basalt_tiles.json",
+          "file": "packs/default/data/blocks/tiles_basalt.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/basalt_tiles.json",
+          "file": "packs/default/data/blocks/tiles_basalt.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/basalt_tiles.json",
+          "file": "packs/default/data/blocks/tiles_basalt.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/basalt_tiles.json",
+          "file": "packs/default/data/blocks/tiles_basalt.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/basalt_tiles.json",
+          "file": "packs/default/data/blocks/tiles_basalt.json",
           "pointer": "/textures/back"
         }
       ],
@@ -1211,7 +1211,7 @@
           "pointer": "/textures/back"
         },
         {
-          "file": "packs/default/data/blocks/grass_block.json",
+          "file": "packs/default/data/blocks/block_grass.json",
           "pointer": "/textures/bottom/0/texture"
         }
       ],
@@ -1241,27 +1241,27 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/fossil_bone.json",
+          "file": "packs/default/data/blocks/bone_fossil.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/fossil_bone.json",
+          "file": "packs/default/data/blocks/bone_fossil.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/fossil_bone.json",
+          "file": "packs/default/data/blocks/bone_fossil.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/fossil_bone.json",
+          "file": "packs/default/data/blocks/bone_fossil.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/fossil_bone.json",
+          "file": "packs/default/data/blocks/bone_fossil.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/fossil_bone.json",
+          "file": "packs/default/data/blocks/bone_fossil.json",
           "pointer": "/textures/back"
         }
       ],
@@ -1442,19 +1442,19 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/grass_block.json",
+          "file": "packs/default/data/blocks/block_grass.json",
           "pointer": "/textures/left/0/texture"
         },
         {
-          "file": "packs/default/data/blocks/grass_block.json",
+          "file": "packs/default/data/blocks/block_grass.json",
           "pointer": "/textures/right/0/texture"
         },
         {
-          "file": "packs/default/data/blocks/grass_block.json",
+          "file": "packs/default/data/blocks/block_grass.json",
           "pointer": "/textures/front/0/texture"
         },
         {
-          "file": "packs/default/data/blocks/grass_block.json",
+          "file": "packs/default/data/blocks/block_grass.json",
           "pointer": "/textures/back/0/texture"
         }
       ],
@@ -1484,23 +1484,23 @@
       "grayscale_visible": true,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/grass_block.json",
+          "file": "packs/default/data/blocks/block_grass.json",
           "pointer": "/textures/left/1/texture"
         },
         {
-          "file": "packs/default/data/blocks/grass_block.json",
+          "file": "packs/default/data/blocks/block_grass.json",
           "pointer": "/textures/right/1/texture"
         },
         {
-          "file": "packs/default/data/blocks/grass_block.json",
+          "file": "packs/default/data/blocks/block_grass.json",
           "pointer": "/textures/front/1/texture"
         },
         {
-          "file": "packs/default/data/blocks/grass_block.json",
+          "file": "packs/default/data/blocks/block_grass.json",
           "pointer": "/textures/back/1/texture"
         },
         {
-          "file": "packs/default/data/layers/foliage_layer.json",
+          "file": "packs/default/data/layers/layer_foliage.json",
           "pointer": "/texture"
         }
       ],
@@ -1532,7 +1532,7 @@
       "grayscale_visible": true,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/grass_block.json",
+          "file": "packs/default/data/blocks/block_grass.json",
           "pointer": "/textures/top/0/texture"
         }
       ],
@@ -1637,27 +1637,27 @@
           "pointer": "/textures/back"
         },
         {
-          "file": "packs/default/data/blocks/ice_spike.json",
+          "file": "packs/default/data/blocks/spike_ice.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/ice_spike.json",
+          "file": "packs/default/data/blocks/spike_ice.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/ice_spike.json",
+          "file": "packs/default/data/blocks/spike_ice.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/ice_spike.json",
+          "file": "packs/default/data/blocks/spike_ice.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/ice_spike.json",
+          "file": "packs/default/data/blocks/spike_ice.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/ice_spike.json",
+          "file": "packs/default/data/blocks/spike_ice.json",
           "pointer": "/textures/back"
         }
       ],
@@ -1674,8 +1674,8 @@
     },
     {
       "id": "T034",
-      "path": "packs/default/resources/textures/blocks/ice_bricks.png",
-      "logical_path": "textures/blocks/ice_bricks.png",
+      "path": "packs/default/resources/textures/blocks/bricks_ice.png",
+      "logical_path": "textures/blocks/bricks_ice.png",
       "category": "blocks",
       "gallery_group": "blocks",
       "width": 64,
@@ -1688,27 +1688,27 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/ice_bricks.json",
+          "file": "packs/default/data/blocks/bricks_ice.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/ice_bricks.json",
+          "file": "packs/default/data/blocks/bricks_ice.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/ice_bricks.json",
+          "file": "packs/default/data/blocks/bricks_ice.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/ice_bricks.json",
+          "file": "packs/default/data/blocks/bricks_ice.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/ice_bricks.json",
+          "file": "packs/default/data/blocks/bricks_ice.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/ice_bricks.json",
+          "file": "packs/default/data/blocks/bricks_ice.json",
           "pointer": "/textures/back"
         }
       ],
@@ -1774,8 +1774,8 @@
     },
     {
       "id": "T036",
-      "path": "packs/default/resources/textures/blocks/ice_tiles.png",
-      "logical_path": "textures/blocks/ice_tiles.png",
+      "path": "packs/default/resources/textures/blocks/tiles_ice.png",
+      "logical_path": "textures/blocks/tiles_ice.png",
       "category": "blocks",
       "gallery_group": "blocks",
       "width": 64,
@@ -1788,27 +1788,27 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/ice_tiles.json",
+          "file": "packs/default/data/blocks/tiles_ice.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/ice_tiles.json",
+          "file": "packs/default/data/blocks/tiles_ice.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/ice_tiles.json",
+          "file": "packs/default/data/blocks/tiles_ice.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/ice_tiles.json",
+          "file": "packs/default/data/blocks/tiles_ice.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/ice_tiles.json",
+          "file": "packs/default/data/blocks/tiles_ice.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/ice_tiles.json",
+          "file": "packs/default/data/blocks/tiles_ice.json",
           "pointer": "/textures/back"
         }
       ],
@@ -2076,8 +2076,8 @@
     },
     {
       "id": "T042",
-      "path": "packs/default/resources/textures/blocks/mud_bricks.png",
-      "logical_path": "textures/blocks/mud_bricks.png",
+      "path": "packs/default/resources/textures/blocks/bricks_mud.png",
+      "logical_path": "textures/blocks/bricks_mud.png",
       "category": "blocks",
       "gallery_group": "blocks",
       "width": 64,
@@ -2090,27 +2090,27 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/mud_bricks.json",
+          "file": "packs/default/data/blocks/bricks_mud.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/mud_bricks.json",
+          "file": "packs/default/data/blocks/bricks_mud.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/mud_bricks.json",
+          "file": "packs/default/data/blocks/bricks_mud.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/mud_bricks.json",
+          "file": "packs/default/data/blocks/bricks_mud.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/mud_bricks.json",
+          "file": "packs/default/data/blocks/bricks_mud.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/mud_bricks.json",
+          "file": "packs/default/data/blocks/bricks_mud.json",
           "pointer": "/textures/back"
         }
       ],
@@ -2226,8 +2226,8 @@
     },
     {
       "id": "T045",
-      "path": "packs/default/resources/textures/blocks/mud_tiles.png",
-      "logical_path": "textures/blocks/mud_tiles.png",
+      "path": "packs/default/resources/textures/blocks/tiles_mud.png",
+      "logical_path": "textures/blocks/tiles_mud.png",
       "category": "blocks",
       "gallery_group": "blocks",
       "width": 64,
@@ -2240,27 +2240,27 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/mud_tiles.json",
+          "file": "packs/default/data/blocks/tiles_mud.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/mud_tiles.json",
+          "file": "packs/default/data/blocks/tiles_mud.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/mud_tiles.json",
+          "file": "packs/default/data/blocks/tiles_mud.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/mud_tiles.json",
+          "file": "packs/default/data/blocks/tiles_mud.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/mud_tiles.json",
+          "file": "packs/default/data/blocks/tiles_mud.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/mud_tiles.json",
+          "file": "packs/default/data/blocks/tiles_mud.json",
           "pointer": "/textures/back"
         }
       ],
@@ -2290,27 +2290,27 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/glow_mushroom_cap.json",
+          "file": "packs/default/data/blocks/mushroom_cap_glow.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/glow_mushroom_cap.json",
+          "file": "packs/default/data/blocks/mushroom_cap_glow.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/glow_mushroom_cap.json",
+          "file": "packs/default/data/blocks/mushroom_cap_glow.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/glow_mushroom_cap.json",
+          "file": "packs/default/data/blocks/mushroom_cap_glow.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/glow_mushroom_cap.json",
+          "file": "packs/default/data/blocks/mushroom_cap_glow.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/glow_mushroom_cap.json",
+          "file": "packs/default/data/blocks/mushroom_cap_glow.json",
           "pointer": "/textures/back"
         }
       ],
@@ -2340,27 +2340,27 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/glow_mushroom_stem.json",
+          "file": "packs/default/data/blocks/mushroom_stem_glow.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/glow_mushroom_stem.json",
+          "file": "packs/default/data/blocks/mushroom_stem_glow.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/glow_mushroom_stem.json",
+          "file": "packs/default/data/blocks/mushroom_stem_glow.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/glow_mushroom_stem.json",
+          "file": "packs/default/data/blocks/mushroom_stem_glow.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/glow_mushroom_stem.json",
+          "file": "packs/default/data/blocks/mushroom_stem_glow.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/glow_mushroom_stem.json",
+          "file": "packs/default/data/blocks/mushroom_stem_glow.json",
           "pointer": "/textures/back"
         }
       ],
@@ -2390,27 +2390,27 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/luminous_giant_fungus_cap.json",
+          "file": "packs/default/data/blocks/fungus_cap_luminous_giant.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/luminous_giant_fungus_cap.json",
+          "file": "packs/default/data/blocks/fungus_cap_luminous_giant.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/luminous_giant_fungus_cap.json",
+          "file": "packs/default/data/blocks/fungus_cap_luminous_giant.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/luminous_giant_fungus_cap.json",
+          "file": "packs/default/data/blocks/fungus_cap_luminous_giant.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/luminous_giant_fungus_cap.json",
+          "file": "packs/default/data/blocks/fungus_cap_luminous_giant.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/luminous_giant_fungus_cap.json",
+          "file": "packs/default/data/blocks/fungus_cap_luminous_giant.json",
           "pointer": "/textures/back"
         }
       ],
@@ -2440,27 +2440,27 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/luminous_giant_fungus_stem.json",
+          "file": "packs/default/data/blocks/fungus_stem_luminous_giant.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/luminous_giant_fungus_stem.json",
+          "file": "packs/default/data/blocks/fungus_stem_luminous_giant.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/luminous_giant_fungus_stem.json",
+          "file": "packs/default/data/blocks/fungus_stem_luminous_giant.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/luminous_giant_fungus_stem.json",
+          "file": "packs/default/data/blocks/fungus_stem_luminous_giant.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/luminous_giant_fungus_stem.json",
+          "file": "packs/default/data/blocks/fungus_stem_luminous_giant.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/luminous_giant_fungus_stem.json",
+          "file": "packs/default/data/blocks/fungus_stem_luminous_giant.json",
           "pointer": "/textures/back"
         }
       ],
@@ -2490,27 +2490,27 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/marsh_giant_mushroom_cap.json",
+          "file": "packs/default/data/blocks/mushroom_cap_marsh_giant.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/marsh_giant_mushroom_cap.json",
+          "file": "packs/default/data/blocks/mushroom_cap_marsh_giant.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/marsh_giant_mushroom_cap.json",
+          "file": "packs/default/data/blocks/mushroom_cap_marsh_giant.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/marsh_giant_mushroom_cap.json",
+          "file": "packs/default/data/blocks/mushroom_cap_marsh_giant.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/marsh_giant_mushroom_cap.json",
+          "file": "packs/default/data/blocks/mushroom_cap_marsh_giant.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/marsh_giant_mushroom_cap.json",
+          "file": "packs/default/data/blocks/mushroom_cap_marsh_giant.json",
           "pointer": "/textures/back"
         }
       ],
@@ -2540,27 +2540,27 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/marsh_giant_mushroom_stem.json",
+          "file": "packs/default/data/blocks/mushroom_stem_marsh_giant.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/marsh_giant_mushroom_stem.json",
+          "file": "packs/default/data/blocks/mushroom_stem_marsh_giant.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/marsh_giant_mushroom_stem.json",
+          "file": "packs/default/data/blocks/mushroom_stem_marsh_giant.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/marsh_giant_mushroom_stem.json",
+          "file": "packs/default/data/blocks/mushroom_stem_marsh_giant.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/marsh_giant_mushroom_stem.json",
+          "file": "packs/default/data/blocks/mushroom_stem_marsh_giant.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/marsh_giant_mushroom_stem.json",
+          "file": "packs/default/data/blocks/mushroom_stem_marsh_giant.json",
           "pointer": "/textures/back"
         }
       ],
@@ -2739,27 +2739,27 @@
           "pointer": "/textures/back"
         },
         {
-          "file": "packs/default/data/blocks/sandstone_spike.json",
+          "file": "packs/default/data/blocks/spike_sandstone.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/sandstone_spike.json",
+          "file": "packs/default/data/blocks/spike_sandstone.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/sandstone_spike.json",
+          "file": "packs/default/data/blocks/spike_sandstone.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/sandstone_spike.json",
+          "file": "packs/default/data/blocks/spike_sandstone.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/sandstone_spike.json",
+          "file": "packs/default/data/blocks/spike_sandstone.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/sandstone_spike.json",
+          "file": "packs/default/data/blocks/spike_sandstone.json",
           "pointer": "/textures/back"
         }
       ],
@@ -2775,8 +2775,8 @@
     },
     {
       "id": "T055",
-      "path": "packs/default/resources/textures/blocks/sandstone_bricks.png",
-      "logical_path": "textures/blocks/sandstone_bricks.png",
+      "path": "packs/default/resources/textures/blocks/bricks_sandstone.png",
+      "logical_path": "textures/blocks/bricks_sandstone.png",
       "category": "blocks",
       "gallery_group": "blocks",
       "width": 64,
@@ -2789,27 +2789,27 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/sandstone_bricks.json",
+          "file": "packs/default/data/blocks/bricks_sandstone.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/sandstone_bricks.json",
+          "file": "packs/default/data/blocks/bricks_sandstone.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/sandstone_bricks.json",
+          "file": "packs/default/data/blocks/bricks_sandstone.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/sandstone_bricks.json",
+          "file": "packs/default/data/blocks/bricks_sandstone.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/sandstone_bricks.json",
+          "file": "packs/default/data/blocks/bricks_sandstone.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/sandstone_bricks.json",
+          "file": "packs/default/data/blocks/bricks_sandstone.json",
           "pointer": "/textures/back"
         }
       ],
@@ -2875,8 +2875,8 @@
     },
     {
       "id": "T057",
-      "path": "packs/default/resources/textures/blocks/sandstone_tiles.png",
-      "logical_path": "textures/blocks/sandstone_tiles.png",
+      "path": "packs/default/resources/textures/blocks/tiles_sandstone.png",
+      "logical_path": "textures/blocks/tiles_sandstone.png",
       "category": "blocks",
       "gallery_group": "blocks",
       "width": 64,
@@ -2889,27 +2889,27 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/sandstone_tiles.json",
+          "file": "packs/default/data/blocks/tiles_sandstone.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/sandstone_tiles.json",
+          "file": "packs/default/data/blocks/tiles_sandstone.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/sandstone_tiles.json",
+          "file": "packs/default/data/blocks/tiles_sandstone.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/sandstone_tiles.json",
+          "file": "packs/default/data/blocks/tiles_sandstone.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/sandstone_tiles.json",
+          "file": "packs/default/data/blocks/tiles_sandstone.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/sandstone_tiles.json",
+          "file": "packs/default/data/blocks/tiles_sandstone.json",
           "pointer": "/textures/back"
         }
       ],
@@ -2963,27 +2963,27 @@
           "pointer": "/textures/back"
         },
         {
-          "file": "packs/default/data/blocks/snow_layer.json",
+          "file": "packs/default/data/blocks/layer_snow.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/snow_layer.json",
+          "file": "packs/default/data/blocks/layer_snow.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/snow_layer.json",
+          "file": "packs/default/data/blocks/layer_snow.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/snow_layer.json",
+          "file": "packs/default/data/blocks/layer_snow.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/snow_layer.json",
+          "file": "packs/default/data/blocks/layer_snow.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/snow_layer.json",
+          "file": "packs/default/data/blocks/layer_snow.json",
           "pointer": "/textures/back"
         }
       ],
@@ -2999,8 +2999,8 @@
     },
     {
       "id": "T059",
-      "path": "packs/default/resources/textures/blocks/snow_bricks.png",
-      "logical_path": "textures/blocks/snow_bricks.png",
+      "path": "packs/default/resources/textures/blocks/bricks_snow.png",
+      "logical_path": "textures/blocks/bricks_snow.png",
       "category": "blocks",
       "gallery_group": "blocks",
       "width": 64,
@@ -3013,27 +3013,27 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/snow_bricks.json",
+          "file": "packs/default/data/blocks/bricks_snow.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/snow_bricks.json",
+          "file": "packs/default/data/blocks/bricks_snow.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/snow_bricks.json",
+          "file": "packs/default/data/blocks/bricks_snow.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/snow_bricks.json",
+          "file": "packs/default/data/blocks/bricks_snow.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/snow_bricks.json",
+          "file": "packs/default/data/blocks/bricks_snow.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/snow_bricks.json",
+          "file": "packs/default/data/blocks/bricks_snow.json",
           "pointer": "/textures/back"
         }
       ],
@@ -3099,8 +3099,8 @@
     },
     {
       "id": "T061",
-      "path": "packs/default/resources/textures/blocks/snow_tiles.png",
-      "logical_path": "textures/blocks/snow_tiles.png",
+      "path": "packs/default/resources/textures/blocks/tiles_snow.png",
+      "logical_path": "textures/blocks/tiles_snow.png",
       "category": "blocks",
       "gallery_group": "blocks",
       "width": 64,
@@ -3113,27 +3113,27 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/snow_tiles.json",
+          "file": "packs/default/data/blocks/tiles_snow.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/snow_tiles.json",
+          "file": "packs/default/data/blocks/tiles_snow.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/snow_tiles.json",
+          "file": "packs/default/data/blocks/tiles_snow.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/snow_tiles.json",
+          "file": "packs/default/data/blocks/tiles_snow.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/snow_tiles.json",
+          "file": "packs/default/data/blocks/tiles_snow.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/snow_tiles.json",
+          "file": "packs/default/data/blocks/tiles_snow.json",
           "pointer": "/textures/back"
         }
       ],
@@ -3187,27 +3187,27 @@
           "pointer": "/textures/back"
         },
         {
-          "file": "packs/default/data/blocks/stone_spike.json",
+          "file": "packs/default/data/blocks/spike_stone.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/stone_spike.json",
+          "file": "packs/default/data/blocks/spike_stone.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/stone_spike.json",
+          "file": "packs/default/data/blocks/spike_stone.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/stone_spike.json",
+          "file": "packs/default/data/blocks/spike_stone.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/stone_spike.json",
+          "file": "packs/default/data/blocks/spike_stone.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/stone_spike.json",
+          "file": "packs/default/data/blocks/spike_stone.json",
           "pointer": "/textures/back"
         }
       ],
@@ -3223,8 +3223,8 @@
     },
     {
       "id": "T063",
-      "path": "packs/default/resources/textures/blocks/stone_bricks.png",
-      "logical_path": "textures/blocks/stone_bricks.png",
+      "path": "packs/default/resources/textures/blocks/bricks_stone.png",
+      "logical_path": "textures/blocks/bricks_stone.png",
       "category": "blocks",
       "gallery_group": "blocks",
       "width": 64,
@@ -3237,27 +3237,27 @@
       "grayscale_visible": true,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/stone_bricks.json",
+          "file": "packs/default/data/blocks/bricks_stone.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/stone_bricks.json",
+          "file": "packs/default/data/blocks/bricks_stone.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/stone_bricks.json",
+          "file": "packs/default/data/blocks/bricks_stone.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/stone_bricks.json",
+          "file": "packs/default/data/blocks/bricks_stone.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/stone_bricks.json",
+          "file": "packs/default/data/blocks/bricks_stone.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/stone_bricks.json",
+          "file": "packs/default/data/blocks/bricks_stone.json",
           "pointer": "/textures/back"
         }
       ],
@@ -3274,8 +3274,8 @@
     },
     {
       "id": "T064",
-      "path": "packs/default/resources/textures/blocks/stone_cobble.png",
-      "logical_path": "textures/blocks/stone_cobble.png",
+      "path": "packs/default/resources/textures/blocks/cobble_stone.png",
+      "logical_path": "textures/blocks/cobble_stone.png",
       "category": "blocks",
       "gallery_group": "blocks",
       "width": 64,
@@ -3288,27 +3288,27 @@
       "grayscale_visible": true,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/stone_cobble.json",
+          "file": "packs/default/data/blocks/cobble_stone.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/stone_cobble.json",
+          "file": "packs/default/data/blocks/cobble_stone.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/stone_cobble.json",
+          "file": "packs/default/data/blocks/cobble_stone.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/stone_cobble.json",
+          "file": "packs/default/data/blocks/cobble_stone.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/stone_cobble.json",
+          "file": "packs/default/data/blocks/cobble_stone.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/stone_cobble.json",
+          "file": "packs/default/data/blocks/cobble_stone.json",
           "pointer": "/textures/back"
         }
       ],
@@ -3375,8 +3375,8 @@
     },
     {
       "id": "T066",
-      "path": "packs/default/resources/textures/blocks/stone_tiles.png",
-      "logical_path": "textures/blocks/stone_tiles.png",
+      "path": "packs/default/resources/textures/blocks/tiles_stone.png",
+      "logical_path": "textures/blocks/tiles_stone.png",
       "category": "blocks",
       "gallery_group": "blocks",
       "width": 64,
@@ -3389,27 +3389,27 @@
       "grayscale_visible": true,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/stone_tiles.json",
+          "file": "packs/default/data/blocks/tiles_stone.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/stone_tiles.json",
+          "file": "packs/default/data/blocks/tiles_stone.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/stone_tiles.json",
+          "file": "packs/default/data/blocks/tiles_stone.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/stone_tiles.json",
+          "file": "packs/default/data/blocks/tiles_stone.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/stone_tiles.json",
+          "file": "packs/default/data/blocks/tiles_stone.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/stone_tiles.json",
+          "file": "packs/default/data/blocks/tiles_stone.json",
           "pointer": "/textures/back"
         }
       ],
@@ -3426,8 +3426,8 @@
     },
     {
       "id": "T067",
-      "path": "packs/default/resources/textures/blocks/storage_box/bottom.png",
-      "logical_path": "textures/blocks/storage_box/bottom.png",
+      "path": "packs/default/resources/textures/blocks/box_storage/bottom.png",
+      "logical_path": "textures/blocks/box_storage/bottom.png",
       "category": "blocks",
       "gallery_group": "blocks",
       "width": 64,
@@ -3440,7 +3440,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/storage_box.json",
+          "file": "packs/default/data/blocks/box_storage.json",
           "pointer": "/textures/bottom"
         }
       ],
@@ -3456,8 +3456,8 @@
     },
     {
       "id": "T068",
-      "path": "packs/default/resources/textures/blocks/storage_box/front.png",
-      "logical_path": "textures/blocks/storage_box/front.png",
+      "path": "packs/default/resources/textures/blocks/box_storage/front.png",
+      "logical_path": "textures/blocks/box_storage/front.png",
       "category": "blocks",
       "gallery_group": "blocks",
       "width": 64,
@@ -3470,7 +3470,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/storage_box.json",
+          "file": "packs/default/data/blocks/box_storage.json",
           "pointer": "/textures/front"
         }
       ],
@@ -3486,8 +3486,8 @@
     },
     {
       "id": "T069",
-      "path": "packs/default/resources/textures/blocks/storage_box/side.png",
-      "logical_path": "textures/blocks/storage_box/side.png",
+      "path": "packs/default/resources/textures/blocks/box_storage/side.png",
+      "logical_path": "textures/blocks/box_storage/side.png",
       "category": "blocks",
       "gallery_group": "blocks",
       "width": 64,
@@ -3500,15 +3500,15 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/storage_box.json",
+          "file": "packs/default/data/blocks/box_storage.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/storage_box.json",
+          "file": "packs/default/data/blocks/box_storage.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/storage_box.json",
+          "file": "packs/default/data/blocks/box_storage.json",
           "pointer": "/textures/back"
         }
       ],
@@ -3524,8 +3524,8 @@
     },
     {
       "id": "T070",
-      "path": "packs/default/resources/textures/blocks/storage_box/top.png",
-      "logical_path": "textures/blocks/storage_box/top.png",
+      "path": "packs/default/resources/textures/blocks/box_storage/top.png",
+      "logical_path": "textures/blocks/box_storage/top.png",
       "category": "blocks",
       "gallery_group": "blocks",
       "width": 64,
@@ -3538,7 +3538,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/storage_box.json",
+          "file": "packs/default/data/blocks/box_storage.json",
           "pointer": "/textures/top"
         }
       ],
@@ -3668,51 +3668,51 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/charwood_leaves.json",
+          "file": "packs/default/data/blocks/leaf_charwood.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/charwood_leaves.json",
+          "file": "packs/default/data/blocks/leaf_charwood.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/charwood_leaves.json",
+          "file": "packs/default/data/blocks/leaf_charwood.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/charwood_leaves.json",
+          "file": "packs/default/data/blocks/leaf_charwood.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/charwood_leaves.json",
+          "file": "packs/default/data/blocks/leaf_charwood.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/charwood_leaves.json",
+          "file": "packs/default/data/blocks/leaf_charwood.json",
           "pointer": "/textures/back"
         },
         {
-          "file": "packs/default/data/blocks/ember_needles.json",
+          "file": "packs/default/data/blocks/leaf_charwood_ember.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/ember_needles.json",
+          "file": "packs/default/data/blocks/leaf_charwood_ember.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/ember_needles.json",
+          "file": "packs/default/data/blocks/leaf_charwood_ember.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/ember_needles.json",
+          "file": "packs/default/data/blocks/leaf_charwood_ember.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/ember_needles.json",
+          "file": "packs/default/data/blocks/leaf_charwood_ember.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/ember_needles.json",
+          "file": "packs/default/data/blocks/leaf_charwood_ember.json",
           "pointer": "/textures/back"
         }
       ],
@@ -3806,19 +3806,19 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/charwood.json",
+          "file": "packs/default/data/blocks/log_charwood.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/charwood.json",
+          "file": "packs/default/data/blocks/log_charwood.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/charwood.json",
+          "file": "packs/default/data/blocks/log_charwood.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/charwood.json",
+          "file": "packs/default/data/blocks/log_charwood.json",
           "pointer": "/textures/back"
         }
       ],
@@ -3849,19 +3849,19 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/charwood_stripped.json",
+          "file": "packs/default/data/blocks/log_charwood_stripped.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/charwood_stripped.json",
+          "file": "packs/default/data/blocks/log_charwood_stripped.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/charwood_stripped.json",
+          "file": "packs/default/data/blocks/log_charwood_stripped.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/charwood_stripped.json",
+          "file": "packs/default/data/blocks/log_charwood_stripped.json",
           "pointer": "/textures/back"
         }
       ],
@@ -3892,19 +3892,19 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/charwood.json",
+          "file": "packs/default/data/blocks/log_charwood.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/charwood.json",
+          "file": "packs/default/data/blocks/log_charwood.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/charwood_stripped.json",
+          "file": "packs/default/data/blocks/log_charwood_stripped.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/charwood_stripped.json",
+          "file": "packs/default/data/blocks/log_charwood_stripped.json",
           "pointer": "/textures/bottom"
         }
       ],
@@ -3935,27 +3935,27 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/leaf_enchanted.json",
+          "file": "packs/default/data/blocks/leaf_enchanted_tree.json",
           "pointer": "/textures/top/0/texture"
         },
         {
-          "file": "packs/default/data/blocks/leaf_enchanted.json",
+          "file": "packs/default/data/blocks/leaf_enchanted_tree.json",
           "pointer": "/textures/bottom/0/texture"
         },
         {
-          "file": "packs/default/data/blocks/leaf_enchanted.json",
+          "file": "packs/default/data/blocks/leaf_enchanted_tree.json",
           "pointer": "/textures/left/0/texture"
         },
         {
-          "file": "packs/default/data/blocks/leaf_enchanted.json",
+          "file": "packs/default/data/blocks/leaf_enchanted_tree.json",
           "pointer": "/textures/right/0/texture"
         },
         {
-          "file": "packs/default/data/blocks/leaf_enchanted.json",
+          "file": "packs/default/data/blocks/leaf_enchanted_tree.json",
           "pointer": "/textures/front/0/texture"
         },
         {
-          "file": "packs/default/data/blocks/leaf_enchanted.json",
+          "file": "packs/default/data/blocks/leaf_enchanted_tree.json",
           "pointer": "/textures/back/0/texture"
         }
       ],
@@ -3987,27 +3987,27 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/planks_enchanted.json",
+          "file": "packs/default/data/blocks/planks_enchanted_tree.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/planks_enchanted.json",
+          "file": "packs/default/data/blocks/planks_enchanted_tree.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/planks_enchanted.json",
+          "file": "packs/default/data/blocks/planks_enchanted_tree.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/planks_enchanted.json",
+          "file": "packs/default/data/blocks/planks_enchanted_tree.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/planks_enchanted.json",
+          "file": "packs/default/data/blocks/planks_enchanted_tree.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/planks_enchanted.json",
+          "file": "packs/default/data/blocks/planks_enchanted_tree.json",
           "pointer": "/textures/back"
         }
       ],
@@ -4073,35 +4073,35 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/log_enchanted.json",
+          "file": "packs/default/data/blocks/log_enchanted_tree.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/log_enchanted.json",
+          "file": "packs/default/data/blocks/log_enchanted_tree.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/log_enchanted.json",
+          "file": "packs/default/data/blocks/log_enchanted_tree.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/log_enchanted.json",
+          "file": "packs/default/data/blocks/log_enchanted_tree.json",
           "pointer": "/textures/back"
         },
         {
-          "file": "packs/default/data/blocks/log_enchanted_hollow.json",
+          "file": "packs/default/data/blocks/log_enchanted_tree_hollow.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/log_enchanted_hollow.json",
+          "file": "packs/default/data/blocks/log_enchanted_tree_hollow.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/log_enchanted_hollow.json",
+          "file": "packs/default/data/blocks/log_enchanted_tree_hollow.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/log_enchanted_hollow.json",
+          "file": "packs/default/data/blocks/log_enchanted_tree_hollow.json",
           "pointer": "/textures/back"
         }
       ],
@@ -4132,35 +4132,35 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/log_enchanted_stripped.json",
+          "file": "packs/default/data/blocks/log_enchanted_tree_stripped.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/log_enchanted_stripped.json",
+          "file": "packs/default/data/blocks/log_enchanted_tree_stripped.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/log_enchanted_stripped.json",
+          "file": "packs/default/data/blocks/log_enchanted_tree_stripped.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/log_enchanted_stripped.json",
+          "file": "packs/default/data/blocks/log_enchanted_tree_stripped.json",
           "pointer": "/textures/back"
         },
         {
-          "file": "packs/default/data/blocks/log_enchanted_stripped_hollow.json",
+          "file": "packs/default/data/blocks/log_enchanted_tree_stripped_hollow.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/log_enchanted_stripped_hollow.json",
+          "file": "packs/default/data/blocks/log_enchanted_tree_stripped_hollow.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/log_enchanted_stripped_hollow.json",
+          "file": "packs/default/data/blocks/log_enchanted_tree_stripped_hollow.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/log_enchanted_stripped_hollow.json",
+          "file": "packs/default/data/blocks/log_enchanted_tree_stripped_hollow.json",
           "pointer": "/textures/back"
         }
       ],
@@ -4191,35 +4191,35 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/log_enchanted.json",
+          "file": "packs/default/data/blocks/log_enchanted_tree.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/log_enchanted.json",
+          "file": "packs/default/data/blocks/log_enchanted_tree.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/log_enchanted_hollow.json",
+          "file": "packs/default/data/blocks/log_enchanted_tree_hollow.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/log_enchanted_hollow.json",
+          "file": "packs/default/data/blocks/log_enchanted_tree_hollow.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/log_enchanted_stripped.json",
+          "file": "packs/default/data/blocks/log_enchanted_tree_stripped.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/log_enchanted_stripped.json",
+          "file": "packs/default/data/blocks/log_enchanted_tree_stripped.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/log_enchanted_stripped_hollow.json",
+          "file": "packs/default/data/blocks/log_enchanted_tree_stripped_hollow.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/log_enchanted_stripped_hollow.json",
+          "file": "packs/default/data/blocks/log_enchanted_tree_stripped_hollow.json",
           "pointer": "/textures/bottom"
         }
       ],
@@ -4250,27 +4250,27 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/alpine_snow_needles.json",
+          "file": "packs/default/data/blocks/leaf_frost_wood_alpine.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/alpine_snow_needles.json",
+          "file": "packs/default/data/blocks/leaf_frost_wood_alpine.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/alpine_snow_needles.json",
+          "file": "packs/default/data/blocks/leaf_frost_wood_alpine.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/alpine_snow_needles.json",
+          "file": "packs/default/data/blocks/leaf_frost_wood_alpine.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/alpine_snow_needles.json",
+          "file": "packs/default/data/blocks/leaf_frost_wood_alpine.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/alpine_snow_needles.json",
+          "file": "packs/default/data/blocks/leaf_frost_wood_alpine.json",
           "pointer": "/textures/back"
         }
       ],
@@ -4302,27 +4302,27 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/arctic_snow_needles.json",
+          "file": "packs/default/data/blocks/leaf_frost_wood_arctic.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/arctic_snow_needles.json",
+          "file": "packs/default/data/blocks/leaf_frost_wood_arctic.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/arctic_snow_needles.json",
+          "file": "packs/default/data/blocks/leaf_frost_wood_arctic.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/arctic_snow_needles.json",
+          "file": "packs/default/data/blocks/leaf_frost_wood_arctic.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/arctic_snow_needles.json",
+          "file": "packs/default/data/blocks/leaf_frost_wood_arctic.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/arctic_snow_needles.json",
+          "file": "packs/default/data/blocks/leaf_frost_wood_arctic.json",
           "pointer": "/textures/back"
         }
       ],
@@ -4416,19 +4416,19 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/frost_wood.json",
+          "file": "packs/default/data/blocks/log_frost_wood.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/frost_wood.json",
+          "file": "packs/default/data/blocks/log_frost_wood.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/frost_wood.json",
+          "file": "packs/default/data/blocks/log_frost_wood.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/frost_wood.json",
+          "file": "packs/default/data/blocks/log_frost_wood.json",
           "pointer": "/textures/back"
         }
       ],
@@ -4459,19 +4459,19 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/frost_wood_stripped.json",
+          "file": "packs/default/data/blocks/log_frost_wood_stripped.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/frost_wood_stripped.json",
+          "file": "packs/default/data/blocks/log_frost_wood_stripped.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/frost_wood_stripped.json",
+          "file": "packs/default/data/blocks/log_frost_wood_stripped.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/frost_wood_stripped.json",
+          "file": "packs/default/data/blocks/log_frost_wood_stripped.json",
           "pointer": "/textures/back"
         }
       ],
@@ -4502,19 +4502,19 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/frost_wood.json",
+          "file": "packs/default/data/blocks/log_frost_wood.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/frost_wood.json",
+          "file": "packs/default/data/blocks/log_frost_wood.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/frost_wood_stripped.json",
+          "file": "packs/default/data/blocks/log_frost_wood_stripped.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/frost_wood_stripped.json",
+          "file": "packs/default/data/blocks/log_frost_wood_stripped.json",
           "pointer": "/textures/bottom"
         }
       ],
@@ -4545,27 +4545,27 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/juniper_needles.json",
+          "file": "packs/default/data/blocks/leaf_juniper.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/juniper_needles.json",
+          "file": "packs/default/data/blocks/leaf_juniper.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/juniper_needles.json",
+          "file": "packs/default/data/blocks/leaf_juniper.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/juniper_needles.json",
+          "file": "packs/default/data/blocks/leaf_juniper.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/juniper_needles.json",
+          "file": "packs/default/data/blocks/leaf_juniper.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/juniper_needles.json",
+          "file": "packs/default/data/blocks/leaf_juniper.json",
           "pointer": "/textures/back"
         }
       ],
@@ -4659,19 +4659,19 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/juniper_wood.json",
+          "file": "packs/default/data/blocks/log_juniper.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/juniper_wood.json",
+          "file": "packs/default/data/blocks/log_juniper.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/juniper_wood.json",
+          "file": "packs/default/data/blocks/log_juniper.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/juniper_wood.json",
+          "file": "packs/default/data/blocks/log_juniper.json",
           "pointer": "/textures/back"
         }
       ],
@@ -4702,19 +4702,19 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/juniper_wood_stripped.json",
+          "file": "packs/default/data/blocks/log_juniper_stripped.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/juniper_wood_stripped.json",
+          "file": "packs/default/data/blocks/log_juniper_stripped.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/juniper_wood_stripped.json",
+          "file": "packs/default/data/blocks/log_juniper_stripped.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/juniper_wood_stripped.json",
+          "file": "packs/default/data/blocks/log_juniper_stripped.json",
           "pointer": "/textures/back"
         }
       ],
@@ -4745,19 +4745,19 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/juniper_wood.json",
+          "file": "packs/default/data/blocks/log_juniper.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/juniper_wood.json",
+          "file": "packs/default/data/blocks/log_juniper.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/juniper_wood_stripped.json",
+          "file": "packs/default/data/blocks/log_juniper_stripped.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/juniper_wood_stripped.json",
+          "file": "packs/default/data/blocks/log_juniper_stripped.json",
           "pointer": "/textures/bottom"
         }
       ],
@@ -5104,27 +5104,27 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/rime_leaves.json",
+          "file": "packs/default/data/blocks/leaf_rime_deadwood.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/rime_leaves.json",
+          "file": "packs/default/data/blocks/leaf_rime_deadwood.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/rime_leaves.json",
+          "file": "packs/default/data/blocks/leaf_rime_deadwood.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/rime_leaves.json",
+          "file": "packs/default/data/blocks/leaf_rime_deadwood.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/rime_leaves.json",
+          "file": "packs/default/data/blocks/leaf_rime_deadwood.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/rime_leaves.json",
+          "file": "packs/default/data/blocks/leaf_rime_deadwood.json",
           "pointer": "/textures/back"
         }
       ],
@@ -5218,19 +5218,19 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/rime_deadwood.json",
+          "file": "packs/default/data/blocks/log_rime_deadwood.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/rime_deadwood.json",
+          "file": "packs/default/data/blocks/log_rime_deadwood.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/rime_deadwood.json",
+          "file": "packs/default/data/blocks/log_rime_deadwood.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/rime_deadwood.json",
+          "file": "packs/default/data/blocks/log_rime_deadwood.json",
           "pointer": "/textures/back"
         }
       ],
@@ -5261,19 +5261,19 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/rime_deadwood_stripped.json",
+          "file": "packs/default/data/blocks/log_rime_deadwood_stripped.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/rime_deadwood_stripped.json",
+          "file": "packs/default/data/blocks/log_rime_deadwood_stripped.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/rime_deadwood_stripped.json",
+          "file": "packs/default/data/blocks/log_rime_deadwood_stripped.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/rime_deadwood_stripped.json",
+          "file": "packs/default/data/blocks/log_rime_deadwood_stripped.json",
           "pointer": "/textures/back"
         }
       ],
@@ -5304,19 +5304,19 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/rime_deadwood.json",
+          "file": "packs/default/data/blocks/log_rime_deadwood.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/rime_deadwood.json",
+          "file": "packs/default/data/blocks/log_rime_deadwood.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/rime_deadwood_stripped.json",
+          "file": "packs/default/data/blocks/log_rime_deadwood_stripped.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/rime_deadwood_stripped.json",
+          "file": "packs/default/data/blocks/log_rime_deadwood_stripped.json",
           "pointer": "/textures/bottom"
         }
       ],
@@ -5347,27 +5347,27 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/skywood_leaves.json",
+          "file": "packs/default/data/blocks/leaf_skywood.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/skywood_leaves.json",
+          "file": "packs/default/data/blocks/leaf_skywood.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/skywood_leaves.json",
+          "file": "packs/default/data/blocks/leaf_skywood.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/skywood_leaves.json",
+          "file": "packs/default/data/blocks/leaf_skywood.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/skywood_leaves.json",
+          "file": "packs/default/data/blocks/leaf_skywood.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/skywood_leaves.json",
+          "file": "packs/default/data/blocks/leaf_skywood.json",
           "pointer": "/textures/back"
         }
       ],
@@ -5461,19 +5461,19 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/skywood_log.json",
+          "file": "packs/default/data/blocks/log_skywood.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/skywood_log.json",
+          "file": "packs/default/data/blocks/log_skywood.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/skywood_log.json",
+          "file": "packs/default/data/blocks/log_skywood.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/skywood_log.json",
+          "file": "packs/default/data/blocks/log_skywood.json",
           "pointer": "/textures/back"
         }
       ],
@@ -5504,19 +5504,19 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/skywood_log_stripped.json",
+          "file": "packs/default/data/blocks/log_skywood_stripped.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/skywood_log_stripped.json",
+          "file": "packs/default/data/blocks/log_skywood_stripped.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/skywood_log_stripped.json",
+          "file": "packs/default/data/blocks/log_skywood_stripped.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/skywood_log_stripped.json",
+          "file": "packs/default/data/blocks/log_skywood_stripped.json",
           "pointer": "/textures/back"
         }
       ],
@@ -5547,19 +5547,19 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/skywood_log.json",
+          "file": "packs/default/data/blocks/log_skywood.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/skywood_log.json",
+          "file": "packs/default/data/blocks/log_skywood.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/skywood_log_stripped.json",
+          "file": "packs/default/data/blocks/log_skywood_stripped.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/skywood_log_stripped.json",
+          "file": "packs/default/data/blocks/log_skywood_stripped.json",
           "pointer": "/textures/bottom"
         }
       ],
@@ -5590,27 +5590,27 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/thornwood_leaves.json",
+          "file": "packs/default/data/blocks/leaf_thornwood.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/thornwood_leaves.json",
+          "file": "packs/default/data/blocks/leaf_thornwood.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/thornwood_leaves.json",
+          "file": "packs/default/data/blocks/leaf_thornwood.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/thornwood_leaves.json",
+          "file": "packs/default/data/blocks/leaf_thornwood.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/thornwood_leaves.json",
+          "file": "packs/default/data/blocks/leaf_thornwood.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/thornwood_leaves.json",
+          "file": "packs/default/data/blocks/leaf_thornwood.json",
           "pointer": "/textures/back"
         }
       ],
@@ -5704,19 +5704,19 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/thornwood.json",
+          "file": "packs/default/data/blocks/log_thornwood.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/thornwood.json",
+          "file": "packs/default/data/blocks/log_thornwood.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/thornwood.json",
+          "file": "packs/default/data/blocks/log_thornwood.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/thornwood.json",
+          "file": "packs/default/data/blocks/log_thornwood.json",
           "pointer": "/textures/back"
         }
       ],
@@ -5747,19 +5747,19 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/thornwood_stripped.json",
+          "file": "packs/default/data/blocks/log_thornwood_stripped.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/thornwood_stripped.json",
+          "file": "packs/default/data/blocks/log_thornwood_stripped.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/thornwood_stripped.json",
+          "file": "packs/default/data/blocks/log_thornwood_stripped.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/thornwood_stripped.json",
+          "file": "packs/default/data/blocks/log_thornwood_stripped.json",
           "pointer": "/textures/back"
         }
       ],
@@ -5790,19 +5790,19 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/thornwood.json",
+          "file": "packs/default/data/blocks/log_thornwood.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/thornwood.json",
+          "file": "packs/default/data/blocks/log_thornwood.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/thornwood_stripped.json",
+          "file": "packs/default/data/blocks/log_thornwood_stripped.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/thornwood_stripped.json",
+          "file": "packs/default/data/blocks/log_thornwood_stripped.json",
           "pointer": "/textures/bottom"
         }
       ],
@@ -6149,27 +6149,27 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/windwood_needles.json",
+          "file": "packs/default/data/blocks/leaf_windwood.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/windwood_needles.json",
+          "file": "packs/default/data/blocks/leaf_windwood.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/windwood_needles.json",
+          "file": "packs/default/data/blocks/leaf_windwood.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/windwood_needles.json",
+          "file": "packs/default/data/blocks/leaf_windwood.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/windwood_needles.json",
+          "file": "packs/default/data/blocks/leaf_windwood.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/windwood_needles.json",
+          "file": "packs/default/data/blocks/leaf_windwood.json",
           "pointer": "/textures/back"
         }
       ],
@@ -6263,19 +6263,19 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/windwood.json",
+          "file": "packs/default/data/blocks/log_windwood.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/windwood.json",
+          "file": "packs/default/data/blocks/log_windwood.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/windwood.json",
+          "file": "packs/default/data/blocks/log_windwood.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/windwood.json",
+          "file": "packs/default/data/blocks/log_windwood.json",
           "pointer": "/textures/back"
         }
       ],
@@ -6306,19 +6306,19 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/windwood_stripped.json",
+          "file": "packs/default/data/blocks/log_windwood_stripped.json",
           "pointer": "/textures/left"
         },
         {
-          "file": "packs/default/data/blocks/windwood_stripped.json",
+          "file": "packs/default/data/blocks/log_windwood_stripped.json",
           "pointer": "/textures/right"
         },
         {
-          "file": "packs/default/data/blocks/windwood_stripped.json",
+          "file": "packs/default/data/blocks/log_windwood_stripped.json",
           "pointer": "/textures/front"
         },
         {
-          "file": "packs/default/data/blocks/windwood_stripped.json",
+          "file": "packs/default/data/blocks/log_windwood_stripped.json",
           "pointer": "/textures/back"
         }
       ],
@@ -6349,19 +6349,19 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/windwood.json",
+          "file": "packs/default/data/blocks/log_windwood.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/windwood.json",
+          "file": "packs/default/data/blocks/log_windwood.json",
           "pointer": "/textures/bottom"
         },
         {
-          "file": "packs/default/data/blocks/windwood_stripped.json",
+          "file": "packs/default/data/blocks/log_windwood_stripped.json",
           "pointer": "/textures/top"
         },
         {
-          "file": "packs/default/data/blocks/windwood_stripped.json",
+          "file": "packs/default/data/blocks/log_windwood_stripped.json",
           "pointer": "/textures/bottom"
         }
       ],
@@ -6743,8 +6743,8 @@
     },
     {
       "id": "T141",
-      "path": "packs/default/resources/textures/creative_categories/crafted_blocks.png",
-      "logical_path": "textures/creative_categories/crafted_blocks.png",
+      "path": "packs/default/resources/textures/creative_categories/blocks_crafted.png",
+      "logical_path": "textures/creative_categories/blocks_crafted.png",
       "category": "creative_categories",
       "gallery_group": "creative_categories",
       "width": 40,
@@ -6757,7 +6757,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/inventory_categories/crafted_blocks.json",
+          "file": "packs/default/data/inventory_categories/blocks_crafted.json",
           "pointer": "/icon"
         }
       ],
@@ -6774,8 +6774,8 @@
     },
     {
       "id": "T142",
-      "path": "packs/default/resources/textures/creative_categories/crafting_materials.png",
-      "logical_path": "textures/creative_categories/crafting_materials.png",
+      "path": "packs/default/resources/textures/creative_categories/materials_crafting.png",
+      "logical_path": "textures/creative_categories/materials_crafting.png",
       "category": "creative_categories",
       "gallery_group": "creative_categories",
       "width": 40,
@@ -6788,7 +6788,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/inventory_categories/crafting_materials.json",
+          "file": "packs/default/data/inventory_categories/materials_crafting.json",
           "pointer": "/icon"
         }
       ],
@@ -6805,8 +6805,8 @@
     },
     {
       "id": "T143",
-      "path": "packs/default/resources/textures/creative_categories/creative_tools.png",
-      "logical_path": "textures/creative_categories/creative_tools.png",
+      "path": "packs/default/resources/textures/creative_categories/tools_creative.png",
+      "logical_path": "textures/creative_categories/tools_creative.png",
       "category": "creative_categories",
       "gallery_group": "creative_categories",
       "width": 40,
@@ -6819,7 +6819,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/inventory_categories/creative_tools.json",
+          "file": "packs/default/data/inventory_categories/tools_creative.json",
           "pointer": "/icon"
         }
       ],
@@ -6924,8 +6924,8 @@
     },
     {
       "id": "T147",
-      "path": "packs/default/resources/textures/creative_categories/natural_blocks.png",
-      "logical_path": "textures/creative_categories/natural_blocks.png",
+      "path": "packs/default/resources/textures/creative_categories/blocks_natural.png",
+      "logical_path": "textures/creative_categories/blocks_natural.png",
       "category": "creative_categories",
       "gallery_group": "creative_categories",
       "width": 40,
@@ -6938,7 +6938,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/inventory_categories/natural_blocks.json",
+          "file": "packs/default/data/inventory_categories/blocks_natural.json",
           "pointer": "/icon"
         }
       ],
@@ -6955,8 +6955,8 @@
     },
     {
       "id": "T148",
-      "path": "packs/default/resources/textures/creative_categories/stone_blocks.png",
-      "logical_path": "textures/creative_categories/stone_blocks.png",
+      "path": "packs/default/resources/textures/creative_categories/blocks_stone.png",
+      "logical_path": "textures/creative_categories/blocks_stone.png",
       "category": "creative_categories",
       "gallery_group": "creative_categories",
       "width": 40,
@@ -6969,7 +6969,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/inventory_categories/stone_blocks.json",
+          "file": "packs/default/data/inventory_categories/blocks_stone.json",
           "pointer": "/icon"
         }
       ],
@@ -7017,8 +7017,8 @@
     },
     {
       "id": "T150",
-      "path": "packs/default/resources/textures/creative_categories/wooden_blocks.png",
-      "logical_path": "textures/creative_categories/wooden_blocks.png",
+      "path": "packs/default/resources/textures/creative_categories/blocks_wooden.png",
+      "logical_path": "textures/creative_categories/blocks_wooden.png",
       "category": "creative_categories",
       "gallery_group": "creative_categories",
       "width": 40,
@@ -7031,7 +7031,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/inventory_categories/wooden_blocks.json",
+          "file": "packs/default/data/inventory_categories/blocks_wooden.json",
           "pointer": "/icon"
         }
       ],
@@ -7783,8 +7783,8 @@
     },
     {
       "id": "T176",
-      "path": "packs/default/resources/textures/items/dimensional_slicer.png",
-      "logical_path": "textures/items/dimensional_slicer.png",
+      "path": "packs/default/resources/textures/items/slicer_dimensional.png",
+      "logical_path": "textures/items/slicer_dimensional.png",
       "category": "items",
       "gallery_group": "items",
       "width": 64,
@@ -7797,11 +7797,11 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/items/dimensional_slicer.json",
+          "file": "packs/default/data/items/slicer_dimensional.json",
           "pointer": "/icon"
         },
         {
-          "file": "packs/default/data/items/dimensional_slicer.json",
+          "file": "packs/default/data/items/slicer_dimensional.json",
           "pointer": "/iconVariants/1/icon"
         }
       ],
@@ -7817,8 +7817,8 @@
     },
     {
       "id": "T177",
-      "path": "packs/default/resources/textures/items/dimensional_slicer_umbral.png",
-      "logical_path": "textures/items/dimensional_slicer_umbral.png",
+      "path": "packs/default/resources/textures/items/slicer_dimensional_umbral.png",
+      "logical_path": "textures/items/slicer_dimensional_umbral.png",
       "category": "items",
       "gallery_group": "items",
       "width": 64,
@@ -7831,7 +7831,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/items/dimensional_slicer.json",
+          "file": "packs/default/data/items/slicer_dimensional.json",
           "pointer": "/iconVariants/0/icon"
         }
       ],
@@ -8117,8 +8117,8 @@
     },
     {
       "id": "T187",
-      "path": "packs/default/resources/textures/items/ores/raw_copper.png",
-      "logical_path": "textures/items/ores/raw_copper.png",
+      "path": "packs/default/resources/textures/items/ores/ore_copper_raw.png",
+      "logical_path": "textures/items/ores/ore_copper_raw.png",
       "category": "items",
       "gallery_group": "items",
       "width": 64,
@@ -8131,7 +8131,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/items/raw_copper.json",
+          "file": "packs/default/data/items/ore_copper_raw.json",
           "pointer": "/icon"
         }
       ],
@@ -8147,8 +8147,8 @@
     },
     {
       "id": "T188",
-      "path": "packs/default/resources/textures/items/ores/raw_gold.png",
-      "logical_path": "textures/items/ores/raw_gold.png",
+      "path": "packs/default/resources/textures/items/ores/ore_gold_raw.png",
+      "logical_path": "textures/items/ores/ore_gold_raw.png",
       "category": "items",
       "gallery_group": "items",
       "width": 64,
@@ -8161,7 +8161,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/items/raw_gold.json",
+          "file": "packs/default/data/items/ore_gold_raw.json",
           "pointer": "/icon"
         }
       ],
@@ -8177,8 +8177,8 @@
     },
     {
       "id": "T189",
-      "path": "packs/default/resources/textures/items/ores/raw_iron.png",
-      "logical_path": "textures/items/ores/raw_iron.png",
+      "path": "packs/default/resources/textures/items/ores/ore_iron_raw.png",
+      "logical_path": "textures/items/ores/ore_iron_raw.png",
       "category": "items",
       "gallery_group": "items",
       "width": 64,
@@ -8191,7 +8191,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/items/raw_iron.json",
+          "file": "packs/default/data/items/ore_iron_raw.json",
           "pointer": "/icon"
         }
       ],
@@ -8207,8 +8207,8 @@
     },
     {
       "id": "T190",
-      "path": "packs/default/resources/textures/items/ores/raw_lead.png",
-      "logical_path": "textures/items/ores/raw_lead.png",
+      "path": "packs/default/resources/textures/items/ores/ore_lead_raw.png",
+      "logical_path": "textures/items/ores/ore_lead_raw.png",
       "category": "items",
       "gallery_group": "items",
       "width": 64,
@@ -8221,7 +8221,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/items/raw_lead.json",
+          "file": "packs/default/data/items/ore_lead_raw.json",
           "pointer": "/icon"
         }
       ],
@@ -8237,8 +8237,8 @@
     },
     {
       "id": "T191",
-      "path": "packs/default/resources/textures/items/ores/raw_nickel.png",
-      "logical_path": "textures/items/ores/raw_nickel.png",
+      "path": "packs/default/resources/textures/items/ores/ore_nickel_raw.png",
+      "logical_path": "textures/items/ores/ore_nickel_raw.png",
       "category": "items",
       "gallery_group": "items",
       "width": 64,
@@ -8251,7 +8251,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/items/raw_nickel.json",
+          "file": "packs/default/data/items/ore_nickel_raw.json",
           "pointer": "/icon"
         }
       ],
@@ -8267,8 +8267,8 @@
     },
     {
       "id": "T192",
-      "path": "packs/default/resources/textures/items/ores/raw_silver.png",
-      "logical_path": "textures/items/ores/raw_silver.png",
+      "path": "packs/default/resources/textures/items/ores/ore_silver_raw.png",
+      "logical_path": "textures/items/ores/ore_silver_raw.png",
       "category": "items",
       "gallery_group": "items",
       "width": 64,
@@ -8281,7 +8281,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/items/raw_silver.json",
+          "file": "packs/default/data/items/ore_silver_raw.json",
           "pointer": "/icon"
         }
       ],
@@ -8297,8 +8297,8 @@
     },
     {
       "id": "T193",
-      "path": "packs/default/resources/textures/items/ores/raw_tin.png",
-      "logical_path": "textures/items/ores/raw_tin.png",
+      "path": "packs/default/resources/textures/items/ores/ore_tin_raw.png",
+      "logical_path": "textures/items/ores/ore_tin_raw.png",
       "category": "items",
       "gallery_group": "items",
       "width": 64,
@@ -8311,7 +8311,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/items/raw_tin.json",
+          "file": "packs/default/data/items/ore_tin_raw.json",
           "pointer": "/icon"
         }
       ],
@@ -8327,8 +8327,8 @@
     },
     {
       "id": "T194",
-      "path": "packs/default/resources/textures/items/ores/raw_zinc.png",
-      "logical_path": "textures/items/ores/raw_zinc.png",
+      "path": "packs/default/resources/textures/items/ores/ore_zinc_raw.png",
+      "logical_path": "textures/items/ores/ore_zinc_raw.png",
       "category": "items",
       "gallery_group": "items",
       "width": 64,
@@ -8341,7 +8341,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/items/raw_zinc.json",
+          "file": "packs/default/data/items/ore_zinc_raw.json",
           "pointer": "/icon"
         }
       ],
@@ -8395,8 +8395,8 @@
     },
     {
       "id": "T196",
-      "path": "packs/default/resources/textures/items/plant-fiber.png",
-      "logical_path": "textures/items/plant-fiber.png",
+      "path": "packs/default/resources/textures/items/fiber_plant.png",
+      "logical_path": "textures/items/fiber_plant.png",
       "category": "items",
       "gallery_group": "items",
       "width": 64,
@@ -8409,7 +8409,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/items/plant_fiber.json",
+          "file": "packs/default/data/items/fiber_plant.json",
           "pointer": "/icon"
         }
       ],
@@ -8425,8 +8425,8 @@
     },
     {
       "id": "T197",
-      "path": "packs/default/resources/textures/items/spore-enchanted-forest.png",
-      "logical_path": "textures/items/spore-enchanted-forest.png",
+      "path": "packs/default/resources/textures/items/spores_enchanted_forest.png",
+      "logical_path": "textures/items/spores_enchanted_forest.png",
       "category": "items",
       "gallery_group": "items",
       "width": 64,
@@ -8439,7 +8439,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/items/enchanted_forest_spores.json",
+          "file": "packs/default/data/items/spores_enchanted_forest.json",
           "pointer": "/icon"
         }
       ],
@@ -8493,8 +8493,8 @@
     },
     {
       "id": "T199",
-      "path": "packs/default/resources/textures/items/wayfarer_boots.png",
-      "logical_path": "textures/items/wayfarer_boots.png",
+      "path": "packs/default/resources/textures/items/boots_wayfarer.png",
+      "logical_path": "textures/items/boots_wayfarer.png",
       "category": "items",
       "gallery_group": "items",
       "width": 64,
@@ -8507,7 +8507,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/items/wayfarer_boots.json",
+          "file": "packs/default/data/items/boots_wayfarer.json",
           "pointer": "/icon"
         }
       ],
@@ -8523,8 +8523,8 @@
     },
     {
       "id": "T200",
-      "path": "packs/default/resources/textures/items/wayfarer_chestplate.png",
-      "logical_path": "textures/items/wayfarer_chestplate.png",
+      "path": "packs/default/resources/textures/items/chestplate_wayfarer.png",
+      "logical_path": "textures/items/chestplate_wayfarer.png",
       "category": "items",
       "gallery_group": "items",
       "width": 64,
@@ -8537,7 +8537,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/items/wayfarer_chestplate.json",
+          "file": "packs/default/data/items/chestplate_wayfarer.json",
           "pointer": "/icon"
         }
       ],
@@ -8553,8 +8553,8 @@
     },
     {
       "id": "T201",
-      "path": "packs/default/resources/textures/items/wayfarer_helmet.png",
-      "logical_path": "textures/items/wayfarer_helmet.png",
+      "path": "packs/default/resources/textures/items/helmet_wayfarer.png",
+      "logical_path": "textures/items/helmet_wayfarer.png",
       "category": "items",
       "gallery_group": "items",
       "width": 64,
@@ -8567,7 +8567,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/items/wayfarer_helmet.json",
+          "file": "packs/default/data/items/helmet_wayfarer.json",
           "pointer": "/icon"
         }
       ],
@@ -8583,8 +8583,8 @@
     },
     {
       "id": "T202",
-      "path": "packs/default/resources/textures/items/wayfarer_leggings.png",
-      "logical_path": "textures/items/wayfarer_leggings.png",
+      "path": "packs/default/resources/textures/items/leggings_wayfarer.png",
+      "logical_path": "textures/items/leggings_wayfarer.png",
       "category": "items",
       "gallery_group": "items",
       "width": 64,
@@ -8597,7 +8597,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/items/wayfarer_leggings.json",
+          "file": "packs/default/data/items/leggings_wayfarer.json",
           "pointer": "/icon"
         }
       ],
@@ -8613,8 +8613,8 @@
     },
     {
       "id": "T203",
-      "path": "packs/default/resources/textures/layers/cliff_lichen.png",
-      "logical_path": "textures/layers/cliff_lichen.png",
+      "path": "packs/default/resources/textures/layers/lichen_cliff.png",
+      "logical_path": "textures/layers/lichen_cliff.png",
       "category": "layers",
       "gallery_group": "layers",
       "width": 64,
@@ -8627,7 +8627,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/layers/cliff_lichen.json",
+          "file": "packs/default/data/layers/lichen_cliff.json",
           "pointer": "/texture"
         }
       ],
@@ -8676,8 +8676,8 @@
     },
     {
       "id": "T205",
-      "path": "packs/default/resources/textures/layers/ores/copper.png",
-      "logical_path": "textures/layers/ores/copper.png",
+      "path": "packs/default/resources/textures/layers/ores/ore_copper.png",
+      "logical_path": "textures/layers/ores/ore_copper.png",
       "category": "layers",
       "gallery_group": "layers",
       "width": 64,
@@ -8690,7 +8690,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/layers/copper_ore.json",
+          "file": "packs/default/data/layers/ore_copper.json",
           "pointer": "/texture"
         }
       ],
@@ -8707,8 +8707,8 @@
     },
     {
       "id": "T206",
-      "path": "packs/default/resources/textures/layers/ores/gold.png",
-      "logical_path": "textures/layers/ores/gold.png",
+      "path": "packs/default/resources/textures/layers/ores/ore_gold.png",
+      "logical_path": "textures/layers/ores/ore_gold.png",
       "category": "layers",
       "gallery_group": "layers",
       "width": 64,
@@ -8721,7 +8721,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/layers/gold_ore.json",
+          "file": "packs/default/data/layers/ore_gold.json",
           "pointer": "/texture"
         }
       ],
@@ -8738,8 +8738,8 @@
     },
     {
       "id": "T207",
-      "path": "packs/default/resources/textures/layers/ores/iron.png",
-      "logical_path": "textures/layers/ores/iron.png",
+      "path": "packs/default/resources/textures/layers/ores/ore_iron.png",
+      "logical_path": "textures/layers/ores/ore_iron.png",
       "category": "layers",
       "gallery_group": "layers",
       "width": 64,
@@ -8752,7 +8752,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/layers/iron_ore.json",
+          "file": "packs/default/data/layers/ore_iron.json",
           "pointer": "/texture"
         }
       ],
@@ -8769,8 +8769,8 @@
     },
     {
       "id": "T208",
-      "path": "packs/default/resources/textures/layers/ores/lead.png",
-      "logical_path": "textures/layers/ores/lead.png",
+      "path": "packs/default/resources/textures/layers/ores/ore_lead.png",
+      "logical_path": "textures/layers/ores/ore_lead.png",
       "category": "layers",
       "gallery_group": "layers",
       "width": 64,
@@ -8783,7 +8783,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/layers/lead_ore.json",
+          "file": "packs/default/data/layers/ore_lead.json",
           "pointer": "/texture"
         }
       ],
@@ -8800,8 +8800,8 @@
     },
     {
       "id": "T209",
-      "path": "packs/default/resources/textures/layers/ores/nickel.png",
-      "logical_path": "textures/layers/ores/nickel.png",
+      "path": "packs/default/resources/textures/layers/ores/ore_nickel.png",
+      "logical_path": "textures/layers/ores/ore_nickel.png",
       "category": "layers",
       "gallery_group": "layers",
       "width": 64,
@@ -8814,7 +8814,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/layers/nickel_ore.json",
+          "file": "packs/default/data/layers/ore_nickel.json",
           "pointer": "/texture"
         }
       ],
@@ -8831,8 +8831,8 @@
     },
     {
       "id": "T210",
-      "path": "packs/default/resources/textures/layers/ores/silver.png",
-      "logical_path": "textures/layers/ores/silver.png",
+      "path": "packs/default/resources/textures/layers/ores/ore_silver.png",
+      "logical_path": "textures/layers/ores/ore_silver.png",
       "category": "layers",
       "gallery_group": "layers",
       "width": 64,
@@ -8845,7 +8845,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/layers/silver_ore.json",
+          "file": "packs/default/data/layers/ore_silver.json",
           "pointer": "/texture"
         }
       ],
@@ -8862,8 +8862,8 @@
     },
     {
       "id": "T211",
-      "path": "packs/default/resources/textures/layers/ores/tin.png",
-      "logical_path": "textures/layers/ores/tin.png",
+      "path": "packs/default/resources/textures/layers/ores/ore_tin.png",
+      "logical_path": "textures/layers/ores/ore_tin.png",
       "category": "layers",
       "gallery_group": "layers",
       "width": 64,
@@ -8876,7 +8876,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/layers/tin_ore.json",
+          "file": "packs/default/data/layers/ore_tin.json",
           "pointer": "/texture"
         }
       ],
@@ -8893,8 +8893,8 @@
     },
     {
       "id": "T212",
-      "path": "packs/default/resources/textures/layers/ores/zinc.png",
-      "logical_path": "textures/layers/ores/zinc.png",
+      "path": "packs/default/resources/textures/layers/ores/ore_zinc.png",
+      "logical_path": "textures/layers/ores/ore_zinc.png",
       "category": "layers",
       "gallery_group": "layers",
       "width": 64,
@@ -8907,7 +8907,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/layers/zinc_ore.json",
+          "file": "packs/default/data/layers/ore_zinc.json",
           "pointer": "/texture"
         }
       ],
@@ -8924,8 +8924,8 @@
     },
     {
       "id": "T213",
-      "path": "packs/default/resources/textures/layers/wall_moss.png",
-      "logical_path": "textures/layers/wall_moss.png",
+      "path": "packs/default/resources/textures/layers/moss_wall.png",
+      "logical_path": "textures/layers/moss_wall.png",
       "category": "layers",
       "gallery_group": "layers",
       "width": 64,
@@ -8938,7 +8938,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/layers/wall_moss.json",
+          "file": "packs/default/data/layers/moss_wall.json",
           "pointer": "/texture"
         }
       ],
@@ -8955,8 +8955,8 @@
     },
     {
       "id": "T214",
-      "path": "packs/default/resources/textures/objects/aether_bloom.png",
-      "logical_path": "textures/objects/aether_bloom.png",
+      "path": "packs/default/resources/textures/objects/bloom_aether.png",
+      "logical_path": "textures/objects/bloom_aether.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -8969,11 +8969,11 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/objects/aether_bloom.json",
+          "file": "packs/default/data/objects/bloom_aether.json",
           "pointer": "/icon"
         },
         {
-          "file": "packs/default/data/objects/aether_bloom.json",
+          "file": "packs/default/data/objects/bloom_aether.json",
           "pointer": "/visual/texture"
         }
       ],
@@ -8989,8 +8989,8 @@
     },
     {
       "id": "T215",
-      "path": "packs/default/resources/textures/objects/aether_vines.png",
-      "logical_path": "textures/objects/aether_vines.png",
+      "path": "packs/default/resources/textures/objects/vines_aether.png",
+      "logical_path": "textures/objects/vines_aether.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -9003,11 +9003,11 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/objects/aether_vines.json",
+          "file": "packs/default/data/objects/vines_aether.json",
           "pointer": "/icon"
         },
         {
-          "file": "packs/default/data/objects/aether_vines.json",
+          "file": "packs/default/data/objects/vines_aether.json",
           "pointer": "/visual/texture"
         }
       ],
@@ -9023,8 +9023,8 @@
     },
     {
       "id": "T216",
-      "path": "packs/default/resources/textures/objects/alpine_edelweiss.png",
-      "logical_path": "textures/objects/alpine_edelweiss.png",
+      "path": "packs/default/resources/textures/objects/edelweiss_alpine.png",
+      "logical_path": "textures/objects/edelweiss_alpine.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -9037,7 +9037,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/alpine_edelweiss.json",
+          "file": "packs/default/data/blocks/edelweiss_alpine.json",
           "pointer": "/visual/texture"
         }
       ],
@@ -9053,8 +9053,8 @@
     },
     {
       "id": "T217",
-      "path": "packs/default/resources/textures/objects/alpine_sedge.png",
-      "logical_path": "textures/objects/alpine_sedge.png",
+      "path": "packs/default/resources/textures/objects/sedge_alpine.png",
+      "logical_path": "textures/objects/sedge_alpine.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -9067,7 +9067,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/alpine_sedge.json",
+          "file": "packs/default/data/blocks/sedge_alpine.json",
           "pointer": "/visual/texture"
         }
       ],
@@ -9083,8 +9083,8 @@
     },
     {
       "id": "T218",
-      "path": "packs/default/resources/textures/objects/ash_thorn.png",
-      "logical_path": "textures/objects/ash_thorn.png",
+      "path": "packs/default/resources/textures/objects/thorn_ash.png",
+      "logical_path": "textures/objects/thorn_ash.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -9097,7 +9097,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/ash_thorn.json",
+          "file": "packs/default/data/blocks/thorn_ash.json",
           "pointer": "/visual/texture"
         }
       ],
@@ -9113,8 +9113,8 @@
     },
     {
       "id": "T219",
-      "path": "packs/default/resources/textures/objects/bleached_roots.png",
-      "logical_path": "textures/objects/bleached_roots.png",
+      "path": "packs/default/resources/textures/objects/roots_bleached.png",
+      "logical_path": "textures/objects/roots_bleached.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -9127,7 +9127,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/bleached_roots.json",
+          "file": "packs/default/data/blocks/roots_bleached.json",
           "pointer": "/visual/texture"
         }
       ],
@@ -9173,8 +9173,8 @@
     },
     {
       "id": "T221",
-      "path": "packs/default/resources/textures/objects/brittle_tuft.png",
-      "logical_path": "textures/objects/brittle_tuft.png",
+      "path": "packs/default/resources/textures/objects/tuft_brittle.png",
+      "logical_path": "textures/objects/tuft_brittle.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -9187,7 +9187,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/brittle_tuft.json",
+          "file": "packs/default/data/blocks/tuft_brittle.json",
           "pointer": "/visual/texture"
         }
       ],
@@ -9237,8 +9237,8 @@
     },
     {
       "id": "T223",
-      "path": "packs/default/resources/textures/objects/cactus/flower_pink.png",
-      "logical_path": "textures/objects/cactus/flower_pink.png",
+      "path": "packs/default/resources/textures/objects/flower_cactus_pink.png",
+      "logical_path": "textures/objects/flower_cactus_pink.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -9251,7 +9251,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/cactus_flower_pink.json",
+          "file": "packs/default/data/blocks/flower_cactus_pink.json",
           "pointer": "/visual/texture"
         }
       ],
@@ -9267,8 +9267,8 @@
     },
     {
       "id": "T224",
-      "path": "packs/default/resources/textures/objects/cactus/flower_yellow.png",
-      "logical_path": "textures/objects/cactus/flower_yellow.png",
+      "path": "packs/default/resources/textures/objects/flower_cactus_yellow.png",
+      "logical_path": "textures/objects/flower_cactus_yellow.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -9281,7 +9281,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/cactus_flower_yellow.json",
+          "file": "packs/default/data/blocks/flower_cactus_yellow.json",
           "pointer": "/visual/texture"
         }
       ],
@@ -9331,8 +9331,8 @@
     },
     {
       "id": "T226",
-      "path": "packs/default/resources/textures/objects/cinder_bloom.png",
-      "logical_path": "textures/objects/cinder_bloom.png",
+      "path": "packs/default/resources/textures/objects/bloom_cinder.png",
+      "logical_path": "textures/objects/bloom_cinder.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -9345,7 +9345,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/cinder_bloom.json",
+          "file": "packs/default/data/blocks/bloom_cinder.json",
           "pointer": "/visual/texture"
         }
       ],
@@ -9361,8 +9361,8 @@
     },
     {
       "id": "T227",
-      "path": "packs/default/resources/textures/objects/cliff_lichen.png",
-      "logical_path": "textures/objects/cliff_lichen.png",
+      "path": "packs/default/resources/textures/objects/lichen_cliff.png",
+      "logical_path": "textures/objects/lichen_cliff.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -9375,7 +9375,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/cliff_lichen.json",
+          "file": "packs/default/data/blocks/lichen_cliff.json",
           "pointer": "/visual/texture"
         }
       ],
@@ -9391,8 +9391,8 @@
     },
     {
       "id": "T228",
-      "path": "packs/default/resources/textures/objects/cliff_rosette.png",
-      "logical_path": "textures/objects/cliff_rosette.png",
+      "path": "packs/default/resources/textures/objects/rosette_cliff.png",
+      "logical_path": "textures/objects/rosette_cliff.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -9405,7 +9405,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/cliff_rosette.json",
+          "file": "packs/default/data/blocks/rosette_cliff.json",
           "pointer": "/visual/texture"
         }
       ],
@@ -9421,8 +9421,8 @@
     },
     {
       "id": "T229",
-      "path": "packs/default/resources/textures/objects/cloud_reed.png",
-      "logical_path": "textures/objects/cloud_reed.png",
+      "path": "packs/default/resources/textures/objects/reed_cloud.png",
+      "logical_path": "textures/objects/reed_cloud.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -9435,11 +9435,11 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/objects/cloud_reed.json",
+          "file": "packs/default/data/objects/reed_cloud.json",
           "pointer": "/icon"
         },
         {
-          "file": "packs/default/data/objects/cloud_reed.json",
+          "file": "packs/default/data/objects/reed_cloud.json",
           "pointer": "/visual/texture"
         }
       ],
@@ -9523,8 +9523,8 @@
     },
     {
       "id": "T232",
-      "path": "packs/default/resources/textures/objects/dead_thistle.png",
-      "logical_path": "textures/objects/dead_thistle.png",
+      "path": "packs/default/resources/textures/objects/thistle_dead.png",
+      "logical_path": "textures/objects/thistle_dead.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -9537,7 +9537,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/dead_thistle.json",
+          "file": "packs/default/data/blocks/thistle_dead.json",
           "pointer": "/visual/texture"
         }
       ],
@@ -9553,8 +9553,8 @@
     },
     {
       "id": "T233",
-      "path": "packs/default/resources/textures/objects/dry_lichen.png",
-      "logical_path": "textures/objects/dry_lichen.png",
+      "path": "packs/default/resources/textures/objects/lichen_dry.png",
+      "logical_path": "textures/objects/lichen_dry.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -9567,7 +9567,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/dry_lichen.json",
+          "file": "packs/default/data/blocks/lichen_dry.json",
           "pointer": "/visual/texture"
         }
       ],
@@ -9583,8 +9583,8 @@
     },
     {
       "id": "T234",
-      "path": "packs/default/resources/textures/objects/dry_tuft.png",
-      "logical_path": "textures/objects/dry_tuft.png",
+      "path": "packs/default/resources/textures/objects/tuft_dry.png",
+      "logical_path": "textures/objects/tuft_dry.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -9597,7 +9597,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/dry_tuft.json",
+          "file": "packs/default/data/blocks/tuft_dry.json",
           "pointer": "/visual/texture"
         }
       ],
@@ -9613,8 +9613,8 @@
     },
     {
       "id": "T235",
-      "path": "packs/default/resources/textures/objects/dune_grass.png",
-      "logical_path": "textures/objects/dune_grass.png",
+      "path": "packs/default/resources/textures/objects/grass_dune.png",
+      "logical_path": "textures/objects/grass_dune.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -9627,7 +9627,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/dune_grass.json",
+          "file": "packs/default/data/blocks/grass_dune.json",
           "pointer": "/visual/texture"
         }
       ],
@@ -9643,8 +9643,8 @@
     },
     {
       "id": "T236",
-      "path": "packs/default/resources/textures/objects/exposed_roots.png",
-      "logical_path": "textures/objects/exposed_roots.png",
+      "path": "packs/default/resources/textures/objects/roots_exposed.png",
+      "logical_path": "textures/objects/roots_exposed.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -9657,7 +9657,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/exposed_roots.json",
+          "file": "packs/default/data/blocks/roots_exposed.json",
           "pointer": "/visual/texture"
         }
       ],
@@ -9673,8 +9673,8 @@
     },
     {
       "id": "T237",
-      "path": "packs/default/resources/textures/objects/frost_lichen.png",
-      "logical_path": "textures/objects/frost_lichen.png",
+      "path": "packs/default/resources/textures/objects/lichen_frost.png",
+      "logical_path": "textures/objects/lichen_frost.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -9687,7 +9687,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/frost_lichen.json",
+          "file": "packs/default/data/blocks/lichen_frost.json",
           "pointer": "/visual/texture"
         }
       ],
@@ -9703,8 +9703,8 @@
     },
     {
       "id": "T238",
-      "path": "packs/default/resources/textures/objects/frost_shrub.png",
-      "logical_path": "textures/objects/frost_shrub.png",
+      "path": "packs/default/resources/textures/objects/shrub_frost.png",
+      "logical_path": "textures/objects/shrub_frost.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -9717,7 +9717,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/frost_shrub.json",
+          "file": "packs/default/data/blocks/shrub_frost.json",
           "pointer": "/visual/texture"
         }
       ],
@@ -9733,8 +9733,8 @@
     },
     {
       "id": "T239",
-      "path": "packs/default/resources/textures/objects/glow_fern.png",
-      "logical_path": "textures/objects/glow_fern.png",
+      "path": "packs/default/resources/textures/objects/fern_glow.png",
+      "logical_path": "textures/objects/fern_glow.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -9747,11 +9747,11 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/objects/glow_fern.json",
+          "file": "packs/default/data/objects/fern_glow.json",
           "pointer": "/icon"
         },
         {
-          "file": "packs/default/data/objects/glow_fern.json",
+          "file": "packs/default/data/objects/fern_glow.json",
           "pointer": "/visual/texture"
         }
       ],
@@ -9767,8 +9767,8 @@
     },
     {
       "id": "T240",
-      "path": "packs/default/resources/textures/objects/glow_pod.png",
-      "logical_path": "textures/objects/glow_pod.png",
+      "path": "packs/default/resources/textures/objects/pod_glow.png",
+      "logical_path": "textures/objects/pod_glow.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -9781,7 +9781,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/glow_pod.json",
+          "file": "packs/default/data/blocks/pod_glow.json",
           "pointer": "/visual/texture"
         }
       ],
@@ -9832,8 +9832,8 @@
     },
     {
       "id": "T242",
-      "path": "packs/default/resources/textures/objects/hanging_moss.png",
-      "logical_path": "textures/objects/hanging_moss.png",
+      "path": "packs/default/resources/textures/objects/moss_hanging.png",
+      "logical_path": "textures/objects/moss_hanging.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -9846,7 +9846,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/hanging_moss.json",
+          "file": "packs/default/data/blocks/moss_hanging.json",
           "pointer": "/visual/texture"
         }
       ],
@@ -9862,8 +9862,8 @@
     },
     {
       "id": "T243",
-      "path": "packs/default/resources/textures/objects/hanging_roots.png",
-      "logical_path": "textures/objects/hanging_roots.png",
+      "path": "packs/default/resources/textures/objects/roots_hanging.png",
+      "logical_path": "textures/objects/roots_hanging.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -9876,11 +9876,11 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/objects/hanging_roots.json",
+          "file": "packs/default/data/objects/roots_hanging.json",
           "pointer": "/icon"
         },
         {
-          "file": "packs/default/data/objects/hanging_roots.json",
+          "file": "packs/default/data/objects/roots_hanging.json",
           "pointer": "/visual/texture"
         }
       ],
@@ -9964,8 +9964,8 @@
     },
     {
       "id": "T246",
-      "path": "packs/default/resources/textures/objects/lily_pad.png",
-      "logical_path": "textures/objects/lily_pad.png",
+      "path": "packs/default/resources/textures/objects/pad_lily.png",
+      "logical_path": "textures/objects/pad_lily.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -9978,11 +9978,11 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/objects/lily_pad.json",
+          "file": "packs/default/data/objects/pad_lily.json",
           "pointer": "/icon"
         },
         {
-          "file": "packs/default/data/objects/lily_pad.json",
+          "file": "packs/default/data/objects/pad_lily.json",
           "pointer": "/visual/texture"
         }
       ],
@@ -9998,8 +9998,8 @@
     },
     {
       "id": "T247",
-      "path": "packs/default/resources/textures/objects/marsh_fern.png",
-      "logical_path": "textures/objects/marsh_fern.png",
+      "path": "packs/default/resources/textures/objects/fern_marsh.png",
+      "logical_path": "textures/objects/fern_marsh.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -10012,7 +10012,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/marsh_fern.json",
+          "file": "packs/default/data/blocks/fern_marsh.json",
           "pointer": "/visual/texture"
         }
       ],
@@ -10028,8 +10028,8 @@
     },
     {
       "id": "T248",
-      "path": "packs/default/resources/textures/objects/marsh_orchid.png",
-      "logical_path": "textures/objects/marsh_orchid.png",
+      "path": "packs/default/resources/textures/objects/orchid_marsh.png",
+      "logical_path": "textures/objects/orchid_marsh.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -10042,11 +10042,11 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/objects/marsh_orchid.json",
+          "file": "packs/default/data/objects/orchid_marsh.json",
           "pointer": "/icon"
         },
         {
-          "file": "packs/default/data/objects/marsh_orchid.json",
+          "file": "packs/default/data/objects/orchid_marsh.json",
           "pointer": "/visual/texture"
         }
       ],
@@ -10062,8 +10062,8 @@
     },
     {
       "id": "T249",
-      "path": "packs/default/resources/textures/objects/meadow_seedheads.png",
-      "logical_path": "textures/objects/meadow_seedheads.png",
+      "path": "packs/default/resources/textures/objects/seedheads_meadow.png",
+      "logical_path": "textures/objects/seedheads_meadow.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -10076,11 +10076,11 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/objects/meadow_seedheads.json",
+          "file": "packs/default/data/objects/seedheads_meadow.json",
           "pointer": "/icon"
         },
         {
-          "file": "packs/default/data/objects/meadow_seedheads.json",
+          "file": "packs/default/data/objects/seedheads_meadow.json",
           "pointer": "/visual/texture"
         }
       ],
@@ -10096,8 +10096,8 @@
     },
     {
       "id": "T250",
-      "path": "packs/default/resources/textures/objects/mushrooms/blue.png",
-      "logical_path": "textures/objects/mushrooms/blue.png",
+      "path": "packs/default/resources/textures/objects/mushroom_blue.png",
+      "logical_path": "textures/objects/mushroom_blue.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -10130,8 +10130,8 @@
     },
     {
       "id": "T251",
-      "path": "packs/default/resources/textures/objects/mushrooms/brown.png",
-      "logical_path": "textures/objects/mushrooms/brown.png",
+      "path": "packs/default/resources/textures/objects/mushroom_brown.png",
+      "logical_path": "textures/objects/mushroom_brown.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -10164,8 +10164,8 @@
     },
     {
       "id": "T252",
-      "path": "packs/default/resources/textures/objects/mushrooms/glowcap.png",
-      "logical_path": "textures/objects/mushrooms/glowcap.png",
+      "path": "packs/default/resources/textures/objects/mushroom_glowcap.png",
+      "logical_path": "textures/objects/mushroom_glowcap.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -10178,11 +10178,11 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/objects/glowcap.json",
+          "file": "packs/default/data/objects/mushroom_glowcap.json",
           "pointer": "/icon"
         },
         {
-          "file": "packs/default/data/objects/glowcap.json",
+          "file": "packs/default/data/objects/mushroom_glowcap.json",
           "pointer": "/visual/texture"
         }
       ],
@@ -10198,8 +10198,8 @@
     },
     {
       "id": "T253",
-      "path": "packs/default/resources/textures/objects/mushrooms/green.png",
-      "logical_path": "textures/objects/mushrooms/green.png",
+      "path": "packs/default/resources/textures/objects/mushroom_green.png",
+      "logical_path": "textures/objects/mushroom_green.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -10232,8 +10232,8 @@
     },
     {
       "id": "T254",
-      "path": "packs/default/resources/textures/objects/mushrooms/pink.png",
-      "logical_path": "textures/objects/mushrooms/pink.png",
+      "path": "packs/default/resources/textures/objects/mushroom_pink.png",
+      "logical_path": "textures/objects/mushroom_pink.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -10266,8 +10266,8 @@
     },
     {
       "id": "T255",
-      "path": "packs/default/resources/textures/objects/mushrooms/purple.png",
-      "logical_path": "textures/objects/mushrooms/purple.png",
+      "path": "packs/default/resources/textures/objects/mushroom_purple.png",
+      "logical_path": "textures/objects/mushroom_purple.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -10300,8 +10300,8 @@
     },
     {
       "id": "T256",
-      "path": "packs/default/resources/textures/objects/mushrooms/red.png",
-      "logical_path": "textures/objects/mushrooms/red.png",
+      "path": "packs/default/resources/textures/objects/mushroom_red.png",
+      "logical_path": "textures/objects/mushroom_red.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -10334,8 +10334,8 @@
     },
     {
       "id": "T257",
-      "path": "packs/default/resources/textures/objects/mushrooms/yellow.png",
-      "logical_path": "textures/objects/mushrooms/yellow.png",
+      "path": "packs/default/resources/textures/objects/mushroom_yellow.png",
+      "logical_path": "textures/objects/mushroom_yellow.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -10368,8 +10368,8 @@
     },
     {
       "id": "T258",
-      "path": "packs/default/resources/textures/objects/pass_grass.png",
-      "logical_path": "textures/objects/pass_grass.png",
+      "path": "packs/default/resources/textures/objects/grass_pass.png",
+      "logical_path": "textures/objects/grass_pass.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -10382,11 +10382,11 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/objects/pass_grass.json",
+          "file": "packs/default/data/objects/grass_pass.json",
           "pointer": "/icon"
         },
         {
-          "file": "packs/default/data/objects/pass_grass.json",
+          "file": "packs/default/data/objects/grass_pass.json",
           "pointer": "/visual/texture"
         }
       ],
@@ -10402,8 +10402,8 @@
     },
     {
       "id": "T259",
-      "path": "packs/default/resources/textures/objects/pink_bloom.png",
-      "logical_path": "textures/objects/pink_bloom.png",
+      "path": "packs/default/resources/textures/objects/bloom_pink.png",
+      "logical_path": "textures/objects/bloom_pink.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -10416,7 +10416,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/pink_bloom.json",
+          "file": "packs/default/data/blocks/bloom_pink.json",
           "pointer": "/visual/texture"
         }
       ],
@@ -10432,8 +10432,8 @@
     },
     {
       "id": "T260",
-      "path": "packs/default/resources/textures/objects/purple_aster.png",
-      "logical_path": "textures/objects/purple_aster.png",
+      "path": "packs/default/resources/textures/objects/aster_purple.png",
+      "logical_path": "textures/objects/aster_purple.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -10446,11 +10446,11 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/objects/purple_aster.json",
+          "file": "packs/default/data/objects/aster_purple.json",
           "pointer": "/icon"
         },
         {
-          "file": "packs/default/data/objects/purple_aster.json",
+          "file": "packs/default/data/objects/aster_purple.json",
           "pointer": "/visual/texture"
         }
       ],
@@ -10466,8 +10466,8 @@
     },
     {
       "id": "T261",
-      "path": "packs/default/resources/textures/objects/rock_lichen.png",
-      "logical_path": "textures/objects/rock_lichen.png",
+      "path": "packs/default/resources/textures/objects/lichen_rock.png",
+      "logical_path": "textures/objects/lichen_rock.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -10480,7 +10480,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/rock_lichen.json",
+          "file": "packs/default/data/blocks/lichen_rock.json",
           "pointer": "/visual/texture"
         }
       ],
@@ -10560,8 +10560,8 @@
     },
     {
       "id": "T264",
-      "path": "packs/default/resources/textures/objects/scree_lichen.png",
-      "logical_path": "textures/objects/scree_lichen.png",
+      "path": "packs/default/resources/textures/objects/lichen_scree.png",
+      "logical_path": "textures/objects/lichen_scree.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -10574,7 +10574,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/scree_lichen.json",
+          "file": "packs/default/data/blocks/lichen_scree.json",
           "pointer": "/visual/texture"
         }
       ],
@@ -10590,8 +10590,8 @@
     },
     {
       "id": "T265",
-      "path": "packs/default/resources/textures/objects/sea_anemone.png",
-      "logical_path": "textures/objects/sea_anemone.png",
+      "path": "packs/default/resources/textures/objects/anemone_sea.png",
+      "logical_path": "textures/objects/anemone_sea.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -10604,11 +10604,11 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/objects/sea_anemone.json",
+          "file": "packs/default/data/objects/anemone_sea.json",
           "pointer": "/icon"
         },
         {
-          "file": "packs/default/data/objects/sea_anemone.json",
+          "file": "packs/default/data/objects/anemone_sea.json",
           "pointer": "/visual/texture"
         }
       ],
@@ -10692,8 +10692,8 @@
     },
     {
       "id": "T268",
-      "path": "packs/default/resources/textures/objects/shelf_fungus.png",
-      "logical_path": "textures/objects/shelf_fungus.png",
+      "path": "packs/default/resources/textures/objects/fungus_shelf.png",
+      "logical_path": "textures/objects/fungus_shelf.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -10706,7 +10706,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/shelf_fungus.json",
+          "file": "packs/default/data/blocks/fungus_shelf.json",
           "pointer": "/visual/texture"
         }
       ],
@@ -10722,8 +10722,8 @@
     },
     {
       "id": "T269",
-      "path": "packs/default/resources/textures/objects/soot_lichen.png",
-      "logical_path": "textures/objects/soot_lichen.png",
+      "path": "packs/default/resources/textures/objects/lichen_soot.png",
+      "logical_path": "textures/objects/lichen_soot.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -10736,7 +10736,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/soot_lichen.json",
+          "file": "packs/default/data/blocks/lichen_soot.json",
           "pointer": "/visual/texture"
         }
       ],
@@ -10846,8 +10846,8 @@
     },
     {
       "id": "T273",
-      "path": "packs/default/resources/textures/objects/tall_grass.png",
-      "logical_path": "textures/objects/tall_grass.png",
+      "path": "packs/default/resources/textures/objects/grass_tall.png",
+      "logical_path": "textures/objects/grass_tall.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -10860,11 +10860,11 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/objects/tall_grass.json",
+          "file": "packs/default/data/objects/grass_tall.json",
           "pointer": "/icon"
         },
         {
-          "file": "packs/default/data/objects/tall_grass.json",
+          "file": "packs/default/data/objects/grass_tall.json",
           "pointer": "/visual/texture"
         }
       ],
@@ -10880,8 +10880,8 @@
     },
     {
       "id": "T274",
-      "path": "packs/default/resources/textures/objects/thorn_rosette.png",
-      "logical_path": "textures/objects/thorn_rosette.png",
+      "path": "packs/default/resources/textures/objects/rosette_thorn.png",
+      "logical_path": "textures/objects/rosette_thorn.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -10894,7 +10894,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/thorn_rosette.json",
+          "file": "packs/default/data/blocks/rosette_thorn.json",
           "pointer": "/visual/texture"
         }
       ],
@@ -10940,8 +10940,8 @@
     },
     {
       "id": "T276",
-      "path": "packs/default/resources/textures/objects/violet_fern.png",
-      "logical_path": "textures/objects/violet_fern.png",
+      "path": "packs/default/resources/textures/objects/fern_violet.png",
+      "logical_path": "textures/objects/fern_violet.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -10954,11 +10954,11 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/objects/violet_fern.json",
+          "file": "packs/default/data/objects/fern_violet.json",
           "pointer": "/icon"
         },
         {
-          "file": "packs/default/data/objects/violet_fern.json",
+          "file": "packs/default/data/objects/fern_violet.json",
           "pointer": "/visual/texture"
         }
       ],
@@ -10974,8 +10974,8 @@
     },
     {
       "id": "T277",
-      "path": "packs/default/resources/textures/objects/wall_moss.png",
-      "logical_path": "textures/objects/wall_moss.png",
+      "path": "packs/default/resources/textures/objects/moss_wall.png",
+      "logical_path": "textures/objects/moss_wall.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -10988,7 +10988,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/blocks/wall_moss.json",
+          "file": "packs/default/data/blocks/moss_wall.json",
           "pointer": "/visual/texture"
         }
       ],
@@ -11004,8 +11004,8 @@
     },
     {
       "id": "T278",
-      "path": "packs/default/resources/textures/objects/wall_shelf_fungus.png",
-      "logical_path": "textures/objects/wall_shelf_fungus.png",
+      "path": "packs/default/resources/textures/objects/fungus_shelf_wall.png",
+      "logical_path": "textures/objects/fungus_shelf_wall.png",
       "category": "objects",
       "gallery_group": "objects",
       "width": 64,
@@ -11018,11 +11018,11 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/objects/wall_shelf_fungus.json",
+          "file": "packs/default/data/objects/fungus_shelf_wall.json",
           "pointer": "/icon"
         },
         {
-          "file": "packs/default/data/objects/wall_shelf_fungus.json",
+          "file": "packs/default/data/objects/fungus_shelf_wall.json",
           "pointer": "/visual/texture"
         }
       ],
@@ -11255,8 +11255,8 @@
     },
     {
       "id": "T286",
-      "path": "packs/default/resources/textures/tools/architects-compass.png",
-      "logical_path": "textures/tools/architects-compass.png",
+      "path": "packs/default/resources/textures/tools/compass_architects.png",
+      "logical_path": "textures/tools/compass_architects.png",
       "category": "tools",
       "gallery_group": "tools",
       "width": 64,
@@ -11269,7 +11269,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/tools/structure_tool.json",
+          "file": "packs/default/data/tools/compass_architects.json",
           "pointer": "/icon"
         }
       ],
@@ -11285,8 +11285,8 @@
     },
     {
       "id": "T287",
-      "path": "packs/default/resources/textures/tools/artisans-kit.png",
-      "logical_path": "textures/tools/artisans-kit.png",
+      "path": "packs/default/resources/textures/tools/kit_artisans_rustic.png",
+      "logical_path": "textures/tools/kit_artisans_rustic.png",
       "category": "tools",
       "gallery_group": "tools",
       "width": 64,
@@ -11299,7 +11299,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/tools/artisans_kit.json",
+          "file": "packs/default/data/tools/kit_artisans_rustic.json",
           "pointer": "/icon"
         }
       ],
@@ -11315,8 +11315,8 @@
     },
     {
       "id": "T288",
-      "path": "packs/default/resources/textures/tools/brush-tint.png",
-      "logical_path": "textures/tools/brush-tint.png",
+      "path": "packs/default/resources/textures/tools/brush_rustic_tint.png",
+      "logical_path": "textures/tools/brush_rustic_tint.png",
       "category": "tools",
       "gallery_group": "tools",
       "width": 64,
@@ -11329,7 +11329,7 @@
       "grayscale_visible": true,
       "authored_references": [
         {
-          "file": "packs/default/data/tools/brush.json",
+          "file": "packs/default/data/tools/brush_rustic.json",
           "pointer": "/tintIcon"
         }
       ],
@@ -11346,8 +11346,8 @@
     },
     {
       "id": "T289",
-      "path": "packs/default/resources/textures/tools/brush.png",
-      "logical_path": "textures/tools/brush.png",
+      "path": "packs/default/resources/textures/tools/brush_rustic.png",
+      "logical_path": "textures/tools/brush_rustic.png",
       "category": "tools",
       "gallery_group": "tools",
       "width": 64,
@@ -11360,7 +11360,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/tools/brush.json",
+          "file": "packs/default/data/tools/brush_rustic.json",
           "pointer": "/icon"
         }
       ],
@@ -11376,8 +11376,8 @@
     },
     {
       "id": "T290",
-      "path": "packs/default/resources/textures/tools/carpenters-axe-rustic.png",
-      "logical_path": "textures/tools/carpenters-axe-rustic.png",
+      "path": "packs/default/resources/textures/tools/axe_carpenters_rustic.png",
+      "logical_path": "textures/tools/axe_carpenters_rustic.png",
       "category": "tools",
       "gallery_group": "tools",
       "width": 64,
@@ -11390,7 +11390,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/tools/carpenters_axe.json",
+          "file": "packs/default/data/tools/axe_carpenters_rustic.json",
           "pointer": "/icon"
         }
       ],
@@ -11406,8 +11406,8 @@
     },
     {
       "id": "T291",
-      "path": "packs/default/resources/textures/tools/hatchet-rustic.png",
-      "logical_path": "textures/tools/hatchet-rustic.png",
+      "path": "packs/default/resources/textures/tools/hatchet_rustic.png",
+      "logical_path": "textures/tools/hatchet_rustic.png",
       "category": "tools",
       "gallery_group": "tools",
       "width": 64,
@@ -11420,7 +11420,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/tools/rustic_hatchet.json",
+          "file": "packs/default/data/tools/hatchet_rustic.json",
           "pointer": "/icon"
         }
       ],
@@ -11436,8 +11436,8 @@
     },
     {
       "id": "T292",
-      "path": "packs/default/resources/textures/tools/iron_bucket_empty.png",
-      "logical_path": "textures/tools/iron_bucket_empty.png",
+      "path": "packs/default/resources/textures/tools/bucket_iron_empty.png",
+      "logical_path": "textures/tools/bucket_iron_empty.png",
       "category": "tools",
       "gallery_group": "tools",
       "width": 64,
@@ -11466,8 +11466,8 @@
     },
     {
       "id": "T293",
-      "path": "packs/default/resources/textures/tools/iron_bucket_lava.png",
-      "logical_path": "textures/tools/iron_bucket_lava.png",
+      "path": "packs/default/resources/textures/tools/bucket_iron_lava.png",
+      "logical_path": "textures/tools/bucket_iron_lava.png",
       "category": "tools",
       "gallery_group": "tools",
       "width": 64,
@@ -11496,8 +11496,8 @@
     },
     {
       "id": "T294",
-      "path": "packs/default/resources/textures/tools/iron_bucket_water.png",
-      "logical_path": "textures/tools/iron_bucket_water.png",
+      "path": "packs/default/resources/textures/tools/bucket_iron_water.png",
+      "logical_path": "textures/tools/bucket_iron_water.png",
       "category": "tools",
       "gallery_group": "tools",
       "width": 64,
@@ -11526,8 +11526,8 @@
     },
     {
       "id": "T295",
-      "path": "packs/default/resources/textures/tools/pickaxe-rustic.png",
-      "logical_path": "textures/tools/pickaxe-rustic.png",
+      "path": "packs/default/resources/textures/tools/pickaxe_rustic.png",
+      "logical_path": "textures/tools/pickaxe_rustic.png",
       "category": "tools",
       "gallery_group": "tools",
       "width": 64,
@@ -11540,7 +11540,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/tools/rustic_pickaxe.json",
+          "file": "packs/default/data/tools/pickaxe_rustic.json",
           "pointer": "/icon"
         }
       ],
@@ -11586,8 +11586,8 @@
     },
     {
       "id": "T297",
-      "path": "packs/default/resources/textures/tools/shovel-rustic.png",
-      "logical_path": "textures/tools/shovel-rustic.png",
+      "path": "packs/default/resources/textures/tools/shovel_rustic.png",
+      "logical_path": "textures/tools/shovel_rustic.png",
       "category": "tools",
       "gallery_group": "tools",
       "width": 64,
@@ -11600,7 +11600,7 @@
       "grayscale_visible": false,
       "authored_references": [
         {
-          "file": "packs/default/data/tools/rustic_shovel.json",
+          "file": "packs/default/data/tools/shovel_rustic.json",
           "pointer": "/icon"
         }
       ],

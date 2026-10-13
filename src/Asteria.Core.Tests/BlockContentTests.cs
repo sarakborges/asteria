@@ -70,7 +70,7 @@ public sealed class BlockContentTests
                 .Count(),
             registry.AuthoredCount);
 
-        var grass = registry.GetDefinition(registry.GetId("asteria:grass_block"));
+        var grass = registry.GetDefinition(registry.GetId("asteria:block_grass"));
         Assert.Equal(BlockTint.Grass, grass.Tint);
         Assert.True(grass.RotateTexture.Top);
         Assert.True(grass.Textures.Top.Single().Dyable);
@@ -83,7 +83,7 @@ public sealed class BlockContentTests
         Assert.Equal(0.125f, sandLayer.Shape.Thickness);
         Assert.Equal("asteria:sand", sandLayer.Shape.StackToBlockId);
 
-        var snowLayer = registry.GetDefinition(registry.GetId("asteria:snow_layer"));
+        var snowLayer = registry.GetDefinition(registry.GetId("asteria:layer_snow"));
         Assert.True(snowLayer.Shape.IsStackableLayer);
         Assert.Equal("asteria:snow", snowLayer.Shape.StackToBlockId);
 
@@ -100,7 +100,7 @@ public sealed class BlockContentTests
         Assert.Equal(BlockShapeKind.Hollow, registry.GetDefinition(hollow).Shape.Kind);
 
         var stone = registry.GetDefinition(registry.GetId("asteria:stone"));
-        Assert.Equal("stone_blocks", stone.Category);
+        Assert.Equal("blocks_stone", stone.Category);
         Assert.Equal(2f, stone.Mining.Hardness);
         Assert.Contains("pickaxe", stone.Mining.RequiredTools);
         Assert.Equal("textures/blocks/stone.png", stone.Textures.Top.Single().Texture);
@@ -200,7 +200,7 @@ public sealed class BlockContentTests
         var sphereShell =
             registry.GetDefinition(
                 registry.GetId(
-                    "asteria:sphere_shell"));
+                    "asteria:shell_sphere"));
         Assert.True(
             sphereShell.Mining.Unbreakable);
         Assert.False(
@@ -209,13 +209,13 @@ public sealed class BlockContentTests
 
     [Theory]
     [InlineData("stone", "asteria:pebble", 1f, 4)]
-    [InlineData("grass_block", "asteria:dirt", 1f, 1)]
+    [InlineData("block_grass", "asteria:dirt", 1f, 1)]
     [InlineData("dirt", "asteria:dirt", 1f, 1)]
     [InlineData("gravel", "asteria:gravel", 1f, 1)]
     [InlineData("mud", "asteria:mud", 1f, 1)]
     [InlineData("leaf_oak", "asteria:stick", 0.6f, 1)]
     [InlineData("leaf_willow", "asteria:stick", 0.6f, 1)]
-    [InlineData("leaf_enchanted", "asteria:stick", 0.6f, 1)]
+    [InlineData("leaf_enchanted_tree", "asteria:stick", 0.6f, 1)]
     [InlineData("leaf_world_tree", "asteria:stick", 0.6f, 1)]
     public void MineCloneAuthoredBlockDropsAreRetained(
         string blockId, string itemId, float chance, int quantity)

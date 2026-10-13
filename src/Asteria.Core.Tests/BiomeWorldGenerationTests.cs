@@ -114,7 +114,7 @@ public sealed class BiomeWorldGenerationTests
         Assert.NotNull(caverns.SurfaceLayers[0].Patch);
         Assert.Equal(6, caverns.CaveSpikes.Count);
         var stoneSpike = Assert.Single(caverns.CaveSpikes,
-            spike => spike.Block == "asteria:stone_spike" &&
+            spike => spike.Block == "asteria:spike_stone" &&
                 spike.SurfaceBiomes.Count == 0);
         Assert.Empty(stoneSpike.SurfaceBiomes);
         Assert.Contains(CaveSpikeDirection.Up, stoneSpike.Directions);
@@ -124,7 +124,7 @@ public sealed class BiomeWorldGenerationTests
         Assert.Equal(32, stoneSpike.Cluster.HorizontalScale);
         Assert.Equal(22, stoneSpike.Cluster.VerticalScale);
         var iceSpike = Assert.Single(caverns.CaveSpikes,
-            spike => spike.Block == "asteria:ice_spike");
+            spike => spike.Block == "asteria:spike_ice");
         Assert.Equal(
             ["asteria:overworld/alps", "asteria:overworld/arctic"],
             iceSpike.SurfaceBiomes);
@@ -166,7 +166,7 @@ public sealed class BiomeWorldGenerationTests
         Assert.Equal(
             new[]
             {
-                ("asteria:grass_block", (uint?)1),
+                ("asteria:block_grass", (uint?)1),
                 ("asteria:dirt", (uint?)4),
                 ("asteria:stone", (uint?)null),
             },
@@ -192,7 +192,7 @@ public sealed class BiomeWorldGenerationTests
         Assert.Equal(
             new[]
             {
-                ("asteria:grass_block", (uint?)1),
+                ("asteria:block_grass", (uint?)1),
                 ("asteria:mud", (uint?)4),
                 ("asteria:stone", (uint?)null),
             },
@@ -214,7 +214,7 @@ public sealed class BiomeWorldGenerationTests
             caveSpikes:
             [
                 new BiomeCaveSpikeDefinition(
-                    "asteria:stone_spike", 0.1f, 2, 5, 6,
+                    "asteria:spike_stone", 0.1f, 2, 5, 6,
                     [CaveSpikeDirection.Up],
                     ["asteria:test/unknown"]),
             ]);
@@ -635,7 +635,7 @@ public sealed class BiomeWorldGenerationTests
             }
         }
 
-        Assert.Contains(blocks.GetId("asteria:grass_block"), materials);
+        Assert.Contains(blocks.GetId("asteria:block_grass"), materials);
         Assert.Contains(blocks.GetId("asteria:dirt"), materials);
         Assert.Contains(blocks.GetId("asteria:gravel"), materials);
         Assert.All(plains.Decorations.Where(decoration =>
@@ -862,7 +862,7 @@ public sealed class BiomeWorldGenerationTests
     public void EnchantedTreeLeavesStayIntentionallyUntinted()
     {
         var blocks = LoadDefaultBlocks();
-        var leaf = blocks.GetDefinition(blocks.GetId("asteria:leaf_enchanted"));
+        var leaf = blocks.GetDefinition(blocks.GetId("asteria:leaf_enchanted_tree"));
         Assert.Equal(BlockTint.None, leaf.Tint);
         Assert.All(leaf.Textures.AllLayers(), layer => Assert.False(layer.Dyable));
     }
@@ -1053,7 +1053,7 @@ public sealed class BiomeWorldGenerationTests
             new BlockRegistry(
             [
                 new BlockDefinition(
-                    "asteria:grass_block"),
+                    "asteria:block_grass"),
                 new BlockDefinition(
                     "asteria:sand"),
                 new BlockDefinition(
@@ -1062,7 +1062,7 @@ public sealed class BiomeWorldGenerationTests
         var primary =
             FlatBiome(
                 "asteria:test/primary",
-                "asteria:grass_block",
+                "asteria:block_grass",
                 "asteria:stone");
         var secondary =
             FlatBiome(
@@ -1091,7 +1091,7 @@ public sealed class BiomeWorldGenerationTests
 
         Assert.Equal(
             blocks.GetId(
-                "asteria:grass_block"),
+                "asteria:block_grass"),
             materials.BlockAt(
                 sample,
                 120,
@@ -1106,7 +1106,7 @@ public sealed class BiomeWorldGenerationTests
             new BlockRegistry(
             [
                 new BlockDefinition(
-                    "asteria:grass_block"),
+                    "asteria:block_grass"),
                 new BlockDefinition(
                     "asteria:dirt"),
                 new BlockDefinition(
@@ -1124,7 +1124,7 @@ public sealed class BiomeWorldGenerationTests
                     32),
                 [
                     new BiomeSurfaceLayerDefinition(
-                        "asteria:grass_block",
+                        "asteria:block_grass",
                         depth: 1),
                     new BiomeSurfaceLayerDefinition(
                         "asteria:dirt",
@@ -1150,7 +1150,7 @@ public sealed class BiomeWorldGenerationTests
 
         Assert.Equal(
             blocks.GetId(
-                "asteria:grass_block"),
+                "asteria:block_grass"),
             materials.BlockAt(
                 sample,
                 0,
@@ -1187,7 +1187,7 @@ public sealed class BiomeWorldGenerationTests
     {
         var blocks = new BlockRegistry(
         [
-            new BlockDefinition("asteria:grass_block"),
+            new BlockDefinition("asteria:block_grass"),
             new BlockDefinition("asteria:mud"),
             new BlockDefinition("asteria:gravel"),
             new BlockDefinition("asteria:stone"),
@@ -1203,7 +1203,7 @@ public sealed class BiomeWorldGenerationTests
                 new BiomeTerrainDefinition(0, 0, 64, 0, 32),
                 [
                     new BiomeSurfaceLayerDefinition(
-                        "asteria:grass_block", 1,
+                        "asteria:block_grass", 1,
                         new BiomeSurfacePatchDefinition(
                             36, 1f, 0.25f,
                             ["asteria:mud", "asteria:gravel"],
@@ -1272,7 +1272,7 @@ public sealed class BiomeWorldGenerationTests
                 "macroScale":64,"detailAmplitude":0,"detailScale":32
               },
               "palette":{"default":[
-                {"block":"asteria:grass_block","depth":1,
+                {"block":"asteria:block_grass","depth":1,
                  "patch":{"scale":32,"coverage":0.5,"roughness":0.2,
                           "detailScale":9,"selectionScale":64,
                           "warpScale":60,"warpStrength":12,"stretchZ":1.5,
@@ -1322,7 +1322,7 @@ public sealed class BiomeWorldGenerationTests
             new BlockRegistry(
             [
                 new BlockDefinition(
-                    "asteria:grass_block"),
+                    "asteria:block_grass"),
                 new BlockDefinition(
                     "asteria:mud"),
                 new BlockDefinition(
@@ -1340,7 +1340,7 @@ public sealed class BiomeWorldGenerationTests
                     32),
                 [
                     new BiomeSurfaceLayerDefinition(
-                        "asteria:grass_block",
+                        "asteria:block_grass",
                         depth: 1,
                         patch:
                             new BiomeSurfacePatchDefinition(
@@ -1378,7 +1378,7 @@ public sealed class BiomeWorldGenerationTests
                 ]);
         var grass =
             blocks.GetId(
-                "asteria:grass_block");
+                "asteria:block_grass");
         var mud =
             blocks.GetId(
                 "asteria:mud");
@@ -1509,7 +1509,7 @@ public sealed class BiomeWorldGenerationTests
             new BlockRegistry(
             [
                 new BlockDefinition(
-                    "asteria:sphere_shell",
+                    "asteria:shell_sphere",
                     mining:
                         new BlockMiningDefinition(
                             unbreakable: true),
@@ -1540,7 +1540,7 @@ public sealed class BiomeWorldGenerationTests
                     new DimensionColor(0, 0, 0),
                     0f),
                 new DimensionShellDefinition(
-                    "asteria:sphere_shell",
+                    "asteria:shell_sphere",
                     floorY: 0,
                     roofY: 12));
         var generator =
@@ -1557,7 +1557,7 @@ public sealed class BiomeWorldGenerationTests
                 ChunkCoord.Zero);
         var shell =
             blocks.GetId(
-                "asteria:sphere_shell");
+                "asteria:shell_sphere");
         var stone =
             blocks.GetId(
                 "asteria:stone");
@@ -1608,13 +1608,13 @@ public sealed class BiomeWorldGenerationTests
     {
         var blocks = new BlockRegistry(
         [
-            new BlockDefinition("asteria:sphere_shell",
+            new BlockDefinition("asteria:shell_sphere",
                 mining: new BlockMiningDefinition(unbreakable: true)),
-            new BlockDefinition("asteria:grass_block"),
+            new BlockDefinition("asteria:block_grass"),
             new BlockDefinition("asteria:stone"),
         ]);
         var biome = FlatBiome(
-            "asteria:test/plain", "asteria:grass_block", "asteria:stone");
+            "asteria:test/plain", "asteria:block_grass", "asteria:stone");
         var dimension = new DimensionDefinition(
             new DimensionId("asteria:test"), [biome.Id],
             seaLevel: 0, gravityStrength: 18f,
@@ -1623,7 +1623,7 @@ public sealed class BiomeWorldGenerationTests
                 new DimensionColor(0, 0, 0),
                 new DimensionColor(255, 255, 255), 1f,
                 new DimensionColor(0, 0, 0), 0f),
-            new DimensionShellDefinition("asteria:sphere_shell", floorY: 0));
+            new DimensionShellDefinition("asteria:shell_sphere", floorY: 0));
         var generator = new BiomeWorldGenerator(
             77UL, dimension, blocks,
             new FluidRegistry(Array.Empty<FluidDefinition>()),
@@ -1634,7 +1634,7 @@ public sealed class BiomeWorldGenerationTests
 
         var first = generator.Materialize(ChunkCoord.Zero);
         var neighbor = generator.Materialize(new ChunkCoord(1, 0, 1));
-        var shell = blocks.GetId("asteria:sphere_shell");
+        var shell = blocks.GetId("asteria:shell_sphere");
         var core = blocks.GetId("asteria:stone");
 
         foreach (var chunk in new[] { first, neighbor })
@@ -1651,7 +1651,7 @@ public sealed class BiomeWorldGenerationTests
         if (mode == WorldGenerationMode.Normal)
         {
             // Sealing the floor must preserve the natural surface palette.
-            Assert.Equal(blocks.GetId("asteria:grass_block"),
+            Assert.Equal(blocks.GetId("asteria:block_grass"),
                 first.GetBlock(8, 1, 8));
             Assert.Equal(1, generator.SurfaceHeight(8, 8));
         }
@@ -1666,7 +1666,7 @@ public sealed class BiomeWorldGenerationTests
     {
         var blocks = new BlockRegistry(
         [
-            new BlockDefinition("asteria:sphere_shell",
+            new BlockDefinition("asteria:shell_sphere",
                 mining: new BlockMiningDefinition(unbreakable: true)),
             new BlockDefinition("asteria:stone"),
         ]);
@@ -1680,7 +1680,7 @@ public sealed class BiomeWorldGenerationTests
                 new DimensionColor(255, 255, 255), 1f,
                 new DimensionColor(0, 0, 0), 0f),
             new DimensionShellDefinition(
-                "asteria:sphere_shell", floorY: 0, roofY: 12));
+                "asteria:shell_sphere", floorY: 0, roofY: 12));
         var generator = new BiomeWorldGenerator(
             78UL, dimension, blocks, new BiomeRegistry([biome]));
         var chunk = generator.Materialize(ChunkCoord.Zero);
@@ -1689,7 +1689,7 @@ public sealed class BiomeWorldGenerationTests
         Assert.True(chunk.GetBlock(8, 10, 8).IsAir);
         Assert.Equal(blocks.GetId("asteria:stone"),
             chunk.GetBlock(8, 11, 8));
-        Assert.Equal(blocks.GetId("asteria:sphere_shell"),
+        Assert.Equal(blocks.GetId("asteria:shell_sphere"),
             chunk.GetBlock(8, 12, 8));
         Assert.True(generator.DensityAt(8, 11, 8) >= 0d);
     }
@@ -1704,7 +1704,7 @@ public sealed class BiomeWorldGenerationTests
             LoadDefaultBiomes(), LoadDefaultStructures(),
             LoadDefaultStructureSets());
         var chunk = generator.Materialize(ChunkCoord.Zero);
-        var shell = blocks.GetId("asteria:sphere_shell");
+        var shell = blocks.GetId("asteria:shell_sphere");
 
         for (var z = 0; z < Chunk.Size; z += 3)
         for (var x = 0; x < Chunk.Size; x += 3)
@@ -1965,7 +1965,7 @@ public sealed class BiomeWorldGenerationTests
                         return content;
                     var node = System.Text.Json.Nodes.JsonNode.Parse(content)!;
                     node["decorations"] = System.Text.Json.Nodes.JsonNode.Parse(
-                        """[{"object":"asteria:pebble","chance":1,"surfaceBlocks":["asteria:stone","asteria:gravel","asteria:basalt","asteria:sandstone","asteria:clay","asteria:terracotta","asteria:stone_cobble"]}]""");
+                        """[{"object":"asteria:pebble","chance":1,"surfaceBlocks":["asteria:stone","asteria:gravel","asteria:basalt","asteria:sandstone","asteria:clay","asteria:terracotta","asteria:cobble_stone"]}]""");
                     return node.ToJsonString();
                 }));
         const ulong seed = 0xA57E_2026UL;
@@ -2034,7 +2034,7 @@ public sealed class BiomeWorldGenerationTests
                         """
                         [{"object":"asteria:mushroom_brown","chance":1,
                           "surfaceBlocks":["asteria:stone","asteria:gravel",
-                            "asteria:dirt","asteria:stone_cobble","asteria:clay",
+                            "asteria:dirt","asteria:cobble_stone","asteria:clay",
                             "asteria:sandstone","asteria:basalt","asteria:terracotta"]}]
                         """);
                     return node.ToJsonString();
@@ -2090,7 +2090,7 @@ public sealed class BiomeWorldGenerationTests
                         return content;
                     var node = System.Text.Json.Nodes.JsonNode.Parse(content)!;
                     node["decorations"] = System.Text.Json.Nodes.JsonNode.Parse(
-                        """[{"object":"asteria:grass","chance":1,"surfaceBlocks":["asteria:grass_block"]}]""");
+                        """[{"object":"asteria:grass","chance":1,"surfaceBlocks":["asteria:block_grass"]}]""");
                     return node.ToJsonString();
                 }));
         var generator = new BiomeWorldGenerator(
@@ -2779,11 +2779,11 @@ public sealed class BiomeWorldGenerationTests
     {
         var blocks = new BlockRegistry(
         [
-            new BlockDefinition("asteria:grass_block"),
+            new BlockDefinition("asteria:block_grass"),
             new BlockDefinition("asteria:stone"),
         ]);
         var plains = FlatBiome(
-            "asteria:test/plains", "asteria:grass_block", "asteria:stone");
+            "asteria:test/plains", "asteria:block_grass", "asteria:stone");
         var dimension = TestDimension([plains.Id]);
         var biomes = new BiomeRegistry([plains]);
         var fluids = new FluidRegistry(Array.Empty<FluidDefinition>());

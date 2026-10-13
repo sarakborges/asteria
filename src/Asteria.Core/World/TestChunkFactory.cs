@@ -4,7 +4,7 @@ public sealed record TestChunkFixture(BlockRegistry Blocks, Chunk Chunk);
 
 public static class TestChunkFactory
 {
-    public const string GrassId = "asteria:grass_block";
+    public const string GrassId = "asteria:block_grass";
     public const string DirtId = "asteria:dirt";
     public const string StoneId = "asteria:stone";
     public const string SandId = "asteria:sand";
@@ -120,7 +120,7 @@ public static class TestChunkFactory
             chunk.SetBlock(1, y, z, sandLayer);
         }
 
-        if (blocks.TryGetId("asteria:snow_layer", out var snowLayer))
+        if (blocks.TryGetId("asteria:layer_snow", out var snowLayer))
         {
             chunk.SetBlock(3, y, z, snowLayer);
         }

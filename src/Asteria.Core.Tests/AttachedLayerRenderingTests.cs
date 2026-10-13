@@ -18,7 +18,7 @@ public sealed class AttachedLayerRenderingTests
         var chunk = new Chunk();
         chunk.SetBlock(1, 1, 1, blocks.GetId("asteria:stone"));
         chunk.SetSurfaceState(1, 1, 1, new BlockSurfaceState(null, [
-            new AttachedBlockLayer(BlockFace.Top, "asteria:foliage_layer")
+            new AttachedBlockLayer(BlockFace.Top, "asteria:layer_foliage")
         ]));
         if (sculpted)
         {
@@ -30,7 +30,7 @@ public sealed class AttachedLayerRenderingTests
         world.InsertChunk(ChunkCoord.Zero, chunk);
         var layers = AttachedLayerRegistry.FromJson([
             """
-            {"id":"asteria:foliage_layer","texture":"textures/blocks/grass/side_overlay.png",
+            {"id":"asteria:layer_foliage","texture":"textures/blocks/grass/side_overlay.png",
              "tint":"foliage","faces":["top"],"offset":0.002,"alphaCutoff":0.5}
             """
         ]);
@@ -88,13 +88,13 @@ public sealed class AttachedLayerRenderingTests
         var chunk = new Chunk();
         chunk.SetBlock(1, 1, 1, blocks.GetId("asteria:stone"));
         chunk.SetSurfaceState(1, 1, 1, new BlockSurfaceState(null, [
-            new AttachedBlockLayer(BlockFace.Front, "asteria:wall_moss"),
+            new AttachedBlockLayer(BlockFace.Front, "asteria:moss_wall"),
             new AttachedBlockLayer(BlockFace.Front, "asteria:wall_lichen")
         ]));
         var world = new VoxelWorld();
         world.InsertChunk(ChunkCoord.Zero, chunk);
         var layerDefs = new AttachedLayerRegistry([
-            new AttachedLayerDefinition("asteria:wall_moss", LayerPath,
+            new AttachedLayerDefinition("asteria:moss_wall", LayerPath,
                 faces: [BlockFace.Front]),
             new AttachedLayerDefinition("asteria:wall_lichen", LayerPath,
                 faces: [BlockFace.Front])
@@ -179,7 +179,7 @@ public sealed class AttachedLayerRenderingTests
     {
         var (world, blocks, layers) = Setup(sculpted: true);
         var attachment = new AttachedBlockLayer(
-            BlockFace.Top, "asteria:foliage_layer");
+            BlockFace.Top, "asteria:layer_foliage");
         var isolated = ChunkMeshDataBuilder.BuildMeshlet(
             world, ChunkCoord.Zero, blocks,
             new TerrainTextureLookup(new Dictionary<string, int>
@@ -202,7 +202,7 @@ public sealed class AttachedLayerRenderingTests
             new BlockDefinition("asteria:stone",
                 textures: new BlockTextureSet(top: [new BlockTextureLayer(StonePath)]))
         ]);
-        var layer = new AttachedBlockLayer(BlockFace.Front, "asteria:foliage_layer");
+        var layer = new AttachedBlockLayer(BlockFace.Front, "asteria:layer_foliage");
         var definitions = new AttachedLayerRegistry([
             new AttachedLayerDefinition(layer.LayerId, LayerPath,
                 faces: [BlockFace.Front])

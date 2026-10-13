@@ -1,0 +1,23 @@
+{
+  "id": "asteria:tiles_snow",
+  "category": "blocks_crafted",
+  "tags": [
+    "fragmentable"
+  ],
+  "textures": {
+    "top": "textures/blocks/tiles_snow.png",
+    "bottom": "textures/blocks/tiles_snow.png",
+    "left": "textures/blocks/tiles_snow.png",
+    "right": "textures/blocks/tiles_snow.png",
+    "front": "textures/blocks/tiles_snow.png",
+    "back": "textures/blocks/tiles_snow.png"
+  },
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "preferredTools": [
+      "shovel"
+    ]
+  }
+}

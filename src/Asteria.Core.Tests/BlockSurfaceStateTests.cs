@@ -19,19 +19,19 @@ public sealed class BlockSurfaceStateTests
         var red = new AttachedBlockLayer(BlockFace.Top, "asteria:moss");
         var blue = new AttachedBlockLayer(BlockFace.Front, "asteria:moss");
         var green = new AttachedBlockLayer(BlockFace.Top, "asteria:ivy");
-        var state = BlockSurfaceState.Empty.WithDye("asteria:red");
+        var state = BlockSurfaceState.Empty.WithDye("asteria:dye_red");
         Assert.True(state.TryAttach(red, out state));
         Assert.True(state.TryAttach(blue, out state));
         Assert.True(state.TryAttach(green, out state));
         Assert.False(state.TryAttach(red, out _));
         Assert.Equal(3, state.Layers.Count);
-        Assert.Equal("asteria:red", state.DyeId);
+        Assert.Equal("asteria:dye_red", state.DyeId);
         Assert.True(state.TryRemoveTop(BlockFace.Top, out var removedState, out var removed));
         Assert.Equal(green, removed);
         Assert.Equal(new[] { red, blue }, removedState.Layers);
         Assert.False(removedState.TryRemoveTop(BlockFace.Bottom, out _, out _));
         Assert.Equal(3, state.Layers.Count);
-        Assert.Equal(state, new BlockSurfaceState("asteria:red", [red, blue, green]));
+        Assert.Equal(state, new BlockSurfaceState("asteria:dye_red", [red, blue, green]));
         Assert.Throws<NotSupportedException>(() =>
             ((IList<AttachedBlockLayer>)state.Layers)[0] = green);
     }
@@ -48,7 +48,7 @@ public sealed class BlockSurfaceStateTests
         var source = new WorldVoxelCoord(3, 3, 3);
         var target = new WorldVoxelCoord(19, 3, 3);
         var block = new BlockRuntimeId(1);
-        var surface = new BlockSurfaceState("asteria:red",
+        var surface = new BlockSurfaceState("asteria:dye_red",
             [new AttachedBlockLayer(BlockFace.Top, "asteria:moss")]);
 
         Assert.False(mutations.SetBlockSurfaceStateAt(source, surface, out _));
@@ -91,6 +91,6 @@ public sealed class BlockSurfaceStateTests
         var mutations = Mutations(world, new WorldUpdateQueue(), new MeshletContentRevisions());
         Assert.False(mutations.SetBlockSurfaceStateAt(
             new WorldVoxelCoord(0, 0, 0),
-            new BlockSurfaceState("asteria:red"), out _));
+            new BlockSurfaceState("asteria:dye_red"), out _));
     }
 }

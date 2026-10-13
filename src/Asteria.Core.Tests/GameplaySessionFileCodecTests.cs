@@ -20,13 +20,13 @@ public sealed class GameplaySessionFileCodecTests
     private static (BlockRegistry Blocks, FluidRegistry Fluids,
         DyeRegistry Dyes, AttachedLayerRegistry Layers) Content(bool reorder) => (
         new BlockRegistry(reorder ? [
-            new BlockDefinition("asteria:storage_box"),
+            new BlockDefinition("asteria:box_storage"),
             new BlockDefinition("asteria:granite"),
             new BlockDefinition("asteria:stone")
         ] : [
             new BlockDefinition("asteria:stone"),
             new BlockDefinition("asteria:granite"),
-            new BlockDefinition("asteria:storage_box")
+            new BlockDefinition("asteria:box_storage")
         ]),
         new FluidRegistry(reorder ? [
             new FluidDefinition("asteria:lava", new FluidColor(255, 40, 0), 0.9f),
@@ -115,7 +115,7 @@ public sealed class GameplaySessionFileCodecTests
         surface.World.InsertChunk(ChunkCoord.Zero, new Chunk());
         Assert.True(surface.World.SetBlockAt(
             new WorldVoxelCoord(2, 4, 3),
-            original.Blocks.GetId("asteria:storage_box"), out _));
+            original.Blocks.GetId("asteria:box_storage"), out _));
         Assert.True(surface.StorageBoxes.TryOpen(
             new WorldVoxelCoord(2, 4, 3), surface.World, original.Blocks));
         Assert.True(surface.StorageBoxes.TryInsertActive(stack,
@@ -236,7 +236,7 @@ public sealed class GameplaySessionFileCodecTests
         var sphere = states.GetOrCreate(DimensionId.Overworld);
         sphere.World.InsertChunk(ChunkCoord.Zero, new Chunk());
 
-        var item = InventoryEntry.FromItem("asteria:wayfarer_helmet",
+        var item = InventoryEntry.FromItem("asteria:helmet_wayfarer",
             new Dictionary<string, string>
             {
                 [EquipmentDurability.MetadataKey] = "37",
@@ -279,7 +279,7 @@ public sealed class GameplaySessionFileCodecTests
                 .DroppedBlocks);
         Assert.Equal(2, restoredDrops.ActiveCount);
         var worn = restoredDrops.ActiveBlocks.Single(drop =>
-            drop.Stack.Id == "asteria:wayfarer_helmet");
+            drop.Stack.Id == "asteria:helmet_wayfarer");
         Assert.Equal("37", worn.Stack.Entry.Metadata[EquipmentDurability.MetadataKey]);
         var berries = restoredDrops.ActiveBlocks.Single(drop =>
             drop.Stack.Id == "asteria:berries");
@@ -298,7 +298,7 @@ public sealed class GameplaySessionFileCodecTests
         Assert.Empty(restoredDrops.ActiveBlocks);
         Assert.Equal(27, loaded.Player.Inventory.ItemQuantity("asteria:berries"));
         Assert.Equal(1,
-            loaded.Player.Inventory.ItemQuantity("asteria:wayfarer_helmet"));
+            loaded.Player.Inventory.ItemQuantity("asteria:helmet_wayfarer"));
         Assert.Equal(0, restoredDrops.CollectNearby(
             new Vector3(4, 6, 4), 2f,
             loaded.Player.Inventory.TryInsert));

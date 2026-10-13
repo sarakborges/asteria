@@ -32,7 +32,7 @@
       "object": "asteria:grass",
       "chance": 0.0176,
       "surfaceBlocks": [
-        "asteria:grass_block",
+        "asteria:block_grass",
         "asteria:dirt",
         "asteria:mud"
       ],
@@ -63,7 +63,7 @@
       "object": "asteria:pebble",
       "chance": 0.0028,
       "surfaceBlocks": [
-        "asteria:grass_block",
+        "asteria:block_grass",
         "asteria:dirt",
         "asteria:mud"
       ],
@@ -81,7 +81,7 @@
       "object": "asteria:stick",
       "chance": 0.0128,
       "surfaceBlocks": [
-        "asteria:grass_block",
+        "asteria:block_grass",
         "asteria:dirt",
         "asteria:mud"
       ],
@@ -99,7 +99,7 @@
       "object": "asteria:cattail",
       "chance": 0.0144,
       "surfaceBlocks": [
-        "asteria:grass_block",
+        "asteria:block_grass",
         "asteria:dirt",
         "asteria:mud"
       ],
@@ -121,7 +121,7 @@
       }
     },
     {
-      "object": "asteria:lily_pad",
+      "object": "asteria:pad_lily",
       "chance": 0.21,
       "surfaceBlocks": [
         "asteria:mud"
@@ -143,10 +143,10 @@
       }
     },
     {
-      "block": "asteria:exposed_roots",
+      "block": "asteria:roots_exposed",
       "chance": 0.0112,
       "surfaceBlocks": [
-        "asteria:grass_block",
+        "asteria:block_grass",
         "asteria:dirt",
         "asteria:mud"
       ],
@@ -168,10 +168,10 @@
       }
     },
     {
-      "block": "asteria:marsh_fern",
+      "block": "asteria:fern_marsh",
       "chance": 0.0224,
       "surfaceBlocks": [
-        "asteria:grass_block",
+        "asteria:block_grass",
         "asteria:dirt",
         "asteria:mud"
       ],
@@ -196,7 +196,7 @@
       "object": "asteria:iris",
       "chance": 0.0152,
       "surfaceBlocks": [
-        "asteria:grass_block",
+        "asteria:block_grass",
         "asteria:dirt",
         "asteria:mud"
       ],
@@ -223,12 +223,12 @@
       }
     },
     {
-      "object": "asteria:marsh_orchid",
+      "object": "asteria:orchid_marsh",
       "chance": 0.0116,
       "surfaceBlocks": [
         "asteria:mud",
         "asteria:dirt",
-        "asteria:grass_block"
+        "asteria:block_grass"
       ],
       "cluster": {
         "scale": 39,
@@ -258,7 +258,7 @@
       "surfaceBlocks": [
         "asteria:mud",
         "asteria:dirt",
-        "asteria:grass_block"
+        "asteria:block_grass"
       ],
       "cluster": {
         "scale": 35,
@@ -326,7 +326,7 @@
       "detailStrength": 0.24,
       "entries": [
         {
-          "block": "asteria:grass_block",
+          "block": "asteria:block_grass",
           "weight": 2
         },
         {

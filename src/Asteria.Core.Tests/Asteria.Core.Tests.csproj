@@ -42,6 +42,18 @@
       <Link>packs/default/data/creatures/%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="../../packs/default/data/entities/*.json">
+      <Link>packs/default/data/entities/%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="../../packs/default/data/dyes/*.json">
+      <Link>packs/default/data/dyes/%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="../../packs/default/data/inventory_categories/*.json">
+      <Link>packs/default/data/inventory_categories/%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="../../packs/default/data/blocks/*.json">
       <Link>packs/default/data/blocks/%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

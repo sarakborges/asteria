@@ -9,7 +9,7 @@ public sealed class SurfaceDecorationFieldTests
     {
         var blocks = new BlockRegistry(
         [
-            new BlockDefinition("asteria:grass_block"),
+            new BlockDefinition("asteria:block_grass"),
             new BlockDefinition("asteria:stone"),
             new BlockDefinition("asteria:pebble"),
         ]);
@@ -17,12 +17,12 @@ public sealed class SurfaceDecorationFieldTests
             "asteria:test/plains",
             new BiomeSurfaceLayoutDefinition(),
             new BiomeTerrainDefinition(0, 0, 64, 0, 32),
-            [new BiomeSurfaceLayerDefinition("asteria:grass_block")],
+            [new BiomeSurfaceLayerDefinition("asteria:block_grass")],
             decorations:
             [
                 new BiomeDecorationDefinition(
                     "asteria:pebble", 1f,
-                    ["asteria:grass_block"],
+                    ["asteria:block_grass"],
                     new BiomeDecorationClusterDefinition(12, 0f)),
             ]);
         var field = new SurfaceDecorationField(71, [biome], blocks);
@@ -30,7 +30,7 @@ public sealed class SurfaceDecorationFieldTests
         var sample = new BiomeSample(
             biome.Id, [new BiomeInfluence(biome.Id, 1f)]);
         var pebble = blocks.GetId("asteria:pebble");
-        var grass = blocks.GetId("asteria:grass_block");
+        var grass = blocks.GetId("asteria:block_grass");
         var stone = blocks.GetId("asteria:stone");
         var occupied = 0;
         var empty = 0;
@@ -62,7 +62,7 @@ public sealed class SurfaceDecorationFieldTests
     {
         var blocks = new BlockRegistry(
         [
-            new BlockDefinition("asteria:grass_block"),
+            new BlockDefinition("asteria:block_grass"),
             new BlockDefinition("asteria:stone"),
             new BlockDefinition("asteria:pebble"),
             new BlockDefinition("asteria:stick"),
@@ -71,13 +71,13 @@ public sealed class SurfaceDecorationFieldTests
             "asteria:test/plains",
             new BiomeSurfaceLayoutDefinition(),
             new BiomeTerrainDefinition(0, 0, 64, 0, 32),
-            [new BiomeSurfaceLayerDefinition("asteria:grass_block")],
+            [new BiomeSurfaceLayerDefinition("asteria:block_grass")],
             decorations:
             [
                 new BiomeDecorationDefinition(
-                    "asteria:pebble", 0.3f, ["asteria:grass_block"]),
+                    "asteria:pebble", 0.3f, ["asteria:block_grass"]),
                 new BiomeDecorationDefinition(
-                    "asteria:stick", 0.5f, ["asteria:grass_block"],
+                    "asteria:stick", 0.5f, ["asteria:block_grass"],
                     new BiomeDecorationClusterDefinition(18, -0.5f)),
             ]);
         var field = new SurfaceDecorationField(71, [biome], blocks);
@@ -85,7 +85,7 @@ public sealed class SurfaceDecorationFieldTests
         var sample = new BiomeSample(
             biome.Id, [new BiomeInfluence(biome.Id, 1f)]);
         var observed = new HashSet<BlockRuntimeId>();
-        var grass = blocks.GetId("asteria:grass_block");
+        var grass = blocks.GetId("asteria:block_grass");
         for (var z = -32; z <= 32; z++)
         {
             for (var x = -32; x <= 32; x++)
@@ -107,7 +107,7 @@ public sealed class SurfaceDecorationFieldTests
     {
         var blocks = new BlockRegistry(
         [
-            new BlockDefinition("asteria:grass_block"),
+            new BlockDefinition("asteria:block_grass"),
             new BlockDefinition("asteria:mud"),
             new BlockDefinition("asteria:stone"),
         ]);
@@ -117,7 +117,7 @@ public sealed class SurfaceDecorationFieldTests
             new BiomeTerrainDefinition(0, 0, 64, 0, 32),
             [
                 new BiomeSurfaceLayerDefinition(
-                    "asteria:grass_block",
+                    "asteria:block_grass",
                     1,
                     new BiomeSurfacePatchDefinition(
                         24, 1f, 0f,
@@ -129,7 +129,7 @@ public sealed class SurfaceDecorationFieldTests
         var field = new BiomeSurfaceMaterialField(7, [biome], blocks);
         var sample = new BiomeSample(
             biome.Id, [new BiomeInfluence(biome.Id, 1f)]);
-        var grass = blocks.GetId("asteria:grass_block");
+        var grass = blocks.GetId("asteria:block_grass");
         var mud = blocks.GetId("asteria:mud");
 
         Assert.Equal(mud, field.BlockAt(
@@ -151,25 +151,25 @@ public sealed class SurfaceDecorationFieldTests
     {
         var blocks = new BlockRegistry(
         [
-            new BlockDefinition("asteria:grass_block"),
+            new BlockDefinition("asteria:block_grass"),
             new BlockDefinition("asteria:pebble"),
         ]);
         var biome = new BiomeDefinition(
             "asteria:test/conditional",
             new BiomeSurfaceLayoutDefinition(),
             new BiomeTerrainDefinition(0, 0, 64, 0, 32),
-            [new BiomeSurfaceLayerDefinition("asteria:grass_block")],
+            [new BiomeSurfaceLayerDefinition("asteria:block_grass")],
             decorations:
             [
                 new BiomeDecorationDefinition(
-                    "asteria:pebble", 1f, ["asteria:grass_block"],
+                    "asteria:pebble", 1f, ["asteria:block_grass"],
                     conditions: new SurfacePlacementConditions(
                         minY: 90, maxY: 105, minSlope: 2, maxSlope: 8)),
             ]);
         var field = new SurfaceDecorationField(7, [biome], blocks);
         var sample = new BiomeSample(
             biome.Id, [new BiomeInfluence(biome.Id, 1f)]);
-        var grass = blocks.GetId("asteria:grass_block");
+        var grass = blocks.GetId("asteria:block_grass");
         var pebble = blocks.GetId("asteria:pebble");
 
         Assert.Equal(pebble, field.BlockAt(
@@ -195,7 +195,7 @@ public sealed class SurfaceDecorationFieldTests
                 "macroScale":64,"detailAmplitude":0,"detailScale":32
               },
               "palette":{"default":[
-                {"block":"asteria:grass_block","depth":1,
+                {"block":"asteria:block_grass","depth":1,
                  "patch":{"scale":24,"coverage":1,"roughness":0,
                           "blocks":["asteria:mud"],
                           "conditions":{"minY":90,"maxSlope":2}}},
@@ -203,7 +203,7 @@ public sealed class SurfaceDecorationFieldTests
               ]},
               "decorations":[
                 {"block":"asteria:pebble","chance":0.4,
-                 "surfaceBlocks":["asteria:grass_block"],
+                 "surfaceBlocks":["asteria:block_grass"],
                  "conditions":{"minSlope":1},
                  "cluster":{"scale":16,"threshold":0,
                             "octaves":4,"transitionWidth":0.2}}

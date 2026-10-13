@@ -1,0 +1,108 @@
+{
+  "id": "asteria:tree_thornwood_sapling_grown",
+  "groupId": "tree_thornwood_sapling_grown",
+  "rotation": true,
+  "locatable": false,
+  "restrictions": {
+    "groundBlocks": [
+      "asteria:dirt",
+      "asteria:block_grass",
+      "asteria:mud",
+      "asteria:stone"
+    ],
+    "requiresDryGround": true
+  },
+  "generation": {
+    "replacePolicy": "air_only",
+    "fluidPolicy": "forbid",
+    "reserveSpace": false
+  },
+  "anchor": {
+    "x": 3,
+    "y": 0,
+    "z": 3
+  },
+  "palette": {
+    "W": {
+      "block": "asteria:log_thornwood",
+      "orientation": "y"
+    },
+    "F": {
+      "block": "asteria:leaf_thornwood"
+    }
+  },
+  "layers": [
+    {
+      "y": 1,
+      "rows": [
+        ".......",
+        ".......",
+        ".......",
+        "...W...",
+        ".......",
+        ".......",
+        "......."
+      ]
+    },
+    {
+      "y": 2,
+      "rows": [
+        ".......",
+        ".......",
+        ".......",
+        "...W...",
+        ".......",
+        ".......",
+        "......."
+      ]
+    },
+    {
+      "y": 3,
+      "rows": [
+        ".......",
+        ".......",
+        ".......",
+        "...W...",
+        ".......",
+        ".......",
+        "......."
+      ]
+    },
+    {
+      "y": 4,
+      "rows": [
+        "...F...",
+        "..FFF..",
+        ".FFFFF.",
+        "FFWWWWF",
+        ".FFFFF.",
+        "..F.F..",
+        "...F..."
+      ]
+    },
+    {
+      "y": 5,
+      "rows": [
+        ".......",
+        ".......",
+        ".......",
+        "...W...",
+        "...W...",
+        ".......",
+        "......."
+      ]
+    },
+    {
+      "y": 6,
+      "rows": [
+        ".......",
+        "..F.F..",
+        "..FFFF.",
+        "..FWF..",
+        ".F.FFF.",
+        "..F.F..",
+        "......."
+      ]
+    }
+  ]
+}

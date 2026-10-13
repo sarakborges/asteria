@@ -30,10 +30,10 @@ public sealed class MountainBiomeContentTests
         var roots = overworld.GeneratedSurfaceStructures
             .Where(root => root.Biome == biome.Id).ToArray();
         Assert.Equal(rootCount, roots.Length);
-        Assert.All(roots.Where(root => root.Structure != "asteria:mountain_waterfall"),
+        Assert.All(roots.Where(root => root.Structure != "asteria:waterfall_mountain"),
             root => definition.ValidateWeights(
                 Assert.IsType<SurfaceHabitatWeights>(root.HabitatWeights)));
-        Assert.All(roots.Where(root => root.Structure == "asteria:mountain_waterfall"),
+        Assert.All(roots.Where(root => root.Structure == "asteria:waterfall_mountain"),
             root => Assert.Null(root.HabitatWeights));
 
         var a = new SurfaceHabitatField(95UL, [biome]);
@@ -104,7 +104,7 @@ public sealed class MountainBiomeContentTests
     {
         var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
         var structures = StructureRegistry.FromJson(ReadJsonDirectory("structures"));
-        var variants = structures.ResolveReference("asteria:talus_outcrop");
+        var variants = structures.ResolveReference("asteria:outcrop_talus");
         Assert.Equal(2, variants.Count);
         foreach (var structure in variants)
         {
@@ -120,7 +120,7 @@ public sealed class MountainBiomeContentTests
             Assert.Contains("asteria:stone", structure.Restrictions.GroundBlocks);
             Assert.Contains("asteria:gravel", structure.Restrictions.GroundBlocks);
             Assert.All(structure.Voxels, voxel =>
-                Assert.Equal("asteria:stone_cobble", voxel.Block));
+                Assert.Equal("asteria:cobble_stone", voxel.Block));
         }
         structures.ValidateBlocks(blocks);
     }
@@ -139,21 +139,21 @@ public sealed class MountainBiomeContentTests
         {
             var biome = "asteria:overworld/" + name;
             var talus = Assert.Single(roots, root =>
-                root.Biome == biome && root.Structure == "asteria:talus_outcrop");
+                root.Biome == biome && root.Structure == "asteria:outcrop_talus");
             var cluster = Assert.Single(roots, root =>
-                root.Biome == biome && root.Structure == "asteria:rock_cluster");
+                root.Biome == biome && root.Structure == "asteria:cluster_rock");
             Assert.True(talus.HabitatWeights!.For(middle) > 1f);
             Assert.True(cluster.HabitatWeights!.For(middle) > 1f);
         }
 
         var alpineIce = Assert.Single(roots, root =>
             root.Biome == "asteria:overworld/alps" &&
-            root.Structure == "asteria:ice_outcrop");
+            root.Structure == "asteria:outcrop_ice");
         Assert.True(alpineIce.HabitatWeights!.For("glacial_ice") >
                     alpineIce.HabitatWeights.For("snowfields"));
         var alpineRock = Assert.Single(roots, root =>
             root.Biome == "asteria:overworld/alps" &&
-            root.Structure == "asteria:rock_cluster");
+            root.Structure == "asteria:cluster_rock");
         Assert.True(alpineRock.HabitatWeights!.For("wind_scoured_rock") >
                     alpineRock.HabitatWeights.For("snowfields"));
 
@@ -161,7 +161,7 @@ public sealed class MountainBiomeContentTests
         {
             var waterfall = Assert.Single(roots, root =>
                 root.Biome == "asteria:overworld/" + name &&
-                root.Structure == "asteria:mountain_waterfall");
+                root.Structure == "asteria:waterfall_mountain");
             Assert.Null(waterfall.HabitatWeights);
         }
     }

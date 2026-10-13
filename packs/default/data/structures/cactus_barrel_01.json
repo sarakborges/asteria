@@ -33,7 +33,7 @@
       "block": "asteria:cactus_barrel"
     },
     "F": {
-      "block": "asteria:cactus_flower_pink"
+      "block": "asteria:flower_cactus_pink"
     }
   },
   "layers": [

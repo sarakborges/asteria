@@ -1,0 +1,24 @@
+{
+  "id": "asteria:tiles_ice",
+  "category": "blocks_crafted",
+  "tags": [
+    "fragmentable"
+  ],
+  "textures": {
+    "top": "textures/blocks/tiles_ice.png",
+    "bottom": "textures/blocks/tiles_ice.png",
+    "left": "textures/blocks/tiles_ice.png",
+    "right": "textures/blocks/tiles_ice.png",
+    "front": "textures/blocks/tiles_ice.png",
+    "back": "textures/blocks/tiles_ice.png"
+  },
+  "alphaBlend": true,
+  "lightDampening": 1,
+  "castsShadow": false,
+  "mining": {
+    "hardness": 0.5,
+    "requiredTools": [
+      "pickaxe"
+    ]
+  }
+}

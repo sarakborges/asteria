@@ -6,7 +6,7 @@ const contentName = (id: string) => ({
   "asteria:bucket": "Bucket",
   "asteria:water": "Water",
   "asteria:lava": "Lava",
-  "asteria:dimensional_slicer": "Dimensional Slicer",
+  "asteria:slicer_dimensional": "Dimensional Slicer",
   "asteria:umbral": "Umbral",
   "asteria:stone": "Stone",
 } as Record<string, string>)[id] ?? id;
@@ -16,7 +16,7 @@ test("stack labels include localized metadata without modifying item identity", 
     "asteria:bucket", { contained_fluid: "asteria:water" }, contentName,
   )).toBe("Bucket (Water)");
   expect(inventoryDisplayName(
-    "asteria:dimensional_slicer",
+    "asteria:slicer_dimensional",
     { target_dimension: "asteria:umbral" }, contentName,
   )).toBe("Dimensional Slicer (Umbral)");
   expect(inventoryDisplayName("asteria:stone", {}, contentName)).toBe("Stone");
@@ -39,7 +39,7 @@ test("catalog icon and block-preview lookup requires exact kind and metadata", (
   const catalog = [
     {
       id: "asteria:stone", kind: "block" as const, name: "Stone",
-      category: "stone_blocks", metadata: {}, blockPreview: preview,
+      category: "blocks_stone", metadata: {}, blockPreview: preview,
     },
     {
       id: "asteria:bucket", kind: "tool" as const, name: "Bucket",
@@ -56,7 +56,7 @@ test("catalog icon and block-preview lookup requires exact kind and metadata", (
 });
 
 test("portable armor wear preserves authored icon, display name and remaining uses", () => {
-  const id = "asteria:wayfarer_chestplate";
+  const id = "asteria:chestplate_wayfarer";
   const entry = {
     id,
     kind: "item" as const,

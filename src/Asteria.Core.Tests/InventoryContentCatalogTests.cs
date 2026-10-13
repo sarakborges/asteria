@@ -11,12 +11,12 @@ public sealed class InventoryContentCatalogTests
             PackContentRegistry<ItemDefinition>.FromJson([
                 """
                 {
-                  "id":"asteria:dimensional_slicer",
+                  "id":"asteria:slicer_dimensional",
                   "category":"tools",
-                  "icon":"textures/items/dimensional_slicer.png",
+                  "icon":"textures/items/slicer_dimensional.png",
                   "iconVariants":[
                     {"metadataKey":"target_dimension","metadataValue":"asteria:umbral",
-                     "icon":"textures/items/dimensional_slicer_umbral.png"}
+                     "icon":"textures/items/slicer_dimensional_umbral.png"}
                   ]
                 }
                 """
@@ -26,7 +26,7 @@ public sealed class InventoryContentCatalogTests
                 {
                   "id":"asteria:pickaxe_rustic",
                   "category":"tools",
-                  "icon":"textures/tools/pickaxe-rustic.png",
+                  "icon":"textures/tools/pickaxe_rustic.png",
                   "leftBehavior":"asteria:mine",
                   "rightBehavior":"asteria:none"
                 }
@@ -39,18 +39,18 @@ public sealed class InventoryContentCatalogTests
         var catalog = CreateCatalog();
         Assert.Equal(4, catalog.Choices.Count);
         Assert.Equal(
-            "textures/items/dimensional_slicer_umbral.png",
+            "textures/items/slicer_dimensional_umbral.png",
             catalog.Choices.Single(choice =>
                 choice.Entry.Metadata.ContainsKey("target_dimension")).IconResourcePath);
         Assert.True(catalog.TryResolve(
-            InventoryEntryKind.Item, "asteria:dimensional_slicer",
+            InventoryEntryKind.Item, "asteria:slicer_dimensional",
             "target_dimension", "asteria:umbral", out var item));
         Assert.Equal("asteria:umbral", item!.Metadata["target_dimension"]);
         Assert.False(catalog.TryResolve(
-            InventoryEntryKind.Item, "asteria:dimensional_slicer",
+            InventoryEntryKind.Item, "asteria:slicer_dimensional",
             "target_dimension", "asteria:overworld", out _));
         Assert.False(catalog.TryResolve(
-            InventoryEntryKind.Tool, "asteria:dimensional_slicer", null, null, out _));
+            InventoryEntryKind.Tool, "asteria:slicer_dimensional", null, null, out _));
         Assert.True(catalog.TryResolve(
             InventoryEntryKind.Tool, "asteria:pickaxe_rustic", null, null, out var tool));
         Assert.Equal(1, tool!.MaxStackSize);
@@ -121,7 +121,7 @@ public sealed class InventoryContentCatalogTests
     {
         var layers = AttachedLayerRegistry.FromJson([
             """
-            {"id":"asteria:moss","category":"natural_blocks",
+            {"id":"asteria:moss","category":"blocks_natural",
              "texture":"textures/layers/moss.png"}
             """
         ]);

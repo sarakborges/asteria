@@ -33,7 +33,7 @@
       "surfaceBlocks": [
         "asteria:stone",
         "asteria:gravel",
-        "asteria:stone_cobble"
+        "asteria:cobble_stone"
       ],
       "habitatWeights": {
         "valley_floor": 0.6,
@@ -120,7 +120,7 @@
       }
     },
     {
-      "block": "asteria:dry_tuft",
+      "block": "asteria:tuft_dry",
       "chance": 0.0275,
       "surfaceBlocks": [
         "asteria:dirt",
@@ -144,12 +144,12 @@
       }
     },
     {
-      "block": "asteria:exposed_roots",
+      "block": "asteria:roots_exposed",
       "chance": 0.0138,
       "surfaceBlocks": [
         "asteria:dirt",
         "asteria:gravel",
-        "asteria:stone_cobble"
+        "asteria:cobble_stone"
       ],
       "habitatWeights": {
         "valley_floor": 1.5,
@@ -169,12 +169,12 @@
       }
     },
     {
-      "block": "asteria:stone_spike",
+      "block": "asteria:spike_stone",
       "chance": 0.0083,
       "surfaceBlocks": [
         "asteria:stone",
         "asteria:gravel",
-        "asteria:stone_cobble"
+        "asteria:cobble_stone"
       ],
       "habitatWeights": {
         "valley_floor": 0.12,
@@ -194,12 +194,12 @@
       }
     },
     {
-      "block": "asteria:cliff_rosette",
+      "block": "asteria:rosette_cliff",
       "supportSurface": "wall",
       "chance": 0.1,
       "surfaceBlocks": [
         "asteria:stone",
-        "asteria:stone_cobble"
+        "asteria:cobble_stone"
       ],
       "cluster": {
         "scale": 39,
@@ -222,7 +222,7 @@
       "chance": 0.125,
       "surfaceBlocks": [
         "asteria:stone",
-        "asteria:stone_cobble"
+        "asteria:cobble_stone"
       ],
       "cluster": {
         "scale": 29,
@@ -239,7 +239,7 @@
         "rubble_slopes": 1.9,
         "high_rims": 1.3
       },
-      "layer": "asteria:cliff_lichen"
+      "layer": "asteria:lichen_cliff"
     }
   ],
   "surfaceHabitats": {
@@ -272,7 +272,7 @@
           "blocks": [
             "asteria:gravel",
             "asteria:dirt",
-            "asteria:stone_cobble"
+            "asteria:cobble_stone"
           ],
           "detailScale": 9,
           "selectionScale": 75,
@@ -282,7 +282,7 @@
           "weights": {
             "asteria:gravel": 5,
             "asteria:dirt": 2,
-            "asteria:stone_cobble": 1
+            "asteria:cobble_stone": 1
           },
           "conditions": {
             "maxY": 112,
