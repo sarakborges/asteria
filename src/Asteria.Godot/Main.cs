@@ -1503,11 +1503,19 @@ public partial class Main : Node3D
 
                     break;
                 case "ui.world.create":
+                    _worldDiagnostics?.Write("world.creation.requested");
                     if (_worldSeed is null && !_worldDelete.IsBusy &&
                         !_worldLoad.IsBusy)
                     {
                         StartRequestedWorld(
                             document.RootElement);
+                    }
+                    else
+                    {
+                        _worldDiagnostics?.Write(
+                            $"world.creation.ignored world_active={_worldSeed is not null} " +
+                            $"delete_busy={_worldDelete.IsBusy} " +
+                            $"load_busy={_worldLoad.IsBusy}");
                     }
 
                     break;
