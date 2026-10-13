@@ -172,6 +172,56 @@ func _run() -> void:
 						push_error("Native smoke: player GLB alpha/double-sided policy drifted: " + JSON.stringify(material))
 						failed = true
 
+	# Imported creature GLB material names are the authored overrides'
+	# lookup keys. Exercise them natively rather than trusting JSON alone.
+	# Accent materials do not specify texture replacements, but must still be
+	# resolvable for their independent unlit policy.
+	var creature_path := ProjectSettings.globalize_path(
+		"res://packs/default/resources/models/creatures/slime_hydro/slime_hydro.glb")
+	var creature_bytes := FileAccess.get_file_as_bytes(creature_path)
+	var creature_gltf := GLTFDocument.new()
+	var creature_state := GLTFState.new()
+	if creature_bytes.is_empty() or creature_gltf.append_from_buffer(
+		creature_bytes, "", creature_state) != OK:
+		push_error("Native smoke: cannot import authored hydro slime GLB")
+		failed = true
+	else:
+		var creature_scene := creature_gltf.generate_scene(creature_state)
+		if creature_scene == null:
+			push_error("Native smoke: hydro slime GLB produced no scene")
+			failed = true
+		else:
+			var material_names: Dictionary = {}
+			var creature_nodes: Array[Node] = [creature_scene]
+			while not creature_nodes.is_empty():
+				var current: Node = creature_nodes.pop_back()
+				if current is MeshInstance3D and current.mesh != null:
+					var instance := current as MeshInstance3D
+					for surface_idx in range(instance.mesh.get_surface_count()):
+						var material := instance.mesh.surface_get_material(surface_idx)
+						if material is BaseMaterial3D:
+							material_names[material.resource_name] = true
+				for child in current.get_children():
+					creature_nodes.append(child)
+			print("Native hydro slime imported materials: ", material_names.keys())
+			if not material_names.has("SlimeFace"):
+				push_error("Native smoke: hydro slime face material is missing")
+				failed = true
+			# Some GLBs carry extra authored names that do not appear on a
+			# visible surface. These must not be treated as imported meshes.
+			var glb_json_size: int = creature_bytes.decode_u32(12)
+			if glb_json_size <= creature_bytes.size() - 20:
+				var glb_document: Variant = JSON.parse_string(
+					creature_bytes.slice(20, 20 + glb_json_size).get_string_from_utf8())
+				if glb_document is Dictionary:
+					var authored_materials: Array = (glb_document as Dictionary).get("materials", [])
+					var authored_names: Array = []
+					for entry in authored_materials:
+						if entry is Dictionary:
+							authored_names.append(entry.get("name", ""))
+					print("Native hydro slime GLB authored materials: ", authored_names)
+			creature_scene.free()
+
 	# Closing chat/inventory after the OS loses focus must not recapture
 	# mouse input. A detached player represents a windowless lifecycle and
 	# checks that resume is focus-gated before touching the OS cursor.
