@@ -55,7 +55,8 @@ public sealed partial class CreaturePortraitPresentation : Node
         _camera = new Camera3D
         {
             Current = true,
-            Fov = 38f,
+            // Bevy's default Camera3d projection uses a 45-degree FOV.
+            Fov = 45f,
             Near = 0.1f,
             Far = 50f,
         };
@@ -99,12 +100,15 @@ public sealed partial class CreaturePortraitPresentation : Node
             _activeModel.Rotation = new Vector3(0f, Mathf.Pi, 0f);
             _modelRoot.AddChild(_activeModel);
 
-            var bounds = definition.Collider.Size;
-            var height = Mathf.Max(bounds.Y, 0.4f);
-            var radius = Mathf.Max(bounds.X, Mathf.Max(bounds.Z, height));
-            var center = new Vector3(0f, height * 0.5f, 0f);
-            _camera.Position = center + new Vector3(0f, 0f, radius * 2.3f + 0.65f);
-            _camera.LookAt(center, Vector3.Up);
+            // Frame the authored collider center from the same three-quarter
+            // angle as MineClone, rather than aiming head-on at height / 2.
+            var pose = CreaturePortraitFraming.For(definition.Collider);
+            _camera.Position = new Vector3(
+                pose.CameraPosition.X,
+                pose.CameraPosition.Y,
+                pose.CameraPosition.Z);
+            _camera.LookAt(new Vector3(
+                pose.LookAt.X, pose.LookAt.Y, pose.LookAt.Z), Vector3.Up);
 
             _activeId = id;
             _framesUntilCapture = 3;
