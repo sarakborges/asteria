@@ -4,6 +4,7 @@ import type {
   ChatMessageView, ChatSuggestionView,
 } from "../../../presentation/chatModels";
 import { TextInput } from "../../atoms/TextInput/TextInput";
+import { ScrollArea } from "../../molecules/ScrollArea/ScrollArea";
 import "./ChatPanel.css";
 
 const MAX_VISIBLE_SUGGESTIONS = 7;
@@ -33,13 +34,19 @@ export function ChatPanel({
   const { t } = useLocalization();
   const historyRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const followingHistory = useRef(true);
+  const previouslyVisible = useRef(false);
   const messages = history.slice(-MAX_VISIBLE_HISTORY);
   const newestMessageId = messages.at(-1)?.id;
 
   useLayoutEffect(() => {
-    if (visible && historyRef.current) {
-      historyRef.current.scrollTop = historyRef.current.scrollHeight;
+    const viewport = historyRef.current;
+    if (visible && viewport && (!previouslyVisible.current || followingHistory.current)) {
+      // New messages should follow the bottom only while the user is already
+      // there. Never pull a reader away from older messages.
+      viewport.scrollTop = viewport.scrollHeight;
     }
+    previouslyVisible.current = visible;
   }, [visible, newestMessageId]);
 
   // Mount, native WebView handoff and OS focus restoration can happen in
@@ -82,26 +89,36 @@ export function ChatPanel({
 
   return (
     <section className={open ? "chat-panel chat-panel--open" : "chat-panel"}>
-      <div className="chat-panel__history" ref={historyRef} role="log" aria-live="polite">
-        {messages.map(message => (
-          <div key={message.id}
-            className={"chat-panel__message chat-panel__message--" +
-              (message.tone ?? "normal")}>
-            <span>{message.localizationKey
-              ? t(message.localizationKey, message.parameters ?? {})
-              : message.text}</span>
-            {(message.action || message.actionLabel) && (
-              <button type="button" className="chat-panel__link"
-                disabled={!onMessageAction}
-                onClick={() => onMessageAction?.(message.id)}>
-                {message.action === "warp" ? t("chat.action.warp") :
-                  message.action === "structure_file" ? t("chat.action.openStructureFile") :
-                    message.actionLabel}
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
+      <ScrollArea className="chat-panel__history"
+        contentClassName="chat-panel__history-messages"
+        viewportRef={historyRef}
+        ariaLabel={t("ui.chatMessage")}
+        onViewportScroll={event => {
+          const viewport = event.currentTarget;
+          followingHistory.current =
+            viewport.scrollHeight - viewport.clientHeight - viewport.scrollTop <= 12;
+        }}>
+        <div role="log" aria-live="polite">
+          {messages.map(message => (
+            <div key={message.id}
+              className={"chat-panel__message chat-panel__message--" +
+                (message.tone ?? "normal")}>
+              <span>{message.localizationKey
+                ? t(message.localizationKey, message.parameters ?? {})
+                : message.text}</span>
+              {(message.action || message.actionLabel) && (
+                <button type="button" className="chat-panel__link"
+                  disabled={!onMessageAction}
+                  onClick={() => onMessageAction?.(message.id)}>
+                  {message.action === "warp" ? t("chat.action.warp") :
+                    message.action === "structure_file" ? t("chat.action.openStructureFile") :
+                      message.actionLabel}
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      </ScrollArea>
       {open && visibleSuggestions.length > 0 && (
         <div className="chat-panel__suggestions" role="listbox"
           aria-label={t("ui.chatHint")}>
