@@ -57,6 +57,29 @@ test("Escape closes inventory through the same injected semantic action as its C
   await expect(page.locator(".inventory-gameplay")).toHaveCount(0);
 });
 
+test("Inventory key closes the WebUI modal without waiting for Godot focus", async ({ page }) => {
+  await page.goto(story("inventory-navigation"));
+  await expect(page.locator(".inventory-gameplay")).toBeVisible();
+
+  await page.keyboard.press("e");
+  await expect(page.locator(".inventory-gameplay")).toHaveCount(0);
+});
+
+test("Inventory key types in search and closes after leaving the editor", async ({ page }) => {
+  await page.goto(story("inventory-navigation"));
+  const inventory = page.locator(".inventory-gameplay");
+  const search = inventory.locator(".player-inventory-panel input");
+
+  await search.click();
+  await search.press("e");
+  await expect(search).toHaveValue("e");
+  await expect(inventory).toBeVisible();
+
+  await inventory.locator(".player-inventory-panel .inventory-slot").first().click();
+  await page.keyboard.press("e");
+  await expect(inventory).toHaveCount(0);
+});
+
 test("Escape dismisses a focused dropdown before it navigates away", async ({ page }) => {
   await page.goto(story("modal-navigation"));
   await page.locator(".pause-menu__settings-row button").last().click();
