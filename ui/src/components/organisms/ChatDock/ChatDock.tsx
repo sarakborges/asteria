@@ -21,7 +21,7 @@ export type ChatDockProps = {
 export function ChatDock({
   open, visible, focusRequest = 0, history, commands, catalog, onSubmit, onClose, onMessageAction,
 }: ChatDockProps) {
-  const { t } = useLocalization();
+  const { t, contentName } = useLocalization();
   const [draft, setDraft] = useState("");
   const [caret, setCaret] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -44,8 +44,8 @@ export function ChatDock({
   }, [open]);
 
   const completion = useMemo(
-    () => suggestChatArguments(draft, caret, commands, catalog, t),
-    [draft, caret, commands, catalog, t],
+    () => suggestChatArguments(draft, caret, commands, catalog, t, contentName),
+    [draft, caret, commands, catalog, t, contentName],
   );
   const suggestions = dismissedSuggestions === draft + ":" + caret
     ? [] : completion.suggestions;

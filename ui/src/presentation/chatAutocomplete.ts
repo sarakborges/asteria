@@ -16,12 +16,13 @@ function matching(
   values: readonly string[],
   prefix: string,
   description: string,
+  displayName?: (id: string) => string,
 ): ChatSuggestionView[] {
   const query = prefix.toLowerCase();
   return values
     .filter(value => value.toLowerCase().includes(query))
     .slice(0, SUGGESTION_LIMIT)
-    .map(value => ({ value, description }));
+    .map(value => ({ value, description: displayName?.(value) ?? description }));
 }
 
 /** Match the token under the caret, not only the last token in the draft. */
@@ -31,6 +32,7 @@ export function suggestChatArguments(
   commands: readonly string[],
   catalog: ChatCompletionCatalog,
   t: (key: string) => string,
+  contentName: (id: string) => string,
 ): ChatCompletion {
   const empty: ChatCompletion = { start: caret, end: caret, suggestions: [] };
   if (!draft.startsWith("/") || caret < 0 || caret > draft.length) return empty;
@@ -60,7 +62,7 @@ export function suggestChatArguments(
     switch (command) {
       case "/spawn":
         suggestions = index === 1
-          ? matching(catalog.creatures, prefix, descriptor("creature"))
+          ? matching(catalog.creatures, prefix, descriptor("creature"), contentName)
           : index === 2
             ? matching(META_TAGS, prefix, descriptor("metaTag"))
             : [];
@@ -90,7 +92,8 @@ export function suggestChatArguments(
           : index === 2
             ? matching(first === "biome" ? catalog.biomes :
                 first === "structure" ? catalog.structures : [],
-                prefix, descriptor(first === "biome" ? "biome" : "structure"))
+                prefix, descriptor(first === "biome" ? "biome" : "structure"),
+                first === "biome" ? contentName : undefined)
             : index === 3 && first === "structure"
               ? matching(
                   (catalog.variations[second ?? ""] ?? []).map((_, i) => String(i + 1)),
@@ -104,7 +107,8 @@ export function suggestChatArguments(
           suggestions = matching([String(position[axis])], prefix,
             descriptor("coordinate") + " " + axis.toUpperCase());
         } else if (index === 4) {
-          suggestions = matching(catalog.dimensions, prefix, descriptor("dimension"));
+          suggestions = matching(catalog.dimensions, prefix,
+            descriptor("dimension"), contentName);
         }
         break;
       }
