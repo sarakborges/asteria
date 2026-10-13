@@ -1603,8 +1603,7 @@ public sealed class BiomeWorldGenerationTests
     [Theory]
     [InlineData(WorldGenerationMode.Normal)]
     [InlineData(WorldGenerationMode.Flat)]
-    [InlineData(WorldGenerationMode.Void)]
-    public void SphereShellFloorHasOpaqueTerrainCoverInEveryWorldMode(
+    public void SphereShellFloorHasOpaqueTerrainCoverInNormalAndFlatWorlds(
         WorldGenerationMode mode)
     {
         var blocks = new BlockRegistry(

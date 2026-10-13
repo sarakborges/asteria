@@ -83,19 +83,21 @@ public sealed class PlayerInventory
     /// have been committed by the owning world drop runtime.</summary>
     public void ClearForDeath()
     {
-        ClearAll();
-    }
-
-    /// <summary>Clears all possessions atomically, including equipment and
-    /// the cursor. A no-op must not publish a new inventory revision.</summary>
-    public bool ClearAll()
-    {
         if (_slots.All(stack => stack is null) &&
             _equipment.All(stack => stack is null) && Cursor is null)
-            return false;
+            return;
         Array.Clear(_slots);
         Array.Clear(_equipment);
         Cursor = null;
+        Revision++;
+    }
+
+    /// <summary>Trash shortcut clears backpack and hotbar only.
+    /// Equipped and cursor-held items stay unchanged.</summary>
+    public bool ClearBackpackAndHotbar()
+    {
+        if (_slots.All(stack => stack is null)) return false;
+        Array.Clear(_slots);
         Revision++;
         return true;
     }

@@ -1596,7 +1596,7 @@ public partial class Main : Node3D
                     break;
                 case "ui.inventory.clear":
                     if (_sessionStates.Player.CanInteract && _inventoryOpen &&
-                        _sessionStates.Player.Inventory.ClearAll())
+                        _sessionStates.Player.Inventory.ClearBackpackAndHotbar())
                     {
                         SyncHeldBlock();
                         SendHotbarState();

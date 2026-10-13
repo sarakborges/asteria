@@ -25,12 +25,10 @@ public sealed class WorldGenerationModeTests
     }
 
     [Fact]
-    public void VoidWorldHasOnlySpawnPlatformAndConcealedSphereShell()
+    public void VoidWorldHasOnlySpawnPlatformWithoutSphereShell()
     {
         var (generator, blocks) = Create(WorldGenerationMode.Void);
         var stone = blocks.GetId("asteria:stone");
-        var shell = blocks.GetId("asteria:sphere_shell");
-
         Assert.Equal(new GeneratedSurfaceDestination(0, 33, 0),
             generator.FindGeneratedSpawn(32, 4));
         var spawn = generator.Materialize(new ChunkCoord(0, 2, 0));
@@ -41,10 +39,12 @@ public sealed class WorldGenerationModeTests
         Assert.True(remote.GetBlock(8, 0, 8).IsAir);
         Assert.Equal(0, generator.SurfaceHeight(72, 72));
 
+        // The authored shell must be omitted entirely, not hidden
+        // under a core-material lining.
         var floor = generator.Materialize(ChunkCoord.Zero);
-        Assert.Equal(shell, floor.GetBlock(8, 0, 8));
-        Assert.Equal(stone, floor.GetBlock(8, 1, 8));
-        Assert.True(floor.GetBlock(8, 2, 8).IsAir);
+        Assert.True(floor.IsEmpty);
+        Assert.True(generator.DensityAt(8, 0, 8) < 0d);
+        Assert.True(generator.DensityAt(8, 1, 8) < 0d);
     }
 
     private static (BiomeWorldGenerator Generator, BlockRegistry Blocks)

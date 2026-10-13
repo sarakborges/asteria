@@ -2,8 +2,8 @@ namespace Asteria.Core.World;
 
 /// <summary>
 /// Small deterministic entry platform for Void worlds. No terrain, fluids,
-/// decorations or procedurally placed structures exist outside authored shells
-/// and this platform. The immutable generator owns its position and block.
+/// decorations, structures or Sphere Shells exist outside this platform.
+/// The immutable generator owns its position and block.
 /// </summary>
 internal sealed class VoidSpawnPlatform
 {
@@ -27,11 +27,9 @@ internal sealed class VoidSpawnPlatform
         _block = blocks.GetId(layer.Block);
         _x = dimension.Spawn.X;
         _z = dimension.Spawn.Z;
-        var minimum = checked((dimension.Shell?.FloorY ?? 0) + 2);
-        var maximum = dimension.Shell?.RoofY is { } roof
-            ? Math.Max(minimum, roof - 2)
-            : int.MaxValue;
-        _y = Math.Clamp(dimension.SeaLevel, minimum, maximum);
+        // Independent of the Sphere's authored shell: Void does not
+        // materialize either the shell or its protective lining.
+        _y = Math.Max(2, dimension.SeaLevel);
     }
 
     public GeneratedSurfaceDestination Spawn =>

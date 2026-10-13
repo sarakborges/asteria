@@ -68,8 +68,9 @@ public sealed class SurfaceTerrainField
             dimension.SeaLevel, planarMinimum, planarMaximum);
         _flatOceanBiome = spawnOceans
             ? dimension.GeneratedOcean?.Biome : null;
-        _floorY = dimension.Shell?.FloorY;
-        _roofY = dimension.Shell?.RoofY;
+        // Void is genuinely empty, including the usual shell lining.
+        _floorY = mode == WorldGenerationMode.Void ? null : dimension.Shell?.FloorY;
+        _roofY = mode == WorldGenerationMode.Void ? null : dimension.Shell?.RoofY;
         _surfaceRules =
             surfaceDefinitions
                 .OrderBy(

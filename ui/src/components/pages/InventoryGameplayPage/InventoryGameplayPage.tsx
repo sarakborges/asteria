@@ -80,8 +80,7 @@ export function InventoryGameplayPage({
   );
   const hasPossessions = state.cursor !== null ||
     state.backpack.some(slot => slot !== null) ||
-    state.hotbar.some(slot => slot !== null) ||
-    state.equipment.some(slot => slot !== null);
+    state.hotbar.some(slot => slot !== null);
   const trashAction = hasPossessions
     ? (clearAll: boolean) => {
         if (clearAll) onClearInventory();

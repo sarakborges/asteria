@@ -91,11 +91,12 @@ public sealed class SurfaceChunkMaterializer
         ArgumentNullException.ThrowIfNull(dimension);
         _blocks = blocks ?? throw new ArgumentNullException(nameof(blocks));
 
-        _shellBlock = dimension.Shell is { } shell
+        // Flat and Normal respect authored Sphere Shells; Void does not.
+        _shellBlock = voidSpawnPlatform is null && dimension.Shell is { } shell
             ? blocks.GetId(shell.Block)
             : BlockRuntimeId.Air;
-        _floorY = dimension.Shell?.FloorY;
-        _roofY = dimension.Shell?.RoofY;
+        _floorY = voidSpawnPlatform is null ? dimension.Shell?.FloorY : null;
+        _roofY = voidSpawnPlatform is null ? dimension.Shell?.RoofY : null;
     }
 
     public Chunk Materialize(ChunkCoord coord)
@@ -112,16 +113,9 @@ public sealed class SurfaceChunkMaterializer
             VoxelCoordinates.ChunkOrigin(coord);
         if (_voidSpawnPlatform is not null)
         {
-            // Void generates only the entry platform and Sphere Shell.
+            // Void has only its small spawn platform: no authored shell,
+            // lining, terrain, caves, fluids or decorations.
             _voidSpawnPlatform.Apply(chunk, coord);
-            var upper = (long)originY + Chunk.Size;
-            var touchesFloor = _floorY is { } floor &&
-                originY <= (long)floor + 1 && upper > floor;
-            var touchesRoof = _roofY is { } roof &&
-                originY <= roof && upper > (long)roof - 1;
-            if (!_shellBlock.IsAir && (touchesFloor || touchesRoof))
-                ConcealSphereShell(chunk, _columns.Get(coord.X, coord.Z),
-                    originY, checked(originY + Chunk.Size));
             return chunk;
         }
 
