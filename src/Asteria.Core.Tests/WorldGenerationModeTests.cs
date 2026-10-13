@@ -165,6 +165,68 @@ public sealed class WorldGenerationModeTests
                 chunk.GetBlock(8, 10, 8));
     }
 
+    [Fact]
+    public void VoidPlatformUsesSelectedSpawnBiomeWithoutGeneratingTerrainOrShell()
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition("asteria:stone"),
+            new BlockDefinition("asteria:flower"),
+            new BlockDefinition("asteria:shell_sphere",
+                mining: new BlockMiningDefinition(unbreakable: true)),
+        ]);
+        BiomeDefinition Biome(string id, string material) =>
+            new(id, new BiomeSurfaceLayoutDefinition(),
+                new BiomeTerrainDefinition(0f, 0f, 64, 0f, 32),
+                [new BiomeSurfaceLayerDefinition(material)]);
+        var first = Biome("asteria:test/alpha", "asteria:stone");
+        var selected = Biome("asteria:test/zeta", "asteria:flower");
+        var biomes = new BiomeRegistry([first, selected]);
+        var dimension = new DimensionDefinition(
+            new DimensionId("asteria:test"), [first.Id, selected.Id],
+            seaLevel: 32, gravityStrength: 18f,
+            spawn: new DimensionSpawnDefinition(0, 0),
+            environment: new DimensionEnvironmentDefinition(
+                new DimensionColor(0, 0, 0),
+                new DimensionColor(255, 255, 255), 1f,
+                new DimensionColor(0, 0, 0), 0f),
+            shell: new DimensionShellDefinition("asteria:shell_sphere", floorY: 0));
+
+        BiomeWorldGenerator Generator(string? spawnBiome) =>
+            new(77UL, dimension, blocks,
+                new FluidRegistry(Array.Empty<FluidDefinition>()),
+                biomes, StructureRegistry.Empty,
+                generation: new WorldGenerationOptions(
+                    WorldGenerationMode.Void, spawnBiome: spawnBiome,
+                    singleBiome: false, spawnStructures: false,
+                    spawnCaves: false, spawnOceans: false));
+
+        var baseline = Generator(null);
+        var chosen = Generator(selected.Id);
+        var baselineChunk = baseline.Materialize(new ChunkCoord(0, 2, 0));
+        var selectedChunk = chosen.Materialize(new ChunkCoord(0, 2, 0));
+        Assert.Equal(blocks.GetId("asteria:stone"),
+            baselineChunk.GetBlock(0, 0, 0));
+        Assert.Equal(blocks.GetId("asteria:flower"),
+            selectedChunk.GetBlock(0, 0, 0));
+        Assert.True(selectedChunk.GetBlock(8, 0, 8).IsAir);
+        Assert.True(chosen.Materialize(ChunkCoord.Zero).IsEmpty);
+        Assert.Equal(new GeneratedSurfaceDestination(0, 33, 0),
+            chosen.FindGeneratedSpawn(32, 4));
+        Assert.True(chosen.Materialize(new ChunkCoord(4, 2, 4)).IsEmpty);
+    }
+
+    [Fact]
+    public void VoidPlatformRejectsUnavailableSelectedBiomeWithoutChangingDefault()
+    {
+        // An unknown requested spawn-biome is not an eligible material
+        // source; ordinary Void generation still falls back to the first
+        // authored surface biome. SingleBiome remains independently strict.
+        var (generator, blocks) = Create(WorldGenerationMode.Void);
+        Assert.Equal(blocks.GetId("asteria:stone"),
+            generator.Materialize(new ChunkCoord(0, 2, 0)).GetBlock(0, 0, 0));
+    }
+
     private static (BiomeWorldGenerator Generator, BlockRegistry Blocks)
         Create(WorldGenerationMode mode)
     {

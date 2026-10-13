@@ -133,25 +133,51 @@ export function App({
 
   const handleUiKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if ((state.navigation.death && !state.navigation.exitConfirmation) ||
-        event.key !== "Escape" || event.defaultPrevented ||
-        event.repeat || event.nativeEvent.isComposing || !uiVisible) return;
+        !uiVisible) return;
+
+    // WRY forwards document-level keydown to Godot. Stop every inventory
+    // shortcut event before that listener, including auto-repeat and typing
+    // in a focused editor. Only the initial non-editor press closes the modal.
+    if (state.navigation.overlay === "inventory" &&
+        event.code === (state.settings.client?.keybinds.inventory ?? "KeyE")) {
+      event.stopPropagation();
+      if (event.defaultPrevented || event.repeat ||
+          event.nativeEvent.isComposing ||
+          (event.target instanceof Element && event.target.closest(
+            "input, textarea, select, [contenteditable='true']"))) return;
+      actions.closeInventory();
+      event.preventDefault();
+      return;
+    }
+
+    if (event.defaultPrevented || event.repeat ||
+        event.nativeEvent.isComposing || event.key !== "Escape") return;
     navigateEscape();
     event.preventDefault();
     event.stopPropagation();
   };
 
-  // Capture Escape at the window while paused. WRY can focus its native
-  // window or the document body without focusing an App descendant; the
-  // pause shortcut must never depend on clicking the menu first. For other
-  // screens preserve child controls' Escape behavior.
+  // WRY can leave DOM focus on body after an OS/native focus handoff.
+  // Recover modal-only close shortcuts when no App descendant has focus;
+  // keys inside the modal stay owned by the explicit React surface.
   useEffect(() => {
     const onWindowKeyDown = (event: globalThis.KeyboardEvent) => {
       if ((state.navigation.death && !state.navigation.exitConfirmation) ||
-          event.key !== "Escape" ||
-          event.defaultPrevented || event.repeat || event.isComposing ||
           !uiVisible) return;
-      if (state.navigation.overlay !== "pause" &&
-          interactionRoot.current?.contains(event.target as Node)) return;
+      const inUiSurface = event.target instanceof Node &&
+        Boolean(interactionRoot.current?.contains(event.target));
+      if (state.navigation.overlay === "inventory" &&
+          !inUiSurface &&
+          event.code === (state.settings.client?.keybinds.inventory ?? "KeyE")) {
+        event.stopPropagation();
+        if (event.defaultPrevented || event.repeat || event.isComposing) return;
+        actions.closeInventory();
+        event.preventDefault();
+        return;
+      }
+      if (event.defaultPrevented || event.repeat || event.isComposing ||
+          event.key !== "Escape" ||
+          (state.navigation.overlay !== "pause" && inUiSurface)) return;
       navigateEscape();
       event.preventDefault();
       event.stopPropagation();
@@ -159,7 +185,8 @@ export function App({
     window.addEventListener("keydown", onWindowKeyDown, true);
     return () => window.removeEventListener("keydown", onWindowKeyDown, true);
   }, [actions, uiVisible, state.navigation.death, state.navigation.exitConfirmation,
-      state.navigation.overlay, state.settings.captureAction, state.chat.open]);
+      state.navigation.overlay, state.settings.captureAction, state.settings.client?.keybinds.inventory,
+      state.chat.open]);
 
   return (
     <div ref={interactionRoot} className="app-interaction-root"
@@ -251,6 +278,8 @@ export function App({
             error={
               state.worldCatalog.deleteError
                 ? t("worldSelection.deleteError")
+                : state.worldCatalog.loadError
+                ? t("worldSelection.loadError")
                 : state.worldCatalog.status === "error"
                 ? t("worldSelection.scanError")
                 : state.worldCatalog.folderError

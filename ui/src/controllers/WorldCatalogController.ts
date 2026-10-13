@@ -14,8 +14,20 @@ export function createWorldCatalogController(
       postMessage("ui.world.catalog.open_folder");
     },
     loadWorld(id: string) {
-      if (id.trim() && store.getSnapshot().worldCatalog.status === "ready")
-        postMessage("ui.world.catalog.load", { id });
+      const catalog = store.getSnapshot().worldCatalog;
+      if (catalog.status !== "ready" ||
+          !catalog.worlds.some(world => world.id === id && world.compatible))
+        return;
+      // Lock locally before IPC: WebView click/keyboard activation can be
+      // repeated before Godot acknowledges the first async load.
+      store.update(state => ({
+        ...state,
+        worldCatalog: {
+          ...state.worldCatalog, status: "verifying",
+          loadError: false, deleteError: false,
+        },
+      }));
+      postMessage("ui.world.catalog.load", { id });
     },
     recreateWorld(id: string) {
       const catalog = store.getSnapshot().worldCatalog;
@@ -24,15 +36,27 @@ export function createWorldCatalogController(
         return;
       store.update(state => ({
         ...state,
-        worldCatalog: { ...state.worldCatalog, status: "verifying" },
+        worldCatalog: {
+          ...state.worldCatalog, status: "verifying",
+          loadError: false, deleteError: false,
+        },
       }));
       postMessage("ui.world.catalog.recreate", { id });
     },
     deleteWorld(id: string) {
-      const state = store.getSnapshot().worldCatalog;
-      if (id.trim() && state.status === "ready" &&
-          state.worlds.some(world => world.id === id))
-        postMessage("ui.world.catalog.delete", { id });
+      const catalog = store.getSnapshot().worldCatalog;
+      if (catalog.status !== "ready" ||
+          !catalog.worlds.some(world => world.id === id))
+        return;
+      // Prevent duplicate destructive requests before the native reply.
+      store.update(state => ({
+        ...state,
+        worldCatalog: {
+          ...state.worldCatalog, status: "deleting",
+          deleteError: false, loadError: false,
+        },
+      }));
+      postMessage("ui.world.catalog.delete", { id });
     },
     handleGodotMessage(message: BridgeMessage) {
       if (message.type === "game.world_catalog.delete_result") {
@@ -45,7 +69,10 @@ export function createWorldCatalogController(
         } else if (payload?.status === "error") {
           store.update(state => ({
             ...state,
-            worldCatalog: { ...state.worldCatalog, deleteError: true },
+            worldCatalog: {
+              ...state.worldCatalog,
+              status: "ready", deleteError: true,
+            },
           }));
         }
         return;
@@ -62,7 +89,10 @@ export function createWorldCatalogController(
       if (message.type === "game.world_catalog.load_error") {
         store.update(state => ({
           ...state,
-          worldCatalog: { ...state.worldCatalog, status: "error" },
+          worldCatalog: {
+            ...state.worldCatalog,
+            status: "ready", loadError: true,
+          },
         }));
         return;
       }
@@ -97,7 +127,12 @@ export function createWorldCatalogController(
       if (payload.status === "verifying") {
         store.update(state => ({
           ...state,
-          worldCatalog: { ...state.worldCatalog, status: "verifying", folderError: false },
+          worldCatalog: {
+            ...state.worldCatalog,
+            // A native failed load schedules a catalog rescan. Keep its
+            // operation-specific error visible while that rescan runs.
+            status: "verifying", folderError: false,
+          },
         }));
         return;
       }
@@ -105,7 +140,11 @@ export function createWorldCatalogController(
       if (payload.status === "error") {
         store.update(state => ({
           ...state,
-          worldCatalog: { ...state.worldCatalog, status: "error", worlds: [], folderError: false },
+          worldCatalog: {
+            ...state.worldCatalog,
+            status: "error", worlds: [], folderError: false,
+            loadError: false,
+          },
         }));
         return;
       }
@@ -126,6 +165,7 @@ export function createWorldCatalogController(
           worlds: worlds as WorldSummaryView[],
           folderError: false,
           deleteError: state.worldCatalog.deleteError,
+          loadError: state.worldCatalog.loadError,
         },
       }));
     },

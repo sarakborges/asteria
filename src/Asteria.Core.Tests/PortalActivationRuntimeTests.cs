@@ -1,3 +1,4 @@
+using System.Numerics;
 using Asteria.Core.World;
 
 namespace Asteria.Core.Tests;
@@ -124,10 +125,19 @@ public sealed class PortalActivationRuntimeTests
         Assert.True(restoredPortal.TryGetDestinationAt(
             new WorldVoxelCoord(3, 4, 5), out var destination));
         Assert.Equal("asteria:overworld", destination);
+        var returningPlayer = new WorldAabb(
+            new Vector3(2.45f, 4.05f, 4.85f),
+            new Vector3(3.15f, 5.75f, 5.55f));
+        Assert.True(restoredPortal.TryGetDestinationIntersecting(
+            returningPlayer, out var roundTripTarget));
+        Assert.Equal("asteria:overworld", roundTripTarget);
+
         Assert.True(restoredMutations.SetCellAt(
             new WorldVoxelCoord(2, 4, 5), VoxelCell.Empty, out _));
         Assert.False(restoredPortal.TryGetDestinationAt(
             new WorldVoxelCoord(3, 4, 5), out _));
+        Assert.False(restoredPortal.TryGetDestinationIntersecting(
+            returningPlayer, out _));
     }
 
     [Fact]
@@ -273,4 +283,122 @@ public sealed class PortalActivationRuntimeTests
         Assert.True(definition.Shape.IsCenteredLayer);
         Assert.True(definition.HasTag("creative_hidden"));
     }
+    private static void PlaceOrientedPortal(
+        VoxelMutationRuntime mutations, BlockRegistry blocks,
+        WorldVoxelCoord at, BlockOrientation orientation, string dimension)
+    {
+        var snapshot = new BlockStateSnapshot(
+            new VoxelCell(blocks.GetId("asteria:portal"),
+                orientation: orientation),
+            MicroblockMask.Empty,
+            new BlockSurfaceState(null,
+                metaTags: new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    [PortalActivationRuntime.TargetMetadataKey] = dimension,
+                }));
+        Assert.True(mutations.ApplyStructureChanges(
+            [new VoxelStructureChange(at, snapshot, FluidCell.Empty)]));
+    }
+
+    [Fact]
+    public void PortalContactsColliderEvenWhenFeetVoxelIsNotPortal()
+    {
+        var (portal, _, mutations, blocks) = Fixture();
+        var frame = Frame(mutations, blocks);
+        Assert.True(portal.TryActivate(Slicer(),
+            new VoxelWorldHit(frame, 0, 0, 1), out _));
+
+        // Player's center is in the glass column X=2, while the side of
+        // their 0.7-wide capsule reaches the portal cell at X=3.
+        var body = new WorldAabb(
+            new Vector3(2.45f, 4.05f, 4.85f),
+            new Vector3(3.15f, 5.75f, 5.55f));
+        Assert.True(portal.TryGetDestinationIntersecting(body, out var target));
+        Assert.Equal("asteria:umbral", target);
+    }
+
+    [Fact]
+    public void PortalDoesNotActivateWithoutTouchingItsThinPlane()
+    {
+        var (portal, _, mutations, blocks) = Fixture();
+        var frame = Frame(mutations, blocks);
+        Assert.True(portal.TryActivate(Slicer(),
+            new VoxelWorldHit(frame, 0, 0, 1), out _));
+
+        // Occupying the same grid voxel as a portal does not prove
+        // physical contact with the centered 0.1-thick Z plane.
+        var body = new WorldAabb(
+            new Vector3(3.2f, 4.0f, 5.0f),
+            new Vector3(3.8f, 5.7f, 5.40f));
+        Assert.False(portal.TryGetDestinationIntersecting(body, out _));
+    }
+
+    [Theory]
+    [InlineData(BlockOrientation.X)]
+    [InlineData(BlockOrientation.Y)]
+    [InlineData(BlockOrientation.Z)]
+    public void PortalContactUsesAuthoredOrientation(BlockOrientation orientation)
+    {
+        var (portal, _, mutations, blocks) = Fixture();
+        var at = new WorldVoxelCoord(7, 7, 7);
+        PlaceOrientedPortal(mutations, blocks, at, orientation, "asteria:umbral");
+
+        var near = orientation switch
+        {
+            BlockOrientation.X => new WorldAabb(
+                new Vector3(7.0f, 7.1f, 7.1f),
+                new Vector3(7.40f, 7.9f, 7.9f)),
+            BlockOrientation.Y => new WorldAabb(
+                new Vector3(7.1f, 7.0f, 7.1f),
+                new Vector3(7.9f, 7.40f, 7.9f)),
+            _ => new WorldAabb(
+                new Vector3(7.1f, 7.1f, 7.0f),
+                new Vector3(7.9f, 7.9f, 7.40f)),
+        };
+        Assert.False(portal.TryGetDestinationIntersecting(near, out _));
+
+        var through = new WorldAabb(
+            new Vector3(7.1f, 7.1f, 7.1f),
+            new Vector3(7.9f, 7.9f, 7.9f));
+        Assert.True(portal.TryGetDestinationIntersecting(through, out var target));
+        Assert.Equal("asteria:umbral", target);
+    }
+
+    [Fact]
+    public void OverlappingDifferentPortalTargetsNeverChooseAnArbitrarySphere()
+    {
+        var (portal, _, mutations, blocks) = Fixture();
+        PlaceOrientedPortal(mutations, blocks,
+            new WorldVoxelCoord(3, 4, 5), BlockOrientation.Z,
+            "asteria:umbral");
+        PlaceOrientedPortal(mutations, blocks,
+            new WorldVoxelCoord(4, 4, 5), BlockOrientation.Z,
+            "asteria:overworld");
+
+        var overlap = new WorldAabb(
+            new Vector3(3.6f, 4.0f, 5.46f),
+            new Vector3(4.3f, 5.7f, 5.56f));
+        Assert.False(portal.TryGetDestinationIntersecting(overlap, out var target));
+        Assert.Empty(target);
+
+        var firstOnly = new WorldAabb(
+            new Vector3(3.05f, 4.0f, 5.46f),
+            new Vector3(3.75f, 5.7f, 5.56f));
+        Assert.True(portal.TryGetDestinationIntersecting(firstOnly, out target));
+        Assert.Equal("asteria:umbral", target);
+    }
+
+    [Fact]
+    public void ContactQueryIsBoundedAndRejectsDegenerateBounds()
+    {
+        var (portal, _, _, _) = Fixture();
+        Assert.False(portal.TryGetDestinationIntersecting(new WorldAabb(
+            new Vector3(0f, 0f, 0f), new Vector3(0f, 1f, 1f)), out _));
+        Assert.False(portal.TryGetDestinationIntersecting(new WorldAabb(
+            new Vector3(0f, 0f, 0f), new Vector3(10000f, 1f, 1f)), out _));
+        Assert.False(portal.TryGetDestinationIntersecting(new WorldAabb(
+            new Vector3(0f, -1f, 0f), new Vector3(1f, 1f, 1f)), out _));
+    }
+
+
 }
