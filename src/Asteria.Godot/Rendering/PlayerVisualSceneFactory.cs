@@ -119,12 +119,11 @@ internal static class PlayerVisualSceneFactory
         AlbedoTexture = skin,
         ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
         TextureFilter = BaseMaterial3D.TextureFilterEnum.Nearest,
-        // The source MineClone player GLB authors alphaMode=MASK with no
-        // alphaCutoff (glTF default 0.5) and doubleSided=true. Godot's
-        // imported BaseMaterial3D does not reproduce all three properties
-        // as-is, so enforce the source contract on every skin/outer layer.
+        // The original MineClone player GLB authors alphaMode=MASK,
+        // alphaCutoff=0.1 and doubleSided=true. Keep its actual skin cutout
+        // while rendering both sides of each cuboid, including outer layers.
         Transparency = BaseMaterial3D.TransparencyEnum.AlphaScissor,
-        AlphaScissorThreshold = 0.5f,
+        AlphaScissorThreshold = 0.1f,
         CullMode = BaseMaterial3D.CullModeEnum.Disabled,
     };
 
