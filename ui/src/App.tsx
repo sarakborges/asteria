@@ -278,6 +278,8 @@ export function App({
             error={
               state.worldCatalog.deleteError
                 ? t("worldSelection.deleteError")
+                : state.worldCatalog.loadError
+                ? t("worldSelection.loadError")
                 : state.worldCatalog.status === "error"
                 ? t("worldSelection.scanError")
                 : state.worldCatalog.folderError

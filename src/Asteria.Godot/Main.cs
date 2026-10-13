@@ -1430,35 +1430,49 @@ public partial class Main : Node3D
                         BeginWorldCatalogScan();
                     break;
                 case "ui.world.catalog.load":
-                    if (_worldSeed is null && !_worldDelete.IsBusy &&
-                        TryReadWorldCatalogId(document.RootElement, out var savedId))
+                    if (_worldSeed is not null || _worldDelete.IsBusy ||
+                        _worldLoad.IsBusy || _worldCatalog.IsBusy ||
+                        !TryReadWorldCatalogId(document.RootElement, out var savedId))
                     {
-                        try
-                        {
-                            if (_worldLoad.Begin(savedId))
-                                SendWebUi("game.world_catalog", new { status = "verifying" });
-                        }
-                        catch (ArgumentException error)
-                        {
-                            SendWebUi("game.world_catalog.load_error", new { error = error.Message });
-                        }
+                        SendWebUi("game.world_catalog.load_error",
+                            new { error = "World load request is unavailable." });
+                        break;
+                    }
+                    try
+                    {
+                        if (_worldLoad.Begin(savedId))
+                            SendWebUi("game.world_catalog", new { status = "verifying" });
+                        else
+                            SendWebUi("game.world_catalog.load_error",
+                                new { error = "A world load is already running." });
+                    }
+                    catch (ArgumentException error)
+                    {
+                        SendWebUi("game.world_catalog.load_error",
+                            new { error = error.Message });
                     }
                     break;
                 case "ui.world.catalog.recreate":
-                    if (_worldSeed is null && !_worldDelete.IsBusy &&
-                        !_worldCatalog.IsBusy &&
-                        TryReadWorldCatalogId(document.RootElement, out var recreateId))
+                    if (_worldSeed is not null || _worldDelete.IsBusy ||
+                        _worldLoad.IsBusy || _worldCatalog.IsBusy ||
+                        !TryReadWorldCatalogId(document.RootElement, out var recreateId))
                     {
-                        try
-                        {
-                            if (_worldLoad.BeginRecreation(recreateId))
-                                SendWebUi("game.world_catalog", new { status = "verifying" });
-                        }
-                        catch (ArgumentException error)
-                        {
+                        SendWebUi("game.world_catalog.load_error",
+                            new { error = "World recreation request is unavailable." });
+                        break;
+                    }
+                    try
+                    {
+                        if (_worldLoad.BeginRecreation(recreateId))
+                            SendWebUi("game.world_catalog", new { status = "verifying" });
+                        else
                             SendWebUi("game.world_catalog.load_error",
-                                new { error = error.Message });
-                        }
+                                new { error = "A world load is already running." });
+                    }
+                    catch (ArgumentException error)
+                    {
+                        SendWebUi("game.world_catalog.load_error",
+                            new { error = error.Message });
                     }
                     break;
                 case "ui.world.catalog.delete":

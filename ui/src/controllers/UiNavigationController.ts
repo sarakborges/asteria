@@ -84,6 +84,14 @@ export function createUiNavigationController(
 
   return {
     openWorldSelection() {
+      // Explicitly reentering the catalog clears operation feedback from a
+      // previous visit. Automatic native rescans must not clear it.
+      store.update(state => ({
+        ...state,
+        worldCatalog: {
+          ...state.worldCatalog, loadError: false, deleteError: false,
+        },
+      }));
       setPreWorldScreen("world-selection");
       postMessage("ui.world.catalog.refresh");
     },
