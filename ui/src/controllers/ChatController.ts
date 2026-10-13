@@ -143,8 +143,10 @@ function readCatalog(value: unknown): ChatCompletionCatalog | null {
   const creatures = readStringArray(catalog.creatures);
   const biomes = readStringArray(catalog.biomes);
   const structures = readStringArray(catalog.structures);
+  const locatableStructures = readStringArray(catalog.locatableStructures);
   const dimensions = readStringArray(catalog.dimensions, 64);
-  if (!creatures || !biomes || !structures || !dimensions ||
+  if (!creatures || !biomes || !structures || !locatableStructures ||
+      !locatableStructures.every(id => structures.includes(id)) || !dimensions ||
       !Array.isArray(catalog.variations) || catalog.variations.length > 256)
     return null;
 
@@ -168,7 +170,7 @@ function readCatalog(value: unknown): ChatCompletionCatalog | null {
         Number.isSafeInteger(position[axis]))))
     return null;
   return {
-    creatures, biomes, structures, dimensions, variations,
+    creatures, biomes, structures, locatableStructures, dimensions, variations,
     position: position === null ? null : {
       x: position.x as number, y: position.y as number, z: position.z as number,
     },

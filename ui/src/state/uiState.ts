@@ -309,6 +309,7 @@ export type ChatCompletionCatalog = {
   creatures: readonly string[];
   biomes: readonly string[];
   structures: readonly string[];
+  locatableStructures: readonly string[];
   variations: Readonly<Record<string, readonly string[]>>;
   dimensions: readonly string[];
   position: { x: number; y: number; z: number } | null;
@@ -380,7 +381,7 @@ export function createInitialUiState(
     chat: {
       open: false, visible: false, focusRequest: 0, history: [], commands: [],
       catalog: {
-        creatures: [], biomes: [], structures: [], variations: {},
+        creatures: [], biomes: [], structures: [], locatableStructures: [], variations: {},
         dimensions: [], position: null,
       },
     },

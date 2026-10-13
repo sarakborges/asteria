@@ -3780,6 +3780,11 @@ public partial class Main : Node3D
 
     private void SendChatState()
     {
+        var generator = _worldSeed is null ? null : _sessions.Active.Generator;
+        var structureCandidates = ChatStructureCompletionCatalog.Create(
+            _structures, _structureSets,
+            generator is null ? null : generator.HasGeneratedSurfaceStructure);
+
         SendWebUi("game.chat.state", new
         {
             open = _chat.IsOpen,
@@ -3803,11 +3808,8 @@ public partial class Main : Node3D
                     ? Array.Empty<string>()
                     : _dimension.SurfaceBiomes.OrderBy(id => id, StringComparer.Ordinal)
                         .Take(512).ToArray(),
-                structures = _structures.Definitions()
-                    .Select(definition => definition.GroupReference ?? definition.Id)
-                    .Concat(_structureSets.Definitions().Select(definition => definition.Id))
-                    .Distinct(StringComparer.Ordinal)
-                    .OrderBy(id => id, StringComparer.Ordinal).Take(512).ToArray(),
+                structures = structureCandidates.Structures,
+                locatableStructures = structureCandidates.LocatableStructures,
                 variations = _structures.Definitions()
                     .Where(definition => definition.GroupReference is not null)
                     .GroupBy(definition => definition.GroupReference!, StringComparer.Ordinal)

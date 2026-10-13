@@ -17,6 +17,7 @@ const openChat: BridgeMessage = {
       creatures: [],
       biomes: [],
       structures: [],
+      locatableStructures: [],
       dimensions: [],
       variations: [],
       position: null,

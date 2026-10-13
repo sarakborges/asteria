@@ -91,7 +91,7 @@ export function suggestChatArguments(
           ? matching(LOCATE_KINDS, prefix, descriptor("locateKind"))
           : index === 2
             ? matching(first === "biome" ? catalog.biomes :
-                first === "structure" ? catalog.structures : [],
+                first === "structure" ? catalog.locatableStructures : [],
                 prefix, descriptor(first === "biome" ? "biome" : "structure"),
                 first === "biome" ? contentName : undefined)
             : index === 3 && first === "structure"

@@ -15,6 +15,7 @@ const meta = {
       creatures: ["asteria:slime_aqua", "asteria:slime_pyro"],
       biomes: ["asteria:overworld/plains", "asteria:overworld/desert"],
       structures: ["asteria:village", "asteria:ruins"],
+      locatableStructures: ["asteria:village"],
       variations: { "asteria:ruins": ["asteria:ruins/a", "asteria:ruins/b"] },
       dimensions: ["asteria:overworld", "asteria:umbral"],
       position: { x: 12, z: -35, y: 68 },
