@@ -94,6 +94,14 @@ func set_native_key_capture(active: bool) -> void:
 	_native_key_capture = active
 	call_deferred("_restore_keyboard_focus")
 
+func set_inventory_modal(open: bool) -> void:
+	# An open inventory is a focused WebUI surface. Keep keyboard/mouse
+	# events in WRY until the modal closes: otherwise one inventory shortcut
+	# reaches both React and Godot and can close then immediately reopen it.
+	if _webview != null:
+		_webview.set("forward_input_events", not open)
+	call_deferred("_restore_keyboard_focus")
+
 func focus_chat_input() -> void:
 	# The capture-loss handler also queues a focus handoff. Complete that
 	# handoff first so the chat field is not focused while Godot still owns
