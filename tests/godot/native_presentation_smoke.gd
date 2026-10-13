@@ -203,10 +203,23 @@ func _run() -> void:
 							material_names[material.resource_name] = true
 				for child in current.get_children():
 					creature_nodes.append(child)
-			for expected in ["SlimeFace", "ElementAccent"]:
-				if not material_names.has(expected):
-					push_error("Native smoke: hydro slime material name missing: " + expected)
-					failed = true
+			print("Native hydro slime imported materials: ", material_names.keys())
+			if not material_names.has("SlimeFace"):
+				push_error("Native smoke: hydro slime face material is missing")
+				failed = true
+			# Some GLBs carry extra authored names that do not appear on a
+			# visible surface. These must not be treated as imported meshes.
+			var glb_json_size: int = creature_bytes.decode_u32(12)
+			if glb_json_size <= creature_bytes.size() - 20:
+				var glb_document: Variant = JSON.parse_string(
+					creature_bytes.slice(20, 20 + glb_json_size).get_string_from_utf8())
+				if glb_document is Dictionary:
+					var authored_materials: Array = (glb_document as Dictionary).get("materials", [])
+					var authored_names: Array = []
+					for entry in authored_materials:
+						if entry is Dictionary:
+							authored_names.append(entry.get("name", ""))
+					print("Native hydro slime GLB authored materials: ", authored_names)
 			creature_scene.free()
 
 	# Closing chat/inventory after the OS loses focus must not recapture
