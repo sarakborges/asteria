@@ -195,8 +195,31 @@ export function App({
         />
       )}
 
-      {preWorldVisible && (
-        <ScreenTransition screenKey={state.navigation.preWorldScreen}>
+      {!preWorldVisible && !state.loading && state.navigation.death && (
+        <DeathScreenPage
+          keepInventory={state.navigation.death.keepInventory}
+          droppedStacks={state.navigation.death.droppedStacks}
+          dropCapacityExceeded={state.navigation.death.dropCapacityExceeded}
+          outcomeKnown={state.navigation.death.outcomeKnown}
+          saveError={state.navigation.saveFeedback === "error"}
+          onRespawn={actions.respawn}
+          onSaveAndLeave={actions.leaveWorld}
+        />
+      )}
+
+      {/* Keep one transition instance alive across pause, settings and controls.
+          Do not intercept gameplay resume, inventory/chat, or native ESC. */}
+      {(preWorldVisible || state.navigation.overlay === "pause" ||
+        state.navigation.overlay === "game" ||
+        state.navigation.overlay === "world" ||
+        state.navigation.overlay === "controls") && (
+        <ScreenTransition screenKey={
+          state.navigation.overlay === "none"
+            ? `preworld:${state.navigation.preWorldScreen}`
+            : `menu:${state.navigation.overlay}`
+        }>
+          {preWorldVisible && state.navigation.overlay === "none" && (
+            <>
           {state.navigation.preWorldScreen === "starting" && (
           <StartingScreenPage
             onPlay={actions.openWorldSelection}
@@ -256,20 +279,8 @@ export function App({
           />
         )}
 
-        </ScreenTransition>
-      )}
-
-      {!preWorldVisible && !state.loading && state.navigation.death && (
-        <DeathScreenPage
-          keepInventory={state.navigation.death.keepInventory}
-          droppedStacks={state.navigation.death.droppedStacks}
-          dropCapacityExceeded={state.navigation.death.dropCapacityExceeded}
-          outcomeKnown={state.navigation.death.outcomeKnown}
-          saveError={state.navigation.saveFeedback === "error"}
-          onRespawn={actions.respawn}
-          onSaveAndLeave={actions.leaveWorld}
-        />
-      )}
+            </>
+          )}
 
       {!preWorldVisible && !state.navigation.death &&
         state.navigation.overlay === "pause" && (
@@ -326,6 +337,9 @@ export function App({
             }}
           />
         </div>
+      )}
+
+        </ScreenTransition>
       )}
 
       {!preWorldVisible && state.navigation.overlay === "brush" && (
