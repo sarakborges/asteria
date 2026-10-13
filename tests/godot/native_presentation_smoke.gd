@@ -117,9 +117,9 @@ func _run() -> void:
 				imported.free()
 	model_root.free()
 
-	# The imported player GLB authors MASK alpha with the glTF default 0.5
-	# cutoff and double-sided cuboids. UV remapping must not discard that
-	# policy when replacing its texture in the C# presentation factory.
+	# Godot's GLTFDocument material conversion can change the original
+	# mask/culling semantics. The player presentation explicitly applies the
+	# source glTF contract, which must stay stable across art updates.
 	var player_path := ProjectSettings.globalize_path(
 		"res://packs/default/resources/models/entities/player/player.glb")
 	var player_bytes := FileAccess.get_file_as_bytes(player_path)
@@ -146,12 +146,31 @@ func _run() -> void:
 			if skin_material == null:
 				push_error("Native smoke: imported player skin material is missing")
 				failed = true
-			elif (skin_material.transparency != BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
-				or skin_material.cull_mode != BaseMaterial3D.CULL_DISABLED
-				or not is_equal_approx(skin_material.alpha_scissor_threshold, 0.5)):
-				push_error("Native smoke: imported player skin alpha/double-sided policy drifted")
-				failed = true
 			player_scene.free()
+		# The first glTF material is shared by every player body cuboid.
+		# glTF defaults alphaCutoff to 0.5 when alphaMode is MASK.
+		var chunk_size: int = player_bytes.decode_u32(12)
+		if chunk_size > player_bytes.size() - 20:
+			push_error("Native smoke: player GLB JSON chunk is truncated")
+			failed = true
+		else:
+			var gltf_json := JSON.parse_string(
+				player_bytes.slice(20, 20 + chunk_size).get_string_from_utf8())
+			if not gltf_json is Dictionary:
+				push_error("Native smoke: player GLB JSON is invalid")
+				failed = true
+			else:
+				var materials: Array = gltf_json.get("materials", [])
+				if materials.is_empty() or not materials[0] is Dictionary:
+					push_error("Native smoke: player GLB material missing")
+					failed = true
+				else:
+					var material: Dictionary = materials[0]
+					if (material.get("alphaMode", "OPAQUE") != "MASK"
+						or material.get("doubleSided", false) != true
+						or not is_equal_approx(float(material.get("alphaCutoff", 0.5)), 0.5)):
+						push_error("Native smoke: player GLB alpha/double-sided policy drifted")
+						failed = true
 
 	# Closing chat/inventory after the OS loses focus must not recapture
 	# mouse input. A detached player represents a windowless lifecycle and
