@@ -17,7 +17,8 @@ export function NumericStepper({
 }: NumericStepperProps) {
   const valid = readValidInteger(value, min, max);
   const step = (direction: -1 | 1) => {
-    const base = valid ?? min;
+    // Invalid/empty drafts step to the lower bound, not min + 1.
+    const base = valid ?? (direction === 1 ? min - 1 : min + 1);
     const next = Math.min(max, Math.max(min, base + direction));
     onChange(String(next));
     onCommit?.(next);
