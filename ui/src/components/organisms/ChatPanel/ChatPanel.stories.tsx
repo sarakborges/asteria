@@ -73,6 +73,27 @@ export const SuggestionWindow: Story = {
 
 export const Hidden: Story = { args: { visible: false } };
 
+function GrowingHistory() {
+  const [history, setHistory] = useState(
+    Array.from({ length: 64 }, (_, index) => ({
+      id: String(index), text: "Message " + index,
+    })),
+  );
+  return (
+    <>
+      <button type="button" onClick={() => setHistory(current => [
+        ...current, { id: String(current.length), text: "Message " + current.length },
+      ])}>Append chat message</button>
+      <ChatPanel open={false} visible history={history} draft="" />
+    </>
+  );
+}
+
+export const GrowingHistoryScroll: Story = {
+  render: () => <GrowingHistory />,
+};
+
+
 function ChatFocusFlow() {
   const [open, setOpen] = useState(false);
   const [focusRequest, setFocusRequest] = useState(0);

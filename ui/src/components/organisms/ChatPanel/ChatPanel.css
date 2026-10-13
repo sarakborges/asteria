@@ -15,13 +15,19 @@
 }
 
 .chat-panel__history {
+  /* Keep the transcript compact while allowing up to 15 visible lines.
+     The shared measured scrollbar owns overflow and pointer interactions. */
+  height: auto;
   max-height: 330px;
-  scrollbar-width: thin;
-  scrollbar-color: var(--ui-color-border) transparent;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
+}
+
+.chat-panel__history .ui-scroll-area__viewport {
+  height: auto;
+  max-height: 330px;
+}
+
+.chat-panel__history-messages {
+  min-height: 0;
 }
 
 .chat-panel__message {

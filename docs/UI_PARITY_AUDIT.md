@@ -70,7 +70,7 @@ Statuses: **MATCHING FOUNDATION** (main geometry or semantics correspond, manual
 | `dropdown.rs` | `atoms/Dropdown` | PARTIAL: settings uses custom panel; starting language still uses native `Select` |
 | `numeric_input.rs` | `atoms/NumericInput`, `molecules/NumericStepper` | PARTIAL: tick-rate editor covered; seed uses generic `TextInput`; uint64 seed needs string-safe validation |
 | `screen.rs` | `templates/ScreenShell` | MATCHING FOUNDATION (1120 px content; 116/104 px header/footer) |
-| `scrollbar.rs` | `molecules/ScrollArea` | PARTIAL: Settings, World Selection and Controls now share measured scrollbars, with keyboard/wheel/track tests; Chat and Creative catalog/category still need comparison and migration where appropriate |
+| `scrollbar.rs` | `molecules/ScrollArea` | **SHARED WEBUI SCROLLING; NATIVE QA PENDING:** Settings, World Selection, Controls, Chat history and both Creative category/catalog lists use the same measured viewport/track/thumb. Chat preserves bottom-follow only for readers at the bottom. Creative retains bounded scroll offsets per category/search and tab remount. Browser regressions cover scroll/restore; actual Godot/WRY visuals remain unverified. |
 | `selectable.rs` | Selection CSS in `Button`, slots, recipe/category panels | PARTIAL: multiple independent hover/active/pressed treatments; ensure all follow MineClone token-state mapping |
 | `settings.rs` | `SettingRow`, `SettingsPage`, tokens | MATCHING FOUNDATION |
 | `slider.rs` | `atoms/Slider` | MATCHING FOUNDATION; check focus, step and value display |
