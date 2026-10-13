@@ -169,11 +169,11 @@ public sealed class VerticalBiomeContentTests
                 new SurfacePlacementContext(70, 0), verticalY: 70));
             if (!caveAt.IsAir || caveObject is not null) sightings++;
 
-            var islandAt = field.BlockAt(islandSample, grassBlock, x, z,
+            var islandAt = field.ObjectAt(islandSample, grassBlock, x, z,
                 new SurfacePlacementContext(240, 0), verticalY:240);
-            var higher = field.BlockAt(islandSample, grassBlock, x, z,
+            var higher = field.ObjectAt(islandSample, grassBlock, x, z,
                 new SurfacePlacementContext(241, 0), verticalY:241);
-            if (!islandAt.IsAir) islandSightings++;
+            if (islandAt is not null) islandSightings++;
             if (islandAt != higher) variationAcrossY++;
             // Following removal of the redundant block crystal, island
             // ground vegetation must not turn stone into another block.
