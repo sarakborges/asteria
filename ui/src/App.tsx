@@ -133,25 +133,25 @@ export function App({
 
   const handleUiKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if ((state.navigation.death && !state.navigation.exitConfirmation) ||
-        event.defaultPrevented || event.repeat ||
-        event.nativeEvent.isComposing || !uiVisible) return;
+        !uiVisible) return;
 
-    // Godot WRY forwards DOM keydown to the native viewport via a document
-    // listener. Stop that forwarding for the inventory shortcut even while
-    // editing text: otherwise typing the bound key closes the inventory via
-    // Godot, or a close action gets processed twice.
+    // WRY forwards document-level keydown to Godot. Stop every inventory
+    // shortcut event before that listener, including auto-repeat and typing
+    // in a focused editor. Only the initial non-editor press closes the modal.
     if (state.navigation.overlay === "inventory" &&
         event.code === (state.settings.client?.keybinds.inventory ?? "KeyE")) {
       event.stopPropagation();
-      if (event.target instanceof Element && event.target.closest(
-          "input, textarea, select, [contenteditable='true']"))
-        return;
+      if (event.defaultPrevented || event.repeat ||
+          event.nativeEvent.isComposing ||
+          (event.target instanceof Element && event.target.closest(
+            "input, textarea, select, [contenteditable='true']"))) return;
       actions.closeInventory();
       event.preventDefault();
       return;
     }
 
-    if (event.key !== "Escape") return;
+    if (event.defaultPrevented || event.repeat ||
+        event.nativeEvent.isComposing || event.key !== "Escape") return;
     navigateEscape();
     event.preventDefault();
     event.stopPropagation();
@@ -163,19 +163,20 @@ export function App({
   useEffect(() => {
     const onWindowKeyDown = (event: globalThis.KeyboardEvent) => {
       if ((state.navigation.death && !state.navigation.exitConfirmation) ||
-          event.defaultPrevented || event.repeat || event.isComposing ||
           !uiVisible) return;
       const inUiSurface = event.target instanceof Node &&
         Boolean(interactionRoot.current?.contains(event.target));
       if (state.navigation.overlay === "inventory" &&
           !inUiSurface &&
           event.code === (state.settings.client?.keybinds.inventory ?? "KeyE")) {
+        event.stopPropagation();
+        if (event.defaultPrevented || event.repeat || event.isComposing) return;
         actions.closeInventory();
         event.preventDefault();
-        event.stopPropagation();
         return;
       }
-      if (event.key !== "Escape" ||
+      if (event.defaultPrevented || event.repeat || event.isComposing ||
+          event.key !== "Escape" ||
           (state.navigation.overlay !== "pause" && inUiSurface)) return;
       navigateEscape();
       event.preventDefault();
