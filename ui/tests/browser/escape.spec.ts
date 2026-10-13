@@ -57,12 +57,17 @@ test("Escape closes inventory through the same injected semantic action as its C
   await expect(page.locator(".inventory-gameplay")).toHaveCount(0);
 });
 
-test("Inventory key closes the WebUI modal without waiting for Godot focus", async ({ page }) => {
+test("Inventory shortcut closes without being forwarded to Godot by WRY", async ({ page }) => {
   await page.goto(story("inventory-navigation"));
   await expect(page.locator(".inventory-gameplay")).toBeVisible();
+  // WRY's native forwarding listener is installed on document (bubble phase).
+  await page.evaluate(() => document.addEventListener("keydown", event => {
+    if (event.code === "KeyE") document.body.dataset.wryForwarded = "true";
+  }));
 
   await page.keyboard.press("e");
   await expect(page.locator(".inventory-gameplay")).toHaveCount(0);
+  await expect(page.locator("body")).not.toHaveAttribute("data-wry-forwarded", "true");
 });
 
 test("Inventory key closes even if WRY leaves DOM focus on body", async ({ page }) => {
@@ -78,19 +83,24 @@ test("Inventory key closes even if WRY leaves DOM focus on body", async ({ page 
   await expect(page.locator(".inventory-gameplay")).toHaveCount(0);
 });
 
-test("Inventory key types in search and closes after leaving the editor", async ({ page }) => {
+test("Inventory shortcut types in search without forwarding to Godot", async ({ page }) => {
   await page.goto(story("inventory-navigation"));
   const inventory = page.locator(".inventory-gameplay");
   const search = inventory.locator(".player-inventory-panel input");
+  await page.evaluate(() => document.addEventListener("keydown", event => {
+    if (event.code === "KeyE") document.body.dataset.wryForwarded = "true";
+  }));
 
   await search.click();
   await search.press("e");
   await expect(search).toHaveValue("e");
   await expect(inventory).toBeVisible();
+  await expect(page.locator("body")).not.toHaveAttribute("data-wry-forwarded", "true");
 
   await inventory.locator(".inventory-panel-header__sort").click();
   await page.keyboard.press("e");
   await expect(inventory).toHaveCount(0);
+  await expect(page.locator("body")).not.toHaveAttribute("data-wry-forwarded", "true");
 });
 
 test("Escape dismisses a focused dropdown before it navigates away", async ({ page }) => {
