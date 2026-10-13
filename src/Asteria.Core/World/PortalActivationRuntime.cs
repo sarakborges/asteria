@@ -1,3 +1,5 @@
+using System.Numerics;
+
 namespace Asteria.Core.World;
 
 /// <summary>
@@ -23,6 +25,7 @@ public sealed class PortalActivationRuntime
     private readonly BlockRegistry _blocks;
     private readonly VoxelMutationRuntime _mutations;
     private readonly BlockRuntimeId _portalBlock;
+    private readonly float _portalThickness;
     private readonly HashSet<string> _validTargets = new(StringComparer.Ordinal);
 
     private enum CellKind : byte { Frame, Empty, Blocked }
@@ -48,6 +51,7 @@ public sealed class PortalActivationRuntime
 
         _portalBlock = blocks.GetId(PortalBlockId);
         var portal = blocks.GetDefinition(_portalBlock);
+        _portalThickness = portal.Shape.Thickness;
         if (!portal.Shape.IsCenteredLayer || portal.IsCollidable ||
             portal.LightDampening != 0 ||
             !portal.Orientations.Contains(BlockOrientation.X) ||
@@ -153,6 +157,83 @@ public sealed class PortalActivationRuntime
             return false;
         destination = target;
         return true;
+    }
+
+    /// <summary>
+    /// Finds a centered, oriented portal plane actually intersecting the
+    /// player's collider, not merely a voxel at their feet or head center.
+    /// This samples at most 64 nearby cells and never activates from a
+    /// neighboring voxel if the thin portal plane itself was not touched.
+    /// Ambiguous overlap between destinations fails closed.
+    /// </summary>
+    public bool TryGetDestinationIntersecting(
+        WorldAabb playerBounds, out string destination)
+    {
+        destination = string.Empty;
+        var low = playerBounds.Minimum;
+        var high = playerBounds.Maximum;
+        var size = high - low;
+        if (size.X <= 0f || size.Y <= 0f || size.Z <= 0f ||
+            size.X > 3f || size.Y > 3f || size.Z > 3f ||
+            low.X <= int.MinValue + 1 || low.Y < 0f ||
+            low.Z <= int.MinValue + 1 ||
+            high.X >= int.MaxValue - 1 ||
+            high.Y >= int.MaxValue - 1 ||
+            high.Z >= int.MaxValue - 1)
+            return false;
+
+        var minX = (int)MathF.Floor(low.X);
+        var minY = (int)MathF.Floor(low.Y);
+        var minZ = (int)MathF.Floor(low.Z);
+        var maxX = (int)MathF.Ceiling(high.X) - 1;
+        var maxY = (int)MathF.Ceiling(high.Y) - 1;
+        var maxZ = (int)MathF.Ceiling(high.Z) - 1;
+        // A 3-block extent can cross up to four voxel coordinates per
+        // axis, so never inspect an unbounded world region.
+        if ((long)(maxX - minX + 1) *
+            (maxY - minY + 1) * (maxZ - minZ + 1) > 64)
+            return false;
+
+        var half = _portalThickness * 0.5f;
+        for (var y = minY; y <= maxY; y++)
+        for (var z = minZ; z <= maxZ; z++)
+        for (var x = minX; x <= maxX; x++)
+        {
+            var at = new WorldVoxelCoord(x, y, z);
+            if (!TryGetDestinationAt(at, out var target))
+                continue;
+
+            var minimum = new Vector3(x, y, z);
+            var maximum = minimum + Vector3.One;
+            switch (_world.GetCellOrEmpty(at).Orientation)
+            {
+                case BlockOrientation.X:
+                    minimum.X += 0.5f - half;
+                    maximum.X -= 0.5f - half;
+                    break;
+                case BlockOrientation.Y:
+                    minimum.Y += 0.5f - half;
+                    maximum.Y -= 0.5f - half;
+                    break;
+                case BlockOrientation.Z:
+                    minimum.Z += 0.5f - half;
+                    maximum.Z -= 0.5f - half;
+                    break;
+                default:
+                    continue;
+            }
+
+            if (!playerBounds.Intersects(new WorldAabb(minimum, maximum)))
+                continue;
+            if (destination.Length > 0 &&
+                !StringComparer.Ordinal.Equals(destination, target))
+            {
+                destination = string.Empty;
+                return false;
+            }
+            destination = target;
+        }
+        return destination.Length > 0;
     }
 
     /// <summary>
