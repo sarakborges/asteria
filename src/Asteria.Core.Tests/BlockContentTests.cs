@@ -4,6 +4,54 @@ namespace Asteria.Core.Tests;
 
 public sealed class BlockContentTests
 {
+
+    [Fact]
+    public void DefaultPackVisualReferencesResolveToFiles()
+    {
+        var pack = Path.Combine(AppContext.BaseDirectory, "packs", "default");
+        var data = Path.Combine(pack, "data");
+        var resources = Path.Combine(pack, "resources");
+        var missing = new List<string>();
+
+        foreach (var file in Directory.EnumerateFiles(
+                     data, "*.json", SearchOption.AllDirectories)
+                 .OrderBy(path => path, StringComparer.Ordinal))
+        {
+            using var document =
+                System.Text.Json.JsonDocument.Parse(File.ReadAllText(file));
+            Check(document.RootElement, file);
+        }
+
+        Assert.True(missing.Count == 0,
+            "Missing pack-owned resources:\n" + string.Join("\n", missing));
+
+        void Check(System.Text.Json.JsonElement node, string file)
+        {
+            switch (node.ValueKind)
+            {
+                case System.Text.Json.JsonValueKind.Object:
+                    foreach (var property in node.EnumerateObject())
+                        Check(property.Value, file);
+                    break;
+                case System.Text.Json.JsonValueKind.Array:
+                    foreach (var value in node.EnumerateArray())
+                        Check(value, file);
+                    break;
+                case System.Text.Json.JsonValueKind.String:
+                    var path = node.GetString()!;
+                    if (!path.StartsWith("textures/", StringComparison.Ordinal) &&
+                        !path.StartsWith("models/", StringComparison.Ordinal))
+                        break;
+
+                    var fullPath = Path.Combine(
+                        resources, path.Replace('/', Path.DirectorySeparatorChar));
+                    if (!File.Exists(fullPath))
+                        missing.Add(Path.GetRelativePath(pack, file) + " -> " + path);
+                    break;
+            }
+        }
+    }
+
     [Fact]
     public void BaseBlockCatalogLoadsWithWorldRebuildSemantics()
     {
