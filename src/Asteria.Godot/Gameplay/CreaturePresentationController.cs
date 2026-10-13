@@ -15,6 +15,8 @@ public sealed class CreaturePresentationController
     private readonly Node3D _root;
     private readonly PackSelection _selection;
     private readonly PackContentRegistry<CreatureDefinition> _definitions;
+    // Template materials are species-specific even if multiple species share
+    // the same authored GLB path. Both world visuals and portraits use these.
     private readonly Dictionary<string, Node3D> _models = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Texture2D> _textures = new(StringComparer.Ordinal);
     private readonly SortedDictionary<ulong, AnimatableBody3D> _instances = [];
@@ -126,7 +128,7 @@ public sealed class CreaturePresentationController
 
     private Node3D CreateModel(CreatureDefinition definition)
     {
-        if (!_models.TryGetValue(definition.Model, out var template))
+        if (!_models.TryGetValue(definition.Id, out var template))
         {
             var path = ProjectPackFiles.AbsoluteResourcePath(
                 _selection, definition.Model);
@@ -143,7 +145,7 @@ public sealed class CreaturePresentationController
                 throw new InvalidDataException(
                     $"Creature model {definition.Model} did not produce a Node3D root.");
             ApplyTextures(template, definition);
-            _models.Add(definition.Model, template);
+            _models.Add(definition.Id, template);
         }
 
         var model = template.Duplicate() as Node3D ??
@@ -163,19 +165,30 @@ public sealed class CreaturePresentationController
                 if (mesh.Mesh.SurfaceGetMaterial(index) is not BaseMaterial3D material)
                     continue;
 
-                if (!definition.Textures.TryGetValue(material.ResourceName, out var relativePath))
+                var appearance = CreatureMaterialAppearance.For(
+                    definition, material.ResourceName);
+                if (!appearance.HasOverrides)
                     continue;
 
-                if (!_textures.TryGetValue(relativePath, out var texture))
-                {
-                    texture = ProjectPackFiles.LoadTexture(_selection, relativePath);
-                    _textures.Add(relativePath, texture);
-                }
-
+                // Never mutate the imported GLB's shared material: one scene
+                // may be instantiated for different species and portraits.
                 var copy = material.Duplicate() as BaseMaterial3D ??
                     throw new InvalidOperationException("Cannot duplicate creature material.");
-                copy.AlbedoTexture = texture;
-                if (definition.UnlitMaterials.Contains(material.ResourceName))
+                if (appearance.TexturePath is { } relativePath)
+                {
+                    if (!_textures.TryGetValue(relativePath, out var texture))
+                    {
+                        texture = ProjectPackFiles.LoadTexture(_selection, relativePath);
+                        _textures.Add(relativePath, texture);
+                    }
+                    copy.AlbedoTexture = texture;
+                }
+
+                // Match MineClone's matte override treatment. A material may
+                // request unlit without requesting a texture replacement.
+                copy.Metallic = 0f;
+                copy.Roughness = 1f;
+                if (appearance.Unlit)
                     copy.ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded;
                 mesh.SetSurfaceOverrideMaterial(index, copy);
             }
