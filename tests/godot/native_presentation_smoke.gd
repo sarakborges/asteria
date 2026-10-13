@@ -169,7 +169,7 @@ func _run() -> void:
 					if (material.get("alphaMode", "OPAQUE") != "MASK"
 						or material.get("doubleSided", false) != true
 						or not is_equal_approx(float(material.get("alphaCutoff", 0.5)), 0.5)):
-						push_error("Native smoke: player GLB alpha/double-sided policy drifted")
+						push_error("Native smoke: player GLB alpha/double-sided policy drifted: " + JSON.stringify(material))
 						failed = true
 
 	# Closing chat/inventory after the OS loses focus must not recapture
