@@ -372,6 +372,7 @@
   "inventory.close": "Close",
   "inventory.cursor": "Cursor",
   "inventory.cursor.help": "Click a slot to place, merge or swap.",
+  "inventory.error.dropsFull": "Too many dropped items nearby. Cursor item was kept.",
   "inventory.error.full": "Inventory full. Place or discard the cursor stack before closing.",
   "inventory.error.invalid": "Invalid inventory operation.",
   "hud.miningProgress": "Block mining progress",

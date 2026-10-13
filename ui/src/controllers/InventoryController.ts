@@ -90,6 +90,11 @@ export function createInventoryController(
     },
     sort() { post("ui.inventory.sort"); },
     discardCursor() { post("ui.inventory.discard_cursor"); },
+    dropCursor() {
+      const inventory = store.getSnapshot().inventory;
+      if (inventory.open && inventory.cursor)
+        post("ui.inventory.drop_cursor");
+    },
     craft(recipeId: string) {
       if (!recipeId || !store.getSnapshot().inventory.open) return;
       post("ui.inventory.craft", { recipeId });
@@ -173,6 +178,8 @@ export function createInventoryController(
       } else if (message.type === "game.inventory.error") {
         const errorKey = payload?.code === "InventoryFull"
           ? "inventory.error.full"
+          : payload?.code === "DropCapacityExceeded"
+            ? "inventory.error.dropsFull"
           : "inventory.error.invalid";
         store.update(state => ({
           ...state,

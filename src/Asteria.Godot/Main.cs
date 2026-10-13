@@ -1591,6 +1591,9 @@ public partial class Main : Node3D
                         _inventoryOpen && _sessionStates.Player.Inventory.DiscardCursor())
                         SendInventoryState();
                     break;
+                case "ui.inventory.drop_cursor":
+                    DropInventoryCursor();
+                    break;
                 case "ui.inventory.creative_pick":
                     HandleCreativePick(document.RootElement);
                     break;
@@ -4063,6 +4066,34 @@ public partial class Main : Node3D
         SendInventoryState();
     }
 
+    private (NVector3 Position, NVector3 Velocity) PlayerDropLaunch()
+    {
+        var ray = _player!.GetInteractionRay(2f);
+        var direction = (ray.To - ray.From).Normalized();
+        var from = ray.From + direction * 0.6f;
+        return (
+            new NVector3(from.X, MathF.Max(from.Y, 0.2f), from.Z),
+            new NVector3(direction.X * 3f,
+                direction.Y * 3f + 2f, direction.Z * 3f));
+    }
+
+    private void DropInventoryCursor()
+    {
+        if (!_inventoryOpen || _player is null ||
+            !_sessionStates.Player.CanInteract ||
+            _sessionStates.Player.Inventory.Cursor is null) return;
+
+        var (position, velocity) = PlayerDropLaunch();
+        if (!_sessions.Active.TryDropInventoryCursor(
+                _sessionStates.Player.Inventory, position, velocity))
+        {
+            SendWebUi("game.inventory.error",
+                new { code = "DropCapacityExceeded" });
+            return;
+        }
+        SendInventoryState();
+    }
+
     private void DropSelectedItem()
     {
         if (_player is null || _inventoryOpen ||
@@ -4072,14 +4103,8 @@ public partial class Main : Node3D
         if (selected is null) return;
         // Consume only after the drop is successfully registered in the
         // authoritative dimension entity simulation.
-        var ray = _player.GetInteractionRay(2f);
-        var direction = (ray.To - ray.From).Normalized();
-        var from = ray.From + direction * 0.6f;
-        _blockEntities.SpawnPlayerDrop(
-            selected.WithQuantity(1),
-            new NVector3(from.X, MathF.Max(from.Y, 0.2f), from.Z),
-            new NVector3(direction.X * 3f,
-                direction.Y * 3f + 2f, direction.Z * 3f));
+        var (position, velocity) = PlayerDropLaunch();
+        _blockEntities.SpawnPlayerDrop(selected.WithQuantity(1), position, velocity);
         if (!inventory.TryConsumeSelected())
             throw new InvalidOperationException(
                 "Selected inventory stack changed during player drop.");

@@ -372,6 +372,7 @@
   "inventory.close": "Cerrar",
   "inventory.cursor": "Cursor",
   "inventory.cursor.help": "Haz clic en una ranura para colocar, juntar o intercambiar.",
+  "inventory.error.dropsFull": "Hay demasiados objetos sueltos en el mundo. El objeto sigue en el cursor.",
   "inventory.error.full": "Inventario lleno. Coloca o descarta el objeto del cursor antes de cerrar.",
   "inventory.error.invalid": "Operación de inventario no válida.",
   "hud.miningProgress": "Progreso de minería del bloque",

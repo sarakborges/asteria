@@ -729,6 +729,11 @@ public sealed class DimensionRuntimeSession
         PlayerSessionState player, WorldGameRules rules, System.Numerics.Vector3 position) =>
         PlayerDeathConsequences.Resolve(player, rules, _droppedBlocks, position);
 
+    public bool TryDropInventoryCursor(
+        PlayerInventory inventory, NVector3 position, NVector3 velocity) =>
+        PlayerInventoryCursorDrop.TryDrop(
+            inventory, _droppedBlocks, position, velocity);
+
 
     public ChunkResidencyRuntime Residency { get; }
 

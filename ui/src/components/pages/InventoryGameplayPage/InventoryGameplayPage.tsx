@@ -27,6 +27,7 @@ export type InventoryGameplayPageProps = {
   onEquipmentClick(index: number): void;
   onSort(): void;
   onDiscardCursor(): void;
+  onDropCursor(): void;
   onCreativePick(choice: InventoryCatalogEntry, fillStack: boolean): void;
   onCraft(recipeId: string): void;
   onRotatePortrait(deltaX: number): void;
@@ -38,7 +39,7 @@ export type InventoryGameplayPageProps = {
  */
 export function InventoryGameplayPage({
   state, health, onClose, onSlotClick, onEquipmentClick, onSort,
-  onDiscardCursor, onCreativePick, onCraft, onRotatePortrait,
+  onDiscardCursor, onDropCursor, onCreativePick, onCraft, onRotatePortrait,
 }: InventoryGameplayPageProps) {
   const { t, contentName, categoryName } = useLocalization();
   const cursorRef = useRef<HTMLDivElement>(null);
@@ -136,6 +137,15 @@ export function InventoryGameplayPage({
 
   return (
     <main className="inventory-gameplay"
+      onClick={event => {
+        // Only the empty backdrop drops the held stack; nested panels,
+        // slots and interactive controls cannot trigger this action.
+        if (cursor && event.button === 0 &&
+            (event.target === event.currentTarget ||
+             (event.target instanceof HTMLElement &&
+              event.target.classList.contains("inventory-gameplay__workspace"))))
+          onDropCursor();
+      }}
       onPointerMove={followPointer}
       onPointerLeave={() => {
         if (cursorRef.current) cursorRef.current.style.visibility = "hidden";

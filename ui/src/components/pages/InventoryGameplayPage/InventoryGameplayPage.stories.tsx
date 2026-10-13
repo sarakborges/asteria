@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { InventoryGameplayPage } from "./InventoryGameplayPage";
 import everythingIcon from "../../../../../packs/default/resources/textures/creative_categories/everything.png?url";
@@ -182,4 +183,27 @@ export const RecipeOutputFull: Story = {
       })),
     },
   },
+};
+
+function CursorDropFixture() {
+  const [dropped, setDropped] = useState(0);
+  const [cursorVisible, setCursorVisible] = useState(true);
+  return (
+    <>
+      <output data-testid="world-drop-count">{dropped}</output>
+      <InventoryGameplayPage
+        {...meta.args}
+        state={{ ...meta.args.state,
+          cursor: cursorVisible ? meta.args.state.cursor : null }}
+        onDropCursor={() => {
+          setDropped(value => value + 1);
+          setCursorVisible(false);
+        }}
+      />
+    </>
+  );
+}
+
+export const CursorDropInteractions: Story = {
+  render: () => <CursorDropFixture />,
 };

@@ -76,6 +76,7 @@ export type AppActions = {
   clickEquipmentSlot(index: number): void;
   sortInventory(): void;
   discardInventoryCursor(): void;
+  dropInventoryCursor(): void;
   pickCreativeBlock(choice: InventoryCatalogEntry, fillStack: boolean): void;
   craftInventoryRecipe(recipeId: string): void;
   rotateCharacterPortrait(deltaX: number): void;
@@ -343,6 +344,7 @@ export function App({
           onEquipmentClick={actions.clickEquipmentSlot}
           onSort={actions.sortInventory}
           onDiscardCursor={actions.discardInventoryCursor}
+          onDropCursor={actions.dropInventoryCursor}
           onCreativePick={actions.pickCreativeBlock}
           onCraft={actions.craftInventoryRecipe}
           onRotatePortrait={actions.rotateCharacterPortrait}

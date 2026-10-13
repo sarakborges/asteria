@@ -212,15 +212,17 @@ public sealed class DroppedBlockRuntime
     }
 
     /// <summary>
-    /// Publishes all death stacks as one bounded batch. Never evicts existing
-    /// drops, and rejects the entire request before mutation if full.
+    /// Publishes complete portable stacks as one bounded batch (death or
+    /// cursor release). Never evicts existing drops and rejects the entire
+    /// request before mutation if full.
     /// Portable quantities/metadata are retained rather than split into
     /// hundreds of per-item entities.
     /// </summary>
-    public bool TrySpawnBatch(IReadOnlyList<InventoryStack> stacks, Vector3 position)
+    public bool TrySpawnBatch(IReadOnlyList<InventoryStack> stacks, Vector3 position,
+        Vector3 velocity = default)
     {
         ArgumentNullException.ThrowIfNull(stacks);
-        if (!IsFinite(position) || position.Y < 0f ||
+        if (!IsFinite(position) || !IsFinite(velocity) || position.Y < 0f ||
             stacks.Any(stack => stack is null) ||
             stacks.Count > _maximumActive - _active.Count ||
             (ulong)stacks.Count > ulong.MaxValue - _nextId)
@@ -235,7 +237,7 @@ public sealed class DroppedBlockRuntime
             var radius = 0.2f + 0.07f * (index % 4);
             var offset = new Vector3(MathF.Cos(angle) * radius,
                 0.25f + (index % 3) * 0.07f, MathF.Sin(angle) * radius);
-            Spawn(stacks[index], position + offset);
+            Spawn(stacks[index], position + offset, velocity);
         }
         return true;
     }
