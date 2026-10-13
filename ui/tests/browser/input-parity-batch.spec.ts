@@ -26,7 +26,9 @@ test("dropdown keyboard navigation commits selection, Escape cancels and blur cl
   await expect(trigger).toHaveAttribute("aria-expanded", "false");
 
   await trigger.click();
-  await page.getByRole("button", { name: "Other focus target" }).click();
+  // Click an uncovered point outside the popup. A visible popup is supposed
+  // to intercept pointer events over the elements beneath it.
+  await page.mouse.click(6, 6);
   await expect(trigger).toHaveAttribute("aria-expanded", "false");
 });
 
