@@ -76,14 +76,10 @@ func set_creation_mode(creating: bool) -> void:
 func set_mouse_captured(captured: bool) -> void:
 	_mouse_captured = captured
 	call_deferred("_restore_keyboard_focus")
-	if _webview == null or not _loaded:
-		return
-
-	var cursor_value := "none" if captured else ""
-	var script := "document.documentElement.style.cursor='%s';" % cursor_value
-	script += "if(document.body){document.body.style.cursor='%s';}" % cursor_value
-	script += "document.querySelectorAll('*').forEach(function(e){e.style.cursor='%s';});" % cursor_value
-	_webview.call("eval", script)
+	# The game.mouse_capture bridge event already drives
+	# html.mouse-captured in App.tsx. Global CSS hides the cursor,
+	# including descendants, without O(DOM size) inline mutations.
+	# Do not eval the entire browser tree on each capture change.
 
 func _on_page_load_finished(_url: String) -> void:
 	_loaded = true

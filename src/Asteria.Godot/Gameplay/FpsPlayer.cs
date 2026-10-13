@@ -174,7 +174,9 @@ public partial class FpsPlayer : CharacterBody3D
         _cameraPivot.AddChild(_cameraArm);
         _cameraArm.AddChild(_camera);
         ApplyGameMode();
-        CaptureMouse();
+        // Player activation can finish after Alt+Tab during world loading.
+        // Apply the same OS-focus gate as explicit resume.
+        ResumeGameplay();
     }
 
     public override void _Input(InputEvent inputEvent)
@@ -673,7 +675,12 @@ public partial class FpsPlayer : CharacterBody3D
 
     public void ResumeGameplay()
     {
-        if (!_inputSuspended && !_mouseCaptured)
+        // A WebUI close/submit acknowledgement may arrive after Alt+Tab.
+        // Never recapture the OS pointer unless the Godot window owns focus.
+        // Paused gameplay remains uncaptured until the player explicitly
+        // resumes from a focused window.
+        if (!_inputSuspended && !_mouseCaptured &&
+            IsInsideTree() && GetWindow().HasFocus())
         {
             CaptureMouse();
         }

@@ -80,6 +80,26 @@ func _run() -> void:
 				imported.free()
 	model_root.free()
 
+	# Closing chat/inventory after the OS loses focus must not recapture
+	# mouse input. A detached player represents a windowless lifecycle and
+	# checks that resume is focus-gated before touching the OS cursor.
+	var player_script := ResourceLoader.load("res://src/Asteria.Godot/Gameplay/FpsPlayer.cs")
+	if player_script == null:
+		push_error("Native smoke: FpsPlayer C# script not loaded")
+		failed = true
+	else:
+		var player: Node = player_script.new()
+		if player == null:
+			push_error("Native smoke: cannot construct FpsPlayer")
+			failed = true
+		else:
+			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+			player.call("ResumeGameplay")
+			if Input.mouse_mode != Input.MOUSE_MODE_VISIBLE:
+				push_error("Native smoke: unfocused player recaptured the pointer")
+				failed = true
+			player.free()
+
 	var scene := ResourceLoader.load("res://scenes/main.tscn")
 	if not scene is PackedScene:
 		push_error("Native smoke: main scene cannot load")
