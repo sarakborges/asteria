@@ -135,6 +135,23 @@ test("initial menu contains no language selector", async ({ page }) => {
   await expect(page.locator(".starting-screen select")).toHaveCount(0);
 });
 
+test("Selecting Flat defaults to a clear plane, with structures optional", async ({ page }) => {
+  await page.goto(STORY + "ready&viewMode=story");
+  const { worldGeneration } = await expectActualWorldSettings(page);
+  const flat = worldGeneration.getByRole("button", { name: "Flat", exact: true });
+  await flat.click();
+  await expect(flat).toHaveAttribute("aria-pressed", "true");
+  for (const name of ["Spawn Structures", "Spawn Caves", "Spawn Oceans"]) {
+    await expect(worldGeneration.getByRole("switch", { name }))
+      .toHaveAttribute("aria-checked", "false");
+  }
+  await expect(worldGeneration.getByRole("switch", { name: "Spawn Oceans" }))
+    .toBeDisabled();
+  await worldGeneration.getByRole("switch", { name: "Spawn Structures" }).click();
+  await expect(worldGeneration.getByRole("switch", { name: "Spawn Structures" }))
+    .toHaveAttribute("aria-checked", "true");
+});
+
 test("World Generation respects Void cave/ocean disabling and Single Biome validation", async ({ page }) => {
   await page.goto(STORY + "ready&viewMode=story");
   const { worldGeneration } = await expectActualWorldSettings(page);

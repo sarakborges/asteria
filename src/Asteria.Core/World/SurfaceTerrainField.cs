@@ -24,7 +24,6 @@ public sealed class SurfaceTerrainField
     private readonly CaveRule? _caves;
     private readonly WorldGenerationMode _mode;
     private readonly int _planarSurfaceY;
-    private readonly string? _flatOceanBiome;
 
     public SurfaceTerrainField(
         ulong seed,
@@ -66,8 +65,6 @@ public sealed class SurfaceTerrainField
             : int.MaxValue;
         _planarSurfaceY = Math.Clamp(
             dimension.SeaLevel, planarMinimum, planarMaximum);
-        _flatOceanBiome = spawnOceans
-            ? dimension.GeneratedOcean?.Biome : null;
         // Void is genuinely empty, including the usual shell lining.
         _floorY = mode == WorldGenerationMode.Void ? null : dimension.Shell?.FloorY;
         _roofY = mode == WorldGenerationMode.Void ? null : dimension.Shell?.RoofY;
@@ -776,18 +773,8 @@ public sealed class SurfaceTerrainField
     {
         if (_mode == WorldGenerationMode.Flat)
         {
-            // The surface is planar, but enabling oceans forms shallow flat
-            // basins with gradual biome-weighted shores beneath sea level.
-            var oceanWeight = _flatOceanBiome is null ? 0d :
-                sample.Influences
-                    .Where(influence => string.Equals(
-                        influence.BiomeId, _flatOceanBiome,
-                        StringComparison.Ordinal))
-                    .Sum(influence => (double)influence.Weight);
-            var depth = checked((int)Math.Round(
-                Math.Clamp(oceanWeight, 0d, 1d) * 6d));
-            return (Math.Max((_floorY ?? 0) + 1,
-                _planarSurfaceY - depth), 0);
+            // Even an ocean biome may not change the planar surface.
+            return (_planarSurfaceY, 0);
         }
         if (_mode == WorldGenerationMode.Void)
             return (-1, 0); // No solid surface; Y voxels still start at zero.

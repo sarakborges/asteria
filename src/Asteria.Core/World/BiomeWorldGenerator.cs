@@ -215,7 +215,7 @@ public sealed class BiomeWorldGenerator :
                 blocks,
                 _terrain,
                 habitats,
-                generateDecorations: generation.Mode != WorldGenerationMode.Void,
+                generateDecorations: generation.Mode == WorldGenerationMode.Normal,
                 fluids: fluids,
                 layers: layers,
                 objects: objects);

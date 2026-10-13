@@ -81,6 +81,8 @@ export function NewWorldPage({
   const setWorldMode = (next: WorldGenerationMode) =>
     setGeneration(previous => ({
       ...previous, mode: next,
+      // Flat starts as an unobstructed plane; structures remain opt-in.
+      spawnStructures: next === "Normal",
       spawnCaves: next === "Normal",
       spawnOceans: next === "Normal",
     }));
@@ -208,8 +210,8 @@ export function NewWorldPage({
                   ariaLabel={t(title)}
                   checked={generation[key]}
                   disabled={state.pending ||
-                    (generation.mode === "Void" &&
-                      (key === "spawnCaves" || key === "spawnOceans"))}
+                    (key === "spawnOceans" && generation.mode !== "Normal") ||
+                    (key === "spawnCaves" && generation.mode === "Void")}
                   onChange={checked => setFlag(key, checked)} />} />
             ))}
           </div>

@@ -25,6 +25,59 @@ public sealed class WorldGenerationModeTests
     }
 
     [Fact]
+    public void FlatWorldRemainsPlanarEvenAcrossOceanBiomesWhenOceansAreEnabled()
+    {
+        var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);
+        var fluids = new FluidRegistry([
+            new FluidDefinition("asteria:water", new FluidColor(0, 96, 255), 0.7f),
+        ]);
+        BiomeDefinition Biome(string id, float offset) =>
+            new(id,
+                new BiomeSurfaceLayoutDefinition(
+                    weight: 1f, regionMin: 256, regionMax: 512),
+                new BiomeTerrainDefinition(
+                    offset, macroAmplitude: 0, macroScale: 128,
+                    detailAmplitude: 0, detailScale: 32),
+                [new BiomeSurfaceLayerDefinition("asteria:stone")]);
+        var ocean = Biome("asteria:test/ocean", -18);
+        var land = Biome("asteria:test/land", 120);
+        var dimension = new DimensionDefinition(
+            new DimensionId("asteria:test"), [ocean.Id, land.Id],
+            seaLevel: 90, gravityStrength: 18f,
+            spawn: new DimensionSpawnDefinition(0, 0),
+            environment: new DimensionEnvironmentDefinition(
+                new DimensionColor(0, 0, 0),
+                new DimensionColor(255, 255, 255), 1f,
+                new DimensionColor(0, 0, 0), 0f),
+            generatedOcean: new DimensionGeneratedOceanDefinition(
+                ocean.Id, "asteria:water"));
+        var generator = new BiomeWorldGenerator(
+            0x0CEA_2026UL, dimension, blocks, fluids,
+            new BiomeRegistry([ocean, land]), StructureRegistry.Empty,
+            generation: new WorldGenerationOptions(
+                WorldGenerationMode.Flat, spawnStructures: false,
+                spawnCaves: false, spawnOceans: true));
+
+        var oceanLocation = Assert.IsType<SurfaceBiomeSearchResult>(
+            generator.FindNearestSurfaceBiome(ocean.Id, 0, 0, 1024));
+        foreach (var (x, z) in new[]
+                 {
+                     (0, 0),
+                     (oceanLocation.X, oceanLocation.Z),
+                     (oceanLocation.X + Chunk.Size, oceanLocation.Z),
+                 })
+        {
+            Assert.Equal(90, generator.SurfaceHeight(x, z));
+            Assert.True(generator.DensityAt(x, 90, z) >= 0d);
+            Assert.True(generator.DensityAt(x, 91, z) < 0d);
+            var (coord, local) = VoxelCoordinates.FromWorld(x, 90, z);
+            var chunk = generator.Materialize(coord);
+            Assert.Equal(blocks.GetId("asteria:stone"),
+                chunk.GetBlock(local.X, local.Y, local.Z));
+        }
+    }
+
+    [Fact]
     public void VoidWorldHasOnlySpawnPlatformWithoutSphereShell()
     {
         var (generator, blocks) = Create(WorldGenerationMode.Void);
@@ -53,6 +106,7 @@ public sealed class WorldGenerationModeTests
         var blocks = new BlockRegistry(
         [
             new BlockDefinition("asteria:stone"),
+            new BlockDefinition("asteria:flower"),
             new BlockDefinition("asteria:sphere_shell",
                 mining: new BlockMiningDefinition(unbreakable: true)),
         ]);
@@ -60,7 +114,9 @@ public sealed class WorldGenerationModeTests
             "asteria:test/plain",
             new BiomeSurfaceLayoutDefinition(),
             new BiomeTerrainDefinition(12f, 8f, 64, 2f, 32),
-            [new BiomeSurfaceLayerDefinition("asteria:stone")]);
+            [new BiomeSurfaceLayerDefinition("asteria:stone")],
+            decorations: [new BiomeDecorationDefinition(
+                "asteria:flower", 1f, ["asteria:stone"])]);
         var dimension = new DimensionDefinition(
             new DimensionId("asteria:test"),
             [biome.Id],
