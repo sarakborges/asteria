@@ -6,6 +6,7 @@ import "./TargetHud.css";
 export type TargetHudProps = {
   state: TargetHudState | null;
   preview?: BlockPreviewState;
+  activeLayerIconUrl?: string;
   miningProgress?: number | null;
   artisansKitResolution?: 1 | 2 | 4 | null;
 };
@@ -13,6 +14,7 @@ export type TargetHudProps = {
 export function TargetHud({
   state,
   preview,
+  activeLayerIconUrl,
   miningProgress = null,
   artisansKitResolution = null,
 }: TargetHudProps) {
@@ -30,8 +32,13 @@ export function TargetHud({
     <section className="target-hud">
       <div className="target-hud__slot">
         <ItemGlyph item={{
-          id: state.id, blockPreview: state.kind === "object" ? undefined : preview,
-          iconUrl: state.kind === "object" ? state.iconUrl : undefined,
+          id: state.kind === "block" && state.activeLayerId
+            ? state.activeLayerId : state.id,
+          blockPreview: state.kind === "object" ||
+            (state.kind === "block" && state.activeLayerId && activeLayerIconUrl)
+            ? undefined : preview,
+          iconUrl: state.kind === "block" && state.activeLayerId
+            ? activeLayerIconUrl : state.kind === "object" ? state.iconUrl : undefined,
         }} size="recipe" />
       </div>
       <div className="target-hud__copy">
