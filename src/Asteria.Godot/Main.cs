@@ -1235,7 +1235,6 @@ public partial class Main : Node3D
         {
             _sessionStates.Player.Inventory.TryReturnCursor();
             _inventoryOpen = false;
-            _webUi.Call("set_inventory_modal", false);
             SendInventoryState();
         }
         if (_brushPaletteOpen)
@@ -1713,7 +1712,6 @@ public partial class Main : Node3D
                 return;
             }
             _inventoryOpen = false;
-            _webUi.Call("set_inventory_modal", false);
             _player?.ResumeAfterKeyCapture();
             SendInventoryState();
         }
@@ -3899,7 +3897,6 @@ public partial class Main : Node3D
             !_sessionStates.Player.CanInteract || _player is null)
             return;
         _inventoryOpen = true;
-        _webUi.Call("set_inventory_modal", true);
         _player.SuspendForModal();
         SendInventoryState();
         _playerPortrait?.RequestCapture();
@@ -3915,7 +3912,6 @@ public partial class Main : Node3D
             return;
         }
         _inventoryOpen = false;
-        _webUi.Call("set_inventory_modal", false);
         SyncHeldBlock();
         SendInventoryState();
         SendHotbarState();
