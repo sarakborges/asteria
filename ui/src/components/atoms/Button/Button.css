@@ -98,3 +98,12 @@
   image-rendering: pixelated;
   margin-right: 8px;
 }
+
+/* MineClone selectable: the selected state wins over hover/press.
+   Used by settings tabs and Creative category controls. */
+.ui-button[aria-pressed="true"],
+.ui-button[aria-pressed="true"]:hover:not(:disabled),
+.ui-button[aria-pressed="true"]:active:not(:disabled) {
+  border-color: var(--ui-color-border-focus);
+  background: var(--ui-color-accent-soft);
+}
