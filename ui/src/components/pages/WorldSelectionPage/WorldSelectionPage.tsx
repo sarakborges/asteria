@@ -46,14 +46,23 @@ export function WorldSelectionPage({
     setConfirmId(id);
   };
   const closeConfirmation = () => {
+    // The trigger is disabled while the dialog is mounted; restore focus
+    // after React has committed the enabled world-card controls.
     setConfirmId(null);
-    returnFocus.current?.focus();
-    returnFocus.current = null;
   };
   useEffect(() => {
-    if (confirmedWorld && !busy)
+    if (confirmedWorld && !busy) {
       dialogRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
-    if (busy || !confirmedWorld) setConfirmId(null);
+    } else if (!busy && returnFocus.current) {
+      returnFocus.current.focus();
+      returnFocus.current = null;
+    }
+    if (busy) {
+      returnFocus.current = null;
+      setConfirmId(null);
+    } else if (!confirmedWorld && confirmId !== null) {
+      setConfirmId(null);
+    }
   }, [confirmId, confirmedWorld, busy]);
   return (
     <ScreenShell
