@@ -35,6 +35,9 @@ jobs:
       - name: Test engine-agnostic core
         run: dotnet test src/Asteria.Core.Tests/Asteria.Core.Tests.csproj --configuration Release
 
+      - name: Build Godot C# Debug assembly for native script loading
+        run: dotnet build Asteria.csproj --configuration Debug
+
       - name: Install Godot 4.7.2 .NET for native smoke
         shell: bash
         run: |

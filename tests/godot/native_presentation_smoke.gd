@@ -90,6 +90,9 @@ func _run() -> void:
 			push_error("Native smoke: main scene cannot instantiate")
 			failed = true
 		else:
+			if instance.get_script() == null:
+				push_error("Native smoke: main scene's C# script was not loaded")
+				failed = true
 			if instance.get_node_or_null("WebUi") == null:
 				push_error("Native smoke: WebUI bridge node missing")
 				failed = true
