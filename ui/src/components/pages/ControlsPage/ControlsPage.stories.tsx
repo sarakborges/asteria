@@ -59,6 +59,16 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const FullAsteriaControls: Story = {};
+
+// One short section must not produce an ornamental scrollbar.
+export const MinimalControls: Story = {
+  args: {
+    groups: [{
+      title: "Movement",
+      entries: [{ key: "WASD", action: "Movement" }],
+    }],
+  },
+};
 export const Capturing: Story = { args: { capturingAction: "Jump" } };
 export const CaptureError: Story = { args: { captureError: "That key cannot be bound." } };
 
