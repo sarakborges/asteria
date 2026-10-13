@@ -22,7 +22,7 @@ test("HUD still renders a block preview if layer icon is unavailable", async ({ 
   await expect(target).toBeVisible();
   await expect(target.locator(".target-hud__slot .item-glyph--cube")).toHaveCount(1);
   await expect(target.locator(".target-hud__slot img.item-glyph")).toHaveCount(0);
-  await expect(target.locator(".target-hud__copy strong")).toContainText("unknown_layer");
+  await expect(target.locator(".target-hud__copy strong")).toContainText(/unknown layer/i);
 });
 
 test("localized inventory search visibly dims and disables only nonmatching slots", async ({ page }) => {
