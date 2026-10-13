@@ -117,6 +117,42 @@ func _run() -> void:
 				imported.free()
 	model_root.free()
 
+	# The imported player GLB authors MASK alpha with the glTF default 0.5
+	# cutoff and double-sided cuboids. UV remapping must not discard that
+	# policy when replacing its texture in the C# presentation factory.
+	var player_path := ProjectSettings.globalize_path(
+		"res://packs/default/resources/models/entities/player/player.glb")
+	var player_bytes := FileAccess.get_file_as_bytes(player_path)
+	var player_gltf := GLTFDocument.new()
+	var player_state := GLTFState.new()
+	if player_bytes.is_empty() or player_gltf.append_from_buffer(
+		player_bytes, "", player_state) != OK:
+		push_error("Native smoke: could not import authored player GLB")
+		failed = true
+	else:
+		var player_scene := player_gltf.generate_scene(player_state)
+		if player_scene == null:
+			push_error("Native smoke: player GLB generated no scene")
+			failed = true
+		else:
+			var pending: Array[Node] = [player_scene]
+			var skin_material: BaseMaterial3D = null
+			while not pending.is_empty():
+				var node: Node = pending.pop_back()
+				if node is MeshInstance3D and node.name == "HeadMesh":
+					skin_material = (node as MeshInstance3D).get_active_material(0) as BaseMaterial3D
+				for child in node.get_children():
+					pending.append(child)
+			if skin_material == null:
+				push_error("Native smoke: imported player skin material is missing")
+				failed = true
+			elif (skin_material.transparency != BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+				or skin_material.cull_mode != BaseMaterial3D.CULL_DISABLED
+				or not is_equal_approx(skin_material.alpha_scissor_threshold, 0.5)):
+				push_error("Native smoke: imported player skin alpha/double-sided policy drifted")
+				failed = true
+			player_scene.free()
+
 	# Closing chat/inventory after the OS loses focus must not recapture
 	# mouse input. A detached player represents a windowless lifecycle and
 	# checks that resume is focus-gated before touching the OS cursor.
