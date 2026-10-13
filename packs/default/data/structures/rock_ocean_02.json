@@ -1,0 +1,80 @@
+{
+  "id": "asteria:rock_ocean_02",
+  "rotation": true,
+  "restrictions": {
+    "groundBlocks": [
+      "asteria:sand",
+      "asteria:gravel",
+      "asteria:clay",
+      "asteria:cobble_stone"
+    ],
+    "maxSlope": 1,
+    "requiresDryGround": false,
+    "requiredBiomeCoverage": 1
+  },
+  "anchor": {
+    "x": 4,
+    "y": 0,
+    "z": 4
+  },
+  "palette": {
+    "S": {
+      "block": "asteria:cobble_stone"
+    }
+  },
+  "layers": [
+    {
+      "y": 0,
+      "rows": [
+        ".........",
+        ".........",
+        "...SS....",
+        "..SSSS...",
+        "..SSSSS..",
+        "...SSSS..",
+        "....SS...",
+        ".........",
+        "........."
+      ]
+    },
+    {
+      "y": 1,
+      "rows": [
+        ".........",
+        ".........",
+        "....SS...",
+        "...SSSS..",
+        "...SSS...",
+        "....SS...",
+        ".........",
+        ".........",
+        "........."
+      ]
+    },
+    {
+      "y": 2,
+      "rows": [
+        ".........",
+        ".........",
+        ".........",
+        "....SS...",
+        "....S....",
+        ".........",
+        ".........",
+        ".........",
+        "........."
+      ]
+    }
+  ],
+  "groupId": "rock_ocean",
+  "locatable": false,
+  "priority": 0,
+  "conflictGroups": [
+    "rock"
+  ],
+  "generation": {
+    "replacePolicy": "terrain",
+    "fluidPolicy": "displace",
+    "reserveSpace": false
+  }
+}

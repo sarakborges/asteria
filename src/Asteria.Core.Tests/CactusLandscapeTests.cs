@@ -34,13 +34,13 @@ public sealed class CactusLandscapeTests
                 Assert.Equal(StructureFluidPolicy.Forbid,
                     item.Generation.FluidPolicy);
                 Assert.Contains(item.Voxels, v =>
-                    v.Block is "asteria:cactus_flower_pink"
-                        or "asteria:cactus_flower_yellow");
+                    v.Block is "asteria:flower_cactus_pink"
+                        or "asteria:flower_cactus_yellow");
                 var placements = item.Voxels.ToDictionary(
                     v => (v.X, v.Y, v.Z), v => v.Block);
                 foreach (var flower in item.Voxels.Where(v =>
-                    v.Block is "asteria:cactus_flower_pink"
-                        or "asteria:cactus_flower_yellow"))
+                    v.Block is "asteria:flower_cactus_pink"
+                        or "asteria:flower_cactus_yellow"))
                 {
                     Assert.True(placements.TryGetValue(
                         (flower.X, flower.Y - 1, flower.Z), out var support));
@@ -69,7 +69,7 @@ public sealed class CactusLandscapeTests
                 layer => Assert.StartsWith("textures/blocks/cactus/", layer.Texture));
         }
         foreach (var id in new[] {
-            "asteria:cactus_flower_pink", "asteria:cactus_flower_yellow" })
+            "asteria:flower_cactus_pink", "asteria:flower_cactus_yellow" })
         {
             var block = blocks.GetDefinition(blocks.GetId(id));
             Assert.Equal(BlockVisualKind.CrossedSprite, block.Visual.Kind);

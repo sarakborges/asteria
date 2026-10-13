@@ -62,7 +62,7 @@
   },
   "decorations": [
     {
-      "block": "asteria:dune_grass",
+      "block": "asteria:grass_dune",
       "chance": 0.0276,
       "surfaceBlocks": [
         "asteria:sand"
@@ -131,7 +131,7 @@
       }
     },
     {
-      "block": "asteria:sandstone_spike",
+      "block": "asteria:spike_sandstone",
       "chance": 0.0078,
       "surfaceBlocks": [
         "asteria:sand"

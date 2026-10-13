@@ -11,12 +11,12 @@ public sealed class StorageBoxRuntimeTests
         world.InsertChunk(ChunkCoord.Zero, new Chunk());
         var blocks = new BlockRegistry(
         [
-            new BlockDefinition("asteria:storage_box"),
+            new BlockDefinition("asteria:box_storage"),
             new BlockDefinition("asteria:stone"),
         ]);
         var position = new WorldVoxelCoord(x, y, z);
         Assert.True(world.SetBlockAt(
-            position, blocks.GetId("asteria:storage_box"), out _));
+            position, blocks.GetId("asteria:box_storage"), out _));
         var storage = new StorageBoxRuntime();
         Assert.True(storage.TryOpen(position, world, blocks));
         return (storage, world, blocks);
@@ -128,7 +128,7 @@ public sealed class StorageBoxRuntimeTests
 
         var left = new WorldVoxelCoord(1, 5, 3);
         Assert.True(world.SetBlockAt(left,
-            blocks.GetId("asteria:storage_box"), out _));
+            blocks.GetId("asteria:box_storage"), out _));
         Assert.True(storage.TryOpen(left, world, blocks));
         Assert.True(storage.TryInsertActive(
             new InventoryStack(InventoryEntry.FromItem("asteria:wood"), 2),
@@ -144,7 +144,7 @@ public sealed class StorageBoxRuntimeTests
     {
         var blocks = new BlockRegistry(
         [
-            new BlockDefinition("asteria:storage_box"),
+            new BlockDefinition("asteria:box_storage"),
             new BlockDefinition("asteria:stone"),
         ]);
         var world = new VoxelWorld();

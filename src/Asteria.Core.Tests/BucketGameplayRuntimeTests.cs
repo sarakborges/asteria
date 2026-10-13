@@ -29,7 +29,7 @@ public sealed class BucketGameplayRuntimeTests
             {
               "id":"asteria:bucket",
               "category":"tools",
-              "icon":"textures/tools/iron_bucket_empty.png",
+              "icon":"textures/tools/bucket_iron_empty.png",
               "leftBehavior":"asteria:none",
               "rightBehavior":"asteria:bucket/use"
             }

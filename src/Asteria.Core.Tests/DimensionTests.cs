@@ -138,7 +138,7 @@ public sealed class DimensionTests
             18f,
             umbral.GravityStrength);
         Assert.Equal(
-            "asteria:sphere_shell",
+            "asteria:shell_sphere",
             overworld.Shell?.Block);
         Assert.Equal(
             0,
@@ -146,7 +146,7 @@ public sealed class DimensionTests
         Assert.Null(
             overworld.Shell?.RoofY);
         Assert.Equal(
-            "asteria:sphere_shell",
+            "asteria:shell_sphere",
             umbral.Shell?.Block);
         Assert.Equal(
             0,
@@ -164,7 +164,7 @@ public sealed class DimensionTests
         Assert.Throws<ArgumentOutOfRangeException>(
             () =>
                 new DimensionShellDefinition(
-                    "asteria:sphere_shell",
+                    "asteria:shell_sphere",
                     floorY: -1));
     }
 

@@ -1,6 +1,6 @@
 [
   {
-    "family": "rime_deadwood",
+    "family": "log_rime_deadwood",
     "mode": "built-in image_gen.imagegen",
     "prompt": "Use case: style-transfer. Asset type: Asteria voxel-tree foliage material, a flat square 64x64 pixel-art tile with real transparent gaps, for rime_deadwood/leaf.png. Image 1 is the foliage density, tiny scale and pixel-art rendering reference; Image 2 is the tree bark palette reference. Create visible living fantasy foliage for a tree named Rime Deadwood: densely overlapping small pointed winter leaves in muted ice blue, pale silver grey and soft ivory frost along the veins, with charcoal blue undersides. Keep the established Asteria tiny leaf scale, crisp pixel clusters, matte surface and small organic transparent gaps. Even a dead or frozen tree has leaves in this fantasy world. Preserve leaf readability rather than crystal or rock shapes. Perfectly seamless repeat in X and Y: cropped leaf clusters continue naturally across all four edges. Orthographic flat texture, equal detail and density at the edges and center, no frame, no centered emblem, no tile vignette, no shadows cast onto a background, no text, no sparkles, no glow, no blur, no checkerboard baked in. One texture only, full square crop, actual transparent background. Pixel art intended for nearest-neighbor 64x64 use.",
     "references": [
@@ -17,7 +17,7 @@
     "normalization": "Nearest-neighbor resize to 64x64; binary alpha threshold 128; generated color artwork preserved."
   },
   {
-    "family": "thornwood",
+    "family": "log_thornwood",
     "mode": "built-in image_gen.imagegen",
     "prompt": "Use case: style-transfer. Asset type: Asteria voxel-tree foliage material, a flat square 64x64 pixel-art tile with real transparent gaps, for thornwood/leaf.png. Image 1 is the tiny foliage scale, seamless density and pixel-art rendering reference; Image 2 is the tree bark material and earthy palette reference. Create visible fantasy foliage for thornwood: tightly layered small elongated pointed leaves, dark muted burgundy and dusty violet undersides, warm copper brown and faded russet leaf faces, a few muted ochre vein accents. Fantasy thorn and scorched trees retain full leafy crowns. Change the needle-like subject to recognisable pointed leaf blades, not just a recolor. Keep the established Asteria crisp pixel clusters, small leaf scale, matte surface and organic small transparent holes. Perfectly seamless repeat in X and Y: cropped leaf clusters continue naturally across all four edges. Orthographic flat texture, uniform detail and density across edges and center, no frame, no central icon, no eyes or diamond-shaped emblems, no bark bands, no tile vignette, no sparkles, no glow, no blur, no checkerboard baked in, no text. One texture only, full square crop, actual transparent background. Pixel art intended for nearest-neighbor 64x64 use.",
     "references": [

@@ -6,7 +6,7 @@ As onze texturas de planks foram refeitas visualmente. A versão anterior tinha 
 
 Cada família conserva a identidade da madeira: Charwood carbonizada; Enchanted azul royal/celeste; Frost Wood fria cinza-azulada; Juniper bege/taupe; Oak em tons de mel; Rime Deadwood azul-prateada; Skywood verde-água; Thornwood castanha escura; Willow oliva/taupe; Windwood castanha dessaturada; World Tree dourada.
 
-Os arquivos finais são `packs/default/resources/textures/blocks/trees/<família>/planks.png`, nas famílias `charwood`, `enchanted_tree`, `frost_wood`, `juniper`, `oak`, `rime_deadwood`, `skywood`, `thornwood`, `willow`, `windwood` e `world_tree`.
+Os arquivos finais são `packs/default/resources/textures/blocks/trees/<família>/planks.png`, nas famílias `log_charwood`, `enchanted_tree`, `log_frost_wood`, `juniper`, `oak`, `log_rime_deadwood`, `skywood`, `log_thornwood`, `willow`, `log_windwood` e `world_tree`.
 
 Cada PNG final tem 64×64 pixels e cobertura opaca. As juntas horizontais ficam dentro do tile; a tábua atravessa as bordas superior e inferior, evitando uma moldura escura na repetição. As juntas verticais alternam de posição entre as fileiras.
 

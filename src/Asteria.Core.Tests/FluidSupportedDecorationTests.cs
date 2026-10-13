@@ -15,7 +15,7 @@ public sealed class FluidSupportedDecorationTests
         biomes.ValidateFluids(fluids);
         var swamp = biomes.Get("asteria:overworld/swamp");
         var cattail = Assert.Single(swamp.Decorations, d => d.Block == "asteria:cattail");
-        var lily = Assert.Single(swamp.Decorations, d => d.Block == "asteria:lily_pad");
+        var lily = Assert.Single(swamp.Decorations, d => d.Block == "asteria:pad_lily");
         Assert.Equal(DecorationFluidRelation.Nearby, cattail.FluidRequirement!.Relation);
         Assert.Equal(2, cattail.FluidRequirement.MaxDistance);
         Assert.Equal("asteria:water", cattail.FluidRequirement.Fluid);
@@ -67,7 +67,7 @@ public sealed class FluidSupportedDecorationTests
                     new BiomeDecorationFluidRequirement(
                         "asteria:water", DecorationFluidRelation.Nearby, 2),
                     isObject: true),
-                new BiomeDecorationDefinition("asteria:lily_pad", 1f,
+                new BiomeDecorationDefinition("asteria:pad_lily", 1f,
                     ["asteria:mud"], fluidRequirement:
                     new BiomeDecorationFluidRequirement(
                         "asteria:water", DecorationFluidRelation.Below),
@@ -91,7 +91,7 @@ public sealed class FluidSupportedDecorationTests
             nearbyFluid: (f, radius, x, y, z) => false));
         Assert.True(field.BlockAt(sample, mud, 3, 4,
             onFluidSurface: true).IsAir);
-        Assert.Equal("asteria:lily_pad",
+        Assert.Equal("asteria:pad_lily",
             field.ObjectAt(sample, mud, 3, 4,
                 onFluidSurface: true, fluidBelow: water));
         Assert.Null(field.ObjectAt(sample, mud, 3, 4, supportY: 90,
@@ -115,7 +115,7 @@ public sealed class FluidSupportedDecorationTests
             new BiomeSurfaceLayoutDefinition(),
             new BiomeTerrainDefinition(0f, 0f, 64, 0f, 32),
             decorations: [
-                new BiomeDecorationDefinition("asteria:lily_pad", 1f,
+                new BiomeDecorationDefinition("asteria:pad_lily", 1f,
                     ["asteria:mud"], fluidRequirement:
                     new BiomeDecorationFluidRequirement(
                         "asteria:water", DecorationFluidRelation.Below),
@@ -155,7 +155,7 @@ public sealed class FluidSupportedDecorationTests
             Assert.True(chunk.GetBlock(x, 11, z).IsAir);
             Assert.True(chunk.GetBlock(x, 10, z).IsAir);
             var pad = Assert.Single(chunk.ObjectsAt(x, 10, z));
-            Assert.Equal("asteria:lily_pad", pad.Id);
+            Assert.Equal("asteria:pad_lily", pad.Id);
             Assert.Equal(BlockFace.Top, pad.Face);
             observed++;
         }

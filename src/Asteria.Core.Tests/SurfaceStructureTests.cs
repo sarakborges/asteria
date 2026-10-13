@@ -21,7 +21,7 @@ public sealed class SurfaceStructureTests
                 mining: new BlockMiningDefinition(unbreakable: true)),
         };
         if (includeShell)
-            definitions.Add(new BlockDefinition("asteria:sphere_shell",
+            definitions.Add(new BlockDefinition("asteria:shell_sphere",
                 mining: new BlockMiningDefinition(unbreakable: true)));
         return new BlockRegistry(definitions);
     }
@@ -32,7 +32,7 @@ public sealed class SurfaceStructureTests
         var blocks = PortalArrivalBlocks();
         var json = File.ReadAllText(Path.Combine(
             AppContext.BaseDirectory, "packs", "default", "data",
-            "structures", "portal_arrival_platform.json"));
+            "structures", "platform_portal_arrival.json"));
         var structure = StructureDefinitionJson.Parse(json);
         var registry = PortalArrivalStructures();
         registry.ValidateBlocks(blocks);
@@ -82,7 +82,7 @@ public sealed class SurfaceStructureTests
         var blocks = PortalArrivalBlocks(includeShell: true);
         var structure = StructureDefinitionJson.Parse(File.ReadAllText(
             Path.Combine(AppContext.BaseDirectory, "packs", "default",
-                "data", "structures", "portal_arrival_platform.json")));
+                "data", "structures", "platform_portal_arrival.json")));
         var registry = PortalArrivalStructures();
         var generator = FlatStructureGenerator(blocks, registry, "asteria:stone");
         var world = new VoxelWorld();
@@ -90,7 +90,7 @@ public sealed class SurfaceStructureTests
         world.InsertChunk(new ChunkCoord(0, 1, 0), new Chunk());
         var feet = new WorldVoxelCoord(8, 16, 8);
         Assert.True(world.SetBlockAt(feet,
-            blocks.GetId("asteria:sphere_shell"), out _));
+            blocks.GetId("asteria:shell_sphere"), out _));
         var before = world.Revision;
         var mutations = new VoxelMutationRuntime(
             world, new WorldUpdateQueue(), new FluidUpdateQueue(),
@@ -105,7 +105,7 @@ public sealed class SurfaceStructureTests
             runtime.TryPlaceExact(structure.Id, 8, 16, 8));
         Assert.Equal(before, world.Revision);
         Assert.Equal(0, ledger.Count);
-        Assert.Equal(blocks.GetId("asteria:sphere_shell"),
+        Assert.Equal(blocks.GetId("asteria:shell_sphere"),
             world.GetCellOrEmpty(feet).Block);
     }
 
@@ -115,7 +115,7 @@ public sealed class SurfaceStructureTests
         var blocks = PortalArrivalBlocks();
         var structure = StructureDefinitionJson.Parse(File.ReadAllText(
             Path.Combine(AppContext.BaseDirectory, "packs", "default",
-                "data", "structures", "portal_arrival_platform.json")));
+                "data", "structures", "platform_portal_arrival.json")));
         var registry = PortalArrivalStructures();
         var generator = FlatStructureGenerator(blocks, registry, "asteria:stone");
         var world = new VoxelWorld();
@@ -142,13 +142,13 @@ public sealed class SurfaceStructureTests
         var entryY = ground - 10;
         Assert.True(entryY >= 2);
         Assert.True(generator.TryPrepareExactStructure(
-            "asteria:portal_arrival_platform", 8, entryY, 8,
+            "asteria:platform_portal_arrival", 8, entryY, 8,
             new ManualStructurePlacementLedger(), out var plan));
         Assert.NotNull(plan);
         var pieces = plan.Pieces;
         Assert.Equal(2, pieces.Count);
-        Assert.Equal("asteria:portal_arrival_platform", pieces[0].StructureId);
-        Assert.Equal("asteria:surface_spiral_stair_segment", pieces[1].StructureId);
+        Assert.Equal("asteria:platform_portal_arrival", pieces[0].StructureId);
+        Assert.Equal("asteria:stair_segment_surface_spiral", pieces[1].StructureId);
         var steps = pieces[1].Voxels.OrderBy(voxel => voxel.Y).ToArray();
         Assert.Equal(16, steps.Length);
         Assert.Equal(entryY - 1, steps[0].Y);
@@ -171,7 +171,7 @@ public sealed class SurfaceStructureTests
         var directory = Path.Combine(AppContext.BaseDirectory,
             "packs", "default", "data", "structures");
         var root = File.ReadAllText(Path.Combine(
-            directory, "portal_arrival_platform.json"));
+            directory, "platform_portal_arrival.json"));
         // This distant top block raises MaximumY, but does not raise the
         // walkable exit at E. A height-only stop would wrongly omit stairs.
         var raised = root.Replace(
@@ -180,18 +180,18 @@ public sealed class SurfaceStructureTests
             StringComparison.Ordinal);
         Assert.NotEqual(root, raised);
         var stair = File.ReadAllText(Path.Combine(
-            directory, "surface_spiral_stair_segment.json"));
+            directory, "stair_segment_surface_spiral.json"));
         var structures = StructureRegistry.FromJson([raised, stair]);
         structures.ValidateBlocks(blocks);
         var generator = FlatStructureGenerator(
             blocks, structures, "asteria:stone");
         var entryY = generator.SurfaceHeight(8, 8) - 10;
         Assert.True(generator.TryPrepareExactStructure(
-            "asteria:portal_arrival_platform", 8, entryY, 8,
+            "asteria:platform_portal_arrival", 8, entryY, 8,
             new ManualStructurePlacementLedger(), out var plan));
         Assert.NotNull(plan);
         Assert.Equal(2, plan.Pieces.Count);
-        Assert.Equal("asteria:surface_spiral_stair_segment",
+        Assert.Equal("asteria:stair_segment_surface_spiral",
             plan.Pieces[^1].StructureId);
     }
 
@@ -204,7 +204,7 @@ public sealed class SurfaceStructureTests
             blocks, structures, "asteria:stone");
         var entryY = generator.SurfaceHeight(8, 8) + 3;
         Assert.True(generator.TryPrepareExactStructure(
-            "asteria:portal_arrival_platform", 8, entryY, 8,
+            "asteria:platform_portal_arrival", 8, entryY, 8,
             new ManualStructurePlacementLedger(), out var plan));
         Assert.NotNull(plan);
         Assert.Single(plan.Pieces);
@@ -221,13 +221,13 @@ public sealed class SurfaceStructureTests
         var entryY = generator.SurfaceHeight(8, 8) - 45;
         Assert.True(entryY > 1);
         Assert.True(generator.TryPrepareExactStructure(
-            "asteria:portal_arrival_platform", 8, entryY, 8,
+            "asteria:platform_portal_arrival", 8, entryY, 8,
             new ManualStructurePlacementLedger(), out var plan));
         Assert.NotNull(plan);
         var stairs = plan.Pieces.Skip(1).ToArray();
         Assert.True(stairs.Length >= 3);
         Assert.All(stairs, piece => Assert.Equal(
-            "asteria:surface_spiral_stair_segment", piece.StructureId));
+            "asteria:stair_segment_surface_spiral", piece.StructureId));
         for (var i = 1; i < stairs.Length; i++)
             Assert.Equal(stairs[i - 1].AnchorY + 15, stairs[i].AnchorY);
         Assert.True(stairs[^1].MaximumY - 2 >=
@@ -247,7 +247,7 @@ public sealed class SurfaceStructureTests
         var origin = new DimensionId("asteria:overworld");
         var ledger = new ManualStructurePlacementLedger();
         Assert.True(generator.TryPrepareExactStructure(
-            "asteria:portal_arrival_platform", 8, entryY, 8, ledger,
+            "asteria:platform_portal_arrival", 8, entryY, 8, ledger,
             out var expected));
         Assert.NotNull(expected);
         Assert.True(expected.Pieces.Count >= 4);
@@ -272,7 +272,7 @@ public sealed class SurfaceStructureTests
             StructureSetRegistry.Empty, ledger);
         Assert.Equal(ManualStructurePlacementResult.Placed,
             runtime.TryPlaceExact(
-                "asteria:portal_arrival_platform", 8, entryY, 8, origin));
+                "asteria:platform_portal_arrival", 8, entryY, 8, origin));
 
         var portal = new PortalActivationRuntime(world, blocks, mutations);
         Assert.True(portal.TryGetDestinationAt(
@@ -295,9 +295,9 @@ public sealed class SurfaceStructureTests
         var directory = Path.Combine(AppContext.BaseDirectory,
             "packs", "default", "data", "structures");
         var root = File.ReadAllText(Path.Combine(
-            directory, "portal_arrival_platform.json"));
+            directory, "platform_portal_arrival.json"));
         var stair = File.ReadAllText(Path.Combine(
-            directory, "surface_spiral_stair_segment.json"));
+            directory, "stair_segment_surface_spiral.json"));
         var exhausted = stair.Replace(
             "\"strengthLossOnEachLoop\": 0.05",
             "\"strengthLossOnEachLoop\": 1",
@@ -309,7 +309,7 @@ public sealed class SurfaceStructureTests
         Assert.True(generator.SurfaceHeight(8, 8) > 20);
 
         Assert.False(generator.TryPrepareExactStructure(
-            "asteria:portal_arrival_platform", 8, 2, 8,
+            "asteria:platform_portal_arrival", 8, 2, 8,
             new ManualStructurePlacementLedger(), out var plan));
         Assert.Null(plan);
     }
@@ -317,8 +317,8 @@ public sealed class SurfaceStructureTests
     private static StructureRegistry PortalArrivalStructures() =>
         StructureRegistry.FromJson(new[]
         {
-            "portal_arrival_platform.json",
-            "surface_spiral_stair_segment.json",
+            "platform_portal_arrival.json",
+            "stair_segment_surface_spiral.json",
         }.Select(name => File.ReadAllText(Path.Combine(
             AppContext.BaseDirectory, "packs", "default", "data",
             "structures", name))));
@@ -347,9 +347,9 @@ public sealed class SurfaceStructureTests
                     layer.Texture));
         }
 
-        var variants = structures.ResolveReference("asteria:coral_reef");
+        var variants = structures.ResolveReference("asteria:reef_coral");
         Assert.Equal(2, variants.Count);
-        Assert.Equal(new[] { "asteria:coral_reef_01", "asteria:coral_reef_02" },
+        Assert.Equal(new[] { "asteria:reef_coral_01", "asteria:reef_coral_02" },
             variants.Select(variant => variant.Id));
         Assert.Equal(coralIds,
             variants.SelectMany(variant => variant.Voxels)
@@ -378,7 +378,7 @@ public sealed class SurfaceStructureTests
             ReadJsonDirectory("dimensions")).Get(DimensionId.Overworld);
         var root = Assert.Single(overworld.GeneratedSurfaceStructures,
             rule => rule.Biome == "asteria:overworld/ocean" &&
-                    rule.Structure == "asteria:coral_reef");
+                    rule.Structure == "asteria:reef_coral");
         var weights = Assert.IsType<SurfaceHabitatWeights>(root.HabitatWeights);
         Assert.True(weights.For("rocky_reefs") >
                     weights.For("gravel_banks"));
@@ -390,12 +390,12 @@ public sealed class SurfaceStructureTests
     public void OceanReefVariantsRemainSubmergedGroundBoundAndHabitatWeighted()
     {
         var structures = StructureRegistry.FromJson(ReadJsonDirectory("structures"));
-        var members = structures.ResolveReference("asteria:ocean_rock");
+        var members = structures.ResolveReference("asteria:rock_ocean");
         Assert.Equal(4, members.Count);
         Assert.Equal(
             new[] {
-                "asteria:ocean_rock_01", "asteria:ocean_rock_02",
-                "asteria:ocean_rock_03", "asteria:ocean_rock_04",
+                "asteria:rock_ocean_01", "asteria:rock_ocean_02",
+                "asteria:rock_ocean_03", "asteria:rock_ocean_04",
             }, members.Select(member => member.Id));
         var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
         structures.ValidateBlocks(blocks);
@@ -411,11 +411,11 @@ public sealed class SurfaceStructureTests
                 reef.Generation.ReplacePolicy);
             Assert.InRange(reef.MaximumY - reef.MinimumY, 1, 2);
             Assert.Contains(reef.Voxels, voxel =>
-                voxel.Block == "asteria:stone_cobble");
+                voxel.Block == "asteria:cobble_stone");
             Assert.All(reef.Voxels, voxel =>
                 Assert.Contains(voxel.Block,
                     new[] {
-                        "asteria:stone", "asteria:stone_cobble",
+                        "asteria:stone", "asteria:cobble_stone",
                         "asteria:gravel", "asteria:clay",
                     }));
         }
@@ -425,7 +425,7 @@ public sealed class SurfaceStructureTests
         var overworld = dimensions.Get(DimensionId.Overworld);
         var rocks = Assert.Single(overworld.GeneratedSurfaceStructures,
             rule => rule.Biome == "asteria:overworld/ocean" &&
-                    rule.Structure == "asteria:ocean_rock");
+                    rule.Structure == "asteria:rock_ocean");
         var weight = Assert.IsType<SurfaceHabitatWeights>(rocks.HabitatWeights);
         Assert.True(weight.For("rocky_reefs") > weight.For("gravel_banks"));
         Assert.True(weight.For("gravel_banks") > weight.For("sand_flats"));
@@ -468,37 +468,37 @@ public sealed class SurfaceStructureTests
         // validate the essential references below rather than freezing
         // the total number of authored templates.
         Assert.True(structures.Count >= 130);
-        Assert.Equal(4, structures.ResolveReference("asteria:ocean_rock").Count);
-        Assert.Equal(2, structures.ResolveReference("asteria:basalt_outcrop").Count);
-        Assert.Equal(2, structures.ResolveReference("asteria:basalt_boulder").Count);
-        Assert.Equal(2, structures.ResolveReference("asteria:basalt_spire").Count);
-        Assert.Equal(2, structures.ResolveReference("asteria:talus_outcrop").Count);
+        Assert.Equal(4, structures.ResolveReference("asteria:rock_ocean").Count);
+        Assert.Equal(2, structures.ResolveReference("asteria:outcrop_basalt").Count);
+        Assert.Equal(2, structures.ResolveReference("asteria:boulder_basalt").Count);
+        Assert.Equal(2, structures.ResolveReference("asteria:spire_basalt").Count);
+        Assert.Equal(2, structures.ResolveReference("asteria:outcrop_talus").Count);
         Assert.Equal(3, structures.ResolveReference("asteria:bush_oak").Count);
         Assert.Equal(7, structureSets.Count);
-        Assert.Equal("asteria:ocean_rock",
-            structureSets.Get("asteria:ocean_rock_cluster").Elements[0].Structure);
-        Assert.Equal("asteria:basalt_outcrop",
-            structureSets.Get("asteria:basalt_cluster").Elements[0].Structure);
-        Assert.Equal(2, structures.ResolveReference("asteria:fallen_log_wraith").Count);
+        Assert.Equal("asteria:rock_ocean",
+            structureSets.Get("asteria:cluster_rock_ocean").Elements[0].Structure);
+        Assert.Equal("asteria:outcrop_basalt",
+            structureSets.Get("asteria:cluster_basalt").Elements[0].Structure);
+        Assert.Equal(2, structures.ResolveReference("asteria:log_wraith_fallen").Count);
         Assert.Equal(3, structures.ResolveReference("asteria:tree_wraith").Count);
-        Assert.Equal(2, structures.ResolveReference("asteria:wraith_snag").Count);
+        Assert.Equal(2, structures.ResolveReference("asteria:snag_wraith").Count);
         Assert.Equal("asteria:tree_wraith",
-            structureSets.Get("asteria:wraith_grove").Elements[0].Structure);
-        Assert.Equal(4, structures.ResolveReference("asteria:tree_enchanted").Count);
-        Assert.Equal("asteria:tree_enchanted",
-            structureSets.Get("asteria:enchanted_grove").Elements[0].Structure);
-        Assert.Equal(4, structures.ResolveReference("asteria:fallen_log_oak").Count);
-        Assert.Equal(3, structures.ResolveReference("asteria:oak_stump").Count);
+            structureSets.Get("asteria:grove_wraith").Elements[0].Structure);
+        Assert.Equal(4, structures.ResolveReference("asteria:tree_enchanted_tree").Count);
+        Assert.Equal("asteria:tree_enchanted_tree",
+            structureSets.Get("asteria:grove_enchanted").Elements[0].Structure);
+        Assert.Equal(4, structures.ResolveReference("asteria:log_oak_fallen").Count);
+        Assert.Equal(3, structures.ResolveReference("asteria:stump_oak").Count);
         Assert.Equal("asteria:boulder_small",
-            structureSets.Get("asteria:rock_cluster").Elements[0].Structure);
+            structureSets.Get("asteria:cluster_rock").Elements[0].Structure);
         Assert.Equal("asteria:bush_oak",
             structureSets.Get("asteria:thicket_oak").Elements[0].Structure);
         Assert.Equal("asteria:tree_oak",
-            structureSets.Get("asteria:oak_grove").Elements[0].Structure);
+            structureSets.Get("asteria:grove_oak").Elements[0].Structure);
         Assert.Equal(
             10,
             structures.ResolveReference(
-                "asteria:river_segment")
+                "asteria:segment_river")
                 .Count);
         Assert.Equal(
             4,
@@ -508,21 +508,21 @@ public sealed class SurfaceStructureTests
         Assert.Equal(
             4,
             structures.ResolveReference(
-                "asteria:mountain_pond")
+                "asteria:pond_mountain")
                 .Count);
         Assert.Equal(
             4,
             structures.ResolveReference(
-                "asteria:mountain_waterfall")
+                "asteria:waterfall_mountain")
                 .Count);
         Assert.Equal(
             4,
             structures.ResolveReference(
-                "asteria:river_lake")
+                "asteria:lake_river")
                 .Count);
         Assert.True(
             structures.ResolvesReference(
-                "asteria:river_ocean_mouth"));
+                "asteria:mouth_river_ocean"));
         // New habitats add roots without invalidating required originals.
         Assert.True(overworld.GeneratedSurfaceStructures.Count >= 74);
         var plainsRoots = overworld.GeneratedSurfaceStructures
@@ -532,10 +532,10 @@ public sealed class SurfaceStructureTests
         Assert.All(plainsRoots.Where(root => root.Structure != "asteria:lake"),
             root => Assert.NotNull(root.HabitatWeights));
         Assert.Equal(2.5f, Assert.Single(plainsRoots,
-            root => root.Structure == "asteria:rock_cluster")
+            root => root.Structure == "asteria:cluster_rock")
             .HabitatWeights!.For("rocky"));
         Assert.Equal(0f, Assert.Single(plainsRoots,
-            root => root.Structure == "asteria:oak_grove")
+            root => root.Structure == "asteria:grove_oak")
             .HabitatWeights!.For("rocky"));
         Assert.All(
             overworld
@@ -551,7 +551,7 @@ public sealed class SurfaceStructureTests
                 Assert.True(generated.Chance is >= 0f and <= 1f);
             });
 
-        foreach (var reference in new[] { "asteria:fallen_log_oak", "asteria:oak_stump" })
+        foreach (var reference in new[] { "asteria:log_oak_fallen", "asteria:stump_oak" })
         {
             Assert.All(structures.ResolveReference(reference), detail =>
             {
@@ -597,7 +597,7 @@ public sealed class SurfaceStructureTests
     {
         var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
         var structures = StructureRegistry.FromJson(ReadJsonDirectory("structures"));
-        var variants = structures.ResolveReference("asteria:tree_enchanted");
+        var variants = structures.ResolveReference("asteria:tree_enchanted_tree");
 
         Assert.Equal(4, variants.Count);
         Assert.Equal(4, variants.Select(tree => tree.Id).Distinct().Count());
@@ -613,13 +613,13 @@ public sealed class SurfaceStructureTests
             Assert.Equal(1, tree.Restrictions.MaxSlope);
             Assert.Equal(1f, tree.Restrictions.RequiredBiomeCoverage);
             Assert.True(tree.Restrictions.RequiresDryGround);
-            Assert.Equal(new[] { "asteria:grass_block", "asteria:dirt" },
+            Assert.Equal(new[] { "asteria:block_grass", "asteria:dirt" },
                 tree.Restrictions.GroundBlocks);
             Assert.Equal(0, tree.GroundAnchorYOffset);
             Assert.True(tree.Voxels.Count >= 20);
-            Assert.Contains(tree.Voxels, voxel => voxel.Block == "asteria:log_enchanted" && voxel.Orientation == BlockOrientation.Y);
-            Assert.Contains(tree.Voxels, voxel => voxel.Block == "asteria:leaf_enchanted");
-            Assert.Contains(tree.Voxels, voxel => voxel.Block == "asteria:log_enchanted" && voxel.Orientation != BlockOrientation.Y);
+            Assert.Contains(tree.Voxels, voxel => voxel.Block == "asteria:log_enchanted_tree" && voxel.Orientation == BlockOrientation.Y);
+            Assert.Contains(tree.Voxels, voxel => voxel.Block == "asteria:leaf_enchanted_tree");
+            Assert.Contains(tree.Voxels, voxel => voxel.Block == "asteria:log_enchanted_tree" && voxel.Orientation != BlockOrientation.Y);
             Assert.All(tree.Voxels, voxel => Assert.True(voxel.Y is >= 0 and <= 9));
         }
 
@@ -632,12 +632,12 @@ public sealed class SurfaceStructureTests
         var structures = StructureRegistry.FromJson(ReadJsonDirectory("structures"));
         var sets = StructureSetRegistry.FromJson(ReadJsonDirectory("structure_sets"));
         sets.ValidateStructures(structures);
-        var grove = sets.Get("asteria:enchanted_grove");
+        var grove = sets.Get("asteria:grove_enchanted");
         Assert.True(grove.Locatable);
         Assert.Contains("tree", grove.ConflictGroups);
-        Assert.Equal("asteria:tree_enchanted", grove.Elements[0].Structure);
+        Assert.Equal("asteria:tree_enchanted_tree", grove.Elements[0].Structure);
         var companions = grove.Elements[1];
-        Assert.Equal("asteria:tree_enchanted", companions.Structure);
+        Assert.Equal("asteria:tree_enchanted_tree", companions.Structure);
         Assert.Equal(2, companions.Count.Min);
         Assert.Equal(5, companions.Count.Max);
         Assert.True(companions.Placement.MaxDistance <= 32);
@@ -649,9 +649,9 @@ public sealed class SurfaceStructureTests
             rule => rule.Biome == "asteria:overworld/enchanted_forest").ToArray();
         Assert.Equal(5, rules.Length);
         Assert.Equal(34, Assert.Single(rules,
-            rule => rule.Structure == "asteria:tree_enchanted").Spacing);
+            rule => rule.Structure == "asteria:tree_enchanted_tree").Spacing);
         foreach (var rule in rules.Where(rule =>
-                     rule.Structure is "asteria:tree_enchanted" or "asteria:enchanted_grove"))
+                     rule.Structure is "asteria:tree_enchanted_tree" or "asteria:grove_enchanted"))
         {
             Assert.NotNull(rule.HabitatWeights);
             Assert.True(rule.HabitatWeights.For("violet_undergrowth") >
@@ -660,19 +660,19 @@ public sealed class SurfaceStructureTests
                         rule.HabitatWeights.For("luminous_clearing"));
         }
         Assert.Equal(0f, Assert.Single(rules,
-            rule => rule.Structure == "asteria:enchanted_grove")
+            rule => rule.Structure == "asteria:grove_enchanted")
             .HabitatWeights!.For("luminous_clearing"));
 
         var ring = Assert.Single(rules,
-            rule => rule.Structure == "asteria:enchanted_mushroom_ring");
+            rule => rule.Structure == "asteria:ring_mushroom_enchanted");
         Assert.True(ring.HabitatWeights!.For("luminous_clearing") >
                     ring.HabitatWeights.For("pink_glade"));
         var stump = Assert.Single(rules,
-            rule => rule.Structure == "asteria:enchanted_hollow_stump");
+            rule => rule.Structure == "asteria:stump_enchanted_tree_hollow");
         Assert.True(stump.HabitatWeights!.For("violet_undergrowth") >
                     stump.HabitatWeights.For("luminous_clearing"));
         var canopy = Assert.Single(rules,
-            rule => rule.Structure == "asteria:enchanted_fungal_canopy");
+            rule => rule.Structure == "asteria:canopy_fungal_enchanted");
         Assert.True(canopy.HabitatWeights!.For("pink_glade") >
                     canopy.HabitatWeights.For("violet_undergrowth"));
     }
@@ -683,7 +683,7 @@ public sealed class SurfaceStructureTests
         var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
         var structures = StructureRegistry.FromJson(ReadJsonDirectory("structures"));
         var living = structures.ResolveReference("asteria:tree_wraith");
-        var dead = structures.ResolveReference("asteria:wraith_snag");
+        var dead = structures.ResolveReference("asteria:snag_wraith");
 
         Assert.Equal(3, living.Count);
         Assert.Equal(2, dead.Count);
@@ -700,14 +700,14 @@ public sealed class SurfaceStructureTests
             Assert.False(tree.Generation.ReserveSpace);
             Assert.Empty(tree.Restrictions.Proximity);
             Assert.Contains("tree", tree.ConflictGroups);
-            Assert.Contains("asteria:grass_block", tree.Restrictions.GroundBlocks);
+            Assert.Contains("asteria:block_grass", tree.Restrictions.GroundBlocks);
             Assert.Contains("asteria:mud", tree.Restrictions.GroundBlocks);
             Assert.Contains(tree.Voxels, voxel =>
-                voxel.Block == "asteria:log_enchanted_stripped_hollow");
+                voxel.Block == "asteria:log_enchanted_tree_stripped_hollow");
             Assert.Contains(tree.Voxels, voxel =>
                 voxel.Block == "asteria:leaf_willow");
             Assert.Contains(tree.Voxels, voxel =>
-                voxel.Block == "asteria:log_enchanted_stripped"
+                voxel.Block == "asteria:log_enchanted_tree_stripped"
                 && voxel.Orientation != BlockOrientation.Y);
         });
         Assert.True(living.Min(tree => tree.Voxels.Count(voxel =>
@@ -725,7 +725,7 @@ public sealed class SurfaceStructureTests
         var sets = StructureSetRegistry.FromJson(ReadJsonDirectory("structure_sets"));
         sets.ValidateStructures(structures);
 
-        var grove = sets.Get("asteria:wraith_grove");
+        var grove = sets.Get("asteria:grove_wraith");
         Assert.True(grove.Locatable);
         Assert.Contains("tree", grove.ConflictGroups);
         Assert.False(grove.ReserveSpace);
@@ -760,7 +760,7 @@ public sealed class SurfaceStructureTests
                 Assert.Equal(
                     new[]
                     {
-                        "asteria:grass_block",
+                        "asteria:block_grass",
                         "asteria:dirt",
                     },
                     definition.Restrictions
@@ -801,7 +801,7 @@ public sealed class SurfaceStructureTests
                 Assert.Equal(
                     new[]
                     {
-                        "asteria:grass_block",
+                        "asteria:block_grass",
                         "asteria:dirt",
                         "asteria:mud",
                     },
@@ -888,7 +888,7 @@ public sealed class SurfaceStructureTests
             FlatStructureGenerator(
                 blocks,
                 structures,
-                "asteria:grass_block",
+                "asteria:block_grass",
                 "asteria:tree_oak");
         var rejected =
             FlatStructureGenerator(
@@ -922,7 +922,7 @@ public sealed class SurfaceStructureTests
             new BlockRegistry(
             [
                 new BlockDefinition(
-                    "asteria:grass_block"),
+                    "asteria:block_grass"),
                 new BlockDefinition(
                     "asteria:stone"),
                 new BlockDefinition(
@@ -983,7 +983,7 @@ public sealed class SurfaceStructureTests
             FlatStructureGenerator(
                 blocks,
                 structures,
-                "asteria:grass_block",
+                "asteria:block_grass",
                 "asteria:high",
                 "asteria:low");
         var chunk =
@@ -1009,7 +1009,7 @@ public sealed class SurfaceStructureTests
             new BlockRegistry(
             [
                 new BlockDefinition(
-                    "asteria:grass_block"),
+                    "asteria:block_grass"),
                 new BlockDefinition(
                     "asteria:stone"),
                 new BlockDefinition(
@@ -1065,7 +1065,7 @@ public sealed class SurfaceStructureTests
             FlatStructureGenerator(
                 blocks,
                 structures,
-                "asteria:grass_block",
+                "asteria:block_grass",
                 "asteria:a_any",
                 "asteria:z_terrain");
         var chunk =
@@ -1151,7 +1151,7 @@ public sealed class SurfaceStructureTests
             new BlockRegistry(
             [
                 new BlockDefinition(
-                    "asteria:grass_block"),
+                    "asteria:block_grass"),
                 new BlockDefinition(
                     "asteria:dirt"),
                 new BlockDefinition(
@@ -1171,7 +1171,7 @@ public sealed class SurfaceStructureTests
                     32),
                 [
                     new BiomeSurfaceLayerDefinition(
-                        "asteria:grass_block",
+                        "asteria:block_grass",
                         1),
                     new BiomeSurfaceLayerDefinition(
                         "asteria:dirt",
@@ -2057,11 +2057,11 @@ public sealed class SurfaceStructureTests
                     0f,
                     32),
                 surfaceBlock ==
-                    "asteria:grass_block"
+                    "asteria:block_grass"
                     ?
                     [
                         new BiomeSurfaceLayerDefinition(
-                            "asteria:grass_block",
+                            "asteria:block_grass",
                             1),
                         new BiomeSurfaceLayerDefinition(
                             blocks.TryGetId(

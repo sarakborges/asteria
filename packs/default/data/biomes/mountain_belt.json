@@ -31,7 +31,7 @@
       "surfaceBlocks": [
         "asteria:stone",
         "asteria:gravel",
-        "asteria:stone_cobble"
+        "asteria:cobble_stone"
       ],
       "habitatWeights": {
         "sheltered_passes": 0.24,
@@ -94,7 +94,7 @@
       }
     },
     {
-      "object": "asteria:pass_grass",
+      "object": "asteria:grass_pass",
       "chance": 0.0216,
       "surfaceBlocks": [
         "asteria:dirt",
@@ -119,12 +119,12 @@
       }
     },
     {
-      "block": "asteria:thorn_rosette",
+      "block": "asteria:rosette_thorn",
       "chance": 0.0162,
       "surfaceBlocks": [
         "asteria:stone",
         "asteria:gravel",
-        "asteria:stone_cobble"
+        "asteria:cobble_stone"
       ],
       "cluster": {
         "scale": 38,
@@ -144,11 +144,11 @@
       }
     },
     {
-      "block": "asteria:scree_lichen",
+      "block": "asteria:lichen_scree",
       "chance": 0.0174,
       "surfaceBlocks": [
         "asteria:stone",
-        "asteria:stone_cobble"
+        "asteria:cobble_stone"
       ],
       "cluster": {
         "scale": 29,
@@ -198,7 +198,7 @@
           "blocks": [
             "asteria:gravel",
             "asteria:dirt",
-            "asteria:stone_cobble"
+            "asteria:cobble_stone"
           ],
           "detailScale": 12,
           "selectionScale": 90,
@@ -208,7 +208,7 @@
           "weights": {
             "asteria:gravel": 5,
             "asteria:dirt": 1,
-            "asteria:stone_cobble": 2
+            "asteria:cobble_stone": 2
           },
           "conditions": {
             "maxSlope": 3

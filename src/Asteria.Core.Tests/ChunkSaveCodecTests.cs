@@ -16,7 +16,7 @@ public sealed class ChunkSaveCodecTests
                 visual: BlockVisualDefinition.CrossedSprite(
                     new BlockTextureLayer("textures/seagrass.png")),
                 isCollidable: false),
-            new BlockDefinition("asteria:lily_pad",
+            new BlockDefinition("asteria:pad_lily",
                 visual: BlockVisualDefinition.GroundSprite(
                     new BlockTextureLayer("textures/lily_pad.png")),
                 isCollidable: false),
@@ -32,7 +32,7 @@ public sealed class ChunkSaveCodecTests
         return (
             new BlockRegistry(reverse ? blockDefinitions.Reverse() : blockDefinitions),
             new FluidRegistry(reverse ? fluidDefinitions.Reverse() : fluidDefinitions),
-            new DyeRegistry([new DyeDefinition("asteria:red", 0, 0.8f, 0.5f)]),
+            new DyeRegistry([new DyeDefinition("asteria:dye_red", 0, 0.8f, 0.5f)]),
             new AttachedLayerRegistry([
                 new AttachedLayerDefinition("asteria:moss", "textures/moss.png",
                     [BlockFace.Top]),
@@ -79,7 +79,7 @@ public sealed class ChunkSaveCodecTests
         var mask = MicroblockMask.Full.Edit(
             0, 0, 0, MicroblockResolution.Thick, occupied: false);
         Assert.True(chunk.SetMicroblockMask(2, 3, 4, mask));
-        var surface = new BlockSurfaceState("asteria:red",
+        var surface = new BlockSurfaceState("asteria:dye_red",
         [
             new AttachedBlockLayer(BlockFace.Top, "asteria:moss",
                 TextureRotation.Degrees180),
@@ -148,7 +148,7 @@ public sealed class ChunkSaveCodecTests
         Assert.True(chunk.SetFluid(3, 2, 1,
             FluidCell.Source(source.Fluids.GetId("asteria:water"))));
         Assert.True(chunk.SetBlock(5, 4, 6,
-            source.Blocks.GetId("asteria:lily_pad")));
+            source.Blocks.GetId("asteria:pad_lily")));
         Assert.True(chunk.SetFluid(5, 4, 6,
             FluidCell.Spreading(source.Fluids.GetId("asteria:water"), 5, 2)));
 
@@ -159,7 +159,7 @@ public sealed class ChunkSaveCodecTests
             restored.GetBlock(3, 2, 1));
         Assert.Equal(FluidCell.Source(target.Fluids.GetId("asteria:water")),
             restored.GetFluid(3, 2, 1));
-        Assert.Equal(target.Blocks.GetId("asteria:lily_pad"),
+        Assert.Equal(target.Blocks.GetId("asteria:pad_lily"),
             restored.GetBlock(5, 4, 6));
         Assert.Equal(FluidCell.Spreading(target.Fluids.GetId("asteria:water"), 5, 2),
             restored.GetFluid(5, 4, 6));

@@ -1,19 +1,19 @@
 {
   "id": "asteria:bucket",
   "category": "tools",
-  "icon": "textures/tools/iron_bucket_empty.png",
+  "icon": "textures/tools/bucket_iron_empty.png",
   "leftBehavior": "asteria:none",
   "rightBehavior": "asteria:bucket/use",
   "iconVariants": [
     {
       "metadataKey": "contained_fluid",
       "metadataValue": "asteria:water",
-      "icon": "textures/tools/iron_bucket_water.png"
+      "icon": "textures/tools/bucket_iron_water.png"
     },
     {
       "metadataKey": "contained_fluid",
       "metadataValue": "asteria:lava",
-      "icon": "textures/tools/iron_bucket_lava.png"
+      "icon": "textures/tools/bucket_iron_lava.png"
     }
   ]
 }

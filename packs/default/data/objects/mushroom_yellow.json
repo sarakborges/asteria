@@ -1,13 +1,13 @@
 {
   "id": "asteria:mushroom_yellow",
   "category": "foliage",
-  "icon": "textures/objects/mushrooms/yellow.png",
+  "icon": "textures/objects/mushroom_yellow.png",
   "placementFaces": [
     "top"
   ],
   "visual": {
     "type": "crossedSprite",
-    "texture": "textures/objects/mushrooms/yellow.png",
+    "texture": "textures/objects/mushroom_yellow.png",
     "width": 0.72,
     "height": 0.62,
     "planes": 2,

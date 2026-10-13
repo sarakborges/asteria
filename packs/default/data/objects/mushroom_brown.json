@@ -1,7 +1,7 @@
 {
   "id": "asteria:mushroom_brown",
   "category": "foliage",
-  "icon": "textures/objects/mushrooms/brown.png",
+  "icon": "textures/objects/mushroom_brown.png",
   "placementFaces": [
     "top"
   ],
@@ -19,7 +19,7 @@
   },
   "visual": {
     "type": "crossedSprite",
-    "texture": "textures/objects/mushrooms/brown.png",
+    "texture": "textures/objects/mushroom_brown.png",
     "width": 0.72,
     "height": 0.62,
     "planes": 2,

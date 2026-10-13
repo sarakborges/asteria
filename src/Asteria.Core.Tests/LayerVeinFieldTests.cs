@@ -8,15 +8,15 @@ public sealed class LayerVeinFieldTests
         new BlockDefinition("asteria:stone"),
         new BlockDefinition("asteria:basalt"),
         new BlockDefinition("asteria:dirt"),
-        new BlockDefinition("asteria:sphere_shell",
+        new BlockDefinition("asteria:shell_sphere",
             mining: new BlockMiningDefinition(unbreakable: true))
     ]);
 
     private static AttachedLayerRegistry Layers() => AttachedLayerRegistry.FromJson([
         """
-        {"id":"asteria:iron_ore","texture":"textures/layers/ores/iron.png",
+        {"id":"asteria:ore_iron","texture":"textures/layers/ores/ore_iron.png",
          "scope":"voxel","mining":{"hardness":2,"requiredTools":["pickaxe"]},
-         "drops":[{"kind":"item","id":"asteria:raw_iron"}],
+         "drops":[{"kind":"item","id":"asteria:ore_iron_raw"}],
          "generation":{"dimension":"asteria:overworld",
            "hostBlocks":["asteria:stone","asteria:basalt"],
            "minY":3,"maxY":80,"spacing":8,"radius":3,"chance":1}}
@@ -55,7 +55,7 @@ public sealed class LayerVeinFieldTests
             var surface = chunk.GetSurfaceState(x, y, z);
             if (surface.IsEmpty) continue;
             Assert.Equal(6, surface.Layers.Count);
-            Assert.All(surface.Layers, layer => Assert.Equal("asteria:iron_ore", layer.LayerId));
+            Assert.All(surface.Layers, layer => Assert.Equal("asteria:ore_iron", layer.LayerId));
         }
         // Repeated generation never duplicates surface state.
         var before = OreCount(chunk);
@@ -104,10 +104,10 @@ public sealed class LayerVeinFieldTests
         var blocks = Blocks();
         var bad = AttachedLayerRegistry.FromJson([
             """
-            {"id":"asteria:bad","texture":"textures/layers/ores/iron.png",
+            {"id":"asteria:bad","texture":"textures/layers/ores/ore_iron.png",
              "scope":"voxel",
              "generation":{"dimension":"asteria:overworld",
-                "hostBlocks":["asteria:sphere_shell"],
+                "hostBlocks":["asteria:shell_sphere"],
                 "minY":0,"maxY":100,"spacing":12,"radius":2,"chance":0.5}}
             """
         ]);
@@ -134,10 +134,10 @@ public sealed class LayerVeinFieldTests
         foreach (var metal in new[] { "iron", "copper", "lead", "silver",
                                      "tin", "zinc", "nickel", "gold" })
         {
-            var ore = Assert.Single(generated, layer => layer.Id == "asteria:" + metal + "_ore");
+            var ore = Assert.Single(generated, layer => layer.Id == "asteria:ore_" + metal);
             Assert.Equal(LayerRemovalScope.Voxel, ore.Scope);
             Assert.Equal("asteria:overworld", ore.Generation!.Dimension);
-            Assert.Equal("asteria:raw_" + metal, Assert.Single(ore.Drops).Id);
+            Assert.Equal("asteria:ore_" + metal + "_raw", Assert.Single(ore.Drops).Id);
         }
     }
 }

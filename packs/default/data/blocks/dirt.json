@@ -1,6 +1,6 @@
 {
   "id": "asteria:dirt",
-  "category": "natural_blocks",
+  "category": "blocks_natural",
   "tags": ["fragmentable"],
   "textures": {
     "top": "textures/blocks/dirt.png",

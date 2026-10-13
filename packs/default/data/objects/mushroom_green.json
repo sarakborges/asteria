@@ -1,13 +1,13 @@
 {
   "id": "asteria:mushroom_green",
   "category": "foliage",
-  "icon": "textures/objects/mushrooms/green.png",
+  "icon": "textures/objects/mushroom_green.png",
   "placementFaces": [
     "top"
   ],
   "visual": {
     "type": "crossedSprite",
-    "texture": "textures/objects/mushrooms/green.png",
+    "texture": "textures/objects/mushroom_green.png",
     "width": 0.72,
     "height": 0.62,
     "planes": 2,

@@ -37,7 +37,7 @@ semantics.
 
 Five lightweight objects are authored entirely in the default pack:
 `seagrass` (common Sand Flats), `kelp` (Rocky Reefs/Gravel Banks),
-`sea_anemone` (Rocky Reefs), `seashell` (Sand Flats) and `starfish`
+`anemone_sea` (Rocky Reefs), `seashell` (Sand Flats) and `starfish`
 (sparse on mixed seabeds). All have independent transparent 16x16
 textures, supporting-ground material lists, deterministic noise clusters,
 `surfaceHabitats` weights, `conditions.maxY: 86` and
@@ -73,13 +73,13 @@ supporting fluid is a separate support-physics concern.
 
 ## Swamp roots and Willow hanging moss
 
-The default Swamp adds `asteria:exposed_roots` as a lightweight
+The default Swamp adds `asteria:roots_exposed` as a lightweight
 `groundSprite` decorator on Mud/Dirt/Grass Block. The generic nearby
 Water restriction (three horizontal voxels), clustered noise and
 habitat-weighted density strongly prefer Willow Groves without changing
 the terrain or its same-level mosaic.
 
-`asteria:hanging_moss` is a noncollidable, wind-swaying crossed sprite.
+`asteria:moss_hanging` is a noncollidable, wind-swaying crossed sprite.
 Seven sparse hanging segments per authored Willow variant are integrated
 directly into each `tree_willow_01..03` Structure template: every Moss
 voxel is empty in the original tree and has a Willow leaf immediately

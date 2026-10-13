@@ -7,13 +7,13 @@ public sealed class FrozenLandscapeStructureTests
     private static readonly (string Biome, string Family, int Variants,
         string Ground, string Favored, string Disfavored)[] Authored =
     [
-        ("arctic", "arctic_stunted_pine", 3, "snow", "frozen_plain", "ice_fields"),
-        ("arctic", "arctic_frost_brush", 3, "snow", "frozen_plain", "ice_fields"),
-        ("arctic", "arctic_rime_spires", 3, "ice", "ice_fields", "frozen_plain"),
-        ("alps", "alpine_snow_fir", 4, "snow", "snowfields", "glacial_ice"),
-        ("alps", "alpine_krummholz", 3, "stone", "wind_scoured_rock", "glacial_ice"),
-        ("alps", "alpine_serac", 3, "ice", "glacial_ice", "snowfields"),
-        ("alps", "alpine_ice_arch", 2, "ice", "glacial_ice", "snowfields"),
+        ("arctic", "tree_pine_arctic_stunted", 3, "snow", "frozen_plain", "ice_fields"),
+        ("arctic", "brush_frost_arctic", 3, "snow", "frozen_plain", "ice_fields"),
+        ("arctic", "spire_rime_arctic", 3, "ice", "ice_fields", "frozen_plain"),
+        ("alps", "tree_fir_alpine_snow", 4, "snow", "snowfields", "glacial_ice"),
+        ("alps", "tree_krummholz_alpine", 3, "stone", "wind_scoured_rock", "glacial_ice"),
+        ("alps", "serac_alpine", 3, "ice", "glacial_ice", "snowfields"),
+        ("alps", "arch_ice_alpine", 2, "ice", "glacial_ice", "snowfields"),
     ];
 
     [Fact]
@@ -71,7 +71,7 @@ public sealed class FrozenLandscapeStructureTests
                 // Every root/pillar at Y=1 must sit on matching ground.
                 var rigidRoots = new[]
                 {
-                    "asteria:frost_wood", "asteria:rime_deadwood",
+                    "asteria:log_frost_wood", "asteria:log_rime_deadwood",
                     "asteria:ice"
                 };
                 foreach (var voxel in member.Voxels.Where(v =>
@@ -86,7 +86,7 @@ public sealed class FrozenLandscapeStructureTests
     public void FrozenLandmarksActuallyVaryInHeightAndSilhouette()
     {
         var structures = StructureRegistry.FromJson(ReadJson("structures"));
-        var spruce = structures.ResolveReference("asteria:alpine_snow_fir");
+        var spruce = structures.ResolveReference("asteria:tree_fir_alpine_snow");
         Assert.Equal(4, spruce.Count);
         Assert.True(spruce.Max(v => v.MaximumY) >= 14);
         Assert.True(spruce.Min(v => v.MaximumY) <= 9);
@@ -95,16 +95,16 @@ public sealed class FrozenLandscapeStructureTests
 
         foreach (var group in new[]
         {
-            "asteria:arctic_stunted_pine",
-            "asteria:arctic_rime_spires",
-            "asteria:alpine_serac",
-            "asteria:alpine_ice_arch",
+            "asteria:tree_pine_arctic_stunted",
+            "asteria:spire_rime_arctic",
+            "asteria:serac_alpine",
+            "asteria:arch_ice_alpine",
         })
         {
             var variants = structures.ResolveReference(group);
             Assert.True(variants.Select(v => v.MaximumY).Distinct().Count() > 1);
         }
-        Assert.All(structures.ResolveReference("asteria:alpine_ice_arch"),
+        Assert.All(structures.ResolveReference("asteria:arch_ice_alpine"),
             arch => Assert.Contains(arch.Voxels, v =>
                 v.Block == "asteria:ice" && v.Y > 4));
     }
@@ -115,7 +115,7 @@ public sealed class FrozenLandscapeStructureTests
         var registry = BlockRegistry.FromJson(ReadJson("blocks"));
         foreach (var id in new[]
         {
-            "asteria:arctic_snow_needles", "asteria:alpine_snow_needles",
+            "asteria:leaf_frost_wood_arctic", "asteria:leaf_frost_wood_alpine",
         })
         {
             var block = registry.GetDefinition(registry.GetId(id));
@@ -126,12 +126,12 @@ public sealed class FrozenLandscapeStructureTests
             Assert.All(block.Textures.AllLayers(),
                 layer => Assert.StartsWith("textures/blocks/", layer.Texture));
         }
-        var wood = registry.GetDefinition(registry.GetId("asteria:frost_wood"));
-        Assert.Equal("wooden_blocks", wood.Category);
+        var wood = registry.GetDefinition(registry.GetId("asteria:log_frost_wood"));
+        Assert.Equal("blocks_wooden", wood.Category);
         Assert.Equal(
-            registry.GetDefinition(registry.GetId("asteria:arctic_snow_needles"))
+            registry.GetDefinition(registry.GetId("asteria:leaf_frost_wood_arctic"))
                 .Textures.ForFace(BlockFace.Top).Single().Texture,
-            registry.GetDefinition(registry.GetId("asteria:alpine_snow_needles"))
+            registry.GetDefinition(registry.GetId("asteria:leaf_frost_wood_alpine"))
                 .Textures.ForFace(BlockFace.Top).Single().Texture);
     }
 

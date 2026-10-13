@@ -40,7 +40,7 @@ Enchanted conserva **madeira azul e folhas douradas**; World Tree conserva **mad
 
 Materiais repetíveis devem ser **seamless em X e Y**, com continuidade de forma/cor e sem moldura artificial. Verificar o tile em tamanho nativo, ampliação nearest e mosaico 3×3. Uma linha que pertence ao desenho, como uma junta de plank, pode existir; não pode engrossar ou criar uma borda extra a cada repetição.
 
-Preservar as dimensões e papéis authored. Masks de tint continuam neutras; alpha deve seguir o uso do asset. Skins preservam UV e tamanho do atlas. UI 40×40 e sprites celestes 1254×1254 não são tiles 64×64. `brush-tint.png` acompanha o alinhamento das cerdas de `brush.png`. Máscaras de mineração mantêm os dez estágios.
+Preservar as dimensões e papéis authored. Masks de tint continuam neutras; alpha deve seguir o uso do asset. Skins preservam UV e tamanho do atlas. UI 40×40 e sprites celestes 1254×1254 não são tiles 64×64. `brush_rustic_tint.png` acompanha o alinhamento das cerdas de `brush_rustic.png`. Máscaras de mineração mantêm os dez estágios.
 
 ## Orientação para um próximo prompt de imagem
 

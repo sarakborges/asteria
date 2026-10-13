@@ -23,7 +23,7 @@ public sealed class BlockLootTableTests
         ]);
         var items = PackContentRegistry<ItemDefinition>.FromJson([
             """
-            {"id":"asteria:raw_iron","category":"materials",
+            {"id":"asteria:ore_iron_raw","category":"materials",
              "icon":"textures/items/iron.png","maxStackSize":16}
             """
         ], ItemDefinition.Parse, x => x.Id);
@@ -51,14 +51,14 @@ public sealed class BlockLootTableTests
         var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);
         var layers = AttachedLayerRegistry.FromJson([
             """
-            {"id":"asteria:iron_ore","texture":"textures/layers/iron.png",
+            {"id":"asteria:ore_iron","texture":"textures/layers/iron.png",
              "mining":{"hardness":0.5},
-             "drops":[{"kind":"item","id":"asteria:raw_iron","quantity":33}]}
+             "drops":[{"kind":"item","id":"asteria:ore_iron_raw","quantity":33}]}
             """
         ]);
         var items = PackContentRegistry<ItemDefinition>.FromJson([
             """
-            {"id":"asteria:raw_iron","category":"materials",
+            {"id":"asteria:ore_iron_raw","category":"materials",
              "icon":"textures/items/iron.png","maxStackSize":16}
             """
         ], ItemDefinition.Parse, x => x.Id);
@@ -82,7 +82,7 @@ public sealed class BlockLootTableTests
         Place(fixture);
         Assert.True(fixture.Mutations.SetBlockSurfaceStateAt(Position,
             new BlockSurfaceState(null, [
-                new AttachedBlockLayer(BlockFace.Top, "asteria:iron_ore")
+                new AttachedBlockLayer(BlockFace.Top, "asteria:ore_iron")
             ]), out _));
     }
 
@@ -110,7 +110,7 @@ public sealed class BlockLootTableTests
     public void AuthoredEntriesOverrideSelfDropAndSplitToActualStackLimits()
     {
         var f = Setup("""
-            [{"item":"asteria:raw_iron","quantity":33},
+            [{"item":"asteria:ore_iron_raw","quantity":33},
              {"item":"asteria:gravel","quantity":2}]
             """);
         Place(f);
@@ -120,7 +120,7 @@ public sealed class BlockLootTableTests
         var drops = f.Drops.ActiveBlocks.ToArray();
         Assert.Equal(4, drops.Length);
         Assert.Equal([16, 16, 1],
-            drops.Where(x => x.Stack.Id == "asteria:raw_iron")
+            drops.Where(x => x.Stack.Id == "asteria:ore_iron_raw")
                 .Select(x => x.Stack.Quantity).ToArray());
         var gravel = Assert.Single(drops.Where(x => x.Stack.Id == "asteria:gravel"));
         Assert.Equal(2, gravel.Stack.Quantity);
@@ -138,7 +138,7 @@ public sealed class BlockLootTableTests
         Assert.True(empty.Interactions.Break(Hit).Accepted);
         Assert.Equal(0, empty.Drops.ActiveCount);
 
-        var zero = Setup("""[{"item":"asteria:raw_iron","chance":0}]""");
+        var zero = Setup("""[{"item":"asteria:ore_iron_raw","chance":0}]""");
         Place(zero);
         Assert.True(zero.Interactions.Break(Hit, worldTick: 99).Accepted);
         Assert.Equal(0, zero.Drops.ActiveCount);
@@ -147,7 +147,7 @@ public sealed class BlockLootTableTests
     [Fact]
     public void QuantitiesAboveOneStackSplitWithoutTruncatingRewards()
     {
-        var f = Setup("""[{"item":"asteria:raw_iron","quantity":130}]""");
+        var f = Setup("""[{"item":"asteria:ore_iron_raw","quantity":130}]""");
         Place(f);
         Assert.True(f.Interactions.Break(Hit, worldTick: 12).Accepted);
         var counts = f.Drops.ActiveBlocks.Select(x => x.Stack.Quantity).ToArray();
@@ -159,7 +159,7 @@ public sealed class BlockLootTableTests
     [Fact]
     public void CreativeRemovalDoesNotRollOrSpawnAuthoredLoot()
     {
-        var f = Setup("""[{"item":"asteria:raw_iron","quantity":5}]""");
+        var f = Setup("""[{"item":"asteria:ore_iron_raw","quantity":5}]""");
         Place(f);
         Assert.True(f.Interactions.Break(Hit, BlockBreakLootPolicy.Suppress).Accepted);
         Assert.True(f.World.GetCellOrEmpty(Position).IsEmpty);
@@ -181,7 +181,7 @@ public sealed class BlockLootTableTests
     [Fact]
     public void InsufficientDropCapacityRejectsWithoutDestroyingBlock()
     {
-        var f = Setup("""[{"item":"asteria:raw_iron","quantity":33}]""",
+        var f = Setup("""[{"item":"asteria:ore_iron_raw","quantity":33}]""",
             capacity: 2);
         Place(f);
         Assert.False(f.Interactions.Break(Hit).Accepted);
@@ -194,10 +194,10 @@ public sealed class BlockLootTableTests
     {
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             LootTable.Parse(System.Text.Json.JsonDocument.Parse(
-                """[{"item":"asteria:raw_iron","chance":1.1}]""").RootElement));
+                """[{"item":"asteria:ore_iron_raw","chance":1.1}]""").RootElement));
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             LootTable.Parse(System.Text.Json.JsonDocument.Parse(
-                """[{"item":"asteria:raw_iron","quantity":0}]""").RootElement));
+                """[{"item":"asteria:ore_iron_raw","quantity":0}]""").RootElement));
         Assert.Throws<FormatException>(() =>
             BlockDefinitionJson.Parse(
                 """{"id":"asteria:stone","lootTable":{}}"""));
@@ -209,7 +209,7 @@ public sealed class BlockLootTableTests
     public void RandomChanceIsRepeatableForSameVoxelAndWorldTick()
     {
         const string table = """
-            [{"item":"asteria:raw_iron","chance":0.5}]
+            [{"item":"asteria:ore_iron_raw","chance":0.5}]
             """;
         var first = Setup(table);
         var second = Setup(table);

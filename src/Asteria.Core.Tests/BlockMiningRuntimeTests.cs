@@ -24,7 +24,7 @@ public sealed class BlockMiningRuntimeTests
                     preferredTools: ["shovel"])),
             new BlockDefinition("asteria:leaves", mining:
                 new BlockMiningDefinition(hardness: 0f)),
-            new BlockDefinition("asteria:sphere_shell", mining:
+            new BlockDefinition("asteria:shell_sphere", mining:
                 new BlockMiningDefinition(unbreakable: true)),
         ]);
         var world = new VoxelWorld();
@@ -41,7 +41,7 @@ public sealed class BlockMiningRuntimeTests
             {
               "id":"asteria:pickaxe_rustic",
               "category":"tools",
-              "icon":"textures/tools/pickaxe-rustic.png",
+              "icon":"textures/tools/pickaxe_rustic.png",
               "leftBehavior":"asteria:mine",
               "rightBehavior":"asteria:none",
               "mining":{"category":"pickaxe","speed":1.5}
@@ -51,7 +51,7 @@ public sealed class BlockMiningRuntimeTests
             {
               "id":"asteria:shovel_rustic",
               "category":"tools",
-              "icon":"textures/tools/shovel-rustic.png",
+              "icon":"textures/tools/shovel_rustic.png",
               "leftBehavior":"asteria:mine",
               "rightBehavior":"asteria:none",
               "mining":{"category":"shovel","speed":1.5}
@@ -59,9 +59,9 @@ public sealed class BlockMiningRuntimeTests
             """,
             """
             {
-              "id":"asteria:carpenters_axe_rustic",
+              "id":"asteria:axe_carpenters_rustic",
               "category":"tools",
-              "icon":"textures/tools/carpenters-axe-rustic.png",
+              "icon":"textures/tools/axe_carpenters_rustic.png",
               "leftBehavior":"asteria:log/hollow",
               "rightBehavior":"asteria:log/strip"
             }
@@ -165,13 +165,13 @@ public sealed class BlockMiningRuntimeTests
     {
         var f = CreateFixture();
         var stone = f.Blocks.GetId("asteria:stone");
-        var shell = f.Blocks.GetId("asteria:sphere_shell");
+        var shell = f.Blocks.GetId("asteria:shell_sphere");
         Assert.True(f.Mutations.SetBlockAt(First, stone, out _));
         Assert.True(f.Mutations.SetBlockAt(Second, shell, out _));
         Assert.False(f.Mining.Advance(Hit(First), null, 0, 1000,
             PlayerGameMode.Survival));
         Assert.False(f.Mining.Advance(Hit(First),
-            Tool("asteria:carpenters_axe_rustic"), 0, 1000,
+            Tool("asteria:axe_carpenters_rustic"), 0, 1000,
             PlayerGameMode.Survival));
         Assert.False(f.Mining.Advance(Hit(First),
             Tool("asteria:pickaxe_rustic"), 0, 1000,

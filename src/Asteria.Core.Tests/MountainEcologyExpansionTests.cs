@@ -8,23 +8,23 @@ public sealed class MountainEcologyExpansionTests
     private static readonly (string Biome, string[] Names)[] SmallFlora =
     [
         ("mountains", [
-            "stonecrop", "saxifrage", "rock_lichen"
+            "stonecrop", "saxifrage", "lichen_rock"
         ]),
         ("mountain_belt", [
-            "pass_grass", "thorn_rosette", "scree_lichen"
+            "grass_pass", "rosette_thorn", "lichen_scree"
         ]),
     ];
 
     private static readonly (string Biome, string Family, int Count,
         string Preferred, string Avoided)[] Landmarks =
     [
-        ("mountains", "mountain_dwarf_juniper", 3,
+        ("mountains", "tree_juniper_mountain_dwarf", 3,
             "foothill_shelves", "exposed_ridges"),
-        ("mountains", "mountain_wind_pine", 3,
+        ("mountains", "tree_pine_mountain_wind", 3,
             "foothill_shelves", "exposed_ridges"),
-        ("mountain_belt", "belt_windswept_pine", 3,
+        ("mountain_belt", "tree_pine_belt_windswept", 3,
             "sheltered_passes", "bare_crests"),
-        ("mountain_belt", "belt_rock_needle_cluster", 3,
+        ("mountain_belt", "cluster_rock_needles_belt", 3,
             "bare_crests", "sheltered_passes"),
     ];
 
@@ -57,10 +57,10 @@ public sealed class MountainEcologyExpansionTests
                 Assert.All(rule.SurfaceBlocks, ground =>
                     Assert.Contains(ground, new[]
                     {
-                        "asteria:stone", "asteria:stone_cobble",
+                        "asteria:stone", "asteria:cobble_stone",
                         "asteria:gravel", "asteria:dirt"
                     }));
-                if (name == "pass_grass")
+                if (name == "grass_pass")
                 {
                     Assert.True(rule.IsObject);
                     Assert.False(blocks.TryGetId(rule.Block, out _));
@@ -129,16 +129,16 @@ public sealed class MountainEcologyExpansionTests
             });
         }
 
-        var mountain = structures.ResolveReference("asteria:mountain_wind_pine");
-        var belt = structures.ResolveReference("asteria:belt_windswept_pine");
+        var mountain = structures.ResolveReference("asteria:tree_pine_mountain_wind");
+        var belt = structures.ResolveReference("asteria:tree_pine_belt_windswept");
         Assert.All(mountain, s => Assert.Contains(s.Voxels,
-            v => v.Block == "asteria:juniper_needles"));
+            v => v.Block == "asteria:leaf_juniper"));
         Assert.All(belt, s => Assert.Contains(s.Voxels,
-            v => v.Block == "asteria:windwood_needles"));
+            v => v.Block == "asteria:leaf_windwood"));
         Assert.True(mountain.Max(s => s.MaximumY) >= 11);
         Assert.True(belt.Max(s => s.MaximumY) >= 9);
 
-        var needles = structures.ResolveReference("asteria:belt_rock_needle_cluster");
+        var needles = structures.ResolveReference("asteria:cluster_rock_needles_belt");
         Assert.All(needles, s =>
         {
             Assert.All(s.Voxels, v => Assert.Equal("asteria:stone", v.Block));
@@ -156,7 +156,7 @@ public sealed class MountainEcologyExpansionTests
         foreach (var (biome, names) in SmallFlora)
             foreach (var name in names)
             {
-                var texture = name == "pass_grass"
+                var texture = name == "grass_pass"
                     ? objects.Get("asteria:" + name).Visual.Texture
                     : blocks.GetDefinition(blocks.GetId("asteria:" + name))
                         .Visual.Texture!.Value.Texture;
@@ -164,22 +164,22 @@ public sealed class MountainEcologyExpansionTests
             }
         foreach (var id in new[]
         {
-            "juniper_wood", "juniper_needles",
-            "windwood", "windwood_needles"
+            "log_juniper", "leaf_juniper",
+            "log_windwood", "leaf_windwood"
         })
         {
             var d = blocks.GetDefinition(blocks.GetId("asteria:" + id));
             var face = Assert.Single(d.Textures.ForFace(BlockFace.Top));
             Assert.Equal(id switch
             {
-                "juniper_wood" => "textures/blocks/trees/juniper/top.png",
-                "juniper_needles" => "textures/blocks/trees/juniper/leaf.png",
-                "windwood" => "textures/blocks/trees/windwood/top.png",
-                "windwood_needles" => "textures/blocks/trees/windwood/leaf.png",
+                "log_juniper" => "textures/blocks/trees/juniper/top.png",
+                "leaf_juniper" => "textures/blocks/trees/juniper/leaf.png",
+                "log_windwood" => "textures/blocks/trees/windwood/top.png",
+                "leaf_windwood" => "textures/blocks/trees/windwood/leaf.png",
                 _ => throw new InvalidOperationException("Unexpected tree material")
             }, face.Texture);
             Assert.True(seen.Add(face.Texture));
-            if (id.EndsWith("_needles", StringComparison.Ordinal))
+            if (id.StartsWith("leaf_", StringComparison.Ordinal))
                 Assert.Equal(BlockTint.None, d.Tint);
         }
         Assert.Equal(10, seen.Count);

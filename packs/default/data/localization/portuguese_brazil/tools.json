@@ -1,9 +1,9 @@
 {
-  "asteria:architects_compass": {
+  "asteria:compass_architects": {
     "/hint": "Seleciona regiões para exportar como estruturas.",
     "/name": "Bússola do Arquiteto"
   },
-  "asteria:artisans_kit_rustic": {
+  "asteria:kit_artisans_rustic": {
     "/hint": "Esculpe blocos fragmentáveis.",
     "/name": "Kit de Artesão"
   },
@@ -15,7 +15,7 @@
     "/hint": "Coleta e posiciona fontes de fluido.",
     "/name": "Balde"
   },
-  "asteria:carpenters_axe_rustic": {
+  "asteria:axe_carpenters_rustic": {
     "/hint": "Botão esquerdo deixa troncos ocos; botão direito remove a casca.",
     "/name": "Machado de Carpinteiro Rústico"
   },

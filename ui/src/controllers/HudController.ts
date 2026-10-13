@@ -119,7 +119,7 @@ export function createHudController(
           break;
         }
 
-        case "game.tool.artisans_kit": {
+        case "game.tool.kit_artisans": {
           const value = asRecord(message.payload)?.resolution;
           if (value === null || value === 1 || value === 2 || value === 4)
             patchHud(store, {

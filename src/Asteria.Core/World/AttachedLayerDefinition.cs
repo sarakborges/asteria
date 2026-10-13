@@ -74,7 +74,7 @@ public sealed class AttachedLayerDefinition
 
     public AttachedLayerDefinition(
         string id, string texture, IEnumerable<BlockFace>? faces = null,
-        string category = "natural_blocks",
+        string category = "blocks_natural",
         BlockTint tint = BlockTint.None, float offset = 1f / 1024f,
         float? alphaCutoff = 0.5f, bool alphaBlend = false, bool castsShadow = false,
         BlockMiningDefinition? mining = null, LayerRemovalScope scope = LayerRemovalScope.Face,
@@ -165,7 +165,7 @@ public sealed class AttachedLayerDefinition
         return new AttachedLayerDefinition(
             PackContentFields.Id(root),
             PackContentFields.ResourcePath(PackContentFields.RequiredString(root, "texture"), "texture"),
-            faces, PackContentFields.OptionalString(root, "category") ?? "natural_blocks",
+            faces, PackContentFields.OptionalString(root, "category") ?? "blocks_natural",
             tint, offset, cutoff, blend, shadows,
             ParseMining(root), scope, ParseDrops(root), ParseGeneration(root));
     }

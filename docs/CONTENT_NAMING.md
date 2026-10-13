@@ -2,10 +2,10 @@
 
 Authored block and object IDs describe **what the content is**, not the biome where it happens to spawn.
 
-- Name content by recognizable material, species, shape, geometry, or intrinsic property: `daisy`, `rock_lichen`, `mossy_willow_log`, `basalt_column`.
+- Name content by recognizable material, species, shape, geometry, or intrinsic property: `daisy`, `lichen_rock`, `mossy_willow_log`, `basalt_column`.
 - Biome restrictions belong in `packs/default/data/biomes/*.json` and authored structure restrictions, **not** in an artificial ID prefix.
-- A genuinely distinct variant may have a descriptive qualifier: `dry_lichen`, `soot_lichen`, `cliff_lichen`, `marsh_fern`. Do not collapse genuinely distinct assets into a single ID just to shorten names. First inspect existing blocks, including material-specific spike variants and hollow wood variants, before introducing new definitions.
-- Species/material terms that happen to resemble biome names are allowed when inherent to the content, such as `alpine_edelweiss`, `volcanic_glass`, `skywood_log`, and `enchanted_hollow_wood`.
+- A genuinely distinct variant may have a descriptive qualifier: `lichen_dry`, `lichen_soot`, `lichen_cliff`, `fern_marsh`. Do not collapse genuinely distinct assets into a single ID just to shorten names. First inspect existing blocks, including material-specific spike variants and hollow wood variants, before introducing new definitions.
+- Species/material terms that happen to resemble biome names are allowed when inherent to the content, such as `edelweiss_alpine`, `volcanic_glass`, `log_skywood`, and `enchanted_hollow_wood`.
 - Prefer reusing a block/object across multiple biomes with authored habitat rules over cloning its definition, textures or localization.
 - Keep block IDs, definition filenames, localized labels, and texture filenames consistent when introducing or renaming an item. Preserve existing 64×64 texture pixels and pack ownership.
 - Structure **families** can retain descriptive habitat/ecology identifiers: they define compositions and worldgen landmarks rather than individual block/object identities.

@@ -42,7 +42,7 @@
       "surfaceBlocks": [
         "asteria:stone",
         "asteria:gravel",
-        "asteria:stone_cobble"
+        "asteria:cobble_stone"
       ],
       "habitatWeights": {
         "foothill_shelves": 0.37,
@@ -109,7 +109,7 @@
       "chance": 0.0264,
       "surfaceBlocks": [
         "asteria:stone",
-        "asteria:stone_cobble",
+        "asteria:cobble_stone",
         "asteria:gravel"
       ],
       "cluster": {
@@ -134,7 +134,7 @@
       "chance": 0.0174,
       "surfaceBlocks": [
         "asteria:stone",
-        "asteria:stone_cobble"
+        "asteria:cobble_stone"
       ],
       "cluster": {
         "scale": 40,
@@ -154,11 +154,11 @@
       }
     },
     {
-      "block": "asteria:rock_lichen",
+      "block": "asteria:lichen_rock",
       "chance": 0.0198,
       "surfaceBlocks": [
         "asteria:stone",
-        "asteria:stone_cobble"
+        "asteria:cobble_stone"
       ],
       "cluster": {
         "scale": 28,
@@ -208,7 +208,7 @@
           "blocks": [
             "asteria:gravel",
             "asteria:dirt",
-            "asteria:stone_cobble"
+            "asteria:cobble_stone"
           ],
           "detailScale": 10,
           "selectionScale": 83,
@@ -218,7 +218,7 @@
           "weights": {
             "asteria:gravel": 4,
             "asteria:dirt": 2,
-            "asteria:stone_cobble": 1
+            "asteria:cobble_stone": 1
           },
           "conditions": {
             "maxSlope": 3

@@ -52,7 +52,7 @@ public sealed class AttachedLayerPlacementRuntimeTests
         updates.DrainMeshlets();
         updates.DrainLighting();
         Assert.True(mutations.SetBlockSurfaceStateAt(
-            position, new BlockSurfaceState("asteria:red"), out _));
+            position, new BlockSurfaceState("asteria:dye_red"), out _));
         updates.DrainMeshlets();
 
         var moss = new InventoryStack(InventoryEntry.FromLayer("asteria:moss"), 3);
@@ -67,7 +67,7 @@ public sealed class AttachedLayerPlacementRuntimeTests
         Assert.False(updates.HasLightingWork);
         Assert.True(updates.HasPriorityMeshWork);
         var state = world.GetBlockSurfaceStateOrEmpty(position);
-        Assert.Equal("asteria:red", state.DyeId);
+        Assert.Equal("asteria:dye_red", state.DyeId);
         Assert.Equal(new[] { "asteria:moss", "asteria:ivy" },
             state.Layers.Select(layer => layer.LayerId));
 

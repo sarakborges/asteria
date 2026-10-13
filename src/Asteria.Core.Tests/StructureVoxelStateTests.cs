@@ -11,7 +11,7 @@ public sealed class StructureVoxelStateTests
                 secondaryProperties: ["dyed"]),
             new BlockDefinition("asteria:ordinary")
         ]);
-        var dyes = new DyeRegistry([new DyeDefinition("asteria:red", 0, 1, 1f / 3f)]);
+        var dyes = new DyeRegistry([new DyeDefinition("asteria:dye_red", 0, 1, 1f / 3f)]);
         var layers = AttachedLayerRegistry.FromJson([
             """
             {"id":"asteria:moss","texture":"textures/layers/moss.png"}
@@ -35,7 +35,7 @@ public sealed class StructureVoxelStateTests
         world.InsertChunk(ChunkCoord.Zero, new Chunk());
         var mask = MicroblockMask.Full.Edit(
             0, 0, 0, MicroblockResolution.ExtraThin, occupied: false);
-        var surface = new BlockSurfaceState("asteria:red", [
+        var surface = new BlockSurfaceState("asteria:dye_red", [
             new AttachedBlockLayer(BlockFace.Top, "asteria:moss",
                 TextureRotation.Degrees90),
             new AttachedBlockLayer(BlockFace.Front, "asteria:moss"),
@@ -147,7 +147,7 @@ public sealed class StructureVoxelStateTests
         Assert.Throws<FormatException>(() => StructureDefinitionJson.Parse(invalid));
         var noBlock = template.Replace(
             "\"block\":\"asteria:ordinary\",\"orientation\":\"y\"",
-            "\"clear\":true,\"dye\":\"asteria:red\"");
+            "\"clear\":true,\"dye\":\"asteria:dye_red\"");
         Assert.Throws<FormatException>(() => StructureDefinitionJson.Parse(noBlock));
     }
 }

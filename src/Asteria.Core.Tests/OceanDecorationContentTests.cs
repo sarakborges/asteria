@@ -6,7 +6,7 @@ namespace Asteria.Core.Tests;
 public sealed class OceanDecorationContentTests
 {
     private static readonly string[] Names =
-        ["seagrass", "kelp", "sea_anemone", "seashell", "starfish"];
+        ["seagrass", "kelp", "anemone_sea", "seashell", "starfish"];
 
     [Fact]
     public void OceanObjectsUseSubmergedHabitatRulesAndExistingSpriteModels()
@@ -30,7 +30,7 @@ public sealed class OceanDecorationContentTests
             {
                 "seagrass" => 0.0675f,
                 "kelp" => 0.035f,
-                "sea_anemone" => 0.025f,
+                "anemone_sea" => 0.025f,
                 "seashell" => 0.03f,
                 "starfish" => 0.01875f,
                 _ => throw new InvalidOperationException(),
@@ -48,9 +48,9 @@ public sealed class OceanDecorationContentTests
                 ? ObjectVisualKind.ExtrudedSprite
                 : ObjectVisualKind.CrossedSprite, definition.Visual.Kind);
             Assert.True(definition.Supports(BlockFace.Top));
-            Assert.Equal(name is not "sea_anemone", definition.DropSelf);
+            Assert.Equal(name is not "anemone_sea", definition.DropSelf);
             Assert.Equal($"textures/objects/{name}.png", definition.Visual.Texture);
-            if (name == "sea_anemone")
+            if (name == "anemone_sea")
             {
                 Assert.Equal(.8f, definition.Visual.Width);
                 Assert.Equal(.88f, definition.Visual.Height);
@@ -62,7 +62,7 @@ public sealed class OceanDecorationContentTests
             }
         }
         var grass = Assert.Single(ocean.Decorations, d => d.Block == "asteria:seagrass");
-        var anemone = Assert.Single(ocean.Decorations, d => d.Block == "asteria:sea_anemone");
+        var anemone = Assert.Single(ocean.Decorations, d => d.Block == "asteria:anemone_sea");
         Assert.True(grass.HabitatWeights!.For("sand_flats") > grass.HabitatWeights.For("rocky_reefs"));
         Assert.True(anemone.HabitatWeights!.For("rocky_reefs") > anemone.HabitatWeights.For("sand_flats"));
     }

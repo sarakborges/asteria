@@ -177,7 +177,7 @@ public static class DeterministicChunkProvider
         }
 
         if (blocks.TryGetId(
-                "asteria:snow_layer",
+                "asteria:layer_snow",
                 out var snowLayer))
         {
             SetBlockIfOwned(

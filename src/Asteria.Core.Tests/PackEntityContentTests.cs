@@ -47,27 +47,27 @@ public sealed class PackEntityContentTests
 
         Assert.Equal(26, registry.Count);
         foreach (var metal in new[] { "iron", "copper", "lead", "silver", "tin", "zinc", "nickel", "gold" })
-            Assert.Equal("textures/items/ores/raw_" + metal + ".png",
-                registry.Get("asteria:raw_" + metal).Icon);
-        Assert.Equal(240, registry.Get("asteria:wayfarer_chestplate").MaxDurability);
+            Assert.Equal("textures/items/ores/ore_" + metal + "_raw.png",
+                registry.Get("asteria:ore_" + metal + "_raw").Icon);
+        Assert.Equal(240, registry.Get("asteria:chestplate_wayfarer").MaxDurability);
         var pebble = registry.Get("asteria:pebble");
         Assert.Equal("textures/items/pebble.png", pebble.Icon);
         var stick = registry.Get("asteria:stick");
         Assert.Equal("textures/items/stick.png", stick.Icon);
-        var slicer = registry.Get("asteria:dimensional_slicer");
+        var slicer = registry.Get("asteria:slicer_dimensional");
         Assert.Equal("tools", slicer.Category);
         Assert.Collection(slicer.IconVariants,
             umbral =>
             {
                 Assert.Equal("target_dimension", umbral.MetadataKey);
                 Assert.Equal("asteria:umbral", umbral.MetadataValue);
-                Assert.Equal("textures/items/dimensional_slicer_umbral.png", umbral.Icon);
+                Assert.Equal("textures/items/slicer_dimensional_umbral.png", umbral.Icon);
             },
             overworld =>
             {
                 Assert.Equal("target_dimension", overworld.MetadataKey);
                 Assert.Equal("asteria:overworld", overworld.MetadataValue);
-                Assert.Equal("textures/items/dimensional_slicer.png", overworld.Icon);
+                Assert.Equal("textures/items/slicer_dimensional.png", overworld.Icon);
             });
 
         var reversed = PackContentRegistry<ItemDefinition>.FromJson(

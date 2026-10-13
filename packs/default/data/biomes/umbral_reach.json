@@ -26,7 +26,7 @@
       "object": "asteria:grass",
       "chance": 0.0288,
       "surfaceBlocks": [
-        "asteria:grass_block"
+        "asteria:block_grass"
       ],
       "habitatWeights": {
         "shadow_meadows": 1.85,
@@ -38,7 +38,7 @@
       "object": "asteria:pebble",
       "chance": 0.012,
       "surfaceBlocks": [
-        "asteria:grass_block",
+        "asteria:block_grass",
         "asteria:dirt",
         "asteria:gravel",
         "asteria:stone"
@@ -59,7 +59,7 @@
       "object": "asteria:stick",
       "chance": 0.012,
       "surfaceBlocks": [
-        "asteria:grass_block",
+        "asteria:block_grass",
         "asteria:dirt",
         "asteria:gravel"
       ],
@@ -97,7 +97,7 @@
   "palette": {
     "default": [
       {
-        "block": "asteria:grass_block",
+        "block": "asteria:block_grass",
         "depth": 1,
         "patch": {
           "scale": 30,

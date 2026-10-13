@@ -21,9 +21,9 @@ public sealed class ArchitectsCompassRuntimeTests
         var tools = PackContentRegistry<ToolDefinition>.FromJson([
             """
             {
-              "id":"asteria:architects_compass",
-              "category":"creative_tools",
-              "icon":"textures/tools/architects-compass.png",
+              "id":"asteria:compass_architects",
+              "category":"tools_creative",
+              "icon":"textures/tools/compass_architects.png",
               "leftBehavior":"asteria:none",
               "rightBehavior":"asteria:structure/select"
             }
@@ -98,7 +98,7 @@ public sealed class ArchitectsCompassRuntimeTests
             out _, out var unloadedError));
         Assert.Contains("Unloaded", unloadedError);
         Assert.True(world.SetBlockSurfaceStateAt(p,
-            new BlockSurfaceState("asteria:red"), out _));
+            new BlockSurfaceState("asteria:dye_red"), out _));
         Assert.True(StructureSelectionBounds.TryCreate(
             p, p, out var single, out _));
         Assert.False(StructureSelectionExporter.TryExport(
@@ -112,7 +112,7 @@ public sealed class ArchitectsCompassRuntimeTests
     {
         var (compass, world, blocks) = Setup();
         var held = new InventoryStack(
-            InventoryEntry.FromTool("asteria:architects_compass"));
+            InventoryEntry.FromTool("asteria:compass_architects"));
         var first = new VoxelWorldHit(new WorldVoxelCoord(1, 1, 1), 0, 0, -1);
         var second = new VoxelWorldHit(new WorldVoxelCoord(2, 1, 2), 0, 0, 1);
         Assert.True(world.SetCellAt(new WorldVoxelCoord(1, 1, 1),
@@ -157,7 +157,7 @@ public sealed class ArchitectsCompassRuntimeTests
                 "asteria:wrong_tool", out _, out _));
         Assert.Equal(ArchitectsCompassResult.Rejected,
             compass.Select(new InventoryStack(
-                    InventoryEntry.FromTool("asteria:architects_compass")),
+                    InventoryEntry.FromTool("asteria:compass_architects")),
                 0,
                 new VoxelWorldHit(new WorldVoxelCoord(1, 1, 1), 0, 0, 0),
                 "asteria:invalid_normal", out _, out _));
@@ -169,7 +169,7 @@ public sealed class ArchitectsCompassRuntimeTests
     {
         var (compass, _, _) = Setup();
         var held = new InventoryStack(
-            InventoryEntry.FromTool("asteria:architects_compass"));
+            InventoryEntry.FromTool("asteria:compass_architects"));
         var target = new VoxelWorldHit(new WorldVoxelCoord(0, 1, 1), 1, 0, 0);
         Assert.Equal(ArchitectsCompassResult.Started,
             compass.Select(held, 0, target, "asteria:test", out _, out _));

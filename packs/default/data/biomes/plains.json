@@ -21,7 +21,7 @@
       "object": "asteria:grass",
       "chance": 0.0312,
       "surfaceBlocks": [
-        "asteria:grass_block"
+        "asteria:block_grass"
       ],
       "habitatWeights": {
         "grove": 0.68,
@@ -34,7 +34,7 @@
       "object": "asteria:pebble",
       "chance": 0.0072,
       "surfaceBlocks": [
-        "asteria:grass_block",
+        "asteria:block_grass",
         "asteria:dirt",
         "asteria:gravel"
       ],
@@ -53,7 +53,7 @@
       "object": "asteria:stick",
       "chance": 0.0078,
       "surfaceBlocks": [
-        "asteria:grass_block",
+        "asteria:block_grass",
         "asteria:dirt",
         "asteria:gravel"
       ],
@@ -74,7 +74,7 @@
       "object": "asteria:wildflower_blue",
       "chance": 0.0114,
       "surfaceBlocks": [
-        "asteria:grass_block"
+        "asteria:block_grass"
       ],
       "habitatWeights": {
         "grove": 0.8,
@@ -98,7 +98,7 @@
       "object": "asteria:wildflower_yellow",
       "chance": 0.012,
       "surfaceBlocks": [
-        "asteria:grass_block"
+        "asteria:block_grass"
       ],
       "habitatWeights": {
         "grove": 0.55,
@@ -119,10 +119,10 @@
       }
     },
     {
-      "object": "asteria:tall_grass",
+      "object": "asteria:grass_tall",
       "chance": 0.0186,
       "surfaceBlocks": [
-        "asteria:grass_block",
+        "asteria:block_grass",
         "asteria:dirt"
       ],
       "habitatWeights": {
@@ -147,7 +147,7 @@
       "object": "asteria:daisy",
       "chance": 0.0099,
       "surfaceBlocks": [
-        "asteria:grass_block"
+        "asteria:block_grass"
       ],
       "cluster": {
         "scale": 39,
@@ -171,7 +171,7 @@
       "object": "asteria:clover",
       "chance": 0.0096,
       "surfaceBlocks": [
-        "asteria:grass_block"
+        "asteria:block_grass"
       ],
       "cluster": {
         "scale": 31,
@@ -192,10 +192,10 @@
       }
     },
     {
-      "object": "asteria:purple_aster",
+      "object": "asteria:aster_purple",
       "chance": 0.0087,
       "surfaceBlocks": [
-        "asteria:grass_block"
+        "asteria:block_grass"
       ],
       "cluster": {
         "scale": 42,
@@ -216,10 +216,10 @@
       }
     },
     {
-      "object": "asteria:meadow_seedheads",
+      "object": "asteria:seedheads_meadow",
       "chance": 0.0102,
       "surfaceBlocks": [
-        "asteria:grass_block"
+        "asteria:block_grass"
       ],
       "cluster": {
         "scale": 36,
@@ -270,7 +270,7 @@
   "palette": {
     "default": [
       {
-        "block": "asteria:grass_block",
+        "block": "asteria:block_grass",
         "depth": 1,
         "patch": {
           "scale": 24,

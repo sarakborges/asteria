@@ -9,12 +9,12 @@ const payload = {
   everythingIconUrl: icon,
   categories: [
     { id: "tools", order: 50, iconUrl: icon },
-    { id: "stone_blocks", order: 10, iconUrl: icon },
+    { id: "blocks_stone", order: 10, iconUrl: icon },
   ],
   items: [
     {
       id: "asteria:stone", kind: "block", name: "asteria:stone",
-      category: "stone_blocks", metadata: {}, iconUrl: icon,
+      category: "blocks_stone", metadata: {}, iconUrl: icon,
       blockPreview: { kind: "cube", top: icon, front: icon, right: icon },
     },
     {
@@ -31,7 +31,7 @@ test("creative catalog bridge preserves authentic categories, order, icons and m
 
   const state = store.getSnapshot().inventory;
   expect(state.categories.map(category => category.id))
-    .toEqual(["stone_blocks", "tools"]);
+    .toEqual(["blocks_stone", "tools"]);
   expect(state.categories.map(category => category.iconUrl))
     .toEqual([icon, icon]);
   expect(state.everythingIconUrl).toBe(icon);

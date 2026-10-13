@@ -52,7 +52,7 @@
       }
     },
     {
-      "block": "asteria:alpine_edelweiss",
+      "block": "asteria:edelweiss_alpine",
       "chance": 0.0143,
       "surfaceBlocks": [
         "asteria:snow",
@@ -76,7 +76,7 @@
       }
     },
     {
-      "block": "asteria:alpine_sedge",
+      "block": "asteria:sedge_alpine",
       "chance": 0.0247,
       "surfaceBlocks": [
         "asteria:snow",
@@ -101,7 +101,7 @@
       }
     },
     {
-      "block": "asteria:frost_lichen",
+      "block": "asteria:lichen_frost",
       "chance": 0.0156,
       "surfaceBlocks": [
         "asteria:snow",
@@ -126,7 +126,7 @@
       }
     },
     {
-      "block": "asteria:ice_spike",
+      "block": "asteria:spike_ice",
       "chance": 0.0101,
       "surfaceBlocks": [
         "asteria:ice",

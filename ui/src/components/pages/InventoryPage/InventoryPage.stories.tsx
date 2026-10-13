@@ -79,7 +79,7 @@ function Preview({
           },
           {
             id:
-              "asteria:oak_log",
+              "asteria:log_oak",
             name: "Oak Log",
             quantity: 6,
           },
@@ -87,7 +87,7 @@ function Preview({
         hotbar: [
           {
             id:
-              "asteria:grass_block",
+              "asteria:block_grass",
             name:
               "Grass Block",
             quantity: 12,
@@ -129,7 +129,7 @@ function Preview({
             {
               item: {
                 id:
-                  "asteria:oak_log",
+                  "asteria:log_oak",
                 name:
                   "Oak Log",
               },

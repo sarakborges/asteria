@@ -172,7 +172,7 @@ public sealed class WorldGenerationModeTests
         [
             new BlockDefinition("asteria:stone"),
             new BlockDefinition("asteria:flower"),
-            new BlockDefinition("asteria:sphere_shell",
+            new BlockDefinition("asteria:shell_sphere",
                 mining: new BlockMiningDefinition(unbreakable: true)),
         ]);
         var biome = new BiomeDefinition(
@@ -192,7 +192,7 @@ public sealed class WorldGenerationModeTests
                 new DimensionColor(0, 0, 0),
                 new DimensionColor(255, 255, 255), 1f,
                 new DimensionColor(0, 0, 0), 0f),
-            new DimensionShellDefinition("asteria:sphere_shell", floorY: 0));
+            new DimensionShellDefinition("asteria:shell_sphere", floorY: 0));
         return (
             new BiomeWorldGenerator(
                 77UL, dimension, blocks,

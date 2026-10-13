@@ -21,7 +21,7 @@ const meta = {
       ],
       hotbar: [
         {
-          id: "asteria:grass_block",
+          id: "asteria:block_grass",
           name: "Grass Block",
           quantity: 12,
         },

@@ -244,7 +244,7 @@ public sealed class ChunkResidencyRuntimeTests
         var blocks =
             new BlockRegistry(
             [
-                new BlockDefinition("asteria:grass_block"),
+                new BlockDefinition("asteria:block_grass"),
                 new BlockDefinition("asteria:dirt"),
                 new BlockDefinition("asteria:stone"),
                 new BlockDefinition("asteria:sand"),

@@ -1,0 +1,24 @@
+{
+  "id": "asteria:fungus_cap_luminous_giant",
+  "category": "blocks_natural",
+  "tint": "none",
+  "textures": {
+    "top": "textures/blocks/mushroom_red.png",
+    "bottom": "textures/blocks/mushroom_red.png",
+    "left": "textures/blocks/mushroom_red.png",
+    "right": "textures/blocks/mushroom_red.png",
+    "front": "textures/blocks/mushroom_red.png",
+    "back": "textures/blocks/mushroom_red.png"
+  },
+  "mining": {
+    "hardness": 0.34
+  },
+  "lightDampening": 10,
+  "lightEmission": {
+    "red": 7,
+    "green": 2,
+    "blue": 9
+  },
+  "castsShadow": true,
+  "previewColor": "cb88df"
+}

@@ -1,6 +1,6 @@
 {
   "id": "asteria:sand",
-  "category": "natural_blocks",
+  "category": "blocks_natural",
   "tags": ["fragmentable", "gravity"],
   "textures": {
     "top": "textures/blocks/sand.png",

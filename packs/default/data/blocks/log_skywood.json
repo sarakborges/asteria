@@ -1,0 +1,27 @@
+{
+  "id": "asteria:log_skywood",
+  "category": "blocks_natural",
+  "textures": {
+    "top": "textures/blocks/trees/skywood/top.png",
+    "bottom": "textures/blocks/trees/skywood/top.png",
+    "left": "textures/blocks/trees/skywood/side.png",
+    "right": "textures/blocks/trees/skywood/side.png",
+    "front": "textures/blocks/trees/skywood/side.png",
+    "back": "textures/blocks/trees/skywood/side.png"
+  },
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1
+  },
+  "previewColor": "89aea0",
+  "variant": {
+    "family": "asteria:log_skywood",
+    "key": "natural"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ]
+}

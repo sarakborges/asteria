@@ -1,0 +1,23 @@
+{
+  "id": "asteria:mushroom_cap_marsh_giant",
+  "category": "blocks_natural",
+  "textures": {
+    "top": "textures/blocks/mushroom_brown.png",
+    "bottom": "textures/blocks/mushroom_brown.png",
+    "left": "textures/blocks/mushroom_brown.png",
+    "right": "textures/blocks/mushroom_brown.png",
+    "front": "textures/blocks/mushroom_brown.png",
+    "back": "textures/blocks/mushroom_brown.png"
+  },
+  "mining": {
+    "hardness": 0.36
+  },
+  "lightDampening": 14,
+  "lightEmission": {
+    "red": 3,
+    "green": 0,
+    "blue": 3
+  },
+  "castsShadow": true,
+  "previewColor": "9d5e99"
+}

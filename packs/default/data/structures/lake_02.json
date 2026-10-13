@@ -27,7 +27,7 @@
     "O": {
       "fluid": "asteria:water",
       "connector": {
-        "target": "asteria:river_segment",
+        "target": "asteria:segment_river",
         "face": "back",
         "strength": 1
       }

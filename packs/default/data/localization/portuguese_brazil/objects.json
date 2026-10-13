@@ -1,8 +1,8 @@
 {
-  "asteria:aether_bloom": {
+  "asteria:bloom_aether": {
     "/name": "Flor Etérea"
   },
-  "asteria:aether_vines": {
+  "asteria:vines_aether": {
     "/name": "Trepadeiras Etéreas"
   },
   "asteria:bulrush": {
@@ -11,7 +11,7 @@
   "asteria:cattail": {
     "/name": "Taboa"
   },
-  "asteria:cloud_reed": {
+  "asteria:reed_cloud": {
     "/name": "Junco das Nuvens"
   },
   "asteria:clover": {
@@ -20,16 +20,16 @@
   "asteria:daisy": {
     "/name": "Margarida"
   },
-  "asteria:glow_fern": {
+  "asteria:fern_glow": {
     "/name": "Samambaia Luminescente"
   },
-  "asteria:glowcap": {
+  "asteria:mushroom_glowcap": {
     "/name": "Cogumelo Luminescente"
   },
   "asteria:grass": {
     "/name": "Grama"
   },
-  "asteria:hanging_roots": {
+  "asteria:roots_hanging": {
     "/name": "Raízes Pendentes"
   },
   "asteria:iris": {
@@ -38,13 +38,13 @@
   "asteria:kelp": {
     "/name": "Alga kelp"
   },
-  "asteria:lily_pad": {
+  "asteria:pad_lily": {
     "/name": "Nenúfar"
   },
-  "asteria:marsh_orchid": {
+  "asteria:orchid_marsh": {
     "/name": "Orquídea do Brejo"
   },
-  "asteria:meadow_seedheads": {
+  "asteria:seedheads_meadow": {
     "/name": "Espigas de Pradaria"
   },
   "asteria:mushroom_blue": {
@@ -68,13 +68,13 @@
   "asteria:mushroom_yellow": {
     "/name": "Cogumelo Amarelo"
   },
-  "asteria:pass_grass": {
+  "asteria:grass_pass": {
     "/name": "Capim de Passagem"
   },
   "asteria:pebble": {
     "/name": "Pedregulho"
   },
-  "asteria:purple_aster": {
+  "asteria:aster_purple": {
     "/name": "Áster Roxo"
   },
   "asteria:sagebrush": {
@@ -113,7 +113,7 @@
   "asteria:sapling_world_tree": {
     "/name": "Muda da Árvore do Mundo"
   },
-  "asteria:sea_anemone": {
+  "asteria:anemone_sea": {
     "/name": "Anêmona-do-mar"
   },
   "asteria:seagrass": {
@@ -128,13 +128,13 @@
   "asteria:stick": {
     "/name": "Graveto"
   },
-  "asteria:tall_grass": {
+  "asteria:grass_tall": {
     "/name": "Capim Alto"
   },
-  "asteria:violet_fern": {
+  "asteria:fern_violet": {
     "/name": "Samambaia Violeta"
   },
-  "asteria:wall_shelf_fungus": {
+  "asteria:fungus_shelf_wall": {
     "/name": "Fungo de Prateleira de Parede"
   },
   "asteria:wildflower_blue": {

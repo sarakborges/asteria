@@ -1,0 +1,35 @@
+{
+  "id": "asteria:reed_cloud",
+  "category": "foliage",
+  "icon": "textures/objects/reed_cloud.png",
+  "placementFaces": [
+    "top"
+  ],
+  "target": {
+    "size": [
+      0.76,
+      0.9,
+      0.76
+    ],
+    "centerOffset": [
+      0,
+      0.45,
+      0
+    ]
+  },
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/reed_cloud.png",
+    "width": 0.76,
+    "height": 0.9,
+    "planes": 4,
+    "alphaCutoff": 0.5
+  },
+  "positionJitter": [
+    0.22,
+    0.22
+  ],
+  "dropSelf": false,
+  "windSway": true,
+  "unlit": false
+}

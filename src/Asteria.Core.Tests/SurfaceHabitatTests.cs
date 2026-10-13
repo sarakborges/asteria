@@ -26,7 +26,7 @@ public sealed class SurfaceHabitatTests
     {
         var blocks = new BlockRegistry(
         [
-            new BlockDefinition("asteria:grass_block"),
+            new BlockDefinition("asteria:block_grass"),
             new BlockDefinition("asteria:stick"),
         ]);
         var biome = TestBiome(Weights(("grove", 1f)));
@@ -36,7 +36,7 @@ public sealed class SurfaceHabitatTests
         var another = new SurfaceDecorationField(779UL, [biome], blocks);
         var sample = new BiomeSample(BiomeId,
             [new BiomeInfluence(BiomeId, 1f)]);
-        var grass = blocks.GetId("asteria:grass_block");
+        var grass = blocks.GetId("asteria:block_grass");
         var stick = blocks.GetId("asteria:stick");
         var foundOpen = false;
         var foundGrove = false;
@@ -123,11 +123,11 @@ public sealed class SurfaceHabitatTests
             .Where(rule => rule.Biome == biome.Id).ToArray();
         Assert.Equal(5, roots.Length);
         var reeds = Assert.Single(roots,
-            root => root.Structure == "asteria:swamp_reed_bed");
+            root => root.Structure == "asteria:bed_reed_swamp");
         Assert.True(reeds.HabitatWeights!.For("open_mire") >
                     reeds.HabitatWeights.For("willow_grove"));
         var stump = Assert.Single(roots,
-            root => root.Structure == "asteria:swamp_moss_stump");
+            root => root.Structure == "asteria:stump_swamp_moss");
         Assert.True(stump.HabitatWeights!.For("fungal_ground") >
                     stump.HabitatWeights.For("open_mire"));
         var willows = Assert.Single(roots,
@@ -166,7 +166,7 @@ public sealed class SurfaceHabitatTests
     {
         var biome = BiomeDefinitionJson.Parse(File.ReadAllText(Path.Combine(
             AppContext.BaseDirectory, "packs", "default", "data",
-            "biomes", "wraith_grove.json")));
+            "biomes", "grove_wraith.json")));
         Assert.Equal("asteria:umbral/wraith_grove", biome.Id);
         var bands = Assert.IsType<SurfaceHabitatDefinition>(biome.SurfaceHabitats);
         Assert.Equal(new[] { "dusky_underbrush", "pale_clearing", "decay_pockets" },
@@ -175,7 +175,7 @@ public sealed class SurfaceHabitatTests
             bands.ValidateWeights(Assert.IsType<SurfaceHabitatWeights>(rule.HabitatWeights)));
         var mushrooms = Assert.Single(biome.Decorations,
             rule => rule.Block == "asteria:mushroom_brown");
-        Assert.Contains("asteria:grass_block", mushrooms.SurfaceBlocks);
+        Assert.Contains("asteria:block_grass", mushrooms.SurfaceBlocks);
         Assert.True(mushrooms.HabitatWeights!.For("decay_pockets") >
                     mushrooms.HabitatWeights.For("pale_clearing"));
         var first = new SurfaceHabitatField(41UL, [biome]);
@@ -188,7 +188,7 @@ public sealed class SurfaceHabitatTests
     public void WraithTreeAndSnagRootsFollowTheirAuthoredHabitats()
     {
         var biomePath = Path.Combine(AppContext.BaseDirectory, "packs",
-            "default", "data", "biomes", "wraith_grove.json");
+            "default", "data", "biomes", "grove_wraith.json");
         var biome = BiomeDefinitionJson.Parse(File.ReadAllText(biomePath));
         var dimensionPath = Path.Combine(AppContext.BaseDirectory, "packs",
             "default", "data", "dimensions", "umbral.json");
@@ -202,9 +202,9 @@ public sealed class SurfaceHabitatTests
         var tree = Assert.Single(roots,
             root => root.Structure == "asteria:tree_wraith");
         var grove = Assert.Single(roots,
-            root => root.Structure == "asteria:wraith_grove");
+            root => root.Structure == "asteria:grove_wraith");
         var snag = Assert.Single(roots,
-            root => root.Structure == "asteria:wraith_snag");
+            root => root.Structure == "asteria:snag_wraith");
 
         Assert.True(tree.HabitatWeights!.For("dusky_underbrush") >
                     tree.HabitatWeights.For("pale_clearing"));
@@ -261,11 +261,11 @@ public sealed class SurfaceHabitatTests
             BiomeId,
             new BiomeSurfaceLayoutDefinition(),
             new BiomeTerrainDefinition(0, 0, 64, 0, 32),
-            [new BiomeSurfaceLayerDefinition("asteria:grass_block")],
+            [new BiomeSurfaceLayerDefinition("asteria:block_grass")],
             decorations:
             [
                 new BiomeDecorationDefinition("asteria:stick", 1f,
-                    ["asteria:grass_block"], habitatWeights: weights),
+                    ["asteria:block_grass"], habitatWeights: weights),
             ],
             surfaceHabitats: new SurfaceHabitatDefinition(64, .1f,
             [

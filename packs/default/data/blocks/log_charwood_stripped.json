@@ -1,0 +1,30 @@
+{
+  "id": "asteria:log_charwood_stripped",
+  "category": "blocks_wooden",
+  "textures": {
+    "top": "textures/blocks/trees/charwood/top.png",
+    "bottom": "textures/blocks/trees/charwood/top.png",
+    "left": "textures/blocks/trees/charwood/stripped.png",
+    "right": "textures/blocks/trees/charwood/stripped.png",
+    "front": "textures/blocks/trees/charwood/stripped.png",
+    "back": "textures/blocks/trees/charwood/stripped.png"
+  },
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1.1,
+    "preferredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "4f3f35",
+  "variant": {
+    "family": "asteria:log_charwood",
+    "key": "stripped"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ]
+}

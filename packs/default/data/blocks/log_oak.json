@@ -1,6 +1,6 @@
 {
   "id": "asteria:log_oak",
-  "category": "wooden_blocks",
+  "category": "blocks_wooden",
   "tags": ["fragmentable"],
   "variant": {
     "family": "asteria:log_oak",

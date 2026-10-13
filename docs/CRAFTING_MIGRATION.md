@@ -1,6 +1,6 @@
 # Inventory crafting migration
 
-Reference: MineClone main, `data/crafting_recipes/rustic_hatchet.json` and `src/hud/crafting.rs`. World Recipes are intentionally excluded by request.
+Reference: MineClone main, `data/crafting_recipes/hatchet_rustic.json` and `src/hud/crafting.rs`. World Recipes are intentionally excluded by request.
 
 ## Stage 1 — Core domain and transaction
 
@@ -13,11 +13,11 @@ Reference: MineClone main, `data/crafting_recipes/rustic_hatchet.json` and `src/
 ## Reference comparison and verification (2026-10-11)
 
 - Inspected MineClone `main` and `world-systems-rebuild`: both contain one authored inventory recipe (Rustic Hatchet) and the *Inventory / Personal crafting* station panel. Neither branch currently authors additional crafting station recipes or station runtime owners. **Do not invent dedicated workbenches, furnaces, or forges and call them a port.** World Recipes remain expressly outside this migration.
-- The Asteria survival inventory now keeps the personal *Current Station* panel visible even when there are no recipes. Its image uses the authored `crafting_materials` category icon from the selected-pack catalog whenever available rather than an artificial content ID preview.
+- The Asteria survival inventory now keeps the personal *Current Station* panel visible even when there are no recipes. Its image uses the authored `materials_crafting` category icon from the selected-pack catalog whenever available rather than an artificial content ID preview.
 - Recipe results default to one output when `result.quantity` is omitted, matching the MineClone authored parser; explicit zero quantities are still rejected.
 - `InventoryCraftingRuntime.Availability` returns read-only `UnknownRecipe`, `MissingIngredients`, `InventoryFull`, or `Crafted` outcomes using the same Core preflight as the real transaction. Godot publishes the evaluated unavailable reason in the immutable recipe view and React presents appropriate localized feedback. A craft blocked by output capacity no longer claims that ingredients are missing. Last-craft feedback is shown only for the currently selected recipe.
 - Core regression tests cover output-capacity preflight, no-op revisions, ingredient requirements, and successful crafting; Playwright stories cover no-recipe personal station and inventory-full feedback.
-- **Still requires native Godot/WRY QA:** perform Rustic Hatchet craft end-to-end, verify close/reopen, response/focus, icons, and rendering under selected packs with absent `crafting_materials` category imagery.
+- **Still requires native Godot/WRY QA:** perform Rustic Hatchet craft end-to-end, verify close/reopen, response/focus, icons, and rendering under selected packs with absent `materials_crafting` category imagery.
 
 ## Stage 2 — Godot ↔ WebUI integration
 

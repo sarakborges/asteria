@@ -1,6 +1,6 @@
 {
   "id": "asteria:glass",
-  "category": "crafted_blocks",
+  "category": "blocks_crafted",
   "tags": [
     "is_portal_frame",
     "accept_dimension:asteria:overworld",

@@ -15,7 +15,7 @@ public sealed class SwampRootsAndMossTests
 
         var swamp = biomes.Get("asteria:overworld/swamp");
         var roots = Assert.Single(swamp.Decorations,
-            d => d.Block == "asteria:exposed_roots");
+            d => d.Block == "asteria:roots_exposed");
         Assert.Equal(DecorationFluidRelation.Nearby, roots.FluidRequirement!.Relation);
         Assert.Equal("asteria:water", roots.FluidRequirement.Fluid);
         Assert.Equal(3, roots.FluidRequirement.MaxDistance);
@@ -34,7 +34,7 @@ public sealed class SwampRootsAndMossTests
         var blocks = BlockRegistry.FromJson(ReadJson("blocks"));
         var structures = StructureRegistry.FromJson(ReadJson("structures"));
         structures.ValidateBlocks(blocks);
-        var mossId = "asteria:hanging_moss";
+        var mossId = "asteria:moss_hanging";
         var visual = blocks.GetDefinition(blocks.GetId(mossId));
         Assert.Equal(BlockVisualKind.CrossedSprite, visual.Visual.Kind);
         Assert.True(visual.HasTag(BlockPhysicsCapabilities.SupportAbove));
@@ -68,11 +68,11 @@ public sealed class SwampRootsAndMossTests
     {
         var blocks = new BlockRegistry([
             new BlockDefinition("asteria:leaf_willow"),
-            new BlockDefinition("asteria:hanging_moss",
+            new BlockDefinition("asteria:moss_hanging",
                 tags: [BlockPhysicsCapabilities.SupportAbove],
                 isCollidable: false)
         ]);
-        var mossId = blocks.GetId("asteria:hanging_moss");
+        var mossId = blocks.GetId("asteria:moss_hanging");
         var leafId = blocks.GetId("asteria:leaf_willow");
         var chunk = new Chunk();
         chunk.SetBlock(4, 5, 4, mossId);

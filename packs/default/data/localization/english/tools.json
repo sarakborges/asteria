@@ -1,9 +1,9 @@
 {
-  "asteria:architects_compass": {
+  "asteria:compass_architects": {
     "/hint": "Selects regions to export as structures.",
     "/name": "Architect's Compass"
   },
-  "asteria:artisans_kit_rustic": {
+  "asteria:kit_artisans_rustic": {
     "/hint": "Sculpts fragmentable blocks.",
     "/name": "Artisan's Kit"
   },
@@ -15,7 +15,7 @@
     "/hint": "Collects and places fluid sources.",
     "/name": "Bucket"
   },
-  "asteria:carpenters_axe_rustic": {
+  "asteria:axe_carpenters_rustic": {
     "/hint": "Left click hollows logs; right click strips bark.",
     "/name": "Rustic Carpenter's Axe"
   },

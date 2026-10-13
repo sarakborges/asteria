@@ -44,7 +44,7 @@ public sealed class DroppedBlockRuntimeTests
     {
         var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);
         var runtime = new DroppedBlockRuntime(LoadedWorld(), blocks);
-        var item = InventoryEntry.FromItem("asteria:dimensional_slicer",
+        var item = InventoryEntry.FromItem("asteria:slicer_dimensional",
             new Dictionary<string, string> {
                 ["target_dimension"] = "asteria:umbral",
             });
@@ -67,7 +67,7 @@ public sealed class DroppedBlockRuntimeTests
         Assert.Equal(1, restored.CollectNearby(
             new Vector3(3, 4, 5), 1f, inventory.TryInsert));
         Assert.Empty(restored.ActiveBlocks);
-        Assert.Equal("asteria:dimensional_slicer",
+        Assert.Equal("asteria:slicer_dimensional",
             inventory.SlotAt(PlayerInventory.BackpackSlots + 1)!.Id);
         var stacked = runtime.Spawn(new InventoryStack(item, 2),
             new Vector3(3, 4, 5));

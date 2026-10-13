@@ -34,5 +34,5 @@
   "unlit": false,
   "tint": "none",
   "previewColor": "be7a38",
-  "growthStructure": "asteria:sapling_grown_charwood"
+  "growthStructure": "asteria:tree_charwood_sapling_grown"
 }

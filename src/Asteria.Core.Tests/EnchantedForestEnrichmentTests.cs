@@ -16,13 +16,13 @@ public sealed class EnchantedForestEnrichmentTests
         biomes.ValidateObjects(objects);
         var biome = biomes.Get("asteria:overworld/enchanted_forest");
         Assert.Equal(10, biome.Decorations.Count);
-        Assert.Equal("asteria:grass_block", biome.SurfaceLayers[0].Block);
+        Assert.Equal("asteria:block_grass", biome.SurfaceLayers[0].Block);
         Assert.Equal(["luminous_clearing","violet_undergrowth","pink_glade"],
             biome.SurfaceHabitats!.Bands.Select(x => x.Id).ToArray());
 
         foreach (var name in new[] {
-            "starflower","violet_fern",
-            "pink_bloom","glow_pod"
+            "starflower","fern_violet",
+            "bloom_pink","pod_glow"
         })
         {
             var rule = Assert.Single(biome.Decorations,
@@ -30,8 +30,8 @@ public sealed class EnchantedForestEnrichmentTests
             Assert.NotNull(rule.HabitatWeights);
             Assert.NotNull(rule.Cluster);
             Assert.All(rule.SurfaceBlocks, x =>
-                Assert.Contains(x, new[] {"asteria:grass_block","asteria:dirt"}));
-            if (name == "violet_fern")
+                Assert.Contains(x, new[] {"asteria:block_grass","asteria:dirt"}));
+            if (name == "fern_violet")
             {
                 Assert.True(rule.IsObject);
                 Assert.False(blocks.TryGetId(rule.Block, out _));
@@ -59,7 +59,7 @@ public sealed class EnchantedForestEnrichmentTests
                 x => x.Block == "asteria:" + reused).IsObject);
 
         foreach (var glow in new[] {
-            "starflower","glow_pod"
+            "starflower","pod_glow"
         })
             Assert.True(blocks.GetDefinition(
                 blocks.GetId("asteria:" + glow)).LightEmission.Blue > 0);
@@ -69,7 +69,7 @@ public sealed class EnchantedForestEnrichmentTests
     public void MushroomRingsHaveEmptyCentersAndNoGroundOverwrite()
     {
         var structures = StructureRegistry.FromJson(ReadPackJson("structures"));
-        var variants = structures.ResolveReference("asteria:enchanted_mushroom_ring");
+        var variants = structures.ResolveReference("asteria:ring_mushroom_enchanted");
         Assert.Equal(3, variants.Count);
         Assert.All(variants, ring => {
             Assert.InRange(ring.Voxels.Count + ring.Objects.Count, 8, 32);
@@ -97,9 +97,9 @@ public sealed class EnchantedForestEnrichmentTests
         var dimension = DimensionRegistry.FromJson(ReadPackJson("dimensions"))
             .Get(DimensionId.Overworld);
         foreach (var (name, count) in new[] {
-            ("enchanted_mushroom_ring",3),
-            ("enchanted_hollow_stump",2),
-            ("enchanted_fungal_canopy",3)
+            ("ring_mushroom_enchanted",3),
+            ("stump_enchanted_tree_hollow",2),
+            ("canopy_fungal_enchanted",3)
         })
         {
             Assert.Single(dimension.GeneratedSurfaceStructures, x =>
@@ -112,29 +112,29 @@ public sealed class EnchantedForestEnrichmentTests
                 Assert.True(s.Restrictions.RequiresDryGround);
                 Assert.Equal(1f, s.Restrictions.RequiredBiomeCoverage);
                 Assert.All(s.Restrictions.GroundBlocks, block => Assert.Contains(
-                    block, new[] {"asteria:grass_block","asteria:dirt"}));
+                    block, new[] {"asteria:block_grass","asteria:dirt"}));
                 Assert.All(s.Voxels, v => Assert.True(v.Y > 0));
                 Assert.Equal(StructureFluidPolicy.Forbid, s.Generation.FluidPolicy);
             });
         }
-        var canopy = structures.ResolveReference("asteria:enchanted_fungal_canopy");
+        var canopy = structures.ResolveReference("asteria:canopy_fungal_enchanted");
         Assert.True(canopy.Max(s => s.MaximumY) >= 10);
         Assert.All(canopy, s => {
             Assert.Contains(s.Voxels, v =>
-                v.Block == "asteria:luminous_giant_fungus_stem");
+                v.Block == "asteria:fungus_stem_luminous_giant");
             Assert.Contains(s.Voxels, v =>
-                v.Block == "asteria:luminous_giant_fungus_cap");
+                v.Block == "asteria:fungus_cap_luminous_giant");
         });
         var cap = blocks.GetDefinition(
-            blocks.GetId("asteria:luminous_giant_fungus_cap"));
+            blocks.GetId("asteria:fungus_cap_luminous_giant"));
         Assert.Equal(BlockTint.None, cap.Tint);
         Assert.True(cap.LightEmission.Red > 0);
         Assert.True(cap.LightEmission.Blue > 0);
 
-        Assert.All(structures.ResolveReference("asteria:enchanted_hollow_stump"),
+        Assert.All(structures.ResolveReference("asteria:stump_enchanted_tree_hollow"),
             s => {
-                Assert.Contains(s.Voxels, v => v.Block == "asteria:log_enchanted");
-                Assert.Contains(s.Voxels, v => v.Block == "asteria:log_enchanted_hollow");
+                Assert.Contains(s.Voxels, v => v.Block == "asteria:log_enchanted_tree");
+                Assert.Contains(s.Voxels, v => v.Block == "asteria:log_enchanted_tree_hollow");
             });
     }
 

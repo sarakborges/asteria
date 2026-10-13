@@ -14,7 +14,7 @@ public sealed class StructureDetailedPlacementTests
         ]);
         var mask = MicroblockMask.Full.Edit(0, 1, 2,
             MicroblockResolution.ExtraThin, occupied: false);
-        var surface = new BlockSurfaceState("asteria:red", [
+        var surface = new BlockSurfaceState("asteria:dye_red", [
             new AttachedBlockLayer(BlockFace.Top, "asteria:moss"),
             new AttachedBlockLayer(BlockFace.Front, "asteria:ivy",
                 TextureRotation.Degrees270)
@@ -40,7 +40,7 @@ public sealed class StructureDetailedPlacementTests
             groundAnchorY: 0);
         var structures = new StructureRegistry([structure]);
         var dyes = new DyeRegistry([
-            new DyeDefinition("asteria:red", 0f, 1f, 1f / 3f)
+            new DyeDefinition("asteria:dye_red", 0f, 1f, 1f / 3f)
         ]);
         var layers = AttachedLayerRegistry.FromJson([
             """

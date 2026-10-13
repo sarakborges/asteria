@@ -1,0 +1,23 @@
+{
+  "id": "asteria:mushroom_cap_glow",
+  "category": "blocks_natural",
+  "textures": {
+    "top": "textures/blocks/mushroom_red.png",
+    "bottom": "textures/blocks/mushroom_red.png",
+    "left": "textures/blocks/mushroom_red.png",
+    "right": "textures/blocks/mushroom_red.png",
+    "front": "textures/blocks/mushroom_red.png",
+    "back": "textures/blocks/mushroom_red.png"
+  },
+  "lightDampening": 0,
+  "castsShadow": true,
+  "lightEmission": {
+    "red": 3,
+    "green": 8,
+    "blue": 10
+  },
+  "mining": {
+    "hardness": 0.3
+  },
+  "previewColor": "66c6d2"
+}

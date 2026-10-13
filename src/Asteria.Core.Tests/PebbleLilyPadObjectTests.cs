@@ -7,7 +7,7 @@ namespace Asteria.Core.Tests;
 public sealed class PebbleLilyPadObjectTests
 {
     private const string Pebble = """
-        {"id":"asteria:pebble","category":"crafting_materials",
+        {"id":"asteria:pebble","category":"materials_crafting",
          "icon":"textures/items/pebble.png",
          "interaction":"pickup","pickupItem":"asteria:pebble",
          "visual":{"type":"extrudedSprite","texture":"textures/items/pebble.png",
@@ -15,10 +15,10 @@ public sealed class PebbleLilyPadObjectTests
          "placementFaces":["top"]}
         """;
     private const string Lily = """
-        {"id":"asteria:lily_pad","category":"foliage",
-         "icon":"textures/objects/lily_pad.png",
+        {"id":"asteria:pad_lily","category":"foliage",
+         "icon":"textures/objects/pad_lily.png",
          "supportFluid":"asteria:water","dropSelf":false,
-         "visual":{"type":"extrudedSprite","texture":"textures/objects/lily_pad.png",
+         "visual":{"type":"extrudedSprite","texture":"textures/objects/pad_lily.png",
                    "size":[0.89,0.89],"height":0.012},
          "placementFaces":["top"]}
         """;
@@ -72,7 +72,7 @@ public sealed class PebbleLilyPadObjectTests
         var source = FluidCell.Source(fluids.GetId("asteria:water"));
         Assert.True(mutations.SetFluidAt(support, source, out _));
 
-        var selected = new InventoryStack(InventoryEntry.FromObject("asteria:lily_pad"));
+        var selected = new InventoryStack(InventoryEntry.FromObject("asteria:pad_lily"));
         var hit = new VoxelWorldHit(support, 0, 1, 0);
         var decision = ObjectPlacementResolver.Resolve(
             world, blocks, Definitions(), selected, hit, fluids);
@@ -80,7 +80,7 @@ public sealed class PebbleLilyPadObjectTests
         Assert.True(runtime.TryPlace(selected, hit));
         Assert.Equal(source, world.GetFluidOrEmpty(support));
         Assert.True(world.GetCellOrEmpty(support).IsEmpty);
-        Assert.Equal("asteria:lily_pad", Assert.Single(
+        Assert.Equal("asteria:pad_lily", Assert.Single(
             world.TryGetObjects(support, out var attached) ? attached : []).Id);
         Assert.False(runtime.TryPlace(selected, hit));
 
@@ -99,7 +99,7 @@ public sealed class PebbleLilyPadObjectTests
         var (world, mutations, blocks, fluids, runtime) = Setup();
         var support = new WorldVoxelCoord(5, 5, 5);
         var water = fluids.GetId("asteria:water");
-        var selected = new InventoryStack(InventoryEntry.FromObject("asteria:lily_pad"));
+        var selected = new InventoryStack(InventoryEntry.FromObject("asteria:pad_lily"));
         var hit = new VoxelWorldHit(support, 0, 1, 0);
         Assert.True(mutations.SetFluidAt(support, FluidCell.Spreading(water, 7, 1), out _));
         Assert.False(runtime.TryPlace(selected, hit));
@@ -128,7 +128,7 @@ public sealed class PebbleLilyPadObjectTests
         var objects = PackContentRegistry<ObjectDefinition>.FromJson(
             Docs("objects"), ObjectDefinition.Parse, d => d.Id);
         biomes.ValidateObjects(objects);
-        foreach (var id in new[] { "pebble", "lily_pad" })
+        foreach (var id in new[] { "pebble", "pad_lily" })
         {
             Assert.False(blocks.TryGetId("asteria:" + id, out _));
             Assert.Equal(ObjectVisualKind.ExtrudedSprite,
@@ -136,9 +136,9 @@ public sealed class PebbleLilyPadObjectTests
         }
         Assert.Equal(InventoryEntryKind.Item, objects.Get("asteria:pebble").RewardEntry.Kind);
         Assert.Equal("asteria:pebble", objects.Get("asteria:pebble").RewardEntry.Id);
-        Assert.Equal("asteria:water", objects.Get("asteria:lily_pad").SupportFluid);
+        Assert.Equal("asteria:water", objects.Get("asteria:pad_lily").SupportFluid);
         var rule = Assert.Single(biomes.Get("asteria:overworld/swamp").Decorations,
-            d => d.Block == "asteria:lily_pad");
+            d => d.Block == "asteria:pad_lily");
         Assert.True(rule.IsObject);
         Assert.Equal("asteria:water", rule.FluidRequirement!.Fluid);
         Assert.Equal(DecorationFluidRelation.Below, rule.FluidRequirement.Relation);

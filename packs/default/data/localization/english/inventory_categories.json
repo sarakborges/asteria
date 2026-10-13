@@ -1,11 +1,11 @@
 {
-  "crafted_blocks": {
+  "blocks_crafted": {
     "/displayName": "Crafted Blocks"
   },
-  "crafting_materials": {
+  "materials_crafting": {
     "/displayName": "Crafting Materials"
   },
-  "creative_tools": {
+  "tools_creative": {
     "/displayName": "Creative Tools"
   },
   "foliage": {
@@ -14,16 +14,16 @@
   "light_sources": {
     "/displayName": "Light Sources"
   },
-  "natural_blocks": {
+  "blocks_natural": {
     "/displayName": "Natural Blocks"
   },
-  "stone_blocks": {
+  "blocks_stone": {
     "/displayName": "Stone Blocks"
   },
   "tools": {
     "/displayName": "Tools"
   },
-  "wooden_blocks": {
+  "blocks_wooden": {
     "/displayName": "Wooden Blocks"
   }
 }

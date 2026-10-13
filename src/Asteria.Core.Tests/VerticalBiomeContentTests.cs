@@ -19,7 +19,7 @@ public sealed class VerticalBiomeContentTests
         Assert.Equal(4u, ocean.SurfaceLayers[0].Depth);
         Assert.Equal("asteria:gravel", ocean.SurfaceLayers[1].Block);
         Assert.Equal("asteria:stone", ocean.SurfaceLayers[2].Block);
-        Assert.Equal(new[] { "asteria:gravel", "asteria:clay", "asteria:stone_cobble" },
+        Assert.Equal(new[] { "asteria:gravel", "asteria:clay", "asteria:cobble_stone" },
             patch.Blocks);
         Assert.True(patch.WarpStrength > 0d);
 
@@ -47,7 +47,7 @@ public sealed class VerticalBiomeContentTests
         Assert.Contains(blocks.GetId("asteria:sand"), seen);
         Assert.Contains(blocks.GetId("asteria:gravel"), seen);
         Assert.Contains(blocks.GetId("asteria:clay"), seen);
-        Assert.Contains(blocks.GetId("asteria:stone_cobble"), seen);
+        Assert.Contains(blocks.GetId("asteria:cobble_stone"), seen);
     }
 
     [Fact]
@@ -58,7 +58,7 @@ public sealed class VerticalBiomeContentTests
         var sets = StructureSetRegistry.FromJson(ReadFiles("structure_sets"));
         structures.ValidateBlocks(blocks);
         sets.ValidateStructures(structures);
-        var variants = structures.ResolveReference("asteria:ocean_rock");
+        var variants = structures.ResolveReference("asteria:rock_ocean");
         Assert.Equal(4, variants.Count);
         Assert.All(variants, structure =>
         {
@@ -70,19 +70,19 @@ public sealed class VerticalBiomeContentTests
             Assert.Contains("asteria:sand", structure.Restrictions.GroundBlocks);
             Assert.Contains("asteria:clay", structure.Restrictions.GroundBlocks);
             Assert.Contains(structure.Voxels, voxel =>
-                voxel.Block == "asteria:stone_cobble");
+                voxel.Block == "asteria:cobble_stone");
             Assert.All(structure.Voxels, voxel =>
                 Assert.Contains(voxel.Block, new[] {
-                    "asteria:stone", "asteria:stone_cobble",
+                    "asteria:stone", "asteria:cobble_stone",
                     "asteria:clay", "asteria:gravel",
                 }));
         });
 
-        var cluster = sets.Get("asteria:ocean_rock_cluster");
+        var cluster = sets.Get("asteria:cluster_rock_ocean");
         Assert.False(cluster.ReserveSpace);
         Assert.Contains("rock", cluster.ConflictGroups);
-        Assert.Equal("asteria:ocean_rock", cluster.Elements[0].Structure);
-        Assert.Equal("asteria:ocean_rock", cluster.Elements[1].Structure);
+        Assert.Equal("asteria:rock_ocean", cluster.Elements[0].Structure);
+        Assert.Equal("asteria:rock_ocean", cluster.Elements[1].Structure);
         Assert.Equal(1, cluster.Elements[1].Count.Min);
         Assert.Equal(2, cluster.Elements[1].Count.Max);
 
@@ -92,11 +92,11 @@ public sealed class VerticalBiomeContentTests
             r => r.Biome == "asteria:overworld/ocean").ToArray();
         Assert.True(oceanRoots.Length >= 4);
         Assert.Contains(oceanRoots, root =>
-            root.Structure == "asteria:coral_fan_garden");
+            root.Structure == "asteria:garden_coral_fan");
         Assert.Contains(oceanRoots, root =>
-            root.Structure == "asteria:ocean_rock");
+            root.Structure == "asteria:rock_ocean");
         Assert.Single(oceanRoots, r =>
-            r.Structure == "asteria:river_ocean_mouth" &&
+            r.Structure == "asteria:mouth_river_ocean" &&
             r.Placement == DimensionGeneratedSurfaceStructurePlacement.BiomeMargin);
         var ocean = BiomeDefinitionJson.Parse(File.ReadAllText(
             Path.Combine(PackData, "biomes", "ocean.json")));
@@ -130,14 +130,14 @@ public sealed class VerticalBiomeContentTests
         Assert.Null(floating.SurfaceHabitats);
         Assert.Equal(8, cave.Decorations.Count);
         Assert.Contains(cave.Decorations, d => d.IsLayer &&
-            d.Block == "asteria:wall_moss");
+            d.Block == "asteria:moss_wall");
         Assert.Contains(cave.Decorations, d => d.IsObject &&
             d.SupportSurface == DecorationSupportSurface.Wall &&
-            d.Block == "asteria:wall_shelf_fungus");
+            d.Block == "asteria:fungus_shelf_wall");
         Assert.Equal(6, floating.Decorations.Count);
         Assert.Contains(floating.Decorations, d => d.IsObject &&
             d.SupportSurface == DecorationSupportSurface.Ceiling &&
-            d.Block == "asteria:aether_vines");
+            d.Block == "asteria:vines_aether");
 
         var objects = Asteria.Core.Content.PackContentRegistry<Asteria.Core.Content.ObjectDefinition>
             .FromJson(ReadFiles("objects"),
@@ -152,7 +152,7 @@ public sealed class VerticalBiomeContentTests
         var islandSample = new BiomeSample(floating.Id,
             [new BiomeInfluence(floating.Id, 1f)]);
         var stone = blocks.GetId("asteria:stone");
-        var grassBlock = blocks.GetId("asteria:grass_block");
+        var grassBlock = blocks.GetId("asteria:block_grass");
         var sightings = 0;
         var islandSightings = 0;
         var variationAcrossY = 0;

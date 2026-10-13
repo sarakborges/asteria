@@ -5,7 +5,7 @@ const storage = Array.from({ length: 27 }, (_, index) =>
   index === 0
     ? { id: "asteria:stone", kind: "block" as const, quantity: 64, metadata: {} }
     : index === 1
-      ? { id: "asteria:oak_log", kind: "block" as const, quantity: 18, metadata: {} }
+      ? { id: "asteria:log_oak", kind: "block" as const, quantity: 18, metadata: {} }
       : null,
 );
 const inventory = {
@@ -13,7 +13,7 @@ const inventory = {
   backpack: Array.from({ length: 27 }, (_, index) => index === 0
     ? { id: "asteria:dirt", kind: "block" as const, quantity: 32, metadata: {} } : null),
   hotbar: Array.from({ length: 9 }, (_, index) => index === 0
-    ? { id: "asteria:grass_block", kind: "block" as const, quantity: 12, metadata: {} } : null),
+    ? { id: "asteria:block_grass", kind: "block" as const, quantity: 12, metadata: {} } : null),
   cursor: null,
   catalog: [],
   errorKey: null,

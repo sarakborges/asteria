@@ -1,7 +1,7 @@
 {
   "id": "asteria:mushroom_blue",
   "category": "foliage",
-  "icon": "textures/objects/mushrooms/blue.png",
+  "icon": "textures/objects/mushroom_blue.png",
   "placementFaces": [
     "top"
   ],
@@ -19,7 +19,7 @@
   },
   "visual": {
     "type": "crossedSprite",
-    "texture": "textures/objects/mushrooms/blue.png",
+    "texture": "textures/objects/mushroom_blue.png",
     "width": 0.72,
     "height": 0.62,
     "planes": 2,

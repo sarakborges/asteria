@@ -1,9 +1,9 @@
 {
-  "asteria:architects_compass": {
+  "asteria:compass_architects": {
     "/hint": "Selecciona regiones para exportarlas como estructuras.",
     "/name": "Brújula del Arquitecto"
   },
-  "asteria:artisans_kit_rustic": {
+  "asteria:kit_artisans_rustic": {
     "/hint": "Esculpe bloques fragmentables.",
     "/name": "Kit de Artesano"
   },
@@ -15,7 +15,7 @@
     "/hint": "Recoge y coloca fuentes de fluido.",
     "/name": "Cubo"
   },
-  "asteria:carpenters_axe_rustic": {
+  "asteria:axe_carpenters_rustic": {
     "/hint": "El clic izquierdo ahueca troncos; el derecho quita la corteza.",
     "/name": "Hacha de Carpintero Rústica"
   },

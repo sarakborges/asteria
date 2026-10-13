@@ -190,7 +190,7 @@
     },
     {
       "path": "blocks/trees/charwood/planks.png",
-      "species": "charwood",
+      "species": "log_charwood",
       "role": "planks",
       "action": "created",
       "before_sha256": null,
@@ -211,7 +211,7 @@
     },
     {
       "path": "blocks/trees/frost_wood/planks.png",
-      "species": "frost_wood",
+      "species": "log_frost_wood",
       "role": "planks",
       "action": "created",
       "before_sha256": null,
@@ -253,7 +253,7 @@
     },
     {
       "path": "blocks/trees/rime_deadwood/planks.png",
-      "species": "rime_deadwood",
+      "species": "log_rime_deadwood",
       "role": "planks",
       "action": "created",
       "before_sha256": null,
@@ -295,7 +295,7 @@
     },
     {
       "path": "blocks/trees/windwood/planks.png",
-      "species": "windwood",
+      "species": "log_windwood",
       "role": "planks",
       "action": "created",
       "before_sha256": null,
@@ -316,7 +316,7 @@
     },
     {
       "path": "blocks/trees/thornwood/planks.png",
-      "species": "thornwood",
+      "species": "log_thornwood",
       "role": "planks",
       "action": "created",
       "before_sha256": null,
@@ -337,7 +337,7 @@
     },
     {
       "path": "blocks/trees/charwood/leaf.png",
-      "species": "charwood",
+      "species": "log_charwood",
       "role": "leaf",
       "action": "redrawn",
       "before_sha256": "5e22ae5939fa630afa2b1a8d0fa3a0a72f2bc67c486370f79d8b3d1dcda93701",
@@ -358,7 +358,7 @@
     },
     {
       "path": "blocks/trees/frost_wood/leaf.png",
-      "species": "frost_wood",
+      "species": "log_frost_wood",
       "role": "leaf",
       "action": "redrawn",
       "before_sha256": "09cf3dc3ea6fd7a610f84cbcbc02e8687aa28244268f31cbaf658ef876488ac1",
@@ -379,7 +379,7 @@
     },
     {
       "path": "blocks/trees/frost_wood/leaf_arctic.png",
-      "species": "frost_wood",
+      "species": "log_frost_wood",
       "role": "leaf_arctic",
       "action": "redrawn",
       "before_sha256": "8abcc609883fb720852f9686a52299f88f2e036f38fae81ab2114b238518e22d",
@@ -442,7 +442,7 @@
     },
     {
       "path": "blocks/trees/windwood/leaf.png",
-      "species": "windwood",
+      "species": "log_windwood",
       "role": "leaf",
       "action": "redrawn",
       "before_sha256": "8e2f827af7b7223891fc3b4104018e9c29c361e1a7c09849d1c37d8cddb975e0",

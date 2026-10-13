@@ -1,6 +1,6 @@
 {
   "id": "asteria:log_willow_hollow",
-  "category": "wooden_blocks",
+  "category": "blocks_wooden",
   "tags": [],
   "textures": {
     "top": "textures/blocks/trees/willow/top.png",

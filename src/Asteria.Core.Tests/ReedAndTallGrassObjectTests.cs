@@ -19,8 +19,8 @@ public sealed class ReedAndTallGrassObjectTests
             PackJson("objects"), ObjectDefinition.Parse, definition => definition.Id);
         foreach (var (name, width, height, windSway) in new[]
         {
-            ("tall_grass", .88f, .94f, true),
-            ("marsh_orchid", .77f, .86f, true),
+            ("grass_tall", .88f, .94f, true),
+            ("orchid_marsh", .77f, .86f, true),
             ("bulrush", .79f, .93f, true),
             ("cattail", .74f, .94f, false)
         })
@@ -53,7 +53,7 @@ public sealed class ReedAndTallGrassObjectTests
 
         var grass = Assert.Single(
             biomes.Get("asteria:overworld/plains").Decorations,
-            d => d.Block == "asteria:tall_grass");
+            d => d.Block == "asteria:grass_tall");
         Assert.True(grass.IsObject);
         Assert.Equal(DecorationFluidPlacement.Dry, grass.FluidPlacement);
         Assert.True(grass.HabitatWeights!.For("thicket") >
@@ -62,7 +62,7 @@ public sealed class ReedAndTallGrassObjectTests
         var swamp = biomes.Get("asteria:overworld/swamp");
         foreach (var (name, radius) in new[]
         {
-            ("marsh_orchid", 3),
+            ("orchid_marsh", 3),
             ("bulrush", 2),
             ("cattail", 2)
         })
@@ -88,7 +88,7 @@ public sealed class ReedAndTallGrassObjectTests
         var structures = StructureRegistry.FromJson(PackJson("structures"));
         structures.ValidateBlocks(blocks);
         structures.ValidateObjects(objects);
-        var variants = structures.ResolveReference("asteria:swamp_reed_bed");
+        var variants = structures.ResolveReference("asteria:bed_reed_swamp");
         Assert.Equal(3, variants.Count);
         foreach (var variant in variants)
         {

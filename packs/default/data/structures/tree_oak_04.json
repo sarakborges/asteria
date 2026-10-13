@@ -8,7 +8,7 @@
   ],
   "restrictions": {
     "groundBlocks": [
-      "asteria:grass_block",
+      "asteria:block_grass",
       "asteria:dirt"
     ],
     "maxSlope": 1,
@@ -26,7 +26,7 @@
   },
   "palette": {
     "G": {
-      "block": "asteria:grass_block"
+      "block": "asteria:block_grass"
     },
     "W": {
       "block": "asteria:log_oak",

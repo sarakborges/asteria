@@ -9,7 +9,7 @@
   ],
   "restrictions": {
     "groundBlocks": [
-      "asteria:grass_block",
+      "asteria:block_grass",
       "asteria:dirt",
       "asteria:mud"
     ],
@@ -30,26 +30,26 @@
   "groundAnchorY": 0,
   "palette": {
     "G": {
-      "block": "asteria:grass_block"
+      "block": "asteria:block_grass"
     },
     "W": {
-      "block": "asteria:log_enchanted_stripped",
+      "block": "asteria:log_enchanted_tree_stripped",
       "orientation": "y"
     },
     "X": {
-      "block": "asteria:log_enchanted_stripped",
+      "block": "asteria:log_enchanted_tree_stripped",
       "orientation": "x"
     },
     "Z": {
-      "block": "asteria:log_enchanted_stripped",
+      "block": "asteria:log_enchanted_tree_stripped",
       "orientation": "z"
     },
     "H": {
-      "block": "asteria:log_enchanted_stripped_hollow",
+      "block": "asteria:log_enchanted_tree_stripped_hollow",
       "orientation": "y"
     },
     "B": {
-      "block": "asteria:log_enchanted",
+      "block": "asteria:log_enchanted_tree",
       "orientation": "y"
     },
     "F": {

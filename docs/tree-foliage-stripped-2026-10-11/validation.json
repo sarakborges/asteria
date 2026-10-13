@@ -13,9 +13,9 @@
   },
   "families": [
     {
-      "family": "charwood",
-      "natural": "asteria:charwood",
-      "stripped": "asteria:charwood_stripped",
+      "family": "log_charwood",
+      "natural": "asteria:log_charwood",
+      "stripped": "asteria:log_charwood_stripped",
       "strip_orientations": [
         "y",
         "z",
@@ -25,8 +25,8 @@
     },
     {
       "family": "enchanted_tree",
-      "natural": "asteria:log_enchanted",
-      "stripped": "asteria:log_enchanted_stripped",
+      "natural": "asteria:log_enchanted_tree",
+      "stripped": "asteria:log_enchanted_tree_stripped",
       "strip_orientations": [
         "y",
         "z",
@@ -35,9 +35,9 @@
       "visible_leaf": true
     },
     {
-      "family": "frost_wood",
-      "natural": "asteria:frost_wood",
-      "stripped": "asteria:frost_wood_stripped",
+      "family": "log_frost_wood",
+      "natural": "asteria:log_frost_wood",
+      "stripped": "asteria:log_frost_wood_stripped",
       "strip_orientations": [
         "y",
         "z",
@@ -47,8 +47,8 @@
     },
     {
       "family": "juniper",
-      "natural": "asteria:juniper_wood",
-      "stripped": "asteria:juniper_wood_stripped",
+      "natural": "asteria:log_juniper",
+      "stripped": "asteria:log_juniper_stripped",
       "strip_orientations": [
         "y",
         "z",
@@ -68,9 +68,9 @@
       "visible_leaf": true
     },
     {
-      "family": "rime_deadwood",
-      "natural": "asteria:rime_deadwood",
-      "stripped": "asteria:rime_deadwood_stripped",
+      "family": "log_rime_deadwood",
+      "natural": "asteria:log_rime_deadwood",
+      "stripped": "asteria:log_rime_deadwood_stripped",
       "strip_orientations": [
         "y",
         "z",
@@ -80,8 +80,8 @@
     },
     {
       "family": "skywood",
-      "natural": "asteria:skywood_log",
-      "stripped": "asteria:skywood_log_stripped",
+      "natural": "asteria:log_skywood",
+      "stripped": "asteria:log_skywood_stripped",
       "strip_orientations": [
         "y",
         "z",
@@ -90,9 +90,9 @@
       "visible_leaf": true
     },
     {
-      "family": "thornwood",
-      "natural": "asteria:thornwood",
-      "stripped": "asteria:thornwood_stripped",
+      "family": "log_thornwood",
+      "natural": "asteria:log_thornwood",
+      "stripped": "asteria:log_thornwood_stripped",
       "strip_orientations": [
         "y",
         "z",
@@ -112,9 +112,9 @@
       "visible_leaf": true
     },
     {
-      "family": "windwood",
-      "natural": "asteria:windwood",
-      "stripped": "asteria:windwood_stripped",
+      "family": "log_windwood",
+      "natural": "asteria:log_windwood",
+      "stripped": "asteria:log_windwood_stripped",
       "strip_orientations": [
         "y",
         "z",
@@ -136,7 +136,7 @@
   ],
   "new_leaves": [
     {
-      "family": "rime_deadwood",
+      "family": "log_rime_deadwood",
       "destination": "packs/default/resources/textures/blocks/trees/rime_deadwood/leaf.png",
       "size": [
         64,
@@ -154,7 +154,7 @@
       ]
     },
     {
-      "family": "thornwood",
+      "family": "log_thornwood",
       "destination": "packs/default/resources/textures/blocks/trees/thornwood/leaf.png",
       "size": [
         64,
@@ -174,9 +174,9 @@
   ],
   "structures": [
     {
-      "path": "packs/default/data/structures/alpine_krummholz_01.json",
-      "id": "asteria:alpine_krummholz_01",
-      "family": "frost_wood",
+      "path": "packs/default/data/structures/tree_krummholz_alpine_01.json",
+      "id": "asteria:tree_krummholz_alpine_01",
+      "family": "log_frost_wood",
       "wood_voxels": 5,
       "leaves_before": 43,
       "leaves_after": 43,
@@ -187,9 +187,9 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/alpine_krummholz_02.json",
-      "id": "asteria:alpine_krummholz_02",
-      "family": "frost_wood",
+      "path": "packs/default/data/structures/tree_krummholz_alpine_02.json",
+      "id": "asteria:tree_krummholz_alpine_02",
+      "family": "log_frost_wood",
       "wood_voxels": 6,
       "leaves_before": 42,
       "leaves_after": 42,
@@ -200,9 +200,9 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/alpine_krummholz_03.json",
-      "id": "asteria:alpine_krummholz_03",
-      "family": "frost_wood",
+      "path": "packs/default/data/structures/tree_krummholz_alpine_03.json",
+      "id": "asteria:tree_krummholz_alpine_03",
+      "family": "log_frost_wood",
       "wood_voxels": 4,
       "leaves_before": 44,
       "leaves_after": 44,
@@ -213,9 +213,9 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/alpine_snow_fir_01.json",
-      "id": "asteria:alpine_snow_fir_01",
-      "family": "frost_wood",
+      "path": "packs/default/data/structures/tree_fir_alpine_snow_01.json",
+      "id": "asteria:tree_fir_alpine_snow_01",
+      "family": "log_frost_wood",
       "wood_voxels": 8,
       "leaves_before": 93,
       "leaves_after": 93,
@@ -226,9 +226,9 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/alpine_snow_fir_02.json",
-      "id": "asteria:alpine_snow_fir_02",
-      "family": "frost_wood",
+      "path": "packs/default/data/structures/tree_fir_alpine_snow_02.json",
+      "id": "asteria:tree_fir_alpine_snow_02",
+      "family": "log_frost_wood",
       "wood_voxels": 11,
       "leaves_before": 183,
       "leaves_after": 183,
@@ -239,9 +239,9 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/alpine_snow_fir_03.json",
-      "id": "asteria:alpine_snow_fir_03",
-      "family": "frost_wood",
+      "path": "packs/default/data/structures/tree_fir_alpine_snow_03.json",
+      "id": "asteria:tree_fir_alpine_snow_03",
+      "family": "log_frost_wood",
       "wood_voxels": 13,
       "leaves_before": 251,
       "leaves_after": 251,
@@ -252,9 +252,9 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/alpine_snow_fir_04.json",
-      "id": "asteria:alpine_snow_fir_04",
-      "family": "frost_wood",
+      "path": "packs/default/data/structures/tree_fir_alpine_snow_04.json",
+      "id": "asteria:tree_fir_alpine_snow_04",
+      "family": "log_frost_wood",
       "wood_voxels": 9,
       "leaves_before": 132,
       "leaves_after": 132,
@@ -265,9 +265,9 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/arctic_frost_brush_01.json",
-      "id": "asteria:arctic_frost_brush_01",
-      "family": "rime_deadwood",
+      "path": "packs/default/data/structures/brush_frost_arctic_01.json",
+      "id": "asteria:brush_frost_arctic_01",
+      "family": "log_rime_deadwood",
       "wood_voxels": 7,
       "leaves_before": 26,
       "leaves_after": 26,
@@ -278,9 +278,9 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/arctic_frost_brush_02.json",
-      "id": "asteria:arctic_frost_brush_02",
-      "family": "rime_deadwood",
+      "path": "packs/default/data/structures/brush_frost_arctic_02.json",
+      "id": "asteria:brush_frost_arctic_02",
+      "family": "log_rime_deadwood",
       "wood_voxels": 14,
       "leaves_before": 35,
       "leaves_after": 35,
@@ -291,9 +291,9 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/arctic_frost_brush_03.json",
-      "id": "asteria:arctic_frost_brush_03",
-      "family": "rime_deadwood",
+      "path": "packs/default/data/structures/brush_frost_arctic_03.json",
+      "id": "asteria:brush_frost_arctic_03",
+      "family": "log_rime_deadwood",
       "wood_voxels": 7,
       "leaves_before": 27,
       "leaves_after": 27,
@@ -304,9 +304,9 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/arctic_stunted_pine_01.json",
-      "id": "asteria:arctic_stunted_pine_01",
-      "family": "frost_wood",
+      "path": "packs/default/data/structures/tree_pine_arctic_stunted_01.json",
+      "id": "asteria:tree_pine_arctic_stunted_01",
+      "family": "log_frost_wood",
       "wood_voxels": 6,
       "leaves_before": 57,
       "leaves_after": 57,
@@ -317,9 +317,9 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/arctic_stunted_pine_02.json",
-      "id": "asteria:arctic_stunted_pine_02",
-      "family": "frost_wood",
+      "path": "packs/default/data/structures/tree_pine_arctic_stunted_02.json",
+      "id": "asteria:tree_pine_arctic_stunted_02",
+      "family": "log_frost_wood",
       "wood_voxels": 8,
       "leaves_before": 59,
       "leaves_after": 59,
@@ -330,9 +330,9 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/arctic_stunted_pine_03.json",
-      "id": "asteria:arctic_stunted_pine_03",
-      "family": "frost_wood",
+      "path": "packs/default/data/structures/tree_pine_arctic_stunted_03.json",
+      "id": "asteria:tree_pine_arctic_stunted_03",
+      "family": "log_frost_wood",
       "wood_voxels": 6,
       "leaves_before": 55,
       "leaves_after": 55,
@@ -343,9 +343,9 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/belt_windswept_pine_01.json",
-      "id": "asteria:belt_windswept_pine_01",
-      "family": "windwood",
+      "path": "packs/default/data/structures/tree_pine_belt_windswept_01.json",
+      "id": "asteria:tree_pine_belt_windswept_01",
+      "family": "log_windwood",
       "wood_voxels": 12,
       "leaves_before": 20,
       "leaves_after": 34,
@@ -356,9 +356,9 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/belt_windswept_pine_02.json",
-      "id": "asteria:belt_windswept_pine_02",
-      "family": "windwood",
+      "path": "packs/default/data/structures/tree_pine_belt_windswept_02.json",
+      "id": "asteria:tree_pine_belt_windswept_02",
+      "family": "log_windwood",
       "wood_voxels": 15,
       "leaves_before": 20,
       "leaves_after": 34,
@@ -369,9 +369,9 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/belt_windswept_pine_03.json",
-      "id": "asteria:belt_windswept_pine_03",
-      "family": "windwood",
+      "path": "packs/default/data/structures/tree_pine_belt_windswept_03.json",
+      "id": "asteria:tree_pine_belt_windswept_03",
+      "family": "log_windwood",
       "wood_voxels": 16,
       "leaves_before": 20,
       "leaves_after": 34,
@@ -408,8 +408,8 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/enchanted_hollow_stump_01.json",
-      "id": "asteria:enchanted_hollow_stump_01",
+      "path": "packs/default/data/structures/stump_enchanted_tree_hollow_01.json",
+      "id": "asteria:stump_enchanted_tree_hollow_01",
       "family": "enchanted_tree",
       "wood_voxels": 2,
       "leaves_before": 0,
@@ -421,8 +421,8 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/enchanted_hollow_stump_02.json",
-      "id": "asteria:enchanted_hollow_stump_02",
+      "path": "packs/default/data/structures/stump_enchanted_tree_hollow_02.json",
+      "id": "asteria:stump_enchanted_tree_hollow_02",
       "family": "enchanted_tree",
       "wood_voxels": 3,
       "leaves_before": 0,
@@ -434,8 +434,8 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/fallen_log_oak_01.json",
-      "id": "asteria:fallen_log_oak_01",
+      "path": "packs/default/data/structures/log_oak_fallen_01.json",
+      "id": "asteria:log_oak_fallen_01",
       "family": "oak",
       "wood_voxels": 2,
       "leaves_before": 1,
@@ -447,8 +447,8 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/fallen_log_oak_02.json",
-      "id": "asteria:fallen_log_oak_02",
+      "path": "packs/default/data/structures/log_oak_fallen_02.json",
+      "id": "asteria:log_oak_fallen_02",
       "family": "oak",
       "wood_voxels": 3,
       "leaves_before": 2,
@@ -460,8 +460,8 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/fallen_log_oak_03.json",
-      "id": "asteria:fallen_log_oak_03",
+      "path": "packs/default/data/structures/log_oak_fallen_03.json",
+      "id": "asteria:log_oak_fallen_03",
       "family": "oak",
       "wood_voxels": 4,
       "leaves_before": 3,
@@ -473,8 +473,8 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/fallen_log_oak_04.json",
-      "id": "asteria:fallen_log_oak_04",
+      "path": "packs/default/data/structures/log_oak_fallen_04.json",
+      "id": "asteria:log_oak_fallen_04",
       "family": "oak",
       "wood_voxels": 6,
       "leaves_before": 3,
@@ -486,8 +486,8 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/fallen_log_wasteland_01.json",
-      "id": "asteria:fallen_log_wasteland_01",
+      "path": "packs/default/data/structures/log_wasteland_fallen_01.json",
+      "id": "asteria:log_wasteland_fallen_01",
       "family": "oak",
       "wood_voxels": 3,
       "leaves_before": 0,
@@ -499,8 +499,8 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/fallen_log_wasteland_02.json",
-      "id": "asteria:fallen_log_wasteland_02",
+      "path": "packs/default/data/structures/log_wasteland_fallen_02.json",
+      "id": "asteria:log_wasteland_fallen_02",
       "family": "oak",
       "wood_voxels": 6,
       "leaves_before": 0,
@@ -512,8 +512,8 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/fallen_log_wraith_01.json",
-      "id": "asteria:fallen_log_wraith_01",
+      "path": "packs/default/data/structures/log_wraith_fallen_01.json",
+      "id": "asteria:log_wraith_fallen_01",
       "family": "enchanted_tree",
       "wood_voxels": 3,
       "leaves_before": 0,
@@ -525,8 +525,8 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/fallen_log_wraith_02.json",
-      "id": "asteria:fallen_log_wraith_02",
+      "path": "packs/default/data/structures/log_wraith_fallen_02.json",
+      "id": "asteria:log_wraith_fallen_02",
       "family": "enchanted_tree",
       "wood_voxels": 6,
       "leaves_before": 0,
@@ -538,8 +538,8 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/mountain_dwarf_juniper_01.json",
-      "id": "asteria:mountain_dwarf_juniper_01",
+      "path": "packs/default/data/structures/tree_juniper_mountain_dwarf_01.json",
+      "id": "asteria:tree_juniper_mountain_dwarf_01",
       "family": "juniper",
       "wood_voxels": 3,
       "leaves_before": 63,
@@ -551,8 +551,8 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/mountain_dwarf_juniper_02.json",
-      "id": "asteria:mountain_dwarf_juniper_02",
+      "path": "packs/default/data/structures/tree_juniper_mountain_dwarf_02.json",
+      "id": "asteria:tree_juniper_mountain_dwarf_02",
       "family": "juniper",
       "wood_voxels": 5,
       "leaves_before": 62,
@@ -564,8 +564,8 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/mountain_dwarf_juniper_03.json",
-      "id": "asteria:mountain_dwarf_juniper_03",
+      "path": "packs/default/data/structures/tree_juniper_mountain_dwarf_03.json",
+      "id": "asteria:tree_juniper_mountain_dwarf_03",
       "family": "juniper",
       "wood_voxels": 6,
       "leaves_before": 103,
@@ -577,8 +577,8 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/mountain_wind_pine_01.json",
-      "id": "asteria:mountain_wind_pine_01",
+      "path": "packs/default/data/structures/tree_pine_mountain_wind_01.json",
+      "id": "asteria:tree_pine_mountain_wind_01",
       "family": "juniper",
       "wood_voxels": 18,
       "leaves_before": 25,
@@ -590,8 +590,8 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/mountain_wind_pine_02.json",
-      "id": "asteria:mountain_wind_pine_02",
+      "path": "packs/default/data/structures/tree_pine_mountain_wind_02.json",
+      "id": "asteria:tree_pine_mountain_wind_02",
       "family": "juniper",
       "wood_voxels": 20,
       "leaves_before": 25,
@@ -603,8 +603,8 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/mountain_wind_pine_03.json",
-      "id": "asteria:mountain_wind_pine_03",
+      "path": "packs/default/data/structures/tree_pine_mountain_wind_03.json",
+      "id": "asteria:tree_pine_mountain_wind_03",
       "family": "juniper",
       "wood_voxels": 22,
       "leaves_before": 25,
@@ -616,8 +616,8 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/oak_stump_01.json",
-      "id": "asteria:oak_stump_01",
+      "path": "packs/default/data/structures/stump_oak_01.json",
+      "id": "asteria:stump_oak_01",
       "family": "oak",
       "wood_voxels": 1,
       "leaves_before": 0,
@@ -629,8 +629,8 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/oak_stump_02.json",
-      "id": "asteria:oak_stump_02",
+      "path": "packs/default/data/structures/stump_oak_02.json",
+      "id": "asteria:stump_oak_02",
       "family": "oak",
       "wood_voxels": 2,
       "leaves_before": 0,
@@ -642,8 +642,8 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/oak_stump_03.json",
-      "id": "asteria:oak_stump_03",
+      "path": "packs/default/data/structures/stump_oak_03.json",
+      "id": "asteria:stump_oak_03",
       "family": "oak",
       "wood_voxels": 1,
       "leaves_before": 1,
@@ -655,8 +655,8 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/skywood_tree_01.json",
-      "id": "asteria:skywood_tree_01",
+      "path": "packs/default/data/structures/tree_skywood_01.json",
+      "id": "asteria:tree_skywood_01",
       "family": "skywood",
       "wood_voxels": 6,
       "leaves_before": 30,
@@ -668,8 +668,8 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/skywood_tree_02.json",
-      "id": "asteria:skywood_tree_02",
+      "path": "packs/default/data/structures/tree_skywood_02.json",
+      "id": "asteria:tree_skywood_02",
       "family": "skywood",
       "wood_voxels": 10,
       "leaves_before": 34,
@@ -681,8 +681,8 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/skywood_tree_03.json",
-      "id": "asteria:skywood_tree_03",
+      "path": "packs/default/data/structures/tree_skywood_03.json",
+      "id": "asteria:tree_skywood_03",
       "family": "skywood",
       "wood_voxels": 5,
       "leaves_before": 46,
@@ -694,8 +694,8 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/swamp_moss_stump_01.json",
-      "id": "asteria:swamp_moss_stump_01",
+      "path": "packs/default/data/structures/stump_swamp_moss_01.json",
+      "id": "asteria:stump_swamp_moss_01",
       "family": "willow",
       "wood_voxels": 4,
       "leaves_before": 0,
@@ -707,8 +707,8 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/swamp_moss_stump_02.json",
-      "id": "asteria:swamp_moss_stump_02",
+      "path": "packs/default/data/structures/stump_swamp_moss_02.json",
+      "id": "asteria:stump_swamp_moss_02",
       "family": "willow",
       "wood_voxels": 6,
       "leaves_before": 0,
@@ -720,8 +720,8 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/swamp_moss_stump_03.json",
-      "id": "asteria:swamp_moss_stump_03",
+      "path": "packs/default/data/structures/stump_swamp_moss_03.json",
+      "id": "asteria:stump_swamp_moss_03",
       "family": "willow",
       "wood_voxels": 8,
       "leaves_before": 0,
@@ -733,8 +733,8 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/tree_enchanted_01.json",
-      "id": "asteria:tree_enchanted_01",
+      "path": "packs/default/data/structures/tree_enchanted_tree_01.json",
+      "id": "asteria:tree_enchanted_tree_01",
       "family": "enchanted_tree",
       "wood_voxels": 14,
       "leaves_before": 58,
@@ -746,8 +746,8 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/tree_enchanted_02.json",
-      "id": "asteria:tree_enchanted_02",
+      "path": "packs/default/data/structures/tree_enchanted_tree_02.json",
+      "id": "asteria:tree_enchanted_tree_02",
       "family": "enchanted_tree",
       "wood_voxels": 15,
       "leaves_before": 60,
@@ -759,8 +759,8 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/tree_enchanted_03.json",
-      "id": "asteria:tree_enchanted_03",
+      "path": "packs/default/data/structures/tree_enchanted_tree_03.json",
+      "id": "asteria:tree_enchanted_tree_03",
       "family": "enchanted_tree",
       "wood_voxels": 16,
       "leaves_before": 73,
@@ -772,8 +772,8 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/tree_enchanted_04.json",
-      "id": "asteria:tree_enchanted_04",
+      "path": "packs/default/data/structures/tree_enchanted_tree_04.json",
+      "id": "asteria:tree_enchanted_tree_04",
       "family": "enchanted_tree",
       "wood_voxels": 15,
       "leaves_before": 69,
@@ -915,9 +915,9 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/volcanic_briar_thickets_01.json",
-      "id": "asteria:volcanic_briar_thickets_01",
-      "family": "charwood",
+      "path": "packs/default/data/structures/thicket_briar_volcanic_01.json",
+      "id": "asteria:thicket_briar_volcanic_01",
+      "family": "log_charwood",
       "wood_voxels": 7,
       "leaves_before": 27,
       "leaves_after": 27,
@@ -928,9 +928,9 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/volcanic_briar_thickets_02.json",
-      "id": "asteria:volcanic_briar_thickets_02",
-      "family": "charwood",
+      "path": "packs/default/data/structures/thicket_briar_volcanic_02.json",
+      "id": "asteria:thicket_briar_volcanic_02",
+      "family": "log_charwood",
       "wood_voxels": 10,
       "leaves_before": 36,
       "leaves_after": 36,
@@ -941,9 +941,9 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/volcanic_briar_thickets_03.json",
-      "id": "asteria:volcanic_briar_thickets_03",
-      "family": "charwood",
+      "path": "packs/default/data/structures/thicket_briar_volcanic_03.json",
+      "id": "asteria:thicket_briar_volcanic_03",
+      "family": "log_charwood",
       "wood_voxels": 14,
       "leaves_before": 34,
       "leaves_after": 34,
@@ -954,9 +954,9 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/volcanic_charred_trees_01.json",
-      "id": "asteria:volcanic_charred_trees_01",
-      "family": "charwood",
+      "path": "packs/default/data/structures/tree_charred_volcanic_01.json",
+      "id": "asteria:tree_charred_volcanic_01",
+      "family": "log_charwood",
       "wood_voxels": 19,
       "leaves_before": 11,
       "leaves_after": 41,
@@ -967,9 +967,9 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/volcanic_charred_trees_02.json",
-      "id": "asteria:volcanic_charred_trees_02",
-      "family": "charwood",
+      "path": "packs/default/data/structures/tree_charred_volcanic_02.json",
+      "id": "asteria:tree_charred_volcanic_02",
+      "family": "log_charwood",
       "wood_voxels": 22,
       "leaves_before": 5,
       "leaves_after": 49,
@@ -980,9 +980,9 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/volcanic_charred_trees_03.json",
-      "id": "asteria:volcanic_charred_trees_03",
-      "family": "charwood",
+      "path": "packs/default/data/structures/tree_charred_volcanic_03.json",
+      "id": "asteria:tree_charred_volcanic_03",
+      "family": "log_charwood",
       "wood_voxels": 22,
       "leaves_before": 10,
       "leaves_after": 54,
@@ -993,9 +993,9 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/volcanic_charred_trees_04.json",
-      "id": "asteria:volcanic_charred_trees_04",
-      "family": "charwood",
+      "path": "packs/default/data/structures/tree_charred_volcanic_04.json",
+      "id": "asteria:tree_charred_volcanic_04",
+      "family": "log_charwood",
       "wood_voxels": 25,
       "leaves_before": 5,
       "leaves_after": 55,
@@ -1006,8 +1006,8 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/wasteland_snag_01.json",
-      "id": "asteria:wasteland_snag_01",
+      "path": "packs/default/data/structures/snag_wasteland_01.json",
+      "id": "asteria:snag_wasteland_01",
       "family": "oak",
       "wood_voxels": 15,
       "leaves_before": 0,
@@ -1019,8 +1019,8 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/wasteland_snag_02.json",
-      "id": "asteria:wasteland_snag_02",
+      "path": "packs/default/data/structures/snag_wasteland_02.json",
+      "id": "asteria:snag_wasteland_02",
       "family": "oak",
       "wood_voxels": 15,
       "leaves_before": 0,
@@ -1032,9 +1032,9 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/wasteland_thorn_scrub_01.json",
-      "id": "asteria:wasteland_thorn_scrub_01",
-      "family": "thornwood",
+      "path": "packs/default/data/structures/scrub_thorn_wasteland_01.json",
+      "id": "asteria:scrub_thorn_wasteland_01",
+      "family": "log_thornwood",
       "wood_voxels": 17,
       "leaves_before": 0,
       "leaves_after": 51,
@@ -1045,9 +1045,9 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/wasteland_thorn_scrub_02.json",
-      "id": "asteria:wasteland_thorn_scrub_02",
-      "family": "thornwood",
+      "path": "packs/default/data/structures/scrub_thorn_wasteland_02.json",
+      "id": "asteria:scrub_thorn_wasteland_02",
+      "family": "log_thornwood",
       "wood_voxels": 14,
       "leaves_before": 0,
       "leaves_after": 40,
@@ -1058,9 +1058,9 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/wasteland_thorn_scrub_03.json",
-      "id": "asteria:wasteland_thorn_scrub_03",
-      "family": "thornwood",
+      "path": "packs/default/data/structures/scrub_thorn_wasteland_03.json",
+      "id": "asteria:scrub_thorn_wasteland_03",
+      "family": "log_thornwood",
       "wood_voxels": 22,
       "leaves_before": 0,
       "leaves_after": 46,
@@ -1071,9 +1071,9 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/wasteland_thorn_scrub_04.json",
-      "id": "asteria:wasteland_thorn_scrub_04",
-      "family": "thornwood",
+      "path": "packs/default/data/structures/scrub_thorn_wasteland_04.json",
+      "id": "asteria:scrub_thorn_wasteland_04",
+      "family": "log_thornwood",
       "wood_voxels": 20,
       "leaves_before": 0,
       "leaves_after": 50,
@@ -1084,8 +1084,8 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/withered_snag_01.json",
-      "id": "asteria:withered_snag_01",
+      "path": "packs/default/data/structures/snag_withered_01.json",
+      "id": "asteria:snag_withered_01",
       "family": "enchanted_tree",
       "wood_voxels": 15,
       "leaves_before": 7,
@@ -1097,8 +1097,8 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/withered_snag_02.json",
-      "id": "asteria:withered_snag_02",
+      "path": "packs/default/data/structures/snag_withered_02.json",
+      "id": "asteria:snag_withered_02",
       "family": "enchanted_tree",
       "wood_voxels": 15,
       "leaves_before": 12,
@@ -1110,8 +1110,8 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/wraith_snag_01.json",
-      "id": "asteria:wraith_snag_01",
+      "path": "packs/default/data/structures/snag_wraith_01.json",
+      "id": "asteria:snag_wraith_01",
       "family": "enchanted_tree",
       "wood_voxels": 15,
       "leaves_before": 7,
@@ -1123,8 +1123,8 @@
       "new_foliage_connected": true
     },
     {
-      "path": "packs/default/data/structures/wraith_snag_02.json",
-      "id": "asteria:wraith_snag_02",
+      "path": "packs/default/data/structures/snag_wraith_02.json",
+      "id": "asteria:snag_wraith_02",
       "family": "enchanted_tree",
       "wood_voxels": 15,
       "leaves_before": 12,

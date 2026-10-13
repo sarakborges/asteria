@@ -17,7 +17,7 @@ const runtimeState = {
         quantity: 64,
       },
       {
-        id: "asteria:grass_block",
+        id: "asteria:block_grass",
         kind: "block" as const,
         quantity: 32,
       },
@@ -47,7 +47,7 @@ const runtimeState = {
   },
   target: {
     kind: "block" as const,
-    id: "asteria:grass_block",
+    id: "asteria:block_grass",
     name: "Grass Block",
     details: [
       "Sky Light: 15 | Block Light: 0",
@@ -95,9 +95,9 @@ const meta = {
     embedded: true,
     state: runtimeState,
     catalog: [{
-      id: "asteria:grass_block",
+      id: "asteria:block_grass",
       name: "Grass Block", kind: "block",
-      category: "natural_blocks", metadata: {},
+      category: "blocks_natural", metadata: {},
       blockPreview: {
         kind: "cube", top: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9T9VJ9QAAAAASUVORK5CYII=",
         front: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9T9VJ9QAAAAASUVORK5CYII=",

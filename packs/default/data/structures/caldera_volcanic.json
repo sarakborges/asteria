@@ -1,0 +1,333 @@
+{
+  "id": "asteria:caldera_volcanic",
+  "rotation": false,
+  "locatable": true,
+  "priority": 90,
+  "conflictGroups": [
+    "volcano",
+    "rock",
+    "vegetation",
+    "landmark"
+  ],
+  "restrictions": {
+    "requiredBiomeCoverage": 1,
+    "maxSlope": 6,
+    "requiresDryGround": true,
+    "groundBlocks": [
+      "asteria:basalt",
+      "asteria:cobble_basalt"
+    ]
+  },
+  "generation": {
+    "replacePolicy": "any",
+    "fluidPolicy": "displace",
+    "reserveSpace": true,
+    "minimumPieces": 5
+  },
+  "groundAnchorY": 0,
+  "anchor": {
+    "x": 0,
+    "y": 0,
+    "z": 0
+  },
+  "palette": {
+    "B": {
+      "block": "asteria:basalt"
+    },
+    "L": {
+      "fluid": "asteria:lava"
+    },
+    "C": {
+      "clear": true
+    },
+    "E": {
+      "connector": {
+        "face": "right",
+        "target": "asteria:caldera_volcanic_east",
+        "strength": 1,
+        "strengthLossOnEachLoop": 1,
+        "minDistance": 1,
+        "maxDistance": 1
+      }
+    },
+    "W": {
+      "connector": {
+        "face": "left",
+        "target": "asteria:caldera_volcanic_west",
+        "strength": 1,
+        "strengthLossOnEachLoop": 1,
+        "minDistance": 1,
+        "maxDistance": 1
+      }
+    },
+    "N": {
+      "connector": {
+        "face": "front",
+        "target": "asteria:caldera_volcanic_north",
+        "strength": 1,
+        "strengthLossOnEachLoop": 1,
+        "minDistance": 1,
+        "maxDistance": 1
+      }
+    },
+    "S": {
+      "connector": {
+        "face": "back",
+        "target": "asteria:caldera_volcanic_south",
+        "strength": 1,
+        "strengthLossOnEachLoop": 1,
+        "minDistance": 1,
+        "maxDistance": 1
+      }
+    }
+  },
+  "layers": [
+    {
+      "y": -6,
+      "rows": [
+        "B"
+      ]
+    },
+    {
+      "y": -5,
+      "rows": [
+        "B"
+      ]
+    },
+    {
+      "y": -4,
+      "rows": [
+        "B"
+      ]
+    },
+    {
+      "y": -3,
+      "rows": [
+        "B"
+      ]
+    },
+    {
+      "y": -2,
+      "rows": [
+        "B"
+      ]
+    },
+    {
+      "y": -1,
+      "rows": [
+        "B"
+      ]
+    },
+    {
+      "y": 0,
+      "rows": [
+        "B"
+      ]
+    },
+    {
+      "y": 1,
+      "rows": [
+        "B"
+      ]
+    },
+    {
+      "y": 2,
+      "rows": [
+        "B"
+      ]
+    },
+    {
+      "y": 3,
+      "rows": [
+        "B"
+      ]
+    },
+    {
+      "y": 4,
+      "rows": [
+        "B"
+      ]
+    },
+    {
+      "y": 5,
+      "rows": [
+        "B"
+      ]
+    },
+    {
+      "y": 6,
+      "rows": [
+        "B"
+      ]
+    },
+    {
+      "y": 7,
+      "rows": [
+        "L"
+      ]
+    },
+    {
+      "y": 8,
+      "rows": [
+        "L"
+      ]
+    },
+    {
+      "y": 9,
+      "rows": [
+        "L"
+      ]
+    },
+    {
+      "y": 10,
+      "rows": [
+        "L"
+      ]
+    },
+    {
+      "y": 11,
+      "rows": [
+        "L"
+      ]
+    },
+    {
+      "y": 12,
+      "rows": [
+        "L"
+      ]
+    },
+    {
+      "y": 13,
+      "rows": [
+        "L"
+      ]
+    },
+    {
+      "y": 14,
+      "rows": [
+        "C"
+      ]
+    },
+    {
+      "y": 15,
+      "rows": [
+        "C"
+      ]
+    },
+    {
+      "y": 16,
+      "rows": [
+        "C"
+      ]
+    },
+    {
+      "y": 17,
+      "rows": [
+        "C"
+      ]
+    },
+    {
+      "y": 18,
+      "rows": [
+        "C"
+      ]
+    },
+    {
+      "y": 19,
+      "rows": [
+        "C"
+      ]
+    },
+    {
+      "y": 20,
+      "rows": [
+        "C"
+      ]
+    },
+    {
+      "y": 21,
+      "rows": [
+        "C"
+      ]
+    },
+    {
+      "y": 22,
+      "rows": [
+        "C"
+      ]
+    },
+    {
+      "y": 23,
+      "rows": [
+        "C"
+      ]
+    },
+    {
+      "y": 24,
+      "rows": [
+        "C"
+      ]
+    },
+    {
+      "y": 25,
+      "rows": [
+        "C"
+      ]
+    },
+    {
+      "y": 26,
+      "rows": [
+        "C"
+      ]
+    },
+    {
+      "y": 27,
+      "rows": [
+        "C"
+      ]
+    },
+    {
+      "y": 28,
+      "rows": [
+        "C"
+      ]
+    },
+    {
+      "y": 29,
+      "rows": [
+        "C"
+      ]
+    },
+    {
+      "y": 30,
+      "rows": [
+        "C"
+      ]
+    },
+    {
+      "y": 31,
+      "rows": [
+        "E"
+      ]
+    },
+    {
+      "y": 32,
+      "rows": [
+        "W"
+      ]
+    },
+    {
+      "y": 33,
+      "rows": [
+        "N"
+      ]
+    },
+    {
+      "y": 34,
+      "rows": [
+        "S"
+      ]
+    }
+  ],
+  "groupId": "volcano"
+}

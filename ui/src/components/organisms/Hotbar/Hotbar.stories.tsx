@@ -11,7 +11,7 @@ const meta = {
       slots: [
         { id: "asteria:stone", quantity: 64 },
         { id: "asteria:dirt", quantity: 32 },
-        { id: "asteria:grass_block", quantity: 12 },
+        { id: "asteria:block_grass", quantity: 12 },
         { id: "asteria:log_oak", quantity: 6 },
       ],
     },

@@ -1,6 +1,6 @@
 {
   "id": "asteria:cactus_column",
-  "category": "natural_blocks",
+  "category": "blocks_natural",
   "textures": {
     "top": "textures/blocks/cactus/top.png",
     "bottom": "textures/blocks/cactus/top.png",

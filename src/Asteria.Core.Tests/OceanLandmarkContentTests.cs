@@ -6,10 +6,10 @@ public sealed class OceanLandmarkContentTests
 {
     private static readonly (string Group, int Count)[] Families =
     [
-        ("coral_fan_garden", 3),
-        ("coral_table_garden", 3),
-        ("coral_pillar_garden", 3),
-        ("coral_arch", 2),
+        ("garden_coral_fan", 3),
+        ("garden_coral_table", 3),
+        ("garden_coral_pillar", 3),
+        ("arch_coral", 2),
     ];
 
     [Fact]
@@ -45,7 +45,7 @@ public sealed class OceanLandmarkContentTests
                     Assert.Contains(ground, new[]
                     {
                         "asteria:sand", "asteria:gravel", "asteria:clay",
-                        "asteria:stone_cobble"
+                        "asteria:cobble_stone"
                     }));
                 Assert.Contains(member.Restrictions.Proximity, rule =>
                     rule.Target.Fluid == "asteria:water" &&
@@ -74,11 +74,11 @@ public sealed class OceanLandmarkContentTests
             Assert.InRange(rule.Chance, .2f, .5f);
         }
         var fans = Assert.Single(authored, rule =>
-            rule.Structure == "asteria:coral_fan_garden");
+            rule.Structure == "asteria:garden_coral_fan");
         Assert.True(fans.HabitatWeights!.For("rocky_reefs") >
                     fans.HabitatWeights.For("sand_flats"));
         var arches = Assert.Single(authored, rule =>
-            rule.Structure == "asteria:coral_arch");
+            rule.Structure == "asteria:arch_coral");
         Assert.Equal(0f, arches.HabitatWeights!.For("sand_flats"));
     }
 

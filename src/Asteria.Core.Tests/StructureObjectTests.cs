@@ -75,10 +75,10 @@ public sealed class StructureObjectTests
         PackContentRegistry<ObjectDefinition>.FromJson([
             """
             {"id":"asteria:mushroom_red","category":"foliage",
-             "icon":"textures/objects/mushrooms/red.png",
+             "icon":"textures/objects/mushroom_red.png",
              "placementFaces":["top"],
              "visual":{"type":"crossedSprite",
-               "texture":"textures/objects/mushrooms/red.png",
+               "texture":"textures/objects/mushroom_red.png",
                "width":0.72,"height":0.62,"planes":2}}
             """
         ], ObjectDefinition.Parse, obj => obj.Id);
