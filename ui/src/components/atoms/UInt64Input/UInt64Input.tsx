@@ -26,11 +26,11 @@ export function UInt64Input({ id, ariaLabel, descriptionId, placeholder, value,
     onChange={event => { if (isUInt64Seed(event.target.value)) onChange(event.target.value); }}
     onKeyDown={event => {
       if (event.key === "Escape") {
-            event.preventDefault();
-            event.stopPropagation();
-            onChange(previous.current);
-            event.currentTarget.blur();
-          }
+        event.preventDefault();
+        event.stopPropagation();
+        onChange(previous.current);
+        event.currentTarget.blur();
+      }
     }}
   />;
 }

@@ -22,8 +22,15 @@
   background: var(--ui-color-accent-soft);
 }
 
-.ui-toggle--checked:hover:not(:disabled) {
-  background: var(--ui-color-accent-hover);
+.ui-toggle--checked:hover:not(:disabled),
+.ui-toggle--checked:active:not(:disabled) {
+  border-color: var(--ui-color-border-focus);
+  background: var(--ui-color-accent-soft);
+}
+
+.ui-toggle:not(.ui-toggle--checked):active:not(:disabled) {
+  border-color: var(--ui-color-border-focus);
+  background: var(--ui-color-surface-inset);
 }
 
 .ui-toggle__thumb {

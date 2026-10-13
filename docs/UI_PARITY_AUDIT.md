@@ -67,11 +67,11 @@ Statuses: **MATCHING FOUNDATION** (main geometry or semantics correspond, manual
 | --- | --- | --- |
 | `button.rs` | `atoms/Button` | MATCHING FOUNDATION; verify hover/pressed/disabled states visually |
 | `cosmic_background.rs` | `organisms/CosmicBackground` | MATCHING FOUNDATION |
-| `dropdown.rs` | `atoms/Dropdown` | PARTIAL: settings uses custom panel; starting language still uses native `Select` |
-| `numeric_input.rs` | `atoms/NumericInput`, `molecules/NumericStepper` | PARTIAL: tick-rate editor covered; seed uses generic `TextInput`; uint64 seed needs string-safe validation |
+| `dropdown.rs` | `atoms/Dropdown` | WEBUI INPUT PARITY — NATIVE QA PENDING: Game Settings language/target position use the anchored panel, now with keyboard-adjacent opening, focus/Escape, outside click and compact-viewport bounds. Starting screen intentionally has no language selector. |
+| `numeric_input.rs` | `atoms/NumericInput`, `molecules/NumericStepper`, `atoms/UInt64Input` | WEBUI INPUT PARITY — NATIVE QA PENDING: tick rate uses digit-only validated uint32 edits and bounded stepper, while world seed uses a separate string/BigInt uint64 editor without precision loss; Enter/Escape and invalid drafts have focused browser coverage. |
 | `screen.rs` | `templates/ScreenShell` | MATCHING FOUNDATION (1120 px content; 116/104 px header/footer) |
 | `scrollbar.rs` | `molecules/ScrollArea` | **SHARED WEBUI SCROLLING; NATIVE QA PENDING:** Settings, World Selection, Controls, Chat history and both Creative category/catalog lists use the same measured viewport/track/thumb. Chat preserves bottom-follow only for readers at the bottom. Creative retains bounded scroll offsets per category/search and tab remount. Browser regressions cover scroll/restore; actual Godot/WRY visuals remain unverified. |
-| `selectable.rs` | Selection CSS in `Button`, slots, recipe/category panels | PARTIAL: multiple independent hover/active/pressed treatments; ensure all follow MineClone token-state mapping |
+| `selectable.rs` | Selection CSS in `Button`, `Toggle`, inventory slots, recipe/category panels | PARTIAL: selected Buttons/category tabs, toggles and inventory slots now preserve the focus/accent selection palette on hover/press, with Playwright coverage. Remaining controls and actual WRY visuals still need targeted review. |
 | `settings.rs` | `SettingRow`, `SettingsPage`, tokens | MATCHING FOUNDATION |
 | `slider.rs` | `atoms/Slider` | MATCHING FOUNDATION; check focus, step and value display |
 | `surface.rs` | `atoms/Surface` | MATCHING FOUNDATION |

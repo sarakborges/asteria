@@ -36,15 +36,25 @@ export function Dropdown({
     if (inactive) return;
     const rect = triggerRef.current?.getBoundingClientRect();
     if (!rect) return;
-    const height = Math.min(340, options.length * 40 + 16);
-    const below = window.innerHeight - rect.bottom;
-    const top = below >= height + 6 || below >= rect.top - 6
-      ? rect.bottom + 6
-      : rect.top - height - 6;
+    // The CSS panel is capped at 60vh. Use the same measured budget for
+    // anchoring, otherwise the popup can extend past the viewport on WRY's
+    // smaller game windows.
+    const viewportHeight = window.innerHeight;
+    const viewportWidth = window.innerWidth;
+    const desiredHeight = Math.min(340, viewportHeight * 0.6,
+      options.length * 44 + 12);
+    const below = Math.max(0, viewportHeight - rect.bottom - 6);
+    const above = Math.max(0, rect.top - 6);
+    const placeBelow = below >= desiredHeight || below >= above;
+    const available = placeBelow ? below : above;
+    const height = Math.min(desiredHeight, Math.max(40, available));
+    const width = Math.min(rect.width, Math.max(1, viewportWidth - 12));
     setPlacement({
-      top: Math.max(6, top),
-      left: Math.max(6, Math.min(rect.left, window.innerWidth - rect.width - 6)),
-      width: Math.min(rect.width, window.innerWidth - 12),
+      top: Math.max(6, Math.min(viewportHeight - height - 6,
+        placeBelow ? rect.bottom + 6 : rect.top - height - 6)),
+      left: Math.max(6, Math.min(rect.left, viewportWidth - width - 6)),
+      width,
+      maxHeight: height,
     });
     setActiveIndex(Math.max(0, Math.min(index, options.length - 1)));
     setOpen(true);
@@ -75,7 +85,11 @@ export function Dropdown({
         onKeyDown={event => {
           if (event.key === "ArrowDown" || event.key === "ArrowUp") {
             event.preventDefault();
-            show(Math.max(0, selectedIndex));
+            // Keyboard opening advances to the neighboring option, whereas
+            // pointer opening starts at the current selection.
+            const from = Math.max(0, selectedIndex);
+            const direction = event.key === "ArrowDown" ? 1 : -1;
+            show((from + direction + options.length) % options.length);
           } else if (event.key === "Escape" && open) {
             event.preventDefault();
             event.stopPropagation();
