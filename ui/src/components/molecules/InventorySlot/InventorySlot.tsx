@@ -12,6 +12,8 @@ export type InventorySlotProps = {
   item?: ItemStackView | null;
   selected?: boolean;
   disabled?: boolean;
+  /** Search-only visual state; authoritative slot identity is unchanged. */
+  filteredOut?: boolean;
   onClick?(action: InventorySlotAction): void;
 };
 
@@ -19,7 +21,7 @@ const TOOLTIP_OFFSET = 16;
 const VIEWPORT_MARGIN = 8;
 
 export function InventorySlot({
-  item = null, selected = false, disabled = false, onClick,
+  item = null, selected = false, disabled = false, filteredOut = false, onClick,
 }: InventorySlotProps) {
   const { contentName, t } = useLocalization();
   const [showTooltip, setShowTooltip] = useState(false);
@@ -57,7 +59,8 @@ export function InventorySlot({
     <>
       <button
         type="button"
-        className={["inventory-slot", selected ? "inventory-slot--selected" : ""]
+        className={["inventory-slot", selected ? "inventory-slot--selected" : "",
+          filteredOut ? "inventory-slot--filtered" : ""]
           .filter(Boolean).join(" ")}
         disabled={disabled}
         aria-label={item

@@ -685,3 +685,10 @@ MineClone `world-systems-rebuild` reference: `world_objects.rs::detached_object_
 - Fixed invalid/empty tick-rate stepper drafts advancing to `min + 1` instead of the actual minimum. Numeric and uint64 seed Escape handling consistently cancels browser defaults and never bubbles a page navigation action.
 - Added interactive Storybook controls and Playwright regressions for keyboard selection, compact dropdown coordinates, uint32 max, out-of-range blur/cancel, invalid-step recovery, uint64 exact upper bound, and selected-color persistence.
 - Automated browser coverage does not replace native Godot/WRY focus and visual comparison.
+
+## HUD + inventory batch — 2026-10-13
+
+- **Attached-layer target HUD:** `TargetHudStateTracker` and `Main.cs` already publish `activeLayerId`. The WebUI rendered the base block glyph even while displaying the layer name. `GameHudPage` now resolves the layer's icon using the existing Creative catalog (exact kind + ID) and passes it to `TargetHud`. If absent, the existing base block preview remains as a fallback; no second resource loader or gameplay state is introduced.
+- **Inventory search:** the old audit's ID-only search claim was stale. `inventorySearchMatches` already supports localized names, authored IDs and metadata. Nonmatching backpack/hotbar slots were disabled but visually indistinguishable; both now apply the same filtered state and dim without changing slot indices, identities or inventory authority.
+- **Regression coverage:** Storybook and Playwright cover layer icon vs block cube, fallback when unavailable, localized metadata filtering across backpack and hotbar, disabled/dimmed nonmatches and intact slot layout without a search.
+- **Still pending:** embedded Godot/WRY visuals and interactions, tinted layer pixel parity and real target selection. Browser regression success alone does not complete native visual QA.

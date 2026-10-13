@@ -34,3 +34,22 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
+
+export const LocalizedSearchFiltering: Story = {
+  args: {
+    state: {
+      searchQuery: "water",
+      backpack: [
+        { id: "asteria:bucket", kind: "tool", name: "Bucket", quantity: 1,
+          metadata: { contained_fluid: "asteria:water" } },
+        { id: "asteria:stone", kind: "block", name: "Stone", quantity: 64 },
+      ],
+      hotbar: [
+        { id: "asteria:bucket", kind: "tool", name: "Bucket", quantity: 1,
+          metadata: { contained_fluid: "asteria:water" } },
+        { id: "asteria:dirt", kind: "block", name: "Dirt", quantity: 20 },
+      ],
+    },
+    onSlotClick: () => undefined,
+  },
+};
