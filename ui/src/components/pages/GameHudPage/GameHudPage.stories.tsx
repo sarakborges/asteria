@@ -103,6 +103,10 @@ const meta = {
         front: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9T9VJ9QAAAAASUVORK5CYII=",
         right: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9T9VJ9QAAAAASUVORK5CYII=",
       },
+    }, {
+      id: "asteria:moss", kind: "layer", name: "Moss",
+      category: "natural_blocks", metadata: {},
+      iconUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9T9VJ9QAAAAASUVORK5CYII=",
     }],
     onPing: () => undefined,
     onDismissToast: () => undefined,
@@ -153,6 +157,32 @@ export const DebugOverlay: Story = {
     state: {
       ...runtimeState,
       debugVisible: true,
+    },
+  },
+};
+
+export const ActiveAttachedLayer: Story = {
+  args: {
+    state: {
+      ...runtimeState,
+      target: {
+        ...runtimeState.target,
+        activeLayerId: "asteria:moss",
+        layers: [{ id: "asteria:moss", face: "top" as const }],
+      },
+    },
+  },
+};
+
+export const UnavailableLayerIcon: Story = {
+  args: {
+    state: {
+      ...runtimeState,
+      target: {
+        ...runtimeState.target,
+        activeLayerId: "asteria:unknown_layer",
+        layers: [{ id: "asteria:unknown_layer", face: "top" as const }],
+      },
     },
   },
 };
