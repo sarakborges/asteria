@@ -29,6 +29,7 @@ export function InventoryHotbarFooter({
             !inventorySearchMatches(item, query, contentName);
           return (
             <InventorySlot key={index} item={item}
+              filteredOut={filteredOut}
               disabled={!onSlotClick || filteredOut}
               onClick={action => onSlotClick?.(HOTBAR_OFFSET + index, item, action)} />
           );
