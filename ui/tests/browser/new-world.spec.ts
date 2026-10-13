@@ -135,6 +135,22 @@ test("initial menu contains no language selector", async ({ page }) => {
   await expect(page.locator(".starting-screen select")).toHaveCount(0);
 });
 
+test("Flat and Void create clicks transmit the selected mode", async ({ page }) => {
+  for (const mode of ["Flat", "Void"] as const) {
+    await page.goto(STORY + "creation-request&viewMode=story");
+    const { worldGeneration } = await expectActualWorldSettings(page);
+    await worldGeneration.getByRole("button", { name: mode, exact: true }).click();
+    await page.locator(".new-world__create[type=submit]").click();
+    const value = page.getByTestId("world-creation-request");
+    await expect(value).not.toBeEmpty();
+    const request = JSON.parse((await value.textContent())!);
+    expect(request.generation.mode).toBe(mode);
+    expect(request.generation.spawnCaves).toBe(false);
+    expect(request.generation.spawnOceans).toBe(false);
+    expect(request.generation.spawnStructures).toBe(false);
+  }
+});
+
 test("Selecting Flat defaults to a clear plane, with structures optional", async ({ page }) => {
   await page.goto(STORY + "ready&viewMode=story");
   const { worldGeneration } = await expectActualWorldSettings(page);

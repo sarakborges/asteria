@@ -2133,16 +2133,31 @@ public partial class Main : Node3D
                 generation,
                 keepInventory,
                 creatureAttackMode);
+            _worldDiagnostics?.Write(
+                $"world.creation.accepted mode={generation.Mode} " +
+                $"spawn_structures={generation.SpawnStructures} " +
+                $"spawn_caves={generation.SpawnCaves} " +
+                $"spawn_oceans={generation.SpawnOceans}");
             StartWorld(creation);
         }
         catch (ArgumentException exception)
         {
+            _worldDiagnostics?.Warn("world.creation.rejected", exception.Message);
             SendWorldCreationError(exception.ParamName switch
             {
                 "name" => "newWorld.error.invalidName",
                 "ticksPerSecond" => "newWorld.error.invalidTickRate",
                 _ => "newWorld.error.invalidGeneration",
             });
+        }
+        catch (Exception exception)
+        {
+            // Preserve the original failure, including its stack, in the
+            // durable session log. A session-start exception must never
+            // masquerade as a terrain-mode selection failure.
+            _worldDiagnostics?.Write(
+                $"world.creation.failed exception={exception}");
+            throw;
         }
     }
 

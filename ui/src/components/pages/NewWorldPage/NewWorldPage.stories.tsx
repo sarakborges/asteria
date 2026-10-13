@@ -1,10 +1,10 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { App, type AppActions } from "../../../App";
 import { createInitialUiState } from "../../../state/uiState";
 import { createUiStore } from "../../../state/uiStore";
 import { createUiNavigationController } from "../../../controllers/UiNavigationController";
-import { NewWorldPage } from "./NewWorldPage";
+import { NewWorldPage, type NewWorldPageProps } from "./NewWorldPage";
 
 const defaultGeneration = {
   mode: "Normal" as const, spawnBiome: null, biomeSizeTenths: 10,
@@ -172,6 +172,21 @@ function InGameFlow({ initialOverlay }: { initialOverlay: "pause" | "inventory" 
   return <App embedded={false} store={store} actions={actions} />;
 }
 
+type WorldCreationRequest = Parameters<NewWorldPageProps["onCreate"]>[0];
+
+/** Captures the real create-click payload for end-to-end DOM regression tests. */
+function CaptureCreation(props: NewWorldPageProps) {
+  const [request, setRequest] = useState<WorldCreationRequest | null>(null);
+  return (
+    <>
+      <NewWorldPage {...props} onCreate={setRequest} />
+      <output data-testid="world-creation-request">
+        {request === null ? "" : JSON.stringify(request)}
+      </output>
+    </>
+  );
+}
+
 const meta = {
   title: "Pages/NewWorldPage",
   component: NewWorldPage,
@@ -203,6 +218,9 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Ready: Story = {};
+export const CreationRequest: Story = {
+  render: args => <CaptureCreation {...args} />,
+};
 export const ValidationError: Story = {
   args: { state: { ...meta.args.state, seed: "18446744073709551615",
     errorKey: "newWorld.error.invalidSeed" } },

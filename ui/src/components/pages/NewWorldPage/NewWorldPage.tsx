@@ -266,7 +266,14 @@ export function NewWorldPage({
       <Button label={t("newWorld.createWorld")}
         variant="primary" size="menu" type="submit"
         formId={FORM_ID} className="new-world__create"
-        disabled={state.pending} />
+        disabled={state.pending}
+        onClick={event => {
+          // The footer is outside the form. Send the explicit creation
+          // command even when the embedded webview does not submit the
+          // externally-associated form. Preserve Enter via onSubmit.
+          event.preventDefault();
+          request();
+        }} />
     </>
   );
 
