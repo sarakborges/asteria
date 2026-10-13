@@ -165,6 +165,52 @@ public sealed class SurfaceStructureTests
     }
 
     [Fact]
+    public void PortalAccessMustReachSurfaceAtConnectorRatherThanTallUnrelatedVoxel()
+    {
+        var blocks = PortalArrivalBlocks();
+        var directory = Path.Combine(AppContext.BaseDirectory,
+            "packs", "default", "data", "structures");
+        var root = File.ReadAllText(Path.Combine(
+            directory, "portal_arrival_platform.json"));
+        // This distant top block raises MaximumY, but does not raise the
+        // walkable exit at E. A height-only stop would wrongly omit stairs.
+        var raised = root.Replace(
+            "\"layers\": [",
+            "\"layers\": [{\"y\": 55, \"rows\": [\"S\"]},",
+            StringComparison.Ordinal);
+        Assert.NotEqual(root, raised);
+        var stair = File.ReadAllText(Path.Combine(
+            directory, "surface_spiral_stair_segment.json"));
+        var structures = StructureRegistry.FromJson([raised, stair]);
+        structures.ValidateBlocks(blocks);
+        var generator = FlatStructureGenerator(
+            blocks, structures, "asteria:stone");
+        var entryY = generator.SurfaceHeight(8, 8) - 10;
+        Assert.True(generator.TryPrepareExactStructure(
+            "asteria:portal_arrival_platform", 8, entryY, 8,
+            new ManualStructurePlacementLedger(), out var plan));
+        Assert.NotNull(plan);
+        Assert.Equal(2, plan.Pieces.Count);
+        Assert.Equal("asteria:surface_spiral_stair_segment",
+            plan.Pieces[^1].StructureId);
+    }
+
+    [Fact]
+    public void AboveSurfacePortalDoesNotBuildUnnecessaryStaircase()
+    {
+        var blocks = PortalArrivalBlocks();
+        var structures = PortalArrivalStructures();
+        var generator = FlatStructureGenerator(
+            blocks, structures, "asteria:stone");
+        var entryY = generator.SurfaceHeight(8, 8) + 3;
+        Assert.True(generator.TryPrepareExactStructure(
+            "asteria:portal_arrival_platform", 8, entryY, 8,
+            new ManualStructurePlacementLedger(), out var plan));
+        Assert.NotNull(plan);
+        Assert.Single(plan.Pieces);
+    }
+
+    [Fact]
     public void DeepPortalArrivalExpandsMultipleStairSegmentsToSurface()
     {
         var blocks = PortalArrivalBlocks();
@@ -186,6 +232,60 @@ public sealed class SurfaceStructureTests
             Assert.Equal(stairs[i - 1].AnchorY + 15, stairs[i].AnchorY);
         Assert.True(stairs[^1].MaximumY - 2 >=
             generator.SurfaceHeight(8, 8));
+    }
+
+    [Fact]
+    public void DeepPortalAndEveryStairAreCommittedAtomicallyAtExactCoordinates()
+    {
+        var blocks = PortalArrivalBlocks();
+        var structures = PortalArrivalStructures();
+        structures.ValidateBlocks(blocks);
+        var generator = FlatStructureGenerator(
+            blocks, structures, "asteria:stone",
+            StructureSetRegistry.Empty, 48f);
+        var entryY = generator.SurfaceHeight(8, 8) - 45;
+        var origin = new DimensionId("asteria:overworld");
+        var ledger = new ManualStructurePlacementLedger();
+        Assert.True(generator.TryPrepareExactStructure(
+            "asteria:portal_arrival_platform", 8, entryY, 8, ledger,
+            out var expected));
+        Assert.NotNull(expected);
+        Assert.True(expected.Pieces.Count >= 4);
+
+        var world = new VoxelWorld();
+        // Simulate the existing vertical-access streaming selection:
+        // every chunk touched by the authored connector chain is resident.
+        var coords = expected.Pieces
+            .SelectMany(piece => piece.PayloadPositions())
+            .Select(position => VoxelCoordinates.FromWorld(
+                position.X, position.Y, position.Z).Chunk)
+            .Distinct().ToArray();
+        foreach (var coord in coords)
+            world.InsertChunk(coord, new Chunk());
+
+        var mutations = new VoxelMutationRuntime(world,
+            new WorldUpdateQueue(), new FluidUpdateQueue(),
+            new FluidMeshUpdateQueue(), new BlockPhysicsUpdateQueue(),
+            new MeshletContentRevisions(), new MeshletContentRevisions());
+        var runtime = new ManualStructurePlacementRuntime(
+            generator, world, mutations, blocks, structures,
+            StructureSetRegistry.Empty, ledger);
+        Assert.Equal(ManualStructurePlacementResult.Placed,
+            runtime.TryPlaceExact(
+                "asteria:portal_arrival_platform", 8, entryY, 8, origin));
+
+        var portal = new PortalActivationRuntime(world, blocks, mutations);
+        Assert.True(portal.TryGetDestinationAt(
+            new WorldVoxelCoord(9, entryY, 8), out var destination));
+        Assert.Equal(origin.Value, destination);
+        Assert.True(ResidentWarpDestinationQuery.IsExactSafe(
+            world, new System.Numerics.Vector3(8.5f, entryY, 8.5f)));
+        Assert.All(expected.Pieces.Skip(1), piece =>
+            Assert.Contains(piece.Voxels, voxel =>
+                world.GetCellOrEmpty(new WorldVoxelCoord(
+                    voxel.X, voxel.Y, voxel.Z)).Block ==
+                    blocks.GetId("asteria:stone")));
+        Assert.Equal(1, ledger.Count);
     }
 
     [Fact]

@@ -1450,12 +1450,17 @@ public sealed class SurfaceStructureField
         var offset = StructureDefinition.RotateOffset(
             piece.Rotation, connector.X, connector.Y, connector.Z);
         var worldX = (long)piece.AnchorX + offset.X;
+        var worldY = (long)piece.AnchorY + offset.Y;
         var worldZ = (long)piece.AnchorZ + offset.Z;
         if (worldX is < int.MinValue or > int.MaxValue ||
             worldZ is < int.MinValue or > int.MaxValue)
             return false;
-        return (long)piece.MaximumY - connector.SurfaceClearance >=
-            SurfaceAt((int)worldX, (int)worldZ).BaseY;
+        // The passage reaches the open surface at its actual connector
+        // mouth, not at an unrelated (possibly much taller) voxel in the
+        // same authored piece. Checking MaximumY could stop expansion
+        // underground with no climbable exit.
+        var surfaceY = SurfaceAt((int)worldX, (int)worldZ).BaseY;
+        return worldY >= (long)surfaceY + connector.SurfaceClearance;
     }
 
     private bool TryResolvePlacement(
