@@ -5,6 +5,7 @@ import { Button } from "../../atoms/Button/Button";
 import { Surface } from "../../atoms/Surface/Surface";
 import { Text } from "../../atoms/Text/Text";
 import { ControlBindingEntry } from "../../molecules/ControlBindingEntry/ControlBindingEntry";
+import { ScrollArea } from "../../molecules/ScrollArea/ScrollArea";
 import { CosmicBackground } from "../../organisms/CosmicBackground/CosmicBackground";
 import { ScreenShell } from "../../templates/ScreenShell/ScreenShell";
 import "./ControlsPage.css";
@@ -39,7 +40,9 @@ export function ControlsPage({
         />
       }
     >
-      <div className="controls-page">
+      <ScrollArea className="controls-page"
+        contentClassName="controls-page__content"
+        ariaLabel={t("controls.title")}>
         {captureError && (
           <div role="alert" className="controls-page__error">
             <Text text={captureError} variant="caption" />
@@ -65,7 +68,7 @@ export function ControlsPage({
             </div>
           </Surface>
         ))}
-      </div>
+      </ScrollArea>
     </ScreenShell>
   );
 }
