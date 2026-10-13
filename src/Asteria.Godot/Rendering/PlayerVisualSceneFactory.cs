@@ -28,12 +28,7 @@ internal static class PlayerVisualSceneFactory
 
         var scene = document.GenerateScene(state)
             ?? throw new InvalidDataException("Authored player GLB has no scene.");
-        var skin = ProjectPackFiles.LoadTexture(selection, definition.Skin);
-        var skinSize = skin.GetSize();
-        if (skinSize.X != skinSize.Y ||
-            skinSize.X is not (64 or 128 or 256 or 512))
-            throw new InvalidDataException(
-                $"Player skin '{definition.Skin}' must be a square 64/128/256/512 atlas.");
+        var skin = PlayerSkinTextureLoader.Load(selection, definition.Skin);
         var cuboids = Descendants(scene)
             .OfType<MeshInstance3D>()
             .Where(mesh => PlayerSkinUvMapper.TryMap(

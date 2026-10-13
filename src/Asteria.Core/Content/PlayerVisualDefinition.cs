@@ -34,7 +34,9 @@ public sealed class PlayerVisualDefinition
         var model = PackContentFields.ResourcePath(
             PackContentFields.RequiredString(root, "model"), "model");
         var skin = PackContentFields.ResourcePath(
-            PackContentFields.RequiredString(root, "skin"), "skin");
+            root.TryGetProperty("skin", out _)
+                ? PackContentFields.RequiredString(root, "skin")
+                : "textures/player/64.png", "skin");
         if (!model.EndsWith(".glb", StringComparison.OrdinalIgnoreCase) ||
             !skin.EndsWith(".png", StringComparison.OrdinalIgnoreCase))
             throw new FormatException("Player model must be GLB and skin must be PNG.");

@@ -42,6 +42,55 @@ public sealed class PlayerVisualDefinitionTests
     }
 
     [Fact]
+    public void MissingSkinFieldUsesDefaultAtlasDirectory()
+    {
+        var json = PlayerJson.Replace(
+            "\"skin\": \"textures/player/64.png\",", "",
+            StringComparison.Ordinal);
+        Assert.Equal("textures/player/64.png",
+            PlayerVisualDefinition.Parse(json).Skin);
+    }
+
+    [Fact]
+    public void SkinFallbackPicksTheHighestAvailableResolution()
+    {
+        var available = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "textures/player/64.png",
+            "textures/player/256.png",
+        };
+        var candidates = PlayerSkinAtlasCandidates.Paths("textures/player/64.png");
+        Assert.Equal(new[] {
+            "textures/player/512.png",
+            "textures/player/256.png",
+            "textures/player/128.png",
+            "textures/player/64.png",
+        }, candidates);
+        Assert.Equal("textures/player/256.png",
+            candidates.FirstOrDefault(available.Contains));
+    }
+
+    [Theory]
+    [InlineData("textures/player/512.png")]
+    [InlineData("textures/player/256.png")]
+    [InlineData("textures/player/128.png")]
+    [InlineData("textures/player/64.png")]
+    public void MissingPreferredResolutionFallsBackTo64(string preferred)
+    {
+        var candidates = PlayerSkinAtlasCandidates.Paths(preferred);
+        Assert.Equal("textures/player/64.png",
+            candidates.FirstOrDefault(path =>
+                path == "textures/player/64.png"));
+    }
+
+    [Fact]
+    public void CustomNamedSkinIsNotReplacedByUnrelatedAtlas()
+    {
+        Assert.Equal(new[] { "textures/characters/custom.png" },
+            PlayerSkinAtlasCandidates.Paths("textures/characters/custom.png"));
+    }
+
+    [Fact]
     public void RejectsMissingClip()
     {
         Assert.Throws<FormatException>(() => PlayerVisualDefinition.Parse(
