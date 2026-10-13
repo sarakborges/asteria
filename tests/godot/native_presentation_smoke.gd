@@ -67,7 +67,7 @@ func _run() -> void:
 		if object_base.next_pass != overlay:
 			push_error("Native smoke: Object shadow NextPass not assigned")
 			failed = true
-	var shadow_global := ProjectSettings.get_setting("shader_globals/object_sun_shadow_strength", null)
+	var shadow_global = ProjectSettings.get_setting("shader_globals/object_sun_shadow_strength", null)
 	if not shadow_global is Dictionary or shadow_global.get("type", "") != "float":
 		push_error("Native smoke: Object solar shadow global not registered")
 		failed = true
