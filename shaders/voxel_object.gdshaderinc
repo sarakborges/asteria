@@ -2,7 +2,7 @@ uniform sampler2D object_texture : source_color, filter_nearest, repeat_disable;
 uniform float alpha_cutoff = 0.5;
 uniform bool preview_mode = false;
 uniform vec3 preview_tint : source_color = vec3(1.0);
-uniform vec3 model_albedo_color : source_color = vec3(1.0);
+uniform vec4 model_albedo_color : source_color = vec4(1.0);
 
 const float AMBIENT_FLOOR = 0.055;
 const float SKY_LIGHT_GAMMA = 1.35;
@@ -35,9 +35,9 @@ void fragment() {
     vec3 light_hue = mix(vec3(1.0), block_hue,
         smoothstep(0.08, 0.55, block_intensity) * BLOCK_LIGHT_COLOR_STRENGTH);
 
-    ALBEDO = texel.rgb * model_albedo_color * instance_tint * preview_tint * light_hue *
+    ALBEDO = texel.rgb * model_albedo_color.rgb * instance_tint * preview_tint * light_hue *
         total_intensity * object_face_shade;
     ROUGHNESS = 1.0;
-    ALPHA = texel.a;
+    ALPHA = texel.a * model_albedo_color.a;
     ALPHA_SCISSOR_THRESHOLD = alpha_cutoff;
 }

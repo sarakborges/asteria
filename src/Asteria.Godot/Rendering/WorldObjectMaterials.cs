@@ -29,7 +29,7 @@ internal static class WorldObjectMaterials
         material.SetShaderParameter("alpha_cutoff", alphaCutoff);
         if (albedo is { } color)
             material.SetShaderParameter("model_albedo_color",
-                new Vector3(color.R, color.G, color.B));
+                color);
         return material;
     }
 

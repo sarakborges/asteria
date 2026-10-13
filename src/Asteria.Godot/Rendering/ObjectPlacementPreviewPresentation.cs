@@ -45,6 +45,12 @@ public sealed class ObjectPlacementPreviewPresentation
         if (_shownId != definition.Id)
         {
             var mesh = _visuals.GetMesh(definition);
+            // A reused preview may have override materials for *every*
+            // surface of the previous GLB. Release them before switching
+            // mesh or the next Object inherits unrelated textures/tints.
+            if (_instance.Mesh is { } previous)
+                for (var surface = 0; surface < previous.GetSurfaceCount(); surface++)
+                    _instance.SetSurfaceOverrideMaterial(surface, null);
             _instance.Mesh = mesh;
             _shownId = definition.Id;
             _tintColumn = null;

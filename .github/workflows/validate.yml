@@ -35,6 +35,33 @@ jobs:
       - name: Test engine-agnostic core
         run: dotnet test src/Asteria.Core.Tests/Asteria.Core.Tests.csproj --configuration Release
 
+      - name: Install Godot 4.7.2 .NET for native smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="4.7.2-stable"
+          archive="$RUNNER_TEMP/godot-mono.zip"
+          curl -fL --retry 3 --retry-delay 2 -o "$archive" \
+            "https://github.com/godotengine/godot/releases/download/${version}/Godot_v${version}_mono_linux_x86_64.zip"
+          echo "129f82db7bafd54ae14bb5bb284041c73860e8c7a009a3a026ca5e946cbff247  $archive" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/godot-mono"
+          unzip -q "$archive" -d "$RUNNER_TEMP/godot-mono"
+          godot="$(find "$RUNNER_TEMP/godot-mono" -type f -name 'Godot_v4.7.2-stable_mono_linux.x86_64' -print -quit)"
+          test -n "$godot"
+          chmod +x "$godot"
+          echo "GODOT_BIN=$godot" >> "$GITHUB_ENV"
+          "$godot" --version
+
+      - name: Validate native Godot scene and shaders headlessly
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Import selected-project resources without launching WRY. The
+          # scene may only be instantiated, never added to the live tree.
+          timeout 180s "$GODOT_BIN" --headless --path . --editor --import
+          timeout 90s "$GODOT_BIN" --headless --path . \
+            --script res://tests/godot/native_presentation_smoke.gd
+
       - name: Record bounded worldgen query baseline
         run: |
           dotnet run --project tools/WorldgenBenchmark --configuration Release -- \
