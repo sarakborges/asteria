@@ -210,7 +210,7 @@ export function NewWorldPage({
                   ariaLabel={t(title)}
                   checked={generation[key]}
                   disabled={state.pending ||
-                    (key === "spawnOceans" && generation.mode !== "Normal") ||
+                    (key === "spawnOceans" && generation.mode === "Void") ||
                     (key === "spawnCaves" && generation.mode === "Void")}
                   onChange={checked => setFlag(key, checked)} />} />
             ))}

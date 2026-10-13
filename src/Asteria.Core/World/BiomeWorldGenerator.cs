@@ -118,8 +118,15 @@ public sealed class BiomeWorldGenerator :
                         definition.Id,
                     StringComparer.Ordinal)
                 .ToArray();
+        // Void still has one authored spawn platform. Honor the selected
+        // eligible Spawn Biome for its material even when Single Biome is off;
+        // the rest of Void remains empty, including the Sphere Shell.
+        var spawnSurface = generation.SpawnBiome is { } selected &&
+            surfaceIds.Contains(selected, StringComparer.Ordinal)
+            ? biomes.Get(selected)
+            : surfaceDefinitions[0];
         _voidSpawnPlatform = generation.Mode == WorldGenerationMode.Void
-            ? new VoidSpawnPlatform(dimension, blocks, surfaceDefinitions[0])
+            ? new VoidSpawnPlatform(dimension, blocks, spawnSurface)
             : null;
         var volumeDefinitions =
             dimension.VolumeBiomes
