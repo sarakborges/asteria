@@ -662,3 +662,10 @@ MineClone `world-systems-rebuild` reference: `world_objects.rs::detached_object_
 - Reused **one** transition instance in `ui/src/App.tsx` for pre-world and navigable menu overlays (Pause / Game Settings / World Settings / Controls), with a key for each actual destination. The world-creation screens are suppressed when a settings/controls overlay is active, instead of remaining mounted behind the overlay. The same existing transition cancels/reverses pending navigation; no second transition implementation or native gameplay state was introduced.
 - Preserved direct resume/mouse capture, death modal, chat, inventory and storage semantics outside the menu transition. ESC still invokes the existing navigation controller immediately, without deferring gameplay decisions behind the visual fade.
 - Browser regressions cover pause → game settings → pause → gameplay and pause → controls → pause including outgoing-menu preservation through fade-out. Godot/WRY native focus and visual comparison remain to be checked in the live client.
+
+## Controls scroll parity — 2026-10-13
+
+- Rechecked the current native input, controls presenter and browser tests: W ×2 Run, MMB Pick Block, and localized Enter/history/Tab chat shortcuts are already implemented. The earlier UI parity table was stale and has been corrected, along with the chat-action and menu-transition notes.
+- Migrated `ControlsPage` from a one-off CSS scrollbar to the existing shared measured `ScrollArea` used by Settings and World Selection. The same native viewport owns keyboard, wheel and touch scrolling; the rendered track/thumb mirrors measured overflow. Controls cards, keybind capture and screen-level footer remain unchanged.
+- Added a short-controls Storybook state plus Playwright tests for overflow detection, absence of scrollbars when not needed, PageDown, wheel, track clicks and the fixed footer position on a constrained viewport.
+- Native Godot/WRY visual scroll, focus and input interaction still require in-game QA. Chat and Creative lists remain separate scroll parity follow-ups.
