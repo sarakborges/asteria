@@ -284,7 +284,7 @@ public partial class Main : Node3D
         _terrainTextureLookup =
             _terrainTextures.CreateLookup();
         _voxelIcons = new InventoryVoxelIconRasterizer(
-            _blocks, _fluids, _layers, _terrainTextureLookup,
+            _blocks, _fluids, _layers, _dyes, _terrainTextureLookup,
             _terrainTextures);
         _terrainMaterials =
             VoxelTerrainMaterialSet.Create(

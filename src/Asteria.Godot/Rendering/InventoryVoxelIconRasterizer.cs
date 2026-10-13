@@ -18,18 +18,23 @@ internal sealed class InventoryVoxelIconRasterizer
     private readonly BlockRegistry _blocks;
     private readonly FluidRegistry _fluids;
     private readonly AttachedLayerRegistry _layers;
+    private readonly DyeRegistry _dyes;
     private readonly TerrainTextureLookup _lookup;
     private readonly TerrainTextureCatalog _textures;
-    private readonly Dictionary<(string Id, VoxelCell Cell, MicroblockMask Mask), string> _cache = [];
+    // Dye is part of the visual identity. Metadata tags do not affect mesh
+    // appearance, and attached-layer states are deliberately never cached.
+    private readonly Dictionary<
+        (string Id, VoxelCell Cell, MicroblockMask Mask, string? DyeId), string> _cache = [];
 
     public InventoryVoxelIconRasterizer(
         BlockRegistry blocks, FluidRegistry fluids,
-        AttachedLayerRegistry layers, TerrainTextureLookup lookup,
-        TerrainTextureCatalog textures)
+        AttachedLayerRegistry layers, DyeRegistry dyes,
+        TerrainTextureLookup lookup, TerrainTextureCatalog textures)
     {
         _blocks = blocks;
         _fluids = fluids;
         _layers = layers;
+        _dyes = dyes ?? throw new ArgumentNullException(nameof(dyes));
         _lookup = lookup;
         _textures = textures;
     }
@@ -40,12 +45,13 @@ internal sealed class InventoryVoxelIconRasterizer
         // A world target's spatial tint and attached layers can change at
         // runtime; only immutable, pack-authored inventory icons are cached.
         var cacheable = tintOverride is null && state.SurfaceState.Layers.Count == 0;
-        var key = (definition.Id, state.Cell, state.MicroblockMask);
+        var key = (definition.Id, state.Cell, state.MicroblockMask,
+            state.SurfaceState.DyeId);
         if (cacheable && _cache.TryGetValue(key, out var cached))
             return cached;
 
         var data = BlockStateMeshBuilder.BuildData(
-            state, _blocks, _fluids, _lookup, _layers);
+            state, _blocks, _fluids, _lookup, _layers, _dyes);
         if (!data.HasRenderGeometry ||
             data.TriangleCount > MaximumTriangles)
             return null;
@@ -53,16 +59,20 @@ internal sealed class InventoryVoxelIconRasterizer
         var screen = new Color[Pixels * Pixels];
         var depth = new float[screen.Length];
         Array.Fill(depth, float.NegativeInfinity);
-        var tint = tintOverride ?? definition.PreviewColor;
-        var palette = new Color(
-            tint.Red / 255f, tint.Green / 255f, tint.Blue / 255f);
+        // An authored dye takes precedence over biome fallback tint, just
+        // as the canonical terrain mesher does. Otherwise a sampled world
+        // tint overrides the fallback color stored in mesh vertices.
+        Color? sampledPalette = null;
+        if (tintOverride is { } tint && state.SurfaceState.DyeId is null)
+            sampledPalette = new Color(
+                tint.Red / 255f, tint.Green / 255f, tint.Blue / 255f);
 
         foreach (var batch in data.RenderBatches)
         {
             var vertices = batch.Vertices;
             for (var i = 0; i + 2 < vertices.Length; i += 3)
                 DrawTriangle(vertices[i], vertices[i + 1], vertices[i + 2],
-                    palette, batch.Batch.RenderMode, screen, depth);
+                    sampledPalette, batch.Batch.RenderMode, screen, depth);
         }
 
         var pngPixels = new byte[Pixels * Pixels * 4];
@@ -90,7 +100,7 @@ internal sealed class InventoryVoxelIconRasterizer
     }
 
     private void DrawTriangle(ChunkMeshVertex a, ChunkMeshVertex b,
-        ChunkMeshVertex c, Color palette, BlockRenderMode mode,
+        ChunkMeshVertex c, Color? sampledPalette, BlockRenderMode mode,
         Color[] screen, float[] depth)
     {
         // Orthographic view from above +X/+Z, exactly the inventory's
@@ -114,6 +124,11 @@ internal sealed class InventoryVoxelIconRasterizer
         var maxY = Math.Clamp((int)MathF.Ceiling(
             MathF.Max(pa.Y, MathF.Max(pb.Y, pc.Y)) * Pixels), 0, Pixels - 1);
 
+        // A preview of a dyed block must use the actual tint resolved by
+        // the same Core mesh path as world terrain. The previous code used
+        // definition.PreviewColor for every block and discarded dye RGB.
+        var palette = sampledPalette ?? new Color(
+            a.TintAndAo.X, a.TintAndAo.Y, a.TintAndAo.Z);
         var baseCode = a.EncodedTextureLayers.X;
         var baseIndex = (int)MathF.Floor(baseCode + .001f);
         var baseTint = Dyable(baseCode);
