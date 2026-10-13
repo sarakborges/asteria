@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { createWorldCatalogController } from "../../src/controllers/WorldCatalogController";
+import { createUiNavigationController } from "../../src/controllers/UiNavigationController";
 import { createInitialUiState } from "../../src/state/uiState";
 import { createUiStore } from "../../src/state/uiStore";
 
@@ -125,4 +126,23 @@ test("failed world delete keeps the catalog and permits exactly one retry", () =
     payload: { status: "ready", worlds: [] } });
   expect(store.getSnapshot().worldCatalog.worlds).toHaveLength(0);
   expect(store.getSnapshot().worldCatalog.status).toBe("ready");
+});
+
+test("reentering World Selection resets stale operation errors before a fresh catalog scan", () => {
+  const store = createUiStore(createInitialUiState(false));
+  const sent: string[] = [];
+  const navigation = createUiNavigationController(store, type => sent.push(type));
+  store.update(s => ({
+    ...s,
+    worldCatalog: {
+      ...s.worldCatalog, status: "ready",
+      loadError: true, deleteError: true,
+    },
+  }));
+
+  navigation.openWorldSelection();
+  expect(store.getSnapshot().worldCatalog.loadError).toBe(false);
+  expect(store.getSnapshot().worldCatalog.deleteError).toBe(false);
+  expect(store.getSnapshot().navigation.preWorldScreen).toBe("world-selection");
+  expect(sent).toEqual(["ui.world.catalog.refresh"]);
 });
