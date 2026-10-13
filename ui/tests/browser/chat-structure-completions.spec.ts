@@ -23,7 +23,7 @@ test("place offers authored structures while locate hides nonlocatable ones", as
     .toBeVisible();
 
   // Do not drop the valid place-only variations.
-  await input.fill("/place structure ruins 2");
+  await input.fill("/place structure asteria:ruins 2");
   await expect(page.getByRole("option").filter({ hasText: "2" }))
     .toBeVisible();
 });
