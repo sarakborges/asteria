@@ -156,18 +156,26 @@ export function App({
     event.stopPropagation();
   };
 
-  // Capture Escape at the window while paused. WRY can focus its native
-  // window or the document body without focusing an App descendant; the
-  // pause shortcut must never depend on clicking the menu first. For other
-  // screens preserve child controls' Escape behavior.
+  // WRY can leave DOM focus on body after an OS/native focus handoff.
+  // Recover modal-only close shortcuts when no App descendant has focus;
+  // keys inside the modal stay owned by the explicit React surface.
   useEffect(() => {
     const onWindowKeyDown = (event: globalThis.KeyboardEvent) => {
       if ((state.navigation.death && !state.navigation.exitConfirmation) ||
-          event.key !== "Escape" ||
           event.defaultPrevented || event.repeat || event.isComposing ||
           !uiVisible) return;
-      if (state.navigation.overlay !== "pause" &&
-          interactionRoot.current?.contains(event.target as Node)) return;
+      const inUiSurface = event.target instanceof Node &&
+        Boolean(interactionRoot.current?.contains(event.target));
+      if (state.navigation.overlay === "inventory" &&
+          !inUiSurface &&
+          event.code === (state.settings.client?.keybinds.inventory ?? "KeyE")) {
+        actions.closeInventory();
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+      if (event.key !== "Escape" ||
+          (state.navigation.overlay !== "pause" && inUiSurface)) return;
       navigateEscape();
       event.preventDefault();
       event.stopPropagation();
@@ -175,7 +183,8 @@ export function App({
     window.addEventListener("keydown", onWindowKeyDown, true);
     return () => window.removeEventListener("keydown", onWindowKeyDown, true);
   }, [actions, uiVisible, state.navigation.death, state.navigation.exitConfirmation,
-      state.navigation.overlay, state.settings.captureAction, state.chat.open]);
+      state.navigation.overlay, state.settings.captureAction, state.settings.client?.keybinds.inventory,
+      state.chat.open]);
 
   return (
     <div ref={interactionRoot} className="app-interaction-root"
