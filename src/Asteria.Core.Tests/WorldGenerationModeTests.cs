@@ -100,6 +100,71 @@ public sealed class WorldGenerationModeTests
         Assert.True(generator.DensityAt(8, 1, 8) < 0d);
     }
 
+    [Theory]
+    [InlineData(WorldGenerationMode.Flat)]
+    [InlineData(WorldGenerationMode.Void)]
+    public void DisablingOceansDoesNotRejectTheirHabitatWeightedStructures(
+        WorldGenerationMode mode)
+    {
+        var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);
+        var fluids = new FluidRegistry([
+            new FluidDefinition("asteria:water", new FluidColor(0, 96, 255), 0.7f),
+        ]);
+        BiomeDefinition Biome(string id, SurfaceHabitatDefinition? habitats = null) =>
+            new(id, new BiomeSurfaceLayoutDefinition(),
+                new BiomeTerrainDefinition(
+                    0, macroAmplitude: 0, macroScale: 128,
+                    detailAmplitude: 0, detailScale: 32),
+                [new BiomeSurfaceLayerDefinition("asteria:stone")],
+                surfaceHabitats: habitats);
+        var ocean = Biome("asteria:test/ocean",
+            new SurfaceHabitatDefinition(64, 0.1f,
+            [
+                new SurfaceHabitatBand("sand_flats", 0f),
+                new SurfaceHabitatBand("rocky_reefs", 1f),
+            ]));
+        var land = Biome("asteria:test/land");
+        var dimension = new DimensionDefinition(
+            new DimensionId("asteria:test"), [ocean.Id, land.Id],
+            seaLevel: 90, gravityStrength: 18f,
+            spawn: new DimensionSpawnDefinition(0, 0),
+            environment: new DimensionEnvironmentDefinition(
+                new DimensionColor(0, 0, 0),
+                new DimensionColor(255, 255, 255), 1f,
+                new DimensionColor(0, 0, 0), 0f),
+            generatedOcean: new DimensionGeneratedOceanDefinition(
+                ocean.Id, "asteria:water"),
+            generatedSurfaceStructures:
+            [
+                new DimensionGeneratedSurfaceStructureDefinition(
+                    ocean.Id, "asteria:test_reef",
+                    spacing: 32, chance: 1f,
+                    habitatWeights: new SurfaceHabitatWeights(
+                        [new KeyValuePair<string, float>("rocky_reefs", 2f)])),
+            ]);
+
+        var generator = new BiomeWorldGenerator(
+            77UL, dimension, blocks, fluids,
+            new BiomeRegistry([ocean, land]), StructureRegistry.Empty,
+            generation: new WorldGenerationOptions(
+                mode, spawnStructures: false,
+                spawnCaves: false, spawnOceans: false));
+
+        // The excluded ocean remains absent from the actual biome sampler.
+        Assert.Equal(land.Id, generator.Biomes.Sample(0, 0).Primary);
+        Assert.Equal(new GeneratedSurfaceDestination(0, 91, 0),
+            generator.FindGeneratedSpawn(32, 4));
+
+        var chunk = generator.Materialize(new ChunkCoord(0, 5, 0));
+        Assert.Equal(blocks.GetId("asteria:stone"),
+            chunk.GetBlock(0, 10, 0));
+        if (mode == WorldGenerationMode.Void)
+            Assert.True(chunk.GetBlock(8, 10, 8).IsAir);
+        else
+            Assert.Equal(blocks.GetId("asteria:stone"),
+                chunk.GetBlock(8, 10, 8));
+    }
+
     private static (BiomeWorldGenerator Generator, BlockRegistry Blocks)
         Create(WorldGenerationMode mode)
     {

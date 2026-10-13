@@ -186,7 +186,12 @@ public sealed class BiomeWorldGenerator :
                 blocks,
                 _terrain,
                 mosaic);
-        var habitats = new SurfaceHabitatField(seed, surfaceDefinitions);
+        // Structure roots are authored for the full Sphere, even when a
+        // generation preset omits one of its surface biomes (e.g. ocean).
+        // Keep their habitat definitions available for validation without
+        // reintroducing excluded biomes into actual terrain generation.
+        var habitats = new SurfaceHabitatField(
+            seed, dimension.SurfaceBiomes.Select(biomes.Get));
         _surfaceStructures =
             new SurfaceStructureField(
                 seed,
