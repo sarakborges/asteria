@@ -85,7 +85,7 @@ func _run() -> void:
 		push_error("Native smoke: main scene cannot load")
 		failed = true
 	else:
-		var instance := scene.instantiate()
+		var instance: Node = scene.instantiate()
 		if instance == null:
 			push_error("Native smoke: main scene cannot instantiate")
 			failed = true
