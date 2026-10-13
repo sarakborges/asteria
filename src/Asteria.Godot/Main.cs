@@ -4841,9 +4841,8 @@ public partial class Main : Node3D
             Mathf.FloorToInt(position.Y),
             Mathf.FloorToInt(position.Z));
 
-        if (!_sessions.Active.Portals.TryGetDestinationAt(at, out var target) &&
-            !_sessions.Active.Portals.TryGetDestinationAt(
-                at + (0, 1, 0), out target))
+        if (!_sessions.Active.Portals.TryGetDestinationIntersecting(
+                player.CollisionBounds, out var target))
         {
             _portalTravelLatched = false;
             return;
