@@ -77,6 +77,7 @@ const meta = {
     onEquipmentClick: () => {},
     onSort: () => {},
     onDiscardCursor: () => {},
+    onClearInventory: () => {},
     onCreativePick: () => {},
     onCraft: () => {},
     onRotatePortrait: () => {},

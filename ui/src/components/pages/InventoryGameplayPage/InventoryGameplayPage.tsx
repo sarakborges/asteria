@@ -27,6 +27,7 @@ export type InventoryGameplayPageProps = {
   onEquipmentClick(index: number): void;
   onSort(): void;
   onDiscardCursor(): void;
+  onClearInventory(): void;
   onDropCursor(): void;
   onCreativePick(choice: InventoryCatalogEntry, fillStack: boolean): void;
   onCraft(recipeId: string): void;
@@ -39,7 +40,8 @@ export type InventoryGameplayPageProps = {
  */
 export function InventoryGameplayPage({
   state, health, onClose, onSlotClick, onEquipmentClick, onSort,
-  onDiscardCursor, onDropCursor, onCreativePick, onCraft, onRotatePortrait,
+  onDiscardCursor, onClearInventory, onDropCursor, onCreativePick, onCraft,
+  onRotatePortrait,
 }: InventoryGameplayPageProps) {
   const { t, contentName, categoryName } = useLocalization();
   const cursorRef = useRef<HTMLDivElement>(null);
@@ -76,6 +78,16 @@ export function InventoryGameplayPage({
     })),
     [state.catalog, selectedCategory, creativeSearch, contentName],
   );
+  const hasPossessions = state.cursor !== null ||
+    state.backpack.some(slot => slot !== null) ||
+    state.hotbar.some(slot => slot !== null) ||
+    state.equipment.some(slot => slot !== null);
+  const trashAction = hasPossessions
+    ? (clearAll: boolean) => {
+        if (clearAll) onClearInventory();
+        else if (state.cursor) onDiscardCursor();
+      }
+    : undefined;
   const { backpack, hotbar, cursor } = useMemo(() => ({
     backpack: state.backpack.map(slot => inventoryItemView(slot, state.catalog)),
     hotbar: state.hotbar.map(slot => inventoryItemView(slot, state.catalog)),
@@ -138,13 +150,15 @@ export function InventoryGameplayPage({
   return (
     <main className="inventory-gameplay"
       onClick={event => {
-        // Only the empty backdrop drops the held stack; nested panels,
-        // slots and interactive controls cannot trigger this action.
-        if (cursor && event.button === 0 &&
-            (event.target === event.currentTarget ||
-             (event.target instanceof HTMLElement &&
-              event.target.classList.contains("inventory-gameplay__workspace"))))
-          onDropCursor();
+        // Blank inventory surfaces drop the cursor stack. Slots,
+        // buttons and other interactive controls keep their own actions.
+        if (!cursor || event.button !== 0) return;
+        if (event.target instanceof Element &&
+            event.target.closest(
+              "button, input, textarea, select, a, label, " +
+              "[role='button'], [contenteditable='true']"))
+          return;
+        onDropCursor();
       }}
       onPointerMove={followPointer}
       onPointerLeave={() => {
@@ -180,7 +194,7 @@ export function InventoryGameplayPage({
             state={{ searchQuery: search, backpack, hotbar }}
             onSearchChange={setSearch}
             onSort={onSort}
-            onTrash={cursor ? onDiscardCursor : undefined}
+            onTrash={trashAction}
             onSlotClick={(index, _item, action) => onSlotClick(index, action)}
           />}
           station={<CurrentStationPanel station={{
@@ -201,7 +215,7 @@ export function InventoryGameplayPage({
             hotbar={hotbar}
             scrollMemory={creativeScroll.current}
             onHotbarSlotClick={(index, _item, action) => onSlotClick(index, action)}
-            onTrash={cursor ? onDiscardCursor : undefined}
+            onTrash={trashAction}
             onSearchChange={setCreativeSearch}
             onCategoryChange={setCategory}
             onItemClick={(item, fillStack) => {

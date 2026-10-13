@@ -7,7 +7,7 @@ import "./InventoryHotbarFooter.css";
 export type InventoryHotbarFooterProps = {
   hotbar: readonly (ItemStackView | null)[];
   onSlotClick?(index: number, item: ItemStackView | null, action: InventorySlotAction): void;
-  onTrash?(): void;
+  onTrash?(clearAll: boolean): void;
   showTrash?: boolean;
   searchQuery?: string;
 };
@@ -37,7 +37,7 @@ export function InventoryHotbarFooter({
       {showTrash && (
         <button type="button" className="inventory-hotbar-footer__trash"
           aria-label={t("ui.trashItem")} title={t("ui.trashItem")}
-          disabled={!onTrash} onClick={onTrash}>
+          disabled={!onTrash} onClick={event => onTrash?.(event.shiftKey)}>
           ×
         </button>
       )}

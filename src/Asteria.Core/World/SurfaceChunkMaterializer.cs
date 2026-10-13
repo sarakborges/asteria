@@ -110,6 +110,21 @@ public sealed class SurfaceChunkMaterializer
         var chunk = new Chunk();
         var (originX, originY, originZ) =
             VoxelCoordinates.ChunkOrigin(coord);
+        if (_voidSpawnPlatform is not null)
+        {
+            // Void generates only the entry platform and Sphere Shell.
+            _voidSpawnPlatform.Apply(chunk, coord);
+            var upper = (long)originY + Chunk.Size;
+            var touchesFloor = _floorY is { } floor &&
+                originY <= (long)floor + 1 && upper > floor;
+            var touchesRoof = _roofY is { } roof &&
+                originY <= roof && upper > (long)roof - 1;
+            if (!_shellBlock.IsAir && (touchesFloor || touchesRoof))
+                ConcealSphereShell(chunk, _columns.Get(coord.X, coord.Z),
+                    originY, checked(originY + Chunk.Size));
+            return chunk;
+        }
+
         var column = _columns.Get(coord.X, coord.Z);
         var densityVolume =
             _terrain.SampleDensityVolume(

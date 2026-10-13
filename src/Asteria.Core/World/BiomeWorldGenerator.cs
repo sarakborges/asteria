@@ -224,10 +224,12 @@ public sealed class BiomeWorldGenerator :
             _terrain, _volumeBiomes, materials,
             enabled: generation.SpawnStructures &&
                      generation.Mode == WorldGenerationMode.Normal);
-        var caveSpikes = new CaveSpikeField(
-            seed, volumeDefinitions.Where(biome =>
-                biome.VolumeLayout!.Placement == VolumeBiomePlacement.CarvedVoid),
-            blocks, _terrain);
+        var caveSpikes = generation.Mode == WorldGenerationMode.Normal
+            ? new CaveSpikeField(
+                seed, volumeDefinitions.Where(biome =>
+                    biome.VolumeLayout!.Placement == VolumeBiomePlacement.CarvedVoid),
+                blocks, _terrain)
+            : null;
         var veins = layers is not null && generation.Mode == WorldGenerationMode.Normal
             ? new LayerVeinField(seed, dimension.Id.Value, blocks, layers)
             : null;
@@ -241,7 +243,8 @@ public sealed class BiomeWorldGenerator :
                 _surfaceStructures,
                 dimension,
                 blocks,
-                _volumeBiomes,
+                generation.Mode == WorldGenerationMode.Normal
+                    ? _volumeBiomes : null,
                 _voidSpawnPlatform,
                 caveSpikes,
                 volumeStructures,

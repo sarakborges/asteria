@@ -119,6 +119,7 @@ createRoot(rootElement).render(
       clickEquipmentSlot: inventory.clickEquipment,
       sortInventory: inventory.sort,
       discardInventoryCursor: inventory.discardCursor,
+      clearInventory: inventory.clear,
       dropInventoryCursor: inventory.dropCursor,
       pickCreativeBlock: inventory.pickCreative,
       craftInventoryRecipe: inventory.craft,

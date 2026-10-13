@@ -1594,6 +1594,16 @@ public partial class Main : Node3D
                 case "ui.inventory.drop_cursor":
                     DropInventoryCursor();
                     break;
+                case "ui.inventory.clear":
+                    if (_sessionStates.Player.CanInteract && _inventoryOpen &&
+                        _sessionStates.Player.Inventory.ClearAll())
+                    {
+                        SyncHeldBlock();
+                        SendHotbarState();
+                        SendInventoryState();
+                        _playerPortrait?.RequestCapture();
+                    }
+                    break;
                 case "ui.inventory.creative_pick":
                     HandleCreativePick(document.RootElement);
                     break;

@@ -16,7 +16,7 @@ export type CreativeInventoryPanelProps = {
   state: CreativeInventoryView;
   hotbar?: readonly (ItemStackView | null)[];
   onHotbarSlotClick?(index: number, item: ItemStackView | null, action: InventorySlotAction): void;
-  onTrash?(): void;
+  onTrash?(clearAll: boolean): void;
   onSearchChange?(value: string): void;
   onCategoryChange?(id: string | null): void;
   onItemClick?(item: ItemStackView, fillStack: boolean): void;

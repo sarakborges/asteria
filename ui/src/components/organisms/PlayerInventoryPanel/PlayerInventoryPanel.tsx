@@ -18,7 +18,7 @@ export type PlayerInventoryPanelProps = {
   state: PlayerInventoryView;
   onSearchChange?(value: string): void;
   onSort?(): void;
-  onTrash?(): void;
+  onTrash?(clearAll: boolean): void;
   onSlotClick?(
     index: number,
     item: ItemStackView | null,

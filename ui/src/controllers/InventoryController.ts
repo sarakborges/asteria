@@ -90,6 +90,9 @@ export function createInventoryController(
     },
     sort() { post("ui.inventory.sort"); },
     discardCursor() { post("ui.inventory.discard_cursor"); },
+    clear() {
+      if (store.getSnapshot().inventory.open) post("ui.inventory.clear");
+    },
     dropCursor() {
       const inventory = store.getSnapshot().inventory;
       if (inventory.open && inventory.cursor)
