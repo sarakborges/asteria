@@ -44,8 +44,8 @@ public static class BlockStateMeshBuilder
     public static ChunkMeshData BuildData(
         BlockStateSnapshot block, BlockRegistry blocks,
         FluidRegistry fluids, TerrainTextureLookup textures,
-        AttachedLayerRegistry? layers = null) =>
-        BuildDataInternal(block, blocks, fluids, textures, layers, null);
+        AttachedLayerRegistry? layers = null, DyeRegistry? dyes = null) =>
+        BuildDataInternal(block, blocks, fluids, textures, layers, null, dyes);
 
     private static ChunkMeshData BuildDataInternal(
         BlockStateSnapshot block,
@@ -53,7 +53,7 @@ public static class BlockStateMeshBuilder
         FluidRegistry fluids,
         TerrainTextureLookup textures,
         AttachedLayerRegistry? layers,
-        AttachedBlockLayer? selectedLayer)
+        AttachedBlockLayer? selectedLayer, DyeRegistry? dyes = null)
     {
         ArgumentNullException.ThrowIfNull(block);
         ArgumentNullException.ThrowIfNull(blocks);
@@ -96,6 +96,7 @@ public static class BlockStateMeshBuilder
                 textures,
                 meshletIndex: 0,
                 attachedLayers: layers,
+                dyes: dyes,
                 selectedLayer: selectedLayer);
 
         return data;
