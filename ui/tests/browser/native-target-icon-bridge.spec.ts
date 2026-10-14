@@ -66,3 +66,25 @@ test("target fields remain typed and reject malformed native detail values", () 
   expect(invalid?.blockLight).toBeUndefined();
   expect(invalid?.position).toBeUndefined();
 });
+
+for (const { language, fluidLabel, lightLabel, faceLabel } of [
+  { language: "portuguese_brazil", fluidLabel: "Nível: 8/8",
+    lightLabel: "Luz do Céu: 15", faceLabel: "Face: Superior" },
+  { language: "spanish", fluidLabel: "Nivel: 8/8",
+    lightLabel: "Luz del Cielo: 15", faceLabel: "Cara: Superior" },
+]) {
+  test(`target HUD uses native values but localized labels in ${language}`, async ({ page }) => {
+    await page.addInitScript(lang =>
+      window.localStorage.setItem("asteria.language", lang), language);
+    await page.goto("/iframe.html?id=pages-gamehudpage--fluid-target&viewMode=story");
+    const details = page.locator(".target-hud__copy");
+    await expect(details).toContainText(fluidLabel);
+    await expect(details).toContainText(lightLabel);
+    await expect(details).toContainText("X: 148 | Z: -72 | Y: 92");
+
+    await page.goto("/iframe.html?id=pages-gamehudpage--object-target&viewMode=story");
+    const object = page.locator(".target-hud__copy");
+    await expect(object).toContainText(faceLabel);
+    await expect(object).toContainText("X: -7 | Z: 23 | Y: 75");
+  });
+}

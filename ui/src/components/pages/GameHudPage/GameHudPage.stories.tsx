@@ -232,3 +232,20 @@ export const FluidTarget: Story = {
     },
   },
 };
+
+export const ObjectTarget: Story = {
+  args: {
+    state: {
+      ...runtimeState,
+      target: {
+        kind: "object" as const,
+        id: "asteria:flower",
+        name: "asteria:flower",
+        face: "top" as const,
+        skyLight: 11,
+        blockLight: 6,
+        position: { x: -7, y: 75, z: 23 },
+      },
+    },
+  },
+};
