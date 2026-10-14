@@ -658,6 +658,17 @@ public partial class Main : Node3D
             streamingBegin.Dispatched);
         ReportPresentationReservations(
             streamingBegin.ReservedPresentations);
+        _worldDiagnostics?.ObserveStageMilliseconds(
+            WorldFrameStage.CollisionActivation,
+            _chunkPresentations.TakeCollisionActivationMilliseconds());
+
+        var collisionPrewarmStart = Stopwatch.GetTimestamp();
+        _chunkPresentations.PrewarmCollisionShapes(
+            _residency, maximumShapes: 2, _worldFrameBudget);
+        _worldDiagnostics?.ObserveStage(
+            WorldFrameStage.CollisionPrewarm, collisionPrewarmStart);
+        _worldDiagnostics?.ObserveDeferredCollisions(
+            _chunkPresentations.DeferredCollisionChunkCount);
 
         var gameplaySliceStart = Stopwatch.GetTimestamp();
         var blockFrame = _blockEntities.Advance(

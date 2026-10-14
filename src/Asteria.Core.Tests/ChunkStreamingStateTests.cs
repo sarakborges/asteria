@@ -6,6 +6,20 @@ namespace Asteria.Core.Tests;
 public sealed class ChunkStreamingStateTests
 {
     [Fact]
+    public void CollisionPrewarmStartsOneChunkBeforePhysicsActivation()
+    {
+        var selection = new ChunkPresentationSelection();
+        selection.Sync(ChunkCoord.Zero, renderDistanceChunks: 8);
+
+        Assert.True(selection.ShouldEnablePhysics(new ChunkCoord(2, 0, 0)));
+        Assert.False(selection.ShouldEnablePhysics(new ChunkCoord(3, 0, 0)));
+        Assert.True(selection.ShouldPrewarmPhysics(new ChunkCoord(3, 0, 0)));
+        Assert.False(selection.ShouldPrewarmPhysics(new ChunkCoord(4, 0, 0)));
+        Assert.True(selection.ShouldPrewarmPhysics(new ChunkCoord(0, 3, 0)));
+        Assert.False(selection.ShouldPrewarmPhysics(new ChunkCoord(0, 4, 0)));
+    }
+
+    [Fact]
     public void DesiredSelectionUsesCircularHorizontalRadius()
     {
         var desired =

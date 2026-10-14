@@ -279,6 +279,9 @@ public sealed class ChunkResidencyRuntime
     public bool ShouldPresentationHaveCollision(ChunkCoord coord) =>
         _presentationSelection.ShouldEnablePhysics(coord);
 
+    public bool ShouldPrewarmPresentationCollision(ChunkCoord coord) =>
+        _presentationSelection.ShouldPrewarmPhysics(coord);
+
     // A resident chunk may be presented before its neighboring chunks arrive.
     // Mesh dependency stamps and arrival-frontier invalidation rebuild its
     // boundary meshlets when those neighbors become resident.

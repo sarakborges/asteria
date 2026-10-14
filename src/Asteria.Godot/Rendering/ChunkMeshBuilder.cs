@@ -71,16 +71,23 @@ public static class ChunkMeshBuilder
         ChunkMeshData data)
     {
         ArgumentNullException.ThrowIfNull(data);
+        return CreateCollisionShape(data.CollisionFaces);
+    }
 
-        var faces =
-            new Vector3[data.CollisionFaces.Length];
+    // Deferred collision publication retains only the compact Core faces,
+    // not the full render DTO or a premature Godot physics resource.
+    public static ConcavePolygonShape3D CreateCollisionShape(
+        System.Numerics.Vector3[] collisionFaces)
+    {
+        ArgumentNullException.ThrowIfNull(collisionFaces);
+        var faces = new Vector3[collisionFaces.Length];
 
         for (var index = 0;
-             index < data.CollisionFaces.Length;
+             index < collisionFaces.Length;
              index++)
         {
             var position =
-                data.CollisionFaces[index];
+                collisionFaces[index];
             faces[index] = new Vector3(
                 position.X,
                 position.Y,

@@ -14,6 +14,8 @@ namespace Asteria.Client;
 internal enum WorldFrameStage : byte
 {
     StreamingBegin,
+    CollisionActivation,
+    CollisionPrewarm,
     FluidPoll,
     FluidPublication,
     TerrainPoll,
@@ -61,6 +63,7 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     private int _lightingPending;
     private int _terrainMeshPending;
     private int _fluidMeshPending;
+    private int _deferredCollisionChunks;
     private bool _lightingActive;
     private long _frames;
     private double _frameMsTotal;
@@ -274,6 +277,9 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         _terrainMeshStale += stale;
     }
 
+    public void ObserveDeferredCollisions(int deferredChunks) =>
+        _deferredCollisionChunks = deferredChunks;
+
     public void ObserveTerrainPublication(ChunkPresentationIntegrationStats stats)
     {
         _meshPublicationRenderMs += stats.RenderBuildMilliseconds;
@@ -369,6 +375,7 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"world.snapshot uptime_s={Format1(_uptime.Elapsed.TotalSeconds)} " +
             $"phase={_phase} resident={_resident} pending={_pending} " +
             $"inflight={_inflight} presented={_presented} " +
+            $"collision_deferred_chunks={_deferredCollisionChunks} " +
             $"lighting_pending={_lightingPending} " +
             $"terrain_mesh_pending={_terrainMeshPending} " +
             $"fluid_mesh_pending={_fluidMeshPending} lighting_active={_lightingActive} " +

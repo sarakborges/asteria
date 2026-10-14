@@ -46,6 +46,55 @@ public sealed class ChunkPresentationController
     private readonly BiomeTintField _objectTints;
     private readonly WorldObjectVisualCatalog _objectVisuals;
     private readonly DeduplicatedQueue<ChunkCoord> _pendingObjects = new();
+    private readonly HashSet<ChunkCoord> _deferredCollisionChunks = [];
+    private double _collisionActivationMilliseconds;
+
+    public int DeferredCollisionChunkCount => _deferredCollisionChunks.Count;
+
+    public double TakeCollisionActivationMilliseconds()
+    {
+        var elapsed = _collisionActivationMilliseconds;
+        _collisionActivationMilliseconds = 0d;
+        return elapsed;
+    }
+
+    public int PrewarmCollisionShapes(
+        ChunkResidencyRuntime residency,
+        int maximumShapes,
+        WorldFrameWorkBudget budget)
+    {
+        ArgumentNullException.ThrowIfNull(residency);
+        if (maximumShapes <= 0 || _deferredCollisionChunks.Count == 0)
+            return 0;
+
+        // Only ready presentations near the player enter the prewarm pass.
+        // Global distant backlogs cannot consume the shape budget.
+        var nearby = _deferredCollisionChunks
+            .Where(coord => residency.ShouldPrewarmPresentationCollision(coord))
+            .OrderBy(coord => ChunkStreamingState.Priority(
+                coord, residency.Center, residency.MovementDirection))
+            .Take(maximumShapes)
+            .ToArray();
+
+        var built = 0;
+        foreach (var coord in nearby)
+        {
+            if (budget.Exhausted(Stopwatch.GetTimestamp()))
+                break;
+
+            if (!_presentations.TryGetValue(coord, out var presentation))
+            {
+                _deferredCollisionChunks.Remove(coord);
+                continue;
+            }
+
+            if (presentation.PrewarmOneCollision())
+                built++;
+            if (!presentation.HasDeferredCollisions)
+                _deferredCollisionChunks.Remove(coord);
+        }
+        return built;
+    }
 
     public ChunkPresentationController(
         Node3D parent,
@@ -121,6 +170,7 @@ public sealed class ChunkPresentationController
     {
         _world.ObjectChunkChanged -= OnObjectChunkChanged;
         _pendingObjects.Clear();
+        _deferredCollisionChunks.Clear();
     }
 
     public int Count => _presentations.Count;
@@ -200,7 +250,7 @@ public sealed class ChunkPresentationController
                 residency.ShouldPresentationBeVisible(
                     coord.Value,
                     currentlyVisible: false));
-            presentation.SetPhysicsEnabled(
+            _collisionActivationMilliseconds += presentation.SetPhysicsEnabled(
                 presentation.IsVisible &&
                 residency.ShouldPresentationHaveCollision(coord.Value));
 
@@ -270,9 +320,11 @@ public sealed class ChunkPresentationController
                 promoted ??= [];
                 promoted.Add((coord, presentation.UnpublishedTerrainMeshlets));
             }
-            presentation.SetPhysicsEnabled(
+            _collisionActivationMilliseconds += presentation.SetPhysicsEnabled(
                 presentation.IsVisible &&
                 residency.ShouldPresentationHaveCollision(coord));
+            if (!presentation.HasDeferredCollisions)
+                _deferredCollisionChunks.Remove(coord);
         }
 
         if (promoted is not null)
@@ -294,6 +346,7 @@ public sealed class ChunkPresentationController
     {
         RemovePendingPublications(coord);
         _pendingObjects.Remove(coord);
+        _deferredCollisionChunks.Remove(coord);
 
         if (!_presentations.Remove(
                 coord,
@@ -430,6 +483,10 @@ public sealed class ChunkPresentationController
             collisionBuildMilliseconds += apply.CollisionBuildMilliseconds;
             renderVertices += apply.RenderVertices;
             collisionTriangles += apply.CollisionTriangles;
+            if (presentation.HasDeferredCollisions)
+                _deferredCollisionChunks.Add(pending.Meshlet.Coord);
+            else
+                _deferredCollisionChunks.Remove(pending.Meshlet.Coord);
             // Object mesh resources stay stable; refresh only per-instance
             // voxel-light channels after a changed terrain-light publication.
             if (_world.TryGetChunk(pending.Meshlet.Coord, out var updated) &&
