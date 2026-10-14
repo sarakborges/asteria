@@ -13,6 +13,7 @@
     <Compile Remove="tools/WorldgenBenchmark/**/*.cs" />
     <Compile Remove="tools/BiomeMap/**/*.cs" />
     <ProjectReference Include="src/Asteria.Core/Asteria.Core.csproj" />
+    <ProjectReference Include="src/Asteria.ModAPI/Asteria.ModAPI.csproj" />
   </ItemGroup>
 
   <!-- Internal default pack: compiled into the managed assembly, not
