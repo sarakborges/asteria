@@ -5,9 +5,9 @@ namespace Asteria.Core.World;
 public static class ChunkMeshDataBuilder
 {
     private const int FineResolution = BlockGeometry.Resolution;
-    // A dense 10³ light grid is beneficial only with enough greedy cubes
-    // to reuse its AO/light samples across many candidate faces.
-    private const int MinimumGreedyCellsForLightGrid = 128;
+    // Cache only after enough genuinely visible faces have been sampled.
+    // A fully solid meshlet may contain 512 cubes but zero exposed faces.
+    private const int MinimumFaceSamplesForLightGrid = 96;
     private const int FinePlaneArea = FineResolution * FineResolution;
     private const float DyableLayerFlag = 0.25f;
     private const float WindSwayLayerFlag = 0.5f;
@@ -62,7 +62,7 @@ public static class ChunkMeshDataBuilder
             ChunkMeshletMask.Edge *
             ChunkMeshletMask.Edge *
             ChunkMeshletMask.Edge];
-        var greedyCells = 0;
+
         var (originX, originY, originZ) =
             VoxelCoordinates.ChunkOrigin(coord);
 
@@ -132,10 +132,7 @@ public static class ChunkMeshDataBuilder
                     fineMeshing[MeshletVoxelIndex(x, y, z)] =
                         requiresFine;
                     if (!requiresFine)
-                    {
-                        greedyCells++;
                         continue;
-                    }
 
                     EmitFineCell(
                         surfaces,
@@ -156,15 +153,9 @@ public static class ChunkMeshDataBuilder
         }
 
         if (selectedLayer is null)
-        {
-            var lightingGrid = greedyCells >= MinimumGreedyCellsForLightGrid
-                ? VoxelMeshLighting.SamplingGrid.Capture(
-                    world, blocks, coord, meshletIndex)
-                : null;
             EmitGreedyCubeFaces(
                 surfaces, collision, world, coord, blocks, textures,
-                bounds, tintSamples, dyes, fineMeshing, lightingGrid);
-        }
+                bounds, tintSamples, dyes, fineMeshing, meshletIndex);
 
         EmitAttachedLayers(
             surfaces, collision, world, blocks, textures,
@@ -202,9 +193,11 @@ public static class ChunkMeshDataBuilder
         BiomeTintSampleGrid? tintSamples,
         DyeRegistry? dyes,
         bool[] fineMeshing,
-        VoxelMeshLighting.SamplingGrid? lightingGrid)
+        int meshletIndex)
     {
         var chunk = world.GetChunk(coord);
+        VoxelMeshLighting.SamplingGrid? lightingGrid = null;
+        var faceSamples = 0;
         var (originX, originY, originZ) =
             VoxelCoordinates.ChunkOrigin(coord);
 
@@ -275,6 +268,12 @@ public static class ChunkMeshDataBuilder
                                 cell,
                                 face,
                                 ResolveDye(dyes, definition, chunk.GetSurfaceState(x, y, z).DyeId));
+                        // Build the sample halo only once enough exposed faces
+                        // will amortize its cost. Empty/occluded dense chunks
+                        // avoid capturing a grid entirely.
+                        if (++faceSamples == MinimumFaceSamplesForLightGrid)
+                            lightingGrid = VoxelMeshLighting.SamplingGrid.Capture(
+                                world, blocks, coord, meshletIndex);
                         var lighting = lightingGrid is null
                             ? VoxelMeshLighting.SampleFace(
                                 world, blocks, worldPosition, face)
