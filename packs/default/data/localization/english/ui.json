@@ -438,7 +438,7 @@
   "addons.modsDescription": "Enable trusted code mods. DLLs run with game permissions.",
   "addons.packsDescription": "Choose external packs and priority. The last enabled pack wins.",
   "addons.default": "Built-in, always active.",
-  "addons.emptyMods": "No installed mods. Place mod folders in your user data mods directory.",
+  "addons.emptyMods": "No installed mods. Place mod folders in the project's mods/ directory (or beside the exported game).",
   "addons.emptyPacks": "No external packs. Place pack folders in your user data packs directory.",
   "addons.modSettings": "Mod settings (JSON)",
   "addons.invalidJson": "Enter a JSON object.",
