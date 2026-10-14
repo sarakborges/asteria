@@ -1,0 +1,33 @@
+{
+  "id": "asteria:log_briarflame",
+  "category": "blocks_wooden",
+  "tags": [
+    "fragmentable"
+  ],
+  "variant": {
+    "family": "asteria:log_briarflame",
+    "key": "natural"
+  },
+  "textures": {
+    "top": "textures/blocks/trees/briarflame/top.png",
+    "bottom": "textures/blocks/trees/briarflame/top.png",
+    "left": "textures/blocks/trees/briarflame/side.png",
+    "right": "textures/blocks/trees/briarflame/side.png",
+    "front": "textures/blocks/trees/briarflame/side.png",
+    "back": "textures/blocks/trees/briarflame/side.png"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "ffd34a"
+}

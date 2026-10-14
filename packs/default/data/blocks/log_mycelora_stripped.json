@@ -1,0 +1,33 @@
+{
+  "id": "asteria:log_mycelora_stripped",
+  "category": "blocks_wooden",
+  "tags": [
+    "fragmentable"
+  ],
+  "variant": {
+    "family": "asteria:log_mycelora",
+    "key": "stripped"
+  },
+  "textures": {
+    "top": "textures/blocks/trees/mycelora/stripped.png",
+    "bottom": "textures/blocks/trees/mycelora/stripped.png",
+    "left": "textures/blocks/trees/mycelora/stripped.png",
+    "right": "textures/blocks/trees/mycelora/stripped.png",
+    "front": "textures/blocks/trees/mycelora/stripped.png",
+    "back": "textures/blocks/trees/mycelora/stripped.png"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "2d7b14"
+}

@@ -1,0 +1,33 @@
+{
+  "id": "asteria:log_glassmorrow",
+  "category": "blocks_wooden",
+  "tags": [
+    "fragmentable"
+  ],
+  "variant": {
+    "family": "asteria:log_glassmorrow",
+    "key": "natural"
+  },
+  "textures": {
+    "top": "textures/blocks/trees/glassmorrow/top.png",
+    "bottom": "textures/blocks/trees/glassmorrow/top.png",
+    "left": "textures/blocks/trees/glassmorrow/side.png",
+    "right": "textures/blocks/trees/glassmorrow/side.png",
+    "front": "textures/blocks/trees/glassmorrow/side.png",
+    "back": "textures/blocks/trees/glassmorrow/side.png"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "9ee7ff"
+}

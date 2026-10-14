@@ -475,5 +475,653 @@
   },
   "asteria:planks_windwood": {
     "/name": "Tablones de Madera del Viento"
+  },
+  "asteria:log_cinderwood": {
+    "/name": "Tronco de Cinderwood"
+  },
+  "asteria:log_cinderwood_hollow": {
+    "/name": "Tronco hueco de Cinderwood"
+  },
+  "asteria:log_cinderwood_stripped": {
+    "/name": "Tronco sin corteza de Cinderwood"
+  },
+  "asteria:log_cinderwood_stripped_hollow": {
+    "/name": "Tronco hueco sin corteza de Cinderwood"
+  },
+  "asteria:planks_cinderwood": {
+    "/name": "Tablones de Cinderwood"
+  },
+  "asteria:leaf_cinderwood": {
+    "/name": "Hojas de Cinderwood"
+  },
+  "asteria:log_briarflame": {
+    "/name": "Tronco de Briarflame"
+  },
+  "asteria:log_briarflame_hollow": {
+    "/name": "Tronco hueco de Briarflame"
+  },
+  "asteria:log_briarflame_stripped": {
+    "/name": "Tronco sin corteza de Briarflame"
+  },
+  "asteria:log_briarflame_stripped_hollow": {
+    "/name": "Tronco hueco sin corteza de Briarflame"
+  },
+  "asteria:planks_briarflame": {
+    "/name": "Tablones de Briarflame"
+  },
+  "asteria:leaf_briarflame": {
+    "/name": "Hojas de Briarflame"
+  },
+  "asteria:log_ashveil": {
+    "/name": "Tronco de Ashveil"
+  },
+  "asteria:log_ashveil_hollow": {
+    "/name": "Tronco hueco de Ashveil"
+  },
+  "asteria:log_ashveil_stripped": {
+    "/name": "Tronco sin corteza de Ashveil"
+  },
+  "asteria:log_ashveil_stripped_hollow": {
+    "/name": "Tronco hueco sin corteza de Ashveil"
+  },
+  "asteria:planks_ashveil": {
+    "/name": "Tablones de Ashveil"
+  },
+  "asteria:leaf_ashveil": {
+    "/name": "Hojas de Ashveil"
+  },
+  "asteria:log_embercoil": {
+    "/name": "Tronco de Embercoil"
+  },
+  "asteria:log_embercoil_hollow": {
+    "/name": "Tronco hueco de Embercoil"
+  },
+  "asteria:log_embercoil_stripped": {
+    "/name": "Tronco sin corteza de Embercoil"
+  },
+  "asteria:log_embercoil_stripped_hollow": {
+    "/name": "Tronco hueco sin corteza de Embercoil"
+  },
+  "asteria:planks_embercoil": {
+    "/name": "Tablones de Embercoil"
+  },
+  "asteria:leaf_embercoil": {
+    "/name": "Hojas de Embercoil"
+  },
+  "asteria:log_nacreveil": {
+    "/name": "Tronco de Nacreveil"
+  },
+  "asteria:log_nacreveil_hollow": {
+    "/name": "Tronco hueco de Nacreveil"
+  },
+  "asteria:log_nacreveil_stripped": {
+    "/name": "Tronco sin corteza de Nacreveil"
+  },
+  "asteria:log_nacreveil_stripped_hollow": {
+    "/name": "Tronco hueco sin corteza de Nacreveil"
+  },
+  "asteria:planks_nacreveil": {
+    "/name": "Tablones de Nacreveil"
+  },
+  "asteria:leaf_nacreveil": {
+    "/name": "Hojas de Nacreveil"
+  },
+  "asteria:log_brinesong": {
+    "/name": "Tronco de Brinesong"
+  },
+  "asteria:log_brinesong_hollow": {
+    "/name": "Tronco hueco de Brinesong"
+  },
+  "asteria:log_brinesong_stripped": {
+    "/name": "Tronco sin corteza de Brinesong"
+  },
+  "asteria:log_brinesong_stripped_hollow": {
+    "/name": "Tronco hueco sin corteza de Brinesong"
+  },
+  "asteria:planks_brinesong": {
+    "/name": "Tablones de Brinesong"
+  },
+  "asteria:leaf_brinesong": {
+    "/name": "Hojas de Brinesong"
+  },
+  "asteria:log_coralith": {
+    "/name": "Tronco de Coralith"
+  },
+  "asteria:log_coralith_hollow": {
+    "/name": "Tronco hueco de Coralith"
+  },
+  "asteria:log_coralith_stripped": {
+    "/name": "Tronco sin corteza de Coralith"
+  },
+  "asteria:log_coralith_stripped_hollow": {
+    "/name": "Tronco hueco sin corteza de Coralith"
+  },
+  "asteria:planks_coralith": {
+    "/name": "Tablones de Coralith"
+  },
+  "asteria:leaf_coralith": {
+    "/name": "Hojas de Coralith"
+  },
+  "asteria:log_mirewake": {
+    "/name": "Tronco de Mirewake"
+  },
+  "asteria:log_mirewake_hollow": {
+    "/name": "Tronco hueco de Mirewake"
+  },
+  "asteria:log_mirewake_stripped": {
+    "/name": "Tronco sin corteza de Mirewake"
+  },
+  "asteria:log_mirewake_stripped_hollow": {
+    "/name": "Tronco hueco sin corteza de Mirewake"
+  },
+  "asteria:planks_mirewake": {
+    "/name": "Tablones de Mirewake"
+  },
+  "asteria:leaf_mirewake": {
+    "/name": "Hojas de Mirewake"
+  },
+  "asteria:log_ferrumbark": {
+    "/name": "Tronco de Ferrumbark"
+  },
+  "asteria:log_ferrumbark_hollow": {
+    "/name": "Tronco hueco de Ferrumbark"
+  },
+  "asteria:log_ferrumbark_stripped": {
+    "/name": "Tronco sin corteza de Ferrumbark"
+  },
+  "asteria:log_ferrumbark_stripped_hollow": {
+    "/name": "Tronco hueco sin corteza de Ferrumbark"
+  },
+  "asteria:planks_ferrumbark": {
+    "/name": "Tablones de Ferrumbark"
+  },
+  "asteria:leaf_ferrumbark": {
+    "/name": "Hojas de Ferrumbark"
+  },
+  "asteria:log_geodera": {
+    "/name": "Tronco de Geodera"
+  },
+  "asteria:log_geodera_hollow": {
+    "/name": "Tronco hueco de Geodera"
+  },
+  "asteria:log_geodera_stripped": {
+    "/name": "Tronco sin corteza de Geodera"
+  },
+  "asteria:log_geodera_stripped_hollow": {
+    "/name": "Tronco hueco sin corteza de Geodera"
+  },
+  "asteria:planks_geodera": {
+    "/name": "Tablones de Geodera"
+  },
+  "asteria:leaf_geodera": {
+    "/name": "Hojas de Geodera"
+  },
+  "asteria:log_ambermaw": {
+    "/name": "Tronco de Ambermaw"
+  },
+  "asteria:log_ambermaw_hollow": {
+    "/name": "Tronco hueco de Ambermaw"
+  },
+  "asteria:log_ambermaw_stripped": {
+    "/name": "Tronco sin corteza de Ambermaw"
+  },
+  "asteria:log_ambermaw_stripped_hollow": {
+    "/name": "Tronco hueco sin corteza de Ambermaw"
+  },
+  "asteria:planks_ambermaw": {
+    "/name": "Tablones de Ambermaw"
+  },
+  "asteria:leaf_ambermaw": {
+    "/name": "Hojas de Ambermaw"
+  },
+  "asteria:log_cragbloom": {
+    "/name": "Tronco de Cragbloom"
+  },
+  "asteria:log_cragbloom_hollow": {
+    "/name": "Tronco hueco de Cragbloom"
+  },
+  "asteria:log_cragbloom_stripped": {
+    "/name": "Tronco sin corteza de Cragbloom"
+  },
+  "asteria:log_cragbloom_stripped_hollow": {
+    "/name": "Tronco hueco sin corteza de Cragbloom"
+  },
+  "asteria:planks_cragbloom": {
+    "/name": "Tablones de Cragbloom"
+  },
+  "asteria:leaf_cragbloom": {
+    "/name": "Hojas de Cragbloom"
+  },
+  "asteria:log_fulminara": {
+    "/name": "Tronco de Fulminara"
+  },
+  "asteria:log_fulminara_hollow": {
+    "/name": "Tronco hueco de Fulminara"
+  },
+  "asteria:log_fulminara_stripped": {
+    "/name": "Tronco sin corteza de Fulminara"
+  },
+  "asteria:log_fulminara_stripped_hollow": {
+    "/name": "Tronco hueco sin corteza de Fulminara"
+  },
+  "asteria:planks_fulminara": {
+    "/name": "Tablones de Fulminara"
+  },
+  "asteria:leaf_fulminara": {
+    "/name": "Hojas de Fulminara"
+  },
+  "asteria:log_coppercoil": {
+    "/name": "Tronco de Coppercoil"
+  },
+  "asteria:log_coppercoil_hollow": {
+    "/name": "Tronco hueco de Coppercoil"
+  },
+  "asteria:log_coppercoil_stripped": {
+    "/name": "Tronco sin corteza de Coppercoil"
+  },
+  "asteria:log_coppercoil_stripped_hollow": {
+    "/name": "Tronco hueco sin corteza de Coppercoil"
+  },
+  "asteria:planks_coppercoil": {
+    "/name": "Tablones de Coppercoil"
+  },
+  "asteria:leaf_coppercoil": {
+    "/name": "Hojas de Coppercoil"
+  },
+  "asteria:log_stormglass": {
+    "/name": "Tronco de Stormglass"
+  },
+  "asteria:log_stormglass_hollow": {
+    "/name": "Tronco hueco de Stormglass"
+  },
+  "asteria:log_stormglass_stripped": {
+    "/name": "Tronco sin corteza de Stormglass"
+  },
+  "asteria:log_stormglass_stripped_hollow": {
+    "/name": "Tronco hueco sin corteza de Stormglass"
+  },
+  "asteria:planks_stormglass": {
+    "/name": "Tablones de Stormglass"
+  },
+  "asteria:leaf_stormglass": {
+    "/name": "Hojas de Stormglass"
+  },
+  "asteria:log_voltress": {
+    "/name": "Tronco de Voltress"
+  },
+  "asteria:log_voltress_hollow": {
+    "/name": "Tronco hueco de Voltress"
+  },
+  "asteria:log_voltress_stripped": {
+    "/name": "Tronco sin corteza de Voltress"
+  },
+  "asteria:log_voltress_stripped_hollow": {
+    "/name": "Tronco hueco sin corteza de Voltress"
+  },
+  "asteria:planks_voltress": {
+    "/name": "Tablones de Voltress"
+  },
+  "asteria:leaf_voltress": {
+    "/name": "Hojas de Voltress"
+  },
+  "asteria:log_frostveil": {
+    "/name": "Tronco de Frostveil"
+  },
+  "asteria:log_frostveil_hollow": {
+    "/name": "Tronco hueco de Frostveil"
+  },
+  "asteria:log_frostveil_stripped": {
+    "/name": "Tronco sin corteza de Frostveil"
+  },
+  "asteria:log_frostveil_stripped_hollow": {
+    "/name": "Tronco hueco sin corteza de Frostveil"
+  },
+  "asteria:planks_frostveil": {
+    "/name": "Tablones de Frostveil"
+  },
+  "asteria:leaf_frostveil": {
+    "/name": "Hojas de Frostveil"
+  },
+  "asteria:log_rimehollow": {
+    "/name": "Tronco de Rimehollow"
+  },
+  "asteria:log_rimehollow_hollow": {
+    "/name": "Tronco hueco de Rimehollow"
+  },
+  "asteria:log_rimehollow_stripped": {
+    "/name": "Tronco sin corteza de Rimehollow"
+  },
+  "asteria:log_rimehollow_stripped_hollow": {
+    "/name": "Tronco hueco sin corteza de Rimehollow"
+  },
+  "asteria:planks_rimehollow": {
+    "/name": "Tablones de Rimehollow"
+  },
+  "asteria:leaf_rimehollow": {
+    "/name": "Hojas de Rimehollow"
+  },
+  "asteria:log_hoarfane": {
+    "/name": "Tronco de Hoarfane"
+  },
+  "asteria:log_hoarfane_hollow": {
+    "/name": "Tronco hueco de Hoarfane"
+  },
+  "asteria:log_hoarfane_stripped": {
+    "/name": "Tronco sin corteza de Hoarfane"
+  },
+  "asteria:log_hoarfane_stripped_hollow": {
+    "/name": "Tronco hueco sin corteza de Hoarfane"
+  },
+  "asteria:planks_hoarfane": {
+    "/name": "Tablones de Hoarfane"
+  },
+  "asteria:leaf_hoarfane": {
+    "/name": "Hojas de Hoarfane"
+  },
+  "asteria:log_glassmorrow": {
+    "/name": "Tronco de Glassmorrow"
+  },
+  "asteria:log_glassmorrow_hollow": {
+    "/name": "Tronco hueco de Glassmorrow"
+  },
+  "asteria:log_glassmorrow_stripped": {
+    "/name": "Tronco sin corteza de Glassmorrow"
+  },
+  "asteria:log_glassmorrow_stripped_hollow": {
+    "/name": "Tronco hueco sin corteza de Glassmorrow"
+  },
+  "asteria:planks_glassmorrow": {
+    "/name": "Tablones de Glassmorrow"
+  },
+  "asteria:leaf_glassmorrow": {
+    "/name": "Hojas de Glassmorrow"
+  },
+  "asteria:log_skyweave": {
+    "/name": "Tronco de Skyweave"
+  },
+  "asteria:log_skyweave_hollow": {
+    "/name": "Tronco hueco de Skyweave"
+  },
+  "asteria:log_skyweave_stripped": {
+    "/name": "Tronco sin corteza de Skyweave"
+  },
+  "asteria:log_skyweave_stripped_hollow": {
+    "/name": "Tronco hueco sin corteza de Skyweave"
+  },
+  "asteria:planks_skyweave": {
+    "/name": "Tablones de Skyweave"
+  },
+  "asteria:leaf_skyweave": {
+    "/name": "Hojas de Skyweave"
+  },
+  "asteria:log_galeheart": {
+    "/name": "Tronco de Galeheart"
+  },
+  "asteria:log_galeheart_hollow": {
+    "/name": "Tronco hueco de Galeheart"
+  },
+  "asteria:log_galeheart_stripped": {
+    "/name": "Tronco sin corteza de Galeheart"
+  },
+  "asteria:log_galeheart_stripped_hollow": {
+    "/name": "Tronco hueco sin corteza de Galeheart"
+  },
+  "asteria:planks_galeheart": {
+    "/name": "Tablones de Galeheart"
+  },
+  "asteria:leaf_galeheart": {
+    "/name": "Hojas de Galeheart"
+  },
+  "asteria:log_cloudspindle": {
+    "/name": "Tronco de Cloudspindle"
+  },
+  "asteria:log_cloudspindle_hollow": {
+    "/name": "Tronco hueco de Cloudspindle"
+  },
+  "asteria:log_cloudspindle_stripped": {
+    "/name": "Tronco sin corteza de Cloudspindle"
+  },
+  "asteria:log_cloudspindle_stripped_hollow": {
+    "/name": "Tronco hueco sin corteza de Cloudspindle"
+  },
+  "asteria:planks_cloudspindle": {
+    "/name": "Tablones de Cloudspindle"
+  },
+  "asteria:leaf_cloudspindle": {
+    "/name": "Hojas de Cloudspindle"
+  },
+  "asteria:log_zephyra": {
+    "/name": "Tronco de Zephyra"
+  },
+  "asteria:log_zephyra_hollow": {
+    "/name": "Tronco hueco de Zephyra"
+  },
+  "asteria:log_zephyra_stripped": {
+    "/name": "Tronco sin corteza de Zephyra"
+  },
+  "asteria:log_zephyra_stripped_hollow": {
+    "/name": "Tronco hueco sin corteza de Zephyra"
+  },
+  "asteria:planks_zephyra": {
+    "/name": "Tablones de Zephyra"
+  },
+  "asteria:leaf_zephyra": {
+    "/name": "Hojas de Zephyra"
+  },
+  "asteria:log_aurorasil": {
+    "/name": "Tronco de Aurorasil"
+  },
+  "asteria:log_aurorasil_hollow": {
+    "/name": "Tronco hueco de Aurorasil"
+  },
+  "asteria:log_aurorasil_stripped": {
+    "/name": "Tronco sin corteza de Aurorasil"
+  },
+  "asteria:log_aurorasil_stripped_hollow": {
+    "/name": "Tronco hueco sin corteza de Aurorasil"
+  },
+  "asteria:planks_aurorasil": {
+    "/name": "Tablones de Aurorasil"
+  },
+  "asteria:leaf_aurorasil": {
+    "/name": "Hojas de Aurorasil"
+  },
+  "asteria:log_dawnlace": {
+    "/name": "Tronco de Dawnlace"
+  },
+  "asteria:log_dawnlace_hollow": {
+    "/name": "Tronco hueco de Dawnlace"
+  },
+  "asteria:log_dawnlace_stripped": {
+    "/name": "Tronco sin corteza de Dawnlace"
+  },
+  "asteria:log_dawnlace_stripped_hollow": {
+    "/name": "Tronco hueco sin corteza de Dawnlace"
+  },
+  "asteria:planks_dawnlace": {
+    "/name": "Tablones de Dawnlace"
+  },
+  "asteria:leaf_dawnlace": {
+    "/name": "Hojas de Dawnlace"
+  },
+  "asteria:log_prismara": {
+    "/name": "Tronco de Prismara"
+  },
+  "asteria:log_prismara_hollow": {
+    "/name": "Tronco hueco de Prismara"
+  },
+  "asteria:log_prismara_stripped": {
+    "/name": "Tronco sin corteza de Prismara"
+  },
+  "asteria:log_prismara_stripped_hollow": {
+    "/name": "Tronco hueco sin corteza de Prismara"
+  },
+  "asteria:planks_prismara": {
+    "/name": "Tablones de Prismara"
+  },
+  "asteria:leaf_prismara": {
+    "/name": "Hojas de Prismara"
+  },
+  "asteria:log_solmire": {
+    "/name": "Tronco de Solmire"
+  },
+  "asteria:log_solmire_hollow": {
+    "/name": "Tronco hueco de Solmire"
+  },
+  "asteria:log_solmire_stripped": {
+    "/name": "Tronco sin corteza de Solmire"
+  },
+  "asteria:log_solmire_stripped_hollow": {
+    "/name": "Tronco hueco sin corteza de Solmire"
+  },
+  "asteria:planks_solmire": {
+    "/name": "Tablones de Solmire"
+  },
+  "asteria:leaf_solmire": {
+    "/name": "Hojas de Solmire"
+  },
+  "asteria:log_nighthollow": {
+    "/name": "Tronco de Nighthollow"
+  },
+  "asteria:log_nighthollow_hollow": {
+    "/name": "Tronco hueco de Nighthollow"
+  },
+  "asteria:log_nighthollow_stripped": {
+    "/name": "Tronco sin corteza de Nighthollow"
+  },
+  "asteria:log_nighthollow_stripped_hollow": {
+    "/name": "Tronco hueco sin corteza de Nighthollow"
+  },
+  "asteria:planks_nighthollow": {
+    "/name": "Tablones de Nighthollow"
+  },
+  "asteria:leaf_nighthollow": {
+    "/name": "Hojas de Nighthollow"
+  },
+  "asteria:log_mourningbriar": {
+    "/name": "Tronco de Mourningbriar"
+  },
+  "asteria:log_mourningbriar_hollow": {
+    "/name": "Tronco hueco de Mourningbriar"
+  },
+  "asteria:log_mourningbriar_stripped": {
+    "/name": "Tronco sin corteza de Mourningbriar"
+  },
+  "asteria:log_mourningbriar_stripped_hollow": {
+    "/name": "Tronco hueco sin corteza de Mourningbriar"
+  },
+  "asteria:planks_mourningbriar": {
+    "/name": "Tablones de Mourningbriar"
+  },
+  "asteria:leaf_mourningbriar": {
+    "/name": "Hojas de Mourningbriar"
+  },
+  "asteria:log_eclipseveil": {
+    "/name": "Tronco de Eclipseveil"
+  },
+  "asteria:log_eclipseveil_hollow": {
+    "/name": "Tronco hueco de Eclipseveil"
+  },
+  "asteria:log_eclipseveil_stripped": {
+    "/name": "Tronco sin corteza de Eclipseveil"
+  },
+  "asteria:log_eclipseveil_stripped_hollow": {
+    "/name": "Tronco hueco sin corteza de Eclipseveil"
+  },
+  "asteria:planks_eclipseveil": {
+    "/name": "Tablones de Eclipseveil"
+  },
+  "asteria:leaf_eclipseveil": {
+    "/name": "Hojas de Eclipseveil"
+  },
+  "asteria:log_gloamroot": {
+    "/name": "Tronco de Gloamroot"
+  },
+  "asteria:log_gloamroot_hollow": {
+    "/name": "Tronco hueco de Gloamroot"
+  },
+  "asteria:log_gloamroot_stripped": {
+    "/name": "Tronco sin corteza de Gloamroot"
+  },
+  "asteria:log_gloamroot_stripped_hollow": {
+    "/name": "Tronco hueco sin corteza de Gloamroot"
+  },
+  "asteria:planks_gloamroot": {
+    "/name": "Tablones de Gloamroot"
+  },
+  "asteria:leaf_gloamroot": {
+    "/name": "Hojas de Gloamroot"
+  },
+  "asteria:log_elderbloom": {
+    "/name": "Tronco de Elderbloom"
+  },
+  "asteria:log_elderbloom_hollow": {
+    "/name": "Tronco hueco de Elderbloom"
+  },
+  "asteria:log_elderbloom_stripped": {
+    "/name": "Tronco sin corteza de Elderbloom"
+  },
+  "asteria:log_elderbloom_stripped_hollow": {
+    "/name": "Tronco hueco sin corteza de Elderbloom"
+  },
+  "asteria:planks_elderbloom": {
+    "/name": "Tablones de Elderbloom"
+  },
+  "asteria:leaf_elderbloom": {
+    "/name": "Hojas de Elderbloom"
+  },
+  "asteria:log_mycelora": {
+    "/name": "Tronco de Mycelora"
+  },
+  "asteria:log_mycelora_hollow": {
+    "/name": "Tronco hueco de Mycelora"
+  },
+  "asteria:log_mycelora_stripped": {
+    "/name": "Tronco sin corteza de Mycelora"
+  },
+  "asteria:log_mycelora_stripped_hollow": {
+    "/name": "Tronco hueco sin corteza de Mycelora"
+  },
+  "asteria:planks_mycelora": {
+    "/name": "Tablones de Mycelora"
+  },
+  "asteria:leaf_mycelora": {
+    "/name": "Hojas de Mycelora"
+  },
+  "asteria:log_verdalune": {
+    "/name": "Tronco de Verdalune"
+  },
+  "asteria:log_verdalune_hollow": {
+    "/name": "Tronco hueco de Verdalune"
+  },
+  "asteria:log_verdalune_stripped": {
+    "/name": "Tronco sin corteza de Verdalune"
+  },
+  "asteria:log_verdalune_stripped_hollow": {
+    "/name": "Tronco hueco sin corteza de Verdalune"
+  },
+  "asteria:planks_verdalune": {
+    "/name": "Tablones de Verdalune"
+  },
+  "asteria:leaf_verdalune": {
+    "/name": "Hojas de Verdalune"
+  },
+  "asteria:log_thornsong": {
+    "/name": "Tronco de Thornsong"
+  },
+  "asteria:log_thornsong_hollow": {
+    "/name": "Tronco hueco de Thornsong"
+  },
+  "asteria:log_thornsong_stripped": {
+    "/name": "Tronco sin corteza de Thornsong"
+  },
+  "asteria:log_thornsong_stripped_hollow": {
+    "/name": "Tronco hueco sin corteza de Thornsong"
+  },
+  "asteria:planks_thornsong": {
+    "/name": "Tablones de Thornsong"
+  },
+  "asteria:leaf_thornsong": {
+    "/name": "Hojas de Thornsong"
   }
 }

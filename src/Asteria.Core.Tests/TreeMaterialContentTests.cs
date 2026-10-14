@@ -6,16 +6,16 @@ namespace Asteria.Core.Tests;
 public sealed class TreeMaterialContentTests
 {
     [Theory]
-    [InlineData("log_charwood", "charwood")]
-    [InlineData("log_enchanted_tree", "enchanted")]
-    [InlineData("log_frost_wood", "frost_wood")]
-    [InlineData("log_juniper", "juniper")]
+    [InlineData("log_charwood", "oak")]
+    [InlineData("log_enchanted_tree", "oak")]
+    [InlineData("log_frost_wood", "oak")]
+    [InlineData("log_juniper", "oak")]
     [InlineData("log_oak", "oak")]
-    [InlineData("log_skywood", "skywood")]
-    [InlineData("log_thornwood", "thornwood")]
-    [InlineData("log_willow", "willow")]
-    [InlineData("log_windwood", "windwood")]
-    [InlineData("log_world_tree", "world")]
+    [InlineData("log_skywood", "oak")]
+    [InlineData("log_thornwood", "oak")]
+    [InlineData("log_willow", "oak")]
+    [InlineData("log_windwood", "oak")]
+    [InlineData("log_world_tree", "oak")]
     public void CarpenterStripsEveryAuthoredWoodFamilyInEveryOrientation(
         string stem, string material)
     {

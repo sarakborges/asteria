@@ -1,0 +1,33 @@
+{
+  "id": "asteria:log_ambermaw",
+  "category": "blocks_wooden",
+  "tags": [
+    "fragmentable"
+  ],
+  "variant": {
+    "family": "asteria:log_ambermaw",
+    "key": "natural"
+  },
+  "textures": {
+    "top": "textures/blocks/trees/ambermaw/top.png",
+    "bottom": "textures/blocks/trees/ambermaw/top.png",
+    "left": "textures/blocks/trees/ambermaw/side.png",
+    "right": "textures/blocks/trees/ambermaw/side.png",
+    "front": "textures/blocks/trees/ambermaw/side.png",
+    "back": "textures/blocks/trees/ambermaw/side.png"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "a8794e"
+}

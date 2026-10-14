@@ -3,12 +3,12 @@
   "category": "blocks_wooden",
   "tags": [],
   "textures": {
-    "top": "textures/blocks/trees/world/stripped.png",
-    "bottom": "textures/blocks/trees/world/stripped.png",
-    "left": "textures/blocks/trees/world/stripped.png",
-    "right": "textures/blocks/trees/world/stripped.png",
-    "front": "textures/blocks/trees/world/stripped.png",
-    "back": "textures/blocks/trees/world/stripped.png"
+    "top": "textures/blocks/trees/oak/stripped.png",
+    "bottom": "textures/blocks/trees/oak/stripped.png",
+    "left": "textures/blocks/trees/oak/stripped.png",
+    "right": "textures/blocks/trees/oak/stripped.png",
+    "front": "textures/blocks/trees/oak/stripped.png",
+    "back": "textures/blocks/trees/oak/stripped.png"
   },
   "rotateTexture": {
     "top": false,

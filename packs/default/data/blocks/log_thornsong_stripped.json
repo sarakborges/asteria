@@ -1,0 +1,33 @@
+{
+  "id": "asteria:log_thornsong_stripped",
+  "category": "blocks_wooden",
+  "tags": [
+    "fragmentable"
+  ],
+  "variant": {
+    "family": "asteria:log_thornsong",
+    "key": "stripped"
+  },
+  "textures": {
+    "top": "textures/blocks/trees/thornsong/stripped.png",
+    "bottom": "textures/blocks/trees/thornsong/stripped.png",
+    "left": "textures/blocks/trees/thornsong/stripped.png",
+    "right": "textures/blocks/trees/thornsong/stripped.png",
+    "front": "textures/blocks/trees/thornsong/stripped.png",
+    "back": "textures/blocks/trees/thornsong/stripped.png"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "a8f13c"
+}

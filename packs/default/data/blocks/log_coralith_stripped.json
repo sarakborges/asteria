@@ -1,0 +1,33 @@
+{
+  "id": "asteria:log_coralith_stripped",
+  "category": "blocks_wooden",
+  "tags": [
+    "fragmentable"
+  ],
+  "variant": {
+    "family": "asteria:log_coralith",
+    "key": "stripped"
+  },
+  "textures": {
+    "top": "textures/blocks/trees/coralith/stripped.png",
+    "bottom": "textures/blocks/trees/coralith/stripped.png",
+    "left": "textures/blocks/trees/coralith/stripped.png",
+    "right": "textures/blocks/trees/coralith/stripped.png",
+    "front": "textures/blocks/trees/coralith/stripped.png",
+    "back": "textures/blocks/trees/coralith/stripped.png"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "eafbff"
+}

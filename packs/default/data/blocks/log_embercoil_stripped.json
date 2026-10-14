@@ -1,0 +1,33 @@
+{
+  "id": "asteria:log_embercoil_stripped",
+  "category": "blocks_wooden",
+  "tags": [
+    "fragmentable"
+  ],
+  "variant": {
+    "family": "asteria:log_embercoil",
+    "key": "stripped"
+  },
+  "textures": {
+    "top": "textures/blocks/trees/embercoil/stripped.png",
+    "bottom": "textures/blocks/trees/embercoil/stripped.png",
+    "left": "textures/blocks/trees/embercoil/stripped.png",
+    "right": "textures/blocks/trees/embercoil/stripped.png",
+    "front": "textures/blocks/trees/embercoil/stripped.png",
+    "back": "textures/blocks/trees/embercoil/stripped.png"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "f06a1c"
+}

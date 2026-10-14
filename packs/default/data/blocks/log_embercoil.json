@@ -1,0 +1,33 @@
+{
+  "id": "asteria:log_embercoil",
+  "category": "blocks_wooden",
+  "tags": [
+    "fragmentable"
+  ],
+  "variant": {
+    "family": "asteria:log_embercoil",
+    "key": "natural"
+  },
+  "textures": {
+    "top": "textures/blocks/trees/embercoil/top.png",
+    "bottom": "textures/blocks/trees/embercoil/top.png",
+    "left": "textures/blocks/trees/embercoil/side.png",
+    "right": "textures/blocks/trees/embercoil/side.png",
+    "front": "textures/blocks/trees/embercoil/side.png",
+    "back": "textures/blocks/trees/embercoil/side.png"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "b32617"
+}

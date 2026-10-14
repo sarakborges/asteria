@@ -2,12 +2,12 @@
   "id": "asteria:log_windwood_hollow",
   "category": "blocks_wooden",
   "textures": {
-    "top": "textures/blocks/trees/windwood/top.png",
-    "bottom": "textures/blocks/trees/windwood/top.png",
-    "left": "textures/blocks/trees/windwood/side.png",
-    "right": "textures/blocks/trees/windwood/side.png",
-    "front": "textures/blocks/trees/windwood/side.png",
-    "back": "textures/blocks/trees/windwood/side.png"
+    "top": "textures/blocks/trees/oak/top.png",
+    "bottom": "textures/blocks/trees/oak/top.png",
+    "left": "textures/blocks/trees/oak/side.png",
+    "right": "textures/blocks/trees/oak/side.png",
+    "front": "textures/blocks/trees/oak/side.png",
+    "back": "textures/blocks/trees/oak/side.png"
   },
   "mining": {
     "hardness": 1.1,

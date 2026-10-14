@@ -1185,6 +1185,346 @@
       "spacing": 128,
       "chance": 1,
       "jitter": 8
+    },
+    {
+      "biome": "asteria:overworld/scorched_wastes",
+      "structure": "asteria:tree_cinderwood",
+      "spacing": 68,
+      "chance": 0.4,
+      "jitter": 17,
+      "habitatWeights": {
+        "ash_aprons": 0.7,
+        "fractured_flanks": 0.45,
+        "hardened_highlands": 0.4
+      }
+    },
+    {
+      "biome": "asteria:overworld/scorched_wastes",
+      "structure": "asteria:tree_briarflame",
+      "spacing": 68,
+      "chance": 0.4,
+      "jitter": 17,
+      "habitatWeights": {
+        "ash_aprons": 0.7,
+        "fractured_flanks": 0.45,
+        "hardened_highlands": 0.4
+      }
+    },
+    {
+      "biome": "asteria:overworld/scorched_wastes",
+      "structure": "asteria:tree_ashveil",
+      "spacing": 68,
+      "chance": 0.4,
+      "jitter": 17,
+      "habitatWeights": {
+        "ash_aprons": 0.7,
+        "fractured_flanks": 0.45,
+        "hardened_highlands": 0.4
+      }
+    },
+    {
+      "biome": "asteria:overworld/scorched_wastes",
+      "structure": "asteria:tree_embercoil",
+      "spacing": 68,
+      "chance": 0.4,
+      "jitter": 17,
+      "habitatWeights": {
+        "ash_aprons": 0.7,
+        "fractured_flanks": 0.45,
+        "hardened_highlands": 0.4
+      }
+    },
+    {
+      "biome": "asteria:overworld/swamp",
+      "structure": "asteria:tree_nacreveil",
+      "spacing": 68,
+      "chance": 0.4,
+      "jitter": 17,
+      "habitatWeights": {
+        "willow_grove": 0.65,
+        "open_mire": 0.18,
+        "fungal_ground": 0.8
+      }
+    },
+    {
+      "biome": "asteria:overworld/swamp",
+      "structure": "asteria:tree_brinesong",
+      "spacing": 68,
+      "chance": 0.4,
+      "jitter": 17,
+      "habitatWeights": {
+        "willow_grove": 0.65,
+        "open_mire": 0.18,
+        "fungal_ground": 0.8
+      }
+    },
+    {
+      "biome": "asteria:overworld/swamp",
+      "structure": "asteria:tree_coralith",
+      "spacing": 68,
+      "chance": 0.4,
+      "jitter": 17,
+      "habitatWeights": {
+        "willow_grove": 0.65,
+        "open_mire": 0.18,
+        "fungal_ground": 0.8
+      }
+    },
+    {
+      "biome": "asteria:overworld/swamp",
+      "structure": "asteria:tree_mirewake",
+      "spacing": 68,
+      "chance": 0.4,
+      "jitter": 17,
+      "habitatWeights": {
+        "willow_grove": 0.65,
+        "open_mire": 0.18,
+        "fungal_ground": 0.8
+      }
+    },
+    {
+      "biome": "asteria:overworld/mountains",
+      "structure": "asteria:tree_ferrumbark",
+      "spacing": 78,
+      "chance": 0.4,
+      "jitter": 19,
+      "habitatWeights": {
+        "foothill_shelves": 1.8,
+        "talus_fields": 0.1,
+        "exposed_ridges": 0
+      }
+    },
+    {
+      "biome": "asteria:overworld/mountains",
+      "structure": "asteria:tree_geodera",
+      "spacing": 78,
+      "chance": 0.4,
+      "jitter": 19,
+      "habitatWeights": {
+        "foothill_shelves": 1.8,
+        "talus_fields": 0.1,
+        "exposed_ridges": 0
+      }
+    },
+    {
+      "biome": "asteria:overworld/mountains",
+      "structure": "asteria:tree_ambermaw",
+      "spacing": 78,
+      "chance": 0.4,
+      "jitter": 19,
+      "habitatWeights": {
+        "foothill_shelves": 1.8,
+        "talus_fields": 0.1,
+        "exposed_ridges": 0
+      }
+    },
+    {
+      "biome": "asteria:overworld/mountains",
+      "structure": "asteria:tree_cragbloom",
+      "spacing": 78,
+      "chance": 0.4,
+      "jitter": 19,
+      "habitatWeights": {
+        "foothill_shelves": 1.8,
+        "talus_fields": 0.1,
+        "exposed_ridges": 0
+      }
+    },
+    {
+      "biome": "asteria:overworld/mountain_belt",
+      "structure": "asteria:tree_fulminara",
+      "spacing": 78,
+      "chance": 0.4,
+      "jitter": 19,
+      "habitatWeights": {
+        "sheltered_passes": 1.8,
+        "boulder_runs": 0.1,
+        "bare_crests": 0
+      }
+    },
+    {
+      "biome": "asteria:overworld/mountain_belt",
+      "structure": "asteria:tree_coppercoil",
+      "spacing": 78,
+      "chance": 0.4,
+      "jitter": 19,
+      "habitatWeights": {
+        "sheltered_passes": 1.8,
+        "boulder_runs": 0.1,
+        "bare_crests": 0
+      }
+    },
+    {
+      "biome": "asteria:overworld/mountain_belt",
+      "structure": "asteria:tree_stormglass",
+      "spacing": 78,
+      "chance": 0.4,
+      "jitter": 19,
+      "habitatWeights": {
+        "sheltered_passes": 1.8,
+        "boulder_runs": 0.1,
+        "bare_crests": 0
+      }
+    },
+    {
+      "biome": "asteria:overworld/mountain_belt",
+      "structure": "asteria:tree_voltress",
+      "spacing": 78,
+      "chance": 0.4,
+      "jitter": 19,
+      "habitatWeights": {
+        "sheltered_passes": 1.8,
+        "boulder_runs": 0.1,
+        "bare_crests": 0
+      }
+    },
+    {
+      "biome": "asteria:overworld/arctic",
+      "structure": "asteria:tree_frostveil",
+      "spacing": 82,
+      "chance": 0.4,
+      "jitter": 20,
+      "habitatWeights": {
+        "frozen_plain": 0.55,
+        "ice_fields": 0.4,
+        "rocky_ridges": 0.15
+      }
+    },
+    {
+      "biome": "asteria:overworld/arctic",
+      "structure": "asteria:tree_rimehollow",
+      "spacing": 82,
+      "chance": 0.4,
+      "jitter": 20,
+      "habitatWeights": {
+        "frozen_plain": 0.55,
+        "ice_fields": 0.4,
+        "rocky_ridges": 0.15
+      }
+    },
+    {
+      "biome": "asteria:overworld/alps",
+      "structure": "asteria:tree_hoarfane",
+      "spacing": 82,
+      "chance": 0.4,
+      "jitter": 20,
+      "habitatWeights": {
+        "snowfields": 0.65,
+        "glacial_ice": 0.6,
+        "wind_scoured_rock": 0.1
+      }
+    },
+    {
+      "biome": "asteria:overworld/alps",
+      "structure": "asteria:tree_glassmorrow",
+      "spacing": 82,
+      "chance": 0.4,
+      "jitter": 20,
+      "habitatWeights": {
+        "snowfields": 0.65,
+        "glacial_ice": 0.6,
+        "wind_scoured_rock": 0.1
+      }
+    },
+    {
+      "biome": "asteria:overworld/enchanted_forest",
+      "structure": "asteria:tree_aurorasil",
+      "spacing": 82,
+      "chance": 0.4,
+      "jitter": 20,
+      "habitatWeights": {
+        "luminous_clearing": 0.45,
+        "violet_undergrowth": 1.2,
+        "pink_glade": 1.2
+      }
+    },
+    {
+      "biome": "asteria:overworld/enchanted_forest",
+      "structure": "asteria:tree_dawnlace",
+      "spacing": 82,
+      "chance": 0.4,
+      "jitter": 20,
+      "habitatWeights": {
+        "luminous_clearing": 0.45,
+        "violet_undergrowth": 1.2,
+        "pink_glade": 1.2
+      }
+    },
+    {
+      "biome": "asteria:overworld/enchanted_forest",
+      "structure": "asteria:tree_prismara",
+      "spacing": 82,
+      "chance": 0.4,
+      "jitter": 20,
+      "habitatWeights": {
+        "luminous_clearing": 0.45,
+        "violet_undergrowth": 1.2,
+        "pink_glade": 1.2
+      }
+    },
+    {
+      "biome": "asteria:overworld/enchanted_forest",
+      "structure": "asteria:tree_solmire",
+      "spacing": 82,
+      "chance": 0.4,
+      "jitter": 20,
+      "habitatWeights": {
+        "luminous_clearing": 0.45,
+        "violet_undergrowth": 1.2,
+        "pink_glade": 1.2
+      }
+    },
+    {
+      "biome": "asteria:overworld/plains",
+      "structure": "asteria:tree_elderbloom",
+      "spacing": 78,
+      "chance": 0.4,
+      "jitter": 19,
+      "habitatWeights": {
+        "grove": 1.7,
+        "open": 0.1,
+        "thicket": 1.5,
+        "rocky": 0
+      }
+    },
+    {
+      "biome": "asteria:overworld/plains",
+      "structure": "asteria:tree_mycelora",
+      "spacing": 78,
+      "chance": 0.4,
+      "jitter": 19,
+      "habitatWeights": {
+        "grove": 1.7,
+        "open": 0.1,
+        "thicket": 1.5,
+        "rocky": 0
+      }
+    },
+    {
+      "biome": "asteria:overworld/plains",
+      "structure": "asteria:tree_verdalune",
+      "spacing": 78,
+      "chance": 0.4,
+      "jitter": 19,
+      "habitatWeights": {
+        "grove": 1.7,
+        "open": 0.1,
+        "thicket": 1.5,
+        "rocky": 0
+      }
+    },
+    {
+      "biome": "asteria:overworld/plains",
+      "structure": "asteria:tree_thornsong",
+      "spacing": 78,
+      "chance": 0.4,
+      "jitter": 19,
+      "habitatWeights": {
+        "grove": 1.7,
+        "open": 0.1,
+        "thicket": 1.5,
+        "rocky": 0
+      }
     }
   ],
   "dayNightCycle": "asteria:overworld/day_night_cycle",

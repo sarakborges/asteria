@@ -1,0 +1,33 @@
+{
+  "id": "asteria:log_nacreveil_stripped",
+  "category": "blocks_wooden",
+  "tags": [
+    "fragmentable"
+  ],
+  "variant": {
+    "family": "asteria:log_nacreveil",
+    "key": "stripped"
+  },
+  "textures": {
+    "top": "textures/blocks/trees/nacreveil/stripped.png",
+    "bottom": "textures/blocks/trees/nacreveil/stripped.png",
+    "left": "textures/blocks/trees/nacreveil/stripped.png",
+    "right": "textures/blocks/trees/nacreveil/stripped.png",
+    "front": "textures/blocks/trees/nacreveil/stripped.png",
+    "back": "textures/blocks/trees/nacreveil/stripped.png"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "1f6fe8"
+}

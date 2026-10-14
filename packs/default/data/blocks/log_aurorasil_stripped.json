@@ -1,0 +1,33 @@
+{
+  "id": "asteria:log_aurorasil_stripped",
+  "category": "blocks_wooden",
+  "tags": [
+    "fragmentable"
+  ],
+  "variant": {
+    "family": "asteria:log_aurorasil",
+    "key": "stripped"
+  },
+  "textures": {
+    "top": "textures/blocks/trees/aurorasil/stripped.png",
+    "bottom": "textures/blocks/trees/aurorasil/stripped.png",
+    "left": "textures/blocks/trees/aurorasil/stripped.png",
+    "right": "textures/blocks/trees/aurorasil/stripped.png",
+    "front": "textures/blocks/trees/aurorasil/stripped.png",
+    "back": "textures/blocks/trees/aurorasil/stripped.png"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "f56bb6"
+}

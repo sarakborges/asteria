@@ -1,0 +1,33 @@
+{
+  "id": "asteria:log_solmire_stripped",
+  "category": "blocks_wooden",
+  "tags": [
+    "fragmentable"
+  ],
+  "variant": {
+    "family": "asteria:log_solmire",
+    "key": "stripped"
+  },
+  "textures": {
+    "top": "textures/blocks/trees/solmire/stripped.png",
+    "bottom": "textures/blocks/trees/solmire/stripped.png",
+    "left": "textures/blocks/trees/solmire/stripped.png",
+    "right": "textures/blocks/trees/solmire/stripped.png",
+    "front": "textures/blocks/trees/solmire/stripped.png",
+    "back": "textures/blocks/trees/solmire/stripped.png"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "ffc7e6"
+}

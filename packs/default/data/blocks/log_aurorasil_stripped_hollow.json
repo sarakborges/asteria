@@ -1,0 +1,34 @@
+{
+  "id": "asteria:log_aurorasil_stripped_hollow",
+  "category": "blocks_wooden",
+  "variant": {
+    "family": "asteria:log_aurorasil",
+    "key": "stripped_hollow"
+  },
+  "shape": {
+    "type": "hollow",
+    "wallThickness": 0.0625
+  },
+  "textures": {
+    "top": "textures/blocks/trees/aurorasil/stripped.png",
+    "bottom": "textures/blocks/trees/aurorasil/stripped.png",
+    "left": "textures/blocks/trees/aurorasil/stripped.png",
+    "right": "textures/blocks/trees/aurorasil/stripped.png",
+    "front": "textures/blocks/trees/aurorasil/stripped.png",
+    "back": "textures/blocks/trees/aurorasil/stripped.png"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "f56bb6"
+}

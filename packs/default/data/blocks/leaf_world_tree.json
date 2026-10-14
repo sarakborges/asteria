@@ -6,37 +6,37 @@
   "textures": {
     "top": [
       {
-        "texture": "textures/blocks/trees/world/leaf.png",
+        "texture": "textures/blocks/trees/oak/leaves.png",
         "dyable": false
       }
     ],
     "bottom": [
       {
-        "texture": "textures/blocks/trees/world/leaf.png",
+        "texture": "textures/blocks/trees/oak/leaves.png",
         "dyable": false
       }
     ],
     "left": [
       {
-        "texture": "textures/blocks/trees/world/leaf.png",
+        "texture": "textures/blocks/trees/oak/leaves.png",
         "dyable": false
       }
     ],
     "right": [
       {
-        "texture": "textures/blocks/trees/world/leaf.png",
+        "texture": "textures/blocks/trees/oak/leaves.png",
         "dyable": false
       }
     ],
     "front": [
       {
-        "texture": "textures/blocks/trees/world/leaf.png",
+        "texture": "textures/blocks/trees/oak/leaves.png",
         "dyable": false
       }
     ],
     "back": [
       {
-        "texture": "textures/blocks/trees/world/leaf.png",
+        "texture": "textures/blocks/trees/oak/leaves.png",
         "dyable": false
       }
     ]
@@ -55,5 +55,11 @@
   "mining": {
     "hardness": 0.25
   },
-  "lootTable": [{"item":"asteria:stick","chance":0.6,"quantity":1}]
+  "lootTable": [
+    {
+      "item": "asteria:stick",
+      "chance": 0.6,
+      "quantity": 1
+    }
+  ]
 }

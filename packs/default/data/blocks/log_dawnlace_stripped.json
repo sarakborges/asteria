@@ -1,0 +1,33 @@
+{
+  "id": "asteria:log_dawnlace_stripped",
+  "category": "blocks_wooden",
+  "tags": [
+    "fragmentable"
+  ],
+  "variant": {
+    "family": "asteria:log_dawnlace",
+    "key": "stripped"
+  },
+  "textures": {
+    "top": "textures/blocks/trees/dawnlace/stripped.png",
+    "bottom": "textures/blocks/trees/dawnlace/stripped.png",
+    "left": "textures/blocks/trees/dawnlace/stripped.png",
+    "right": "textures/blocks/trees/dawnlace/stripped.png",
+    "front": "textures/blocks/trees/dawnlace/stripped.png",
+    "back": "textures/blocks/trees/dawnlace/stripped.png"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "c93a8f"
+}

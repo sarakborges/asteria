@@ -1,0 +1,33 @@
+{
+  "id": "asteria:log_hoarfane",
+  "category": "blocks_wooden",
+  "tags": [
+    "fragmentable"
+  ],
+  "variant": {
+    "family": "asteria:log_hoarfane",
+    "key": "natural"
+  },
+  "textures": {
+    "top": "textures/blocks/trees/hoarfane/top.png",
+    "bottom": "textures/blocks/trees/hoarfane/top.png",
+    "left": "textures/blocks/trees/hoarfane/side.png",
+    "right": "textures/blocks/trees/hoarfane/side.png",
+    "front": "textures/blocks/trees/hoarfane/side.png",
+    "back": "textures/blocks/trees/hoarfane/side.png"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "f6fdff"
+}

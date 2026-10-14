@@ -100,14 +100,22 @@ const checkTreeTile = (asset, context) => {
   }
 };
 
+// Legacy tree IDs remain playable after texture removal, using valid Oak paths.
+for (const log of naturalLogs) {
+  const folder = log.textures.top.split("/")[3];
+  const species = log.id.slice("asteria:log_".length);
+  if (folder !== "oak" && folder !== species) {
+    throw new Error(log.id + ": unexpected tree texture folder " + folder);
+  }
+}
+
 for (const entry of treeDirectories) {
   const folder = entry.name;
-  const logs = naturalLogs.filter(log =>
-    log.textures.top === "textures/blocks/trees/" + folder + "/top.png");
+  const logs = naturalLogs.filter(log => log.id === "asteria:log_" + folder);
   if (logs.length !== 1) {
     throw new Error("tree material " + folder + ": expected exactly one authored natural log");
   }
-  for (const role of ["top", "side", "leaf", "stripped", "planks"]) {
+  for (const role of ["top", "side", "leaves", "stripped", "planks"]) {
     checkTreeTile("textures/blocks/trees/" + folder + "/" + role + ".png",
       "tree material " + folder + "." + role);
   }

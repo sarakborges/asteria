@@ -1,0 +1,33 @@
+{
+  "id": "asteria:log_mourningbriar",
+  "category": "blocks_wooden",
+  "tags": [
+    "fragmentable"
+  ],
+  "variant": {
+    "family": "asteria:log_mourningbriar",
+    "key": "natural"
+  },
+  "textures": {
+    "top": "textures/blocks/trees/mourningbriar/top.png",
+    "bottom": "textures/blocks/trees/mourningbriar/top.png",
+    "left": "textures/blocks/trees/mourningbriar/side.png",
+    "right": "textures/blocks/trees/mourningbriar/side.png",
+    "front": "textures/blocks/trees/mourningbriar/side.png",
+    "back": "textures/blocks/trees/mourningbriar/side.png"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "d6a8ff"
+}

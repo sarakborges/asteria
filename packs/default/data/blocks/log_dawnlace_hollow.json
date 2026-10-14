@@ -1,0 +1,34 @@
+{
+  "id": "asteria:log_dawnlace_hollow",
+  "category": "blocks_wooden",
+  "variant": {
+    "family": "asteria:log_dawnlace",
+    "key": "hollow"
+  },
+  "shape": {
+    "type": "hollow",
+    "wallThickness": 0.0625
+  },
+  "textures": {
+    "top": "textures/blocks/trees/dawnlace/top.png",
+    "bottom": "textures/blocks/trees/dawnlace/top.png",
+    "left": "textures/blocks/trees/dawnlace/side.png",
+    "right": "textures/blocks/trees/dawnlace/side.png",
+    "front": "textures/blocks/trees/dawnlace/side.png",
+    "back": "textures/blocks/trees/dawnlace/side.png"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "fff0f8"
+}

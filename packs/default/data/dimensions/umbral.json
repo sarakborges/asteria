@@ -242,6 +242,54 @@
         "withered_thickets": 0.05,
         "rocky_barrens": 2.25
       }
+    },
+    {
+      "biome": "asteria:umbral/wraith_grove",
+      "structure": "asteria:tree_nighthollow",
+      "spacing": 82,
+      "chance": 0.4,
+      "jitter": 20,
+      "habitatWeights": {
+        "dusky_underbrush": 1.5,
+        "pale_clearing": 0.12,
+        "decay_pockets": 1.1
+      }
+    },
+    {
+      "biome": "asteria:umbral/wraith_grove",
+      "structure": "asteria:tree_mourningbriar",
+      "spacing": 82,
+      "chance": 0.4,
+      "jitter": 20,
+      "habitatWeights": {
+        "dusky_underbrush": 1.5,
+        "pale_clearing": 0.12,
+        "decay_pockets": 1.1
+      }
+    },
+    {
+      "biome": "asteria:umbral/wraith_grove",
+      "structure": "asteria:tree_eclipseveil",
+      "spacing": 82,
+      "chance": 0.4,
+      "jitter": 20,
+      "habitatWeights": {
+        "dusky_underbrush": 1.5,
+        "pale_clearing": 0.12,
+        "decay_pockets": 1.1
+      }
+    },
+    {
+      "biome": "asteria:umbral/wraith_grove",
+      "structure": "asteria:tree_gloamroot",
+      "spacing": 82,
+      "chance": 0.4,
+      "jitter": 20,
+      "habitatWeights": {
+        "dusky_underbrush": 1.5,
+        "pale_clearing": 0.12,
+        "decay_pockets": 1.1
+      }
     }
   ],
   "portalArrivalStructure": "asteria:platform_portal_arrival"

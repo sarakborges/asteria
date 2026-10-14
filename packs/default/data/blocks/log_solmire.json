@@ -1,0 +1,33 @@
+{
+  "id": "asteria:log_solmire",
+  "category": "blocks_wooden",
+  "tags": [
+    "fragmentable"
+  ],
+  "variant": {
+    "family": "asteria:log_solmire",
+    "key": "natural"
+  },
+  "textures": {
+    "top": "textures/blocks/trees/solmire/top.png",
+    "bottom": "textures/blocks/trees/solmire/top.png",
+    "left": "textures/blocks/trees/solmire/side.png",
+    "right": "textures/blocks/trees/solmire/side.png",
+    "front": "textures/blocks/trees/solmire/side.png",
+    "back": "textures/blocks/trees/solmire/side.png"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "f56bb6"
+}

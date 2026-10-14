@@ -1,0 +1,33 @@
+{
+  "id": "asteria:log_frostveil",
+  "category": "blocks_wooden",
+  "tags": [
+    "fragmentable"
+  ],
+  "variant": {
+    "family": "asteria:log_frostveil",
+    "key": "natural"
+  },
+  "textures": {
+    "top": "textures/blocks/trees/frostveil/top.png",
+    "bottom": "textures/blocks/trees/frostveil/top.png",
+    "left": "textures/blocks/trees/frostveil/side.png",
+    "right": "textures/blocks/trees/frostveil/side.png",
+    "front": "textures/blocks/trees/frostveil/side.png",
+    "back": "textures/blocks/trees/frostveil/side.png"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "4ea7e8"
+}

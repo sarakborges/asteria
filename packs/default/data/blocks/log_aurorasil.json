@@ -1,0 +1,33 @@
+{
+  "id": "asteria:log_aurorasil",
+  "category": "blocks_wooden",
+  "tags": [
+    "fragmentable"
+  ],
+  "variant": {
+    "family": "asteria:log_aurorasil",
+    "key": "natural"
+  },
+  "textures": {
+    "top": "textures/blocks/trees/aurorasil/top.png",
+    "bottom": "textures/blocks/trees/aurorasil/top.png",
+    "left": "textures/blocks/trees/aurorasil/side.png",
+    "right": "textures/blocks/trees/aurorasil/side.png",
+    "front": "textures/blocks/trees/aurorasil/side.png",
+    "back": "textures/blocks/trees/aurorasil/side.png"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "c93a8f"
+}

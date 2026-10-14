@@ -160,6 +160,38 @@
       "minY": 200,
       "maxY": 280,
       "supportSurface": "floor"
+    },
+    {
+      "structure": "asteria:tree_skyweave",
+      "spacing": 72,
+      "chance": 0.4,
+      "minY": 200,
+      "maxY": 280,
+      "supportSurface": "floor"
+    },
+    {
+      "structure": "asteria:tree_galeheart",
+      "spacing": 72,
+      "chance": 0.4,
+      "minY": 200,
+      "maxY": 280,
+      "supportSurface": "floor"
+    },
+    {
+      "structure": "asteria:tree_cloudspindle",
+      "spacing": 72,
+      "chance": 0.4,
+      "minY": 200,
+      "maxY": 280,
+      "supportSurface": "floor"
+    },
+    {
+      "structure": "asteria:tree_zephyra",
+      "spacing": 72,
+      "chance": 0.4,
+      "minY": 200,
+      "maxY": 280,
+      "supportSurface": "floor"
     }
   ]
 }

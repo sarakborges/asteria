@@ -1,0 +1,33 @@
+{
+  "id": "asteria:log_cinderwood",
+  "category": "blocks_wooden",
+  "tags": [
+    "fragmentable"
+  ],
+  "variant": {
+    "family": "asteria:log_cinderwood",
+    "key": "natural"
+  },
+  "textures": {
+    "top": "textures/blocks/trees/cinderwood/top.png",
+    "bottom": "textures/blocks/trees/cinderwood/top.png",
+    "left": "textures/blocks/trees/cinderwood/side.png",
+    "right": "textures/blocks/trees/cinderwood/side.png",
+    "front": "textures/blocks/trees/cinderwood/side.png",
+    "back": "textures/blocks/trees/cinderwood/side.png"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "2b1712"
+}

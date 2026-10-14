@@ -1,0 +1,66 @@
+{
+  "id": "asteria:leaf_briarflame",
+  "windSway": true,
+  "category": "foliage",
+  "tint": "none",
+  "textures": {
+    "top": [
+      {
+        "texture": "textures/blocks/trees/briarflame/leaves.png",
+        "dyable": false
+      }
+    ],
+    "bottom": [
+      {
+        "texture": "textures/blocks/trees/briarflame/leaves.png",
+        "dyable": false
+      }
+    ],
+    "left": [
+      {
+        "texture": "textures/blocks/trees/briarflame/leaves.png",
+        "dyable": false
+      }
+    ],
+    "right": [
+      {
+        "texture": "textures/blocks/trees/briarflame/leaves.png",
+        "dyable": false
+      }
+    ],
+    "front": [
+      {
+        "texture": "textures/blocks/trees/briarflame/leaves.png",
+        "dyable": false
+      }
+    ],
+    "back": [
+      {
+        "texture": "textures/blocks/trees/briarflame/leaves.png",
+        "dyable": false
+      }
+    ]
+  },
+  "rotateTexture": {
+    "top": false,
+    "bottom": false,
+    "left": false,
+    "right": false,
+    "front": false,
+    "back": false
+  },
+  "alphaCutoff": 0.5,
+  "lightDampening": 1,
+  "castsShadow": false,
+  "mining": {
+    "hardness": 0.25
+  },
+  "lootTable": [
+    {
+      "item": "asteria:stick",
+      "chance": 0.6,
+      "quantity": 1
+    }
+  ],
+  "previewColor": "b32617"
+}

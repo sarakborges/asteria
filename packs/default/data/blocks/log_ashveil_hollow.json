@@ -1,0 +1,34 @@
+{
+  "id": "asteria:log_ashveil_hollow",
+  "category": "blocks_wooden",
+  "variant": {
+    "family": "asteria:log_ashveil",
+    "key": "hollow"
+  },
+  "shape": {
+    "type": "hollow",
+    "wallThickness": 0.0625
+  },
+  "textures": {
+    "top": "textures/blocks/trees/ashveil/top.png",
+    "bottom": "textures/blocks/trees/ashveil/top.png",
+    "left": "textures/blocks/trees/ashveil/side.png",
+    "right": "textures/blocks/trees/ashveil/side.png",
+    "front": "textures/blocks/trees/ashveil/side.png",
+    "back": "textures/blocks/trees/ashveil/side.png"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "f06a1c"
+}

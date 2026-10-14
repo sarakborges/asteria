@@ -1,0 +1,33 @@
+{
+  "id": "asteria:log_eclipseveil",
+  "category": "blocks_wooden",
+  "tags": [
+    "fragmentable"
+  ],
+  "variant": {
+    "family": "asteria:log_eclipseveil",
+    "key": "natural"
+  },
+  "textures": {
+    "top": "textures/blocks/trees/eclipseveil/top.png",
+    "bottom": "textures/blocks/trees/eclipseveil/top.png",
+    "left": "textures/blocks/trees/eclipseveil/side.png",
+    "right": "textures/blocks/trees/eclipseveil/side.png",
+    "front": "textures/blocks/trees/eclipseveil/side.png",
+    "back": "textures/blocks/trees/eclipseveil/side.png"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "8b2de2"
+}

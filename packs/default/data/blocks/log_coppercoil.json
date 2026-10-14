@@ -1,0 +1,33 @@
+{
+  "id": "asteria:log_coppercoil",
+  "category": "blocks_wooden",
+  "tags": [
+    "fragmentable"
+  ],
+  "variant": {
+    "family": "asteria:log_coppercoil",
+    "key": "natural"
+  },
+  "textures": {
+    "top": "textures/blocks/trees/coppercoil/top.png",
+    "bottom": "textures/blocks/trees/coppercoil/top.png",
+    "left": "textures/blocks/trees/coppercoil/side.png",
+    "right": "textures/blocks/trees/coppercoil/side.png",
+    "front": "textures/blocks/trees/coppercoil/side.png",
+    "back": "textures/blocks/trees/coppercoil/side.png"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "fffdf2"
+}

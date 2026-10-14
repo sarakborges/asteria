@@ -1,0 +1,33 @@
+{
+  "id": "asteria:log_cragbloom",
+  "category": "blocks_wooden",
+  "tags": [
+    "fragmentable"
+  ],
+  "variant": {
+    "family": "asteria:log_cragbloom",
+    "key": "natural"
+  },
+  "textures": {
+    "top": "textures/blocks/trees/cragbloom/top.png",
+    "bottom": "textures/blocks/trees/cragbloom/top.png",
+    "left": "textures/blocks/trees/cragbloom/side.png",
+    "right": "textures/blocks/trees/cragbloom/side.png",
+    "front": "textures/blocks/trees/cragbloom/side.png",
+    "back": "textures/blocks/trees/cragbloom/side.png"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "5a3b2c"
+}

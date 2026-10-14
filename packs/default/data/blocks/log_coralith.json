@@ -1,0 +1,33 @@
+{
+  "id": "asteria:log_coralith",
+  "category": "blocks_wooden",
+  "tags": [
+    "fragmentable"
+  ],
+  "variant": {
+    "family": "asteria:log_coralith",
+    "key": "natural"
+  },
+  "textures": {
+    "top": "textures/blocks/trees/coralith/top.png",
+    "bottom": "textures/blocks/trees/coralith/top.png",
+    "left": "textures/blocks/trees/coralith/side.png",
+    "right": "textures/blocks/trees/coralith/side.png",
+    "front": "textures/blocks/trees/coralith/side.png",
+    "back": "textures/blocks/trees/coralith/side.png"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "59d9ff"
+}

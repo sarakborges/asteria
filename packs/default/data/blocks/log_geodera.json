@@ -1,0 +1,33 @@
+{
+  "id": "asteria:log_geodera",
+  "category": "blocks_wooden",
+  "tags": [
+    "fragmentable"
+  ],
+  "variant": {
+    "family": "asteria:log_geodera",
+    "key": "natural"
+  },
+  "textures": {
+    "top": "textures/blocks/trees/geodera/top.png",
+    "bottom": "textures/blocks/trees/geodera/top.png",
+    "left": "textures/blocks/trees/geodera/side.png",
+    "right": "textures/blocks/trees/geodera/side.png",
+    "front": "textures/blocks/trees/geodera/side.png",
+    "back": "textures/blocks/trees/geodera/side.png"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "d1ba97"
+}

@@ -1,0 +1,33 @@
+{
+  "id": "asteria:log_geodera_stripped",
+  "category": "blocks_wooden",
+  "tags": [
+    "fragmentable"
+  ],
+  "variant": {
+    "family": "asteria:log_geodera",
+    "key": "stripped"
+  },
+  "textures": {
+    "top": "textures/blocks/trees/geodera/stripped.png",
+    "bottom": "textures/blocks/trees/geodera/stripped.png",
+    "left": "textures/blocks/trees/geodera/stripped.png",
+    "right": "textures/blocks/trees/geodera/stripped.png",
+    "front": "textures/blocks/trees/geodera/stripped.png",
+    "back": "textures/blocks/trees/geodera/stripped.png"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "2f2a2b"
+}

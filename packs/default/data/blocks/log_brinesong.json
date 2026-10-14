@@ -1,0 +1,33 @@
+{
+  "id": "asteria:log_brinesong",
+  "category": "blocks_wooden",
+  "tags": [
+    "fragmentable"
+  ],
+  "variant": {
+    "family": "asteria:log_brinesong",
+    "key": "natural"
+  },
+  "textures": {
+    "top": "textures/blocks/trees/brinesong/top.png",
+    "bottom": "textures/blocks/trees/brinesong/top.png",
+    "left": "textures/blocks/trees/brinesong/side.png",
+    "right": "textures/blocks/trees/brinesong/side.png",
+    "front": "textures/blocks/trees/brinesong/side.png",
+    "back": "textures/blocks/trees/brinesong/side.png"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "eafbff"
+}

@@ -1,0 +1,33 @@
+{
+  "id": "asteria:log_thornsong",
+  "category": "blocks_wooden",
+  "tags": [
+    "fragmentable"
+  ],
+  "variant": {
+    "family": "asteria:log_thornsong",
+    "key": "natural"
+  },
+  "textures": {
+    "top": "textures/blocks/trees/thornsong/top.png",
+    "bottom": "textures/blocks/trees/thornsong/top.png",
+    "left": "textures/blocks/trees/thornsong/side.png",
+    "right": "textures/blocks/trees/thornsong/side.png",
+    "front": "textures/blocks/trees/thornsong/side.png",
+    "back": "textures/blocks/trees/thornsong/side.png"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "55c81f"
+}

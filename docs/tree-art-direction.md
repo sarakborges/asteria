@@ -99,3 +99,25 @@ sapling growth, localized family names and all seven 64×64 assets. Existing
 content naming tests continue to validate type-first IDs and resource names.
 All behavior remains in the existing registry, tools and growth owners;
 the change is pack content and presentation assets.
+
+## October 2026 fantasy tree expansion
+
+The 36 essence-bound fantasy families are registered from the authored folders
+under `textures/blocks/trees/{species}/`. Their five uploaded 64×64 tiles
+are `top.png`, `side.png`, `stripped.png`, `planks.png` and
+`leaves.png`. The stripped log top uses the available `stripped.png`.
+Both natural and hollow variants share their appropriate materials.
+
+Existing authored tree IDs are preserved. Their deleted material PNG references
+use existing Oak assets; deleted sapling sprites use
+`textures/objects/sapling_oak.png`. New saplings use the same Oak fallback
+until bespoke sprite assets are authored, while growing into their own species.
+Natural generation places the new fantasy tree families within thematic biomes,
+using the existing structure field and variant-group contract. The 36 groups
+currently each provide two distinct adult geometry variants from the validated
+Oak tree set, recolored through their own logs and leaves; no new renderer or
+worldgen system is introduced.
+
+Legacy paragraphs in this historical art-direction document describe the
+prior seven-tile authoring work; the five-tile uploaded asset set and explicit
+Oak fallback take precedence for the current default pack.

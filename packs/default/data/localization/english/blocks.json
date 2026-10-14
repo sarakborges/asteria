@@ -475,5 +475,653 @@
   },
   "asteria:planks_windwood": {
     "/name": "Windwood Planks"
+  },
+  "asteria:log_cinderwood": {
+    "/name": "Cinderwood Log"
+  },
+  "asteria:log_cinderwood_hollow": {
+    "/name": "Hollow Cinderwood Log"
+  },
+  "asteria:log_cinderwood_stripped": {
+    "/name": "Stripped Cinderwood Log"
+  },
+  "asteria:log_cinderwood_stripped_hollow": {
+    "/name": "Stripped Hollow Cinderwood Log"
+  },
+  "asteria:planks_cinderwood": {
+    "/name": "Cinderwood Planks"
+  },
+  "asteria:leaf_cinderwood": {
+    "/name": "Cinderwood Leaves"
+  },
+  "asteria:log_briarflame": {
+    "/name": "Briarflame Log"
+  },
+  "asteria:log_briarflame_hollow": {
+    "/name": "Hollow Briarflame Log"
+  },
+  "asteria:log_briarflame_stripped": {
+    "/name": "Stripped Briarflame Log"
+  },
+  "asteria:log_briarflame_stripped_hollow": {
+    "/name": "Stripped Hollow Briarflame Log"
+  },
+  "asteria:planks_briarflame": {
+    "/name": "Briarflame Planks"
+  },
+  "asteria:leaf_briarflame": {
+    "/name": "Briarflame Leaves"
+  },
+  "asteria:log_ashveil": {
+    "/name": "Ashveil Log"
+  },
+  "asteria:log_ashveil_hollow": {
+    "/name": "Hollow Ashveil Log"
+  },
+  "asteria:log_ashveil_stripped": {
+    "/name": "Stripped Ashveil Log"
+  },
+  "asteria:log_ashveil_stripped_hollow": {
+    "/name": "Stripped Hollow Ashveil Log"
+  },
+  "asteria:planks_ashveil": {
+    "/name": "Ashveil Planks"
+  },
+  "asteria:leaf_ashveil": {
+    "/name": "Ashveil Leaves"
+  },
+  "asteria:log_embercoil": {
+    "/name": "Embercoil Log"
+  },
+  "asteria:log_embercoil_hollow": {
+    "/name": "Hollow Embercoil Log"
+  },
+  "asteria:log_embercoil_stripped": {
+    "/name": "Stripped Embercoil Log"
+  },
+  "asteria:log_embercoil_stripped_hollow": {
+    "/name": "Stripped Hollow Embercoil Log"
+  },
+  "asteria:planks_embercoil": {
+    "/name": "Embercoil Planks"
+  },
+  "asteria:leaf_embercoil": {
+    "/name": "Embercoil Leaves"
+  },
+  "asteria:log_nacreveil": {
+    "/name": "Nacreveil Log"
+  },
+  "asteria:log_nacreveil_hollow": {
+    "/name": "Hollow Nacreveil Log"
+  },
+  "asteria:log_nacreveil_stripped": {
+    "/name": "Stripped Nacreveil Log"
+  },
+  "asteria:log_nacreveil_stripped_hollow": {
+    "/name": "Stripped Hollow Nacreveil Log"
+  },
+  "asteria:planks_nacreveil": {
+    "/name": "Nacreveil Planks"
+  },
+  "asteria:leaf_nacreveil": {
+    "/name": "Nacreveil Leaves"
+  },
+  "asteria:log_brinesong": {
+    "/name": "Brinesong Log"
+  },
+  "asteria:log_brinesong_hollow": {
+    "/name": "Hollow Brinesong Log"
+  },
+  "asteria:log_brinesong_stripped": {
+    "/name": "Stripped Brinesong Log"
+  },
+  "asteria:log_brinesong_stripped_hollow": {
+    "/name": "Stripped Hollow Brinesong Log"
+  },
+  "asteria:planks_brinesong": {
+    "/name": "Brinesong Planks"
+  },
+  "asteria:leaf_brinesong": {
+    "/name": "Brinesong Leaves"
+  },
+  "asteria:log_coralith": {
+    "/name": "Coralith Log"
+  },
+  "asteria:log_coralith_hollow": {
+    "/name": "Hollow Coralith Log"
+  },
+  "asteria:log_coralith_stripped": {
+    "/name": "Stripped Coralith Log"
+  },
+  "asteria:log_coralith_stripped_hollow": {
+    "/name": "Stripped Hollow Coralith Log"
+  },
+  "asteria:planks_coralith": {
+    "/name": "Coralith Planks"
+  },
+  "asteria:leaf_coralith": {
+    "/name": "Coralith Leaves"
+  },
+  "asteria:log_mirewake": {
+    "/name": "Mirewake Log"
+  },
+  "asteria:log_mirewake_hollow": {
+    "/name": "Hollow Mirewake Log"
+  },
+  "asteria:log_mirewake_stripped": {
+    "/name": "Stripped Mirewake Log"
+  },
+  "asteria:log_mirewake_stripped_hollow": {
+    "/name": "Stripped Hollow Mirewake Log"
+  },
+  "asteria:planks_mirewake": {
+    "/name": "Mirewake Planks"
+  },
+  "asteria:leaf_mirewake": {
+    "/name": "Mirewake Leaves"
+  },
+  "asteria:log_ferrumbark": {
+    "/name": "Ferrumbark Log"
+  },
+  "asteria:log_ferrumbark_hollow": {
+    "/name": "Hollow Ferrumbark Log"
+  },
+  "asteria:log_ferrumbark_stripped": {
+    "/name": "Stripped Ferrumbark Log"
+  },
+  "asteria:log_ferrumbark_stripped_hollow": {
+    "/name": "Stripped Hollow Ferrumbark Log"
+  },
+  "asteria:planks_ferrumbark": {
+    "/name": "Ferrumbark Planks"
+  },
+  "asteria:leaf_ferrumbark": {
+    "/name": "Ferrumbark Leaves"
+  },
+  "asteria:log_geodera": {
+    "/name": "Geodera Log"
+  },
+  "asteria:log_geodera_hollow": {
+    "/name": "Hollow Geodera Log"
+  },
+  "asteria:log_geodera_stripped": {
+    "/name": "Stripped Geodera Log"
+  },
+  "asteria:log_geodera_stripped_hollow": {
+    "/name": "Stripped Hollow Geodera Log"
+  },
+  "asteria:planks_geodera": {
+    "/name": "Geodera Planks"
+  },
+  "asteria:leaf_geodera": {
+    "/name": "Geodera Leaves"
+  },
+  "asteria:log_ambermaw": {
+    "/name": "Ambermaw Log"
+  },
+  "asteria:log_ambermaw_hollow": {
+    "/name": "Hollow Ambermaw Log"
+  },
+  "asteria:log_ambermaw_stripped": {
+    "/name": "Stripped Ambermaw Log"
+  },
+  "asteria:log_ambermaw_stripped_hollow": {
+    "/name": "Stripped Hollow Ambermaw Log"
+  },
+  "asteria:planks_ambermaw": {
+    "/name": "Ambermaw Planks"
+  },
+  "asteria:leaf_ambermaw": {
+    "/name": "Ambermaw Leaves"
+  },
+  "asteria:log_cragbloom": {
+    "/name": "Cragbloom Log"
+  },
+  "asteria:log_cragbloom_hollow": {
+    "/name": "Hollow Cragbloom Log"
+  },
+  "asteria:log_cragbloom_stripped": {
+    "/name": "Stripped Cragbloom Log"
+  },
+  "asteria:log_cragbloom_stripped_hollow": {
+    "/name": "Stripped Hollow Cragbloom Log"
+  },
+  "asteria:planks_cragbloom": {
+    "/name": "Cragbloom Planks"
+  },
+  "asteria:leaf_cragbloom": {
+    "/name": "Cragbloom Leaves"
+  },
+  "asteria:log_fulminara": {
+    "/name": "Fulminara Log"
+  },
+  "asteria:log_fulminara_hollow": {
+    "/name": "Hollow Fulminara Log"
+  },
+  "asteria:log_fulminara_stripped": {
+    "/name": "Stripped Fulminara Log"
+  },
+  "asteria:log_fulminara_stripped_hollow": {
+    "/name": "Stripped Hollow Fulminara Log"
+  },
+  "asteria:planks_fulminara": {
+    "/name": "Fulminara Planks"
+  },
+  "asteria:leaf_fulminara": {
+    "/name": "Fulminara Leaves"
+  },
+  "asteria:log_coppercoil": {
+    "/name": "Coppercoil Log"
+  },
+  "asteria:log_coppercoil_hollow": {
+    "/name": "Hollow Coppercoil Log"
+  },
+  "asteria:log_coppercoil_stripped": {
+    "/name": "Stripped Coppercoil Log"
+  },
+  "asteria:log_coppercoil_stripped_hollow": {
+    "/name": "Stripped Hollow Coppercoil Log"
+  },
+  "asteria:planks_coppercoil": {
+    "/name": "Coppercoil Planks"
+  },
+  "asteria:leaf_coppercoil": {
+    "/name": "Coppercoil Leaves"
+  },
+  "asteria:log_stormglass": {
+    "/name": "Stormglass Log"
+  },
+  "asteria:log_stormglass_hollow": {
+    "/name": "Hollow Stormglass Log"
+  },
+  "asteria:log_stormglass_stripped": {
+    "/name": "Stripped Stormglass Log"
+  },
+  "asteria:log_stormglass_stripped_hollow": {
+    "/name": "Stripped Hollow Stormglass Log"
+  },
+  "asteria:planks_stormglass": {
+    "/name": "Stormglass Planks"
+  },
+  "asteria:leaf_stormglass": {
+    "/name": "Stormglass Leaves"
+  },
+  "asteria:log_voltress": {
+    "/name": "Voltress Log"
+  },
+  "asteria:log_voltress_hollow": {
+    "/name": "Hollow Voltress Log"
+  },
+  "asteria:log_voltress_stripped": {
+    "/name": "Stripped Voltress Log"
+  },
+  "asteria:log_voltress_stripped_hollow": {
+    "/name": "Stripped Hollow Voltress Log"
+  },
+  "asteria:planks_voltress": {
+    "/name": "Voltress Planks"
+  },
+  "asteria:leaf_voltress": {
+    "/name": "Voltress Leaves"
+  },
+  "asteria:log_frostveil": {
+    "/name": "Frostveil Log"
+  },
+  "asteria:log_frostveil_hollow": {
+    "/name": "Hollow Frostveil Log"
+  },
+  "asteria:log_frostveil_stripped": {
+    "/name": "Stripped Frostveil Log"
+  },
+  "asteria:log_frostveil_stripped_hollow": {
+    "/name": "Stripped Hollow Frostveil Log"
+  },
+  "asteria:planks_frostveil": {
+    "/name": "Frostveil Planks"
+  },
+  "asteria:leaf_frostveil": {
+    "/name": "Frostveil Leaves"
+  },
+  "asteria:log_rimehollow": {
+    "/name": "Rimehollow Log"
+  },
+  "asteria:log_rimehollow_hollow": {
+    "/name": "Hollow Rimehollow Log"
+  },
+  "asteria:log_rimehollow_stripped": {
+    "/name": "Stripped Rimehollow Log"
+  },
+  "asteria:log_rimehollow_stripped_hollow": {
+    "/name": "Stripped Hollow Rimehollow Log"
+  },
+  "asteria:planks_rimehollow": {
+    "/name": "Rimehollow Planks"
+  },
+  "asteria:leaf_rimehollow": {
+    "/name": "Rimehollow Leaves"
+  },
+  "asteria:log_hoarfane": {
+    "/name": "Hoarfane Log"
+  },
+  "asteria:log_hoarfane_hollow": {
+    "/name": "Hollow Hoarfane Log"
+  },
+  "asteria:log_hoarfane_stripped": {
+    "/name": "Stripped Hoarfane Log"
+  },
+  "asteria:log_hoarfane_stripped_hollow": {
+    "/name": "Stripped Hollow Hoarfane Log"
+  },
+  "asteria:planks_hoarfane": {
+    "/name": "Hoarfane Planks"
+  },
+  "asteria:leaf_hoarfane": {
+    "/name": "Hoarfane Leaves"
+  },
+  "asteria:log_glassmorrow": {
+    "/name": "Glassmorrow Log"
+  },
+  "asteria:log_glassmorrow_hollow": {
+    "/name": "Hollow Glassmorrow Log"
+  },
+  "asteria:log_glassmorrow_stripped": {
+    "/name": "Stripped Glassmorrow Log"
+  },
+  "asteria:log_glassmorrow_stripped_hollow": {
+    "/name": "Stripped Hollow Glassmorrow Log"
+  },
+  "asteria:planks_glassmorrow": {
+    "/name": "Glassmorrow Planks"
+  },
+  "asteria:leaf_glassmorrow": {
+    "/name": "Glassmorrow Leaves"
+  },
+  "asteria:log_skyweave": {
+    "/name": "Skyweave Log"
+  },
+  "asteria:log_skyweave_hollow": {
+    "/name": "Hollow Skyweave Log"
+  },
+  "asteria:log_skyweave_stripped": {
+    "/name": "Stripped Skyweave Log"
+  },
+  "asteria:log_skyweave_stripped_hollow": {
+    "/name": "Stripped Hollow Skyweave Log"
+  },
+  "asteria:planks_skyweave": {
+    "/name": "Skyweave Planks"
+  },
+  "asteria:leaf_skyweave": {
+    "/name": "Skyweave Leaves"
+  },
+  "asteria:log_galeheart": {
+    "/name": "Galeheart Log"
+  },
+  "asteria:log_galeheart_hollow": {
+    "/name": "Hollow Galeheart Log"
+  },
+  "asteria:log_galeheart_stripped": {
+    "/name": "Stripped Galeheart Log"
+  },
+  "asteria:log_galeheart_stripped_hollow": {
+    "/name": "Stripped Hollow Galeheart Log"
+  },
+  "asteria:planks_galeheart": {
+    "/name": "Galeheart Planks"
+  },
+  "asteria:leaf_galeheart": {
+    "/name": "Galeheart Leaves"
+  },
+  "asteria:log_cloudspindle": {
+    "/name": "Cloudspindle Log"
+  },
+  "asteria:log_cloudspindle_hollow": {
+    "/name": "Hollow Cloudspindle Log"
+  },
+  "asteria:log_cloudspindle_stripped": {
+    "/name": "Stripped Cloudspindle Log"
+  },
+  "asteria:log_cloudspindle_stripped_hollow": {
+    "/name": "Stripped Hollow Cloudspindle Log"
+  },
+  "asteria:planks_cloudspindle": {
+    "/name": "Cloudspindle Planks"
+  },
+  "asteria:leaf_cloudspindle": {
+    "/name": "Cloudspindle Leaves"
+  },
+  "asteria:log_zephyra": {
+    "/name": "Zephyra Log"
+  },
+  "asteria:log_zephyra_hollow": {
+    "/name": "Hollow Zephyra Log"
+  },
+  "asteria:log_zephyra_stripped": {
+    "/name": "Stripped Zephyra Log"
+  },
+  "asteria:log_zephyra_stripped_hollow": {
+    "/name": "Stripped Hollow Zephyra Log"
+  },
+  "asteria:planks_zephyra": {
+    "/name": "Zephyra Planks"
+  },
+  "asteria:leaf_zephyra": {
+    "/name": "Zephyra Leaves"
+  },
+  "asteria:log_aurorasil": {
+    "/name": "Aurorasil Log"
+  },
+  "asteria:log_aurorasil_hollow": {
+    "/name": "Hollow Aurorasil Log"
+  },
+  "asteria:log_aurorasil_stripped": {
+    "/name": "Stripped Aurorasil Log"
+  },
+  "asteria:log_aurorasil_stripped_hollow": {
+    "/name": "Stripped Hollow Aurorasil Log"
+  },
+  "asteria:planks_aurorasil": {
+    "/name": "Aurorasil Planks"
+  },
+  "asteria:leaf_aurorasil": {
+    "/name": "Aurorasil Leaves"
+  },
+  "asteria:log_dawnlace": {
+    "/name": "Dawnlace Log"
+  },
+  "asteria:log_dawnlace_hollow": {
+    "/name": "Hollow Dawnlace Log"
+  },
+  "asteria:log_dawnlace_stripped": {
+    "/name": "Stripped Dawnlace Log"
+  },
+  "asteria:log_dawnlace_stripped_hollow": {
+    "/name": "Stripped Hollow Dawnlace Log"
+  },
+  "asteria:planks_dawnlace": {
+    "/name": "Dawnlace Planks"
+  },
+  "asteria:leaf_dawnlace": {
+    "/name": "Dawnlace Leaves"
+  },
+  "asteria:log_prismara": {
+    "/name": "Prismara Log"
+  },
+  "asteria:log_prismara_hollow": {
+    "/name": "Hollow Prismara Log"
+  },
+  "asteria:log_prismara_stripped": {
+    "/name": "Stripped Prismara Log"
+  },
+  "asteria:log_prismara_stripped_hollow": {
+    "/name": "Stripped Hollow Prismara Log"
+  },
+  "asteria:planks_prismara": {
+    "/name": "Prismara Planks"
+  },
+  "asteria:leaf_prismara": {
+    "/name": "Prismara Leaves"
+  },
+  "asteria:log_solmire": {
+    "/name": "Solmire Log"
+  },
+  "asteria:log_solmire_hollow": {
+    "/name": "Hollow Solmire Log"
+  },
+  "asteria:log_solmire_stripped": {
+    "/name": "Stripped Solmire Log"
+  },
+  "asteria:log_solmire_stripped_hollow": {
+    "/name": "Stripped Hollow Solmire Log"
+  },
+  "asteria:planks_solmire": {
+    "/name": "Solmire Planks"
+  },
+  "asteria:leaf_solmire": {
+    "/name": "Solmire Leaves"
+  },
+  "asteria:log_nighthollow": {
+    "/name": "Nighthollow Log"
+  },
+  "asteria:log_nighthollow_hollow": {
+    "/name": "Hollow Nighthollow Log"
+  },
+  "asteria:log_nighthollow_stripped": {
+    "/name": "Stripped Nighthollow Log"
+  },
+  "asteria:log_nighthollow_stripped_hollow": {
+    "/name": "Stripped Hollow Nighthollow Log"
+  },
+  "asteria:planks_nighthollow": {
+    "/name": "Nighthollow Planks"
+  },
+  "asteria:leaf_nighthollow": {
+    "/name": "Nighthollow Leaves"
+  },
+  "asteria:log_mourningbriar": {
+    "/name": "Mourningbriar Log"
+  },
+  "asteria:log_mourningbriar_hollow": {
+    "/name": "Hollow Mourningbriar Log"
+  },
+  "asteria:log_mourningbriar_stripped": {
+    "/name": "Stripped Mourningbriar Log"
+  },
+  "asteria:log_mourningbriar_stripped_hollow": {
+    "/name": "Stripped Hollow Mourningbriar Log"
+  },
+  "asteria:planks_mourningbriar": {
+    "/name": "Mourningbriar Planks"
+  },
+  "asteria:leaf_mourningbriar": {
+    "/name": "Mourningbriar Leaves"
+  },
+  "asteria:log_eclipseveil": {
+    "/name": "Eclipseveil Log"
+  },
+  "asteria:log_eclipseveil_hollow": {
+    "/name": "Hollow Eclipseveil Log"
+  },
+  "asteria:log_eclipseveil_stripped": {
+    "/name": "Stripped Eclipseveil Log"
+  },
+  "asteria:log_eclipseveil_stripped_hollow": {
+    "/name": "Stripped Hollow Eclipseveil Log"
+  },
+  "asteria:planks_eclipseveil": {
+    "/name": "Eclipseveil Planks"
+  },
+  "asteria:leaf_eclipseveil": {
+    "/name": "Eclipseveil Leaves"
+  },
+  "asteria:log_gloamroot": {
+    "/name": "Gloamroot Log"
+  },
+  "asteria:log_gloamroot_hollow": {
+    "/name": "Hollow Gloamroot Log"
+  },
+  "asteria:log_gloamroot_stripped": {
+    "/name": "Stripped Gloamroot Log"
+  },
+  "asteria:log_gloamroot_stripped_hollow": {
+    "/name": "Stripped Hollow Gloamroot Log"
+  },
+  "asteria:planks_gloamroot": {
+    "/name": "Gloamroot Planks"
+  },
+  "asteria:leaf_gloamroot": {
+    "/name": "Gloamroot Leaves"
+  },
+  "asteria:log_elderbloom": {
+    "/name": "Elderbloom Log"
+  },
+  "asteria:log_elderbloom_hollow": {
+    "/name": "Hollow Elderbloom Log"
+  },
+  "asteria:log_elderbloom_stripped": {
+    "/name": "Stripped Elderbloom Log"
+  },
+  "asteria:log_elderbloom_stripped_hollow": {
+    "/name": "Stripped Hollow Elderbloom Log"
+  },
+  "asteria:planks_elderbloom": {
+    "/name": "Elderbloom Planks"
+  },
+  "asteria:leaf_elderbloom": {
+    "/name": "Elderbloom Leaves"
+  },
+  "asteria:log_mycelora": {
+    "/name": "Mycelora Log"
+  },
+  "asteria:log_mycelora_hollow": {
+    "/name": "Hollow Mycelora Log"
+  },
+  "asteria:log_mycelora_stripped": {
+    "/name": "Stripped Mycelora Log"
+  },
+  "asteria:log_mycelora_stripped_hollow": {
+    "/name": "Stripped Hollow Mycelora Log"
+  },
+  "asteria:planks_mycelora": {
+    "/name": "Mycelora Planks"
+  },
+  "asteria:leaf_mycelora": {
+    "/name": "Mycelora Leaves"
+  },
+  "asteria:log_verdalune": {
+    "/name": "Verdalune Log"
+  },
+  "asteria:log_verdalune_hollow": {
+    "/name": "Hollow Verdalune Log"
+  },
+  "asteria:log_verdalune_stripped": {
+    "/name": "Stripped Verdalune Log"
+  },
+  "asteria:log_verdalune_stripped_hollow": {
+    "/name": "Stripped Hollow Verdalune Log"
+  },
+  "asteria:planks_verdalune": {
+    "/name": "Verdalune Planks"
+  },
+  "asteria:leaf_verdalune": {
+    "/name": "Verdalune Leaves"
+  },
+  "asteria:log_thornsong": {
+    "/name": "Thornsong Log"
+  },
+  "asteria:log_thornsong_hollow": {
+    "/name": "Hollow Thornsong Log"
+  },
+  "asteria:log_thornsong_stripped": {
+    "/name": "Stripped Thornsong Log"
+  },
+  "asteria:log_thornsong_stripped_hollow": {
+    "/name": "Stripped Hollow Thornsong Log"
+  },
+  "asteria:planks_thornsong": {
+    "/name": "Thornsong Planks"
+  },
+  "asteria:leaf_thornsong": {
+    "/name": "Thornsong Leaves"
   }
 }

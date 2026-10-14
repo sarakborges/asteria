@@ -1,0 +1,33 @@
+{
+  "id": "asteria:log_gloamroot",
+  "category": "blocks_wooden",
+  "tags": [
+    "fragmentable"
+  ],
+  "variant": {
+    "family": "asteria:log_gloamroot",
+    "key": "natural"
+  },
+  "textures": {
+    "top": "textures/blocks/trees/gloamroot/top.png",
+    "bottom": "textures/blocks/trees/gloamroot/top.png",
+    "left": "textures/blocks/trees/gloamroot/side.png",
+    "right": "textures/blocks/trees/gloamroot/side.png",
+    "front": "textures/blocks/trees/gloamroot/side.png",
+    "back": "textures/blocks/trees/gloamroot/side.png"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "44107a"
+}

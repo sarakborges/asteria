@@ -1,0 +1,34 @@
+{
+  "id": "asteria:log_cloudspindle_stripped_hollow",
+  "category": "blocks_wooden",
+  "variant": {
+    "family": "asteria:log_cloudspindle",
+    "key": "stripped_hollow"
+  },
+  "shape": {
+    "type": "hollow",
+    "wallThickness": 0.0625
+  },
+  "textures": {
+    "top": "textures/blocks/trees/cloudspindle/stripped.png",
+    "bottom": "textures/blocks/trees/cloudspindle/stripped.png",
+    "left": "textures/blocks/trees/cloudspindle/stripped.png",
+    "right": "textures/blocks/trees/cloudspindle/stripped.png",
+    "front": "textures/blocks/trees/cloudspindle/stripped.png",
+    "back": "textures/blocks/trees/cloudspindle/stripped.png"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "f1fffc"
+}

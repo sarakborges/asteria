@@ -1,0 +1,33 @@
+{
+  "id": "asteria:log_skyweave",
+  "category": "blocks_wooden",
+  "tags": [
+    "fragmentable"
+  ],
+  "variant": {
+    "family": "asteria:log_skyweave",
+    "key": "natural"
+  },
+  "textures": {
+    "top": "textures/blocks/trees/skyweave/top.png",
+    "bottom": "textures/blocks/trees/skyweave/top.png",
+    "left": "textures/blocks/trees/skyweave/side.png",
+    "right": "textures/blocks/trees/skyweave/side.png",
+    "front": "textures/blocks/trees/skyweave/side.png",
+    "back": "textures/blocks/trees/skyweave/side.png"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "18afa8"
+}

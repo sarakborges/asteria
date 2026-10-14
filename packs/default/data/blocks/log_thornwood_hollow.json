@@ -2,12 +2,12 @@
   "id": "asteria:log_thornwood_hollow",
   "category": "blocks_wooden",
   "textures": {
-    "top": "textures/blocks/trees/thornwood/top.png",
-    "bottom": "textures/blocks/trees/thornwood/top.png",
-    "left": "textures/blocks/trees/thornwood/side.png",
-    "right": "textures/blocks/trees/thornwood/side.png",
-    "front": "textures/blocks/trees/thornwood/side.png",
-    "back": "textures/blocks/trees/thornwood/side.png"
+    "top": "textures/blocks/trees/oak/top.png",
+    "bottom": "textures/blocks/trees/oak/top.png",
+    "left": "textures/blocks/trees/oak/side.png",
+    "right": "textures/blocks/trees/oak/side.png",
+    "front": "textures/blocks/trees/oak/side.png",
+    "back": "textures/blocks/trees/oak/side.png"
   },
   "mining": {
     "hardness": 0.8,

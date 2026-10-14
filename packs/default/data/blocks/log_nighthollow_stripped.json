@@ -1,0 +1,33 @@
+{
+  "id": "asteria:log_nighthollow_stripped",
+  "category": "blocks_wooden",
+  "tags": [
+    "fragmentable"
+  ],
+  "variant": {
+    "family": "asteria:log_nighthollow",
+    "key": "stripped"
+  },
+  "textures": {
+    "top": "textures/blocks/trees/nighthollow/stripped.png",
+    "bottom": "textures/blocks/trees/nighthollow/stripped.png",
+    "left": "textures/blocks/trees/nighthollow/stripped.png",
+    "right": "textures/blocks/trees/nighthollow/stripped.png",
+    "front": "textures/blocks/trees/nighthollow/stripped.png",
+    "back": "textures/blocks/trees/nighthollow/stripped.png"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "44107a"
+}

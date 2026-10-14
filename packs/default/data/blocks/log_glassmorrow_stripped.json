@@ -1,0 +1,33 @@
+{
+  "id": "asteria:log_glassmorrow_stripped",
+  "category": "blocks_wooden",
+  "tags": [
+    "fragmentable"
+  ],
+  "variant": {
+    "family": "asteria:log_glassmorrow",
+    "key": "stripped"
+  },
+  "textures": {
+    "top": "textures/blocks/trees/glassmorrow/stripped.png",
+    "bottom": "textures/blocks/trees/glassmorrow/stripped.png",
+    "left": "textures/blocks/trees/glassmorrow/stripped.png",
+    "right": "textures/blocks/trees/glassmorrow/stripped.png",
+    "front": "textures/blocks/trees/glassmorrow/stripped.png",
+    "back": "textures/blocks/trees/glassmorrow/stripped.png"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "f6fdff"
+}

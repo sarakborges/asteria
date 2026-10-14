@@ -1,0 +1,24 @@
+{
+  "id": "asteria:planks_aurorasil",
+  "category": "blocks_wooden",
+  "tags": [
+    "fragmentable"
+  ],
+  "textures": {
+    "top": "textures/blocks/trees/aurorasil/planks.png",
+    "bottom": "textures/blocks/trees/aurorasil/planks.png",
+    "left": "textures/blocks/trees/aurorasil/planks.png",
+    "right": "textures/blocks/trees/aurorasil/planks.png",
+    "front": "textures/blocks/trees/aurorasil/planks.png",
+    "back": "textures/blocks/trees/aurorasil/planks.png"
+  },
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "f56bb6"
+}

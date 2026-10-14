@@ -1,0 +1,33 @@
+{
+  "id": "asteria:log_nacreveil",
+  "category": "blocks_wooden",
+  "tags": [
+    "fragmentable"
+  ],
+  "variant": {
+    "family": "asteria:log_nacreveil",
+    "key": "natural"
+  },
+  "textures": {
+    "top": "textures/blocks/trees/nacreveil/top.png",
+    "bottom": "textures/blocks/trees/nacreveil/top.png",
+    "left": "textures/blocks/trees/nacreveil/side.png",
+    "right": "textures/blocks/trees/nacreveil/side.png",
+    "front": "textures/blocks/trees/nacreveil/side.png",
+    "back": "textures/blocks/trees/nacreveil/side.png"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "123eaf"
+}

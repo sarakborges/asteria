@@ -1,0 +1,24 @@
+{
+  "id": "asteria:planks_geodera",
+  "category": "blocks_wooden",
+  "tags": [
+    "fragmentable"
+  ],
+  "textures": {
+    "top": "textures/blocks/trees/geodera/planks.png",
+    "bottom": "textures/blocks/trees/geodera/planks.png",
+    "left": "textures/blocks/trees/geodera/planks.png",
+    "right": "textures/blocks/trees/geodera/planks.png",
+    "front": "textures/blocks/trees/geodera/planks.png",
+    "back": "textures/blocks/trees/geodera/planks.png"
+  },
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "2f2a2b"
+}

@@ -1,0 +1,34 @@
+{
+  "id": "asteria:log_elderbloom_hollow",
+  "category": "blocks_wooden",
+  "variant": {
+    "family": "asteria:log_elderbloom",
+    "key": "hollow"
+  },
+  "shape": {
+    "type": "hollow",
+    "wallThickness": 0.0625
+  },
+  "textures": {
+    "top": "textures/blocks/trees/elderbloom/top.png",
+    "bottom": "textures/blocks/trees/elderbloom/top.png",
+    "left": "textures/blocks/trees/elderbloom/side.png",
+    "right": "textures/blocks/trees/elderbloom/side.png",
+    "front": "textures/blocks/trees/elderbloom/side.png",
+    "back": "textures/blocks/trees/elderbloom/side.png"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "2d7b14"
+}

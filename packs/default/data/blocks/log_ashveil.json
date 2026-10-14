@@ -1,0 +1,33 @@
+{
+  "id": "asteria:log_ashveil",
+  "category": "blocks_wooden",
+  "tags": [
+    "fragmentable"
+  ],
+  "variant": {
+    "family": "asteria:log_ashveil",
+    "key": "natural"
+  },
+  "textures": {
+    "top": "textures/blocks/trees/ashveil/top.png",
+    "bottom": "textures/blocks/trees/ashveil/top.png",
+    "left": "textures/blocks/trees/ashveil/side.png",
+    "right": "textures/blocks/trees/ashveil/side.png",
+    "front": "textures/blocks/trees/ashveil/side.png",
+    "back": "textures/blocks/trees/ashveil/side.png"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "f06a1c"
+}

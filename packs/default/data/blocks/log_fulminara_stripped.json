@@ -1,0 +1,33 @@
+{
+  "id": "asteria:log_fulminara_stripped",
+  "category": "blocks_wooden",
+  "tags": [
+    "fragmentable"
+  ],
+  "variant": {
+    "family": "asteria:log_fulminara",
+    "key": "stripped"
+  },
+  "textures": {
+    "top": "textures/blocks/trees/fulminara/stripped.png",
+    "bottom": "textures/blocks/trees/fulminara/stripped.png",
+    "left": "textures/blocks/trees/fulminara/stripped.png",
+    "right": "textures/blocks/trees/fulminara/stripped.png",
+    "front": "textures/blocks/trees/fulminara/stripped.png",
+    "back": "textures/blocks/trees/fulminara/stripped.png"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "ffd21f"
+}

@@ -70,22 +70,17 @@ public sealed class ContentNamingTests
     public void TreeIdsAndVariantFamiliesFollowOakSpeciesOrder()
     {
         var data = Path.Combine(AppContext.BaseDirectory, "packs", "default", "data");
-        var treeSpeciesByFolder = new Dictionary<string, string>(StringComparer.Ordinal);
-        foreach (var file in Directory.EnumerateFiles(Path.Combine(data, "blocks"), "log_*.json")
-                     .OrderBy(path => path, StringComparer.Ordinal))
-        {
-            using var document = JsonDocument.Parse(File.ReadAllText(file));
-            var root = document.RootElement;
-            if (!root.TryGetProperty("variant", out var variant) ||
-                variant.GetProperty("key").GetString() != "natural")
-                continue;
-            var naturalLogPath = Strings(root).FirstOrDefault(value =>
-                value.StartsWith("textures/blocks/trees/", StringComparison.Ordinal));
-            if (naturalLogPath is null)
-                continue;
-            var species = root.GetProperty("id").GetString()!["asteria:log_".Length..];
-            Assert.True(treeSpeciesByFolder.TryAdd(naturalLogPath.Split('/')[3], species));
-        }
+        var families = Directory.EnumerateFiles(Path.Combine(data, "blocks"), "log_*.json")
+            .Where(file =>
+            {
+                using var doc = JsonDocument.Parse(File.ReadAllText(file));
+                return doc.RootElement.TryGetProperty("variant", out var variant) &&
+                    variant.GetProperty("key").GetString() == "natural";
+            })
+            .Select(file => Path.GetFileNameWithoutExtension(file)["log_".Length..])
+            .OrderByDescending(species => species.Length)
+            .ThenBy(species => species, StringComparer.Ordinal)
+            .ToArray();
 
         var checkedDefinitions = 0;
         foreach (var file in Directory.EnumerateFiles(Path.Combine(data, "blocks"), "*.json")
@@ -96,24 +91,28 @@ public sealed class ContentNamingTests
             var paths = Strings(root).Where(value =>
                     value.StartsWith("textures/blocks/trees/", StringComparison.Ordinal))
                 .Distinct(StringComparer.Ordinal).ToArray();
-            if (paths.Length == 0)
-                continue;
+            if (paths.Length == 0) continue;
 
             var folder = Assert.Single(paths.Select(path => path.Split('/')[3])
                 .Distinct(StringComparer.Ordinal));
-            Assert.True(treeSpeciesByFolder.TryGetValue(folder, out var species),
-                $"{folder} has no natural log family.");
             var id = root.GetProperty("id").GetString()!;
-            var type = paths.Any(path => path.EndsWith("/leaf.png", StringComparison.Ordinal)) ? "leaf" :
-                paths.Any(path => path.EndsWith("/planks.png", StringComparison.Ordinal)) ? "planks" : "log";
-            var expected = "asteria:" + type + "_" + species;
-            Assert.True(id == expected || id.StartsWith(expected + "_", StringComparison.Ordinal),
-                $"{id} must use {expected} as its type/species prefix.");
+            var type = id.StartsWith("asteria:leaf_", StringComparison.Ordinal) ? "leaf" :
+                id.StartsWith("asteria:planks_", StringComparison.Ordinal) ? "planks" : "log";
+            var family = families.FirstOrDefault(species =>
+                id == "asteria:" + type + "_" + species ||
+                id.StartsWith("asteria:" + type + "_" + species + "_",
+                    StringComparison.Ordinal));
+            Assert.False(string.IsNullOrEmpty(family),
+                $"{id} must belong to an authored natural-log family.");
+            Assert.True(folder == family || folder == "oak",
+                $"{id} uses {folder}; only the family folder or Oak fallback is allowed.");
             if (root.TryGetProperty("variant", out var variant))
-                Assert.Equal("asteria:log_" + species, variant.GetProperty("family").GetString());
+                Assert.Equal("asteria:log_" + family,
+                    variant.GetProperty("family").GetString());
             checkedDefinitions++;
         }
-        Assert.True(checkedDefinitions >= 44, "Every existing tree family must be covered.");
+        Assert.True(checkedDefinitions >= 6 * 36,
+            "All 36 fantasy tree families must have their authored block variants.");
     }
 
     [Fact]

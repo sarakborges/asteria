@@ -1,0 +1,33 @@
+{
+  "id": "asteria:log_zephyra",
+  "category": "blocks_wooden",
+  "tags": [
+    "fragmentable"
+  ],
+  "variant": {
+    "family": "asteria:log_zephyra",
+    "key": "natural"
+  },
+  "textures": {
+    "top": "textures/blocks/trees/zephyra/top.png",
+    "bottom": "textures/blocks/trees/zephyra/top.png",
+    "left": "textures/blocks/trees/zephyra/side.png",
+    "right": "textures/blocks/trees/zephyra/side.png",
+    "front": "textures/blocks/trees/zephyra/side.png",
+    "back": "textures/blocks/trees/zephyra/side.png"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "45d8ce"
+}

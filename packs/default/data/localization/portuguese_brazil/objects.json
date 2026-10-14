@@ -139,5 +139,113 @@
   },
   "asteria:wildflower_yellow": {
     "/name": "Flor Silvestre Amarela"
+  },
+  "asteria:sapling_cinderwood": {
+    "/name": "Muda de Cinderwood"
+  },
+  "asteria:sapling_briarflame": {
+    "/name": "Muda de Briarflame"
+  },
+  "asteria:sapling_ashveil": {
+    "/name": "Muda de Ashveil"
+  },
+  "asteria:sapling_embercoil": {
+    "/name": "Muda de Embercoil"
+  },
+  "asteria:sapling_nacreveil": {
+    "/name": "Muda de Nacreveil"
+  },
+  "asteria:sapling_brinesong": {
+    "/name": "Muda de Brinesong"
+  },
+  "asteria:sapling_coralith": {
+    "/name": "Muda de Coralith"
+  },
+  "asteria:sapling_mirewake": {
+    "/name": "Muda de Mirewake"
+  },
+  "asteria:sapling_ferrumbark": {
+    "/name": "Muda de Ferrumbark"
+  },
+  "asteria:sapling_geodera": {
+    "/name": "Muda de Geodera"
+  },
+  "asteria:sapling_ambermaw": {
+    "/name": "Muda de Ambermaw"
+  },
+  "asteria:sapling_cragbloom": {
+    "/name": "Muda de Cragbloom"
+  },
+  "asteria:sapling_fulminara": {
+    "/name": "Muda de Fulminara"
+  },
+  "asteria:sapling_coppercoil": {
+    "/name": "Muda de Coppercoil"
+  },
+  "asteria:sapling_stormglass": {
+    "/name": "Muda de Stormglass"
+  },
+  "asteria:sapling_voltress": {
+    "/name": "Muda de Voltress"
+  },
+  "asteria:sapling_frostveil": {
+    "/name": "Muda de Frostveil"
+  },
+  "asteria:sapling_rimehollow": {
+    "/name": "Muda de Rimehollow"
+  },
+  "asteria:sapling_hoarfane": {
+    "/name": "Muda de Hoarfane"
+  },
+  "asteria:sapling_glassmorrow": {
+    "/name": "Muda de Glassmorrow"
+  },
+  "asteria:sapling_skyweave": {
+    "/name": "Muda de Skyweave"
+  },
+  "asteria:sapling_galeheart": {
+    "/name": "Muda de Galeheart"
+  },
+  "asteria:sapling_cloudspindle": {
+    "/name": "Muda de Cloudspindle"
+  },
+  "asteria:sapling_zephyra": {
+    "/name": "Muda de Zephyra"
+  },
+  "asteria:sapling_aurorasil": {
+    "/name": "Muda de Aurorasil"
+  },
+  "asteria:sapling_dawnlace": {
+    "/name": "Muda de Dawnlace"
+  },
+  "asteria:sapling_prismara": {
+    "/name": "Muda de Prismara"
+  },
+  "asteria:sapling_solmire": {
+    "/name": "Muda de Solmire"
+  },
+  "asteria:sapling_nighthollow": {
+    "/name": "Muda de Nighthollow"
+  },
+  "asteria:sapling_mourningbriar": {
+    "/name": "Muda de Mourningbriar"
+  },
+  "asteria:sapling_eclipseveil": {
+    "/name": "Muda de Eclipseveil"
+  },
+  "asteria:sapling_gloamroot": {
+    "/name": "Muda de Gloamroot"
+  },
+  "asteria:sapling_elderbloom": {
+    "/name": "Muda de Elderbloom"
+  },
+  "asteria:sapling_mycelora": {
+    "/name": "Muda de Mycelora"
+  },
+  "asteria:sapling_verdalune": {
+    "/name": "Muda de Verdalune"
+  },
+  "asteria:sapling_thornsong": {
+    "/name": "Muda de Thornsong"
   }
 }

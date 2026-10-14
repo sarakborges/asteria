@@ -1,0 +1,33 @@
+{
+  "id": "asteria:log_briarflame_stripped",
+  "category": "blocks_wooden",
+  "tags": [
+    "fragmentable"
+  ],
+  "variant": {
+    "family": "asteria:log_briarflame",
+    "key": "stripped"
+  },
+  "textures": {
+    "top": "textures/blocks/trees/briarflame/stripped.png",
+    "bottom": "textures/blocks/trees/briarflame/stripped.png",
+    "left": "textures/blocks/trees/briarflame/stripped.png",
+    "right": "textures/blocks/trees/briarflame/stripped.png",
+    "front": "textures/blocks/trees/briarflame/stripped.png",
+    "back": "textures/blocks/trees/briarflame/stripped.png"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "2b1712"
+}

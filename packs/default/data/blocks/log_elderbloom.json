@@ -1,0 +1,33 @@
+{
+  "id": "asteria:log_elderbloom",
+  "category": "blocks_wooden",
+  "tags": [
+    "fragmentable"
+  ],
+  "variant": {
+    "family": "asteria:log_elderbloom",
+    "key": "natural"
+  },
+  "textures": {
+    "top": "textures/blocks/trees/elderbloom/top.png",
+    "bottom": "textures/blocks/trees/elderbloom/top.png",
+    "left": "textures/blocks/trees/elderbloom/side.png",
+    "right": "textures/blocks/trees/elderbloom/side.png",
+    "front": "textures/blocks/trees/elderbloom/side.png",
+    "back": "textures/blocks/trees/elderbloom/side.png"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "2d7b14"
+}

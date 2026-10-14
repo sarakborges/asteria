@@ -117,7 +117,7 @@ public sealed class TreeFamilyContentTests
     [MemberData(nameof(Families))]
     public void TreeTilesKeepThe64PixelAssetContract(string species, string folder)
     {
-        foreach (var asset in new[] { "side", "stripped", "top", "planks", "leaf" })
+        foreach (var asset in new[] { "side", "stripped", "top", "planks", "leaves" })
             AssertTile(Path.Combine(PackRoot, "resources", "textures", "blocks",
                 "trees", folder, asset + ".png"));
 

@@ -1,0 +1,33 @@
+{
+  "id": "asteria:log_hoarfane_stripped",
+  "category": "blocks_wooden",
+  "tags": [
+    "fragmentable"
+  ],
+  "variant": {
+    "family": "asteria:log_hoarfane",
+    "key": "stripped"
+  },
+  "textures": {
+    "top": "textures/blocks/trees/hoarfane/stripped.png",
+    "bottom": "textures/blocks/trees/hoarfane/stripped.png",
+    "left": "textures/blocks/trees/hoarfane/stripped.png",
+    "right": "textures/blocks/trees/hoarfane/stripped.png",
+    "front": "textures/blocks/trees/hoarfane/stripped.png",
+    "back": "textures/blocks/trees/hoarfane/stripped.png"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ],
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "c9f2ff"
+}

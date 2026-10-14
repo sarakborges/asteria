@@ -1,0 +1,24 @@
+{
+  "id": "asteria:planks_skyweave",
+  "category": "blocks_wooden",
+  "tags": [
+    "fragmentable"
+  ],
+  "textures": {
+    "top": "textures/blocks/trees/skyweave/planks.png",
+    "bottom": "textures/blocks/trees/skyweave/planks.png",
+    "left": "textures/blocks/trees/skyweave/planks.png",
+    "right": "textures/blocks/trees/skyweave/planks.png",
+    "front": "textures/blocks/trees/skyweave/planks.png",
+    "back": "textures/blocks/trees/skyweave/planks.png"
+  },
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "requiredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "45d8ce"
+}
