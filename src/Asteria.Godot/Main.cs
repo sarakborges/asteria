@@ -4148,13 +4148,11 @@ public partial class Main : Node3D
         var inventory = _sessionStates.Player.Inventory;
         var selected = inventory.SelectedStack;
         if (selected is null) return;
-        // Consume only after the drop is successfully registered in the
-        // authoritative dimension entity simulation.
+        // Core reserves drop capacity before consuming one selected unit.
+        // Saturation never evicts an older physical item from the world.
         var (position, velocity) = PlayerDropLaunch();
-        _blockEntities.SpawnPlayerDrop(selected.WithQuantity(1), position, velocity);
-        if (!inventory.TryConsumeSelected())
-            throw new InvalidOperationException(
-                "Selected inventory stack changed during player drop.");
+        if (!_blockEntities.TryDropSelectedItem(inventory, position, velocity))
+            return;
         SyncHeldBlock();
         SendHotbarState();
         SendInventoryState();
