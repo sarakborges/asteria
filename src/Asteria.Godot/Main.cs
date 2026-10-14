@@ -62,6 +62,7 @@ public partial class Main : Node3D
     private WorldCatalogScanController _worldCatalog = null!;
     private readonly WorldThumbnailCapture _worldThumbnail = new();
     private WorldLoadController _worldLoad = null!;
+    private bool _clientInitialized;
     private WorldDeleteController _worldDelete = null!;
     private KeybindCaptureController _keybindCapture = null!;
 
@@ -187,6 +188,26 @@ public partial class Main : Node3D
         "asteria:overworld";
 
     public override void _Ready()
+    {
+        try
+        {
+            InitializeClient();
+            _clientInitialized = true;
+        }
+        catch (Exception exception)
+        {
+            // An incomplete Godot _Ready() can still receive frame/input calls.
+            // Report the original startup failure and stop the uninitialized
+            // Main node instead of emitting secondary NullReferenceExceptions.
+            _worldDiagnostics?.Write($"client.initialization.failed error={exception}");
+            GD.PushError($"client.initialization.failed: {exception}");
+            SetProcess(false);
+            SetProcessInput(false);
+            throw;
+        }
+    }
+
+    private void InitializeClient()
     {
         // Window close and Alt+F4 must go through Save and Leave, not an
         // immediate engine shutdown that bypasses the session checkpoint.
@@ -385,6 +406,9 @@ public partial class Main : Node3D
 
     public override void _Input(InputEvent @event)
     {
+        if (!_clientInitialized)
+            return;
+
         if (_keybindCapture.IsCapturing)
         {
             if (@event is InputEventKey captureKey &&
@@ -552,6 +576,9 @@ public partial class Main : Node3D
 
     public override void _Process(double delta)
     {
+        if (!_clientInitialized)
+            return;
+
         _worldDiagnostics?.ObserveFrame(delta);
         PollWorldCatalog();
         PollWorldThumbnail();
