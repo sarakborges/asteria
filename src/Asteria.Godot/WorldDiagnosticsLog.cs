@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using Asteria.Core.Diagnostics;
 using Asteria.Core.World;
+using Asteria.Client.Rendering;
 using Godot;
 
 namespace Asteria.Client;
@@ -80,6 +81,13 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     private double _terrainMeshCaptureMaxMs;
     private int _terrainMeshAccepted;
     private int _terrainMeshStale;
+    private double _meshPublicationRenderMs;
+    private double _meshPublicationCollisionMs;
+    private double _meshPublicationRenderMaxMs;
+    private long _meshPublicationVertices;
+    private long _meshPublicationCollisionTriangles;
+    private int _meshPublicationPublished;
+    private int _meshPublicationStale;
     private int _fluidMeshBatches;
     private double _fluidMeshMs;
     private int _fluidMeshAccepted;
@@ -266,6 +274,18 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         _terrainMeshStale += stale;
     }
 
+    public void ObserveTerrainPublication(ChunkPresentationIntegrationStats stats)
+    {
+        _meshPublicationRenderMs += stats.RenderBuildMilliseconds;
+        _meshPublicationCollisionMs += stats.CollisionBuildMilliseconds;
+        _meshPublicationRenderMaxMs = Math.Max(
+            _meshPublicationRenderMaxMs, stats.RenderBuildMilliseconds);
+        _meshPublicationVertices += stats.RenderVertices;
+        _meshPublicationCollisionTriangles += stats.CollisionTriangles;
+        _meshPublicationPublished += stats.Published;
+        _meshPublicationStale += stats.Stale;
+    }
+
     public void ObserveFluidMesh(double workerMilliseconds, int accepted, int stale)
     {
         _fluidMeshBatches++;
@@ -377,6 +397,12 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"mesh_capture_ms_total={Format1(_terrainMeshCaptureMs)} " +
             $"mesh_capture_ms_max={Format1(_terrainMeshCaptureMaxMs)} " +
             $"mesh_accepted={_terrainMeshAccepted} mesh_stale={_terrainMeshStale} " +
+            $"mesh_publish_count={_meshPublicationPublished} mesh_publish_stale={_meshPublicationStale} " +
+            $"mesh_publish_render_ms_total={Format1(_meshPublicationRenderMs)} " +
+            $"mesh_publish_render_ms_max={Format1(_meshPublicationRenderMaxMs)} " +
+            $"mesh_publish_collision_ms_total={Format1(_meshPublicationCollisionMs)} " +
+            $"mesh_publish_vertices={_meshPublicationVertices} " +
+            $"mesh_publish_collision_triangles={_meshPublicationCollisionTriangles} " +
             $"fluid_mesh_batches={_fluidMeshBatches} fluid_mesh_ms_total={Format1(_fluidMeshMs)} " +
             $"fluid_mesh_accepted={_fluidMeshAccepted} fluid_mesh_stale={_fluidMeshStale} " +
             $"fluid_batches={_fluidBatches} fluid_ms_total={Format1(_fluidMs)} " +
@@ -416,6 +442,13 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         _terrainMeshCaptureMaxMs = 0d;
         _terrainMeshAccepted = 0;
         _terrainMeshStale = 0;
+        _meshPublicationRenderMs = 0d;
+        _meshPublicationCollisionMs = 0d;
+        _meshPublicationRenderMaxMs = 0d;
+        _meshPublicationVertices = 0;
+        _meshPublicationCollisionTriangles = 0;
+        _meshPublicationPublished = 0;
+        _meshPublicationStale = 0;
         _fluidMeshBatches = 0;
         _fluidMeshMs = 0d;
         _fluidMeshAccepted = 0;

@@ -9,7 +9,11 @@ public readonly record struct ChunkPresentationIntegrationStats(
     int Published,
     int Stale,
     int Remaining,
-    double ElapsedMilliseconds)
+    double ElapsedMilliseconds,
+    double RenderBuildMilliseconds = 0d,
+    double CollisionBuildMilliseconds = 0d,
+    long RenderVertices = 0,
+    long CollisionTriangles = 0)
 {
     public int Handled => Published + Stale;
 }
@@ -352,6 +356,10 @@ public sealed class ChunkPresentationController
         var published = 0;
         var stale = 0;
         var processed = 0;
+        var renderBuildMilliseconds = 0d;
+        var collisionBuildMilliseconds = 0d;
+        long renderVertices = 0;
+        long collisionTriangles = 0;
 
         while (processed < maximumPerFrame &&
                TryDequeueTerrainPublication(
@@ -413,11 +421,15 @@ public sealed class ChunkPresentationController
                 continue;
             }
 
-            presentation.Apply(
+            var apply = presentation.Apply(
                 pending.Meshlet.MeshletIndex,
                 pending.Meshlet.Data,
                 _terrainMaterials,
                 pending.Dependencies);
+            renderBuildMilliseconds += apply.RenderBuildMilliseconds;
+            collisionBuildMilliseconds += apply.CollisionBuildMilliseconds;
+            renderVertices += apply.RenderVertices;
+            collisionTriangles += apply.CollisionTriangles;
             // Object mesh resources stay stable; refresh only per-instance
             // voxel-light channels after a changed terrain-light publication.
             if (_world.TryGetChunk(pending.Meshlet.Coord, out var updated) &&
@@ -429,10 +441,10 @@ public sealed class ChunkPresentationController
         stopwatch.Stop();
 
         return new ChunkPresentationIntegrationStats(
-            published,
-            stale,
-            _terrainPublications.Count,
-            stopwatch.Elapsed.TotalMilliseconds);
+            published, stale, _terrainPublications.Count,
+            stopwatch.Elapsed.TotalMilliseconds,
+            renderBuildMilliseconds, collisionBuildMilliseconds,
+            renderVertices, collisionTriangles);
     }
 
     public ChunkPresentationIntegrationStats

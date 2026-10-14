@@ -5661,6 +5661,7 @@ public partial class Main : Node3D
             _terrainMeshPipeline.IntegratePublications(
                 MaxMeshletPublishesPerFrame,
                 _worldFrameBudget);
+        _worldDiagnostics?.ObserveTerrainPublication(stats);
 
         if (_debugHudVisible &&
             stats.Handled > 0)

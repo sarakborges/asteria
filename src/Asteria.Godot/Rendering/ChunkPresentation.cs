@@ -1,8 +1,15 @@
+using System.Diagnostics;
 using Asteria.Core.World;
 using Asteria.Core.Content;
 using Godot;
 
 namespace Asteria.Client.Rendering;
+
+public readonly record struct ChunkPresentationApplyStats(
+    double RenderBuildMilliseconds,
+    double CollisionBuildMilliseconds,
+    int RenderVertices,
+    int CollisionTriangles);
 
 public sealed class ChunkPresentation
 {
@@ -257,7 +264,7 @@ public sealed class ChunkPresentation
                 materials);
     }
 
-    public void Apply(
+    public ChunkPresentationApplyStats Apply(
         int meshletIndex,
         ChunkMeshData data,
         VoxelTerrainMaterialSet materials,
@@ -267,6 +274,7 @@ public sealed class ChunkPresentation
         ValidateMeshletIndex(
             meshletIndex);
 
+        var renderStart = Stopwatch.GetTimestamp();
         if (data.HasRenderGeometry)
         {
             var mesh =
@@ -288,6 +296,10 @@ public sealed class ChunkPresentation
                 _meshes,
                 meshletIndex);
         }
+
+        var renderMilliseconds = Stopwatch.GetElapsedTime(
+            renderStart).TotalMilliseconds;
+        var collisionStart = Stopwatch.GetTimestamp();
 
         if (data.HasCollision)
         {
@@ -316,8 +328,14 @@ public sealed class ChunkPresentation
             _collisionDependencies[meshletIndex] = null;
         }
 
-        MarkTerrainPublished(
-            meshletIndex);
+        var collisionMilliseconds = Stopwatch.GetElapsedTime(
+            collisionStart).TotalMilliseconds;
+        MarkTerrainPublished(meshletIndex);
+        return new ChunkPresentationApplyStats(
+            renderMilliseconds,
+            collisionMilliseconds,
+            data.RenderVertexCount,
+            data.CollisionTriangleCount);
     }
 
     private MeshInstance3D CreateMesh(
