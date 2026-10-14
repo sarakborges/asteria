@@ -176,10 +176,14 @@ public sealed class ObjectLootTableTests
         Assert.False(grass.DropSelf);
 
         var objectCell = new ObjectCell(grass.Id, BlockFace.Top);
-        var position = new WorldVoxelCoord(2, 3, 4);
         var drops = 0;
-        for (ulong tick = 0; tick < 128; tick++)
+        // Vary spatial seeds as well as ticks: low tick bits at one fixed
+        // coordinate need not sample both outcomes of the deterministic roll.
+        for (var sample = 0; sample < 512; sample++)
         {
+            var position = new WorldVoxelCoord(
+                2 + sample * 97, 3, 4 + sample * 37);
+            var tick = (ulong)(100 + sample * 53);
             var first = LootTableRoller.ResolveObject(
                 grass, objectCell, position, catalog, tick);
             var second = LootTableRoller.ResolveObject(
@@ -193,7 +197,7 @@ public sealed class ObjectLootTableTests
             Assert.Equal(1, reward.Quantity);
             drops++;
         }
-        Assert.InRange(drops, 1, 127);
+        Assert.InRange(drops, 1, 511);
     }
 
     [Fact]
