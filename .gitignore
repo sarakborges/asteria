@@ -26,6 +26,10 @@ ui/test-results/
 ui/playwright-report/
 ui/coverage/
 
+# Project-local runtime world saves (only keep Godot ignore marker)
+/worlds/*
+!/worlds/.gdignore
+
 # Runtime logs and generated worldgen diagnostic fixtures
 logs/*.log
 /worldgen-benchmark.json
