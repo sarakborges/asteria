@@ -1,111 +1,40 @@
-# MineClone → Asteria WebUI parity audit
+# MineClone → Asteria: WebUI parity ledger
 
-**Original audit date:** 2026-10-08  
-**Reviewed update:** 2026-10-09 against Asteria `0346901e15a66430a83b143b903005a28608d36c`; open requirements tracked in [MineClone port remaining](MINECLONE_PORT_REMAINING.md).  
-**Correction:** this audit originally compared only MineClone `world-systems-rebuild` and omitted the newer **`main` World Generation section**. The initial parity finding for Create New World was invalid. See [WORLD_CREATION_PARITY.md](WORLD_CREATION_PARITY.md) for the full authoritative comparison.  
-**Original Asteria source snapshot:** `cab6017dfbcef8f20cabf79566ea69d736618d22` (`main` at the original audit)  
-**MineClone reference snapshot:** `e8bc8562abc22eb4a54561c1e7afe8cc086e3dd9` (`world-systems-rebuild`)
+**Reconciled 2026-10-14** against [Asteria `fd28b67b2`](https://github.com/sarakborges/asteria/commit/fd28b67b252bcb26195fcfa10c9cb5f46032ae09), MineClone `main` `a4e9d00` and `world-systems-rebuild` `e8bc856`. The 2026-10-08/09 source audit and its stale "Prioritized correction batches" remain in Git history; they are **not** instructions to re-implement features corrected later. See the [current port ledger](MINECLONE_PORT_REMAINING.md).
 
-## Scope and evidence standard
+**Verdict:** no source-confirmed missing WebUI feature is established by the previous audit after reconciling later commits. **Wired in source** is not the same as **visually verified in the embedded Godot/WRY client**.
 
-**Runtime discrepancy (2026-10-08):** The user's original Godot/WRY screenshot lacked the left navigation and full panels. Chromium tests now assert three sections and sidebar/navigation after implementing World Generation. **This is not a WRY in-game observation**; that verification remains pending.
+## Current implementation inventory
 
-
-Source audit comparing MineClone `src/screens/**`, `src/hud/**`, and `src/ui/**` to Asteria `ui/src/components/{atoms,molecules,organisms,templates,pages}/**`, `ui/src/App.tsx`, state/controllers and relevant Godot adapters. The Asteria component subtree has **63 component directories**, with a colocated Storybook story in every directory: 13 atoms, 15 molecules, 19 organisms, 4 templates and 12 pages.
-
-**This is not a pixel-level screenshot or in-game behavior test.** “Visually scaffolded” means structural primitives and styles exist, *not* verified 1:1 rendering. “Wired” is reserved for visibly connected controllers/authoritative messages. Never infer a runtime producer from a nullable UI field alone. MineClone is the reference, with intentional Asteria divergences explicitly preserved (React/Godot boundaries, Winky Rough Variable, Sphere naming, additional biome label, inventory-over-crafting order).
-
-Statuses: **MATCHING FOUNDATION** (main geometry or semantics correspond, manual screenshot QA still needed), **PARTIAL** (real differences), **PRESENTATION ONLY** (no runtime binding), **ASTERIA EXTENSION** (not an expected MineClone port), and **NOT APPLICABLE** (engine-specific implementation with a better equivalent).
-
-## Screens — inspected, including already created screens
-
-| MineClone reference | Asteria implementation | Status | Evidence / remaining parity |
-| --- | --- | --- | --- |
-| `screens/starting_screen.rs` | `pages/StartingScreenPage` | PARTIAL | Main button order/470×54 sizing, centered brand, cosmic background match in intent. MineClone transitions into settings and controls; Asteria gates those actions by availability. Asteria removed the starting-screen language selector; language remains in Game Settings. Asteria branding is intentionally distinct. |
-| `screens/world_selection.rs` + `world_selection/layout.rs` | `pages/WorldSelectionPage`, `organisms/WorldCard` | **LOAD + DELETE + FAILURE RECOVERY WIRED — WRY QA PENDING** | World cards present native-validated Load/Delete/Recreate; target IDs are validated against the compatible catalog before native requests and synchronous busy locks prevent duplicate actions. Load/delete native failures restore the usable catalog and show operation-specific feedback. Delete confirmation captures/restores keyboard focus, consumes Escape and traps Tab. Core path/symlink preflight remains authoritative; actual Godot/WRY focus and filesystem permission QA remain. |
-| MineClone `main`: `screens/settings_screen/new_world_section.rs` + `layout.rs` | `pages/NewWorldPage` | **THREE PANELS + CORE WIRING; WRY QA PENDING** | Name/Seed/Game Mode, Normal/Flat/Void with Spawn Biome and generator toggles, plus Game Rules are wired. Spawn Biome labels already resolve through the selected language's authored `contentName` mapping. Void now honors the selected eligible biome material for its sole entry platform; Flat supports an explicitly enabled Oceans flag while remaining planar. Create/Randomize intents are locally single-flight. In-game Godot/WRY creation and screenshot parity remain unverified. See `docs/WORLD_CREATION_PARITY.md`. |
-| `screens/settings_screen/layout.rs` + six sections | `pages/SettingsPage`, `pages/SettingsWorkspacePage` | PARTIAL | 280 px sidebar, 22 px columns, 42 px section gaps and scrolling largely correspond. Game settings omit MineClone's integrated **Keybinds** section (Asteria has a separate Controls page instead). World rule section now includes runtime-backed `Spawn Creatures`; embedded viewport parity remains unverified. Basic HUD hints, target position, render distance and language selectors exist. |
-| `screens/controls_screen.rs` | `pages/ControlsPage` + `presentation/controlGroups.ts` | **WIRED, NATIVE QA PENDING** | Four localized groups now include W ×2 Run, native MMB Pick Block, editable Perspective F5, chat T, Enter, history and Tab. Controls uses the shared measured `ScrollArea` (matching Settings and World Selection) rather than a one-off CSS scrollbar. Embedded Godot/WRY input and pixel parity remain unverified. |
-| `screens/pause_menu.rs` | `pages/PauseMenuPage` | **SAVE + LEAVE WIRED — WRY QA PENDING** | Save World and Ctrl+S checkpoint through the same retirement pipeline. Save and Leave now publishes the complete session before returning to the menu; failure restores the archived Sphere. Repeated Godot/WRY entry/exit and visual transitions still require QA. |
-| `screens/loading_screen.rs` | `organisms/LoadingOverlay` | MATCHING FOUNDATION | Cosmic background, 560 px frosted card, 18 px gaps, 12 px progress bar present. Asteria deliberately uses real `WorldLoadingState` progress and additional Sphere label. No fake loading timers should be introduced. |
-
-**Important distinction:** MineClone's editable world-name field belongs to **new-world creation**, not the current in-world World Settings layout. Do not add it in-world just to reach superficial feature count.
-
-## Inventory, crafting, storage and overlays
-
-| Reference | Asteria implementation | Status | Remaining difference |
-| --- | --- | --- | --- |
-| `hud/inventory.rs` + `inventory/layout/player.rs` | `pages/InventoryGameplayPage` + `organisms/PlayerInventoryPanel` | PARTIAL, NATIVE QA PENDING | 3×9 backpack + nine-slot hotbar, cursor/sort/click are wired. Search already matches localized names, IDs and metadata via `inventorySearchMatches` (earlier ID-only claim was stale). Nonmatches now visibly dim **and** become noninteractive in both backpack/hotbar without reordering indices. Embedded Godot/WRY verification remains. |
-| `hud/inventory/layout/creative.rs` | `organisms/CreativeInventoryPanel` | **DATA/CORE/GODOT/REACT WIRED — WRY QA PENDING** | Creative catalog receives authored category descriptors and PNG data URLs; React now preserves order, uses localized labels/icons and metadata-aware search with per-filter scroll memory. Browser/WRY validation still pending. |
-| `hud/character_info.rs`, `hud/player/portrait.rs` | `organisms/CharacterInfoPanel`, `PlayerPortraitPresentation` | **AUTHORITATIVE ARMOR WEAR + OXYGEN HUD WIRED — GODOT/WRY QA PENDING** | Four real equipment slots use Core-owned durable Wayfarer items. The shared Godot model/portrait follows equipment; on confirmed creature hits armor wears and the UI receives a new inventory state. Inventory slots show durability bars and localized tooltips, with item visuals retained as portable wear metadata changes. The player HUD shows a localized Core-owned oxygen meter only while submerged. Verify screenshots, animations, actual contact damage, inventory transitions, death and save/load natively. |
-| `hud/crafting.rs` | `organisms/CraftingPanel` + `CurrentStationPanel` | WIRED — WRY QA PENDING | Pack-authored inventory recipes run through Core transactions and Godot `ui.inventory.craft`; `InventoryGameplayPage` derives live recipes, selection and craftability and supplies `onCraft`. `CurrentStationPanel` has an authored/base station presentation, but station-specific parity and embedded Godot/WRY clicks remain unverified. |
-| `hud/storage_box.rs` | `pages/StorageBoxPage` | WIRED — WRY QA PENDING | `StorageBoxPage` is mounted in `App.tsx`, and Godot routes native storage-box open/close, slot and sorting actions to authoritative Core inventories. Full 3×9 visual/input comparison and save/load restoration in a running client remain to be tested. |
-| `hud/inventory/layout/item.rs`, `hud/item_icon.rs`, `hud/tool_icon.rs`, `hud/block_icon.rs` | `atoms/ItemGlyph`, `molecules/InventorySlot`, `ItemTooltip` | **CODE WIRED / NATIVE QA PENDING** | Authored pack PNG icons and three-face cube/sprite previews flow through validated catalog entries; shared localized metadata names/search drive slots/tooltips. Geometric inventory icons already use canonical 3D rasterized terrain triangles (including microblocks, orientation, dye and layered textures). Tinted Blocks, Objects and Layers use native per-stack sampled biome colors; the hotbar now retains native PNGs/geometry instead of overwriting them with Creative catalog artwork. Native Godot/WRY image fidelity still needs visual QA. |
-| Asteria-only dye/brush palette | `pages/BrushPalettePage` | ASTERIA EXTENSION | No corresponding MineClone screen to reach 1:1. Audit against Asteria's own design system instead. |
-
-**Deliberate layout difference to retain:** Asteria places Inventory above Crafting, whereas MineClone currently uses the reverse order.
-
-## Gameplay HUDs and world-facing presentation
-
-| MineClone reference | Asteria implementation | Status | Remaining difference |
-| --- | --- | --- | --- |
-| `hud/crosshair.rs` | `atoms/Crosshair` + `molecules/InteractionPrompt` | MATCHING FOUNDATION | 18 px crosshair and semantic action hints exist. Verify exact world-interaction visibility and tool-specific hints in live play; they depend on runtime messages. |
-| `hud/hotbar.rs` | `organisms/Hotbar` + `molecules/HotbarSlot` | **METADATA NAMES + IMAGES WIRED — NATIVE QA PENDING** | Nine slots use the same exact metadata-aware catalog identity as inventory. The selected label now includes localized metadata (bucket fluid, Sphere target), and authored block preview faces render in slots. Verify actual Godot/WRY visuals and selected-slot transitions. |
-| `hud/world/*` | `organisms/WorldBanner` + `molecules/Compass` | MATCHING FOUNDATION | 520 px banner, 360×30 compass, 15-degree markers and world coordinates exist. Sphere and biome label are intentional Asteria adaptation. First-person/back-camera bearings remain unchanged and third-person-front reverses the reported bearing by 180°, matching both MineClone branches; Core tests and Godot build pass. Native Godot/WRY compass visual QA remains. |
-| `hud/entity_card.rs`, `hud/player.rs` | `organisms/HudEntityCard`, `PlayerVitals` | PARTIAL | 64 px avatar + 180 px details and 22 px health bar present. **A new native offscreen player portrait is supplied to HUD source; Godot/WRY visual parity remains unverified**; Asteria displays generic localized player name rather than MineClone's explicit name. Stamina is an intentional Asteria extension. |
-| `hud/entity_targeting.rs` + portrait | `HudEntityCard` / `TargetHud` via `state.hud.targetEntity` and target snapshots | PARTIAL, NATIVE QA PENDING | Native target snapshots and attached-layer icons are integrated. The shared creature/portrait GLB factory now respects texture and unlit-only material overrides independently, with per-species model template isolation. Native offscreen portrait material, alpha and lighting still need in-game visual comparison. |
-| `hud/targeting.rs` | `organisms/TargetHud` | **TEXTURED PREVIEW WIRED — VISUAL QA PENDING** | Geometric block targets use the canonical 3D terrain rasterizer. The native target bridge preserves active Layer IDs and samples its Layer icon tint at the target voxel rather than the player's position; React prefers target-specific PNGs over Creative fallback. Authored sprites and occluded faces retain their own previews. Real WRY pixel parity remains to be verified. |
-| `hud/time.rs` | `organisms/WorldClock` | MATCHING FOUNDATION | Day/time component and runtime clock updates exist. |
-| `hud/fps.rs` | `atoms/FpsCounter` | MATCHING FOUNDATION | 250 ms sampling is tracked by Godot and published to WebUI; same fundamental presentation contract. |
-| `hud/chat.rs` + `chat/visual.rs` | `organisms/ChatDock`, `ChatPanel` | **WIRED, NATIVE QA PENDING** | 500 px panel, 330 px/15-line viewport, 64-entry history, seven autocomplete rows and 256-char input. `App` now forwards `actions.activateChatMessage` via `ChatDock.onMessageAction`. Actual Godot/WRY input focus, clickable action rendering and scroll parity remain unverified. |
-| `hud/fluid_immersion.rs` | `Asteria.Godot/Rendering/UnderwaterViewPresentation.cs` | NOT APPLICABLE (adapter equivalent) | Asteria already applies fluid underwater presentation through a Godot overlay shader, not React. **Do not report the whole immersion effect as missing.** Compare tint/opacity per fluid in gameplay. |
-| Status effects, toasts, debug overlay | `StatusEffects`, `ToastStack`, `StatusCard` | ASTERIA EXTENSION | These are legitimate extra Asteria presentation surfaces; ensure they do not conflict with MineClone HUD spatial layout. |
-
-## Shared UI primitives — complete MineClone src/ui comparison
-
-| MineClone `src/ui/` | Asteria equivalent | Status |
+| UI surface | Connected implementation | Evidence and acceptance boundary |
 | --- | --- | --- |
-| `button.rs` | `atoms/Button` | MATCHING FOUNDATION; verify hover/pressed/disabled states visually |
-| `cosmic_background.rs` | `organisms/CosmicBackground` | MATCHING FOUNDATION |
-| `dropdown.rs` | `atoms/Dropdown` | WEBUI INPUT PARITY — NATIVE QA PENDING: Game Settings language/target position use the anchored panel, now with keyboard-adjacent opening, focus/Escape, outside click and compact-viewport bounds. Starting screen intentionally has no language selector. |
-| `numeric_input.rs` | `atoms/NumericInput`, `molecules/NumericStepper`, `atoms/UInt64Input` | WEBUI INPUT PARITY — NATIVE QA PENDING: tick rate uses digit-only validated uint32 edits and bounded stepper, while world seed uses a separate string/BigInt uint64 editor without precision loss; Enter/Escape and invalid drafts have focused browser coverage. |
-| `screen.rs` | `templates/ScreenShell` | MATCHING FOUNDATION (1120 px content; 116/104 px header/footer) |
-| `scrollbar.rs` | `molecules/ScrollArea` | **SHARED WEBUI SCROLLING; NATIVE QA PENDING:** Settings, World Selection, Controls, Chat history and both Creative category/catalog lists use the same measured viewport/track/thumb. Chat preserves bottom-follow only for readers at the bottom. Creative retains bounded scroll offsets per category/search and tab remount. Browser regressions cover scroll/restore; actual Godot/WRY visuals remain unverified. |
-| `selectable.rs` | Selection CSS in `Button`, `Toggle`, inventory slots, recipe/category panels | PARTIAL: selected Buttons/category tabs, toggles and inventory slots now preserve the focus/accent selection palette on hover/press, with Playwright coverage. Remaining controls and actual WRY visuals still need targeted review. |
-| `settings.rs` | `SettingRow`, `SettingsPage`, tokens | MATCHING FOUNDATION |
-| `slider.rs` | `atoms/Slider` | MATCHING FOUNDATION; check focus, step and value display |
-| `surface.rs` | `atoms/Surface` | MATCHING FOUNDATION |
-| `text_input.rs` | `atoms/TextInput` | MATCHING FOUNDATION; verify committed/focused/error states |
-| `theme.rs` | `ui/src/styles/tokens.css` + pack UI tokens | MATCHING FOUNDATION; preserve pack override support |
-| `toggle.rs` | `atoms/Toggle` | MATCHING FOUNDATION |
-| `transition.rs` | `templates/ScreenTransition` | WIRED, NATIVE QA PENDING: shared 160 + 160 ms component handles pre-world and Pause/Settings/Controls navigation; ESC/resume semantics remain immediate |
-| `typography.rs` | `atoms/Text` and Winky Rough Variable | INTENTIONAL ADAPTATION: **do not replace the font family** |
-| `visibility.rs` | Conditional rendering + CSS and state-driven view selection | NOT APPLICABLE as a standalone Bevy abstraction |
+| **Starting Screen** | `StartingScreenPage`, real World Selection/Settings/Controls and Mods/Packs navigation; intentionally Asteria-branded. | `2f7dfe2`, `a67d1f0`; verify live screen layout/keyboard |
+| **World Selection** | Load, Delete with focus-contained confirmation, Recreate on saved-world cards (not Loading), thumbnail previews, error recovery/guarded native actions. | `e0b6d00`, `eb6a16f`, `a16e1f6`; live filesystem and keyboard QA only |
+| **New World / Game Rules** | Three left-nav sections (World Settings, World Generation, Game Rules); unsigned-64 seed, modes Normal/Flat/Void, Spawn Biome localized labels, Single Biome, size, caves/oceans/structures, creature and tick rules; actions single-flight. | `3d8f2a6`, `0bfabac`, `b98c5a4`; real generation connected; see [source contract](WORLD_CREATION_PARITY.md) |
+| **Settings and Controls** | Shared settings shell/ScrollArea, native key capture, editable binds including E, T, F5, pick block, movement, game modes, dropdown/numeric/selection controls and shared transitions. | `b0ef823`, `b6a782b`, `39f66da`; visual/input QA only |
+| **Pause / Death / Loading** | Save-and-leave/exit lifecycle, save failure confirmation, death/respawn state, nonfabricated loading state and immediate ESC semantics. | `45d247b`, `5e8ce0c`, `e68b3a4`; play-session acceptance only |
+| **Survival / Creative inventory** | Real Core-backed backpack/hotbar/cursor/equipment; right/Shift-clicks, Creative fill, metadata-aware search, filtered dimming, true recipe availability, category order/icons and independent fast-scroll memory. | `aaf24aa`, `84ea9ce`, `0de8c35`, `be85ab9`; real WRY clicking/scrolling QA only |
+| **Storage / Crafting / Brush** | `StorageBoxPage`, `CraftingPanel`, Brush palette connected to existing Core/native actions; unavailable actions are not fabricated. | `a9788b6`, `f85f8d7`, `1425`/PR #34; interactive QA only |
+| **Player/creature/world HUD** | Vitals/oxygen/armor wear, portrait, target block/Object/creature/fluid details, active Layer face/spatial tint, real voxel PNGs, native icon precedence, localized metadata and front-camera compass reversal. | `8d78e64`, `d37c81e`, `dfedab1`, `f4cfc9d`; Godot rendering and WRY pixel QA only |
+| **Chat** | Real dock/commands, localized autocomplete, input history, action links, T autofocus, focus handoff and OS refocus, scroll follow-at-bottom. | `1080a23`, `21ca2e9`, `b74c594`, `6cf4738`; live WRY QA only |
+| **Shared primitives** | Screen shell, buttons, toggles, dropdowns, UInt64 and numeric stepper, ScrollArea, selectable states, Storybook fixtures, 160+160ms transitions. | `b0ef823`, `c96fb1b`, `b6a782b`; CSS screenshots cannot prove embedded runtime |
 
-## Prioritized correction batches
+These citations identify representative corrective commits. The authoritative behavior resides in current `ui/src/App.tsx`, `ui/src/controllers/`, `ui/src/state/`, `ui/src/components/` and Godot bridge adapters. Do not infer new work from pre-fix historical statuses.
 
-1. **P0 — native verification:** World Selection **Delete** and Pause **Save and Leave** are now wired. Validate deletion confirmation, filesystem/permission failures, worker retirement, failed-save recovery and repeated entry/exit in Godot/WRY. World **Load**, standalone **Save**, crafting and Storage Box are also wired; do not reimplement them.
-2. **P1 — native Creative QA:** verify authored category icons/order, localization, scroll memory and metadata variant search in Godot/WRY. UI wiring now exists.
-3. **P1 — player and HUD presentation:** native QA for model/portrait, Wayfarer equipment attachment and animations; finish creature-target previews, dynamic health/hurt/death integration and advanced voxel icon parity.
-4. **P1 — incomplete controls/settings:** implement native run/crouch and audit actual camera/control bindings; verify seed editing, localized spawn biome labels and three-pane WRY creation screen.
-5. **P2 — visual component completion:** compare independent scroll regions and gameplay overlays, consistent selectable tokens, and focus/input ownership with the Godot-hosted WebUI.
-6. **P3 — screenshot and runtime QA:** actual MineClone vs Asteria Godot/WRY side-by-side captures at fixed desktop/narrow viewports and empty/full/error/disabled/focus/hover states. CI/Storybook/Chromium tests do not replace this requirement. See [remaining port roadmap](MINECLONE_PORT_REMAINING.md).
+## Confirmed design adaptations — keep
 
-## Invariants
+- **Separate Controls page** rather than adding MineClone's integrated Game Settings Keybinds section again.
+- **Inventory above Crafting**, instead of rearranging it solely to match the reference.
+- **Winky Rough Variable**, Sphere/biome identity in the world HUD, Asteria-only Brush palette and extensions.
+- **Fluid immersion** is a Godot shader overlay, not a React `fluid_immersion` component.
+- **Language selection** lives in Settings, not the Starting Screen.
+- **Save policy** is save on leave/exit, not a separate save button/autosave.
+- **Real loading progress**, never synthetic progress or timers.
 
-- Preserve `Winky Rough Variable`, Atomic Design, Storybook and React → store → controller → bridge boundaries.
-- Never let WebUI own gameplay keyboard/mouse input or invent runtime data/progress.
-- Preserve explicit Asteria differences already agreed upon (Sphere terminology, additional biome label, Survival inventory above Crafting, Godot immersion shader).
-- During parallel command/world work, re-check `main` and the exact affected files before implementing a batch; this audit is a **source snapshot**, not a lock on ongoing development.
+## What is *not* signed off
 
-## Executable browser audit gate — New World (2026-10-08)
+The original 2026-10-08 WRY screenshot lacked parts of the expected New World screen. Subsequent Chromium/browser tests establish that the real three-section React layout exists at desktop and narrow viewports, but they do **not** establish that every embedded Godot/WRY window presents it identically. Likewise, successful DOM/autofocus, portrait, biome-tint and native smoke tests do not prove identical pixels or driver behavior.
 
-The original check only looked for isolated components and missed a visible in-game discrepancy. CI now builds Storybook and starts a real Chromium browser. Tests navigate through the **actual React `App`**, using the real `UiStore` and `UiNavigationController` but deliberately fake/non-operative Godot bridge actions, from Starting → World Selection → New World. Checks assert:
+The existing test surfaces are `ui/tests/browser/`, Storybook stories and `tests/godot/native_presentation_smoke.gd` with its C# smoke companions. Run those plus an interactive A/B capture before calling a visual/input defect confirmed. Report the exact viewport, input steps, actual screenshots/log and reference behavior. **Do not** reimplement scrolling, focus, HUD previews, movement controls or World Creation as generic "port batches" without a reproduced discrepancy.
 
-- The New World sidebar is visibly left of the content panel at 1920 px **and 640 px**; the former Asteria breakpoint at 760 px wrongly moved it above the form, unlike MineClone's persistent left navigation. Phone-only stacking is now limited to 520 px or narrower.
-- Exactly three real sections (World Settings, World Generation, Game Rules), with sidebar labels matching section headings.
-- **Seed resides inside World Settings**, after World Name and before Game Mode; it does **not** belong to Game Rules. This follows MineClone `new_world_settings_section()` exactly.
-- Game Rules contains both tick-rate and Spawn Creatures controls, and their appropriate interactive state.
-- Chromium screenshots at desktop and narrow widths are uploaded as CI artifacts for visual review.
-
-**Boundary:** Chromium Storybook screenshots are *not* proof of what an embedded Godot/WRY executable displays, and are *not* screenshots of the MineClone reference. The reported runtime discrepancy remains open until an in-game A/B comparison is performed.
+**No missing WebUI implementation batch is currently authorized by this reconciliation.**

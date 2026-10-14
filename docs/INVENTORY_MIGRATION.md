@@ -8,7 +8,7 @@ Asteria has a Core-owned inventory with 27 backpack slots, nine selected-hotbar 
 
 Physical drops are accepted transactionally through `DroppedBlockRuntime`: a rejected pickup never removes an entity, and item/tool drops retain their metadata and authored stack limits. Native Godot input handles hotbar selection (1–9 and wheel), inventory (configurable, E default) and dropping (configurable, Q default). Survival consumes on placement; Creative has nonconsuming placement and authored block catalog, with loot suppressed on breaking. Spectator cannot interact or open inventory.
 
-WebUI observes `game.inventory.state` and `game.inventory.catalog` through `InventoryController`/UiStore, including typed item/tool identities, metadata and authored icon previews; it does not intercept global keys. `InventoryGameplayPage` uses existing inventory panels and real runtime-backed crafting recipes; player equipment/portrait and specialized stations still need their own verified gameplay/presentation contracts.
+WebUI observes `game.inventory.state` and `game.inventory.catalog` through `InventoryController`/UiStore, including typed item/tool identities, metadata and authored icon previews; it does not intercept global keys. `InventoryGameplayPage` uses existing inventory panels and real runtime-backed crafting recipes. Equipment/portrait, Storage Box and personal crafting station are connected; real Godot/WRY presentation and interaction acceptance is distinct from implementation.
 
 ## Item and tool stacks (2026-10-08)
 
@@ -18,12 +18,12 @@ WebUI observes `game.inventory.state` and `game.inventory.catalog` through `Inve
 - Item and tool textures are loaded from validated pack resource paths in Godot, encoded as bounded PNG data URLs and transmitted in the Creative catalog, not in repeated per-slot snapshots. The WebUI reuses those icons for the inventory and hotbar, including metadata variants such as the Umbral Dimensional Slicer.
 - Items and tools occupy real inventory slots, can be sorted, moved and obtained from the Creative catalog. All three inventory kinds now support physical drop rendering and pickup. Blocks use existing voxel mesh presentation; item/tool drops use authored pack sprites. Q drops exactly one entry and consumes it only after the world accepts the spawn.
 
-## Still not full parity (updated 2026-10-09)
+## Source parity and remaining native acceptance (reconciled 2026-10-14)
 
 - Brush, Bucket, Artisan's Kit, Shears, Structure Tool and the world-space mining crack overlay have **already** been integrated. Do not treat them as unimplemented.
-- Right-click splitting and Shift-click transfers are now implemented in Core and wired to inventory and storage WebUI (2026-10-11); in-engine mouse/WRY QA remains open. Equipment slots, viewmodel swing, metadata-specific bucket visuals and drop/loot policies must be verified against the reference rather than assumed missing.
-- The portable microblock snapshot exists; unsupported re-placement must be reviewed rather than silently changing geometry.
-- Complete world/session disk snapshots, catalog validation and world loading **exist**. Unfinished World Delete, Save and Leave, historical migration policy and live process-restart QA are tracked in [remaining port roadmap](MINECLONE_PORT_REMAINING.md).
+- Right-click splitting and Shift-click transfers are implemented in Core and wired to inventory and storage WebUI. Equipment slots, first-person viewmodels, metadata-specific bucket visuals, loot tables, and physical drop handling are likewise implemented. In-engine mouse/WRY and appearance QA remains separate from source implementation.
+- Portable microblock snapshots exist; a possible sculpted-block re-placement discrepancy must first be reproduced against MineClone and current Asteria before it may become a port task. It is **not** an established missing subsystem.
+- Complete world/session disk snapshots, catalog validation, World Load/Delete/Recreate, Save and Leave, and failure recovery **exist**. Old-save compatibility is deliberately out of scope. Fresh-process and failure-path Godot/WRY QA remains separate; see the [reconciled port ledger](MINECLONE_PORT_REMAINING.md).
 - Creative category definitions, original PNGs, authored order and localization are integrated through Godot and React. Godot/WRY native clicks, image decoding, localized search and scroll restoration still need in-game verification.
 - End-to-end gameplay interactions in the Godot/WRY WebView remain unverified by Storybook and CI.
 

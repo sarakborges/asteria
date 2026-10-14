@@ -19,7 +19,7 @@ For current **UI** contracts inspect `mineclone/main/src/screens/settings_screen
 | Setting | MineClone `main` behavior | Asteria state |
 | --- | --- | --- |
 | Normal / Flat / Void | Mode selector; Normal defaults true for Caves/Oceans, Flat and Void reset both to false | Implemented: native Core Flat/Void terrain fields and world mode selector; Void uses a deterministic starter platform. |
-| Spawn Biome | Searchable dropdown with Random or selectable *surface* biomes from default dimension, sorted by localized name; excludes ocean | Implemented: scoped searchable dropdown and explicit Core spawn search. Option display names are currently humanized IDs, **not yet biome-localized names**. |
+| Spawn Biome | Searchable dropdown with Random or selectable *surface* biomes from default dimension, sorted by localized name; excludes ocean | Implemented: scoped searchable dropdown and explicit Core spawn search. Option display names resolve via the selected language's authored localized biome names (`0bfabac`). |
 | Biome Size Multiplier | Range **0.5–5.0** in 0.1 increments, slider + numeric editor, default 1.0; **hidden when Single Biome** | Implemented in field rule region bounds and responsive slider/numeric editor. |
 | Spawn Structures | Independent boolean, default true | Implemented: generator omits authored procedural surface structures, retaining separate manual structure APIs. |
 | Single Biome | Independent boolean, default false, **requires explicit Spawn Biome** before Create; Random entry withheld while enabled | Implemented: validates selected Sphere biome and uses a single surface-biome pool. |
@@ -51,6 +51,6 @@ The following acceptance work is implemented in source under PR #61, with furthe
 ## Source and verification rules
 
 - MineClone `main` code is the UI reference; `world-systems-rebuild` is still relevant for runtime internals **but does not include the above UI features**.
-- Asteria's creation flow now applies generation settings to Core and renders all three sections. In-game WRY/visual comparison and localized biome display labels remain pending; CI tests cannot substitute for those.
+- Asteria's creation flow now applies generation settings to Core and renders all three sections. In-game WRY/visual comparison remains pending; localized biome display labels have already been implemented (`0bfabac`). CI tests cannot substitute for embedded runtime QA.
 - MineClone has **no active Spawn Rivers or Spawn Lakes controls** in `main` `new_world_generation_section()` despite Asteria localization keys existing. Do not invent UI toggles merely from localization strings.
 - Seed location is fixed: **World Settings**, not World Generation and not Game Rules.
