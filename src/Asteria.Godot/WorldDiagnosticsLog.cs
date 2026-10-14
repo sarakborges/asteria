@@ -157,6 +157,15 @@ internal sealed class WorldDiagnosticsLog : IDisposable
 
         var result = new WorldDiagnosticsLog(session);
         result.Write($"diagnostics.ready path={session.Path}");
+#if DEBUG
+        const string configuration = "Debug";
+#else
+        const string configuration = "Release";
+#endif
+        result.Write(
+            $"build.identity commit={AsteriaBuildIdentity.Commit} " +
+            $"mvid={typeof(WorldDiagnosticsLog).Module.ModuleVersionId:N} " +
+            $"configuration={configuration}");
         GD.Print($"Asteria session diagnostics: {session.Path}");
         return result;
     }

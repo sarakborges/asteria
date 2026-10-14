@@ -27,4 +27,29 @@
       <LogicalName>asteria.pack.default/%(RecursiveDir)%(Filename)%(Extension)</LogicalName>
     </EmbeddedResource>
   </ItemGroup>
+
+
+  <!-- Embed the commit of the assembly actually compiled, not the HEAD at runtime.
+       The module MVID in diagnostics also distinguishes builds with local edits. -->
+  <ItemGroup>
+    <Compile Include="$(IntermediateOutputPath)AsteriaBuildIdentity.g.cs" />
+  </ItemGroup>
+
+  <Target Name="EmbedAsteriaBuildIdentity" BeforeTargets="CoreCompile">
+    <Exec Command="git rev-parse --verify HEAD"
+          WorkingDirectory="$(MSBuildProjectDirectory)"
+          ConsoleToMSBuild="true"
+          IgnoreExitCode="true">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_AsteriaBuildCommit" />
+      <Output TaskParameter="ExitCode" PropertyName="_AsteriaBuildGitExitCode" />
+    </Exec>
+    <PropertyGroup>
+      <_AsteriaBuildCommit Condition="'$(_AsteriaBuildGitExitCode)' != '0' Or '$(_AsteriaBuildCommit)' == ''">unknown</_AsteriaBuildCommit>
+    </PropertyGroup>
+    <WriteLinesToFile
+        File="$(IntermediateOutputPath)AsteriaBuildIdentity.g.cs"
+        Lines="namespace Asteria.Client { internal static class AsteriaBuildIdentity { internal const string Commit = &quot;$(_AsteriaBuildCommit)&quot;%3B } }"
+        Overwrite="true"
+        WriteOnlyWhenDifferent="true" />
+  </Target>
 </Project>
