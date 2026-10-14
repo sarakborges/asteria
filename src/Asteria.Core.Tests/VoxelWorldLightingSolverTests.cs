@@ -16,8 +16,8 @@ public sealed class VoxelWorldLightingSolverTests
                 world, new BlockRegistry([]), new FluidRegistry([]),
                 [new WorldVoxelCoord(1, 1, 1)],
                 cancellationToken: cancellation.Token));
-        Assert.Equal(VoxelLight.Dark, world.GetLightOrDark(
-            new WorldVoxelCoord(1, 1, 1)));
+        Assert.True(world.GetLightOrDark(
+            new WorldVoxelCoord(1, 1, 1)).IsDark);
     }
 
     [Fact]
