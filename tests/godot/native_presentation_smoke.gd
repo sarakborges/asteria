@@ -117,6 +117,20 @@ func _run() -> void:
 				imported.free()
 	model_root.free()
 
+	# Exercise the production C# skin importer, UV rewrite and actual
+	# skin material. Raw GLB import alone cannot detect invisible skins.
+	var skin_smoke_script := ResourceLoader.load("res://tests/godot/PlayerSkinFactorySmoke.cs")
+	if skin_smoke_script == null:
+		push_error("Native smoke: player skin factory test script is missing")
+		failed = true
+	else:
+		var skin_smoke: Node = skin_smoke_script.new()
+		if skin_smoke == null or not skin_smoke.call("verify"):
+			push_error("Native smoke: player skin factory is not rendering-ready")
+			failed = true
+		if skin_smoke != null:
+			skin_smoke.free()
+
 	# Godot's GLTFDocument material conversion can change the original
 	# mask/culling semantics. The player presentation explicitly applies the
 	# source glTF contract, which must stay stable across art updates.
