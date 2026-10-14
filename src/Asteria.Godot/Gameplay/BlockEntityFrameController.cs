@@ -71,11 +71,10 @@ public sealed class BlockEntityFrameController
         Func<InventoryStack, int> acceptUpTo) =>
         _droppedBlocks.CollectNearbyPartial(position, radius, acceptUpTo);
 
-    public DroppedBlockId SpawnPlayerDrop(
-        InventoryStack stack,
-        Vector3 position,
-        Vector3 velocity) =>
-        _droppedBlocks.Spawn(stack, position, velocity);
+    public bool TryDropSelectedItem(
+        PlayerInventory inventory, Vector3 position, Vector3 velocity) =>
+        PlayerInventorySelectedDrop.TryDrop(
+            inventory, _droppedBlocks, position, velocity);
 
     public int PendingPhysicsUpdates =>
         _updates.Count;
