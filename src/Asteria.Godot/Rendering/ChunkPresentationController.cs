@@ -68,19 +68,31 @@ public sealed class ChunkPresentationController
         if (maximumShapes <= 0 || _deferredCollisionChunks.Count == 0)
             return 0;
 
-        // Only ready presentations near the player enter the prewarm pass.
-        // Global distant backlogs cannot consume the shape budget.
+        // The global deadline may already be spent by generation/residency.
+        // Guarantee one nearby shape progresses each frame; otherwise the
+        // first collision-radius activation must build all remaining shapes
+        // synchronously. More work respects both the local 1ms budget and
+        // the shared frame deadline.
+        var now = Stopwatch.GetTimestamp();
+        var work = FrameWorkBudget.Begin(
+            TimeSpan.FromMilliseconds(1),
+            minimumItems: 1,
+            nowTimestamp: now,
+            timestampFrequency: Stopwatch.Frequency,
+            maximumItems: maximumShapes,
+            globalDeadlineTimestamp: budget.DeadlineTimestamp);
+
+        // Only player-near resident presentations participate. This ordering
+        // is independent of the HashSet's iteration order.
         var nearby = _deferredCollisionChunks
             .Where(coord => residency.ShouldPrewarmPresentationCollision(coord))
             .OrderBy(coord => ChunkStreamingState.Priority(
                 coord, residency.Center, residency.MovementDirection))
-            .Take(maximumShapes)
             .ToArray();
 
-        var built = 0;
         foreach (var coord in nearby)
         {
-            if (budget.Exhausted(Stopwatch.GetTimestamp()))
+            if (work.Exhausted(Stopwatch.GetTimestamp()))
                 break;
 
             if (!_presentations.TryGetValue(coord, out var presentation))
@@ -89,12 +101,20 @@ public sealed class ChunkPresentationController
                 continue;
             }
 
-            if (presentation.PrewarmOneCollision())
-                built++;
+            // Exhaust the nearest chunk's deferred shapes first, up to the
+            // strict per-frame shape cap. Previously each candidate received
+            // only one shape, even when no other nearby work existed.
+            while (!work.Exhausted(Stopwatch.GetTimestamp()) &&
+                   presentation.PrewarmOneCollision())
+            {
+                work.Record();
+            }
+
             if (!presentation.HasDeferredCollisions)
                 _deferredCollisionChunks.Remove(coord);
         }
-        return built;
+
+        return work.ProcessedItems;
     }
 
     public ChunkPresentationController(

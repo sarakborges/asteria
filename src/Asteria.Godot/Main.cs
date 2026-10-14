@@ -663,8 +663,9 @@ public partial class Main : Node3D
             _chunkPresentations.TakeCollisionActivationMilliseconds());
 
         var collisionPrewarmStart = Stopwatch.GetTimestamp();
-        _chunkPresentations.PrewarmCollisionShapes(
+        var prewarmedShapes = _chunkPresentations.PrewarmCollisionShapes(
             _residency, maximumShapes: 2, _worldFrameBudget);
+        _worldDiagnostics?.ObserveCollisionPrewarm(prewarmedShapes);
         _worldDiagnostics?.ObserveStage(
             WorldFrameStage.CollisionPrewarm, collisionPrewarmStart);
         _worldDiagnostics?.ObserveDeferredCollisions(

@@ -60,6 +60,43 @@ public sealed class FrameWorkBudgetTests
     }
 
     [Fact]
+    public void NearCollisionPrewarmMakesOneProgressEvenPastGlobalDeadline()
+    {
+        // A local collision prewarm pass cannot be starved forever by
+        // chunk streaming spending the global frame budget first.
+        var work = FrameWorkBudget.Begin(
+            TimeSpan.FromMilliseconds(1),
+            minimumItems: 1,
+            nowTimestamp: 100,
+            timestampFrequency: 1_000,
+            maximumItems: 2,
+            globalDeadlineTimestamp: 100);
+
+        Assert.False(work.Exhausted(100));
+        work.Record();
+        Assert.True(work.Exhausted(100));
+        Assert.Equal(1, work.ProcessedItems);
+    }
+
+    [Fact]
+    public void CollisionPrewarmCanUseTwoSlotsButNeverExceedCap()
+    {
+        var work = FrameWorkBudget.Begin(
+            TimeSpan.FromSeconds(1),
+            minimumItems: 1,
+            nowTimestamp: 0,
+            timestampFrequency: 1_000,
+            maximumItems: 2,
+            globalDeadlineTimestamp: 500);
+        Assert.False(work.Exhausted(0));
+        work.Record();
+        Assert.False(work.Exhausted(1));
+        work.Record();
+        Assert.True(work.Exhausted(1));
+        Assert.Equal(2, work.ProcessedItems);
+    }
+
+    [Fact]
     public void GlobalDeadlineCanBoundLocalBudget()
     {
         var budget =
