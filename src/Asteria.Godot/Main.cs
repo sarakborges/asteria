@@ -1767,6 +1767,7 @@ public partial class Main : Node3D
                 title = pack.Name,
                 version = pack.Version,
                 description = pack.Description,
+                error = pack.Error,
                 scope = selected.FirstOrDefault(layer => layer.Name == pack.Folder)
                     .Domains.ToString(),
                 enabled = selected.Any(layer => layer.Name == pack.Folder),

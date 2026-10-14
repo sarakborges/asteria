@@ -19,7 +19,7 @@ internal static class ProjectPackFiles
             .ToHashSet(StringComparer.Ordinal);
 
     public static string ExternalRoot(string name) =>
-        Path.Combine(OS.GetUserDataDir(), "packs", name);
+        ProjectPackDirectories.Catalog.Resolve(name);
 
     public static string AbsoluteResourcePath(PackSelection selection, string relativePath)
     {
