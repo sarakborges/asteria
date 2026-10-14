@@ -1,7 +1,7 @@
 using Asteria.Client.Gameplay;
 using Asteria.Core.World;
 using Godot;
-using System.Numerics;
+using NVector3 = System.Numerics.Vector3;
 
 namespace Asteria.Client.Tests;
 
@@ -23,9 +23,9 @@ public partial class TargetFluidHudSmoke : Node
                 target, FluidCell.Source(fluids.GetId("asteria:water")), out _))
                 throw new InvalidOperationException("Could not create HUD fluid fixture.");
 
-            var origin = new Vector3(1.5f, 4.5f, 4.5f);
+            var origin = new NVector3(1.5f, 4.5f, 4.5f);
             var hit = VoxelWorldRaycaster.Raycast(
-                world, blocks, origin, Vector3.UnitX, 6f,
+                world, blocks, origin, NVector3.UnitX, 6f,
                 includeFluidSources: true);
             var tracker = new TargetHudStateTracker();
             if (!tracker.TryCaptureFluid(world, hit, false, out var preview) ||
@@ -46,7 +46,7 @@ public partial class TargetFluidHudSmoke : Node
                     blocks.GetId("asteria:stone"), out _))
                 throw new InvalidDataException("Fluid to block fixture failed.");
             var obstruction = VoxelWorldRaycaster.Raycast(
-                world, blocks, origin, Vector3.UnitX, 6f,
+                world, blocks, origin, NVector3.UnitX, 6f,
                 includeFluidSources: true);
             if (tracker.TryCaptureFluid(world, obstruction, false, out var noFluid) ||
                 noFluid is not null ||
