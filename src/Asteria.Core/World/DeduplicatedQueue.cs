@@ -217,6 +217,23 @@ public sealed class DeduplicatedQueue<T>
         return selected;
     }
 
+    /// <summary>
+    /// Observes a bounded FIFO prefix without changing queue membership.
+    /// The callback must not mutate this queue.
+    /// </summary>
+    public void VisitPrefix(int maximumExamined, Action<T> visit)
+    {
+        if (maximumExamined <= 0)
+            throw new ArgumentOutOfRangeException(nameof(maximumExamined));
+        ArgumentNullException.ThrowIfNull(visit);
+
+        var examined = 0;
+        for (var node = _order.First;
+             node is not null && examined < maximumExamined;
+             node = node.Next, examined++)
+            visit(node.Value);
+    }
+
     public IReadOnlyList<T> ValuesInOrder() =>
         _order.ToArray();
 

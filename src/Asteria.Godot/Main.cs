@@ -5703,7 +5703,9 @@ public partial class Main : Node3D
                 0 => _fluidSimulationRuntime.TryStartReadyWork(),
                 1 => _terrainMeshPipeline.TryStartReadyWork(
                     underStreamingPressure, center, _residency.MovementDirection),
-                2 => _lightingRuntime.TryStartReadyWork(),
+                2 => _lightingRuntime.TryStartReadyWork(
+                    underStreamingPressure ? center : null,
+                    _residency.MovementDirection),
                 _ => _fluidMeshPipeline.TryStartReadyWork(
                     center, _residency.MovementDirection),
             };

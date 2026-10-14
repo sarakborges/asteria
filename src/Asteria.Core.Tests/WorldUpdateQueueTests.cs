@@ -121,6 +121,69 @@ public sealed class WorldUpdateQueueTests
     }
 
     [Fact]
+    public void PrefixVisitIsBoundedAndDoesNotMutateQueue()
+    {
+        var queue = new DeduplicatedQueue<int>();
+        foreach (var value in new[] { 1, 2, 3 })
+            queue.Enqueue(value);
+        var revision = queue.Revision;
+        var seen = new List<int>();
+        queue.VisitPrefix(2, seen.Add);
+        Assert.Equal([1, 2], seen);
+        Assert.Equal([1, 2, 3], queue.ValuesInOrder());
+        Assert.Equal(revision, queue.Revision);
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            queue.VisitPrefix(0, seen.Add));
+    }
+
+    [Fact]
+    public void PressuredLightingPrefersNearestResidentColumnsAndKeepsFifo()
+    {
+        var world = new VoxelWorld();
+        var far = new ChunkCoord(-10, 0, 0);
+        var near = new ChunkCoord(8, 0, 0);
+        var mid = new ChunkCoord(7, 0, 1);
+        foreach (var coord in new[] { far, mid, near })
+            world.InsertChunk(coord, new Chunk());
+        var queue = new WorldUpdateQueue();
+        var farSeed = new WorldVoxelCoord(-160, 2, 0);
+        var nearSeed = new WorldVoxelCoord(128, 2, 0);
+        var midSeed = new WorldVoxelCoord(112, 2, 16);
+        var nearLater = new WorldVoxelCoord(129, 2, 0);
+        foreach (var seed in new[] { farSeed, nearSeed, midSeed, nearLater })
+            queue.EnqueueLighting(seed);
+
+        var chosen = queue.DrainLighting(
+            4, 2, world, new ChunkCoord(8, 0, 1));
+        Assert.Equal(new[] { nearSeed, midSeed, nearLater },
+            chosen.EditedPositions);
+        Assert.Equal([farSeed], queue.DrainLighting(4, 2, world)
+            .EditedPositions);
+        Assert.False(queue.HasLightingWork);
+    }
+
+    [Fact]
+    public void PressuredLightingUsesDirectionalTieBreakDeterministically()
+    {
+        var world = new VoxelWorld();
+        var left = new ChunkCoord(-1, 0, 0);
+        var right = new ChunkCoord(1, 0, 0);
+        world.InsertChunk(left, new Chunk());
+        world.InsertChunk(right, new Chunk());
+        var queue = new WorldUpdateQueue();
+        var leftSeed = new WorldVoxelCoord(-16, 3, 0);
+        var rightSeed = new WorldVoxelCoord(16, 3, 0);
+        queue.EnqueueLighting(leftSeed);
+        queue.EnqueueLighting(rightSeed);
+
+        Assert.Equal([rightSeed], queue.DrainLighting(
+            4, 1, world, ChunkCoord.Zero,
+            new ChunkMovementDirection(1, 0)).EditedPositions);
+        Assert.Equal([leftSeed], queue.DrainLighting(4, 1, world)
+            .EditedPositions);
+    }
+
+    [Fact]
     public void LightingDrainPreservesFirstEnqueueOrderAndDeduplicates()
     {
         var queue = new WorldUpdateQueue();

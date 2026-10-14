@@ -187,7 +187,9 @@ public sealed class WorldUpdateQueue
     public WorldLightingBatch DrainLighting(
         int maximumPositions = int.MaxValue,
         int maximumColumns = int.MaxValue,
-        VoxelWorld? world = null)
+        VoxelWorld? world = null,
+        ChunkCoord? center = null,
+        ChunkMovementDirection movement = default)
     {
         if (maximumPositions <= 0)
             throw new ArgumentOutOfRangeException(nameof(maximumPositions));
@@ -197,10 +199,55 @@ public sealed class WorldUpdateQueue
         if (world is null && maximumColumns == int.MaxValue)
             return new WorldLightingBatch(_lightingEdits.Drain(maximumPositions));
 
-        // Streaming interleaves many columns. A strict FIFO prefix leaves
-        // expensive lighting snapshot workers almost empty whenever a third
-        // column appears early. Gather other seeds for the selected columns
-        // through a bounded scan without reordering deferred work.
+        // Under streaming pressure, prefer columns near the current player
+        // within the same bounded scan used for batching. This avoids
+        // expensive lighting snapshots for distant work while keeping
+        // unselected positions in stable FIFO order for fair fallback runs.
+        HashSet<ChunkColumnCoord>? preferredColumns = null;
+        if (center is { } focus)
+        {
+            var nearest = new List<(
+                ChunkColumnCoord Column, ChunkLoadPriority Priority)>();
+            _lightingEdits.VisitPrefix(MaximumLightingCandidatesPerDrain,
+                position =>
+                {
+                    if (world is not null && !world.IsLoadedAt(position))
+                        return;
+
+                    var column = ChunkColumnCoord.FromChunk(
+                        VoxelCoordinates.FromWorld(
+                            position.X, position.Y, position.Z).Chunk);
+                    if (nearest.Any(entry => entry.Column == column))
+                        return;
+
+                    // Lighting snapshots are grouped by horizontal column,
+                    // so Y is intentionally fixed at the player's level.
+                    var priority = ChunkStreamingState.Priority(
+                        new ChunkCoord(column.X, focus.Y, column.Z),
+                        focus, movement);
+                    if (nearest.Count < maximumColumns)
+                    {
+                        nearest.Add((column, priority));
+                        return;
+                    }
+
+                    var worst = 0;
+                    for (var i = 1; i < nearest.Count; i++)
+                    {
+                        if (nearest[i].Priority.CompareTo(
+                                nearest[worst].Priority) > 0)
+                            worst = i;
+                    }
+
+                    if (priority.CompareTo(nearest[worst].Priority) < 0)
+                        nearest[worst] = (column, priority);
+                });
+            preferredColumns = nearest.Select(entry => entry.Column).ToHashSet();
+        }
+
+        // Interleaved columns must not split a 512-seed worker into tiny
+        // snapshots. Fill the chosen columns via bounded scan and remove
+        // retired work without changing the order of deferred entries.
         var columns = new HashSet<ChunkColumnCoord>();
         return new WorldLightingBatch(_lightingEdits.DrainScanned(
             maximumPositions,
@@ -213,6 +260,11 @@ public sealed class WorldUpdateQueue
                 var column = ChunkColumnCoord.FromChunk(
                     VoxelCoordinates.FromWorld(
                         position.X, position.Y, position.Z).Chunk);
+                if (preferredColumns is not null)
+                    return preferredColumns.Contains(column)
+                        ? QueueScanDecision.Take
+                        : QueueScanDecision.Keep;
+
                 if (!columns.Contains(column) &&
                     columns.Count >= maximumColumns)
                     return QueueScanDecision.Keep;
