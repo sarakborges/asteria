@@ -43,10 +43,7 @@ public sealed class LightingRuntime
     private bool _acceptingWork = true;
 
     private WorldLightingBatch? _inFlightBatch;
-    // A FIFO dispatch after seven near-player snapshots guarantees old
-    // reconciliation work continues under continuous streaming pressure.
-    private const int NearestStartsBeforeFairDrain = 7;
-    private int _nearestStarts;
+    private readonly ProximityDispatchFairness _dispatchFairness = new();
     private double _inFlightCaptureMilliseconds;
 
     // Keep large lighting updates from publishing tens of thousands of
@@ -113,8 +110,8 @@ public sealed class LightingRuntime
             return false;
         }
 
-        var nearest = center is not null &&
-            _nearestStarts < NearestStartsBeforeFairDrain;
+        var nearest = _dispatchFairness.ShouldPrioritizeNearby(
+            center is not null);
         var batch = _updates.DrainLighting(
             MaximumSeedsPerWorker,
             MaximumSeedColumnsPerWorker,
@@ -141,7 +138,7 @@ public sealed class LightingRuntime
         _inFlightCaptureMilliseconds =
             Stopwatch.GetElapsedTime(captureStart).TotalMilliseconds;
         _inFlightBatch = batch;
-        _nearestStarts = nearest ? _nearestStarts + 1 : 0;
+        _dispatchFairness.RecordStarted(nearest);
         return true;
     }
 
