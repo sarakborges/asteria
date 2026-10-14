@@ -12,6 +12,8 @@ public readonly record struct ChunkPresentationApplyStats(
     int CollisionTriangles,
     bool PatchedGpuAttributes = false);
 
+public readonly record struct CollisionActivationStats(double Milliseconds, int EmergencyShapes);
+
 public sealed class ChunkPresentation
 {
     // Store at most 2048 CPU-side light-refresh vertices per presented chunk.
@@ -145,27 +147,28 @@ public sealed class ChunkPresentation
     public void SetVisible(bool visible) =>
         Root.Visible = visible;
 
-    public double SetPhysicsEnabled(bool enabled)
+    public CollisionActivationStats SetPhysicsEnabled(bool enabled)
     {
         if (_physicsEnabled == enabled)
-            return 0d;
+            return default;
 
         var started = Stopwatch.GetTimestamp();
         _physicsEnabled = enabled;
+        var emergencyShapes = 0;
         if (enabled)
         {
-            // This is a correctness fallback if prewarming did not complete
-            // before the player entered the collision radius.
+            // Preserve collision correctness on an unprewarmed activation.
             while (PrewarmOneCollision())
-            {
-            }
+                emergencyShapes++;
         }
 
         foreach (var collision in _collisions)
             if (collision is not null)
                 collision.Disabled = !enabled;
 
-        return Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+        return new CollisionActivationStats(
+            Stopwatch.GetElapsedTime(started).TotalMilliseconds,
+            emergencyShapes);
     }
 
     public bool PrewarmOneCollision()
