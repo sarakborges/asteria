@@ -310,7 +310,11 @@ public static class FluidMeshDataBuilder
                         light.Sky,
                         light.BlockRed,
                         light.BlockGreen,
-                        light.BlockBlue)));
+                        light.BlockBlue),
+                    new ChunkMeshLightSample(
+                        VoxelCoordinates.FromWorld(
+                            position.X, position.Y, position.Z).Local,
+                        BlockFace.Top, (byte)index)));
         }
     }
 
@@ -463,7 +467,11 @@ public static class FluidMeshDataBuilder
                         light.Sky,
                         light.BlockRed,
                         light.BlockGreen,
-                        light.BlockBlue)));
+                        light.BlockBlue),
+                    new ChunkMeshLightSample(
+                        VoxelCoordinates.FromWorld(
+                            position.X, position.Y, position.Z).Local,
+                        face, (byte)index)));
         }
     }
 

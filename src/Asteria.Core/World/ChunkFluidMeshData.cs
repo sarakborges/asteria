@@ -7,7 +7,8 @@ public readonly record struct FluidMeshVertex(
     Vector3 Normal,
     Vector2 Uv,
     Vector4 TintAndAo,
-    Vector4 VoxelLight);
+    Vector4 VoxelLight,
+    ChunkMeshLightSample LightSample = default);
 
 public sealed record ChunkFluidBatchData(
     FluidRuntimeId Fluid,

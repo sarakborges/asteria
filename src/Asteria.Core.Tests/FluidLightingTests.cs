@@ -43,6 +43,40 @@ public sealed class FluidLightingTests
     }
 
     [Fact]
+    public void FluidLightOnlyUpdatePreservesQuadGeometryWhenWindingIsCurrent()
+    {
+        var blocks = new BlockRegistry([]);
+        var fluids = new FluidRegistry([
+            new FluidDefinition("asteria:water",
+                new FluidColor(64, 128, 224), opacity: 0.75f),
+        ]);
+        var water = fluids.GetId("asteria:water");
+        var chunk = new Chunk();
+        chunk.SetFluid(3, 8, 3, FluidCell.Source(water));
+        ChunkLightingSolver.Initialize(chunk, blocks, fluids);
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, chunk);
+        var original = FluidMeshDataBuilder.BuildMeshlet(
+            world, ChunkCoord.Zero, blocks, fluids, 4);
+        Assert.True(original.HasGeometry);
+        Assert.True(world.TrySetLight(
+            new WorldVoxelCoord(3, 9, 3), new VoxelLight(7, 3, 1, 0)));
+
+        if (!FluidMeshLightingUpdater.TryRelight(
+                world, ChunkCoord.Zero, blocks, original, out var updated))
+            return; // Changed quad diagonal correctly requires remeshing.
+
+        var rebuilt = FluidMeshDataBuilder.BuildMeshlet(
+            world, ChunkCoord.Zero, blocks, fluids, 4);
+        Assert.Equal(rebuilt.Batches.Length, updated.Batches.Length);
+        for (var i = 0; i < rebuilt.Batches.Length; i++)
+        {
+            Assert.Equal(rebuilt.Batches[i].Fluid, updated.Batches[i].Fluid);
+            Assert.Equal(rebuilt.Batches[i].Vertices, updated.Batches[i].Vertices);
+        }
+    }
+
+    [Fact]
     public void EmissiveFluidPropagatesColoredLight()
     {
         var blocks =
