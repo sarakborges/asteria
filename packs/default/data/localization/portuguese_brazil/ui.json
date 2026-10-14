@@ -424,5 +424,21 @@
   "newWorld.error.invalidCreatureAttackMode": "Modo de ataque das criaturas inválido.",
   "settings.keepInventory": "Manter inventário",
   "settings.keepInventory.description": "Preserva equipamentos, mochila, barra rápida e cursor ao morrer.",
-  "death.restored": "Este mundo foi restaurado após sua morte. O inventário e os itens no mundo permanecem como foram salvos."
+  "death.restored": "Este mundo foi restaurado após sua morte. O inventário e os itens no mundo permanecem como foram salvos.",
+  "addons.mods": "Mods",
+  "addons.packs": "Packs",
+  "addons.enabled": "Ativado",
+  "addons.domain": "Usar conteúdo",
+  "addons.data": "Data",
+  "addons.resources": "Resources",
+  "addons.both": "Ambos",
+  "addons.restartRequired": "Alterações salvas. Reinicie o Asteria para aplicá-las.",
+  "addons.modsDescription": "Ative apenas mods confiáveis. DLLs rodam com as permissões do jogo.",
+  "addons.packsDescription": "Escolha os packs e sua prioridade. O último pack ativado prevalece.",
+  "addons.default": "Integrado, sempre ativo.",
+  "addons.emptyMods": "Nenhum mod instalado. Adicione pastas em mods nos dados do usuário.",
+  "addons.emptyPacks": "Nenhum pack externo instalado. Adicione pastas em packs nos dados do usuário.",
+  "addons.modSettings": "Configurações do mod (JSON)",
+  "addons.invalidJson": "Digite um objeto JSON válido.",
+  "addons.saveSettings": "Salvar configurações"
 }

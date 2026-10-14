@@ -3,6 +3,7 @@ import type { BridgeMessage } from "../bridge/godotBridge";
 import type { UiStore } from "../state/uiStore";
 
 export type UiNavigationController = {
+  openAddons(tab: "mods" | "packs"): void;
   openWorldSelection(): void;
   openWorldCreation(): void;
   backToStart(): void;
@@ -25,7 +26,7 @@ export function createUiNavigationController(
   postMessage: (type: string, payload?: unknown) => void,
 ): UiNavigationController {
   const setPreWorldScreen = (
-    preWorldScreen: "starting" | "world-selection" | "new-world",
+    preWorldScreen: "starting" | "world-selection" | "new-world" | "mods" | "packs",
   ): void => {
     store.update((state) => ({
       ...state,
@@ -77,12 +78,13 @@ export function createUiNavigationController(
     } else if (state.worldCreation.visible) {
       if (state.navigation.preWorldScreen === "new-world")
         setPreWorldScreen("world-selection");
-      else if (state.navigation.preWorldScreen === "world-selection")
+      else if (state.navigation.preWorldScreen !== "starting")
         setPreWorldScreen("starting");
     }
   };
 
   return {
+    openAddons(tab) { setPreWorldScreen(tab); },
     openWorldSelection() {
       // Explicitly reentering the catalog clears operation feedback from a
       // previous visit. Automatic native rescans must not clear it.

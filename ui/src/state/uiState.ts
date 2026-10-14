@@ -159,6 +159,20 @@ export type BrushPaletteState = {
 
 export type GameMode = "Survival" | "Creative" | "Spectator";
 export type CreatureAttackMode = "Default" | "Peaceful";
+export type PackAddon = {
+  name: string; id: string; title: string; version: string;
+  description: string; enabled: boolean;
+  scope: "Data" | "Resources" | "Both"; order: number;
+};
+export type ModAddon = {
+  id: string; name: string; version: string; enabled: boolean;
+  status: string; settings: string; error: string | null;
+};
+export type AddonsState = {
+  packs: PackAddon[]; mods: ModAddon[];
+  packRestartRequired: boolean; modRestartRequired: boolean; error: string | null;
+};
+
 export type OverlayScreen = "none" | "death" | "pause" | "game" | "world" | "controls" | "inventory" | "brush" | "storage";
 
 export type WorldSettingsState = {
@@ -292,7 +306,7 @@ export type GameplayInventoryState = {
 };
 
 export type UiNavigationState = {
-  preWorldScreen: "starting" | "world-selection" | "new-world";
+  preWorldScreen: "starting" | "world-selection" | "new-world" | "mods" | "packs";
   overlay: OverlayScreen;
   saveFeedback: "saved" | "error" | null;
   exitConfirmation: boolean;
@@ -332,6 +346,7 @@ export type UiState = {
   loading: LoadingState | null;
   worldCreation: WorldCreationState;
   worldCatalog: WorldCatalogState;
+  addons: AddonsState;
   chat: ChatState;
   navigation: UiNavigationState;
   settings: SettingsState;
@@ -380,6 +395,7 @@ export function createInitialUiState(
     },
     loading: null,
     worldCatalog: { status: "unavailable", worlds: [], folderError: false, deleteError: false, loadError: false },
+    addons: { packs: [], mods: [], packRestartRequired: false, modRestartRequired: false, error: null },
     chat: {
       open: false, visible: false, focusRequest: 0, history: [], commands: [],
       catalog: {

@@ -424,5 +424,21 @@
   "newWorld.error.invalidCreatureAttackMode": "Invalid creature attack mode.",
   "settings.keepInventory": "Keep Inventory",
   "settings.keepInventory.description": "Preserve equipped items, backpack, hotbar and cursor when you die.",
-  "death.restored": "This world was restored after your death. Inventory and world drops remain as saved."
+  "death.restored": "This world was restored after your death. Inventory and world drops remain as saved.",
+  "addons.mods": "Mods",
+  "addons.packs": "Packs",
+  "addons.enabled": "Enabled",
+  "addons.domain": "Use content",
+  "addons.data": "Data",
+  "addons.resources": "Resources",
+  "addons.both": "Both",
+  "addons.restartRequired": "Changes saved. Restart Asteria to apply them.",
+  "addons.modsDescription": "Enable trusted code mods. DLLs run with game permissions.",
+  "addons.packsDescription": "Choose external packs and priority. The last enabled pack wins.",
+  "addons.default": "Built-in, always active.",
+  "addons.emptyMods": "No installed mods. Place mod folders in your user data mods directory.",
+  "addons.emptyPacks": "No external packs. Place pack folders in your user data packs directory.",
+  "addons.modSettings": "Mod settings (JSON)",
+  "addons.invalidJson": "Enter a JSON object.",
+  "addons.saveSettings": "Save settings"
 }
