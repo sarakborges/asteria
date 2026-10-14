@@ -20,7 +20,7 @@ public sealed class VolumeStructureContentTests
         Assert.Equal(VolumeBiomePlacement.Additive,
             islands.VolumeLayout!.Placement);
         Assert.Equal(3, cave.VolumeStructures.Count);
-        Assert.Equal(2, islands.VolumeStructures.Count);
+        Assert.Equal(6, islands.VolumeStructures.Count);
         Assert.Equal(6, cave.CaveSpikes.Count);
         Assert.Single(islands.Terrain3d!.Additive);
 

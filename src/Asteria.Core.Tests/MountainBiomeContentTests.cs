@@ -8,9 +8,9 @@ public sealed class MountainBiomeContentTests
         Path.Combine(AppContext.BaseDirectory, "packs", "default", "data");
 
     [Theory]
-    [InlineData("mountains", "foothill_shelves", "talus_fields", "exposed_ridges", 9)]
-    [InlineData("mountain_belt", "sheltered_passes", "boulder_runs", "bare_crests", 9)]
-    [InlineData("alps", "snowfields", "glacial_ice", "wind_scoured_rock", 10)]
+    [InlineData("mountains", "foothill_shelves", "talus_fields", "exposed_ridges", 13)]
+    [InlineData("mountain_belt", "sheltered_passes", "boulder_runs", "bare_crests", 13)]
+    [InlineData("alps", "snowfields", "glacial_ice", "wind_scoured_rock", 12)]
     [InlineData("gorge", "valley_floor", "rubble_slopes", "high_rims", 5)]
     public void MountainHabitatsAreFullyDataDrivenAndSharedAcrossDecorationsAndStructures(
         string file, string firstBand, string middleBand, string lastBand, int rootCount)

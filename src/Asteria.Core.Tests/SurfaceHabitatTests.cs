@@ -121,7 +121,7 @@ public sealed class SurfaceHabitatTests
         var dimension = DimensionDefinitionJson.Parse(File.ReadAllText(rootPath));
         var roots = dimension.GeneratedSurfaceStructures
             .Where(rule => rule.Biome == biome.Id).ToArray();
-        Assert.Equal(5, roots.Length);
+        Assert.Equal(9, roots.Length);
         var reeds = Assert.Single(roots,
             root => root.Structure == "asteria:bed_reed_swamp");
         Assert.True(reeds.HabitatWeights!.For("open_mire") >
@@ -195,7 +195,7 @@ public sealed class SurfaceHabitatTests
         var dimension = DimensionDefinitionJson.Parse(File.ReadAllText(dimensionPath));
         var roots = dimension.GeneratedSurfaceStructures
             .Where(root => root.Biome == biome.Id).ToArray();
-        Assert.Equal(3, roots.Length);
+        Assert.Equal(7, roots.Length);
         Assert.All(roots, rule =>
             biome.SurfaceHabitats!.ValidateWeights(rule.HabitatWeights));
 

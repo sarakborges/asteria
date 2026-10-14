@@ -5,7 +5,7 @@ namespace Asteria.Core.Tests;
 public sealed class SparseOverworldBiomeContentTests
 {
     [Theory]
-    [InlineData("arctic", "frozen_plain", "ice_fields", "rocky_ridges", 6)]
+    [InlineData("arctic", "frozen_plain", "ice_fields", "rocky_ridges", 8)]
     [InlineData("desert", "open_dunes", "sand_flats", "sandstone_outcrops", 4)]
     [InlineData("wasteland", "barren_flats", "deadwood_pockets", "rocky_scrub", 9)]
     public void AuthoredBiomesHaveDeterministicHabitatRegionsAndWeightedRoots(

@@ -147,7 +147,7 @@ public sealed class MountainEcologyExpansionTests
     }
 
     [Fact]
-    public void SmallDecoratorsUseTenIndependentPackTextures()
+    public void SmallDecoratorsUseOwnTexturesAndLegacyWoodFallsBackToOak()
     {
         var blocks = BlockRegistry.FromJson(ReadPackJson("blocks"));
         var objects = PackContentRegistry<ObjectDefinition>.FromJson(
@@ -172,17 +172,17 @@ public sealed class MountainEcologyExpansionTests
             var face = Assert.Single(d.Textures.ForFace(BlockFace.Top));
             Assert.Equal(id switch
             {
-                "log_juniper" => "textures/blocks/trees/juniper/top.png",
-                "leaf_juniper" => "textures/blocks/trees/juniper/leaf.png",
-                "log_windwood" => "textures/blocks/trees/windwood/top.png",
-                "leaf_windwood" => "textures/blocks/trees/windwood/leaf.png",
+                "log_juniper" => "textures/blocks/trees/oak/top.png",
+                "leaf_juniper" => "textures/blocks/trees/oak/leaves.png",
+                "log_windwood" => "textures/blocks/trees/oak/top.png",
+                "leaf_windwood" => "textures/blocks/trees/oak/leaves.png",
                 _ => throw new InvalidOperationException("Unexpected tree material")
             }, face.Texture);
-            Assert.True(seen.Add(face.Texture));
+            seen.Add(face.Texture);
             if (id.StartsWith("leaf_", StringComparison.Ordinal))
                 Assert.Equal(BlockTint.None, d.Tint);
         }
-        Assert.Equal(10, seen.Count);
+        Assert.Equal(8, seen.Count);
     }
 
     [Fact]

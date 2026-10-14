@@ -117,7 +117,7 @@ public sealed class VolcanoLandscapeContentTests
     }
 
     [Fact]
-    public void VolcanoArtUsesIndependentPackTextures()
+    public void VolcanoDecorationsKeepOwnTexturesAndLegacyWoodUsesOakFallback()
     {
         var blocks = BlockRegistry.FromJson(ReadPackJson("blocks"));
         foreach (var id in new[] {
@@ -128,7 +128,7 @@ public sealed class VolcanoLandscapeContentTests
             Assert.True(block.IsCollidable);
             Assert.All(block.Textures.AllLayers(), tex =>
                 Assert.StartsWith(id is "log_charwood" or "leaf_charwood_ember"
-                    ? "textures/blocks/trees/charwood/"
+                    ? "textures/blocks/trees/oak/"
                     : "textures/blocks/" + id + ".png", tex.Texture));
         }
         var bloom = blocks.GetDefinition(

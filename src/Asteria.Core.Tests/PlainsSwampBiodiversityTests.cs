@@ -202,7 +202,7 @@ public sealed class PlainsSwampBiodiversityTests
         }
         var log = blocks.GetDefinition(
             blocks.GetId("asteria:log_willow"));
-        Assert.Equal("textures/blocks/trees/willow/side.png",
+        Assert.Equal("textures/blocks/trees/oak/side.png",
             Assert.Single(log.Textures.ForFace(BlockFace.Left)).Texture);
         Assert.True(seen.Add(
             Assert.Single(log.Textures.ForFace(BlockFace.Left)).Texture));

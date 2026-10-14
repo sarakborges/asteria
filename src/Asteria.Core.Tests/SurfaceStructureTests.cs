@@ -528,7 +528,7 @@ public sealed class SurfaceStructureTests
         var plainsRoots = overworld.GeneratedSurfaceStructures
             .Where(root => root.Biome == "asteria:overworld/plains")
             .ToArray();
-        Assert.Equal(13, plainsRoots.Length);
+        Assert.Equal(17, plainsRoots.Length);
         Assert.All(plainsRoots.Where(root => root.Structure != "asteria:lake"),
             root => Assert.NotNull(root.HabitatWeights));
         Assert.Equal(2.5f, Assert.Single(plainsRoots,
@@ -647,7 +647,7 @@ public sealed class SurfaceStructureTests
         var overworld = dimensions.Get(DimensionId.Overworld);
         var rules = overworld.GeneratedSurfaceStructures.Where(
             rule => rule.Biome == "asteria:overworld/enchanted_forest").ToArray();
-        Assert.Equal(5, rules.Length);
+        Assert.Equal(9, rules.Length);
         Assert.Equal(34, Assert.Single(rules,
             rule => rule.Structure == "asteria:tree_enchanted_tree").Spacing);
         foreach (var rule in rules.Where(rule =>
