@@ -49,8 +49,23 @@ public sealed class ChunkPresentationController
     private readonly DeduplicatedQueue<ChunkCoord> _pendingObjects = new();
     private readonly HashSet<ChunkCoord> _deferredCollisionChunks = [];
     private double _collisionActivationMilliseconds;
+    private int _collisionEmergencyShapes;
 
     public int DeferredCollisionChunkCount => _deferredCollisionChunks.Count;
+
+    public int TakeCollisionEmergencyShapes()
+    {
+        var count = _collisionEmergencyShapes;
+        _collisionEmergencyShapes = 0;
+        return count;
+    }
+
+    private void TrackCollisionActivation(ChunkPresentation presentation, bool enabled)
+    {
+        var stats = presentation.SetPhysicsEnabled(enabled);
+        _collisionActivationMilliseconds += stats.Milliseconds;
+        _collisionEmergencyShapes += stats.EmergencyShapes;
+    }
 
     public double TakeCollisionActivationMilliseconds()
     {
@@ -309,7 +324,7 @@ public sealed class ChunkPresentationController
                 residency.ShouldPresentationBeVisible(
                     coord.Value,
                     currentlyVisible: false));
-            _collisionActivationMilliseconds += presentation.SetPhysicsEnabled(
+            TrackCollisionActivation(presentation, 
                 presentation.IsVisible &&
                 residency.ShouldPresentationHaveCollision(coord.Value));
 
@@ -379,7 +394,7 @@ public sealed class ChunkPresentationController
                 promoted ??= [];
                 promoted.Add((coord, presentation.UnpublishedTerrainMeshlets));
             }
-            _collisionActivationMilliseconds += presentation.SetPhysicsEnabled(
+            TrackCollisionActivation(presentation, 
                 presentation.IsVisible &&
                 residency.ShouldPresentationHaveCollision(coord));
             if (!presentation.HasDeferredCollisions)
