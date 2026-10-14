@@ -341,18 +341,18 @@ public sealed class ChunkPresentation
         var renderStart = Stopwatch.GetTimestamp();
         if (data.HasRenderGeometry)
         {
-            var mesh =
-                _meshes[
-                    meshletIndex] ??
-                CreateMesh(
-                    _meshes,
-                    meshletIndex,
+            var mesh = _meshes[meshletIndex] ??
+                CreateMesh(_meshes, meshletIndex,
                     $"Meshlet_{meshletIndex}");
 
-            mesh.Mesh =
-                ChunkMeshBuilder.CreateMesh(
-                    data,
-                    materials);
+            // Light-only batches keep the original mesh resource and
+            // update only its attribute buffer. If its layout is not
+            // compatible, fall back to a complete mesh publication.
+            if (!(lightOnly && mesh.Mesh is ArrayMesh published &&
+                ChunkMeshBuilder.TryUpdateLighting(published, data)))
+            {
+                mesh.Mesh = ChunkMeshBuilder.CreateMesh(data, materials);
+            }
         }
         else
         {
