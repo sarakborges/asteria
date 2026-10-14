@@ -1,13 +1,13 @@
 {
   "id": "asteria:sapling_thornwood",
   "category": "foliage",
-  "icon": "textures/objects/sapling_thornwood.png",
+  "icon": "textures/objects/sapling_oak.png",
   "placementFaces": [
     "top"
   ],
   "visual": {
     "type": "crossedSprite",
-    "texture": "textures/objects/sapling_thornwood.png",
+    "texture": "textures/objects/sapling_oak.png",
     "width": 0.76,
     "height": 0.76,
     "planes": 4,

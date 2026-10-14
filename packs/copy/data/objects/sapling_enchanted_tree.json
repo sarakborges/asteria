@@ -1,13 +1,13 @@
 {
   "id": "asteria:sapling_enchanted_tree",
   "category": "foliage",
-  "icon": "textures/objects/sapling_enchanted.png",
+  "icon": "textures/objects/sapling_oak.png",
   "placementFaces": [
     "top"
   ],
   "visual": {
     "type": "crossedSprite",
-    "texture": "textures/objects/sapling_enchanted.png",
+    "texture": "textures/objects/sapling_oak.png",
     "width": 0.76,
     "height": 0.8,
     "planes": 4,
