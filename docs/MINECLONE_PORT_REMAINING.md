@@ -769,4 +769,12 @@ MineClone `world-systems-rebuild` reference: `world_objects.rs::detached_object_
 - Cross-checked MineClone `main` and `world-systems-rebuild` `src/hud/item_icon.rs`: main applies player-biome colors to Layer sprites, while rebuild uses static colors.
 - In Asteria, `layer_foliage` and `moss` author foliage tint but inventory/hotbar previously emitted unchanged PNGs. `Main` now resolves their sampled colors in hotbar and Creative catalog. The existing color-driven HUD refresh also recognizes tinted Layer stacks.
 - `InventoryBlockPreviewRenderer` reuses the existing `ObjectIconTint.Apply` RGBA compositor and a single bounded, pack-scoped resource-path+color cache for both Objects and Layers. Layers without tint still use their original PNGs. Native Godot smoke verifies real authored Layer textures, recoloring, cache reuse and preserved alpha; all CI jobs passed on `e4c34e6`.
-- **Remaining:** compare icon colors and scaling in the embedded Godot/WRY UI, including Target HUD spatial tint near biome boundaries. Not an unported icon-color implementation.
+- **Remaining:** visual comparison of icon colors and scaling in the embedded Godot/WRY UI. The active Layer's spatial tint is now computed at the target voxel (not from the player's Creative catalog). Not an unported icon-color implementation.
+
+## Native HUD icon ownership and active Layer target — 2026-10-14
+
+- Audited current HEAD after the Layer icon biome-tint port and confirmed a bridge/UI regression: Godot `game.hud.hotbar` sends sampled per-stack tinted PNGs and block geometry, but `GameHudPage` replaced both with possibly stale `inventory.catalog` entries. React now preserves valid native hotbar icon/preview snapshots and uses catalog images **only when missing**.
+- `TargetHudStateTracker` already included `ActiveLayerId` and `Main.SendTargetHudState` already sent it; `HudController.readTarget` dropped the field. The bridge now validates/preserves this ID and the optional target Layer PNG. The active Layer name/graphic can finally reach the React HUD.
+- The native Layer target icon now resolves the canonical `BiomeTintField` at **the world target's X/Z**, independent of the player's hotbar palette. Untinted Layers use their original pack PNG; tinted Layers reuse the existing bounded `InventoryBlockPreviewRenderer.LayerDataUri` cache. The existing target snapshot gating controls update frequency, with no separate UI tint sampling.
+- Playwright protects native-over-catalog hotbar icons, native-over-catalog target Layer color, and target bridge field/PNG validation. CI succeeded on `d37c81e`.
+- **Still pending:** real Godot/WRY visual acceptance at biomes' borders and UI viewport scaling. No missing icon subsystem remains.
