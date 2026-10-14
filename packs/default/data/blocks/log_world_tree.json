@@ -36,5 +36,6 @@
   "variant": {
     "family": "asteria:log_world_tree",
     "key": "natural"
-  }
+  },
+  "previewColor": "da9b10"
 }

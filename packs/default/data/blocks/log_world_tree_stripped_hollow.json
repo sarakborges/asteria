@@ -3,8 +3,8 @@
   "category": "blocks_wooden",
   "tags": [],
   "textures": {
-    "top": "textures/blocks/trees/world_tree/top.png",
-    "bottom": "textures/blocks/trees/world_tree/top.png",
+    "top": "textures/blocks/trees/world_tree/top_stripped.png",
+    "bottom": "textures/blocks/trees/world_tree/top_stripped.png",
     "left": "textures/blocks/trees/world_tree/stripped.png",
     "right": "textures/blocks/trees/world_tree/stripped.png",
     "front": "textures/blocks/trees/world_tree/stripped.png",
@@ -38,5 +38,6 @@
   "shape": {
     "type": "hollow",
     "wallThickness": 0.0625
-  }
+  },
+  "previewColor": "eab645"
 }

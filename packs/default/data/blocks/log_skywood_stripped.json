@@ -1,9 +1,9 @@
 {
   "id": "asteria:log_skywood_stripped",
-  "category": "blocks_natural",
+  "category": "blocks_wooden",
   "textures": {
-    "top": "textures/blocks/trees/skywood/top.png",
-    "bottom": "textures/blocks/trees/skywood/top.png",
+    "top": "textures/blocks/trees/skywood/top_stripped.png",
+    "bottom": "textures/blocks/trees/skywood/top_stripped.png",
     "left": "textures/blocks/trees/skywood/stripped.png",
     "right": "textures/blocks/trees/skywood/stripped.png",
     "front": "textures/blocks/trees/skywood/stripped.png",
@@ -12,9 +12,12 @@
   "lightDampening": 15,
   "castsShadow": true,
   "mining": {
-    "hardness": 1
+    "hardness": 1,
+    "preferredTools": [
+      "hatchet"
+    ]
   },
-  "previewColor": "98bbae",
+  "previewColor": "a5d5c3",
   "variant": {
     "family": "asteria:log_skywood",
     "key": "stripped"
@@ -23,5 +26,8 @@
     "y",
     "z",
     "x"
+  ],
+  "tags": [
+    "fragmentable"
   ]
 }

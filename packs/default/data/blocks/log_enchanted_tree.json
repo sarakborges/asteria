@@ -36,5 +36,6 @@
   "variant": {
     "family": "asteria:log_enchanted_tree",
     "key": "natural"
-  }
+  },
+  "previewColor": "0b59d8"
 }

@@ -17,7 +17,7 @@
   },
   "lightDampening": 15,
   "castsShadow": true,
-  "previewColor": "685044",
+  "previewColor": "572d1d",
   "variant": {
     "family": "asteria:log_thornwood",
     "key": "natural"
@@ -26,5 +26,8 @@
     "y",
     "z",
     "x"
+  ],
+  "tags": [
+    "fragmentable"
   ]
 }
