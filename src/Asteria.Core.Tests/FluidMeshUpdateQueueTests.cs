@@ -5,6 +5,50 @@ namespace Asteria.Core.Tests;
 public sealed class FluidMeshUpdateQueueTests
 {
     [Fact]
+    public void NearestDrainUsesStreamingPriorityInsteadOfCoordinateOrder()
+    {
+        var queue = new FluidMeshUpdateQueue();
+        var distant = new ChunkCoord(-20, 0, 0);
+        var nearby = new ChunkCoord(10, 0, 9);
+        queue.EnqueueMeshlets(distant, ChunkMeshletMask.Single(0));
+        queue.EnqueueMeshlets(nearby, ChunkMeshletMask.Single(1));
+
+        var first = queue.Drain(
+            maximumMeshlets: 1, center: new ChunkCoord(10, 0, 10));
+        Assert.Equal(nearby, Assert.Single(first.DirtyMeshlets).Key);
+        Assert.Equal(distant, Assert.Single(queue.Drain().DirtyMeshlets).Key);
+    }
+
+    [Fact]
+    public void NearestDrainUsesMovementDirectionAndStableTieBreakers()
+    {
+        var queue = new FluidMeshUpdateQueue();
+        var left = new ChunkCoord(-1, 0, 0);
+        var right = new ChunkCoord(1, 0, 0);
+        queue.EnqueueMeshlets(left, ChunkMeshletMask.Single(0));
+        queue.EnqueueMeshlets(right, ChunkMeshletMask.Single(0));
+
+        Assert.Equal(right, Assert.Single(queue.Drain(
+            1, ChunkCoord.Zero, new ChunkMovementDirection(1, 0))
+            .DirtyMeshlets).Key);
+        Assert.Equal(left, Assert.Single(queue.Drain(1, ChunkCoord.Zero)
+            .DirtyMeshlets).Key);
+    }
+
+    [Fact]
+    public void NearestDrainStillHonorsPartialMeshletBudget()
+    {
+        var queue = new FluidMeshUpdateQueue();
+        var near = new ChunkCoord(2, 0, 1);
+        queue.EnqueueMeshlets(near, ChunkMeshletMask.All);
+        var first = queue.Drain(2, new ChunkCoord(2, 0, 0));
+        Assert.Equal(2, first.DirtyMeshlets[near].SelectedCount);
+        Assert.Equal(ChunkMeshletMask.Count - 2,
+            queue.Drain().DirtyMeshlets[near].SelectedCount);
+        Assert.False(queue.HasWork);
+    }
+
+    [Fact]
     public void DrainHonorsMeshletLimitAndPreservesRemainingWork()
     {
         var queue =

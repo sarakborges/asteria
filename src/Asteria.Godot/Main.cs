@@ -5704,7 +5704,8 @@ public partial class Main : Node3D
                 1 => _terrainMeshPipeline.TryStartReadyWork(
                     underStreamingPressure, center, _residency.MovementDirection),
                 2 => _lightingRuntime.TryStartReadyWork(),
-                _ => _fluidMeshPipeline.TryStartReadyWork(),
+                _ => _fluidMeshPipeline.TryStartReadyWork(
+                    center, _residency.MovementDirection),
             };
             if (!started)
                 continue;

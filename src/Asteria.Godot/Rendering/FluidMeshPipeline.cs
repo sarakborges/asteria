@@ -17,6 +17,11 @@ public sealed class FluidMeshPipeline
 
     private WorldMeshBatch? _inFlightBatch;
 
+    // Keep distant fluid updates progressing during continuous near-player
+    // edits: one coordinate-ordered drain after seven nearest starts.
+    private const int NearestStartsBeforeFairDrain = 7;
+    private int _nearestStarts;
+
     public FluidMeshPipeline(
         VoxelWorld world,
         BlockRegistry blocks,
@@ -62,7 +67,9 @@ public sealed class FluidMeshPipeline
         _acceptingWork = false;
     }
 
-    public bool TryStartReadyWork()
+    public bool TryStartReadyWork(
+        ChunkCoord? center = null,
+        ChunkMovementDirection movement = default)
     {
         if (!_acceptingWork)
         {
@@ -75,9 +82,12 @@ public sealed class FluidMeshPipeline
             return false;
         }
 
-        var drained =
-            _updates.Drain(
-                _maximumMeshletsPerWorker);
+        var nearest = center is not null &&
+            _nearestStarts < NearestStartsBeforeFairDrain;
+        var drained = _updates.Drain(
+            _maximumMeshletsPerWorker,
+            nearest ? center : null,
+            movement);
 
         if (drained.IsEmpty)
         {
@@ -109,6 +119,7 @@ public sealed class FluidMeshPipeline
         }
 
         _inFlightBatch = batch;
+        _nearestStarts = nearest ? _nearestStarts + 1 : 0;
         return true;
     }
 
