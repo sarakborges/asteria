@@ -1352,6 +1352,11 @@ public partial class Main : Node3D
 
     private void OnWebUiReady()
     {
+        // _Ready can fail after connecting signals but before registries
+        // and session controllers are initialized. Ignore late UI events.
+        if (!_clientInitialized)
+            return;
+
         SendCurrentState();
         if (_exitConfirmationPending)
             SendWebUi("game.app.exit_confirmation", new { });
@@ -1359,6 +1364,9 @@ public partial class Main : Node3D
 
     private void OnWebUiMessage(string message)
     {
+        if (!_clientInitialized)
+            return;
+
         try
         {
             using var document = JsonDocument.Parse(message);

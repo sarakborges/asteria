@@ -68,7 +68,13 @@ internal static class ProjectPackFiles
         var overlays = selection.Overlays
             .Where(entry => (entry.Domains & PackDomains.Data) != 0)
             .Select(entry => ReadExternalData(entry.Name, category));
-        return PackDocumentOverlay.Compose(documents, overlays);
+        // Creative inventory category IDs are intentionally unnamespaced;
+        // their registry validates the category-specific format after overlay.
+        // All other pack definitions retain the namespaced-ID requirement.
+        var idFormat = category == "inventory_categories"
+            ? PackDocumentIdFormat.RegistryDefined
+            : PackDocumentIdFormat.Namespaced;
+        return PackDocumentOverlay.Compose(documents, overlays, idFormat);
     }
 
     private static IReadOnlyList<string> ReadBuiltInData(string category)

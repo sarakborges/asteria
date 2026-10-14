@@ -8,24 +8,38 @@ namespace Asteria.Core.Content;
 /// A document with { "id": "...", "enabled": false } removes that definition.
 /// An enabled overlay patches existing objects recursively; arrays replace in full.
 /// </summary>
+/// <summary>
+/// Namespaced IDs are standard for pack-owned content. Some existing
+/// category registries have their own validated local ID contracts.
+/// </summary>
+public enum PackDocumentIdFormat : byte
+{
+    Namespaced = 0,
+    RegistryDefined = 1,
+}
+
 public static class PackDocumentOverlay
 {
     public static IReadOnlyList<string> Compose(
         IEnumerable<string> builtInDocuments,
-        IEnumerable<IEnumerable<string>> overlays)
+        IEnumerable<IEnumerable<string>> overlays,
+        PackDocumentIdFormat idFormat = PackDocumentIdFormat.Namespaced)
     {
         ArgumentNullException.ThrowIfNull(builtInDocuments);
         ArgumentNullException.ThrowIfNull(overlays);
+        if (idFormat is not (PackDocumentIdFormat.Namespaced or
+            PackDocumentIdFormat.RegistryDefined))
+            throw new ArgumentOutOfRangeException(nameof(idFormat));
 
         var definitions = new SortedDictionary<string, JsonObject>(StringComparer.Ordinal);
-        Apply(definitions, builtInDocuments, "default");
+        Apply(definitions, builtInDocuments, "default", idFormat);
 
         var index = 0;
         foreach (var overlay in overlays)
         {
             Apply(definitions,
                 overlay ?? throw new ArgumentException("Null overlay document set.", nameof(overlays)),
-                $"overlay[{index++}]");
+                $"overlay[{index++}]", idFormat);
         }
 
         return definitions.Values
@@ -36,7 +50,8 @@ public static class PackDocumentOverlay
     private static void Apply(
         SortedDictionary<string, JsonObject> definitions,
         IEnumerable<string> documents,
-        string source)
+        string source,
+        PackDocumentIdFormat idFormat)
     {
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var json in documents)
@@ -57,7 +72,9 @@ public static class PackDocumentOverlay
             }
 
             var id = document["id"]?.GetValue<string>();
-            if (string.IsNullOrWhiteSpace(id) || !id.Contains(':'))
+            if (string.IsNullOrWhiteSpace(id))
+                throw new FormatException($"Definition in {source} has no id.");
+            if (idFormat == PackDocumentIdFormat.Namespaced && !id.Contains(':'))
                 throw new FormatException($"Definition in {source} has no namespaced id.");
 
             if (!seen.Add(id))

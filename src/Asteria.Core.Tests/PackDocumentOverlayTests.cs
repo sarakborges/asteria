@@ -7,6 +7,54 @@ namespace Asteria.Core.Tests;
 public sealed class PackDocumentOverlayTests
 {
     [Fact]
+    public void RegistryDefinedCategoryIdsAreComposedAndValidated()
+    {
+        var documents = PackDocumentOverlay.Compose(
+            new[]
+            {
+                """{"id":"tools","order":70,"icon":"textures/categories/tools.png"}""",
+                """{"id":"foliage","order":20,"icon":"textures/categories/foliage.png"}"""
+            },
+            new[]
+            {
+                new[] { """{"id":"tools","order":55}""" }
+            },
+            PackDocumentIdFormat.RegistryDefined);
+
+        var registry = InventoryCategoryRegistry.FromJson(documents);
+        Assert.Equal((ushort)55, registry.Get("tools").Order);
+        Assert.Equal((ushort)20, registry.Get("foliage").Order);
+        Assert.Equal(2, registry.Definitions.Count);
+    }
+
+    [Fact]
+    public void NamespacedIdsRemainMandatoryForOtherPackDocuments()
+    {
+        var error = Assert.Throws<FormatException>(() =>
+            PackDocumentOverlay.Compose(
+                new[] { """{"id":"tools"}""" },
+                Array.Empty<IEnumerable<string>>()));
+
+        Assert.Contains("namespaced id", error.Message);
+    }
+
+    [Fact]
+    public void RegistryDefinedIdsStillNeedAnIdAndRejectDuplicates()
+    {
+        Assert.Throws<FormatException>(() =>
+            PackDocumentOverlay.Compose(
+                new[] { """{"order":4}""" },
+                Array.Empty<IEnumerable<string>>(),
+                PackDocumentIdFormat.RegistryDefined));
+
+        Assert.Throws<FormatException>(() =>
+            PackDocumentOverlay.Compose(
+                new[] { """{"id":"tools"}""", """{"id":"tools"}""" },
+                Array.Empty<IEnumerable<string>>(),
+                PackDocumentIdFormat.RegistryDefined));
+    }
+
+    [Fact]
     public void OverridesNestedPropertiesWithoutLosingTheRest()
     {
         var merged = PackDocumentOverlay.Compose(

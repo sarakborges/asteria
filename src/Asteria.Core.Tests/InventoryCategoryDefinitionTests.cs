@@ -5,6 +5,17 @@ namespace Asteria.Core.Tests;
 public sealed class InventoryCategoryDefinitionTests
 {
     [Fact]
+    public void RegistryDefinedIdFormatCannotBypassCategoryRegistryValidation()
+    {
+        var documents = PackDocumentOverlay.Compose(
+            new[] { """{"id":"asteria:tools","order":5,"icon":"textures/tools.png"}""" },
+            Array.Empty<IEnumerable<string>>(),
+            PackDocumentIdFormat.RegistryDefined);
+        Assert.Throws<FormatException>(() =>
+            InventoryCategoryRegistry.FromJson(documents));
+    }
+
+    [Fact]
     public void AuthoredCategoryOrderBreaksTiesByStableId()
     {
         var categories = InventoryCategoryRegistry.FromJson([
