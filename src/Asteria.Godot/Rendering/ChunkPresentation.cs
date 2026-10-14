@@ -319,11 +319,18 @@ public sealed class ChunkPresentation
         int meshletIndex,
         ChunkMeshData data,
         VoxelTerrainMaterialSet materials,
-        MeshDependencyStamp dependencies)
+        MeshDependencyStamp dependencies,
+        bool lightOnly = false)
     {
         ArgumentNullException.ThrowIfNull(dependencies);
         ValidateMeshletIndex(
             meshletIndex);
+
+        // The cached geometry was validated before worker capture and the
+        // worker dependencies are checked again before publication. Relighting
+        // its vertices cannot change terrain physics or deferred collision.
+        var preserveCollision = lightOnly &&
+            _relightableGeometry[meshletIndex] is not null;
 
         var renderStart = Stopwatch.GetTimestamp();
         if (data.HasRenderGeometry)
@@ -362,7 +369,11 @@ public sealed class ChunkPresentation
             renderStart).TotalMilliseconds;
         var collisionStart = Stopwatch.GetTimestamp();
 
-        if (data.HasCollision)
+        if (preserveCollision)
+        {
+            // No shape creation, destruction, or physics-body mutation.
+        }
+        else if (data.HasCollision)
         {
             var geometryIsCurrent =
                 _collisions[meshletIndex] is not null &&

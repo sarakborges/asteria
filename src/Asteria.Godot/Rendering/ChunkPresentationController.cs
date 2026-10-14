@@ -497,7 +497,8 @@ public sealed class ChunkPresentationController
                 pending.Meshlet.MeshletIndex,
                 pending.Meshlet.Data,
                 _terrainMaterials,
-                pending.Dependencies);
+                pending.Dependencies,
+                pending.Meshlet.LightOnly);
             renderBuildMilliseconds += apply.RenderBuildMilliseconds;
             collisionBuildMilliseconds += apply.CollisionBuildMilliseconds;
             renderVertices += apply.RenderVertices;
