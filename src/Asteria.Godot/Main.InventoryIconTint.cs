@@ -39,6 +39,10 @@ public partial class Main
                 _objects.TryGet(stack.Id, out var obj) &&
                 obj is { Tint: not BlockTint.None })
                 return true;
+            if (stack.Kind == InventoryEntryKind.Layer &&
+                _layers.TryGet(stack.Id, out var layer) &&
+                layer is { Tint: not BlockTint.None })
+                return true;
         }
         return false;
     }

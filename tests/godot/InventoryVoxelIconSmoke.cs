@@ -59,7 +59,8 @@ public partial class InventoryVoxelIconSmoke : Node
                 throw new InvalidDataException("Canonical cube PNG is transparent.");
 
             VerifyPlayerBiomeTint();
-            GD.Print("Native voxel icon smoke: geometry, tint, cache, PNG, biome OK");
+            VerifyLayerIconTint();
+            GD.Print("Native voxel icon smoke: geometry, tint, cache, PNG, biome, Layer OK");
             return true;
         }
         catch (Exception error)
@@ -67,6 +68,73 @@ public partial class InventoryVoxelIconSmoke : Node
             GD.PushError("Native voxel icon smoke failed: " + error);
             return false;
         }
+    }
+
+    private static void VerifyLayerIconTint()
+    {
+        var selection = PackSelection.Default;
+        AttachedLayerDefinition ReadLayer(string name) =>
+            AttachedLayerDefinition.Parse(File.ReadAllText(
+                ProjectSettings.GlobalizePath(
+                    $"res://packs/default/data/layers/{name}.json")));
+
+        var renderer = new InventoryBlockPreviewRenderer(selection);
+        var foliage = ReadLayer("layer_foliage");
+        var moss = ReadLayer("moss");
+        var plain = ReadLayer("lichen_cliff");
+        var greenTint = new BlockPreviewColor(30, 210, 55);
+        var redTint = new BlockPreviewColor(210, 45, 60);
+        if (foliage.Tint != BlockTint.Foliage ||
+            moss.Tint != BlockTint.Foliage ||
+            plain.Tint != BlockTint.None)
+            throw new InvalidDataException("Authored layer tint fixture changed.");
+
+        var green = renderer.LayerDataUri(foliage, greenTint);
+        var red = renderer.LayerDataUri(foliage, redTint);
+        if (green == red || !ReferenceEquals(green,
+            renderer.LayerDataUri(foliage, greenTint)))
+            throw new InvalidDataException(
+                "Layer tint colors or shared color cache are incorrect.");
+        if (renderer.LayerDataUri(moss, greenTint) is not { Length: > 40 })
+            throw new InvalidDataException("Moss Layer icon could not be tinted.");
+        try
+        {
+            renderer.LayerDataUri(plain, greenTint);
+            throw new InvalidDataException("Untinted layer should retain raw pack URL.");
+        }
+        catch (ArgumentException) { }
+
+        const string prefix = "data:image/png;base64,";
+        if (!green.StartsWith(prefix, StringComparison.Ordinal))
+            throw new InvalidDataException("Tinted layer icon must be PNG.");
+        using var original = Asteria.Client.Content.ProjectPackFiles.LoadImage(
+            selection, foliage.Texture);
+        if (original.IsCompressed()) original.Decompress();
+        if (original.GetFormat() != Image.Format.Rgba8)
+            original.Convert(Image.Format.Rgba8);
+        using var icon = new Image();
+        if (icon.LoadPngFromBuffer(
+                Convert.FromBase64String(green[prefix.Length..])) != Error.Ok ||
+            icon.GetSize() != original.GetSize())
+            throw new InvalidDataException("Tinted layer PNG is unreadable.");
+
+        var colored = false;
+        for (var y = 0; y < icon.GetHeight(); y++)
+        for (var x = 0; x < icon.GetWidth(); x++)
+        {
+            var source = original.GetPixel(x, y);
+            var result = icon.GetPixel(x, y);
+            if (Math.Abs(source.A - result.A) > 1f / 255f)
+                throw new InvalidDataException(
+                    "Layer tint must preserve transparent edges.");
+            if (source.A > .5f &&
+                (Math.Abs(source.R - result.R) > 2f / 255f ||
+                 Math.Abs(source.G - result.G) > 2f / 255f ||
+                 Math.Abs(source.B - result.B) > 2f / 255f))
+                colored = true;
+        }
+        if (!colored)
+            throw new InvalidDataException("Biome tint did not color Layer pixels.");
     }
 
     private static void VerifyPlayerBiomeTint()

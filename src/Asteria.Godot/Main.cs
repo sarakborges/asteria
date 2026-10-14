@@ -2786,6 +2786,12 @@ public partial class Main : Node3D
             obj is { Tint: not BlockTint.None })
             return _blockPreviewRenderer.ObjectDataUri(obj,
                 PlayerInventoryIconTint(obj.Tint, obj.TintFallback));
+        if (entry.Kind == InventoryEntryKind.Layer &&
+            _layers.TryGet(entry.Id, out var layer) &&
+            layer is { Tint: not BlockTint.None })
+            return _blockPreviewRenderer.LayerDataUri(layer,
+                PlayerInventoryIconTint(layer.Tint,
+                    new BlockPreviewColor(255, 255, 255)));
         var choice = _inventoryCatalog.Choices.FirstOrDefault(
             item => item.Entry.Equals(entry));
         return choice?.IconResourcePath is { } path
@@ -2938,6 +2944,12 @@ public partial class Main : Node3D
                         ? _blockPreviewRenderer.ObjectDataUri(objectDefinition,
                             PlayerInventoryIconTint(
                                 objectDefinition.Tint, objectDefinition.TintFallback))
+                        : choice.Entry.Kind == InventoryEntryKind.Layer &&
+                          _layers.TryGet(choice.Entry.Id, out var layerDefinition) &&
+                          layerDefinition is { Tint: not BlockTint.None }
+                            ? _blockPreviewRenderer.LayerDataUri(layerDefinition,
+                                PlayerInventoryIconTint(layerDefinition.Tint,
+                                    new BlockPreviewColor(255, 255, 255)))
                         : choice.IconResourcePath is { } path
                             ? IconDataUri(path) : null,
                     blockPreview = BlockPreviewForInventory(choice.Entry),
