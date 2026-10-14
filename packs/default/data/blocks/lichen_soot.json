@@ -6,7 +6,7 @@
   ],
   "visual": {
     "type": "groundSprite",
-    "texture": "textures/objects/lichen_soot.png",
+    "texture": "textures/layers/lichen_soot.png",
     "width": 0.9,
     "height": 0.012,
     "baseOffset": 0.0125,
