@@ -69,7 +69,9 @@ public enum ChunkActivationSource
 public readonly record struct ChunkResidencyActivation(
     ChunkCoord Coord,
     ChunkActivationSource Source,
-    double WorkerMilliseconds);
+    double WorkerMilliseconds,
+    double TerrainMilliseconds = 0d,
+    double InitialLightingMilliseconds = 0d);
 
 public readonly record struct ChunkResidencyRetirement(
     ChunkCoord Coord,
@@ -367,7 +369,9 @@ public sealed class ChunkResidencyRuntime
                 ActivateResidentChunk(
                     coord,
                     ChunkActivationSource.Provider,
-                    result.WorkerMilliseconds));
+                    result.WorkerMilliseconds,
+                    result.TerrainMilliseconds,
+                    result.InitialLightingMilliseconds));
         }
 
         if (processed > 0)
@@ -561,7 +565,9 @@ public sealed class ChunkResidencyRuntime
     private ChunkResidencyActivation ActivateResidentChunk(
         ChunkCoord coord,
         ChunkActivationSource source,
-        double workerMilliseconds)
+        double workerMilliseconds,
+        double terrainMilliseconds = 0d,
+        double initialLightingMilliseconds = 0d)
     {
         _streaming.EnqueuePresentation(coord);
         EnqueueChunkLightingReconciliation(coord);
@@ -571,7 +577,9 @@ public sealed class ChunkResidencyRuntime
         return new ChunkResidencyActivation(
             coord,
             source,
-            workerMilliseconds);
+            workerMilliseconds,
+            terrainMilliseconds,
+            initialLightingMilliseconds);
     }
 
     private MaterializedChunk Materialize(
@@ -581,6 +589,7 @@ public sealed class ChunkResidencyRuntime
         var chunk =
             _chunkProvider.Materialize(
                 coord);
+        var terrainMilliseconds = stopwatch.Elapsed.TotalMilliseconds;
 
         ChunkLightingSolver.Initialize(
             chunk,
@@ -589,9 +598,12 @@ public sealed class ChunkResidencyRuntime
             _objects);
 
         stopwatch.Stop();
+        var totalMilliseconds = stopwatch.Elapsed.TotalMilliseconds;
         return new MaterializedChunk(
             chunk,
-            stopwatch.Elapsed.TotalMilliseconds);
+            totalMilliseconds,
+            terrainMilliseconds,
+            totalMilliseconds - terrainMilliseconds);
     }
 
     private void EnqueueChunkLightingReconciliation(
@@ -806,5 +818,7 @@ public sealed class ChunkResidencyRuntime
 
     private sealed record MaterializedChunk(
         Chunk Chunk,
-        double WorkerMilliseconds);
+        double WorkerMilliseconds,
+        double TerrainMilliseconds,
+        double InitialLightingMilliseconds);
 }

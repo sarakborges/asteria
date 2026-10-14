@@ -281,7 +281,8 @@ public sealed class TerrainMeshPipeline
                     result.WorkerMilliseconds,
                     0,
                     MeshPipelineWorkSelection.CountMeshlets(
-                        result.SourceBatch));
+                        result.SourceBatch),
+                    result.CaptureMilliseconds);
             return true;
         }
 
@@ -360,7 +361,8 @@ public sealed class TerrainMeshPipeline
                 MeshPipelineCompletionKind.Applied,
                 result.WorkerMilliseconds,
                 accepted,
-                stale);
+                stale,
+                result.CaptureMilliseconds);
         return true;
     }
 

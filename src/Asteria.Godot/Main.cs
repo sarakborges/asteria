@@ -5598,7 +5598,8 @@ public partial class Main : Node3D
         }
 
         _worldDiagnostics?.ObserveTerrainMesh(
-            completed.WorkerMilliseconds, completed.Accepted, completed.Stale);
+            completed.WorkerMilliseconds, completed.Accepted, completed.Stale,
+            completed.CaptureMilliseconds);
         if (_debugHudVisible)
         {
             GD.Print(

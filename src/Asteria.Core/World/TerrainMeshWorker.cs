@@ -13,7 +13,8 @@ public sealed record TerrainMeshWorkerResult(
         ContentRevisions,
     MeshDependencyStamp Dependencies,
     IReadOnlyList<TerrainMeshletBuild> Meshlets,
-    double WorkerMilliseconds);
+    double WorkerMilliseconds,
+    double CaptureMilliseconds = 0d);
 
 public sealed class TerrainMeshWorker
 {
@@ -47,12 +48,16 @@ public sealed class TerrainMeshWorker
             return false;
         }
 
+        var captureStart = Stopwatch.GetTimestamp();
         var snapshot =
             world.CaptureMeshWorkerSnapshot(
                 batch.DirtyMeshlets);
         var capturedRevisions =
             revisions.Capture(
                 batch.DirtyMeshlets);
+
+        var captureMilliseconds = Stopwatch.GetElapsedTime(
+            captureStart).TotalMilliseconds;
 
         return _worker.TryStart(() =>
         {
@@ -73,7 +78,8 @@ public sealed class TerrainMeshWorker
                 capturedRevisions,
                 snapshot.Dependencies,
                 meshlets,
-                stopwatch.Elapsed.TotalMilliseconds);
+                stopwatch.Elapsed.TotalMilliseconds,
+                captureMilliseconds);
         });
     }
 

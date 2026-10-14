@@ -12,7 +12,8 @@ public readonly record struct MeshPipelineWorkerReport(
     MeshPipelineCompletionKind Kind,
     double WorkerMilliseconds,
     int Accepted,
-    int Stale);
+    int Stale,
+    double CaptureMilliseconds = 0d);
 
 internal static class MeshPipelineWorkSelection
 {

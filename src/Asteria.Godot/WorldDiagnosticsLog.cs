@@ -68,12 +68,16 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     private long _framesOver100Ms;
     private int _materialized;
     private double _materializationMs;
+    private double _terrainGenerationMs;
+    private double _initialLightingMs;
     private double _materializationMaxMs;
     private ChunkCoord? _slowestChunk;
     private int _slowChunks;
     private int _restored;
     private int _terrainMeshBatches;
     private double _terrainMeshMs;
+    private double _terrainMeshCaptureMs;
+    private double _terrainMeshCaptureMaxMs;
     private int _terrainMeshAccepted;
     private int _terrainMeshStale;
     private int _fluidMeshBatches;
@@ -232,6 +236,8 @@ internal sealed class WorldDiagnosticsLog : IDisposable
 
             _materialized++;
             _materializationMs += activation.WorkerMilliseconds;
+            _terrainGenerationMs += activation.TerrainMilliseconds;
+            _initialLightingMs += activation.InitialLightingMilliseconds;
             if (activation.WorkerMilliseconds > _materializationMaxMs)
             {
                 _materializationMaxMs = activation.WorkerMilliseconds;
@@ -247,10 +253,15 @@ internal sealed class WorldDiagnosticsLog : IDisposable
                 $"coord={failure.Coord} exception={failure.Error}");
     }
 
-    public void ObserveTerrainMesh(double workerMilliseconds, int accepted, int stale)
+    public void ObserveTerrainMesh(
+        double workerMilliseconds, int accepted, int stale,
+        double captureMilliseconds = 0d)
     {
         _terrainMeshBatches++;
         _terrainMeshMs += workerMilliseconds;
+        _terrainMeshCaptureMs += captureMilliseconds;
+        _terrainMeshCaptureMaxMs = Math.Max(
+            _terrainMeshCaptureMaxMs, captureMilliseconds);
         _terrainMeshAccepted += accepted;
         _terrainMeshStale += stale;
     }
@@ -358,9 +369,13 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"frames_over_100ms={_framesOver100Ms} " +
             $"generated={_materialized} restored={_restored} " +
             $"generation_ms_total={Format1(_materializationMs)} " +
+            $"generation_terrain_ms_total={Format1(_terrainGenerationMs)} " +
+            $"generation_initial_light_ms_total={Format1(_initialLightingMs)} " +
             $"generation_ms_max={Format1(_materializationMaxMs)} " +
             $"generation_slow_chunks={_slowChunks} slowest_chunk={_slowestChunk} " +
             $"mesh_batches={_terrainMeshBatches} mesh_ms_total={Format1(_terrainMeshMs)} " +
+            $"mesh_capture_ms_total={Format1(_terrainMeshCaptureMs)} " +
+            $"mesh_capture_ms_max={Format1(_terrainMeshCaptureMaxMs)} " +
             $"mesh_accepted={_terrainMeshAccepted} mesh_stale={_terrainMeshStale} " +
             $"fluid_mesh_batches={_fluidMeshBatches} fluid_mesh_ms_total={Format1(_fluidMeshMs)} " +
             $"fluid_mesh_accepted={_fluidMeshAccepted} fluid_mesh_stale={_fluidMeshStale} " +
@@ -390,11 +405,15 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         _materialized = 0;
         _restored = 0;
         _materializationMs = 0d;
+        _terrainGenerationMs = 0d;
+        _initialLightingMs = 0d;
         _materializationMaxMs = 0d;
         _slowChunks = 0;
         _slowestChunk = null;
         _terrainMeshBatches = 0;
         _terrainMeshMs = 0d;
+        _terrainMeshCaptureMs = 0d;
+        _terrainMeshCaptureMaxMs = 0d;
         _terrainMeshAccepted = 0;
         _terrainMeshStale = 0;
         _fluidMeshBatches = 0;
