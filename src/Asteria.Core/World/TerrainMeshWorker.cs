@@ -13,6 +13,8 @@ public sealed record TerrainMeshWorkerResult(
     IReadOnlyDictionary<ChunkMeshletKey, ulong>
         ContentRevisions,
     MeshDependencyStamp Dependencies,
+    IReadOnlyDictionary<ChunkMeshletKey, MeshDependencyStamp>
+        MeshletDependencies,
     IReadOnlyList<TerrainMeshletBuild> Meshlets,
     double WorkerMilliseconds,
     double CaptureMilliseconds = 0d);
@@ -80,6 +82,7 @@ public sealed class TerrainMeshWorker
                 batch,
                 capturedRevisions,
                 snapshot.Dependencies,
+                snapshot.MeshletDependencies,
                 meshlets,
                 stopwatch.Elapsed.TotalMilliseconds,
                 captureMilliseconds);

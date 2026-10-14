@@ -13,6 +13,8 @@ public sealed record FluidMeshWorkerResult(
     IReadOnlyDictionary<ChunkMeshletKey, ulong>
         ContentRevisions,
     MeshDependencyStamp Dependencies,
+    IReadOnlyDictionary<ChunkMeshletKey, MeshDependencyStamp>
+        MeshletDependencies,
     IReadOnlyList<FluidMeshletBuild> Meshlets,
     double WorkerMilliseconds);
 
@@ -66,6 +68,7 @@ public sealed class FluidMeshWorker
                 batch,
                 capturedRevisions,
                 snapshot.Dependencies,
+                snapshot.MeshletDependencies,
                 meshlets,
                 stopwatch.Elapsed.TotalMilliseconds);
         });

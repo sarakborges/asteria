@@ -42,7 +42,9 @@ public sealed class MeshWorkerSnapshot
 {
     internal MeshWorkerSnapshot(
         VoxelWorld world,
-        MeshDependencyStamp dependencies)
+        MeshDependencyStamp dependencies,
+        IReadOnlyDictionary<ChunkMeshletKey, MeshDependencyStamp>
+            meshletDependencies)
     {
         World =
             world ??
@@ -50,9 +52,15 @@ public sealed class MeshWorkerSnapshot
         Dependencies =
             dependencies ??
             throw new ArgumentNullException(nameof(dependencies));
+        MeshletDependencies =
+            meshletDependencies ??
+            throw new ArgumentNullException(nameof(meshletDependencies));
     }
 
     public VoxelWorld World { get; }
 
     public MeshDependencyStamp Dependencies { get; }
+
+    public IReadOnlyDictionary<ChunkMeshletKey, MeshDependencyStamp>
+        MeshletDependencies { get; }
 }

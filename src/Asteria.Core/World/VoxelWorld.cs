@@ -908,60 +908,64 @@ public sealed class VoxelWorld
     {
         ArgumentNullException.ThrowIfNull(dirtyMeshlets);
 
-        var required =
-            new HashSet<ChunkCoord>();
+        var required = new HashSet<ChunkCoord>();
+        var footprints =
+            new Dictionary<ChunkMeshletKey, HashSet<ChunkCoord>>();
 
-        foreach (var (coord, mask) in
-                 dirtyMeshlets)
+        foreach (var (coord, mask) in dirtyMeshlets)
         {
             if (mask.IsEmpty)
-            {
                 continue;
-            }
 
             required.Add(coord);
+            var selected = mask.Indices().ToArray();
+            foreach (var index in selected)
+                footprints.Add(new ChunkMeshletKey(coord, index), [coord]);
 
             for (var y = -1; y <= 1; y++)
+            for (var z = -1; z <= 1; z++)
+            for (var x = -1; x <= 1; x++)
             {
-                for (var z = -1; z <= 1; z++)
+                if (x == 0 && y == 0 && z == 0)
+                    continue;
+
+                var overlap = mask.Intersect(
+                    ChunkMeshletMask.ForDependencyOffset(x, y, z));
+                if (overlap.IsEmpty)
+                    continue;
+
+                var neighbor = new ChunkCoord(
+                    coord.X + x, coord.Y + y, coord.Z + z);
+                required.Add(neighbor);
+                foreach (var index in selected)
                 {
-                    for (var x = -1; x <= 1; x++)
-                    {
-                        if (x == 0 &&
-                            y == 0 &&
-                            z == 0)
-                        {
-                            continue;
-                        }
-
-                        if (!mask.Overlaps(
-                                ChunkMeshletMask
-                                    .ForDependencyOffset(
-                                        x,
-                                        y,
-                                        z)))
-                        {
-                            continue;
-                        }
-
-                        required.Add(
-                            new ChunkCoord(
-                                coord.X + x,
-                                coord.Y + y,
-                                coord.Z + z));
-                    }
+                    if (overlap.ContainsIndex(index))
+                        footprints[new ChunkMeshletKey(coord, index)]
+                            .Add(neighbor);
                 }
             }
         }
 
-        var dependencies =
-            new MeshDependencyStamp(
-                CaptureContentStamp(required),
-                CaptureResidencyStamp(required));
+        // Capture the union once for the worker's immutable input. Narrower
+        // per-meshlet stamps let valid results survive unrelated changes to
+        // other meshlets in the same dispatched batch.
+        var dependencies = new MeshDependencyStamp(
+            CaptureContentStamp(required),
+            CaptureResidencyStamp(required));
+        var meshletDependencies =
+            new Dictionary<ChunkMeshletKey, MeshDependencyStamp>(
+                footprints.Count);
+        foreach (var (key, envelope) in footprints)
+        {
+            meshletDependencies.Add(key, new MeshDependencyStamp(
+                CaptureContentStamp(envelope),
+                CaptureResidencyStamp(envelope)));
+        }
 
         return new MeshWorkerSnapshot(
             CloneForWorker(required),
-            dependencies);
+            dependencies,
+            meshletDependencies);
     }
 
     /// <summary>

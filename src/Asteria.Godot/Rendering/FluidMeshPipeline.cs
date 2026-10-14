@@ -150,21 +150,6 @@ public sealed class FluidMeshPipeline
             return true;
         }
 
-        if (!result.Dependencies.IsCurrent(
-                _world))
-        {
-            _updates.Requeue(
-                result.SourceBatch);
-            report =
-                new MeshPipelineWorkerReport(
-                    MeshPipelineCompletionKind.RequeuedStale,
-                    result.WorkerMilliseconds,
-                    0,
-                    MeshPipelineWorkSelection.CountMeshlets(
-                        result.SourceBatch));
-            return true;
-        }
-
         var accepted = 0;
         var stale = 0;
         var relitWithoutMeshing = 0;
@@ -185,15 +170,17 @@ public sealed class FluidMeshPipeline
                     meshlet.MeshletIndex);
             var revision =
                 result.ContentRevisions[key];
+            var dependencies = result.MeshletDependencies[key];
 
             if (_revisions.IsCurrent(
                     key,
-                    revision))
+                    revision) &&
+                dependencies.IsCurrent(_world))
             {
                 _presentations.EnqueueFluidPublication(
                     meshlet,
                     revision,
-                    result.Dependencies);
+                    dependencies);
                 accepted++;
                 if (meshlet.LightOnly)
                     relitWithoutMeshing++;
@@ -210,7 +197,9 @@ public sealed class FluidMeshPipeline
 
         report =
             new MeshPipelineWorkerReport(
-                MeshPipelineCompletionKind.Applied,
+                accepted == 0 && stale > 0
+                    ? MeshPipelineCompletionKind.RequeuedStale
+                    : MeshPipelineCompletionKind.Applied,
                 result.WorkerMilliseconds,
                 accepted,
                 stale,

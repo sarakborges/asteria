@@ -271,23 +271,6 @@ public sealed class TerrainMeshPipeline
             return true;
         }
 
-        if (!result.Dependencies.IsCurrent(
-                _world))
-        {
-            Requeue(
-                result.SourceBatch,
-                priority);
-            report =
-                new MeshPipelineWorkerReport(
-                    MeshPipelineCompletionKind.RequeuedStale,
-                    result.WorkerMilliseconds,
-                    0,
-                    MeshPipelineWorkSelection.CountMeshlets(
-                        result.SourceBatch),
-                    result.CaptureMilliseconds);
-            return true;
-        }
-
         var accepted = 0;
         var stale = 0;
         var relitWithoutMeshing = 0;
@@ -308,6 +291,7 @@ public sealed class TerrainMeshPipeline
                     meshlet.MeshletIndex);
             var revision =
                 result.ContentRevisions[key];
+            var dependencies = result.MeshletDependencies[key];
 
             var needsPriority = priority ||
                 _presentations.NeedsPriorityInitialTerrainPublication(
@@ -315,7 +299,8 @@ public sealed class TerrainMeshPipeline
 
             if (_revisions.IsCurrent(
                     key,
-                    revision))
+                    revision) &&
+                dependencies.IsCurrent(_world))
             {
                 if (needsPriority)
                 {
@@ -323,7 +308,7 @@ public sealed class TerrainMeshPipeline
                         .EnqueuePriorityTerrainPublication(
                             meshlet,
                             revision,
-                            result.Dependencies);
+                            dependencies);
                 }
                 else
                 {
@@ -331,7 +316,7 @@ public sealed class TerrainMeshPipeline
                         .EnqueueTerrainPublication(
                             meshlet,
                             revision,
-                            result.Dependencies);
+                            dependencies);
                 }
 
                 accepted++;
@@ -363,7 +348,9 @@ public sealed class TerrainMeshPipeline
 
         report =
             new MeshPipelineWorkerReport(
-                MeshPipelineCompletionKind.Applied,
+                accepted == 0 && stale > 0
+                    ? MeshPipelineCompletionKind.RequeuedStale
+                    : MeshPipelineCompletionKind.Applied,
                 result.WorkerMilliseconds,
                 accepted,
                 stale,
