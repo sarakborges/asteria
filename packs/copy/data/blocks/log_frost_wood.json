@@ -2,12 +2,12 @@
   "id": "asteria:log_frost_wood",
   "category": "blocks_wooden",
   "textures": {
-    "top": "textures/blocks/trees/frost_wood/top.png",
-    "bottom": "textures/blocks/trees/frost_wood/top.png",
-    "left": "textures/blocks/trees/frost_wood/side.png",
-    "right": "textures/blocks/trees/frost_wood/side.png",
-    "front": "textures/blocks/trees/frost_wood/side.png",
-    "back": "textures/blocks/trees/frost_wood/side.png"
+    "top": "textures/blocks/trees/oak/top.png",
+    "bottom": "textures/blocks/trees/oak/top.png",
+    "left": "textures/blocks/trees/oak/side.png",
+    "right": "textures/blocks/trees/oak/side.png",
+    "front": "textures/blocks/trees/oak/side.png",
+    "back": "textures/blocks/trees/oak/side.png"
   },
   "mining": {
     "hardness": 1.15,

@@ -2,12 +2,12 @@
   "id": "asteria:log_charwood_stripped",
   "category": "blocks_wooden",
   "textures": {
-    "top": "textures/blocks/trees/charwood/stripped.png",
-    "bottom": "textures/blocks/trees/charwood/stripped.png",
-    "left": "textures/blocks/trees/charwood/stripped.png",
-    "right": "textures/blocks/trees/charwood/stripped.png",
-    "front": "textures/blocks/trees/charwood/stripped.png",
-    "back": "textures/blocks/trees/charwood/stripped.png"
+    "top": "textures/blocks/trees/oak/stripped.png",
+    "bottom": "textures/blocks/trees/oak/stripped.png",
+    "left": "textures/blocks/trees/oak/stripped.png",
+    "right": "textures/blocks/trees/oak/stripped.png",
+    "front": "textures/blocks/trees/oak/stripped.png",
+    "back": "textures/blocks/trees/oak/stripped.png"
   },
   "lightDampening": 15,
   "castsShadow": true,
