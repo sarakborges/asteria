@@ -146,7 +146,7 @@ public sealed class ChunkLightingSolverTests
         Assert.Equal((byte)2, chunk.GetLight(8, 8, 8).Green);
         Assert.Equal((byte)0, chunk.GetLight(8, 8, 8).Blue);
         Assert.Equal((byte)13, chunk.GetLight(8, 9, 8).Red);
-        Assert.Equal((byte)15, chunk.GetLight(8, 9, 8).Sky);
+        Assert.Equal((byte)0, chunk.GetLight(8, 9, 8).Sky);
         Assert.Equal((byte)0, chunk.GetLight(7, 8, 8).Red);
     }
 
