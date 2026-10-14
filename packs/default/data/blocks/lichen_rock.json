@@ -6,7 +6,7 @@
   ],
   "visual": {
     "type": "groundSprite",
-    "texture": "textures/objects/lichen_rock.png",
+    "texture": "textures/layers/lichen_rock.png",
     "width": 0.94,
     "height": 0.012,
     "baseOffset": 0.0125,
