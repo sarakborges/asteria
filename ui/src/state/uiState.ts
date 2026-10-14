@@ -165,7 +165,7 @@ export type GameMode = "Survival" | "Creative" | "Spectator";
 export type CreatureAttackMode = "Default" | "Peaceful";
 export type PackAddon = {
   name: string; id: string; title: string; version: string;
-  description: string; enabled: boolean;
+  description: string; enabled: boolean; error: string | null;
   scope: "Data" | "Resources" | "Both"; order: number;
 };
 export type ModAddon = {

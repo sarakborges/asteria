@@ -16,6 +16,7 @@ function packsFrom(raw: unknown): PackAddon[] {
     return [{
       name: item.name, id: item.id, title: item.title, version: item.version,
       description: typeof item.description === "string" ? item.description : "",
+      error: typeof item.error === "string" ? item.error : null,
       enabled: item.enabled, order: item.order,
       scope: item.scope === "Data" || item.scope === "Resources"
         ? item.scope : "Both",

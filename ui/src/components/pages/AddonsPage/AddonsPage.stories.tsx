@@ -24,11 +24,23 @@ export const SelectedPack: Story = {
     state: {
       packs: [{ name: "forest", id: "example:forest", title: "Forest",
         version: "1.0.0", description: "Alternate forest content",
-        enabled: true, scope: "Both", order: 0 }],
+        enabled: true, scope: "Both", order: 0, error: null }],
       mods: [], packRestartRequired: true, modRestartRequired: false, error: null,
     },
   },
 };
+export const InvalidProjectPack: Story = {
+  args: {
+    state: {
+      packs: [{ name: "my_local_pack", id: "", title: "my_local_pack",
+        version: "", description: "", enabled: false, scope: "Both",
+        order: -1, error: "Missing pack.json manifest." }],
+      mods: [], packRestartRequired: false, modRestartRequired: false,
+      error: null,
+    },
+  },
+};
+
 export const Mods: Story = {
   args: {
     tab: "mods",

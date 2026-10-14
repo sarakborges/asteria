@@ -69,9 +69,10 @@ function PackRow({ pack, onScope, onMove, lastOrder }: {
       <div><strong>{pack.title}</strong> <small>{pack.version}</small>
         <p className="addons-page__sub">{pack.id}</p>
         <p className="addons-page__sub">{pack.description}</p>
+        {pack.error && <p className="addons-page__error" role="alert">{pack.error}</p>}
       </div>
       <label>
-        <input type="checkbox" checked={pack.enabled}
+        <input type="checkbox" checked={pack.enabled} disabled={pack.error !== null}
           onChange={event => onScope(pack.name, event.target.checked ? "Both" : null)} />
         {t("addons.enabled")}
       </label>
