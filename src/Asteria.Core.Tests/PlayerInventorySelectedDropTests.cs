@@ -82,8 +82,15 @@ public sealed class PlayerInventorySelectedDropTests
         Assert.False(PlayerInventorySelectedDrop.TryDrop(
             inventory, drops, Origin, Velocity));
         Assert.Equal(revision, inventory.Revision);
-        Assert.Equal(before, inventory.Capture());
-        Assert.Equal(snapshot, drops.CaptureState());
+        var after = inventory.Capture();
+        Assert.Equal(before.SelectedSlot, after.SelectedSlot);
+        Assert.Equal(before.Backpack, after.Backpack);
+        Assert.Equal(before.Hotbar, after.Hotbar);
+        Assert.Equal(before.Cursor, after.Cursor);
+        Assert.Equal(before.Equipment, after.Equipment);
+        var dropAfter = drops.CaptureState();
+        Assert.Equal(snapshot.NextId, dropAfter.NextId);
+        Assert.Equal(snapshot.ActiveBlocks, dropAfter.ActiveBlocks);
         Assert.Equal(old, Assert.Single(drops.ActiveBlocks).Id);
 
         // After an ordinary collection frees capacity, the same Q request
