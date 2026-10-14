@@ -21,6 +21,10 @@ public sealed class ChunkPresentation
         new CollisionShape3D?[ChunkMeshletMask.Count];
     private readonly MeshDependencyStamp?[] _collisionDependencies =
         new MeshDependencyStamp?[ChunkMeshletMask.Count];
+    // Only unpublished physics faces are held; they are replaced on remesh
+    // and released on proximity prewarm, activation or presentation retirement.
+    private readonly DeferredCollision?[] _deferredCollisions =
+        new DeferredCollision?[ChunkMeshletMask.Count];
     private readonly bool[] _published =
         new bool[ChunkMeshletMask.Count];
 
@@ -55,6 +59,9 @@ public sealed class ChunkPresentation
 
     public bool IsVisible => Root.Visible;
 
+    public bool HasDeferredCollisions =>
+        _deferredCollisions.Any(pending => pending is not null);
+
     public bool IsFullyPublished =>
         _publishedCount == ChunkMeshletMask.Count;
 
@@ -83,24 +90,43 @@ public sealed class ChunkPresentation
     public void SetVisible(bool visible) =>
         Root.Visible = visible;
 
-    public void SetPhysicsEnabled(bool enabled)
+    public double SetPhysicsEnabled(bool enabled)
     {
         if (_physicsEnabled == enabled)
-        {
-            return;
-        }
+            return 0d;
 
+        var started = Stopwatch.GetTimestamp();
         _physicsEnabled = enabled;
-
-        foreach (var collision in
-                 _collisions)
+        if (enabled)
         {
-            if (collision is not null)
+            // This is a correctness fallback if prewarming did not complete
+            // before the player entered the collision radius.
+            while (PrewarmOneCollision())
             {
-                collision.Disabled =
-                    !enabled;
             }
         }
+
+        foreach (var collision in _collisions)
+            if (collision is not null)
+                collision.Disabled = !enabled;
+
+        return Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+    }
+
+    public bool PrewarmOneCollision()
+    {
+        for (var index = 0; index < _deferredCollisions.Length; index++)
+        {
+            if (_deferredCollisions[index] is not { } pending)
+                continue;
+
+            var collision = _collisions[index] ?? CreateCollision(index);
+            collision.Shape = ChunkMeshBuilder.CreateCollisionShape(pending.Faces);
+            _collisionDependencies[index] = pending.Dependencies;
+            _deferredCollisions[index] = null;
+            return true;
+        }
+        return false;
     }
 
     /// <summary>One MultiMesh per object definition per chunk, never one
@@ -303,27 +329,32 @@ public sealed class ChunkPresentation
 
         if (data.HasCollision)
         {
-            var collision =
-                _collisions[
-                    meshletIndex] ??
-                CreateCollision(
-                    meshletIndex);
+            var geometryIsCurrent =
+                _collisions[meshletIndex] is not null &&
+                _collisionDependencies[meshletIndex] is { } previous &&
+                previous.HasSameWorldGeometryInputsAs(dependencies);
 
-            if (_collisionDependencies[meshletIndex] is not
-                    { } previous ||
-                !previous.HasSameWorldGeometryInputsAs(
-                    dependencies))
+            if (geometryIsCurrent)
             {
-                collision.Shape =
-                    ChunkMeshBuilder
-                        .CreateCollisionShape(
-                            data);
-                _collisionDependencies[meshletIndex] =
-                    dependencies;
+                _deferredCollisions[meshletIndex] = null;
+            }
+            else if (_physicsEnabled)
+            {
+                var collision = _collisions[meshletIndex] ??
+                    CreateCollision(meshletIndex);
+                collision.Shape = ChunkMeshBuilder.CreateCollisionShape(data);
+                _collisionDependencies[meshletIndex] = dependencies;
+                _deferredCollisions[meshletIndex] = null;
+            }
+            else
+            {
+                _deferredCollisions[meshletIndex] =
+                    new DeferredCollision(data.CollisionFaces, dependencies);
             }
         }
         else
         {
+            _deferredCollisions[meshletIndex] = null;
             RemoveCollision(meshletIndex);
             _collisionDependencies[meshletIndex] = null;
         }
@@ -337,6 +368,10 @@ public sealed class ChunkPresentation
             data.RenderVertexCount,
             data.CollisionTriangleCount);
     }
+
+    private sealed record DeferredCollision(
+        System.Numerics.Vector3[] Faces,
+        MeshDependencyStamp Dependencies);
 
     private MeshInstance3D CreateMesh(
         MeshInstance3D?[] storage,

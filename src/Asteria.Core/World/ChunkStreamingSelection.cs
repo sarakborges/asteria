@@ -246,6 +246,17 @@ public sealed class ChunkPresentationSelection
         Math.Abs((long)coord.Z - center.Z) <=
             ChunkStreamingSelection.PlayerLocalHorizontalRadiusChunks;
 
+    // Prebuild nearby collision one ring before it must become active.
+    // The collision activation radius itself remains unchanged.
+    public bool ShouldPrewarmPhysics(ChunkCoord coord) =>
+        Center is { } center &&
+        Math.Abs((long)coord.X - center.X) <=
+            ChunkStreamingSelection.PlayerLocalHorizontalRadiusChunks + 1 &&
+        Math.Abs((long)coord.Y - center.Y) <=
+            ChunkStreamingSelection.PlayerLocalVerticalRadiusChunks + 1 &&
+        Math.Abs((long)coord.Z - center.Z) <=
+            ChunkStreamingSelection.PlayerLocalHorizontalRadiusChunks + 1;
+
     public bool RetainsRenderMesh(ChunkCoord coord) =>
         Center is { } center &&
         Inside(coord, center, HideRadius);
