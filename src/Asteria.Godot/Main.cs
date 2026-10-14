@@ -4323,6 +4323,10 @@ public partial class Main : Node3D
                 SendWebUi("game.hud.prompt", new { });
                 _lastCreatureHud = creatureSnapshot;
             }
+            // The creature HUD hides the block/Object panel. Clearing the
+            // Object identity here ensures that returning to the same Object
+            // republishes it even if its visible light and state are unchanged.
+            _lastObjectHud = null;
             _targetHud.Reset();
             return;
         }
