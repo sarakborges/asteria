@@ -10,6 +10,9 @@
   <ItemGroup>
     <Compile Remove="src/Asteria.Core/**/*.cs" />
     <Compile Remove="src/Asteria.Core.Tests/**/*.cs" />
+    <!-- Separate mod ABI assembly; compiling it into the Godot project
+         duplicates ABI types and generated assembly attributes. -->
+    <Compile Remove="src/Asteria.ModAPI/**/*.cs" />
     <Compile Remove="tools/WorldgenBenchmark/**/*.cs" />
     <Compile Remove="tools/BiomeMap/**/*.cs" />
     <ProjectReference Include="src/Asteria.Core/Asteria.Core.csproj" />
