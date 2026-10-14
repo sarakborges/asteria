@@ -216,7 +216,8 @@ public partial class Main : Node3D
         _worldDiagnostics.Write("client.initializing");
         _clientSettings = new ClientPreferencesController(
             ClientPreferencesStore.FromUserDataDirectory());
-        _worldCatalog = WorldCatalogScanController.FromUserDataDirectory();
+        _worldCatalog = new WorldCatalogScanController(WorldSaveDirectories.Root);
+        GD.Print($"worlds directory: {WorldSaveDirectories.Root}");
         _keybindCapture = new KeybindCaptureController(
             _clientSettings);
         _packSettings = new PackSelectionStore(OS.GetUserDataDir());
@@ -293,10 +294,10 @@ public partial class Main : Node3D
         _worldCatalog.ConfigureValidation(
             _dimensions, _blocks, _fluids, _dyes, _layers);
         _worldLoad = new WorldLoadController(
-            Path.Combine(OS.GetUserDataDir(), "worlds"),
+            WorldSaveDirectories.Root,
             _dimensions, _blocks, _fluids, _dyes, _layers);
         _worldDelete = new WorldDeleteController(
-            Path.Combine(OS.GetUserDataDir(), "worlds"));
+            WorldSaveDirectories.Root);
         _structures.ValidateBlocks(
             _blocks, _dyes, _layers);
         _structures.ValidateFluids(
@@ -988,8 +989,7 @@ public partial class Main : Node3D
         var position = _player.GlobalPosition;
         var source = new NVector3(
             position.X, position.Y, position.Z);
-        var directory = Path.Combine(
-            OS.GetUserDataDir(), "worlds", _sessionStates.Name);
+        var directory = WorldSaveDirectories.ForWorld(_sessionStates.Name);
         var accepted = _sessions.RequestSaveAndLeave(
             directory, source, _blocks, _fluids, _dyes, _layers);
         if (!accepted)
@@ -1045,7 +1045,7 @@ public partial class Main : Node3D
         if (completion.IsCheckpoint)
         {
             _worldThumbnail.Complete(
-                Path.Combine(OS.GetUserDataDir(), "worlds", _sessionStates.Name),
+                WorldSaveDirectories.ForWorld(_sessionStates.Name),
                 completion.SaveError is null && completion.SavedGeneration.HasValue);
         }
 
@@ -2329,7 +2329,7 @@ public partial class Main : Node3D
         }
 
         var name = WorldSaveNameAllocator.Allocate(
-            Path.Combine(OS.GetUserDataDir(), "worlds"), creation.Name);
+            WorldSaveDirectories.Root, creation.Name);
         var safeCreation = name == creation.Name
             ? creation
             : new WorldCreationOptions(
