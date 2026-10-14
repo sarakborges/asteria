@@ -144,6 +144,10 @@ public sealed class LightingRuntime
         if (_publication is not null)
             return TryPublishNextSlice(out report);
 
+        // Reject obsolete work before it finishes computing; cancellation
+        // is checked inside the snapshot-only solver, never against live
+        // mutable chunks. Completion still owns the original batch.
+        _worker.CancelIfStale(_world);
         if (!_worker.TryTakeCompleted(
                 out var result,
                 out error))
@@ -176,7 +180,7 @@ public sealed class LightingRuntime
             return true;
         }
 
-        if (!result.Dependencies.IsCurrent(
+        if (result.Cancelled || !result.Dependencies.IsCurrent(
                 _world))
         {
             _updates.RequeueLighting(

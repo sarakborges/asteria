@@ -49,12 +49,14 @@ public static class VoxelWorldLightingSolver
         BlockRegistry blocks,
         FluidRegistry fluids,
         IEnumerable<WorldVoxelCoord> editedPositions,
-        PackContentRegistry<ObjectDefinition>? objects = null)
+        PackContentRegistry<ObjectDefinition>? objects = null,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(blocks);
         ArgumentNullException.ThrowIfNull(fluids);
         ArgumentNullException.ThrowIfNull(editedPositions);
+        cancellationToken.ThrowIfCancellationRequested();
 
         // First remove stale illumination, then restore light monotonically.
         // The previous single queue reduced light one level at a time and
@@ -72,10 +74,11 @@ public static class VoxelWorldLightingSolver
 
         var processed = RemoveStaleLight(
             world, blocks, fluids, directSky, objectEmissions,
-            darkening, brightening, originals);
+            darkening, brightening, originals, cancellationToken);
         processed += RestoreLight(
             world, blocks, fluids, directSky, objectEmissions,
-            brightening, originals);
+            brightening, originals, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
         return new VoxelLightingUpdateResult(
             originals
                 .Where(entry => world.GetLightOrDark(entry.Key) != entry.Value)
@@ -103,11 +106,14 @@ public static class VoxelWorldLightingSolver
         ObjectLightEmissionField objectEmissions,
         DeduplicatedQueue<WorldVoxelCoord> darkening,
         DeduplicatedQueue<WorldVoxelCoord> brightening,
-        Dictionary<WorldVoxelCoord, VoxelLight> originals)
+        Dictionary<WorldVoxelCoord, VoxelLight> originals,
+        CancellationToken cancellationToken)
     {
         var processed = 0;
         while (darkening.TryDequeue(out var position))
         {
+            if ((processed & 255) == 0)
+                cancellationToken.ThrowIfCancellationRequested();
             var address = VoxelCoordinates.FromWorld(
                 position.X, position.Y, position.Z);
             if (!world.TryGetChunk(address.Chunk, out var chunk))
@@ -149,11 +155,14 @@ public static class VoxelWorldLightingSolver
         DirectSkyContext directSky,
         ObjectLightEmissionField objectEmissions,
         DeduplicatedQueue<WorldVoxelCoord> brightening,
-        Dictionary<WorldVoxelCoord, VoxelLight> originals)
+        Dictionary<WorldVoxelCoord, VoxelLight> originals,
+        CancellationToken cancellationToken)
     {
         var processed = 0;
         while (brightening.TryDequeue(out var position))
         {
+            if ((processed & 255) == 0)
+                cancellationToken.ThrowIfCancellationRequested();
             var address = VoxelCoordinates.FromWorld(
                 position.X, position.Y, position.Z);
             if (!world.TryGetChunk(address.Chunk, out var chunk))

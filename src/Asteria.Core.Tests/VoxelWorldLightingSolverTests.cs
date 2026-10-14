@@ -5,6 +5,22 @@ namespace Asteria.Core.Tests;
 public sealed class VoxelWorldLightingSolverTests
 {
     [Fact]
+    public void CancelledRelightCannotPublishPartialWorkerLight()
+    {
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, new Chunk());
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        Assert.Throws<OperationCanceledException>(() =>
+            VoxelWorldLightingSolver.RelightAfterEdits(
+                world, new BlockRegistry([]), new FluidRegistry([]),
+                [new WorldVoxelCoord(1, 1, 1)],
+                cancellationToken: cancellation.Token));
+        Assert.Equal(VoxelLight.Dark, world.GetLightOrDark(
+            new WorldVoxelCoord(1, 1, 1)));
+    }
+
+    [Fact]
     public void BlockLightPropagatesAcrossChunkBoundary()
     {
         var blocks = new BlockRegistry(
