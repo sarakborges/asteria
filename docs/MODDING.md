@@ -9,7 +9,7 @@ The engine's authored default pack is compiled into the managed client assembly 
 
 ## Installing a pack
 
-Under the Asteria user data directory (Godot `OS.GetUserDataDir()`) create `packs/my_pack/`:
+Place a pack in either **`<project>/packs/my_pack/`** (uncommitted local development pack) or **`<Asteria user data>/packs/my_pack/`** (installed pack; Godot `OS.GetUserDataDir()`). Both are discovered. If names collide, the user-data pack takes priority; `default` is always built in.
 
 ```text
 packs/my_pack/
@@ -38,7 +38,7 @@ packs/my_pack/
 }
 ```
 
-Open **Packs** from the start screen and enable the pack. Choose **Data**, **Resources** (also includes UI appearance), or **Both**. Packs are layered above the built-in content in the visible priority order; the last enabled pack wins. Changes take effect on game restart, not on a loaded Sphere.
+Open **Packs** from the start screen and enable the pack. Folders with a missing or invalid `pack.json` are shown with an error and cannot be enabled. Choose **Data**, **Resources** (also includes UI appearance), or **Both**. Packs are layered above the built-in content in the visible priority order; the last enabled pack wins. Changes take effect on game restart, not on a loaded Sphere.
 
 Data files are composed by namespaced definition ID, not filename. The overlay below entirely disables Dirt:
 
