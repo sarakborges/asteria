@@ -41,6 +41,40 @@ public sealed class ChunkMeshDataBuilderTests
     }
 
     [Fact]
+    public void RelightProvenanceUsesChunkLocalCoordinatesAcrossWorldOffsets()
+    {
+        const string texture = "textures/test/stone.png";
+        var blocks = new BlockRegistry([
+            new BlockDefinition("asteria:stone",
+                textures: new BlockTextureSet(top: [new BlockTextureLayer(texture)])),
+        ]);
+        var textures = new TerrainTextureLookup(
+            new Dictionary<string, int> { [texture] = 0 });
+        var coord = new ChunkCoord(2, 3, -1);
+        var chunk = new Chunk();
+        chunk.SetBlock(3, 3, 3, blocks.GetId("asteria:stone"));
+        ChunkLightingSolver.Initialize(chunk, blocks, new FluidRegistry([]));
+        var world = new VoxelWorld();
+        world.InsertChunk(coord, chunk);
+        var original = ChunkMeshDataBuilder.BuildMeshlet(
+            world, coord, blocks, textures, 0);
+        var lightPosition = new WorldVoxelCoord(
+            coord.X * Chunk.Size + 3, coord.Y * Chunk.Size + 4,
+            coord.Z * Chunk.Size + 3);
+        Assert.True(world.TrySetLight(
+            lightPosition, new VoxelLight(9, 11, 3, 2)));
+        var relit = ChunkMeshLightingUpdater.Relight(
+            world, coord, blocks, original);
+        var rebuilt = ChunkMeshDataBuilder.BuildMeshlet(
+            world, coord, blocks, textures, 0);
+        Assert.Same(original.CollisionFaces, relit.CollisionFaces);
+        Assert.Equal(rebuilt.RenderBatches.Length, relit.RenderBatches.Length);
+        for (var i = 0; i < rebuilt.RenderBatches.Length; i++)
+            Assert.Equal(rebuilt.RenderBatches[i].Vertices,
+                relit.RenderBatches[i].Vertices);
+    }
+
+    [Fact]
     public void MultiVoxelGreedyRectangleRequiresGeometryRebuildOnLightChange()
     {
         const string texture = "textures/test/stone.png";
