@@ -56,7 +56,7 @@ Disabling definitions with live references (biome palettes, recipes, structures,
 
 ## Installing a C# mod
 
-Under the same user data directory, create `mods/my_mod/` with a `mod.json`, the compiled DLL and its private dependency DLLs. Mods default to disabled and must be opted in from the **Mods** screen. Settings are user-editable JSON objects, passed into the mod at initialization; they apply after restart.
+Create a `mods/my_mod/` folder **inside the project** during development, or **beside the executable** in exported desktop builds. Include `mod.json`, the compiled DLL, and its private dependency DLLs. The Mods screen reads only this local directory, never Godot's user-data directory. Mods default to disabled, and `mods/selection.json` stores their enabled state and JSON settings. Changes apply on restart.
 
 ```json
 {
@@ -80,6 +80,6 @@ The first v1 gameplay hook is `IGameplayHooks.RegisterBeforeBlockBreak`. Its cal
 
 - Manifest IDs are namespaced and unique. Enabled mods and dependencies load in deterministic ID order with dependency traversal; cycles or missing dependencies are errors.
 - Each mod has its own `AssemblyLoadContext` for dependencies. This is for resolution, **not sandboxing** or security isolation.
-- Mods and packs are configured separately. Both require a restart; changing them in a live world is deliberately unsupported.
+- Mods and packs are configured separately. Both require a restart; changing them in a live world is deliberately unsupported. Previous files from `user://mods/` and `user://mod-selection.json` are not loaded automatically; move the mods and re-enable them in the Mods menu.
 - Packs and mods never directly own Godot scenes, WebUI bridge logic, or authoritative voxel storage.
 - A content-pack failure must be corrected before a world dependent on that content can load. Keep world backups when disabling authored IDs.
