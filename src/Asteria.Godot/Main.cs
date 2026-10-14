@@ -5557,7 +5557,8 @@ public partial class Main : Node3D
         _worldDiagnostics?.ObserveFluidMesh(
             completed.WorkerMilliseconds, completed.Accepted, completed.Stale,
             completed.Kind == MeshPipelineCompletionKind.RequeuedStale,
-            completed.RelitWithoutMeshing);
+            completed.RelitWithoutMeshing,
+            completed.SalvagedFromStaleBatch);
         if (completed.Kind != MeshPipelineCompletionKind.Applied)
             return;
         if (_debugHudVisible)
@@ -5611,7 +5612,8 @@ public partial class Main : Node3D
             completed.WorkerMilliseconds, completed.Accepted, completed.Stale,
             completed.CaptureMilliseconds,
             completed.Kind == MeshPipelineCompletionKind.RequeuedStale,
-            completed.RelitWithoutMeshing);
+            completed.RelitWithoutMeshing,
+            completed.SalvagedFromStaleBatch);
         if (completed.Kind != MeshPipelineCompletionKind.Applied)
             return;
         if (_debugHudVisible)

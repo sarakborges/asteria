@@ -83,6 +83,11 @@ def summarize(rows):
     else:
         result["Seeds per lighting worker"] = None
         result["Peak seeds per worker"] = None
+    for label, key in (
+        ("Terrain salvaged meshlets", "mesh_salvaged_from_stale_batch"),
+        ("Fluid salvaged meshlets", "fluid_mesh_salvaged_from_stale_batch"),
+    ):
+        result[label] = total(rows, key) if any(key in r for r in rows) else None
     for label, key in (("Terrain GPU patches", "mesh_gpu_attribute_patches"),
                        ("Fluid GPU patches", "fluid_gpu_attribute_patches")):
         result[label] = total(rows, key) if any(key in r for r in rows) else None

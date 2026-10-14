@@ -271,8 +271,10 @@ public sealed class TerrainMeshPipeline
             return true;
         }
 
+        var batchStale = !result.Dependencies.IsCurrent(_world);
         var accepted = 0;
         var stale = 0;
+        var salvaged = 0;
         var relitWithoutMeshing = 0;
 
         foreach (var meshlet in result.Meshlets)
@@ -320,6 +322,8 @@ public sealed class TerrainMeshPipeline
                 }
 
                 accepted++;
+                if (batchStale)
+                    salvaged++;
                 if (meshlet.LightOnly)
                     relitWithoutMeshing++;
             }
@@ -355,7 +359,8 @@ public sealed class TerrainMeshPipeline
                 accepted,
                 stale,
                 result.CaptureMilliseconds,
-                relitWithoutMeshing);
+                relitWithoutMeshing,
+                salvaged);
         return true;
     }
 

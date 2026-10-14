@@ -27,6 +27,8 @@ class ComparisonTests(unittest.TestCase):
             self.assertAlmostEqual(values["Terrain stale (%)"], 100 * 4 / 30)
             self.assertIsNone(values["Terrain GPU patches"])
             self.assertIsNone(values["Seeds per lighting worker"])
+            self.assertIsNone(values["Terrain salvaged meshlets"])
+            self.assertIsNone(values["Fluid salvaged meshlets"])
             self.assertAlmostEqual(values["Avg frame (ms)"], 56 / 3)
 
     def test_requires_full_duration(self):
