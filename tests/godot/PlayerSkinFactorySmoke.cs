@@ -110,7 +110,7 @@ public partial class PlayerSkinFactorySmoke : Node
             "HairLayer" => new Vector2I(44, 12),
             "BodyMesh" => new Vector2I(24, 26),
             "RightArmMesh" => new Vector2I(46, 26),
-            "LeftArmMesh" => new Vector2I(54, 54),
+            "LeftArmMesh" => new Vector2I(38, 54),
             "RightLegMesh" => new Vector2I(6, 26),
             "LeftLegMesh" => new Vector2I(22, 54),
             _ => throw new InvalidDataException("Unknown player cuboid."),
