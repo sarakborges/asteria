@@ -65,7 +65,8 @@ public sealed class CreatureRuntimeTests
             world, blocks, origin, direction, 6f, objects));
 
         // Remove the foreground Object and put it behind the creature.
-        Assert.True(world.RemoveObjectAt(nearSupport, out _));
+        Assert.True(world.RemoveObjectAt(nearSupport,
+            new ObjectCell("asteria:flower", BlockFace.Top)));
         var farSupport = new WorldVoxelCoord(6, 3, 4);
         Assert.True(world.SetBlockAt(farSupport,
             blocks.GetId("asteria:stone"), out _));
