@@ -1,5 +1,13 @@
 namespace Asteria.Core.World;
 
+[Flags]
+public enum LightingDependencyChanges : byte
+{
+    None = 0,
+    Content = 1,
+    Residency = 2,
+}
+
 public sealed class VoxelLightingDependencies
 {
     private readonly ChunkContentStamp _content;
@@ -11,6 +19,22 @@ public sealed class VoxelLightingDependencies
     {
         _content = content ?? throw new ArgumentNullException(nameof(content));
         _residency = residency ?? throw new ArgumentNullException(nameof(residency));
+    }
+
+    /// <summary>
+    /// Classify stale lighting work for diagnostics. Both dependencies are
+    /// inspected even if one is invalid, so combined causes stay observable.
+    /// Never used to bypass stale-result rejection.
+    /// </summary>
+    public LightingDependencyChanges DetectChanges(VoxelWorld world)
+    {
+        ArgumentNullException.ThrowIfNull(world);
+        var changes = LightingDependencyChanges.None;
+        if (!world.IsContentStampCurrent(_content))
+            changes |= LightingDependencyChanges.Content;
+        if (!world.IsColumnResidencyStampCurrent(_residency))
+            changes |= LightingDependencyChanges.Residency;
+        return changes;
     }
 
     public bool IsCurrent(VoxelWorld world)

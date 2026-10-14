@@ -119,6 +119,9 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     private int _lightingChanged;
     private int _lightingDirtyChunks;
     private int _lightingStaleBatches;
+    private int _lightingStaleContentBatches;
+    private int _lightingStaleResidencyBatches;
+    private int _lightingStaleUnknownBatches;
     private double _lightingCaptureMs;
     private double _lightingCaptureMaxMs;
     private double _lightingApplyMs;
@@ -366,6 +369,12 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         {
             _lightingStaleSeedCount += report.SeedCount;
             _lightingStaleBatches++;
+            if ((report.StaleDependencies & LightingDependencyChanges.Content) != 0)
+                _lightingStaleContentBatches++;
+            if ((report.StaleDependencies & LightingDependencyChanges.Residency) != 0)
+                _lightingStaleResidencyBatches++;
+            if (report.StaleDependencies == LightingDependencyChanges.None)
+                _lightingStaleUnknownBatches++;
             _lightingDiscardedWorkerMs += report.WorkerMilliseconds;
             return;
         }
@@ -480,6 +489,9 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"lighting_voxels={_lightingVoxels} lighting_changed={_lightingChanged} " +
             $"lighting_dirty_chunks={_lightingDirtyChunks} " +
             $"lighting_stale={_lightingStaleBatches} " +
+            $"lighting_stale_content={_lightingStaleContentBatches} " +
+            $"lighting_stale_residency={_lightingStaleResidencyBatches} " +
+            $"lighting_stale_unknown={_lightingStaleUnknownBatches} " +
             $"lighting_discarded_worker_ms_total={Format1(_lightingDiscardedWorkerMs)} " +
             $"lighting_capture_ms_total={Format1(_lightingCaptureMs)} " +
             $"lighting_capture_ms_max={Format1(_lightingCaptureMaxMs)} " +
@@ -547,6 +559,9 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         _lightingChanged = 0;
         _lightingDirtyChunks = 0;
         _lightingStaleBatches = 0;
+        _lightingStaleContentBatches = 0;
+        _lightingStaleResidencyBatches = 0;
+        _lightingStaleUnknownBatches = 0;
         _lightingCaptureMs = 0d;
         _lightingCaptureMaxMs = 0d;
         _lightingApplyMs = 0d;
