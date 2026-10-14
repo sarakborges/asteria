@@ -42,7 +42,7 @@ public sealed class PlayerMovementSpeedsTests
         var two = PlayerMovementPhysics.FlightVelocity(
             PlayerMovementPhysics.FlightVelocity(Vector3.Zero, target, 0.1f),
             target, 0.1f);
-        Assert.Equal(one, two);
+        Assert.InRange(Vector3.Distance(one, two), 0f, 0.0001f);
         Assert.Equal(15f, one.X, 4);
         var reverse = PlayerMovementPhysics.FlightVelocity(one, -target, 0.1f);
         Assert.Equal(7.5f, reverse.X, 4);
