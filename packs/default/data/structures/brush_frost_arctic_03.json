@@ -30,10 +30,10 @@
       "block": "asteria:snow"
     },
     "B": {
-      "block": "asteria:log_rime_deadwood"
+      "block": "asteria:log_frost_wood"
     },
     "T": {
-      "block": "asteria:leaf_rime_deadwood"
+      "block": "asteria:leaf_frost_wood_arctic"
     }
   },
   "layers": [

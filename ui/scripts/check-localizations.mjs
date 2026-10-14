@@ -76,27 +76,57 @@ const validateBlockTexturePaths = (node, context) => {
   }
 };
 
-// Tree families provide the four material roles plus their sapling sprite.
-// Additional variants (for example foliage variants and planks) remain valid.
+// Validate materials against their authored natural-log and sapling definitions,
+// rather than assuming stable content IDs are also texture-directory names.
 const treeTexturesRoot = join(resourcesRoot, "textures", "blocks", "trees");
-for (const entry of readdirSync(treeTexturesRoot, { withFileTypes: true })
-    .filter(entry => entry.isDirectory())
-    .sort((a, b) => a.name.localeCompare(b.name))) {
-  for (const role of ["top", "side", "leaf", "stripped", "sapling"]) {
-    const asset = "textures/blocks/trees/" + entry.name + "/" + role + ".png";
-    resource(asset, "tree material " + entry.name + "." + role);
-    const png = readFileSync(join(resourcesRoot, asset));
-    if (png.length < 24 || png.subarray(0, 8).toString("hex") !==
-        "89504e470d0a1a0a" || png.readUInt32BE(16) !== 64 ||
-        png.readUInt32BE(20) !== 64) {
-      throw new Error("tree material " + entry.name +
-        ": invalid 64×64 PNG " + asset);
-    }
+const treeDirectories = readdirSync(treeTexturesRoot, { withFileTypes: true })
+  .filter(entry => entry.isDirectory())
+  .sort((a, b) => a.name.localeCompare(b.name));
+const naturalLogs = readdirSync(join(dataRoot, "blocks"))
+  .filter(file => /^log_.*\.json$/.test(file))
+  .sort()
+  .map(file => JSON.parse(readFileSync(join(dataRoot, "blocks", file), "utf8")))
+  .filter(definition => definition.variant?.key === "natural" &&
+    typeof definition.textures?.top === "string" &&
+    definition.textures.top.startsWith("textures/blocks/trees/"));
+
+const checkTreeTile = (asset, context) => {
+  resource(asset, context);
+  const png = readFileSync(join(resourcesRoot, asset));
+  if (png.length < 24 || png.subarray(0, 8).toString("hex") !==
+      "89504e470d0a1a0a" || png.readUInt32BE(16) !== 64 ||
+      png.readUInt32BE(20) !== 64) {
+    throw new Error(context + ": invalid 64×64 PNG " + asset);
   }
+};
+
+for (const entry of treeDirectories) {
+  const folder = entry.name;
+  const logs = naturalLogs.filter(log =>
+    log.textures.top === "textures/blocks/trees/" + folder + "/top.png");
+  if (logs.length !== 1) {
+    throw new Error("tree material " + folder + ": expected exactly one authored natural log");
+  }
+  for (const role of ["top", "side", "leaf", "stripped", "planks"]) {
+    checkTreeTile("textures/blocks/trees/" + folder + "/" + role + ".png",
+      "tree material " + folder + "." + role);
+  }
+
+  const species = logs[0].id.slice("asteria:log_".length);
+  const saplingPath = join(dataRoot, "objects", "sapling_" + species + ".json");
+  if (!existsSync(saplingPath)) {
+    throw new Error("tree material " + folder + ": missing sapling_" + species);
+  }
+  const sapling = JSON.parse(readFileSync(saplingPath, "utf8"));
+  if (sapling.id !== "asteria:sapling_" + species ||
+      sapling.icon !== sapling.visual?.texture ||
+      !sapling.icon.startsWith("textures/objects/sapling_")) {
+    throw new Error("tree material " + folder + ": invalid authored sapling sprite");
+  }
+  checkTreeTile(sapling.icon, "tree material " + folder + ".sapling");
 }
 console.log("Validated tree textures: " +
-  readdirSync(treeTexturesRoot, { withFileTypes: true })
-    .filter(entry => entry.isDirectory()).length + " material families");
+  treeDirectories.length + " material families");
 
 for (const [domain, directories] of [
   ["blocks", ["blocks"]],
