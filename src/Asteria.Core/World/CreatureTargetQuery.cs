@@ -9,8 +9,9 @@ public readonly record struct CreatureTargetHit(
 
 /// <summary>
 /// Nearest-ray creature selection using authored target colliders, with
-/// stable instance-id tie breaks and both solid-voxel and source-fluid
-/// line-of-sight occlusion. Uses the same DDA as the HUD.
+/// stable instance-id tie breaks and line-of-sight arbitration against
+/// solid voxels, source fluids and closer world Objects. The shared Core
+/// ray queries also serve combat and HUD presentation.
 /// </summary>
 public static class CreatureTargetQuery
 {
@@ -21,7 +22,8 @@ public static class CreatureTargetQuery
         BlockRegistry blocks,
         Vector3 origin,
         Vector3 direction,
-        float maxDistance)
+        float maxDistance,
+        PackContentRegistry<ObjectDefinition>? objects = null)
     {
         ArgumentNullException.ThrowIfNull(creatures);
         ArgumentNullException.ThrowIfNull(definitions);
@@ -72,13 +74,25 @@ public static class CreatureTargetQuery
             (int)MathF.Floor(point.Z));
         if (voxel.Y < 0 || !world.IsLoadedAt(voxel)) return null;
 
-        // Source fluids participate in target arbitration (MineClone
-        // rebuild), but not in ordinary mining/placement raycasts. The
-        // existing geometry-aware DDA resolves both occluders in order.
-        return VoxelWorldRaycaster.Raycast(
-            world, blocks, origin, unit, hit.Distance,
-            includeFluidSources: true) is null
-            ? hit : null;
+        // MineClone rebuild arbitrates creature, Object, solid block
+        // and source fluid against the same camera ray. Normal mining
+        // and placement continue using their independent hit policy.
+        if (VoxelWorldRaycaster.Raycast(
+                world, blocks, origin, unit, hit.Distance,
+                includeFluidSources: true) is not null)
+            return null;
+
+        // World Object geometry can be hit before the creature without
+        // occupying a voxel. A strict comparison preserves the reference's
+        // creature-first stable tie when the entry distances coincide.
+        if (objects is not null &&
+            WorldObjectTargetResolver.RaycastVisible(
+                world, blocks, objects, origin, unit,
+                hit.Distance) is { } objectHit &&
+            objectHit.Distance < hit.Distance)
+            return null;
+
+        return hit;
     }
 
     private static bool IntersectAabb(

@@ -188,7 +188,8 @@ public sealed class CreatureRuntime
         BlockRegistry blocks,
         Vector3 origin,
         Vector3 direction,
-        float maximumDistance) =>
+        float maximumDistance,
+        PackContentRegistry<ObjectDefinition>? objects = null) =>
         CreatureTargetQuery.Find(
             _active.Values,
             _definitions,
@@ -196,7 +197,8 @@ public sealed class CreatureRuntime
             blocks,
             origin,
             direction,
-            maximumDistance);
+            maximumDistance,
+            objects);
 
     /// <summary>
     /// Consume actual melee impacts produced by a slime's landing attack.

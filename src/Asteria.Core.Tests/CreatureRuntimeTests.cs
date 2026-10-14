@@ -32,6 +32,49 @@ public sealed class CreatureRuntimeTests
     }
 
 
+
+    [Fact]
+    public void NearerObjectTakesPriorityOverCreatureButFartherObjectDoesNot()
+    {
+        var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);
+        var objects = PackContentRegistry<ObjectDefinition>.FromJson(["""
+            {"id":"asteria:flower","category":"foliage",
+             "icon":"textures/objects/daisy.png",
+             "visual":{"type":"crossedSprite","texture":"textures/objects/daisy.png",
+                       "height":0.65},
+             "target":{"size":[0.7,0.65,0.7],"centerOffset":[0,0.325,0]}}
+            """], ObjectDefinition.Parse, definition => definition.Id);
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, new Chunk());
+        var creatures = new CreatureRuntime(Definitions());
+        Assert.True(creatures.TrySpawn("asteria:slime_aqua",
+            new Vector3(4.5f, 4f, 4.5f), out var spawned));
+        var origin = new Vector3(.5f, 4.325f, 4.5f);
+        var direction = Vector3.UnitX;
+        var nearSupport = new WorldVoxelCoord(2, 3, 4);
+        Assert.True(world.SetBlockAt(nearSupport,
+            blocks.GetId("asteria:stone"), out _));
+        Assert.True(world.AddObjectAt(nearSupport,
+            new ObjectCell("asteria:flower", BlockFace.Top)));
+
+        // The bare creature query still finds its geometry, proving
+        // the test does not accidentally rely on a solid block occluder.
+        Assert.Equal(spawned.Id, creatures.FindTarget(
+            world, blocks, origin, direction, 6f)!.Value.Creature.Id);
+        Assert.Null(creatures.FindTarget(
+            world, blocks, origin, direction, 6f, objects));
+
+        // Remove the foreground Object and put it behind the creature.
+        Assert.True(world.RemoveObjectAt(nearSupport, out _));
+        var farSupport = new WorldVoxelCoord(6, 3, 4);
+        Assert.True(world.SetBlockAt(farSupport,
+            blocks.GetId("asteria:stone"), out _));
+        Assert.True(world.AddObjectAt(farSupport,
+            new ObjectCell("asteria:flower", BlockFace.Top)));
+        Assert.Equal(spawned.Id, creatures.FindTarget(
+            world, blocks, origin, direction, 6f, objects)!.Value.Creature.Id);
+    }
+
     [Fact]
     public void SourceFluidOccludesCreaturesButFlowingFluidDoesNot()
     {

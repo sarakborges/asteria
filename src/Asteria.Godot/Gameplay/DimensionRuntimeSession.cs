@@ -52,6 +52,7 @@ public sealed class DimensionRuntimeSession
     private BiomeTintSampleGrid? _miningTintSamples;
     private readonly ProjectilePresentationController _projectilePresentation;
     private readonly InventoryContentCatalog _inventoryCatalog;
+    private readonly PackContentRegistry<ObjectDefinition> _targetObjects;
     private readonly CreatureNaturalSpawnRuntime _naturalSpawns;
     private readonly SaplingGrowthRuntime _saplings;
     private bool _retiring;
@@ -122,7 +123,8 @@ public sealed class DimensionRuntimeSession
                     $"Creature {creature.Id} loot references unknown item {loot.ItemId}.");
         }
         ArgumentNullException.ThrowIfNull(tools);
-        ArgumentNullException.ThrowIfNull(objects);
+        _targetObjects = objects ??
+            throw new ArgumentNullException(nameof(objects));
         ArgumentNullException.ThrowIfNull(itemIcon);
         ArgumentNullException.ThrowIfNull(
             terrainTextures);
@@ -436,7 +438,8 @@ public sealed class DimensionRuntimeSession
         _retiring || _retired || Creatures.Count == 0
             ? null
             : Creatures.FindTarget(
-                World, Blocks, origin, direction, maximumDistance);
+                World, Blocks, origin, direction, maximumDistance,
+                _targetObjects);
 
     public bool TryAttackCreature(
         CreatureInstanceId id,
