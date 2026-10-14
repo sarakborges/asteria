@@ -255,6 +255,27 @@ public sealed class VoxelWorldLightingSolverTests
     }
 
     [Fact]
+    public void DistantUnloadedVerticalGapDoesNotSuppressLowerSkylight()
+    {
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, new Chunk());
+        world.InsertChunk(new ChunkCoord(0, 256, 0), new Chunk());
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition("asteria:stone", lightDampening: 15),
+        ]);
+        VoxelWorldLightingSolver.Initialize(
+            world, blocks, new FluidRegistry([]));
+        var position = new WorldVoxelCoord(8, 7, 8);
+        Assert.True(world.SetBlockAt(
+            position, blocks.GetId("asteria:stone"), out _));
+        VoxelWorldLightingSolver.RelightAfterEdits(
+            world, blocks, new FluidRegistry([]), [position]);
+        Assert.Equal((byte)15, world.GetLightOrDark(
+            new WorldVoxelCoord(8, 15, 8)).Sky);
+    }
+
+    [Fact]
     public void IncrementalDirectSkyTreatsUnloadedVerticalGapAsOpenSky()
     {
         var blocks =

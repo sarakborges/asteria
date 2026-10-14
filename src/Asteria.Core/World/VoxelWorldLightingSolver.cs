@@ -632,11 +632,10 @@ public static class VoxelWorldLightingSolver
                 (matchingChunks[0].Y + 1) * Chunk.Size - 1;
             var lowestY =
                 matchingChunks[^1].Y * Chunk.Size;
-            var levels =
-                new byte[
-                    highestY -
-                    lowestY +
-                    1];
+            // Sparse vertical residency must not allocate a continuous
+            // span across potentially thousands of unloaded Y chunks.
+            // Each resident chunk contributes exactly 16 levels.
+            var chunkLevels = new Dictionary<int, byte[]>(matchingChunks.Length);
             int? previousChunkY = null;
             var sky =
                 VoxelLight.MaxLevel;
@@ -653,13 +652,12 @@ public static class VoxelWorldLightingSolver
 
                 var chunk =
                     _world.GetChunk(coord);
+                var levels = new byte[Chunk.Size];
+                chunkLevels.Add(coord.Y, levels);
                 var localX =
                     horizontalAddress.Local.X;
                 var localZ =
                     horizontalAddress.Local.Z;
-                var originY =
-                    coord.Y * Chunk.Size;
-
                 for (var localY =
                          Chunk.Size - 1;
                      localY >= 0;
@@ -688,10 +686,7 @@ public static class VoxelWorldLightingSolver
                             cell,
                             fluid));
 
-                    levels[
-                        originY +
-                        localY -
-                        lowestY] = sky;
+                    levels[localY] = sky;
                 }
 
                 previousChunkY =
@@ -701,31 +696,26 @@ public static class VoxelWorldLightingSolver
             return new Column(
                 lowestY,
                 highestY,
-                levels);
+                chunkLevels);
         }
 
         private sealed record Column(
             int LowestY,
             int HighestY,
-            byte[] Levels)
+            IReadOnlyDictionary<int, byte[]> LevelsByChunk)
         {
             public static Column Empty { get; } =
-                new(0, -1, []);
+                new(0, -1, new Dictionary<int, byte[]>());
 
             public byte LevelAt(int worldY)
             {
                 if (worldY > HighestY)
-                {
                     return VoxelLight.MaxLevel;
-                }
-
                 if (worldY < LowestY ||
-                    Levels.Length == 0)
-                {
-                    return 0;
-                }
-
-                return Levels[worldY - LowestY];
+                    !LevelsByChunk.TryGetValue(worldY / Chunk.Size,
+                        out var levels))
+                    return 0; // Unloaded vertical gaps remain dark.
+                return levels[worldY % Chunk.Size];
             }
         }
     }
