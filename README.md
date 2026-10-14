@@ -2,6 +2,19 @@
 
 Fresh Godot + C# rewrite of Asteria.
 
+## World save directory
+
+When running from the Godot editor/source checkout, worlds are saved at
+`<project>/worlds/<world-name>/`. An exported desktop game saves worlds at
+`<executable directory>/worlds/<world-name>/` instead of using an opaque
+operating-system application-data directory. The executable's folder must be
+writable; a read-only installation cannot save worlds.
+
+Creation, selection, loading, recreation, saving, thumbnail capture, and
+deletion all use this one directory. `worlds/` is ignored by Git and
+excluded from the Godot importer. Existing worlds in Godot's old
+`user://worlds/` directory are **not moved automatically**.
+
 ## WebUI stack
 
 The WebUI uses React 19 + TypeScript + Vite + Storybook. Godot/WRY transport stays in `ui/src/bridge`, message/state binding stays in `ui/src/controllers`, browser presentation state is owned by `UiStore`, and React components remain presentation-only. Atomic Design components live in per-component directories with colocated TSX, CSS and stories.
