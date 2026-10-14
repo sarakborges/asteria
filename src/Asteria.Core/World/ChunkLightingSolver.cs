@@ -51,7 +51,10 @@ public static class ChunkLightingSolver
         ObjectLightEmissionField objectEmissions,
         byte[] mediumDampening)
     {
-        var hasTransmittingMedium = false;
+        // Only attenuated transmitting cells or emissive cells can
+        // increase another voxel's seeded light. Uniform full skylight
+        // never needs a local flood-fill.
+        var needsPropagation = false;
         for (var z = 0; z < Chunk.Size; z++)
         {
             for (var x = 0; x < Chunk.Size; x++)
@@ -80,8 +83,6 @@ public static class ChunkLightingSolver
                             fluid);
 
                     mediumDampening[ToIndex(x, y, z)] = dampening;
-                    hasTransmittingMedium |=
-                        dampening < VoxelLight.MaxLevel;
 
                     if (sky > 0)
                     {
@@ -97,6 +98,9 @@ public static class ChunkLightingSolver
                             fluids,
                             cell,
                             fluid, objectEmissions.At(new WorldVoxelCoord(x, y, z)));
+                    needsPropagation |= !emission.IsDark ||
+                        (dampening < VoxelLight.MaxLevel &&
+                         sky < VoxelLight.MaxLevel);
 
                     chunk.SetLight(
                         x,
@@ -111,9 +115,9 @@ public static class ChunkLightingSolver
             }
         }
 
-        // An entirely opaque chunk has no voxel through which the local
-        // flood-fill could propagate. Direct light and emissions are final.
-        return hasTransmittingMedium;
+        // A chunk without attenuated transmitting voxels or emissions
+        // already has its final local lighting.
+        return needsPropagation;
     }
 
     private static void Relax(

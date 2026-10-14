@@ -68,6 +68,27 @@ public sealed class ChunkLightingSolverTests
     }
 
     [Fact]
+    public void ExposedGroundKeepsFullSkyWithoutChangingBlockLighting()
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition("asteria:stone", lightDampening: 15),
+        ]);
+        var stone = blocks.GetId("asteria:stone");
+        var chunk = new Chunk();
+        for (var x = 0; x < Chunk.Size; x++)
+        for (var z = 0; z < Chunk.Size; z++)
+            chunk.SetBlock(x, 0, z, stone);
+
+        ChunkLightingSolver.Initialize(chunk, blocks, new FluidRegistry([]));
+
+        Assert.Equal((byte)0, chunk.GetLight(4, 0, 4).Sky);
+        Assert.Equal(VoxelLight.MaxLevel, chunk.GetLight(4, 1, 4).Sky);
+        Assert.Equal(VoxelLight.MaxLevel, chunk.GetLight(4, 15, 4).Sky);
+        Assert.Equal((byte)0, chunk.GetLight(4, 2, 4).BlockPeak);
+    }
+
+    [Fact]
     public void OpaqueBlockStopsDirectSkylightButAllowsLateralBounceAroundIt()
     {
         var blocks = new BlockRegistry(
