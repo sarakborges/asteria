@@ -311,6 +311,50 @@ public sealed class VoxelWorldRaycasterTests
 
 
     [Fact]
+    public void FluidHudSkipsTheSourceContainingTheCamera()
+    {
+        var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);
+        var world = LoadedWorld();
+        var water = new FluidRuntimeId(1);
+        var cameraVoxel = new WorldVoxelCoord(2, 4, 4);
+        var nextVoxel = new WorldVoxelCoord(3, 4, 4);
+        Assert.True(world.SetFluidAt(cameraVoxel, FluidCell.Source(water), out _));
+        var camera = new Vector3(2.5f, 4.5f, 4.5f);
+        Assert.Null(VoxelWorldRaycaster.Raycast(world, blocks, camera,
+            Vector3.UnitX, 4f, includeFluidSources: true));
+
+        Assert.True(world.SetFluidAt(nextVoxel, FluidCell.Source(water), out _));
+        var hit = VoxelWorldRaycaster.Raycast(world, blocks, camera,
+            Vector3.UnitX, 4f, includeFluidSources: true);
+        Assert.Equal(nextVoxel, hit!.Value.Voxel);
+        Assert.Equal(-1, hit.Value.NormalX);
+    }
+
+    [Fact]
+    public void FlowingWaterBeforeSourceStopsOnlyFluidSelectionNotBlockRay()
+    {
+        var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);
+        var world = LoadedWorld();
+        var water = new FluidRuntimeId(1);
+        var flowing = new WorldVoxelCoord(2, 4, 4);
+        var source = new WorldVoxelCoord(4, 4, 4);
+        var wall = new WorldVoxelCoord(6, 4, 4);
+        Assert.True(world.SetFluidAt(
+            flowing, FluidCell.Spreading(water, 4, 1), out _));
+        Assert.True(world.SetFluidAt(source, FluidCell.Source(water), out _));
+        Assert.True(world.SetBlockAt(wall, blocks.GetId("asteria:stone"), out _));
+        var origin = new Vector3(1.5f, 4.5f, 4.5f);
+
+        Assert.Equal(wall, VoxelWorldRaycaster.Raycast(world, blocks, origin,
+            Vector3.UnitX, 6f, includeFluidSources: true)!.Value.Voxel);
+        Assert.True(world.SetFluidAt(flowing, FluidCell.Empty, out _));
+        Assert.Equal(source, VoxelWorldRaycaster.Raycast(world, blocks, origin,
+            Vector3.UnitX, 6f, includeFluidSources: true)!.Value.Voxel);
+        Assert.Equal(wall, VoxelWorldRaycaster.Raycast(world, blocks, origin,
+            Vector3.UnitX, 6f)!.Value.Voxel);
+    }
+
+    [Fact]
     public void FluidSourceHudRaycastStopsAtNearerOpaqueBlocks()
     {
         var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);

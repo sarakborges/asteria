@@ -75,6 +75,25 @@ public sealed class WorldObjectTargetResolverTests
     }
 
     [Fact]
+    public void ObjectTargetRemainsVisibleFromInsideFluidSource()
+    {
+        var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, new Chunk());
+        var support = new WorldVoxelCoord(0, 1, 4);
+        Assert.True(world.SetBlockAt(support,
+            blocks.GetId("asteria:stone"), out _));
+        Assert.True(world.AddObjectAt(support,
+            new ObjectCell("asteria:flower", BlockFace.Top)));
+        var origin = new Vector3(.5f, 2.325f, 0f);
+        Assert.True(world.SetFluidAt(new WorldVoxelCoord(0, 2, 0),
+            FluidCell.Source(new FluidRuntimeId(1)), out _));
+        Assert.Equal(support, WorldObjectTargetResolver.RaycastVisible(
+            world, blocks, Definitions, origin, Vector3.UnitZ, 6f)!
+            .Value.Support);
+    }
+
+    [Fact]
     public void EmptyObjectCollectionDoesNotFabricateTarget()
     {
         var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);

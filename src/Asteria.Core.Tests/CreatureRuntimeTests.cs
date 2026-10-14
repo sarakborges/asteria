@@ -112,6 +112,22 @@ public sealed class CreatureRuntimeTests
     }
 
     [Fact]
+    public void CreatureTargetRemainsVisibleFromInsideFluidSource()
+    {
+        var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, new Chunk());
+        var creatures = new CreatureRuntime(Definitions());
+        Assert.True(creatures.TrySpawn("asteria:slime_aqua",
+            new Vector3(3.5f, 4f, 4.5f), out var entity));
+        Assert.True(world.SetFluidAt(new WorldVoxelCoord(1, 4, 4),
+            FluidCell.Source(new FluidRuntimeId(1)), out _));
+        Assert.Equal(entity.Id, creatures.FindTarget(world, blocks,
+            new Vector3(1.5f, 4.42f, 4.5f), Vector3.UnitX, 6f)!
+            .Value.Creature.Id);
+    }
+
+    [Fact]
     public void SourceFluidBeyondCreatureDoesNotHideTheNearerCreature()
     {
         var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);

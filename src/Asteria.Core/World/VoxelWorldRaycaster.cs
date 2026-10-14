@@ -73,6 +73,10 @@ public static class VoxelWorldRaycaster
         var normalX = 0;
         var normalY = 0;
         var normalZ = 0;
+        // Source targeting follows the first entered fluid, never the
+        // camera's own voxel; a nearer flowing cell stops fluid selection.
+        var isOriginVoxel = true;
+        var fluidSourceSelectionStopped = false;
 
         while (entryDistance <= maxDistance)
         {
@@ -152,16 +156,22 @@ public static class VoxelWorldRaycaster
                     return new VoxelWorldHit(position, 0, 1, 0);
             }
 
-            // The HUD may opt into source fluid targets. Existing
-            // block targeting and the downward-only water-surface placement
-            // path retain their independent rules and default arguments.
-            // One shared DDA traversal guarantees nearer blocks occlude water.
-            if (includeFluidSources &&
+            // A flowing fluid encountered before a source ends only
+            // source selection. Continue DDA so a solid block behind the
+            // flowing cell can still be selected, as in MineClone.
+            if (includeFluidSources && !isOriginVoxel &&
+                !fluidSourceSelectionStopped &&
                 world.GetCellOrEmpty(position).IsEmpty &&
                 world.TryGetFluid(position, out var sourceFluid) &&
-                !sourceFluid.IsEmpty && sourceFluid.IsSource)
-                return new VoxelWorldHit(position, normalX, normalY, normalZ);
+                !sourceFluid.IsEmpty)
+            {
+                if (sourceFluid.IsSource)
+                    return new VoxelWorldHit(
+                        position, normalX, normalY, normalZ);
+                fluidSourceSelectionStopped = true;
+            }
 
+            isOriginVoxel = false;
             float distance;
 
             if (maxX <= maxY &&
