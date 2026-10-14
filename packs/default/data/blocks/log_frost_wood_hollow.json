@@ -1,0 +1,34 @@
+{
+  "id": "asteria:log_frost_wood_hollow",
+  "category": "blocks_wooden",
+  "textures": {
+    "top": "textures/blocks/trees/frost_wood/top.png",
+    "bottom": "textures/blocks/trees/frost_wood/top.png",
+    "left": "textures/blocks/trees/frost_wood/side.png",
+    "right": "textures/blocks/trees/frost_wood/side.png",
+    "front": "textures/blocks/trees/frost_wood/side.png",
+    "back": "textures/blocks/trees/frost_wood/side.png"
+  },
+  "mining": {
+    "hardness": 1.15,
+    "preferredTools": [
+      "hatchet"
+    ]
+  },
+  "lightDampening": 15,
+  "castsShadow": true,
+  "previewColor": "62a4c6",
+  "variant": {
+    "family": "asteria:log_frost_wood",
+    "key": "hollow"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ],
+  "shape": {
+    "type": "hollow",
+    "wallThickness": 0.0625
+  }
+}

@@ -17,7 +17,7 @@
   },
   "lightDampening": 15,
   "castsShadow": true,
-  "previewColor": "75625d",
+  "previewColor": "a49f8f",
   "variant": {
     "family": "asteria:log_windwood",
     "key": "natural"
@@ -26,5 +26,8 @@
     "y",
     "z",
     "x"
+  ],
+  "tags": [
+    "fragmentable"
   ]
 }

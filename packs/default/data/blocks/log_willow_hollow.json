@@ -38,5 +38,6 @@
   "shape": {
     "type": "hollow",
     "wallThickness": 0.0625
-  }
+  },
+  "previewColor": "525f40"
 }

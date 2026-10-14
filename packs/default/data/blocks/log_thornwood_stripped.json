@@ -2,8 +2,8 @@
   "id": "asteria:log_thornwood_stripped",
   "category": "blocks_wooden",
   "textures": {
-    "top": "textures/blocks/trees/thornwood/top.png",
-    "bottom": "textures/blocks/trees/thornwood/top.png",
+    "top": "textures/blocks/trees/thornwood/top_stripped.png",
+    "bottom": "textures/blocks/trees/thornwood/top_stripped.png",
     "left": "textures/blocks/trees/thornwood/stripped.png",
     "right": "textures/blocks/trees/thornwood/stripped.png",
     "front": "textures/blocks/trees/thornwood/stripped.png",
@@ -17,7 +17,7 @@
   },
   "lightDampening": 15,
   "castsShadow": true,
-  "previewColor": "614330",
+  "previewColor": "ae623e",
   "variant": {
     "family": "asteria:log_thornwood",
     "key": "stripped"
@@ -26,5 +26,8 @@
     "y",
     "z",
     "x"
+  ],
+  "tags": [
+    "fragmentable"
   ]
 }

@@ -9,10 +9,10 @@
     "/name": "Junça Alpina"
   },
   "asteria:leaf_frost_wood_alpine": {
-    "/name": "Agulhas de Neve Alpinas"
+    "/name": "Folhas Alpinas de Madeira Gélida"
   },
   "asteria:leaf_frost_wood_arctic": {
-    "/name": "Agulhas de Neve Árticas"
+    "/name": "Folhas Árticas de Madeira Gélida"
   },
   "asteria:thorn_ash": {
     "/name": "Espinho de Cinzas"
@@ -63,13 +63,13 @@
     "/name": "Flor Amarela de Cacto"
   },
   "asteria:log_charwood": {
-    "/name": "Madeira Carbonizada"
+    "/name": "Tronco de Madeira Carbonizada"
   },
   "asteria:leaf_charwood": {
     "/name": "Folhas de Madeira Carbonizada"
   },
   "asteria:log_charwood_stripped": {
-    "/name": "Madeira Carbonizada Descascada"
+    "/name": "Tronco de Madeira Carbonizada Descascado"
   },
   "asteria:bloom_cinder": {
     "/name": "Flor de Cinzas"
@@ -120,7 +120,7 @@
     "/name": "Capim das Dunas"
   },
   "asteria:leaf_charwood_ember": {
-    "/name": "Agulhas de Brasa"
+    "/name": "Folhas de Brasa de Madeira Carbonizada"
   },
   "asteria:roots_exposed": {
     "/name": "Raízes Expostas"
@@ -135,10 +135,10 @@
     "/name": "Arbusto Gelado"
   },
   "asteria:log_frost_wood": {
-    "/name": "Madeira Gélida"
+    "/name": "Tronco de Madeira Gélida"
   },
   "asteria:log_frost_wood_stripped": {
-    "/name": "Madeira Gélida Descascada"
+    "/name": "Tronco de Madeira Gélida Descascado"
   },
   "asteria:glass": {
     "/name": "Vidro"
@@ -177,43 +177,43 @@
     "/name": "Ladrilhos de Gelo"
   },
   "asteria:leaf_juniper": {
-    "/name": "Agulhas de Zimbro"
+    "/name": "Folhas de Zimbro"
   },
   "asteria:log_juniper": {
-    "/name": "Madeira de Zimbro"
+    "/name": "Tronco de Zimbro"
   },
   "asteria:log_juniper_stripped": {
-    "/name": "Madeira de Zimbro Descascada"
+    "/name": "Tronco de Zimbro Descascado"
   },
   "asteria:lamp": {
     "/name": "Lâmpada"
   },
   "asteria:leaf_enchanted_tree": {
-    "/name": "Folha Encantada"
+    "/name": "Folhas da Árvore Encantada"
   },
   "asteria:leaf_oak": {
-    "/name": "Folha de carvalho"
+    "/name": "Folhas de Carvalho"
   },
   "asteria:leaf_willow": {
-    "/name": "Folha de salgueiro"
+    "/name": "Folhas de Salgueiro"
   },
   "asteria:leaf_world_tree": {
-    "/name": "Folha da Árvore do Mundo"
+    "/name": "Folhas da Árvore do Mundo"
   },
   "asteria:log_enchanted_tree": {
-    "/name": "Tronco Encantado"
+    "/name": "Tronco da Árvore Encantada"
   },
   "asteria:log_enchanted_tree_hollow": {
-    "/name": "Tronco Encantado Oco"
+    "/name": "Tronco da Árvore Encantada Oco"
   },
   "asteria:log_enchanted_tree_stripped": {
-    "/name": "Tronco Encantado Descascado"
+    "/name": "Tronco da Árvore Encantada Descascado"
   },
   "asteria:log_enchanted_tree_stripped_hollow": {
-    "/name": "Tronco Encantado Oco Descascado"
+    "/name": "Tronco da Árvore Encantada Oco Descascado"
   },
   "asteria:log_oak": {
-    "/name": "Tronco de carvalho"
+    "/name": "Tronco de Carvalho"
   },
   "asteria:log_oak_hollow": {
     "/name": "Tronco de Carvalho Oco"
@@ -225,7 +225,7 @@
     "/name": "Tronco de Carvalho Oco Descascado"
   },
   "asteria:log_willow": {
-    "/name": "Tronco de salgueiro"
+    "/name": "Tronco de Salgueiro"
   },
   "asteria:log_willow_hollow": {
     "/name": "Tronco de Salgueiro Oco"
@@ -240,13 +240,13 @@
     "/name": "Tronco da Árvore do Mundo"
   },
   "asteria:log_world_tree_hollow": {
-    "/name": "Tronco Oco da Árvore do Mundo"
+    "/name": "Tronco da Árvore do Mundo Oco"
   },
   "asteria:log_world_tree_stripped": {
-    "/name": "Tronco Descascado da Árvore do Mundo"
+    "/name": "Tronco da Árvore do Mundo Descascado"
   },
   "asteria:log_world_tree_stripped_hollow": {
-    "/name": "Tronco Oco Descascado da Árvore do Mundo"
+    "/name": "Tronco da Árvore do Mundo Oco Descascado"
   },
   "asteria:fungus_cap_luminous_giant": {
     "/name": "Chapéu de Fungo Gigante Luminoso"
@@ -282,7 +282,7 @@
     "/name": "Flor Rosa"
   },
   "asteria:planks_enchanted_tree": {
-    "/name": "Tábuas Encantadas"
+    "/name": "Tábuas da Árvore Encantada"
   },
   "asteria:planks_oak": {
     "/name": "Tábuas de Carvalho"
@@ -297,13 +297,13 @@
     "/name": "Portal"
   },
   "asteria:log_rime_deadwood": {
-    "/name": "Madeira Morta Coberta de Geada"
+    "/name": "Tronco de Madeira Morta de Geada"
   },
   "asteria:log_rime_deadwood_stripped": {
-    "/name": "Madeira Morta de Geada Descascada"
+    "/name": "Tronco de Madeira Morta de Geada Descascado"
   },
   "asteria:leaf_rime_deadwood": {
-    "/name": "Folhas de Geada"
+    "/name": "Folhas de Madeira Morta de Geada"
   },
   "asteria:lichen_rock": {
     "/name": "Líquen de Rocha"
@@ -405,27 +405,93 @@
     "/name": "Arbusto Espinhoso"
   },
   "asteria:log_thornwood": {
-    "/name": "Madeira Espinhosa"
+    "/name": "Tronco de Madeira Espinhosa"
   },
   "asteria:leaf_thornwood": {
     "/name": "Folhas de Madeira Espinhosa"
   },
   "asteria:log_thornwood_stripped": {
-    "/name": "Madeira Espinhosa Descascada"
+    "/name": "Tronco de Madeira Espinhosa Descascado"
   },
   "asteria:moss_wall": {
     "/name": "Musgo de Parede"
   },
   "asteria:log_windwood": {
-    "/name": "Madeira do Vento"
+    "/name": "Tronco de Madeira do Vento"
   },
   "asteria:leaf_windwood": {
-    "/name": "Agulhas de Madeira do Vento"
+    "/name": "Folhas de Madeira do Vento"
   },
   "asteria:log_windwood_stripped": {
-    "/name": "Madeira do Vento Descascada"
+    "/name": "Tronco de Madeira do Vento Descascado"
   },
   "asteria:yucca": {
     "/name": "Iúca"
+  },
+  "asteria:log_charwood_hollow": {
+    "/name": "Tronco de Madeira Carbonizada Oco"
+  },
+  "asteria:log_charwood_stripped_hollow": {
+    "/name": "Tronco de Madeira Carbonizada Oco Descascado"
+  },
+  "asteria:planks_charwood": {
+    "/name": "Tábuas de Madeira Carbonizada"
+  },
+  "asteria:log_frost_wood_hollow": {
+    "/name": "Tronco de Madeira Gélida Oco"
+  },
+  "asteria:log_frost_wood_stripped_hollow": {
+    "/name": "Tronco de Madeira Gélida Oco Descascado"
+  },
+  "asteria:planks_frost_wood": {
+    "/name": "Tábuas de Madeira Gélida"
+  },
+  "asteria:leaf_frost_wood": {
+    "/name": "Folhas de Madeira Gélida"
+  },
+  "asteria:log_juniper_hollow": {
+    "/name": "Tronco de Zimbro Oco"
+  },
+  "asteria:log_juniper_stripped_hollow": {
+    "/name": "Tronco de Zimbro Oco Descascado"
+  },
+  "asteria:planks_juniper": {
+    "/name": "Tábuas de Zimbro"
+  },
+  "asteria:log_rime_deadwood_hollow": {
+    "/name": "Tronco de Madeira Morta de Geada Oco"
+  },
+  "asteria:log_rime_deadwood_stripped_hollow": {
+    "/name": "Tronco de Madeira Morta de Geada Oco Descascado"
+  },
+  "asteria:planks_rime_deadwood": {
+    "/name": "Tábuas de Madeira Morta de Geada"
+  },
+  "asteria:log_skywood_hollow": {
+    "/name": "Tronco de Madeira Celeste Oco"
+  },
+  "asteria:log_skywood_stripped_hollow": {
+    "/name": "Tronco de Madeira Celeste Oco Descascado"
+  },
+  "asteria:planks_skywood": {
+    "/name": "Tábuas de Madeira Celeste"
+  },
+  "asteria:log_thornwood_hollow": {
+    "/name": "Tronco de Madeira Espinhosa Oco"
+  },
+  "asteria:log_thornwood_stripped_hollow": {
+    "/name": "Tronco de Madeira Espinhosa Oco Descascado"
+  },
+  "asteria:planks_thornwood": {
+    "/name": "Tábuas de Madeira Espinhosa"
+  },
+  "asteria:log_windwood_hollow": {
+    "/name": "Tronco de Madeira do Vento Oco"
+  },
+  "asteria:log_windwood_stripped_hollow": {
+    "/name": "Tronco de Madeira do Vento Oco Descascado"
+  },
+  "asteria:planks_windwood": {
+    "/name": "Tábuas de Madeira do Vento"
   }
 }

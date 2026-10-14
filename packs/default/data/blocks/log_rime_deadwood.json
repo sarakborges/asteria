@@ -17,7 +17,7 @@
   },
   "lightDampening": 15,
   "castsShadow": true,
-  "previewColor": "8298a1",
+  "previewColor": "6b677f",
   "variant": {
     "family": "asteria:log_rime_deadwood",
     "key": "natural"
@@ -26,5 +26,8 @@
     "y",
     "z",
     "x"
+  ],
+  "tags": [
+    "fragmentable"
   ]
 }

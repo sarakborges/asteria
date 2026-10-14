@@ -10,19 +10,25 @@
     "wallThickness": 0.0625
   },
   "textures": {
-    "top": "textures/blocks/trees/oak/top.png",
-    "bottom": "textures/blocks/trees/oak/top.png",
+    "top": "textures/blocks/trees/oak/top_stripped.png",
+    "bottom": "textures/blocks/trees/oak/top_stripped.png",
     "left": "textures/blocks/trees/oak/stripped.png",
     "right": "textures/blocks/trees/oak/stripped.png",
     "front": "textures/blocks/trees/oak/stripped.png",
     "back": "textures/blocks/trees/oak/stripped.png"
   },
-  "orientations": ["y", "z", "x"],
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ],
   "lightDampening": 15,
   "castsShadow": true,
   "mining": {
     "hardness": 1,
-    "requiredTools": ["hatchet"]
+    "requiredTools": [
+      "hatchet"
+    ]
   },
-  "previewColor": "9a7652"
+  "previewColor": "c4a369"
 }

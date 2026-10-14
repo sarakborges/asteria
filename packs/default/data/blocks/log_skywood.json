@@ -1,6 +1,6 @@
 {
   "id": "asteria:log_skywood",
-  "category": "blocks_natural",
+  "category": "blocks_wooden",
   "textures": {
     "top": "textures/blocks/trees/skywood/top.png",
     "bottom": "textures/blocks/trees/skywood/top.png",
@@ -12,9 +12,12 @@
   "lightDampening": 15,
   "castsShadow": true,
   "mining": {
-    "hardness": 1
+    "hardness": 1,
+    "preferredTools": [
+      "hatchet"
+    ]
   },
-  "previewColor": "89aea0",
+  "previewColor": "44817e",
   "variant": {
     "family": "asteria:log_skywood",
     "key": "natural"
@@ -23,5 +26,8 @@
     "y",
     "z",
     "x"
+  ],
+  "tags": [
+    "fragmentable"
   ]
 }

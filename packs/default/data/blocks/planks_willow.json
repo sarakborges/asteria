@@ -19,5 +19,6 @@
     "requiredTools": [
       "hatchet"
     ]
-  }
+  },
+  "previewColor": "899666"
 }

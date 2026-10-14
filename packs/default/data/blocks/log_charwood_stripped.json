@@ -2,8 +2,8 @@
   "id": "asteria:log_charwood_stripped",
   "category": "blocks_wooden",
   "textures": {
-    "top": "textures/blocks/trees/charwood/top.png",
-    "bottom": "textures/blocks/trees/charwood/top.png",
+    "top": "textures/blocks/trees/charwood/top_stripped.png",
+    "bottom": "textures/blocks/trees/charwood/top_stripped.png",
     "left": "textures/blocks/trees/charwood/stripped.png",
     "right": "textures/blocks/trees/charwood/stripped.png",
     "front": "textures/blocks/trees/charwood/stripped.png",
@@ -17,7 +17,7 @@
       "hatchet"
     ]
   },
-  "previewColor": "4f3f35",
+  "previewColor": "6f5346",
   "variant": {
     "family": "asteria:log_charwood",
     "key": "stripped"
@@ -26,5 +26,8 @@
     "y",
     "z",
     "x"
+  ],
+  "tags": [
+    "fragmentable"
   ]
 }

@@ -17,7 +17,7 @@
   },
   "lightDampening": 15,
   "castsShadow": true,
-  "previewColor": "807e74",
+  "previewColor": "7e4243",
   "variant": {
     "family": "asteria:log_juniper",
     "key": "natural"
@@ -26,5 +26,8 @@
     "y",
     "z",
     "x"
+  ],
+  "tags": [
+    "fragmentable"
   ]
 }

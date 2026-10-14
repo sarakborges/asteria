@@ -2,8 +2,8 @@
   "id": "asteria:log_windwood_stripped",
   "category": "blocks_wooden",
   "textures": {
-    "top": "textures/blocks/trees/windwood/top.png",
-    "bottom": "textures/blocks/trees/windwood/top.png",
+    "top": "textures/blocks/trees/windwood/top_stripped.png",
+    "bottom": "textures/blocks/trees/windwood/top_stripped.png",
     "left": "textures/blocks/trees/windwood/stripped.png",
     "right": "textures/blocks/trees/windwood/stripped.png",
     "front": "textures/blocks/trees/windwood/stripped.png",
@@ -17,7 +17,7 @@
   },
   "lightDampening": 15,
   "castsShadow": true,
-  "previewColor": "82695c",
+  "previewColor": "dbd6c3",
   "variant": {
     "family": "asteria:log_windwood",
     "key": "stripped"
@@ -26,5 +26,8 @@
     "y",
     "z",
     "x"
+  ],
+  "tags": [
+    "fragmentable"
   ]
 }

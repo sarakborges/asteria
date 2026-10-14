@@ -2,8 +2,8 @@
   "id": "asteria:log_rime_deadwood_stripped",
   "category": "blocks_wooden",
   "textures": {
-    "top": "textures/blocks/trees/rime_deadwood/top.png",
-    "bottom": "textures/blocks/trees/rime_deadwood/top.png",
+    "top": "textures/blocks/trees/rime_deadwood/top_stripped.png",
+    "bottom": "textures/blocks/trees/rime_deadwood/top_stripped.png",
     "left": "textures/blocks/trees/rime_deadwood/stripped.png",
     "right": "textures/blocks/trees/rime_deadwood/stripped.png",
     "front": "textures/blocks/trees/rime_deadwood/stripped.png",
@@ -17,7 +17,7 @@
   },
   "lightDampening": 15,
   "castsShadow": true,
-  "previewColor": "a3b5c1",
+  "previewColor": "a69ead",
   "variant": {
     "family": "asteria:log_rime_deadwood",
     "key": "stripped"
@@ -26,5 +26,8 @@
     "y",
     "z",
     "x"
+  ],
+  "tags": [
+    "fragmentable"
   ]
 }

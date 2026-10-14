@@ -9,10 +9,10 @@
     "/name": "Juncia Alpina"
   },
   "asteria:leaf_frost_wood_alpine": {
-    "/name": "Agujas de Nieve Alpinas"
+    "/name": "Hojas Alpinas de Madera Helada"
   },
   "asteria:leaf_frost_wood_arctic": {
-    "/name": "Agujas de Nieve Árticas"
+    "/name": "Hojas Árticas de Madera Helada"
   },
   "asteria:thorn_ash": {
     "/name": "Espina de Ceniza"
@@ -63,13 +63,13 @@
     "/name": "Flor Amarilla de Cactus"
   },
   "asteria:log_charwood": {
-    "/name": "Madera Carbonizada"
+    "/name": "Tronco de Madera Carbonizada"
   },
   "asteria:leaf_charwood": {
     "/name": "Hojas de Madera Carbonizada"
   },
   "asteria:log_charwood_stripped": {
-    "/name": "Madera Carbonizada Descortezada"
+    "/name": "Tronco de Madera Carbonizada Descortezado"
   },
   "asteria:bloom_cinder": {
     "/name": "Flor de Cenizas"
@@ -120,7 +120,7 @@
     "/name": "Hierba de Dunas"
   },
   "asteria:leaf_charwood_ember": {
-    "/name": "Agujas de Brasa"
+    "/name": "Hojas de Brasa de Madera Carbonizada"
   },
   "asteria:roots_exposed": {
     "/name": "Raíces Expuestas"
@@ -135,10 +135,10 @@
     "/name": "Arbusto Helado"
   },
   "asteria:log_frost_wood": {
-    "/name": "Madera Helada"
+    "/name": "Tronco de Madera Helada"
   },
   "asteria:log_frost_wood_stripped": {
-    "/name": "Madera Helada Descortezada"
+    "/name": "Tronco de Madera Helada Descortezado"
   },
   "asteria:glass": {
     "/name": "Vidrio"
@@ -177,43 +177,43 @@
     "/name": "Baldosas de Hielo"
   },
   "asteria:leaf_juniper": {
-    "/name": "Agujas de Enebro"
+    "/name": "Hojas de Enebro"
   },
   "asteria:log_juniper": {
-    "/name": "Madera de Enebro"
+    "/name": "Tronco de Enebro"
   },
   "asteria:log_juniper_stripped": {
-    "/name": "Madera de Enebro Descortezada"
+    "/name": "Tronco de Enebro Descortezado"
   },
   "asteria:lamp": {
     "/name": "Lámpara"
   },
   "asteria:leaf_enchanted_tree": {
-    "/name": "Hoja Encantada"
+    "/name": "Hojas del Árbol Encantado"
   },
   "asteria:leaf_oak": {
-    "/name": "Hoja de roble"
+    "/name": "Hojas de Roble"
   },
   "asteria:leaf_willow": {
-    "/name": "Hoja de sauce"
+    "/name": "Hojas de Sauce"
   },
   "asteria:leaf_world_tree": {
-    "/name": "Hoja del Árbol del Mundo"
+    "/name": "Hojas del Árbol del Mundo"
   },
   "asteria:log_enchanted_tree": {
-    "/name": "Tronco Encantado"
+    "/name": "Tronco del Árbol Encantado"
   },
   "asteria:log_enchanted_tree_hollow": {
-    "/name": "Tronco Encantado Hueco"
+    "/name": "Tronco del Árbol Encantado Hueco"
   },
   "asteria:log_enchanted_tree_stripped": {
-    "/name": "Tronco Encantado Descortezado"
+    "/name": "Tronco del Árbol Encantado Descortezado"
   },
   "asteria:log_enchanted_tree_stripped_hollow": {
-    "/name": "Tronco Encantado Hueco Descortezado"
+    "/name": "Tronco del Árbol Encantado Hueco Descortezado"
   },
   "asteria:log_oak": {
-    "/name": "Tronco de roble"
+    "/name": "Tronco de Roble"
   },
   "asteria:log_oak_hollow": {
     "/name": "Tronco de Roble Hueco"
@@ -225,7 +225,7 @@
     "/name": "Tronco de Roble Hueco Descortezado"
   },
   "asteria:log_willow": {
-    "/name": "Tronco de sauce"
+    "/name": "Tronco de Sauce"
   },
   "asteria:log_willow_hollow": {
     "/name": "Tronco de Sauce Hueco"
@@ -240,13 +240,13 @@
     "/name": "Tronco del Árbol del Mundo"
   },
   "asteria:log_world_tree_hollow": {
-    "/name": "Tronco Hueco del Árbol del Mundo"
+    "/name": "Tronco del Árbol del Mundo Hueco"
   },
   "asteria:log_world_tree_stripped": {
-    "/name": "Tronco Descortezado del Árbol del Mundo"
+    "/name": "Tronco del Árbol del Mundo Descortezado"
   },
   "asteria:log_world_tree_stripped_hollow": {
-    "/name": "Tronco Hueco Descortezado del Árbol del Mundo"
+    "/name": "Tronco del Árbol del Mundo Hueco Descortezado"
   },
   "asteria:fungus_cap_luminous_giant": {
     "/name": "Sombrero de Hongo Gigante Luminoso"
@@ -282,7 +282,7 @@
     "/name": "Flor Rosa"
   },
   "asteria:planks_enchanted_tree": {
-    "/name": "Tablones Encantados"
+    "/name": "Tablones del Árbol Encantado"
   },
   "asteria:planks_oak": {
     "/name": "Tablones de Roble"
@@ -297,13 +297,13 @@
     "/name": "Portal"
   },
   "asteria:log_rime_deadwood": {
-    "/name": "Madera Muerta Escarchada"
+    "/name": "Tronco de Madera Muerta Escarchada"
   },
   "asteria:log_rime_deadwood_stripped": {
-    "/name": "Madera Muerta Escarchada Descortezada"
+    "/name": "Tronco de Madera Muerta Escarchada Descortezado"
   },
   "asteria:leaf_rime_deadwood": {
-    "/name": "Hojas Escarchadas"
+    "/name": "Hojas de Madera Muerta Escarchada"
   },
   "asteria:lichen_rock": {
     "/name": "Liquen de Roca"
@@ -405,27 +405,93 @@
     "/name": "Arbusto Espinoso"
   },
   "asteria:log_thornwood": {
-    "/name": "Madera Espinosa"
+    "/name": "Tronco de Madera Espinosa"
   },
   "asteria:leaf_thornwood": {
     "/name": "Hojas de Madera Espinosa"
   },
   "asteria:log_thornwood_stripped": {
-    "/name": "Madera Espinosa Descortezada"
+    "/name": "Tronco de Madera Espinosa Descortezado"
   },
   "asteria:moss_wall": {
     "/name": "Musgo de Pared"
   },
   "asteria:log_windwood": {
-    "/name": "Madera del Viento"
+    "/name": "Tronco de Madera del Viento"
   },
   "asteria:leaf_windwood": {
-    "/name": "Agujas de Madera del Viento"
+    "/name": "Hojas de Madera del Viento"
   },
   "asteria:log_windwood_stripped": {
-    "/name": "Madera del Viento Descortezada"
+    "/name": "Tronco de Madera del Viento Descortezado"
   },
   "asteria:yucca": {
     "/name": "Yuca"
+  },
+  "asteria:log_charwood_hollow": {
+    "/name": "Tronco de Madera Carbonizada Hueco"
+  },
+  "asteria:log_charwood_stripped_hollow": {
+    "/name": "Tronco de Madera Carbonizada Hueco Descortezado"
+  },
+  "asteria:planks_charwood": {
+    "/name": "Tablones de Madera Carbonizada"
+  },
+  "asteria:log_frost_wood_hollow": {
+    "/name": "Tronco de Madera Helada Hueco"
+  },
+  "asteria:log_frost_wood_stripped_hollow": {
+    "/name": "Tronco de Madera Helada Hueco Descortezado"
+  },
+  "asteria:planks_frost_wood": {
+    "/name": "Tablones de Madera Helada"
+  },
+  "asteria:leaf_frost_wood": {
+    "/name": "Hojas de Madera Helada"
+  },
+  "asteria:log_juniper_hollow": {
+    "/name": "Tronco de Enebro Hueco"
+  },
+  "asteria:log_juniper_stripped_hollow": {
+    "/name": "Tronco de Enebro Hueco Descortezado"
+  },
+  "asteria:planks_juniper": {
+    "/name": "Tablones de Enebro"
+  },
+  "asteria:log_rime_deadwood_hollow": {
+    "/name": "Tronco de Madera Muerta Escarchada Hueco"
+  },
+  "asteria:log_rime_deadwood_stripped_hollow": {
+    "/name": "Tronco de Madera Muerta Escarchada Hueco Descortezado"
+  },
+  "asteria:planks_rime_deadwood": {
+    "/name": "Tablones de Madera Muerta Escarchada"
+  },
+  "asteria:log_skywood_hollow": {
+    "/name": "Tronco de Madera Celeste Hueco"
+  },
+  "asteria:log_skywood_stripped_hollow": {
+    "/name": "Tronco de Madera Celeste Hueco Descortezado"
+  },
+  "asteria:planks_skywood": {
+    "/name": "Tablones de Madera Celeste"
+  },
+  "asteria:log_thornwood_hollow": {
+    "/name": "Tronco de Madera Espinosa Hueco"
+  },
+  "asteria:log_thornwood_stripped_hollow": {
+    "/name": "Tronco de Madera Espinosa Hueco Descortezado"
+  },
+  "asteria:planks_thornwood": {
+    "/name": "Tablones de Madera Espinosa"
+  },
+  "asteria:log_windwood_hollow": {
+    "/name": "Tronco de Madera del Viento Hueco"
+  },
+  "asteria:log_windwood_stripped_hollow": {
+    "/name": "Tronco de Madera del Viento Hueco Descortezado"
+  },
+  "asteria:planks_windwood": {
+    "/name": "Tablones de Madera del Viento"
   }
 }

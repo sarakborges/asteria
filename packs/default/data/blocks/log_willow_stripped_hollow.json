@@ -3,8 +3,8 @@
   "category": "blocks_wooden",
   "tags": [],
   "textures": {
-    "top": "textures/blocks/trees/willow/top.png",
-    "bottom": "textures/blocks/trees/willow/top.png",
+    "top": "textures/blocks/trees/willow/top_stripped.png",
+    "bottom": "textures/blocks/trees/willow/top_stripped.png",
     "left": "textures/blocks/trees/willow/stripped.png",
     "right": "textures/blocks/trees/willow/stripped.png",
     "front": "textures/blocks/trees/willow/stripped.png",
@@ -38,5 +38,6 @@
   "shape": {
     "type": "hollow",
     "wallThickness": 0.0625
-  }
+  },
+  "previewColor": "b1b487"
 }
