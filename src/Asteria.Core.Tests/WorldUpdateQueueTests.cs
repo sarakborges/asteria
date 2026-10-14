@@ -104,6 +104,23 @@ public sealed class WorldUpdateQueueTests
     }
 
     [Fact]
+    public void ScannedQueuePreservesSkippedEntriesAndDropsObsoleteOnes()
+    {
+        var queue = new DeduplicatedQueue<int>();
+        foreach (var value in new[] { 1, 2, 3, 4, 5 })
+            queue.Enqueue(value);
+        var revision = queue.Revision;
+        Assert.Equal(new[] { 1, 3 }, queue.DrainScanned(
+            3, 4, value => value == 2
+                ? QueueScanDecision.Keep
+                : value == 4
+                    ? QueueScanDecision.Discard
+                    : QueueScanDecision.Take));
+        Assert.True(queue.Revision > revision);
+        Assert.Equal(new[] { 2, 5 }, queue.ValuesInOrder());
+    }
+
+    [Fact]
     public void LightingDrainPreservesFirstEnqueueOrderAndDeduplicates()
     {
         var queue = new WorldUpdateQueue();
@@ -173,17 +190,87 @@ public sealed class WorldUpdateQueueTests
         foreach (var position in input)
             queue.EnqueueLighting(position);
 
-        Assert.Equal(input.Take(3),
+        Assert.Equal(new[] { input[0], input[1], input[2], input[5] },
             queue.DrainLighting(maximumPositions: 5, maximumColumns: 2)
                 .EditedPositions);
-        Assert.Equal(input.Skip(3).Take(2),
+        Assert.Equal(new[] { input[3], input[4] },
             queue.DrainLighting(maximumPositions: 2, maximumColumns: 2)
                 .EditedPositions);
-        Assert.Equal([input[^1]], queue.DrainLighting(
+        Assert.Empty(queue.DrainLighting(
             maximumPositions: 256, maximumColumns: 1).EditedPositions);
         Assert.False(queue.HasLightingWork);
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             queue.DrainLighting(maximumColumns: 0));
+    }
+
+    [Fact]
+    public void InterleavedResidentColumnsFillBoundedLightingWorkerBatch()
+    {
+        var world = new VoxelWorld();
+        var queue = new WorldUpdateQueue();
+        for (var x = 0; x < 3; x++)
+            world.InsertChunk(new ChunkCoord(x, 0, 0), new Chunk());
+
+        var first = new WorldVoxelCoord(1, 2, 2);
+        var second = new WorldVoxelCoord(17, 2, 2);
+        var third = new WorldVoxelCoord(33, 2, 2);
+        var firstLater = new WorldVoxelCoord(2, 2, 2);
+        var secondLater = new WorldVoxelCoord(18, 2, 2);
+        var thirdLater = new WorldVoxelCoord(34, 2, 2);
+        foreach (var seed in new[]
+                 { first, second, third, firstLater, secondLater, thirdLater })
+            queue.EnqueueLighting(seed);
+
+        Assert.Equal(new[] { first, second, firstLater, secondLater },
+            queue.DrainLighting(4, 2, world).EditedPositions);
+        Assert.Equal(new[] { third, thirdLater },
+            queue.DrainLighting(4, 2, world).EditedPositions);
+        Assert.False(queue.HasLightingWork);
+    }
+
+    [Fact]
+    public void ResidentLightingDrainDropsStaleEntriesBehindDeferredColumn()
+    {
+        var world = new VoxelWorld();
+        var queue = new WorldUpdateQueue();
+        for (var x = 0; x < 3; x++)
+            world.InsertChunk(new ChunkCoord(x, 0, 0), new Chunk());
+
+        var first = new WorldVoxelCoord(1, 2, 2);
+        var second = new WorldVoxelCoord(17, 2, 2);
+        var deferred = new WorldVoxelCoord(33, 2, 2);
+        var retired = new WorldVoxelCoord(49, 2, 2);
+        var firstLater = new WorldVoxelCoord(2, 2, 2);
+        foreach (var seed in new[]
+                 { first, second, deferred, retired, firstLater })
+            queue.EnqueueLighting(seed);
+
+        Assert.Equal(new[] { first, second, firstLater },
+            queue.DrainLighting(4, 2, world).EditedPositions);
+        Assert.Equal([deferred],
+            queue.DrainLighting(4, 2, world).EditedPositions);
+        Assert.False(queue.HasLightingWork);
+    }
+
+    [Fact]
+    public void LightingColumnScanRetainsDeferredFIFOOrderAndBoundsInspection()
+    {
+        var queue = new WorldUpdateQueue();
+        var first = new WorldVoxelCoord(0, 1, 0);
+        var second = new WorldVoxelCoord(16, 1, 0);
+        queue.EnqueueLighting(first);
+        queue.EnqueueLighting(second);
+        for (var index = 2; index < 4100; index++)
+            queue.EnqueueLighting(new WorldVoxelCoord(index * Chunk.Size, 1, 0));
+        var beyondLimit = new WorldVoxelCoord(1, 1, 0);
+        queue.EnqueueLighting(beyondLimit);
+
+        // The matching seed lies outside the bounded 4096-item scan.
+        Assert.Equal([first],
+            queue.DrainLighting(512, 1).EditedPositions);
+        Assert.True(queue.HasLightingWork);
+        Assert.Equal([second],
+            queue.DrainLighting(1, 1).EditedPositions);
     }
 
     [Fact]

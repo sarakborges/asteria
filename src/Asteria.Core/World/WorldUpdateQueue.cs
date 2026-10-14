@@ -194,56 +194,32 @@ public sealed class WorldUpdateQueue
         if (maximumColumns <= 0)
             throw new ArgumentOutOfRangeException(nameof(maximumColumns));
 
-        if (world is null)
-        {
-            if (maximumColumns == int.MaxValue)
-                return new WorldLightingBatch(
-                    _lightingEdits.Drain(maximumPositions));
+        if (world is null && maximumColumns == int.MaxValue)
+            return new WorldLightingBatch(_lightingEdits.Drain(maximumPositions));
 
-            var selectedColumns = new HashSet<ChunkColumnCoord>();
-            return new WorldLightingBatch(
-                _lightingEdits.DrainPrefix(
-                    maximumPositions,
-                    position =>
-                    {
-                        var column = ChunkColumnCoord.FromChunk(
-                            VoxelCoordinates.FromWorld(
-                                position.X, position.Y, position.Z).Chunk);
-                        return selectedColumns.Contains(column) ||
-                            selectedColumns.Count < maximumColumns &&
-                            selectedColumns.Add(column);
-                    }));
-        }
-
-        var selected = new List<WorldVoxelCoord>(
-            Math.Min(maximumPositions, MaximumLightingCandidatesPerDrain));
+        // Streaming interleaves many columns. A strict FIFO prefix leaves
+        // expensive lighting snapshot workers almost empty whenever a third
+        // column appears early. Gather other seeds for the selected columns
+        // through a bounded scan without reordering deferred work.
         var columns = new HashSet<ChunkColumnCoord>();
-        var examined = 0;
-
-        while (selected.Count < maximumPositions &&
-               examined < MaximumLightingCandidatesPerDrain &&
-               _lightingEdits.TryPeek(out var position))
-        {
-            examined++;
-            if (!world.IsLoadedAt(position))
+        return new WorldLightingBatch(_lightingEdits.DrainScanned(
+            maximumPositions,
+            MaximumLightingCandidatesPerDrain,
+            position =>
             {
-                _lightingEdits.TryDequeue(out _);
-                continue;
-            }
+                if (world is not null && !world.IsLoadedAt(position))
+                    return QueueScanDecision.Discard;
 
-            var column = ChunkColumnCoord.FromChunk(
-                VoxelCoordinates.FromWorld(
-                    position.X, position.Y, position.Z).Chunk);
-            if (!columns.Contains(column) &&
-                columns.Count >= maximumColumns)
-                break;
+                var column = ChunkColumnCoord.FromChunk(
+                    VoxelCoordinates.FromWorld(
+                        position.X, position.Y, position.Z).Chunk);
+                if (!columns.Contains(column) &&
+                    columns.Count >= maximumColumns)
+                    return QueueScanDecision.Keep;
 
-            columns.Add(column);
-            _lightingEdits.TryDequeue(out _);
-            selected.Add(position);
-        }
-
-        return new WorldLightingBatch(selected);
+                columns.Add(column);
+                return QueueScanDecision.Take;
+            }));
     }
 
     public WorldMeshBatch DrainMeshlets(

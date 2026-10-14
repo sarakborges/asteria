@@ -1,5 +1,13 @@
 namespace Asteria.Core.World;
 
+/// <summary>Selection policy for a bounded deduplicated queue scan.</summary>
+public enum QueueScanDecision : byte
+{
+    Keep,
+    Take,
+    Discard,
+}
+
 public sealed class DeduplicatedQueue<T>
     where T : notnull
 {
@@ -161,6 +169,52 @@ public sealed class DeduplicatedQueue<T>
             BumpRevision();
 
         return result;
+    }
+
+    /// <summary>
+    /// Scan a bounded FIFO window, taking matching items across interleaved
+    /// groups while preserving deferred order and dropping obsolete entries.
+    /// Each visited entry is classified exactly once.
+    /// </summary>
+    public IReadOnlyList<T> DrainScanned(
+        int maximumItems,
+        int maximumExamined,
+        Func<T, QueueScanDecision> decide)
+    {
+        if (maximumItems <= 0)
+            throw new ArgumentOutOfRangeException(nameof(maximumItems));
+        if (maximumExamined <= 0)
+            throw new ArgumentOutOfRangeException(nameof(maximumExamined));
+        ArgumentNullException.ThrowIfNull(decide);
+
+        var selected = new List<T>(Math.Min(maximumItems, _nodes.Count));
+        var node = _order.First;
+        var examined = 0;
+        var mutated = false;
+        while (node is not null &&
+               examined < maximumExamined &&
+               selected.Count < maximumItems)
+        {
+            var current = node;
+            node = node.Next;
+            examined++;
+            var decision = decide(current.Value);
+            if (decision == QueueScanDecision.Keep)
+                continue;
+            if (decision is not (QueueScanDecision.Take or QueueScanDecision.Discard))
+                throw new InvalidOperationException(
+                    $"Unsupported queue scan decision: {decision}.");
+
+            _order.Remove(current);
+            _nodes.Remove(current.Value);
+            mutated = true;
+            if (decision == QueueScanDecision.Take)
+                selected.Add(current.Value);
+        }
+
+        if (mutated)
+            BumpRevision();
+        return selected;
     }
 
     public IReadOnlyList<T> ValuesInOrder() =>
