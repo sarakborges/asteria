@@ -778,3 +778,10 @@ MineClone `world-systems-rebuild` reference: `world_objects.rs::detached_object_
 - The native Layer target icon now resolves the canonical `BiomeTintField` at **the world target's X/Z**, independent of the player's hotbar palette. Untinted Layers use their original pack PNG; tinted Layers reuse the existing bounded `InventoryBlockPreviewRenderer.LayerDataUri` cache. The existing target snapshot gating controls update frequency, with no separate UI tint sampling.
 - Playwright protects native-over-catalog hotbar icons, native-over-catalog target Layer color, and target bridge field/PNG validation. CI succeeded on `d37c81e`.
 - **Still pending:** real Godot/WRY visual acceptance at biomes' borders and UI viewport scaling. No missing icon subsystem remains.
+
+## Camera-facing compass heading — 2026-10-14
+
+- Compared `mineclone/main/src/hud/world/compass.rs` and `mineclone/world-systems-rebuild/src/hud/world/compass.rs`: both reverse the bearing by 180° for third-person-front while keeping first-person/third-person-back identical. Asteria's existing `WorldHudStateTracker` always derived the heading from player body yaw and failed to account for Godot `FpsPlayer`'s front-camera PI rotation.
+- The Core-only `PlayerCompassHeading.QuantizedDegrees` is now the single bearing/half-degree quantization policy and wraps 360° to 0°. Godot `FpsPlayer.IsThirdPersonFront` exposes only the camera perspective, not a second mutable owner. The existing world HUD snapshot publishes the changed bearing to the same compass React component; coordinates and movement yaw are unaffected.
+- `PlayerCompassHeadingTests` cover all three camera views, north wrapping, half-degree quantization, full revolutions and nonfinite input rejection. Commit `f4cfc9d` passed dotnet, Core unit tests, headless Godot smoke, WebUI/Storybook and Playwright.
+- **Remaining:** compare the in-engine Godot/WRY view after F5 cycling at multiple bearings; the perspective compensation is implemented in code and must not be re-ported.
