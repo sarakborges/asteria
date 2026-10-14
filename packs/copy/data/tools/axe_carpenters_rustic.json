@@ -1,7 +1,0 @@
-{
-  "id": "asteria:axe_carpenters_rustic",
-  "category": "tools",
-  "icon": "textures/tools/axe_carpenters_rustic.png",
-  "leftBehavior": "asteria:log/hollow",
-  "rightBehavior": "asteria:log/strip"
-}
