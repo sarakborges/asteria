@@ -4374,8 +4374,33 @@ public partial class Main : Node3D
         var hit =
             _player is
                 { IsMouseCaptured: true }
-                ? CurrentTarget()
+                ? CurrentTarget(includeFluidSource: true)
                 : null;
+
+        var fluidChanged = _targetHud.TryCaptureFluid(
+            _world, hit, force, out var fluidSnapshot);
+        if (fluidSnapshot is { } selectedFluid)
+        {
+            if (fluidChanged)
+            {
+                var fluid = _fluids.GetDefinition(selectedFluid.Fluid.Fluid);
+                var voxel = selectedFluid.Voxel;
+                SendWebUi("game.hud.target", new
+                {
+                    kind = "fluid",
+                    id = fluid.Id,
+                    name = fluid.Id,
+                    details = new[]
+                    {
+                        $"Level: {selectedFluid.Fluid.Level}/{FluidCell.MaxLevel}",
+                        $"Sky Light: {selectedFluid.Light.Sky} | Block Light: {selectedFluid.Light.BlockPeak}",
+                        $"X: {voxel.X} | Z: {voxel.Z} | Y: {voxel.Y}",
+                    },
+                });
+                SendWebUi("game.hud.prompt", new { });
+            }
+            return;
+        }
 
         if (!_targetHud.TryCapture(
                 _world,
@@ -5283,7 +5308,8 @@ public partial class Main : Node3D
             _world, _blocks, _objects, origin, direction, InteractionDistance);
     }
 
-    private VoxelWorldHit? CurrentTarget(bool fluidSurface = false)
+    private VoxelWorldHit? CurrentTarget(
+        bool fluidSurface = false, bool includeFluidSource = false)
     {
         if (_player is null)
         {
@@ -5306,7 +5332,7 @@ public partial class Main : Node3D
                 direction.X,
                 direction.Y,
                 direction.Z),
-            InteractionDistance, fluidSurface);
+            InteractionDistance, fluidSurface, includeFluidSource);
     }
 
     private bool TryGetTarget(

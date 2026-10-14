@@ -14,13 +14,46 @@ public readonly record struct TargetHudSnapshot(
     BlockFace? HitFace,
     string? ActiveLayerId = null);
 
+public readonly record struct TargetFluidHudSnapshot(
+    WorldVoxelCoord Voxel, FluidCell Fluid, VoxelLight Light);
+
 public sealed class TargetHudStateTracker
 {
     private TargetHudSnapshot? _last;
+    private TargetFluidHudSnapshot? _lastFluid;
 
     public void Reset()
     {
         _last = null;
+        _lastFluid = null;
+    }
+
+    /// <summary>
+    /// Reuse the Core ray hit for the HUD's source-fluid variant. A fluid
+    /// hit replaces the cached block presentation; a fluid -> empty/block
+    /// transition is published by the ordinary TryCapture overload.
+    /// </summary>
+    public bool TryCaptureFluid(
+        VoxelWorld world, VoxelWorldHit? hit, bool force,
+        out TargetFluidHudSnapshot? snapshot)
+    {
+        ArgumentNullException.ThrowIfNull(world);
+        snapshot = hit is { } resolved &&
+                   world.GetCellOrEmpty(resolved.Voxel).IsEmpty &&
+                   world.TryGetFluid(resolved.Voxel, out var fluid) &&
+                   !fluid.IsEmpty && fluid.IsSource
+            ? new TargetFluidHudSnapshot(
+                resolved.Voxel, fluid,
+                world.GetLightOrDark(resolved.Voxel + (0, 1, 0)))
+            : null;
+
+        if (snapshot is null)
+            return false;
+
+        _last = null;
+        var changed = force || _lastFluid != snapshot;
+        _lastFluid = snapshot;
+        return changed;
     }
 
     public bool TryCapture(
@@ -51,11 +84,12 @@ public sealed class TargetHudStateTracker
                 layers,
                 hit);
 
-        if (!force &&
-            _last == snapshot)
-        {
+        // Clearing a fluid target must publish an empty/block HUD even if
+        // the last block snapshot was already empty.
+        var hadFluid = _lastFluid is not null;
+        _lastFluid = null;
+        if (!force && !hadFluid && _last == snapshot)
             return false;
-        }
 
         _last = snapshot;
         return true;
