@@ -68,10 +68,10 @@ public sealed class LightingResultIntegrator
 
         _world.CopyLightPositionsFrom(
             lightingSnapshot, positions, offset, count);
-        var slice = new WorldVoxelCoord[count];
-        for (var i = 0; i < count; i++)
-            slice[i] = positions[offset + i];
-        return EnqueuePresentationRefreshes(slice);
+        return EnqueuePresentationRefreshes(
+            MeshletInvalidation.ForPositions(
+                _world, positions, offset, count),
+            count);
     }
 
     /// <summary>
@@ -96,11 +96,9 @@ public sealed class LightingResultIntegrator
             lightingSnapshot, positions, offset, count);
         // The copied positions may span multiple chunks, so retain the
         // canonical one-voxel halo invalidation and union by meshlet mask.
-        var slice = new WorldVoxelCoord[count];
-        for (var index = 0; index < count; index++)
-            slice[index] = positions[offset + index];
         foreach (var (coord, mask) in
-                 MeshletInvalidation.ForPositions(_world, slice))
+                 MeshletInvalidation.ForPositions(
+                     _world, positions, offset, count))
         {
             _accumulatedRefreshes[coord] =
                 _accumulatedRefreshes.TryGetValue(coord, out var existing)

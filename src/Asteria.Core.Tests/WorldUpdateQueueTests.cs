@@ -37,6 +37,33 @@ public sealed class WorldUpdateQueueTests
     }
 
     [Fact]
+    public void RangeInvalidationMatchesTheExactFullPositionEnumeration()
+    {
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, new Chunk());
+        world.InsertChunk(new ChunkCoord(1, 0, 0), new Chunk());
+        var positions = new[]
+        {
+            new WorldVoxelCoord(0, 0, 0),
+            new WorldVoxelCoord(7, 7, 7),
+            new WorldVoxelCoord(15, 8, 8),
+            new WorldVoxelCoord(16, 8, 8),
+            new WorldVoxelCoord(25, 10, 10),
+        };
+
+        var ranged = MeshletInvalidation.ForPositions(world, positions, 1, 3);
+        var expected = MeshletInvalidation.ForPositions(world, positions.Skip(1).Take(3));
+        Assert.Equal(expected.Count, ranged.Count);
+        foreach (var (coord, mask) in expected)
+            Assert.Equal(mask, ranged[coord]);
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            MeshletInvalidation.ForPositions(world, positions, -1, 1));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            MeshletInvalidation.ForPositions(world, positions, 2, 4));
+    }
+
+    [Fact]
     public void DenseLightingInvalidationSaturatesTheChunkMeshletMask()
     {
         var world = new VoxelWorld();
