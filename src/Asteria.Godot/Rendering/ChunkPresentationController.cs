@@ -193,6 +193,25 @@ public sealed class ChunkPresentationController
             out var presentation) &&
         presentation.IsFullyPublished;
 
+    public IReadOnlyDictionary<ChunkMeshletKey, ChunkFluidMeshData>
+        CaptureRelightableFluid(WorldMeshBatch batch)
+    {
+        ArgumentNullException.ThrowIfNull(batch);
+        var captured = new Dictionary<ChunkMeshletKey, ChunkFluidMeshData>();
+        foreach (var (coord, mask) in batch.DirtyMeshlets)
+        {
+            if (!_presentations.TryGetValue(coord, out var presentation))
+                continue;
+            foreach (var index in mask.Indices())
+            {
+                if (presentation.TryGetRelightableFluid(
+                        index, _world, out var data) && data is not null)
+                    captured.Add(new ChunkMeshletKey(coord, index), data);
+            }
+        }
+        return captured;
+    }
+
     public IReadOnlyDictionary<ChunkMeshletKey, ChunkMeshData>
         CaptureRelightableTerrain(WorldMeshBatch batch)
     {
@@ -581,7 +600,9 @@ public sealed class ChunkPresentationController
             presentation.ApplyFluid(
                 pending.Meshlet.MeshletIndex,
                 pending.Meshlet.Data,
-                _fluidMaterials);
+                _fluidMaterials,
+                pending.Dependencies,
+                pending.Meshlet.LightOnly);
             published++;
         }
 

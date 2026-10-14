@@ -23,6 +23,13 @@ public sealed class ChunkPresentation
         new MeshInstance3D?[ChunkMeshletMask.Count];
     private readonly MeshInstance3D?[] _fluidMeshes =
         new MeshInstance3D?[ChunkMeshletMask.Count];
+    // A separate bounded immutable cache for small published fluid meshlets.
+    private const int MaximumFluidRelightVerticesPerChunk = 2048;
+    private readonly ChunkFluidMeshData?[] _relightableFluid =
+        new ChunkFluidMeshData?[ChunkMeshletMask.Count];
+    private readonly MeshDependencyStamp?[] _relightableFluidDependencies =
+        new MeshDependencyStamp?[ChunkMeshletMask.Count];
+    private int _fluidRelightVertexCount;
     private readonly CollisionShape3D?[] _collisions =
         new CollisionShape3D?[ChunkMeshletMask.Count];
     private readonly MeshDependencyStamp?[] _collisionDependencies =
@@ -115,6 +122,22 @@ public sealed class ChunkPresentation
             return false;
         }
 
+        return true;
+    }
+
+    public bool TryGetRelightableFluid(
+        int meshletIndex, VoxelWorld world, out ChunkFluidMeshData? data)
+    {
+        ValidateMeshletIndex(meshletIndex);
+        ArgumentNullException.ThrowIfNull(world);
+        data = _relightableFluid[meshletIndex];
+        if (data is null || _fluidMeshes[meshletIndex]?.Mesh is null ||
+            _relightableFluidDependencies[meshletIndex] is not { } dependency ||
+            !dependency.IsCurrent(world))
+        {
+            data = null;
+            return false;
+        }
         return true;
     }
 
@@ -294,31 +317,41 @@ public sealed class ChunkPresentation
     public void ApplyFluid(
         int meshletIndex,
         ChunkFluidMeshData data,
-        FluidMaterialCatalog materials)
+        FluidMaterialCatalog materials,
+        MeshDependencyStamp dependencies,
+        bool lightOnly = false)
     {
-        ValidateMeshletIndex(
-            meshletIndex);
+        ValidateMeshletIndex(meshletIndex);
+        ArgumentNullException.ThrowIfNull(dependencies);
+
+        _fluidRelightVertexCount -=
+            _relightableFluid[meshletIndex]?.Batches.Sum(
+                batch => batch.Vertices.Length) ?? 0;
+        _relightableFluid[meshletIndex] = null;
+        _relightableFluidDependencies[meshletIndex] = null;
 
         if (!data.HasGeometry)
         {
-            RemoveNode(
-                _fluidMeshes,
-                meshletIndex);
+            RemoveNode(_fluidMeshes, meshletIndex);
             return;
         }
 
-        var mesh =
-            _fluidMeshes[
-                meshletIndex] ??
-            CreateMesh(
-                _fluidMeshes,
-                meshletIndex,
+        var mesh = _fluidMeshes[meshletIndex] ??
+            CreateMesh(_fluidMeshes, meshletIndex,
                 $"FluidMeshlet_{meshletIndex}");
 
-        mesh.Mesh =
-            ChunkFluidMeshBuilder.CreateMesh(
-                data,
-                materials);
+        // Fluid light-only work has identical faces and must not change
+        // the published geometry; this bridge publishes vertex attributes.
+        mesh.Mesh = ChunkFluidMeshBuilder.CreateMesh(data, materials);
+
+        var count = data.Batches.Sum(batch => batch.Vertices.Length);
+        if (count <= MaximumFluidRelightVerticesPerChunk -
+                     _fluidRelightVertexCount)
+        {
+            _relightableFluid[meshletIndex] = data;
+            _relightableFluidDependencies[meshletIndex] = dependencies;
+            _fluidRelightVertexCount += count;
+        }
     }
 
     public ChunkPresentationApplyStats Apply(
