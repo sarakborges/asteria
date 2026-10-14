@@ -38,15 +38,27 @@ internal static class MeshletMaskQueueDrain
         if (remaining <= 0 || source.Count == 0)
             return;
 
-        // The interactive lane shares the streaming priority and its
-        // deterministic directional/coordinate tie-breakers.
-        foreach (var coord in source.Keys
-                     .OrderBy(coord => ChunkStreamingState.Priority(
-                         coord, center, movement)).ToArray())
+        // A worker accepts only a bounded number of meshlets. Select the
+        // closest chunk directly instead of sorting/allocating the entire
+        // backlog on the main thread every time a worker starts.
+        while (remaining > 0 && source.Count > 0)
         {
-            if (remaining == 0)
+            ChunkCoord? selected = null;
+            ChunkLoadPriority selectedPriority = default;
+            foreach (var coord in source.Keys)
+            {
+                var priority = ChunkStreamingState.Priority(
+                    coord, center, movement);
+                if (selected is null || priority.CompareTo(selectedPriority) < 0)
+                {
+                    selected = coord;
+                    selectedPriority = priority;
+                }
+            }
+
+            if (selected is not { } closest)
                 break;
-            DrainCoordinate(source, destination, coord, ref remaining);
+            DrainCoordinate(source, destination, closest, ref remaining);
         }
     }
 
