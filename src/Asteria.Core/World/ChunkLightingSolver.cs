@@ -26,27 +26,22 @@ public static class ChunkLightingSolver
 
         var objectEmissions = ObjectLightEmissionField.Capture(chunk, objects);
         chunk.ClearLight();
+        var mediumDampening = new byte[Chunk.Volume];
         var needsRelaxation = SeedDirectLight(
-            chunk,
-            blocks,
-            fluids, objectEmissions);
+            chunk, blocks, fluids, objectEmissions, mediumDampening);
 
         if (chunk.IsEmpty || !needsRelaxation)
-        {
             return;
-        }
 
-        Relax(
-            chunk,
-            blocks,
-            fluids, objectEmissions);
+        Relax(chunk, blocks, fluids, objectEmissions, mediumDampening);
     }
 
     private static bool SeedDirectLight(
         Chunk chunk,
         BlockRegistry blocks,
         FluidRegistry fluids,
-        ObjectLightEmissionField objectEmissions)
+        ObjectLightEmissionField objectEmissions,
+        byte[] mediumDampening)
     {
         var hasTransmittingMedium = false;
         for (var z = 0; z < Chunk.Size; z++)
@@ -76,6 +71,7 @@ public static class ChunkLightingSolver
                             cell,
                             fluid);
 
+                    mediumDampening[ToIndex(x, y, z)] = dampening;
                     hasTransmittingMedium |=
                         dampening < VoxelLight.MaxLevel;
 
@@ -116,7 +112,8 @@ public static class ChunkLightingSolver
         Chunk chunk,
         BlockRegistry blocks,
         FluidRegistry fluids,
-        ObjectLightEmissionField objectEmissions)
+        ObjectLightEmissionField objectEmissions,
+        byte[] mediumDampening)
     {
         var queue =
             new Queue<int>(Chunk.Volume);
@@ -135,12 +132,9 @@ public static class ChunkLightingSolver
                      x < Chunk.Size;
                      x++)
                 {
-                    Enqueue(
-                        queue,
-                        queued,
-                        x,
-                        y,
-                        z);
+                    if (mediumDampening[ToIndex(x, y, z)] <
+                        VoxelLight.MaxLevel)
+                        Enqueue(queue, queued, x, y, z);
                 }
             }
         }
@@ -156,22 +150,10 @@ public static class ChunkLightingSolver
                 chunk.GetCell(x, y, z);
             var fluid =
                 chunk.GetFluid(x, y, z);
-            var dampening =
-                VoxelLightingMedium.Dampening(
-                    chunk,
-                    blocks,
-                    fluids,
-                    x,
-                    y,
-                    z,
-                    cell,
-                    fluid);
-
-            if (dampening >=
-                VoxelLight.MaxLevel)
-            {
-                continue;
-            }
+            // Direct-light seeding already evaluated every medium.
+            // Opaque cells can emit but never transmit; skip them entirely
+            // rather than revisiting them on every neighbor update.
+            var dampening = mediumDampening[index];
 
             var attenuation =
                 Math.Max(
@@ -236,17 +218,10 @@ public static class ChunkLightingSolver
                 var ny = y + dy;
                 var nz = z + dz;
 
-                if (Chunk.Contains(
-                        nx,
-                        ny,
-                        nz))
+                if (Chunk.Contains(nx, ny, nz) &&
+                    mediumDampening[ToIndex(nx, ny, nz)] < VoxelLight.MaxLevel)
                 {
-                    Enqueue(
-                        queue,
-                        queued,
-                        nx,
-                        ny,
-                        nz);
+                    Enqueue(queue, queued, nx, ny, nz);
                 }
             }
         }

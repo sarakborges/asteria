@@ -119,6 +119,38 @@ public sealed class ChunkLightingSolverTests
     }
 
     [Fact]
+    public void MixedOpaqueAndTransmittingChunkPreservesEmissiveNeighborLight()
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition("asteria:stone", lightDampening: 15),
+            new BlockDefinition("asteria:lamp", lightDampening: 15,
+                lightEmission: new BlockLightEmission(15, 3, 1)),
+        ]);
+        var stone = blocks.GetId("asteria:stone");
+        var lamp = blocks.GetId("asteria:lamp");
+        var chunk = new Chunk();
+        for (var z = 0; z < Chunk.Size; z++)
+        for (var x = 0; x < Chunk.Size; x++)
+        for (var y = 0; y < Chunk.Size; y++)
+            chunk.SetBlock(x, y, z, stone);
+
+        // One transmitting path through opaque stone, lit by the opaque
+        // emitter next door. Flood-fill must still read that emitter.
+        chunk.SetBlock(8, 8, 8, BlockRuntimeId.Air);
+        chunk.SetBlock(9, 8, 8, lamp);
+        chunk.SetBlock(8, 9, 8, BlockRuntimeId.Air);
+        ChunkLightingSolver.Initialize(chunk, blocks, new FluidRegistry([]));
+
+        Assert.Equal((byte)14, chunk.GetLight(8, 8, 8).Red);
+        Assert.Equal((byte)2, chunk.GetLight(8, 8, 8).Green);
+        Assert.Equal((byte)0, chunk.GetLight(8, 8, 8).Blue);
+        Assert.Equal((byte)13, chunk.GetLight(8, 9, 8).Red);
+        Assert.Equal((byte)15, chunk.GetLight(8, 9, 8).Sky);
+        Assert.Equal((byte)0, chunk.GetLight(7, 8, 8).Red);
+    }
+
+    [Fact]
     public void PartialLayerScalesLightDampeningByOccupiedVolume()
     {
         var blocks = new BlockRegistry(
