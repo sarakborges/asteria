@@ -108,7 +108,7 @@ public partial class Main : Node3D
     private PackContentRegistry<CreatureDefinition> _creatures = null!;
     private PackContentRegistry<AttackDefinition> _attacks = null!;
     private (ulong Id, float Health, float Maximum, bool HasPortrait)? _lastCreatureHud;
-    private WorldObjectHit? _lastObjectHud;
+    private TargetObjectHudSnapshot? _lastObjectHud;
     private FluidRegistry _fluids = null!;
     private BiomeRegistry _biomes = null!;
     private StructureRegistry _structures = null!;
@@ -4335,9 +4335,10 @@ public partial class Main : Node3D
 
         if (CurrentObjectTarget() is { } objectHit)
         {
-            if (force || _lastObjectHud != objectHit)
+            var objectSnapshot = TargetObjectHudSnapshot.FromWorld(_world, objectHit);
+            if (force || _lastObjectHud != objectSnapshot)
             {
-                _lastObjectHud = objectHit;
+                _lastObjectHud = objectSnapshot;
                 var definition = _objects.Get(objectHit.Object.Id);
                 SendWebUi("game.hud.target", new
                 {
@@ -4352,6 +4353,7 @@ public partial class Main : Node3D
                     details = new[]
                     {
                         $"Face: {objectHit.Object.Face}",
+                        $"Sky Light: {objectSnapshot.SkyLight} | Block Light: {objectSnapshot.BlockLight}",
                         $"X: {objectHit.Support.X} | Z: {objectHit.Support.Z} | Y: {objectHit.Support.Y}",
                     },
                 });

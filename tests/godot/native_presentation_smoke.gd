@@ -144,6 +144,20 @@ func _run() -> void:
 		if fluid_smoke != null:
 			fluid_smoke.free()
 
+	# World Object HUD must update on visible light changes without
+	# reissuing the same icon when only camera distance changes.
+	var object_hud_script := ResourceLoader.load("res://tests/godot/TargetObjectHudSmoke.cs")
+	if object_hud_script == null:
+		push_error("Native smoke: Object target HUD test script missing")
+		failed = true
+	else:
+		var object_hud: Node = object_hud_script.new()
+		if object_hud == null or not object_hud.call("Verify"):
+			push_error("Native smoke: Object HUD snapshot validation failed")
+			failed = true
+		if object_hud != null:
+			object_hud.free()
+
 	# Inventory and HUD must reuse the canonical 3D voxel rasterizer.
 	# A texture-only CSS cube is not sufficient for rotated/tinted faces.
 	var icon_smoke_script := ResourceLoader.load("res://tests/godot/InventoryVoxelIconSmoke.cs")
