@@ -72,7 +72,7 @@ public partial class InventoryVoxelIconSmoke : Node
     private static void VerifyPlayerBiomeTint()
     {
         var biome = new BiomeDefinition(
-            "asteria:preview_biome",
+            "asteria:test/preview_biome",
             new BiomeSurfaceLayoutDefinition(),
             new BiomeTerrainDefinition(0, 0, 64, 0, 32),
             [new BiomeSurfaceLayerDefinition("asteria:block_grass")],
