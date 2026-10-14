@@ -331,6 +331,104 @@ public sealed class CreatureCombatTests
     }
 
     [Fact]
+    public void ConsecutiveHitsAddKnockbackAndCapTotalCollisionSpeed()
+    {
+        var runtime = new CreatureRuntime(Definitions());
+        var position = new Vector3(6.5f, 1f, 7.5f);
+        Assert.True(runtime.TrySpawn("asteria:slime_aqua", position, out var creature));
+        var attack = AttackDefinition.Parse("""
+            {"id":"asteria:repeated_push","damage":0,"effects":[
+              {"effect":"knockback","chance":1,"strength":0.75}
+            ]}
+            """);
+        var attacker = new Vector3(2f, 1f, 7.5f);
+        Assert.True(runtime.TryAttack(creature.Id, attack, attacker, out _));
+        Assert.Equal(18f, Assert.Single(runtime.ActiveCreatures).Motion.KnockbackVelocity.X, 4);
+
+        Assert.True(runtime.TryAttack(creature.Id, attack, attacker, out _));
+        var twice = Assert.Single(runtime.ActiveCreatures);
+        Assert.Equal(36f, twice.Motion.KnockbackVelocity.X, 4);
+        Assert.Equal(0.28f, twice.Motion.KnockbackSeconds);
+
+        Assert.True(runtime.TryAttack(creature.Id, attack, attacker, out _));
+        var capped = Assert.Single(runtime.ActiveCreatures);
+        Assert.Equal(CreatureRuntime.MaximumKnockbackSpeed,
+            capped.Motion.KnockbackVelocity.Length(), 4);
+        Assert.Equal(0.28f, capped.Motion.KnockbackSeconds);
+        var restored = new CreatureRuntime(Definitions(), runtime.CaptureState());
+        Assert.Equal(capped.Motion.KnockbackVelocity,
+            Assert.Single(restored.ActiveCreatures).Motion.KnockbackVelocity);
+
+        // Repeated calls cannot grow the velocity or create unbounded voxel
+        // collision steps even with a valid multi-effect authored attack.
+        for (var i = 0; i < 8; i++)
+            Assert.True(runtime.TryAttack(creature.Id, attack, attacker, out _));
+        Assert.Equal(CreatureRuntime.MaximumKnockbackSpeed,
+            Assert.Single(runtime.ActiveCreatures).Motion.KnockbackVelocity.Length(), 4);
+    }
+
+    [Fact]
+    public void KnockbackEffectsAccumulateWithinOneHitAndZeroForceDoesNotCancel()
+    {
+        var runtime = new CreatureRuntime(Definitions());
+        Assert.True(runtime.TrySpawn("asteria:slime_aqua",
+            new Vector3(6f, 1f, 4f), out var creature));
+        var effects = AttackDefinition.Parse("""
+            {"id":"asteria:combined_push","damage":0,"effects":[
+              {"effect":"knockback","chance":1,"strength":0.5},
+              {"effect":"knockback","chance":1,"strength":0},
+              {"effect":"knockback","chance":1,"strength":0.75},
+              {"effect":"knockback","chance":0,"strength":1}
+            ]}
+            """);
+        Assert.True(runtime.TryAttack(creature.Id, effects,
+            new Vector3(2f, 1f, 4f), out _));
+        var pushed = Assert.Single(runtime.ActiveCreatures);
+        Assert.Equal(30f, pushed.Motion.KnockbackVelocity.X, 4);
+        Assert.Equal(0.28f, pushed.Motion.KnockbackSeconds);
+
+        var noForce = AttackDefinition.Parse("""
+            {"id":"asteria:no_force","damage":0,"effects":[
+              {"effect":"knockback","strength":0}
+            ]}
+            """);
+        Assert.True(runtime.TryAttack(creature.Id, noForce,
+            new Vector3(2f, 1f, 4f), out _));
+        Assert.Equal(pushed.Motion.KnockbackVelocity,
+            Assert.Single(runtime.ActiveCreatures).Motion.KnockbackVelocity);
+        Assert.Equal(pushed.Motion.KnockbackSeconds,
+            Assert.Single(runtime.ActiveCreatures).Motion.KnockbackSeconds);
+    }
+
+    [Fact]
+    public void InvalidDirectAttackAndOversizedSavedImpulseAreRejected()
+    {
+        var runtime = new CreatureRuntime(Definitions());
+        Assert.True(runtime.TrySpawn("asteria:slime_aqua",
+            new Vector3(6f, 1f, 4f), out var creature));
+        var revision = Assert.Single(runtime.ActiveCreatures);
+        var malformed = new AttackDefinition("asteria:invalid", 1,
+            [new AttackEffectDefinition("knockback", 1f, 100f)]);
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            runtime.TryAttack(creature.Id, malformed, Vector3.Zero, out _));
+        Assert.Equal(revision, Assert.Single(runtime.ActiveCreatures));
+
+        var invalidSnapshot = runtime.CaptureState();
+        var oversized = invalidSnapshot with
+        {
+            Creatures = invalidSnapshot.Creatures.Select(state =>
+                state with { Motion = state.Motion with
+                {
+                    KnockbackVelocity = new Vector2(
+                        CreatureRuntime.MaximumKnockbackSpeed + 1, 0),
+                    KnockbackSeconds = 0.28f,
+                }}).ToArray(),
+        };
+        Assert.Throws<ArgumentException>(() =>
+            new CreatureRuntime(Definitions(), oversized));
+    }
+
+    [Fact]
     public void InvalidAttacksRejectUnsafeValues()
     {
         Assert.Throws<FormatException>(() => AttackDefinition.Parse(
@@ -339,6 +437,8 @@ public sealed class CreatureCombatTests
             """{"id":"asteria:bad","damage":1,"effects":[{"effect":"knockback","chance":1.3}]}"""));
         Assert.Throws<FormatException>(() => AttackDefinition.Parse(
             """{"id":"asteria:bad","damage":1,"effects":[{"effect":"unknown"}]}"""));
+        Assert.Throws<FormatException>(() => AttackDefinition.Parse(
+            """{"id":"asteria:bad","damage":1,"effects":[{"effect":"knockback","strength":2.01}]}"""));
     }
 
     [Fact]
