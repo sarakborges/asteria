@@ -6,6 +6,66 @@ namespace Asteria.Core.Tests;
 public sealed class ChunkMeshDataBuilderTests
 {
     [Fact]
+    public void VertexOnlyLightingMatchesFreshCubeMeshAndReusesCollisionFaces()
+    {
+        const string texture = "textures/test/stone.png";
+        var blocks = new BlockRegistry([
+            new BlockDefinition("asteria:stone",
+                textures: new BlockTextureSet(top: [new BlockTextureLayer(texture)])),
+        ]);
+        var textures = new TerrainTextureLookup(
+            new Dictionary<string, int> { [texture] = 0 });
+        var chunk = new Chunk();
+        chunk.SetBlock(3, 3, 3, blocks.GetId("asteria:stone"));
+        ChunkLightingSolver.Initialize(chunk, blocks, new FluidRegistry([]));
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, chunk);
+
+        var geometry = ChunkMeshDataBuilder.BuildMeshlet(
+            world, ChunkCoord.Zero, blocks, textures, 0);
+        Assert.True(geometry.CanRelightWithoutRemesh);
+        Assert.True(world.TrySetLight(
+            new WorldVoxelCoord(3, 4, 3), new VoxelLight(7, 14, 0, 0)));
+
+        var updated = ChunkMeshLightingUpdater.Relight(
+            world, ChunkCoord.Zero, blocks, geometry);
+        var rebuilt = ChunkMeshDataBuilder.BuildMeshlet(
+            world, ChunkCoord.Zero, blocks, textures, 0);
+        Assert.Same(geometry.CollisionFaces, updated.CollisionFaces);
+        Assert.Equal(rebuilt.RenderBatches.Length, updated.RenderBatches.Length);
+        for (var i = 0; i < rebuilt.RenderBatches.Length; i++)
+        {
+            Assert.Equal(rebuilt.RenderBatches[i].Batch, updated.RenderBatches[i].Batch);
+            Assert.Equal(rebuilt.RenderBatches[i].Vertices, updated.RenderBatches[i].Vertices);
+        }
+    }
+
+    [Fact]
+    public void MultiVoxelGreedyRectangleRequiresGeometryRebuildOnLightChange()
+    {
+        const string texture = "textures/test/stone.png";
+        var blocks = new BlockRegistry([
+            new BlockDefinition("asteria:stone",
+                textures: new BlockTextureSet(top: [new BlockTextureLayer(texture)])),
+        ]);
+        var chunk = new Chunk();
+        var stone = blocks.GetId("asteria:stone");
+        chunk.SetBlock(3, 3, 3, stone);
+        chunk.SetBlock(4, 3, 3, stone);
+        ChunkLightingSolver.Initialize(chunk, blocks, new FluidRegistry([]));
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, chunk);
+        var geometry = ChunkMeshDataBuilder.BuildMeshlet(
+            world, ChunkCoord.Zero, blocks,
+            new TerrainTextureLookup(
+                new Dictionary<string, int> { [texture] = 0 }), 0);
+        Assert.False(geometry.CanRelightWithoutRemesh);
+        Assert.Throws<InvalidOperationException>(() =>
+            ChunkMeshLightingUpdater.Relight(
+                world, ChunkCoord.Zero, blocks, geometry));
+    }
+
+    [Fact]
     public void SpikeClosesItsEndsAndProvidesMatchingCollisionTriangles()
     {
         var texture = new BlockTextureLayer("textures/test/spike.png");

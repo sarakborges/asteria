@@ -59,6 +59,7 @@ public static class ChunkMeshDataBuilder
         // Reuse it in all six greedy face passes rather than re-reading six
         // neighbors for every occupied voxel on every face.
         var hasMergedFaces = false;
+        var hasUnsupportedLightingGeometry = false;
         var fineMeshing = new bool[
             ChunkMeshletMask.Edge *
             ChunkMeshletMask.Edge *
@@ -120,6 +121,7 @@ public static class ChunkMeshDataBuilder
                     if (definition.Shape.Kind == BlockShapeKind.Spike &&
                         !cell.HasMicroblockGeometry)
                     {
+                        hasUnsupportedLightingGeometry = true;
                         fineMeshing[MeshletVoxelIndex(x, y, z)] = true;
                         EmitSpike(
                             surfaces, collision, world, blocks, textures,
@@ -176,7 +178,7 @@ public static class ChunkMeshDataBuilder
         return new ChunkMeshData(
             batches,
             collision.ToArray(),
-            CanRelightWithoutRemesh: !hasMergedFaces);
+            CanRelightWithoutRemesh: !hasMergedFaces && !hasUnsupportedLightingGeometry);
     }
 
     private static void EmitGreedyCubeFaces(
