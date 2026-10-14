@@ -107,6 +107,9 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     private int _fluidChanges;
     private int _fluidBacklogMax;
     private int _lightingBatches;
+    private int _lightingSeedCount;
+    private int _lightingStaleSeedCount;
+    private int _lightingSeedBatchMax;
     private double _lightingMs;
     private int _lightingVoxels;
     private int _lightingChanged;
@@ -344,14 +347,18 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         _lightingCaptureMaxMs = Math.Max(
             _lightingCaptureMaxMs, report.CaptureMilliseconds);
 
+        _lightingSeedBatchMax = Math.Max(
+            _lightingSeedBatchMax, report.SeedCount);
         if (report.Kind == LightingCompletionKind.RequeuedStale)
         {
+            _lightingStaleSeedCount += report.SeedCount;
             _lightingStaleBatches++;
             _lightingDiscardedWorkerMs += report.WorkerMilliseconds;
             return;
         }
 
         _lightingBatches++;
+        _lightingSeedCount += report.SeedCount;
         _lightingMs += report.WorkerMilliseconds;
         _lightingVoxels += report.ProcessedVoxelCount;
         _lightingChanged += report.ChangedVoxelCount;
@@ -450,6 +457,9 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"fluid_batches={_fluidBatches} fluid_ms_total={Format1(_fluidMs)} " +
             $"fluid_changes={_fluidChanges} fluid_backlog_max={_fluidBacklogMax} " +
             $"lighting_batches={_lightingBatches} lighting_ms_total={Format1(_lightingMs)} " +
+            $"lighting_seed_count={_lightingSeedCount} " +
+            $"lighting_stale_seed_count={_lightingStaleSeedCount} " +
+            $"lighting_seed_batch_max={_lightingSeedBatchMax} " +
             $"lighting_voxels={_lightingVoxels} lighting_changed={_lightingChanged} " +
             $"lighting_dirty_chunks={_lightingDirtyChunks} " +
             $"lighting_stale={_lightingStaleBatches} " +
@@ -508,6 +518,9 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         _fluidChanges = 0;
         _fluidBacklogMax = 0;
         _lightingBatches = 0;
+        _lightingSeedCount = 0;
+        _lightingStaleSeedCount = 0;
+        _lightingSeedBatchMax = 0;
         _lightingMs = 0d;
         _lightingVoxels = 0;
         _lightingChanged = 0;

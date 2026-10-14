@@ -74,6 +74,15 @@ def summarize(rows):
         "Terrain relight-only": total(rows, "mesh_light_only"),
         "Fluid relight-only": total(rows, "fluid_light_only"),
     }
+    if any("lighting_seed_count" in r for r in rows):
+        batches = total(rows, "lighting_batches") + total(rows, "lighting_stale")
+        result["Seeds per lighting worker"] = (
+            (total(rows, "lighting_seed_count") +
+             total(rows, "lighting_stale_seed_count")) / max(batches, 1))
+        result["Peak seeds per worker"] = peak(rows, "lighting_seed_batch_max")
+    else:
+        result["Seeds per lighting worker"] = None
+        result["Peak seeds per worker"] = None
     for label, key in (("Terrain GPU patches", "mesh_gpu_attribute_patches"),
                        ("Fluid GPU patches", "fluid_gpu_attribute_patches")):
         result[label] = total(rows, key) if any(key in r for r in rows) else None

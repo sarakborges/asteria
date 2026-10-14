@@ -17,7 +17,8 @@ public sealed record LightingRuntimeReport(
     int DirtyMeshletCount,
     int ProcessedVoxelCount,
     double CaptureMilliseconds,
-    double ApplyMilliseconds);
+    double ApplyMilliseconds,
+    int SeedCount = 0);
 
 public sealed class LightingRuntime
 {
@@ -194,7 +195,8 @@ public sealed class LightingRuntime
                     0,
                     result.Lighting.ProcessedVoxelCount,
                     captureMilliseconds,
-                    0d);
+                    0d,
+                    result.SourceBatch.EditedPositions.Count);
             return true;
         }
 
@@ -226,7 +228,8 @@ public sealed class LightingRuntime
                 result.WorkerMilliseconds, 0, 0, 0,
                 result.Lighting.ProcessedVoxelCount,
                 _publicationCaptureMilliseconds,
-                _publicationApplyMilliseconds);
+                _publicationApplyMilliseconds,
+                result.SourceBatch.EditedPositions.Count);
             _publication = null;
             return true;
         }
@@ -260,7 +263,8 @@ public sealed class LightingRuntime
             _publicationDirtyMeshlets,
             result.Lighting.ProcessedVoxelCount,
             _publicationCaptureMilliseconds,
-            _publicationApplyMilliseconds);
+            _publicationApplyMilliseconds,
+            result.SourceBatch.EditedPositions.Count);
         _publication = null;
         return true;
     }

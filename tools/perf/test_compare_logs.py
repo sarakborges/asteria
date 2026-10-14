@@ -26,6 +26,7 @@ class ComparisonTests(unittest.TestCase):
             self.assertEqual(values["Peak lighting queue"], 20)
             self.assertAlmostEqual(values["Terrain stale (%)"], 100 * 4 / 30)
             self.assertIsNone(values["Terrain GPU patches"])
+            self.assertIsNone(values["Seeds per lighting worker"])
             self.assertAlmostEqual(values["Avg frame (ms)"], 56 / 3)
 
     def test_requires_full_duration(self):
