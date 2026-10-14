@@ -54,7 +54,11 @@ export type TargetHudState = {
   kind: "block" | "object" | "fluid";
   id: string;
   name: string;
-  details: string[];
+  skyLight?: number;
+  blockLight?: number;
+  position?: { x: number; y: number; z: number };
+  face?: TargetHudLayerFace;
+  fluidLevel?: { value: number; maximum: number };
   iconUrl?: string;
   blockPreview?: BlockPreviewState;
   layers?: { id: string; face: TargetHudLayerFace }[];

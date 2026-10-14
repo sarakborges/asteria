@@ -153,6 +153,8 @@
   "worldSelection.openSavesFolder": "Open Saves Folder",
   "worldSelection.openSavesFolderError": "Cannot open saves folder",
   "hud.layers": "Layers",
+  "hud.face": "Face",
+  "hud.level": "Level",
   "worldSelection.seed": "Seed",
   "worldSelection.daysPassed": "Days Passed",
   "worldSelection.dimension": "Dimension",

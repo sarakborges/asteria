@@ -153,6 +153,8 @@
   "worldSelection.openSavesFolder": "Abrir Pasta dos Saves",
   "worldSelection.openSavesFolderError": "Não foi possível abrir a pasta dos saves",
   "hud.layers": "Camadas",
+  "hud.face": "Face",
+  "hud.level": "Nível",
   "worldSelection.seed": "Semente",
   "worldSelection.daysPassed": "Dias Passados",
   "worldSelection.dimension": "Dimensão",

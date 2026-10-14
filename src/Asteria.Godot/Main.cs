@@ -4433,11 +4433,14 @@ public partial class Main : Node3D
                             definition, ResolveObjectHudTint(definition,
                                 objectHit.Support))
                         : IconDataUri(definition.Icon),
-                    details = new[]
+                    face = objectHit.Object.Face.ToString().ToLowerInvariant(),
+                    skyLight = objectSnapshot.SkyLight,
+                    blockLight = objectSnapshot.BlockLight,
+                    position = new
                     {
-                        $"Face: {objectHit.Object.Face}",
-                        $"Sky Light: {objectSnapshot.SkyLight} | Block Light: {objectSnapshot.BlockLight}",
-                        $"X: {objectHit.Support.X} | Z: {objectHit.Support.Z} | Y: {objectHit.Support.Y}",
+                        x = objectHit.Support.X,
+                        y = objectHit.Support.Y,
+                        z = objectHit.Support.Z,
                     },
                 });
                 SendWebUi("game.hud.prompt", new
@@ -4475,12 +4478,14 @@ public partial class Main : Node3D
                     kind = "fluid",
                     id = fluid.Id,
                     name = fluid.Id,
-                    details = new[]
+                    fluidLevel = new
                     {
-                        $"Level: {selectedFluid.Fluid.Level}/{FluidCell.MaxLevel}",
-                        $"Sky Light: {selectedFluid.Light.Sky} | Block Light: {selectedFluid.Light.BlockPeak}",
-                        $"X: {voxel.X} | Z: {voxel.Z} | Y: {voxel.Y}",
+                        value = selectedFluid.Fluid.Level,
+                        maximum = FluidCell.MaxLevel,
                     },
+                    skyLight = selectedFluid.Light.Sky,
+                    blockLight = selectedFluid.Light.BlockPeak,
+                    position = new { x = voxel.X, y = voxel.Y, z = voxel.Z },
                 });
                 SendWebUi("game.hud.prompt", new { });
             }
@@ -4533,11 +4538,9 @@ public partial class Main : Node3D
                         face = layer.Face.ToString().ToLowerInvariant(),
                     })
                     .ToArray(),
-                details = new[]
-                {
-                    $"Sky Light: {value.SkyLight} | Block Light: {value.BlockLight}",
-                    $"X: {value.X} | Z: {value.Z} | Y: {value.Y}",
-                },
+                skyLight = value.SkyLight,
+                blockLight = value.BlockLight,
+                position = new { x = value.X, y = value.Y, z = value.Z },
             });
         var breakHint = _clientPreferences.HintVisible(
             HintKind.BreakOrPlaceBlock);

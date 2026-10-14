@@ -153,6 +153,8 @@
   "worldSelection.openSavesFolder": "Abrir Carpeta de Guardados",
   "worldSelection.openSavesFolderError": "No se pudo abrir la carpeta de guardados",
   "hud.layers": "Capas",
+  "hud.face": "Cara",
+  "hud.level": "Nivel",
   "worldSelection.seed": "Semilla",
   "worldSelection.daysPassed": "Días Transcurridos",
   "worldSelection.dimension": "Dimensión",

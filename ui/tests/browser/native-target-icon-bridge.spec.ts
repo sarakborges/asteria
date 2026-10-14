@@ -9,7 +9,9 @@ test("native target bridge preserves active face Layer and validates target-spec
   const controller = createHudController(store, () => {});
   const payload = {
     kind: "block", id: "asteria:stone", name: "Stone",
-    details: [], activeLayerId: "asteria:moss",
+    skyLight: 15, blockLight: 0,
+    position: { x: 3, y: 70, z: -5 },
+    activeLayerId: "asteria:moss",
     activeLayerIconUrl: png,
     layers: [{ id: "asteria:moss", face: "top" }],
   };
@@ -35,4 +37,32 @@ test("fluid target HUD shows source level, illumination and position, without a 
   await expect(target.locator(".target-hud__copy")).toContainText("Level: 8/8");
   await expect(target.locator(".target-hud__copy")).toContainText("Sky Light: 15");
   await expect(target.locator(".target-hud__copy")).toContainText("X: 148");
+});
+
+
+test("target fields remain typed and reject malformed native detail values", () => {
+  const store = createUiStore(createInitialUiState(false));
+  const controller = createHudController(store, () => {});
+  controller.handleGodotMessage({ type: "game.hud.target", payload: {
+    kind: "fluid", id: "asteria:water", name: "Water",
+    fluidLevel: { value: 7, maximum: 8 },
+    skyLight: 15, blockLight: 4, position: { x: -4, y: 72, z: 200 },
+  } });
+  expect(store.getSnapshot().hud.target).toMatchObject({
+    fluidLevel: { value: 7, maximum: 8 }, skyLight: 15, blockLight: 4,
+    position: { x: -4, y: 72, z: 200 },
+  });
+  controller.handleGodotMessage({ type: "game.hud.target", payload: {
+    kind: "fluid", id: "asteria:water", name: "Water",
+    fluidLevel: { value: 12, maximum: 8 }, skyLight: 27,
+    blockLight: -1, position: { x: 0.25, y: -9, z: 10 },
+  } });
+  expect(store.getSnapshot().hud.target).toMatchObject({
+    kind: "fluid", id: "asteria:water",
+  });
+  const invalid = store.getSnapshot().hud.target;
+  expect(invalid?.fluidLevel).toBeUndefined();
+  expect(invalid?.skyLight).toBeUndefined();
+  expect(invalid?.blockLight).toBeUndefined();
+  expect(invalid?.position).toBeUndefined();
 });

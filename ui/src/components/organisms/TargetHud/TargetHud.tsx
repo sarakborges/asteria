@@ -52,12 +52,17 @@ export function TargetHud({
         {state.kind === "block" && state.activeLayerId && (
           <span>{contentName(state.id)}</span>
         )}
-        {state.details.map(
-          (detail, index) => (
-            <span key={index}>
-              {detail}
-            </span>
-          ),
+        {state.face && (
+          <span>{t("hud.face")}: {t(`hud.layerFace.${state.face}`)}</span>
+        )}
+        {state.fluidLevel && (
+          <span>{t("hud.level")}: {state.fluidLevel.value}/{state.fluidLevel.maximum}</span>
+        )}
+        {state.skyLight !== undefined && state.blockLight !== undefined && (
+          <span>{t("hud.skyLight")}: {state.skyLight} | {t("hud.blockLight")}: {state.blockLight}</span>
+        )}
+        {state.position && (
+          <span>{t("hud.coordinates", state.position)}</span>
         )}
         {state.kind === "block" && layerGroups.size > 0 && (
           <div className="target-hud__layers">

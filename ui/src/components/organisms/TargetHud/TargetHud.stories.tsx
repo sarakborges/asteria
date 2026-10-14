@@ -9,10 +9,8 @@ const meta = {
       kind: "block",
       id: "asteria:block_grass",
       name: "Grass Block",
-      details: [
-        "Sky Light: 15 | Block Light: 0",
-        "148, 92, -72",
-      ],
+      skyLight: 15, blockLight: 0,
+      position: { x: 148, y: 92, z: -72 },
     },
   },
 } satisfies Meta<typeof TargetHud>;
@@ -39,7 +37,8 @@ export const AttachedTextureLayers: Story = {
       kind: "block",
       id: "asteria:block_grass",
       name: "Grass Block",
-      details: ["Sky Light: 15 | Block Light: 0", "148, 92, -72"],
+      skyLight: 15, blockLight: 0,
+      position: { x: 148, y: 92, z: -72 },
       layers: [
         { id: "asteria:moss", face: "top" },
         { id: "asteria:moss", face: "left" },

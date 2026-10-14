@@ -442,12 +442,25 @@ function readTarget(
     return null;
   }
 
-  const details = Array.isArray(value.details)
-    ? value.details.filter(
-        (detail): detail is string =>
-          typeof detail === "string",
-      )
-    : [];
+  const light = (level: unknown): number | undefined =>
+    typeof level === "number" && Number.isInteger(level) &&
+    level >= 0 && level <= 15 ? level : undefined;
+  const positionValue = asRecord(value.position);
+  const coordinate = (v: unknown): v is number =>
+    typeof v === "number" && Number.isSafeInteger(v);
+  const position = positionValue &&
+    coordinate(positionValue.x) && coordinate(positionValue.y) &&
+    coordinate(positionValue.z) && positionValue.y >= 0
+      ? { x: positionValue.x, y: positionValue.y, z: positionValue.z }
+      : undefined;
+  const levelValue = asRecord(value.fluidLevel);
+  const fluidLevel = value.kind === "fluid" && levelValue &&
+    typeof levelValue.value === "number" && Number.isInteger(levelValue.value) &&
+    typeof levelValue.maximum === "number" && Number.isInteger(levelValue.maximum) &&
+    levelValue.maximum >= 1 && levelValue.maximum <= 255 &&
+    levelValue.value >= 0 && levelValue.value <= levelValue.maximum
+      ? { value: levelValue.value, maximum: levelValue.maximum }
+      : undefined;
 
   const faces = new Set(["top", "bottom", "left", "right", "front", "back"]);
   const layers = Array.isArray(value.layers) && value.layers.length <= 16
@@ -473,7 +486,12 @@ function readTarget(
     kind: value.kind,
     id: value.id,
     name: value.name,
-    details,
+    skyLight: light(value.skyLight),
+    blockLight: light(value.blockLight),
+    position,
+    face: value.kind === "object" && faces.has(value.face as string)
+      ? value.face as TargetHudState["face"] : undefined,
+    fluidLevel,
     iconUrl: typeof value.iconUrl === "string" ? value.iconUrl : undefined,
     blockPreview: preview ?? undefined,
     layers,
