@@ -1,5 +1,4 @@
 using Asteria.Core.World;
-using Godot;
 
 namespace Asteria.Client.Gameplay;
 
@@ -9,12 +8,7 @@ namespace Asteria.Client.Gameplay;
 /// </summary>
 internal static class WorldSaveDirectories
 {
-    public static string Root { get; } = Path.GetFullPath(Path.Combine(
-        OS.HasFeature("editor")
-            ? ProjectSettings.GlobalizePath("res://")
-            : Path.GetDirectoryName(OS.GetExecutablePath())
-                ?? throw new InvalidOperationException("Cannot resolve executable directory."),
-        "worlds"));
+    public static string Root => GameDirectories.Worlds;
 
     public static string ForWorld(string name)
     {
