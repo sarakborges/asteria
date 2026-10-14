@@ -218,3 +218,21 @@ export const NativeTintedHudIcons: Story = {
     },
   },
 };
+
+export const FluidTarget: Story = {
+  args: {
+    state: {
+      ...runtimeState,
+      target: {
+        kind: "fluid" as const,
+        id: "asteria:water",
+        name: "asteria:water",
+        details: [
+          "Level: 8/8",
+          "Sky Light: 15 | Block Light: 0",
+          "X: 148 | Z: -72 | Y: 92",
+        ],
+      },
+    },
+  },
+};

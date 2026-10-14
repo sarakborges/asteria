@@ -30,6 +30,7 @@ export function TargetHud({
 
   return (
     <section className="target-hud">
+      {state.kind !== "fluid" && (
       <div className="target-hud__slot">
         <ItemGlyph item={{
           id: state.kind === "block" && state.activeLayerId
@@ -41,6 +42,7 @@ export function TargetHud({
             ? activeLayerIconUrl : state.kind === "object" ? state.iconUrl : undefined,
         }} size="recipe" />
       </div>
+      )}
       <div className="target-hud__copy">
         <strong>{state.kind === "block" && state.activeLayerId
           ? contentName(state.activeLayerId)

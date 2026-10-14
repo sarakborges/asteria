@@ -26,3 +26,13 @@ test("native target bridge preserves active face Layer and validates target-spec
     payload: { ...payload, activeLayerId: null } });
   expect(store.getSnapshot().hud.target?.activeLayerId).toBeUndefined();
 });
+
+test("fluid target HUD shows source level, illumination and position, without a block icon", async ({ page }) => {
+  await page.goto("/iframe.html?id=pages-gamehudpage--fluid-target&viewMode=story");
+  const target = page.locator(".target-hud");
+  await expect(target).toBeVisible();
+  await expect(target.locator(".target-hud__slot")).toHaveCount(0);
+  await expect(target.locator(".target-hud__copy")).toContainText("Level: 8/8");
+  await expect(target.locator(".target-hud__copy")).toContainText("Sky Light: 15");
+  await expect(target.locator(".target-hud__copy")).toContainText("X: 148");
+});
