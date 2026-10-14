@@ -661,6 +661,8 @@ public partial class Main : Node3D
         _worldDiagnostics?.ObserveStageMilliseconds(
             WorldFrameStage.CollisionActivation,
             _chunkPresentations.TakeCollisionActivationMilliseconds());
+        _worldDiagnostics?.ObserveCollisionEmergencyShapes(
+            _chunkPresentations.TakeCollisionEmergencyShapes());
 
         var collisionPrewarmStart = Stopwatch.GetTimestamp();
         var prewarmedShapes = _chunkPresentations.PrewarmCollisionShapes(
