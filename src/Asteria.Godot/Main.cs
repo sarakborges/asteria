@@ -5556,7 +5556,8 @@ public partial class Main : Node3D
         // silently excluding their cost from the performance baseline.
         _worldDiagnostics?.ObserveFluidMesh(
             completed.WorkerMilliseconds, completed.Accepted, completed.Stale,
-            completed.Kind == MeshPipelineCompletionKind.RequeuedStale);
+            completed.Kind == MeshPipelineCompletionKind.RequeuedStale,
+            completed.RelitWithoutMeshing);
         if (completed.Kind != MeshPipelineCompletionKind.Applied)
             return;
         if (_debugHudVisible)

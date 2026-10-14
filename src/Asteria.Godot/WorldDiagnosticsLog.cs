@@ -99,6 +99,7 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     private double _fluidMeshMs;
     private int _fluidMeshAccepted;
     private int _fluidMeshStale;
+    private int _fluidLightOnlyMeshlets;
     private int _fluidBatches;
     private double _fluidMs;
     private int _fluidChanges;
@@ -301,9 +302,10 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     }
 
     public void ObserveFluidMesh(double workerMilliseconds, int accepted, int stale,
-        bool discarded = false)
+        bool discarded = false, int relitWithoutMeshing = 0)
     {
         _fluidMeshBatches++;
+        _fluidLightOnlyMeshlets += relitWithoutMeshing;
         if (discarded)
             _fluidMeshDiscardedBatches++;
         _fluidMeshMs += workerMilliseconds;
@@ -426,6 +428,7 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"mesh_publish_collision_triangles={_meshPublicationCollisionTriangles} " +
             $"fluid_mesh_batches={_fluidMeshBatches} fluid_mesh_ms_total={Format1(_fluidMeshMs)} " +
             $"fluid_mesh_accepted={_fluidMeshAccepted} fluid_mesh_stale={_fluidMeshStale} " +
+            $"fluid_light_only={_fluidLightOnlyMeshlets} " +
             $"fluid_mesh_discarded_batches={_fluidMeshDiscardedBatches} " +
             $"fluid_batches={_fluidBatches} fluid_ms_total={Format1(_fluidMs)} " +
             $"fluid_changes={_fluidChanges} fluid_backlog_max={_fluidBacklogMax} " +
@@ -480,6 +483,7 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         _fluidMeshMs = 0d;
         _fluidMeshAccepted = 0;
         _fluidMeshStale = 0;
+        _fluidLightOnlyMeshlets = 0;
         _fluidBatches = 0;
         _fluidMs = 0d;
         _fluidChanges = 0;
