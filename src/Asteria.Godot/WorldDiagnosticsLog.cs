@@ -65,6 +65,7 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     private int _fluidMeshPending;
     private int _deferredCollisionChunks;
     private int _collisionPrewarmedShapes;
+    private int _collisionEmergencyShapes;
     private bool _lightingActive;
     private long _frames;
     private double _frameMsTotal;
@@ -310,6 +311,9 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     public void ObserveCollisionPrewarm(int builtShapes) =>
         _collisionPrewarmedShapes += builtShapes;
 
+    public void ObserveCollisionEmergencyShapes(int builtShapes) =>
+        _collisionEmergencyShapes += builtShapes;
+
     public void ObserveFluidPublication(ChunkPresentationIntegrationStats stats) =>
         _fluidGpuAttributePatches += stats.GpuAttributePatches;
 
@@ -422,6 +426,7 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"inflight={_inflight} presented={_presented} " +
             $"collision_deferred_chunks={_deferredCollisionChunks} " +
             $"collision_prewarmed_shapes={_collisionPrewarmedShapes} " +
+            $"collision_emergency_shapes={_collisionEmergencyShapes} " +
             $"lighting_pending={_lightingPending} " +
             $"terrain_mesh_pending={_terrainMeshPending} " +
             $"fluid_mesh_pending={_fluidMeshPending} lighting_active={_lightingActive} " +
@@ -489,6 +494,7 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         _ambientParticlesPeak = _ambientParticlesActive;
         _physicsUpdatesPeak = _physicsUpdatesPending;
         _collisionPrewarmedShapes = 0;
+        _collisionEmergencyShapes = 0;
         _frames = 0;
         _frameMsTotal = 0d;
         _frameMsMax = 0d;
