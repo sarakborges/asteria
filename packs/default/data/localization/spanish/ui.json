@@ -438,7 +438,7 @@
   "addons.modsDescription": "Activa solo mods confiables. Las DLL tienen permisos del juego.",
   "addons.packsDescription": "Elige packs y prioridades. El último pack activado prevalece.",
   "addons.default": "Integrado, siempre activo.",
-  "addons.emptyMods": "No hay mods instalados. Añade carpetas en el directorio mods del usuario.",
+  "addons.emptyMods": "No hay mods instalados. Añade carpetas en mods/ en la raíz del proyecto (o junto al ejecutable).",
   "addons.emptyPacks": "No hay packs externos. Añade carpetas al directorio packs del usuario.",
   "addons.modSettings": "Configuración del mod (JSON)",
   "addons.invalidJson": "Introduce un objeto JSON.",
