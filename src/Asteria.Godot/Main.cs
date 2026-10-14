@@ -3006,17 +3006,15 @@ public partial class Main : Node3D
                 block, sourceFace, uvRotation, baseTint);
         }
 
-        // Keep the existing face-specific target layer visual when it would
-        // be occluded from the isometric top/front/right camera. All other
-        // solid Block shapes and microblock masks use the terrain's actual
-        // mesh, rather than projecting a solid cube or flat sprite.
+        // The inventory and target HUD share canonical 3D mesh icons for
+        // all geometry blocks, including ordinary cubes. The previous CSS
+        // three-face target fallback stretched textures without perspective.
+        // A targeted attached layer on a hidden face still needs its own 2D
+        // face preview because that surface is occluded from this camera.
         var obscuredLayer = targetFace is { } touchedFace &&
             surface is not null && surface.TryGetTop(touchedFace, out _) &&
             touchedFace is not (BlockFace.Top or BlockFace.Front or BlockFace.Right);
-        if (!obscuredLayer && block.Visual.Texture is null &&
-            (target is null || cell.HasMicroblockGeometry ||
-             block.Shape.Kind != BlockShapeKind.Cube ||
-             surface is { Layers.Count: > 0 }))
+        if (!obscuredLayer && block.Visual.Texture is null)
         {
             var occupied = cell.HasMicroblockGeometry
                 ? mask ?? (target is { } previewPosition

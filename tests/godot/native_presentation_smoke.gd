@@ -131,6 +131,20 @@ func _run() -> void:
 		if skin_smoke != null:
 			skin_smoke.free()
 
+	# Inventory and HUD must reuse the canonical 3D voxel rasterizer.
+	# A texture-only CSS cube is not sufficient for rotated/tinted faces.
+	var icon_smoke_script := ResourceLoader.load("res://tests/godot/InventoryVoxelIconSmoke.cs")
+	if icon_smoke_script == null:
+		push_error("Native smoke: voxel icon test script missing")
+		failed = true
+	else:
+		var icon_smoke: Node = icon_smoke_script.new()
+		if icon_smoke == null or not icon_smoke.call("Verify"):
+			push_error("Native smoke: canonical voxel icon renderer failed")
+			failed = true
+		if icon_smoke != null:
+			icon_smoke.free()
+
 	# Godot's GLTFDocument material conversion can change the original
 	# mask/culling semantics. The player presentation explicitly applies the
 	# source glTF contract, which must stay stable across art updates.

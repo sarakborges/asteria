@@ -21,10 +21,12 @@ internal sealed class InventoryVoxelIconRasterizer
     private readonly DyeRegistry _dyes;
     private readonly TerrainTextureLookup _lookup;
     private readonly TerrainTextureCatalog _textures;
-    // Dye is part of the visual identity. Metadata tags do not affect mesh
-    // appearance, and attached-layer states are deliberately never cached.
+    // Dye and sampled biome tint both affect the visual identity. A target
+    // moving between blocks in the same biome reuses the identical PNG;
+    // mutable attached-layer states never share cached images.
     private readonly Dictionary<
-        (string Id, VoxelCell Cell, MicroblockMask Mask, string? DyeId), string> _cache = [];
+        (string Id, VoxelCell Cell, MicroblockMask Mask, string? DyeId,
+            BlockPreviewColor? Tint), string> _cache = [];
 
     public InventoryVoxelIconRasterizer(
         BlockRegistry blocks, FluidRegistry fluids,
@@ -42,11 +44,11 @@ internal sealed class InventoryVoxelIconRasterizer
     public string? Render(BlockDefinition definition, BlockStateSnapshot state,
         BlockPreviewColor? tintOverride = null)
     {
-        // A world target's spatial tint and attached layers can change at
-        // runtime; only immutable, pack-authored inventory icons are cached.
-        var cacheable = tintOverride is null && state.SurfaceState.Layers.Count == 0;
+        // The sampled tint is part of the key, so a biome transition never
+        // reuses a stale icon. Mutable attached layers still bypass caching.
+        var cacheable = state.SurfaceState.Layers.Count == 0;
         var key = (definition.Id, state.Cell, state.MicroblockMask,
-            state.SurfaceState.DyeId);
+            state.SurfaceState.DyeId, tintOverride);
         if (cacheable && _cache.TryGetValue(key, out var cached))
             return cached;
 
