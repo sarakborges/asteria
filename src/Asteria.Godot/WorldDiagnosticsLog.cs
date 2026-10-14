@@ -95,6 +95,8 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     private long _meshPublicationCollisionTriangles;
     private int _meshPublicationPublished;
     private int _meshPublicationStale;
+    private int _terrainGpuAttributePatches;
+    private int _fluidGpuAttributePatches;
     private int _fluidMeshBatches;
     private double _fluidMeshMs;
     private int _fluidMeshAccepted;
@@ -289,8 +291,12 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     public void ObserveDeferredCollisions(int deferredChunks) =>
         _deferredCollisionChunks = deferredChunks;
 
+    public void ObserveFluidPublication(ChunkPresentationIntegrationStats stats) =>
+        _fluidGpuAttributePatches += stats.GpuAttributePatches;
+
     public void ObserveTerrainPublication(ChunkPresentationIntegrationStats stats)
     {
+        _terrainGpuAttributePatches += stats.GpuAttributePatches;
         _meshPublicationRenderMs += stats.RenderBuildMilliseconds;
         _meshPublicationCollisionMs += stats.CollisionBuildMilliseconds;
         _meshPublicationRenderMaxMs = Math.Max(
@@ -421,6 +427,8 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"mesh_light_only={_terrainLightOnlyMeshlets} " +
             $"mesh_discarded_batches={_terrainMeshDiscardedBatches} " +
             $"mesh_publish_count={_meshPublicationPublished} mesh_publish_stale={_meshPublicationStale} " +
+            $"mesh_gpu_attribute_patches={_terrainGpuAttributePatches} " +
+            $"fluid_gpu_attribute_patches={_fluidGpuAttributePatches} " +
             $"mesh_publish_render_ms_total={Format1(_meshPublicationRenderMs)} " +
             $"mesh_publish_render_ms_max={Format1(_meshPublicationRenderMaxMs)} " +
             $"mesh_publish_collision_ms_total={Format1(_meshPublicationCollisionMs)} " +
@@ -479,6 +487,8 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         _meshPublicationCollisionTriangles = 0;
         _meshPublicationPublished = 0;
         _meshPublicationStale = 0;
+        _terrainGpuAttributePatches = 0;
+        _fluidGpuAttributePatches = 0;
         _fluidMeshBatches = 0;
         _fluidMeshMs = 0d;
         _fluidMeshAccepted = 0;

@@ -9,7 +9,8 @@ public readonly record struct ChunkPresentationApplyStats(
     double RenderBuildMilliseconds,
     double CollisionBuildMilliseconds,
     int RenderVertices,
-    int CollisionTriangles);
+    int CollisionTriangles,
+    bool PatchedGpuAttributes = false);
 
 public sealed class ChunkPresentation
 {
@@ -314,7 +315,7 @@ public sealed class ChunkPresentation
         }
     }
 
-    public void ApplyFluid(
+    public bool ApplyFluid(
         int meshletIndex,
         ChunkFluidMeshData data,
         FluidMaterialCatalog materials,
@@ -333,18 +334,17 @@ public sealed class ChunkPresentation
         if (!data.HasGeometry)
         {
             RemoveNode(_fluidMeshes, meshletIndex);
-            return;
+            return false;
         }
 
         var mesh = _fluidMeshes[meshletIndex] ??
             CreateMesh(_fluidMeshes, meshletIndex,
                 $"FluidMeshlet_{meshletIndex}");
 
-        if (!(lightOnly && mesh.Mesh is ArrayMesh published &&
-            ChunkFluidMeshBuilder.TryUpdateLighting(published, data)))
-        {
+        var patched = lightOnly && mesh.Mesh is ArrayMesh published &&
+            ChunkFluidMeshBuilder.TryUpdateLighting(published, data);
+        if (!patched)
             mesh.Mesh = ChunkFluidMeshBuilder.CreateMesh(data, materials);
-        }
 
         var count = data.Batches.Sum(batch => batch.Vertices.Length);
         if (count <= MaximumFluidRelightVerticesPerChunk -
@@ -354,6 +354,7 @@ public sealed class ChunkPresentation
             _relightableFluidDependencies[meshletIndex] = dependencies;
             _fluidRelightVertexCount += count;
         }
+        return patched;
     }
 
     public ChunkPresentationApplyStats Apply(
@@ -374,6 +375,7 @@ public sealed class ChunkPresentation
             _relightableGeometry[meshletIndex] is not null;
 
         var renderStart = Stopwatch.GetTimestamp();
+        var patched = false;
         if (data.HasRenderGeometry)
         {
             var mesh = _meshes[meshletIndex] ??
@@ -383,11 +385,10 @@ public sealed class ChunkPresentation
             // Light-only batches keep the original mesh resource and
             // update only its attribute buffer. If its layout is not
             // compatible, fall back to a complete mesh publication.
-            if (!(lightOnly && mesh.Mesh is ArrayMesh published &&
-                ChunkMeshBuilder.TryUpdateLighting(published, data)))
-            {
+            patched = lightOnly && mesh.Mesh is ArrayMesh published &&
+                ChunkMeshBuilder.TryUpdateLighting(published, data);
+            if (!patched)
                 mesh.Mesh = ChunkMeshBuilder.CreateMesh(data, materials);
-            }
         }
         else
         {
@@ -459,7 +460,8 @@ public sealed class ChunkPresentation
             renderMilliseconds,
             collisionMilliseconds,
             data.RenderVertexCount,
-            data.CollisionTriangleCount);
+            data.CollisionTriangleCount,
+            patched);
     }
 
     private sealed record DeferredCollision(

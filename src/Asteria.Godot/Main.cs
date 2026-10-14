@@ -5576,6 +5576,7 @@ public partial class Main : Node3D
             _fluidMeshPipeline.IntegratePublications(
                 MaxFluidMeshletPublishesPerFrame,
                 _worldFrameBudget);
+        _worldDiagnostics?.ObserveFluidPublication(stats);
 
         if (_debugHudVisible &&
             stats.Handled > 0)

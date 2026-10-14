@@ -13,7 +13,8 @@ public readonly record struct ChunkPresentationIntegrationStats(
     double RenderBuildMilliseconds = 0d,
     double CollisionBuildMilliseconds = 0d,
     long RenderVertices = 0,
-    long CollisionTriangles = 0)
+    long CollisionTriangles = 0,
+    int GpuAttributePatches = 0)
 {
     public int Handled => Published + Stale;
 }
@@ -451,6 +452,7 @@ public sealed class ChunkPresentationController
         var collisionBuildMilliseconds = 0d;
         long renderVertices = 0;
         long collisionTriangles = 0;
+        var gpuAttributePatches = 0;
 
         while (processed < maximumPerFrame &&
                TryDequeueTerrainPublication(
@@ -522,6 +524,8 @@ public sealed class ChunkPresentationController
             collisionBuildMilliseconds += apply.CollisionBuildMilliseconds;
             renderVertices += apply.RenderVertices;
             collisionTriangles += apply.CollisionTriangles;
+            if (apply.PatchedGpuAttributes)
+                gpuAttributePatches++;
             if (presentation.HasDeferredCollisions)
                 _deferredCollisionChunks.Add(pending.Meshlet.Coord);
             else
@@ -540,7 +544,8 @@ public sealed class ChunkPresentationController
             published, stale, _terrainPublications.Count,
             stopwatch.Elapsed.TotalMilliseconds,
             renderBuildMilliseconds, collisionBuildMilliseconds,
-            renderVertices, collisionTriangles);
+            renderVertices, collisionTriangles,
+            gpuAttributePatches);
     }
 
     public ChunkPresentationIntegrationStats
@@ -552,6 +557,7 @@ public sealed class ChunkPresentationController
         var published = 0;
         var stale = 0;
         var processed = 0;
+        var gpuAttributePatches = 0;
 
         while (processed < maximumPerFrame &&
                _fluidPublicationOrder.TryDequeue(
@@ -597,22 +603,23 @@ public sealed class ChunkPresentationController
                 continue;
             }
 
-            presentation.ApplyFluid(
+            var patched = presentation.ApplyFluid(
                 pending.Meshlet.MeshletIndex,
                 pending.Meshlet.Data,
                 _fluidMaterials,
                 pending.Dependencies,
                 pending.Meshlet.LightOnly);
+            if (patched)
+                gpuAttributePatches++;
             published++;
         }
 
         stopwatch.Stop();
 
         return new ChunkPresentationIntegrationStats(
-            published,
-            stale,
-            _fluidPublications.Count,
-            stopwatch.Elapsed.TotalMilliseconds);
+            published, stale, _fluidPublications.Count,
+            stopwatch.Elapsed.TotalMilliseconds,
+            GpuAttributePatches: gpuAttributePatches);
     }
 
     private void PromoteQueuedInitialTerrainPublications(
