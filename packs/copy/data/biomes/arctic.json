@@ -1,0 +1,175 @@
+{
+  "id": "asteria:overworld/arctic",
+  "surfaceLayout": {
+    "weight": 0.9,
+    "spawnWeight": 0.5,
+    "regionSize": {
+      "min": 224,
+      "max": 448
+    },
+    "cannotBorder": [
+      "asteria:overworld/scorched_wastes",
+      "asteria:overworld/desert",
+      "asteria:overworld/swamp"
+    ]
+  },
+  "surfaceTerrain": {
+    "type": "rolling",
+    "baseHeight": 4,
+    "amplitude": 5,
+    "scale": 0.011,
+    "detailAmplitude": 1.5,
+    "detailScale": 0.04
+  },
+  "tints": {
+    "grass": "5A7077",
+    "leaf": "53656B",
+    "foliage": "576A71"
+  },
+  "decorations": [
+    {
+      "object": "asteria:pebble",
+      "chance": 0.0124,
+      "surfaceBlocks": [
+        "asteria:snow",
+        "asteria:ice",
+        "asteria:gravel"
+      ],
+      "cluster": {
+        "scale": 18,
+        "threshold": -0.25,
+        "octaves": 4,
+        "transitionWidth": 0.12
+      },
+      "habitatWeights": {
+        "frozen_plain": 0.2,
+        "ice_fields": 0.75,
+        "rocky_ridges": 2.35
+      }
+    },
+    {
+      "block": "asteria:shrub_frost",
+      "chance": 0.0234,
+      "surfaceBlocks": [
+        "asteria:snow",
+        "asteria:gravel"
+      ],
+      "habitatWeights": {
+        "frozen_plain": 2.05,
+        "ice_fields": 0.18,
+        "rocky_ridges": 0.67
+      },
+      "cluster": {
+        "scale": 33,
+        "threshold": -0.25,
+        "octaves": 4,
+        "transitionWidth": 0.16
+      },
+      "conditions": {
+        "minY": 84,
+        "maxY": 115,
+        "maxSlope": 3
+      }
+    },
+    {
+      "block": "asteria:lichen_frost",
+      "chance": 0.0208,
+      "surfaceBlocks": [
+        "asteria:snow",
+        "asteria:ice",
+        "asteria:gravel"
+      ],
+      "habitatWeights": {
+        "frozen_plain": 0.85,
+        "ice_fields": 1.45,
+        "rocky_ridges": 0.68
+      },
+      "cluster": {
+        "scale": 25,
+        "threshold": -0.24,
+        "octaves": 3,
+        "transitionWidth": 0.18
+      },
+      "conditions": {
+        "minY": 83,
+        "maxY": 115,
+        "maxSlope": 4
+      }
+    },
+    {
+      "block": "asteria:spike_ice",
+      "chance": 0.0091,
+      "surfaceBlocks": [
+        "asteria:ice",
+        "asteria:snow"
+      ],
+      "habitatWeights": {
+        "frozen_plain": 0.18,
+        "ice_fields": 2.45,
+        "rocky_ridges": 0.27
+      },
+      "cluster": {
+        "scale": 40,
+        "threshold": -0.14,
+        "octaves": 3,
+        "transitionWidth": 0.19
+      },
+      "conditions": {
+        "minY": 87,
+        "maxY": 113,
+        "maxSlope": 2
+      }
+    }
+  ],
+  "surfaceHabitats": {
+    "scale": 136,
+    "transitionWidth": 0.12,
+    "bands": [
+      {
+        "id": "frozen_plain",
+        "maximum": -0.19
+      },
+      {
+        "id": "ice_fields",
+        "maximum": 0.19
+      },
+      {
+        "id": "rocky_ridges",
+        "maximum": 1
+      }
+    ]
+  },
+  "palette": {
+    "default": [
+      {
+        "block": "asteria:snow",
+        "depth": 4,
+        "patch": {
+          "scale": 34,
+          "coverage": 0.14,
+          "roughness": 0.32,
+          "blocks": [
+            "asteria:ice",
+            "asteria:gravel"
+          ],
+          "detailScale": 10,
+          "selectionScale": 80,
+          "warpScale": 76,
+          "warpStrength": 11,
+          "stretchZ": 1.45,
+          "weights": {
+            "asteria:ice": 4,
+            "asteria:gravel": 1
+          }
+        }
+      },
+      {
+        "block": "asteria:dirt",
+        "depth": 2
+      },
+      {
+        "block": "asteria:stone"
+      }
+    ]
+  }
+}

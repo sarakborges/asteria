@@ -1,0 +1,175 @@
+{
+  "id": "asteria:overworld/scorched_wastes",
+  "surfaceLayout": {
+    "weight": 1,
+    "spawnWeight": 0.5,
+    "regionSize": {
+      "min": 384,
+      "max": 576
+    },
+    "cannotBorder": [
+      "asteria:overworld/mountains",
+      "asteria:overworld/gorge",
+      "asteria:overworld/alps",
+      "asteria:overworld/mountain_belt"
+    ]
+  },
+  "surfaceTerrain": {
+    "type": "rolling",
+    "baseHeight": 5,
+    "amplitude": 2.5,
+    "scale": 0.009,
+    "detailAmplitude": 1,
+    "detailScale": 0.027
+  },
+  "surfaceHabitats": {
+    "scale": 122,
+    "transitionWidth": 0.12,
+    "bands": [
+      {
+        "id": "ash_aprons",
+        "maximum": -0.21
+      },
+      {
+        "id": "fractured_flanks",
+        "maximum": 0.19
+      },
+      {
+        "id": "hardened_highlands",
+        "maximum": 1
+      }
+    ]
+  },
+  "decorations": [
+    {
+      "object": "asteria:pebble",
+      "chance": 0.015,
+      "surfaceBlocks": [
+        "asteria:basalt",
+        "asteria:cobble_basalt",
+        "asteria:gravel"
+      ],
+      "cluster": {
+        "scale": 19,
+        "threshold": -0.17,
+        "octaves": 4,
+        "transitionWidth": 0.12
+      },
+      "conditions": {
+        "minY": 90,
+        "maxSlope": 6
+      },
+      "habitatWeights": {
+        "ash_aprons": 0.34,
+        "fractured_flanks": 1.75,
+        "hardened_highlands": 1.14
+      }
+    },
+    {
+      "block": "asteria:thorn_ash",
+      "chance": 0.0204,
+      "surfaceBlocks": [
+        "asteria:basalt",
+        "asteria:cobble_basalt",
+        "asteria:gravel"
+      ],
+      "cluster": {
+        "scale": 36,
+        "threshold": -0.19,
+        "octaves": 4,
+        "transitionWidth": 0.15
+      },
+      "conditions": {
+        "minY": 90,
+        "maxY": 184,
+        "maxSlope": 3
+      },
+      "habitatWeights": {
+        "ash_aprons": 2.4,
+        "fractured_flanks": 0.76,
+        "hardened_highlands": 0.08
+      }
+    },
+    {
+      "block": "asteria:bloom_cinder",
+      "chance": 0.0132,
+      "surfaceBlocks": [
+        "asteria:basalt",
+        "asteria:cobble_basalt"
+      ],
+      "cluster": {
+        "scale": 43,
+        "threshold": -0.17,
+        "octaves": 4,
+        "transitionWidth": 0.15
+      },
+      "conditions": {
+        "minY": 90,
+        "maxY": 173,
+        "maxSlope": 2
+      },
+      "habitatWeights": {
+        "ash_aprons": 1.7,
+        "fractured_flanks": 0.64,
+        "hardened_highlands": 0.04
+      }
+    },
+    {
+      "block": "asteria:lichen_soot",
+      "chance": 0.0216,
+      "surfaceBlocks": [
+        "asteria:basalt",
+        "asteria:cobble_basalt"
+      ],
+      "cluster": {
+        "scale": 31,
+        "threshold": -0.21,
+        "octaves": 4,
+        "transitionWidth": 0.15
+      },
+      "conditions": {
+        "minY": 90,
+        "maxY": 197,
+        "maxSlope": 5
+      },
+      "habitatWeights": {
+        "ash_aprons": 0.45,
+        "fractured_flanks": 1.75,
+        "hardened_highlands": 1.75
+      }
+    }
+  ],
+  "palette": {
+    "default": [
+      {
+        "block": "asteria:basalt",
+        "depth": 2,
+        "patch": {
+          "scale": 38,
+          "coverage": 0.26,
+          "roughness": 0.36,
+          "blocks": [
+            "asteria:cobble_basalt",
+            "asteria:gravel"
+          ],
+          "detailScale": 11,
+          "selectionScale": 91,
+          "warpScale": 82,
+          "warpStrength": 14,
+          "stretchZ": 1.58,
+          "weights": {
+            "asteria:cobble_basalt": 4,
+            "asteria:gravel": 1
+          },
+          "conditions": {
+            "maxY": 145,
+            "maxSlope": 3
+          }
+        }
+      },
+      {
+        "block": "asteria:basalt"
+      }
+    ]
+  }
+}

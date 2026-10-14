@@ -1,0 +1,143 @@
+{
+  "asteria:bloom_aether": {
+    "/name": "Aether Bloom"
+  },
+  "asteria:vines_aether": {
+    "/name": "Aether Vines"
+  },
+  "asteria:bulrush": {
+    "/name": "Bulrush"
+  },
+  "asteria:cattail": {
+    "/name": "Cattail"
+  },
+  "asteria:reed_cloud": {
+    "/name": "Cloud Reed"
+  },
+  "asteria:clover": {
+    "/name": "Clover"
+  },
+  "asteria:daisy": {
+    "/name": "Daisy"
+  },
+  "asteria:fern_glow": {
+    "/name": "Glow Fern"
+  },
+  "asteria:mushroom_glowcap": {
+    "/name": "Glowcap"
+  },
+  "asteria:grass": {
+    "/name": "Grass"
+  },
+  "asteria:roots_hanging": {
+    "/name": "Hanging Roots"
+  },
+  "asteria:iris": {
+    "/name": "Iris"
+  },
+  "asteria:kelp": {
+    "/name": "Kelp"
+  },
+  "asteria:pad_lily": {
+    "/name": "Lily Pad"
+  },
+  "asteria:orchid_marsh": {
+    "/name": "Marsh Orchid"
+  },
+  "asteria:seedheads_meadow": {
+    "/name": "Meadow Seedheads"
+  },
+  "asteria:mushroom_blue": {
+    "/name": "Blue Mushroom"
+  },
+  "asteria:mushroom_brown": {
+    "/name": "Brown Mushroom"
+  },
+  "asteria:mushroom_green": {
+    "/name": "Green Mushroom"
+  },
+  "asteria:mushroom_pink": {
+    "/name": "Pink Mushroom"
+  },
+  "asteria:mushroom_purple": {
+    "/name": "Purple Mushroom"
+  },
+  "asteria:mushroom_red": {
+    "/name": "Red Mushroom"
+  },
+  "asteria:mushroom_yellow": {
+    "/name": "Yellow Mushroom"
+  },
+  "asteria:grass_pass": {
+    "/name": "Pass Grass"
+  },
+  "asteria:pebble": {
+    "/name": "Pebble"
+  },
+  "asteria:aster_purple": {
+    "/name": "Purple Aster"
+  },
+  "asteria:sagebrush": {
+    "/name": "Sagebrush"
+  },
+  "asteria:sapling_charwood": {
+    "/name": "Charwood Sapling"
+  },
+  "asteria:sapling_enchanted_tree": {
+    "/name": "Enchanted Tree Sapling"
+  },
+  "asteria:sapling_frost_wood": {
+    "/name": "Frostwood Sapling"
+  },
+  "asteria:sapling_juniper": {
+    "/name": "Juniper Sapling"
+  },
+  "asteria:sapling_oak": {
+    "/name": "Oak Sapling"
+  },
+  "asteria:sapling_skywood": {
+    "/name": "Skywood Sapling"
+  },
+  "asteria:sapling_thornwood": {
+    "/name": "Thornwood Sapling"
+  },
+  "asteria:sapling_willow": {
+    "/name": "Willow Sapling"
+  },
+  "asteria:sapling_windwood": {
+    "/name": "Windwood Sapling"
+  },
+  "asteria:sapling_world_tree": {
+    "/name": "World Tree Sapling"
+  },
+  "asteria:anemone_sea": {
+    "/name": "Sea Anemone"
+  },
+  "asteria:seagrass": {
+    "/name": "Seagrass"
+  },
+  "asteria:seashell": {
+    "/name": "Seashell"
+  },
+  "asteria:starfish": {
+    "/name": "Starfish"
+  },
+  "asteria:stick": {
+    "/name": "Stick"
+  },
+  "asteria:grass_tall": {
+    "/name": "Tall Grass"
+  },
+  "asteria:fern_violet": {
+    "/name": "Violet Fern"
+  },
+  "asteria:fungus_shelf_wall": {
+    "/name": "Wall Shelf Fungus"
+  },
+  "asteria:wildflower_blue": {
+    "/name": "Blue Wildflower"
+  },
+  "asteria:wildflower_yellow": {
+    "/name": "Yellow Wildflower"
+  }
+}

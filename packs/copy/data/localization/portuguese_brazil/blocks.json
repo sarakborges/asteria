@@ -1,0 +1,479 @@
+{
+  "asteria:crystal_core_aether": {
+    "/name": "Núcleo de Cristal Etéreo"
+  },
+  "asteria:edelweiss_alpine": {
+    "/name": "Edelvais Alpino"
+  },
+  "asteria:sedge_alpine": {
+    "/name": "Junça Alpina"
+  },
+  "asteria:leaf_frost_wood_alpine": {
+    "/name": "Folhas Alpinas de Madeira Gélida"
+  },
+  "asteria:leaf_frost_wood_arctic": {
+    "/name": "Folhas Árticas de Madeira Gélida"
+  },
+  "asteria:thorn_ash": {
+    "/name": "Espinho de Cinzas"
+  },
+  "asteria:crystal_azure": {
+    "/name": "Cristal Azul"
+  },
+  "asteria:basalt": {
+    "/name": "Basalto"
+  },
+  "asteria:bricks_basalt": {
+    "/name": "Tijolos de Basalto"
+  },
+  "asteria:cobble_basalt": {
+    "/name": "Basalto Bruto"
+  },
+  "asteria:basalt_polished": {
+    "/name": "Basalto Polido"
+  },
+  "asteria:spike_basalt": {
+    "/name": "Espigão de Basalto"
+  },
+  "asteria:tiles_basalt": {
+    "/name": "Ladrilhos de Basalto"
+  },
+  "asteria:roots_bleached": {
+    "/name": "Raízes Esbranquiçadas"
+  },
+  "asteria:bone_scatter": {
+    "/name": "Ossos Espalhados"
+  },
+  "asteria:bricks": {
+    "/name": "Tijolos"
+  },
+  "asteria:tuft_brittle": {
+    "/name": "Tufo Quebradiço"
+  },
+  "asteria:cactus_barrel": {
+    "/name": "Cacto Barril"
+  },
+  "asteria:cactus_column": {
+    "/name": "Cacto Colunar"
+  },
+  "asteria:flower_cactus_pink": {
+    "/name": "Flor Rosa de Cacto"
+  },
+  "asteria:flower_cactus_yellow": {
+    "/name": "Flor Amarela de Cacto"
+  },
+  "asteria:log_charwood": {
+    "/name": "Tronco de Madeira Carbonizada"
+  },
+  "asteria:leaf_charwood": {
+    "/name": "Folhas de Madeira Carbonizada"
+  },
+  "asteria:log_charwood_stripped": {
+    "/name": "Tronco de Madeira Carbonizada Descascado"
+  },
+  "asteria:bloom_cinder": {
+    "/name": "Flor de Cinzas"
+  },
+  "asteria:clay": {
+    "/name": "Argila"
+  },
+  "asteria:lichen_cliff": {
+    "/name": "Líquen de Penhasco"
+  },
+  "asteria:rosette_cliff": {
+    "/name": "Roseta de Penhasco"
+  },
+  "asteria:coral_blue": {
+    "/name": "Coral Azul"
+  },
+  "asteria:coral_lime": {
+    "/name": "Coral Verde-limão"
+  },
+  "asteria:coral_orange": {
+    "/name": "Coral Laranja"
+  },
+  "asteria:coral_pink": {
+    "/name": "Coral Rosa"
+  },
+  "asteria:coral_teal": {
+    "/name": "Coral Verde-azulado"
+  },
+  "asteria:coral_violet": {
+    "/name": "Coral Violeta"
+  },
+  "asteria:coral_yellow": {
+    "/name": "Coral Amarelo"
+  },
+  "asteria:thistle_dead": {
+    "/name": "Cardo Morto"
+  },
+  "asteria:dirt": {
+    "/name": "Terra"
+  },
+  "asteria:lichen_dry": {
+    "/name": "Líquen Seco"
+  },
+  "asteria:tuft_dry": {
+    "/name": "Tufo Seco"
+  },
+  "asteria:grass_dune": {
+    "/name": "Capim das Dunas"
+  },
+  "asteria:leaf_charwood_ember": {
+    "/name": "Folhas de Brasa de Madeira Carbonizada"
+  },
+  "asteria:roots_exposed": {
+    "/name": "Raízes Expostas"
+  },
+  "asteria:bone_fossil": {
+    "/name": "Osso Fóssil"
+  },
+  "asteria:lichen_frost": {
+    "/name": "Líquen Gelado"
+  },
+  "asteria:shrub_frost": {
+    "/name": "Arbusto Gelado"
+  },
+  "asteria:log_frost_wood": {
+    "/name": "Tronco de Madeira Gélida"
+  },
+  "asteria:log_frost_wood_stripped": {
+    "/name": "Tronco de Madeira Gélida Descascado"
+  },
+  "asteria:glass": {
+    "/name": "Vidro"
+  },
+  "asteria:mushroom_cap_glow": {
+    "/name": "Chapéu de Cogumelo Luminoso"
+  },
+  "asteria:mushroom_stem_glow": {
+    "/name": "Caule de Cogumelo Luminoso"
+  },
+  "asteria:pod_glow": {
+    "/name": "Vagem Brilhante"
+  },
+  "asteria:block_grass": {
+    "/name": "Bloco de Grama"
+  },
+  "asteria:gravel": {
+    "/name": "Cascalho"
+  },
+  "asteria:moss_hanging": {
+    "/name": "Musgo Pendente"
+  },
+  "asteria:ice": {
+    "/name": "Gelo"
+  },
+  "asteria:bricks_ice": {
+    "/name": "Tijolos de Gelo"
+  },
+  "asteria:ice_polished": {
+    "/name": "Gelo Polido"
+  },
+  "asteria:spike_ice": {
+    "/name": "Espigão de Gelo"
+  },
+  "asteria:tiles_ice": {
+    "/name": "Ladrilhos de Gelo"
+  },
+  "asteria:leaf_juniper": {
+    "/name": "Folhas de Zimbro"
+  },
+  "asteria:log_juniper": {
+    "/name": "Tronco de Zimbro"
+  },
+  "asteria:log_juniper_stripped": {
+    "/name": "Tronco de Zimbro Descascado"
+  },
+  "asteria:lamp": {
+    "/name": "Lâmpada"
+  },
+  "asteria:leaf_enchanted_tree": {
+    "/name": "Folhas da Árvore Encantada"
+  },
+  "asteria:leaf_oak": {
+    "/name": "Folhas de Carvalho"
+  },
+  "asteria:leaf_willow": {
+    "/name": "Folhas de Salgueiro"
+  },
+  "asteria:leaf_world_tree": {
+    "/name": "Folhas da Árvore do Mundo"
+  },
+  "asteria:log_enchanted_tree": {
+    "/name": "Tronco da Árvore Encantada"
+  },
+  "asteria:log_enchanted_tree_hollow": {
+    "/name": "Tronco da Árvore Encantada Oco"
+  },
+  "asteria:log_enchanted_tree_stripped": {
+    "/name": "Tronco da Árvore Encantada Descascado"
+  },
+  "asteria:log_enchanted_tree_stripped_hollow": {
+    "/name": "Tronco da Árvore Encantada Oco Descascado"
+  },
+  "asteria:log_oak": {
+    "/name": "Tronco de Carvalho"
+  },
+  "asteria:log_oak_hollow": {
+    "/name": "Tronco de Carvalho Oco"
+  },
+  "asteria:log_oak_stripped": {
+    "/name": "Tronco de Carvalho Descascado"
+  },
+  "asteria:log_oak_stripped_hollow": {
+    "/name": "Tronco de Carvalho Oco Descascado"
+  },
+  "asteria:log_willow": {
+    "/name": "Tronco de Salgueiro"
+  },
+  "asteria:log_willow_hollow": {
+    "/name": "Tronco de Salgueiro Oco"
+  },
+  "asteria:log_willow_stripped": {
+    "/name": "Tronco de Salgueiro Descascado"
+  },
+  "asteria:log_willow_stripped_hollow": {
+    "/name": "Tronco de Salgueiro Oco Descascado"
+  },
+  "asteria:log_world_tree": {
+    "/name": "Tronco da Árvore do Mundo"
+  },
+  "asteria:log_world_tree_hollow": {
+    "/name": "Tronco da Árvore do Mundo Oco"
+  },
+  "asteria:log_world_tree_stripped": {
+    "/name": "Tronco da Árvore do Mundo Descascado"
+  },
+  "asteria:log_world_tree_stripped_hollow": {
+    "/name": "Tronco da Árvore do Mundo Oco Descascado"
+  },
+  "asteria:fungus_cap_luminous_giant": {
+    "/name": "Chapéu de Fungo Gigante Luminoso"
+  },
+  "asteria:fungus_stem_luminous_giant": {
+    "/name": "Haste de Fungo Gigante Luminoso"
+  },
+  "asteria:fern_marsh": {
+    "/name": "Samambaia do Brejo"
+  },
+  "asteria:mushroom_cap_marsh_giant": {
+    "/name": "Chapéu de Cogumelo Gigante do Brejo"
+  },
+  "asteria:mushroom_stem_marsh_giant": {
+    "/name": "Caule de Cogumelo Gigante do Brejo"
+  },
+  "asteria:mud": {
+    "/name": "Lama"
+  },
+  "asteria:bricks_mud": {
+    "/name": "Tijolos de Lama"
+  },
+  "asteria:mud_dry": {
+    "/name": "Lama Seca"
+  },
+  "asteria:mud_polished": {
+    "/name": "Lama Polida"
+  },
+  "asteria:tiles_mud": {
+    "/name": "Ladrilhos de Lama"
+  },
+  "asteria:bloom_pink": {
+    "/name": "Flor Rosa"
+  },
+  "asteria:planks_enchanted_tree": {
+    "/name": "Tábuas da Árvore Encantada"
+  },
+  "asteria:planks_oak": {
+    "/name": "Tábuas de Carvalho"
+  },
+  "asteria:planks_willow": {
+    "/name": "Tábuas de Salgueiro"
+  },
+  "asteria:planks_world_tree": {
+    "/name": "Tábuas da Árvore do Mundo"
+  },
+  "asteria:portal": {
+    "/name": "Portal"
+  },
+  "asteria:lichen_rock": {
+    "/name": "Líquen de Rocha"
+  },
+  "asteria:sand": {
+    "/name": "Areia"
+  },
+  "asteria:sand_layer": {
+    "/name": "Camada de Areia"
+  },
+  "asteria:sandstone": {
+    "/name": "Arenito"
+  },
+  "asteria:bricks_sandstone": {
+    "/name": "Tijolos de Arenito"
+  },
+  "asteria:sandstone_polished": {
+    "/name": "Arenito Polido"
+  },
+  "asteria:spike_sandstone": {
+    "/name": "Espigão de Arenito"
+  },
+  "asteria:tiles_sandstone": {
+    "/name": "Ladrilhos de Arenito"
+  },
+  "asteria:saxifrage": {
+    "/name": "Saxífraga"
+  },
+  "asteria:lichen_scree": {
+    "/name": "Líquen de Pedregal"
+  },
+  "asteria:fungus_shelf": {
+    "/name": "Fungo de Tronco"
+  },
+  "asteria:leaf_skywood": {
+    "/name": "Folhas de Madeira Celeste"
+  },
+  "asteria:log_skywood": {
+    "/name": "Tronco de Madeira Celeste"
+  },
+  "asteria:log_skywood_stripped": {
+    "/name": "Tronco de Madeira Celeste Descascado"
+  },
+  "asteria:snow": {
+    "/name": "Neve"
+  },
+  "asteria:bricks_snow": {
+    "/name": "Tijolos de Neve"
+  },
+  "asteria:layer_snow": {
+    "/name": "Camada de Neve"
+  },
+  "asteria:snow_polished": {
+    "/name": "Neve Polida"
+  },
+  "asteria:tiles_snow": {
+    "/name": "Ladrilhos de Neve"
+  },
+  "asteria:lichen_soot": {
+    "/name": "Líquen de Fuligem"
+  },
+  "asteria:shell_sphere": {
+    "/name": "Casca da Esfera"
+  },
+  "asteria:starflower": {
+    "/name": "Flor-estrela"
+  },
+  "asteria:stone": {
+    "/name": "Pedra"
+  },
+  "asteria:bricks_stone": {
+    "/name": "Tijolos de Pedra"
+  },
+  "asteria:cobble_stone": {
+    "/name": "Pedra Bruta"
+  },
+  "asteria:stone_polished": {
+    "/name": "Pedra Polida"
+  },
+  "asteria:spike_stone": {
+    "/name": "Espigão de Pedra"
+  },
+  "asteria:tiles_stone": {
+    "/name": "Ladrilhos de Pedra"
+  },
+  "asteria:stonecrop": {
+    "/name": "Sedum"
+  },
+  "asteria:box_storage": {
+    "/name": "Caixa de armazenamento"
+  },
+  "asteria:terracotta": {
+    "/name": "Terracota"
+  },
+  "asteria:rosette_thorn": {
+    "/name": "Roseta Espinhosa"
+  },
+  "asteria:thornbush": {
+    "/name": "Arbusto Espinhoso"
+  },
+  "asteria:log_thornwood": {
+    "/name": "Tronco de Madeira Espinhosa"
+  },
+  "asteria:leaf_thornwood": {
+    "/name": "Folhas de Madeira Espinhosa"
+  },
+  "asteria:log_thornwood_stripped": {
+    "/name": "Tronco de Madeira Espinhosa Descascado"
+  },
+  "asteria:moss_wall": {
+    "/name": "Musgo de Parede"
+  },
+  "asteria:log_windwood": {
+    "/name": "Tronco de Madeira do Vento"
+  },
+  "asteria:leaf_windwood": {
+    "/name": "Folhas de Madeira do Vento"
+  },
+  "asteria:log_windwood_stripped": {
+    "/name": "Tronco de Madeira do Vento Descascado"
+  },
+  "asteria:yucca": {
+    "/name": "Iúca"
+  },
+  "asteria:log_charwood_hollow": {
+    "/name": "Tronco de Madeira Carbonizada Oco"
+  },
+  "asteria:log_charwood_stripped_hollow": {
+    "/name": "Tronco de Madeira Carbonizada Oco Descascado"
+  },
+  "asteria:planks_charwood": {
+    "/name": "Tábuas de Madeira Carbonizada"
+  },
+  "asteria:log_frost_wood_hollow": {
+    "/name": "Tronco de Madeira Gélida Oco"
+  },
+  "asteria:log_frost_wood_stripped_hollow": {
+    "/name": "Tronco de Madeira Gélida Oco Descascado"
+  },
+  "asteria:planks_frost_wood": {
+    "/name": "Tábuas de Madeira Gélida"
+  },
+  "asteria:leaf_frost_wood": {
+    "/name": "Folhas de Madeira Gélida"
+  },
+  "asteria:log_juniper_hollow": {
+    "/name": "Tronco de Zimbro Oco"
+  },
+  "asteria:log_juniper_stripped_hollow": {
+    "/name": "Tronco de Zimbro Oco Descascado"
+  },
+  "asteria:planks_juniper": {
+    "/name": "Tábuas de Zimbro"
+  },
+  "asteria:log_skywood_hollow": {
+    "/name": "Tronco de Madeira Celeste Oco"
+  },
+  "asteria:log_skywood_stripped_hollow": {
+    "/name": "Tronco de Madeira Celeste Oco Descascado"
+  },
+  "asteria:planks_skywood": {
+    "/name": "Tábuas de Madeira Celeste"
+  },
+  "asteria:log_thornwood_hollow": {
+    "/name": "Tronco de Madeira Espinhosa Oco"
+  },
+  "asteria:log_thornwood_stripped_hollow": {
+    "/name": "Tronco de Madeira Espinhosa Oco Descascado"
+  },
+  "asteria:planks_thornwood": {
+    "/name": "Tábuas de Madeira Espinhosa"
+  },
+  "asteria:log_windwood_hollow": {
+    "/name": "Tronco de Madeira do Vento Oco"
+  },
+  "asteria:log_windwood_stripped_hollow": {
+    "/name": "Tronco de Madeira do Vento Oco Descascado"
+  },
+  "asteria:planks_windwood": {
+    "/name": "Tábuas de Madeira do Vento"
+  }
+}

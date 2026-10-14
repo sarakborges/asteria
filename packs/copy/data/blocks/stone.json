@@ -1,0 +1,21 @@
+{
+  "id": "asteria:stone",
+  "category": "blocks_stone",
+  "tags": ["fragmentable"],
+  "textures": {
+    "top": "textures/blocks/stone.png",
+    "bottom": "textures/blocks/stone.png",
+    "left": "textures/blocks/stone.png",
+    "right": "textures/blocks/stone.png",
+    "front": "textures/blocks/stone.png",
+    "back": "textures/blocks/stone.png"
+  },
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 2,
+    "requiredTools": ["pickaxe"]
+  },
+  "previewColor": "8b9199",
+  "lootTable": [{"item":"asteria:pebble","chance":1,"quantity":4}]
+}

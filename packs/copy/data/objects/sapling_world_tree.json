@@ -1,0 +1,38 @@
+{
+  "id": "asteria:sapling_world_tree",
+  "category": "foliage",
+  "icon": "textures/objects/sapling_world.png",
+  "placementFaces": [
+    "top"
+  ],
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/sapling_world.png",
+    "width": 0.8,
+    "height": 0.84,
+    "planes": 4,
+    "alphaCutoff": 0.5
+  },
+  "target": {
+    "size": [
+      0.8,
+      0.84,
+      0.8
+    ],
+    "centerOffset": [
+      0,
+      0.42,
+      0
+    ]
+  },
+  "positionJitter": [
+    0,
+    0
+  ],
+  "dropSelf": true,
+  "windSway": true,
+  "unlit": false,
+  "tint": "none",
+  "previewColor": "648c8c",
+  "growthStructure": "asteria:tree_world_tree_sapling_grown"
+}

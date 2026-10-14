@@ -1,0 +1,32 @@
+{
+  "id": "asteria:thicket_oak",
+  "locatable": false,
+  "priority": -1,
+  "conflictGroups": [
+    "shrub"
+  ],
+  "reserveSpace": false,
+  "elements": [
+    {
+      "id": "root",
+      "structure": "asteria:bush_oak",
+      "required": true
+    },
+    {
+      "id": "satellites",
+      "structure": "asteria:bush_oak",
+      "count": {
+        "min": 3,
+        "max": 6
+      },
+      "placement": {
+        "relativeTo": "root",
+        "minDistance": 4,
+        "maxDistance": 13,
+        "minSeparation": 4,
+        "attempts": 30,
+        "allowOverlap": false
+      }
+    }
+  ]
+}

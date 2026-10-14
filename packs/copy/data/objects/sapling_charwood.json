@@ -1,0 +1,38 @@
+{
+  "id": "asteria:sapling_charwood",
+  "category": "foliage",
+  "icon": "textures/objects/sapling_charwood.png",
+  "placementFaces": [
+    "top"
+  ],
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/sapling_charwood.png",
+    "width": 0.72,
+    "height": 0.77,
+    "planes": 4,
+    "alphaCutoff": 0.5
+  },
+  "target": {
+    "size": [
+      0.72,
+      0.77,
+      0.72
+    ],
+    "centerOffset": [
+      0,
+      0.385,
+      0
+    ]
+  },
+  "positionJitter": [
+    0,
+    0
+  ],
+  "dropSelf": true,
+  "windSway": true,
+  "unlit": false,
+  "tint": "none",
+  "previewColor": "883a18",
+  "growthStructure": "asteria:tree_charwood_sapling_grown"
+}

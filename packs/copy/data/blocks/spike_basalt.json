@@ -1,0 +1,31 @@
+{
+  "id": "asteria:spike_basalt",
+  "category": "blocks_natural",
+  "shape": {
+    "type": "spike",
+    "baseRadius": 0.42,
+    "tipRadius": 0.025,
+    "taperPower": 1.2
+  },
+  "placementFaces": [
+    "top",
+    "bottom"
+  ],
+  "textures": {
+    "top": "textures/blocks/basalt.png",
+    "bottom": "textures/blocks/basalt.png",
+    "left": "textures/blocks/basalt.png",
+    "right": "textures/blocks/basalt.png",
+    "front": "textures/blocks/basalt.png",
+    "back": "textures/blocks/basalt.png"
+  },
+  "lightDampening": 0,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 2,
+    "requiredTools": [
+      "pickaxe"
+    ]
+  },
+  "previewColor": "454c57"
+}

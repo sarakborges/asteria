@@ -1,0 +1,261 @@
+{
+  "id": "asteria:overworld/enchanted_forest",
+  "surfaceLayout": {
+    "weight": 1.25,
+    "spawnWeight": 1,
+    "regionSize": {
+      "min": 224,
+      "max": 448
+    },
+    "cannotBorder": [
+      "asteria:overworld/arctic",
+      "asteria:overworld/desert",
+      "asteria:overworld/scorched_wastes"
+    ]
+  },
+  "surfaceTerrain": {
+    "type": "rolling",
+    "baseHeight": 4,
+    "amplitude": 3,
+    "scale": 0.012,
+    "detailAmplitude": 1,
+    "detailScale": 0.045
+  },
+  "decorations": [
+    {
+      "object": "asteria:grass",
+      "chance": 0.0224,
+      "surfaceBlocks": [
+        "asteria:block_grass"
+      ],
+      "habitatWeights": {
+        "luminous_clearing": 1.9,
+        "violet_undergrowth": 0.75,
+        "pink_glade": 0.7
+      }
+    },
+    {
+      "object": "asteria:mushroom_purple",
+      "chance": 0.0028,
+      "surfaceBlocks": [
+        "asteria:block_grass",
+        "asteria:dirt"
+      ],
+      "habitatWeights": {
+        "luminous_clearing": 0.2,
+        "violet_undergrowth": 2.2,
+        "pink_glade": 0.5
+      }
+    },
+    {
+      "object": "asteria:mushroom_pink",
+      "chance": 0.002,
+      "surfaceBlocks": [
+        "asteria:block_grass",
+        "asteria:dirt"
+      ],
+      "habitatWeights": {
+        "luminous_clearing": 0.24,
+        "violet_undergrowth": 0.55,
+        "pink_glade": 2.4
+      }
+    },
+    {
+      "object": "asteria:stick",
+      "chance": 0.012,
+      "surfaceBlocks": [
+        "asteria:block_grass",
+        "asteria:dirt"
+      ],
+      "cluster": {
+        "scale": 22,
+        "threshold": -0.12
+      },
+      "habitatWeights": {
+        "luminous_clearing": 0.35,
+        "violet_undergrowth": 1.7,
+        "pink_glade": 0.55
+      }
+    },
+    {
+      "block": "asteria:starflower",
+      "chance": 0.0128,
+      "surfaceBlocks": [
+        "asteria:block_grass"
+      ],
+      "cluster": {
+        "scale": 35,
+        "threshold": -0.13,
+        "octaves": 4,
+        "transitionWidth": 0.13
+      },
+      "conditions": {
+        "minY": 80,
+        "maxY": 132,
+        "maxSlope": 2
+      },
+      "habitatWeights": {
+        "luminous_clearing": 2.7,
+        "violet_undergrowth": 0.44,
+        "pink_glade": 0.7
+      }
+    },
+    {
+      "object": "asteria:fern_violet",
+      "chance": 0.0216,
+      "surfaceBlocks": [
+        "asteria:block_grass",
+        "asteria:dirt"
+      ],
+      "cluster": {
+        "scale": 39,
+        "threshold": -0.24,
+        "octaves": 4,
+        "transitionWidth": 0.13
+      },
+      "conditions": {
+        "minY": 80,
+        "maxY": 132,
+        "maxSlope": 3
+      },
+      "habitatWeights": {
+        "luminous_clearing": 0.37,
+        "violet_undergrowth": 2.5,
+        "pink_glade": 0.32
+      }
+    },
+    {
+      "block": "asteria:bloom_pink",
+      "chance": 0.0168,
+      "surfaceBlocks": [
+        "asteria:block_grass"
+      ],
+      "cluster": {
+        "scale": 43,
+        "threshold": -0.18,
+        "octaves": 4,
+        "transitionWidth": 0.13
+      },
+      "conditions": {
+        "minY": 80,
+        "maxY": 132,
+        "maxSlope": 2
+      },
+      "habitatWeights": {
+        "luminous_clearing": 0.35,
+        "violet_undergrowth": 0.27,
+        "pink_glade": 2.7
+      }
+    },
+    {
+      "block": "asteria:pod_glow",
+      "chance": 0.0072,
+      "surfaceBlocks": [
+        "asteria:block_grass",
+        "asteria:dirt"
+      ],
+      "cluster": {
+        "scale": 51,
+        "threshold": -0.12,
+        "octaves": 4,
+        "transitionWidth": 0.13
+      },
+      "conditions": {
+        "minY": 80,
+        "maxY": 132,
+        "maxSlope": 2
+      },
+      "habitatWeights": {
+        "luminous_clearing": 0.34,
+        "violet_undergrowth": 2.1,
+        "pink_glade": 1.18
+      }
+    },
+    {
+      "object": "asteria:mushroom_blue",
+      "chance": 0.0068,
+      "surfaceBlocks": [
+        "asteria:block_grass",
+        "asteria:dirt"
+      ],
+      "cluster": {
+        "scale": 28,
+        "threshold": -0.22,
+        "octaves": 4,
+        "transitionWidth": 0.13
+      },
+      "conditions": {
+        "minY": 80,
+        "maxY": 132,
+        "maxSlope": 2
+      },
+      "habitatWeights": {
+        "luminous_clearing": 0.14,
+        "violet_undergrowth": 2.4,
+        "pink_glade": 0.42
+      }
+    },
+    {
+      "object": "asteria:mushroom_red",
+      "chance": 0.0052,
+      "surfaceBlocks": [
+        "asteria:block_grass",
+        "asteria:dirt"
+      ],
+      "cluster": {
+        "scale": 30,
+        "threshold": -0.17,
+        "octaves": 4,
+        "transitionWidth": 0.13
+      },
+      "conditions": {
+        "minY": 80,
+        "maxY": 132,
+        "maxSlope": 2
+      },
+      "habitatWeights": {
+        "luminous_clearing": 0.31,
+        "violet_undergrowth": 0.55,
+        "pink_glade": 2.25
+      }
+    }
+  ],
+  "tints": {
+    "grass": "14FF94",
+    "leaf": "00F5FF",
+    "foliage": "D129FF"
+  },
+  "surfaceHabitats": {
+    "scale": 128,
+    "transitionWidth": 0.12,
+    "bands": [
+      {
+        "id": "luminous_clearing",
+        "maximum": -0.2
+      },
+      {
+        "id": "violet_undergrowth",
+        "maximum": 0.12
+      },
+      {
+        "id": "pink_glade",
+        "maximum": 1
+      }
+    ]
+  },
+  "palette": {
+    "default": [
+      {
+        "block": "asteria:block_grass",
+        "depth": 1
+      },
+      {
+        "block": "asteria:dirt",
+        "depth": 4
+      },
+      {
+        "block": "asteria:stone"
+      }
+    ]
+  }
+}

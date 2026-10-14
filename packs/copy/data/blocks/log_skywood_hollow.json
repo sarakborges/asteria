@@ -1,0 +1,34 @@
+{
+  "id": "asteria:log_skywood_hollow",
+  "category": "blocks_wooden",
+  "textures": {
+    "top": "textures/blocks/trees/skywood/top.png",
+    "bottom": "textures/blocks/trees/skywood/top.png",
+    "left": "textures/blocks/trees/skywood/side.png",
+    "right": "textures/blocks/trees/skywood/side.png",
+    "front": "textures/blocks/trees/skywood/side.png",
+    "back": "textures/blocks/trees/skywood/side.png"
+  },
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 1,
+    "preferredTools": [
+      "hatchet"
+    ]
+  },
+  "previewColor": "44817e",
+  "variant": {
+    "family": "asteria:log_skywood",
+    "key": "hollow"
+  },
+  "orientations": [
+    "y",
+    "z",
+    "x"
+  ],
+  "shape": {
+    "type": "hollow",
+    "wallThickness": 0.0625
+  }
+}

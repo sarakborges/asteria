@@ -1,0 +1,23 @@
+{
+  "id": "asteria:bricks_stone",
+  "category": "blocks_stone",
+  "tags": [
+    "fragmentable"
+  ],
+  "textures": {
+    "top": "textures/blocks/bricks_stone.png",
+    "bottom": "textures/blocks/bricks_stone.png",
+    "left": "textures/blocks/bricks_stone.png",
+    "right": "textures/blocks/bricks_stone.png",
+    "front": "textures/blocks/bricks_stone.png",
+    "back": "textures/blocks/bricks_stone.png"
+  },
+  "lightDampening": 15,
+  "castsShadow": true,
+  "mining": {
+    "hardness": 2,
+    "requiredTools": [
+      "pickaxe"
+    ]
+  }
+}

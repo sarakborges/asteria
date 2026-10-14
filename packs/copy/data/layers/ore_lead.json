@@ -1,0 +1,39 @@
+{
+  "id": "asteria:ore_lead",
+  "category": "blocks_natural",
+  "texture": "textures/layers/ores/ore_lead.png",
+  "tint": "none",
+  "offset": 0.001,
+  "alphaCutoff": 0.5,
+  "alphaBlend": false,
+  "castsShadow": false,
+  "scope": "voxel",
+  "mining": {
+    "hardness": 1.9,
+    "requiredTools": [
+      "pickaxe"
+    ],
+    "preferredTools": [
+      "pickaxe"
+    ]
+  },
+  "drops": [
+    {
+      "kind": "item",
+      "id": "asteria:ore_lead_raw",
+      "quantity": 1
+    }
+  ],
+  "generation": {
+    "dimension": "asteria:overworld",
+    "hostBlocks": [
+      "asteria:stone",
+      "asteria:basalt"
+    ],
+    "minY": 5,
+    "maxY": 96,
+    "spacing": 20,
+    "radius": 2,
+    "chance": 0.28
+  }
+}

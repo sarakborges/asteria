@@ -1,0 +1,35 @@
+{
+  "id": "asteria:grass_tall",
+  "category": "foliage",
+  "icon": "textures/objects/grass_tall.png",
+  "placementFaces": [
+    "top"
+  ],
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/grass_tall.png",
+    "width": 0.88,
+    "height": 0.94,
+    "planes": 4,
+    "alphaCutoff": 0.5
+  },
+  "target": {
+    "size": [
+      0.88,
+      0.94,
+      0.88
+    ],
+    "centerOffset": [
+      0,
+      0.47,
+      0
+    ]
+  },
+  "positionJitter": [
+    0.18,
+    0.18
+  ],
+  "dropSelf": false,
+  "windSway": true,
+  "unlit": false
+}

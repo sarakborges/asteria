@@ -1,0 +1,205 @@
+{
+  "id": "asteria:overworld/alps",
+  "surfaceLayout": {
+    "weight": 1,
+    "spawnWeight": 0.5,
+    "regionSize": {
+      "min": 256,
+      "max": 512
+    },
+    "cannotBorder": [
+      "asteria:overworld/mountains",
+      "asteria:overworld/gorge",
+      "asteria:overworld/mountain_belt",
+      "asteria:overworld/scorched_wastes"
+    ]
+  },
+  "surfaceTerrain": {
+    "type": "ridges",
+    "baseHeight": 14,
+    "amplitude": 68,
+    "scale": 0.0075,
+    "sharpness": 2.25,
+    "detailAmplitude": 15,
+    "detailScale": 0.025,
+    "detailSharpness": 1.35,
+    "detailMode": "modulated"
+  },
+  "decorations": [
+    {
+      "object": "asteria:pebble",
+      "chance": 0.0156,
+      "surfaceBlocks": [
+        "asteria:snow",
+        "asteria:ice",
+        "asteria:stone",
+        "asteria:gravel"
+      ],
+      "habitatWeights": {
+        "snowfields": 0.14,
+        "glacial_ice": 0.44,
+        "wind_scoured_rock": 2.2
+      },
+      "cluster": {
+        "scale": 16,
+        "threshold": -0.2,
+        "octaves": 4,
+        "transitionWidth": 0.15
+      },
+      "conditions": {
+        "minY": 100,
+        "maxSlope": 15
+      }
+    },
+    {
+      "block": "asteria:edelweiss_alpine",
+      "chance": 0.0143,
+      "surfaceBlocks": [
+        "asteria:snow",
+        "asteria:gravel",
+        "asteria:stone"
+      ],
+      "habitatWeights": {
+        "snowfields": 2.3,
+        "glacial_ice": 0.16,
+        "wind_scoured_rock": 0.62
+      },
+      "cluster": {
+        "scale": 35,
+        "threshold": -0.19,
+        "octaves": 4,
+        "transitionWidth": 0.15
+      },
+      "conditions": {
+        "minY": 108,
+        "maxSlope": 4
+      }
+    },
+    {
+      "block": "asteria:sedge_alpine",
+      "chance": 0.0247,
+      "surfaceBlocks": [
+        "asteria:snow",
+        "asteria:stone",
+        "asteria:gravel"
+      ],
+      "habitatWeights": {
+        "snowfields": 0.62,
+        "glacial_ice": 0.08,
+        "wind_scoured_rock": 2.2
+      },
+      "cluster": {
+        "scale": 27,
+        "threshold": -0.24,
+        "octaves": 4,
+        "transitionWidth": 0.18
+      },
+      "conditions": {
+        "minY": 99,
+        "maxY": 177,
+        "maxSlope": 5
+      }
+    },
+    {
+      "block": "asteria:lichen_frost",
+      "chance": 0.0156,
+      "surfaceBlocks": [
+        "asteria:snow",
+        "asteria:ice",
+        "asteria:gravel",
+        "asteria:stone"
+      ],
+      "habitatWeights": {
+        "snowfields": 0.8,
+        "glacial_ice": 1.85,
+        "wind_scoured_rock": 0.28
+      },
+      "cluster": {
+        "scale": 29,
+        "threshold": -0.2,
+        "octaves": 3,
+        "transitionWidth": 0.18
+      },
+      "conditions": {
+        "minY": 103,
+        "maxSlope": 4
+      }
+    },
+    {
+      "block": "asteria:spike_ice",
+      "chance": 0.0101,
+      "surfaceBlocks": [
+        "asteria:ice",
+        "asteria:snow"
+      ],
+      "habitatWeights": {
+        "snowfields": 0.3,
+        "glacial_ice": 2.6,
+        "wind_scoured_rock": 0.08
+      },
+      "cluster": {
+        "scale": 42,
+        "threshold": -0.12,
+        "octaves": 3,
+        "transitionWidth": 0.2
+      },
+      "conditions": {
+        "minY": 119,
+        "maxSlope": 3
+      }
+    }
+  ],
+  "surfaceHabitats": {
+    "scale": 150,
+    "transitionWidth": 0.12,
+    "bands": [
+      {
+        "id": "snowfields",
+        "maximum": -0.23
+      },
+      {
+        "id": "glacial_ice",
+        "maximum": 0.14
+      },
+      {
+        "id": "wind_scoured_rock",
+        "maximum": 1
+      }
+    ]
+  },
+  "palette": {
+    "default": [
+      {
+        "block": "asteria:snow",
+        "depth": 2,
+        "patch": {
+          "scale": 36,
+          "coverage": 0.31,
+          "roughness": 0.36,
+          "blocks": [
+            "asteria:ice",
+            "asteria:gravel",
+            "asteria:stone"
+          ],
+          "detailScale": 11,
+          "selectionScale": 88,
+          "warpScale": 82,
+          "warpStrength": 14,
+          "stretchZ": 1.55,
+          "weights": {
+            "asteria:ice": 5,
+            "asteria:gravel": 1,
+            "asteria:stone": 2
+          },
+          "conditions": {
+            "minY": 110,
+            "maxSlope": 9
+          }
+        }
+      },
+      {
+        "block": "asteria:stone"
+      }
+    ]
+  }
+}

@@ -1,0 +1,143 @@
+{
+  "asteria:bloom_aether": {
+    "/name": "Flor Etérea"
+  },
+  "asteria:vines_aether": {
+    "/name": "Enredaderas Etéreas"
+  },
+  "asteria:bulrush": {
+    "/name": "Junco"
+  },
+  "asteria:cattail": {
+    "/name": "Espadaña"
+  },
+  "asteria:reed_cloud": {
+    "/name": "Junco de las Nubes"
+  },
+  "asteria:clover": {
+    "/name": "Trébol"
+  },
+  "asteria:daisy": {
+    "/name": "Margarita"
+  },
+  "asteria:fern_glow": {
+    "/name": "Helecho Luminoso"
+  },
+  "asteria:mushroom_glowcap": {
+    "/name": "Seta Luminosa"
+  },
+  "asteria:grass": {
+    "/name": "Hierba"
+  },
+  "asteria:roots_hanging": {
+    "/name": "Raíces Colgantes"
+  },
+  "asteria:iris": {
+    "/name": "Iris"
+  },
+  "asteria:kelp": {
+    "/name": "Alga kelp"
+  },
+  "asteria:pad_lily": {
+    "/name": "Nenúfar"
+  },
+  "asteria:orchid_marsh": {
+    "/name": "Orquídea de Marisma"
+  },
+  "asteria:seedheads_meadow": {
+    "/name": "Espigas de Pradera"
+  },
+  "asteria:mushroom_blue": {
+    "/name": "Hongo Azul"
+  },
+  "asteria:mushroom_brown": {
+    "/name": "Hongo Marrón"
+  },
+  "asteria:mushroom_green": {
+    "/name": "Hongo Verde"
+  },
+  "asteria:mushroom_pink": {
+    "/name": "Hongo Rosa"
+  },
+  "asteria:mushroom_purple": {
+    "/name": "Hongo Morado"
+  },
+  "asteria:mushroom_red": {
+    "/name": "Hongo Rojo"
+  },
+  "asteria:mushroom_yellow": {
+    "/name": "Hongo Amarillo"
+  },
+  "asteria:grass_pass": {
+    "/name": "Hierba de Paso"
+  },
+  "asteria:pebble": {
+    "/name": "Guijarro"
+  },
+  "asteria:aster_purple": {
+    "/name": "Áster Púrpura"
+  },
+  "asteria:sagebrush": {
+    "/name": "Artemisa"
+  },
+  "asteria:sapling_charwood": {
+    "/name": "Brote de Madera Carbonizada"
+  },
+  "asteria:sapling_enchanted_tree": {
+    "/name": "Brote de Árbol Encantado"
+  },
+  "asteria:sapling_frost_wood": {
+    "/name": "Brote de Madera Gélida"
+  },
+  "asteria:sapling_juniper": {
+    "/name": "Brote de Enebro"
+  },
+  "asteria:sapling_oak": {
+    "/name": "Brote de Roble"
+  },
+  "asteria:sapling_skywood": {
+    "/name": "Brote de Madera Celeste"
+  },
+  "asteria:sapling_thornwood": {
+    "/name": "Brote de Madera Espinosa"
+  },
+  "asteria:sapling_willow": {
+    "/name": "Brote de Sauce"
+  },
+  "asteria:sapling_windwood": {
+    "/name": "Brote de Madera del Viento"
+  },
+  "asteria:sapling_world_tree": {
+    "/name": "Brote del Árbol del Mundo"
+  },
+  "asteria:anemone_sea": {
+    "/name": "Anémona Marina"
+  },
+  "asteria:seagrass": {
+    "/name": "Hierba marina"
+  },
+  "asteria:seashell": {
+    "/name": "Concha Marina"
+  },
+  "asteria:starfish": {
+    "/name": "Estrella de Mar"
+  },
+  "asteria:stick": {
+    "/name": "Palo"
+  },
+  "asteria:grass_tall": {
+    "/name": "Hierba Alta"
+  },
+  "asteria:fern_violet": {
+    "/name": "Helecho Violeta"
+  },
+  "asteria:fungus_shelf_wall": {
+    "/name": "Hongo de Repisa de Pared"
+  },
+  "asteria:wildflower_blue": {
+    "/name": "Flor Silvestre Azul"
+  },
+  "asteria:wildflower_yellow": {
+    "/name": "Flor Silvestre Amarilla"
+  }
+}

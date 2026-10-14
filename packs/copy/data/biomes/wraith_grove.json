@@ -1,0 +1,102 @@
+{
+  "id": "asteria:umbral/wraith_grove",
+  "surfaceLayout": {
+    "weight": 1.25,
+    "spawnWeight": 1,
+    "regionSize": {
+      "min": 192,
+      "max": 352
+    }
+  },
+  "surfaceTerrain": {
+    "type": "rolling",
+    "baseHeight": 4,
+    "amplitude": 3,
+    "scale": 0.012,
+    "detailAmplitude": 1,
+    "detailScale": 0.045
+  },
+  "decorations": [
+    {
+      "object": "asteria:grass",
+      "chance": 0.0216,
+      "surfaceBlocks": [
+        "asteria:block_grass",
+        "asteria:dirt"
+      ],
+      "habitatWeights": {
+        "dusky_underbrush": 0.7,
+        "pale_clearing": 1.95,
+        "decay_pockets": 0.4
+      }
+    },
+    {
+      "object": "asteria:mushroom_brown",
+      "chance": 0.006,
+      "surfaceBlocks": [
+        "asteria:block_grass",
+        "asteria:dirt"
+      ],
+      "habitatWeights": {
+        "dusky_underbrush": 0.55,
+        "pale_clearing": 0.12,
+        "decay_pockets": 2.55
+      }
+    },
+    {
+      "object": "asteria:stick",
+      "chance": 0.0144,
+      "surfaceBlocks": [
+        "asteria:block_grass",
+        "asteria:dirt"
+      ],
+      "cluster": {
+        "scale": 20,
+        "threshold": -0.12
+      },
+      "habitatWeights": {
+        "dusky_underbrush": 1.95,
+        "pale_clearing": 0.38,
+        "decay_pockets": 0.9
+      }
+    }
+  ],
+  "tints": {
+    "grass": "569C7E",
+    "leaf": "488E7B",
+    "foliage": "62A785"
+  },
+  "surfaceHabitats": {
+    "scale": 104,
+    "transitionWidth": 0.1,
+    "bands": [
+      {
+        "id": "dusky_underbrush",
+        "maximum": -0.22
+      },
+      {
+        "id": "pale_clearing",
+        "maximum": 0.12
+      },
+      {
+        "id": "decay_pockets",
+        "maximum": 1
+      }
+    ]
+  },
+  "palette": {
+    "default": [
+      {
+        "block": "asteria:block_grass",
+        "depth": 1
+      },
+      {
+        "block": "asteria:mud",
+        "depth": 4
+      },
+      {
+        "block": "asteria:stone"
+      }
+    ]
+  }
+}

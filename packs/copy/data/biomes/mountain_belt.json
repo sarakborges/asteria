@@ -1,0 +1,223 @@
+{
+  "id": "asteria:overworld/mountain_belt",
+  "surfaceLayout": {
+    "weight": 1,
+    "spawnWeight": 0.5,
+    "regionSize": {
+      "min": 256,
+      "max": 512
+    },
+    "cannotBorder": [
+      "asteria:overworld/mountains",
+      "asteria:overworld/gorge",
+      "asteria:overworld/alps",
+      "asteria:overworld/scorched_wastes"
+    ]
+  },
+  "surfaceTerrain": {
+    "type": "ridges",
+    "baseHeight": 10,
+    "amplitude": 58,
+    "scale": 0.0055,
+    "sharpness": 1.9,
+    "detailAmplitude": 14,
+    "detailScale": 0.018,
+    "detailMode": "modulated"
+  },
+  "decorations": [
+    {
+      "object": "asteria:pebble",
+      "chance": 0.0204,
+      "surfaceBlocks": [
+        "asteria:stone",
+        "asteria:gravel",
+        "asteria:cobble_stone"
+      ],
+      "habitatWeights": {
+        "sheltered_passes": 0.24,
+        "boulder_runs": 2,
+        "bare_crests": 0.83
+      },
+      "cluster": {
+        "scale": 12,
+        "threshold": -0.2,
+        "octaves": 4,
+        "transitionWidth": 0.12
+      },
+      "conditions": {
+        "maxSlope": 8
+      }
+    },
+    {
+      "object": "asteria:grass",
+      "chance": 0.0072,
+      "surfaceBlocks": [
+        "asteria:dirt"
+      ],
+      "habitatWeights": {
+        "sheltered_passes": 2.05,
+        "boulder_runs": 0.12,
+        "bare_crests": 0
+      },
+      "cluster": {
+        "scale": 20,
+        "threshold": -0.15,
+        "octaves": 4,
+        "transitionWidth": 0.12
+      },
+      "conditions": {
+        "maxY": 119,
+        "maxSlope": 1
+      }
+    },
+    {
+      "object": "asteria:stick",
+      "chance": 0.0054,
+      "surfaceBlocks": [
+        "asteria:dirt",
+        "asteria:gravel"
+      ],
+      "habitatWeights": {
+        "sheltered_passes": 1.7,
+        "boulder_runs": 0.09,
+        "bare_crests": 0
+      },
+      "cluster": {
+        "scale": 20,
+        "threshold": -0.15,
+        "octaves": 4,
+        "transitionWidth": 0.12
+      },
+      "conditions": {
+        "maxY": 120,
+        "maxSlope": 2
+      }
+    },
+    {
+      "object": "asteria:grass_pass",
+      "chance": 0.0216,
+      "surfaceBlocks": [
+        "asteria:dirt",
+        "asteria:gravel",
+        "asteria:stone"
+      ],
+      "cluster": {
+        "scale": 46,
+        "threshold": -0.16,
+        "octaves": 4,
+        "transitionWidth": 0.14
+      },
+      "conditions": {
+        "minY": 102,
+        "maxY": 145,
+        "maxSlope": 2
+      },
+      "habitatWeights": {
+        "sheltered_passes": 2.7,
+        "boulder_runs": 0.08,
+        "bare_crests": 0
+      }
+    },
+    {
+      "block": "asteria:rosette_thorn",
+      "chance": 0.0162,
+      "surfaceBlocks": [
+        "asteria:stone",
+        "asteria:gravel",
+        "asteria:cobble_stone"
+      ],
+      "cluster": {
+        "scale": 38,
+        "threshold": -0.19,
+        "octaves": 4,
+        "transitionWidth": 0.14
+      },
+      "conditions": {
+        "minY": 105,
+        "maxY": 179,
+        "maxSlope": 3
+      },
+      "habitatWeights": {
+        "sheltered_passes": 1.85,
+        "boulder_runs": 1.1,
+        "bare_crests": 0.035
+      }
+    },
+    {
+      "block": "asteria:lichen_scree",
+      "chance": 0.0174,
+      "surfaceBlocks": [
+        "asteria:stone",
+        "asteria:cobble_stone"
+      ],
+      "cluster": {
+        "scale": 29,
+        "threshold": -0.2,
+        "octaves": 4,
+        "transitionWidth": 0.14
+      },
+      "conditions": {
+        "minY": 104,
+        "maxY": 223,
+        "maxSlope": 7
+      },
+      "habitatWeights": {
+        "sheltered_passes": 0.27,
+        "boulder_runs": 2.55,
+        "bare_crests": 0.58
+      }
+    }
+  ],
+  "surfaceHabitats": {
+    "scale": 154,
+    "transitionWidth": 0.13,
+    "bands": [
+      {
+        "id": "sheltered_passes",
+        "maximum": -0.2
+      },
+      {
+        "id": "boulder_runs",
+        "maximum": 0.17
+      },
+      {
+        "id": "bare_crests",
+        "maximum": 1
+      }
+    ]
+  },
+  "palette": {
+    "default": [
+      {
+        "block": "asteria:stone",
+        "depth": 1,
+        "patch": {
+          "scale": 40,
+          "coverage": 0.2,
+          "roughness": 0.33,
+          "blocks": [
+            "asteria:gravel",
+            "asteria:dirt",
+            "asteria:cobble_stone"
+          ],
+          "detailScale": 12,
+          "selectionScale": 90,
+          "warpScale": 88,
+          "warpStrength": 16,
+          "stretchZ": 1.4,
+          "weights": {
+            "asteria:gravel": 5,
+            "asteria:dirt": 1,
+            "asteria:cobble_stone": 2
+          },
+          "conditions": {
+            "maxSlope": 3
+          }
+        }
+      },
+      {
+        "block": "asteria:stone"
+      }
+    ]
+  }
+}

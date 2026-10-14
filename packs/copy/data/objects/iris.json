@@ -1,0 +1,34 @@
+{
+  "id": "asteria:iris",
+  "category": "foliage",
+  "icon": "textures/objects/iris.png",
+  "placementFaces": [
+    "top"
+  ],
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/iris.png",
+    "width": 0.79,
+    "height": 0.91,
+    "planes": 4,
+    "alphaCutoff": 0.5
+  },
+  "target": {
+    "size": [
+      0.79,
+      0.91,
+      0.79
+    ],
+    "centerOffset": [
+      0,
+      0.455,
+      0
+    ]
+  },
+  "positionJitter": [
+    0.18,
+    0.18
+  ],
+  "dropSelf": false,
+  "windSway": true
+}

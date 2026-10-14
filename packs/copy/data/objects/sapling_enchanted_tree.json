@@ -1,0 +1,38 @@
+{
+  "id": "asteria:sapling_enchanted_tree",
+  "category": "foliage",
+  "icon": "textures/objects/sapling_enchanted.png",
+  "placementFaces": [
+    "top"
+  ],
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/sapling_enchanted.png",
+    "width": 0.76,
+    "height": 0.8,
+    "planes": 4,
+    "alphaCutoff": 0.5
+  },
+  "target": {
+    "size": [
+      0.76,
+      0.8,
+      0.76
+    ],
+    "centerOffset": [
+      0,
+      0.4,
+      0
+    ]
+  },
+  "positionJitter": [
+    0,
+    0
+  ],
+  "dropSelf": true,
+  "windSway": true,
+  "unlit": false,
+  "tint": "none",
+  "previewColor": "948243",
+  "growthStructure": "asteria:tree_enchanted_tree"
+}

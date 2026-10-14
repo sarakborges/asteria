@@ -1,0 +1,35 @@
+{
+  "id": "asteria:orchid_marsh",
+  "category": "foliage",
+  "icon": "textures/objects/orchid_marsh.png",
+  "placementFaces": [
+    "top"
+  ],
+  "visual": {
+    "type": "crossedSprite",
+    "texture": "textures/objects/orchid_marsh.png",
+    "width": 0.77,
+    "height": 0.86,
+    "planes": 4,
+    "alphaCutoff": 0.5
+  },
+  "target": {
+    "size": [
+      0.77,
+      0.86,
+      0.77
+    ],
+    "centerOffset": [
+      0,
+      0.43,
+      0
+    ]
+  },
+  "positionJitter": [
+    0.18,
+    0.18
+  ],
+  "dropSelf": false,
+  "windSway": true,
+  "unlit": false
+}

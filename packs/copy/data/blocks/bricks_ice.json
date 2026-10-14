@@ -1,0 +1,24 @@
+{
+  "id": "asteria:bricks_ice",
+  "category": "blocks_crafted",
+  "tags": [
+    "fragmentable"
+  ],
+  "textures": {
+    "top": "textures/blocks/bricks_ice.png",
+    "bottom": "textures/blocks/bricks_ice.png",
+    "left": "textures/blocks/bricks_ice.png",
+    "right": "textures/blocks/bricks_ice.png",
+    "front": "textures/blocks/bricks_ice.png",
+    "back": "textures/blocks/bricks_ice.png"
+  },
+  "alphaBlend": true,
+  "lightDampening": 1,
+  "castsShadow": false,
+  "mining": {
+    "hardness": 0.5,
+    "requiredTools": [
+      "pickaxe"
+    ]
+  }
+}
