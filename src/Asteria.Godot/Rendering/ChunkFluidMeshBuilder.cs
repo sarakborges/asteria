@@ -21,53 +21,49 @@ public static class ChunkFluidMeshBuilder
                 continue;
             }
 
-            var surfaceIndex =
-                mesh.GetSurfaceCount();
-            var surface =
-                new SurfaceTool();
-            surface.Begin(
-                Mesh.PrimitiveType.Triangles);
-            surface.SetCustomFormat(
-                0,
-                SurfaceTool.CustomFormat.Rgba8Unorm);
+            var vertices = batch.Vertices;
+            var positions = new Vector3[vertices.Length];
+            var normals = new Vector3[vertices.Length];
+            var uvs = new Vector2[vertices.Length];
+            var colors = new Color[vertices.Length];
+            var light = new byte[vertices.Length * 4];
 
-            foreach (var vertex in batch.Vertices)
+            for (var index = 0; index < vertices.Length; index++)
             {
-                surface.SetNormal(
-                    new Vector3(
-                        vertex.Normal.X,
-                        vertex.Normal.Y,
-                        vertex.Normal.Z));
-                surface.SetUV(
-                    new Vector2(
-                        vertex.Uv.X,
-                        vertex.Uv.Y));
-                surface.SetColor(
-                    new Color(
-                        vertex.TintAndAo.X,
-                        vertex.TintAndAo.Y,
-                        vertex.TintAndAo.Z,
-                        vertex.TintAndAo.W));
-                surface.SetCustom(
-                    0,
-                    new Color(
-                        vertex.VoxelLight.X,
-                        vertex.VoxelLight.Y,
-                        vertex.VoxelLight.Z,
-                        vertex.VoxelLight.W));
-                surface.AddVertex(
-                    new Vector3(
-                        vertex.Position.X,
-                        vertex.Position.Y,
-                        vertex.Position.Z));
+                var vertex = vertices[index];
+                positions[index] = new Vector3(
+                    vertex.Position.X, vertex.Position.Y, vertex.Position.Z);
+                normals[index] = new Vector3(
+                    vertex.Normal.X, vertex.Normal.Y, vertex.Normal.Z);
+                uvs[index] = new Vector2(vertex.Uv.X, vertex.Uv.Y);
+                colors[index] = new Color(
+                    vertex.TintAndAo.X, vertex.TintAndAo.Y,
+                    vertex.TintAndAo.Z, vertex.TintAndAo.W);
+                var offset = index * 4;
+                light[offset] = PackUnorm8(vertex.VoxelLight.X);
+                light[offset + 1] = PackUnorm8(vertex.VoxelLight.Y);
+                light[offset + 2] = PackUnorm8(vertex.VoxelLight.Z);
+                light[offset + 3] = PackUnorm8(vertex.VoxelLight.W);
             }
 
-            surface.Commit(mesh);
-            mesh.SurfaceSetMaterial(
-                surfaceIndex,
-                materials.Get(batch.Fluid));
+            Godot.Collections.Array arrays = [];
+            arrays.Resize((int)Mesh.ArrayType.Max);
+            arrays[(int)Mesh.ArrayType.Vertex] = positions;
+            arrays[(int)Mesh.ArrayType.Normal] = normals;
+            arrays[(int)Mesh.ArrayType.TexUV] = uvs;
+            arrays[(int)Mesh.ArrayType.Color] = colors;
+            arrays[(int)Mesh.ArrayType.Custom0] = light;
+
+            var surfaceIndex = mesh.GetSurfaceCount();
+            mesh.AddSurfaceFromArrays(
+                Mesh.PrimitiveType.Triangles, arrays,
+                flags: Mesh.ArrayFormat.FlagUseDynamicUpdate);
+            mesh.SurfaceSetMaterial(surfaceIndex, materials.Get(batch.Fluid));
         }
 
         return mesh;
     }
+
+    private static byte PackUnorm8(float value) =>
+        (byte)Math.Clamp((int)MathF.Round(value * 255f), 0, 255);
 }
