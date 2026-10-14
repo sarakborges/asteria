@@ -26,6 +26,10 @@ ui/test-results/
 ui/playwright-report/
 ui/coverage/
 
+# Project-local DLL mods, configs, and their private dependencies
+/mods/*
+!/mods/.gdignore
+
 # Project-local runtime world saves (only keep Godot ignore marker)
 /worlds/*
 !/worlds/.gdignore
