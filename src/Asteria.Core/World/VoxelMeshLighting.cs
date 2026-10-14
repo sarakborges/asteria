@@ -57,11 +57,20 @@ public static class VoxelMeshLighting
 
         var basis = GetFaceBasis(face);
 
-        return new VoxelFaceLighting(
-            SampleCorner(chunk, blocks, x, y, z, face, basis, basis.Corner0),
-            SampleCorner(chunk, blocks, x, y, z, face, basis, basis.Corner1),
-            SampleCorner(chunk, blocks, x, y, z, face, basis, basis.Corner2),
-            SampleCorner(chunk, blocks, x, y, z, face, basis, basis.Corner3));
+        // The four corners of a face share a 3x3 neighborhood. Sample
+        // the nine media once rather than sixteen times per face.
+        Span<LightingSample> samples = stackalloc LightingSample[9];
+        var index = 0;
+        for (var v = -1; v <= 1; v++)
+        for (var u = -1; u <= 1; u++)
+        {
+            samples[index++] = Sample(chunk, blocks,
+                x + basis.Normal.X + basis.TangentA.X * u + basis.TangentB.X * v,
+                y + basis.Normal.Y + basis.TangentA.Y * u + basis.TangentB.Y * v,
+                z + basis.Normal.Z + basis.TangentA.Z * u + basis.TangentB.Z * v,
+                face);
+        }
+        return FaceLightingFromSamples(samples, basis);
     }
 
     public static VoxelFaceLighting SampleFace(
@@ -75,11 +84,18 @@ public static class VoxelMeshLighting
 
         var basis = GetFaceBasis(face);
 
-        return new VoxelFaceLighting(
-            SampleCorner(world, blocks, position, basis, basis.Corner0),
-            SampleCorner(world, blocks, position, basis, basis.Corner1),
-            SampleCorner(world, blocks, position, basis, basis.Corner2),
-            SampleCorner(world, blocks, position, basis, basis.Corner3));
+        Span<LightingSample> samples = stackalloc LightingSample[9];
+        var index = 0;
+        for (var v = -1; v <= 1; v++)
+        for (var u = -1; u <= 1; u++)
+        {
+            samples[index++] = Sample(world, blocks,
+                position + (
+                    basis.Normal.X + basis.TangentA.X * u + basis.TangentB.X * v,
+                    basis.Normal.Y + basis.TangentA.Y * u + basis.TangentB.Y * v,
+                    basis.Normal.Z + basis.TangentA.Z * u + basis.TangentB.Z * v));
+        }
+        return FaceLightingFromSamples(samples, basis);
     }
 
     public static float OccupancyFraction(
@@ -165,61 +181,6 @@ public static class VoxelMeshLighting
         };
     }
 
-    private static VoxelVertexLighting SampleCorner(
-        Chunk chunk,
-        BlockRegistry blocks,
-        int x,
-        int y,
-        int z,
-        BlockFace face,
-        FaceBasis basis,
-        CornerSigns signs)
-    {
-        var baseX = x + basis.Normal.X;
-        var baseY = y + basis.Normal.Y;
-        var baseZ = z + basis.Normal.Z;
-
-        var sideA = Sample(
-            chunk,
-            blocks,
-            baseX + basis.TangentA.X * signs.A,
-            baseY + basis.TangentA.Y * signs.A,
-            baseZ + basis.TangentA.Z * signs.A,
-            face);
-
-        var sideB = Sample(
-            chunk,
-            blocks,
-            baseX + basis.TangentB.X * signs.B,
-            baseY + basis.TangentB.Y * signs.B,
-            baseZ + basis.TangentB.Z * signs.B,
-            face);
-
-        var corner = Sample(
-            chunk,
-            blocks,
-            baseX + basis.TangentA.X * signs.A + basis.TangentB.X * signs.B,
-            baseY + basis.TangentA.Y * signs.A + basis.TangentB.Y * signs.B,
-            baseZ + basis.TangentA.Z * signs.A + basis.TangentB.Z * signs.B,
-            face);
-
-        var center = Sample(chunk, blocks, baseX, baseY, baseZ, face);
-
-        var occlusion = sideA.Occupancy >= 0.999f && sideB.Occupancy >= 0.999f
-            ? 3f
-            : sideA.Occupancy + sideB.Occupancy + corner.Occupancy;
-
-        var ao = AoBrightness(occlusion);
-        var (sky, red, green, blue) = AverageLight(center, sideA, sideB, corner);
-
-        return new VoxelVertexLighting(
-            sky / VoxelLight.MaxLevel,
-            red / VoxelLight.MaxLevel,
-            green / VoxelLight.MaxLevel,
-            blue / VoxelLight.MaxLevel,
-            ao);
-    }
-
     private static LightingSample Sample(
         Chunk chunk,
         BlockRegistry blocks,
@@ -242,63 +203,6 @@ public static class VoxelMeshLighting
             true,
             chunk.GetLight(x, y, z),
             OccupancyFraction(chunk, blocks, x, y, z));
-    }
-
-    private static VoxelVertexLighting SampleCorner(
-        VoxelWorld world,
-        BlockRegistry blocks,
-        WorldVoxelCoord position,
-        FaceBasis basis,
-        CornerSigns signs)
-    {
-        var basePosition = new WorldVoxelCoord(
-            position.X + basis.Normal.X,
-            position.Y + basis.Normal.Y,
-            position.Z + basis.Normal.Z);
-
-        var sideA = Sample(
-            world,
-            blocks,
-            basePosition + (
-                basis.TangentA.X * signs.A,
-                basis.TangentA.Y * signs.A,
-                basis.TangentA.Z * signs.A));
-
-        var sideB = Sample(
-            world,
-            blocks,
-            basePosition + (
-                basis.TangentB.X * signs.B,
-                basis.TangentB.Y * signs.B,
-                basis.TangentB.Z * signs.B));
-
-        var corner = Sample(
-            world,
-            blocks,
-            basePosition + (
-                basis.TangentA.X * signs.A + basis.TangentB.X * signs.B,
-                basis.TangentA.Y * signs.A + basis.TangentB.Y * signs.B,
-                basis.TangentA.Z * signs.A + basis.TangentB.Z * signs.B));
-
-        var center = Sample(world, blocks, basePosition);
-
-        var occlusion = sideA.Occupancy >= 0.999f &&
-                        sideB.Occupancy >= 0.999f
-            ? 3f
-            : sideA.Occupancy +
-              sideB.Occupancy +
-              corner.Occupancy;
-
-        var ao = AoBrightness(occlusion);
-        var (sky, red, green, blue) =
-            AverageLight(center, sideA, sideB, corner);
-
-        return new VoxelVertexLighting(
-            sky / VoxelLight.MaxLevel,
-            red / VoxelLight.MaxLevel,
-            green / VoxelLight.MaxLevel,
-            blue / VoxelLight.MaxLevel,
-            ao);
     }
 
     private static LightingSample Sample(
@@ -325,6 +229,41 @@ public static class VoxelMeshLighting
                     cell,
                     blocks.GetDefinition(cell.Block),
                     world.GetMicroblockMaskOrEmpty(position)));
+    }
+
+    private static VoxelFaceLighting FaceLightingFromSamples(
+        ReadOnlySpan<LightingSample> samples,
+        FaceBasis basis) =>
+        new(
+            CornerLighting(samples, basis.Corner0),
+            CornerLighting(samples, basis.Corner1),
+            CornerLighting(samples, basis.Corner2),
+            CornerLighting(samples, basis.Corner3));
+
+    private static VoxelVertexLighting CornerLighting(
+        ReadOnlySpan<LightingSample> samples,
+        CornerSigns signs)
+    {
+        // Samples are a 3x3 grid with the outward face-normal cell at
+        // index 4. Each corner reuses two sides and one diagonal.
+        var center = samples[4];
+        var sideA = samples[4 + signs.A];
+        var sideB = samples[4 + signs.B * 3];
+        var corner = samples[4 + signs.A + signs.B * 3];
+        var occlusion = sideA.Occupancy >= 0.999f &&
+                        sideB.Occupancy >= 0.999f
+            ? 3f
+            : sideA.Occupancy + sideB.Occupancy + corner.Occupancy;
+        var ao = AoBrightness(occlusion);
+        var (sky, red, green, blue) =
+            AverageLight(center, sideA, sideB, corner);
+
+        return new VoxelVertexLighting(
+            sky / VoxelLight.MaxLevel,
+            red / VoxelLight.MaxLevel,
+            green / VoxelLight.MaxLevel,
+            blue / VoxelLight.MaxLevel,
+            ao);
     }
 
     private static (
