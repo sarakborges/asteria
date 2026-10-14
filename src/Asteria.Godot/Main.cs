@@ -816,6 +816,7 @@ public partial class Main : Node3D
         {
             gameplaySliceStart = Stopwatch.GetTimestamp();
             SendWorldHudState();
+            SyncInventoryIconTint();
             SendWorldClockState();
             SendTargetHudState();
             SyncArchitectsCompassPreview();
@@ -1096,6 +1097,7 @@ public partial class Main : Node3D
         _publishedStorageRevision = null;
         _pickupAccumulator = 0;
         _worldHud.Reset();
+        ResetInventoryIconTint();
         _targetHud.Reset();
         _loading.Reset();
         _lastLoadingProgress = null;
@@ -1275,6 +1277,7 @@ public partial class Main : Node3D
         _playerPortrait = null;
         _underwaterView = null;
         _worldHud.Reset();
+        ResetInventoryIconTint();
         ClearTargetHudState();
 
         Input.MouseMode =
@@ -2781,7 +2784,8 @@ public partial class Main : Node3D
         if (entry.Kind == InventoryEntryKind.Object &&
             _objects.TryGet(entry.Id, out var obj) &&
             obj is { Tint: not BlockTint.None })
-            return _blockPreviewRenderer.ObjectDataUri(obj);
+            return _blockPreviewRenderer.ObjectDataUri(obj,
+                PlayerInventoryIconTint(obj.Tint, obj.TintFallback));
         var choice = _inventoryCatalog.Choices.FirstOrDefault(
             item => item.Entry.Equals(entry));
         return choice?.IconResourcePath is { } path
@@ -2909,6 +2913,7 @@ public partial class Main : Node3D
 
     private void SendCreativeCatalog()
     {
+        MarkCreativeCatalogTintPublished();
         SendWebUi("game.inventory.catalog", new
         {
             categories = _inventoryCatalog.Categories.Select(category => new
@@ -2930,7 +2935,9 @@ public partial class Main : Node3D
                     iconUrl = choice.Entry.Kind == InventoryEntryKind.Object &&
                         _objects.TryGet(choice.Entry.Id, out var objectDefinition) &&
                         objectDefinition is { Tint: not BlockTint.None }
-                        ? _blockPreviewRenderer.ObjectDataUri(objectDefinition)
+                        ? _blockPreviewRenderer.ObjectDataUri(objectDefinition,
+                            PlayerInventoryIconTint(
+                                objectDefinition.Tint, objectDefinition.TintFallback))
                         : choice.IconResourcePath is { } path
                             ? IconDataUri(path) : null,
                     blockPreview = BlockPreviewForInventory(choice.Entry),
@@ -2948,13 +2955,16 @@ public partial class Main : Node3D
         var block = _blocks.GetDefinition(blockId);
         var cell = entry.Block?.Cell ?? new VoxelCell(blockId);
         return BlockPreviewForCell(block, cell,
-            entry.Block?.SurfaceState, mask: entry.Block?.MicroblockMask);
+            entry.Block?.SurfaceState, mask: entry.Block?.MicroblockMask,
+            inventoryTint: PlayerInventoryIconTint(
+                block.Tint, block.PreviewColor));
     }
 
     private object? BlockPreviewForCell(
         BlockDefinition block, VoxelCell cell,
         BlockSurfaceState? surface = null, WorldVoxelCoord? target = null,
-        BlockFace? targetFace = null, MicroblockMask? mask = null)
+        BlockFace? targetFace = null, MicroblockMask? mask = null,
+        BlockPreviewColor? inventoryTint = null)
     {
         // World targets sample real biome tint for both host block and
         // attached faces; catalog/inventory icons keep authored fallback.
@@ -2980,9 +2990,10 @@ public partial class Main : Node3D
             return BlockPreviewColor.FromNormalized(
                 tintGrid.Resolve(tint, fallback, position.X, position.Z));
         }
-        var baseTint = block.Tint != BlockTint.None && target is not null
-            ? Tint(block.Tint)
-            : (BlockPreviewColor?)null;
+        var baseTint = inventoryTint ?? (
+            block.Tint != BlockTint.None && target is not null
+                ? Tint(block.Tint)
+                : (BlockPreviewColor?)null);
         // SourceFaceForWorldFace is the same Core owner used by terrain
         // meshing and targeting. A laid-down log, for example, must show
         // its authored end grain on the face which actually points upward.
@@ -3937,6 +3948,9 @@ public partial class Main : Node3D
             return;
         _inventoryOpen = true;
         _player.SuspendForModal();
+        SyncInventoryIconTint();
+        if (CreativeCatalogTintChanged())
+            SendCreativeCatalog();
         SendInventoryState();
         _playerPortrait?.RequestCapture();
     }

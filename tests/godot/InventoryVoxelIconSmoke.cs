@@ -58,7 +58,8 @@ public partial class InventoryVoxelIconSmoke : Node
             if (!visible)
                 throw new InvalidDataException("Canonical cube PNG is transparent.");
 
-            GD.Print("Native voxel icon smoke: geometry, tint, cache, PNG OK");
+            VerifyPlayerBiomeTint();
+            GD.Print("Native voxel icon smoke: geometry, tint, cache, PNG, biome OK");
             return true;
         }
         catch (Exception error)
@@ -66,5 +67,35 @@ public partial class InventoryVoxelIconSmoke : Node
             GD.PushError("Native voxel icon smoke failed: " + error);
             return false;
         }
+    }
+
+    private static void VerifyPlayerBiomeTint()
+    {
+        var biome = new BiomeDefinition(
+            "asteria:preview_biome",
+            new BiomeSurfaceLayoutDefinition(),
+            new BiomeTerrainDefinition(0, 0, 64, 0, 32),
+            [new BiomeSurfaceLayerDefinition("asteria:block_grass")],
+            tints: new BiomeTintPaletteDefinition(
+                grass: new BiomeTintColor(32, 190, 57)));
+        var biomes = new BiomeRegistry([biome]);
+        var field = new BiomeTintField(
+            new BiomeField(123UL, [biome.Id], biomes), [biome]);
+        var sampler = new InventoryIconTintSampler();
+        var position = new Vector3(0.5f, 42f, 0.5f);
+        if (!sampler.Sync(field, position) ||
+            sampler.Sync(field, position) ||
+            sampler.Sync(field, position + new Vector3(1, 0, 0)) ||
+            sampler.Palette?.Grass != new BlockPreviewColor(32, 190, 57) ||
+            sampler.Resolve(BlockTint.Grass, BlockPreviewColor.Missing)
+                != new BlockPreviewColor(32, 190, 57) ||
+            sampler.Resolve(BlockTint.None, BlockPreviewColor.Missing) is not null)
+            throw new InvalidDataException("Invalid player biome icon tint.");
+
+        sampler.Reset();
+        if (sampler.Palette is not null ||
+            sampler.Resolve(BlockTint.Grass, BlockPreviewColor.Missing) is not null ||
+            !sampler.Sync(field, position))
+            throw new InvalidDataException("Dimension change retained stale icon tint.");
     }
 }
