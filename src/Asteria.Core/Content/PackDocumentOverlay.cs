@@ -4,11 +4,6 @@ using System.Text.Json.Nodes;
 namespace Asteria.Core.Content;
 
 /// <summary>
-/// Composes immutable authored documents in explicit low-to-high pack priority.
-/// A document with { "id": "...", "enabled": false } removes that definition.
-/// An enabled overlay patches existing objects recursively; arrays replace in full.
-/// </summary>
-/// <summary>
 /// Namespaced IDs are standard for pack-owned content. Some existing
 /// category registries have their own validated local ID contracts.
 /// </summary>
@@ -18,6 +13,11 @@ public enum PackDocumentIdFormat : byte
     RegistryDefined = 1,
 }
 
+/// <summary>
+/// Composes immutable authored documents in explicit low-to-high pack priority.
+/// A document with { "id": "...", "enabled": false } removes that definition.
+/// An enabled overlay patches existing objects recursively; arrays replace in full.
+/// </summary>
 public static class PackDocumentOverlay
 {
     public static IReadOnlyList<string> Compose(
