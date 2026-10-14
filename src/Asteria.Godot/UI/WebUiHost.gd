@@ -178,8 +178,9 @@ func _ensure_webui_bundle() -> bool:
 
 	if exit_code != 0:
 		push_error(
-			"Failed to build WebUI automatically. Ensure Node.js/npm is installed.\n%s"
-			% "\n".join(output)
+			"WebUI build failed (exit code %d). Inspect the npm output below; " +
+			"check Node.js/npm only if the command could not run.\n%s"
+			% [exit_code, "\n".join(output)]
 		)
 		return false
 
