@@ -14,4 +14,13 @@
     <Compile Remove="tools/BiomeMap/**/*.cs" />
     <ProjectReference Include="src/Asteria.Core/Asteria.Core.csproj" />
   </ItemGroup>
+
+  <!-- Internal default pack: compiled into the managed assembly, not
+       distributed as an externally editable pack directory. -->
+  <ItemGroup>
+    <EmbeddedResource Include="packs/default/**/*"
+                      Exclude="packs/default/**/*.uid;packs/default/**/*.import;packs/default/**/*.gdignore">
+      <LogicalName>asteria.pack.default/%(RecursiveDir)%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
 </Project>
