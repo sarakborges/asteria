@@ -189,25 +189,43 @@ public sealed class DroppedBlockRuntime
                 "Dropped block position and velocity must be finite.");
         }
 
+        // Never evict an existing physical item only to discover that
+        // the persisted sequence ID is exhausted.
+        if (_nextId == ulong.MaxValue)
+            throw new OverflowException("Drop identity space exhausted.");
         if (_active.Count >= _maximumActive)
-        {
             Remove(_active.First().Key);
-        }
 
-        var id =
-            new DroppedBlockId(
-                checked(++_nextId));
+        return InsertSpawn(stack, position, velocity);
+    }
 
-        _active.Add(
-            id.Value,
-            new DroppedBlockState(
-                id,
-                stack,
-                position,
-                velocity,
-                AgeSeconds: 0.0,
-                IsSettled: false));
+    /// <summary>
+    /// Reserve one physical entity for an explicit player action (e.g. Q).
+    /// Unlike ambient world drops, this must never evict another player's
+    /// belongings or commit any mutation when the pool is saturated.
+    /// </summary>
+    public bool TrySpawnWithoutEviction(
+        InventoryStack stack, Vector3 position, Vector3 velocity = default)
+    {
+        ArgumentNullException.ThrowIfNull(stack);
+        if (!IsFinite(position) || !IsFinite(velocity) ||
+            position.Y < 0f || _active.Count >= _maximumActive ||
+            _nextId == ulong.MaxValue)
+            return false;
+        if (stack.Block is { } block)
+            _ = _blocks.GetDefinition(block.Cell.Block);
 
+        InsertSpawn(stack, position, velocity);
+        return true;
+    }
+
+    private DroppedBlockId InsertSpawn(
+        InventoryStack stack, Vector3 position, Vector3 velocity)
+    {
+        var id = new DroppedBlockId(checked(++_nextId));
+        _active.Add(id.Value, new DroppedBlockState(
+            id, stack, position, velocity,
+            AgeSeconds: 0.0, IsSettled: false));
         return id;
     }
 
