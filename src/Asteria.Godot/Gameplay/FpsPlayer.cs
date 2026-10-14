@@ -6,9 +6,9 @@ namespace Asteria.Client.Gameplay;
 
 public partial class FpsPlayer : CharacterBody3D
 {
-    private const float MoveSpeed = 7.5f;
-    private const float JumpSpeed = 8.0f;
-    private const float FlySpeedMultiplier = 5.0f;
+    private const float MoveSpeed = PlayerMovementSpeeds.Walk;
+    private const float JumpSpeed = PlayerMovementSpeeds.Jump;
+    private const float FlySpeedMultiplier = PlayerMovementSpeeds.FlightMultiplier;
     private const float MouseSensitivity = 0.0022f;
     private const float MaxPitch = 1.52f;
     private const float ThirdPersonCameraDistance = 4f;

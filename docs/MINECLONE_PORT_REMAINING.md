@@ -2,14 +2,14 @@
 
 **Reconciled:** 2026-10-14. **Asteria `main` baseline:** [`fd28b67b2`](https://github.com/sarakborges/asteria/commit/fd28b67b252bcb26195fcfa10c9cb5f46032ae09) (the preceding content commit changes tree textures, not port systems). **MineClone references:** [`main` `a4e9d00`](https://github.com/sarakborges/mineclone/commit/a4e9d00dafd384ae0086e30f684c1ae85d1f64c7) and [`world-systems-rebuild` `e8bc856`](https://github.com/sarakborges/mineclone/commit/e8bc8562abc22eb4a54561c1e7afe8cc086e3dd9).
 
-**Current verdict: no specific missing MineClone port functionality has been substantiated from this review of the current source and commit history.** This is **not** a claim of bug-free play, perfect visual fidelity, or successful side-by-side Godot/WRY playtesting. Before describing any feature as missing, recheck the actual HEAD, subsequent fixes, implementation path, and reference behavior. A dated audit is not a work queue.
+**Current verdict (updated after movement comparison): gameplay subsystems have largely been ported, but source-confirmed movement-behavior differences remain; full MineClone parity is not signed off.** This is **not** a claim of bug-free play, perfect visual fidelity, or successful side-by-side Godot/WRY playtesting. Before describing any feature as missing, recheck the actual HEAD, subsequent fixes, implementation path, and reference behavior. A dated audit is not a work queue.
 
 The previous version of this file was an October 9 status snapshot with chronological notes appended through October 14. Consequently, early `P0`/`P1` rows continued to say **partial/missing** after later commits finished their implementation. That version remains recoverable through Git history; its obsolete priority queue is intentionally not repeated here.
 
 ## Scope and status rules
 
 - **Implemented in source:** the authoritative Core behavior, Godot integration, and/or WebUI path exists as applicable; commits and regression tests support this assessment. It does **not** mean every runtime scenario has been manually accepted.
-- **Confirmed port gap:** an identified MineClone behavior is absent/different in current Asteria, is **not** a deliberate product/engine adaptation, and has a reproducible source-level or in-game example. **None is confirmed in this reconciliation.**
+- **Confirmed port gap:** an identified MineClone behavior is absent/different in current Asteria, is **not** a deliberate product/engine adaptation, and has a reproducible source-level or in-game example. **Flight acceleration and water-motion behavior require parity work/review (see below).**
 - **Runtime QA:** an existing implementation needs real embedded Godot/WRY exercise or side-by-side screenshots. This is an **acceptance activity**, never automatically another implementation batch.
 - **Independent defect/performance/content request:** track separately from port parity; fixing an observed Asteria bug does not establish that the MineClone feature was never ported.
 
@@ -46,13 +46,21 @@ Commit IDs are breadcrumbs to subsequent source changes, not proof that all list
 ## Verified differences which are not automatically port gaps
 
 1. **Portal storage model:** MineClone [`targeting/portal_activation.rs`](https://github.com/sarakborges/mineclone/blob/main/src/targeting/portal_activation.rs) inserts a portal *Layer* on the face of an empty cell. Asteria [`PortalActivationRuntime.cs`](../src/Asteria.Core/World/PortalActivationRuntime.cs) deliberately uses a noncolliding, centered Layer-*shaped block*, because its AttachedBlockLayer storage requires a host voxel. Behavior and persistence are connected; do not convert to an attached Layer on appearance alone.
-2. **Base movement speed:** MineClone `src/player/movement/config.rs` authors `WALK_SPEED = 5.0`; Asteria retained a 7.5 base speed as an explicit gameplay/balance choice. Sprint/crouch multipliers are ported. Only change this with an explicit gameplay decision.
+2. **Movement speeds:** corrected to MineClone's `WALK_SPEED = 5.0`, `JUMP_SPEED = 7.0`, run `7.5` and flight `25.0` in `PlayerMovementSpeeds` and `FpsPlayer`. Sprint/crouch multipliers were already matched. These numerical constants do **not** establish full movement-behavior parity.
 3. **UI composition:** Asteria intentionally keeps Winky Rough Variable, separate Controls page, inventory above crafting, Sphere/biome HUD labels and a Godot-owned underwater overlay. These are not "missing" implementations.
 4. **Saving policy:** Asteria deliberately saves on exit/leave, not via automatic saves or an independent Save World button. Do not reintroduce unsupported save actions to mimic stale UI audit notes.
 
+## Source-confirmed differences requiring deeper parity analysis
+
+- **Flying acceleration:** MineClone's `player/movement/flight.rs` approaches target velocity with `FLY_ACCELERATION = 75.0` and `FLY_DECELERATION = 90.0`; Asteria's `FpsPlayer._PhysicsProcess` assigns flight velocity directly. Its **maximum speed now matches** (25), but acceleration/deceleration do not. This is **not** a missing flight system; it is a behavior mismatch, and merits one focused gameplay parity batch if exact MineClone motion is required.
+- **Water vertical motion:** MineClone's `player/movement/swimming.rs` uses upward idle buoyancy 0.6, swim ascend 3.8, descend 3.0, vertical acceleration 12, and a 7.0 surface-exit jump. Asteria's authored water motion (`packs/default/data/fluids/water.json`) uses idle sink 0.9, ascend 2.4, acceleration 10, surface exit 8. The Core `FluidMotionSolver` also models a different idle-motion policy. Simply changing water numbers cannot reproduce buoyancy; compare the current gameplay behavior before choosing an authoritative policy.
+- **Player collision dimensions:** MineClone's local player uses 0.3 horizontal half-width and a 1.62 eye height; Godot's `FpsPlayer` currently uses a 0.35 capsule radius and 1.6 eye height. This may affect traversal, hitboxes and camera positioning; audit collision consequences before treating the port as fully accepted.
+
+These are **confirmed differences**, but changing them is a separate, reviewed behavior task, not an excuse to re-implement flight, swimming or the player controller.
+
 ## Remaining work — acceptance, not implementation backlog
 
-No default "next port batch" is authorized by this document. If functional testing is desired, exercise **already implemented** flows rather than re-creating their controllers:
+No default re-porting batch is authorized by this document. The source-level movement differences above are concrete candidates for a **targeted parity correction**, not a rebuild. If functional testing is desired, exercise **already implemented** flows rather than re-creating their controllers:
 
 1. **Real save lifecycle:** create → play → leave/quit → restart → load; corrupted/locked generations and no-loss failure confirmation; delete/recreate and repeated session entry.
 2. **Real WRY input:** T autofocus, ESC, inventory E, Q drop, Alt+Tab, modal key containment, mouse recapture, rapid Creative filter/scroll.
