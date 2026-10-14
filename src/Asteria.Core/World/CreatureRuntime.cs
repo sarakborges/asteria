@@ -63,6 +63,11 @@ public sealed class CreatureRuntime
     public const float DeathAnimationSeconds = 0.75f;
     public const float HurtAnimationSeconds = 0.4f;
     public const float AttackAnimationSeconds = 0.34f;
+    // The hop solver moves in bounded 0.08-block collision steps. Limit
+    // stacked knockback to a safe speed without losing MineClone's additive
+    // consecutive-hit semantics.
+    public const float MaximumKnockbackSpeed =
+        AttackDefinition.MaximumKnockbackStrength * 24f;
     // Reach beyond the solid body; physical colliders should not need
     // to overlap for a deliberate melee strike to connect.
     private const float MeleeReach = 0.3f;
@@ -101,6 +106,8 @@ public sealed class CreatureRuntime
                 !float.IsFinite(creature.Motion.FacingRadians) ||
                 !float.IsFinite(creature.Motion.KnockbackVelocity.X) ||
                 !float.IsFinite(creature.Motion.KnockbackVelocity.Y) ||
+                creature.Motion.KnockbackVelocity.LengthSquared() >
+                    MaximumKnockbackSpeed * MaximumKnockbackSpeed + 0.01f ||
                 !float.IsFinite(creature.Motion.KnockbackSeconds) ||
                 creature.Motion.KnockbackSeconds < 0f ||
                 !double.IsFinite(creature.NextRangedAttackAtSeconds) ||
@@ -325,7 +332,15 @@ public sealed class CreatureRuntime
     {
         ArgumentNullException.ThrowIfNull(attack);
         if (!IsFinite(attacker) ||
-            !float.IsFinite(attack.Damage) || attack.Damage < 0f)
+            !float.IsFinite(attack.Damage) || attack.Damage < 0f ||
+            attack.Effects is null ||
+            attack.Effects.Any(effect => effect is null ||
+                effect.Effect != "knockback" ||
+                !float.IsFinite(effect.Chance) ||
+                effect.Chance < 0f || effect.Chance > 1f ||
+                !float.IsFinite(effect.Strength) ||
+                effect.Strength < 0f ||
+                effect.Strength > AttackDefinition.MaximumKnockbackStrength))
         {
             throw new ArgumentOutOfRangeException(nameof(attack));
         }
@@ -363,17 +378,27 @@ public sealed class CreatureRuntime
         {
             var effect = attack.Effects[index];
             if (effect.Effect != "knockback" ||
+                effect.Strength == 0f ||
                 knockback.LengthSquared() <= float.Epsilon ||
                 !EffectApplies(id.Value, serial, (uint)index, effect.Chance))
             {
                 continue;
             }
 
+            // MineClone adds successive knockback effects. Preserve both
+            // independent strikes and multiple authored effects in one hit.
+            // Capping the resulting speed bounds collision-step work in the
+            // engine-agnostic hop solver.
+            var impulse = Vector2.Normalize(knockback) *
+                (effect.Strength * 24f);
+            var velocity = motion.KnockbackVelocity + impulse;
+            if (velocity.LengthSquared() >
+                MaximumKnockbackSpeed * MaximumKnockbackSpeed)
+                velocity = Vector2.Normalize(velocity) * MaximumKnockbackSpeed;
             motion = motion with
             {
-                KnockbackVelocity = Vector2.Normalize(knockback) *
-                    (effect.Strength * 24f),
-                KnockbackSeconds = effect.Strength == 0f ? 0f : 0.28f,
+                KnockbackVelocity = velocity,
+                KnockbackSeconds = velocity.LengthSquared() > 0f ? 0.28f : 0f,
             };
         }
 
