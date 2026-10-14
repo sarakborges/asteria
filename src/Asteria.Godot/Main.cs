@@ -56,6 +56,7 @@ public partial class Main : Node3D
 
     private PackSelection _packSelection =
         PackSelection.Default;
+    private PackSelectionStore _packSettings = null!;
     private ClientPreferencesController _clientSettings = null!;
     private WorldCatalogScanController _worldCatalog = null!;
     private readonly WorldThumbnailCapture _worldThumbnail = new();
@@ -196,6 +197,8 @@ public partial class Main : Node3D
         _worldCatalog = WorldCatalogScanController.FromUserDataDirectory();
         _keybindCapture = new KeybindCaptureController(
             _clientSettings);
+        _packSettings = new PackSelectionStore(OS.GetUserDataDir());
+        _packSelection = _packSettings.Current;
         _uiTheme =
             UiThemeLoader.LoadProjectTheme(
                 _packSelection);
@@ -1439,6 +1442,24 @@ public partial class Main : Node3D
                 case "ui.ready":
                     SendCurrentState();
                     break;
+                case "ui.packs.refresh":
+                    if (_worldSeed is null) SendPackCatalog();
+                    break;
+                case "ui.packs.configure":
+                    if (_worldSeed is not null) break;
+                    try
+                    {
+                        if (!document.RootElement.TryGetProperty("payload", out var packPayload))
+                            throw new FormatException("Missing pack payload.");
+                        _packSettings.Configure(PackSelectionStore.ReadEntries(packPayload));
+                        SendPackCatalog();
+                    }
+                    catch (Exception error) when (error is IOException or
+                        ArgumentException or FormatException or InvalidDataException)
+                    {
+                        SendWebUi("game.packs.error", new { message = error.Message });
+                    }
+                    break;
                 case "ui.ping":
                     SendWebUi(
                         "game.pong",
@@ -1675,6 +1696,27 @@ public partial class Main : Node3D
         }
     }
 
+    private void SendPackCatalog()
+    {
+        var selected = _packSettings.Current.Overlays;
+        SendWebUi("game.packs.catalog", new
+        {
+            packs = _packSettings.Installed().Select(pack => new
+            {
+                name = pack.Folder,
+                id = pack.Id,
+                title = pack.Name,
+                version = pack.Version,
+                description = pack.Description,
+                scope = selected.FirstOrDefault(layer => layer.Name == pack.Folder)
+                    .Domains.ToString(),
+                enabled = selected.Any(layer => layer.Name == pack.Folder),
+                order = Array.FindIndex(selected.ToArray(), layer => layer.Name == pack.Folder),
+            }).ToArray(),
+            restartRequired = !_packSelection.Overlays.SequenceEqual(selected),
+        });
+    }
+
     private void SendCurrentState()
     {
         SendWebUi(
@@ -1685,6 +1727,7 @@ public partial class Main : Node3D
             new { bridge = 1, engine = "godot" });
         SendDebugHudState();
         SendClientPreferences();
+        SendPackCatalog();
 
         if (_worldSeed is null)
         {
