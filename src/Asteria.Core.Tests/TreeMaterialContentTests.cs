@@ -7,16 +7,15 @@ public sealed class TreeMaterialContentTests
 {
     [Theory]
     [InlineData("log_charwood", "charwood")]
-    [InlineData("log_enchanted_tree", "enchanted_tree")]
+    [InlineData("log_enchanted_tree", "enchanted")]
     [InlineData("log_frost_wood", "frost_wood")]
     [InlineData("log_juniper", "juniper")]
     [InlineData("log_oak", "oak")]
-    [InlineData("log_rime_deadwood", "rime_deadwood")]
     [InlineData("log_skywood", "skywood")]
     [InlineData("log_thornwood", "thornwood")]
     [InlineData("log_willow", "willow")]
     [InlineData("log_windwood", "windwood")]
-    [InlineData("log_world_tree", "world_tree")]
+    [InlineData("log_world_tree", "world")]
     public void CarpenterStripsEveryAuthoredWoodFamilyInEveryOrientation(
         string stem, string material)
     {

@@ -2,8 +2,8 @@
   "id": "asteria:log_skywood_stripped_hollow",
   "category": "blocks_wooden",
   "textures": {
-    "top": "textures/blocks/trees/skywood/top_stripped.png",
-    "bottom": "textures/blocks/trees/skywood/top_stripped.png",
+    "top": "textures/blocks/trees/skywood/stripped.png",
+    "bottom": "textures/blocks/trees/skywood/stripped.png",
     "left": "textures/blocks/trees/skywood/stripped.png",
     "right": "textures/blocks/trees/skywood/stripped.png",
     "front": "textures/blocks/trees/skywood/stripped.png",

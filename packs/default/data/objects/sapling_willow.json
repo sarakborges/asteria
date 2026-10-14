@@ -1,13 +1,13 @@
 {
   "id": "asteria:sapling_willow",
   "category": "foliage",
-  "icon": "textures/blocks/trees/willow/sapling.png",
+  "icon": "textures/objects/sapling_willow.png",
   "placementFaces": [
     "top"
   ],
   "visual": {
     "type": "crossedSprite",
-    "texture": "textures/blocks/trees/willow/sapling.png",
+    "texture": "textures/objects/sapling_willow.png",
     "width": 0.77,
     "height": 0.79,
     "planes": 4,

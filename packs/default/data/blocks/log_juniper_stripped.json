@@ -2,8 +2,8 @@
   "id": "asteria:log_juniper_stripped",
   "category": "blocks_wooden",
   "textures": {
-    "top": "textures/blocks/trees/juniper/top_stripped.png",
-    "bottom": "textures/blocks/trees/juniper/top_stripped.png",
+    "top": "textures/blocks/trees/juniper/stripped.png",
+    "bottom": "textures/blocks/trees/juniper/stripped.png",
     "left": "textures/blocks/trees/juniper/stripped.png",
     "right": "textures/blocks/trees/juniper/stripped.png",
     "front": "textures/blocks/trees/juniper/stripped.png",

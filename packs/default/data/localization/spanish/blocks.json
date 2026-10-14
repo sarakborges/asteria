@@ -296,15 +296,6 @@
   "asteria:portal": {
     "/name": "Portal"
   },
-  "asteria:log_rime_deadwood": {
-    "/name": "Tronco de Madera Muerta Escarchada"
-  },
-  "asteria:log_rime_deadwood_stripped": {
-    "/name": "Tronco de Madera Muerta Escarchada Descortezado"
-  },
-  "asteria:leaf_rime_deadwood": {
-    "/name": "Hojas de Madera Muerta Escarchada"
-  },
   "asteria:lichen_rock": {
     "/name": "Liquen de Roca"
   },
@@ -457,15 +448,6 @@
   },
   "asteria:planks_juniper": {
     "/name": "Tablones de Enebro"
-  },
-  "asteria:log_rime_deadwood_hollow": {
-    "/name": "Tronco de Madera Muerta Escarchada Hueco"
-  },
-  "asteria:log_rime_deadwood_stripped_hollow": {
-    "/name": "Tronco de Madera Muerta Escarchada Hueco Descortezado"
-  },
-  "asteria:planks_rime_deadwood": {
-    "/name": "Tablones de Madera Muerta Escarchada"
   },
   "asteria:log_skywood_hollow": {
     "/name": "Tronco de Madera Celeste Hueco"

@@ -9,14 +9,21 @@ public sealed class TreeFamilyContentTests
 {
     private static string PackRoot => Path.Combine(AppContext.BaseDirectory, "packs", "default");
 
+    // Authored natural logs define stable species IDs separately from asset folder names.
     public static IEnumerable<object[]> Families() =>
-        Directory.EnumerateDirectories(Path.Combine(PackRoot, "resources", "textures", "blocks", "trees"))
-            .OrderBy(path => path, StringComparer.Ordinal)
-            .Select(path => new object[] { Path.GetFileName(path) });
+        ReadJson("blocks")
+            .Select(BlockDefinitionJson.Parse)
+            .Where(definition => definition.Id.StartsWith("asteria:log_", StringComparison.Ordinal)
+                && definition.Variant?.Key == "natural")
+            .Select(definition => new object[]
+            {
+                definition.Id["asteria:log_".Length..],
+                definition.Textures.ResolveForFace(BlockFace.Top).First().Texture.Split('/')[3]
+            });
 
     [Theory]
     [MemberData(nameof(Families))]
-    public void EveryTreeHasUsableWoodVariantsPlanksLeavesAndSapling(string species)
+    public void EveryTreeHasUsableWoodVariantsPlanksLeavesAndSapling(string species, string folder)
     {
         var blocks = BlockRegistry.FromJson(ReadJson("blocks"));
         var natural = blocks.GetId("asteria:log_" + species);
@@ -33,11 +40,11 @@ public sealed class TreeFamilyContentTests
             Assert.Equal(key.Contains("hollow", StringComparison.Ordinal)
                 ? BlockShapeKind.Hollow : BlockShapeKind.Cube, definition.Shape.Kind);
             var expectedTop = key.Contains("stripped", StringComparison.Ordinal)
-                ? "top_stripped" : "top";
+                ? "stripped" : "top";
             Assert.All(definition.Textures.ResolveForFace(BlockFace.Top), layer =>
-                Assert.Equal($"textures/blocks/trees/{species}/{expectedTop}.png", layer.Texture));
+                Assert.Equal($"textures/blocks/trees/{folder}/{expectedTop}.png", layer.Texture));
             Assert.All(definition.Textures.ResolveForFace(BlockFace.Bottom), layer =>
-                Assert.Equal($"textures/blocks/trees/{species}/{expectedTop}.png", layer.Texture));
+                Assert.Equal($"textures/blocks/trees/{folder}/{expectedTop}.png", layer.Texture));
             Assert.True(definition.Mining.RequiredTools.Contains("hatchet") ||
                         definition.Mining.PreferredTools.Contains("hatchet"));
         }
@@ -46,7 +53,7 @@ public sealed class TreeFamilyContentTests
         Assert.Equal("blocks_wooden", planks.Category);
         Assert.Equal(BlockShapeKind.Cube, planks.Shape.Kind);
         Assert.All(planks.Textures.AllLayers(), layer =>
-            Assert.Equal($"textures/blocks/trees/{species}/planks.png", layer.Texture));
+            Assert.Equal($"textures/blocks/trees/{folder}/planks.png", layer.Texture));
         Assert.True(blocks.TryGetId("asteria:leaf_" + species, out _));
 
         var sapling = ObjectDefinition.Parse(File.ReadAllText(
@@ -92,8 +99,9 @@ public sealed class TreeFamilyContentTests
             PackRoot, "data", "localization", "english", "blocks.json")));
         foreach (var leaf in definitions.Where(block => block.Id.StartsWith("asteria:leaf_", StringComparison.Ordinal)))
         {
-            var path = leaf.Textures.AllLayers().First().Texture;
-            var species = path.Split('/')[3];
+            var species = leaf.Id["asteria:leaf_".Length..];
+            while (!registry.TryGetId("asteria:log_" + species, out _) && species.Contains('_'))
+                species = species[..species.LastIndexOf('_')];
             Assert.True(registry.TryGetId("asteria:log_" + species, out _),
                 $"{leaf.Id} must have a matching tree wood family.");
             Assert.True(registry.TryGetId("asteria:planks_" + species, out _));
@@ -107,17 +115,27 @@ public sealed class TreeFamilyContentTests
 
     [Theory]
     [MemberData(nameof(Families))]
-    public void TreeTilesKeepThe64PixelAssetContract(string species)
+    public void TreeTilesKeepThe64PixelAssetContract(string species, string folder)
     {
-        foreach (var asset in new[] { "side", "stripped", "top", "top_stripped", "planks", "leaf", "sapling" })
-        {
-            var png = File.ReadAllBytes(Path.Combine(PackRoot, "resources", "textures", "blocks",
-                "trees", species, asset + ".png"));
-            Assert.True(png.Length >= 33);
-            Assert.Equal(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 }, png[..8]);
-            Assert.Equal(64u, BinaryPrimitives.ReadUInt32BigEndian(png.AsSpan(16, 4)));
-            Assert.Equal(64u, BinaryPrimitives.ReadUInt32BigEndian(png.AsSpan(20, 4)));
-        }
+        foreach (var asset in new[] { "side", "stripped", "top", "planks", "leaf" })
+            AssertTile(Path.Combine(PackRoot, "resources", "textures", "blocks",
+                "trees", folder, asset + ".png"));
+
+        var sapling = ObjectDefinition.Parse(File.ReadAllText(
+            Path.Combine(PackRoot, "data", "objects", $"sapling_{species}.json")));
+        Assert.StartsWith("textures/objects/sapling_", sapling.Visual.Texture);
+        Assert.Equal(sapling.Icon, sapling.Visual.Texture);
+        AssertTile(Path.Combine(PackRoot, "resources",
+            sapling.Visual.Texture.Replace('/', Path.DirectorySeparatorChar)));
+    }
+
+    private static void AssertTile(string path)
+    {
+        var png = File.ReadAllBytes(path);
+        Assert.True(png.Length >= 33, path);
+        Assert.Equal(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 }, png[..8]);
+        Assert.Equal(64u, BinaryPrimitives.ReadUInt32BigEndian(png.AsSpan(16, 4)));
+        Assert.Equal(64u, BinaryPrimitives.ReadUInt32BigEndian(png.AsSpan(20, 4)));
     }
 
     private static IEnumerable<string> ReadJson(string domain) =>

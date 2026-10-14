@@ -2,8 +2,8 @@
   "id": "asteria:log_thornwood_stripped_hollow",
   "category": "blocks_wooden",
   "textures": {
-    "top": "textures/blocks/trees/thornwood/top_stripped.png",
-    "bottom": "textures/blocks/trees/thornwood/top_stripped.png",
+    "top": "textures/blocks/trees/thornwood/stripped.png",
+    "bottom": "textures/blocks/trees/thornwood/stripped.png",
     "left": "textures/blocks/trees/thornwood/stripped.png",
     "right": "textures/blocks/trees/thornwood/stripped.png",
     "front": "textures/blocks/trees/thornwood/stripped.png",

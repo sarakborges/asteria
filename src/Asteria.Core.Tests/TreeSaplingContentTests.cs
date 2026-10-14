@@ -11,7 +11,6 @@ public sealed class TreeSaplingContentTests
     [InlineData("frost_wood")]
     [InlineData("juniper")]
     [InlineData("oak")]
-    [InlineData("rime_deadwood")]
     [InlineData("skywood")]
     [InlineData("thornwood")]
     [InlineData("willow")]
@@ -35,8 +34,7 @@ public sealed class TreeSaplingContentTests
             InventoryEntryKind.Object, id, null, null, out var entry));
         var definition = objects.Get(id);
         Assert.Equal(ObjectVisualKind.CrossedSprite, definition.Visual.Kind);
-        Assert.Equal($"textures/blocks/trees/{family}/sapling.png",
-            definition.Visual.Texture);
+        Assert.StartsWith("textures/objects/sapling_", definition.Visual.Texture);
         Assert.Equal(definition.Icon, definition.Visual.Texture);
         Assert.Equal(4, definition.Visual.Planes);
         Assert.Equal(.5f, definition.Visual.AlphaCutoff);

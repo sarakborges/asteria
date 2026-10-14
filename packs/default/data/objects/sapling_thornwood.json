@@ -1,13 +1,13 @@
 {
   "id": "asteria:sapling_thornwood",
   "category": "foliage",
-  "icon": "textures/blocks/trees/thornwood/sapling.png",
+  "icon": "textures/objects/sapling_thornwood.png",
   "placementFaces": [
     "top"
   ],
   "visual": {
     "type": "crossedSprite",
-    "texture": "textures/blocks/trees/thornwood/sapling.png",
+    "texture": "textures/objects/sapling_thornwood.png",
     "width": 0.76,
     "height": 0.76,
     "planes": 4,

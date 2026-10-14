@@ -1,13 +1,13 @@
 {
   "id": "asteria:sapling_juniper",
   "category": "foliage",
-  "icon": "textures/blocks/trees/juniper/sapling.png",
+  "icon": "textures/objects/sapling_juniper.png",
   "placementFaces": [
     "top"
   ],
   "visual": {
     "type": "crossedSprite",
-    "texture": "textures/blocks/trees/juniper/sapling.png",
+    "texture": "textures/objects/sapling_juniper.png",
     "width": 0.7,
     "height": 0.8,
     "planes": 4,

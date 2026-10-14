@@ -1,13 +1,13 @@
 {
   "id": "asteria:sapling_frost_wood",
   "category": "foliage",
-  "icon": "textures/blocks/trees/frost_wood/sapling.png",
+  "icon": "textures/objects/sapling_frostwood.png",
   "placementFaces": [
     "top"
   ],
   "visual": {
     "type": "crossedSprite",
-    "texture": "textures/blocks/trees/frost_wood/sapling.png",
+    "texture": "textures/objects/sapling_frostwood.png",
     "width": 0.72,
     "height": 0.82,
     "planes": 4,

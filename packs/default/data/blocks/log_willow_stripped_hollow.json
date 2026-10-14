@@ -3,8 +3,8 @@
   "category": "blocks_wooden",
   "tags": [],
   "textures": {
-    "top": "textures/blocks/trees/willow/top_stripped.png",
-    "bottom": "textures/blocks/trees/willow/top_stripped.png",
+    "top": "textures/blocks/trees/willow/stripped.png",
+    "bottom": "textures/blocks/trees/willow/stripped.png",
     "left": "textures/blocks/trees/willow/stripped.png",
     "right": "textures/blocks/trees/willow/stripped.png",
     "front": "textures/blocks/trees/willow/stripped.png",

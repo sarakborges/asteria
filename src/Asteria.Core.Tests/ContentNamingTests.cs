@@ -70,9 +70,25 @@ public sealed class ContentNamingTests
     public void TreeIdsAndVariantFamiliesFollowOakSpeciesOrder()
     {
         var data = Path.Combine(AppContext.BaseDirectory, "packs", "default", "data");
+        var treeSpeciesByFolder = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var file in Directory.EnumerateFiles(Path.Combine(data, "blocks"), "log_*.json")
+                     .OrderBy(path => path, StringComparer.Ordinal))
+        {
+            using var document = JsonDocument.Parse(File.ReadAllText(file));
+            var root = document.RootElement;
+            if (!root.TryGetProperty("variant", out var variant) ||
+                variant.GetProperty("key").GetString() != "natural")
+                continue;
+            var naturalLogPath = Strings(root).FirstOrDefault(value =>
+                value.StartsWith("textures/blocks/trees/", StringComparison.Ordinal));
+            if (naturalLogPath is null)
+                continue;
+            var species = root.GetProperty("id").GetString()!["asteria:log_".Length..];
+            Assert.True(treeSpeciesByFolder.TryAdd(naturalLogPath.Split('/')[3], species));
+        }
+
         var checkedDefinitions = 0;
-        foreach (var domain in new[] { "blocks", "objects" })
-        foreach (var file in Directory.EnumerateFiles(Path.Combine(data, domain), "*.json")
+        foreach (var file in Directory.EnumerateFiles(Path.Combine(data, "blocks"), "*.json")
                      .OrderBy(path => path, StringComparer.Ordinal))
         {
             using var document = JsonDocument.Parse(File.ReadAllText(file));
@@ -83,11 +99,12 @@ public sealed class ContentNamingTests
             if (paths.Length == 0)
                 continue;
 
-            var id = root.GetProperty("id").GetString()!;
-            var species = Assert.Single(paths.Select(path => path.Split('/')[3])
+            var folder = Assert.Single(paths.Select(path => path.Split('/')[3])
                 .Distinct(StringComparer.Ordinal));
-            var type = domain == "objects" ? "sapling" :
-                paths.Any(path => path.EndsWith("/leaf.png", StringComparison.Ordinal)) ? "leaf" :
+            Assert.True(treeSpeciesByFolder.TryGetValue(folder, out var species),
+                $"{folder} has no natural log family.");
+            var id = root.GetProperty("id").GetString()!;
+            var type = paths.Any(path => path.EndsWith("/leaf.png", StringComparison.Ordinal)) ? "leaf" :
                 paths.Any(path => path.EndsWith("/planks.png", StringComparison.Ordinal)) ? "planks" : "log";
             var expected = "asteria:" + type + "_" + species;
             Assert.True(id == expected || id.StartsWith(expected + "_", StringComparison.Ordinal),

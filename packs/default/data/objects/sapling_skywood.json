@@ -1,13 +1,13 @@
 {
   "id": "asteria:sapling_skywood",
   "category": "foliage",
-  "icon": "textures/blocks/trees/skywood/sapling.png",
+  "icon": "textures/objects/sapling_skywood.png",
   "placementFaces": [
     "top"
   ],
   "visual": {
     "type": "crossedSprite",
-    "texture": "textures/blocks/trees/skywood/sapling.png",
+    "texture": "textures/objects/sapling_skywood.png",
     "width": 0.74,
     "height": 0.79,
     "planes": 4,

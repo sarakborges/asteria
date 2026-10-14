@@ -1,13 +1,13 @@
 {
   "id": "asteria:sapling_world_tree",
   "category": "foliage",
-  "icon": "textures/blocks/trees/world_tree/sapling.png",
+  "icon": "textures/objects/sapling_world.png",
   "placementFaces": [
     "top"
   ],
   "visual": {
     "type": "crossedSprite",
-    "texture": "textures/blocks/trees/world_tree/sapling.png",
+    "texture": "textures/objects/sapling_world.png",
     "width": 0.8,
     "height": 0.84,
     "planes": 4,

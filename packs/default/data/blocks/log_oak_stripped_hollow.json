@@ -10,8 +10,8 @@
     "wallThickness": 0.0625
   },
   "textures": {
-    "top": "textures/blocks/trees/oak/top_stripped.png",
-    "bottom": "textures/blocks/trees/oak/top_stripped.png",
+    "top": "textures/blocks/trees/oak/stripped.png",
+    "bottom": "textures/blocks/trees/oak/stripped.png",
     "left": "textures/blocks/trees/oak/stripped.png",
     "right": "textures/blocks/trees/oak/stripped.png",
     "front": "textures/blocks/trees/oak/stripped.png",
