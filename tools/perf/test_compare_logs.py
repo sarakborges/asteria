@@ -28,6 +28,8 @@ class ComparisonTests(unittest.TestCase):
             self.assertIsNone(values["Terrain GPU patches"])
             self.assertIsNone(values["Seeds per lighting worker"])
             self.assertIsNone(values["Terrain salvaged meshlets"])
+            self.assertIsNone(values["Prewarmed collision shapes"])
+            self.assertIsNone(values["Emergency collision shapes"])
             self.assertIsNone(values["Fluid salvaged meshlets"])
             self.assertAlmostEqual(values["Avg frame (ms)"], 56 / 3)
 
