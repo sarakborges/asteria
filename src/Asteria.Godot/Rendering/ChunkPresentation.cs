@@ -13,6 +13,12 @@ public readonly record struct ChunkPresentationApplyStats(
 
 public sealed class ChunkPresentation
 {
+    // Store at most 2048 CPU-side light-refresh vertices per presented chunk.
+    // Large fine/sprite meshes remain correct through ordinary remeshing;
+    // this cache cannot grow unchecked with render distance or complexity.
+    private const int MaximumRelightCacheVerticesPerChunk = 2048;
+    private int _relightCacheVertexCount;
+
     private readonly MeshInstance3D?[] _meshes =
         new MeshInstance3D?[ChunkMeshletMask.Count];
     private readonly MeshInstance3D?[] _fluidMeshes =
@@ -358,12 +364,18 @@ public sealed class ChunkPresentation
         // Replacing an already-published geometry snapshot invalidates its
         // old cached light bindings. New cache is immutable and bounded to
         // this presentation's lifetime.
+        _relightCacheVertexCount -=
+            _relightableGeometry[meshletIndex]?.RenderVertexCount ?? 0;
+        var retainForRelighting =
+            data.CanRelightWithoutRemesh && data.HasRenderGeometry &&
+            data.RenderVertexCount <=
+                MaximumRelightCacheVerticesPerChunk - _relightCacheVertexCount;
         _relightableGeometry[meshletIndex] =
-            data.CanRelightWithoutRemesh && data.HasRenderGeometry
-                ? data
-                : null;
+            retainForRelighting ? data : null;
+        if (retainForRelighting)
+            _relightCacheVertexCount += data.RenderVertexCount;
         _relightableDependencies[meshletIndex] =
-            _relightableGeometry[meshletIndex] is null ? null : dependencies;
+            retainForRelighting ? dependencies : null;
 
         var renderMilliseconds = Stopwatch.GetElapsedTime(
             renderStart).TotalMilliseconds;
