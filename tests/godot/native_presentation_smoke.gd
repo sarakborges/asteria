@@ -131,6 +131,19 @@ func _run() -> void:
 		if skin_smoke != null:
 			skin_smoke.free()
 
+	# Native HUD target snapshots: source fluid, stable repeat and clear.
+	var fluid_smoke_script := ResourceLoader.load("res://tests/godot/TargetFluidHudSmoke.cs")
+	if fluid_smoke_script == null:
+		push_error("Native smoke: fluid target HUD test script missing")
+		failed = true
+	else:
+		var fluid_smoke: Node = fluid_smoke_script.new()
+		if fluid_smoke == null or not fluid_smoke.call("Verify"):
+			push_error("Native smoke: fluid target HUD snapshots failed")
+			failed = true
+		if fluid_smoke != null:
+			fluid_smoke.free()
+
 	# Inventory and HUD must reuse the canonical 3D voxel rasterizer.
 	# A texture-only CSS cube is not sufficient for rotated/tinted faces.
 	var icon_smoke_script := ResourceLoader.load("res://tests/godot/InventoryVoxelIconSmoke.cs")
