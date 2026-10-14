@@ -19,6 +19,9 @@ public readonly record struct ChunkMeshletMask(byte Bits)
     public ChunkMeshletMask Union(ChunkMeshletMask other) =>
         new((byte)(Bits | other.Bits));
 
+    public ChunkMeshletMask Intersect(ChunkMeshletMask other) =>
+        new((byte)(Bits & other.Bits));
+
     public ChunkMeshletMask Except(
         ChunkMeshletMask other) =>
         new(

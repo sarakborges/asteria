@@ -145,17 +145,26 @@ public sealed class LightingResultIntegrator
             if (!_world.TryGetChunk(coord, out var chunk))
                 continue;
 
-            if (!chunk.HasTerrainContent && !chunk.HasFluidContent)
+            // Light affects only meshlets containing actual geometry.
+            // A halo hit in an empty meshlet must not create a mesh build.
+            var terrainMask = chunk.HasTerrainContent
+                ? mask.Intersect(chunk.OccupiedTerrainMeshlets())
+                : ChunkMeshletMask.None;
+            var fluidMask = chunk.HasFluidContent
+                ? mask.Intersect(chunk.OccupiedFluidMeshlets())
+                : ChunkMeshletMask.None;
+
+            if (terrainMask.IsEmpty && fluidMask.IsEmpty)
                 continue;
 
-            if (chunk.HasTerrainContent)
-                _worldUpdates.EnqueueMeshlets(coord, mask);
+            if (!terrainMask.IsEmpty)
+                _worldUpdates.EnqueueMeshlets(coord, terrainMask);
 
-            if (chunk.HasFluidContent)
-                _fluidMeshUpdates.EnqueueMeshlets(coord, mask);
+            if (!fluidMask.IsEmpty)
+                _fluidMeshUpdates.EnqueueMeshlets(coord, fluidMask);
 
             dirtyChunks++;
-            dirtyMeshlets += mask.SelectedCount;
+            dirtyMeshlets += terrainMask.Union(fluidMask).SelectedCount;
         }
 
         return new LightingIntegrationResult(

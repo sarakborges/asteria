@@ -223,4 +223,37 @@ public sealed class IncrementalVoxelWorldLightingTests
             update.ChangedPositions,
             position => position.X >= 64);
     }
+    [Fact]
+    public void RelightChangesStayGroupedByChunkForBoundedMeshPublication()
+    {
+        var blocks = new BlockRegistry([
+            new BlockDefinition("asteria:lamp",
+                lightDampening: 0,
+                lightEmission: new BlockLightEmission(15, 0, 0)),
+        ]);
+        var fluids = new FluidRegistry([]);
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, new Chunk());
+        world.InsertChunk(new ChunkCoord(1, 0, 0), new Chunk());
+        var lamp = blocks.GetId("asteria:lamp");
+        var left = new WorldVoxelCoord(4, 4, 4);
+        var right = new WorldVoxelCoord(20, 4, 4);
+        world.SetBlockAt(left, lamp, out _);
+        world.SetBlockAt(right, lamp, out _);
+        VoxelWorldLightingSolver.Initialize(world, blocks, fluids);
+
+        world.SetBlockAt(left, BlockRuntimeId.Air, out _);
+        world.SetBlockAt(right, BlockRuntimeId.Air, out _);
+        var changed = VoxelWorldLightingSolver.RelightAfterEdits(
+            world, blocks, fluids, [left, right]).ChangedPositions;
+        var chunks = changed.Select(position =>
+            VoxelCoordinates.FromWorld(
+                position.X, position.Y, position.Z).Chunk).ToArray();
+        Assert.Contains(ChunkCoord.Zero, chunks);
+        Assert.Contains(new ChunkCoord(1, 0, 0), chunks);
+        var transitions = chunks.Where((chunk, index) =>
+            index == 0 || chunk != chunks[index - 1]).ToArray();
+        Assert.Equal(chunks.Distinct().ToArray(), transitions);
+    }
+
 }

@@ -79,10 +79,20 @@ public static class VoxelWorldLightingSolver
         return new VoxelLightingUpdateResult(
             originals
                 .Where(entry => world.GetLightOrDark(entry.Key) != entry.Value)
-                .Select(entry => entry.Key)
-                .OrderBy(position => position.Y)
-                .ThenBy(position => position.Z)
-                .ThenBy(position => position.X)
+                // A bounded publication slice should finish nearby meshlets
+                // before moving to the next chunk. Global voxel ordering
+                // repeatedly invalidated the same meshlets across slices.
+                .Select(entry => (
+                    Position: entry.Key,
+                    Chunk: VoxelCoordinates.FromWorld(
+                        entry.Key.X, entry.Key.Y, entry.Key.Z).Chunk))
+                .OrderBy(entry => entry.Chunk.Y)
+                .ThenBy(entry => entry.Chunk.Z)
+                .ThenBy(entry => entry.Chunk.X)
+                .ThenBy(entry => entry.Position.Y)
+                .ThenBy(entry => entry.Position.Z)
+                .ThenBy(entry => entry.Position.X)
+                .Select(entry => entry.Position)
                 .ToArray(),
             processed);
     }

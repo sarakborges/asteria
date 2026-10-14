@@ -72,6 +72,7 @@ public sealed class LightingMeshSchedulingTests
         var world = new VoxelWorld();
         var chunk = new Chunk();
         chunk.SetBlock(2, 2, 2, blocks.GetId("asteria:stone"));
+        chunk.SetBlock(12, 2, 2, blocks.GetId("asteria:stone"));
         world.InsertChunk(ChunkCoord.Zero, chunk);
         var terrain = new WorldUpdateQueue();
         var integrator = new LightingResultIntegrator(
@@ -200,4 +201,75 @@ public sealed class LightingMeshSchedulingTests
         Assert.True(
             fluid.HasWork);
     }
+    [Fact]
+    public void LightingRefreshSkipsEmptyMeshletsInAnOtherwiseOccupiedChunk()
+    {
+        var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);
+        var chunk = new Chunk();
+        chunk.SetBlock(2, 2, 2, blocks.GetId("asteria:stone"));
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, chunk);
+        var terrain = new WorldUpdateQueue();
+        var fluid = new FluidMeshUpdateQueue();
+        var integrator = new LightingResultIntegrator(world, terrain, fluid);
+
+        var result = integrator.Apply(
+            world.CloneForWorker(), [new WorldVoxelCoord(12, 12, 12)]);
+
+        Assert.Equal(0, result.DirtyChunkCount);
+        Assert.Equal(0, result.DirtyMeshletCount);
+        Assert.False(terrain.HasMeshWork);
+        Assert.False(fluid.HasWork);
+    }
+
+    [Fact]
+    public void LightingRefreshQueuesOnlyOccupiedTerrainAndFluidMeshlets()
+    {
+        var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);
+        var fluids = new FluidRegistry([
+            new FluidDefinition("asteria:water",
+                new FluidColor(64, 96, 255), opacity: 0.7f),
+        ]);
+        var chunk = new Chunk();
+        chunk.SetBlock(2, 2, 2, blocks.GetId("asteria:stone"));
+        chunk.SetFluid(12, 12, 12, FluidCell.Source(fluids.GetId("asteria:water")));
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, chunk);
+        var terrain = new WorldUpdateQueue();
+        var fluid = new FluidMeshUpdateQueue();
+        var integrator = new LightingResultIntegrator(world, terrain, fluid);
+
+        var result = integrator.Apply(world.CloneForWorker(), [
+            new WorldVoxelCoord(2, 2, 2),
+            new WorldVoxelCoord(12, 12, 12),
+        ]);
+
+        Assert.Equal(1, result.DirtyChunkCount);
+        Assert.Equal(2, result.DirtyMeshletCount);
+        Assert.Equal(ChunkMeshletMask.Single(0),
+            terrain.DrainBackgroundMeshlets().DirtyMeshlets[ChunkCoord.Zero]);
+        Assert.Equal(ChunkMeshletMask.Single(7),
+            fluid.Drain().DirtyMeshlets[ChunkCoord.Zero]);
+    }
+
+    [Fact]
+    public void LightingHaloStillSchedulesAdjacentOccupiedMeshlet()
+    {
+        var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);
+        var chunk = new Chunk();
+        chunk.SetBlock(8, 2, 2, blocks.GetId("asteria:stone"));
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, chunk);
+        var terrain = new WorldUpdateQueue();
+        var integrator = new LightingResultIntegrator(
+            world, terrain, new FluidMeshUpdateQueue());
+
+        var result = integrator.Apply(
+            world.CloneForWorker(), [new WorldVoxelCoord(7, 2, 2)]);
+
+        Assert.Equal(1, result.DirtyMeshletCount);
+        Assert.Equal(ChunkMeshletMask.Single(1),
+            terrain.DrainBackgroundMeshlets().DirtyMeshlets[ChunkCoord.Zero]);
+    }
+
 }
