@@ -145,12 +145,11 @@ public sealed class SaplingGrowthRuntimeTests
             Docs("objects"), ObjectDefinition.Parse, obj => obj.Id);
         var structures = StructureRegistry.FromJson(Docs("structures"));
         var blocks = BlockRegistry.FromJson(Docs("blocks"));
-        foreach (var species in new[] {
-            "charwood", "enchanted_tree", "frost_wood", "juniper", "oak",
-            "rime_deadwood", "skywood", "thornwood", "willow", "windwood", "world_tree"
-        })
+        foreach (var file in Directory.EnumerateFiles(
+                     Path.Combine(root, "objects"), "sapling_*.json")
+                 .OrderBy(path => path, StringComparer.Ordinal))
         {
-            var sapling = objects.Get("asteria:sapling_" + species);
+            var sapling = objects.Get("asteria:" + Path.GetFileNameWithoutExtension(file));
             Assert.NotNull(sapling.GrowthStructure);
             var variants = structures.ResolveReference(sapling.GrowthStructure!);
             Assert.NotEmpty(variants);
