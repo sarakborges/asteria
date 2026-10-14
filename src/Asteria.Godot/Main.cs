@@ -711,7 +711,7 @@ public partial class Main : Node3D
             WorldFrameStage.LightingPoll, stageStart);
 
         stageStart = Stopwatch.GetTimestamp();
-        DispatchOneWorldWorker(streamingPressure.IsPressured);
+        DispatchOneWorldWorker(streamingPressure.IsPressured, streamingCenter);
         _worldDiagnostics?.ObserveStage(
             WorldFrameStage.WorkerDispatch, stageStart);
 
@@ -5672,7 +5672,8 @@ public partial class Main : Node3D
         }
     }
 
-    private void DispatchOneWorldWorker(bool underStreamingPressure)
+    private void DispatchOneWorldWorker(
+        bool underStreamingPressure, ChunkCoord center)
     {
         // A worker captures its immutable neighborhood synchronously.
         // Start at most one snapshot per frame and rotate across owners.
@@ -5682,7 +5683,8 @@ public partial class Main : Node3D
             var started = lane switch
             {
                 0 => _fluidSimulationRuntime.TryStartReadyWork(),
-                1 => _terrainMeshPipeline.TryStartReadyWork(underStreamingPressure),
+                1 => _terrainMeshPipeline.TryStartReadyWork(
+                    underStreamingPressure, center, _residency.MovementDirection),
                 2 => _lightingRuntime.TryStartReadyWork(),
                 _ => _fluidMeshPipeline.TryStartReadyWork(),
             };

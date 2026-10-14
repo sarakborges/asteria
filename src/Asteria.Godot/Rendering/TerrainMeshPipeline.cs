@@ -91,7 +91,10 @@ public sealed class TerrainMeshPipeline
         _acceptingWork = false;
     }
 
-    public bool TryStartReadyWork(bool underStreamingPressure = false)
+    public bool TryStartReadyWork(
+        bool underStreamingPressure = false,
+        ChunkCoord? center = null,
+        ChunkMovementDirection movement = default)
     {
         if (!_acceptingWork)
         {
@@ -117,7 +120,8 @@ public sealed class TerrainMeshPipeline
         var started = _preferInteractive
             ? TryStartLane(
                   _interactiveWorker, ref _interactiveInFlightBatch,
-                  priority: true, _maximumInteractiveMeshletsPerWorker) ||
+                  priority: true, _maximumInteractiveMeshletsPerWorker,
+                  center, movement) ||
               (mayStartBackground && TryStartLane(
                   _backgroundWorker, ref _backgroundInFlightBatch,
                   priority: false, _maximumBackgroundMeshletsPerWorker))
@@ -126,7 +130,8 @@ public sealed class TerrainMeshPipeline
                   priority: false, _maximumBackgroundMeshletsPerWorker)) ||
               TryStartLane(
                   _interactiveWorker, ref _interactiveInFlightBatch,
-                  priority: true, _maximumInteractiveMeshletsPerWorker);
+                  priority: true, _maximumInteractiveMeshletsPerWorker,
+                  center, movement);
 
         if (started)
             _preferInteractive = !_preferInteractive;
@@ -166,7 +171,9 @@ public sealed class TerrainMeshPipeline
         TerrainMeshWorker worker,
         ref WorldMeshBatch? inFlightBatch,
         bool priority,
-        int maximumMeshlets)
+        int maximumMeshlets,
+        ChunkCoord? center = null,
+        ChunkMovementDirection movement = default)
     {
         if (worker.IsRunning ||
             !(priority
@@ -179,7 +186,7 @@ public sealed class TerrainMeshPipeline
         var drained =
             priority
                 ? _updates.DrainPriorityMeshlets(
-                    maximumMeshlets)
+                    maximumMeshlets, center, movement)
                 : _updates.DrainBackgroundMeshlets(
                     maximumMeshlets);
 

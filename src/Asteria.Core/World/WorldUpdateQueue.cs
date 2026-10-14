@@ -277,10 +277,21 @@ public sealed class WorldUpdateQueue
     }
 
     public WorldMeshBatch DrainPriorityMeshlets(
-        int maximumMeshlets = int.MaxValue) =>
-        DrainMeshletLane(
-            _priorityMeshlets,
-            maximumMeshlets);
+        int maximumMeshlets = int.MaxValue,
+        ChunkCoord? center = null,
+        ChunkMovementDirection movement = default)
+    {
+        if (center is null)
+            return DrainMeshletLane(_priorityMeshlets, maximumMeshlets);
+        if (maximumMeshlets <= 0)
+            throw new ArgumentOutOfRangeException(nameof(maximumMeshlets));
+
+        var selected = new Dictionary<ChunkCoord, ChunkMeshletMask>();
+        var remaining = maximumMeshlets;
+        MeshletMaskQueueDrain.DrainNearest(
+            _priorityMeshlets, selected, ref remaining, center.Value, movement);
+        return new WorldMeshBatch(selected);
+    }
 
     public WorldMeshBatch DrainBackgroundMeshlets(
         int maximumMeshlets = int.MaxValue) =>

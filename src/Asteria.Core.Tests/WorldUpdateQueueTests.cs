@@ -5,6 +5,38 @@ namespace Asteria.Core.Tests;
 public sealed class WorldUpdateQueueTests
 {
     [Fact]
+    public void InteractiveDrainChoosesNearestChunkBeforeCoordinateOrder()
+    {
+        var queue = new WorldUpdateQueue();
+        var near = new ChunkCoord(101, 0, 100);
+        var distant = ChunkCoord.Zero;
+        queue.EnqueuePriorityMeshlets(distant, ChunkMeshletMask.Single(0));
+        queue.EnqueuePriorityMeshlets(near, ChunkMeshletMask.Single(2));
+
+        Assert.Equal(near, Assert.Single(queue.DrainPriorityMeshlets(
+            maximumMeshlets: 1, center: new ChunkCoord(100, 0, 100))
+            .DirtyMeshlets).Key);
+        Assert.Equal(distant, Assert.Single(queue.DrainPriorityMeshlets(
+            maximumMeshlets: 1).DirtyMeshlets).Key);
+    }
+
+    [Fact]
+    public void InteractiveDrainUsesDirectionToBreakDistanceTies()
+    {
+        var queue = new WorldUpdateQueue();
+        var left = new ChunkCoord(-1, 0, 0);
+        var right = new ChunkCoord(1, 0, 0);
+        queue.EnqueuePriorityMeshlets(left, ChunkMeshletMask.Single(0));
+        queue.EnqueuePriorityMeshlets(right, ChunkMeshletMask.Single(0));
+
+        Assert.Equal(right, Assert.Single(queue.DrainPriorityMeshlets(
+            1, ChunkCoord.Zero, new ChunkMovementDirection(1, 0))
+            .DirtyMeshlets).Key);
+        Assert.Equal(left, Assert.Single(queue.DrainPriorityMeshlets(
+            1, ChunkCoord.Zero).DirtyMeshlets).Key);
+    }
+
+    [Fact]
     public void DenseLightingInvalidationSaturatesTheChunkMeshletMask()
     {
         var world = new VoxelWorld();
