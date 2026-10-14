@@ -31,9 +31,9 @@ packs/
       assets/
 ```
 
-The built-in startup pack is `packs/default/`.
+The built-in startup pack is `packs/default/` in the source tree. Release builds embed it inside the managed client assembly; the game never ships it as a loose external pack directory.
 
-Runtime selection is represented by one `PackSelection` value. The initial value is `default`; future import/selection UI may change it without changing individual content loaders.
+Runtime selection is represented by one `PackSelection` value. `default` is the always-enabled base. The start-screen Packs menu persists zero or more ordered external overlays with independent `Data`, `Resources`, or `Both` scope for the next launch.
 
 ### Texture asset layout
 
@@ -66,7 +66,7 @@ External packs must never require:
 
 Built-in packs follow the same rule as external packs: Godot-generated sidecars and import metadata are forbidden inside `packs/`. The repository root contains `packs/.gdignore`, so Godot must not scan or import pack contents. Runtime pack loaders resolve validated pack-relative paths and read authored files directly from the filesystem; rendering adapters create runtime Godot resources from those decoded files when needed.
 
-Because Godot intentionally excludes `.gdignore` trees from normal resource export, desktop/release packaging must ship the selected pack tree as ordinary files rather than relying on the PCK resource importer. This is deliberate: Asteria packs remain externally inspectable/selectable content, not compiled Godot resources.
+Because Godot excludes `.gdignore` trees from its normal resource export, the **built-in default** is embedded as .NET assembly resources (and materialized on demand in an internal runtime cache for path-only decoders). No default folder is shipped loose beside exported executables. External packs remain plain inspectable user-data directories, never PCK/ResourceLoader sources. See [docs/MODDING.md](docs/MODDING.md) for installation and selection.
 
 ## 3. Manifest
 
@@ -93,7 +93,7 @@ Each pack has one manifest at `packs/{name}/pack.json`:
 
 `data/` owns declarative gameplay/content definitions.
 
-Definitions may add or override namespaced blocks, fluids, biomes, structures, recipes, loot, dimensions and future definition-driven systems.
+Definitions may add or override namespaced blocks, fluids, biomes, structures, recipes, loot, dimensions and future definition-driven systems. Overlay JSON objects merge by namespaced `id` in explicit pack order. `{"id":"asteria:dirt","enabled":false}` removes that definition from the composed registry input. Remaining references to disabled content must be corrected by higher-priority overrides; Asteria does not silently rewrite references.
 
 Dimensions live under `data/dimensions/*.json`. A dimension is one authored world-runtime configuration; in-game, dimensions are called **Spheres**. It declares its stable ID, explicit `surfaceBiomes` and optional `volumeBiomes` pools, sea level, gravity strength, spawn coordinates, optional Sphere Shell bounds and engine-agnostic environment presentation values. Surface-terrain heights are authored as offsets relative to that dimension sea level rather than baking an absolute world height into each biome. A root world seed is not duplicated into the pack; runtime derives a stable per-dimension seed from the world seed + dimension ID.
 
