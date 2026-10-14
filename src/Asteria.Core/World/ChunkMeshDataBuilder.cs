@@ -58,6 +58,7 @@ public static class ChunkMeshDataBuilder
         // The fine-geometry decision depends on the immutable worker snapshot.
         // Reuse it in all six greedy face passes rather than re-reading six
         // neighbors for every occupied voxel on every face.
+        var hasMergedFaces = false;
         var fineMeshing = new bool[
             ChunkMeshletMask.Edge *
             ChunkMeshletMask.Edge *
@@ -155,7 +156,8 @@ public static class ChunkMeshDataBuilder
         if (selectedLayer is null)
             EmitGreedyCubeFaces(
                 surfaces, collision, world, coord, blocks, textures,
-                bounds, tintSamples, dyes, fineMeshing, meshletIndex);
+                bounds, tintSamples, dyes, fineMeshing, meshletIndex,
+                ref hasMergedFaces);
 
         EmitAttachedLayers(
             surfaces, collision, world, blocks, textures,
@@ -173,7 +175,8 @@ public static class ChunkMeshDataBuilder
 
         return new ChunkMeshData(
             batches,
-            collision.ToArray());
+            collision.ToArray(),
+            CanRelightWithoutRemesh: !hasMergedFaces);
     }
 
     private static void EmitGreedyCubeFaces(
@@ -193,7 +196,8 @@ public static class ChunkMeshDataBuilder
         BiomeTintSampleGrid? tintSamples,
         DyeRegistry? dyes,
         bool[] fineMeshing,
-        int meshletIndex)
+        int meshletIndex,
+        ref bool hasMergedFaces)
     {
         var chunk = world.GetChunk(coord);
         VoxelMeshLighting.SamplingGrid? lightingGrid = null;
@@ -330,7 +334,8 @@ public static class ChunkMeshDataBuilder
                     candidates,
                     originX,
                     originZ,
-                    tintSamples);
+                    tintSamples,
+                    ref hasMergedFaces);
             }
         }
     }
@@ -344,7 +349,8 @@ public static class ChunkMeshDataBuilder
         GreedyCubeFace?[] candidates,
         int worldOriginX,
         int worldOriginZ,
-        BiomeTintSampleGrid? tintSamples)
+        BiomeTintSampleGrid? tintSamples,
+        ref bool hasMergedFaces)
     {
         var planeWidth =
             plane.UMaxExclusive - plane.UMin;
@@ -420,6 +426,9 @@ public static class ChunkMeshDataBuilder
                     }
                 }
 
+                if (rectangleWidth > 1 || rectangleHeight > 1)
+                    hasMergedFaces = true;
+
                 EmitCubeRectangle(
                     GetSurface(
                         surfaces,
@@ -491,7 +500,11 @@ public static class ChunkMeshDataBuilder
             useAbsoluteUv: true,
             worldOriginX: worldOriginX,
             worldOriginZ: worldOriginZ,
-            tintSamples: tintSamples);
+            tintSamples: tintSamples,
+            lightOrigin: new LocalVoxelCoord(
+                PlanePosition(face, depth, u, v).X,
+                PlanePosition(face, depth, u, v).Y,
+                PlanePosition(face, depth, u, v).Z));
     }
 
     private static int MeshletVoxelIndex(int x, int y, int z)
@@ -968,14 +981,16 @@ public static class ChunkMeshDataBuilder
                 SpriteFrontOrder,
                 encodedLayers,
                 tint,
-                lighting);
+                lighting,
+                new LocalVoxelCoord(blockX, blockY, blockZ));
             EmitSpriteSide(
                 surface,
                 positions,
                 SpriteBackOrder,
                 encodedLayers,
                 tint,
-                lighting);
+                lighting,
+                new LocalVoxelCoord(blockX, blockY, blockZ));
         }
     }
 
@@ -1020,10 +1035,12 @@ public static class ChunkMeshDataBuilder
         positions[3] = new(centerX + halfWidth, topY, centerZ - halfWidth);
         EmitSpriteSide(
             surface, positions, SpriteFrontOrder,
-            encodedLayers, tint, lighting);
+            encodedLayers, tint, lighting,
+            new LocalVoxelCoord(blockX, blockY, blockZ));
         EmitSpriteSide(
             surface, positions, SpriteBackOrder,
-            encodedLayers, tint, lighting);
+            encodedLayers, tint, lighting,
+            new LocalVoxelCoord(blockX, blockY, blockZ));
     }
 
     private static void EmitSpriteSide(
@@ -1032,7 +1049,8 @@ public static class ChunkMeshDataBuilder
         IReadOnlyList<int> triangleOrder,
         Vector2 encodedLayers,
         Vector3 tint,
-        VoxelFaceLighting lighting)
+        VoxelFaceLighting lighting,
+        LocalVoxelCoord source)
     {
         foreach (var index in triangleOrder)
         {
@@ -1054,7 +1072,8 @@ public static class ChunkMeshDataBuilder
                         vertexLighting.Sky,
                         vertexLighting.BlockRed,
                         vertexLighting.BlockGreen,
-                        vertexLighting.BlockBlue)));
+                        vertexLighting.BlockBlue),
+                    new ChunkMeshLightSample(source, BlockFace.Top, (byte)index)));
         }
     }
 
@@ -1641,8 +1660,13 @@ public static class ChunkMeshDataBuilder
         int worldOriginX = 0,
         int worldOriginZ = 0,
         BiomeTintSampleGrid? tintSamples = null,
-        float normalOffset = 0f)
+        float normalOffset = 0f,
+        LocalVoxelCoord? lightOrigin = null)
     {
+        var source = lightOrigin ?? new LocalVoxelCoord(
+            (int)MathF.Floor(uvOrigin.X),
+            (int)MathF.Floor(uvOrigin.Y),
+            (int)MathF.Floor(uvOrigin.Z));
         var triangleOrder =
             lighting.ShouldFlipDiagonal
                 ? FlippedTriangleOrder
@@ -1688,7 +1712,8 @@ public static class ChunkMeshDataBuilder
                         vertexLighting.Sky,
                         vertexLighting.BlockRed,
                         vertexLighting.BlockGreen,
-                        vertexLighting.BlockBlue)));
+                        vertexLighting.BlockBlue),
+                    new ChunkMeshLightSample(source, face, (byte)index)));
 
             if (isCollidable)
             {

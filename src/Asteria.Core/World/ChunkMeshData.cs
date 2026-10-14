@@ -15,13 +15,21 @@ public readonly record struct TerrainRenderBatch(
     }
 }
 
+// Immutable per-vertex provenance of the voxel face sampled for lighting.
+// Coordinates are local to the owning chunk, not live-world references.
+public readonly record struct ChunkMeshLightSample(
+    LocalVoxelCoord Source,
+    BlockFace Face,
+    byte Corner);
+
 public readonly record struct ChunkMeshVertex(
     Vector3 Position,
     Vector3 Normal,
     Vector2 Uv,
     Vector2 EncodedTextureLayers,
     Vector4 TintAndAo,
-    Vector4 VoxelLight);
+    Vector4 VoxelLight,
+    ChunkMeshLightSample LightSample = default);
 
 public sealed record ChunkRenderBatchData(
     TerrainRenderBatch Batch,
@@ -32,7 +40,8 @@ public sealed record ChunkRenderBatchData(
 
 public sealed record ChunkMeshData(
     ChunkRenderBatchData[] RenderBatches,
-    Vector3[] CollisionFaces)
+    Vector3[] CollisionFaces,
+    bool CanRelightWithoutRemesh = false)
 {
     public int TriangleCount =>
         RenderBatches.Sum(batch => batch.TriangleCount);
