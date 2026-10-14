@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
-using System.Numerics;
+using Vector2 = System.Numerics.Vector2;
+using Vector4 = System.Numerics.Vector4;
 using Asteria.Core.World;
 using Godot;
 
