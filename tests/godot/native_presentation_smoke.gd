@@ -125,7 +125,7 @@ func _run() -> void:
 		failed = true
 	else:
 		var skin_smoke: Node = skin_smoke_script.new()
-		if skin_smoke == null or not skin_smoke.call("verify"):
+		if skin_smoke == null or not skin_smoke.call("Verify"):
 			push_error("Native smoke: player skin factory is not rendering-ready")
 			failed = true
 		if skin_smoke != null:
