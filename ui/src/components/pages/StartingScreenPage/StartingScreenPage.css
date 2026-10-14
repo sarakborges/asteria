@@ -37,8 +37,23 @@
   filter: drop-shadow(0 6px 22px rgb(0 0 0 / 45%));
 }
 
-.starting-screen__button {
+.starting-screen__actions {
+  display: flex;
+  flex-direction: column;
   width: min(var(--ui-menu-button-width), 100%);
+  gap: 11px;
+}
+
+.starting-screen__button-row {
+  display: grid;
+  width: 100%;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 11px;
+}
+
+.starting-screen__button {
+  min-width: 0;
+  width: 100%;
 }
 
 @media (max-height: 600px) {

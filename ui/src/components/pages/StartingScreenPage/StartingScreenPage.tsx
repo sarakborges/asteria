@@ -38,37 +38,51 @@ export function StartingScreenPage({
           <img src={logoUrl} alt="Asteria" className="starting-screen__logo" />
         </div>
 
-        <Button
-          label={t("starting.play")}
-          variant="primary"
-          size="menu"
-          className="starting-screen__button"
-          onClick={onPlay}
-        />
-        <Button label={t("addons.mods")} size="menu"
-          className="starting-screen__button" onClick={onMods} />
-        <Button label={t("addons.packs")} size="menu"
-          className="starting-screen__button" onClick={onPacks} />
-        <Button
-          label={t("common.settings")}
-          size="menu"
-          className="starting-screen__button"
-          disabled={!settingsAvailable}
-          onClick={onSettings}
-        />
-        <Button
-          label={t("starting.controls")}
-          size="menu"
-          className="starting-screen__button"
-          disabled={!controlsAvailable}
-          onClick={onControls}
-        />
-        <Button
-          label={t("common.exitGame")}
-          size="menu"
-          className="starting-screen__button"
-          onClick={onExit}
-        />
+        <div className="starting-screen__actions">
+          <Button
+            label={t("starting.play")}
+            variant="primary"
+            size="menu"
+            className="starting-screen__button"
+            onClick={onPlay}
+          />
+          <div className="starting-screen__button-row">
+            <Button
+              label={t("common.settings")}
+              size="menu"
+              className="starting-screen__button"
+              disabled={!settingsAvailable}
+              onClick={onSettings}
+            />
+            <Button
+              label={t("starting.controls")}
+              size="menu"
+              className="starting-screen__button"
+              disabled={!controlsAvailable}
+              onClick={onControls}
+            />
+          </div>
+          <div className="starting-screen__button-row">
+            <Button
+              label={t("addons.packs")}
+              size="menu"
+              className="starting-screen__button"
+              onClick={onPacks}
+            />
+            <Button
+              label={t("addons.mods")}
+              size="menu"
+              className="starting-screen__button"
+              onClick={onMods}
+            />
+          </div>
+          <Button
+            label={t("common.exitGame")}
+            size="menu"
+            className="starting-screen__button"
+            onClick={onExit}
+          />
+        </div>
       </section>
     </main>
   );
