@@ -2,7 +2,7 @@
 
 **Reconciled:** 2026-10-14. **Asteria `main` baseline:** [`fd28b67b2`](https://github.com/sarakborges/asteria/commit/fd28b67b252bcb26195fcfa10c9cb5f46032ae09) (the preceding content commit changes tree textures, not port systems). **MineClone references:** [`main` `a4e9d00`](https://github.com/sarakborges/mineclone/commit/a4e9d00dafd384ae0086e30f684c1ae85d1f64c7) and [`world-systems-rebuild` `e8bc856`](https://github.com/sarakborges/mineclone/commit/e8bc8562abc22eb4a54561c1e7afe8cc086e3dd9).
 
-**Current verdict (updated after movement comparison): gameplay subsystems have largely been ported, but source-confirmed movement-behavior differences remain; full MineClone parity is not signed off.** This is **not** a claim of bug-free play, perfect visual fidelity, or successful side-by-side Godot/WRY playtesting. Before describing any feature as missing, recheck the actual HEAD, subsequent fixes, implementation path, and reference behavior. A dated audit is not a work queue.
+**Current verdict (updated by deep audit): gameplay subsystems have largely been ported, but one confirmed grass-fiber loot gap and multiple source-confirmed movement-behavior differences remain; full MineClone parity is not signed off.** This is **not** a claim of bug-free play, perfect visual fidelity, or successful side-by-side Godot/WRY playtesting. Before describing any feature as missing, recheck the actual HEAD, subsequent fixes, implementation path, and reference behavior. A dated audit is not a work queue.
 
 The previous version of this file was an October 9 status snapshot with chronological notes appended through October 14. Consequently, early `P0`/`P1` rows continued to say **partial/missing** after later commits finished their implementation. That version remains recoverable through Git history; its obsolete priority queue is intentionally not repeated here.
 
@@ -49,6 +49,10 @@ Commit IDs are breadcrumbs to subsequent source changes, not proof that all list
 2. **Movement speeds:** corrected to MineClone's `WALK_SPEED = 5.0`, `JUMP_SPEED = 7.0`, run `7.5` and flight `25.0` in `PlayerMovementSpeeds` and `FpsPlayer`. Sprint/crouch multipliers were already matched. These numerical constants do **not** establish full movement-behavior parity.
 3. **UI composition:** Asteria intentionally keeps Winky Rough Variable, separate Controls page, inventory above crafting, Sphere/biome HUD labels and a Godot-owned underwater overlay. These are not "missing" implementations.
 4. **Saving policy:** Asteria deliberately saves on exit/leave, not via automatic saves or an independent Save World button. Do not reintroduce unsupported save actions to mimic stale UI audit notes.
+
+## Deep cross-system source audit — 2026-10-14
+
+The [deep parity audit](MINECLONE_DEEP_PARITY_AUDIT_2026-10-14.md) verified **one Survival content drop gap** (`grass` lacks MineClone's 20% plant-fiber loot), plus **movement semantic differences** (held-jump re-trigger, flight acceleration, swimming buoyancy/speed, stair stepping, fall terminal speed and collider dimensions). It cross-checked all **20** source creature definition files without finding missing original fields. Other Object light/shadow and water presentation parameter differences may be intentional and require explicit product/visual acceptance. **The port is not yet behaviorally signed off.** Complete already-ported systems must not be reopened as missing.
 
 ## Source-confirmed differences requiring deeper parity analysis
 
