@@ -6,6 +6,27 @@ namespace Asteria.Core.Tests;
 public sealed class ChunkMeshDataBuilderTests
 {
     [Fact]
+    public void LightSamplingProvenanceFitsWithinCompactChunkLocalEncoding()
+    {
+        foreach (var face in Enum.GetValues<BlockFace>())
+        for (byte corner = 0; corner < 4; corner++)
+        {
+            var local = new LocalVoxelCoord(15, 14, 13);
+            var sample = new ChunkMeshLightSample(local, face, corner);
+            Assert.Equal(local, sample.Source);
+            Assert.Equal(face, sample.Face);
+            Assert.Equal(corner, sample.Corner);
+        }
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new ChunkMeshLightSample(new LocalVoxelCoord(16, 0, 0),
+                BlockFace.Top, 0));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new ChunkMeshLightSample(new LocalVoxelCoord(0, 0, 0),
+                BlockFace.Top, 4));
+    }
+
+    [Fact]
     public void VertexOnlyLightingMatchesFreshCubeMeshAndReusesCollisionFaces()
     {
         const string texture = "textures/test/stone.png";
