@@ -222,7 +222,8 @@ public partial class Main : Node3D
             _clientSettings);
         _packSettings = new PackSelectionStore(OS.GetUserDataDir());
         _packSelection = _packSettings.Current;
-        _mods = new ModLoader(OS.GetUserDataDir());
+        _mods = new ModLoader(GameDirectories.Mods);
+        GD.Print($"mods directory: {GameDirectories.Mods}");
         _mods.LoadEnabled();
         _uiTheme =
             UiThemeLoader.LoadProjectTheme(
