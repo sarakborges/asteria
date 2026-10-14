@@ -5608,7 +5608,8 @@ public partial class Main : Node3D
         _worldDiagnostics?.ObserveTerrainMesh(
             completed.WorkerMilliseconds, completed.Accepted, completed.Stale,
             completed.CaptureMilliseconds,
-            completed.Kind == MeshPipelineCompletionKind.RequeuedStale);
+            completed.Kind == MeshPipelineCompletionKind.RequeuedStale,
+            completed.RelitWithoutMeshing);
         if (completed.Kind != MeshPipelineCompletionKind.Applied)
             return;
         if (_debugHudVisible)

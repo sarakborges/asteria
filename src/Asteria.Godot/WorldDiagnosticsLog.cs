@@ -84,6 +84,7 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     private double _terrainMeshCaptureMaxMs;
     private int _terrainMeshAccepted;
     private int _terrainMeshStale;
+    private int _terrainLightOnlyMeshlets;
     private int _terrainMeshDiscardedBatches;
     private int _fluidMeshDiscardedBatches;
     private double _lightingDiscardedWorkerMs;
@@ -269,9 +270,11 @@ internal sealed class WorldDiagnosticsLog : IDisposable
 
     public void ObserveTerrainMesh(
         double workerMilliseconds, int accepted, int stale,
-        double captureMilliseconds = 0d, bool discarded = false)
+        double captureMilliseconds = 0d, bool discarded = false,
+        int relitWithoutMeshing = 0)
     {
         _terrainMeshBatches++;
+        _terrainLightOnlyMeshlets += relitWithoutMeshing;
         if (discarded)
             _terrainMeshDiscardedBatches++;
         _terrainMeshMs += workerMilliseconds;
@@ -413,6 +416,7 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"mesh_capture_ms_total={Format1(_terrainMeshCaptureMs)} " +
             $"mesh_capture_ms_max={Format1(_terrainMeshCaptureMaxMs)} " +
             $"mesh_accepted={_terrainMeshAccepted} mesh_stale={_terrainMeshStale} " +
+            $"mesh_light_only={_terrainLightOnlyMeshlets} " +
             $"mesh_discarded_batches={_terrainMeshDiscardedBatches} " +
             $"mesh_publish_count={_meshPublicationPublished} mesh_publish_stale={_meshPublicationStale} " +
             $"mesh_publish_render_ms_total={Format1(_meshPublicationRenderMs)} " +
@@ -461,6 +465,7 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         _terrainMeshCaptureMaxMs = 0d;
         _terrainMeshAccepted = 0;
         _terrainMeshStale = 0;
+        _terrainLightOnlyMeshlets = 0;
         _terrainMeshDiscardedBatches = 0;
         _fluidMeshDiscardedBatches = 0;
         _lightingDiscardedWorkerMs = 0d;
