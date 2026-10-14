@@ -30,6 +30,13 @@
     0.28
   ],
   "dropSelf": false,
+  "lootTable": [
+    {
+      "item": "asteria:fiber_plant",
+      "chance": 0.2,
+      "quantity": 1
+    }
+  ],
   "windSway": true,
   "unlit": false,
   "castsShadow": false,

@@ -13,6 +13,7 @@ public sealed class PlayerGroundMovement
 
     private bool _forwardHeld;
     private ulong? _runDeadlineTick;
+    private bool _groundJumpPending;
 
     public bool IsRunning { get; private set; }
     public bool IsCrouching { get; private set; }
@@ -81,6 +82,19 @@ public sealed class PlayerGroundMovement
             IsRunning ? RunSpeedMultiplier : 1f;
     }
 
+    /// <summary>
+    /// A physical jump press is eligible on at most one physics step.
+    /// Godot handles key repeat and flight double-tap; held keys never re-jump.
+    /// </summary>
+    public void QueueGroundJump() => _groundJumpPending = true;
+
+    public bool ConsumeGroundJump()
+    {
+        var pending = _groundJumpPending;
+        _groundJumpPending = false;
+        return pending;
+    }
+
     public void CancelRunning()
     {
         IsRunning = false;
@@ -94,6 +108,7 @@ public sealed class PlayerGroundMovement
     public void ReleaseInput()
     {
         _forwardHeld = false;
+        _groundJumpPending = false;
         CancelRunning();
     }
 

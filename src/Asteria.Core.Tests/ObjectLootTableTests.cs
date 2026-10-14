@@ -149,6 +149,54 @@ public sealed class ObjectLootTableTests
     }
 
     [Fact]
+    public void DefaultPackGrassPaysRealCraftingFiberWithDeterministicChance()
+    {
+        var root = Path.Combine(AppContext.BaseDirectory, "packs",
+            "default", "data");
+        var grass = ObjectDefinition.Parse(File.ReadAllText(Path.Combine(
+            root, "objects", "grass.json")));
+        var fiber = ItemDefinition.Parse(File.ReadAllText(Path.Combine(
+            root, "items", "fiber_plant.json")));
+        var items = PackContentRegistry<ItemDefinition>.FromJson(
+            [File.ReadAllText(Path.Combine(root, "items", "fiber_plant.json"))],
+            ItemDefinition.Parse, item => item.Id);
+        var blocks = BlockRegistry.FromJson(["""{"id":"asteria:stone"}"""]);
+        var tools = PackContentRegistry<ToolDefinition>.FromJson(
+            [], ToolDefinition.Parse, tool => tool.Id);
+        var objects = PackContentRegistry<ObjectDefinition>.FromJson(
+            [File.ReadAllText(Path.Combine(root, "objects", "grass.json"))],
+            ObjectDefinition.Parse, obj => obj.Id);
+        var catalog = new InventoryContentCatalog(blocks, items, tools,
+            objects: objects);
+        var entry = Assert.Single(Assert.IsType<LootTable>(grass.LootTable).Entries);
+        Assert.Equal("asteria:fiber_plant", fiber.Id);
+        Assert.Equal(fiber.Id, entry.Item);
+        Assert.Equal(0.2f, entry.Chance);
+        Assert.Equal(1, entry.Quantity);
+        Assert.False(grass.DropSelf);
+
+        var objectCell = new ObjectCell(grass.Id, BlockFace.Top);
+        var position = new WorldVoxelCoord(2, 3, 4);
+        var drops = 0;
+        for (ulong tick = 0; tick < 128; tick++)
+        {
+            var first = LootTableRoller.ResolveObject(
+                grass, objectCell, position, catalog, tick);
+            var second = LootTableRoller.ResolveObject(
+                grass, objectCell, position, catalog, tick);
+            Assert.Equal(first.Select(x => x.Id), second.Select(x => x.Id));
+            Assert.True(first.Count <= 1);
+            if (first.Count == 0) continue;
+            var reward = Assert.Single(first);
+            Assert.Equal(fiber.Id, reward.Id);
+            Assert.Equal(InventoryEntryKind.Item, reward.Kind);
+            Assert.Equal(1, reward.Quantity);
+            drops++;
+        }
+        Assert.InRange(drops, 1, 127);
+    }
+
+    [Fact]
     public void InvalidAndUnknownAuthoredLootIsRejectedAtLoad()
     {
         Assert.Throws<FormatException>(() => Setup("{}"));

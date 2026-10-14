@@ -73,6 +73,29 @@ public sealed class PlayerGroundMovementTests
     }
 
     [Fact]
+    public void GroundJumpRequestIsOneShotAndDiscardedWhenInputIsReleased()
+    {
+        var state = new PlayerGroundMovement();
+        state.QueueGroundJump();
+        Assert.True(state.ConsumeGroundJump());
+        Assert.False(state.ConsumeGroundJump());
+        state.QueueGroundJump();
+        state.ReleaseInput();
+        Assert.False(state.ConsumeGroundJump());
+    }
+
+    [Fact]
+    public void AirbornePhysicsConsumesJumpBeforeLanding()
+    {
+        var state = new PlayerGroundMovement();
+        state.QueueGroundJump();
+        Assert.True(state.ConsumeGroundJump()); // airborne frame
+        Assert.False(state.ConsumeGroundJump()); // landing while held
+        state.QueueGroundJump(); // release + a new physical press
+        Assert.True(state.ConsumeGroundJump());
+    }
+
+    [Fact]
     public void ReleasingGameplayInputPreservesSafeCrouchingPose()
     {
         var state = new PlayerGroundMovement();

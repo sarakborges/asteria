@@ -238,10 +238,14 @@ public partial class FpsPlayer : CharacterBody3D
     {
         if (PlayerState.Health.IsDead)
         {
+            _groundMovement.ConsumeGroundJump();
             _descendingDistance = 0f;
             Velocity = Vector3.Zero;
             return;
         }
+        // Consume once per physics tick, including air/flight/fluid frames:
+        // a press made in mid-air cannot queue a jump on a later landing.
+        var groundJumpPressed = _groundMovement.ConsumeGroundJump();
         var startedOnFloor = IsOnFloor();
         var startY = GlobalPosition.Y;
         var velocity = Velocity;
@@ -321,7 +325,7 @@ public partial class FpsPlayer : CharacterBody3D
         }
         else if (IsOnFloor())
         {
-            if (_jumpHeld)
+            if (groundJumpPressed)
             {
                 velocity.Y = JumpSpeed;
             }
@@ -628,6 +632,7 @@ public partial class FpsPlayer : CharacterBody3D
         {
             if (key.Pressed && !key.Echo && !_jumpHeld)
             {
+                _groundMovement.QueueGroundJump();
                 if (PlayerState.JumpPressed(CurrentWorldTick()))
                 {
                     FlightStateChanged?.Invoke();
