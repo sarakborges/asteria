@@ -8,7 +8,6 @@ public partial class FpsPlayer : CharacterBody3D
 {
     private const float MoveSpeed = PlayerMovementSpeeds.Walk;
     private const float JumpSpeed = PlayerMovementSpeeds.Jump;
-    private const float FlySpeedMultiplier = PlayerMovementSpeeds.FlightMultiplier;
     private const float MouseSensitivity = 0.0022f;
     private const float MaxPitch = 1.52f;
     private const float ThirdPersonCameraDistance = 4f;
@@ -17,8 +16,8 @@ public partial class FpsPlayer : CharacterBody3D
     private const float StandingEyeHeight = 1.6f;
     private const float CrouchEyeDrop = 0.35f;
     private const float CrouchCameraBlendSpeed = 8f;
-    private const float WalkAcceleration = 28f;
-    private const float WalkDeceleration = 36f;
+    private const float WalkAcceleration = PlayerMovementSpeeds.WalkAcceleration;
+    private const float WalkDeceleration = PlayerMovementSpeeds.WalkDeceleration;
     private const float CrouchEdgeProbe = 0.12f;
     private const float MaximumImpactHorizontalSpeed = 18f;
 
@@ -273,11 +272,17 @@ public partial class FpsPlayer : CharacterBody3D
 
         if (PlayerState.IsFlying)
         {
-            var flySpeed = MoveSpeed * FlySpeedMultiplier;
+            var flySpeed = PlayerMovementSpeeds.Flight;
             var vertical = (_jumpHeld ? 1f : 0f) -
                 (_descendHeld ? 1f : 0f);
-            Velocity = direction * flySpeed +
+            var target = direction * flySpeed +
                 Vector3.Up * (vertical * flySpeed);
+            var current = Velocity;
+            var next = PlayerMovementPhysics.FlightVelocity(
+                new System.Numerics.Vector3(current.X, current.Y, current.Z),
+                new System.Numerics.Vector3(target.X, target.Y, target.Z),
+                (float)delta);
+            Velocity = new Vector3(next.X, next.Y, next.Z);
 
             if (PlayerState.GameMode.IsSpectator())
             {
@@ -321,7 +326,8 @@ public partial class FpsPlayer : CharacterBody3D
                     (float)delta,
                     fluidContact,
                     fluidMotion,
-                    _jumpHeld);
+                    _jumpHeld,
+                    _descendHeld);
         }
         else if (IsOnFloor())
         {
@@ -332,9 +338,8 @@ public partial class FpsPlayer : CharacterBody3D
         }
         else
         {
-            velocity.Y -=
-                GravityStrength *
-                (float)delta;
+            velocity.Y = PlayerMovementPhysics.ApplyGravity(
+                velocity.Y, GravityStrength, (float)delta);
         }
 
         if (fluidContact.IsImmersed)
@@ -342,22 +347,15 @@ public partial class FpsPlayer : CharacterBody3D
             var targetSpeed =
                 MoveSpeed *
                 fluidMotion.HorizontalSpeedMultiplier;
-            var acceleration =
-                fluidMotion.HorizontalAcceleration *
+            var target = new Vector2(direction.X, direction.Z) *
+                targetSpeed;
+            var horizontal = new Vector2(velocity.X, velocity.Z);
+            var acceleration = (target == Vector2.Zero
+                ? WalkDeceleration : fluidMotion.HorizontalAcceleration) *
                 (float)delta;
-
-            velocity.X =
-                Mathf.MoveToward(
-                    velocity.X,
-                    direction.X *
-                    targetSpeed,
-                    acceleration);
-            velocity.Z =
-                Mathf.MoveToward(
-                    velocity.Z,
-                    direction.Z *
-                    targetSpeed,
-                    acceleration);
+            horizontal = horizontal.MoveToward(target, acceleration);
+            velocity.X = horizontal.X;
+            velocity.Z = horizontal.Y;
         }
         else
         {

@@ -539,13 +539,15 @@ public sealed class FluidMotionSolverTests
                 SampleY: 9.8f);
 
         Assert.Equal(
-            8f,
+            2.5666666f,
             FluidMotionSolver.VerticalSpeed(
                 currentSpeed: 2.4f,
                 deltaSeconds: 1f / 60f,
                 contact,
                 motion,
-                ascendRequested: true));
+                ascendRequested: true,
+                descendRequested: false),
+            4);
     }
 
     [Fact]
@@ -575,8 +577,57 @@ public sealed class FluidMotionSolverTests
                 deltaSeconds: 0.1f,
                 contact,
                 motion,
-                ascendRequested: true),
+                ascendRequested: true,
+                descendRequested: false),
             5);
+    }
+}
+
+public sealed class MineCloneSwimmingParityTests
+{
+    private static readonly FluidBodyContact DeepWater = new(
+        IsImmersed: true, EyeSubmerged: true, Fluid: new FluidRuntimeId(1),
+        SurfaceY: 10f, SampleY: 9f);
+
+    [Fact]
+    public void DefaultPackWaterMatchesReferenceSpeeds()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory,
+            "packs", "default", "data", "fluids", "water.json");
+        var motion = FluidDefinitionJson.Parse(File.ReadAllText(path)).Motion;
+        Assert.Equal(1f, motion.HorizontalSpeedMultiplier);
+        Assert.Equal(28f, motion.HorizontalAcceleration);
+        Assert.Equal(3f, motion.SinkSpeed);
+        Assert.Equal(3.8f, motion.AscendSpeed);
+        Assert.Equal(0.6f, motion.BuoyancySpeed);
+        Assert.Equal(7f, motion.SurfaceExitSpeed);
+        Assert.Equal(12f, motion.VerticalAcceleration);
+        Assert.Equal(0.35f, motion.SurfaceExitMargin);
+    }
+
+    [Fact]
+    public void IdleFloatsAndDescendingRequiresInput()
+    {
+        var motion = FluidMotionDefinition.Default;
+        Assert.Equal(0.6f, FluidMotionSolver.VerticalSpeed(
+            0f, 0.1f, DeepWater, motion, false, false));
+        Assert.Equal(-1.2f, FluidMotionSolver.VerticalSpeed(
+            0f, 0.1f, DeepWater, motion, false, true), 5);
+        Assert.Equal(1.2f, FluidMotionSolver.VerticalSpeed(
+            0f, 0.1f, DeepWater, motion, true, true), 5);
+        Assert.Equal(0f, FluidMotionSolver.VerticalSpeed(
+            0f, 0.1f, default, motion, false, false));
+    }
+
+    [Fact]
+    public void NearSurfaceJumpApproachesSevenRatherThanInstantImpulse()
+    {
+        var motion = FluidMotionDefinition.Default;
+        var shallow = DeepWater with { SampleY = 9.8f };
+        Assert.Equal(0.2f, FluidMotionSolver.VerticalSpeed(
+            0f, 1f / 60f, shallow, motion, true, false), 5);
+        Assert.Equal(7f, FluidMotionSolver.VerticalSpeed(
+            0f, 1f, shallow, motion, true, false));
     }
 }
 
@@ -652,8 +703,9 @@ public sealed class FluidMotionDefinitionTests
             definition.Motion);
         Assert.True(
             definition.Motion.SinkSpeed > 0f);
-        Assert.True(
-            definition.Motion.HorizontalSpeedMultiplier < 1f);
+        Assert.Equal(1f,
+            definition.Motion.HorizontalSpeedMultiplier);
+        Assert.Equal(0.6f, definition.Motion.BuoyancySpeed);
     }
 
     [Fact]

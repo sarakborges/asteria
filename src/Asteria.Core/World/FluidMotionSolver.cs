@@ -7,7 +7,8 @@ public static class FluidMotionSolver
         float deltaSeconds,
         FluidBodyContact contact,
         FluidMotionDefinition motion,
-        bool ascendRequested)
+        bool ascendRequested,
+        bool descendRequested)
     {
         if (!float.IsFinite(currentSpeed))
         {
@@ -27,19 +28,16 @@ public static class FluidMotionSolver
             return currentSpeed;
         }
 
-        if (ascendRequested &&
-            contact.IsNearSurface(
-                motion.SurfaceExitMargin))
-        {
-            return MathF.Max(
-                currentSpeed,
-                motion.SurfaceExitSpeed);
-        }
-
+        // Jump wins over Descend. Near-surface exit is a target speed
+        // approached at the same authored acceleration as other swimming.
         var target =
             ascendRequested
-                ? motion.AscendSpeed
-                : -motion.SinkSpeed;
+                ? contact.IsNearSurface(motion.SurfaceExitMargin)
+                    ? motion.SurfaceExitSpeed
+                    : motion.AscendSpeed
+                : descendRequested
+                    ? -motion.SinkSpeed
+                    : motion.BuoyancySpeed;
         var maximumDelta =
             motion.VerticalAcceleration *
             deltaSeconds;

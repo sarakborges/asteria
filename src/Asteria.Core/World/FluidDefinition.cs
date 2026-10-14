@@ -46,13 +46,14 @@ public readonly record struct FluidMotionDefinition
 {
     public static FluidMotionDefinition Default { get; } =
         new(
-            horizontalSpeedMultiplier: 0.45f,
-            horizontalAcceleration: 10f,
-            sinkSpeed: 0.9f,
-            ascendSpeed: 2.4f,
-            surfaceExitSpeed: 5f,
-            verticalAcceleration: 10f,
-            surfaceExitMargin: 0.35f);
+            horizontalSpeedMultiplier: 1f,
+            horizontalAcceleration: PlayerMovementSpeeds.WalkAcceleration,
+            sinkSpeed: 3f,
+            ascendSpeed: 3.8f,
+            surfaceExitSpeed: PlayerMovementSpeeds.Jump,
+            verticalAcceleration: 12f,
+            surfaceExitMargin: 0.35f,
+            buoyancySpeed: 0.6f);
 
     public FluidMotionDefinition(
         float horizontalSpeedMultiplier,
@@ -61,7 +62,8 @@ public readonly record struct FluidMotionDefinition
         float ascendSpeed,
         float surfaceExitSpeed,
         float verticalAcceleration,
-        float surfaceExitMargin)
+        float surfaceExitMargin,
+        float buoyancySpeed = 0.6f)
     {
         HorizontalSpeedMultiplier =
             RequiredFiniteNonNegative(
@@ -71,6 +73,8 @@ public readonly record struct FluidMotionDefinition
             RequiredFiniteNonNegative(
                 horizontalAcceleration,
                 nameof(horizontalAcceleration));
+        BuoyancySpeed = RequiredFiniteNonNegative(
+            buoyancySpeed, nameof(buoyancySpeed));
         SinkSpeed =
             RequiredFiniteNonNegative(
                 sinkSpeed,
@@ -97,7 +101,11 @@ public readonly record struct FluidMotionDefinition
 
     public float HorizontalAcceleration { get; }
 
+    /// <summary>Downward speed while Descend is held.</summary>
     public float SinkSpeed { get; }
+
+    /// <summary>Upward speed while neither swim direction is held.</summary>
+    public float BuoyancySpeed { get; }
 
     public float AscendSpeed { get; }
 
@@ -324,7 +332,11 @@ public static class FluidDefinitionJson
             OptionalSingle(
                 motion,
                 "surfaceExitMargin") ??
-                defaults.SurfaceExitMargin);
+                defaults.SurfaceExitMargin,
+            OptionalSingle(
+                motion,
+                "buoyancySpeed") ??
+                defaults.BuoyancySpeed);
     }
 
     private static BlockLightEmission ParseLightEmission(
