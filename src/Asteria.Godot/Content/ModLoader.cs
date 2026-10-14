@@ -24,10 +24,11 @@ internal sealed class ModLoader
     private bool _restartRequired;
     private readonly HashSet<string> _active = new(StringComparer.Ordinal);
 
-    public ModLoader(string userDataRoot)
+    public ModLoader(string modsDirectory)
     {
-        _root = Path.Combine(userDataRoot, "mods");
-        _selectionPath = Path.Combine(userDataRoot, "mod-selection.json");
+        ArgumentException.ThrowIfNullOrWhiteSpace(modsDirectory);
+        _root = Path.GetFullPath(modsDirectory);
+        _selectionPath = Path.Combine(_root, "selection.json");
         Directory.CreateDirectory(_root);
         _preferences = LoadPreferences();
     }
