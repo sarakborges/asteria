@@ -10,6 +10,10 @@ public sealed record AttackDefinition(
     float Damage,
     IReadOnlyList<AttackEffectDefinition> Effects)
 {
+    // An authored impulse becomes a speed in CreatureRuntime; without a
+    // bound, an otherwise valid pack can force unbounded physics steps.
+    public const float MaximumKnockbackStrength = 2f;
+
     public static AttackDefinition Parse(string json)
     {
         ArgumentNullException.ThrowIfNull(json);
@@ -39,6 +43,9 @@ public sealed record AttackDefinition(
 
                 var strength = entry.TryGetProperty("strength", out _)
                     ? PackContentFields.NonNegativeFloat(entry, "strength") : 0f;
+                if (strength > MaximumKnockbackStrength)
+                    throw new FormatException(
+                        $"Attack {id} knockback strength exceeds {MaximumKnockbackStrength}.");
                 effects.Add(new AttackEffectDefinition(effect, chance, strength));
             }
         }
