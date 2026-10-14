@@ -9,6 +9,7 @@ public sealed class ChunkLightingSolverTests
     {
         var chunk =
             new Chunk();
+        chunk.SetLight(0, 0, 0, new VoxelLight(0, 15, 3, 1));
 
         ChunkLightingSolver.Initialize(
             chunk,
@@ -29,6 +30,7 @@ public sealed class ChunkLightingSolverTests
                     Chunk.Size - 1,
                     Chunk.Size - 1)
                 .Sky);
+        Assert.True(chunk.GetLight(0, 0, 0).BlockPeak == 0);
     }
 
     [Fact]

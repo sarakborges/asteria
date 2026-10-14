@@ -24,6 +24,14 @@ public static class ChunkLightingSolver
         ArgumentNullException.ThrowIfNull(blocks);
         ArgumentNullException.ThrowIfNull(fluids);
 
+        // Air-only chunks need no ray march or local relaxation. An
+        // attached object can still be emissive, so exclude that case.
+        if (chunk.IsEmpty && chunk.ObjectCount == 0)
+        {
+            chunk.FillLight(new VoxelLight(VoxelLight.MaxLevel, 0, 0, 0));
+            return;
+        }
+
         var objectEmissions = ObjectLightEmissionField.Capture(chunk, objects);
         chunk.ClearLight();
         var mediumDampening = new byte[Chunk.Volume];

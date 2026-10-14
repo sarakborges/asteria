@@ -330,6 +330,13 @@ public sealed class Chunk
         Array.Clear(_light);
     }
 
+    // Initial light of a truly empty chunk is uniform open sky. Filling
+    // the packed field once avoids four thousand medium/registry lookups.
+    public void FillLight(VoxelLight value)
+    {
+        Array.Fill(_light, value);
+    }
+
     public Chunk CloneForWorker() =>
         new(
             _cells.Clone(),
