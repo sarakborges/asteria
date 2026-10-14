@@ -12,6 +12,8 @@ export type StartingScreenPageProps = {
   settingsAvailable?: boolean;
   controlsAvailable?: boolean;
   onPlay(): void;
+  onMods?(): void;
+  onPacks?(): void;
   onSettings?(): void;
   onControls?(): void;
   onExit(): void;
@@ -21,6 +23,8 @@ export function StartingScreenPage({
   settingsAvailable = false,
   controlsAvailable = false,
   onPlay,
+  onMods,
+  onPacks,
   onSettings,
   onControls,
   onExit,
@@ -41,6 +45,10 @@ export function StartingScreenPage({
           className="starting-screen__button"
           onClick={onPlay}
         />
+        <Button label={t("addons.mods")} size="menu"
+          className="starting-screen__button" onClick={onMods} />
+        <Button label={t("addons.packs")} size="menu"
+          className="starting-screen__button" onClick={onPacks} />
         <Button
           label={t("common.settings")}
           size="menu"

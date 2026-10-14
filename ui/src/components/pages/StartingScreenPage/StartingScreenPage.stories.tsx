@@ -11,6 +11,8 @@ const meta = {
     settingsAvailable: false,
     controlsAvailable: false,
     onPlay: () => undefined,
+    onMods: () => undefined,
+    onPacks: () => undefined,
     onExit: () => undefined,
   },
 } satisfies Meta<typeof StartingScreenPage>;

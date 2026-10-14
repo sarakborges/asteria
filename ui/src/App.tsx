@@ -14,6 +14,7 @@ import { useLocalization } from "./localization/LocalizationProvider";
 import { BrushPalettePage } from "./components/pages/BrushPalettePage/BrushPalettePage";
 import { NewWorldPage } from "./components/pages/NewWorldPage/NewWorldPage";
 import { WorldSelectionPage } from "./components/pages/WorldSelectionPage/WorldSelectionPage";
+import { AddonsPage } from "./components/pages/AddonsPage/AddonsPage";
 import { StartingScreenPage } from "./components/pages/StartingScreenPage/StartingScreenPage";
 import type { UiStore } from "./state/uiStore";
 import { useUiStore } from "./state/useUiStore";
@@ -33,6 +34,11 @@ export type AppActions = {
   }): void;
   randomizeWorld(): void;
   openWorldSelection(): void;
+  openAddons(tab: "mods" | "packs"): void;
+  refreshAddons(): void;
+  setPackScope(name: string, scope: "Data" | "Resources" | "Both" | null): void;
+  movePack(name: string, direction: -1 | 1): void;
+  configureMod(id: string, enabled: boolean, settings: string): void;
   openSavesFolder(): void;
   loadWorld(id: string): void;
   deleteWorld(id: string): void;
@@ -250,6 +256,8 @@ export function App({
           {state.navigation.preWorldScreen === "starting" && (
           <StartingScreenPage
             onPlay={actions.openWorldSelection}
+            onMods={() => { actions.openAddons("mods"); actions.refreshAddons(); }}
+            onPacks={() => { actions.openAddons("packs"); actions.refreshAddons(); }}
             onExit={actions.exitGame}
             settingsAvailable={Boolean(state.settings.client)}
             controlsAvailable={Boolean(state.settings.client)}
@@ -257,6 +265,19 @@ export function App({
             onControls={actions.openControls}
           />
         )}
+
+      {preWorldVisible &&
+        (state.navigation.preWorldScreen === "mods" ||
+         state.navigation.preWorldScreen === "packs") && (
+        <AddonsPage
+          tab={state.navigation.preWorldScreen}
+          state={state.addons}
+          onBack={actions.backToStart}
+          onPackScope={actions.setPackScope}
+          onMovePack={actions.movePack}
+          onModConfigure={actions.configureMod}
+        />
+      )}
 
       {preWorldVisible &&
         state.navigation.preWorldScreen ===

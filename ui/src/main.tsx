@@ -13,6 +13,7 @@ import { createUiNavigationController } from "./controllers/UiNavigationControll
 import { createInventoryController } from "./controllers/InventoryController";
 import { createStorageBoxController } from "./controllers/StorageBoxController";
 import { createBrushController } from "./controllers/BrushController";
+import { createAddonsController } from "./controllers/AddonsController";
 import { createSettingsController } from "./controllers/SettingsController";
 import { createWorldCreationController } from "./controllers/WorldCreationController";
 import { createWorldCatalogController } from "./controllers/WorldCatalogController";
@@ -51,6 +52,7 @@ const storageBox = createStorageBoxController(store, postGodotMessage);
 const brush = createBrushController(store, postGodotMessage);
 const worldCatalog = createWorldCatalogController(store, postGodotMessage);
 const chat = createChatController(store, postGodotMessage);
+const addons = createAddonsController(store, postGodotMessage);
 
 subscribeGodotMessages((message) => {
   navigation.handleGodotMessage(message);
@@ -61,6 +63,7 @@ subscribeGodotMessages((message) => {
   brush.handleGodotMessage(message);
   hud.handleGodotMessage(message);
   settings.handleGodotMessage(message);
+  addons.handleGodotMessage(message);
   worldCreation.handleGodotMessage(message);
   loading.handleGodotMessage(message);
 });
@@ -76,6 +79,11 @@ createRoot(rootElement).render(
       randomizeWorld: worldCreation.randomizeWorld,
 
       openWorldSelection: navigation.openWorldSelection,
+      openAddons: navigation.openAddons,
+      refreshAddons: addons.refresh,
+      setPackScope: addons.setPackScope,
+      movePack: addons.movePack,
+      configureMod: addons.configureMod,
       openSavesFolder: worldCatalog.openSavesFolder,
       loadWorld: worldCatalog.loadWorld,
       deleteWorld: worldCatalog.deleteWorld,
