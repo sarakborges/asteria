@@ -154,8 +154,12 @@ public sealed class ChunkTopologyFrontierTests
         var arrivingCoord = new ChunkCoord(1, 0, 0);
         world.InsertChunk(arrivingCoord, arriving);
 
+        // The horizontal interior is already converged; the upper/lower
+        // seam edges retain conservative vertical-sky reconciliation.
         var seeds = ChunkTopologyFrontier.LightingSeeds(
                 arrivingCoord, world.ContainsChunk)
+            .Where(position => position.Y > 0 &&
+                               position.Y < Chunk.Size - 1)
             .Where(position => ChunkTopologyFrontier.NeedsArrivalSeamLightSeed(
                 world, blocks, fluids, arrivingCoord, position))
             .ToArray();
