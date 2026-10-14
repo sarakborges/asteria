@@ -139,9 +139,9 @@ public static class ChunkTopologyFrontier
 
     /// <summary>
     /// A newly resident chunk already has its own initialized lighting.
-    /// On horizontal seams, matching light on both sides cannot improve
-    /// either voxel: all cross-voxel propagation attenuates by at least one.
-    /// Avoid queuing those redundant seeds. Keep all vertical frontiers,
+    /// On horizontal seams, channel differences of at most one cannot
+    /// improve either voxel: all cross-voxel propagation attenuates by at
+    /// least one. Avoid queuing those redundant seeds. Keep vertical frontiers,
     /// whose direct-sky state can change when a column gains a chunk, and
     /// preserve the original checks for chunk retirement.
     /// </summary>
@@ -172,7 +172,7 @@ public static class ChunkTopologyFrontier
         var light = chunk.GetLight(x, address.Local.Y, z);
         var hasResidentHorizontalNeighbor = false;
 
-        bool DiffersAcross(int dx, int dz)
+        bool MayExchangeLight(int dx, int dz)
         {
             var neighborChunk = new ChunkCoord(
                 arrivingChunk.X + dx, arrivingChunk.Y,
@@ -181,13 +181,21 @@ public static class ChunkTopologyFrontier
                 return false;
 
             hasResidentHorizontalNeighbor = true;
-            return world.GetLightOrDark(position + (dx, 0, dz)) != light;
+            var opposite = world.GetLightOrDark(position + (dx, 0, dz));
+            // Both independently initialized chunks are already internally
+            // converged. A one-level difference is stable across a horizontal
+            // edge because propagation attenuates every channel by >= 1.
+            // Any larger difference conservatively retains reconciliation.
+            return Math.Abs(light.Sky - opposite.Sky) > 1 ||
+                   Math.Abs(light.Red - opposite.Red) > 1 ||
+                   Math.Abs(light.Green - opposite.Green) > 1 ||
+                   Math.Abs(light.Blue - opposite.Blue) > 1;
         }
 
-        if (x == 0 && DiffersAcross(-1, 0) ||
-            x == Chunk.Size - 1 && DiffersAcross(1, 0) ||
-            z == 0 && DiffersAcross(0, -1) ||
-            z == Chunk.Size - 1 && DiffersAcross(0, 1))
+        if (x == 0 && MayExchangeLight(-1, 0) ||
+            x == Chunk.Size - 1 && MayExchangeLight(1, 0) ||
+            z == 0 && MayExchangeLight(0, -1) ||
+            z == Chunk.Size - 1 && MayExchangeLight(0, 1))
             return true;
 
         // Conservatively keep anything that was not an actual horizontal
