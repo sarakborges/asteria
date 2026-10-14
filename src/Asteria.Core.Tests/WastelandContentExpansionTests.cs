@@ -48,7 +48,10 @@ public sealed class WastelandContentExpansionTests
             Assert.Equal(kind, block.Visual.Kind);
             Assert.False(block.IsCollidable);
             Assert.False(block.CastsShadow);
-            Assert.Equal("textures/objects/" + name + ".png",
+            Assert.Equal(
+                (name == "lichen_dry"
+                    ? "textures/layers/" : "textures/objects/") +
+                name + ".png",
                 block.Visual.Texture!.Value.Texture);
         }
 

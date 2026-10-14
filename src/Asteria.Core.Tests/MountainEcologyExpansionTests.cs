@@ -83,7 +83,10 @@ public sealed class MountainEcologyExpansionTests
                         name.StartsWith("lichen_", StringComparison.Ordinal)
                             ? BlockVisualKind.GroundSprite : BlockVisualKind.CrossedSprite,
                         block.Visual.Kind);
-                    Assert.Equal("textures/objects/" + name + ".png",
+                    Assert.Equal(
+                        (name.StartsWith("lichen_", StringComparison.Ordinal)
+                            ? "textures/layers/" : "textures/objects/") +
+                        name + ".png",
                         block.Visual.Texture!.Value.Texture);
                 }
             }

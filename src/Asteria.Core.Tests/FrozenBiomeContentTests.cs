@@ -115,7 +115,8 @@ public sealed class FrozenBiomeContentTests
                 Assert.False(block.CastsShadow);
                 Assert.Equal(BlockRenderMode.Cutout, block.RenderMode);
                 textures.Add(block.Visual.Texture!.Value.Texture);
-                Assert.Equal($"textures/objects/{name}.png",
+                Assert.Equal(
+                    $"textures/{(name == "lichen_frost" ? "layers" : "objects")}/{name}.png",
                     block.Visual.Texture!.Value.Texture);
             }
         }
