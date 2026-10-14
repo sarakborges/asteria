@@ -186,3 +186,35 @@ export const UnavailableLayerIcon: Story = {
     },
   },
 };
+
+/** Both previews originate from native snapshots; Creative holds stale colors. */
+export const NativeTintedHudIcons: Story = {
+  args: {
+    state: {
+      ...runtimeState,
+      hotbar: {
+        selectedIndex: 0,
+        selectedName: "Moss",
+        slots: [
+          {
+            id: "asteria:moss", kind: "layer" as const, quantity: 2,
+            iconUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGPQuBTwHwAEugJKI9WgoAAAAABJRU5ErkJggg==",
+          },
+          {
+            id: "asteria:block_grass", kind: "block" as const, quantity: 8,
+            blockPreview: {
+              kind: "sprite" as const, front: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGN4ZmP0HwAFtAJUX2i7uAAAAABJRU5ErkJggg==",
+              top: null, right: null,
+            },
+          },
+        ],
+      },
+      target: {
+        ...runtimeState.target,
+        activeLayerId: "asteria:moss",
+        activeLayerIconUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGN4ZmP0HwAFtAJUX2i7uAAAAABJRU5ErkJggg==",
+        layers: [{ id: "asteria:moss", face: "top" as const }],
+      },
+    },
+  },
+};

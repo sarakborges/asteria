@@ -477,6 +477,15 @@ function readTarget(
     iconUrl: typeof value.iconUrl === "string" ? value.iconUrl : undefined,
     blockPreview: preview ?? undefined,
     layers,
+    activeLayerId: value.kind === "block" &&
+      typeof value.activeLayerId === "string" &&
+      value.activeLayerId.length > 0 && value.activeLayerId.length <= 256
+        ? value.activeLayerId : undefined,
+    activeLayerIconUrl: value.kind === "block" &&
+      typeof value.activeLayerId === "string" &&
+      value.activeLayerId.length > 0 &&
+      readPngIconUrl(value.activeLayerIconUrl)
+        ? value.activeLayerIconUrl : undefined,
   };
 }
 

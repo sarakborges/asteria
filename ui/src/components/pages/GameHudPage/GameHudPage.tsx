@@ -30,8 +30,8 @@ export function GameHudPage({
   onDismissToast,
 }: GameHudPageProps) {
   const spectator = state.gameMode === "spectator";
-  // Attached layers are interactive targets; their icons are already
-  // available from the authoritative Creative catalog snapshot.
+  // The native target's spatially sampled layer icon wins; Creative is
+  // only a fallback when native target artwork is unavailable.
   const activeLayer = state.target?.kind === "block" && state.target.activeLayerId
     ? catalog.find(entry =>
         entry.kind === "layer" && entry.id === state.target?.activeLayerId)
@@ -48,7 +48,7 @@ export function GameHudPage({
           ? state.target.blockPreview ?? catalog.find(choice =>
               choice.kind === "block" && choice.id === state.target?.id)?.blockPreview
           : undefined}
-        activeLayerIconUrl={activeLayer?.iconUrl}
+        activeLayerIconUrl={state.target?.activeLayerIconUrl ?? activeLayer?.iconUrl}
         miningProgress={state.miningProgress}
         artisansKitResolution={state.artisansKitResolution}
       />
@@ -83,8 +83,10 @@ export function GameHudPage({
               slot.id ?? "", slot.kind, slot.metadata, catalog);
             return {
               ...slot,
-              iconUrl: entry?.iconUrl,
-              blockPreview: entry?.blockPreview,
+              // Keep the native hotbar's per-stack geometry/tint/metadata.
+              // Creative catalog artwork is only a missing-icon fallback.
+              iconUrl: slot.iconUrl ?? entry?.iconUrl,
+              blockPreview: slot.blockPreview ?? entry?.blockPreview,
             };
           }),
         }} />

@@ -59,6 +59,7 @@ export type TargetHudState = {
   blockPreview?: BlockPreviewState;
   layers?: { id: string; face: TargetHudLayerFace }[];
   activeLayerId?: string | null;
+  activeLayerIconUrl?: string;
 };
 
 export type WorldClockState = {

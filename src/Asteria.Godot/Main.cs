@@ -3092,20 +3092,36 @@ public partial class Main : Node3D
     }
 
     /// <summary>
-    /// The target HUD represents the actual world Object rather than the
-    /// fallback inventory palette. Sampling uses the generator's canonical
-    /// biome tint field; no second color model is inferred in UI.
+    /// Objects and targeted attached Layers use the target block's actual
+    /// spatial biome tint, not the player's hotbar/Creative palette.
     /// </summary>
-    private BlockPreviewColor ResolveObjectHudTint(
-        ObjectDefinition definition, WorldVoxelCoord support)
+    private BlockPreviewColor ResolveHudTint(
+        BlockTint tint, BlockPreviewColor fallback, WorldVoxelCoord position)
     {
         var coord = VoxelCoordinates.FromWorld(
-            support.X, support.Y, support.Z).Chunk;
+            position.X, position.Y, position.Z).Chunk;
         var sample = _sessions.Active.Generator.Tints
             .SampleChunkGrid(coord.X, coord.Z)
-            .Resolve(definition.Tint, definition.TintFallback,
-                support.X, support.Z);
+            .Resolve(tint, fallback, position.X, position.Z);
         return BlockPreviewColor.FromNormalized(sample);
+    }
+
+    private BlockPreviewColor ResolveObjectHudTint(
+        ObjectDefinition definition, WorldVoxelCoord support) =>
+        ResolveHudTint(definition.Tint, definition.TintFallback, support);
+
+    private string? ResolveTargetLayerIcon(
+        string? layerId, WorldVoxelCoord position)
+    {
+        if (layerId is null ||
+            !_layers.TryGet(layerId, out var layer) || layer is null)
+            return null;
+        if (layer.Tint == BlockTint.None)
+            return IconDataUri(layer.Texture);
+
+        return _blockPreviewRenderer.LayerDataUri(layer,
+            ResolveHudTint(layer.Tint,
+                new BlockPreviewColor(255, 255, 255), position));
     }
 
     private string IconDataUri(string resourcePath)
@@ -4398,6 +4414,8 @@ public partial class Main : Node3D
                     value.Surface, new WorldVoxelCoord(value.X, value.Y, value.Z),
                     value.HitFace),
                 activeLayerId = value.ActiveLayerId,
+                activeLayerIconUrl = ResolveTargetLayerIcon(
+                    value.ActiveLayerId, new WorldVoxelCoord(value.X, value.Y, value.Z)),
                 layers = value.Surface.Layers
                     .Select(layer => new
                     {

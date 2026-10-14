@@ -58,3 +58,14 @@ test("cleared inventory search keeps the complete grid visible without filtered 
   await expect(panel.locator(".player-inventory-panel__backpack .inventory-slot")).toHaveCount(27);
   await expect(panel.locator(".inventory-hotbar-footer__slots .inventory-slot")).toHaveCount(9);
 });
+
+test("native tinted hotbar and target layer icons override stale Creative colors", async ({ page }) => {
+  await page.goto(hud("native-tinted-hud-icons"));
+  const layer = page.locator(".hotbar-slot[data-slot='0'] img.item-glyph");
+  const block = page.locator(".hotbar-slot[data-slot='1'] img.item-glyph");
+  const targeted = page.locator(".target-hud__slot img.item-glyph");
+  await expect(layer).toHaveAttribute("src", "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGPQuBTwHwAEugJKI9WgoAAAAABJRU5ErkJggg==");
+  await expect(block).toHaveAttribute("src", "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGN4ZmP0HwAFtAJUX2i7uAAAAABJRU5ErkJggg==");
+  await expect(targeted).toHaveAttribute("src", "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGN4ZmP0HwAFtAJUX2i7uAAAAABJRU5ErkJggg==");
+  await expect(page.locator(".target-hud__copy strong")).toContainText(/moss/i);
+});
