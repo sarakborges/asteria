@@ -4,6 +4,38 @@ namespace Asteria.Core.Tests;
 
 public sealed class FluidLightingTests
 {
+    [Fact]
+    public void FluidRelightFallsBackWhenPreviousQuadCornerOrderIsInvalid()
+    {
+        var blocks = new BlockRegistry([]);
+        var fluids = new FluidRegistry([
+            new FluidDefinition("asteria:water",
+                new FluidColor(64, 128, 224), opacity: 0.75f),
+        ]);
+        var water = fluids.GetId("asteria:water");
+        var chunk = new Chunk();
+        chunk.SetFluid(3, 8, 3, FluidCell.Source(water));
+        chunk.FillLight(new VoxelLight(7, 0, 0, 0));
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, chunk);
+        var original = FluidMeshDataBuilder.BuildMeshlet(
+            world, ChunkCoord.Zero, blocks, fluids, 4);
+
+        var batches = original.Batches.ToArray();
+        var vertices = batches[0].Vertices.ToArray();
+        var sample = vertices[0].LightSample;
+        vertices[0] = vertices[0] with
+        {
+            LightSample = new ChunkMeshLightSample(
+                sample.Source, sample.Face, (byte)((sample.Corner + 1) % 4)),
+        };
+        batches[0] = new ChunkFluidBatchData(batches[0].Fluid, vertices);
+        var invalid = new ChunkFluidMeshData(batches);
+
+        Assert.False(FluidMeshLightingUpdater.TryRelight(
+            world, ChunkCoord.Zero, blocks, invalid, out _));
+    }
+
     [Theory]
     [InlineData(15, 1, 2)]
     [InlineData(15, 4, 8)]
@@ -53,18 +85,18 @@ public sealed class FluidLightingTests
         var water = fluids.GetId("asteria:water");
         var chunk = new Chunk();
         chunk.SetFluid(3, 8, 3, FluidCell.Source(water));
-        ChunkLightingSolver.Initialize(chunk, blocks, fluids);
+        // Uniform lighting before and after the change preserves the quad
+        // diagonal, making the geometry-only parity assertion unconditional.
+        chunk.FillLight(new VoxelLight(7, 0, 0, 0));
         var world = new VoxelWorld();
         world.InsertChunk(ChunkCoord.Zero, chunk);
         var original = FluidMeshDataBuilder.BuildMeshlet(
             world, ChunkCoord.Zero, blocks, fluids, 4);
         Assert.True(original.HasGeometry);
-        Assert.True(world.TrySetLight(
-            new WorldVoxelCoord(3, 9, 3), new VoxelLight(7, 3, 1, 0)));
+        chunk.FillLight(new VoxelLight(12, 5, 1, 0));
 
-        if (!FluidMeshLightingUpdater.TryRelight(
-                world, ChunkCoord.Zero, blocks, original, out var updated))
-            return; // Changed quad diagonal correctly requires remeshing.
+        Assert.True(FluidMeshLightingUpdater.TryRelight(
+                world, ChunkCoord.Zero, blocks, original, out var updated));
 
         var rebuilt = FluidMeshDataBuilder.BuildMeshlet(
             world, ChunkCoord.Zero, blocks, fluids, 4);
