@@ -49,6 +49,25 @@ public sealed class PlayerMovementSpeedsTests
     }
 
     [Fact]
+    public void PlayerShapeMatchesMineCloneAndStepsAtEighthBlockResolution()
+    {
+        Assert.Equal(0.3f, PlayerMovementGeometry.HalfWidth);
+        Assert.Equal(0.6f, PlayerMovementGeometry.Width);
+        Assert.Equal(1.8f, PlayerMovementGeometry.StandingHeight);
+        Assert.Equal(1.5f, PlayerMovementGeometry.CrouchHeight);
+        Assert.Equal(1.62f, PlayerMovementGeometry.EyeHeight);
+        Assert.Equal(4f, PlayerMovementGeometry.StepSmoothingSpeed);
+        Assert.Equal(0.5f, PlayerMovementGeometry.MaximumStepHeight);
+        Assert.Equal([0.125f, 0.25f, 0.375f, 0.5f],
+            Enumerable.Range(0, PlayerMovementGeometry.StepCandidateCount)
+                .Select(PlayerMovementGeometry.StepRiseAt).ToArray());
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            PlayerMovementGeometry.StepRiseAt(-1));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            PlayerMovementGeometry.StepRiseAt(4));
+    }
+
+    [Fact]
     public void FallingSpeedCapsAtMineCloneFlightSpeed()
     {
         Assert.Equal(-25f,

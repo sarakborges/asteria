@@ -11,9 +11,9 @@ public partial class FpsPlayer : CharacterBody3D
     private const float MouseSensitivity = 0.0022f;
     private const float MaxPitch = 1.52f;
     private const float ThirdPersonCameraDistance = 4f;
-    private const float StandingHeight = 1.8f;
-    private const float CrouchHeight = 1.5f;
-    private const float StandingEyeHeight = 1.6f;
+    private const float StandingHeight = PlayerMovementGeometry.StandingHeight;
+    private const float CrouchHeight = PlayerMovementGeometry.CrouchHeight;
+    private const float StandingEyeHeight = PlayerMovementGeometry.EyeHeight;
     private const float CrouchEyeDrop = 0.35f;
     private const float CrouchCameraBlendSpeed = 8f;
     private const float WalkAcceleration = PlayerMovementSpeeds.WalkAcceleration;
@@ -34,8 +34,8 @@ public partial class FpsPlayer : CharacterBody3D
     private float _cameraPitch;
     private CameraView _cameraView;
     private CollisionShape3D _collider = null!;
-    private CapsuleShape3D _standingCapsule = null!;
-    private CapsuleShape3D _crouchedCapsule = null!;
+    private BoxShape3D _standingBox = null!;
+    private BoxShape3D _crouchedBox = null!;
     private readonly PlayerGroundMovement _groundMovement = new();
     private bool _mouseCaptured;
     private bool _moveForward;
@@ -52,6 +52,8 @@ public partial class FpsPlayer : CharacterBody3D
     private FluidRuntimeId _lastVisualFluid;
     private float _gravityStrength = 18f;
     private float _descendingDistance;
+    // Presentation-only smooth camera offset after a collision-checked step.
+    private float _stepVisualOffsetY;
 
     public event Action? BreakRequested;
     public event Action? PlaceRequested;
@@ -135,21 +137,25 @@ public partial class FpsPlayer : CharacterBody3D
 
         _solidCollisionLayer = CollisionLayer;
         _solidCollisionMask = CollisionMask;
-        _standingCapsule = new CapsuleShape3D
+        // MineClone's voxel collision bounds are an AABB, not a capsule.
+        // The same half-width is used for collision, placement and fluids.
+        _standingBox = new BoxShape3D
         {
-            Radius = 0.35f,
-            Height = StandingHeight,
+            Size = new Vector3(
+                PlayerMovementGeometry.Width, StandingHeight,
+                PlayerMovementGeometry.Width),
         };
-        _crouchedCapsule = new CapsuleShape3D
+        _crouchedBox = new BoxShape3D
         {
-            Radius = 0.35f,
-            Height = CrouchHeight,
+            Size = new Vector3(
+                PlayerMovementGeometry.Width, CrouchHeight,
+                PlayerMovementGeometry.Width),
         };
         _collider = new CollisionShape3D
         {
             Name = "Collider",
             Position = new Vector3(0f, StandingHeight * 0.5f, 0f),
-            Shape = _standingCapsule,
+            Shape = _standingBox,
         };
 
         _cameraPivot = new Node3D
@@ -246,7 +252,8 @@ public partial class FpsPlayer : CharacterBody3D
         // a press made in mid-air cannot queue a jump on a later landing.
         var groundJumpPressed = _groundMovement.ConsumeGroundJump();
         var startedOnFloor = IsOnFloor();
-        var startY = GlobalPosition.Y;
+        var frameOrigin = GlobalPosition;
+        var startY = frameOrigin.Y;
         var velocity = Velocity;
         var movement = GetMovementInput();
         var direction = GlobalTransform.Basis *
@@ -387,6 +394,14 @@ public partial class FpsPlayer : CharacterBody3D
         Velocity = velocity;
         MoveAndSlide();
 
+        // Only the actual published native terrain collision can authorize
+        // a step. No voxel guess, blind teleport or mid-air stair-climbing.
+        if (startedOnFloor && !fluidContact.IsImmersed &&
+            !groundJumpPressed && velocity.Y <= 0f)
+        {
+            TryStepUp(frameOrigin, velocity, (float)delta);
+        }
+
         if (!fluidContact.IsImmersed)
         {
             _descendingDistance += Mathf.Max(0f, startY - GlobalPosition.Y);
@@ -408,15 +423,22 @@ public partial class FpsPlayer : CharacterBody3D
             var height = _groundMovement.IsCrouching
                 ? CrouchHeight : StandingHeight;
             _collider.Shape = _groundMovement.IsCrouching
-                ? _crouchedCapsule : _standingCapsule;
+                ? _crouchedBox : _standingBox;
             _collider.Position = new Vector3(0f, height * 0.5f, 0f);
         }
 
         var targetEyeY = StandingEyeHeight -
             (_groundMovement.IsCrouching ? CrouchEyeDrop : 0f);
+        var previousStepOffset = _stepVisualOffsetY;
+        _stepVisualOffsetY = Mathf.MoveToward(
+            _stepVisualOffsetY, 0f,
+            PlayerMovementGeometry.StepSmoothingSpeed * delta);
+        // Keep crouch interpolation independent of terrain-step smoothing.
+        var crouchEyeY = _cameraPivot.Position.Y - previousStepOffset;
         _cameraPivot.Position = new Vector3(0f,
-            Mathf.MoveToward(_cameraPivot.Position.Y, targetEyeY,
-                CrouchEyeDrop * CrouchCameraBlendSpeed * delta), 0f);
+            Mathf.MoveToward(crouchEyeY, targetEyeY,
+                CrouchEyeDrop * CrouchCameraBlendSpeed * delta) +
+                _stepVisualOffsetY, 0f);
     }
 
     private bool CanStandAtCurrentPosition()
@@ -425,7 +447,7 @@ public partial class FpsPlayer : CharacterBody3D
             return true;
         var query = new PhysicsShapeQueryParameters3D
         {
-            Shape = _standingCapsule,
+            Shape = _standingBox,
             Transform = new Transform3D(
                 _collider.GlobalTransform.Basis,
                 GlobalPosition + Vector3.Up * (StandingHeight * 0.5f)),
@@ -435,6 +457,77 @@ public partial class FpsPlayer : CharacterBody3D
             Exclude = new Godot.Collections.Array<Rid> { GetRid() },
         };
         return GetWorld3D().DirectSpaceState.IntersectShape(query, 1).Count == 0;
+    }
+
+    /// <summary>
+    /// Bounded Godot motion sweeps for MineClone's eighth-block stepping.
+    /// Each candidate must clear the rise and horizontal path, then settle on
+    /// a walkable static terrain surface. The actual body stays collision-safe;
+    /// only the relative camera offset is smoothed over subsequent frames.
+    /// </summary>
+    private bool TryStepUp(Vector3 frameOrigin,
+        Vector3 requestedVelocity, float deltaSeconds)
+    {
+        var requestedHorizontal = new Vector3(
+            requestedVelocity.X, 0f, requestedVelocity.Z) * deltaSeconds;
+        var actual = GlobalPosition - frameOrigin;
+        var remaining = requestedHorizontal -
+            new Vector3(actual.X, 0f, actual.Z);
+        if (remaining.LengthSquared() < 0.000001f)
+            return false;
+
+        var hitStaticWall = false;
+        for (var index = 0; index < GetSlideCollisionCount(); index++)
+        {
+            var slide = GetSlideCollision(index);
+            var normal = slide.GetNormal();
+            if (slide.GetCollider() is StaticBody3D &&
+                Mathf.Abs(normal.Y) < 0.5f &&
+                normal.Dot(remaining) < -0.0001f)
+            {
+                hitStaticWall = true;
+                break;
+            }
+        }
+        if (!hitStaticWall)
+            return false;
+
+        var from = GlobalTransform;
+        for (var index = 0;
+             index < PlayerMovementGeometry.StepCandidateCount;
+             index++)
+        {
+            var rise = PlayerMovementGeometry.StepRiseAt(index);
+            var upward = Vector3.Up * rise;
+            if (TestMove(from, upward))
+                continue;
+            var raised = from.Translated(upward);
+            if (TestMove(raised, remaining))
+                continue;
+
+            var landingStart = raised.Translated(remaining);
+            var landing = new KinematicCollision3D();
+            if (!TestMove(landingStart,
+                    Vector3.Down * (rise + PlayerMovementGeometry.GroundProbe),
+                    landing) ||
+                landing.GetNormal().Y < 0.7f)
+                continue;
+
+            var landedRise = rise + landing.GetTravel().Y;
+            if (landedRise < PlayerMovementGeometry.StepMinimumRise ||
+                landedRise > PlayerMovementGeometry.MaximumStepHeight +
+                    PlayerMovementGeometry.GroundProbe)
+                continue;
+
+            GlobalPosition = landingStart.Origin + landing.GetTravel();
+            Velocity = new Vector3(
+                requestedVelocity.X, 0f, requestedVelocity.Z);
+            _stepVisualOffsetY -= landedRise;
+            _cameraPivot.Position += Vector3.Down * landedRise;
+            ApplyFloorSnap();
+            return true;
+        }
+        return false;
     }
 
     private bool HasGroundSupportAt(Vector3 horizontalOffset) =>
@@ -471,6 +564,7 @@ public partial class FpsPlayer : CharacterBody3D
     public void ApplyGameMode()
     {
         _descendingDistance = 0f;
+        _stepVisualOffsetY = 0f;
         var spectator = PlayerState.GameMode.IsSpectator();
         CollisionLayer = spectator ? 0u : _solidCollisionLayer;
         CollisionMask = spectator ? 0u : _solidCollisionMask;
@@ -520,7 +614,7 @@ public partial class FpsPlayer : CharacterBody3D
     {
         get
         {
-            const float halfWidth = 0.35f;
+            const float halfWidth = PlayerMovementGeometry.HalfWidth;
             var height = _groundMovement.IsCrouching
                 ? CrouchHeight : StandingHeight;
 
