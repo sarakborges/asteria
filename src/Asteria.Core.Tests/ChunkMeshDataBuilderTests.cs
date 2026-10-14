@@ -96,6 +96,73 @@ public sealed class ChunkMeshDataBuilderTests
     }
 
     [Fact]
+    public void UniformRgbChangeRelightsMergedGreedyRectangleWithoutRebuilding()
+    {
+        const string texture = "textures/test/stone.png";
+        var blocks = new BlockRegistry([
+            new BlockDefinition("asteria:stone",
+                textures: new BlockTextureSet(top: [new BlockTextureLayer(texture)])),
+        ]);
+        var lookup = new TerrainTextureLookup(
+            new Dictionary<string, int> { [texture] = 0 });
+        var chunk = new Chunk();
+        var stone = blocks.GetId("asteria:stone");
+        for (var z = 2; z <= 4; z++)
+        for (var x = 2; x <= 5; x++)
+            chunk.SetBlock(x, 3, z, stone);
+        chunk.FillLight(new VoxelLight(15, 0, 0, 0));
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, chunk);
+
+        var original = ChunkMeshDataBuilder.BuildMeshlet(
+            world, ChunkCoord.Zero, blocks, lookup, 0);
+        Assert.True(original.CanRelightWithoutRemesh);
+        Assert.True(original.RenderBatches
+            .SelectMany(batch => batch.Vertices)
+            .Any(v => v.Position.X >= 5f)); // Covers merged rectangle.
+
+        chunk.FillLight(new VoxelLight(15, 7, 3, 1));
+        Assert.True(ChunkMeshLightingUpdater.TryRelight(
+            world, ChunkCoord.Zero, blocks, original, out var updated));
+        var rebuilt = ChunkMeshDataBuilder.BuildMeshlet(
+            world, ChunkCoord.Zero, blocks, lookup, 0);
+        Assert.Same(original.CollisionFaces, updated.CollisionFaces);
+        Assert.Equal(rebuilt.RenderBatches.Length, updated.RenderBatches.Length);
+        for (var i = 0; i < rebuilt.RenderBatches.Length; i++)
+            Assert.Equal(rebuilt.RenderBatches[i].Vertices,
+                updated.RenderBatches[i].Vertices);
+    }
+
+    [Fact]
+    public void GradientOnMergedGreedyFaceFallsBackToRemeshing()
+    {
+        const string texture = "textures/test/stone.png";
+        var blocks = new BlockRegistry([
+            new BlockDefinition("asteria:stone",
+                textures: new BlockTextureSet(top: [new BlockTextureLayer(texture)])),
+        ]);
+        var chunk = new Chunk();
+        var stone = blocks.GetId("asteria:stone");
+        chunk.SetBlock(3, 3, 3, stone);
+        chunk.SetBlock(4, 3, 3, stone);
+        chunk.FillLight(new VoxelLight(15, 0, 0, 0));
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, chunk);
+        var geometry = ChunkMeshDataBuilder.BuildMeshlet(
+            world, ChunkCoord.Zero, blocks,
+            new TerrainTextureLookup(
+                new Dictionary<string, int> { [texture] = 0 }), 0);
+        Assert.True(geometry.CanRelightWithoutRemesh);
+        Assert.True(world.TrySetLight(
+            new WorldVoxelCoord(3, 4, 3), new VoxelLight(7, 9, 0, 0)));
+        Assert.False(ChunkMeshLightingUpdater.TryRelight(
+            world, ChunkCoord.Zero, blocks, geometry, out _));
+        Assert.Throws<InvalidOperationException>(() =>
+            ChunkMeshLightingUpdater.Relight(
+                world, ChunkCoord.Zero, blocks, geometry));
+    }
+
+    [Fact]
     public void MultiVoxelGreedyRectangleRequiresGeometryRebuildOnLightChange()
     {
         const string texture = "textures/test/stone.png";
@@ -114,10 +181,11 @@ public sealed class ChunkMeshDataBuilderTests
             world, ChunkCoord.Zero, blocks,
             new TerrainTextureLookup(
                 new Dictionary<string, int> { [texture] = 0 }), 0);
-        Assert.False(geometry.CanRelightWithoutRemesh);
-        Assert.Throws<InvalidOperationException>(() =>
-            ChunkMeshLightingUpdater.Relight(
-                world, ChunkCoord.Zero, blocks, geometry));
+        Assert.True(geometry.CanRelightWithoutRemesh);
+        // With unchanged lighting, a merged rectangle can be reused.
+        Assert.True(ChunkMeshLightingUpdater.TryRelight(
+            world, ChunkCoord.Zero, blocks, geometry, out var relit));
+        Assert.Same(geometry.CollisionFaces, relit.CollisionFaces);
     }
 
     [Fact]

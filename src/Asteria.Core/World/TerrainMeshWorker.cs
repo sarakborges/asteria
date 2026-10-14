@@ -122,13 +122,12 @@ public sealed class TerrainMeshWorker
             {
                 var key = new ChunkMeshletKey(coord, meshletIndex);
                 if (relightable is not null &&
-                    relightable.TryGetValue(key, out var geometry))
+                    relightable.TryGetValue(key, out var geometry) &&
+                    ChunkMeshLightingUpdater.TryRelight(
+                        world, coord, blocks, geometry, out var relit))
                 {
                     result.Add(new TerrainMeshletBuild(
-                        coord, meshletIndex,
-                        ChunkMeshLightingUpdater.Relight(
-                            world, coord, blocks, geometry),
-                        LightOnly: true));
+                        coord, meshletIndex, relit, LightOnly: true));
                     continue;
                 }
 

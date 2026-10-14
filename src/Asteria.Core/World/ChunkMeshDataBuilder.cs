@@ -58,7 +58,6 @@ public static class ChunkMeshDataBuilder
         // The fine-geometry decision depends on the immutable worker snapshot.
         // Reuse it in all six greedy face passes rather than re-reading six
         // neighbors for every occupied voxel on every face.
-        var hasMergedFaces = false;
         var hasUnsupportedLightingGeometry = false;
         var fineMeshing = new bool[
             ChunkMeshletMask.Edge *
@@ -158,8 +157,7 @@ public static class ChunkMeshDataBuilder
         if (selectedLayer is null)
             EmitGreedyCubeFaces(
                 surfaces, collision, world, coord, blocks, textures,
-                bounds, tintSamples, dyes, fineMeshing, meshletIndex,
-                ref hasMergedFaces);
+                bounds, tintSamples, dyes, fineMeshing, meshletIndex);
 
         EmitAttachedLayers(
             surfaces, collision, world, blocks, textures,
@@ -178,7 +176,7 @@ public static class ChunkMeshDataBuilder
         return new ChunkMeshData(
             batches,
             collision.ToArray(),
-            CanRelightWithoutRemesh: !hasMergedFaces && !hasUnsupportedLightingGeometry);
+            CanRelightWithoutRemesh: !hasUnsupportedLightingGeometry);
     }
 
     private static void EmitGreedyCubeFaces(
@@ -198,8 +196,7 @@ public static class ChunkMeshDataBuilder
         BiomeTintSampleGrid? tintSamples,
         DyeRegistry? dyes,
         bool[] fineMeshing,
-        int meshletIndex,
-        ref bool hasMergedFaces)
+        int meshletIndex)
     {
         var chunk = world.GetChunk(coord);
         VoxelMeshLighting.SamplingGrid? lightingGrid = null;
@@ -336,8 +333,7 @@ public static class ChunkMeshDataBuilder
                     candidates,
                     originX,
                     originZ,
-                    tintSamples,
-                    ref hasMergedFaces);
+                    tintSamples);
             }
         }
     }
@@ -351,8 +347,7 @@ public static class ChunkMeshDataBuilder
         GreedyCubeFace?[] candidates,
         int worldOriginX,
         int worldOriginZ,
-        BiomeTintSampleGrid? tintSamples,
-        ref bool hasMergedFaces)
+        BiomeTintSampleGrid? tintSamples)
     {
         var planeWidth =
             plane.UMaxExclusive - plane.UMin;
@@ -427,9 +422,6 @@ public static class ChunkMeshDataBuilder
                             (localV + row) * planeWidth] = null;
                     }
                 }
-
-                if (rectangleWidth > 1 || rectangleHeight > 1)
-                    hasMergedFaces = true;
 
                 EmitCubeRectangle(
                     GetSurface(
