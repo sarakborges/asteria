@@ -24,12 +24,32 @@ public partial class Main
     private bool CreativeCatalogTintChanged() =>
         _lastPublishedCatalogTint != _inventoryIconTints.Palette;
 
+    private bool HotbarContainsBiomeTintedContent()
+    {
+        var inventory = _sessionStates.Player.Inventory;
+        for (var i = 0; i < PlayerInventory.HotbarSlots; i++)
+        {
+            var stack = inventory.SlotAt(PlayerInventory.BackpackSlots + i);
+            if (stack is null) continue;
+            if (stack.Kind == InventoryEntryKind.Block &&
+                _blocks.TryGetId(stack.Id, out var id) &&
+                _blocks.GetDefinition(id).Tint != BlockTint.None)
+                return true;
+            if (stack.Kind == InventoryEntryKind.Object &&
+                _objects.TryGet(stack.Id, out var obj) &&
+                obj is { Tint: not BlockTint.None })
+                return true;
+        }
+        return false;
+    }
+
     private void SyncInventoryIconTint()
     {
         if (_player is null || _worldSeed is null) return;
         if (!_inventoryIconTints.Sync(
             _sessions.Active.Generator.Tints, _player.GlobalPosition)) return;
-        SendHotbarState();
+        if (HotbarContainsBiomeTintedContent())
+            SendHotbarState();
         if (_inventoryOpen && CreativeCatalogTintChanged())
         {
             SendCreativeCatalog();
