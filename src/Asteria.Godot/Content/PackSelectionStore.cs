@@ -33,23 +33,23 @@ internal sealed class PackSelectionStore
             _ = new PackOverlayEntry(folder, PackDomains.Both);
             var manifest = Path.Combine(location.Directory, "pack.json");
             if (!File.Exists(manifest))
-                throw new InvalidDataException("Missing pack.json manifest.");
+                throw new FormatException("Missing pack.json manifest.");
 
             using var document = JsonDocument.Parse(File.ReadAllText(manifest));
             if (document.RootElement.ValueKind != JsonValueKind.Object)
-                throw new InvalidDataException("pack.json must be a JSON object.");
+                throw new FormatException("pack.json must be a JSON object.");
             var root = document.RootElement;
             if (root.GetProperty("format").GetInt32() != 1)
-                throw new InvalidDataException("Unsupported pack format.");
+                throw new FormatException("Unsupported pack format.");
             var id = root.GetProperty("id").GetString()!;
             if (string.IsNullOrWhiteSpace(id) || !id.Contains(':'))
-                throw new InvalidDataException("Pack ID must be namespaced.");
+                throw new FormatException("Pack ID must be namespaced.");
             var name = root.GetProperty("name").GetString()!;
             var version = root.GetProperty("version").GetString()!;
             var description = root.TryGetProperty("description", out var desc)
                 ? desc.GetString() ?? "" : "";
             if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(version))
-                throw new InvalidDataException("Pack name and version are required.");
+                throw new FormatException("Pack name and version are required.");
 
             return new InstalledPack(folder, id, name, version, description);
         }
