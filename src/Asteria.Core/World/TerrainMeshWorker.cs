@@ -5,7 +5,8 @@ namespace Asteria.Core.World;
 public sealed record TerrainMeshletBuild(
     ChunkCoord Coord,
     int MeshletIndex,
-    ChunkMeshData Data);
+    ChunkMeshData Data,
+    bool LightOnly = false);
 
 public sealed record TerrainMeshWorkerResult(
     WorldMeshBatch SourceBatch,
@@ -31,7 +32,8 @@ public sealed class TerrainMeshWorker
         AttachedLayerRegistry layers,
         DyeRegistry dyes,
         WorldMeshBatch batch,
-        MeshletContentRevisions revisions)
+        MeshletContentRevisions revisions,
+        IReadOnlyDictionary<ChunkMeshletKey, ChunkMeshData>? relightable = null)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(blocks);
@@ -70,7 +72,8 @@ public sealed class TerrainMeshWorker
                     biomeTints,
                     layers,
                     dyes,
-                    batch.DirtyMeshlets);
+                    batch.DirtyMeshlets,
+                    relightable);
             stopwatch.Stop();
 
             return new TerrainMeshWorkerResult(
@@ -98,7 +101,8 @@ public sealed class TerrainMeshWorker
             BiomeTintField biomeTints,
             AttachedLayerRegistry layers,
             DyeRegistry dyes,
-            IReadOnlyDictionary<ChunkCoord, ChunkMeshletMask> dirty)
+            IReadOnlyDictionary<ChunkCoord, ChunkMeshletMask> dirty,
+            IReadOnlyDictionary<ChunkMeshletKey, ChunkMeshData>? relightable)
     {
         var result =
             new List<TerrainMeshletBuild>();
@@ -113,26 +117,28 @@ public sealed class TerrainMeshWorker
                 continue;
             }
 
-            var tintSamples =
-                biomeTints.SampleChunkGrid(
-                    coord.X,
-                    coord.Z);
-
+            BiomeTintSampleGrid? tintSamples = null;
             foreach (var meshletIndex in mask.Indices())
             {
-                result.Add(
-                    new TerrainMeshletBuild(
-                        coord,
-                        meshletIndex,
-                        ChunkMeshDataBuilder.BuildMeshlet(
-                            world,
-                            coord,
-                            blocks,
-                            textures,
-                            meshletIndex,
-                            tintSamples,
-                            layers,
-                            dyes)));
+                var key = new ChunkMeshletKey(coord, meshletIndex);
+                if (relightable is not null &&
+                    relightable.TryGetValue(key, out var geometry))
+                {
+                    result.Add(new TerrainMeshletBuild(
+                        coord, meshletIndex,
+                        ChunkMeshLightingUpdater.Relight(
+                            world, coord, blocks, geometry),
+                        LightOnly: true));
+                    continue;
+                }
+
+                // Immutable biome samples are only needed by a new mesh.
+                tintSamples ??= biomeTints.SampleChunkGrid(coord.X, coord.Z);
+                result.Add(new TerrainMeshletBuild(
+                    coord, meshletIndex,
+                    ChunkMeshDataBuilder.BuildMeshlet(
+                        world, coord, blocks, textures, meshletIndex,
+                        tintSamples, layers, dyes)));
             }
         }
 

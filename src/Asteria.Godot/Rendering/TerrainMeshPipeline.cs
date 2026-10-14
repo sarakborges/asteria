@@ -206,6 +206,7 @@ public sealed class TerrainMeshPipeline
             return false;
         }
 
+        var relightable = _presentations.CaptureRelightableTerrain(batch);
         if (!worker.TryStart(
                 _world,
                 _blocks,
@@ -214,7 +215,8 @@ public sealed class TerrainMeshPipeline
                 _layers,
                 _dyes,
                 batch,
-                _revisions))
+                _revisions,
+                relightable))
         {
             Requeue(batch, priority);
             return false;

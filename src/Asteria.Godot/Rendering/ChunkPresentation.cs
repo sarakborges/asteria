@@ -21,6 +21,12 @@ public sealed class ChunkPresentation
         new CollisionShape3D?[ChunkMeshletMask.Count];
     private readonly MeshDependencyStamp?[] _collisionDependencies =
         new MeshDependencyStamp?[ChunkMeshletMask.Count];
+    // Derived geometry cache is bounded to relightable presented meshlets.
+    // It is dropped with the presentation on residency retirement.
+    private readonly ChunkMeshData?[] _relightableGeometry =
+        new ChunkMeshData?[ChunkMeshletMask.Count];
+    private readonly MeshDependencyStamp?[] _relightableDependencies =
+        new MeshDependencyStamp?[ChunkMeshletMask.Count];
     // Only unpublished physics faces are held; they are replaced on remesh
     // and released on proximity prewarm, activation or presentation retirement.
     private readonly DeferredCollision?[] _deferredCollisions =
@@ -85,6 +91,25 @@ public sealed class ChunkPresentation
     {
         ValidateMeshletIndex(index);
         return _published[index];
+    }
+
+    public bool TryGetRelightableGeometry(
+        int meshletIndex, VoxelWorld world, out ChunkMeshData? data)
+    {
+        ValidateMeshletIndex(meshletIndex);
+        ArgumentNullException.ThrowIfNull(world);
+
+        data = _relightableGeometry[meshletIndex];
+        if (data is not { CanRelightWithoutRemesh: true } ||
+            _meshes[meshletIndex] is null ||
+            _relightableDependencies[meshletIndex] is not { } dependency ||
+            !dependency.IsCurrent(world))
+        {
+            data = null;
+            return false;
+        }
+
+        return true;
     }
 
     public void SetVisible(bool visible) =>
@@ -322,6 +347,16 @@ public sealed class ChunkPresentation
                 _meshes,
                 meshletIndex);
         }
+
+        // Replacing an already-published geometry snapshot invalidates its
+        // old cached light bindings. New cache is immutable and bounded to
+        // this presentation's lifetime.
+        _relightableGeometry[meshletIndex] =
+            data.CanRelightWithoutRemesh && data.HasRenderGeometry
+                ? data
+                : null;
+        _relightableDependencies[meshletIndex] =
+            _relightableGeometry[meshletIndex] is null ? null : dependencies;
 
         var renderMilliseconds = Stopwatch.GetElapsedTime(
             renderStart).TotalMilliseconds;
