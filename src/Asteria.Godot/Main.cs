@@ -5549,15 +5549,16 @@ public partial class Main : Node3D
             return;
         }
 
-        if (report is not { } completed ||
-            completed.Kind !=
-                MeshPipelineCompletionKind.Applied)
-        {
+        if (report is not { } completed)
             return;
-        }
 
+        // Requeued stale batches consumed CPU too: measure them rather than
+        // silently excluding their cost from the performance baseline.
         _worldDiagnostics?.ObserveFluidMesh(
-            completed.WorkerMilliseconds, completed.Accepted, completed.Stale);
+            completed.WorkerMilliseconds, completed.Accepted, completed.Stale,
+            completed.Kind == MeshPipelineCompletionKind.RequeuedStale);
+        if (completed.Kind != MeshPipelineCompletionKind.Applied)
+            return;
         if (_debugHudVisible)
         {
             GD.Print(
@@ -5601,16 +5602,15 @@ public partial class Main : Node3D
             return;
         }
 
-        if (report is not { } completed ||
-            completed.Kind !=
-                MeshPipelineCompletionKind.Applied)
-        {
+        if (report is not { } completed)
             return;
-        }
 
         _worldDiagnostics?.ObserveTerrainMesh(
             completed.WorkerMilliseconds, completed.Accepted, completed.Stale,
-            completed.CaptureMilliseconds);
+            completed.CaptureMilliseconds,
+            completed.Kind == MeshPipelineCompletionKind.RequeuedStale);
+        if (completed.Kind != MeshPipelineCompletionKind.Applied)
+            return;
         if (_debugHudVisible)
         {
             GD.Print(

@@ -84,6 +84,9 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     private double _terrainMeshCaptureMaxMs;
     private int _terrainMeshAccepted;
     private int _terrainMeshStale;
+    private int _terrainMeshDiscardedBatches;
+    private int _fluidMeshDiscardedBatches;
+    private double _lightingDiscardedWorkerMs;
     private double _meshPublicationRenderMs;
     private double _meshPublicationCollisionMs;
     private double _meshPublicationRenderMaxMs;
@@ -266,9 +269,11 @@ internal sealed class WorldDiagnosticsLog : IDisposable
 
     public void ObserveTerrainMesh(
         double workerMilliseconds, int accepted, int stale,
-        double captureMilliseconds = 0d)
+        double captureMilliseconds = 0d, bool discarded = false)
     {
         _terrainMeshBatches++;
+        if (discarded)
+            _terrainMeshDiscardedBatches++;
         _terrainMeshMs += workerMilliseconds;
         _terrainMeshCaptureMs += captureMilliseconds;
         _terrainMeshCaptureMaxMs = Math.Max(
@@ -292,9 +297,12 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         _meshPublicationStale += stats.Stale;
     }
 
-    public void ObserveFluidMesh(double workerMilliseconds, int accepted, int stale)
+    public void ObserveFluidMesh(double workerMilliseconds, int accepted, int stale,
+        bool discarded = false)
     {
         _fluidMeshBatches++;
+        if (discarded)
+            _fluidMeshDiscardedBatches++;
         _fluidMeshMs += workerMilliseconds;
         _fluidMeshAccepted += accepted;
         _fluidMeshStale += stale;
@@ -319,6 +327,7 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         if (report.Kind == LightingCompletionKind.RequeuedStale)
         {
             _lightingStaleBatches++;
+            _lightingDiscardedWorkerMs += report.WorkerMilliseconds;
             return;
         }
 
@@ -404,6 +413,7 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"mesh_capture_ms_total={Format1(_terrainMeshCaptureMs)} " +
             $"mesh_capture_ms_max={Format1(_terrainMeshCaptureMaxMs)} " +
             $"mesh_accepted={_terrainMeshAccepted} mesh_stale={_terrainMeshStale} " +
+            $"mesh_discarded_batches={_terrainMeshDiscardedBatches} " +
             $"mesh_publish_count={_meshPublicationPublished} mesh_publish_stale={_meshPublicationStale} " +
             $"mesh_publish_render_ms_total={Format1(_meshPublicationRenderMs)} " +
             $"mesh_publish_render_ms_max={Format1(_meshPublicationRenderMaxMs)} " +
@@ -412,12 +422,14 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"mesh_publish_collision_triangles={_meshPublicationCollisionTriangles} " +
             $"fluid_mesh_batches={_fluidMeshBatches} fluid_mesh_ms_total={Format1(_fluidMeshMs)} " +
             $"fluid_mesh_accepted={_fluidMeshAccepted} fluid_mesh_stale={_fluidMeshStale} " +
+            $"fluid_mesh_discarded_batches={_fluidMeshDiscardedBatches} " +
             $"fluid_batches={_fluidBatches} fluid_ms_total={Format1(_fluidMs)} " +
             $"fluid_changes={_fluidChanges} fluid_backlog_max={_fluidBacklogMax} " +
             $"lighting_batches={_lightingBatches} lighting_ms_total={Format1(_lightingMs)} " +
             $"lighting_voxels={_lightingVoxels} lighting_changed={_lightingChanged} " +
             $"lighting_dirty_chunks={_lightingDirtyChunks} " +
             $"lighting_stale={_lightingStaleBatches} " +
+            $"lighting_discarded_worker_ms_total={Format1(_lightingDiscardedWorkerMs)} " +
             $"lighting_capture_ms_total={Format1(_lightingCaptureMs)} " +
             $"lighting_capture_ms_max={Format1(_lightingCaptureMaxMs)} " +
             $"lighting_apply_ms_total={Format1(_lightingApplyMs)} " +
@@ -449,6 +461,9 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         _terrainMeshCaptureMaxMs = 0d;
         _terrainMeshAccepted = 0;
         _terrainMeshStale = 0;
+        _terrainMeshDiscardedBatches = 0;
+        _fluidMeshDiscardedBatches = 0;
+        _lightingDiscardedWorkerMs = 0d;
         _meshPublicationRenderMs = 0d;
         _meshPublicationCollisionMs = 0d;
         _meshPublicationRenderMaxMs = 0d;
