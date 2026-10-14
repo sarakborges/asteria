@@ -1,0 +1,36 @@
+.addons-page {
+  position: fixed; z-index: 31; inset: 0; padding: 24px;
+  display: flex; justify-content: center; align-items: center;
+  color: var(--ui-color-text); background: var(--ui-color-screen-background);
+  pointer-events: auto;
+}
+.addons-page__panel {
+  position: relative; z-index: 1; width: min(720px, 100%);
+  max-height: min(85vh, 850px); overflow-y: auto; padding: 24px;
+  border: 1px solid var(--ui-color-border, #666); border-radius: 12px;
+  background: var(--ui-color-screen-background);
+}
+.addons-page__header, .addons-page__line {
+  display: flex; gap: 16px; justify-content: space-between; align-items: center;
+}
+.addons-page__header h1 { margin: 0; }
+.addons-page__entry {
+  border: 1px solid var(--ui-color-border, #666);
+  border-radius: 8px; background: rgb(0 0 0 / 20%);
+  padding: 14px; margin: 12px 0;
+}
+.addons-page__sub { opacity: .78; margin: 4px 0; font-size: .84rem; }
+.addons-page__notice { opacity: .85; }
+.addons-page__error { color: #ff9b9b; }
+.addons-page__priority { display: flex; gap: 8px; }
+.addons-page__settings { display: flex; flex-direction: column; gap: 6px; margin: 12px 0; }
+.addons-page__settings textarea {
+  color: inherit; background: rgb(0 0 0 / 25%);
+  border: 1px solid currentColor; padding: 8px; resize: vertical;
+}
+.addons-page select { display: block; margin-top: 5px; padding: 6px; }
+.addons-page input { margin-right: 8px; }
+@media (max-width: 540px) {
+  .addons-page__line { align-items: flex-start; flex-direction: column; }
+  .addons-page__panel { padding: 14px; }
+}
