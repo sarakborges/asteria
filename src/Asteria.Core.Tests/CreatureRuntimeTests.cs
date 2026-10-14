@@ -31,6 +31,58 @@ public sealed class CreatureRuntimeTests
             [json], CreatureDefinition.Parse, definition => definition.Id);
     }
 
+
+    [Fact]
+    public void SourceFluidOccludesCreaturesButFlowingFluidDoesNot()
+    {
+        var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, new Chunk());
+        var creatures = new CreatureRuntime(Definitions());
+        Assert.True(creatures.TrySpawn("asteria:slime_aqua",
+            new Vector3(3.5f, 4f, 4.5f), out var spawned));
+
+        var origin = new Vector3(1.5f, 4.42f, 4.5f);
+        var direction = Vector3.UnitX;
+        var before = creatures.FindTarget(world, blocks, origin, direction, 6f);
+        Assert.NotNull(before);
+        Assert.Equal(spawned.Id, before.Value.Creature.Id);
+
+        var water = new FluidRuntimeId(1);
+        var obstruction = new WorldVoxelCoord(2, 4, 4);
+        Assert.True(world.SetFluidAt(
+            obstruction, FluidCell.Source(water), out _));
+        Assert.Null(creatures.FindTarget(world, blocks,
+            origin, direction, 6f));
+
+        Assert.True(world.SetFluidAt(
+            obstruction, FluidCell.Spreading(water, 4, 1), out _));
+        Assert.Equal(spawned.Id, creatures.FindTarget(world, blocks,
+            origin, direction, 6f)!.Value.Creature.Id);
+
+        Assert.True(world.SetFluidAt(obstruction, FluidCell.Empty, out _));
+        Assert.True(world.SetBlockAt(
+            obstruction, blocks.GetId("asteria:stone"), out _));
+        Assert.Null(creatures.FindTarget(world, blocks,
+            origin, direction, 6f));
+    }
+
+    [Fact]
+    public void SourceFluidBeyondCreatureDoesNotHideTheNearerCreature()
+    {
+        var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);
+        var world = new VoxelWorld();
+        world.InsertChunk(ChunkCoord.Zero, new Chunk());
+        var creatures = new CreatureRuntime(Definitions());
+        Assert.True(creatures.TrySpawn("asteria:slime_aqua",
+            new Vector3(3.5f, 4f, 4.5f), out var spawned));
+        Assert.True(world.SetFluidAt(new WorldVoxelCoord(5, 4, 4),
+            FluidCell.Source(new FluidRuntimeId(1)), out _));
+
+        Assert.Equal(spawned.Id, creatures.FindTarget(
+            world, blocks, new Vector3(1.5f, 4.42f, 4.5f),
+            Vector3.UnitX, 6f)!.Value.Creature.Id);
+    }
     [Fact]
     public void CommandKillUsesTheSameDeathLifecycleAsLethalCombat()
     {

@@ -5,8 +5,9 @@ namespace Asteria.Core.World;
 
 /// <summary>
 /// Shared block/Object target arbitration. An Object must be hit before any
-/// collidable block geometry on the same ray; its backing support voxel may
-/// remain a valid target behind the Object but never occlude the Object itself.
+/// collidable block geometry or a source fluid on the same ray. Its
+/// backing support voxel may remain behind the Object, but must not hide
+/// the Object itself.
 /// </summary>
 public static class WorldObjectTargetResolver
 {
@@ -23,12 +24,13 @@ public static class WorldObjectTargetResolver
             world, objects, origin, direction, maxDistance);
         if (objectHit is not { } resolved) return null;
 
-        // Do not pick Objects through geometry in the foreground. The
-        // epsilon permits a touch against the Object's own support surface,
-        // which lies at the same mathematical plane for thin Object visuals.
+        // Source fluids must also occlude an Object behind them. The
+        // epsilon permits touching an Object on its own support surface,
+        // even when the backing voxel or water begins at that plane.
         var blockingHit = VoxelWorldRaycaster.Raycast(
             world, blocks, origin, direction,
-            MathF.Max(0f, resolved.Distance - .001f));
+            MathF.Max(0f, resolved.Distance - .001f),
+            includeFluidSources: true);
         return blockingHit is null ? resolved : null;
     }
 }

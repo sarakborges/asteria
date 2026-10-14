@@ -9,7 +9,8 @@ public readonly record struct CreatureTargetHit(
 
 /// <summary>
 /// Nearest-ray creature selection using authored target colliders, with
-/// stable instance-id tie breaks and voxel line-of-sight occlusion.
+/// stable instance-id tie breaks and both solid-voxel and source-fluid
+/// line-of-sight occlusion. Uses the same DDA as the HUD.
 /// </summary>
 public static class CreatureTargetQuery
 {
@@ -71,10 +72,12 @@ public static class CreatureTargetQuery
             (int)MathF.Floor(point.Z));
         if (voxel.Y < 0 || !world.IsLoadedAt(voxel)) return null;
 
-        // Use the same detailed microblock-aware raycast as mining.
-        // A block hit up to the candidate's entry surface wins over a creature.
+        // Source fluids participate in target arbitration (MineClone
+        // rebuild), but not in ordinary mining/placement raycasts. The
+        // existing geometry-aware DDA resolves both occluders in order.
         return VoxelWorldRaycaster.Raycast(
-            world, blocks, origin, unit, hit.Distance) is null
+            world, blocks, origin, unit, hit.Distance,
+            includeFluidSources: true) is null
             ? hit : null;
     }
 
