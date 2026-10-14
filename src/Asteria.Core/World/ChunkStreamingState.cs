@@ -230,8 +230,12 @@ public sealed class ChunkStreamingState
         }
     }
 
-    public ChunkCoord? PopPendingByPriority()
+    // Deferred distant chunks remain in the authoritative pending set.
+    public ChunkCoord? PopPendingByPriority(long? maximumHorizontalDistanceSquared = null)
     {
+        if (maximumHorizontalDistanceSquared is < 0)
+            throw new ArgumentOutOfRangeException(
+                nameof(maximumHorizontalDistanceSquared));
         if (Center is not { } center ||
             _pending.Count == 0)
         {
@@ -249,6 +253,9 @@ public sealed class ChunkStreamingState
                     coord,
                     center,
                     MovementDirection);
+            if (maximumHorizontalDistanceSquared is { } limit &&
+                priority.HorizontalDistanceSquared > limit)
+                continue;
 
             if (selected is null ||
                 priority.CompareTo(

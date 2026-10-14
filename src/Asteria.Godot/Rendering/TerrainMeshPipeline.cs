@@ -20,6 +20,9 @@ public sealed class TerrainMeshPipeline
 
     private bool _acceptingWork = true;
     private bool _preferInteractive = true;
+    // Ensure background meshes advance even under sustained pressure.
+    private const int MaximumDeferredBackgroundStarts = 8;
+    private int _deferredBackgroundStarts;
 
     private WorldMeshBatch? _interactiveInFlightBatch;
     private WorldMeshBatch? _backgroundInFlightBatch;
@@ -88,12 +91,26 @@ public sealed class TerrainMeshPipeline
         _acceptingWork = false;
     }
 
-    public bool TryStartReadyWork()
+    public bool TryStartReadyWork(bool underStreamingPressure = false)
     {
         if (!_acceptingWork)
         {
             return false;
         }
+
+        var visibleWork = _updates.HasPriorityMeshWork ||
+            _interactiveWorker.IsRunning;
+        var shouldDeferBackground = underStreamingPressure &&
+            visibleWork && _updates.HasBackgroundMeshWork;
+        if (shouldDeferBackground)
+            _deferredBackgroundStarts = Math.Min(
+                MaximumDeferredBackgroundStarts,
+                _deferredBackgroundStarts + 1);
+        else
+            _deferredBackgroundStarts = 0;
+
+        var mayStartBackground = !shouldDeferBackground ||
+            _deferredBackgroundStarts >= MaximumDeferredBackgroundStarts;
 
         // Worker startup captures neighboring chunks synchronously.
         // Limit each call to one lane and alternate to avoid starvation.
@@ -101,12 +118,12 @@ public sealed class TerrainMeshPipeline
             ? TryStartLane(
                   _interactiveWorker, ref _interactiveInFlightBatch,
                   priority: true, _maximumInteractiveMeshletsPerWorker) ||
-              TryStartLane(
+              (mayStartBackground && TryStartLane(
                   _backgroundWorker, ref _backgroundInFlightBatch,
-                  priority: false, _maximumBackgroundMeshletsPerWorker)
-            : TryStartLane(
+                  priority: false, _maximumBackgroundMeshletsPerWorker))
+            : (mayStartBackground && TryStartLane(
                   _backgroundWorker, ref _backgroundInFlightBatch,
-                  priority: false, _maximumBackgroundMeshletsPerWorker) ||
+                  priority: false, _maximumBackgroundMeshletsPerWorker)) ||
               TryStartLane(
                   _interactiveWorker, ref _interactiveInFlightBatch,
                   priority: true, _maximumInteractiveMeshletsPerWorker);
@@ -197,6 +214,8 @@ public sealed class TerrainMeshPipeline
         }
 
         inFlightBatch = batch;
+        if (!priority)
+            _deferredBackgroundStarts = 0;
         return true;
     }
 

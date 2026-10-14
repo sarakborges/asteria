@@ -603,13 +603,16 @@ public partial class Main : Node3D
                 ? WorldLoadingState.InitialHorizontalRadiusChunks
                 : _clientPreferences.RenderDistanceChunks;
 
+        var streamingPressure = WorldStreamingWorkPressure.Evaluate(
+            delta, _worldUpdates.DirtyChunkCount, loadingWorld);
         var stageStart = Stopwatch.GetTimestamp();
         var streamingBegin =
             _chunkStreaming.BeginFrame(
                 streamingCenter,
                 _worldFrameBudget,
                 streamingRadius,
-                RequiresPortalSurfaceAccess);
+                RequiresPortalSurfaceAccess,
+                streamingPressure);
         _worldDiagnostics?.ObserveStage(
             WorldFrameStage.StreamingBegin, stageStart);
         ReportStreamingSelection(
@@ -673,7 +676,7 @@ public partial class Main : Node3D
             WorldFrameStage.LightingPoll, stageStart);
 
         stageStart = Stopwatch.GetTimestamp();
-        DispatchOneWorldWorker();
+        DispatchOneWorldWorker(streamingPressure.IsPressured);
         _worldDiagnostics?.ObserveStage(
             WorldFrameStage.WorkerDispatch, stageStart);
 
@@ -5553,7 +5556,7 @@ public partial class Main : Node3D
         }
     }
 
-    private void DispatchOneWorldWorker()
+    private void DispatchOneWorldWorker(bool underStreamingPressure)
     {
         // A worker captures its immutable neighborhood synchronously.
         // Start at most one snapshot per frame and rotate across owners.
@@ -5563,7 +5566,7 @@ public partial class Main : Node3D
             var started = lane switch
             {
                 0 => _fluidSimulationRuntime.TryStartReadyWork(),
-                1 => _terrainMeshPipeline.TryStartReadyWork(),
+                1 => _terrainMeshPipeline.TryStartReadyWork(underStreamingPressure),
                 2 => _lightingRuntime.TryStartReadyWork(),
                 _ => _fluidMeshPipeline.TryStartReadyWork(),
             };

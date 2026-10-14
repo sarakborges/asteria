@@ -126,6 +126,27 @@ public sealed class ChunkStreamingStateTests
     }
 
     [Fact]
+    public void PressuredPendingSelectionKeepsDistantWorkQueued()
+    {
+        var state = new ChunkStreamingState();
+        var near = new ChunkCoord(1, 0, 0);
+        var far = new ChunkCoord(4, 0, 0);
+        state.RebuildSelection(ChunkCoord.Zero, horizontalRadius: 4,
+            retentionRadius: 5, desired: new HashSet<ChunkCoord> { near, far });
+        state.SyncResidentState(Array.Empty<ChunkCoord>(), Array.Empty<ChunkCoord>());
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            state.PopPendingByPriority(-1));
+        Assert.Equal(near, state.PopPendingByPriority(
+            maximumHorizontalDistanceSquared: 4));
+        Assert.Null(state.PopPendingByPriority(
+            maximumHorizontalDistanceSquared: 4));
+        Assert.Equal(1, state.PendingCount);
+        Assert.Equal(far, state.PopPendingByPriority());
+        Assert.Equal(0, state.PendingCount);
+    }
+
+    [Fact]
     public void BootstrapKeepsKnownSurfaceChunksWithinNewRadius()
     {
         var state = new ChunkStreamingState();

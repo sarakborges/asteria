@@ -129,6 +129,10 @@ public sealed class ChunkResidencyRuntime
 
     private ChunkCoord _center;
     private int _retentionRadius;
+    // Scheduling-only state. Allow one distant launch every eight
+    // pressured frames without modifying the authoritative pending set.
+    private const int DistantDispatchIntervalFrames = 8;
+    private int _pressuredFramesSinceDistantDispatch;
 
     public ChunkResidencyRuntime(
         VoxelWorld world,
@@ -378,9 +382,22 @@ public sealed class ChunkResidencyRuntime
 
     public ChunkResidencyUpdate DispatchMaterializationTasks(
         WorldFrameWorkBudget budget,
-        IEnumerable<ChunkCoord> presented)
+        IEnumerable<ChunkCoord> presented,
+        bool deferDistantWork = false)
     {
         ArgumentNullException.ThrowIfNull(presented);
+
+        if (deferDistantWork)
+            _pressuredFramesSinceDistantDispatch = Math.Min(
+                DistantDispatchIntervalFrames,
+                _pressuredFramesSinceDistantDispatch + 1);
+        else
+            _pressuredFramesSinceDistantDispatch = 0;
+
+        var allowDistant = !deferDistantWork ||
+            _pressuredFramesSinceDistantDispatch >= DistantDispatchIntervalFrames;
+        var localRadius = ChunkStreamingSelection.PlayerLocalHorizontalRadiusChunks;
+        var localDistanceSquared = (long)localRadius * localRadius;
 
         var activations =
             new List<ChunkResidencyActivation>();
@@ -403,12 +420,23 @@ public sealed class ChunkResidencyRuntime
                 break;
             }
 
-            var coord =
-                _streaming.PopPendingByPriority();
+            var coord = _streaming.PopPendingByPriority(
+                allowDistant ? null : localDistanceSquared);
 
             if (coord is null)
             {
                 break;
+            }
+
+            // Distant dispatch is rate-limited, while nearby chunks keep
+            // their existing deterministic priority on every frame.
+            var priority = ChunkStreamingState.Priority(
+                coord.Value, _center, _streaming.MovementDirection);
+            if (deferDistantWork &&
+                priority.HorizontalDistanceSquared > localDistanceSquared)
+            {
+                allowDistant = false;
+                _pressuredFramesSinceDistantDispatch = 0;
             }
 
             if (!_streaming.IsDesired(coord.Value) ||

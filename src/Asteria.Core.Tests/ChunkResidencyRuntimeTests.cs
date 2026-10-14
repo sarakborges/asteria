@@ -53,6 +53,62 @@ public sealed class ChunkResidencyRuntimeTests
     }
 
     [Fact]
+    public void PressuredGenerationPrioritizesLocalChunksAndEventuallyDispatchesDistantOnes()
+    {
+        var fixture = CreateFixture();
+        var near = new ChunkCoord(1, 0, 0);
+        var far = new ChunkCoord(5, 0, 0);
+        foreach (var coord in new[] { near, far })
+        {
+            fixture.World.InsertChunk(coord, new Chunk());
+            fixture.World.ArchiveChunk(coord);
+        }
+
+        fixture.Runtime.SyncSelection(ChunkCoord.Zero,
+            horizontalRadius: 5, retentionRadius: 6,
+            desired: new HashSet<ChunkCoord> { near, far },
+            presented: Array.Empty<ChunkCoord>());
+
+        var first = fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(), Array.Empty<ChunkCoord>(),
+            deferDistantWork: true);
+        Assert.Equal(near, Assert.Single(first.Activations).Coord);
+        Assert.False(fixture.World.ContainsChunk(far));
+        Assert.Equal(1, fixture.Runtime.PendingCount);
+
+        for (var frame = 2; frame < 8; frame++)
+            Assert.Empty(fixture.Runtime.DispatchMaterializationTasks(
+                GenerousBudget(), Array.Empty<ChunkCoord>(),
+                deferDistantWork: true).Activations);
+
+        var eighth = fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(), Array.Empty<ChunkCoord>(),
+            deferDistantWork: true);
+        Assert.Equal(far, Assert.Single(eighth.Activations).Coord);
+        Assert.Equal(0, fixture.Runtime.PendingCount);
+    }
+
+    [Fact]
+    public void UnpressuredGenerationImmediatelyResumesDistantDispatch()
+    {
+        var fixture = CreateFixture();
+        var far = new ChunkCoord(5, 0, 0);
+        fixture.World.InsertChunk(far, new Chunk());
+        fixture.World.ArchiveChunk(far);
+        fixture.Runtime.SyncSelection(ChunkCoord.Zero,
+            horizontalRadius: 5, retentionRadius: 6,
+            desired: new HashSet<ChunkCoord> { far },
+            presented: Array.Empty<ChunkCoord>());
+
+        Assert.Empty(fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(), Array.Empty<ChunkCoord>(),
+            deferDistantWork: true).Activations);
+        var resumed = fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(), Array.Empty<ChunkCoord>());
+        Assert.Equal(far, Assert.Single(resumed.Activations).Coord);
+    }
+
+    [Fact]
     public void ArchivedRestoresAreBoundedPerFrameAndRemainPendingForNextFrame()
     {
         var fixture = CreateFixture();

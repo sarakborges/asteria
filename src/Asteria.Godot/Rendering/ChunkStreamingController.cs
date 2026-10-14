@@ -169,7 +169,8 @@ public sealed class ChunkStreamingController
         ChunkCoord center,
         WorldFrameWorkBudget budget,
         int horizontalRadius,
-        bool includeVerticalAccess = false)
+        bool includeVerticalAccess = false,
+        WorldStreamingWorkPressure pressure = default)
     {
         var selection =
             SyncSelection(
@@ -183,7 +184,8 @@ public sealed class ChunkStreamingController
         var dispatched =
             _residency.DispatchMaterializationTasks(
                 budget,
-                _presentations.Coordinates);
+                _presentations.Coordinates,
+                deferDistantWork: pressure.IsPressured);
         var reserved =
             _presentations.ReservePending(
                 _residency,
