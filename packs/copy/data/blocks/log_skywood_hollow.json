@@ -2,12 +2,12 @@
   "id": "asteria:log_skywood_hollow",
   "category": "blocks_wooden",
   "textures": {
-    "top": "textures/blocks/trees/skywood/top.png",
-    "bottom": "textures/blocks/trees/skywood/top.png",
-    "left": "textures/blocks/trees/skywood/side.png",
-    "right": "textures/blocks/trees/skywood/side.png",
-    "front": "textures/blocks/trees/skywood/side.png",
-    "back": "textures/blocks/trees/skywood/side.png"
+    "top": "textures/blocks/trees/oak/top.png",
+    "bottom": "textures/blocks/trees/oak/top.png",
+    "left": "textures/blocks/trees/oak/side.png",
+    "right": "textures/blocks/trees/oak/side.png",
+    "front": "textures/blocks/trees/oak/side.png",
+    "back": "textures/blocks/trees/oak/side.png"
   },
   "lightDampening": 15,
   "castsShadow": true,
