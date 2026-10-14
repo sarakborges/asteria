@@ -38,26 +38,14 @@ export function CreativeInventoryPanel({
   }, [scrollMemory]);
 
   useLayoutEffect(() => {
-    // A keyboard PageDown can still be animating when a category/search
-    // changes. An instant restore cancels the browser's pending scroll,
-    // instead of letting it move the newly selected catalog off its start.
+    // Each filter owns an independent viewport. Remounting the viewport
+    // cancels an in-flight browser PageDown/wheel animation and prevents its
+    // queued scroll events from overwriting the next filter's saved offset.
     gridRef.current?.scrollTo({
       top: scrollMemory?.catalogOffsets.get(scrollKey) ?? 0,
       behavior: "instant",
     });
   }, [scrollKey, scrollMemory]);
-
-  const selectCategory = (id: string | null) => {
-    if (!onCategoryChange) return;
-    // Stop an in-flight native keyboard/wheel scroll synchronously, before
-    // React commits the new scroll key. Preserve its independent offset.
-    const nextKey = JSON.stringify([id, state.searchQuery.trim()]);
-    gridRef.current?.scrollTo({
-      top: scrollMemory?.catalogOffsets.get(nextKey) ?? 0,
-      behavior: "instant",
-    });
-    onCategoryChange(id);
-  };
 
   const rememberCatalogScroll = (offset: number) => {
     if (!scrollMemory) return;
@@ -86,7 +74,7 @@ export function CreativeInventoryPanel({
             ariaPressed={state.selectedCategoryId === null}
             variant={state.selectedCategoryId === null ? "primary" : "normal"}
             stretch disabled={!onCategoryChange}
-            onClick={() => selectCategory(null)}
+            onClick={() => onCategoryChange?.(null)}
           />
           {state.categories.map(category => (
             <Button
@@ -96,7 +84,7 @@ export function CreativeInventoryPanel({
               ariaPressed={category.id === state.selectedCategoryId}
               variant={category.id === state.selectedCategoryId ? "primary" : "normal"}
               stretch disabled={!onCategoryChange}
-              onClick={() => selectCategory(category.id)}
+              onClick={() => onCategoryChange?.(category.id)}
             />
           ))}
         </ScrollArea>
@@ -113,7 +101,7 @@ export function CreativeInventoryPanel({
               onChange={event => onSearchChange?.(event.target.value)}
             />
           </header>
-          <ScrollArea className="creative-inventory-panel__grid-scroll"
+          <ScrollArea key={scrollKey} className="creative-inventory-panel__grid-scroll"
             viewportClassName="creative-inventory-panel__grid"
             contentClassName="creative-inventory-panel__grid-content"
             ariaLabel={t("ui.catalog")} viewportRef={gridRef}
