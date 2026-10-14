@@ -64,6 +64,9 @@ public static class ChunkFluidMeshBuilder
         return mesh;
     }
 
+    public static bool TryUpdateLighting(ArrayMesh mesh, ChunkFluidMeshData data) =>
+        MeshLightAttributePatcher.TryUpdate(mesh, data);
+
     private static byte PackUnorm8(float value) =>
         (byte)Math.Clamp((int)MathF.Round(value * 255f), 0, 255);
 }

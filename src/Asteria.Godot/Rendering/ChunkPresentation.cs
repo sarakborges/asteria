@@ -340,9 +340,11 @@ public sealed class ChunkPresentation
             CreateMesh(_fluidMeshes, meshletIndex,
                 $"FluidMeshlet_{meshletIndex}");
 
-        // Fluid light-only work has identical faces and must not change
-        // the published geometry; this bridge publishes vertex attributes.
-        mesh.Mesh = ChunkFluidMeshBuilder.CreateMesh(data, materials);
+        if (!(lightOnly && mesh.Mesh is ArrayMesh published &&
+            ChunkFluidMeshBuilder.TryUpdateLighting(published, data)))
+        {
+            mesh.Mesh = ChunkFluidMeshBuilder.CreateMesh(data, materials);
+        }
 
         var count = data.Batches.Sum(batch => batch.Vertices.Length);
         if (count <= MaximumFluidRelightVerticesPerChunk -
