@@ -78,7 +78,8 @@ public sealed class DimensionRuntimeSession
         TerrainTextureLookup terrainTextures,
         VoxelTerrainMaterialSet terrainMaterials,
         FluidMaterialCatalog fluidMaterials,
-        DimensionRuntimeSessionSettings settings)
+        DimensionRuntimeSessionSettings settings,
+        Func<string, WorldVoxelCoord, bool>? allowBlockBreak = null)
     {
         ArgumentNullException.ThrowIfNull(
             parent);
@@ -273,7 +274,7 @@ public sealed class DimensionRuntimeSession
                 blocks,
                 Mutations,
                 _droppedBlocks,
-                layers, _inventoryCatalog);
+                layers, _inventoryCatalog, allowBlockBreak);
         Tools = new ToolGameplayRuntime(
             World, blocks, Mutations, tools, dyes);
         LayerPlacement = new AttachedLayerPlacementRuntime(

@@ -57,6 +57,7 @@ public partial class Main : Node3D
     private PackSelection _packSelection =
         PackSelection.Default;
     private PackSelectionStore _packSettings = null!;
+    private ModLoader _mods = null!;
     private ClientPreferencesController _clientSettings = null!;
     private WorldCatalogScanController _worldCatalog = null!;
     private readonly WorldThumbnailCapture _worldThumbnail = new();
@@ -199,6 +200,8 @@ public partial class Main : Node3D
             _clientSettings);
         _packSettings = new PackSelectionStore(OS.GetUserDataDir());
         _packSelection = _packSettings.Current;
+        _mods = new ModLoader(OS.GetUserDataDir());
+        _mods.LoadEnabled();
         _uiTheme =
             UiThemeLoader.LoadProjectTheme(
                 _packSelection);
@@ -1230,7 +1233,8 @@ public partial class Main : Node3D
                 MaxTerrainMeshletsPerWorker,
                 MaxFluidMeshletsPerWorker,
                 MaxFluidUpdatesPerWorker,
-                MaxChunkEvictionsPerFrame));
+                MaxChunkEvictionsPerFrame),
+            _mods.AllowBlockBreak);
 
     private void RetirePlayerForDimensionTransition()
     {
@@ -1441,6 +1445,31 @@ public partial class Main : Node3D
             {
                 case "ui.ready":
                     SendCurrentState();
+                    break;
+                case "ui.mods.refresh":
+                    if (_worldSeed is null) SendModsCatalog();
+                    break;
+                case "ui.mods.configure":
+                    if (_worldSeed is not null) break;
+                    try
+                    {
+                        if (!document.RootElement.TryGetProperty("payload", out var modPayload) ||
+                            !modPayload.TryGetProperty("id", out var idProperty) ||
+                            idProperty.ValueKind != JsonValueKind.String ||
+                            !modPayload.TryGetProperty("enabled", out var enabledProperty) ||
+                            enabledProperty.ValueKind is not (JsonValueKind.True or JsonValueKind.False) ||
+                            !modPayload.TryGetProperty("settings", out var settingsProperty) ||
+                            settingsProperty.ValueKind != JsonValueKind.Object)
+                            throw new FormatException("Invalid mod settings request.");
+                        _mods.Configure(idProperty.GetString()!, enabledProperty.GetBoolean(),
+                            settingsProperty);
+                        SendModsCatalog();
+                    }
+                    catch (Exception error) when (error is IOException or
+                        ArgumentException or FormatException or InvalidDataException)
+                    {
+                        SendWebUi("game.mods.error", new { message = error.Message });
+                    }
                     break;
                 case "ui.packs.refresh":
                     if (_worldSeed is null) SendPackCatalog();
@@ -1696,6 +1725,9 @@ public partial class Main : Node3D
         }
     }
 
+    private void SendModsCatalog() =>
+        SendWebUi("game.mods.catalog", _mods.Catalog());
+
     private void SendPackCatalog()
     {
         var selected = _packSettings.Current.Overlays;
@@ -1728,6 +1760,7 @@ public partial class Main : Node3D
         SendDebugHudState();
         SendClientPreferences();
         SendPackCatalog();
+        SendModsCatalog();
 
         if (_worldSeed is null)
         {

@@ -28,6 +28,7 @@ public sealed class BlockInteractionRuntime
     private readonly AttachedLayerRegistry? _layers;
     private readonly InventoryContentCatalog? _inventoryCatalog;
     private readonly SpikeFormationRuntime _spikes;
+    private readonly Func<string, WorldVoxelCoord, bool>? _allowBreak;
 
     public BlockInteractionRuntime(
         VoxelWorld world,
@@ -35,7 +36,8 @@ public sealed class BlockInteractionRuntime
         VoxelMutationRuntime mutations,
         DroppedBlockRuntime droppedBlocks,
         AttachedLayerRegistry? layers = null,
-        InventoryContentCatalog? inventoryCatalog = null)
+        InventoryContentCatalog? inventoryCatalog = null,
+        Func<string, WorldVoxelCoord, bool>? allowBreak = null)
     {
         _world =
             world ??
@@ -51,6 +53,7 @@ public sealed class BlockInteractionRuntime
             throw new ArgumentNullException(nameof(droppedBlocks));
         _layers = layers;
         _inventoryCatalog = inventoryCatalog;
+        _allowBreak = allowBreak;
         _spikes = new SpikeFormationRuntime(
             _world, _blocks, _mutations, _droppedBlocks);
     }
@@ -89,6 +92,12 @@ public sealed class BlockInteractionRuntime
                 decision.Position,
                 BlockBreakRejection.Unbreakable);
         }
+
+        // This gate runs only for an accepted, breakable target, before any
+        // layer/drop/mutation side effects occur.
+        if (_allowBreak is not null && !_allowBreak(definition.Id, decision.Position))
+            return BlockBreakDecision.Reject(
+                decision.Position, BlockBreakRejection.CancelledByMod);
 
         // A face attachment is mined before the backing voxel. The same
         // authored definition determines its hardness, drops and removal scope.

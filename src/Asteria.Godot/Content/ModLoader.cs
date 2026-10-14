@@ -21,6 +21,8 @@ internal sealed class ModLoader
     private readonly List<(string ModId, Func<BeforeBlockBreak, bool> Hook)> _breakHooks = new();
     private readonly List<AssemblyLoadContext> _contexts = new();
     private bool _loaded;
+    private bool _restartRequired;
+    private readonly HashSet<string> _active = new(StringComparer.Ordinal);
 
     public ModLoader(string userDataRoot)
     {
@@ -101,9 +103,10 @@ internal sealed class ModLoader
                 enabled = IsEnabled(mod.Id),
                 settings = SettingsText(mod.Id),
                 status = _errors.TryGetValue(mod.Id, out var error)
-                    ? "error" : _loaded && IsEnabled(mod.Id) ? "loaded" : "disabled",
+                    ? "error" : _active.Contains(mod.Id) ? "loaded" : "disabled",
                 error = _errors.GetValueOrDefault(mod.Id),
             }).ToArray(),
+            restartRequired = _restartRequired,
             invalid = _errors.Where(item => item.Key.StartsWith("invalid:", StringComparison.Ordinal))
                 .OrderBy(item => item.Key, StringComparer.Ordinal)
                 .Select(item => new { folder = item.Key["invalid:".Length..], error = item.Value }).ToArray(),
@@ -144,6 +147,7 @@ internal sealed class ModLoader
         File.Move(tmp, _selectionPath, overwrite: true);
         _preferences.Clear();
         foreach (var item in next) _preferences.Add(item.Key, item.Value);
+        _restartRequired = true;
     }
 
     public void LoadEnabled()
@@ -177,6 +181,7 @@ internal sealed class ModLoader
                     }
                 LoadAssembly(mod);
                 loaded.Add(id);
+                _active.Add(id);
                 return true;
             }
             catch (Exception error)

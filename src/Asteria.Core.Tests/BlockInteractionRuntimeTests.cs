@@ -280,8 +280,27 @@ public sealed class BlockInteractionRuntimeTests
         Assert.Equal(0, fixture.Dropped.ActiveCount);
     }
 
+    [Fact]
+    public void ModGateCancelsBeforeMutationAndDrops()
+    {
+        var seen = new List<string>();
+        var fixture = CreateFixture(new BlockDefinition("asteria:stone"),
+            (id, _) => { seen.Add(id); return false; });
+        var position = new WorldVoxelCoord(2, 2, 2);
+        var id = fixture.Blocks.GetId("asteria:stone");
+        Assert.True(fixture.Mutations.SetBlockAt(position, id, out _));
+
+        var result = fixture.Interactions.Break(new VoxelWorldHit(position, 0, 0, 0));
+
+        Assert.Equal(BlockBreakRejection.CancelledByMod, result.Rejection);
+        Assert.Equal(id, fixture.World.GetCellOrEmpty(position).Block);
+        Assert.Equal(0, fixture.Dropped.ActiveCount);
+        Assert.Equal(new[] { "asteria:stone" }, seen);
+    }
+
     private static Fixture CreateFixture(
-        BlockDefinition definition)
+        BlockDefinition definition,
+        Func<string, WorldVoxelCoord, bool>? allowBreak = null)
     {
         var world = new VoxelWorld();
         world.InsertChunk(
@@ -318,7 +337,8 @@ public sealed class BlockInteractionRuntimeTests
                 world,
                 blocks,
                 mutations,
-                dropped);
+                dropped,
+                allowBreak: allowBreak);
 
         return new Fixture(
             world,
