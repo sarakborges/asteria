@@ -309,6 +309,59 @@ public sealed class VoxelWorldRaycasterTests
         Assert.Equal(1, topHit.Value.NormalY);
     }
 
+
+    [Fact]
+    public void FluidSourceHudRaycastStopsAtNearerOpaqueBlocks()
+    {
+        var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);
+        var fluids = new FluidRegistry([
+            new FluidDefinition("asteria:water", new FluidColor(30, 100, 205), 0.75f),
+        ]);
+        var water = fluids.GetId("asteria:water");
+        var world = LoadedWorld();
+        var source = new WorldVoxelCoord(3, 4, 4);
+        var wall = new WorldVoxelCoord(5, 4, 4);
+        Assert.True(world.SetFluidAt(source, FluidCell.Source(water), out _));
+        Assert.True(world.SetBlockAt(wall, blocks.GetId("asteria:stone"), out _));
+        var origin = new Vector3(1.5f, 4.5f, 4.5f);
+        Assert.Equal(wall, VoxelWorldRaycaster.Raycast(
+            world, blocks, origin, Vector3.UnitX, 6f)!.Value.Voxel);
+        Assert.Equal(source, VoxelWorldRaycaster.Raycast(
+            world, blocks, origin, Vector3.UnitX, 6f,
+            includeFluidSources: true)!.Value.Voxel);
+
+        var obstruction = new WorldVoxelCoord(2, 4, 4);
+        Assert.True(world.SetBlockAt(
+            obstruction, blocks.GetId("asteria:stone"), out _));
+        Assert.Equal(obstruction, VoxelWorldRaycaster.Raycast(
+            world, blocks, origin, Vector3.UnitX, 6f,
+            includeFluidSources: true)!.Value.Voxel);
+    }
+
+    [Fact]
+    public void FluidHudRaycastSkipsFlowingWaterWithoutChangingSurfacePlacement()
+    {
+        var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);
+        var fluids = new FluidRegistry([
+            new FluidDefinition("asteria:water", new FluidColor(30, 100, 205), 0.75f),
+        ]);
+        var water = fluids.GetId("asteria:water");
+        var world = LoadedWorld();
+        var voxel = new WorldVoxelCoord(3, 4, 4);
+        Assert.True(world.SetFluidAt(
+            voxel, FluidCell.Spreading(water, 5, 1), out _));
+        Assert.Null(VoxelWorldRaycaster.Raycast(
+            world, blocks, new Vector3(1.5f, 4.5f, 4.5f),
+            Vector3.UnitX, 4f, includeFluidSources: true));
+
+        Assert.True(world.SetFluidAt(voxel, FluidCell.Source(water), out _));
+        var surface = VoxelWorldRaycaster.Raycast(
+            world, blocks, new Vector3(3.5f, 6.5f, 4.5f),
+            -Vector3.UnitY, 4f, includeFluidSurface: true);
+        Assert.Equal(voxel, surface!.Value.Voxel);
+        Assert.Equal(1, surface.Value.NormalY);
+    }
+
     private static VoxelWorld LoadedWorld()
     {
         var world = new VoxelWorld();

@@ -24,7 +24,8 @@ public static class VoxelWorldRaycaster
         Vector3 origin,
         Vector3 direction,
         float maxDistance,
-        bool includeFluidSurface = false)
+        bool includeFluidSurface = false,
+        bool includeFluidSources = false)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(blocks);
@@ -150,6 +151,16 @@ public static class VoxelWorldRaycaster
                     hitZ >= voxelZ - EntryEpsilon && hitZ <= voxelZ + 1 + EntryEpsilon)
                     return new VoxelWorldHit(position, 0, 1, 0);
             }
+
+            // The HUD may opt into source fluid targets. Existing
+            // block targeting and the downward-only water-surface placement
+            // path retain their independent rules and default arguments.
+            // One shared DDA traversal guarantees nearer blocks occlude water.
+            if (includeFluidSources &&
+                world.GetCellOrEmpty(position).IsEmpty &&
+                world.TryGetFluid(position, out var sourceFluid) &&
+                !sourceFluid.IsEmpty && sourceFluid.IsSource)
+                return new VoxelWorldHit(position, normalX, normalY, normalZ);
 
             float distance;
 
