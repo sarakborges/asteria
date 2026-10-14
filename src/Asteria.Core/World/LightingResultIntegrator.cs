@@ -108,6 +108,23 @@ public sealed class LightingResultIntegrator
     }
 
     /// <summary>
+    /// Publish the worker's whole-chunk light slice and its precomputed
+    /// voxel-halo invalidations. The flush still checks live residency.
+    /// </summary>
+    public void AccumulatePreparedChunk(
+        VoxelWorld lightingSnapshot, LightingPublicationChunk publication)
+    {
+        ArgumentNullException.ThrowIfNull(lightingSnapshot);
+        ArgumentNullException.ThrowIfNull(publication);
+        _world.CopyLightChunkFrom(lightingSnapshot, publication.Coord);
+        foreach (var (coord, mask) in publication.DirtyMeshlets)
+            _accumulatedRefreshes[coord] =
+                _accumulatedRefreshes.TryGetValue(coord, out var existing)
+                    ? existing.Union(mask)
+                    : mask;
+    }
+
+    /// <summary>
     /// Publish one coalesced invalidation per affected meshlet. Recheck
     /// residency and content when flushing because chunks can retire while
     /// a lighting result is published incrementally.

@@ -46,9 +46,10 @@ public sealed class LightingRuntime
     private readonly ProximityDispatchFairness _dispatchFairness = new();
     private double _inFlightCaptureMilliseconds;
 
-    // Keep large lighting updates from publishing tens of thousands of
-    // voxels and meshlet invalidations in one main-thread frame.
-    private const int MaximumPublishedVoxelsPerPoll = 1024;
+    // Worker-prepared spatial masks avoid per-voxel halo enumeration on
+    // the authoritative thread. Bound both chunks and changed voxels.
+    private const int MaximumPublishedChunksPerPoll = 16;
+    private const int MaximumPublishedVoxelsPerPoll = 8192;
     // Coalesce up to eight polls of a lighting result before scheduling
     // presentation rebuilds. This bounds visual lag to about eight frames
     // while preventing repeated remesh of the same meshlet each slice.
@@ -56,7 +57,7 @@ public sealed class LightingRuntime
     private LightingWorkerResult? _publication;
     private double _publicationCaptureMilliseconds;
     private double _publicationApplyMilliseconds;
-    private int _publicationOffset;
+    private int _publicationChunkOffset;
     private int _publicationDirtyChunks;
     private int _publicationDirtyMeshlets;
     private int _publicationVoxelsSinceRefresh;
@@ -210,7 +211,7 @@ public sealed class LightingRuntime
         _publication = result;
         _publicationCaptureMilliseconds = captureMilliseconds;
         _publicationApplyMilliseconds = 0d;
-        _publicationOffset = 0;
+        _publicationChunkOffset = 0;
         _publicationDirtyChunks = 0;
         _publicationDirtyMeshlets = 0;
         _publicationVoxelsSinceRefresh = 0;
@@ -241,24 +242,32 @@ public sealed class LightingRuntime
             return true;
         }
 
-        var positions = result.Lighting.ChangedPositions;
-        var count = Math.Min(
-            MaximumPublishedVoxelsPerPoll,
-            positions.Count - _publicationOffset);
-        if (count > 0)
+        var publications = result.PublicationChunks ??
+            throw new InvalidOperationException(
+                "Completed lighting worker has no publication plan.");
+        var chunks = 0;
+        var voxels = 0;
+        while (_publicationChunkOffset < publications.Count &&
+               chunks < MaximumPublishedChunksPerPoll)
         {
+            var next = publications[_publicationChunkOffset];
+            if (chunks > 0 &&
+                voxels + next.ChangedVoxelCount > MaximumPublishedVoxelsPerPoll)
+                break;
+
             var started = Stopwatch.GetTimestamp();
-            _integration.AccumulateRange(
-                result.LightingSnapshot, positions, _publicationOffset, count);
+            _integration.AccumulatePreparedChunk(result.LightingSnapshot, next);
             _publicationApplyMilliseconds +=
                 Stopwatch.GetElapsedTime(started).TotalMilliseconds;
-            _publicationVoxelsSinceRefresh += count;
-            _publicationOffset += count;
+            _publicationVoxelsSinceRefresh += next.ChangedVoxelCount;
+            voxels += next.ChangedVoxelCount;
+            _publicationChunkOffset++;
+            chunks++;
             if (_publicationVoxelsSinceRefresh >= MaximumVoxelsPerMeshRefresh)
                 FlushLightingRefreshes();
         }
 
-        if (_publicationOffset < positions.Count)
+        if (_publicationChunkOffset < publications.Count)
             return false;
 
         FlushLightingRefreshes();

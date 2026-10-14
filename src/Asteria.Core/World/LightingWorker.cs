@@ -10,7 +10,8 @@ public sealed record LightingWorkerResult(
     WorldLightingBatch SourceBatch,
     VoxelLightingUpdateResult Lighting,
     double WorkerMilliseconds,
-    bool Cancelled = false);
+    bool Cancelled = false,
+    IReadOnlyList<LightingPublicationChunk>? PublicationChunks = null);
 
 public sealed class LightingWorker
 {
@@ -68,7 +69,9 @@ public sealed class LightingWorker
                     objects, cancellation.Token);
                 return new LightingWorkerResult(
                     snapshot.Dependencies, snapshot.World, batch, lighting,
-                    stopwatch.Elapsed.TotalMilliseconds);
+                    stopwatch.Elapsed.TotalMilliseconds,
+                    PublicationChunks: LightingPublicationPlan.Create(
+                        lighting.ChangedPositions));
             }
             catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
             {

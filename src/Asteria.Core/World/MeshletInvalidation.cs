@@ -34,15 +34,29 @@ public static class MeshletInvalidation
         return dirty;
     }
 
+    // Pure world-space invalidations used by an immutable lighting worker.
+    // Actual residency and occupied meshlets are filtered at publication.
+    public static IReadOnlyDictionary<ChunkCoord, ChunkMeshletMask>
+        ForPositionHalos(IReadOnlyList<WorldVoxelCoord> positions, int offset, int count)
+    {
+        ArgumentNullException.ThrowIfNull(positions);
+        if (offset < 0 || count < 0 || offset > positions.Count - count)
+            throw new ArgumentOutOfRangeException(nameof(offset));
+        var dirty = new Dictionary<ChunkCoord, ChunkMeshletMask>();
+        for (var index = offset; index < offset + count; index++)
+            Accumulate(null, positions[index], dirty);
+        return dirty;
+    }
+
     private static void Accumulate(
-        VoxelWorld world, WorldVoxelCoord position,
+        VoxelWorld? world, WorldVoxelCoord position,
         Dictionary<ChunkCoord, ChunkMeshletMask> dirty)
     {
         VoxelCoordinates.VisitChunkCoordsWhoseVoxelHaloContains(
             position,
             coord =>
             {
-                if (!world.ContainsChunk(coord))
+                if (world is not null && !world.ContainsChunk(coord))
                     return;
 
                 // Once a chunk mask is saturated, further voxel checks

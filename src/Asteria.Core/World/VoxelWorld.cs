@@ -1029,6 +1029,18 @@ public sealed class VoxelWorld
         }
     }
 
+    /// <summary>
+    /// Commit one worker-computed light field. The lighting runtime validates
+    /// chunk content and neighborhood residency before each publication.
+    /// </summary>
+    public void CopyLightChunkFrom(VoxelWorld source, ChunkCoord coord)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        if (_chunks.TryGetValue(coord, out var target) &&
+            source._chunks.TryGetValue(coord, out var from))
+            target.CopyLightFrom(from);
+    }
+
     private void AssignResidencyEpoch(ChunkCoord coord)
     {
         _nextResidencyEpoch =
