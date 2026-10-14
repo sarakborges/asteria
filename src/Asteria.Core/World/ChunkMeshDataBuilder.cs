@@ -5,6 +5,9 @@ namespace Asteria.Core.World;
 public static class ChunkMeshDataBuilder
 {
     private const int FineResolution = BlockGeometry.Resolution;
+    // A dense 10³ light grid is beneficial only with enough greedy cubes
+    // to reuse its AO/light samples across many candidate faces.
+    private const int MinimumGreedyCellsForLightGrid = 128;
     private const int FinePlaneArea = FineResolution * FineResolution;
     private const float DyableLayerFlag = 0.25f;
     private const float WindSwayLayerFlag = 0.5f;
@@ -59,6 +62,7 @@ public static class ChunkMeshDataBuilder
             ChunkMeshletMask.Edge *
             ChunkMeshletMask.Edge *
             ChunkMeshletMask.Edge];
+        var greedyCells = 0;
         var (originX, originY, originZ) =
             VoxelCoordinates.ChunkOrigin(coord);
 
@@ -128,7 +132,10 @@ public static class ChunkMeshDataBuilder
                     fineMeshing[MeshletVoxelIndex(x, y, z)] =
                         requiresFine;
                     if (!requiresFine)
+                    {
+                        greedyCells++;
                         continue;
+                    }
 
                     EmitFineCell(
                         surfaces,
@@ -149,17 +156,15 @@ public static class ChunkMeshDataBuilder
         }
 
         if (selectedLayer is null)
+        {
+            var lightingGrid = greedyCells >= MinimumGreedyCellsForLightGrid
+                ? VoxelMeshLighting.SamplingGrid.Capture(
+                    world, blocks, coord, meshletIndex)
+                : null;
             EmitGreedyCubeFaces(
-                surfaces,
-                collision,
-                world,
-                coord,
-                blocks,
-                textures,
-                bounds,
-                tintSamples,
-                dyes,
-                fineMeshing);
+                surfaces, collision, world, coord, blocks, textures,
+                bounds, tintSamples, dyes, fineMeshing, lightingGrid);
+        }
 
         EmitAttachedLayers(
             surfaces, collision, world, blocks, textures,
@@ -196,7 +201,8 @@ public static class ChunkMeshDataBuilder
             int MaxZExclusive) bounds,
         BiomeTintSampleGrid? tintSamples,
         DyeRegistry? dyes,
-        bool[] fineMeshing)
+        bool[] fineMeshing,
+        VoxelMeshLighting.SamplingGrid? lightingGrid)
     {
         var chunk = world.GetChunk(coord);
         var (originX, originY, originZ) =
@@ -269,12 +275,10 @@ public static class ChunkMeshDataBuilder
                                 cell,
                                 face,
                                 ResolveDye(dyes, definition, chunk.GetSurfaceState(x, y, z).DyeId));
-                        var lighting =
-                            VoxelMeshLighting.SampleFace(
-                                world,
-                                blocks,
-                                worldPosition,
-                                face);
+                        var lighting = lightingGrid is null
+                            ? VoxelMeshLighting.SampleFace(
+                                world, blocks, worldPosition, face)
+                            : lightingGrid.SampleFace(worldPosition, face);
                         var batch = new TerrainRenderBatch(
                             definition.RenderMode,
                             definition.CastsShadow);

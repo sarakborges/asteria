@@ -98,6 +98,76 @@ public static class VoxelMeshLighting
         return FaceLightingFromSamples(samples, basis);
     }
 
+    /// <summary>
+    /// Worker-local immutable 10³ sample cache for one 8³ meshlet and its
+    /// one-voxel light/AO halo. Never retained by a live world or adapter.
+    /// Sparse meshlets keep the cheaper direct sampling path.
+    /// </summary>
+    public sealed class SamplingGrid
+    {
+        private const int Side = ChunkMeshletMask.Edge + 2;
+        private readonly WorldVoxelCoord _origin;
+        private readonly LightingSample[] _samples;
+
+        private SamplingGrid(
+            WorldVoxelCoord origin,
+            LightingSample[] samples)
+        {
+            _origin = origin;
+            _samples = samples;
+        }
+
+        public static SamplingGrid Capture(
+            VoxelWorld world, BlockRegistry blocks,
+            ChunkCoord chunkCoord, int meshletIndex)
+        {
+            ArgumentNullException.ThrowIfNull(world);
+            ArgumentNullException.ThrowIfNull(blocks);
+
+            var bounds = ChunkMeshletMask.Bounds(meshletIndex);
+            var (ox, oy, oz) = VoxelCoordinates.ChunkOrigin(chunkCoord);
+            var origin = new WorldVoxelCoord(
+                ox + bounds.MinX - 1,
+                oy + bounds.MinY - 1,
+                oz + bounds.MinZ - 1);
+            var samples = new LightingSample[Side * Side * Side];
+
+            for (var y = 0; y < Side; y++)
+            for (var z = 0; z < Side; z++)
+            for (var x = 0; x < Side; x++)
+            {
+                var index = x + z * Side + y * Side * Side;
+                samples[index] = Sample(world, blocks,
+                    origin + (x, y, z));
+            }
+
+            return new SamplingGrid(origin, samples);
+        }
+
+        public VoxelFaceLighting SampleFace(
+            WorldVoxelCoord position, BlockFace face)
+        {
+            var basis = GetFaceBasis(face);
+            Span<LightingSample> samples = stackalloc LightingSample[9];
+            var index = 0;
+            for (var v = -1; v <= 1; v++)
+            for (var u = -1; u <= 1; u++)
+            {
+                var x = position.X - _origin.X + basis.Normal.X +
+                    basis.TangentA.X * u + basis.TangentB.X * v;
+                var y = position.Y - _origin.Y + basis.Normal.Y +
+                    basis.TangentA.Y * u + basis.TangentB.Y * v;
+                var z = position.Z - _origin.Z + basis.Normal.Z +
+                    basis.TangentA.Z * u + basis.TangentB.Z * v;
+                if ((uint)x >= Side || (uint)y >= Side || (uint)z >= Side)
+                    throw new ArgumentOutOfRangeException(nameof(position),
+                        "Face extends beyond the captured meshlet halo.");
+                samples[index++] = _samples[x + z * Side + y * Side * Side];
+            }
+            return FaceLightingFromSamples(samples, basis);
+        }
+    }
+
     public static float OccupancyFraction(
         VoxelWorld world,
         BlockRegistry blocks,

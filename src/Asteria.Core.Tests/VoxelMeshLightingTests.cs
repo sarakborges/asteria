@@ -5,6 +5,45 @@ namespace Asteria.Core.Tests;
 public sealed class VoxelMeshLightingTests
 {
     [Fact]
+    public void DenseLightingGridExactlyMatchesDirectCornerLightAndAo()
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition("asteria:stone", lightDampening: 15),
+        ]);
+        var world = new VoxelWorld();
+        var chunk = new Chunk();
+        var stone = blocks.GetId("asteria:stone");
+        // Includes a partial outline, an opaque emitter-free obstruction,
+        // and mixed RGB/skylight across chunk and meshlet boundaries.
+        for (var x = 0; x < Chunk.Size; x++)
+        for (var z = 0; z < Chunk.Size; z++)
+        {
+            if ((x + z) % 3 == 0)
+                chunk.SetBlock(x, 3, z, stone);
+            for (var y = 0; y < Chunk.Size; y++)
+                chunk.SetLight(x, y, z,
+                    new VoxelLight((byte)(y % 16),
+                        (byte)(x % 16), (byte)(z % 16),
+                        (byte)((x + y + z) % 16)));
+        }
+        world.InsertChunk(ChunkCoord.Zero, chunk);
+        var grid = VoxelMeshLighting.SamplingGrid.Capture(
+            world, blocks, ChunkCoord.Zero, meshletIndex: 0);
+
+        foreach (var y in new[] { 0, 3, 7 })
+        foreach (var z in new[] { 0, 2, 7 })
+        foreach (var x in new[] { 0, 4, 7 })
+        foreach (var face in Enum.GetValues<BlockFace>())
+        {
+            var position = new WorldVoxelCoord(x, y, z);
+            Assert.Equal(
+                VoxelMeshLighting.SampleFace(world, blocks, position, face),
+                grid.SampleFace(position, face));
+        }
+    }
+
+    [Fact]
     public void TwoSolidSideNeighborsProduceStrongCornerOcclusion()
     {
         var blocks = new BlockRegistry(
