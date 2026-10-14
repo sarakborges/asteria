@@ -154,11 +154,14 @@ function InGameFlow({ initialOverlay }: { initialOverlay: "pause" | "inventory" 
       cancelKeyCapture: noop,
       closeBrushPalette: noop,
       selectBrushDye: noop,
-      closeInventory: () => store.update(state => ({
+      closeInventory: (shortcut?: boolean) => {
+        document.body.dataset.inventoryCloseReason = shortcut ? "shortcut" : "other";
+        store.update(state => ({
         ...state,
         inventory: { ...state.inventory, open: false },
         navigation: { ...state.navigation, overlay: "none" },
-      })),
+      }));
+      },
       closeChat: noop,
       submitChat: noop,
       clickInventorySlot: noop,

@@ -70,7 +70,9 @@ export function createInventoryController(
   post: (type: string, payload?: unknown) => void,
 ) {
   return {
-    close() { post("ui.inventory.close"); },
+    close(shortcut = false) {
+      post("ui.inventory.close", shortcut ? { shortcut: true } : undefined);
+    },
     rotatePortrait(deltaX: number) {
       if (!store.getSnapshot().inventory.open ||
           !Number.isFinite(deltaX) || Math.abs(deltaX) < 1) return;

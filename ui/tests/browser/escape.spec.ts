@@ -55,6 +55,7 @@ test("Escape closes inventory through the same injected semantic action as its C
   await expect(page.locator(".inventory-gameplay")).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.locator(".inventory-gameplay")).toHaveCount(0);
+  await expect(page.locator("body")).toHaveAttribute("data-inventory-close-reason", "other");
 });
 
 test("Inventory shortcut closes without being forwarded to Godot by WRY", async ({ page }) => {
@@ -67,6 +68,7 @@ test("Inventory shortcut closes without being forwarded to Godot by WRY", async 
 
   await page.keyboard.press("e");
   await expect(page.locator(".inventory-gameplay")).toHaveCount(0);
+  await expect(page.locator("body")).toHaveAttribute("data-inventory-close-reason", "shortcut");
   await expect(page.locator("body")).not.toHaveAttribute("data-wry-forwarded", "true");
 });
 

@@ -155,6 +155,8 @@ public partial class Main : Node3D
     private int _nextWorldWorker;
     private bool _worldReadySent;
     private bool _inventoryOpen;
+    // WRY and Godot can observe the same physical inventory shortcut.
+    private bool _inventoryShortcutHeld;
     private ulong? _publishedStorageRevision;
     private bool _quitRequested;
     private bool _exitConfirmationPending;
@@ -355,6 +357,7 @@ public partial class Main : Node3D
                  _worldSeed is not null && _player is not null &&
                  !_sessionStates.Player.Health.IsDead)
         {
+            _inventoryShortcutHeld = false;
             // Windows may release native pointer capture before Godot
             // delivers focus-out. Always publish pause intent for gameplay,
             // even if IsMouseCaptured is already false. WebUI preserves any
@@ -410,6 +413,25 @@ public partial class Main : Node3D
         if (_worldSeed is null)
         {
             return;
+        }
+
+        // WRY may emit a semantic UI close and forward the same key to
+        // Godot. Each physical press can toggle the inventory only once.
+        if (@event is InputEventKey inventoryKey &&
+            GameplayKeyMap.Matches(
+                inventoryKey, _clientPreferences, KeybindAction.Inventory))
+        {
+            if (!inventoryKey.Pressed)
+                _inventoryShortcutHeld = false;
+            else if (!inventoryKey.Echo)
+            {
+                if (_inventoryShortcutHeld)
+                {
+                    GetViewport().SetInputAsHandled();
+                    return;
+                }
+                _inventoryShortcutHeld = true;
+            }
         }
 
         if (_sessionStates.Player.Health.IsDead)
@@ -1573,6 +1595,11 @@ public partial class Main : Node3D
                     ExecuteChatMessageAction(document.RootElement);
                     break;
                 case "ui.inventory.close":
+                    if (document.RootElement.TryGetProperty("payload", out var closePayload) &&
+                        closePayload.ValueKind == JsonValueKind.Object &&
+                        closePayload.TryGetProperty("shortcut", out var shortcut) &&
+                        shortcut.ValueKind == JsonValueKind.True)
+                        _inventoryShortcutHeld = true;
                     CloseInventory();
                     break;
                 case "ui.player.portrait.rotate":

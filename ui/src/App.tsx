@@ -65,7 +65,7 @@ export type AppActions = {
   cancelKeyCapture(): void;
   closeBrushPalette(): void;
   selectBrushDye(id: string | null): void;
-  closeInventory(): void;
+  closeInventory(shortcut?: boolean): void;
   closeStorageBox(): void;
   clickStorageBoxSlot(index: number, action: import("./components/molecules/InventorySlot/InventorySlot").InventorySlotAction): void;
   sortStorageBox(): void;
@@ -145,7 +145,7 @@ export function App({
           event.nativeEvent.isComposing ||
           (event.target instanceof Element && event.target.closest(
             "input, textarea, select, [contenteditable='true']"))) return;
-      actions.closeInventory();
+      actions.closeInventory(true);
       event.preventDefault();
       return;
     }
@@ -171,7 +171,7 @@ export function App({
           event.code === (state.settings.client?.keybinds.inventory ?? "KeyE")) {
         event.stopPropagation();
         if (event.defaultPrevented || event.repeat || event.isComposing) return;
-        actions.closeInventory();
+        actions.closeInventory(true);
         event.preventDefault();
         return;
       }
