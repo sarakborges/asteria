@@ -78,6 +78,9 @@ public partial class FpsPlayer : CharacterBody3D
     public bool IsRunning => _groundMovement.IsRunning;
     public bool IsCrouching => _groundMovement.IsCrouching;
     public bool IsThirdPerson => _cameraView != CameraView.FirstPerson;
+    // The front camera observes the world in the opposite direction while
+    // movement and the player's body yaw remain unchanged.
+    public bool IsThirdPersonFront => _cameraView == CameraView.ThirdPersonFront;
     public float CameraPitch => _cameraPitch;
 
     public Camera3D Camera => _camera;

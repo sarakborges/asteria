@@ -37,10 +37,8 @@ public sealed class WorldHudStateTracker
 
         var position =
             player.GlobalPosition;
-        var heading =
-            QuantizeHeading(
-                -Mathf.RadToDeg(
-                    player.Rotation.Y));
+        var heading = PlayerCompassHeading.QuantizedDegrees(
+            player.Rotation.Y, player.IsThirdPersonFront);
 
         var x =
             Mathf.FloorToInt(
@@ -87,22 +85,4 @@ public sealed class WorldHudStateTracker
         return true;
     }
 
-    private static float QuantizeHeading(
-        float degrees)
-    {
-        var normalized =
-            degrees %
-            360f;
-
-        if (normalized < 0f)
-        {
-            normalized +=
-                360f;
-        }
-
-        return MathF.Round(
-                   normalized *
-                   2f) /
-               2f;
-    }
 }
