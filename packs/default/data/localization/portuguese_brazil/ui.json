@@ -438,7 +438,7 @@
   "addons.modsDescription": "Ative apenas mods confiáveis. DLLs rodam com as permissões do jogo.",
   "addons.packsDescription": "Escolha os packs e sua prioridade. O último pack ativado prevalece.",
   "addons.default": "Integrado, sempre ativo.",
-  "addons.emptyMods": "Nenhum mod instalado. Adicione pastas em mods nos dados do usuário.",
+  "addons.emptyMods": "Nenhum mod instalado. Adicione pastas em mods/ na raiz do projeto (ou junto ao executável).",
   "addons.emptyPacks": "Nenhum pack externo instalado. Adicione pastas em packs nos dados do usuário.",
   "addons.modSettings": "Configurações do mod (JSON)",
   "addons.invalidJson": "Digite um objeto JSON válido.",
