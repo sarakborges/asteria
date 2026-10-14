@@ -40,9 +40,6 @@ public sealed class WorldCatalogScanController
         _directory = worldsDirectory;
     }
 
-    public static WorldCatalogScanController FromUserDataDirectory() =>
-        new(Path.Combine(OS.GetUserDataDir(), "worlds"));
-
     public bool Begin()
     {
         if (_pending is not null)
