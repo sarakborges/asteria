@@ -6,7 +6,7 @@
   ],
   "visual": {
     "type": "groundSprite",
-    "texture": "textures/objects/lichen_frost.png",
+    "texture": "textures/layers/lichen_frost.png",
     "width": 0.75,
     "height": 0.012,
     "baseOffset": 0.0125,
