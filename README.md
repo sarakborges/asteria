@@ -15,6 +15,14 @@ deletion all use this one directory. `worlds/` is ignored by Git and
 excluded from the Godot importer. Existing worlds in Godot's old
 `user://worlds/` directory are **not moved automatically**.
 
+## Local code mods
+
+The executable C# mods are stored in `<project>/mods/` during development
+and in `<executable directory>/mods/` after export. Each mod has a directory
+containing `mod.json` and its DLL; active mods and settings are stored in
+`mods/selection.json`. These files are ignored by Git and Godot's importer.
+Only explicitly enabled DLL mods are loaded at startup.
+
 ## WebUI stack
 
 The WebUI uses React 19 + TypeScript + Vite + Storybook. Godot/WRY transport stays in `ui/src/bridge`, message/state binding stays in `ui/src/controllers`, browser presentation state is owned by `UiStore`, and React components remain presentation-only. Atomic Design components live in per-component directories with colocated TSX, CSS and stories.
