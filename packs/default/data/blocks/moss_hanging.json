@@ -7,7 +7,7 @@
   "windSway": true,
   "visual": {
     "type": "crossedSprite",
-    "texture": "textures/objects/moss_hanging.png",
+    "texture": "textures/layers/moss_hanging.png",
     "width": 0.62,
     "height": 0.94,
     "baseOffset": 0.055,
