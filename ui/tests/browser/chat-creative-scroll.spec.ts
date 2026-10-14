@@ -56,6 +56,11 @@ test("Creative category and catalog share measured scrollbars and preserve memor
   const savedCatalog = await catalog.evaluate(element => element.scrollTop);
   await category.getByRole("button", { name: "Category 16" }).click();
   await expect.poll(() => catalog.evaluate(element => element.scrollTop)).toBe(0);
+  // Switching under an ongoing native PageDown must not leak the old
+  // scroll animation into the selected category.
+  await page.keyboard.press("PageDown");
+  await category.getByRole("button", { name: "Category 15" }).click();
+  await expect.poll(() => catalog.evaluate(element => element.scrollTop)).toBe(0);
 
   await category.getByRole("button", { name: "Everything" }).click();
   await expect.poll(() => catalog.evaluate(element => element.scrollTop)).toBeGreaterThanOrEqual(savedCatalog - 1);

@@ -38,9 +38,26 @@ export function CreativeInventoryPanel({
   }, [scrollMemory]);
 
   useLayoutEffect(() => {
-    if (gridRef.current)
-      gridRef.current.scrollTop = scrollMemory?.catalogOffsets.get(scrollKey) ?? 0;
+    // A keyboard PageDown can still be animating when a category/search
+    // changes. An instant restore cancels the browser's pending scroll,
+    // instead of letting it move the newly selected catalog off its start.
+    gridRef.current?.scrollTo({
+      top: scrollMemory?.catalogOffsets.get(scrollKey) ?? 0,
+      behavior: "instant",
+    });
   }, [scrollKey, scrollMemory]);
+
+  const selectCategory = (id: string | null) => {
+    if (!onCategoryChange) return;
+    // Stop an in-flight native keyboard/wheel scroll synchronously, before
+    // React commits the new scroll key. Preserve its independent offset.
+    const nextKey = JSON.stringify([id, state.searchQuery.trim()]);
+    gridRef.current?.scrollTo({
+      top: scrollMemory?.catalogOffsets.get(nextKey) ?? 0,
+      behavior: "instant",
+    });
+    onCategoryChange(id);
+  };
 
   const rememberCatalogScroll = (offset: number) => {
     if (!scrollMemory) return;
@@ -69,7 +86,7 @@ export function CreativeInventoryPanel({
             ariaPressed={state.selectedCategoryId === null}
             variant={state.selectedCategoryId === null ? "primary" : "normal"}
             stretch disabled={!onCategoryChange}
-            onClick={() => onCategoryChange?.(null)}
+            onClick={() => selectCategory(null)}
           />
           {state.categories.map(category => (
             <Button
@@ -79,7 +96,7 @@ export function CreativeInventoryPanel({
               ariaPressed={category.id === state.selectedCategoryId}
               variant={category.id === state.selectedCategoryId ? "primary" : "normal"}
               stretch disabled={!onCategoryChange}
-              onClick={() => onCategoryChange?.(category.id)}
+              onClick={() => selectCategory(category.id)}
             />
           ))}
         </ScrollArea>
