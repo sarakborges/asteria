@@ -274,7 +274,7 @@ public sealed class LightingRuntime
         report = new LightingRuntimeReport(
             LightingCompletionKind.Applied,
             result.WorkerMilliseconds,
-            positions.Count,
+            result.Lighting.ChangedPositions.Count,
             _publicationDirtyChunks,
             _publicationDirtyMeshlets,
             result.Lighting.ProcessedVoxelCount,
