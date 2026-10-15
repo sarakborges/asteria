@@ -218,7 +218,9 @@ public sealed class ChunkStreamingController
         foreach (var retirement in retirements)
         {
             _presentations.Retire(
-                retirement.Coord);
+                retirement.Coord,
+                archived: retirement.ArchiveResult !=
+                    ChunkArchiveResult.NotResident);
         }
 
         return new ChunkStreamingEndFrameReport(

@@ -761,6 +761,12 @@ public partial class Main : Node3D
             WorldFrameStage.StreamingEnd, stageStart);
         ReportRetirements(
             streamingEnd.Retirements);
+        var warmPresentationStats =
+            _chunkPresentations.TakeWarmPresentationStats();
+        _worldDiagnostics?.ObserveWarmPresentations(
+            _chunkPresentations.WarmPresentationCount,
+            warmPresentationStats.Reused,
+            warmPresentationStats.Evicted);
         PublishStorageBoxChanges();
         _worldDiagnostics?.FlushIfDue(
             _world.ChunkCount,

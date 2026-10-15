@@ -31,6 +31,13 @@ public sealed class ChunkPresentationController
     private readonly FluidMaterialCatalog _fluidMaterials;
     private readonly Dictionary<ChunkCoord, ChunkPresentation>
         _presentations = [];
+    // Only a bounded set of recently retired Godot meshes remains warm.
+    // VoxelWorld keeps ALL materialized content, independently of this cache.
+    private const int MaximumWarmPresentations = 96;
+    private readonly BoundedReuseCache<ChunkCoord, ChunkPresentation>
+        _warmPresentations = new(MaximumWarmPresentations);
+    private int _warmReuses;
+    private int _warmEvictions;
     private readonly DeduplicatedQueue<ChunkMeshletKey>
         _priorityTerrainPublicationOrder = new();
     private readonly DeduplicatedQueue<ChunkMeshletKey>
@@ -207,6 +214,18 @@ public sealed class ChunkPresentationController
         _world.ObjectChunkChanged -= OnObjectChunkChanged;
         _pendingObjects.Clear();
         _deferredCollisionChunks.Clear();
+        _warmPresentations.Clear(static presentation =>
+            presentation.DisposeSuspended());
+    }
+
+    public int WarmPresentationCount => _warmPresentations.Count;
+
+    public (int Reused, int Evicted) TakeWarmPresentationStats()
+    {
+        var stats = (_warmReuses, _warmEvictions);
+        _warmReuses = 0;
+        _warmEvictions = 0;
+        return stats;
     }
 
     public int Count => _presentations.Count;
@@ -336,21 +355,27 @@ public sealed class ChunkPresentationController
                 continue;
             }
 
-            var presentation =
-                new ChunkPresentation(coord.Value);
+            var warmed = _warmPresentations.TryTake(
+                coord.Value, out var presentation);
+            presentation ??= new ChunkPresentation(coord.Value);
+            if (warmed)
+                _warmReuses++;
 
+            // Reactivate the same GPU resources immediately. The current
+            // terrain/fluid work below is still queued because residency,
+            // nearby contents and lighting may have changed in the meantime.
+            _parent.AddChild(presentation.Root);
             presentation.SetVisible(
                 residency.ShouldPresentationBeVisible(
                     coord.Value,
                     currentlyVisible: false));
-            TrackCollisionActivation(presentation, 
+            TrackCollisionActivation(presentation,
                 presentation.IsVisible &&
                 residency.ShouldPresentationHaveCollision(coord.Value));
 
             _presentations.Add(
                 coord.Value,
                 presentation);
-            _parent.AddChild(presentation.Root);
             if (chunk.ObjectCount != 0)
                 _pendingObjects.Enqueue(coord.Value);
 
@@ -435,20 +460,31 @@ public sealed class ChunkPresentationController
             residency.PresentationSelectionRevision;
     }
 
-    public bool Retire(ChunkCoord coord)
+    public bool Retire(ChunkCoord coord, bool archived)
     {
         RemovePendingPublications(coord);
         _pendingObjects.Remove(coord);
         _deferredCollisionChunks.Remove(coord);
 
-        if (!_presentations.Remove(
-                coord,
-                out var presentation))
-        {
+        if (!_presentations.Remove(coord, out var presentation))
             return false;
+
+        if (archived)
+        {
+            presentation.Suspend();
+            _parent.RemoveChild(presentation.Root);
+            _warmPresentations.Store(coord, presentation, evicted =>
+            {
+                _warmEvictions++;
+                evicted.DisposeSuspended();
+            });
+        }
+        else
+        {
+            // No authoritative archived chunk can back this presentation.
+            presentation.Retire();
         }
 
-        presentation.Retire();
         InvalidatePresentedNeighbors(coord);
         return true;
     }

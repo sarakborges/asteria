@@ -302,6 +302,18 @@ public sealed class ChunkPresentation
         }
     }
 
+    // Only the Godot presentation is suspended. The authoritative chunk is
+    // already owned by VoxelWorld's archive, not by this display object.
+    public void Suspend()
+    {
+        SetPhysicsEnabled(false);
+        Root.Visible = false;
+    }
+
+    // Suspended roots are detached from SceneTree and therefore must be
+    // explicitly released on cache eviction or dimension retirement.
+    public void DisposeSuspended() => Root.Free();
+
     public void Retire()
     {
         Root.QueueFree();
