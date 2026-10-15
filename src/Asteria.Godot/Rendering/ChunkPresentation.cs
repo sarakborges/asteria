@@ -87,6 +87,12 @@ public sealed class ChunkPresentation
     public bool IsFullyPublished =>
         _publishedCount == ChunkMeshletMask.Count;
 
+    // A wholly empty chunk has no GPU state worth keeping in the warm cache.
+    public bool HasReusableVisualResources =>
+        _meshes.Any(mesh => mesh?.Mesh is not null) ||
+        _fluidMeshes.Any(mesh => mesh?.Mesh is not null) ||
+        _objectBatches.Count != 0;
+
     // Empty meshlets are marked published when a chunk is reserved, so this
     // only includes real geometry that still lacks its initial publication.
     public ChunkMeshletMask UnpublishedTerrainMeshlets

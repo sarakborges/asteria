@@ -469,7 +469,7 @@ public sealed class ChunkPresentationController
         if (!_presentations.Remove(coord, out var presentation))
             return false;
 
-        if (archived)
+        if (archived && presentation.HasReusableVisualResources)
         {
             presentation.Suspend();
             _parent.RemoveChild(presentation.Root);
