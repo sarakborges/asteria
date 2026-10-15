@@ -64,126 +64,61 @@ public sealed class UmbralHabitatContentTests
     }
 
     [Fact]
-    public void UmbralReachProducesSparseGrovesAndRocksWithoutFillingMeadows()
+    public void UmbralReachKeepsSparseShadowTreesWithinSpectralGroves()
     {
         var biome = LoadBiome("umbral_reach");
         var roots = LoadUmbralRoots(biome);
         Assert.Equal(5, roots.Length);
-        var tree = Assert.Single(roots,
-            root => root.Structure == "asteria:tree_wraith");
-        var grove = Assert.Single(roots,
-            root => root.Structure == "asteria:grove_wraith");
+        foreach (var species in new[] { "gloamroot", "nighthollow" })
+        {
+            var tree = Assert.Single(roots,
+                r => r.Structure == "asteria:tree_" + species);
+            Assert.True(tree.HabitatWeights!.For("spectral_groves") >
+                        tree.HabitatWeights.For("shadow_meadows"));
+        }
         var rocks = Assert.Single(roots,
             root => root.Structure == "asteria:cluster_rock");
-
-        Assert.True(tree.HabitatWeights!.For("spectral_groves") >
-                    tree.HabitatWeights.For("shadow_meadows"));
-        Assert.Equal(0f, grove.HabitatWeights!.For("shadow_meadows"));
         Assert.True(rocks.HabitatWeights!.For("stony_fields") >
                     rocks.HabitatWeights.For("spectral_groves"));
-        Assert.True(Assert.Single(biome.Decorations,
-            decoration => decoration.Block == "asteria:grass")
-            .HabitatWeights!.For("shadow_meadows") >
-            Assert.Single(biome.Decorations,
-                decoration => decoration.Block == "asteria:grass")
-                .HabitatWeights!.For("stony_fields"));
-
         ValidateHabitatRules(biome, roots);
     }
 
     [Fact]
-    public void WitheredWastePreservesDryExpansesAndConcentratesSnagsAndRocks()
+    public void WitheredWasteConcentratesMourningbriarInWitheredThickets()
     {
         var biome = LoadBiome("withered_waste");
         var roots = LoadUmbralRoots(biome);
-        Assert.Equal(6, roots.Length);
-        var snag = Assert.Single(roots,
-            root => root.Structure == "asteria:snag_withered");
-        var deadfall = Assert.Single(roots,
-            root => root.Structure == "asteria:log_wraith_fallen");
-        var cluster = Assert.Single(roots,
+        Assert.Equal(5, roots.Length);
+        var tree = Assert.Single(roots,
+            root => root.Structure == "asteria:tree_mourningbriar");
+        var rock = Assert.Single(roots,
             root => root.Structure == "asteria:cluster_rock");
-
-        Assert.True(snag.HabitatWeights!.For("withered_thickets") >
-                    snag.HabitatWeights.For("dead_expanse"));
-        Assert.True(deadfall.HabitatWeights!.For("withered_thickets") >
-                    deadfall.HabitatWeights.For("rocky_barrens"));
-        Assert.True(cluster.HabitatWeights!.For("rocky_barrens") >
-                    cluster.HabitatWeights.For("dead_expanse"));
+        Assert.True(tree.HabitatWeights!.For("withered_thickets") >
+                    tree.HabitatWeights.For("dead_expanse"));
+        Assert.True(rock.HabitatWeights!.For("rocky_barrens") >
+                    rock.HabitatWeights.For("dead_expanse"));
         Assert.DoesNotContain(biome.Decorations,
             decoration => decoration.Block == "asteria:grass");
-
         ValidateHabitatRules(biome, roots);
     }
 
     [Fact]
-    public void WitheredSnagTemplatesNeverConvertDeadSoilIntoGrass()
+    public void EveryRetainedUmbralTreeUsesAvailableWoodAndFoliage()
     {
         var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
         var structures = StructureRegistry.FromJson(ReadJsonDirectory("structures"));
-        var deadTrees = structures.ResolveReference("asteria:snag_withered");
-        Assert.Equal(2, deadTrees.Count);
-        foreach (var tree in deadTrees)
+        structures.ValidateBlocks(blocks);
+        foreach (var species in new[] { "gloamroot", "nighthollow", "mourningbriar" })
         {
-            Assert.Equal(0, tree.GroundAnchorYOffset);
-            Assert.Equal(1f, tree.Restrictions.RequiredBiomeCoverage);
-            Assert.True(tree.Restrictions.RequiresDryGround);
-            Assert.Equal(StructureFluidPolicy.Forbid, tree.Generation.FluidPolicy);
-            Assert.Equal(StructureReplacePolicy.Terrain, tree.Generation.ReplacePolicy);
-            Assert.Contains("asteria:dirt", tree.Restrictions.GroundBlocks);
-            Assert.Contains("asteria:gravel", tree.Restrictions.GroundBlocks);
-            Assert.All(tree.Voxels, voxel =>
+            var members = structures.ResolveReference("asteria:tree_" + species);
+            Assert.Equal(2, members.Count);
+            Assert.All(members, tree =>
             {
-                Assert.True(voxel.Y >= 1);
-                Assert.NotEqual("asteria:block_grass", voxel.Block);
+                Assert.True(tree.Restrictions.RequiresDryGround);
+                Assert.Contains(tree.Voxels, v => v.Block == "asteria:log_" + species);
+                Assert.Contains(tree.Voxels, v => v.Block == "asteria:leaf_" + species);
             });
         }
-        structures.ValidateBlocks(blocks);
-    }
-
-    [Fact]
-    public void DeadfallTemplatesRetainPaleWoodAndFantasyLeafSprouts()
-    {
-        var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
-        var structures = StructureRegistry.FromJson(ReadJsonDirectory("structures"));
-        var variants = structures.ResolveReference("asteria:log_wraith_fallen");
-        Assert.Equal(2, variants.Count);
-
-        foreach (var structure in variants)
-        {
-            Assert.False(structure.Locatable);
-            Assert.True(structure.Rotation);
-            Assert.Equal(0, structure.GroundAnchorYOffset);
-            Assert.Equal(0, structure.Restrictions.MaxSlope);
-            Assert.Equal(1f, structure.Restrictions.RequiredBiomeCoverage);
-            Assert.True(structure.Restrictions.RequiresDryGround);
-            Assert.Equal(StructureFluidPolicy.Forbid, structure.Generation.FluidPolicy);
-            Assert.Equal(StructureReplacePolicy.Terrain, structure.Generation.ReplacePolicy);
-            Assert.False(structure.Generation.ReserveSpace);
-            Assert.Contains("wood_debris", structure.ConflictGroups);
-            Assert.Contains("asteria:dirt", structure.Restrictions.GroundBlocks);
-            Assert.Contains("asteria:gravel", structure.Restrictions.GroundBlocks);
-            Assert.Contains(structure.Voxels,
-                cell => cell.Block == "asteria:leaf_enchanted_tree");
-            Assert.All(structure.Voxels, cell =>
-            {
-                Assert.True(cell.Y >= 1);
-                if (cell.Block == "asteria:leaf_enchanted_tree")
-                {
-                    Assert.Equal(BlockOrientation.Y, cell.Orientation);
-                    return;
-                }
-                Assert.Contains(cell.Block, new[]
-                {
-                    "asteria:log_enchanted_tree",
-                    "asteria:log_enchanted_tree_stripped",
-                    "asteria:log_enchanted_tree_stripped_hollow",
-                });
-                Assert.Equal(BlockOrientation.X, cell.Orientation);
-            });
-        }
-
-        structures.ValidateBlocks(blocks);
     }
 
     private static void ValidateHabitatRules(

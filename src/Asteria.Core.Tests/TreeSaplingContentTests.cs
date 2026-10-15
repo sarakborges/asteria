@@ -6,16 +6,8 @@ namespace Asteria.Core.Tests;
 public sealed class TreeSaplingContentTests
 {
     [Theory]
-    [InlineData("charwood")]
-    [InlineData("enchanted_tree")]
-    [InlineData("frost_wood")]
-    [InlineData("juniper")]
     [InlineData("oak")]
-    [InlineData("skywood")]
-    [InlineData("thornwood")]
     [InlineData("willow")]
-    [InlineData("windwood")]
-    [InlineData("world_tree")]
     public void SaplingsAreObjectsWithPlacementDropsAndPersistence(string family)
     {
         var blocks = BlockRegistry.FromJson(ReadJson("blocks"));

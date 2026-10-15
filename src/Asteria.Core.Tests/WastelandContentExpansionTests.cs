@@ -66,7 +66,7 @@ public sealed class WastelandContentExpansionTests
     }
 
     [Fact]
-    public void StructuralThornThicketsAndFossilRibsAreDistinctAndGrounded()
+    public void FossilRibsRemainDistinctAndGrounded()
     {
         var blocks = BlockRegistry.FromJson(ReadJson("blocks"));
         var structures = StructureRegistry.FromJson(ReadJson("structures"));
@@ -76,8 +76,7 @@ public sealed class WastelandContentExpansionTests
 
         foreach (var (name, variantsExpected, preferred) in new[]
         {
-            ("scrub_thorn_wasteland", 4, "rocky_scrub"),
-            ("rib_fossil_wasteland", 3, "rocky_scrub"),
+                        ("rib_fossil_wasteland", 3, "rocky_scrub"),
         })
         {
             var root = Assert.Single(dimension.GeneratedSurfaceStructures,
@@ -101,9 +100,7 @@ public sealed class WastelandContentExpansionTests
                     voxel => Assert.True(voxel.Y > 0,
                         "Structures must preserve the underlying material."));
                 Assert.Contains(structure.Voxels,
-                    voxel => voxel.Block == (name == "scrub_thorn_wasteland"
-                        ? "asteria:log_thornwood"
-                        : "asteria:bone_fossil") &&
+                    voxel => voxel.Block == "asteria:bone_fossil" &&
                         voxel.X == 0 && voxel.Z == 0 && voxel.Y == 1);
             });
         }

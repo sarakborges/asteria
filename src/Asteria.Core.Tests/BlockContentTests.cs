@@ -215,8 +215,6 @@ public sealed class BlockContentTests
     [InlineData("mud", "asteria:mud", 1f, 1)]
     [InlineData("leaf_oak", "asteria:stick", 0.6f, 1)]
     [InlineData("leaf_willow", "asteria:stick", 0.6f, 1)]
-    [InlineData("leaf_enchanted_tree", "asteria:stick", 0.6f, 1)]
-    [InlineData("leaf_world_tree", "asteria:stick", 0.6f, 1)]
     public void MineCloneAuthoredBlockDropsAreRetained(
         string blockId, string itemId, float chance, int quantity)
     {

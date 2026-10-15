@@ -206,6 +206,42 @@
         "pale_clearing": 0.12,
         "decay_pockets": 1.1
       }
+    },
+    {
+      "biome": "asteria:umbral/umbral_reach",
+      "structure": "asteria:tree_gloamroot",
+      "spacing": 108,
+      "chance": 0.36,
+      "jitter": 27,
+      "habitatWeights": {
+        "shadow_meadows": 0.09,
+        "spectral_groves": 1.9,
+        "stony_fields": 0.03
+      }
+    },
+    {
+      "biome": "asteria:umbral/umbral_reach",
+      "structure": "asteria:tree_nighthollow",
+      "spacing": 122,
+      "chance": 0.28,
+      "jitter": 30,
+      "habitatWeights": {
+        "shadow_meadows": 0.06,
+        "spectral_groves": 1.7,
+        "stony_fields": 0.02
+      }
+    },
+    {
+      "biome": "asteria:umbral/withered_waste",
+      "structure": "asteria:tree_mourningbriar",
+      "spacing": 96,
+      "chance": 0.38,
+      "jitter": 24,
+      "habitatWeights": {
+        "dead_expanse": 0.03,
+        "withered_thickets": 1.9,
+        "rocky_barrens": 0.02
+      }
     }
   ],
   "portalArrivalStructure": "asteria:platform_portal_arrival"

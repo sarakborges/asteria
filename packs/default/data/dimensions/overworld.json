@@ -869,18 +869,6 @@
     },
     {
       "biome": "asteria:overworld/arctic",
-      "structure": "asteria:brush_frost_arctic",
-      "spacing": 28,
-      "chance": 0.84,
-      "jitter": 8,
-      "habitatWeights": {
-        "frozen_plain": 2.35,
-        "ice_fields": 0.13,
-        "rocky_ridges": 0.42
-      }
-    },
-    {
-      "biome": "asteria:overworld/arctic",
       "structure": "asteria:spire_rime_arctic",
       "spacing": 43,
       "chance": 0.68,
@@ -961,30 +949,6 @@
         "sand_flats": 0,
         "gravel_banks": 0.52,
         "rocky_reefs": 2.85
-      }
-    },
-    {
-      "biome": "asteria:overworld/scorched_wastes",
-      "structure": "asteria:thicket_briar_volcanic",
-      "spacing": 33,
-      "jitter": 9,
-      "chance": 0.76,
-      "habitatWeights": {
-        "ash_aprons": 2.1,
-        "fractured_flanks": 1.05,
-        "hardened_highlands": 0.06
-      }
-    },
-    {
-      "biome": "asteria:overworld/wasteland",
-      "structure": "asteria:scrub_thorn_wasteland",
-      "spacing": 42,
-      "jitter": 12,
-      "chance": 0.6,
-      "habitatWeights": {
-        "barren_flats": 0.025,
-        "deadwood_pockets": 0.85,
-        "rocky_scrub": 1.9
       }
     },
     {
@@ -1369,19 +1333,6 @@
     },
     {
       "biome": "asteria:overworld/plains",
-      "structure": "asteria:tree_mycelora",
-      "spacing": 78,
-      "chance": 0.4,
-      "jitter": 19,
-      "habitatWeights": {
-        "grove": 1.7,
-        "open": 0.1,
-        "thicket": 1.5,
-        "rocky": 0
-      }
-    },
-    {
-      "biome": "asteria:overworld/plains",
       "structure": "asteria:tree_verdalune",
       "spacing": 78,
       "chance": 0.4,
@@ -1404,6 +1355,42 @@
         "open": 0.1,
         "thicket": 1.5,
         "rocky": 0
+      }
+    },
+    {
+      "biome": "asteria:overworld/enchanted_forest",
+      "structure": "asteria:tree_mycelora",
+      "spacing": 104,
+      "chance": 0.3,
+      "jitter": 26,
+      "habitatWeights": {
+        "luminous_clearing": 0.12,
+        "violet_undergrowth": 1.8,
+        "pink_glade": 1.1
+      }
+    },
+    {
+      "biome": "asteria:overworld/gorge",
+      "structure": "asteria:tree_geodera",
+      "spacing": 106,
+      "chance": 0.3,
+      "jitter": 26,
+      "habitatWeights": {
+        "valley_floor": 1.75,
+        "rubble_slopes": 0.1,
+        "high_rims": 0.3
+      }
+    },
+    {
+      "biome": "asteria:overworld/wasteland",
+      "structure": "asteria:tree_thornsong",
+      "spacing": 116,
+      "chance": 0.3,
+      "jitter": 29,
+      "habitatWeights": {
+        "barren_flats": 0.02,
+        "deadwood_pockets": 1.85,
+        "rocky_scrub": 0.08
       }
     }
   ],

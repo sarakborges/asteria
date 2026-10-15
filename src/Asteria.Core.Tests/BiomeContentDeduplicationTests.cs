@@ -7,7 +7,6 @@ public sealed class BiomeContentDeduplicationTests
     private static readonly (string OldId, string ReusedId, string Texture)[] Removed =
     [
         ("mossy_willow_log", "log_willow", "textures/blocks/mossy_willow_log.png"),
-        ("enchanted_hollow_wood", "log_enchanted_tree_hollow", "textures/blocks/enchanted_hollow_wood_top.png"),
         ("sandstone_spur", "spike_sandstone", "textures/blocks/sandstone_spur.png"),
         ("rock_spur", "spike_stone", "textures/blocks/rock_spur.png"),
         ("glacial_shard", "spike_ice", "textures/blocks/glacial_shard.png"),

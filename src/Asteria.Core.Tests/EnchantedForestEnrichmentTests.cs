@@ -98,7 +98,6 @@ public sealed class EnchantedForestEnrichmentTests
             .Get(DimensionId.Overworld);
         foreach (var (name, count) in new[] {
             ("ring_mushroom_enchanted",3),
-            ("stump_enchanted_tree_hollow",2),
             ("canopy_fungal_enchanted",3)
         })
         {
@@ -131,11 +130,6 @@ public sealed class EnchantedForestEnrichmentTests
         Assert.True(cap.LightEmission.Red > 0);
         Assert.True(cap.LightEmission.Blue > 0);
 
-        Assert.All(structures.ResolveReference("asteria:stump_enchanted_tree_hollow"),
-            s => {
-                Assert.Contains(s.Voxels, v => v.Block == "asteria:log_enchanted_tree");
-                Assert.Contains(s.Voxels, v => v.Block == "asteria:log_enchanted_tree_hollow");
-            });
     }
 
     private static IEnumerable<string> ReadPackJson(string folder)
