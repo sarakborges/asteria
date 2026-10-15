@@ -25,16 +25,22 @@ public sealed class MeshDependencyStamp
         MeshDependencyStamp other)
     {
         ArgumentNullException.ThrowIfNull(other);
-        return Content.HasSameEntriesAs(other.Content) &&
-               Residency.HasSameEntriesAs(other.Residency);
+        // These stamps describe collision geometry, not task lifetime.
+        // Epoch changes on a lossless archive/restore do not alter voxels.
+        return Content.HasSameSpatialEntriesAs(other.Content) &&
+               Residency.HasSameCoordinatesAs(other.Residency);
     }
 
     public bool IsCurrent(VoxelWorld world)
     {
         ArgumentNullException.ThrowIfNull(world);
 
-        return world.IsContentStampCurrent(Content) &&
-               world.IsResidencyStampCurrent(Residency);
+        // Workers remain strict: even when archived content has not changed,
+        // an archive/restore that occurred while the job ran invalidates its
+        // captured residency epochs. Only published GPU meshes can use the
+        // relaxed content-only comparison.
+        return world.IsResidencyStampCurrent(Residency) &&
+               HasUnchangedGeometryAfterRestore(world);
     }
 
     /// <summary>
@@ -48,20 +54,9 @@ public sealed class MeshDependencyStamp
     public bool HasUnchangedGeometryAfterRestore(VoxelWorld world)
     {
         ArgumentNullException.ThrowIfNull(world);
-        foreach (var (coord, previousEpoch) in Residency.Entries)
-        {
-            if ((previousEpoch != 0) != world.ContainsChunk(coord))
-                return false;
-        }
-
-        foreach (var (coord, previous) in Content.Entries)
-        {
-            if (!world.TryGetChunk(coord, out var chunk) ||
-                chunk.Revision != previous.ChunkRevision)
-                return false;
-        }
-
-        return true;
+        // A retired neighbor remains materialized in the archive. Check
+        // actual spatial content rather than whether it is currently active.
+        return Content.MatchesMaterializedFootprint(world, Residency);
     }
 }
 

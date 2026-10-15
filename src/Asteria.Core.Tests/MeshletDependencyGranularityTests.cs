@@ -104,7 +104,7 @@ public sealed class MeshletDependencyGranularityTests
     }
 
     [Fact]
-    public void ChangedNeighborPresenceStillInvalidatesMeshletAfterRestore()
+    public void ArchivedNeighborDoesNotInvalidateExistingSpatialGeometry()
     {
         var world = new VoxelWorld();
         var center = ChunkCoord.Zero;
@@ -121,7 +121,9 @@ public sealed class MeshletDependencyGranularityTests
         world.ArchiveChunk(neighbor);
         world.RestoreChunk(center);
 
-        Assert.False(dependencies.HasUnchangedGeometryAfterRestore(world));
+        // The neighbor is archived, not absent from the generated world.
+        // Meshing sees it without making it resident again.
+        Assert.True(dependencies.HasUnchangedGeometryAfterRestore(world));
         world.RestoreChunk(neighbor);
         Assert.True(dependencies.HasUnchangedGeometryAfterRestore(world));
     }
@@ -142,5 +144,71 @@ public sealed class MeshletDependencyGranularityTests
         Assert.True(dependencies.HasUnchangedGeometryAfterRestore(world));
         world.InsertChunk(neighbor, new Chunk());
         Assert.False(dependencies.HasUnchangedGeometryAfterRestore(world));
+    }
+
+    [Fact]
+    public void MeshingSnapshotContainsArchivedNeighborBlocksWithoutRestoringThem()
+    {
+        var world = new VoxelWorld();
+        var origin = ChunkCoord.Zero;
+        var neighbor = new ChunkCoord(1, 0, 0);
+        var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);
+        var neighborChunk = new Chunk();
+        neighborChunk.SetBlock(0, 0, 0, blocks.GetId("asteria:stone"));
+        world.InsertChunk(origin, new Chunk());
+        world.InsertChunk(neighbor, neighborChunk);
+        world.ArchiveChunk(neighbor);
+
+        var snapshot = world.CaptureMeshWorkerSnapshot(
+            new Dictionary<ChunkCoord, ChunkMeshletMask>
+            {
+                [origin] = ChunkMeshletMask.Single(1),
+            });
+        var dependencies = snapshot.MeshletDependencies[
+            new ChunkMeshletKey(origin, 1)];
+
+        Assert.False(world.ContainsChunk(neighbor));
+        Assert.True(world.HasArchivedChunk(neighbor));
+        Assert.Equal(
+            blocks.GetId("asteria:stone"),
+            snapshot.World.GetCellOrEmpty(
+                new WorldVoxelCoord(Chunk.Size, 0, 0)).Block);
+        Assert.True(dependencies.IsCurrent(world));
+
+        world.RestoreChunk(neighbor);
+        Assert.False(dependencies.IsCurrent(world));
+        Assert.True(dependencies.HasUnchangedGeometryAfterRestore(world));
+    }
+
+    [Fact]
+    public void MeshingSnapshotCapturedBeforeArchiveHasSameSpatialGeometryAfterArchive()
+    {
+        var world = new VoxelWorld();
+        var origin = ChunkCoord.Zero;
+        var neighbor = new ChunkCoord(1, 0, 0);
+        world.InsertChunk(origin, new Chunk());
+        world.InsertChunk(neighbor, new Chunk());
+        var captured = world.CaptureMeshWorkerSnapshot(
+            new Dictionary<ChunkCoord, ChunkMeshletMask>
+            {
+                [origin] = ChunkMeshletMask.Single(1),
+            });
+        var dependencies = captured.MeshletDependencies[
+            new ChunkMeshletKey(origin, 1)];
+
+        world.ArchiveChunk(neighbor);
+        Assert.False(dependencies.IsCurrent(world));
+        Assert.True(dependencies.HasUnchangedGeometryAfterRestore(world));
+
+        var afterArchive = world.CaptureMeshWorkerSnapshot(
+            new Dictionary<ChunkCoord, ChunkMeshletMask>
+            {
+                [origin] = ChunkMeshletMask.Single(1),
+            });
+        var archivedDependencies = afterArchive.MeshletDependencies[
+            new ChunkMeshletKey(origin, 1)];
+        Assert.True(archivedDependencies.IsCurrent(world));
+        Assert.True(dependencies.HasSameWorldGeometryInputsAs(
+            archivedDependencies));
     }
 }

@@ -22,6 +22,30 @@ public sealed class ChunkContentStamp
     internal IEnumerable<KeyValuePair<ChunkCoord, ChunkContentRevision>>
         Entries => _revisions;
 
+    // No per-meshlet dictionary allocations during repeated restore/frontier
+    // checks: each captured footprint is already represented by the stamp.
+    internal bool MatchesMaterializedFootprint(
+        VoxelWorld world, ChunkResidencyStamp footprint)
+    {
+        foreach (var (coord, _) in footprint.Entries)
+        {
+            var expected = _revisions.TryGetValue(coord, out var prior);
+            var present = world.TryGetMaterializedRevision(
+                coord, out var currentRevision);
+            if (present != expected ||
+                (present && prior.ChunkRevision != currentRevision))
+                return false;
+        }
+
+        return true;
+    }
+
+    internal bool HasSameSpatialEntriesAs(ChunkContentStamp other) =>
+        _revisions.Count == other._revisions.Count &&
+        _revisions.All(entry =>
+            other._revisions.TryGetValue(entry.Key, out var revision) &&
+            revision.ChunkRevision == entry.Value.ChunkRevision);
+
     internal bool HasSameEntriesAs(ChunkContentStamp other) =>
         _revisions.Count == other._revisions.Count &&
         _revisions.All(entry =>
@@ -64,6 +88,10 @@ public sealed class ChunkResidencyStamp
 
     internal IEnumerable<KeyValuePair<ChunkCoord, ulong>>
         Entries => _epochs;
+
+    internal bool HasSameCoordinatesAs(ChunkResidencyStamp other) =>
+        _epochs.Count == other._epochs.Count &&
+        _epochs.Keys.All(other._epochs.ContainsKey);
 
     internal bool HasSameEntriesAs(ChunkResidencyStamp other) =>
         _epochs.Count == other._epochs.Count &&

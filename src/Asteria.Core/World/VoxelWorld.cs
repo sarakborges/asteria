@@ -275,6 +275,41 @@ public sealed class VoxelWorld
         return true;
     }
 
+    /// <summary>
+    /// Meshing alone observes the entire materialized spatial map. Archived
+    /// chunks are immutable while archived and are not brought into active
+    /// residency by this query.
+    /// </summary>
+    internal bool TryGetMaterializedRevision(ChunkCoord coord, out ulong revision)
+    {
+        if (_chunks.TryGetValue(coord, out var resident) ||
+            _archive.TryPeek(coord, out resident!))
+        {
+            revision = resident.Revision;
+            return true;
+        }
+
+        revision = 0;
+        return false;
+    }
+
+    private ChunkContentStamp CaptureMeshingContentStamp(
+        IEnumerable<ChunkCoord> coordinates)
+    {
+        var revisions = new Dictionary<ChunkCoord, ChunkContentRevision>();
+        foreach (var coord in coordinates.Distinct()
+                     .OrderBy(coord => coord.Y)
+                     .ThenBy(coord => coord.Z)
+                     .ThenBy(coord => coord.X))
+        {
+            if (TryGetMaterializedRevision(coord, out var revision))
+                revisions.Add(coord, new ChunkContentRevision(
+                    GetResidencyEpoch(coord), revision));
+        }
+
+        return new ChunkContentStamp(revisions);
+    }
+
     public ChunkContentRevision GetContentRevision(
         ChunkCoord coord) =>
         TryGetContentRevision(
@@ -887,6 +922,31 @@ public sealed class VoxelWorld
         return clone;
     }
 
+    /// <summary>
+    /// Rendering sees already-materialized archived neighbors, unlike
+    /// simulation snapshots that may only include actively resident chunks.
+    /// Never mutate or reactivate archived chunks to capture their geometry.
+    /// </summary>
+    private VoxelWorld CloneForMeshing(IEnumerable<ChunkCoord> coordinates)
+    {
+        var selected = coordinates.Distinct().ToArray();
+        var snapshot = CloneForWorker(selected);
+        foreach (var coord in selected)
+        {
+            if (snapshot._chunks.ContainsKey(coord) ||
+                !_archive.TryPeek(coord, out var archived))
+                continue;
+
+            snapshot._chunks.Add(coord, archived.CloneForWorker());
+            var column = ChunkColumnCoord.FromChunk(coord);
+            snapshot._residentColumnChunkCounts[column] =
+                snapshot._residentColumnChunkCounts.TryGetValue(
+                    column, out var count) ? count + 1 : 1;
+        }
+
+        return snapshot;
+    }
+
     public VoxelWorld CloneFluidNeighborhood(
         IEnumerable<WorldVoxelCoord> seeds,
         int horizontalVoxelRadius)
@@ -946,11 +1006,12 @@ public sealed class VoxelWorld
             }
         }
 
-        // Capture the union once for the worker's immutable input. Narrower
-        // per-meshlet stamps let valid results survive unrelated changes to
-        // other meshlets in the same dispatched batch.
+        // The geometry snapshot includes archived neighbors because their
+        // exact voxel contents remain part of the authoritative world.
+        // Residency epochs are still captured separately to reject in-flight
+        // worker results when active residency changes.
         var dependencies = new MeshDependencyStamp(
-            CaptureContentStamp(required),
+            CaptureMeshingContentStamp(required),
             CaptureResidencyStamp(required));
         var meshletDependencies =
             new Dictionary<ChunkMeshletKey, MeshDependencyStamp>(
@@ -958,12 +1019,12 @@ public sealed class VoxelWorld
         foreach (var (key, envelope) in footprints)
         {
             meshletDependencies.Add(key, new MeshDependencyStamp(
-                CaptureContentStamp(envelope),
+                CaptureMeshingContentStamp(envelope),
                 CaptureResidencyStamp(envelope)));
         }
 
         return new MeshWorkerSnapshot(
-            CloneForWorker(required),
+            CloneForMeshing(required),
             dependencies,
             meshletDependencies);
     }
