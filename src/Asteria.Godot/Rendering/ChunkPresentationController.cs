@@ -33,11 +33,16 @@ public sealed class ChunkPresentationController
         _presentations = [];
     // Only a bounded set of recently retired Godot meshes remains warm.
     // VoxelWorld keeps ALL materialized content, independently of this cache.
-    private const int MaximumWarmPresentations = 96;
+    // A complete four-chunk render sphere often contains ~300 chunks. The
+    // previous capacity of 96 lost most meshes before a return trip.
+    // Keep this finite; the archive remains authoritative beyond the cache.
+    private const int MaximumWarmPresentations = 384;
     private readonly BoundedReuseCache<ChunkCoord, ChunkPresentation>
         _warmPresentations = new(MaximumWarmPresentations);
     private int _warmReuses;
     private int _warmEvictions;
+    private int _warmTerrainMeshletsReused;
+    private int _warmFluidMeshletsReused;
     private readonly DeduplicatedQueue<ChunkMeshletKey>
         _priorityTerrainPublicationOrder = new();
     private readonly DeduplicatedQueue<ChunkMeshletKey>
@@ -220,11 +225,15 @@ public sealed class ChunkPresentationController
 
     public int WarmPresentationCount => _warmPresentations.Count;
 
-    public (int Reused, int Evicted) TakeWarmPresentationStats()
+    public (int Reused, int Evicted, int TerrainMeshletsReused,
+        int FluidMeshletsReused) TakeWarmPresentationStats()
     {
-        var stats = (_warmReuses, _warmEvictions);
+        var stats = (_warmReuses, _warmEvictions,
+            _warmTerrainMeshletsReused, _warmFluidMeshletsReused);
         _warmReuses = 0;
         _warmEvictions = 0;
+        _warmTerrainMeshletsReused = 0;
+        _warmFluidMeshletsReused = 0;
         return stats;
     }
 
@@ -369,42 +378,55 @@ public sealed class ChunkPresentationController
                 residency.ShouldPresentationBeVisible(
                     coord.Value,
                     currentlyVisible: false));
-            TrackCollisionActivation(presentation,
-                presentation.IsVisible &&
-                residency.ShouldPresentationHaveCollision(coord.Value));
-
             _presentations.Add(
                 coord.Value,
                 presentation);
-            if (chunk.ObjectCount != 0)
+            if (warmed || chunk.ObjectCount != 0)
                 _pendingObjects.Enqueue(coord.Value);
 
-            var terrainMeshlets =
-                chunk.OccupiedTerrainMeshlets();
+            var terrainMeshlets = chunk.OccupiedTerrainMeshlets();
+            var fluidMeshlets = chunk.OccupiedFluidMeshlets();
+            var reusableTerrain = warmed
+                ? presentation.ReusableTerrainMeshlets(_world, terrainMeshlets)
+                : ChunkMeshletMask.None;
+            var reusableFluid = warmed
+                ? presentation.ReusableFluidMeshlets(_world, fluidMeshlets)
+                : ChunkMeshletMask.None;
+
+            if (warmed)
+            {
+                // Remove geometry that no longer matches its actual captured
+                // 3x3x3 dependency footprint. Unchanged meshlets retain their
+                // existing Godot resources, physics shapes and publication.
+                presentation.DiscardInvalidCachedMeshlets(
+                    ChunkMeshletMask.All.Except(reusableTerrain),
+                    ChunkMeshletMask.All.Except(reusableFluid));
+                _warmTerrainMeshletsReused += reusableTerrain.Indices().Count();
+                _warmFluidMeshletsReused += reusableFluid.Indices().Count();
+                if (presentation.HasDeferredCollisions)
+                    _deferredCollisionChunks.Add(coord.Value);
+            }
+
             presentation.MarkTerrainPublished(
                 ChunkMeshletMask.All.Except(terrainMeshlets));
-            if (!terrainMeshlets.IsEmpty)
+            var terrainToBuild = terrainMeshlets.Except(reusableTerrain);
+            if (!terrainToBuild.IsEmpty)
             {
-                // Visible first-time presentations are interactive work:
-                // a resident chunk with no mesh must not wait behind
-                // background remeshes of distant terrain.
                 if (presentation.IsVisible)
                     _worldUpdates.EnqueuePriorityMeshlets(
-                        coord.Value, terrainMeshlets);
+                        coord.Value, terrainToBuild);
                 else
                     _worldUpdates.EnqueueMeshlets(
-                        coord.Value, terrainMeshlets);
+                        coord.Value, terrainToBuild);
             }
 
-            var fluidMeshlets =
-                chunk.OccupiedFluidMeshlets();
-            if (!fluidMeshlets.IsEmpty)
-            {
-                _fluidMeshUpdates.EnqueueMeshlets(
-                    coord.Value,
-                    fluidMeshlets);
-            }
+            var fluidToBuild = fluidMeshlets.Except(reusableFluid);
+            if (!fluidToBuild.IsEmpty)
+                _fluidMeshUpdates.EnqueueMeshlets(coord.Value, fluidToBuild);
 
+            TrackCollisionActivation(presentation,
+                presentation.IsVisible &&
+                residency.ShouldPresentationHaveCollision(coord.Value));
             InvalidatePresentedNeighborsForAddition(
                 coord.Value);
             reserved++;
@@ -813,24 +835,21 @@ public sealed class ChunkPresentationController
                          _world,
                          Contains))
         {
-            if (!invalidation.Terrain.IsEmpty)
+            var neighbor = _presentations[invalidation.Neighbor];
+            var terrain = neighbor.TerrainMeshletsNeedingRemesh(
+                _world, invalidation.Terrain);
+            if (!terrain.IsEmpty)
             {
-                _terrainRevisions.Bump(
-                    invalidation.Neighbor,
-                    invalidation.Terrain);
-                _worldUpdates.EnqueueMeshlets(
-                    invalidation.Neighbor,
-                    invalidation.Terrain);
+                _terrainRevisions.Bump(invalidation.Neighbor, terrain);
+                _worldUpdates.EnqueueMeshlets(invalidation.Neighbor, terrain);
             }
 
-            if (!invalidation.Fluid.IsEmpty)
+            var fluid = neighbor.FluidMeshletsNeedingRemesh(
+                _world, invalidation.Fluid);
+            if (!fluid.IsEmpty)
             {
-                _fluidRevisions.Bump(
-                    invalidation.Neighbor,
-                    invalidation.Fluid);
-                _fluidMeshUpdates.EnqueueMeshlets(
-                    invalidation.Neighbor,
-                    invalidation.Fluid);
+                _fluidRevisions.Bump(invalidation.Neighbor, fluid);
+                _fluidMeshUpdates.EnqueueMeshlets(invalidation.Neighbor, fluid);
             }
         }
     }
@@ -845,24 +864,21 @@ public sealed class ChunkPresentationController
                          _world,
                          Contains))
         {
-            if (!invalidation.Terrain.IsEmpty)
+            var neighbor = _presentations[invalidation.Neighbor];
+            var terrain = neighbor.TerrainMeshletsNeedingRemesh(
+                _world, invalidation.Terrain);
+            if (!terrain.IsEmpty)
             {
-                _terrainRevisions.Bump(
-                    invalidation.Neighbor,
-                    invalidation.Terrain);
-                _worldUpdates.EnqueueMeshlets(
-                    invalidation.Neighbor,
-                    invalidation.Terrain);
+                _terrainRevisions.Bump(invalidation.Neighbor, terrain);
+                _worldUpdates.EnqueueMeshlets(invalidation.Neighbor, terrain);
             }
 
-            if (!invalidation.Fluid.IsEmpty)
+            var fluid = neighbor.FluidMeshletsNeedingRemesh(
+                _world, invalidation.Fluid);
+            if (!fluid.IsEmpty)
             {
-                _fluidRevisions.Bump(
-                    invalidation.Neighbor,
-                    invalidation.Fluid);
-                _fluidMeshUpdates.EnqueueMeshlets(
-                    invalidation.Neighbor,
-                    invalidation.Fluid);
+                _fluidRevisions.Bump(invalidation.Neighbor, fluid);
+                _fluidMeshUpdates.EnqueueMeshlets(invalidation.Neighbor, fluid);
             }
         }
     }

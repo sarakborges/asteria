@@ -37,6 +37,12 @@ public sealed class ChunkPresentation
         new CollisionShape3D?[ChunkMeshletMask.Count];
     private readonly MeshDependencyStamp?[] _collisionDependencies =
         new MeshDependencyStamp?[ChunkMeshletMask.Count];
+    // All published meshlets retain a compact dependency stamp even when
+    // their vertex buffers are too large for the separate relight cache.
+    private readonly MeshDependencyStamp?[] _publishedTerrainDependencies =
+        new MeshDependencyStamp?[ChunkMeshletMask.Count];
+    private readonly MeshDependencyStamp?[] _publishedFluidDependencies =
+        new MeshDependencyStamp?[ChunkMeshletMask.Count];
     // Derived geometry cache is bounded to relightable presented meshlets.
     // It is dropped with the presentation on residency retirement.
     private readonly ChunkMeshData?[] _relightableGeometry =
@@ -95,6 +101,87 @@ public sealed class ChunkPresentation
 
     // Empty meshlets are marked published when a chunk is reserved, so this
     // only includes real geometry that still lacks its initial publication.
+    // A topology event is only a candidate invalidation. Presentation
+    // membership may change even when the already-published geometry is
+    // structurally identical to the current resident 3x3x3 footprint.
+    public ChunkMeshletMask TerrainMeshletsNeedingRemesh(
+        VoxelWorld world, ChunkMeshletMask candidates)
+    {
+        byte bits = 0;
+        foreach (var index in candidates.Indices())
+            if (_publishedTerrainDependencies[index] is not { } dependency ||
+                !dependency.HasUnchangedGeometryAfterRestore(world))
+                bits |= (byte)(1 << index);
+        return new ChunkMeshletMask(bits);
+    }
+
+    public ChunkMeshletMask FluidMeshletsNeedingRemesh(
+        VoxelWorld world, ChunkMeshletMask candidates)
+    {
+        byte bits = 0;
+        foreach (var index in candidates.Indices())
+            if (_publishedFluidDependencies[index] is not { } dependency ||
+                !dependency.HasUnchangedGeometryAfterRestore(world))
+                bits |= (byte)(1 << index);
+        return new ChunkMeshletMask(bits);
+    }
+
+    public ChunkMeshletMask ReusableTerrainMeshlets(
+        VoxelWorld world, ChunkMeshletMask occupied)
+    {
+        byte bits = 0;
+        foreach (var index in occupied.Indices())
+            if (_published[index] &&
+                _publishedTerrainDependencies[index] is { } dependency &&
+                dependency.HasUnchangedGeometryAfterRestore(world))
+                bits |= (byte)(1 << index);
+        return new ChunkMeshletMask(bits);
+    }
+
+    public ChunkMeshletMask ReusableFluidMeshlets(
+        VoxelWorld world, ChunkMeshletMask occupied)
+    {
+        byte bits = 0;
+        foreach (var index in occupied.Indices())
+            if (_publishedFluidDependencies[index] is { } dependency &&
+                dependency.HasUnchangedGeometryAfterRestore(world))
+                bits |= (byte)(1 << index);
+        return new ChunkMeshletMask(bits);
+    }
+
+    public void DiscardInvalidCachedMeshlets(
+        ChunkMeshletMask terrain, ChunkMeshletMask fluid)
+    {
+        foreach (var index in terrain.Indices())
+        {
+            RemoveNode(_meshes, index);
+            RemoveCollision(index);
+            _collisionDependencies[index] = null;
+            _deferredCollisions[index] = null;
+            _publishedTerrainDependencies[index] = null;
+            _relightCacheVertexCount -=
+                _relightableGeometry[index]?.RenderVertexCount ?? 0;
+            _relightableGeometry[index] = null;
+            _relightableDependencies[index] = null;
+            if (_published[index])
+            {
+                _published[index] = false;
+                _publishedCount--;
+            }
+        }
+
+        foreach (var index in fluid.Indices())
+        {
+            RemoveNode(_fluidMeshes, index);
+            _publishedFluidDependencies[index] = null;
+            _fluidRelightVertexCount -=
+                _relightableFluid[index]?.Batches.Sum(
+                    batch => batch.Vertices.Length) ?? 0;
+            _relightableFluid[index] = null;
+            _relightableFluidDependencies[index] = null;
+        }
+    }
+
     public ChunkMeshletMask UnpublishedTerrainMeshlets
     {
         get
@@ -125,7 +212,7 @@ public sealed class ChunkPresentation
         if (data is not { CanRelightWithoutRemesh: true } ||
             _meshes[meshletIndex] is null ||
             _relightableDependencies[meshletIndex] is not { } dependency ||
-            !dependency.IsCurrent(world))
+            !dependency.HasUnchangedGeometryAfterRestore(world))
         {
             data = null;
             return false;
@@ -142,7 +229,7 @@ public sealed class ChunkPresentation
         data = _relightableFluid[meshletIndex];
         if (data is null || _fluidMeshes[meshletIndex]?.Mesh is null ||
             _relightableFluidDependencies[meshletIndex] is not { } dependency ||
-            !dependency.IsCurrent(world))
+            !dependency.HasUnchangedGeometryAfterRestore(world))
         {
             data = null;
             return false;
@@ -351,6 +438,7 @@ public sealed class ChunkPresentation
                 batch => batch.Vertices.Length) ?? 0;
         _relightableFluid[meshletIndex] = null;
         _relightableFluidDependencies[meshletIndex] = null;
+        _publishedFluidDependencies[meshletIndex] = dependencies;
 
         if (!data.HasGeometry)
         {
@@ -476,6 +564,7 @@ public sealed class ChunkPresentation
 
         var collisionMilliseconds = Stopwatch.GetElapsedTime(
             collisionStart).TotalMilliseconds;
+        _publishedTerrainDependencies[meshletIndex] = dependencies;
         MarkTerrainPublished(meshletIndex);
         return new ChunkPresentationApplyStats(
             renderMilliseconds,

@@ -36,6 +36,33 @@ public sealed class MeshDependencyStamp
         return world.IsContentStampCurrent(Content) &&
                world.IsResidencyStampCurrent(Residency);
     }
+
+    /// <summary>
+    /// Only for already published meshes reused after chunk archive/restore.
+    /// Fresh workers MUST use IsCurrent: epochs protect against in-flight
+    /// replacement. Archived session chunks keep their voxel data unchanged,
+    /// so a new residency epoch alone cannot invalidate their geometry.
+    /// Presence transitions or content changes still require remeshing.
+    /// Lighting is updated independently by the lighting runtime.
+    /// </summary>
+    public bool HasUnchangedGeometryAfterRestore(VoxelWorld world)
+    {
+        ArgumentNullException.ThrowIfNull(world);
+        foreach (var (coord, previousEpoch) in Residency.Entries)
+        {
+            if ((previousEpoch != 0) != world.ContainsChunk(coord))
+                return false;
+        }
+
+        foreach (var (coord, previous) in Content.Entries)
+        {
+            if (!world.TryGetChunk(coord, out var chunk) ||
+                chunk.Revision != previous.ChunkRevision)
+                return false;
+        }
+
+        return true;
+    }
 }
 
 public sealed class MeshWorkerSnapshot

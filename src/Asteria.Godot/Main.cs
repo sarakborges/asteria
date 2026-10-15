@@ -766,7 +766,9 @@ public partial class Main : Node3D
         _worldDiagnostics?.ObserveWarmPresentations(
             _chunkPresentations.WarmPresentationCount,
             warmPresentationStats.Reused,
-            warmPresentationStats.Evicted);
+            warmPresentationStats.Evicted,
+            warmPresentationStats.TerrainMeshletsReused,
+            warmPresentationStats.FluidMeshletsReused);
         PublishStorageBoxChanges();
         _worldDiagnostics?.FlushIfDue(
             _world.ChunkCount,

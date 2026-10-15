@@ -69,6 +69,8 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     private int _warmPresentations;
     private int _warmPresentationReuses;
     private int _warmPresentationEvictions;
+    private int _warmTerrainMeshletsReused;
+    private int _warmFluidMeshletsReused;
     private bool _lightingActive;
     private long _frames;
     private double _frameMsTotal;
@@ -336,11 +338,14 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         _terrainMeshStale += stale;
     }
 
-    public void ObserveWarmPresentations(int cached, int reused, int evicted)
+    public void ObserveWarmPresentations(int cached, int reused, int evicted,
+        int reusedTerrainMeshlets, int reusedFluidMeshlets)
     {
         _warmPresentations = cached;
         _warmPresentationReuses += reused;
         _warmPresentationEvictions += evicted;
+        _warmTerrainMeshletsReused += reusedTerrainMeshlets;
+        _warmFluidMeshletsReused += reusedFluidMeshlets;
     }
 
     public void ObserveDeferredCollisions(int deferredChunks) =>
@@ -474,6 +479,8 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"warm_presentations={_warmPresentations} " +
             $"warm_presentation_reuses={_warmPresentationReuses} " +
             $"warm_presentation_evictions={_warmPresentationEvictions} " +
+            $"warm_terrain_meshlets_reused={_warmTerrainMeshletsReused} " +
+            $"warm_fluid_meshlets_reused={_warmFluidMeshletsReused} " +
             $"lighting_pending={_lightingPending} " +
             $"terrain_mesh_pending={_terrainMeshPending} " +
             $"fluid_mesh_pending={_fluidMeshPending} lighting_active={_lightingActive} " +
@@ -554,6 +561,8 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         _collisionEmergencyShapes = 0;
         _warmPresentationReuses = 0;
         _warmPresentationEvictions = 0;
+        _warmTerrainMeshletsReused = 0;
+        _warmFluidMeshletsReused = 0;
         _frames = 0;
         _frameMsTotal = 0d;
         _frameMsMax = 0d;

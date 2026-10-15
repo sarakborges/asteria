@@ -55,4 +55,92 @@ public sealed class MeshletDependencyGranularityTests
         Assert.True(captured.MeshletDependencies[negativeSide].IsCurrent(world));
         Assert.False(captured.MeshletDependencies[positiveSide].IsCurrent(world));
     }
+
+    [Fact]
+    public void ArchivedAndRestoredSameChunkReusesItsPublishedGeometry()
+    {
+        var world = new VoxelWorld();
+        var center = ChunkCoord.Zero;
+        var neighbor = new ChunkCoord(1, 0, 0);
+        world.InsertChunk(center, new Chunk());
+        world.InsertChunk(neighbor, new Chunk());
+        var snapshot = world.CaptureMeshWorkerSnapshot(
+            new Dictionary<ChunkCoord, ChunkMeshletMask>
+            {
+                [center] = ChunkMeshletMask.Single(1),
+            });
+        var dependencies = snapshot.MeshletDependencies[
+            new ChunkMeshletKey(center, 1)];
+
+        Assert.True(dependencies.IsCurrent(world));
+        world.ArchiveChunk(neighbor);
+        world.ArchiveChunk(center);
+        world.RestoreChunk(center);
+        world.RestoreChunk(neighbor);
+
+        Assert.False(dependencies.IsCurrent(world));
+        Assert.True(dependencies.HasUnchangedGeometryAfterRestore(world));
+    }
+
+    [Fact]
+    public void ContentMutationInvalidatesPreviouslyPublishedGeometryAfterRestore()
+    {
+        var world = new VoxelWorld();
+        var center = ChunkCoord.Zero;
+        world.InsertChunk(center, new Chunk());
+        var dependencies = world.CaptureMeshWorkerSnapshot(
+            new Dictionary<ChunkCoord, ChunkMeshletMask>
+            {
+                [center] = ChunkMeshletMask.Single(0),
+            }).MeshletDependencies[new ChunkMeshletKey(center, 0)];
+        var blocks = new BlockRegistry([new BlockDefinition("asteria:stone")]);
+
+        world.ArchiveChunk(center);
+        world.RestoreChunk(center);
+        world.GetChunk(center).SetBlock(
+            0, 0, 0, blocks.GetId("asteria:stone"));
+
+        Assert.False(dependencies.HasUnchangedGeometryAfterRestore(world));
+    }
+
+    [Fact]
+    public void ChangedNeighborPresenceStillInvalidatesMeshletAfterRestore()
+    {
+        var world = new VoxelWorld();
+        var center = ChunkCoord.Zero;
+        var neighbor = new ChunkCoord(1, 0, 0);
+        world.InsertChunk(center, new Chunk());
+        world.InsertChunk(neighbor, new Chunk());
+        var dependencies = world.CaptureMeshWorkerSnapshot(
+            new Dictionary<ChunkCoord, ChunkMeshletMask>
+            {
+                [center] = ChunkMeshletMask.Single(1),
+            }).MeshletDependencies[new ChunkMeshletKey(center, 1)];
+
+        world.ArchiveChunk(center);
+        world.ArchiveChunk(neighbor);
+        world.RestoreChunk(center);
+
+        Assert.False(dependencies.HasUnchangedGeometryAfterRestore(world));
+        world.RestoreChunk(neighbor);
+        Assert.True(dependencies.HasUnchangedGeometryAfterRestore(world));
+    }
+
+    [Fact]
+    public void NewNeighborInvalidatesPreviouslyMissingDependency()
+    {
+        var world = new VoxelWorld();
+        var center = ChunkCoord.Zero;
+        var neighbor = new ChunkCoord(1, 0, 0);
+        world.InsertChunk(center, new Chunk());
+        var dependencies = world.CaptureMeshWorkerSnapshot(
+            new Dictionary<ChunkCoord, ChunkMeshletMask>
+            {
+                [center] = ChunkMeshletMask.Single(1),
+            }).MeshletDependencies[new ChunkMeshletKey(center, 1)];
+
+        Assert.True(dependencies.HasUnchangedGeometryAfterRestore(world));
+        world.InsertChunk(neighbor, new Chunk());
+        Assert.False(dependencies.HasUnchangedGeometryAfterRestore(world));
+    }
 }
