@@ -199,6 +199,8 @@ public sealed class ChunkResidencyRuntime
 
     public int DesiredCount => _streaming.DesiredCount;
 
+    public bool IsDesired(ChunkCoord coord) => _streaming.IsDesired(coord);
+
     public int RetainedCount => _streaming.RetainedCount;
 
     public int PendingCount => _streaming.PendingCount;

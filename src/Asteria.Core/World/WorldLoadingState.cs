@@ -1,6 +1,4 @@
-using Asteria.Core.World;
-
-namespace Asteria.Client.Gameplay;
+namespace Asteria.Core.World;
 
 public enum WorldLoadingPhase : byte
 {
@@ -29,10 +27,6 @@ public readonly record struct WorldLoadingProgress(
 /// </summary>
 public sealed class WorldLoadingState
 {
-    // Bootstrap the spawn chunk and its immediate neighbors. The full
-    // configured render distance streams after the spawn is presented.
-    public const int InitialHorizontalRadiusChunks = 1;
-
     private WorldLoadingProgress _progress =
         new(
             WorldLoadingPhase.Inactive,
@@ -120,8 +114,15 @@ public sealed class WorldLoadingState
         }
     }
 
+    /// <summary>
+    /// Gameplay can start only after every selected chunk is presented and
+    /// all initial lighting/mesh publication work has settled. The counts
+    /// describe actual current presentation, not an estimated percentage.
+    /// </summary>
     public bool UpdatePresentation(
-        bool destinationPresentationReady)
+        int fullyPublishedChunks,
+        int desiredChunks,
+        bool workSettled)
     {
         if (_progress.Phase !=
             WorldLoadingPhase.PreparingPresentation)
@@ -129,24 +130,28 @@ public sealed class WorldLoadingState
             return false;
         }
 
-        _progress =
-            new WorldLoadingProgress(
-                WorldLoadingPhase.PreparingPresentation,
-                destinationPresentationReady
-                    ? 1
-                    : 0,
-                1);
-
-        if (!destinationPresentationReady)
+        if (desiredChunks <= 0 ||
+            fullyPublishedChunks < 0 ||
+            fullyPublishedChunks > desiredChunks)
         {
-            return false;
+            throw new ArgumentOutOfRangeException(
+                nameof(fullyPublishedChunks));
         }
 
         _progress =
             new WorldLoadingProgress(
+                WorldLoadingPhase.PreparingPresentation,
+                fullyPublishedChunks,
+                desiredChunks);
+
+        if (fullyPublishedChunks != desiredChunks || !workSettled)
+            return false;
+
+        _progress =
+            new WorldLoadingProgress(
                 WorldLoadingPhase.Ready,
-                1,
-                1);
+                desiredChunks,
+                desiredChunks);
         return true;
     }
 

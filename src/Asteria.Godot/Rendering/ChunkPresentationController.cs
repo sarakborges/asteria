@@ -229,6 +229,25 @@ public sealed class ChunkPresentationController
             out var presentation) &&
         presentation.IsFullyPublished;
 
+    /// <summary>
+    /// Count only the chunks in the current render selection, excluding
+    /// retained presentations outside the visible area. The residency
+    /// runtime remains the sole owner of the desired selection.
+    /// </summary>
+    public int CountFullyPublishedDesired(ChunkResidencyRuntime residency)
+    {
+        ArgumentNullException.ThrowIfNull(residency);
+        var count = 0;
+        foreach (var (coord, presentation) in _presentations)
+        {
+            if (residency.IsDesired(coord) && presentation.IsFullyPublished)
+                count++;
+        }
+        return count;
+    }
+
+    public int PendingObjectChanges => _pendingObjects.Count;
+
     public IReadOnlyDictionary<ChunkMeshletKey, ChunkFluidMeshData>
         CaptureRelightableFluid(WorldMeshBatch batch)
     {

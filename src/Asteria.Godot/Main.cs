@@ -633,10 +633,9 @@ public partial class Main : Node3D
             loadingWorld
                 ? _loading.Center
                 : CurrentStreamingCenter();
-        var streamingRadius =
-            loadingWorld
-                ? WorldLoadingState.InitialHorizontalRadiusChunks
-                : _clientPreferences.RenderDistanceChunks;
+        // Loading covers the entire configured render area, not a smaller
+        // spawn bootstrap that expands after the player is released.
+        var streamingRadius = _clientPreferences.RenderDistanceChunks;
 
         var streamingPressure = WorldStreamingWorkPressure.Evaluate(
             delta, _worldUpdates.DirtyChunkCount, loadingWorld);
@@ -2435,10 +2434,24 @@ public partial class Main : Node3D
         ReportStreamingSelection(
             _chunkStreaming.SyncSelection(
                 _loading.Center,
-                WorldLoadingState.InitialHorizontalRadiusChunks,
+                _clientPreferences.RenderDistanceChunks,
                 RequiresPortalSurfaceAccess));
         SendLoadingState();
     }
+
+    private bool IsInitialWorldPresentationSettled() =>
+        !_residency.HasRenderableBacklog &&
+        !_chunkStreaming.IsSelectionRunning &&
+        !_worldUpdates.HasLightingWork &&
+        !_lightingRuntime.IsRunning &&
+        !_worldUpdates.HasMeshWork &&
+        !_terrainMeshPipeline.IsRunning &&
+        _chunkPresentations.PendingTerrainPublications == 0 &&
+        !_fluidMeshUpdates.HasWork &&
+        !_fluidMeshPipeline.IsRunning &&
+        _chunkPresentations.PendingFluidPublications == 0 &&
+        _chunkPresentations.PendingObjectChanges == 0 &&
+        !_fluidSimulationRuntime.IsRunning;
 
     private void AdvanceWorldLoading()
     {
@@ -2452,13 +2465,15 @@ public partial class Main : Node3D
             WorldLoadingPhase.PreparingPresentation)
         {
             _ = _loading.UpdatePresentation(
-                _chunkPresentations.IsFullyPublished(
-                    _spawnChunk));
+                _chunkPresentations.CountFullyPublishedDesired(_residency),
+                _residency.DesiredCount,
+                IsInitialWorldPresentationSettled());
         }
 
         if (_loading.Progress.Phase == WorldLoadingPhase.PreparingArrivalStructure)
             _loading.UpdateArrivalStructurePresentation(
-                _sessions.Active.IsPortalArrivalPresentationCurrent());
+                _sessions.Active.IsPortalArrivalPresentationCurrent() &&
+                IsInitialWorldPresentationSettled());
 
         if (!_loading.Progress.IsReady)
         {
@@ -2565,10 +2580,6 @@ public partial class Main : Node3D
         _loading.Reset();
         _lastLoadingProgress = null;
 
-        ReportStreamingSelection(
-            _chunkStreaming.SyncSelection(
-                CurrentStreamingCenter(),
-                _clientPreferences.RenderDistanceChunks));
     }
 
     private void BeginWarpRollback(WarpArrivalPlan warp)
