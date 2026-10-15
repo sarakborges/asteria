@@ -146,14 +146,6 @@
   },
   "volumeStructures": [
     {
-      "structure": "asteria:tree_skywood",
-      "spacing": 31,
-      "chance": 0.79,
-      "minY": 200,
-      "maxY": 280,
-      "supportSurface": "floor"
-    },
-    {
       "structure": "asteria:arch_crystal_sky",
       "spacing": 38,
       "chance": 0.57,

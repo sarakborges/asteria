@@ -136,30 +136,6 @@
   ],
   "generatedSurfaceStructures": [
     {
-      "biome": "asteria:overworld/enchanted_forest",
-      "structure": "asteria:tree_enchanted_tree",
-      "spacing": 34,
-      "chance": 0.72,
-      "jitter": 10,
-      "habitatWeights": {
-        "luminous_clearing": 0.09,
-        "violet_undergrowth": 2,
-        "pink_glade": 0.65
-      }
-    },
-    {
-      "biome": "asteria:overworld/enchanted_forest",
-      "structure": "asteria:grove_enchanted",
-      "spacing": 152,
-      "chance": 0.7,
-      "jitter": 46,
-      "habitatWeights": {
-        "luminous_clearing": 0,
-        "violet_undergrowth": 2.2,
-        "pink_glade": 0.35
-      }
-    },
-    {
       "biome": "asteria:overworld/plains",
       "structure": "asteria:boulder_small",
       "spacing": 36,
@@ -893,18 +869,6 @@
     },
     {
       "biome": "asteria:overworld/arctic",
-      "structure": "asteria:tree_pine_arctic_stunted",
-      "spacing": 61,
-      "chance": 0.69,
-      "jitter": 18,
-      "habitatWeights": {
-        "frozen_plain": 1.7,
-        "ice_fields": 0.04,
-        "rocky_ridges": 0.55
-      }
-    },
-    {
-      "biome": "asteria:overworld/arctic",
       "structure": "asteria:brush_frost_arctic",
       "spacing": 28,
       "chance": 0.84,
@@ -925,30 +889,6 @@
         "frozen_plain": 0.06,
         "ice_fields": 2.6,
         "rocky_ridges": 0.28
-      }
-    },
-    {
-      "biome": "asteria:overworld/alps",
-      "structure": "asteria:tree_fir_alpine_snow",
-      "spacing": 43,
-      "chance": 0.76,
-      "jitter": 13,
-      "habitatWeights": {
-        "snowfields": 2.1,
-        "glacial_ice": 0.03,
-        "wind_scoured_rock": 0.25
-      }
-    },
-    {
-      "biome": "asteria:overworld/alps",
-      "structure": "asteria:tree_krummholz_alpine",
-      "spacing": 39,
-      "chance": 0.71,
-      "jitter": 12,
-      "habitatWeights": {
-        "snowfields": 0.08,
-        "glacial_ice": 0.01,
-        "wind_scoured_rock": 2.35
       }
     },
     {
@@ -1025,18 +965,6 @@
     },
     {
       "biome": "asteria:overworld/scorched_wastes",
-      "structure": "asteria:tree_charred_volcanic",
-      "spacing": 65,
-      "jitter": 19,
-      "chance": 0.72,
-      "habitatWeights": {
-        "ash_aprons": 2.35,
-        "fractured_flanks": 0.62,
-        "hardened_highlands": 0.04
-      }
-    },
-    {
-      "biome": "asteria:overworld/scorched_wastes",
       "structure": "asteria:thicket_briar_volcanic",
       "spacing": 33,
       "jitter": 9,
@@ -1085,18 +1013,6 @@
     },
     {
       "biome": "asteria:overworld/enchanted_forest",
-      "structure": "asteria:stump_enchanted_tree_hollow",
-      "spacing": 54,
-      "jitter": 16,
-      "chance": 0.6,
-      "habitatWeights": {
-        "luminous_clearing": 0.12,
-        "violet_undergrowth": 2.3,
-        "pink_glade": 1.2
-      }
-    },
-    {
-      "biome": "asteria:overworld/enchanted_forest",
       "structure": "asteria:canopy_fungal_enchanted",
       "spacing": 87,
       "jitter": 26,
@@ -1105,42 +1021,6 @@
         "luminous_clearing": 0.19,
         "violet_undergrowth": 1.55,
         "pink_glade": 2.45
-      }
-    },
-    {
-      "biome": "asteria:overworld/mountains",
-      "structure": "asteria:tree_juniper_mountain_dwarf",
-      "spacing": 48,
-      "chance": 0.72,
-      "jitter": 14,
-      "habitatWeights": {
-        "foothill_shelves": 2.55,
-        "talus_fields": 0.32,
-        "exposed_ridges": 0.015
-      }
-    },
-    {
-      "biome": "asteria:overworld/mountains",
-      "structure": "asteria:tree_pine_mountain_wind",
-      "spacing": 96,
-      "chance": 0.62,
-      "jitter": 28,
-      "habitatWeights": {
-        "foothill_shelves": 2.5,
-        "talus_fields": 0.05,
-        "exposed_ridges": 0
-      }
-    },
-    {
-      "biome": "asteria:overworld/mountain_belt",
-      "structure": "asteria:tree_pine_belt_windswept",
-      "spacing": 61,
-      "chance": 0.71,
-      "jitter": 18,
-      "habitatWeights": {
-        "sheltered_passes": 2.6,
-        "boulder_runs": 0.08,
-        "bare_crests": 0
       }
     },
     {

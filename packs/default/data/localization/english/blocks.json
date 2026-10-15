@@ -8,12 +8,6 @@
   "asteria:sedge_alpine": {
     "/name": "Alpine Sedge"
   },
-  "asteria:leaf_frost_wood_alpine": {
-    "/name": "Alpine Frostwood Leaves"
-  },
-  "asteria:leaf_frost_wood_arctic": {
-    "/name": "Arctic Frostwood Leaves"
-  },
   "asteria:thorn_ash": {
     "/name": "Ash Thorn"
   },
@@ -61,15 +55,6 @@
   },
   "asteria:flower_cactus_yellow": {
     "/name": "Yellow Cactus Flower"
-  },
-  "asteria:log_charwood": {
-    "/name": "Charwood Log"
-  },
-  "asteria:leaf_charwood": {
-    "/name": "Charwood Leaves"
-  },
-  "asteria:log_charwood_stripped": {
-    "/name": "Stripped Charwood Log"
   },
   "asteria:bloom_cinder": {
     "/name": "Cinder Bloom"
@@ -119,9 +104,6 @@
   "asteria:grass_dune": {
     "/name": "Dune Grass"
   },
-  "asteria:leaf_charwood_ember": {
-    "/name": "Ember Charwood Leaves"
-  },
   "asteria:roots_exposed": {
     "/name": "Exposed Roots"
   },
@@ -133,12 +115,6 @@
   },
   "asteria:shrub_frost": {
     "/name": "Frost Shrub"
-  },
-  "asteria:log_frost_wood": {
-    "/name": "Frostwood Log"
-  },
-  "asteria:log_frost_wood_stripped": {
-    "/name": "Stripped Frostwood Log"
   },
   "asteria:glass": {
     "/name": "Glass"
@@ -176,41 +152,14 @@
   "asteria:tiles_ice": {
     "/name": "Ice Tiles"
   },
-  "asteria:leaf_juniper": {
-    "/name": "Juniper Leaves"
-  },
-  "asteria:log_juniper": {
-    "/name": "Juniper Log"
-  },
-  "asteria:log_juniper_stripped": {
-    "/name": "Stripped Juniper Log"
-  },
   "asteria:lamp": {
     "/name": "Lamp"
-  },
-  "asteria:leaf_enchanted_tree": {
-    "/name": "Enchanted Tree Leaves"
   },
   "asteria:leaf_oak": {
     "/name": "Oak Leaves"
   },
   "asteria:leaf_willow": {
     "/name": "Willow Leaves"
-  },
-  "asteria:leaf_world_tree": {
-    "/name": "World Tree Leaves"
-  },
-  "asteria:log_enchanted_tree": {
-    "/name": "Enchanted Tree Log"
-  },
-  "asteria:log_enchanted_tree_hollow": {
-    "/name": "Hollow Enchanted Tree Log"
-  },
-  "asteria:log_enchanted_tree_stripped": {
-    "/name": "Stripped Enchanted Tree Log"
-  },
-  "asteria:log_enchanted_tree_stripped_hollow": {
-    "/name": "Stripped Hollow Enchanted Tree Log"
   },
   "asteria:log_oak": {
     "/name": "Oak Log"
@@ -235,18 +184,6 @@
   },
   "asteria:log_willow_stripped_hollow": {
     "/name": "Stripped Hollow Willow Log"
-  },
-  "asteria:log_world_tree": {
-    "/name": "World Tree Log"
-  },
-  "asteria:log_world_tree_hollow": {
-    "/name": "Hollow World Tree Log"
-  },
-  "asteria:log_world_tree_stripped": {
-    "/name": "Stripped World Tree Log"
-  },
-  "asteria:log_world_tree_stripped_hollow": {
-    "/name": "Stripped Hollow World Tree Log"
   },
   "asteria:fungus_cap_luminous_giant": {
     "/name": "Luminous Giant Fungus Cap"
@@ -281,17 +218,11 @@
   "asteria:bloom_pink": {
     "/name": "Pink Bloom"
   },
-  "asteria:planks_enchanted_tree": {
-    "/name": "Enchanted Tree Planks"
-  },
   "asteria:planks_oak": {
     "/name": "Oak Planks"
   },
   "asteria:planks_willow": {
     "/name": "Willow Planks"
-  },
-  "asteria:planks_world_tree": {
-    "/name": "World Tree Planks"
   },
   "asteria:portal": {
     "/name": "Portal"
@@ -328,15 +259,6 @@
   },
   "asteria:fungus_shelf": {
     "/name": "Shelf Fungus"
-  },
-  "asteria:leaf_skywood": {
-    "/name": "Skywood Leaves"
-  },
-  "asteria:log_skywood": {
-    "/name": "Skywood Log"
-  },
-  "asteria:log_skywood_stripped": {
-    "/name": "Stripped Skywood Log"
   },
   "asteria:snow": {
     "/name": "Snow"
@@ -395,86 +317,11 @@
   "asteria:thornbush": {
     "/name": "Thornbush"
   },
-  "asteria:log_thornwood": {
-    "/name": "Thornwood Log"
-  },
-  "asteria:leaf_thornwood": {
-    "/name": "Thornwood Leaves"
-  },
-  "asteria:log_thornwood_stripped": {
-    "/name": "Stripped Thornwood Log"
-  },
   "asteria:moss_wall": {
     "/name": "Wall Moss"
   },
-  "asteria:log_windwood": {
-    "/name": "Windwood Log"
-  },
-  "asteria:leaf_windwood": {
-    "/name": "Windwood Leaves"
-  },
-  "asteria:log_windwood_stripped": {
-    "/name": "Stripped Windwood Log"
-  },
   "asteria:yucca": {
     "/name": "Yucca"
-  },
-  "asteria:log_charwood_hollow": {
-    "/name": "Hollow Charwood Log"
-  },
-  "asteria:log_charwood_stripped_hollow": {
-    "/name": "Stripped Hollow Charwood Log"
-  },
-  "asteria:planks_charwood": {
-    "/name": "Charwood Planks"
-  },
-  "asteria:log_frost_wood_hollow": {
-    "/name": "Hollow Frostwood Log"
-  },
-  "asteria:log_frost_wood_stripped_hollow": {
-    "/name": "Stripped Hollow Frostwood Log"
-  },
-  "asteria:planks_frost_wood": {
-    "/name": "Frostwood Planks"
-  },
-  "asteria:leaf_frost_wood": {
-    "/name": "Frostwood Leaves"
-  },
-  "asteria:log_juniper_hollow": {
-    "/name": "Hollow Juniper Log"
-  },
-  "asteria:log_juniper_stripped_hollow": {
-    "/name": "Stripped Hollow Juniper Log"
-  },
-  "asteria:planks_juniper": {
-    "/name": "Juniper Planks"
-  },
-  "asteria:log_skywood_hollow": {
-    "/name": "Hollow Skywood Log"
-  },
-  "asteria:log_skywood_stripped_hollow": {
-    "/name": "Stripped Hollow Skywood Log"
-  },
-  "asteria:planks_skywood": {
-    "/name": "Skywood Planks"
-  },
-  "asteria:log_thornwood_hollow": {
-    "/name": "Hollow Thornwood Log"
-  },
-  "asteria:log_thornwood_stripped_hollow": {
-    "/name": "Stripped Hollow Thornwood Log"
-  },
-  "asteria:planks_thornwood": {
-    "/name": "Thornwood Planks"
-  },
-  "asteria:log_windwood_hollow": {
-    "/name": "Hollow Windwood Log"
-  },
-  "asteria:log_windwood_stripped_hollow": {
-    "/name": "Stripped Hollow Windwood Log"
-  },
-  "asteria:planks_windwood": {
-    "/name": "Windwood Planks"
   },
   "asteria:log_cinderwood": {
     "/name": "Cinderwood Log"
