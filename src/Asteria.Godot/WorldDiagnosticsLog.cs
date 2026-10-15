@@ -72,6 +72,15 @@ internal sealed class WorldDiagnosticsLog : IDisposable
     private double _frameMsMax;
     private long _framesOver50Ms;
     private long _framesOver100Ms;
+    // Sampled viewport statistics identify draw-call pressure separately
+    // from CPU mesh construction; values describe rendered passes, not nodes.
+    private int _renderSamples;
+    private long _renderVisibleCallsTotal;
+    private int _renderVisibleCallsMax;
+    private long _renderShadowCallsTotal;
+    private int _renderShadowCallsMax;
+    private int _renderVisibleObjectsMax;
+    private int _renderVisiblePrimitivesMax;
     private int _materialized;
     private double _materializationMs;
     private double _terrainGenerationMs;
@@ -224,6 +233,22 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             _framesOver50Ms++;
         if (milliseconds >= 100d)
             _framesOver100Ms++;
+    }
+
+    public void ObserveRendering(
+        int visibleDrawCalls,
+        int shadowDrawCalls,
+        int visibleObjects,
+        int visiblePrimitives)
+    {
+        _renderSamples++;
+        _renderVisibleCallsTotal += visibleDrawCalls;
+        _renderVisibleCallsMax = Math.Max(_renderVisibleCallsMax, visibleDrawCalls);
+        _renderShadowCallsTotal += shadowDrawCalls;
+        _renderShadowCallsMax = Math.Max(_renderShadowCallsMax, shadowDrawCalls);
+        _renderVisibleObjectsMax = Math.Max(_renderVisibleObjectsMax, visibleObjects);
+        _renderVisiblePrimitivesMax = Math.Max(
+            _renderVisiblePrimitivesMax, visiblePrimitives);
     }
 
     public void ObserveStage(WorldFrameStage stage, long startedTimestamp) =>
@@ -454,6 +479,13 @@ internal sealed class WorldDiagnosticsLog : IDisposable
             $"frames={_frames} frame_ms_avg={Format2((_frames == 0 ? 0d : _frameMsTotal / _frames))} " +
             $"frame_ms_max={Format2(_frameMsMax)} frames_over_50ms={_framesOver50Ms} " +
             $"frames_over_100ms={_framesOver100Ms} " +
+            $"render_samples={_renderSamples} " +
+            $"render_visible_draw_calls_avg={(_renderSamples == 0 ? 0 : _renderVisibleCallsTotal / _renderSamples)} " +
+            $"render_visible_draw_calls_max={_renderVisibleCallsMax} " +
+            $"render_shadow_draw_calls_avg={(_renderSamples == 0 ? 0 : _renderShadowCallsTotal / _renderSamples)} " +
+            $"render_shadow_draw_calls_max={_renderShadowCallsMax} " +
+            $"render_visible_objects_max={_renderVisibleObjectsMax} " +
+            $"render_visible_primitives_max={_renderVisiblePrimitivesMax} " +
             $"generated={_materialized} restored={_restored} " +
             $"generation_ms_total={Format1(_materializationMs)} " +
             $"generation_terrain_ms_total={Format1(_terrainGenerationMs)} " +
@@ -512,6 +544,13 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         _frameMsMax = 0d;
         _framesOver50Ms = 0;
         _framesOver100Ms = 0;
+        _renderSamples = 0;
+        _renderVisibleCallsTotal = 0;
+        _renderVisibleCallsMax = 0;
+        _renderShadowCallsTotal = 0;
+        _renderShadowCallsMax = 0;
+        _renderVisibleObjectsMax = 0;
+        _renderVisiblePrimitivesMax = 0;
         _materialized = 0;
         _restored = 0;
         _materializationMs = 0d;

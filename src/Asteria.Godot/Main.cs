@@ -589,6 +589,31 @@ public partial class Main : Node3D
         PollPlayerPortrait();
         PollChatLocate();
         AdvanceChatPresentation(delta);
+        if (_worldSeed is not null && Engine.GetProcessFrames() % 30 == 0 &&
+            _worldDiagnostics is { } renderDiagnostics)
+        {
+            // Collect viewport draw pressure at low frequency; world.snapshot
+            // already records CPU work, but frame delta under VSync cannot
+            // distinguish excessive render submissions from meshing.
+            var viewport = GetViewport().GetViewportRid();
+            renderDiagnostics.ObserveRendering(
+                RenderingServer.ViewportGetRenderInfo(
+                    viewport,
+                    RenderingServer.ViewportRenderInfoType.Visible,
+                    RenderingServer.ViewportRenderInfo.DrawCallsInFrame),
+                RenderingServer.ViewportGetRenderInfo(
+                    viewport,
+                    RenderingServer.ViewportRenderInfoType.Shadow,
+                    RenderingServer.ViewportRenderInfo.DrawCallsInFrame),
+                RenderingServer.ViewportGetRenderInfo(
+                    viewport,
+                    RenderingServer.ViewportRenderInfoType.Visible,
+                    RenderingServer.ViewportRenderInfo.ObjectsInFrame),
+                RenderingServer.ViewportGetRenderInfo(
+                    viewport,
+                    RenderingServer.ViewportRenderInfoType.Visible,
+                    RenderingServer.ViewportRenderInfo.PrimitivesInFrame));
+        }
         if (_worldSeed is null)
         {
             _placementPreview.Hide();

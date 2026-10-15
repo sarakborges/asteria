@@ -404,6 +404,47 @@ public static class ChunkTopologyFrontier
         }
     }
 
+    /// <summary>
+    /// A retired chunk is absent from the live world. Only geometry belonging
+    /// to the surviving neighbor can need a new boundary mesh. Empty
+    /// neighbors never need a rebuild, and fluid-free neighbors never need
+    /// a fluid rebuild. Lighting remains reconciled separately by residency.
+    /// </summary>
+    public static IEnumerable<ChunkNeighborMeshInvalidation>
+        PresentedNeighborMeshInvalidationsForRetirement(
+            ChunkCoord source,
+            VoxelWorld world,
+            Func<ChunkCoord, bool> isPresented)
+    {
+        ArgumentNullException.ThrowIfNull(world);
+        ArgumentNullException.ThrowIfNull(isPresented);
+
+        foreach (var (neighbor, meshlets) in
+                 PresentedNeighborMeshlets(source, isPresented))
+        {
+            if (!world.TryGetChunk(neighbor, out var chunk))
+                continue;
+
+            var dx = source.X - neighbor.X;
+            var dy = source.Y - neighbor.Y;
+            var dz = source.Z - neighbor.Z;
+            var terrain =
+                chunk.HasTerrainContent &&
+                chunk.DependencyBoundaryHasContent(dx, dy, dz)
+                    ? meshlets
+                    : ChunkMeshletMask.None;
+            var fluid =
+                chunk.HasFluidContent &&
+                chunk.DependencyBoundaryHasFluid(dx, dy, dz)
+                    ? meshlets
+                    : ChunkMeshletMask.None;
+
+            if (!terrain.IsEmpty || !fluid.IsEmpty)
+                yield return new ChunkNeighborMeshInvalidation(
+                    neighbor, terrain, fluid);
+        }
+    }
+
     public static IEnumerable<(
         ChunkCoord Neighbor,
         ChunkMeshletMask Meshlets)> PresentedNeighborMeshlets(

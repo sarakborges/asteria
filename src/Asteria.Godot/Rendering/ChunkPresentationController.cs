@@ -802,25 +802,32 @@ public sealed class ChunkPresentationController
     private void InvalidatePresentedNeighbors(
         ChunkCoord coord)
     {
-        foreach (var (neighbor, meshlets) in
+        foreach (var invalidation in
                  ChunkTopologyFrontier
-                     .PresentedNeighborMeshlets(
+                     .PresentedNeighborMeshInvalidationsForRetirement(
                          coord,
+                         _world,
                          Contains))
         {
-            _terrainRevisions.Bump(
-                neighbor,
-                meshlets);
-            _worldUpdates.EnqueueMeshlets(
-                neighbor,
-                meshlets);
+            if (!invalidation.Terrain.IsEmpty)
+            {
+                _terrainRevisions.Bump(
+                    invalidation.Neighbor,
+                    invalidation.Terrain);
+                _worldUpdates.EnqueueMeshlets(
+                    invalidation.Neighbor,
+                    invalidation.Terrain);
+            }
 
-            _fluidRevisions.Bump(
-                neighbor,
-                meshlets);
-            _fluidMeshUpdates.EnqueueMeshlets(
-                neighbor,
-                meshlets);
+            if (!invalidation.Fluid.IsEmpty)
+            {
+                _fluidRevisions.Bump(
+                    invalidation.Neighbor,
+                    invalidation.Fluid);
+                _fluidMeshUpdates.EnqueueMeshlets(
+                    invalidation.Neighbor,
+                    invalidation.Fluid);
+            }
         }
     }
 
