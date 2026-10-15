@@ -14,7 +14,7 @@ public sealed class TreeHabitatAssignmentsTests
 
         var dimensions = DimensionRegistry.FromJson(ReadJson(pack, "dimensions"));
         var overworld = dimensions.Get(DimensionId.Overworld);
-        var umbral = dimensions.Get(DimensionId.Umbral);
+        var umbral = dimensions.Get(new DimensionId("asteria:umbral"));
         var biomes = BiomeRegistry.FromJson(ReadJson(pack, "biomes"));
         var islands = biomes.Get("asteria:overworld/floating_islands");
 
