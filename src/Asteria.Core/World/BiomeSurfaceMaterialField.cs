@@ -248,9 +248,7 @@ public sealed class BiomeSurfaceMaterialField
     {
         private const uint BoundaryNoiseScale = 32;
         private const uint BoundaryDetailScale = 11;
-        private const int MaximumBoundaryDisplacement = 3;
-
-        private MaterialRule(
+         private MaterialRule(
             ResolvedLayer[] layers,
             GenerationDomain[] boundaryDomains,
             bool usesBaseSurface)
@@ -269,9 +267,7 @@ public sealed class BiomeSurfaceMaterialField
                 ? layers[^2].EndDepthExclusive!.Value
                 : 0u;
             CoreStartDepth = checked(
-                nominalCoreDepth +
-                (uint)Math.Max(0, layers.Length - 1) *
-                MaximumBoundaryDisplacement);
+                nominalCoreDepth + layers[^2].BoundaryNoise);
         }
 
         private ResolvedLayer[] Layers { get; }
@@ -321,10 +317,18 @@ public sealed class BiomeSurfaceMaterialField
             if (depth >= CoreStartDepth)
                 return CoreBlock;
 
-            foreach (var layer in Layers)
+            var previousEndDepth = 0u;
+            for (var index = 0; index < Layers.Length; index++)
             {
-                if (layer.EndDepthExclusive is { } end && depth >= end)
-                    continue;
+                var layer = Layers[index];
+                if (layer.EndDepthExclusive is { } nominalEndDepth)
+                {
+                    var endDepth = AdjustedEndDepth(
+                        seed, x, z, index, nominalEndDepth, previousEndDepth);
+                    previousEndDepth = endDepth;
+                    if (depth >= endDepth)
+                        continue;
+                }
                 return layer.ResolveVolume(seed, x, y, z);
             }
             throw new InvalidOperationException(
@@ -374,9 +378,12 @@ public sealed class BiomeSurfaceMaterialField
             var detail = WorldGenerationEntropy.ValueNoise2D(
                 seed, BoundaryDetailDomains[layerIndex], worldX, worldZ,
                 BoundaryDetailScale);
+            var amplitude = Layers[layerIndex].BoundaryNoise;
+            if (amplitude == 0)
+                return nominalEndDepth;
+
             var displacement = (int)Math.Round(
-                (macro * 0.75d + detail * 0.25d) *
-                MaximumBoundaryDisplacement,
+                (macro * 0.75d + detail * 0.25d) * amplitude,
                 MidpointRounding.AwayFromZero);
             var displaced = Math.Max(
                 (long)nominalEndDepth + displacement,
@@ -419,6 +426,7 @@ public sealed class BiomeSurfaceMaterialField
                         blocks.GetId(
                             definition.Block),
                         endDepth,
+                        definition.BoundaryNoise,
                         definition.Patch is
                             { } patch
                             ? ResolvedPatch.Create(
@@ -451,17 +459,21 @@ public sealed class BiomeSurfaceMaterialField
         public ResolvedLayer(
             BlockRuntimeId block,
             uint? endDepthExclusive,
+            uint boundaryNoise,
             ResolvedPatch? patch)
         {
             Block = block;
             EndDepthExclusive =
                 endDepthExclusive;
+            BoundaryNoise = boundaryNoise;
             Patch = patch;
         }
 
         public BlockRuntimeId Block { get; }
 
         public uint? EndDepthExclusive { get; }
+
+        public uint BoundaryNoise { get; }
 
         private ResolvedPatch? Patch { get; }
 
