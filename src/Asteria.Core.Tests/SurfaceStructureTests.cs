@@ -474,19 +474,13 @@ public sealed class SurfaceStructureTests
         Assert.Equal(2, structures.ResolveReference("asteria:spire_basalt").Count);
         Assert.Equal(2, structures.ResolveReference("asteria:outcrop_talus").Count);
         Assert.Equal(3, structures.ResolveReference("asteria:bush_oak").Count);
-        Assert.Equal(7, structureSets.Count);
+        Assert.Equal(5, structureSets.Count);
         Assert.Equal("asteria:rock_ocean",
             structureSets.Get("asteria:cluster_rock_ocean").Elements[0].Structure);
         Assert.Equal("asteria:outcrop_basalt",
             structureSets.Get("asteria:cluster_basalt").Elements[0].Structure);
         Assert.Equal(2, structures.ResolveReference("asteria:log_wraith_fallen").Count);
-        Assert.Equal(3, structures.ResolveReference("asteria:tree_wraith").Count);
         Assert.Equal(2, structures.ResolveReference("asteria:snag_wraith").Count);
-        Assert.Equal("asteria:tree_wraith",
-            structureSets.Get("asteria:grove_wraith").Elements[0].Structure);
-        Assert.Equal(4, structures.ResolveReference("asteria:tree_enchanted_tree").Count);
-        Assert.Equal("asteria:tree_enchanted_tree",
-            structureSets.Get("asteria:grove_enchanted").Elements[0].Structure);
         Assert.Equal(4, structures.ResolveReference("asteria:log_oak_fallen").Count);
         Assert.Equal(3, structures.ResolveReference("asteria:stump_oak").Count);
         Assert.Equal("asteria:boulder_small",
@@ -590,152 +584,6 @@ public sealed class SurfaceStructureTests
                     "asteria:boulder_huge")
                 .Voxels
                 .Count);
-    }
-
-    [Fact]
-    public void EnchantedForestTreesPortTheFourMinecloneTemplatesWithGroundFit()
-    {
-        var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
-        var structures = StructureRegistry.FromJson(ReadJsonDirectory("structures"));
-        var variants = structures.ResolveReference("asteria:tree_enchanted_tree");
-
-        Assert.Equal(4, variants.Count);
-        Assert.Equal(4, variants.Select(tree => tree.Id).Distinct().Count());
-        foreach (var tree in variants)
-        {
-            Assert.False(tree.Locatable);
-            Assert.True(tree.Rotation);
-            Assert.Equal(0, tree.Priority);
-            Assert.Equal(StructureReplacePolicy.Terrain, tree.Generation.ReplacePolicy);
-            Assert.Equal(StructureFluidPolicy.Forbid, tree.Generation.FluidPolicy);
-            Assert.False(tree.Generation.ReserveSpace);
-            Assert.Contains("tree", tree.ConflictGroups);
-            Assert.Equal(1, tree.Restrictions.MaxSlope);
-            Assert.Equal(1f, tree.Restrictions.RequiredBiomeCoverage);
-            Assert.True(tree.Restrictions.RequiresDryGround);
-            Assert.Equal(new[] { "asteria:block_grass", "asteria:dirt" },
-                tree.Restrictions.GroundBlocks);
-            Assert.Equal(0, tree.GroundAnchorYOffset);
-            Assert.True(tree.Voxels.Count >= 20);
-            Assert.Contains(tree.Voxels, voxel => voxel.Block == "asteria:log_enchanted_tree" && voxel.Orientation == BlockOrientation.Y);
-            Assert.Contains(tree.Voxels, voxel => voxel.Block == "asteria:leaf_enchanted_tree");
-            Assert.Contains(tree.Voxels, voxel => voxel.Block == "asteria:log_enchanted_tree" && voxel.Orientation != BlockOrientation.Y);
-            Assert.All(tree.Voxels, voxel => Assert.True(voxel.Y is >= 0 and <= 9));
-        }
-
-        structures.ValidateBlocks(blocks);
-    }
-
-    [Fact]
-    public void EnchantedGroveUsesBoundedSetsAndAuthoredHabitats()
-    {
-        var structures = StructureRegistry.FromJson(ReadJsonDirectory("structures"));
-        var sets = StructureSetRegistry.FromJson(ReadJsonDirectory("structure_sets"));
-        sets.ValidateStructures(structures);
-        var grove = sets.Get("asteria:grove_enchanted");
-        Assert.True(grove.Locatable);
-        Assert.Contains("tree", grove.ConflictGroups);
-        Assert.Equal("asteria:tree_enchanted_tree", grove.Elements[0].Structure);
-        var companions = grove.Elements[1];
-        Assert.Equal("asteria:tree_enchanted_tree", companions.Structure);
-        Assert.Equal(2, companions.Count.Min);
-        Assert.Equal(5, companions.Count.Max);
-        Assert.True(companions.Placement.MaxDistance <= 32);
-        Assert.True(companions.Placement.MinSeparation >= 14);
-
-        var dimensions = DimensionRegistry.FromJson(ReadJsonDirectory("dimensions"));
-        var overworld = dimensions.Get(DimensionId.Overworld);
-        var rules = overworld.GeneratedSurfaceStructures.Where(
-            rule => rule.Biome == "asteria:overworld/enchanted_forest").ToArray();
-        Assert.Equal(9, rules.Length);
-        Assert.Equal(34, Assert.Single(rules,
-            rule => rule.Structure == "asteria:tree_enchanted_tree").Spacing);
-        foreach (var rule in rules.Where(rule =>
-                     rule.Structure is "asteria:tree_enchanted_tree" or "asteria:grove_enchanted"))
-        {
-            Assert.NotNull(rule.HabitatWeights);
-            Assert.True(rule.HabitatWeights.For("violet_undergrowth") >
-                        rule.HabitatWeights.For("pink_glade"));
-            Assert.True(rule.HabitatWeights.For("pink_glade") >
-                        rule.HabitatWeights.For("luminous_clearing"));
-        }
-        Assert.Equal(0f, Assert.Single(rules,
-            rule => rule.Structure == "asteria:grove_enchanted")
-            .HabitatWeights!.For("luminous_clearing"));
-
-        var ring = Assert.Single(rules,
-            rule => rule.Structure == "asteria:ring_mushroom_enchanted");
-        Assert.True(ring.HabitatWeights!.For("luminous_clearing") >
-                    ring.HabitatWeights.For("pink_glade"));
-        var stump = Assert.Single(rules,
-            rule => rule.Structure == "asteria:stump_enchanted_tree_hollow");
-        Assert.True(stump.HabitatWeights!.For("violet_undergrowth") >
-                    stump.HabitatWeights.For("luminous_clearing"));
-        var canopy = Assert.Single(rules,
-            rule => rule.Structure == "asteria:canopy_fungal_enchanted");
-        Assert.True(canopy.HabitatWeights!.For("pink_glade") >
-                    canopy.HabitatWeights.For("violet_undergrowth"));
-    }
-
-    [Fact]
-    public void WraithGroveTemplatesUseExistingPaleWoodAndTintedFoliage()
-    {
-        var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
-        var structures = StructureRegistry.FromJson(ReadJsonDirectory("structures"));
-        var living = structures.ResolveReference("asteria:tree_wraith");
-        var dead = structures.ResolveReference("asteria:snag_wraith");
-
-        Assert.Equal(3, living.Count);
-        Assert.Equal(2, dead.Count);
-        Assert.All(living.Concat(dead), tree =>
-        {
-            Assert.False(tree.Locatable);
-            Assert.True(tree.Rotation);
-            Assert.Equal(0, tree.GroundAnchorYOffset);
-            Assert.Equal(1, tree.Restrictions.MaxSlope);
-            Assert.Equal(1f, tree.Restrictions.RequiredBiomeCoverage);
-            Assert.True(tree.Restrictions.RequiresDryGround);
-            Assert.Equal(StructureReplacePolicy.Terrain, tree.Generation.ReplacePolicy);
-            Assert.Equal(StructureFluidPolicy.Forbid, tree.Generation.FluidPolicy);
-            Assert.False(tree.Generation.ReserveSpace);
-            Assert.Empty(tree.Restrictions.Proximity);
-            Assert.Contains("tree", tree.ConflictGroups);
-            Assert.Contains("asteria:block_grass", tree.Restrictions.GroundBlocks);
-            Assert.Contains("asteria:mud", tree.Restrictions.GroundBlocks);
-            Assert.Contains(tree.Voxels, voxel =>
-                voxel.Block == "asteria:log_enchanted_tree_stripped_hollow");
-            Assert.Contains(tree.Voxels, voxel =>
-                voxel.Block == "asteria:leaf_willow");
-            Assert.Contains(tree.Voxels, voxel =>
-                voxel.Block == "asteria:log_enchanted_tree_stripped"
-                && voxel.Orientation != BlockOrientation.Y);
-        });
-        Assert.True(living.Min(tree => tree.Voxels.Count(voxel =>
-            voxel.Block == "asteria:leaf_willow")) >
-            dead.Max(tree => tree.Voxels.Count(voxel =>
-                voxel.Block == "asteria:leaf_willow")));
-
-        structures.ValidateBlocks(blocks);
-    }
-
-    [Fact]
-    public void WraithGroveSetHasBoundedCompanionsAndConflicts()
-    {
-        var structures = StructureRegistry.FromJson(ReadJsonDirectory("structures"));
-        var sets = StructureSetRegistry.FromJson(ReadJsonDirectory("structure_sets"));
-        sets.ValidateStructures(structures);
-
-        var grove = sets.Get("asteria:grove_wraith");
-        Assert.True(grove.Locatable);
-        Assert.Contains("tree", grove.ConflictGroups);
-        Assert.False(grove.ReserveSpace);
-        Assert.Equal("asteria:tree_wraith", grove.Elements[0].Structure);
-        Assert.Equal("asteria:tree_wraith", grove.Elements[1].Structure);
-        Assert.Equal(2, grove.Elements[1].Count.Min);
-        Assert.Equal(4, grove.Elements[1].Count.Max);
-        Assert.Equal(14, grove.Elements[1].Placement.MinSeparation);
-        Assert.InRange(grove.Elements[1].Placement.MaxDistance, 15, 32);
-        Assert.InRange(grove.Elements[1].Placement.Attempts, 1, 64);
     }
 
     [Fact]
