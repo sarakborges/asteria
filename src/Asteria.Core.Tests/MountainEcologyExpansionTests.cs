@@ -120,7 +120,9 @@ public sealed class MountainEcologyExpansionTests
             Assert.All(variants, variant =>
             {
                 Assert.Equal(0, variant.GroundAnchorYOffset);
-                Assert.Equal(1f, variant.Restrictions.RequiredBiomeCoverage);
+                Assert.NotEmpty(variant.Restrictions.GroundBlocks);
+                Assert.All(variant.Restrictions.GroundBlocks, ground =>
+                    Assert.True(blocks.TryGetId(ground, out _)));
                 Assert.True(variant.Restrictions.RequiresDryGround);
                 Assert.Equal(StructureFluidPolicy.Forbid, variant.Generation.FluidPolicy);
                 Assert.Equal(StructureReplacePolicy.Terrain, variant.Generation.ReplacePolicy);
