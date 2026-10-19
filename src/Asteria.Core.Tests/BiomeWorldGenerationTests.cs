@@ -1155,6 +1155,7 @@ public sealed class BiomeWorldGenerationTests
         var stone = blocks.GetId("asteria:stone");
         var grassBoundaryMaterials = new HashSet<BlockRuntimeId>();
         var stoneBoundaryMaterials = new HashSet<BlockRuntimeId>();
+        var verticalBoundaryMaterials = new HashSet<BlockRuntimeId>();
 
         for (var z = 0; z <= 96; z += 4)
         {
@@ -1174,10 +1175,16 @@ public sealed class BiomeWorldGenerationTests
             }
         }
 
+        var fixedColumn = materials.SampleColumn(sample, 0, 0);
+        for (var worldY = -128; worldY <= 128; worldY += 2)
+            verticalBoundaryMaterials.Add(fixedColumn.BlockAt(1, worldY));
+
         Assert.Contains(grass, grassBoundaryMaterials);
         Assert.Contains(dirt, grassBoundaryMaterials);
         Assert.Contains(dirt, stoneBoundaryMaterials);
         Assert.Contains(stone, stoneBoundaryMaterials);
+        Assert.Contains(grass, verticalBoundaryMaterials);
+        Assert.Contains(dirt, verticalBoundaryMaterials);
     }
 
     [Fact]
