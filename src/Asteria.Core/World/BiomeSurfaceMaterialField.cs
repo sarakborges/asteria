@@ -521,6 +521,8 @@ public sealed class BiomeSurfaceMaterialField
         private readonly GenerationDomain _blockDomain;
         private readonly GenerationDomain _warpXDomain;
         private readonly GenerationDomain _warpZDomain;
+        private readonly GenerationDomain _warpDetailXDomain;
+        private readonly GenerationDomain _warpDetailZDomain;
         private readonly GenerationDomain _volumeMaskDomain;
         private readonly GenerationDomain _volumeSelectionDomain;
 
@@ -550,6 +552,10 @@ public sealed class BiomeSurfaceMaterialField
                 $"material/surface-patch/warp-x/v1/{suffix}");
             _warpZDomain = GenerationDomain.Named(
                 $"material/surface-patch/warp-z/v1/{suffix}");
+            _warpDetailXDomain = GenerationDomain.Named(
+                $"material/surface-patch/warp-detail-x/v1/{suffix}");
+            _warpDetailZDomain = GenerationDomain.Named(
+                $"material/surface-patch/warp-detail-z/v1/{suffix}");
             _volumeMaskDomain = GenerationDomain.Named(
                 $"material/volume-patch/mask/v1/{suffix}");
             _volumeSelectionDomain = GenerationDomain.Named(
@@ -609,13 +615,26 @@ public sealed class BiomeSurfaceMaterialField
             var z = (double)worldZ;
             if (_definition.WarpStrength > 0d)
             {
-                var dx = WorldGenerationEntropy.SmoothNoise2D(
+                // A single smooth warp can preserve long contour runs from the
+                // source field. Compose independent broad and fine displacement
+                // fields so patch boundaries bend at more than one scale.
+                var detailWarpScale = Math.Max(12u, _definition.WarpScale / 3u);
+                var broadX = WorldGenerationEntropy.SmoothNoise2D(
                     seed, _warpXDomain, x, z, _definition.WarpScale);
-                var dz = WorldGenerationEntropy.SmoothNoise2D(
+                var broadZ = WorldGenerationEntropy.SmoothNoise2D(
                     seed, _warpZDomain, x + 19.7d, z - 11.3d,
                     _definition.WarpScale);
-                x += dx * _definition.WarpStrength;
-                z += dz * _definition.WarpStrength;
+                var detailX = WorldGenerationEntropy.SmoothNoise2D(
+                    seed, _warpDetailXDomain, x - 37.1d, z + 23.9d,
+                    detailWarpScale);
+                var detailZ = WorldGenerationEntropy.SmoothNoise2D(
+                    seed, _warpDetailZDomain, x + 11.3d, z - 41.7d,
+                    detailWarpScale);
+                var detailStrength = _definition.WarpStrength * 0.55d;
+                x += broadX * _definition.WarpStrength +
+                    detailX * detailStrength;
+                z += broadZ * _definition.WarpStrength +
+                    detailZ * detailStrength;
             }
 
             z /= _definition.StretchZ;
