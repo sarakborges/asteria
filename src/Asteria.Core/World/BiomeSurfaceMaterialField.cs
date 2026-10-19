@@ -630,7 +630,7 @@ public sealed class BiomeSurfaceMaterialField
                 var detailZ = WorldGenerationEntropy.SmoothNoise2D(
                     seed, _warpDetailZDomain, x + 11.3d, z - 41.7d,
                     detailWarpScale);
-                var detailStrength = _definition.WarpStrength * 0.55d;
+                var detailStrength = _definition.WarpStrength * 0.2d;
                 x += broadX * _definition.WarpStrength +
                     detailX * detailStrength;
                 z += broadZ * _definition.WarpStrength +
