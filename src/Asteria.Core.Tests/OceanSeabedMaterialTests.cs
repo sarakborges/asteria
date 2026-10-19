@@ -1,4 +1,3 @@
-using System.Text.Json.Nodes;
 using Asteria.Core.World;
 
 namespace Asteria.Core.Tests;
@@ -25,10 +24,11 @@ public sealed class OceanSeabedMaterialTests
             Directory.EnumerateFiles(Path.Combine(PackData, "blocks"), "*.json")
                 .OrderBy(path => path, StringComparer.Ordinal)
                 .Select(File.ReadAllText));
-        var materials = new BiomeSurfaceMaterialField(0x0CEA_2026UL, [biome], blocks);
+        // Reproduce the reported world seed and center the sample grid on the reported seabed coordinate.
+        var materials = new BiomeSurfaceMaterialField(7808508665006554090UL, [biome], blocks);
         var sample = new BiomeSample(
             biome.Id, [new BiomeInfluence(biome.Id, 1f)]);
-        var placement = new SurfacePlacementContext(80, 0);
+        var placement = new SurfacePlacementContext(82, 0);
         const int sampleCount = 97;
         var grid = new BlockRuntimeId[sampleCount, sampleCount];
         var seen = new HashSet<BlockRuntimeId>();
@@ -36,7 +36,7 @@ public sealed class OceanSeabedMaterialTests
         for (var x = 0; x < sampleCount; x++)
         {
             var block = materials.BlockAt(
-                sample, (x - 48) * 4, (z - 48) * 4, 0, placement);
+                sample, 355 + (x - 48) * 4, -230 + (z - 48) * 4, 0, placement);
             grid[x, z] = block;
             seen.Add(block);
         }
