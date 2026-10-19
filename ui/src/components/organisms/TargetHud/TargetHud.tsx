@@ -37,13 +37,15 @@ export function TargetHud({
       </div>
       )}
       <div className="target-hud__copy">
-        <strong>{state.kind === "block" && state.activeLayerId
-          ? contentName(state.activeLayerId)
-          : state.kind === "block" || state.kind === "fluid" || state.kind === "object"
+        {state.kind === "block" && state.activeLayerId ? (
+          <div className="target-hud__identity">
+            <strong>{contentName(state.activeLayerId)}</strong>
+            <span>• {contentName(state.id)}</span>
+          </div>
+        ) : (
+          <strong>{state.kind === "block" || state.kind === "fluid" || state.kind === "object"
             ? contentName(state.id)
             : state.name}</strong>
-        {state.kind === "block" && state.activeLayerId && (
-          <span>{contentName(state.id)}</span>
         )}
         {state.face && (
           <span>{t("hud.face")}: {t(`hud.layerFace.${state.face}`)}</span>

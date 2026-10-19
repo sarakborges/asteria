@@ -9,8 +9,9 @@ test("HUD previews the active attached layer rather than the underlying cube", a
   await page.goto(hud("active-attached-layer"));
   const target = page.locator(".target-hud");
   await expect(target).toBeVisible();
-  await expect(target.locator(".target-hud__copy strong")).toContainText(/moss/i);
-  await expect(target.locator(".target-hud__copy span").first()).toContainText(/grass/i);
+  const identity = target.locator(".target-hud__identity");
+  await expect(identity).toContainText(/moss\s+•\s+grass/i);
+  await expect(identity).toHaveCSS("display", "flex");
   await expect(target.locator(".target-hud__slot .item-glyph--recipe")).toHaveCount(1);
   await expect(target.locator(".target-hud__slot img.item-glyph")).toBeVisible();
   await expect(target.locator(".target-hud__slot .item-glyph--cube")).toHaveCount(0);
@@ -69,5 +70,5 @@ test("native tinted hotbar and target layer icons override stale Creative colors
   await expect(layer).toHaveAttribute("src", "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGPQuBTwHwAEugJKI9WgoAAAAABJRU5ErkJggg==");
   await expect(block).toHaveAttribute("src", "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGN4ZmP0HwAFtAJUX2i7uAAAAABJRU5ErkJggg==");
   await expect(targeted).toHaveAttribute("src", "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGN4ZmP0HwAFtAJUX2i7uAAAAABJRU5ErkJggg==");
-  await expect(page.locator(".target-hud__copy strong")).toContainText(/moss/i);
+  await expect(page.locator(".target-hud__identity")).toContainText(/moss\s+•\s+grass/i);
 });
