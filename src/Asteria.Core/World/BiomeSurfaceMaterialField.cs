@@ -373,18 +373,20 @@ public sealed class BiomeSurfaceMaterialField
             uint nominalEndDepth,
             uint previousEndDepth)
         {
-            var macro = WorldGenerationEntropy.ValueNoise2D(
-                seed, BoundaryDomains[layerIndex], worldX, worldZ,
-                BoundaryNoiseScale);
-            var detail = WorldGenerationEntropy.ValueNoise2D(
-                seed, BoundaryDetailDomains[layerIndex], worldX, worldZ,
-                BoundaryDetailScale);
             var amplitude = Layers[layerIndex].BoundaryNoise;
-            var displacement = amplitude == 0
-                ? 0
-                : (int)Math.Round(
+            var displacement = 0;
+            if (amplitude > 0)
+            {
+                var macro = WorldGenerationEntropy.ValueNoise2D(
+                    seed, BoundaryDomains[layerIndex], worldX, worldZ,
+                    BoundaryNoiseScale);
+                var detail = WorldGenerationEntropy.ValueNoise2D(
+                    seed, BoundaryDetailDomains[layerIndex], worldX, worldZ,
+                    BoundaryDetailScale);
+                displacement = (int)Math.Round(
                     (macro * 0.75d + detail * 0.25d) * amplitude,
                     MidpointRounding.AwayFromZero);
+            }
             var displaced = Math.Max(
                 (long)nominalEndDepth + displacement,
                 (long)previousEndDepth + 1L);
