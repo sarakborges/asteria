@@ -10,6 +10,7 @@ test("HUD previews the active attached layer rather than the underlying cube", a
   const target = page.locator(".target-hud");
   await expect(target).toBeVisible();
   await expect(target.locator(".target-hud__copy strong")).toContainText(/moss/i);
+  await expect(target.locator(".target-hud__copy span").first()).toContainText(/grass/i);
   await expect(target.locator(".target-hud__slot .item-glyph--recipe")).toHaveCount(1);
   await expect(target.locator(".target-hud__slot img.item-glyph")).toBeVisible();
   await expect(target.locator(".target-hud__slot .item-glyph--cube")).toHaveCount(0);
