@@ -99,6 +99,34 @@ public sealed class MountainBiomeContentTests
         Assert.Contains(patch.Blocks, block => seen.Contains(blocks.GetId(block)));
     }
 
+    [Theory]
+    [InlineData("mountains")]
+    [InlineData("mountain_belt")]
+    [InlineData("alps")]
+    public void MountainLateralFacesUseRockInsteadOfTheTopSurfacePatch(string file)
+    {
+        var biome = LoadBiome(file);
+        var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
+        var materials = new BiomeSurfaceMaterialField(71UL, [biome], blocks);
+        var sample = new BiomeSample(
+            biome.Id, [new BiomeInfluence(biome.Id, 1f)]);
+        var stone = blocks.GetId("asteria:stone");
+
+        Assert.True(materials.HasDirectionalOverride(
+            sample, BiomePaletteFace.Walls));
+        Assert.True(materials.MaxVolumePaintDepth(sample) > 0);
+        foreach (var (x, y, z) in new[]
+        {
+            (-129, 90, 47),
+            (-1, 145, -65),
+            (87, 112, 193),
+        })
+        {
+            Assert.Equal(stone, materials.VolumeBlockAt(
+                sample, x, y, z, BiomePaletteFace.Walls));
+        }
+    }
+
     [Fact]
     public void TalusOutcropTemplatesUseStableStoneCobbleAndFullBiomeGroundFit()
     {
