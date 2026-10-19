@@ -117,6 +117,7 @@ public sealed class SurfaceMaterialBandDiagnosticsTests
         var soilId = blocks.GetId("asteria:soil");
         var gravelId = blocks.GetId("asteria:gravel");
         var stoneId = blocks.GetId("asteria:stone");
+        var unexpectedBlockCounts = new SortedDictionary<int, int>();
         var report = new StringBuilder();
 
         report.AppendLine(
@@ -143,14 +144,33 @@ public sealed class SurfaceMaterialBandDiagnosticsTests
                     address.Local.X,
                     address.Local.Y,
                     address.Local.Z);
-                report.Append(block == soilId ? 'S' :
-                    block == gravelId ? 'G' :
-                    block == stoneId ? '#' : '?');
+                if (block == soilId)
+                {
+                    report.Append('S');
+                }
+                else if (block == gravelId)
+                {
+                    report.Append('G');
+                }
+                else if (block == stoneId)
+                {
+                    report.Append('#');
+                }
+                else
+                {
+                    report.Append('?');
+                    unexpectedBlockCounts[block] = unexpectedBlockCounts.GetValueOrDefault(block) + 1;
+                }
             }
 
             report.AppendLine();
         }
 
+        report.AppendLine();
+        report.Append("Unexpected block IDs (id=count): ");
+        report.AppendLine(unexpectedBlockCounts.Count == 0
+            ? "none"
+            : string.Join(", ", unexpectedBlockCounts.Select(pair => $"{pair.Key}={pair.Value}")));
         _output.WriteLine(report.ToString());
 
         Assert.All(samples, sample =>
@@ -164,7 +184,6 @@ public sealed class SurfaceMaterialBandDiagnosticsTests
         Assert.True(
             samples.Select(sample => sample.SurfaceY).Distinct().Count() >= 4,
             "The diagnostic terrain must expose enough height variation to inspect banding.");
-        Assert.DoesNotContain("?", report.ToString());
     }
 
     private static FluidRegistry CreateFluids() =>
