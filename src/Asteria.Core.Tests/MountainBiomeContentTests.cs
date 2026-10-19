@@ -192,6 +192,82 @@ public sealed class MountainBiomeContentTests
     }
 
     [Fact]
+    public void VolumeMaterialPatchesAreDeterministicAcrossChunkBoundaries()
+    {
+        var (a, sample, stone, gravel) = CreateVolumePatchMaterials(719UL);
+        var (b, _, _, _) = CreateVolumePatchMaterials(719UL);
+        var coordinates = new List<(int X, int Y, int Z)>();
+        foreach (var x in new[] { -33, -32, -17, -16, -1, 0, 15, 16, 17, 31, 32 })
+        foreach (var y in new[] { 91, 97, 103, 109, 115, 121 })
+        foreach (var z in new[] { -17, -16, -1, 0, 15, 16, 17 })
+            coordinates.Add((x, y, z));
+
+        var firstPass = coordinates.ToDictionary(
+            p => p,
+            p => a.VolumeBlockAt(sample, p.X, p.Y, p.Z, BiomePaletteFace.Walls));
+        foreach (var p in coordinates.AsEnumerable().Reverse())
+        {
+            Assert.Equal(firstPass[p],
+                b.VolumeBlockAt(sample, p.X, p.Y, p.Z, BiomePaletteFace.Walls));
+        }
+
+        Assert.Contains(firstPass.Values, block => block == stone);
+        Assert.Contains(firstPass.Values, block => block == gravel);
+    }
+
+    [Fact]
+    public void VolumeMaterialPatchesVaryInThreeDimensionsInsteadOfFormingHorizontalBands()
+    {
+        var (materials, sample, stone, gravel) = CreateVolumePatchMaterials(823UL);
+        var gravelCountsByY = new List<int>();
+        for (var y = 88; y < 136; y++)
+        {
+            var gravelCount = 0;
+            var stoneCount = 0;
+            for (var z = -24; z < 24; z += 2)
+            for (var x = -24; x < 24; x += 2)
+            {
+                var block = materials.VolumeBlockAt(
+                    sample, x, y, z, BiomePaletteFace.Walls);
+                if (block == gravel) gravelCount++;
+                if (block == stone) stoneCount++;
+            }
+
+            Assert.True(gravelCount > 0 && stoneCount > 0,
+                $"Expected mixed 3D patch coverage at y={y}; gravel={gravelCount}, stone={stoneCount}.");
+            gravelCountsByY.Add(gravelCount);
+        }
+
+        Assert.True(gravelCountsByY.Distinct().Count() > 1,
+            "Every horizontal slice had identical patch coverage; this indicates horizontal banding.");
+    }
+
+    private static (BiomeSurfaceMaterialField Materials, BiomeSample Sample,
+        BlockRuntimeId Stone, BlockRuntimeId Gravel) CreateVolumePatchMaterials(ulong seed)
+    {
+        var path = Path.Combine(PackData, "biomes", "mountains.json");
+        var root = JsonNode.Parse(File.ReadAllText(path))!.AsObject();
+        var wallLayer = root["palette"]!["walls"]![0]!.AsObject();
+        wallLayer["patch"] = new JsonObject
+        {
+            ["scale"] = 12,
+            ["detailScale"] = 3,
+            ["coverage"] = 0.5,
+            ["roughness"] = 0.25,
+            ["blocks"] = new JsonArray("asteria:gravel")
+        };
+
+        var biome = BiomeDefinitionJson.Parse(root.ToJsonString());
+        var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
+        var materials = new BiomeSurfaceMaterialField(seed, [biome], blocks);
+        var sample = new BiomeSample(
+            biome.Id, [new BiomeInfluence(biome.Id, 1f)]);
+        return (materials, sample,
+            blocks.GetId("asteria:stone"),
+            blocks.GetId("asteria:gravel"));
+    }
+
+    [Fact]
     public void TalusOutcropTemplatesUseStableStoneCobbleAndFullBiomeGroundFit()
     {
         var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
