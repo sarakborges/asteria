@@ -229,6 +229,15 @@
       {
         "block": "asteria:stone"
       }
+    ],
+    "walls": [
+      {
+        "block": "asteria:stone",
+        "depth": 1
+      },
+      {
+        "block": "asteria:stone"
+      }
     ]
   }
 }
