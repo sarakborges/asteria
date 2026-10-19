@@ -17,6 +17,12 @@ public enum BlockSupportState : byte
 
 public static class BlockSupportRules
 {
+    private enum AdditionalSupportRequirement : byte
+    {
+        None = 0,
+        Below = 1,
+    }
+
     public static BlockSupportState Evaluate(
         VoxelWorld world,
         BlockRegistry blocks,
@@ -25,10 +31,11 @@ public static class BlockSupportRules
         MicroblockMask microblockMask,
         WorldVoxelCoord position) =>
         Evaluate(world, blocks, definition, cell, microblockMask, position,
-            out _, requireSupportBelow: false);
+            out _, AdditionalSupportRequirement.None);
 
-    // Placement may require support below for gravity-capable blocks without
-    // changing the runtime support policy that lets those blocks fall.
+    // Placement requires a gravity block to have a base before insertion.
+    // Runtime evaluation intentionally omits this extra requirement so the
+    // physics system can detach the block and simulate its fall.
     public static BlockSupportState EvaluateForPlacement(
         VoxelWorld world,
         BlockRegistry blocks,
@@ -38,9 +45,12 @@ public static class BlockSupportRules
         WorldVoxelCoord position)
     {
         ArgumentNullException.ThrowIfNull(definition);
+        var additionalRequirement =
+            definition.HasTag(BlockPhysicsCapabilities.Gravity)
+                ? AdditionalSupportRequirement.Below
+                : AdditionalSupportRequirement.None;
         return Evaluate(world, blocks, definition, cell, microblockMask, position,
-            out _, requireSupportBelow: definition.HasTag(
-                BlockPhysicsCapabilities.Gravity));
+            out _, additionalRequirement);
     }
 
     // The missing dependency is returned by the same support calculation,
@@ -54,7 +64,7 @@ public static class BlockSupportRules
         WorldVoxelCoord position,
         out WorldVoxelCoord missingSupport) =>
         Evaluate(world, blocks, definition, cell, microblockMask, position,
-            out missingSupport, requireSupportBelow: false);
+            out missingSupport, AdditionalSupportRequirement.None);
 
     private static BlockSupportState Evaluate(
         VoxelWorld world,
@@ -64,15 +74,16 @@ public static class BlockSupportRules
         MicroblockMask microblockMask,
         WorldVoxelCoord position,
         out WorldVoxelCoord missingSupport,
-        bool requireSupportBelow)
+        AdditionalSupportRequirement additionalRequirement)
     {
         missingSupport = default;
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(blocks);
         ArgumentNullException.ThrowIfNull(definition);
 
-        var needsBelow = requireSupportBelow || definition.HasTag(
-            BlockPhysicsCapabilities.SupportBelow);
+        var needsBelow =
+            additionalRequirement == AdditionalSupportRequirement.Below ||
+            definition.HasTag(BlockPhysicsCapabilities.SupportBelow);
         var needsAbove = definition.HasTag(
             BlockPhysicsCapabilities.SupportAbove);
         var needsWall = definition.HasTag(
