@@ -31,19 +31,16 @@ export const TexturedBlock: Story = {
   },
 };
 
-export const AttachedTextureLayers: Story = {
+export const ActiveAttachedLayer: Story = {
   args: {
     state: {
       kind: "block",
       id: "asteria:block_grass",
       name: "Grass Block",
+      activeLayerId: "asteria:moss",
+      face: "top",
       skyLight: 15, blockLight: 0,
       position: { x: 148, y: 92, z: -72 },
-      layers: [
-        { id: "asteria:moss", face: "top" },
-        { id: "asteria:moss", face: "left" },
-        { id: "asteria:moss_wall", face: "front" },
-      ],
     },
   },
 };
