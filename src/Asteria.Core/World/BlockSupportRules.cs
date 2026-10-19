@@ -25,7 +25,23 @@ public static class BlockSupportRules
         MicroblockMask microblockMask,
         WorldVoxelCoord position) =>
         Evaluate(world, blocks, definition, cell, microblockMask, position,
-            out _);
+            out _, requireSupportBelow: false);
+
+    // Placement may require support below for gravity-capable blocks without
+    // changing the runtime support policy that lets those blocks fall.
+    public static BlockSupportState EvaluateForPlacement(
+        VoxelWorld world,
+        BlockRegistry blocks,
+        BlockDefinition definition,
+        VoxelCell cell,
+        MicroblockMask microblockMask,
+        WorldVoxelCoord position)
+    {
+        ArgumentNullException.ThrowIfNull(definition);
+        return Evaluate(world, blocks, definition, cell, microblockMask, position,
+            out _, requireSupportBelow: definition.HasTag(
+                BlockPhysicsCapabilities.Gravity));
+    }
 
     // The missing dependency is returned by the same support calculation,
     // so physics wakeups can suspend until that chunk becomes resident.
@@ -36,14 +52,26 @@ public static class BlockSupportRules
         VoxelCell cell,
         MicroblockMask microblockMask,
         WorldVoxelCoord position,
-        out WorldVoxelCoord missingSupport)
+        out WorldVoxelCoord missingSupport) =>
+        Evaluate(world, blocks, definition, cell, microblockMask, position,
+            out missingSupport, requireSupportBelow: false);
+
+    private static BlockSupportState Evaluate(
+        VoxelWorld world,
+        BlockRegistry blocks,
+        BlockDefinition definition,
+        VoxelCell cell,
+        MicroblockMask microblockMask,
+        WorldVoxelCoord position,
+        out WorldVoxelCoord missingSupport,
+        bool requireSupportBelow)
     {
         missingSupport = default;
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(blocks);
         ArgumentNullException.ThrowIfNull(definition);
 
-        var needsBelow = definition.HasTag(
+        var needsBelow = requireSupportBelow || definition.HasTag(
             BlockPhysicsCapabilities.SupportBelow);
         var needsAbove = definition.HasTag(
             BlockPhysicsCapabilities.SupportAbove);
