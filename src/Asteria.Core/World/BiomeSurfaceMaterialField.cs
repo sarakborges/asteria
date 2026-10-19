@@ -111,8 +111,23 @@ public sealed class BiomeSurfaceMaterialField
         if (!_faceRules.TryGetValue(sample.Primary, out var rules))
             throw new KeyNotFoundException(
                 $"Biome {sample.Primary} has no material palette.");
-        return rules.For(face).VolumeBlockAt(
-            _seed, worldX, worldY, worldZ, depth);
+        var rule = rules.For(face);
+        SurfacePlacementContext? placement = null;
+        if (rule.HasConditions)
+        {
+            if (_terrain is null)
+            {
+                throw new InvalidOperationException(
+                    "Conditional volume material patches require a terrain field.");
+            }
+
+            var sampled = SurfacePlacementContext.Sample(
+                _terrain, worldX, worldZ, rule.RequiresSlope);
+            placement = new SurfacePlacementContext(worldY, sampled.Slope);
+        }
+
+        return rule.VolumeBlockAt(
+            _seed, worldX, worldY, worldZ, depth, placement);
     }
 
     /// <summary>Maximum relevant inward distance (at least one voxel).</summary>
@@ -309,7 +324,8 @@ public sealed class BiomeSurfaceMaterialField
         }
 
         public BlockRuntimeId VolumeBlockAt(
-            ulong seed, int x, int y, int z, uint depth)
+            ulong seed, int x, int y, int z, uint depth,
+            SurfacePlacementContext? placement)
         {
             if (depth >= CoreStartDepth)
                 return CoreBlock;
@@ -326,7 +342,7 @@ public sealed class BiomeSurfaceMaterialField
                     if (depth >= endDepth)
                         continue;
                 }
-                return layer.ResolveVolume(seed, x, y, z);
+                return layer.ResolveVolume(seed, x, y, z, placement);
             }
             throw new InvalidOperationException(
                 "Validated palette must end with a core layer.");
@@ -477,8 +493,9 @@ public sealed class BiomeSurfaceMaterialField
         public bool RequiresSlope => Patch?.RequiresSlope == true;
 
         public BlockRuntimeId ResolveVolume(
-            ulong seed, int x, int y, int z) =>
-            Patch?.ResolveVolume(seed, x, y, z) ?? Block;
+            ulong seed, int x, int y, int z,
+            SurfacePlacementContext? placement) =>
+            Patch?.ResolveVolume(seed, x, y, z, placement) ?? Block;
 
         public BlockRuntimeId Resolve(
             ulong seed,
@@ -540,10 +557,12 @@ public sealed class BiomeSurfaceMaterialField
         }
 
         public BlockRuntimeId? ResolveVolume(
-            ulong seed, int x, int y, int z)
+            ulong seed, int x, int y, int z,
+            SurfacePlacementContext? placement)
         {
             if (_definition.Conditions is { } conditions &&
-                !conditions.Allows(new SurfacePlacementContext(y, 0)))
+                (placement is not { } context ||
+                 !conditions.Allows(context)))
                 return null;
 
             var verticalScale = Math.Max(2u, _definition.DetailScale);

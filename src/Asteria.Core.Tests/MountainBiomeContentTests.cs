@@ -166,6 +166,32 @@ public sealed class MountainBiomeContentTests
     }
 
     [Fact]
+    public void SlopeConditionedVolumePatchesRequireTerrainContext()
+    {
+        var path = Path.Combine(PackData, "biomes", "mountains.json");
+        var root = JsonNode.Parse(File.ReadAllText(path))!.AsObject();
+        var wallLayer = root["palette"]!["walls"]![0]!.AsObject();
+        wallLayer["patch"] = new JsonObject
+        {
+            ["scale"] = 24,
+            ["coverage"] = 1.0,
+            ["roughness"] = 0.0,
+            ["blocks"] = new JsonArray("asteria:gravel"),
+            ["conditions"] = new JsonObject { ["maxSlope"] = 2 }
+        };
+
+        var biome = BiomeDefinitionJson.Parse(root.ToJsonString());
+        var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
+        var materials = new BiomeSurfaceMaterialField(71UL, [biome], blocks);
+        var sample = new BiomeSample(
+            biome.Id, [new BiomeInfluence(biome.Id, 1f)]);
+
+        Assert.Throws<InvalidOperationException>(() =>
+            materials.VolumeBlockAt(
+                sample, 17, 120, -31, BiomePaletteFace.Walls));
+    }
+
+    [Fact]
     public void TalusOutcropTemplatesUseStableStoneCobbleAndFullBiomeGroundFit()
     {
         var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
