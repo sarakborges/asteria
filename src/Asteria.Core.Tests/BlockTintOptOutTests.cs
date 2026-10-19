@@ -5,8 +5,8 @@ namespace Asteria.Core.Tests;
 public sealed class BlockTintOptOutTests
 {
     [Theory]
-    [InlineData("leaf_enchanted_tree")]
-    [InlineData("leaf_world_tree")]
+    [InlineData("leaf_mycelora")]
+    [InlineData("leaf_gloamroot")]
     public void AuthoredUntintedLeavesKeepTheirOriginalColorsWithWindSway(string name)
     {
         var path = Path.Combine(

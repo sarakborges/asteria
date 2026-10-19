@@ -195,23 +195,28 @@ public sealed class SurfaceHabitatTests
         var dimension = DimensionDefinitionJson.Parse(File.ReadAllText(dimensionPath));
         var roots = dimension.GeneratedSurfaceStructures
             .Where(root => root.Biome == biome.Id).ToArray();
-        Assert.Equal(7, roots.Length);
+        Assert.Equal(4, roots.Length);
         Assert.All(roots, rule =>
             biome.SurfaceHabitats!.ValidateWeights(rule.HabitatWeights));
 
+        var treeFamilies = new[]
+        {
+            "asteria:tree_nighthollow",
+            "asteria:tree_mourningbriar",
+            "asteria:tree_eclipseveil",
+            "asteria:tree_gloamroot"
+        };
+        foreach (var family in treeFamilies)
+        {
+            var root = Assert.Single(roots, rule => rule.Structure == family);
+            Assert.True(root.HabitatWeights!.For("dusky_underbrush") >
+                        root.HabitatWeights.For("pale_clearing"));
+            Assert.True(root.HabitatWeights.For("decay_pockets") >
+                        root.HabitatWeights.For("pale_clearing"));
+        }
+
         var tree = Assert.Single(roots,
-            root => root.Structure == "asteria:tree_wraith");
-        var grove = Assert.Single(roots,
-            root => root.Structure == "asteria:grove_wraith");
-        var snag = Assert.Single(roots,
-            root => root.Structure == "asteria:snag_wraith");
-
-        Assert.True(tree.HabitatWeights!.For("dusky_underbrush") >
-                    tree.HabitatWeights.For("pale_clearing"));
-        Assert.Equal(0f, grove.HabitatWeights!.For("pale_clearing"));
-        Assert.True(snag.HabitatWeights!.For("decay_pockets") >
-                    snag.HabitatWeights.For("dusky_underbrush"));
-
+            root => root.Structure == "asteria:tree_nighthollow");
         var a = new SurfaceHabitatField(53UL, [biome]);
         var b = new SurfaceHabitatField(53UL, [biome]);
         foreach (var (x, z) in new[] { (-281, 71), (0, 0), (299, -112) })

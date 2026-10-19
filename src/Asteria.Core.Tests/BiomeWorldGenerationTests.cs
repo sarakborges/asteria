@@ -859,10 +859,10 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
-    public void EnchantedTreeLeavesStayIntentionallyUntinted()
+    public void MyceloraLeavesStayIntentionallyUntinted()
     {
         var blocks = LoadDefaultBlocks();
-        var leaf = blocks.GetDefinition(blocks.GetId("asteria:leaf_enchanted_tree"));
+        var leaf = blocks.GetDefinition(blocks.GetId("asteria:leaf_mycelora"));
         Assert.Equal(BlockTint.None, leaf.Tint);
         Assert.All(leaf.Textures.AllLayers(), layer => Assert.False(layer.Dyable));
     }

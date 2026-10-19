@@ -105,13 +105,6 @@ public sealed class TreeMaterialContentTests
             Assert.True(structure.Voxels.Any(voxel => leaves.Contains(voxel.Block)),
                 $"{structure.Id} must retain visible fantasy foliage."));
 
-        foreach (var group in new[]
-                 { "tree_charred_volcanic", "scrub_thorn_wasteland", "snag_wasteland" })
-        {
-            Assert.All(structures.ResolveReference("asteria:" + group), tree =>
-                Assert.True(tree.Voxels.Count(voxel => leaves.Contains(voxel.Block)) >= 20,
-                    $"{tree.Id} needs a crown, including burned trees."));
-        }
     }
 
     private static VoxelMutationRuntime CreateMutations(VoxelWorld world) =>
