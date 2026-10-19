@@ -246,21 +246,32 @@ public sealed class BiomeSurfaceMaterialField
 
     private sealed class MaterialRule
     {
+        private const uint BoundaryNoiseScale = 32;
+        private const uint BoundaryDetailScale = 11;
+        private const int MaximumBoundaryDisplacement = 3;
+
         private MaterialRule(
             ResolvedLayer[] layers,
+            GenerationDomain[] boundaryDomains,
             bool usesBaseSurface)
         {
             Layers = layers;
+            BoundaryDomains = boundaryDomains;
             UsesBaseSurface = usesBaseSurface;
             HasConditions = layers.Any(layer => layer.HasConditions);
             RequiresSlope = layers.Any(layer => layer.RequiresSlope);
             CoreBlock = layers[^1].Block;
-            CoreStartDepth = layers.Length > 1
+            var nominalCoreDepth = layers.Length > 1
                 ? layers[^2].EndDepthExclusive!.Value
                 : 0u;
+            CoreStartDepth = checked(
+                nominalCoreDepth +
+                (uint)Math.Max(0, layers.Length - 1) *
+                MaximumBoundaryDisplacement);
         }
 
         private ResolvedLayer[] Layers { get; }
+        private GenerationDomain[] BoundaryDomains { get; }
 
         public bool HasConditions { get; }
 
@@ -277,20 +288,22 @@ public sealed class BiomeSurfaceMaterialField
             uint depth,
             SurfacePlacementContext? placement)
         {
-            foreach (var layer in Layers)
+            var previousEndDepth = 0u;
+            for (var index = 0; index < Layers.Length; index++)
             {
-                if (layer.EndDepthExclusive is
-                        { } endDepth &&
-                    depth >= endDepth)
+                var layer = Layers[index];
+                if (layer.EndDepthExclusive is { } nominalEndDepth)
                 {
-                    continue;
+                    var endDepth = AdjustedEndDepth(
+                        seed, worldX, worldZ, index,
+                        nominalEndDepth, previousEndDepth);
+                    previousEndDepth = endDepth;
+                    if (depth >= endDepth)
+                        continue;
                 }
 
                 return layer.Resolve(
-                    seed,
-                    worldX,
-                    worldZ,
-                    placement);
+                    seed, worldX, worldZ, placement);
             }
 
             throw new InvalidOperationException(
@@ -323,17 +336,49 @@ public sealed class BiomeSurfaceMaterialField
             var depths = new uint[Layers.Length];
             var blocks = new BlockRuntimeId[Layers.Length];
 
+            var previousEndDepth = 0u;
             for (var index = 0; index < Layers.Length; index++)
             {
                 var layer = Layers[index];
-                depths[index] =
-                    layer.EndDepthExclusive ?? uint.MaxValue;
+                depths[index] = layer.EndDepthExclusive is { } nominalEndDepth
+                    ? AdjustedEndDepth(
+                        seed, worldX, worldZ, index,
+                        nominalEndDepth, previousEndDepth)
+                    : uint.MaxValue;
+                if (depths[index] != uint.MaxValue)
+                    previousEndDepth = depths[index];
                 blocks[index] = layer.Resolve(
                     seed, worldX, worldZ, placement);
             }
 
             return new BiomeSurfaceMaterialColumn(
                 depths, blocks, surfaceOverride);
+        }
+
+        private uint AdjustedEndDepth(
+            ulong seed,
+            int worldX,
+            int worldZ,
+            int layerIndex,
+            uint nominalEndDepth,
+            uint previousEndDepth)
+        {
+            var macro = WorldGenerationEntropy.ValueNoise2D(
+                seed, BoundaryDomains[layerIndex], worldX, worldZ,
+                BoundaryNoiseScale);
+            var detail = WorldGenerationEntropy.ValueNoise2D(
+                seed,
+                GenerationDomain.Named(
+                    $"material/surface-strata-detail/v1/{BoundaryDomains[layerIndex].Key}"),
+                worldX, worldZ, BoundaryDetailScale);
+            var displacement = (int)Math.Round(
+                (macro * 0.75d + detail * 0.25d) *
+                MaximumBoundaryDisplacement,
+                MidpointRounding.AwayFromZero);
+            var displaced = Math.Max(
+                (long)nominalEndDepth + displacement,
+                (long)previousEndDepth + 1L);
+            return checked((uint)displaced);
         }
 
         public static MaterialRule Create(
@@ -381,8 +426,19 @@ public sealed class BiomeSurfaceMaterialField
                             : null);
             }
 
+            var boundaryDomains = new GenerationDomain[layers.Length];
+            var profileName = face is null
+                ? biome.Id
+                : $"{biome.Id}/{face}";
+            for (var index = 0; index < layers.Length - 1; index++)
+            {
+                boundaryDomains[index] = GenerationDomain.Named(
+                    $"material/surface-strata-boundary/v1/{profileName}/{index}");
+            }
+
             return new MaterialRule(
                 layers,
+                boundaryDomains,
                 biome.SurfaceLayout is not null);
         }
     }
