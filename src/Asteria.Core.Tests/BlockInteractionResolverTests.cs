@@ -164,6 +164,64 @@ public sealed class BlockInteractionResolverTests
     }
 
     [Fact]
+    public void GravityBlockPlacementRequiresSupportBelow()
+    {
+        var blocks =
+            new BlockRegistry(
+            [
+                new BlockDefinition("asteria:stone"),
+                new BlockDefinition(
+                    "asteria:sand",
+                    tags:
+                    [
+                        BlockPhysicsCapabilities.Gravity,
+                    ]),
+            ]);
+        var world = LoadedWorld();
+        var target =
+            new WorldVoxelCoord(1, 1, 1);
+        var hit =
+            new VoxelWorldHit(
+                target + (-1, 0, 0),
+                1,
+                0,
+                0);
+        var sand =
+            new VoxelCell(
+                blocks.GetId("asteria:sand"));
+
+        var unsupported =
+            BlockInteractionResolver.ResolvePlacement(
+                world,
+                blocks,
+                hit,
+                sand,
+                FarPlayerBounds());
+
+        Assert.False(unsupported.Accepted);
+        Assert.Equal(
+            BlockPlacementRejection.MissingSupport,
+            unsupported.Rejection);
+
+        Assert.True(
+            world.SetBlockAt(
+                target + (0, -1, 0),
+                blocks.GetId("asteria:stone"),
+                out _));
+
+        var supported =
+            BlockInteractionResolver.ResolvePlacement(
+                world,
+                blocks,
+                hit,
+                sand,
+                FarPlayerBounds());
+
+        Assert.True(supported.Accepted);
+        Assert.Equal(target, supported.Position);
+    }
+
+    [Fact]
     public void SupportBelowPlacementRequiresOccupiedSupport()
     {
         var blocks = CreateBlocks();
