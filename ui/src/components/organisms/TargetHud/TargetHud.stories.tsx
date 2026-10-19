@@ -33,6 +33,7 @@ export const TexturedBlock: Story = {
 
 export const ActiveAttachedLayer: Story = {
   args: {
+    activeLayerIconUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9T9VJ9QAAAAASUVORK5CYII=",
     state: {
       kind: "block",
       id: "asteria:block_grass",
