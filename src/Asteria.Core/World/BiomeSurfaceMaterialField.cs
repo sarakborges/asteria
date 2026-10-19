@@ -263,15 +263,27 @@ public sealed class BiomeSurfaceMaterialField
             HasConditions = layers.Any(layer => layer.HasConditions);
             RequiresSlope = layers.Any(layer => layer.RequiresSlope);
             CoreBlock = layers[^1].Block;
-            var nominalCoreDepth = layers.Length > 1
-                ? layers[^2].EndDepthExclusive!.Value
-                : 0u;
-            CoreStartDepth = checked(
-                nominalCoreDepth +
-                (layers.Length > 1 ? layers[^2].BoundaryNoise : 0u));
+            NominalEndDepths = layers
+                .Select(layer => layer.EndDepthExclusive ?? uint.MaxValue)
+                .ToArray();
+            BoundaryAmplitudes = layers
+                .Select(layer => layer.BoundaryNoise)
+                .ToArray();
+
+            var maximumBoundaryDepth = 0u;
+            for (var index = 0; index < layers.Length - 1; index++)
+            {
+                var nominalDepth = layers[index].EndDepthExclusive!.Value;
+                maximumBoundaryDepth = checked((uint)Math.Max(
+                    (long)nominalDepth + layers[index].BoundaryNoise,
+                    (long)maximumBoundaryDepth + 1L));
+            }
+            CoreStartDepth = maximumBoundaryDepth;
         }
 
         private ResolvedLayer[] Layers { get; }
+        private uint[] NominalEndDepths { get; }
+        private uint[] BoundaryAmplitudes { get; }
         private GenerationDomain[] BoundaryDomains { get; }
         private GenerationDomain[] BoundaryDetailDomains { get; }
 
@@ -362,7 +374,17 @@ public sealed class BiomeSurfaceMaterialField
             }
 
             return new BiomeSurfaceMaterialColumn(
-                depths, blocks, surfaceOverride);
+                depths,
+                blocks,
+                surfaceOverride,
+                seed,
+                worldX,
+                worldZ,
+                NominalEndDepths,
+                BoundaryAmplitudes,
+                BoundaryDomains,
+                BoundaryDetailDomains,
+                CoreStartDepth);
         }
 
         private uint AdjustedEndDepth(
@@ -680,25 +702,53 @@ public sealed class BiomeSurfaceMaterialField
 /// </summary>
 public sealed class BiomeSurfaceMaterialColumn
 {
+    private const uint BoundaryNoiseScale = 32;
+    private const uint BoundaryNoiseVerticalScale = 9;
+    private const uint BoundaryDetailScale = 11;
+    private const uint BoundaryDetailVerticalScale = 4;
+
     private readonly uint[] _endDepths;
     private readonly BlockRuntimeId[] _blocks;
     private readonly BlockRuntimeId _surfaceOverride;
+    private readonly ulong _seed;
+    private readonly int _worldX;
+    private readonly int _worldZ;
+    private readonly uint[] _nominalEndDepths;
+    private readonly uint[] _boundaryAmplitudes;
+    private readonly GenerationDomain[] _boundaryDomains;
+    private readonly GenerationDomain[] _boundaryDetailDomains;
+    private readonly uint _finiteDepth;
 
     internal BiomeSurfaceMaterialColumn(
         uint[] endDepths,
         BlockRuntimeId[] blocks,
-        BlockRuntimeId surfaceOverride = default)
+        BlockRuntimeId surfaceOverride,
+        ulong seed,
+        int worldX,
+        int worldZ,
+        uint[] nominalEndDepths,
+        uint[] boundaryAmplitudes,
+        GenerationDomain[] boundaryDomains,
+        GenerationDomain[] boundaryDetailDomains,
+        uint finiteDepth)
     {
         _endDepths = endDepths;
         _blocks = blocks;
         _surfaceOverride = surfaceOverride;
+        _seed = seed;
+        _worldX = worldX;
+        _worldZ = worldZ;
+        _nominalEndDepths = nominalEndDepths;
+        _boundaryAmplitudes = boundaryAmplitudes;
+        _boundaryDomains = boundaryDomains;
+        _boundaryDetailDomains = boundaryDetailDomains;
+        _finiteDepth = finiteDepth;
     }
 
-    public uint FiniteDepth =>
-        _endDepths.Length > 1
-            ? _endDepths[^2]
-            : 0u;
+    public uint FiniteDepth => _finiteDepth;
 
+    // Compatibility query for profile inspection. World materialization uses
+    // the world-Y overload so strata boundaries can vary in three dimensions.
     public BlockRuntimeId BlockAt(uint depth)
     {
         if (depth == 0 && !_surfaceOverride.IsAir)
@@ -707,9 +757,50 @@ public sealed class BiomeSurfaceMaterialColumn
         for (var i = 0; i < _endDepths.Length; i++)
         {
             if (depth < _endDepths[i])
-            {
                 return _blocks[i];
+        }
+
+        throw new InvalidOperationException(
+            "Validated surface material profile must end with a core layer.");
+    }
+
+    public BlockRuntimeId BlockAt(uint depth, int worldY)
+    {
+        if (depth == 0 && !_surfaceOverride.IsAir)
+            return _surfaceOverride;
+
+        var previousEndDepth = 0u;
+        for (var i = 0; i < _nominalEndDepths.Length; i++)
+        {
+            var nominalEndDepth = _nominalEndDepths[i];
+            if (nominalEndDepth != uint.MaxValue)
+            {
+                var amplitude = _boundaryAmplitudes[i];
+                var displacement = 0;
+                if (amplitude > 0)
+                {
+                    var macro = WorldGenerationEntropy.ValueNoise3D(
+                        _seed, _boundaryDomains[i],
+                        _worldX, worldY, _worldZ,
+                        BoundaryNoiseScale, BoundaryNoiseVerticalScale);
+                    var detail = WorldGenerationEntropy.ValueNoise3D(
+                        _seed, _boundaryDetailDomains[i],
+                        _worldX, worldY, _worldZ,
+                        BoundaryDetailScale, BoundaryDetailVerticalScale);
+                    displacement = (int)Math.Round(
+                        (macro * 0.75d + detail * 0.25d) * amplitude,
+                        MidpointRounding.AwayFromZero);
+                }
+
+                var endDepth = checked((uint)Math.Max(
+                    (long)nominalEndDepth + displacement,
+                    (long)previousEndDepth + 1L));
+                previousEndDepth = endDepth;
+                if (depth >= endDepth)
+                    continue;
             }
+
+            return _blocks[i];
         }
 
         throw new InvalidOperationException(
