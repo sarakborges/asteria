@@ -159,7 +159,7 @@ public static class BlockInteractionResolver
         }
 
         var support =
-            BlockSupportRules.Evaluate(
+            BlockSupportRules.EvaluateForPlacement(
                 world,
                 blocks,
                 definition,
