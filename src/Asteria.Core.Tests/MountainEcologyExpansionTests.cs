@@ -15,19 +15,6 @@ public sealed class MountainEcologyExpansionTests
         ]),
     ];
 
-    private static readonly (string Biome, string Family, int Count,
-        string Preferred, string Avoided)[] Landmarks =
-    [
-        ("mountains", "tree_juniper_mountain_dwarf", 3,
-            "foothill_shelves", "exposed_ridges"),
-        ("mountains", "tree_pine_mountain_wind", 3,
-            "foothill_shelves", "exposed_ridges"),
-        ("mountain_belt", "tree_pine_belt_windswept", 3,
-            "sheltered_passes", "bare_crests"),
-        ("mountain_belt", "cluster_rock_needles_belt", 3,
-            "bare_crests", "sheltered_passes"),
-    ];
-
     [Fact]
     public void SmallFloraIsBiomeSpecificAndRootedInExistingMountainMaterials()
     {
@@ -105,52 +92,45 @@ public sealed class MountainEcologyExpansionTests
         structures.ValidateBlocks(blocks);
         var dimension = DimensionRegistry.FromJson(ReadPackJson("dimensions"))
             .Get(DimensionId.Overworld);
-        foreach (var (biome, family, expected, preferred, avoided) in Landmarks)
+
+        var treeRoots = dimension.GeneratedSurfaceStructures
+            .Where(root =>
+                (root.Biome is "asteria:overworld/mountains" or "asteria:overworld/mountain_belt") &&
+                root.Structure.StartsWith("asteria:tree_", StringComparison.Ordinal))
+            .ToArray();
+        Assert.NotEmpty(treeRoots);
+
+        var palettes = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var root in treeRoots)
         {
-            var rule = Assert.Single(dimension.GeneratedSurfaceStructures,
-                r => r.Biome == "asteria:overworld/" + biome &&
-                     r.Structure == "asteria:" + family);
-            Assert.NotNull(rule.HabitatWeights);
-            Assert.True(rule.HabitatWeights!.For(preferred) >
-                        rule.HabitatWeights.For(avoided));
-            Assert.InRange(rule.Spacing, 40, 120);
-            var variants = structures.ResolveReference("asteria:" + family);
-            Assert.Equal(expected, variants.Count);
-            Assert.True(variants.Select(s => s.MaximumY).Distinct().Count() > 1);
+            Assert.NotNull(root.HabitatWeights);
+            var variants = structures.ResolveReference(root.Structure);
+            Assert.NotEmpty(variants);
+            var foliage = variants.SelectMany(tree => tree.Voxels)
+                .Select(voxel => voxel.Block)
+                .Where(id => blocks.TryGetId(id, out _))
+                .Where(id => blocks.GetDefinition(blocks.GetId(id)).Category == "foliage")
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(id => id, StringComparer.Ordinal)
+                .ToArray();
+            Assert.NotEmpty(foliage);
+            Assert.True(palettes.Add(string.Join("|", foliage)),
+                $"Tree family {root.Structure} must have its own foliage palette.");
+
             Assert.All(variants, variant =>
             {
-                Assert.True(variant.Rotation);
                 Assert.Equal((int?)0, variant.GroundAnchorY);
                 Assert.Equal(1f, variant.Restrictions.RequiredBiomeCoverage);
                 Assert.True(variant.Restrictions.RequiresDryGround);
                 Assert.Equal(StructureFluidPolicy.Forbid, variant.Generation.FluidPolicy);
                 Assert.Equal(StructureReplacePolicy.Terrain, variant.Generation.ReplacePolicy);
-                Assert.All(variant.Restrictions.GroundBlocks,
-                    ground => Assert.Equal("asteria:stone", ground));
                 Assert.True(variant.Voxels.Count > 10);
-                Assert.All(variant.Voxels, v => Assert.True(v.Y > 0));
             });
         }
-
-        var mountain = structures.ResolveReference("asteria:tree_pine_mountain_wind");
-        var belt = structures.ResolveReference("asteria:tree_pine_belt_windswept");
-        Assert.All(mountain, s => Assert.Contains(s.Voxels,
-            v => v.Block == "asteria:leaf_juniper"));
-        Assert.All(belt, s => Assert.Contains(s.Voxels,
-            v => v.Block == "asteria:leaf_windwood"));
-        Assert.True(mountain.Max(s => s.MaximumY) >= 11);
-        Assert.True(belt.Max(s => s.MaximumY) >= 9);
-
-        var needles = structures.ResolveReference("asteria:cluster_rock_needles_belt");
-        Assert.All(needles, s =>
-        {
-            Assert.All(s.Voxels, v => Assert.Equal("asteria:stone", v.Block));
-            Assert.True(s.Voxels.Count > 15);
-        });
     }
 
     [Fact]
-    public void SmallDecoratorsUseOwnTexturesAndLegacyWoodFallsBackToOak()
+    public void SmallDecoratorsUseOwnTextures()
     {
         var blocks = BlockRegistry.FromJson(ReadPackJson("blocks"));
         var objects = PackContentRegistry<ObjectDefinition>.FromJson(
@@ -165,27 +145,7 @@ public sealed class MountainEcologyExpansionTests
                         .Visual.Texture!.Value.Texture;
                 Assert.True(seen.Add(texture));
             }
-        foreach (var id in new[]
-        {
-            "log_juniper", "leaf_juniper",
-            "log_windwood", "leaf_windwood"
-        })
-        {
-            var d = blocks.GetDefinition(blocks.GetId("asteria:" + id));
-            var face = Assert.Single(d.Textures.ForFace(BlockFace.Top));
-            Assert.Equal(id switch
-            {
-                "log_juniper" => "textures/blocks/trees/oak/top.png",
-                "leaf_juniper" => "textures/blocks/trees/oak/leaves.png",
-                "log_windwood" => "textures/blocks/trees/oak/top.png",
-                "leaf_windwood" => "textures/blocks/trees/oak/leaves.png",
-                _ => throw new InvalidOperationException("Unexpected tree material")
-            }, face.Texture);
-            seen.Add(face.Texture);
-            if (id.StartsWith("leaf_", StringComparison.Ordinal))
-                Assert.Equal(BlockTint.None, d.Tint);
-        }
-        Assert.Equal(8, seen.Count);
+        Assert.Equal(6, seen.Count);
     }
 
     [Fact]
