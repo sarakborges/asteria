@@ -1100,7 +1100,7 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
-    public void SurfaceMaterialUsesCumulativeFiniteLayersThenCore()
+    public void SurfaceMaterialUsesNoiseWarpedFiniteLayerBoundariesThenCore()
     {
         var blocks =
             new BlockRegistry(
@@ -1125,10 +1125,12 @@ public sealed class BiomeWorldGenerationTests
                 [
                     new BiomeSurfaceLayerDefinition(
                         "asteria:block_grass",
-                        depth: 1),
+                        depth: 1,
+                        boundaryNoise: 1),
                     new BiomeSurfaceLayerDefinition(
                         "asteria:dirt",
-                        depth: 4),
+                        depth: 4,
+                        boundaryNoise: 2),
                     new BiomeSurfaceLayerDefinition(
                         "asteria:stone"),
                 ]);
@@ -1148,38 +1150,34 @@ public sealed class BiomeWorldGenerationTests
                         1f),
                 ]);
 
-        Assert.Equal(
-            blocks.GetId(
-                "asteria:block_grass"),
-            materials.BlockAt(
-                sample,
-                0,
-                0,
-                0));
-        Assert.Equal(
-            blocks.GetId(
-                "asteria:dirt"),
-            materials.BlockAt(
-                sample,
-                0,
-                0,
-                1));
-        Assert.Equal(
-            blocks.GetId(
-                "asteria:dirt"),
-            materials.BlockAt(
-                sample,
-                0,
-                0,
-                4));
-        Assert.Equal(
-            blocks.GetId(
-                "asteria:stone"),
-            materials.BlockAt(
-                sample,
-                0,
-                0,
-                5));
+        var grass = blocks.GetId("asteria:block_grass");
+        var dirt = blocks.GetId("asteria:dirt");
+        var stone = blocks.GetId("asteria:stone");
+        var grassBoundaryMaterials = new HashSet<BlockRuntimeId>();
+        var stoneBoundaryMaterials = new HashSet<BlockRuntimeId>();
+
+        for (var z = 0; z <= 96; z += 4)
+        {
+            for (var x = 0; x <= 96; x += 4)
+            {
+                var column = materials.SampleColumn(sample, x, z);
+                for (uint depth = 0; depth <= 12; depth++)
+                {
+                    Assert.Equal(
+                        materials.BlockAt(sample, x, z, depth),
+                        column.BlockAt(depth));
+                }
+
+                grassBoundaryMaterials.Add(column.BlockAt(1));
+                stoneBoundaryMaterials.Add(column.BlockAt(5));
+                Assert.Equal(stone, column.BlockAt(12));
+            }
+        }
+
+        Assert.Contains(grass, grassBoundaryMaterials);
+        Assert.Contains(dirt, grassBoundaryMaterials);
+        Assert.Contains(dirt, stoneBoundaryMaterials);
+        Assert.Contains(stone, stoneBoundaryMaterials);
     }
 
     [Fact]

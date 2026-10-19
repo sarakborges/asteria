@@ -40,7 +40,7 @@ export function TargetHud({
         {state.kind === "block" && state.activeLayerId ? (
           <div className="target-hud__identity">
             <strong>{contentName(state.activeLayerId)}</strong>
-            <span>• {contentName(state.id)}</span>
+            <span>{" • "}{contentName(state.id)}</span>
           </div>
         ) : (
           <strong>{state.kind === "block" || state.kind === "fluid" || state.kind === "object"

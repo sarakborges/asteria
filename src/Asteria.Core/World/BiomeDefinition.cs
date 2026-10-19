@@ -402,7 +402,8 @@ public sealed class BiomeSurfaceLayerDefinition
     public BiomeSurfaceLayerDefinition(
         string block,
         uint? depth = null,
-        BiomeSurfacePatchDefinition? patch = null)
+        BiomeSurfacePatchDefinition? patch = null,
+        uint boundaryNoise = 0)
     {
         ValidateBlockId(block);
 
@@ -414,9 +415,17 @@ public sealed class BiomeSurfaceLayerDefinition
                 "Finite biome surface depth must be within 1..64.");
         }
 
+        if (boundaryNoise > 8 || (boundaryNoise > 0 && depth is null))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(boundaryNoise),
+                "Boundary noise must be within 0..8 and requires a finite layer depth.");
+        }
+
         Block = block;
         Depth = depth;
         Patch = patch;
+        BoundaryNoise = boundaryNoise;
     }
 
     public string Block { get; }
@@ -424,6 +433,9 @@ public sealed class BiomeSurfaceLayerDefinition
     public uint? Depth { get; }
 
     public BiomeSurfacePatchDefinition? Patch { get; }
+
+    /// <summary>Maximum deterministic displacement of this layer's lower boundary, in voxels.</summary>
+    public uint BoundaryNoise { get; }
 
     internal static void ValidateBlockId(string id)
     {

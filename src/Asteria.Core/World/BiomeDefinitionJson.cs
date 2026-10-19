@@ -466,7 +466,8 @@ public static class BiomeDefinitionJson
                     OptionalUInt32(
                         value,
                         "depth"),
-                    ParsePatch(value)));
+                    ParsePatch(value),
+                    OptionalUInt32(value, "boundaryNoise") ?? 0));
         }
 
         return layers;
