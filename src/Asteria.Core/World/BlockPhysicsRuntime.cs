@@ -400,6 +400,30 @@ public sealed class BlockPhysicsRuntime : IDisposable
         {
             var id = _advanceIds[index];
             var state = _active[id];
+
+            // Do not simulate gravity inside a resident chunk until the
+            // chunk directly below it is resident. Otherwise falling blocks
+            // can advance toward an unloaded vertical gap before the sweep
+            // reaches that boundary.
+            var currentVoxelY = (int)Math.Floor(state.CenterY);
+            var currentChunk = VoxelCoordinates.FromWorld(
+                state.ColumnX, currentVoxelY, state.ColumnZ).Chunk;
+            if (currentChunk.Y > 0)
+            {
+                var lowerChunk = new ChunkCoord(
+                    currentChunk.X, currentChunk.Y - 1, currentChunk.Z);
+                if (!_world.ContainsChunk(lowerChunk))
+                {
+                    var missingChunkVoxel = new WorldVoxelCoord(
+                        state.ColumnX,
+                        checked(currentChunk.Y * Chunk.Size - 1),
+                        state.ColumnZ);
+                    _active[id] = state with { VelocityY = 0.0 };
+                    WaitForFallingChunk(id, missingChunkVoxel);
+                    continue;
+                }
+            }
+
             var velocity =
                 state.VelocityY -
                 gravityStrength * delta;
