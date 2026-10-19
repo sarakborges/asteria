@@ -616,7 +616,9 @@ public sealed class SurfaceStructureTests
             {
                 Assert.True(tree.Rotation);
                 Assert.Equal(0, tree.GroundAnchorYOffset);
-                Assert.Equal(1f, tree.Restrictions.RequiredBiomeCoverage);
+                Assert.NotEmpty(tree.Restrictions.GroundBlocks);
+                Assert.All(tree.Restrictions.GroundBlocks, ground =>
+                    Assert.True(blocks.TryGetId(ground, out _)));
                 Assert.True(tree.Restrictions.RequiresDryGround);
                 Assert.Equal(StructureReplacePolicy.Terrain, tree.Generation.ReplacePolicy);
                 Assert.Equal(StructureFluidPolicy.Forbid, tree.Generation.FluidPolicy);
