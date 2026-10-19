@@ -257,6 +257,10 @@ public sealed class BiomeSurfaceMaterialField
         {
             Layers = layers;
             BoundaryDomains = boundaryDomains;
+            BoundaryDetailDomains = boundaryDomains
+                .Select((_, index) => GenerationDomain.Named(
+                    $"material/surface-strata-detail/v1/{index}/{boundaryDomains[index].Key}"))
+                .ToArray();
             UsesBaseSurface = usesBaseSurface;
             HasConditions = layers.Any(layer => layer.HasConditions);
             RequiresSlope = layers.Any(layer => layer.RequiresSlope);
@@ -272,6 +276,7 @@ public sealed class BiomeSurfaceMaterialField
 
         private ResolvedLayer[] Layers { get; }
         private GenerationDomain[] BoundaryDomains { get; }
+        private GenerationDomain[] BoundaryDetailDomains { get; }
 
         public bool HasConditions { get; }
 
@@ -367,10 +372,8 @@ public sealed class BiomeSurfaceMaterialField
                 seed, BoundaryDomains[layerIndex], worldX, worldZ,
                 BoundaryNoiseScale);
             var detail = WorldGenerationEntropy.ValueNoise2D(
-                seed,
-                GenerationDomain.Named(
-                    $"material/surface-strata-detail/v1/{BoundaryDomains[layerIndex].Key}"),
-                worldX, worldZ, BoundaryDetailScale);
+                seed, BoundaryDetailDomains[layerIndex], worldX, worldZ,
+                BoundaryDetailScale);
             var displacement = (int)Math.Round(
                 (macro * 0.75d + detail * 0.25d) *
                 MaximumBoundaryDisplacement,
