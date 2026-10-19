@@ -25,16 +25,16 @@ public sealed class OceanSeabedMaterialTests
         // Model a vertical cut through the reported seabed: X runs along the
         // wall and depth runs vertically into the terrain.
         const int width = 97;
-        const uint depthCount = 8;
+        const int depthCount = 8;
         var wall = new BlockRuntimeId[width, depthCount];
         var surfaceMaterials = new HashSet<BlockRuntimeId>();
         for (var x = 0; x < width; x++)
         {
             var worldX = 355 + (x - width / 2) * 4;
-            for (uint depth = 0; depth < depthCount; depth++)
+            for (int depth = 0; depth < depthCount; depth++)
             {
                 var block = materials.BlockAt(
-                    sample, worldX, -230, depth, placement);
+                    sample, worldX, -230, (uint)depth, placement);
                 wall[x, depth] = block;
                 if (depth == 0)
                     surfaceMaterials.Add(block);
