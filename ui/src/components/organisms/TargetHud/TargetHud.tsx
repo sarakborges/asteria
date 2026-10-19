@@ -21,13 +21,6 @@ export function TargetHud({
   const { contentName, t } = useLocalization();
   if (!state) return null;
 
-  const layerGroups = new Map<string, string[]>();
-  for (const layer of state.layers ?? []) {
-    const faces = layerGroups.get(layer.id) ?? [];
-    if (!faces.includes(layer.face)) faces.push(layer.face);
-    layerGroups.set(layer.id, faces);
-  }
-
   return (
     <section className="target-hud">
       {state.kind !== "fluid" && (
@@ -63,17 +56,6 @@ export function TargetHud({
         )}
         {state.position && (
           <span>{t("hud.coordinates", state.position)}</span>
-        )}
-        {state.kind === "block" && layerGroups.size > 0 && (
-          <div className="target-hud__layers">
-            <span>{t("hud.layers")}:</span>
-            {Array.from(layerGroups, ([id, faces]) => (
-              <span key={id}>
-                {contentName(id)}: {faces.map(face =>
-                  t(`hud.layerFace.${face}`)).join(", ")}
-              </span>
-            ))}
-          </div>
         )}
         {state.kind === "block" && artisansKitResolution !== null && (
           <span>{t("hud.artisansKit.resolution")}: 1/{8 / artisansKitResolution}</span>
