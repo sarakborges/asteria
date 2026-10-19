@@ -56,7 +56,7 @@
           "selectionScale": 48,
           "warpScale": 91,
           "warpStrength": 16,
-          "stretchZ": 1.65,
+          "stretchZ": 1,
           "weights": {
             "asteria:gravel": 2,
             "asteria:clay": 2,
