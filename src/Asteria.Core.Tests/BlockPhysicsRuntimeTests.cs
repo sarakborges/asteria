@@ -112,6 +112,48 @@ public sealed class BlockPhysicsRuntimeTests
     }
 
     [Fact]
+    public void FallingBlocksDoNotAdvanceWithinChunkUntilLowerChunkIsResident()
+    {
+        var world = new VoxelWorld();
+        world.InsertChunk(new ChunkCoord(0, 1, 0), new Chunk());
+        var blocks = new BlockRegistry([
+            new BlockDefinition("asteria:sand",
+                tags: [BlockPhysicsCapabilities.Gravity]),
+        ]);
+        var updates = new BlockPhysicsUpdateQueue();
+        var mutations = new VoxelMutationRuntime(world,
+            new WorldUpdateQueue(), new FluidUpdateQueue(),
+            new FluidMeshUpdateQueue(), updates,
+            new MeshletContentRevisions(), new MeshletContentRevisions());
+        var drops = new DroppedBlockRuntime(world, blocks);
+        var state = BlockStateSnapshot.FromCell(
+            new VoxelCell(blocks.GetId("asteria:sand")));
+        var original = new BlockPhysicsRuntimeSnapshot(1, [
+            new FallingBlockState(new FallingBlockId(1), state,
+                3, 3, 25.5, -2.0),
+        ]);
+        using var physics = new BlockPhysicsRuntime(
+            world, blocks, mutations, updates, drops, restore: original);
+
+        for (var frame = 0; frame < 60; frame++)
+            physics.Advance(1.0 / 60.0, 18.0);
+
+        var parked = Assert.Single(physics.ActiveBlocks);
+        Assert.Equal(25.5, parked.CenterY);
+        Assert.Equal(0.0, parked.VelocityY);
+        Assert.Equal(1, physics.WaitingFallingCount);
+
+        // Loading the lower chunk wakes the entity without losing its state.
+        world.InsertChunk(ChunkCoord.Zero, new Chunk());
+        Assert.Equal(0, physics.WaitingFallingCount);
+        physics.Advance(1.0 / 60.0, 18.0);
+
+        var resumed = Assert.Single(physics.ActiveBlocks);
+        Assert.True(resumed.CenterY < 25.5);
+        Assert.Equal(0, physics.WaitingFallingCount);
+    }
+
+    [Fact]
     public void FallingBlocksParkOnUnloadedSupportAndResumeOnlyWhenItArrives()
     {
         var world = new VoxelWorld();
