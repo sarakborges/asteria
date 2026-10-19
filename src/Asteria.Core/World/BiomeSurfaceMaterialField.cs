@@ -246,8 +246,9 @@ public sealed class BiomeSurfaceMaterialField
 
     private sealed class MaterialRule
     {
-        private const uint BoundaryNoiseScale = 32;
-        private const uint BoundaryDetailScale = 11;
+        // Broad X/Z variation keeps stratum boundaries irregular without
+        // introducing a second, high-frequency signal that reads as banding.
+        private const uint BoundaryNoiseScale = 48;
         private MaterialRule(
             ResolvedLayer[] layers,
             GenerationDomain[] boundaryDomains,
@@ -255,10 +256,6 @@ public sealed class BiomeSurfaceMaterialField
         {
             Layers = layers;
             BoundaryDomains = boundaryDomains;
-            BoundaryDetailDomains = boundaryDomains
-                .Select((_, index) => GenerationDomain.Named(
-                    $"material/surface-strata-detail/v1/{index}/{boundaryDomains[index].Key}"))
-                .ToArray();
             UsesBaseSurface = usesBaseSurface;
             HasConditions = layers.Any(layer => layer.HasConditions);
             RequiresSlope = layers.Any(layer => layer.RequiresSlope);
@@ -273,7 +270,6 @@ public sealed class BiomeSurfaceMaterialField
 
         private ResolvedLayer[] Layers { get; }
         private GenerationDomain[] BoundaryDomains { get; }
-        private GenerationDomain[] BoundaryDetailDomains { get; }
 
         public bool HasConditions { get; }
 
@@ -377,14 +373,11 @@ public sealed class BiomeSurfaceMaterialField
             var displacement = 0;
             if (amplitude > 0)
             {
-                var macro = WorldGenerationEntropy.ValueNoise2D(
+                var broadNoise = WorldGenerationEntropy.ValueNoise2D(
                     seed, BoundaryDomains[layerIndex], worldX, worldZ,
                     BoundaryNoiseScale);
-                var detail = WorldGenerationEntropy.ValueNoise2D(
-                    seed, BoundaryDetailDomains[layerIndex], worldX, worldZ,
-                    BoundaryDetailScale);
                 displacement = (int)Math.Round(
-                    (macro * 0.75d + detail * 0.25d) * amplitude,
+                    broadNoise * amplitude,
                     MidpointRounding.AwayFromZero);
             }
             var displaced = Math.Max(
