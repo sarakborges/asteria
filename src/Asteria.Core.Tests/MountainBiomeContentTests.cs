@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using Asteria.Core.World;
 
 namespace Asteria.Core.Tests;
@@ -125,6 +126,43 @@ public sealed class MountainBiomeContentTests
             Assert.Equal(stone, materials.VolumeBlockAt(
                 sample, x, y, z, BiomePaletteFace.Walls));
         }
+    }
+
+    [Fact]
+    public void AlpineStrataBoundariesUseDeterministicBroadNoise()
+    {
+        var path = Path.Combine(PackData, "biomes", "alps.json");
+        var root = JsonNode.Parse(File.ReadAllText(path))!.AsObject();
+        var profile = root["palette"]!["default"]!.AsArray();
+        profile[0]!.AsObject().Remove("patch");
+        profile[0]!["block"] = "asteria:snow";
+        profile[0]!["depth"] = 2;
+        profile[0]!["boundaryNoise"] = 1;
+        profile[1]!.AsObject().Remove("depth");
+        profile[1]!.AsObject().Remove("boundaryNoise");
+        profile[1]!["block"] = "asteria:stone";
+
+        var biome = BiomeDefinitionJson.Parse(root.ToJsonString());
+        var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
+        var a = new BiomeSurfaceMaterialField(713UL, [biome], blocks);
+        var b = new BiomeSurfaceMaterialField(713UL, [biome], blocks);
+        var sample = new BiomeSample(
+            biome.Id, [new BiomeInfluence(biome.Id, 1f)]);
+        var seen = new HashSet<BlockRuntimeId>();
+        var stone = blocks.GetId("asteria:stone");
+        var snow = blocks.GetId("asteria:snow");
+
+        for (var z = -384; z <= 384; z += 8)
+        for (var x = -384; x <= 384; x += 8)
+        {
+            var material = a.BlockAt(sample, x, z, 1);
+            Assert.Equal(material, b.BlockAt(sample, x, z, 1));
+            seen.Add(material);
+        }
+
+        Assert.Contains(stone, seen);
+        Assert.Contains(snow, seen);
+        Assert.Subset(new HashSet<BlockRuntimeId> { stone, snow }, seen);
     }
 
     [Fact]
