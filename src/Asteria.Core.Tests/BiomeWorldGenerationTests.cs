@@ -1125,10 +1125,12 @@ public sealed class BiomeWorldGenerationTests
                 [
                     new BiomeSurfaceLayerDefinition(
                         "asteria:block_grass",
-                        depth: 1),
+                        depth: 1,
+                        boundaryNoise: 1),
                     new BiomeSurfaceLayerDefinition(
                         "asteria:dirt",
-                        depth: 4),
+                        depth: 4,
+                        boundaryNoise: 2),
                     new BiomeSurfaceLayerDefinition(
                         "asteria:stone"),
                 ]);
