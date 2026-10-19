@@ -201,7 +201,7 @@
       {
         "block": "asteria:stone",
         "depth": 1,
-        "boundaryNoise": 1,
+        "boundaryNoise": 6,
         "patch": {
           "scale": 34,
           "coverage": 0.23,
