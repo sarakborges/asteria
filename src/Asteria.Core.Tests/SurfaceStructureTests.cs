@@ -585,6 +585,49 @@ public sealed class SurfaceStructureTests
     }
 
     [Fact]
+    public void EnchantedForestUsesRetainedTreeFamiliesAndAuthoredHabitats()
+    {
+        var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
+        var structures = StructureRegistry.FromJson(ReadJsonDirectory("structures"));
+        var dimensions = DimensionRegistry.FromJson(ReadJsonDirectory("dimensions"));
+        var overworld = dimensions.Get(DimensionId.Overworld);
+        var roots = overworld.GeneratedSurfaceStructures
+            .Where(root =>
+                root.Biome == "asteria:overworld/enchanted_forest" &&
+                root.Structure.StartsWith("asteria:tree_", StringComparison.Ordinal))
+            .ToArray();
+        var expectedFamilies = new[]
+        {
+            "asteria:tree_aurorasil",
+            "asteria:tree_dawnlace",
+            "asteria:tree_prismara",
+            "asteria:tree_solmire",
+            "asteria:tree_mycelora"
+        };
+
+        Assert.Equal(expectedFamilies.OrderBy(id => id, StringComparer.Ordinal),
+            roots.Select(root => root.Structure).OrderBy(id => id, StringComparer.Ordinal));
+        foreach (var root in roots)
+        {
+            Assert.NotNull(root.HabitatWeights);
+            var variants = structures.ResolveReference(root.Structure);
+            Assert.NotEmpty(variants);
+            Assert.All(variants, tree =>
+            {
+                Assert.True(tree.Rotation);
+                Assert.Equal(0, tree.GroundAnchorYOffset);
+                Assert.Equal(1f, tree.Restrictions.RequiredBiomeCoverage);
+                Assert.True(tree.Restrictions.RequiresDryGround);
+                Assert.Equal(StructureReplacePolicy.Terrain, tree.Generation.ReplacePolicy);
+                Assert.Equal(StructureFluidPolicy.Forbid, tree.Generation.FluidPolicy);
+                Assert.Contains(tree.Voxels, voxel =>
+                    blocks.TryGetId(voxel.Block, out var blockId) &&
+                    blocks.GetDefinition(blockId).Category == "foliage");
+            });
+        }
+    }
+
+    [Fact]
     public void OakGroupAuthorsGroundAndGenerationPolicies()
     {
         var structures =
