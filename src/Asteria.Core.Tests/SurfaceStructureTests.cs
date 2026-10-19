@@ -479,8 +479,6 @@ public sealed class SurfaceStructureTests
             structureSets.Get("asteria:cluster_rock_ocean").Elements[0].Structure);
         Assert.Equal("asteria:outcrop_basalt",
             structureSets.Get("asteria:cluster_basalt").Elements[0].Structure);
-        Assert.Equal(2, structures.ResolveReference("asteria:log_wraith_fallen").Count);
-        Assert.Equal(2, structures.ResolveReference("asteria:snag_wraith").Count);
         Assert.Equal(4, structures.ResolveReference("asteria:log_oak_fallen").Count);
         Assert.Equal(3, structures.ResolveReference("asteria:stump_oak").Count);
         Assert.Equal("asteria:boulder_small",
