@@ -164,7 +164,7 @@ public sealed class SurfaceMaterialBandDiagnosticsTests
         Assert.True(
             samples.Select(sample => sample.SurfaceY).Distinct().Count() >= 4,
             "The diagnostic terrain must expose enough height variation to inspect banding.");
-        Assert.DoesNotContain('?', report.ToString());
+        Assert.DoesNotContain("?", report.ToString());
     }
 
     private static FluidRegistry CreateFluids() =>
