@@ -13,7 +13,7 @@ test("HUD previews the active attached layer rather than the underlying cube", a
   await expect(target.locator(".target-hud__slot .item-glyph--recipe")).toHaveCount(1);
   await expect(target.locator(".target-hud__slot img.item-glyph")).toBeVisible();
   await expect(target.locator(".target-hud__slot .item-glyph--cube")).toHaveCount(0);
-  await expect(target.locator(".target-hud__layers")).toContainText(/moss/i);
+  await expect(target.locator(".target-hud__layers")).toHaveCount(0);
 });
 
 test("HUD still renders a block preview if layer icon is unavailable", async ({ page }) => {
@@ -23,6 +23,7 @@ test("HUD still renders a block preview if layer icon is unavailable", async ({ 
   await expect(target.locator(".target-hud__slot .item-glyph--cube")).toHaveCount(1);
   await expect(target.locator(".target-hud__slot img.item-glyph")).toHaveCount(0);
   await expect(target.locator(".target-hud__copy strong")).toContainText(/unknown layer/i);
+  await expect(target.locator(".target-hud__layers")).toHaveCount(0);
 });
 
 test("localized inventory search visibly dims and disables only nonmatching slots", async ({ page }) => {
