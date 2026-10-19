@@ -172,7 +172,7 @@
       {
         "block": "asteria:snow",
         "depth": 2,
-        "boundaryNoise": 1,
+        "boundaryNoise": 6,
         "patch": {
           "scale": 36,
           "coverage": 0.31,
