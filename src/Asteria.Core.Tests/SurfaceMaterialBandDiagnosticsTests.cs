@@ -23,11 +23,11 @@ public sealed class SurfaceMaterialBandDiagnosticsTests
                 regionMin: 256,
                 regionMax: 512),
             new BiomeTerrainDefinition(
-                offset: 0f,
+                baseHeightOffset: 0f,
                 macroAmplitude: 12f,
-                macroScale: 28f,
+                macroScale: 28u,
                 detailAmplitude: 5f,
-                detailScale: 8f),
+                detailScale: 8u),
             [
                 new BiomeSurfaceLayerDefinition("asteria:stone"),
             ]);
