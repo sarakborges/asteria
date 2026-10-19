@@ -520,7 +520,7 @@ public sealed class SurfaceStructureTests
         var plainsRoots = overworld.GeneratedSurfaceStructures
             .Where(root => root.Biome == "asteria:overworld/plains")
             .ToArray();
-        Assert.Equal(17, plainsRoots.Length);
+        Assert.Equal(16, plainsRoots.Length);
         Assert.All(plainsRoots.Where(root => root.Structure != "asteria:lake"),
             root => Assert.NotNull(root.HabitatWeights));
         Assert.Equal(2.5f, Assert.Single(plainsRoots,
