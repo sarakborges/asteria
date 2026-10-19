@@ -28,6 +28,13 @@
   font-size: var(--ui-font-size-detail);
 }
 
+.target-hud__identity {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  white-space: nowrap;
+}
+
 .target-hud__copy strong {
   font-weight: 500;
 }
