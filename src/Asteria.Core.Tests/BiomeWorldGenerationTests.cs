@@ -1176,7 +1176,7 @@ public sealed class BiomeWorldGenerationTests
         }
 
         var fixedColumn = materials.SampleColumn(sample, 0, 0);
-        for (var worldY = -128; worldY <= 128; worldY += 2)
+        for (var worldY = 0; worldY <= 256; worldY += 2)
             verticalBoundaryMaterials.Add(fixedColumn.BlockAt(1, worldY));
 
         Assert.Contains(grass, grassBoundaryMaterials);
