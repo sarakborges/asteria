@@ -177,6 +177,7 @@ public sealed class BiomeSurfaceMaterialField
         // patch variation from the exposed top/floor profile.
         if (!rules.Exterior ||
             ReferenceEquals(wallRule, rules.Floor) ||
+            !wallRule.HasUniformMaterial ||
             wallRule.HasPatches ||
             !rules.Floor.HasPatches)
             return wallBlock;
@@ -336,6 +337,7 @@ public sealed class BiomeSurfaceMaterialField
             UsesBaseSurface = usesBaseSurface;
             HasConditions = layers.Any(layer => layer.HasConditions);
             HasPatches = layers.Any(layer => layer.HasPatch);
+            HasUniformMaterial = layers.All(layer => layer.Block == layers[0].Block);
             RequiresSlope = layers.Any(layer => layer.RequiresSlope);
             CoreBlock = layers[^1].Block;
             var nominalCoreDepth = layers.Length > 1
@@ -352,6 +354,8 @@ public sealed class BiomeSurfaceMaterialField
         public bool HasConditions { get; }
 
         public bool HasPatches { get; }
+
+        public bool HasUniformMaterial { get; }
 
         public bool RequiresSlope { get; }
 
