@@ -58,10 +58,14 @@
       "asteria:clay": 3,
       "asteria:cobble_stone": 1
     },
-    "surfaceCoverDepth": 0
+    "surfaceCoverDepth": 1
   },
   "palette": {
     "default": [
+      {
+        "block": "asteria:sand",
+        "depth": 1
+      },
       {
         "block": "asteria:stone"
       }
