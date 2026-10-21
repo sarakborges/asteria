@@ -139,6 +139,10 @@ public sealed class BiomeSurfaceMaterialField
         if (!_faceRules.TryGetValue(sample.Primary, out var rules))
             throw new KeyNotFoundException(
                 $"Biome {sample.Primary} has no material palette.");
+        if (!rules.HasOverride(face) &&
+            _geologyRules.TryGetValue(sample.Primary, out var geology))
+            return geology.BlockAt(_seed, worldX, worldY, worldZ);
+
         var rule = rules.For(face);
         SurfacePlacementContext? placement = null;
         if (rule.HasConditions)
