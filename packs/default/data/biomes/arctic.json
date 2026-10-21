@@ -156,31 +156,14 @@
       "asteria:ice": 4,
       "asteria:gravel": 2,
       "asteria:dirt": 1
-    }
+    },
+    "surfaceCoverDepth": 4
   },
   "palette": {
     "default": [
       {
         "block": "asteria:snow",
-        "depth": 4,
-        "patch": {
-          "scale": 34,
-          "coverage": 0.14,
-          "roughness": 0.32,
-          "blocks": [
-            "asteria:ice",
-            "asteria:gravel"
-          ],
-          "detailScale": 10,
-          "selectionScale": 80,
-          "warpScale": 76,
-          "warpStrength": 11,
-          "stretchZ": 1.45,
-          "weights": {
-            "asteria:ice": 4,
-            "asteria:gravel": 1
-          }
-        }
+        "depth": 2
       },
       {
         "block": "asteria:dirt",
