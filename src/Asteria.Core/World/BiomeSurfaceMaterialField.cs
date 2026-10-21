@@ -387,21 +387,23 @@ public sealed class BiomeSurfaceMaterialField
 
     private sealed class MaterialRule
     {
-        // Two world-space fields deform each inherited stratum boundary:
-        // broad relief supplies the overall form; weaker detail breaks long seams.
         private const uint BoundaryNoiseScale = 48;
         private const uint ExteriorWallBoundaryDetailScale = 17;
         private const int MaximumExteriorBoundaryDisplacement = 12;
+        private const uint ExteriorWallHorizontalScale = 36;
+        private const uint ExteriorWallVerticalScale = 30;
 
         private MaterialRule(
             ResolvedLayer[] layers,
             GenerationDomain[] boundaryDomains,
             GenerationDomain[] exteriorWallBoundaryDetailDomains,
+            GenerationDomain exteriorWallMaterialDomain,
             bool usesBaseSurface)
         {
             Layers = layers;
             BoundaryDomains = boundaryDomains;
             ExteriorWallBoundaryDetailDomains = exteriorWallBoundaryDetailDomains;
+            ExteriorWallMaterialDomain = exteriorWallMaterialDomain;
             UsesBaseSurface = usesBaseSurface;
             HasConditions = layers.Any(layer => layer.HasConditions);
             HasPatches = layers.Any(layer => layer.HasPatch);
@@ -419,6 +421,7 @@ public sealed class BiomeSurfaceMaterialField
         private ResolvedLayer[] Layers { get; }
         private GenerationDomain[] BoundaryDomains { get; }
         private GenerationDomain[] ExteriorWallBoundaryDetailDomains { get; }
+        private GenerationDomain ExteriorWallMaterialDomain { get; }
 
         public bool HasConditions { get; }
 
@@ -455,21 +458,50 @@ public sealed class BiomeSurfaceMaterialField
             ulong seed, int worldX, int worldY, int worldZ,
             uint depth, uint[] endDepths)
         {
+            // Exterior material is selected in world-space 3D, not from
+            // surface-relative depth. This prevents the selector itself from
+            // creating parallel strata on cliffs and underwater walls.
+            var value = (WorldGenerationEntropy.ValueNoise3D(
+                seed, ExteriorWallMaterialDomain,
+                worldX, worldY, worldZ,
+                ExteriorWallHorizontalScale, ExteriorWallVerticalScale) + 1d) * 0.5d;
+
+            var totalWeight = 0d;
             for (var index = 0; index < Layers.Length; index++)
+                totalWeight += ExteriorWallMaterialWeight(index);
+
+            var target = value * totalWeight;
+            for (var index = 0; index < Layers.Length - 1; index++)
             {
-                if (depth < endDepths[index])
-                {
-                    // Surface placement conditions describe top-face placement.
-                    // On walls, resolve the selected layer's patch in 3D space.
+                target -= ExteriorWallMaterialWeight(index);
+                if (target < 0d)
                     return Layers[index].ResolveVolume(
                         seed, worldX, worldY, worldZ,
                         placement: null, ignorePlacementConditions: true);
-                }
             }
 
             return Layers[^1].ResolveVolume(
                 seed, worldX, worldY, worldZ,
                 placement: null, ignorePlacementConditions: true);
+        }
+
+        private double ExteriorWallMaterialWeight(int index)
+        {
+            if (Layers[index].EndDepthExclusive is not { } endDepth)
+            {
+                if (index == 0)
+                    return 1d;
+                var previous = Layers[index - 1].EndDepthExclusive.GetValueOrDefault();
+                var beforePrevious = index > 1
+                    ? Layers[index - 2].EndDepthExclusive.GetValueOrDefault()
+                    : 0u;
+                return Math.Max(1u, previous - beforePrevious);
+            }
+
+            var previousEnd = index == 0
+                ? 0u
+                : Layers[index - 1].EndDepthExclusive.GetValueOrDefault();
+            return Math.Max(1u, endDepth - previousEnd);
         }
 
         private uint AdjustedExteriorWallEndDepth(
@@ -719,6 +751,7 @@ public sealed class BiomeSurfaceMaterialField
                 layers,
                 boundaryDomains,
                 exteriorWallBoundaryDetailDomains,
+                GenerationDomain.Named($"material/exterior-wall-organic/v1/{profileName}"),
                 biome.SurfaceLayout is not null);
         }
     }
