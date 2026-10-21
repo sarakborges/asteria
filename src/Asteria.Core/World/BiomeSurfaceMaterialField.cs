@@ -146,7 +146,7 @@ public sealed class BiomeSurfaceMaterialField
 
     /// <summary>
     /// True when exterior walls need an authored layer or patch palette.
-    /// Inherited multi-layer profiles use terrain-relative, irregular strata.
+    /// Inherited multi-layer profiles use deterministic 3D material regions.
     /// </summary>
     public bool HasExteriorWallMaterial(BiomeSample sample) =>
         _faceRules.TryGetValue(sample.Primary, out var rules) &&
@@ -155,9 +155,8 @@ public sealed class BiomeSurfaceMaterialField
          rules.Walls.HasPatches || rules.Floor.HasPatches);
 
     /// <summary>
-    /// Precomputes the irregular boundaries of an inherited surface palette for
-    /// one world-space column. Each voxel then resolves only its selected layer's
-    /// 3D patch instead of resampling every boundary at every Y coordinate.
+    /// Creates a world-space sampler for an inherited wall palette. Material
+    /// regions are continuous across chunk and column boundaries.
     /// </summary>
     public ExteriorWallMaterialColumn SampleExteriorWallColumn(
         BiomeSample sample, int worldX, int worldZ)
@@ -177,7 +176,7 @@ public sealed class BiomeSurfaceMaterialField
     /// <summary>
     /// Resolves an exposed wall voxel. Explicit directional wall profiles remain
     /// authoritative and measure depth inward from the face. Inherited palettes
-    /// follow irregular strata below the local terrain surface.
+    /// use warped, categorical 3D regions instead of surface-relative layers.
     /// </summary>
     public BlockRuntimeId ExteriorWallBlockAt(
         BiomeSample sample,
@@ -380,18 +379,25 @@ public sealed class BiomeSurfaceMaterialField
         private const int MaximumExteriorBoundaryDisplacement = 12;
         private const uint ExteriorWallHorizontalScale = 36;
         private const uint ExteriorWallVerticalScale = 30;
+        private const uint ExteriorWallWarpHorizontalScale = 108;
+        private const uint ExteriorWallWarpVerticalScale = 84;
+        private const double ExteriorWallWarpAmplitude = 10d;
 
         private MaterialRule(
             ResolvedLayer[] layers,
             GenerationDomain[] boundaryDomains,
             GenerationDomain[] exteriorWallBoundaryDetailDomains,
             GenerationDomain exteriorWallMaterialDomain,
+            GenerationDomain exteriorWallWarpXDomain,
+            GenerationDomain exteriorWallWarpZDomain,
             bool usesBaseSurface)
         {
             Layers = layers;
             BoundaryDomains = boundaryDomains;
             ExteriorWallBoundaryDetailDomains = exteriorWallBoundaryDetailDomains;
             ExteriorWallMaterialDomain = exteriorWallMaterialDomain;
+            ExteriorWallWarpXDomain = exteriorWallWarpXDomain;
+            ExteriorWallWarpZDomain = exteriorWallWarpZDomain;
             UsesBaseSurface = usesBaseSurface;
             HasConditions = layers.Any(layer => layer.HasConditions);
             HasPatches = layers.Any(layer => layer.HasPatch);
@@ -410,6 +416,8 @@ public sealed class BiomeSurfaceMaterialField
         private GenerationDomain[] BoundaryDomains { get; }
         private GenerationDomain[] ExteriorWallBoundaryDetailDomains { get; }
         private GenerationDomain ExteriorWallMaterialDomain { get; }
+        private GenerationDomain ExteriorWallWarpXDomain { get; }
+        private GenerationDomain ExteriorWallWarpZDomain { get; }
 
         public bool HasConditions { get; }
 
@@ -449,12 +457,23 @@ public sealed class BiomeSurfaceMaterialField
             // Instead, assign materials to jittered 3D feature points and use
             // the nearest point's material. This produces connected regions
             // with irregular boundaries instead of parallel strata.
-            var sampleX = worldX / (double)ExteriorWallHorizontalScale;
+            // Warp the sampling coordinates at a much broader scale than the
+            // material regions. This bends cell boundaries without introducing
+            // a second scalar threshold field that could recreate broad bands.
+            var warpX = WorldGenerationEntropy.ValueNoise3D(
+                seed, ExteriorWallWarpXDomain, worldX, worldY, worldZ,
+                ExteriorWallWarpHorizontalScale, ExteriorWallWarpVerticalScale);
+            var warpZ = WorldGenerationEntropy.ValueNoise3D(
+                seed, ExteriorWallWarpZDomain, worldX, worldY, worldZ,
+                ExteriorWallWarpHorizontalScale, ExteriorWallWarpVerticalScale);
+            var warpedX = worldX + warpX * ExteriorWallWarpAmplitude;
+            var warpedZ = worldZ + warpZ * ExteriorWallWarpAmplitude;
+            var sampleX = warpedX / ExteriorWallHorizontalScale;
             var sampleY = worldY / (double)ExteriorWallVerticalScale;
-            var sampleZ = worldZ / (double)ExteriorWallHorizontalScale;
-            var cellX = FloorCell(worldX, ExteriorWallHorizontalScale);
+            var sampleZ = warpedZ / ExteriorWallHorizontalScale;
+            var cellX = FloorCell(warpedX, ExteriorWallHorizontalScale);
             var cellY = FloorCell(worldY, ExteriorWallVerticalScale);
-            var cellZ = FloorCell(worldZ, ExteriorWallHorizontalScale);
+            var cellZ = FloorCell(warpedZ, ExteriorWallHorizontalScale);
 
             var nearestDistance = double.PositiveInfinity;
             var nearestHash = 0UL;
@@ -509,11 +528,8 @@ public sealed class BiomeSurfaceMaterialField
         private static double FeatureOffset(ulong hash, int shift) =>
             0.12d + (((hash >> shift) & 0xFFFFUL) / 65535d * 0.76d);
 
-        private static int FloorCell(int coordinate, int cellSize)
-        {
-            var quotient = Math.DivRem(coordinate, cellSize, out var remainder);
-            return remainder < 0 ? quotient - 1 : quotient;
-        }
+        private static int FloorCell(double coordinate, int cellSize) =>
+            checked((int)Math.Floor(coordinate / cellSize));
 
         private double ExteriorWallMaterialWeight(int index)
         {
@@ -781,7 +797,9 @@ public sealed class BiomeSurfaceMaterialField
                 layers,
                 boundaryDomains,
                 exteriorWallBoundaryDetailDomains,
-                GenerationDomain.Named($"material/exterior-wall-organic/v1/{profileName}"),
+                GenerationDomain.Named($"material/exterior-wall-organic/v2/{profileName}"),
+                GenerationDomain.Named($"material/exterior-wall-warp-x/v1/{profileName}"),
+                GenerationDomain.Named($"material/exterior-wall-warp-z/v1/{profileName}"),
                 biome.SurfaceLayout is not null);
         }
     }
