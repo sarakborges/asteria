@@ -220,12 +220,12 @@ public sealed class MountainBiomeContentTests
     {
         var (materials, sample, stone, gravel) = CreateVolumePatchMaterials(823UL);
         var gravelCountsByY = new List<int>();
-        var sampleCount = 0;
+        const int sampleCount = 24 * 24;
         var slices = new Dictionary<int, bool[]>
         {
-            [88] = [],
-            [89] = [],
-            [100] = [],
+            [88] = new bool[sampleCount],
+            [89] = new bool[sampleCount],
+            [100] = new bool[sampleCount],
         };
         for (var y = 88; y < 136; y++)
         {
@@ -245,7 +245,7 @@ public sealed class MountainBiomeContentTests
                 sampleIndex++;
             }
 
-            sampleCount = sampleIndex;
+            Assert.Equal(sampleCount, sampleIndex);
             Assert.True(gravelCount > 0 && stoneCount > 0,
                 $"Expected mixed 3D patch coverage at y={y}; gravel={gravelCount}, stone={stoneCount}.");
             gravelCountsByY.Add(gravelCount);
