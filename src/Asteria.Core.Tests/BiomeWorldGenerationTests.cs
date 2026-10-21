@@ -608,34 +608,33 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
-    public void PlainsSurfaceHasDeterministicDirtAndGravelPatches()
+    public void PlainsKeepsShallowGrassCoverAndUsesThreeDimensionalGeology()
     {
         var blocks = LoadDefaultBlocks();
-        var biomes = LoadDefaultBiomes();
-        var plains = biomes.Get("asteria:overworld/plains");
-        var patch = Assert.IsType<BiomeSurfacePatchDefinition>(
-            plains.SurfaceLayers[0].Patch);
-        Assert.Equal(new[] { "asteria:dirt", "asteria:gravel" },
-            patch.Blocks);
+        var plains = LoadDefaultBiomes().Get("asteria:overworld/plains");
+        Assert.Null(plains.SurfaceLayers[0].Patch);
+        Assert.Equal(5u, Assert.IsType<BiomeGeologyDefinition>(plains.Geology).SurfaceCoverDepth);
+
         var first = new BiomeSurfaceMaterialField(112233, [plains], blocks);
         var second = new BiomeSurfaceMaterialField(112233, [plains], blocks);
         var sample = new BiomeSample(plains.Id,
             [new BiomeInfluence(plains.Id, 1f)]);
-        var materials = new HashSet<BlockRuntimeId>();
+        var grass = blocks.GetId("asteria:block_grass");
+        var seen = new HashSet<BlockRuntimeId>();
 
-        for (var z = -96; z <= 96; z += 2)
+        for (var z = -384; z <= 384; z += 8)
+        for (var x = -384; x <= 384; x += 8)
         {
-            for (var x = -96; x <= 96; x += 2)
-            {
-                var at = first.BlockAt(sample, x, z, 0);
-                Assert.Equal(at, second.BlockAt(sample, x, z, 0));
-                materials.Add(at);
-            }
+            Assert.Equal(grass, first.BlockAt(sample, x, z, 0));
+            Assert.True(first.TryGeologyBlockAt(sample, x, 30, z, out var block));
+            Assert.True(second.TryGeologyBlockAt(sample, x, 30, z, out var repeated));
+            Assert.Equal(block, repeated);
+            seen.Add(block);
         }
 
-        Assert.Contains(blocks.GetId("asteria:block_grass"), materials);
-        Assert.Contains(blocks.GetId("asteria:dirt"), materials);
-        Assert.Contains(blocks.GetId("asteria:gravel"), materials);
+        Assert.Contains(blocks.GetId("asteria:stone"), seen);
+        Assert.Contains(blocks.GetId("asteria:dirt"), seen);
+        Assert.Contains(blocks.GetId("asteria:gravel"), seen);
         Assert.All(plains.Decorations.Where(decoration =>
             decoration.Block is "asteria:pebble" or "asteria:stick"),
             decoration => Assert.Contains("asteria:gravel", decoration.SurfaceBlocks));
