@@ -8,35 +8,34 @@ public sealed class OceanSeabedMaterialTests
         Path.Combine(AppContext.BaseDirectory, "packs", "default", "data");
 
     [Fact]
-    public void OceanSeabedPatchHasOrganicVariationInBothHorizontalDirections()
+    public void OceanSeabedUsesOrganicThreeDimensionalGeologyWithoutHorizontalBands()
     {
         var biome = BiomeDefinitionJson.Parse(File.ReadAllText(
             Path.Combine(PackData, "biomes", "ocean.json")));
-        var patch = Assert.IsType<BiomeSurfacePatchDefinition>(
-            biome.SurfaceLayers[0].Patch);
+        var geology = Assert.IsType<BiomeGeologyDefinition>(biome.Geology);
 
-        // Anisotropic stretching turned the seabed patch into long, stripe-like
-        // regions. Keep the authored noise isotropic while retaining domain warp.
-        Assert.Equal(1d, patch.StretchZ);
-        Assert.True(patch.WarpStrength > 0d);
+        Assert.Equal(1u, geology.SurfaceCoverDepth);
+        Assert.Equal("asteria:sand", biome.SurfaceLayers[0].Block);
+        Assert.Equal(1u, biome.SurfaceLayers[0].Depth);
+        Assert.Null(biome.SurfaceLayers[0].Patch);
+        Assert.Equal(1d, geology.VerticalScale / (double)geology.Scale, 1);
 
         var blocks = BlockRegistry.FromJson(
             Directory.EnumerateFiles(Path.Combine(PackData, "blocks"), "*.json")
                 .OrderBy(path => path, StringComparer.Ordinal)
                 .Select(File.ReadAllText));
-        // Reproduce the reported world seed and center the sample grid on the reported seabed coordinate.
-        var materials = new BiomeSurfaceMaterialField(7808508665006554090UL, [biome], blocks);
+        var materials = new BiomeSurfaceMaterialField(
+            7808508665006554090UL, [biome], blocks);
         var sample = new BiomeSample(
             biome.Id, [new BiomeInfluence(biome.Id, 1f)]);
-        var placement = new SurfacePlacementContext(82, 0);
         const int sampleCount = 97;
         var grid = new BlockRuntimeId[sampleCount, sampleCount];
         var seen = new HashSet<BlockRuntimeId>();
         for (var z = 0; z < sampleCount; z++)
         for (var x = 0; x < sampleCount; x++)
         {
-            var block = materials.BlockAt(
-                sample, 355 + (x - 48) * 4, -230 + (z - 48) * 4, 0, placement);
+            Assert.True(materials.TryGeologyBlockAt(
+                sample, 355 + (x - 48) * 4, 82, -230 + (z - 48) * 4, out var block));
             grid[x, z] = block;
             seen.Add(block);
         }
@@ -53,12 +52,22 @@ public sealed class OceanSeabedMaterialTests
                 zTransitions++;
 
         Assert.True(seen.Count >= 3,
-            "The ocean floor should mix sand with multiple patch materials.");
+            "The ocean floor should contain the host rock and multiple geological deposits.");
         Assert.True(xTransitions > 0 && zTransitions > 0,
-            "The ocean floor patch must vary along both horizontal axes.");
+            "The volumetric geology should vary along both horizontal axes.");
         var larger = Math.Max(xTransitions, zTransitions);
         var smaller = Math.Min(xTransitions, zTransitions);
-        Assert.True(smaller >= larger * 0.55,
-            $"Seabed patch variation is strongly directional: X={xTransitions}, Z={zTransitions}.");
+        Assert.True(smaller >= larger * 0.45,
+            $"Geology variation is strongly directional: X={xTransitions}, Z={zTransitions}.");
+
+        var vertical = new HashSet<BlockRuntimeId>();
+        for (var y = 8; y <= 168; y += 4)
+        {
+            Assert.True(materials.TryGeologyBlockAt(sample, 355, y, -230, out var block));
+            vertical.Add(block);
+        }
+        Assert.True(vertical.Count > 1,
+            "The material distribution must change within a vertical world-space column.");
     }
+
 }
