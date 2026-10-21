@@ -1047,6 +1047,17 @@ public sealed class SurfaceChunkMaterializer
             if (!hasSurfaceWallInChunk && !hasVolumeWall && !hasCeilingOverride)
                 continue;
 
+            BiomeSurfaceMaterialField.ExteriorWallMaterialColumn? inheritedSurfaceWallColumn = null;
+            if (hasSurfaceWallInChunk &&
+                _materials.HasExteriorWallMaterial(surfaceBiome) &&
+                !_materials.HasDirectionalOverride(
+                    surfaceBiome, BiomePaletteFace.Walls))
+            {
+                inheritedSurfaceWallColumn =
+                    _materials.SampleExteriorWallColumn(
+                        surfaceBiome, worldX, worldZ);
+            }
+
             var firstY = 0;
             var endY = Chunk.Size;
             // Surface terrain walls occupy only the vertical interval between
@@ -1150,8 +1161,13 @@ public sealed class SurfaceChunkMaterializer
                         continue;
 
                     var block = exposed == BiomePaletteFace.Walls
-                        ? _materials.ExteriorWallBlockAt(
-                            biome, worldX, worldY, worldZ, (uint)depth)
+                        ? (worldY <= baseY &&
+                           inheritedSurfaceWallColumn is not null &&
+                           biome.Primary == surfaceBiome.Primary
+                            ? inheritedSurfaceWallColumn.BlockAt(worldY, baseY)
+                            : _materials.ExteriorWallBlockAt(
+                                biome, worldX, worldY, worldZ,
+                                surfaceY, (uint)depth))
                         : _materials.VolumeBlockAt(
                             biome, worldX, worldY, worldZ, exposed, (uint)depth);
                     chunk.SetBlock(x, y, z, block);
