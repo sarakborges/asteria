@@ -82,8 +82,7 @@ public sealed class SparseOverworldBiomeContentTests
         var biome = LoadBiome("ocean");
         var patch = Assert.IsType<BiomeSurfacePatchDefinition>(
             biome.Palette.Default[0].Patch);
-        Assert.Equal(86, Assert.IsType<SurfacePlacementConditions>(
-            patch.Conditions).MaxY);
+        Assert.Null(patch.Conditions);
         var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
         var field = new BiomeSurfaceMaterialField(377UL, [biome], blocks);
         var sample = new BiomeSample(biome.Id,
