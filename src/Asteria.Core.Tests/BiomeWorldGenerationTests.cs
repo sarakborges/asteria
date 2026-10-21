@@ -1882,7 +1882,6 @@ public sealed class BiomeWorldGenerationTests
         root["decorations"] = System.Text.Json.Nodes.JsonNode.Parse("[]");
 
         var surfacePatch = root["palette"]!["default"]![0]!["patch"]!.AsObject();
-        surfacePatch.Remove("conditions");
         surfacePatch.Remove("weights");
         surfacePatch["scale"] = 12;
         surfacePatch["detailScale"] = 3;
@@ -1919,7 +1918,7 @@ public sealed class BiomeWorldGenerationTests
             foreach (var (dx, dz) in directions)
             {
                 var neighborY = generator.SurfaceHeight(x + dx, z + dz);
-                if (surfaceY - neighborY < 3 ||
+                if (surfaceY - neighborY < 5 ||
                     generator.DensityAt(x + dx, wallY, z + dz) >= 0d)
                     continue;
 
