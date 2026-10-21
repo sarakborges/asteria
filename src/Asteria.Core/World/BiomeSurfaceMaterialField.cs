@@ -384,7 +384,7 @@ public sealed class BiomeSurfaceMaterialField
         private ResolvedLayer[] Layers { get; }
         private GenerationDomain[] BoundaryDomains { get; }
         private GenerationDomain ExteriorWallDomain { get; }
-        private double[] ExteriorWallCumulativeWeights { get; private set; } = [];
+        private double[] ExteriorWallCumulativeWeights { get; } = [];
         private double ExteriorWallTotalWeight { get; }
 
         public bool HasConditions { get; }
