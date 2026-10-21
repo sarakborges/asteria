@@ -1766,6 +1766,64 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
+    public void MaterializedTerrainKeepsFiniteSurfaceCoverBeforeApplyingThreeDimensionalGeology()
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition("asteria:grass"),
+            new BlockDefinition("asteria:dirt"),
+            new BlockDefinition("asteria:stone"),
+            new BlockDefinition("asteria:gravel"),
+            new BlockDefinition("asteria:clay"),
+        ]);
+        var geology = new BiomeGeologyDefinition(
+            "asteria:stone",
+            ["asteria:gravel", "asteria:clay"],
+            scale: 64,
+            verticalScale: 42,
+            detailScale: 16,
+            selectionScale: 128,
+            coverage: 0.6f,
+            roughness: 0.3f);
+        var biome = new BiomeDefinition(
+            "asteria:test/plain",
+            new BiomeSurfaceLayoutDefinition(regionMin: 128, regionMax: 128),
+            new BiomeTerrainDefinition(
+                baseHeightOffset: 10f,
+                macroAmplitude: 0f,
+                macroScale: 128,
+                detailAmplitude: 0f,
+                detailScale: 32),
+            [
+                new BiomeSurfaceLayerDefinition("asteria:grass", depth: 1),
+                new BiomeSurfaceLayerDefinition("asteria:dirt", depth: 4),
+                new BiomeSurfaceLayerDefinition("asteria:stone"),
+            ],
+            geology: geology);
+        var generator = new BiomeWorldGenerator(
+            2468UL,
+            TestDimension([biome.Id]),
+            blocks,
+            new BiomeRegistry([biome]));
+
+        var chunk = generator.Materialize(new ChunkCoord(0, 0, 0));
+        var grass = blocks.GetId("asteria:grass");
+        var dirt = blocks.GetId("asteria:dirt");
+        var allowedGeology = new HashSet<BlockRuntimeId>
+        {
+            blocks.GetId("asteria:stone"),
+            blocks.GetId("asteria:gravel"),
+            blocks.GetId("asteria:clay"),
+        };
+
+        Assert.Equal(grass, chunk.GetBlock(2, 10, 2));
+        Assert.Equal(dirt, chunk.GetBlock(2, 9, 2));
+        Assert.Equal(dirt, chunk.GetBlock(2, 6, 2));
+        Assert.Contains(chunk.GetBlock(2, 5, 2), allowedGeology);
+        Assert.Contains(chunk.GetBlock(2, 3, 2), allowedGeology);
+    }
+
+    [Fact]
     public void DecorationUsesAuthoredSurfaceAndIsChunkDeterministic()
     {
         var blocks =
