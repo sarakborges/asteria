@@ -38,7 +38,28 @@ public static class BiomeDefinitionJson
             SurfaceHabitatDefinitionJson.Parse(root),
             ParseCaveSpikes(root),
             ParsePalette(root),
-            ParseVolumeStructures(root));
+            ParseVolumeStructures(root),
+            ParseGeology(root));
+    }
+
+    private static BiomeGeologyDefinition? ParseGeology(JsonElement root)
+    {
+        if (!root.TryGetProperty("geology", out var value) ||
+            value.ValueKind == JsonValueKind.Null)
+            return null;
+
+        value = EnsureObject(value, "geology");
+        var scale = RequiredUInt32(value, "scale");
+        return new BiomeGeologyDefinition(
+            RequiredString(value, "baseBlock"),
+            RequiredStringArray(value, "blocks"),
+            scale,
+            RequiredUInt32(value, "verticalScale"),
+            OptionalUInt32(value, "detailScale") ?? Math.Max(2u, scale / 4u),
+            OptionalUInt32(value, "selectionScale") ?? checked(scale * 2u),
+            RequiredSingle(value, "coverage"),
+            OptionalSingle(value, "roughness") ?? 0.25f,
+            ParsePatchWeights(value));
     }
 
     private static PlacementLayoutValues?
