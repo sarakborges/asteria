@@ -268,6 +268,42 @@ public sealed class MountainBiomeContentTests
     }
 
     [Fact]
+    public void OceanGeologyVariesInThreeDimensionsAndIsSeedDeterministic()
+    {
+        var biome = LoadBiome("ocean");
+        Assert.NotNull(biome.Geology);
+        var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
+        var first = new BiomeSurfaceMaterialField(7808508665006554090UL, [biome], blocks);
+        var second = new BiomeSurfaceMaterialField(7808508665006554090UL, [biome], blocks);
+        var sample = new BiomeSample(
+            biome.Id, [new BiomeInfluence(biome.Id, 1f)]);
+        var seenAtSameAltitude = new HashSet<BlockRuntimeId>();
+        var seenAlongVerticalColumn = new HashSet<BlockRuntimeId>();
+
+        for (var z = -96; z <= 96; z += 8)
+        for (var x = 256; x <= 448; x += 8)
+        {
+            Assert.True(first.TryGeologyBlockAt(sample, x, 82, z, out var block));
+            Assert.True(second.TryGeologyBlockAt(sample, x, 82, z, out var repeat));
+            Assert.Equal(block, repeat);
+            seenAtSameAltitude.Add(block);
+        }
+
+        for (var y = 8; y <= 168; y += 4)
+        {
+            Assert.True(first.TryGeologyBlockAt(sample, 355, y, -230, out var block));
+            seenAlongVerticalColumn.Add(block);
+        }
+
+        Assert.True(seenAtSameAltitude.Count >= 3,
+            "The seabed geology should form multiple materials at the same world altitude.");
+        Assert.True(seenAlongVerticalColumn.Count >= 2,
+            "The geological composition should vary through a vertical column without fixed altitude bands.");
+        Assert.Contains(blocks.GetId("asteria:stone"), seenAtSameAltitude);
+        Assert.Contains(blocks.GetId("asteria:gravel"), seenAtSameAltitude);
+    }
+
+    [Fact]
     public void TalusOutcropTemplatesUseStableStoneCobbleAndFullBiomeGroundFit()
     {
         var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
