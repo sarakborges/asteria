@@ -194,9 +194,8 @@ public sealed class BiomeSurfaceMaterialField
 
         if (!rules.OverrideWalls)
         {
-            return CreateExteriorWallMaterialColumn(
-                _seed, worldX, worldZ, rules.Floor)
-                .BlockAt(worldY, surfaceTopY);
+            return rules.Floor.ExteriorWallBlockAtWorldPosition(
+                _seed, worldX, worldY, worldZ);
         }
 
         var wallRule = rules.Walls;
@@ -219,33 +218,22 @@ public sealed class BiomeSurfaceMaterialField
     private ExteriorWallMaterialColumn CreateExteriorWallMaterialColumn(
         ulong seed, int worldX, int worldZ, MaterialRule rule)
     {
-        // Wall materials are selected per voxel from a 3D field; there are
-        // no per-column depth boundaries to calculate.
+        // Inherited wall palettes use deterministic 3D material regions.
         return new ExteriorWallMaterialColumn(
-            [],
-            (worldY, boundaries, depth) => rule.ExteriorWallBlockAtDepth(
-                seed, worldX, worldY, worldZ, depth, boundaries));
+            worldY => rule.ExteriorWallBlockAtWorldPosition(
+                seed, worldX, worldY, worldZ));
     }
 
     public sealed class ExteriorWallMaterialColumn
     {
-        private readonly uint[] _endDepths;
-        private readonly Func<int, uint[], uint, BlockRuntimeId> _resolve;
+        private readonly Func<int, BlockRuntimeId> _resolve;
 
         internal ExteriorWallMaterialColumn(
-            uint[] endDepths,
-            Func<int, uint[], uint, BlockRuntimeId> resolve)
-        {
-            _endDepths = endDepths;
+            Func<int, BlockRuntimeId> resolve) =>
             _resolve = resolve;
-        }
 
-        public BlockRuntimeId BlockAt(int worldY, int surfaceTopY)
-        {
-            var depth = checked((uint)Math.Max(
-                0L, (long)surfaceTopY - worldY));
-            return _resolve(worldY, _endDepths, depth);
-        }
+        public BlockRuntimeId BlockAt(int worldY, int surfaceTopY) =>
+            _resolve(worldY);
     }
 
     public BiomeSurfaceMaterialColumn SampleColumn(
@@ -454,35 +442,77 @@ public sealed class BiomeSurfaceMaterialField
             return endDepths;
         }
 
-        public BlockRuntimeId ExteriorWallBlockAtDepth(
-            ulong seed, int worldX, int worldY, int worldZ,
-            uint depth, uint[] endDepths)
+        public BlockRuntimeId ExteriorWallBlockAtWorldPosition(
+            ulong seed, int worldX, int worldY, int worldZ)
         {
-            // Exterior material is selected in world-space 3D, not from
-            // surface-relative depth. This prevents the selector itself from
-            // creating parallel strata on cliffs and underwater walls.
-            var value = (WorldGenerationEntropy.ValueNoise3D(
-                seed, ExteriorWallMaterialDomain,
-                worldX, worldY, worldZ,
-                ExteriorWallHorizontalScale, ExteriorWallVerticalScale) + 1d) * 0.5d;
+            // A scalar noise value partitions space into nested value bands.
+            // Instead, assign materials to jittered 3D feature points and use
+            // the nearest point's material. This produces connected regions
+            // with irregular boundaries instead of parallel strata.
+            var sampleX = worldX / (double)ExteriorWallHorizontalScale;
+            var sampleY = worldY / (double)ExteriorWallVerticalScale;
+            var sampleZ = worldZ / (double)ExteriorWallHorizontalScale;
+            var cellX = FloorCell(worldX, ExteriorWallHorizontalScale);
+            var cellY = FloorCell(worldY, ExteriorWallVerticalScale);
+            var cellZ = FloorCell(worldZ, ExteriorWallHorizontalScale);
 
+            var nearestDistance = double.PositiveInfinity;
+            var nearestHash = 0UL;
+            for (var dz = -1; dz <= 1; dz++)
+            for (var dy = -1; dy <= 1; dy++)
+            for (var dx = -1; dx <= 1; dx++)
+            {
+                var cx = cellX + dx;
+                var cy = cellY + dy;
+                var cz = cellZ + dz;
+                var hash = WorldGenerationEntropy.Sample3D(
+                    seed, ExteriorWallMaterialDomain, cx, cy, cz);
+
+                var featureX = cx + FeatureOffset(hash, 0);
+                var featureY = cy + FeatureOffset(hash, 16);
+                var featureZ = cz + FeatureOffset(hash, 32);
+                var deltaX = sampleX - featureX;
+                var deltaY = sampleY - featureY;
+                var deltaZ = sampleZ - featureZ;
+                var distance = deltaX * deltaX +
+                               deltaY * deltaY +
+                               deltaZ * deltaZ;
+                if (distance >= nearestDistance)
+                    continue;
+
+                nearestDistance = distance;
+                nearestHash = hash;
+            }
+
+            var materialChoice = ((nearestHash >> 48) & 0xFFFFUL) / 65535d;
             var totalWeight = 0d;
             for (var index = 0; index < Layers.Length; index++)
                 totalWeight += ExteriorWallMaterialWeight(index);
 
-            var target = value * totalWeight;
+            var target = materialChoice * totalWeight;
+            var selected = Layers.Length - 1;
             for (var index = 0; index < Layers.Length - 1; index++)
             {
                 target -= ExteriorWallMaterialWeight(index);
                 if (target < 0d)
-                    return Layers[index].ResolveVolume(
-                        seed, worldX, worldY, worldZ,
-                        placement: null, ignorePlacementConditions: true);
+                {
+                    selected = index;
+                    break;
+                }
             }
 
-            return Layers[^1].ResolveVolume(
+            return Layers[selected].ResolveVolume(
                 seed, worldX, worldY, worldZ,
                 placement: null, ignorePlacementConditions: true);
+        }
+
+        private static double FeatureOffset(ulong hash, int shift) =>
+            0.12d + (((hash >> shift) & 0xFFFFUL) / 65535d * 0.76d);
+
+        private static int FloorCell(int coordinate, int cellSize)
+        {
+            var quotient = Math.DivRem(coordinate, cellSize, out var remainder);
+            return remainder < 0 ? quotient - 1 : quotient;
         }
 
         private double ExteriorWallMaterialWeight(int index)
