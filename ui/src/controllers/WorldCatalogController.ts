@@ -41,7 +41,7 @@ export function createWorldCatalogController(
           loadError: false, deleteError: false,
         },
       }));
-      postMessage("ui.world.catalog.recreate", { id });
+      postMessage("ui.world.catalog.recreate_draft", { id });
     },
     deleteWorld(id: string) {
       const catalog = store.getSnapshot().worldCatalog;
