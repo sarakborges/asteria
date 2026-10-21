@@ -8,7 +8,7 @@ public sealed class VerticalBiomeContentTests
         AppContext.BaseDirectory, "packs", "default", "data");
 
     [Fact]
-    public void OceanExposesOrganicSeabedWithoutChangingItsUnderlyingLayers()
+    public void OceanSurfaceMaterialsIgnoreAbsoluteAltitudeAndKeepOrganicGeology()
     {
         var blocks = BlockRegistry.FromJson(ReadFiles("blocks"));
         var ocean = BiomeDefinitionJson.Parse(File.ReadAllText(
@@ -39,7 +39,7 @@ public sealed class VerticalBiomeContentTests
             var shore = new SurfacePlacementContext(90, 0);
             var material = a.BlockAt(sample, x, z, 0, deep);
             Assert.Equal(material, b.BlockAt(sample, x, z, 0, deep));
-            Assert.Equal(blocks.GetId("asteria:sand"),
+            Assert.Equal(material,
                 a.BlockAt(sample, x, z, 0, shore));
             Assert.Equal(blocks.GetId("asteria:gravel"),
                 a.BlockAt(sample, x, z, 4, deep));
