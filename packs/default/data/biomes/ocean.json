@@ -82,9 +82,6 @@
             "asteria:gravel": 2,
             "asteria:clay": 2,
             "asteria:cobble_stone": 2
-          },
-          "conditions": {
-            "maxY": 86
           }
         }
       },
