@@ -167,6 +167,25 @@
       }
     ]
   },
+  "geology": {
+    "baseBlock": "asteria:stone",
+    "blocks": [
+      "asteria:ice",
+      "asteria:gravel",
+      "asteria:cobble_stone"
+    ],
+    "scale": 82,
+    "verticalScale": 26,
+    "detailScale": 18,
+    "selectionScale": 164,
+    "coverage": 0.6,
+    "roughness": 0.32,
+    "weights": {
+      "asteria:ice": 2,
+      "asteria:gravel": 2,
+      "asteria:cobble_stone": 1
+    }
+  },
   "palette": {
     "default": [
       {
