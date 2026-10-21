@@ -28,18 +28,16 @@ public sealed class UmbralHabitatContentTests
     }
 
     [Theory]
-    [InlineData("umbral_reach", "asteria:block_grass", "asteria:dirt", "asteria:gravel", "asteria:stone")]
-    [InlineData("withered_waste", "asteria:dirt", "asteria:gravel", "asteria:stone", "asteria:stone")]
-    public void OrganicSurfacePatchesPreserveWorldSpaceDeterminismAndMaterialVariety(
-        string biomeName, string primary, string alternateA,
-        string alternateB, string alternateC)
+    [InlineData("umbral_reach", "asteria:block_grass", "asteria:dirt", "asteria:gravel")]
+    [InlineData("withered_waste", "asteria:dirt", "asteria:gravel", "asteria:cobble_stone")]
+    public void OrganicGeologyPreservesWorldSpaceDeterminismAndMaterialVariety(
+        string biomeName, string surfaceBlock, string alternateA, string alternateB)
     {
         var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
         var biome = LoadBiome(biomeName);
-        var patch = Assert.IsType<BiomeSurfacePatchDefinition>(
-            biome.SurfaceLayers[0].Patch);
-        Assert.True(patch.WarpStrength > 0d);
-        Assert.True(patch.DetailScale > 0d);
+        var geology = Assert.IsType<BiomeGeologyDefinition>(biome.Geology);
+        Assert.Null(biome.SurfaceLayers[0].Patch);
+        Assert.True(geology.SurfaceCoverDepth > 0);
 
         var a = new BiomeSurfaceMaterialField(771UL, [biome], blocks);
         var b = new BiomeSurfaceMaterialField(771UL, [biome], blocks);
@@ -47,20 +45,19 @@ public sealed class UmbralHabitatContentTests
             [new BiomeInfluence(biome.Id, 1f)]);
         var seen = new HashSet<BlockRuntimeId>();
 
-        for (var z = -160; z <= 160; z += 4)
+        for (var z = -384; z <= 384; z += 8)
+        for (var x = -384; x <= 384; x += 8)
         {
-            for (var x = -160; x <= 160; x += 4)
-            {
-                var actual = a.BlockAt(sample, x, z, 0);
-                Assert.Equal(actual, b.BlockAt(sample, x, z, 0));
-                seen.Add(actual);
-            }
+            Assert.Equal(blocks.GetId(surfaceBlock), a.BlockAt(sample, x, z, 0));
+            Assert.True(a.TryGeologyBlockAt(sample, x, 40, z, out var actual));
+            Assert.True(b.TryGeologyBlockAt(sample, x, 40, z, out var repeated));
+            Assert.Equal(actual, repeated);
+            seen.Add(actual);
         }
 
-        Assert.Contains(blocks.GetId(primary), seen);
+        Assert.Contains(blocks.GetId(geology.BaseBlock), seen);
         Assert.Contains(blocks.GetId(alternateA), seen);
         Assert.Contains(blocks.GetId(alternateB), seen);
-        Assert.Contains(blocks.GetId(alternateC), seen);
     }
 
     [Fact]
