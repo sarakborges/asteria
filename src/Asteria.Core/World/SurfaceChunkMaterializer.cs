@@ -194,7 +194,7 @@ public sealed class SurfaceChunkMaterializer
                             block = depth >= surfaceCore.StartDepth
                                 ? surfaceCore.Block
                                 : (surfaceMaterials ??= _materials.SampleColumn(
-                                    sample, worldX, worldZ)).BlockAt(depth, worldY);
+                                    sample, worldX, worldZ)).BlockAt(depth);
                         }
                         else
                         {
@@ -224,7 +224,7 @@ public sealed class SurfaceChunkMaterializer
                                     volumeMaterials.FiniteDepth);
                             block =
                                 volumeMaterials.BlockAt(
-                                    depth, worldY);
+                                    depth);
                         }
 
                         chunk.SetBlock(
@@ -1393,7 +1393,7 @@ public sealed class SurfaceChunkMaterializer
                         localX, localY + 1, localZ,
                         worldX, worldY + 1, worldZ,
                         volumeMaterials.FiniteDepth);
-                    ceilingSupport = volumeMaterials.BlockAt(depth, worldY + 1);
+                    ceilingSupport = volumeMaterials.BlockAt(depth);
                 }
                 else
                 {
