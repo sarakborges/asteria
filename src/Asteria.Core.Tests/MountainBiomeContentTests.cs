@@ -280,8 +280,8 @@ public sealed class MountainBiomeContentTests
         var seenAtSameAltitude = new HashSet<BlockRuntimeId>();
         var seenAlongVerticalColumn = new HashSet<BlockRuntimeId>();
 
-        for (var z = -96; z <= 96; z += 8)
-        for (var x = 256; x <= 448; x += 8)
+        for (var z = -384; z <= 384; z += 16)
+        for (var x = -384; x <= 384; x += 16)
         {
             Assert.True(first.TryGeologyBlockAt(sample, x, 82, z, out var block));
             Assert.True(second.TryGeologyBlockAt(sample, x, 82, z, out var repeat));
