@@ -788,6 +788,9 @@ public sealed class BiomeSurfaceMaterialField
         private readonly GenerationDomain _warpZDomain;
         private readonly GenerationDomain _volumeMaskDomain;
         private readonly GenerationDomain _volumeSelectionDomain;
+        private readonly GenerationDomain _volumeWarpXDomain;
+        private readonly GenerationDomain _volumeWarpYDomain;
+        private readonly GenerationDomain _volumeWarpZDomain;
         private readonly GenerationDomain _altitudeBoundaryDomain;
 
         private ResolvedPatch(
@@ -816,6 +819,12 @@ public sealed class BiomeSurfaceMaterialField
                 $"material/volume-patch/mask/v1/{suffix}");
             _volumeSelectionDomain = GenerationDomain.Named(
                 $"material/volume-patch/selection/v1/{suffix}");
+            _volumeWarpXDomain = GenerationDomain.Named(
+                $"material/volume-patch/warp-x/v1/{suffix}");
+            _volumeWarpYDomain = GenerationDomain.Named(
+                $"material/volume-patch/warp-y/v1/{suffix}");
+            _volumeWarpZDomain = GenerationDomain.Named(
+                $"material/volume-patch/warp-z/v1/{suffix}");
             _altitudeBoundaryDomain = GenerationDomain.Named(
                 $"material/surface-patch/altitude-boundary/v1/{suffix}");
         }
@@ -830,10 +839,12 @@ public sealed class BiomeSurfaceMaterialField
                 return null;
 
             var (sampleX, sampleZ) = TransformCoordinates(seed, x, z);
-            if (!IsInsideMask(seed, sampleX, y, sampleZ))
+            var (warpedX, warpedY, warpedZ) =
+                TransformVolumeCoordinates(seed, sampleX, y, sampleZ);
+            if (!IsInsideMask(seed, warpedX, warpedY, warpedZ))
                 return null;
 
-            return SelectBlock(seed, sampleX, y, sampleZ);
+            return SelectBlock(seed, warpedX, warpedY, warpedZ);
         }
 
         public bool HasConditions => _definition.Conditions is not null;
@@ -853,10 +864,12 @@ public sealed class BiomeSurfaceMaterialField
             // This exact Y slice is also queried by ResolveVolume, so a patch
             // visible at the surface continues naturally onto adjoining walls.
             var sampleY = placement?.Y ?? 0;
-            if (!IsInsideMask(seed, sampleX, sampleY, sampleZ))
+            var (warpedX, warpedY, warpedZ) =
+                TransformVolumeCoordinates(seed, sampleX, sampleY, sampleZ);
+            if (!IsInsideMask(seed, warpedX, warpedY, warpedZ))
                 return null;
 
-            return SelectBlock(seed, sampleX, sampleY, sampleZ);
+            return SelectBlock(seed, warpedX, warpedY, warpedZ);
         }
 
         private (double X, double Z) TransformCoordinates(
@@ -878,8 +891,32 @@ public sealed class BiomeSurfaceMaterialField
             return (x, z / _definition.StretchZ);
         }
 
+        private (double X, double Y, double Z) TransformVolumeCoordinates(
+            ulong seed, double x, double y, double z)
+        {
+            var amplitude = Math.Min(_definition.WarpStrength, 14d);
+            if (amplitude <= 0d)
+                return (x, y, z);
+
+            // A second, fully 3D warp bends the authored patch itself. The
+            // earlier X/Z-only transform could leave broad, nearly parallel
+            // contours on flat seabeds and cliff faces.
+            var warpScale = (uint)Math.Clamp(
+                (long)Math.Max(2u, _definition.Scale) * 2L, 2L, 256L);
+            var warpX = WorldGenerationEntropy.ValueNoise3D(
+                seed, _volumeWarpXDomain, x, y, z, warpScale, warpScale);
+            var warpY = WorldGenerationEntropy.ValueNoise3D(
+                seed, _volumeWarpYDomain, x, y, z, warpScale, warpScale);
+            var warpZ = WorldGenerationEntropy.ValueNoise3D(
+                seed, _volumeWarpZDomain, x, y, z, warpScale, warpScale);
+            return (
+                x + warpX * amplitude,
+                y + warpY * amplitude * 0.55d,
+                z + warpZ * amplitude);
+        }
+
         private bool IsInsideMask(
-            ulong seed, double x, int y, double z)
+            ulong seed, double x, double y, double z)
         {
             var macroScale = Math.Max(2u, _definition.Scale);
             var detailScale = Math.Max(2u, _definition.DetailScale);
@@ -895,16 +932,21 @@ public sealed class BiomeSurfaceMaterialField
         }
 
         private BlockRuntimeId SelectBlock(
-            ulong seed, double x, int y, double z)
+            ulong seed, double x, double y, double z)
         {
             if (_blocks.Length == 1)
                 return _blocks[0];
 
             var selectionScale = Math.Max(2u, _definition.SelectionScale);
+            var detailScale = Math.Max(2u, _definition.DetailScale);
             var selection = WorldGenerationEntropy.ValueNoise3D(
                 seed, _volumeSelectionDomain, x, y, z,
                 selectionScale, selectionScale);
-            var unit = Math.Clamp((selection + 1d) * 0.5d,
+            var detail = WorldGenerationEntropy.ValueNoise3D(
+                seed, _detailDomain, x, y, z,
+                detailScale, detailScale);
+            var field = selection * 0.72d + detail * 0.28d;
+            var unit = Math.Clamp((field + 1d) * 0.5d,
                 0d, 0.999999999999d);
             var target = unit * _totalWeight;
             for (var index = 0; index < _blocks.Length; index++)
