@@ -153,9 +153,8 @@ public sealed class BiomeWorldGenerationTests
         Assert.Equal(
             new[]
             {
-                ("asteria:sand", (uint?)8),
-                ("asteria:sandstone", (uint?)4),
-                ("asteria:stone", (uint?)null),
+                ("asteria:sand", (uint?)4),
+                ("asteria:sandstone", (uint?)null),
             },
             biomes.Get(
                     "asteria:overworld/desert")
@@ -180,7 +179,6 @@ public sealed class BiomeWorldGenerationTests
             new[]
             {
                 ("asteria:dirt", (uint?)2),
-                ("asteria:gravel", (uint?)3),
                 ("asteria:stone", (uint?)null),
             },
             biomes.Get(
@@ -1784,7 +1782,8 @@ public sealed class BiomeWorldGenerationTests
             detailScale: 16,
             selectionScale: 128,
             coverage: 0.6f,
-            roughness: 0.3f);
+            roughness: 0.3f,
+            surfaceCoverDepth: 5);
         var biome = new BiomeDefinition(
             "asteria:test/plain",
             new BiomeSurfaceLayoutDefinition(regionMin: 128, regionMax: 128),
