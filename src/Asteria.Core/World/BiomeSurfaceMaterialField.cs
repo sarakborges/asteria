@@ -180,7 +180,7 @@ public sealed class BiomeSurfaceMaterialField
         var wallBlock = rules.OverrideWalls
             ? wallRule.VolumeBlockAt(
                 _seed, worldX, worldY, worldZ, depth,
-                placement: null, ignoreSlopeConditions: true)
+                placement: null, ignorePlacementConditions: true)
             : rules.Floor.OrganicWallBlockAt(
                 _seed, worldX, worldY, worldZ);
 
@@ -195,7 +195,7 @@ public sealed class BiomeSurfaceMaterialField
 
         return rules.Floor.VolumePatchBlockAt(
             _seed, worldX, worldY, worldZ, depth: 0,
-            placement: null, ignoreSlopeConditions: true)
+            placement: null, ignorePlacementConditions: true)
             ?? wallBlock;
     }
 
@@ -451,7 +451,7 @@ public sealed class BiomeSurfaceMaterialField
         public BlockRuntimeId VolumeBlockAt(
             ulong seed, int x, int y, int z, uint depth,
             SurfacePlacementContext? placement,
-            bool ignoreSlopeConditions = false)
+            bool ignorePlacementConditions = false)
         {
             if (depth >= CoreStartDepth)
                 return CoreBlock;
@@ -469,7 +469,7 @@ public sealed class BiomeSurfaceMaterialField
                         continue;
                 }
                 return layer.ResolveVolume(
-                    seed, x, y, z, placement, ignoreSlopeConditions);
+                    seed, x, y, z, placement, ignorePlacementConditions);
             }
             throw new InvalidOperationException(
                 "Validated palette must end with a core layer.");
@@ -478,7 +478,7 @@ public sealed class BiomeSurfaceMaterialField
         public BlockRuntimeId? VolumePatchBlockAt(
             ulong seed, int x, int y, int z, uint depth,
             SurfacePlacementContext? placement,
-            bool ignoreSlopeConditions = false)
+            bool ignorePlacementConditions = false)
         {
             if (depth >= CoreStartDepth)
                 return null;
@@ -497,7 +497,7 @@ public sealed class BiomeSurfaceMaterialField
                 }
 
                 return layer.ResolveVolumePatch(
-                    seed, x, y, z, placement, ignoreSlopeConditions);
+                    seed, x, y, z, placement, ignorePlacementConditions);
             }
 
             return null;
@@ -654,16 +654,16 @@ public sealed class BiomeSurfaceMaterialField
         public BlockRuntimeId? ResolveVolumePatch(
             ulong seed, int x, int y, int z,
             SurfacePlacementContext? placement,
-            bool ignoreSlopeConditions) =>
+            bool ignorePlacementConditions) =>
             Patch?.ResolveVolume(
-                seed, x, y, z, placement, ignoreSlopeConditions);
+                seed, x, y, z, placement, ignorePlacementConditions);
 
         public BlockRuntimeId ResolveVolume(
             ulong seed, int x, int y, int z,
             SurfacePlacementContext? placement,
-            bool ignoreSlopeConditions = false) =>
+            bool ignorePlacementConditions = false) =>
             Patch?.ResolveVolume(
-                seed, x, y, z, placement, ignoreSlopeConditions) ?? Block;
+                seed, x, y, z, placement, ignorePlacementConditions) ?? Block;
 
         public BlockRuntimeId Resolve(
             ulong seed,
@@ -727,13 +727,12 @@ public sealed class BiomeSurfaceMaterialField
         public BlockRuntimeId? ResolveVolume(
             ulong seed, int x, int y, int z,
             SurfacePlacementContext? placement,
-            bool ignoreSlopeConditions = false)
+            bool ignorePlacementConditions = false)
         {
-            if (_definition.Conditions is { } conditions &&
-                (ignoreSlopeConditions
-                    ? !conditions.AllowsAltitude(y)
-                    : placement is not { } context ||
-                      !conditions.Allows(context)))
+            if (!ignorePlacementConditions &&
+                _definition.Conditions is { } conditions &&
+                (placement is not { } context ||
+                 !conditions.Allows(context)))
                 return null;
 
             var verticalScale = Math.Max(2u, _definition.DetailScale);
