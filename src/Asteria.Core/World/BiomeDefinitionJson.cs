@@ -59,7 +59,7 @@ public static class BiomeDefinitionJson
             OptionalUInt32(value, "selectionScale") ?? checked(scale * 2u),
             RequiredSingle(value, "coverage"),
             OptionalSingle(value, "roughness") ?? 0.25f,
-            ParsePatchWeights(value));
+            ParseMaterialWeights(value));
     }
 
     private static PlacementLayoutValues?
@@ -532,10 +532,10 @@ public static class BiomeDefinitionJson
             OptionalUInt32(patch, "warpScale"),
             OptionalSingle(patch, "warpStrength") ?? 0d,
             OptionalSingle(patch, "stretchZ") ?? 1d,
-            ParsePatchWeights(patch));
+            ParseMaterialWeights(patch));
     }
 
-    private static IReadOnlyDictionary<string, double>? ParsePatchWeights(
+    private static IReadOnlyDictionary<string, double>? ParseMaterialWeights(
         JsonElement patch)
     {
         if (!patch.TryGetProperty("weights", out var value))
@@ -555,13 +555,13 @@ public static class BiomeDefinitionJson
                 !entry.Value.TryGetDouble(out var weight))
             {
                 throw new FormatException(
-                    $"Patch weight for {entry.Name} must be a number.");
+                    $"Material weight for {entry.Name} must be a number.");
             }
 
             if (!weights.TryAdd(entry.Name, weight))
             {
                 throw new FormatException(
-                    $"Duplicate patch weight for {entry.Name}.");
+                    $"Duplicate material weight for {entry.Name}.");
             }
         }
 
