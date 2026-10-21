@@ -59,7 +59,8 @@ public static class BiomeDefinitionJson
             OptionalUInt32(value, "selectionScale") ?? checked(scale * 2u),
             RequiredSingle(value, "coverage"),
             OptionalSingle(value, "roughness") ?? 0.25f,
-            ParseMaterialWeights(value));
+            ParseMaterialWeights(value),
+            OptionalUInt32(value, "surfaceCoverDepth") ?? 0u);
     }
 
     private static PlacementLayoutValues?
