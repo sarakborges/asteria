@@ -23,7 +23,10 @@ public sealed class VerticalBiomeContentTests
             patch.Blocks);
         Assert.True(patch.WarpStrength > 0d);
 
-        Assert.Equal(86, patch.Conditions!.MaxY);
+        Assert.Null(patch.Conditions);
+        Assert.NotNull(ocean.Geology);
+        Assert.Equal("asteria:stone", ocean.Geology!.BaseBlock);
+        Assert.Contains("asteria:gravel", ocean.Geology.Blocks);
         var a = new BiomeSurfaceMaterialField(217UL, [ocean], blocks);
         var b = new BiomeSurfaceMaterialField(217UL, [ocean], blocks);
         var sample = new BiomeSample(ocean.Id,
