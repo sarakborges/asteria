@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { createWorldCatalogController } from "../../src/controllers/WorldCatalogController";
+import { createWorldCreationController } from "../../src/controllers/WorldCreationController";
 import { createInitialUiState } from "../../src/state/uiState";
 import { createUiStore } from "../../src/state/uiStore";
 
@@ -59,4 +60,55 @@ test("recreation passes only selected saved ID and blocks duplicate requests", (
     { type: "ui.world.catalog.recreate_draft", payload: { id: "Asteria" } },
   ]);
   expect(store.getSnapshot().worldCatalog.status).toBe("verifying");
+});
+
+
+test("recreation draft restores saved settings and opens world creation", () => {
+  const store = createUiStore(createInitialUiState(false));
+  const controller = createWorldCreationController(store, () => undefined);
+
+  controller.handleGodotMessage({
+    type: "game.world_creation",
+    payload: {
+      isRecreationDraft: true,
+      seed: "18446744073709551615",
+      name: "Copy of Asteria",
+      mode: "Creative",
+      ticksPerSecond: 60,
+      spawnCreatures: false,
+      keepInventory: false,
+      creatureAttackMode: "Peaceful",
+      generation: {
+        mode: "Flat",
+        spawnBiome: "asteria:overworld/plains",
+        biomeSizeTenths: 25,
+        spawnStructures: false,
+        singleBiome: true,
+        spawnCaves: false,
+        spawnOceans: false,
+      },
+      spawnBiomes: [{ id: "asteria:overworld/plains", label: "Plains" }],
+    },
+  });
+
+  const state = store.getSnapshot();
+  expect(state.navigation.preWorldScreen).toBe("new-world");
+  expect(state.worldCatalog.status).toBe("ready");
+  expect(state.worldCreation.visible).toBe(true);
+  expect(state.worldCreation.seed).toBe("18446744073709551615");
+  expect(state.worldCreation.name).toBe("Copy of Asteria");
+  expect(state.worldCreation.mode).toBe("Creative");
+  expect(state.worldCreation.ticksPerSecond).toBe("60");
+  expect(state.worldCreation.spawnCreatures).toBe(false);
+  expect(state.worldCreation.keepInventory).toBe(false);
+  expect(state.worldCreation.creatureAttackMode).toBe("Peaceful");
+  expect(state.worldCreation.generation).toEqual({
+    mode: "Flat",
+    spawnBiome: "asteria:overworld/plains",
+    biomeSizeTenths: 25,
+    spawnStructures: false,
+    singleBiome: true,
+    spawnCaves: false,
+    spawnOceans: false,
+  });
 });
