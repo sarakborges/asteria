@@ -375,8 +375,6 @@ public sealed class BiomeSurfaceMaterialField
     private sealed class MaterialRule
     {
         private const uint BoundaryNoiseScale = 48;
-        private const uint ExteriorWallBoundaryDetailScale = 17;
-        private const int MaximumExteriorBoundaryDisplacement = 12;
         private const uint ExteriorWallHorizontalScale = 36;
         private const uint ExteriorWallVerticalScale = 30;
         private const uint ExteriorWallWarpHorizontalScale = 108;
@@ -386,7 +384,6 @@ public sealed class BiomeSurfaceMaterialField
         private MaterialRule(
             ResolvedLayer[] layers,
             GenerationDomain[] boundaryDomains,
-            GenerationDomain[] exteriorWallBoundaryDetailDomains,
             GenerationDomain exteriorWallMaterialDomain,
             GenerationDomain exteriorWallWarpXDomain,
             GenerationDomain exteriorWallWarpZDomain,
@@ -394,7 +391,6 @@ public sealed class BiomeSurfaceMaterialField
         {
             Layers = layers;
             BoundaryDomains = boundaryDomains;
-            ExteriorWallBoundaryDetailDomains = exteriorWallBoundaryDetailDomains;
             ExteriorWallMaterialDomain = exteriorWallMaterialDomain;
             ExteriorWallWarpXDomain = exteriorWallWarpXDomain;
             ExteriorWallWarpZDomain = exteriorWallWarpZDomain;
@@ -414,7 +410,6 @@ public sealed class BiomeSurfaceMaterialField
 
         private ResolvedLayer[] Layers { get; }
         private GenerationDomain[] BoundaryDomains { get; }
-        private GenerationDomain[] ExteriorWallBoundaryDetailDomains { get; }
         private GenerationDomain ExteriorWallMaterialDomain { get; }
         private GenerationDomain ExteriorWallWarpXDomain { get; }
         private GenerationDomain ExteriorWallWarpZDomain { get; }
@@ -426,29 +421,6 @@ public sealed class BiomeSurfaceMaterialField
         public bool HasUniformMaterial { get; }
 
         public bool RequiresSlope { get; }
-
-        public uint[] CreateExteriorWallEndDepths(
-            ulong seed, int worldX, int worldZ)
-        {
-            var endDepths = new uint[Layers.Length];
-            var previousEndDepth = 0u;
-            for (var index = 0; index < Layers.Length; index++)
-            {
-                if (Layers[index].EndDepthExclusive is { } nominalEndDepth)
-                {
-                    endDepths[index] = AdjustedExteriorWallEndDepth(
-                        seed, worldX, worldZ, index,
-                        nominalEndDepth, previousEndDepth);
-                    previousEndDepth = endDepths[index];
-                }
-                else
-                {
-                    endDepths[index] = uint.MaxValue;
-                }
-            }
-
-            return endDepths;
-        }
 
         public BlockRuntimeId ExteriorWallBlockAtWorldPosition(
             ulong seed, int worldX, int worldY, int worldZ)
@@ -548,47 +520,6 @@ public sealed class BiomeSurfaceMaterialField
                 ? 0u
                 : Layers[index - 1].EndDepthExclusive.GetValueOrDefault();
             return Math.Max(1u, endDepth - previousEnd);
-        }
-
-        private uint AdjustedExteriorWallEndDepth(
-            ulong seed,
-            int worldX,
-            int worldZ,
-            int layerIndex,
-            uint nominalEndDepth,
-            uint previousEndDepth)
-        {
-            var previousNominalEndDepth = layerIndex == 0
-                ? 0u
-                : Layers[layerIndex - 1].EndDepthExclusive.GetValueOrDefault();
-            var nominalThickness = nominalEndDepth - previousNominalEndDepth;
-
-            // Displacement grows with depth, not just individual layer
-            // thickness; otherwise thin ocean strata remain nearly straight.
-            var adaptiveAmplitude = Math.Clamp(
-                (int)Math.Ceiling(nominalEndDepth * 0.5d),
-                3,
-                MaximumExteriorBoundaryDisplacement);
-            var amplitude = Math.Max(
-                (int)Layers[layerIndex].BoundaryNoise,
-                adaptiveAmplitude);
-
-            // The broad field gives the boundary its overall geological shape;
-            // lower-amplitude detail breaks up long, parallel contours.
-            var broad = WorldGenerationEntropy.ValueNoise2D(
-                seed, BoundaryDomains[layerIndex], worldX, worldZ,
-                BoundaryNoiseScale);
-            var detail = WorldGenerationEntropy.ValueNoise2D(
-                seed, ExteriorWallBoundaryDetailDomains[layerIndex],
-                worldX, worldZ, ExteriorWallBoundaryDetailScale);
-            var displacement = (int)Math.Round(
-                (broad * 0.75d + detail * 0.25d) * amplitude,
-                MidpointRounding.AwayFromZero);
-            var minimumThickness = Math.Min(2u, Math.Max(1u, nominalThickness));
-            var displaced = Math.Max(
-                (long)nominalEndDepth + displacement,
-                (long)previousEndDepth + minimumThickness);
-            return checked((uint)displaced);
         }
 
         public bool UsesBaseSurface { get; }
@@ -780,8 +711,6 @@ public sealed class BiomeSurfaceMaterialField
             }
 
             var boundaryDomains = new GenerationDomain[layers.Length];
-            var exteriorWallBoundaryDetailDomains =
-                new GenerationDomain[layers.Length];
             var profileName = face is null
                 ? biome.Id
                 : $"{biome.Id}/{face}";
@@ -789,14 +718,11 @@ public sealed class BiomeSurfaceMaterialField
             {
                 boundaryDomains[index] = GenerationDomain.Named(
                     $"material/surface-strata-boundary/v1/{profileName}/{index}");
-                exteriorWallBoundaryDetailDomains[index] = GenerationDomain.Named(
-                    $"material/exterior-wall-strata-detail/v1/{profileName}/{index}");
             }
 
             return new MaterialRule(
                 layers,
                 boundaryDomains,
-                exteriorWallBoundaryDetailDomains,
                 GenerationDomain.Named($"material/exterior-wall-organic/v2/{profileName}"),
                 GenerationDomain.Named($"material/exterior-wall-warp-x/v1/{profileName}"),
                 GenerationDomain.Named($"material/exterior-wall-warp-z/v1/{profileName}"),
