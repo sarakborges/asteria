@@ -45,9 +45,12 @@ public sealed class SurfacePlacementConditions
     public double? MinSlope { get; }
     public double? MaxSlope { get; }
 
+    public bool AllowsAltitude(int y) =>
+        (!MinY.HasValue || y >= MinY) &&
+        (!MaxY.HasValue || y <= MaxY);
+
     public bool Allows(in SurfacePlacementContext context) =>
-        (!MinY.HasValue || context.Y >= MinY) &&
-        (!MaxY.HasValue || context.Y <= MaxY) &&
+        AllowsAltitude(context.Y) &&
         (!MinSlope.HasValue || context.Slope >= MinSlope) &&
         (!MaxSlope.HasValue || context.Slope <= MaxSlope);
 }
