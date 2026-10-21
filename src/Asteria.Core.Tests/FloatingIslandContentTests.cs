@@ -113,7 +113,7 @@ public sealed class FloatingIslandContentTests
             node["decorations"] = System.Text.Json.Nodes.JsonNode.Parse("""
                 [
                   {"object":"asteria:vines_aether","chance":1,
-                   "surfaceBlocks":["asteria:block_grass","asteria:dirt","asteria:stone"],
+                   "surfaceBlocks":["asteria:block_grass","asteria:dirt","asteria:stone","asteria:gravel","asteria:cobble_stone"],
                    "supportSurface":"ceiling"}
                 ]
                 """);
