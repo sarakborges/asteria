@@ -74,32 +74,41 @@ public sealed class SparseOverworldBiomeContentTests
     }
 
     [Fact]
-    public void OceanSurfaceMaterialSelectionDoesNotDependOnAbsoluteAltitude()
+    public void OceanSurfaceMaterialSelectionComesFromThreeDimensionalGeology()
     {
         var biome = LoadBiome("ocean");
-        var patch = Assert.IsType<BiomeSurfacePatchDefinition>(
-            biome.Palette.Default[0].Patch);
-        Assert.Null(patch.Conditions);
+        var geology = Assert.IsType<BiomeGeologyDefinition>(biome.Geology);
+        Assert.Equal(0u, geology.SurfaceCoverDepth);
+        Assert.Null(biome.Palette.Default[0].Patch);
+        Assert.Single(biome.Palette.Default);
+
         var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
-        var field = new BiomeSurfaceMaterialField(377UL, [biome], blocks);
+        var first = new BiomeSurfaceMaterialField(377UL, [biome], blocks);
+        var second = new BiomeSurfaceMaterialField(377UL, [biome], blocks);
         var sample = new BiomeSample(biome.Id,
             [new BiomeInfluence(biome.Id, 1f)]);
-        var shallow = new SurfacePlacementContext(90, 0);
-        var deep = new SurfacePlacementContext(70, 0);
-        var seen = new HashSet<BlockRuntimeId>();
-        for (var z = -192; z <= 192; z += 6)
-        for (var x = -192; x <= 192; x += 6)
+        var seenAtSameAltitude = new HashSet<BlockRuntimeId>();
+        var seenAlongVerticalColumn = new HashSet<BlockRuntimeId>();
+        for (var z = -384; z <= 384; z += 12)
+        for (var x = -384; x <= 384; x += 12)
         {
-            var shallowMaterial = field.BlockAt(sample, x, z, 0, shallow);
-            var deepMaterial = field.BlockAt(sample, x, z, 0, deep);
-            Assert.Equal(shallowMaterial, deepMaterial);
-            seen.Add(shallowMaterial);
+            Assert.True(first.TryGeologyBlockAt(sample, x, 82, z, out var material));
+            Assert.True(second.TryGeologyBlockAt(sample, x, 82, z, out var repeat));
+            Assert.Equal(material, repeat);
+            seenAtSameAltitude.Add(material);
         }
 
-        Assert.Contains(blocks.GetId("asteria:sand"), seen);
-        Assert.Contains(blocks.GetId("asteria:gravel"), seen);
-        Assert.True(seen.Count > 1,
-            "Deep ocean remains diversified below the sandy beach.");
+        for (var y = 8; y <= 168; y += 4)
+        {
+            Assert.True(first.TryGeologyBlockAt(sample, 355, y, -230, out var material));
+            seenAlongVerticalColumn.Add(material);
+        }
+
+        Assert.Contains(blocks.GetId("asteria:stone"), seenAtSameAltitude);
+        Assert.Contains(blocks.GetId("asteria:sand"), seenAtSameAltitude);
+        Assert.Contains(blocks.GetId("asteria:gravel"), seenAtSameAltitude);
+        Assert.True(seenAtSameAltitude.Count > 2);
+        Assert.True(seenAlongVerticalColumn.Count > 1);
     }
 
     [Fact]
