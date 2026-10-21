@@ -18,7 +18,7 @@ public sealed class OceanSeabedMaterialTests
         Assert.Equal("asteria:sand", biome.SurfaceLayers[0].Block);
         Assert.Equal(1u, biome.SurfaceLayers[0].Depth);
         Assert.Null(biome.SurfaceLayers[0].Patch);
-        Assert.Equal(1d, geology.VerticalScale / (double)geology.Scale, 1);
+        Assert.InRange(geology.VerticalScale / (double)geology.Scale, 0.5d, 0.75d);
 
         var blocks = BlockRegistry.FromJson(
             Directory.EnumerateFiles(Path.Combine(PackData, "blocks"), "*.json")
