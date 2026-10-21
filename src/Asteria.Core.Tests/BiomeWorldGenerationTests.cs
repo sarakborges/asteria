@@ -1871,6 +1871,60 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
+    public void ExteriorWallMaterializationPreservesHorizontalSurfaceBlocks()
+    {
+        var path = Path.Combine(
+            AppContext.BaseDirectory, "packs", "default", "data", "biomes",
+            "mountains.json");
+        var root = System.Text.Json.Nodes.JsonNode.Parse(
+            File.ReadAllText(path))!.AsObject();
+        root["id"] = "asteria:test/surface-edge";
+        root["surfaceLayout"]!.AsObject().Remove("cannotBorder");
+        root["decorations"] = System.Text.Json.Nodes.JsonNode.Parse("[]");
+        var topLayer = root["palette"]!["default"]![0]!.AsObject();
+        topLayer["block"] = "asteria:dirt";
+        topLayer.Remove("patch");
+
+        var biome = BiomeDefinitionJson.Parse(root.ToJsonString());
+        var blocks = LoadDefaultBlocks();
+        var generator = new BiomeWorldGenerator(
+            823UL,
+            TestDimension([biome.Id]),
+            blocks,
+            new FluidRegistry(Array.Empty<FluidDefinition>()),
+            new BiomeRegistry([biome]),
+            StructureRegistry.Empty,
+            generation: new WorldGenerationOptions(
+                spawnCaves: false, spawnOceans: false, spawnStructures: false));
+
+        (int X, int Z, int Y)? edge = null;
+        for (var z = -96; z <= 96 && edge is null; z += 2)
+        for (var x = -96; x <= 96; x += 2)
+        {
+            var y = generator.SurfaceHeight(x, z);
+            if (y <= 0)
+                continue;
+            if (generator.SurfaceHeight(x + 1, z) <= y - 2 ||
+                generator.SurfaceHeight(x - 1, z) <= y - 2 ||
+                generator.SurfaceHeight(x, z + 1) <= y - 2 ||
+                generator.SurfaceHeight(x, z - 1) <= y - 2)
+            {
+                edge = (x, z, y);
+                break;
+            }
+        }
+
+        Assert.NotNull(edge);
+        var target = edge!.Value;
+        var (coord, local) = VoxelCoordinates.FromWorld(
+            target.X, target.Y, target.Z);
+        var chunk = generator.Materialize(coord);
+
+        Assert.Equal(blocks.GetId("asteria:dirt"),
+            chunk.GetBlock(local.X, local.Y, local.Z));
+    }
+
+    [Fact]
     public void GeneratedMountainCliffWallsUseThreeDimensionalMaterials()
     {
         var path = Path.Combine(
