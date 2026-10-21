@@ -685,12 +685,33 @@ public sealed class BiomeSurfaceMaterialField
             double x,
             double z,
             uint scale,
-            bool morphed) =>
-            morphed
-                ? WorldGenerationEntropy.SmoothNoise2D(
-                    seed, domain, x, z, scale)
-                : WorldGenerationEntropy.ValueNoise2D(
+            bool morphed)
+        {
+            if (!morphed)
+            {
+                return WorldGenerationEntropy.ValueNoise2D(
                     seed, domain, worldX, worldZ, scale);
+            }
+
+            // Blend the field in three coordinate orientations. A single
+            // lattice-noise orientation can produce long, aligned contours
+            // even after domain warping; rotated samples break that shared
+            // directional bias while preserving deterministic smooth patches.
+            const double diagonal = 0.7071067811865476d;
+            var rotatedX = (x - z) * diagonal;
+            var rotatedZ = (x + z) * diagonal;
+            var crossX = (x + z * 0.5773502691896258d) * 0.8660254037844386d;
+            var crossZ = (z - x * 0.5773502691896258d) * 0.8660254037844386d;
+
+            var aligned = WorldGenerationEntropy.SmoothNoise2D(
+                seed, domain, x, z, scale);
+            var diagonalField = WorldGenerationEntropy.SmoothNoise2D(
+                seed, domain, rotatedX + 17.3d, rotatedZ - 29.1d, scale);
+            var crossField = WorldGenerationEntropy.SmoothNoise2D(
+                seed, domain, crossX - 41.7d, crossZ + 13.9d, scale);
+
+            return (aligned + diagonalField + crossField) / 3d;
+        }
 
         public static ResolvedPatch Create(
             string biomeId,
