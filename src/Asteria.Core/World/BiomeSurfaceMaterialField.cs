@@ -38,6 +38,7 @@ public sealed class BiomeSurfaceMaterialField
         HasExteriorOverrides = _faceRules.Values.Any(
             profile => profile.Exterior &&
                 (profile.OverrideWalls || profile.OverrideCeiling));
+        HasExteriorFaces = _faceRules.Values.Any(profile => profile.Exterior);
         MaximumCavePaintDepth = _faceRules.Values
             .Where(profile => !profile.Exterior)
             .Select(profile => profile.MaxDepth)
@@ -57,6 +58,13 @@ public sealed class BiomeSurfaceMaterialField
     /// overrides. Cave-only wall rules do not trigger exterior scanning.
     /// </summary>
     public bool HasExteriorOverrides { get; }
+
+    /// <summary>
+    /// True when the generation contains surface or additive-volume solids
+    /// whose exposed faces need materialization from world-space coordinates.
+    /// Unlike HasExteriorOverrides, this includes inherited default palettes.
+    /// </summary>
+    public bool HasExteriorFaces { get; }
 
     /// <summary>
     /// Immutable upper bound on cave-facing layer depth. Lets the chunk
@@ -112,22 +120,9 @@ public sealed class BiomeSurfaceMaterialField
             throw new KeyNotFoundException(
                 $"Biome {sample.Primary} has no material palette.");
         var rule = rules.For(face);
-        SurfacePlacementContext? placement = null;
-        if (rule.HasConditions)
-        {
-            if (_terrain is null)
-            {
-                throw new InvalidOperationException(
-                    "Conditional volume material patches require a terrain field.");
-            }
-
-            var sampled = SurfacePlacementContext.Sample(
-                _terrain, worldX, worldZ, rule.RequiresSlope);
-            placement = new SurfacePlacementContext(worldY, sampled.Slope);
-        }
-
         return rule.VolumeBlockAt(
-            _seed, worldX, worldY, worldZ, depth, placement);
+            _seed, worldX, worldY, worldZ, depth,
+            VolumePlacementFor(rule, worldX, worldY, worldZ));
     }
 
     /// <summary>Maximum relevant inward distance (at least one voxel).</summary>
@@ -144,6 +139,53 @@ public sealed class BiomeSurfaceMaterialField
         BiomeSample sample, BiomePaletteFace face) =>
         _faceRules.TryGetValue(sample.Primary, out var rules) &&
         rules.HasOverride(face);
+
+    /// <summary>
+    /// Exterior surface and additive-solid walls always need a wall material,
+    /// even when their biome inherits the default palette rather than authoring
+    /// a directional wall override.
+    /// </summary>
+    public bool HasExteriorWallMaterial(BiomeSample sample) =>
+        _faceRules.TryGetValue(sample.Primary, out var rules) &&
+        rules.Exterior;
+
+    /// <summary>
+    /// Resolves a wall using its authored wall profile, then lets an existing
+    /// default/floor 3D material patch add organic variation when that wall
+    /// profile only specifies a uniform base material. Patch selection remains
+    /// deterministic in world coordinates and never changes the authored block set.
+    /// </summary>
+    public BlockRuntimeId ExteriorWallBlockAt(
+        BiomeSample sample,
+        int worldX,
+        int worldY,
+        int worldZ,
+        uint depth = 0)
+    {
+        ArgumentNullException.ThrowIfNull(sample);
+        if (!_faceRules.TryGetValue(sample.Primary, out var rules))
+            throw new KeyNotFoundException(
+                $"Biome {sample.Primary} has no material palette.");
+
+        var wallRule = rules.Walls;
+        var wallBlock = wallRule.VolumeBlockAt(
+            _seed, worldX, worldY, worldZ, depth,
+            VolumePlacementFor(wallRule, worldX, worldY, worldZ));
+
+        // An inherited wall rule already uses the default 3D patch. Explicit
+        // wall patches remain authoritative; only uniform wall palettes inherit
+        // patch variation from the exposed top/floor profile.
+        if (!rules.Exterior ||
+            ReferenceEquals(wallRule, rules.Floor) ||
+            wallRule.HasPatches ||
+            !rules.Floor.HasPatches)
+            return wallBlock;
+
+        return rules.Floor.VolumePatchBlockAt(
+            _seed, worldX, worldY, worldZ, depth,
+            VolumePlacementFor(rules.Floor, worldX, worldY, worldZ))
+            ?? wallBlock;
+    }
 
     public BiomeSurfaceMaterialColumn SampleColumn(
         BiomeSample sample,
@@ -183,6 +225,27 @@ public sealed class BiomeSurfaceMaterialField
         }
 
         return (rule.CoreBlock, rule.CoreStartDepth);
+    }
+
+    private SurfacePlacementContext? VolumePlacementFor(
+        MaterialRule rule,
+        int worldX,
+        int worldY,
+        int worldZ)
+    {
+        if (!rule.HasConditions)
+            return null;
+
+        if (_terrain is null)
+        {
+            throw new InvalidOperationException(
+                "Conditional volume material patches require a terrain field.");
+        }
+
+        var sampled = SurfacePlacementContext.Sample(
+            _terrain, worldX, worldZ,
+            rule.RequiresSlope, rule.UsesBaseSurface);
+        return new SurfacePlacementContext(worldY, sampled.Slope);
     }
 
     private SurfacePlacementContext? PlacementFor(
@@ -273,6 +336,7 @@ public sealed class BiomeSurfaceMaterialField
             BoundaryDomains = boundaryDomains;
             UsesBaseSurface = usesBaseSurface;
             HasConditions = layers.Any(layer => layer.HasConditions);
+            HasPatches = layers.Any(layer => layer.HasPatch);
             RequiresSlope = layers.Any(layer => layer.RequiresSlope);
             CoreBlock = layers[^1].Block;
             var nominalCoreDepth = layers.Length > 1
@@ -287,6 +351,8 @@ public sealed class BiomeSurfaceMaterialField
         private GenerationDomain[] BoundaryDomains { get; }
 
         public bool HasConditions { get; }
+
+        public bool HasPatches { get; }
 
         public bool RequiresSlope { get; }
 
@@ -346,6 +412,32 @@ public sealed class BiomeSurfaceMaterialField
             }
             throw new InvalidOperationException(
                 "Validated palette must end with a core layer.");
+        }
+
+        public BlockRuntimeId? VolumePatchBlockAt(
+            ulong seed, int x, int y, int z, uint depth,
+            SurfacePlacementContext? placement)
+        {
+            if (depth >= CoreStartDepth)
+                return null;
+
+            var previousEndDepth = 0u;
+            for (var index = 0; index < Layers.Length; index++)
+            {
+                var layer = Layers[index];
+                if (layer.EndDepthExclusive is { } nominalEndDepth)
+                {
+                    var endDepth = AdjustedEndDepth(
+                        seed, x, z, index, nominalEndDepth, previousEndDepth);
+                    previousEndDepth = endDepth;
+                    if (depth >= endDepth)
+                        continue;
+                }
+
+                return layer.ResolveVolumePatch(seed, x, y, z, placement);
+            }
+
+            return null;
         }
 
         public BiomeSurfaceMaterialColumn SampleColumn(
@@ -490,7 +582,14 @@ public sealed class BiomeSurfaceMaterialField
 
         public bool HasConditions => Patch?.HasConditions == true;
 
+        public bool HasPatch => Patch is not null;
+
         public bool RequiresSlope => Patch?.RequiresSlope == true;
+
+        public BlockRuntimeId? ResolveVolumePatch(
+            ulong seed, int x, int y, int z,
+            SurfacePlacementContext? placement) =>
+            Patch?.ResolveVolume(seed, x, y, z, placement);
 
         public BlockRuntimeId ResolveVolume(
             ulong seed, int x, int y, int z,
