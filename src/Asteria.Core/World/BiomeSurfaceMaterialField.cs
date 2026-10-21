@@ -787,6 +787,7 @@ public sealed class BiomeSurfaceMaterialField
         private readonly GenerationDomain _warpXDomain;
         private readonly GenerationDomain _warpZDomain;
         private readonly GenerationDomain _volumeMaskDomain;
+        private readonly GenerationDomain _volumeFineDetailDomain;
         private readonly GenerationDomain _volumeSelectionDomain;
         private readonly GenerationDomain _volumeSelectionDetailDomain;
         private readonly GenerationDomain _volumeWarpXDomain;
@@ -818,6 +819,8 @@ public sealed class BiomeSurfaceMaterialField
                 $"material/surface-patch/warp-z/v1/{suffix}");
             _volumeMaskDomain = GenerationDomain.Named(
                 $"material/volume-patch/mask/v1/{suffix}");
+            _volumeFineDetailDomain = GenerationDomain.Named(
+                $"material/volume-patch/fine-detail/v1/{suffix}");
             _volumeSelectionDomain = GenerationDomain.Named(
                 $"material/volume-patch/selection/v1/{suffix}");
             _volumeSelectionDetailDomain = GenerationDomain.Named(
@@ -923,14 +926,21 @@ public sealed class BiomeSurfaceMaterialField
         {
             var macroScale = Math.Max(2u, _definition.Scale);
             var detailScale = Math.Max(2u, _definition.DetailScale);
+            var fineDetailScale = Math.Max(2u, detailScale / 2u);
             var macro = WorldGenerationEntropy.ValueNoise3D(
                 seed, _volumeMaskDomain, x, y, z,
                 macroScale, macroScale);
             var detail = WorldGenerationEntropy.ValueNoise3D(
                 seed, _detailDomain, x, y, z,
                 detailScale, detailScale);
-            var field = (macro + detail * _definition.Roughness) /
-                (1d + _definition.Roughness);
+            var fineDetail = WorldGenerationEntropy.ValueNoise3D(
+                seed, _volumeFineDetailDomain, x, y, z,
+                fineDetailScale, fineDetailScale);
+            var fineWeight = Math.Max(0.12d, _definition.Roughness * 0.65d);
+            var field = (macro +
+                         detail * _definition.Roughness +
+                         fineDetail * fineWeight) /
+                (1d + _definition.Roughness + fineWeight);
             return field >= 1d - _definition.Coverage * 2d;
         }
 
