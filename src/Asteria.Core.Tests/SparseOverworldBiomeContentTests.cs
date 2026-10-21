@@ -44,34 +44,31 @@ public sealed class SparseOverworldBiomeContentTests
     }
 
     [Theory]
-    [InlineData("arctic", "asteria:snow", "asteria:ice", "asteria:gravel")]
-    [InlineData("wasteland", "asteria:dirt", "asteria:gravel", "asteria:stone")]
-    public void OrganicSurfacePatchesAreVariedAndChunkIndependent(
-        string file, string baseBlock, string firstAlternative, string secondAlternative)
+    [InlineData("arctic", "asteria:ice", "asteria:gravel")]
+    [InlineData("wasteland", "asteria:gravel", "asteria:sandstone")]
+    public void GeologyMaterialsAreVariedAndChunkIndependent(
+        string file, string firstAlternative, string secondAlternative)
     {
         var biome = LoadBiome(file);
+        var geology = Assert.IsType<BiomeGeologyDefinition>(biome.Geology);
+        Assert.Null(biome.SurfaceLayers[0].Patch);
+
         var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
-        var patch = Assert.IsType<BiomeSurfacePatchDefinition>(
-            biome.SurfaceLayers[0].Patch);
-        Assert.True(patch.WarpStrength > 0d);
-        Assert.True(patch.Roughness > 0f);
-        Assert.InRange(patch.Coverage, 0.1f, 0.35f);
         var first = new BiomeSurfaceMaterialField(278UL, [biome], blocks);
         var second = new BiomeSurfaceMaterialField(278UL, [biome], blocks);
         var sample = new BiomeSample(biome.Id,
             [new BiomeInfluence(biome.Id, 1f)]);
         var seen = new HashSet<BlockRuntimeId>();
-        for (var z = -192; z <= 192; z += 4)
+        for (var z = -192; z <= 192; z += 8)
+        for (var x = -192; x <= 192; x += 8)
         {
-            for (var x = -192; x <= 192; x += 4)
-            {
-                var material = first.BlockAt(sample, x, z, 0);
-                Assert.Equal(material, second.BlockAt(sample, x, z, 0));
-                seen.Add(material);
-            }
+            Assert.True(first.TryGeologyBlockAt(sample, x, 76, z, out var material));
+            Assert.True(second.TryGeologyBlockAt(sample, x, 76, z, out var repeat));
+            Assert.Equal(material, repeat);
+            seen.Add(material);
         }
 
-        Assert.Contains(blocks.GetId(baseBlock), seen);
+        Assert.Contains(blocks.GetId(geology.BaseBlock), seen);
         Assert.Contains(blocks.GetId(firstAlternative), seen);
         Assert.Contains(blocks.GetId(secondAlternative), seen);
     }
