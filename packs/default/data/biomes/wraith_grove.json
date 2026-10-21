@@ -101,7 +101,8 @@
       "asteria:mud": 3,
       "asteria:dirt": 2,
       "asteria:gravel": 1
-    }
+    },
+    "surfaceCoverDepth": 5
   },
   "palette": {
     "default": [
