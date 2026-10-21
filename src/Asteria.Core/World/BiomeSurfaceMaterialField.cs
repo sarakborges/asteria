@@ -12,6 +12,7 @@ public sealed class BiomeSurfaceMaterialField
     private readonly SurfaceMosaicField? _mosaic;
     private readonly Dictionary<string, MaterialRule> _rules;
     private readonly Dictionary<string, FaceRules> _faceRules;
+    private readonly Dictionary<string, ResolvedGeology> _geologyRules;
 
     public BiomeSurfaceMaterialField(
         ulong seed,
@@ -35,6 +36,13 @@ public sealed class BiomeSurfaceMaterialField
         _rules = _faceRules.ToDictionary(
             pair => pair.Key, pair => pair.Value.Floor,
             StringComparer.Ordinal);
+        _geologyRules = biomes
+            .Where(biome => biome.Geology is not null)
+            .OrderBy(biome => biome.Id, StringComparer.Ordinal)
+            .ToDictionary(
+                biome => biome.Id,
+                biome => ResolvedGeology.Create(_seed, biome.Id, biome.Geology!, blocks),
+                StringComparer.Ordinal);
         HasExteriorOverrides = _faceRules.Values.Any(
             profile => profile.Exterior &&
                 (profile.OverrideWalls || profile.OverrideCeiling));
@@ -97,6 +105,25 @@ public sealed class BiomeSurfaceMaterialField
             worldZ,
             depth,
             PlacementFor(rule, worldX, worldZ, placement));
+    }
+
+    /// <summary>
+    /// Resolves the volumetric geology at a solid world-space voxel. This query
+    /// is independent of absolute altitude and surface-relative layer depth.
+    /// </summary>
+    public bool TryGeologyBlockAt(
+        BiomeSample sample, int worldX, int worldY, int worldZ,
+        out BlockRuntimeId block)
+    {
+        ArgumentNullException.ThrowIfNull(sample);
+        if (!_geologyRules.TryGetValue(sample.Primary, out var geology))
+        {
+            block = BlockRuntimeId.Air;
+            return false;
+        }
+
+        block = geology.BlockAt(_seed, worldX, worldY, worldZ);
+        return true;
     }
 
     /// <summary>
@@ -256,6 +283,79 @@ public sealed class BiomeSurfaceMaterialField
                 palette.Ceiling is not null,
                 biome.SurfaceLayout is not null ||
                 biome.VolumeLayout?.Placement == VolumeBiomePlacement.Additive);
+        }
+    }
+
+    private sealed class ResolvedGeology
+    {
+        private readonly BiomeGeologyDefinition _definition;
+        private readonly BlockRuntimeId _baseBlock;
+        private readonly BlockRuntimeId[] _blocks;
+        private readonly GenerationDomain _formationDomain;
+        private readonly GenerationDomain _detailDomain;
+        private readonly GenerationDomain _selectionDomain;
+
+        private ResolvedGeology(
+            BiomeGeologyDefinition definition,
+            BlockRuntimeId baseBlock,
+            BlockRuntimeId[] blocks,
+            string biomeId)
+        {
+            _definition = definition;
+            _baseBlock = baseBlock;
+            _blocks = blocks;
+            _formationDomain = GenerationDomain.Named(
+                $"material/geology/formation/v1/{biomeId}");
+            _detailDomain = GenerationDomain.Named(
+                $"material/geology/detail/v1/{biomeId}");
+            _selectionDomain = GenerationDomain.Named(
+                $"material/geology/selection/v1/{biomeId}");
+        }
+
+        public BlockRuntimeId BlockAt(ulong seed, int x, int y, int z)
+        {
+            var macro = WorldGenerationEntropy.ValueNoise3D(
+                seed, _formationDomain, x, y, z,
+                _definition.Scale, _definition.VerticalScale);
+            var detail = WorldGenerationEntropy.ValueNoise3D(
+                seed, _detailDomain, x, y, z,
+                _definition.DetailScale,
+                Math.Max(2u, _definition.VerticalScale / 2u));
+            var formation = (macro + detail * _definition.Roughness) /
+                (1d + _definition.Roughness);
+            if (formation < 1d - _definition.Coverage * 2d)
+                return _baseBlock;
+
+            if (_blocks.Length == 1)
+                return _blocks[0];
+
+            var selection = WorldGenerationEntropy.ValueNoise3D(
+                seed, _selectionDomain, x, y, z,
+                _definition.SelectionScale,
+                Math.Max(2u, _definition.VerticalScale * 2u));
+            var unit = Math.Clamp((selection + 1d) * 0.5d,
+                0d, 0.999999999999d);
+            var target = unit * _definition.TotalWeight;
+            for (var index = 0; index < _blocks.Length; index++)
+            {
+                if (target < _definition.CumulativeWeights[index])
+                    return _blocks[index];
+            }
+            return _blocks[^1];
+        }
+
+        public static ResolvedGeology Create(
+            ulong seed,
+            string biomeId,
+            BiomeGeologyDefinition definition,
+            BlockRegistry blocks)
+        {
+            _ = seed;
+            return new ResolvedGeology(
+                definition,
+                blocks.GetId(definition.BaseBlock),
+                definition.Blocks.Select(blocks.GetId).ToArray(),
+                biomeId);
         }
     }
 
