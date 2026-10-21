@@ -391,24 +391,40 @@ public sealed class BiomeSurfaceMaterialField
     {
         private const uint BoundaryNoiseScale = 48;
         private const uint ExteriorWallHorizontalScale = 36;
-        private const uint ExteriorWallVerticalScale = 30;
+        private const uint ExteriorWallVerticalScale = 24;
+        private const uint ExteriorWallDetailHorizontalScale = 12;
+        private const uint ExteriorWallDetailVerticalScale = 8;
         private const uint ExteriorWallWarpHorizontalScale = 108;
-        private const uint ExteriorWallWarpVerticalScale = 84;
-        private const double ExteriorWallWarpAmplitude = 10d;
+        private const uint ExteriorWallWarpVerticalScale = 72;
+        private const double ExteriorWallWarpHorizontalAmplitude = 12d;
+        private const double ExteriorWallWarpVerticalAmplitude = 7d;
+        private const double ExteriorWallDetailWeight = 0.28d;
 
         private MaterialRule(
             ResolvedLayer[] layers,
             GenerationDomain[] boundaryDomains,
             GenerationDomain exteriorWallMaterialDomain,
+            GenerationDomain exteriorWallDetailDomain,
             GenerationDomain exteriorWallWarpXDomain,
+            GenerationDomain exteriorWallWarpYDomain,
             GenerationDomain exteriorWallWarpZDomain,
             bool usesBaseSurface)
         {
             Layers = layers;
             BoundaryDomains = boundaryDomains;
             ExteriorWallMaterialDomain = exteriorWallMaterialDomain;
+            ExteriorWallDetailDomain = exteriorWallDetailDomain;
             ExteriorWallWarpXDomain = exteriorWallWarpXDomain;
+            ExteriorWallWarpYDomain = exteriorWallWarpYDomain;
             ExteriorWallWarpZDomain = exteriorWallWarpZDomain;
+            _materialCumulativeWeights = new double[layers.Length];
+            var totalWeight = 0d;
+            for (var index = 0; index < layers.Length; index++)
+            {
+                totalWeight += ExteriorWallMaterialWeight(layers, index);
+                _materialCumulativeWeights[index] = totalWeight;
+            }
+            _materialWeightTotal = totalWeight;
             UsesBaseSurface = usesBaseSurface;
             HasConditions = layers.Any(layer => layer.HasConditions);
             HasPatches = layers.Any(layer => layer.HasPatch);
@@ -426,8 +442,12 @@ public sealed class BiomeSurfaceMaterialField
         private ResolvedLayer[] Layers { get; }
         private GenerationDomain[] BoundaryDomains { get; }
         private GenerationDomain ExteriorWallMaterialDomain { get; }
+        private GenerationDomain ExteriorWallDetailDomain { get; }
         private GenerationDomain ExteriorWallWarpXDomain { get; }
+        private GenerationDomain ExteriorWallWarpYDomain { get; }
         private GenerationDomain ExteriorWallWarpZDomain { get; }
+        private readonly double[] _materialCumulativeWeights;
+        private readonly double _materialWeightTotal;
 
         public bool HasConditions { get; }
 
@@ -443,67 +463,36 @@ public sealed class BiomeSurfaceMaterialField
         public BlockRuntimeId ExteriorWallBlockAtWorldPosition(
             ulong seed, int worldX, int worldY, int worldZ)
         {
-            // A scalar noise value partitions space into nested value bands.
-            // Instead, assign materials to jittered 3D feature points and use
-            // the nearest point's material. This produces connected regions
-            // with irregular boundaries instead of parallel strata.
-            // Warp the sampling coordinates at a much broader scale than the
-            // material regions. This bends cell boundaries without introducing
-            // a second scalar threshold field that could recreate broad bands.
+            // A warped, multi-scale field in world-space XYZ selects material
+            // regions throughout the voxel volume, rather than assigning the
+            // same material to a depth interval or a regular cellular grid.
             var warpX = WorldGenerationEntropy.ValueNoise3D(
                 seed, ExteriorWallWarpXDomain, worldX, worldY, worldZ,
+                ExteriorWallWarpHorizontalScale, ExteriorWallWarpVerticalScale);
+            var warpY = WorldGenerationEntropy.ValueNoise3D(
+                seed, ExteriorWallWarpYDomain, worldX, worldY, worldZ,
                 ExteriorWallWarpHorizontalScale, ExteriorWallWarpVerticalScale);
             var warpZ = WorldGenerationEntropy.ValueNoise3D(
                 seed, ExteriorWallWarpZDomain, worldX, worldY, worldZ,
                 ExteriorWallWarpHorizontalScale, ExteriorWallWarpVerticalScale);
-            var warpedX = worldX + warpX * ExteriorWallWarpAmplitude;
-            var warpedZ = worldZ + warpZ * ExteriorWallWarpAmplitude;
-            var sampleX = warpedX / ExteriorWallHorizontalScale;
-            var sampleY = worldY / (double)ExteriorWallVerticalScale;
-            var sampleZ = warpedZ / ExteriorWallHorizontalScale;
-            var cellX = FloorCell(warpedX, ExteriorWallHorizontalScale);
-            var cellY = FloorCell(worldY, ExteriorWallVerticalScale);
-            var cellZ = FloorCell(warpedZ, ExteriorWallHorizontalScale);
+            var warpedX = worldX + warpX * ExteriorWallWarpHorizontalAmplitude;
+            var warpedY = worldY + warpY * ExteriorWallWarpVerticalAmplitude;
+            var warpedZ = worldZ + warpZ * ExteriorWallWarpHorizontalAmplitude;
 
-            var nearestDistance = double.PositiveInfinity;
-            var nearestHash = 0UL;
-            for (var dz = -1; dz <= 1; dz++)
-            for (var dy = -1; dy <= 1; dy++)
-            for (var dx = -1; dx <= 1; dx++)
+            var broad = WorldGenerationEntropy.ValueNoise3D(
+                seed, ExteriorWallMaterialDomain, warpedX, warpedY, warpedZ,
+                ExteriorWallHorizontalScale, ExteriorWallVerticalScale);
+            var detail = WorldGenerationEntropy.ValueNoise3D(
+                seed, ExteriorWallDetailDomain, warpedX, warpedY, warpedZ,
+                ExteriorWallDetailHorizontalScale, ExteriorWallDetailVerticalScale);
+            var field = broad * (1d - ExteriorWallDetailWeight) +
+                        detail * ExteriorWallDetailWeight;
+            var target = Math.Clamp((field + 1d) * 0.5d, 0d, 0.999999999999d) *
+                         _materialWeightTotal;
+            var selected = _materialCumulativeWeights.Length - 1;
+            for (var index = 0; index < _materialCumulativeWeights.Length; index++)
             {
-                var cx = cellX + dx;
-                var cy = cellY + dy;
-                var cz = cellZ + dz;
-                var hash = WorldGenerationEntropy.Sample3D(
-                    seed, ExteriorWallMaterialDomain, cx, cy, cz);
-
-                var featureX = cx + FeatureOffset(hash, 0);
-                var featureY = cy + FeatureOffset(hash, 16);
-                var featureZ = cz + FeatureOffset(hash, 32);
-                var deltaX = sampleX - featureX;
-                var deltaY = sampleY - featureY;
-                var deltaZ = sampleZ - featureZ;
-                var distance = deltaX * deltaX +
-                               deltaY * deltaY +
-                               deltaZ * deltaZ;
-                if (distance >= nearestDistance)
-                    continue;
-
-                nearestDistance = distance;
-                nearestHash = hash;
-            }
-
-            var materialChoice = ((nearestHash >> 48) & 0xFFFFUL) / 65535d;
-            var totalWeight = 0d;
-            for (var index = 0; index < Layers.Length; index++)
-                totalWeight += ExteriorWallMaterialWeight(index);
-
-            var target = materialChoice * totalWeight;
-            var selected = Layers.Length - 1;
-            for (var index = 0; index < Layers.Length - 1; index++)
-            {
-                target -= ExteriorWallMaterialWeight(index);
-                if (target < 0d)
+                if (target < _materialCumulativeWeights[index])
                 {
                     selected = index;
                     break;
@@ -515,28 +504,23 @@ public sealed class BiomeSurfaceMaterialField
                 placement: null, ignorePlacementConditions: true);
         }
 
-        private static double FeatureOffset(ulong hash, int shift) =>
-            0.12d + (((hash >> shift) & 0xFFFFUL) / 65535d * 0.76d);
-
-        private static int FloorCell(double coordinate, uint cellSize) =>
-            checked((int)Math.Floor(coordinate / cellSize));
-
-        private double ExteriorWallMaterialWeight(int index)
+        private static double ExteriorWallMaterialWeight(
+            ResolvedLayer[] layers, int index)
         {
-            if (Layers[index].EndDepthExclusive is not { } endDepth)
+            if (layers[index].EndDepthExclusive is not { } endDepth)
             {
                 if (index == 0)
                     return 1d;
-                var previous = Layers[index - 1].EndDepthExclusive.GetValueOrDefault();
+                var previous = layers[index - 1].EndDepthExclusive.GetValueOrDefault();
                 var beforePrevious = index > 1
-                    ? Layers[index - 2].EndDepthExclusive.GetValueOrDefault()
+                    ? layers[index - 2].EndDepthExclusive.GetValueOrDefault()
                     : 0u;
                 return Math.Max(1u, previous - beforePrevious);
             }
 
             var previousEnd = index == 0
                 ? 0u
-                : Layers[index - 1].EndDepthExclusive.GetValueOrDefault();
+                : layers[index - 1].EndDepthExclusive.GetValueOrDefault();
             return Math.Max(1u, endDepth - previousEnd);
         }
 
@@ -746,9 +730,11 @@ public sealed class BiomeSurfaceMaterialField
             return new MaterialRule(
                 layers,
                 boundaryDomains,
-                GenerationDomain.Named($"material/exterior-wall-organic/v2/{profileName}"),
-                GenerationDomain.Named($"material/exterior-wall-warp-x/v1/{profileName}"),
-                GenerationDomain.Named($"material/exterior-wall-warp-z/v1/{profileName}"),
+                GenerationDomain.Named($"material/volumetric-regions/v1/{profileName}"),
+                GenerationDomain.Named($"material/volumetric-detail/v1/{profileName}"),
+                GenerationDomain.Named($"material/volumetric-warp-x/v1/{profileName}"),
+                GenerationDomain.Named($"material/volumetric-warp-y/v1/{profileName}"),
+                GenerationDomain.Named($"material/volumetric-warp-z/v1/{profileName}"),
                 biome.SurfaceLayout is not null);
         }
     }
