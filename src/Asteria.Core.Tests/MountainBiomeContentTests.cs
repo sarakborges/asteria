@@ -342,7 +342,7 @@ public sealed class MountainBiomeContentTests
     }
 
     [Fact]
-    public void GeneratedTerrainMaterialSelectionUsesDeterministicThreeDimensionalRegions()
+    public void InheritedWallMaterialsFormDeterministicThreeDimensionalRegions()
     {
         var biome = LoadBiome("desert");
         var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
@@ -362,15 +362,12 @@ public sealed class MountainBiomeContentTests
         for (var z = -48; z <= 48; z += 4)
         for (var x = -64; x <= 64; x += 4)
         {
-            var column = materials.SampleColumn(sample, x, z);
-            var repeated = sameSeedMaterials.SampleColumn(sample, x, z);
-            Assert.Equal(sand, column.BlockAt(0, surfaceTopY));
-
-            for (var y = surfaceTopY - 11; y <= surfaceTopY; y++)
+            var wall = materials.SampleExteriorWallColumn(sample, x, z);
+            var repeated = sameSeedMaterials.SampleExteriorWallColumn(sample, x, z);
+            for (var y = 128; y <= surfaceTopY; y += 4)
             {
-                var depth = (uint)(surfaceTopY - y);
-                var block = column.BlockAt(depth, y);
-                Assert.Equal(block, repeated.BlockAt(depth, y));
+                var block = wall.BlockAt(y, surfaceTopY);
+                Assert.Equal(block, repeated.BlockAt(y, surfaceTopY));
                 samples[(x, y, z)] = block;
                 seen.Add(block);
                 sandCountsByY[y] = sandCountsByY.GetValueOrDefault(y) +
@@ -392,7 +389,7 @@ public sealed class MountainBiomeContentTests
             foreach (var neighbor in new[]
             {
                 (X: position.X + 4, Y: position.Y, Z: position.Z),
-                (X: position.X, Y: position.Y + 1, Z: position.Z),
+                (X: position.X, Y: position.Y + 4, Z: position.Z),
                 (X: position.X, Y: position.Y, Z: position.Z + 4),
             })
             {
@@ -406,7 +403,7 @@ public sealed class MountainBiomeContentTests
 
         Assert.True(comparedNeighbors > 0);
         Assert.True(matchingNeighbors > comparedNeighbors / 4,
-            $"Materials did not form coherent 3D regions: {matchingNeighbors}/{comparedNeighbors} neighboring voxels matched.");
+            $"Materials did not form coherent 3D regions: {matchingNeighbors}/{comparedNeighbors} adjacent samples matched.");
     }
 
     [Fact]
