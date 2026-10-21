@@ -691,6 +691,8 @@ public sealed class BiomeSurfaceMaterialField
             var baseX = checked((int)cellX);
             var baseZ = checked((int)cellZ);
             var nearestSquared = double.PositiveInfinity;
+            var jitterDomain = GenerationDomain.Named(
+                $"material/surface-patch/cellular-jitter/v1/{domain.Key}");
 
             for (var dz = -1; dz <= 1; dz++)
             for (var dx = -1; dx <= 1; dx++)
@@ -700,9 +702,7 @@ public sealed class BiomeSurfaceMaterialField
                 var hash = WorldGenerationEntropy.Sample2D(
                     seed, domain, gx, gz);
                 var hash2 = WorldGenerationEntropy.Sample2D(
-                    seed, GenerationDomain.Named(
-                        $"material/surface-patch/cellular-jitter/v1/{domain.Key}"),
-                    gx, gz);
+                    seed, jitterDomain, gx, gz);
                 var jitterX = 0.18d + WorldGenerationEntropy.Unit(hash) * 0.64d;
                 var jitterZ = 0.18d + WorldGenerationEntropy.Unit(hash2) * 0.64d;
                 var px = (gx + jitterX) * scale;
