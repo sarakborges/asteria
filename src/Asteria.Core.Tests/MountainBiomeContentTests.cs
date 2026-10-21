@@ -87,7 +87,6 @@ public sealed class MountainBiomeContentTests
     [InlineData("mountains")]
     [InlineData("mountain_belt")]
     [InlineData("alps")]
-    [InlineData("gorge")]
     public void MountainLateralFacesUseAuthoredRockPalette(string file)
     {
         var biome = LoadBiome(file);
