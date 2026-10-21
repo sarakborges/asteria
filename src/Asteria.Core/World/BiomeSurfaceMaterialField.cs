@@ -180,8 +180,7 @@ public sealed class BiomeSurfaceMaterialField
         var wallBlock = rules.OverrideWalls
             ? wallRule.VolumeBlockAt(
                 _seed, worldX, worldY, worldZ, depth,
-                VolumePlacementFor(wallRule, worldX, worldY, worldZ),
-                ignoreSlopeConditions: true)
+                placement: null, ignoreSlopeConditions: true)
             : rules.Floor.OrganicWallBlockAt(
                 _seed, worldX, worldY, worldZ);
 
