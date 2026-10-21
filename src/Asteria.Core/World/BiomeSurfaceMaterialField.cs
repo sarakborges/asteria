@@ -521,6 +521,8 @@ public sealed class BiomeSurfaceMaterialField
         private readonly GenerationDomain _blockDomain;
         private readonly GenerationDomain _warpXDomain;
         private readonly GenerationDomain _warpZDomain;
+        private readonly GenerationDomain _warpDetailXDomain;
+        private readonly GenerationDomain _warpDetailZDomain;
         private readonly GenerationDomain _volumeMaskDomain;
         private readonly GenerationDomain _volumeSelectionDomain;
 
@@ -550,6 +552,10 @@ public sealed class BiomeSurfaceMaterialField
                 $"material/surface-patch/warp-x/v1/{suffix}");
             _warpZDomain = GenerationDomain.Named(
                 $"material/surface-patch/warp-z/v1/{suffix}");
+            _warpDetailXDomain = GenerationDomain.Named(
+                $"material/surface-patch/warp-detail-x/v1/{suffix}");
+            _warpDetailZDomain = GenerationDomain.Named(
+                $"material/surface-patch/warp-detail-z/v1/{suffix}");
             _volumeMaskDomain = GenerationDomain.Named(
                 $"material/volume-patch/mask/v1/{suffix}");
             _volumeSelectionDomain = GenerationDomain.Named(
@@ -609,26 +615,41 @@ public sealed class BiomeSurfaceMaterialField
             var z = (double)worldZ;
             if (_definition.WarpStrength > 0d)
             {
-                var dx = WorldGenerationEntropy.SmoothNoise2D(
+                // A single smooth warp can preserve long contour runs from the
+                // source field. Compose independent broad and fine displacement
+                // fields so patch boundaries bend at more than one scale.
+                var detailWarpScale = Math.Max(12u, _definition.WarpScale / 3u);
+                var broadX = WorldGenerationEntropy.SmoothNoise2D(
                     seed, _warpXDomain, x, z, _definition.WarpScale);
-                var dz = WorldGenerationEntropy.SmoothNoise2D(
+                var broadZ = WorldGenerationEntropy.SmoothNoise2D(
                     seed, _warpZDomain, x + 19.7d, z - 11.3d,
                     _definition.WarpScale);
-                x += dx * _definition.WarpStrength;
-                z += dz * _definition.WarpStrength;
+                var detailX = WorldGenerationEntropy.SmoothNoise2D(
+                    seed, _warpDetailXDomain, x - 37.1d, z + 23.9d,
+                    detailWarpScale);
+                var detailZ = WorldGenerationEntropy.SmoothNoise2D(
+                    seed, _warpDetailZDomain, x + 11.3d, z - 41.7d,
+                    detailWarpScale);
+                var detailStrength = _definition.WarpStrength * 0.2d;
+                x += broadX * _definition.WarpStrength +
+                    detailX * detailStrength;
+                z += broadZ * _definition.WarpStrength +
+                    detailZ * detailStrength;
             }
 
             z /= _definition.StretchZ;
             var morphed = _definition.WarpStrength > 0d ||
                 _definition.StretchZ != 1d;
-            var macro = Noise(
-                seed, _shapeDomain, worldX, worldZ, x, z,
-                _definition.Scale, morphed);
+            // Build patch regions around jittered feature points rather than
+            // thresholding interpolated lattice noise. Lattice contours tend
+            // to form broad, coordinated bands; independently jittered cells
+            // create irregular regions with no shared long-axis orientation.
+            var macro = CellularField(
+                seed, _shapeDomain, x, z, _definition.Scale);
             var detail = Noise(
                 seed, _detailDomain, worldX, worldZ, x, z,
                 _definition.DetailScale, morphed);
-            var field = (macro + detail * _definition.Roughness) /
-                (1d + _definition.Roughness);
+            var field = macro + detail * _definition.Roughness * 0.35d;
             if (field < 1d - _definition.Coverage * 2d)
             {
                 return null;
@@ -639,13 +660,12 @@ public sealed class BiomeSurfaceMaterialField
                 return _blocks[0];
             }
 
-            var selection = Noise(
-                seed, _blockDomain, worldX, worldZ, x, z,
-                _definition.SelectionScale, morphed);
-            var unit = Math.Clamp(
-                (selection + 1d) * 0.5d,
-                0d,
-                0.999999999999d);
+            // Assign each irregular spatial region a material from its own
+            // deterministic cell identity. Sampling another interpolated noise
+            // field here creates long material bands inside otherwise irregular
+            // patch masks.
+            var unit = CellularSelection(
+                seed, _blockDomain, x, z, _definition.SelectionScale);
             var target = unit * _totalWeight;
             for (var index = 0; index < _blocks.Length; index++)
             {
@@ -658,6 +678,91 @@ public sealed class BiomeSurfaceMaterialField
             return _blocks[^1];
         }
 
+        private static double CellularField(
+            ulong seed,
+            GenerationDomain domain,
+            double x,
+            double z,
+            uint scale)
+        {
+            var cellX = Math.Floor(x / scale);
+            var cellZ = Math.Floor(z / scale);
+            var baseX = checked((int)cellX);
+            var baseZ = checked((int)cellZ);
+            var nearestSquared = double.PositiveInfinity;
+            var jitterDomain = GenerationDomain.Named(
+                $"material/surface-patch/cellular-jitter/v1/{domain.Key}");
+
+            for (var dz = -1; dz <= 1; dz++)
+            for (var dx = -1; dx <= 1; dx++)
+            {
+                var gx = checked(baseX + dx);
+                var gz = checked(baseZ + dz);
+                var hash = WorldGenerationEntropy.Sample2D(
+                    seed, domain, gx, gz);
+                var hash2 = WorldGenerationEntropy.Sample2D(
+                    seed, jitterDomain, gx, gz);
+                var jitterX = 0.18d + WorldGenerationEntropy.Unit(hash) * 0.64d;
+                var jitterZ = 0.18d + WorldGenerationEntropy.Unit(hash2) * 0.64d;
+                var px = (gx + jitterX) * scale;
+                var pz = (gz + jitterZ) * scale;
+                var nx = (x - px) / scale;
+                var nz = (z - pz) / scale;
+                nearestSquared = Math.Min(
+                    nearestSquared, nx * nx + nz * nz);
+            }
+
+            var distance = Math.Sqrt(nearestSquared);
+            return 1d - 2d * Math.Min(distance, 1d);
+        }
+
+        private static double CellularSelection(
+            ulong seed,
+            GenerationDomain domain,
+            double x,
+            double z,
+            uint scale)
+        {
+            var baseX = checked((int)Math.Floor(x / scale));
+            var baseZ = checked((int)Math.Floor(z / scale));
+            var nearestSquared = double.PositiveInfinity;
+            var selectedX = baseX;
+            var selectedZ = baseZ;
+            var jitterDomain = GenerationDomain.Named(
+                $"material/surface-patch/selection-jitter/v1/{domain.Key}");
+
+            for (var dz = -1; dz <= 1; dz++)
+            for (var dx = -1; dx <= 1; dx++)
+            {
+                var gx = checked(baseX + dx);
+                var gz = checked(baseZ + dz);
+                var hashX = WorldGenerationEntropy.Sample2D(
+                    seed, domain, gx, gz);
+                var hashZ = WorldGenerationEntropy.Sample2D(
+                    seed, jitterDomain, gx, gz);
+                var px = (gx + 0.18d +
+                    WorldGenerationEntropy.Unit(hashX) * 0.64d) * scale;
+                var pz = (gz + 0.18d +
+                    WorldGenerationEntropy.Unit(hashZ) * 0.64d) * scale;
+                var nx = (x - px) / scale;
+                var nz = (z - pz) / scale;
+                var distanceSquared = nx * nx + nz * nz;
+                if (distanceSquared >= nearestSquared)
+                    continue;
+
+                nearestSquared = distanceSquared;
+                selectedX = gx;
+                selectedZ = gz;
+            }
+
+            var selection = WorldGenerationEntropy.Sample2D(
+                seed, domain, selectedX, selectedZ);
+            return Math.Clamp(
+                WorldGenerationEntropy.Unit(selection),
+                0d,
+                0.999999999999d);
+        }
+
         private static double Noise(
             ulong seed,
             GenerationDomain domain,
@@ -666,12 +771,36 @@ public sealed class BiomeSurfaceMaterialField
             double x,
             double z,
             uint scale,
-            bool morphed) =>
-            morphed
-                ? WorldGenerationEntropy.SmoothNoise2D(
-                    seed, domain, x, z, scale)
-                : WorldGenerationEntropy.ValueNoise2D(
+            bool morphed)
+        {
+            if (!morphed)
+            {
+                return WorldGenerationEntropy.ValueNoise2D(
                     seed, domain, worldX, worldZ, scale);
+            }
+
+            // Blend the field in three coordinate orientations. A single
+            // lattice-noise orientation can produce long, aligned contours
+            // even after domain warping; rotated samples break that shared
+            // directional bias while preserving deterministic smooth patches.
+            const double diagonal = 0.7071067811865476d;
+            var rotatedX = (x - z) * diagonal;
+            var rotatedZ = (x + z) * diagonal;
+            var crossX = (x + z * 0.5773502691896258d) * 0.8660254037844386d;
+            var crossZ = (z - x * 0.5773502691896258d) * 0.8660254037844386d;
+
+            var aligned = WorldGenerationEntropy.SmoothNoise2D(
+                seed, domain, x, z, scale);
+            var diagonalField = WorldGenerationEntropy.SmoothNoise2D(
+                seed, domain, rotatedX + 17.3d, rotatedZ - 29.1d, scale);
+            var crossField = WorldGenerationEntropy.SmoothNoise2D(
+                seed, domain, crossX - 41.7d, crossZ + 13.9d, scale);
+
+            // Normalize the sum to preserve approximately the same variance as
+            // the original single noise field. A plain average compresses values
+            // toward zero and makes authored coverage thresholds reject patches.
+            return (aligned + diagonalField + crossField) / Math.Sqrt(3d);
+        }
 
         public static ResolvedPatch Create(
             string biomeId,

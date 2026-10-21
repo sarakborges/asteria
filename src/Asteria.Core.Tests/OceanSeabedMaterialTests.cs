@@ -8,6 +8,51 @@ public sealed class OceanSeabedMaterialTests
         Path.Combine(AppContext.BaseDirectory, "packs", "default", "data");
 
     [Fact]
+    public void OceanSeabedVerticalCrossSectionPreservesPatchAndStrataLayers()
+    {
+        var biome = BiomeDefinitionJson.Parse(File.ReadAllText(
+            Path.Combine(PackData, "biomes", "ocean.json")));
+        var blocks = BlockRegistry.FromJson(
+            Directory.EnumerateFiles(Path.Combine(PackData, "blocks"), "*.json")
+                .OrderBy(path => path, StringComparer.Ordinal)
+                .Select(File.ReadAllText));
+        var materials = new BiomeSurfaceMaterialField(
+            7808508665006554090UL, [biome], blocks);
+        var sample = new BiomeSample(
+            biome.Id, [new BiomeInfluence(biome.Id, 1f)]);
+        var placement = new SurfacePlacementContext(82, 0);
+
+        // Model a vertical cut through the reported seabed: X runs along the
+        // wall and depth runs vertically into the terrain.
+        const int width = 97;
+        const int depthCount = 8;
+        var wall = new BlockRuntimeId[width, depthCount];
+        var surfaceMaterials = new HashSet<BlockRuntimeId>();
+        for (var x = 0; x < width; x++)
+        {
+            var worldX = 355 + (x - width / 2) * 4;
+            for (int depth = 0; depth < depthCount; depth++)
+            {
+                var block = materials.BlockAt(
+                    sample, worldX, -230, (uint)depth, placement);
+                wall[x, depth] = block;
+                if (depth == 0)
+                    surfaceMaterials.Add(block);
+            }
+        }
+
+        Assert.True(surfaceMaterials.Count >= 3,
+            "The seabed wall should show sand mixed with multiple patch materials.");
+        Assert.All(Enumerable.Range(0, width), x =>
+        {
+            Assert.Equal(blocks.GetId("asteria:gravel"), wall[x, 4]);
+            Assert.Equal(blocks.GetId("asteria:gravel"), wall[x, 5]);
+            Assert.Equal(blocks.GetId("asteria:stone"), wall[x, 6]);
+            Assert.Equal(blocks.GetId("asteria:stone"), wall[x, 7]);
+        });
+    }
+
+    [Fact]
     public void OceanSeabedPatchHasOrganicVariationInBothHorizontalDirections()
     {
         var biome = BiomeDefinitionJson.Parse(File.ReadAllText(
