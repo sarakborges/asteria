@@ -1962,9 +1962,9 @@ public sealed class BiomeWorldGenerationTests
         {
             (1, 0), (-1, 0), (0, 1), (0, -1),
         };
-        // Sample rows across the whole fixture instead of stopping in the
-        // first few Z rows; a 3D patch may legitimately miss one local area.
-        for (var z = -96; z <= 96; z += 6)
+        // Scan all rows to guarantee cliff candidates, then distribute
+        // the bounded materialization sample across the fixture.
+        for (var z = -96; z <= 96; z += 2)
         for (var x = -96; x <= 96; x += 2)
         {
             var surfaceY = generator.SurfaceHeight(x, z);
