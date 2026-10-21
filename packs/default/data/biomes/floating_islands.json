@@ -146,7 +146,8 @@
       "asteria:dirt": 3,
       "asteria:gravel": 2,
       "asteria:cobble_stone": 1
-    }
+    },
+    "surfaceCoverDepth": 5
   },
   "palette": {
     "default": [
