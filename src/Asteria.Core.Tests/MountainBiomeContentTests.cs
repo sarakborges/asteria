@@ -242,6 +242,51 @@ public sealed class MountainBiomeContentTests
             "Every horizontal slice had identical patch coverage; this indicates horizontal banding.");
     }
 
+    [Fact]
+    public void ExteriorWallsInheritThreeDimensionalPatchesBeneathUniformWallPalettes()
+    {
+        var path = Path.Combine(PackData, "biomes", "mountains.json");
+        var root = JsonNode.Parse(File.ReadAllText(path))!.AsObject();
+        var surfacePatch = root["palette"]!["default"]![0]!["patch"]!.AsObject();
+        surfacePatch.Remove("conditions");
+        surfacePatch.Remove("weights");
+        surfacePatch["scale"] = 12;
+        surfacePatch["detailScale"] = 3;
+        surfacePatch["coverage"] = 0.5;
+        surfacePatch["roughness"] = 0.25;
+        surfacePatch["blocks"] = new JsonArray("asteria:gravel");
+
+        var biome = BiomeDefinitionJson.Parse(root.ToJsonString());
+        var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
+        var materials = new BiomeSurfaceMaterialField(823UL, [biome], blocks);
+        var sample = new BiomeSample(
+            biome.Id, [new BiomeInfluence(biome.Id, 1f)]);
+        var stone = blocks.GetId("asteria:stone");
+        var gravel = blocks.GetId("asteria:gravel");
+        var seen = new HashSet<BlockRuntimeId>();
+        var gravelCountsByY = new List<int>();
+
+        for (var y = 88; y < 136; y++)
+        {
+            var gravelCount = 0;
+            for (var z = -24; z < 24; z += 2)
+            for (var x = -24; x < 24; x += 2)
+            {
+                var block = materials.ExteriorWallBlockAt(sample, x, y, z);
+                seen.Add(block);
+                if (block == gravel)
+                    gravelCount++;
+            }
+
+            gravelCountsByY.Add(gravelCount);
+        }
+
+        Assert.Contains(stone, seen);
+        Assert.Contains(gravel, seen);
+        Assert.True(gravelCountsByY.Distinct().Count() > 1,
+            "Exterior wall patch coverage must vary across Y instead of forming horizontal bands.");
+    }
+
     private static (BiomeSurfaceMaterialField Materials, BiomeSample Sample,
         BlockRuntimeId Stone, BlockRuntimeId Gravel) CreateVolumePatchMaterials(ulong seed)
     {
