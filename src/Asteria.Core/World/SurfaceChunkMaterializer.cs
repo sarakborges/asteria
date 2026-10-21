@@ -193,11 +193,12 @@ public sealed class SurfaceChunkMaterializer
                             var depth = checked((uint)(baseY - worldY));
                             surfaceMaterials ??= _materials.SampleColumn(
                                 sample, worldX, worldZ);
-                            if (depth == 0 || depth < surfaceMaterials.FiniteDepth)
+                            var coverDepth = _materials.GeologySurfaceCoverDepth(sample);
+                            var useSurfaceCover = coverDepth is { } authoredCoverDepth
+                                ? depth < authoredCoverDepth
+                                : depth == 0 || depth < surfaceMaterials.FiniteDepth;
+                            if (useSurfaceCover)
                             {
-                                // Keep the authored exposed coating and shallow
-                                // soil/sediment profile. Geology takes ownership
-                                // only after the finite surface cover ends.
                                 block = surfaceMaterials.BlockAt(depth);
                             }
                             else if (!_materials.TryGeologyBlockAt(
@@ -236,7 +237,11 @@ public sealed class SurfaceChunkMaterializer
                                     worldY,
                                     worldZ,
                                     volumeMaterials.FiniteDepth);
-                            if (depth == 0 || depth < volumeMaterials.FiniteDepth)
+                            var coverDepth = _materials.GeologySurfaceCoverDepth(volumeSample);
+                            var useSurfaceCover = coverDepth is { } authoredCoverDepth
+                                ? depth < authoredCoverDepth
+                                : depth == 0 || depth < volumeMaterials.FiniteDepth;
+                            if (useSurfaceCover)
                             {
                                 block = volumeMaterials.BlockAt(depth);
                             }
