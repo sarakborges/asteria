@@ -337,7 +337,7 @@ public sealed class MountainBiomeContentTests
             $"Patch coverage should taper inside the allowed altitude range; y=82 had {belowBoundary} patch blocks and y=84 had {nearBoundary}.");
         Assert.True(nearBoundary > 0,
             "The altitude transition should be spatially irregular, not a perfectly horizontal cutoff.");
-        Assert.Equal(0, aboveAuthoredLimit,
+        Assert.True(aboveAuthoredLimit == 0,
             "A patch must never appear above its authored maxY.");
     }
 
