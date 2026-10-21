@@ -38,7 +38,9 @@ public sealed class BiomeSurfaceMaterialField
         HasExteriorOverrides = _faceRules.Values.Any(
             profile => profile.Exterior &&
                 (profile.OverrideWalls || profile.OverrideCeiling));
-        HasExteriorFaces = _faceRules.Values.Any(profile => profile.Exterior);
+        HasExteriorFaces = HasExteriorOverrides ||
+            _faceRules.Values.Any(profile =>
+                profile.Exterior && profile.Walls.HasPatches);
         MaximumCavePaintDepth = _faceRules.Values
             .Where(profile => !profile.Exterior)
             .Select(profile => profile.MaxDepth)
@@ -147,7 +149,8 @@ public sealed class BiomeSurfaceMaterialField
     /// </summary>
     public bool HasExteriorWallMaterial(BiomeSample sample) =>
         _faceRules.TryGetValue(sample.Primary, out var rules) &&
-        rules.Exterior;
+        rules.Exterior &&
+        (rules.OverrideWalls || rules.Walls.HasPatches);
 
     /// <summary>
     /// Resolves a wall using its authored wall profile, then lets an existing
@@ -170,7 +173,8 @@ public sealed class BiomeSurfaceMaterialField
         var wallRule = rules.Walls;
         var wallBlock = wallRule.VolumeBlockAt(
             _seed, worldX, worldY, worldZ, depth,
-            VolumePlacementFor(wallRule, worldX, worldY, worldZ));
+            VolumePlacementFor(wallRule, worldX, worldY, worldZ),
+            ignoreSlopeConditions: true);
 
         // An inherited wall rule already uses the default 3D patch. Explicit
         // wall patches remain authoritative; only uniform wall palettes inherit
@@ -394,7 +398,8 @@ public sealed class BiomeSurfaceMaterialField
 
         public BlockRuntimeId VolumeBlockAt(
             ulong seed, int x, int y, int z, uint depth,
-            SurfacePlacementContext? placement)
+            SurfacePlacementContext? placement,
+            bool ignoreSlopeConditions = false)
         {
             if (depth >= CoreStartDepth)
                 return CoreBlock;
@@ -411,7 +416,8 @@ public sealed class BiomeSurfaceMaterialField
                     if (depth >= endDepth)
                         continue;
                 }
-                return layer.ResolveVolume(seed, x, y, z, placement);
+                return layer.ResolveVolume(
+                    seed, x, y, z, placement, ignoreSlopeConditions);
             }
             throw new InvalidOperationException(
                 "Validated palette must end with a core layer.");
@@ -600,8 +606,10 @@ public sealed class BiomeSurfaceMaterialField
 
         public BlockRuntimeId ResolveVolume(
             ulong seed, int x, int y, int z,
-            SurfacePlacementContext? placement) =>
-            Patch?.ResolveVolume(seed, x, y, z, placement) ?? Block;
+            SurfacePlacementContext? placement,
+            bool ignoreSlopeConditions = false) =>
+            Patch?.ResolveVolume(
+                seed, x, y, z, placement, ignoreSlopeConditions) ?? Block;
 
         public BlockRuntimeId Resolve(
             ulong seed,
