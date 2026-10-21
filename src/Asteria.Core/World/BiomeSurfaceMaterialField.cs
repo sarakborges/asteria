@@ -174,23 +174,22 @@ public sealed class BiomeSurfaceMaterialField
                 $"Biome {sample.Primary} has no material palette.");
 
         var wallRule = rules.Walls;
-        // Without an authored directional wall profile, surface-layer depth
-        // has no meaning when measured inward from a cliff face. Use the core
-        // material as the wall base rather than projecting grass/dirt/sand
-        // strata sideways onto the exposed wall.
+        // Directional wall profiles remain authoritative. When walls inherit
+        // the surface profile, do not project its depth sequence horizontally:
+        // choose among its authored materials with one coherent 3D field.
         var wallBlock = rules.OverrideWalls
             ? wallRule.VolumeBlockAt(
                 _seed, worldX, worldY, worldZ, depth,
-                VolumePlacementFor(wallRule, worldX, worldY, worldZ),
+                VolumePlacementFor(wallRule, worldX, worldZ),
                 ignoreSlopeConditions: true)
-            : wallRule.CoreBlock;
+            : rules.Floor.OrganicWallBlockAt(
+                _seed, worldX, worldY, worldZ);
 
         if (!rules.Exterior || !rules.Floor.HasPatches)
             return wallBlock;
 
-        // Surface patches become 3D patches on vertical faces. Evaluate the
-        // authored patch independently of the horizontal layer depth and slope
-        // gate; retain altitude constraints and fall back to the wall base.
+        // Authored surface patches become 3D patches on vertical faces. Their
+        // slope gate belongs to top-surface placement, not cliff exposure.
         if (rules.OverrideWalls &&
             (!wallRule.HasUniformMaterial || wallRule.HasPatches))
             return wallBlock;
@@ -340,13 +339,17 @@ public sealed class BiomeSurfaceMaterialField
         // Broad X/Z variation keeps stratum boundaries irregular without
         // introducing a second, high-frequency signal that reads as banding.
         private const uint BoundaryNoiseScale = 48;
+        private const uint ExteriorWallHorizontalScale = 36;
+        private const uint ExteriorWallVerticalScale = 30;
         private MaterialRule(
             ResolvedLayer[] layers,
             GenerationDomain[] boundaryDomains,
+            GenerationDomain exteriorWallDomain,
             bool usesBaseSurface)
         {
             Layers = layers;
             BoundaryDomains = boundaryDomains;
+            ExteriorWallDomain = exteriorWallDomain;
             UsesBaseSurface = usesBaseSurface;
             HasConditions = layers.Any(layer => layer.HasConditions);
             HasPatches = layers.Any(layer => layer.HasPatch);
@@ -359,10 +362,30 @@ public sealed class BiomeSurfaceMaterialField
             CoreStartDepth = checked(
                 nominalCoreDepth +
                 (layers.Length > 1 ? layers[^2].BoundaryNoise : 0u));
+
+            var cumulativeWeights = new double[layers.Length];
+            var totalWeight = 0d;
+            var previousEndDepth = 0u;
+            for (var index = 0; index < layers.Length; index++)
+            {
+                var layer = layers[index];
+                var weight = layer.EndDepthExclusive is { } endDepth
+                    ? Math.Max(1u, endDepth - previousEndDepth)
+                    : Math.Max(1u, previousEndDepth);
+                if (layer.EndDepthExclusive is { } finiteEnd)
+                    previousEndDepth = finiteEnd;
+                totalWeight += weight;
+                cumulativeWeights[index] = totalWeight;
+            }
+            ExteriorWallCumulativeWeights = cumulativeWeights;
+            ExteriorWallTotalWeight = totalWeight;
         }
 
         private ResolvedLayer[] Layers { get; }
         private GenerationDomain[] BoundaryDomains { get; }
+        private GenerationDomain ExteriorWallDomain { get; }
+        private double[] ExteriorWallCumulativeWeights { get; private set; } = [];
+        private double ExteriorWallTotalWeight { get; }
 
         public bool HasConditions { get; }
 
@@ -371,6 +394,27 @@ public sealed class BiomeSurfaceMaterialField
         public bool HasUniformMaterial { get; }
 
         public bool RequiresSlope { get; }
+
+        public BlockRuntimeId OrganicWallBlockAt(
+            ulong seed, int x, int y, int z)
+        {
+            if (HasUniformMaterial)
+                return CoreBlock;
+
+            var noise = WorldGenerationEntropy.ValueNoise3D(
+                seed, ExteriorWallDomain, x, y, z,
+                ExteriorWallHorizontalScale, ExteriorWallVerticalScale);
+            var unit = Math.Clamp((noise + 1d) * 0.5d,
+                0d, 0.999999999999d);
+            var target = unit * ExteriorWallTotalWeight;
+            for (var index = 0; index < Layers.Length; index++)
+            {
+                if (target < ExteriorWallCumulativeWeights[index])
+                    return Layers[index].Block;
+            }
+
+            return Layers[^1].Block;
+        }
 
         public bool UsesBaseSurface { get; }
         public BlockRuntimeId CoreBlock { get; }
@@ -573,6 +617,8 @@ public sealed class BiomeSurfaceMaterialField
             return new MaterialRule(
                 layers,
                 boundaryDomains,
+                GenerationDomain.Named(
+                    $"material/exterior-wall/v1/{profileName}"),
                 biome.SurfaceLayout is not null);
         }
     }
