@@ -12,7 +12,7 @@ public sealed class WorldCreationOptions
     public const int MaximumNameLength = 200;
 
     private static readonly Regex CopyPrefix = new(
-        @"^copy(?:\\s+(\\d+))?\\s+of\\s+",
+        @"^copy(?:\s+(\d+))?\s+of\s+",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     /// <summary>
