@@ -220,10 +220,19 @@ public sealed class MountainBiomeContentTests
     {
         var (materials, sample, stone, gravel) = CreateVolumePatchMaterials(823UL);
         var gravelCountsByY = new List<int>();
+        var sampleCount = 0;
+        var slices = new Dictionary<int, bool[]>
+        {
+            [88] = [],
+            [89] = [],
+            [100] = [],
+        };
         for (var y = 88; y < 136; y++)
         {
             var gravelCount = 0;
             var stoneCount = 0;
+            var trackedSlice = slices.TryGetValue(y, out var row) ? row : null;
+            var sampleIndex = 0;
             for (var z = -24; z < 24; z += 2)
             for (var x = -24; x < 24; x += 2)
             {
@@ -231,13 +240,30 @@ public sealed class MountainBiomeContentTests
                     sample, x, y, z, BiomePaletteFace.Walls);
                 if (block == gravel) gravelCount++;
                 if (block == stone) stoneCount++;
+                if (trackedSlice is not null)
+                    trackedSlice[sampleIndex] = block == gravel;
+                sampleIndex++;
             }
 
+            sampleCount = sampleIndex;
             Assert.True(gravelCount > 0 && stoneCount > 0,
                 $"Expected mixed 3D patch coverage at y={y}; gravel={gravelCount}, stone={stoneCount}.");
             gravelCountsByY.Add(gravelCount);
         }
 
+        static int ChangedSamples(bool[] first, bool[] second)
+        {
+            var changed = 0;
+            for (var i = 0; i < first.Length; i++)
+                if (first[i] != second[i])
+                    changed++;
+            return changed;
+        }
+
+        var adjacentSliceChanges = ChangedSamples(slices[88], slices[89]);
+        var distantSliceChanges = ChangedSamples(slices[88], slices[100]);
+        Assert.True(adjacentSliceChanges < distantSliceChanges * 0.4,
+            $"Adjacent slices changed {adjacentSliceChanges}/{sampleCount} cells, while slices twelve blocks apart changed {distantSliceChanges}/{sampleCount}; the 3D mask is too compressed vertically.");
         Assert.True(gravelCountsByY.Distinct().Count() > 1,
             "Every horizontal slice had identical patch coverage; this indicates horizontal banding.");
     }
@@ -288,6 +314,8 @@ public sealed class MountainBiomeContentTests
         Assert.Contains(sandstone, observedAtBoundary);
         Assert.True(boundaryYByX.Count > 1,
             "The sand/sandstone boundary must vary across world X instead of forming a fixed horizontal band.");
+        Assert.True(boundaryYByX.Max() - boundaryYByX.Min() >= 4,
+            $"The sand/sandstone boundary moved only {boundaryYByX.Max() - boundaryYByX.Min()} blocks; this is still too close to a flat artificial layer.");
     }
 
     [Fact]
