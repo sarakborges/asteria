@@ -10,7 +10,6 @@ namespace Asteria.Client.Gameplay;
 public enum WorldLoadIntent : byte
 {
     Load,
-    Recreate,
     CreationDraft,
 }
 
@@ -47,9 +46,6 @@ public sealed class WorldLoadController
 
     public bool Begin(string worldName) =>
         Begin(worldName, WorldLoadIntent.Load);
-
-    public bool BeginRecreation(string worldName) =>
-        Begin(worldName, WorldLoadIntent.Recreate);
 
     public bool BeginCreationDraft(string worldName) =>
         Begin(worldName, WorldLoadIntent.CreationDraft);
