@@ -1871,6 +1871,154 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
+    public void ExteriorWallMaterializationPreservesHorizontalSurfaceBlocks()
+    {
+        var path = Path.Combine(
+            AppContext.BaseDirectory, "packs", "default", "data", "biomes",
+            "mountains.json");
+        var root = System.Text.Json.Nodes.JsonNode.Parse(
+            File.ReadAllText(path))!.AsObject();
+        root["id"] = "asteria:test/surface-edge";
+        root["surfaceLayout"]!.AsObject().Remove("cannotBorder");
+        root["decorations"] = System.Text.Json.Nodes.JsonNode.Parse("[]");
+        var topLayer = root["palette"]!["default"]![0]!.AsObject();
+        topLayer["block"] = "asteria:dirt";
+        topLayer.Remove("patch");
+
+        var biome = BiomeDefinitionJson.Parse(root.ToJsonString());
+        var blocks = LoadDefaultBlocks();
+        var generator = new BiomeWorldGenerator(
+            823UL,
+            TestDimension([biome.Id]),
+            blocks,
+            new FluidRegistry(Array.Empty<FluidDefinition>()),
+            new BiomeRegistry([biome]),
+            StructureRegistry.Empty,
+            generation: new WorldGenerationOptions(
+                spawnCaves: false, spawnOceans: false, spawnStructures: false));
+
+        (int X, int Z, int Y)? edge = null;
+        for (var z = -96; z <= 96 && edge is null; z += 2)
+        for (var x = -96; x <= 96; x += 2)
+        {
+            var y = generator.SurfaceHeight(x, z);
+            if (y <= 0)
+                continue;
+            if (generator.SurfaceHeight(x + 1, z) <= y - 2 ||
+                generator.SurfaceHeight(x - 1, z) <= y - 2 ||
+                generator.SurfaceHeight(x, z + 1) <= y - 2 ||
+                generator.SurfaceHeight(x, z - 1) <= y - 2)
+            {
+                edge = (x, z, y);
+                break;
+            }
+        }
+
+        Assert.NotNull(edge);
+        var target = edge!.Value;
+        var (coord, local) = VoxelCoordinates.FromWorld(
+            target.X, target.Y, target.Z);
+        var chunk = generator.Materialize(coord);
+
+        Assert.Equal(blocks.GetId("asteria:dirt"),
+            chunk.GetBlock(local.X, local.Y, local.Z));
+    }
+
+    [Fact]
+    public void GeneratedMountainCliffWallsUseThreeDimensionalMaterials()
+    {
+        var path = Path.Combine(
+            AppContext.BaseDirectory, "packs", "default", "data", "biomes",
+            "mountains.json");
+        var root = System.Text.Json.Nodes.JsonNode.Parse(
+            File.ReadAllText(path))!.AsObject();
+        root["id"] = "asteria:test/mountains";
+        root["surfaceLayout"]!.AsObject().Remove("cannotBorder");
+        root["decorations"] = System.Text.Json.Nodes.JsonNode.Parse("[]");
+
+        var surfacePatch = root["palette"]!["default"]![0]!["patch"]!.AsObject();
+        surfacePatch.Remove("weights");
+        surfacePatch["scale"] = 12;
+        surfacePatch["detailScale"] = 3;
+        surfacePatch["coverage"] = 0.5;
+        surfacePatch["roughness"] = 0.25;
+        surfacePatch["blocks"] = new System.Text.Json.Nodes.JsonArray("asteria:gravel");
+
+        var biome = BiomeDefinitionJson.Parse(root.ToJsonString());
+        var blocks = LoadDefaultBlocks();
+        var generator = new BiomeWorldGenerator(
+            823UL,
+            TestDimension([biome.Id]),
+            blocks,
+            new FluidRegistry(Array.Empty<FluidDefinition>()),
+            new BiomeRegistry([biome]),
+            StructureRegistry.Empty,
+            generation: new WorldGenerationOptions(
+                spawnCaves: false, spawnOceans: false, spawnStructures: false));
+
+        var candidates = new List<(ChunkCoord Chunk, int X, int Y, int Z)>();
+        var candidateChunks = new HashSet<ChunkCoord>();
+        var directions = new (int X, int Z)[]
+        {
+            (1, 0), (-1, 0), (0, 1), (0, -1),
+        };
+        // Scan all rows to guarantee cliff candidates, then distribute
+        // the bounded materialization sample across the fixture.
+        for (var z = -96; z <= 96; z += 2)
+        for (var x = -96; x <= 96; x += 2)
+        {
+            var surfaceY = generator.SurfaceHeight(x, z);
+            var wallY = surfaceY - 2;
+            if (wallY <= 0 || generator.DensityAt(x, wallY, z) < 0d)
+                continue;
+
+            foreach (var (dx, dz) in directions)
+            {
+                var neighborY = generator.SurfaceHeight(x + dx, z + dz);
+                if (surfaceY - neighborY < 5 ||
+                    generator.DensityAt(x + dx, wallY, z + dz) >= 0d)
+                    continue;
+
+                var (chunkCoord, local) = VoxelCoordinates.FromWorld(x, wallY, z);
+                if (candidateChunks.Add(chunkCoord))
+                    candidates.Add((chunkCoord, local.X, local.Y, local.Z));
+                break;
+            }
+        }
+
+        Assert.NotEmpty(candidates);
+        if (candidates.Count > 32)
+        {
+            var distributedCandidates = Enumerable.Range(0, 32)
+                .Select(index =>
+                    candidates[index * (candidates.Count - 1) / 31])
+                .ToList();
+            candidates = distributedCandidates;
+        }
+
+        var gravel = blocks.GetId("asteria:gravel");
+        var materialized = new Dictionary<ChunkCoord, Chunk>();
+        var foundPatchOnRealWall = false;
+        foreach (var candidate in candidates)
+        {
+            if (!materialized.TryGetValue(candidate.Chunk, out var chunk))
+            {
+                chunk = generator.Materialize(candidate.Chunk);
+                materialized.Add(candidate.Chunk, chunk);
+            }
+
+            if (chunk.GetBlock(candidate.X, candidate.Y, candidate.Z) != gravel)
+                continue;
+
+            foundPatchOnRealWall = true;
+            break;
+        }
+
+        Assert.True(foundPatchOnRealWall,
+            "Expected a 3D gravel patch on a materialized cliff wall below the top surface.");
+    }
+
+    [Fact]
     public void CaveWallPaletteOverridesOnlySolidWallsOnActualCarvedVoid()
     {
         var blocks = LoadDefaultBlocks();

@@ -88,10 +88,16 @@ public sealed class MountainBiomeContentTests
             var eligible = a.BlockAt(sample, x, z, 0, flat);
             Assert.Equal(eligible, b.BlockAt(sample, x, z, 0, flat));
             seen.Add(eligible);
+            var atExcludedHeight = a.BlockAt(sample, x, z, 0, excluded);
             if (file is "mountains" or "mountain_belt")
-                Assert.Equal(eligible, a.BlockAt(sample, x, z, 0, excluded));
+            {
+                Assert.Equal(atExcludedHeight,
+                    b.BlockAt(sample, x, z, 0, excluded));
+            }
             else
-                Assert.Equal(original, a.BlockAt(sample, x, z, 0, excluded));
+            {
+                Assert.Equal(original, atExcludedHeight);
+            }
             Assert.Equal(original, a.BlockAt(sample, x, z, 0, tooSteep));
             Assert.Equal(core, a.BlockAt(sample, x, z, 3, flat));
         }
@@ -220,10 +226,19 @@ public sealed class MountainBiomeContentTests
     {
         var (materials, sample, stone, gravel) = CreateVolumePatchMaterials(823UL);
         var gravelCountsByY = new List<int>();
+        const int sampleCount = 24 * 24;
+        var slices = new Dictionary<int, bool[]>
+        {
+            [88] = new bool[sampleCount],
+            [89] = new bool[sampleCount],
+            [100] = new bool[sampleCount],
+        };
         for (var y = 88; y < 136; y++)
         {
             var gravelCount = 0;
             var stoneCount = 0;
+            var trackedSlice = slices.TryGetValue(y, out var row) ? row : null;
+            var sampleIndex = 0;
             for (var z = -24; z < 24; z += 2)
             for (var x = -24; x < 24; x += 2)
             {
@@ -231,15 +246,209 @@ public sealed class MountainBiomeContentTests
                     sample, x, y, z, BiomePaletteFace.Walls);
                 if (block == gravel) gravelCount++;
                 if (block == stone) stoneCount++;
+                if (trackedSlice is not null)
+                    trackedSlice[sampleIndex] = block == gravel;
+                sampleIndex++;
             }
 
+            Assert.Equal(sampleCount, sampleIndex);
             Assert.True(gravelCount > 0 && stoneCount > 0,
                 $"Expected mixed 3D patch coverage at y={y}; gravel={gravelCount}, stone={stoneCount}.");
             gravelCountsByY.Add(gravelCount);
         }
 
+        static int ChangedSamples(bool[] first, bool[] second)
+        {
+            var changed = 0;
+            for (var i = 0; i < first.Length; i++)
+                if (first[i] != second[i])
+                    changed++;
+            return changed;
+        }
+
+        var adjacentSliceChanges = ChangedSamples(slices[88], slices[89]);
+        var distantSliceChanges = ChangedSamples(slices[88], slices[100]);
+        Assert.True(adjacentSliceChanges < distantSliceChanges * 0.4,
+            $"Adjacent slices changed {adjacentSliceChanges}/{sampleCount} cells, while slices twelve blocks apart changed {distantSliceChanges}/{sampleCount}; the 3D mask is too compressed vertically.");
         Assert.True(gravelCountsByY.Distinct().Count() > 1,
             "Every horizontal slice had identical patch coverage; this indicates horizontal banding.");
+    }
+
+    [Fact]
+    public void SurfacePatchesContinueOntoAdjacentUniformRockWalls()
+    {
+        var root = JsonNode.Parse(File.ReadAllText(
+            Path.Combine(PackData, "biomes", "mountains.json")))!.AsObject();
+        root["id"] = "asteria:test/continuous-patch";
+        root["palette"]!["walls"] = new JsonArray(
+            new JsonObject { ["block"] = "asteria:stone" });
+        var biome = BiomeDefinitionJson.Parse(root.ToJsonString());
+        var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
+        var materials = new BiomeSurfaceMaterialField(3817UL, [biome], blocks);
+        var sample = new BiomeSample(
+            biome.Id, [new BiomeInfluence(biome.Id, 1f)]);
+        var observed = 0;
+
+        for (var z = -96; z <= 96; z += 4)
+        for (var x = -96; x <= 96; x += 4)
+        {
+            const int surfaceY = 112;
+            var placement = new SurfacePlacementContext(surfaceY, 0d);
+            var surface = materials.BlockAt(sample, x, z, 0, placement);
+            var wall = materials.ExteriorWallBlockAt(
+                sample, x, surfaceY, z, surfaceTopY: surfaceY);
+            Assert.Equal(surface, wall);
+            observed++;
+        }
+
+        Assert.True(observed > 0);
+    }
+
+    [Fact]
+    public void OceanPatchAltitudeBoundaryVariesAcrossWorldSpace()
+    {
+        var biome = LoadBiome("ocean");
+        var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
+        var materials = new BiomeSurfaceMaterialField(78123UL, [biome], blocks);
+        var sample = new BiomeSample(
+            biome.Id, [new BiomeInfluence(biome.Id, 1f)]);
+        var sand = blocks.GetId("asteria:sand");
+
+        int CountPatchBlocks(int surfaceY)
+        {
+            var count = 0;
+            for (var z = -128; z <= 128; z += 4)
+            for (var x = -128; x <= 128; x += 4)
+            {
+                var block = materials.BlockAt(
+                    sample, x, z, 0,
+                    new SurfacePlacementContext(surfaceY, 0d));
+                if (block != sand)
+                    count++;
+            }
+
+            return count;
+        }
+
+        var belowBoundary = CountPatchBlocks(82);
+        var nearBoundary = CountPatchBlocks(84);
+        var aboveAuthoredLimit = CountPatchBlocks(88);
+        Assert.True(belowBoundary > nearBoundary,
+            $"Patch coverage should taper inside the allowed altitude range; y=82 had {belowBoundary} patch blocks and y=84 had {nearBoundary}.");
+        Assert.True(nearBoundary > 0,
+            "The altitude transition should be spatially irregular, not a perfectly horizontal cutoff.");
+        Assert.True(aboveAuthoredLimit == 0,
+            "A patch must never appear above its authored maxY.");
+    }
+
+    [Fact]
+    public void InheritedWallMaterialsFormDeterministicThreeDimensionalRegions()
+    {
+        var biome = LoadBiome("desert");
+        var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
+        const ulong seed = 1907UL;
+        var materials = new BiomeSurfaceMaterialField(seed, [biome], blocks);
+        var sameSeedMaterials = new BiomeSurfaceMaterialField(seed, [biome], blocks);
+        var sample = new BiomeSample(
+            biome.Id, [new BiomeInfluence(biome.Id, 1f)]);
+        var sand = blocks.GetId("asteria:sand");
+        var sandstone = blocks.GetId("asteria:sandstone");
+        var stone = blocks.GetId("asteria:stone");
+        const int surfaceTopY = 160;
+        var seen = new HashSet<BlockRuntimeId>();
+        var sandCountsByY = new Dictionary<int, int>();
+        var samples = new Dictionary<(int X, int Y, int Z), BlockRuntimeId>();
+
+        for (var z = -48; z <= 48; z += 4)
+        for (var x = -64; x <= 64; x += 4)
+        {
+            var wall = materials.SampleExteriorWallColumn(sample, x, z);
+            var repeated = sameSeedMaterials.SampleExteriorWallColumn(sample, x, z);
+            for (var y = 128; y <= surfaceTopY; y += 4)
+            {
+                var block = wall.BlockAt(y, surfaceTopY);
+                Assert.Equal(block, repeated.BlockAt(y, surfaceTopY));
+                samples[(x, y, z)] = block;
+                seen.Add(block);
+                sandCountsByY[y] = sandCountsByY.GetValueOrDefault(y) +
+                    (block == sand ? 1 : 0);
+            }
+        }
+
+        Assert.Contains(sand, seen);
+        Assert.Contains(sandstone, seen);
+        Assert.Contains(stone, seen);
+        Assert.Subset(new HashSet<BlockRuntimeId> { sand, sandstone, stone }, seen);
+        Assert.True(sandCountsByY.Values.Distinct().Count() > 1,
+            "Material coverage should vary between horizontal slices instead of repeating as depth-defined bands.");
+
+        var comparedNeighbors = 0;
+        var matchingNeighbors = 0;
+        foreach (var (position, block) in samples)
+        {
+            foreach (var neighbor in new[]
+            {
+                (X: position.X + 4, Y: position.Y, Z: position.Z),
+                (X: position.X, Y: position.Y + 4, Z: position.Z),
+                (X: position.X, Y: position.Y, Z: position.Z + 4),
+            })
+            {
+                if (!samples.TryGetValue(neighbor, out var adjacent))
+                    continue;
+                comparedNeighbors++;
+                if (block == adjacent)
+                    matchingNeighbors++;
+            }
+        }
+
+        Assert.True(comparedNeighbors > 0);
+        Assert.True(matchingNeighbors > comparedNeighbors / 4,
+            $"Materials did not form coherent 3D regions: {matchingNeighbors}/{comparedNeighbors} adjacent samples matched.");
+    }
+
+    [Fact]
+    public void ExteriorWallsInheritThreeDimensionalPatchesBeneathUniformWallPalettes()
+    {
+        var path = Path.Combine(PackData, "biomes", "mountains.json");
+        var root = JsonNode.Parse(File.ReadAllText(path))!.AsObject();
+        var surfacePatch = root["palette"]!["default"]![0]!["patch"]!.AsObject();
+        surfacePatch.Remove("weights");
+        surfacePatch["scale"] = 12;
+        surfacePatch["detailScale"] = 3;
+        surfacePatch["coverage"] = 0.5;
+        surfacePatch["roughness"] = 0.25;
+        surfacePatch["blocks"] = new JsonArray("asteria:gravel");
+
+        var biome = BiomeDefinitionJson.Parse(root.ToJsonString());
+        var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
+        var materials = new BiomeSurfaceMaterialField(823UL, [biome], blocks);
+        var sample = new BiomeSample(
+            biome.Id, [new BiomeInfluence(biome.Id, 1f)]);
+        var stone = blocks.GetId("asteria:stone");
+        var gravel = blocks.GetId("asteria:gravel");
+        var seen = new HashSet<BlockRuntimeId>();
+        var gravelCountsByY = new List<int>();
+
+        for (var y = 88; y < 136; y++)
+        {
+            var gravelCount = 0;
+            for (var z = -24; z < 24; z += 2)
+            for (var x = -24; x < 24; x += 2)
+            {
+                var block = materials.ExteriorWallBlockAt(
+                    sample, x, y, z, surfaceTopY: y + 1);
+                seen.Add(block);
+                if (block == gravel)
+                    gravelCount++;
+            }
+
+            gravelCountsByY.Add(gravelCount);
+        }
+
+        Assert.Contains(stone, seen);
+        Assert.Contains(gravel, seen);
+        Assert.True(gravelCountsByY.Distinct().Count() > 1,
+            "Exterior wall patch coverage must vary across Y instead of forming horizontal bands.");
     }
 
     private static (BiomeSurfaceMaterialField Materials, BiomeSample Sample,

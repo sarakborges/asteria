@@ -123,6 +123,57 @@ internal static class WorldGenerationEntropy
         return Lerp(Slice(zBase), Slice(z1), tz);
     }
 
+    /// <summary>
+    /// Samples the same deterministic 3D lattice at fractional coordinates.
+    /// Surface and volume material patches share this field so their masks
+    /// join continuously at the terrain boundary without losing warp offsets.
+    /// </summary>
+    public static double ValueNoise3D(
+        ulong seed,
+        GenerationDomain domain,
+        double x,
+        double y,
+        double z,
+        uint horizontalScale,
+        uint verticalScale)
+    {
+        if (!double.IsFinite(x) || !double.IsFinite(y) ||
+            !double.IsFinite(z) || horizontalScale < 2 || verticalScale < 2)
+        {
+            throw new ArgumentOutOfRangeException(nameof(horizontalScale));
+        }
+
+        var scaledX = x / horizontalScale;
+        var scaledY = y / verticalScale;
+        var scaledZ = z / horizontalScale;
+        var floorX = Math.Floor(scaledX);
+        var floorY = Math.Floor(scaledY);
+        var floorZ = Math.Floor(scaledZ);
+        var x0 = ClampToInt(floorX);
+        var y0 = ClampToInt(floorY);
+        var z0 = ClampToInt(floorZ);
+        var x1 = x0 == int.MaxValue ? int.MaxValue : x0 + 1;
+        var y1 = y0 == int.MaxValue ? int.MaxValue : y0 + 1;
+        var z1 = z0 == int.MaxValue ? int.MaxValue : z0 + 1;
+        var tx = SmoothStep(scaledX - floorX);
+        var ty = SmoothStep(scaledY - floorY);
+        var tz = SmoothStep(scaledZ - floorZ);
+
+        double Slice(int layerZ) =>
+            Lerp(
+                Lerp(
+                    SignedUnit(Sample3D(seed, domain, x0, y0, layerZ)),
+                    SignedUnit(Sample3D(seed, domain, x1, y0, layerZ)),
+                    tx),
+                Lerp(
+                    SignedUnit(Sample3D(seed, domain, x0, y1, layerZ)),
+                    SignedUnit(Sample3D(seed, domain, x1, y1, layerZ)),
+                    tx),
+                ty);
+
+        return Lerp(Slice(z0), Slice(z1), tz);
+    }
+
     public static double SmoothNoise2D(
         ulong seed,
         GenerationDomain domain,

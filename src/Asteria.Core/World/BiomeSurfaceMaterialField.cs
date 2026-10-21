@@ -38,6 +38,11 @@ public sealed class BiomeSurfaceMaterialField
         HasExteriorOverrides = _faceRules.Values.Any(
             profile => profile.Exterior &&
                 (profile.OverrideWalls || profile.OverrideCeiling));
+        HasExteriorFaces = _faceRules.Values.Any(profile =>
+            profile.Exterior &&
+            (profile.OverrideWalls || profile.OverrideCeiling ||
+             !profile.Walls.HasUniformMaterial || profile.Walls.HasPatches ||
+             profile.Floor.HasPatches));
         MaximumCavePaintDepth = _faceRules.Values
             .Where(profile => !profile.Exterior)
             .Select(profile => profile.MaxDepth)
@@ -57,6 +62,13 @@ public sealed class BiomeSurfaceMaterialField
     /// overrides. Cave-only wall rules do not trigger exterior scanning.
     /// </summary>
     public bool HasExteriorOverrides { get; }
+
+    /// <summary>
+    /// True when the generation contains surface or additive-volume solids
+    /// whose exposed faces need materialization from world-space coordinates.
+    /// Unlike HasExteriorOverrides, this includes inherited default palettes.
+    /// </summary>
+    public bool HasExteriorFaces { get; }
 
     /// <summary>
     /// Immutable upper bound on cave-facing layer depth. Lets the chunk
@@ -87,9 +99,7 @@ public sealed class BiomeSurfaceMaterialField
             return choice.Block;
 
         if (depth >= rule.CoreStartDepth)
-        {
             return rule.CoreBlock;
-        }
 
         return rule.BlockAtDepth(
             _seed,
@@ -112,22 +122,13 @@ public sealed class BiomeSurfaceMaterialField
             throw new KeyNotFoundException(
                 $"Biome {sample.Primary} has no material palette.");
         var rule = rules.For(face);
-        SurfacePlacementContext? placement = null;
-        if (rule.HasConditions)
-        {
-            if (_terrain is null)
-            {
-                throw new InvalidOperationException(
-                    "Conditional volume material patches require a terrain field.");
-            }
-
-            var sampled = SurfacePlacementContext.Sample(
-                _terrain, worldX, worldZ, rule.RequiresSlope);
-            placement = new SurfacePlacementContext(worldY, sampled.Slope);
-        }
-
+        if (face == BiomePaletteFace.Walls &&
+            rules.Exterior && !rules.OverrideWalls)
+            return rule.ExteriorWallBlockAtWorldPosition(
+                _seed, worldX, worldY, worldZ);
         return rule.VolumeBlockAt(
-            _seed, worldX, worldY, worldZ, depth, placement);
+            _seed, worldX, worldY, worldZ, depth,
+            VolumePlacementFor(rule, worldX, worldY, worldZ));
     }
 
     /// <summary>Maximum relevant inward distance (at least one voxel).</summary>
@@ -144,6 +145,97 @@ public sealed class BiomeSurfaceMaterialField
         BiomeSample sample, BiomePaletteFace face) =>
         _faceRules.TryGetValue(sample.Primary, out var rules) &&
         rules.HasOverride(face);
+
+    /// <summary>
+    /// True when exterior walls need an authored layer or patch palette.
+    /// Inherited multi-layer profiles use deterministic 3D material regions.
+    /// </summary>
+    public bool HasExteriorWallMaterial(BiomeSample sample) =>
+        _faceRules.TryGetValue(sample.Primary, out var rules) &&
+        rules.Exterior &&
+        (rules.OverrideWalls || !rules.Walls.HasUniformMaterial ||
+         rules.Walls.HasPatches || rules.Floor.HasPatches);
+
+    /// <summary>
+    /// Creates a world-space sampler for an inherited wall palette. Material
+    /// regions are continuous across chunk and column boundaries.
+    /// </summary>
+    public ExteriorWallMaterialColumn SampleExteriorWallColumn(
+        BiomeSample sample, int worldX, int worldZ)
+    {
+        ArgumentNullException.ThrowIfNull(sample);
+        if (!_faceRules.TryGetValue(sample.Primary, out var rules))
+            throw new KeyNotFoundException(
+                $"Biome {sample.Primary} has no material palette.");
+        if (rules.OverrideWalls)
+            throw new InvalidOperationException(
+                $"Biome {sample.Primary} defines an explicit wall palette.");
+
+        return CreateExteriorWallMaterialColumn(
+            _seed, worldX, worldZ, rules.Floor);
+    }
+
+    /// <summary>
+    /// Resolves an exposed wall voxel. Explicit directional wall profiles remain
+    /// authoritative and measure depth inward from the face. Inherited palettes
+    /// use warped, categorical 3D regions instead of surface-relative layers.
+    /// </summary>
+    public BlockRuntimeId ExteriorWallBlockAt(
+        BiomeSample sample,
+        int worldX,
+        int worldY,
+        int worldZ,
+        int surfaceTopY,
+        uint depth = 0)
+    {
+        ArgumentNullException.ThrowIfNull(sample);
+        if (!_faceRules.TryGetValue(sample.Primary, out var rules))
+            throw new KeyNotFoundException(
+                $"Biome {sample.Primary} has no material palette.");
+
+        if (!rules.OverrideWalls)
+        {
+            return rules.Floor.ExteriorWallBlockAtWorldPosition(
+                _seed, worldX, worldY, worldZ);
+        }
+
+        var wallRule = rules.Walls;
+        var wallBlock = wallRule.VolumeBlockAt(
+            _seed, worldX, worldY, worldZ, depth,
+            placement: null, ignorePlacementConditions: true);
+
+        if (!rules.Exterior || !rules.Floor.HasPatches ||
+            !wallRule.HasUniformMaterial || wallRule.HasPatches)
+            return wallBlock;
+
+        // A uniform explicit wall palette may inherit authored surface patches
+        // as 3D outcrops without top-surface altitude/slope placement gates.
+        return rules.Floor.VolumePatchBlockAt(
+            _seed, worldX, worldY, worldZ, depth: 0,
+            placement: null, ignorePlacementConditions: true)
+            ?? wallBlock;
+    }
+
+    private ExteriorWallMaterialColumn CreateExteriorWallMaterialColumn(
+        ulong seed, int worldX, int worldZ, MaterialRule rule)
+    {
+        // Inherited wall palettes use deterministic 3D material regions.
+        return new ExteriorWallMaterialColumn(
+            worldY => rule.ExteriorWallBlockAtWorldPosition(
+                seed, worldX, worldY, worldZ));
+    }
+
+    public sealed class ExteriorWallMaterialColumn
+    {
+        private readonly Func<int, BlockRuntimeId> _resolve;
+
+        internal ExteriorWallMaterialColumn(
+            Func<int, BlockRuntimeId> resolve) =>
+            _resolve = resolve;
+
+        public BlockRuntimeId BlockAt(int worldY, int surfaceTopY) =>
+            _resolve(worldY);
+    }
 
     public BiomeSurfaceMaterialColumn SampleColumn(
         BiomeSample sample,
@@ -185,6 +277,26 @@ public sealed class BiomeSurfaceMaterialField
         return (rule.CoreBlock, rule.CoreStartDepth);
     }
 
+    private SurfacePlacementContext? VolumePlacementFor(
+        MaterialRule rule,
+        int worldX,
+        int worldY,
+        int worldZ)
+    {
+        if (!rule.HasConditions)
+            return null;
+
+        if (_terrain is null)
+        {
+            throw new InvalidOperationException(
+                "Conditional volume material patches require a terrain field.");
+        }
+
+        var sampled = SurfacePlacementContext.Sample(
+            _terrain, worldX, worldZ, rule.RequiresSlope);
+        return new SurfacePlacementContext(worldY, sampled.Slope);
+    }
+
     private SurfacePlacementContext? PlacementFor(
         MaterialRule rule,
         int worldX,
@@ -192,19 +304,22 @@ public sealed class BiomeSurfaceMaterialField
         SurfacePlacementContext? supplied)
     {
         if (supplied.HasValue)
-        {
             return supplied;
-        }
 
-        if (!rule.HasConditions)
-        {
+        if (!rule.HasConditions && !rule.HasPatches)
             return null;
-        }
 
         if (_terrain is null)
         {
-            throw new InvalidOperationException(
-                "Conditional material patches require a terrain field.");
+            if (rule.HasConditions)
+            {
+                throw new InvalidOperationException(
+                    "Conditional material patches require a terrain field.");
+            }
+
+            // Standalone palette queries without a terrain field retain their
+            // deterministic origin slice. World generation always has terrain.
+            return null;
         }
 
         return SurfacePlacementContext.Sample(
@@ -261,18 +376,46 @@ public sealed class BiomeSurfaceMaterialField
 
     private sealed class MaterialRule
     {
-        // Broad X/Z variation keeps stratum boundaries irregular without
-        // introducing a second, high-frequency signal that reads as banding.
         private const uint BoundaryNoiseScale = 48;
+        private const uint ExteriorWallHorizontalScale = 36;
+        private const uint ExteriorWallVerticalScale = 24;
+        private const uint ExteriorWallDetailHorizontalScale = 12;
+        private const uint ExteriorWallDetailVerticalScale = 8;
+        private const uint ExteriorWallWarpHorizontalScale = 108;
+        private const uint ExteriorWallWarpVerticalScale = 72;
+        private const double ExteriorWallWarpHorizontalAmplitude = 12d;
+        private const double ExteriorWallWarpVerticalAmplitude = 7d;
+        private const double ExteriorWallDetailWeight = 0.28d;
+
         private MaterialRule(
             ResolvedLayer[] layers,
             GenerationDomain[] boundaryDomains,
+            GenerationDomain exteriorWallMaterialDomain,
+            GenerationDomain exteriorWallDetailDomain,
+            GenerationDomain exteriorWallWarpXDomain,
+            GenerationDomain exteriorWallWarpYDomain,
+            GenerationDomain exteriorWallWarpZDomain,
             bool usesBaseSurface)
         {
             Layers = layers;
             BoundaryDomains = boundaryDomains;
+            ExteriorWallMaterialDomain = exteriorWallMaterialDomain;
+            ExteriorWallDetailDomain = exteriorWallDetailDomain;
+            ExteriorWallWarpXDomain = exteriorWallWarpXDomain;
+            ExteriorWallWarpYDomain = exteriorWallWarpYDomain;
+            ExteriorWallWarpZDomain = exteriorWallWarpZDomain;
+            _materialCumulativeWeights = new double[layers.Length];
+            var totalWeight = 0d;
+            for (var index = 0; index < layers.Length; index++)
+            {
+                totalWeight += ExteriorWallMaterialWeight(layers, index);
+                _materialCumulativeWeights[index] = totalWeight;
+            }
+            _materialWeightTotal = totalWeight;
             UsesBaseSurface = usesBaseSurface;
             HasConditions = layers.Any(layer => layer.HasConditions);
+            HasPatches = layers.Any(layer => layer.HasPatch);
+            HasUniformMaterial = layers.All(layer => layer.Block == layers[0].Block);
             RequiresSlope = layers.Any(layer => layer.RequiresSlope);
             CoreBlock = layers[^1].Block;
             var nominalCoreDepth = layers.Length > 1
@@ -285,10 +428,85 @@ public sealed class BiomeSurfaceMaterialField
 
         private ResolvedLayer[] Layers { get; }
         private GenerationDomain[] BoundaryDomains { get; }
+        private GenerationDomain ExteriorWallMaterialDomain { get; }
+        private GenerationDomain ExteriorWallDetailDomain { get; }
+        private GenerationDomain ExteriorWallWarpXDomain { get; }
+        private GenerationDomain ExteriorWallWarpYDomain { get; }
+        private GenerationDomain ExteriorWallWarpZDomain { get; }
+        private readonly double[] _materialCumulativeWeights;
+        private readonly double _materialWeightTotal;
 
         public bool HasConditions { get; }
 
+        public bool HasPatches { get; }
+
+        public bool HasUniformMaterial { get; }
+
         public bool RequiresSlope { get; }
+
+        public BlockRuntimeId ExteriorWallBlockAtWorldPosition(
+            ulong seed, int worldX, int worldY, int worldZ)
+        {
+            // A warped, multi-scale field in world-space XYZ selects material
+            // regions throughout the voxel volume, rather than assigning the
+            // same material to a depth interval or a regular cellular grid.
+            var warpX = WorldGenerationEntropy.ValueNoise3D(
+                seed, ExteriorWallWarpXDomain, worldX, worldY, worldZ,
+                ExteriorWallWarpHorizontalScale, ExteriorWallWarpVerticalScale);
+            var warpY = WorldGenerationEntropy.ValueNoise3D(
+                seed, ExteriorWallWarpYDomain, worldX, worldY, worldZ,
+                ExteriorWallWarpHorizontalScale, ExteriorWallWarpVerticalScale);
+            var warpZ = WorldGenerationEntropy.ValueNoise3D(
+                seed, ExteriorWallWarpZDomain, worldX, worldY, worldZ,
+                ExteriorWallWarpHorizontalScale, ExteriorWallWarpVerticalScale);
+            var warpedX = worldX + warpX * ExteriorWallWarpHorizontalAmplitude;
+            var warpedY = worldY + warpY * ExteriorWallWarpVerticalAmplitude;
+            var warpedZ = worldZ + warpZ * ExteriorWallWarpHorizontalAmplitude;
+
+            var broad = WorldGenerationEntropy.ValueNoise3D(
+                seed, ExteriorWallMaterialDomain, warpedX, warpedY, warpedZ,
+                ExteriorWallHorizontalScale, ExteriorWallVerticalScale);
+            var detail = WorldGenerationEntropy.ValueNoise3D(
+                seed, ExteriorWallDetailDomain, warpedX, warpedY, warpedZ,
+                ExteriorWallDetailHorizontalScale, ExteriorWallDetailVerticalScale);
+            var field = broad * (1d - ExteriorWallDetailWeight) +
+                        detail * ExteriorWallDetailWeight;
+            var target = Math.Clamp((field + 1d) * 0.5d, 0d, 0.999999999999d) *
+                         _materialWeightTotal;
+            var selected = _materialCumulativeWeights.Length - 1;
+            for (var index = 0; index < _materialCumulativeWeights.Length; index++)
+            {
+                if (target < _materialCumulativeWeights[index])
+                {
+                    selected = index;
+                    break;
+                }
+            }
+
+            return Layers[selected].ResolveVolume(
+                seed, worldX, worldY, worldZ,
+                placement: null, ignorePlacementConditions: true);
+        }
+
+        private static double ExteriorWallMaterialWeight(
+            ResolvedLayer[] layers, int index)
+        {
+            if (layers[index].EndDepthExclusive is not { } endDepth)
+            {
+                if (index == 0)
+                    return 1d;
+                var previous = layers[index - 1].EndDepthExclusive.GetValueOrDefault();
+                var beforePrevious = index > 1
+                    ? layers[index - 2].EndDepthExclusive.GetValueOrDefault()
+                    : 0u;
+                return Math.Max(1u, previous - beforePrevious);
+            }
+
+            var previousEnd = index == 0
+                ? 0u
+                : layers[index - 1].EndDepthExclusive.GetValueOrDefault();
+            return Math.Max(1u, endDepth - previousEnd);
+        }
 
         public bool UsesBaseSurface { get; }
         public BlockRuntimeId CoreBlock { get; }
@@ -325,7 +543,8 @@ public sealed class BiomeSurfaceMaterialField
 
         public BlockRuntimeId VolumeBlockAt(
             ulong seed, int x, int y, int z, uint depth,
-            SurfacePlacementContext? placement)
+            SurfacePlacementContext? placement,
+            bool ignorePlacementConditions = false)
         {
             if (depth >= CoreStartDepth)
                 return CoreBlock;
@@ -342,10 +561,39 @@ public sealed class BiomeSurfaceMaterialField
                     if (depth >= endDepth)
                         continue;
                 }
-                return layer.ResolveVolume(seed, x, y, z, placement);
+                return layer.ResolveVolume(
+                    seed, x, y, z, placement, ignorePlacementConditions);
             }
             throw new InvalidOperationException(
                 "Validated palette must end with a core layer.");
+        }
+
+        public BlockRuntimeId? VolumePatchBlockAt(
+            ulong seed, int x, int y, int z, uint depth,
+            SurfacePlacementContext? placement,
+            bool ignorePlacementConditions = false)
+        {
+            if (depth >= CoreStartDepth)
+                return null;
+
+            var previousEndDepth = 0u;
+            for (var index = 0; index < Layers.Length; index++)
+            {
+                var layer = Layers[index];
+                if (layer.EndDepthExclusive is { } nominalEndDepth)
+                {
+                    var endDepth = AdjustedEndDepth(
+                        seed, x, z, index, nominalEndDepth, previousEndDepth);
+                    previousEndDepth = endDepth;
+                    if (depth >= endDepth)
+                        continue;
+                }
+
+                return layer.ResolveVolumePatch(
+                    seed, x, y, z, placement, ignorePlacementConditions);
+            }
+
+            return null;
         }
 
         public BiomeSurfaceMaterialColumn SampleColumn(
@@ -461,6 +709,11 @@ public sealed class BiomeSurfaceMaterialField
             return new MaterialRule(
                 layers,
                 boundaryDomains,
+                GenerationDomain.Named($"material/volumetric-regions/v1/{profileName}"),
+                GenerationDomain.Named($"material/volumetric-detail/v1/{profileName}"),
+                GenerationDomain.Named($"material/volumetric-warp-x/v1/{profileName}"),
+                GenerationDomain.Named($"material/volumetric-warp-y/v1/{profileName}"),
+                GenerationDomain.Named($"material/volumetric-warp-z/v1/{profileName}"),
                 biome.SurfaceLayout is not null);
         }
     }
@@ -490,12 +743,23 @@ public sealed class BiomeSurfaceMaterialField
 
         public bool HasConditions => Patch?.HasConditions == true;
 
+        public bool HasPatch => Patch is not null;
+
         public bool RequiresSlope => Patch?.RequiresSlope == true;
+
+        public BlockRuntimeId? ResolveVolumePatch(
+            ulong seed, int x, int y, int z,
+            SurfacePlacementContext? placement,
+            bool ignorePlacementConditions) =>
+            Patch?.ResolveVolume(
+                seed, x, y, z, placement, ignorePlacementConditions);
 
         public BlockRuntimeId ResolveVolume(
             ulong seed, int x, int y, int z,
-            SurfacePlacementContext? placement) =>
-            Patch?.ResolveVolume(seed, x, y, z, placement) ?? Block;
+            SurfacePlacementContext? placement,
+            bool ignorePlacementConditions = false) =>
+            Patch?.ResolveVolume(
+                seed, x, y, z, placement, ignorePlacementConditions) ?? Block;
 
         public BlockRuntimeId Resolve(
             ulong seed,
@@ -512,17 +776,23 @@ public sealed class BiomeSurfaceMaterialField
 
     private sealed class ResolvedPatch
     {
+        private const uint PlacementBoundaryScale = 48;
+        private const int MaximumAltitudeBoundaryDisplacement = 4;
+
         private readonly BiomeSurfacePatchDefinition _definition;
         private readonly BlockRuntimeId[] _blocks;
         private readonly double[] _cumulativeWeights;
         private readonly double _totalWeight;
-        private readonly GenerationDomain _shapeDomain;
         private readonly GenerationDomain _detailDomain;
-        private readonly GenerationDomain _blockDomain;
         private readonly GenerationDomain _warpXDomain;
         private readonly GenerationDomain _warpZDomain;
         private readonly GenerationDomain _volumeMaskDomain;
+        private readonly GenerationDomain _volumeFineDetailDomain;
         private readonly GenerationDomain _volumeSelectionDomain;
+        private readonly GenerationDomain _volumeWarpXDomain;
+        private readonly GenerationDomain _volumeWarpYDomain;
+        private readonly GenerationDomain _volumeWarpZDomain;
+        private readonly GenerationDomain _altitudeBoundaryDomain;
 
         private ResolvedPatch(
             BiomeSurfacePatchDefinition definition,
@@ -540,53 +810,44 @@ public sealed class BiomeSurfaceMaterialField
             }
 
             _totalWeight = total;
-            _shapeDomain = GenerationDomain.Named(
-                $"material/surface-patch/shape/v2/{suffix}");
             _detailDomain = GenerationDomain.Named(
                 $"material/surface-patch/detail/v2/{suffix}");
-            _blockDomain = GenerationDomain.Named(
-                $"material/surface-patch/block/v2/{suffix}");
             _warpXDomain = GenerationDomain.Named(
                 $"material/surface-patch/warp-x/v1/{suffix}");
             _warpZDomain = GenerationDomain.Named(
                 $"material/surface-patch/warp-z/v1/{suffix}");
             _volumeMaskDomain = GenerationDomain.Named(
                 $"material/volume-patch/mask/v1/{suffix}");
+            _volumeFineDetailDomain = GenerationDomain.Named(
+                $"material/volume-patch/fine-detail/v1/{suffix}");
             _volumeSelectionDomain = GenerationDomain.Named(
                 $"material/volume-patch/selection/v1/{suffix}");
+            _volumeWarpXDomain = GenerationDomain.Named(
+                $"material/volume-patch/warp-x/v1/{suffix}");
+            _volumeWarpYDomain = GenerationDomain.Named(
+                $"material/volume-patch/warp-y/v1/{suffix}");
+            _volumeWarpZDomain = GenerationDomain.Named(
+                $"material/volume-patch/warp-z/v1/{suffix}");
+            _altitudeBoundaryDomain = GenerationDomain.Named(
+                $"material/surface-patch/altitude-boundary/v1/{suffix}");
         }
 
         public BlockRuntimeId? ResolveVolume(
             ulong seed, int x, int y, int z,
-            SurfacePlacementContext? placement)
+            SurfacePlacementContext? placement,
+            bool ignorePlacementConditions = false)
         {
-            if (_definition.Conditions is { } conditions &&
-                (placement is not { } context ||
-                 !conditions.Allows(context)))
+            if (!ignorePlacementConditions &&
+                !AllowsPlacement(seed, x, z, placement))
                 return null;
 
-            var verticalScale = Math.Max(2u, _definition.DetailScale);
-            var noise = WorldGenerationEntropy.ValueNoise3D(
-                seed, _volumeMaskDomain, x, y, z,
-                _definition.Scale, verticalScale);
-            if (noise < 1d - _definition.Coverage * 2d)
+            var (sampleX, sampleZ) = TransformCoordinates(seed, x, z);
+            var (warpedX, warpedY, warpedZ) =
+                TransformVolumeCoordinates(seed, sampleX, y, sampleZ);
+            if (!IsInsideMask(seed, warpedX, warpedY, warpedZ))
                 return null;
 
-            if (_blocks.Length == 1)
-                return _blocks[0];
-
-            var selection = WorldGenerationEntropy.ValueNoise3D(
-                seed, _volumeSelectionDomain, x, y, z,
-                _definition.SelectionScale, verticalScale);
-            var unit = Math.Clamp((selection + 1d) * 0.5d,
-                0d, 0.999999999999d);
-            var target = unit * _totalWeight;
-            for (var i = 0; i < _blocks.Length; i++)
-            {
-                if (target < _cumulativeWeights[i])
-                    return _blocks[i];
-            }
-            return _blocks[^1];
+            return SelectBlock(seed, sampleX, y, sampleZ);
         }
 
         public bool HasConditions => _definition.Conditions is not null;
@@ -598,13 +859,25 @@ public sealed class BiomeSurfaceMaterialField
             int worldZ,
             SurfacePlacementContext? placement)
         {
-            if (_definition.Conditions is { } conditions &&
-                (placement is not { } context ||
-                 !conditions.Allows(context)))
-            {
+            if (!AllowsPlacement(seed, worldX, worldZ, placement))
                 return null;
-            }
 
+            var (sampleX, sampleZ) =
+                TransformCoordinates(seed, worldX, worldZ);
+            // This exact Y slice is also queried by ResolveVolume, so a patch
+            // visible at the surface continues naturally onto adjoining walls.
+            var sampleY = placement?.Y ?? 0;
+            var (warpedX, warpedY, warpedZ) =
+                TransformVolumeCoordinates(seed, sampleX, sampleY, sampleZ);
+            if (!IsInsideMask(seed, warpedX, warpedY, warpedZ))
+                return null;
+
+            return SelectBlock(seed, sampleX, sampleY, sampleZ);
+        }
+
+        private (double X, double Z) TransformCoordinates(
+            ulong seed, int worldX, int worldZ)
+        {
             var x = (double)worldX;
             var z = (double)worldZ;
             if (_definition.WarpStrength > 0d)
@@ -618,60 +891,114 @@ public sealed class BiomeSurfaceMaterialField
                 z += dz * _definition.WarpStrength;
             }
 
-            z /= _definition.StretchZ;
-            var morphed = _definition.WarpStrength > 0d ||
-                _definition.StretchZ != 1d;
-            var macro = Noise(
-                seed, _shapeDomain, worldX, worldZ, x, z,
-                _definition.Scale, morphed);
-            var detail = Noise(
-                seed, _detailDomain, worldX, worldZ, x, z,
-                _definition.DetailScale, morphed);
-            var field = (macro + detail * _definition.Roughness) /
-                (1d + _definition.Roughness);
-            if (field < 1d - _definition.Coverage * 2d)
-            {
-                return null;
-            }
+            return (x, z / _definition.StretchZ);
+        }
 
+        private (double X, double Y, double Z) TransformVolumeCoordinates(
+            ulong seed, double x, double y, double z)
+        {
+            var amplitude = Math.Min(_definition.WarpStrength, 14d);
+            if (amplitude <= 0d)
+                return (x, y, z);
+
+            // A second, fully 3D warp bends the authored patch itself. The
+            // earlier X/Z-only transform could leave broad, nearly parallel
+            // contours on flat seabeds and cliff faces.
+            var warpScale = (uint)Math.Clamp(
+                (long)Math.Max(2u, _definition.Scale) * 2L, 2L, 256L);
+            var warpX = WorldGenerationEntropy.ValueNoise3D(
+                seed, _volumeWarpXDomain, x, y, z, warpScale, warpScale);
+            var warpY = WorldGenerationEntropy.ValueNoise3D(
+                seed, _volumeWarpYDomain, x, y, z, warpScale, warpScale);
+            var warpZ = WorldGenerationEntropy.ValueNoise3D(
+                seed, _volumeWarpZDomain, x, y, z, warpScale, warpScale);
+            return (
+                x + warpX * amplitude,
+                y + warpY * amplitude * 0.55d,
+                z + warpZ * amplitude);
+        }
+
+        private bool IsInsideMask(
+            ulong seed, double x, double y, double z)
+        {
+            var macroScale = Math.Max(2u, _definition.Scale);
+            var detailScale = Math.Max(2u, _definition.DetailScale);
+            var fineDetailScale = Math.Max(2u, detailScale / 2u);
+            var macro = WorldGenerationEntropy.ValueNoise3D(
+                seed, _volumeMaskDomain, x, y, z,
+                macroScale, macroScale);
+            var detail = WorldGenerationEntropy.ValueNoise3D(
+                seed, _detailDomain, x, y, z,
+                detailScale, detailScale);
+            var fineDetail = WorldGenerationEntropy.ValueNoise3D(
+                seed, _volumeFineDetailDomain, x, y, z,
+                fineDetailScale, fineDetailScale);
+            var fineWeight = Math.Max(0.12d, _definition.Roughness * 0.65d);
+            var field = (macro +
+                         detail * _definition.Roughness +
+                         fineDetail * fineWeight) /
+                (1d + _definition.Roughness + fineWeight);
+            return field >= 1d - _definition.Coverage * 2d;
+        }
+
+        private BlockRuntimeId SelectBlock(
+            ulong seed, double x, double y, double z)
+        {
             if (_blocks.Length == 1)
-            {
                 return _blocks[0];
-            }
 
-            var selection = Noise(
-                seed, _blockDomain, worldX, worldZ, x, z,
-                _definition.SelectionScale, morphed);
-            var unit = Math.Clamp(
-                (selection + 1d) * 0.5d,
-                0d,
-                0.999999999999d);
+            var selectionScale = Math.Max(2u, _definition.SelectionScale);
+            var selection = WorldGenerationEntropy.ValueNoise3D(
+                seed, _volumeSelectionDomain, x, y, z,
+                selectionScale, selectionScale);
+            var unit = Math.Clamp((selection + 1d) * 0.5d,
+                0d, 0.999999999999d);
             var target = unit * _totalWeight;
             for (var index = 0; index < _blocks.Length; index++)
             {
                 if (target < _cumulativeWeights[index])
-                {
                     return _blocks[index];
-                }
             }
 
             return _blocks[^1];
         }
 
-        private static double Noise(
+        private bool AllowsPlacement(
             ulong seed,
-            GenerationDomain domain,
             int worldX,
             int worldZ,
-            double x,
-            double z,
-            uint scale,
-            bool morphed) =>
-            morphed
-                ? WorldGenerationEntropy.SmoothNoise2D(
-                    seed, domain, x, z, scale)
-                : WorldGenerationEntropy.ValueNoise2D(
-                    seed, domain, worldX, worldZ, scale);
+            SurfacePlacementContext? placement)
+        {
+            if (_definition.Conditions is not { } conditions)
+                return true;
+            if (placement is not { } context)
+                return false;
+
+            var maximumY = conditions.MaxY is { } authoredMaximum
+                ? (long)authoredMaximum
+                : long.MaxValue;
+            if (conditions.MaxY.HasValue)
+            {
+                // Retraction only removes patch coverage from inside the
+                // authored range: it never permits a patch above maxY.
+                var noise = WorldGenerationEntropy.ValueNoise2D(
+                    seed, _altitudeBoundaryDomain, worldX, worldZ,
+                    PlacementBoundaryScale);
+                var unit = Math.Clamp((noise + 1d) * 0.5d, 0d, 1d);
+                var retraction = (int)Math.Round(
+                    unit * MaximumAltitudeBoundaryDisplacement,
+                    MidpointRounding.AwayFromZero);
+                maximumY -= retraction;
+            }
+
+            return (!conditions.MinY.HasValue ||
+                    context.Y >= conditions.MinY.Value) &&
+                context.Y <= maximumY &&
+                (!conditions.MinSlope.HasValue ||
+                    context.Slope >= conditions.MinSlope.Value) &&
+                (!conditions.MaxSlope.HasValue ||
+                    context.Slope <= conditions.MaxSlope.Value);
+        }
 
         public static ResolvedPatch Create(
             string biomeId,
