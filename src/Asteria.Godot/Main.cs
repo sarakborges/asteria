@@ -2210,15 +2210,6 @@ public partial class Main : Node3D
 
         var active = prepared.Snapshot.ActiveSphere ??
             throw new InvalidDataException("Restored world has no active Sphere.");
-        if (prepared.Intent == WorldLoadIntent.Recreate)
-        {
-            var copy = prepared.States.CreateRecreationOptions();
-            StartWorld(copy);
-            _worldDiagnostics?.Write(
-                $"world.recreated from={prepared.Snapshot.Name} name={copy.Name}");
-            return;
-        }
-
         InitializeWorldSession(prepared.States, active);
         _worldDiagnostics?.Write(
             $"world.load.restored name={prepared.Snapshot.Name} dimension={active}");
