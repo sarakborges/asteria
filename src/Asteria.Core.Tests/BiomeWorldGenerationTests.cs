@@ -1879,6 +1879,7 @@ public sealed class BiomeWorldGenerationTests
         var root = System.Text.Json.Nodes.JsonNode.Parse(
             File.ReadAllText(path))!.AsObject();
         root["id"] = "asteria:test/mountains";
+        root["surfaceLayout"]!.AsObject().Remove("cannotBorder");
         root["decorations"] = System.Text.Json.Nodes.JsonNode.Parse("[]");
 
         var surfacePatch = root["palette"]!["default"]![0]!["patch"]!.AsObject();
