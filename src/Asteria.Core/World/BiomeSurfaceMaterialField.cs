@@ -357,6 +357,7 @@ public sealed class BiomeSurfaceMaterialField
                 blocks.GetId(definition.BaseBlock),
                 definition.Blocks.Select(blocks.GetId).ToArray(),
                 biomeId);
+    }
 
     private sealed class MaterialRule
     {
