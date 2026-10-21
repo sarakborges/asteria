@@ -170,7 +170,7 @@ public sealed class BiomeSurfaceMaterialField
             throw new InvalidOperationException(
                 $"Biome {sample.Primary} defines an explicit wall palette.");
 
-        return new ExteriorWallMaterialColumn(
+        return CreateExteriorWallMaterialColumn(
             _seed, worldX, worldZ, rules.Floor);
     }
 
@@ -194,7 +194,7 @@ public sealed class BiomeSurfaceMaterialField
 
         if (!rules.OverrideWalls)
         {
-            return new ExteriorWallMaterialColumn(
+            return CreateExteriorWallMaterialColumn(
                 _seed, worldX, worldZ, rules.Floor)
                 .BlockAt(worldY, surfaceTopY);
         }
@@ -216,31 +216,35 @@ public sealed class BiomeSurfaceMaterialField
             ?? wallBlock;
     }
 
+    private ExteriorWallMaterialColumn CreateExteriorWallMaterialColumn(
+        ulong seed, int worldX, int worldZ, MaterialRule rule)
+    {
+        var endDepths = rule.CreateExteriorWallEndDepths(
+            seed, worldX, worldZ);
+        return new ExteriorWallMaterialColumn(
+            endDepths,
+            (worldY, boundaries, depth) => rule.ExteriorWallBlockAtDepth(
+                seed, worldX, worldY, worldZ, depth, boundaries));
+    }
+
     public sealed class ExteriorWallMaterialColumn
     {
-        private readonly ulong _seed;
-        private readonly int _worldX;
-        private readonly int _worldZ;
-        private readonly MaterialRule _rule;
         private readonly uint[] _endDepths;
+        private readonly Func<int, uint[], uint, BlockRuntimeId> _resolve;
 
-        private ExteriorWallMaterialColumn(
-            ulong seed, int worldX, int worldZ, MaterialRule rule)
+        internal ExteriorWallMaterialColumn(
+            uint[] endDepths,
+            Func<int, uint[], uint, BlockRuntimeId> resolve)
         {
-            _seed = seed;
-            _worldX = worldX;
-            _worldZ = worldZ;
-            _rule = rule;
-            _endDepths = rule.CreateExteriorWallEndDepths(
-                seed, worldX, worldZ);
+            _endDepths = endDepths;
+            _resolve = resolve;
         }
 
         public BlockRuntimeId BlockAt(int worldY, int surfaceTopY)
         {
             var depth = checked((uint)Math.Max(
                 0L, (long)surfaceTopY - worldY));
-            return _rule.ExteriorWallBlockAtDepth(
-                _seed, _worldX, worldY, _worldZ, depth, _endDepths);
+            return _resolve(worldY, _endDepths, depth);
         }
     }
 
