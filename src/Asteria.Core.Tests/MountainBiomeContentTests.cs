@@ -243,6 +243,42 @@ public sealed class MountainBiomeContentTests
     }
 
     [Fact]
+    public void InheritedWallMaterialsUseAuthoredLayersAsOrganicThreeDimensionalRegions()
+    {
+        var biome = LoadBiome("desert");
+        var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
+        var materials = new BiomeSurfaceMaterialField(1907UL, [biome], blocks);
+        var sample = new BiomeSample(
+            biome.Id, [new BiomeInfluence(biome.Id, 1f)]);
+        var sand = blocks.GetId("asteria:sand");
+        var sandstone = blocks.GetId("asteria:sandstone");
+        var stone = blocks.GetId("asteria:stone");
+        var observed = new HashSet<BlockRuntimeId>();
+        var stoneCountsByY = new List<int>();
+
+        for (var y = 72; y <= 152; y += 4)
+        {
+            var stoneCount = 0;
+            for (var z = -96; z <= 96; z += 4)
+            for (var x = -96; x <= 96; x += 4)
+            {
+                var block = materials.ExteriorWallBlockAt(sample, x, y, z);
+                observed.Add(block);
+                if (block == stone)
+                    stoneCount++;
+            }
+
+            stoneCountsByY.Add(stoneCount);
+        }
+
+        Assert.Contains(sand, observed);
+        Assert.Contains(sandstone, observed);
+        Assert.Contains(stone, observed);
+        Assert.True(stoneCountsByY.Distinct().Count() > 1,
+            "Inherited wall materials must vary by Y through 3D regions, not fixed depth bands.");
+    }
+
+    [Fact]
     public void ExteriorWallsInheritThreeDimensionalPatchesBeneathUniformWallPalettes()
     {
         var path = Path.Combine(PackData, "biomes", "mountains.json");
