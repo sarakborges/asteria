@@ -181,7 +181,6 @@
             "asteria:gravel": 1
           },
           "conditions": {
-            "maxY": 145,
             "maxSlope": 3
           }
         }
