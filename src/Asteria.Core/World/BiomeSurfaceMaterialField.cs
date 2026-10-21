@@ -38,9 +38,7 @@ public sealed class BiomeSurfaceMaterialField
         HasExteriorOverrides = _faceRules.Values.Any(
             profile => profile.Exterior &&
                 (profile.OverrideWalls || profile.OverrideCeiling));
-        HasExteriorFaces = HasExteriorOverrides ||
-            _faceRules.Values.Any(profile =>
-                profile.Exterior && profile.Walls.HasPatches);
+        HasExteriorFaces = _faceRules.Values.Any(profile => profile.Exterior);
         MaximumCavePaintDepth = _faceRules.Values
             .Where(profile => !profile.Exterior)
             .Select(profile => profile.MaxDepth)
@@ -149,8 +147,7 @@ public sealed class BiomeSurfaceMaterialField
     /// </summary>
     public bool HasExteriorWallMaterial(BiomeSample sample) =>
         _faceRules.TryGetValue(sample.Primary, out var rules) &&
-        rules.Exterior &&
-        (rules.OverrideWalls || rules.Walls.HasPatches);
+        rules.Exterior;
 
     /// <summary>
     /// Resolves a wall using its authored wall profile, then lets an existing
@@ -171,23 +168,29 @@ public sealed class BiomeSurfaceMaterialField
                 $"Biome {sample.Primary} has no material palette.");
 
         var wallRule = rules.Walls;
-        var wallBlock = wallRule.VolumeBlockAt(
-            _seed, worldX, worldY, worldZ, depth,
-            VolumePlacementFor(wallRule, worldX, worldY, worldZ),
-            ignoreSlopeConditions: true);
+        // Without an authored directional wall profile, surface-layer depth
+        // has no meaning when measured inward from a cliff face. Use the core
+        // material as the wall base rather than projecting grass/dirt/sand
+        // strata sideways onto the exposed wall.
+        var wallBlock = rules.OverrideWalls
+            ? wallRule.VolumeBlockAt(
+                _seed, worldX, worldY, worldZ, depth,
+                VolumePlacementFor(wallRule, worldX, worldY, worldZ),
+                ignoreSlopeConditions: true)
+            : wallRule.CoreBlock;
 
-        // An inherited wall rule already uses the default 3D patch. Explicit
-        // wall patches remain authoritative; only uniform wall palettes inherit
-        // patch variation from the exposed top/floor profile.
-        if (!rules.Exterior ||
-            ReferenceEquals(wallRule, rules.Floor) ||
-            !wallRule.HasUniformMaterial ||
-            wallRule.HasPatches ||
-            !rules.Floor.HasPatches)
+        if (!rules.Exterior || !rules.Floor.HasPatches)
+            return wallBlock;
+
+        // Surface patches become 3D patches on vertical faces. Evaluate the
+        // authored patch independently of the horizontal layer depth and slope
+        // gate; retain altitude constraints and fall back to the wall base.
+        if (rules.OverrideWalls &&
+            (!wallRule.HasUniformMaterial || wallRule.HasPatches))
             return wallBlock;
 
         return rules.Floor.VolumePatchBlockAt(
-            _seed, worldX, worldY, worldZ, depth,
+            _seed, worldX, worldY, worldZ, depth: 0,
             placement: null, ignoreSlopeConditions: true)
             ?? wallBlock;
     }
