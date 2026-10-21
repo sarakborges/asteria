@@ -660,13 +660,12 @@ public sealed class BiomeSurfaceMaterialField
                 return _blocks[0];
             }
 
-            var selection = Noise(
-                seed, _blockDomain, worldX, worldZ, x, z,
-                _definition.SelectionScale, morphed);
-            var unit = Math.Clamp(
-                (selection + 1d) * 0.5d,
-                0d,
-                0.999999999999d);
+            // Assign each irregular spatial region a material from its own
+            // deterministic cell identity. Sampling another interpolated noise
+            // field here creates long material bands inside otherwise irregular
+            // patch masks.
+            var unit = CellularSelection(
+                seed, _blockDomain, x, z, _definition.SelectionScale);
             var target = unit * _totalWeight;
             for (var index = 0; index < _blocks.Length; index++)
             {
@@ -715,6 +714,53 @@ public sealed class BiomeSurfaceMaterialField
 
             var distance = Math.Sqrt(nearestSquared);
             return 1d - 2d * Math.Min(distance, 1d);
+        }
+
+        private static double CellularSelection(
+            ulong seed,
+            GenerationDomain domain,
+            double x,
+            double z,
+            uint scale)
+        {
+            var baseX = checked((int)Math.Floor(x / scale));
+            var baseZ = checked((int)Math.Floor(z / scale));
+            var nearestSquared = double.PositiveInfinity;
+            var selectedX = baseX;
+            var selectedZ = baseZ;
+            var jitterDomain = GenerationDomain.Named(
+                $"material/surface-patch/selection-jitter/v1/{domain.Key}");
+
+            for (var dz = -1; dz <= 1; dz++)
+            for (var dx = -1; dx <= 1; dx++)
+            {
+                var gx = checked(baseX + dx);
+                var gz = checked(baseZ + dz);
+                var hashX = WorldGenerationEntropy.Sample2D(
+                    seed, domain, gx, gz);
+                var hashZ = WorldGenerationEntropy.Sample2D(
+                    seed, jitterDomain, gx, gz);
+                var px = (gx + 0.18d +
+                    WorldGenerationEntropy.Unit(hashX) * 0.64d) * scale;
+                var pz = (gz + 0.18d +
+                    WorldGenerationEntropy.Unit(hashZ) * 0.64d) * scale;
+                var nx = (x - px) / scale;
+                var nz = (z - pz) / scale;
+                var distanceSquared = nx * nx + nz * nz;
+                if (distanceSquared >= nearestSquared)
+                    continue;
+
+                nearestSquared = distanceSquared;
+                selectedX = gx;
+                selectedZ = gz;
+            }
+
+            var selection = WorldGenerationEntropy.Sample2D(
+                seed, domain, selectedX, selectedZ);
+            return Math.Clamp(
+                WorldGenerationEntropy.Unit(selection),
+                0d,
+                0.999999999999d);
         }
 
         private static double Noise(
