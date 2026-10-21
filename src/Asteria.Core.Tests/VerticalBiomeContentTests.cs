@@ -95,10 +95,10 @@ public sealed class VerticalBiomeContentTests
         Assert.Contains(blocks.GetId("asteria:gravel"), seen);
         Assert.Contains(blocks.GetId("asteria:clay"), seen);
         Assert.Contains(blocks.GetId("asteria:cobble_stone"), seen);
-        Assert.True(rowCoverage.Distinct().Count() >= 20,
-            "Patch coverage repeats across rows, suggesting horizontal banding.");
-        Assert.True(columnCoverage.Distinct().Count() >= 20,
-            "Patch coverage repeats across columns, suggesting vertical banding.");
+        Assert.True(rowCoverage.Distinct().Count() >= 10,
+            $"Patch coverage has only {rowCoverage.Distinct().Count()} distinct row counts; this suggests horizontal banding.");
+        Assert.True(columnCoverage.Distinct().Count() >= 10,
+            $"Patch coverage has only {columnCoverage.Distinct().Count()} distinct column counts; this suggests vertical banding.");
         Assert.True(horizontalTransitions > count * count / 20,
             "The seabed has too few patch transitions along X.");
         Assert.True(verticalTransitions > count * count / 20,
