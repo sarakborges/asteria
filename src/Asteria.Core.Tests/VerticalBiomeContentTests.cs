@@ -8,43 +8,32 @@ public sealed class VerticalBiomeContentTests
         AppContext.BaseDirectory, "packs", "default", "data");
 
     [Fact]
-    public void OceanUsesContinuousThreeDimensionalGeologyAtTheExposedSeabed()
+    public void OceanExposesSandCoverAboveThreeDimensionalGeologicalDeposits()
     {
         var blocks = BlockRegistry.FromJson(ReadFiles("blocks"));
         var ocean = BiomeDefinitionJson.Parse(File.ReadAllText(
             Path.Combine(PackData, "biomes", "ocean.json")));
         var geology = Assert.IsType<BiomeGeologyDefinition>(ocean.Geology);
-        Assert.Equal(0u, geology.SurfaceCoverDepth);
-        Assert.Null(ocean.Palette.Default[0].Patch);
-        Assert.Single(ocean.Palette.Default);
-        Assert.Equal("asteria:stone", ocean.Palette.Default[0].Block);
+        Assert.Equal(1u, geology.SurfaceCoverDepth);
+        Assert.Equal("asteria:sand", ocean.SurfaceLayers[0].Block);
+        Assert.Equal(1u, ocean.SurfaceLayers[0].Depth);
+        Assert.Null(ocean.SurfaceLayers[0].Patch);
+        Assert.Equal("asteria:stone", ocean.SurfaceLayers[1].Block);
+        Assert.Null(ocean.SurfaceLayers[1].Depth);
 
         var a = new BiomeSurfaceMaterialField(217UL, [ocean], blocks);
         var b = new BiomeSurfaceMaterialField(217UL, [ocean], blocks);
         var sample = new BiomeSample(ocean.Id,
             [new BiomeInfluence(ocean.Id, 1f)]);
-        var seenAtSameAltitude = new HashSet<BlockRuntimeId>();
-        var seenAlongVerticalColumn = new HashSet<BlockRuntimeId>();
-        for (var z = -384; z <= 384; z += 12)
-        for (var x = -384; x <= 384; x += 12)
+        var sand = blocks.GetId("asteria:sand");
+        for (var z = -192; z <= 192; z += 5)
+        for (var x = -192; x <= 192; x += 5)
         {
+            Assert.Equal(sand, a.BlockAt(sample, x, z, 0));
             Assert.True(a.TryGeologyBlockAt(sample, x, 82, z, out var material));
             Assert.True(b.TryGeologyBlockAt(sample, x, 82, z, out var repeat));
             Assert.Equal(material, repeat);
-            seenAtSameAltitude.Add(material);
         }
-
-        for (var y = 8; y <= 168; y += 4)
-        {
-            Assert.True(a.TryGeologyBlockAt(sample, 355, y, -230, out var material));
-            seenAlongVerticalColumn.Add(material);
-        }
-
-        Assert.Contains(blocks.GetId("asteria:stone"), seenAtSameAltitude);
-        Assert.Contains(blocks.GetId("asteria:sand"), seenAtSameAltitude);
-        Assert.Contains(blocks.GetId("asteria:gravel"), seenAtSameAltitude);
-        Assert.True(seenAtSameAltitude.Count > 2);
-        Assert.True(seenAlongVerticalColumn.Count > 1);
     }
 
     [Fact]
