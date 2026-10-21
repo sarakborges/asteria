@@ -50,57 +50,45 @@ public sealed class MountainBiomeContentTests
     }
 
     [Theory]
-    [InlineData("mountains", "asteria:stone", 112, 180)]
-    [InlineData("mountain_belt", "asteria:stone", 115, 180)]
-    [InlineData("alps", "asteria:snow", 145, 90)]
-    [InlineData("gorge", "asteria:stone", 96, 150)]
-    public void MountainSurfacePatchesAreOrganicDeterministicAndConstrainedBySlopeNotAltitude(
-        string file, string originalBlock, int eligibleY, int ineligibleY)
+    [InlineData("mountains")]
+    [InlineData("mountain_belt")]
+    [InlineData("alps")]
+    [InlineData("gorge")]
+    public void SurfaceMaterialsUseThreeDimensionalGeologyInsteadOfAltitudeGatedPatches(string file)
     {
         var biome = LoadBiome(file);
-        var patch = Assert.IsType<BiomeSurfacePatchDefinition>(
-            biome.SurfaceLayers[0].Patch);
-        var conditions = Assert.IsType<SurfacePlacementConditions>(patch.Conditions);
-        Assert.Null(conditions.MinY);
-        Assert.Null(conditions.MaxY);
-        Assert.True(conditions.Allows(new SurfacePlacementContext(eligibleY, 0)));
-        Assert.True(conditions.Allows(new SurfacePlacementContext(ineligibleY, 0)));
-        Assert.False(conditions.Allows(new SurfacePlacementContext(eligibleY, 20)));
-        Assert.InRange(patch.Coverage, 0.15f, 0.35f);
-        Assert.True(patch.WarpStrength > 0d);
-        Assert.True(patch.Roughness > 0f);
+        var geology = Assert.IsType<BiomeGeologyDefinition>(biome.Geology);
+        Assert.Null(biome.SurfaceLayers[0].Patch);
 
         var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
         var a = new BiomeSurfaceMaterialField(71UL, [biome], blocks);
         var b = new BiomeSurfaceMaterialField(71UL, [biome], blocks);
         var sample = new BiomeSample(biome.Id,
             [new BiomeInfluence(biome.Id, 1f)]);
-        var original = blocks.GetId(originalBlock);
-        var core = blocks.GetId(biome.SurfaceLayers[^1].Block);
         var seen = new HashSet<BlockRuntimeId>();
-        var flat = new SurfacePlacementContext(eligibleY, 0);
-        var excluded = new SurfacePlacementContext(ineligibleY, 0);
-        var tooSteep = new SurfacePlacementContext(eligibleY, 20);
-        for (var z = -192; z <= 192; z += 6)
-        for (var x = -192; x <= 192; x += 6)
+        var y = 112;
+        for (var z = -192; z <= 192; z += 8)
+        for (var x = -192; x <= 192; x += 8)
         {
-            var eligible = a.BlockAt(sample, x, z, 0, flat);
-            Assert.Equal(eligible, b.BlockAt(sample, x, z, 0, flat));
-            seen.Add(eligible);
-            Assert.Equal(eligible, a.BlockAt(sample, x, z, 0, excluded));
-            Assert.Equal(original, a.BlockAt(sample, x, z, 0, tooSteep));
-            Assert.Equal(core, a.BlockAt(sample, x, z, 3, flat));
+            Assert.True(a.TryGeologyBlockAt(sample, x, y, z, out var material));
+            Assert.True(b.TryGeologyBlockAt(sample, x, y, z, out var repeat));
+            Assert.Equal(material, repeat);
+            seen.Add(material);
         }
-        Assert.True(seen.Contains(original));
-        Assert.True(seen.Count > 1);
-        Assert.Contains(patch.Blocks, block => seen.Contains(blocks.GetId(block)));
+
+        Assert.Contains(blocks.GetId(geology.BaseBlock), seen);
+        Assert.True(seen.Count > 1,
+            "A horizontal slice should contain multiple materials from a continuous 3D geology field.");
+        Assert.All(geology.Blocks, block =>
+            Assert.Contains(blocks.GetId(block), seen));
     }
 
     [Theory]
     [InlineData("mountains")]
     [InlineData("mountain_belt")]
     [InlineData("alps")]
-    public void MountainLateralFacesUseRockInsteadOfTheTopSurfacePatch(string file)
+    [InlineData("gorge")]
+    public void MountainLateralFacesUseAuthoredRockPalette(string file)
     {
         var biome = LoadBiome(file);
         var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
