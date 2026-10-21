@@ -772,6 +772,9 @@ public sealed class BiomeSurfaceMaterialField
 
     private sealed class ResolvedPatch
     {
+        private const uint PlacementBoundaryScale = 48;
+        private const int MaximumAltitudeBoundaryDisplacement = 4;
+
         private readonly BiomeSurfacePatchDefinition _definition;
         private readonly BlockRuntimeId[] _blocks;
         private readonly double[] _cumulativeWeights;
@@ -783,6 +786,7 @@ public sealed class BiomeSurfaceMaterialField
         private readonly GenerationDomain _warpZDomain;
         private readonly GenerationDomain _volumeMaskDomain;
         private readonly GenerationDomain _volumeSelectionDomain;
+        private readonly GenerationDomain _altitudeBoundaryDomain;
 
         private ResolvedPatch(
             BiomeSurfacePatchDefinition definition,
@@ -814,6 +818,8 @@ public sealed class BiomeSurfaceMaterialField
                 $"material/volume-patch/mask/v1/{suffix}");
             _volumeSelectionDomain = GenerationDomain.Named(
                 $"material/volume-patch/selection/v1/{suffix}");
+            _altitudeBoundaryDomain = GenerationDomain.Named(
+                $"material/surface-patch/altitude-boundary/v1/{suffix}");
         }
 
         public BlockRuntimeId? ResolveVolume(
@@ -822,9 +828,7 @@ public sealed class BiomeSurfaceMaterialField
             bool ignorePlacementConditions = false)
         {
             if (!ignorePlacementConditions &&
-                _definition.Conditions is { } conditions &&
-                (placement is not { } context ||
-                 !conditions.Allows(context)))
+                !AllowsPlacement(seed, x, z, placement))
                 return null;
 
             // DetailScale is a 2D surface-detail setting. Reusing it as a
@@ -864,9 +868,7 @@ public sealed class BiomeSurfaceMaterialField
             int worldZ,
             SurfacePlacementContext? placement)
         {
-            if (_definition.Conditions is { } conditions &&
-                (placement is not { } context ||
-                 !conditions.Allows(context)))
+            if (!AllowsPlacement(seed, worldX, worldZ, placement))
             {
                 return null;
             }
@@ -922,6 +924,41 @@ public sealed class BiomeSurfaceMaterialField
             }
 
             return _blocks[^1];
+        }
+
+        private bool AllowsPlacement(
+            ulong seed,
+            int worldX,
+            int worldZ,
+            SurfacePlacementContext? placement)
+        {
+            if (_definition.Conditions is not { } conditions)
+                return true;
+            if (placement is not { } context)
+                return false;
+
+            var altitudeDisplacement = 0;
+            if (conditions.MinY.HasValue || conditions.MaxY.HasValue)
+            {
+                // A hard altitude cutoff produces contour-shaped rings on
+                // coastal floors. Warp the bound in world space so its edge
+                // follows an irregular, deterministic transition instead.
+                var noise = WorldGenerationEntropy.ValueNoise2D(
+                    seed, _altitudeBoundaryDomain, worldX, worldZ,
+                    PlacementBoundaryScale);
+                altitudeDisplacement = (int)Math.Round(
+                    noise * MaximumAltitudeBoundaryDisplacement,
+                    MidpointRounding.AwayFromZero);
+            }
+
+            return (!conditions.MinY.HasValue ||
+                    (long)context.Y >= (long)conditions.MinY.Value + altitudeDisplacement) &&
+                (!conditions.MaxY.HasValue ||
+                    (long)context.Y <= (long)conditions.MaxY.Value + altitudeDisplacement) &&
+                (!conditions.MinSlope.HasValue ||
+                    context.Slope >= conditions.MinSlope.Value) &&
+                (!conditions.MaxSlope.HasValue ||
+                    context.Slope <= conditions.MaxSlope.Value);
         }
 
         private static double Noise(
