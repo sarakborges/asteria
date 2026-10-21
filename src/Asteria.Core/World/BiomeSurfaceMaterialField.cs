@@ -640,24 +640,16 @@ public sealed class BiomeSurfaceMaterialField
             z /= _definition.StretchZ;
             var morphed = _definition.WarpStrength > 0d ||
                 _definition.StretchZ != 1d;
-            var macro = Noise(
-                seed, _shapeDomain, worldX, worldZ, x, z,
-                _definition.Scale, morphed);
+            // Build patch regions around jittered feature points rather than
+            // thresholding interpolated lattice noise. Lattice contours tend
+            // to form broad, coordinated bands; independently jittered cells
+            // create irregular regions with no shared long-axis orientation.
+            var macro = CellularField(
+                seed, _shapeDomain, x, z, _definition.Scale);
             var detail = Noise(
                 seed, _detailDomain, worldX, worldZ, x, z,
                 _definition.DetailScale, morphed);
-            var field = (macro + detail * _definition.Roughness) /
-                (1d + _definition.Roughness);
-
-            // Smooth lattice noise is concentrated around zero rather than
-            // uniformly distributed. Applying a coverage threshold directly
-            // to it under-fills authored patches, leaving long stretches of
-            // the base material between sparse islands. Expand mid-range
-            // values before thresholding so Coverage describes visible area
-            // more closely, while preserving the field's sign and topology.
-            field = Math.CopySign(
-                Math.Sqrt(Math.Abs(field)),
-                field);
+            var field = macro + detail * _definition.Roughness * 0.35d;
             if (field < 1d - _definition.Coverage * 2d)
             {
                 return null;
@@ -685,6 +677,44 @@ public sealed class BiomeSurfaceMaterialField
             }
 
             return _blocks[^1];
+        }
+
+        private static double CellularField(
+            ulong seed,
+            GenerationDomain domain,
+            double x,
+            double z,
+            uint scale)
+        {
+            var cellX = Math.Floor(x / scale);
+            var cellZ = Math.Floor(z / scale);
+            var baseX = checked((int)cellX);
+            var baseZ = checked((int)cellZ);
+            var nearestSquared = double.PositiveInfinity;
+
+            for (var dz = -1; dz <= 1; dz++)
+            for (var dx = -1; dx <= 1; dx++)
+            {
+                var gx = checked(baseX + dx);
+                var gz = checked(baseZ + dz);
+                var hash = WorldGenerationEntropy.Sample2D(
+                    seed, domain, gx, gz);
+                var hash2 = WorldGenerationEntropy.Sample2D(
+                    seed, GenerationDomain.Named(
+                        $"material/surface-patch/cellular-jitter/v1/{domain.Key}"),
+                    gx, gz);
+                var jitterX = 0.18d + WorldGenerationEntropy.Unit(hash) * 0.64d;
+                var jitterZ = 0.18d + WorldGenerationEntropy.Unit(hash2) * 0.64d;
+                var px = (gx + jitterX) * scale;
+                var pz = (gz + jitterZ) * scale;
+                var nx = (x - px) / scale;
+                var nz = (z - pz) / scale;
+                nearestSquared = Math.Min(
+                    nearestSquared, nx * nx + nz * nz);
+            }
+
+            var distance = Math.Sqrt(nearestSquared);
+            return 1d - 2d * Math.Min(distance, 1d);
         }
 
         private static double Noise(
