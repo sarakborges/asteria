@@ -384,11 +384,11 @@ public sealed class BiomeSurfaceMaterialField
 
     private sealed class MaterialRule
     {
-        // Broad X/Z variation keeps stratum boundaries irregular without
-        // introducing a second, high-frequency signal that reads as banding.
+        // Two world-space fields deform each inherited stratum boundary:
+        // broad relief supplies the overall form; weaker detail breaks long seams.
         private const uint BoundaryNoiseScale = 48;
         private const uint ExteriorWallBoundaryDetailScale = 17;
-        private const int MaximumExteriorBoundaryDisplacement = 8;
+        private const int MaximumExteriorBoundaryDisplacement = 12;
 
         private MaterialRule(
             ResolvedLayer[] layers,
@@ -477,13 +477,11 @@ public sealed class BiomeSurfaceMaterialField
             uint nominalEndDepth,
             uint previousEndDepth)
         {
-            var previousNominalEndDepth = layerIndex == 0
-                ? 0u
-                : Layers[layerIndex - 1].EndDepthExclusive.GetValueOrDefault();
-            var nominalThickness = nominalEndDepth - previousNominalEndDepth;
+            // Displacement grows with depth, not just individual layer
+            // thickness; otherwise thin ocean strata remain nearly straight.
             var adaptiveAmplitude = Math.Clamp(
-                (int)Math.Ceiling(nominalThickness * 0.25d),
-                1,
+                (int)Math.Ceiling(nominalEndDepth * 0.5d),
+                3,
                 MaximumExteriorBoundaryDisplacement);
             var amplitude = Math.Max(
                 (int)Layers[layerIndex].BoundaryNoise,
@@ -829,19 +827,23 @@ public sealed class BiomeSurfaceMaterialField
                  !conditions.Allows(context)))
                 return null;
 
-            var verticalScale = Math.Max(2u, _definition.DetailScale);
+            // DetailScale is a 2D surface-detail setting. Reusing it as a
+            // vertical scale flattens volume patches into broad horizontal slabs.
+            // Volume masks instead use their authored macro scale on all axes.
+            var volumeScale = Math.Max(2u, _definition.Scale);
             var noise = WorldGenerationEntropy.ValueNoise3D(
                 seed, _volumeMaskDomain, x, y, z,
-                _definition.Scale, verticalScale);
+                volumeScale, volumeScale);
             if (noise < 1d - _definition.Coverage * 2d)
                 return null;
 
             if (_blocks.Length == 1)
                 return _blocks[0];
 
+            var selectionScale = Math.Max(2u, _definition.SelectionScale);
             var selection = WorldGenerationEntropy.ValueNoise3D(
                 seed, _volumeSelectionDomain, x, y, z,
-                _definition.SelectionScale, verticalScale);
+                selectionScale, selectionScale);
             var unit = Math.Clamp((selection + 1d) * 0.5d,
                 0d, 0.999999999999d);
             var target = unit * _totalWeight;
