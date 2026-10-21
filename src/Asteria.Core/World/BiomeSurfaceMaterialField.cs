@@ -219,10 +219,10 @@ public sealed class BiomeSurfaceMaterialField
     private ExteriorWallMaterialColumn CreateExteriorWallMaterialColumn(
         ulong seed, int worldX, int worldZ, MaterialRule rule)
     {
-        var endDepths = rule.CreateExteriorWallEndDepths(
-            seed, worldX, worldZ);
+        // Wall materials are selected per voxel from a 3D field; there are
+        // no per-column depth boundaries to calculate.
         return new ExteriorWallMaterialColumn(
-            endDepths,
+            [],
             (worldY, boundaries, depth) => rule.ExteriorWallBlockAtDepth(
                 seed, worldX, worldY, worldZ, depth, boundaries));
     }
