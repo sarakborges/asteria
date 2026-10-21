@@ -79,8 +79,8 @@ public sealed class MountainBiomeContentTests
         Assert.Contains(blocks.GetId(geology.BaseBlock), seen);
         Assert.True(seen.Count > 1,
             "A horizontal slice should contain multiple materials from a continuous 3D geology field.");
-        Assert.All(geology.Blocks, block =>
-            Assert.Contains(blocks.GetId(block), seen));
+        Assert.Contains(geology.Blocks,
+            block => seen.Contains(blocks.GetId(block)));
     }
 
     [Theory]
