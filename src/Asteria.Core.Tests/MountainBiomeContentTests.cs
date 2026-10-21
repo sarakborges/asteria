@@ -294,12 +294,15 @@ public sealed class MountainBiomeContentTests
             return count;
         }
 
-        var atAuthoredLimit = CountPatchBlocks(86);
+        var belowBoundary = CountPatchBlocks(82);
+        var nearBoundary = CountPatchBlocks(84);
         var aboveAuthoredLimit = CountPatchBlocks(88);
-        Assert.True(atAuthoredLimit > aboveAuthoredLimit,
-            $"Patch coverage should taper through the altitude boundary; y=86 had {atAuthoredLimit} patch blocks and y=88 had {aboveAuthoredLimit}.");
-        Assert.True(aboveAuthoredLimit > 0,
-            "The authored maxY boundary must form an irregular transition, not a perfectly horizontal cutoff.");
+        Assert.True(belowBoundary > nearBoundary,
+            $"Patch coverage should taper inside the allowed altitude range; y=82 had {belowBoundary} patch blocks and y=84 had {nearBoundary}.");
+        Assert.True(nearBoundary > 0,
+            "The altitude transition should be spatially irregular, not a perfectly horizontal cutoff.");
+        Assert.Equal(0, aboveAuthoredLimit,
+            "A patch must never appear above its authored maxY.");
     }
 
     [Fact]
