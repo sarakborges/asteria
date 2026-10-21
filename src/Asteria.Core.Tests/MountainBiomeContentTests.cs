@@ -319,7 +319,8 @@ public sealed class MountainBiomeContentTests
             for (var z = -24; z < 24; z += 2)
             for (var x = -24; x < 24; x += 2)
             {
-                var block = materials.ExteriorWallBlockAt(sample, x, y, z);
+                var block = materials.ExteriorWallBlockAt(
+                    sample, x, y, z, surfaceTopY: y + 1);
                 seen.Add(block);
                 if (block == gravel)
                     gravelCount++;
