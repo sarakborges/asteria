@@ -243,39 +243,51 @@ public sealed class MountainBiomeContentTests
     }
 
     [Fact]
-    public void InheritedWallMaterialsUseAuthoredLayersAsOrganicThreeDimensionalRegions()
+    public void InheritedWallMaterialsFollowIrregularTerrainRelativeStrata()
     {
         var biome = LoadBiome("desert");
         var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
-        var materials = new BiomeSurfaceMaterialField(1907UL, [biome], blocks);
+        const ulong seed = 1907UL;
+        var materials = new BiomeSurfaceMaterialField(seed, [biome], blocks);
+        var sameSeedMaterials = new BiomeSurfaceMaterialField(seed, [biome], blocks);
         var sample = new BiomeSample(
             biome.Id, [new BiomeInfluence(biome.Id, 1f)]);
         var sand = blocks.GetId("asteria:sand");
         var sandstone = blocks.GetId("asteria:sandstone");
         var stone = blocks.GetId("asteria:stone");
-        var observed = new HashSet<BlockRuntimeId>();
-        var stoneCountsByY = new List<int>();
+        const int surfaceTopY = 160;
+        var boundaryYByX = new HashSet<int>();
+        var observedAtBoundary = new HashSet<BlockRuntimeId>();
 
-        for (var y = 72; y <= 152; y += 4)
+        for (var x = -160; x <= 160; x += 2)
         {
-            var stoneCount = 0;
-            for (var z = -96; z <= 96; z += 4)
-            for (var x = -96; x <= 96; x += 4)
-            {
-                var block = materials.ExteriorWallBlockAt(sample, x, y, z);
-                observed.Add(block);
-                if (block == stone)
-                    stoneCount++;
-            }
+            var wall = materials.SampleExteriorWallColumn(sample, x, 24);
+            Assert.Equal(sand, wall.BlockAt(surfaceTopY - 1, surfaceTopY));
+            Assert.Equal(stone, wall.BlockAt(surfaceTopY - 20, surfaceTopY));
 
-            stoneCountsByY.Add(stoneCount);
+            var repeated = sameSeedMaterials.SampleExteriorWallColumn(sample, x, 24);
+            Assert.Equal(
+                wall.BlockAt(surfaceTopY - 9, surfaceTopY),
+                repeated.BlockAt(surfaceTopY - 9, surfaceTopY));
+
+            var previous = wall.BlockAt(surfaceTopY - 1, surfaceTopY);
+            for (var depth = 2; depth <= 20; depth++)
+            {
+                var current = wall.BlockAt(surfaceTopY - depth, surfaceTopY);
+                if (current != previous)
+                {
+                    observedAtBoundary.Add(previous);
+                    observedAtBoundary.Add(current);
+                    if (previous == sand && current == sandstone)
+                        boundaryYByX.Add(surfaceTopY - depth);
+                }
+                previous = current;
+            }
         }
 
-        Assert.Contains(sand, observed);
-        Assert.Contains(sandstone, observed);
-        Assert.Contains(stone, observed);
-        Assert.True(stoneCountsByY.Distinct().Count() > 1,
-            "Inherited wall materials must vary by Y through 3D regions, not fixed depth bands.");
+        Assert.Contains(sandstone, observedAtBoundary);
+        Assert.True(boundaryYByX.Count > 1,
+            "The sand/sandstone boundary must vary across world X instead of forming a fixed horizontal band.");
     }
 
     [Fact]
