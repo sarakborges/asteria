@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 namespace Asteria.Core.World;
 
 /// <summary>
@@ -8,6 +10,33 @@ public sealed class WorldCreationOptions
 {
     public const string DefaultName = "New World";
     public const int MaximumNameLength = 200;
+
+    private static readonly Regex CopyPrefix = new(
+        @"^copy(?:\\s+(\\d+))?\\s+of\\s+",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+    /// <summary>
+    /// Creates a concise name for a recreated world, incrementing an existing
+    /// copy prefix instead of nesting another "Copy of" prefix.
+    /// </summary>
+    public static string CreateCopyName(string sourceName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sourceName);
+
+        var baseName = sourceName.Trim();
+        var copyCount = 0;
+        Match match;
+        while ((match = CopyPrefix.Match(baseName)).Success)
+        {
+            copyCount = match.Groups[1].Success
+                ? int.Parse(match.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture)
+                : copyCount + 1;
+            baseName = baseName[match.Length..].TrimStart();
+        }
+
+        var prefix = copyCount == 0 ? "Copy of " : $"Copy {copyCount + 1} of ";
+        return prefix + baseName;
+    }
 
     public WorldCreationOptions(
         string name,
