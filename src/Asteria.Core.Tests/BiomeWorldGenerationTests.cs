@@ -1823,6 +1823,47 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
+    public void MaterializedRockSurfaceUsesGeologyWhenNoCoverIsAuthored()
+    {
+        var blocks = new BlockRegistry(
+        [
+            new BlockDefinition("asteria:stone"),
+            new BlockDefinition("asteria:gravel"),
+        ]);
+        var geology = new BiomeGeologyDefinition(
+            "asteria:stone",
+            ["asteria:gravel"],
+            scale: 64,
+            verticalScale: 42,
+            detailScale: 16,
+            selectionScale: 128,
+            coverage: 1f,
+            surfaceCoverDepth: 0);
+        var biome = new BiomeDefinition(
+            "asteria:test/rock",
+            new BiomeSurfaceLayoutDefinition(regionMin: 128, regionMax: 128),
+            new BiomeTerrainDefinition(
+                baseHeightOffset: 10f,
+                macroAmplitude: 0f,
+                macroScale: 128,
+                detailAmplitude: 0f,
+                detailScale: 32),
+            [new BiomeSurfaceLayerDefinition("asteria:stone")],
+            geology: geology);
+        var generator = new BiomeWorldGenerator(
+            97531UL,
+            TestDimension([biome.Id]),
+            blocks,
+            new BiomeRegistry([biome]));
+
+        var chunk = generator.Materialize(new ChunkCoord(0, 0, 0));
+        var gravel = blocks.GetId("asteria:gravel");
+
+        Assert.Equal(gravel, chunk.GetBlock(2, 10, 2));
+        Assert.Equal(gravel, chunk.GetBlock(2, 5, 2));
+    }
+
+    [Fact]
     public void DecorationUsesAuthoredSurfaceAndIsChunkDeterministic()
     {
         var blocks =
