@@ -77,7 +77,7 @@ public sealed class SparseOverworldBiomeContentTests
     }
 
     [Fact]
-    public void OceanKeepsBeachSandWhileDeepSeabedPatchesRemainAuthored()
+    public void OceanSurfaceMaterialSelectionDoesNotDependOnAbsoluteAltitude()
     {
         var biome = LoadBiome("ocean");
         var patch = Assert.IsType<BiomeSurfacePatchDefinition>(
@@ -93,9 +93,10 @@ public sealed class SparseOverworldBiomeContentTests
         for (var z = -192; z <= 192; z += 6)
         for (var x = -192; x <= 192; x += 6)
         {
-            Assert.Equal(blocks.GetId("asteria:sand"),
-                field.BlockAt(sample, x, z, 0, shallow));
-            seen.Add(field.BlockAt(sample, x, z, 0, deep));
+            var shallowMaterial = field.BlockAt(sample, x, z, 0, shallow);
+            var deepMaterial = field.BlockAt(sample, x, z, 0, deep);
+            Assert.Equal(shallowMaterial, deepMaterial);
+            seen.Add(shallowMaterial);
         }
 
         Assert.Contains(blocks.GetId("asteria:sand"), seen);
