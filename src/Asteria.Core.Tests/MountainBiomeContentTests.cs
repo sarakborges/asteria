@@ -88,10 +88,16 @@ public sealed class MountainBiomeContentTests
             var eligible = a.BlockAt(sample, x, z, 0, flat);
             Assert.Equal(eligible, b.BlockAt(sample, x, z, 0, flat));
             seen.Add(eligible);
+            var atExcludedHeight = a.BlockAt(sample, x, z, 0, excluded);
             if (file is "mountains" or "mountain_belt")
-                Assert.Equal(eligible, a.BlockAt(sample, x, z, 0, excluded));
+            {
+                Assert.Equal(atExcludedHeight,
+                    b.BlockAt(sample, x, z, 0, excluded));
+            }
             else
-                Assert.Equal(original, a.BlockAt(sample, x, z, 0, excluded));
+            {
+                Assert.Equal(original, atExcludedHeight);
+            }
             Assert.Equal(original, a.BlockAt(sample, x, z, 0, tooSteep));
             Assert.Equal(core, a.BlockAt(sample, x, z, 3, flat));
         }
@@ -266,6 +272,36 @@ public sealed class MountainBiomeContentTests
             $"Adjacent slices changed {adjacentSliceChanges}/{sampleCount} cells, while slices twelve blocks apart changed {distantSliceChanges}/{sampleCount}; the 3D mask is too compressed vertically.");
         Assert.True(gravelCountsByY.Distinct().Count() > 1,
             "Every horizontal slice had identical patch coverage; this indicates horizontal banding.");
+    }
+
+    [Fact]
+    public void SurfacePatchesContinueOntoAdjacentUniformRockWalls()
+    {
+        var root = JsonNode.Parse(File.ReadAllText(
+            Path.Combine(PackData, "biomes", "mountains.json")))!.AsObject();
+        root["id"] = "asteria:test/continuous-patch";
+        root["palette"]!["walls"] = new JsonArray(
+            new JsonObject { ["block"] = "asteria:stone" });
+        var biome = BiomeDefinitionJson.Parse(root.ToJsonString());
+        var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
+        var materials = new BiomeSurfaceMaterialField(3817UL, [biome], blocks);
+        var sample = new BiomeSample(
+            biome.Id, [new BiomeInfluence(biome.Id, 1f)]);
+        var observed = 0;
+
+        for (var z = -96; z <= 96; z += 4)
+        for (var x = -96; x <= 96; x += 4)
+        {
+            const int surfaceY = 112;
+            var placement = new SurfacePlacementContext(surfaceY, 0d);
+            var surface = materials.BlockAt(sample, x, z, 0, placement);
+            var wall = materials.ExteriorWallBlockAt(
+                sample, x, surfaceY, z, surfaceTopY: surfaceY);
+            Assert.Equal(surface, wall);
+            observed++;
+        }
+
+        Assert.True(observed > 0);
     }
 
     [Fact]
