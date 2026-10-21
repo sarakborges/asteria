@@ -1015,18 +1015,21 @@ public sealed class SurfaceChunkMaterializer
             bool HasCeilingOverride(BiomeSample sample) =>
                 _materials.HasDirectionalOverride(sample, BiomePaletteFace.Ceiling);
 
-            int NeighborSurfaceHeight(int dx, int dz)
-            {
-                var nx = x + dx;
-                var nz = z + dz;
-                if ((uint)nx < Chunk.Size && (uint)nz < Chunk.Size)
-                    return column.HeightAt(nx, nz);
-                return _terrain.SurfaceHeight(worldX + dx, worldZ + dz);
-            }
-
+            var westHeight = x > 0
+                ? column.HeightAt(x - 1, z)
+                : _terrain.SurfaceHeight(worldX - 1, worldZ);
+            var eastHeight = x < Chunk.Size - 1
+                ? column.HeightAt(x + 1, z)
+                : _terrain.SurfaceHeight(worldX + 1, worldZ);
+            var northHeight = z > 0
+                ? column.HeightAt(x, z - 1)
+                : _terrain.SurfaceHeight(worldX, worldZ - 1);
+            var southHeight = z < Chunk.Size - 1
+                ? column.HeightAt(x, z + 1)
+                : _terrain.SurfaceHeight(worldX, worldZ + 1);
             var lowestNeighborY = Math.Min(
-                Math.Min(NeighborSurfaceHeight(-1, 0), NeighborSurfaceHeight(1, 0)),
-                Math.Min(NeighborSurfaceHeight(0, -1), NeighborSurfaceHeight(0, 1)));
+                Math.Min(westHeight, eastHeight),
+                Math.Min(northHeight, southHeight));
             // The top voxel itself must never be converted to a wall material:
             // block IDs affect every face, so doing so paints stripes across
             // horizontal ridges and destroys their authored surface patches.
