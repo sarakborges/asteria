@@ -342,7 +342,7 @@ public sealed class MountainBiomeContentTests
     }
 
     [Fact]
-    public void InheritedWallMaterialsFormDeterministicThreeDimensionalRegions()
+    public void GeneratedTerrainMaterialSelectionUsesDeterministicThreeDimensionalRegions()
     {
         var biome = LoadBiome("desert");
         var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
@@ -356,21 +356,24 @@ public sealed class MountainBiomeContentTests
         var stone = blocks.GetId("asteria:stone");
         const int surfaceTopY = 160;
         var seen = new HashSet<BlockRuntimeId>();
-        var countsByY = new Dictionary<int, int>();
+        var sandCountsByY = new Dictionary<int, int>();
         var samples = new Dictionary<(int X, int Y, int Z), BlockRuntimeId>();
 
         for (var z = -48; z <= 48; z += 4)
         for (var x = -64; x <= 64; x += 4)
         {
-            var wall = materials.SampleExteriorWallColumn(sample, x, z);
-            var repeated = sameSeedMaterials.SampleExteriorWallColumn(sample, x, z);
-            for (var y = 128; y <= surfaceTopY; y += 4)
+            var column = materials.SampleColumn(sample, x, z);
+            var repeated = sameSeedMaterials.SampleColumn(sample, x, z);
+            Assert.Equal(sand, column.BlockAt(0, surfaceTopY));
+
+            for (var y = surfaceTopY - 11; y <= surfaceTopY; y++)
             {
-                var block = wall.BlockAt(y, surfaceTopY);
-                Assert.Equal(block, repeated.BlockAt(y, surfaceTopY));
+                var depth = (uint)(surfaceTopY - y);
+                var block = column.BlockAt(depth, y);
+                Assert.Equal(block, repeated.BlockAt(depth, y));
                 samples[(x, y, z)] = block;
                 seen.Add(block);
-                countsByY[y] = countsByY.GetValueOrDefault(y) +
+                sandCountsByY[y] = sandCountsByY.GetValueOrDefault(y) +
                     (block == sand ? 1 : 0);
             }
         }
@@ -379,8 +382,8 @@ public sealed class MountainBiomeContentTests
         Assert.Contains(sandstone, seen);
         Assert.Contains(stone, seen);
         Assert.Subset(new HashSet<BlockRuntimeId> { sand, sandstone, stone }, seen);
-        Assert.True(countsByY.Values.Distinct().Count() > 1,
-            "Material coverage should vary between horizontal slices, not repeat as depth-defined bands.");
+        Assert.True(sandCountsByY.Values.Distinct().Count() > 1,
+            "Material coverage should vary between horizontal slices instead of repeating as depth-defined bands.");
 
         var comparedNeighbors = 0;
         var matchingNeighbors = 0;
@@ -389,7 +392,7 @@ public sealed class MountainBiomeContentTests
             foreach (var neighbor in new[]
             {
                 (X: position.X + 4, Y: position.Y, Z: position.Z),
-                (X: position.X, Y: position.Y + 4, Z: position.Z),
+                (X: position.X, Y: position.Y + 1, Z: position.Z),
                 (X: position.X, Y: position.Y, Z: position.Z + 4),
             })
             {
@@ -403,7 +406,7 @@ public sealed class MountainBiomeContentTests
 
         Assert.True(comparedNeighbors > 0);
         Assert.True(matchingNeighbors > comparedNeighbors / 4,
-            $"Materials did not form coherent 3D regions: {matchingNeighbors}/{comparedNeighbors} adjacent samples matched.");
+            $"Materials did not form coherent 3D regions: {matchingNeighbors}/{comparedNeighbors} neighboring voxels matched.");
     }
 
     [Fact]
