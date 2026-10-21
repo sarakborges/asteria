@@ -1,7 +1,7 @@
 namespace Asteria.Core.World;
 
 /// <summary>
-/// Resolves generated block material for already-solid surface terrain.
+/// Resolves authored surface coatings and three-dimensional solid geology.
 /// Terrain height may blend biome influences; material ownership stays with
 /// the authoritative primary surface biome.
 /// </summary>
