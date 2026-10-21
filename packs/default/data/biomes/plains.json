@@ -284,31 +284,14 @@
       "asteria:dirt": 4,
       "asteria:gravel": 2,
       "asteria:clay": 1
-    }
+    },
+    "surfaceCoverDepth": 5
   },
   "palette": {
     "default": [
       {
         "block": "asteria:block_grass",
-        "depth": 1,
-        "patch": {
-          "scale": 24,
-          "coverage": 0.24,
-          "roughness": 0.34,
-          "blocks": [
-            "asteria:dirt",
-            "asteria:gravel"
-          ],
-          "detailScale": 9,
-          "selectionScale": 64,
-          "warpScale": 72,
-          "warpStrength": 12,
-          "stretchZ": 1.6,
-          "weights": {
-            "asteria:dirt": 3,
-            "asteria:gravel": 1
-          }
-        }
+        "depth": 1
       },
       {
         "block": "asteria:dirt",
