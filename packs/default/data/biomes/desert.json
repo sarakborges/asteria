@@ -62,20 +62,17 @@
       "asteria:sand": 5,
       "asteria:gravel": 2,
       "asteria:stone": 1
-    }
+    },
+    "surfaceCoverDepth": 4
   },
   "palette": {
     "default": [
       {
         "block": "asteria:sand",
-        "depth": 8
-      },
-      {
-        "block": "asteria:sandstone",
         "depth": 4
       },
       {
-        "block": "asteria:stone"
+        "block": "asteria:sandstone"
       }
     ]
   },
