@@ -156,35 +156,11 @@
       "asteria:cobble_basalt": 4,
       "asteria:gravel": 2,
       "asteria:stone": 1
-    }
+    },
+    "surfaceCoverDepth": 0
   },
   "palette": {
     "default": [
-      {
-        "block": "asteria:basalt",
-        "depth": 2,
-        "patch": {
-          "scale": 38,
-          "coverage": 0.26,
-          "roughness": 0.36,
-          "blocks": [
-            "asteria:cobble_basalt",
-            "asteria:gravel"
-          ],
-          "detailScale": 11,
-          "selectionScale": 91,
-          "warpScale": 82,
-          "warpStrength": 14,
-          "stretchZ": 1.58,
-          "weights": {
-            "asteria:cobble_basalt": 4,
-            "asteria:gravel": 1
-          },
-          "conditions": {
-            "maxSlope": 3
-          }
-        }
-      },
       {
         "block": "asteria:basalt"
       }
