@@ -54,18 +54,17 @@ public sealed class MountainBiomeContentTests
     [InlineData("mountain_belt", "asteria:stone", 115, 180)]
     [InlineData("alps", "asteria:snow", 145, 90)]
     [InlineData("gorge", "asteria:stone", 96, 150)]
-    public void MountainSurfacePatchesAreOrganicDeterministicAndConstrainedByAltitudeAndSlope(
+    public void MountainSurfacePatchesAreOrganicDeterministicAndConstrainedBySlopeNotAltitude(
         string file, string originalBlock, int eligibleY, int ineligibleY)
     {
         var biome = LoadBiome(file);
         var patch = Assert.IsType<BiomeSurfacePatchDefinition>(
             biome.SurfaceLayers[0].Patch);
         var conditions = Assert.IsType<SurfacePlacementConditions>(patch.Conditions);
+        Assert.Null(conditions.MinY);
+        Assert.Null(conditions.MaxY);
         Assert.True(conditions.Allows(new SurfacePlacementContext(eligibleY, 0)));
-        if (file is "mountains" or "mountain_belt")
-            Assert.True(conditions.Allows(new SurfacePlacementContext(ineligibleY, 0)));
-        else
-            Assert.False(conditions.Allows(new SurfacePlacementContext(ineligibleY, 0)));
+        Assert.True(conditions.Allows(new SurfacePlacementContext(ineligibleY, 0)));
         Assert.False(conditions.Allows(new SurfacePlacementContext(eligibleY, 20)));
         Assert.InRange(patch.Coverage, 0.15f, 0.35f);
         Assert.True(patch.WarpStrength > 0d);
@@ -88,10 +87,7 @@ public sealed class MountainBiomeContentTests
             var eligible = a.BlockAt(sample, x, z, 0, flat);
             Assert.Equal(eligible, b.BlockAt(sample, x, z, 0, flat));
             seen.Add(eligible);
-            if (file is "mountains" or "mountain_belt")
-                Assert.Equal(eligible, a.BlockAt(sample, x, z, 0, excluded));
-            else
-                Assert.Equal(original, a.BlockAt(sample, x, z, 0, excluded));
+            Assert.Equal(eligible, a.BlockAt(sample, x, z, 0, excluded));
             Assert.Equal(original, a.BlockAt(sample, x, z, 0, tooSteep));
             Assert.Equal(core, a.BlockAt(sample, x, z, 3, flat));
         }
