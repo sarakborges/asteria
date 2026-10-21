@@ -342,7 +342,7 @@ public sealed class MountainBiomeContentTests
     }
 
     [Fact]
-    public void InheritedWallMaterialsFollowIrregularTerrainRelativeStrata()
+    public void InheritedWallMaterialsFormDeterministicThreeDimensionalRegions()
     {
         var biome = LoadBiome("desert");
         var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
@@ -355,40 +355,54 @@ public sealed class MountainBiomeContentTests
         var sandstone = blocks.GetId("asteria:sandstone");
         var stone = blocks.GetId("asteria:stone");
         const int surfaceTopY = 160;
-        var boundaryYByX = new HashSet<int>();
-        var observedAtBoundary = new HashSet<BlockRuntimeId>();
+        var seen = new HashSet<BlockRuntimeId>();
+        var countsByY = new Dictionary<int, int>();
+        var samples = new Dictionary<(int X, int Y, int Z), BlockRuntimeId>();
 
-        for (var x = -160; x <= 160; x += 2)
+        for (var z = -48; z <= 48; z += 4)
+        for (var x = -64; x <= 64; x += 4)
         {
-            var wall = materials.SampleExteriorWallColumn(sample, x, 24);
-            Assert.Equal(sand, wall.BlockAt(surfaceTopY - 1, surfaceTopY));
-            Assert.Equal(stone, wall.BlockAt(surfaceTopY - 20, surfaceTopY));
-
-            var repeated = sameSeedMaterials.SampleExteriorWallColumn(sample, x, 24);
-            Assert.Equal(
-                wall.BlockAt(surfaceTopY - 9, surfaceTopY),
-                repeated.BlockAt(surfaceTopY - 9, surfaceTopY));
-
-            var previous = wall.BlockAt(surfaceTopY - 1, surfaceTopY);
-            for (var depth = 2; depth <= 20; depth++)
+            var wall = materials.SampleExteriorWallColumn(sample, x, z);
+            var repeated = sameSeedMaterials.SampleExteriorWallColumn(sample, x, z);
+            for (var y = 128; y <= surfaceTopY; y += 4)
             {
-                var current = wall.BlockAt(surfaceTopY - depth, surfaceTopY);
-                if (current != previous)
-                {
-                    observedAtBoundary.Add(previous);
-                    observedAtBoundary.Add(current);
-                    if (previous == sand && current == sandstone)
-                        boundaryYByX.Add(surfaceTopY - depth);
-                }
-                previous = current;
+                var block = wall.BlockAt(y, surfaceTopY);
+                Assert.Equal(block, repeated.BlockAt(y, surfaceTopY));
+                samples[(x, y, z)] = block;
+                seen.Add(block);
+                countsByY[y] = countsByY.GetValueOrDefault(y) + 1;
             }
         }
 
-        Assert.Contains(sandstone, observedAtBoundary);
-        Assert.True(boundaryYByX.Count > 1,
-            "The sand/sandstone boundary must vary across world X instead of forming a fixed horizontal band.");
-        Assert.True(boundaryYByX.Max() - boundaryYByX.Min() >= 4,
-            $"The sand/sandstone boundary moved only {boundaryYByX.Max() - boundaryYByX.Min()} blocks; this is still too close to a flat artificial layer.");
+        Assert.Contains(sand, seen);
+        Assert.Contains(sandstone, seen);
+        Assert.Contains(stone, seen);
+        Assert.Subset(new HashSet<BlockRuntimeId> { sand, sandstone, stone }, seen);
+        Assert.True(countsByY.Values.Distinct().Count() > 1,
+            "Material coverage should vary between horizontal slices, not repeat as depth-defined bands.");
+
+        var comparedNeighbors = 0;
+        var matchingNeighbors = 0;
+        foreach (var (position, block) in samples)
+        {
+            foreach (var neighbor in new[]
+            {
+                (X: position.X + 4, Y: position.Y, Z: position.Z),
+                (X: position.X, Y: position.Y + 4, Z: position.Z),
+                (X: position.X, Y: position.Y, Z: position.Z + 4),
+            })
+            {
+                if (!samples.TryGetValue(neighbor, out var adjacent))
+                    continue;
+                comparedNeighbors++;
+                if (block == adjacent)
+                    matchingNeighbors++;
+            }
+        }
+
+        Assert.True(comparedNeighbors > 0);
+        Assert.True(matchingNeighbors > comparedNeighbors / 4,
+            $"Materials did not form coherent 3D regions: {matchingNeighbors}/{comparedNeighbors} adjacent samples matched.");
     }
 
     [Fact]
