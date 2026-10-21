@@ -70,6 +70,16 @@ public sealed class BiomeDefinition
         Palette = palette ?? new BiomePaletteDefinition(
             surfaceLayers ?? throw new ArgumentException(
                 "Every biome requires an authored palette.", nameof(palette)));
+        if (Geology is { SurfaceCoverDepth: > 0 } authoredGeology)
+        {
+            var finiteCoverDepth = Palette.For(BiomePaletteFace.Floor)
+                .Where(layer => layer.Depth.HasValue)
+                .Sum(layer => (ulong)layer.Depth!.Value);
+            if (authoredGeology.SurfaceCoverDepth > finiteCoverDepth)
+                throw new ArgumentException(
+                    "Geology surfaceCoverDepth cannot exceed the finite authored surface profile depth.",
+                    nameof(geology));
+        }
         if (Palette.SurfaceMosaic is not null &&
             (surfaceLayout is null || surfaceTerrain?.FillToSeaLevel == true))
             throw new ArgumentException(
@@ -623,7 +633,8 @@ public sealed class BiomeGeologyDefinition
         uint selectionScale,
         float coverage,
         float roughness = 0.25f,
-        IReadOnlyDictionary<string, double>? weights = null)
+        IReadOnlyDictionary<string, double>? weights = null,
+        uint surfaceCoverDepth = 0)
     {
         BiomeSurfaceLayerDefinition.ValidateBlockId(baseBlock);
         if (scale is < 2 or > 2048 ||
@@ -635,6 +646,11 @@ public sealed class BiomeGeologyDefinition
                 nameof(scale),
                 "Geology scales are outside the supported range.");
         }
+
+        if (surfaceCoverDepth > 64)
+            throw new ArgumentOutOfRangeException(
+                nameof(surfaceCoverDepth),
+                "Geological surface cover depth must be within 0..64.");
 
         if (!float.IsFinite(coverage) || coverage is <= 0f or > 1f ||
             !float.IsFinite(roughness) || roughness is < 0f or > 1f)
@@ -699,6 +715,7 @@ public sealed class BiomeGeologyDefinition
         SelectionScale = selectionScale;
         Coverage = coverage;
         Roughness = roughness;
+        SurfaceCoverDepth = surfaceCoverDepth;
     }
 
     public string BaseBlock { get; }
@@ -712,6 +729,9 @@ public sealed class BiomeGeologyDefinition
     public uint SelectionScale { get; }
     public float Coverage { get; }
     public float Roughness { get; }
+
+    /// <summary>Number of surface-relative voxels that retain the authored cover profile.</summary>
+    public uint SurfaceCoverDepth { get; }
 }
 
 /// <summary>Required fluid occupancy of a decorator's placement voxel.</summary>
