@@ -361,7 +361,7 @@ public sealed class BiomeSurfaceMaterialField
             var selection = WorldGenerationEntropy.ValueNoise3D(
                 seed, _selectionDomain, x, y, z,
                 _definition.SelectionScale,
-                Math.Max(2u, _definition.VerticalScale * 2u));
+                _definition.VerticalScale);
             var unit = Math.Clamp((selection + 1d) * 0.5d,
                 0d, 0.999999999999d);
             var target = unit * _definition.TotalWeight;
