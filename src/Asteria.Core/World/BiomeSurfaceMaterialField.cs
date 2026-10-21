@@ -480,6 +480,11 @@ public sealed class BiomeSurfaceMaterialField
             uint nominalEndDepth,
             uint previousEndDepth)
         {
+            var previousNominalEndDepth = layerIndex == 0
+                ? 0u
+                : Layers[layerIndex - 1].EndDepthExclusive.GetValueOrDefault();
+            var nominalThickness = nominalEndDepth - previousNominalEndDepth;
+
             // Displacement grows with depth, not just individual layer
             // thickness; otherwise thin ocean strata remain nearly straight.
             var adaptiveAmplitude = Math.Clamp(
@@ -501,9 +506,10 @@ public sealed class BiomeSurfaceMaterialField
             var displacement = (int)Math.Round(
                 (broad * 0.75d + detail * 0.25d) * amplitude,
                 MidpointRounding.AwayFromZero);
+            var minimumThickness = Math.Min(2u, Math.Max(1u, nominalThickness));
             var displaced = Math.Max(
                 (long)nominalEndDepth + displacement,
-                (long)previousEndDepth + 1L);
+                (long)previousEndDepth + minimumThickness);
             return checked((uint)displaced);
         }
 
