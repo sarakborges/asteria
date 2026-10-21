@@ -51,6 +51,61 @@ public sealed class VerticalBiomeContentTests
     }
 
     [Fact]
+    public void OceanSeabedPatchCoverageIsIrregularAlongBothHorizontalAxes()
+    {
+        var blocks = BlockRegistry.FromJson(ReadFiles("blocks"));
+        var ocean = BiomeDefinitionJson.Parse(File.ReadAllText(
+            Path.Combine(PackData, "biomes", "ocean.json")));
+        var materials = new BiomeSurfaceMaterialField(78123UL, [ocean], blocks);
+        var sample = new BiomeSample(ocean.Id,
+            [new BiomeInfluence(ocean.Id, 1f)]);
+        var sand = blocks.GetId("asteria:sand");
+        const int start = -128;
+        const int step = 4;
+        const int count = 65;
+        var patched = new bool[count, count];
+        var rowCoverage = new int[count];
+        var columnCoverage = new int[count];
+        var horizontalTransitions = 0;
+        var verticalTransitions = 0;
+        var seen = new HashSet<BlockRuntimeId>();
+
+        for (var zIndex = 0; zIndex < count; zIndex++)
+        for (var xIndex = 0; xIndex < count; xIndex++)
+        {
+            var x = start + xIndex * step;
+            var z = start + zIndex * step;
+            var block = materials.BlockAt(
+                sample, x, z, 0, new SurfacePlacementContext(82, 0d));
+            seen.Add(block);
+            var hasPatch = block != sand;
+            patched[zIndex, xIndex] = hasPatch;
+            if (hasPatch)
+            {
+                rowCoverage[zIndex]++;
+                columnCoverage[xIndex]++;
+            }
+
+            if (xIndex > 0 && patched[zIndex, xIndex - 1] != hasPatch)
+                horizontalTransitions++;
+            if (zIndex > 0 && patched[zIndex - 1, xIndex] != hasPatch)
+                verticalTransitions++;
+        }
+
+        Assert.Contains(blocks.GetId("asteria:gravel"), seen);
+        Assert.Contains(blocks.GetId("asteria:clay"), seen);
+        Assert.Contains(blocks.GetId("asteria:cobble_stone"), seen);
+        Assert.True(rowCoverage.Distinct().Count() >= 20,
+            "Patch coverage repeats across rows, suggesting horizontal banding.");
+        Assert.True(columnCoverage.Distinct().Count() >= 20,
+            "Patch coverage repeats across columns, suggesting vertical banding.");
+        Assert.True(horizontalTransitions > count * count / 20,
+            "The seabed has too few patch transitions along X.");
+        Assert.True(verticalTransitions > count * count / 20,
+            "The seabed has too few patch transitions along Z.");
+    }
+
+    [Fact]
     public void OceanRockTemplatesDisplaceOnlyOccupiedFluidVoxels()
     {
         var blocks = BlockRegistry.FromJson(ReadFiles("blocks"));
