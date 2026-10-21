@@ -789,7 +789,6 @@ public sealed class BiomeSurfaceMaterialField
         private readonly GenerationDomain _volumeMaskDomain;
         private readonly GenerationDomain _volumeFineDetailDomain;
         private readonly GenerationDomain _volumeSelectionDomain;
-        private readonly GenerationDomain _volumeSelectionDetailDomain;
         private readonly GenerationDomain _volumeWarpXDomain;
         private readonly GenerationDomain _volumeWarpYDomain;
         private readonly GenerationDomain _volumeWarpZDomain;
@@ -823,8 +822,6 @@ public sealed class BiomeSurfaceMaterialField
                 $"material/volume-patch/fine-detail/v1/{suffix}");
             _volumeSelectionDomain = GenerationDomain.Named(
                 $"material/volume-patch/selection/v1/{suffix}");
-            _volumeSelectionDetailDomain = GenerationDomain.Named(
-                $"material/volume-patch/selection-detail/v1/{suffix}");
             _volumeWarpXDomain = GenerationDomain.Named(
                 $"material/volume-patch/warp-x/v1/{suffix}");
             _volumeWarpYDomain = GenerationDomain.Named(
@@ -850,7 +847,7 @@ public sealed class BiomeSurfaceMaterialField
             if (!IsInsideMask(seed, warpedX, warpedY, warpedZ))
                 return null;
 
-            return SelectBlock(seed, warpedX, warpedY, warpedZ);
+            return SelectBlock(seed, sampleX, y, sampleZ);
         }
 
         public bool HasConditions => _definition.Conditions is not null;
@@ -875,7 +872,7 @@ public sealed class BiomeSurfaceMaterialField
             if (!IsInsideMask(seed, warpedX, warpedY, warpedZ))
                 return null;
 
-            return SelectBlock(seed, warpedX, warpedY, warpedZ);
+            return SelectBlock(seed, sampleX, sampleY, sampleZ);
         }
 
         private (double X, double Z) TransformCoordinates(
@@ -951,15 +948,10 @@ public sealed class BiomeSurfaceMaterialField
                 return _blocks[0];
 
             var selectionScale = Math.Max(2u, _definition.SelectionScale);
-            var detailScale = Math.Max(2u, _definition.DetailScale);
             var selection = WorldGenerationEntropy.ValueNoise3D(
                 seed, _volumeSelectionDomain, x, y, z,
                 selectionScale, selectionScale);
-            var detail = WorldGenerationEntropy.ValueNoise3D(
-                seed, _volumeSelectionDetailDomain, x, y, z,
-                detailScale, detailScale);
-            var field = selection * 0.72d + detail * 0.28d;
-            var unit = Math.Clamp((field + 1d) * 0.5d,
+            var unit = Math.Clamp((selection + 1d) * 0.5d,
                 0d, 0.999999999999d);
             var target = unit * _totalWeight;
             for (var index = 0; index < _blocks.Length; index++)
