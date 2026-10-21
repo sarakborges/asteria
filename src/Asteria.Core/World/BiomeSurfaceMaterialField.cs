@@ -101,24 +101,11 @@ public sealed class BiomeSurfaceMaterialField
         if (depth >= rule.CoreStartDepth)
             return rule.CoreBlock;
 
-        var context = placement;
-        if (depth > 0 && rule.HasVolumetricMaterialVariation &&
-            !context.HasValue && _terrain is not null)
-        {
-            context = SurfacePlacementContext.Sample(
-                _terrain, worldX, worldZ,
-                includeSlope: false, baseSurface: rule.UsesBaseSurface);
-        }
-        if (depth > 0 && rule.HasVolumetricMaterialVariation &&
-            context is { } sampled)
-        {
-            var worldY = checked((int)((long)sampled.Y - depth));
-            return rule.ExteriorWallBlockAtWorldPosition(
-                _seed, worldX, worldY, worldZ);
-        }
-
         return rule.BlockAtDepth(
-            _seed, worldX, worldZ, depth,
+            _seed,
+            worldX,
+            worldZ,
+            depth,
             PlacementFor(rule, worldX, worldZ, placement));
     }
 
@@ -455,9 +442,6 @@ public sealed class BiomeSurfaceMaterialField
 
         public bool HasUniformMaterial { get; }
 
-        public bool HasVolumetricMaterialVariation =>
-            !HasUniformMaterial || HasPatches;
-
         public bool RequiresSlope { get; }
 
         public BlockRuntimeId ExteriorWallBlockAtWorldPosition(
@@ -637,13 +621,8 @@ public sealed class BiomeSurfaceMaterialField
                     seed, worldX, worldZ, placement);
             }
 
-            Func<int, BlockRuntimeId>? materialAtWorldY =
-                HasVolumetricMaterialVariation
-                    ? worldY => ExteriorWallBlockAtWorldPosition(
-                        seed, worldX, worldY, worldZ)
-                    : null;
             return new BiomeSurfaceMaterialColumn(
-                depths, blocks, surfaceOverride, materialAtWorldY);
+                depths, blocks, surfaceOverride);
         }
 
         private uint AdjustedEndDepth(
@@ -996,18 +975,15 @@ public sealed class BiomeSurfaceMaterialColumn
     private readonly uint[] _endDepths;
     private readonly BlockRuntimeId[] _blocks;
     private readonly BlockRuntimeId _surfaceOverride;
-    private readonly Func<int, BlockRuntimeId>? _materialAtWorldY;
 
     internal BiomeSurfaceMaterialColumn(
         uint[] endDepths,
         BlockRuntimeId[] blocks,
-        BlockRuntimeId surfaceOverride = default,
-        Func<int, BlockRuntimeId>? materialAtWorldY = null)
+        BlockRuntimeId surfaceOverride = default)
     {
         _endDepths = endDepths;
         _blocks = blocks;
         _surfaceOverride = surfaceOverride;
-        _materialAtWorldY = materialAtWorldY;
     }
 
     public uint FiniteDepth =>
@@ -1015,17 +991,10 @@ public sealed class BiomeSurfaceMaterialColumn
             ? _endDepths[^2]
             : 0u;
 
-    public BlockRuntimeId BlockAt(uint depth) =>
-        BlockAt(depth, worldY: int.MinValue);
-
-    public BlockRuntimeId BlockAt(uint depth, int worldY)
+    public BlockRuntimeId BlockAt(uint depth)
     {
         if (depth == 0 && !_surfaceOverride.IsAir)
             return _surfaceOverride;
-
-        if (depth > 0 && depth < FiniteDepth &&
-            _materialAtWorldY is not null && worldY != int.MinValue)
-            return _materialAtWorldY(worldY);
 
         for (var i = 0; i < _endDepths.Length; i++)
         {
