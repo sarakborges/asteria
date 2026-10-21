@@ -260,7 +260,8 @@
       "asteria:dirt": 4,
       "asteria:gravel": 2,
       "asteria:clay": 1
-    }
+    },
+    "surfaceCoverDepth": 5
   },
   "palette": {
     "default": [
