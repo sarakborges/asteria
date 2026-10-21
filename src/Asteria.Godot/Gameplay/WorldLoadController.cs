@@ -11,6 +11,7 @@ public enum WorldLoadIntent : byte
 {
     Load,
     Recreate,
+    CreationDraft,
 }
 
 public sealed record PreparedWorldLoad(
@@ -49,6 +50,9 @@ public sealed class WorldLoadController
 
     public bool BeginRecreation(string worldName) =>
         Begin(worldName, WorldLoadIntent.Recreate);
+
+    public bool BeginCreationDraft(string worldName) =>
+        Begin(worldName, WorldLoadIntent.CreationDraft);
 
     private bool Begin(string worldName, WorldLoadIntent intent)
     {
