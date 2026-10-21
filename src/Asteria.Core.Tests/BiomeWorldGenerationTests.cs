@@ -1962,8 +1962,10 @@ public sealed class BiomeWorldGenerationTests
         {
             (1, 0), (-1, 0), (0, 1), (0, -1),
         };
-        for (var z = -96; z <= 96 && candidates.Count < 32; z += 2)
-        for (var x = -96; x <= 96 && candidates.Count < 32; x += 2)
+        // Sample rows across the whole fixture instead of stopping in the
+        // first few Z rows; a 3D patch may legitimately miss one local area.
+        for (var z = -96; z <= 96; z += 6)
+        for (var x = -96; x <= 96; x += 2)
         {
             var surfaceY = generator.SurfaceHeight(x, z);
             var wallY = surfaceY - 2;
@@ -1985,6 +1987,15 @@ public sealed class BiomeWorldGenerationTests
         }
 
         Assert.NotEmpty(candidates);
+        if (candidates.Count > 32)
+        {
+            var distributedCandidates = Enumerable.Range(0, 32)
+                .Select(index =>
+                    candidates[index * (candidates.Count - 1) / 31])
+                .ToList();
+            candidates = distributedCandidates;
+        }
+
         var gravel = blocks.GetId("asteria:gravel");
         var materialized = new Dictionary<ChunkCoord, Chunk>();
         var foundPatchOnRealWall = false;
