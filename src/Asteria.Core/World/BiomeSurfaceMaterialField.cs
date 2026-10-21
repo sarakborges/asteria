@@ -119,10 +119,6 @@ public sealed class BiomeSurfaceMaterialField
     }
 
     /// <summary>
-    /// Resolves the volumetric geology at a solid world-space voxel. This query
-    /// is independent of absolute altitude and surface-relative layer depth.
-    /// </summary>
-    /// <summary>
     /// Returns the authored surface-cover depth, or null for biomes using only
     /// the legacy surface profile. Beyond this depth, the 3D geology owns solids.
     /// </summary>
@@ -134,6 +130,10 @@ public sealed class BiomeSurfaceMaterialField
             : null;
     }
 
+    /// <summary>
+    /// Resolves the volumetric geology at a solid world-space voxel. Material
+    /// selection uses a continuous 3D field, not altitude-specific layer rules.
+    /// </summary>
     public bool TryGeologyBlockAt(
         BiomeSample sample, int worldX, int worldY, int worldZ,
         out BlockRuntimeId block)
