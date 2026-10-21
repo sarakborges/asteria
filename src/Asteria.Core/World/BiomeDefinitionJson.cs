@@ -56,7 +56,7 @@ public static class BiomeDefinitionJson
             scale,
             RequiredUInt32(value, "verticalScale"),
             OptionalUInt32(value, "detailScale") ?? Math.Max(2u, scale / 4u),
-            OptionalUInt32(value, "selectionScale") ?? checked(scale * 2u),
+            OptionalUInt32(value, "selectionScale") ?? scale,
             RequiredSingle(value, "coverage"),
             OptionalSingle(value, "roughness") ?? 0.25f,
             ParseMaterialWeights(value),
