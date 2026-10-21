@@ -788,6 +788,7 @@ public sealed class BiomeSurfaceMaterialField
         private readonly GenerationDomain _warpZDomain;
         private readonly GenerationDomain _volumeMaskDomain;
         private readonly GenerationDomain _volumeSelectionDomain;
+        private readonly GenerationDomain _volumeSelectionDetailDomain;
         private readonly GenerationDomain _volumeWarpXDomain;
         private readonly GenerationDomain _volumeWarpYDomain;
         private readonly GenerationDomain _volumeWarpZDomain;
@@ -819,6 +820,8 @@ public sealed class BiomeSurfaceMaterialField
                 $"material/volume-patch/mask/v1/{suffix}");
             _volumeSelectionDomain = GenerationDomain.Named(
                 $"material/volume-patch/selection/v1/{suffix}");
+            _volumeSelectionDetailDomain = GenerationDomain.Named(
+                $"material/volume-patch/selection-detail/v1/{suffix}");
             _volumeWarpXDomain = GenerationDomain.Named(
                 $"material/volume-patch/warp-x/v1/{suffix}");
             _volumeWarpYDomain = GenerationDomain.Named(
@@ -943,7 +946,7 @@ public sealed class BiomeSurfaceMaterialField
                 seed, _volumeSelectionDomain, x, y, z,
                 selectionScale, selectionScale);
             var detail = WorldGenerationEntropy.ValueNoise3D(
-                seed, _detailDomain, x, y, z,
+                seed, _volumeSelectionDetailDomain, x, y, z,
                 detailScale, detailScale);
             var field = selection * 0.72d + detail * 0.28d;
             var unit = Math.Clamp((field + 1d) * 0.5d,
