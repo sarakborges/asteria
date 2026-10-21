@@ -87,6 +87,14 @@ jobs:
             --width 64 --depth 64 --step 8 --mode influences \
             --output biome-map-umbral.svg
 
+      - name: Render materialized 3D geology around the ocean regression seed
+        run: |
+          dotnet run --project tools/WorldgenBenchmark --configuration Release -- \
+            --seed 7808508665006554090 --dimension asteria:overworld \
+            --center-x 355 --center-z -230 --samples 1 --area-size 1 \
+            --map-size 96 --map-step 2 --chunks 1 --search-radius 64 \
+            --material-map-output biome-map-geology-ocean.svg
+
       - name: Upload worldgen query baseline
         if: always()
         uses: actions/upload-artifact@v4
