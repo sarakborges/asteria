@@ -243,8 +243,7 @@ public sealed class BiomeSurfaceMaterialField
         }
 
         var sampled = SurfacePlacementContext.Sample(
-            _terrain, worldX, worldZ,
-            rule.RequiresSlope, rule.UsesBaseSurface);
+            _terrain, worldX, worldZ, rule.RequiresSlope);
         return new SurfacePlacementContext(worldY, sampled.Slope);
     }
 
