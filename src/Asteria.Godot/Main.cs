@@ -2202,7 +2202,16 @@ public partial class Main : Node3D
 
         if (prepared.Intent == WorldLoadIntent.CreationDraft)
         {
-            var draft = prepared.States.CreateRecreationOptions();
+            var restoredDraft = prepared.States.CreateRecreationOptions();
+            var draft = new WorldCreationOptions(
+                WorldCreationOptions.CreateCopyName(prepared.Snapshot.Name),
+                restoredDraft.Seed,
+                restoredDraft.GameMode,
+                restoredDraft.TicksPerSecond,
+                restoredDraft.SpawnCreatures,
+                restoredDraft.Generation,
+                restoredDraft.KeepInventory,
+                restoredDraft.AttackMode);
             _suggestedWorldSeed = draft.Seed;
             SendWorldCreationState(draft);
             return;
