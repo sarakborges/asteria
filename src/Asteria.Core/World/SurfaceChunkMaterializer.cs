@@ -997,7 +997,7 @@ public sealed class SurfaceChunkMaterializer
         TerrainDensityVolume densityVolume,
         int originX, int originY, int originZ)
     {
-        if (!_materials.HasExteriorOverrides)
+        if (!_materials.HasExteriorFaces)
             return;
 
         for (var z = 0; z < Chunk.Size; z++)
@@ -1008,15 +1008,18 @@ public sealed class SurfaceChunkMaterializer
             var surfaceBiome = column.BiomeAt(x, z);
             var baseY = column.BaseHeightAt(x, z);
             var volumePlacement = densityVolume.VolumePlacementAt(x, z);
-            // The exterior-face pass is unnecessary when neither the
-            // surface nor the possible additive owner overrides walls or
-            // ceilings. Avoid scanning all solid voxels in these columns.
-            bool HasExteriorOverride(BiomeSample sample) =>
-                _materials.HasDirectionalOverride(sample, BiomePaletteFace.Walls) ||
+            // Exposed walls need depth-from-face materialization even when a
+            // biome inherits its default palette. Ceiling painting remains an
+            // opt-in directional override.
+            bool HasWallMaterials(BiomeSample sample) =>
+                _materials.HasExteriorWallMaterial(sample);
+            bool HasCeilingOverride(BiomeSample sample) =>
                 _materials.HasDirectionalOverride(sample, BiomePaletteFace.Ceiling);
-            if (!HasExteriorOverride(surfaceBiome) &&
+            if (!HasWallMaterials(surfaceBiome) &&
+                !HasCeilingOverride(surfaceBiome) &&
                 (volumePlacement is null ||
-                 !HasExteriorOverride(volumePlacement)))
+                 (!HasWallMaterials(volumePlacement) &&
+                  !HasCeilingOverride(volumePlacement))))
                 continue;
 
             for (var y = 0; y < Chunk.Size; y++)
@@ -1034,8 +1037,7 @@ public sealed class SurfaceChunkMaterializer
                     : surfaceBiome;
                 if (biome is null)
                     continue;
-                var wall = _materials.HasDirectionalOverride(
-                    biome, BiomePaletteFace.Walls);
+                var wall = _materials.HasExteriorWallMaterial(biome);
                 var ceiling = _materials.HasDirectionalOverride(
                     biome, BiomePaletteFace.Ceiling);
                 if (!wall && !ceiling)
@@ -1090,8 +1092,12 @@ public sealed class SurfaceChunkMaterializer
                     if (face is not { } exposed)
                         continue;
 
-                    chunk.SetBlock(x, y, z, _materials.VolumeBlockAt(
-                        biome, worldX, worldY, worldZ, exposed, (uint)depth));
+                    var block = exposed == BiomePaletteFace.Walls
+                        ? _materials.ExteriorWallBlockAt(
+                            biome, worldX, worldY, worldZ, (uint)depth)
+                        : _materials.VolumeBlockAt(
+                            biome, worldX, worldY, worldZ, exposed, (uint)depth);
+                    chunk.SetBlock(x, y, z, block);
                     break;
                 }
             }
