@@ -75,24 +75,33 @@ public sealed class SparseOverworldBiomeContentTests
     }
 
     [Fact]
-    public void OceanSurfaceMaterialSelectionComesFromThreeDimensionalGeology()
+    public void OceanKeepsThinSandCoverAndUsesThreeDimensionalGeologyBelowIt()
     {
         var biome = LoadBiome("ocean");
         var geology = Assert.IsType<BiomeGeologyDefinition>(biome.Geology);
-        Assert.Equal(0u, geology.SurfaceCoverDepth);
-        Assert.Null(biome.Palette.Default[0].Patch);
-        Assert.Single(biome.Palette.Default);
+        Assert.Equal(1u, geology.SurfaceCoverDepth);
+        Assert.Equal("asteria:sand", biome.SurfaceLayers[0].Block);
+        Assert.Equal(1u, biome.SurfaceLayers[0].Depth);
+        Assert.Null(biome.SurfaceLayers[0].Patch);
+        Assert.Equal("asteria:stone", biome.SurfaceLayers[1].Block);
+        Assert.Null(biome.SurfaceLayers[1].Depth);
 
         var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
         var first = new BiomeSurfaceMaterialField(377UL, [biome], blocks);
         var second = new BiomeSurfaceMaterialField(377UL, [biome], blocks);
         var sample = new BiomeSample(biome.Id,
             [new BiomeInfluence(biome.Id, 1f)]);
+        var sand = blocks.GetId("asteria:sand");
         var seenAtSameAltitude = new HashSet<BlockRuntimeId>();
         var seenAlongVerticalColumn = new HashSet<BlockRuntimeId>();
+
         for (var z = -384; z <= 384; z += 12)
         for (var x = -384; x <= 384; x += 12)
         {
+            Assert.Equal(sand, first.BlockAt(
+                sample, x, z, 0, new SurfacePlacementContext(90, 0)));
+            Assert.Equal(sand, first.BlockAt(
+                sample, x, z, 0, new SurfacePlacementContext(70, 0)));
             Assert.True(first.TryGeologyBlockAt(sample, x, 82, z, out var material));
             Assert.True(second.TryGeologyBlockAt(sample, x, 82, z, out var repeat));
             Assert.Equal(material, repeat);
