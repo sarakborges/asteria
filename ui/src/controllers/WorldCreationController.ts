@@ -71,14 +71,61 @@ export function createWorldCreationController(
         case "game.world_creation": {
           const payload = asRecord(message.payload);
           if (payload && typeof payload.seed === "string") {
+            const isDraft = payload.isRecreationDraft === true;
+            const rawGeneration = asRecord(payload.generation);
+            const current = store.getSnapshot().worldCreation;
+            const validMode = (value: unknown): value is GameMode =>
+              value === "Survival" || value === "Creative" || value === "Spectator";
+            const validAttackMode = (value: unknown): value is CreatureAttackMode =>
+              value === "Default" || value === "Peaceful";
+            const validGenerationMode = (value: unknown): value is WorldGenerationDraft["mode"] =>
+              value === "Normal" || value === "Flat" || value === "Void";
+            const generation = rawGeneration &&
+                validGenerationMode(rawGeneration.mode) &&
+                (rawGeneration.spawnBiome === null || typeof rawGeneration.spawnBiome === "string") &&
+                typeof rawGeneration.biomeSizeTenths === "number" &&
+                typeof rawGeneration.spawnStructures === "boolean" &&
+                typeof rawGeneration.singleBiome === "boolean" &&
+                typeof rawGeneration.spawnCaves === "boolean" &&
+                typeof rawGeneration.spawnOceans === "boolean"
+              ? {
+                  mode: rawGeneration.mode,
+                  spawnBiome: rawGeneration.spawnBiome,
+                  biomeSizeTenths: rawGeneration.biomeSizeTenths,
+                  spawnStructures: rawGeneration.spawnStructures,
+                  singleBiome: rawGeneration.singleBiome,
+                  spawnCaves: rawGeneration.spawnCaves,
+                  spawnOceans: rawGeneration.spawnOceans,
+                }
+              : current.generation;
             updateWorldCreation(store, {
               spawnBiomes: readSpawnBiomes(payload.spawnBiomes),
               visible: true,
               seed: payload.seed,
+              ...(isDraft ? {
+                name: typeof payload.name === "string" ? payload.name : current.name,
+                mode: validMode(payload.mode) ? payload.mode : current.mode,
+                ticksPerSecond: typeof payload.ticksPerSecond === "number"
+                  ? String(payload.ticksPerSecond) : current.ticksPerSecond,
+                spawnCreatures: typeof payload.spawnCreatures === "boolean"
+                  ? payload.spawnCreatures : current.spawnCreatures,
+                keepInventory: typeof payload.keepInventory === "boolean"
+                  ? payload.keepInventory : current.keepInventory,
+                creatureAttackMode: validAttackMode(payload.creatureAttackMode)
+                  ? payload.creatureAttackMode : current.creatureAttackMode,
+                generation,
+              } : {}),
               pending: false,
               generating: false,
               errorKey: null,
             });
+            if (isDraft) {
+              store.update(state => ({
+                ...state,
+                navigation: { ...state.navigation, preWorldScreen: "new-world" },
+                worldCatalog: { ...state.worldCatalog, status: "ready" },
+              }));
+            }
           }
           break;
         }
