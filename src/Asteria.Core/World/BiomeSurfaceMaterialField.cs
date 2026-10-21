@@ -710,7 +710,10 @@ public sealed class BiomeSurfaceMaterialField
             var crossField = WorldGenerationEntropy.SmoothNoise2D(
                 seed, domain, crossX - 41.7d, crossZ + 13.9d, scale);
 
-            return (aligned + diagonalField + crossField) / 3d;
+            // Normalize the sum to preserve approximately the same variance as
+            // the original single noise field. A plain average compresses values
+            // toward zero and makes authored coverage thresholds reject patches.
+            return (aligned + diagonalField + crossField) / Math.Sqrt(3d);
         }
 
         public static ResolvedPatch Create(
