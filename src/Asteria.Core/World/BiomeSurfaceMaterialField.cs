@@ -27,7 +27,8 @@ public sealed class BiomeSurfaceMaterialField
         _seed = seed;
         _terrain = terrain;
         _mosaic = mosaic;
-        _faceRules = biomes
+        var biomeDefinitions = biomes.ToArray();
+        _faceRules = biomeDefinitions
             .OrderBy(biome => biome.Id, StringComparer.Ordinal)
             .ToDictionary(
                 biome => biome.Id,
@@ -36,12 +37,12 @@ public sealed class BiomeSurfaceMaterialField
         _rules = _faceRules.ToDictionary(
             pair => pair.Key, pair => pair.Value.Floor,
             StringComparer.Ordinal);
-        _geologyRules = biomes
+        _geologyRules = biomeDefinitions
             .Where(biome => biome.Geology is not null)
             .OrderBy(biome => biome.Id, StringComparer.Ordinal)
             .ToDictionary(
                 biome => biome.Id,
-                biome => ResolvedGeology.Create(_seed, biome.Id, biome.Geology!, blocks),
+                biome => ResolvedGeology.Create(biome.Id, biome.Geology!, blocks),
                 StringComparer.Ordinal);
         HasExteriorOverrides = _faceRules.Values.Any(
             profile => profile.Exterior &&
@@ -138,6 +139,9 @@ public sealed class BiomeSurfaceMaterialField
         if (!_faceRules.TryGetValue(sample.Primary, out var rules))
             throw new KeyNotFoundException(
                 $"Biome {sample.Primary} has no material palette.");
+        if (_geologyRules.TryGetValue(sample.Primary, out var geology))
+            return geology.BlockAt(_seed, worldX, worldY, worldZ);
+
         var rule = rules.For(face);
         SurfacePlacementContext? placement = null;
         if (rule.HasConditions)
@@ -345,19 +349,14 @@ public sealed class BiomeSurfaceMaterialField
         }
 
         public static ResolvedGeology Create(
-            ulong seed,
             string biomeId,
             BiomeGeologyDefinition definition,
-            BlockRegistry blocks)
-        {
-            _ = seed;
-            return new ResolvedGeology(
+            BlockRegistry blocks) =>
+            new ResolvedGeology(
                 definition,
                 blocks.GetId(definition.BaseBlock),
                 definition.Blocks.Select(blocks.GetId).ToArray(),
                 biomeId);
-        }
-    }
 
     private sealed class MaterialRule
     {
