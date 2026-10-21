@@ -269,6 +269,40 @@ public sealed class MountainBiomeContentTests
     }
 
     [Fact]
+    public void OceanPatchAltitudeBoundaryVariesAcrossWorldSpace()
+    {
+        var biome = LoadBiome("ocean");
+        var blocks = BlockRegistry.FromJson(ReadJsonDirectory("blocks"));
+        var materials = new BiomeSurfaceMaterialField(78123UL, [biome], blocks);
+        var sample = new BiomeSample(
+            biome.Id, [new BiomeInfluence(biome.Id, 1f)]);
+        var sand = blocks.GetId("asteria:sand");
+
+        int CountPatchBlocks(int surfaceY)
+        {
+            var count = 0;
+            for (var z = -128; z <= 128; z += 4)
+            for (var x = -128; x <= 128; x += 4)
+            {
+                var block = materials.BlockAt(
+                    sample, x, z, 0,
+                    new SurfacePlacementContext(surfaceY, 0d));
+                if (block != sand)
+                    count++;
+            }
+
+            return count;
+        }
+
+        var atAuthoredLimit = CountPatchBlocks(86);
+        var aboveAuthoredLimit = CountPatchBlocks(88);
+        Assert.True(atAuthoredLimit > aboveAuthoredLimit,
+            $"Patch coverage should taper through the altitude boundary; y=86 had {atAuthoredLimit} patch blocks and y=88 had {aboveAuthoredLimit}.");
+        Assert.True(aboveAuthoredLimit > 0,
+            "The authored maxY boundary must form an irregular transition, not a perfectly horizontal cutoff.");
+    }
+
+    [Fact]
     public void InheritedWallMaterialsFollowIrregularTerrainRelativeStrata()
     {
         var biome = LoadBiome("desert");
