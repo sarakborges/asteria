@@ -145,9 +145,9 @@ public sealed class BiomeSurfaceMaterialField
         rules.HasOverride(face);
 
     /// <summary>
-    /// Exterior surface and additive-solid walls always need a wall material,
-    /// even when their biome inherits the default palette rather than authoring
-    /// a directional wall override.
+    /// True when an exterior biome's wall can differ from a uniform material.
+    /// Inherited multi-layer palettes and patches need 3D wall resolution to
+    /// avoid projecting their horizontal depth sequence onto vertical faces.
     /// </summary>
     public bool HasExteriorWallMaterial(BiomeSample sample) =>
         _faceRules.TryGetValue(sample.Primary, out var rules) &&
@@ -156,10 +156,10 @@ public sealed class BiomeSurfaceMaterialField
          rules.Walls.HasPatches || rules.Floor.HasPatches);
 
     /// <summary>
-    /// Resolves a wall using its authored wall profile, then lets an existing
-    /// default/floor 3D material patch add organic variation when that wall
-    /// profile only specifies a uniform base material. Patch selection remains
-    /// deterministic in world coordinates and never changes the authored block set.
+    /// Resolves one exposed wall voxel. Explicit directional wall profiles remain
+    /// authoritative; inherited surface profiles use a deterministic 3D field over
+    /// their authored layer materials. Surface patches overlay that field without
+    /// applying top-surface placement conditions to vertical faces.
     /// </summary>
     public BlockRuntimeId ExteriorWallBlockAt(
         BiomeSample sample,
