@@ -315,19 +315,22 @@ public sealed class BiomeSurfaceMaterialField
         SurfacePlacementContext? supplied)
     {
         if (supplied.HasValue)
-        {
             return supplied;
-        }
 
-        if (!rule.HasConditions)
-        {
+        if (!rule.HasConditions && !rule.HasPatches)
             return null;
-        }
 
         if (_terrain is null)
         {
-            throw new InvalidOperationException(
-                "Conditional material patches require a terrain field.");
+            if (rule.HasConditions)
+            {
+                throw new InvalidOperationException(
+                    "Conditional material patches require a terrain field.");
+            }
+
+            // Standalone palette queries without a terrain field retain their
+            // deterministic origin slice. World generation always has terrain.
+            return null;
         }
 
         return SurfacePlacementContext.Sample(
@@ -779,9 +782,7 @@ public sealed class BiomeSurfaceMaterialField
         private readonly BlockRuntimeId[] _blocks;
         private readonly double[] _cumulativeWeights;
         private readonly double _totalWeight;
-        private readonly GenerationDomain _shapeDomain;
         private readonly GenerationDomain _detailDomain;
-        private readonly GenerationDomain _blockDomain;
         private readonly GenerationDomain _warpXDomain;
         private readonly GenerationDomain _warpZDomain;
         private readonly GenerationDomain _volumeMaskDomain;
@@ -804,12 +805,8 @@ public sealed class BiomeSurfaceMaterialField
             }
 
             _totalWeight = total;
-            _shapeDomain = GenerationDomain.Named(
-                $"material/surface-patch/shape/v2/{suffix}");
             _detailDomain = GenerationDomain.Named(
                 $"material/surface-patch/detail/v2/{suffix}");
-            _blockDomain = GenerationDomain.Named(
-                $"material/surface-patch/block/v2/{suffix}");
             _warpXDomain = GenerationDomain.Named(
                 $"material/surface-patch/warp-x/v1/{suffix}");
             _warpZDomain = GenerationDomain.Named(
@@ -831,32 +828,11 @@ public sealed class BiomeSurfaceMaterialField
                 !AllowsPlacement(seed, x, z, placement))
                 return null;
 
-            // DetailScale is a 2D surface-detail setting. Reusing it as a
-            // vertical scale flattens volume patches into broad horizontal slabs.
-            // Volume masks instead use their authored macro scale on all axes.
-            var volumeScale = Math.Max(2u, _definition.Scale);
-            var noise = WorldGenerationEntropy.ValueNoise3D(
-                seed, _volumeMaskDomain, x, y, z,
-                volumeScale, volumeScale);
-            if (noise < 1d - _definition.Coverage * 2d)
+            var (sampleX, sampleZ) = TransformCoordinates(seed, x, z);
+            if (!IsInsideMask(seed, sampleX, y, sampleZ))
                 return null;
 
-            if (_blocks.Length == 1)
-                return _blocks[0];
-
-            var selectionScale = Math.Max(2u, _definition.SelectionScale);
-            var selection = WorldGenerationEntropy.ValueNoise3D(
-                seed, _volumeSelectionDomain, x, y, z,
-                selectionScale, selectionScale);
-            var unit = Math.Clamp((selection + 1d) * 0.5d,
-                0d, 0.999999999999d);
-            var target = unit * _totalWeight;
-            for (var i = 0; i < _blocks.Length; i++)
-            {
-                if (target < _cumulativeWeights[i])
-                    return _blocks[i];
-            }
-            return _blocks[^1];
+            return SelectBlock(seed, sampleX, y, sampleZ);
         }
 
         public bool HasConditions => _definition.Conditions is not null;
@@ -869,10 +845,22 @@ public sealed class BiomeSurfaceMaterialField
             SurfacePlacementContext? placement)
         {
             if (!AllowsPlacement(seed, worldX, worldZ, placement))
-            {
                 return null;
-            }
 
+            var (sampleX, sampleZ) =
+                TransformCoordinates(seed, worldX, worldZ);
+            // This exact Y slice is also queried by ResolveVolume, so a patch
+            // visible at the surface continues naturally onto adjoining walls.
+            var sampleY = placement?.Y ?? 0;
+            if (!IsInsideMask(seed, sampleX, sampleY, sampleZ))
+                return null;
+
+            return SelectBlock(seed, sampleX, sampleY, sampleZ);
+        }
+
+        private (double X, double Z) TransformCoordinates(
+            ulong seed, int worldX, int worldZ)
+        {
             var x = (double)worldX;
             var z = (double)worldZ;
             if (_definition.WarpStrength > 0d)
@@ -886,41 +874,42 @@ public sealed class BiomeSurfaceMaterialField
                 z += dz * _definition.WarpStrength;
             }
 
-            z /= _definition.StretchZ;
-            var morphed = _definition.WarpStrength > 0d ||
-                _definition.StretchZ != 1d;
-            var macro = Noise(
-                seed, _shapeDomain, worldX, worldZ, x, z,
-                _definition.Scale, morphed);
-            var detail = Noise(
-                seed, _detailDomain, worldX, worldZ, x, z,
-                _definition.DetailScale, morphed);
+            return (x, z / _definition.StretchZ);
+        }
+
+        private bool IsInsideMask(
+            ulong seed, double x, int y, double z)
+        {
+            var macroScale = Math.Max(2u, _definition.Scale);
+            var detailScale = Math.Max(2u, _definition.DetailScale);
+            var macro = WorldGenerationEntropy.ValueNoise3D(
+                seed, _volumeMaskDomain, x, y, z,
+                macroScale, macroScale);
+            var detail = WorldGenerationEntropy.ValueNoise3D(
+                seed, _detailDomain, x, y, z,
+                detailScale, detailScale);
             var field = (macro + detail * _definition.Roughness) /
                 (1d + _definition.Roughness);
-            if (field < 1d - _definition.Coverage * 2d)
-            {
-                return null;
-            }
+            return field >= 1d - _definition.Coverage * 2d;
+        }
 
+        private BlockRuntimeId SelectBlock(
+            ulong seed, double x, int y, double z)
+        {
             if (_blocks.Length == 1)
-            {
                 return _blocks[0];
-            }
 
-            var selection = Noise(
-                seed, _blockDomain, worldX, worldZ, x, z,
-                _definition.SelectionScale, morphed);
-            var unit = Math.Clamp(
-                (selection + 1d) * 0.5d,
-                0d,
-                0.999999999999d);
+            var selectionScale = Math.Max(2u, _definition.SelectionScale);
+            var selection = WorldGenerationEntropy.ValueNoise3D(
+                seed, _volumeSelectionDomain, x, y, z,
+                selectionScale, selectionScale);
+            var unit = Math.Clamp((selection + 1d) * 0.5d,
+                0d, 0.999999999999d);
             var target = unit * _totalWeight;
             for (var index = 0; index < _blocks.Length; index++)
             {
                 if (target < _cumulativeWeights[index])
-                {
                     return _blocks[index];
-                }
             }
 
             return _blocks[^1];
@@ -937,44 +926,31 @@ public sealed class BiomeSurfaceMaterialField
             if (placement is not { } context)
                 return false;
 
-            var altitudeDisplacement = 0;
-            if (conditions.MinY.HasValue || conditions.MaxY.HasValue)
+            var maximumY = conditions.MaxY is { } authoredMaximum
+                ? (long)authoredMaximum
+                : long.MaxValue;
+            if (conditions.MaxY.HasValue)
             {
-                // A hard altitude cutoff produces contour-shaped rings on
-                // coastal floors. Warp the bound in world space so its edge
-                // follows an irregular, deterministic transition instead.
+                // Retraction only removes patch coverage from inside the
+                // authored range: it never permits a patch above maxY.
                 var noise = WorldGenerationEntropy.ValueNoise2D(
                     seed, _altitudeBoundaryDomain, worldX, worldZ,
                     PlacementBoundaryScale);
-                altitudeDisplacement = (int)Math.Round(
-                    noise * MaximumAltitudeBoundaryDisplacement,
+                var unit = Math.Clamp((noise + 1d) * 0.5d, 0d, 1d);
+                var retraction = (int)Math.Round(
+                    unit * MaximumAltitudeBoundaryDisplacement,
                     MidpointRounding.AwayFromZero);
+                maximumY -= retraction;
             }
 
             return (!conditions.MinY.HasValue ||
-                    (long)context.Y >= (long)conditions.MinY.Value + altitudeDisplacement) &&
-                (!conditions.MaxY.HasValue ||
-                    (long)context.Y <= (long)conditions.MaxY.Value + altitudeDisplacement) &&
+                    context.Y >= conditions.MinY.Value) &&
+                context.Y <= maximumY &&
                 (!conditions.MinSlope.HasValue ||
                     context.Slope >= conditions.MinSlope.Value) &&
                 (!conditions.MaxSlope.HasValue ||
                     context.Slope <= conditions.MaxSlope.Value);
         }
-
-        private static double Noise(
-            ulong seed,
-            GenerationDomain domain,
-            int worldX,
-            int worldZ,
-            double x,
-            double z,
-            uint scale,
-            bool morphed) =>
-            morphed
-                ? WorldGenerationEntropy.SmoothNoise2D(
-                    seed, domain, x, z, scale)
-                : WorldGenerationEntropy.ValueNoise2D(
-                    seed, domain, worldX, worldZ, scale);
 
         public static ResolvedPatch Create(
             string biomeId,
