@@ -370,7 +370,8 @@ public sealed class MountainBiomeContentTests
                 Assert.Equal(block, repeated.BlockAt(y, surfaceTopY));
                 samples[(x, y, z)] = block;
                 seen.Add(block);
-                countsByY[y] = countsByY.GetValueOrDefault(y) + 1;
+                countsByY[y] = countsByY.GetValueOrDefault(y) +
+                    (block == sand ? 1 : 0);
             }
         }
 
