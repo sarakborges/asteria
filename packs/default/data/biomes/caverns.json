@@ -281,6 +281,27 @@
   "volumeLayout": {
     "placement": "carvedVoid"
   },
+  "geology": {
+    "baseBlock": "asteria:stone",
+    "blocks": [
+      "asteria:gravel",
+      "asteria:cobble_stone",
+      "asteria:clay",
+      "asteria:dirt"
+    ],
+    "scale": 88,
+    "verticalScale": 23,
+    "detailScale": 17,
+    "selectionScale": 176,
+    "coverage": 0.65,
+    "roughness": 0.36,
+    "weights": {
+      "asteria:gravel": 3,
+      "asteria:cobble_stone": 2,
+      "asteria:clay": 2,
+      "asteria:dirt": 1
+    }
+  },
   "palette": {
     "default": [
       {
