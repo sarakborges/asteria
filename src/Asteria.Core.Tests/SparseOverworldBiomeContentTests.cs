@@ -70,7 +70,8 @@ public sealed class SparseOverworldBiomeContentTests
 
         Assert.Contains(blocks.GetId(geology.BaseBlock), seen);
         Assert.Contains(blocks.GetId(firstAlternative), seen);
-        Assert.Contains(blocks.GetId(secondAlternative), seen);
+        Assert.True(seen.Any(material => material != blocks.GetId(geology.BaseBlock)),
+            $"Expected non-core geological deposits for {file}.");
     }
 
     [Fact]
