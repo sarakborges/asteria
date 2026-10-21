@@ -212,7 +212,6 @@
             "asteria:stone": 2
           },
           "conditions": {
-            "minY": 110,
             "maxSlope": 9
           }
         }
