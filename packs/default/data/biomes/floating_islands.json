@@ -115,7 +115,9 @@
       "surfaceBlocks": [
         "asteria:stone",
         "asteria:dirt",
-        "asteria:block_grass"
+        "asteria:block_grass",
+        "asteria:gravel",
+        "asteria:cobble_stone"
       ],
       "cluster": {
         "scale": 33,
