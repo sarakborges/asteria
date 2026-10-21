@@ -184,7 +184,7 @@ public sealed class BiomeSurfaceMaterialField
 
         return rules.Floor.VolumePatchBlockAt(
             _seed, worldX, worldY, worldZ, depth,
-            VolumePlacementFor(rules.Floor, worldX, worldY, worldZ))
+            placement: null, ignoreSlopeConditions: true)
             ?? wallBlock;
     }
 
@@ -419,7 +419,8 @@ public sealed class BiomeSurfaceMaterialField
 
         public BlockRuntimeId? VolumePatchBlockAt(
             ulong seed, int x, int y, int z, uint depth,
-            SurfacePlacementContext? placement)
+            SurfacePlacementContext? placement,
+            bool ignoreSlopeConditions = false)
         {
             if (depth >= CoreStartDepth)
                 return null;
@@ -437,7 +438,8 @@ public sealed class BiomeSurfaceMaterialField
                         continue;
                 }
 
-                return layer.ResolveVolumePatch(seed, x, y, z, placement);
+                return layer.ResolveVolumePatch(
+                    seed, x, y, z, placement, ignoreSlopeConditions);
             }
 
             return null;
@@ -591,8 +593,10 @@ public sealed class BiomeSurfaceMaterialField
 
         public BlockRuntimeId? ResolveVolumePatch(
             ulong seed, int x, int y, int z,
-            SurfacePlacementContext? placement) =>
-            Patch?.ResolveVolume(seed, x, y, z, placement);
+            SurfacePlacementContext? placement,
+            bool ignoreSlopeConditions) =>
+            Patch?.ResolveVolume(
+                seed, x, y, z, placement, ignoreSlopeConditions);
 
         public BlockRuntimeId ResolveVolume(
             ulong seed, int x, int y, int z,
@@ -660,11 +664,14 @@ public sealed class BiomeSurfaceMaterialField
 
         public BlockRuntimeId? ResolveVolume(
             ulong seed, int x, int y, int z,
-            SurfacePlacementContext? placement)
+            SurfacePlacementContext? placement,
+            bool ignoreSlopeConditions = false)
         {
             if (_definition.Conditions is { } conditions &&
-                (placement is not { } context ||
-                 !conditions.Allows(context)))
+                (ignoreSlopeConditions
+                    ? !conditions.AllowsAltitude(y)
+                    : placement is not { } context ||
+                      !conditions.Allows(context)))
                 return null;
 
             var verticalScale = Math.Max(2u, _definition.DetailScale);
