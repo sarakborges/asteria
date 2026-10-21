@@ -500,7 +500,7 @@ public sealed class BiomeSurfaceMaterialField
         private static double FeatureOffset(ulong hash, int shift) =>
             0.12d + (((hash >> shift) & 0xFFFFUL) / 65535d * 0.76d);
 
-        private static int FloorCell(double coordinate, int cellSize) =>
+        private static int FloorCell(double coordinate, uint cellSize) =>
             checked((int)Math.Floor(coordinate / cellSize));
 
         private double ExteriorWallMaterialWeight(int index)
