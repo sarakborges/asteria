@@ -90,6 +90,16 @@ public sealed class BiomeSurfaceMaterialField
                 $"Surface biome {sample.Primary} has no material rule.");
         }
 
+        if (_geologyRules.TryGetValue(sample.Primary, out var geology) &&
+            _terrain is not null &&
+            depth >= geology.SurfaceCoverDepth)
+        {
+            var surfaceY = _terrain.SurfaceHeight(worldX, worldZ);
+            var geologicalY = (int)Math.Max(
+                int.MinValue, (long)surfaceY - depth);
+            return geology.BlockAt(_seed, worldX, geologicalY, worldZ);
+        }
+
         if (depth == 0 &&
             _mosaic?.Sample(sample, worldX, worldZ) is
                 { Block.IsAir: false } choice)
@@ -112,6 +122,18 @@ public sealed class BiomeSurfaceMaterialField
     /// Resolves the volumetric geology at a solid world-space voxel. This query
     /// is independent of absolute altitude and surface-relative layer depth.
     /// </summary>
+    /// <summary>
+    /// Returns the authored surface-cover depth, or null for biomes using only
+    /// the legacy surface profile. Beyond this depth, the 3D geology owns solids.
+    /// </summary>
+    public uint? GeologySurfaceCoverDepth(BiomeSample sample)
+    {
+        ArgumentNullException.ThrowIfNull(sample);
+        return _geologyRules.TryGetValue(sample.Primary, out var geology)
+            ? geology.SurfaceCoverDepth
+            : null;
+    }
+
     public bool TryGeologyBlockAt(
         BiomeSample sample, int worldX, int worldY, int worldZ,
         out BlockRuntimeId block)
@@ -316,6 +338,8 @@ public sealed class BiomeSurfaceMaterialField
             _selectionDomain = GenerationDomain.Named(
                 $"material/geology/selection/v1/{biomeId}");
         }
+
+        public uint SurfaceCoverDepth => _definition.SurfaceCoverDepth;
 
         public BlockRuntimeId BlockAt(ulong seed, int x, int y, int z)
         {
