@@ -648,6 +648,16 @@ public sealed class BiomeSurfaceMaterialField
                 _definition.DetailScale, morphed);
             var field = (macro + detail * _definition.Roughness) /
                 (1d + _definition.Roughness);
+
+            // Smooth lattice noise is concentrated around zero rather than
+            // uniformly distributed. Applying a coverage threshold directly
+            // to it under-fills authored patches, leaving long stretches of
+            // the base material between sparse islands. Expand mid-range
+            // values before thresholding so Coverage describes visible area
+            // more closely, while preserving the field's sign and topology.
+            field = Math.CopySign(
+                Math.Sqrt(Math.Abs(field)),
+                field);
             if (field < 1d - _definition.Coverage * 2d)
             {
                 return null;
