@@ -1612,18 +1612,18 @@ public partial class Main : Node3D
                             new { error = error.Message });
                     }
                     break;
-                case "ui.world.catalog.recreate":
+                case "ui.world.catalog.recreate_draft":
                     if (_worldSeed is not null || _worldDelete.IsBusy ||
                         _worldLoad.IsBusy || _worldCatalog.IsBusy ||
-                        !TryReadWorldCatalogId(document.RootElement, out var recreateId))
+                        !TryReadWorldCatalogId(document.RootElement, out var draftId))
                     {
                         SendWebUi("game.world_catalog.load_error",
-                            new { error = "World recreation request is unavailable." });
+                            new { error = "World recreation draft is unavailable." });
                         break;
                     }
                     try
                     {
-                        if (_worldLoad.BeginRecreation(recreateId))
+                        if (_worldLoad.BeginCreationDraft(draftId))
                             SendWebUi("game.world_catalog", new { status = "verifying" });
                         else
                             SendWebUi("game.world_catalog.load_error",
@@ -2200,6 +2200,14 @@ public partial class Main : Node3D
             return;
         }
 
+        if (prepared.Intent == WorldLoadIntent.CreationDraft)
+        {
+            var draft = prepared.States.CreateRecreationOptions();
+            _suggestedWorldSeed = draft.Seed;
+            SendWorldCreationState(draft);
+            return;
+        }
+
         var active = prepared.Snapshot.ActiveSphere ??
             throw new InvalidDataException("Restored world has no active Sphere.");
         if (prepared.Intent == WorldLoadIntent.Recreate)
@@ -2216,7 +2224,7 @@ public partial class Main : Node3D
             $"world.load.restored name={prepared.Snapshot.Name} dimension={active}");
     }
 
-    private void SendWorldCreationState()
+    private void SendWorldCreationState(WorldCreationOptions? draft = null)
     {
         var initialSphere = _dimensions.Get(
             new DimensionId(StartupDimensionId));
@@ -2239,7 +2247,24 @@ public partial class Main : Node3D
             "game.world_creation",
             new
             {
-                seed = WorldCreationSeed.Format(_suggestedWorldSeed),
+                seed = WorldCreationSeed.Format(draft?.Seed ?? _suggestedWorldSeed),
+                isRecreationDraft = draft is not null,
+                name = draft?.Name ?? WorldCreationOptions.DefaultName,
+                mode = (draft?.GameMode ?? PlayerGameMode.Survival).ToString(),
+                ticksPerSecond = draft?.TicksPerSecond ?? WorldGameRules.DefaultTicksPerSecond,
+                spawnCreatures = draft?.SpawnCreatures ?? true,
+                keepInventory = draft?.KeepInventory ?? true,
+                creatureAttackMode = (draft?.AttackMode ?? CreatureAttackMode.Default).ToString(),
+                generation = new
+                {
+                    mode = (draft?.Generation.Mode ?? WorldGenerationMode.Normal).ToString(),
+                    spawnBiome = draft?.Generation.SpawnBiome,
+                    biomeSizeTenths = draft?.Generation.BiomeSizeTenths ?? 10,
+                    spawnStructures = draft?.Generation.SpawnStructures ?? true,
+                    singleBiome = draft?.Generation.SingleBiome ?? false,
+                    spawnCaves = draft?.Generation.SpawnCaves ?? true,
+                    spawnOceans = draft?.Generation.SpawnOceans ?? true,
+                },
                 spawnBiomes,
             });
     }
