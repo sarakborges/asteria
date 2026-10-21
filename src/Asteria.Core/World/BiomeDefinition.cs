@@ -74,7 +74,9 @@ public sealed class BiomeDefinition
         {
             var finiteCoverDepth = Palette.For(BiomePaletteFace.Floor)
                 .Where(layer => layer.Depth.HasValue)
-                .Sum(layer => (ulong)layer.Depth!.Value);
+                .Aggregate(
+                    0UL,
+                    (total, layer) => checked(total + layer.Depth!.Value));
             if (authoredGeology.SurfaceCoverDepth > finiteCoverDepth)
                 throw new ArgumentException(
                     "Geology surfaceCoverDepth cannot exceed the finite authored surface profile depth.",
