@@ -38,7 +38,11 @@ public sealed class BiomeSurfaceMaterialField
         HasExteriorOverrides = _faceRules.Values.Any(
             profile => profile.Exterior &&
                 (profile.OverrideWalls || profile.OverrideCeiling));
-        HasExteriorFaces = _faceRules.Values.Any(profile => profile.Exterior);
+        HasExteriorFaces = _faceRules.Values.Any(profile =>
+            profile.Exterior &&
+            (profile.OverrideWalls || profile.OverrideCeiling ||
+             !profile.Walls.HasUniformMaterial || profile.Walls.HasPatches ||
+             profile.Floor.HasPatches));
         MaximumCavePaintDepth = _faceRules.Values
             .Where(profile => !profile.Exterior)
             .Select(profile => profile.MaxDepth)
@@ -147,7 +151,9 @@ public sealed class BiomeSurfaceMaterialField
     /// </summary>
     public bool HasExteriorWallMaterial(BiomeSample sample) =>
         _faceRules.TryGetValue(sample.Primary, out var rules) &&
-        rules.Exterior;
+        rules.Exterior &&
+        (rules.OverrideWalls || !rules.Walls.HasUniformMaterial ||
+         rules.Walls.HasPatches || rules.Floor.HasPatches);
 
     /// <summary>
     /// Resolves a wall using its authored wall profile, then lets an existing
