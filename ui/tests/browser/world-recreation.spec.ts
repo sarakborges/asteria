@@ -56,7 +56,7 @@ test("recreation passes only selected saved ID and blocks duplicate requests", (
   controller.recreateWorld("Asteria");
   controller.recreateWorld("Asteria");
   expect(sent).toEqual([
-    { type: "ui.world.catalog.recreate", payload: { id: "Asteria" } },
+    { type: "ui.world.catalog.recreate_draft", payload: { id: "Asteria" } },
   ]);
   expect(store.getSnapshot().worldCatalog.status).toBe("verifying");
 });
