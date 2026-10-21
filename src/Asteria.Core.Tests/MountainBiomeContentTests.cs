@@ -284,7 +284,6 @@ public sealed class MountainBiomeContentTests
         var path = Path.Combine(PackData, "biomes", "mountains.json");
         var root = JsonNode.Parse(File.ReadAllText(path))!.AsObject();
         var surfacePatch = root["palette"]!["default"]![0]!["patch"]!.AsObject();
-        surfacePatch.Remove("conditions");
         surfacePatch.Remove("weights");
         surfacePatch["scale"] = 12;
         surfacePatch["detailScale"] = 3;
