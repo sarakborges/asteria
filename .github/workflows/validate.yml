@@ -95,6 +95,15 @@ jobs:
             --map-size 96 --map-step 4 --chunks 1 --search-radius 64 \
             --material-map-output biome-map-geology-ocean.svg
 
+      - name: Render materialized 3D geology on elevated mountain terrain
+        run: |
+          dotnet run --project tools/WorldgenBenchmark --configuration Release -- \
+            --seed 7808508665006554090 --dimension asteria:overworld \
+            --center-x 355 --center-z -230 --samples 1 --area-size 1 \
+            --map-size 96 --map-step 4 --chunks 1 --search-radius 8192 \
+            --material-map-biome asteria:overworld/mountains \
+            --material-map-output biome-map-geology-mountains.svg
+
       - name: Upload worldgen query baseline
         if: always()
         uses: actions/upload-artifact@v4
