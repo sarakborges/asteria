@@ -2,7 +2,8 @@
   "id": "asteria:log_fulminara",
   "category": "blocks_wooden",
   "tags": [
-    "fragmentable"
+    "fragmentable",
+    "leaf_support"
   ],
   "variant": {
     "family": "asteria:log_fulminara",
