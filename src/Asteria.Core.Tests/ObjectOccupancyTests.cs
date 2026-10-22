@@ -161,9 +161,6 @@ public sealed class ObjectOccupancyTests
             Assert.Empty(restoredV2.ObjectsAt(0, 0, 0));
             Assert.Equal(emptyObjects.GetCell(0, 0, 0), restoredV2.GetCell(0, 0, 0));
         }
-        var restoredV2 = ChunkSaveCodec.Decode(v2, Blocks, Fluids, Dyes, Layers);
-        Assert.Empty(restoredV2.ObjectsAt(0, 0, 0));
-        Assert.Equal(emptyObjects.GetCell(0, 0, 0), restoredV2.GetCell(0, 0, 0));
     }
 
     [Fact]
