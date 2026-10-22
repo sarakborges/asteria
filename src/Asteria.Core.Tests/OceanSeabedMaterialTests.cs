@@ -19,10 +19,10 @@ public sealed class OceanSeabedMaterialTests
         Assert.True(geology.SurfaceSubmergedOnly);
         Assert.Equal(2u, geology.GrainScale);
         Assert.Equal(2u, geology.GrainVerticalScale);
-        Assert.Equal(0.20f, geology.GrainInfluence);
-        Assert.Equal(8u, geology.ClusterScale);
-        Assert.Equal(5u, geology.ClusterVerticalScale);
-        Assert.Equal(0.40f, geology.ClusterInfluence);
+        Assert.Equal(0.40f, geology.GrainInfluence);
+        Assert.Equal(6u, geology.ClusterScale);
+        Assert.Equal(4u, geology.ClusterVerticalScale);
+        Assert.Equal(0.35f, geology.ClusterInfluence);
         Assert.Equal("asteria:sand", biome.SurfaceLayers[0].Block);
         Assert.Equal(1u, biome.SurfaceLayers[0].Depth);
         Assert.Null(biome.SurfaceLayers[0].Patch);
