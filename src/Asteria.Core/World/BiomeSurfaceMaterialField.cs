@@ -363,8 +363,8 @@ public sealed class BiomeSurfaceMaterialField
             // Each material competes through its own continuous world-space
             // field. A single scalar selector divided into weight intervals
             // creates nested level-set boundaries that can read as strata.
-            // Weighted Gumbel scores preserve authored relative weights while
-            // allowing independent fields to form intersecting, organic regions.
+            // A modest log-weight bias preserves spatial variation instead of
+            // letting authored weights overpower the independent material fields.
             var bestScore = double.NegativeInfinity;
             var bestIndex = 0;
             for (var index = 0; index < _blocks.Length; index++)
@@ -377,8 +377,8 @@ public sealed class BiomeSurfaceMaterialField
                     (field + 1d) * 0.5d,
                     1e-9d,
                     1d - 1e-9d);
-                var score = -Math.Log(-Math.Log(unit)) +
-                    Math.Log(_definition.BlockWeights[index]);
+                var score = (unit * 2d - 1d) +
+                    0.2d * Math.Log(_definition.BlockWeights[index]);
                 if (score > bestScore)
                 {
                     bestScore = score;
