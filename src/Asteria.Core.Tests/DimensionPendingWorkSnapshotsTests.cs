@@ -31,10 +31,15 @@ public sealed class DimensionPendingWorkSnapshotsTests
         var first = restored.DrainReady(144, 10);
         Assert.Equal(topology, Assert.Single(first.TopologyPositions));
         Assert.Empty(first.DueTicks);
-        restored.ReactivateLoadedChunk(
-            VoxelCoordinates.FromWorld(
-                dormantPosition.X, dormantPosition.Y, dormantPosition.Z).Chunk,
-            144);
+        var dormantChunk = VoxelCoordinates.FromWorld(
+            dormantPosition.X, dormantPosition.Y, dormantPosition.Z).Chunk;
+        var reactivated = restored.ReactivateLoadedChunk(
+            dormantChunk,
+            144,
+            maximumItems: 1,
+            out var reactivationComplete);
+        Assert.Equal(1, reactivated);
+        Assert.True(reactivationComplete);
         var second = restored.DrainReady(144, 10);
         Assert.Equal(dormantPosition, Assert.Single(second.DueTicks).Position);
         var third = restored.DrainReady(145, 10);
