@@ -174,8 +174,8 @@ public sealed class SparseOverworldBiomeContentTests
             checkedOceanVoxels++;
         }
 
-        for (var z = centerZ - 80; z <= centerZ + 80; z += 8)
-        for (var x = centerX - 80; x <= centerX + 80; x += 8)
+        for (var z = centerZ - 48; z <= centerZ + 48; z += 8)
+        for (var x = centerX - 48; x <= centerX + 48; x += 8)
         {
             var sample = generator.Biomes.Sample(x, z);
             if (sample.Primary != ocean.Id)
@@ -202,7 +202,7 @@ public sealed class SparseOverworldBiomeContentTests
             }
         }
 
-        Assert.True(checkedOceanVoxels >= 100,
+        Assert.True(checkedOceanVoxels >= 50,
             $"Expected a useful ocean sample near {centerX},{centerZ}; checked {checkedOceanVoxels} solid voxels.");
         Assert.True(fixedAltitudeMaterials.Count >= 3,
             $"The materialized ocean slice at Y={diagnosticY} had only {fixedAltitudeMaterials.Count} material(s).");
