@@ -149,7 +149,7 @@ public sealed class GeologyMaterializationRegressionTests
     public void FlatExposedSurfaceRetainsCoverAndShowsGeologicalVariation()
     {
         var blocks = CreateBlocks();
-        var biome = CreateBiome(surfaceCoverage: 0.24f);
+        var biome = CreateBiome(surfaceCoverage: 0.4f);
         var dimension = CreateDimension(biome.Id);
         var biomes = new BiomeRegistry([biome]);
         var generator = new BiomeWorldGenerator(Seed, dimension, blocks, biomes);
