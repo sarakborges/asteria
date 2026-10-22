@@ -358,10 +358,12 @@ public sealed class BiomeSurfaceMaterialField
         private readonly GenerationDomain[] _volumeMaterialDomains;
         private readonly GenerationDomain[] _volumeDetailDomains;
         private readonly GenerationDomain[] _volumeMicroDomains;
+        private readonly GenerationDomain[] _volumeClusterDomains;
         private readonly GenerationDomain[] _volumeGrainDomains;
         private readonly GenerationDomain[] _surfaceMaterialDomains;
         private readonly GenerationDomain[] _surfaceDetailDomains;
         private readonly GenerationDomain[] _surfaceMicroDomains;
+        private readonly GenerationDomain[] _surfaceClusterDomains;
         private readonly GenerationDomain[] _surfaceGrainDomains;
         private readonly double[] _volumeBiases;
         private readonly double[] _surfaceBiases;
@@ -401,6 +403,10 @@ public sealed class BiomeSurfaceMaterialField
                 .Select(block => GenerationDomain.Named(
                     $"material/geology/volume-micro/v1/{biomeId}/{block}"))
                 .ToArray();
+            _volumeClusterDomains = volumeNames
+                .Select(block => GenerationDomain.Named(
+                    $"material/geology/volume-cluster/v1/{biomeId}/{block}"))
+                .ToArray();
             _volumeGrainDomains = volumeNames
                 .Select(block => GenerationDomain.Named(
                     $"material/geology/volume-grain/v1/{biomeId}/{block}"))
@@ -417,6 +423,10 @@ public sealed class BiomeSurfaceMaterialField
             _surfaceMicroDomains = definition.Blocks
                 .Select(block => GenerationDomain.Named(
                     $"material/geology/surface-micro/v1/{biomeId}/{block}"))
+                .ToArray();
+            _surfaceClusterDomains = definition.Blocks
+                .Select(block => GenerationDomain.Named(
+                    $"material/geology/surface-cluster/v1/{biomeId}/{block}"))
                 .ToArray();
             _surfaceGrainDomains = definition.Blocks
                 .Select(block => GenerationDomain.Named(
@@ -459,7 +469,7 @@ public sealed class BiomeSurfaceMaterialField
             return SelectMaterial(
                 seed, position, _volumeBlocks,
                 _volumeMaterialDomains, _volumeDetailDomains, _volumeMicroDomains,
-                _volumeGrainDomains, _volumeBiases);
+                _volumeClusterDomains, _volumeGrainDomains, _volumeBiases);
         }
 
         public bool TrySurfaceBlockAt(
@@ -487,7 +497,7 @@ public sealed class BiomeSurfaceMaterialField
             block = SelectMaterial(
                 seed, position, _blocks,
                 _surfaceMaterialDomains, _surfaceDetailDomains, _surfaceMicroDomains,
-                _surfaceGrainDomains, _surfaceBiases);
+                _surfaceClusterDomains, _surfaceGrainDomains, _surfaceBiases);
             return true;
         }
 
@@ -544,15 +554,33 @@ public sealed class BiomeSurfaceMaterialField
                         y1,
                         -sy * x1 + cy * position.Z);
                 }
-                default:
+                case 3:
                 {
-                    // A third basis for the fine-grain signal.
+                    // Intermediate cluster field uses the former fine-grain basis.
                     const double cz = 0.9063077870366499d;
                     const double sz = 0.4226182617406994d;
                     const double cy = 0.6427876096865394d;
                     const double sy = 0.766044443118978d;
                     const double cx = 0.7313537016191705d;
                     const double sx = 0.6819983600624985d;
+                    var x1 = cz * position.X - sz * position.Y;
+                    var y1 = sz * position.X + cz * position.Y;
+                    var x2 = cy * x1 + sy * position.Z;
+                    var z2 = -sy * x1 + cy * position.Z;
+                    return new SpatialPosition(
+                        x2,
+                        cx * y1 - sx * z2,
+                        sx * y1 + cx * z2);
+                }
+                default:
+                {
+                    // The finest grain uses a fourth independent basis.
+                    const double cz = 0.8191520442889918d;
+                    const double sz = 0.573576436351046d;
+                    const double cy = 0.7313537016191705d;
+                    const double sy = 0.6819983600624985d;
+                    const double cx = 0.7986355100472928d;
+                    const double sx = 0.6018150231520483d;
                     var x1 = cz * position.X - sz * position.Y;
                     var y1 = sz * position.X + cz * position.Y;
                     var x2 = cy * x1 + sy * position.Z;
@@ -619,6 +647,7 @@ public sealed class BiomeSurfaceMaterialField
             GenerationDomain[] broadDomains,
             GenerationDomain[] detailDomains,
             GenerationDomain[] microDomains,
+            GenerationDomain[] clusterDomains,
             GenerationDomain[] grainDomains,
             double[] biases)
         {
@@ -634,11 +663,16 @@ public sealed class BiomeSurfaceMaterialField
                 Math.Max(2u, detailScale / 8u);
             var grainVerticalScale = _definition.GrainVerticalScale ??
                 Math.Max(2u, detailVerticalScale / 8u);
+            var clusterScale = _definition.ClusterScale ??
+                Math.Max(3u, detailScale / 4u);
+            var clusterVerticalScale = _definition.ClusterVerticalScale ??
+                Math.Max(3u, detailVerticalScale / 4u);
 
             var broadPosition = RotateFieldPosition(position, 0);
             var detailPosition = RotateFieldPosition(position, 1);
             var microPosition = RotateFieldPosition(position, 2);
-            var grainPosition = RotateFieldPosition(position, 3);
+            var clusterPosition = RotateFieldPosition(position, 3);
+            var grainPosition = RotateFieldPosition(position, 4);
             var bestScore = double.NegativeInfinity;
             var bestIndex = 0;
             for (var index = 0; index < candidateBlocks.Length; index++)
@@ -656,20 +690,30 @@ public sealed class BiomeSurfaceMaterialField
                     seed, microDomains[index],
                     microPosition.X, microPosition.Y, microPosition.Z,
                     microScale, microVerticalScale);
+                var clusterInfluence = _definition.ClusterInfluence;
+                var cluster = 0d;
+                if (clusterInfluence > 0d)
+                {
+                    cluster = WorldGenerationEntropy.ValueNoise3D(
+                        seed, clusterDomains[index],
+                        clusterPosition.X, clusterPosition.Y, clusterPosition.Z,
+                        clusterScale, clusterVerticalScale);
+                }
                 var grain = WorldGenerationEntropy.ValueNoise3D(
                     seed, grainDomains[index],
                     grainPosition.X, grainPosition.Y, grainPosition.Z,
                     grainScale, grainVerticalScale);
 
-                // Keep broad geology only as a weak coherence signal. Fine
-                // and grain fields now dominate boundaries, breaking residual
-                // sheets/columns while preserving multi-block deposits.
+                // Split finer detail across intermediate clusters and very
+                // fine grain. The former creates coherent mineral pockets;
+                // the latter still nicks their boundaries to avoid long bands.
                 var grainInfluence = _definition.GrainInfluence;
-                var remainingInfluence = 1d - grainInfluence;
+                var remainingInfluence = 1d - grainInfluence - clusterInfluence;
                 var field =
                     broad * (remainingInfluence * 0.04d / 0.30d) +
                     detail * (remainingInfluence * 0.10d / 0.30d) +
                     micro * (remainingInfluence * 0.16d / 0.30d) +
+                    cluster * clusterInfluence +
                     grain * grainInfluence;
                 var unit = Math.Clamp(
                     (field + 1d) * 0.5d, 1e-6d, 1d - 1e-6d);
