@@ -92,7 +92,7 @@ jobs:
           dotnet run --project tools/WorldgenBenchmark --configuration Release -- \
             --seed 7808508665006554090 --dimension asteria:overworld \
             --center-x 355 --center-z -230 --samples 1 --area-size 1 \
-            --map-size 96 --map-step 2 --chunks 1 --search-radius 64 \
+            --map-size 96 --map-step 4 --chunks 1 --search-radius 64 \
             --material-map-output biome-map-geology-ocean.svg
 
       - name: Upload worldgen query baseline
