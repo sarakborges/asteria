@@ -717,6 +717,108 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
+    public void MaterializedGeologyFollowsSurfaceBiomeAcrossABiomeTransition()
+    {
+        const ulong seed = 0xA57E_2026UL;
+        const int sampleStep = 16;
+        var blocks = LoadDefaultBlocks();
+        var dimension = LoadDefaultDimensions().Get(DimensionId.Overworld);
+        var biomes = LoadDefaultBiomes();
+        var generator = new BiomeWorldGenerator(
+            DimensionSeed.Derive(seed, dimension.Id),
+            dimension, blocks, LoadDefaultFluids(), biomes,
+            StructureRegistry.Empty);
+        var geologyBiomeIds = dimension.SurfaceBiomes
+            .Where(id => biomes.Get(id).Geology is not null &&
+                id != "asteria:overworld/ocean")
+            .ToHashSet(StringComparer.Ordinal);
+        var geologyField = new BiomeSurfaceMaterialField(
+            DimensionSeed.Derive(seed, dimension.Id),
+            geologyBiomeIds.Select(biomes.Get),
+            blocks);
+
+        (int X, int Y, int Z, BlockRuntimeId Expected)? leftVoxel = null;
+        (int X, int Y, int Z, BlockRuntimeId Expected)? rightVoxel = null;
+        for (var z = -2048; z <= 2048 && leftVoxel is null; z += sampleStep)
+        {
+            for (var x = -2048; x < 2048; x += sampleStep)
+            {
+                var leftSample = generator.Biomes.Sample(x, z);
+                var rightSample = generator.Biomes.Sample(x + sampleStep, z);
+                if (leftSample.Primary == rightSample.Primary ||
+                    !geologyBiomeIds.Contains(leftSample.Primary) ||
+                    !geologyBiomeIds.Contains(rightSample.Primary))
+                    continue;
+
+                if (!TryFindVoxel(leftSample, x, z, out var left) ||
+                    !TryFindVoxel(rightSample, x + sampleStep, z, out var right))
+                    continue;
+
+                leftVoxel = left;
+                rightVoxel = right;
+                break;
+            }
+        }
+
+        Assert.True(leftVoxel.HasValue && rightVoxel.HasValue,
+            "No suitable boundary between two geology-enabled surface biomes was found.");
+        Assert.Equal(
+            leftVoxel!.Value.Expected,
+            ReadMaterializedBlock(leftVoxel.Value.X, leftVoxel.Value.Y, leftVoxel.Value.Z));
+        Assert.Equal(
+            rightVoxel!.Value.Expected,
+            ReadMaterializedBlock(rightVoxel.Value.X, rightVoxel.Value.Y, rightVoxel.Value.Z));
+
+        bool TryFindVoxel(
+            BiomeSample sample,
+            int x,
+            int z,
+            out (int X, int Y, int Z, BlockRuntimeId Expected) voxel)
+        {
+            var cover = Assert.IsType<BiomeGeologyDefinition>(
+                biomes.Get(sample.Primary).Geology).SurfaceCoverDepth;
+            var surfaceY = generator.SurfaceHeight(x, z);
+            for (var depth = checked((int)cover + 2);
+                 depth <= cover + 16;
+                 depth++)
+            {
+                var y = surfaceY - depth;
+                if (y < 2 || !IsInteriorSolid(x, y, z))
+                    continue;
+                if (geologyField.TryGeologyBlockAt(sample, x, y, z, out var expected))
+                {
+                    voxel = (x, y, z, expected);
+                    return true;
+                }
+            }
+
+            voxel = default;
+            return false;
+        }
+
+        bool IsInteriorSolid(int x, int y, int z)
+        {
+            if (generator.DensityAt(x, y, z) < 0d ||
+                generator.IsCaveVoidAt(x, y, z))
+                return false;
+
+            return !generator.IsCaveVoidAt(x - 1, y, z) &&
+                !generator.IsCaveVoidAt(x + 1, y, z) &&
+                !generator.IsCaveVoidAt(x, y - 1, z) &&
+                !generator.IsCaveVoidAt(x, y + 1, z) &&
+                !generator.IsCaveVoidAt(x, y, z - 1) &&
+                !generator.IsCaveVoidAt(x, y, z + 1);
+        }
+
+        BlockRuntimeId ReadMaterializedBlock(int x, int y, int z)
+        {
+            var (chunkCoord, local) = VoxelCoordinates.FromWorld(x, y, z);
+            return generator.Materialize(chunkCoord).GetBlock(
+                local.X, local.Y, local.Z);
+        }
+    }
+
+    [Fact]
     public void DeepMaterialCoreBypassesSurfacePatchSelectionWithoutChangingBlock()
     {
         var blocks = LoadDefaultBlocks();
