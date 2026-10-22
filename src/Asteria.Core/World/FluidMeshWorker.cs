@@ -16,7 +16,8 @@ public sealed record FluidMeshWorkerResult(
     IReadOnlyDictionary<ChunkMeshletKey, MeshDependencyStamp>
         MeshletDependencies,
     IReadOnlyList<FluidMeshletBuild> Meshlets,
-    double WorkerMilliseconds);
+    double WorkerMilliseconds,
+    double CaptureMilliseconds = 0d);
 
 public sealed class FluidMeshWorker
 {
@@ -45,12 +46,15 @@ public sealed class FluidMeshWorker
             return false;
         }
 
+        var captureStart = Stopwatch.GetTimestamp();
         var snapshot =
             world.CaptureMeshWorkerSnapshot(
                 batch.DirtyMeshlets);
         var capturedRevisions =
             revisions.Capture(
                 batch.DirtyMeshlets);
+        var captureMilliseconds = Stopwatch.GetElapsedTime(
+            captureStart).TotalMilliseconds;
 
         return _worker.TryStart(() =>
         {
@@ -70,7 +74,8 @@ public sealed class FluidMeshWorker
                 snapshot.Dependencies,
                 snapshot.MeshletDependencies,
                 meshlets,
-                stopwatch.Elapsed.TotalMilliseconds);
+                stopwatch.Elapsed.TotalMilliseconds,
+                captureMilliseconds);
         });
     }
 
