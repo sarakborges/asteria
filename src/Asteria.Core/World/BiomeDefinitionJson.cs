@@ -65,7 +65,10 @@ public static class BiomeDefinitionJson
             OptionalBoolean(value, "surfaceSubmergedOnly"),
             OptionalUInt32(value, "grainScale"),
             OptionalUInt32(value, "grainVerticalScale"),
-            OptionalSingle(value, "grainInfluence") ?? 0.70f);
+            OptionalSingle(value, "grainInfluence") ?? 0.70f,
+            OptionalUInt32(value, "clusterScale"),
+            OptionalUInt32(value, "clusterVerticalScale"),
+            OptionalSingle(value, "clusterInfluence") ?? 0f);
     }
 
     private static PlacementLayoutValues?
