@@ -26,6 +26,35 @@ public static class ChunkMeshLightingUpdater
         BlockRegistry blocks, ChunkMeshData geometry,
         out ChunkMeshData result)
     {
+        var (ox, oy, oz) = VoxelCoordinates.ChunkOrigin(coord);
+        return TryRelightAtOrigin(
+            world,
+            new WorldVoxelCoord(ox, oy, oz),
+            blocks,
+            geometry,
+            out result);
+    }
+
+    /// <summary>
+    /// Relights one portable block mesh at its current world voxel position.
+    /// Its geometry remains local to the block, while all light/AO samples
+    /// come from the actual resident world surrounding that position.
+    /// </summary>
+    public static bool TryRelightPortableBlock(
+        VoxelWorld world,
+        WorldVoxelCoord position,
+        BlockRegistry blocks,
+        ChunkMeshData geometry,
+        out ChunkMeshData result) =>
+        TryRelightAtOrigin(world, position, blocks, geometry, out result);
+
+    private static bool TryRelightAtOrigin(
+        VoxelWorld world,
+        WorldVoxelCoord origin,
+        BlockRegistry blocks,
+        ChunkMeshData geometry,
+        out ChunkMeshData result)
+    {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(blocks);
         ArgumentNullException.ThrowIfNull(geometry);
@@ -33,7 +62,6 @@ public static class ChunkMeshLightingUpdater
         if (!geometry.CanRelightWithoutRemesh)
             return false;
 
-        var (ox, oy, oz) = VoxelCoordinates.ChunkOrigin(coord);
         var sampled = new Dictionary<
             (LocalVoxelCoord Source, BlockFace Face), VoxelFaceLighting>();
         var batches = new ChunkRenderBatchData[geometry.RenderBatches.Length];
@@ -44,8 +72,7 @@ public static class ChunkMeshLightingUpdater
             if (!sampled.TryGetValue(key, out var lighting))
             {
                 lighting = VoxelMeshLighting.SampleFace(
-                    world, blocks, new WorldVoxelCoord(
-                        ox + local.X, oy + local.Y, oz + local.Z), face);
+                    world, blocks, origin + (local.X, local.Y, local.Z), face);
                 sampled.Add(key, lighting);
             }
             return lighting;

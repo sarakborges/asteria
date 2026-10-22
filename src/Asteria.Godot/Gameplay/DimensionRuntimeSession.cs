@@ -297,6 +297,7 @@ public sealed class DimensionRuntimeSession
         var blockEntityPresentations =
             new BlockEntityPresentationController(
                 Root,
+                World,
                 blocks,
                 fluids,
                 terrainTextures,

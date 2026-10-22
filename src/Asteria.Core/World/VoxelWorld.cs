@@ -30,6 +30,11 @@ public readonly record struct ObjectWorldEdit(
     bool Placed,
     ulong WorldRevision);
 
+public readonly record struct VoxelLightChunkStamp(
+    ChunkCoord Coord,
+    ulong LightingRevision,
+    ulong ResidencyEpoch);
+
 public sealed class VoxelWorld
 {
     private readonly Dictionary<ChunkCoord, Chunk> _chunks = [];
@@ -48,6 +53,7 @@ public sealed class VoxelWorld
     private readonly SessionChunkArchiveStore _archive = new();
     private ulong _nextResidencyEpoch;
     private ulong _nextColumnResidencyRevision;
+    private readonly Dictionary<ChunkCoord, ulong> _lightingRevisions = [];
 
     public ulong Revision { get; private set; }
 
@@ -142,6 +148,76 @@ public sealed class VoxelWorld
 
     public bool ContainsChunk(ChunkCoord coord) => _chunks.ContainsKey(coord);
 
+    /// <summary>
+    /// Captures light/residency revisions for the resident chunk neighborhood
+    /// that can contribute samples to a one-voxel lighting halo at this position.
+    /// The destination must contain at least eight entries.
+    /// </summary>
+    public int CaptureLightingNeighborhood(
+        WorldVoxelCoord position,
+        Span<VoxelLightChunkStamp> destination)
+    {
+        if (destination.Length < 8)
+            throw new ArgumentException(
+                "Lighting neighborhood storage must hold eight chunk stamps.",
+                nameof(destination));
+
+        var address = VoxelCoordinates.FromWorld(
+            position.X, position.Y, position.Z);
+        Span<int> xOffsets = stackalloc int[2];
+        Span<int> yOffsets = stackalloc int[2];
+        Span<int> zOffsets = stackalloc int[2];
+        var xCount = FillChunkNeighborOffsets(address.Local.X, xOffsets);
+        var yCount = FillChunkNeighborOffsets(address.Local.Y, yOffsets);
+        var zCount = FillChunkNeighborOffsets(address.Local.Z, zOffsets);
+        var count = 0;
+
+        for (var y = 0; y < yCount; y++)
+        for (var z = 0; z < zCount; z++)
+        for (var x = 0; x < xCount; x++)
+        {
+            var coord = new ChunkCoord(
+                address.Chunk.X + xOffsets[x],
+                address.Chunk.Y + yOffsets[y],
+                address.Chunk.Z + zOffsets[z]);
+            destination[count++] = new VoxelLightChunkStamp(
+                coord,
+                _lightingRevisions.GetValueOrDefault(coord),
+                _residencyEpochs.GetValueOrDefault(coord));
+        }
+
+        return count;
+    }
+
+    private static int FillChunkNeighborOffsets(
+        int localCoordinate,
+        Span<int> offsets)
+    {
+        if (localCoordinate == 0)
+        {
+            offsets[0] = -1;
+            offsets[1] = 0;
+            return 2;
+        }
+
+        if (localCoordinate == Chunk.Size - 1)
+        {
+            offsets[0] = 0;
+            offsets[1] = 1;
+            return 2;
+        }
+
+        offsets[0] = 0;
+        return 1;
+    }
+
+    private void MarkLightingChanged(ChunkCoord coord)
+    {
+        var revision = _lightingRevisions.GetValueOrDefault(coord);
+        _lightingRevisions[coord] =
+            revision == ulong.MaxValue ? 1 : revision + 1;
+    }
+
     public bool HasArchivedChunk(ChunkCoord coord) =>
         _archive.HasArchived(coord);
 
@@ -153,6 +229,7 @@ public sealed class VoxelWorld
         }
 
         _residencyEpochs.Remove(coord);
+        _lightingRevisions.Remove(coord);
         _residentObjectChunks.Remove(coord);
         MarkColumnChunkRemoved(coord);
         var result = _archive.Archive(coord, chunk);
@@ -1053,7 +1130,8 @@ public sealed class VoxelWorld
                 continue;
             }
 
-            target.CopyLightFrom(sourceChunk);
+            if (target.CopyLightFrom(sourceChunk))
+                MarkLightingChanged(coord);
         }
     }
 
@@ -1074,6 +1152,8 @@ public sealed class VoxelWorld
         if (offset < 0 || count < 0 || offset > positions.Count - count)
             throw new ArgumentOutOfRangeException(nameof(offset));
 
+        var changedChunks = new HashSet<ChunkCoord>();
+        var changedChunkOrder = new List<ChunkCoord>();
         for (var i = offset; i < offset + count; i++)
         {
             var position = positions[i];
@@ -1084,10 +1164,17 @@ public sealed class VoxelWorld
                 continue;
 
             var local = address.Local;
-            target.SetLight(
-                local.X, local.Y, local.Z,
-                from.GetLight(local.X, local.Y, local.Z));
+            var next = from.GetLight(local.X, local.Y, local.Z);
+            if (target.GetLight(local.X, local.Y, local.Z) == next)
+                continue;
+
+            target.SetLight(local.X, local.Y, local.Z, next);
+            if (changedChunks.Add(address.Chunk))
+                changedChunkOrder.Add(address.Chunk);
         }
+
+        foreach (var coord in changedChunkOrder)
+            MarkLightingChanged(coord);
     }
 
     /// <summary>
@@ -1098,8 +1185,9 @@ public sealed class VoxelWorld
     {
         ArgumentNullException.ThrowIfNull(source);
         if (_chunks.TryGetValue(coord, out var target) &&
-            source._chunks.TryGetValue(coord, out var from))
-            target.CopyLightFrom(from);
+            source._chunks.TryGetValue(coord, out var from) &&
+            target.CopyLightFrom(from))
+            MarkLightingChanged(coord);
     }
 
     private void AssignResidencyEpoch(ChunkCoord coord)

@@ -350,10 +350,18 @@ public sealed class Chunk
             ObjectRevision)
         { ObjectCount = this.ObjectCount };
 
-    public void CopyLightFrom(Chunk source)
+    public bool CopyLightFrom(Chunk source)
     {
         ArgumentNullException.ThrowIfNull(source);
-        Array.Copy(source._light, _light, Volume);
+        var changed = false;
+        for (var index = 0; index < Volume; index++)
+        {
+            var light = source._light[index];
+            changed |= _light[index] != light;
+            _light[index] = light;
+        }
+
+        return changed;
     }
 
     public BlockSurfaceState GetSurfaceState(int x, int y, int z)

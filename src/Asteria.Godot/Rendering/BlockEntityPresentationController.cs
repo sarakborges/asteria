@@ -21,6 +21,7 @@ public sealed class BlockEntityPresentationController
     private const int MaximumSharedMeshCount = 256;
 
     private readonly Node3D _parent;
+    private readonly VoxelWorld _world;
     private readonly BlockRegistry _blocks;
     private readonly FluidRegistry _fluids;
     private readonly TerrainTextureLookup _textures;
@@ -34,6 +35,8 @@ public sealed class BlockEntityPresentationController
             new(DroppedBlockIdComparer);
     private readonly Dictionary<BlockStateSnapshot, ArrayMesh>
         _sharedMeshes = [];
+    private readonly Dictionary<BlockStateSnapshot, ChunkMeshData>
+        _sharedFallingGeometry = [];
     private readonly HashSet<FallingBlockId> _activeFalling = [];
     private readonly HashSet<DroppedBlockId> _activeDropped = [];
     private readonly List<FallingBlockId> _retiredFalling = [];
@@ -41,6 +44,7 @@ public sealed class BlockEntityPresentationController
 
     public BlockEntityPresentationController(
         Node3D parent,
+        VoxelWorld world,
         BlockRegistry blocks,
         FluidRegistry fluids,
         TerrainTextureLookup textures,
@@ -50,6 +54,9 @@ public sealed class BlockEntityPresentationController
         _parent =
             parent ??
             throw new ArgumentNullException(nameof(parent));
+        _world =
+            world ??
+            throw new ArgumentNullException(nameof(world));
         _blocks =
             blocks ??
             throw new ArgumentNullException(nameof(blocks));
@@ -89,10 +96,13 @@ public sealed class BlockEntityPresentationController
                     state.Id,
                     out var presentation))
             {
+                var geometry = GetFallingGeometry(state.Block);
                 presentation =
                     new FallingBlockPresentation(
                         state,
-                        GetMesh(state.Block));
+                        ChunkMeshBuilder.CreateMesh(geometry, _materials),
+                        geometry,
+                        _materials);
                 _falling.Add(
                     state.Id,
                     presentation);
@@ -101,6 +111,7 @@ public sealed class BlockEntityPresentationController
             }
 
             presentation.Apply(state);
+            presentation.UpdateLighting(_world, _blocks, state);
         }
 
         _retiredFalling.Clear();
@@ -165,6 +176,20 @@ public sealed class BlockEntityPresentationController
             _dropped[id].Retire();
             _dropped.Remove(id);
         }
+    }
+
+    private ChunkMeshData GetFallingGeometry(
+        BlockStateSnapshot block)
+    {
+        if (_sharedFallingGeometry.TryGetValue(block, out var geometry))
+            return geometry;
+
+        geometry = BlockStateMeshBuilder.BuildData(
+            block, _blocks, _fluids, _textures);
+        if (_sharedFallingGeometry.Count < MaximumSharedMeshCount)
+            _sharedFallingGeometry.Add(block, geometry);
+
+        return geometry;
     }
 
     private ArrayMesh GetMesh(
