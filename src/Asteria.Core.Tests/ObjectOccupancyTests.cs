@@ -134,12 +134,33 @@ public sealed class ObjectOccupancyTests
 
         var emptyObjects = new Chunk();
         emptyObjects.SetBlock(0, 0, 0, Blocks.GetId("asteria:stone"));
-        var v3 = ChunkSaveCodec.Encode(emptyObjects, Blocks, Fluids, Dyes, Layers);
-        // Version 2 has no final Objects group-count field.
-        var v2Payload = v3[..^(32 + 4)];
-        v2Payload[4] = 2;
-        v2Payload[5] = 0;
-        var v2 = v2Payload.Concat(SHA256.HashData(v2Payload)).ToArray();
+        var currentFormat = ChunkSaveCodec.Encode(emptyObjects, Blocks, Fluids, Dyes, Layers);
+        // Legacy v2 has neither the player-placement provenance byte nor the final Objects group-count field.
+        var legacyPayload = currentFormat[..^(32 + 4)];
+        using (var legacyStream = new MemoryStream(legacyPayload, writable: false))
+        using (var legacyReader = new BinaryReader(legacyStream))
+        {
+            _ = legacyReader.ReadUInt32();
+            _ = legacyReader.ReadUInt16();
+            Assert.Equal(1, legacyReader.ReadInt32());
+            _ = legacyReader.ReadUInt16();
+            _ = legacyReader.ReadString();
+            _ = legacyReader.ReadByte();
+            _ = legacyReader.ReadByte();
+            _ = legacyReader.ReadByte();
+            _ = legacyReader.ReadUInt16();
+            var provenanceOffset = checked((int)legacyStream.Position);
+            var v2Payload = new byte[legacyPayload.Length - 1];
+            Array.Copy(legacyPayload, 0, v2Payload, 0, provenanceOffset);
+            Array.Copy(legacyPayload, provenanceOffset + 1, v2Payload,
+                provenanceOffset, legacyPayload.Length - provenanceOffset - 1);
+            v2Payload[4] = 2;
+            v2Payload[5] = 0;
+            var v2 = v2Payload.Concat(SHA256.HashData(v2Payload)).ToArray();
+            var restoredV2 = ChunkSaveCodec.Decode(v2, Blocks, Fluids, Dyes, Layers);
+            Assert.Empty(restoredV2.ObjectsAt(0, 0, 0));
+            Assert.Equal(emptyObjects.GetCell(0, 0, 0), restoredV2.GetCell(0, 0, 0));
+        }
         var restoredV2 = ChunkSaveCodec.Decode(v2, Blocks, Fluids, Dyes, Layers);
         Assert.Empty(restoredV2.ObjectsAt(0, 0, 0));
         Assert.Equal(emptyObjects.GetCell(0, 0, 0), restoredV2.GetCell(0, 0, 0));
