@@ -56,6 +56,7 @@ public sealed class DimensionRuntimeSession
     private readonly PackContentRegistry<ObjectDefinition> _targetObjects;
     private readonly CreatureNaturalSpawnRuntime _naturalSpawns;
     private readonly SaplingGrowthRuntime _saplings;
+    private readonly LeafDecayRuntime _leafDecay;
     private bool _retiring;
     private bool _retired;
 
@@ -276,6 +277,8 @@ public sealed class DimensionRuntimeSession
                 Mutations,
                 _droppedBlocks,
                 layers, _inventoryCatalog, allowBlockBreak);
+        _leafDecay = new LeafDecayRuntime(
+            World, blocks, Mutations, BlockInteractions, WorldTicks.CurrentTick);
         Tools = new ToolGameplayRuntime(
             World, blocks, Mutations, tools, dyes);
         LayerPlacement = new AttachedLayerPlacementRuntime(
@@ -628,6 +631,9 @@ public sealed class DimensionRuntimeSession
             : null;
         _saplings.Advance(WorldTicks.CurrentTick, playerBounds,
             enabled: gameplayReady && playerBounds is not null);
+        _leafDecay.Advance(WorldTicks.CurrentTick,
+            enabled: gameplayReady && playerBounds is not null &&
+                    !_retiring && !_retired);
     }
 
     public FluidUpdateQueue FluidUpdates { get; }
@@ -1049,6 +1055,7 @@ public sealed class DimensionRuntimeSession
             BlockPhysicsUpdates.CaptureState();
         // Detach Core's residency listener before the old Sphere is archived.
         _blockPhysics.Dispose();
+        _leafDecay.Dispose();
         _state.DroppedBlocks =
             _droppedBlocks.CaptureState();
         _state.Creatures =
