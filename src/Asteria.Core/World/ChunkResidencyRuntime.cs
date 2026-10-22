@@ -129,6 +129,9 @@ public sealed class ChunkResidencyRuntime
     private readonly ChunkPresentationSelection _presentationSelection = new();
     private readonly Dictionary<ChunkCoord, Task<MaterializedChunk>>
         _materializationTasks = [];
+    // Fluid definitions and ticks-per-second are immutable for this runtime.
+    // Cache their derived delay for the lifetime of the active dimension.
+    private readonly Dictionary<FluidRuntimeId, ulong?> _fluidDelayTicksById = [];
 
     private ChunkCoord _center;
     private int _retentionRadius;
@@ -792,11 +795,14 @@ public sealed class ChunkResidencyRuntime
         FluidRuntimeId fluid,
         WorldVoxelCoord position)
     {
-        var delay =
-            FluidTiming.DelayTicks(
+        if (!_fluidDelayTicksById.TryGetValue(fluid, out var delay))
+        {
+            delay = FluidTiming.DelayTicks(
                 _fluids,
                 fluid,
                 _settings.GameRules.TicksPerSecond);
+            _fluidDelayTicksById.Add(fluid, delay);
+        }
 
         if (delay is null)
         {
