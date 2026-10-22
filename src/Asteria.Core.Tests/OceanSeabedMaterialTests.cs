@@ -19,10 +19,10 @@ public sealed class OceanSeabedMaterialTests
         Assert.True(geology.SurfaceSubmergedOnly);
         Assert.Equal(2u, geology.GrainScale);
         Assert.Equal(2u, geology.GrainVerticalScale);
-        Assert.Equal(0.65f, geology.GrainInfluence);
+        Assert.Equal(0.50f, geology.GrainInfluence);
         Assert.Equal(5u, geology.ClusterScale);
         Assert.Equal(4u, geology.ClusterVerticalScale);
-        Assert.Equal(0.20f, geology.ClusterInfluence);
+        Assert.Equal(0.30f, geology.ClusterInfluence);
         Assert.Equal("asteria:sand", biome.SurfaceLayers[0].Block);
         Assert.Equal(1u, biome.SurfaceLayers[0].Depth);
         Assert.Null(biome.SurfaceLayers[0].Patch);
@@ -176,8 +176,10 @@ public sealed class OceanSeabedMaterialTests
         var sample = new BiomeSample(
             biome.Id, [new BiomeInfluence(biome.Id, 1f)]);
 
-        const int width = 17;
-        const int step = 4;
+        // Sample at two-block intervals so the grain field is not aliased
+        // by skipping every other fine-scale boundary.
+        const int width = 33;
+        const int step = 2;
         var volume = new BlockRuntimeId[width, width, width];
         for (var y = 0; y < width; y++)
         for (var z = 0; z < width; z++)
@@ -245,8 +247,8 @@ public sealed class OceanSeabedMaterialTests
                 LongestRun(width, z => volume[x, y, z]));
 
         var longestRun = Math.Max(longestXRun, Math.Max(longestYRun, longestZRun));
-        Assert.True(longestRun <= 8,
-            $"A geological material still forms a long straight run: X={longestXRun}, Y={longestYRun}, Z={longestZRun} samples.");
+        Assert.True(longestRun <= 12,
+            $"A geological material still forms a long straight run at {step}-block sampling: X={longestXRun}, Y={longestYRun}, Z={longestZRun} samples.");
 
         var verticalColumnsWithVariation = 0;
         for (var z = 0; z < width; z++)
