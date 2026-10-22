@@ -636,7 +636,9 @@ public sealed class BiomeGeologyDefinition
         float coverage,
         float roughness = 0.25f,
         IReadOnlyDictionary<string, double>? weights = null,
-        uint surfaceCoverDepth = 0)
+        uint surfaceCoverDepth = 0,
+        float surfaceCoverage = 0f,
+        bool surfaceSubmergedOnly = false)
     {
         BiomeSurfaceLayerDefinition.ValidateBlockId(baseBlock);
         if (scale is < 2 or > 2048 ||
@@ -653,6 +655,12 @@ public sealed class BiomeGeologyDefinition
             throw new ArgumentOutOfRangeException(
                 nameof(surfaceCoverDepth),
                 "Geological surface cover depth must be within 0..64.");
+
+        if (!float.IsFinite(surfaceCoverage) ||
+            surfaceCoverage is < 0f or > 1f)
+            throw new ArgumentOutOfRangeException(
+                nameof(surfaceCoverage),
+                "Exposed surface geology coverage must be within 0..1.");
 
         if (!float.IsFinite(coverage) || coverage is <= 0f or > 1f ||
             !float.IsFinite(roughness) || roughness is < 0f or > 1f)
@@ -712,6 +720,8 @@ public sealed class BiomeGeologyDefinition
         Coverage = coverage;
         Roughness = roughness;
         SurfaceCoverDepth = surfaceCoverDepth;
+        SurfaceCoverage = surfaceCoverage;
+        SurfaceSubmergedOnly = surfaceSubmergedOnly;
     }
 
     public string BaseBlock { get; }
@@ -726,6 +736,15 @@ public sealed class BiomeGeologyDefinition
 
     /// <summary>Number of surface-relative voxels that retain the authored cover profile.</summary>
     public uint SurfaceCoverDepth { get; }
+
+    /// <summary>
+    /// Maximum share of exposed surface eligible to reveal a geological
+    /// deposit. Zero preserves the complete authored surface cover.
+    /// </summary>
+    public float SurfaceCoverage { get; }
+
+    /// <summary>Whether exposed deposits are permitted only where generated fluid occupies the voxel above.</summary>
+    public bool SurfaceSubmergedOnly { get; }
 }
 
 /// <summary>Required fluid occupancy of a decorator's placement voxel.</summary>
