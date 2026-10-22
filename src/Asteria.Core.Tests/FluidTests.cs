@@ -599,7 +599,7 @@ public sealed class MineCloneSwimmingParityTests
         Assert.Equal(28f, motion.HorizontalAcceleration);
         Assert.Equal(3f, motion.SinkSpeed);
         Assert.Equal(3.8f, motion.AscendSpeed);
-        Assert.Equal(0.6f, motion.BuoyancySpeed);
+        Assert.Equal(0.6f, motion.PassiveSinkSpeed);
         Assert.Equal(7f, motion.SurfaceExitSpeed);
         Assert.Equal(12f, motion.VerticalAcceleration);
         Assert.Equal(0.35f, motion.SurfaceExitMargin);
@@ -705,7 +705,7 @@ public sealed class FluidMotionDefinitionTests
             definition.Motion.SinkSpeed > 0f);
         Assert.Equal(1f,
             definition.Motion.HorizontalSpeedMultiplier);
-        Assert.Equal(0.6f, definition.Motion.BuoyancySpeed);
+        Assert.Equal(0.6f, definition.Motion.PassiveSinkSpeed);
     }
 
     [Fact]
@@ -1118,9 +1118,11 @@ public sealed class FluidUpdateQueueTests
             1,
             queue.DormantChunkCount);
 
-        queue.ReactivateLoadedChunk(
+        var reactivated = queue.ReactivateLoadedChunk(
             new ChunkCoord(1, 0, 0),
-            currentTick: 14);
+            14, 10, out var complete);
+        Assert.Equal(1, reactivated);
+        Assert.True(complete);
 
         var batch =
             queue.DrainReady(
