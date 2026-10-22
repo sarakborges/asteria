@@ -418,10 +418,21 @@ public sealed class BiomeSurfaceMaterialField
             }
 
             var warped = WarpCoordinates(seed, x, y, z);
-            var formation = FormationAt(
+            var depositFormation = FormationAt(
+                seed, warped.X, warped.Y, warped.Z,
+                _formationDomain, _detailDomain);
+            if (depositFormation < 1d - _definition.Coverage * 2d)
+            {
+                block = BlockRuntimeId.Air;
+                return false;
+            }
+
+            // Only reveal a deposit that also exists in the volumetric field
+            // below; the separate surface mask controls exposure, not geology.
+            var surfaceFormation = FormationAt(
                 seed, warped.X, warped.Y, warped.Z,
                 _surfaceFormationDomain, _surfaceDetailDomain);
-            if (formation < 1d - _definition.SurfaceCoverage * 2d)
+            if (surfaceFormation < 1d - _definition.SurfaceCoverage * 2d)
             {
                 block = BlockRuntimeId.Air;
                 return false;
