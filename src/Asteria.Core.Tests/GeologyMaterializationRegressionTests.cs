@@ -149,16 +149,22 @@ public sealed class GeologyMaterializationRegressionTests
     public void FlatExposedSurfaceRetainsCoverAndShowsGeologicalVariation()
     {
         var blocks = CreateBlocks();
-        var biome = CreateBiome(surfaceCoverage: 0.45f);
+        var biome = CreateBiome(surfaceCoverage: 0.24f);
         var dimension = CreateDimension(biome.Id);
         var biomes = new BiomeRegistry([biome]);
         var generator = new BiomeWorldGenerator(Seed, dimension, blocks, biomes);
-        var chunk = generator.Materialize(new ChunkCoord(0, 2, 0));
         var surfaceMaterials = new HashSet<BlockRuntimeId>();
 
-        for (var z = 0; z < Chunk.Size; z++)
-        for (var x = 0; x < Chunk.Size; x++)
-            surfaceMaterials.Add(chunk.GetBlock(x, 40 % Chunk.Size, z));
+        // Sample a 64x64 flat surface so low authored exposure coverage remains
+        // meaningful while checking actual materialized top voxels.
+        for (var chunkZ = -2; chunkZ < 2; chunkZ++)
+        for (var chunkX = -2; chunkX < 2; chunkX++)
+        {
+            var chunk = generator.Materialize(new ChunkCoord(chunkX, 2, chunkZ));
+            for (var z = 0; z < Chunk.Size; z++)
+            for (var x = 0; x < Chunk.Size; x++)
+                surfaceMaterials.Add(chunk.GetBlock(x, 40 % Chunk.Size, z));
+        }
 
         Assert.Contains(blocks.GetId("asteria:grass"), surfaceMaterials);
         Assert.Contains(blocks.GetId("asteria:dirt"), surfaceMaterials);
