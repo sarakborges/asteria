@@ -351,14 +351,17 @@ public sealed class BiomeSurfaceMaterialField
         private readonly BiomeGeologyDefinition _definition;
         private readonly BlockRuntimeId _baseBlock;
         private readonly BlockRuntimeId[] _blocks;
-        private readonly GenerationDomain _formationDomain;
-        private readonly GenerationDomain _detailDomain;
-        private readonly GenerationDomain _surfaceFormationDomain;
-        private readonly GenerationDomain _surfaceDetailDomain;
+        private readonly BlockRuntimeId[] _volumeBlocks;
+        private readonly GenerationDomain _surfaceExposureDomain;
         private readonly GenerationDomain[] _warpDomains;
-        private readonly GenerationDomain[] _materialDomains;
-        private readonly GenerationDomain[] _materialDetailDomains;
-        private readonly double[] _materialBiases;
+        private readonly GenerationDomain[] _volumeMaterialDomains;
+        private readonly GenerationDomain[] _volumeDetailDomains;
+        private readonly GenerationDomain[] _volumeMicroDomains;
+        private readonly GenerationDomain[] _surfaceMaterialDomains;
+        private readonly GenerationDomain[] _surfaceDetailDomains;
+        private readonly GenerationDomain[] _surfaceMicroDomains;
+        private readonly double[] _volumeBiases;
+        private readonly double[] _surfaceBiases;
 
         private ResolvedGeology(
             BiomeGeologyDefinition definition,
@@ -369,28 +372,57 @@ public sealed class BiomeSurfaceMaterialField
             _definition = definition;
             _baseBlock = baseBlock;
             _blocks = blocks;
-            _formationDomain = GenerationDomain.Named(
-                $"material/geology/formation/v3/{biomeId}");
-            _detailDomain = GenerationDomain.Named(
-                $"material/geology/detail/v3/{biomeId}");
-            _surfaceFormationDomain = GenerationDomain.Named(
-                $"material/geology/surface-formation/v1/{biomeId}");
-            _surfaceDetailDomain = GenerationDomain.Named(
-                $"material/geology/surface-detail/v1/{biomeId}");
+            _volumeBlocks = [baseBlock, .. blocks];
+            _surfaceExposureDomain = GenerationDomain.Named(
+                $"material/geology/surface-exposure/v2/{biomeId}");
             _warpDomains = new[] { "x", "y", "z" }
                 .Select(axis => GenerationDomain.Named(
-                    $"material/geology/domain-warp/v3/{biomeId}/{axis}"))
+                    $"material/geology/domain-warp/v4/{biomeId}/{axis}"))
                 .ToArray();
-            _materialDomains = definition.Blocks
+
+            var volumeNames = new[] { definition.BaseBlock }
+                .Concat(definition.Blocks).ToArray();
+            _volumeMaterialDomains = volumeNames
                 .Select(block => GenerationDomain.Named(
-                    $"material/geology/material-field/v4/{biomeId}/{block}"))
+                    $"material/geology/volume-field/v1/{biomeId}/{block}"))
                 .ToArray();
-            _materialDetailDomains = definition.Blocks
+            _volumeDetailDomains = volumeNames
                 .Select(block => GenerationDomain.Named(
-                    $"material/geology/material-detail/v2/{biomeId}/{block}"))
+                    $"material/geology/volume-detail/v1/{biomeId}/{block}"))
                 .ToArray();
-            _materialBiases = definition.BlockWeights
-                .Select(weight => 0.2d * Math.Log(weight))
+            _volumeMicroDomains = volumeNames
+                .Select(block => GenerationDomain.Named(
+                    $"material/geology/volume-micro/v1/{biomeId}/{block}"))
+                .ToArray();
+
+            _surfaceMaterialDomains = definition.Blocks
+                .Select(block => GenerationDomain.Named(
+                    $"material/geology/surface-field/v1/{biomeId}/{block}"))
+                .ToArray();
+            _surfaceDetailDomains = definition.Blocks
+                .Select(block => GenerationDomain.Named(
+                    $"material/geology/surface-detail/v2/{biomeId}/{block}"))
+                .ToArray();
+            _surfaceMicroDomains = definition.Blocks
+                .Select(block => GenerationDomain.Named(
+                    $"material/geology/surface-micro/v1/{biomeId}/{block}"))
+                .ToArray();
+
+            var alternativeWeightTotal = definition.BlockWeights.Sum();
+            var baseProbability = 1d - definition.Coverage;
+            _volumeBiases = new double[_volumeBlocks.Length];
+            _volumeBiases[0] = baseProbability > 0d
+                ? Math.Log(baseProbability)
+                : double.NegativeInfinity;
+            for (var index = 0; index < definition.BlockWeights.Count; index++)
+            {
+                var probability = definition.Coverage *
+                    definition.BlockWeights[index] / alternativeWeightTotal;
+                _volumeBiases[index + 1] = Math.Log(probability);
+            }
+
+            _surfaceBiases = definition.BlockWeights
+                .Select(weight => Math.Log(weight / alternativeWeightTotal))
                 .ToArray();
         }
 
@@ -400,13 +432,14 @@ public sealed class BiomeSurfaceMaterialField
 
         public BlockRuntimeId BlockAt(ulong seed, int x, int y, int z)
         {
-            var warped = WarpCoordinates(seed, x, y, z);
-            var formation = FormationAt(
-                seed, warped, _formationDomain, _detailDomain);
-            if (formation < 1d - _definition.Coverage * 2d)
-                return _baseBlock;
-
-            return SelectMaterial(seed, warped);
+            // Base material and deposits now compete in one spatial selector.
+            // The previous separate formation mask created a second set of
+            // broad, continuous boundaries that looked like columns/sheets.
+            var position = WarpCoordinates(seed, x, y, z);
+            return SelectMaterial(
+                seed, position, _volumeBlocks,
+                _volumeMaterialDomains, _volumeDetailDomains, _volumeMicroDomains,
+                _volumeBiases);
         }
 
         public bool TrySurfaceBlockAt(
@@ -418,39 +451,34 @@ public sealed class BiomeSurfaceMaterialField
                 return false;
             }
 
-            var warped = WarpCoordinates(seed, x, y, z);
-            var depositFormation = FormationAt(
-                seed, warped, _formationDomain, _detailDomain);
-            if (depositFormation < 1d - _definition.Coverage * 2d)
+            // Surface coverage is a dedicated shallow X/Z exposure field. It
+            // must not also pass the volumetric occupancy threshold; that
+            // double gate made many flat surfaces remain entirely grass/sand.
+            var exposureScale = Math.Max(8u, _definition.DetailScale);
+            var exposure = WorldGenerationEntropy.SmoothNoise2D(
+                seed, _surfaceExposureDomain, x, z, exposureScale);
+            if (exposure < 1d - _definition.SurfaceCoverage * 2d)
             {
                 block = BlockRuntimeId.Air;
                 return false;
             }
 
-            // Surface exposure reveals a material already present in the
-            // continuous 3D deposit field; the exposure field never invents
-            // a disconnected surface-only patch.
-            var surfaceFormation = FormationAt(
-                seed, warped, _surfaceFormationDomain, _surfaceDetailDomain);
-            if (surfaceFormation < 1d - _definition.SurfaceCoverage * 2d)
-            {
-                block = BlockRuntimeId.Air;
-                return false;
-            }
-
-            block = SelectMaterial(seed, warped);
+            var position = WarpCoordinates(seed, x, y, z);
+            block = SelectMaterial(
+                seed, position, _blocks,
+                _surfaceMaterialDomains, _surfaceDetailDomains, _surfaceMicroDomains,
+                _surfaceBiases);
             return true;
         }
 
         private static SpatialPosition RotateCoordinates(int x, int y, int z)
         {
-            // Two fixed orthogonal rotations make the noise lattice oblique to
-            // world axes. This avoids axis-aligned value-noise cells extending
-            // as persistent columns/sheets in the rendered voxel field.
-            const double cosineY = 0.8660254037844386d; // cos(30°)
+            // Rotate the continuous domain so no noise axis follows a world
+            // axis. This matters for vertical walls as well as horizontal cuts.
+            const double cosineY = 0.8660254037844386d;
             const double sineY = 0.5d;
-            const double cosineX = 0.9396926207859084d; // cos(20°)
-            const double sineX = 0.3420201433256687d;   // sin(20°)
+            const double cosineX = 0.9396926207859084d;
+            const double sineX = 0.3420201433256687d;
 
             return new SpatialPosition(
                 cosineY * x + sineY * sineX * y + sineY * cosineX * z,
@@ -462,10 +490,13 @@ public sealed class BiomeSurfaceMaterialField
             ulong seed, int x, int y, int z)
         {
             var rotated = RotateCoordinates(x, y, z);
-            var warpHorizontalScale = Math.Max(8u, _definition.Scale / 2u);
-            var warpVerticalScale = Math.Max(8u, _definition.VerticalScale / 2u);
-            var horizontalStrength = Math.Max(8d, _definition.Scale * 0.35d);
-            var verticalStrength = Math.Max(6d, _definition.VerticalScale * 0.45d);
+            // Domain warp is deliberately smaller than the deposit wavelengths:
+            // enough to break straight boundaries, not so strong that it
+            // stretches a small patch into a continuous ribbon.
+            var warpHorizontalScale = Math.Max(12u, _definition.Scale / 3u);
+            var warpVerticalScale = Math.Max(10u, _definition.VerticalScale / 3u);
+            var horizontalStrength = Math.Max(4d, _definition.DetailScale * 0.6d);
+            var verticalStrength = Math.Max(4d, _definition.DetailScale * 0.45d);
 
             var warpX = WorldGenerationEntropy.ValueNoise3D(
                 seed, _warpDomains[0], rotated.X, rotated.Y, rotated.Z,
@@ -477,62 +508,54 @@ public sealed class BiomeSurfaceMaterialField
                 seed, _warpDomains[2], rotated.X, rotated.Y, rotated.Z,
                 warpHorizontalScale, warpVerticalScale);
 
-            // Keep transformed coordinates continuous. Rounding each warped
-            // axis to a voxel reintroduced plateaus that resembled columns.
             return new SpatialPosition(
                 rotated.X + warpX * horizontalStrength,
                 rotated.Y + warpY * verticalStrength,
                 rotated.Z + warpZ * horizontalStrength);
         }
 
-        private double FormationAt(
+        private double SelectMaterial(
             ulong seed,
             SpatialPosition position,
-            GenerationDomain formationDomain,
-            GenerationDomain detailDomain)
+            BlockRuntimeId[] candidateBlocks,
+            GenerationDomain[] broadDomains,
+            GenerationDomain[] detailDomains,
+            GenerationDomain[] microDomains,
+            double[] biases)
         {
-            var macro = WorldGenerationEntropy.ValueNoise3D(
-                seed, formationDomain,
-                position.X, position.Y, position.Z,
-                _definition.Scale, _definition.VerticalScale);
-            var detail = WorldGenerationEntropy.ValueNoise3D(
-                seed, detailDomain,
-                position.X, position.Y, position.Z,
-                _definition.DetailScale,
-                Math.Max(6u, _definition.VerticalScale / 4u));
+            var detailScale = Math.Max(6u, _definition.DetailScale);
+            var detailVerticalScale = Math.Max(
+                6u, Math.Min(_definition.VerticalScale / 3u, _definition.DetailScale));
+            var microScale = Math.Max(4u, _definition.DetailScale / 2u);
+            var microVerticalScale = Math.Max(4u, detailVerticalScale / 2u);
 
-            // Formation presence also needs genuine 3D breakup. The former
-            // roughness-weighted detail was too weak and used half the vertical
-            // wavelength, letting the host-rock mask persist as broad sheets.
-            var detailInfluence = 0.55d + _definition.Roughness * 0.35d;
-            return macro * (1d - detailInfluence) + detail * detailInfluence;
-        }
-
-        private BlockRuntimeId SelectMaterial(ulong seed, SpatialPosition position)
-        {
-            if (_blocks.Length == 1)
-                return _blocks[0];
-
-            var detailScale = Math.Max(6u, _definition.SelectionScale / 6u);
-            var detailVerticalScale = Math.Max(6u, _definition.VerticalScale / 6u);
             var bestScore = double.NegativeInfinity;
             var bestIndex = 0;
-            for (var index = 0; index < _blocks.Length; index++)
+            for (var index = 0; index < candidateBlocks.Length; index++)
             {
-                var macro = WorldGenerationEntropy.ValueNoise3D(
-                    seed, _materialDomains[index],
+                var broad = WorldGenerationEntropy.ValueNoise3D(
+                    seed, broadDomains[index],
                     position.X, position.Y, position.Z,
-                    _definition.SelectionScale, _definition.VerticalScale);
+                    Math.Max(12u, _definition.SelectionScale),
+                    Math.Max(10u, _definition.VerticalScale));
                 var detail = WorldGenerationEntropy.ValueNoise3D(
-                    seed, _materialDetailDomains[index],
+                    seed, detailDomains[index],
                     position.X, position.Y, position.Z,
                     detailScale, detailVerticalScale);
-                // Fine independent fields dominate local boundary shape while
-                // broad fields retain coherent deposits rather than voxel noise.
-                // A shorter vertical wavelength specifically prevents long
-                // material columns through several adjacent chunks.
-                var field = macro * 0.18d + detail * 0.82d;
-                var score = field + _materialBiases[index];
+                var micro = WorldGenerationEntropy.ValueNoise3D(
+                    seed, microDomains[index],
+                    position.X, position.Y, position.Z,
+                    microScale, microVerticalScale);
+
+                // Three independent 3D scales roughen the same deposit
+                // boundaries in every direction. Gumbelizing the correlated
+                // field makes the authored material proportions meaningful;
+                // the previous separate mask plus argmax selector did not.
+                var field = broad * 0.22d + detail * 0.48d + micro * 0.30d;
+                var unit = Math.Clamp(
+                    (field + 1d) * 0.5d, 1e-6d, 1d - 1e-6d);
+                var gumbel = -Math.Log(-Math.Log(unit));
+                var score = gumbel + biases[index];
                 if (score > bestScore)
                 {
                     bestScore = score;
@@ -540,7 +563,7 @@ public sealed class BiomeSurfaceMaterialField
                 }
             }
 
-            return _blocks[bestIndex];
+            return candidateBlocks[bestIndex];
         }
 
         public static ResolvedGeology Create(
