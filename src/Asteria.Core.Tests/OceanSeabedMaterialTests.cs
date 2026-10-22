@@ -204,8 +204,43 @@ public sealed class OceanSeabedMaterialTests
 
         var minimum = Math.Min(xTransitions, Math.Min(yTransitions, zTransitions));
         var maximum = Math.Max(xTransitions, Math.Max(yTransitions, zTransitions));
-        Assert.True(minimum >= maximum * 0.35,
+        Assert.True(minimum >= maximum * 0.55,
             $"Geology is still strongly directional: X={xTransitions}, Y={yTransitions}, Z={zTransitions}.");
+
+        static int LongestRun(int length, Func<int, BlockRuntimeId> at)
+        {
+            var longest = 1;
+            var current = 1;
+            var previous = at(0);
+            for (var index = 1; index < length; index++)
+            {
+                var next = at(index);
+                current = next == previous ? current + 1 : 1;
+                longest = Math.Max(longest, current);
+                previous = next;
+            }
+            return longest;
+        }
+
+        var longestXRun = 0;
+        var longestYRun = 0;
+        var longestZRun = 0;
+        for (var y = 0; y < width; y++)
+        for (var z = 0; z < width; z++)
+            longestXRun = Math.Max(longestXRun,
+                LongestRun(width, x => volume[x, y, z]));
+        for (var x = 0; x < width; x++)
+        for (var z = 0; z < width; z++)
+            longestYRun = Math.Max(longestYRun,
+                LongestRun(width, y => volume[x, y, z]));
+        for (var x = 0; x < width; x++)
+        for (var y = 0; y < width; y++)
+            longestZRun = Math.Max(longestZRun,
+                LongestRun(width, z => volume[x, y, z]));
+
+        var longestRun = Math.Max(longestXRun, Math.Max(longestYRun, longestZRun));
+        Assert.True(longestRun <= 8,
+            $"A geological material still forms a long straight run: X={longestXRun}, Y={longestYRun}, Z={longestZRun} samples.");
 
         var verticalColumnsWithVariation = 0;
         for (var z = 0; z < width; z++)
