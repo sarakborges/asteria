@@ -208,12 +208,6 @@ public sealed class BlockPhysicsRuntime : IDisposable
 
     public int WaitingFallingCount => _fallingWaitingForChunk.Count;
 
-    public bool IsVoxelOccupiedByFallingBlock(
-        WorldVoxelCoord position) =>
-        IsOccupiedByOtherFallingBlock(
-            position,
-            ignoredFallingBlockId: null);
-
     private bool IsOccupiedByOtherFallingBlock(
         WorldVoxelCoord position,
         FallingBlockId? ignoredFallingBlockId)
