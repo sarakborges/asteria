@@ -641,7 +641,10 @@ public sealed class BiomeGeologyDefinition
         bool surfaceSubmergedOnly = false,
         uint? grainScale = null,
         uint? grainVerticalScale = null,
-        float grainInfluence = 0.70f)
+        float grainInfluence = 0.70f,
+        uint? clusterScale = null,
+        uint? clusterVerticalScale = null,
+        float clusterInfluence = 0f)
     {
         BiomeSurfaceLayerDefinition.ValidateBlockId(baseBlock);
         if (scale is < 2 or > 2048 ||
@@ -668,6 +671,21 @@ public sealed class BiomeGeologyDefinition
             throw new ArgumentOutOfRangeException(
                 nameof(grainInfluence),
                 "Geology grain influence must be within 0.1..0.9.");
+        if (clusterScale.HasValue && clusterScale.Value is < 2 or > 2048)
+            throw new ArgumentOutOfRangeException(
+                nameof(clusterScale),
+                "Geology cluster scale must be within 2..2048.");
+        if (clusterVerticalScale.HasValue &&
+            clusterVerticalScale.Value is < 2 or > 1024)
+            throw new ArgumentOutOfRangeException(
+                nameof(clusterVerticalScale),
+                "Geology vertical cluster scale must be within 2..1024.");
+        if (!float.IsFinite(clusterInfluence) ||
+            clusterInfluence is < 0f or > 0.6f ||
+            grainInfluence + clusterInfluence > 0.9f)
+            throw new ArgumentOutOfRangeException(
+                nameof(clusterInfluence),
+                "Geology cluster influence must be within 0..0.6, with at least 0.1 influence left for broader fields.");
 
         if (surfaceCoverDepth > 64)
             throw new ArgumentOutOfRangeException(
@@ -743,6 +761,9 @@ public sealed class BiomeGeologyDefinition
         GrainScale = grainScale;
         GrainVerticalScale = grainVerticalScale;
         GrainInfluence = grainInfluence;
+        ClusterScale = clusterScale;
+        ClusterVerticalScale = clusterVerticalScale;
+        ClusterInfluence = clusterInfluence;
     }
 
     public string BaseBlock { get; }
@@ -775,6 +796,15 @@ public sealed class BiomeGeologyDefinition
 
     /// <summary>Share of the material selector controlled by its finest field, from 0.1 to 0.9.</summary>
     public float GrainInfluence { get; }
+
+    /// <summary>Optional wavelength of the intermediate geological cluster field.</summary>
+    public uint? ClusterScale { get; }
+
+    /// <summary>Optional vertical wavelength of the intermediate geological cluster field.</summary>
+    public uint? ClusterVerticalScale { get; }
+
+    /// <summary>Share of material selection controlled by the intermediate cluster field.</summary>
+    public float ClusterInfluence { get; }
 }
 
 /// <summary>Required fluid occupancy of a decorator's placement voxel.</summary>
