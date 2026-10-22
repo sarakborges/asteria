@@ -145,6 +145,28 @@ public sealed class GeologyMaterializationRegressionTests
             "No sampled world-space column changed geological material with Y.");
     }
 
+    [Fact]
+    public void FlatExposedSurfaceRetainsCoverAndShowsGeologicalVariation()
+    {
+        var blocks = CreateBlocks();
+        var biome = CreateBiome(surfaceCoverage: 0.45f);
+        var dimension = CreateDimension(biome.Id);
+        var biomes = new BiomeRegistry([biome]);
+        var generator = new BiomeWorldGenerator(Seed, dimension, blocks, biomes);
+        var chunk = generator.Materialize(new ChunkCoord(0, 2, 0));
+        var surfaceMaterials = new HashSet<BlockRuntimeId>();
+
+        for (var z = 0; z < Chunk.Size; z++)
+        for (var x = 0; x < Chunk.Size; x++)
+            surfaceMaterials.Add(chunk.GetBlock(x, 40 % Chunk.Size, z));
+
+        Assert.Contains(blocks.GetId("asteria:grass"), surfaceMaterials);
+        Assert.Contains(blocks.GetId("asteria:dirt"), surfaceMaterials);
+        Assert.Contains(blocks.GetId("asteria:gravel"), surfaceMaterials);
+        Assert.True(surfaceMaterials.Count >= 4,
+            "A flat surface should retain its grass cover while exposing varied geological materials.");
+    }
+
     private static BlockRegistry CreateBlocks() => new(
     [
         new BlockDefinition("asteria:grass"),
@@ -154,7 +176,7 @@ public sealed class GeologyMaterializationRegressionTests
         new BlockDefinition("asteria:clay"),
     ]);
 
-    private static BiomeDefinition CreateBiome() => new(
+    private static BiomeDefinition CreateBiome(float surfaceCoverage = 0f) => new(
         "asteria:test/geology",
         new BiomeSurfaceLayoutDefinition(regionMin: 128, regionMax: 128),
         new BiomeTerrainDefinition(
@@ -177,7 +199,8 @@ public sealed class GeologyMaterializationRegressionTests
             selectionScale: 12,
             coverage: 0.78f,
             roughness: 0.32f,
-            surfaceCoverDepth: 3));
+            surfaceCoverDepth: 3,
+            surfaceCoverage: surfaceCoverage));
 
     private static DimensionDefinition CreateDimension(string biomeId) => new(
         new DimensionId("asteria:test"),
