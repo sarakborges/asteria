@@ -765,17 +765,18 @@ public sealed class ChunkResidencyRuntime
 
             // Missing chunks cannot accept flow. Recheck this source
             // when the neighboring chunk becomes resident instead.
-            if (!_world.IsLoadedAt(target))
+            if (!_world.TryGetCellAndFluid(
+                    target,
+                    out var targetCell,
+                    out var neighbor))
             {
                 continue;
             }
 
-            if (!_world.GetCellOrEmpty(target).IsEmpty)
+            if (!targetCell.IsEmpty)
             {
                 continue;
             }
-
-            var neighbor = _world.GetFluidOrEmpty(target);
             if (neighbor.IsEmpty ||
                 neighbor.Fluid != fluid.Fluid ||
                 neighbor.Level < fluid.Level)
