@@ -80,38 +80,80 @@ internal sealed class PaletteStorage<T>
     {
         ArgumentNullException.ThrowIfNull(visit);
 
-        for (var wordIndex = 0;
+        VisitOccupied(
+            startVoxelIndex: 0,
+            maximumItems: int.MaxValue,
+            visit,
+            out _);
+    }
+
+    public int VisitOccupied(
+        int startVoxelIndex,
+        int maximumItems,
+        Action<int, T> visit,
+        out int visitedCount)
+    {
+        if (startVoxelIndex < 0 ||
+            startVoxelIndex > Chunk.Volume)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(startVoxelIndex));
+        }
+
+        if (maximumItems <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(maximumItems));
+        }
+
+        ArgumentNullException.ThrowIfNull(visit);
+        visitedCount = 0;
+
+        if (startVoxelIndex == Chunk.Volume ||
+            OccupiedCount == 0)
+        {
+            return Chunk.Volume;
+        }
+
+        var firstWordIndex = startVoxelIndex >> 6;
+        var firstBitOffset = startVoxelIndex & 63;
+        for (var wordIndex = firstWordIndex;
              wordIndex < _occupied.Length;
              wordIndex++)
         {
             var remaining = _occupied[wordIndex];
+            if (wordIndex == firstWordIndex &&
+                firstBitOffset != 0)
+            {
+                remaining &= ulong.MaxValue << firstBitOffset;
+            }
 
             while (remaining != 0)
             {
                 var bit =
                     System.Numerics.BitOperations
                         .TrailingZeroCount(remaining);
-                var voxelIndex =
-                    wordIndex * 64 + bit;
-
-                if (voxelIndex >= Chunk.Volume)
-                {
-                    return;
-                }
-
-                var paletteIndex =
-                    _indices[voxelIndex];
+                var voxelIndex = wordIndex * 64 + bit;
+                var paletteIndex = _indices[voxelIndex];
 
                 if (paletteIndex != 0)
                 {
                     visit(
                         voxelIndex,
                         _palette[paletteIndex - 1]);
+                    visitedCount++;
+
+                    if (visitedCount >= maximumItems)
+                    {
+                        return voxelIndex + 1;
+                    }
                 }
 
                 remaining &= remaining - 1;
             }
         }
+
+        return Chunk.Volume;
     }
 
     // A chunk row is 16 voxels wide and never crosses a 64-bit
