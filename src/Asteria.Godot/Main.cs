@@ -5659,6 +5659,24 @@ public partial class Main : Node3D
         }
     }
 
+    private void IntegrateFluidMeshletPublications()
+    {
+        var stats =
+            _fluidMeshPipeline.IntegratePublications(
+                MaxFluidMeshletPublishesPerFrame,
+                _worldFrameBudget);
+        _worldDiagnostics?.ObserveFluidPublication(stats);
+
+        if (_debugHudVisible &&
+            stats.Handled > 0)
+        {
+            GD.Print(
+                $"world.fluid_meshlets published={stats.Published} " +
+                $"stale={stats.Stale} " +
+                $"remaining={stats.Remaining}");
+        }
+    }
+
     private void PollTerrainMeshWorker()
     {
         if (!_terrainMeshPipeline.TryPollCompleted(
