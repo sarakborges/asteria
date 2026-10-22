@@ -15,7 +15,7 @@ public sealed class OceanSeabedMaterialTests
         var geology = Assert.IsType<BiomeGeologyDefinition>(biome.Geology);
 
         Assert.Equal(1u, geology.SurfaceCoverDepth);
-        Assert.Equal(0.5f, geology.SurfaceCoverage);
+        Assert.Equal(1f, geology.SurfaceCoverage);
         Assert.True(geology.SurfaceSubmergedOnly);
         Assert.Equal("asteria:sand", biome.SurfaceLayers[0].Block);
         Assert.Equal(1u, biome.SurfaceLayers[0].Depth);
