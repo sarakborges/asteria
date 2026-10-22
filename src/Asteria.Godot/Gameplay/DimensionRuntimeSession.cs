@@ -692,37 +692,45 @@ public sealed class DimensionRuntimeSession
     public MiningCrackPresentation MiningCracks { get; }
     public MiningParticleRuntime MiningParticles { get; }
 
+    /// <summary>
+    /// Emits a visual mining cue using the same authored texture and tint
+    /// resolution for continuous Survival mining and instant Creative breaks.
+    /// The caller captures appearance before mutating the voxel.
+    /// </summary>
+    public void EmitMiningFeedback(MiningFeedbackEvent cue)
+    {
+        var tint = NVector3.One;
+        if (cue.Appearance is { } appearance)
+        {
+            if (appearance.DyeId is { } dyeId &&
+                _miningDyes.TryGet(dyeId, out var dye) && dye is not null)
+                tint = dye.Rgb;
+            else if (appearance.Tint != BlockTint.None)
+            {
+                // Exactly the terrain mesh's authored per-chunk tint grid.
+                // Reuse the last sampled chunk across repeated mining cues.
+                var chunk = VoxelCoordinates.FromWorld(
+                    cue.Hit.Voxel.X, cue.Hit.Voxel.Y,
+                    cue.Hit.Voxel.Z).Chunk;
+                var key = (chunk.X, chunk.Z);
+                if (_miningTintChunk != key || _miningTintSamples is null)
+                {
+                    _miningTintSamples = Generator.Tints.SampleChunkGrid(
+                        chunk.X, chunk.Z);
+                    _miningTintChunk = key;
+                }
+                tint = _miningTintSamples.Resolve(appearance.Tint,
+                    appearance.TintFallback,
+                    cue.Hit.Voxel.X, cue.Hit.Voxel.Z);
+            }
+        }
+        MiningParticles.Emit(cue, tint);
+    }
+
     public void SyncMiningFeedback(float deltaSeconds, MiningFeedbackEvent? feedback)
     {
         if (feedback is { } cue)
-        {
-            var tint = NVector3.One;
-            if (cue.Appearance is { } appearance)
-            {
-                if (appearance.DyeId is { } dyeId &&
-                    _miningDyes.TryGet(dyeId, out var dye) && dye is not null)
-                    tint = dye.Rgb;
-                else if (appearance.Tint != BlockTint.None)
-                {
-                    // Exactly the terrain mesh's authored per-chunk tint grid.
-                    // Reuse the last sampled chunk across eight-tick swings.
-                    var chunk = VoxelCoordinates.FromWorld(
-                        cue.Hit.Voxel.X, cue.Hit.Voxel.Y,
-                        cue.Hit.Voxel.Z).Chunk;
-                    var key = (chunk.X, chunk.Z);
-                    if (_miningTintChunk != key || _miningTintSamples is null)
-                    {
-                        _miningTintSamples = Generator.Tints.SampleChunkGrid(
-                            chunk.X, chunk.Z);
-                        _miningTintChunk = key;
-                    }
-                    tint = _miningTintSamples.Resolve(appearance.Tint,
-                        appearance.TintFallback,
-                        cue.Hit.Voxel.X, cue.Hit.Voxel.Z);
-                }
-            }
-            MiningParticles.Emit(cue, tint);
-        }
+            EmitMiningFeedback(cue);
         MiningParticles.Advance(deltaSeconds);
         _miningParticlePresentation.Sync(MiningParticles);
     }
