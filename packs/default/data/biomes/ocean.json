@@ -60,7 +60,9 @@
     },
     "surfaceCoverDepth": 1,
     "surfaceCoverage": 1,
-    "surfaceSubmergedOnly": true
+    "surfaceSubmergedOnly": true,
+    "grainScale": 6,
+    "grainVerticalScale": 5
   },
   "palette": {
     "default": [
