@@ -690,6 +690,33 @@ public sealed class BiomeWorldGenerationTests
     }
 
     [Fact]
+    public void AuthoredMountainWallPaletteTakesPrecedenceOverThreeDimensionalGeology()
+    {
+        var blocks = LoadDefaultBlocks();
+        var mountains = LoadDefaultBiomes().Get("asteria:overworld/mountains");
+        var field = new BiomeSurfaceMaterialField(445566UL, [mountains], blocks);
+        var sample = new BiomeSample(
+            mountains.Id, [new BiomeInfluence(mountains.Id, 1f)]);
+        var stone = blocks.GetId("asteria:stone");
+        var geologyProducedAlternative = false;
+
+        Assert.True(field.HasDirectionalOverride(sample, BiomePaletteFace.Walls));
+
+        for (var y = 12; y <= 60; y += 8)
+        for (var z = -96; z <= 96; z += 8)
+        for (var x = -96; x <= 96; x += 8)
+        {
+            Assert.True(field.TryGeologyBlockAt(sample, x, y, z, out var geology));
+            geologyProducedAlternative |= geology != stone;
+            Assert.Equal(stone, field.VolumeBlockAt(
+                sample, x, y, z, BiomePaletteFace.Walls));
+        }
+
+        Assert.True(geologyProducedAlternative,
+            "The test seed did not exercise any non-stone geological material.");
+    }
+
+    [Fact]
     public void DeepMaterialCoreBypassesSurfacePatchSelectionWithoutChangingBlock()
     {
         var blocks = LoadDefaultBlocks();
