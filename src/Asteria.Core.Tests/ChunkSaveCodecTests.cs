@@ -74,7 +74,8 @@ public sealed class ChunkSaveCodecTests
             TextureRotation.Degrees90,
             BlockOrientation.X,
             HorizontalFacing.West,
-            state: 213);
+            state: 213,
+            isPlayerPlaced: true);
         Assert.True(chunk.SetCell(2, 3, 4, originalCell));
         var mask = MicroblockMask.Full.Edit(
             0, 0, 0, MicroblockResolution.Thick, occupied: false);
@@ -106,6 +107,7 @@ public sealed class ChunkSaveCodecTests
         Assert.Equal(originalCell.Orientation, restoredCell.Orientation);
         Assert.Equal(originalCell.Facing, restoredCell.Facing);
         Assert.Equal(originalCell.State, restoredCell.State);
+        Assert.True(restoredCell.IsPlayerPlaced);
         Assert.Equal(mask, restored.GetMicroblockMask(2, 3, 4));
         Assert.Equal(surface, restored.GetSurfaceState(2, 3, 4));
         Assert.Equal(target.Blocks.GetId("asteria:basalt"),
