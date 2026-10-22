@@ -687,6 +687,9 @@ public partial class Main : Node3D
             streamingBegin.Collected);
         ReportResidencyUpdate(
             streamingBegin.Dispatched);
+        var fluidActivationReport =
+            _residency.ProcessPendingFluidActivations(_worldFrameBudget);
+        _worldDiagnostics?.ObserveFluidActivation(fluidActivationReport);
         ReportPresentationReservations(
             streamingBegin.ReservedPresentations);
         _worldDiagnostics?.ObserveStageMilliseconds(
