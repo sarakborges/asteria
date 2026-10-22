@@ -5,7 +5,7 @@ namespace Asteria.Core.Tests;
 public sealed class WorldLoadingStateTests
 {
     [Fact]
-    public void FullSelectionAndSettledPresentationAreRequiredBeforeReady()
+    public void CurrentSelectionAndSettledPresentationAreRequiredBeforeReady()
     {
         var loading = new WorldLoadingState();
         loading.Begin(new ChunkCoord(5, 3, -7));
@@ -13,8 +13,8 @@ public sealed class WorldLoadingStateTests
         loading.UpdateResidency(25, 0, 0, selectionRunning: true);
         Assert.Equal(WorldLoadingPhase.MaterializingInitialArea, loading.Progress.Phase);
 
-        // The streaming selection is not stable until its full surface
-        // range is known; a small spawn bootstrap must not release gameplay.
+        // The active startup selection remains authoritative until its
+        // surface-range result is known and all of its real work is settled.
         loading.UpdateResidency(264, 4, 2, selectionRunning: false);
         Assert.Equal(258, loading.Progress.Completed);
         Assert.Equal(264, loading.Progress.Total);

@@ -5,6 +5,27 @@ namespace Asteria.Core.Tests;
 [Collection("ChunkStreamingConcurrency")]
 public sealed class ChunkStreamingStateTests
 {
+    [Theory]
+    [InlineData(1, 1)]
+    [InlineData(2, 2)]
+    [InlineData(8, 2)]
+    public void InitialLoadingRadiusIsCappedToSmallBootstrap(
+        int configuredRenderDistance,
+        int expectedRadius)
+    {
+        Assert.Equal(
+            expectedRadius,
+            ChunkStreamingSelection.GetInitialLoadingRadius(
+                configuredRenderDistance));
+    }
+
+    [Fact]
+    public void InitialLoadingRadiusRejectsInvalidRenderDistance()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => ChunkStreamingSelection.GetInitialLoadingRadius(0));
+    }
+
     [Fact]
     public void CollisionPrewarmStartsOneChunkBeforePhysicsActivation()
     {

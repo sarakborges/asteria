@@ -17,6 +17,7 @@ public sealed record DimensionRuntimeSessionSettings(
     int MaxInteractiveTerrainMeshletsPerWorker,
     int MaxTerrainMeshletsPerWorker,
     int MaxFluidMeshletsPerWorker,
+    int MaxFluidMeshWorkers,
     int MaxFluidUpdatesPerWorker,
     int MaxChunkEvictionsPerFrame);
 
@@ -365,7 +366,8 @@ public sealed class DimensionRuntimeSession
                 FluidMeshUpdates,
                 FluidContentRevisions,
                 Presentations,
-                settings.MaxFluidMeshletsPerWorker);
+                settings.MaxFluidMeshletsPerWorker,
+                settings.MaxFluidMeshWorkers);
         Streaming =
             new ChunkStreamingController(
                 Residency,
