@@ -81,14 +81,37 @@ public sealed class BlockPhysicsUpdateQueue
 
     public void EnqueueVoxelEdit(WorldVoxelCoord position)
     {
-        Enqueue(position);
-        Enqueue(position + (0, 1, 0));
-        Enqueue(position + (0, -1, 0));
-        // Any edited voxel may be the supporting side of wall flora.
-        Enqueue(position + (1, 0, 0));
-        Enqueue(position + (-1, 0, 0));
-        Enqueue(position + (0, 0, 1));
-        Enqueue(position + (0, 0, -1));
+        // Authoritative edits must wake dependent blocks before the bulk scan
+        // queued when a chunk entered residency. Promote already queued cells
+        // too; ordinary Enqueue intentionally preserves FIFO order for chunk
+        // seeding and capacity retries.
+        WorldVoxelCoord[] affected =
+        [
+            position,
+            position + (0, 1, 0),
+            position + (0, -1, 0),
+            // Any edited voxel may be the supporting side of wall flora.
+            position + (1, 0, 0),
+            position + (-1, 0, 0),
+            position + (0, 0, 1),
+            position + (0, 0, -1),
+        ];
+
+        // EnqueueFront reverses insertion order, so walk backwards to preserve
+        // the deterministic changed-voxel/neighbor order exposed by DrainBatch.
+        for (var index = affected.Length - 1; index >= 0; index--)
+            EnqueueFront(affected[index]);
+    }
+
+    private void EnqueueFront(WorldVoxelCoord position)
+    {
+        if (position.Y < 0)
+            return;
+
+        if (_waitingForChunk.TryGetValue(position, out var neededChunk))
+            RemoveWaiter(position, neededChunk);
+
+        _queue.EnqueueFront(position);
     }
 
     public void Enqueue(WorldVoxelCoord position)
