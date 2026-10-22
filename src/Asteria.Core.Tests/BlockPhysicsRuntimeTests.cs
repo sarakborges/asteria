@@ -822,17 +822,17 @@ public sealed class BlockPhysicsRuntimeTests
         Assert.Equal(
             1,
             fixture.Physics.ActiveCount);
-        Assert.True(
-            fixture.World
-                .GetCellOrEmpty(first)
-                .IsEmpty);
+        var firstEmpty =
+            fixture.World.GetCellOrEmpty(first).IsEmpty;
+        var secondEmpty =
+            fixture.World.GetCellOrEmpty(second).IsEmpty;
+        Assert.NotEqual(firstEmpty, secondEmpty);
+
+        var pendingPosition = firstEmpty ? second : first;
         Assert.Equal(
             sand,
-            fixture.World
-                .GetCellOrEmpty(second)
-                .Block);
-        Assert.True(
-            fixture.PhysicsUpdates.Count > 0);
+            fixture.World.GetCellOrEmpty(pendingPosition).Block);
+        Assert.True(fixture.PhysicsUpdates.Count > 0);
 
         var saturatedWake =
             fixture.Physics.ProcessWakeups();
@@ -842,9 +842,27 @@ public sealed class BlockPhysicsRuntimeTests
             saturatedWake.FallingStarted);
         Assert.Equal(
             sand,
-            fixture.World
-                .GetCellOrEmpty(second)
-                .Block);
+            fixture.World.GetCellOrEmpty(pendingPosition).Block);
+
+        for (var frame = 0;
+             frame < 240 && fixture.Physics.ActiveCount > 0;
+             frame++)
+        {
+            fixture.Physics.Advance(1.0 / 60.0, 18.0);
+        }
+
+        Assert.Equal(0, fixture.Physics.ActiveCount);
+        Assert.Equal(1, fixture.Physics.ProcessWakeups().FallingStarted);
+        for (var frame = 0;
+             frame < 240 && fixture.Physics.ActiveCount > 0;
+             frame++)
+        {
+            fixture.Physics.Advance(1.0 / 60.0, 18.0);
+        }
+
+        Assert.Equal(0, fixture.Physics.ActiveCount);
+        Assert.Equal(sand, fixture.World.GetCellOrEmpty(first with { Y = 0 }).Block);
+        Assert.Equal(sand, fixture.World.GetCellOrEmpty(second with { Y = 0 }).Block);
     }
 
     [Fact]
