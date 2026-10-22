@@ -205,6 +205,7 @@ public sealed class ChunkResidencyRuntimeTests
             presented: Array.Empty<ChunkCoord>());
         fixture.Runtime.DispatchMaterializationTasks(
             GenerousBudget(), Array.Empty<ChunkCoord>());
+        CompleteFluidActivations(fixture);
         Assert.True(fixture.World.ContainsChunk(source));
         Assert.False(fixture.World.ContainsChunk(east));
         Assert.Equal(0, fixture.FluidUpdates.Count);
@@ -215,6 +216,7 @@ public sealed class ChunkResidencyRuntimeTests
             presented: Array.Empty<ChunkCoord>());
         fixture.Runtime.DispatchMaterializationTasks(
             GenerousBudget(), Array.Empty<ChunkCoord>());
+        CompleteFluidActivations(fixture);
         Assert.True(fixture.World.ContainsChunk(east));
         Assert.True(fixture.FluidUpdates.ScheduledCount > 0);
     }
@@ -243,6 +245,7 @@ public sealed class ChunkResidencyRuntimeTests
             presented: Array.Empty<ChunkCoord>());
         fixture.Runtime.DispatchMaterializationTasks(
             GenerousBudget(), Array.Empty<ChunkCoord>());
+        CompleteFluidActivations(fixture);
 
         var firstDue = Assert.Single(
             fixture.FluidUpdates.CaptureState().Scheduled,
@@ -258,11 +261,81 @@ public sealed class ChunkResidencyRuntimeTests
 
         fixture.Runtime.DispatchMaterializationTasks(
             GenerousBudget(), Array.Empty<ChunkCoord>());
+        CompleteFluidActivations(fixture);
 
         var secondDue = Assert.Single(
             fixture.FluidUpdates.CaptureState().Scheduled,
             scheduled => scheduled.Tick.Position == position);
         Assert.Equal(80UL, secondDue.DueTick);
+    }
+
+    [Fact]
+    public void FluidActivationIsBoundedPerFrameAndEventuallyCompletesEveryChunk()
+    {
+        var fixture = CreateFixture();
+        var water = fixture.Fluids.GetId("asteria:water");
+        var coords = new[]
+        {
+            ChunkCoord.Zero,
+            new ChunkCoord(1, 0, 0),
+        };
+
+        foreach (var coord in coords)
+        {
+            var chunk = new Chunk();
+            for (var index = 0; index < 1024; index++)
+            {
+                var x = index % Chunk.Size;
+                var z = index / Chunk.Size % Chunk.Size;
+                var y = index / Chunk.Area;
+                chunk.SetFluid(
+                    x, y, z,
+                    FluidCell.Spreading(water, level: 4, spreadDistance: 1));
+            }
+
+            fixture.World.InsertChunk(coord, chunk);
+            fixture.World.ArchiveChunk(coord);
+        }
+
+        fixture.Runtime.SyncSelection(
+            ChunkCoord.Zero,
+            horizontalRadius: 1,
+            retentionRadius: 2,
+            desired: coords.ToHashSet(),
+            presented: Array.Empty<ChunkCoord>());
+        var restored = fixture.Runtime.DispatchMaterializationTasks(
+            GenerousBudget(), Array.Empty<ChunkCoord>());
+        Assert.Equal(2, restored.Activations.Count);
+
+        var first = fixture.Runtime.ProcessPendingFluidActivations(GenerousBudget());
+        Assert.InRange(first.SlicesProcessed, 1, 8);
+        Assert.InRange(
+            first.FluidCellsProcessed +
+            first.FrontierCellsProcessed +
+            first.DormantTicksReactivated,
+            1,
+            first.SlicesProcessed * 32);
+        Assert.True(first.FluidCellsProcessed <= 256);
+        Assert.Equal(2, first.PendingChunks);
+
+        var totalFluidCells = first.FluidCellsProcessed;
+        var totalFrontierCells = first.FrontierCellsProcessed;
+        var totalDormantTicks = first.DormantTicksReactivated;
+        var report = first;
+        for (var frame = 0; frame < 100 && report.PendingChunks > 0; frame++)
+        {
+            report = fixture.Runtime.ProcessPendingFluidActivations(GenerousBudget());
+            Assert.True(report.FluidCellsProcessed <= 256);
+            totalFluidCells += report.FluidCellsProcessed;
+            totalFrontierCells += report.FrontierCellsProcessed;
+            totalDormantTicks += report.DormantTicksReactivated;
+        }
+
+        Assert.Equal(0, report.PendingChunks);
+        Assert.Equal(2, report.CompletedChunks);
+        Assert.Equal(2048, totalFluidCells);
+        Assert.True(totalFrontierCells > 0);
+        Assert.Equal(0, totalDormantTicks);
     }
 
     [Fact]
@@ -340,6 +413,17 @@ public sealed class ChunkResidencyRuntimeTests
 
     private static WorldFrameWorkBudget GenerousBudget() =>
         new(long.MaxValue);
+
+    private static void CompleteFluidActivations(RuntimeFixture fixture)
+    {
+        var report = fixture.Runtime.ProcessPendingFluidActivations(GenerousBudget());
+        for (var frame = 0; report.PendingChunks > 0 && frame < 100; frame++)
+        {
+            report = fixture.Runtime.ProcessPendingFluidActivations(GenerousBudget());
+        }
+
+        Assert.Equal(0, report.PendingChunks);
+    }
 
     private static RuntimeFixture CreateFixture()
     {
