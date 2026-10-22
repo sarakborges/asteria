@@ -58,7 +58,9 @@
       "asteria:clay": 3,
       "asteria:cobble_stone": 1
     },
-    "surfaceCoverDepth": 1
+    "surfaceCoverDepth": 1,
+    "surfaceCoverage": 0.5,
+    "surfaceSubmergedOnly": true
   },
   "palette": {
     "default": [
