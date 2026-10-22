@@ -62,7 +62,9 @@ public static class BiomeDefinitionJson
             ParseMaterialWeights(value),
             OptionalUInt32(value, "surfaceCoverDepth") ?? 0u,
             OptionalSingle(value, "surfaceCoverage") ?? 0f,
-            OptionalBoolean(value, "surfaceSubmergedOnly"));
+            OptionalBoolean(value, "surfaceSubmergedOnly"),
+            OptionalUInt32(value, "grainScale"),
+            OptionalUInt32(value, "grainVerticalScale"));
     }
 
     private static PlacementLayoutValues?
