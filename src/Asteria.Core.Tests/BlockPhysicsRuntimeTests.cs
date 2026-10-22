@@ -352,7 +352,10 @@ public sealed class BlockPhysicsRuntimeTests
 
         var target = new WorldVoxelCoord(0, Chunk.Size - 1, 0);
         var support = target + (0, -1, 0);
-        Assert.True(mutations.SetCellAt(support, VoxelCell.Empty, out _));
+        var interactions = new BlockInteractionRuntime(
+            world, blocks, mutations, drops);
+        Assert.True(interactions.Break(
+            new VoxelWorldHit(support, 0, 0, 0)).Accepted);
 
         var wake = physics.ProcessWakeups();
 
