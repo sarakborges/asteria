@@ -626,6 +626,8 @@ internal sealed class WorldDiagnosticsLog : IDisposable
         _fluidGpuAttributePatches = 0;
         _fluidMeshBatches = 0;
         _fluidMeshMs = 0d;
+        _fluidMeshCaptureMs = 0d;
+        _fluidMeshCaptureMaxMs = 0d;
         _fluidMeshAccepted = 0;
         _fluidMeshStale = 0;
         _fluidLightOnlyMeshlets = 0;
