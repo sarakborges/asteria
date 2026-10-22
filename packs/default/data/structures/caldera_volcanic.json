@@ -15,7 +15,9 @@
     "requiresDryGround": true,
     "groundBlocks": [
       "asteria:basalt",
-      "asteria:cobble_basalt"
+      "asteria:cobble_basalt",
+      "asteria:gravel",
+      "asteria:stone"
     ]
   },
   "generation": {
