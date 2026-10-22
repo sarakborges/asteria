@@ -1,4 +1,4 @@
-import { useRef, type FormEventHandler, type ReactNode } from "react";
+import { useRef, type FormEventHandler, type ReactNode, type UIEvent } from "react";
 import { useLocalization } from "../../../localization/LocalizationProvider";
 import { Button } from "../../atoms/Button/Button";
 import { Surface } from "../../atoms/Surface/Surface";
@@ -57,9 +57,12 @@ export function SettingsPage({
     </section>
   ));
 
-  const updateSelectedSection = (event: React.UIEvent<HTMLDivElement>) => {
+  const updateSelectedSection = (event: UIEvent<HTMLDivElement>) => {
     const viewport = event.currentTarget;
     if (sections.length === 0) return;
+
+    const firstSection = sections[0];
+    if (!firstSection) return;
 
     const lastSection = sections[sections.length - 1];
     const atScrollableBottom = viewport.scrollHeight > viewport.clientHeight + 1 &&
@@ -70,7 +73,7 @@ export function SettingsPage({
     }
 
     const activationLine = viewport.getBoundingClientRect().top + 48;
-    let activeId = sections[0].id;
+    let activeId = firstSection.id;
     for (const section of sections) {
       const element = panelRefs.current.get(section.id);
       if (element && element.getBoundingClientRect().top <= activationLine) {
