@@ -663,8 +663,7 @@ public partial class Main : Node3D
             loadingWorld
                 ? _loading.Center
                 : CurrentStreamingCenter();
-        // Loading covers the entire configured render area, not a smaller
-        // spawn bootstrap that expands after the player is released.
+        // Present a nearby bootstrap first; farther chunks stream after entry.
         var streamingRadius = loadingWorld
             ? ChunkStreamingSelection.GetInitialLoadingRadius(
                 _clientPreferences.RenderDistanceChunks)
