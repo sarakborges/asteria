@@ -662,8 +662,8 @@ public sealed class BiomeSurfaceMaterialField
                 // Keep broad geology only as a weak coherence signal. Fine
                 // and grain fields now dominate boundaries, breaking residual
                 // sheets/columns while preserving multi-block deposits.
-                var field = broad * 0.06d + detail * 0.17d +
-                    micro * 0.22d + grain * 0.55d;
+                var field = broad * 0.04d + detail * 0.10d +
+                    micro * 0.16d + grain * 0.70d;
                 var unit = Math.Clamp(
                     (field + 1d) * 0.5d, 1e-6d, 1d - 1e-6d);
                 var gumbel = -Math.Log(-Math.Log(unit));
